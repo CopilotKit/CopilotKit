@@ -98,64 +98,56 @@ export function DocsVideoCarousel() {
   }
 
   return (
-    <section id="copilotkit-intro" className="mt-8 scroll-mt-28 text-center">
-      <h2 className="text-xl font-semibold tracking-[-0.02em] text-[var(--text)] sm:text-[1.375rem]">
-        What is CopilotKit?
-      </h2>
-      <p className="mx-auto mt-3 max-w-[58ch] text-base leading-relaxed text-[var(--text-secondary)]">
-        CopilotKit connects your agent to your app. Let users ask questions,
-        work with interactive UI, and take action without leaving what they are
-        doing.
-      </p>
-
-      {/* justify-center groups the tabs at the strip's centre rather than
-       *  its left edge; the tabs themselves (and everything they control)
-       *  are untouched. */}
-      <div
-        role="tablist"
-        aria-label="Product walkthrough recordings"
-        className="mt-4 flex flex-wrap justify-center gap-2"
-      >
-        {RECORDINGS.map((recording, index) => {
-          const isActive = index === activeIndex;
-          const Icon = recording.icon;
-          return (
-            <button
-              key={recording.id}
-              ref={(el) => {
-                tabRefs.current[index] = el;
-              }}
-              type="button"
-              role="tab"
-              id={`${TAB_ID_PREFIX}${recording.id}`}
-              aria-selected={isActive}
-              aria-controls={`${PANEL_ID_PREFIX}${recording.id}`}
-              tabIndex={isActive ? 0 : -1}
-              onClick={() => selectAndFocus(index)}
-              onKeyDown={handleKeyDown}
-              className={`shell-docs-radius-control inline-flex cursor-pointer items-center gap-1.5 border px-3.5 py-2 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none ${
-                isActive
-                  ? "border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]"
-                  : "border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text)]"
-              }`}
-            >
-              <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
-              <span data-testid="tab-title">{recording.title}</span>
-            </button>
-          );
-        })}
+    <section aria-labelledby="walkthrough-heading" className="pb-12 sm:pb-16">
+      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h2
+          id="walkthrough-heading"
+          className="text-sm font-semibold text-[var(--text)]"
+        >
+          See it in action
+        </h2>
+        <div
+          role="tablist"
+          aria-label="Product walkthrough recordings"
+          className="flex flex-wrap gap-1"
+        >
+          {RECORDINGS.map((recording, index) => {
+            const isActive = index === activeIndex;
+            const Icon = recording.icon;
+            return (
+              <button
+                key={recording.id}
+                ref={(el) => {
+                  tabRefs.current[index] = el;
+                }}
+                type="button"
+                role="tab"
+                id={`${TAB_ID_PREFIX}${recording.id}`}
+                aria-selected={isActive}
+                aria-controls={`${PANEL_ID_PREFIX}${recording.id}`}
+                tabIndex={isActive ? 0 : -1}
+                onClick={() => selectAndFocus(index)}
+                onKeyDown={handleKeyDown}
+                className={`shell-docs-radius-control inline-flex min-h-11 cursor-pointer items-center gap-2 px-3 py-2 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none ${
+                  isActive
+                    ? "bg-[var(--accent-dim)] text-[var(--accent)]"
+                    : "text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
+                }`}
+              >
+                <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
+                <span data-testid="tab-title">{recording.title}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div
         id={`${PANEL_ID_PREFIX}${active.id}`}
         role="tabpanel"
         aria-labelledby={`${TAB_ID_PREFIX}${active.id}`}
-        className="mt-4"
       >
-        <p className="mx-auto mb-4 max-w-[60ch] text-sm leading-relaxed text-[var(--text-muted)]">
-          {active.description}
-        </p>
-        <div className="not-prose shell-docs-radius-surface aspect-[7/4] w-full overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)]">
+        <div className="not-prose aspect-video w-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] shadow-sm">
           {playing ? (
             <iframe
               src={`https://www.loom.com/embed/${active.loomId}?autoplay=1`}
@@ -185,15 +177,25 @@ export function DocsVideoCarousel() {
             </button>
           )}
         </div>
-        <a
-          href={`https://www.loom.com/share/${active.loomId}`}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-3 inline-flex items-center gap-1 text-xs text-[var(--text-muted)] underline underline-offset-4 hover:text-[var(--accent)]"
-        >
-          Open recording in Loom
-          <ArrowUpRight aria-hidden="true" className="h-3 w-3" />
-        </a>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
+          <p className="max-w-[60ch] text-sm leading-relaxed text-[var(--text-secondary)]">
+            {active.description}
+            {active.id !== "shared-state-harness" && (
+              <span className="mt-1 block text-xs text-[var(--text-muted)]">
+                Available with CopilotKit Intelligence.
+              </span>
+            )}
+          </p>
+          <a
+            href={`https://www.loom.com/share/${active.loomId}`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex min-h-6 shrink-0 items-center gap-1 text-xs text-[var(--text-muted)] underline underline-offset-4 hover:text-[var(--accent)]"
+          >
+            Watch on Loom
+            <ArrowUpRight aria-hidden="true" className="h-3 w-3" />
+          </a>
+        </div>
       </div>
     </section>
   );

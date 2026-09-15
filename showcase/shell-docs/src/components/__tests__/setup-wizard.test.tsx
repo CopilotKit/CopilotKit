@@ -892,14 +892,7 @@ describe("URL state", () => {
     ).not.toBeNull();
   });
 
-  // Regression coverage for the `furthest` bug: `landingStep` stops at the
-  // first *unanswered* step (backend, here), so it correctly lands on step
-  // 3 — but the old code also set `furthest` to that same landing step,
-  // which disabled step 4 on the rail even though its answer (`features`)
-  // is already sitting in state. Both halves are asserted since the landing
-  // alone was already correct before this fix; only the rail's disabled
-  // treatment was wrong.
-  it("restoring project, frontend and features with no backend lands on step 3 and leaves the rail's step 4 enabled", () => {
+  it("keeps later steps locked until the missing backend is chosen, while retaining saved features", () => {
     window.history.pushState(
       {},
       "",
@@ -915,7 +908,13 @@ describe("URL state", () => {
     const featuresRailButton = screen.getByRole("button", {
       name: /Features/,
     }) as HTMLButtonElement;
-    expect(featuresRailButton.disabled).toBe(false);
+    expect(featuresRailButton.disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Mastra" }));
+    expect(
+      screen
+        .getByRole("button", { name: /Generative UI/ })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
   });
 
   // The fix must credit only the steps that actually have an answer, not
@@ -934,6 +933,18 @@ describe("URL state", () => {
     }) as HTMLButtonElement;
     expect(featuresRailButton.disabled).toBe(true);
     expect(promptRailButton.disabled).toBe(true);
+  });
+
+  it("preserves unrelated query parameters and the setup anchor when selections change", () => {
+    window.history.pushState({}, "", "/?utm_source=launch&campaign=docs#setup");
+    renderWizard();
+    expect(window.location.hash).toBe("#setup");
+    fireEvent.click(projectButton("Yes"));
+    const search = new URLSearchParams(window.location.search);
+    expect(search.get("utm_source")).toBe("launch");
+    expect(search.get("campaign")).toBe("docs");
+    expect(search.get("project")).toBe("yes");
+    expect(window.location.hash).toBe("#setup");
   });
 
   it("writes with replaceState, never pushState, on a selection", () => {
@@ -987,7 +998,7 @@ describe("URL state", () => {
       // step 3 — see the "lands on step 3" test above for the same URL. If
       // the restore were still a passive effect, this would still read
       // "Do you already have a project?" (step 1) at this point instead.
-      const heading = container.querySelector("h2");
+      const heading = container.querySelector("h3");
       expect(heading?.textContent).toBe("Your agent backend");
     } finally {
       // `unmount` can itself trigger effect cleanup / state updates, so it

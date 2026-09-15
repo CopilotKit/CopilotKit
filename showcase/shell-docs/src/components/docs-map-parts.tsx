@@ -11,7 +11,7 @@
 // The wizard shows one step at a time: the card shell, its progress rail and
 // its Back/Continue footer live in `./wizard-stepper-parts`, which reuses
 // `CORE_TREATMENT_CLASS` exported below — solid border, elevated surface,
-// panel shadow — rather than keeping a second copy of the same class string.
+// no panel shadow — rather than keeping a second copy of the same class string.
 // There is no locked or done treatment here any more: a step the reader
 // cannot yet reach is simply not rendered, so it has nothing left to
 // express, unlike the earlier scrolling variant that kept every step on
@@ -113,11 +113,11 @@ const MAP_SLOT = {
   full: "md:col-start-1 md:col-span-4",
 } as const;
 
-/** Solid border, elevated surface, panel shadow — the one step treatment
+/** Solid border and elevated surface — the one step treatment
  *  this variant needs. Exported so `WizardCard` in `./wizard-stepper-parts`
  *  applies the same class string instead of keeping a second copy. */
 export const CORE_TREATMENT_CLASS =
-  "border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]";
+  "border border-[var(--border)] bg-[var(--bg-surface)]";
 
 /** The heading and paragraph that frame the wizard. One step up from a
  *  step's own heading, so it reads as their parent rather than a fifth
@@ -209,7 +209,7 @@ function pickButtonClass(size: PickGridSize, selected: boolean): string {
   const layout =
     size === "card"
       ? "block w-full p-3.5"
-      : "flex items-center gap-2 px-2.5 py-2";
+      : "flex min-h-11 items-center gap-2 px-3 py-2.5";
   return `${base} ${layout} ${optionToneClass(selected)}`;
 }
 
@@ -256,7 +256,7 @@ export function PickGrid({
             ) : (
               <>
                 <PickLogoMark logo={pick.logo} />
-                <span className="truncate text-xs font-medium text-[var(--text-secondary)]">
+                <span className="text-xs font-medium leading-relaxed text-[var(--text-secondary)]">
                   {pick.name}
                 </span>
               </>

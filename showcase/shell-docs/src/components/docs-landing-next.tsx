@@ -1,102 +1,129 @@
-"use client";
-
-// DocsLandingNext — the primary backend picker on the docs landing page.
-// The hero explains CopilotKit at the product level; this block gives the
-// visitor the next concrete action by linking every visible backend docs
-// surface from one grid.
-
-import React from "react";
 import Link from "next/link";
-import { StoredFrameworkHighlight } from "./stored-framework-highlight";
+import { ArrowUpRight, ChevronDown } from "lucide-react";
 import { FrameworkLogo } from "./icons/framework-icons";
+import { PickLogoMark } from "./docs-map-parts";
 import { compareByDisplayOrder } from "@/lib/framework-order";
-import { getDocsMode, getIntegrations } from "@/lib/registry";
+import { frontendPicks, visibleIntegrations } from "@/lib/homepage-map";
+import type { Integration } from "@/lib/registry";
 
-const backendDescriptions: Record<string, string> = {
-  "built-in-agent": "Use CopilotKit's in-process agent to get started fast.",
-  "langgraph-python":
-    "Python LangGraph agents with the broadest feature coverage.",
-  "langgraph-typescript": "TypeScript LangGraph agents over the AG-UI adapter.",
-  "langgraph-fastapi": "Python LangGraph agents exposed through FastAPI.",
-  deepagents: "LangChain Deep Agents connected to CopilotKit product UI.",
-  "google-adk": "Gemini-powered Google ADK agents connected through AG-UI.",
-  mastra: "TypeScript-native agents, tools, memory, and workflows.",
-  "crewai-crews":
-    "Regular CrewAI Flows wired into CopilotKit product interfaces.",
-  "pydantic-ai": "Typed Python agents with PydanticAI and CopilotKit UI.",
-  agno: "Agno agents with tools, state, and generative UI examples.",
-  ag2: "AG2 agents with CopilotKit chat, tools, and HITL flows.",
-  llamaindex: "LlamaIndex workflows connected to CopilotKit experiences.",
-  strands: "AWS Strands agents with CopilotKit frontend primitives.",
-  "strands-typescript": "TypeScript AWS Strands agents over the AG-UI adapter.",
-  "ms-agent-python": "Microsoft Agent Framework agents in Python.",
-  "ms-agent-dotnet": "Microsoft Agent Framework agents in .NET.",
-  "ms-agent-harness-dotnet": "Microsoft Agent Harness on .NET via AG-UI.",
-};
+// Keep the landing page short while leaving every supported integration
+// discoverable. Registry data stays on the server.
+const FEATURED_BACKENDS = new Set([
+  "built-in-agent",
+  "deepagents",
+  "langgraph-python",
+  "google-adk",
+  "mastra",
+  "claude-sdk-python",
+]);
 
-function BackendGrid() {
-  const integrations = getIntegrations()
-    // `docs_mode: hidden` frameworks have no docs page — surfacing them
-    // here would link straight to a 404.
-    .filter((i) => getDocsMode(i.slug) !== "hidden")
+function IntegrationLink({ integration }: { integration: Integration }) {
+  return (
+    <Link
+      href={
+        integration.slug === "built-in-agent"
+          ? "/quickstart"
+          : `/${integration.slug}`
+      }
+      className="group flex min-h-16 items-center gap-3 border-b border-[var(--border)] py-3 text-sm text-[var(--text-secondary)] no-underline transition-colors hover:text-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--accent)]"
+    >
+      <span
+        aria-hidden="true"
+        className="flex h-7 w-7 shrink-0 items-center justify-center text-[var(--text-muted)] group-hover:text-[var(--accent)]"
+      >
+        <FrameworkLogo
+          slug={integration.slug}
+          fallbackSrc={integration.logo}
+          size={21}
+        />
+      </span>
+      <span className="flex-1 font-medium">{integration.name}</span>
+      <ArrowUpRight
+        aria-hidden="true"
+        className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]"
+      />
+    </Link>
+  );
+}
+
+export function DocsLandingNext() {
+  const integrations = visibleIntegrations()
     .slice()
     .sort((a, b) => {
       if (a.slug === "built-in-agent") return -1;
       if (b.slug === "built-in-agent") return 1;
       return compareByDisplayOrder(a.slug, b.slug);
     });
+  const featured = integrations.filter((i) => FEATURED_BACKENDS.has(i.slug));
+  const remaining = integrations.filter((i) => !FEATURED_BACKENDS.has(i.slug));
 
   return (
-    <section id="backends" className="not-prose">
-      <div className="mx-auto mb-5 flex max-w-2xl flex-col items-center text-center">
-        <h2 className="text-xl font-semibold tracking-tight text-[var(--text)] sm:text-2xl">
-          What can I use it with?
-        </h2>
-        <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
-          Start with CopilotKit's default agent or open the docs for a partner
-          framework.
-        </p>
+    <section
+      id="backends"
+      aria-labelledby="integrations-heading"
+      className="not-prose border-t border-[var(--border)] pt-12 sm:pt-16"
+    >
+      <h2
+        id="integrations-heading"
+        className="text-[1.75rem] font-semibold leading-tight tracking-[-0.035em] text-[var(--text)] sm:text-[2rem]"
+      >
+        Fits the stack you already have.
+      </h2>
+      <p className="mt-3 max-w-[58ch] text-sm leading-relaxed text-[var(--text-secondary)]">
+        Bring your own agent backend, or start with CopilotKit’s built-in agent.
+        Explore each integration for setup guides and supported features.
+      </p>
+      <div className="mt-8">
+        <h3 className="text-xs font-medium text-[var(--text-muted)]">
+          Your frontend
+        </h3>
+        <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-3">
+          {frontendPicks().map((frontend) => (
+            <li key={frontend.id}>
+              <Link
+                href={
+                  frontend.id === "react" ? "/quickstart" : `/${frontend.id}`
+                }
+                className="inline-flex min-h-9 items-center gap-2 text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--accent)]"
+              >
+                <span aria-hidden="true">
+                  <PickLogoMark logo={frontend.logo} size={18} />
+                </span>
+                {frontend.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
       </div>
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] sm:gap-3">
-        {integrations.map((i) => (
-          <Link
-            key={i.slug}
-            href={i.slug === "built-in-agent" ? "/quickstart" : `/${i.slug}`}
-            className="shell-docs-radius-surface group relative flex min-h-[84px] items-start gap-3 overflow-hidden border border-[var(--border)] bg-[var(--bg-elevated)]/30 p-3.5 no-underline transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-surface)] sm:min-h-[96px]"
-          >
-            <span
-              aria-hidden="true"
-              className="shell-docs-radius-icon flex h-8 w-8 shrink-0 items-center justify-center bg-[var(--accent-dim)] text-[var(--accent)] transition-colors group-hover:bg-[var(--accent-light)]"
-            >
-              <FrameworkLogo
-                slug={i.slug}
-                fallbackSrc={i.logo}
-                size={17}
-                className="text-[var(--accent)]"
+      <div className="mt-8">
+        <h3 className="text-xs font-medium text-[var(--text-muted)]">
+          Your agent backend
+        </h3>
+        <div className="mt-2 grid grid-cols-1 gap-x-8 sm:grid-cols-2 lg:grid-cols-3">
+          {featured.map((integration) => (
+            <IntegrationLink key={integration.slug} integration={integration} />
+          ))}
+        </div>
+        {remaining.length > 0 && (
+          <details className="group/directory mt-5">
+            <summary className="flex min-h-11 w-fit cursor-pointer list-none items-center gap-2 text-sm font-medium text-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--accent)] [&::-webkit-details-marker]:hidden">
+              Explore {remaining.length} more integrations
+              <ChevronDown
+                aria-hidden="true"
+                className="h-4 w-4 transition-transform group-open/directory:rotate-180"
               />
-            </span>
-            {/* This name and description stay left-aligned under the logo
-             *  even though the section heading above centres — a card is
-             *  scanned as a row (logo, then name, then description), the
-             *  same reading order every other row in this grid uses, and
-             *  centring it would only make the grid harder to scan down.
-             *  Don't add text-center here to "match" the heading. */}
-            <span className="min-w-0 flex-1 sm:pr-2">
-              <span className="block text-sm font-semibold leading-snug text-[var(--text)] transition-colors group-hover:text-[var(--accent)]">
-                {i.name}
-              </span>
-              <span className="mt-1 line-clamp-2 block text-xs leading-relaxed text-[var(--text-muted)]">
-                {backendDescriptions[i.slug] ?? i.description}
-              </span>
-            </span>
-            <StoredFrameworkHighlight slug={i.slug} />
-          </Link>
-        ))}
+            </summary>
+            <div className="mt-2 grid grid-cols-1 gap-x-8 sm:grid-cols-2 lg:grid-cols-3">
+              {remaining.map((integration) => (
+                <IntegrationLink
+                  key={integration.slug}
+                  integration={integration}
+                />
+              ))}
+            </div>
+          </details>
+        )}
       </div>
     </section>
   );
-}
-
-export function DocsLandingNext() {
-  return <BackendGrid />;
 }

@@ -9,10 +9,8 @@ import type { Metadata } from "next";
 import { DocsLandingNext } from "@/components/docs-landing-next";
 import { DocsSetupWizard } from "@/components/docs-setup-wizard";
 import { DocsVideoCarousel } from "@/components/docs-video-carousel";
-import { MapIntro } from "@/components/docs-map-parts";
-import { HeroOnboardingPromptButton } from "@/components/hero-onboarding-prompt-button";
 import { HeroQuickstartDropdown } from "@/components/hero-quickstart-dropdown";
-import { HeroStartActions } from "@/components/hero-start-commands";
+import { ArrowDown, ArrowRight } from "lucide-react";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
@@ -66,13 +64,9 @@ export async function generateMetadata({
   // /quickstart, /concepts/architecture) read frontmatter via loadDoc.
   if (!slugPath) {
     return buildDocMetadata({
-      // Kept in step with the hero copy below. The previous title and
-      // description were written against the old "frontend stack for agentic
-      // user experience" positioning and named neither Intelligence nor a
-      // benefit, so the tab, the search result and the page disagreed.
-      title: "CopilotKit: give your app an agent your users can use",
+      title: "CopilotKit: bring your agent into your app",
       description:
-        "Build chat, generative UI, and approval steps into your React app on any agent framework, then add CopilotKit Intelligence for threads that persist, memory, and agents that learn from real use.",
+        "CopilotKit is an open-source framework that connects your app to AI agents. Add chat, interactive UI, and human approvals, with your choice of agent backend.",
       canonicalPath: "/",
     });
   }
@@ -130,55 +124,77 @@ function DocsOverview() {
 
   return (
     <ShellDocsLayout tree={pageTree} banner={<SidebarFrameworkSelector />}>
-      <div className="docs-inner-content max-w-[760px] mx-auto px-4 md:px-6 pt-8 sm:pt-12 pb-6">
-        {/* Three things only: name, one line of positioning, two buttons.
-            The reader can add CopilotKit to an existing project too — the
-            wizard's first step asks that, so the hero doesn't have to. */}
-        <section className="relative border-b border-[var(--border)] pb-6 sm:pb-7">
-          <div className="mx-auto flex max-w-[58ch] flex-col items-center text-center">
-            <h1 className="max-w-[24ch] text-[2rem] font-semibold leading-[1.08] tracking-[-0.02em] text-[var(--text)] sm:text-[2.5rem]">
+      <div className="docs-inner-content mx-auto pb-12">
+        <div className="mx-auto max-w-[900px]">
+          <section
+            id="copilotkit-intro"
+            className="scroll-mt-8 pb-12 pt-12 sm:pb-14 sm:pt-20"
+          >
+            <p className="mb-5 text-sm font-semibold text-[var(--accent)]">
               CopilotKit
-            </h1>
-            {/* Names a benefit rather than a category. The previous line,
-                "The frontend stack for agentic user experience", is jargon
-                to a first-time reader: it says what shelf the product sits
-                on, not what it does for them. */}
-            <p className="mt-3 max-w-[58ch] text-lg font-medium leading-snug text-[var(--text-muted)] sm:text-[1.375rem]">
-              Give your app an agent your users can actually use.
             </p>
-            <div className="mt-7 flex justify-center">
-              <HeroStartActions
-                prompt={
-                  <HeroOnboardingPromptButton surface="docs_landing_hero" />
-                }
-                quickstart={
-                  <HeroQuickstartDropdown options={quickstartOptions} />
-                }
-              />
+            <h1 className="max-w-[16ch] text-[2.75rem] font-semibold leading-[1.08] tracking-[-0.045em] text-[var(--text)] sm:text-[3.75rem]">
+              Bring your agent
+              <br />
+              <span className="text-[var(--accent)]">into your app.</span>
+            </h1>
+            <p className="mt-6 max-w-[54ch] text-base leading-relaxed text-[var(--text-secondary)] sm:text-lg">
+              CopilotKit is an open-source framework that connects your app to
+              AI agents. Add chat, interactive UI, and human approvals, with
+              your choice of agent backend.
+            </p>
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <a
+                href="#setup"
+                className="shell-docs-radius-control inline-flex min-h-11 items-center justify-center gap-3 bg-[var(--accent-fill)] px-5 text-sm font-semibold text-[var(--primary-foreground)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--accent)]"
+              >
+                Get started <ArrowDown aria-hidden="true" className="h-4 w-4" />
+              </a>
+              <HeroQuickstartDropdown options={quickstartOptions} />
             </div>
-          </div>
-        </section>
+          </section>
 
-        {/* A hairline between each section, matching the one under the hero.
-         *  The page is one centred column of four blocks that answer four
-         *  different questions, and without a rule between them the eye has
-         *  nothing to tell it where one answer ends. The last section takes
-         *  none: a rule under the final block would fence off the page
-         *  footer rather than separate anything. */}
-        <div className="border-b border-[var(--border)] pb-8">
           <DocsVideoCarousel />
-        </div>
 
-        <div className="border-b border-[var(--border)] pt-8 pb-8">
-          <MapIntro
-            heading="Set up CopilotKit for your project"
-            body="Answer a few questions, whether you are adding CopilotKit to a project you already have or starting a new one. We turn your answers into a prompt you paste into your coding agent, and it does the setup."
-          />
-          <DocsSetupWizard />
-        </div>
+          <section
+            id="setup"
+            aria-labelledby="setup-heading"
+            className="scroll-mt-8 border-t border-[var(--border)] py-12 sm:py-16"
+          >
+            <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
+              <h2
+                id="setup-heading"
+                className="shrink-0 text-[1.75rem] font-semibold leading-tight tracking-[-0.035em] text-[var(--text)] sm:text-[2rem]"
+              >
+                Start building.
+              </h2>
+              <p className="max-w-[44ch] text-sm leading-relaxed text-[var(--text-secondary)]">
+                Start fresh or add to your existing app. Answer a few questions,
+                then give the setup prompt to your coding agent.
+              </p>
+            </div>
+            <DocsSetupWizard />
+          </section>
 
-        <div className="pt-8">
           <DocsLandingNext />
+
+          <footer className="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--border)] pt-6 text-sm sm:mt-16">
+            <a
+              href="https://github.com/CopilotKit/CopilotKit"
+              target="_blank"
+              rel="noreferrer"
+              className="text-[var(--text-muted)] hover:text-[var(--text)] hover:underline underline-offset-4"
+            >
+              View on GitHub
+            </a>
+            <a
+              href="#setup"
+              className="inline-flex items-center gap-2 font-medium text-[var(--accent)] hover:underline underline-offset-4"
+            >
+              Start building{" "}
+              <ArrowRight aria-hidden="true" className="h-4 w-4" />
+            </a>
+          </footer>
         </div>
       </div>
     </ShellDocsLayout>

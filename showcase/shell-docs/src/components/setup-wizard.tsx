@@ -11,12 +11,8 @@
 // has reached (`furthest`, 1-based, never decreases). The progress rail's
 // disabled treatment for steps beyond `furthest` is `wizard-stepper-parts`'
 // job; this file only ever hands it the number. On mount, `furthest` is
-// seeded from which answers are actually present in the restored URL
-// (`furthestFromAnswers`), not from `landingStep` alone — `landingStep`
-// stops at the first unanswered step, so a restored
-// `?project=yes&frontend=vue&features=gen-ui` lands on step 3, but step 4's
-// answer is already sitting in state and the rail must let the reader jump
-// straight to it.
+// seeded from the first unanswered required step. Later saved answers stay
+// available without letting the reader bypass a missing prerequisite.
 //
 // `handleBack` and `handleJump` read `current`/`furthest` through
 // `currentRef`/`furthestRef` rather than closing over the state values —
@@ -152,35 +148,6 @@ function landingStep(restored: WizardUrlState): number {
 }
 
 /**
- * The value to initialize `furthest` to when restoring a URL (or a fresh
- * mount): the highest step number that has an actual answer sitting in
- * `restored`, folded with `landing` itself since the reader is standing
- * there regardless of whether anything is answered yet — the rail must
- * never disable the step already on screen.
- *
- * Deliberately independent of `landingStep`: that function walks the steps
- * in order and stops at the first *unanswered* one, so a restored
- * `?project=yes&frontend=vue&features=gen-ui` (no backend) lands on step 3
- * even though step 4 already has an answer sitting in `features`.
- * `furthest` has a different job — it gates which steps the progress rail
- * lets the reader jump to — so it has to credit every answer independently
- * instead of stopping at the first gap. Without this, that same URL would
- * disable step 4 on the rail despite its answer already being in state,
- * which is exactly the bug this fixes.
- */
-function furthestFromAnswers(
-  restored: WizardUrlState,
-  landing: number,
-): number {
-  let furthest = landing;
-  if (restored.project) furthest = Math.max(furthest, 1);
-  if (restored.frontend) furthest = Math.max(furthest, 2);
-  if (restored.backend) furthest = Math.max(furthest, 3);
-  if (restored.features.length > 0) furthest = Math.max(furthest, 4);
-  return furthest;
-}
-
-/**
  * What `goTo` records before handing control back to React: the direction
  * of travel and the wrapper's height right before the swap, so the layout
  * effect below can tween from it once the incoming card has committed.
@@ -297,6 +264,7 @@ export function SetupWizard({
   furthestRef.current = furthest;
 
   React.useEffect(() => {
+    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
@@ -338,7 +306,8 @@ export function SetupWizard({
     setBackendId(restored.backend ?? null);
     setFeatureIds(new Set(restored.features));
     setCurrent(landing);
-    setFurthest(furthestFromAnswers(restored, landing));
+    // Later answers stay saved, but cannot bypass a missing required choice.
+    setFurthest(landing);
     setHydrated(true);
     // Allow-lists are derived from props on every render; only the actual
     // browser URL should ever trigger this restore.
@@ -357,10 +326,18 @@ export function SetupWizard({
       features: [...featureIds],
       backend: backendId ?? undefined,
     });
-    const url = search
-      ? `${window.location.pathname}?${search}`
-      : window.location.pathname;
-    window.history.replaceState(window.history.state, "", url);
+    const url = new URL(window.location.href);
+    const answers = new URLSearchParams(search);
+    for (const key of ["project", "frontend", "features", "backend"]) {
+      url.searchParams.delete(key);
+      const value = answers.get(key);
+      if (value !== null) url.searchParams.set(key, value);
+    }
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    );
   }, [projectAnswer, frontendId, featureIds, backendId, hydrated]);
 
   // Runs the step-swap animation and moves focus to the new card's heading

@@ -29,7 +29,7 @@ describe("WizardCard", () => {
   // `var(--shadow-panel)` alone, or `var(--accent)`, which also appears in
   // other unrelated component states) would pass even if the other pieces
   // of the treatment were dropped.
-  it("renders a section with the core treatment: border, surface background and panel shadow", () => {
+  it("renders a section with the core treatment: border and surface background", () => {
     const { container } = render(
       <WizardCard step={1} total={4} name="N" description="D" footer={<span />}>
         <span />
@@ -41,7 +41,6 @@ describe("WizardCard", () => {
     const className = section!.className;
     expect(className).toContain("border-[var(--border)]");
     expect(className).toContain("bg-[var(--bg-surface)]");
-    expect(className).toContain("shadow-[var(--shadow-panel)]");
   });
 
   it("renders the kicker as Step {step} of {total}", () => {
@@ -54,7 +53,7 @@ describe("WizardCard", () => {
     expect(screen.getByText("Step 2 of 4")).not.toBeNull();
   });
 
-  it("renders an h2 whose text is exactly name and which carries tabIndex=-1", () => {
+  it("renders an h3 whose text is exactly name and which carries tabIndex=-1", () => {
     render(
       <WizardCard
         step={1}
@@ -67,7 +66,7 @@ describe("WizardCard", () => {
       </WizardCard>,
     );
 
-    const heading = screen.getByRole("heading", { level: 2 });
+    const heading = screen.getByRole("heading", { level: 3 });
     expect(heading.textContent).toBe("Your frontend");
     expect(heading.getAttribute("tabindex")).toBe("-1");
   });
@@ -83,7 +82,7 @@ describe("WizardCard", () => {
         <span />
       </WizardCard>,
     );
-    const defaultHeading = container.querySelector("h2");
+    const defaultHeading = container.querySelector("h3");
     expect(defaultHeading).not.toBeNull();
     expect(defaultHeading!.className).toMatch(/\bfocus:ring-2\b/);
 
@@ -99,7 +98,7 @@ describe("WizardCard", () => {
         <span />
       </WizardCard>,
     );
-    const explicitHeading = explicitContainer.querySelector("h2");
+    const explicitHeading = explicitContainer.querySelector("h3");
     expect(explicitHeading).not.toBeNull();
     expect(explicitHeading!.className).toMatch(/\bfocus:ring-2\b/);
   });
@@ -118,7 +117,7 @@ describe("WizardCard", () => {
       </WizardCard>,
     );
 
-    const heading = container.querySelector("h2");
+    const heading = container.querySelector("h3");
     expect(heading).not.toBeNull();
     expect(heading!.className).not.toMatch(/\bfocus:ring-2\b/);
   });
@@ -226,7 +225,7 @@ describe("WizardCard", () => {
     expect(content!.className).toMatch(/\bjustify-center\b/);
     // Symmetric padding, and no one-sided margin: a margin lands entirely
     // above the options, which is the lopsided gap this replaced.
-    expect(content!.className).toMatch(/\bpy-2\b/);
+    expect(content!.className).toMatch(/\bpy-7\b/);
     expect(content!.className).not.toMatch(/\b(mt|pt|mb|pb)-\d/);
   });
 
@@ -256,12 +255,12 @@ describe("WizardCard", () => {
     const footerNode = screen.getByText("the footer");
     const footerWrapper = footerNode.parentElement;
     expect(footerWrapper).not.toBeNull();
-    // The card's own `p-5 sm:p-6` supplies the space below the buttons, so
+    // The card's own `p-5 sm:p-7` supplies the space below the buttons, so
     // the footer only pays for the space above them — at the same values.
     // A bottom padding here would stack on the card's inset and reintroduce
     // the lopsided gap.
     expect(footerWrapper!.className).toMatch(/\bpt-5\b/);
-    expect(footerWrapper!.className).toMatch(/\bsm:pt-6\b/);
+    expect(footerWrapper!.className).toMatch(/\bsm:pt-7\b/);
     expect(footerWrapper!.className).not.toMatch(/\bpb-\d/);
     // An auto margin would absorb the free space that step 4's review grid
     // needs in order to fill the card.
@@ -304,26 +303,6 @@ describe("ChoiceGrid", () => {
     expect(yes.getAttribute("type")).toBe("button");
     expect(yes.getAttribute("aria-label")).toBeNull();
     expect(yes.textContent).toContain("Add CopilotKit to what you have");
-  });
-
-  // Two fixed-width centred columns, not two halves of the row. Stretched
-  // across the full width the pair read as flat and adrift in a card this
-  // tall, which is the thing this replaced; a later "simplify" back to
-  // `sm:grid-cols-2` would quietly undo it.
-  it("lays the options out as two narrow centred columns", () => {
-    const { container } = render(
-      <ChoiceGrid options={OPTIONS} disabled={false} onSelect={vi.fn()} />,
-    );
-
-    const grid = container.firstElementChild;
-    expect(grid).not.toBeNull();
-    expect(grid!.className).toMatch(/\bjustify-center\b/);
-    expect(grid!.className).toMatch(
-      /\bsm:grid-cols-\[repeat\(2,minmax\(0,13rem\)\)\]/,
-    );
-    // Full width below `sm`, so the narrowing is a wide-screen decision only.
-    expect(grid!.className).toMatch(/\bgrid-cols-1\b/);
-    expect(grid!.className).not.toMatch(/\bsm:grid-cols-2\b/);
   });
 
   it("marks only the selected option with aria-pressed", () => {

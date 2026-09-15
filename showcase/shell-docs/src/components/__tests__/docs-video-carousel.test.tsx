@@ -29,7 +29,7 @@ describe("DocsVideoCarousel", () => {
     render(<DocsVideoCarousel />);
 
     expect(() =>
-      screen.getByRole("heading", { name: "What is CopilotKit?" }),
+      screen.getByRole("heading", { name: "See it in action" }),
     ).not.toThrow();
   });
 
@@ -177,28 +177,22 @@ describe("DocsVideoCarousel", () => {
       expect(tab.textContent).not.toContain("Intelligence");
     }
     expect(
-      screen
-        .getByRole("link", { name: "Open recording in Loom" })
-        .getAttribute("href"),
+      screen.getByRole("link", { name: "Watch on Loom" }).getAttribute("href"),
     ).toBe(`https://www.loom.com/share/${LOOM_IDS[0]}`);
   });
 
-  // The section-level chrome centres to match the rest of the homepage
-  // below the hero; the tabs' own behaviour (selection, keyboard, the
-  // Intelligence mark) is covered separately above and untouched by this.
-  it("centres the section heading and the tab strip", () => {
+  it("identifies the Intelligence features in their descriptions without adding badges to tabs", () => {
     render(<DocsVideoCarousel />);
-
-    const heading = screen.getByRole("heading", {
-      name: "What is CopilotKit?",
-    });
-    const section = heading.closest("section");
-    expect(section).not.toBeNull();
-    expect(section!.className).toContain("text-center");
-
-    // The strip centres as a group rather than starting at the left edge.
-    const tablist = screen.getByRole("tablist");
-    expect(tablist.className).toContain("justify-center");
+    expect(
+      screen.queryByText("Available with CopilotKit Intelligence."),
+    ).toBeNull();
+    for (const tab of screen.getAllByRole("tab").slice(1)) {
+      fireEvent.click(tab);
+      expect(screen.getByRole("tabpanel").textContent).toContain(
+        "Available with CopilotKit Intelligence.",
+      );
+      expect(tab.textContent).not.toContain("Intelligence");
+    }
   });
 
   it("never renders an em-dash", () => {

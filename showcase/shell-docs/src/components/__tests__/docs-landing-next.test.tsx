@@ -1,46 +1,52 @@
+// @vitest-environment jsdom
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
-
+import { describe, expect, it } from "vitest";
 import { DocsLandingNext } from "../docs-landing-next";
+import { frontendPicks, visibleIntegrations } from "@/lib/homepage-map";
 
-vi.mock("../stored-framework-highlight", () => ({
-  StoredFrameworkHighlight: () => null,
-}));
+function renderDirectory() {
+  const root = document.createElement("div");
+  root.innerHTML = renderToStaticMarkup(<DocsLandingNext />);
+  return root;
+}
 
 describe("DocsLandingNext", () => {
-  it("uses container-sized backend cards instead of viewport-only columns", () => {
-    const markup = renderToStaticMarkup(<DocsLandingNext />);
-
-    expect(markup).toContain("grid-cols-1");
-    expect(markup).toContain(
-      "sm:grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))]",
-    );
-    expect(markup).not.toContain("lg:grid-cols-3");
-    expect(markup).not.toContain("pr-20");
+  it("links every visible integration exactly once, including those in the full directory", () => {
+    const root = renderDirectory();
+    for (const integration of visibleIntegrations()) {
+      const links = [...root.querySelectorAll("a")].filter(
+        (link) => link.textContent === integration.name,
+      );
+      expect(links).toHaveLength(1);
+      expect(links[0].getAttribute("href")).toBe(
+        integration.slug === "built-in-agent"
+          ? "/quickstart"
+          : `/${integration.slug}`,
+      );
+    }
   });
 
-  // Section-level chrome (heading + supporting line) centres like the rest
-  // of the homepage below the hero.
-  it("centres the section heading and its supporting line", () => {
-    const markup = renderToStaticMarkup(<DocsLandingNext />);
-
-    expect(markup).toContain(
-      "mx-auto mb-5 flex max-w-2xl flex-col items-center text-center",
+  it("starts with six integration choices and lets readers expand the rest", () => {
+    const root = renderDirectory();
+    const directory = root.querySelector("details")!;
+    expect(directory.hasAttribute("open")).toBe(false);
+    expect(directory.querySelectorAll("a")).toHaveLength(
+      visibleIntegrations().length - 6,
+    );
+    expect(directory.querySelector("summary")?.textContent).toContain(
+      `Explore ${visibleIntegrations().length - 6} more integrations`,
     );
   });
 
-  // The important guard: each card's own logo/name/description stays
-  // left-aligned. Over-centring the cards to "match" the heading above is
-  // the likely regression, and it's invisible to a test that only checks
-  // the things that should centre — so isolate the grid markup (everything
-  // from the cards' own wrapper onward) and assert no centring class ever
-  // reaches it.
-  it("does not centre the backend cards' own content", () => {
-    const markup = renderToStaticMarkup(<DocsLandingNext />);
-
-    const gridStart = markup.indexOf("grid-cols-1 gap-2.5");
-    expect(gridStart).toBeGreaterThan(-1);
-    const cardsMarkup = markup.slice(gridStart);
-    expect(cardsMarkup).not.toContain("text-center");
+  it("links the supported app frontends to their setup docs", () => {
+    const root = renderDirectory();
+    for (const frontend of frontendPicks()) {
+      const link = [...root.querySelectorAll("li a")].find(
+        (candidate) => candidate.textContent === frontend.name,
+      );
+      expect(link?.getAttribute("href")).toBe(
+        frontend.id === "react" ? "/quickstart" : `/${frontend.id}`,
+      );
+    }
   });
 });

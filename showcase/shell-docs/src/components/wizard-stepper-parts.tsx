@@ -1,79 +1,5 @@
-// wizard-stepper-parts.tsx — the chrome for the homepage setup wizard's
-// classic one-card-at-a-time stepper: the progress rail above the card, the
-// card shell itself, and the Back/Continue footer inside it.
-//
-// This module owns none of the wizard's state or copy — `./setup-wizard`
-// tracks which step is current, which is the furthest the reader has
-// reached, and what has been answered so far, and hands each component here
-// the slice it needs. `WizardCard` reuses `CORE_TREATMENT_CLASS` exported
-// from `./docs-map-parts` rather than a second copy of the same
-// border/surface/shadow string, since that is the one step treatment this
-// variant needs: a step the reader cannot reach yet is simply not rendered,
-// so there is no locked or done treatment left to express here.
-//
-// `WizardProgress` renders every step as a real `<button type="button">` so
-// the reader can jump back to any step already reached. A step beyond
-// `furthest` carries the real `disabled` attribute — not just a dimming
-// class — for the same reason `PickGrid`'s locked options used to: a
-// disabled step must not take a click and must not be reachable by Tab.
-// `aria-current="step"` marks the one step that is current, and only that
-// one. The number stays visible at every width; the label hides below `sm`
-// so the rail still reads at 375px without four chips wrapping onto their
-// own lines.
-//
-// `WizardNav` is the footer row passed into `WizardCard`'s `footer` prop.
-// Continue is the primary action and reuses the accent button treatment from
-// `channels-start-prompt.tsx` (full class string, including the
-// focus-visible ring and the `min-h-11` touch target). It is never disabled
-// — a step with a required choice still missing catches the click in
-// `setup-wizard.tsx` instead, which is also where the `hint` string below
-// comes from. Back is quiet — `--text-muted`, no fill — at the same height
-// so the row aligns, and is omitted entirely (not just hidden) when
-// `onBack` is absent, which is how the wizard signals step 1. On narrow
-// screens the row stacks with Continue first in the visual order, so the
-// primary action is never below the fold on a phone; `onBack` absent or
-// present, Continue stays anchored to where the row's trailing edge would
-// be.
-//
-// The review step (the last of the five) has no forward action in the
-// footer at all — its copy button moved into the card body, centred between
-// the selection list and the footer, so it reads as the same accent control
-// without being a second copy of
-// `ACCENT_BUTTON_CLASS`/`PRIMARY_BUTTON_MIN_WIDTH_CLASS`. So
-// `onContinue`/`continueLabel` are optional: with no `onContinue`, the row
-// renders Back alone on the left and nothing on the right. Everything else
-// about the row is unchanged.
-//
-// The `hint` is always rendered, whether or not `hint` itself is set, and is
-// announced through `aria-live="polite"` rather than wired to the button via
-// `aria-describedby`: a blocked click also moves focus into the step's
-// option list (see `setup-wizard.tsx`), so by the time assistive technology
-// would read a description, focus has already left the button — a polite
-// live region is heard regardless of where focus lands, an
-// `aria-describedby` on an element that is no longer focused would not be.
-//
-// On `sm` and up the hint sits inside the same row as the buttons — Back,
-// then the hint, then Continue — rather than on a row of its own beneath
-// them, so the footer has equal breathing room above and below the button
-// row instead of the hint's line adding weight only to the bottom. It still
-// cannot shift either button when its text appears or changes length: Back
-// and Continue both carry `shrink-0` and Continue also a fixed min-width, so
-// with the row set to `justify-between` the first and last items stay
-// anchored to the row's own edges regardless of how wide the middle item
-// (the hint) is. Below `sm` the footer stacks in a column instead, and there
-// the hint gets its own line — the card has no minimum height on phones (see
-// `WizardCard`'s doc comment), so that line coming and going costs nothing.
-//
-// `WizardNav`'s Back/Continue and `WizardProgress`'s rail buttons all hand
-// their `on*` callback a `pointerActivated` boolean rather than the raw
-// click event: `event.detail` is `0` for a keyboard-triggered click (Enter
-// or Space) and greater than `0` for a real pointer click, and computing
-// that here means `setup-wizard.tsx` only ever reasons about a plain
-// boolean, not about `event.detail`. It flows into `WizardCard`'s
-// `showFocusRing` prop, which decides whether the card's `<h2>` — focused on
-// every step change, see that component's own comment — renders its focus
-// ring the next time it receives focus. The move to the heading itself is
-// unconditional either way; only the ring's visibility varies.
+// Presentational chrome for guided setup: progress, active question, choices,
+// and navigation. State and transitions belong to SetupWizard.
 
 import React from "react";
 import { Check, X } from "lucide-react";
@@ -174,7 +100,7 @@ export function WizardProgress({
   onJump: (n: number, pointerActivated: boolean) => void;
 }): React.JSX.Element {
   return (
-    <ol className="mb-5 flex items-start gap-1 sm:gap-2">
+    <ol className="mb-2 flex items-start gap-1 sm:gap-2">
       {steps.map((step, index) => {
         const isCurrent = step.n === current;
         const reached = step.n <= furthest;
@@ -183,7 +109,7 @@ export function WizardProgress({
             {index > 0 ? (
               <li
                 aria-hidden="true"
-                className={`mt-3.5 h-px flex-1 ${
+                className={`mt-3.5 h-px w-2 shrink-0 sm:flex-1 ${
                   reached ? "bg-[var(--accent)]" : "bg-[var(--border)]"
                 }`}
               />
@@ -194,7 +120,7 @@ export function WizardProgress({
                 disabled={!reached}
                 aria-current={isCurrent ? "step" : undefined}
                 onClick={(event) => onJump(step.n, event.detail > 0)}
-                className={`flex w-full cursor-pointer flex-col items-center gap-1 disabled:cursor-not-allowed ${
+                className={`flex min-h-11 w-full cursor-pointer flex-col items-center gap-1 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed ${
                   isCurrent
                     ? "text-[var(--accent)]"
                     : reached
@@ -211,7 +137,7 @@ export function WizardProgress({
                 >
                   {step.n}
                 </span>
-                <span className="hidden truncate text-xs sm:block">
+                <span className="whitespace-nowrap text-[10px] sm:text-xs">
                   {step.label}
                 </span>
               </button>
@@ -223,24 +149,7 @@ export function WizardProgress({
   );
 }
 
-/** The card shell for the one step currently on screen. `footer` is where
- *  the caller places `WizardNav`.
- *
- *  Measured in the running app at a card width of 644px, the four original
- *  steps' cards were 306, 516, 500 and 252px tall (the project question
- *  added since is shorter still) — the wizard sits at the bottom of the
- *  page, so every advance reflowed everything under it. `md:min-h-` gives
- *  the card a floor matching the tallest step (the 19-option agent backend
- *  list, 516px), and the flex column plus the footer's `mt-auto` keeps
- *  Back/Continue pinned to that same bottom edge on every step, so a short
- *  step's options sit at the top of an otherwise-empty card instead of the
- *  row also drifting.
- *
- *  Deliberately `md:` and up only, not unconditional: below `md` the option
- *  grid collapses toward a single column, so the backend step grows far
- *  taller than any floor worth setting, and forcing that tall a floor on a
- *  phone would trade a smaller shift for a much bigger one — an empty card
- *  most of the time. Do not "fix" this by dropping the prefix. */
+/** One active step. Short questions stay compact; larger option lists grow naturally. */
 export function WizardCard({
   step,
   total,
@@ -255,7 +164,7 @@ export function WizardCard({
   total: number;
   name: string;
   description: string;
-  /** Focus target on every step change. Rendered on the <h2>. */
+  /** Focus target on every step change. Rendered on the question heading. */
   headingRef?: React.Ref<HTMLHeadingElement>;
   children: React.ReactNode;
   footer: React.ReactNode;
@@ -270,12 +179,12 @@ export function WizardCard({
 }): React.JSX.Element {
   return (
     <section
-      className={`shell-docs-radius-surface not-prose flex flex-col p-5 sm:p-6 md:min-h-[32rem] ${CORE_TREATMENT_CLASS}`}
+      className={`shell-docs-radius-surface not-prose flex flex-col p-5 sm:p-7 md:min-h-[21rem] ${CORE_TREATMENT_CLASS}`}
     >
       <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
         {`Step ${step} of ${total}`}
       </p>
-      <h2
+      <h3
         ref={headingRef}
         tabIndex={-1}
         className={`mt-1 text-xl font-semibold tracking-[-0.02em] text-[var(--text)] outline-none sm:text-[1.375rem] ${
@@ -283,50 +192,14 @@ export function WizardCard({
         }`}
       >
         {name}
-      </h2>
+      </h3>
       <p className="mt-1.5 max-w-[64ch] text-sm leading-relaxed text-[var(--text-secondary)]">
         {description}
       </p>
-      {/* `flex-1` so this box owns whatever room the card's floor leaves
-       *  over, and `flex-col` so its child is laid out along that axis. A
-       *  child that wants to fill the room instead of being centred in it
-       *  opts in with a `flex-1` of its own; a percentage height would not
-       *  work for that, since `height: 100%` against a flex item sized from
-       *  `flex-basis: 0` resolves as auto. Nothing does today — the review
-       *  step stretched itself this way until it read as three inflated
-       *  boxes rather than a summary. */}
-      {/* Symmetric padding, not a top margin, plus `justify-center`: the
-       *  options then sit the same distance from the description above them
-       *  as from the separator below. A top margin cannot do this — the
-       *  footer's own padding lands *below* the separator, so it never pays
-       *  for the gap above it, and the content area's whole margin showed up
-       *  on one side only.
-       *
-       *  The two paddings together are deliberately the same total the single
-       *  margin used to be: the card's `md:min-h` floor was measured against
-       *  that total, and growing it would push the densest step past the
-       *  floor and start the page moving between steps again. */}
-      <div className="flex flex-1 flex-col justify-center py-2">{children}</div>
-      {/* The footer's own top padding matches the card's bottom padding, so
-       *  the button row sits the same distance from the separator above it as
-       *  from the card's edge below it. Adding a bottom padding here instead
-       *  stacks on top of the card's inset and makes the gap below the buttons
-       *  more than twice the one above — the lopsided spacing this replaced.
-       *  Keep these in step with the section's own `p-5 sm:p-6`.
-       *
-       *  No `mt-auto`: an auto margin absorbs a flex container's free space
-       *  ahead of any `flex-1` sibling, which would starve the content area
-       *  above and stop the review step's review grid from filling the card. The
-       *  growing content area pushes this to the bottom on its own. */}
-      {/* `data-testid` purely for test addressability: `setup-wizard.test.tsx`
-       *  needs to assert the copy button and Back both live in the footer
-       *  without depending on a specific parent node, since the footer's own
-       *  primary/secondary pairing (see `WizardNav`'s `secondaryAction`
-       *  handling below) puts Back and the copy button at different nesting
-       *  depths. */}
+      <div className="flex flex-1 flex-col justify-center py-7">{children}</div>
       <div
         data-testid="wizard-footer"
-        className="border-t border-[var(--border)] pt-5 sm:pt-6"
+        className="border-t border-[var(--border)] pt-5 sm:pt-7"
       >
         {footer}
       </div>
@@ -350,41 +223,7 @@ export type ChoiceOption = {
   readonly icon: LucideIcon;
 };
 
-/** A short list of plain, labelled choices — currently only step 1's "Do you
- *  already have a project?" (Yes/No). `docs-map-parts.tsx`'s `PickGrid`
- *  doesn't fit here: it always renders a `PickLogoMark`, which needs a
- *  `MapPick.logo`, and a plain Yes/No choice has no logo to give it.
- *
- *  Each option is the same shape as `CapabilityGrid`'s feature tiles in
- *  `docs-map-parts.tsx`: the icon and label share the top row, the
- *  description sits on its own line below, `p-3.5` padding, left-aligned,
- *  no minimum height. It used to be a tall card (`min-h-[13rem]`, icon
- *  stacked above a centred label) built specifically because two short,
- *  wide-and-thin tiles left roughly 218px of the step's ~292px content area
- *  empty; going back to this compact shape brings some of that air back; a
- *  fixed floor is no longer how this step fills its frame.
- *
- *  The icon is a checkmark for "yes" and a cross for "no" (`PROJECT_ANSWER_
- *  ICONS` above) — a reversal of an earlier decision that ruled a check/cross
- *  pair out for reading as right-and-wrong. It does not collide with a
- *  checkmark's other meaning in this wizard, marking a *selected*
- *  `CapabilityGrid` tile: this step is single choice and renders no
- *  selection checkmark of its own, same as `PickGrid` — the accent border
- *  and fill are the only selection signal here too.
- *
- *  Each option is a real `<button type="button">`: the real `disabled`
- *  attribute when the step is locked (matching every other option control in
- *  the wizard), `aria-pressed` for the selected one, and no `aria-label` —
- *  the accessible name is exactly the button's own visible text (label, then
- *  description when given; the icon is `aria-hidden` and contributes
- *  nothing to it), the same rule `PickGrid`/`CapabilityGrid` follow in
- *  `docs-map-parts.tsx`. */
-/** Two fixed-width centred columns, not two halves of the row: a Yes/No pair
- *  stretched across the full width reads as flat and adrift in a card this
- *  tall. `13rem` sits just above the width the frontend options get from their
- *  auto-fill grid, so an option here is the same size as an option anywhere
- *  else in the wizard. Full width below `sm`, where there is no room to be
- *  choosy. */
+/** Single-choice buttons advance immediately and retain their selection on Back. */
 export function ChoiceGrid({
   options,
   selectedId,
@@ -397,7 +236,7 @@ export function ChoiceGrid({
   onSelect: (id: string, pointerActivated: boolean) => void;
 }): React.JSX.Element {
   return (
-    <div className="grid grid-cols-1 justify-center gap-2.5 sm:grid-cols-[repeat(2,minmax(0,13rem))]">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {options.map((option) => {
         const selected = option.id === selectedId;
         const Icon = option.icon;
