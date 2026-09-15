@@ -2,7 +2,6 @@ import { handleIntelligenceConnect } from "./intelligence/connect";
 import { handleSseConnect } from "./sse/connect";
 import { isIntelligenceRuntime } from "../core/runtime";
 import { telemetry } from "../telemetry";
-import { cloudBaseUrl } from "./shared/cloud-telemetry";
 import type { RunAgentParameters as ConnectAgentParameters } from "./shared/agent-utils";
 import {
   parseConnectRequest,
@@ -24,7 +23,6 @@ export async function handleConnectAgent({
       requestType: "connect",
       "cloud.api_key_provided": !!publicApiKey,
       ...(publicApiKey ? { "cloud.public_api_key": publicApiKey } : {}),
-      "cloud.base_url": cloudBaseUrl(),
     },
   );
 
