@@ -5,7 +5,7 @@
  * and starter-smoke.spec.ts (Docker-built starters with aimock).
  */
 
-import type { APIRequestContext, Page } from "@playwright/test";
+import type { APIRequestContext, Page, Response } from "@playwright/test";
 
 // ---------------------------------------------------------------------------
 // Result types
@@ -27,6 +27,34 @@ export interface AgentCheckResult {
 export interface ChatResult {
   gotResponse: boolean;
   responseText: string;
+  /**
+   * AG-UI protocol outcome, captured from the /api/copilotkit SSE stream
+   * rather than from the DOM.
+   *
+   * WHY (2026-09-14): `gotResponse` + `responseText.length > 0` is NOT a
+   * success assertion. CopilotKit renders a `RUN_ERROR` as an assistant
+   * message, so a run that failed outright satisfies both — which is how
+   * llamaindex passed `starter-smoke` through 1345 consecutive failed probe
+   * runs. Only the protocol transcript distinguishes "the agent answered"
+   * from "the agent errored and the error was rendered as text".
+   */
+  agui: AguiOutcome;
+}
+
+export interface AguiOutcome {
+  /** A terminal RUN_FINISHED was observed. */
+  runFinished: boolean;
+  /** A RUN_ERROR was observed (rendered in the UI as an assistant message). */
+  runError: boolean;
+  /** At least one non-empty TEXT_MESSAGE_CONTENT delta was streamed. */
+  sawTextDelta: boolean;
+  /**
+   * The wait for an assistant message hit its timeout. Previously swallowed
+   * by a bare `catch {}`, which turned a 60s hang into a "pass".
+   */
+  timedOut: boolean;
+  /** Bytes of /api/copilotkit response body seen (0 == nothing captured). */
+  transcriptBytes: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -170,6 +198,61 @@ export async function sendChatMessage(
   path: string = "/",
 ): Promise<ChatResult> {
   const url = `${baseUrl}${path}`;
+
+  // Capture the AG-UI transcript off the wire. Attached before navigation so
+  // nothing is missed. `response.text()` on an SSE body resolves when the
+  // stream ends, so the promises are collected and awaited at the end.
+  const bodyPromises: Promise<string>[] = [];
+  const onResponse = (res: Response) => {
+    if (!res.url().includes("/api/copilotkit")) return;
+    bodyPromises.push(res.text().catch(() => ""));
+  };
+  page.on("response", onResponse);
+
+  const agui: AguiOutcome = {
+    runFinished: false,
+    runError: false,
+    sawTextDelta: false,
+    timedOut: false,
+    transcriptBytes: 0,
+  };
+
+  // Drains the captured SSE bodies and stamps the protocol outcome onto
+  // whichever DOM-derived result the caller path produced.
+  const finish = async (
+    partial: Omit<ChatResult, "agui">,
+  ): Promise<ChatResult> => {
+    page.off("response", onResponse);
+    // Bound the drain: if the agent hangs mid-stream, `res.text()` never
+    // resolves. Cap it so the test reports a real assertion failure instead
+    // of dying on Playwright's outer timeout with no diagnosis.
+    const drained = await Promise.all(
+      bodyPromises.map((p) =>
+        Promise.race([
+          p,
+          new Promise<string>((resolve) =>
+            setTimeout(() => resolve(""), 15_000),
+          ),
+        ]),
+      ),
+    );
+    const transcript = drained.join("\n");
+    agui.transcriptBytes = transcript.length;
+    agui.runError = transcript.includes("RUN_ERROR");
+    agui.runFinished = transcript.includes("RUN_FINISHED");
+    // A TEXT_MESSAGE_CONTENT frame carrying a non-empty `delta`. Matched on
+    // the raw frame so this works for both SSE `data:` lines and any
+    // concatenated-JSON transport.
+    agui.sawTextDelta =
+      /"TEXT_MESSAGE_CONTENT"[\s\S]{0,200}?"delta"\s*:\s*"[^"]/.test(
+        transcript,
+      ) ||
+      /"delta"\s*:\s*"[^"][\s\S]{0,200}?"TEXT_MESSAGE_CONTENT"/.test(
+        transcript,
+      );
+    return { ...partial, agui };
+  };
+
   await page.goto(url, { waitUntil: "networkidle", timeout: 30_000 });
 
   // Wait for the chat UI to be ready — CopilotKit renders a textarea
@@ -199,8 +282,11 @@ export async function sendChatMessage(
       { timeout: 60_000 },
     );
   } catch {
-    // Fallback: look for any new content that appeared after our message
-    // This handles cases where the selector doesn't match
+    // RECORD the timeout — do not swallow it. A 60s hang followed by a
+    // 5s grace period used to be indistinguishable from a working chat.
+    // The grace period stays (some shells render without the testid), but
+    // the caller now gets to see that the wait blew its deadline.
+    agui.timedOut = true;
     await page.waitForTimeout(5_000);
   }
 
@@ -222,7 +308,7 @@ export async function sendChatMessage(
       // Streaming may be slow; continue with whatever we have
     }
     const text = (await latest.textContent()) ?? "";
-    return { gotResponse: true, responseText: text.trim() };
+    return finish({ gotResponse: true, responseText: text.trim() });
   }
 
   // Fallback: CopilotSidebar may not use data-testid="copilot-assistant-message".
@@ -244,14 +330,14 @@ export async function sendChatMessage(
       .replace(/\bSend\b/g, "")
       .trim();
     if (stripped.length > 20) {
-      return {
+      return finish({
         gotResponse: true,
         responseText: stripped.split("\n")[0].trim(),
-      };
+      });
     }
   }
 
-  return { gotResponse: false, responseText: "" };
+  return finish({ gotResponse: false, responseText: "" });
 }
 
 // ---------------------------------------------------------------------------

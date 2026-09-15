@@ -108,6 +108,39 @@ test.describe(`starter-smoke: ${STARTER_SLUG}`, () => {
       STARTER_URL,
       starter.chatMessage,
     );
+
+    // Protocol-level assertions FIRST. "An assistant message appeared with
+    // some text in it" is not a success signal: CopilotKit renders a
+    // RUN_ERROR as an assistant message, so a completely broken agent
+    // satisfies gotResponse + responseText.length. llamaindex rode that
+    // hole through 1345 consecutive failed probe runs while this test was
+    // green — the only tell was the run taking 1.1 minutes instead of 1.3
+    // seconds. These assertions read the AG-UI transcript off the wire
+    // instead, so an errored or hung run fails loudly.
+    const { agui } = result;
+    expect(
+      agui.transcriptBytes,
+      "No /api/copilotkit traffic captured — the chat never reached the runtime",
+    ).toBeGreaterThan(0);
+    expect(
+      agui.timedOut,
+      "Timed out waiting for an assistant message (a hang, not a response)",
+    ).toBe(false);
+    expect(agui.runError, "AG-UI stream contained a RUN_ERROR").toBe(false);
+    expect(agui.runFinished, "AG-UI stream never reached RUN_FINISHED").toBe(
+      true,
+    );
+    // Only starters whose expected answer IS prose must stream text deltas.
+    // strands-typescript answers with an A2UI render (tool calls, no prose),
+    // so requiring a TEXT_MESSAGE_CONTENT delta there would be a false red —
+    // its `expectedChatUiText` assertion below is the stronger check anyway.
+    if (!starter.expectedChatUiText) {
+      expect(
+        agui.sawTextDelta,
+        "AG-UI stream carried no non-empty TEXT_MESSAGE_CONTENT delta",
+      ).toBe(true);
+    }
+
     expect(result.gotResponse, "No assistant response received").toBe(true);
     if (starter.expectedChatUiText) {
       await expect(
