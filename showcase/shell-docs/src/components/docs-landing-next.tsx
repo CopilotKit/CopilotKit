@@ -14,7 +14,7 @@ export function DocsLandingNext() {
         id="integrations-heading"
         className="text-[1.75rem] font-semibold leading-tight tracking-[-0.035em] text-[var(--text)] sm:text-[2rem]"
       >
-        Fits the stack you already have.
+        Fits the stack you already have
       </h2>
       <p className="mt-3 max-w-[58ch] text-sm leading-relaxed text-[var(--text-secondary)]">
         Choose your frontend, then explore an agent integration.

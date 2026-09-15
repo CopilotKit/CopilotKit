@@ -28,7 +28,7 @@ afterEach(cleanup);
 function directory() {
   render(<DocsLandingNext />);
   return screen.getByRole("region", {
-    name: "Fits the stack you already have.",
+    name: "Fits the stack you already have",
   });
 }
 

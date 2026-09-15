@@ -50,18 +50,12 @@ describe("WizardCard", () => {
       </WizardCard>,
     );
 
-    expect(screen.getByText("Step 2 of 4")).not.toBeNull();
+    expect(screen.queryByText("Step 2 of 4")).toBeNull();
   });
 
   it("renders an h3 whose text is exactly name and which carries tabIndex=-1", () => {
     render(
-      <WizardCard
-        step={1}
-        total={4}
-        name="Your frontend"
-        description="D"
-        footer={<span />}
-      >
+      <WizardCard name="Your frontend" description="D" footer={<span />}>
         <span />
       </WizardCard>,
     );
@@ -87,14 +81,7 @@ describe("WizardCard", () => {
     expect(defaultHeading!.className).toMatch(/\bfocus:ring-2\b/);
 
     const { container: explicitContainer } = render(
-      <WizardCard
-        step={1}
-        total={4}
-        name="N"
-        description="D"
-        footer={<span />}
-        showFocusRing
-      >
+      <WizardCard name="N" description="D" footer={<span />} showFocusRing>
         <span />
       </WizardCard>,
     );
@@ -106,8 +93,6 @@ describe("WizardCard", () => {
   it("omits the heading's focus ring class when showFocusRing is false", () => {
     const { container } = render(
       <WizardCard
-        step={1}
-        total={4}
         name="N"
         description="D"
         footer={<span />}
@@ -124,13 +109,7 @@ describe("WizardCard", () => {
 
   it("renders children and footer", () => {
     render(
-      <WizardCard
-        step={1}
-        total={4}
-        name="N"
-        description="D"
-        footer={<span>the footer</span>}
-      >
+      <WizardCard name="N" description="D" footer={<span>the footer</span>}>
         <p>the child</p>
       </WizardCard>,
     );
@@ -172,13 +151,7 @@ describe("WizardCard", () => {
   // grid and left it unable to fill the card.
   it("lays the card out as a flex column with the footer pushed to the bottom", () => {
     const { container } = render(
-      <WizardCard
-        step={1}
-        total={4}
-        name="N"
-        description="D"
-        footer={<span>the footer</span>}
-      >
+      <WizardCard name="N" description="D" footer={<span>the footer</span>}>
         <span />
       </WizardCard>,
     );
@@ -209,13 +182,7 @@ describe("WizardCard", () => {
   // of the two margins would drift them apart unnoticed.
   it("keeps the content area scrollable with space around its choices", () => {
     const { container } = render(
-      <WizardCard
-        step={1}
-        total={4}
-        name="N"
-        description="D"
-        footer={<span>the footer</span>}
-      >
+      <WizardCard name="N" description="D" footer={<span>the footer</span>}>
         <span />
       </WizardCard>,
     );
@@ -241,13 +208,7 @@ describe("WizardCard", () => {
   // fail here instead of silently drifting the two apart.
   it("gives the footer wrapper equal top and bottom padding around the button row", () => {
     render(
-      <WizardCard
-        step={1}
-        total={4}
-        name="N"
-        description="D"
-        footer={<span>the footer</span>}
-      >
+      <WizardCard name="N" description="D" footer={<span>the footer</span>}>
         <span />
       </WizardCard>,
     );

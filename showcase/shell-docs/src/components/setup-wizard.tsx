@@ -86,8 +86,6 @@ export interface SetupWizardProps {
 
 type CopyState = "idle" | "copied" | "error";
 
-const TOTAL_STEPS = 5;
-
 const STEPPER_STEPS: readonly StepperStep[] = [
   { n: 1, label: "Project" },
   { n: 2, label: "Frontend" },
@@ -647,16 +645,16 @@ export function SetupWizard({
 
   return (
     <div className="not-prose flex flex-col gap-5">
-      <WizardProgress
-        steps={STEPPER_STEPS}
-        current={current}
-        furthest={furthest}
-        onJump={handleJump}
-      />
       <div ref={wrapperRef} className="relative">
         <WizardCard
-          step={current}
-          total={TOTAL_STEPS}
+          progress={
+            <WizardProgress
+              steps={STEPPER_STEPS}
+              current={current}
+              furthest={furthest}
+              onJump={handleJump}
+            />
+          }
           name={stepName}
           description={stepDescription}
           headingRef={headingRef}

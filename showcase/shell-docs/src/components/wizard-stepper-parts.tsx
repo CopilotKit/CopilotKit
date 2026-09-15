@@ -153,8 +153,7 @@ export function WizardProgress({
 
 /** One active step. The stage stays the same height; larger option lists scroll within it. */
 export function WizardCard({
-  step,
-  total,
+  progress,
   name,
   description,
   headingRef,
@@ -162,8 +161,7 @@ export function WizardCard({
   footer,
   showFocusRing = true,
 }: {
-  step: number;
-  total: number;
+  progress?: React.ReactNode;
   name: string;
   description: string;
   /** Focus target on every step change. Rendered on the question heading. */
@@ -183,9 +181,7 @@ export function WizardCard({
     <section
       className={`shell-docs-radius-surface not-prose flex h-[34rem] flex-col p-5 sm:h-[30rem] sm:p-7 ${CORE_TREATMENT_CLASS}`}
     >
-      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-        {`Step ${step} of ${total}`}
-      </p>
+      {progress && <div className="mb-6 shrink-0">{progress}</div>}
       <h3
         ref={headingRef}
         tabIndex={-1}

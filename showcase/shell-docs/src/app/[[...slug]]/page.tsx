@@ -137,7 +137,7 @@ function DocsOverview() {
             <h1 className="max-w-[16ch] text-[2.75rem] font-semibold leading-[1.08] tracking-[-0.045em] text-[var(--text)] sm:text-[3.75rem]">
               Bring your agent
               <br />
-              <span className="text-[var(--accent)]">into any app.</span>
+              <span className="text-[var(--accent)]">into any app</span>
             </h1>
             <p className="mt-6 max-w-[54ch] text-base leading-relaxed text-[var(--text-secondary)] sm:text-lg">
               CopilotKit is an open-source framework that connects your app to
@@ -162,9 +162,9 @@ function DocsOverview() {
                 id="setup-heading"
                 className="shrink-0 text-[1.75rem] font-semibold leading-tight tracking-[-0.035em] text-[var(--text)] sm:text-[2rem]"
               >
-                Start building.
+                Start building
               </h2>
-              <p className="max-w-[62ch] text-sm leading-relaxed text-[var(--text-secondary)]">
+              <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
                 Start fresh or add to your existing app. Answer a few questions,
                 then give the setup prompt to your coding agent.
               </p>

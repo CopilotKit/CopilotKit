@@ -98,7 +98,7 @@ describe("the docs homepage route", () => {
   it("explains the product and restores the canonical copy-prompt action", async () => {
     const elements = await renderOverview();
     const heading = elements.find((el) => el.type === "h1");
-    expect(heading && textOf(heading)).toBe("Bring your agentinto any app.");
+    expect(heading && textOf(heading)).toBe("Bring your agentinto any app");
     expect(
       elements.some(
         (el) => el.type === "p" && textOf(el).includes("open-source framework"),

@@ -243,10 +243,16 @@ describe("initial render", () => {
     ).toBeNull();
   });
 
-  it("shows five items on the rail and the Step 1 of 5 kicker", () => {
+  it("shows five rail items without a duplicate step label", () => {
     renderWizard();
 
-    expect(screen.getByText("Step 1 of 5")).not.toBeNull();
+    expect(screen.queryByText("Step 1 of 5")).toBeNull();
+    const card = screen
+      .getByRole("heading", { name: "Do you already have a project?" })
+      .closest("section");
+    expect(
+      card?.contains(screen.getByRole("button", { name: /Project/ })),
+    ).toBe(true);
     expect(screen.getByRole("button", { name: /Project/ })).not.toBeNull();
     expect(screen.getByRole("button", { name: /Frontend/ })).not.toBeNull();
     expect(screen.getByRole("button", { name: /Backend/ })).not.toBeNull();
