@@ -55,12 +55,20 @@ const LOOKUP_JSON_SCHEMA: Record<string, unknown> = {
  * (Zod's default `strip` behavior for `z.object`). The returned issues feed
  * `validateSchema`, which formats them as `path: message` for the agent.
  */
+function parsedTypeOf(value: unknown): string {
+  // `typeof` reports "object" for both `null` and arrays. Zod names them
+  // separately, and this message is what the agent reads back on a bad call.
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "array";
+  return typeof value;
+}
+
 function validateLookupArgs(
   value: unknown,
 ): StandardSchemaV1.Result<LookupArgs> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return {
-      issues: [{ message: "Expected object, received " + typeof value }],
+      issues: [{ message: "Expected object, received " + parsedTypeOf(value) }],
     };
   }
   const { query } = value as Record<string, unknown>;
