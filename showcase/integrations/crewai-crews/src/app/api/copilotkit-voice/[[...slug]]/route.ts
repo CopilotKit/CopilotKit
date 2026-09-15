@@ -27,7 +27,7 @@ import OpenAI from "openai";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-const voiceDemoAgent = new HttpAgent({ url: `${AGENT_URL}/` });
+const voiceDemoAgent = new HttpAgent({ url: `${AGENT_URL}/chat` });
 
 class GuardedOpenAITranscriptionService extends TranscriptionService {
   private delegate: TranscriptionServiceOpenAI | null;

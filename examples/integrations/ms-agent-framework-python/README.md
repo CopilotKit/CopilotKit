@@ -54,7 +54,7 @@ This is a starter template for building CopilotKit experiences using the [Micros
    ```
    AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
    AZURE_OPENAI_CHAT_DEPLOYMENT_NAME=gpt-4o-mini
-   # If you are not relying on az login:
+   # Optional when az login is unavailable:
    # AZURE_OPENAI_API_KEY=...
    ```
 
@@ -79,7 +79,7 @@ This is a starter template for building CopilotKit experiences using the [Micros
 ## Running a Channel
 
 `channel-host.mts` mounts the same agent as an Intelligence Channel
-(Slack, Teams). It requires `INTELLIGENCE_API_KEY` and a declared Channel in
+(Slack, Teams). It requires `CPK_INTELLIGENCE_API_KEY` and a declared Channel in
 `.copilotkit/channels.json` – set both up with `copilotkit init` or
 `copilotkit channels add`, which write that file and the credentials your
 `.env` needs, then:
@@ -169,13 +169,15 @@ uv run src/main.py
 ## CopilotKit Intelligence & Threads (Optional)
 
 CopilotKit Intelligence adds durable thread history and cross-session memory to
-your agent. It requires a `COPILOTKIT_LICENSE_TOKEN` and a running local
+your agent. It requires a `COPILOTKIT_LICENSE_TOKEN`, a
+`CPK_INTELLIGENCE_API_KEY`, and a running local
 Intelligence stack (Docker Desktop + a local Intelligence repo checkout).
 
 ### Prerequisites
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) running
 - A `COPILOTKIT_LICENSE_TOKEN` (obtain from [CopilotKit Cloud](https://cloud.copilotkit.ai))
+- A `CPK_INTELLIGENCE_API_KEY` for the Intelligence project
 - The [Intelligence repo](https://github.com/CopilotKit/Intelligence) cloned
   locally. The `docker-compose.intelligence.yml` defaults to a sibling
   directory at `../../../Intelligence` relative to this starter; override with
@@ -204,12 +206,13 @@ Add the following to your `.env` file:
 
 ```env
 COPILOTKIT_LICENSE_TOKEN=your-license-token-here
+CPK_INTELLIGENCE_API_KEY=your-project-api-key-here
 INTELLIGENCE_API_URL=http://localhost:4205
 INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:4405
 ```
 
 Then start the dev server as usual (`npm run dev`). Thread history and memory
-features are activated automatically when `COPILOTKIT_LICENSE_TOKEN` is set.
+features are activated automatically when `CPK_INTELLIGENCE_API_KEY` is set.
 
 ### Stop / reset
 

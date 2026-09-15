@@ -7,14 +7,13 @@ from agno.agent.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.tools import tool
 from dotenv import load_dotenv
-
 from tools import (
+    RENDER_A2UI_TOOL_SCHEMA,
+    build_a2ui_operations_from_tool_call,
     get_weather_impl,
     query_data_impl,
     schedule_meeting_impl,
     search_flights_impl,
-    build_a2ui_operations_from_tool_call,
-    RENDER_A2UI_TOOL_SCHEMA,
 )
 from tools.types import Flight
 
@@ -245,12 +244,24 @@ def generate_a2ui(context: str):
     return json.dumps({"error": "LLM did not call render_a2ui"})
 
 
+def _create_session_db():
+    # Keep this import outside the public weather-tool region above.
+    from agno.db.sqlite import SqliteDb
+
+    # The production container runs as an unprivileged user with a read-only
+    # application directory, so its SQLite file belongs in writable /tmp.
+    return SqliteDb(db_file="/tmp/agno.db")
+
+
 agent = Agent(
     # Raise the HTTP timeout so requests routed through aimock don't time out
     # under normal load.  The default httpx timeout is too short when aimock
     # is proxying to the upstream LLM — observed "Request timed out" errors
     # that crash the agent run and trigger watchdog restarts.
     model=OpenAIChat(id="gpt-4o", timeout=120),
+    # Frontend and HITL tools pause the run before the browser responds.
+    # Keep the session in a writable location so Agno can resume that run.
+    db=_create_session_db(),
     tools=[
         get_weather,
         query_data,

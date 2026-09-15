@@ -1263,12 +1263,12 @@ describe("StateManager - Edge Cases", () => {
     ).toBeUndefined();
   });
 
-  it("ignores lifecycle callbacks captured before the agent is resubscribed", async () => {
-    const agent = new EventEmittingMockAgent("agent1", "thread1");
-    const subscribeSpy = vi.spyOn(agent, "subscribe");
+  it("ignores lifecycle callbacks captured before a replacement agent took the id", async () => {
+    const replaced = new EventEmittingMockAgent("agent1", "thread1");
+    const subscribeSpy = vi.spyOn(replaced, "subscribe");
     copilotKitCore.addAgent__unsafe_dev_only({
       id: "agent1",
-      agent,
+      agent: replaced,
     });
     const staleSubscriber = subscribeSpy.mock.calls[0]?.[0] as
       | AgentSubscriber
@@ -1277,11 +1277,14 @@ describe("StateManager - Edge Cases", () => {
       throw new Error("Expected StateManager to subscribe to the agent");
     }
 
-    // Re-registering replaces StateManager's subscription. A pipeline that
-    // already captured the old callback may still invoke it afterward.
+    // A DIFFERENT instance taking over the id replaces StateManager's
+    // subscription. The pipeline of the agent that was replaced may already
+    // have captured the old callback and can still invoke it afterwards, so the
+    // old one has to be inert.
+    const current = new EventEmittingMockAgent("agent1", "thread1");
     copilotKitCore.addAgent__unsafe_dev_only({
       id: "agent1",
-      agent,
+      agent: current,
     });
 
     const staleInput: RunAgentInput = {
@@ -1300,7 +1303,7 @@ describe("StateManager - Edge Cases", () => {
       },
       messages: [],
       state: staleInput.state,
-      agent,
+      agent: replaced,
       input: staleInput,
     });
 
@@ -1308,10 +1311,55 @@ describe("StateManager - Edge Cases", () => {
       copilotKitCore.getStateByRun("agent1", "thread1", "stale-run"),
     ).toBeUndefined();
 
-    await agent.emitRunStarted("current-run", { source: "current" });
+    await current.emitRunStarted("current-run", { source: "current" });
     expect(
       copilotKitCore.getStateByRun("agent1", "thread1", "current-run"),
     ).toEqual({ source: "current" });
+  });
+
+  it("keeps a live subscription when the same agent instance is re-registered", async () => {
+    const agent = new EventEmittingMockAgent("agent1", "thread1");
+    const subscribeSpy = vi.spyOn(agent, "subscribe");
+    copilotKitCore.addAgent__unsafe_dev_only({ id: "agent1", agent });
+    const subscriber = subscribeSpy.mock.calls[0]?.[0] as
+      | AgentSubscriber
+      | undefined;
+    if (!subscriber?.onRunStartedEvent) {
+      throw new Error("Expected StateManager to subscribe to the agent");
+    }
+
+    // Re-announcing the SAME instance replaces nothing, so there is nothing to
+    // revoke. Tearing the subscription down here would silently detach a run
+    // that is still streaming: the ag-ui pipeline captured its subscriber list
+    // at run start and never sees the replacement. Callers re-announce an
+    // unchanged agent routinely — a header change, a transport change, an
+    // `/info` re-settle, the mid-session recovery re-sync.
+    copilotKitCore.addAgent__unsafe_dev_only({ id: "agent1", agent });
+    expect(subscribeSpy).toHaveBeenCalledTimes(1);
+
+    const input: RunAgentInput = {
+      threadId: "thread1",
+      runId: "open-run",
+      state: { source: "still-streaming" },
+      messages: [],
+      tools: [],
+      context: [],
+    };
+    await subscriber.onRunStartedEvent({
+      event: {
+        type: EventType.RUN_STARTED,
+        threadId: "thread1",
+        runId: "open-run",
+      },
+      messages: [],
+      state: input.state,
+      agent,
+      input,
+    });
+
+    expect(
+      copilotKitCore.getStateByRun("agent1", "thread1", "open-run"),
+    ).toEqual({ source: "still-streaming" });
   });
 });
 

@@ -1,4 +1,4 @@
-FROM node:20-slim
+FROM node:22.23.2-slim
 
 RUN corepack enable
 
@@ -8,6 +8,7 @@ WORKDIR /app
 # build this Dockerfile with the repository root as its build context.
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .pnpmfile.cjs .npmrc ./
 COPY patches ./patches
+COPY scripts ./scripts
 COPY packages ./packages
 COPY examples/showcases/generative-ui-playground ./examples/showcases/generative-ui-playground
 

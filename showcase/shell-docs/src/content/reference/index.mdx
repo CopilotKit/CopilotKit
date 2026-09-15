@@ -35,7 +35,7 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 
 <CopilotKit runtimeUrl="/api/copilotkit">
   <App />
-</CopilotKit>
+</CopilotKit>;
 ```
 
 ### Props
@@ -110,8 +110,15 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
   handler and a tool call renderer.
 </PropertyReference>
 
+<PropertyReference name="enableInspector" type="boolean">
+  Controls the CopilotKit Inspector in development browser builds. It is shown
+  by default unless set to `false`, and is never loaded in production or during
+  SSR, even when explicitly set to `true`.
+</PropertyReference>
+
 <PropertyReference name="showDevConsole" type='boolean | "auto"'>
-  Show the CopilotKit developer console for debugging.
+  **Deprecated for Inspector control:** this prop no longer changes Inspector
+  visibility. Use `enableInspector` instead.
 </PropertyReference>
 
 <PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">

@@ -294,6 +294,91 @@ const CHANNEL_REDIRECTS: PermanentRedirect[] = [
   ...CHANNEL_ROOT_REDIRECTS,
 ];
 
+// ----------------------------------------------------------------
+// Retired AG-UI mirror (`/ag-ui/*`).
+//
+// The mirrored AG-UI docs tree was deleted in #7092; AG-UI documentation is
+// canonical at docs.ag-ui.com. 96 `/ag-ui/*` URLs were in the production
+// sitemap and carry accumulated search ranking, so they are handed to the
+// upstream site with a 301 rather than left to 404.
+//
+// The mirror's slugs match upstream 1:1 for 87 of the 96 paths (verified by
+// HTTP probe against docs.ag-ui.com), so a single wildcard carries the bulk
+// of the tree. The nine paths with no upstream page are listed explicitly
+// ABOVE the wildcard so the specific rule wins.
+//
+// Suffix handling: a raw Markdown request reaches redirects before the
+// `.md` / `.mdx` rewrite, and upstream serves `.md` but NOT `.mdx`
+// (docs.ag-ui.com/concepts/agents.md -> 200, .../concepts/agents.mdx -> 404),
+// so both suffixes are collapsed onto upstream `.md`.
+// ----------------------------------------------------------------
+const AG_UI_DOCS_ORIGIN = "https://docs.ag-ui.com";
+
+function agUiMirrorRedirects(
+  mirrorPath: string,
+  upstreamPath: string,
+): PermanentRedirect[] {
+  return [
+    {
+      source: `/ag-ui${mirrorPath}.mdx`,
+      destination: `${AG_UI_DOCS_ORIGIN}${upstreamPath}.md`,
+      permanent: true,
+    },
+    {
+      source: `/ag-ui${mirrorPath}.md`,
+      destination: `${AG_UI_DOCS_ORIGIN}${upstreamPath}.md`,
+      permanent: true,
+    },
+    {
+      source: `/ag-ui${mirrorPath}`,
+      destination: `${AG_UI_DOCS_ORIGIN}${upstreamPath}`,
+      permanent: true,
+    },
+  ];
+}
+
+// Retired mirror paths whose slug does NOT exist upstream. Each destination
+// was probed and returns 200; the bare wildcard below would send these to an
+// upstream 404, which is worse for readers than the page simply being gone.
+const AG_UI_MIRROR_EXCEPTIONS = [
+  // Both drafts graduated into the Concepts section upstream.
+  ["/drafts/interrupts", "/concepts/interrupts"],
+  ["/drafts/multimodal-messages", "/concepts/messages"],
+  // The Dart SDK kept every page except its client overview.
+  ["/sdk/dart/client/overview", "/sdk/dart/overview"],
+  // Upstream reduced the Rust SDK to a single overview page.
+  ["/sdk/rust/client/agent-trait", "/sdk/rust/overview"],
+  ["/sdk/rust/client/http-agent", "/sdk/rust/overview"],
+  ["/sdk/rust/client/subscriber", "/sdk/rust/overview"],
+  ["/sdk/rust/core/events", "/sdk/rust/overview"],
+  ["/sdk/rust/core/overview", "/sdk/rust/overview"],
+  ["/sdk/rust/core/types", "/sdk/rust/overview"],
+] as const;
+
+const AG_UI_MIRROR_REDIRECTS: PermanentRedirect[] = [
+  ...AG_UI_MIRROR_EXCEPTIONS.flatMap(([mirrorPath, upstreamPath]) =>
+    agUiMirrorRedirects(mirrorPath, upstreamPath),
+  ),
+  // The mirror root rendered the AG-UI introduction page.
+  ...agUiMirrorRedirects("", "/introduction"),
+  // Everything else keeps its slug upstream.
+  {
+    source: "/ag-ui/:path*.mdx",
+    destination: `${AG_UI_DOCS_ORIGIN}/:path*.md`,
+    permanent: true,
+  },
+  {
+    source: "/ag-ui/:path*.md",
+    destination: `${AG_UI_DOCS_ORIGIN}/:path*.md`,
+    permanent: true,
+  },
+  {
+    source: "/ag-ui/:path*",
+    destination: `${AG_UI_DOCS_ORIGIN}/:path*`,
+    permanent: true,
+  },
+];
+
 // NEXT_PUBLIC_BASE_URL and NEXT_PUBLIC_SHELL_URL are read at REQUEST
 // time by the server `getRuntimeConfig()` reader and injected into the
 // client via `window.__SHOWCASE_CONFIG__` from the root layout. They
@@ -375,6 +460,9 @@ const nextConfig: NextConfig = {
       // OSS-615: legacy global, scoped, generated-reference, and Bots URLs
       // resolve directly to the canonical Slack/Teams guide trees.
       ...CHANNEL_REDIRECTS,
+      // OSS: the retired `/ag-ui/*` mirror hands its search equity to the
+      // canonical upstream docs at docs.ag-ui.com (see AG_UI_MIRROR_REDIRECTS).
+      ...AG_UI_MIRROR_REDIRECTS,
       {
         // Built-in agent is the default framework, so its overview page
         // is the docs root. Avoid surfacing a redundant "Introduction"
@@ -504,9 +592,7 @@ const nextConfig: NextConfig = {
       // to /<page>. Specific entries first (they must win over the
       // catch-all), then the catch-all that strips the prefix.
       // ----------------------------------------------------------------
-      // BIA's AG-UI backend page lives at /backend/ag-ui at the root —
-      // the bare /ag-ui segment is owned by the AG-UI protocol docs
-      // (src/app/ag-ui/), so the page can't keep its old slug.
+      // BIA's AG-UI backend page lives at /backend/ag-ui at the root.
       {
         source: "/built-in-agent/ag-ui",
         destination: "/backend/ag-ui",
@@ -518,6 +604,21 @@ const nextConfig: NextConfig = {
       {
         source: "/built-in-agent/tutorials/:path*",
         destination: "/quickstart",
+        permanent: true,
+      },
+      // The Intelligence folder was renamed `premium/` → `intelligence/`
+      // (OSS-1078). Without these two entries the catch-all below strips
+      // the prefix to `/premium/...`, which the middleware then renames in
+      // a second hop. Naming the rename here keeps BIA at one hop, like
+      // every other framework slug.
+      {
+        source: "/built-in-agent/premium",
+        destination: "/intelligence/overview",
+        permanent: true,
+      },
+      {
+        source: "/built-in-agent/premium/:path*",
+        destination: "/intelligence/:path*",
         permanent: true,
       },
       {
@@ -675,12 +776,12 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/learn/threads",
-        destination: "/premium/threads-explained",
+        destination: "/intelligence/threads-explained",
         permanent: true,
       },
       {
         source: "/learn/intelligence-platform",
-        destination: "/premium/intelligence-platform",
+        destination: "/intelligence/intelligence-platform",
         permanent: true,
       },
       {
@@ -746,8 +847,8 @@ const nextConfig: NextConfig = {
 
       // Concepts subgroup tightened: protocol pages moved into a new
       // /agentic-protocols/ section under Get Started, the
-      // Intelligence Platform + Threads explanation pages moved to
-      // Enterprise (/premium/), and three-types-of-gen-ui merged into
+      // Intelligence + Threads explanation pages moved to
+      // Enterprise (/intelligence/), and three-types-of-gen-ui merged into
       // /concepts/generative-ui-overview. Per-path redirects below
       // catch URLs that were live in the brief window between the
       // first /learn/ consolidation pass and this restructure.
@@ -773,12 +874,12 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/concepts/intelligence-platform",
-        destination: "/premium/intelligence-platform",
+        destination: "/intelligence/intelligence-platform",
         permanent: true,
       },
       {
         source: "/concepts/threads",
-        destination: "/premium/threads-explained",
+        destination: "/intelligence/threads-explained",
         permanent: true,
       },
       {
@@ -810,6 +911,15 @@ const nextConfig: NextConfig = {
         destination: "/reference/v2/hooks/useSuggestions",
         permanent: true,
       },
+      // The v1 Python SDK class was renamed upstream (langgraph_agent.py ->
+      // langgraph_agui_agent.py, LangGraphAgent -> LangGraphAGUIAgent), so the
+      // generated reference page moved with it. Carry the .md/.mdx suffixes
+      // too: a raw Markdown request reaches redirects before the .md/.mdx
+      // rewrite, so a bare-path-only rule would 404 the LLM routes.
+      ...permanentRedirectsWithSuffixes(
+        "/reference/v1/sdk/python/LangGraphAgent",
+        "/reference/v1/sdk/python/LangGraphAGUIAgent",
+      ),
       // AI-slop placeholder pulled from nav until properly authored;
       // file stays on disk for rewrite.
       {

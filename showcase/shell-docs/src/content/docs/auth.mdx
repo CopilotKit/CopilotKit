@@ -39,9 +39,11 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 ```
 
 <Callout type="info" title="About the explicit useSingleEndpoint">
-  The `createCopilotRuntimeHandler` route below serves multi-route, the default. Both `<CopilotKit>` and `<CopilotKitProvider>` negotiate the transport when the
-  prop is omitted, so this `{false}` is optional: it pins the multi-route REST
-  routes rather than probing for them. See
+  The `createCopilotRuntimeHandler` route below serves multi-route, the default.
+  `<CopilotKitProvider>` negotiates the transport when the prop is omitted, but
+  every released `<CopilotKit>` still pins it to `true` internally — which
+  selects the single-route transport and 404s against this route. Keep the
+  `{false}`. See
   [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
 </Callout>
 
@@ -340,6 +342,7 @@ using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using OpenAI;
+using OpenAI.Chat;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -358,21 +361,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddAGUIServer();
 
 var app = builder.Build();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-string githubToken = builder.Configuration["GitHubToken"]!;
-var openAI = new OpenAIClient(
-    new System.ClientModel.ApiKeyCredential(githubToken),
-    new OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com") }
-);
+string openAiApiKey = builder.Configuration["OPENAI_API_KEY"]
+    ?? throw new InvalidOperationException("Set OPENAI_API_KEY");
+var openAI = new OpenAIClient(openAiApiKey);
 var agent = openAI.GetChatClient("gpt-5.4-mini")
-    .CreateAIAgent(name: "AGUIAssistant", instructions: "You are a helpful assistant.");
+    .AsAIAgent(name: "AGUIAssistant", instructions: "You are a helpful assistant.");
 
-app.MapAGUI("/", agent).RequireAuthorization();
+app.MapAGUIServer("/", agent).RequireAuthorization();
 
 await app.RunAsync();
 ```
@@ -382,9 +384,15 @@ Settings live in `appsettings.json`:
 ```json title="appsettings.json"
 {
   "JwtAuthority": "https://login.microsoftonline.com/{your-tenant-id}/v2.0",
-  "JwtAudience": "api://{your-client-id}",
-  "GitHubToken": "your-github-token-here"
+  "JwtAudience": "api://{your-client-id}"
 }
+```
+
+Save the model key outside `appsettings.json`:
+
+```bash
+dotnet user-secrets init
+dotnet user-secrets set OPENAI_API_KEY "<your-openai-api-key>"
 ```
 
 </Tab>
@@ -458,12 +466,12 @@ Verifying *who* the caller is doesn't yet stop them reaching *someone else's con
 
 | Runtime | Who scopes threads to a user |
 | --- | --- |
-| `CopilotRuntime` with `intelligence` | Mostly the runtime, via [`identifyUser`](#the-intelligence-platform-scopes-most-thread-routes) — with three routes you still have to guard. |
+| `CopilotRuntime` with `intelligence` | Mostly the runtime, via [`identifyUser`](#copilotkit-intelligence-scopes-most-thread-routes) — with three routes you still have to guard. |
 | Anything else — SSE runtime, custom store, local in-memory runner | You do. See [Scope threads yourself](#scope-threads-yourself). |
 
-### The Intelligence Platform scopes most thread routes
+### CopilotKit Intelligence scopes most thread routes
 
-The Intelligence runtime requires an `identifyUser` callback — construction throws without one (or without at least one Channel). It runs on the server, once per request, and the id it returns is the scope the runtime hands to the platform:
+The Intelligence runtime requires an `identifyUser` callback — construction throws without one (or without at least one Channel). It runs on the server, once per request, and the id it returns is the scope the runtime hands to the platform. (`intelligence` below is a `CopilotKitIntelligence` instance; [Connect your runtime to Intelligence](/intelligence/connect-your-runtime) covers building it.)
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 const runtime = new CopilotRuntime({
@@ -509,7 +517,7 @@ Where a route does resolve the caller, what matters next is whether that id is a
   which aborts whichever run the runtime is tracking under that thread id. Any caller who
   learns an active `threadId` can kill that run mid-flight.
 
-  Guard all three yourself. The `onBeforeHandler` pattern below applies on the Intelligence
+  Guard all three yourself. The `onBeforeHandler` pattern below applies on the CopilotKit Intelligence
   path too, narrowed to these routes:
 
   ```ts
@@ -553,7 +561,7 @@ See [Scope Rich Threads to the signed-in user](/threads-lifecycle#scope-rich-thr
 
 ### Scope threads yourself
 
-Without the Intelligence Platform there is no server-side binding between a `threadId` and a user. A `threadId` is just an opaque id travelling in a request: if user A learns user B's, every thread route accepts it. The rest of this section is the pattern for a custom store, a plain SSE runtime, or the local in-memory runner — and it's also what you narrow to `threads/events`, `threads/state`, and `agent/stop` if you *are* on the platform.
+Without CopilotKit Intelligence there is no server-side binding between a `threadId` and a user. A `threadId` is just an opaque id travelling in a request: if user A learns user B's, every thread route accepts it. The rest of this section is the pattern for a custom store, a plain SSE runtime, or the local in-memory runner — and it's also what you narrow to `threads/events`, `threads/state`, and `agent/stop` if you *are* on the platform.
 
 #### Own the mapping
 
@@ -633,7 +641,7 @@ Filter server-side. Hiding rows in the UI leaves the underlying route open.
 - **Always validate** the token on the backend. Never trust the frontend's claim.
 - **Scope every read and write** to the resolved user. Auth context only matters if you actually use it to filter data.
 - **Authenticate in `onRequest`.** It is the only hook that runs on every route. `identifyUser` names a caller; it does not gate one, and some routes never invoke it.
-- **Bind threads to a user.** On the Intelligence Platform that means a correct `identifyUser`, plus your own guard on `threads/events`, `threads/state`, and `agent/stop`; off it, an ownership check on every thread route rather than only at login. See [Thread authorization](#thread-authorization).
+- **Bind threads to a user.** On CopilotKit Intelligence that means a correct `identifyUser`, plus your own guard on `threads/events`, `threads/state`, and `agent/stop`; off it, an ownership check on every thread route rather than only at login. See [Thread authorization](#thread-authorization).
 - **Don't log raw tokens.** Log the resolved user id (or `anonymous`) instead.
 - **Use HTTPS in production.** The Bearer token is sensitive.
 - **Refresh strategy.** Your frontend is responsible for rotating expired tokens before they reach the agent. CopilotKit doesn't refresh on your behalf.

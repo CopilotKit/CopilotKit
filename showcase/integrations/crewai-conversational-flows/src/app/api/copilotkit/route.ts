@@ -118,6 +118,11 @@ agents["interrupt-headless"] = createAgent("/interrupt");
 // `set_steps` tool + per-call STATE_SNAPSHOT emit (see
 // src/agents/gen_ui_agent.py).
 agents["gen-ui-agent"] = createAgent("/gen-ui-agent");
+// gen-ui-tool-based has its own Flow (src/agents/gen_ui_tool_based.py) for
+// the same reason langgraph-python gives it a dedicated graph: it must force
+// a `render_*` chart call on the user turn, which the neutral chat Flow does
+// not do.
+agents["gen-ui-tool-based"] = createAgent("/gen-ui-tool-based");
 // tool-rendering-custom-catchall routes to a dedicated CrewAI Flow
 // backend (`/tool-rendering`, src/agents/tool_rendering.py) that emits
 // AG-UI TOOL_CALL_* events for `get_weather` / `get_stock_price` so the

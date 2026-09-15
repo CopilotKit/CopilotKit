@@ -80,7 +80,10 @@ const externalizeContext = {
 
 export default defineConfig([
   {
-    entry: ["src/index.tsx", "src/v2/index.ts"],
+    entry: {
+      index: "src/v1-deprecated-compatibility.ts",
+      "v2/index": "src/v2/index.ts",
+    },
     format: ["esm", "cjs"],
     dts: true,
     sourcemap: true,
@@ -163,8 +166,17 @@ export default defineConfig([
       "rxjs",
     ],
   },
+  // UMD builds. Each externalized @copilotkit/* dep must be loaded as a global
+  // before this bundle. Note `@copilotkit/mcp-apps-renderer/activity` -> the
+  // global `CopilotKitMcpAppsRendererActivity`: the provider registers the MCP
+  // Apps activity from that (bridge-free) entry, so script-tag consumers must
+  // load `@copilotkit/mcp-apps-renderer/dist/activity.umd.js` before this bundle
+  // (see that package's README). The ext-apps bridge itself is NOT here; it is
+  // loaded lazily via dynamic import() only when an MCP App renders.
   {
-    entry: ["src/index.tsx"],
+    entry: {
+      index: "src/v1-deprecated-compatibility.ts",
+    },
     format: ["umd"],
     globalName: "CopilotKitReactCore",
     sourcemap: true,
@@ -178,6 +190,7 @@ export default defineConfig([
       "@copilotkit/runtime-client-gql",
       "@copilotkit/web-inspector",
       "@copilotkit/a2ui-renderer",
+      "@copilotkit/mcp-apps-renderer/activity",
       "@ag-ui/client",
       "zod",
       /\.css$/,
@@ -193,6 +206,8 @@ export default defineConfig([
         "@copilotkit/runtime-client-gql": "CopilotKitRuntimeClientGQL",
         "@copilotkit/web-inspector": "CopilotKitWebInspector",
         "@copilotkit/a2ui-renderer": "CopilotKitA2UIRenderer",
+        "@copilotkit/mcp-apps-renderer/activity":
+          "CopilotKitMcpAppsRendererActivity",
         "@ag-ui/client": "AgUIClient",
         "react-markdown": "ReactMarkdown",
         zod: "Zod",
@@ -215,6 +230,7 @@ export default defineConfig([
       "@copilotkit/runtime-client-gql",
       "@copilotkit/web-inspector",
       "@copilotkit/a2ui-renderer",
+      "@copilotkit/mcp-apps-renderer/activity",
       "@ag-ui/client",
       "@ag-ui/core",
       "zod",
@@ -231,6 +247,8 @@ export default defineConfig([
         "@copilotkit/runtime-client-gql": "CopilotKitRuntimeClientGQL",
         "@copilotkit/web-inspector": "CopilotKitWebInspector",
         "@copilotkit/a2ui-renderer": "CopilotKitA2UIRenderer",
+        "@copilotkit/mcp-apps-renderer/activity":
+          "CopilotKitMcpAppsRendererActivity",
         "@ag-ui/client": "AgUIClient",
         "@ag-ui/core": "AgUICore",
         "react-markdown": "ReactMarkdown",
@@ -244,7 +262,6 @@ export default defineConfig([
         "@radix-ui/react-dropdown-menu": "RadixReactDropdownMenu",
         "katex/dist/katex.min.css": "katexCss",
         streamdown: "streamdown",
-        "@lit-labs/react": "LitLabsReact",
         "use-stick-to-bottom": "useStickToBottom",
         "ts-deepmerge": "tsDeepmerge",
       };

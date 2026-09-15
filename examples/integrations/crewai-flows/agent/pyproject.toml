@@ -2,11 +2,14 @@
 name = "crewai-agent"
 version = "0.1.0"
 description = "CrewAI agent with AG-UI integration"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.14"
 dependencies = [
-  "crewai>=0.130.0,<0.131.0",
-  "ag-ui-crewai==0.1.4",
-  "ag-ui-protocol==0.1.5",
-  "python-dotenv==1.0.1",
-  "uvicorn>=0.34.3,<0.35.0",
+  "crewai==1.15.11",
+  "ag-ui-crewai==0.3.0",
+  "ag-ui-protocol==0.1.19",
+  "fastapi==0.115.12",
+  "litellm==1.79.3",
+  "python-dotenv==1.2.2",
+  "typing-extensions>=4.6; python_version < '3.11'",
+  "uvicorn==0.34.3",
 ]

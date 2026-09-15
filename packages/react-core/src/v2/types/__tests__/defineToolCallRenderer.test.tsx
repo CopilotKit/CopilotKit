@@ -522,4 +522,62 @@ describe("defineToolCallRenderer", () => {
       expect(element.textContent).toContain("Defaulted: custom");
     });
   });
+
+  describe("what a render may return", () => {
+    // `render` is typed `=> React.ReactElement | null`, so a definition can
+    // choose to draw nothing for a tool call. Both directions are asserted,
+    // because a one-directional test would still pass if the element path had
+    // broken.
+
+    it("accepts a render that returns null for one state and an element for another", () => {
+      const partiallySilent = defineToolCallRenderer({
+        name: "quiet_tool",
+        args: z.object({ id: z.number() }),
+        render: ({ args, status }) => {
+          // Draw nothing until the call has actually finished.
+          if (status !== ToolCallStatus.Complete) return null;
+          return <div data-testid="quiet">Done: {args.id}</div>;
+        },
+      });
+
+      const Component = partiallySilent.render as React.FC<any>;
+      const { container, rerender } = render(
+        <Component
+          name="quiet_tool"
+          args={{ id: 7 }}
+          status={ToolCallStatus.Executing}
+          result={undefined}
+        />,
+      );
+      expect(container.textContent).toBe("");
+
+      rerender(
+        <Component
+          name="quiet_tool"
+          args={{ id: 7 }}
+          status={ToolCallStatus.Complete}
+          result="ok"
+        />,
+      );
+      expect(screen.getByTestId("quiet").textContent).toBe("Done: 7");
+    });
+
+    it("accepts a wildcard render that returns null", () => {
+      const silentWildcard = defineToolCallRenderer({
+        name: "*",
+        render: () => null,
+      });
+
+      const Component = silentWildcard.render as React.FC<any>;
+      const { container } = render(
+        <Component
+          name="unknown_tool"
+          args={{ anything: "goes" }}
+          status={ToolCallStatus.Complete}
+          result="ok"
+        />,
+      );
+      expect(container.textContent).toBe("");
+    });
+  });
 });

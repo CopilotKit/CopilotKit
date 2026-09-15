@@ -1,19 +1,10 @@
-// @region[backend-render-operations]
-// @region[weather-tool-backend]
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
-// Use the header-forwarding `openai` so backend tool LLM calls (e.g.
-// generateText inside generateA2ui) carry the inbound aimock context
-// headers. See `_header_forwarding.ts`.
-import { openai } from "@/mastra/_header_forwarding";
-import { generateText, tool as aiTool } from "ai";
 import {
   getWeatherImpl,
   queryDataImpl,
   scheduleMeetingImpl,
   searchFlightsImpl,
-  generateA2uiImpl,
-  buildA2uiOperationsFromToolCall,
 } from "@copilotkit/showcase-shared-tools";
 
 // `manage_todos` writes the todo list into working memory so the Beautiful
@@ -23,9 +14,10 @@ import {
   writeTodosToWorkingMemory,
   readTodosFromWorkingMemory,
 } from "./working-memory";
-// Grounds the dynamic `generate_a2ui` render on the catalog schema the bridge
-// forwards onto Mastra's request context (the outer model sends it empty).
-import { readForwardedA2uiContext } from "./a2ui-context";
+// Single A2UI operation builder for this integration: the doc-facing
+// `a2ui-generate.ts` owns it so its snippet stays self-contained (OSS-901),
+// and the fixed-flight tool below emits the same envelope shape.
+import { buildA2uiOperations } from "./a2ui-generate";
 
 // Re-export the dedicated tool sets defined in their own modules so the
 // barrel keeps a single import surface for callers under `@/mastra/tools`.
@@ -39,7 +31,9 @@ export {
   writingAgentTool,
   critiqueAgentTool,
 } from "./subagents";
+export { generateA2uiTool } from "./a2ui-generate";
 
+// @region[weather-tool-backend]
 export const weatherTool = createTool({
   id: "get_weather",
   description: "Get current weather for a location",
@@ -336,100 +330,6 @@ export const searchFlightsTool = createTool({
   },
 });
 
-// The `generate-a2ui` tool runs a secondary LLM call with a forced
-// `render_a2ui` tool, then converts that tool call's args into the
-// A2UI `a2ui_operations` container that the middleware forwards to
-// the frontend renderer. Mastra returns the operations as a JSON
-// string from the tool body; the catalog resolves component names to
-// React renderers on the client.
-export const generateA2uiTool = createTool({
-  id: "generate-a2ui",
-  description: "Generate dynamic A2UI surface components",
-  inputSchema: z.object({
-    messages: z.array(z.record(z.unknown())).describe("Chat messages"),
-    contextEntries: z
-      .array(z.record(z.unknown()))
-      .optional()
-      .describe("Context entries"),
-  }),
-  execute: async ({ messages, contextEntries }, executionContext) => {
-    // The outer model leaves `contextEntries` empty — it has no basis to hand
-    // the catalog schema back through a tool arg — so on a live LLM the inner
-    // `render_a2ui` subagent would run with an EMPTY system prompt: ungrounded,
-    // it emits invalid/misnamed components (or none), and the surface fails to
-    // render, varying run to run. (aimock hides it: the recorded fixture
-    // returns a valid envelope regardless of the empty context.) The bridge
-    // already forwards the catalog schema + generation guidelines onto the
-    // request context, so read them server-side and ground the render there
-    // rather than trusting the model-supplied arg.
-    const forwardedContext = readForwardedA2uiContext(executionContext);
-    const prep = generateA2uiImpl({
-      messages,
-      contextEntries:
-        forwardedContext.length > 0 ? forwardedContext : contextEntries,
-    });
-
-    // Normalize each incoming message role to the `user`/`assistant` pair
-    // `generateText` accepts here. An unsound `as "user" | "assistant"` cast
-    // would let a `system`/`tool` role slip through mis-typed (the `??` only
-    // guards null/undefined), so map explicitly: anything that is not
-    // `assistant` collapses to `user`.
-    const toRole = (role: unknown): "user" | "assistant" =>
-      role === "assistant" ? "assistant" : "user";
-
-    const result = await generateText({
-      model: openai("gpt-4.1"),
-      system: prep.systemPrompt,
-      messages: prep.messages.map((m) => ({
-        role: toRole(m.role),
-        content: (m.content as string) ?? "",
-      })),
-      tools: {
-        render_a2ui: aiTool({
-          description: "Render a dynamic A2UI v0.9 surface.",
-          // AI SDK v5 renamed the tool schema key from `parameters` to
-          // `inputSchema`; under v5 a `parameters` key is ignored, so the
-          // render_a2ui schema would never reach the model.
-          inputSchema: z.object({
-            surfaceId: z.string().describe("Unique surface identifier."),
-            catalogId: z.string().describe("The catalog ID."),
-            components: z
-              .array(z.record(z.unknown()))
-              .describe("A2UI v0.9 component array."),
-            data: z
-              .record(z.unknown())
-              .optional()
-              .describe("Optional initial data model."),
-          }),
-        }),
-      },
-      toolChoice: { type: "tool", toolName: "render_a2ui" },
-    });
-
-    const toolCall = result.toolCalls?.[0];
-    if (!toolCall) {
-      // The forced `render_a2ui` tool was not called, so there are no
-      // operations to forward. Returning a `{ error }` JSON string would look
-      // like a successful tool result to the frontend/runtime, which cannot
-      // then distinguish it from a real A2UI payload. Throw instead so the
-      // Mastra runtime surfaces this as a genuine tool error.
-      const message = "generate-a2ui: LLM did not call render_a2ui";
-      console.error(message, { finishReason: result.finishReason });
-      throw new Error(message);
-    }
-
-    // AI SDK v5 renamed the typed tool-call arguments from `.args` to
-    // `.input` (the `ai` v4 shape was `toolCall.args`). Read `.input` so the
-    // a2ui builder gets the render_a2ui arguments instead of `undefined`.
-    return JSON.stringify(
-      buildA2uiOperationsFromToolCall(
-        toolCall.input as Record<string, unknown>,
-      ),
-    );
-  },
-});
-// @endregion[backend-render-operations]
-
 // @region[beautiful-chat-fixed-flights]
 // Fixed-schema A2UI flight search for the Beautiful Chat cell. Mirrors
 // langgraph-python `beautiful_chat.py::search_flights`: the tool RESULT is a
@@ -495,7 +395,7 @@ export const searchFlightsA2uiTool = createTool({
   // tool result once for the wire, so a single-encoded `a2ui_operations`
   // container is what the A2UI middleware detects and paints.
   execute: async ({ flights }) =>
-    buildA2uiOperationsFromToolCall({
+    buildA2uiOperations({
       surfaceId: FLIGHT_SURFACE_ID,
       catalogId: FLIGHT_CATALOG_ID,
       components: buildFlightCardComponents(flights),

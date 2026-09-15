@@ -3,10 +3,27 @@ title: "CopilotKit"
 description: "The CopilotKit provider component, wrapping your application."
 ---
 
-<Callout type="info">
-  This provider is shared across v1 and v2 APIs. In v2 docs, import it from
-  `@copilotkit/react-core/v2`.
+<Callout type="info" title="This is the v1 provider, re-exported for back-compat">
+  `<CopilotKit>` is the v1 provider. It is re-exported from
+  `@copilotkit/react-core/v2` so that a v1 application keeps working after the
+  import path changes, and it renders `<CopilotKitProvider>` internally. **The
+  v2 provider is `<CopilotKitProvider>`** — reach for that one in new v2 code.
 </Callout>
+
+The two are not aliases: they name the agent with different props.
+
+|                | v1 `<CopilotKit>`  | v2 `<CopilotKitProvider>` |
+| -------------- | ------------------ | ------------------------- |
+| Name the agent | `agent="my_agent"` | `agentId="my_agent"`      |
+
+You can also name the agent per chat with `<CopilotChat agentId="my_agent">`, or
+for a subtree with `<CopilotChatConfigurationProvider agentId="my_agent">`. Both
+of those override the provider-level default. See [Provider and handler
+pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
+
+Both providers treat an omitted `useSingleEndpoint` the same way: the transport
+is negotiated from the Runtime info response. Versions before 1.70.2 pinned
+`<CopilotKit>` to the single-route transport.
 
 This component will typically wrap your entire application (or a sub-tree of your application where you want to have a copilot). It provides the copilot context to all other components and hooks.
 
@@ -17,7 +34,7 @@ You can find more information about self-hosting CopilotKit [here](/direct-to-ll
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core/v2";
 
-<CopilotKit runtimeUrl="<your-runtime-url>">// ... your app ...</CopilotKit>
+<CopilotKit runtimeUrl="<your-runtime-url>">// ... your app ...</CopilotKit>;
 ```
 
 ## Properties
@@ -30,7 +47,7 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
 </PropertyReference>
 
 <PropertyReference name="publicLicenseKey" type="string"  >
-Your public license key for accessing Enterprise Intelligence Platform features.
+Your public license key for accessing CopilotKit Intelligence features.
 
 Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one for free.
 
@@ -107,9 +124,11 @@ CORS on your runtime endpoint:
 </CopilotKit>;
 
 // Backend (https://api.myapp.com)
-copilotRuntimeNextJSAppRouterEndpoint({
+import { createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
+
+const handler = createCopilotRuntimeHandler({
   runtime,
-  endpoint: "/copilotkit",
+  basePath: "/copilotkit",
   cors: {
     origin: "https://myapp.com",
     credentials: true,
@@ -169,7 +188,7 @@ This feature is only available when using CopilotKit's hosted cloud service. To 
 Optional error handler for comprehensive debugging and observability.
 
 Requires publicApiKey: Error handling only works when publicApiKey is provided.
-This is an Enterprise Intelligence Platform feature.
+This is a CopilotKit Intelligence feature.
 
 @param errorEvent - Structured error event with rich debugging context
 
@@ -188,6 +207,7 @@ This is an Enterprise Intelligence Platform feature.
 
 <PropertyReference name="enableInspector" type="boolean">
   Enable or disable the CopilotKit Inspector, letting you inspect AG-UI events,
-  view agent messages, check agent state, and visualize agent context. Defaults
-  to enabled.
+  view agent messages, check agent state, and visualize agent context. It is
+  enabled by default in development browser builds and is always disabled in
+  production and during server rendering.
 </PropertyReference>

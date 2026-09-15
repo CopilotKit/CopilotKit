@@ -4,13 +4,14 @@ using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
 using OpenAI;
+using OpenAI.Chat;
 using System.ComponentModel;
 using System.Text.Json.Serialization;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Add(ProverbsAgentSerializerContext.Default));
-builder.Services.AddAGUI();
+builder.Services.AddAGUIServer();
 
 WebApplication app = builder.Build();
 
@@ -20,7 +21,7 @@ var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
 var agentFactory = new ProverbsAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
-app.MapAGUI("/", agentFactory.CreateProverbsAgent());
+app.MapAGUIServer("/", agentFactory.CreateProverbsAgent());
 
 await app.RunAsync();
 
@@ -50,37 +51,38 @@ public class ProverbsAgentFactory
         _logger = loggerFactory.CreateLogger<ProverbsAgentFactory>();
         _jsonSerializerOptions = jsonSerializerOptions;
 
-        // Get the GitHub token from configuration
-        var githubToken = _configuration["GitHubToken"]
+        var openAiApiKey = _configuration["OPENAI_API_KEY"]
             ?? throw new InvalidOperationException(
-                "GitHubToken not found in configuration. " +
-                "Please set it using: dotnet user-secrets set GitHubToken \"<your-token>\" " +
-                "or get it using: gh auth token");
+                "OPENAI_API_KEY not found in configuration. " +
+                "Set it with: dotnet user-secrets set OPENAI_API_KEY \"<your-openai-api-key>\"");
 
-        _openAiClient = new(
-            new System.ClientModel.ApiKeyCredential(githubToken),
-            new OpenAIClientOptions
-            {
-                Endpoint = new Uri(Environment.GetEnvironmentVariable("OPENAI_BASE_URL") ?? "https://models.inference.ai.azure.com")
-            });
+        var openAiBaseUrl = _configuration["OPENAI_BASE_URL"];
+        _openAiClient = string.IsNullOrWhiteSpace(openAiBaseUrl)
+            ? new OpenAIClient(openAiApiKey)
+            : new OpenAIClient(
+                new System.ClientModel.ApiKeyCredential(openAiApiKey),
+                new OpenAIClientOptions { Endpoint = new Uri(openAiBaseUrl) });
     }
 
     public AIAgent CreateProverbsAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
-
-        var chatClientAgent = new ChatClientAgent(
-            chatClient,
-            name: "ProverbsAgent",
-            description: @"A helpful assistant that helps manage and discuss proverbs.
-            You have tools available to add, set, or retrieve proverbs from the list.
-            When discussing proverbs, ALWAYS use the get_proverbs tool to see the current list before mentioning, updating, or discussing proverbs with the user.",
-            tools: [
-                AIFunctionFactory.Create(GetProverbs, options: new() { Name = "get_proverbs", SerializerOptions = _jsonSerializerOptions }),
-                AIFunctionFactory.Create(AddProverbs, options: new() { Name = "add_proverbs", SerializerOptions = _jsonSerializerOptions }),
-                AIFunctionFactory.Create(SetProverbs, options: new() { Name = "set_proverbs", SerializerOptions = _jsonSerializerOptions }),
-                AIFunctionFactory.Create(GetWeather, options: new() { Name = "get_weather", SerializerOptions = _jsonSerializerOptions })
-            ]);
+        var chatClientAgent = _openAiClient.GetChatClient("gpt-4o-mini").AsAIAgent(
+            new ChatClientAgentOptions
+            {
+                Name = "ProverbsAgent",
+                Description = "A helpful assistant that helps manage and discuss proverbs.",
+                ChatOptions = new ChatOptions
+                {
+                    Instructions = @"You have tools available to add, set, or retrieve proverbs from the list.
+                    When discussing proverbs, ALWAYS use the get_proverbs tool to see the current list before mentioning, updating, or discussing proverbs with the user.",
+                    Tools = [
+                        AIFunctionFactory.Create(GetProverbs, options: new() { Name = "get_proverbs", SerializerOptions = _jsonSerializerOptions }),
+                        AIFunctionFactory.Create(AddProverbs, options: new() { Name = "add_proverbs", SerializerOptions = _jsonSerializerOptions }),
+                        AIFunctionFactory.Create(SetProverbs, options: new() { Name = "set_proverbs", SerializerOptions = _jsonSerializerOptions }),
+                        AIFunctionFactory.Create(GetWeather, options: new() { Name = "get_weather", SerializerOptions = _jsonSerializerOptions })
+                    ]
+                }
+            });
 
         return new SharedStateAgent(chatClientAgent, _jsonSerializerOptions);
     }

@@ -48,6 +48,7 @@ jobs:
           - mastra
           - langgraph-js
           - crewai-crews
+          - crewai-flows
           - pydantic-ai
           - adk
           - agno

@@ -74,6 +74,11 @@ jobs:
           COPILOTKIT_TELEMETRY_DISABLED: "true"
         run: pnpm exec nx run ui-protocols-demo:test --skip-nx-cache
 
+      - name: Build the production demo
+        env:
+          COPILOTKIT_TELEMETRY_DISABLED: "true"
+        run: pnpm exec nx run ui-protocols-demo:build --skip-nx-cache
+
       - name: Install Python A2A sidecar
         run: python -m pip install ./examples/showcases/generative-ui-playground/a2a-agent
 

@@ -6,7 +6,7 @@
 # Deploy Frontend to AWS Amplify
 # =============================================================================
 #
-# This script deploys the Next.js frontend to Amplify using Terraform outputs.
+# This script deploys the Vite frontend to Amplify using Terraform outputs.
 #
 # Usage:
 #   ./scripts/deploy-frontend.sh [options]
@@ -223,7 +223,7 @@ else
 fi
 
 # Build frontend
-log_info "Building Next.js app..."
+log_info "Building Vite app..."
 npm run build
 log_success "Build completed"
 

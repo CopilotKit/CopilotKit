@@ -187,7 +187,7 @@ interface HistoricRun {
 
 /**
  * Lightweight thread summary returned by {@link InMemoryAgentRunner.listThreads}.
- * Shape matches the Intelligence platform's ThreadRecord so the same HTTP
+ * Shape matches CopilotKit Intelligence's ThreadRecord so the same HTTP
  * response envelope can be used for both backends.
  */
 export interface InMemoryThread {
@@ -976,9 +976,9 @@ export class InMemoryAgentRunner extends AgentRunner {
    * of the most recent run.
    *
    * This powers the local-dev fallback for `GET /threads/:threadId/messages`
-   * when the Intelligence platform is not configured. The returned `Message[]`
+   * when CopilotKit Intelligence is not configured. The returned `Message[]`
    * objects come directly from the ag-ui agent, so their shape is compatible
-   * with the Intelligence platform's `ThreadMessage` type.
+   * with CopilotKit Intelligence's `ThreadMessage` type.
    */
   getThreadMessages(threadId: string): Message[] {
     const store = sharedStore.peek(threadId);
@@ -1003,7 +1003,7 @@ export class InMemoryAgentRunner extends AgentRunner {
    * Returns all AG-UI events for a thread, compacted across historic runs.
    *
    * Powers the local-dev fallback for `GET /threads/:threadId/events` when the
-   * Intelligence platform is not configured. The compaction logic matches
+   * CopilotKit Intelligence is not configured. The compaction logic matches
    * the connection-replay path in {@link connect}, so the stream a
    * late-joining inspector sees matches what this method returns.
    */

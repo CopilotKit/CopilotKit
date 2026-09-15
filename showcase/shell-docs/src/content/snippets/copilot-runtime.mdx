@@ -2,43 +2,68 @@ The Copilot Runtime is the backend layer that connects your frontend application
 
 ## Setting Up the Runtime
 
-The runtime is a lightweight server endpoint that you add to your backend. Here's a minimal example using Next.js:
+The runtime is a lightweight server endpoint that you add to your backend:
 
-```ts title="app/api/copilotkit/route.ts"
+```npm
+npm install @copilotkit/runtime
+```
+
+Here's a minimal example using Next.js. `createCopilotRuntimeHandler` returns a
+plain fetch handler, so the route is just two exports. It lives at a **catch-all**
+path and exports **both** verbs, so the runtime can serve its sub-routes (`/info`,
+agent runs, threads) rather than a single URL:
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { NextRequest } from "next/server";
-
-const serviceAdapter = new ExperimentalEmptyAdapter();
+  createCopilotRuntimeHandler,
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime/v2";
 
 const runtime = new CopilotRuntime({
   agents: {
     // your agents go here
   },
+  runner: new InMemoryAgentRunner(),
 });
 
-export const POST = async (req: NextRequest) => {
-  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-    runtime,
-    serviceAdapter,
-    endpoint: "/api/copilotkit",
-  });
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
 
-  return handleRequest(req);
-};
+export const GET = handler;
+export const POST = handler;
 ```
+
+With the route in place, `GET /api/copilotkit/info` returns a JSON description of the
+runtime and the agents it has registered. That route is how tooling — and the frontend's
+transport auto-detection — discovers your runtime, so it is the quickest way to confirm
+the endpoint is wired up.
 
 Then point your frontend at the endpoint:
 
 <FrontendOnly frontend="react">
 ```tsx
-<CopilotKit runtimeUrl="/api/copilotkit">
+<CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
   <YourApp />
 </CopilotKit>
 ```
+
+<Callout type="warn">
+  `useSingleEndpoint={false}` selects the REST transport, which is what
+  `createCopilotRuntimeHandler` serves. Pass it explicitly: in released versions
+  `<CopilotKit>` pins the flag to `true` — the single-route transport, which
+  posts everything to the bare `runtimeUrl` — and a multi-route runtime answers
+  that with a 404 while `GET /info` still returns 200, so the app looks
+  connected. `<CopilotKitProvider>` already negotiates the transport from
+  `/info` when the prop is omitted, and `<CopilotKit>` will too, at which point
+  this stays correct but stops being necessary. See [Provider and handler
+  pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
+
+  To keep a single POST-only URL instead, mount the runtime with
+  `createCopilotEndpointSingleRoute` at a plain `route.ts` and omit this prop.
+</Callout>
 </FrontendOnly>
 
 <FrontendOnly frontend="angular">
@@ -57,7 +82,7 @@ For setup with other backend frameworks (Express, NestJS, Node.js HTTP), see the
 
 If you register an agent with the name `"default"`, CopilotKit's prebuilt UI components will use it automatically without any additional configuration on the frontend. This is useful when you have one primary agent and don't want to specify an `agentId` everywhere.
 
-```ts title="app/api/copilotkit/route.ts"
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 const runtime = new CopilotRuntime({
   agents: {
     // Frontend APIs use this agent when no other agent id is selected.
@@ -82,9 +107,9 @@ The [AG-UI protocol](/ag-ui-protocol) supports a middleware layer (`agent.use`) 
 
 When you register multiple agents with the runtime, it handles discovery and routing automatically. Your frontend doesn't need to know the details of where each agent lives or how to reach it.
 
-### Enterprise Intelligence Platform
+### CopilotKit Intelligence
 
-Features like [threads](/threads) and the [inspector](/inspector) are provided through the runtime and the Enterprise Intelligence Platform. These give you conversation persistence and debugging capabilities out of the box.
+Features like [threads](/threads) and the [inspector](/inspector) are provided through the runtime and CopilotKit Intelligence. These give you conversation persistence and debugging capabilities out of the box.
 
 ## Built-in Middleware
 
@@ -94,7 +119,7 @@ The runtime supports two first-class middleware options you can enable directly 
 
 Pass `a2ui: {}` to automatically apply `A2UIMiddleware` to all registered agents:
 
-```ts title="app/api/copilotkit/route.ts"
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
   a2ui: {}, // enables A2UI rendering for all agents
@@ -114,7 +139,11 @@ only when you want to override its defaults:
 
 <FrontendOnly frontend="react">
 ```tsx
-<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }}>
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  useSingleEndpoint={false}
+  a2ui={{ theme: myCustomTheme }}
+>
   {children}
 </CopilotKit>
 ```
@@ -133,7 +162,7 @@ provideCopilotKit({
 
 Pass `mcpApps` to configure MCP servers for all agents from a single place:
 
-```ts title="app/api/copilotkit/route.ts"
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
   mcpApps: {

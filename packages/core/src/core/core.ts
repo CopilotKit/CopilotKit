@@ -30,7 +30,10 @@ import type {
   CopilotKitCoreCatalogComponent,
 } from "./run-handler";
 import { RunHandler } from "./run-handler";
-import type { DebugConfig } from "@copilotkit/shared";
+import type {
+  DebugConfig,
+  RuntimeEntitlementResponse,
+} from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import { ThreadStoreRegistry } from "./thread-store-registry";
@@ -714,6 +717,10 @@ export class CopilotKitCore {
     return this.agentRegistry.runtimeConnectionStatus;
   }
 
+  get ɵruntimeFetch(): typeof fetch {
+    return this.agentRegistry.createRuntimeFetch();
+  }
+
   get audioFileTranscriptionEnabled(): boolean {
     return this.agentRegistry.audioFileTranscriptionEnabled;
   }
@@ -732,6 +739,11 @@ export class CopilotKitCore {
 
   get suggestions(): boolean | undefined {
     return this.agentRegistry.suggestions;
+  }
+
+  /** Whether the connected Runtime exposes debug-authorized Learning data. */
+  get inspectorLearning(): boolean {
+    return this.agentRegistry.inspectorLearning;
   }
 
   /** Trusted, optional metadata advertised by the connected runtime. */
@@ -762,6 +774,16 @@ export class CopilotKitCore {
 
   get licenseStatus(): RuntimeLicenseStatus | undefined {
     return this.agentRegistry.licenseStatus;
+  }
+
+  /** Structured Runtime entitlement authority advertised by `/info`. */
+  get runtimeEntitlements(): RuntimeEntitlementResponse | undefined {
+    return this.agentRegistry.runtimeEntitlements;
+  }
+
+  /** Whether Core still has a bounded Runtime entitlement retry to settle. */
+  get runtimeEntitlementRetryPending(): boolean {
+    return this.agentRegistry.runtimeEntitlementRetryPending;
   }
 
   get telemetryDisabled(): boolean {
@@ -953,13 +975,13 @@ export class CopilotKitCore {
   /**
    * Lazily creates, starts, and context-syncs the core-owned memory store on
    * first access, then returns it. Subsequent calls return the existing store.
-   * The store is constructed with a bound `globalThis.fetch` and immediately
-   * has its runtime context synced from the current connection state.
+   * The store uses the Core Runtime fetch so REST and single-route transports
+   * share the same resource behavior. Its Runtime context is synced at once.
    */
   private ensureMemoryStore(): ɵMemoryStore {
     if (!this._memoryStore) {
       this._memoryStore = ɵcreateMemoryStore({
-        fetch: globalThis.fetch.bind(globalThis),
+        fetch: this.ɵruntimeFetch,
       });
       this._memoryStore.start();
       this.syncMemoryContext();

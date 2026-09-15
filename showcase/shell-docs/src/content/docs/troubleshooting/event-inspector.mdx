@@ -12,10 +12,10 @@ Use it when:
 - You need to inspect tool call arguments or state deltas for a specific interaction
 
 <Callout type="info">
-  The in-app Inspector handles a locked Threads tab from the Runtime's current
-  license state. It can show **Enable Intelligence**, **Renew**, or **Manage
-  plan** only when the Runtime supplies a matching trusted action URL. See
-  [Inspector](/inspector) for the state matrix.
+  The in-app Inspector locks the Threads tab when the Runtime does not advertise
+  the Threads list capability, regardless of license metadata. The locked view
+  offers **Copy setup prompt** and **Talk to an Engineer**. See
+  [Inspector](/inspector#enable-or-repair-intelligence) for the setup flow.
 </Callout>
 
 ## Prerequisites
@@ -30,7 +30,7 @@ Use it when:
 <Callout type="warning">
   This stream carries the AG-UI events a **self-hosted** runtime sends over SSE.
   A runtime configured with `intelligence` does not send them: it answers runs
-  over the Intelligence platform's realtime connection instead. On that runtime
+  over CopilotKit Intelligence's realtime connection instead. On that runtime
   `/cpk-debug-events` still connects and reports `: connected`, then stays
   empty. To trace an Intelligence-backed run, use the in-app
   [Inspector](/inspector), which reads the events on the client.

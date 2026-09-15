@@ -1343,6 +1343,36 @@ def test_server_and_runtime_register_dedicated_flow_routes():
     assert "`${AGENT_URL}/frontend-tools`" in open_gen_ui_route
 
 
+def test_plain_assistant_cells_never_reach_a_crew_endpoint():
+    """Cells with no dedicated backend must land on the neutral chat Flow.
+
+    A crew endpoint composes its system message with CrewAI's
+    `build_system_message`, whose unconditional boilerplate makes the
+    assistant introduce itself and steer every answer back to the crew's
+    purpose. The chat Flow owns its own prompt, so the fall-through path is
+    a Flow and the server registers no root catch-all to fall back to.
+    """
+    server = AGENT_SERVER.read_text()
+    route = MAIN_RUNTIME_ROUTE.read_text()
+
+    assert (
+        'add_crewai_flow_fastapi_endpoint(app, PromptedChatFlow(), "/chat")' in server
+    )
+    assert not re.search(r'add_crewai_crew_fastapi_endpoint\([^)]*"/"\s*\)', server)
+    assert 'function createAgent(path = "/chat")' in route
+
+    for dedicated in (
+        "copilotkit-agent-config",
+        "copilotkit-auth/[[...slug]]",
+        "copilotkit-voice/[[...slug]]",
+    ):
+        source = (
+            INTEGRATION_ROOT / "src" / "app" / "api" / dedicated / "route.ts"
+        ).read_text()
+        assert "${AGENT_URL}/chat`" in source
+        assert "${AGENT_URL}/`" not in source
+
+
 def test_byoc_hashbrown_legacy_route_is_operational():
     page = INTEGRATION_ROOT / "src" / "app" / "demos" / "byoc-hashbrown" / "page.tsx"
     declarative_page = (

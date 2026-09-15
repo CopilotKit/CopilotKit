@@ -30,6 +30,18 @@ varies between integrations:
 
 Ask about a flight and the agent renders a fully structured card from a pre-defined schema:
 
+<Callout type="info" title="The flight card is an illustrative domain">
+  Everything below uses flight booking so the wiring has something concrete to
+  render — `display_flight`, `flight-fixed-catalog`, and the airport/airline
+  components are this page's example, not part of the API.
+
+  What transfers is the **shape**: a fixed catalog, a tool that returns data
+  against it, and `a2ui.render(...)` with `createSurface` + `updateComponents` +
+  `updateDataModel`. Keep your own application's domain and substitute your own
+  components and tool — a page teaching the pattern is not a brief to build a
+  flight booker.
+</Callout>
+
 ## How it works
 
 1. The schema is made available to the agent, either loaded from a
@@ -269,7 +281,14 @@ Mastra and Strands take a different route: the agent tool runs a
 operations container per-request. The frontend catalog is still fixed
 (same `Title`/`Airport`/`Arrow`/`AirlineBadge`/`PriceTag` primitives),
 but the schema is built on the fly. Schema construction and render
-emission happen in the same tool call:
+emission happen in the same tool call.
+
+Neither SDK ships an `a2ui.render(...)` equivalent here, so the tool
+assembles the `a2ui_operations` envelope itself — the operation builder
+below is part of what you copy. Note the operations are *nested*
+(`{ createSurface: {...} }`): a consumer dispatches on the operation
+key, so a flat `{ type: "create_surface" }` shape is ignored and the
+surface never paints.
 
 <Snippet region="backend-render-operations" />
 </Step>
@@ -346,7 +365,7 @@ When available, a button declares its action like this:
 And the Python tool matches it with a handler keyed by the action
 name (plus a `"*"` catch-all). Until the SDK lands, handle the click on the
 frontend instead — see
-[Advanced — Action Handlers](./advanced#action-handlers) for the
+[Advanced — Action Handlers](/integrations/langgraph/generative-ui/a2ui/advanced#action-handlers) for the
 `createA2UIMessageRenderer` / `onAction` pattern.
 
 ## When should I use fixed schemas?

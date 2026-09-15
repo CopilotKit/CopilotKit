@@ -5,6 +5,9 @@ import path from "node:path";
 // deliberately loads at runtime (and is not part of the walked graph either —
 // the walk starts at src/headless.ts / src/index.ts, not at this test).
 import type * as HeadlessEntry from "../headless";
+// Same reason, and additionally: the identity assertion below needs the module
+// this entry re-exports FROM, to compare bindings rather than merely count them.
+import type * as CoreHeadlessEntry from "@copilotkit/react-core/v2/headless";
 
 /**
  * Guards the `@copilotkit/react-native/headless` entry (src/headless.ts).
@@ -81,6 +84,9 @@ const FORBIDDEN_LOCAL = [
   "use-attachments",
 ];
 
+// The one react-core entry this package's hooks come from.
+const CORE_HEADLESS = "@copilotkit/react-core/v2/headless";
+
 // ─── #4893 bundle guard ──────────────────────────────────────────────────────
 // @copilotkit/react-core/v2 (the "fat" entry) re-exports from a monolithic chunk
 // that pulls the chat-message rendering stack: streamdown -> shiki (~5.5 MB of
@@ -89,8 +95,49 @@ const FORBIDDEN_LOCAL = [
 // all of it in every consumer's app bundle (issue #4893). PR #5883 moved the lean
 // hooks into /v2/headless precisely so this package never needs the fat entry.
 const ALLOWED_REACT_CORE_ENTRIES = [
-  "@copilotkit/react-core/v2/headless",
+  CORE_HEADLESS,
   "@copilotkit/react-core/v2/context",
+];
+
+/**
+ * Registry-owning APIs and primitives no module in the headless graph may use.
+ *
+ * `CopilotKitCoreReact` is the ONE render-tool/tool registry, and this package
+ * reaches it only through react-core's hooks. That is not a style preference: RN
+ * used to keep its own `Map` behind a `RenderToolProvider`, and the consequences
+ * were that `useComponent` (which registers into core's registry) rendered
+ * nowhere on RN, and that renderers vanished from chat history on unmount.
+ *
+ * This sits alongside the two identity assertions below rather than behind
+ * them. Identity pins what `useFrontendTool` and `useRenderTool` ARE; this pins
+ * that nothing ELSE in the graph has grown a registry to compete with core's —
+ * a component, a provider, a helper module that never touches either hook's
+ * name and would therefore pass identity untouched.
+ */
+const FORBIDDEN_REGISTRY_APIS: readonly (readonly [
+  identifier: string,
+  why: string,
+])[] = [
+  [
+    "addTool",
+    "registers a frontend tool directly — go through react-core's `useFrontendTool`",
+  ],
+  [
+    "removeTool",
+    "unregisters a frontend tool directly — go through react-core's `useFrontendTool`",
+  ],
+  [
+    "addHookRenderToolCall",
+    "writes a renderer into the registry directly — go through react-core's `useRenderTool` / `useFrontendTool`",
+  ],
+  [
+    "renderToolCalls",
+    "reads or writes the renderer registry directly — go through react-core's `useRenderToolCall`",
+  ],
+  [
+    "createContext",
+    "a React context in the headless graph is how an RN-local registry would be rebuilt (`RenderToolProvider` was exactly that). If a context here is genuinely unrelated to tool registration, exempt it deliberately in this list with a reason",
+  ],
 ];
 
 // Heavy modules that must never appear as a direct import from this package.
@@ -263,6 +310,28 @@ function resolveLocal(fromFile: string, spec: string): string | null {
   ];
   for (const c of candidates) {
     if (fs.existsSync(c) && fs.statSync(c).isFile()) return c;
+  }
+  return null;
+}
+
+/**
+ * The module specifier a VALUE export is re-exported from, or null.
+ *
+ * Matches either side of an `as` (the local name is the one whose
+ * implementation is in question; the exported name is what a consumer imports)
+ * and skips `export type { … }` blocks, which carry no runtime binding.
+ */
+function reExportSpecifierOf(code: string, name: string): string | null {
+  const stripped = stripComments(code);
+  const re = /export\s+(type\s+)?\{([^}]*)\}\s*from\s*["'`]([^"'`]+)["'`]/g;
+  for (const m of stripped.matchAll(re)) {
+    if (m[1]) continue;
+    for (const raw of m[2]!.split(",")) {
+      const clause = raw.trim();
+      if (!clause || /^type\s+/.test(clause)) continue;
+      const [local, exported] = clause.split(/\s+as\s+/).map((s) => s.trim());
+      if (local === name || exported === name) return m[3]!;
+    }
   }
   return null;
 }
@@ -442,6 +511,33 @@ describe("@copilotkit/react-native/headless entry", () => {
     ).toEqual([]);
   });
 
+  it("owns no tool/renderer registry of its own anywhere in the headless graph", () => {
+    const { seen } = graphFor(headlessEntry);
+    // Non-vacuity comes from REQUIRED_HEADLESS_MODULES above (a truncated walk
+    // fails there first), so this only has to be a deny-list.
+    const offenders: string[] = [];
+    for (const file of seen) {
+      // Comments stripped: this file's own graph is heavily documented and the
+      // modules in it name these APIs in prose to explain why they do NOT call
+      // them. A raw text match would fail on the documentation.
+      const code = stripComments(fs.readFileSync(file, "utf8"));
+      for (const [identifier, why] of FORBIDDEN_REGISTRY_APIS) {
+        if (new RegExp(`\\b${identifier}\\b`).test(code)) {
+          offenders.push(
+            `${path.relative(srcDir, file)}: ${identifier} — ${why}`,
+          );
+        }
+      }
+    }
+    expect(
+      offenders,
+      `module(s) in the headless graph touch registry internals directly:\n  ` +
+        `${offenders.join("\n  ")}\n` +
+        `CopilotKitCoreReact is the single registry and this package must reach ` +
+        `it only through react-core's hooks.`,
+    ).toEqual([]);
+  });
+
   /**
    * The four checks below need the entry EVALUATED, not just read: they assert
    * that the named exports exist as runtime values (a re-export of a name that
@@ -480,9 +576,16 @@ describe("@copilotkit/react-native/headless entry", () => {
   // blast-radius problem as blind spot #4, just moved into a hook.
   describe("runtime export surface", () => {
     let mod: typeof HeadlessEntry;
+    let coreHeadless: typeof CoreHeadlessEntry;
 
     beforeAll(async () => {
-      mod = await import("../headless");
+      // Both loads live in the ONE budgeted hook. core's /v2/headless is already
+      // inside this entry's own graph, so importing it here is a module-cache
+      // hit rather than a second traversal.
+      [mod, coreHeadless] = await Promise.all([
+        import("../headless"),
+        import("@copilotkit/react-core/v2/headless"),
+      ]);
     }, IMPORT_BUDGET_MS);
 
     it("does export the provider + core headless hooks", () => {
@@ -508,6 +611,79 @@ describe("@copilotkit/react-native/headless entry", () => {
       ]) {
         expect(mod, `missing export: ${name}`).toHaveProperty(name);
       }
+    });
+
+    it("exports react-core's `useFrontendTool` ITSELF, not an RN copy of it", () => {
+      // IDENTITY, which the two presence checks above deliberately do not assert
+      // — and could not have. RN used to ship a LOCAL `useRenderTool` whose whole
+      // body forwarded to react-core's `useFrontendTool`: core's OTHER hook,
+      // wearing this one's name. Both names were present in that world and are
+      // present in this one, so every presence check stayed green across the
+      // deletion, having verified nothing about which hook a consumer gets.
+      //
+      // The difference is what a consumer is billed for. `useFrontendTool`
+      // registers a tool AND its renderer, so the tool is advertised to the model
+      // and callable by it; `useRenderTool` registers a renderer only. Under the
+      // alias, `name: "*"` — the documented spelling of "render every tool call
+      // nothing else claims" — registered a frontend tool literally named `*`,
+      // schema-less and description-less. Core never OFFERED that one to the
+      // model (`buildFrontendTools` filters the name out), but `*` is core's
+      // catch-all HANDLER name, so the registration made a display-only wildcard
+      // auto-answer every otherwise-unanswered tool call with an empty tool
+      // result and request a follow-up turn
+      // (src/hooks/__tests__/useRenderTool.test.tsx pins the behaviour; this pins
+      // the wiring).
+      //
+      // PR #6533 converged both names onto react-core behind a temporary
+      // routing shim, during which this half of the assertion could not be
+      // identity; #6976 removed the shim and the test below is identity again.
+      expect(
+        mod.useFrontendTool,
+        "`useFrontendTool` on the RN headless entry is NOT the binding from " +
+          "@copilotkit/react-core/v2/headless. RN must own no implementation of " +
+          "it: re-export core's, or a local one will drift from it silently " +
+          "under a name consumers already trust.",
+      ).toBe(coreHeadless.useFrontendTool);
+    });
+
+    it("exports react-core's `useRenderTool` ITSELF, not an RN copy of it", () => {
+      // The other half of the identity assertion above, and the one with the
+      // history. RN's local `useRenderTool` forwarded its whole body to core's
+      // `useFrontendTool`, so `name: "*"` registered a frontend tool literally
+      // named `*` — core's catch-all HANDLER name — and a display-only wildcard
+      // auto-answered every otherwise-unanswered tool call with an empty tool
+      // result and asked for a follow-up turn. Both names were present through
+      // that entire period, so every presence check above stayed green while
+      // verifying nothing about which hook a consumer gets.
+      //
+      // Asserted TWICE, on purpose. Runtime identity is the claim; the source
+      // check is what keeps the failure legible, because a local module that
+      // re-exported core's binding unchanged today could grow a body tomorrow
+      // and the runtime assertion would only start failing then. Requiring the
+      // export to come straight from core's headless entry means an RN-local
+      // module cannot be introduced under this name at all — which is the state
+      // #6976 restored when it removed the compatibility shim.
+      const source = fs.readFileSync(headlessEntry, "utf8");
+      const from = reExportSpecifierOf(source, "useRenderTool");
+      expect(
+        from,
+        'no `export { useRenderTool … } from "…"` found in src/headless.ts — ' +
+          "this guard cannot tell what a consumer gets. If the export moved to " +
+          "another form, teach `reExportSpecifierOf` about it.",
+      ).not.toBeNull();
+      expect(
+        from,
+        `src/headless.ts re-exports \`useRenderTool\` from "${from}". It must ` +
+          `come straight from ${CORE_HEADLESS}: an RN-local module under this ` +
+          `name is what shipped the \`*\`-named-tool bug, and the temporary ` +
+          `shim that replaced it was removed in #6976.`,
+      ).toBe(CORE_HEADLESS);
+
+      expect(
+        mod.useRenderTool,
+        "`useRenderTool` on the RN headless entry is NOT the binding from " +
+          `${CORE_HEADLESS}, though src/headless.ts re-exports it from there.`,
+      ).toBe(coreHeadless.useRenderTool);
     });
 
     it("no longer exports the removed registry hook or its provider", () => {

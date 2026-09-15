@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  applyFeedbackClick,
-  isActivatingClick,
-  type MessageFeedbackMap,
-} from "./feedback";
+import { applyFeedbackClick, isActivatingClick } from "./feedback";
+import type { MessageFeedbackMap } from "./feedback";
 
 describe("isActivatingClick (#2615)", () => {
   it("activates when no feedback has been given", () => {

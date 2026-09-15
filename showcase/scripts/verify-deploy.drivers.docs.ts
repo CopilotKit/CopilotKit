@@ -5,6 +5,8 @@ import { probeBaseline } from "./verify-deploy.drivers.baseline";
 import { domainFor } from "./railway-envs";
 
 const PRODUCTION_DOCS_ORIGIN = `https://${domainFor("docs", "prod")}`;
+const PRODUCTION_OPS_ORIGIN = "https://dashboard.operations.copilotkit.ai";
+const STAGING_OPS_ORIGIN = "https://dashboard.staging.operations.copilotkit.ai";
 const SURFACE_TIMEOUT_MS = 30_000;
 
 interface SurfaceResponse {
@@ -92,6 +94,51 @@ function validateUrls(urls: string[], label: string): string | undefined {
   return undefined;
 }
 
+export function validateDocsAuthRuntimeConfig(
+  html: string,
+  expectedOpsOrigin: string,
+  expectedKeyPrefix: "pk_live_" | "pk_test_",
+): string | undefined {
+  const match = html.match(/window\.__SHOWCASE_CONFIG__=(\{[^<]*\});/);
+  if (!match) return "runtime config injection is missing";
+
+  let rawConfig: unknown;
+  try {
+    rawConfig = JSON.parse(match[1]);
+  } catch {
+    return "runtime config injection is not valid JSON";
+  }
+  if (!rawConfig || typeof rawConfig !== "object") {
+    return "runtime config injection is not an object";
+  }
+
+  const config = rawConfig as Record<string, unknown>;
+  const publishableKey = config.clerkPublishableKey;
+  if (
+    typeof publishableKey !== "string" ||
+    !publishableKey.startsWith(expectedKeyPrefix) ||
+    publishableKey.length <= expectedKeyPrefix.length
+  ) {
+    return `clerkPublishableKey must use the matching ${expectedKeyPrefix} Clerk key`;
+  }
+
+  const opsUrl = config.intelligenceSignupUrl;
+  if (typeof opsUrl !== "string" || opsUrl.length === 0) {
+    return "intelligenceSignupUrl is missing";
+  }
+  let parsedOpsUrl: URL;
+  try {
+    parsedOpsUrl = new URL(opsUrl);
+  } catch {
+    return `intelligenceSignupUrl is not an absolute URL: "${opsUrl}"`;
+  }
+  if (parsedOpsUrl.origin !== expectedOpsOrigin) {
+    return `intelligenceSignupUrl uses ${parsedOpsUrl.origin}; expected ${expectedOpsOrigin}`;
+  }
+
+  return undefined;
+}
+
 async function fetchSurface(
   host: string,
   path: string,
@@ -145,6 +192,13 @@ export async function checkProductionDocsCanonicalHost(
   const byPath = new Map(
     surfaces.map((surface) => [surface.path, surface.body]),
   );
+  const authConfigError = validateDocsAuthRuntimeConfig(
+    byPath.get("/") ?? "",
+    PRODUCTION_OPS_ORIGIN,
+    "pk_live_",
+  );
+  if (authConfigError) return `docs: ${authConfigError}`;
+
   for (const path of ["/", "/quickstart"] as const) {
     const html = byPath.get(path) ?? "";
     const expectedUrl = `${PRODUCTION_DOCS_ORIGIN}${path}`;
@@ -192,9 +246,9 @@ export async function checkProductionDocsCanonicalHost(
 
 /**
  * Production docs verifier: Railway deployment-SUCCESS + HTTP 200 baseline,
- * followed by a deployed-output smoke test for every machine-facing URL
- * surface. Staging retains the shared baseline; the production promotion
- * gate runs the canonical smoke against docs.copilotkit.ai.
+ * followed by a deployed-output auth-config smoke in every environment.
+ * The production promotion gate additionally validates every machine-facing
+ * URL surface against docs.copilotkit.ai.
  */
 export async function probeDocs(target: ProbeTarget): Promise<ProbeOutcome> {
   const baseline = await probeBaseline(target, {
@@ -203,7 +257,22 @@ export async function probeDocs(target: ProbeTarget): Promise<ProbeOutcome> {
   });
   if (!baseline.ok) return baseline;
 
-  if (target.host !== domainFor("docs", "prod")) return baseline;
-  const error = await checkProductionDocsCanonicalHost(target.host);
+  let error: string | undefined;
+  if (target.host === domainFor("docs", "prod")) {
+    error = await checkProductionDocsCanonicalHost(target.host);
+  } else {
+    try {
+      const home = await fetchSurface(target.host, "/", globalThis.fetch);
+      const configError = validateDocsAuthRuntimeConfig(
+        home.body,
+        STAGING_OPS_ORIGIN,
+        "pk_test_",
+      );
+      error = configError ? `docs: ${configError}` : undefined;
+    } catch (caught: unknown) {
+      const message = caught instanceof Error ? caught.message : String(caught);
+      error = `docs: auth-config smoke fetch failed: ${message}`;
+    }
+  }
   return error ? { ok: false, error } : baseline;
 }

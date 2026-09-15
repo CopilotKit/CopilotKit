@@ -66,7 +66,7 @@ const envKeys = [
   "COPILOTKIT_INTELLIGENCE_URL",
   "COPILOTKIT_INTELLIGENCE_WS_URL",
   "COPILOTKIT_API_KEY",
-  "INTELLIGENCE_API_KEY",
+  "CPK_INTELLIGENCE_API_KEY",
 ] as const;
 
 describe("managed channel entrypoint", () => {
@@ -90,7 +90,7 @@ describe("managed channel entrypoint", () => {
     // plane is deployed separately, so there is no derive from apiUrl.
     process.env.COPILOTKIT_INTELLIGENCE_URL = "http://localhost:4201";
     process.env.COPILOTKIT_INTELLIGENCE_WS_URL = "ws://localhost:4401";
-    process.env.INTELLIGENCE_API_KEY = "cpk-test";
+    process.env.CPK_INTELLIGENCE_API_KEY = "cpk-test";
 
     let sigterm: (() => void) | undefined;
     vi.spyOn(process, "on").mockImplementation(((event, listener) => {
@@ -143,7 +143,7 @@ describe("managed channel entrypoint", () => {
     vi.resetModules();
     fakes.CopilotKitIntelligence.mockClear();
     process.env.AGENT_URL = "http://agent.test/run";
-    delete process.env.INTELLIGENCE_API_KEY;
+    delete process.env.CPK_INTELLIGENCE_API_KEY;
     process.env.COPILOTKIT_API_KEY = "cpk-legacy";
 
     vi.spyOn(process, "on").mockImplementation(

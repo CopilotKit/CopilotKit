@@ -308,8 +308,10 @@ describe("checkClaudeQuickstarts", () => {
 
     \`\`\`ts title="app/api/copilotkit/route.ts"
     import { HttpAgent } from "@ag-ui/client";
-    import { CopilotRuntime, ExperimentalEmptyAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
+    import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
     const runtime = new CopilotRuntime({ agents: { claude_agent: new HttpAgent({ url: process.env.AGENT_URL ?? "http://localhost:8000" }) } });
+    const handler = createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit", mode: "single-route" });
+    export const POST = (req: NextRequest) => handler(req);
     \`\`\`
 
     \`\`\`tsx title="app/layout.tsx"
@@ -372,8 +374,10 @@ describe("checkClaudeQuickstarts", () => {
 
     \`\`\`ts title="app/api/copilotkit/route.ts"
     import { HttpAgent } from "@ag-ui/client";
-    import { CopilotRuntime, ExperimentalEmptyAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
+    import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
     const runtime = new CopilotRuntime({ agents: { claude_agent: new HttpAgent({ url: process.env.AGENT_URL ?? "http://localhost:8000" }) } });
+    const handler = createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit", mode: "single-route" });
+    export const POST = (req: NextRequest) => handler(req);
     \`\`\`
 
     \`\`\`tsx title="app/layout.tsx"

@@ -5,6 +5,7 @@ import {
   announcementPreview,
   buildHomeModel,
   homeHeroActionFromMetadata,
+  runtimeConnectionNeedsAttention,
 } from "../home-briefing.js";
 
 describe("home-briefing", () => {
@@ -29,13 +30,24 @@ describe("home-briefing", () => {
       threadsAvailable: false,
       metadata: projectInspectorMetadata(undefined, undefined),
       runtimeConnectionState: "unavailable",
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
       audioOn: false,
     });
-    expect(model.hero.title).toBe("Intelligence is not setup");
+    expect(model.hero.title).toBe("CopilotKit Intelligence");
+    // In install mode this body is the screen-reader summary, not the visible
+    // paragraph, so it has to carry the whole chain in one sentence. If a link
+    // in that chain drops out, assistive tech gets a weaker pitch than sighted
+    // users and nothing else in the suite would notice.
+    expect(model.hero.body).toContain("thread");
+    expect(model.hero.body).toContain("evidence");
+    expect(model.hero.body).toContain("skills");
+    // The approval step is the one claim we must not quietly drop: the
+    // platform does not apply skills at run time, and promising that it does
+    // is a promise the product cannot keep.
+    expect(model.hero.body).toContain("approve");
     expect(model.hero.connection).toBe("disconnected");
     expect(model.hero.action).toBeUndefined();
     expect(model.projectLinked).toBe(false);
@@ -52,6 +64,17 @@ describe("home-briefing", () => {
       "audio",
       "websocket",
     ]);
+    const learning = model.services.find((service) => service.id === "memory");
+    const suggestions = model.services.find(
+      (service) => service.id === "suggestions",
+    );
+    const voice = model.services.find((service) => service.id === "audio");
+    expect(learning).toMatchObject({ label: "Learning" });
+    expect(voice).toMatchObject({ label: "Voice" });
+    expect(suggestions).toMatchObject({
+      docsUrl:
+        "https://docs.copilotkit.ai/reference/hooks/useConfigureSuggestions",
+    });
   });
 
   it("marks a linked project as connected and keeps Threads usage on the project card", () => {
@@ -79,7 +102,7 @@ describe("home-briefing", () => {
         "valid",
       ),
       runtimeConnectionState: "connected",
-      memoriesOn: true,
+      learningOn: true,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: true,
@@ -111,7 +134,7 @@ describe("home-briefing", () => {
         "none",
       ),
       runtimeConnectionState: "connected",
-      memoriesOn: true,
+      learningOn: true,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
@@ -149,7 +172,7 @@ describe("home-briefing", () => {
         "expired",
       ),
       runtimeConnectionState: "connected",
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
@@ -177,7 +200,7 @@ describe("home-briefing", () => {
         "valid",
       ),
       runtimeConnectionState: "connected",
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
@@ -200,7 +223,7 @@ describe("home-briefing", () => {
       threadsAvailable: false,
       metadata: projectInspectorMetadata(undefined, undefined),
       runtimeConnectionState: "unavailable",
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
@@ -225,7 +248,7 @@ describe("home-briefing", () => {
       threadsAvailable: false,
       metadata: projectInspectorMetadata(undefined, undefined),
       runtimeUrl: "http://localhost:4000/api/copilotkit",
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
@@ -291,5 +314,70 @@ describe("home-briefing", () => {
       liveUpdates: { label: "Disconnected", tone: "error" },
       lastEvent: { label: "No events yet", tone: "muted" },
     });
+  });
+  // The launcher's error signal and System Health read this one predicate, so
+  // the dot is red exactly when System Health says the runtime needs
+  // attention. A second evaluation anywhere could drift from it.
+  it("treats only the error connection state as needing attention", () => {
+    expect(runtimeConnectionNeedsAttention("error")).toBe(true);
+    // `disconnected` is also the INITIAL value, so counting it would raise the
+    // signal on every page load; `connecting` is a normal startup step; and
+    // `unavailable` means no Core is attached, which is not a wiring defect.
+    expect(runtimeConnectionNeedsAttention("disconnected")).toBe(false);
+    expect(runtimeConnectionNeedsAttention("connecting")).toBe(false);
+    expect(runtimeConnectionNeedsAttention("unavailable")).toBe(false);
+    expect(runtimeConnectionNeedsAttention("connected")).toBe(false);
+  });
+
+  it("keeps the predicate and the built health model in agreement", () => {
+    const base = {
+      intelligenceConnected: false,
+      threadsAvailable: false,
+      metadata: projectInspectorMetadata(undefined, undefined),
+      learningOn: false,
+      a2uiOn: false,
+      openGenUiOn: false,
+      suggestionsOn: false,
+      audioOn: false,
+    } as const;
+
+    for (const state of [
+      "connected",
+      "connecting",
+      "disconnected",
+      "error",
+      "unavailable",
+    ] as const) {
+      const model = buildHomeModel({ ...base, runtimeConnectionState: state });
+      expect(
+        model.runtime.health.state === "error",
+        `${state}: connection health`,
+      ).toBe(runtimeConnectionNeedsAttention(state));
+    }
+  });
+
+  // A failed RUN also drives System Health to "Needs attention", and must NOT
+  // reach the launcher: an event does not belong on a state indicator. The
+  // predicate is the boundary that keeps the two apart.
+  it("separates a failed run from a broken connection", () => {
+    const model = buildHomeModel({
+      intelligenceConnected: false,
+      threadsAvailable: false,
+      metadata: projectInspectorMetadata(undefined, undefined),
+      runtimeConnectionState: "connected",
+      lastRuntimeEvent: {
+        id: "support:2",
+        agentId: "support",
+        type: "RUN_ERROR",
+        timestamp: 2_000,
+      },
+      learningOn: false,
+      a2uiOn: false,
+      openGenUiOn: false,
+      suggestionsOn: false,
+      audioOn: false,
+    });
+    expect(model.runtime.health.state).toBe("error");
+    expect(runtimeConnectionNeedsAttention("connected")).toBe(false);
   });
 });

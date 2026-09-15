@@ -16,7 +16,9 @@
 #
 # Options:
 #   -p, --pattern    Agent pattern to build (default: strands-single-agent)
-#   -r, --region     AWS region (default: from terraform.tfvars or us-east-1)
+#   -r, --region     AWS region (default: AWS_REGION, else AWS_DEFAULT_REGION,
+#                    else `aws configure get region`; no built-in fallback —
+#                    the script errors out if none of those is set)
 #   -s, --stack      Stack name (default: from terraform.tfvars)
 #   -h, --help       Show this help message
 #
@@ -45,7 +47,8 @@ usage() {
     echo ""
     echo "Options:"
     echo "  -p, --pattern    Agent pattern to build (default: strands-single-agent)"
-    echo "  -r, --region     AWS region (default: from terraform.tfvars or us-east-1)"
+    echo "  -r, --region     AWS region (default: AWS_REGION, else AWS_DEFAULT_REGION,"
+    echo "                   else 'aws configure get region'; no built-in fallback)"
     echo "  -s, --stack      Stack name (default: from terraform.tfvars)"
     echo "  -h, --help       Show this help message"
     echo ""
@@ -137,7 +140,7 @@ fi
 
 # Construct ECR repository URL
 ECR_REPO="${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${STACK_NAME}-agent-runtime"
-DOCKERFILE="patterns/${PATTERN}/Dockerfile"
+DOCKERFILE="agents/${PATTERN}/Dockerfile"
 
 # Print configuration
 echo ""
@@ -155,8 +158,8 @@ echo ""
 # Verify Dockerfile exists
 if [[ ! -f "$PROJECT_ROOT/$DOCKERFILE" ]]; then
     echo -e "${RED}Error: Dockerfile not found at $PROJECT_ROOT/$DOCKERFILE${NC}"
-    echo -e "${YELLOW}Available patterns:${NC}"
-    ls -1 "$PROJECT_ROOT/patterns/" 2>/dev/null || echo "  No patterns found"
+    echo -e "${YELLOW}Available agents:${NC}"
+    ls -1 "$PROJECT_ROOT/agents/" 2>/dev/null || echo "  No agents found"
     exit 1
 fi
 

@@ -2,8 +2,9 @@ import { defineRailway, github, project, service } from "railway/iac";
 
 const repository = "CopilotKit/CopilotKit";
 const demoRoot = "examples/showcases/generative-ui-playground";
+const openAiApiKey = "${{shared.OPENAI_API_KEY}}";
 
-export default defineRailway((ctx) => {
+export default defineRailway(() => {
   const a2aAgent = service("a2a-agent", {
     source: github(repository, {
       branch: "main",
@@ -19,7 +20,7 @@ export default defineRailway((ctx) => {
       restartPolicyMaxRetries: 5,
     },
     env: {
-      OPENAI_API_KEY: ctx.shared.OPENAI_API_KEY,
+      OPENAI_API_KEY: openAiApiKey,
       A2A_BASE_URL: "http://${{RAILWAY_PRIVATE_DOMAIN}}:${{PORT}}",
     },
   });
@@ -52,7 +53,7 @@ export default defineRailway((ctx) => {
       restartPolicyMaxRetries: 5,
     },
     env: {
-      OPENAI_API_KEY: ctx.shared.OPENAI_API_KEY,
+      OPENAI_API_KEY: openAiApiKey,
       MCP_SERVER_URL:
         "http://${{mcp-server.RAILWAY_PRIVATE_DOMAIN}}:${{mcp-server.PORT}}/mcp",
       A2A_AGENT_URL:

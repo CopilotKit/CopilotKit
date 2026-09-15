@@ -6,8 +6,11 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG="$SCRIPT_DIR/../config.yaml"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+CONFIG="$PROJECT_DIR/config.yaml"
 ENV_FILE="$SCRIPT_DIR/.env"
+
+command -v uv >/dev/null 2>&1 || { echo "ERROR: uv is required but not installed. See https://docs.astral.sh/uv/"; exit 1; }
 
 [[ -f "$ENV_FILE" ]] || { echo "ERROR: .env not found. Run: cp .env.example .env"; exit 1; }
 
@@ -16,7 +19,7 @@ AGENT=$(grep "^AGENT=" "$ENV_FILE" 2>/dev/null | cut -d= -f2 || echo "langgraph"
 AGENT="${AGENT:-langgraph}"
 
 # Derive stack name from config.yaml
-BASE=$(python3 -c "
+BASE=$(uv run --project "$PROJECT_DIR" python -c "
 import re, yaml
 cfg = yaml.safe_load(open('$CONFIG'))
 print(re.sub(r'-(lg|st)$', '', cfg['stack_name_base']))
@@ -31,7 +34,7 @@ OUTPUTS=$(aws cloudformation describe-stacks \
   --query "Stacks[0].Outputs" \
   --output json)
 
-python3 - "$OUTPUTS" "$STACK_NAME" "$ENV_FILE" "$SCRIPT_DIR/../frontend/public" "$AGENT" <<'PYEOF'
+uv run --project "$PROJECT_DIR" python - "$OUTPUTS" "$STACK_NAME" "$ENV_FILE" "$PROJECT_DIR/frontend/public" "$AGENT" <<'PYEOF'
 import json, os, sys, re
 
 outputs_json, stack_name, env_file, public_dir, agent = sys.argv[1:]

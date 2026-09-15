@@ -1,10 +1,10 @@
-import { AnthropicAdapter } from "../../../src/service-adapters/anthropic/anthropic-adapter";
+import { AnthropicAdapter } from "../../../src/v1-deprecated/service-adapters/anthropic/anthropic-adapter";
 import {
   TextMessage,
   ActionExecutionMessage,
   ResultMessage,
   Role,
-} from "../../../src/graphql/types/converted";
+} from "../../../src/v1-deprecated/graphql/types/converted";
 
 // Mock only the Anthropic SDK, not our adapter
 vi.mock("@anthropic-ai/sdk", () => {
@@ -18,7 +18,7 @@ vi.mock("@anthropic-ai/sdk", () => {
 });
 
 // Mock the message classes
-vi.mock("../../../src/graphql/types/converted", () => {
+vi.mock("../../../src/v1-deprecated/graphql/types/converted", () => {
   class MockTextMessage {
     content: string;
     role: string;

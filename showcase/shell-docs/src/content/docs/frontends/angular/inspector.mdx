@@ -1,117 +1,51 @@
 ---
 title: Inspector
-description: Mount the CopilotKit Inspector in an Angular application and keep it out of production builds.
+description: The Inspector mounts itself in Angular applications. What changed, and what to remove if you mounted it by hand.
 icon: "lucide/SearchCheck"
 doc_type: how-to
 ---
 
-The Inspector is a debugging overlay for the live connection between your Angular
-application and your agents. It opens from a floating launcher and reports what
-the application and the runtime exchange as a run happens.
+`@copilotkit/angular` mounts the Inspector for you. It depends on
+`@copilotkit/web-inspector` directly, so there is nothing to install and no
+version to pin — the `CopilotKit` service creates `cpk-web-inspector`, supplies
+your application's core, and appends it to `document.body` after the first
+browser render.
 
-Its navigation has three groups — **Threads**, **Agents**, and **Learning** — and
-opens on Threads, whose contents depend on the runtime's license state. The
-agent-debugging views sit under Agents:
+**[Inspector](/inspector)** is the page to read for what the panes show and how
+`enableInspector` controls visibility. Angular sets it through
+`provideCopilotKit`:
 
-| View                 | What it shows                                                        |
-| -------------------- | -------------------------------------------------------------------- |
-| **AG-UI Events**     | The raw event stream between your application and the agent.          |
-| **Available Agents** | The agents the runtime advertises to your application.                |
-| **Agent State**      | The selected agent's state as it updates.                             |
-| **Frontend Tools**   | The tools you registered, with their parameter schemas.               |
-| **Context**          | The context you sent to the agent, including readables and documents. |
-
-## Mount the element
-
-The Inspector is `cpk-web-inspector`, a framework-agnostic web component in
-`@copilotkit/web-inspector`. `@copilotkit/angular` does not depend on that
-package and does not mount the element, so an Angular application creates it and
-supplies the core itself.
-
-Install the package as a dev dependency to keep it out of your production
-dependency graph:
-
-```bash
-npm install --save-dev @copilotkit/web-inspector
+```ts title="src/app/app.config.ts"
+provideCopilotKit({
+  runtimeUrl: "http://localhost:8200/api/copilotkit",
+  enableInspector: false, // hide it during development
+});
 ```
 
-Add a component that owns the element's lifecycle. It reuses an existing element
-or creates one after the first browser render, supplies the core, appends the
-element to `document.body`, and removes it when the component is destroyed:
+<Callout type="warn" title="Remove a hand-written mount before upgrading">
+  `@copilotkit/angular` did not mount the Inspector before **0.4.0**, and this
+  page previously described a `WebInspector` component that created the element
+  by hand. If your application still has that component, delete it — along with
+  its `<app-web-inspector />` usage and any direct `@copilotkit/web-inspector`
+  dependency in `package.json`.
 
-```ts title="src/app/web-inspector.ts"
-import { afterNextRender, Component, DestroyRef, inject } from "@angular/core";
-import { CopilotKit } from "@copilotkit/angular";
-import { WEB_INSPECTOR_TAG } from "@copilotkit/web-inspector";
-import type { WebInspectorElement } from "@copilotkit/web-inspector";
+  Leaving it in place is worse than redundant. The framework reuses an existing
+  `cpk-web-inspector` rather than creating a second one, but the hand-written
+  component's `DestroyRef.onDestroy` removes that element unconditionally — so
+  a route change that destroys the component tears out the Inspector the
+  framework is now driving, and it does not come back without a full reload.
+</Callout>
 
-@Component({
-  selector: "app-web-inspector",
-  template: "",
-})
-export class WebInspector {
-  readonly #copilotKit = inject(CopilotKit);
-  readonly #destroyRef = inject(DestroyRef);
+## Production and server rendering
 
-  constructor() {
-    afterNextRender(() => {
-      const existing =
-        document.querySelector<WebInspectorElement>(WEB_INSPECTOR_TAG);
-      const inspector =
-        existing ??
-        (document.createElement(WEB_INSPECTOR_TAG) as WebInspectorElement);
+Nothing to do for either.
 
-      // Supply the application's core instead of letting the element find one.
-      inspector.core = this.#copilotKit.core;
-      inspector.setAttribute("auto-attach-core", "false");
-
-      if (!existing) {
-        document.body.appendChild(inspector);
-      }
-
-      this.#destroyRef.onDestroy(() => {
-        if (inspector.isConnected) {
-          inspector.remove();
-        }
-      });
-    });
-  }
-}
-```
-
-Render the component once, from the root component, behind a development-only
-`@defer`:
-
-```ts title="src/app/app.ts"
-import { Component, isDevMode } from "@angular/core";
-import { WebInspector } from "./web-inspector";
-
-@Component({
-  selector: "app-root",
-  imports: [WebInspector],
-  template: `
-    <!-- your application -->
-
-    @defer (when isDev) {
-      <app-web-inspector />
-    }
-  `,
-})
-export class App {
-  protected readonly isDev = isDevMode();
-}
-```
-
-## Supply the application's core
-
-`inspector.core = copilotKit.core` is what makes the Inspector report your
-application rather than show an empty panel. Without an assigned core, the
-element searches development globals such as `window.__COPILOTKIT_CORE__` for
-one. Setting `auto-attach-core="false"` disables that search, so the element
-observes the core you assigned and nothing else.
-
-Assign `core` directly. It is a property, not an attribute, and
-`auto-attach-core` is the only attribute the element observes.
+The `@copilotkit/web-inspector` import is a dynamic `import()` inside the
+service, so the bundler splits it into its own chunk and a production build
+never requests it. Mounting runs in `afterNextRender` behind an
+`isPlatformBrowser` check, so the element is never created during a server
+render. Both matter, because the web component registers itself against
+`customElements`, which does not exist on the server.
 
 ## Position the launcher
 
@@ -132,30 +66,9 @@ cpk-web-inspector {
 }
 ```
 
-## Keep it out of production builds
-
-The element has no production guard of its own, so exclude it in the same place
-you mount it. `@defer (when isDev)` compiles the component and its
-`@copilotkit/web-inspector` import into a lazy chunk, and `isDevMode()` returns
-`false` in a production build, so that chunk is never requested. Removing the
-component and its `<app-web-inspector />` usage removes the Inspector entirely.
-
-## Server rendering
-
-`afterNextRender` runs only in the browser, so the element is never created
-during a server render. The deferred import also keeps the package out of the
-server bundle. Both matter: the web component registers itself against
-`customElements`, which does not exist on the server.
-
-## Clean up on destroy
-
-The element lives in `document.body`, outside the component's own view, so
-Angular does not remove it. `DestroyRef.onDestroy` removes it explicitly.
-Without that cleanup, a route change that destroys the component leaves an
-orphaned panel bound to a core the application no longer uses.
-
 ## Next steps
 
+- [Inspector](/inspector)
 - [Troubleshooting Angular apps](/angular/guides/troubleshooting)
 - [AG-UI Event Inspector](/troubleshooting/event-inspector)
 - [Angular API: CopilotKit](/reference/angular/services/CopilotKit)

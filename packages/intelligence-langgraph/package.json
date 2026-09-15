@@ -1,0 +1,85 @@
+{
+  "name": "@copilotkit/intelligence-langgraph",
+  "version": "1.71.2",
+  "description": "Learned skill delivery for LangGraph agents through CopilotKit Intelligence",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git"
+  },
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16",
+    "test-minimum": "node test/compatibility.mjs --lane minimum",
+    "test-latest": "node test/compatibility.mjs --lane latest"
+  },
+  "dependencies": {
+    "@copilotkit/runtime": "workspace:*",
+    "yauzl": "2.10.0"
+  },
+  "devDependencies": {
+    "@copilotkit/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "fflate": "0.8.2",
+    "tsdown": "^0.20.3",
+    "typescript": "5.8.2",
+    "vitest": "^3.2.4",
+    "@langchain/core": "1.2.11",
+    "@langchain/langgraph": "1.4.15",
+    "langchain": "1.5.11",
+    "zod": "4.6.1",
+    "@copilotkit/intelligence-delivery-core": "workspace:*"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "peerDependencies": {
+    "@langchain/core": ">=1.2.10 <2",
+    "@langchain/langgraph": ">=1.4.14 <2",
+    "langchain": ">=1.5.11 <2",
+    "zod": "^3.25.76 || ^4.0.0"
+  },
+  "nx": {
+    "targets": {
+      "build": {
+        "inputs": [
+          "production",
+          "^production",
+          "{projectRoot}/.env*"
+        ]
+      },
+      "test": {
+        "inputs": [
+          "default",
+          "^production"
+        ]
+      },
+      "check-types": {
+        "inputs": [
+          "default",
+          "^production"
+        ]
+      }
+    }
+  }
+}

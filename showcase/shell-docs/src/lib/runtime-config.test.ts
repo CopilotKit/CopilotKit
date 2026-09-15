@@ -32,6 +32,7 @@ const ANALYTICS_KEYS = [
   "NEXT_PUBLIC_GOOGLE_ANALYTICS_TRACKING_ID",
   "NEXT_PUBLIC_REB2B_KEY",
   "NEXT_PUBLIC_REO_KEY",
+  "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
 ] as const;
 
 describe("server getRuntimeConfig (shell-docs)", () => {
@@ -68,6 +69,7 @@ describe("server getRuntimeConfig (shell-docs)", () => {
     process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_TRACKING_ID = "G-XYZ";
     process.env.NEXT_PUBLIC_REB2B_KEY = "rb2b-key";
     process.env.NEXT_PUBLIC_REO_KEY = "reo-key";
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_live_shared";
 
     expect(getRuntimeConfig()).toEqual({
       baseUrl: "https://docs.copilotkit.ai",
@@ -79,6 +81,7 @@ describe("server getRuntimeConfig (shell-docs)", () => {
       googleAnalyticsTrackingId: "G-XYZ",
       reb2bKey: "rb2b-key",
       reoKey: "reo-key",
+      clerkPublishableKey: "pk_live_shared",
     });
   });
 
@@ -200,6 +203,7 @@ describe("server getRuntimeConfig (shell-docs)", () => {
     expect(cfg.googleAnalyticsTrackingId).toBe("");
     expect(cfg.reb2bKey).toBe("");
     expect(cfg.reoKey).toBe("");
+    expect(cfg.clerkPublishableKey).toBe("");
 
     // None of the analytics-key env names should have produced a log.
     const allOutput = [

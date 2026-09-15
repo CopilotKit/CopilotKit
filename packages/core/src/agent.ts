@@ -29,6 +29,7 @@ import type {
 import { IntelligenceAgent } from "./intelligence-agent";
 import type { CopilotRuntimeTransport } from "./types";
 import { runtimeInfoError } from "./utils/runtime-info-error";
+import { ɵconnectWithoutEventVerification } from "./utils/connect-replay";
 
 type ResolvedRuntimeMode = RuntimeMode | "pending";
 
@@ -269,7 +270,12 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     subscriber?: AgentSubscriber,
   ): Promise<RunAgentResult> {
     if (this.runtimeMode !== RUNTIME_MODE_INTELLIGENCE) {
-      return super.connectAgent(parameters, subscriber);
+      // A self-hosted `/connect` response replays the thread's history, so it
+      // can carry several past runs — including one that ended in RUN_ERROR
+      // followed by a later RUN_STARTED. The base pipeline's `verifyEvents`
+      // step enforces single-run lifecycle rules and rejects that stream
+      // outright, so an existing thread never hydrates (#4943).
+      return ɵconnectWithoutEventVerification(this, parameters, subscriber);
     }
 
     // If the delegate already has an active run (e.g. from a previous
@@ -452,6 +458,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       intelligence: this.intelligence,
       capabilities: this._capabilities,
       debug: this.debug,
+      fetch: this.fetch,
     });
     cloned.threadId = this.threadId;
     cloned.setState(this.state);
@@ -559,7 +566,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       init = {};
     }
 
-    const response = await fetch(url, {
+    const response = await this.fetch(url, {
       ...init,
       headers,
       ...(this.credentials ? { credentials: this.credentials } : {}),
@@ -575,7 +582,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   ): Promise<RuntimeInfo> {
     // Try REST first (GET /info)
     try {
-      const response = await fetch(`${this.runtimeUrl}/info`, {
+      const response = await this.fetch(`${this.runtimeUrl}/info`, {
         headers: { ...headers },
         ...(this.credentials ? { credentials: this.credentials } : {}),
       });
@@ -595,7 +602,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     if (!singleHeaders["Content-Type"]) {
       singleHeaders["Content-Type"] = "application/json";
     }
-    const response = await fetch(this.runtimeUrl!, {
+    const response = await this.fetch(this.runtimeUrl!, {
       method: "POST",
       headers: singleHeaders,
       body: JSON.stringify({ method: "info" }),
@@ -669,6 +676,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       agentId: routedId,
       headers: { ...this.headers },
       credentials: this.credentials,
+      fetch: this.fetch as typeof fetch,
     });
   }
 

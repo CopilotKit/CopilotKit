@@ -1,5 +1,6 @@
 import { expect, test, vi } from "vitest";
 import {
+  channelActorIdentity,
   ChannelIdentityResolutionError,
   ChannelIdentityResultError,
   resolveChannelUser,
@@ -150,4 +151,44 @@ test("a failing lazy profile lookup cannot break platform identity", async () =>
     resolveChannelUser("platform", identityContext),
   ).resolves.toEqual({ id: "slack:T1:U1", name: "U1" });
   expect(lookupProfile).not.toHaveBeenCalled();
+});
+
+test("channelActorIdentity names the actor and the platform that scopes them", () => {
+  expect(
+    channelActorIdentity(
+      { id: "U1", kind: "human", name: "Ada", handle: "ada", email: "a@b.c" },
+      "slack",
+    ),
+  ).toEqual({
+    id: "U1",
+    kind: "human",
+    platform: "slack",
+    name: "Ada",
+    handle: "ada",
+    email: "a@b.c",
+  });
+});
+
+test("channelActorIdentity omits display fields the provider did not report", () => {
+  expect(channelActorIdentity({ id: "U1", kind: "human" }, "slack")).toEqual({
+    id: "U1",
+    kind: "human",
+    platform: "slack",
+  });
+});
+
+test("channelActorIdentity passes an id through unaltered", () => {
+  // A Teams id carries a colon, and adapters bound an actor id only by length.
+  // Reshaping it to suit a model provider's author charset would answer as
+  // somebody else, so nothing here rewrites it.
+  expect(
+    channelActorIdentity({ id: "29:1a2b3c", kind: "human" }, "teams")?.id,
+  ).toBe("29:1a2b3c");
+});
+
+test("channelActorIdentity reports nobody when the ingress named nobody", () => {
+  expect(
+    channelActorIdentity({ id: "", kind: "unknown" }, "slack"),
+  ).toBeUndefined();
+  expect(channelActorIdentity(undefined, "slack")).toBeUndefined();
 });

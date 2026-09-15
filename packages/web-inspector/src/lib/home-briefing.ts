@@ -102,7 +102,7 @@ export type HomeBriefingInput = {
     type: string;
     timestamp: number;
   };
-  memoriesOn: boolean;
+  learningOn: boolean;
   a2uiOn: boolean;
   openGenUiOn: boolean;
   suggestionsOn: boolean;
@@ -116,12 +116,13 @@ export type HomeBriefingInput = {
 
 const SERVICE_DOCS_URL: Record<HomeServiceId, string> = {
   threads: "https://docs.copilotkit.ai/threads",
-  memory: "https://docs.copilotkit.ai/premium/intelligence-platform",
+  memory: "https://docs.copilotkit.ai/intelligence/intelligence-platform",
   a2ui: "https://docs.copilotkit.ai/generative-ui/a2ui",
   "open-gen-ui": "https://docs.copilotkit.ai/generative-ui/open-generative-ui",
-  suggestions: "https://docs.copilotkit.ai/agentic-chat-ui",
+  suggestions:
+    "https://docs.copilotkit.ai/reference/hooks/useConfigureSuggestions",
   audio: "https://docs.copilotkit.ai/voice",
-  websocket: "https://docs.copilotkit.ai/premium/intelligence-platform",
+  websocket: "https://docs.copilotkit.ai/intelligence/intelligence-platform",
 };
 
 /** Return the Home hero button for a trusted metadata action. */
@@ -187,10 +188,19 @@ function heroForState(args: {
     const renewing = args.action?.kind === "renew";
     return {
       connection: "disconnected",
-      title: renewing ? "Renew Intelligence" : "Intelligence is not setup",
+      // Not "Intelligence is not setup" — that reads as a defect in the tool,
+      // and a defect gets dismissed. The heading names the product; the
+      // argument for it is made by the rotating copy on Home, which changes
+      // with the picture beside it.
+      title: renewing ? "Renew Intelligence" : "CopilotKit Intelligence",
+      // In install mode this is NOT the visible paragraph. The visible copy
+      // rotates every few seconds, which would make a screen reader announce a
+      // new sentence four times a loop, so the rotating text is hidden from
+      // assistive tech and this one stable sentence is exposed instead. It has
+      // to carry the whole chain on its own.
       body: renewing
         ? "Renew Intelligence to restore persistent Threads and Memory."
-        : "Connect CopilotKit Intelligence to add persistent Threads, Learning and Analytics to your application. Inspect conversations and allow your agents to learn from real use.",
+        : "Intelligence keeps every thread your users have, finds evidence-backed patterns in them, and proposes skills you approve before your agent uses them.",
       action: connectIntelligenceAction(
         args.action,
         args.connectUrl,
@@ -316,6 +326,27 @@ function runtimeEventSignal(
   };
 }
 
+/**
+ * Whether the runtime *connection* needs attention — the single condition
+ * shared by System Health and the launcher's error signal, so the two can
+ * never disagree about whether the wiring is broken.
+ *
+ * Exactly one state counts. `disconnected` is also the initial value, so
+ * counting it would raise the signal on every page load; `connecting` is a
+ * normal startup step; `unavailable` means no Core is attached, which is not
+ * a defect of the developer's wiring.
+ *
+ * Note the deliberate asymmetry with `health.state`: a failed *run* also
+ * drives System Health to "Needs attention" while the connection is fine.
+ * That is an event rather than a state, and it is excluded from the launcher
+ * on purpose — see the launcher-signal comments in index.ts.
+ */
+export function runtimeConnectionNeedsAttention(
+  state: HomeRuntimeConnectionState,
+): boolean {
+  return state === "error";
+}
+
 function runtimeHealthFromInput(
   input: HomeBriefingInput,
 ): HomeModel["runtime"]["health"] {
@@ -351,14 +382,15 @@ function runtimeHealthFromInput(
     };
   }
 
+  const needsAttention = runtimeConnectionNeedsAttention(
+    input.runtimeConnectionState,
+  );
   return {
-    state: input.runtimeConnectionState === "error" ? "error" : "offline",
-    label:
-      input.runtimeConnectionState === "error" ? "Runtime error" : "Offline",
+    state: needsAttention ? "error" : "offline",
+    label: needsAttention ? "Runtime error" : "Offline",
     runtime: { label: "Offline", tone: "error" },
     liveUpdates: {
-      label:
-        input.runtimeConnectionState === "error" ? "Error" : "Disconnected",
+      label: needsAttention ? "Error" : "Disconnected",
       tone: "error",
     },
     lastEvent,
@@ -422,8 +454,8 @@ export function buildHomeModel(input: HomeBriefingInput): HomeModel {
       },
       {
         id: "memory",
-        label: "Memory",
-        enabled: intelligenceConnected && input.memoriesOn,
+        label: "Learning",
+        enabled: intelligenceConnected && input.learningOn,
         docsUrl: SERVICE_DOCS_URL.memory,
       },
       {
@@ -446,7 +478,7 @@ export function buildHomeModel(input: HomeBriefingInput): HomeModel {
       },
       {
         id: "audio",
-        label: "Audio",
+        label: "Voice",
         enabled: input.audioOn,
         docsUrl: SERVICE_DOCS_URL.audio,
       },

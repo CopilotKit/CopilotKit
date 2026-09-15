@@ -201,11 +201,7 @@ function ResearchAssistant() {
 
 export default function Home() {
   return (
-    <CopilotKitProvider
-      runtimeUrl="/api/copilotkit"
-      showDevConsole="auto"
-      useSingleEndpoint={false}
-    >
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
       {/*
         One UNCONTROLLED CopilotChatConfigurationProvider (no `threadId` prop)
         owns the active thread for the whole surface. The SDK <CopilotThreadsDrawer>
