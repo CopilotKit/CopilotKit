@@ -615,13 +615,15 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       }
 
       const actions = this.params?.actions;
-      if (actions) {
-        const mcpTools = await this.getToolsFromMCP();
-        agentsList = this.assignToolsToAgents(agentsList, [
-          ...this.getToolsFromActions(actions),
-          ...mcpTools,
-        ]);
-      }
+
+      // `actions` and `mcpServers` are attached independently: a runtime may
+      // configure MCP servers without any local actions.
+      const mcpTools = await this.getToolsFromMCP();
+      const actionTools = actions ? this.getToolsFromActions(actions) : [];
+      agentsList = this.assignToolsToAgents(agentsList, [
+        ...actionTools,
+        ...mcpTools,
+      ]);
 
       return agentsList;
     });
@@ -646,7 +648,25 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         name: action.name,
         description: action.description || "",
         parameters: zodSchema,
-        execute: () => Promise.resolve(),
+        // `handler` is an in-process function and was never part of the remote
+        // executor deleted in v1.50.0 — only the wiring to it was lost. Call it.
+        //
+        // The result must never be `undefined`: `JSON.stringify(undefined)` is
+        // not a string, which strips the required `content` off
+        // TOOL_CALL_RESULT and surfaces as a Zod error in the browser
+        // (#2915, #3198). Both branches below return a string instead.
+        execute: async (args: unknown) => {
+          if (typeof action.handler !== "function") {
+            return (
+              `The tool "${action.name}" was advertised without a handler, so it ` +
+              `has no implementation to run. Tell the user this tool is unavailable.`
+            );
+          }
+          const result = await action.handler(args as any);
+          return result === undefined
+            ? `The tool "${action.name}" ran and returned no value.`
+            : result;
+        },
       };
     });
   }
@@ -676,9 +696,21 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         existingConfig as unknown as BuiltInAgentClassicConfig;
       const existingTools = classicConfig.tools ?? [];
 
+      // The endpoint factory runs `handleServiceAdapter` every time it is
+      // called, and the documented v1 route builds the endpoint inside the
+      // request handler — so a module-scope runtime lands here once per
+      // request. Appending unconditionally advertised N copies of every tool
+      // to the model. Skip names the agent already carries, which also leaves
+      // a tool the agent defines itself in place.
+      const existingNames = new Set(existingTools.map((tool) => tool.name));
+      const newTools = tools.filter((tool) => !existingNames.has(tool.name));
+      if (newTools.length === 0) {
+        continue;
+      }
+
       const updatedConfig: BuiltInAgentClassicConfig = {
         ...classicConfig,
-        tools: [...existingTools, ...tools],
+        tools: [...existingTools, ...newTools],
       };
 
       Reflect.set(agent, "config", updatedConfig);
@@ -931,7 +963,9 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
             description:
               tool.description || `MCP tool: ${toolName} (from ${endpointUrl})`,
             parameters: zodSchema,
-            execute: () => Promise.resolve(),
+            // The MCP client stays live for the lifetime of the cached tool
+            // definitions; `tool.execute` calls the server.
+            execute: async (args: unknown) => tool.execute(args),
           };
         });
 
@@ -943,8 +977,10 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
           `MCP: Failed to fetch tools from endpoint ${endpointUrl}. Skipping. Error:`,
           error,
         );
-        // Cache empty to prevent repeated attempts within lifecycle
-        this.mcpToolsCache.set(endpointUrl, []);
+        // Deliberately not cached. Caching the empty result meant a server
+        // that was briefly unreachable when the runtime first resolved stayed
+        // toolless for the life of that runtime, even after it recovered.
+        // Leaving the entry absent lets a later resolution try again.
       }
     }
 
