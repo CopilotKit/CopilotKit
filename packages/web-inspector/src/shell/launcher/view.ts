@@ -381,8 +381,7 @@ function renderLauncherHud(
             label: HUD_LEARNING_LABEL,
             icon: "Brain",
             connected: availability.learning,
-            introIndex:
-              featureBlockIntroIndex + (availability.threads ? 1 : 2),
+            introIndex: featureBlockIntroIndex + (availability.threads ? 1 : 2),
           })}
         </ul>
             `

@@ -1125,11 +1125,7 @@ test.each([
   },
 ] as const)(
   "renders structured Runtime entitlement diagnostics for $diagnostic",
-  async ({
-    legacyStatus,
-    runtimeEntitlements,
-    lockedHeading,
-  }) => {
+  async ({ legacyStatus, runtimeEntitlements, lockedHeading }) => {
     const fixture = setupRuntimeDiagnostics();
 
     try {

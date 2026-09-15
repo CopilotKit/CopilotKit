@@ -788,4 +788,3 @@ export class CpkLearningView extends LitElement {
 if (!customElements.get("cpk-learning-view")) {
   customElements.define("cpk-learning-view", CpkLearningView);
 }
-
