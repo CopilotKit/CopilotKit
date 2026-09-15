@@ -1,75 +1,55 @@
-// <DocsVideoCarousel>: the homepage's "What is CopilotKit?" section, a
-// heading with no supporting paragraph and a switcher between three recorded
-// product walkthroughs. The recordings are the answer; nothing else needs to
-// explain what CopilotKit is here.
-//
-// Self-contained by design: it takes no props and owns its own list of
-// recordings, so `page.tsx` renders a single `<DocsVideoCarousel />` rather
-// than assembling the section itself.
-//
-// The switcher is a real ARIA tab pattern (three named buttons, not
-// next/prev arrows, since three recordings with meaningful names are better
-// chosen directly than cycled through) rather than a generic carousel:
-//
-//   - `role="tablist"` of `role="tab"` buttons, each `aria-selected` on
-//     exactly the active one and `aria-controls` pointing at the panel.
-//   - The panel is `role="tabpanel"` with `aria-labelledby` back to the
-//     active tab.
-//   - Left/Right move between tabs, Home/End jump to the first/last. Only
-//     the active tab is in the tab order (roving `tabIndex`), matching the
-//     standard tab pattern and what a screen-reader user expects.
-//
-// Only the active recording's iframe is ever mounted. Three third-party
-// Loom players on the homepage would open three sets of connections and
-// scripts for two videos nobody asked for yet, so mount one, and give it
-// `loading="lazy"`. Do NOT "improve" this into rendering all three and
-// hiding the inactive ones with CSS.
-//
-// The switch itself is not animated: the iframe reloads whenever its `src`
-// changes, so a slide transition would carry a blank frame across the
-// screen mid-animation, worse than a clean swap.
-
 "use client";
 
 import { useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { IntelligenceKiteIcon } from "@/components/intelligence-kite-icon";
+import {
+  ArrowUpRight,
+  Brain,
+  MessagesSquare,
+  Play,
+  Workflow,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 interface Recording {
   readonly id: string;
   readonly title: string;
   readonly loomId: string;
-  /** True for a CopilotKit Intelligence feature, false for core
-   *  (open-source) CopilotKit. Drives the Intelligence mark on the tab;
-   *  add new recordings by setting this rather than special-casing an
-   *  index somewhere else. */
-  readonly intelligence: boolean;
+  readonly icon: LucideIcon;
+  readonly description: string;
+  readonly thumbnail: string;
 }
 
-// Order matches the recordings as produced. Titles use the product's own
-// names where one exists: "Rich Threads" and "User Memories" are canonical
-// CopilotKit Intelligence feature names. "Shared state" is a core,
-// open-source CopilotKit feature, not an Intelligence one. "Harness" in the
-// first title is carried over as-is; it is not a confirmed product name and
-// is left untouched pending confirmation, not silently renamed or dropped.
 const RECORDINGS: readonly Recording[] = [
   {
     id: "shared-state-harness",
-    title: "Shared state and Harness",
+    title: "Shared state",
     loomId: "0cad0c3d96e4454c83133a52d9ac8e7b",
-    intelligence: false,
+    icon: Workflow,
+    description:
+      "Ask your agent to review expenses, flag transactions, and update the app as it works.",
+    thumbnail:
+      "https://cdn.loom.com/sessions/thumbnails/0cad0c3d96e4454c83133a52d9ac8e7b-3b470279be27260d.gif",
   },
   {
     id: "user-memories",
     title: "User Memories",
     loomId: "2978fbfe42324e509057ac5fd46b7a70",
-    intelligence: true,
+    icon: Brain,
+    description:
+      "Remember a user's preferences and reuse what the agent learns across conversations.",
+    thumbnail:
+      "https://cdn.loom.com/sessions/thumbnails/2978fbfe42324e509057ac5fd46b7a70-37108be11ee154e6.gif",
   },
   {
     id: "rich-threads",
     title: "Rich Threads",
     loomId: "79817778d29e490c97225127d2f17b3a",
-    intelligence: true,
+    icon: MessagesSquare,
+    description:
+      "Keep interactive charts, files, and approval cards in conversations users can return to.",
+    thumbnail:
+      "https://cdn.loom.com/sessions/thumbnails/79817778d29e490c97225127d2f17b3a-250a43d55abed071.jpg",
   },
 ] as const;
 
@@ -78,6 +58,7 @@ const PANEL_ID_PREFIX = "docs-video-panel-";
 
 export function DocsVideoCarousel() {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [playing, setPlaying] = useState(false);
   // Roving-tabindex focus management (WAI-ARIA tab pattern): moving the
   // selection with the keyboard also moves DOM focus to the newly active
   // tab, so Tab/Shift+Tab always lands on exactly one control.
@@ -86,6 +67,7 @@ export function DocsVideoCarousel() {
   const active = RECORDINGS[activeIndex];
 
   function selectAndFocus(index: number) {
+    setPlaying(false);
     setActiveIndex(index);
     tabRefs.current[index]?.focus();
   }
@@ -116,10 +98,15 @@ export function DocsVideoCarousel() {
   }
 
   return (
-    <section className="mt-8 text-center">
+    <section id="copilotkit-intro" className="mt-8 scroll-mt-28 text-center">
       <h2 className="text-xl font-semibold tracking-[-0.02em] text-[var(--text)] sm:text-[1.375rem]">
         What is CopilotKit?
       </h2>
+      <p className="mx-auto mt-3 max-w-[58ch] text-base leading-relaxed text-[var(--text-secondary)]">
+        CopilotKit connects your agent to your app. Let users ask questions,
+        work with interactive UI, and take action without leaving what they are
+        doing.
+      </p>
 
       {/* justify-center groups the tabs at the strip's centre rather than
        *  its left edge; the tabs themselves (and everything they control)
@@ -131,6 +118,7 @@ export function DocsVideoCarousel() {
       >
         {RECORDINGS.map((recording, index) => {
           const isActive = index === activeIndex;
+          const Icon = recording.icon;
           return (
             <button
               key={recording.id}
@@ -143,7 +131,7 @@ export function DocsVideoCarousel() {
               aria-selected={isActive}
               aria-controls={`${PANEL_ID_PREFIX}${recording.id}`}
               tabIndex={isActive ? 0 : -1}
-              onClick={() => setActiveIndex(index)}
+              onClick={() => selectAndFocus(index)}
               onKeyDown={handleKeyDown}
               className={`shell-docs-radius-control inline-flex cursor-pointer items-center gap-1.5 border px-3.5 py-2 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none ${
                 isActive
@@ -151,46 +139,61 @@ export function DocsVideoCarousel() {
                   : "border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text)]"
               }`}
             >
+              <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
               <span data-testid="tab-title">{recording.title}</span>
-              {recording.intelligence && (
-                <span className="inline-flex items-center gap-1 text-xs font-medium opacity-80">
-                  {/* Decorative: the "Intelligence" text right after it is
-                   *  what a screen reader announces, so the mark itself
-                   *  stays out of the accessible name. */}
-                  <IntelligenceKiteIcon className="h-3 w-3" />
-                  Intelligence
-                </span>
-              )}
             </button>
           );
         })}
       </div>
 
-      {/* The summary belongs inside the panel, not beside it: it describes
-       *  the selected recording and changes with the tab, so a reader who
-       *  moves into the panel should find it there rather than have it
-       *  orphaned next to the tab strip. */}
       <div
         id={`${PANEL_ID_PREFIX}${active.id}`}
         role="tabpanel"
         aria-labelledby={`${TAB_ID_PREFIX}${active.id}`}
         className="mt-4"
       >
-        <div className="not-prose shell-docs-radius-surface aspect-[7/4] w-full overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]">
-          <iframe
-            src={`https://www.loom.com/embed/${active.loomId}`}
-            title={`${active.title}: CopilotKit product walkthrough`}
-            className="h-full w-full"
-            frameBorder="0"
-            allowFullScreen
-            // Matches the sandbox this app already grants a video embed (see
-            // the YouTube iframe in mdx-registry.tsx): scripts and
-            // same-origin for the player itself, presentation for
-            // fullscreen, popups for its share/login links.
-            sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
-            loading="lazy"
-          />
+        <p className="mx-auto mb-4 max-w-[60ch] text-sm leading-relaxed text-[var(--text-muted)]">
+          {active.description}
+        </p>
+        <div className="not-prose shell-docs-radius-surface aspect-[7/4] w-full overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)]">
+          {playing ? (
+            <iframe
+              src={`https://www.loom.com/embed/${active.loomId}?autoplay=1`}
+              title={`${active.title}: CopilotKit product walkthrough`}
+              className="h-full w-full"
+              allow="autoplay; fullscreen"
+              allowFullScreen
+              sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setPlaying(true)}
+              aria-label={`Play ${active.title} walkthrough`}
+              className="group relative flex h-full w-full cursor-pointer items-center justify-center overflow-hidden focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-[var(--accent)]"
+            >
+              <img
+                src={active.thumbnail}
+                alt=""
+                loading="lazy"
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+              <span className="relative inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-surface)] px-5 py-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-control)] transition-colors group-hover:text-[var(--accent)]">
+                <Play aria-hidden="true" className="h-4 w-4" />
+                Watch walkthrough
+              </span>
+            </button>
+          )}
         </div>
+        <a
+          href={`https://www.loom.com/share/${active.loomId}`}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 inline-flex items-center gap-1 text-xs text-[var(--text-muted)] underline underline-offset-4 hover:text-[var(--accent)]"
+        >
+          Open recording in Loom
+          <ArrowUpRight aria-hidden="true" className="h-3 w-3" />
+        </a>
       </div>
     </section>
   );

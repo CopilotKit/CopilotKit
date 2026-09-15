@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { DocsVideoCarousel } from "@/components/docs-video-carousel";
 
-const TITLES = ["Shared state and Harness", "User Memories", "Rich Threads"];
+const TITLES = ["Shared state", "User Memories", "Rich Threads"];
 
 const LOOM_IDS = [
   "0cad0c3d96e4454c83133a52d9ac8e7b",
@@ -13,7 +13,7 @@ const LOOM_IDS = [
 ];
 
 function embedUrl(id: string): string {
-  return `https://www.loom.com/embed/${id}`;
+  return `https://www.loom.com/embed/${id}?autoplay=1`;
 }
 
 function tabTitle(tab: HTMLElement): string | null | undefined {
@@ -41,21 +41,14 @@ describe("DocsVideoCarousel", () => {
     expect(tabs.map((tab) => tabTitle(tab))).toEqual(TITLES);
   });
 
-  // The summary describes the selected recording and changes with the tab,
-  // so it belongs to the panel rather than sitting beside the tab strip.
-  // Outside the panel it is orphaned for anyone who navigates by landmark
-  // or moves straight into the panel from its tab.
-  // The panel holds the recording and nothing else. It used to carry a
-  // caption describing what the recording shows; that came out because the
-  // page is being kept short and the recording says it better than a
-  // sentence does. Guarding the absence keeps a caption from creeping back
-  // in without the decision being revisited.
-  it("puts the recording in the tab panel and no caption beside it", () => {
+  it("explains the selected outcome before playback", () => {
     render(<DocsVideoCarousel />);
-
     const panel = screen.getByRole("tabpanel");
-    expect(panel.querySelector("iframe")).not.toBeNull();
-    expect(panel.querySelector("p")).toBeNull();
+    expect(panel.textContent).toContain("flag transactions");
+    fireEvent.click(screen.getAllByRole("tab")[1]);
+    expect(screen.getByRole("tabpanel").textContent).toContain(
+      "across conversations",
+    );
   });
 
   it("selects exactly one tab, the first, initially", () => {
@@ -69,8 +62,15 @@ describe("DocsVideoCarousel", () => {
     expect(selected[0]).toBe(tabs[0]);
   });
 
-  it("mounts exactly one iframe, with the selected recording's full embed URL", () => {
+  it("loads the player only after an explicit play action", () => {
     render(<DocsVideoCarousel />);
+    expect(document.querySelector("iframe")).toBeNull();
+    expect(document.querySelector("img")?.getAttribute("src")).toContain(
+      "cdn.loom.com",
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Play Shared state walkthrough" }),
+    );
 
     const iframes = document.querySelectorAll("iframe");
     expect(iframes).toHaveLength(1);
@@ -80,8 +80,15 @@ describe("DocsVideoCarousel", () => {
   it("swaps the iframe src and moves aria-selected when another tab is clicked", () => {
     render(<DocsVideoCarousel />);
 
+    fireEvent.click(
+      screen.getByRole("button", { name: "Play Shared state walkthrough" }),
+    );
     const tabs = screen.getAllByRole("tab");
     fireEvent.click(tabs[2]);
+    expect(document.querySelector("iframe")).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Play Rich Threads walkthrough" }),
+    );
 
     const reselected = screen
       .getAllByRole("tab")
@@ -155,39 +162,25 @@ describe("DocsVideoCarousel", () => {
 
     for (const tab of screen.getAllByRole("tab")) {
       fireEvent.click(tab);
+      fireEvent.click(screen.getByRole("button", { name: /^Play / }));
       const iframe = document.querySelector("iframe");
       expect(iframe?.getAttribute("title")).toBeTruthy();
     }
   });
 
-  // The two CopilotKit Intelligence recordings carry the product's kite
-  // mark; the open-source shared-state one does not. Asserted on what
-  // actually renders, not by reading the recordings array back.
-  it("marks exactly the two Intelligence recordings, and only those, as Intelligence", () => {
+  it("gives each tab a decorative icon and an unambiguous text label", () => {
     render(<DocsVideoCarousel />);
-
-    const tabs = screen.getAllByRole("tab");
-    const marked = tabs.filter((tab) =>
-      tab.textContent?.includes("Intelligence"),
-    );
-    expect(marked).toHaveLength(2);
-
-    expect(tabs[0].textContent).not.toContain("Intelligence");
-    expect(tabs[1].textContent).toContain("Intelligence");
-    expect(tabs[2].textContent).toContain("Intelligence");
-  });
-
-  // The kite mark is `aria-hidden`, so a screen reader only learns what it
-  // means if the word itself is real, visible text next to it, not merely
-  // implied by an icon.
-  it("carries the Intelligence mark's meaning to assistive technology as text, not only as an icon", () => {
-    render(<DocsVideoCarousel />);
-
-    const markedTab = screen.getAllByRole("tab")[1];
-    const icon = markedTab.querySelector("svg");
-    expect(icon).not.toBeNull();
-    expect(icon?.getAttribute("aria-hidden")).toBe("true");
-    expect(markedTab.textContent).toContain("Intelligence");
+    for (const tab of screen.getAllByRole("tab")) {
+      expect(tab.querySelector("svg")?.getAttribute("aria-hidden")).toBe(
+        "true",
+      );
+      expect(tab.textContent).not.toContain("Intelligence");
+    }
+    expect(
+      screen
+        .getByRole("link", { name: "Open recording in Loom" })
+        .getAttribute("href"),
+    ).toBe(`https://www.loom.com/share/${LOOM_IDS[0]}`);
   });
 
   // The section-level chrome centres to match the rest of the homepage

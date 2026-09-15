@@ -130,13 +130,13 @@ function DocsOverview() {
 
   return (
     <ShellDocsLayout tree={pageTree} banner={<SidebarFrameworkSelector />}>
-      <div className="docs-inner-content max-w-[760px] mx-auto px-4 md:px-6 pt-0 pb-6">
+      <div className="docs-inner-content max-w-[760px] mx-auto px-4 md:px-6 pt-8 sm:pt-12 pb-6">
         {/* Three things only: name, one line of positioning, two buttons.
             The reader can add CopilotKit to an existing project too — the
             wizard's first step asks that, so the hero doesn't have to. */}
         <section className="relative border-b border-[var(--border)] pb-6 sm:pb-7">
           <div className="mx-auto flex max-w-[58ch] flex-col items-center text-center">
-            <h1 className="max-w-[24ch] text-[2rem] font-semibold leading-[1.08] tracking-[-0.02em] text-[var(--text)] sm:text-[2.5rem] md:mt-3">
+            <h1 className="max-w-[24ch] text-[2rem] font-semibold leading-[1.08] tracking-[-0.02em] text-[var(--text)] sm:text-[2.5rem]">
               CopilotKit
             </h1>
             {/* Names a benefit rather than a category. The previous line,
