@@ -39,3 +39,12 @@ class TestCustomizeConfigDoesNotMutateCallerMetadata:
             {"state_key": "steps", "tool": "SearchTool", "tool_argument": "steps"}
         ]
         assert base_config.get("metadata") == {"user-key": "keep-me"}
+
+    def test_none_metadata_is_treated_as_empty_dict(self):
+        customized = copilotkit_customize_config(
+            {"metadata": None},
+            emit_messages=False,
+        )
+
+        assert customized["metadata"]["copilotkit:emit-messages"] is False
+        assert customized["metadata"] is not None
