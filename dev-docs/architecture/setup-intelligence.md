@@ -69,7 +69,7 @@ npm install @copilotkit/runtime
 import { CopilotKitIntelligence } from "@copilotkit/runtime";
 
 const intelligence = new CopilotKitIntelligence({
-  apiKey: process.env.INTELLIGENCE_API_KEY!,
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
   organizationId: process.env.COPILOTKIT_INTELLIGENCE_ORGANIZATION_ID!,
 });
 ```
@@ -84,7 +84,7 @@ layer appends `/runner` or `/client` itself.
 
 ```typescript
 const intelligence = new CopilotKitIntelligence({
-  apiKey: process.env.INTELLIGENCE_API_KEY!,
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
   organizationId: process.env.COPILOTKIT_INTELLIGENCE_ORGANIZATION_ID!,
   apiUrl: "https://api.your-intelligence-host",
   wsUrl: "wss://realtime.your-intelligence-host",

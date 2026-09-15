@@ -4,7 +4,7 @@ import asyncio
 import json
 from contextlib import nullcontext
 from typing import Any, ClassVar
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from ag_ui.core import EventType, MessagesSnapshotEvent, Tool, UserMessage
 from ag_ui_langgraph import LangGraphAgent as AGUIBase
@@ -236,7 +236,13 @@ async def _state_event(agent, state, *, calls, parent_message_id="ai-1", metadat
 
 
 def _bridge_agent():
-    agent = object.__new__(LangGraphAGUIAgent)
+    # Construct for real rather than via object.__new__: the base class sets
+    # behavior flags that its own dispatch path reads, so an instance that
+    # skipped __init__ raised AttributeError mid-dispatch as soon as
+    # ag-ui-langgraph started reading one of them.
+    graph = MagicMock()
+    graph.nodes = {}
+    agent = LangGraphAGUIAgent(name="bridge", graph=graph)
     agent.active_run = {"streamed_tool_call_ids": {"streamed"}}
     agent._copilotkit_runtime_payload = {"actions": [{"function": None}]}
     return agent

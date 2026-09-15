@@ -16,7 +16,6 @@
  *
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
-
 import type { CreateCopilotRuntimeServerOptions } from "../shared";
 import { getCommonConfig } from "../shared";
 import telemetry, {
@@ -52,7 +51,7 @@ export function copilotRuntimeNodeHttpEndpoint(
     });
   }
 
-  telemetry.capture(
+  options.runtime.telemetry.capture(
     "oss.runtime.instance_created",
     getRuntimeInstanceTelemetryInfo(options),
   );

@@ -42,6 +42,7 @@ const INTEGRATIONS_DIR = resolve(__dirname, "../../../../integrations");
  * matrix, but does not claim live-fleet coverage before provisioning exists.
  */
 const EXCLUDED_STARTERS: ReadonlySet<string> = new Set<string>([
+  "crewai-flows",
   "strands-typescript",
 ]);
 

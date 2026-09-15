@@ -109,6 +109,7 @@ async function setup(options: SetupOptions = {}): Promise<InspectorContext> {
           agents: {},
           audioFileTranscriptionEnabled: false,
           mode: "sse",
+          intelligence: { wsUrl: "" },
           threadEndpoints: {
             list: options.threadsAvailable ?? false,
             inspect: options.threadsAvailable ?? false,
@@ -294,19 +295,17 @@ test.each([
   },
 );
 
+const LOCKED_THREADS_HEADING =
+  "Production-grade chat threads without the complexity. Self hostable.";
+
 test.each([
-  ["valid", "manage_plan", "Finish setting up Rich Threads", undefined],
-  [
-    "none",
-    "enable_intelligence",
-    "Enable Intelligence to inspect Threads.",
-    "Enable Intelligence",
-  ],
-  ["expired", "renew", "Renew Intelligence to inspect Threads.", "Renew"],
-  ["unknown", "manage_plan", "Threads are unavailable.", undefined],
+  ["valid", "manage_plan"],
+  ["none", "enable_intelligence"],
+  ["expired", "renew"],
+  ["unknown", "manage_plan"],
 ] as const)(
-  "locked Threads use %s license copy and action placement",
-  async (licenseState, actionKind, heading, actionLabel) => {
+  "locked Threads ignore %s license metadata and use the unified actions",
+  async (licenseState, actionKind) => {
     const context = await setup({
       metadata: fullMetadata(licenseState, actionKind),
       runtimeLicense: licenseState,
@@ -320,13 +319,15 @@ test.each([
       const action = root.querySelector<HTMLAnchorElement>(
         '[data-inspector-action-placement="locked"]',
       );
-      expect(root.textContent).toContain(heading);
-      expect(action?.textContent?.trim()).toBe(actionLabel);
-      if (actionLabel !== undefined) {
-        expect(action?.href).toBe(
-          `https://cloud.copilotkit.ai/actions/${actionKind}`,
-        );
-      }
+      const talk = root.querySelector<HTMLAnchorElement>(
+        '[data-inspector-locked-feature-talk="threads"]',
+      );
+      expect(root.textContent).toContain(LOCKED_THREADS_HEADING);
+      expect(action).toBeNull();
+      expect(talk?.textContent?.trim()).toBe("Talk to an Engineer");
+      expect(
+        root.querySelector('[data-inspector-feature-setup-prompt="threads"]'),
+      ).not.toBeNull();
     } finally {
       context.teardown();
     }
@@ -361,7 +362,7 @@ test("renders valid partial modules without identity placeholders", async () => 
   }
 });
 
-test("an old runtime omits metadata UI and keeps the generic locked fallback", async () => {
+test("an old runtime omits metadata UI and keeps the guided setup fallback", async () => {
   const context = await setup({
     metadataSupported: false,
     threadsAvailable: false,
@@ -373,7 +374,10 @@ test("an old runtime omits metadata UI and keeps the generic locked fallback", a
     const root = context.inspector.shadowRoot!;
     expect(root.querySelector("[data-inspector-metadata]")).toBeNull();
     expect(root.querySelector("[data-inspector-action-placement]")).toBeNull();
-    expect(root.textContent).toContain("Threads are unavailable.");
+    expect(root.textContent).toContain(
+      "Production-grade chat threads without the complexity. Self hostable.",
+    );
+    expect(root.textContent).not.toContain("Threads are unavailable.");
   } finally {
     context.teardown();
   }
@@ -434,7 +438,7 @@ test("known license disagreement uses Runtime copy and hides the metadata action
 
     const root = context.inspector.shadowRoot!;
     expect(root.textContent).toContain(
-      "Renew Intelligence to inspect Threads.",
+      "Production-grade chat threads without the complexity. Self hostable.",
     );
     expect(
       root.querySelector('[data-inspector-action-placement="locked"]'),
@@ -522,12 +526,9 @@ test("metadata usage stays independent from Threads capability and debug navigat
       Object.prototype.hasOwnProperty.call(usage ?? {}, "expiringSoonCount"),
     ).toBe(true);
     expect(root.textContent).toContain(
-      "Enable Intelligence to inspect Threads.",
+      "Production-grade chat threads without the complexity. Self hostable.",
     );
-    expect(lockedAction?.textContent?.trim()).toBe("Enable Intelligence");
-    expect(lockedAction?.href).toBe(
-      "https://cloud.copilotkit.ai/actions/enable_intelligence",
-    );
+    expect(lockedAction).toBeNull();
     expect(
       context.requests.filter((url) => url.includes("/threads?")),
     ).toHaveLength(0);

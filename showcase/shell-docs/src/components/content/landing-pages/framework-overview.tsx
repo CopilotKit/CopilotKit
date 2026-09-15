@@ -9,6 +9,7 @@ import { usePostHog } from "posthog-js/react";
 
 import { customIcons } from "@/components/icons";
 import type { IconKey } from "@/components/icons";
+import { HeroOnboardingPromptButton } from "@/components/hero-onboarding-prompt-button";
 import {
   HeroStartActions,
   QuickstartLinkButton,
@@ -182,12 +183,12 @@ export function FrameworkOverview({
     return rewritten;
   };
 
-  // Frameworks whose init is the generic top-level command get the unified
-  // two-command recommendation (matching the home hero). Frameworks with
-  // bespoke setup (e.g. a2a's `git clone`, ms-agent-dotnet) keep their own
-  // single command chip — those commands aren't interchangeable with the CLI.
+  // Frameworks whose init is the generic top-level command get the shared hero
+  // action row (matching the home hero). Frameworks with bespoke setup keep
+  // their own single command chip, because those commands aren't
+  // interchangeable with the CLI's generic one: a2a clones a repository, and
+  // the Claude Agent SDK records pass `init --framework claude-sdk-*`.
   const isGenericInit = initCommand.trim() === "npx copilotkit@latest init";
-  const createFramework = cliFrameworkForDocsSlug(currentFramework);
 
   const [activeDemo, setActiveDemo] = useState<string>(
     liveDemos[0]?.type || "saas",
@@ -288,32 +289,53 @@ export function FrameworkOverview({
           </p>
 
           {/* Action cluster — the same <HeroStartActions> block as the home
-              hero, with Quickstart primary and the agent CLI setup menu
-              secondary. The quickstart slot is a direct link here because a
+              hero, with the coding-agent prompt primary and Quickstart
+              secondary. The prompt is identical on every surface: the CLI's
+              onboarding graph inspects the repository and picks its own path,
+              so a framework-scoped variant would be a promise the CLI does not
+              keep. The quickstart slot is a direct link here because a
               framework is already selected. Frameworks with bespoke setup
-              (e.g. a2a's `git clone`, ms-agent-dotnet) keep their own
-              copy-command chip because those commands aren't interchangeable
-              with the CLI. */}
+              (e.g. the Claude Agent SDK's `init --framework`) lead with the
+              same prompt and Quickstart, then keep their own copy-command chip
+              as a third action: that command is not interchangeable with the
+              generic CLI one, and nothing else on the page carries it. */}
           <div className="mt-7">
             {isGenericInit ? (
               <HeroStartActions
-                createFramework={createFramework}
+                prompt={
+                  <HeroOnboardingPromptButton
+                    surface="docs_framework_hero"
+                    framework={{
+                      slug: currentFramework,
+                      name: frameworkName,
+                    }}
+                  />
+                }
                 quickstart={
                   <QuickstartLinkButton
                     href={link(rawGuideLink)}
                     frontend={selectedFrontend}
                     backend={currentFramework}
                     fromPath={overviewPath}
+                    variant="secondary"
                   />
                 }
               />
             ) : (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <HeroOnboardingPromptButton
+                  surface="docs_framework_hero"
+                  framework={{
+                    slug: currentFramework,
+                    name: frameworkName,
+                  }}
+                />
                 <QuickstartLinkButton
                   href={link(rawGuideLink)}
                   frontend={selectedFrontend}
                   backend={currentFramework}
                   fromPath={overviewPath}
+                  variant="secondary"
                 />
                 <button
                   type="button"

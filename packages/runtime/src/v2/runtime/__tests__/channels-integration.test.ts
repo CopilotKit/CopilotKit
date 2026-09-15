@@ -12,6 +12,7 @@ import type {
   ChannelsHandle,
 } from "../core/channel-manager";
 import type { ChannelActivationConfig } from "../core/channel-activation-config";
+import { telemetry } from "../telemetry";
 
 /* ------------------------------------------------------------------------------------------------
  * This suite proves handler-owned Channel activation end-to-end: a real
@@ -168,5 +169,47 @@ describe("createCopilotRuntimeHandler — channel activation (integration)", () 
     await handler.channels!.stop();
     expect(state.stopCalls).toBe(1);
     expect(handler.channels!.status().overall).toBe("stopped");
+  });
+
+  it("routes Channel drop telemetry through the Runtime capture scope", async () => {
+    const runtime = new CopilotRuntime({
+      agents: {},
+      intelligence: fakeIntelligence(),
+      identifyUser: vi.fn().mockResolvedValue({ id: "u", name: "U" }),
+      channels: [
+        createChannel({
+          identifyUser: "platform",
+          name: "support",
+          agent: new FakeAgent(),
+        }),
+      ],
+    });
+    const runtimeCaptureSpy = vi
+      .spyOn(runtime.telemetry, "capture")
+      .mockResolvedValue(undefined);
+    const defaultCaptureSpy = vi
+      .spyOn(telemetry, "capture")
+      .mockResolvedValue(undefined);
+    const state = capturingEngine();
+
+    try {
+      const handler = createCopilotRuntimeHandler({
+        runtime,
+        __channelEngine: state.engine,
+      });
+      await handler.channels!.ready({ timeoutMs: 1000 });
+
+      state.triggerDrop();
+
+      expect(runtimeCaptureSpy).toHaveBeenCalledWith(
+        "oss.runtime.channel_session_dropped",
+        { reason: "socket dropped" },
+      );
+      expect(defaultCaptureSpy).not.toHaveBeenCalled();
+      await handler.channels!.stop();
+    } finally {
+      runtimeCaptureSpy.mockRestore();
+      defaultCaptureSpy.mockRestore();
+    }
   });
 });

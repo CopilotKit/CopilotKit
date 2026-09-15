@@ -38,7 +38,7 @@ type RenderProps<T> =
 // Overload for wildcard tools without args
 export function defineToolCallRenderer(def: {
   name: "*";
-  render: (props: RenderProps<any>) => React.ReactElement;
+  render: (props: RenderProps<any>) => React.ReactElement | null;
   agentId?: AgentId;
 }): ReactToolCallRenderer<any>;
 
@@ -46,7 +46,9 @@ export function defineToolCallRenderer(def: {
 export function defineToolCallRenderer<S extends StandardSchemaV1>(def: {
   name: string;
   args: S;
-  render: (props: RenderProps<InferSchemaOutput<S>>) => React.ReactElement;
+  render: (
+    props: RenderProps<InferSchemaOutput<S>>,
+  ) => React.ReactElement | null;
   agentId?: AgentId;
 }): ReactToolCallRenderer<InferSchemaOutput<S>>;
 
@@ -54,7 +56,7 @@ export function defineToolCallRenderer<S extends StandardSchemaV1>(def: {
 export function defineToolCallRenderer<S extends StandardSchemaV1>(def: {
   name: string;
   args?: S;
-  render: (props: any) => React.ReactElement;
+  render: (props: any) => React.ReactElement | null;
   agentId?: AgentId;
 }): ReactToolCallRenderer<any> {
   // For wildcard tools, default to z.any() if no args provided

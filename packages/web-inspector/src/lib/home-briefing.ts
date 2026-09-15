@@ -102,7 +102,7 @@ export type HomeBriefingInput = {
     type: string;
     timestamp: number;
   };
-  memoriesOn: boolean;
+  learningOn: boolean;
   a2uiOn: boolean;
   openGenUiOn: boolean;
   suggestionsOn: boolean;
@@ -116,12 +116,13 @@ export type HomeBriefingInput = {
 
 const SERVICE_DOCS_URL: Record<HomeServiceId, string> = {
   threads: "https://docs.copilotkit.ai/threads",
-  memory: "https://docs.copilotkit.ai/premium/intelligence-platform",
+  memory: "https://docs.copilotkit.ai/intelligence/intelligence-platform",
   a2ui: "https://docs.copilotkit.ai/generative-ui/a2ui",
   "open-gen-ui": "https://docs.copilotkit.ai/generative-ui/open-generative-ui",
-  suggestions: "https://docs.copilotkit.ai/agentic-chat-ui",
+  suggestions:
+    "https://docs.copilotkit.ai/reference/hooks/useConfigureSuggestions",
   audio: "https://docs.copilotkit.ai/voice",
-  websocket: "https://docs.copilotkit.ai/premium/intelligence-platform",
+  websocket: "https://docs.copilotkit.ai/intelligence/intelligence-platform",
 };
 
 /** Return the Home hero button for a trusted metadata action. */
@@ -453,8 +454,8 @@ export function buildHomeModel(input: HomeBriefingInput): HomeModel {
       },
       {
         id: "memory",
-        label: "Memory",
-        enabled: intelligenceConnected && input.memoriesOn,
+        label: "Learning",
+        enabled: intelligenceConnected && input.learningOn,
         docsUrl: SERVICE_DOCS_URL.memory,
       },
       {
@@ -477,7 +478,7 @@ export function buildHomeModel(input: HomeBriefingInput): HomeModel {
       },
       {
         id: "audio",
-        label: "Audio",
+        label: "Voice",
         enabled: input.audioOn,
         docsUrl: SERVICE_DOCS_URL.audio,
       },

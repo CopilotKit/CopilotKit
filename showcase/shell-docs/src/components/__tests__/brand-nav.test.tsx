@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test, vi } from "vitest";
 
@@ -17,20 +18,41 @@ vi.mock("posthog-js/react", () => ({
   usePostHog: () => ({ capture: vi.fn() }),
 }));
 
-vi.mock("@clerk/nextjs", () => ({
-  useUser: () => {
-    if (clerkState.shouldThrow) throw new Error("Clerk unavailable");
+vi.mock("@clerk/nextjs", () => {
+  const UserButton = Object.assign(
+    ({ children }: { children?: ReactNode }) => (
+      <div>
+        <button type="button">Account menu</button>
+        {children}
+      </div>
+    ),
+    {
+      MenuItems: ({ children }: { children?: ReactNode }) => children,
+      Link: ({ href, label }: { href: string; label: string }) => (
+        <a href={href}>{label}</a>
+      ),
+    },
+  );
 
-    return {
-      isLoaded: clerkState.isLoaded,
-      isSignedIn: clerkState.isSignedIn,
-    };
-  },
-  UserButton: () => <button type="button">Account menu</button>,
-}));
+  return {
+    useUser: () => {
+      if (clerkState.shouldThrow) throw new Error("Clerk unavailable");
+
+      return {
+        isLoaded: clerkState.isLoaded,
+        isSignedIn: clerkState.isSignedIn,
+      };
+    },
+    UserButton,
+  };
+});
 
 import { BrandNav, buildDocsAuthEntryHref } from "../brand-nav";
-import { DocsAuthFallbackBoundary } from "../docs-public-auth-control";
+import { PrimaryDocsTabs } from "../primary-docs-tabs";
+import {
+  buildDocsUserMenuHref,
+  DocsAuthFallbackBoundary,
+} from "../docs-public-auth-control";
 
 const brandNavSource = readFileSync(
   new URL("../brand-nav.tsx", import.meta.url),
@@ -48,6 +70,33 @@ const globalsCss = readFileSync(
   new URL("../../app/globals.css", import.meta.url),
   "utf8",
 );
+
+test("BrandNav opens Docs from a mega menu", () => {
+  expect(brandNavSource).toContain("DocsMegaMenu");
+  expect(brandNavSource).not.toContain('label: "Docs"');
+  expect(brandNavSource).not.toContain('href: "/"');
+});
+
+test("BrandNav keeps Intelligence out of the primary header links", () => {
+  expect(brandNavSource).toContain('label: "Cookbook"');
+  expect(brandNavSource).not.toContain('label: "Intelligence"');
+  expect(brandNavSource).not.toContain("INTELLIGENCE_DOCS_HREF");
+});
+
+test("PrimaryDocsTabs keeps Intelligence out of the mobile links", () => {
+  const markup = renderToStaticMarkup(<PrimaryDocsTabs />);
+
+  expect(markup).toContain(">Docs<");
+  expect(markup).toContain(">Reference<");
+  expect(markup).toContain(">Cookbook<");
+  expect(markup).not.toContain(">Intelligence<");
+});
+
+test("BrandNav keeps space between the center rail and search", () => {
+  expect(brandNavSource).toContain("grid-cols-[auto_minmax(0,1fr)_auto]");
+  expect(brandNavSource).toContain("gap-x-8");
+  expect(brandNavSource).toContain("pl-4");
+});
 
 test("BrandNav uses the docs grid desktop layout cap", () => {
   expect(brandNavSource).toContain("shell-docs-brand-nav-inner");
@@ -83,7 +132,30 @@ test("BrandNav renders Clerk's user button in the desktop auth slot", () => {
   const markup = renderToStaticMarkup(<BrandNav />);
 
   expect(markup).toContain("Account menu");
+  expect(markup).toContain(
+    'href="https://dashboard.operations.copilotkit.ai/intelligence"',
+  );
+  expect(markup).toContain("Intelligence");
+  expect(markup).toContain(
+    'href="https://dashboard.operations.copilotkit.ai/pricing"',
+  );
+  expect(markup).toContain("Manage your plan");
   expect(markup).not.toContain("Get CopilotKit Intelligence free");
+});
+
+test("BrandNav uses the environment-specific Ops origin for user menu links", () => {
+  expect(
+    buildDocsUserMenuHref(
+      "/intelligence",
+      "https://dashboard.staging.operations.copilotkit.ai",
+    ),
+  ).toBe("https://dashboard.staging.operations.copilotkit.ai/intelligence");
+  expect(
+    buildDocsUserMenuHref(
+      "/pricing",
+      "https://dashboard.staging.operations.copilotkit.ai",
+    ),
+  ).toBe("https://dashboard.staging.operations.copilotkit.ai/pricing");
 });
 
 test("BrandNav sends public auth entry to Intelligence onboarding", () => {

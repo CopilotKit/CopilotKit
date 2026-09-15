@@ -9,6 +9,7 @@ import {
   CopilotKitCoreRuntimeConnectionStatus,
 } from "@copilotkit/core";
 import type {
+  InspectorLearningSnapshotV1,
   IntelligenceRuntimeInfo,
   RuntimeLicenseStatus,
   ThreadEndpointRuntimeInfo,
@@ -31,9 +32,12 @@ type Options = Readonly<{
   endpoints?: ThreadEndpointRuntimeInfo;
   intelligence?: boolean;
   licenseStatus?: RuntimeLicenseStatus;
+  learningSnapshot?: InspectorLearningSnapshotV1;
+  learningStatus?: number;
 }>;
 
 class HudTestCore extends CopilotKitCore {
+  private readonly learningSupported: boolean;
   private readonly endpointsValue: ThreadEndpointRuntimeInfo | undefined;
   private readonly intelligenceValue: IntelligenceRuntimeInfo | undefined;
   private readonly licenseStatusValue: RuntimeLicenseStatus | undefined;
@@ -44,12 +48,17 @@ class HudTestCore extends CopilotKitCore {
       runtimeTransport: "rest",
       deferInitialConnection: true,
     });
+    this.learningSupported = options.learningSnapshot !== undefined;
     this.endpointsValue = options.endpoints;
     this.intelligenceValue =
       options.intelligence === true
         ? { wsUrl: "wss://intelligence.launcher-hud.test" }
         : undefined;
     this.licenseStatusValue = options.licenseStatus;
+  }
+
+  override get inspectorLearning(): boolean {
+    return this.learningSupported;
   }
 
   override get threadEndpoints(): ThreadEndpointRuntimeInfo | undefined {
@@ -154,6 +163,11 @@ async function setup(options: Options = {}): Promise<{
           input instanceof Request ? input.url : String(input),
           window.location.href,
         ).href;
+        if (href.startsWith(`${RUNTIME_URL}/inspector-learning`)) {
+          return new Response(JSON.stringify(options.learningSnapshot), {
+            status: options.learningStatus ?? 200,
+          });
+        }
         if (href === ANNOUNCEMENT_URL) {
           return new Response(null, { status: 404 });
         }
@@ -217,7 +231,7 @@ test("the HUD stays closed during the initial page-settle delay", async () => {
   expect(hud(inspector)).toBeNull();
 });
 
-test("the HUD previews every feature in sequence on page load, then leaves", async () => {
+test("the HUD previews only disabled features in sequence on page load, then leaves", async () => {
   vi.useFakeTimers();
   const { inspector } = await setup({
     intelligence: true,
@@ -230,17 +244,19 @@ test("the HUD previews every feature in sequence on page load, then leaves", asy
 
   const introHud = requireElement(hud(inspector));
   expect(introHud.getAttribute("data-cpk-hud-intro")).toBe("true");
-  expect(hudRowLabels(inspector)).toEqual([
-    "Open Inspector",
-    "Threads on",
-    "Intelligence connected",
-    "Learning on",
-  ]);
+  expect(hudRowLabels(inspector)).toEqual(["Automatic Learning"]);
   expect(
-    Array.from(
-      root(inspector).querySelectorAll<HTMLElement>("[data-cpk-hud-row]"),
-    ).map((row) => row.style.getPropertyValue("--cpk-hud-row-delay")),
-  ).toEqual(["180ms", "350ms", "520ms", "690ms"]);
+    [
+      root(inspector).querySelector<HTMLElement>(
+        ".cpk-launcher-hud__feature-list",
+      ),
+      ...Array.from(
+        root(inspector).querySelectorAll<HTMLElement>("[data-cpk-hud-row]"),
+      ),
+    ].map((item) =>
+      requireElement(item).style.getPropertyValue("--cpk-hud-waterfall-delay"),
+    ),
+  ).toEqual(["180ms", "350ms"]);
 
   await vi.advanceTimersByTimeAsync(3400);
   await settle(inspector);
@@ -262,45 +278,54 @@ test("hovering during the page-load preview keeps the HUD open", async () => {
   expect(hud(inspector)?.hasAttribute("data-cpk-hud-intro")).toBe(false);
 });
 
-test("hovering the launcher shows Open Inspector, Threads, Intelligence, and Learning", async () => {
+test("hovering the launcher shows its feature states without a redundant header", async () => {
   const { inspector, openHud } = await setup();
   await openHud();
   expect(hudOpen(inspector)).toBe(true);
+  expect(launcherButton(inspector).getAttribute("title")).toBe(
+    "CopilotKit Inspector",
+  );
+  expect(root(inspector).querySelector("[data-cpk-hud-header]")).toBeNull();
   expect(hudRowLabels(inspector)).toEqual([
-    "Open Inspector",
-    "Turn on Threads",
-    "Turn on Intelligence",
-    "Turn on Learning",
+    "Rich Threads",
+    "Automatic Learning",
   ]);
+  expect(
+    root(inspector).querySelector('[data-cpk-hud-row="inspector"]'),
+  ).toBeNull();
+  expect(
+    root(inspector).querySelector('[data-cpk-hud-row="intelligence"]'),
+  ).toBeNull();
+  expect(
+    root(inspector).querySelector('[data-cpk-hud-icon="threads"] svg'),
+  ).not.toBeNull();
+  expect(
+    root(inspector).querySelector('[data-cpk-hud-icon="learning"] svg'),
+  ).not.toBeNull();
+  expect(hud(inspector)?.getAttribute("data-cpk-hud-vertical")).toBe("top");
 });
 
-test("connected Intelligence and Threads keep their slots and show a check", async () => {
+test("enabled features are hidden while unconfigured features remain available", async () => {
   const { inspector, openHud } = await setup({
     intelligence: true,
     endpoints: ENABLED_ENDPOINTS,
   });
   await openHud();
-  expect(hudRowLabels(inspector)).toEqual([
-    "Open Inspector",
-    "Threads on",
-    "Intelligence connected",
-    "Learning on",
-  ]);
+  expect(hudRowLabels(inspector)).toEqual(["Automatic Learning"]);
   expect(
-    root(inspector).querySelector(
-      '[data-cpk-hud-row="threads"] [data-cpk-hud-check]',
+    root(inspector).querySelector('[data-cpk-hud-row="threads"]'),
+  ).toBeNull();
+
+  const learningToggle = requireElement(
+    root(inspector).querySelector<HTMLButtonElement>(
+      '[data-cpk-hud-toggle="learning"]',
     ),
-  ).not.toBeNull();
-  expect(
-    root(inspector).querySelector(
-      '[data-cpk-hud-row="intelligence"] [data-cpk-hud-check]',
-    ),
-  ).not.toBeNull();
-  expect(
-    root(inspector).querySelector(
-      '[data-cpk-hud-row="learning"] [data-cpk-hud-check]',
-    ),
-  ).not.toBeNull();
+  );
+  expect(learningToggle.getAttribute("data-enabled")).toBe("false");
+  expect(learningToggle.disabled).toBe(false);
+  expect(learningToggle.getAttribute("aria-label")).toBe(
+    "Open Automatic Learning in Inspector",
+  );
 });
 
 test("the HUD respects a runtime that is not entitled to Intelligence", async () => {
@@ -313,17 +338,17 @@ test("the HUD respects a runtime that is not entitled to Intelligence", async ()
   await openHud();
 
   expect(hudRowLabels(inspector)).toEqual([
-    "Open Inspector",
-    "Turn on Threads",
-    "Turn on Intelligence",
-    "Turn on Learning",
+    "Rich Threads",
+    "Automatic Learning",
   ]);
-  for (const row of ["threads", "intelligence", "learning"] as const) {
-    expect(
-      root(inspector).querySelector(
-        `[data-cpk-hud-row="${row}"] [data-cpk-hud-check]`,
+  for (const row of ["threads", "learning"] as const) {
+    const toggle = requireElement(
+      root(inspector).querySelector<HTMLButtonElement>(
+        `[data-cpk-hud-toggle="${row}"]`,
       ),
-    ).toBeNull();
+    );
+    expect(toggle.getAttribute("data-enabled")).toBe("false");
+    expect(toggle.disabled).toBe(false);
   }
 });
 
@@ -343,81 +368,123 @@ test("the floating window does not cover the sidebar toggle with a SW handle", a
   expect(tree.querySelector("[data-inspector-sidebar-toggle]")).not.toBeNull();
 });
 
-test("Open Inspector in the HUD opens the panel", async () => {
-  const { inspector, openHud, clickHud } = await setup();
-  await openHud();
-  await clickHud("inspector");
-  expect(root(inspector).querySelector(".inspector-window")).not.toBeNull();
-  expect(currentMenu(inspector)).toBe("home");
-});
-
-test("Turn on Threads lands on the Threads view", async () => {
-  const { inspector, openHud, clickHud } = await setup();
-  await openHud();
-  await clickHud("threads");
-  expect(currentMenu(inspector)).toBe("threads");
-});
-
-test("a press on the row body lands, not only the title", async () => {
+test("a disabled row body keeps its Inspector destination", async () => {
   const { inspector, openHud } = await setup();
   await openHud();
-  const detail = requireElement(
-    root(inspector).querySelector<HTMLElement>(
-      '[data-cpk-hud-row="threads"] .cpk-launcher-hud__detail',
-    ),
+  const row = requireElement(
+    root(inspector).querySelector<HTMLElement>('[data-cpk-hud-row="threads"]'),
   );
-  detail.click();
+  row.click();
   await settle(inspector);
   expect(currentMenu(inspector)).toBe("threads");
 });
 
-test("Threads on still lands on the Threads view", async () => {
-  const { inspector, openHud, clickHud } = await setup({
-    endpoints: ENABLED_ENDPOINTS,
-  });
-  await openHud();
-  await clickHud("threads");
-  expect(currentMenu(inspector)).toBe("threads");
-});
-
-test("the help mark keeps a row's detail open without hover", async () => {
+test("feature help buttons describe their destination with tooltips", async () => {
   const { inspector, openHud } = await setup();
   await openHud();
   const help = requireElement(
     root(inspector).querySelector<HTMLButtonElement>(
-      '[data-cpk-hud-row="threads"] [aria-expanded]',
+      '[data-cpk-hud-learn-more="threads"]',
     ),
   );
-  help.click();
+  const detailId = help.getAttribute("aria-describedby");
+  const tooltip = requireElement(
+    root(inspector).getElementById(detailId ?? ""),
+  );
+  expect(tooltip.getAttribute("role")).toBe("tooltip");
+  expect(tooltip.textContent).toBe("Click to learn more");
+});
+
+test("feature toggles open their relevant Inspector views", async () => {
+  const { inspector, openHud } = await setup();
+  await openHud();
+  requireElement(
+    root(inspector).querySelector<HTMLButtonElement>(
+      '[data-cpk-hud-toggle="learning"]',
+    ),
+  ).click();
   await settle(inspector);
-  expect(
-    root(inspector)
-      .querySelector('[data-cpk-hud-row="threads"]')
-      ?.getAttribute("data-cpk-hud-help"),
-  ).toBe("open");
-  expect(help.getAttribute("aria-expanded")).toBe("true");
-  expect(root(inspector).querySelector(".inspector-window")).toBeNull();
-});
-
-test("Turn on Intelligence lands on Home", async () => {
-  const { inspector, openHud, clickHud } = await setup();
-  await openHud();
-  await clickHud("intelligence");
-  expect(currentMenu(inspector)).toBe("home");
-});
-
-test("Intelligence connected lands on Home", async () => {
-  const { inspector, openHud, clickHud } = await setup({ intelligence: true });
-  await openHud();
-  await clickHud("intelligence");
-  expect(currentMenu(inspector)).toBe("home");
-});
-
-test("Turn on Learning lands on the Learning view", async () => {
-  const { inspector, openHud, clickHud } = await setup();
-  await openHud();
-  await clickHud("learning");
   expect(currentMenu(inspector)).toBe("memories");
+});
+
+test("disabled feature rows open their landing pages, where setup prompts can be copied", async () => {
+  const originalClipboard = Object.getOwnPropertyDescriptor(
+    navigator,
+    "clipboard",
+  );
+  const writeText = vi
+    .fn<(value: string) => Promise<void>>()
+    .mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText },
+  });
+
+  try {
+    const { inspector, openHud, clickHud } = await setup();
+    await openHud();
+
+    expect(root(inspector).querySelector("[data-cpk-hud-copy]")).toBeNull();
+    expect(root(inspector).querySelector("[data-cpk-hud-help]")).toBeNull();
+
+    await clickHud("threads");
+    expect(currentMenu(inspector)).toBe("threads");
+    const copyThreads = requireElement(
+      root(inspector).querySelector<HTMLButtonElement>(
+        '[data-inspector-feature-setup-prompt="threads"]',
+      ),
+    );
+
+    copyThreads.click();
+    await settle(inspector);
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+    const threadsPrompt = String(writeText.mock.calls[0]?.[0]);
+    // The Threads button names the outcome and lets the route carry the rest;
+    // the guide link it used to paste belongs to feature/rich-threads.
+    expect(threadsPrompt).toContain("--intent add-rich-threads");
+    expect(threadsPrompt).not.toContain(
+      "This task is specifically to enable Threads",
+    );
+    expect(threadsPrompt).not.toContain("https://docs.copilotkit.ai/threads");
+    expect(copyThreads.dataset.copyState).toBe("copied");
+    expect(copyThreads.getAttribute("aria-label")).toBe(
+      "Threads setup prompt copied",
+    );
+
+    requireElement(
+      root(inspector).querySelector<HTMLButtonElement>(
+        '[data-inspector-menu-key="memories"]',
+      ),
+    ).click();
+    await settle(inspector);
+    expect(currentMenu(inspector)).toBe("memories");
+    const learningPreview = requireElement(
+      root(inspector).querySelector<HTMLElement>(
+        '[data-inspector-locked-feature="memory"]',
+      ),
+    );
+    expect(learningPreview.textContent).toContain(
+      "Turn every interaction into reusable context.",
+    );
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(root(inspector).querySelector(".inspector-window")).not.toBeNull();
+  } finally {
+    if (originalClipboard) {
+      Object.defineProperty(navigator, "clipboard", originalClipboard);
+    } else {
+      Reflect.deleteProperty(navigator, "clipboard");
+    }
+  }
+});
+
+test("the launcher never shows setup prompt actions", async () => {
+  const { inspector, openHud } = await setup({
+    intelligence: true,
+    endpoints: ENABLED_ENDPOINTS,
+  });
+  await openHud();
+  expect(root(inspector).querySelector("[data-cpk-hud-copy]")).toBeNull();
 });
 
 test("Learning on still lands on the Learning view", async () => {
@@ -442,4 +509,90 @@ test("focusing the launcher opens the HUD; Escape closes it", async () => {
   );
   await settle(inspector);
   expect(hudOpen(inspector)).toBe(false);
+});
+
+const configuredLearning: InspectorLearningSnapshotV1 = {
+  schemaVersion: 1,
+  projectKey: "project",
+  snapshotVersion: "1",
+  webAppOrigin: "https://app.copilotkit.ai",
+  configuration: {
+    state: "configured",
+    container: { id: "support", name: "Support" },
+  },
+  pendingThreadCount: 0,
+  pendingCandidateCount: 0,
+  run: { hasActiveRun: false, hasEverSucceeded: false, latest: null },
+  skillsPage: { page: 1, pageSize: 3, total: 0, totalPages: 0, items: [] },
+  insightsPage: { page: 1, pageSize: 4, total: 0, totalPages: 0, items: [] },
+  links: {
+    learning: "https://app.copilotkit.ai/learning",
+    candidates: null,
+    runs: null,
+  },
+};
+
+test("launcher hides enabled features before any Learning runs, without probing Memory", async () => {
+  const memoryProbe = vi.spyOn(CopilotKitCore.prototype, "getMemoryStore");
+  const { inspector, openHud } = await setup({
+    intelligence: true,
+    endpoints: ENABLED_ENDPOINTS,
+    learningSnapshot: configuredLearning,
+  });
+  await openHud();
+  await vi.waitFor(() => {
+    expect(hudRowLabels(inspector)).toEqual([]);
+  });
+  expect(
+    root(inspector).querySelector(".cpk-launcher-hud__feature-list"),
+  ).toBeNull();
+  expect(
+    root(inspector).querySelector('[data-cpk-dismiss-inspector="day"]'),
+  ).not.toBeNull();
+  expect(hud(inspector)?.hasAttribute("data-cpk-hud-dismiss-only")).toBe(true);
+  expect(root(inspector).querySelector(".cpk-launcher-hud__arrow")).toBeNull();
+  const dismiss = requireElement(
+    root(inspector).querySelector<HTMLButtonElement>(
+      '[data-cpk-dismiss-inspector="day"]',
+    ),
+  );
+  expect(dismiss.style.getPropertyValue("--cpk-hud-waterfall-delay")).toBe(
+    "180ms",
+  );
+  dismiss.click();
+  await settle(inspector);
+  expect(hud(inspector)).toBeNull();
+  expect(memoryProbe).not.toHaveBeenCalled();
+});
+
+test.each(["not_configured", "selection_required"] as const)(
+  "launcher does not show %s Learning as enabled",
+  async (state) => {
+    const { inspector, openHud } = await setup({
+      intelligence: true,
+      learningSnapshot: { ...configuredLearning, configuration: { state } },
+    });
+    await openHud();
+    await settle(inspector);
+    expect(
+      root(inspector)
+        .querySelector('[data-cpk-hud-row="learning"] [data-cpk-hud-toggle]')
+        ?.getAttribute("data-enabled"),
+    ).toBe("false");
+  },
+);
+
+test("launcher does not treat an advertised endpoint with a failed Learning read as enabled", async () => {
+  const { inspector, openHud } = await setup({
+    intelligence: true,
+    learningSnapshot: configuredLearning,
+    learningStatus: 503,
+  });
+  await openHud();
+  await settle(inspector);
+  expect(
+    root(inspector)
+      .querySelector('[data-cpk-hud-row="learning"] [data-cpk-hud-toggle]')
+      ?.getAttribute("data-enabled"),
+  ).toBe("false");
 });

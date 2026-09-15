@@ -5,11 +5,13 @@ import * as path from "node:path";
 /**
  * Holds the starters' Intelligence wiring block to one shape.
  *
- * Every starter ends its runtime construction with the same marked region: a
- * spread that reads `COPILOTKIT_LICENSE_TOKEN` and either wires the managed
- * platform or falls back to a local runner. It is the region a hosted reader
- * copies verbatim, and nothing gated it (OSS-982). Both gaps that could have
- * caught drift are deliberate:
+ * Each starter that uses the shared demo-user setup ends its runtime
+ * construction with the same marked region: a spread that reads
+ * `COPILOTKIT_LICENSE_TOKEN` and either wires the managed platform or falls
+ * back to a local runner. AgentCore uses request-bound Cognito identity instead,
+ * so its separate runtime security test holds that path. The shared region is
+ * what a hosted reader copies verbatim, and nothing gated it (OSS-982). Both
+ * gaps that could have caught drift are deliberate:
  *
  * - The parity manifest lists `src/app/api/copilotkit/**` under
  *   `allowedDivergence` for every instance it tracks, so the drift check skips
@@ -19,12 +21,12 @@ import * as path from "node:path";
  *   smoke-tested starter takes the else arm. The `intelligence:` arm has never
  *   run in CI.
  *
- * The cost was already visible. The block's code was byte-identical in 21 of 22
- * starters, but its warning comment had drifted into five variants and two
- * starters shipped the `demo-user` stub with no warning at all. Comment drift
- * is harmless by itself; it is the tracer showing nothing held the region
- * still, and it is how the localhost default of OSS-981 survived in all 22
- * copies at once.
+ * The cost was already visible. The block's code was byte-identical in the 21
+ * shared starters, but its warning comment had drifted into five variants and
+ * two starters shipped the `demo-user` stub with no warning at all. Comment
+ * drift is harmless by itself; it shows that nothing held the region still,
+ * and it is how the localhost default of OSS-981 survived in all 21 copies at
+ * once.
  *
  * The check compares each site against the north-star starter rather than
  * against a literal kept here, so improving the block means editing the north

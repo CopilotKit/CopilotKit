@@ -588,7 +588,7 @@ describe("Inspector pop-out", () => {
     }
   }, 15_000);
 
-  it("renders the threads list in the pop-out document", async () => {
+  it("renders the locked Threads page in the pop-out document", async () => {
     const context = await setup();
     try {
       await context.open();
@@ -596,10 +596,17 @@ describe("Inspector pop-out", () => {
       await context.clickDetach();
 
       await waitFor(
-        () => context.popDoc.querySelector("cpk-thread-list") !== null,
-        "the threads list in the pop-out document",
+        () =>
+          context.popDoc.querySelector(
+            '[data-inspector-locked-feature="threads"]',
+          ) !== null,
+        "the locked Threads page in the pop-out document",
       );
-      expect(context.popDoc.querySelector("cpk-thread-list")).not.toBeNull();
+      expect(
+        context.popDoc.querySelector(
+          '[data-inspector-locked-feature="threads"]',
+        )?.textContent,
+      ).toContain("Rich Threads");
     } finally {
       context.teardown();
     }
@@ -611,41 +618,41 @@ describe("Inspector pop-out", () => {
       await context.open();
       await context.selectLeaf("threads");
 
-      const inPageThreadList = requireElement(
-        requireShadow(context.inspector).querySelector("cpk-thread-list"),
-        "the in-page threads list",
+      const inPageLockedFeature = requireElement(
+        requireShadow(context.inspector).querySelector(
+          '[data-inspector-locked-feature="threads"]',
+        ),
+        "the in-page locked Threads page",
       );
-      const portableThreadListStyle = requireElement(
-        inPageThreadList.shadowRoot?.querySelector("style"),
-        "the portable threads-list stylesheet",
-      );
-      expect(portableThreadListStyle.textContent).toContain(".cpk-tl");
 
       await context.clickDetach();
       await waitFor(
-        () => context.popDoc.querySelector("cpk-thread-list") !== null,
-        "the threads list to move into the pop-out",
+        () =>
+          context.popDoc.querySelector(
+            '[data-inspector-locked-feature="threads"]',
+          ) !== null,
+        "the locked Threads page to move into the pop-out",
       );
-      expect(context.popDoc.querySelector("cpk-thread-list")).toBe(
-        inPageThreadList,
-      );
-      expect(inPageThreadList.shadowRoot?.querySelector("style")).toBe(
-        portableThreadListStyle,
-      );
-      expect(portableThreadListStyle.ownerDocument).toBe(context.popDoc);
+      expect(
+        context.popDoc.querySelector(
+          '[data-inspector-locked-feature="threads"]',
+        ),
+      ).toBe(inPageLockedFeature);
 
       context.firePageHide();
       await context.inspector.updateComplete;
       await waitFor(
         () =>
-          requireShadow(context.inspector).querySelector("cpk-thread-list") !==
-          null,
-        "the threads list to return to the app page",
+          requireShadow(context.inspector).querySelector(
+            '[data-inspector-locked-feature="threads"]',
+          ) !== null,
+        "the locked Threads page to return to the app page",
       );
       expect(
-        requireShadow(context.inspector).querySelector("cpk-thread-list"),
-      ).toBe(inPageThreadList);
-      expect(portableThreadListStyle.ownerDocument).toBe(document);
+        requireShadow(context.inspector).querySelector(
+          '[data-inspector-locked-feature="threads"]',
+        ),
+      ).toBe(inPageLockedFeature);
     } finally {
       context.teardown();
     }

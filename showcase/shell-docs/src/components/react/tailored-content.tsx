@@ -219,7 +219,7 @@ function TailoredContentInner({
                   className={cn(
                     indicatorCn,
                     isSelected
-                      ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--primary-foreground)]"
+                      ? "border-[var(--accent-fill)] bg-[var(--accent-fill)] text-[var(--primary-foreground)]"
                       : "border-[var(--border)] bg-[var(--bg-surface)] text-transparent group-hover:border-[var(--accent)] group-hover:bg-[var(--accent-dim)] group-hover:text-[var(--accent)]",
                   )}
                   aria-hidden="true"

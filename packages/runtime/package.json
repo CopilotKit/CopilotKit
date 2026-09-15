@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/runtime",
-  "version": "1.69.3",
+  "version": "1.71.2",
   "private": false,
   "keywords": [
     "ai",
@@ -22,8 +22,7 @@
     "url": "https://github.com/CopilotKit/CopilotKit.git"
   },
   "files": [
-    "dist",
-    "skills"
+    "dist"
   ],
   "sideEffects": [
     "./dist/index.mjs",
@@ -79,17 +78,18 @@
   },
   "dependencies": {
     "@ag-ui/a2ui-middleware": "0.0.10",
-    "@ag-ui/client": "0.0.57",
-    "@ag-ui/core": "0.0.57",
-    "@ag-ui/encoder": "0.0.57",
-    "@ag-ui/langgraph": "0.0.42",
-    "@ag-ui/mcp-apps-middleware": "0.0.3",
-    "@ag-ui/mcp-middleware": "0.0.1",
+    "@ag-ui/client": "0.0.59",
+    "@ag-ui/core": "0.0.59",
+    "@ag-ui/encoder": "0.0.59",
+    "@ag-ui/langgraph": "0.0.43",
+    "@ag-ui/mcp-apps-middleware": "^0.1.1",
+    "@ag-ui/mcp-middleware": "0.0.2",
     "@ai-sdk/anthropic": "^3.0.49",
     "@ai-sdk/google": "^3.0.33",
     "@ai-sdk/google-vertex": "^3.0.97",
     "@ai-sdk/mcp": "^1.0.21",
     "@ai-sdk/openai": "^3.0.36",
+    "@cfworker/json-schema": "^4.1.1",
     "@copilotkit/channels-core": "workspace:^",
     "@copilotkit/channels-intelligence": "workspace:*",
     "@copilotkit/license-verifier": "~0.5.0",
@@ -115,7 +115,7 @@
     "openai": "^4.85.1 || >=5.0.0",
     "partial-json": "^0.1.7",
     "phoenix": "^1.8.4",
-    "pino": "^9.2.0",
+    "pino": "^10.1.1",
     "pino-pretty": "^11.2.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "7.8.1",
@@ -196,5 +196,8 @@
         ]
       }
     }
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

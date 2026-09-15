@@ -1,6 +1,15 @@
-import type { CopilotKitCore } from "@copilotkit/core";
+import type { CopilotKitCore, Memory } from "@copilotkit/core";
 import type { InspectorMetadataV1, RuntimeInfo } from "@copilotkit/shared";
 import type { WebInspectorElement } from "@copilotkit/web-inspector";
+
+import {
+  LEARNING_WORKBENCH_SCENARIOS,
+  learningRuntimeInfo,
+} from "./learning-state-fixtures.js";
+import type {
+  LearningScreenshotState,
+  LearningWorkbenchScenarioKey,
+} from "./learning-state-fixtures.js";
 
 export const CORE_SCENARIO_KEYS = [
   "pro-enabled-zero",
@@ -27,6 +36,7 @@ export const EDGE_SCENARIO_KEYS = [
   "pro-warning-4500-of-5000",
   "pro-at-limit-5000-of-5000",
   "oss-no-metadata-enabled-zero",
+  "oss-ephemeral-existing",
   "capability-absent",
   "unknown-limit",
   "missing-expiry",
@@ -42,8 +52,12 @@ export const EDGE_SCENARIO_KEYS = [
   "telemetry-disabled",
 ] as const;
 
+export const LEARNING_SCENARIO_KEYS: readonly LearningWorkbenchScenarioKey[] =
+  LEARNING_WORKBENCH_SCENARIOS.map(({ key }) => key);
+
 export const ALL_SCENARIO_KEYS = [
   ...CORE_SCENARIO_KEYS,
+  ...LEARNING_SCENARIO_KEYS,
   ...EDGE_SCENARIO_KEYS,
 ] as const;
 
@@ -98,7 +112,7 @@ export interface ThreadsStateScenario {
   readonly joinCode: string;
   readonly joinToken: string;
   readonly listError?: Readonly<{ status: number; message: string }>;
-  readonly initialMenu?: "home" | "threads";
+  readonly initialMenu?: "home" | "threads" | "memories";
   readonly initialAgentEvents?: readonly Readonly<{
     type: "RUN_ERROR";
     runId: string;
@@ -106,17 +120,25 @@ export interface ThreadsStateScenario {
     code: string;
   }>[];
   readonly media: "normal" | "video_error" | "reduced_motion";
+  readonly learning: "enabled" | "disabled";
+  readonly memories: readonly Memory[];
+  readonly learningState?: LearningScreenshotState;
 }
 
 const INSPECTOR_STATE_STORAGE_KEY = "cpk:inspector:state";
 const ANNOUNCEMENT_READ_STORAGE_KEY = "cpk:inspector:announcement_read";
 const ANNOUNCEMENT_PULSED_SESSION_KEY = "cpk:inspector:pulsed";
 const ANNOUNCEMENT_READ_COOKIE_NAME = "cpk_inspector_announcements";
+const INSPECTOR_DISMISSAL_STORAGE_KEY = "cpk:inspector:dismissed_until";
+const INSPECTOR_DISMISSAL_COOKIE_NAME = "cpk_inspector_dismissed_until";
+const LEARNING_SETUP_STORAGE_KEY = "cpk:inspector:learning-setup:v1";
 const REPLAY_NOTIFICATION_QUERY_KEY = "replay-notification";
 
 export const LAB_RESET_STORAGE_KEYS = [
   INSPECTOR_STATE_STORAGE_KEY,
   "cpk:inspector:threads-example-tour:v1",
+  INSPECTOR_DISMISSAL_STORAGE_KEY,
+  LEARNING_SETUP_STORAGE_KEY,
 ] as const;
 
 export const DEFAULT_SCENARIO_KEY: ScenarioKey = "free-figma-148-of-200";
@@ -433,17 +455,38 @@ function buildScenario(
     | "expectedNewestThreadId"
     | "joinCode"
     | "joinToken"
-  >,
+    | "learning"
+    | "memories"
+  > &
+    Partial<Pick<ThreadsStateScenario, "learning" | "memories">>,
 ): ThreadsStateScenario {
   const expectedNewestThreadId = newestThreadId(input.threads);
+  const initialExpectedRequests = expectedRequests(
+    input.capability,
+    input.data,
+  );
   return {
     ...input,
     agentId: AGENT_ID,
     details: threadDetails(input.threads),
-    expectedRequests: expectedRequests(input.capability, input.data),
+    expectedRequests:
+      input.initialMenu === "memories"
+        ? {
+            ...initialExpectedRequests,
+            inspect: 0,
+            state: 0,
+          }
+        : {
+            ...initialExpectedRequests,
+            subscribe: input.runtimeInfo.intelligence
+              ? initialExpectedRequests.subscribe
+              : 0,
+          },
     ...(expectedNewestThreadId ? { expectedNewestThreadId } : {}),
     joinCode: `threads-lab-${input.key}`,
     joinToken: `threads-lab-token-${input.key}`,
+    learning: input.learning ?? "disabled",
+    memories: input.memories ?? [],
   };
 }
 
@@ -604,22 +647,36 @@ function edgeScenario(
         inspectorMetadataBody: atLimit,
       });
     }
+    case "oss-ephemeral-existing":
     case "oss-no-metadata-enabled-zero":
       return buildScenario({
         ...base,
-        label: "OSS · no metadata · enabled · zero",
-        description: "Explicit Threads capability with no metadata body.",
+        label:
+          key === "oss-ephemeral-existing"
+            ? "OSS · ephemeral threads"
+            : "OSS · no metadata · enabled · zero",
+        description: "Local Threads capability without Intelligence.",
         deployment: "oss",
         plan: "oss",
-        data: "zero",
-        runtimeInfo: runtimeInfo(key, {
-          capability: "enabled",
-          metadata: false,
-          licenseStatus: undefined,
-        }),
+        data: key === "oss-ephemeral-existing" ? "existing" : "zero",
+        runtimeInfo: {
+          ...runtimeInfo(key, {
+            capability: "enabled",
+            metadata: false,
+            licenseStatus: "none",
+          }),
+          mode: "sse",
+          intelligence: undefined,
+          threadEndpoints: {
+            list: true,
+            inspect: true,
+            mutations: false,
+            realtimeMetadata: false,
+          },
+        },
         inspectorMetadata: undefined,
         inspectorMetadataBody: undefined,
-        threads: [],
+        threads: key === "oss-ephemeral-existing" ? threadFixtures(key) : [],
       });
     case "capability-absent":
       return buildScenario({
@@ -814,8 +871,40 @@ function edgeScenario(
   }
 }
 
+function buildLearningScenario(
+  descriptor: (typeof LEARNING_WORKBENCH_SCENARIOS)[number],
+): ThreadsStateScenario {
+  const { key, label, state } = descriptor;
+  const inspectorMetadata = metadata("pro", {
+    used: 0,
+    limit: { kind: "finite", value: 5_000 },
+    expiringSoonCount: 0,
+    action: { kind: "manage_plan", url: MANAGE_PLAN_URL },
+  });
+
+  return buildScenario({
+    key,
+    label: `Automatic Learning · ${label}`,
+    description: `Integrated Inspector fixture for the ${label.toLowerCase()} state.`,
+    deployment: "managed",
+    plan: "pro",
+    capability: "absent",
+    data: "zero",
+    runtimeInfo: learningRuntimeInfo(state),
+    inspectorMetadata,
+    inspectorMetadataBody: inspectorMetadata,
+    threads: [],
+    media: "normal",
+    initialMenu: "memories",
+    learning: "disabled",
+    memories: [],
+    learningState: state,
+  });
+}
+
 const scenarios = [
   ...CORE_SCENARIO_KEYS.map(buildCoreScenario),
+  ...LEARNING_WORKBENCH_SCENARIOS.map(buildLearningScenario),
   ...EDGE_SCENARIO_KEYS.map(edgeScenario),
 ];
 
@@ -826,6 +915,7 @@ export const THREADS_STATE_SCENARIOS = deepFreeze(
 );
 
 deepFreeze(CORE_SCENARIO_KEYS);
+deepFreeze(LEARNING_SCENARIO_KEYS);
 deepFreeze(EDGE_SCENARIO_KEYS);
 deepFreeze(ALL_SCENARIO_KEYS);
 deepFreeze(THREAD_REQUEST_KINDS);
@@ -930,11 +1020,15 @@ export function installThreadsStateLabNavigation(
   };
 }
 
-/** Removes only the two Inspector-owned keys reset by the scenario lab. */
+/** Removes only the Inspector-owned persistence reset by the scenario lab. */
 export function clearThreadsStateLabStorage(
   storage: Pick<Storage, "removeItem">,
+  cookieTarget?: { cookie: string },
 ): void {
   for (const key of LAB_RESET_STORAGE_KEYS) storage.removeItem(key);
+  if (cookieTarget) {
+    cookieTarget.cookie = `${INSPECTOR_DISMISSAL_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`;
+  }
 }
 
 /** Re-arms the notification while preserving the developer's Inspector setup. */
@@ -962,8 +1056,10 @@ export function clearThreadsStateLabNotificationState(
     }
   }
   localStorage.removeItem(ANNOUNCEMENT_READ_STORAGE_KEY);
+  localStorage.removeItem(INSPECTOR_DISMISSAL_STORAGE_KEY);
   sessionStorage.removeItem(ANNOUNCEMENT_PULSED_SESSION_KEY);
   cookieTarget.cookie = `${ANNOUNCEMENT_READ_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`;
+  cookieTarget.cookie = `${INSPECTOR_DISMISSAL_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`;
 }
 
 /** Reload URL for a clean, closed launcher with the notification re-armed. */

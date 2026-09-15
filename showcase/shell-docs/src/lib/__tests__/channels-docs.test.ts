@@ -163,7 +163,7 @@ describe("Channels documentation journey", () => {
         "The install command below uses an exact, tested SDK pair",
       );
       expect(doc?.source).toContain("`CHANNEL_CODE`");
-      expect(doc?.source).toContain("`INTELLIGENCE_API_KEY`");
+      expect(doc?.source).toContain("`CPK_INTELLIGENCE_API_KEY`");
       expect(doc?.source).toContain("## Before you start");
       expect(doc?.source).toContain("## Build and run your Channel");
       expect(doc?.source).toContain("## Troubleshooting");
@@ -186,9 +186,9 @@ describe("Channels documentation journey", () => {
 
   it("installs the exact stable Channels SDK pair in both provider quickstarts", () => {
     const testedInstall =
-      "npm install --save-exact @copilotkit/channels@0.6.1 @copilotkit/runtime@1.65.0";
+      "npm install --save-exact @copilotkit/channels@0.9.2 @copilotkit/runtime@1.70.2";
     const nonExactInstall =
-      "npm install @copilotkit/channels@0.6.1 @copilotkit/runtime@1.65.0";
+      "npm install @copilotkit/channels@0.9.2 @copilotkit/runtime@1.70.2";
 
     for (const slug of providerQuickstartSlugs) {
       const source = bodyFor(slug);
@@ -616,7 +616,7 @@ describe("Channels documentation journey", () => {
     for (const filtered of [slack, teams]) {
       expect(filtered).toContain("**Waiting for runtime**");
       expect(filtered).toContain("`CHANNEL_CODE`");
-      expect(filtered).toContain("`INTELLIGENCE_API_KEY`");
+      expect(filtered).toContain("`CPK_INTELLIGENCE_API_KEY`");
     }
   });
 

@@ -56,4 +56,87 @@ describe("next.config redirects", () => {
       ]),
     );
   });
+
+  it("hands the retired /ag-ui mirror to docs.ag-ui.com", async () => {
+    vi.stubEnv("NEXT_PUBLIC_BASE_URL", "http://localhost:3003");
+    vi.stubEnv("NEXT_PUBLIC_SHELL_URL", "http://localhost:3000");
+
+    const nextConfig = (await import("../../../next.config")).default;
+    const redirects = (await nextConfig.redirects?.()) ?? [];
+
+    expect(redirects).toEqual(
+      expect.arrayContaining([
+        // Bulk of the mirror keeps its slug upstream.
+        {
+          source: "/ag-ui/:path*",
+          destination: "https://docs.ag-ui.com/:path*",
+          permanent: true,
+        },
+        // Upstream serves `.md` but not `.mdx`, so both collapse onto `.md`.
+        {
+          source: "/ag-ui/:path*.md",
+          destination: "https://docs.ag-ui.com/:path*.md",
+          permanent: true,
+        },
+        {
+          source: "/ag-ui/:path*.mdx",
+          destination: "https://docs.ag-ui.com/:path*.md",
+          permanent: true,
+        },
+        // Mirror root rendered the upstream introduction page.
+        {
+          source: "/ag-ui",
+          destination: "https://docs.ag-ui.com/introduction",
+          permanent: true,
+        },
+        // Paths with no upstream equivalent land on the nearest live page.
+        {
+          source: "/ag-ui/drafts/interrupts",
+          destination: "https://docs.ag-ui.com/concepts/interrupts",
+          permanent: true,
+        },
+        {
+          source: "/ag-ui/drafts/multimodal-messages",
+          destination: "https://docs.ag-ui.com/concepts/messages",
+          permanent: true,
+        },
+        {
+          source: "/ag-ui/sdk/dart/client/overview",
+          destination: "https://docs.ag-ui.com/sdk/dart/overview",
+          permanent: true,
+        },
+        {
+          source: "/ag-ui/sdk/rust/core/types",
+          destination: "https://docs.ag-ui.com/sdk/rust/overview",
+          permanent: true,
+        },
+      ]),
+    );
+  });
+
+  it("orders every /ag-ui exception ahead of the catch-all", async () => {
+    vi.stubEnv("NEXT_PUBLIC_BASE_URL", "http://localhost:3003");
+    vi.stubEnv("NEXT_PUBLIC_SHELL_URL", "http://localhost:3000");
+
+    const nextConfig = (await import("../../../next.config")).default;
+    const redirects = (await nextConfig.redirects?.()) ?? [];
+
+    const catchAll = redirects.findIndex(
+      (redirect) => redirect.source === "/ag-ui/:path*",
+    );
+    expect(catchAll).toBeGreaterThan(-1);
+
+    const exceptions = redirects.filter(
+      (redirect) =>
+        typeof redirect.destination === "string" &&
+        redirect.destination.startsWith("https://docs.ag-ui.com") &&
+        !redirect.source.includes(":path*"),
+    );
+    // 9 retired paths with no upstream equivalent + the mirror root, each
+    // emitted bare, `.md` and `.mdx`.
+    expect(exceptions).toHaveLength(30);
+    for (const exception of exceptions) {
+      expect(redirects.indexOf(exception)).toBeLessThan(catchAll);
+    }
+  });
 });
