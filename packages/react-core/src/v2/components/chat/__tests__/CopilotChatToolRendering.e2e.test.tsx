@@ -6,23 +6,20 @@ import {
   useCopilotKit,
 } from "../../../providers/CopilotKitProvider";
 import { CopilotChat } from "../CopilotChat";
-import {
-  AbstractAgent,
-  EventType,
-  type BaseEvent,
-  type RunAgentInput,
-} from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { Observable, Subject } from "rxjs";
-import {
-  defineToolCallRenderer,
-  ReactToolCallRenderer,
-  ReactFrontendTool,
-} from "../../../types";
+import type { ReactToolCallRenderer, ReactFrontendTool } from "../../../types";
+import { defineToolCallRenderer } from "../../../types";
 import CopilotChatToolCallsView from "../CopilotChatToolCallsView";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
-import { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
+import type { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useFrontendTool } from "../../../hooks/use-frontend-tool";
+import {
+  runStartedEvent,
+  runFinishedEvent,
+} from "../../../__tests__/utils/test-helpers";
 
 // A minimal mock agent that streams a tool call and a result
 class MockStreamingAgent extends AbstractAgent {
@@ -38,7 +35,7 @@ class MockStreamingAgent extends AbstractAgent {
       const toolCallId = `tc_${Date.now()}`;
 
       // Start run
-      observer.next({ type: EventType.RUN_STARTED } as BaseEvent);
+      observer.next(runStartedEvent(_input));
 
       // Stream assistant text chunks
       observer.next({
@@ -73,7 +70,7 @@ class MockStreamingAgent extends AbstractAgent {
       } as BaseEvent);
 
       // Finish run
-      observer.next({ type: EventType.RUN_FINISHED } as BaseEvent);
+      observer.next(runFinishedEvent(_input));
       observer.complete();
 
       return () => {};
@@ -311,7 +308,7 @@ describe("Streaming in-progress without timers", () => {
     const toolCallId = "tc_step";
 
     // Begin run and stream partial tool-call args
-    agent.emit({ type: EventType.RUN_STARTED } as BaseEvent);
+    agent.emit(runStartedEvent());
     agent.emit({
       type: EventType.TEXT_MESSAGE_CHUNK,
       messageId,
@@ -371,7 +368,7 @@ describe("Streaming in-progress without timers", () => {
       expect(el.textContent).toContain("21");
     });
 
-    agent.emit({ type: EventType.RUN_FINISHED } as BaseEvent);
+    agent.emit(runFinishedEvent());
     agent.complete();
   });
 });
@@ -421,7 +418,7 @@ describe("Executing State Transitions", () => {
     const messageId = "m_exec";
     const toolCallId = "tc_exec";
 
-    agent.emit({ type: EventType.RUN_STARTED } as BaseEvent);
+    agent.emit(runStartedEvent());
     agent.emit({
       type: EventType.TOOL_CALL_CHUNK,
       toolCallId,
@@ -436,7 +433,7 @@ describe("Executing State Transitions", () => {
       expect(status.textContent).toMatch(/Value: test/);
     });
 
-    agent.emit({ type: EventType.RUN_FINISHED } as BaseEvent);
+    agent.emit(runFinishedEvent());
     agent.complete();
 
     await waitFor(() => {
@@ -510,7 +507,7 @@ describe("Multiple Tool Calls in Same Message", () => {
     const toolCallId2 = "tc_2";
     const toolCallId3 = "tc_3";
 
-    agent.emit({ type: EventType.RUN_STARTED } as BaseEvent);
+    agent.emit(runStartedEvent());
 
     // Stream three tool calls (2 of tool1, 1 of tool2)
     agent.emit({
@@ -578,7 +575,7 @@ describe("Multiple Tool Calls in Same Message", () => {
       expect(screen.getByTestId("tool1-third").textContent).toContain("C");
     });
 
-    agent.emit({ type: EventType.RUN_FINISHED } as BaseEvent);
+    agent.emit(runFinishedEvent());
     agent.complete();
   });
 });
@@ -630,7 +627,7 @@ describe("Partial Args Accumulation", () => {
     const messageId = "m_partial";
     const toolCallId = "tc_partial";
 
-    agent.emit({ type: EventType.RUN_STARTED } as BaseEvent);
+    agent.emit(runStartedEvent());
 
     // Stream args piece by piece
     agent.emit({
@@ -687,7 +684,7 @@ describe("Partial Args Accumulation", () => {
       expect(tool.textContent).toMatch(/Status: (complete|inProgress)/i);
     });
 
-    agent.emit({ type: EventType.RUN_FINISHED } as BaseEvent);
+    agent.emit(runFinishedEvent());
     agent.complete();
   });
 });
@@ -695,6 +692,8 @@ describe("Partial Args Accumulation", () => {
 describe("Status Persistence After Agent Stops", () => {
   it("should remain in InProgress status after agent stops if no result", async () => {
     const agent = new MockStepwiseAgent();
+    const firstRun = { threadId: agent.threadId, runId: "first-run" };
+    const secondRun = { threadId: agent.threadId, runId: "second-run" };
 
     const renderToolCalls = [
       defineToolCallRenderer({
@@ -732,7 +731,7 @@ describe("Status Persistence After Agent Stops", () => {
     const toolCallId = "tc_status";
 
     // Start run and emit tool call
-    agent.emit({ type: EventType.RUN_STARTED } as BaseEvent);
+    agent.emit(runStartedEvent(firstRun));
 
     agent.emit({
       type: EventType.TOOL_CALL_CHUNK,
@@ -749,7 +748,7 @@ describe("Status Persistence After Agent Stops", () => {
     });
 
     // Finish the run without providing a tool result
-    agent.emit({ type: EventType.RUN_FINISHED } as BaseEvent);
+    agent.emit(runFinishedEvent(firstRun));
 
     // Important: tool should REMAIN in InProgress status, not Complete
     // Verify status remains inProgress (not changing to complete)
@@ -763,7 +762,7 @@ describe("Status Persistence After Agent Stops", () => {
     expect(statusElement.textContent).not.toBe("complete");
 
     // To provide result after run finished, we need to start a new run
-    agent.emit({ type: EventType.RUN_STARTED } as BaseEvent);
+    agent.emit(runStartedEvent(secondRun));
 
     // Now provide the tool result
     agent.emit({
@@ -779,7 +778,7 @@ describe("Status Persistence After Agent Stops", () => {
       expect(statusEl.textContent).toBe("complete");
     });
 
-    agent.emit({ type: EventType.RUN_FINISHED } as BaseEvent);
+    agent.emit(runFinishedEvent(secondRun));
     agent.complete();
   });
 });
