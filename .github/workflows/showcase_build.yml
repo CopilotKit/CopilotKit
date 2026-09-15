@@ -312,7 +312,7 @@ jobs:
             {"dispatch_name":"claude-sdk-python","filter_key":"claude_sdk_python","context":"showcase/integrations/claude-sdk-python","image":"showcase-claude-sdk-python","railway_id":"b122ab65-9854-4cb2-a68e-b50ff13f7481","timeout":15,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"built-in-agent","filter_key":"built_in_agent","context":"showcase/integrations/built-in-agent","image":"showcase-built-in-agent","railway_id":"f4f8371a-bc46-45b2-b6d4-9c9af608bdbf","timeout":15,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"shell-dojo","filter_key":"shell_dojo","context":".","image":"showcase-shell-dojo","railway_id":"7ad1ece7-2228-49cd-8a78-bddf30322907","timeout":20,"build_args":"","dockerfile":"showcase/shell-dojo/Dockerfile","health_path":"/"},
-            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","railway_id":"4d5dfd74-be61-40b2-8564-b53b7dd4c15b","timeout":20,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-dashboard/Dockerfile","health_path":"/"},
+            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","railway_id":"4d5dfd74-be61-40b2-8564-b53b7dd4c15b","timeout":20,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","build_args_starter_cells":true,"dockerfile":"showcase/shell-dashboard/Dockerfile","health_path":"/"},
             {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","railway_id":"7badfb8d-4228-414c-9145-b4026803714f","timeout":20,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-docs/Dockerfile","health_path":"/"},
             {"dispatch_name":"showcase-harness","filter_key":"showcase_harness","context":".","image":"showcase-harness","railway_id":"3a14bfed-0537-4d71-897b-7c593dca161d","timeout":20,"build_args":"","dockerfile":"showcase/harness/Dockerfile","health_path":"/health"},
             {"dispatch_name":"showcase-aimock","filter_key":"showcase_aimock","context":"showcase/aimock","image":"showcase-aimock","railway_id":"0fa0435d-8a66-46f0-84fd-e4250b580013","timeout":12,"build_args":"","dockerfile":"showcase/aimock/Dockerfile","health_path":"/health"},
@@ -525,6 +525,14 @@ jobs:
         env:
           BUILD_ARGS_SHA: ${{ matrix.service.build_args_sha }}
           BUILD_ARGS_BRANCH: ${{ matrix.service.build_args_branch }}
+          # Starter-ladder flag, passed ONLY to slots that opt in via
+          # `build_args_starter_cells` (today: shell-dashboard, whose
+          # `catalog.json` is baked by `next build` and therefore cannot be
+          # flipped by a Railway service variable). Sourced from the repo/env
+          # VARIABLE `SHOWCASE_STARTER_CELLS` so the flag is flipped in GitHub
+          # settings, not by editing this file. Unset variable => empty =>
+          # OFF, which is the default and the current main behaviour.
+          BUILD_ARGS_STARTER_CELLS: ${{ matrix.service.build_args_starter_cells && vars.SHOWCASE_STARTER_CELLS || '' }}
         run: |
           # set -euo pipefail: without `-e`, a transient `$GITHUB_OUTPUT`
           # write failure (disk pressure, ENOSPC) could silently produce
@@ -536,6 +544,13 @@ jobs:
           if [ -n "$BUILD_ARGS_SHA" ]; then
             ARGS="COMMIT_SHA=${BUILD_ARGS_SHA}"
             ARGS="${ARGS}"$'\n'"BRANCH=${BUILD_ARGS_BRANCH}"
+          fi
+          # Appended (not assigned) so it composes with the SHA/BRANCH pair
+          # above rather than replacing it. Emitted only when non-empty, so
+          # an unset variable leaves the build args byte-identical to before.
+          if [ -n "$BUILD_ARGS_STARTER_CELLS" ]; then
+            if [ -n "$ARGS" ]; then ARGS="${ARGS}"$'\n'; fi
+            ARGS="${ARGS}SHOWCASE_STARTER_CELLS=${BUILD_ARGS_STARTER_CELLS}"
           fi
           # Use delimiter to safely pass multiline value
           echo "args<<BUILDARGS_EOF" >> $GITHUB_OUTPUT
