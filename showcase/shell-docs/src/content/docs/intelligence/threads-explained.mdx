@@ -44,7 +44,7 @@ To wire these pieces into a custom chat UI, follow [Headless Threads](/headless-
 
 ### Auto-naming
 
-When a new thread is created and the first run completes, the runtime automatically generates a short name (2–5 words) using the LLM. This runs asynchronously, so it doesn't block thread creation or the agent's response. The generated name appears through the frontend thread API via realtime sync.
+When the first run creates a new thread, the runtime starts generating a short name (2–5 words) from the input messages using the LLM. This runs asynchronously, so it doesn't block thread creation or the agent's response. The generated name appears through the frontend thread API via realtime sync.
 
 Auto-naming is enabled by default. Disable it with `generateThreadNames: false` on the runtime. Users can always override the generated name via `renameThread()`.
 
@@ -65,12 +65,12 @@ The client-side steps (minting a `threadId`, hydrating history on load, and swit
 
 As an agent runs, the runtime writes each event (messages, tool calls, and state updates) to the thread in CopilotKit Intelligence. It stores the raw event stream rather than a snapshot of the final message list, so a returning client can be restored to the exact state it left, and can fetch only the events it missed rather than reloading the whole history.
 
-When a client opens an existing thread, the platform checks whether a run is in progress:
+When a client opens an existing thread, the runtime obtains connection
+credentials and the client joins the thread's WebSocket channel. Both completed
+and active threads replay their recorded history over this connection. If a run
+is active, the same channel also carries new events as they arrive.
 
-- **No active run.** The platform returns the historical events only, and the client replays them to reconstruct the conversation.
-- **Active run.** The platform returns the historical events *plus* opens a WebSocket connection. The client replays the history, then receives live events as they stream in.
-
-In either case the transition from replayed history to live updates is seamless. If a tool call from a previous thread completes while the client is switching away, its result is discarded rather than inserted into the new thread, so stale output never leaks between conversations.
+The transition from replayed history to live updates is seamless. If a tool call from a previous thread completes while the client is switching away, its result is discarded rather than inserted into the new thread, so stale output never leaks between conversations.
 
 ### Realtime sync
 
@@ -91,13 +91,17 @@ general replication link between databases: frontend thread operations such as
 rename, archive, and delete change the CopilotKit Intelligence thread and do not
 mutate records in LangGraph, ADK, or another native store.
 
-### Pessimistic updates
+### Optimistic updates
 
-Thread mutations (`rename`, `archive`, `delete`) use a pessimistic update model: the client waits for the server to confirm via WebSocket before updating the thread list. This means:
+The frontend thread store updates the list immediately when you rename,
+archive, unarchive, or delete a thread. The mutation promise resolves or rejects
+with the server request's outcome; it does not wait for WebSocket confirmation.
 
-- The thread list doesn't change until the server confirms the operation.
-- If the server rejects the mutation, the UI never shows an incorrect state.
-- The returned promise resolves only after server confirmation, or rejects on failure.
+A failed delete restores the removed row. Failed rename, archive, and unarchive
+operations report an error but do not automatically roll back the local change.
+Handle the returned promise and use the thread client's error state; refetch the
+list when you need to reconcile it with the server. Realtime metadata updates
+also keep connected clients in sync.
 
 ## Error handling
 
@@ -110,8 +114,9 @@ All mutation methods (`renameThread`, `archiveThread`, `deleteThread`) return pr
 - **Authorization failure.** The user doesn't have permission to modify the thread.
 - **Timeout.** The server didn't respond within 15 seconds.
 
-The thread client exposes the most recent list or mutation error and clears it
-after the next successful operation.
+The thread client exposes the most recent list or mutation error. A successful
+mutation does not automatically clear an earlier error. Refetch the list to
+reset its error state and reconcile the local rows with the server.
 
 ### WebSocket disconnection
 
@@ -147,7 +152,7 @@ The trade-off is that replay is more complex than loading a message array. The p
 
 ### When threads are the wrong tool
 
-- **Ephemeral interactions.** If your users don't need conversation history (e.g., a one-shot Q&A widget), threads add unnecessary complexity. Use `CopilotChat` without a `threadId`.
+- **Ephemeral interactions.** If your users don't need conversation history (e.g., a one-shot Q&A widget), threads add unnecessary complexity. Choose an SSE runtime with an in-memory [AgentRunner](/backend/agent-runner). Omitting `threadId` from `CopilotChat` does not disable persistence: the chat creates an ID, and an Intelligence-connected runtime still stores the conversation.
 - **Client-only state.** If you need local-only chat history without server persistence, manage messages in frontend state or localStorage instead.
 
 ## Next steps

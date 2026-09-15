@@ -1,13 +1,15 @@
 ---
 title: Cloud-hosted CopilotKit Intelligence
-description: "How the cloud-hosted version of CopilotKit Intelligence works — login, organizations, projects, project API keys, conversation history, thread inspection, and plan management."
+description: "How the cloud-hosted version of CopilotKit Intelligence works — login, organizations, projects, project API keys, conversation inspection, analytics, memories, channels, and plan management."
 icon: "lucide/Cloud"
 doc_type: explanation
 ---
 
 Cloud-hosted CopilotKit Intelligence is the CopilotKit-operated deployment of the same CopilotKit Intelligence you can also self-host. Use it when you want durable threads, project-scoped API keys, conversation history, the hosted web app, and plan management without operating Kubernetes infrastructure.
 
-![The cloud-hosted CopilotKit Intelligence ready page with starter commands and project navigation.](/images/enterprise-intelligence/managed-ready.png)
+![Intelligence Home with example apps, Copy Prompt actions, and project navigation.](/images/enterprise-intelligence/managed-home.png)
+
+*Home in an example workspace.*
 
 <OpsPlatformCTA
   variant="inline"
@@ -40,7 +42,7 @@ Start at [dashboard.operations.copilotkit.ai](https://dashboard.operations.copil
   <Step>
     ### Select or create an organization
 
-    Select or create an organization in the browser. Existing hosted organizations created before the rollout cutoff continue without a plan prompt. Every new hosted organization created at or after the rollout cutoff must explicitly choose Developer or a paid plan. Developer is the no-cost choice. Clerk's automatic Free assignment does not count as the required Developer-or-paid choice.
+    Select or create an organization in the browser. If prompted, choose **Developer** or a paid plan. Developer is the no-cost choice. Existing organizations that have already completed onboarding can continue directly.
   </Step>
 
   <Step>
@@ -52,10 +54,9 @@ Start at [dashboard.operations.copilotkit.ai](https://dashboard.operations.copil
   <Step>
     ### Select or create a project
 
-    The resumed CLI or hosted app asks you to choose the project that will hold your app's threads, events, runtime connection metadata, and API keys, or create a new one. In the dashboard, the ready page offers two common paths:
+    The resumed CLI or hosted app asks you to choose the project that will hold your app's threads, events, runtime connection metadata, and API keys, or create a new one. Website sign-in starts at organization **Home**. Choose a working example or **Or build anything at all**, then use **Copy Prompt** to hand setup to your coding agent. **View prompt** lets you inspect it first; the adjacent coding-app buttons open it in a supported app.
 
-    - `npx copilotkit@latest create` for a new app.
-    - `npx copilotkit@latest skills onboard` for adding CopilotKit to an existing app with agent-assisted onboarding.
+    Use **Projects** to open an existing project. You can also start from the terminal with `npx copilotkit@latest create` for a new app or `npx copilotkit@latest skills onboard` for an existing app.
   </Step>
 </Steps>
 
@@ -65,11 +66,20 @@ The [CopilotKit CLI](/cli) uses the same sign-in system. When the CLI needs dash
 
 A project is the cloud-hosted boundary for one app or environment. Create separate projects for production, staging, demos, and experiments so their API keys and conversation history stay separate.
 
-![The cloud-hosted CopilotKit Intelligence project list.](/images/enterprise-intelligence/managed-projects.png)
+Open a project to work with its connected app. The sidebar exposes the features
+available to that project:
 
-Inside a project, the web app shows the conversation history connected to that project. Each thread row shows the thread name, agent, and active or archived status.
+| Area | What you do there |
+| --- | --- |
+| **Threads** | Find conversations, filter the table, and inspect individual threads. |
+| **Analytics** | Review project activity, reliability, token usage, and memory trends. See [Analytics](/intelligence/analytics). |
+| **User Memories** | Search durable facts and preferences and follow their source Threads. See [Memories & Recall](/intelligence/memories#review-memories-in-intelligence). |
+| **Learning** | Review Learning Containers, Insights, Skills, and analysis results. See [Learning](/learning). |
+| **Channels** | Configure Slack and Microsoft Teams connections and check runtime health. See [Slack](/slack) or [Teams](/teams). |
+| **API Keys** | Create and revoke project credentials for your runtime. |
 
-![A cloud-hosted CopilotKit Intelligence project showing conversation history.](/images/enterprise-intelligence/managed-project-thread-list.png)
+A new project's feature pages include setup guidance. Feature visibility and trial
+badges depend on the organization's plan and deployment configuration.
 
 ## API keys
 
@@ -79,15 +89,24 @@ Managed project setup does not issue `COPILOTKIT_LICENSE_TOKEN`. That token is o
 
 Managed starters read the project key from `CPK_INTELLIGENCE_API_KEY`. Keep it on the server.
 
-![The cloud-hosted CopilotKit Intelligence API keys page.](/images/enterprise-intelligence/managed-api-keys.png)
-
 When you create an API key in the web app, the plaintext token is shown once. Store it in your runtime environment, not in frontend code. Deleting a key invalidates any application still using it.
 
 ## Threads and conversation history
 
-Threads are persistent conversations stored by CopilotKit Intelligence. In the hosted web app, you can open a thread to inspect the agent, app user, status, update time, and recorded event timeline.
+Open **Threads** to find a conversation by its **Thread title**, **End user ID**,
+**Agent ID**, **Status**, **Created at**, or **Updated at**. Use the table's filters
+and sorting to narrow the list. Enable **Show archived threads** to include
+archived conversations; **Reset table filters** clears table filters.
 
-![A cloud-hosted CopilotKit Intelligence thread detail page with metadata and event history.](/images/enterprise-intelligence/managed-thread-detail.png)
+Open a row to inspect the conversation. The detail page shows the agent, end
+user, update time, and reported token usage, alongside the embedded
+[Inspector](/inspector) for messages, runs, events, and state.
+
+For Channel conversations, the end user can come from the latest recorded
+Channel turn. Token counts come from completed run events. **Not reported by
+runtime** means usage is missing, and **At least** or reporting-coverage notes
+identify incomplete totals. A partial loaded event history is not a complete
+accounting of the conversation.
 
 Thread actions map to the same lifecycle your app sees through its
 thread-management API:
@@ -96,15 +115,21 @@ thread-management API:
 - Archive hides the thread from the active list without deleting its history.
 - Delete permanently removes the thread.
 
-Use the thread detail page when you need to debug persistence, confirm that a runtime is writing events, or inspect the event sequence behind a conversation. Raw event payloads are available from the event disclosures when you need deeper debugging.
+Use the thread detail page when you need to debug persistence, confirm that a runtime is writing events, or inspect the event sequence behind a conversation. Use Inspector's event view when you need raw payloads.
 
 ## Plan management
 
 The pricing page is where you inspect your current plan, manage billing, compare tiers, and see plan limits such as thread retention, maximum thread count, multimodal storage, cloud hosting, and self-hosting availability.
 
-![The cloud-hosted CopilotKit Intelligence plan management page.](/images/enterprise-intelligence/managed-pricing.png)
+The project sidebar shows the current plan and an upgrade action when available.
+Developer usage cards appear on the relevant feature pages. **Threads** usage
+is organization-wide, as are the monthly **Learning runs** and **Analytics runs**
+counters. These are separate from each project's table and analytics time range.
+**Usage unavailable** means the counter could not be loaded, not that usage is
+zero.
 
-Some capabilities may appear in the dashboard as early access. Those capabilities follow the early-access program and are not covered on this page.
+A **Trial** badge identifies temporary feature access. Use the dashboard's current
+plan and trial information to check availability before depending on a feature.
 
 ## Cloud-hosted vs. self-hosted
 
@@ -127,6 +152,8 @@ in a customer-run deployment.
 ## Next steps
 
 - **Explore Rich Threads:** [Rich Threads overview](/threads) — understand persistent, resumable conversations and choose an implementation path
+- **Inspect analytics:** [Analytics](/intelligence/analytics) — activity, reliability, tokens, and organization usage
+- **Review memories:** [Memories & Recall](/intelligence/memories#review-memories-in-intelligence) — search records and inspect their provenance
 - **Use the CLI:** [CopilotKit CLI](/cli) — sign in, scaffold apps, select cloud-hosted projects, and write project configuration
 - **Add threads:** [Headless Threads](/headless-threads) — list, create, rename, archive, and delete persistent conversations in a custom UI
 - **Thread architecture:** [Threads & Persistence Architecture](/intelligence/threads-explained) — event replay, realtime sync, and thread lifecycle semantics
