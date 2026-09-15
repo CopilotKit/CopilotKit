@@ -464,9 +464,26 @@ An unversioned `zod` install selects Zod 4, which does not satisfy this SDK rele
                 [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
               </Callout>
 
+              ```tsx title="app/providers.tsx"
+              "use client";
+
+              import { CopilotKit } from "@copilotkit/react-core/v2";
+
+              export function Providers({ children }: { children: React.ReactNode }) {
+                return (
+                  <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent" useSingleEndpoint>
+                    {children}
+                  </CopilotKit>
+                );
+              }
+              ```
+
+              `app/layout.tsx` is a server component and cannot import the provider
+              directly, so it renders your client file instead:
+
               ```tsx title="app/layout.tsx"
               // [!code highlight:2]
-              import { CopilotKit } from "@copilotkit/react-core/v2";
+              import { Providers } from "./providers";
               import "@copilotkit/react-core/v2/styles.css";
               import './globals.css';
 
@@ -477,9 +494,9 @@ An unversioned `zod` install selects Zod 4, which does not satisfy this SDK rele
                   <html lang="en">
                     <body>
                       {/* [!code highlight:3] */}
-                      <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent" useSingleEndpoint>
+                      <Providers>
                         {children}
-                      </CopilotKit>
+                      </Providers>
                     </body>
                   </html>
                 );
@@ -500,6 +517,8 @@ An unversioned `zod` install selects Zod 4, which does not satisfy this SDK rele
             Add the CopilotSidebar component to your page:
 
             ```tsx title="app/page.tsx"
+            "use client"; // [!code highlight]
+
             import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
 
             export default function Page() {
