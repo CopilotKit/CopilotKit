@@ -1839,69 +1839,334 @@ samp {
   margin-bottom: 0;
 }
 
-/* Framework landing sections (<FrameworkOverview> and its Intelligence block).
- *
- * The same component reaches the page through two routes: the data-record
- * route mounts it directly, the authored-MDX route mounts it inside
- * `.reference-content`. Because the prose rules above are unlayered, they beat
- * the component's Tailwind utilities, so one route rendered each heading with
- * 48px of section margin plus 48px of prose margin and a different type size
- * than the other. `not-prose` does not help: it neutralizes the Tailwind
- * typography plugin, not these rules.
- *
- * So the contested element-level typography lives here, once, unlayered, and
- * applies on both routes — same reasoning as `.prose-no-margin` directly above
- * and `.fd-steps` earlier in this file. Everything not contested (colour,
- * layout, card chrome) stays in the component as utilities. The section owns
- * its vertical rhythm through its own `mt-*`; the elements inside contribute
- * none of their own.
- */
-/* Headings: the prose rules set both margins, and the section owns its own
- * rhythm, so both go. Paragraphs: prose sets only `margin-bottom`, so only
- * that is removed — leaving the components' `mt-*` utilities free to space
- * paragraphs, which they can do because nothing unlayered competes for
- * `margin-top` on a `p`. */
-.shell-docs-landing-section :is(h2, h3) {
+/* Partner pages share the docs typography and color tokens. These scoped,
+ * unlayered rules also override MDX prose defaults on authored landing pages. */
+.partner-landing {
+  padding-bottom: 3rem;
+  color: var(--text);
+}
+.partner-landing :is(h1, h2, h3, p) {
   margin: 0;
 }
-
-.shell-docs-landing-section p {
-  margin-bottom: 0;
+.partner-landing h1 {
+  max-width: 22ch;
+  margin: 1.4rem 0 1rem;
+  font-size: clamp(2rem, 3.4vw, 2.9rem);
+  line-height: 1.12;
+  letter-spacing: -0.035em;
+  font-weight: 600;
+  text-wrap: balance;
 }
-
-/* The heading reset above also zeroes the gap a capability title needs below
- * its seam line, and no `mt-*` utility can restore it. Restated here for the
- * one case that has a preceding line. */
-.shell-docs-landing-section .shell-docs-landing-caption + h3 {
-  margin-top: 0.5rem;
+.partner-landing h2 {
+  font-size: 1.4rem;
+  line-height: 1.3;
+  letter-spacing: -0.025em;
+  font-weight: 600;
 }
-
-.shell-docs-landing-section h2 {
-  font-size: 1.5rem;
-  line-height: 1.2;
+.partner-landing h3 {
+  font-size: 0.95rem;
+  line-height: 1.35;
   letter-spacing: -0.015em;
-  color: var(--text);
+  font-weight: 600;
 }
-
-.shell-docs-landing-section h3 {
-  font-size: 1.125rem;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
-  color: var(--text);
-}
-
-.shell-docs-landing-section p {
+.partner-landing p {
+  color: var(--text-secondary);
   font-size: 0.9375rem;
+  line-height: 1.6;
+}
+.partner-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.partner-logo {
+  display: inline-flex;
+  align-items: center;
+}
+.partner-logo svg {
+  width: 1.9rem;
+  height: 1.9rem;
+}
+.partner-plus {
+  padding-inline: 0.35rem;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.partner-landing .partner-summary {
+  max-width: 57ch;
+  margin-bottom: 1.5rem;
+  font-size: 1.0625rem;
   line-height: 1.65;
 }
-
-/* The two deliberately smaller lines: the seam above a capability title, and
- * the caption beside an action button. They need an explicit class because the
- * rule above is unlayered and would otherwise flatten their utility sizes back
- * to body size. */
-.shell-docs-landing-section p.shell-docs-landing-caption {
+.partner-landing .partner-prompt-help {
+  margin-top: 0.7rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.partner-section {
+  margin-top: 2.75rem;
+}
+.partner-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.partner-landing .partner-section-intro {
+  margin-top: 0.6rem;
+  max-width: 65ch;
+}
+.partner-landing .partner-text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--accent);
   font-size: 0.8125rem;
-  line-height: 1.5;
+  font-weight: 500;
+  text-decoration: none;
+}
+.partner-text-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.partner-landing :is(a, button, summary):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+.partner-videos {
+  min-width: 0;
+}
+.partner-video-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+.partner-video-options button {
+  padding: 0.45rem 0.7rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+  transition:
+    color 150ms,
+    background 150ms;
+}
+.partner-video-options button:hover {
+  color: var(--text);
+  background: var(--bg-elevated);
+}
+.partner-video-options button[aria-pressed="true"] {
+  color: var(--accent);
+  border-color: var(--border);
+  background: var(--accent-dim);
+}
+.partner-videos video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-surface);
+}
+.partner-landing .partner-video-caption {
+  margin-top: 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+.partner-capabilities {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+.partner-landing .partner-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0;
+  padding: 1.15rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  background: var(--bg-surface);
+  text-decoration: none;
+  transition:
+    border-color 150ms,
+    background 150ms;
+}
+.partner-landing .partner-card:hover {
+  color: var(--text);
+  border-color: var(--accent);
+  background: var(--bg-elevated);
+}
+.partner-card-top {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--accent);
+}
+.partner-card-top > svg {
+  flex-shrink: 0;
+}
+.partner-card-top h3 {
+  color: var(--text);
+}
+.partner-card-arrow {
+  margin-left: auto;
+  color: var(--text-muted);
+}
+.partner-card:hover .partner-card-arrow {
+  color: var(--accent);
+}
+.partner-landing .partner-card p {
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+.partner-landing .partner-more {
+  margin-top: 1rem;
+  color: var(--text-secondary);
+}
+.partner-start {
+  padding-top: 2.25rem;
+  border-top: 1px solid var(--border);
+}
+.partner-landing .partner-tutorial {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.1rem 0;
+  color: var(--text);
+  text-decoration: none;
+}
+.partner-tutorial > svg:first-child {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.partner-tutorial > svg:last-child {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.partner-tutorial > span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.partner-tutorial strong {
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+.partner-tutorial span span {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+.partner-tutorial:hover strong {
+  color: var(--accent);
+}
+.partner-code {
+  border-top: 1px solid var(--border);
+}
+.partner-code summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  list-style: none;
+  padding: 1rem 0;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+.partner-code summary::-webkit-details-marker {
+  display: none;
+}
+.partner-code[open] > summary svg {
+  transform: rotate(180deg);
+}
+.partner-code-body {
+  padding-bottom: 1.2rem;
+  min-width: 0;
+}
+.partner-code-body pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.partner-intelligence {
+  padding-top: 2.25rem;
+  border-top: 1px solid var(--border);
+}
+.partner-intelligence h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.partner-intelligence h2 svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  color: var(--accent);
+}
+.partner-intelligence-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+.partner-landing .partner-intelligence-card {
+  gap: 0.6rem;
+  padding: 1.1rem;
+}
+.partner-architecture {
+  margin-top: 2rem;
+}
+.partner-architecture-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+}
+@media (max-width: 639px) {
+  .partner-landing h1 {
+    font-size: 2.05rem;
+  }
+  .partner-section {
+    margin-top: 2.25rem;
+  }
+  .partner-section-heading {
+    align-items: flex-start;
+  }
+  .partner-section-heading > .partner-text-link {
+    flex-shrink: 0;
+    padding-top: 0.25rem;
+  }
+  .partner-capabilities {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+  .partner-landing .partner-card {
+    padding: 1rem;
+  }
+  .partner-intelligence-grid {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+  .partner-video-options button {
+    padding-inline: 0.5rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .partner-landing * {
+    transition: none;
+  }
 }
 
 .reference-content ul,
@@ -2190,3 +2455,27 @@ samp {
  * fires on any <a> that bleeds into a code block (e.g. a link inside
  * a callout that sits above the code), which is fine. We don't touch
  * that here; this is just the documented expectation. */
+
+.partner-video-frame {
+  position: relative;
+}
+.partner-video-status {
+  position: absolute;
+  inset: 1px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  border-radius: 11px;
+  background: var(--color-fd-muted);
+  color: var(--color-fd-muted-foreground);
+  font-size: 0.875rem;
+}
+.partner-video-status a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

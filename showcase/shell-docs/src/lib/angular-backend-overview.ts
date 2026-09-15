@@ -187,6 +187,39 @@ export function buildAngularBackendOverview(
   return {
     ...overview,
     guideLink: `/${integration}/quickstart`,
+    tutorialLink: `/${integration}/quickstart`,
+    connect: overview.connect
+      ? {
+          ...overview.connect,
+          guideLink: `/${integration}/quickstart`,
+        }
+      : undefined,
+    connectBySlug: overview.connectBySlug
+      ? Object.fromEntries(
+          Object.entries(overview.connectBySlug).map(([slug, connect]) => [
+            slug,
+            { ...connect, guideLink: `/${integration}/quickstart` },
+          ]),
+        )
+      : undefined,
+    capabilitiesFootnote: overview.capabilitiesFootnote
+      ? {
+          ...overview.capabilitiesFootnote,
+          href: `/${integration}/features`,
+        }
+      : undefined,
+    showcase:
+      overview.showcase && matchedDemos.length
+        ? {
+            ...overview.showcase,
+            integration,
+            integrationBySlug: undefined,
+            demos: matchedDemos.map(({ demo }) => ({
+              slug: demo.cell.feature,
+              title: demo.feature.name,
+            })),
+          }
+        : undefined,
     supportedFeatures,
     liveDemos: matchedDemos.map(({ demo, overviewFeature }) => ({
       type: demo.cell.feature,

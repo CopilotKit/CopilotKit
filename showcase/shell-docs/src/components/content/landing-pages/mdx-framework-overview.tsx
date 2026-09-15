@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { FrontendId } from "@/lib/frontend-options";
 
 import { FrameworkOverview } from "./framework-overview";
 import type {
@@ -93,10 +94,9 @@ export interface MdxFrameworkOverviewProps {
    */
   currentFramework?: string;
   hrefPrefix?: string;
+  frontendOverride?: FrontendId;
   /**
-   * Capability-card layout. Setting `lede` is what switches the page over —
-   * see `FrameworkOverviewData.lede`. Authored files that leave these unset
-   * keep the video-per-feature layout.
+   * Short introduction above the capability cards.
    */
   lede?: string;
   capabilitiesFootnote?: {
@@ -105,6 +105,7 @@ export interface MdxFrameworkOverviewProps {
     href: string;
   };
   connect?: ConnectSection;
+  connectBySlug?: Record<string, ConnectSection>;
   showcase?: ShowcaseSection;
   /**
    * The "Connect your agent" snippet, authored as an ordinary fenced code
@@ -148,6 +149,7 @@ export function MdxFrameworkOverview(props: MdxFrameworkOverviewProps) {
     lede: props.lede,
     capabilitiesFootnote: props.capabilitiesFootnote,
     connect: props.connect,
+    connectBySlug: props.connectBySlug,
     showcase: props.showcase,
   };
   return (
@@ -155,6 +157,7 @@ export function MdxFrameworkOverview(props: MdxFrameworkOverviewProps) {
       data={synthData}
       currentFramework={currentFramework}
       hrefPrefix={props.hrefPrefix}
+      frontendOverride={props.frontendOverride}
       iconOverride={props.frameworkIcon}
       afterFeatures={props.afterFeatures}
       connectSnippet={props.children}

@@ -1220,6 +1220,7 @@ async function FrameworkRootPage({
                 <MdxFrameworkOverview
                   {...props}
                   currentFramework={framework ?? props.currentFramework}
+                  frontendOverride={frontendOverride}
                   hrefPrefix={slugHrefPrefix}
                 />
               ),

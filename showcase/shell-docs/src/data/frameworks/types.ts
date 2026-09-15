@@ -1,5 +1,3 @@
-import type { ReactNode } from "react";
-
 /** Resolved at render time via the icon registry in Track B's port. */
 export type IconKey = string;
 
@@ -39,8 +37,7 @@ export interface OpsPlatformCTAData {
 
 /**
  * One runnable cell on showcase.copilotkit.ai, addressed as
- * `/<frontend>/<integration>/<demo>`. Docs always embed the React frontend
- * (see `SHOWCASE_FRONTEND`), so only the integration and demo vary.
+ * `/<frontend>/<integration>/<demo>`. The route supplies the selected frontend.
  */
 export interface ShowcaseDemo {
   /** Route segment, e.g. "agentic-chat". Must exist in the integration's manifest. */
@@ -127,15 +124,7 @@ export interface FrameworkOverviewData {
    */
   hasAfterFeaturesMdx?: boolean;
 
-  /**
-   * Two or three sentences opening the capability section: what the framework
-   * gives you on its own, and what it leaves to the application.
-   *
-   * Supplying this switches the page to the capability-card layout. Records
-   * without it keep the older video-per-feature list, so both layouts can
-   * coexist while the partner pages are migrated one at a time — no partner
-   * page is ever half-built in the branch.
-   */
+  /** A short, framework-specific capability introduction. */
   lede?: string;
   /**
    * One sentence naming the capabilities that did not get a card, so the three
@@ -147,5 +136,7 @@ export interface FrameworkOverviewData {
     href: string;
   };
   connect?: ConnectSection;
+  /** Connection instructions for a specific backend variant. */
+  connectBySlug?: Record<string, ConnectSection>;
   showcase?: ShowcaseSection;
 }

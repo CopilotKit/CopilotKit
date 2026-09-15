@@ -23,6 +23,7 @@ const baseProps: MdxFrameworkOverviewProps = {
   guideLink: "/ms-agent-dotnet/quickstart",
   supportedFeatures: [],
   liveDemos: [],
+  lede: "Connect your agent to your app.",
 };
 
 const render = (props: Partial<MdxFrameworkOverviewProps> = {}) =>
@@ -71,10 +72,45 @@ describe("MdxFrameworkOverview", () => {
     expect(markup).not.toContain("Structured fallback title");
   });
 
-  it("renders neither when the authored file supplies no slot", () => {
+  it("renders no custom slot when the authored file supplies none", () => {
     const markup = render();
 
     expect(markup).not.toContain("data-testid");
-    expect(markup).not.toContain("CopilotKit Intelligence");
+    expect(markup).not.toContain("docs_fallback");
+  });
+});
+
+describe("overview media and scoped links", () => {
+  it("keeps videos, architecture, tutorial and explicit content alongside a lede", () => {
+    const markup = render({
+      bannerVideo: "https://example.com/overview.mp4",
+      architectureVideo: "https://example.com/architecture.mp4",
+      tutorialLink: "/ms-agent-dotnet/tutorial",
+      afterFeatures: <p>Authored content</p>,
+    });
+    expect(markup).toContain("https://example.com/overview.mp4");
+    expect(markup).toContain("https://example.com/architecture.mp4");
+    expect(markup).toContain('href="/ms-agent-dotnet/tutorial"');
+    expect(markup).toContain("Authored content");
+  });
+  it("keeps Intelligence guides in the selected backend", () => {
+    const markup = render();
+    expect(markup).toContain('href="/ms-agent-dotnet/threads"');
+    expect(markup).toContain('href="/ms-agent-dotnet/learning"');
+    expect(markup).toContain('href="/ms-agent-dotnet/intelligence/memories"');
+  });
+  it("uses the selected frontend for the live showcase", () => {
+    const markup = render({
+      frontendOverride: "angular",
+      showcase: {
+        integration: "ms-agent-dotnet",
+        intro: "Demo",
+        demos: [{ slug: "agentic-chat", title: "Chat" }],
+      },
+    });
+    expect(markup).toContain(
+      "https://showcase.copilotkit.ai/angular/ms-agent-dotnet/agentic-chat",
+    );
+    expect(markup).not.toContain("railway.app");
   });
 });

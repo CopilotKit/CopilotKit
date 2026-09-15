@@ -143,6 +143,19 @@ describe("buildAngularBackendOverview", () => {
     expect(overview.architectureImage).toBe(source.architectureImage);
     expect(overview.cta).toBe(source.cta);
     expect(overview.guideLink).toBe("/langgraph-python/quickstart");
+    expect(overview.connect?.guideLink).toBe("/langgraph-python/quickstart");
+    expect(overview.tutorialLink).toBe("/langgraph-python/quickstart");
+    expect(overview.capabilitiesFootnote?.href).toBe(
+      "/langgraph-python/features",
+    );
+    for (const demo of overview.showcase?.demos ?? []) {
+      expect(
+        exactRunnableAngularHref(
+          `https://showcase.copilotkit.ai/angular/${overview.showcase?.integration}/${demo.slug}`,
+          "langgraph-python",
+        ),
+      ).toBe(true);
+    }
 
     const demoHrefs = [
       ...overview.supportedFeatures.flatMap((feature) =>
