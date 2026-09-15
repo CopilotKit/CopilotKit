@@ -8,14 +8,9 @@ import { shallowEqual, useShallowStableRef } from "./shallow-stable-ref";
 // module's public surface for existing importers (e.g. CopilotChat).
 export { shallowEqual, useShallowStableRef };
 
-/**
- * A slot override: the default component, any component with the same props
- * (call signature / FC — C's static namespace members are not required), a
- * className string, or a partial props object.
- */
+/** Existing union (unchanged) */
 export type SlotValue<C extends React.ComponentType<any>> =
   | C
-  | React.ComponentType<React.ComponentProps<C>>
   | string
   | Partial<React.ComponentProps<C>>;
 

@@ -1,9 +1,9 @@
 // Type-only assertions for #7126. `tsc --noEmit` is the only consumer — this
 // file is not in vitest's `*.{test,spec}.{ts,tsx}` include glob.
 //
-// chatView used to be SlotValue<typeof CopilotChatView>, which required the
-// CopilotChatView namespace statics (WelcomeScreen, ScrollView, …). A plain
-// FC / call signature must assign without Object.assign or a cast.
+// chatView is SlotValue<React.ComponentType<CopilotChatViewProps>>, so a plain
+// FC / call signature assigns without CopilotChatView namespace statics
+// (WelcomeScreen, ScrollView, …) and without Object.assign or a cast.
 import { expectTypeOf } from "vitest";
 import type React from "react";
 import type { CopilotChatProps } from "../CopilotChat";

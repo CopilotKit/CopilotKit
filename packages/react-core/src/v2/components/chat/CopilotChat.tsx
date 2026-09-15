@@ -77,6 +77,7 @@ export type CopilotChatProps = Omit<
    * Shortcuts only appear in local development while Inspector is visible.
    */
   inspectorTools?: boolean;
+  /** Accepts a className, partial props, or any component with CopilotChatView props — static namespace members are not required. */
   chatView?: SlotValue<React.ComponentType<CopilotChatViewProps>>;
   isModalDefaultOpen?: boolean;
   /** Enable multimodal file attachments (images, audio, video, documents). */
