@@ -11,10 +11,14 @@ import { expectTypeOf } from "vitest";
 import type React from "react";
 import type { CopilotChatProps } from "../CopilotChat";
 import type { CopilotChatViewProps } from "../CopilotChatView";
-import type { CopilotChatInputProps } from "../CopilotChatInput";
-import CopilotChatInput from "../CopilotChatInput";
-import type { CopilotModalHeaderProps } from "../CopilotModalHeader";
-import { CopilotModalHeader } from "../CopilotModalHeader";
+import type {
+  default as CopilotChatInput,
+  CopilotChatInputProps,
+} from "../CopilotChatInput";
+import type {
+  CopilotModalHeader,
+  CopilotModalHeaderProps,
+} from "../CopilotModalHeader";
 import type { CopilotSidebarViewProps } from "../CopilotSidebarView";
 import type { CopilotPopupViewProps } from "../CopilotPopupView";
 
