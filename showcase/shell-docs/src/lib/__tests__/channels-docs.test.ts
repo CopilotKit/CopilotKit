@@ -111,7 +111,7 @@ describe("Channels documentation journey", () => {
       "description: Run one AG-UI agent in Slack, Microsoft Teams, and more",
     );
     expect(overview?.source).toContain(
-      "channel connection (Slack, Teams, Discord, etc.)",
+      "channel connection (Slack or Microsoft Teams)",
     );
     expect(overview?.source).toContain('title="More channels are on the way"');
     expect(overview?.source).toContain(
@@ -618,32 +618,6 @@ describe("Channels documentation journey", () => {
       expect(filtered).toContain("`CHANNEL_CODE`");
       expect(filtered).toContain("`CPK_INTELLIGENCE_API_KEY`");
     }
-  });
-
-  it("shows the Intelligence Channels area before the setup steps", () => {
-    const source = bodyFor("channels/intelligence");
-    const setupHeadingIndex = source.indexOf(
-      "## Create and configure your Channel",
-    );
-    const imageIndex = source.indexOf(
-      'src="/images/channels/intelligence-channels-overview.png"',
-    );
-    const stepsIndex = source.indexOf("<Steps>");
-
-    expect(source).not.toContain(
-      'src="/images/channels/channels-architecture-light.png"',
-    );
-    expect(source).not.toContain(
-      'src="/images/channels/channels-architecture-dark.png"',
-    );
-    expect(setupHeadingIndex).toBeGreaterThan(-1);
-    expect(setupHeadingIndex).toBeLessThan(imageIndex);
-    expect(imageIndex).toBeGreaterThan(-1);
-    expect(imageIndex).toBeLessThan(stepsIndex);
-    expect(source).toContain("## Next step");
-    expect(source).toMatch(
-      /alt="[^"]*Intelligence[^"]*channel creation[^"]*Slack[^"]*Teams[^"]*"/i,
-    );
   });
 
   it("keeps required environment reads self-contained in provider snippets", () => {

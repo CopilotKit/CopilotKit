@@ -57,6 +57,16 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
   );
   expect(snippet).toContain("## What the platform adds");
   expect(snippet).toContain("| Analytics |");
+  expect(snippet).toContain("[Analytics](/intelligence/analytics)");
+  expect(
+    existsSync(resolve(here, "../../content/docs/intelligence/analytics.mdx")),
+  ).toBe(true);
+  expect(
+    JSON.parse(read("content/docs/intelligence/meta.json")).pages,
+  ).toContain("analytics");
+  expect(JSON.parse(read("content/docs/meta.json")).pages).toContain(
+    "intelligence/analytics",
+  );
   expect(snippet).toContain("| Automatic learning |");
   expect(snippet).toContain("| Memory |");
   expect(snippet).toContain("[Memories & Recall](/intelligence/memories)");

@@ -119,11 +119,9 @@ describe("IntelligenceOverview", () => {
     ).toBe("/intelligence/memories");
     expect(
       screen
-        .getByRole("link", { name: "See Analytics on the product page" })
+        .getByRole("link", { name: "Open the Analytics guide" })
         .getAttribute("href"),
-    ).toBe(
-      "https://www.copilotkit.ai/copilotkit-intelligence#analytics-insights",
-    );
+    ).toBe("/intelligence/analytics");
     expect(
       screen
         .getByRole("link", { name: "Open the Learning guide" })

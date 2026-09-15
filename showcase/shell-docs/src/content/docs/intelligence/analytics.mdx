@@ -1,0 +1,110 @@
+---
+title: Analytics
+description: "Inspect agent activity, reliability, token usage, and memory trends in an Intelligence project, and distinguish those charts from organization-wide usage."
+icon: "lucide/ChartNoAxesCombined"
+doc_type: how-to
+---
+
+Once your runtime sends conversations to Intelligence, open **Analytics** in your
+project to see activity, failures, token usage, and memory trends. Use the charts
+to find a time window worth investigating, then open the corresponding
+[Threads](/intelligence/managed-intelligence-platform#threads-and-conversation-history)
+to inspect individual conversations.
+
+## Open your project's analytics
+
+<Steps>
+  <Step>
+    ### Connect a runtime and record a conversation
+
+    Complete the [Intelligence quickstart](/intelligence/quickstart), send a
+    message in your app, and confirm that the thread appears in your selected
+    project's **Threads** page. Analytics uses recorded activity from that
+    project.
+  </Step>
+  <Step>
+    ### Open Analytics
+
+    Select **Analytics** in the project sidebar. A project with no recorded
+    history shows setup guidance. Follow its prompt to connect your app and
+    generate activity, then return to this page.
+  </Step>
+  <Step>
+    ### Choose a view and time range
+
+    Switch between **Activity**, **Reliability**, **Tokens**, and, when enabled,
+    **Memory**. Choose **1 hour**, **1 day**, **3 days**, **7 days**, or
+    **Custom** to inspect a particular period. Short windows use hourly buckets;
+    the seven-day view and custom windows longer than three days use daily
+    buckets.
+  </Step>
+  <Step>
+    ### Investigate a change
+
+    Start with Activity to find a traffic change, then check Reliability and
+    Tokens over the same period. Open **Threads** in the same project to inspect
+    the messages, runs, and events behind the change. For memory provenance,
+    open [Memories](/intelligence/memories#review-memories-in-intelligence).
+  </Step>
+</Steps>
+
+## What each view measures
+
+| View | What you can inspect |
+| --- | --- |
+| **Activity** | Runtime event volume, active users, average and peak event volume, and tool usage share. |
+| **Reliability** | Error events, error rate, tool calls, and the error-free share displayed as **Clean runs**. |
+| **Tokens** | Reported input, output, and total token volume, plus response duration. |
+| **Memory** | Memories created and invalidated, net new memories, retention, and the split between memory kinds. |
+
+### Interpret reliability correctly
+
+**Error rate** divides error events by all recorded events in the period,
+including streaming deltas and tool events. It is not the percentage of runs
+that failed. **Clean runs** currently displays the complement of that same
+event-based rate. Inspect the underlying threads before using either figure to
+assess run success.
+
+### Token totals depend on reporting
+
+Token metrics use usage supplied by the runtime and model integration. A missing
+usage field does not prove that a model used zero tokens. The thread detail view
+shows the reported counts and identifies incomplete reporting or a truncated
+loaded history; use it when a total needs explanation.
+
+### Memory trends and memory records
+
+The **Memory** analytics view summarizes changes over time. The separate
+**User Memories** page lets you read individual records and follow their source
+Threads. Neither view requires you to create a Learning Container just to inspect
+existing memories. Availability depends on your deployment and enabled features;
+see [Memories & Recall](/intelligence/memories).
+
+## Project charts and organization usage
+
+The charts are scoped to the selected project and time range. The Developer
+plan's **Analytics runs this month** usage card is organization-wide: it counts
+completed and failed runs across projects for the current UTC calendar month.
+Changing the chart's time range does not change that monthly counter.
+
+The same distinction applies elsewhere in the dashboard: a project's Threads
+list shows that project's conversations, while its **Organization-wide** usage
+card counts threads across the organization. Learning has its own monthly usage
+card. Check the card's label before comparing it with a chart or table.
+
+For billing and plan choices, see
+[plan management](/intelligence/managed-intelligence-platform#plan-management).
+
+## Empty, unavailable, or incomplete data
+
+| What you see | What to check |
+| --- | --- |
+| Setup guidance in a new project | Connect the runtime to this project and record a conversation. |
+| No data in the selected period | Widen the time range and confirm that the conversation belongs to this project. |
+| **N/A** or a panel error | The metric has not loaded or its request failed. Use **Retry** when offered; do not interpret the placeholder as zero. |
+| **Usage unavailable** above working charts | The organization usage request is separate from the chart requests. Retry later; the chart values do not establish the missing usage total. |
+| Memory view is absent | Check the deployment's enabled features and memory access. |
+| Self-hosted charts cannot load | Verify the Analytics database and migrations in the [self-hosting guide](/intelligence/self-hosting). |
+
+You can now use a project's charts to locate a change, inspect its Threads or
+Memories, and read organization usage without confusing those scopes.

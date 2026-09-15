@@ -89,6 +89,40 @@ Removing a memory retires it rather than erasing it. Retired memories are
 excluded from recall and from the default list, and can be surfaced again by
 asking for invalidated rows explicitly.
 
+## Review memories in Intelligence
+
+Open your project and select **User Memories** in the sidebar. Memories has its own
+page, separate from **Learning**; you do not need a Learning Container to inspect
+memories that your agents have already written.
+
+<Steps>
+  <Step>
+    ### Find a memory
+
+    Search the content, filter by owner or project-wide scope, and choose a kind:
+    **Topical**, **Episodic**, or **Operational**. The default **Live** filter
+    excludes retired records. Choose **Live & retired** or **Retired** to inspect
+    older records, and sort by creation or update time.
+  </Step>
+  <Step>
+    ### Inspect its provenance
+
+    Open a row to read the memory and its metadata. Follow a source Thread to
+    inspect the conversation it came from. Records without source Threads have
+    no conversation link to follow.
+  </Step>
+  <Step>
+    ### Make changes through your application
+
+    The dashboard is a read-only review surface. To save, supersede, or retire a
+    memory, use the SDK, REST routes, or agent tools described below.
+  </Step>
+</Steps>
+
+The dashboard is an administrator's view across a project. The runtime-facing
+`useMemories()` and REST list are scoped to the authenticated app user. Use
+[Analytics](/intelligence/analytics) for aggregate memory trends over time.
+
 ## Activating memory
 
 <Callout type="info">

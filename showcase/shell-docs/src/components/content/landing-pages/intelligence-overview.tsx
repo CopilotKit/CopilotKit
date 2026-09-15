@@ -33,7 +33,7 @@ const FEATURES = [
   },
   {
     title: "Channels",
-    body: "Run your agent in Slack through managed Intelligence connections. See the guide for Teams availability and other channel adapters.",
+    body: "Run your agent in Slack or Microsoft Teams through managed Intelligence connections.",
     href: "/slack",
     cta: "Open the Channels guide",
     icon: Hash,
@@ -48,8 +48,8 @@ const FEATURES = [
   {
     title: "Analytics",
     body: "See what your agents do and where users get value, from the same interaction data.",
-    href: "https://www.copilotkit.ai/copilotkit-intelligence#analytics-insights",
-    cta: "See Analytics on the product page",
+    href: "/intelligence/analytics",
+    cta: "Open the Analytics guide",
     icon: BarChart3,
   },
   {

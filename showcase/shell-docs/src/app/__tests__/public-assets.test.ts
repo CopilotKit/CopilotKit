@@ -42,11 +42,11 @@ describe("public image assets", () => {
     }
   });
 
-  it("serves Channels diagrams and the Intelligence overview as real PNG files", () => {
+  it("serves Channels diagrams and Intelligence Home as real PNG files", () => {
     for (const assetPath of [
       "images/channels/channels-architecture-light.png",
       "images/channels/channels-architecture-dark.png",
-      "images/channels/intelligence-channels-overview.png",
+      "images/enterprise-intelligence/managed-home.png",
     ]) {
       const bytes = readPublicAsset(assetPath);
 

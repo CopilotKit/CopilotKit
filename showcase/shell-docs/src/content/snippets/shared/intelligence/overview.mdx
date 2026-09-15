@@ -18,15 +18,18 @@ Ready to connect an existing app? Follow the [CopilotKit Intelligence quickstart
 |---|---|---|
 | Durable threads and persistence | Resumable conversations that survive reloads, devices, and browser sessions. | [Threads](/threads) and [Threads & Persistence Architecture](/intelligence/threads-explained) |
 | Existing conversation history | Import supported LangGraph threads or Google ADK sessions as Rich Threads, then synchronize future CopilotKit-mediated runs. | [LangGraph history](/langgraph-python/threads-import) and [Google ADK history](/google-adk/threads-import) |
-| Channels | Run your agent in messaging channels through managed Intelligence connections. Managed Slack is available now; managed Teams is a controlled integration target. | [Slack](/slack) and [Microsoft Teams](/teams) |
+| Channels | Run your agent in messaging channels through managed Intelligence connections. Managed Slack and Microsoft Teams use the setup wizard and your Channels SDK runtime. | [Slack](/slack) and [Microsoft Teams](/teams) |
 | Memory | Durable facts and preferences that can be recalled across conversations. | [Memories & Recall](/intelligence/memories) |
-| Analytics | See what your agents do and where users get value, from the same interaction data. | [Analytics](https://www.copilotkit.ai/copilotkit-intelligence#analytics-insights) |
+| Analytics | See what your agents do and where users get value, from the same interaction data. | [Analytics](/intelligence/analytics) |
 | Automatic learning | Agents improve from real usage. No fine-tuning pipeline required. | [Learning](/learning) and [Automatic skill delivery](/intelligence/learned-skills) |
 | Cloud-hosted Intelligence features | Projects, project API keys, conversation history, thread inspection, and plan management. | [Cloud-hosted CopilotKit Intelligence](/intelligence/managed-intelligence-platform) |
-| Platform-gated UI capabilities | Platform-gated UI surfaces such as Fully Headless Chat UI. | [Fully Headless Chat UI](/intelligence/headless-ui) |
 | Self-hosting | The same platform running inside your own Kubernetes cluster, VPC, or data boundary. | [Self-host CopilotKit Intelligence](/intelligence/self-hosting) |
 
 <IntelligenceFeatureCards />
+
+For a custom chat interface, use the current [Fully Headless UI](/built-in-agent/custom-look-and-feel/headless-ui)
+primitives with or without Intelligence. Applications maintaining the licensed
+legacy hook can use the [legacy headless guide](/intelligence/headless-ui).
 
 Follow the Intelligence quickstart to connect your runtime and confirm threads work.
 
@@ -70,6 +73,7 @@ Self-hosted access is available on the Team self-hosted plan or a custom Enterpr
 | Decide what the platform includes | Stay on this overview. |
 | Connect an app to hosted projects and API keys | [Cloud-hosted CopilotKit Intelligence](/intelligence/managed-intelligence-platform) |
 | Run the platform in your own cluster | [Self-host CopilotKit Intelligence](/intelligence/self-hosting) |
+| Inspect activity, reliability, tokens, and memory trends | [Analytics](/intelligence/analytics) |
 | Understand the runtime/platform architecture | [CopilotKit Intelligence architecture](/intelligence/intelligence-platform) |
 | Add persistent conversations to an app | [Threads](/threads) |
 | Let users open existing LangGraph conversations in a CopilotKit app | [Synchronize LangGraph Threads](/langgraph-python/threads-import) |
