@@ -290,29 +290,38 @@ type RunNextWithStateReturn = ReturnType<Middleware["runNextWithState"]>;
 type EventWithState = ExtractObservableType<RunNextWithStateReturn>;
 
 /**
- * Extend a scoped snapshot with this projector's type. Preserve full authority
- * with null, including when projection removes the last activity message.
+ * Preserve the original snapshot's authority, extending this projector's type
+ * only when every incoming activity of that type can be reconstructed.
  */
 function ownActivityType(
   event: MessagesSnapshotEvent,
   messages: Message[],
+  complete: boolean,
 ): MessagesSnapshotEvent {
   const prior = event.metadata?.["@ag-ui/client"];
-  const priorRecord: Record<string, unknown> =
-    prior && typeof prior === "object" && !Array.isArray(prior)
-      ? (prior as Record<string, unknown>)
-      : {};
+  const validNamespace =
+    prior !== null && typeof prior === "object" && !Array.isArray(prior);
+  const priorRecord: Record<string, unknown> = validNamespace ? prior : {};
+  const absent =
+    !Object.prototype.hasOwnProperty.call(
+      event.metadata ?? {},
+      "@ag-ui/client",
+    ) ||
+    (validNamespace &&
+      !Object.prototype.hasOwnProperty.call(
+        priorRecord,
+        "authoritativeActivityTypes",
+      ));
   const scope = priorRecord.authoritativeActivityTypes;
   const priorTypes =
     Array.isArray(scope) && scope.every((type) => typeof type === "string")
       ? scope
       : undefined;
   // An unscoped snapshot containing activity already owns the complete set.
-  // Keep that authority even if projection removes its last activity message.
+  // Infer it before adding projected activities, never from our own output.
   const ownsAll =
     scope === null ||
-    (priorTypes === undefined &&
-      event.messages.some((message) => message.role === "activity"));
+    (absent && event.messages.some((message) => message.role === "activity"));
   return {
     ...event,
     messages,
@@ -322,7 +331,12 @@ function ownActivityType(
         ...priorRecord,
         authoritativeActivityTypes: ownsAll
           ? null
-          : [...new Set([...(priorTypes ?? []), ACTIVITY_TYPE])],
+          : [
+              ...new Set([
+                ...(priorTypes ?? []),
+                ...(complete ? [ACTIVITY_TYPE] : []),
+              ]),
+            ],
       },
     },
   };
@@ -403,10 +417,23 @@ function projectHistory(
       sourceMessages.splice(resultIndex, 0, live.result);
     }
   }
+  const reconstructedIds = new Set<string>();
+  for (const message of sourceMessages) {
+    if (message.role !== "assistant") continue;
+    for (const call of message.toolCalls ?? []) {
+      if (call.function.name === TOOL_NAME)
+        reconstructedIds.add(`${call.id}-activity`);
+    }
+  }
+  let complete = true;
   const messages: Message[] = [];
   for (const message of sourceMessages) {
-    if (message.role === "activity" && message.activityType === ACTIVITY_TYPE)
-      continue;
+    if (message.role === "activity" && message.activityType === ACTIVITY_TYPE) {
+      if (reconstructedIds.has(message.id)) continue;
+      // A subagent or another producer may have no direct call in this history.
+      // Preserve its activity and do not claim this type is fully reconstructed.
+      complete = false;
+    }
     messages.push(message);
     if (message.role !== "assistant") continue;
     for (const call of message.toolCalls ?? []) {
@@ -450,7 +477,7 @@ function projectHistory(
       messages.push(activity);
     }
   }
-  return ownActivityType(event, messages);
+  return ownActivityType(event, messages, complete);
 }
 
 export class OpenGenerativeUIMiddleware extends Middleware {

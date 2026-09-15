@@ -496,8 +496,16 @@ describe("OpenGenerativeUIMiddleware snapshots", () => {
 });
 
 describe("activity snapshot authority", () => {
+  it("preserves explicit full authority on an empty snapshot", () => {
+    const source: MessagesSnapshotEvent = {
+      ...snapshot([]),
+      metadata: { "@ag-ui/client": { authoritativeActivityTypes: null } },
+    };
+    expect(projectOpenGenerativeUIHistory(source)).toEqual(source);
+  });
+
   it.each([undefined, null])(
-    "preserves full authority when the last activity is removed (%s)",
+    "preserves an unprojectable activity and existing full authority (%s)",
     (scope) => {
       const source = snapshot([
         {
@@ -512,9 +520,120 @@ describe("activity snapshot authority", () => {
           "@ag-ui/client": { authoritativeActivityTypes: null },
         };
       const projected = projectOpenGenerativeUIHistory(source);
-      expect(projected.messages).toEqual([]);
+      expect(projected.messages).toEqual(source.messages);
       expect(projected.metadata?.["@ag-ui/client"]).toEqual({
         authoritativeActivityTypes: null,
+      });
+      expect(projectOpenGenerativeUIHistory(projected)).toEqual(projected);
+    },
+  );
+
+  it.each([
+    ["mixed array", { authoritativeActivityTypes: ["other", 5] }],
+    ["undefined field", { authoritativeActivityTypes: undefined }],
+    ["scalar field", { authoritativeActivityTypes: "other" }],
+    ["null namespace", null],
+    ["array namespace", []],
+    ["scalar namespace", "other"],
+  ])("does not infer full authority from %s", (_, namespace) => {
+    const foreign: Message = {
+      id: "foreign",
+      role: "activity",
+      activityType: "other",
+      content: { keep: true },
+    };
+    const source: MessagesSnapshotEvent = {
+      ...snapshot([sandboxCall("call"), foreign]),
+      metadata: { "@ag-ui/client": namespace, keep: true },
+    };
+    const original = structuredClone(source);
+    const projected = projectOpenGenerativeUIHistory(source);
+    expect(projected.metadata).toEqual({
+      keep: true,
+      "@ag-ui/client": {
+        authoritativeActivityTypes: [ACTIVITY_TYPE],
+      },
+    });
+    expect(projected.messages).toContainEqual(foreign);
+    expect(projectOpenGenerativeUIHistory(projected)).toEqual(projected);
+    expect(source).toEqual(original);
+  });
+
+  it.each([
+    { namespace: {}, expected: null },
+    { namespace: { authoritativeActivityTypes: null }, expected: null },
+    {
+      namespace: { authoritativeActivityTypes: [] },
+      expected: [ACTIVITY_TYPE],
+    },
+  ])(
+    "preserves the original authority when replacing a matching activity ($expected)",
+    ({ namespace, expected }) => {
+      const stale: Message = {
+        id: "call-activity",
+        role: "activity",
+        activityType: ACTIVITY_TYPE,
+        content: { stale: true },
+      };
+      const source: MessagesSnapshotEvent = {
+        ...snapshot([sandboxCall("call"), stale]),
+        metadata: { "@ag-ui/client": { ...namespace, keep: true } },
+      };
+      const original = structuredClone(source);
+      const projected = projectOpenGenerativeUIHistory(source);
+      expect(activities(projected.messages)).toHaveLength(1);
+      expect(activities(projected.messages)[0].content).toMatchObject({
+        html: [args.html],
+      });
+      expect(activities(projected.messages)[0].content).not.toHaveProperty(
+        "stale",
+      );
+      expect(projected.metadata?.["@ag-ui/client"]).toEqual({
+        keep: true,
+        authoritativeActivityTypes: expected,
+      });
+      expect(source).toEqual(original);
+    },
+  );
+
+  it.each([
+    { scope: [], expected: [] },
+    { scope: ["other"], expected: ["other"] },
+    { scope: ["other", 5], expected: [] },
+    { scope: null, expected: null },
+  ])(
+    "retains activity from an unavailable call without expanding authority ($scope)",
+    ({ scope, expected }) => {
+      const orphan: Message = {
+        id: "subagent-activity",
+        role: "activity",
+        activityType: ACTIVITY_TYPE,
+        content: { html: ["<p>Subagent</p>"] },
+      };
+      const source: MessagesSnapshotEvent = {
+        ...snapshot([orphan, sandboxCall("call")]),
+        metadata: { "@ag-ui/client": { authoritativeActivityTypes: scope } },
+      };
+      const projected = projectOpenGenerativeUIHistory(source);
+      expect(projected.messages.map((message) => message.id)).toEqual([
+        "subagent-activity",
+        "call-assistant",
+        "call-activity",
+      ]);
+      expect(projected.messages[0]).toEqual(orphan);
+      expect(projected.metadata?.["@ag-ui/client"]).toEqual({
+        authoritativeActivityTypes: expected,
+      });
+      expect(projectOpenGenerativeUIHistory(projected)).toEqual(projected);
+    },
+  );
+
+  it.each([{ messages: [] }, { messages: [sandboxCall("call")] }])(
+    "computes authority before adding its own activity",
+    ({ messages }) => {
+      const projected = projectOpenGenerativeUIHistory(snapshot(messages));
+      expect(projected.metadata?.["@ag-ui/client"]).toEqual({
+        authoritativeActivityTypes: [ACTIVITY_TYPE],
       });
       expect(projectOpenGenerativeUIHistory(projected)).toEqual(projected);
     },
