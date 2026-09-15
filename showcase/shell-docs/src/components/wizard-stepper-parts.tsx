@@ -5,8 +5,6 @@ import React from "react";
 import { Check, Plus } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { CORE_TREATMENT_CLASS } from "./docs-map-parts";
-
 /** The mark for each of step 1's two answers ("Do you already have a
  *  project?") — shared by the step itself (`setup-wizard.tsx`'s
  *  `PROJECT_OPTIONS`, rendered through `ChoiceGrid` below) and the review's
@@ -179,7 +177,7 @@ export function WizardCard({
 }): React.JSX.Element {
   return (
     <section
-      className={`shell-docs-radius-surface not-prose flex h-[34rem] flex-col p-5 sm:h-[30rem] sm:p-7 ${CORE_TREATMENT_CLASS}`}
+      className={`shell-docs-radius-surface not-prose flex h-[34rem] flex-col p-5 sm:h-[30rem] sm:p-7 border border-[color-mix(in_srgb,var(--text)_18%,var(--bg-surface))] bg-[color-mix(in_srgb,var(--text)_6%,var(--bg-surface))]`}
     >
       {progress && <div className="mb-6 shrink-0">{progress}</div>}
       <h3
@@ -249,7 +247,7 @@ export function ChoiceGrid({
             className={`shell-docs-radius-control block w-full cursor-pointer border p-3.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
               selected
                 ? "border-[var(--accent)] bg-[var(--accent-dim)]"
-                : "border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)]"
+                : "border-[color-mix(in_srgb,var(--text)_18%,var(--bg-surface))] bg-[var(--bg-surface)] shadow-sm hover:border-[var(--accent)]"
             }`}
           >
             <span className="flex items-center gap-2">

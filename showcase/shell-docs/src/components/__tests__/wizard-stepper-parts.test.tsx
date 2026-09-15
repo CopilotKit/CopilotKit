@@ -39,8 +39,12 @@ describe("WizardCard", () => {
     const section = container.querySelector("section");
     expect(section).not.toBeNull();
     const className = section!.className;
-    expect(className).toContain("border-[var(--border)]");
-    expect(className).toContain("bg-[var(--bg-surface)]");
+    expect(className).toContain(
+      "border-[color-mix(in_srgb,var(--text)_18%,var(--bg-surface))]",
+    );
+    expect(className).toContain(
+      "bg-[color-mix(in_srgb,var(--text)_6%,var(--bg-surface))]",
+    );
   });
 
   it("renders the kicker as Step {step} of {total}", () => {
