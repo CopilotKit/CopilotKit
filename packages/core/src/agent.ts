@@ -108,6 +108,13 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   // stop/connect/single-route paths).
   readonly runtimeAgentId?: string;
   private transport: CopilotRuntimeTransport;
+  /**
+   * The runtime URL exactly as the caller supplied it. `runtimeUrl` is the
+   * slash-stripped form used for path joins; the single-route endpoint (run,
+   * connect, stop, info envelopes) is this verbatim value, because a trailing
+   * slash can select a different proxy location.
+   */
+  private readonly runtimeEndpointUrl?: string;
   private singleEndpointUrl?: string;
   private runtimeMode: ResolvedRuntimeMode;
   private intelligence?: IntelligenceRuntimeInfo;
@@ -121,9 +128,12 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       : undefined;
     const transport = config.transport ?? "auto";
     const routedId = config.runtimeAgentId ?? config.agentId ?? "";
+    // The single endpoint is the caller's URL exactly as given: a trailing
+    // slash can select a different proxy location, so it must survive. Only
+    // the path joins (`/agent/…`, `/info`) use the slash-stripped form.
     const runUrl =
       transport === "single"
-        ? (normalizedRuntimeUrl ?? config.runtimeUrl ?? "")
+        ? (config.runtimeUrl ?? "")
         : `${normalizedRuntimeUrl ?? config.runtimeUrl}/agent/${encodeURIComponent(routedId)}/run`;
 
     if (!runUrl) {
@@ -137,6 +147,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       url: runUrl,
     });
     this.runtimeUrl = normalizedRuntimeUrl ?? config.runtimeUrl;
+    this.runtimeEndpointUrl = config.runtimeUrl;
     this.credentials = config.credentials;
     this.runtimeAgentId = config.runtimeAgentId;
     this.transport = transport;
@@ -147,7 +158,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       this.debug = config.debug;
     }
     if (this.transport === "single") {
-      this.singleEndpointUrl = this.runtimeUrl;
+      this.singleEndpointUrl = this.runtimeEndpointUrl;
     }
   }
 
@@ -447,7 +458,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
 
   public override clone(): ProxiedCopilotRuntimeAgent {
     const cloned = new ProxiedCopilotRuntimeAgent({
-      runtimeUrl: this.runtimeUrl,
+      runtimeUrl: this.runtimeEndpointUrl ?? this.runtimeUrl,
       agentId: this.agentId,
       runtimeAgentId: this.runtimeAgentId,
       description: this.description,
@@ -559,7 +570,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       if (!headers["Content-Type"]) {
         headers["Content-Type"] = "application/json";
       }
-      url = this.runtimeUrl!;
+      url = this.singleEndpointUrl;
       init = { method: "POST", body: JSON.stringify({ method: "info" }) };
     } else {
       url = `${this.runtimeUrl}/info`;
@@ -602,7 +613,8 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     if (!singleHeaders["Content-Type"]) {
       singleHeaders["Content-Type"] = "application/json";
     }
-    const response = await this.fetch(this.runtimeUrl!, {
+    const endpointUrl = this.runtimeEndpointUrl ?? this.runtimeUrl!;
+    const response = await this.fetch(endpointUrl, {
       method: "POST",
       headers: singleHeaders,
       body: JSON.stringify({ method: "info" }),
@@ -612,7 +624,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       throw await runtimeInfoError(response);
     }
     this.transport = "single";
-    this.singleEndpointUrl = this.runtimeUrl;
+    this.singleEndpointUrl = endpointUrl;
     return (await response.json()) as RuntimeInfo;
   }
 

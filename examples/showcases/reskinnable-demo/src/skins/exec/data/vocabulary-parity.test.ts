@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from "vitest";
-import { z } from "zod";
+import type { z } from "zod";
 import { definitions } from "@/skins/exec/catalog/definitions";
 import { getMetricsTool } from "@/skins/exec/agent";
 import { sandboxFunctions } from "@/skins/exec/sandbox-functions";

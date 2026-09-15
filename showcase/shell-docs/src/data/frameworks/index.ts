@@ -28,8 +28,14 @@ export const frameworkOverviews: Record<string, FrameworkOverviewData> = {
   "claude-sdk-typescript": claudeSdkTypescript,
   "crewai-crews": crewaiCrews,
   deepagents,
-  "google-adk": googleAdk,
-  "langgraph-python": langgraphPython,
+  // Authored discovery sections live in content/framework-overviews; keep
+  // these slot overrides here rather than editing extracted data records.
+  "google-adk": { ...googleAdk, hasAfterFeaturesMdx: true },
+  "langgraph-python": {
+    ...langgraphPython,
+    hasAfterFeaturesMdx: true,
+    preserveCtaWithAfterFeatures: true,
+  },
   // LangGraph variants share the same intro content (legacy /langgraph in
   // docs/ never differentiated python/typescript/fastapi at the landing
   // page). They share the langgraph/ content folder downstream too. Links

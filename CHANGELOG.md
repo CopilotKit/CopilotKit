@@ -16,6 +16,67 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.72.0 - 2026-09-15
+
+This release repairs several v1 runtime surfaces that were silently broken since v1.50.0 and removes the deprecated `useRenderTool` shim from React Native.
+
+## Breaking Changes
+
+### React Native: `useRenderTool` no longer accepts `description` or `handler` (#7118)
+
+`@copilotkit/react-native` now re-exports react-core's `useRenderTool` directly and no longer ships its own render-tool implementation. The routing shim introduced in 1.68 — which forwarded calls carrying `description` or `handler` to `useFrontendTool` — has been removed.
+
+**Migration:**
+
+- A `useRenderTool` call that passes `description` or `handler` no longer type-checks and no longer registers a tool. Rename it to `useFrontendTool` with the same config object. The compiler error is `TS2769: No overload matches this call` (the offending property is named in the nested per-overload detail).
+- A render body reading `args` still needs to be renamed to `parameters`; the shim never covered this.
+- The wildcard `name: "*"` continues to paint unmatched tool calls without registering a tool named `*`.
+
+## Fixes
+
+### Runtime: v1 `actions` and `mcpServers` execute again (#6931)
+
+In-process `action.handler` and MCP `tool.execute` were advertised to the model but never invoked — every call returned `undefined`, producing a malformed `TOOL_CALL_RESULT` with no `content` that reached the browser as a Zod error. Both are now restored, and actions that genuinely cannot run return a readable string instead of `undefined`. Additional fixes:
+
+- `mcpServers` is now attached independently of `actions`, so MCP-only runtimes receive their tools.
+- Tool attachment is now idempotent — repeated endpoint construction no longer advertises duplicate copies of every action to the model.
+- MCP endpoints that were unreachable at first resolution now retry and recover instead of staying toolless for the runtime's lifetime.
+
+### Runtime: adapter configuration is honored (#6931)
+
+- `ExperimentalOllamaAdapter` now builds a real model from Ollama's OpenAI-compatible endpoint (fixing `Unknown provider "ollama"`) and accepts a new `baseUrl` option to name a host.
+- `UnifyAdapter` now falls back to `process.env.UNIFY_API_KEY` instead of authenticating with the literal placeholder string, which caused 401s on the default path.
+- `GoogleGenerativeAIAdapter` now uses the configured `apiKey` and honors the `apiVersion` option when the caller sets it (carried on the base URL). The provider default of `v1beta` is left untouched.
+
+### Runtime & React Textarea: MCP auth and CopilotTextarea crash (#6931)
+
+- The MCP `sse` transport now sends auth headers correctly (wrapped in `requestInit`), so servers requiring authentication no longer answer 401 and silently fail to connect.
+- `CopilotTextarea` insertion/editing no longer throws `TypeError: runtimeClient.asStream is not a function`. It now returns an empty stream (matching the autosuggestions hook) with a one-time warning that the v1 backend it relied on was removed in v1.50.0.
+
+**Note:** `LangChainAdapter` still throws, and `BedrockAdapter` was intentionally left unchanged — both require separate design decisions.
+
+## 1.71.2 - 2026-09-12
+
+This release adds native Intelligence runtime support to `@copilotkit/runtime` and improves how the Inspector handles ephemeral threads.
+
+## Features
+
+- **Native Intelligence runtimes and shared conformance** (#6967): The TypeScript runtime now consumes the released `@ag-ui/mcp-apps-middleware@^0.1.0` and runs against the same cross-language conformance suite as CopilotKit's native runtimes. This release also includes several runtime hardening fixes:
+  - Enforces MCP tool visibility filtering and unambiguous account/proxy selection, rejecting proxy requests outside the selected agent scope.
+  - Preserves identity and request-boundary contracts — SDK update precedence and mounted routing are retained, browser identity aliases can no longer override the authenticated user, and stop requests are cloned before application authentication consumes the body.
+  - Validates AG-UI tool arguments against their JSON schemas, keeping relaxed structured output limited to the A2UI tool.
+  - Preserves safe failure reporting and completion analytics — failures are reported without private diagnostic payloads, and completion counts are retained for streams containing `RUN_ERROR`.
+  - Advertises and consumes the January MCP Apps MIME type correction (`text/html;profile=mcp-app`).
+
+## Fixes
+
+- **Preserve the ephemeral Threads upgrade path in the Inspector** (#7098): The Inspector no longer treats any Threads list endpoint as durable Threads support. OSS apps using an in-memory agent runner can now inspect ephemeral conversations while still seeing a clear path to durable Threads:
+  - The full Rich Threads setup CTA is shown when Threads are unavailable, or when Intelligence is off and no local threads exist.
+  - When the first ephemeral thread appears, the Inspector switches to the thread list with a "Keep your threads" banner explaining that history can disappear on restart.
+  - "Make them permanent" opens the full setup view inline, with a sticky "Back to your threads" link to return to local history.
+  - The banner and setup override are removed once Intelligence becomes available.
+- **Remove optional feedback prompt copy from Inspector onboarding** (#7099): Dropped an unnecessary optional diagnostic-feedback instruction from the shared feature setup prompt used by Threads and Learning, while retaining the instruction not to reveal credentials.
+
 ## 1.71.1 - 2026-09-11
 
 This release focuses on runtime MCP fixes, React hook performance, and improvements to the Inspector's onboarding experience.

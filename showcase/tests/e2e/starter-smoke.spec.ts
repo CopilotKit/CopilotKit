@@ -108,6 +108,46 @@ test.describe(`starter-smoke: ${STARTER_SLUG}`, () => {
       STARTER_URL,
       starter.chatMessage,
     );
+
+    // Protocol-level assertions FIRST. "An assistant message appeared with
+    // some text in it" is not a success signal: CopilotKit renders a
+    // RUN_ERROR as an assistant message, so a completely broken agent
+    // satisfies gotResponse + responseText.length. llamaindex rode that
+    // hole through 1345 consecutive failed probe runs while this test was
+    // green — the only tell was the run taking 1.1 minutes instead of 1.3
+    // seconds. These assertions read the AG-UI transcript off the wire
+    // instead, so an errored or hung run fails loudly.
+    //
+    // The PROTOCOL is the contract, not the DOM. `agui.timedOut` (the wait for
+    // a `copilot-assistant-message` testid blew its deadline) is reported in
+    // the failure messages for diagnosis but is deliberately NOT a gate on its
+    // own: some shells render the reply without that testid, so a timeout there
+    // is a rendering detail, not proof the run failed. A genuine hang still
+    // fails below — a hung run never reaches RUN_FINISHED.
+    const { agui } = result;
+    const diag = `[agui runFinished=${agui.runFinished} runError=${agui.runError} sawTextDelta=${agui.sawTextDelta} timedOut=${agui.timedOut} transcriptBytes=${agui.transcriptBytes}]`;
+    expect(
+      agui.transcriptBytes,
+      `No /api/copilotkit traffic captured — the chat never reached the runtime ${diag}`,
+    ).toBeGreaterThan(0);
+    expect(agui.runError, `AG-UI stream contained a RUN_ERROR ${diag}`).toBe(
+      false,
+    );
+    expect(
+      agui.runFinished,
+      `AG-UI stream never reached RUN_FINISHED (a hang or an aborted run) ${diag}`,
+    ).toBe(true);
+    // Only starters whose expected answer IS prose must stream text deltas.
+    // strands-typescript answers with an A2UI render (tool calls, no prose),
+    // so requiring a TEXT_MESSAGE_CONTENT delta there would be a false red —
+    // its `expectedChatUiText` assertion below is the stronger check anyway.
+    if (!starter.expectedChatUiText) {
+      expect(
+        agui.sawTextDelta,
+        `AG-UI stream carried no non-empty TEXT_MESSAGE_CONTENT delta ${diag}`,
+      ).toBe(true);
+    }
+
     expect(result.gotResponse, "No assistant response received").toBe(true);
     if (starter.expectedChatUiText) {
       await expect(

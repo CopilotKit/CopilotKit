@@ -109,6 +109,11 @@ describe("IntelligenceOverview", () => {
     ).toBe("/threads");
     expect(
       screen
+        .getByRole("link", { name: "Open the Channels guide" })
+        .getAttribute("href"),
+    ).toBe("/slack");
+    expect(
+      screen
         .getByRole("link", { name: "Open the Memory guide" })
         .getAttribute("href"),
     ).toBe("/intelligence/memories");
@@ -132,6 +137,7 @@ describe("IntelligenceOverview", () => {
 
     for (const title of [
       "Rich Threads",
+      "Channels",
       "Memory",
       "Analytics",
       "Automatic Learning",
