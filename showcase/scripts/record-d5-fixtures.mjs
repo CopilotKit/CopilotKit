@@ -51,7 +51,11 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+// The journal-drain barrier lives in a shared module so the D4 proxy-capture
+// flow (hand-run — see showcase/aimock/README.md) and this D5 recorder both
+// gate on the exact same drain semantics.
+import { waitForJournalDrain } from "./lib/journal-drain.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
@@ -64,17 +68,49 @@ const HARNESS_DIR = path.join(REPO_ROOT, "showcase/harness");
 
 // Catalog feature IDs as listed in `showcase/integrations/langgraph-python/manifest.yaml`'s
 // top-level `features` array. The harness target shape is `<slug>:<feature>`,
-// so these MUST be the manifest feature IDs (not d5 script featureTypes nor
+// so `feature` MUST be the manifest feature ID (not d5 script featureTypes nor
 // per-pill sub-keys). Beautiful chat exercises five sub-pills under one
 // feature, so a single `beautiful-chat` run records all five.
+//
+// `expectedTurns` is the number of upstream (record-mode `source:"proxy"`) LLM
+// turns a single full-feature run drives. It is REQUIRED by the journal-drain
+// barrier (`waitForJournalDrain` throws without it) and is what makes the
+// barrier sound: quiescence alone can settle prematurely between turns while a
+// slow final turn is still in flight (invisible in the journal until it lands),
+// so the barrier must wait for a REAL turn count, not just for the journal to
+// go quiet. See `lib/journal-drain.mjs`.
+//
+// The counts below are seeded from each feature's committed canonical fixture
+// file (`aimock/d6/langgraph-python/<feature>.json`), which is the normalized
+// consolidation of a prior real full-feature capture — the best static estimate
+// available (`d5-recorded/` output is gitignored). They are a per-run turn count,
+// NOT gospel: if a feature's flow changes, update the count. A count set too HIGH
+// fails LOUD — the barrier never reaches it and times out, aborting the run
+// (see the FATAL drain handling in `main`) rather than silently corrupting
+// fixtures; a count set too LOW is the only unsafe direction, so err high and
+// confirm against the live capture. `reasoning-custom` has no 1:1 canonical file
+// (its d5 script also serves `reasoning-default`); its count is seeded from
+// `reasoning.json`.
 const DEMOS = [
-  "tool-rendering-default-catchall",
-  "beautiful-chat",
-  "headless-complete",
-  "gen-ui-interrupt",
-  "gen-ui-tool-based",
-  "reasoning-custom",
+  { feature: "tool-rendering-default-catchall", expectedTurns: 3 },
+  { feature: "beautiful-chat", expectedTurns: 10 },
+  { feature: "headless-complete", expectedTurns: 10 },
+  { feature: "gen-ui-interrupt", expectedTurns: 4 },
+  { feature: "gen-ui-tool-based", expectedTurns: 18 },
+  { feature: "reasoning-custom", expectedTurns: 2 },
 ];
+
+// Guard: every demo MUST declare a positive expectedTurns. A missing/zero count
+// would reintroduce the unsound quiescence-only drain the barrier exists to
+// prevent, so fail loudly at module load rather than silently.
+for (const d of DEMOS) {
+  if (!Number.isInteger(d.expectedTurns) || d.expectedTurns < 1) {
+    throw new Error(
+      `record-d5-fixtures: DEMOS entry "${d.feature}" must declare a positive integer ` +
+        `expectedTurns (the real upstream turn count for its full-feature run), got ${d.expectedTurns}`,
+    );
+  }
+}
 
 async function listRecordedFiles() {
   try {
@@ -212,17 +248,50 @@ async function consolidateNewFiles(demo, beforeSet) {
   return { count: fixtures.length };
 }
 
-(async () => {
+/**
+ * Ordering-critical seam: block on the journal-drain barrier, then (ONLY if it
+ * drained) consolidate the captured fixtures.
+ *
+ * A drain TIMEOUT is FATAL. `waitForDrain` throws on timeout and we deliberately
+ * do NOT catch it — the rejection propagates so the whole run aborts (main's
+ * `.catch` exits non-zero) BEFORE any fixture consolidation or aimock restart.
+ * The previous code caught this and logged a warning, then consolidated anyway;
+ * that let a still-in-flight post-tool-result fixture land in the NEXT demo's
+ * directory (or be lost) — a silent-failure hole. Never move fixtures on an
+ * un-drained journal.
+ *
+ * Extracted (and exported) so this abort-before-consolidate ordering is unit
+ * testable without spawning docker / a probe.
+ *
+ * @param {object} args
+ * @param {string} args.feature
+ * @param {() => Promise<{ completed: number }>} args.waitForDrain
+ * @param {() => Promise<{ count: number }>} args.consolidate
+ * @param {(msg: string) => void} [args.log]
+ * @returns {Promise<{ count: number }>}
+ */
+export async function drainThenConsolidate({
+  feature,
+  waitForDrain,
+  consolidate,
+  log = console.log,
+}) {
+  const drain = await waitForDrain();
+  log(`[record] ${feature}: journal drained (${drain.completed} turns)`);
+  return consolidate();
+}
+
+async function main() {
   await fs.mkdir(OUTPUT_DIR, { recursive: true });
   await fs.mkdir(RECORDED_DIR, { recursive: true });
   await probeRecorderPatch();
   const summary = [];
-  for (const demo of DEMOS) {
-    console.log(`\n===== Recording ${demo} =====`);
+  for (const { feature, expectedTurns } of DEMOS) {
+    console.log(`\n===== Recording ${feature} =====`);
     // Drop the demo's prior consolidated file (if any) so we don't double-
     // append on re-runs, then restart aimock so its in-memory fixture cache
     // doesn't carry that demo's prompts forward from a previous session.
-    const outPath = path.join(OUTPUT_DIR, `${demo}.json`);
+    const outPath = path.join(OUTPUT_DIR, `${feature}.json`);
     try {
       await fs.unlink(outPath);
     } catch (err) {
@@ -231,9 +300,23 @@ async function consolidateNewFiles(demo, beforeSet) {
     await restartAimock();
 
     const before = await listRecordedFiles();
-    const code = await runProbe(demo);
-    const result = await consolidateNewFiles(demo, before);
-    summary.push({ demo, probeExit: code, fixtureCount: result.count });
+    const code = await runProbe(feature);
+    // The probe process can exit while aimock is still draining the final
+    // post-tool-result turn. Block on the journal-drain barrier BEFORE moving
+    // fixtures so a late fixture cannot land in the next demo's directory. A
+    // timeout here is FATAL (drainThenConsolidate does NOT catch it): the run
+    // aborts before consolidation rather than moving fixtures off an un-drained
+    // journal.
+    const result = await drainThenConsolidate({
+      feature,
+      waitForDrain: () => waitForJournalDrain({ expectedTurns }),
+      consolidate: () => consolidateNewFiles(feature, before),
+    });
+    summary.push({
+      demo: feature,
+      probeExit: code,
+      fixtureCount: result.count,
+    });
   }
   console.log("\n===== Summary =====");
   for (const row of summary) {
@@ -241,7 +324,17 @@ async function consolidateNewFiles(demo, beforeSet) {
       `  ${row.demo.padEnd(40)} probe=${row.probeExit === 0 ? "pass" : "fail"} fixtures=${row.fixtureCount}`,
     );
   }
-})().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+}
+
+// Only run the recording orchestration when invoked directly as a CLI. Guarding
+// on the entry module keeps this file importable without triggering docker
+// calls; the barrier helpers it uses live in ./lib/journal-drain.mjs and are
+// unit-tested there.
+const invokedDirectly =
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (invokedDirectly) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
