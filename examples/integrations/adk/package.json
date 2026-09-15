@@ -16,9 +16,9 @@
   },
   "dependencies": {
     "@ag-ui/client": "0.0.59",
-    "@copilotkit/channels": "0.9.2",
-    "@copilotkit/react-core": "1.71.1",
-    "@copilotkit/runtime": "1.71.1",
+    "@copilotkit/channels": "0.10.0",
+    "@copilotkit/react-core": "1.72.0",
+    "@copilotkit/runtime": "1.72.0",
     "@hono/node-server": "^1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
