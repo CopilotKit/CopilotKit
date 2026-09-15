@@ -80,7 +80,7 @@ interface FrontendSearchPage {
 }
 
 const FRONTEND_SEARCH_PAGES: readonly FrontendSearchPage[] = [
-  { id: "vue", name: "Vue" },
+  { id: "vue", name: "Vue", guidanceTitle: "Docs status" },
   { id: "react-native", name: "React Native", guidanceTitle: "Docs status" },
   { id: "angular", name: "Angular", guidanceTitle: "Docs status" },
   { id: "slack", name: "Slack" },
