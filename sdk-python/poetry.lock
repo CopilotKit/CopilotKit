@@ -14,23 +14,23 @@ files = [
 
 [[package]]
 name = "ag-ui-langgraph"
-version = "0.0.42"
+version = "0.0.44"
 description = "Implementation of the AG-UI protocol for LangGraph."
 optional = false
 python-versions = "<3.15,>=3.10"
 groups = ["main"]
 files = [
-    {file = "ag_ui_langgraph-0.0.42-py3-none-any.whl", hash = "sha256:4fd19f0da6d0e16d727ec89e99b692916cbba2b0302f96aba2497043cbfec5db"},
-    {file = "ag_ui_langgraph-0.0.42.tar.gz", hash = "sha256:5384647b9b7b098189530c59b26741581dd009c8dfda907fbfaa9bafa8d21249"},
+    {file = "ag_ui_langgraph-0.0.44-py3-none-any.whl", hash = "sha256:fef063c41d9086ec34e0fc0400660e832035872fd5747fa0d734cb011bca781a"},
+    {file = "ag_ui_langgraph-0.0.44.tar.gz", hash = "sha256:869b92ae1135ff911959eeefc3f2a82f138532c775d73fbd68c9936e5e96ee1c"},
 ]
 
 [package.dependencies]
 ag-ui-a2ui-toolkit = ">=0.0.4"
-ag-ui-protocol = ">=0.1.15"
+ag-ui-protocol = ">=0.1.21"
 fastapi = {version = ">=0.115.12", optional = true, markers = "extra == \"fastapi\""}
 langchain = ">=1.2.0"
 langchain-core = ">=0.3.0"
-langgraph = ">=0.3.25,<2"
+langgraph = ">=0.6.0,<2"
 pydantic = ">=2.0.0"
 
 [package.extras]
@@ -38,14 +38,14 @@ fastapi = ["fastapi (>=0.115.12)"]
 
 [[package]]
 name = "ag-ui-protocol"
-version = "0.1.19"
+version = "0.1.22"
 description = ""
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "ag_ui_protocol-0.1.19-py3-none-any.whl", hash = "sha256:898843b1410d378824da0c6a776486288b9c5828689d0bf563118868e37f390f"},
-    {file = "ag_ui_protocol-0.1.19.tar.gz", hash = "sha256:43c27f60d41712dcad0e9e0a203cbdf1c8e248b22417374c5c68321c448af4ea"},
+    {file = "ag_ui_protocol-0.1.22-py3-none-any.whl", hash = "sha256:fca13ee7820f8f53e869c19e09ddd75826c1799b27c2adb6f2e567295433c704"},
+    {file = "ag_ui_protocol-0.1.22.tar.gz", hash = "sha256:d21f265284a50d9fc87ad7bcbd58f737b4b16eef7b5375f13a6e925117b52046"},
 ]
 
 [package.dependencies]
@@ -5645,4 +5645,4 @@ crewai = ["crewai"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.15"
-content-hash = "f14f92647724856998f774f4626d99a63de8206a3f56862d8a5d67620f712c62"
+content-hash = "e92b50425638e83e937969e2835f22b485da37944546672bb2c3a24401fd8aa7"
