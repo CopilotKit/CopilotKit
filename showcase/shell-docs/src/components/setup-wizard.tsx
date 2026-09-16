@@ -578,39 +578,40 @@ export function SetupWizard({
     stepName = "Where are you starting?";
     stepDescription = "Tell us what you already have. We’ll tailor your setup.";
     body = (
-      <div className="space-y-6">
-        <fieldset>
-          <legend className="mb-3 text-sm font-medium">
-            Your {partnerName} agent
-          </legend>
-          <ChoiceGrid
-            options={[
-              {
-                ...PROJECT_OPTIONS[0],
-                label: "Existing agent",
-                description: "Connect my agent",
-              },
-              {
-                ...PROJECT_OPTIONS[1],
-                label: "New agent",
-                description: "Build a new agent",
-              },
-            ]}
-            selectedId={agentAnswer ?? undefined}
-            disabled={false}
-            onSelect={(id) => setAgentAnswer(id === "yes" ? "yes" : "no")}
-          />
-        </fieldset>
-        <fieldset>
-          <legend className="mb-3 text-sm font-medium">Your app</legend>
-          <ChoiceGrid
-            options={PROJECT_OPTIONS}
-            selectedId={projectAnswer ?? undefined}
-            disabled={false}
-            onSelect={(id) => setProjectAnswer(id)}
-          />
-        </fieldset>
-      </div>
+      <ChoiceGrid
+        options={[
+          {
+            ...PROJECT_OPTIONS[0],
+            id: "existing",
+            description: `Add a ${partnerName} agent to your app`,
+          },
+          {
+            ...PROJECT_OPTIONS[0],
+            id: "existing-agent",
+            label: "Existing project with an agent",
+            description: `Connect your ${partnerName} agent to your app`,
+          },
+          {
+            ...PROJECT_OPTIONS[1],
+            id: "new",
+            description: "Build an app and agent from scratch",
+          },
+        ]}
+        selectedId={
+          projectAnswer === "no"
+            ? "new"
+            : projectAnswer === "yes" && agentAnswer
+              ? agentAnswer === "yes"
+                ? "existing-agent"
+                : "existing"
+              : undefined
+        }
+        disabled={false}
+        onSelect={(id) => {
+          setProjectAnswer(id === "new" ? "no" : "yes");
+          setAgentAnswer(id === "existing-agent" ? "yes" : "no");
+        }}
+      />
     );
     footer =
       agentAnswer && projectAnswer ? (

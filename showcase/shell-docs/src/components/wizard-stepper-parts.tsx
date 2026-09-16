@@ -228,7 +228,9 @@ export function ChoiceGrid({
   onSelect: (id: string, pointerActivated: boolean) => void;
 }): React.JSX.Element {
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div
+      className={`grid gap-3 ${options.length === 3 ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2"}`}
+    >
       {options.map((option) => {
         const selected = option.id === selectedId;
         const Icon = option.icon;

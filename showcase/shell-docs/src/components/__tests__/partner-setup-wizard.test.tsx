@@ -39,12 +39,26 @@ const mount = () =>
     />,
   );
 describe("partner setup context", () => {
+  it.each([
+    ["Existing project.*Add", "yes", "no"],
+    ["Existing project with an agent", "yes", "yes"],
+    ["New project", "no", "no"],
+  ])("sets project and agent context for %s", (label, project, agent) => {
+    mount();
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(label) }));
+    const params = new URLSearchParams(location.search);
+    expect(params.get("project")).toBe(project);
+    expect(params.get("agent")).toBe(agent);
+    expect(screen.queryByRole("button", { name: /^New agent/ })).toBeNull();
+  });
+
   it("preselects the route context and retains it while answering the first question", () => {
     mount();
     expect(new URLSearchParams(location.search).get("backend")).toBe("mastra");
-    fireEvent.click(screen.getByRole("button", { name: /Existing agent/ }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Existing project with an agent/ }),
+    );
     expect(new URLSearchParams(location.search).get("agent")).toBe("yes");
-    fireEvent.click(screen.getByRole("button", { name: /Existing project/ }));
     expect(new URLSearchParams(location.search).get("backend")).toBe("mastra");
     expect(new URLSearchParams(location.search).get("project")).toBe("yes");
   });
@@ -55,8 +69,9 @@ describe("partner setup context", () => {
   });
   it("skips the backend in both directions and keeps it in the review", () => {
     mount();
-    fireEvent.click(screen.getByRole("button", { name: /Existing agent/ }));
-    fireEvent.click(screen.getByRole("button", { name: /Existing project/ }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Existing project with an agent/ }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: "React" }));
     expect(
