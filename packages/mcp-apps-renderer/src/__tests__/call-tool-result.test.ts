@@ -86,4 +86,66 @@ describe("CallToolResult contract", () => {
     const input = { ...base, result };
     expect(MCPAppsActivityContentSchema.safeParse(input).success).toBe(false);
   });
+
+  // Fields the SDK types but this schema used to omit entirely, so a malformed
+  // value passed straight through to the widget. Asserted against the SDK rather
+  // than a hardcoded expectation: the point is that the two agree.
+  it.each([
+    {
+      label: "resource_link.title that is not a string",
+      result: {
+        content: [
+          { type: "resource_link", uri: "ui://x", name: "n", title: 42 },
+        ],
+      },
+    },
+    {
+      label: "resource_link.size that is not a number",
+      result: {
+        content: [
+          { type: "resource_link", uri: "ui://x", name: "n", size: "big" },
+        ],
+      },
+    },
+    {
+      label: "a content block _meta that is not an object",
+      result: { content: [{ type: "text", text: "t", _meta: "oops" }] },
+    },
+    {
+      label: "an embedded resource _meta that is not an object",
+      result: {
+        content: [
+          {
+            type: "resource",
+            resource: { uri: "ui://x", text: "t", _meta: 1 },
+          },
+        ],
+      },
+    },
+  ])("rejects $label, like the SDK", ({ result }) => {
+    expect(
+      MCPAppsActivityContentSchema.safeParse({ ...base, result }).success,
+    ).toBe(false);
+    expect(CallToolResultSchema.safeParse(result).success).toBe(false);
+  });
+
+  // The extension channel itself stays open: only the container is typed.
+  it("keeps unknown keys and arbitrary _meta contents", () => {
+    const result = {
+      content: [
+        {
+          type: "resource_link",
+          uri: "ui://x",
+          name: "n",
+          title: "T",
+          size: 12,
+          vendorField: true,
+          _meta: { anything: [1, { nested: null }] },
+        },
+      ],
+    };
+    const parsed = MCPAppsActivityContentSchema.parse({ ...base, result });
+    expect(parsed.result).toEqual(result);
+    expect(CallToolResultSchema.safeParse(parsed.result).success).toBe(true);
+  });
 });

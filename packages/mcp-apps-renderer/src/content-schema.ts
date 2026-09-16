@@ -5,6 +5,11 @@ import { z } from "zod";
 const looseObject = <T extends z.ZodRawShape>(shape: T) =>
   z.object(shape).passthrough();
 
+// `_meta` is an extension channel, so its CONTENTS stay unconstrained - but the
+// SDK still requires it to be an object, and a string or array there is a bug
+// worth catching rather than forwarding.
+const metaSchema = z.record(z.string(), z.unknown());
+
 const annotationsSchema = looseObject({
   audience: z.array(z.enum(["user", "assistant"])).optional(),
   priority: z.number().min(0).max(1).optional(),
@@ -29,11 +34,13 @@ const resourceContentsSchema = z.union([
     uri: z.string(),
     mimeType: z.string().optional(),
     text: z.string(),
+    _meta: metaSchema.optional(),
   }),
   looseObject({
     uri: z.string(),
     mimeType: z.string().optional(),
     blob: base64Schema,
+    _meta: metaSchema.optional(),
   }),
 ]);
 
@@ -42,31 +49,38 @@ const contentItemSchema = z.discriminatedUnion("type", [
     type: z.literal("text"),
     text: z.string(),
     annotations: annotationsSchema.optional(),
+    _meta: metaSchema.optional(),
   }),
   looseObject({
     type: z.literal("image"),
     data: base64Schema,
     mimeType: z.string(),
     annotations: annotationsSchema.optional(),
+    _meta: metaSchema.optional(),
   }),
   looseObject({
     type: z.literal("audio"),
     data: base64Schema,
     mimeType: z.string(),
     annotations: annotationsSchema.optional(),
+    _meta: metaSchema.optional(),
   }),
   looseObject({
     type: z.literal("resource"),
     resource: resourceContentsSchema,
     annotations: annotationsSchema.optional(),
+    _meta: metaSchema.optional(),
   }),
   looseObject({
     type: z.literal("resource_link"),
     uri: z.string(),
     name: z.string(),
+    title: z.string().optional(),
     description: z.string().optional(),
     mimeType: z.string().optional(),
+    size: z.number().optional(),
     annotations: annotationsSchema.optional(),
+    _meta: metaSchema.optional(),
   }),
 ]);
 
