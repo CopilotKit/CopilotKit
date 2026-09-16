@@ -1,7 +1,6 @@
 "use client";
 
-import { ArrowRight, BookOpen, ChevronDown, ExternalLink } from "lucide-react";
-import Link from "next/link";
+import { ArrowRight, ChevronDown } from "lucide-react";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { usePostHog } from "posthog-js/react";
@@ -17,16 +16,8 @@ import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
 import type { FrameworkOverviewData } from "@/data/frameworks/types";
 import type { FrontendId } from "@/lib/frontend-options";
 import type { PartnerShowcaseDemo } from "@/lib/partner-showcase-demos";
+import { PartnerFeatureExplorer } from "./partner-feature-explorer";
 import { FrameworkVideos } from "./framework-videos";
-
-const GUIDE_COPY: Record<string, string> = {
-  "Render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.":
-    "Render your agent’s state, progress, and tool calls as interactive UI.",
-  "Empower users to guide agents at key checkpoints. Combine the best of AI and human judgment for more reliable and controllable agent behavior.":
-    "Let people review decisions and guide the next step.",
-  "Keep your agent and your app in sync. Your agent can see everything in your app, and your app can react to your agent in real-time.":
-    "Share state so your app and agent can respond to each other.",
-};
 
 export interface FrameworkOverviewProps {
   data: FrameworkOverviewData;
@@ -159,41 +150,12 @@ export function FrameworkOverview({
         />
       </header>
 
-      <DocsVideoCarousel />
-
-      {showcaseDemos.length > 0 && (
-        <section
-          className="partner-section"
-          aria-labelledby="partner-demo-heading"
-        >
-          <h2 id="partner-demo-heading">Try {frameworkName} in action</h2>
-          <p className="partner-section-intro">
-            Explore live examples of chat, interactive UI, and human
-            collaboration with your agent.
-          </p>
-          <div className="partner-demo-grid">
-            {showcaseDemos.map((demo) => (
-              <a
-                key={demo.id}
-                className="partner-card"
-                href={demo.href}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => trackDemo(demo.href)}
-              >
-                <div className="partner-card-heading">
-                  <h3>{demo.title}</h3>
-                  <ExternalLink size={16} aria-hidden="true" />
-                </div>
-                <p>{demo.description}</p>
-                <span className="partner-card-action">
-                  Open demo <ArrowRight size={14} aria-hidden="true" />
-                </span>
-              </a>
-            ))}
-          </div>
-        </section>
-      )}
+      <PartnerFeatureExplorer
+        demos={showcaseDemos}
+        hrefPrefix={hrefPrefix ?? `/${currentFramework}`}
+        frameworkName={frameworkName}
+        onOpenDemo={trackDemo}
+      />
 
       <section
         id="setup"
@@ -202,23 +164,10 @@ export function FrameworkOverview({
       >
         <h2 id="partner-setup-heading">Start building</h2>
         <p className="partner-section-intro">
-          Start fresh or add to your existing app. Answer a few questions, then
-          give the setup prompt to your coding agent.
+          Connect an existing agent or build a new one. Get a tailored setup
+          prompt, or start with the CLI.
         </p>
         {setupContent && <div className="partner-wizard">{setupContent}</div>}
-        <Link
-          className="partner-tutorial"
-          href={link(data.tutorialLink ?? data.guideLink)}
-        >
-          <BookOpen size={22} aria-hidden="true" />
-          <span>
-            <strong>Follow the {frameworkName} tutorial</strong>
-            <span>
-              Prefer a guided walkthrough? Connect your agent step by step.
-            </span>
-          </span>
-          <ArrowRight size={18} aria-hidden="true" />
-        </Link>
         {data.initCommand.trim() !== "npx copilotkit@latest init" && (
           <details className="partner-details">
             <summary>
@@ -232,52 +181,14 @@ export function FrameworkOverview({
         )}
       </section>
 
-      {supportedFeatures.length > 0 && (
-        <section
-          className="partner-section"
-          aria-labelledby="partner-guides-heading"
-        >
-          <h2 id="partner-guides-heading">Build on your integration</h2>
-          <p className="partner-section-intro">
-            Bring your agent’s capabilities into the app your users already use.
-          </p>
-          <div className="partner-guide-grid">
-            {supportedFeatures.map((feature) => (
-              <Link
-                key={feature.title}
-                className="partner-card"
-                href={link(feature.documentationLink)}
-              >
-                <div className="partner-card-heading">
-                  <h3>{feature.title}</h3>
-                  <ArrowRight size={16} aria-hidden="true" />
-                </div>
-                <p>
-                  {GUIDE_COPY[feature.description] ??
-                    (frontendOverride === "angular"
-                      ? feature.description.replace(
-                          /\bReact components?\b/g,
-                          (match) =>
-                            match.endsWith("s")
-                              ? "Angular components"
-                              : "an Angular component",
-                        )
-                      : feature.description)}
-                </p>
-              </Link>
-            ))}
-          </div>
-          {recordings.length > 0 && (
-            <details className="partner-details">
-              <summary>
-                Watch capability walkthroughs{" "}
-                <ChevronDown size={16} aria-hidden="true" />
-              </summary>
-              <FrameworkVideos videos={recordings} />
-            </details>
-          )}
-        </section>
-      )}
+      <details className="partner-details partner-section">
+        <summary>
+          Watch product walkthroughs{" "}
+          <ChevronDown size={16} aria-hidden="true" />
+        </summary>
+        <DocsVideoCarousel />
+        {recordings.length > 0 && <FrameworkVideos videos={recordings} />}
+      </details>
 
       {extraContent && (
         <section className="partner-section">{extraContent}</section>

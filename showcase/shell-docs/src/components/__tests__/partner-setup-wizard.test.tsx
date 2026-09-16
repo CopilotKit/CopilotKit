@@ -1,5 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SetupWizard } from "../setup-wizard";
 import type { MapPick } from "@/lib/homepage-map";
@@ -36,6 +42,8 @@ describe("partner setup context", () => {
   it("preselects the route context and retains it while answering the first question", () => {
     mount();
     expect(new URLSearchParams(location.search).get("backend")).toBe("mastra");
+    fireEvent.click(screen.getByRole("button", { name: /Existing agent/ }));
+    expect(new URLSearchParams(location.search).get("agent")).toBe("yes");
     fireEvent.click(screen.getByRole("button", { name: /Existing project/ }));
     expect(new URLSearchParams(location.search).get("backend")).toBe("mastra");
     expect(new URLSearchParams(location.search).get("project")).toBe("yes");
@@ -47,13 +55,14 @@ describe("partner setup context", () => {
   });
   it("skips the backend in both directions and keeps it in the review", () => {
     mount();
+    fireEvent.click(screen.getByRole("button", { name: /Existing agent/ }));
     fireEvent.click(screen.getByRole("button", { name: /Existing project/ }));
     fireEvent.click(screen.getByRole("button", { name: "React" }));
     expect(
       screen.getByRole("heading", { name: "What you want to build" }),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Backend/ })).toBeNull();
-    expect(screen.getByRole("button", { name: /3\s*Features/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /4\s*Features/ })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(screen.getByRole("heading", { name: "Your frontend" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "React" }));
@@ -83,6 +92,43 @@ describe("partner setup context", () => {
     fireEvent.click(screen.getByRole("button", { name: "React" }));
     expect(
       screen.getByRole("heading", { name: "Your agent backend" }),
+    ).toBeTruthy();
+  });
+  it.each(["yes", "no"] as const)(
+    "copies the %s agent starting point separately from the app",
+    async (agent) => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText },
+      });
+      window.history.replaceState(
+        {},
+        "",
+        `/mastra?agent=${agent}&project=yes&frontend=react`,
+      );
+      mount();
+      fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+      fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
+      await waitFor(() => expect(writeText).toHaveBeenCalledOnce());
+      expect(writeText.mock.calls[0][0]).toContain(
+        agent === "yes"
+          ? "Connect that existing agent without replacing it"
+          : "Create it as part of the setup",
+      );
+      expect(writeText.mock.calls[0][0]).toContain("existing project");
+      expect(
+        screen.queryByRole("button", { name: "Change agent backend" }),
+      ).toBeNull();
+    },
+  );
+  it("does not mistake an old project answer for an agent answer", () => {
+    window.history.replaceState({}, "", "/mastra?project=yes&frontend=react");
+    mount();
+    expect(
+      screen.getByRole("heading", {
+        name: /Do you already have a mastra agent/,
+      }),
     ).toBeTruthy();
   });
 });

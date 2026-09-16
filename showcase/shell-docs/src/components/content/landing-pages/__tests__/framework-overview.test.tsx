@@ -135,7 +135,7 @@ describe("FrameworkOverview", () => {
     expect(markup).toContain('aria-label="Product walkthroughs"');
   });
 
-  it("keeps the selected partner’s showcase destinations and tutorial", () => {
+  it("keeps the selected partner’s showcase destination and hero quickstart", () => {
     const markup = renderToStaticMarkup(
       <FrameworkOverview
         data={overviewData}
@@ -157,25 +157,17 @@ describe("FrameworkOverview", () => {
     expect(markup).not.toContain("examples-coagents");
   });
 
-  it("renders framework feature copy for the selected Angular frontend", () => {
+  it("replaces duplicate demo cards and tutorial links with one feature explorer", () => {
     const markup = renderToStaticMarkup(
       <FrameworkOverview
-        data={{
-          ...overviewData,
-          supportedFeatures: [
-            {
-              title: "Generative UI",
-              description: "Render custom React components from agent output.",
-              documentationLink: "/langgraph-python/quickstart",
-            },
-          ],
-        }}
+        data={overviewData}
         currentFramework="langgraph-python"
-        frontendOverride="angular"
       />,
     );
-
-    expect(markup).toContain("custom Angular components");
-    expect(markup).not.toContain("React components");
+    expect(markup).toContain("Rich Threads");
+    expect(markup).toContain("Automatic Learning");
+    expect(markup).not.toContain("Build on your integration");
+    expect(markup).not.toContain("partner-tutorial");
+    expect(markup).not.toContain("Try LangGraph in action");
   });
 });

@@ -14,7 +14,7 @@ const FEATURE_COPY: Record<string, { title: string; description: string }> = {
     description: "Talk to your agent in a ready-made chat interface.",
   },
   "gen-ui-tool-based": {
-    title: "Interactive UI",
+    title: "Generative UI",
     description: "Turn your agent’s responses into interactive components.",
   },
   "hitl-in-chat": {
@@ -24,6 +24,26 @@ const FEATURE_COPY: Record<string, { title: string; description: string }> = {
   "shared-state-read-write": {
     title: "Shared state",
     description: "Keep your app and agent in sync as they work.",
+  },
+  "frontend-tools": {
+    title: "Frontend tools",
+    description: "Let your agent take actions in your app.",
+  },
+  "headless-complete": {
+    title: "Headless UI",
+    description: "Build your own interface with full control.",
+  },
+  subagents: {
+    title: "Sub-agents",
+    description: "Show work delegated to specialized agents.",
+  },
+  "background-agents": {
+    title: "Background tasks",
+    description: "Keep work running while your user moves on.",
+  },
+  "declarative-gen-ui": {
+    title: "Declarative UI",
+    description: "Render structured interfaces from your agent.",
   },
 };
 const FEATURE_ORDER = Object.keys(FEATURE_COPY);

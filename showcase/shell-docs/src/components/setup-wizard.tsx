@@ -63,6 +63,7 @@ import type {
   StepDirection,
   StepSwapAnimation,
 } from "@/lib/wizard-step-transition";
+import { PartnerCliSetup } from "@/components/partner-cli-setup";
 import { composeWizardOnboardingPrompt } from "@/lib/wizard-onboarding-prompt";
 import {
   createOnboardingRunId,
@@ -205,23 +206,30 @@ export function SetupWizard({
     ? fixedBackend
     : undefined;
   const steps = partnerBackend
-    ? STEPPER_STEPS.filter((step) => step.n !== 3)
+    ? [
+        { n: 0, label: "Agent" },
+        ...STEPPER_STEPS.filter((step) => step.n !== 3),
+      ]
     : STEPPER_STEPS;
   const posthog = usePostHog();
   const track = useHomepageTelemetry();
 
+  const partnerName = backends.find((pick) => pick.id === partnerBackend)?.name;
+  const [agentAnswer, setAgentAnswer] = React.useState<"yes" | "no" | null>(
+    null,
+  );
   const [projectAnswer, setProjectAnswer] = React.useState<string | null>(null);
   const [frontendId, setFrontendId] = React.useState<string | null>(null);
   const [backendId, setBackendId] = React.useState<string | null>(null);
   const [featureIds, setFeatureIds] = React.useState<ReadonlySet<string>>(
     () => new Set(),
   );
-  /** 1-based, the card currently on screen. */
-  const [current, setCurrent] = React.useState(1);
-  /** 1-based, the furthest step reached so far. Never decreases — `goTo`
+  /** Stable step id; partner-only agent context uses 0. */
+  const [current, setCurrent] = React.useState(partnerBackend ? 0 : 1);
+  /** The furthest step reached so far. Never decreases — `goTo`
    *  only ever folds a new step number in via `Math.max`, so there is
    *  nowhere a jump-back could accidentally lower it. */
-  const [furthest, setFurthest] = React.useState(1);
+  const [furthest, setFurthest] = React.useState(partnerBackend ? 0 : 1);
   /** Gates the URL-sync effect below so it cannot race the restore effect's
    *  own read-then-write with a premature empty write. */
   const [hydrated, setHydrated] = React.useState(false);
@@ -300,7 +308,7 @@ export function SetupWizard({
   // `pendingTransitionRef` above.
   //
   // A *layout* effect, not a passive one: the server-rendered HTML (and the
-  // very first client render, before this runs) is always step 1, which is
+  // very first client render, before this runs) is the first question, which is
   // correct for a no-JS reader and must stay that way. But a JS-enabled
   // reader reloading with selections in the query string needs the restored
   // step in the first frame that reaches the screen — a passive effect runs
@@ -319,7 +327,9 @@ export function SetupWizard({
     restored.frontend ??= allowlists.frontends.includes(defaultFrontend ?? "")
       ? defaultFrontend
       : undefined;
-    const landing = landingStep(restored);
+    const landing =
+      partnerBackend && !restored.agent ? 0 : landingStep(restored);
+    setAgentAnswer(restored.agent ?? null);
 
     setProjectAnswer(restored.project ?? null);
     setFrontendId(restored.frontend ?? null);
@@ -341,6 +351,7 @@ export function SetupWizard({
   React.useEffect(() => {
     if (!hydrated) return;
     const search = serializeWizardUrlState({
+      agent: partnerBackend ? (agentAnswer ?? undefined) : undefined,
       project: projectAnswer ?? undefined,
       frontend: frontendId ?? undefined,
       features: [...featureIds],
@@ -348,7 +359,7 @@ export function SetupWizard({
     });
     const url = new URL(window.location.href);
     const answers = new URLSearchParams(search);
-    for (const key of ["project", "frontend", "features", "backend"]) {
+    for (const key of ["agent", "project", "frontend", "features", "backend"]) {
       url.searchParams.delete(key);
       const value = answers.get(key);
       if (value !== null) url.searchParams.set(key, value);
@@ -358,7 +369,15 @@ export function SetupWizard({
       "",
       `${url.pathname}${url.search}${url.hash}`,
     );
-  }, [projectAnswer, frontendId, featureIds, backendId, hydrated]);
+  }, [
+    agentAnswer,
+    projectAnswer,
+    frontendId,
+    featureIds,
+    backendId,
+    hydrated,
+    partnerBackend,
+  ]);
 
   // Runs the step-swap animation and moves focus to the new card's heading
   // — on every `goTo`-driven step change, and only then: not on the first
@@ -487,6 +506,7 @@ export function SetupWizard({
     // clipboard, which is exactly what the prototype shipped before this was
     // caught.
     const prompt = composeWizardOnboardingPrompt(runId, {
+      agent: partnerBackend ? agentAnswer : undefined,
       frontend: frontendPick
         ? { id: frontendPick.id, name: frontendPick.name }
         : null,
@@ -552,7 +572,34 @@ export function SetupWizard({
   let body: React.ReactNode;
   let footer: React.ReactNode;
 
-  if (current === 1) {
+  if (current === 0 && partnerBackend) {
+    stepName = `Do you already have a ${partnerName} agent?`;
+    stepDescription =
+      "Connect an agent you have, or create one as part of setup.";
+    body = (
+      <ChoiceGrid
+        options={[
+          {
+            ...PROJECT_OPTIONS[0],
+            label: "Existing agent",
+            description: "Connect the agent I already have",
+          },
+          {
+            ...PROJECT_OPTIONS[1],
+            label: "New agent",
+            description: "Help me build a new agent",
+          },
+        ]}
+        selectedId={agentAnswer ?? undefined}
+        disabled={false}
+        onSelect={(id, pointerActivated) => {
+          setAgentAnswer(id === "yes" ? "yes" : "no");
+          goTo(1, "forward", pointerActivated, { agent: id });
+        }}
+      />
+    );
+    footer = null;
+  } else if (current === 1) {
     stepName = "Where are you starting?";
     stepDescription =
       "Choose an option to continue. We will tailor the setup to your starting point.";
@@ -569,7 +616,7 @@ export function SetupWizard({
         />
       </div>
     );
-    footer = null;
+    footer = partnerBackend ? <WizardNav onBack={handleBack} /> : null;
   } else if (current === 2) {
     stepName = "Your frontend";
     stepDescription = "Choose the frontend your app uses to continue.";
@@ -661,6 +708,7 @@ export function SetupWizard({
         frontend={frontendPick}
         backend={backendPick}
         backendFixed={Boolean(partnerBackend)}
+        agent={partnerBackend ? agentAnswer : undefined}
         features={selectedCapabilities}
         onNavigate={handleJump}
       />
@@ -715,6 +763,12 @@ export function SetupWizard({
           {body}
         </WizardCard>
       </div>
+      {partnerBackend && (
+        <PartnerCliSetup
+          project={projectAnswer}
+          quickstartHref={manualSetupHref}
+        />
+      )}
       {/* The persistent "Prefer to set it up yourself?" link that used to sit
        *  here is gone. It existed for the no-JavaScript reader, stuck on
        *  step 1 with no working Continue and otherwise no way out. That
