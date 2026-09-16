@@ -105,7 +105,7 @@ test("the Learning guide stays focused on the reviewed Learning workflow", () =>
   expect(guide).toContain("## Overview");
   expect(guide).toContain("## How Learning works");
   expect(guide).toContain("## Set up Learning");
-  expect(guide).toContain("### Optional: Set it up with your coding agent");
+  expect(guide).toContain("### Start with your coding agent");
   expect(guide).toContain("<LearningSetupPrompt />");
   expect(guide).toContain("### Connect CopilotKit Intelligence");
   expect(guide).toContain("](/intelligence/quickstart)");

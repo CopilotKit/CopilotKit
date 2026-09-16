@@ -21,7 +21,9 @@ import { DocsContentHeader } from "@/components/docs-content-header";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { EarlyAccessGate } from "@/components/early-access-gate";
 import { getEarlyAccessGate } from "@/lib/early-access";
-import { DocsPageTools } from "@/components/docs-page-tools";
+import { hasInContentPrompt } from "@/lib/docs-prompt-placement";
+import { DocsPromptActionsProvider } from "@/components/docs-prompt-actions";
+import { DocsPageTools, docsMarkdownUrl } from "@/components/docs-page-tools";
 import { Snippet } from "@/components/snippet";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { WhenAngularBackend } from "@/components/when-angular-backend";
@@ -281,16 +283,16 @@ export async function DocsPageView({
               description={doc.fm.description}
               hideHeading={doc.fm.hideHeader}
             >
-              {!doc.fm.hidePageActions && (
-                <DocsPageTools
-                  slugPath={slugPath}
-                  slugHrefPrefix={slugHrefPrefix}
-                  githubUrl={buildGitHubUrl(doc.filePath)}
-                  onboardingFramework={onboardingFramework}
-                  onboardingFrontend={onboardingFrontend}
-                  hideOnboardingPrompt={slugPath === "webmcp"}
-                />
-              )}
+              {!doc.fm.hidePageActions &&
+                (hideBody || !hasInContentPrompt(tocSource)) && (
+                  <DocsPageTools
+                    slugPath={slugPath}
+                    slugHrefPrefix={slugHrefPrefix}
+                    githubUrl={buildGitHubUrl(doc.filePath)}
+                    onboardingFramework={onboardingFramework}
+                    onboardingFrontend={onboardingFrontend}
+                  />
+                )}
             </DocsContentHeader>
 
             {bannerSlot}
@@ -351,6 +353,18 @@ export async function DocsPageView({
                             {...props}
                             frontend={props.frontend ?? docsFrontend}
                           />
+                        ),
+                        PageAgentPrompt: () => (
+                          <div className="not-prose my-6">
+                            <DocsPageTools
+                              slugPath={slugPath}
+                              slugHrefPrefix={slugHrefPrefix}
+                              githubUrl={buildGitHubUrl(doc.filePath)}
+                              promptTask={doc.fm.description ?? doc.fm.title}
+                              onboardingFramework={onboardingFramework}
+                              onboardingFrontend={onboardingFrontend}
+                            />
+                          </div>
                         ),
                         RichThreadsSetupPrompt,
                         LearningSetupPrompt,
@@ -640,10 +654,20 @@ export async function DocsPageView({
                     />
                   </DocsBody>
                 );
-                if (ContentWrapper) {
-                  return <ContentWrapper>{body}</ContentWrapper>;
-                }
-                return body;
+                return (
+                  <DocsPromptActionsProvider
+                    value={{
+                      markdownUrl: docsMarkdownUrl(slugHrefPrefix, slugPath),
+                      githubUrl: buildGitHubUrl(doc.filePath),
+                    }}
+                  >
+                    {ContentWrapper ? (
+                      <ContentWrapper>{body}</ContentWrapper>
+                    ) : (
+                      body
+                    )}
+                  </DocsPromptActionsProvider>
+                );
               })()}
           </div>
         </MaybeEarlyAccessGate>

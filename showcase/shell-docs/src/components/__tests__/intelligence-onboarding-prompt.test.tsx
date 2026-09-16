@@ -57,3 +57,11 @@ it("names the copied run id the same way every other onboarding surface does", a
   // run that never existed.
   expect(writeText.mock.calls[0][0]).toContain(properties.onboarding_run_id);
 });
+
+vi.mock("fumadocs-core/framework", () => ({
+  usePathname: () => "/quickstart",
+}));
+
+vi.mock("@/lib/runtime-config.client", () => ({
+  getRuntimeConfig: () => ({ baseUrl: "https://docs.copilotkit.ai" }),
+}));

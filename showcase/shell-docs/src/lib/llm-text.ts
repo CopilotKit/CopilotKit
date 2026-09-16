@@ -940,6 +940,10 @@ export function renderPageToLlmText(
   }
 
   // Interactive prompt buttons cannot run in raw Markdown or LLM feeds.
+  body = body.replace(
+    /<PageAgentPrompt\s*\/>/g,
+    "Ask your coding agent to follow the setup steps on this page for your selected framework and frontend.",
+  );
   body = expandRichThreadsSetupPrompts(body);
   body = expandLearningSetupPrompts(body);
 

@@ -126,12 +126,17 @@ describe("ChannelsActivationStrip", () => {
   });
 
   it("shows copy failure without emitting success telemetry", async () => {
+    HTMLDialogElement.prototype.showModal = function () {
+      this.open = true;
+    };
     setClipboard(vi.fn().mockRejectedValue(new Error("blocked")));
     renderStrip();
 
     fireEvent.click(screen.getByRole("button", { name: /Copy prompt/ }));
 
-    expect(await screen.findByText("Copy failed")).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getByRole("status").textContent).toContain("Copy blocked"),
+    );
     expect(analytics.capture).not.toHaveBeenCalledWith(
       CHANNELS_ACTIVATION_EVENTS.promptCopied,
       expect.anything(),
@@ -154,3 +159,11 @@ describe("ChannelsActivationStrip", () => {
     );
   });
 });
+
+vi.mock("fumadocs-core/framework", () => ({
+  usePathname: () => "/quickstart",
+}));
+
+vi.mock("@/lib/runtime-config.client", () => ({
+  getRuntimeConfig: () => ({ baseUrl: "https://docs.copilotkit.ai" }),
+}));
