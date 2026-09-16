@@ -19,7 +19,7 @@
   "packages": [
     {
       "name": "@copilotkit/a2ui-renderer",
-      "version": "1.69.0",
+      "version": "1.72.0",
       "sourceDirectory": "packages/a2ui-renderer",
       "entrypoints": [
         {
@@ -136,7 +136,7 @@
     },
     {
       "name": "@copilotkit/agentcore-runner",
-      "version": "1.69.0",
+      "version": "1.72.0",
       "sourceDirectory": "packages/agentcore-runner",
       "entrypoints": [
         {
@@ -167,7 +167,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=18"
+          "node": ">=20"
         },
         "provenance": [
           {
@@ -197,7 +197,7 @@
     },
     {
       "name": "@copilotkit/angular",
-      "version": "0.3.1",
+      "version": "0.5.2",
       "sourceDirectory": "packages/angular",
       "entrypoints": [
         {
@@ -275,7 +275,7 @@
     },
     {
       "name": "@copilotkit/channels",
-      "version": "0.9.0",
+      "version": "0.10.0",
       "sourceDirectory": "packages/channels",
       "entrypoints": [
         {
@@ -463,9 +463,15 @@
       ],
       "compatibility": {
         "peerDependencies": {
+          "@microsoft/agents-activity": "^1.5.3",
+          "@microsoft/agents-hosting": "^1.5.3",
+          "express": "^4.21.2 || ^5.0.0",
           "vitest": "^4.0.0"
         },
         "optionalPeerDependencies": [
+          "@microsoft/agents-activity",
+          "@microsoft/agents-hosting",
+          "express",
           "vitest"
         ],
         "provenance": [
@@ -501,7 +507,7 @@
     },
     {
       "name": "@copilotkit/channels-core",
-      "version": "0.9.0",
+      "version": "0.10.0",
       "sourceDirectory": "packages/channels-core",
       "entrypoints": [
         {
@@ -601,7 +607,7 @@
     },
     {
       "name": "@copilotkit/channels-discord",
-      "version": "0.9.0",
+      "version": "0.10.0",
       "sourceDirectory": "packages/channels-discord",
       "entrypoints": [
         {
@@ -642,7 +648,7 @@
     },
     {
       "name": "@copilotkit/channels-intelligence",
-      "version": "0.9.0",
+      "version": "0.10.0",
       "sourceDirectory": "packages/channels-intelligence",
       "entrypoints": [
         {
@@ -683,7 +689,7 @@
     },
     {
       "name": "@copilotkit/channels-slack",
-      "version": "0.9.0",
+      "version": "0.10.0",
       "sourceDirectory": "packages/channels-slack",
       "entrypoints": [
         {
@@ -752,7 +758,7 @@
     },
     {
       "name": "@copilotkit/channels-teams",
-      "version": "0.9.0",
+      "version": "0.10.0",
       "sourceDirectory": "packages/channels-teams",
       "entrypoints": [
         {
@@ -785,7 +791,28 @@
         }
       ],
       "compatibility": {
-        "provenance": []
+        "peerDependencies": {
+          "@microsoft/agents-activity": "^1.5.3",
+          "@microsoft/agents-hosting": "^1.5.3",
+          "express": "^4.21.2 || ^5.0.0"
+        },
+        "optionalPeerDependencies": [
+          "@microsoft/agents-activity",
+          "@microsoft/agents-hosting",
+          "express"
+        ],
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels-teams/package.json",
+            "selector": "peerDependencies"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/channels-teams/package.json",
+            "selector": "peerDependenciesMeta.*.optional"
+          }
+        ]
       },
       "provenance": {
         "name": {
@@ -807,7 +834,7 @@
     },
     {
       "name": "@copilotkit/channels-telegram",
-      "version": "0.9.0",
+      "version": "0.10.0",
       "sourceDirectory": "packages/channels-telegram",
       "entrypoints": [
         {
@@ -848,7 +875,7 @@
     },
     {
       "name": "@copilotkit/channels-ui",
-      "version": "0.9.0",
+      "version": "0.10.0",
       "sourceDirectory": "packages/channels-ui",
       "entrypoints": [
         {
@@ -917,7 +944,7 @@
     },
     {
       "name": "@copilotkit/channels-whatsapp",
-      "version": "0.9.0",
+      "version": "0.10.0",
       "sourceDirectory": "packages/channels-whatsapp",
       "entrypoints": [
         {
@@ -958,7 +985,7 @@
     },
     {
       "name": "@copilotkit/core",
-      "version": "1.69.0",
+      "version": "1.72.0",
       "sourceDirectory": "packages/core",
       "entrypoints": [
         {
@@ -989,7 +1016,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=18"
+          "node": ">=20"
         },
         "provenance": [
           {
@@ -1018,8 +1045,234 @@
       }
     },
     {
+      "name": "@copilotkit/intelligence-langgraph",
+      "version": "1.71.2",
+      "sourceDirectory": "packages/intelligence-langgraph",
+      "entrypoints": [
+        {
+          "importPath": "@copilotkit/intelligence-langgraph",
+          "exportKey": ".",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/intelligence-langgraph/package.json",
+            "selector": "exports[\".\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/intelligence-langgraph/package.json",
+          "exportKey": "./package.json",
+          "kind": "metadata",
+          "conditions": "./package.json",
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/intelligence-langgraph/package.json",
+            "selector": "exports[\"./package.json\"]"
+          }
+        }
+      ],
+      "compatibility": {
+        "engines": {
+          "node": ">=20.19.0"
+        },
+        "peerDependencies": {
+          "@langchain/core": ">=1.2.10 <2",
+          "@langchain/langgraph": ">=1.4.14 <2",
+          "langchain": ">=1.5.11 <2",
+          "zod": "^3.25.76 || ^4.0.0"
+        },
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/intelligence-langgraph/package.json",
+            "selector": "engines"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/intelligence-langgraph/package.json",
+            "selector": "peerDependencies"
+          }
+        ]
+      },
+      "provenance": {
+        "name": {
+          "kind": "package-json",
+          "path": "packages/intelligence-langgraph/package.json",
+          "selector": "name"
+        },
+        "version": {
+          "kind": "package-json",
+          "path": "packages/intelligence-langgraph/package.json",
+          "selector": "version"
+        },
+        "releaseScope": {
+          "kind": "release-config",
+          "path": "release.config.json",
+          "selector": "scopes.intelligence-langgraph.packages"
+        }
+      }
+    },
+    {
+      "name": "@copilotkit/intelligence-mastra",
+      "version": "1.71.2",
+      "sourceDirectory": "packages/intelligence-mastra",
+      "entrypoints": [
+        {
+          "importPath": "@copilotkit/intelligence-mastra",
+          "exportKey": ".",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/intelligence-mastra/package.json",
+            "selector": "exports[\".\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/intelligence-mastra/package.json",
+          "exportKey": "./package.json",
+          "kind": "metadata",
+          "conditions": "./package.json",
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/intelligence-mastra/package.json",
+            "selector": "exports[\"./package.json\"]"
+          }
+        }
+      ],
+      "compatibility": {
+        "engines": {
+          "node": ">=22.13.0"
+        },
+        "peerDependencies": {
+          "@mastra/core": ">=1.0.0 <2",
+          "zod": "^3.25.76 || ^4.0.0"
+        },
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/intelligence-mastra/package.json",
+            "selector": "engines"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/intelligence-mastra/package.json",
+            "selector": "peerDependencies"
+          }
+        ]
+      },
+      "provenance": {
+        "name": {
+          "kind": "package-json",
+          "path": "packages/intelligence-mastra/package.json",
+          "selector": "name"
+        },
+        "version": {
+          "kind": "package-json",
+          "path": "packages/intelligence-mastra/package.json",
+          "selector": "version"
+        },
+        "releaseScope": {
+          "kind": "release-config",
+          "path": "release.config.json",
+          "selector": "scopes.intelligence-mastra.packages"
+        }
+      }
+    },
+    {
+      "name": "@copilotkit/mcp-apps-renderer",
+      "version": "1.72.0",
+      "sourceDirectory": "packages/mcp-apps-renderer",
+      "entrypoints": [
+        {
+          "importPath": "@copilotkit/mcp-apps-renderer",
+          "exportKey": ".",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/index.d.mts",
+              "default": "./dist/index.mjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/mcp-apps-renderer/package.json",
+            "selector": "exports[\".\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/mcp-apps-renderer/activity",
+          "exportKey": "./activity",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/activity.d.mts",
+              "default": "./dist/activity.mjs"
+            },
+            "require": {
+              "types": "./dist/activity.d.cts",
+              "default": "./dist/activity.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/mcp-apps-renderer/package.json",
+            "selector": "exports[\"./activity\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/mcp-apps-renderer/package.json",
+          "exportKey": "./package.json",
+          "kind": "metadata",
+          "conditions": "./package.json",
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/mcp-apps-renderer/package.json",
+            "selector": "exports[\"./package.json\"]"
+          }
+        }
+      ],
+      "compatibility": {
+        "peerDependencies": {
+          "@ag-ui/client": "0.0.59",
+          "zod": ">=3.25"
+        },
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/mcp-apps-renderer/package.json",
+            "selector": "peerDependencies"
+          }
+        ]
+      },
+      "provenance": {
+        "name": {
+          "kind": "package-json",
+          "path": "packages/mcp-apps-renderer/package.json",
+          "selector": "name"
+        },
+        "version": {
+          "kind": "package-json",
+          "path": "packages/mcp-apps-renderer/package.json",
+          "selector": "version"
+        },
+        "releaseScope": {
+          "kind": "release-config",
+          "path": "release.config.json",
+          "selector": "scopes.monorepo.packages"
+        }
+      }
+    },
+    {
       "name": "@copilotkit/react-core",
-      "version": "1.69.0",
+      "version": "1.72.0",
       "sourceDirectory": "packages/react-core",
       "entrypoints": [
         {
@@ -1105,7 +1358,7 @@
         "peerDependencies": {
           "react": "^18 || ^19 || ^19.0.0-rc",
           "react-dom": "^18 || ^19 || ^19.0.0-rc",
-          "zod": ">=3.0.0"
+          "zod": ">=3.25"
         },
         "provenance": [
           {
@@ -1135,7 +1388,7 @@
     },
     {
       "name": "@copilotkit/react-native",
-      "version": "1.69.0",
+      "version": "1.72.0",
       "sourceDirectory": "packages/react-native",
       "entrypoints": [
         {
@@ -1330,7 +1583,7 @@
     },
     {
       "name": "@copilotkit/react-textarea",
-      "version": "1.69.0",
+      "version": "1.72.0",
       "sourceDirectory": "packages/react-textarea",
       "entrypoints": [
         {
@@ -1403,7 +1656,7 @@
     },
     {
       "name": "@copilotkit/react-ui",
-      "version": "1.69.0",
+      "version": "1.72.0",
       "sourceDirectory": "packages/react-ui",
       "entrypoints": [
         {
@@ -1486,7 +1739,7 @@
     },
     {
       "name": "@copilotkit/runtime",
-      "version": "1.69.0",
+      "version": "1.72.0",
       "sourceDirectory": "packages/runtime",
       "entrypoints": [
         {
@@ -1586,6 +1839,9 @@
         }
       ],
       "compatibility": {
+        "engines": {
+          "node": ">=20"
+        },
         "peerDependencies": {
           "@anthropic-ai/sdk": ">=0.57.0",
           "@langchain/aws": ">=0.1.9",
@@ -1610,6 +1866,11 @@
           "openai"
         ],
         "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/runtime/package.json",
+            "selector": "engines"
+          },
           {
             "kind": "package-json",
             "path": "packages/runtime/package.json",
@@ -1642,7 +1903,7 @@
     },
     {
       "name": "@copilotkit/runtime-client-gql",
-      "version": "1.69.0",
+      "version": "1.72.0",
       "sourceDirectory": "packages/runtime-client-gql",
       "entrypoints": [
         {
@@ -1703,7 +1964,7 @@
     },
     {
       "name": "@copilotkit/sdk-js",
-      "version": "1.69.0",
+      "version": "1.72.0",
       "sourceDirectory": "packages/sdk-js",
       "entrypoints": [
         {
@@ -1810,7 +2071,7 @@
     },
     {
       "name": "@copilotkit/shared",
-      "version": "1.69.0",
+      "version": "1.72.0",
       "sourceDirectory": "packages/shared",
       "entrypoints": [
         {
@@ -1836,6 +2097,20 @@
             "kind": "package-json",
             "path": "packages/shared/package.json",
             "selector": "exports[\"./package.json\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/shared/telemetry",
+          "exportKey": "./telemetry",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/telemetry/index.mjs",
+            "require": "./dist/telemetry/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/shared/package.json",
+            "selector": "exports[\"./telemetry\"]"
           }
         }
       ],
@@ -1871,7 +2146,7 @@
     },
     {
       "name": "@copilotkit/sqlite-runner",
-      "version": "1.69.0",
+      "version": "1.72.0",
       "sourceDirectory": "packages/sqlite-runner",
       "entrypoints": [
         {
@@ -1902,7 +2177,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=18"
+          "node": ">=20"
         },
         "peerDependencies": {
           "better-sqlite3": "^12.2.0"
@@ -1948,7 +2223,7 @@
     },
     {
       "name": "@copilotkit/voice",
-      "version": "1.69.0",
+      "version": "1.72.0",
       "sourceDirectory": "packages/voice",
       "entrypoints": [
         {
@@ -1979,7 +2254,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=18"
+          "node": ">=20"
         },
         "peerDependencies": {
           "@copilotkit/runtime": "workspace:*"
@@ -2017,7 +2292,7 @@
     },
     {
       "name": "@copilotkit/vue",
-      "version": "1.69.0",
+      "version": "1.72.0",
       "sourceDirectory": "packages/vue",
       "entrypoints": [
         {
@@ -2085,7 +2360,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=18"
+          "node": ">=20"
         },
         "peerDependencies": {
           "vue": ">=3.3.0"
@@ -2123,7 +2398,7 @@
     },
     {
       "name": "@copilotkit/web-components",
-      "version": "1.69.0",
+      "version": "1.72.0",
       "sourceDirectory": "packages/web-components",
       "entrypoints": [
         {
@@ -2180,7 +2455,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=18"
+          "node": ">=20"
         },
         "peerDependencies": {
           "lit": "^3.3.2"
@@ -2218,7 +2493,7 @@
     },
     {
       "name": "@copilotkit/web-inspector",
-      "version": "1.69.0",
+      "version": "1.72.0",
       "sourceDirectory": "packages/web-inspector",
       "entrypoints": [
         {
@@ -2249,7 +2524,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=18"
+          "node": ">=20"
         },
         "provenance": [
           {
@@ -2394,7 +2669,8 @@
         "symbol": "ExperimentalOllamaAdapter",
         "configurationType": "OllamaAdapterOptions",
         "configurationKeys": [
-          "model"
+          "model",
+          "baseUrl"
         ],
         "provenance": {
           "importPath": {

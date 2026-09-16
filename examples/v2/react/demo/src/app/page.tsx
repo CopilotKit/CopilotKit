@@ -12,6 +12,7 @@ import {
 import type { ToolsMenuItem, SandboxFunction } from "@copilotkit/react-core/v2";
 import { useCallback, useMemo, useState } from "react";
 import { z } from "zod";
+import { DEMO_RUNTIME_URL } from "./runtime-url";
 
 // Disable static optimization for this page
 export const dynamic = "force-dynamic";
@@ -88,9 +89,8 @@ export default function Home() {
 
   return (
     <CopilotKitProvider
-      runtimeUrl="/api/copilotkit"
+      runtimeUrl={DEMO_RUNTIME_URL}
       renderToolCalls={[wildcardRenderer]}
-      showDevConsole="auto"
       openGenerativeUI={{ sandboxFunctions }}
     >
       <div
@@ -331,7 +331,7 @@ function Chat({
                       id: "local-inspector-preview",
                       role: "assistant",
                       content:
-                        "This local preview lets you open the CopilotKit Inspector directly from an assistant response. Hover over the CopilotKit mark below, then click it to inspect the current run.",
+                        "This local preview lets you open the CopilotKit Inspector directly from an assistant response. Hover over the wrench icon below, then click it to inspect the current run.",
                     }}
                   />
                   <div style={{ marginTop: 32 }}>{input}</div>

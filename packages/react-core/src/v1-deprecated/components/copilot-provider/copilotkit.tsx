@@ -106,7 +106,6 @@ import { CopilotListeners } from "../CopilotListeners";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const enabled = shouldShowDevConsole(props.showDevConsole);
-  const showInspector = shouldShowDevConsole(props.enableInspector);
 
   // Use API key if provided, otherwise use the license key
   const publicApiKey = props.publicApiKey || props.publicLicenseKey;
@@ -139,7 +138,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
           */}
           <CopilotKitV2Provider
             {...v2Props}
-            showDevConsole={showInspector}
+            enableInspector={props.enableInspector}
             renderCustomMessages={renderArr}
           >
             <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
@@ -208,6 +207,7 @@ function CopilotKitErrorBridge() {
 
 export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   const { children, ...props } = cpkProps;
+  const { copilotkit } = useCopilotKit();
 
   /**
    * This will throw an error if the props are invalid.
@@ -276,9 +276,17 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
 
       const nonDocumentStrings = printTree(categories);
 
-      return `${documentsString}\n\n${nonDocumentStrings}`;
+      const readableContextString = copilotkit
+        .getContextForAgent()
+        .map(({ description, value }) => `${description}:\n${value}`)
+        .join("\n\n");
+
+      const existingContextString = `${documentsString}\n\n${nonDocumentStrings}`;
+      return readableContextString
+        ? `${existingContextString}\n\n${readableContextString}`
+        : existingContextString;
     },
-    [printTree],
+    [copilotkit, printTree],
   );
 
   const addContext = useCallback(

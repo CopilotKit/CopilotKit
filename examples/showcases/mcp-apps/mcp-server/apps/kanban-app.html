@@ -1141,7 +1141,7 @@
 
       function reportSize() {
         const app = document.getElementById("app");
-        mcpApp.sendNotification("ui/notifications/size-change", {
+        mcpApp.sendNotification("ui/notifications/size-changed", {
           width: Math.ceil(app.scrollWidth),
           height: Math.ceil(app.scrollHeight),
         });

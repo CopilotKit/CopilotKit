@@ -8,4 +8,64 @@
 
     <DemoCode file="src/agent/shared-state-read-write-prompt.ts" region="shared-state-setup" />
   </Step>
+
+  <Step>
+    ### Pass the schema to the shared agent loop
+
+    The route reads the current preferences and notes, then registers
+    `SET_NOTES_TOOL_SCHEMA` with `runAgenticLoop`.
+
+    <DemoCode
+      file="src/agent_server.ts"
+      region="shared-state-read-write-route"
+    />
+  </Step>
+
+  <Step>
+    ### Select the Claude Agent SDK path
+
+    Compatible requests use `runWithClaudeAgentSdk`. Requests with aimock
+    transport, frontend/runtime tools, extended thinking, or structured user
+    content use the direct Anthropic Messages API fallback.
+
+    <DemoCode
+      file="src/claude-agent-sdk-adapter.ts"
+      region="claude-agent-sdk-request-selection"
+    />
+
+    <DemoCode
+      file="src/agent_server.ts"
+      region="claude-agent-sdk-agent-loop-dispatch"
+    />
+  </Step>
+
+  <Step>
+    ### Expose `set_notes` through MCP
+
+    The adapter receives the in-process MCP server and its `allowedTools`
+    list. The schema becomes an executable SDK tool named
+    `mcp__copilotkit__set_notes`.
+
+    <DemoCode
+      file="src/claude-agent-sdk-adapter.ts"
+      region="claude-agent-sdk-mcp-adapter-wiring"
+    />
+
+    <DemoCode
+      file="src/claude-agent-sdk-adapter.ts"
+      region="claude-agent-sdk-mcp-server-registration"
+    />
+  </Step>
+
+  <Step>
+    ### Replace the notes in shared state
+
+    The backend handler validates the tool arguments and returns the updated
+    state. The adapter emits that state as a snapshot after the tool result.
+
+    <DemoCode
+      file="src/agent_server.ts"
+      region="shared-state-set-notes-handler"
+    />
+  </Step>
 </Steps>

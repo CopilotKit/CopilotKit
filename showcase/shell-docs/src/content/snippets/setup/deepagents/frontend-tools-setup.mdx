@@ -1,0 +1,45 @@
+<Steps>
+  <Step>
+    ### Wire CopilotKit middleware into your agent
+
+    Deep Agents compile to LangGraph graphs, and `CopilotKitMiddleware` is the
+    bridge. It reads the forwarded tools off the request and merges them into
+    the tool list the model sees, so a component registered with `useComponent`
+    only reaches the model when the middleware is present.
+
+    ```python title="agent.py"
+    from deepagents import create_deep_agent
+    from copilotkit import CopilotKitMiddleware
+
+    agent = create_deep_agent(
+        model="openai:gpt-5.4",
+        tools=[],  # Backend tools go here
+        middleware=[CopilotKitMiddleware()],
+        system_prompt=SYSTEM_PROMPT,
+    )
+    ```
+
+    Without the middleware the run still completes, and the component never
+    renders, because the model was never told the tool exists.
+
+  </Step>
+  <Step>
+    ### Tell the model when to call it
+
+    The forwarded tool arrives on every run, but a model with no instruction
+    about it will answer in prose and never call it. Name the tool in
+    `system_prompt` and say what it is for.
+
+    ```python title="agent.py"
+    SYSTEM_PROMPT = """
+    You are a data visualization assistant.
+
+    When the user asks for a chart, call `render_bar_chart` with a concise
+    title and a `data` array of `{label, value}` items.
+
+    Keep chat responses brief and let the chart do the talking.
+    """
+    ```
+
+  </Step>
+</Steps>

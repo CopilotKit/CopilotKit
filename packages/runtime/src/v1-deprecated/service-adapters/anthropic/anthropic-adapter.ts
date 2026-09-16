@@ -71,6 +71,7 @@ import {
 } from "./utils";
 
 import { randomId, randomUUID } from "@copilotkit/shared";
+import type { SdkClientLike } from "../shared";
 import { convertServiceAdapterError, getSdkClientOptions } from "../shared";
 
 const DEFAULT_MODEL = "claude-opus-4-8";
@@ -92,7 +93,7 @@ export interface AnthropicAdapterParams {
    * An optional Anthropic instance to use.  If not provided, a new instance will be
    * created.
    */
-  anthropic?: Anthropic;
+  anthropic?: SdkClientLike;
 
   /**
    * The model to use.
@@ -118,8 +119,8 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
   private promptCaching: AnthropicPromptCachingConfig;
   private maxInputTokens?: number;
 
-  private _anthropic: Anthropic;
-  public get anthropic(): Anthropic {
+  private _anthropic: SdkClientLike;
+  public get anthropic(): SdkClientLike {
     return this._anthropic;
   }
   public get name() {
@@ -150,7 +151,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
     return provider(this.model);
   }
 
-  private ensureAnthropic(): Anthropic {
+  private ensureAnthropic(): SdkClientLike {
     if (!this._anthropic) {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const Anthropic = require("@anthropic-ai/sdk").default;
@@ -409,7 +410,10 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
         stream: true,
       };
 
-      const anthropic = this.ensureAnthropic();
+      // The public surface is structural so consumers who skip the optional
+      // peer can still compile (see SdkClientLike); the SDK type is only
+      // reachable here, inside a function body, where it is never emitted.
+      const anthropic = this.ensureAnthropic() as Anthropic;
       const stream = await anthropic.messages.create(createParams);
 
       eventSource.stream(async (eventStream$) => {
@@ -419,6 +423,22 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
         let currentToolCallId = randomId();
         let filterThinkingTextBuffer = new FilterThinkingTextBuffer();
         let hasReceivedContent = false;
+
+        const emitText = (text: string) => {
+          if (text.length === 0) {
+            return;
+          }
+          if (!didOutputText) {
+            eventStream$.sendTextMessageStart({
+              messageId: currentMessageId,
+            });
+            didOutputText = true;
+          }
+          eventStream$.sendTextMessageContent({
+            messageId: currentMessageId,
+            content: text,
+          });
+        };
 
         try {
           for await (const chunk of stream as AsyncIterable<any>) {
@@ -451,21 +471,9 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
                 continue;
               }
               if (chunk.delta.type === "text_delta") {
-                const text = filterThinkingTextBuffer.onTextChunk(
-                  chunk.delta.text,
+                emitText(
+                  filterThinkingTextBuffer.onTextChunk(chunk.delta.text),
                 );
-                if (text.length > 0) {
-                  if (!didOutputText) {
-                    eventStream$.sendTextMessageStart({
-                      messageId: currentMessageId,
-                    });
-                    didOutputText = true;
-                  }
-                  eventStream$.sendTextMessageContent({
-                    messageId: currentMessageId,
-                    content: text,
-                  });
-                }
               } else if (chunk.delta.type === "input_json_delta") {
                 eventStream$.sendActionExecutionArgs({
                   actionExecutionId: currentToolCallId,
@@ -474,6 +482,9 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
               }
             } else if (chunk.type === "content_block_stop") {
               if (mode === "message") {
+                // Text held back as a possible `<thinking>` prefix is real
+                // output once the block ends without resolving it.
+                emitText(filterThinkingTextBuffer.flush());
                 if (didOutputText) {
                   eventStream$.sendTextMessageEnd({
                     messageId: currentMessageId,
@@ -537,36 +548,85 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
 const THINKING_TAG = "<thinking>";
 const THINKING_TAG_END = "</thinking>";
 
-class FilterThinkingTextBuffer {
-  private buffer: string;
-  private didFilterThinkingTag: boolean = false;
-
-  constructor() {
-    this.buffer = "";
-  }
+/**
+ * Strips a `<thinking>…</thinking>` block that opens a streamed text content
+ * block, passing everything else through unchanged.
+ *
+ * Only the START of a content block can be a thinking tag. Text is held back
+ * while the block's opening characters could still turn into `<thinking>`;
+ * the moment they diverge, everything held back is emitted in one piece and
+ * the detector disarms for the rest of the block, so a literal `<thinking>`
+ * mentioned later in the answer is never treated as a tag. `flush()` releases
+ * whatever is still held back when the content block ends (a block that is
+ * just `<`, for example).
+ */
+export class FilterThinkingTextBuffer {
+  private buffer: string = "";
+  /**
+   * True once the block's start is known to be, or not to be, a thinking tag;
+   * from then on chunks pass straight through.
+   */
+  private resolved: boolean = false;
 
   onTextChunk(text: string): string {
-    this.buffer += text;
-    if (this.didFilterThinkingTag) {
+    if (this.resolved) {
       return text;
     }
-    const potentialTag = this.buffer.slice(0, THINKING_TAG.length);
-    if (THINKING_TAG.startsWith(potentialTag)) {
-      if (this.buffer.includes(THINKING_TAG_END)) {
-        const end = this.buffer.indexOf(THINKING_TAG_END);
-        const filteredText = this.buffer.slice(end + THINKING_TAG_END.length);
-        this.buffer = filteredText;
-        this.didFilterThinkingTag = true;
-        return filteredText;
-      } else {
+    this.buffer += text;
+
+    if (this.buffer.length < THINKING_TAG.length) {
+      if (THINKING_TAG.startsWith(this.buffer)) {
+        // Still a possible tag prefix — keep holding it back.
         return "";
       }
+      return this.release();
     }
-    return text;
+
+    if (!this.buffer.startsWith(THINKING_TAG)) {
+      // Diverged from `<thinking>`: emit the whole held-back text, not just
+      // this chunk, and stop looking.
+      return this.release();
+    }
+
+    const end = this.buffer.indexOf(THINKING_TAG_END);
+    if (end === -1) {
+      // Inside the thinking block — swallow until it closes.
+      return "";
+    }
+    const rest = this.buffer.slice(end + THINKING_TAG_END.length);
+    this.buffer = "";
+    this.resolved = true;
+    return rest;
+  }
+
+  /**
+   * Text still held back when the content block ends. A partial tag prefix
+   * (`<`, `<thin`) is real output and comes back; an unterminated thinking
+   * block stays hidden.
+   */
+  flush(): string {
+    if (this.resolved) {
+      return "";
+    }
+    const pending =
+      this.buffer.length < THINKING_TAG.length &&
+      THINKING_TAG.startsWith(this.buffer)
+        ? this.buffer
+        : "";
+    this.buffer = "";
+    this.resolved = true;
+    return pending;
   }
 
   reset() {
     this.buffer = "";
-    this.didFilterThinkingTag = false;
+    this.resolved = false;
+  }
+
+  private release(): string {
+    const pending = this.buffer;
+    this.buffer = "";
+    this.resolved = true;
+    return pending;
   }
 }

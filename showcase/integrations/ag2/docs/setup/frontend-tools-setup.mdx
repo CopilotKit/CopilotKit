@@ -1,0 +1,44 @@
+<Steps>
+  <Step>
+    ### Nothing to wire on the agent
+
+    AG2's AG-UI stream surfaces frontend-registered tools to the model on every
+    run, so the agent declares none of its own. A component registered with
+    `useComponent` reaches the model through the AG-UI request payload, and the
+    model calls it by name. Leave `functions` empty when the only tools in play
+    are frontend ones.
+
+    ```python title="src/agents/chart_agent.py"
+    from autogen import ConversableAgent, LLMConfig
+    from autogen.ag_ui import AGUIStream
+
+    chart_agent = ConversableAgent(
+        name="chart_agent",
+        system_message=SYSTEM_PROMPT,
+        llm_config=LLMConfig({"model": "gpt-4o-mini", "stream": True}),
+        human_input_mode="NEVER",
+        functions=[],
+    )
+
+    chart_stream = AGUIStream(chart_agent)
+    ```
+
+  </Step>
+  <Step>
+    ### Tell the model when to call it
+
+    This is the part that is easy to miss. The tool arrives on every run, but a
+    model with no instruction about it will answer in prose and never call it.
+    Name the tool in `system_message` and say what it is for.
+
+    ```python title="src/agents/chart_agent.py"
+    SYSTEM_PROMPT = (
+        "You are a data visualization assistant. "
+        "When the user asks for a chart, call `render_bar_chart` with a "
+        "concise title and a `data` array of `{label, value}` items. "
+        "Keep chat responses brief and let the chart do the talking."
+    )
+    ```
+
+  </Step>
+</Steps>

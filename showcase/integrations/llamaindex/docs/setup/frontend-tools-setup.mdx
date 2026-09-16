@@ -1,0 +1,31 @@
+<Steps>
+  <Step>
+    ### Nothing to wire on the agent
+
+    The AG-UI protocol forwards frontend tool definitions to the agent at
+    request time, so the backend agent declares no bespoke tools. The LLM sees
+    a component registered with `useComponent` through the AG-UI request payload
+    and picks it when the user asks for what it draws.
+
+    ```python title="src/agents/chart_agent.py"
+    from llama_index.llms.openai import OpenAI
+
+    llm = OpenAI(model="gpt-4.1-mini")
+    ```
+
+  </Step>
+  <Step>
+    ### Tell the model when to call it
+
+    The tool arrives on every run, but a model with no instruction about it will
+    answer in prose instead of calling it. Name the tool in the system prompt.
+
+    ```python title="src/agents/chart_agent.py"
+    SYSTEM_PROMPT = """You are a data visualization assistant.
+
+    When the user asks for a chart, call `render_bar_chart` with a concise
+    title and a `data` array of `{label, value}` items."""
+    ```
+
+  </Step>
+</Steps>

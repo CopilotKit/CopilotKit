@@ -240,6 +240,14 @@ export interface WorkerProvisioning {
    * layer-(b) grace is retuned, raise this in lockstep.
    */
   drainingSeconds?: number;
+  /**
+   * Railway deployment restart policy for routine worker recycling. The
+   * harness-workers fleet exits cleanly after planned max-job teardown and
+   * relies on Railway, not an internal supervisor, to start the replacement.
+   * This SSOT intentionally records ONLY the policy type; do not add
+   * restartPolicyMaxRetries for the worker.
+   */
+  restartPolicyType: "ALWAYS";
 }
 
 /**
@@ -821,6 +829,7 @@ export const SERVICES: Record<
         // showcase/RAILWAY.md "Deploy rollover".
         overlapSeconds: 45,
         drainingSeconds: 180,
+        restartPolicyType: "ALWAYS",
       },
       staging: {
         // EFFECTIVE = multiRegionConfig.us-west2.numReplicas (Railway honors this).
@@ -838,6 +847,7 @@ export const SERVICES: Record<
         // showcase/RAILWAY.md "Deploy rollover".
         overlapSeconds: 45,
         drainingSeconds: 180,
+        restartPolicyType: "ALWAYS",
       },
     },
   },

@@ -1,47 +1,31 @@
 "use client";
 
 import { UserButton, useUser } from "@clerk/nextjs";
-import { usePathname, useSearchParams } from "next/navigation";
+import { Brain, CreditCard } from "lucide-react";
 import type { ReactNode } from "react";
 import { Component } from "react";
-import { useEffect, useState } from "react";
+import { buildIntelligenceAuthEntryHref } from "@/lib/docs-cta-href";
 import {
   usePublicClerkAvailable,
   usePublicOpsUrl,
 } from "./public-clerk-provider";
 
-function getCurrentDocsUrl(): string {
-  return typeof window === "undefined"
-    ? "https://docs.copilotkit.ai/"
-    : window.location.href;
-}
-
 export function buildDocsAuthEntryHref(
-  currentUrl = getCurrentDocsUrl(),
   opsPublicUrl = "https://dashboard.operations.copilotkit.ai",
 ): string {
-  const url = new URL(opsPublicUrl);
-  url.searchParams.set("utm_source", "docs");
-  url.searchParams.set("utm_medium", "cta");
-  url.searchParams.set("utm_campaign", "intelligence");
-  url.searchParams.set("utm_content", "navbar");
-  url.searchParams.set("redirect_url", currentUrl);
-  return url.toString();
+  return buildIntelligenceAuthEntryHref(opsPublicUrl, { surface: "navbar" });
+}
+
+export function buildDocsUserMenuHref(
+  path: "/intelligence" | "/pricing",
+  opsPublicUrl = "https://dashboard.operations.copilotkit.ai",
+): string {
+  return new URL(path, opsPublicUrl).toString();
 }
 
 export function useDocsAuthEntryHref(): string {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const opsPublicUrl = usePublicOpsUrl();
-  const [href, setHref] = useState(() =>
-    buildDocsAuthEntryHref(getCurrentDocsUrl(), opsPublicUrl),
-  );
-
-  useEffect(() => {
-    setHref(buildDocsAuthEntryHref(getCurrentDocsUrl(), opsPublicUrl));
-  }, [opsPublicUrl, pathname, searchParams]);
-
-  return href;
+  return buildDocsAuthEntryHref(opsPublicUrl);
 }
 
 export function DocsPublicAuthControl({ fallback }: { fallback: ReactNode }) {
@@ -75,12 +59,29 @@ export class DocsAuthFallbackBoundary extends Component<
 
 function ClerkDocsAuthControl({ fallback }: { fallback: ReactNode }) {
   const { isLoaded, isSignedIn } = useUser();
+  const opsPublicUrl = usePublicOpsUrl();
 
   if (!isLoaded || !isSignedIn) return <>{fallback}</>;
 
+  const intelligenceHref = buildDocsUserMenuHref("/intelligence", opsPublicUrl);
+  const pricingHref = buildDocsUserMenuHref("/pricing", opsPublicUrl);
+
   return (
     <div className="flex h-10 min-w-10 shrink-0 items-center justify-center">
-      <UserButton />
+      <UserButton>
+        <UserButton.MenuItems>
+          <UserButton.Link
+            href={intelligenceHref}
+            label="Intelligence"
+            labelIcon={<Brain size={16} aria-hidden="true" />}
+          />
+          <UserButton.Link
+            href={pricingHref}
+            label="Manage your plan"
+            labelIcon={<CreditCard size={16} aria-hidden="true" />}
+          />
+        </UserButton.MenuItems>
+      </UserButton>
     </div>
   );
 }

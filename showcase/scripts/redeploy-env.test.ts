@@ -11,6 +11,7 @@ import {
   ENV_ID_BY_NAME,
   PRODUCTION_ENV_ID,
   SERVICES,
+  STAGING_ENV_ID,
 } from "./railway-envs";
 
 describe("runRedeploy", () => {
@@ -225,6 +226,57 @@ describe("runRedeploy", () => {
     for (const c of calls) {
       expect(c.environmentId).toBe("8edfef02-ea09-4a20-8689-261f21cc2849");
     }
+  });
+
+  it("makes a staging worker failure release-blocking without stopping independent services", async () => {
+    const redeploy = vi.fn(async (serviceId: string) =>
+      serviceId === SERVICES["harness-workers"].serviceId
+        ? { ok: false as const, error: "worker policy update failed" }
+        : { ok: true as const },
+    );
+
+    const result = await runRedeploy({
+      env: "staging",
+      redeploy,
+      appendSummary,
+      services: ["harness-workers", "showcase-mastra"],
+    });
+
+    expect(redeploy).toHaveBeenCalledTimes(2);
+    expect(result.exitCode).toBe(1);
+    expect(result.records).toEqual([
+      {
+        service: "harness-workers",
+        status: "error",
+        error: "worker policy update failed",
+      },
+      { service: "showcase-mastra", status: "ok" },
+    ]);
+  });
+
+  it("makes a thrown staging worker failure release-blocking without stopping independent services", async () => {
+    const redeploy = vi.fn(async (serviceId: string) => {
+      if (serviceId === SERVICES["harness-workers"].serviceId) {
+        throw new Error("worker request failed");
+      }
+      return { ok: true as const };
+    });
+
+    const result = await runRedeploy({
+      env: "staging",
+      redeploy,
+      appendSummary,
+      services: ["harness-workers", "showcase-mastra"],
+    });
+
+    expect(redeploy).toHaveBeenCalledTimes(2);
+    expect(result.exitCode).toBe(1);
+    expect(
+      result.records.map(({ service, status }) => ({ service, status })),
+    ).toEqual([
+      { service: "harness-workers", status: "error" },
+      { service: "showcase-mastra", status: "ok" },
+    ]);
   });
 
   it("targets the prod env id when env=prod", async () => {
@@ -636,6 +688,75 @@ describe("makeLiveRedeploy", () => {
     const outcome = await redeploy("svc-id", "env-id");
     expect(outcome).toEqual({ ok: true });
     expect(capturedInit?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("updates the staging worker policy and replica count before deploying desired state", async () => {
+    const fetchMock = stubFetch(async (_url, init) => {
+      const body = JSON.parse(String(init?.body)) as {
+        query: string;
+      };
+      if (body.query.includes("serviceInstanceUpdate")) {
+        return {
+          ok: true,
+          json: async () => ({ data: { serviceInstanceUpdate: true } }),
+        };
+      }
+      if (body.query.includes("serviceInstanceDeployV2")) {
+        return {
+          ok: true,
+          json: async () => ({
+            data: { serviceInstanceDeployV2: "deployment-id" },
+          }),
+        };
+      }
+      throw new Error("unexpected Railway mutation");
+    });
+
+    const outcome = await makeLiveRedeploy("test-token")(
+      SERVICES["harness-workers"].serviceId,
+      STAGING_ENV_ID,
+    );
+
+    expect(outcome).toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const requests = fetchMock.mock.calls.map(([, init]) =>
+      JSON.parse(String(init?.body)),
+    );
+    expect(requests[0]).toMatchObject({
+      variables: {
+        serviceId: SERVICES["harness-workers"].serviceId,
+        environmentId: STAGING_ENV_ID,
+        input: {
+          source: {
+            image: "ghcr.io/copilotkit/showcase-harness:latest",
+          },
+          restartPolicyType: "ALWAYS",
+          multiRegionConfig: {
+            "us-west2": { numReplicas: 6 },
+          },
+        },
+      },
+    });
+    expect(requests[0].query).toContain("serviceInstanceUpdate");
+    expect(requests[1].query).toContain("serviceInstanceDeployV2");
+  });
+
+  it("does not deploy the staging worker when its policy update fails", async () => {
+    const fetchMock = stubFetch(async () => ({
+      ok: true,
+      json: async () => ({ data: { serviceInstanceUpdate: false } }),
+    }));
+
+    const outcome = await makeLiveRedeploy("test-token")(
+      SERVICES["harness-workers"].serviceId,
+      STAGING_ENV_ID,
+    );
+
+    expect(outcome).toEqual({
+      ok: false,
+      error: "serviceInstanceUpdate returned false",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("sanitizes GraphQL errors[].message through sanitizeErrorBody", async () => {

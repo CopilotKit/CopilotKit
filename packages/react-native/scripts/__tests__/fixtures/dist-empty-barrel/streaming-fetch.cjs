@@ -1,0 +1,1 @@
+exports.installStreamingFetch = function installStreamingFetch() {};

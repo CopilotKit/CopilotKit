@@ -18,9 +18,10 @@ import {
   CATALOG_TO_D5_KEY,
   commErrorFromStatusSignal,
   FLEET_COMM_AGGREGATE_DIMENSIONS,
-  STARTER_LEVELS,
+  STARTER_ROW_LEVELS,
+  starterErrorClassFromSignal,
 } from "./live-status.js";
-import type { StarterLevel } from "./live-status.js";
+import type { StarterRowLevel } from "./live-status.js";
 import {
   E2E_STALE_AFTER_MS,
   D4_STALE_AFTER_MS,
@@ -44,8 +45,14 @@ import type {
   RungKind,
   RungContribution,
 } from "./cell-model.contribution.js";
-import { combine } from "./cell-model.combine.js";
-import type { LadderDepth } from "./cell-model.combine.js";
+import {
+  combine,
+  AGENT_AXIS,
+  LIVENESS_AXIS,
+  STARTER_AXIS,
+  STARTER_CEILING,
+} from "./cell-model.combine.js";
+import type { LadderAxis, LadderDepth } from "./cell-model.combine.js";
 
 // Re-export the staleness windows so existing consumers that import them from
 // this module (e.g. `__tests__/cell-model.test.ts`) keep resolving — the
@@ -67,6 +74,30 @@ export interface TestLevel {
   exists: boolean;
   status: TestStatus;
   row: StatusRow | null;
+}
+
+/**
+ * One rung of a LADDER cell, as the tooltip renders it. Additive and optional
+ * on `CellModel`: no existing consumer reads it, so the agent axis is unmoved.
+ *
+ * `state` carries the observed colour, EXCEPT for `"gated"` — a rung above the
+ * stopping rung. `combine` does not clear upper rungs, it only declines to
+ * CREDIT them, so an independently-green S3 over a fresh-red S2 would otherwise
+ * print `S3 ✓` directly beneath `S2 ✗` — the very defect being fixed, relocated
+ * into the one surface a viewer opens for detail. `"gated"` is marked in
+ * `foldLadderCell`, the only place that holds both the contributions and the
+ * `CombineResult`; the collector runs BEFORE `combine` and cannot know the stop.
+ */
+export interface RungView {
+  kind: RungKind;
+  depth: LadderDepth;
+  label: string;
+  assertion: string;
+  state: ChipColor | "gated" | "absent";
+  failCount: number | null;
+  firstFailureAt: string | null;
+  observedAt: string | null;
+  errorDesc: string | null;
 }
 
 export interface CellModel {
@@ -170,6 +201,13 @@ export interface CellModel {
    * still `true`). So `null` does NOT imply "no contributing rows".
    */
   observedAtAgeMs: number | null;
+  /**
+   * The per-rung detail of a LADDER cell, in depth order — the field that
+   * carries what the four starter sub-rows used to carry, plus the age and
+   * fail-count none of them ever showed. Optional and additive: unset on the
+   * agent and liveness axes today, so no existing consumer changes behaviour.
+   */
+  ladderRungs?: readonly RungView[];
 }
 
 export interface CellModelInput {
@@ -745,32 +783,117 @@ function collectAgentLadder(
 }
 
 /**
- * Build the V2 cell model for a STARTER-axis cell — routed through the SAME
- * classifier over the four `starter:<column>/<level>` rows, then the U8
- * all-stale fold (§4g, §C). No D1–D6 ladder.
+ * The STARTER rung table — kind, row-key level segment, user-visible label and
+ * the VERBATIM assertion the driver makes.
+ *
+ * Labels and row keys are two namespaces and neither is derived from the other
+ * (`D3 chat (mocked)` is keyed `agentrun`). The assertions state the request
+ * that was actually sent, never a gloss: `S1` says "the root URL returned 2xx",
+ * NOT "the Next app shell serves" — which is already false for the langgraph
+ * trio, whose `/` returns 200 while serving a materially older frontend build.
+ * `S3` must contain the word "mocked": a green S3 means a round trip against
+ * the RECORDED mock succeeded, never that the integration can talk to a model.
+ *
+ * DISPLAY NOTATION (`D<n>`, not `S<n>`). The user-visible labels read `D1`/`D2`/
+ * `D3` — the SAME notation the feature cells use — because `D` is read as
+ * "depth", and depth is contextual: a starter cell's `D2` and a feature cell's
+ * `D2` both mean "the walk reached rung 2 of this cell's ladder". The chip
+ * carries no `/3` denominator for the same reason a feature chip reads `D6`
+ * and not `D6/6`: in v1 every starter's ceiling IS `STARTER_CEILING`, so the
+ * denominator would be a constant on every cell, and the three rung marks under
+ * the chip already show the ceiling and where the walk stopped.
+ *
+ * The internal `kind` identifiers stay `S1`/`S2`/`S3` and are NOT renamed to
+ * match the labels. They are keys into `firstStrikeConfig` and
+ * `STALE_WINDOW_BY_KIND` (`Record<RungKind, _>` in `cell-model.contribution.ts`),
+ * where the starter and agent rungs at the same depth carry DIFFERENT values —
+ * S1-S3 are first-strike-tolerant on a soft class and use the starter staleness
+ * window, while D1-D3 are first-strike-disabled and use the liveness/e2e
+ * windows. Collapsing the two names would collapse those records. Label and
+ * kind are two namespaces here exactly as label and row-key level are.
  */
-function buildStarterCellModelV2(
+export const STARTER_RUNGS: readonly {
+  kind: RungKind;
+  depth: LadderDepth;
+  level: StarterRowLevel;
+  label: string;
+  assertion: string;
+}[] = [
+  {
+    kind: "S1",
+    depth: 1,
+    level: STARTER_ROW_LEVELS[0],
+    label: "D1 http",
+    assertion: "GET / returned 2xx — the root URL answered. Nothing else.",
+  },
+  {
+    kind: "S2",
+    depth: 2,
+    level: STARTER_ROW_LEVELS[1],
+    label: "D2 info",
+    assertion:
+      "GET /api/copilotkit/info returned a parseable info document naming >=1 agent.",
+  },
+  {
+    kind: "S3",
+    depth: 3,
+    level: STARTER_ROW_LEVELS[2],
+    label: "D3 chat (mocked)",
+    assertion:
+      "POST /api/copilotkit/agent/<id>/run (X-AIMock-Context) streamed a " +
+      "well-ordered mocked run: text content, RUN_STARTED first, RUN_FINISHED last.",
+  },
+];
+
+/** Compile-time pin: the rung table and the axis describe the SAME ladder. */
+const _starterRungsMatchAxis: true = (STARTER_RUNGS.length ===
+  STARTER_AXIS.ladderKinds.length) as true;
+void _starterRungsMatchAxis;
+
+/**
+ * Stage A collect for a STARTER-axis cell — the mirror of `collectAgentLadder`.
+ *
+ * It iterates `STARTER_AXIS.ladderKinds`, NOT the rows it happened to find.
+ * That is the whole point: `scanWorst` `continue`s past a kind that is simply
+ * absent from the contribution list (correct for an unmapped D5), so a rung
+ * that never reaches the fold would be silently skipped and an S1/S3-green cell
+ * would render GREEN at `D3` with its runtime rung missing — the same
+ * green-over-absence class this ladder exists to close. Iterating the axis means
+ * a kind with no rows yields `anyExpectedMissing: true` → `classifyRung` →
+ * an explicit `ABSENT` contribution, by construction.
+ */
+function collectStarterLadder(
   live: LiveStatusMap,
   columnSlug: string,
-  now: number,
-): CellModel {
-  const keys = (STARTER_LEVELS as readonly StarterLevel[]).map((level) =>
-    keyFor("starter", columnSlug, level),
-  );
-  const { rows, anyMissing } = gatherRows(live, keys);
-  const contribution = classifyRung(
-    {
-      kind: "starter",
-      rows,
+): { rungs: RawRung[]; rows: StatusRow[] } {
+  const rungs: RawRung[] = [];
+  const rows: StatusRow[] = [];
+  for (const rung of STARTER_RUNGS) {
+    const got = gatherRows(live, [keyFor("starter", columnSlug, rung.level)]);
+    rows.push(...got.rows);
+    rungs.push({
+      kind: rung.kind,
+      rows: got.rows,
       mapped: true,
-      anyExpectedMissing: anyMissing,
-    },
-    now,
-  );
-  let chipColor = contributionToColor(contribution.contribution);
+      anyExpectedMissing: got.anyMissing,
+    });
+  }
+  return { rungs, rows };
+}
 
-  // U8 all-stale fold over the STARTER rows (mirrors resolveStarterChip; the
-  // shared computeCellFreshness scans the agent keyspace, not starter keys).
+/**
+ * U8 all-stale fold (§4g, §C) over an explicit row set, on an explicit window.
+ *
+ * Extracted verbatim from the null-feature branch's inline copy — there were
+ * THREE hand-copied instances of this loop (starter, null-feature, and the
+ * agent path's `computeCellFreshness`). `computeCellFreshness` cannot be reused
+ * for the other two: it scans the AGENT keyspace.
+ */
+export function foldAllStale(
+  rows: readonly StatusRow[],
+  windowMs: number,
+  now: number,
+): { isStale: boolean; freshestAgeMs: number | null } {
   let sawRow = false;
   let allStale = true;
   let freshestAgeMs: number | null = null;
@@ -780,7 +903,7 @@ function buildStarterCellModelV2(
     const skewed = isFutureSkewed(row, now);
     const rowStale = Number.isNaN(observedMs)
       ? true
-      : skewed || isStale(row, now, STARTER_STALE_AFTER_MS);
+      : skewed || isStale(row, now, windowMs);
     if (!rowStale) allStale = false;
     if (!Number.isNaN(observedMs) && !skewed) {
       // §E: clamp a within-tolerance future-dated row to 0 so the surfaced
@@ -790,24 +913,100 @@ function buildStarterCellModelV2(
         freshestAgeMs = ageMs;
     }
   }
-  const isStaleCell = sawRow && allStale;
+  return { isStale: sawRow && allStale, freshestAgeMs };
+}
+
+/**
+ * The AXIS-AGNOSTIC body every `buildCellModel` branch runs.
+ *
+ * `buildCellModel` used to be three hardcoded branches with three hand-copied
+ * return literals and three hand-copied U8 folds. The branches now differ only
+ * in COLLECTOR, AXIS, FRESHNESS SOURCE and which `d3..d6` levels they populate
+ * — which is the honest statement of "mechanically the same way".
+ */
+function foldLadderCell(args: {
+  contribs: RungContribution[];
+  axis: LadderAxis;
+  ceiling: LadderDepth;
+  now: number;
+  freshness: { isStale: boolean; freshestAgeMs: number | null };
+  levels: Pick<CellModel, "d3" | "d4" | "d5" | "d6">;
+  commError?: PoolCommError | null;
+  ladderRungs?: readonly RungView[];
+}): CellModel {
+  const { contribs, axis, ceiling, now, freshness, levels } = args;
+  const c = combine(contribs, ceiling, now, axis);
+
+  let chipColor = c.chipColor;
+  const isStaleCell = freshness.isStale;
   if (isStaleCell && chipColor !== "gray") chipColor = "gray";
+
+  const commError = args.commError ?? undefined;
+  const surfaceState: FleetSurfaceState = commError
+    ? commError.kind === "worker-reclaimed-pending"
+      ? chipColor === "red" || chipColor === "amber" || c.isRegression
+        ? chipColorToSurface(chipColor)
+        : "pending"
+      : "unreachable"
+    : chipColorToSurface(chipColor);
+
+  // Mark every rung ABOVE the stopping rung as `gated`. `combine` does not
+  // clear upper rungs, it only declines to CREDIT them — so without this an
+  // independently-green S3 over a fresh-red S2 prints `S3 ✓` under `S2 ✗`.
+  // This is the one place that holds BOTH the contributions and the
+  // `CombineResult`; the collector runs before `combine` and `stopRung` is not
+  // returned, so no downstream consumer could recover the stop either.
+  const ladderRungs = args.ladderRungs?.map((r) =>
+    r.depth > c.achievedDepth + 1 ? { ...r, state: "gated" as const } : r,
+  );
 
   return {
     supported: true,
-    d3: NOT_WIRED_LEVEL,
-    d4: NOT_WIRED_LEVEL,
-    d5: NOT_WIRED_LEVEL,
-    d6: NOT_WIRED_LEVEL,
-    d6Effective: null,
-    achievedDepth: 0,
-    ceilingDepth: 0,
+    d3: levels.d3,
+    d4: levels.d4,
+    d5: levels.d5,
+    d6: levels.d6,
+    d6Effective: c.d6Effective,
+    achievedDepth: c.achievedDepth,
+    ceilingDepth: c.ceilingDepth,
     chipColor,
-    isRegression: false,
-    surfaceState: chipColorToSurface(chipColor),
+    isRegression: c.isRegression,
+    ...(commError ? { commError } : {}),
+    surfaceState,
     isStaleCell,
-    observedAtAgeMs: freshestAgeMs,
+    observedAtAgeMs: freshness.freshestAgeMs,
+    ...(ladderRungs ? { ladderRungs } : {}),
   };
+}
+
+/** Project one collected starter rung into its `RungView` tooltip row. */
+function starterRungViews(
+  contribs: RungContribution[],
+  rungs: RawRung[],
+): RungView[] {
+  return STARTER_RUNGS.map((def, i) => {
+    const contribution = contribs[i];
+    const raw = rungs[i];
+    const row = raw?.rows[0] ?? null;
+    const state: RungView["state"] =
+      contribution === undefined
+        ? "absent"
+        : contribution.contribution === "ABSENT" ||
+            contribution.contribution === "STUB"
+          ? "absent"
+          : contributionToColor(contribution.contribution);
+    return {
+      kind: def.kind,
+      depth: def.depth,
+      label: def.label,
+      assertion: def.assertion,
+      state,
+      failCount: row ? row.fail_count : null,
+      firstFailureAt: row ? row.first_failure_at : null,
+      observedAt: row ? row.observed_at : null,
+      errorDesc: row ? (starterErrorClassFromSignal(row.signal) ?? null) : null,
+    };
+  });
 }
 
 /**
@@ -837,7 +1036,26 @@ export function buildCellModel(
     // A supported-but-unwired starter is gray no-data (like the agent path),
     // NOT UNSUPPORTED — `supported:false` would contradict `isSupported:true`.
     if (!isWired) return NOT_WIRED_CELL;
-    return buildStarterCellModelV2(live, slug, now);
+    const collected = collectStarterLadder(live, slug);
+    const contribs = collected.rungs.map((r) => classifyRung(r, now));
+    return foldLadderCell({
+      contribs,
+      axis: STARTER_AXIS,
+      ceiling: STARTER_CEILING,
+      now,
+      // U8 over the STARTER rows alone, on the starter window. The shared
+      // `computeCellFreshness` scans the AGENT keyspace and cannot be reused.
+      freshness: foldAllStale(collected.rows, STARTER_STALE_AFTER_MS, now),
+      // A starter cell has an S-strip, not a D-strip: `d3..d6` are agent-axis
+      // `TestLevel` slots and are never read on the starter render path.
+      levels: {
+        d3: NOT_WIRED_LEVEL,
+        d4: NOT_WIRED_LEVEL,
+        d5: NOT_WIRED_LEVEL,
+        d6: NOT_WIRED_LEVEL,
+      },
+      ladderRungs: starterRungViews(contribs, collected.rungs),
+    });
   }
 
   if (!isWired) return NOT_WIRED_CELL;
@@ -868,84 +1086,45 @@ export function buildCellModel(
         now,
       ),
     ];
-    const c = combine(contribs, 2, now);
     // Null-feature cells have no per-cell feature family; U8 folds over the
     // liveness rows (health + agent) alone, each on the D1/D2 window (§E clamp).
-    let sawRow = false;
-    let allStale = true;
-    let freshestAgeMs: number | null = null;
-    for (const row of [...health.rows, ...agent.rows]) {
-      sawRow = true;
-      const observedMs = Date.parse(row.observed_at);
-      const skewed = isFutureSkewed(row, now);
-      const rowStale = Number.isNaN(observedMs)
-        ? true
-        : skewed || isStale(row, now, LIVENESS_STALE_AFTER_MS);
-      if (!rowStale) allStale = false;
-      if (!Number.isNaN(observedMs) && !skewed) {
-        // §E: clamp a within-tolerance future-dated row to 0 so the surfaced
-        // "last swept N ago" age can never be negative (sub-5m clock drift).
-        const ageMs = Math.max(0, now - observedMs);
-        if (freshestAgeMs === null || ageMs < freshestAgeMs)
-          freshestAgeMs = ageMs;
-      }
-    }
-    const isStaleCell = sawRow && allStale;
-    let chipColor = c.chipColor;
-    if (isStaleCell && chipColor !== "gray") chipColor = "gray";
-    return {
-      supported: true,
-      d3: NOT_WIRED_LEVEL,
-      d4: NOT_WIRED_LEVEL,
-      d5: NOT_WIRED_LEVEL,
-      d6: NOT_WIRED_LEVEL,
-      d6Effective: null,
-      achievedDepth: c.achievedDepth,
-      ceilingDepth: c.ceilingDepth,
-      chipColor,
-      isRegression: c.isRegression,
-      surfaceState: chipColorToSurface(chipColor),
-      isStaleCell,
-      observedAtAgeMs: freshestAgeMs,
-    };
+    return foldLadderCell({
+      contribs,
+      axis: LIVENESS_AXIS,
+      ceiling: 2,
+      now,
+      freshness: foldAllStale(
+        [...health.rows, ...agent.rows],
+        LIVENESS_STALE_AFTER_MS,
+        now,
+      ),
+      levels: {
+        d3: NOT_WIRED_LEVEL,
+        d4: NOT_WIRED_LEVEL,
+        d5: NOT_WIRED_LEVEL,
+        d6: NOT_WIRED_LEVEL,
+      },
+    });
   }
 
   // ── Agent-axis feature cell ────────────────────────────────────────
   const collected = collectAgentLadder(live, slug, featureId, now);
   const contribs = collected.rungs.map((r) => classifyRung(r, now));
-  const c = combine(contribs, ceiling, now);
 
-  let chipColor = c.chipColor;
-
-  // U8: matrix all-stale fold (§4e) — future-skew clamped (§E).
-  const freshness = computeCellFreshness(live, slug, featureId, now, true);
-  const isStaleCell = freshness.isStale;
-  if (isStaleCell && chipColor !== "gray") chipColor = "gray";
-
-  // Comm-error overlay (unchanged placement, §4e).
-  const commError = decodeCellCommError(live, slug, featureId, now);
-  const surfaceState: FleetSurfaceState = commError
-    ? commError.kind === "worker-reclaimed-pending"
-      ? chipColor === "red" || chipColor === "amber" || c.isRegression
-        ? chipColorToSurface(chipColor)
-        : "pending"
-      : "unreachable"
-    : chipColorToSurface(chipColor);
-
-  return {
-    supported: true,
-    d3: collected.d3,
-    d4: collected.d4,
-    d5: collected.d5,
-    d6: collected.d6,
-    d6Effective: c.d6Effective,
-    achievedDepth: c.achievedDepth,
-    ceilingDepth: c.ceilingDepth,
-    chipColor,
-    isRegression: c.isRegression,
-    ...(commError ? { commError } : {}),
-    surfaceState,
-    isStaleCell,
-    observedAtAgeMs: freshness.freshestAgeMs,
-  };
+  return foldLadderCell({
+    contribs,
+    axis: AGENT_AXIS,
+    ceiling,
+    now,
+    // U8: matrix all-stale fold (§4e) — future-skew clamped (§E).
+    freshness: computeCellFreshness(live, slug, featureId, now, true),
+    levels: {
+      d3: collected.d3,
+      d4: collected.d4,
+      d5: collected.d5,
+      d6: collected.d6,
+    },
+    // Comm-error overlay (unchanged placement, §4e).
+    commError: decodeCellCommError(live, slug, featureId, now),
+  });
 }

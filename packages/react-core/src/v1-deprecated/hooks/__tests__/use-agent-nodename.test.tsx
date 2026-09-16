@@ -35,6 +35,12 @@ function emitStepStarted(stepName: string) {
   subscriber?.onStepStartedEvent?.({ event: { stepName } } as any);
 }
 
+function emitRunFinished(outcome: "success" | "interrupt") {
+  subscriber?.onRunFinishedEvent?.({
+    outcome,
+  } as any);
+}
+
 beforeEach(() => {
   subscriber = null;
   interruptArgs = null;
@@ -56,9 +62,7 @@ describe("useAgentNodeName", () => {
     // exists only because the node change itself scheduled one.
     act(() => emitStepStarted("call_model_node"));
     act(() => emitStepStarted("process_feedback_node"));
-    act(() => {
-      subscriber?.onRunFinishedEvent?.({} as any);
-    });
+    act(() => emitRunFinished("success"));
 
     expect(renderedNodeNames).toEqual([
       "start",
@@ -101,6 +105,42 @@ describe("useAgentNodeName", () => {
     expect(renderedNodeNames.at(-1)).toBe("start");
   });
 
+  it("keeps the active node after a standard interrupt", () => {
+    const renderedNodeNames: string[] = [];
+    const Component: React.FC = () => {
+      renderedNodeNames.push(useAgentNodeName("default"));
+      return null;
+    };
+
+    render(<Component />);
+    act(() => emitStepStarted("process_feedback_node"));
+    act(() => emitRunFinished("interrupt"));
+
+    expect(renderedNodeNames.at(-1)).toBe("process_feedback_node");
+  });
+
+  it("keeps the active node after a legacy interrupt", () => {
+    const renderedNodeNames: string[] = [];
+    const Component: React.FC = () => {
+      renderedNodeNames.push(useAgentNodeName("default"));
+      return null;
+    };
+
+    render(<Component />);
+    act(() => emitStepStarted("process_feedback_node"));
+    act(() => {
+      subscriber?.onCustomEvent?.({
+        event: {
+          name: "on_interrupt",
+          value: { question: "Continue?" },
+        },
+      } as any);
+    });
+    act(() => emitRunFinished("success"));
+
+    expect(renderedNodeNames.at(-1)).toBe("process_feedback_node");
+  });
+
   it("unsubscribes on unmount", () => {
     const Component: React.FC = () => {
       useAgentNodeName("default");
@@ -115,10 +155,8 @@ describe("useAgentNodeName", () => {
 });
 
 describe("useLangGraphInterrupt agentMetadata", () => {
-  // Characterization, not a regression test. `useInterrupt` only evaluates
-  // `enabled` from a `useEffect`/`useMemo` keyed on its `pending` state, so a
-  // render always lands between the interrupt arriving and the predicate
-  // running. This pins that contract down, since nothing covered it before.
+  // Regression coverage for #1426: RUN_FINISHED must not replace the active
+  // node with "end" before the enabled predicate reads agent metadata.
   it("carries the agent, thread, and current node", () => {
     let captured: any = null;
 
@@ -136,6 +174,7 @@ describe("useLangGraphInterrupt agentMetadata", () => {
     render(<Component />);
 
     act(() => emitStepStarted("process_feedback_node"));
+    act(() => emitRunFinished("interrupt"));
     act(() => {
       interruptArgs.enabled({ value: {} });
     });

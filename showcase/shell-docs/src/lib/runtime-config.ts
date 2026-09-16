@@ -21,7 +21,7 @@ export interface RuntimeConfig {
   baseUrl: string;
   /** Showcase shell host — search-modal, integration-grid, cross-host hrefs. */
   shellUrl: string;
-  /** Intelligence platform signup URL — signup-link, ops-platform-cta. */
+  /** CopilotKit Intelligence signup URL — signup-link, ops-platform-cta. */
   intelligenceSignupUrl: string;
   /** Analytics keys (empty string = analytics disabled in that channel). */
   posthogKey: string;

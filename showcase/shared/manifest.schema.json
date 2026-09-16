@@ -211,7 +211,7 @@
     "thread_persistence_pattern": {
       "type": ["string", "null"],
       "enum": ["langgraph", "adk-session", null],
-      "description": "Framework-specific thread persistence/interoperability pattern. Set only when docs need to explain how CopilotKit Enterprise Intelligence Platform threads can be aligned with an external framework's own run/session identifiers. `langgraph` = explicit CopilotKit thread IDs are forwarded as AG-UI thread IDs and can be aligned with LangGraph checkpoint/thread IDs when the backend accepts them; `adk-session` = CopilotKit thread IDs may be mapped to ADK session IDs, while ADK durability depends on the configured ADK session service. Consumed by docs `<WhenFrameworkHas>`."
+      "description": "Framework-specific thread persistence/interoperability pattern. Set only when docs need to explain how CopilotKit Intelligence threads can be aligned with an external framework's own run/session identifiers. `langgraph` = explicit CopilotKit thread IDs are forwarded as AG-UI thread IDs and can be aligned with LangGraph checkpoint/thread IDs when the backend accepts them; `adk-session` = CopilotKit thread IDs may be mapped to ADK session IDs, while ADK durability depends on the configured ADK session service. Consumed by docs `<WhenFrameworkHas>`."
     },
     "agent_config_pattern": {
       "type": ["string", "null"],
@@ -266,6 +266,41 @@
       "required": ["path", "name"],
       "additionalProperties": false,
       "description": "Starter project details"
+    },
+    "starter_validation": {
+      "type": "object",
+      "description": "Starter VALIDATION ladder declaration (dashboard-only). Deliberately NOT the `starter` key above: that one drives the public 'Full Starter' section on the integration profile pages and the file bundler, so reusing it would ship public product content as a side effect of a dashboard change. Exactly one of the two shapes below: a supported starter (`path`, optional `service`) or a positive not-supported declaration (`supported: false` + `reason`).",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["path"],
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Repo-root-relative path to the in-repo starter, e.g. examples/integrations/<starter-slug>"
+            },
+            "service": {
+              "type": "string",
+              "description": "The deployed Railway service, e.g. starter-<starter-slug>. Omit when the starter exists in-repo but nothing is provisioned."
+            },
+            "supported": { "const": true }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["supported", "reason"],
+          "properties": {
+            "supported": { "const": false },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Why this framework has no starter. A positive, reviewed declaration — never a placeholder."
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     }
   },
   "additionalProperties": false

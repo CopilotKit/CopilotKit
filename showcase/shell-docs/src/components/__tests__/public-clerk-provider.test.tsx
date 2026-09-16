@@ -125,7 +125,7 @@ describe("PublicClerkProvider", () => {
       expect(
         screen.getByRole("link", { name: "Auth entry" }).getAttribute("href"),
       ).toBe(
-        "https://dashboard.staging.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=navbar&redirect_url=http%3A%2F%2Flocalhost%3A3000%2Freact%3Futm_source%3Ddocs%23intro",
+        "https://dashboard.staging.operations.copilotkit.ai/sign-in?post_auth_redirect=ready&utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=navbar",
       ),
     );
   });

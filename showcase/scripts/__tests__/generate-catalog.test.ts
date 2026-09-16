@@ -40,8 +40,17 @@ let releaseGeneratedDataLock: (() => void) | undefined;
 
 const EXEC_OPTS = execOptsFor(SCRIPTS_DIR);
 
-function runGenerator(): string {
-  const out = execFileSync("npx", ["tsx", "generate-registry.ts"], EXEC_OPTS);
+/**
+ * `env` overrides are layered on top of the ambient environment, so the
+ * DEFAULT call inherits CI's environment exactly as before — which is what
+ * keeps the flag-off case a genuine test of the default build rather than of a
+ * scrubbed one.
+ */
+function runGenerator(env?: Record<string, string>): string {
+  const out = execFileSync("npx", ["tsx", "generate-registry.ts"], {
+    ...EXEC_OPTS,
+    ...(env ? { env: { ...process.env, ...env } } : {}),
+  });
   return out.toString();
 }
 
@@ -158,11 +167,64 @@ describe("Catalog Generator", () => {
     // `observational-memory`, `browser-use`; unshipped for every other
     // integration).
     expect(integrated.length).toBe(1050);
+    // Step 5 is gated by SHOWCASE_STARTER_CELLS, which is UNSET in CI — this
+    // case pins the DEFAULT build. Its flag-on sibling is directly below.
     expect(starters.length).toBe(0);
     expect(catalog.cells.length).toBe(1050);
     // total_cells excludes docs-only features (currently 1 feature x 21 integrations = 21)
     expect(catalog.metadata.total_cells).toBe(1029);
     expect(catalog.metadata.docs_only).toBe(21);
+  });
+
+  // The flag-on sibling. Its ONLY job is the pairing: the starter cells appear
+  // in `cells`, and the ROLLUPS do not move. Those two rollup assertions are
+  // the whole point of Step 6's starter exclusion — `total_cells` is the
+  // single most-read number on the dashboard, and starter cells carry
+  // `feature: null` + `status: "wired"`, so the docs-only predicate ADMITS
+  // them and would raise it by 21, unflagged.
+  //
+  // MUTATION THAT REDS THIS CASE: drop `c.manifestation !== "starter"` from
+  // `countableCells` in `catalog-flatten.ts` Step 6 — `total_cells` becomes
+  // 1050 and `wired` moves by the 16 non-`supported:false` columns.
+  it("with SHOWCASE_STARTER_CELLS=1: 21 starter cells appear and the rollups do NOT move", () => {
+    runGenerator();
+    const flagOff = readCatalog();
+
+    runGenerator({ SHOWCASE_STARTER_CELLS: "1" });
+    const flagOn = readCatalog();
+
+    const starters = flagOn.cells.filter(
+      (c: any) => c.manifestation === "starter",
+    );
+    // One cell per column, all 21 — including the 5 `supported: false` ones,
+    // each of which mints exactly one "not supported" cell rather than nothing.
+    expect(starters.length).toBe(21);
+    expect(flagOn.cells.length).toBe(1071);
+
+    // Status is DERIVED from the block, not hardcoded "wired".
+    expect(starters.filter((c: any) => c.status === "unsupported").length).toBe(
+      5,
+    );
+    expect(starters.filter((c: any) => c.status === "wired").length).toBe(16);
+    // The axis's uniform ceiling, on every starter cell.
+    expect(new Set(starters.map((c: any) => c.max_depth))).toEqual(
+      new Set([3]),
+    );
+    // Every starter cell is feature-null, which is what keeps it out of the
+    // `page-stats` health band and depth histogram.
+    expect(starters.every((c: any) => c.feature === null)).toBe(true);
+
+    // BYTE-IDENTICAL rollups across the flag.
+    expect(flagOn.metadata.total_cells).toBe(flagOff.metadata.total_cells);
+    expect(flagOn.metadata.wired).toBe(flagOff.metadata.wired);
+    expect(flagOn.metadata.stub).toBe(flagOff.metadata.stub);
+    expect(flagOn.metadata.unshipped).toBe(flagOff.metadata.unshipped);
+    expect(flagOn.metadata.unsupported).toBe(flagOff.metadata.unsupported);
+    expect(flagOn.metadata.docs_only).toBe(flagOff.metadata.docs_only);
+    // And the same absolute numbers the flag-off case pins, restated so a
+    // drift in BOTH modes cannot pass by moving together.
+    expect(flagOn.metadata.total_cells).toBe(1029);
+    expect(flagOn.metadata.docs_only).toBe(21);
   });
 
   it("LGP has 50 cells: 37 wired + 1 stub + 10 unshipped + 2 unsupported (deprecated features included; dashboard hides them by default)", () => {

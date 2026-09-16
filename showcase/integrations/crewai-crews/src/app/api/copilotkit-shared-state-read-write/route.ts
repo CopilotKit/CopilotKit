@@ -6,7 +6,7 @@
 // call so the UI's `useAgent` subscription sees live updates of
 // `state.notes` without waiting for the next turn. See
 // `src/agents/shared_state_read_write.py` for the full rationale on why
-// this demo cannot share the `LatestAiDevelopment` crew on "/".
+// this demo cannot run on a crew endpoint.
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";

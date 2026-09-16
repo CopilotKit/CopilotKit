@@ -60,6 +60,21 @@ describe("setup content bundle", () => {
     }
   });
 
+  it("bundles the Google ADK state-streaming termination setup", () => {
+    const setupContent = setupContentData as SetupContentBundle;
+    const source = resolveBundledSetupConcept(
+      "google-adk",
+      "state-streaming-setup",
+      setupContent,
+    );
+
+    expect(source).toContain("after_model_callback=stop_on_terminal_text");
+    expect(source).toContain("shared_chat.py");
+    expect(source).not.toContain("def stop_on_terminal_text(");
+    expect(source).not.toContain("<DemoCode");
+    expect(source).not.toContain("@region[");
+  });
+
   it.each([
     [
       "claude-sdk-python",
@@ -90,6 +105,47 @@ describe("setup content bundle", () => {
       const source = resolveBundledSetupConcept(
         framework,
         "tool-rendering-setup",
+        setupContent,
+      );
+
+      for (const identifier of expectedIdentifiers) {
+        expect(source, `${framework}: ${identifier}`).toContain(identifier);
+      }
+      expect(source, framework).not.toContain("<DemoCode");
+      expect(source, framework).not.toContain("@region[");
+    },
+  );
+
+  it.each([
+    [
+      "claude-sdk-python",
+      [
+        "tools=[SET_NOTES_TOOL]",
+        'if tc["name"] == "set_notes"',
+        "StateSnapshotEvent",
+        "ToolCallResultEvent",
+        "run_shared_state_read_write_agent",
+        "intentionally uses its own Messages API loop",
+      ],
+    ],
+    [
+      "claude-sdk-typescript",
+      [
+        "toolSchemas: [SET_NOTES_TOOL_SCHEMA] as Anthropic.Tool[]",
+        "runWithClaudeAgentSdk({",
+        "createSdkMcpServer({",
+        "mcp__copilotkit__set_notes",
+        'toolName === "set_notes"',
+        "direct Anthropic Messages API fallback",
+      ],
+    ],
+  ])(
+    "bundles executable shared-state wiring for %s",
+    (framework, expectedIdentifiers) => {
+      const setupContent = setupContentData as SetupContentBundle;
+      const source = resolveBundledSetupConcept(
+        framework,
+        "shared-state-setup",
         setupContent,
       );
 

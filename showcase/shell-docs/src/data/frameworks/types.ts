@@ -1,5 +1,3 @@
-import type { ReactNode } from "react";
-
 /** Resolved at render time via the icon registry in Track B's port. */
 export type IconKey = string;
 
@@ -55,4 +53,6 @@ export interface FrameworkOverviewData {
    * and renders it into the `afterFeatures` slot.
    */
   hasAfterFeaturesMdx?: boolean;
+  /** Keep the structured CTA after an authored discovery section. */
+  preserveCtaWithAfterFeatures?: boolean;
 }

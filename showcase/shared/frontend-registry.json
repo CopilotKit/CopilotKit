@@ -11,6 +11,14 @@
       "feature_support_required": true
     },
     {
+      "id": "react-spa",
+      "name": "React SPA",
+      "icon": "react-spa",
+      "summary": "Vite or CRA React apps with no server of their own.",
+      "runnable": false,
+      "feature_support_required": false
+    },
+    {
       "id": "vue",
       "name": "Vue",
       "icon": "vue",

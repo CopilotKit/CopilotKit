@@ -7,6 +7,11 @@ hideTOC: true
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
 
+<IntelligenceOnboardingPrompt
+  feature="learning"
+  surface="docs_claude_sdk_typescript_quickstart"
+/>
+
 This quickstart gives you two working paths:
 
 - **Start from scratch** to scaffold the full Claude Agent SDK TypeScript showcase.
@@ -265,8 +270,25 @@ Before you begin, you'll need the following:
 
           Wrap your app with `CopilotKit` and target the agent name you registered in the runtime route.
 
-          ```tsx title="app/layout.tsx"
+          ```tsx title="app/providers.tsx"
+          "use client";
+
           import { CopilotKit } from "@copilotkit/react-core/v2";
+
+          export function Providers({ children }: { children: React.ReactNode }) {
+            return (
+              <CopilotKit runtimeUrl="/api/copilotkit" agent="claude_agent">
+                {children}
+              </CopilotKit>
+            );
+          }
+          ```
+
+          `app/layout.tsx` is a server component and cannot import the provider
+          directly, so it renders your client file instead:
+
+          ```tsx title="app/layout.tsx"
+          import { Providers } from "./providers";
           import "@copilotkit/react-core/v2/styles.css";
           import "./globals.css";
 
@@ -274,14 +296,22 @@ Before you begin, you'll need the following:
             return (
               <html lang="en">
                 <body>
-                  <CopilotKit runtimeUrl="/api/copilotkit" agent="claude_agent">
+                  <Providers>
                     {children}
-                  </CopilotKit>
+                  </Providers>
                 </body>
               </html>
             );
           }
           ```
+
+          <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
+            `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
+            same origin. A client-only frontend has no shared origin, so it needs a standalone runtime
+            server of its own and an absolute `runtimeUrl` such as
+            `http://localhost:8200/api/copilotkit`. The per-frontend guides at `/react-spa`, `/vue`,
+            `/angular` and `/react-native` each show that setup.
+          </Callout>
 
           Add a chat surface:
 

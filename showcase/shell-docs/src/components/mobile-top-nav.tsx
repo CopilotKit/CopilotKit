@@ -59,7 +59,7 @@ export function MobileTopNav() {
             Docs
           </span>
         </Link>
-        <PrimaryDocsTabs className="shell-docs-mobile-tabs" />
+        <PrimaryDocsTabs exploreMenu className="shell-docs-mobile-tabs" />
         <div className="shell-docs-mobile-actions">
           <DocsPublicAuthControl
             fallback={
@@ -69,8 +69,8 @@ export function MobileTopNav() {
                 rel="noopener noreferrer"
                 onClick={handleFreeDeveloperAccessClick}
                 className="shell-docs-radius-control hidden h-10 w-10 shrink-0 cursor-pointer items-center justify-center border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-muted)] shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)] md:flex"
-                aria-label="Get Enterprise Intelligence free"
-                title="Get Enterprise Intelligence free"
+                aria-label="Get CopilotKit Intelligence free"
+                title="Get CopilotKit Intelligence free"
               >
                 <CopilotKitMark className="h-5 w-5" />
               </Link>

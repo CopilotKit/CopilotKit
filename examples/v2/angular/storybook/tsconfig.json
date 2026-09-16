@@ -31,7 +31,7 @@
     },
     "types": ["node"]
   },
-  "include": ["**/*.ts", "**/*.tsx", ".storybook/**/*"],
+  "include": ["**/*.ts", "**/*.tsx", ".storybook/preview.ts"],
   "exclude": ["node_modules", "dist"],
   "angularCompilerOptions": {
     "extendedDiagnostics": {

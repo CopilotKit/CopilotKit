@@ -13,6 +13,9 @@
 //   - Separator { type: 'separator'; name }
 //   - Folder { type: 'folder'; name; children; defaultOpen?; index? }
 //
+// Top-level `section` nodes stay separators so they provide a stable visual
+// hierarchy. Topic groups below them remain collapsible folders.
+//
 // We pre-bake the URL using `slugHrefPrefix` (the value DocsPageView
 // already uses for its own hrefs): a framework-scoped render passes
 // `/<framework>` and the sidebar renders `/<framework>/<slug>` links
@@ -53,6 +56,7 @@ function renderNavName(
     referenceHref?: string;
     frontendDocsStatus?: "feature-complete" | "early-access";
   },
+  iconAfter = false,
 ): React.ReactNode {
   const isReactDocsProxy = variant === "react-docs-proxy";
   if (variant === "frontend-docs-upcoming") {
@@ -148,7 +152,13 @@ function renderNavName(
     title,
   );
 
-  return icon ? React.createElement(React.Fragment, null, icon, label) : label;
+  return icon
+    ? React.createElement(
+        React.Fragment,
+        null,
+        ...(iconAfter ? [label, icon] : [icon, label]),
+      )
+    : label;
 }
 
 // Convert a single shell-docs NavNode into ZERO OR MORE PageTree.Nodes.
@@ -171,28 +181,41 @@ export function navNodeToPageTreeNodes(
     // opt into icons with `showIcon: true` in frontmatter for targeted
     // cases like partner cookbook entries.
     //
-    // We MERGE icon + title into Fumadocs's `name` prop as a Fragment
-    // instead of passing the icon via the separate `icon` prop. The
-    // upstream `SidebarSeparator` renders `[item.icon, item.name]` as
-    // a child array, which triggers the React key-warning loop when
-    // both slots are populated. Combining them into a single ReactNode
-    // sidesteps that without forking Fumadocs. The separator's
-    // `inline-flex items-center gap-2` styling still aligns the SVG
-    // and label exactly as it would have with the prop split.
+    // Upcoming "guides coming soon" cards keep icon + copy inside
+    // `name`. Normal sections put the glyph on `icon` so a later folder
+    // wrap can render [icon, label, chevron] as one flex row.
     const icon = resolveSidebarIcon(node.icon);
-    const name = renderNavName(node.title, node.variant, icon, {
-      quickstartHref: node.quickstartHref,
-      referenceHref: node.referenceHref,
-      frontendDocsStatus: node.frontendDocsStatus,
-    });
-    return [{ type: "separator", name }];
+    const selfContained = node.variant === "frontend-docs-upcoming";
+    const name = renderNavName(
+      node.title,
+      node.variant,
+      selfContained ? icon : undefined,
+      {
+        quickstartHref: node.quickstartHref,
+        referenceHref: node.referenceHref,
+        frontendDocsStatus: node.frontendDocsStatus,
+      },
+    );
+    return [
+      {
+        type: "separator",
+        name,
+        ...(selfContained || !icon ? {} : { icon }),
+      },
+    ];
   }
   if (node.type === "page") {
     const icon = resolveSidebarIcon(node.icon);
     return [
       {
         type: "page",
-        name: renderNavName(node.title, node.variant, icon),
+        name: renderNavName(
+          node.title,
+          node.variant,
+          icon,
+          undefined,
+          node.icon === "lucide/ArrowUpRight",
+        ),
         url: node.href ?? buildUrl(slugHrefPrefix, node.slug),
       },
     ];
@@ -243,6 +266,15 @@ export function navNodeToPageTreeNodes(
   ];
 }
 
+function buildPageTreeChildren(
+  tree: NavNode[],
+  slugHrefPrefix: string,
+): PageTree.Node[] {
+  return tree.flatMap((node) =>
+    navNodeToPageTreeNodes(node, slugHrefPrefix),
+  );
+}
+
 // Cache by the (memoized) NavNode[] reference so successive calls with
 // the same tree + prefix skip re-allocating the PageTree. `buildNavTree`
 // returns the same reference for the same `(dir, prefix)` in prod, so
@@ -262,7 +294,7 @@ export function navTreeToPageTree(
     if (hit) return hit;
     const built: PageTree.Root = {
       name: rootName,
-      children: tree.flatMap((n) => navNodeToPageTreeNodes(n, slugHrefPrefix)),
+      children: buildPageTreeChildren(tree, slugHrefPrefix),
     };
     if (!perTree) {
       perTree = new Map();
@@ -273,6 +305,6 @@ export function navTreeToPageTree(
   }
   return {
     name: rootName,
-    children: tree.flatMap((n) => navNodeToPageTreeNodes(n, slugHrefPrefix)),
+    children: buildPageTreeChildren(tree, slugHrefPrefix),
   };
 }

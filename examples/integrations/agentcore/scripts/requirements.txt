@@ -1,4 +1,0 @@
-boto3>=1.34.0
-requests>=2.31.0
-PyYAML>=6.0.1
-colorama>=0.4.6

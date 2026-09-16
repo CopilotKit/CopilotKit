@@ -24,7 +24,7 @@ export function OpenGenUIPage({ children }: OpenGenUIPageProps) {
   return (
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit-opengenui"
-      showDevConsole={false}
+      enableInspector={false}
     >
       {isDesktop ? (
         <>

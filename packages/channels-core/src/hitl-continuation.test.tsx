@@ -497,8 +497,16 @@ test("normal runs write no continuation state and one resume consumes once", asy
 
   await turn("interrupt");
   const actionId = firstActionId(adapter);
-  expect(set).toHaveBeenCalledTimes(1);
-  expect(set.mock.calls[0]?.[0]).toBe(`action:${actionId}`);
+  // Asserted by KEY, not by call count. An interrupt turn writes exactly one
+  // action snapshot — that is the invariant this test is about — plus the
+  // retained interrupt value that `resume` echoes back as
+  // `command.interruptEvent` (see interrupt-event-echo.test.tsx). A bare count
+  // conflates the two and breaks on bookkeeping that is not continuation state.
+  const writes = set.mock.calls.map((call) => String(call[0]));
+  expect(writes.filter((key) => key.startsWith("action:"))).toEqual([
+    `action:${actionId}`,
+  ]);
+  expect(writes).toContain("interruptevent:thread-1");
   expect(consume).not.toHaveBeenCalled();
 
   const click = (eventId: string) =>
@@ -511,6 +519,11 @@ test("normal runs write no continuation state and one resume consumes once", asy
     });
   await click("bob-click");
   await click("bob-click-redelivery");
-  expect(consume).toHaveBeenCalledTimes(1);
-  expect(consume.mock.calls[0]?.[0]).toBe(`action:${actionId}`);
+  // The load-bearing part: the ACTION is consumed exactly once across the click
+  // and its redelivery. Filtered by key for the same reason as above — the resume
+  // also consumes the retained interrupt value, which is a separate one-use item.
+  const consumed = consume.mock.calls.map((call) => String(call[0]));
+  expect(consumed.filter((key) => key.startsWith("action:"))).toEqual([
+    `action:${actionId}`,
+  ]);
 });

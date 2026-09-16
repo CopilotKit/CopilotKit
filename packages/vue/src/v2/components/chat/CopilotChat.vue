@@ -20,6 +20,7 @@ import {
   useSlots,
   watch,
 } from "vue";
+import { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import type { Suggestion } from "@copilotkit/core";
 import CopilotChatConfigurationProvider from "../../providers/CopilotChatConfigurationProvider.vue";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
@@ -39,6 +40,7 @@ import { LastUserMessageKey } from "./last-user-message-context";
 import type { LastUserMessageState } from "./last-user-message-context";
 import type { Message } from "@ag-ui/core";
 import type { InputContent } from "@copilotkit/shared";
+import { useInspectorThreadOverride } from "../../providers/use-inspector-thread-override";
 import type {
   CopilotChatInputSlotProps,
   CopilotChatProps,
@@ -105,6 +107,7 @@ type ActiveConnectCycle = {
   core: object;
   agent: AbstractAgent;
   threadId: string;
+  inspectorRequestId: string | null;
   abortController: AbortController;
   detached: boolean;
 };
@@ -122,15 +125,26 @@ const resolvedAgentId = computed(
 const providedThreadId = computed(
   () => props.threadId ?? existingConfig.value?.threadId,
 );
-const resolvedThreadId = computed(
+const baseThreadId = computed(
   () => providedThreadId.value ?? generatedThreadId.value,
 );
 // "Explicit" means the caller actually picked this thread — via the
 // `threadId` prop on CopilotChat or a wrapping provider that flagged its
 // threadId as caller-chosen. An auto-minted UUID leaking down through a
 // CopilotChatConfigurationProvider does NOT count.
-const hasExplicitThreadId = computed(
+const baseHasExplicitThreadId = computed(
   () => !!props.threadId || !!existingConfig.value?.hasExplicitThreadId,
+);
+const { inspectorThreadId, inspectorRequestId, failInspectorOverride } =
+  useInspectorThreadOverride({
+    agentId: resolvedAgentId,
+    baseThreadId,
+  });
+const resolvedThreadId = computed(
+  () => inspectorThreadId.value ?? baseThreadId.value,
+);
+const hasExplicitThreadId = computed(
+  () => inspectorThreadId.value !== null || baseHasExplicitThreadId.value,
 );
 const lastConnectedThreadId = ref<string | null>(null);
 const isConnecting = computed(
@@ -299,13 +313,40 @@ watch(
 
 watch(
   [
+    () => copilotkit.value,
+    resolvedAgentId,
+    resolvedThreadId,
+    inspectorRequestId,
+  ],
+  ([core, agentId, threadId, requestId], _old, onCleanup) => {
+    if (!requestId) return;
+    const subscription = core.subscribe({
+      onError: (event) => {
+        if (event.code !== CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED) return;
+        if (event.context?.agentId !== agentId) return;
+        if (event.context?.threadId !== threadId) return;
+        failInspectorOverride(requestId);
+      },
+    });
+    onCleanup(() => subscription.unsubscribe());
+  },
+  { immediate: true },
+);
+
+watch(
+  [
     isMounted,
     () => copilotkit.value,
     () => agent.value,
     resolvedThreadId,
     hasExplicitThreadId,
+    inspectorRequestId,
   ],
-  ([mounted, core, currentAgent, threadId, isExplicit], _old, onCleanup) => {
+  (
+    [mounted, core, currentAgent, threadId, isExplicit, requestId],
+    _old,
+    onCleanup,
+  ) => {
     if (!mounted) {
       return;
     }
@@ -314,6 +355,20 @@ watch(
     }
     if (!currentAgent) {
       return;
+    }
+
+    const previousCycle = activeConnectCycle.value;
+    const inspectorTransition =
+      previousCycle !== null &&
+      previousCycle.threadId !== threadId &&
+      previousCycle.inspectorRequestId !== requestId &&
+      (previousCycle.inspectorRequestId !== null || requestId !== null);
+    if (inspectorTransition) {
+      try {
+        core.stopAgent({ agent: currentAgent });
+      } catch {
+        // No live run to stop.
+      }
     }
 
     // Pin the thread this chat renders onto its agent, before anything issues a
@@ -357,7 +412,8 @@ watch(
       existingCycle &&
       existingCycle.core === (core as object) &&
       existingCycle.agent === currentAgent &&
-      existingCycle.threadId === threadId;
+      existingCycle.threadId === threadId &&
+      existingCycle.inspectorRequestId === requestId;
 
     let cycle: ActiveConnectCycle;
     if (hasSameDeps && existingCycle) {
@@ -372,6 +428,7 @@ watch(
         core: core as object,
         agent: currentAgent,
         threadId,
+        inspectorRequestId: requestId,
         abortController: connectAbortController,
         detached: false,
       };
@@ -387,6 +444,9 @@ watch(
             return;
           }
           console.error("CopilotChat: connectAgent failed", error);
+          if (requestId) {
+            failInspectorOverride(requestId);
+          }
         })
         .finally(() => {
           // Whether the connect succeeded or failed, we're no longer in

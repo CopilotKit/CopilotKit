@@ -8,9 +8,10 @@
     "---App Control---",
     "frontend-tools",
     "shared-state",
+    "agent-app-context",
     "---Deploy---",
     "deploy-langsmith",
-    "---Intelligence Platform---",
+    "---Intelligence---",
     {
       "title": "Rich Threads",
       "defaultOpen": true,

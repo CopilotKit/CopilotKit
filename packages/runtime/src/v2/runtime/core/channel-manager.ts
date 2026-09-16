@@ -7,11 +7,13 @@ import type { ChannelActivationConfig } from "./channel-activation-config";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
 import { telemetry } from "../telemetry";
 import type { AnalyticsEvents } from "../telemetry";
+import type { TelemetryCapture } from "../telemetry/telemetry-client";
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import type {
   AgentSubscriber,
   BaseEvent,
   Message,
+  RunAgentInput,
   RunAgentParameters,
   RunAgentResult,
 } from "@ag-ui/client";
@@ -22,16 +24,24 @@ import {
   INTELLIGENCE_MEMORY_GRANT_HEADER,
   INTELLIGENCE_USER_ID_HEADER,
 } from "../intelligence-platform/client";
-// Type-only: @copilotkit/channels is pure-ESM, so a value import would break this
-// package's CJS output (see `core/runtime.ts` and `channel-activation-config.ts`
-// for the same constraint).
+// Type-only: @copilotkit/channels-core is pure-ESM, so a value import would break
+// this package's CJS output (see `core/runtime.ts` and `channel-activation-config.ts`
+// for the same constraint). Imported from channels-core rather than the
+// @copilotkit/channels shim that re-exports it: channels is a devDependency, so
+// tsdown inlines its prebuilt declarations here along with a rolldown helper
+// chunk that ships no types (TS7016 for consumers, OSS-899). channels-core is a
+// real dependency and stays external.
 import type {
   Channel,
   ReplyContinuationOptions,
   ResolvedChannelMemory,
-} from "@copilotkit/channels";
+} from "@copilotkit/channels-core";
 import type { CopilotRuntimeLearningConfig } from "./learning";
-import { resolveLearningContainerId } from "./learning";
+import {
+  resolveLearningContainerId,
+  resolveLearningContainerSelector,
+} from "./learning";
+import type { CopilotRuntimeUser } from "./learning";
 
 /**
  * Lifecycle status of a single Channel activation, or of the manager overall.
@@ -326,6 +336,8 @@ export interface ChannelManagerArgs {
    * activation engine is used, so transport-level drops surface in the managed
    * path (not just activation-level events). */
   log?: (msg: string, meta?: unknown) => void;
+  /** Runtime-scoped telemetry capture. Defaults to the process singleton. */
+  telemetry?: TelemetryCapture;
   /**
    * Initial delay (ms) before a "still down" log while a managed session is
    * disconnected. Later reminders back off exponentially to a 15-minute cap,
@@ -406,6 +418,7 @@ export interface ChannelsIntelligenceModule {
         threadId: string;
         runId: string;
         userId: string;
+        user?: CopilotRuntimeUser | null;
         agentId: string;
         tools: readonly {
           name: string;
@@ -543,6 +556,7 @@ interface CanonicalRunArgs {
   threadId: string;
   runId: string;
   userId: string;
+  user?: CopilotRuntimeUser | null;
   memory?: ResolvedChannelMemory;
   agentId: string;
   tools: readonly {
@@ -560,6 +574,19 @@ interface CanonicalRunArgs {
     interrupted: boolean;
     deliveryError?: unknown;
   }>;
+}
+
+/** Builds the AG-UI input used to select and execute one Channel run. */
+function buildCanonicalChannelRunInput(args: CanonicalRunArgs): RunAgentInput {
+  return {
+    threadId: args.threadId,
+    runId: args.runId,
+    messages: args.agent.messages,
+    state: args.agent.state,
+    tools: [...args.tools],
+    context: [...args.context],
+    forwardedProps: undefined,
+  };
 }
 
 /** Attach grant-scoped Intelligence Memory tools to one isolated Channel agent. */
@@ -650,14 +677,23 @@ async function runCanonicalChannelAgent(
   interrupted: boolean;
   deliveryError?: unknown;
 }> {
-  const learningContainerId = await resolveLearningContainerId(learning, {
-    surface: "channel",
-    threadId: args.threadId,
-    runId: args.runId,
-    agentId: args.agentId,
-    userId: args.userId,
-    deliveryId: args.deliveryId,
-  });
+  const input = buildCanonicalChannelRunInput(args);
+  const selector = intelligence.ɵgetLearningContainerId?.();
+  const learningContainerId = selector
+    ? await resolveLearningContainerSelector(selector, {
+        surface: "channel",
+        user: args.user ?? null,
+        agentId: args.agentId,
+        input,
+      })
+    : await resolveLearningContainerId(learning, {
+        surface: "channel",
+        threadId: args.threadId,
+        runId: args.runId,
+        agentId: args.agentId,
+        userId: args.userId,
+        deliveryId: args.deliveryId,
+      });
   const lock = await intelligence.ɵacquireThreadLock({
     threadId: args.threadId,
     runId: args.runId,
@@ -745,13 +781,9 @@ async function runCanonicalChannelAgent(
         threadId: canonicalThreadId,
         agent: outer,
         input: {
+          ...input,
           threadId: canonicalThreadId,
           runId: canonicalRunId,
-          messages: args.agent.messages,
-          state: args.agent.state,
-          tools: [...args.tools],
-          context: [...args.context],
-          forwardedProps: undefined,
         },
         persistedInputMessages: args.persistedInputMessages,
       });
@@ -1097,6 +1129,7 @@ export class ChannelManager implements ChannelsControl {
   private readonly activateChannel: ActivateChannelEngine;
   private readonly mintRuntimeInstanceId: () => string;
   private readonly log?: (msg: string, meta?: unknown) => void;
+  private readonly telemetry: TelemetryCapture;
   private readonly stopHandleTimeoutMs: number;
   private readonly reconnectLogIntervalMs: number;
 
@@ -1114,6 +1147,7 @@ export class ChannelManager implements ChannelsControl {
     this.lockKeyPrefix = args.lockKeyPrefix;
     this.channels = args.channels;
     this.log = args.log;
+    this.telemetry = args.telemetry ?? telemetry;
     // When using the default engine, forward the manager's log DOWN to the
     // launcher/transport (via defaultActivateChannel's log param) so a
     // transport-level drop is observable in the managed path. `this.log` is read
@@ -1671,7 +1705,7 @@ export class ChannelManager implements ChannelsControl {
       | "oss.runtime.channel_session_recovered",
   >(event: K, props: AnalyticsEvents[K]): void {
     try {
-      void telemetry.capture(event, props).catch(() => {});
+      void this.telemetry.capture(event, props).catch(() => {});
     } catch {
       // Swallow — a telemetry transport must not take the session with it.
     }

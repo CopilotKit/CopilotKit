@@ -865,7 +865,6 @@ export default function Page() {
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
       useSingleEndpoint={false}
-      showDevConsole="auto"
       renderActivityMessages={activityRenderers}
     >
       <div className={`${styles.layout} threadsLayout`}>

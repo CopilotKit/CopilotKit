@@ -15,7 +15,7 @@ import { HttpAgent } from "@ag-ui/client";
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 function createAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/` });
+  return new HttpAgent({ url: `${AGENT_URL}/chat` });
 }
 
 const agents: Record<string, AbstractAgent> = {

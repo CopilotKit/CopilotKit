@@ -13,7 +13,7 @@
  * rendering) is platform-agnostic and shared verbatim.
  *
  * RUN MODEL — a Channel runs ONLY through the Intelligence runtime, so this
- * example needs an Intelligence key (free tier: `INTELLIGENCE_API_KEY`; the
+ * example needs an Intelligence key (free tier: `CPK_INTELLIGENCE_API_KEY`; the
  * platform URLs default to the managed service). The platform adapters stay DIRECT (they keep their own
  * Slack/Discord/Telegram/WhatsApp credentials + transports); the runtime OWNS
  * the Channel's lifecycle and STARTS all of its direct adapters for us. So all
@@ -76,26 +76,26 @@ const required = (name: string): string => {
 /**
  * Resolves the Intelligence project key.
  *
- * `INTELLIGENCE_API_KEY` is the name `copilotkit project select` provisions and
+ * `CPK_INTELLIGENCE_API_KEY` is the name `copilotkit project select` provisions and
  * the name every other CopilotKit surface documents. `COPILOTKIT_API_KEY` is a
  * deprecated alias, still read so an existing `.env` keeps working.
  */
 const requiredIntelligenceKey = (): string => {
   const key =
-    process.env.INTELLIGENCE_API_KEY ?? process.env.COPILOTKIT_API_KEY;
+    process.env.CPK_INTELLIGENCE_API_KEY ?? process.env.COPILOTKIT_API_KEY;
   if (!key) {
     console.error(
-      "Missing required env var: INTELLIGENCE_API_KEY\n" +
+      "Missing required env var: CPK_INTELLIGENCE_API_KEY\n" +
         "Channels run only through the Intelligence runtime, which needs an " +
         "Intelligence key (free tier).\n" +
         "  Run `copilotkit project select` to provision one, or set it manually.\n" +
-        "No URLs to set: the SDK defaults to the managed Intelligence platform.",
+        "No URLs to set: the SDK defaults to cloud-hosted CopilotKit Intelligence.",
     );
     process.exit(1);
   }
-  if (!process.env.INTELLIGENCE_API_KEY) {
+  if (!process.env.CPK_INTELLIGENCE_API_KEY) {
     console.warn(
-      "COPILOTKIT_API_KEY is a deprecated alias; rename it to INTELLIGENCE_API_KEY.",
+      "COPILOTKIT_API_KEY is a deprecated alias; rename it to CPK_INTELLIGENCE_API_KEY.",
     );
   }
   return key;
@@ -304,7 +304,7 @@ async function main() {
   // The Intelligence client the Channel-owning runtime is configured with. A
   // Channel runs only through the Intelligence runtime — the direct adapters
   // keep their own platform credentials, but the runtime is what starts them.
-  // apiUrl/wsUrl default to CopilotKit's managed Intelligence platform; the env
+  // apiUrl/wsUrl default to cloud-hosted CopilotKit Intelligence; the env
   // overrides target a self-hosted or dev deployment. Set both or neither: the
   // API and realtime planes are separate hosts (api.… vs realtime.…), so
   // neither can be derived from the other.

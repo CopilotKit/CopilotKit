@@ -23,7 +23,7 @@ From this directory (after `pnpm install` at the repo root):
 
 ```sh
 export OPENAI_API_KEY=sk-...              # or add it to .env (see .env.example)
-export INTELLIGENCE_API_KEY=cpk-...          # Intelligence key (free tier)
+export CPK_INTELLIGENCE_API_KEY=cpk-...          # Intelligence key (free tier)
 pnpm start                                 # starts the bot on http://localhost:3978/api/messages
 ```
 
@@ -169,17 +169,23 @@ which the bot listens on for `/api/messages`.
 > **Copying this example out of the monorepo?** Replace the `workspace:*` range
 > for `@copilotkit/channels` with version `0.2.0` or later (for example,
 > `@copilotkit/channels: ^0.2.0`), retain the `@copilotkit/runtime` dependency,
-> and import the Teams APIs from `@copilotkit/channels/teams`.
+> and import the Teams APIs from `@copilotkit/channels/teams`. Keep the two
+> `@microsoft/agents-*` dependencies too: `@copilotkit/channels` declares them
+> as **optional** peer dependencies, so a package manager does not install them
+> for you. The self-hosted Teams adapter requires them, and without them the bot
+> fails at import with `Cannot find package '@microsoft/agents-hosting'`. This
+> bot serves `/api/messages` from its own `node:http` server rather than the
+> adapter's `createTeamsServer`, so it does not need `express`.
 
 Set the environment for wherever you deploy:
 
 - `OPENAI_API_KEY` _(required)_: the bot runs a `BuiltInAgent` and exits at
   startup without it.
 - `OPENAI_MODEL` _(optional)_: defaults to `openai/gpt-5.5`.
-- `INTELLIGENCE_API_KEY` _(required)_: the Intelligence runtime that owns the
+- `CPK_INTELLIGENCE_API_KEY` _(required)_: the Intelligence runtime that owns the
   Channel lifecycle. A Channel runs only through Intelligence, so the bot exits
   at startup without it (free tier is enough). No URLs to configure — the SDK
-  defaults to the managed Intelligence platform. `COPILOTKIT_API_KEY` is a
+  defaults to cloud-hosted CopilotKit Intelligence. `COPILOTKIT_API_KEY` is a
   deprecated alias, still read as a fallback.
 - `COPILOTKIT_INTELLIGENCE_URL` / `COPILOTKIT_INTELLIGENCE_WS_URL` _(optional)_:
   point the bot at a self-hosted or dev Intelligence deployment. Set **both or
