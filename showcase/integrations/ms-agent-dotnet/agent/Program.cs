@@ -74,7 +74,7 @@ app.MapAGUI("/tool-rendering-reasoning-chain", d5ParityFactory.CreateToolRenderi
 var interruptAgentFactory = new InterruptAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
 app.MapAGUI("/interrupt-adapted", interruptAgentFactory.CreateInterruptAgent());
 
-// Multimodal demo agent (vision-capable gpt-4o-mini, no tools).
+// Multimodal demo agent (vision-capable gpt-5-mini, no tools).
 // The Microsoft AG-UI ASP.NET adapter currently rejects AG-UI content arrays
 // before the agent can see image/document parts, so this one endpoint parses
 // the request body directly and emits the small AG-UI SSE event subset the
@@ -435,7 +435,7 @@ public class SalesAgentFactory
 
     public AIAgent CreateSalesAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
 
         var chatClientAgent = new ChatClientAgent(
             chatClient,
@@ -462,7 +462,7 @@ public class SalesAgentFactory
     public AIAgent CreateMultimodalAgent() => MultimodalAgentFactory.Create(_openAiClient);
 
     public IChatClient CreateMultimodalChatClient() =>
-        _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
 
     // Factory method for the Beautiful Chat flagship demo. Holds its own
     // per-factory tool surface + in-memory todo store so it doesn't
@@ -482,7 +482,7 @@ public class SalesAgentFactory
     // directives read from AG-UI shared state steer the inner model per-turn.
     public AIAgent CreateAgentConfigAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
         var inner = new ChatClientAgent(
             chatClient,
             name: "AgentConfigInner",
@@ -497,7 +497,7 @@ public class SalesAgentFactory
     // surfaces reasoning-chain events.
     public AIAgent CreateReasoningAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
         return ReasoningAgentFactory.Create(chatClient, _loggerFactory);
     }
 

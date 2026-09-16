@@ -58,7 +58,7 @@ def generate_a2ui() -> str:
 agent = ConversableAgent(
     name="declarative_gen_ui_assistant",
     system_message=SYSTEM_PROMPT,
-    llm_config=LLMConfig({"model": "gpt-4o-mini", "stream": True}),
+    llm_config=LLMConfig({"model": "gpt-5-mini", "stream": True}),
     human_input_mode="NEVER",
     max_consecutive_auto_reply=8,
     functions=[generate_a2ui],

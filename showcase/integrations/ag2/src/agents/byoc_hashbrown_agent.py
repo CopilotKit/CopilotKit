@@ -86,7 +86,7 @@ byoc_hashbrown_agent = ConversableAgent(
     system_message=BYOC_HASHBROWN_SYSTEM_PROMPT,
     llm_config=LLMConfig(
         {
-            "model": "gpt-4o-mini",
+            "model": "gpt-5-mini",
             "stream": True,
             "response_format": {"type": "json_object"},
         }

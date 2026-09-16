@@ -670,7 +670,7 @@ public sealed class SharedStateReadWriteAgentFactory
 
     public AIAgent CreateAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
 
         // The tool closes over `_store`; this is intentional — each tool
         // invocation must update the same per-thread slot the wrapping
