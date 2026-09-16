@@ -159,6 +159,7 @@ function DocsOverview() {
             <IntelligenceOnboardingPrompt
               feature="learning"
               surface="docs_landing_learning"
+              showPrompt={false}
             />
           </div>
           <LandingSampleTabs />

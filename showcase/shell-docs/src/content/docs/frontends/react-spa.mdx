@@ -11,6 +11,12 @@ The rest of these docs are the React docs. [Frontend tools](/frontend-tools), [g
 
 Exactly one instruction does not carry over: **where Copilot Runtime lives.** The quickstarts assume Next.js serves your app and the runtime from one origin, so they use a relative `runtimeUrl` of `/api/copilotkit`. A single-page app has no server and no shared origin, so that path resolves to nothing. This page covers that one difference and sends you back to the pages above for everything else.
 
+## Start with your coding agent
+
+Use this prompt to connect your React single-page app to a separately hosted Copilot Runtime and verify a working conversation. You can also follow the manual steps below.
+
+<PageAgentPrompt />
+
 ## Prerequisites
 
 - An OpenAI API key (or another model provider supported by [Model Selection](/model-selection))
