@@ -4,6 +4,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PartnerFeatureExplorer } from "../partner-feature-explorer";
 
 beforeEach(() => {
+  // Embla measures layout; jsdom otherwise reports every slide as zero-width.
+  vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(
+    function () {
+      return this.classList.contains("partner-feature-item") ? 200 : 300;
+    },
+  );
+  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(44);
+  vi.spyOn(HTMLElement.prototype, "offsetLeft", "get").mockImplementation(
+    function () {
+      return this.classList.contains("partner-feature-item")
+        ? Array.from(this.parentElement!.children).indexOf(this) * 200
+        : 0;
+    },
+  );
   vi.stubGlobal(
     "matchMedia",
     vi.fn(() => ({
@@ -23,6 +37,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 describe("partner feature explorer", () => {
   it("loads only the selected partner demo and switches to product walkthroughs", () => {
