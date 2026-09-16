@@ -11,15 +11,18 @@ const annotationsSchema = looseObject({
   lastModified: z.string().optional(),
 });
 
-const base64Schema = z
-  .string()
-  .refine(
-    (value) =>
-      value.length % 4 === 0 &&
-      /^[A-Za-z0-9+/]*={0,2}$/.test(value) &&
-      !/=/.test(value.slice(0, -2)),
-    "Expected base64-encoded data",
-  );
+// Validated by decoding, mirroring the MCP SDK's own base64 check, rather than
+// by pattern. The pattern this replaces additionally required canonical padding,
+// which the SDK does not: it accepts an unpadded payload that we rejected. Since
+// one bad block fails the whole content array, that cost the entire widget.
+const base64Schema = z.string().refine((value) => {
+  try {
+    atob(value);
+    return true;
+  } catch {
+    return false;
+  }
+}, "Expected base64-encoded data");
 
 const resourceContentsSchema = z.union([
   looseObject({

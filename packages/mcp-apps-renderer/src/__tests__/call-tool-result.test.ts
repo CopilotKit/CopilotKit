@@ -47,13 +47,35 @@ describe("CallToolResult contract", () => {
     expect(parsed.result.content).toEqual([]);
     expect(CallToolResultSchema.safeParse(parsed.result).success).toBe(true);
   });
+  // Base64 is validated by decoding, like the SDK, so these agree by
+  // construction. Pinned because the pattern this replaced rejected unpadded
+  // payloads the SDK accepts, and one bad block fails the whole content array -
+  // costing the widget for data the reference implementation reads fine.
+  it.each([
+    { label: "unpadded", data: "aW1hZ2U" },
+    { label: "padded", data: "aW1hZ2U=" },
+    { label: "base64url alphabet", data: "a-_9aW1h" },
+    { label: "not base64 at all", data: "not base64!" },
+  ])("agrees with the SDK on $label base64", ({ data }) => {
+    const result = {
+      content: [{ type: "image", data, mimeType: "image/png" }],
+    };
+    const ours = MCPAppsActivityContentSchema.safeParse({
+      ...base,
+      result,
+    }).success;
+    expect(ours).toBe(CallToolResultSchema.safeParse(result).success);
+  });
+
   it.each([
     { content: "text" },
     { content: [{ type: "text" }] },
     {
       content: [{ type: "image", data: "not base64!", mimeType: "image/png" }],
     },
-    { content: [{ type: "audio", data: "abc", mimeType: "audio/wav" }] },
+    // "a" cannot be a base64 payload: a 4-character group never decodes from a
+    // single character. ("abc" would be fine - unpadded, but decodable.)
+    { content: [{ type: "audio", data: "a", mimeType: "audio/wav" }] },
     { content: [{ type: "resource", resource: { uri: "ui://empty" } }] },
     { content: [{ type: "resource_link", uri: "ui://link" }] },
     { content: [{ type: "unknown" }] },
