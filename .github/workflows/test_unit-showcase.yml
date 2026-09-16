@@ -18,8 +18,9 @@
 # its 116-file suite was invisible for the same reason as the others, plus a
 # second one — it is outside the pnpm workspace and has no project.json, so nx
 # cannot select it even by name. The `docs` job below closes that gap. Wiring
-# it up found the suite already red with eight failures in four files; four
-# further failures in the same sweep were test rot and were fixed outright.
+# it up found the suite already red with twelve failures in six files. Five
+# were test rot and were fixed outright; the remaining seven, in three files,
+# are real content defects.
 # See showcase/shell-docs/vitest.quarantine.json.
 #
 # `test_unit.yml` — the workflow whose name implies it covers this — carries
@@ -346,7 +347,7 @@ jobs:
         # design and has no project.json, so there is no target to run.
         #
         # `vitest.ci.config.ts` is `vitest.config.ts` plus the exclusions in
-        # `vitest.quarantine.json`. That manifest names four files that are
+        # `vitest.quarantine.json`. That manifest names three files that are
         # already red on `origin/main` — real content defects, each with a
         # reason and an exit criterion — so this gate is green on arrival and
         # survives contact with a busy check list.

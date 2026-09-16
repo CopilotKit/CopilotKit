@@ -4,17 +4,17 @@
     "",
     "WHY THIS FILE EXISTS. Until the shell-docs job landed in",
     "`test / unit-showcase`, NO CI job ran this package's 116-file vitest",
-    "suite — `test_unit-showcase.yml` covered `harness` and `shell-dashboard`",
+    "suite \u2014 `test_unit-showcase.yml` covered `harness` and `shell-dashboard`",
     "only, and shell-docs is outside the pnpm workspace so nx cannot select it",
     "either. Wiring it up found the suite already RED on `origin/main` with",
-    "eight failures in four files. A newly added job that is red on arrival",
-    "gets ignored or deleted, so those four files are quarantined HERE —",
-    "explicitly, in source, with a reason and an exit criterion — instead of",
+    "twelve failures in six files. A newly added job that is red on arrival",
+    "gets ignored or deleted, so the three files below are quarantined HERE \u2014",
+    "explicitly, in source, with a reason and an exit criterion \u2014 instead of",
     "being deleted or weakened.",
     "",
-    "EVERY ENTRY BELOW IS A REAL DEFECT, not a stale assertion. Four other",
-    "failures found in the same sweep were genuine test rot and were FIXED",
-    "rather than quarantined; these four describe content that is actually",
+    "EVERY ENTRY BELOW IS A REAL DEFECT, not a stale assertion. Five other",
+    "failures in the same sweep were genuine test rot and were FIXED",
+    "rather than quarantined; these three describe content that is actually",
     "wrong or missing, and each needs an owner who knows the subject.",
     "",
     "THIS IS NOT A HOLE IN THE GATE. `scripts/quarantine-ratchet.ts` runs the",
@@ -30,20 +30,14 @@
     {
       "file": "src/lib/__tests__/angular-docs-content.test.ts",
       "since": "2026-09-16",
-      "reason": "Five failures, all real Angular-surface defects rather than assertion rot. (1) Published Angular pages still match /\\bReact\\b/ — e.g. a Copilot Runtime guide link rendered in React prose. (2) `human-in-the-loop/governed-actions` has no published Angular destination, so a React nav entry maps to nothing. (3) `server-tools` names the React hooks `useFrontendTool` and `useRenderTool` on the Angular surface. (4) `built-in-agent/quickstart` links out to `/react-spa` from inside Angular context. (5) `built-in-agent/server-tools` carries the same React hook names. The test is doing its job; the Angular docs have gaps.",
-      "unquarantineWhen": "The Angular surface stops leaking React identifiers and links, and `human-in-the-loop/governed-actions` gains a published Angular page (or is removed from the React nav map). Needs the Angular docs owner — the fix is content, not the assertion."
+      "reason": "Five failures, all real Angular-surface defects rather than assertion rot. (1) Published Angular pages still match /\\bReact\\b/ \u2014 e.g. a Copilot Runtime guide link rendered in React prose. (2) `human-in-the-loop/governed-actions` has no published Angular destination, so a React nav entry maps to nothing. (3) `server-tools` names the React hooks `useFrontendTool` and `useRenderTool` on the Angular surface. (4) `built-in-agent/quickstart` links out to `/react-spa` from inside Angular context. (5) `built-in-agent/server-tools` carries the same React hook names. The test is doing its job; the Angular docs have gaps.",
+      "unquarantineWhen": "The Angular surface stops leaking React identifiers and links, and `human-in-the-loop/governed-actions` gains a published Angular page (or is removed from the React nav map). Needs the Angular docs owner \u2014 the fix is content, not the assertion."
     },
     {
       "file": "src/lib/__tests__/llm-text.test.ts",
       "since": "2026-09-16",
       "reason": "One failure: the mastra `tool-rendering` example is not dependency-complete. `showcase/integrations/mastra/src/mastra/tools/index.ts` opens `@region[weather-tool-backend]` at line 36, AFTER its imports, so the published snippet uses `createTool` without ever showing `import { createTool } from \"@mastra/core/tools\";`. Every other integration marks the region from its imports (google-adk and langgraph-python both pass this test). A reader copying the mastra example gets code that does not compile.",
-      "unquarantineWhen": "The mastra region includes its imports — either by moving the marker above them, or by adding a second `@region[weather-tool-backend]` block around lines 1-2 (the extractor stores an array per region name, so repeated blocks are supported). Touches showcase integration source, which also feeds Docker builds and Playwright e2e, so it wants its own PR."
-    },
-    {
-      "file": "src/lib/__tests__/managed-runtime-docs.test.ts",
-      "since": "2026-09-16",
-      "reason": "One failure: the telemetry documentation does not state 'Runtime sends identified events without sampling'. The sampling behaviour changed under OSS-1017/18/19 and again in #7177 (unsample anonymous runtime telemetry, emit each event once), and the docs were not updated to match. The test encodes the intended post-change contract; the prose still describes the old one.",
-      "unquarantineWhen": "The telemetry doc describes the current identity-precedence and sampling behaviour. Needs whoever owns the #7177 telemetry change to confirm which description is now correct before the prose is rewritten."
+      "unquarantineWhen": "The mastra region includes its imports \u2014 either by moving the marker above them, or by adding a second `@region[weather-tool-backend]` block around lines 1-2 (the extractor stores an array per region name, so repeated blocks are supported). Touches showcase integration source, which also feeds Docker builds and Playwright e2e, so it wants its own PR."
     },
     {
       "file": "src/lib/__tests__/ms-agent-python-stable-api.test.ts",
