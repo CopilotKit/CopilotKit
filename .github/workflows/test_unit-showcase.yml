@@ -284,6 +284,13 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+          # REQUIRED for this job, unlike the two above. `.gitattributes` puts
+          # *.png/jpg/gif/pdf in Git LFS, and four test files read those bytes
+          # directly — `public-assets.test.ts` asserts the PNG magic number.
+          # Without LFS the checkout leaves pointer files, so the assertion sees
+          # `118 101 114 115` ("vers", the start of the pointer's `version`
+          # line) instead of `137 80 78 71`. ~15M under shell-docs/public.
+          lfs: true
 
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
