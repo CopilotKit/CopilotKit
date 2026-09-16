@@ -140,6 +140,50 @@ describe("Catalog Generator", () => {
     }
   });
 
+  // PE-110. THE regression guard: regenerate twice from input nobody touched
+  // and require the two emissions to be byte-identical.
+  //
+  // Before the fix, `generateCatalog` read `new Date()` for
+  // `metadata.generated_at`, so six consecutive regenerations from pristine
+  // `origin/main` produced six different hashes. The cost was not the diff
+  // noise — `catalog.json` is gitignored — it was that the artifact could not
+  // be used as EVIDENCE: a reviewer could never conclude from an unchanged
+  // catalog that a change had left the matrix alone.
+  //
+  // Bytes, not a parsed deep-equal: JSON.parse would hide key-order drift,
+  // which is the other classic nondeterminism in a generated file.
+  it("regenerating from unchanged input is byte-identical", () => {
+    const outputDirs = [
+      path.resolve(SCRIPTS_DIR, "..", "shell", "src", "data"),
+      path.resolve(SCRIPTS_DIR, "..", "shell-docs", "src", "data"),
+      path.resolve(SCRIPTS_DIR, "..", "shell-dojo", "src", "data"),
+      path.resolve(SCRIPTS_DIR, "..", "shell-dashboard", "src", "data"),
+    ];
+    const readAll = () =>
+      Object.fromEntries(
+        outputDirs.map((dir) => [
+          dir,
+          fs.readFileSync(path.join(dir, "catalog.json")),
+        ]),
+      );
+
+    runGenerator();
+    const first = readAll();
+
+    runGenerator();
+    const second = readAll();
+
+    for (const dir of outputDirs) {
+      expect(
+        second[dir].equals(first[dir]),
+        `catalog.json in ${dir} changed between two regenerations from ` +
+          `unchanged input. First run:\n` +
+          `${first[dir].toString("utf-8").slice(0, 400)}\n` +
+          `Second run:\n${second[dir].toString("utf-8").slice(0, 400)}`,
+      ).toBe(true);
+    }
+  });
+
   it("cross-join produces 1050 cells (50 features x 21 integrations); metadata.total_cells excludes docs-only", () => {
     runGenerator();
     const catalog = readCatalog();
@@ -416,15 +460,27 @@ describe("Catalog Generator", () => {
     }
   });
 
-  it("metadata.generated_at timestamp is present and recent", () => {
+  it("metadata.generated_at is a valid ISO-8601 instant", () => {
     runGenerator();
     const catalog = readCatalog();
 
     expect(catalog.metadata.generated_at).toBeDefined();
     const genTime = new Date(catalog.metadata.generated_at).getTime();
-    const now = Date.now();
-    // Should be within the last 60 seconds
-    expect(now - genTime).toBeLessThan(60000);
+    expect(Number.isNaN(genTime)).toBe(false);
+    // Round-trips: the emitted string is already normalized ISO-8601 UTC, so
+    // re-serializing it is a no-op. This is what lets the stamp be compared
+    // byte-for-byte across regenerations.
+    expect(new Date(genTime).toISOString()).toBe(catalog.metadata.generated_at);
+  });
+
+  // PE-110. The stamp is derived from the INPUT (SOURCE_DATE_EPOCH, else the
+  // HEAD commit date), never from the wall clock — pinning the input pins the
+  // output exactly.
+  it("metadata.generated_at is derived from SOURCE_DATE_EPOCH when set", () => {
+    runGenerator({ SOURCE_DATE_EPOCH: "1234567890" });
+    const catalog = readCatalog();
+
+    expect(catalog.metadata.generated_at).toBe("2009-02-13T23:31:30.000Z");
   });
 
   it("integrated cells have human-readable display names from registries", () => {
