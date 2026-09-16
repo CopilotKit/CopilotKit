@@ -130,6 +130,7 @@ function emptyHealthResult(
     reclaimedOverlays: [],
     restartsAttempted: 0,
     gcDeleted: 0,
+    pidSaturated: [],
     ...over,
   };
 }

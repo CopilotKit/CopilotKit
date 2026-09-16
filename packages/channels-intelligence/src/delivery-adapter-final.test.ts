@@ -202,12 +202,12 @@ describe("DeliveryAdapter Slack cadence", () => {
       [
         expect.any(String),
         { kind: "slack.thread.status", status: "is thinking…" },
-        { charge: false },
+        { charge: false, bestEffort: true },
       ],
       [
         expect.any(String),
         { kind: "slack.thread.status", status: "" },
-        { charge: false },
+        { charge: false, bestEffort: true },
       ],
     ]);
   });

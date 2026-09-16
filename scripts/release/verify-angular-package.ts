@@ -13,6 +13,7 @@ import {
   createAngularConsumerManifest,
   createAngularConsumerSources,
   findPackageResolutions,
+  readAgUiClientDependency,
   readAngularSupportContract,
   validateAngularPackageManifest,
 } from "./lib/angular-package.js";
@@ -143,12 +144,14 @@ function main(): void {
     siblingTarballs.delete(ANGULAR_PACKAGE);
 
     const support = readAngularSupportContract(packedManifest);
+    const agUiClient = readAgUiClientDependency(packedManifest);
     for (const entry of support.supportedMajors) {
       const consumerDir = join(temp, `angular-${entry.major}`);
       mkdirSync(consumerDir);
       writeConsumer(
         consumerDir,
         createAngularConsumerManifest({
+          agUiClient,
           angularTarball,
           packageManager,
           siblingTarballs,

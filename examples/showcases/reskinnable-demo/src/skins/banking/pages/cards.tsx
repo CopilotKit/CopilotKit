@@ -129,7 +129,7 @@ export default function Page() {
         .string()
         .describe("The pin code of the card (set by user), 4 digits"),
     }),
-    render: ({ args, respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       const { type, color, pin } = args;
 
       if (status === "inProgress") {
@@ -181,6 +181,7 @@ export default function Page() {
             </div>
           </div>
           <ApprovalButtons
+            resolved={status === "complete" || !!result}
             onApprove={async () => {
               await addNewCard({ type, color, pin } as NewCardRequest);
               respond?.("Card created successfully");
@@ -205,7 +206,7 @@ export default function Page() {
           .describe("The card (from existing) to assign policy to"),
         policyType: z.string().describe("The type of the policy to use"),
       }),
-      render: ({ args, respond, status }) => {
+      render: ({ args, respond, status, result }) => {
         const { cardId, policyType } = args;
 
         if (status === "inProgress") {
@@ -234,6 +235,7 @@ export default function Page() {
               </p>
             </div>
             <ApprovalButtons
+              resolved={status === "complete" || !!result}
               onApprove={async () => {
                 const policyId = policy?.id;
                 if (!cardId || !policyId) {

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { ChatSurface } from "@/skins/keel/components/chat-surface";
 import type { Playbook } from "@/skins/keel/data/types";
+import { useKeelHref } from "@/skins/keel/href";
 
 /**
  * The `showPlaybook` chat surface: a process at a glance before it is started.
@@ -11,6 +12,7 @@ import type { Playbook } from "@/skins/keel/data/types";
  * approval marker that --brand-violet supplies in this skin.
  */
 export function PlaybookCard({ playbook }: { playbook: Playbook }) {
+  const keelHref = useKeelHref();
   const gateCount = playbook.steps.filter((s) => s.requiresApproval).length;
 
   return (
@@ -54,7 +56,7 @@ export function PlaybookCard({ playbook }: { playbook: Playbook }) {
                 <span>{step.role}</span>
                 {step.policyRef && (
                   <Link
-                    href={`/keel/knowledge/${step.policyRef.docId}#${step.policyRef.sectionId}`}
+                    href={`${keelHref(`knowledge/${step.policyRef.docId}`)}#${step.policyRef.sectionId}`}
                     className="font-mono text-brand underline-offset-2 hover:underline"
                   >
                     {step.policyRef.ref} §{step.policyRef.sectionId}

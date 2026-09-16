@@ -8,11 +8,11 @@ streaming, opaque-id interactions, and HITL.
 You write your UI as JSX once (`@copilotkit/channels-ui`) and drive the bot with
 `@copilotkit/channels`; this package is the only one that talks to Discord.
 
-The adapter keeps its own Discord credentials (`botToken` / `appId` / …) — but
-the Channel itself only runs inside a CopilotKit Intelligence-configured
-`CopilotRuntime` (an API key; a free tier is available). There is no
-standalone / DIY runner and no `channel.start()`; the runtime starts and owns
-the channel because Intelligence is configured.
+The adapter keeps its own Discord credentials (`botToken` / `appId` / …) — in
+the managed path the Channel runs inside a CopilotKit Intelligence-configured
+`CopilotRuntime` (free plan available), which starts and owns the channel's
+lifecycle. Building and operating your own channel runner on the SDK primitives
+is also a supported path.
 
 ## Install
 
@@ -61,9 +61,9 @@ bot.onMention(({ thread }) => thread.runAgent());
 // The runtime owns the channel's lifecycle — there is no `bot.start()`.
 const runtime = new CopilotRuntime({
   intelligence: new CopilotKitIntelligence({
-    // apiUrl and wsUrl default to the managed Intelligence platform — override
+    // apiUrl and wsUrl default to cloud-hosted CopilotKit Intelligence — override
     // both together only for a self-hosted deployment.
-    apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
+    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!, // free tier available
   }),
   channels: [bot],
 });

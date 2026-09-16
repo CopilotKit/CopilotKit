@@ -9,8 +9,10 @@ import type {
 } from "@ag-ui/client";
 import type {
   AgentContentPart,
+  ApplicationUser,
   ChannelNode,
   EmojiValue,
+  EphemeralResult,
   MessageRef,
   ProviderActor,
   ThreadMessage,
@@ -103,6 +105,8 @@ export interface CanonicalChannelRunArgs {
   threadId: string;
   runId: string;
   userId: string;
+  /** Canonical application user when the Channel identity strategy resolved one. */
+  user?: ApplicationUser | null;
   memory?: ResolvedChannelMemory;
   agentId: string;
   tools: readonly AgentToolDescriptor[];
@@ -147,7 +151,7 @@ export class DeliveryAdapter implements PlatformAdapter {
     supportsReactions: true,
     supportsStreaming: true,
     supportsBlockingChoice: false,
-    supportsEphemeral: false,
+    supportsEphemeral: true,
   };
   readonly conversationStore: ConversationStore = {
     seedsInboundTurn: true,
@@ -303,6 +307,51 @@ export class DeliveryAdapter implements PlatformAdapter {
     emoji: EmojiValue,
   ): Promise<{ ok: boolean; error?: string }> {
     return this.applyReaction(targetValue, messageRefValue, emoji, "remove");
+  }
+
+  /**
+   * A message only one person sees, on the managed path (Slack only).
+   *
+   * The delivery boundary posts to the turn's own fenced recipient and rejects
+   * the effect when the asserted user disagrees with it, so this cannot deliver
+   * to whoever the caller names — it can only confirm who the caller meant.
+   * Which is why a request for anybody other than this turn's actor is refused
+   * here rather than sent: the boundary would refuse it anyway, and doing it
+   * locally says which user was expected.
+   *
+   * Never falls back to a DM: the managed path has no DM route, and the caller
+   * asked for `fallbackToDM` only as a courtesy. `usedFallback` stays false.
+   */
+  async postEphemeral(
+    targetValue: ReplyTarget,
+    user: ProviderActor | string,
+    ir: ChannelNode[],
+  ): Promise<EphemeralResult | null> {
+    const target = asDeliveryTarget(targetValue);
+    if (target.delivery.adapter !== "slack") return null;
+    const requested = typeof user === "string" ? user : user.id;
+    const recipient = target.delivery.turn.actor?.externalUserId;
+    if (!recipient) {
+      return { ok: false, error: "This turn has no identified recipient" };
+    }
+    if (requested !== recipient) {
+      return {
+        ok: false,
+        error: `A managed ephemeral message reaches only this turn's own recipient (${recipient})`,
+      };
+    }
+    target.claimedDelivery.expectProviderOutput?.();
+    assertProviderElements(ir, "slack");
+    const rendered = renderSlackMessage(ir);
+    await target.claimedDelivery.effect(mintId("ephemeral_"), {
+      kind: "slack.message.ephemeral",
+      user: recipient,
+      text: slackFallbackText(ir),
+      blocks: rendered.blocks as unknown as Array<Record<string, unknown>>,
+    });
+    // No ref: Slack returns `message_ts` for an ephemeral post, which no API
+    // accepts back, so there is nothing to update or delete later.
+    return { ok: true, usedFallback: false };
   }
 
   private async applyReaction(
@@ -485,6 +534,7 @@ export class DeliveryAdapter implements PlatformAdapter {
       threadId,
       runId,
       userId: target.delivery.appUserId,
+      user: args.user ?? null,
       memory: args.memory,
       agentId: this.options.channelName,
       tools: args.tools,
@@ -574,6 +624,7 @@ export class DeliveryAdapter implements PlatformAdapter {
     let providerReference: string | undefined;
     let providerMessageId: string | undefined;
     if (target.delivery.adapter === "slack") {
+      let legacy = false;
       let bodyError: unknown;
       let bodyFailed = false;
       let streamStarted = false;
@@ -582,17 +633,49 @@ export class DeliveryAdapter implements PlatformAdapter {
         for await (const delta of chunks) {
           if (delta.length === 0) continue;
           fullText += delta;
+          if (legacy) {
+            const result = providerReference
+              ? await target.claimedDelivery.effect(responseId, {
+                  kind: "slack.message.replace",
+                  providerReference,
+                  text: fullText,
+                })
+              : await target.claimedDelivery.effect(responseId, {
+                  kind: "slack.message.create",
+                  text: fullText,
+                });
+            if (!providerReference) {
+              ({ providerReference, providerMessageId } =
+                providerMessageResultFromResult(result));
+            }
+            continue;
+          }
           if (!streamStarted) {
-            const startResult = await target.claimedDelivery.effect(
-              responseId,
-              {
-                kind: "slack.stream.start",
-                initialText: delta,
-              },
-            );
-            streamStarted = true;
-            ({ providerReference, providerMessageId } =
-              providerMessageResultFromResult(startResult));
+            try {
+              const startResult = await target.claimedDelivery.effect(
+                responseId,
+                {
+                  kind: "slack.stream.start",
+                  initialText: delta,
+                },
+                { bestEffort: true },
+              );
+              // A gateway capability drop settles as applied without a
+              // provider reference; the parse throw takes the legacy path.
+              ({ providerReference, providerMessageId } =
+                providerMessageResultFromResult(startResult));
+              streamStarted = true;
+            } catch {
+              // A start-only failure is recoverable because no native stream
+              // exists yet. The legacy create below remains a hard failure.
+              legacy = true;
+              const result = await target.claimedDelivery.effect(responseId, {
+                kind: "slack.message.create",
+                text: fullText,
+              });
+              ({ providerReference, providerMessageId } =
+                providerMessageResultFromResult(result));
+            }
             continue;
           }
           assertProviderReference(providerReference);
@@ -606,13 +689,21 @@ export class DeliveryAdapter implements PlatformAdapter {
             ),
           );
         }
-        if (!streamStarted) {
-          const startResult = await target.claimedDelivery.effect(responseId, {
-            kind: "slack.stream.start",
-          });
-          streamStarted = true;
-          ({ providerReference, providerMessageId } =
-            providerMessageResultFromResult(startResult));
+        if (!streamStarted && !legacy) {
+          try {
+            const startResult = await target.claimedDelivery.effect(
+              responseId,
+              { kind: "slack.stream.start" },
+              { bestEffort: true },
+            );
+            ({ providerReference, providerMessageId } =
+              providerMessageResultFromResult(startResult));
+            streamStarted = true;
+          } catch {
+            // An empty start has no native output to preserve. The final
+            // message-create path below remains a hard failure.
+            legacy = true;
+          }
         }
       } catch (error) {
         bodyFailed = true;
@@ -904,6 +995,7 @@ export class DeliveryAdapter implements PlatformAdapter {
   ): RunRenderer {
     let providerReference: string | undefined;
     let fullText = "";
+    const legacyProviderReferences = new Map<string, string>();
     return createSlackRunRenderer({
       target: { channel: "managed", threadTs: "managed" },
       showToolStatus: this.options.showToolStatus ?? false,
@@ -917,23 +1009,28 @@ export class DeliveryAdapter implements PlatformAdapter {
               status,
               ...(loadingMessages !== undefined ? { loadingMessages } : {}),
             },
-            { charge: false },
+            { charge: false, bestEffort: true },
           );
         },
         postMessage: async ({ text: message }) => {
-          providerReference = providerReferenceFromResult(
-            await claimedDelivery.effect(responseId, {
-              kind: "slack.message.create",
-              text: message,
-            }),
+          const localMessageId = mintId("slack_legacy_");
+          legacyProviderReferences.set(
+            localMessageId,
+            providerReferenceFromResult(
+              await claimedDelivery.effect(responseId, {
+                kind: "slack.message.create",
+                text: message,
+              }),
+            ),
           );
-          return { ts: responseId };
+          return { ts: localMessageId };
         },
-        updateMessage: async ({ text: message }) => {
-          assertProviderReference(providerReference);
+        updateMessage: async ({ ts, text: message }) => {
+          const legacyProviderReference = legacyProviderReferences.get(ts);
+          assertProviderReference(legacyProviderReference);
           await claimedDelivery.effect(responseId, {
             kind: "slack.message.replace",
-            providerReference,
+            providerReference: legacyProviderReference,
             text: message,
           });
         },
@@ -948,19 +1045,22 @@ export class DeliveryAdapter implements PlatformAdapter {
           startStream: async () => {
             fullText = "";
             providerReference = providerReferenceFromResult(
-              await claimedDelivery.effect(responseId, {
-                kind: "slack.stream.start",
-              }),
+              await claimedDelivery.effect(
+                responseId,
+                { kind: "slack.stream.start" },
+                { bestEffort: true },
+              ),
             );
             return responseId;
           },
           startStreamWithText: async (initialText) => {
             fullText = initialText;
             providerReference = providerReferenceFromResult(
-              await claimedDelivery.effect(responseId, {
-                kind: "slack.stream.start",
-                initialText,
-              }),
+              await claimedDelivery.effect(
+                responseId,
+                { kind: "slack.stream.start", initialText },
+                { bestEffort: true },
+              ),
             );
             return responseId;
           },

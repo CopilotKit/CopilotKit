@@ -1,10 +1,10 @@
 "use client";
 import "./theme.css"; // side-effect import registers the .theme-logistics block
 
-import { useEffect } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useSkinHref, useSkinSegments } from "@/shell/skin-path";
 import { HelpCircle, RotateCcw } from "lucide-react";
 import { useSkin } from "@/shell/skin-provider";
 import { usePresenterReset } from "@/shell/presenter-reset-context";
@@ -23,11 +23,26 @@ const SIDEBAR_WIDTH_PX = 240;
 
 export function LogisticsLayout({ children }: { children: ReactNode }) {
   const skin = useSkin();
-  const pathname = usePathname();
+  const skinHref = useSkinHref(skin.id);
+  const restHead = useSkinSegments(skin.id)[0] ?? "";
   const { currentPlanner, planners, setPlannerId } = usePlannerAuth();
   const resetEnabled = usePresenterReset();
   const askCopilot = useAskCopilot();
   const Logo = skin.identity.logo;
+
+  // ── BEAT 3b, part 1 — the agent's view of WHICH page is open ─────────────
+  // Without this the skin has only GLOBAL readables and answers "what's on my
+  // screen?" identically everywhere, which reads as working right up until the
+  // presenter navigates and asks twice. `restHead` comes from useSkinSegments,
+  // which strips a LEADING skin id rather than slicing a fixed offset, so it is
+  // correct whether or not the pathname carries the prefix (LOCK_SKIN serves the
+  // locked skin at `/`, with no segment to slice off).
+  useAgentContext({
+    description:
+      "The page the planner is looking at right now, as a route segment. " +
+      "An empty segment is the Control Tower (the index).",
+    value: restHead,
+  });
 
   const handleReset = async () => {
     if (
@@ -42,8 +57,9 @@ export function LogisticsLayout({ children }: { children: ReactNode }) {
       if (res.ok) {
         // Hard navigate to the skin root for a pristine client slate (fresh
         // store, cleared canvas, new thread on next message) AND the clean
-        // starting URL the demo should always open on.
-        window.location.assign(`/${skin.id}`);
+        // starting URL the demo should always open on — which is `/` itself on
+        // a locked single-tenant deploy.
+        window.location.assign(skinHref());
       } else {
         window.alert(`Reset failed (HTTP ${res.status}). See the server logs.`);
       }
@@ -52,26 +68,13 @@ export function LogisticsLayout({ children }: { children: ReactNode }) {
     }
   };
 
-  // Tell the shell how much width our nav reserves so the floating skin
-  // selector docks in the content band and never lands on the sidebar.
-  useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty("--nw-nav-inset-left", `${SIDEBAR_WIDTH_PX}px`);
-    root.style.setProperty("--nw-nav-inset-right", "0px");
-    return () => {
-      root.style.removeProperty("--nw-nav-inset-left");
-      root.style.removeProperty("--nw-nav-inset-right");
-    };
-  }, []);
-
   return (
-    // h-screen + overflow-hidden (not min-h-screen): the shell must be exactly
-    // one viewport tall so the nav stays pinned and <main> scrolls INSIDE it.
-    // With min-h-screen the container grows past the viewport on a long page,
-    // which scrolls the whole document — taking the nav with it — and leaves
-    // <main>'s own overflow-y-auto inert because its parent is unbounded.
-    // Mirrors banking's layout.
-    <div className="flex h-screen overflow-hidden bg-canvas text-ink">
+    // h-full + overflow-hidden (not min-h-*): this chrome must be exactly as tall
+    // as the shell's app CARD so the nav stays pinned and <main> scrolls INSIDE
+    // it. If the container grows past the card on a long page, the whole document
+    // scrolls — taking the nav with it — and <main>'s own overflow-y-auto goes
+    // inert because its parent is unbounded. Mirrors banking's layout.
+    <div className="flex h-full overflow-hidden bg-canvas text-ink">
       <aside
         className="hidden h-full shrink-0 flex-col border-r border-hairline bg-surface px-3 py-5 md:flex"
         style={{ width: SIDEBAR_WIDTH_PX }}
@@ -84,10 +87,8 @@ export function LogisticsLayout({ children }: { children: ReactNode }) {
         </div>
         <nav className="flex flex-col gap-0.5">
           {skin.nav.map((route) => {
-            const href = route.segment
-              ? `/${skin.id}/${route.segment}`
-              : `/${skin.id}`;
-            const active = pathname === href;
+            const href = skinHref(route.segment);
+            const active = restHead === route.segment;
             const Icon = route.icon;
             return (
               <Link

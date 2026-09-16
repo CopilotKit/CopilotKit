@@ -28,8 +28,9 @@ function SeatButton({
   seat: Seat;
   onSelect?: (id: string) => void;
 }) {
-  const interactive =
-    onSelect && seat.status !== "occupied" && seat.status !== "blocked";
+  // Through the exported predicate, so the button that is enabled on screen and
+  // the seat listed in beat 3b's readable can never be two different sets.
+  const interactive = onSelect && isSelectableSeat(seat);
   return (
     <button
       type="button"
@@ -47,7 +48,37 @@ function SeatButton({
   );
 }
 
-export function SeatMap({ seatMap, onSelectSeat }: SeatMapProps) {
+/**
+ * The seats in the order this component PAINTS them — row ascending, then
+ * column A–F, skipping gaps.
+ *
+ * Exported because beat 3b's readable on `pages/trips.tsx` reports the seats the
+ * passenger can actually pick, and that list has to be the one on screen in the
+ * order it is on screen. Re-deriving it there would be the commerce bug
+ * (demo-beats.md § 3b): a readable whose list has quietly diverged from the
+ * panel's renders fine, reads fine, and makes the agent describe the screen
+ * wrongly — silently, which is the only failure mode this beat cannot survive.
+ * So the ordering lives here, once, and the component below renders from it.
+ */
+export function orderedSeats(seatMap: SeatMapModel): Seat[] {
+  const byRow = groupSeatsByRow(seatMap);
+  return Array.from(byRow.keys())
+    .sort((a, b) => a - b)
+    .flatMap((rowNum) => {
+      const byCol = new Map(
+        (byRow.get(rowNum) ?? []).map((s) => [s.column, s]),
+      );
+      return COLS.map((col) => byCol.get(col)).filter(
+        (s): s is Seat => s !== undefined,
+      );
+    });
+}
+
+/** Can the passenger actually choose this seat? The button's own predicate. */
+export const isSelectableSeat = (seat: Seat): boolean =>
+  seat.status !== "occupied" && seat.status !== "blocked";
+
+function groupSeatsByRow(seatMap: SeatMapModel): Map<number, Seat[]> {
   const byRow = new Map<number, Seat[]>();
   const seats = Array.isArray(seatMap.seats) ? seatMap.seats : [];
   for (const seat of seats) {
@@ -56,6 +87,11 @@ export function SeatMap({ seatMap, onSelectSeat }: SeatMapProps) {
     list.push(seat);
     byRow.set(seat.row, list);
   }
+  return byRow;
+}
+
+export function SeatMap({ seatMap, onSelectSeat }: SeatMapProps) {
+  const byRow = groupSeatsByRow(seatMap);
   const rows = Array.from(byRow.keys()).sort((a, b) => a - b);
 
   return (

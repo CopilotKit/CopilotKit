@@ -32,8 +32,8 @@ const determineModel = (): BuiltInAgentClassicConfig["model"] => {
     return "openai/gpt-5.2";
   }
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
-    // claude-3-7-sonnet supports extended thinking
-    return "anthropic/claude-3-7-sonnet-20250219";
+    // Claude Opus 4.8 supports adaptive thinking
+    return "anthropic/claude-opus-4-8";
   }
   if (process.env.GOOGLE_API_KEY?.trim()) {
     return "google/gemini-2.5-pro";
@@ -52,7 +52,7 @@ const builtInAgent = new BuiltInAgent({
     ...(!openAIApiKey &&
       !openRouterApiKey &&
       !!process.env.ANTHROPIC_API_KEY?.trim() && {
-        anthropic: { thinking: { type: "enabled", budgetTokens: 5000 } },
+        anthropic: { thinking: { type: "adaptive" } },
       }),
   },
 });

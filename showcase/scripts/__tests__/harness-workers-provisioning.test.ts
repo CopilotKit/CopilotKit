@@ -111,6 +111,13 @@ describe("harness-workers provisioning SSOT", () => {
     expect(stagingProv?.drainingSeconds).toBe(180);
   });
 
+  it('restartPolicyType = "ALWAYS" for both envs', () => {
+    const prodProv = workerProvisioningFor("harness-workers", "prod");
+    const stagingProv = workerProvisioningFor("harness-workers", "staging");
+    expect(prodProv?.restartPolicyType).toBe("ALWAYS");
+    expect(stagingProv?.restartPolicyType).toBe("ALWAYS");
+  });
+
   it("HARNESS_POOL_COUNT is recorded as informational only — NOT used as a fork factor", () => {
     // The worker boots 1 process per replica (keyed on HOSTNAME). HARNESS_POOL_COUNT
     // is forwarded to each worker as a control-plane hint but NEVER forks additional
@@ -129,7 +136,10 @@ describe("harness-workers provisioning SSOT", () => {
   it("workerProvisioningFor returns undefined for non-worker services", () => {
     // Only harness-workers carries this field; every other service returns undefined.
     expect(workerProvisioningFor("harness", "prod")).toBeUndefined();
+    expect(workerProvisioningFor("harness", "staging")).toBeUndefined();
     expect(workerProvisioningFor("aimock", "prod")).toBeUndefined();
+    expect(workerProvisioningFor("aimock", "staging")).toBeUndefined();
+    expect(workerProvisioningFor("pocketbase", "prod")).toBeUndefined();
     expect(workerProvisioningFor("pocketbase", "staging")).toBeUndefined();
   });
 });
@@ -281,6 +291,28 @@ describe("harness-workers provisioning drift gate (SSOT vs generated JSON snapsh
       snapshotEntry?.workerProvisioning?.staging?.drainingSeconds,
     );
   });
+
+  it("SSOT restartPolicyType matches committed generated JSON snapshot and omits retry max", () => {
+    const snapshot = loadGeneratedSnapshot();
+    const snapshotEntry = snapshot.services.find(
+      (s) => s.name === "harness-workers",
+    );
+
+    const ssotProd = workerProvisioningFor("harness-workers", "prod");
+    const ssotStaging = workerProvisioningFor("harness-workers", "staging");
+
+    expect(ssotProd?.restartPolicyType).toBe("ALWAYS");
+    expect(ssotStaging?.restartPolicyType).toBe("ALWAYS");
+    expect(snapshotEntry?.workerProvisioning?.prod.restartPolicyType).toBe(
+      "ALWAYS",
+    );
+    expect(snapshotEntry?.workerProvisioning?.staging.restartPolicyType).toBe(
+      "ALWAYS",
+    );
+    expect(JSON.stringify(snapshotEntry?.workerProvisioning)).not.toContain(
+      "restartPolicyMaxRetries",
+    );
+  });
 });
 
 describe("harness-workers provisioning with injected test data", () => {
@@ -299,11 +331,13 @@ describe("harness-workers provisioning with injected test data", () => {
         effectiveReplicas: 5,
         numReplicas: 5,
         BROWSER_POOL_MAX_CONTEXTS: 20,
+        restartPolicyType: "ALWAYS",
       },
       staging: {
         effectiveReplicas: 10,
         numReplicas: 10,
         BROWSER_POOL_MAX_CONTEXTS: 20,
+        restartPolicyType: "ALWAYS",
       },
     };
     (

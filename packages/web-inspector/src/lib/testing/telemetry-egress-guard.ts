@@ -18,7 +18,10 @@ export const TELEMETRY_SINK_ORIGIN = "https://telemetry.copilotkit.ai";
 export function createTelemetryEgressGuard(
   realFetch: typeof fetch,
 ): typeof fetch {
-  return (input, init) => {
+  const guardedFetch = (
+    input: Parameters<typeof fetch>[0],
+    init?: Parameters<typeof fetch>[1],
+  ): ReturnType<typeof fetch> => {
     const url =
       typeof input === "string"
         ? input
@@ -30,4 +33,9 @@ export function createTelemetryEgressGuard(
     }
     return realFetch(input, init);
   };
+
+  // Some runtimes add static helpers to `fetch` (for example Bun's
+  // `preconnect`). Preserve them so wrapping the function keeps its full
+  // platform contract as well as its call signature.
+  return Object.assign(guardedFetch, realFetch);
 }

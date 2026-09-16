@@ -6,11 +6,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   test: {
-    // CVDIAG backend instrumentation unit tests (L1-E). The integration's
-    // broader suite is Playwright e2e (`test:e2e`); this config scopes vitest
-    // to the co-located cvdiag unit tests so they run without the Next.js
-    // build toolchain.
-    include: ["src/cvdiag-backend.test.ts"],
+    // Fast backend unit tests that run inside the integration image build.
+    // The broader suite is Playwright e2e (`test:e2e`); these files stay
+    // network-free and run without the Next.js build toolchain.
+    include: [
+      "src/cvdiag-backend.test.ts",
+      "src/claude-agent-sdk-adapter.test.ts",
+    ],
     environment: "node",
   },
   resolve: {

@@ -14,12 +14,11 @@
 // `over-limit`, a value no transaction stores because it is derived from the
 // charge's amount against its policy's remaining headroom.
 
-import {
-  CHARGE_CATEGORIES,
-  CHARGE_TEAMS,
-  type ChargeCategory,
-  type ChargeTeam,
-  type Transaction,
+import { CHARGE_CATEGORIES, CHARGE_TEAMS } from "@/skins/banking/data/data";
+import type {
+  ChargeCategory,
+  ChargeTeam,
+  Transaction,
 } from "@/skins/banking/data/data";
 
 export { CHARGE_CATEGORIES, CHARGE_TEAMS };
@@ -71,17 +70,17 @@ const UNATTRIBUTED = "—";
  * once via `withOverLimit` (the single source of truth for that rule) instead
  * of this module forming a second opinion about policy headroom.
  */
-export const toChargeRow = (
-  t: Transaction,
-  overLimit: boolean,
-): ChargeRow => ({
+export const toChargeRow = (t: Transaction, overLimit: boolean): ChargeRow => ({
   id: t.id,
   merchant: t.title,
   category: t.category ?? UNATTRIBUTED,
   team: t.team ?? UNATTRIBUTED,
   amount: Math.abs(t.amount),
   date: t.date,
-  status: overLimit && t.status === "pending" ? "over-limit" : toDisplayStatus(t.status),
+  status:
+    overLimit && t.status === "pending"
+      ? "over-limit"
+      : toDisplayStatus(t.status),
 });
 
 const toDisplayStatus = (s: Transaction["status"]): ChargeStatus =>

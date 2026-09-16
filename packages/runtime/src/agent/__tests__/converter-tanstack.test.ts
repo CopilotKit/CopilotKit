@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { EventType } from "@ag-ui/client";
+import { compactEvents, EventType } from "@ag-ui/client";
 import {
   createAgent,
   createDefaultInput,
@@ -459,6 +459,97 @@ describe("TanStack AI converter — state tools", () => {
     expect(deltaIdx).toBeGreaterThanOrEqual(0);
     expect(deltaIdx).toBeLessThan(resultIdx);
     expect(eventField<unknown>(events[deltaIdx], "delta")).toEqual(delta);
+  });
+
+  it("normalizes missing arrays before compaction", async () => {
+    const todo = { text: "Buy milk", completed: false };
+    const delta = [{ op: "add", path: "/todos/-", value: todo }];
+    const agent = createAgent("tanstack", [
+      tanstackToolCallStart("call1", "AGUISendStateDelta"),
+      tanstackToolCallEnd("call1"),
+      tanstackToolCallResult("call1", { success: true, delta }),
+    ]);
+    const events = await collectEvents(
+      agent.run(createDefaultInput({ state: {} })),
+    );
+    const stateDelta = events.find(
+      (event) => event.type === EventType.STATE_DELTA,
+    );
+
+    expect(eventField<unknown>(stateDelta, "delta")).toEqual([
+      { op: "add", path: "/todos", value: [] },
+      ...delta,
+    ]);
+    expect(compactEvents(events)).toContainEqual(
+      expect.objectContaining({
+        type: EventType.STATE_SNAPSHOT,
+        snapshot: { todos: [todo] },
+      }),
+    );
+  });
+
+  it("preserves copy, move, and test before later appends", async () => {
+    const sourceItem = { id: "source" };
+    const movedItem = { id: "moved" };
+    const delta = [
+      { op: "copy", from: "/source", path: "/copied" },
+      { op: "move", from: "/moving", path: "/moved" },
+      { op: "test", path: "/copied/0", value: sourceItem },
+      { op: "add", path: "/copied/-", value: { id: "copied-append" } },
+      { op: "add", path: "/moved/-", value: { id: "moved-append" } },
+    ];
+    const agent = createAgent("tanstack", [
+      tanstackToolCallStart("call-copy-move", "AGUISendStateDelta"),
+      tanstackToolCallEnd("call-copy-move"),
+      tanstackToolCallResult("call-copy-move", { success: true, delta }),
+    ]);
+    const events = await collectEvents(
+      agent.run(
+        createDefaultInput({
+          state: { source: [sourceItem], moving: [movedItem] },
+        }),
+      ),
+    );
+
+    expect(
+      eventField<unknown>(
+        events.find((event) => event.type === EventType.STATE_DELTA),
+        "delta",
+      ),
+    ).toEqual(delta);
+    expect(compactEvents(events)).toContainEqual(
+      expect.objectContaining({
+        type: EventType.STATE_SNAPSHOT,
+        snapshot: {
+          source: [sourceItem],
+          copied: [sourceItem, { id: "copied-append" }],
+          moved: [movedItem, { id: "moved-append" }],
+        },
+      }),
+    );
+  });
+
+  it("preserves malformed delta entries for downstream validation", async () => {
+    const delta = [null];
+    const agent = createAgent("tanstack", [
+      tanstackToolCallStart("call-malformed", "AGUISendStateDelta"),
+      tanstackToolCallEnd("call-malformed"),
+      tanstackToolCallResult("call-malformed", { success: true, delta }),
+    ]);
+    const events = await collectEvents(
+      agent.run(createDefaultInput({ state: {} })),
+    );
+    const deltaIdx = events.findIndex(
+      (event) => event.type === EventType.STATE_DELTA,
+    );
+    const resultIdx = events.findIndex(
+      (event) => event.type === EventType.TOOL_CALL_RESULT,
+    );
+
+    expect(deltaIdx).toBeGreaterThanOrEqual(0);
+    expect(deltaIdx).toBeLessThan(resultIdx);
+    expect(eventField<unknown>(events[deltaIdx], "delta")).toEqual(delta);
+    expect(() => compactEvents(events)).toThrow("OPERATION_NOT_AN_OBJECT");
   });
 
   it("emits STATE_SNAPSHOT when payload arrives in raw.result instead of raw.content", async () => {

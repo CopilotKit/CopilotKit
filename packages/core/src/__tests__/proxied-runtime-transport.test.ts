@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import type { Message } from "@ag-ui/client";
 import { ProxiedCopilotRuntimeAgent } from "../agent";
 import { CopilotKitCore } from "../core";
 import { createSuggestionsConfig, MockAgent } from "./test-utils";
@@ -175,6 +176,93 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
       });
     });
   });
+
+  describe("custom runtime SSE replay", () => {
+    const agentId = "custom-runtime-agent";
+    const threadId = "thread-1";
+
+    afterEach(() => {
+      global.fetch = originalFetch;
+    });
+
+    it("preserves each server run across cumulative connect snapshots", async () => {
+      const firstMessage: Message = {
+        id: "message-1",
+        role: "assistant",
+        content: "First response",
+      };
+      const secondMessage: Message = {
+        id: "message-2",
+        role: "assistant",
+        content: "Second response",
+      };
+      global.fetch = vi.fn().mockResolvedValue(
+        createSseResponse([
+          {
+            type: "RUN_STARTED",
+            threadId,
+            runId: "server-run-1",
+          },
+          {
+            type: "STATE_SNAPSHOT",
+            snapshot: { turn: 1 },
+          },
+          {
+            type: "MESSAGES_SNAPSHOT",
+            messages: [firstMessage],
+          },
+          {
+            type: "RUN_FINISHED",
+            threadId,
+            runId: "server-run-1",
+          },
+          {
+            type: "RUN_STARTED",
+            threadId,
+            runId: "server-run-2",
+          },
+          {
+            type: "STATE_SNAPSHOT",
+            snapshot: { turn: 2 },
+          },
+          {
+            type: "MESSAGES_SNAPSHOT",
+            messages: [firstMessage, secondMessage],
+          },
+          {
+            type: "RUN_FINISHED",
+            threadId,
+            runId: "server-run-2",
+          },
+        ]),
+      );
+
+      const agent = new ProxiedCopilotRuntimeAgent({
+        runtimeUrl: "https://runtime.example/custom",
+        agentId,
+        transport: "rest",
+        runtimeMode: "sse",
+      });
+      agent.threadId = threadId;
+      const core = new CopilotKitCore({});
+      core.addAgent__unsafe_dev_only({ id: agentId, agent });
+
+      await agent.connectAgent({ runId: "connect-run" });
+
+      expect(core.getRunIdForMessage(agentId, threadId, firstMessage.id)).toBe(
+        "server-run-1",
+      );
+      expect(core.getRunIdForMessage(agentId, threadId, secondMessage.id)).toBe(
+        "server-run-2",
+      );
+      expect(core.getStateByRun(agentId, threadId, "server-run-1")).toEqual({
+        turn: 1,
+      });
+      expect(core.getStateByRun(agentId, threadId, "server-run-2")).toEqual({
+        turn: 2,
+      });
+    });
+  });
 });
 
 describe("ProxiedCopilotRuntimeAgent capabilities", () => {
@@ -336,22 +424,23 @@ describe("Suggestions engine with single-endpoint runtime agents", () => {
   });
 });
 
-function createSseResponse(): Response {
+function createSseResponse(
+  events: object[] = [
+    {
+      type: "RUN_STARTED",
+      threadId: "test-thread",
+      runId: "test-run",
+    },
+    {
+      type: "RUN_FINISHED",
+      threadId: "test-thread",
+      runId: "test-run",
+      result: { newMessages: [] },
+    },
+  ],
+): Response {
   const stream = new ReadableStream({
     start(controller) {
-      const events = [
-        {
-          type: "RUN_STARTED",
-          threadId: "test-thread",
-          runId: "test-run",
-        },
-        {
-          type: "RUN_FINISHED",
-          threadId: "test-thread",
-          runId: "test-run",
-          result: { newMessages: [] },
-        },
-      ];
       const payload = events
         .map((event) => `data: ${JSON.stringify(event)}\n\n`)
         .join("");
@@ -988,5 +1077,85 @@ describe("AgentRegistry runtime info requests", () => {
       expect(remoteAgent).toBeDefined();
       expect(remoteAgent?.agentId).toBe("remote");
     });
+  });
+});
+
+describe("ProxiedCopilotRuntimeAgent runtimeUrl with a trailing slash", () => {
+  const originalFetch = global.fetch;
+  const runtimeUrl = "https://runtime.example/service/copilotkit/";
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    global.fetch = fetchMock;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    global.fetch = originalFetch;
+  });
+
+  it("keeps the caller's URL verbatim as the single-route endpoint", async () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl,
+      agentId: "agent",
+      transport: "single",
+    });
+    fetchMock.mockResolvedValueOnce(createSseResponse());
+
+    await agent.runAgent({});
+
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(runtimeUrl);
+  });
+
+  it("joins REST paths without a double slash", async () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl,
+      agentId: "agent",
+      transport: "rest",
+    });
+    fetchMock.mockResolvedValueOnce(createSseResponse());
+
+    await agent.runAgent({});
+
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(
+      "https://runtime.example/service/copilotkit/agent/agent/run",
+    );
+  });
+
+  it("keeps the verbatim endpoint when auto detection falls back to single-route", async () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl,
+      agentId: "agent",
+      transport: "auto",
+    });
+    // REST /info is not there; the single-route info envelope answers.
+    fetchMock.mockResolvedValueOnce(new Response("", { status: 404 }));
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ version: "1.0.0", agents: {} }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(createSseResponse());
+
+    await agent.runAgent({});
+
+    const urls = fetchMock.mock.calls.map(([url]) => url);
+    expect(urls[0]).toBe("https://runtime.example/service/copilotkit/info");
+    expect(urls[1]).toBe(runtimeUrl);
+    expect(urls[2]).toBe(runtimeUrl);
+  });
+
+  it("clones with the verbatim endpoint", () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl,
+      agentId: "agent",
+      transport: "single",
+    });
+
+    expect(agent.clone().url).toBe(runtimeUrl);
   });
 });

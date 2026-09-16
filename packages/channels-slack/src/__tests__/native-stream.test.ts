@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { NativeMessageStream } from "../native-stream.js";
 import type { NativeStreamTransport, TextStream } from "../native-stream.js";
+import { ChunkedMessageStream } from "../chunked-message-stream.js";
 import type { AnyChunk, KnownBlock } from "@slack/types";
 
 type Event =
@@ -774,7 +775,38 @@ describe("NativeMessageStream", () => {
     expect(fallback.finished).toBe(true);
   });
 
-  it("strict mode rejects a start failure without creating a legacy bubble", async () => {
+  it("observes a rejected legacy fallback queue before finish drains it", async () => {
+    const { transport } = makeFakeTransport({ failStart: true });
+    const fallback = new ChunkedMessageStream({
+      minIntervalMs: 0,
+      postPlaceholder: async () => {
+        throw new Error("legacy post unavailable");
+      },
+      updateAt: async () => undefined,
+    });
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: () => fallback,
+      minIntervalMs: 0,
+    });
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => {
+      unhandled.push(reason);
+    };
+    process.prependListener("unhandledRejection", onUnhandled);
+
+    try {
+      stream.append("managed reply");
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+      expect(unhandled).toEqual([]);
+      await expect(stream.finish()).rejects.toThrow("legacy post unavailable");
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
+  });
+
+  it("strict mode falls back before the first native stream opens", async () => {
     const { transport } = makeFakeTransport({ failStart: true });
     const fallback = makeFakeFallback();
     const stream = new NativeMessageStream({
@@ -786,12 +818,12 @@ describe("NativeMessageStream", () => {
 
     stream.append("managed reply");
 
-    await expect(stream.finish()).rejects.toThrow("startStream unavailable");
-    expect(fallback.last()).toBe("");
-    expect(fallback.finished).toBe(false);
+    await expect(stream.finish()).resolves.toBeUndefined();
+    expect(fallback.last()).toBe("managed reply");
+    expect(fallback.finished).toBe(true);
   });
 
-  it("observes a queued strict failure before finish drains it", async () => {
+  it("observes a queued strict start fallback before finish drains it", async () => {
     const { transport } = makeFakeTransport({ failStart: true });
     const stream = new NativeMessageStream({
       transport,
@@ -807,11 +839,11 @@ describe("NativeMessageStream", () => {
 
     try {
       stream.append("managed reply");
-      // Let the queued start failure reject before the owner reaches finish().
+      // Let the queued start fallback settle before the owner reaches finish().
       await new Promise<void>((resolve) => setTimeout(resolve, 0));
 
       expect(unhandled).toEqual([]);
-      await expect(stream.finish()).rejects.toThrow("startStream unavailable");
+      await expect(stream.finish()).resolves.toBeUndefined();
     } finally {
       process.off("unhandledRejection", onUnhandled);
     }

@@ -3,27 +3,28 @@ title: Quickstart
 description: Turn your CrewAI Flows into an agent-native application in 10 minutes.
 icon: "lucide/Play"
 hideTOC: true
+doc_type: tutorial
 ---
 
-<OpsPlatformCTA
-  variant="card"
-  title="Ship CrewAI Flows to production"
-  body="Add persistent threads and the inspector with the Enterprise Intelligence Platform."
-  ctaLabel="Create a free account"
-  surface="docs_crewai_flows_quickstart"
-/>
+import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+
+## Start with your coding agent
+
+Use this prompt to connect your CrewAI agent to CopilotKit and verify a working conversation. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
+
+<PageAgentPrompt />
 
 ## Prerequisites
 
-Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/flows/first-flow) deployed on [CrewAI Enterprise](https://docs.crewai.com/enterprise/introduction). If you're looking for a sample flows, check out this [example agentic chat implementation](https://github.com/suhasdeshpande/agentic_chat).
+Before you begin, you need a [CrewAI Flow](https://docs.crewai.com/guides/flows/first-flow). It can run locally or on infrastructure you manage; a CrewAI Enterprise deployment is optional. If you use the CopilotKit CLI path below, the starter creates the Flow integration for you.
 
 ## Getting started
 
 <Steps>
 <Step>
-    ### Create a free account
+    ### Optional: Create a free account
 
-    <SignupLink surface="docs_crewai_flows_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads and the inspector.
+    <SignupLink surface="docs_crewai_flows_quickstart_step1">Sign up for a free developer account</SignupLink> for CopilotKit Intelligence if you want managed persistent threads and the inspector. A Copilot Cloud account is not required to run a local CrewAI Flow with CopilotKit.
 </Step>
 
 <Step>
@@ -43,7 +44,7 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
     >
         <Step>
             ### Run the CLI
-            Just run this following command in your Next.js application to get started!
+            Run the following command in your Next.js application:
 
             <Accordions>
                 <Accordion title="Don't have a Next.js application?">
@@ -57,6 +58,8 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
             ```bash
             npx copilotkit@latest init --framework flows
             ```
+
+            The starter uses a regular CrewAI Flow. To make it session-aware, finish this Quickstart and then [promote the Flow to a Conversational Flow](/crewai-flows/conversational-flows). Your CopilotKit frontend stays the same.
         </Step>
         <Step>
             ### 🎉 Talk to your agent!
@@ -76,6 +79,11 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
             What do you think about React?
             ```
         </Step>
+
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+
     </TailoredContentOption>
     <TailoredContentOption
         id="code-along"
@@ -84,9 +92,64 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
         icon={<SquareChartGantt />}
     >
         <Step>
+            ### Expose your Flow as an AG-UI endpoint
+
+            CopilotKit connects to agents over [AG-UI](https://docs.ag-ui.com). A CrewAI Enterprise Live Automation URL or another plain CrewAI endpoint is not automatically AG-UI-compatible, even if it returns HTTP 200. Add the official CrewAI adapter to the service that hosts your Flow:
+
+            ```bash title="Terminal"
+            pip install -U "crewai>=1.15.11,<2" ag-ui-crewai fastapi uvicorn
+            ```
+
+            ```python title="server.py"
+            from fastapi import FastAPI
+            from ag_ui_crewai import add_crewai_flow_fastapi_endpoint
+
+            from flow import YourFlow
+
+            app = FastAPI()
+
+            add_crewai_flow_fastapi_endpoint(app, YourFlow(), "/")
+            ```
+
+            Start the server locally with `uvicorn server:app --host 0.0.0.0 --port 8000`, then deploy it to a public HTTPS URL that Copilot Cloud can reach.
+        </Step>
+
+        <Step>
+            ### Verify the AG-UI stream
+
+            Before connecting the frontend, send one run directly to the deployed endpoint:
+
+            ```bash title="Terminal"
+            export AG_UI_URL="https://your-service.example.com/"
+
+            curl --fail-with-body --no-buffer --include \
+              --request POST "$AG_UI_URL" \
+              --header "Content-Type: application/json" \
+              --header "Accept: text/event-stream" \
+              --data '{
+                "threadId": "preflight-thread",
+                "runId": "preflight-run",
+                "messages": [
+                  {
+                    "id": "preflight-message",
+                    "role": "user",
+                    "content": "Say hello"
+                  }
+                ],
+                "state": {},
+                "tools": [],
+                "context": [],
+                "forwardedProps": {}
+              }'
+            ```
+
+            A compatible response has a `Content-Type: text/event-stream` header and emits `RUN_STARTED` followed by `RUN_FINISHED`. Do not register the URL if it returns a normal JSON response or emits `RUN_ERROR`; fix the agent endpoint first.
+        </Step>
+
+        <Step>
             ### Connect to Copilot Cloud
             1. Go to [Copilot Cloud](https://dashboard.operations.copilotkit.ai), sign in and click Get Started
-            2. Click "Add Remote Endpoint" and fill in the details of your CrewAI Flow. Note: If your Agent Name contains multiple words, use underscores (`_`) as separators.
+            2. Click "Add Remote Endpoint" and enter the public AG-UI URL you verified above. Note: If your Agent Name contains multiple words, use underscores (`_`) as separators.
             3. Click "Save Endpoint"
             4. Copy the Copilot Cloud Public API Key
 
@@ -204,6 +267,11 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
                 </Accordion>
             </Accordions>
         </Step>
+
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+
     </TailoredContentOption>
     </TailoredContent>
 </Step>
@@ -215,9 +283,15 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
 ## What's next?
 
 You've now got a CrewAI Flow running in CopilotKit! Now you can start exploring the various ways that CopilotKit
-can help you build power agent native applications.
+can help you build powerful agent-native applications.
 
 <Cards>
+  <Card
+    title="Make your Flow conversational"
+    description="Promote the Flow to CrewAI's session-aware conversational execution mode."
+    href="/crewai-flows/conversational-flows"
+    icon={<MessageSquare />}
+  />
   <Card
     title="Implement Human in the Loop"
     description="Allow your users and agents to collaborate together on tasks."

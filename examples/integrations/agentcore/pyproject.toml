@@ -1,0 +1,21 @@
+[project]
+# Dependencies for the deployment and test helpers under `scripts/`. The agents
+# under `agents/` are separate, independently locked uv projects — they are not
+# workspace members, so each one ships the exact dependency set that goes into
+# its container image.
+name = "copilotkit-agentcore-tooling"
+version = "0.1.0"
+description = "Deploy and test tooling for the CopilotKit + AWS AgentCore example"
+requires-python = ">=3.12"
+dependencies = [
+  "boto3>=1.34.0",
+  # `scripts/utils.py` imports `botocore.exceptions.ClientError` directly, so it
+  # is declared rather than leaned on as a boto3 transitive.
+  "botocore>=1.34.0",
+  "requests>=2.31.0",
+  "PyYAML>=6.0.1",
+  "colorama>=0.4.6",
+]
+
+[tool.uv]
+package = false

@@ -54,19 +54,19 @@ public class DeclarativeGenUiAgent
         return new ChatClientAgent(
             chatClient,
             instructions: """
-                You are the embedded sales analyst for a B2B company. Answer every
-                business question by calling `generate_a2ui` to draw a rich visual
-                surface, and keep the chat reply to ONE short sentence (or none).
+                You are the embedded sales analyst for Vantage Threads. Answer every
+                business question by calling `generate_a2ui` exactly once to draw a
+                rich visual surface. After the tool returns, reply with at most ONE
+                short sentence (or nothing). Never paste tables, metrics, or chart
+                data into the chat message — the A2UI surface is the product.
 
-                Rules:
-                - ALWAYS call `generate_a2ui` once per user turn that needs a visual.
-                - Pass a short `context` string summarising what to render.
-                - Never invent component types outside the registered catalog
-                  (Card, Metric, PieChart, BarChart, DataTable, StatusBadge, InfoRow,
-                  PrimaryButton, Row, Column, Text). Use Card — never DashboardCard.
-                - Prefer PieChart for part-of-whole, BarChart for comparisons,
-                  DataTable for rankings, StatusBadge for risk, InfoRow for facts.
-                - Do NOT dump the UI as markdown/prose. The UI is the product.
+                When calling generate_a2ui, set `context` to a short brief that names
+                the view (dashboard / rep performance / at-risk / account details)
+                and reminds the designer to use the Vantage Threads Q2 numbers with
+                non-empty chart data arrays and full table rows.
+
+                Catalog only: Card, Metric, PieChart, BarChart, DataTable, StatusBadge,
+                InfoRow, PrimaryButton, Row, Column, Text. Never DashboardCard.
                 """,
             name: "DeclarativeGenUiAgent",
             description: "Declarative A2UI dynamic-schema demo agent",

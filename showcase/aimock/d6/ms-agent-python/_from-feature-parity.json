@@ -270,16 +270,6 @@
       "response": {
         "content": "You told me your name is Alice."
       }
-    },
-    {
-      "_comment": "readonly-state-agent-context — 'Suggest next steps' pill. Non-gated fallback matching the pill's exact message text.",
-      "match": {
-        "userMessage": "Based on my recent activity, what should I try next",
-        "context": "ms-agent-python"
-      },
-      "response": {
-        "content": "Based on your recent activity, I'd suggest exploring features you haven't tried yet — check out the documentation for advanced use-cases, or dive into a hands-on tutorial to deepen your understanding."
-      }
     }
   ]
 }

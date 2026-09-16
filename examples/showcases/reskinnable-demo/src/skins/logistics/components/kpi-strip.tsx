@@ -35,14 +35,28 @@ function daysBetween(fromIso: string, toIso: string): number {
 
 const fmtUsd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 
-export function KpiStrip({ shipments }: { shipments: Shipment[] }) {
+/**
+ * The four tiles EXACTLY as the strip paints them — label plus the formatted
+ * string, rounding included. Exported so the Control Tower's beat-3b readable
+ * can report the figures the planner can literally read off the screen rather
+ * than re-deriving them: `deriveKpis` returns a raw 0.6666… ratio, which the
+ * strip rounds to "67%" and an agent quoting the raw value calls "66.7%". A
+ * one-decimal drift is a small lie, but it is the same KIND of lie as a readable
+ * listing 5 rows against a panel showing 6 — the agent describing something
+ * subtly other than what is on screen — so both sides read this one function.
+ */
+export function deriveKpiTiles(shipments: Shipment[]) {
   const k = deriveKpis(shipments);
-  const tiles = [
+  return [
     { label: "On-time rate", value: `${Math.round(k.onTimeRate * 100)}%` },
     { label: "At risk", value: String(k.atRiskCount) },
     { label: "Exposure", value: fmtUsd(k.exposureUsd) },
     { label: "Avg delay", value: `${k.avgDelayDays}d` },
   ];
+}
+
+export function KpiStrip({ shipments }: { shipments: Shipment[] }) {
+  const tiles = deriveKpiTiles(shipments);
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
       {tiles.map((t) => (

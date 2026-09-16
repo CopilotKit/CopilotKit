@@ -9,6 +9,7 @@ import type {
   RuntimeMode,
   RuntimeLicenseStatus,
   IntelligenceRuntimeInfo,
+  InspectorMetadataV1,
   ThreadEndpointRuntimeInfo,
 } from "../types";
 import type {
@@ -29,8 +30,12 @@ import type {
   CopilotKitCoreCatalogComponent,
 } from "./run-handler";
 import { RunHandler } from "./run-handler";
-import type { DebugConfig } from "@copilotkit/shared";
+import type {
+  DebugConfig,
+  RuntimeEntitlementResponse,
+} from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
+import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import { ThreadStoreRegistry } from "./thread-store-registry";
 import type { ɵThreadStore } from "../threads";
 import { ɵcreateMemoryStore } from "../memory";
@@ -202,6 +207,10 @@ export interface CopilotKitCoreSubscriber {
     copilotkit: CopilotKitCore;
     headers: Readonly<Record<string, string>>;
   }) => void | Promise<void>;
+  onInspectorMetadataChanged?: (event: {
+    copilotkit: CopilotKitCore;
+    inspectorMetadata: InspectorMetadataV1 | undefined;
+  }) => void | Promise<void>;
   onError?: (event: {
     copilotkit: CopilotKitCore;
     error: Error;
@@ -365,6 +374,13 @@ export interface CopilotKitCoreFriendsAccess {
    * See CopilotKitCore.waitForPendingFrameworkUpdates for details.
    */
   waitForPendingFrameworkUpdates(): Promise<void>;
+
+  readonly stateManager: {
+    markNextRunAsContinuation(
+      agent: AbstractAgent,
+      expectedRunId?: string,
+    ): CopilotKitCoreContinuationHandoff;
+  };
 }
 
 /**
@@ -701,6 +717,10 @@ export class CopilotKitCore {
     return this.agentRegistry.runtimeConnectionStatus;
   }
 
+  get ɵruntimeFetch(): typeof fetch {
+    return this.agentRegistry.createRuntimeFetch();
+  }
+
   get audioFileTranscriptionEnabled(): boolean {
     return this.agentRegistry.audioFileTranscriptionEnabled;
   }
@@ -721,6 +741,21 @@ export class CopilotKitCore {
     return this.agentRegistry.suggestions;
   }
 
+  /** Whether the connected Runtime exposes debug-authorized Learning data. */
+  get inspectorLearning(): boolean {
+    return this.agentRegistry.inspectorLearning;
+  }
+
+  /** Trusted, optional metadata advertised by the connected runtime. */
+  get inspectorMetadata(): InspectorMetadataV1 | undefined {
+    return this.agentRegistry.inspectorMetadata;
+  }
+
+  /** Refresh trusted inspector metadata without reconnecting runtime agents. */
+  async refreshInspectorMetadata(): Promise<void> {
+    await this.agentRegistry.refreshInspectorMetadata();
+  }
+
   get a2uiEnabled(): boolean {
     return this.agentRegistry.a2uiEnabled;
   }
@@ -739,6 +774,16 @@ export class CopilotKitCore {
 
   get licenseStatus(): RuntimeLicenseStatus | undefined {
     return this.agentRegistry.licenseStatus;
+  }
+
+  /** Structured Runtime entitlement authority advertised by `/info`. */
+  get runtimeEntitlements(): RuntimeEntitlementResponse | undefined {
+    return this.agentRegistry.runtimeEntitlements;
+  }
+
+  /** Whether Core still has a bounded Runtime entitlement retry to settle. */
+  get runtimeEntitlementRetryPending(): boolean {
+    return this.agentRegistry.runtimeEntitlementRetryPending;
   }
 
   get telemetryDisabled(): boolean {
@@ -783,6 +828,7 @@ export class CopilotKitCore {
     this.agentRegistry.applyHeadersToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
     );
+    this.agentRegistry.handleHeadersChanged();
     void this.notifySubscribers(
       (subscriber) =>
         subscriber.onHeadersChanged?.({
@@ -798,6 +844,7 @@ export class CopilotKitCore {
     this.agentRegistry.applyCredentialsToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
     );
+    this.agentRegistry.handleCredentialsChanged();
   }
 
   setProperties(properties: Record<string, unknown>): void {
@@ -928,13 +975,13 @@ export class CopilotKitCore {
   /**
    * Lazily creates, starts, and context-syncs the core-owned memory store on
    * first access, then returns it. Subsequent calls return the existing store.
-   * The store is constructed with a bound `globalThis.fetch` and immediately
-   * has its runtime context synced from the current connection state.
+   * The store uses the Core Runtime fetch so REST and single-route transports
+   * share the same resource behavior. Its Runtime context is synced at once.
    */
   private ensureMemoryStore(): ɵMemoryStore {
     if (!this._memoryStore) {
       this._memoryStore = ɵcreateMemoryStore({
-        fetch: globalThis.fetch.bind(globalThis),
+        fetch: this.ɵruntimeFetch,
       });
       this._memoryStore.start();
       this.syncMemoryContext();
@@ -1325,6 +1372,18 @@ export class CopilotKitCore {
     messageId: string,
   ): string | undefined {
     return this.stateManager.getRunIdForMessage(agentId, threadId, messageId);
+  }
+
+  getRawEventForMessage(
+    agentId: string,
+    threadId: string,
+    messageId: string,
+  ): unknown {
+    return this.stateManager.getRawEventForMessage(
+      agentId,
+      threadId,
+      messageId,
+    );
   }
 
   getRunIdsForThread(agentId: string, threadId: string): string[] {

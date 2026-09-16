@@ -393,6 +393,13 @@ export interface ConversationTurn {
    */
   responseTimeoutMs?: number;
   /**
+   * Lifecycle signal used to settle this turn. `"auto"` trusts the chat
+   * surface's DOM run lifecycle when available. `"sse"` is an explicit
+   * opt-in for suspend/resume turns whose interrupt boundary does not advance
+   * that DOM generation; it requires a new SSE RUN_FINISHED after send.
+   */
+  completionSignal?: "auto" | "sse";
+  /**
    * Surface-mount completion criterion (OPT-IN). When set, this turn is
    * considered complete on `run-finished + a new assistant bubble + the
    * named render-surface testids mounting` — INSTEAD OF requiring the
@@ -603,12 +610,14 @@ export async function runConversation(
       // original post-preFill capture below still reflects only prior-turn runs.
       let skipSendBaselineCount: number | null = null;
       let skipSendBaselineRunStartCount: number | null = null;
+      let skipSendBaselineRunsFinished: number | null = null;
       if (turn.skipSend) {
         skipSendBaselineCount = await countAssistantMessages(
           page as unknown as PlaywrightPage,
         );
         skipSendBaselineRunStartCount = (await readCopilotRunning(page))
           .runStartCount;
+        skipSendBaselineRunsFinished = await readRunsFinished(page);
       }
 
       if (turn.preFill) {
@@ -693,6 +702,8 @@ export async function runConversation(
       const baselineRunStartCount =
         skipSendBaselineRunStartCount ??
         (await readCopilotRunning(page)).runStartCount;
+      const baselineRunsFinished =
+        skipSendBaselineRunsFinished ?? (await readRunsFinished(page));
 
       // Surface-mount completion (opt-in via `turn.completeOnMount`): snapshot
       // the pre-send testid counts so the settle gate can detect a NEW render
@@ -787,6 +798,8 @@ export async function runConversation(
           baselineBannerText,
           baselineCount,
           baselineRunStartCount,
+          baselineRunsFinished,
+          completionSignal: turn.completionSignal,
           surfaceReady,
         });
       } catch (settleErr) {
@@ -904,6 +917,7 @@ export async function runConversation(
           // baseline forward.
           const retryBaselineRunStartCount = (await readCopilotRunning(page))
             .runStartCount;
+          const retryBaselineRunsFinished = await readRunsFinished(page);
           // Re-arm surface-mount completion against the post-reload baseline.
           // page.reload() tore down the DOM, so any prior-turn surface is gone
           // — re-snapshot so the retry's delta gate measures growth from the
@@ -955,6 +969,8 @@ export async function runConversation(
               baselineBannerText: retryBaselineBannerText,
               baselineCount: retryBaselineCount,
               baselineRunStartCount: retryBaselineRunStartCount,
+              baselineRunsFinished: retryBaselineRunsFinished,
+              completionSignal: turn.completionSignal,
               surfaceReady: retrySurfaceReady,
             });
           } catch (retryErr) {
@@ -1754,6 +1770,10 @@ export interface WaitForTurnCompleteOpts {
    * the legacy behaviour — so no existing caller breaks.
    */
   baselineRunStartCount?: number;
+  /** Pre-send SSE RUN_FINISHED counter used by `completionSignal: "sse"`. */
+  baselineRunsFinished?: number;
+  /** Lifecycle signal selection; defaults to the DOM-first `"auto"` mode. */
+  completionSignal?: "auto" | "sse";
   /**
    * Surface-mount completion predicate (OPT-IN — set only by the runner
    * when the turn carries `completeOnMount`). When provided, the third
@@ -1993,6 +2013,9 @@ export async function waitForTurnComplete(
   const baselineRunStartCount =
     opts.baselineRunStartCount ??
     (await readCopilotRunning(page)).runStartCount;
+  const baselineRunsFinished =
+    opts.baselineRunsFinished ?? (await readRunsFinished(page));
+  const completionSignal = opts.completionSignal ?? "auto";
   // STAYED-STOPPED quiescence tracking (the temporal guard the comments
   // promise and the gate must actually enforce). A bare `runningNow === false`
   // edge (`sawStopThisTurn`) is INSTANTANEOUS — true at ANY stop edge,
@@ -2040,7 +2063,10 @@ export async function waitForTurnComplete(
     // false-red. Retained as the FALLBACK done-signal for HEADLESS demos
     // (which never render `CopilotChatView`, so `data-copilot-running` is
     // absent), and as a SECONDARY confirmation alongside the DOM signal.
-    const sseOk = runsFinished >= turnIndex;
+    const sseOk =
+      completionSignal === "sse"
+        ? runsFinished > baselineRunsFinished
+        : runsFinished >= turnIndex;
     // PRIMARY done-signal edge — the `data-copilot-running` true→false
     // TRANSITION. Trustworthy ONLY when the attribute is present
     // (`attrPresent`); it is driven directly by the agent run lifecycle
@@ -2105,7 +2131,12 @@ export async function waitForTurnComplete(
     // absent) — never an OR-trigger alongside a present DOM signal. (The SSE
     // counter is monotonic per turn and the headless path has no run-start
     // generations to distinguish, so it carries no transient-edge hazard.)
-    const doneSignalOk = domSignalAvailable ? stopQuiescent : sseOk;
+    const doneSignalOk =
+      completionSignal === "sse"
+        ? sseOk
+        : domSignalAvailable
+          ? stopQuiescent
+          : sseOk;
     // Defect-2 protection: a new bubble has appeared for THIS turn — not
     // just "any bubble exists". `count > baselineCount` rejects a leftover
     // bubble from a prior turn while accepting multi-step turns where >1
@@ -2295,9 +2326,16 @@ export async function waitForTurnComplete(
     runningFinal.sawRunningTrue &&
     runningFinal.runStartCount > baselineRunStartCount &&
     runningFinal.runningNow === false;
-  const doneSignalOkFinal = runningFinal.attrPresent
-    ? sawStopFinal
-    : runsFinishedFinal >= turnIndex;
+  const sseOkFinal =
+    completionSignal === "sse"
+      ? runsFinishedFinal > baselineRunsFinished
+      : runsFinishedFinal >= turnIndex;
+  const doneSignalOkFinal =
+    completionSignal === "sse"
+      ? sseOkFinal
+      : runningFinal.attrPresent
+        ? sawStopFinal
+        : sseOkFinal;
   const domOkFinal = countFinal > baselineCount;
   // Precedence: blame the earliest signal that hadn't arrived. The blamed
   // reason differs by whether the trustworthy DOM run-signal was available.
@@ -2325,11 +2363,11 @@ export async function waitForTurnComplete(
   //   3. The done-signal DID confirm but the third conjunct never settled →
   //      `surface-missing` (surface-mount mode) / `text-unstable`.
   const reason: TurnNotCompleteError["reason"] = !domOkFinal
-    ? !runningFinal.attrPresent && runsFinishedFinal < turnIndex
+    ? (completionSignal === "sse" || !runningFinal.attrPresent) && !sseOkFinal
       ? "sse-missing"
       : "dom-missing"
     : !doneSignalOkFinal
-      ? runningFinal.attrPresent
+      ? runningFinal.attrPresent && completionSignal !== "sse"
         ? "done-signal-missing"
         : "sse-missing"
       : surfaceReady !== null

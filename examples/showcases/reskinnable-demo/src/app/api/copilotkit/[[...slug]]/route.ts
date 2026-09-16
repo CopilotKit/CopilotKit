@@ -7,6 +7,7 @@ import {
 import type { IdentifyUserCallback } from "@copilotkit/runtime/v2";
 import { handle } from "hono/vercel";
 import { agentRegistry, agentIds } from "@/shell/agent-registry";
+import { createSpreadsheetBridge } from "@/shell/attach/spreadsheet-model-format";
 import { defaultSkinId } from "@/shell/skins-config";
 
 // One BuiltInAgent per registered skin, keyed by the skin id (=== agentId). The
@@ -16,8 +17,71 @@ import { defaultSkinId } from "@/shell/skins-config";
 // module load (the factories are cheap and stateless per process).
 function buildAgents() {
   return Object.fromEntries(
-    agentIds.map((id) => [id, agentRegistry[id].createAgent()]),
+    agentIds.map((id) => [
+      id,
+      withSpreadsheetSupport(agentRegistry[id].createAgent()),
+    ]),
   );
+}
+
+/**
+ * Rewrite a converted spreadsheet attachment to the PDF media type its bytes
+ * actually are, on the model leg only.
+ *
+ * `run` is public on `AbstractAgent`, and the runtime has already taken its copy
+ * of the input for persistence and for the echoed message snapshot by the time
+ * it calls this — so the swap reaches the model and nothing else. Doing it at
+ * the API-route level instead rewrites the body the runtime persists, and every
+ * chip in the transcript then reads PDF forever after (measured).
+ *
+ * ── WHY A PROTOTYPE AND NOT AN INSTANCE PROPERTY ────────────────────────────
+ * The runtime CLONES an agent per run, and `AbstractAgent.clone()` is
+ * `Object.create(Object.getPrototypeOf(this))` plus a fixed list of copied
+ * fields — `run` is not on that list. Assigning `agent.run = ...` therefore
+ * survives exactly until the first clone, after which the original `run` is back
+ * and the model receives the spreadsheet media type it cannot read. The failure
+ * is remote from the cause: the run dies with a bare "terminated" from the
+ * agent transport, which reads like a dead service rather than a bad payload.
+ *
+ * Splicing an extra prototype into the chain puts the override where `clone()`
+ * preserves it, and keeps this generic over every agent class the registry
+ * returns (banking's `HttpAgent`, everyone else's in-process agent).
+ */
+function withSpreadsheetSupport<T extends object>(agent: T): T {
+  type Observerish = {
+    next: (value: unknown) => void;
+    error: (err: unknown) => void;
+    complete: () => void;
+  };
+  type Streamish = {
+    subscribe: (observer: Observerish) => unknown;
+    constructor: new (subscribe: (observer: Observerish) => unknown) => unknown;
+  };
+
+  const base = Object.getPrototypeOf(agent) as {
+    run: (input: unknown) => Streamish;
+  };
+  const shim = Object.create(base) as typeof base;
+
+  shim.run = function run(this: T, input: unknown) {
+    // A bridge PER RUN, so the payloads it remembers cannot leak between runs.
+    const bridge = createSpreadsheetBridge();
+    const source = base.run.call(this, bridge.toModel(input));
+    // The stream's own class, reused rather than imported: rxjs is not a direct
+    // dependency of this app, and taking one just to map a stream would pin a
+    // second copy against the runtime's.
+    const Stream = source.constructor;
+    return new Stream((observer: Observerish) =>
+      source.subscribe({
+        next: (event) => observer.next(bridge.fromModel(event)),
+        error: (err) => observer.error(err),
+        complete: () => observer.complete(),
+      }),
+    ) as Streamish;
+  };
+
+  Object.setPrototypeOf(agent, shim);
+  return agent;
 }
 
 /**
@@ -38,12 +102,12 @@ function buildAgents() {
  *
  *   INTELLIGENCE_API_URL          e.g. http://localhost:4201
  *   INTELLIGENCE_GATEWAY_WS_URL   e.g. ws://localhost:4401
- *   INTELLIGENCE_API_KEY          e.g. cpk_...
+ *   CPK_INTELLIGENCE_API_KEY          e.g. cpk_...
  *   COPILOTKIT_LICENSE_TOKEN      (optional) read automatically by the runtime
  */
 const intelligenceApiUrl = process.env.INTELLIGENCE_API_URL;
 const intelligenceWsUrl = process.env.INTELLIGENCE_GATEWAY_WS_URL;
-const intelligenceApiKey = process.env.INTELLIGENCE_API_KEY;
+const intelligenceApiKey = process.env.CPK_INTELLIGENCE_API_KEY;
 
 const intelligenceEnabled = Boolean(
   intelligenceApiUrl && intelligenceWsUrl && intelligenceApiKey,
@@ -67,6 +131,15 @@ const intelligenceEnabled = Boolean(
  * identity instead would resolve a non-seeded id that 403s against the
  * Intelligence stack in the demo's documented unpinned configuration.
  *
+ * Note: this stays keyed to `defaultSkinId` even under `LOCK_SKIN`. On a deploy
+ * locked to a NON-default skin, the inspector's agentId-less requests therefore
+ * resolve a different scope than the running agent. Deliberate: the default
+ * resolver is the one whose scope is seeded, so switching to the locked skin's
+ * resolver would 403 or read empty on any skin without seed data. Today only
+ * `banking` ships real durable memory and it is also the default, so the two
+ * align in the configuration that matters. Revisit if a memory-bearing
+ * non-default skin is ever locked.
+ *
  * A skin that contributes no resolver (e.g. airline, which has no memory), and
  * the case where the default skin itself has no resolver, fall back to a
  * generic, skin-agnostic identity.
@@ -83,11 +156,30 @@ const intelligenceEnabled = Boolean(
  */
 function agentIdFromUrl(url: string): string | undefined {
   try {
-    const segments = new URL(url).pathname.split("/").filter(Boolean);
+    const parsed = new URL(url);
+    const segments = parsed.pathname.split("/").filter(Boolean);
     const i = segments.lastIndexOf("agent");
     if (i >= 0 && i + 1 < segments.length) {
       return decodeURIComponent(segments[i + 1]!);
     }
+    // THREAD ROUTES CARRY THE AGENT IN THE QUERY STRING, NOT THE PATH.
+    //
+    // Run/suggest/connect are `/agent/:agentId/...`, but the thread list is
+    // `/threads?agentId=<id>`. Reading only the path meant every thread-list
+    // request looked agentId-LESS and fell through to `defaultSkinId`'s
+    // resolver — i.e. banking's — so a non-default skin listed threads under
+    // banking's end-user id and got an empty array back. Its runs, which DO go
+    // through `/agent/:id/run`, resolved correctly, so threads were created
+    // under one identity and listed under another.
+    //
+    // The symptom is nasty precisely because nothing errors: the thread rail
+    // just says "No conversations yet" forever and a browser reload never
+    // restores the conversation, which reads as "this product doesn't persist
+    // threads" — the exact opposite of what the demo is trying to prove.
+    // Banking was immune only because it IS `defaultSkinId`; airline,
+    // logistics, keel and people were all affected.
+    const fromQuery = parsed.searchParams.get("agentId");
+    if (fromQuery) return fromQuery;
   } catch {
     // Malformed URL — treat as "no agentId" and fall back.
   }

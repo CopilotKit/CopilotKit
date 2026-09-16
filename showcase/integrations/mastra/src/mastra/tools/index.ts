@@ -1,19 +1,10 @@
-// @region[backend-render-operations]
-// @region[weather-tool-backend]
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
-// Use the header-forwarding `openai` so backend tool LLM calls (e.g.
-// generateText inside generateA2ui) carry the inbound aimock context
-// headers. See `_header_forwarding.ts`.
-import { openai } from "@/mastra/_header_forwarding";
-import { generateText, tool as aiTool } from "ai";
 import {
   getWeatherImpl,
   queryDataImpl,
   scheduleMeetingImpl,
   searchFlightsImpl,
-  generateA2uiImpl,
-  buildA2uiOperationsFromToolCall,
 } from "@copilotkit/showcase-shared-tools";
 
 // `manage_todos` writes the todo list into working memory so the Beautiful
@@ -23,6 +14,10 @@ import {
   writeTodosToWorkingMemory,
   readTodosFromWorkingMemory,
 } from "./working-memory";
+// Single A2UI operation builder for this integration: the doc-facing
+// `a2ui-generate.ts` owns it so its snippet stays self-contained (OSS-901),
+// and the fixed-flight tool below emits the same envelope shape.
+import { buildA2uiOperations } from "./a2ui-generate";
 
 // Re-export the dedicated tool sets defined in their own modules so the
 // barrel keeps a single import surface for callers under `@/mastra/tools`.
@@ -36,7 +31,9 @@ export {
   writingAgentTool,
   critiqueAgentTool,
 } from "./subagents";
+export { generateA2uiTool } from "./a2ui-generate";
 
+// @region[weather-tool-backend]
 export const weatherTool = createTool({
   id: "get_weather",
   description: "Get current weather for a location",
@@ -276,9 +273,10 @@ export const searchFlightsTool = createTool({
   description: "Search for available flights from an origin to a destination",
   // Gold parity (tool_rendering_agent.py search_flights): accept `origin` +
   // `destination` and GENERATE a deterministic flights list rather than having
-  // the caller pass the flights array. Returns mastra-shaped flight objects so
-  // the existing flight-list renderer is unchanged. Object (single-encode) —
-  // see weatherTool.
+  // the caller pass the flights array. Returns the gold result shape
+  // ({ origin, destination, flights:[{ airline, flight, depart, arrive,
+  // price_usd }] }) the FlightListCard reads. Object (single-encode) — see
+  // weatherTool.
   inputSchema: z.object({
     origin: z.string().optional().describe("Origin airport or city"),
     destination: z.string().optional().describe("Destination airport or city"),
@@ -297,140 +295,110 @@ export const searchFlightsTool = createTool({
     }
     const from = origin ?? "SFO";
     const to = destination ?? "JFK";
-    const flights = [
-      {
-        airline: "United",
-        airlineLogo:
-          "https://www.google.com/s2/favicons?domain=united.com&sz=128",
-        flightNumber: "UA231",
-        origin: from,
-        destination: to,
-        date: "Tue, May 6",
-        departureTime: "08:15",
-        arrivalTime: "16:45",
-        duration: "5h 30m",
-        status: "On Time",
-        statusColor: "#22c55e",
-        price: "$348",
-        currency: "USD",
-      },
-      {
-        airline: "Delta",
-        airlineLogo:
-          "https://www.google.com/s2/favicons?domain=delta.com&sz=128",
-        flightNumber: "DL412",
-        origin: from,
-        destination: to,
-        date: "Tue, May 6",
-        departureTime: "11:20",
-        arrivalTime: "19:55",
-        duration: "5h 35m",
-        status: "On Time",
-        statusColor: "#22c55e",
-        price: "$312",
-        currency: "USD",
-      },
-      {
-        airline: "JetBlue",
-        airlineLogo:
-          "https://www.google.com/s2/favicons?domain=jetblue.com&sz=128",
-        flightNumber: "B6722",
-        origin: from,
-        destination: to,
-        date: "Tue, May 6",
-        departureTime: "17:05",
-        arrivalTime: "01:30",
-        duration: "5h 25m",
-        status: "On Time",
-        statusColor: "#22c55e",
-        price: "$289",
-        currency: "USD",
-      },
-    ];
-    return searchFlightsImpl(flights);
+    // Gold-parity result shape (tool_rendering_agent.py search_flights): the
+    // tool-rendering FlightListCard reads { airline, flight, depart, arrive,
+    // price_usd }. Emitting Mastra-flavored keys (flightNumber/departureTime/
+    // arrivalTime/price) left every row blank ("? → ?", "—") on a live endpoint
+    // — the card never matched (PNI-121). Return the gold keys directly.
+    return {
+      origin: from,
+      destination: to,
+      flights: [
+        {
+          airline: "United",
+          flight: "UA231",
+          depart: "08:15",
+          arrive: "16:45",
+          price_usd: 348,
+        },
+        {
+          airline: "Delta",
+          flight: "DL412",
+          depart: "11:20",
+          arrive: "19:55",
+          price_usd: 312,
+        },
+        {
+          airline: "JetBlue",
+          flight: "B6722",
+          depart: "17:05",
+          arrive: "01:30",
+          price_usd: 289,
+        },
+      ],
+    };
   },
 });
 
-// The `generate-a2ui` tool runs a secondary LLM call with a forced
-// `render_a2ui` tool, then converts that tool call's args into the
-// A2UI `a2ui_operations` container that the middleware forwards to
-// the frontend renderer. Mastra returns the operations as a JSON
-// string from the tool body; the catalog
-// (`copilotkit://generative-catalog`) resolves component names to
-// React renderers on the client.
-export const generateA2uiTool = createTool({
-  id: "generate-a2ui",
-  description: "Generate dynamic A2UI surface components",
+// @region[beautiful-chat-fixed-flights]
+// Fixed-schema A2UI flight search for the Beautiful Chat cell. Mirrors
+// langgraph-python `beautiful_chat.py::search_flights`: the tool RESULT is a
+// complete `a2ui_operations` envelope (a flat Row of literal FlightCards on the
+// `app-dashboard-catalog`), so the A2UI middleware paints the cards directly —
+// no dynamic `generate_a2ui` round-trip. Distinct from the shared
+// `searchFlightsTool` (plain `{ flights }`) that the tool-rendering cells render
+// via their own frontend `FlightListCard`.
+const FLIGHT_SURFACE_ID = "flight-search-results";
+const FLIGHT_CATALOG_ID = "copilotkit://app-dashboard-catalog";
+
+// Flat tree: one literal FlightCard per flight + a Row referencing them by id.
+// Inlining the values (rather than the structural `Row.children = { componentId,
+// path }` template) sidesteps the GenericBinder template path and renders
+// identically — matches `beautiful_chat.py::_build_flight_components`.
+function buildFlightCardComponents(
+  flights: Array<Record<string, unknown>>,
+): Array<Record<string, unknown>> {
+  const cardIds: string[] = [];
+  const cards = flights.map((flight, index) => {
+    const id = `flight-card-${index}`;
+    cardIds.push(id);
+    const str = (key: string) =>
+      typeof flight[key] === "string" ? (flight[key] as string) : "";
+    return {
+      id,
+      component: "FlightCard",
+      airline: str("airline"),
+      airlineLogo: str("airlineLogo"),
+      flightNumber: str("flightNumber"),
+      origin: str("origin"),
+      destination: str("destination"),
+      date: str("date"),
+      departureTime: str("departureTime"),
+      arrivalTime: str("arrivalTime"),
+      duration: str("duration"),
+      status: str("status"),
+      price: str("price"),
+    };
+  });
+  return [
+    { id: "root", component: "Row", children: cardIds, gap: 16 },
+    ...cards,
+  ];
+}
+
+export const searchFlightsA2uiTool = createTool({
+  id: "search-flights-a2ui",
+  description:
+    "Search for flights and display the results as rich A2UI cards. Return " +
+    'exactly 2 flights. Each flight must have: airline (e.g. "United ' +
+    'Airlines"), airlineLogo (Google favicon API, e.g. ' +
+    '"https://www.google.com/s2/favicons?domain=united.com&sz=128"), ' +
+    "flightNumber, origin, destination, date (short readable, near-future, " +
+    'e.g. "Tue, Mar 18"), departureTime, arrivalTime, duration (e.g. ' +
+    '"5h 30m"), status (e.g. "On Time"), and price (e.g. "$289").',
   inputSchema: z.object({
-    messages: z.array(z.record(z.unknown())).describe("Chat messages"),
-    contextEntries: z
+    flights: z
       .array(z.record(z.unknown()))
-      .optional()
-      .describe("Context entries"),
+      .describe("The flights to display as A2UI FlightCard components."),
   }),
-  execute: async ({ messages, contextEntries }) => {
-    const prep = generateA2uiImpl({
-      messages,
-      contextEntries,
-    });
-
-    // Normalize each incoming message role to the `user`/`assistant` pair
-    // `generateText` accepts here. An unsound `as "user" | "assistant"` cast
-    // would let a `system`/`tool` role slip through mis-typed (the `??` only
-    // guards null/undefined), so map explicitly: anything that is not
-    // `assistant` collapses to `user`.
-    const toRole = (role: unknown): "user" | "assistant" =>
-      role === "assistant" ? "assistant" : "user";
-
-    const result = await generateText({
-      model: openai("gpt-4.1"),
-      system: prep.systemPrompt,
-      messages: prep.messages.map((m) => ({
-        role: toRole(m.role),
-        content: (m.content as string) ?? "",
-      })),
-      tools: {
-        render_a2ui: aiTool({
-          description: "Render a dynamic A2UI v0.9 surface.",
-          // AI SDK v5 renamed the tool schema key from `parameters` to
-          // `inputSchema`; under v5 a `parameters` key is ignored, so the
-          // render_a2ui schema would never reach the model.
-          inputSchema: z.object({
-            surfaceId: z.string().describe("Unique surface identifier."),
-            catalogId: z.string().describe("The catalog ID."),
-            components: z
-              .array(z.record(z.unknown()))
-              .describe("A2UI v0.9 component array."),
-            data: z
-              .record(z.unknown())
-              .optional()
-              .describe("Optional initial data model."),
-          }),
-        }),
-      },
-      toolChoice: { type: "tool", toolName: "render_a2ui" },
-    });
-
-    const toolCall = result.toolCalls?.[0];
-    if (!toolCall) {
-      // The forced `render_a2ui` tool was not called, so there are no
-      // operations to forward. Returning a `{ error }` JSON string would look
-      // like a successful tool result to the frontend/runtime, which cannot
-      // then distinguish it from a real A2UI payload. Throw instead so the
-      // Mastra runtime surfaces this as a genuine tool error.
-      const message = "generate-a2ui: LLM did not call render_a2ui";
-      console.error(message, { finishReason: result.finishReason });
-      throw new Error(message);
-    }
-
-    // AI SDK v5 renamed the typed tool-call arguments from `.args` to
-    // `.input` (the `ai` v4 shape was `toolCall.args`). Read `.input` so the
-    // a2ui builder gets the render_a2ui arguments instead of `undefined`.
-    return JSON.stringify(
-      buildA2uiOperationsFromToolCall(
-        toolCall.input as Record<string, unknown>,
-      ),
-    );
-  },
+  // Return the OBJECT (not a JSON string): the @ag-ui/mastra bridge encodes the
+  // tool result once for the wire, so a single-encoded `a2ui_operations`
+  // container is what the A2UI middleware detects and paints.
+  execute: async ({ flights }) =>
+    buildA2uiOperations({
+      surfaceId: FLIGHT_SURFACE_ID,
+      catalogId: FLIGHT_CATALOG_ID,
+      components: buildFlightCardComponents(flights),
+    }),
 });
-// @endregion[backend-render-operations]
+// @endregion[beautiful-chat-fixed-flights]

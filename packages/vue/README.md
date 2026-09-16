@@ -47,6 +47,13 @@ import { CopilotKitProvider } from "@copilotkit/vue";
 </template>
 ```
 
+### Inspector
+
+The provider mounts the Inspector automatically in development. It is never
+loaded in production or during server rendering. Disable it when needed with
+`<CopilotKitProvider :enable-inspector="false">`. The deprecated
+`showDevConsole` prop does not control Inspector visibility.
+
 ## Provider Parity: `selfManagedAgents`, `onError`, and `a2ui`
 
 `CopilotKitProvider` supports React-parity provider controls for local agent registration and runtime error handling.
@@ -305,7 +312,7 @@ function loadMoreThreads() {
 </template>
 ```
 
-`useThreads` is a headless composable for Intelligence-platform thread lists scoped to the runtime-authenticated user and provided `agentId`. It supports optional `includeArchived` and `limit` inputs, subscribes to realtime metadata updates when the runtime exposes a websocket URL, and returns reactive refs for `threads`, `isLoading`, `error`, `hasMoreThreads`, and `isFetchingMoreThreads`, plus `fetchMoreThreads()`.
+`useThreads` is a headless composable for CopilotKit Intelligence thread lists scoped to the runtime-authenticated user and provided `agentId`. It supports optional `includeArchived` and `limit` inputs, subscribes to realtime metadata updates when the runtime exposes a websocket URL, and returns reactive refs for `threads`, `isLoading`, `error`, `hasMoreThreads`, and `isFetchingMoreThreads`, plus `fetchMoreThreads()`.
 
 ### `useInterrupt`
 

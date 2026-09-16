@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChatSurface } from "@/skins/keel/components/chat-surface";
 import type { Run, RunStep } from "@/skins/keel/data/types";
+import { useKeelHref } from "@/skins/keel/href";
 
 /**
  * The `approveStep` HITL card — the most important surface in this unit. The
@@ -27,6 +28,7 @@ export function ApprovalCard({
   onApprove: (note?: string) => void;
   onReject: (note?: string) => void;
 }) {
+  const keelHref = useKeelHref();
   const [note, setNote] = useState("");
   const trimmed = note.trim();
   const noteArg = trimmed.length > 0 ? trimmed : undefined;
@@ -51,7 +53,7 @@ export function ApprovalCard({
 
       {step.policyRef && (
         <Link
-          href={`/keel/knowledge/${step.policyRef.docId}#${step.policyRef.sectionId}`}
+          href={`${keelHref(`knowledge/${step.policyRef.docId}`)}#${step.policyRef.sectionId}`}
           className="mt-2 flex flex-col gap-0.5 rounded-md border border-hairline bg-surface-muted p-2 transition-colors hover:border-brand/60"
         >
           <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">

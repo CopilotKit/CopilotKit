@@ -33,6 +33,12 @@ internal static class BeautifulChatA2ui
     /// Secondary-LLM system prompt for declarative-gen-ui catalog only.
     /// DashboardCard / FlightCard are NOT registered here — inventing them
     /// paints "Unknown component: DashboardCard" on the client.
+    ///
+    /// Includes the Vantage Threads sales dataset + composition rules from
+    /// sales-context.ts. The secondary design call does NOT see frontend
+    /// App Context (injectA2UITool is false; we own generate_a2ui), so the
+    /// numbers must be baked into this prompt or charts ship empty ("No
+    /// data available") and tables render blank rows.
     /// </summary>
     internal static string DeclarativeGenUiDesignSystemPrompt() =>
         BuildDesignSystemPrompt(
@@ -40,12 +46,58 @@ internal static class BeautifulChatA2ui
             allowedTypes:
             "Metric, PieChart, BarChart, Card, Row, Column, Text, DataTable, " +
             "StatusBadge, InfoRow, PrimaryButton") +
-        "\nComposition guidance:\n" +
-        "- KPI / dashboard snapshot → root Column of Metric tiles + optional PieChart/BarChart.\n" +
-        "- Team performance / quota → DataTable.\n" +
-        "- Risk / health → StatusBadge + InfoRow inside Card.\n" +
-        "- Single account details → Card with InfoRow children.\n" +
-        "- Never emit DashboardCard, SummaryCard, FlightCard, or Chart.\n";
+        "\n" +
+        "SALES DATASET (ground every number in these — never leave charts empty):\n" +
+        DeclarativeSalesDataset +
+        "\n\nCOMPOSITION RULES:\n" +
+        DeclarativeCompositionRules +
+        "\n\nDATA PROP EXAMPLES (required shapes — non-empty arrays):\n" +
+        "- PieChart: {\"id\":\"pie1\",\"component\":\"PieChart\",\"title\":\"Revenue by region\"," +
+        "\"description\":\"Q2 share\",\"data\":[" +
+        "{\"label\":\"North America\",\"value\":1900000}," +
+        "{\"label\":\"EMEA\",\"value\":1300000}," +
+        "{\"label\":\"APAC\",\"value\":720000}," +
+        "{\"label\":\"LATAM\",\"value\":280000}]}\n" +
+        "- BarChart: {\"id\":\"bar1\",\"component\":\"BarChart\",\"title\":\"Monthly revenue\"," +
+        "\"description\":\"Jan-Jun\",\"data\":[" +
+        "{\"label\":\"Jan\",\"value\":1210000},{\"label\":\"Feb\",\"value\":1340000}," +
+        "{\"label\":\"Mar\",\"value\":1650000},{\"label\":\"Apr\",\"value\":1380000}," +
+        "{\"label\":\"May\",\"value\":1420000},{\"label\":\"Jun\",\"value\":1400000}]}\n" +
+        "- DataTable: columns use keys rep/attainment/pipeline; every row MUST " +
+        "include those keys, e.g. {\"rep\":\"Dana Whitfield\",\"attainment\":\"124%\"," +
+        "\"pipeline\":\"$820k\"}. Empty rows[] is invalid.\n" +
+        "- Never emit DashboardCard, SummaryCard, FlightCard, or Chart.\n" +
+        "- PieChart/BarChart `data` MUST be a JSON array of objects, never a string, " +
+        "never omitted, never []. Values are numbers (not \"$1.9M\" strings).\n";
+
+    // Keep in sync with showcase/.../declarative-gen-ui/sales-context.ts
+    private const string DeclarativeSalesDataset =
+        "Vantage Threads (fictional B2B apparel) Q2 sales data.\n" +
+        "- Quarterly revenue: $4.2M (up 12% QoQ). New customers: 186 (up 8%). " +
+        "Win rate: 31% (down 2pts). Avg deal size: $22.6k (up 5%).\n" +
+        "- Revenue by region: North America $1.9M, EMEA $1.3M, APAC $720k, LATAM $280k.\n" +
+        "- Monthly revenue: Jan $1.21M, Feb $1.34M, Mar $1.65M, Apr $1.38M, May $1.42M, Jun $1.40M.\n" +
+        "- Reps (vs quota): Dana Whitfield 124%, Marcus Lee 108%, Priya Sharma 97%, " +
+        "Tom Okafor 88%, Elena Vasquez 71%.\n" +
+        "- At-risk: $615k ARR across 3 accounts — Northwind Retail ($340k, high), " +
+        "Cascadia Outfitters ($180k, medium), Atlas Goods ($95k, medium).\n" +
+        "- Biggest account: Meridian Apparel Group — owner Dana Whitfield, NA, ARR $612k, " +
+        "renewal Sep 30; product lines Outerwear $260k, Footwear $180k, Accessories $112k, Custom $60k.";
+
+    private const string DeclarativeCompositionRules =
+        "1. Overall snapshot / \"sales dashboard\" → Column (gap 16): first child a Row " +
+        "(gap 16) of 4 Metric tiles (revenue $4.2M, new customers 186, win rate 31%, " +
+        "avg deal $22.6k) with trend+trendValue, then a Row with PieChart (revenue by " +
+        "region, 4 segments) next to BarChart (monthly revenue, all 6 months). " +
+        "Do NOT wrap in a surrounding Card. Do NOT use StatusBadge/DataTable/InfoRow.\n" +
+        "2. Rep / team performance → Column with Card containing DataTable " +
+        "(columns rep, attainment, pipeline — one row per rep) and optional BarChart " +
+        "of attainment % — no StatusBadge or InfoRow.\n" +
+        "3. Risk / health → Column: Row of 3 Metric tiles (ARR at risk $615k trend down, " +
+        "accounts at risk 3, biggest Northwind $340k), then Row of 3 Cards (one per " +
+        "at-risk account) each with StatusBadge + Text reason.\n" +
+        "4. Single account → Row: Card of InfoRows next to PieChart of product lines.\n" +
+        "5. Part-of-whole → PieChart; trends/comparisons → BarChart.";
 
     private static string BuildDesignSystemPrompt(string catalogId, string allowedTypes) =>
         "You are an A2UI v0.9 component designer. Emit a single tool call whose\n" +
@@ -65,7 +117,7 @@ internal static class BeautifulChatA2ui
         "- Exactly ONE component MUST have id \"root\" (the surface entry point).\n" +
         "- Do NOT invent types outside the allowed list.\n" +
         "- Pass prop values as inline literals only. Keep top-level \"data\" as {}.\n" +
-        "- Example component:\n" +
+        "- Example Metric:\n" +
         "  {\"id\":\"m1\",\"component\":\"Metric\",\"label\":\"Revenue\",\"value\":\"$4.2M\",\"trend\":\"up\",\"trendValue\":\"+12%\"}\n";
 
     internal static object BuildA2uiResponseFromContent(
@@ -373,30 +425,59 @@ internal static class BeautifulChatA2ui
     {
         foreach (var field in new[] { "data", "value", "children", "rows", "columns" })
         {
-            if (!obj.TryGetPropertyValue(field, out var node) || node is not JsonValue val)
+            if (!obj.TryGetPropertyValue(field, out var node) || node is null)
             {
                 continue;
             }
-            if (!val.TryGetValue<string>(out var s) || string.IsNullOrWhiteSpace(s))
+
+            if (node is JsonValue val &&
+                val.TryGetValue<string>(out var s) &&
+                !string.IsNullOrWhiteSpace(s))
             {
-                continue;
-            }
-            var trimmed = s.Trim();
-            if (trimmed.Length == 0 || (trimmed[0] is not '[' and not '{'))
-            {
-                continue;
-            }
-            try
-            {
-                var parsed = JsonNode.Parse(trimmed);
-                if (parsed is not null)
+                var trimmed = s.Trim();
+                if (trimmed.Length > 0 && trimmed[0] is '[' or '{')
                 {
-                    obj[field] = parsed;
+                    try
+                    {
+                        var parsed = JsonNode.Parse(trimmed);
+                        if (parsed is not null)
+                        {
+                            obj[field] = parsed;
+                            node = parsed;
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // Leave the raw string; renderer may still handle it.
+                    }
                 }
             }
-            catch (JsonException)
+
+            // Coerce chart data value fields to numbers when the model emits "1900000".
+            if (field == "data" && obj[field] is JsonArray dataArr)
             {
-                // Leave the raw string; renderer may still handle it.
+                CoerceChartDataValues(dataArr);
+            }
+        }
+    }
+
+    private static void CoerceChartDataValues(JsonArray dataArr)
+    {
+        foreach (var item in dataArr)
+        {
+            if (item is not JsonObject row)
+            {
+                continue;
+            }
+            if (!row.TryGetPropertyValue("value", out var v) || v is null)
+            {
+                continue;
+            }
+            if (v is JsonValue jv && jv.TryGetValue<string>(out var s) &&
+                double.TryParse(s, System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out var n))
+            {
+                row["value"] = n;
             }
         }
     }

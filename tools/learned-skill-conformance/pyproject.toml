@@ -1,0 +1,18 @@
+[project]
+name = "learned-skill-framework-acceptance"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+  "copilotkit-intelligence-langgraph",
+  "copilotkit-intelligence-adk",
+  "langchain-openai>=1,<2",
+  "litellm>=1.75,<2",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+copilotkit-intelligence-langgraph = { path = "../../packages/intelligence-langgraph-python", editable = true }
+copilotkit-intelligence-adk = { path = "../../packages/intelligence-adk-python", editable = true }
+copilotkit-intelligence-runtime = { path = "../../packages/runtime-python", editable = true }

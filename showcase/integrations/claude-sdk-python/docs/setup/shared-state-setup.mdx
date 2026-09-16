@@ -8,4 +8,46 @@
 
     <DemoCode file="src/agents/shared_state_read_write_agent.py" region="shared-state-setup" />
   </Step>
+
+  <Step>
+    ### Register `set_notes` with Claude
+
+    This dedicated demo uses the Anthropic Messages API directly. Pass the
+    schema to `client.messages.stream` so Claude can call `set_notes`.
+
+    <DemoCode
+      file="src/agents/shared_state_read_write_agent.py"
+      region="shared-state-tool-registration"
+    />
+  </Step>
+
+  <Step>
+    ### Write the tool result back to shared state
+
+    When Claude calls `set_notes`, replace the notes array, emit a
+    `StateSnapshotEvent` for the UI, and return a `ToolCallResultEvent` to
+    Claude before the loop continues.
+
+    <DemoCode
+      file="src/agents/shared_state_read_write_agent.py"
+      region="shared-state-set-notes"
+    />
+  </Step>
+
+  <Step>
+    ### Serve the shared-state loop
+
+    Mount the dedicated runner on `/shared-state-read-write` and return its
+    AG-UI events as a streaming response.
+
+    <DemoCode
+      file="src/agent_server.py"
+      region="shared-state-read-write-route"
+    />
+  </Step>
 </Steps>
+
+<Callout type="info">
+  This Python route intentionally uses its own Messages API loop. It does not
+  use `ClaudeAgentAdapter` or an MCP server.
+</Callout>

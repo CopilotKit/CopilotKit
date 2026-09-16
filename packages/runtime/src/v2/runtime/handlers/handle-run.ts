@@ -1,5 +1,6 @@
 import { isIntelligenceRuntime } from "../core/runtime";
 import { telemetry } from "../telemetry";
+import { readGuardrailsEnabled } from "./shared/cloud-telemetry";
 import type { RunAgentParameters } from "./shared/agent-utils";
 import {
   attachIntelligenceEnterpriseLearning,
@@ -9,26 +10,24 @@ import {
 } from "./shared/agent-utils";
 import { handleIntelligenceRun } from "./intelligence/run";
 import { handleSseRun } from "./sse/run";
+import { getRuntimeErrorReporter } from "../core/runtime-error-reporter";
 
 export async function handleRunAgent({
   runtime,
   request,
   agentId,
 }: RunAgentParameters) {
-  telemetry.capture("oss.runtime.copilot_request_created", {
-    "cloud.guardrails.enabled": false,
-    requestType: "run",
-    "cloud.api_key_provided": !!request.headers.get(
-      "x-copilotcloud-public-api-key",
-    ),
-    ...(request.headers.get("x-copilotcloud-public-api-key")
-      ? {
-          "cloud.public_api_key": request.headers.get(
-            "x-copilotcloud-public-api-key",
-          )!,
-        }
-      : {}),
-  });
+  const startTime = Date.now();
+  const publicApiKey = request.headers.get("x-copilotcloud-public-api-key");
+  (runtime.telemetry ?? telemetry).capture(
+    "oss.runtime.copilot_request_created",
+    {
+      "cloud.guardrails.enabled": await readGuardrailsEnabled(request),
+      requestType: "run",
+      "cloud.api_key_provided": !!publicApiKey,
+      ...(publicApiKey ? { "cloud.public_api_key": publicApiKey } : {}),
+    },
+  );
 
   try {
     const agent = await cloneAgentForRequest(runtime, agentId, request);
@@ -62,6 +61,10 @@ export async function handleRunAgent({
       agentId,
       agent,
       providerA2UIHasCatalog,
+      isMcpProxyRequest: Object.prototype.hasOwnProperty.call(
+        input.forwardedProps ?? {},
+        "__proxiedMCPRequest",
+      ),
     });
     const memoryResponse = await attachIntelligenceEnterpriseLearning({
       runtime,
@@ -88,6 +91,7 @@ export async function handleRunAgent({
         agentId,
         agent,
         input,
+        startTime,
       });
     }
 
@@ -99,8 +103,17 @@ export async function handleRunAgent({
       agentId,
       debug: runtime.debug,
       logger: runtime.debugLogger,
+      startTime,
     });
   } catch (error) {
+    getRuntimeErrorReporter(runtime)?.report({
+      request,
+      error,
+      operation: "agent.run",
+      agentId,
+      phase: "common",
+      startTime,
+    });
     console.error("Error running agent:", error);
     console.error(
       "Error stack:",

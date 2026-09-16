@@ -5,6 +5,9 @@ node_modules/
 .DS_Store
 
 .next
+# The E2E LOCK_SKIN project's isolated build dir (NEXT_DIST_DIR in
+# playwright.config.ts) — two dev servers cannot share one .next.
+.next-locked
 
 # TypeScript incremental build cache
 tsconfig.tsbuildinfo

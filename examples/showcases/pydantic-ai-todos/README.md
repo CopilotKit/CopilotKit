@@ -5,7 +5,7 @@ This is a starter template for building AI agents using [PydanticAI](https://ai.
 ## Prerequisites
 
 - OpenAI API Key (for the PydanticAI agent)
-- Python 3.12+
+- Python 3.13+
 - uv
 - Node.js 20+
 - Any of the following package managers:
@@ -194,5 +194,5 @@ If you encounter Python import errors:
 ```bash
 cd agent
 uv sync
-uv run src/main.py
+uv run main.py
 ```

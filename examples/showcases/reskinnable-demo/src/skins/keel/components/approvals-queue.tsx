@@ -3,12 +3,13 @@
 import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ChatSurface } from "@/skins/keel/components/chat-surface";
-import type { ApprovalItem, MutationResult } from "@/skins/keel/data/types";
+import type { ApprovalItem } from "@/skins/keel/data/types";
+import type { DeskMutationResult } from "@/skins/keel/desk-data";
 
 /**
  * The `showApprovals` chat surface: the current role's approval queue. Each row
  * is actionable only when the gate's approverRole matches the current persona
- * (the `actionable` flag is computed upstream in KeelData). Non-actionable rows
+ * (the `actionable` flag is computed upstream in `useKeelDesk`). Non-actionable rows
  * name the role the gate is waiting on and disable the button.
  */
 export function ApprovalsQueue({
@@ -92,30 +93,34 @@ export function ApprovalsQueue({
  * the `MutationResult` the same way every other approval path in this skin does
  * (see `approveStep`/`rejectStep` in tools.tsx, and the desk/run-detail pages).
  *
- * The MutationResult MUST be consumed here: the critical case is the stale-gate
- * race (spec §12) — the 900ms ticker advances the run between the agent
- * proposing the approval and the click, so `approve` returns `{ ok:false }`
- * WITH THE SAME `runs` reference. That produces no re-render, so if the result
- * were discarded the button would appear to do nothing. Surfacing `reason`
- * beneath the row is the only feedback the user gets.
+ * The result MUST be consumed here: the critical case is the stale-gate race
+ * (spec §12) — the server settles the run's elapsed time on every read, so the
+ * gate the agent proposed can already be gone by the time the row is clicked and
+ * `approve` resolves `{ ok:false }` against a ledger that then re-reads to the
+ * same rows. That produces no visible change, so a discarded result leaves the
+ * button appearing to do nothing. Surfacing `reason` beneath the row is the only
+ * feedback the user gets — and a `reason` on an `ok` result is the third case
+ * (`stale`: the approval landed, this list did not re-read), which is shown for
+ * the same reason rather than being quietly rounded up to success.
  */
 export function ApprovalsQueueSurface({
   items,
   approve,
 }: {
   items: ApprovalItem[];
-  approve: (runId: string, stepId: string) => MutationResult;
+  approve: (runId: string, stepId: string) => Promise<DeskMutationResult>;
 }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const handleApprove = useCallback(
     (runId: string, stepId: string) => {
       const key = `${runId}:${stepId}`;
-      const result = approve(runId, stepId);
-      setErrors((prev) => {
-        const next = { ...prev };
-        if (result.ok) delete next[key];
-        else next[key] = result.reason ?? "Could not approve this step.";
-        return next;
+      void approve(runId, stepId).then((result) => {
+        setErrors((prev) => {
+          const next = { ...prev };
+          if (result.ok && !result.reason) delete next[key];
+          else next[key] = result.reason ?? "Could not approve this step.";
+          return next;
+        });
       });
     },
     [approve],

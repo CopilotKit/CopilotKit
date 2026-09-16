@@ -1,6 +1,5 @@
 "use client";
 
-import type { CSSProperties } from "react";
 import { Archive, PanelLeftClose, SquarePen, Trash2 } from "lucide-react";
 import { useThreads } from "@copilotkit/react-core/v2";
 
@@ -18,9 +17,9 @@ const BUCKET_ORDER = [
 type Bucket = (typeof BUCKET_ORDER)[number];
 
 /**
- * The thread rail, styled after ChatGPT's sidebar and pinned to the screen's
- * LEFT edge — the leftmost of the two chat columns, with the conversation
- * immediately to its right (see ChatPanel for how the two are composed).
+ * The thread rail, styled after ChatGPT's sidebar — the leftmost of the two
+ * columns inside the chat card, with the conversation immediately to its right
+ * across a hairline (see ChatPanel for how the two are composed).
  *
  * ChatGPT's sidebar is deliberately quiet: a flat grey field a step darker than
  * the conversation, no card borders or shadows, a plain "New chat" row rather
@@ -28,23 +27,19 @@ type Bucket = (typeof BUCKET_ORDER)[number];
  * carried by a soft grey fill instead of a brand color. Row actions stay hidden
  * until hover. This surface therefore runs neutral greys, not Aurora violet.
  *
- * Visible when the panel is open AND the rail is expanded (`isInboxOpen`); the
- * panel header's toggle collapses/expands it.
+ * Visibility is NOT this component's concern: it fills a collapsible `Panel`
+ * whose collapsed state the panel header's toggle drives, so the rail simply
+ * renders and lets the parent size it to zero.
  */
 export function ChatInbox({
-  panelOpen,
   showArchived,
   onShowArchivedChange,
-  width,
 }: {
-  panelOpen: boolean;
   showArchived: boolean;
   onShowArchivedChange: (next: boolean) => void;
-  width: number;
 }) {
   const skin = useSkin();
   const {
-    isInboxOpen,
     closeInbox,
     selectedThreadId,
     selectConversation,
@@ -64,8 +59,6 @@ export function ChatInbox({
     includeArchived: showArchived,
     limit: 20,
   });
-
-  const visible = isInboxOpen && panelOpen;
 
   const handleArchive = (id: string) => {
     if (id === selectedThreadId) startNewConversation();
@@ -94,23 +87,14 @@ export function ChatInbox({
     <aside
       data-testid="chat-inbox"
       aria-label="Conversations"
-      aria-hidden={!visible}
-      style={
-        {
-          "--rail-width": `${width}px`,
-          left: 0,
-        } as CSSProperties
-      }
       className={cn(
-        // z above the sidebar (1200) so the rail paints over the strip the
-        // sidebar's padding-left frees up.
-        "fixed top-0 z-[1201] hidden h-[100dvh] max-h-screen w-[var(--rail-width)] flex-col md:flex",
-        // ChatGPT's sidebar: flat grey field, one hairline against the
-        // conversation, no shadow or blur.
-        "border-r border-[#e3e3e3] bg-[#f9f9f9] text-[#0d0d0d]",
-        "dark:border-white/10 dark:bg-[#171717] dark:text-[#ececec]",
-        "transition-transform duration-300 ease-out",
-        visible ? "translate-x-0" : "pointer-events-none -translate-x-full",
+        // Fills its Panel: the parent owns width, collapsing and the divider, so
+        // this no longer positions itself, reserves a rail width, or animates.
+        "flex h-full min-h-0 w-full flex-col",
+        // ChatGPT's sidebar: flat grey field, no shadow or blur. The hairline
+        // against the conversation is drawn by the Separator, not here.
+        "bg-[#f9f9f9] text-[#0d0d0d]",
+        "dark:bg-[#171717] dark:text-[#ececec]",
       )}
     >
       {/* Top: collapse control, then "New chat" as a plain row (ChatGPT's

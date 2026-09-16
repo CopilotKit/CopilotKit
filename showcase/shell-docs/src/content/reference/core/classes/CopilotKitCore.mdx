@@ -159,6 +159,16 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
   Subscribes to a single agent's message, state, and run-lifecycle callbacks with optional throttling. Every callback is wrapped with error protection. Use `agent.subscribe()` directly when you need AG-UI event handlers or per-item notifications.
 </PropertyReference>
 
+### Inspector metadata
+
+<PropertyReference name="refreshInspectorMetadata(): Promise<void>" type="method">
+  Refreshes optional trusted Inspector metadata without reconnecting runtime
+  agents. Core makes the request only while connected to a runtime that reports
+  `inspectorMetadata: true` from its runtime-info response. Each refresh has a
+  five-second deadline. Route, timeout, and parse failures resolve with metadata
+  absent; they do not change the runtime connection state.
+</PropertyReference>
+
 ### Configuration
 
 <PropertyReference name="setRuntimeUrl(runtimeUrl: string | undefined): void" type="method">
@@ -170,11 +180,11 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
 </PropertyReference>
 
 <PropertyReference name="setHeaders(headers: Record<string, string | null | undefined>): void" type="method">
-  Replaces the request headers and re-applies them to existing agents. Any key whose value is `null` or `undefined` is dropped from the stored headers, which is the supported way to clear a header (e.g. `Authorization` on logout). An empty string remains a valid header value and is preserved.
+  Replaces the request headers and re-applies them to existing agents. Any key whose value is `null` or `undefined` is dropped from the stored headers, which is the supported way to clear a header (e.g. `Authorization` on logout). An empty string remains a valid header value and is preserved. Core clears trusted Inspector metadata before refreshing it with the new headers.
 </PropertyReference>
 
 <PropertyReference name="setCredentials(credentials: RequestCredentials | undefined): void" type="method">
-  Replaces the fetch credentials mode and re-applies it to existing agents.
+  Replaces the fetch credentials mode and re-applies it to existing agents. Core clears trusted Inspector metadata before refreshing it with the new mode.
 </PropertyReference>
 
 <PropertyReference name="setProperties(properties: Record<string, unknown>): void" type="method">
@@ -225,6 +235,14 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
   The current runtime connection status. See [CopilotKitCoreRuntimeConnectionStatus](/reference/core/enums/CopilotKitCoreRuntimeConnectionStatus).
 </PropertyReference>
 
+<PropertyReference name="inspectorMetadata: InspectorMetadataV1 | undefined" type="getter">
+  The latest trusted, parsed metadata from the connected runtime. It is
+  `undefined` when the runtime does not advertise the capability, the optional
+  request fails, or the runtime has no supported metadata. Subscribe with
+  [`onInspectorMetadataChanged`](/reference/core/types/CopilotKitCoreSubscriber#properties)
+  to react to changes.
+</PropertyReference>
+
 <PropertyReference name="headers / credentials / properties" type="getter">
   Snapshots of the configured headers, credentials mode, and forwarded properties.
 </PropertyReference>
@@ -263,6 +281,7 @@ subscription.unsubscribe();
 - **Asynchronous agent population** — `agents` is populated after the runtime responds, so it may be empty immediately after construction. Use `subscribe({ onAgentsChanged })` to react when agents become available.
 - **Error surfacing** — failures (runtime fetch, agent run, tool execution, subscriber callbacks) are delivered through the `onError` subscriber callback with a [CopilotKitCoreErrorCode](/reference/core/enums/CopilotKitCoreErrorCode); they are not thrown from the originating method — except `runTool()`, which also throws when the named tool or its resolved agent cannot be found.
 - **Subscriber isolation** — a throw in one subscriber callback is caught and logged; it does not stall notifications to other subscribers.
+- **Inspector metadata isolation** — metadata loads after the connected and agent notifications finish. Header or credential changes refresh it. Runtime URL, transport, auth, connection, and capability checks prevent a stale request from replacing a newer value.
 - **`__unsafe_dev_only` APIs** — the `*Agent__unsafe_dev_only` methods register local in-memory agents for development. Production setups must go through a CopilotRuntime.
 
 ## Related

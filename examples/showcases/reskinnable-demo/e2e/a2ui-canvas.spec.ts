@@ -75,8 +75,10 @@ test.describe("A2UI report canvas", () => {
       page.getByRole("heading", { name: "Credit Cards", level: 1 }),
     ).toBeVisible();
 
-    // Open the docked chat (starts closed; v2 launcher has this testid).
-    await page.getByTestId("copilot-chat-toggle").click();
+    // No open step needed: the chat is an inline CopilotChat inside the frame's
+    // assistant card and is showing on load. It was a CopilotSidebar that started
+    // closed behind a `copilot-chat-toggle` launcher — that launcher no longer
+    // exists, so clicking it here would fail the moment this spec is un-fixmed.
 
     // Send a report prompt. "spend report on the canvas" is the aimock match key.
     const input = page.getByPlaceholder(/type a message/i);

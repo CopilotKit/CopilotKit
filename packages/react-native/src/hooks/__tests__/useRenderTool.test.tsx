@@ -1,334 +1,368 @@
 import React from "react";
-import { render } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { act, render, waitFor } from "@testing-library/react";
+import { describe, it, expect } from "vitest";
+import { z } from "zod";
+import { AbstractAgent } from "@ag-ui/client";
+import type { RunAgentParameters, RunAgentResult } from "@ag-ui/client";
 
-// ─── Mocks ────────────────────────────────────────────────────────────────────
-
-const hoisted = vi.hoisted(() => {
-  const _React = require("react");
-  return {
-    RealContext: _React.createContext(null),
-    mockAddTool: vi.fn(),
-    mockRemoveTool: vi.fn(),
-    mockGetTool: vi.fn(() => undefined),
-    mockAddHookRenderToolCall: vi.fn(),
-    mockSubscribe: vi.fn(() => ({ unsubscribe: vi.fn() })),
-  };
-});
-
-vi.mock("@copilotkit/react-core/v2/headless", () => {
-  return {
-    useFrontendTool: vi.fn((_tool: any, _deps?: any) => {
-      // Require context — mirrors real behavior
-      const ctx = require("react").useContext(hoisted.RealContext);
-      if (!ctx) {
-        throw new Error("useCopilotKit must be used within CopilotKitProvider");
-      }
-      // Simulate addTool call
-      hoisted.mockAddTool(_tool);
-    }),
-    CopilotKitCoreReact: function CopilotKitCoreReact() {},
-    CopilotChatConfigurationProvider: ({ children }: any) => children,
-    useCopilotChatConfiguration: () => null,
-    CopilotChatDefaultLabels: {},
-  };
-});
-
-vi.mock("@copilotkit/react-core/v2/context", () => {
-  const _React = require("react");
-  return {
-    CopilotKitContext: hoisted.RealContext,
-    LicenseContext: _React.createContext({
-      status: null,
-      license: null,
-      checkFeature: () => true,
-      getLimit: () => null,
-    }),
-    useCopilotKit: () => {
-      const ctx = _React.useContext(hoisted.RealContext);
-      if (!ctx) {
-        throw new Error("useCopilotKit must be used within CopilotKitProvider");
-      }
-      return ctx;
-    },
-    useLicenseContext: () => ({
-      status: null,
-      license: null,
-      checkFeature: () => true,
-      getLimit: () => null,
-    }),
-  };
-});
-
-vi.mock("@copilotkit/shared", () => ({
-  createLicenseContextValue: () => ({
-    status: null,
-    license: null,
-    checkFeature: () => true,
-    getLimit: () => null,
-  }),
-}));
-
-// Import after mocks
-import { useRenderTool } from "../useRenderTool";
 import {
-  RenderToolProvider,
-  useRenderToolRegistry,
-} from "../RenderToolContext";
+  useCopilotKit,
+  useRenderTool,
+  useRenderToolCall,
+} from "../../headless";
+import type { CopilotKitContextValue } from "../../headless";
+import { TestCopilotKit } from "../../__mocks__/test-copilotkit";
 
-// Minimal wrapper that provides both CopilotKit context and RenderToolProvider
-function TestProviders({ children }: { children: React.ReactNode }) {
-  const mockCtx = {
-    copilotkit: {
-      addTool: hoisted.mockAddTool,
-      removeTool: hoisted.mockRemoveTool,
-      getTool: hoisted.mockGetTool,
-      addHookRenderToolCall: hoisted.mockAddHookRenderToolCall,
-      subscribe: hoisted.mockSubscribe,
+/**
+ * `useRenderTool` on `@copilotkit/react-native` IS react-core's
+ * `useRenderTool` — a plain re-export from `src/headless.ts`, with no RN
+ * implementation behind it. That wiring is asserted structurally in
+ * `src/__tests__/headless-entry-surface.test.ts`; this file asserts the
+ * BEHAVIOUR a React Native consumer gets through that entry.
+ *
+ * ─── What this file is for ───────────────────────────────────────────────────
+ *
+ * RN previously shipped a local `useRenderTool` whose entire body forwarded to
+ * react-core's `useFrontendTool` — core's OTHER hook, wearing this one's name.
+ * The two are not interchangeable, and the difference is exactly what a
+ * consumer gets billed for: `useFrontendTool` registers a TOOL (advertised to
+ * the model, callable by it) alongside its renderer, while `useRenderTool`
+ * registers a RENDERER ONLY. Under the alias, `name: "*"` — the documented way
+ * to spell "decorate every tool call that has no renderer of its own" —
+ * registered a frontend tool literally named `*`.
+ *
+ * Core never OFFERED that tool to the model: `buildFrontendTools` filters the
+ * name out of the list it hands the agent. What the registration did instead is
+ * claim core's catch-all HANDLER slot. When a tool call has no matching
+ * frontend tool and no result yet, core reaches for the `*` tool and runs
+ * `executeWildcardTool`, whose tool-result splice and follow-up return sit
+ * OUTSIDE its `if (wildcardTool?.handler)` guard. So a display-only wildcard —
+ * the thing the old hook's users were writing — auto-answered every
+ * otherwise-unanswered tool call with an EMPTY tool result and asked for
+ * another turn.
+ *
+ * PR #6533 converged the name onto react-core behind a temporary routing shim;
+ * #6976 removed the shim. So the assertions below are the properties that would
+ * silently regress if a local implementation ever re-grew under this name: the
+ * wildcard must register no TOOL, only a renderer, and a named renderer must
+ * land in CORE's registry and advertise nothing.
+ *
+ * ─── Why nothing here is mocked ──────────────────────────────────────────────
+ *
+ * An earlier version of this suite mocked `useFrontendTool`, and the double it
+ * substituted modelled only `name`/`render`. Deleting whole fields from the
+ * hook under test left it fully green. Everything here therefore drives a REAL
+ * `CopilotKitCoreReact` through `TestCopilotKit` and asserts on core's own
+ * observable behaviour — what `getTool` resolves, what `runTool` executes, what
+ * core advertises on a run, what actually paints — never on a mock's call
+ * arguments. A hook that registered nothing at all could satisfy a mock; it
+ * cannot satisfy these.
+ */
+
+type Core = CopilotKitContextValue["copilotkit"];
+
+/** Publishes the live core instance so a test can drive it directly. */
+function CaptureCore({
+  into,
+}: {
+  into: { current: Core | null };
+}): React.ReactElement | null {
+  const { copilotkit } = useCopilotKit();
+  into.current = copilotkit;
+  return null;
+}
+
+/**
+ * Records the tool list core advertises on each run.
+ *
+ * "Advertised" is the claim that matters for a render-only registration, and it
+ * is not the same observation as "present in the registry": core builds the
+ * wire-level list inside `RunHandler.runAgent` (`buildFrontendTools`), which is
+ * private to core, so the only consumer-reachable vantage point is the agent's
+ * own `runAgent` input. Overriding `runAgent` (rather than `run`) stops the run
+ * at exactly that boundary: the input has been built, and no transport, event
+ * stream or follow-up turn is needed to read it.
+ */
+class ToolListRecordingAgent extends AbstractAgent {
+  readonly advertised: string[][] = [];
+
+  async runAgent(parameters?: RunAgentParameters): Promise<RunAgentResult> {
+    this.advertised.push((parameters?.tools ?? []).map((tool) => tool.name));
+    return { result: undefined, newMessages: [] };
+  }
+
+  run(): ReturnType<AbstractAgent["run"]> {
+    throw new Error("ToolListRecordingAgent.run() is not used in tests");
+  }
+}
+
+/** The single tool name each `render` call is asked to paint. */
+const renderOneCall = (name: string, args = "{}") => ({
+  toolCall: {
+    id: "tc-1",
+    type: "function" as const,
+    function: { name, arguments: args },
+  },
+});
+
+// ─── The wildcard renderer ────────────────────────────────────────────────────
+
+/**
+ * Registers `"*"` and paints one tool call of the caller's choosing, so a test
+ * can name a tool NOBODY registered a renderer for and still see output.
+ */
+function WildcardProbe({ paints }: { paints: string }) {
+  useRenderTool(
+    {
+      name: "*",
+      render: ({ name, status }) => <>{`wildcard|${name}|${status}`}</>,
     },
-    executingToolCallIds: new Set<string>(),
-  };
+    [],
+  );
+  const renderToolCall = useRenderToolCall();
+  return <>{renderToolCall(renderOneCall(paints))}</>;
+}
 
+describe("the wildcard renderer, registered through RN's entry", () => {
+  it("paints for a tool call that has no exact-name renderer", async () => {
+    const { container } = render(
+      <TestCopilotKit messages={[]}>
+        <WildcardProbe paints="somethingNobodyRegistered" />
+      </TestCopilotKit>,
+    );
+
+    // Registration happens in an effect, so the first paint predates it; the
+    // renderer-registry subscription is what brings the text in.
+    await waitFor(() =>
+      expect(container.textContent).toBe(
+        "wildcard|somethingNobodyRegistered|inProgress",
+      ),
+    );
+  });
+
+  it("registers NO frontend tool named `*`", async () => {
+    // The defect this exists for. RN's deleted hook forwarded to
+    // `useFrontendTool`, so `name: "*"` became a real frontend tool called `*` —
+    // which is core's catch-all HANDLER name. Core never advertised it, but the
+    // registration made core auto-answer every otherwise-unanswered tool call
+    // with an empty tool result and request a follow-up turn.
+    const coreRef: { current: Core | null } = { current: null };
+    const agent = new ToolListRecordingAgent();
+
+    render(
+      <TestCopilotKit messages={[]} agent={agent}>
+        <CaptureCore into={coreRef} />
+        <WildcardProbe paints="somethingNobodyRegistered" />
+      </TestCopilotKit>,
+    );
+    const core = coreRef.current!;
+
+    // Wait for the registration itself, so the assertions below are about a
+    // registered wildcard rather than about an effect that has not run yet.
+    await waitFor(() =>
+      expect(core.renderToolCalls.map((r) => r.name)).toContain("*"),
+    );
+
+    // THESE TWO are the discriminating assertions: the tool REGISTRY is what
+    // the old hook actually polluted, so they are what fails if this route
+    // ever forwards to `useFrontendTool` again, the way the alias did.
+    expect(core.getTool({ toolName: "*" })).toBeUndefined();
+    expect(core.tools.map((t) => t.name)).not.toContain("*");
+
+    // The advertisement check below is a FORWARD GUARD, not a regression test.
+    // It cannot fail for the old defect: core's `buildFrontendTools` already
+    // filters `*` out of the advertised list, so `origin/main`'s hook — which
+    // did register the tool — recorded `[[]]` here too. What this pins is that
+    // nobody later makes `*` advertisable.
+    await act(async () => {
+      await core.runAgent({ agent });
+    });
+    // Spelled as the whole recording rather than as `not.toContain("*")`: the
+    // latter also passes when no run happened at all, and nothing else here
+    // registers a tool, so the exact expectation is one run advertising nothing.
+    expect(agent.advertised).toEqual([[]]);
+  });
+});
+
+// ─── A render-only registration ───────────────────────────────────────────────
+
+/**
+ * Registers a renderer for `searchDocs` and paints a `searchDocs` call.
+ *
+ * `searchDocs` stands for a tool the SERVER owns: the frontend supplies its UI
+ * and nothing else. Nothing in this component registers a handler, and there is
+ * deliberately no way to — that is the hook's contract.
+ */
+function ServerToolProbe() {
+  useRenderTool(
+    {
+      name: "searchDocs",
+      parameters: z.object({ query: z.string() }),
+      render: ({ status, parameters }) => (
+        <>{`${status}|${parameters.query ?? ""}`}</>
+      ),
+    },
+    [],
+  );
+  const renderToolCall = useRenderToolCall();
   return (
-    <hoisted.RealContext.Provider value={mockCtx as any}>
-      <RenderToolProvider>{children}</RenderToolProvider>
-    </hoisted.RealContext.Provider>
+    <>{renderToolCall(renderOneCall("searchDocs", '{"query":"invoices"}'))}</>
   );
 }
 
-// ─── Tests ────────────────────────────────────────────────────────────────────
-
-describe("useRenderTool", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("registers a tool via useFrontendTool", () => {
-    const mockSchema = { "~standard": { vendor: "test", version: 1 } };
-
-    function TestComponent() {
-      useRenderTool({
-        name: "test-render-tool",
-        description: "A tool with render",
-        parameters: mockSchema as any,
-        render: ({ args, status }) =>
-          React.createElement("View", null, `${status}`),
-        handler: async () => "done",
-      });
-      return null;
-    }
+describe("a render-only registration", () => {
+  it("does not produce a callable tool", async () => {
+    const coreRef: { current: Core | null } = { current: null };
 
     render(
-      <TestProviders>
-        <TestComponent />
-      </TestProviders>,
+      <TestCopilotKit messages={[]}>
+        <CaptureCore into={coreRef} />
+        <ServerToolProbe />
+      </TestCopilotKit>,
+    );
+    const core = coreRef.current!;
+
+    await waitFor(() =>
+      expect(core.renderToolCalls.map((r) => r.name)).toContain("searchDocs"),
     );
 
-    // useFrontendTool should have been called with the tool config
-    expect(hoisted.mockAddTool).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: "test-render-tool",
-        description: "A tool with render",
-      }),
-    );
+    expect(core.getTool({ toolName: "searchDocs" })).toBeUndefined();
+    // Asserted through core's real execution path, not just the lookup: a tool
+    // that resolves but cannot run, and one that was never registered, are
+    // different failures and only this tells them apart.
+    await expect(
+      core.runTool({ name: "searchDocs", parameters: { query: "invoices" } }),
+    ).rejects.toThrow("Tool not found: searchDocs");
   });
 
-  it("stores render function in the registry", () => {
-    let registry: Map<string, any> | null = null;
-    const mockSchema = { "~standard": { vendor: "test", version: 1 } };
+  it("does not shadow a same-named server tool — it paints the call and advertises nothing", async () => {
+    // The two halves of "not shadowing", together. If registering a renderer
+    // also registered a tool, the client would claim `searchDocs` on the wire
+    // and the runtime would route the call to a frontend handler that does not
+    // exist, instead of to the server tool that owns the name.
+    const coreRef: { current: Core | null } = { current: null };
+    const agent = new ToolListRecordingAgent();
 
-    const renderFn = ({ args, status }: any) =>
-      React.createElement("View", null, `${status}`);
+    const { container } = render(
+      <TestCopilotKit messages={[]} agent={agent}>
+        <CaptureCore into={coreRef} />
+        <ServerToolProbe />
+      </TestCopilotKit>,
+    );
+    const core = coreRef.current!;
 
-    function ToolRegistrar() {
-      useRenderTool({
-        name: "weather-tool",
-        description: "Show weather",
-        parameters: mockSchema as any,
-        render: renderFn,
-      });
-      return null;
-    }
-
-    function RegistryReader() {
-      registry = useRenderToolRegistry();
-      return null;
-    }
-
-    render(
-      <TestProviders>
-        <ToolRegistrar />
-        <RegistryReader />
-      </TestProviders>,
+    // Half one: the server's call still gets the frontend's UI.
+    await waitFor(() =>
+      expect(container.textContent).toBe("inProgress|invoices"),
     );
 
-    expect(registry).not.toBeNull();
-    expect(registry!.has("weather-tool")).toBe(true);
-    // The stored function is a stable wrapper, not the original
-    expect(typeof registry!.get("weather-tool")).toBe("function");
+    // Half two: nothing named `searchDocs` goes out with the run.
+    await act(async () => {
+      await core.runAgent({ agent });
+    });
+    expect(agent.advertised).toEqual([[]]);
   });
+});
 
-  it("render function in registry produces expected output", () => {
-    let registry: Map<string, any> | null = null;
-    const mockSchema = { "~standard": { vendor: "test", version: 1 } };
+// ─── agentId on a render-only registration ────────────────────────────────────
 
-    function ToolRegistrar() {
-      useRenderTool({
-        name: "greeting-tool",
-        description: "Greet someone",
-        parameters: mockSchema as any,
-        render: ({ args, status }) =>
-          React.createElement("Text", null, `Hello ${status}`),
-      });
-      return null;
-    }
+/** Registers an `escalate` renderer scoped to `support`, then paints `escalate`. */
+function ScopedProbe() {
+  useRenderTool(
+    {
+      name: "escalate",
+      parameters: z.object({ reason: z.string() }),
+      agentId: "support",
+      render: ({ name }) => <>{`scoped|${name}`}</>,
+    },
+    [],
+  );
+  const renderToolCall = useRenderToolCall();
+  return <>{renderToolCall(renderOneCall("escalate"))}</>;
+}
 
-    function RegistryReader() {
-      registry = useRenderToolRegistry();
-      return null;
-    }
+describe("agentId on a render-only registration", () => {
+  it("PINS the limitation: a scoped renderer still paints under a different agent", async () => {
+    // `agentId` keys the renderer entry (`${agentId}:${name}`) so a scoped and a
+    // global renderer of the same name can coexist — but RESOLUTION does not
+    // enforce it: `useRenderToolCall` prefers an agentId match and then falls
+    // back to any same-named entry, deliberately ("we show all tool calls
+    // regardless of agentId"). Here the only `escalate` renderer is scoped to
+    // `support` while the chat resolves under the default agent, and it paints
+    // anyway.
+    //
+    // Pinned rather than fixed, and stated as a LIMITATION rather than as
+    // scoping: the predecessor of this test was named for the scoping claim,
+    // checked `getTool` and `renderer.agentId` instead, and so asserted the
+    // opposite of the behaviour while staying green.
+    const coreRef: { current: Core | null } = { current: null };
 
-    render(
-      <TestProviders>
-        <ToolRegistrar />
-        <RegistryReader />
-      </TestProviders>,
+    const { container } = render(
+      <TestCopilotKit messages={[]}>
+        <CaptureCore into={coreRef} />
+        <ScopedProbe />
+      </TestCopilotKit>,
     );
 
-    const renderFn = registry!.get("greeting-tool");
-    const element = renderFn({ args: {}, status: "executing" });
-    expect(element).not.toBeNull();
-    expect(element.type).toBe("Text");
-    expect(element.props.children).toBe("Hello executing");
+    await waitFor(() => expect(container.textContent).toBe("scoped|escalate"));
+
+    // The scoping that IS real: the entry records the agent it was filed under.
+    const renderer = coreRef.current!.renderToolCalls.find(
+      (r) => r.name === "escalate",
+    );
+    expect(renderer?.agentId).toBe("support");
   });
+});
 
-  it("throws when useRenderTool is called outside RenderToolProvider", () => {
-    const mockSchema = { "~standard": { vendor: "test", version: 1 } };
+// ─── The renderer-only registration path ─────────────────────────────────────
 
-    function TestComponent() {
-      useRenderTool({
-        name: "orphan-tool",
-        description: "No provider",
-        parameters: mockSchema as any,
-        render: () => React.createElement("View"),
-      });
-      return null;
-    }
+/** The renderer-only shape: a schema and a renderer, no tool fields. */
+function ModernRendererProbe() {
+  useRenderTool(
+    {
+      name: "renderInvoice",
+      parameters: z.object({ id: z.string() }),
+      render: ({ status, parameters }) => (
+        <>{`modern|${status}|${parameters.id ?? ""}`}</>
+      ),
+    },
+    [],
+  );
+  const renderToolCall = useRenderToolCall();
+  return (
+    <>{renderToolCall(renderOneCall("renderInvoice", '{"id":"inv-7"}'))}</>
+  );
+}
 
-    // Need CopilotKit context but no RenderToolProvider
-    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+describe("a renderer-only registration through RN's entry", () => {
+  it("lands the renderer in CopilotKitCoreReact's registry and advertises nothing", async () => {
+    // Also the behavioural half of the "RN owns no registry" guard: a
+    // registration made through RN's entry has to end up in CORE's registry,
+    // which is the property an RN-local registry (RN once had one) would break
+    // while every export-surface check stayed green.
+    const coreRef: { current: Core | null } = { current: null };
+    const agent = new ToolListRecordingAgent();
 
-    expect(() => {
-      render(
-        <hoisted.RealContext.Provider
-          value={{ copilotkit: {}, executingToolCallIds: new Set() } as any}
-        >
-          <TestComponent />
-        </hoisted.RealContext.Provider>,
-      );
-    }).toThrow("useRenderTool must be used within a RenderToolProvider");
-
-    spy.mockRestore();
-  });
-
-  it("throws when useRenderToolRegistry is called outside RenderToolProvider", () => {
-    function TestComponent() {
-      useRenderToolRegistry();
-      return null;
-    }
-
-    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-    expect(() => {
-      render(<TestComponent />);
-    }).toThrow(
-      "useRenderToolRegistry must be used within a RenderToolProvider",
+    const { container } = render(
+      <TestCopilotKit messages={[]} agent={agent}>
+        <CaptureCore into={coreRef} />
+        <ModernRendererProbe />
+      </TestCopilotKit>,
     );
+    const core = coreRef.current!;
 
-    spy.mockRestore();
-  });
-
-  it("unregisters the render function on unmount", () => {
-    let registry: Map<string, any> | null = null;
-    const mockSchema = { "~standard": { vendor: "test", version: 1 } };
-
-    function ToolRegistrar() {
-      useRenderTool({
-        name: "ephemeral-tool",
-        description: "Will unmount",
-        parameters: mockSchema as any,
-        render: () => React.createElement("View"),
-      });
-      return null;
-    }
-
-    function RegistryReader() {
-      registry = useRenderToolRegistry();
-      return null;
-    }
-
-    const { rerender } = render(
-      <TestProviders>
-        <ToolRegistrar />
-        <RegistryReader />
-      </TestProviders>,
+    await waitFor(() =>
+      expect(core.renderToolCalls.map((r) => r.name)).toContain(
+        "renderInvoice",
+      ),
     );
+    expect(container.textContent).toBe("modern|inProgress|inv-7");
 
-    expect(registry!.has("ephemeral-tool")).toBe(true);
-
-    // Re-render without the ToolRegistrar
-    rerender(
-      <TestProviders>
-        <RegistryReader />
-      </TestProviders>,
-    );
-
-    expect(registry!.has("ephemeral-tool")).toBe(false);
-  });
-
-  it("supports multiple tools registered simultaneously", () => {
-    let registry: Map<string, any> | null = null;
-    const mockSchema = { "~standard": { vendor: "test", version: 1 } };
-
-    function ToolA() {
-      useRenderTool({
-        name: "tool-a",
-        description: "Tool A",
-        parameters: mockSchema as any,
-        render: () => React.createElement("View"),
-      });
-      return null;
-    }
-
-    function ToolB() {
-      useRenderTool({
-        name: "tool-b",
-        description: "Tool B",
-        parameters: mockSchema as any,
-        render: () => React.createElement("View"),
-      });
-      return null;
-    }
-
-    function RegistryReader() {
-      registry = useRenderToolRegistry();
-      return null;
-    }
-
-    render(
-      <TestProviders>
-        <ToolA />
-        <ToolB />
-        <RegistryReader />
-      </TestProviders>,
-    );
-
-    expect(registry!.has("tool-a")).toBe(true);
-    expect(registry!.has("tool-b")).toBe(true);
-    expect(registry!.size).toBe(2);
+    expect(core.getTool({ toolName: "renderInvoice" })).toBeUndefined();
+    expect(core.tools.map((t) => t.name)).not.toContain("renderInvoice");
+    await act(async () => {
+      await core.runAgent({ agent });
+    });
+    expect(agent.advertised).toEqual([[]]);
   });
 });

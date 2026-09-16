@@ -7,6 +7,7 @@ export {
 export {
   default as CopilotChatAssistantMessage,
   type CopilotChatAssistantMessageProps,
+  type CopilotChatFeedbackMessage,
 } from "./CopilotChatAssistantMessage";
 
 export {

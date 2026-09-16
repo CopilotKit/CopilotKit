@@ -1,3 +1,30 @@
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/react-ui — CopilotSidebar:
+ *   V2 import and usage:
+ *     import { CopilotSidebar } from "@copilotkit/react-core/v2";
+ *     <CopilotSidebar />;
+ *   V2 replacement source: packages/react-core/src/v2/components/chat/CopilotSidebar.tsx
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2/components/CopilotSidebar
+ *
+ * @copilotkit/react-ui — CopilotSidebarProps:
+ *   V2 import and usage:
+ *     import type { CopilotSidebarProps } from "@copilotkit/react-core/v2";
+ *     type V2CopilotSidebarProps = CopilotSidebarProps;
+ *   V2 replacement source: packages/react-core/src/v2/components/chat/CopilotSidebar.tsx
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
 /**
  * <br/>
  * <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/CopilotSidebar.gif" width="500" />
@@ -72,7 +99,27 @@ import React, { useState } from "react";
 import type { CopilotModalProps } from "./Modal";
 import { CopilotModal } from "./Modal";
 
-export function CopilotSidebar(props: CopilotModalProps) {
+export interface CopilotSidebarProps extends CopilotModalProps {
+  /**
+   * Make the sidebar's content wrapper exactly one viewport tall, so children
+   * can use `height: 100%` (or `flex: 1`) to fill the screen.
+   *
+   * Off by default: the wrappers are auto-height, so page content flows
+   * normally and percentage heights on children collapse to content height.
+   *
+   * ```tsx
+   * <CopilotSidebar fullHeightChildren>
+   *   <div style={{ height: "100%" }}>...</div>
+   * </CopilotSidebar>
+   * ```
+   */
+  fullHeightChildren?: boolean;
+}
+
+export function CopilotSidebar({
+  fullHeightChildren = false,
+  ...props
+}: CopilotSidebarProps) {
   props = {
     ...props,
     className: props.className
@@ -88,8 +135,16 @@ export function CopilotSidebar(props: CopilotModalProps) {
     setExpandedClassName(open ? "sidebarExpanded" : "");
   };
 
+  const contentWrapperClassName = [
+    "copilotKitSidebarContentWrapper",
+    expandedClassName,
+    fullHeightChildren ? "copilotKitSidebarFullHeightChildren" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div className={`copilotKitSidebarContentWrapper ${expandedClassName}`}>
+    <div className={contentWrapperClassName}>
       <CopilotModal {...props} {...{ onSetOpen }}>
         {props.children}
       </CopilotModal>

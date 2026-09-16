@@ -100,11 +100,17 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
         // branch the method was dead code and "Remember something" relied on
         // the model calling set_notes — which is flaky under load and was
         // silently writing to the wrong store slot when AsyncLocal dropped.
+        //
+        // CRITICAL: AG-UI's .NET host only maps assistant text into
+        // TEXT_MESSAGE_* events when Role == Assistant. A Role-less update
+        // is effectively dropped by the client — chat stays empty even though
+        // the server emitted content (and notes snapshots still land).
         var deterministic = TryBuildDeterministicReply(messageList, thread);
         if (deterministic is not null)
         {
             yield return new AgentRunResponseUpdate
             {
+                Role = ChatRole.Assistant,
                 Contents = [new TextContent(deterministic)],
             };
             await foreach (var snapshotUpdate in EmitSnapshotAsync(thread, cancellationToken).ConfigureAwait(false))
@@ -316,11 +322,19 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
     private string? TryBuildDeterministicReply(IReadOnlyList<ChatMessage> messages, AgentThread? thread)
     {
         var userText = LatestUserText(messages);
-        if (ContainsIgnoreCase(userText, "Say hi and introduce yourself"))
+        if (string.IsNullOrWhiteSpace(userText))
+        {
+            return null;
+        }
+
+        // Match the three suggestion-pill prompts (and close variants).
+        if (ContainsIgnoreCase(userText, "introduce yourself") ||
+            ContainsIgnoreCase(userText, "Say hi and introduce yourself"))
         {
             return "Hi - I'm your shared-state co-pilot. Your Preferences panel (name, tone, language, interests) is fed to me on every turn, and I jot notes back into the Agent Scratch Pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something.";
         }
-        if (ContainsIgnoreCase(userText, "weekend plan based on my interests"))
+        if (ContainsIgnoreCase(userText, "weekend plan based on my interests") ||
+            ContainsIgnoreCase(userText, "Suggest a weekend plan"))
         {
             return "A weekend tailored to your interests panel: if you haven't picked any yet, try Cooking + Travel for a market-and-day-trip combo, or Tech + Books for a maker session and a long reading afternoon. Add interests in the Preferences panel and re-ask for a more specific plan.";
         }
@@ -329,6 +343,7 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
             _store.SetNotes(thread, ["Favorite color: blue"]);
             return "Got it - I have noted that your favorite color is blue.";
         }
+        // Staging "Remember something" pill message.
         if (ContainsIgnoreCase(userText, "prefer morning meetings") ||
             ContainsIgnoreCase(userText, "don't eat dairy") ||
             ContainsIgnoreCase(userText, "do not eat dairy"))
@@ -356,7 +371,17 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
             {
                 continue;
             }
-            return string.Concat(message.Contents.OfType<TextContent>().Select(content => content.Text));
+
+            // Prefer the aggregated Text property — AG-UI sometimes surfaces
+            // user turns as a single TextContent or via Text without a
+            // Contents enumeration the OfType<> path would see.
+            if (!string.IsNullOrWhiteSpace(message.Text))
+            {
+                return message.Text;
+            }
+
+            return string.Concat(
+                message.Contents.OfType<TextContent>().Select(content => content.Text ?? ""));
         }
         return "";
     }

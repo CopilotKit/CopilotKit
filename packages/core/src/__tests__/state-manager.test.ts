@@ -1,8 +1,16 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CopilotKitCore } from "../core";
-import type { Message, State, RunAgentInput } from "@ag-ui/client";
+import type {
+  AgentSubscriber,
+  BaseEvent,
+  Message,
+  State,
+  RunAgentInput,
+} from "@ag-ui/client";
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
+import type { Observable } from "rxjs";
+import { defer } from "rxjs";
 
 /**
  * Mock agent that can emit events to test state management
@@ -18,9 +26,41 @@ class EventEmittingMockAgent extends AbstractAgent {
     });
   }
 
-  public run(input: RunAgentInput): any {
-    // Not used in these tests
-    throw new Error("run() should not be called in these tests");
+  public run(input: RunAgentInput): Observable<BaseEvent> {
+    return defer(async () => {
+      this.state = { step: "started" };
+      for (const sub of this.testSubscribers) {
+        await sub.onRunStartedEvent?.({
+          event: {
+            type: EventType.RUN_STARTED,
+            threadId: input.threadId,
+            runId: input.runId,
+          },
+          messages: this.messages,
+          state: this.state,
+          agent: this,
+          input,
+        });
+        await sub.onRunFinishedEvent?.({
+          event: {
+            type: EventType.RUN_FINISHED,
+            threadId: input.threadId,
+            runId: input.runId,
+            outcome: "success",
+          },
+          outcome: "success",
+          messages: this.messages,
+          state: this.state,
+          agent: this,
+          input,
+        });
+      }
+      return {
+        type: EventType.CUSTOM,
+        name: "test",
+        value: {},
+      } as BaseEvent;
+    });
   }
 
   // Expose subscribe for testing
@@ -29,7 +69,13 @@ class EventEmittingMockAgent extends AbstractAgent {
   }
 
   // Helper to emit run started event
-  public async emitRunStarted(runId: string, state: State = {}) {
+  public async emitRunStarted(
+    runId: string,
+    state: State = {},
+    resume?: RunAgentInput["resume"],
+    forwardedProps?: RunAgentInput["forwardedProps"],
+    inputRunId: string = runId,
+  ) {
     this.state = state;
     for (const sub of this.testSubscribers) {
       if (sub.onRunStartedEvent) {
@@ -42,14 +88,19 @@ class EventEmittingMockAgent extends AbstractAgent {
           messages: this.messages,
           state: this.state,
           agent: this,
-          input: this.createRunInput(runId),
+          input: this.createRunInput(inputRunId, resume, forwardedProps),
         });
       }
     }
   }
 
   // Helper to emit run finished event
-  public async emitRunFinished(runId: string, state: State = {}) {
+  public async emitRunFinished(
+    runId: string,
+    state: State = {},
+    resume?: RunAgentInput["resume"],
+    inputRunId: string = runId,
+  ) {
     this.state = state;
     for (const sub of this.testSubscribers) {
       if (sub.onRunFinishedEvent) {
@@ -62,7 +113,7 @@ class EventEmittingMockAgent extends AbstractAgent {
           messages: this.messages,
           state: this.state,
           agent: this,
-          input: this.createRunInput(runId),
+          input: this.createRunInput(inputRunId, resume),
         });
       }
     }
@@ -170,6 +221,19 @@ class EventEmittingMockAgent extends AbstractAgent {
     }
   }
 
+  public async emitNewMessageWithoutInput(message: Message) {
+    this.messages.push(message);
+    const subscribers = this.testSubscribers as AgentSubscriber[];
+    for (const sub of subscribers) {
+      await sub.onNewMessage?.({
+        message,
+        messages: this.messages,
+        state: this.state,
+        agent: this,
+      });
+    }
+  }
+
   // Override subscribe to track subscribers
   public override subscribe(subscriber: any) {
     this.testSubscribers.push(subscriber);
@@ -183,7 +247,11 @@ class EventEmittingMockAgent extends AbstractAgent {
     };
   }
 
-  private createRunInput(runId: string): RunAgentInput {
+  private createRunInput(
+    runId: string,
+    resume?: RunAgentInput["resume"],
+    forwardedProps?: RunAgentInput["forwardedProps"],
+  ): RunAgentInput {
     return {
       threadId: this.threadId,
       runId,
@@ -191,6 +259,8 @@ class EventEmittingMockAgent extends AbstractAgent {
       messages: this.messages,
       tools: [],
       context: [],
+      ...(resume !== undefined ? { resume } : {}),
+      ...(forwardedProps !== undefined ? { forwardedProps } : {}),
     };
   }
 }
@@ -340,6 +410,323 @@ describe("StateManager - Multiple Runs", () => {
     );
   });
 
+  it("uses a fresh event run ID when the lifecycle input still has the previous run ID", async () => {
+    const previousRunId = "server-run-1";
+    const nextRunId = "server-run-2";
+
+    await agent.emitRunStarted(previousRunId, { step: "first" });
+    await agent.emitRunFinished(previousRunId, { step: "first" });
+    await agent.emitRunStarted(
+      nextRunId,
+      { step: "second" },
+      undefined,
+      undefined,
+      previousRunId,
+    );
+    await agent.emitRunFinished(
+      nextRunId,
+      { step: "second" },
+      undefined,
+      previousRunId,
+    );
+
+    expect(
+      copilotKitCore.getStateByRun("agent1", "thread1", previousRunId),
+    ).toEqual({ step: "first" });
+    expect(
+      copilotKitCore.getStateByRun("agent1", "thread1", nextRunId),
+    ).toEqual({ step: "second" });
+    expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toEqual([
+      previousRunId,
+      nextRunId,
+    ]);
+  });
+
+  it("falls back to the input run ID when RUN_STARTED carries an empty run ID", async () => {
+    const inputRunId = "connect-run";
+
+    await agent.emitRunStarted(
+      "",
+      { step: "started" },
+      undefined,
+      undefined,
+      inputRunId,
+    );
+
+    expect(
+      copilotKitCore.getStateByRun("agent1", "thread1", inputRunId),
+    ).toEqual({ step: "started" });
+    expect(
+      copilotKitCore.getStateByRun("agent1", "thread1", ""),
+    ).toBeUndefined();
+  });
+
+  it("should preserve the supplied ID for an explicit resume continuation", async () => {
+    const runId = "hitl-run";
+    const resume = [
+      { interruptId: "interrupt-1", status: "resolved" as const, payload: {} },
+    ];
+
+    await agent.emitRunStarted(runId, { step: "paused" });
+    await agent.emitRunFinished(runId, { step: "paused" });
+    await agent.emitRunStarted(runId, { step: "resumed" }, resume);
+    await agent.emitRunFinished(runId, { step: "completed" }, resume);
+
+    expect(copilotKitCore.getStateByRun("agent1", "thread1", runId)).toEqual({
+      step: "completed",
+    });
+    expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toEqual([
+      runId,
+    ]);
+  });
+
+  it("should preserve the supplied ID for a legacy resume continuation", async () => {
+    const runId = "legacy-hitl-run";
+    const forwardedProps = {
+      command: { resume: { approved: true } },
+    };
+
+    await agent.emitRunStarted(runId, { step: "paused" });
+    await agent.emitRunFinished(runId, { step: "paused" });
+    await agent.emitRunStarted(
+      runId,
+      { step: "resumed" },
+      undefined,
+      forwardedProps,
+    );
+    await agent.emitRunFinished(runId, { step: "completed" });
+
+    expect(copilotKitCore.getStateByRun("agent1", "thread1", runId)).toEqual({
+      step: "completed",
+    });
+    expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toEqual([
+      runId,
+    ]);
+  });
+
+  it("should preserve the supplied ID for a legacy resume with no payload", async () => {
+    const runId = "legacy-empty-resume-run";
+    const forwardedProps = { command: { resume: undefined } };
+
+    await agent.emitRunStarted(runId, { step: "paused" });
+    await agent.emitRunFinished(runId, { step: "paused" });
+    await agent.emitRunStarted(
+      runId,
+      { step: "resumed" },
+      undefined,
+      forwardedProps,
+    );
+    await agent.emitRunFinished(runId, { step: "completed" });
+
+    expect(copilotKitCore.getStateByRun("agent1", "thread1", runId)).toEqual({
+      step: "completed",
+    });
+    expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toEqual([
+      runId,
+    ]);
+  });
+
+  it("binds an internal handoff to the AbstractAgent lifecycle input", async () => {
+    const runId = "abstract-agent-follow-up-run";
+    await copilotKitCore.runAgent({ agent: agent as any, runId });
+    const handoff = (
+      copilotKitCore as unknown as {
+        stateManager: {
+          markNextRunAsContinuation: (
+            agent: EventEmittingMockAgent,
+            expectedRunId?: string,
+          ) => { cancel(): void; bind(input: object): void };
+        };
+      }
+    ).stateManager.markNextRunAsContinuation(agent, runId);
+
+    await (
+      copilotKitCore as unknown as {
+        runHandler: {
+          runAgent(
+            params: { agent: EventEmittingMockAgent; runId: string },
+            handoff: { cancel(): void; bind(input: object): void },
+          ): Promise<unknown>;
+        };
+      }
+    ).runHandler.runAgent({ agent, runId }, handoff);
+
+    expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toEqual([
+      runId,
+    ]);
+    handoff.cancel();
+  });
+
+  it("re-stamps a continuation onto the run it continues when the wire id differs", async () => {
+    // The follow-up no longer pins the originating id on the wire — doing that
+    // made the transport treat it as a resumption of an already-finished run.
+    // Logical identity is preserved here instead: the continuation is
+    // registered against the originating id, so the thread must still know
+    // exactly one run afterwards even though the transport assigned its own.
+    const originating = "logical-run-restamped";
+    await copilotKitCore.runAgent({ agent: agent as any, runId: originating });
+
+    const handoff = (
+      copilotKitCore as unknown as {
+        stateManager: {
+          markNextRunAsContinuation: (
+            agent: EventEmittingMockAgent,
+            expectedRunId?: string,
+          ) => { cancel(): void; bind(input: object): void };
+        };
+      }
+    ).stateManager.markNextRunAsContinuation(agent, originating);
+
+    // No runId passed → the agent mints its own for this invocation.
+    await (
+      copilotKitCore as unknown as {
+        runHandler: {
+          runAgent(
+            params: { agent: EventEmittingMockAgent },
+            handoff: { cancel(): void; bind(input: object): void },
+          ): Promise<unknown>;
+        };
+      }
+    ).runHandler.runAgent({ agent }, handoff);
+
+    expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toEqual([
+      originating,
+    ]);
+    handoff.cancel();
+  });
+
+  it("does not consume an unbound handoff during detach", async () => {
+    const runId = "detach-interleaving-run";
+    await copilotKitCore.runAgent({ agent: agent as any, runId });
+
+    const handoff = (
+      copilotKitCore as unknown as {
+        stateManager: {
+          markNextRunAsContinuation: (
+            agent: EventEmittingMockAgent,
+            expectedRunId?: string,
+          ) => { cancel(): void; bind(input: object): void };
+        };
+      }
+    ).stateManager.markNextRunAsContinuation(agent, runId);
+    let releaseDetach!: () => void;
+    agent.detachActiveRun = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseDetach = resolve;
+        }),
+    );
+
+    const followUp = copilotKitCore.runAgent({ agent: agent as any, runId });
+    await Promise.resolve();
+    await agent.emitRunStarted(runId, { step: "interleaved" });
+    await agent.emitRunFinished(runId, { step: "interleaved" });
+    releaseDetach();
+    await followUp;
+
+    expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toHaveLength(
+      2,
+    );
+    handoff.cancel();
+  });
+
+  it("does not consume an internal handoff for a same-ID interleaving", async () => {
+    const runId = "expected-follow-up-run";
+    const handoff = (
+      copilotKitCore as unknown as {
+        stateManager: {
+          markNextRunAsContinuation: (
+            agent: EventEmittingMockAgent,
+            expectedRunId?: string,
+          ) => { cancel(): void; bind(input: object): void };
+        };
+      }
+    ).stateManager.markNextRunAsContinuation(agent, runId);
+    handoff.bind({});
+
+    await agent.emitRunStarted(runId, { step: "first" });
+    await agent.emitRunFinished(runId, { step: "first" });
+
+    await agent.emitRunStarted(runId, { step: "second" });
+    await agent.emitRunFinished(runId, { step: "second" });
+    handoff.cancel();
+
+    expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toHaveLength(
+      2,
+    );
+  });
+
+  it("cancels an internal handoff when detaching the follow-up fails", async () => {
+    const runId = "detach-failure-run";
+    await agent.emitRunStarted(runId, { step: "first" });
+    await agent.emitRunFinished(runId, { step: "first" });
+
+    const handoff = (
+      copilotKitCore as unknown as {
+        stateManager: {
+          markNextRunAsContinuation: (
+            agent: EventEmittingMockAgent,
+            expectedRunId?: string,
+          ) => { cancel(): void; bind(input: object): void };
+        };
+      }
+    ).stateManager.markNextRunAsContinuation(agent, runId);
+    handoff.bind({});
+    agent.detachActiveRun = vi
+      .fn()
+      .mockRejectedValue(new Error("detach failed"));
+
+    await expect(
+      copilotKitCore.runAgent({ agent: agent as any, runId }),
+    ).rejects.toThrow("detach failed");
+
+    agent.detachActiveRun = vi.fn().mockResolvedValue(undefined);
+    await agent.emitRunStarted(runId, { step: "second" });
+    await agent.emitRunFinished(runId, { step: "second" });
+    handoff.cancel();
+
+    expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toHaveLength(
+      2,
+    );
+  });
+
+  it("does not treat a user forwardedProps marker as an internal continuation", async () => {
+    const runId = "collision-run";
+
+    await agent.emitRunStarted(runId, { step: "first" });
+    await agent.emitRunFinished(runId, { step: "first" });
+    await agent.emitRunStarted(runId, { step: "second" }, undefined, {
+      __copilotkit_follow_up: true,
+    });
+    await agent.emitRunFinished(runId, { step: "second" });
+
+    expect(copilotKitCore.getRunIdsForThread("agent1", "thread1")).toHaveLength(
+      2,
+    );
+  });
+
+  it("should isolate an ordinary same-ID run after a finished run", async () => {
+    const runId = "reused-run";
+
+    await agent.emitRunStarted(runId, { step: "first" });
+    await agent.emitRunFinished(runId, { step: "first" });
+    await agent.emitRunStarted(runId, { step: "second" });
+    await agent.emitRunFinished(runId, { step: "second" });
+
+    const runIds = copilotKitCore.getRunIdsForThread("agent1", "thread1");
+    const isolatedRunId = runIds.find((candidate) => candidate !== runId);
+
+    expect(runIds).toHaveLength(2);
+    expect(runIds).toContain(runId);
+    expect(isolatedRunId).toBeDefined();
+    expect(
+      copilotKitCore.getStateByRun("agent1", "thread1", isolatedRunId!),
+    ).toEqual({ step: "second" });
+    expect(copilotKitCore.getStateByRun("agent1", "thread1", runId)).toEqual({
+      step: "first",
+    });
+  });
+
   it("should list all run IDs for a thread", async () => {
     await agent.emitRunStarted("run1", { count: 1 });
     await agent.emitRunFinished("run1", { count: 1 });
@@ -430,6 +817,25 @@ describe("StateManager - Message Tracking", () => {
     expect(associatedRunId).toBe(runId);
   });
 
+  it("allows a new-message event to correct an earlier run association", async () => {
+    const message: Message = {
+      id: "message-for-next-run",
+      role: "user",
+      content: "Follow-up",
+    };
+
+    await agent.emitRunStarted("run1", {});
+    await agent.emitNewMessageWithoutInput(message);
+    await agent.emitRunFinished("run1", {});
+
+    await agent.emitRunStarted("run2", {});
+    await agent.emitNewMessage("run2", message);
+
+    expect(
+      copilotKitCore.getRunIdForMessage("agent1", "thread1", message.id),
+    ).toBe("run2");
+  });
+
   it("should associate messages from snapshot with runs", async () => {
     const runId = "run1";
     const messages: Message[] = [
@@ -451,6 +857,34 @@ describe("StateManager - Message Tracking", () => {
     expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg3")).toBe(
       runId,
     );
+  });
+
+  it("keeps a repeated snapshot message associated with the run where it first appeared", async () => {
+    const firstMessage: Message = {
+      id: "message-from-run-1",
+      role: "user",
+      content: "First question",
+    };
+    const secondMessage: Message = {
+      id: "message-from-run-2",
+      role: "assistant",
+      content: "Second answer",
+    };
+
+    await agent.emitRunStarted("run1", {});
+    await agent.emitMessagesSnapshot("run1", [firstMessage]);
+    await agent.emitRunFinished("run1", {});
+
+    await agent.emitRunStarted("run2", {});
+    await agent.emitMessagesSnapshot("run2", [firstMessage, secondMessage]);
+    await agent.emitRunFinished("run2", {});
+
+    expect(
+      copilotKitCore.getRunIdForMessage("agent1", "thread1", firstMessage.id),
+    ).toBe("run1");
+    expect(
+      copilotKitCore.getRunIdForMessage("agent1", "thread1", secondMessage.id),
+    ).toBe("run2");
   });
 
   it("should track messages across multiple runs", async () => {
@@ -790,39 +1224,142 @@ describe("StateManager - Edge Cases", () => {
     }
   });
 
-  it("should handle messages without input parameter", async () => {
+  it("associates a message without input only while a run is active", async () => {
     const agent = new EventEmittingMockAgent("agent1", "thread1");
     copilotKitCore.addAgent__unsafe_dev_only({
       id: "agent1",
-      agent: agent as any,
+      agent,
     });
 
-    const message: Message = {
-      id: "msg1",
+    const activeRunMessage: Message = {
+      id: "active-run-message",
       role: "user",
-      content: "Test",
+      content: "During the run",
+    };
+    const afterRunMessage: Message = {
+      id: "after-run-message",
+      role: "user",
+      content: "After the run",
     };
 
-    // Emit message without proper input (edge case)
-    for (const sub of (agent as any).testSubscribers) {
-      if (sub.onNewMessage) {
-        await sub.onNewMessage({
-          message,
-          messages: agent.messages,
-          state: agent.state,
-          agent: agent,
-          // No input parameter
-        });
-      }
+    await agent.emitRunStarted("run1", {});
+    await agent.emitNewMessageWithoutInput(activeRunMessage);
+    await agent.emitRunFinished("run1", {});
+    await agent.emitNewMessageWithoutInput(afterRunMessage);
+
+    expect(
+      copilotKitCore.getRunIdForMessage(
+        "agent1",
+        "thread1",
+        activeRunMessage.id,
+      ),
+    ).toBe("run1");
+    expect(
+      copilotKitCore.getRunIdForMessage(
+        "agent1",
+        "thread1",
+        afterRunMessage.id,
+      ),
+    ).toBeUndefined();
+  });
+
+  it("ignores lifecycle callbacks captured before a replacement agent took the id", async () => {
+    const replaced = new EventEmittingMockAgent("agent1", "thread1");
+    const subscribeSpy = vi.spyOn(replaced, "subscribe");
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "agent1",
+      agent: replaced,
+    });
+    const staleSubscriber = subscribeSpy.mock.calls[0]?.[0] as
+      | AgentSubscriber
+      | undefined;
+    if (!staleSubscriber?.onRunStartedEvent) {
+      throw new Error("Expected StateManager to subscribe to the agent");
     }
 
-    // Should not throw, but message won't be associated
-    const runId = copilotKitCore.getRunIdForMessage(
-      "agent1",
-      "thread1",
-      "msg1",
-    );
-    expect(runId).toBeUndefined();
+    // A DIFFERENT instance taking over the id replaces StateManager's
+    // subscription. The pipeline of the agent that was replaced may already
+    // have captured the old callback and can still invoke it afterwards, so the
+    // old one has to be inert.
+    const current = new EventEmittingMockAgent("agent1", "thread1");
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "agent1",
+      agent: current,
+    });
+
+    const staleInput: RunAgentInput = {
+      threadId: "thread1",
+      runId: "stale-run",
+      state: { source: "stale" },
+      messages: [],
+      tools: [],
+      context: [],
+    };
+    await staleSubscriber.onRunStartedEvent({
+      event: {
+        type: EventType.RUN_STARTED,
+        threadId: "thread1",
+        runId: "stale-run",
+      },
+      messages: [],
+      state: staleInput.state,
+      agent: replaced,
+      input: staleInput,
+    });
+
+    expect(
+      copilotKitCore.getStateByRun("agent1", "thread1", "stale-run"),
+    ).toBeUndefined();
+
+    await current.emitRunStarted("current-run", { source: "current" });
+    expect(
+      copilotKitCore.getStateByRun("agent1", "thread1", "current-run"),
+    ).toEqual({ source: "current" });
+  });
+
+  it("keeps a live subscription when the same agent instance is re-registered", async () => {
+    const agent = new EventEmittingMockAgent("agent1", "thread1");
+    const subscribeSpy = vi.spyOn(agent, "subscribe");
+    copilotKitCore.addAgent__unsafe_dev_only({ id: "agent1", agent });
+    const subscriber = subscribeSpy.mock.calls[0]?.[0] as
+      | AgentSubscriber
+      | undefined;
+    if (!subscriber?.onRunStartedEvent) {
+      throw new Error("Expected StateManager to subscribe to the agent");
+    }
+
+    // Re-announcing the SAME instance replaces nothing, so there is nothing to
+    // revoke. Tearing the subscription down here would silently detach a run
+    // that is still streaming: the ag-ui pipeline captured its subscriber list
+    // at run start and never sees the replacement. Callers re-announce an
+    // unchanged agent routinely — a header change, a transport change, an
+    // `/info` re-settle, the mid-session recovery re-sync.
+    copilotKitCore.addAgent__unsafe_dev_only({ id: "agent1", agent });
+    expect(subscribeSpy).toHaveBeenCalledTimes(1);
+
+    const input: RunAgentInput = {
+      threadId: "thread1",
+      runId: "open-run",
+      state: { source: "still-streaming" },
+      messages: [],
+      tools: [],
+      context: [],
+    };
+    await subscriber.onRunStartedEvent({
+      event: {
+        type: EventType.RUN_STARTED,
+        threadId: "thread1",
+        runId: "open-run",
+      },
+      messages: [],
+      state: input.state,
+      agent,
+      input,
+    });
+
+    expect(
+      copilotKitCore.getStateByRun("agent1", "thread1", "open-run"),
+    ).toEqual({ source: "still-streaming" });
   });
 });
 

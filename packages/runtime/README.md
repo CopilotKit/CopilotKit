@@ -51,6 +51,41 @@
   </a>
 </p>
 
+## Trusted Inspector metadata
+
+An Intelligence-backed v2 runtime can proxy trusted project and license context
+to the Inspector. The runtime advertises this support with
+`inspectorMetadata: true` in its runtime-info response.
+
+| Runtime mode | Request                                                     |
+| ------------ | ----------------------------------------------------------- |
+| Multi-route  | `GET {basePath}/inspector-metadata`                         |
+| Single-route | `POST {basePath}` with `{ "method": "inspector/metadata" }` |
+
+A valid response is a sanitized `InspectorMetadataV1` JSON object with
+`Cache-Control: no-store, private`. Missing data, an unsupported schema, a
+non-Intelligence runtime, or a provider failure returns `204` with the same
+cache policy. This optional request never changes the main runtime connection
+state. The upstream Intelligence request has a five-second deadline; a timeout
+uses the same private `204` path.
+
+Runtime keeps `schemaVersion: 1` and returns the object normalized by Shared.
+Older producers may omit `usage.expiringSoonCount`, and `0` stays a known zero.
+If this optional leaf is malformed, Shared removes only the leaf and keeps valid
+base usage and sibling modules. Runtime does not calculate or cache expiry, and
+older consumers ignore the additive leaf.
+
+The Intelligence request uses the API key configured on the server-side
+`CopilotKitIntelligence` client. The proxy does not forward browser headers or
+cookies to Intelligence, and it does not expose provider error bodies to the
+browser. Browser headers and configured fetch credentials still apply between
+`@copilotkit/core` and your Copilot Runtime, so you can protect the runtime route
+with your normal app auth.
+
+Deploy the Intelligence producer before releasing a runtime that advertises the
+capability. New runtimes treat a `404` from an older Intelligence App API as
+compatible absence and return `204` to the client.
+
 ## Documentation
 
 To get started with CopilotKit, please check out the [documentation](https://docs.copilotkit.ai).
@@ -107,3 +142,25 @@ Or use the `DO_NOT_TRACK` standard:
 ```bash
 export DO_NOT_TRACK=1
 ```
+
+## Stopping Intelligence runs
+
+Await Stop before sending another message on the same thread. With
+`IntelligenceAgentRunner`, `stopped: true` means the gateway acknowledged the
+run's terminal events and the runtime completed local cleanup. The gateway
+releases only the lock owned by that run.
+
+Stop requests agent cancellation and excludes late agent events from thread
+history. Agents that support `detachActiveRun()` also detach their local
+subscription. Older agents remain supported. An adapter must honor cancellation
+to stop external work; Stop cannot undo tool calls that already took effect.
+
+The HTTP request and response formats are unchanged. Empty-body Stop requests
+still stop the current run. Direct runner callers can pass the existing optional
+`runId` to stop only that run. A missing, mismatched, or already-requested Stop
+returns `false`. Failed terminal delivery rejects Stop; the HTTP handler returns
+its existing error response instead of reporting success. The wait is bounded by
+the existing 60-second durability window.
+
+No Intelligence upgrade is required. The runtime uses the existing terminal
+events and supports both single-event and batched gateway acknowledgments.

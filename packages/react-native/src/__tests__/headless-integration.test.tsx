@@ -1,6 +1,9 @@
 import React from "react";
 import { render } from "@testing-library/react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+// Type-only (erased at runtime, so it does not defeat the vi.mock hoisting
+// below): shapes the importOriginal() spread in the @copilotkit/shared mock.
+import type * as CopilotKitShared from "@copilotkit/shared";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -226,7 +229,15 @@ vi.mock("@gorhom/bottom-sheet", () => {
   };
 });
 
-vi.mock("@copilotkit/shared", () => ({
+// Spread the real module rather than replacing it: `../headless` re-exports
+// @copilotkit/core's runtime enums (ToolCallStatus / CopilotKitCoreErrorCode /
+// CopilotKitCoreRuntimeConnectionStatus) as VALUES, so importing `../index`
+// evaluates real @copilotkit/core, which named-imports RUNTIME_MODE_SSE and
+// friends from @copilotkit/shared. A replace-everything factory has to restate
+// every one of those or the import throws; only createLicenseContextValue needs
+// stubbing here.
+vi.mock("@copilotkit/shared", async (importOriginal) => ({
+  ...(await importOriginal<typeof CopilotKitShared>()),
   createLicenseContextValue: () => ({
     status: null,
     license: null,

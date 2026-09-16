@@ -1,5 +1,18 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, test } from "vitest";
 import { matchRoute } from "../core/fetch-router";
+
+it.each([
+  "info",
+  "threads/thread/events",
+  "memories/memory",
+  "agent/default/run",
+])("preserves suffix routes inside a configured mount for %s", (route) => {
+  expect(matchRoute(`/copilotkit/unknown/${route}`, "/copilotkit")).toEqual(
+    matchRoute(`/${route}`),
+  );
+  expect(matchRoute(`/unknown/${route}`, "/")).toEqual(matchRoute(`/${route}`));
+  expect(matchRoute(`/unknown/${route}`)).not.toBeNull();
+});
 
 describe("fetch-router", () => {
   describe("with basePath (strict prefix stripping)", () => {
@@ -325,5 +338,14 @@ describe("fetch-router", () => {
       const result = matchRoute("/api/cpk-debug-events", "/api");
       expect(result).toEqual({ method: "cpk-debug-events" });
     });
+  });
+});
+
+test("fetch-router matches inspector metadata with and without a base path", () => {
+  expect(
+    matchRoute("/api/copilotkit/inspector-metadata", "/api/copilotkit"),
+  ).toEqual({ method: "inspector/metadata" });
+  expect(matchRoute("/nested/runtime/inspector-metadata")).toEqual({
+    method: "inspector/metadata",
   });
 });

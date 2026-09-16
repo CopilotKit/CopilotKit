@@ -1,34 +1,39 @@
 "use client";
 
-import { MessagesSquare, SquarePen, X } from "lucide-react";
-import { useCopilotChatConfiguration } from "@copilotkit/react-core/v2";
+import { MessagesSquare, SquarePen } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useSkin } from "@/shell/skin-provider";
 import { useChatInbox } from "./chat-inbox-context";
 
 /**
- * Custom header for the docked chat panel, supplied to `CopilotSidebar` via its
- * `header` slot. It renders INSIDE the sidebar's own
- * `CopilotChatConfigurationProvider`, so `useCopilotChatConfiguration()` is the
- * live handle for the panel — `setModalOpen(false)` collapses the panel and the
- * change propagates up to the wrapper-level provider the inbox overlay reads.
+ * Header for the chat cluster. Rendered as an ordinary sibling above
+ * `CopilotChat` — the inline chat has no `header` slot, since that is a modal
+ * concern.
  *
- * Layout: a small violet→indigo brand chip + the assistant title on the left,
- * and three actions on the right — open the conversation inbox, start a new
- * conversation, and close the panel.
+ * Layout: the assistant title on the left, and actions on the right — open the
+ * conversation inbox, and start a new conversation.
+ *
+ * CONVERSATION-scoped actions only. The shell controls — which skin is mounted,
+ * which side the assistant docks on, and whether it is showing — all live in the
+ * selector card at the top of the column. That is why this component has no
+ * dependency on the layout context at all.
  */
 export function ChatPanelHeader() {
-  const configuration = useCopilotChatConfiguration();
   const skin = useSkin();
   const { isInboxOpen, toggleInbox, startNewConversation } = useChatInbox();
 
-  const title =
-    configuration?.labels.modalHeaderTitle ??
-    skin.identity.assistantName ??
-    skin.identity.brand;
-
-  const closePanel = () => configuration?.setModalOpen?.(false);
+  /**
+   * Read the SKIN, not `useCopilotChatConfiguration().labels.modalHeaderTitle`.
+   *
+   * While this was `CopilotSidebar`'s `header` slot it rendered INSIDE the chat's
+   * own configuration provider, so the `labels` we passed reached it. As a sibling
+   * of the inline chat it reads the wrapper-level provider instead, whose
+   * `modalHeaderTitle` is the framework default "CopilotKit Chat" — non-null, so it
+   * won the `??` chain and every skin's header showed that instead of its assistant
+   * name. This header is skin chrome now, so the skin is the source of truth.
+   */
+  const title = skin.identity.assistantName ?? skin.identity.brand;
 
   return (
     <header
@@ -73,13 +78,6 @@ export function ChatPanelHeader() {
           testId="chat-header-new-conversation"
         >
           <SquarePen className="h-[18px] w-[18px]" />
-        </HeaderIconButton>
-        <HeaderIconButton
-          label="Close chat"
-          onClick={closePanel}
-          testId="chat-header-close"
-        >
-          <X className="h-[18px] w-[18px]" />
         </HeaderIconButton>
       </div>
     </header>

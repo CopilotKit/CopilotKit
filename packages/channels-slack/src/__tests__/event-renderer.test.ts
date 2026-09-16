@@ -513,6 +513,50 @@ describe("createRunRenderer — native status mode", () => {
     });
   });
 
+  it("clears the status when a tool call follows the first reply", async () => {
+    // text → tool → text. The first reply clears the status, then the tool call
+    // re-arms it; before `setStatus` reset the latch, nothing cleared it again
+    // and Slack showed "is thinking…" long after the answer had landed.
+    const f = makePaneClient();
+    const renderer = createRunRenderer({
+      transport: f.transport,
+      target: { channel: "D1", threadTs: "100.0" },
+      status: {
+        threadTs: "100.0",
+        isPane: true,
+        config: { thinking: "is thinking…" },
+      },
+    });
+    const sub = renderer.subscriber;
+
+    await sub.onRunStartedEvent!({} as never);
+    await sub.onTextMessageStartEvent!({ event: { messageId: "m1" } } as never);
+    await sub.onTextMessageContentEvent!({
+      event: { messageId: "m1", delta: "I am about to run a tool." },
+    } as never);
+    await sub.onTextMessageEndEvent!({ event: { messageId: "m1" } } as never);
+
+    await sub.onToolCallStartEvent!({
+      event: { toolCallId: "t1", toolCallName: "run_command" },
+      toolCallName: "run_command",
+    } as never);
+    await sub.onToolCallEndEvent!({
+      event: { toolCallId: "t1" },
+      toolCallName: "run_command",
+      toolCallArgs: {},
+    } as never);
+
+    await sub.onTextMessageStartEvent!({ event: { messageId: "m2" } } as never);
+    await sub.onTextMessageContentEvent!({
+      event: { messageId: "m2", delta: "Here is the result." },
+    } as never);
+    await sub.onTextMessageEndEvent!({ event: { messageId: "m2" } } as never);
+
+    await renderer.finish!();
+
+    expect(f.statuses.at(-1)?.status).toBe("");
+  });
+
   it("logs a failed best-effort status update at debug level", async () => {
     const failure = new Error("Slack status cleanup failed");
     const debug = vi.spyOn(console, "debug").mockImplementation(() => {});

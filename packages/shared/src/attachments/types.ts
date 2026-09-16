@@ -44,6 +44,16 @@ export interface AttachmentsConfig {
   accept?: string;
   /** Maximum file size in bytes, default 20MB (20 * 1024 * 1024) */
   maxSize?: number;
+  /**
+   * How many files may upload at the same time, default 1 — `onUpload` is not
+   * called concurrently unless you raise this. Files past the limit wait for a
+   * free slot; `Infinity` lifts it. The limit covers everything in flight, so
+   * two selections dropped or pasted at once share the slots rather than each
+   * taking the full number.
+   * Honored by the React `useAttachments` hook — the Vue and Angular bindings
+   * still upload serially.
+   */
+  maxConcurrentUploads?: number;
   /** Custom upload handler. Return an InputContentSource with optional metadata. */
   onUpload?: (
     file: File,

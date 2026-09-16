@@ -9,7 +9,6 @@ import { useCopilotKit } from "../../../providers/useCopilotKit";
 import { CopilotKitCoreVue } from "../../../lib/vue-core";
 import CopilotChat from "../CopilotChat.vue";
 import CopilotChatView from "../CopilotChatView.vue";
-import { getThreadClone } from "../../../hooks/use-agent";
 
 function mountChat(
   props: Record<string, unknown> = {},
@@ -178,7 +177,7 @@ describe("CopilotChat", () => {
     await flushPromises();
 
     const registryAgent = core?.getAgent("custom-agent");
-    const resolvedAgent = getThreadClone(registryAgent, "explicit-thread");
+    const resolvedAgent = registryAgent;
     expect(resolvedAgent?.threadId).toBe("explicit-thread");
     expect(resolvedAgent?.messages.some((m) => m.role === "user")).toBe(true);
     expect(defaultAgent.messages).toHaveLength(0);
@@ -230,7 +229,7 @@ describe("CopilotChat", () => {
     await flushPromises();
 
     const registryAgent = core?.getAgent("default");
-    const resolvedAgent = getThreadClone(registryAgent, "stop-thread");
+    const resolvedAgent = registryAgent;
     const abortRun = vi.fn();
     if (registryAgent) {
       registryAgent.abortRun = abortRun;

@@ -6,7 +6,6 @@
 //   1. Bare unscoped docs   — /<slug>           (excluding integrations/ trees)
 //   2. Framework-scoped     — /<framework>/<slug>
 //   3. Reference docs       — /reference/<slug> (from src/content/reference)
-//   4. AG-UI                — /ag-ui/<slug>
 //
 // Each entry's `lastModified` is resolved from MDX frontmatter `lastmod`
 // when present, falling back to the file's mtime, then `new Date()`.
@@ -21,7 +20,6 @@ export const REFERENCE_CONTENT_DIR = path.join(
   process.cwd(),
   "src/content/reference",
 );
-export const AG_UI_CONTENT_DIR = path.join(process.cwd(), "src/content/ag-ui");
 
 export interface MdxEntry {
   /** URL slug (no leading slash, route groups stripped, trailing /index dropped). */
@@ -167,21 +165,12 @@ export function getReferencePages(): MdxEntry[] {
 }
 
 /**
- * AG-UI pages under `src/content/ag-ui/`.
- */
-export function getAgUiPages(): MdxEntry[] {
-  if (!fs.existsSync(AG_UI_CONTENT_DIR)) return [];
-  return walkMdx(AG_UI_CONTENT_DIR).filter((e) => e.slug.length > 0);
-}
-
-/**
  * Resolve the canonical base URL. Delegates to the server runtime
- * config reader (which itself reads `NEXT_PUBLIC_BASE_URL` at REQUEST
- * time, strips trailing slashes, and applies a sensible prod/dev
- * fallback). Lives behind this thin wrapper so existing sitemap /
- * robots call sites keep their shape — the runtime-config switch is
- * what makes a single built artifact serve different hosts across
- * Railway environments.
+ * config reader. Non-production can override `NEXT_PUBLIC_BASE_URL`; a
+ * production-mode server always returns the canonical docs origin so a stale
+ * deployment variable or alternate serving hostname cannot leak into machine
+ * surfaces. Lives behind this wrapper so sitemap / robots / metadata / LLM
+ * call sites stay single-sourced.
  */
 export function getBaseUrl(): string {
   return getRuntimeConfig().baseUrl;

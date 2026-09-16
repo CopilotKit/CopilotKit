@@ -15,17 +15,19 @@
 // that say whether the road is used at all.
 
 import React from "react";
+import { DocsPromptActions } from "./docs-prompt-actions";
 import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
-import { Copy, SquareTerminal } from "lucide-react";
+import { SquareTerminal } from "lucide-react";
 import {
   CHANNELS_ACTIVATION_EVENTS,
   CHANNELS_ACTIVATION_SURFACES,
-  CHANNELS_BUILD_PROMPT,
 } from "@/lib/channels-activation-contracts";
+import {
+  CHANNELS_ONBOARDING_INTENT,
+  createChannelsOnboardingAttempt,
+} from "@/lib/channels-onboarding-prompt";
 import type { ChannelsActivationChannelId } from "@/lib/channels-activation-contracts";
-
-type CopyState = "idle" | "copied" | "error";
 
 export interface ChannelsStartPromptProps {
   /** Injected from the page's docs frontend by the MDX component map. */
@@ -40,10 +42,6 @@ const CHANNEL_LABELS: Record<ChannelsActivationChannelId, string> = {
 export function ChannelsStartPrompt({ frontend }: ChannelsStartPromptProps) {
   const posthog = usePostHog();
   const pathname = usePathname();
-  const [copyState, setCopyState] = React.useState<CopyState>("idle");
-  const resetTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
   const panelRef = React.useRef<HTMLDivElement | null>(null);
   const viewedRef = React.useRef(false);
 
@@ -52,13 +50,6 @@ export function ChannelsStartPrompt({ frontend }: ChannelsStartPromptProps) {
   const channel: ChannelsActivationChannelId =
     frontend === "teams" ? "teams" : "slack";
   const channelLabel = CHANNEL_LABELS[channel];
-
-  React.useEffect(
-    () => () => {
-      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
-    },
-    [],
-  );
 
   function capture(event: string, properties: Record<string, unknown>) {
     try {
@@ -100,25 +91,6 @@ export function ChannelsStartPrompt({ frontend }: ChannelsStartPromptProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channel]);
 
-  async function copyPrompt() {
-    if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
-
-    // Only the clipboard write decides the state shown to the reader. Sharing
-    // one try block with the capture call meant a throwing analytics client
-    // reported "Copy blocked" for a prompt that was already on the clipboard.
-    try {
-      await navigator.clipboard.writeText(CHANNELS_BUILD_PROMPT);
-    } catch {
-      setCopyState("error");
-      resetTimerRef.current = setTimeout(() => setCopyState("idle"), 2600);
-      return;
-    }
-
-    setCopyState("copied");
-    capture(CHANNELS_ACTIVATION_EVENTS.promptCopied, analyticsProperties);
-    resetTimerRef.current = setTimeout(() => setCopyState("idle"), 1800);
-  }
-
   return (
     <div
       ref={panelRef}
@@ -128,7 +100,7 @@ export function ChannelsStartPrompt({ frontend }: ChannelsStartPromptProps) {
       {/* No disclosure. The payload is one action, so there is nothing to reveal
           — and the same in-content panel idiom as `OpsPlatformCTA`: neutral
           surface, `--border`, accent carried only by a small glyph. */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between xl:gap-4">
         <div className="flex min-w-0 flex-1 items-start gap-3">
           <SquareTerminal
             aria-hidden="true"
@@ -137,7 +109,7 @@ export function ChannelsStartPrompt({ frontend }: ChannelsStartPromptProps) {
 
           <div className="min-w-0">
             <span className="block font-semibold text-[var(--text)]">
-              Start building with your coding agent
+              Start with your coding agent
             </span>
             <span className="mt-1 block max-w-[62ch] text-sm leading-relaxed text-[var(--text-muted)]">
               It walks your agent through the whole setup — choosing a
@@ -147,27 +119,22 @@ export function ChannelsStartPrompt({ frontend }: ChannelsStartPromptProps) {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={copyPrompt}
-          className="shell-docs-radius-control inline-flex min-h-11 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none sm:w-auto"
-        >
-          <Copy aria-hidden="true" className="h-4 w-4" />
-          {copyState === "copied"
-            ? "Copied"
-            : copyState === "error"
-              ? "Copy blocked"
-              : "Copy prompt"}
-        </button>
+        <DocsPromptActions
+          surface={CHANNELS_ACTIVATION_SURFACES.docsChannelsOverview}
+          copiedEvent={CHANNELS_ACTIVATION_EVENTS.promptCopied}
+          createPrompt={() => {
+            const attempt = createChannelsOnboardingAttempt();
+            return {
+              text: attempt.prompt,
+              analyticsProperties: {
+                ...analyticsProperties,
+                onboarding_run_id: attempt.runId,
+                onboarding_intent: CHANNELS_ONBOARDING_INTENT,
+              },
+            };
+          }}
+        />
       </div>
-
-      <span aria-live="polite" className="sr-only">
-        {copyState === "copied"
-          ? "Prompt copied"
-          : copyState === "error"
-            ? "Prompt copy failed. Try again."
-            : ""}
-      </span>
     </div>
   );
 }

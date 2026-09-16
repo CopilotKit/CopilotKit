@@ -449,6 +449,17 @@ services:
     volumes:
       - ./integrations/crewai-crews/src:/app/src
 
+  crewai-conversational-flows:
+    <<: *integration-defaults
+    build: ./integrations/crewai-conversational-flows
+    image: showcase-crewai-conversational-flows:local
+    container_name: showcase-crewai-conversational-flows
+    ports:
+      - "3120:10000"
+    profiles: ["crewai-conversational-flows", "all"]
+    volumes:
+      - ./integrations/crewai-conversational-flows/src:/app/src
+
   pydantic-ai:
     <<: *integration-defaults
     build: ./integrations/pydantic-ai

@@ -28,8 +28,7 @@ def get_model(state: AgentState) -> BaseChatModel:
         from langchain_anthropic import ChatAnthropic
 
         return ChatAnthropic(
-            temperature=0,
-            model_name="claude-3-5-sonnet-20240620",
+            model_name="claude-opus-4-8",
             timeout=None,
             stop=None,
         )

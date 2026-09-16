@@ -4,6 +4,10 @@ WORKDIR /repo
 RUN corepack enable
 
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml .pnpmfile.cjs ./
+# The root package.json pins `patchedDependencies` (eventsource@3.0.7), so the
+# frozen install below hashes patches/*.patch to verify the lockfile. Copy the
+# patch dir into the build context or pnpm ENOENTs on the patch file (exit 254).
+COPY patches ./patches
 COPY showcase/harness/package.json ./showcase/harness/package.json
 # Copy every workspace package.json manifest (but NOT source / node_modules).
 # The version-drift probe's pnpm-packages discovery source parses these at
@@ -95,7 +99,18 @@ COPY --from=build /repo/showcase/harness/config ./config
 # (not via `npx playwright`) — pnpm's deploy output materialises a
 # hoisted node_modules but doesn't always produce a `.bin/playwright`
 # shim, so `npx playwright` would resolve to "not found".
+#
+# `tini` rides along in THIS layer (not its own RUN) deliberately: playwright's
+# `--with-deps` has just done the `apt-get update`, so the package lists are
+# already warm and installing tini costs one ~250KB package instead of a second
+# full index refresh. See the ENTRYPOINT block at the bottom for WHY tini exists
+# — it is the PID-1 zombie reaper. The `tini --version` call is a build-time
+# assertion on the binary path baked into ENTRYPOINT: if a future Debian moves
+# it off /usr/bin/tini, the BUILD fails here rather than the container failing
+# to start in prod.
 RUN node ./node_modules/playwright/cli.js install --with-deps chromium \
+ && apt-get install -y --no-install-recommends tini \
+ && /usr/bin/tini --version \
  && rm -rf /var/lib/apt/lists/*
 # version-drift probe: the pnpm-packages discovery source reads
 # pnpm-workspace.yaml + each workspace package manifest at probe-tick time.
@@ -193,16 +208,61 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 #      circuit-breaker give-up + `pool-unrecoverable` alarm as the agnostic
 #      backstop that signals "redeploy required" when the ceiling does not relax.
 #
+# FIX #4 — SUPPLY SIDE: reap the orphans (see the ENTRYPOINT block below).
+# Mitigations 1 and 2 are both DEMAND-side: they cap the PEAK of `pids.current`.
+# They cannot stop a MONOTONIC leak, and a monotonic leak is what prod actually
+# died of — `zombieCount` climbed 70 → 757 and `pids.current` 286 → 1000/1000
+# over the 6d22h a single prod container stayed up, at which point no browser
+# could launch and ~295 d6 cells went `abort` fleet-wide. Every chromium crash
+# (the `Target crashed` path this file already describes) re-parents that
+# browser's zygote/renderer children onto PID 1; node as PID 1 only `waitpid()`s
+# processes IT spawned, so each crash permanently strands ~5 `<defunct>`
+# grandchildren that still occupy cgroup PID slots. No amount of peak-shaving
+# fixes that — the container needs a PID 1 that reaps.
+#
 # We KEEP the `ulimit -u $(ulimit -Hu)` line — it is HARMLESS (it lifts the soft
 # rlimit to the inherited hard rlimit) and removes the per-process rlimit as a
 # confound — but it must NOT be mistaken for a fix to the cgroup ceiling.
-# `exec` replaces the shell so node remains PID 1 (correct signal handling /
-# Railway shutdown). The fallback `|| true` keeps boot resilient if the runtime
-# forbids raising the soft limit.
+# `exec` replaces the shell so node is tini's DIRECT child and no bash lingers
+# in the tree. The fallback `|| true` keeps boot resilient if the runtime forbids
+# raising the soft limit.
 #
 # MUST run under bash, NOT the default `/bin/sh`. On this image (node:22-
 # bookworm-slim) `/bin/sh` is dash, whose builtin `ulimit` does NOT support the
 # `-u` (max-user-processes / nproc) flag — it errors `ulimit: Illegal option -u`,
 # which the `2>/dev/null || true` then SILENTLY swallows. bash IS present
 # (/usr/bin/bash) and its `ulimit -u` works.
+#
+# FIX #4 — tini as PID 1, so orphaned chromium grandchildren get REAPED.
+# Node is not an init. libuv's SIGCHLD handler only `waitpid()`s the pids Node
+# itself spawned, so any process re-parented onto Node-as-PID-1 becomes a
+# permanent `<defunct>` zombie holding a cgroup PID slot. Chromium re-parents
+# constantly here: kill/crash a browser process and its zygote + renderers land
+# on PID 1. Measured in this exact image at `--pids-limit 1000`: ~5 zombies
+# stranded per crashed browser, `pids.current` floor rising monotonically and
+# never falling, ending in `chromium.launch()` failures — i.e. the outage.
+# With tini as PID 1 the same run holds `zombieCount` at 0.
+#
+# WHY tini AND NOT the alternatives:
+#   * Docker's `--init` would do the same thing, but it is a RUN-time flag on the
+#     container runtime. Railway does not expose it (same reason `pids.max` is
+#     not settable from here), so the init has to be baked into the image.
+#   * There is no in-process option: Node has no `waitpid` binding, so an
+#     application-level `SIGCHLD` reaper is not implementable without a native
+#     addon. This is genuinely the platform's job, not the orchestrator's.
+#
+# EXEC FORM, AND SIGNALS/EXIT CODES MUST SURVIVE — this is load-bearing:
+#   * Exec form (no shell wrapper) so tini really is PID 1 and really receives
+#     Railway's SIGTERM.
+#   * tini forwards SIGTERM/SIGINT to its child, which is what drives
+#     orchestrator.ts's `process.once("SIGTERM", drainAndExit)` graceful drain.
+#     No `-g` (process-group broadcast) on purpose: signalling the whole group
+#     would hit the live chromium pool alongside node and pre-empt that drain.
+#     Delivery semantics stay byte-identical to the pre-tini behaviour.
+#   * tini exits with the CHILD's exit status (128+N when the child dies by
+#     signal), so a crashing orchestrator still surfaces a NON-ZERO container
+#     exit and Railway still restarts it. An init that swallowed signals or
+#     always exited 0 would silently disable that self-restart — strictly worse
+#     than the leak it fixes. Verify both properties before changing this line.
+ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["/bin/bash", "-c", "ulimit -u $(ulimit -Hu) 2>/dev/null || true; exec node dist/orchestrator.js"]

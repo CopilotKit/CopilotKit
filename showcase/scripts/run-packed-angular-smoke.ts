@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
 import { once } from "node:events";
+import { realpathSync } from "node:fs";
 import { createServer } from "node:net";
 import { join, resolve } from "node:path";
 import { chromium } from "playwright";
@@ -96,13 +97,14 @@ async function assertText(
 
 /** Runs the packed Angular fixture through SSR, hydration, and browser flows. */
 async function runBrowserSmoke(consumerDir: string): Promise<void> {
+  const canonicalConsumerDir = realpathSync(consumerDir);
   const port = await reservePort();
   const url = `http://127.0.0.1:${port}/`;
   const server = spawn(
     process.execPath,
-    [join(consumerDir, "dist/smoke/server/server.mjs")],
+    [join(canonicalConsumerDir, "dist/smoke/server/server.mjs")],
     {
-      cwd: consumerDir,
+      cwd: canonicalConsumerDir,
       env: { ...process.env, PORT: String(port) },
       stdio: ["ignore", "pipe", "pipe"],
     },

@@ -217,6 +217,11 @@ export class ArgsParser {
   }
 
   private emitParamDelta(key: string, value: unknown): void {
+    // A JSON Patch "add" requires a value; emitting one without it (e.g. when
+    // the LLM sends a null/empty jsFunctions or css) makes fast-json-patch
+    // reject the whole patch client-side with OPERATION_VALUE_REQUIRED and
+    // drops it. Skip the delta when there's nothing to add.
+    if (value === undefined) return;
     // The activity message must exist before any delta can be applied —
     // the client silently drops ACTIVITY_DELTA events whose messageId has
     // no prior ACTIVITY_SNAPSHOT. The LLM controls the key order of the

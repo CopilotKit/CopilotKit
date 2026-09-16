@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useMemo } from "react";
+import type { ReactNode } from "react";
+import { RecordingProvider, RecordingVignette } from "@/shell/teach";
 import {
   PlannerAuthProvider,
   usePlannerAuth,
@@ -38,14 +40,28 @@ export function useLogisticsRuntimeProperties(): Record<string, unknown> {
 /**
  * The below-provider stack — `skin.Providers`. Everything here may consume the
  * CopilotKit context, which is exactly why it cannot be hoisted above the
- * provider. SandboxDataSync mirrors the live ledger into the OGUI snapshot.
+ * provider.
+ *
+ * - RecordingProvider (BEAT 6): the teach-mode recorder. It wraps BOTH the app
+ *   card and the chat card, because the demonstration happens on the Control
+ *   Tower while the card that reads `steps` / `getDemonstratedCode()` lives in
+ *   the transcript — a provider mounted around only one of them makes every
+ *   `logStep` from the other a silent no-op (`useRecording` returns inert
+ *   fallbacks outside a provider; nothing throws, the feed is just empty).
+ *   Imported from `@/shell/teach`, never re-implemented: three skins shipped
+ *   private copies and they diverged.
+ * - SandboxDataSync: mirrors the live ledger into the OGUI snapshot.
+ * - RecordingVignette: the canvas-edge glow while a demonstration records. Last,
+ *   and a sibling of `children` rather than a wrapper, so it overlays the whole
+ *   frame without joining the layout.
  */
 export function LogisticsProviders({ children }: { children: ReactNode }) {
   return (
-    <>
+    <RecordingProvider>
       <SandboxDataSync />
       {children}
-    </>
+      <RecordingVignette />
+    </RecordingProvider>
   );
 }
 

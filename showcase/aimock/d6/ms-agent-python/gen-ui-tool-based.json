@@ -8,32 +8,6 @@
   "fixtures": [
     {
       "match": {
-        "userMessage": "3D axis visualization (model airplane)",
-        "toolCallId": "call_d5_open_gen_ui_3d_axis_001",
-        "context": "ms-agent-python"
-      },
-      "response": {
-        "content": "Generated. The sandboxed UI is rendered above."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "3D axis visualization (model airplane)",
-        "turnIndex": 0,
-        "context": "ms-agent-python"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d5_open_gen_ui_3d_axis_001",
-            "name": "generateSandboxedUi",
-            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing 3D axis scene…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}\",\"html\":\"<div class=\\\"wrap\\\"><h1>3D axis visualization (pitch / yaw / roll)</h1><svg width=\\\"320\\\" height=\\\"260\\\" viewBox=\\\"-80 -80 160 160\\\" data-testid=\\\"ogui-3d-axis\\\"><line x1=\\\"-60\\\" y1=\\\"0\\\" x2=\\\"60\\\" y2=\\\"0\\\" stroke=\\\"#f59e0b\\\"/><line x1=\\\"0\\\" y1=\\\"-60\\\" x2=\\\"0\\\" y2=\\\"60\\\" stroke=\\\"#6366f1\\\"/><line x1=\\\"-40\\\" y1=\\\"40\\\" x2=\\\"40\\\" y2=\\\"-40\\\" stroke=\\\"#10b981\\\"/><text x=\\\"62\\\" y=\\\"4\\\" font-size=\\\"8\\\" fill=\\\"#f59e0b\\\">X pitch</text><text x=\\\"4\\\" y=\\\"-62\\\" font-size=\\\"8\\\" fill=\\\"#6366f1\\\">Y yaw</text><text x=\\\"42\\\" y=\\\"-42\\\" font-size=\\\"8\\\" fill=\\\"#10b981\\\">Z roll</text></svg></div>\"}"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
         "userMessage": "How a neural network works",
         "toolCallId": "call_d5_open_gen_ui_neural_001",
         "context": "ms-agent-python"
@@ -164,32 +138,6 @@
     },
     {
       "match": {
-        "userMessage": "Inline expression evaluator",
-        "toolCallId": "call_d5_open_gen_ui_inline_001",
-        "context": "ms-agent-python"
-      },
-      "response": {
-        "content": "Generated. The sandboxed UI is rendered above."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "Inline expression evaluator",
-        "turnIndex": 0,
-        "context": "ms-agent-python"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d5_open_gen_ui_inline_001",
-            "name": "generateSandboxedUi",
-            "arguments": "{\"initialHeight\":320,\"placeholderMessages\":[\"Composing expression evaluator…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.card{padding:16px;background:#1e293b;border-radius:12px;margin:16px}input{width:100%;padding:8px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;border-radius:6px;box-sizing:border-box}button{margin-top:8px;padding:8px 16px;background:#6366f1;border:0;color:#fff;border-radius:6px;cursor:pointer}.out{margin-top:8px;font-size:12px;color:#94a3b8}\",\"html\":\"<div class=\\\"card\\\" data-testid=\\\"ogui-inline-eval\\\"><h2>Inline expression evaluator</h2><input id=\\\"in\\\" placeholder=\\\"e.g. 2 + 2\\\"/><button id=\\\"go\\\">Evaluate</button><div class=\\\"out\\\" id=\\\"out\\\">awaiting input…</div></div>\",\"jsFunctions\":\"(function(){var input=document.getElementById('in');var out=document.getElementById('out');var go=document.getElementById('go');async function run(){var expr=input.value;out.textContent='evaluating…';var res=await Websandbox.connection.remote.evaluateExpression({expression:expr});out.textContent=res&&res.ok?'= '+res.value:'error: '+res.error;}go.addEventListener('click',run);input.addEventListener('keydown',function(e){if(e.key==='Enter')run();});})();\"}"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
         "userMessage": "request the gen-ui interrupt",
         "turnIndex": 0,
         "context": "ms-agent-python"
@@ -206,26 +154,6 @@
       },
       "response": {
         "content": "Gen-UI interrupt resolved. The agent received the user's choice and resumed, completing the workflow."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "render an open gen-ui element",
-        "turnIndex": 0,
-        "context": "ms-agent-python"
-      },
-      "response": {
-        "content": "The open gen-UI element was rendered. The LLM produced an arbitrary-shape JSON payload and the renderer materialized it as a UI block."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "continue the advanced gen-ui flow",
-        "turnIndex": 0,
-        "context": "ms-agent-python"
-      },
-      "response": {
-        "content": "The advanced gen-UI flow continued with the second-step component. The chained payloads from turns 1 and 2 form the complete advanced gen-UI sequence."
       }
     }
   ]

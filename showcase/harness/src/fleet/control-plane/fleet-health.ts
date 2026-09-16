@@ -30,6 +30,16 @@
  *             (N=1, docker) the default is a NO-OP — docker / the worker's own
  *             relaunch handles recovery, so local runs need no Railway wiring.
  *
+ * ── PID-SATURATION ALARM (the second leg) ──────────────────────────────
+ * The same roster read carries each worker's `capacity_pids_current` /
+ * `capacity_pids_max` gauges (written by S9's ~75s heartbeat off
+ * `BrowserPool.budget()`). Until now nothing in non-test source compared them,
+ * so a worker leaking PIDs toward its cgroup ceiling was invisible: it kept
+ * heartbeating (so DETECT above saw `online`), kept claiming jobs, and every one
+ * of them aborted on timeout. This module now alarms on the RISING EDGE of
+ * `pids.current / pids.max >= pidSaturationRatio`, latched per worker with a
+ * hysteresis clear so a saturated worker pages once, not every 15s cycle.
+ *
  * ── RELATIONSHIP TO THE PRODUCER'S sweepExpired ────────────────────────
  * The producer's `sweepExpired` (S4) reclaims jobs whose LEASE has expired —
  * it is lease-timeout-driven and worker-agnostic. fleet-health is the
@@ -57,8 +67,9 @@ import {
   heartbeatParseable,
   isWorkerStale,
   deriveHealth,
-  type PoolCommError,
+  pidUsageRatio,
 } from "../contracts.js";
+import type { PoolCommError } from "../contracts.js";
 
 /**
  * Default staleness window: a worker whose `last_heartbeat_at` is older than
@@ -82,6 +93,41 @@ export const DEFAULT_WORKER_STALE_AFTER_MS = 180_000;
  */
 export const DEFAULT_WORKER_GC_AFTER_MS = 86_400_000;
 
+/**
+ * Default PID-SATURATION alarm threshold, as a fraction of a worker's cgroup
+ * `pids.max` ceiling. A worker whose `capacity_pids_current / capacity_pids_max`
+ * crosses this fires the saturation hook.
+ *
+ * WHY THIS EXISTS: prod `harness-workers` replicas accumulate zombie chromium
+ * PIDs until they hit the platform-fixed `pids.max=1000` ceiling, at which point
+ * the worker cannot fork and every probe it claims aborts on timeout. Measured
+ * at the 2026-08-03 and 2026-08-10 incidents: `pids=1000/1000`, `837/1000`,
+ * hundreds of `timeout after 600000ms` abort rows, and jobs sitting pending for
+ * 42 minutes on a 15-minute cadence. NOTHING alarmed — the `pool-unrecoverable`
+ * signal only fires when the self-heal breaker gives up, which a PID-starved
+ * (but still heartbeating) worker never reaches, and the capacity gauges the
+ * worker heartbeats here were read by nobody.
+ *
+ * WHY 0.75: at the observed leak rate (~1000 PIDs over ~7 days) 75% leaves
+ * roughly 36 hours of operator lead time before the ceiling, which is more than
+ * one working day — early enough to act, late enough that ordinary busy-worker
+ * churn (a full context budget is nowhere near 750 PIDs) never trips it.
+ * Env-overridable by the wiring slot via WORKER_PID_SATURATION_RATIO.
+ */
+export const DEFAULT_PID_SATURATION_RATIO = 0.75;
+
+/**
+ * Default CLEAR threshold for the PID-saturation latch (hysteresis). The alarm
+ * is EDGE-triggered: it fires once when a worker crosses
+ * `pidSaturationRatio` and stays latched — silent — until that worker drops back
+ * below THIS ratio. Without the gap, a worker parked exactly at the threshold
+ * would re-alarm on every cycle (the monitor ticks every
+ * DEFAULT_FLEET_HEALTH_INTERVAL_MS = 15s, i.e. 4 alerts/minute for the ~36h
+ * lead-time window — an alarm that fires constantly is worse than none).
+ * Env-overridable via WORKER_PID_SATURATION_CLEAR_RATIO.
+ */
+export const DEFAULT_PID_SATURATION_CLEAR_RATIO = 0.65;
+
 /** Max worker rows scanned per monitor cycle — bounds the roster read cost. */
 const WORKERS_PAGE = 100;
 
@@ -91,14 +137,60 @@ const RECLAIM_PAGE = 100;
 /**
  * The persisted `workers` row shape fleet-health reads. Snake-case columns as
  * the PB records API returns them (see the create_workers migration). Only the
- * fields fleet-health consumes are typed; the capacity gauges are ignored here.
+ * fields fleet-health consumes are typed.
+ *
+ * The two `capacity_pids_*` gauges are written by the worker's ~75s heartbeat
+ * (`worker/registration.ts` `capacityRecord`) off `BrowserPool.budget()`. They
+ * are `null` — never `-1` — when the cgroup PID controller is unreadable
+ * (off-Linux, missing controller): the registration writer maps the pool's `-1`
+ * sentinel to null precisely so a MEASURED count is distinguishable from an
+ * UNAVAILABLE one. The saturation check honours that convention and treats
+ * null/absent as "not measured", never as 0.
  */
 interface WorkerRecord {
   id: string;
   worker_id: string;
   last_heartbeat_at: string;
   current_job_id?: string;
+  /** cgroup `pids.current` at the last heartbeat; null when unmeasurable. */
+  capacity_pids_current?: number | null;
+  /** cgroup `pids.max` ceiling at the last heartbeat; null when unmeasurable. */
+  capacity_pids_max?: number | null;
 }
+
+/**
+ * One worker's PID-saturation alarm payload, handed to `onPidSaturation` on the
+ * rising edge. Pure counters — safe to put in a Slack message or a public-read
+ * status row.
+ */
+export interface PidSaturationReport {
+  /** The saturating worker's id (joins the roster row and its claims). */
+  workerId: string;
+  /** cgroup `pids.current` read from the worker's last heartbeat. */
+  pidsCurrent: number;
+  /** cgroup `pids.max` ceiling read from the worker's last heartbeat. */
+  pidsMax: number;
+  /** `pidsCurrent / pidsMax`, the value that crossed the threshold. */
+  ratio: number;
+  /** The threshold ratio that was crossed (echoed so the alarm is self-describing). */
+  threshold: number;
+  /** Heartbeat timestamp the saturating gauges were read from. */
+  lastHeartbeatAt: string;
+  /** ISO timestamp of the cycle that detected the crossing. */
+  observedAt: string;
+}
+
+/**
+ * Best-effort alarm hook fired ONCE per worker on the rising edge of PID
+ * saturation (and again only after that worker has recovered below the clear
+ * ratio). The wiring slot routes it to the operator channel; the default is
+ * undefined (detection still counts into `FleetHealthResult.pidSaturated`, which
+ * is what the unit tests and the /health surface read). MUST never throw into
+ * the monitor loop — the monitor wraps it anyway, mirroring `restartWorker`.
+ */
+export type PidSaturationHook = (
+  report: PidSaturationReport,
+) => void | Promise<void>;
 
 /**
  * Best-effort hook to RESTART a wedged worker (staging: Railway
@@ -152,6 +244,14 @@ export interface FleetHealthResult {
    * generations being pruned so the roster stops accumulating ghost rows.
    */
   gcDeleted: number;
+  /**
+   * Workers that crossed the PID-saturation threshold ON THIS CYCLE (the rising
+   * edge only — a worker already latched saturated reports once, then stays out
+   * of this list until it recovers below the clear ratio). One entry per fired
+   * `onPidSaturation` invocation, so a caller can count alarms without
+   * re-deriving the edge.
+   */
+  pidSaturated: PidSaturationReport[];
 }
 
 export interface FleetHealthDeps {
@@ -177,6 +277,23 @@ export interface FleetHealthDeps {
    * Default no-op — local docker / the worker's own relaunch handles recovery.
    */
   restartWorker?: RestartWorkerHook;
+  /**
+   * PID-saturation alarm threshold (fraction of `pids.max`). Default
+   * `DEFAULT_PID_SATURATION_RATIO` (0.75). Must be in (0, 1].
+   */
+  pidSaturationRatio?: number;
+  /**
+   * Latch-clear threshold (fraction of `pids.max`). Default
+   * `DEFAULT_PID_SATURATION_CLEAR_RATIO` (0.65). MUST be strictly below
+   * `pidSaturationRatio` — ENFORCED at construction, see below.
+   */
+  pidSaturationClearRatio?: number;
+  /**
+   * Best-effort PID-saturation alarm hook. Default undefined (detection still
+   * counts into `FleetHealthResult.pidSaturated`); the wiring slot injects the
+   * operator alert.
+   */
+  onPidSaturation?: PidSaturationHook;
 }
 
 /** The control-plane's fleet-health monitor — drives the detect/requeue cycle. */
@@ -210,6 +327,37 @@ export function createFleetHealthMonitor(
       `Unsafe fleet-health config: gcAfterMs (${gcAfterMs}, env WORKER_GC_AFTER_MS) must be > staleAfterMs (${staleAfterMs}, env WORKER_STALE_AFTER_MS); otherwise GC deletes a merely-stale (recoverable) worker's roster row before its in-flight jobs are reclaimed, wedging those jobs until lease expiry with no crashed-worker overlay.`,
     );
   }
+  const pidRatio = deps.pidSaturationRatio ?? DEFAULT_PID_SATURATION_RATIO;
+  const pidClearRatio =
+    deps.pidSaturationClearRatio ?? DEFAULT_PID_SATURATION_CLEAR_RATIO;
+  // Fail-loud at construction, same idiom as the gc/stale guard above. Both
+  // ratios are independently env-overridable by the wiring slot
+  // (WORKER_PID_SATURATION_RATIO / WORKER_PID_SATURATION_CLEAR_RATIO), so an
+  // unsafe combo is a misconfiguration. A non-positive or >1 alarm ratio makes
+  // the alarm either permanently-on or unreachable; a clear ratio that does not
+  // sit STRICTLY BELOW it removes the hysteresis gap, so a worker parked at the
+  // threshold latches and unlatches on alternating cycles and re-alarms every
+  // 15s forever — the exact "fires constantly is worse than none" failure the
+  // latch exists to prevent. Die immediately (visible in deploy CI / Railway
+  // health-check) rather than page an operator four times a minute.
+  if (!(pidRatio > 0) || pidRatio > 1) {
+    throw new Error(
+      `Unsafe fleet-health config: pidSaturationRatio (${pidRatio}, env WORKER_PID_SATURATION_RATIO) must be in (0, 1]; outside that range the PID-saturation alarm is either permanently firing or can never fire.`,
+    );
+  }
+  if (!(pidClearRatio < pidRatio) || pidClearRatio < 0) {
+    throw new Error(
+      `Unsafe fleet-health config: pidSaturationClearRatio (${pidClearRatio}, env WORKER_PID_SATURATION_CLEAR_RATIO) must be >= 0 and STRICTLY below pidSaturationRatio (${pidRatio}, env WORKER_PID_SATURATION_RATIO); without a hysteresis gap a worker sitting at the threshold re-alarms on every monitor cycle.`,
+    );
+  }
+  const onPidSaturation = deps.onPidSaturation;
+  // EDGE-TRIGGER LATCH: worker ids currently alarmed. A worker enters on the
+  // rising edge (ratio >= pidRatio) and leaves only when it recovers below
+  // `pidClearRatio` or its roster row is GC'd — so the alarm fires ONCE per
+  // saturation episode rather than once per 15s cycle. In-memory by design: a
+  // control-plane restart re-arms every worker, which is the correct posture
+  // (a fresh control-plane has told nobody anything yet).
+  const pidSaturationLatched = new Set<string>();
   const now = deps.now ?? Date.now;
   // Whether a REAL restart hook was injected (staging Railway redeploy) vs the
   // default no-op. Used to demote the misleading `restartsAttempted` metric: a
@@ -336,6 +484,7 @@ export function createFleetHealthMonitor(
           reclaimedOverlays: [],
           restartsAttempted: 0,
           gcDeleted: 0,
+          pidSaturated: [],
         };
       }
 
@@ -351,6 +500,7 @@ export function createFleetHealthMonitor(
       let unparseableHeartbeats = 0;
       const commErrors: PoolCommError[] = [];
       const reclaimedOverlays: ReclaimedCommError[] = [];
+      const pidSaturated: PidSaturationReport[] = [];
 
       for (const row of page.items) {
         // GC FIRST — even before the missing-worker-id guard: a row whose
@@ -388,6 +538,14 @@ export function createFleetHealthMonitor(
               err: err instanceof Error ? err.message : String(err),
             });
           }
+          // Release this worker's saturation latch alongside its roster row —
+          // otherwise the in-memory Set accumulates one entry per retired
+          // deploy generation for the control-plane's whole lifetime. Safe to
+          // do even when the delete threw: the row survives to the next cycle,
+          // where an un-recovered gauge simply re-arms the latch.
+          if (typeof row.worker_id === "string") {
+            pidSaturationLatched.delete(row.worker_id);
+          }
           continue;
         }
         const workerId = row.worker_id;
@@ -417,6 +575,74 @@ export function createFleetHealthMonitor(
             lastHeartbeatAt: row.last_heartbeat_at,
           });
         }
+        // PID-SATURATION alarm. Evaluated BEFORE the online/stale branch on
+        // purpose: the incident this exists for is a worker that is perfectly
+        // ONLINE — heartbeating on time, passing every liveness check — while
+        // its cgroup PID count climbs to the ceiling and every probe it claims
+        // aborts on timeout. Putting the check after the `online` early-continue
+        // would make it blind to the exact failure it targets.
+        //
+        // Detection only. The reclaim/restart machinery below stays reserved for
+        // the stale/offline case: a saturating worker still holds live leases we
+        // must not yank, and it may yet be reaped back below the line.
+        const ratio = pidUsageRatio(
+          row.capacity_pids_current,
+          row.capacity_pids_max,
+        );
+        if (ratio !== null) {
+          const wasLatched = pidSaturationLatched.has(workerId);
+          if (ratio >= pidRatio && !wasLatched) {
+            pidSaturationLatched.add(workerId);
+            // Non-null by construction: `pidSaturationRatio` returns a number
+            // only when both gauges are finite numbers in range.
+            const report: PidSaturationReport = {
+              workerId,
+              pidsCurrent: Number(row.capacity_pids_current),
+              pidsMax: Number(row.capacity_pids_max),
+              ratio,
+              threshold: pidRatio,
+              lastHeartbeatAt: row.last_heartbeat_at,
+              observedAt: new Date(nowMs).toISOString(),
+            };
+            pidSaturated.push(report);
+            // `error`, not `warn`: warn/error route to stderr → Sentry (see the
+            // PoolLogger note in browser-pool.ts), and PID saturation is the
+            // fleet-starvation precursor, not routine noise.
+            logger.error("fleet.health.worker-pid-saturated", {
+              workerId,
+              pidsCurrent: report.pidsCurrent,
+              pidsMax: report.pidsMax,
+              ratio: Number(ratio.toFixed(4)),
+              threshold: pidRatio,
+              health: deriveHealth(row.last_heartbeat_at, nowMs, staleAfterMs),
+            });
+            if (onPidSaturation) {
+              try {
+                await onPidSaturation(report);
+              } catch (err) {
+                // Best-effort, same discipline as restartWorker: a failed
+                // operator ping must never abort the cycle (which would skip
+                // every subsequent worker's reclamation).
+                logger.warn("fleet.health.pid-saturation-hook-failed", {
+                  workerId,
+                  err: err instanceof Error ? err.message : String(err),
+                });
+              }
+            }
+          } else if (ratio < pidClearRatio && wasLatched) {
+            // Recovered past the hysteresis gap — re-arm so the NEXT saturation
+            // episode (e.g. after a reaper deploy regresses) alarms again.
+            pidSaturationLatched.delete(workerId);
+            logger.info("fleet.health.worker-pid-recovered", {
+              workerId,
+              pidsCurrent: row.capacity_pids_current,
+              pidsMax: row.capacity_pids_max,
+              ratio: Number(ratio.toFixed(4)),
+              clearThreshold: pidClearRatio,
+            });
+          }
+        }
+
         const health = deriveHealth(row.last_heartbeat_at, nowMs, staleAfterMs);
         if (health === "online") {
           online += 1;
@@ -472,7 +698,8 @@ export function createFleetHealthMonitor(
         unhealthy > 0 ||
         reclaimed > 0 ||
         gcDeleted > 0 ||
-        unparseableHeartbeats > 0
+        unparseableHeartbeats > 0 ||
+        pidSaturated.length > 0
       ) {
         logger.info("fleet.health.cycle", {
           online,
@@ -481,6 +708,11 @@ export function createFleetHealthMonitor(
           restartsAttempted,
           gcDeleted,
           unparseableHeartbeats,
+          // Rising-edge alarms this cycle; `pidLatched` is the standing count
+          // (workers still above the clear ratio), which is what an operator
+          // watching the fleet actually wants to see.
+          pidSaturated: pidSaturated.length,
+          pidLatched: pidSaturationLatched.size,
         });
       }
 
@@ -492,6 +724,7 @@ export function createFleetHealthMonitor(
         reclaimedOverlays,
         restartsAttempted,
         gcDeleted,
+        pidSaturated,
       };
     },
   };

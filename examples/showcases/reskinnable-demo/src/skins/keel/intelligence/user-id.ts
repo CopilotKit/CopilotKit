@@ -58,6 +58,89 @@ export function resolveKeelUserId({
   return slug ? `keel-${slug}` : DEMO_DEFAULT_USER_ID;
 }
 
+/**
+ * ── THE RESET/RUNTIME IDENTITY CONTRACT ────────────────────────────────────
+ *
+ * Every identity input the runtime can hand `keelIdentifyUser`, DERIVED from the
+ * persona roster rather than restated. The presenter reset asks THIS module which
+ * buckets exist so the two cannot drift, exactly as commerce's reset does
+ * (`src/skins/commerce/intelligence/user-id.ts` states the three silent failures
+ * a hardcoded list produced there — all three apply here verbatim).
+ *
+ * Read at CALL time, never frozen into a module constant: the pinned-env branch
+ * in `resolveKeelUserId` collapses the whole set to `[pinned]`, and a constant
+ * evaluated at import would answer for whatever the env happened to be when the
+ * module first loaded. `playwright.config.ts` pins `INTELLIGENCE_USER_ID`, so
+ * that branch is live in CI rather than hypothetical.
+ */
+function possibleIdentityInputs(): readonly KeelIdentityInput[] {
+  return [
+    // Nothing forwarded. This is the COMMON case on a run, not an edge case:
+    // observed across banking, Rowan and Bellwether, the client's `properties`
+    // do not reliably reach `identifyUser` on the run path, so recall frequently
+    // looks at the DEFAULT bucket rather than at the mapped persona's.
+    {},
+    // One per on-screen persona, in exactly the shape
+    // `useKeelRuntimeProperties` forwards: { userId, userRole }.
+    ...KEEL_PERSONAS.map((p) => ({ userId: p.id, userRole: p.role })),
+    // Role forwarded without a recognised persona id — the role-slug branch.
+    ...KEEL_PERSONAS.map((p) => ({ userRole: p.role })),
+  ];
+}
+
+/**
+ * Every memory bucket this process's runtime can read or write. The presenter
+ * reset forgets exactly this set.
+ */
+export function memoryScopeUserIds(): readonly string[] {
+  return [
+    ...new Set(
+      possibleIdentityInputs().map((input) => resolveKeelUserId(input)),
+    ),
+  ];
+}
+
+/**
+ * The buckets beats 4 and 5 are seeded into: the DEFAULT one and EVERY mapped
+ * persona's.
+ *
+ * Two decisions, both load-bearing:
+ *
+ *  1. THE DEFAULT BUCKET IS SEEDED. Banking, Rowan and Bellwether each hit the
+ *     same wall: because runs frequently resolve to the default (see
+ *     `possibleIdentityInputs`), seeding only the mapped persona leaves recall
+ *     looking at an empty bucket, and beat 4 fails with the agent cheerfully
+ *     saying it has no saved format — while the memories sit perfectly well
+ *     stored one id over. That failure is silent and looks like a broken memory
+ *     system.
+ *  2. EVERY PERSONA, DERIVED FROM THE ROSTER, not just the default one. Keel's
+ *     role switcher is a first-class demo affordance sitting in the header, and a
+ *     presenter WILL touch it — Sam Okafor is the knowledge/ops lead the beat map
+ *     writes beat 4 for, while `DEFAULT_PERSONA_ID` opens the app as Ana Reyes.
+ *     Seeding one of the two would make the beat depend on which name is showing.
+ *     Deriving from `KEEL_PERSONAS` also means a persona added later cannot be
+ *     forgotten here.
+ *
+ * Because the memories land in every persona's bucket, their TEXT is written for
+ * the DESK rather than addressed to a named person — see `seed-memories.ts`. A
+ * preference that said "when Sam asks…" would be recalled while Ana is on screen
+ * and read as the memory system confusing two people.
+ *
+ * Goes through `resolveKeelUserId` for the same reason the forget set does: under
+ * a pinned `INTELLIGENCE_USER_ID` every entry collapses onto the pinned bucket,
+ * which is the only one the runtime will read.
+ */
+export function memorySeedTargetUserIds(): readonly string[] {
+  return [
+    ...new Set([
+      resolveKeelUserId({}),
+      ...KEEL_PERSONAS.map((p) =>
+        resolveKeelUserId({ userId: p.id, userRole: p.role }),
+      ),
+    ]),
+  ];
+}
+
 export function resolveKeelUserName({
   userId,
   userRole,

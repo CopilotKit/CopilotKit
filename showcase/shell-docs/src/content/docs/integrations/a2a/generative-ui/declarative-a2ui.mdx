@@ -27,13 +27,14 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
 
 <Steps>
   <Step>
-    ### Clone the A2A starter template
+    ### Use the A2A starter template
 
     ```bash
-    git clone https://github.com/copilotkit/with-a2a-a2ui.git
+    git clone https://github.com/CopilotKit/CopilotKit.git
+    cd CopilotKit/examples/integrations/a2a-a2ui
     ```
 
-    The agent and application from the starter template are already configured to use A2UI, but details are included below for completeness.
+    The archived `copilotkit/with-a2a-a2ui` starter now lives at this monorepo path. The current starter uses its local v0.8 renderer and emits a JSON list of v0.8 operation objects. This page documents that accepted starter payload. Migrating the starter to the v0.9 renderer and `a2ui_operations` envelope requires changes outside this documentation target.
 
   </Step>
   <Step>
@@ -61,9 +62,9 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
   <Step>
     ### Setting up your agent with components
 
-    The starter template is already configured to use A2UI, but lets look at how to add your own components.
+    The starter's current agent accepts the v0.8 operation list below. Keep the operation order and shapes when adding your own components; each list entry is sent as an individual A2A data part by the starter agent.
 
-    ```python title="agent/restaurant_finder/prompt_builder.py"
+    ```python title="agent/prompt_builder.py"
       RESTAURANT_UI_EXAMPLES = """
       ...
       ---BEGIN SINGLE_COLUMN_LIST_EXAMPLE---
@@ -77,13 +78,13 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
             {{ "id": "item-list", "component": {{ "List": {{ "direction": "vertical", "children": {{ "template": {{ "componentId": "item-card-template", "dataBinding": "/items" }} }} }} }} }},
             {{ "id": "item-card-template", "component": {{ "Card": {{ "child": "card-layout" }} }} }},
             {{ "id": "card-layout", "component": {{ "Row": {{ "children": {{ "explicitList": ["template-image", "card-details"] }} }} }} }},
-            {{ "id": "template-image", weight: 1, "component": {{ "Image": {{ "url": {{ "path": "imageUrl" }} }} }} }},
-            {{ "id": "card-details", weight: 2, "component": {{ "Column": {{ "children": {{ "explicitList": ["template-name", "template-rating", "template-detail", "template-link", "template-book-button"] }} }} }} }},
+            {{ "id": "template-image", "weight": 1, "component": {{ "Image": {{ "url": {{ "path": "imageUrl" }} }} }} }},
+            {{ "id": "card-details", "weight": 2, "component": {{ "Column": {{ "children": {{ "explicitList": ["template-name", "template-rating", "template-detail", "template-link", "template-book-button"] }} }} }} }},
             {{ "id": "template-name", "component": {{ "Text": {{ "usageHint": "h3", "text": {{ "path": "name" }} }} }} }},
             {{ "id": "template-rating", "component": {{ "Text": {{ "text": {{ "path": "rating" }} }} }} }},
             {{ "id": "template-detail", "component": {{ "Text": {{ "text": {{ "path": "detail" }} }} }} }},
             {{ "id": "template-link", "component": {{ "Text": {{ "text": {{ "path": "infoLink" }} }} }} }},
-            {{ "id": "template-book-button", "component": {{ "Button": {{ "child": "book-now-text", "primary": true, "action": {{ "name": "book_restaurant", "context": [ {{ "key": "restaurantName", "value": {{ "path": "name" }} }}, {{ "key": "imageUrl", "value": {{ "path": "imageUrl" }} }}, {{ "key": "address", "value": {{ "path": "address" }} }} ] }} }} }} }},
+            {{ "id": "template-book-button", "component": {{ "Button": {{ "child": "book-now-text", "primary": true, "action": {{ "name": "book_restaurant", "context": [{{ "key": "restaurantName", "value": {{ "path": "name" }} }}, {{ "key": "imageUrl", "value": {{ "path": "imageUrl" }} }}, {{ "key": "address", "value": {{ "path": "address" }}}} ] }} }} }} }},
             {{ "id": "book-now-text", "component": {{ "Text": {{ "text": {{ "literalString": "Book Now" }} }} }} }}
           ]
         }} }},
@@ -108,7 +109,7 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
                 {{ "key": "imageUrl", "valueString": "https://example.com/quick.jpg" }},
                 {{ "key": "address", "valueString": "456 Oak Ave" }}
               ] }}
-            ] }} // Populate this with restaurant data
+            ] }}
           ]
         }} }}
       ]
@@ -117,22 +118,24 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
       ```
 
     The widgets are injected into the agent's prompt, in this case using the `RESTAURANT_UI_EXAMPLES` variable.
-    Widgets are defined for the agent using examples of the json arrays they should output, wrapped in a comment block.
+    Widgets are defined for the agent using an example of the JSON array it should output, wrapped in a comment block.
     - A comment indicating the start of the example
-    - beginRendering: The start of the widget's rendering
-    - surfaceUpdate: An example of the json structure for the widget
-    - dataModelUpdate: an example of the data that will be used to populate the widget
+    - beginRendering: Starts the v0.8 surface
+    - surfaceUpdate: Defines the v0.8 component tree
+    - dataModelUpdate: Provides the v0.8 data model contents
     - A comment indicating the end of the example
 
-    In the example repo, all of the widgets are defined in a single variable int the prompt_builder.py file, but you can structure them however you like,
-    they simply need to be be injected into the agent's prompt in a clearly delineated way.
+    In the example repo, all of the widgets are defined in a single variable in the prompt_builder.py file, but you can structure them however you like,
+    they simply need to be injected into the agent's prompt in a clearly delineated way. The v0.9 SDK migration is not demonstrated by this starter page.
+
+    The current starter's v0.8 renderer displays the `Book Now` control without an `onClick` handler or action dispatch. The button is inert, so no click reaches the agent and the executor's `book_restaurant` branch is not reached. Adding action wiring is outside this documentation-only change.
 
   </Step>
   <Step>
     ### Generating components with the A2UI Composer
     If you want an easy way to generate components, you can use the A2UI Composer.
     Go to https://a2ui-composer.ag-ui.com/ to create your own components.
-    The composer will generate the json spec for you, all you have to do is copy and paste it into your agent's prompt.
+    The composer will generate the JSON spec for you, all you have to do is copy and paste it into your agent's prompt.
     <a href="https://a2ui-editor.ag-ui.com/gallery" target="_blank" rel="noopener noreferrer">
       <Image 
         src="/images/a2ui-composer.png" 
@@ -148,44 +151,41 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
     AG-UI handles communicating with your a2a agent, and passes the a2ui messages back and forth as `ActivityMessage` objects.
     In order to render them in your frontend, you need to configure activity message rendering.
 
-    Copilotkit provides a renderer for A2UI messages, all you need to do is instantiate it with a theme and pass it to your CopilotKit.
+    The current starter registers its local v0.8 renderer and its v0.8 theme. The setup below mirrors that `app/page.tsx`; the v0.9 renderer and `a2ui_operations` envelope are documented in the other A2UI integration guides.
 
     ```tsx title="app/page.tsx"
     "use client";
 
+    import { CopilotChat, CopilotKitProvider } from "@copilotkit/react-core/v2";
+    import { a2uiV08Renderer } from "./components/a2ui-v0-8-renderer";
+    import { theme } from "./theme";
 
     // Disable static optimization for this page
     export const dynamic = "force-dynamic";
 
-    const A2UIMessageRenderer = createA2UIMessageRenderer({ theme });
+    const activityRenderers = [a2uiV08Renderer];
 
     export default function Home() {
       return (
-        <CopilotKit
+        <CopilotKitProvider
           runtimeUrl="/api/copilotkit"
-          showDevConsole="auto"
-          renderActivityMessages={[A2UIMessageRenderer]}
+          useSingleEndpoint={false}
+          a2ui={{ theme }}
+          renderActivityMessages={activityRenderers}
         >
           <main
-            className="flex min-h-screen flex-1 flex-col overflow-hidden"
+            className="h-full overflow-auto w-screen"
             style={{ minHeight: "100dvh" }}
           >
-            <Chat />
+            <CopilotChat className="h-full" />
           </main>
-        </CopilotKit>
-      );
-    }
-
-    function Chat() {
-      return (
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <CopilotChat style={{ flex: 1, minHeight: "100%" }} />
-        </div>
+        </CopilotKitProvider>
       );
     }
     ```
 
     ```tsx title="app/theme.ts"
+    import { Styles, type Types } from "@a2ui/lit/0.8";
 
     /** Elements */
 
@@ -252,6 +252,16 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
     const h3 = {
       ...heading,
       "typography-sz-ts": true,
+    };
+
+    const h4 = {
+      ...heading,
+      "typography-sz-bl": true,
+    };
+
+    const h5 = {
+      ...heading,
+      "typography-sz-bm": true,
     };
 
     const iframe = {
@@ -330,27 +340,29 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
       "layout-el-cv": true,
     };
 
-    const aLight = v0_8.Styles.merge(a, { "color-c-n5": true });
-    const inputLight = v0_8.Styles.merge(input, { "color-c-n5": true });
-    const textareaLight = v0_8.Styles.merge(textarea, { "color-c-n5": true });
-    const buttonLight = v0_8.Styles.merge(button, { "color-c-n100": true });
-    const h1Light = v0_8.Styles.merge(h1, { "color-c-n5": true });
-    const h2Light = v0_8.Styles.merge(h2, { "color-c-n5": true });
-    const h3Light = v0_8.Styles.merge(h3, { "color-c-n5": true });
-    const bodyLight = v0_8.Styles.merge(body, { "color-c-n5": true });
-    const pLight = v0_8.Styles.merge(p, { "color-c-n35": true });
-    const preLight = v0_8.Styles.merge(pre, { "color-c-n35": true });
-    const orderedListLight = v0_8.Styles.merge(orderedList, {
+    const aLight = Styles.merge(a, { "color-c-n5": true });
+    const inputLight = Styles.merge(input, { "color-c-n5": true });
+    const textareaLight = Styles.merge(textarea, { "color-c-n5": true });
+    const buttonLight = Styles.merge(button, { "color-c-n100": true });
+    const h1Light = Styles.merge(h1, { "color-c-n5": true });
+    const h2Light = Styles.merge(h2, { "color-c-n5": true });
+    const h3Light = Styles.merge(h3, { "color-c-n5": true });
+    const h4Light = Styles.merge(h4, { "color-c-n5": true });
+    const h5Light = Styles.merge(h5, { "color-c-n5": true });
+    const bodyLight = Styles.merge(body, { "color-c-n5": true });
+    const pLight = Styles.merge(p, { "color-c-n35": true });
+    const preLight = Styles.merge(pre, { "color-c-n35": true });
+    const orderedListLight = Styles.merge(orderedList, {
       "color-c-n35": true,
     });
-    const unorderedListLight = v0_8.Styles.merge(unorderedList, {
+    const unorderedListLight = Styles.merge(unorderedList, {
       "color-c-n35": true,
     });
-    const listItemLight = v0_8.Styles.merge(listItem, {
+    const listItemLight = Styles.merge(listItem, {
       "color-c-n35": true,
     });
 
-    export const theme: v0_8.Types.Theme = {
+    export const theme: Types.Theme = {
       additionalStyles: {
         Button: {
           "--n-35": "var(--n-100)",
@@ -562,6 +574,8 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
         h1: h1Light,
         h2: h2Light,
         h3: h3Light,
+        h4: h4Light,
+        h5: h5Light,
         iframe,
         input: inputLight,
         p: pLight,
@@ -574,8 +588,8 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
         h1: [...Object.keys(h1Light)],
         h2: [...Object.keys(h2Light)],
         h3: [...Object.keys(h3Light)],
-        h4: [],
-        h5: [],
+        h4: [...Object.keys(h4Light)],
+        h5: [...Object.keys(h5Light)],
         h6: [],
         ul: [...Object.keys(unorderedListLight)],
         ol: [...Object.keys(orderedListLight)],
@@ -591,8 +605,7 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
   <Step>
     ### Give it a try!
 
-    That's it! When your agent generates an A2UI message, it will be rendered in your frontend.
-    A2UI actions (like button clicks) are automatically sent back to your agent via AG-UI.
+    That's it! When your agent generates an A2UI message, it will be rendered in your frontend. The current starter's v0.8 `Book Now` control is inert because its renderer doesn't attach a click handler or dispatch an action. No button click reaches the agent until that starter behavior is implemented.
 
   </Step>
 </Steps>

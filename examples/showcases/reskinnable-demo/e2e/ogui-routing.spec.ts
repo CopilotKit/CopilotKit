@@ -19,9 +19,11 @@ import type { Page } from "@playwright/test";
 //      explorer" and "Prototype a cash-flow what-if calculator" were all removed —
 //      OGUI is no longer offered as a suggestion pill at all. The aimock fixtures in
 //      e2e/fixtures/ogui-routing.fixtures.json still key on the OLD pill messages.
-//   2. The chat is now a docked CopilotSidebar with a CUSTOM suggestion view
-//      (shell/chat/demo-suggestions.tsx): pills carry data-testid="demo-suggestion-*",
-//      not the framework's "copilot-suggestion", so even the surviving pill is unfound.
+//   2. The chat has a CUSTOM suggestion view (shell/chat/demo-suggestions.tsx):
+//      pills carry data-testid="demo-suggestion-*", not the framework's
+//      "copilot-suggestion", so even the surviving pill is unfound. It is also an
+//      inline CopilotChat inside the frame's assistant card now, showing on load —
+//      there is no CopilotSidebar and no "Open chat" launcher to click first.
 // The underlying routing (showSpendingTrend / render_report / generateSandboxedUi and
 // the ogui-surface / a2ui-surface testids) STILL exists in src, so the guard is worth
 // rebuilding — but that is a redesign against the new catalog + chat markup (and would
@@ -33,9 +35,9 @@ async function openChatAndClick(page: Page, pillText: string) {
   // The curated/OGUI pills are banking suggestions, so drive the banking skin
   // explicitly (not the / redirect).
   await page.goto("/banking");
-  // The docked chat starts closed; CopilotSidebar's launcher is "Open chat".
-  const launcher = page.getByRole("button", { name: /open chat/i });
-  if (await launcher.count()) await launcher.first().click();
+  // No open step needed: the chat is an inline CopilotChat inside the frame's
+  // assistant card and shows on load. It was a CopilotSidebar that started closed
+  // behind an "Open chat" launcher, which no longer exists.
   // Wait for the chat to hydrate (input present) before clicking a pill, else
   // the click can land before React wires the pill's onClick and is dropped.
   await expect(page.getByPlaceholder(/type a message/i)).toBeVisible({

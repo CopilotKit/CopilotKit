@@ -14,7 +14,7 @@ import { SlowToolCallStreamingAgent } from "@copilotkit/demo-agents";
 const openRouterApiKey = process.env.OPENROUTER_API_KEY?.trim();
 const openAIApiKey = process.env.OPENAI_API_KEY?.trim();
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
-const DEFAULT_OPENROUTER_MODEL = "anthropic/claude-sonnet-4.6";
+const DEFAULT_OPENROUTER_MODEL = "anthropic/claude-opus-4.8";
 const DEFAULT_OPENROUTER_MAX_OUTPUT_TOKENS = 16_384;
 
 function determineOpenRouterModelId(): string {
@@ -60,7 +60,7 @@ function determineModel(): BuiltInAgentClassicConfig["model"] {
     return "openai/gpt-5.2";
   }
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
-    return "anthropic/claude-3-7-sonnet-20250219";
+    return "anthropic/claude-opus-4-8";
   }
   if (process.env.GOOGLE_API_KEY?.trim()) {
     return "google/gemini-2.5-pro";
@@ -80,7 +80,7 @@ const builtInAgent = new BuiltInAgent({
     ...(!openAIApiKey &&
       !openRouterApiKey &&
       !!process.env.ANTHROPIC_API_KEY?.trim() && {
-        anthropic: { thinking: { type: "enabled", budgetTokens: 5000 } },
+        anthropic: { thinking: { type: "adaptive" } },
       }),
   },
 });

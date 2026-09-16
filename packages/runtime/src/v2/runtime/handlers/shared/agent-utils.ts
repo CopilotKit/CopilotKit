@@ -18,6 +18,7 @@ import {
   mergeForwardableHeaders,
   resolveForwardHeadersPolicy,
 } from "../header-utils";
+import { resolveMcpAppsServers } from "./mcp-apps-servers";
 import { resolveIntelligenceUser } from "./resolve-intelligence-user";
 import { resolveWebMemory } from "./memory-policy";
 import { errorResponse } from "./json-response";
@@ -89,8 +90,16 @@ export function configureAgentForRequest(params: {
    * has to also set `a2ui.injectA2UITool` on the runtime.
    */
   providerA2UIHasCatalog?: boolean;
+  /** Retain proxy rejection even when no server is available to this agent. */
+  isMcpProxyRequest?: boolean;
 }): void {
-  const { runtime, request, agentId, providerA2UIHasCatalog } = params;
+  const {
+    runtime,
+    request,
+    agentId,
+    providerA2UIHasCatalog,
+    isMcpProxyRequest,
+  } = params;
   const agent = params.agent as MiddlewareCapableAgent;
 
   // A2UI is on when the runtime explicitly enables it, OR when the provider
@@ -123,14 +132,20 @@ export function configureAgentForRequest(params: {
     }
   }
 
-  if (runtime.mcpApps?.servers?.length) {
-    const mcpServers = runtime.mcpApps.servers
-      .filter((server) => !server.agentId || server.agentId === agentId)
-      .map((server) => {
-        const mcpServer = { ...server };
-        delete mcpServer.agentId;
-        return mcpServer;
-      });
+  if (isIntelligenceRuntime(runtime) && typeof agent.use === "function") {
+    // Ordinary runs need no middleware without selected servers. Proxy requests
+    // still need the upstream guard so they cannot fall through to the model.
+    const mcpServers = resolveMcpAppsServers(
+      runtime.mcpApps?.servers ?? [],
+      agentId,
+    );
+    if (mcpServers.length > 0 || isMcpProxyRequest) {
+      agent.use(
+        new MCPAppsMiddleware({ mcpServers, discoveryFailureMode: "throw" }),
+      );
+    }
+  } else if (runtime.mcpApps?.servers?.length) {
+    const mcpServers = resolveMcpAppsServers(runtime.mcpApps.servers, agentId);
 
     if (mcpServers.length > 0 && typeof agent.use === "function") {
       agent.use(new MCPAppsMiddleware({ mcpServers }));
@@ -167,7 +182,7 @@ export function configureAgentForRequest(params: {
 }
 
 /**
- * Attach the Intelligence platform's MCP tools to the agent run when
+ * Attach CopilotKit Intelligence's MCP tools to the agent run when
  * `CopilotKitIntelligence` was constructed with
  * `enableEnterpriseLearning: true`. Uses `@ag-ui/mcp-middleware`, so the
  * tools are available uniformly across agent frameworks (not just

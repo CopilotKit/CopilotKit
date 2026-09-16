@@ -7,46 +7,67 @@ The v2 React API (`@copilotkit/react-core/v2`) is the next-generation interface 
 
 ## Provider Setup
 
-The v2 API uses the [`<CopilotKit>`](/reference/components/CopilotKit) provider. Wrap your application with it to configure the runtime connection:
+Wrap your application with `<CopilotKitProvider>` to configure the v2 runtime connection:
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 
 function App() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="default">
       <YourApp />
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 ```
 
+The [`<CopilotKit>`](/reference/components/CopilotKit) export is the v1 compatibility wrapper, not an alias for `<CopilotKitProvider>`. Use `agentId` on the v2 provider; the compatibility wrapper uses `agent` and retains the v1 error-handler contract.
+
 <Accordions>
-<Accordion title="Advanced: Using CopilotKit directly">
-
-<Callout type="warn">
-  `CopilotKit` is a low-level provider intended for advanced use cases. Most applications should use the `<CopilotKit>` component from `@copilotkit/react-core/v2` instead.
-</Callout>
-
-If you need direct control over the v2 provider (e.g. for custom integrations), import `CopilotKit` from `@copilotkit/react-core/v2`:
-
-```tsx
-import { CopilotKit } from "@copilotkit/react-core/v2";
-
-<CopilotKit runtimeUrl="/api/copilotkit">
-  <App />
-</CopilotKit>
-```
+<Accordion title="CopilotKitProvider props">
 
 ### Props
+
+<PropertyReference name="agentId" type="string" default='"default"'>
+  Default agent for chats and hooks under this provider. An explicit hook or
+  chat `agentId`, or a surrounding chat configuration, takes precedence.
+</PropertyReference>
+
+<PropertyReference name="licenseToken" type="string">
+  Signed license token for offline verification of CopilotKit Intelligence features.
+</PropertyReference>
+
+<PropertyReference name="selfManagedAgents" type="Record<string, AbstractAgent>">
+  AG-UI agents managed by your app and registered directly with CopilotKit.
+  Use this when you connect to agents without routing through a Copilot Runtime.
+</PropertyReference>
+
+<PropertyReference name="openGenerativeUI" type="{ sandboxFunctions?: SandboxFunction[]; designSkill?: string }">
+  Configuration for Open Generative UI. Use `sandboxFunctions` to expose host
+  functions to generated sandboxed iframes, and `designSkill` to override the
+  design guidance injected as agent context for `generateSandboxedUi`.
+</PropertyReference>
+
+<PropertyReference name="defaultThrottleMs" type="number">
+  Default throttle interval, in milliseconds, for `useAgent` re-renders caused
+  by message and state updates. Individual `useAgent` calls and prebuilt chat
+  components can override it with their own `throttleMs`.
+</PropertyReference>
+
+<PropertyReference name="debug" type="DebugConfig">
+  Enable client-side debug logging for the AG-UI transport and event pipeline.
+  Pass `true` for event and lifecycle summaries, or a config object with
+  `verbose: true` to include full event payloads.
+</PropertyReference>
 
 <PropertyReference name="runtimeUrl" type="string">
   URL of the CopilotKit runtime endpoint. Lazily forwarded to the core after
   mount.
 </PropertyReference>
 
-<PropertyReference name="headers" type="Record<string, string>" default="{}">
-  Request headers forwarded with runtime calls.
+<PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>)" default="{}">
+  Request headers forwarded with runtime calls. Pass a function to resolve
+  headers from current authentication state when the provider renders.
 </PropertyReference>
 
 <PropertyReference name="credentials" type="RequestCredentials">
@@ -71,7 +92,8 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 </PropertyReference>
 
 <PropertyReference name="useSingleEndpoint" type="boolean">
-  When enabled, all runtime calls use a single endpoint.
+  When omitted, transport is negotiated from the runtime info response. Set
+  `true` to use a single endpoint or `false` to use separate routes.
 </PropertyReference>
 
 <PropertyReference
@@ -110,8 +132,16 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
   handler and a tool call renderer.
 </PropertyReference>
 
+<PropertyReference name="enableInspector" type="boolean">
+  Controls the CopilotKit Inspector in development browser builds on localhost
+  or loopback hosts. It is shown by default unless set to `false`, and is never
+  loaded on remote hosts, in production, or during SSR, even when explicitly
+  set to `true`.
+</PropertyReference>
+
 <PropertyReference name="showDevConsole" type='boolean | "auto"'>
-  Show the CopilotKit developer console for debugging.
+  **Deprecated for Inspector control:** this prop no longer changes Inspector
+  visibility. Use `enableInspector` instead.
 </PropertyReference>
 
 <PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
@@ -120,14 +150,14 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 Unlike the v1 `onError`, this does **not** require a `publicApiKey`; error handling works with any configuration.
 
 ```tsx
-<CopilotKit
+<CopilotKitProvider
   runtimeUrl="/api/copilotkit"
   onError={(event) => {
     console.error(`[${event.code}]`, event.error.message, event.context);
   }}
 >
   <App />
-</CopilotKit>
+</CopilotKitProvider>
 ```
 
 </PropertyReference>
@@ -141,7 +171,7 @@ Use the main v2 entry when your app renders CopilotKit's web UI components or A2
 
 ```tsx
 import {
-  CopilotKit,
+  CopilotKitProvider,
   CopilotChat,
   useAgent,
 } from "@copilotkit/react-core/v2";
@@ -158,7 +188,7 @@ import {
 } from "@copilotkit/react-core/v2/headless";
 ```
 
-The headless entry exports the provider context, chat configuration provider, `useAgent`, tool hooks, suggestions, threads, capabilities, and shared types. It does not export `CopilotChat`, `CopilotPopup`, `CopilotSidebar`, `useDefaultRenderTool`, or A2UI render helpers.
+The headless entry exports the provider context, chat configuration provider, `useAgent`, tool hooks, suggestions, threads, capabilities, and shared types. It does not export `CopilotKitProvider`, `CopilotKit`, `CopilotChat`, `CopilotPopup`, `CopilotSidebar`, `useDefaultRenderTool`, or A2UI render helpers.
 
 ## Styling
 

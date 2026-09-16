@@ -2,10 +2,10 @@
 title: BYOC — JSON Render
 description: Bring your own component library. Have the agent emit a JSON spec and let json-render render it against a Zod-validated catalog of React components.
 icon: "lucide/Component"
-snippet_cell: byoc-json-render
+snippet_cell: declarative-json-render
 ---
 
-<InlineDemo demo="byoc-json-render" />
+<InlineDemo demo="declarative-json-render" />
 
 You have a chat surface and you want the agent to draw a dashboard from a typed JSON spec. By the end of this guide, the agent will emit a `{ root, elements }` object, [`@json-render/react`](https://www.npmjs.com/package/@json-render/react) will validate it against a Zod-described catalog, and the user sees the dashboard render as a single React tree.
 
@@ -131,4 +131,4 @@ Anything else (free-form text, code fences around the JSON, a "Here's your dashb
 
 Both `byoc-json-render` and [`byoc-hashbrown`](/generative-ui/hashbrown) solve the same problem with two different rendering libraries. The agent contract is similar; the React glue, validation strategy, and rendering behaviour differ.
 
-<IntegrationGrid path="byoc-json-render" />
+<IntegrationGrid path="declarative-json-render" />

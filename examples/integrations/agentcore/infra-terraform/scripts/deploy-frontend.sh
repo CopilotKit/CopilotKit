@@ -6,7 +6,7 @@
 # Deploy Frontend to AWS Amplify
 # =============================================================================
 #
-# This script deploys the Next.js frontend to Amplify using Terraform outputs.
+# This script deploys the Vite frontend to Amplify using Terraform outputs.
 #
 # Usage:
 #   ./scripts/deploy-frontend.sh [options]
@@ -86,7 +86,8 @@ log_warning() {
 
 # Get human-readable file size
 get_file_size() {
-    local size=$(stat -f%z "$1" 2>/dev/null || stat --printf="%s" "$1" 2>/dev/null)
+    local size
+    size=$(stat -f%z "$1" 2>/dev/null || stat --printf="%s" "$1" 2>/dev/null)
     if [[ $size -lt 1024 ]]; then
         echo "${size}B"
     elif [[ $size -lt 1048576 ]]; then
@@ -223,7 +224,7 @@ else
 fi
 
 # Build frontend
-log_info "Building Next.js app..."
+log_info "Building Vite app..."
 npm run build
 log_success "Build completed"
 

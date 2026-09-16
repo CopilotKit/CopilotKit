@@ -1,3 +1,4 @@
+import { RENDER_A2UI_TOOL } from "@ag-ui/a2ui-middleware";
 import type {
   BaseEvent,
   RunAgentInput,
@@ -15,12 +16,11 @@ import type {
   ToolCallStartEvent,
   ToolCallResultEvent,
   RunErrorEvent,
-  StateSnapshotEvent,
-  StateDeltaEvent,
   Interrupt,
   ResumeEntry,
 } from "@ag-ui/client";
 import { AbstractAgent, EventType } from "@ag-ui/client";
+import { Validator } from "@cfworker/json-schema";
 import type { AgentCapabilities } from "@ag-ui/core";
 import type {
   LanguageModel,
@@ -46,13 +46,24 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createVertex } from "@ai-sdk/google-vertex";
-import { safeParseToolArgs } from "@copilotkit/shared";
+import { safeParseToolArgs, classifyModelHost } from "@copilotkit/shared";
+import type { ModelHostClass } from "@copilotkit/shared";
 import { z } from "zod";
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
 import { schemaToJsonSchema } from "@copilotkit/shared";
 import { jsonSchema as aiJsonSchema } from "ai";
-import { convertAISDKStream } from "./converters/aisdk";
+import {
+  convertAISDKStream,
+  getAISDKRunFinishedDetails,
+} from "./converters/aisdk";
 import { convertTanStackStream } from "./converters/tanstack";
+import {
+  collectStandardRunFinishedDetails,
+  getNonEmptyString,
+  isRecord,
+} from "./converters/usage";
+import type { AgentRunFinishedDetails } from "./converters/usage";
+import { createStateEventNormalizer } from "./state-delta";
 import type { StreamableHTTPClientTransportOptions } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { randomUUID } from "@copilotkit/shared";
@@ -93,16 +104,17 @@ export type BuiltInAgentModel =
   | "openai/o3-mini"
   | "openai/o4-mini"
   // Anthropic (Claude) models
-  | "anthropic/claude-sonnet-4.5"
-  | "anthropic/claude-sonnet-4"
-  | "anthropic/claude-3.7-sonnet"
-  | "anthropic/claude-opus-4.1"
-  | "anthropic/claude-opus-4"
-  | "anthropic/claude-3.5-haiku"
+  | "anthropic/claude-sonnet-4-6"
+  | "anthropic/claude-sonnet-4-5"
+  | "anthropic/claude-opus-4-8"
+  | "anthropic/claude-haiku-4-5"
   // Google (Gemini) models
   | "google/gemini-2.5-pro"
   | "google/gemini-2.5-flash"
   | "google/gemini-2.5-flash-lite"
+  // MiniMax models
+  | "minimax/MiniMax-M3"
+  | "minimax/MiniMax-M2.7"
   // Allow any LanguageModel instance
   | (string & {});
 
@@ -218,7 +230,7 @@ export function resolveModel(
         // Honor a custom Anthropic-compatible endpoint via ANTHROPIC_BASE_URL (see OpenAI note).
         baseURL: process.env.ANTHROPIC_BASE_URL,
       });
-      // Accepts any Claude id, e.g. "claude-3.7-sonnet", "claude-3.5-haiku"
+      // Pass model identifiers through unchanged; the provider owns validation.
       return anthropic(model);
     }
 
@@ -236,6 +248,15 @@ export function resolveModel(
       return google(model);
     }
 
+    case "minimax": {
+      const minimax = createOpenAI({
+        name: "minimax",
+        apiKey: apiKey || process.env.MINIMAX_API_KEY!,
+        baseURL: process.env.MINIMAX_BASE_URL || "https://api.minimax.io/v1",
+      });
+      return minimax(model);
+    }
+
     case "vertex": {
       const vertex = createVertex();
       return vertex(model);
@@ -245,6 +266,58 @@ export function resolveModel(
       throw new Error(
         `Unknown provider "${provider}" in "${spec}". Supported: openai, anthropic, google (gemini).`,
       );
+  }
+}
+
+/**
+ * Which vendor a model specifier will actually reach, as a closed vocabulary.
+ *
+ * `resolveModel` above is the only place this runtime builds a provider, so it
+ * is the only place that knows the endpoint. Once built, the endpoint is gone:
+ * an AI SDK model reports `provider: "openai.responses"` whether it points at
+ * api.openai.com, Azure, OpenRouter or a laptop, and its base URL survives
+ * only inside a closure that the public `LanguageModelV3` type does not
+ * expose. Azure's own migration guide tells customers to use that same OpenAI
+ * client, so the case we are blindest to is the common one.
+ *
+ * A caller who hands us an already-built LanguageModel gets `unknown`. Nobody
+ * can recover the host from it, and saying so is more useful than guessing
+ * `openai` from a provider label that means only "speaks the OpenAI wire".
+ *
+ * The branches below mirror `resolveModel`'s switch and must change with it.
+ * `model-host-class.test.ts` walks every provider that switch accepts and
+ * fails if one lands here as `unknown`.
+ */
+export function classifyModelSpec(spec: ModelSpecifier): ModelHostClass {
+  // A pre-built model: the endpoint was decided before it reached us.
+  if (typeof spec !== "string") return "unknown";
+
+  const provider = spec.replace("/", ":").trim().split(":")[0]?.toLowerCase();
+
+  switch (provider) {
+    case "openai":
+      return classifyModelHost(process.env.OPENAI_BASE_URL, "openai");
+    case "anthropic":
+      return classifyModelHost(process.env.ANTHROPIC_BASE_URL, "anthropic");
+    case "google":
+    case "gemini":
+    case "google-gemini":
+      return classifyModelHost(
+        process.env.GOOGLE_GENERATIVE_AI_BASE_URL,
+        "google",
+      );
+    case "minimax":
+      return classifyModelHost(
+        process.env.MINIMAX_BASE_URL || "https://api.minimax.io/v1",
+        "minimax",
+      );
+    case "vertex":
+      // `createVertex()` takes no base URL — the endpoint comes from ambient
+      // Google credentials, so there is nothing to classify and nothing to leak.
+      return "vertex";
+    default:
+      // `resolveModel` throws on anything else, so the run never starts.
+      return "unknown";
   }
 }
 
@@ -554,7 +627,14 @@ export function convertMessagesToVercelAISDKMessages(
  * JSON Schema type definition
  */
 interface JsonSchema {
-  type?: "object" | "string" | "number" | "integer" | "boolean" | "array";
+  type?:
+    | "object"
+    | "string"
+    | "number"
+    | "integer"
+    | "boolean"
+    | "array"
+    | "null";
   description?: string;
   properties?: Record<string, JsonSchema>;
   required?: string[];
@@ -574,6 +654,11 @@ export function convertJsonSchemaToZodSchema(
   jsonSchema: JsonSchema,
   required: boolean,
 ): z.ZodSchema {
+  if (jsonSchema.type === "null") {
+    const schema = z.null().describe(jsonSchema.description ?? "");
+    return required ? schema : schema.optional();
+  }
+
   // Handle `anyOf` / `oneOf` unions (e.g. `z.discriminatedUnion` or `z.union`
   // on a frontend tool) as `z.union`. These nodes usually carry no top-level
   // `type`, so they MUST be handled before the empty-schema guard below —
@@ -674,6 +759,7 @@ function toLanguageModelSchema(schema: z.ZodSchema): Schema<any> {
   return schema as unknown as Schema<any>;
 }
 
+/** Preserve AG-UI tool schemas when passing them to the model provider. */
 export function convertToolsToVercelAITools(
   tools: RunAgentInput["tools"],
 ): ToolSet {
@@ -684,10 +770,25 @@ export function convertToolsToVercelAITools(
     if (!isJsonSchema(tool.parameters)) {
       throw new Error(`Invalid JSON schema for tool ${tool.name}`);
     }
-    const zodSchema = convertJsonSchemaToZodSchema(tool.parameters, true);
+    const validator = new Validator(tool.parameters, "7");
     result[tool.name] = createVercelAISDKTool({
       description: tool.description,
-      inputSchema: toLanguageModelSchema(zodSchema),
+      // AG-UI already supplies JSON Schema. A Zod round trip loses open object
+      // fields (including A2UI components), references, and other constraints.
+      inputSchema: aiJsonSchema(tool.parameters, {
+        validate: (value) => {
+          const result = validator.validate(value);
+          return result.valid
+            ? { success: true, value }
+            : {
+                success: false,
+                error: new Error(`Invalid arguments for tool ${tool.name}`),
+              };
+        },
+      }),
+      // A2UI components require open objects. Other tools keep the provider's
+      // existing strictness default instead of opting every tool out.
+      ...(tool.name === RENDER_A2UI_TOOL.name ? { strict: false } : {}),
     });
   }
 
@@ -816,6 +917,7 @@ export interface BuiltInAgentClassicConfig {
    * - OPENAI_API_KEY for OpenAI models
    * - ANTHROPIC_API_KEY for Anthropic models
    * - GOOGLE_API_KEY for Google models
+   * - MINIMAX_API_KEY for MiniMax models
    */
   apiKey?: string;
   /**
@@ -939,8 +1041,26 @@ function isFactoryConfig(
 export class BuiltInAgent extends AbstractAgent {
   private abortController?: AbortController;
 
+  /**
+   * Which vendor this agent's configured model reaches. Read by the SSE layer
+   * onto `agent_execution_stream_*` telemetry.
+   *
+   * Computed once, from the configured model, because that is what holds for
+   * the agent's lifetime. A per-request `forwardedProps.model` override
+   * (handled further down in `run`) can point somewhere else for one run and
+   * is not reflected here — overrides are rare and the field describes the
+   * agent, not the call.
+   *
+   * Factory-mode configs own their own LLM call, so there is no model for us
+   * to classify.
+   */
+  readonly modelHostClass: ModelHostClass;
+
   constructor(private config: BuiltInAgentConfiguration) {
     super();
+    this.modelHostClass = isFactoryConfig(config)
+      ? "unknown"
+      : classifyModelSpec(config.model);
   }
 
   /**
@@ -1368,9 +1488,14 @@ export class BuiltInAgent extends AbstractAgent {
                 // actually ask for SSE ever load it.
                 const { SSEClientTransport } =
                   await import("@modelcontextprotocol/sdk/client/sse.js");
+                // SSEClientTransport's second arg is SSEClientTransportOptions
+                // (`requestInit.headers`), not a raw header map. Passing
+                // `{ Authorization: ... }` as options is silently ignored.
                 transport = new SSEClientTransport(
                   new URL(serverConfig.url),
-                  serverConfig.headers,
+                  serverConfig.headers
+                    ? { requestInit: { headers: serverConfig.headers } }
+                    : undefined,
                 );
               }
 
@@ -1432,7 +1557,7 @@ export class BuiltInAgent extends AbstractAgent {
               ]),
           );
           const pendingInterrupts: Interrupt[] = [];
-
+          const normalizeStateEvent = createStateEventNormalizer(input.state);
           const toolCallStates = new Map<
             string,
             {
@@ -1680,11 +1805,15 @@ export class BuiltInAgent extends AbstractAgent {
                 ) {
                   const snapshot = toolResult.snapshot;
                   if (snapshot !== undefined) {
-                    const stateSnapshotEvent: StateSnapshotEvent = {
+                    const stateSnapshotEvent: BaseEvent = {
                       type: EventType.STATE_SNAPSHOT,
                       snapshot,
                     };
-                    subscriber.next(stateSnapshotEvent);
+                    for (const event of normalizeStateEvent(
+                      stateSnapshotEvent,
+                    )) {
+                      subscriber.next(event);
+                    }
                   }
                 } else if (
                   toolName === "AGUISendStateDelta" &&
@@ -1693,11 +1822,13 @@ export class BuiltInAgent extends AbstractAgent {
                 ) {
                   const delta = toolResult.delta;
                   if (delta !== undefined) {
-                    const stateDeltaEvent: StateDeltaEvent = {
+                    const stateDeltaEvent: BaseEvent = {
                       type: EventType.STATE_DELTA,
                       delta,
                     };
-                    subscriber.next(stateDeltaEvent);
+                    for (const event of normalizeStateEvent(stateDeltaEvent)) {
+                      subscriber.next(event);
+                    }
                   }
                 }
 
@@ -1721,10 +1852,22 @@ export class BuiltInAgent extends AbstractAgent {
 
               case "finish": {
                 // Emit run finished event
-                const finishedEvent: RunFinishedEvent = {
+                const model = streamTextParams.model as unknown;
+                const finishedEvent = {
                   type: EventType.RUN_FINISHED,
                   threadId: input.threadId,
                   runId: input.runId,
+                  ...getAISDKRunFinishedDetails(
+                    part as unknown as Record<string, unknown>,
+                    {
+                      provider: isRecord(model)
+                        ? getNonEmptyString(model.provider)
+                        : undefined,
+                      model: isRecord(model)
+                        ? getNonEmptyString(model.modelId)
+                        : undefined,
+                    },
+                  ),
                   ...(pendingInterrupts.length > 0
                     ? {
                         outcome: {
@@ -1733,7 +1876,7 @@ export class BuiltInAgent extends AbstractAgent {
                         },
                       }
                     : {}),
-                };
+                } as RunFinishedEvent;
                 subscriber.next(finishedEvent);
                 terminalEventEmitted = true;
 
@@ -1915,8 +2058,10 @@ export class BuiltInAgent extends AbstractAgent {
       const factoryCtx: AgentFactoryContext = { ...ctx, input: factoryInput };
 
       (async () => {
+        const runFinishedDetails: AgentRunFinishedDetails = {};
         try {
           let events: AsyncIterable<BaseEvent>;
+          let customRunFinishedEvent: RunFinishedEvent | undefined;
           // Filled by the converters with one Interrupt per native approval
           // request; a non-empty array after the stream drains pauses the run.
           const pendingInterrupts: Interrupt[] = [];
@@ -1928,6 +2073,8 @@ export class BuiltInAgent extends AbstractAgent {
                 result.fullStream,
                 controller.signal,
                 pendingInterrupts,
+                input.state,
+                runFinishedDetails,
               );
               break;
             }
@@ -1937,6 +2084,8 @@ export class BuiltInAgent extends AbstractAgent {
                 stream,
                 controller.signal,
                 pendingInterrupts,
+                input.state,
+                runFinishedDetails,
               );
               break;
             }
@@ -1953,6 +2102,17 @@ export class BuiltInAgent extends AbstractAgent {
           }
 
           for await (const event of events) {
+            if (
+              config.type === "custom" &&
+              event.type === EventType.RUN_FINISHED
+            ) {
+              customRunFinishedEvent = event as RunFinishedEvent;
+              collectStandardRunFinishedDetails(
+                event as unknown as Record<string, unknown>,
+                runFinishedDetails,
+              );
+              continue;
+            }
             subscriber.next(event);
           }
 
@@ -1964,22 +2124,25 @@ export class BuiltInAgent extends AbstractAgent {
           }
 
           if (!controller.signal.aborted) {
-            const finishedEvent: RunFinishedEvent = {
+            const finishedEvent = {
+              ...customRunFinishedEvent,
               type: EventType.RUN_FINISHED,
               threadId: input.threadId,
               runId: input.runId,
-            };
+              ...runFinishedDetails,
+            } as RunFinishedEvent;
             subscriber.next(finishedEvent);
           }
           subscriber.complete();
         } catch (error) {
           if (error instanceof InterruptSignal) {
-            const finishedEvent: RunFinishedEvent = {
+            const finishedEvent = {
               type: EventType.RUN_FINISHED,
               threadId: input.threadId,
               runId: input.runId,
+              ...runFinishedDetails,
               outcome: { type: "interrupt", interrupts: error.interrupts },
-            };
+            } as RunFinishedEvent;
             subscriber.next(finishedEvent);
             subscriber.complete();
           } else if (controller.signal.aborted) {

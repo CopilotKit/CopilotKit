@@ -32,10 +32,10 @@
  * unavailable), the stream transparently rebuilds itself on the supplied
  * legacy `fallback()` transport and replays the buffer there. `onStartFailure`
  * lets the adapter mark the workspace legacy so subsequent streams skip the
- * native path entirely. Per-`appendStream` failures mid-stream are swallowed
- * (logged) like the legacy streamer's failed edits; a failing structured-chunk
- * append additionally fires `onChunkFailure` so the caller can degrade
- * tool-progress to its legacy surface.
+ * native path entirely. In strict mode, text append and stop failures after a
+ * native stream opens reject the caller. A failing structured-chunk append
+ * still fires `onChunkFailure` so the caller can degrade tool-progress to its
+ * legacy surface.
  *
  * Nothing here imports `@slack/web-api` — the Slack calls are injected as a
  * {@link NativeStreamTransport}, keeping the cadence logic unit-testable with
@@ -92,9 +92,9 @@ export interface NativeMessageStreamConfig {
    */
   onChunkFailure?: (err: unknown) => void;
   /**
-   * Fail the stream when required native text calls fail. This disables the
-   * legacy start fallback and makes append or stop failures visible to the
-   * caller. Structured task chunks remain optional and may still be dropped.
+   * Fail the stream when required native text calls fail after a native stream
+   * opens. The first native start always falls back to the legacy stream.
+   * Structured task chunks remain optional and may still be dropped.
    */
   strict?: boolean;
   /** Minimum gap between text flushes, in ms (defaults to 600). */
@@ -531,8 +531,8 @@ export class NativeMessageStream implements TextStream {
    * Open the message the next append should target — the reply's first message,
    * or a continuation after a {@link rollOver}.
    *
-   * A failure on the FIRST message falls back to the legacy transport ("opting
-   * in can never break a bot"). A failure on a *continuation* must not: the
+   * A failure on the FIRST message falls back to the legacy transport, even in
+   * strict mode. A failure on a *continuation* must not: the
    * legacy sink is seeded with the whole accumulated buffer, so failing over
    * mid-reply would re-post every character already streamed. It propagates
    * instead, leaving the boundary intact so the next flush retries the
@@ -572,7 +572,6 @@ export class NativeMessageStream implements TextStream {
       this.curMessageBytes = 0;
       return true;
     } catch (err) {
-      if (this.strict) throw err;
       this.failOverToLegacy(err);
       return false;
     }
@@ -685,7 +684,6 @@ export class NativeMessageStream implements TextStream {
       this.curMessageBytes = utf8Length(initialText);
       return true;
     } catch (err) {
-      if (this.strict) throw err;
       this.failOverToLegacy(err);
       return false;
     }

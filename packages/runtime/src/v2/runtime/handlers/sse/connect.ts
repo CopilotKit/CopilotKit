@@ -43,9 +43,11 @@ export function handleSseConnect({
     // Forward the real agentId so debug envelopes reflect the agent the
     // route resolved to — not the literal string "connect".
     agentId,
+    telemetry: runtime.telemetry,
     observableFactory: () =>
       runtime.runner.connect({
         threadId,
+        agentId,
         // Forward-looking plumbing: we compute the merged header set (server
         // `agent.headers` win on collision, case-insensitively; non-colliding
         // inbound headers still forward — see `mergeForwardableHeaders`, #5712)

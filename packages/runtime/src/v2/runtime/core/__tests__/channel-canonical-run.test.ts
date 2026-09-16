@@ -61,22 +61,34 @@ class TestRunner extends AgentRunner {
 
 async function captureRunCanonical(
   runner: AgentRunner,
-  options: {
+  runtimeOptions: {
     intelligence?: CopilotKitIntelligence;
+    learning?: {
+      containerId:
+        | string
+        | ((input: {
+            surface: "channel";
+            threadId: string;
+            runId: string;
+            agentId: string;
+            userId: string;
+            deliveryId: string;
+          }) => string | null | Promise<string | null>);
+    };
     lockHeartbeatIntervalSeconds?: number;
     lockTtlSeconds?: number;
   } = {},
 ): Promise<RunCanonical> {
   let captured: RunCanonical | undefined;
   const importer = async (): Promise<ChannelsIntelligenceModule> => ({
-    startChannelsOverRealtimeGateway: async (_channels, options) => {
-      captured = options.runCanonical;
+    startChannelsOverRealtimeGateway: async (_channels, startOptions) => {
+      captured = startOptions.runCanonical;
       return { metadata: {}, stop: async () => {} };
     },
   });
 
   const intelligence =
-    options.intelligence ??
+    runtimeOptions.intelligence ??
     new CopilotKitIntelligence({
       apiUrl: "https://runtime.example",
       wsUrl: "wss://runtime.example",
@@ -111,13 +123,17 @@ async function captureRunCanonical(
     {
       runner,
       intelligence,
-      ...(options.lockHeartbeatIntervalSeconds !== undefined
+      ...(runtimeOptions.learning !== undefined
+        ? { learning: runtimeOptions.learning }
+        : {}),
+      ...(runtimeOptions.lockHeartbeatIntervalSeconds !== undefined
         ? {
-            lockHeartbeatIntervalSeconds: options.lockHeartbeatIntervalSeconds,
+            lockHeartbeatIntervalSeconds:
+              runtimeOptions.lockHeartbeatIntervalSeconds,
           }
         : {}),
-      ...(options.lockTtlSeconds !== undefined
-        ? { lockTtlSeconds: options.lockTtlSeconds }
+      ...(runtimeOptions.lockTtlSeconds !== undefined
+        ? { lockTtlSeconds: runtimeOptions.lockTtlSeconds }
         : {}),
     },
   );
@@ -377,6 +393,34 @@ test("runCanonical acquires the standard lock and uses the runner project key", 
   // `buildRunStartedEvent` also re-stamps `input.threadId` from it, so both must hold.
   expect(request?.threadId).toBe(canonicalIdentity.threadId);
   expect(request?.input.threadId).toBe(canonicalIdentity.threadId);
+});
+
+test("runCanonical resolves one Learning Container ID for the Channel lock", async () => {
+  const intelligence = new CopilotKitIntelligence({
+    apiUrl: "https://runtime.example",
+    wsUrl: "wss://runtime.example",
+    apiKey: "cpk-42_short_long",
+  });
+  const containerId = vi.fn().mockResolvedValue("support-quality");
+  const runCanonical = await captureRunCanonical(new TestRunner(() => EMPTY), {
+    intelligence,
+    learning: { containerId },
+  });
+
+  await runCanonical(runArgs());
+
+  expect(containerId).toHaveBeenCalledOnce();
+  expect(containerId).toHaveBeenCalledWith({
+    surface: "channel",
+    threadId: canonicalIdentity.threadId,
+    runId: canonicalIdentity.runId,
+    agentId: "support-agent",
+    userId: "app-user-1",
+    deliveryId: "dlv_delivery_1",
+  });
+  expect(intelligence.ɵacquireThreadLock).toHaveBeenCalledWith(
+    expect.objectContaining({ learningContainerId: "support-quality" }),
+  );
 });
 
 test("runCanonical returns a deferred delivery error only after the runner records RUN_FINISHED", async () => {

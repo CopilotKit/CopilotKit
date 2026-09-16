@@ -87,6 +87,9 @@ export class ChunkedMessageStream {
     this.setupPromise = this.setupPromise.then(() =>
       this.ensureStreamsAndDispatch(),
     );
+    // append() is synchronous, so observe rejection now. finish() still awaits
+    // the original promise and reports the same failure to the caller.
+    void this.setupPromise.catch(() => undefined);
   }
 
   async finish(): Promise<void> {

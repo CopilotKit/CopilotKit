@@ -13,7 +13,7 @@ import type { ConsoleMessage, Page } from "@playwright/test";
  *   2. The docked CopilotKit v2 chat is present, titled with the assistant name.
  *   3. The arc-leading banking suggestion pills are visible.
  *   4. The reskinning itself: the / redirect, both skins rendering their own
- *      brand, and switching between skins from the floating selector.
+ *      brand, and switching between skins from the selector dropdown.
  *
  * What this intentionally does NOT do:
  *   - Send any chat message
@@ -76,7 +76,7 @@ test.describe("banking showcase smoke", () => {
     // The document <title> is now the shell-generic "CopilotKit Reskinnable
     // Demo" (the shell owns <head>, not the skin), so the per-skin brand lives
     // in the layout header — assert the rendered brand there. Scope to .first()
-    // because the floating skin selector also carries a "Northwind Finance" pill.
+    // because the skin selector trigger also shows the active "Northwind Finance" brand.
     await expect(page.getByText("Northwind Finance").first()).toBeVisible();
 
     // The credit-cards page renders an h1 "Credit Cards" and an "Add Card"
@@ -85,14 +85,12 @@ test.describe("banking showcase smoke", () => {
       page.getByRole("heading", { name: "Credit Cards", level: 1 }),
     ).toBeVisible();
 
-    // The chat is now a docked CopilotSidebar that starts OPEN by default (see
-    // shell/chat/chat-panel.tsx: defaultOpen + a one-time setModalOpen(true) on
-    // mount) — it is no longer a popup that begins closed. The v2 launcher
-    // (data-testid="copilot-chat-toggle") is therefore a CLOSE control here, so
-    // we assert it exists but do NOT click it (clicking would collapse the panel;
-    // it is also overlapped by the floating skin selector). The panel is present
-    // on load, so its contents are asserted directly.
-    await expect(page.getByTestId("copilot-chat-toggle")).toBeVisible();
+    // The chat is an inline CopilotChat inside the frame's assistant card, open by
+    // default. There is no v2 launcher to assert: `copilot-chat-toggle` belonged to
+    // CopilotSidebar and went away with it. The dismiss control lives in the
+    // selector card with the other shell controls, so assert that instead — present
+    // but NOT clicked, since clicking collapses the whole assistant column.
+    await expect(page.getByTestId("sidebar-close")).toBeVisible();
 
     // The docked panel's custom header carries the configured assistant title
     // (modalHeaderTitle = IDENTITY.assistant = "Northwind Copilot"). Scope to the
@@ -137,7 +135,7 @@ test.describe("banking showcase smoke", () => {
 /**
  * Reskinning smoke: the app's headline feature. One shell, many skins — every
  * page lives under /<skin>, `/` redirects to the default skin, each skin paints
- * its own brand, and the floating selector switches between them client-side.
+ * its own brand, and the selector dropdown switches between them client-side.
  *
  * These are CI-safe: they never open the chat or invoke the agent, so they need
  * no secrets and no LLM/memory backend.
@@ -151,34 +149,35 @@ test.describe("reskinning", () => {
   test("/banking renders the banking brand", async ({ page }) => {
     await page.goto("/banking");
     // Northwind Finance is the banking layout's brand line. .first() because the
-    // floating selector also carries a "Northwind Finance" pill; the header brand
+    // selector trigger also shows the active "Northwind Finance" brand; the header brand
     // precedes the selector in DOM order.
     await expect(page.getByText("Northwind Finance").first()).toBeVisible();
-    // No airline chrome leaked in: the Aeronova sidebar brand is banking-absent
-    // (the only "Aeronova" on this page is the selector pill, which is a button).
-    await expect(page.getByText("Aeronova", { exact: true })).toHaveCount(1);
+    // No airline chrome leaked in. Stricter than it used to be: the selector is a
+    // dropdown whose options only exist while open, so a correct banking page
+    // contains NO "Aeronova" at all, rather than exactly one selector pill.
+    await expect(page.getByText("Aeronova", { exact: true })).toHaveCount(0);
   });
 
   test("/airline renders the airline brand", async ({ page }) => {
     await page.goto("/airline");
     // Aeronova is the airline layout's sidebar brand; .first() picks it over the
-    // selector pill (layout precedes the selector in DOM order).
+    // selector trigger (layout precedes the selector in DOM order).
     await expect(page.getByText("Aeronova").first()).toBeVisible();
     // Content assertion that only holds when AirlineLayout + its index page
     // (TripsPage) actually rendered: the trips index paints an <h1>Your trip</h1>.
-    // This is the real teeth of the test — the floating selector renders only brand
+    // This is the real teeth of the test — the selector renders only brand
     // buttons (no heading), so it can never satisfy a heading query. A broken airline
     // index (resolvePage([]) → null → notFound()) renders Next's 404 INSIDE the still-
-    // mounted SkinLayout, leaving the "Aeronova" selector pill visible; the brand
+    // mounted SkinLayout, leaving the "Aeronova" selector trigger visible; the brand
     // assertion above would still pass, but this heading assertion would not.
     await expect(
       page.getByRole("heading", { name: "Your trip", level: 1 }),
     ).toBeVisible();
     // Symmetric negative guard (mirrors banking's Aeronova count): no banking chrome
-    // leaked in — the only "Northwind Finance" on this page is the selector pill.
+    // leaked in, and with the selector closed there is no "Northwind Finance" at all.
     await expect(
       page.getByText("Northwind Finance", { exact: true }),
-    ).toHaveCount(1);
+    ).toHaveCount(0);
   });
 
   test("unknown skins 404", async ({ page }) => {
@@ -186,17 +185,23 @@ test.describe("reskinning", () => {
     expect(response?.status()).toBe(404);
   });
 
-  test("the floating selector is present and switching skins navigates", async ({
+  test("the skin selector is present and switching skins navigates", async ({
     page,
   }) => {
     await page.goto("/banking");
 
-    // The floating selector lists every registered skin as a brand-labelled
-    // button (see shell/floating-selector.tsx). Both skins' pills are present.
-    const toBanking = page.getByRole("button", { name: /Northwind Finance/i });
-    const toAirline = page.getByRole("button", { name: /Aeronova/i });
-    await expect(toBanking).toBeVisible();
-    await expect(toAirline).toBeVisible();
+    // The selector is a dropdown (see shell/layout/selector-card.tsx): the trigger
+    // shows only the ACTIVE skin, and the options exist solely while it is open —
+    // that is what keeps its footprint flat as skins are added. So each switch here
+    // opens the menu first.
+    const trigger = page.getByTestId("skin-selector-trigger");
+    await expect(trigger).toBeVisible();
+    await expect(trigger).toContainText("Northwind Finance");
+
+    const openMenu = async () => {
+      await trigger.click();
+      await expect(page.getByTestId("skin-option-airline")).toBeVisible();
+    };
 
     // Baseline: the banking skin is mounted, so its Credit Cards index h1 is up.
     const bankingIndex = page.getByRole("heading", {
@@ -211,18 +216,22 @@ test.describe("reskinning", () => {
 
     // Switch to the airline skin. Assert the URL changed AND that the shell actually
     // remounted the airline skin, by checking real airline chrome (the trips
-    // <h1>Your trip</h1>, which no selector pill can produce) AND that banking's
-    // Credit Cards h1 is GONE. Re-asserting the "Aeronova" pill would be a no-op: it
-    // was already visible before the click, so a bug where router.push changed the
-    // URL but SkinLayout failed to remount (stale banking chrome left on screen)
-    // would still pass. This does not.
-    await toAirline.click();
+    // <h1>Your trip</h1>, which no selector option can produce) AND that banking's
+    // Credit Cards h1 is GONE. Asserting the trigger's own label would be weaker:
+    // a bug where router.push changed the URL but SkinLayout failed to remount
+    // (stale banking chrome left on screen) could still relabel the trigger. This
+    // does not.
+    await openMenu();
+    await page.getByTestId("skin-option-airline").click();
     await expect(page).toHaveURL(/\/airline$/);
     await expect(airlineIndex).toBeVisible();
     await expect(bankingIndex).toHaveCount(0);
+    await expect(trigger).toContainText("Aeronova");
 
     // And back: banking remounts (its index returns) and the airline chrome is gone.
-    await toBanking.click();
+    await trigger.click();
+    await expect(page.getByTestId("skin-option-banking")).toBeVisible();
+    await page.getByTestId("skin-option-banking").click();
     await expect(page).toHaveURL(/\/banking$/);
     await expect(bankingIndex).toBeVisible();
     await expect(airlineIndex).toHaveCount(0);

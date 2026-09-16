@@ -277,3 +277,85 @@ describe("deduplicateMessages", () => {
     expect((result[0] as UserMessage).content).toBe("Hello (updated)");
   });
 });
+
+describe("deduplicateMessages duplicate tool-call ids", () => {
+  // AG-UI's TOOL_CALL_START handler appends to `toolCalls` without checking for
+  // an existing entry with that id, so re-applying a start event (which the HITL
+  // flow does when the run syncs after respond()) leaves a second copy carrying
+  // EMPTY arguments. Rendering both showed a phantom blank approval card and
+  // triggered React's "two children with the same key" warning.
+  it("collapses a duplicated tool-call id on a message that was never itself duplicated", () => {
+    const messages: Message[] = [
+      assistantMsg("a-1", "", [
+        toolCall("call_1", "openPolicyException", '{"transactionId":"t-2"}'),
+        toolCall("call_1", "openPolicyException", ""),
+      ]),
+    ];
+
+    const result = deduplicateMessages(messages);
+
+    expect(result).toHaveLength(1);
+    const toolCalls = (result[0] as AssistantMessage).toolCalls!;
+    expect(toolCalls).toHaveLength(1);
+    expect(toolCalls[0]!.id).toBe("call_1");
+    // The populated copy must win — the empty one is the redundant re-announce.
+    expect(toolCalls[0]!.function.arguments).toBe('{"transactionId":"t-2"}');
+  });
+
+  it("prefers the populated copy regardless of which order it arrives in", () => {
+    const messages: Message[] = [
+      assistantMsg("a-1", "", [
+        toolCall("call_1", "approveTransaction", ""),
+        toolCall("call_1", "approveTransaction", '{"transactionId":"t-2"}'),
+      ]),
+    ];
+
+    const toolCalls = (deduplicateMessages(messages)[0] as AssistantMessage)
+      .toolCalls!;
+
+    expect(toolCalls).toHaveLength(1);
+    expect(toolCalls[0]!.function.arguments).toBe('{"transactionId":"t-2"}');
+  });
+
+  it("keeps distinct tool calls and their order", () => {
+    const messages: Message[] = [
+      assistantMsg("a-1", "", [
+        toolCall("call_1", "first", '{"a":1}'),
+        toolCall("call_2", "second", '{"b":2}'),
+      ]),
+    ];
+
+    const toolCalls = (deduplicateMessages(messages)[0] as AssistantMessage)
+      .toolCalls!;
+
+    expect(toolCalls.map((t) => t.id)).toEqual(["call_1", "call_2"]);
+  });
+
+  it("collapses duplicate tool-call ids when the message is ALSO duplicated", () => {
+    const messages: Message[] = [
+      assistantMsg("a-1", "Working", [
+        toolCall("call_1", "openPolicyException", '{"transactionId":"t-2"}'),
+      ]),
+      assistantMsg("a-1", "", [
+        toolCall("call_1", "openPolicyException", '{"transactionId":"t-2"}'),
+        toolCall("call_1", "openPolicyException", ""),
+      ]),
+    ];
+
+    const result = deduplicateMessages(messages);
+
+    expect(result).toHaveLength(1);
+    expect((result[0] as AssistantMessage).toolCalls).toHaveLength(1);
+    expect((result[0] as AssistantMessage).content).toBe("Working");
+  });
+
+  it("returns the original toolCalls array when there is nothing to collapse", () => {
+    const original = [toolCall("call_1", "only", "{}")];
+    const messages: Message[] = [assistantMsg("a-1", "", original)];
+
+    // Reference equality keeps memoized consumers from re-rendering needlessly.
+    expect(
+      (deduplicateMessages(messages)[0] as AssistantMessage).toolCalls,
+    ).toBe(original);
+  });
+});

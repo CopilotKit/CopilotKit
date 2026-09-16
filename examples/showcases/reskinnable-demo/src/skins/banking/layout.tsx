@@ -25,11 +25,12 @@ import {
 import type { Member } from "@/skins/banking/data/data";
 import { MemberRole } from "@/skins/banking/data/data";
 import { useAuthContext } from "@/skins/banking/components/auth-context";
-import { useRecording } from "@/skins/banking/components/recording-context";
+import { useRecording } from "@/shell/teach";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useAgentContext } from "@copilotkit/react-core/v2";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useSkin } from "@/shell/skin-provider";
+import { useSkinHref, useSkinSegments } from "@/shell/skin-path";
 import { usePresenterReset } from "@/shell/presenter-reset-context";
 import { useCanvas } from "@/shell/canvas/canvas-context";
 import { useAskCopilot } from "@/skins/banking/components/wow/use-ask-copilot";
@@ -122,7 +123,8 @@ function UserNavigation({
 
 export function LayoutComponent({ children }: { children: React.ReactNode }) {
   const skin = useSkin();
-  const base = `/${skin.id}`;
+  const skinHref = useSkinHref(skin.id);
+  const base = skinHref();
   const { users, currentUser, setCurrentUser } = useAuthContext();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -131,40 +133,22 @@ export function LayoutComponent({ children }: { children: React.ReactNode }) {
   const { clear } = useCanvas();
 
   // The active segment is whatever follows the skin base ("" for the index).
-  const rest = pathname.split("/").slice(2).join("/");
-  const restHead = rest.split("/")[0];
+  const restHead = useSkinSegments(skin.id)[0] ?? "";
 
   // Current-page readable, derived RELATIVE to the skin base so the agent is
-  // told a real page. `/banking` → "cards" (the index IS the Credit Cards
-  // view), `/banking/dashboard` → "dashboard", etc. Before the cutover this
-  // read pathname.split("/")[1], which reported the skin id under /[skin].
+  // told a real page. The skin index → "cards" (it IS the Credit Cards view),
+  // `/dashboard` → "dashboard", etc. Before the cutover this read
+  // pathname.split("/")[1], which reported the skin id under /[skin].
   useAgentContext({
     description: "The current page where the user is",
     value: restHead === "" ? "cards" : restHead,
   });
 
-  const hrefFor = (segment: string) => (segment ? `${base}/${segment}` : base);
+  const hrefFor = (segment: string) => skinHref(segment);
   const isActive = (segment: string) =>
     segment === ""
       ? restHead === "" || restHead === "cards"
       : restHead === segment;
-
-  // Publish this skin's edge-nav geometry so the shell's floating skin selector
-  // can inset its dock clear of the nav WITHOUT the shell knowing anything about
-  // banking (see `.nw-selector-dock` in globals.css). Northwind pins its icon
-  // rail to the RIGHT of the content region (72px aside + the wrapper's 16px
-  // pr-4 = 88px) and nothing to the left. Published on <html> (like chat-panel's
-  // --nw-chat-width) so the fixed dock, wherever it sits in the tree, inherits
-  // the values.
-  useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty("--nw-nav-inset-left", "0px");
-    root.style.setProperty("--nw-nav-inset-right", "88px");
-    return () => {
-      root.style.removeProperty("--nw-nav-inset-left");
-      root.style.removeProperty("--nw-nav-inset-right");
-    };
-  }, []);
 
   // Navigating dismisses any stale canvas surface. Watches the query string as
   // well as the pathname: the surface is derived from the LAST a2ui-surface
@@ -202,7 +186,7 @@ export function LayoutComponent({ children }: { children: React.ReactNode }) {
   if (!currentUser) return null;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-canvas transition-[padding] duration-300">
+    <div className="flex h-full overflow-hidden bg-canvas transition-[padding] duration-300">
       {/*
         Floating icon rail — visually on the RIGHT, because the chat (thread
         rail + conversation) owns the left edge. Positioned with flex `order`
