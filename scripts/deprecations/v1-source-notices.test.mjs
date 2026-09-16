@@ -210,7 +210,9 @@ test("every v1 importable export has an IDE-visible use-v2 deprecation", () => {
           }
         }
       } else if (
-        !warning.includes("No 1:1 v2 replacement is available") ||
+        !(item.replacementNote
+          ? item.replacementNote.every((note) => warning.includes(note))
+          : warning.includes("No 1:1 v2 replacement is available")) ||
         !warning.includes(`V2 docs: ${V2_DOCS}`) ||
         !warning.includes(`V2 reference docs: ${V2_REFERENCE}`)
       ) {
@@ -274,7 +276,13 @@ test("every local public v1 source file has exact per-export guidance", () => {
         assert.ok(source.includes(item.replacement.source));
         assert.ok(source.includes(item.replacement.docs));
       } else {
-        assert.ok(source.includes("No 1:1 v2 replacement is available."));
+        if (item.replacementNote) {
+          for (const note of item.replacementNote) {
+            assert.ok(source.includes(note));
+          }
+        } else {
+          assert.ok(source.includes("No 1:1 v2 replacement is available."));
+        }
         assert.ok(source.includes(item.entrypoint.v2ImportPath));
         assert.ok(source.includes(`V2 docs: ${V2_DOCS}`));
         assert.ok(source.includes(`V2 reference docs: ${V2_REFERENCE}`));
@@ -362,6 +370,99 @@ test("useCoAgentStateRender points to the v2 state-rendering pattern", () => {
   );
   assert.ok(
     item.replacement.exampleLines.includes("  const state = agent.state;"),
+  );
+});
+
+test("LangGraphHttpAgent names HttpAgent without restating a version-specific claim", () => {
+  for (const entrypointId of ["runtime", "runtime-langgraph"]) {
+    const item = inventory.inventories
+      .find(({ entrypoint }) => entrypoint.id === entrypointId)
+      ?.exports.find(({ name }) => name === "LangGraphHttpAgent");
+    const jsDoc = renderDeprecationJsDoc(item);
+
+    // It is a subclass of HttpAgent, not an export of @copilotkit/runtime/v2,
+    // so the generator cannot discover the replacement by name.
+    assert.equal(item?.replacement, null);
+    assert.ok(jsDoc.includes("`HttpAgent` from `@ag-ui/client`"));
+    assert.ok(jsDoc.includes("forwardedProps.command.resume"));
+    // The dead-end wording must be gone, and the related-docs line that the
+    // runtime-langgraph override used to clobber must be present.
+    assert.ok(!jsDoc.includes("No 1:1 v2 replacement is available"));
+    assert.deepEqual(item.relatedDocs, {
+      label: "LangGraph agents",
+      url: "https://docs.copilotkit.ai/agent-spec/langgraph",
+    });
+    // The subclass's exact shape is version-specific (it was empty at
+    // @ag-ui/langgraph 0.0.42 and gained an onInitialize override at 0.0.43),
+    // so the annotation must not describe it.
+    assert.ok(!/empty subclass|no-op|identical/i.test(jsDoc));
+    // The export map's "v2 source" column must name where `HttpAgent` really
+    // lives. The entrypoint default would claim packages/runtime/src/v2/index.ts,
+    // which has no such export.
+    assert.equal(item.replacementNoteSource, "@ag-ui/client");
+  }
+});
+
+test("LangGraphAgent keeps its correct no-replacement wording", () => {
+  // Deliberately NOT given LangGraphHttpAgent's wording: LangGraphAgent has no
+  // one-to-one replacement, and what to do about it is an open product call.
+  for (const entrypointId of ["runtime", "runtime-langgraph"]) {
+    const item = inventory.inventories
+      .find(({ entrypoint }) => entrypoint.id === entrypointId)
+      ?.exports.find(({ name }) => name === "LangGraphAgent");
+    const jsDoc = renderDeprecationJsDoc(item);
+
+    assert.equal(item?.replacementNote, null);
+    assert.ok(jsDoc.includes("No 1:1 v2 replacement is available."));
+    assert.ok(!jsDoc.includes("@ag-ui/client"));
+  }
+});
+
+test("v1 endpoint factories map to their renamed v2 handlers", () => {
+  const exports = inventory.inventories.find(
+    ({ entrypoint }) => entrypoint.id === "runtime",
+  ).exports;
+  const replacementFor = (name) =>
+    exports.find((candidate) => candidate.name === name)?.replacement?.name ??
+    null;
+
+  // Mapping is stated as a table in docs/backend/copilot-runtime.mdx, and both
+  // handlers are real exports of `@copilotkit/runtime/v2`.
+  assert.equal(
+    replacementFor("copilotRuntimeNextJSAppRouterEndpoint"),
+    "createCopilotRuntimeHandler",
+  );
+  assert.equal(
+    replacementFor("copilotRuntimeNodeHttpEndpoint"),
+    "createCopilotRuntimeHandler",
+  );
+  assert.equal(
+    replacementFor("copilotRuntimeNodeExpressEndpoint"),
+    "createCopilotExpressHandler",
+  );
+
+  // These two sit in the same docs group but are never given a named v2
+  // counterpart, so mapping them would be a guess.
+  assert.equal(replacementFor("copilotRuntimeNextJSPagesRouterEndpoint"), null);
+  assert.equal(replacementFor("copilotRuntimeNestEndpoint"), null);
+
+  // Each replacement must be imported from the path docs/backend/copilot-runtime.mdx
+  // names. The Express handler is reachable from the v2 root through the
+  // endpoints barrel, but the documented path is the narrower subpath.
+  const importPathFor = (name) =>
+    exports.find((candidate) => candidate.name === name)?.replacement
+      ?.importPath ?? null;
+  assert.equal(
+    importPathFor("copilotRuntimeNodeExpressEndpoint"),
+    "@copilotkit/runtime/v2/express",
+  );
+  assert.equal(
+    importPathFor("copilotRuntimeNextJSAppRouterEndpoint"),
+    "@copilotkit/runtime/v2",
+  );
+  assert.equal(
+    importPathFor("copilotRuntimeNodeHttpEndpoint"),
+    "@copilotkit/runtime/v2",
   );
 });
 
