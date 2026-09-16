@@ -2674,54 +2674,57 @@ importers:
 
   packages/intelligence-delivery-core:
     dependencies:
-      "@copilotkit/runtime":
+      '@copilotkit/runtime':
         specifier: workspace:*
         version: link:../runtime
       yauzl:
         specifier: 2.10.0
         version: 2.10.0
     devDependencies:
-      "@copilotkit/typescript-config":
+      '@copilotkit/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
-      "@types/node":
+      '@types/node':
         specifier: ^22.15.3
         version: 22.19.11
-      "@types/yauzl":
+      '@types/yauzl':
         specifier: 2.10.3
         version: 2.10.3
+      fflate:
+        specifier: 0.8.2
+        version: 0.8.2
       tsdown:
         specifier: ^0.20.3
         version: 0.20.3(@arethetypeswrong/core@0.18.2)(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(oxc-resolver@11.24.2)(publint@0.3.17)(synckit@0.11.12)(typescript@5.8.2)
       typescript:
         specifier: 5.8.2
         version: 5.8.2
-      fflate:
-        specifier: 0.8.2
-        version: 0.8.2
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.11)(@vitest/ui@3.2.4)(jiti@2.7.0)(jsdom@29.1.0(@noble/hashes@1.8.0))(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
 
   packages/intelligence-langgraph:
     dependencies:
-      "@copilotkit/runtime":
+      '@copilotkit/runtime':
         specifier: workspace:*
         version: link:../runtime
       yauzl:
         specifier: 2.10.0
         version: 2.10.0
     devDependencies:
-      "@copilotkit/typescript-config":
+      '@copilotkit/intelligence-delivery-core':
+        specifier: workspace:*
+        version: link:../intelligence-delivery-core
+      '@copilotkit/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
-      "@langchain/core":
+      '@langchain/core':
         specifier: 1.2.11
         version: 1.2.11(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.21.3)(zod@3.25.76))(ws@8.21.3)
-      "@langchain/langgraph":
+      '@langchain/langgraph':
         specifier: 1.4.15
         version: 1.4.15(@langchain/core@1.2.11(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.21.3)(zod@3.25.76))(ws@8.21.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(zod@3.25.76)
-      "@types/node":
+      '@types/node':
         specifier: ^22.15.3
         version: 22.19.11
       fflate:
@@ -2740,25 +2743,28 @@ importers:
         specifier: ^3.2.4
         version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.11)(@vitest/ui@3.2.4)(jiti@2.7.0)(jsdom@29.1.0(@noble/hashes@1.8.0))(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
       zod:
-        specifier: ">=3.22.3"
+        specifier: '>=3.22.3'
         version: 3.25.76
-      "@copilotkit/intelligence-delivery-core":
-        specifier: workspace:*
-        version: link:../intelligence-delivery-core
 
   packages/intelligence-mastra:
     dependencies:
-      "@copilotkit/runtime":
+      '@copilotkit/runtime':
         specifier: workspace:*
         version: link:../runtime
       yauzl:
         specifier: 2.10.0
         version: 2.10.0
     devDependencies:
-      "@copilotkit/typescript-config":
+      '@copilotkit/intelligence-delivery-core':
+        specifier: workspace:*
+        version: link:../intelligence-delivery-core
+      '@copilotkit/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
-      "@types/node":
+      '@mastra/core':
+        specifier: 1.66.0
+        version: 1.66.0(@bufbuild/protobuf@2.11.0)(ai@6.0.156(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76)
+      '@types/node':
         specifier: ^22.15.3
         version: 22.19.11
       tsdown:
@@ -2773,12 +2779,6 @@ importers:
       zod:
         specifier: '>=3.22.3'
         version: 3.25.76
-      "@copilotkit/intelligence-delivery-core":
-        specifier: workspace:*
-        version: link:../intelligence-delivery-core
-      "@mastra/core":
-        specifier: 1.66.0
-        version: 1.66.0(@bufbuild/protobuf@2.11.0)(ai@6.0.156(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76)
 
   packages/mcp-apps-renderer:
     dependencies:
@@ -2793,7 +2793,7 @@ importers:
         version: 1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
     devDependencies:
       '@ag-ui/client':
-        specifier: 0.0.59
+        specifier: '>=0.0.59 <0.1.0'
         version: 0.0.59
       jsdom:
         specifier: ^26.1.0
@@ -3612,8 +3612,8 @@ importers:
         specifier: '>=0.0.59 <0.1.0'
         version: 0.0.59
       '@ag-ui/core':
-        specifier: '>=0.0.48'
-        version: 0.0.57
+        specifier: '>=0.0.59 <0.1.0'
+        version: 0.0.59
       '@copilotkit/license-verifier':
         specifier: ~0.5.0
         version: 0.5.0
