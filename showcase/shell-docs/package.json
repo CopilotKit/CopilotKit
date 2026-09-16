@@ -10,6 +10,8 @@
     "lint": "oxlint .",
     "pretest": "npm run pretypecheck",
     "test": "vitest run",
+    "test:ci": "vitest run --config vitest.ci.config.ts",
+    "test:quarantine-ratchet": "tsx scripts/quarantine-ratchet.ts",
     "test:watch": "vitest",
     "pretypecheck": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/bundle-angular-source-content.ts && tsx ../scripts/bundle-setup-content.ts && tsx ../scripts/generate-search-index.ts",
     "typecheck": "tsc --noEmit"
