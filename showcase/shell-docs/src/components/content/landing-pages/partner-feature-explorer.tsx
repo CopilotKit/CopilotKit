@@ -182,7 +182,7 @@ export function PartnerFeatureExplorer({
         setApi={setApi}
         opts={{
           align: "center",
-          containScroll: false,
+          containScroll: "keepSnaps",
           startIndex: initialIndex,
         }}
         className="partner-feature-carousel"
