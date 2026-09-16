@@ -58,6 +58,7 @@ function renderNavName(
   },
   iconAfter = false,
 ): React.ReactNode {
+  if (title === "Rich threads") title = "Rich Threads";
   const isReactDocsProxy = variant === "react-docs-proxy";
   if (variant === "frontend-docs-upcoming") {
     const frontendDocsStatus = links?.frontendDocsStatus ?? "early-access";
@@ -270,9 +271,7 @@ function buildPageTreeChildren(
   tree: NavNode[],
   slugHrefPrefix: string,
 ): PageTree.Node[] {
-  return tree.flatMap((node) =>
-    navNodeToPageTreeNodes(node, slugHrefPrefix),
-  );
+  return tree.flatMap((node) => navNodeToPageTreeNodes(node, slugHrefPrefix));
 }
 
 // Cache by the (memoized) NavNode[] reference so successive calls with
