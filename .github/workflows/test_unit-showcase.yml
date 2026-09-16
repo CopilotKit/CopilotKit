@@ -9,9 +9,18 @@
 #   ------------------------- ------  ----------  ------------------------------
 #   showcase/harness           3646   NO          nowhere
 #   showcase/shell-dashboard   1331   NO          nowhere
+#   showcase/shell-docs         912   NO          nowhere
 #   showcase/shell               ~57   NO          nowhere
 #   showcase/scripts              -    yes        showcase_validate.yml
 #                                                 ("Run build pipeline tests")
+#
+# shell-docs was missing from the table above when this workflow first landed;
+# its 116-file suite was invisible for the same reason as the others, plus a
+# second one — it is outside the pnpm workspace and has no project.json, so nx
+# cannot select it even by name. The `docs` job below closes that gap. Wiring
+# it up found the suite already red with eight failures in four files; four
+# further failures in the same sweep were test rot and were fixed outright.
+# See showcase/shell-docs/vitest.quarantine.json.
 #
 # `test_unit.yml` — the workflow whose name implies it covers this — carries
 # `paths-ignore: ["showcase/**", ...]` AND scopes its nx selection to
@@ -256,3 +265,90 @@ jobs:
             --exclude 'tests/visual/**' \
             --exclude 'node_modules/**' \
             --exclude 'tests/**/*.spike.test.ts'
+
+  docs:
+    name: shell-docs unit suite
+    runs-on: depot-ubuntu-24.04-4
+    # Suite is ~135s wall-clock locally (116 files); the budget is install time
+    # plus the five content generators below.
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      # Depot OIDC auth (runs-on: depot-ubuntu-*).
+      id-token: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          # shell-docs is deliberately NOT a pnpm workspace member (it ships its
+          # own package-lock.json and installs @copilotkit/* from npm), so cache
+          # npm against that lockfile.
+          cache: "npm"
+          cache-dependency-path: showcase/shell-docs/package-lock.json
+
+      - name: Install workspace dependencies (for the content generators)
+        # The generators live in `showcase/scripts`, which IS a pnpm workspace
+        # member, so this job needs both package managers. generate-registry.ts
+        # imports yaml/ajv from there.
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Install shell-docs dependencies
+        working-directory: showcase/shell-docs
+        # `npm ci` (not `npm install`) so ranges are not re-resolved. Unlike
+        # shell-dashboard, shell-docs declares no install hooks, so
+        # `--ignore-scripts` here is ordinary hygiene rather than load-bearing.
+        run: npm ci --ignore-scripts
+
+      - name: Generate gitignored content fixtures
+        working-directory: showcase/scripts
+        # HAZARD, handled here. `showcase/.gitignore` ignores
+        # `shell-docs/src/data/*.json`, and modules under `src/lib` statically
+        # import `@/data/registry.json`, `@/data/search-index.json` and the
+        # bundled demo/setup content — without them ~33 test files fail to load
+        # with "Cannot find package '@/data/*.json'".
+        #
+        # These are the five generators behind shell-docs' `pretest` hook. The
+        # run step below invokes vitest directly rather than `npm test` so they
+        # execute once here instead of twice.
+        #
+        # All five resolve their paths from `import.meta.url`, not `cwd`, so
+        # running them from `showcase/scripts` writes to the same place the
+        # package's own `pretest` would.
+        run: |
+          pnpm exec tsx generate-registry.ts
+          pnpm exec tsx bundle-demo-content.ts
+          pnpm exec tsx bundle-angular-source-content.ts
+          pnpm exec tsx bundle-setup-content.ts
+          pnpm exec tsx generate-search-index.ts
+
+      - name: Run shell-docs unit suite
+        working-directory: showcase/shell-docs
+        # Not driven through nx: shell-docs is outside the pnpm workspace by
+        # design and has no project.json, so there is no target to run.
+        #
+        # `vitest.ci.config.ts` is `vitest.config.ts` plus the exclusions in
+        # `vitest.quarantine.json`. That manifest names four files that are
+        # already red on `origin/main` — real content defects, each with a
+        # reason and an exit criterion — so this gate is green on arrival and
+        # survives contact with a busy check list.
+        run: npm exec -- vitest run --config vitest.ci.config.ts
+
+      - name: Ratchet the quarantine manifest
+        working-directory: showcase/shell-docs
+        # The exclusion above is only defensible if it cannot rot. This re-runs
+        # exactly the quarantined files and requires each to STILL FAIL: fix one
+        # and this step goes red until its entry is deleted. No
+        # `continue-on-error` — both the gate and the ratchet are hard failures.
+        run: npm run test:quarantine-ratchet
