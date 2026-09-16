@@ -57,12 +57,13 @@ describe("partner setup context", () => {
     mount();
     fireEvent.click(screen.getByRole("button", { name: /Existing agent/ }));
     fireEvent.click(screen.getByRole("button", { name: /Existing project/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: "React" }));
     expect(
       screen.getByRole("heading", { name: "What you want to build" }),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Backend/ })).toBeNull();
-    expect(screen.getByRole("button", { name: /4\s*Features/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /3\s*Features/ })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(screen.getByRole("heading", { name: "Your frontend" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "React" }));
@@ -127,7 +128,7 @@ describe("partner setup context", () => {
     mount();
     expect(
       screen.getByRole("heading", {
-        name: /Do you already have a mastra agent/,
+        name: "Where are you starting?",
       }),
     ).toBeTruthy();
   });

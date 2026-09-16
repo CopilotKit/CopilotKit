@@ -93,10 +93,6 @@ describe("FrameworkOverview", () => {
   });
 
   it("leads with the prompt on a framework whose init command is bespoke", () => {
-    // The Claude Agent SDK overviews pass a framework-scoped init command, so
-    // they render the chip branch rather than the shared hero action row. They
-    // still have to lead with the prompt, and they still have to keep the
-    // command chip: nothing else on the page carries that command.
     const initCommand =
       "npx copilotkit@latest init --framework claude-sdk-python";
     const markup = renderToStaticMarkup(
@@ -108,14 +104,11 @@ describe("FrameworkOverview", () => {
 
     expect(markup).toContain("Copy Prompt");
     expect(markup).toContain('data-surface="docs_framework_hero"');
-    expect(markup).toContain(initCommand);
+    expect(markup).not.toContain(initCommand);
 
-    // Prompt first, then Quickstart in the bordered treatment, then the chip.
+    // Keep the primary setup actions without an extra terminal section.
     expect(markup.indexOf("Copy Prompt")).toBeLessThan(
       markup.indexOf("Quickstart"),
-    );
-    expect(markup.indexOf("Quickstart")).toBeLessThan(
-      markup.indexOf(initCommand),
     );
     expect(markup).toContain("shell-docs-cta-link");
   });
@@ -132,7 +125,8 @@ describe("FrameworkOverview", () => {
     expect(markup).toContain("open-source framework");
     expect(markup).toContain("Add chat, interactive UI, and human approvals.");
     expect(markup).toContain("Start building");
-    expect(markup).toContain('aria-label="Product walkthroughs"');
+    expect(markup).not.toContain("Watch product walkthroughs");
+    expect(markup).not.toContain("How CopilotKit connects to");
   });
 
   it("keeps the selected partner’s showcase destination and hero quickstart", () => {

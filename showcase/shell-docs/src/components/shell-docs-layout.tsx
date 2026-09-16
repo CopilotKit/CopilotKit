@@ -77,6 +77,7 @@ export function ShellDocsLayout({
                 target="_blank"
                 rel="noreferrer noopener"
                 aria-label="GitHub"
+                title="GitHub"
                 className="shell-docs-radius-control inline-flex h-7 w-7 items-center justify-center text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text)] [&_svg]:size-4"
               >
                 <GithubIcon />
@@ -86,6 +87,7 @@ export function ShellDocsLayout({
                 target="_blank"
                 rel="noreferrer noopener"
                 aria-label="Discord"
+                title="Discord"
                 className="shell-docs-radius-control inline-flex h-7 w-7 items-center justify-center text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text)] [&_svg]:size-4"
               >
                 <DiscordIcon />

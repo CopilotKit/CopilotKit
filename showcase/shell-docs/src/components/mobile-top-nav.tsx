@@ -4,7 +4,7 @@ import Link from "next/link";
 // Fumadocs v16 moved `SidebarTrigger` from `components/layout/sidebar`
 // to `components/sidebar/base` — keep the v16 path here.
 import { SidebarTrigger } from "fumadocs-ui/components/sidebar/base";
-import { Menu } from "lucide-react";
+import { CalendarDays, Menu } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import {
   DocsPublicAuthControl,
@@ -12,6 +12,7 @@ import {
 } from "./docs-public-auth-control";
 import { SearchTrigger } from "./search-trigger";
 import { CopilotKitMark } from "./copilotkit-mark";
+import { TALK_TO_ENGINEER_HREF } from "./brand-nav";
 import { PrimaryDocsTabs } from "./primary-docs-tabs";
 
 // Mobile/tablet top nav. Replaces shell-docs's BrandNav below xl because the
@@ -63,9 +64,23 @@ export function MobileTopNav() {
           <div className="shell-docs-mobile-search">
             <SearchTrigger iconOnly />
           </div>
+          <a
+            href={TALK_TO_ENGINEER_HREF}
+            aria-label="Book a meeting"
+            title="Book a meeting"
+            onClick={() =>
+              posthog?.capture("talk_to_us_clicked", {
+                location: "docs_mobile_nav",
+              })
+            }
+            className="shell-docs-radius-control flex h-10 w-10 shrink-0 items-center justify-center border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-muted)] hover:text-[var(--text)]"
+          >
+            <CalendarDays className="h-4 w-4" aria-hidden="true" />
+          </a>
           <SidebarTrigger
             className="shell-docs-mobile-menu shell-docs-radius-control flex h-10 w-10 items-center justify-center text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
             aria-label="Toggle navigation"
+            title="Toggle navigation"
           >
             <Menu className="w-5 h-5" />
           </SidebarTrigger>

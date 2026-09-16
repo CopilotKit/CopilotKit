@@ -63,7 +63,6 @@ import type {
   StepDirection,
   StepSwapAnimation,
 } from "@/lib/wizard-step-transition";
-import { PartnerCliSetup } from "@/components/partner-cli-setup";
 import { composeWizardOnboardingPrompt } from "@/lib/wizard-onboarding-prompt";
 import {
   createOnboardingRunId,
@@ -207,8 +206,8 @@ export function SetupWizard({
     : undefined;
   const steps = partnerBackend
     ? [
-        { n: 0, label: "Agent" },
-        ...STEPPER_STEPS.filter((step) => step.n !== 3),
+        { n: 0, label: "Setup" },
+        ...STEPPER_STEPS.filter((step) => step.n !== 3 && step.n !== 1),
       ]
     : STEPPER_STEPS;
   const posthog = usePostHog();
@@ -328,7 +327,9 @@ export function SetupWizard({
       ? defaultFrontend
       : undefined;
     const landing =
-      partnerBackend && !restored.agent ? 0 : landingStep(restored);
+      partnerBackend && (!restored.agent || !restored.project)
+        ? 0
+        : landingStep(restored);
     setAgentAnswer(restored.agent ?? null);
 
     setProjectAnswer(restored.project ?? null);
@@ -430,6 +431,7 @@ export function SetupWizard({
     pointerActivated: boolean,
     selection: Record<string, unknown> = {},
   ) {
+    if (partnerBackend && step === 1) step = 0;
     if (partnerBackend && step === 3) step = direction === "back" ? 2 : 4;
     runIdRef.current ??= createOnboardingRunId();
     track("wizard_step_changed", {
@@ -573,32 +575,50 @@ export function SetupWizard({
   let footer: React.ReactNode;
 
   if (current === 0 && partnerBackend) {
-    stepName = `Do you already have a ${partnerName} agent?`;
-    stepDescription =
-      "Connect an agent you have, or create one as part of setup.";
+    stepName = "Where are you starting?";
+    stepDescription = "Tell us what you already have. We’ll tailor your setup.";
     body = (
-      <ChoiceGrid
-        options={[
-          {
-            ...PROJECT_OPTIONS[0],
-            label: "Existing agent",
-            description: "Connect the agent I already have",
-          },
-          {
-            ...PROJECT_OPTIONS[1],
-            label: "New agent",
-            description: "Help me build a new agent",
-          },
-        ]}
-        selectedId={agentAnswer ?? undefined}
-        disabled={false}
-        onSelect={(id, pointerActivated) => {
-          setAgentAnswer(id === "yes" ? "yes" : "no");
-          goTo(1, "forward", pointerActivated, { agent: id });
-        }}
-      />
+      <div className="space-y-6">
+        <fieldset>
+          <legend className="mb-3 text-sm font-medium">
+            Your {partnerName} agent
+          </legend>
+          <ChoiceGrid
+            options={[
+              {
+                ...PROJECT_OPTIONS[0],
+                label: "Existing agent",
+                description: "Connect my agent",
+              },
+              {
+                ...PROJECT_OPTIONS[1],
+                label: "New agent",
+                description: "Build a new agent",
+              },
+            ]}
+            selectedId={agentAnswer ?? undefined}
+            disabled={false}
+            onSelect={(id) => setAgentAnswer(id === "yes" ? "yes" : "no")}
+          />
+        </fieldset>
+        <fieldset>
+          <legend className="mb-3 text-sm font-medium">Your app</legend>
+          <ChoiceGrid
+            options={PROJECT_OPTIONS}
+            selectedId={projectAnswer ?? undefined}
+            disabled={false}
+            onSelect={(id) => setProjectAnswer(id)}
+          />
+        </fieldset>
+      </div>
     );
-    footer = null;
+    footer =
+      agentAnswer && projectAnswer ? (
+        <WizardNav
+          continueLabel="Continue"
+          onContinue={(pointer) => goTo(2, "forward", pointer)}
+        />
+      ) : null;
   } else if (current === 1) {
     stepName = "Where are you starting?";
     stepDescription =
@@ -763,12 +783,6 @@ export function SetupWizard({
           {body}
         </WizardCard>
       </div>
-      {partnerBackend && (
-        <PartnerCliSetup
-          project={projectAnswer}
-          quickstartHref={manualSetupHref}
-        />
-      )}
       {/* The persistent "Prefer to set it up yourself?" link that used to sit
        *  here is gone. It existed for the no-JavaScript reader, stuck on
        *  step 1 with no working Continue and otherwise no way out. That

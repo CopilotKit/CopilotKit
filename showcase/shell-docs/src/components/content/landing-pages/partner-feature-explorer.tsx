@@ -191,6 +191,7 @@ export function PartnerFeatureExplorer({
         <CarouselPrevious
           className="partner-carousel-arrow"
           aria-label="Previous feature"
+          title="Previous feature"
         />
         <CarouselContent className="partner-feature-track">
           {features.map((feature, index) => (
@@ -215,6 +216,7 @@ export function PartnerFeatureExplorer({
         <CarouselNext
           className="partner-carousel-arrow"
           aria-label="Next feature"
+          title="Next feature"
         />
       </Carousel>
     </section>

@@ -214,25 +214,28 @@ export function WizardReview({
       {backendFixed && (
         <ReviewRow
           step={1}
-          kicker="Agent"
+          kicker="Setup"
           changeLabel="Change agent starting point"
           onChange={(pointer) => onNavigate(0, pointer)}
         >
           <span className="text-sm font-semibold">
-            {agent === "yes" ? "Existing agent" : "New agent"}
+            {agent === "yes" ? "Existing agent" : "New agent"} ·{" "}
+            {project === "yes" ? "Existing app" : "New app"}
           </span>
         </ReviewRow>
       )}
+      {!backendFixed && (
+        <ReviewRow
+          step={1}
+          kicker="Project"
+          changeLabel="Change project"
+          onChange={(pointerActivated) => onNavigate(1, pointerActivated)}
+        >
+          {project ? <ProjectValue project={project} /> : NONE_VALUE}
+        </ReviewRow>
+      )}
       <ReviewRow
-        step={backendFixed ? 2 : 1}
-        kicker="Project"
-        changeLabel="Change project"
-        onChange={(pointerActivated) => onNavigate(1, pointerActivated)}
-      >
-        {project ? <ProjectValue project={project} /> : NONE_VALUE}
-      </ReviewRow>
-      <ReviewRow
-        step={backendFixed ? 3 : 2}
+        step={2}
         kicker="Frontend"
         changeLabel="Change frontend"
         onChange={(pointerActivated) => onNavigate(2, pointerActivated)}
@@ -270,7 +273,7 @@ export function WizardReview({
         </ReviewRow>
       )}
       <ReviewRow
-        step={4}
+        step={backendFixed ? 3 : 4}
         kicker="Features"
         changeLabel="Change features"
         onChange={(pointerActivated) => onNavigate(4, pointerActivated)}

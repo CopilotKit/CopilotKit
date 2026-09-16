@@ -1,7 +1,6 @@
 "use client";
 
-import { ArrowRight, ChevronDown } from "lucide-react";
-import Image from "next/image";
+import { ArrowRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { usePostHog } from "posthog-js/react";
 import { customIcons } from "@/components/icons";
@@ -11,13 +10,11 @@ import {
   HeroStartActions,
   QuickstartLinkButton,
 } from "@/components/hero-start-commands";
-import { DocsVideoCarousel } from "@/components/docs-video-carousel";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
 import type { FrameworkOverviewData } from "@/data/frameworks/types";
 import type { FrontendId } from "@/lib/frontend-options";
 import type { PartnerShowcaseDemo } from "@/lib/partner-showcase-demos";
 import { PartnerFeatureExplorer } from "./partner-feature-explorer";
-import { FrameworkVideos } from "./framework-videos";
 
 export interface FrameworkOverviewProps {
   data: FrameworkOverviewData;
@@ -63,7 +60,7 @@ export function FrameworkOverview({
   showcaseDemos = [],
   setupContent,
 }: FrameworkOverviewProps) {
-  const { frameworkName, supportedFeatures, cta } = data;
+  const { frameworkName, cta } = data;
   const link = (href: string) =>
     frameworkLandingHref(
       href,
@@ -73,12 +70,6 @@ export function FrameworkOverview({
     );
   const Icon = customIcons[data.iconKey as IconKey];
   const posthog = usePostHog();
-  const recordings = [
-    ...(data.bannerVideo ? [{ title: "Overview", url: data.bannerVideo }] : []),
-    ...supportedFeatures.flatMap((feature) =>
-      feature.videoUrl ? [{ title: feature.title, url: feature.videoUrl }] : [],
-    ),
-  ];
   const defaultCta = cta ? (
     <OpsPlatformCTA
       variant={cta.variant === "banner" ? "inline" : "card"}
@@ -165,59 +156,13 @@ export function FrameworkOverview({
         <h2 id="partner-setup-heading">Start building</h2>
         <p className="partner-section-intro">
           Connect an existing agent or build a new one. Get a tailored setup
-          prompt, or start with the CLI.
+          prompt.
         </p>
         {setupContent && <div className="partner-wizard">{setupContent}</div>}
-        {data.initCommand.trim() !== "npx copilotkit@latest init" && (
-          <details className="partner-details">
-            <summary>
-              Set up from your terminal{" "}
-              <ChevronDown size={16} aria-hidden="true" />
-            </summary>
-            <pre>
-              <code>{data.initCommand}</code>
-            </pre>
-          </details>
-        )}
       </section>
-
-      <details className="partner-details partner-section">
-        <summary>
-          Watch product walkthroughs{" "}
-          <ChevronDown size={16} aria-hidden="true" />
-        </summary>
-        <DocsVideoCarousel />
-        {recordings.length > 0 && <FrameworkVideos videos={recordings} />}
-      </details>
 
       {extraContent && (
         <section className="partner-section">{extraContent}</section>
-      )}
-      {(data.architectureImage || data.architectureVideo) && (
-        <details className="partner-details partner-section">
-          <summary>
-            How CopilotKit connects to {frameworkName}{" "}
-            <ChevronDown size={16} aria-hidden="true" />
-          </summary>
-          {data.architectureImage && (
-            <Image
-              src={data.architectureImage}
-              alt={`CopilotKit and ${frameworkName} architecture`}
-              width={1200}
-              height={675}
-              className="partner-architecture"
-            />
-          )}
-          {data.architectureVideo && (
-            <video
-              src={data.architectureVideo}
-              controls
-              playsInline
-              preload="metadata"
-              className="partner-architecture"
-            />
-          )}
-        </details>
       )}
       <footer className="partner-footer">
         <a
