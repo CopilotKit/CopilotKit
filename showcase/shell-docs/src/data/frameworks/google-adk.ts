@@ -62,6 +62,7 @@ const data: FrameworkOverviewData = {
       iframeUrl: "https://examples-coagents-research-canvas-ui.vercel.app/",
     },
   ],
+  hasAfterFeaturesMdx: true,
 };
 
 export default data;

@@ -312,11 +312,11 @@ Before you begin, you'll need the following:
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
                 } from "@copilotkit/runtime/v2";
-                import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
+                import { HttpAgent } from "@ag-ui/client";
 
                 const runtime = new CopilotRuntime({
                     agents: {
-                        sample_agent: new LangGraphHttpAgent({
+                        sample_agent: new HttpAgent({
                             url: process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
                         }),
                     },

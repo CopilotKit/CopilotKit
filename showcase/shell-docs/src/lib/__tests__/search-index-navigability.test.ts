@@ -142,8 +142,11 @@ describe("generated docs search index", () => {
     );
 
     expect(integrationEntries.length).toBeGreaterThan(0);
+    // An `authored` integration, so the page is served from its own tree.
+    // The langgraph equivalent this used to assert on was deleted as a
+    // never-served duplicate of the root /threads page.
     expect(integrationEntries.map((entry) => entry.href)).toContain(
-      "/docs/integrations/langgraph/threads",
+      "/docs/integrations/mastra/threads",
     );
   });
 
