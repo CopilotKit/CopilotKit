@@ -67,7 +67,7 @@ export function MobileTopNav() {
           <a
             href={TALK_TO_ENGINEER_HREF}
             aria-label="Book a meeting"
-            title="Book a meeting"
+            data-tooltip="Book a meeting"
             onClick={() =>
               posthog?.capture("talk_to_us_clicked", {
                 location: "docs_mobile_nav",
@@ -80,7 +80,7 @@ export function MobileTopNav() {
           <SidebarTrigger
             className="shell-docs-mobile-menu shell-docs-radius-control flex h-10 w-10 items-center justify-center text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
             aria-label="Toggle navigation"
-            title="Toggle navigation"
+            data-tooltip="Toggle navigation"
           >
             <Menu className="w-5 h-5" />
           </SidebarTrigger>
@@ -93,7 +93,7 @@ export function MobileTopNav() {
                 onClick={handleFreeDeveloperAccessClick}
                 className="shell-docs-radius-control hidden h-10 w-10 shrink-0 cursor-pointer items-center justify-center border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-muted)] shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)] md:flex"
                 aria-label="Get CopilotKit Intelligence free"
-                title="Get CopilotKit Intelligence free"
+                data-tooltip="Get CopilotKit Intelligence free"
               >
                 <CopilotKitMark className="h-5 w-5" />
               </Link>

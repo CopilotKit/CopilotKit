@@ -2512,3 +2512,35 @@ samp {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
+
+/* Render compact navigation labels in-page; native title tooltips are not
+ * consistently displayed by embedded browsers. Keep labels inside the viewport. */
+[data-tooltip] {
+  position: relative;
+}
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 100;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--text);
+  box-shadow: var(--shadow-control);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+[data-tooltip]:hover::after,
+[data-tooltip]:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+}

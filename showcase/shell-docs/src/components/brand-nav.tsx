@@ -148,7 +148,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
             onClick={handleTalkToEngineersClick}
             className="shell-docs-nav-cta shell-docs-radius-control hidden h-10 w-10 cursor-pointer items-center justify-center border shadow-[var(--shadow-control)] transition-colors duration-200 xl:flex [@media(width>=1500px)]:hidden"
             aria-label="Talk to an engineer"
-            title="Talk to an engineer"
+            data-tooltip="Talk to an engineer"
           >
             <CalendarDays className="h-4 w-4" />
           </button>
