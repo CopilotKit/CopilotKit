@@ -23,7 +23,7 @@ The package requires the .NET 8 SDK and an ASP.NET Core host.
 2. From your application directory, install the package from that local feed:
 
    ```sh
-   dotnet add package CopilotKit.Intelligence.Runtime --version 0.1.0-preview.1 --source /absolute/path/to/CopilotKit/packages/runtime-dotnet/src/bin/packages
+   dotnet add package CopilotKit.Intelligence.Runtime --version 0.1.0-rc.1 --source /absolute/path/to/CopilotKit/packages/runtime-dotnet/src/bin/packages
    ```
 
 The local feed path must point to your checkout.
