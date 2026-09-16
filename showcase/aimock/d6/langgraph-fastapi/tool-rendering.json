@@ -298,11 +298,12 @@
       }
     },
     {
-      "_comment": "Final fallback when the agent has neither get_weather nor get-weather registered — return narrated content with no tool call. Comes last so the tool-emitting fixtures above win when the tool IS available.",
+      "_comment": "Content-only fallback for a fresh weather request. Exclude the current tool-result turn so native weather narration can match its result-specific fixture.",
       "match": {
         "userMessage": "weather in Tokyo",
         "turnIndex": 0,
-        "context": "langgraph-fastapi"
+        "context": "langgraph-fastapi",
+        "hasToolResult": false
       },
       "response": {
         "content": "The weather in Tokyo is currently 22°C with partly cloudy skies and light easterly winds."

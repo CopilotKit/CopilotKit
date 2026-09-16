@@ -933,6 +933,17 @@
       }
     },
     {
+      "_comment": "Shared-state greeting for the preferences agent, which advertises set_notes. Keep the generic sidebar greeting below for agents without that capability.",
+      "match": {
+        "userMessage": "Say hi and introduce yourself",
+        "context": "langgraph-fastapi",
+        "toolName": "set_notes"
+      },
+      "response": {
+        "content": "Hi — I'm your shared-state co-pilot. Your Preferences panel (name, tone, language, interests) is fed to me on every turn, and I jot notes back into the Agent Scratch Pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something."
+      }
+    },
+    {
       "_comment": "Pilot cell suggestion — 'Say hi!' (prebuilt-sidebar). Anchored on 'Say hi' so it matches the sidebar greeting without colliding with the longer popup variant above.",
       "match": {
         "userMessage": "Say hi",
