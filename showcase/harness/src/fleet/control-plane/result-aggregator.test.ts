@@ -254,8 +254,11 @@ function makeFakeRunWriter(): {
     async findByJobId(jobId) {
       if (!jobId) return null;
       // Newest-first, mirroring the real -started_at sort.
-      const match = [...rows].toReversed().find((r) => r.jobId === jobId);
-      return match ? { id: match.id, terminal: match.terminal } : null;
+      for (let index = rows.length - 1; index >= 0; index--) {
+        const row = rows[index];
+        if (row.jobId === jobId) return { id: row.id, terminal: row.terminal };
+      }
+      return null;
     },
     async update(opts) {
       calls.update.push(opts);
