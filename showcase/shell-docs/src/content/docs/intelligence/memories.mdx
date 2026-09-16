@@ -29,12 +29,6 @@ Memories are stored as text plus a vector embedding, so recall is semantic
 rather than a keyword match. Asking for "how does this user like updates" can
 surface "prefers concise status updates" without sharing a word with it.
 
-## Start with your coding agent
-
-Copy this prompt into your coding agent to inspect your existing CopilotKit app and configure long-term memory for your users. Prefer to work through the setup yourself? Follow the manual steps below.
-
-<MemorySetupPrompt />
-
 ## Key concepts
 
 ### The three kinds
@@ -91,6 +85,12 @@ any `sourceThreadIds` you want to keep.
 Removing a memory retires it rather than erasing it. Retired memories are
 excluded from recall and from the default list, and can be surfaced again by
 asking for invalidated rows explicitly.
+
+## Start with your coding agent
+
+Copy this prompt into your coding agent to inspect your existing CopilotKit app and configure long-term memory for your users. Prefer to work through the setup yourself? Follow the manual steps below.
+
+<MemorySetupPrompt />
 
 ## Set up Memory manually
 
