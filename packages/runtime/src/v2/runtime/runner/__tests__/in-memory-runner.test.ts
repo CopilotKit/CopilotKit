@@ -17,8 +17,13 @@ import type {
   TextMessageStartEvent,
   ToolCallResultEvent,
 } from "@ag-ui/client";
-import { AbstractAgent, EventType, verifyEvents } from "@ag-ui/client";
-import { EMPTY, Observable, firstValueFrom } from "rxjs";
+import {
+  AbstractAgent,
+  EventType,
+  HttpAgent,
+  verifyEvents,
+} from "@ag-ui/client";
+import { EMPTY, Observable, firstValueFrom, from } from "rxjs";
 import { toArray } from "rxjs/operators";
 
 const stripTerminalEvents = (events: BaseEvent[]) =>
@@ -347,6 +352,89 @@ describe("InMemoryAgentRunner", () => {
       expect(nonTerminalEvents).toHaveLength(2);
       const [, toolResult] = nonTerminalEvents;
       expect(toolResult.type).toBe(EventType.TOOL_CALL_RESULT);
+    });
+  });
+
+  describe("Agent fallback on connect", () => {
+    it("gracefully falls back to an HttpAgent when no store exists", async () => {
+      const threadId = "unknown-thread-serverless";
+      const agent = new HttpAgent({
+        url: "https://upstream.example.com/agent",
+        threadId,
+      });
+
+      const events = await firstValueFrom(
+        runner.connect({ threadId, agent }).pipe(toArray()),
+      );
+
+      expect(events).toEqual([]);
+    });
+
+    it("prefers in-memory store over agent fallback when store exists", async () => {
+      const threadId = "in-memory-preferred";
+
+      // Run locally to populate the in-memory store
+      await firstValueFrom(
+        runner
+          .run({
+            threadId,
+            agent: new TestAgent([
+              {
+                type: EventType.TEXT_MESSAGE_START,
+                messageId: "local-msg",
+                role: "assistant",
+              } as TextMessageStartEvent,
+              {
+                type: EventType.TEXT_MESSAGE_CONTENT,
+                messageId: "local-msg",
+                delta: "Local reply",
+              } as TextMessageContentEvent,
+              {
+                type: EventType.TEXT_MESSAGE_END,
+                messageId: "local-msg",
+              } as TextMessageEndEvent,
+            ]),
+            input: {
+              threadId,
+              runId: "run-1",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
+          })
+          .pipe(toArray()),
+      );
+
+      // Create an upstream agent that should not be used when memory exists
+      const upstreamAgent = new HttpAgent({
+        url: "https://upstream.example.com/agent",
+        threadId,
+      });
+
+      // connect with the agent - should use in-memory store, NOT the agent
+      const events = await firstValueFrom(
+        runner.connect({ threadId, agent: upstreamAgent }).pipe(toArray()),
+      );
+
+      const nonTerminalEvents = stripTerminalEvents(events);
+      // Should contain the local events, not the upstream ones
+      expect(nonTerminalEvents[0].type).toBe(EventType.RUN_STARTED);
+      expect(
+        nonTerminalEvents.some(
+          (e) =>
+            e.type === EventType.TEXT_MESSAGE_CONTENT &&
+            (e as TextMessageContentEvent).delta === "Local reply",
+        ),
+      ).toBe(true);
+    });
+
+    it("returns empty when no store and no agent provided", async () => {
+      const events = await firstValueFrom(
+        runner.connect({ threadId: "completely-unknown" }).pipe(toArray()),
+      );
+
+      expect(events).toHaveLength(0);
     });
   });
 
