@@ -157,11 +157,14 @@ describe("Channels activation impressions", () => {
       throw new Error("posthog unavailable");
     });
 
+    HTMLDialogElement.prototype.showModal = function () {
+      this.open = true;
+    };
     render(<ChannelsStartPrompt />);
     fireEvent.click(screen.getByRole("button", { name: /Copy prompt/i }));
 
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
-    expect(await screen.findByText("Copied")).toBeTruthy();
+    expect(await screen.findByText("Prompt copied")).toBeTruthy();
     expect(screen.queryByText("Copy blocked")).toBeNull();
   });
 
@@ -171,10 +174,15 @@ describe("Channels activation impressions", () => {
       value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
     });
 
+    HTMLDialogElement.prototype.showModal = function () {
+      this.open = true;
+    };
     render(<ChannelsStartPrompt />);
     fireEvent.click(screen.getByRole("button", { name: /Copy prompt/i }));
 
-    expect(await screen.findByText("Copy blocked")).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getByRole("status").textContent).toContain("Copy blocked"),
+    );
     expect(
       analytics.capture.mock.calls.filter(
         ([event]) => event === CHANNELS_ACTIVATION_EVENTS.promptCopied,
@@ -191,3 +199,11 @@ describe("Channels activation impressions", () => {
     expect(analytics.capture).not.toHaveBeenCalled();
   });
 });
+
+vi.mock("fumadocs-core/framework", () => ({
+  usePathname: () => "/quickstart",
+}));
+
+vi.mock("@/lib/runtime-config.client", () => ({
+  getRuntimeConfig: () => ({ baseUrl: "https://docs.copilotkit.ai" }),
+}));
