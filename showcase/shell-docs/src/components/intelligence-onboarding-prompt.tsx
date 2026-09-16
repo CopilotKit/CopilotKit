@@ -16,7 +16,6 @@ export type IntelligenceOnboardingFeature = "learning" | "threads";
 export interface IntelligenceOnboardingPromptProps {
   feature: IntelligenceOnboardingFeature;
   surface: string;
-  showPrompt?: boolean;
 }
 
 const FEATURE_COPY = {
@@ -51,7 +50,6 @@ const FEATURE_COPY = {
 export function IntelligenceOnboardingPrompt({
   feature,
   surface,
-  showPrompt = true,
 }: IntelligenceOnboardingPromptProps): React.JSX.Element {
   const content = FEATURE_COPY[feature];
   const pathname = usePathname();
@@ -94,24 +92,22 @@ export function IntelligenceOnboardingPrompt({
           </h2>
         </div>
 
-        {showPrompt && (
-          <DocsPromptActions
-            surface={surface}
-            createPrompt={() => {
-              const runId = createOnboardingRunId();
-              return {
-                text: createIntelligenceOnboardingPrompt(runId),
-                onCopied: () =>
-                  capture(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied, {
-                    feature,
-                    from_path: pathname,
-                    onboarding_run_id: runId,
-                    surface,
-                  }),
-              };
-            }}
-          />
-        )}
+        <DocsPromptActions
+          surface={surface}
+          createPrompt={() => {
+            const runId = createOnboardingRunId();
+            return {
+              text: createIntelligenceOnboardingPrompt(runId),
+              onCopied: () =>
+                capture(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied, {
+                  feature,
+                  from_path: pathname,
+                  onboarding_run_id: runId,
+                  surface,
+                }),
+            };
+          }}
+        />
       </div>
 
       {feature === "learning" ? (

@@ -82,3 +82,8 @@ vi.mock("fumadocs-core/framework", () => ({
 vi.mock("@/lib/runtime-config.client", () => ({
   getRuntimeConfig: () => ({ baseUrl: "https://docs.copilotkit.ai" }),
 }));
+
+test("keeps credential protection without the diagnostic feedback restriction", () => {
+  expect(RICH_THREADS_SETUP_PROMPT).toContain("Never reveal credentials.");
+  expect(RICH_THREADS_SETUP_PROMPT).not.toContain("diagnostic");
+});

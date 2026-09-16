@@ -79,7 +79,6 @@ export function createFeatureSetupPrompt(
     "the instructions:\n\nnpx --yes copilotkit@latest onboard start " +
     `--intent ${intent}` +
     "\n\nIf it requires a CopilotKit CLI session check, you have permission " +
-    "to run it. Never reveal credentials or send optional diagnostic " +
-    "feedback reports."
+    "to run it. Never reveal credentials."
   );
 }
