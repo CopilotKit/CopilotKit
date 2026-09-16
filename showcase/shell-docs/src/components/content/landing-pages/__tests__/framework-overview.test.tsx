@@ -9,9 +9,9 @@ import type { FrameworkOverviewData } from "@/data/frameworks/types";
 
 const overviewData: FrameworkOverviewData = {
   slug: "langgraph-python",
-  frameworkName: "LangChain",
+  frameworkName: "LangGraph",
   iconKey: "langgraph",
-  header: "Bring your LangChain agents to your users",
+  header: "Bring your LangGraph agents to your users",
   subheader: "Build rich, interactive, agent-powered applications.",
   guideLink: "/langgraph-python/quickstart",
   initCommand: "npx copilotkit@latest init",
@@ -120,29 +120,41 @@ describe("FrameworkOverview", () => {
     expect(markup).toContain("shell-docs-cta-link");
   });
 
-  it("renders the framework identity icon in accent purple", () => {
+  it("adapts the main landing positioning to the selected partner", () => {
     const markup = renderToStaticMarkup(
       <FrameworkOverview
         data={overviewData}
         currentFramework="langgraph-python"
       />,
     );
-
-    expect(markup).toContain(
-      "shell-docs-radius-icon flex h-10 w-10 items-center justify-center border border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]",
-    );
+    expect(markup).toContain("Bring your LangGraph agents");
+    expect(markup).toContain("into any app");
+    expect(markup).toContain("open-source framework");
+    expect(markup).toContain("Add chat, interactive UI, and human approvals.");
+    expect(markup).toContain("Start building");
+    expect(markup).toContain('aria-label="Product walkthroughs"');
   });
 
-  it("does not add top padding before the framework hero", () => {
+  it("keeps the selected partner’s showcase destinations and tutorial", () => {
     const markup = renderToStaticMarkup(
       <FrameworkOverview
         data={overviewData}
-        currentFramework="langgraph-python"
+        currentFramework="langgraph-typescript"
+        showcaseDemos={[
+          {
+            id: "agentic-chat",
+            title: "Chat",
+            description: "Try chat",
+            href: "https://showcase.copilotkit.ai/react/langgraph-typescript/agentic-chat",
+          },
+        ]}
       />,
     );
-
-    expect(markup).toContain('class="pb-8 sm:pb-12"');
-    expect(markup).not.toContain("pt-2 sm:pt-4");
+    expect(markup).toContain(
+      'href="https://showcase.copilotkit.ai/react/langgraph-typescript/agentic-chat"',
+    );
+    expect(markup).toContain('href="/langgraph-typescript/quickstart"');
+    expect(markup).not.toContain("examples-coagents");
   });
 
   it("renders framework feature copy for the selected Angular frontend", () => {

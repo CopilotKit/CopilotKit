@@ -1,4 +1,9 @@
 import type { ReactNode } from "react";
+import type { FrontendId } from "@/lib/frontend-options";
+import { buildAngularBackendOverview } from "@/lib/angular-backend-overview";
+import { partnerShowcaseDemos } from "@/lib/partner-showcase-demos";
+import { DocsSetupWizard } from "@/components/docs-setup-wizard";
+import type { OpsPlatformCTAData } from "@/data/frameworks/types";
 
 import { FrameworkOverview } from "./framework-overview";
 import type {
@@ -70,6 +75,9 @@ export interface MdxFrameworkOverviewProps {
    */
   currentFramework?: string;
   hrefPrefix?: string;
+  frontendOverride?: FrontendId;
+  afterFeatures?: ReactNode;
+  cta?: OpsPlatformCTAData;
 }
 
 export function MdxFrameworkOverview(props: MdxFrameworkOverviewProps) {
@@ -100,13 +108,31 @@ export function MdxFrameworkOverview(props: MdxFrameworkOverviewProps) {
     architectureVideo: props.architectureVideo,
     liveDemos: props.liveDemos ?? [],
     tutorialLink: props.tutorialLink,
+    cta: props.cta,
   };
   return (
     <FrameworkOverview
-      data={synthData}
+      data={
+        props.frontendOverride === "angular"
+          ? buildAngularBackendOverview(synthData, currentFramework)
+          : synthData
+      }
       currentFramework={currentFramework}
       hrefPrefix={props.hrefPrefix}
       iconOverride={props.frameworkIcon}
+      frontendOverride={props.frontendOverride}
+      showcaseDemos={partnerShowcaseDemos(
+        currentFramework,
+        props.frontendOverride,
+      )}
+      setupContent={
+        <DocsSetupWizard
+          key={`${props.frontendOverride ?? "react"}/${currentFramework}`}
+          backend={currentFramework}
+          frontend={props.frontendOverride ?? "react"}
+        />
+      }
+      afterFeatures={props.afterFeatures}
     />
   );
 }

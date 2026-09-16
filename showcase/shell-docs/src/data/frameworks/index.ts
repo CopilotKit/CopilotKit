@@ -33,6 +33,7 @@ export const frameworkOverviews: Record<string, FrameworkOverviewData> = {
   "google-adk": { ...googleAdk, hasAfterFeaturesMdx: true },
   "langgraph-python": {
     ...langgraphPython,
+    frameworkName: "LangGraph",
     hasAfterFeaturesMdx: true,
     preserveCtaWithAfterFeatures: true,
   },
@@ -41,8 +42,8 @@ export const frameworkOverviews: Record<string, FrameworkOverviewData> = {
   // page). They share the langgraph/ content folder downstream too. Links
   // in the record currently route through /langgraph/... → langgraph-python
   // via SLUG_RENAMES; framework-aware link rewriting is a follow-up.
-  "langgraph-typescript": langgraphPython,
-  "langgraph-fastapi": langgraphPython,
+  "langgraph-typescript": { ...langgraphPython, frameworkName: "LangGraph" },
+  "langgraph-fastapi": { ...langgraphPython, frameworkName: "LangGraph" },
   llamaindex,
   mastra,
   "ms-agent-dotnet": msAgentDotnet,

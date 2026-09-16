@@ -85,6 +85,8 @@ export interface SetupWizardProps {
   frontends: readonly MapPick[];
   capabilities: readonly MapCapability[];
   backends: readonly MapPick[];
+  defaultBackend?: string;
+  defaultFrontend?: string;
 }
 
 type CopyState = "idle" | "copied" | "error";
@@ -195,6 +197,8 @@ export function SetupWizard({
   frontends,
   capabilities,
   backends,
+  defaultBackend,
+  defaultFrontend,
 }: SetupWizardProps): React.JSX.Element {
   const posthog = usePostHog();
   const track = useHomepageTelemetry();
@@ -300,7 +304,16 @@ export function SetupWizard({
   // (see that module) falls back to a passive effect during server
   // rendering, where `useLayoutEffect` would otherwise warn.
   useIsomorphicLayoutEffect(() => {
-    const restored = parseWizardUrlState(window.location.search, allowlists);
+    const restored = {
+      ...parseWizardUrlState(window.location.search, allowlists),
+    };
+    // A partner page supplies context; explicit saved answers still win.
+    restored.backend ??= allowlists.backends.includes(defaultBackend ?? "")
+      ? defaultBackend
+      : undefined;
+    restored.frontend ??= allowlists.frontends.includes(defaultFrontend ?? "")
+      ? defaultFrontend
+      : undefined;
     const landing = landingStep(restored);
 
     setProjectAnswer(restored.project ?? null);

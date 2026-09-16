@@ -17,9 +17,14 @@ import {
   COPILOTKIT_CAPABILITIES,
 } from "@/lib/homepage-map";
 
-export function DocsSetupWizard(): React.JSX.Element {
+export function DocsSetupWizard({
+  backend,
+  frontend,
+}: { backend?: string; frontend?: string } = {}): React.JSX.Element {
   return (
     <SetupWizard
+      defaultBackend={backend}
+      defaultFrontend={frontend}
       frontends={frontendPicks()}
       capabilities={COPILOTKIT_CAPABILITIES}
       backends={agentPicks()}

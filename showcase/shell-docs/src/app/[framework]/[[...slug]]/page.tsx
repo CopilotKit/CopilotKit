@@ -15,6 +15,8 @@
 // correctly even though Next.js routes them here before [[...slug]].
 
 import React from "react";
+import { DocsSetupWizard } from "@/components/docs-setup-wizard";
+import { partnerShowcaseDemos } from "@/lib/partner-showcase-demos";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
@@ -1221,6 +1223,7 @@ async function FrameworkRootPage({
                   {...props}
                   currentFramework={framework ?? props.currentFramework}
                   hrefPrefix={slugHrefPrefix}
+                  frontendOverride={frontendOverride}
                 />
               ),
               // Mirror the binding in DocsPageView so any
@@ -1293,6 +1296,14 @@ async function FrameworkRootPage({
           hrefPrefix={slugHrefPrefix}
           frontendOverride={frontendOverride}
           afterFeatures={afterFeatures}
+          showcaseDemos={partnerShowcaseDemos(framework, frontendOverride)}
+          setupContent={
+            <DocsSetupWizard
+              key={`${frontendOverride ?? "react"}/${framework}`}
+              backend={framework}
+              frontend={frontendOverride ?? "react"}
+            />
+          }
         />
       </FrameworkRootShell>
     );

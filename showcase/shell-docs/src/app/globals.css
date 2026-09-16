@@ -2125,3 +2125,291 @@ samp {
  * fires on any <a> that bleeds into a code block (e.g. a link inside
  * a callout that sits above the code), which is fine. We don't touch
  * that here; this is just the documented expectation. */
+
+/* Partner landing pages reuse the home onboarding surface. Scoped rules keep
+   authored MDX prose from changing its hierarchy or interactive controls. */
+.partner-landing {
+  padding-bottom: 3rem;
+  color: var(--text);
+}
+.partner-landing > .partner-hero > h1 {
+  margin: 0;
+  max-width: 22ch;
+  font-size: clamp(2.3rem, 4vw, 3.75rem);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+  font-weight: 600;
+  text-wrap: balance;
+}
+.partner-hero h1 > span {
+  color: var(--accent);
+}
+.partner-hero {
+  padding: 0.5rem 0 2.5rem;
+}
+.partner-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1.25rem;
+  color: var(--accent);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.partner-logo {
+  display: flex;
+}
+.partner-logo svg {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+.partner-landing .partner-summary {
+  margin: 1.5rem 0 1.75rem;
+  max-width: 54ch;
+  font-size: 1.125rem;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+.partner-section {
+  margin-top: 3.5rem;
+}
+.partner-landing .partner-section > h2 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.035em;
+}
+.partner-landing .partner-section-intro {
+  margin: 0.75rem 0 1.75rem;
+  max-width: 65ch;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.partner-demo-grid,
+.partner-guide-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-auto-rows: 1fr;
+}
+.partner-demo-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.partner-guide-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.partner-landing .partner-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-surface);
+  color: var(--text);
+  text-decoration: none;
+  transition:
+    border-color 150ms,
+    background 150ms;
+}
+.partner-landing .partner-card:hover {
+  border-color: var(--accent);
+  background: var(--bg-elevated);
+  color: var(--text);
+}
+.partner-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.partner-card-heading > svg {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+  color: var(--accent);
+}
+.partner-landing .partner-card h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.partner-landing .partner-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.partner-card-action {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: auto;
+  padding-top: 0.4rem;
+  color: var(--accent);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.partner-landing .partner-tutorial {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem 0;
+  margin-top: 1rem;
+  color: var(--text);
+  text-decoration: none;
+}
+.partner-tutorial > svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+.partner-tutorial > svg:last-child {
+  margin-left: auto;
+}
+.partner-tutorial span span {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+.partner-details {
+  border-top: 1px solid var(--border);
+  margin-top: 1.5rem;
+}
+.partner-details summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 0;
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.875rem;
+}
+.partner-details summary::-webkit-details-marker {
+  display: none;
+}
+.partner-details[open] > summary > svg {
+  transform: rotate(180deg);
+}
+.partner-details pre {
+  overflow-x: auto;
+}
+.partner-architecture {
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
+}
+.partner-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+.partner-landing .partner-footer a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+.partner-landing .partner-footer a:first-child {
+  color: var(--text-muted);
+}
+.partner-landing
+  :is(
+    .partner-card,
+    .partner-tutorial,
+    .partner-footer a,
+    summary
+  ):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+.partner-video-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0.75rem;
+}
+.partner-video-options button {
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+.partner-video-options button[aria-pressed="true"] {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+.partner-video-frame {
+  position: relative;
+}
+.partner-video-frame video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16/9;
+  border-radius: 12px;
+}
+.partner-video-status {
+  position: absolute;
+  inset: 1px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border-radius: 12px;
+}
+.partner-video-status a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.partner-landing .partner-video-caption {
+  margin: 0.75rem 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+@media (max-width: 639px) {
+  .partner-hero {
+    padding-bottom: 2rem;
+  }
+  .partner-landing .partner-summary {
+    font-size: 1rem;
+  }
+  .partner-section {
+    margin-top: 3rem;
+  }
+  .partner-landing .partner-section > h2 {
+    font-size: 1.75rem;
+  }
+  .partner-demo-grid,
+  .partner-guide-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .partner-card {
+    transition: none;
+  }
+}
+
+/* MDX's unlayered prose rules must not override the shared home wizard. */
+.reference-content .partner-wizard :is(h2, h3, h4, p, ol, ul, li) {
+  font-size: revert-layer;
+  font-weight: revert-layer;
+  color: revert-layer;
+  margin: revert-layer;
+  padding: revert-layer;
+  line-height: revert-layer;
+  letter-spacing: revert-layer;
+  list-style: revert-layer;
+}
