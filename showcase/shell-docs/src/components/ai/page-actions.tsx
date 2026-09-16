@@ -262,10 +262,11 @@ export function OnboardingPromptCopyButton({
           ? onboardingFrontendSlug(frontend.id)
           : undefined;
         /**
-         * Channel pages take the Channels intent route instead of the generic
-         * one. Their frontend id is deliberately unknown to the graph, so the
-         * generic prompt reached them naming no channel at all and started
-         * every run by asking what the page had already answered.
+         * Channel pages copy the same small prompt as the website CTA. They
+         * do not add a Channel sentence. Slack and Teams are not graph
+         * frontend slugs, so the framework and frontend sentences stay off.
+         * The source sentence stays: the graph uses a Slack or Teams docs
+         * page as the named frontend.
          */
         const channel =
           frontend && isChannelOnboardingId(frontend.id)
@@ -278,15 +279,9 @@ export function OnboardingPromptCopyButton({
             : "");
         return {
           /**
-           * The channel route carries no selection sentences, and that is the
-           * route's design rather than an omission here.
-           * `feature/channels/start` asks Slack or Teams as its own scripted
-           * question, and it inspects the project for existing agent code
-           * instead of being told a framework — it treats empty folders,
-           * agent-only folders and existing CopilotKit apps as equally valid
-           * starts. On a channel page the framework is the route default, not
-           * a reader's choice, so asserting it would be the one sentence here
-           * that is not true.
+           * Channel pages copy the generic command plus the source sentence.
+           * They do not name Slack or Teams in extra copy. The source URL is
+           * how the graph sees which docs page the reader copied from.
            *
            * The source sentence stays on both branches: it reports where the
            * copy happened rather than claiming anything about the project, and

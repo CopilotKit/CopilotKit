@@ -4,22 +4,16 @@ import {
 } from "./intelligence-onboarding-prompt";
 
 /**
- * The Channels route into the CLI's onboarding graph.
+ * The prompt a Channel docs page copies.
  *
- * Channel pages already carried the generic `onboard start` prompt, and it
- * could not succeed. `onboardingFrontendSlug` maps `slack` and `teams` to
- * nothing on purpose — the graph had no node for either, and a prompt naming a
- * channel the CLI cannot reach promises a path it cannot walk. So the copied
- * text never said which channel the reader was on, and every run began by
- * asking what the page had already answered.
+ * Same small `onboard start` command as the website CTA and the repo README.
+ * No `--intent` and no extra Channel sentence. The root graph offers Slack
+ * and Microsoft Teams when the project has no frontend, and it uses a Slack
+ * or Teams docs page as the named frontend.
  *
- * `feature/channels/start` gives the graph that node. This module owns the one
- * string that reaches it, so the page-tools pill and the Channels overview card
- * copy the same text and cannot drift apart.
- *
- * The run id is minted per click by the callers, never here: one clipboard
- * write is one onboarding attempt, and a value hoisted to module scope would
- * collapse every reader's attempt into a single funnel row.
+ * This module owns that string so the page-tools pill and the Channels
+ * overview card cannot drift apart. The run id is minted per click by the
+ * callers, never here.
  */
 
 /**
@@ -35,7 +29,7 @@ export const CHANNEL_ONBOARDING_IDS = ["slack", "teams"] as const;
 
 export type ChannelOnboardingId = (typeof CHANNEL_ONBOARDING_IDS)[number];
 
-/** Whether a docs frontend id is served by the Channels intent route. */
+/** Whether a docs frontend id is a Slack or Teams Channel page. */
 export function isChannelOnboardingId(
   id: string | undefined,
 ): id is ChannelOnboardingId {

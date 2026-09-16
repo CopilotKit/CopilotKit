@@ -25,7 +25,7 @@ describe("channels onboarding prompt", () => {
     expect(prompt).not.toMatch(/framework|built-in|mastra|langgraph/i);
   });
 
-  it("recognises only the channels the intent route serves", () => {
+  it("recognises only Slack and Teams Channel pages", () => {
     for (const id of CHANNEL_ONBOARDING_IDS) {
       expect(isChannelOnboardingId(id)).toBe(true);
     }

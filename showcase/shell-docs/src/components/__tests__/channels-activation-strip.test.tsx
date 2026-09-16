@@ -104,10 +104,9 @@ describe("ChannelsActivationStrip", () => {
 
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
     const prompt = writeText.mock.calls[0][0] as string;
-    // The copied text takes the Channels intent route and names nothing else:
-    // `feature/channels/start` asks which channel itself. `guide_url` stays on
-    // the telemetry below so the picker's destination is still measurable even
-    // though the copied text no longer carries the selection.
+    // Same small prompt as the website CTA. No Channel sentence. `guide_url`
+    // stays on the telemetry below so the picker's destination is still
+    // measurable even though the copied text does not name Slack or Teams.
     expect(prompt).not.toContain("--intent");
     expect(prompt).not.toMatch(/slack|teams/i);
     // Minted per click, so one copy is one attempt rather than one shared row.

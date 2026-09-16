@@ -572,14 +572,12 @@ it("names the React frontend by its docs name and the graph's slug", async () =>
   );
 });
 
-it("takes the Channels intent route and names nothing else", async () => {
-  // Slack has no frontend node in the graph and never will: it is a channel,
-  // and the intent route serves it instead. The route asks which channel as its
-  // own scripted question, so the text answers nothing — only the command and
-  // the page sentence survive, which is why this asserts the whole string.
+it("copies the generic prompt plus the page source on a Channel page", async () => {
+  // Slack is not a graph frontend slug. The copied text is the same small
+  // command as the website CTA, plus the standard page source sentence. The
+  // graph uses that source URL to see Slack or Teams.
   const writeText = stubClipboard();
 
-  // Still nothing on the frontend axis. The channel is carried by the route.
   expect(frontendPromptSuffix(SLACK.id, SLACK.name)).toBe("");
 
   renderButton({ frontend: SLACK });
