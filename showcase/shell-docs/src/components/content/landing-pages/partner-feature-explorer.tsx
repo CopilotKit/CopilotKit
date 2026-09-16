@@ -120,6 +120,7 @@ export function PartnerFeatureExplorer({
 }) {
   const features: Feature[] = useMemo(
     () => [
+      ...demos.filter((demo) => demo.id === "agentic-chat"),
       {
         id: "threads",
         title: "Rich Threads",
@@ -135,16 +136,31 @@ export function PartnerFeatureExplorer({
         video: "2978fbfe42324e509057ac5fd46b7a70",
         guide: "/learning",
       },
-      ...[...demos].sort(
-        (a, b) =>
-          Number(b.id === "gen-ui-tool-based") -
-          Number(a.id === "gen-ui-tool-based"),
-      ),
+      ...demos
+        .filter((demo) => demo.id !== "agentic-chat")
+        .sort((a, b) => {
+          const order = [
+            "gen-ui-tool-based",
+            "hitl-in-chat",
+            "frontend-tools",
+            "shared-state-read-write",
+            "headless-complete",
+            "subagents",
+            "background-agents",
+            "declarative-gen-ui",
+          ];
+          return order.indexOf(a.id) - order.indexOf(b.id);
+        })
+        .map((demo) =>
+          demo.id === "hitl-in-chat"
+            ? { ...demo, title: "Human-in-the-loop" }
+            : demo,
+        ),
     ],
     [demos],
   );
   const [selected, setSelected] = useState(
-    demos.find((demo) => demo.id === "gen-ui-tool-based")?.id ??
+    demos.find((demo) => demo.id === "agentic-chat")?.id ??
       demos[0]?.id ??
       "threads",
   );
@@ -183,6 +199,7 @@ export function PartnerFeatureExplorer({
         opts={{
           align: "center",
           containScroll: "keepSnaps",
+          dragFree: true,
           startIndex: initialIndex,
         }}
         className="partner-feature-carousel"

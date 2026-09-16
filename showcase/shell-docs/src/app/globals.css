@@ -2363,6 +2363,8 @@ samp {
   cursor: pointer;
 }
 .partner-feature-track {
+  touch-action: pan-y pinch-zoom;
+  user-select: none;
   margin-left: 0;
   gap: 0.4rem;
 }
@@ -2468,7 +2470,7 @@ samp {
 /* Keep this utility action quiet over both live demos and recordings. */
 .partner-landing .partner-demo-guide {
   position: absolute;
-  top: 0.75rem;
+  bottom: 0.75rem;
   right: 0.75rem;
   z-index: 1;
   display: inline-flex;

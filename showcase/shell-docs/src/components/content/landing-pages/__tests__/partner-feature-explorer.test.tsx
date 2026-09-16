@@ -40,6 +40,50 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe("partner feature explorer", () => {
+  it("starts with Chat and presents the requested feature order", () => {
+    const ids = [
+      "shared-state-read-write",
+      "frontend-tools",
+      "hitl-in-chat",
+      "gen-ui-tool-based",
+      "agentic-chat",
+    ];
+    const titles = [
+      "Shared state",
+      "Frontend tools",
+      "Human approvals",
+      "Generative UI",
+      "Chat",
+    ];
+    render(
+      <PartnerFeatureExplorer
+        frameworkName="Mastra"
+        hrefPrefix="/mastra"
+        demos={ids.map((id, i) => ({
+          id,
+          title: titles[i],
+          description: "",
+          href: `https://showcase.copilotkit.ai/react/mastra/${id}`,
+          embedHref: `https://showcase-mastra-production.up.railway.app/demos/${id}`,
+        }))}
+      />,
+    );
+    expect(screen.getByTitle("Mastra: Chat live demo")).toBeTruthy();
+    expect(
+      screen
+        .getAllByRole("button")
+        .slice(1, -1)
+        .map((button) => button.textContent),
+    ).toEqual([
+      "Chat",
+      "Rich Threads",
+      "Automatic Learning",
+      "Generative UI",
+      "Human-in-the-loop",
+      "Frontend tools",
+      "Shared state",
+    ]);
+  });
   it("loads only the selected partner demo and switches to product walkthroughs", () => {
     const href =
       "https://showcase.copilotkit.ai/angular/mastra/gen-ui-tool-based";
