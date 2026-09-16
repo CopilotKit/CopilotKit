@@ -75,12 +75,18 @@ only affects TypeScript and does not load or validate an environment variable.
 
 Construct the client once and pass it to `CopilotRuntime` as `intelligence`.
 
-```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
 import {
+  BuiltInAgent,
   CopilotRuntime,
   CopilotKitIntelligence,
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime/v2";
+
+// Your own agents. This page changes how the runtime is wired, not what it serves.
+const agents = {
+  default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+};
 
 const intelligence = new CopilotKitIntelligence({
   // apiUrl and wsUrl default to the managed platform — leave them unset.
@@ -97,7 +103,9 @@ const runtime = new CopilotRuntime({
   }),
 });
 
-export const { GET, POST, PATCH, DELETE } = createCopilotRuntimeHandler({ runtime });
+const handler = createCopilotRuntimeHandler({ runtime });
+
+export { handler as GET, handler as POST, handler as PATCH, handler as DELETE };
 ```
 
 `apiKey` is the only required field on the Intelligence client. The key scopes the project,
