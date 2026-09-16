@@ -74,6 +74,7 @@ import { resolveDocsHref } from "./docs-link-rewrite";
 import { resolveBundledSetupConcept } from "./setup-content";
 import type { SetupContentBundle } from "./setup-content";
 import { RICH_THREADS_SETUP_PROMPT } from "./rich-threads-setup-prompt";
+import { MEMORY_SETUP_PROMPT } from "./memory-setup-prompt";
 import { LEARNING_SETUP_PROMPT } from "./learning-setup-prompt";
 
 interface Region {
@@ -952,6 +953,10 @@ export function renderPageToLlmText(
   );
   body = expandRichThreadsSetupPrompts(body);
   body = expandLearningSetupPrompts(body);
+  body = body.replace(
+    /<MemorySetupPrompt\s*\/>/g,
+    `### Copy this prompt into your coding agent\n\n${fenceFor("text", MEMORY_SETUP_PROMPT)}`,
+  );
 
   // Imported snippets can contain frontend-scoped branches of their own.
   // Filter after inlining so raw Markdown output follows the same frontend
