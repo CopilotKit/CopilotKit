@@ -40,6 +40,7 @@ import type { CopilotKitIntelligence } from "../intelligence-platform";
 import type { Channel } from "@copilotkit/channels-core";
 import telemetry from "../telemetry/telemetry-client";
 import type { TelemetryCapture } from "../telemetry/telemetry-client";
+
 import {
   firstNonBlankLicenseToken,
   firstNonBlankTelemetryId,
@@ -191,6 +192,17 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
    * No effect when telemetry is off: nothing is sent, so nothing carries this.
    */
   telemetryProperties?: Record<string, unknown>;
+  /**
+   * A capture scope to emit this runtime's telemetry through, instead of one
+   * built from the identity options above.
+   *
+   * @internal Set by the deprecated v1 entrypoint, which delegates every
+   * request to this runtime. Handing its own scope down is what collapses
+   * the duplicate: the v1 entrypoint no longer emits the same events itself,
+   * and the events this runtime sends still reach Segment and still report
+   * the v1 surface. There is no reason for an application to pass this.
+   */
+  ɵtelemetry?: TelemetryCapture;
   /** Enable debug logging for the event pipeline. */
   debug?: DebugConfig;
   /**
@@ -432,13 +444,15 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
       options.telemetryId,
       process.env.CPK_TELEMETRY_ID,
     );
-    this.telemetry = telemetry.createScope(
-      resolvedTelemetryId !== undefined
-        ? { telemetryId: resolvedTelemetryId }
-        : this.resolvedLicenseToken !== undefined
-          ? { licenseToken: this.resolvedLicenseToken }
-          : {},
-    );
+    this.telemetry =
+      options.ɵtelemetry ??
+      telemetry.createScope(
+        resolvedTelemetryId !== undefined
+          ? { telemetryId: resolvedTelemetryId }
+          : this.resolvedLicenseToken !== undefined
+            ? { licenseToken: this.resolvedLicenseToken }
+            : {},
+      );
 
     // Set here rather than per event, beside the license token and for the same
     // reason: it describes the caller, not the call, and every event should

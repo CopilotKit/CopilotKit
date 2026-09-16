@@ -93,8 +93,8 @@ test("Intelligence onboarding prompt appears beside the Open Inspector step", ()
   const deepAgents = read("docs/integrations/deepagents/quickstart.mdx");
 
   for (const source of [langgraph, deepAgents]) {
-    expect(source).toContain("<IntelligenceOnboardingPrompt");
-    expect(source).toContain('feature="learning"');
+    expect(source).toContain("## Start with your coding agent");
+    expect(source).toContain("<PageAgentPrompt />");
     expect(source.toLowerCase()).toContain("inspector");
     expect(source).toContain("<OpenInspectorStep");
   }
