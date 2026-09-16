@@ -682,10 +682,18 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       );
     }
 
+    const single = this.transport === "single";
+
     return new IntelligenceAgent({
       url: this.intelligence.wsUrl,
-      runtimeUrl: this.runtimeUrl,
-      transport: this.transport === "single" ? "single" : "rest",
+      // Single-route posts to the endpoint itself, so it needs the caller's URL
+      // verbatim: a trailing slash can select a different proxy location
+      // (issue #7028). REST needs the slash-stripped form, because it joins
+      // `/agent/:id/:mode` onto it.
+      runtimeUrl: single
+        ? (this.runtimeEndpointUrl ?? this.runtimeUrl)
+        : this.runtimeUrl,
+      transport: single ? "single" : "rest",
       agentId: routedId,
       headers: { ...this.headers },
       credentials: this.credentials,

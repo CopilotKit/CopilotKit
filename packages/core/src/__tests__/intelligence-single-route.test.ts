@@ -72,3 +72,53 @@ test.each(["run", "connect"] as const)(
     }
   },
 );
+
+test.each(["run", "connect"] as const)(
+  "Intelligence %s posts to the single-route mount verbatim, trailing slash included",
+  async (mode) => {
+    // A trailing slash can select a different proxy location, so the single
+    // endpoint has to survive as the caller wrote it. `runtimeUrl` on the proxy
+    // is the slash-stripped form kept for path joins; the delegate needs the
+    // verbatim one (see the `runtimeEndpointUrl` note in `agent.ts`, and #7028).
+    const runtimeUrl = "https://app.example.com/api/copilotkit/";
+    const input: RunAgentInput = {
+      threadId: "thread-1",
+      runId: "run-1",
+      messages: [{ id: "message-1", role: "user", content: "Hello" }],
+      state: {},
+      tools: [],
+      context: [],
+      forwardedProps: {},
+    };
+    const requestFetch = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          threadId: input.threadId,
+          runId: input.runId,
+          joinToken: "join-token",
+          realtime: {
+            clientUrl: "wss://gateway.example.com/client",
+            topic: "thread:thread-1",
+          },
+        }),
+        { headers: { "content-type": "application/json" } },
+      ),
+    );
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl,
+      agentId: "graph",
+      transport: "single",
+      runtimeMode: "intelligence",
+      intelligence: { wsUrl: "wss://gateway.example.com/client" },
+      fetch: requestFetch,
+    });
+    const subscription = agent[mode](input).subscribe({ error: () => {} });
+
+    try {
+      await vi.waitFor(() => expect(requestFetch).toHaveBeenCalledTimes(1));
+      expect(requestFetch.mock.calls[0]![0]).toBe(runtimeUrl);
+    } finally {
+      subscription.unsubscribe();
+    }
+  },
+);
