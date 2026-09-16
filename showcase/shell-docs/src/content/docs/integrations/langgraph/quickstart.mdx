@@ -401,19 +401,19 @@ An unversioned `zod` install selects Zod 4, which does not satisfy this SDK rele
                 ```
               </Tab>
               <Tab value="FastAPI">
-                ```tsx title="app/api/copilotkit/route.ts"
+                ```tsx title="app/api/copilotkit/route.ts" doctest="component"
                 import {
                   CopilotKitIntelligence,
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
                 } from "@copilotkit/runtime/v2";
                 // [!code highlight]
-                import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
+                import { HttpAgent } from "@ag-ui/client";
 
                 const runtime = new CopilotRuntime({
                   agents: {
                     // [!code highlight:3]
-                    sample_agent: new LangGraphHttpAgent({
+                    sample_agent: new HttpAgent({
                       url:  process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
                     }),
                   },
