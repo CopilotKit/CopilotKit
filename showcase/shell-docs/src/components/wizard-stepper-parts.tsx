@@ -130,7 +130,7 @@ export function WizardProgress({
                         : "border-[var(--text-muted)] bg-[var(--bg-surface)]"
                   }`}
                 >
-                  {step.n}
+                  {index + 1}
                 </span>
                 <span className="whitespace-nowrap text-[10px] sm:text-xs">
                   {step.label}

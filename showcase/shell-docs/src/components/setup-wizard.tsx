@@ -85,7 +85,8 @@ export interface SetupWizardProps {
   frontends: readonly MapPick[];
   capabilities: readonly MapCapability[];
   backends: readonly MapPick[];
-  defaultBackend?: string;
+  /** Partner routes fix this backend and omit its selection step. */
+  fixedBackend?: string;
   defaultFrontend?: string;
 }
 
@@ -197,9 +198,15 @@ export function SetupWizard({
   frontends,
   capabilities,
   backends,
-  defaultBackend,
+  fixedBackend,
   defaultFrontend,
 }: SetupWizardProps): React.JSX.Element {
+  const partnerBackend = backends.some((pick) => pick.id === fixedBackend)
+    ? fixedBackend
+    : undefined;
+  const steps = partnerBackend
+    ? STEPPER_STEPS.filter((step) => step.n !== 3)
+    : STEPPER_STEPS;
   const posthog = usePostHog();
   const track = useHomepageTelemetry();
 
@@ -307,10 +314,8 @@ export function SetupWizard({
     const restored = {
       ...parseWizardUrlState(window.location.search, allowlists),
     };
-    // A partner page supplies context; explicit saved answers still win.
-    restored.backend ??= allowlists.backends.includes(defaultBackend ?? "")
-      ? defaultBackend
-      : undefined;
+    // The partner route fixes the backend; saved frontend answers still win.
+    if (partnerBackend) restored.backend = partnerBackend;
     restored.frontend ??= allowlists.frontends.includes(defaultFrontend ?? "")
       ? defaultFrontend
       : undefined;
@@ -406,6 +411,7 @@ export function SetupWizard({
     pointerActivated: boolean,
     selection: Record<string, unknown> = {},
   ) {
+    if (partnerBackend && step === 3) step = direction === "back" ? 2 : 4;
     runIdRef.current ??= createOnboardingRunId();
     track("wizard_step_changed", {
       onboarding_run_id: runIdRef.current,
@@ -438,6 +444,7 @@ export function SetupWizard({
    *  default here is only a defensive fallback for a caller that cannot
    *  derive one, not something either caller actually relies on. */
   function handleJump(step: number, pointerActivated = false) {
+    if (partnerBackend && step === 3) return;
     if (step > furthestRef.current) return;
     if (step === currentRef.current) return;
     goTo(
@@ -653,6 +660,7 @@ export function SetupWizard({
         }
         frontend={frontendPick}
         backend={backendPick}
+        backendFixed={Boolean(partnerBackend)}
         features={selectedCapabilities}
         onNavigate={handleJump}
       />
@@ -692,7 +700,7 @@ export function SetupWizard({
         <WizardCard
           progress={
             <WizardProgress
-              steps={STEPPER_STEPS}
+              steps={steps}
               current={current}
               furthest={furthest}
               onJump={handleJump}

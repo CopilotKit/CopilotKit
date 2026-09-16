@@ -23,7 +23,7 @@ export function DocsSetupWizard({
 }: { backend?: string; frontend?: string } = {}): React.JSX.Element {
   return (
     <SetupWizard
-      defaultBackend={backend}
+      fixedBackend={backend}
       defaultFrontend={frontend}
       frontends={frontendPicks()}
       capabilities={COPILOTKIT_CAPABILITIES}

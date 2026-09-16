@@ -182,6 +182,7 @@ export interface WizardReviewProps {
    *  frontend pick. */
   readonly frontend: Pick<MapPick, "name" | "logo"> | null;
   readonly backend: Pick<MapPick, "name" | "logo"> | null;
+  readonly backendFixed?: boolean;
   /** The selected features, already filtered to the reader's choices and in
    *  display order — this component does not know about `featureIds`, only
    *  the resulting list. Empty renders a muted "None"; the row still
@@ -202,6 +203,7 @@ export function WizardReview({
   project,
   frontend,
   backend,
+  backendFixed = false,
   features,
   onNavigate,
 }: WizardReviewProps): React.JSX.Element {
@@ -227,20 +229,31 @@ export function WizardReview({
           NONE_VALUE
         )}
       </ReviewRow>
+      {backendFixed ? (
+        <div className="flex flex-wrap items-center gap-3 px-4 py-3.5">
+          <span className={ROW_LABEL_CLASS}>Agent backend</span>
+          {backend ? (
+            <PickValue name={backend.name} logo={backend.logo} />
+          ) : (
+            NONE_VALUE
+          )}
+        </div>
+      ) : (
+        <ReviewRow
+          step={3}
+          kicker="Agent backend"
+          changeLabel="Change agent backend"
+          onChange={(pointerActivated) => onNavigate(3, pointerActivated)}
+        >
+          {backend ? (
+            <PickValue name={backend.name} logo={backend.logo} />
+          ) : (
+            NONE_VALUE
+          )}
+        </ReviewRow>
+      )}
       <ReviewRow
-        step={3}
-        kicker="Agent backend"
-        changeLabel="Change agent backend"
-        onChange={(pointerActivated) => onNavigate(3, pointerActivated)}
-      >
-        {backend ? (
-          <PickValue name={backend.name} logo={backend.logo} />
-        ) : (
-          NONE_VALUE
-        )}
-      </ReviewRow>
-      <ReviewRow
-        step={4}
+        step={backendFixed ? 3 : 4}
         kicker="Features"
         changeLabel="Change features"
         onChange={(pointerActivated) => onNavigate(4, pointerActivated)}

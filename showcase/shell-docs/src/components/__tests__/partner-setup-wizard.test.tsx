@@ -28,7 +28,7 @@ const mount = () =>
       frontends={frontends}
       backends={backends}
       capabilities={[]}
-      defaultBackend="mastra"
+      fixedBackend="mastra"
       defaultFrontend="react"
     />,
   );
@@ -40,11 +40,49 @@ describe("partner setup context", () => {
     expect(new URLSearchParams(location.search).get("backend")).toBe("mastra");
     expect(new URLSearchParams(location.search).get("project")).toBe("yes");
   });
-  it("honors explicit saved answers over page defaults", () => {
+  it("keeps the page partner even when a saved URL names another backend", () => {
     window.history.replaceState({}, "", "/mastra?backend=langgraph-python");
     mount();
-    expect(new URLSearchParams(location.search).get("backend")).toBe(
-      "langgraph-python",
+    expect(new URLSearchParams(location.search).get("backend")).toBe("mastra");
+  });
+  it("skips the backend in both directions and keeps it in the review", () => {
+    mount();
+    fireEvent.click(screen.getByRole("button", { name: /Existing project/ }));
+    fireEvent.click(screen.getByRole("button", { name: "React" }));
+    expect(
+      screen.getByRole("heading", { name: "What you want to build" }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Backend/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /3\s*Features/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.getByRole("heading", { name: "Your frontend" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "React" }));
+    fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+    expect(
+      screen.getByRole("heading", { name: "Ready to set up" }),
+    ).toBeTruthy();
+    expect(screen.getByText("mastra", { exact: true })).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Change agent backend" }),
+    ).toBeNull();
+    expect(
+      screen
+        .getByRole("link", { name: "Set up manually" })
+        .getAttribute("href"),
+    ).toBe("/mastra/quickstart");
+  });
+  it("still asks for the backend on the main landing page", () => {
+    render(
+      <SetupWizard
+        frontends={frontends}
+        backends={backends}
+        capabilities={[]}
+      />,
     );
+    fireEvent.click(screen.getByRole("button", { name: /Existing project/ }));
+    fireEvent.click(screen.getByRole("button", { name: "React" }));
+    expect(
+      screen.getByRole("heading", { name: "Your agent backend" }),
+    ).toBeTruthy();
   });
 });
