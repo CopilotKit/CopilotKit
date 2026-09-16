@@ -186,7 +186,10 @@ async function rewriteMessages(
 async function chatNode(state: AgentState, config: RunnableConfig) {
   // gpt-5-mini is the vision-capable default; temperature kept low for
   // deterministic image-Q&A behavior.
-  const model = makeChatOpenAI(config, { model: "gpt-5-mini", temperature: 0.2 });
+  const model = makeChatOpenAI(config, {
+    model: "gpt-5-mini",
+    temperature: 0.2,
+  });
 
   const messages = await rewriteMessages(state.messages);
 

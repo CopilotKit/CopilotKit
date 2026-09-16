@@ -97,8 +97,7 @@ def _build_chat_client(model_override: str | None = None) -> BaseChatClient:
     try:
         if bool(os.getenv("OPENAI_API_KEY")):
             return OpenAIChatCompletionClient(
-                model=model_override
-                or os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-5-mini"),
+                model=model_override or os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-5-mini"),
                 api_key=os.getenv("OPENAI_API_KEY"),
             )
 

@@ -39,10 +39,7 @@
       "claude-haiku-4-5-20251001",
       "claude-code"
     ],
-    "recognize": [
-      "claude-opus-4-5",
-      "claude-sonnet-4-5"
-    ]
+    "recognize": ["claude-opus-4-5", "claude-sonnet-4-5"]
   },
   "google": {
     "ship": [
@@ -51,29 +48,14 @@
       "gemini-2.5-flash",
       "gemini-2.5-flash-lite"
     ],
-    "recognize": [
-      "gemini-2.0-flash",
-      "gemini-1.5-pro",
-      "gemini-1.5-flash"
-    ]
+    "recognize": ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"]
   },
   "cohere": {
-    "ship": [
-      "command-a",
-      "command-r-plus"
-    ],
-    "recognize": [
-      "command-r"
-    ]
+    "ship": ["command-a", "command-r-plus"],
+    "recognize": ["command-r"]
   },
   "meta": {
-    "ship": [
-      "llama-4-scout",
-      "llama-4-maverick"
-    ],
-    "recognize": [
-      "llama-3.3-70b",
-      "llama-3.1-405b"
-    ]
+    "ship": ["llama-4-scout", "llama-4-maverick"],
+    "recognize": ["llama-3.3-70b", "llama-3.1-405b"]
   }
 }
