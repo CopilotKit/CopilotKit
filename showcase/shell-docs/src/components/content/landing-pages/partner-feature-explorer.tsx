@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight, Check } from "lucide-react";
 import {
   Carousel,
@@ -118,27 +118,31 @@ export function PartnerFeatureExplorer({
   frameworkName: string;
   onOpenDemo?: (href: string) => void;
 }) {
-  const features: Feature[] = [
-    {
-      id: "threads",
-      title: "Rich Threads",
-      description: "Keep conversations, UI, and tool activity across sessions.",
-      video: "79817778d29e490c97225127d2f17b3a",
-      guide: "/threads",
-    },
-    {
-      id: "learning",
-      title: "Automatic Learning",
-      description: "Turn past interactions into improvements you can review.",
-      video: "2978fbfe42324e509057ac5fd46b7a70",
-      guide: "/learning",
-    },
-    ...[...demos].sort(
-      (a, b) =>
-        Number(b.id === "gen-ui-tool-based") -
-        Number(a.id === "gen-ui-tool-based"),
-    ),
-  ];
+  const features: Feature[] = useMemo(
+    () => [
+      {
+        id: "threads",
+        title: "Rich Threads",
+        description:
+          "Keep conversations, UI, and tool activity across sessions.",
+        video: "79817778d29e490c97225127d2f17b3a",
+        guide: "/threads",
+      },
+      {
+        id: "learning",
+        title: "Automatic Learning",
+        description: "Turn past interactions into improvements you can review.",
+        video: "2978fbfe42324e509057ac5fd46b7a70",
+        guide: "/learning",
+      },
+      ...[...demos].sort(
+        (a, b) =>
+          Number(b.id === "gen-ui-tool-based") -
+          Number(a.id === "gen-ui-tool-based"),
+      ),
+    ],
+    [demos],
+  );
   const [selected, setSelected] = useState(
     demos.find((demo) => demo.id === "gen-ui-tool-based")?.id ??
       demos[0]?.id ??
@@ -147,17 +151,21 @@ export function PartnerFeatureExplorer({
   const active =
     features.find((feature) => feature.id === selected) ?? features[0];
   const [api, setApi] = useState<CarouselApi>();
-  const buttons = useRef<(HTMLButtonElement | null)[]>([]);
-  const activeIndex = features.indexOf(active);
-  const initialIndex = useRef(activeIndex).current;
+  const initialIndex = useRef(features.indexOf(active)).current;
   useEffect(() => {
-    api?.scrollTo(activeIndex);
-  }, [api, activeIndex]);
-  function select(index: number, focus = false) {
-    const next = (index + features.length) % features.length;
-    setSelected(features[next].id);
-    if (focus) buttons.current[next]?.focus({ preventScroll: true });
-  }
+    if (!api) return;
+    const syncSelection = () => {
+      const feature = features[api.selectedScrollSnap()];
+      if (feature) setSelected(feature.id);
+    };
+    syncSelection();
+    api.on("select", syncSelection);
+    api.on("reInit", syncSelection);
+    return () => {
+      api.off("select", syncSelection);
+      api.off("reInit", syncSelection);
+    };
+  }, [api, features]);
   return (
     <section
       className="partner-explorer"
@@ -179,33 +187,26 @@ export function PartnerFeatureExplorer({
         }}
         className="partner-feature-carousel"
         aria-label="Choose a feature"
-        onKeyDownCapture={(event) => {
-          if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
-            event.preventDefault();
-            select(activeIndex + (event.key === "ArrowRight" ? 1 : -1), true);
-          }
-        }}
       >
         <CarouselPrevious
           className="partner-carousel-arrow"
           aria-label="Previous feature"
-          disabled={false}
-          onClick={() => select(activeIndex - 1)}
         />
         <CarouselContent className="partner-feature-track">
           {features.map((feature, index) => (
             <CarouselItem key={feature.id} className="partner-feature-item">
               <button
-                ref={(element) => {
-                  buttons.current[index] = element;
-                }}
                 type="button"
                 aria-pressed={active.id === feature.id}
-                onClick={() => select(index)}
+                onClick={() => api?.scrollTo(index)}
               >
-                {active.id === feature.id && (
-                  <Check size={14} aria-hidden="true" />
-                )}
+                <Check
+                  size={14}
+                  aria-hidden="true"
+                  className={
+                    active.id === feature.id ? "opacity-100" : "opacity-0"
+                  }
+                />
                 {feature.title}
               </button>
             </CarouselItem>
@@ -214,8 +215,6 @@ export function PartnerFeatureExplorer({
         <CarouselNext
           className="partner-carousel-arrow"
           aria-label="Next feature"
-          disabled={false}
-          onClick={() => select(activeIndex + 1)}
         />
       </Carousel>
     </section>

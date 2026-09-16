@@ -2371,6 +2371,7 @@ samp {
   padding-left: 0;
 }
 .partner-feature-item button {
+  font-weight: 500;
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -2390,7 +2391,7 @@ samp {
   background: var(--accent-fill);
   color: var(--primary-foreground);
   border-color: var(--accent-fill);
-  font-weight: 600;
+  font-weight: 500;
 }
 .partner-feature-carousel button:focus-visible,
 .partner-cli button:focus-visible {
