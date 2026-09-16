@@ -98,7 +98,7 @@ def _build_chat_client(model_override: str | None = None) -> BaseChatClient:
         if bool(os.getenv("OPENAI_API_KEY")):
             return OpenAIChatCompletionClient(
                 model=model_override
-                or os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
+                or os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-5-mini"),
                 api_key=os.getenv("OPENAI_API_KEY"),
             )
 
@@ -138,9 +138,9 @@ interrupt_agent = create_interrupt_agent(chat_client)
 shared_state_read_write_agent = create_shared_state_read_write_agent(chat_client)
 subagents_agent = create_subagents_agent(chat_client)
 
-# Multimodal: vision-capable; gpt-4o-mini natively handles `image` parts.
+# Multimodal: vision-capable; gpt-5-mini natively handles `image` parts.
 # Scoped to its own endpoint so other demos don't silently upgrade to vision.
-multimodal_chat_client = _build_chat_client("gpt-4o-mini")
+multimodal_chat_client = _build_chat_client("gpt-5-mini")
 multimodal_agent = create_multimodal_agent(multimodal_chat_client)
 
 # Beautiful Chat: flagship polished sales dashboard demo. Combines A2UI

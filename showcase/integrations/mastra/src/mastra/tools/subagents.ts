@@ -15,7 +15,7 @@ import { writeDelegationsToWorkingMemory } from "./working-memory";
 // don't share memory or tools with the supervisor — the supervisor only sees
 // their final text output via the tools below. Mirrors the LangGraph-Python
 // `subagents.py` reference where each sub-agent is a `create_agent(...)`.
-const SUBAGENT_MODEL = openai("gpt-4o-mini");
+const SUBAGENT_MODEL = openai("gpt-5-mini");
 
 const researchSubAgent = new Agent({
   id: "research-subagent",
