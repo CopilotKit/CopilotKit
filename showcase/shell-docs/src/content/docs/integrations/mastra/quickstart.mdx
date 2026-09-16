@@ -39,7 +39,7 @@ Use this prompt to connect your Mastra agent to CopilotKit and verify a working 
 
 Before you begin, you'll need the following:
 
-- An OpenAI API key
+- An OpenAI API key, or an Anthropic API key if you run the agent on Claude
 - Node.js 20+
 - Your favorite package manager
 
@@ -95,8 +95,33 @@ Before you begin, you'll need the following:
                 OPENAI_API_KEY=your_openai_api_key
                 ```
 
-                <Callout type="info" title="What about other models?">
-                  The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by Mastra.
+                <ApiKeyHint provider="openai" />
+
+                <Callout type="info" title="Running the agent on Anthropic instead">
+                  The starter template runs on an OpenAI model, which is why the step
+                  above sets `OPENAI_API_KEY`. To run it on Claude instead, install
+                  Anthropic's AI SDK provider:
+
+                  ```bash
+                  npm install @ai-sdk/anthropic
+                  ```
+
+                  Set Anthropic's credential variable in the same `.env` (the agent reads
+                  `ANTHROPIC_API_KEY`, not `OPENAI_API_KEY`):
+
+                  ```plaintext title=".env"
+                  ANTHROPIC_API_KEY=your_anthropic_api_key
+                  ```
+
+                  Then, in the agent file the template scaffolded, import `anthropic`
+                  from `@ai-sdk/anthropic` and set the agent's `model` to
+                  `anthropic("claude-sonnet-4-6")` in place of the `openai(...)` call.
+
+                  <ApiKeyHint provider="anthropic" />
+
+                  Mastra takes any AI SDK provider, so the same three steps — install the
+                  provider, set its credential variable, swap the `model` setting — cover
+                  Google and the rest.
                 </Callout>
             </Step>
             <Step>
@@ -170,8 +195,20 @@ Before you begin, you'll need the following:
                 });
                 ```
 
-                <Callout type="info" title="What about other models?">
-                  This example uses OpenAI's GPT-4o, but you can modify it to use any language model supported by Mastra.
+                <Callout type="info" title="Running this agent on Anthropic instead">
+                  This example uses OpenAI's `gpt-5.4`. For Claude, install
+                  `@ai-sdk/anthropic`, then swap the import and the `model` setting:
+
+                  ```ts title="src/mastra/agents/index.ts"
+                  import { anthropic } from "@ai-sdk/anthropic";
+                  // model: anthropic("claude-sonnet-4-6"),
+                  ```
+
+                  The credential variable changes with the vendor — Anthropic's provider
+                  reads `ANTHROPIC_API_KEY`, so export that instead of
+                  `OPENAI_API_KEY` in the next step.
+
+                  <ApiKeyHint provider="anthropic" />
                 </Callout>
             </Step>
             <Step>
@@ -182,6 +219,8 @@ Before you begin, you'll need the following:
                 ```bash
                 export OPENAI_API_KEY=your_openai_api_key
                 ```
+
+                <ApiKeyHint provider="openai" />
             </Step>
             <Step>
                 ### Start your agent
