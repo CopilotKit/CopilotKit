@@ -18,7 +18,7 @@ import {
 } from "../../intelligence-platform/client";
 import {
   mergeForwardableHeaders,
-  resolveForwardHeadersPolicy,
+  policyFor,
 } from "../header-utils";
 import { resolveMcpAppsServers } from "./mcp-apps-servers";
 import { resolveIntelligenceUser } from "./resolve-intelligence-user";
@@ -30,6 +30,7 @@ type MiddlewareCapableAgent = AbstractAgent & {
   use?: (middleware: unknown) => void;
   headers?: Record<string, string>;
 };
+
 
 export interface RunAgentParameters {
   request: Request;
@@ -163,23 +164,10 @@ export function configureAgentForRequest(params: {
     }
   }
 
-  // Forward eligible inbound headers onto the outgoing agent call under the
-  // runtime's resolved forwarding policy (`authorization` / custom `x-*`, with
-  // known infra/proxy/platform headers stripped by the default denylist —
-  // #5712), but let headers the server explicitly configured on the agent WIN
-  // on collision (case-insensitively): a server-set service-to-service token
-  // (e.g. an IAM bearer) must never be silently overridden by a
-  // browser/edge/platform-injected inbound header. See `mergeForwardableHeaders`
-  // for the casing/duplicate-key rationale and `shouldForwardHeader` for breadth.
   agent.headers = mergeForwardableHeaders(
     agent.headers,
     request,
-    // `forwardHeadersPolicy` is optional on the published `CopilotRuntimeLike`
-    // interface (non-breaking minor release). Concrete runtimes always set it;
-    // a policy-less external implementor falls back to the default resolved
-    // policy (default-on denylist) so behavior stays identical and never derefs
-    // undefined.
-    runtime.forwardHeadersPolicy ?? resolveForwardHeadersPolicy(undefined),
+    policyFor(runtime),
   );
 }
 
