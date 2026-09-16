@@ -957,13 +957,16 @@ figure.shiki > div:first-child[class*="border-b"] {
     ) !important;
     min-height: 0 !important;
     height: 100%;
-    --fd-docs-row-2: 0px !important;
+    /* Cancel the outer main margin in the sticky offset. */
+    --fd-docs-row-2: -0.75rem !important;
   }
 }
 
 @media (max-width: 767px) {
   #nd-docs-layout {
     --fd-docs-row-1: 0px !important;
+    /* Mobile has an 8px outer margin plus 16px of extra top padding. */
+    --fd-docs-row-2: -1.5rem !important;
     padding-top: calc(var(--fd-nav-height) + 1rem) !important;
     grid-template-columns: minmax(0, 1fr) !important;
     width: 100% !important;
