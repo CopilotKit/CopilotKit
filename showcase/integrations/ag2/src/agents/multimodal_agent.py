@@ -1,42 +1,29 @@
 """AG2 agent backing the Multimodal Attachments demo.
 
-Vision-capable AG2 ConversableAgent (gpt-4o) that accepts image + PDF
-attachments. Images are forwarded to the model natively; PDFs are flattened
-to inline text via `pypdf` so the model can read them without needing
-file-part support.
-
-The frontend (src/app/demos/multimodal/page.tsx) sends attachments as
-AG-UI message content parts. AG2's ConversableAgent passes them through to
-the underlying OpenAI API so vision adapters work natively.
+Vision-capable ag2 Agent (gpt-4o) that accepts image + PDF attachments.
+ag2 1.0 maps AG-UI ``image`` / ``document`` content parts to typed agent
+inputs natively — images are forwarded to the vision model, and PDFs
+travel as OpenAI file parts, so no flattening is needed.
 
 Content-shape normalization
 ---------------------------
-AG2's ``ConversableAgent`` runs every user message through
-``autogen.code_utils.content_str``, which only accepts content-part
-types in ``{"text", "input_text", "image_url", "input_image",
-"function", "tool_call", "tool_calls"}``. CopilotChat / the AG-UI
-runtime emits image and document attachments as the modern
-``{"type": "image" | "document", "source": {...}}`` shape (and the
-frontend at ``src/app/demos/multimodal/legacy-converter-shim.tsx``
-APPENDS a legacy ``{"type": "binary", ...}`` mirror alongside it for
-LangChain-based integrations). Both of those shapes trip the
-allowed-types gate with::
-
-    ValueError("Wrong content format: unknown type image within the
-    content")
-
-…before the request reaches the vision model (observed live in the D6
-``multimodal`` probe; see commit d8a0a25db for the original NSF
-quarantine). ``NormalizingAGUIStream`` (defined in
-``_multimodal_normalize.py``) intercepts the parsed ``RunAgentInput``
-messages AFTER Pydantic validation and rewrites the AG-UI content parts
-to OpenAI ``image_url`` format before they reach autogen.
+The frontend (src/app/demos/multimodal/page.tsx) sends attachments as
+modern AG-UI content parts, and its legacy shim
+(``src/app/demos/multimodal/legacy-converter-shim.tsx``) APPENDS a
+legacy ``{"type": "binary", ...}`` mirror alongside each one for
+LangChain-based integrations. ag2 1.0 rejects the deprecated ``binary``
+type with a ``ValueError`` before the request reaches the model, so
+``NormalizingAGUIStream`` (defined in ``_multimodal_normalize.py``)
+drops those mirror parts from the parsed ``RunAgentInput`` before
+dispatch. The modern parts pass through untouched.
 """
 
 from __future__ import annotations
 
-from autogen import ConversableAgent, LLMConfig
 from fastapi import FastAPI
+
+from ag2 import Agent
+from ag2.config import OpenAIConfig
 
 from ._multimodal_normalize import NormalizingAGUIStream
 
@@ -49,19 +36,16 @@ SYSTEM_PROMPT = (
 )
 
 
-multimodal_agent = ConversableAgent(
+multimodal_agent = Agent(
     name="multimodal_assistant",
-    system_message=SYSTEM_PROMPT,
-    llm_config=LLMConfig({"model": "gpt-4o", "stream": True, "temperature": 0.2}),
-    human_input_mode="NEVER",
-    max_consecutive_auto_reply=5,
-    functions=[],
+    prompt=SYSTEM_PROMPT,
+    config=OpenAIConfig(model="gpt-4o", streaming=True, temperature=0.2),
 )
 
-# NormalizingAGUIStream wraps AGUIStream and normalises AG-UI
-# image/document/binary content parts to OpenAI image_url format AFTER
-# RunAgentInput Pydantic parsing, BEFORE AgentService processes them.
-# See _multimodal_normalize.py for the full interception-point rationale.
+# NormalizingAGUIStream wraps AGUIStream and drops legacy AG-UI ``binary``
+# mirror parts AFTER RunAgentInput Pydantic parsing, BEFORE the parent
+# dispatch maps content to agent inputs. Modern image/document parts are
+# handled natively by ag2 1.0. See _multimodal_normalize.py.
 multimodal_stream = NormalizingAGUIStream(multimodal_agent)
 
 multimodal_app = FastAPI()

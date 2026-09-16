@@ -67,10 +67,11 @@ from _shared.cvdiag_bootstrap import _resolve_tier, current_tier, emit_cvdiag
 
 logger = logging.getLogger(__name__)
 
-# Framework tag — mirrors ``_header_forwarding._CVDIAG_FRAMEWORK`` so the
+# Framework tag — mirrors ``header_forwarding._CVDIAG_FRAMEWORK`` so the
 # structured envelopes and the breadcrumb log lines agree on the integration
-# identity. (L1-D: change this single constant when copying to a sibling.)
-_CVDIAG_FRAMEWORK = "ag2"
+# identity. Resolved from the environment for the same reason: this module is
+# single-source, so a hardcoded literal would mislabel every future consumer.
+_CVDIAG_FRAMEWORK = os.environ.get("CVDIAG_FRAMEWORK", "ag2")
 
 # ── Env gate ─────────────────────────────────────────────────────────────────
 
