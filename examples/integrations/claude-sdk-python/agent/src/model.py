@@ -11,7 +11,7 @@ def resolve_model() -> str:
     """Resolve the Claude model id from the environment.
 
     Prefers ``CLAUDE_MODEL``, then ``ANTHROPIC_MODEL``, then the default. A
-    dotted marketing name (e.g. ``claude-sonnet-4.5``) is normalized to the API
+    dotted marketing name (e.g. ``claude-sonnet-4-6``) is normalized to the API
     id (``claude-sonnet-4-5``).
     """
     raw = (

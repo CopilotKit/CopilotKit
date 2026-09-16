@@ -58,7 +58,7 @@ const AgentStateAnnotation = Annotation.Root({
 type AgentState = typeof AgentStateAnnotation.State;
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = makeChatOpenAI(config, { temperature: 0, model: "gpt-4o" });
+  const model = makeChatOpenAI(config, { temperature: 0, model: "gpt-5-mini" });
 
   const modelWithTools = model.bindTools!(
     convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),

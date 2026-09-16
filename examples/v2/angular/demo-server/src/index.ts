@@ -16,7 +16,7 @@ import { SlowToolCallStreamingAgent } from "@copilotkit/demo-agents";
 const openRouterApiKey = process.env.OPENROUTER_API_KEY?.trim();
 const openAIApiKey = process.env.OPENAI_API_KEY?.trim();
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
-const DEFAULT_OPENROUTER_MODEL = "anthropic/claude-opus-4.8";
+const DEFAULT_OPENROUTER_MODEL = "anthropic/claude-opus-4-8";
 const DEFAULT_OPENROUTER_MAX_OUTPUT_TOKENS = 16_384;
 
 function determineOpenRouterModelId(): string {

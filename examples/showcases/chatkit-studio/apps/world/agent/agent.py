@@ -36,7 +36,7 @@ async def chat_node(
     user_api_key = configurable.get("openai_api_key")
 
     # Initialize model with user's API key if provided
-    model_kwargs = {"model": "gpt-4o"}
+    model_kwargs = {"model": "gpt-5-mini"}
     if user_api_key:
         model_kwargs["api_key"] = user_api_key
 

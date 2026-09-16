@@ -66,7 +66,7 @@ public class ProverbsAgentFactory
 
     public AIAgent CreateProverbsAgent()
     {
-        var chatClientAgent = _openAiClient.GetChatClient("gpt-4o-mini").AsAIAgent(
+        var chatClientAgent = _openAiClient.GetChatClient("gpt-5-mini").AsAIAgent(
             new ChatClientAgentOptions
             {
                 Name = "ProverbsAgent",
