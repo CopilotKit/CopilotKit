@@ -5,14 +5,13 @@
 // and `/<slug>` URLs resolve BIA-authored pages first (see
 // UnscopedDocsPage). Other frameworks remain at `/<framework>/<slug>`.
 
-import React from "react";
 import type { Metadata } from "next";
-import { IntelligenceOnboardingPrompt } from "@/components/intelligence-onboarding-prompt";
 import { DocsLandingNext } from "@/components/docs-landing-next";
+import { DocsSetupWizard } from "@/components/docs-setup-wizard";
+import { DocsVideoCarousel } from "@/components/docs-video-carousel";
 import { HeroOnboardingPromptButton } from "@/components/hero-onboarding-prompt-button";
 import { HeroQuickstartDropdown } from "@/components/hero-quickstart-dropdown";
-import { HeroStartActions } from "@/components/hero-start-commands";
-import { LandingSampleTabs } from "@/components/landing-sample-tabs";
+import { ArrowRight } from "lucide-react";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
@@ -22,12 +21,12 @@ import {
   loadDoc,
 } from "@/lib/docs-render";
 import { compareByDisplayOrder } from "@/lib/framework-order";
+import { visibleIntegrations } from "@/lib/homepage-map";
 import { navTreeToPageTree } from "@/lib/page-tree-bridge";
 import {
   getDocsFolder,
   getDocsMode,
   getIntegration,
-  getIntegrations,
   ROOT_FRAMEWORK,
 } from "@/lib/registry";
 import { buildDocMetadata } from "@/lib/seo-metadata";
@@ -66,9 +65,9 @@ export async function generateMetadata({
   // /quickstart, /concepts/architecture) read frontmatter via loadDoc.
   if (!slugPath) {
     return buildDocMetadata({
-      title: "CopilotKit: the frontend stack for agents",
+      title: "CopilotKit: bring your agent into any app",
       description:
-        "Connect any agent framework or model to your React app for chat, generative UI, canvas, and human-in-the-loop workflows.",
+        "CopilotKit is an open-source framework that connects your app to AI agents. Add chat, interactive UI, and human approvals, with your choice of any agent backend.",
       canonicalPath: "/",
     });
   }
@@ -107,8 +106,7 @@ function DocsOverview() {
   // framework picker dropdown (same accent treatment as the framework pages'
   // direct quickstart link). The default framework sorts first; its
   // quickstart lives at the root.
-  const quickstartOptions = getIntegrations()
-    .filter((i) => getDocsMode(i.slug) !== "hidden")
+  const quickstartOptions = visibleIntegrations()
     .slice()
     .sort((a, b) => {
       if (a.slug === HOME_DEFAULT_FRAMEWORK) return -1;
@@ -124,45 +122,75 @@ function DocsOverview() {
           ? "/quickstart"
           : `/${i.slug}/quickstart`,
     }));
+
   return (
     <ShellDocsLayout tree={pageTree} banner={<SidebarFrameworkSelector />}>
-      <div className="docs-inner-content max-w-[1040px] mx-auto px-4 md:px-6 pt-0 pb-6">
-        <section className="relative border-b border-[var(--border)] pb-6 sm:pb-7">
-          <div className="flex max-w-[765px] flex-col">
-            <div>
-              <h1 className="max-w-[24ch] text-[2rem] font-semibold leading-[1.08] tracking-[-0.02em] text-[var(--text)] sm:text-[2.5rem] md:mt-3">
-                CopilotKit
-              </h1>
-              <p className="mt-3 max-w-[58ch] text-lg font-medium leading-snug text-[var(--text-muted)] sm:text-[1.375rem]">
-                The frontend stack for agentic user experience.
-              </p>
-              <p className="mt-4 max-w-[58ch] text-base leading-[1.55] text-[var(--text-secondary)] sm:text-lg">
-                Build production chat, generative UI, shared state, and
-                human-in-the-loop workflows on any AG-UI compatible backend.
-              </p>
+      <div className="docs-inner-content mx-auto pb-12">
+        <div className="mx-auto max-w-[900px]">
+          <section
+            id="copilotkit-intro"
+            className="scroll-mt-24 xl:scroll-mt-8 pb-8 pt-2 sm:pb-10"
+          >
+            <p className="mb-5 text-sm font-semibold text-[var(--accent)]">
+              CopilotKit
+            </p>
+            <h1 className="max-w-[16ch] text-[2.75rem] font-semibold leading-[1.08] tracking-[-0.045em] text-[var(--text)] sm:text-[3.75rem]">
+              Bring your agent
+              <br />
+              <span className="text-[var(--accent)]">into any app</span>
+            </h1>
+            <p className="mt-6 max-w-[54ch] text-base leading-relaxed text-[var(--text-secondary)] sm:text-lg">
+              CopilotKit is an open-source framework that connects your app to
+              AI agents. Add chat, interactive UI, and human approvals, with
+              your choice of any agent backend.
+            </p>
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <HeroOnboardingPromptButton surface="docs_landing_hero" />
+              <HeroQuickstartDropdown options={quickstartOptions} />
             </div>
-            <div className="mt-7">
-              <HeroStartActions
-                prompt={
-                  <HeroOnboardingPromptButton surface="docs_landing_hero" />
-                }
-                quickstart={
-                  <HeroQuickstartDropdown options={quickstartOptions} />
-                }
-              />
-            </div>
-          </div>
-        </section>
+          </section>
 
-        <div className="space-y-10 pt-4">
-          <div className="[&>section]:!my-0">
-            <IntelligenceOnboardingPrompt
-              feature="learning"
-              surface="docs_landing_learning"
-            />
-          </div>
-          <LandingSampleTabs />
+          <DocsVideoCarousel />
+
+          <section
+            id="setup"
+            aria-labelledby="setup-heading"
+            className="my-12 scroll-mt-24 xl:scroll-mt-8 sm:my-14"
+          >
+            <div className="mb-7 flex flex-col gap-3">
+              <h2
+                id="setup-heading"
+                className="shrink-0 text-[1.75rem] font-semibold leading-tight tracking-[-0.035em] text-[var(--text)] sm:text-[2rem]"
+              >
+                Start building
+              </h2>
+              <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+                Start fresh or add to your existing app. Answer a few questions,
+                then give the setup prompt to your coding agent.
+              </p>
+            </div>
+            <DocsSetupWizard />
+          </section>
+
           <DocsLandingNext />
+
+          <footer className="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--border)] pt-6 text-sm sm:mt-16">
+            <a
+              href="https://github.com/CopilotKit/CopilotKit"
+              target="_blank"
+              rel="noreferrer"
+              className="text-[var(--text-muted)] hover:text-[var(--text)] hover:underline underline-offset-4"
+            >
+              View on GitHub
+            </a>
+            <a
+              href="#setup"
+              className="inline-flex items-center gap-2 font-medium text-[var(--accent)] hover:underline underline-offset-4"
+            >
+              Start building{" "}
+              <ArrowRight aria-hidden="true" className="h-4 w-4" />
+            </a>
+          </footer>
         </div>
       </div>
     </ShellDocsLayout>
