@@ -293,7 +293,7 @@ export function OnboardingPromptCopyButton({
            * it is the only attribution left when a run id fails to join.
            */
           text: channel
-            ? createChannelsOnboardingPrompt(runId, channel.id) + source
+            ? createChannelsOnboardingPrompt(runId) + source
             : createIntelligenceOnboardingPrompt(runId) +
               (framework
                 ? frameworkPromptSuffix(framework.slug, framework.name)

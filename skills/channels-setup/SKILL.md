@@ -9,7 +9,7 @@ description: >
   the managed Channel with the public CopilotKit CLI, running the long-running
   host, and proving a real provider mention gets a reply. The workflow is not in
   this file. Run `npx --yes copilotkit@latest onboard start` and follow the
-  graph it prints. Tell it they want to set up a channel.
+  graph it prints.
 version: 1.0.0
 ---
 
@@ -21,7 +21,7 @@ The workflow is **not written down here**. Run this command:
 npx --yes copilotkit@latest onboard start
 ```
 
-Tell the graph they want to set up a channel. Then follow it, start to finish.
+Then follow the graph it prints, start to finish.
 
 If the command asks for a CopilotKit CLI session check, you have permission to
 run it. Never reveal credentials.
@@ -29,8 +29,7 @@ run it. Never reveal credentials.
 ## Do this
 
 1. Run `npx --yes copilotkit@latest onboard start`.
-2. Tell it they want to set up a channel.
-3. Follow the graph it prints, start to finish.
+2. Follow the graph it prints, start to finish.
 
 The graph asks for its own inputs. Do not pre-empt those questions. Do not
 substitute remembered channel-setup steps for what the graph says. Remembered

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   CHANNEL_ONBOARDING_IDS,
-  channelSetupSentence,
   createChannelsOnboardingAttempt,
   createChannelsOnboardingPrompt,
   isChannelOnboardingId,
@@ -9,25 +8,20 @@ import {
 import { INTELLIGENCE_ONBOARDING_PROMPT } from "../intelligence-onboarding-prompt";
 
 describe("channels onboarding prompt", () => {
-  it("reuses the canonical command and names Slack or Teams", () => {
-    expect(createChannelsOnboardingPrompt("abc123abc123", "slack")).toBe(
-      INTELLIGENCE_ONBOARDING_PROMPT.replace("<run-id>", "abc123abc123") +
-        " They want to set up Slack.",
-    );
-    expect(createChannelsOnboardingPrompt("abc123abc123", "teams")).toBe(
-      INTELLIGENCE_ONBOARDING_PROMPT.replace("<run-id>", "abc123abc123") +
-        " They want to set up Microsoft Teams.",
+  it("is the same small prompt as every other CTA", () => {
+    expect(createChannelsOnboardingPrompt("abc123abc123")).toBe(
+      INTELLIGENCE_ONBOARDING_PROMPT.replace("<run-id>", "abc123abc123"),
     );
   });
 
-  it("does not use --intent", () => {
-    const prompt = createChannelsOnboardingPrompt("abc123abc123", "slack");
+  it("does not use --intent or name Slack or Teams", () => {
+    const prompt = createChannelsOnboardingPrompt("abc123abc123");
     expect(prompt).not.toContain("--intent");
-    expect(channelSetupSentence("slack")).toBe(" They want to set up Slack.");
+    expect(prompt).not.toMatch(/slack|teams/i);
   });
 
   it("does not name an agent framework", () => {
-    const prompt = createChannelsOnboardingPrompt("abc123abc123", "slack");
+    const prompt = createChannelsOnboardingPrompt("abc123abc123");
     expect(prompt).not.toMatch(/framework|built-in|mastra|langgraph/i);
   });
 
@@ -46,12 +40,11 @@ describe("channels onboarding prompt", () => {
    * whole funnel into a single row — worse than having none.
    */
   it("mints a distinct run id per attempt", () => {
-    const first = createChannelsOnboardingAttempt("slack");
-    const second = createChannelsOnboardingAttempt("slack");
+    const first = createChannelsOnboardingAttempt();
+    const second = createChannelsOnboardingAttempt();
 
     expect(first.runId).toMatch(/^[0-9a-f]{12}$/);
     expect(second.runId).not.toBe(first.runId);
     expect(first.prompt).toContain(`--run ${first.runId}`);
-    expect(first.prompt).toContain("They want to set up Slack.");
   });
 });

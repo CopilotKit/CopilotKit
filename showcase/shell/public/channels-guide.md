@@ -6,7 +6,7 @@ Run this command in the user's project:
 npx --yes copilotkit@latest onboard start
 ```
 
-Tell the graph they want to set up Slack or Microsoft Teams. Follow the printed
-graph until the Channel answers.
+Follow the printed graph. If it asks which frontend you want, Slack and
+Microsoft Teams are valid choices.
 
 If the command asks for a CopilotKit CLI session check, you have permission to run it. Never reveal credentials.

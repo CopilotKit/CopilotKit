@@ -591,7 +591,7 @@ it("takes the Channels intent route and names nothing else", async () => {
   // page the framework is the route default rather than a reader's choice, and
   // `feature/channels/start` inspects the project for it instead.
   expect(writeText.mock.calls[0][0]).toBe(
-    createChannelsOnboardingPrompt(reportedRunId(), "slack") + PAGE_SENTENCE,
+    createChannelsOnboardingPrompt(reportedRunId()) + PAGE_SENTENCE,
   );
 });
 
@@ -625,7 +625,7 @@ it("ignores the page's framework entirely on a channel page", async () => {
   await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
 
   expect(writeText.mock.calls[0][0]).toBe(
-    createChannelsOnboardingPrompt(reportedRunId(), "slack") + PAGE_SENTENCE,
+    createChannelsOnboardingPrompt(reportedRunId()) + PAGE_SENTENCE,
   );
 });
 

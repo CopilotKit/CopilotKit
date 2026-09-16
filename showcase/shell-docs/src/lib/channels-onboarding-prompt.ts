@@ -46,36 +46,21 @@ export function isChannelOnboardingId(
 }
 
 /**
- * Names the surface this page is for. The root onboard graph reads this
- * sentence and takes the Channel path without `--intent add-channels`.
- */
-export function channelSetupSentence(id: ChannelOnboardingId): string {
-  return id === "slack"
-    ? " They want to set up Slack."
-    : " They want to set up Microsoft Teams.";
-}
-
-/**
  * The prompt a channel page copies.
  *
- * Same small onboard command as every other docs CTA. No `--intent`. The extra
- * sentence names Slack or Teams from this page so the root graph does not ask
- * again.
+ * Same small onboard command as the website CTA and the repo README. No
+ * `--intent` and no extra Channel sentence. The root graph offers Slack and
+ * Microsoft Teams when it asks which frontend they want.
  */
-export function createChannelsOnboardingPrompt(
-  runId: string,
-  channel: ChannelOnboardingId,
-): string {
-  return (
-    createIntelligenceOnboardingPrompt(runId) + channelSetupSentence(channel)
-  );
+export function createChannelsOnboardingPrompt(runId: string): string {
+  return createIntelligenceOnboardingPrompt(runId);
 }
 
 /** Mints a run id and returns the prompt and id together, for one click. */
-export function createChannelsOnboardingAttempt(channel: ChannelOnboardingId): {
+export function createChannelsOnboardingAttempt(): {
   runId: string;
   prompt: string;
 } {
   const runId = createOnboardingRunId();
-  return { runId, prompt: createChannelsOnboardingPrompt(runId, channel) };
+  return { runId, prompt: createChannelsOnboardingPrompt(runId) };
 }
