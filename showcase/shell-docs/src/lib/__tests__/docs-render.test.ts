@@ -225,10 +225,13 @@ describe("inlineSnippets", () => {
 
 describe("loadDoc", () => {
   it("resolves clean URLs to files stored under route-group folders", () => {
-    const doc = loadDoc("integrations/aws-strands/telemetry");
+    // llamaindex is an `authored` integration, so this file is served content
+    // rather than a copy the root page shadows. The aws-strands equivalent
+    // this used to assert on was deleted as a never-served duplicate.
+    const doc = loadDoc("integrations/llamaindex/telemetry");
 
     expect(doc?.filePath.split(path.sep).join("/")).toContain(
-      "integrations/aws-strands/(other)/telemetry/index.mdx",
+      "integrations/llamaindex/(other)/telemetry/index.mdx",
     );
   });
 
