@@ -19,6 +19,10 @@ development environment, it enables AI assistants to:
     2. Look for "MCP Tools" in the left sidebar categories.
     3. Click "Add Custom MCP".
     This will open the mcp.json file in the editor, which you need to edit.
+
+    This screen opens the global `~/.cursor/mcp.json`, which registers the server for every
+    project you open. To register it for this project alone, create `.cursor/mcp.json` at
+    the project root instead and put the same configuration there.
   </Step>
   <Step>
     ### Add MCP Server to Cursor
@@ -113,14 +117,20 @@ development environment, it enables AI assistants to:
     Use the Claude Code CLI to add the CopilotKit MCP server:
 
     ```bash
-    claude mcp add --transport sse copilotkit-mcp https://mcp.copilotkit.ai/sse
+    claude mcp add --transport sse copilotkit-mcp https://mcp.copilotkit.ai/sse --scope project
     ```
 
     **Expected Output:**
     ```
-    Added SSE MCP server copilotkit-mcp with URL: https://mcp.copilotkit.ai/sse to local config
-    File modified: /home/[username]/.claude.json [project: /path/to/your/project]
+    Added SSE MCP server copilotkit-mcp with URL: https://mcp.copilotkit.ai/sse to project config
+    File modified: /path/to/your/project/.mcp.json
     ```
+
+    `--scope project` writes `.mcp.json` at the root of your project, so the server is
+    registered for everyone who checks the repository out. Without the flag the command
+    falls back to `local` scope, which writes `~/.claude.json` in your home directory: that
+    keeps the registration private to you, and it puts the change outside the project, which
+    a coding agent running unattended is generally not permitted to do.
 
   </Step>
   <Step>
@@ -162,7 +172,7 @@ development environment, it enables AI assistants to:
     claude mcp get copilotkit-mcp
 
     # Remove server if needed
-    claude mcp remove copilotkit-mcp -s local
+    claude mcp remove copilotkit-mcp -s project
     ```
 
   </Step>
