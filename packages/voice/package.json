@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/voice",
-  "version": "1.71.1",
+  "version": "1.72.0",
   "description": "Voice services for CopilotKit (transcription, text-to-speech, etc.)",
   "license": "MIT",
   "repository": {
@@ -50,6 +50,6 @@
     "@copilotkit/runtime": "workspace:*"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   }
 }

@@ -13,6 +13,9 @@ export * from "./constants";
 // This mirrors the license-verifier note below.
 export { isTelemetryDisabled } from "./telemetry/telemetry-disabled";
 export * from "./telemetry/sampling";
+// Pure string classification with no imports, so it carries no runtime edge
+// into browser builds — same reasoning as `sampling` above.
+export * from "./telemetry/model-host";
 export {
   firstNonBlankTelemetryId,
   lambdaClient,

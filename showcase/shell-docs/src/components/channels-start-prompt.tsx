@@ -21,8 +21,11 @@ import { Copy, SquareTerminal } from "lucide-react";
 import {
   CHANNELS_ACTIVATION_EVENTS,
   CHANNELS_ACTIVATION_SURFACES,
-  CHANNELS_BUILD_PROMPT,
 } from "@/lib/channels-activation-contracts";
+import {
+  CHANNELS_ONBOARDING_INTENT,
+  createChannelsOnboardingAttempt,
+} from "@/lib/channels-onboarding-prompt";
 import type { ChannelsActivationChannelId } from "@/lib/channels-activation-contracts";
 
 type CopyState = "idle" | "copied" | "error";
@@ -103,11 +106,17 @@ export function ChannelsStartPrompt({ frontend }: ChannelsStartPromptProps) {
   async function copyPrompt() {
     if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
 
+    // Minted here rather than at module scope so one clipboard write is one
+    // onboarding attempt. The page-tools pill on every other channel page does
+    // the same, which is what lets a copy on this card and the CLI run it
+    // starts be joined into a single funnel row.
+    const attempt = createChannelsOnboardingAttempt();
+
     // Only the clipboard write decides the state shown to the reader. Sharing
     // one try block with the capture call meant a throwing analytics client
     // reported "Copy blocked" for a prompt that was already on the clipboard.
     try {
-      await navigator.clipboard.writeText(CHANNELS_BUILD_PROMPT);
+      await navigator.clipboard.writeText(attempt.prompt);
     } catch {
       setCopyState("error");
       resetTimerRef.current = setTimeout(() => setCopyState("idle"), 2600);
@@ -115,7 +124,11 @@ export function ChannelsStartPrompt({ frontend }: ChannelsStartPromptProps) {
     }
 
     setCopyState("copied");
-    capture(CHANNELS_ACTIVATION_EVENTS.promptCopied, analyticsProperties);
+    capture(CHANNELS_ACTIVATION_EVENTS.promptCopied, {
+      ...analyticsProperties,
+      onboarding_run_id: attempt.runId,
+      onboarding_intent: CHANNELS_ONBOARDING_INTENT,
+    });
     resetTimerRef.current = setTimeout(() => setCopyState("idle"), 1800);
   }
 

@@ -21,7 +21,7 @@ test("the Intelligence overview uses landing-page chrome", () => {
   expect(page.data.title).toBe("CopilotKit Intelligence");
   expect(page.data.nav_title).toBe("Overview");
   expect(page.data.description).toBe(
-    "CopilotKit Intelligence adds persistent threads, memory, analytics, automatic learning, and production operations on top of the runtime you already run.",
+    "CopilotKit Intelligence adds persistent Rich Threads, messaging Channels, memory, analytics, and automatic learning. Import supported LangGraph and Google ADK history, then synchronize future CopilotKit runs.",
   );
   expect(page.data.hideHeader).toBeUndefined();
   expect(page.data.full).toBe(true);
@@ -61,6 +61,14 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
   expect(snippet).toContain("| Memory |");
   expect(snippet).toContain("[Memories & Recall](/intelligence/memories)");
   expect(snippet).toContain("[Learning](/learning)");
+  expect(snippet).toContain(
+    "[Automatic skill delivery](/intelligence/learned-skills)",
+  );
+  expect(
+    existsSync(
+      resolve(here, "../../content/docs/intelligence/learned-skills.mdx"),
+    ),
+  ).toBe(true);
   expect(snippet).toContain("<IntelligenceFeatureCards");
   expect(snippet).toContain(
     "Follow the Intelligence quickstart to connect your runtime and confirm threads work.",

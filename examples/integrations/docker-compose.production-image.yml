@@ -1,0 +1,84 @@
+# Production-image smoke stack — the gate that exercises the artifact
+# Railway actually runs.
+#
+# WHY THIS EXISTS (2026-09-14): every starter's per-starter
+# `docker-compose.test.yml` builds `docker/Dockerfile.app` +
+# `docker/Dockerfile.agent` into a TWO-container stack with `AGENT_URL` /
+# `LANGGRAPH_DEPLOYMENT_URL` injected by compose. But `showcase_build.yml`'s
+# `build-starters` job publishes `examples/integrations/<slug>/Dockerfile` —
+# the SINGLE-container root Dockerfile, with its own `entrypoint.sh` and its
+# own Docker route override — to `ghcr.io/copilotkit/starter-<slug>`, and
+# that is what the Railway starter services run. The two artifacts are
+# different builds of different files, so a bug that lives only in the root
+# Dockerfile or entrypoint.sh was invisible to CI:
+#
+#   * langgraph-{python,js,fastapi}: the root Dockerfile deletes the
+#     `/api/copilotkit/[[...slug]]` catch-all and installs the override as an
+#     EXACT segment, so every runtime subpath 404s. Red in production since
+#     2026-06-04 (~2440 consecutive failures) with `smoke-starter` green.
+#   * strands-python: entrypoint.sh never exported `AGENT_URL`, so the app
+#     dialed :8000 while the sidecar listened on :8123. compose injected
+#     `AGENT_URL` and hid it.
+#
+# This stack is deliberately parameterised by `$STARTER` and lives at the
+# `examples/integrations/` level so there is ONE copy to keep honest, rather
+# than 12 near-identical per-starter files that can drift apart.
+#
+# Usage:
+#   STARTER=langgraph-fastapi docker compose \
+#     -f examples/integrations/docker-compose.production-image.yml \
+#     up --abort-on-container-exit --exit-code-from tests
+services:
+  aimock:
+    image: ghcr.io/copilotkit/aimock:latest
+    volumes:
+      - ./${STARTER:?STARTER must be set to a starter slug}/fixtures:/fixtures:ro
+    command:
+      ["--fixtures", "/fixtures", "--host", "0.0.0.0", "--validate-on-load"]
+
+  # The production artifact, built from the SAME file `build-starters`
+  # publishes to GHCR. Nothing here may be added that the Railway service
+  # does not also get: the moment this service needs an env var that
+  # production lacks, the gate has stopped gating production.
+  app:
+    build:
+      context: ./${STARTER:?STARTER must be set to a starter slug}
+      dockerfile: Dockerfile
+    environment:
+      # Offline LLM interception. Every starter's agent reads these (adk's
+      # google-genai SDK ignores endpoint overrides, hence GOOGLE_API_KEY —
+      # same escape hatch docker-compose.test.yml uses).
+      - OPENAI_API_KEY=test-key-for-aimock
+      - OPENAI_BASE_URL=http://aimock:4010/v1
+      - ANTHROPIC_API_KEY=test-key-for-aimock
+      - ANTHROPIC_BASE_URL=http://aimock:4010
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-test-key-for-aimock}
+      - GOOGLE_GENAI_USE_VERTEXAI=false
+      # Railway supplies PORT; mirror it so the gate runs the same code path.
+      - PORT=3000
+    depends_on:
+      aimock:
+        condition: service_started
+
+  tests:
+    image: mcr.microsoft.com/playwright:v1.52.0-noble
+    working_dir: /tests
+    volumes:
+      - ../../showcase/tests:/tests
+      - test-results:/tests/test-results
+      - ./production-image-gate.sh:/gate/production-image-gate.sh:ro
+    environment:
+      - STARTER=${STARTER:?STARTER must be set to a starter slug}
+      - STARTER_URL=http://app:3000
+    depends_on:
+      app:
+        condition: service_started
+    # No compose healthcheck on `app`: the production images have no
+    # guaranteed curl/wget/node-on-PATH combination (they range from
+    # node:20-slim to python:3.12-slim to the .NET runtime), and adding one
+    # would mean editing the production Dockerfiles to suit the test. The
+    # runner polls from here instead, where the toolchain is known.
+    entrypoint: ["bash", "/gate/production-image-gate.sh"]
+
+volumes:
+  test-results:
