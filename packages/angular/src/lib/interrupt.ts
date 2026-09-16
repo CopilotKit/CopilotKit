@@ -9,7 +9,10 @@ import type {
   RunAgentResult,
 } from "@ag-ui/client";
 import {
+  ɵclearLegacyInterrupt,
   ɵInterruptState,
+  ɵreadLegacyInterrupt,
+  ɵrecordLegacyInterrupt,
   type ɵInterruptDecision,
   type ɵPendingInterrupt,
 } from "@copilotkit/core";
@@ -108,6 +111,8 @@ export class InterruptController<TValue = unknown, TResult = never> {
   readonly #error = signal<unknown | null>(null);
   readonly #interruptState = new ɵInterruptState<TValue>();
   readonly #interruptRunIds = new Map<string, string>();
+  /** The run a legacy `on_interrupt` gate paused, so a resume addresses it. */
+  #legacyRunId?: string;
   readonly #runner: InterruptRunner;
   readonly #options: InjectInterruptOptions<TValue, TResult>;
   #agent?: AbstractAgent;
@@ -168,6 +173,29 @@ export class InterruptController<TValue = unknown, TResult = never> {
 
     let legacy: InterruptEvent<TValue> | null = null;
     let standard: Interrupt[] | null = null;
+    let lastFinishedRunId: string | undefined;
+
+    // Publish whatever this run collected. Standard wins if both somehow
+    // appear for one run.
+    const commit = (runId: string | undefined) => {
+      if (standard && standard.length > 0) {
+        this.#setPending({ kind: "standard", interrupts: standard });
+      } else if (legacy) {
+        this.#legacyRunId = runId;
+        // Record the legacy interrupt on the agent too. Standard interrupts
+        // get this for free from `agent.pendingInterrupts`; without it the
+        // legacy path cannot recover a gate whose event was already delivered.
+        ɵrecordLegacyInterrupt(agent, {
+          event: legacy,
+          threadId: agent.threadId,
+          ...(runId === undefined ? {} : { runId }),
+        });
+        this.#setPending({ kind: "legacy", event: legacy });
+      }
+      legacy = null;
+      standard = null;
+    };
+
     const subscription = agent.subscribe({
       onCustomEvent: ({ event }) => {
         if (event.name === INTERRUPT_EVENT_NAME) {
@@ -178,45 +206,65 @@ export class InterruptController<TValue = unknown, TResult = never> {
         }
       },
       onRunFinishedEvent: (params) => {
+        // `params.event.runId` names the run that paused. `params.input.runId`
+        // names the request that opened the stream, and on the connect path
+        // that is the long-lived connection, not the replayed run. Resuming
+        // under the connection id addresses a run the backend never paused.
+        const runId = params.event.runId;
+        lastFinishedRunId = runId;
         if (params.outcome === "interrupt") {
           for (const interrupt of params.interrupts) {
-            this.#interruptRunIds.set(interrupt.id, params.input.runId);
+            this.#interruptRunIds.set(interrupt.id, runId);
           }
           standard = params.interrupts;
         }
+        // Commit here rather than only at `onRunFinalized`. On the connect
+        // path `onRunFinalized` fires when the long-lived socket stream tears
+        // down, not once per replayed run, so a reconnect that replays an
+        // interrupt would otherwise surface nothing.
+        commit(runId);
       },
       onRunStartedEvent: () => {
         legacy = null;
         standard = null;
+        lastFinishedRunId = undefined;
         this.#threadId = agent.threadId;
+        ɵclearLegacyInterrupt(agent);
         this.#clear();
       },
-      onRunFinalized: () => {
-        if (standard && standard.length > 0) {
-          this.#setPending({ kind: "standard", interrupts: standard });
-        } else if (legacy) {
-          this.#setPending({ kind: "legacy", event: legacy });
-        }
-        legacy = null;
-        standard = null;
-      },
+      // Fallback for a stream that ends without a RUN_FINISHED event. When
+      // RUN_FINISHED did arrive, `commit` already ran and left nothing to do.
+      // `onRunFinalized` carries no event, so it falls back to the last run id
+      // RUN_FINISHED named and only then to the id of the opening request.
+      onRunFinalized: (params) =>
+        commit(lastFinishedRunId ?? params.input.runId),
       onRunFailed: ({ error }) => {
         legacy = null;
         standard = null;
+        ɵclearLegacyInterrupt(agent);
         this.#clear(error);
       },
       onRunErrorEvent: ({ event }) => {
         legacy = null;
         standard = null;
+        ɵclearLegacyInterrupt(agent);
         this.#clear(new Error(event.message));
       },
     });
     this.#unsubscribe = () => subscription.unsubscribe();
+
+    // Seed from what the client already knows this thread is waiting on, so a
+    // fresh controller or a reconnect surfaces a gate whose event arrived
+    // before this subscription existed.
+    const recordedLegacy = ɵreadLegacyInterrupt<TValue>(agent, agent.threadId);
     if (agent.pendingInterrupts.length > 0) {
       this.#setPending({
         kind: "standard",
         interrupts: [...agent.pendingInterrupts],
       });
+    } else if (recordedLegacy) {
+      this.#legacyRunId = recordedLegacy.runId;
+      this.#setPending({ kind: "legacy", event: recordedLegacy.event });
     }
   }
 
@@ -246,7 +294,9 @@ export class InterruptController<TValue = unknown, TResult = never> {
     if (current.kind === "legacy") {
       const decision = this.#interruptState.resolve(payload, interruptId);
       if (decision.kind !== "legacy-resume") return;
+      const runId = this.#legacyRunId;
       return this.#startResume(agent, {
+        ...(runId === undefined ? {} : { runId }),
         forwardedProps: {
           command: {
             resume: decision.payload,
@@ -281,6 +331,8 @@ export class InterruptController<TValue = unknown, TResult = never> {
       console.warn(
         "[CopilotKit] injectInterrupt: legacy on_interrupt events cannot be cancelled; dismissing.",
       );
+      // A dismissal ends the gate, so drop the recovery record with it.
+      ɵclearLegacyInterrupt(agent);
       this.#clear();
       return;
     }
@@ -491,5 +543,6 @@ export class InterruptController<TValue = unknown, TResult = never> {
     this.#resumePromise = undefined;
     this.#interruptState.clear();
     this.#interruptRunIds.clear();
+    this.#legacyRunId = undefined;
   }
 }
