@@ -27,7 +27,7 @@ node scripts/package-licenses/check.mjs archive /absolute/path/package.tgz <poli
 The archive check reads data without extracting or executing package code.
 It rejects unknown package names, missing or wrong license fields, missing LICENSE
 files, and incomplete or different license text. Existing MIT and Apache-2.0
-licenses remain distinct. Commercial packages use UNLICENSED and their own notice.
+licenses remain distinct. Commercial packages can reference their terms with `SEE LICENSE IN LICENSE`.
 
 ## Release and tag repair
 
