@@ -30,7 +30,6 @@ import {
 import { IframeSwitcher as RealIframeSwitcher } from "@/components/content";
 import { PropertyReference } from "@/components/property-reference";
 import { IntegrationGrid } from "@/components/integration-grid";
-import { DocsLandingNext } from "@/components/docs-landing-next";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { WhenAngularBackend } from "@/components/when-angular-backend";
 import { AgentCoreCommandTabs } from "@/components/agentcore-command-tabs";
@@ -463,7 +462,6 @@ export const docsComponents = {
     </div>
   ),
   IntegrationGrid,
-  DocsLandingNext,
   // The base registration here works whenever the consumer passes
   // `framework` explicitly. The framework-scoped renderer (DocsPageView)
   // overrides this to inject `defaultFramework` from the URL — same
