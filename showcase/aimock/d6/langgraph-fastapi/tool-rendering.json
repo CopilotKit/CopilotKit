@@ -79,7 +79,8 @@
       "match": {
         "userMessage": "What's the weather in San Francisco?",
         "turnIndex": 0,
-        "context": "langgraph-fastapi"
+        "context": "langgraph-fastapi",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -89,7 +90,8 @@
             "arguments": "{\"location\":\"San Francisco\"}"
           }
         ]
-      }
+      },
+      "_comment": "Do not let this initializer outrank the weather continuation after a tool result in the current turn."
     },
     {
       "_comment": "tool-rendering pill: Find flights — second leg (after search_flights tool result). MUST come BEFORE the first-leg fixture below — the matcher is first-match-wins, and the second leg is uniquely identified by `toolCallId` (last message is a tool with this id), so it cannot accidentally swallow the first-leg request (whose last message is the user prompt). Must also take precedence over the a2ui beautiful-chat fixture below (which uses the same tool name with non-flight-list args shape).",

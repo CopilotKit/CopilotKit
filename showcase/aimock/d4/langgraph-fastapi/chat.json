@@ -274,11 +274,24 @@
       "response": {
         "toolCalls": [
           {
-            "id": "call_fp_get_weather_001",
+            "id": "call_fp_get_weather_san_francisco_001",
             "name": "get_weather",
-            "arguments": "{\"location\":\"Tokyo\"}"
+            "arguments": "{\"location\":\"San Francisco\"}"
           }
         ]
+      }
+    },
+    {
+      "_comment": "Continue only from the matching native San Francisco weather result.",
+      "match": {
+        "userMessage": "weather in San Francisco",
+        "hasToolResult": true,
+        "toolCallId": "call_fp_get_weather_san_francisco_001",
+        "toolResultContains": "{\"city\": \"San Francisco\", \"temperature\": 68, \"humidity\": 55, \"wind_speed\": 10, \"conditions\": \"Sunny\"}",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "San Francisco is 68°F and sunny."
       }
     },
     {
