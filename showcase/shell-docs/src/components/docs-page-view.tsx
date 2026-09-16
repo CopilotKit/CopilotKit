@@ -7,6 +7,8 @@
 // framework-scoped views keep every internal link in the `<framework>`
 // namespace without duplicating the nav builder.
 
+import { onboardingFrameworkSlug } from "@/lib/intelligence-onboarding-framework";
+import { onboardingFrontendSlug } from "@/lib/intelligence-onboarding-frontend";
 import React from "react";
 import Link from "next/link";
 import { MDXRemote } from "next-mdx-remote/rsc";
@@ -661,6 +663,12 @@ export async function DocsPageView({
                     value={{
                       markdownUrl: docsMarkdownUrl(slugHrefPrefix, slugPath),
                       githubUrl: buildGitHubUrl(doc.filePath),
+                      agentFramework: onboardingFramework
+                        ? onboardingFrameworkSlug(onboardingFramework.slug)
+                        : undefined,
+                      frontend: onboardingFrontend
+                        ? onboardingFrontendSlug(onboardingFrontend.id)
+                        : undefined,
                     }}
                   >
                     {ContentWrapper ? (

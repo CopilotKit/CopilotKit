@@ -41,7 +41,9 @@ test("configures the shared coding-agent prompt card for Automatic Learning", as
 
     fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
     await waitFor(() =>
-      expect(writeText).toHaveBeenCalledWith(LEARNING_SETUP_PROMPT),
+      expect(
+        writeText.mock.calls[0]?.[0]?.replace(/ --run [a-f0-9]{12}/, ""),
+      ).toBe(LEARNING_SETUP_PROMPT),
     );
     expect(screen.getByRole("status").textContent).toBe("Prompt copied");
     expect(screen.getByRole("button", { name: "Open in Codex" })).toBeTruthy();

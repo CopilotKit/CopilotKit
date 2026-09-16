@@ -148,20 +148,20 @@ export function ChannelsActivationStrip({
 
           <DocsPromptActions
             surface={CHANNELS_ACTIVATION_SURFACES.docsLandingStrip}
+            copiedEvent={CHANNELS_ACTIVATION_EVENTS.promptCopied}
             createPrompt={() => {
               const attempt = createChannelsOnboardingAttempt();
               return {
                 text: attempt.prompt,
-                onCopied: () =>
-                  capture(CHANNELS_ACTIVATION_EVENTS.promptCopied, {
-                    channel,
-                    backend: backend.slug,
-                    from_path: pathname,
-                    guide_url: guideUrl,
-                    onboarding_run_id: attempt.runId,
-                    onboarding_intent: CHANNELS_ONBOARDING_INTENT,
-                    surface: CHANNELS_ACTIVATION_SURFACES.docsLandingStrip,
-                  }),
+                analyticsProperties: {
+                  channel,
+                  backend: backend.slug,
+                  from_path: pathname,
+                  guide_url: guideUrl,
+                  onboarding_run_id: attempt.runId,
+                  onboarding_intent: CHANNELS_ONBOARDING_INTENT,
+                  surface: CHANNELS_ACTIVATION_SURFACES.docsLandingStrip,
+                },
               };
             }}
           />

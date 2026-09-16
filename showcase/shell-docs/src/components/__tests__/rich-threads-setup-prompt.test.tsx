@@ -32,7 +32,9 @@ test("copies the Rich Threads prompt using the standard actions", async () => {
   render(<RichThreadsSetupPrompt />);
   fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
   await waitFor(() =>
-    expect(writeText).toHaveBeenCalledWith(RICH_THREADS_SETUP_PROMPT),
+    expect(
+      writeText.mock.calls[0]?.[0]?.replace(/ --run [a-f0-9]{12}/, ""),
+    ).toBe(RICH_THREADS_SETUP_PROMPT),
   );
   expect(screen.getByRole("status").textContent).toBe("Prompt copied");
   expect(
@@ -51,9 +53,12 @@ test("previews the exact setup prompt and recovers from blocked clipboard access
   render(<RichThreadsSetupPrompt />);
   fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
   await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
-  expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe(
-    RICH_THREADS_SETUP_PROMPT,
-  );
+  expect(
+    (screen.getByRole("textbox") as HTMLTextAreaElement).value.replace(
+      / --run [a-f0-9]{12}/,
+      "",
+    ),
+  ).toBe(RICH_THREADS_SETUP_PROMPT);
   expect(screen.getByRole("status").textContent).toContain("Copy blocked");
 });
 

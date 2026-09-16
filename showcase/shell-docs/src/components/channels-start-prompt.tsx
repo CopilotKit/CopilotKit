@@ -121,16 +121,16 @@ export function ChannelsStartPrompt({ frontend }: ChannelsStartPromptProps) {
 
         <DocsPromptActions
           surface={CHANNELS_ACTIVATION_SURFACES.docsChannelsOverview}
+          copiedEvent={CHANNELS_ACTIVATION_EVENTS.promptCopied}
           createPrompt={() => {
             const attempt = createChannelsOnboardingAttempt();
             return {
               text: attempt.prompt,
-              onCopied: () =>
-                capture(CHANNELS_ACTIVATION_EVENTS.promptCopied, {
-                  ...analyticsProperties,
-                  onboarding_run_id: attempt.runId,
-                  onboarding_intent: CHANNELS_ONBOARDING_INTENT,
-                }),
+              analyticsProperties: {
+                ...analyticsProperties,
+                onboarding_run_id: attempt.runId,
+                onboarding_intent: CHANNELS_ONBOARDING_INTENT,
+              },
             };
           }}
         />

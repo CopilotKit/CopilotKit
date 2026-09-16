@@ -4,7 +4,6 @@ import React from "react";
 import { DocsPromptActions } from "./docs-prompt-actions";
 import { Lightbulb, MessagesSquare } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { usePostHog } from "posthog-js/react";
 import {
   createIntelligenceOnboardingPrompt,
   createOnboardingRunId,
@@ -53,16 +52,7 @@ export function IntelligenceOnboardingPrompt({
 }: IntelligenceOnboardingPromptProps): React.JSX.Element {
   const content = FEATURE_COPY[feature];
   const pathname = usePathname();
-  const posthog = usePostHog();
   const headingId = React.useId();
-
-  function capture(event: string, properties: Record<string, unknown>) {
-    try {
-      posthog?.capture(event, properties);
-    } catch {
-      // Analytics must never interrupt docs rendering or clipboard actions.
-    }
-  }
 
   return (
     <section
@@ -94,17 +84,17 @@ export function IntelligenceOnboardingPrompt({
 
         <DocsPromptActions
           surface={surface}
+          copiedEvent={INTELLIGENCE_ONBOARDING_EVENTS.promptCopied}
           createPrompt={() => {
             const runId = createOnboardingRunId();
             return {
               text: createIntelligenceOnboardingPrompt(runId),
-              onCopied: () =>
-                capture(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied, {
-                  feature,
-                  from_path: pathname,
-                  onboarding_run_id: runId,
-                  surface,
-                }),
+              analyticsProperties: {
+                feature,
+                from_path: pathname,
+                onboarding_run_id: runId,
+                surface,
+              },
             };
           }}
         />
