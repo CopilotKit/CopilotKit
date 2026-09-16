@@ -38,7 +38,7 @@ describe("DocsVideoCarousel", () => {
 
     const tabs = screen.getAllByRole("tab");
     expect(tabs).toHaveLength(4);
-    expect(tabs.map((tab) => tabTitle(tab))).toEqual([...TITLES, "Live demo"]);
+    expect(tabs.map((tab) => tabTitle(tab))).toEqual(["Live demo", ...TITLES]);
   });
 
   it("selects exactly one tab, the first, initially", () => {
@@ -54,6 +54,7 @@ describe("DocsVideoCarousel", () => {
 
   it("loads the player only after an explicit play action", () => {
     render(<DocsVideoCarousel />);
+    fireEvent.click(screen.getByRole("tab", { name: "Shared state" }));
     expect(document.querySelector("iframe")).toBeNull();
     expect(document.querySelector("img")?.getAttribute("src")).toMatch(
       /\.jpg$/,
@@ -70,11 +71,12 @@ describe("DocsVideoCarousel", () => {
   it("swaps the iframe src and moves aria-selected when another tab is clicked", () => {
     render(<DocsVideoCarousel />);
 
+    fireEvent.click(screen.getByRole("tab", { name: "Shared state" }));
     fireEvent.click(
       screen.getByRole("button", { name: "Play Shared state walkthrough" }),
     );
     const tabs = screen.getAllByRole("tab");
-    fireEvent.click(tabs[2]);
+    fireEvent.click(tabs[3]);
     expect(document.querySelector("iframe")).toBeNull();
     fireEvent.click(
       screen.getByRole("button", { name: "Play Rich Threads walkthrough" }),
@@ -150,7 +152,7 @@ describe("DocsVideoCarousel", () => {
   it("gives every iframe a non-empty title", () => {
     render(<DocsVideoCarousel />);
 
-    for (const tab of screen.getAllByRole("tab").slice(0, 3)) {
+    for (const tab of screen.getAllByRole("tab").slice(1)) {
       fireEvent.click(tab);
       fireEvent.click(screen.getByRole("button", { name: /^Play / }));
       const iframe = document.querySelector("iframe");
@@ -170,10 +172,7 @@ describe("DocsVideoCarousel", () => {
 
   it("keeps the caption row removed and offers a fallback inside the active player", () => {
     render(<DocsVideoCarousel />);
-    for (const [index, tab] of screen
-      .getAllByRole("tab")
-      .slice(0, 3)
-      .entries()) {
+    for (const [index, tab] of screen.getAllByRole("tab").slice(1).entries()) {
       fireEvent.click(tab);
       expect(
         screen.queryByText(/Available with CopilotKit Intelligence/),
@@ -189,22 +188,26 @@ describe("DocsVideoCarousel", () => {
   it("never renders an em-dash", () => {
     const { container } = render(<DocsVideoCarousel />);
 
-    for (const tab of screen.getAllByRole("tab").slice(0, 3)) {
+    for (const tab of screen.getAllByRole("tab").slice(1)) {
       fireEvent.click(tab);
       expect(container.innerHTML).not.toContain("—");
     }
   });
 });
 
-it("mounts the live showcase only when its tab is selected", () => {
+it("defaults to the requested live demo without an external demo link", () => {
   render(<DocsVideoCarousel />);
-  expect(document.querySelector("iframe")).toBeNull();
-  fireEvent.click(screen.getByRole("tab", { name: "Live demo" }));
   expect(
     screen
-      .getByTitle("Live demo: change the background with your agent")
-      .getAttribute("src"),
-  ).toContain("/demos/frontend-tools");
+      .getByRole("tab", { name: "Live demo" })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  expect(
+    screen.getByTitle("Live demo: LangGraph generative UI").getAttribute("src"),
+  ).toBe(
+    "https://showcase-langgraph-python-production.up.railway.app/demos/gen-ui-tool-based",
+  );
+  expect(screen.queryByRole("link", { name: /Open demo/ })).toBeNull();
   fireEvent.click(screen.getByRole("tab", { name: "Shared state" }));
   expect(document.querySelector("iframe")).toBeNull();
 });

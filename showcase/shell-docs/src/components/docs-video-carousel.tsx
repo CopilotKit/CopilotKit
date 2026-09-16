@@ -48,10 +48,10 @@ const RECORDINGS: readonly Recording[] = [
 ] as const;
 
 const LIVE_DEMO_URL =
-  "https://showcase-built-in-agent-production.up.railway.app/demos/frontend-tools";
+  "https://showcase-langgraph-python-production.up.railway.app/demos/gen-ui-tool-based";
 const TABS = [
-  ...RECORDINGS,
   { id: "live-demo", title: "Live demo", icon: MousePointer2 },
+  ...RECORDINGS,
 ];
 
 const TAB_ID_PREFIX = "docs-video-tab-";
@@ -65,9 +65,9 @@ export function DocsVideoCarousel() {
   // tab, so Tab/Shift+Tab always lands on exactly one control.
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const active = RECORDINGS[activeIndex];
+  const active = RECORDINGS[activeIndex - 1];
   const activeTab = TABS[activeIndex];
-  const isLiveDemo = activeIndex === RECORDINGS.length;
+  const isLiveDemo = activeIndex === 0;
 
   function selectAndFocus(index: number) {
     setPlaying(false);
@@ -115,9 +115,8 @@ export function DocsVideoCarousel() {
           {isLiveDemo ? (
             <iframe
               src={LIVE_DEMO_URL}
-              title="Live demo: change the background with your agent"
+              title="Live demo: LangGraph generative UI"
               className="h-full w-full border-0"
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
             />
           ) : playing ? (
             <iframe
@@ -148,17 +147,6 @@ export function DocsVideoCarousel() {
             </button>
           )}
         </div>
-        {isLiveDemo && (
-          <a
-            href={LIVE_DEMO_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="absolute bottom-3 left-3 inline-flex min-h-9 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--bg-surface)] px-3 text-xs font-medium text-[var(--text)] shadow-sm hover:text-[var(--accent)]"
-          >
-            Open demo{" "}
-            <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" />
-          </a>
-        )}
         {!isLiveDemo && playing && (
           <a
             href={`https://www.loom.com/share/${active.loomId}`}
