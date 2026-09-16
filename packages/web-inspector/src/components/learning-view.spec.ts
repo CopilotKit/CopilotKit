@@ -177,7 +177,7 @@ describe("Learning results hierarchy", () => {
     view.remove();
   });
 
-  it("keeps the empty-result web-app management link quiet and safe", async () => {
+  it("keeps the empty-result Intelligence link quiet and safe", async () => {
     const view = document.createElement("cpk-learning-view") as CpkLearningView;
     view.supported = true;
     view.snapshot = snapshot({
@@ -201,12 +201,19 @@ describe("Learning results hierarchy", () => {
 
     const link =
       view.shadowRoot!.querySelector<HTMLAnchorElement>("a.quiet-link");
-    expect(link?.textContent?.trim()).toBe("Open in web app ↗");
-    expect(link?.href).toBe(
-      "https://app.copilotkit.ai/learning?project=project-safe-key",
-    );
+    expect(link?.textContent?.trim()).toBe("Open Intelligence ↗");
+    expect(link?.href).toBe("https://app.copilotkit.ai/");
     expect(link?.target).toBe("_blank");
     expect(link?.rel.split(/\s+/).sort()).toEqual(["noopener", "noreferrer"]);
+    view.remove();
+  });
+
+  it("opens Intelligence from results even without new Threads or pending candidates", async () => {
+    const view = await renderResults();
+    const link =
+      view.shadowRoot!.querySelector<HTMLAnchorElement>(".pane-actions a");
+    expect(link?.textContent?.trim()).toBe("Open Intelligence ↗");
+    expect(link?.href).toBe("https://app.copilotkit.ai/");
     view.remove();
   });
 
@@ -297,6 +304,49 @@ describe("Learning setup progress", () => {
     return view;
   }
 
+  it.each([
+    { configuration: { state: "selection_required" as const } },
+    { pendingThreadCount: 3 },
+    { run: { hasActiveRun: true, hasEverSucceeded: false, latest: null } },
+    { pendingCandidateCount: 2, pendingThreadCount: 3 },
+  ])(
+    "uses the configured Intelligence origin for every action: %j",
+    async (overrides) => {
+      const origin = "https://intelligence.customer.example";
+      const view = await renderProgress(
+        snapshot({
+          configuration: {
+            state: "configured",
+            container: { id: "container-1", name: "Production" },
+          },
+          webAppOrigin: origin,
+          links: {
+            learning: `${origin}/learning?container=container-1`,
+            candidates: `${origin}/o/acme/project/learning/container-1/skills`,
+            runs: `${origin}/learning?container=container-1&tab=runs`,
+          },
+          ...overrides,
+        }),
+      );
+      const links = [...view.shadowRoot!.querySelectorAll("a")];
+      expect(links.length).toBeGreaterThan(0);
+      const opened = vi.fn();
+      view.addEventListener("learning-web-link", opened);
+      for (const link of links) {
+        expect(link.href).toBe(`${origin}/`);
+        expect(link.textContent).toContain("Intelligence");
+        expect(link.target).toBe("_blank");
+        expect(link.rel.split(/\s+/).sort()).toEqual([
+          "noopener",
+          "noreferrer",
+        ]);
+        link.click();
+      }
+      expect(opened).toHaveBeenCalledTimes(links.length);
+      view.remove();
+    },
+  );
+
   it("shows all three setup steps and keeps analysis disabled while waiting", async () => {
     const view = await renderProgress(snapshot(), true);
     expect(view.shadowRoot!.textContent).toContain("1 of 3 steps");
@@ -381,7 +431,7 @@ describe("Learning setup progress", () => {
     expect(view.shadowRoot!.textContent).toContain("Threads ready to analyze");
     expect(view.shadowRoot!.textContent).toMatch(/3\s*New Threads/);
     expect(view.shadowRoot!.querySelector("a")?.textContent).toContain(
-      "Open in web app",
+      "Open Intelligence",
     );
     view.remove();
   });

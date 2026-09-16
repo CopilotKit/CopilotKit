@@ -85,11 +85,11 @@ test("enumerates and navigates the complete Automatic Learning matrix at the roo
     page.getByRole("heading", { name: "verify-refund-request" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "1 Skill for review in web app" }),
-  ).toHaveAttribute(
-    "href",
-    "https://app.copilotkit.ai/o/acme/checkout/learning/checkout-assistant-default/skills",
-  );
+    page.getByRole("link", { name: "1 Skill for review in Intelligence" }),
+  ).toHaveAttribute("href", "https://app.copilotkit.ai");
+  await expect(
+    page.getByRole("link", { name: "Open Intelligence" }),
+  ).toHaveAttribute("href", "https://app.copilotkit.ai");
   await expect(
     page.getByText("Supporting Insight", { exact: true }),
   ).toBeVisible();
