@@ -35,7 +35,7 @@ export const frameworkOverviews: Record<string, FrameworkOverviewData> = {
     ...langgraphPython,
     frameworkName: "LangGraph",
     hasAfterFeaturesMdx: true,
-    preserveCtaWithAfterFeatures: true,
+    cta: undefined,
   },
   // LangGraph variants share the same intro content (legacy /langgraph in
   // docs/ never differentiated python/typescript/fastapi at the landing

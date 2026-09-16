@@ -2544,3 +2544,17 @@ samp {
   opacity: 1;
   visibility: visible;
 }
+
+.partner-wizard {
+  container-type: inline-size;
+}
+@container (min-width: 34rem) {
+  .wizard-three-choices {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.partner-section > .reference-content {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+}

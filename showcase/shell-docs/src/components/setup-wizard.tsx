@@ -42,7 +42,7 @@ import { useHomepageTelemetry } from "@/lib/use-homepage-telemetry";
 import React from "react";
 import Link from "next/link";
 import { WizardBackendPicker } from "./wizard-backend-picker";
-import { Copy } from "lucide-react";
+import { Bot, Copy } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import { CapabilityGrid, PickGrid } from "@/components/docs-map-parts";
 import { frontendPathForBackend, isFrontendId } from "@/lib/frontend-options";
@@ -588,7 +588,8 @@ export function SetupWizard({
           {
             ...PROJECT_OPTIONS[0],
             id: "existing-agent",
-            label: "Existing project with an agent",
+            label: "Existing agent",
+            icon: Bot,
             description: `Connect your ${partnerName} agent to your app`,
           },
           {

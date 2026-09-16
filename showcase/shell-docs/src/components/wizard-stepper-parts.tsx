@@ -229,7 +229,7 @@ export function ChoiceGrid({
 }): React.JSX.Element {
   return (
     <div
-      className={`grid gap-3 ${options.length === 3 ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2"}`}
+      className={`grid gap-3 ${options.length === 3 ? "wizard-three-choices grid-cols-1" : "grid-cols-2"}`}
     >
       {options.map((option) => {
         const selected = option.id === selectedId;
