@@ -120,7 +120,8 @@ export function FrameworkOverview({
         </h1>
         <p className="partner-summary">
           CopilotKit is an open-source framework that connects your app to{" "}
-          {frameworkName} agents. Add chat, interactive UI, and human approvals.
+          {frameworkName} agents. Give your agents chat, generative UI,
+          human-in-the-loop, rich threads, automatic learning and more.
         </p>
         <HeroStartActions
           prompt={
