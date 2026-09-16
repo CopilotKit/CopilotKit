@@ -342,7 +342,11 @@ export class RunHandler {
    * prop funnels into {@link initialize} and {@link setTools}.
    *
    * A parameterless tool is legitimate (a HITL confirm dialog, say), so this
-   * stays a warning rather than an error.
+   * stays a warning rather than an error. An explicit empty schema
+   * (`parameters: z.object({})`) is the way to say "takes none on purpose": it
+   * satisfies the check below and `createToolSchema` reduces it to the same
+   * advertised `{ type: "object", properties: {} }` that omitting `parameters`
+   * produces, so silencing the warning costs nothing on the wire.
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private warnOnMissingToolParameters(tools: FrontendTool<any>[]): void {
@@ -362,7 +366,9 @@ export class RunHandler {
       logger.warn(
         `Tool has no parameters schema: '${tool.name}' for agent '${tool.agentId || "global"}'. ` +
           `The model is told it takes no arguments and will call it with none. ` +
-          `Add \`parameters\` (a Zod or Standard Schema object) if it should receive arguments.`,
+          `Add \`parameters\` (a Zod or Standard Schema object) if it should ` +
+          `receive arguments, or \`parameters: z.object({})\` to declare that it ` +
+          `takes none and silence this warning.`,
       );
     }
   }

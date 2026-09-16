@@ -49,6 +49,66 @@ describe("RunHandler missing-parameters warning (PE-109)", () => {
     expect(warnings[0]).toContain("parameters");
   });
 
+  /**
+   * The warning tells developers to write `parameters: z.object({})` when a
+   * tool takes no arguments on purpose. That advice is only worth giving if the
+   * empty schema actually silences the warning, so assert it directly rather
+   * than inferring it from the truthiness of `tool.parameters`.
+   */
+  it("stays silent for a tool that declares an empty parameters schema", () => {
+    const runHandler = createRunHandler();
+
+    runHandler.addTool({
+      name: "confirm",
+      description: "takes no arguments on purpose",
+      parameters: z.object({}),
+    });
+
+    expect(missingParameterWarnings(warn)).toHaveLength(0);
+  });
+
+  /**
+   * The empty schema is only a free silencer if it advertises the same thing to
+   * the model as omitting `parameters` does. If `createToolSchema` ever stopped
+   * reducing `z.object({})` to the bare empty-object schema, the advice in the
+   * warning would be telling developers to change the wire format.
+   */
+  it("advertises the same schema for z.object({}) as for an omitted parameters", () => {
+    const omitted = createRunHandler();
+    omitted.initialize([{ name: "confirm", description: "no schema" }]);
+
+    const explicit = createRunHandler();
+    explicit.initialize([
+      {
+        name: "confirm",
+        description: "empty schema",
+        parameters: z.object({}),
+      },
+    ]);
+
+    const omittedSchema = omitted.buildFrontendTools()[0]!.parameters;
+    const explicitSchema = explicit.buildFrontendTools()[0]!.parameters;
+
+    expect(explicitSchema).toEqual(omittedSchema);
+    expect(explicitSchema).toEqual({ type: "object", properties: {} });
+  });
+
+  /**
+   * A developer who deliberately wrote a zero-argument tool needs to be told how
+   * to say so, not only how to add arguments. Pin both halves of the advice so
+   * one cannot be dropped while the other survives.
+   */
+  it("names both the add-arguments and the takes-none paths", () => {
+    const runHandler = createRunHandler();
+
+    runHandler.addTool({ name: "sayHello", description: "from a hook" });
+
+    const warnings = missingParameterWarnings(warn);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("if it should receive arguments");
+    expect(warnings[0]).toContain("z.object({})");
+  });
+
   it("stays silent for a tool that declares parameters", () => {
     const runHandler = createRunHandler();
 
