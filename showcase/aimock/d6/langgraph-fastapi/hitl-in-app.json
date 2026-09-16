@@ -26,11 +26,27 @@
       "match": {
         "userMessage": "Issue a $50 refund to customer #12345",
         "hasToolResult": true,
-        "context": "langgraph-fastapi"
+        "context": "langgraph-fastapi",
+        "toolCallId": "call_d5_request_approval_001",
+        "toolResultContains": "\"approved\":true"
       },
       "response": {
         "content": "Approved — processing the $50 refund to customer #12345 now."
-      }
+      },
+      "_comment": "Match the actual approval Boolean; a rejection reason does not change the decision."
+    },
+    {
+      "match": {
+        "userMessage": "Issue a $50 refund to customer #12345",
+        "hasToolResult": true,
+        "context": "langgraph-fastapi",
+        "toolCallId": "call_d5_request_approval_001",
+        "toolResultContains": "\"approved\":false"
+      },
+      "response": {
+        "content": "The refund request was not approved. I will not process the $50 refund to customer #12345."
+      },
+      "_comment": "Match the actual approval Boolean; a rejection reason does not change the decision."
     },
     {
       "_comment": "Refund continuation: narrate the actual approval from the current tool result. Notes do not change the Boolean decision.",
