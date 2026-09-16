@@ -47,9 +47,12 @@ export function composeWizardOnboardingPrompt(
   const frameworkSentence = selection.backend
     ? frameworkPromptSuffix(selection.backend.id, selection.backend.name)
     : "";
-  const frontendSentence = selection.frontend
-    ? frontendPromptSuffix(selection.frontend.id, selection.frontend.name)
-    : "";
+  const frontendSentence =
+    selection.frontend?.id === "slack" || selection.frontend?.id === "teams"
+      ? ` They want to connect their agent to ${selection.frontend.name} using CopilotKit Channels. Follow the channel setup documentation at https://docs.copilotkit.ai/${selection.frontend.id}.`
+      : selection.frontend
+        ? frontendPromptSuffix(selection.frontend.id, selection.frontend.name)
+        : "";
   // Advisory prose naming which of the two the developer said, not an
   // instruction to the graph (see the header comment above). Omitted when
   // unanswered, the same as a framework or frontend the graph doesn't

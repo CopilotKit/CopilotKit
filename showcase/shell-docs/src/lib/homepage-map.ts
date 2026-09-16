@@ -69,7 +69,7 @@ export interface MapPick {
 export const COPILOTKIT_CAPABILITIES: readonly MapCapability[] = [
   {
     id: "chat",
-    title: "Chat surface",
+    title: "Chat",
     body: "Drop in a ready-made chat, sidebar, or popup.",
     icon: "MessageSquare",
   },
@@ -78,6 +78,18 @@ export const COPILOTKIT_CAPABILITIES: readonly MapCapability[] = [
     title: "Generative UI",
     body: "Your agent returns real React components, not just text.",
     icon: "Paintbrush",
+  },
+  {
+    id: "threads",
+    title: "Threads",
+    body: "Keep conversations organized and resume them later.",
+    icon: "MessagesSquare",
+  },
+  {
+    id: "learning",
+    title: "Learning",
+    body: "Help your agent improve from interactions and feedback.",
+    icon: "Brain",
   },
   {
     id: "hitl",
@@ -103,28 +115,7 @@ export const COPILOTKIT_CAPABILITIES: readonly MapCapability[] = [
     body: "Let the agent call functions that live in your app.",
     icon: "Wrench",
   },
-  {
-    id: "threads",
-    title: "Threads",
-    body: "Keep conversations organized and resume them later.",
-    icon: "MessagesSquare",
-  },
-  {
-    id: "learning",
-    title: "Learning",
-    body: "Help your agent improve from interactions and feedback.",
-    icon: "Brain",
-  },
 ] as const;
-
-/**
- * Frontends excluded from the wizard's frontend step. This is an editorial
- * call, not a technical one: `onboardingFrontendSlug` already returns
- * undefined for both `slack` and `teams`, so nothing forces this filter. They
- * are excluded because they are managed channels that require Intelligence,
- * and Intelligence is no longer on this page.
- */
-const NON_WIZARD_FRONTENDS = new Set(["slack", "teams"]);
 
 /**
  * Overrides `FrontendOption.summary` for picks where the registry's own
@@ -140,13 +131,10 @@ const FRONTEND_SUMMARY_OVERRIDES: Partial<Record<FrontendId, string>> = {
 };
 
 /**
- * The frontends the wizard can pick, minus the managed channels (see
- * `NON_WIZARD_FRONTENDS`).
+ * The frontends and managed channels available in the wizard.
  */
 export function frontendPicks(): MapPick[] {
-  return FRONTEND_OPTIONS.filter(
-    (option) => !NON_WIZARD_FRONTENDS.has(option.id),
-  ).map((option) => ({
+  return FRONTEND_OPTIONS.map((option) => ({
     id: option.id,
     name: option.name,
     logo: { kind: "frontend", icon: option.icon },

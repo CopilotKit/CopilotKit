@@ -10,9 +10,12 @@ import { getDocsMode, getIntegrations } from "@/lib/registry";
 import { FRONTEND_OPTIONS } from "@/lib/frontend-options";
 
 describe("homepage map data", () => {
-  it("includes Threads and Learning after the existing features", () => {
+  it("includes Threads and Learning in the second row", () => {
     expect(
-      COPILOTKIT_CAPABILITIES.slice(-2).map(({ id, title }) => ({ id, title })),
+      COPILOTKIT_CAPABILITIES.slice(2, 4).map(({ id, title }) => ({
+        id,
+        title,
+      })),
     ).toEqual([
       { id: "threads", title: "Threads" },
       { id: "learning", title: "Learning" },
@@ -64,15 +67,10 @@ describe("homepage map data", () => {
     expect(hitl?.icon).toBe("User");
   });
 
-  it("lists exactly the documented frontends minus the managed channels", () => {
-    const picks = frontendPicks();
-    const nonChannelIds = FRONTEND_OPTIONS.filter(
-      (o) => o.id !== "slack" && o.id !== "teams",
-    ).map((o) => o.id);
-
-    expect(picks.map((p) => p.id)).toEqual(nonChannelIds);
-    expect(picks.map((p) => p.id)).not.toContain("slack");
-    expect(picks.map((p) => p.id)).not.toContain("teams");
+  it("lists all documented frontends and managed channels", () => {
+    expect(frontendPicks().map((pick) => pick.id)).toEqual(
+      FRONTEND_OPTIONS.map((option) => option.id),
+    );
   });
 
   it("puts the built-in agent first", () => {
