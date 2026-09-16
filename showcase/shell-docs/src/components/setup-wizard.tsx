@@ -608,19 +608,16 @@ export function SetupWizard({
               : undefined
         }
         disabled={false}
-        onSelect={(id) => {
-          setProjectAnswer(id === "new" ? "no" : "yes");
-          setAgentAnswer(id === "existing-agent" ? "yes" : "no");
+        onSelect={(id, pointerActivated) => {
+          const project = id === "new" ? "no" : "yes";
+          const agent = id === "existing-agent" ? "yes" : "no";
+          setProjectAnswer(project);
+          setAgentAnswer(agent);
+          goTo(2, "forward", pointerActivated, { project, agent });
         }}
       />
     );
-    footer =
-      agentAnswer && projectAnswer ? (
-        <WizardNav
-          continueLabel="Continue"
-          onContinue={(pointer) => goTo(2, "forward", pointer)}
-        />
-      ) : null;
+    footer = null;
   } else if (current === 1) {
     stepName = "Where are you starting?";
     stepDescription =

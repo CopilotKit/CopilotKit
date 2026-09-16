@@ -49,6 +49,8 @@ describe("partner setup context", () => {
     const params = new URLSearchParams(location.search);
     expect(params.get("project")).toBe(project);
     expect(params.get("agent")).toBe(agent);
+    expect(screen.getByRole("heading", { name: "Your frontend" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
     expect(screen.queryByRole("button", { name: /^New agent/ })).toBeNull();
   });
 
@@ -68,7 +70,6 @@ describe("partner setup context", () => {
   it("skips the backend in both directions and keeps it in the review", () => {
     mount();
     fireEvent.click(screen.getByRole("button", { name: /Existing agent/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: "React" }));
     expect(
       screen.getByRole("heading", { name: "What you want to build" }),
