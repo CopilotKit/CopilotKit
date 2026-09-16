@@ -10,7 +10,7 @@
       "_comment": "Voice probe fast-path: exact-match content-only response.",
       "match": {
         "userMessage": "What is the weather in Tokyo?",
-        "turnIndex": 0,
+        "hasToolResult": false,
         "context": "ms-agent-python"
       },
       "response": {
