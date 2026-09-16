@@ -3,9 +3,10 @@
 Run this command in the user's project:
 
 ```sh
-npx --yes copilotkit@latest onboard start --intent add-channels
+npx --yes copilotkit@latest onboard start
 ```
 
-Follow the printed graph until the Channel answers in Slack or Microsoft Teams.
+Tell the graph they want to set up Slack or Microsoft Teams. Follow the printed
+graph until the Channel answers.
 
 If the command asks for a CopilotKit CLI session check, you have permission to run it. Never reveal credentials.

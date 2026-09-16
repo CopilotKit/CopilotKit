@@ -14,7 +14,7 @@ import {
   CHANNELS_ACTIVATION_EVENTS,
   CHANNELS_OPENTAG_HREF,
 } from "@/lib/channels-activation-contracts";
-import { CHANNELS_ONBOARDING_INTENT } from "@/lib/channels-onboarding-prompt";
+
 import type { ChannelsActivationBackendOption } from "@/lib/channels-activation-contracts";
 
 const analytics = vi.hoisted(() => ({ capture: vi.fn() }));
@@ -108,8 +108,8 @@ describe("ChannelsActivationStrip", () => {
     // `feature/channels/start` asks which channel itself. `guide_url` stays on
     // the telemetry below so the picker's destination is still measurable even
     // though the copied text no longer carries the selection.
-    expect(prompt).toContain(`--intent ${CHANNELS_ONBOARDING_INTENT}`);
-    expect(prompt).not.toMatch(/slack|teams/i);
+    expect(prompt).not.toContain("--intent");
+    expect(prompt).toContain("They want to set up Slack.");
     // Minted per click, so one copy is one attempt rather than one shared row.
     expect(prompt).toMatch(/--run [0-9a-f]{12}\b/);
     expect(await screen.findByText("Prompt copied")).toBeTruthy();
@@ -119,7 +119,6 @@ describe("ChannelsActivationStrip", () => {
         channel: "slack",
         backend: "built-in-agent",
         guide_url: "https://docs.copilotkit.ai/slack/connect",
-        onboarding_intent: CHANNELS_ONBOARDING_INTENT,
         onboarding_run_id: expect.stringMatching(/^[0-9a-f]{12}$/),
       }),
     );

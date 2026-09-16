@@ -23,13 +23,6 @@ import {
  */
 
 /**
- * The graph's Channels route, from `ONBOARDING_INTENT_ROOTS` in the
- * Intelligence repo at `apps/cli/onboarding-intents.cjs`, where it maps to
- * `feature/channels/start`.
- */
-export const CHANNELS_ONBOARDING_INTENT = "add-channels";
-
-/**
  * Docs frontend ids that are chat channels rather than application frontends.
  *
  * Kept as its own list rather than reusing `CHANNEL_FRONTENDS` from
@@ -53,40 +46,36 @@ export function isChannelOnboardingId(
 }
 
 /**
+ * Names the surface this page is for. The root onboard graph reads this
+ * sentence and takes the Channel path without `--intent add-channels`.
+ */
+export function channelSetupSentence(id: ChannelOnboardingId): string {
+  return id === "slack"
+    ? " They want to set up Slack."
+    : " They want to set up Microsoft Teams.";
+}
+
+/**
  * The prompt a channel page copies.
  *
- * Built from `createIntelligenceOnboardingPrompt` rather than restating the
- * instruction, so the sentence a reader pastes stays byte-identical to every
- * other surface's and only the route differs. `--intent` is inserted ahead of
- * `--run` to match the command `copilotkit channels setup` prints, which is the
- * canonical form of this one-liner; the flags compose in either order, and
- * agreeing on one keeps the four surfaces literally identical.
- *
- * It names neither the channel nor the agent framework, and that is the whole
- * point rather than an omission:
- *
- * - `feature/channels/start` asks Slack or Teams as its own scripted question.
- *   Answering it here pre-empts a choice the reader has not made — the same
- *   reason the retired pointer refused to name a provider.
- * - The same node spawns a read-only subagent that inspects the project for
- *   existing agent code, runtime, package manager and versions. It also states
- *   that empty folders, agent-only folders and existing CopilotKit apps are all
- *   valid starts. A framework sentence would assert a selection the reader
- *   never made — on a channel page the framework is the route default, not a
- *   choice — and would contradict that stance.
+ * Same small onboard command as every other docs CTA. No `--intent`. The extra
+ * sentence names Slack or Teams from this page so the root graph does not ask
+ * again.
  */
-export function createChannelsOnboardingPrompt(runId: string): string {
-  return createIntelligenceOnboardingPrompt(runId).replace(
-    "onboard start --run",
-    `onboard start --intent ${CHANNELS_ONBOARDING_INTENT} --run`,
-  );
+export function createChannelsOnboardingPrompt(
+  runId: string,
+  channel: ChannelOnboardingId,
+): string {
+  return createIntelligenceOnboardingPrompt(runId) + channelSetupSentence(channel);
 }
 
 /** Mints a run id and returns the prompt and id together, for one click. */
-export function createChannelsOnboardingAttempt(): {
+export function createChannelsOnboardingAttempt(
+  channel: ChannelOnboardingId,
+): {
   runId: string;
   prompt: string;
 } {
   const runId = createOnboardingRunId();
-  return { runId, prompt: createChannelsOnboardingPrompt(runId) };
+  return { runId, prompt: createChannelsOnboardingPrompt(runId, channel) };
 }

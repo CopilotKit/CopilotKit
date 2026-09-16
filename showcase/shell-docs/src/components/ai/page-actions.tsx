@@ -34,7 +34,6 @@ import {
 import {
   createChannelsOnboardingPrompt,
   isChannelOnboardingId,
-  CHANNELS_ONBOARDING_INTENT,
 } from "@/lib/channels-onboarding-prompt";
 import ClaudeIcon from "@/components/icons/claude";
 import ClaudeCodeIcon from "@/components/icons/claude-code";
@@ -294,7 +293,7 @@ export function OnboardingPromptCopyButton({
            * it is the only attribution left when a run id fails to join.
            */
           text: channel
-            ? createChannelsOnboardingPrompt(runId) + source
+            ? createChannelsOnboardingPrompt(runId, channel.id) + source
             : createIntelligenceOnboardingPrompt(runId) +
               (framework
                 ? frameworkPromptSuffix(framework.slug, framework.name)
@@ -314,9 +313,6 @@ export function OnboardingPromptCopyButton({
                 agent_framework: graphFramework,
                 frontend: graphFrontend,
                 channel: channel?.id,
-                onboarding_intent: channel
-                  ? CHANNELS_ONBOARDING_INTENT
-                  : undefined,
               },
             ),
           onCopied: (action) =>
@@ -328,9 +324,6 @@ export function OnboardingPromptCopyButton({
               agent_framework: graphFramework,
               frontend: graphFrontend,
               channel: channel?.id,
-              onboarding_intent: channel
-                ? CHANNELS_ONBOARDING_INTENT
-                : undefined,
             }),
         };
       }}

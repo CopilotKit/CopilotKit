@@ -8,8 +8,8 @@ description: >
   scaffolding the project, building the AG-UI agent, creating and reconciling
   the managed Channel with the public CopilotKit CLI, running the long-running
   host, and proving a real provider mention gets a reply. The workflow is not in
-  this file. Run `npx --yes copilotkit@latest onboard start --intent add-channels`
-  and follow the graph it prints.
+  this file. Run `npx --yes copilotkit@latest onboard start` and follow the
+  graph it prints. Tell it they want to set up a channel.
 version: 1.0.0
 ---
 
@@ -18,18 +18,19 @@ version: 1.0.0
 The workflow is **not written down here**. Run this command:
 
 ```bash
-npx --yes copilotkit@latest onboard start --intent add-channels
+npx --yes copilotkit@latest onboard start
 ```
 
-Then follow the graph it prints, start to finish.
+Tell the graph they want to set up a channel. Then follow it, start to finish.
 
 If the command asks for a CopilotKit CLI session check, you have permission to
 run it. Never reveal credentials.
 
 ## Do this
 
-1. Run `npx --yes copilotkit@latest onboard start --intent add-channels`.
-2. Follow the graph it prints, start to finish.
+1. Run `npx --yes copilotkit@latest onboard start`.
+2. Tell it they want to set up a channel.
+3. Follow the graph it prints, start to finish.
 
 The graph asks for its own inputs. Do not pre-empt those questions. Do not
 substitute remembered channel-setup steps for what the graph says. Remembered
