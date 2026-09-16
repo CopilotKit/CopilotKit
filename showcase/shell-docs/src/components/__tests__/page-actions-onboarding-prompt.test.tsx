@@ -24,10 +24,7 @@ import {
   createOnboardingRunId,
   INTELLIGENCE_ONBOARDING_EVENTS,
 } from "@/lib/intelligence-onboarding-prompt";
-import {
-  CHANNELS_ONBOARDING_INTENT,
-  createChannelsOnboardingPrompt,
-} from "@/lib/channels-onboarding-prompt";
+import { createChannelsOnboardingPrompt } from "@/lib/channels-onboarding-prompt";
 
 const analytics = vi.hoisted(() => ({
   capture: vi.fn(),
@@ -575,14 +572,12 @@ it("names the React frontend by its docs name and the graph's slug", async () =>
   );
 });
 
-it("takes the Channels intent route and names nothing else", async () => {
-  // Slack has no frontend node in the graph and never will: it is a channel,
-  // and the intent route serves it instead. The route asks which channel as its
-  // own scripted question, so the text answers nothing — only the command and
-  // the page sentence survive, which is why this asserts the whole string.
+it("copies the generic prompt plus the page source on a Channel page", async () => {
+  // Slack is not a graph frontend slug. The copied text is the same small
+  // command as the website CTA, plus the standard page source sentence. The
+  // graph uses that source URL to see Slack or Teams.
   const writeText = stubClipboard();
 
-  // Still nothing on the frontend axis. The channel is carried by the route.
   expect(frontendPromptSuffix(SLACK.id, SLACK.name)).toBe("");
 
   renderButton({ frontend: SLACK });
@@ -675,7 +670,6 @@ it("reports a channel page on the channel axis, never the frontend one", async (
   >;
   expect(properties.frontend).toBeUndefined();
   expect(properties.channel).toBe("slack");
-  expect(properties.onboarding_intent).toBe(CHANNELS_ONBOARDING_INTENT);
   expect(
     Object.keys(properties)
       .filter((key) => properties[key] !== undefined)
@@ -685,7 +679,6 @@ it("reports a channel page on the channel axis, never the frontend one", async (
     "agent_framework",
     "channel",
     "from_path",
-    "onboarding_intent",
     "onboarding_run_id",
     "surface",
   ]);
