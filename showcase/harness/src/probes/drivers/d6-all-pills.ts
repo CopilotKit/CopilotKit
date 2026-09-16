@@ -955,7 +955,10 @@ export function createE2eFullDriver(
             passed: 0,
             failed: [],
             skipped: [],
-            note: "no D5 features declared",
+            note:
+              filtered && originalFeatures.length > 0
+                ? "no D5 features match operator selection"
+                : "no D5 features declared",
           },
           observedAt,
         };

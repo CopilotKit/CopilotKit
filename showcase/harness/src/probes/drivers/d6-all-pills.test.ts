@@ -267,19 +267,22 @@ describe("e2e-full driver", () => {
   });
 
   describe("no features declared", () => {
-    it("returns green with empty features", async () => {
-      const driver = createE2eFullDriver({
-        launcher: async () => makeBrowser(),
-        scriptLoader: noopScriptLoader(),
-      });
-      const result = await driver.run(makeCtx(), {
-        key: "e2e_d6:showcase-test-slug",
-        backendUrl: "https://test.example.com",
-        features: [],
-      });
-      expect(result.state).toBe("green");
-      expect(result.signal.note).toContain("no D5 features declared");
-    });
+    it.each([undefined, ["voice"]])(
+      "returns green with empty features and filter %j",
+      async (featureTypes) => {
+        const driver = createE2eFullDriver({
+          launcher: async () => makeBrowser(),
+          scriptLoader: noopScriptLoader(),
+        });
+        const result = await driver.run(makeCtx({ featureTypes }), {
+          key: "e2e_d6:showcase-test-slug",
+          backendUrl: "https://test.example.com",
+          features: [],
+        });
+        expect(result.state).toBe("green");
+        expect(result.signal.note).toBe("no D5 features declared");
+      },
+    );
   });
 
   describe("missing script handling (strict)", () => {
@@ -2130,6 +2133,15 @@ describe("filtered runs preserve unselected observations", () => {
       expect(launcher).not.toHaveBeenCalled();
       expect(result.signal.passed).toBe(0);
       expect(result.signal.total).toBe(0);
+      expect(result.signal.note).toBe(
+        "no D5 features match operator selection",
+      );
+      expect(result.signal.scope?.requested).toEqual([
+        "frontend-tools-async",
+        "shared-state-read",
+      ]);
+      expect(result.signal.scope?.selected).toEqual([]);
+      expect(result.signal.scope?.executed).toEqual([]);
     },
   );
 
