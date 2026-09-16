@@ -153,10 +153,8 @@ export function WizardCard({
   children,
   footer,
   showFocusRing = true,
-  scrollContent = false,
 }: {
   progress?: React.ReactNode;
-  scrollContent?: boolean;
   name: string;
   description: string;
   /** Focus target on every step change. Rendered on the question heading. */
@@ -174,7 +172,7 @@ export function WizardCard({
 }): React.JSX.Element {
   return (
     <section
-      className={`shell-docs-radius-surface not-prose flex min-h-[30rem] flex-col p-5 sm:h-[32rem] sm:p-7 border border-[color-mix(in_srgb,var(--text)_18%,var(--bg-surface))] bg-[color-mix(in_srgb,var(--text)_6%,var(--bg-surface))]`}
+      className={`shell-docs-radius-surface not-prose flex min-h-[30rem] flex-col p-5 sm:min-h-[36rem] sm:p-7 border border-[color-mix(in_srgb,var(--text)_18%,var(--bg-surface))] bg-[color-mix(in_srgb,var(--text)_6%,var(--bg-surface))]`}
     >
       {progress && <div className="mb-6 shrink-0">{progress}</div>}
       <div className="flex min-h-0 flex-1 flex-col justify-center">
@@ -190,11 +188,7 @@ export function WizardCard({
         <p className="mt-1.5 text-center text-sm leading-relaxed text-[var(--text-secondary)]">
           {description}
         </p>
-        <div
-          className={`mt-6 flex min-h-0 flex-col ${scrollContent ? "max-h-80 overflow-y-auto pr-2 sm:max-h-none" : ""}`}
-        >
-          {children}
-        </div>
+        <div className="mt-6 flex flex-col">{children}</div>
       </div>
       {footer && (
         <div data-testid="wizard-footer" className="shrink-0 pt-5">

@@ -24,7 +24,9 @@ export type LucideIconName =
   | "User"
   | "Settings"
   | "Repeat"
-  | "Wrench";
+  | "Wrench"
+  | "MessagesSquare"
+  | "Brain";
 
 export interface MapCapability {
   readonly id: string;
@@ -100,6 +102,18 @@ export const COPILOTKIT_CAPABILITIES: readonly MapCapability[] = [
     title: "Frontend tools",
     body: "Let the agent call functions that live in your app.",
     icon: "Wrench",
+  },
+  {
+    id: "threads",
+    title: "Threads",
+    body: "Keep conversations organized and resume them later.",
+    icon: "MessagesSquare",
+  },
+  {
+    id: "learning",
+    title: "Learning",
+    body: "Help your agent improve from interactions and feedback.",
+    icon: "Brain",
   },
 ] as const;
 

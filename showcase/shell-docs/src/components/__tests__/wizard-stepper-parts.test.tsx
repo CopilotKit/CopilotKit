@@ -141,7 +141,7 @@ describe("WizardCard", () => {
     expect(section).not.toBeNull();
     const className = section!.className;
     expect(className).toContain("min-h-[30rem]");
-    expect(className).toContain("sm:h-[32rem]");
+    expect(className).toContain("sm:min-h-[36rem]");
   });
 
   // The footer must land at the same bottom edge on every step regardless

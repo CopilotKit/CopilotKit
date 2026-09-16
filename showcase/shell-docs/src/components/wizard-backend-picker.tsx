@@ -39,7 +39,9 @@ export function WizardBackendPicker({
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       {groups.map((group) => {
-        const pick = picks.find((pick) => pick.id === group.choices[0].slug)!;
+        const pick = picks.find(
+          (candidate) => candidate.id === group.choices[0].slug,
+        )!;
         const selected = group.choices.some(
           (choice) => choice.slug === selectedId,
         );

@@ -648,7 +648,6 @@ export function SetupWizard({
     <div className="not-prose flex flex-col gap-5">
       <div ref={wrapperRef} className="relative">
         <WizardCard
-          scrollContent={current === 3}
           progress={
             <WizardProgress
               steps={STEPPER_STEPS}

@@ -44,6 +44,8 @@ import React from "react";
 import {
   Check,
   MessageSquare,
+  MessagesSquare,
+  Brain,
   Paintbrush,
   Repeat,
   Settings,
@@ -67,6 +69,8 @@ import type {
 // rewrite it. Same idiom as FRAMEWORK_ICONS in ./icons/framework-icons.tsx.
 const CAPABILITY_ICONS: Record<LucideIconName, LucideIcon> = {
   MessageSquare,
+  MessagesSquare,
+  Brain,
   Paintbrush,
   User,
   Settings,

@@ -10,8 +10,13 @@ import { getDocsMode, getIntegrations } from "@/lib/registry";
 import { FRONTEND_OPTIONS } from "@/lib/frontend-options";
 
 describe("homepage map data", () => {
-  it("gives the block six capabilities so the three-per-row grid has no orphan", () => {
-    expect(COPILOTKIT_CAPABILITIES).toHaveLength(6);
+  it("includes Threads and Learning after the existing features", () => {
+    expect(
+      COPILOTKIT_CAPABILITIES.slice(-2).map(({ id, title }) => ({ id, title })),
+    ).toEqual([
+      { id: "threads", title: "Threads" },
+      { id: "learning", title: "Learning" },
+    ]);
   });
 
   // Every icon is the one its destination page already declares. A name that
