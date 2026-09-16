@@ -66,13 +66,13 @@ export function createChannelsOnboardingPrompt(
   runId: string,
   channel: ChannelOnboardingId,
 ): string {
-  return createIntelligenceOnboardingPrompt(runId) + channelSetupSentence(channel);
+  return (
+    createIntelligenceOnboardingPrompt(runId) + channelSetupSentence(channel)
+  );
 }
 
 /** Mints a run id and returns the prompt and id together, for one click. */
-export function createChannelsOnboardingAttempt(
-  channel: ChannelOnboardingId,
-): {
+export function createChannelsOnboardingAttempt(channel: ChannelOnboardingId): {
   runId: string;
   prompt: string;
 } {
