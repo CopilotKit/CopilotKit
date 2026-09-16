@@ -209,8 +209,11 @@ export function OnboardingPromptCopyButton({
   framework,
   frontend,
   markdownUrl,
+  task,
   ...props
 }: ComponentProps<"button"> & {
+  /** The specific setup goal of an in-content quickstart. */
+  task?: string;
   /**
    * The agent framework this docs page is about: `slug` is the docs registry
    * slug, `name` the display name. On the root surface and in the cookbook
@@ -269,7 +272,11 @@ export function OnboardingPromptCopyButton({
           frontend && isChannelOnboardingId(frontend.id)
             ? { id: frontend.id, name: frontend.name }
             : undefined;
-        const source = ` The developer copied this prompt from ${getClientBaseUrl().replace(/\/+$/, "")}${markdownUrl}.`;
+        const source =
+          ` The developer copied this prompt from ${getClientBaseUrl().replace(/\/+$/, "")}${markdownUrl}.` +
+          (task
+            ? ` Their goal for this quickstart is: ${task} Follow the linked guide for this framework and frontend.`
+            : "");
         return {
           /**
            * The channel route carries no selection sentences, and that is the

@@ -43,7 +43,7 @@ class ResearchState(TypedDict):
 
 class ResearchAgent:
     def __init__(self):
-        self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
+        self.llm = ChatOpenAI(model="gpt-5-mini", temperature=0.7)
         self.graph = self._build_graph()
 
     def _build_graph(self):
