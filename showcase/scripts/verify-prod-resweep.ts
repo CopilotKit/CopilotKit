@@ -50,7 +50,7 @@ import type { EquivalenceGateResult, GateCell } from "./equivalence-gate";
 import {
   keyFor,
   CATALOG_TO_D5_KEY,
-  STARTER_LEVELS,
+  STARTER_ROW_LEVELS,
 } from "../shell-dashboard/src/lib/live-status";
 import type {
   LiveStatusMap,
@@ -185,7 +185,7 @@ export function freshnessKeysForCell(cell: GateCell): string[] {
   // — mirroring `equivalence-gate.newestProdObservation` and the rows
   // `buildCellModel`'s `resolveStarterChip` derives from.
   if (cell.probeAxis === "starter") {
-    return STARTER_LEVELS.map((level) => keyFor("starter", slug, level));
+    return STARTER_ROW_LEVELS.map((level) => keyFor("starter", slug, level));
   }
   const keys: string[] = [
     keyFor("e2e", slug, featureId),

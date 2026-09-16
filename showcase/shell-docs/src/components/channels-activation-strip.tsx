@@ -12,9 +12,12 @@ import {
   CHANNELS_ACTIVATION_EVENTS,
   CHANNELS_ACTIVATION_SURFACES,
   CHANNELS_OPENTAG_HREF,
-  CHANNELS_BUILD_PROMPT,
   getChannelsActivationGuideHref,
 } from "@/lib/channels-activation-contracts";
+import {
+  CHANNELS_ONBOARDING_INTENT,
+  createChannelsOnboardingAttempt,
+} from "@/lib/channels-onboarding-prompt";
 import type {
   ChannelsActivationBackendOption,
   ChannelsActivationChannelId,
@@ -116,14 +119,21 @@ export function ChannelsActivationStrip({
   async function copyBuildPrompt() {
     if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
 
+    // One clipboard write is one onboarding attempt, so the id is minted here
+    // and reported with the copy, matching the page-tools pill and the
+    // Channels overview card.
+    const attempt = createChannelsOnboardingAttempt();
+
     try {
-      await navigator.clipboard.writeText(CHANNELS_BUILD_PROMPT);
+      await navigator.clipboard.writeText(attempt.prompt);
       setCopyState("copied");
       capture(CHANNELS_ACTIVATION_EVENTS.promptCopied, {
         channel,
         backend: backend.slug,
         from_path: pathname,
         guide_url: guideUrl,
+        onboarding_run_id: attempt.runId,
+        onboarding_intent: CHANNELS_ONBOARDING_INTENT,
         // Every road into onboarding emits the same event with a distinct
         // surface, so the funnel can answer which one people actually take.
         surface: CHANNELS_ACTIVATION_SURFACES.docsLandingStrip,

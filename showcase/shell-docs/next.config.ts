@@ -6,6 +6,12 @@ interface PermanentRedirect {
   readonly permanent: true;
 }
 
+interface MovedPermanentlyRedirect {
+  readonly source: string;
+  readonly destination: string;
+  readonly statusCode: 301;
+}
+
 // Keep redirect configuration self-contained. Importing an application module
 // from next.config.ts causes Turbopack to trace the config into app-route NFT
 // output when that module is also used at runtime. The redirect tests iterate
@@ -317,22 +323,22 @@ const AG_UI_DOCS_ORIGIN = "https://docs.ag-ui.com";
 function agUiMirrorRedirects(
   mirrorPath: string,
   upstreamPath: string,
-): PermanentRedirect[] {
+): MovedPermanentlyRedirect[] {
   return [
     {
       source: `/ag-ui${mirrorPath}.mdx`,
       destination: `${AG_UI_DOCS_ORIGIN}${upstreamPath}.md`,
-      permanent: true,
+      statusCode: 301,
     },
     {
       source: `/ag-ui${mirrorPath}.md`,
       destination: `${AG_UI_DOCS_ORIGIN}${upstreamPath}.md`,
-      permanent: true,
+      statusCode: 301,
     },
     {
       source: `/ag-ui${mirrorPath}`,
       destination: `${AG_UI_DOCS_ORIGIN}${upstreamPath}`,
-      permanent: true,
+      statusCode: 301,
     },
   ];
 }
@@ -355,7 +361,7 @@ const AG_UI_MIRROR_EXCEPTIONS = [
   ["/sdk/rust/core/types", "/sdk/rust/overview"],
 ] as const;
 
-const AG_UI_MIRROR_REDIRECTS: PermanentRedirect[] = [
+const AG_UI_MIRROR_REDIRECTS: MovedPermanentlyRedirect[] = [
   ...AG_UI_MIRROR_EXCEPTIONS.flatMap(([mirrorPath, upstreamPath]) =>
     agUiMirrorRedirects(mirrorPath, upstreamPath),
   ),
@@ -365,17 +371,17 @@ const AG_UI_MIRROR_REDIRECTS: PermanentRedirect[] = [
   {
     source: "/ag-ui/:path*.mdx",
     destination: `${AG_UI_DOCS_ORIGIN}/:path*.md`,
-    permanent: true,
+    statusCode: 301,
   },
   {
     source: "/ag-ui/:path*.md",
     destination: `${AG_UI_DOCS_ORIGIN}/:path*.md`,
-    permanent: true,
+    statusCode: 301,
   },
   {
     source: "/ag-ui/:path*",
     destination: `${AG_UI_DOCS_ORIGIN}/:path*`,
-    permanent: true,
+    statusCode: 301,
   },
 ];
 

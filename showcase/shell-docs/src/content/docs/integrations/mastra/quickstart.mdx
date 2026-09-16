@@ -284,6 +284,8 @@ Before you begin, you'll need the following:
 
                 export const GET = handler;
                 export const POST = handler;
+                export const PATCH = handler;
+                export const DELETE = handler;
                 ```
 
                 This route needs two values from *this* app's environment — the license
@@ -318,10 +320,27 @@ Before you begin, you'll need the following:
             <Step>
                 ### Configure CopilotKit Provider
 
-                Wrap your application with the CopilotKit provider:
+                Everything `@copilotkit/react-core/v2` exports is a client component, so
+                the provider goes in a file of your own marked `"use client"`:
+
+                ```tsx title="app/providers.tsx"
+                "use client";
+
+                import { CopilotKit } from "@copilotkit/react-core/v2";
+
+                export function Providers({ children }: { children: React.ReactNode }) {
+                  return (
+                    <CopilotKit runtimeUrl="/api/copilotkit" agent="myAgent" useSingleEndpoint={false}>
+                      {children}
+                    </CopilotKit>
+                  );
+                }
+                ```
+
+                Then wrap your application with that file:
 
                 ```tsx title="app/layout.tsx"
-                import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import { Providers } from "./providers"; // [!code highlight]
                 import "@copilotkit/react-core/v2/styles.css";
                 import './globals.css';
 
@@ -332,14 +351,22 @@ Before you begin, you'll need the following:
                     <html lang="en">
                       <body>
                         {/* [!code highlight:3] */}
-                        <CopilotKit runtimeUrl="/api/copilotkit" agent="myAgent" useSingleEndpoint={false}>
+                        <Providers>
                           {children}
-                        </CopilotKit>
+                        </Providers>
                       </body>
                     </html>
                   );
                 }
                 ```
+
+                <Callout type="warn" title="Importing the provider straight into the layout breaks the build">
+                  `app/layout.tsx` is a server component. `@copilotkit/react-core/v2` is marked
+                  `"use client"` and re-exports `@copilotkit/core` and `@ag-ui/client` with
+                  `export *`, which Next.js cannot enumerate across that boundary. On Next.js 16
+                  with webpack the build fails and the page returns 500. A client file of your own
+                  between the two keeps that import inside the client graph.
+                </Callout>
 
                 <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
                   `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
@@ -355,6 +382,8 @@ Before you begin, you'll need the following:
               Add the CopilotSidebar component to your page:
 
               ```tsx title="app/page.tsx"
+              "use client"; // [!code highlight]
+
               import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
 
               export default function Page() {

@@ -12,9 +12,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChannelsActivationStrip } from "../channels-activation-strip";
 import {
   CHANNELS_ACTIVATION_EVENTS,
-  CHANNELS_BUILD_PROMPT,
   CHANNELS_OPENTAG_HREF,
 } from "@/lib/channels-activation-contracts";
+import { CHANNELS_ONBOARDING_INTENT } from "@/lib/channels-onboarding-prompt";
 import type { ChannelsActivationBackendOption } from "@/lib/channels-activation-contracts";
 
 const analytics = vi.hoisted(() => ({ capture: vi.fn() }));
@@ -104,10 +104,14 @@ describe("ChannelsActivationStrip", () => {
 
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
     const prompt = writeText.mock.calls[0][0] as string;
-    // The copied text is a pointer at the hosted guide, not a copy of the
-    // workflow, and it is the same for every selection. `guide_url` stays on the
-    // telemetry below so the picker's destination is still measurable.
-    expect(prompt).toBe(CHANNELS_BUILD_PROMPT);
+    // The copied text takes the Channels intent route and names nothing else:
+    // `feature/channels/start` asks which channel itself. `guide_url` stays on
+    // the telemetry below so the picker's destination is still measurable even
+    // though the copied text no longer carries the selection.
+    expect(prompt).toContain(`--intent ${CHANNELS_ONBOARDING_INTENT}`);
+    expect(prompt).not.toMatch(/slack|teams/i);
+    // Minted per click, so one copy is one attempt rather than one shared row.
+    expect(prompt).toMatch(/--run [0-9a-f]{12}\b/);
     expect(await screen.findByText("Prompt copied")).toBeTruthy();
     expect(analytics.capture).toHaveBeenCalledWith(
       CHANNELS_ACTIVATION_EVENTS.promptCopied,
@@ -115,6 +119,8 @@ describe("ChannelsActivationStrip", () => {
         channel: "slack",
         backend: "built-in-agent",
         guide_url: "https://docs.copilotkit.ai/slack/connect",
+        onboarding_intent: CHANNELS_ONBOARDING_INTENT,
+        onboarding_run_id: expect.stringMatching(/^[0-9a-f]{12}$/),
       }),
     );
   });

@@ -44,6 +44,18 @@ export interface CellStructuralInput {
  *   - `isSupported` — `status !== "unsupported"`.
  *   - `isWired` — `status === "wired" || status === "stub"` (a stub is
  *     wired-but-not-built).
+ *
+ * NO STARTER-SPECIFIC MAPPING EXISTS, AND NONE SHOULD BE ADDED. A Step-5
+ * starter-validation cell (`manifestation: "starter"`, `feature: null`,
+ * `status` derived from the manifest's `starter_validation:` block) already
+ * maps correctly here with no new code: `"unsupported"` → `isSupported: false`
+ * (→ the engine's UNSUPPORTED singleton, the "this framework has no starter"
+ * state), `"wired"` → the live ladder. A sibling `starterCellToInput` would be
+ * a second mapping that can drift — the exact defect `page-stats.ts` records as
+ * having been fixed there.
+ *
+ * As of the starter ladder these cells are LIVE consumers of this function
+ * rather than a dead branch: before it, zero manifests minted a starter cell.
  */
 export function catalogCellToInput(cell: CellStructuralInput): CellModelInput {
   const probeAxis = cell.manifestation === "starter" ? "starter" : "agent";

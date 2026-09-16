@@ -124,30 +124,32 @@ function makeHarness(
   // generate-registry.ts imports the catalog cross-join/flatten logic from
   // ../harness/src/shared/catalog/catalog-flatten.js (the fold lives in the
   // harness so the harness build can own it; the script runs under tsx and
-  // imports it cross-package). Stage that single file at the exact relative
-  // path the generator resolves — it imports only node builtins + js-yaml, so
-  // no further harness source is needed for module resolution. The harness
-  // package.json (`"type": "module"`) MUST be staged too: without it the
-  // nearest-package-scope for catalog-flatten.ts is CJS and its named exports
-  // (generateCatalog, MissingReferenceIntegrationError) fail to bind.
+  // imports it cross-package). Stage the harness's shared tree at the exact
+  // relative path the generator resolves. The harness package.json
+  // (`"type": "module"`) MUST be staged too: without it the nearest package
+  // scope for catalog-flatten.ts is CJS and its named exports (generateCatalog,
+  // MissingReferenceIntegrationError) fail to bind.
+  //
+  // This used to stage catalog-flatten.ts ALONE, on the stated premise that "it
+  // imports only node builtins + js-yaml, so no further harness source is
+  // needed". That premise stopped holding the moment Step 5 started reading
+  // `STARTER_CEILING` from `../cell-model/cell-model.combine.js` — every case
+  // in this file died with ERR_MODULE_NOT_FOUND. Staging the whole
+  // `src/shared` tree (9 non-test sources) instead of a hand-maintained file
+  // list means the next shared-path import cannot reintroduce that failure.
   const harnessDir = path.join(root, "harness");
-  const catalogDir = path.join(harnessDir, "src", "shared", "catalog");
-  fs.mkdirSync(catalogDir, { recursive: true });
+  const sharedDest = path.join(harnessDir, "src", "shared");
+  fs.mkdirSync(sharedDest, { recursive: true });
   fs.copyFileSync(
     path.join(SHOWCASE_ROOT, "harness", "package.json"),
     path.join(harnessDir, "package.json"),
   );
-  fs.copyFileSync(
-    path.join(
-      SHOWCASE_ROOT,
-      "harness",
-      "src",
-      "shared",
-      "catalog",
-      "catalog-flatten.ts",
-    ),
-    path.join(catalogDir, "catalog-flatten.ts"),
-  );
+  fs.cpSync(path.join(SHOWCASE_ROOT, "harness", "src", "shared"), sharedDest, {
+    recursive: true,
+    // Test files are not on any import path the generator resolves, and
+    // copying them would drag vitest into the sandbox's resolution scope.
+    filter: (src) => !src.endsWith(".test.ts"),
+  });
   // Under ESM scope, catalog-flatten's `import yaml from "js-yaml"` is resolved
   // by walking up from the harness tree (NOT the scripts tree), so js-yaml must
   // be reachable via a node_modules on that chain — symlink the real scripts
