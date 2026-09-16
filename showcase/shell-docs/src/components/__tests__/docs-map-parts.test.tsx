@@ -652,6 +652,8 @@ describe("CapabilityIconMark", () => {
     Settings: true,
     Repeat: true,
     Wrench: true,
+    MessagesSquare: true,
+    Brain: true,
   } satisfies Record<LucideIconName, true>) as LucideIconName[];
 
   it("renders an icon for every LucideIconName the type allows", () => {
