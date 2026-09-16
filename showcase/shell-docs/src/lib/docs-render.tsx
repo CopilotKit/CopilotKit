@@ -2355,6 +2355,52 @@ function resolveRouteGroupedDocPath(slugPath: string): string | null {
  * Load an MDX file by slug and return its raw source + parsed frontmatter
  * metadata for rendering. Returns null when the file doesn't exist.
  */
+/**
+ * Slugs whose per-framework file wins even under `docs_mode: generated`.
+ *
+ * - `/quickstart` at the root is a routing shim; the real quickstart content
+ *   lives per-framework.
+ * - `/threads-import` is a cross-source overview at the root, but ADK and
+ *   LangGraph ship source-specific import guides at the same framework URL.
+ */
+export const FRAMEWORK_WINS_SLUGS: ReadonlySet<string> = new Set([
+  "quickstart",
+  "threads-import",
+]);
+
+/**
+ * The order in which a framework-scoped URL resolves to MDX.
+ *
+ *   authored  — the per-framework file wins for every slug; fall back to root
+ *               only when the framework has no file (preserves the shared
+ *               fallback for slugs a framework deliberately leaves agnostic).
+ *   generated — root wins; the per-framework tree is a sparse override layer,
+ *               except for FRAMEWORK_WINS_SLUGS.
+ *
+ * SHARED ON PURPOSE. This order previously existed as three separate copies —
+ * the page route's body resolver, `llms-mdx`, and `frameworkMetadata` — and
+ * they had drifted apart in two different ways:
+ *
+ *   - `frameworkMetadata` had no docsMode branch at all, so a generated-mode
+ *     page served the ROOT file's body under the FRAMEWORK file's <title> and
+ *     meta description. 76 URLs advertised content the site does not render.
+ *   - `llms-mdx` treated only `quickstart` as framework-wins, not
+ *     `threads-import`, so raw Markdown disagreed with the rendered page.
+ *
+ * Callers that need extra candidates (llms-mdx appends a quickstart fallback
+ * for `index`) append them to the returned array.
+ */
+export function docCandidateOrder(
+  docsMode: "generated" | "authored" | "hidden",
+  docsFolder: string,
+  slugPath: string,
+): string[] {
+  const frameworkPath = `integrations/${docsFolder}/${slugPath}`;
+  const frameworkFirst =
+    docsMode === "authored" || FRAMEWORK_WINS_SLUGS.has(slugPath);
+  return frameworkFirst ? [frameworkPath, slugPath] : [slugPath, frameworkPath];
+}
+
 export function loadDoc(
   slugPath: string,
 ): { source: string; filePath: string; fm: DocFrontmatter } | null {
