@@ -139,10 +139,10 @@ export {
 export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
-   * Use `createCopilotExpressHandler` from `@copilotkit/runtime/v2` instead.
+   * Use `createCopilotExpressHandler` from `@copilotkit/runtime/v2/express` instead.
    * Import and usage example:
    * ```ts
-   * import { createCopilotExpressHandler } from "@copilotkit/runtime/v2";
+   * import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
    * const v2CreateCopilotExpressHandler = createCopilotExpressHandler;
    * ```
    * See https://docs.copilotkit.ai/runtime-server-adapter

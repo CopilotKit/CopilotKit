@@ -189,7 +189,7 @@ function renderExportMap(inventories) {
           : `No 1:1 replacement. Start with \`${entrypoint.v2ImportPath}\`.`;
       const source = item.replacement
         ? `\`${item.replacement.source}\``
-        : `\`${entrypoint.v2Source}\``;
+        : `\`${item.replacementNoteSource ?? entrypoint.v2Source}\``;
       const docs = item.replacement
         ? item.replacement.docs === V2_REFERENCE
           ? `[V2 docs](${V2_DOCS})<br />[V2 reference docs](${V2_REFERENCE})`

@@ -396,6 +396,10 @@ test("LangGraphHttpAgent names HttpAgent without restating a version-specific cl
     // @ag-ui/langgraph 0.0.42 and gained an onInitialize override at 0.0.43),
     // so the annotation must not describe it.
     assert.ok(!/empty subclass|no-op|identical/i.test(jsDoc));
+    // The export map's "v2 source" column must name where `HttpAgent` really
+    // lives. The entrypoint default would claim packages/runtime/src/v2/index.ts,
+    // which has no such export.
+    assert.equal(item.replacementNoteSource, "@ag-ui/client");
   }
 });
 
@@ -441,6 +445,25 @@ test("v1 endpoint factories map to their renamed v2 handlers", () => {
   // counterpart, so mapping them would be a guess.
   assert.equal(replacementFor("copilotRuntimeNextJSPagesRouterEndpoint"), null);
   assert.equal(replacementFor("copilotRuntimeNestEndpoint"), null);
+
+  // Each replacement must be imported from the path docs/backend/copilot-runtime.mdx
+  // names. The Express handler is reachable from the v2 root through the
+  // endpoints barrel, but the documented path is the narrower subpath.
+  const importPathFor = (name) =>
+    exports.find((candidate) => candidate.name === name)?.replacement
+      ?.importPath ?? null;
+  assert.equal(
+    importPathFor("copilotRuntimeNodeExpressEndpoint"),
+    "@copilotkit/runtime/v2/express",
+  );
+  assert.equal(
+    importPathFor("copilotRuntimeNextJSAppRouterEndpoint"),
+    "@copilotkit/runtime/v2",
+  );
+  assert.equal(
+    importPathFor("copilotRuntimeNodeHttpEndpoint"),
+    "@copilotkit/runtime/v2",
+  );
 });
 
 test("related v2 concepts guide state-rendering APIs without inventing replacements", () => {

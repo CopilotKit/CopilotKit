@@ -533,6 +533,7 @@ for (const key of [
   overrides.set(key, {
     ...overrides.get(key),
     replacementNote: langGraphHttpAgentReplacementNote,
+    replacementNoteSource: "@ag-ui/client",
   });
 }
 
@@ -554,6 +555,7 @@ overrides.set("runtime:copilotRuntimeNodeHttpEndpoint", {
 overrides.set("runtime:copilotRuntimeNodeExpressEndpoint", {
   ...overrides.get("runtime:copilotRuntimeNodeExpressEndpoint"),
   replacementName: "createCopilotExpressHandler",
+  importPath: "@copilotkit/runtime/v2/express",
 });
 
 for (const mapping of pilotMappings) {
@@ -834,6 +836,13 @@ export function getV1PublicApi() {
           );
         }
         const replacementName = override?.replacementName ?? symbol.name;
+        // A replacement can live on a narrower v2 subpath than the
+        // entrypoint's root one. The Express handler is the case that matters:
+        // it is reachable from `@copilotkit/runtime/v2` through the endpoints
+        // barrel, but the docs import it from `@copilotkit/runtime/v2/express`,
+        // which is the path that does not pull the rest of the barrel in.
+        const replacementImportPath =
+          override?.importPath ?? entrypoint.v2ImportPath;
         const targetSymbol = targetByName.get(replacementName);
         const hasReplacement = Boolean(targetSymbol);
         const resolvedTarget = targetSymbol
@@ -885,7 +894,7 @@ export function getV1PublicApi() {
               }
             : defaultExample(
                 replacementName,
-                entrypoint.v2ImportPath,
+                replacementImportPath,
                 replacementTypeOnly,
                 targetDeclaration,
               )
@@ -913,7 +922,7 @@ export function getV1PublicApi() {
           replacement: hasReplacement
             ? {
                 name: replacementName,
-                importPath: entrypoint.v2ImportPath,
+                importPath: replacementImportPath,
                 source: replacementSource,
                 docs,
                 importLine: example.importLine,
@@ -926,6 +935,9 @@ export function getV1PublicApi() {
           replacementNote: hasReplacement
             ? null
             : (override?.replacementNote ?? null),
+          replacementNoteSource: hasReplacement
+            ? null
+            : (override?.replacementNoteSource ?? null),
           docs,
         };
       })

@@ -7,7 +7,7 @@
  *
  * @copilotkit/runtime — copilotRuntimeNodeExpressEndpoint:
  *   V2 import and usage:
- *     import { createCopilotExpressHandler } from "@copilotkit/runtime/v2";
+ *     import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
  *     const v2CreateCopilotExpressHandler = createCopilotExpressHandler;
  *   V2 replacement source: packages/runtime/src/v2/runtime/endpoints/express.ts
  *   V2 docs: https://docs.copilotkit.ai/runtime-server-adapter
