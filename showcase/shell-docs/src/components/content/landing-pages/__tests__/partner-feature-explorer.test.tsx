@@ -1,8 +1,11 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PartnerFeatureExplorer } from "../partner-feature-explorer";
 
+beforeEach(() => {
+  Element.prototype.scrollTo = vi.fn();
+});
 afterEach(cleanup);
 describe("partner feature explorer", () => {
   it("loads only the selected partner demo and switches to product walkthroughs", () => {
@@ -18,25 +21,36 @@ describe("partner feature explorer", () => {
             title: "Generative UI",
             description: "Interactive components",
             href,
+            embedHref:
+              "https://showcase-mastra-production.up.railway.app/angular/gen-ui-tool-based",
           },
         ]}
       />,
     );
     expect(
       screen.getByTitle("Mastra: Generative UI live demo").getAttribute("src"),
-    ).toBe(`${href}/preview`);
+    ).toBe(
+      "https://showcase-mastra-production.up.railway.app/angular/gen-ui-tool-based",
+    );
     expect(document.querySelectorAll("iframe")).toHaveLength(1);
     expect(
       screen
         .getAllByRole("button")
-        .slice(0, 3)
+        .slice(1, 4)
         .map((button) => button.textContent),
     ).toEqual(["Rich Threads", "Automatic Learning", "Generative UI"]);
     fireEvent.click(screen.getByRole("button", { name: "Rich Threads" }));
     expect(screen.queryByTitle("Mastra: Generative UI live demo")).toBeNull();
     expect(screen.getByTitle("Rich Threads product walkthrough")).toBeTruthy();
+    expect(document.querySelector(".partner-explorer-caption")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Next feature" }));
     expect(
-      screen.getByRole("link", { name: /Read guide/ }).getAttribute("href"),
-    ).toBe("/angular/mastra/threads");
+      screen.getByTitle("Automatic Learning product walkthrough"),
+    ).toBeTruthy();
+    fireEvent.keyDown(
+      screen.getByRole("button", { name: "Automatic Learning" }),
+      { key: "ArrowRight" },
+    );
+    expect(screen.getByTitle("Mastra: Generative UI live demo")).toBeTruthy();
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { partnerShowcaseDemos } from "../partner-showcase-demos";
-import { getIntegrations } from "../registry";
+import { getIntegrations, getDemo } from "../registry";
 import catalog from "@/data/frontend-catalog.json";
 
 describe("partner showcase links", () => {
@@ -22,6 +22,15 @@ describe("partner showcase links", () => {
         if (hasShowcase) expect(demos.length, partner.slug).toBeGreaterThan(0);
         else expect(demos, partner.slug).toEqual([]);
         for (const demo of demos) {
+          const source = getDemo(partner.slug, demo.id)!;
+          expect(demo.embedHref).toBe(
+            new URL(
+              frontend === "angular"
+                ? `/angular/${demo.id}`
+                : source.demo.route,
+              source.integration.backend_url,
+            ).href,
+          );
           expect(demo.href).toBe(
             `https://showcase.copilotkit.ai/${frontend}/${partner.slug}/${demo.id}`,
           );

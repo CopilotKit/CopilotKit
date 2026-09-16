@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
 import type { PartnerShowcaseDemo } from "@/lib/partner-showcase-demos";
 
 type Feature = {
@@ -10,6 +9,7 @@ type Feature = {
   title: string;
   description: string;
   href?: string;
+  embedHref?: string;
   video?: string;
   guide?: string;
 };
@@ -17,7 +17,9 @@ type Feature = {
 function FeatureFrame({
   feature,
   frameworkName,
+  onOpenDemo,
 }: {
+  onOpenDemo?: (href: string) => void;
   feature: Feature;
   frameworkName: string;
 }) {
@@ -29,9 +31,8 @@ function FeatureFrame({
     );
     return () => clearTimeout(timer);
   }, []);
-  const src = feature.href
-    ? `${feature.href}/preview`
-    : `https://www.loom.com/embed/${feature.video}`;
+  const src =
+    feature.embedHref ?? `https://www.loom.com/embed/${feature.video}`;
   return (
     <div className="partner-explorer-frame">
       <iframe
@@ -58,7 +59,14 @@ function FeatureFrame({
               : "The preview is taking a little longer."}
           </strong>
           {status === "slow" && (
-            <a href={feature.href ?? src} target="_blank" rel="noreferrer">
+            <a
+              href={feature.href ?? src}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => {
+                if (feature.href) onOpenDemo?.(feature.href);
+              }}
+            >
               Open {feature.href ? "demo" : "walkthrough"} in a new tab{" "}
               <ArrowUpRight size={14} aria-hidden="true" />
             </a>
@@ -71,7 +79,6 @@ function FeatureFrame({
 
 export function PartnerFeatureExplorer({
   demos,
-  hrefPrefix,
   frameworkName,
   onOpenDemo,
 }: {
@@ -108,6 +115,25 @@ export function PartnerFeatureExplorer({
   );
   const active =
     features.find((feature) => feature.id === selected) ?? features[0];
+  const track = useRef<HTMLDivElement>(null);
+  const buttons = useRef<(HTMLButtonElement | null)[]>([]);
+  const activeIndex = features.indexOf(active);
+  function select(index: number, focus = false) {
+    const next = (index + features.length) % features.length;
+    setSelected(features[next].id);
+    const button = buttons.current[next];
+    const strip = track.current;
+    if (button && strip) {
+      strip.scrollTo({
+        left:
+          button.offsetLeft -
+          strip.offsetLeft -
+          (strip.clientWidth - button.clientWidth) / 2,
+        behavior: "instant",
+      });
+      if (focus) button.focus({ preventScroll: true });
+    }
+  }
   return (
     <section
       className="partner-explorer"
@@ -115,52 +141,57 @@ export function PartnerFeatureExplorer({
     >
       <FeatureFrame
         key={active.id}
+        onOpenDemo={onOpenDemo}
         feature={active}
         frameworkName={frameworkName}
       />
-      <div className="partner-explorer-caption">
-        <div>
-          <strong>{active.title}</strong>
-          <p>{active.description}</p>
-        </div>
-        <div className="partner-explorer-links">
-          {active.guide && (
-            <Link href={`${hrefPrefix}${active.guide}`}>
-              Read guide <ArrowUpRight size={14} aria-hidden="true" />
-            </Link>
-          )}
-          {active.href ? (
-            <a
-              href={active.href}
-              target="_blank"
-              rel="noreferrer"
-              onClick={() => {
-                if (active.href) onOpenDemo?.(active.href);
-              }}
-            >
-              Open demo <ArrowUpRight size={14} aria-hidden="true" />
-            </a>
-          ) : (
-            <span>Product walkthrough</span>
-          )}
-        </div>
-      </div>
       <div
-        className="partner-feature-list"
-        role="group"
-        aria-label="Choose a feature"
+        className="partner-feature-carousel"
+        aria-label="Feature carousel"
+        aria-roledescription="carousel"
       >
-        {features.map((feature, index) => (
-          <button
-            key={feature.id}
-            type="button"
-            aria-pressed={active.id === feature.id}
-            className={index < 3 ? "partner-feature-primary" : undefined}
-            onClick={() => setSelected(feature.id)}
-          >
-            {feature.title}
-          </button>
-        ))}
+        <button
+          type="button"
+          className="partner-carousel-arrow"
+          aria-label="Previous feature"
+          onClick={() => select(activeIndex - 1)}
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <div
+          className="partner-feature-track"
+          ref={track}
+          role="group"
+          aria-label="Choose a feature"
+          onKeyDown={(event) => {
+            if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+              event.preventDefault();
+              select(activeIndex + (event.key === "ArrowRight" ? 1 : -1), true);
+            }
+          }}
+        >
+          {features.map((feature, index) => (
+            <button
+              key={feature.id}
+              ref={(element) => {
+                buttons.current[index] = element;
+              }}
+              type="button"
+              aria-pressed={active.id === feature.id}
+              onClick={() => select(index)}
+            >
+              {feature.title}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          className="partner-carousel-arrow"
+          aria-label="Next feature"
+          onClick={() => select(activeIndex + 1)}
+        >
+          <ChevronRight size={18} />
+        </button>
       </div>
     </section>
   );

@@ -2340,67 +2340,55 @@ samp {
   width: 100%;
   height: 100%;
 }
-.partner-explorer-caption {
+.partner-feature-carousel {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1.1rem 1.25rem;
+  gap: 0.35rem;
+  padding: 0.5rem;
   border-top: 1px solid var(--border);
 }
-.partner-explorer-caption strong {
-  font-size: 0.95rem;
-}
-.partner-explorer-caption p {
-  font-size: 0.85rem;
-  line-height: 1.5;
-  margin: 0.3rem 0 0;
+.partner-carousel-arrow {
+  display: grid;
+  place-items: center;
+  flex: 0 0 40px;
+  min-height: 44px;
+  border-radius: 6px;
+  cursor: pointer;
   color: var(--text-secondary);
 }
-.partner-explorer-links {
+.partner-feature-track {
+  position: relative;
   display: flex;
-  flex-shrink: 0;
-  flex-direction: column;
-  gap: 0.5rem;
-  font-size: 0.8rem;
+  min-width: 0;
+  flex: 1;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  gap: 0.4rem;
 }
-.partner-explorer-links a {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
+.partner-feature-track::-webkit-scrollbar {
+  display: none;
 }
-.partner-explorer-links span {
-  color: var(--text-muted);
-}
-.partner-feature-list {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  border-top: 1px solid var(--border);
-  padding: 0.4rem;
-  gap: 0.2rem;
-}
-.partner-feature-list button {
+.partner-feature-track button {
+  scroll-snap-align: center;
+  flex: 0 0 auto;
   min-height: 44px;
-  padding: 0.65rem 0.7rem;
+  padding: 0.65rem 1rem;
+  white-space: nowrap;
   border-radius: 6px;
-  text-align: left;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: var(--text-secondary);
   cursor: pointer;
 }
-.partner-feature-list .partner-feature-primary {
+.partner-feature-track button[aria-pressed="true"] {
+  background: var(--accent-dim);
+  color: var(--accent);
   font-weight: 600;
-  border-bottom: 1px solid var(--border);
-  border-radius: 6px 6px 0 0;
 }
-.partner-feature-list button:hover {
+.partner-feature-carousel button:hover {
   background: var(--bg-elevated);
 }
-.partner-feature-list button[aria-pressed="true"] {
-  color: var(--accent);
-  background: var(--accent-dim);
-}
-.partner-feature-list button:focus-visible,
+.partner-feature-carousel button:focus-visible,
 .partner-cli button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
@@ -2448,19 +2436,6 @@ samp {
 @media (max-width: 640px) {
   .partner-explorer-frame {
     height: 460px;
-  }
-  .partner-explorer-caption {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-  .partner-explorer-links {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 1rem;
-  }
-  .partner-feature-list button {
-    font-size: 0.75rem;
-    padding: 0.6rem 0.4rem;
   }
 }
 

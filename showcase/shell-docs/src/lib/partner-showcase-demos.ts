@@ -1,3 +1,4 @@
+import { getDemo } from "@/lib/registry";
 import catalog from "@/data/frontend-catalog.json";
 import type { FrontendId } from "@/lib/frontend-options";
 
@@ -6,6 +7,7 @@ export interface PartnerShowcaseDemo {
   title: string;
   description: string;
   href: string;
+  embedHref: string;
 }
 
 const FEATURE_COPY: Record<string, { title: string; description: string }> = {
@@ -65,9 +67,21 @@ export function partnerShowcaseDemos(
       (a, b) =>
         FEATURE_ORDER.indexOf(a.feature) - FEATURE_ORDER.indexOf(b.feature),
     )
-    .map((cell) => ({
-      id: cell.feature,
-      ...FEATURE_COPY[cell.feature],
-      href: `https://showcase.copilotkit.ai/${frontend}/${integration}/${cell.feature}`,
-    }));
+    .flatMap((cell) => {
+      const source = getDemo(integration, cell.feature);
+      if (!source?.demo.route || !source.integration.backend_url) return [];
+      return [
+        {
+          embedHref: new URL(
+            frontend === "angular"
+              ? `/angular/${cell.feature}`
+              : source.demo.route,
+            source.integration.backend_url,
+          ).href,
+          id: cell.feature,
+          ...FEATURE_COPY[cell.feature],
+          href: `https://showcase.copilotkit.ai/${frontend}/${integration}/${cell.feature}`,
+        },
+      ];
+    });
 }

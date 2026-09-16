@@ -143,6 +143,8 @@ describe("FrameworkOverview", () => {
         showcaseDemos={[
           {
             id: "agentic-chat",
+            embedHref:
+              "https://showcase-langgraph-typescript-production.up.railway.app/demos/agentic-chat",
             title: "Chat",
             description: "Try chat",
             href: "https://showcase.copilotkit.ai/react/langgraph-typescript/agentic-chat",
@@ -151,7 +153,7 @@ describe("FrameworkOverview", () => {
       />,
     );
     expect(markup).toContain(
-      'href="https://showcase.copilotkit.ai/react/langgraph-typescript/agentic-chat"',
+      'src="https://showcase-langgraph-typescript-production.up.railway.app/demos/agentic-chat"',
     );
     expect(markup).toContain('href="/langgraph-typescript/quickstart"');
     expect(markup).not.toContain("examples-coagents");
