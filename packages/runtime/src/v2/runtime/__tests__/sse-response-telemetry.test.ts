@@ -89,6 +89,44 @@ describe("sse-response.ts — telemetry lifecycle", () => {
     );
   });
 
+  it("carries executionSeed onto stream_ended", async () => {
+    // `llmHostClass` is knowable from the agent's config and never appears on
+    // a streamed event, so the seed is the only path it has onto telemetry.
+    const completing = new Observable<BaseEvent>((subscriber) => {
+      subscriber.complete();
+    });
+    createSseEventResponse({
+      request: makeRequest(),
+      observableFactory: () => completing,
+      executionSeed: { llmHostClass: "azure" },
+    });
+
+    await vi.waitFor(() => {
+      expect(captureSpy).toHaveBeenCalledWith(
+        "oss.runtime.agent_execution_stream_ended",
+        { llmHostClass: "azure" },
+      );
+    });
+  });
+
+  it("carries executionSeed onto stream_errored", async () => {
+    const failing = new Observable<BaseEvent>((subscriber) => {
+      subscriber.error(new Error("upstream exploded"));
+    });
+    createSseEventResponse({
+      request: makeRequest(),
+      observableFactory: () => failing,
+      executionSeed: { llmHostClass: "openrouter" },
+    });
+
+    await vi.waitFor(() => {
+      expect(captureSpy).toHaveBeenCalledWith(
+        "oss.runtime.agent_execution_stream_errored",
+        expect.objectContaining({ llmHostClass: "openrouter" }),
+      );
+    });
+  });
+
   it("reports provider, model, and LangGraph facts scraped off the stream", async () => {
     // This enrichment used to live in the v1 TelemetryAgentRunner, which
     // wrapped the runner only to collect it and emitted a second copy of

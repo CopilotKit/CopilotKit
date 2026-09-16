@@ -26,6 +26,12 @@ interface CreateSseEventResponseParams {
   /** Runtime-bound telemetry capture. Falls back for external direct callers. */
   telemetry?: TelemetryCapture;
   /**
+   * Execution facts known before the stream opens, merged under anything the
+   * upstream reports as it runs. Carries `llmHostClass`, which is knowable
+   * from the agent's configuration and never appears on a streamed event.
+   */
+  executionSeed?: AgentExecutionResponseInfo;
+  /**
    * Whether to emit `oss.runtime.agent_execution_stream_*` telemetry for this
    * stream. Defaults to `true`. The stateless `/suggest` path sets this to
    * `false`: a suggestion is a side-effect-free structured completion, not a
@@ -45,6 +51,7 @@ export function createSseEventResponse({
   debug,
   logger,
   telemetry = defaultTelemetry,
+  executionSeed,
   captureTelemetry = true,
   runtimeErrorReporter,
   startTime,
@@ -122,7 +129,10 @@ export function createSseEventResponse({
     // the v1 TelemetryAgentRunner, which wrapped the runner purely to
     // collect it and emitted its own duplicate copy of every stream event
     // to carry it. v2 callers had no equivalent and reported `{}`.
-    const executionInfo: AgentExecutionResponseInfo = {};
+    // Seeded rather than empty: `llmHostClass` comes from the agent's config,
+    // not from the wire, so nothing streamed will ever fill it in. Scraped
+    // fields still win, since `collectExecutionInfo` writes over this.
+    const executionInfo: AgentExecutionResponseInfo = { ...executionSeed };
 
     subscription = observable.subscribe({
       next: async (event) => {
