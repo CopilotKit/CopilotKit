@@ -32,6 +32,11 @@ describe("partner feature explorer", () => {
     ).toBe(
       "https://showcase-mastra-production.up.railway.app/angular/gen-ui-tool-based",
     );
+    expect(
+      screen
+        .getByRole("link", { name: "Get started with Generative UI" })
+        .getAttribute("href"),
+    ).toBe("/angular/mastra/features#gen-ui-tool-based");
     expect(document.querySelectorAll("iframe")).toHaveLength(1);
     expect(
       screen
@@ -40,6 +45,11 @@ describe("partner feature explorer", () => {
         .map((button) => button.textContent),
     ).toEqual(["Rich Threads", "Automatic Learning", "Generative UI"]);
     fireEvent.click(screen.getByRole("button", { name: "Rich Threads" }));
+    expect(
+      screen
+        .getByRole("link", { name: "Get started with Rich Threads" })
+        .getAttribute("href"),
+    ).toBe("/angular/mastra/threads");
     expect(screen.queryByTitle("Mastra: Generative UI live demo")).toBeNull();
     expect(screen.getByTitle("Rich Threads product walkthrough")).toBeTruthy();
     expect(document.querySelector(".partner-explorer-caption")).toBeNull();

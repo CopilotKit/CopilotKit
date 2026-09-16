@@ -2459,3 +2459,27 @@ samp {
   gap: 0.3rem;
   color: var(--accent);
 }
+
+.partner-demo-guide {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  background: var(--accent);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.partner-demo-guide:hover {
+  filter: brightness(1.1);
+}
+.partner-demo-guide:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}

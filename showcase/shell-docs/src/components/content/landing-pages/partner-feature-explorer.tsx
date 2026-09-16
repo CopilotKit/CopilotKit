@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
 import type { PartnerShowcaseDemo } from "@/lib/partner-showcase-demos";
@@ -14,13 +15,27 @@ type Feature = {
   guide?: string;
 };
 
+const FEATURE_GUIDES: Record<string, string> = {
+  "agentic-chat": "/prebuilt-components",
+  "gen-ui-tool-based": "/generative-ui/tool-rendering",
+  "hitl-in-chat": "/human-in-the-loop/tool-based",
+  "shared-state-read-write": "/shared-state",
+  "frontend-tools": "/frontend-tools",
+  "headless-complete": "/custom-look-and-feel/headless-ui",
+  subagents: "/multi-agent/subagents",
+  "background-agents": "/background-tasks",
+  "declarative-gen-ui": "/generative-ui/a2ui",
+};
+
 function FeatureFrame({
   feature,
+  guideHref,
   frameworkName,
   onOpenDemo,
 }: {
   onOpenDemo?: (href: string) => void;
   feature: Feature;
+  guideHref: string;
   frameworkName: string;
 }) {
   const [status, setStatus] = useState<"loading" | "slow" | "ready">("loading");
@@ -73,12 +88,20 @@ function FeatureFrame({
           )}
         </div>
       )}
+      <Link
+        className="partner-demo-guide"
+        href={guideHref}
+        aria-label={`Get started with ${feature.title}`}
+      >
+        Get started <ArrowUpRight size={16} aria-hidden="true" />
+      </Link>
     </div>
   );
 }
 
 export function PartnerFeatureExplorer({
   demos,
+  hrefPrefix,
   frameworkName,
   onOpenDemo,
 }: {
@@ -143,6 +166,7 @@ export function PartnerFeatureExplorer({
         key={active.id}
         onOpenDemo={onOpenDemo}
         feature={active}
+        guideHref={`${hrefPrefix}${active.guide ?? (hrefPrefix.startsWith("/angular/") ? `/features#${active.id}` : (FEATURE_GUIDES[active.id] ?? "/quickstart"))}`}
         frameworkName={frameworkName}
       />
       <div
