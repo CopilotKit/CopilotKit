@@ -31,6 +31,7 @@ const fakes = vi.hoisted(() => {
       onMention: vi.fn(),
       onModalSubmit: vi.fn(),
       onThreadStarted: vi.fn(),
+      onReaction: vi.fn(),
     },
   };
 });
@@ -136,6 +137,47 @@ describe("managed channel entrypoint", () => {
     expect(fakes.closeBrowser).toHaveBeenCalledOnce();
     // stop() threw, so shutdown exits nonzero.
     expect(exit).toHaveBeenCalledWith(1);
+  });
+
+  it("asks for feedback on a broken-heart reaction, on both platforms", async () => {
+    for (const key of envKeys) previousEnv.set(key, process.env[key]);
+    vi.resetModules();
+    fakes.bot.onReaction.mockClear();
+    process.env.AGENT_URL = "http://agent.test/run";
+    process.env.CPK_INTELLIGENCE_API_KEY = "cpk-test";
+
+    vi.spyOn(process, "on").mockImplementation(
+      (() => process) as typeof process.on,
+    );
+    vi.spyOn(process, "exit").mockImplementation(
+      (() => undefined as never) as typeof process.exit,
+    );
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await import("./managed.js");
+    await vi.waitFor(() => expect(fakes.bot.onReaction).toHaveBeenCalled());
+
+    const [tokens, handler] = fakes.bot.onReaction.mock.calls[0] as [
+      string[],
+      (evt: unknown) => Promise<void>,
+    ];
+
+    // Both raw tokens: Discord sends the character, Slack sends the alias.
+    // This emoji is absent from the SDK emoji table, so neither token is
+    // normalized to a shared canonical name.
+    expect(tokens).toEqual(["💔", "broken_heart"]);
+
+    const post = vi.fn(async (_text: string) => ({ id: "m1" }));
+    await handler({ added: true, thread: { post }, user: { name: "Ada" } });
+    expect(post).toHaveBeenCalledOnce();
+    expect(post.mock.calls[0]?.[0]).toContain("Ada, sorry");
+
+    // A removed reaction is not feedback.
+    post.mockClear();
+    await handler({ added: false, thread: { post }, user: { name: "Ada" } });
+    expect(post).not.toHaveBeenCalled();
   });
 
   it("still reads the deprecated COPILOTKIT_API_KEY alias", async () => {
