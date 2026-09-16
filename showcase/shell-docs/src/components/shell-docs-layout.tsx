@@ -6,6 +6,7 @@ import { SidebarScrollPreserver } from "./sidebar-scroll-preserver";
 import { SidebarFolderStatePreserver } from "./sidebar-folder-state-preserver";
 import { SidebarReactDocsNotice } from "./sidebar-react-docs-notice";
 import GithubIcon from "./icons/github";
+import { ThemeSwitch } from "./theme-switch";
 import DiscordIcon from "./icons/discord";
 import { MobileSidebarFooterTalk } from "./mobile-sidebar-footer-talk";
 import { PrimaryDocsTabs } from "./primary-docs-tabs";
@@ -37,7 +38,7 @@ export function ShellDocsLayout({
       // we have to pass `enabled: false` explicitly to keep the
       // `iconLinks.length > 0 || slots.themeSwitch` branch in
       // `sidebar.js` from rendering the default rounded pill. Our own
-      // single-toggle `<ThemeSwitch>` is mounted in BrandNav instead.
+      // single-toggle `<ThemeSwitch>` lives beside the social links below.
       themeSwitch={{ enabled: false }}
       // We intentionally do NOT pass `links` here either. Fumadocs would
       // funnel `type: "icon"` entries into the same auto-injected pill
@@ -89,6 +90,7 @@ export function ShellDocsLayout({
               >
                 <DiscordIcon />
               </a>
+              <ThemeSwitch className="h-7 w-7 border-0 bg-transparent shadow-none" />
             </div>
           </div>
         ),

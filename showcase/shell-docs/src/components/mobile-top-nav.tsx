@@ -12,7 +12,6 @@ import {
 } from "./docs-public-auth-control";
 import { SearchTrigger } from "./search-trigger";
 import { CopilotKitMark } from "./copilotkit-mark";
-import { ThemeSwitch } from "./theme-switch";
 import { PrimaryDocsTabs } from "./primary-docs-tabs";
 
 // Mobile/tablet top nav. Replaces shell-docs's BrandNav below xl because the
@@ -61,6 +60,15 @@ export function MobileTopNav() {
         </Link>
         <PrimaryDocsTabs exploreMenu className="shell-docs-mobile-tabs" />
         <div className="shell-docs-mobile-actions">
+          <div className="shell-docs-mobile-search">
+            <SearchTrigger iconOnly />
+          </div>
+          <SidebarTrigger
+            className="shell-docs-mobile-menu shell-docs-radius-control flex h-10 w-10 items-center justify-center text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
+            aria-label="Toggle navigation"
+          >
+            <Menu className="w-5 h-5" />
+          </SidebarTrigger>
           <DocsPublicAuthControl
             fallback={
               <Link
@@ -76,16 +84,6 @@ export function MobileTopNav() {
               </Link>
             }
           />
-          <div className="shell-docs-mobile-search">
-            <SearchTrigger iconOnly />
-          </div>
-          <ThemeSwitch />
-          <SidebarTrigger
-            className="shell-docs-mobile-menu shell-docs-radius-control flex h-10 w-10 items-center justify-center text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
-            aria-label="Toggle navigation"
-          >
-            <Menu className="w-5 h-5" />
-          </SidebarTrigger>
         </div>
       </div>
     </header>

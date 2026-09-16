@@ -6,7 +6,6 @@ import { usePostHog } from "posthog-js/react";
 import { CalendarDays, ChefHat } from "lucide-react";
 import { SearchTrigger } from "./search-trigger";
 import { CopilotKitMark } from "./copilotkit-mark";
-import { ThemeSwitch } from "./theme-switch";
 import ConsoleIcon from "./icons/console";
 import ExternalLinkIcon from "./icons/external-link";
 import { DocsMegaMenu } from "./docs-mega-menu";
@@ -136,24 +135,6 @@ export function BrandNav(_props: BrandNavProps = {}) {
 
         <div className="flex min-w-0 items-center gap-2 justify-self-end pl-4">
           <SearchTrigger iconOnly />
-          <DocsPublicAuthControl
-            fallback={
-              <Link
-                href={authEntryHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={handleFreeDeveloperAccessClick}
-                className="shell-docs-nav-cta shell-docs-radius-control hidden h-10 cursor-pointer items-center gap-2 whitespace-nowrap border px-4 text-sm font-medium no-underline shadow-[var(--shadow-control)] transition-colors duration-200 [@media(width>=1280px)]:flex"
-                aria-label="Get CopilotKit Intelligence free"
-                suppressHydrationWarning
-              >
-                Get CopilotKit Intelligence free
-                <ExternalLinkIcon className="text-current opacity-70" />
-              </Link>
-            }
-          />
-          {/* Talk to an engineer. Secondary in the docs nav so search can own
-           * the far-right utility slot. */}
           <button
             type="button"
             onClick={handleTalkToEngineersClick}
@@ -171,7 +152,22 @@ export function BrandNav(_props: BrandNavProps = {}) {
           >
             <CalendarDays className="h-4 w-4" />
           </button>
-          <ThemeSwitch />
+          <DocsPublicAuthControl
+            fallback={
+              <Link
+                href={authEntryHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={handleFreeDeveloperAccessClick}
+                className="shell-docs-nav-cta shell-docs-radius-control hidden h-10 cursor-pointer items-center gap-2 whitespace-nowrap border px-4 text-sm font-medium no-underline shadow-[var(--shadow-control)] transition-colors duration-200 [@media(width>=1280px)]:flex"
+                aria-label="Get CopilotKit Intelligence free"
+                suppressHydrationWarning
+              >
+                Get CopilotKit Intelligence free
+                <ExternalLinkIcon className="text-current opacity-70" />
+              </Link>
+            }
+          />
         </div>
       </div>
     </nav>
