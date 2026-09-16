@@ -69,6 +69,7 @@ import {
   findFrameworksWithCell,
   findFrameworksWithPage,
   loadDoc,
+  docCandidateOrder,
 } from "@/lib/docs-render";
 import type { NavNode } from "@/lib/docs-render";
 import {
@@ -251,11 +252,19 @@ function frameworkMetadata(
     title = doc?.fm.title ?? humanizeSlug(unscopedPath);
     description = doc?.fm.description;
   } else if (slugPath) {
-    const docsFolder = getDocsFolder(framework);
-    const frameworkScopedDoc = loadDoc(
-      `integrations/${docsFolder}/${slugPath}`,
+    // Use the SAME order the body resolver uses (docCandidateOrder). This
+    // branch previously loaded the framework-scoped doc unconditionally, so a
+    // generated-mode page rendered the ROOT file's body under the FRAMEWORK
+    // file's title and description.
+    const candidates = docCandidateOrder(
+      getDocsMode(framework),
+      getDocsFolder(framework),
+      slugPath,
     );
-    const doc = frameworkScopedDoc ?? loadDoc(slugPath);
+    const doc = candidates.reduce<ReturnType<typeof loadDoc>>(
+      (found, candidate) => found ?? loadDoc(candidate),
+      null,
+    );
     if (doc) {
       title = doc.fm.title;
       description = doc.fm.description;
@@ -837,31 +846,16 @@ export default async function FrameworkScopedDocsPage({
   //               to the agnostic page, e.g. enterprise CTAs).
   //   generated — root MDX wins (Model 1, current behavior); the
   //               per-framework tree is a sparse override layer.
-  if (docsMode === "authored") {
-    const frameworkPath = `integrations/${docsFolder}/${slugPath}`;
-    doc = loadDoc(frameworkPath);
-    if (doc) contentSlugPath = frameworkPath;
-    if (!doc) doc = loadDoc(slugPath);
-  } else {
-    // A few root pages are shared nav shims/overviews whose framework-scoped
-    // URLs should render the per-framework MDX when it exists.
-    //
-    // - `/quickstart` at the root is a routing shim; real quickstart content
-    //   lives per-framework.
-    // - `/threads-import` is a cross-source overview at the root, but ADK and
-    //   LangGraph have source-specific import guides at the same framework URL.
-    if (slugPath === "quickstart" || slugPath === "threads-import") {
-      const overridePath = `integrations/${docsFolder}/${slugPath}`;
-      doc = loadDoc(overridePath);
-      if (doc) contentSlugPath = overridePath;
-    }
-    if (!doc) {
-      doc = loadDoc(slugPath);
-      if (!doc) {
-        const fallbackPath = `integrations/${docsFolder}/${slugPath}`;
-        doc = loadDoc(fallbackPath);
-        if (doc) contentSlugPath = fallbackPath;
-      }
+  for (const candidate of docCandidateOrder(
+    docsMode,
+    docsFolder,
+    slugPath,
+  )) {
+    const found = loadDoc(candidate);
+    if (found) {
+      doc = found;
+      contentSlugPath = candidate;
+      break;
     }
   }
 
