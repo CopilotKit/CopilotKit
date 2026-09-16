@@ -101,7 +101,7 @@ function FeatureFrame({
         href={guideHref}
         aria-label={`Get started with ${feature.title}`}
       >
-        Get started <ArrowUpRight size={16} aria-hidden="true" />
+        Get started <ArrowUpRight size={12} aria-hidden="true" />
       </Link>
     </div>
   );
