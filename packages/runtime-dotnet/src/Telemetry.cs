@@ -149,7 +149,7 @@ internal sealed class RuntimeTelemetry : IAsyncDisposable
         var globals = new ReadOnlyDictionary<string, object?>(new Dictionary<string, object?>
         {
             ["sampleRate"] = settings.SampleRate, ["sampleRateAdjustmentFactor"] = 1 - settings.SampleRate, ["sampleWeight"] = 1 / settings.SampleRate,
-            ["telemetry_identified"] = settings.Identified, ["telemetry_emitter"] = "native", ["telemetry_transport"] = "lambda"
+            ["telemetry_identified"] = settings.Identified, ["telemetry_emitter"] = "runtime-dotnet", ["telemetry_surface"] = "v2", ["telemetry_transport"] = "lambda"
         });
         var value = new RuntimeTelemetryEvent(name, DateTimeOffset.UtcNow, new ReadOnlyDictionary<string, object?>(attributes)) { GlobalProperties = globals, Identity = settings.Identity };
         if (!queue.Writer.TryWrite(value)) dropped.Add(1);

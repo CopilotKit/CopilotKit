@@ -60,6 +60,9 @@ func TestLicenseTelemetryEnvironmentBypassesSamplingWithoutLeakingToken(t *testi
 			t.Fatal(err)
 		}
 		metadata := object(body["global_properties"])
+		if metadata["telemetry_surface"] != "v2" {
+			t.Fatal(metadata)
+		}
 		if metadata["sampleRate"] != float64(1) || metadata["sampleRateAdjustmentFactor"] != float64(0) || metadata["sampleWeight"] != float64(1) || metadata["telemetry_identified"] != true {
 			t.Fatal(metadata)
 		}
