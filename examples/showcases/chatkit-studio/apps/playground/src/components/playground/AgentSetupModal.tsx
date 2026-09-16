@@ -64,7 +64,7 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Litera
     Standard chat node based on the ReAct design pattern.
     """
     # 1. Define the model
-    model = ChatOpenAI(model="gpt-4o")
+    model = ChatOpenAI(model="gpt-5-mini")
 
     # 2. Bind the tools to the model
     model_with_tools = model.bind_tools(
