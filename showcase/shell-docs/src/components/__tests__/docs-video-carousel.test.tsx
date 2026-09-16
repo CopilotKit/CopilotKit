@@ -38,7 +38,7 @@ describe("DocsVideoCarousel", () => {
 
     const tabs = screen.getAllByRole("tab");
     expect(tabs).toHaveLength(4);
-    expect(tabs.map((tab) => tabTitle(tab))).toEqual(["Live demo", ...TITLES]);
+    expect(tabs.map((tab) => tabTitle(tab))).toEqual(["Demo", ...TITLES]);
   });
 
   it("selects exactly one tab, the first, initially", () => {
@@ -198,12 +198,10 @@ describe("DocsVideoCarousel", () => {
 it("defaults to the requested live demo without an external demo link", () => {
   render(<DocsVideoCarousel />);
   expect(
-    screen
-      .getByRole("tab", { name: "Live demo" })
-      .getAttribute("aria-selected"),
+    screen.getByRole("tab", { name: "Demo" }).getAttribute("aria-selected"),
   ).toBe("true");
   expect(
-    screen.getByTitle("Live demo: LangGraph generative UI").getAttribute("src"),
+    screen.getByTitle("Demo: LangGraph generative UI").getAttribute("src"),
   ).toBe(
     "https://showcase-langgraph-python-production.up.railway.app/demos/gen-ui-tool-based",
   );

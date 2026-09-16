@@ -50,7 +50,7 @@ const RECORDINGS: readonly Recording[] = [
 const LIVE_DEMO_URL =
   "https://showcase-langgraph-python-production.up.railway.app/demos/gen-ui-tool-based";
 const TABS = [
-  { id: "live-demo", title: "Live demo", icon: MousePointer2 },
+  { id: "live-demo", title: "Demo", icon: MousePointer2 },
   ...RECORDINGS,
 ];
 
@@ -110,12 +110,12 @@ export function DocsVideoCarousel() {
         className="relative"
       >
         <div
-          className={`not-prose aspect-video w-full overflow-hidden bg-[var(--bg-elevated)] ${isLiveDemo ? "min-h-[420px]" : ""}`}
+          className={`not-prose w-full overflow-hidden bg-[var(--bg-elevated)] ${isLiveDemo ? "h-[560px] sm:h-[640px]" : "aspect-video"}`}
         >
           {isLiveDemo ? (
             <iframe
               src={LIVE_DEMO_URL}
-              title="Live demo: LangGraph generative UI"
+              title="Demo: LangGraph generative UI"
               className="h-full w-full border-0"
             />
           ) : playing ? (
