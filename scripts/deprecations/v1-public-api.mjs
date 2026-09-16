@@ -505,7 +505,55 @@ overrides.set("runtime:AgentsFactory", {
   directSource: "./v1-deprecated/lib/runtime/copilot-runtime",
 });
 overrides.set("runtime-langgraph:LangGraphHttpAgent", {
+  ...overrides.get("runtime-langgraph:LangGraphHttpAgent"),
   directSource: "./lib/runtime/agent-integrations/langgraph/agent",
+});
+
+// `LangGraphHttpAgent` is not re-exported by `@copilotkit/runtime/v2`, so the
+// name-matching pass above cannot find a replacement for it. It has one anyway:
+// it is a subclass of `HttpAgent` from `@ag-ui/client`, which the v2
+// `CopilotRuntime` accepts directly, and that is the pattern every LangGraph and
+// DeepAgents docs page now uses. State the one behavioural difference rather
+// than the exact shape of the subclass, which is version-specific: as of
+// `@ag-ui/langgraph@0.0.43` the subclass carries a back-compat bridge for
+// clients resuming interrupts through the deprecated
+// `forwardedProps.command.resume` channel (v1's `useLangGraphInterrupt`).
+// `LangGraphAgent` is deliberately NOT given this note: it genuinely has no
+// one-to-one replacement.
+const langGraphHttpAgentReplacementNote = [
+  "Use `HttpAgent` from `@ag-ui/client`, passed to the v2 `CopilotRuntime`.",
+  "Exception: a v1 client still resuming interrupts through" +
+    " `forwardedProps.command.resume` — `LangGraphHttpAgent` keeps a" +
+    " back-compat bridge for that channel.",
+];
+for (const key of [
+  "runtime:LangGraphHttpAgent",
+  "runtime-langgraph:LangGraphHttpAgent",
+]) {
+  overrides.set(key, {
+    ...overrides.get(key),
+    replacementNote: langGraphHttpAgentReplacementNote,
+  });
+}
+
+// The v1 endpoint factories were renamed in v2, so the name-matching pass above
+// cannot find them either. Both replacements are real exports of
+// `@copilotkit/runtime/v2`, and the mapping is stated as a table in
+// showcase/shell-docs/src/content/docs/backend/copilot-runtime.mdx.
+// `copilotRuntimeNextJSPagesRouterEndpoint` and `copilotRuntimeNestEndpoint` are
+// deliberately left alone: the docs group them under the same single-route mode
+// but never name a v2 counterpart for them, so a mapping here would be a guess.
+overrides.set("runtime:copilotRuntimeNextJSAppRouterEndpoint", {
+  ...overrides.get("runtime:copilotRuntimeNextJSAppRouterEndpoint"),
+  replacementName: "createCopilotRuntimeHandler",
+});
+overrides.set("runtime:copilotRuntimeNodeHttpEndpoint", {
+  ...overrides.get("runtime:copilotRuntimeNodeHttpEndpoint"),
+  replacementName: "createCopilotRuntimeHandler",
+});
+overrides.set("runtime:copilotRuntimeNodeExpressEndpoint", {
+  ...overrides.get("runtime:copilotRuntimeNodeExpressEndpoint"),
+  replacementName: "createCopilotExpressHandler",
 });
 
 for (const mapping of pilotMappings) {
@@ -875,6 +923,9 @@ export function getV1PublicApi() {
               }
             : null,
           relatedDocs: hasReplacement ? null : (override?.relatedDocs ?? null),
+          replacementNote: hasReplacement
+            ? null
+            : (override?.replacementNote ?? null),
           docs,
         };
       })
@@ -910,7 +961,11 @@ export function renderDeprecationJsDoc(item) {
       lines.push(` * See ${item.replacement.docs}`);
     }
   } else {
-    lines.push(" * No 1:1 v2 replacement is available.");
+    if (item.replacementNote) {
+      for (const note of item.replacementNote) lines.push(` * ${note}`);
+    } else {
+      lines.push(" * No 1:1 v2 replacement is available.");
+    }
     if (item.relatedDocs) {
       lines.push(
         ` * Related v2 docs (${item.relatedDocs.label}): ${item.relatedDocs.url}`,
