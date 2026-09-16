@@ -43,6 +43,8 @@ export interface DocsPageToolsProps {
   onboardingFrontend?: { id: string; name: string };
   /** Hide the generic onboarding prompt when the page provides its own CTA. */
   hideOnboardingPrompt?: boolean;
+  /** Page-specific setup goal for an in-content quickstart prompt. */
+  promptTask?: string;
 }
 
 /**
@@ -69,6 +71,7 @@ export function DocsPageTools({
   onboardingFramework,
   onboardingFrontend,
   hideOnboardingPrompt = false,
+  promptTask,
 }: DocsPageToolsProps): React.JSX.Element {
   const markdownUrl = docsMarkdownUrl(slugHrefPrefix, slugPath);
   return (
@@ -87,6 +90,7 @@ export function DocsPageTools({
         </MarkdownCopyButton>
       ) : (
         <OnboardingPromptCopyButton
+          task={promptTask}
           framework={onboardingFramework}
           frontend={onboardingFrontend}
           markdownUrl={markdownUrl}

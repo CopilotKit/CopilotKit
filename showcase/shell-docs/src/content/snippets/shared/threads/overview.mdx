@@ -1,10 +1,6 @@
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import { RichThreadsSetupPrompt } from "@/components/rich-threads-setup-prompt";
 import InspectorPaneThreads from "@/snippets/shared/inspector/open-inspector-pane-threads.mdx";
-
-<IntelligenceOnboardingPrompt
-  feature="threads"
-  surface="docs_threads_overview"
-/>
 
 <div
   aria-label="A support workspace using Threads Drawer to move between customer conversations while CopilotChat renders the selected case details."
@@ -19,65 +15,54 @@ import InspectorPaneThreads from "@/snippets/shared/inspector/open-inspector-pan
 
 <InspectorPaneThreads />
 
-## Get started
+## Start with your coding agent
 
-Create a new CopilotKit app connected to cloud-hosted CopilotKit Intelligence. Your application and CopilotKit Runtime run locally while CopilotKit Intelligence stores and synchronizes Rich Threads.
+Copy this prompt into your coding agent to inspect your existing CopilotKit app and configure Rich Threads with CopilotKit Intelligence. Prefer to work through the setup yourself? Follow the manual steps below.
 
-<Accordions>
-<Accordion title="Build and verify this with a coding agent">
+<RichThreadsSetupPrompt />
 
-<DocsTrackedCopy surface="docs_threads_agent_prompt">
+## Set up Rich Threads manually
 
-```text
-Set up and verify a CopilotKit Rich Threads application with cloud-hosted
-CopilotKit Intelligence.
+Create a new CopilotKit app connected to cloud-hosted CopilotKit Intelligence. Your application and CopilotKit Runtime run locally while CopilotKit Intelligence stores and synchronizes Rich Threads. If you already have a working app, follow the [Intelligence quickstart](/intelligence/quickstart#set-it-up-manually) to connect it instead.
 
-First inspect this repository and follow its agent instructions. If this is not
-already a CLI-created CopilotKit Threads starter, run
-`npx copilotkit@latest init` and ask me to complete the interactive browser
-sign-in and CopilotKit Intelligence project selection when needed. Use the
-scaffolded local application and CopilotKit Runtime configuration.
+<Steps>
+  <Step>
+    ### Create your app
 
-Keep the Threads Drawer that comes with the starter. Do not rebuild it or invent
-manual CopilotKit Intelligence environment configuration. Do not set up a local
-Intelligence service.
+    Run the interactive starter command:
 
-Start the application and Runtime using the generated instructions. Create a
-conversation through the included Threads Drawer, reload or reopen it, and
-verify that the complete conversation returns. If browser interaction requires
-me, give me the exact step and continue after I confirm it.
+    <DocsTrackedCopy surface="docs_threads_managed_setup">
 
-Finish by reporting the files changed, commands run, and the persistence check
-you completed. Stop and explain the blocker if the cloud-hosted setup cannot be
-completed; do not substitute an undocumented setup.
-```
+    ```bash title="Terminal"
+    npx copilotkit@latest init
+    ```
 
-</DocsTrackedCopy>
+    </DocsTrackedCopy>
+  </Step>
 
-</Accordion>
-</Accordions>
+  <Step>
+    ### Connect CopilotKit Intelligence
 
-Or follow the steps yourself:
+    Complete browser sign-in, then create or select a CopilotKit Intelligence project when the CLI asks.
+  </Step>
 
-1. Run the interactive starter command:
+  <Step>
+    ### Start your app and Runtime
 
-   <DocsTrackedCopy surface="docs_threads_managed_setup">
+    Start the generated application and Runtime with the command printed by the CLI. For the standard npm setup:
 
-   ```bash title="Terminal"
-   npx copilotkit@latest init
-   ```
+    ```bash title="Terminal"
+    cd <project-directory>
+    npm run dev
+    ```
+  </Step>
 
-   </DocsTrackedCopy>
+  <Step>
+    ### Verify your first Rich Thread
 
-2. Complete browser sign-in, then create or select a CopilotKit Intelligence project when the CLI asks.
-3. Start the generated application and Runtime with the command printed by the CLI. For the standard npm setup:
-
-   ```bash title="Terminal"
-   cd <project-directory>
-   npm run dev
-   ```
-
-4. Use the included Threads Drawer to create a conversation. Reload the page or reopen the conversation and confirm that its complete history returns.
+    Use the included Threads Drawer to create a conversation. Reload the page or reopen the conversation and confirm that its complete history returns.
+  </Step>
+</Steps>
 
 Threads-capable CLI starters already include [Threads Drawer](/prebuilt-components/copilot-threads-drawer). Use its guide when you are ready to customize the drawer. Choose [Headless Threads](/headless-threads) later if your product needs a fully custom thread UI.
 

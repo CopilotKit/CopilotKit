@@ -77,6 +77,8 @@
   color: inherit;
 }
 .prompt-pill-app img {
+  display: block;
+  margin: 0;
   width: 18px;
   height: 18px;
   object-fit: contain;
@@ -174,15 +176,17 @@
   font-size: 13px;
 }
 @media (hover: none), (pointer: coarse) {
+  /* Touch users always see preview, so reserve its space in every placement. */
   .prompt-pill-shelf {
+    position: static;
     opacity: 1;
     visibility: visible;
   }
   .prompt-pill-shelf button {
     min-height: 44px;
   }
-  .docs-page-tools-prompt {
-    margin-bottom: 50px;
+  .docs-page-tools.docs-page-tools-prompt {
+    margin-bottom: 0;
   }
   .prompt-pill-app {
     width: 44px;
