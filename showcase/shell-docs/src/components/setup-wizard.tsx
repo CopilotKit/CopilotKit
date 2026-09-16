@@ -39,6 +39,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { WizardBackendPicker } from "./wizard-backend-picker";
 import { Copy } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import { CapabilityGrid, PickGrid } from "@/components/docs-map-parts";
@@ -558,10 +559,9 @@ export function SetupWizard({
       "Choose your agent framework to continue, or start with CopilotKit's built-in agent.";
     body = (
       <div>
-        <PickGrid
+        <WizardBackendPicker
           picks={backends}
           selectedId={backendId ?? undefined}
-          disabled={false}
           onSelect={(id, pointerActivated) => {
             setBackendId(id);
             goTo(4, "forward", pointerActivated);

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronRight, X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { ChevronRight } from "lucide-react";
 import { FrameworkLogo } from "./icons/framework-icons";
 import { PickLogoMark } from "./docs-map-parts";
 import { frontendPathForBackend, isFrontendId } from "@/lib/frontend-options";
@@ -31,14 +32,7 @@ export function LandingIntegrationPicker({
   integrations: readonly LandingIntegration[];
 }) {
   const [frontend, setFrontend] = useState<FrontendId>("react");
-  const [selected, setSelected] = useState<LandingIntegration | null>(null);
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const id = useId();
-  const frontendName = frontends.find((option) => option.id === frontend)?.name;
-
-  useEffect(() => {
-    if (selected && !dialogRef.current?.open) dialogRef.current?.showModal();
-  }, [selected]);
 
   return (
     <>
@@ -98,15 +92,30 @@ export function LandingIntegrationPicker({
             </>
           );
           return integration.choices.length > 1 ? (
-            <button
-              key={integration.id}
-              type="button"
-              aria-haspopup="dialog"
-              onClick={() => setSelected(integration)}
-              className={ROW_CLASS}
-            >
-              {content}
-            </button>
+            <Popover key={integration.id}>
+              <PopoverTrigger asChild>
+                <button type="button" className={ROW_CLASS}>
+                  {content}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                aria-label={`${integration.name} language`}
+              >
+                <p className="px-3 py-2 text-xs text-[var(--text-muted)]">
+                  Choose your language
+                </p>
+                {integration.choices.map((choice) => (
+                  <Link
+                    key={choice.slug}
+                    href={integrationHref(choice.slug, frontend)}
+                    className="block rounded-lg px-3 py-3 hover:bg-[var(--accent-dim)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+                  >
+                    {choice.name}
+                  </Link>
+                ))}
+              </PopoverContent>
+            </Popover>
           ) : (
             <Link
               key={integration.id}
@@ -118,71 +127,6 @@ export function LandingIntegrationPicker({
           );
         })}
       </div>
-      <dialog
-        ref={dialogRef}
-        aria-labelledby={`${id}-title`}
-        aria-describedby={`${id}-description`}
-        onClose={() => setSelected(null)}
-        onClick={(event) => {
-          if (event.target === event.currentTarget) dialogRef.current?.close();
-        }}
-        className="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border border-[var(--nav-control-border)] bg-[var(--bg-surface)] p-0 text-[var(--text)] shadow-[var(--shadow-panel)] backdrop:bg-black/45"
-      >
-        {selected && (
-          <div className="p-6 sm:p-7">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2
-                  id={`${id}-title`}
-                  className="text-xl font-semibold tracking-tight"
-                >
-                  {selected.name}
-                </h2>
-                <p
-                  id={`${id}-description`}
-                  className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]"
-                >
-                  Choose your agent language to continue with {frontendName}.
-                </p>
-              </div>
-              <button
-                type="button"
-                aria-label="Close language selector"
-                onClick={() => dialogRef.current?.close()}
-                className="-mr-2 -mt-2 inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
-              >
-                <X aria-hidden="true" className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="mt-5 grid gap-2">
-              {selected.choices
-                .filter((choice) => !choice.secondary)
-                .map((choice) => (
-                  <Link
-                    key={choice.slug}
-                    href={integrationHref(choice.slug, frontend)}
-                    className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-[var(--nav-control-border)] px-4 py-3 text-sm font-medium hover:bg-[var(--accent-dim)] hover:text-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
-                  >
-                    {choice.name}
-                    <ArrowRight aria-hidden="true" className="h-4 w-4" />
-                  </Link>
-                ))}
-            </div>
-            {selected.choices
-              .filter((choice) => choice.secondary)
-              .map((choice) => (
-                <Link
-                  key={choice.slug}
-                  href={integrationHref(choice.slug, frontend)}
-                  className="mt-3 inline-flex min-h-10 items-center gap-2 text-xs text-[var(--text-secondary)] underline underline-offset-4 hover:text-[var(--accent)]"
-                >
-                  {choice.name}{" "}
-                  <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
-                </Link>
-              ))}
-          </div>
-        )}
-      </dialog>
     </>
   );
 }

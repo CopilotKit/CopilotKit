@@ -196,7 +196,7 @@ describe("WizardCard", () => {
     expect(content!.className).not.toContain("overflow-y-auto");
     // Symmetric padding, and no one-sided margin: a margin lands entirely
     // above the options, which is the lopsided gap this replaced.
-    expect(content!.className).toContain("mt-6");
+    expect(content!.className).toContain("justify-center");
   });
 
   // jsdom never lays anything out — every box reports zero size — so a
@@ -332,7 +332,7 @@ describe("ChoiceGrid", () => {
   // `currentColor`), same shape as `CapabilityGrid`'s icon box in
   // `docs-map-parts.tsx` — this is one of the five mutation-checked guards,
   // dropping that class must make this fail.
-  it("renders Yes's answer as a checkmark and No's as a plus, both in the accent colour", () => {
+  it("renders Yes's answer as a checkmark and No's as a plus, both in the secondary text colour", () => {
     render(
       <ChoiceGrid options={OPTIONS} disabled={false} onSelect={vi.fn()} />,
     );
@@ -346,10 +346,10 @@ describe("ChoiceGrid", () => {
     expect(newProjectIcon).not.toBeNull();
 
     expect(checkIcon!.parentElement!.className).toContain(
-      "text-[var(--accent)]",
+      "text-[var(--text-secondary)]",
     );
     expect(newProjectIcon!.parentElement!.className).toContain(
-      "text-[var(--accent)]",
+      "text-[var(--text-secondary)]",
     );
   });
 

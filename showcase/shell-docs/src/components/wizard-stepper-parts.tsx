@@ -177,22 +177,24 @@ export function WizardCard({
       className={`shell-docs-radius-surface not-prose flex min-h-[30rem] flex-col p-5 sm:h-[32rem] sm:p-7 border border-[color-mix(in_srgb,var(--text)_18%,var(--bg-surface))] bg-[color-mix(in_srgb,var(--text)_6%,var(--bg-surface))]`}
     >
       {progress && <div className="mb-6 shrink-0">{progress}</div>}
-      <h3
-        ref={headingRef}
-        tabIndex={-1}
-        className={`mt-1 text-center text-xl font-semibold tracking-[-0.02em] text-[var(--text)] outline-none sm:text-[1.375rem] ${
-          showFocusRing ? HEADING_FOCUS_RING_CLASS : ""
-        }`}
-      >
-        {name}
-      </h3>
-      <p className="mt-1.5 text-center text-sm leading-relaxed text-[var(--text-secondary)]">
-        {description}
-      </p>
-      <div
-        className={`mt-6 flex min-h-0 flex-1 flex-col ${scrollContent ? "max-h-80 overflow-y-auto pr-2 sm:max-h-none" : ""}`}
-      >
-        {children}
+      <div className="flex min-h-0 flex-1 flex-col justify-center">
+        <h3
+          ref={headingRef}
+          tabIndex={-1}
+          className={`mt-1 text-center text-xl font-semibold tracking-[-0.02em] text-[var(--text)] outline-none sm:text-[1.375rem] ${
+            showFocusRing ? HEADING_FOCUS_RING_CLASS : ""
+          }`}
+        >
+          {name}
+        </h3>
+        <p className="mt-1.5 text-center text-sm leading-relaxed text-[var(--text-secondary)]">
+          {description}
+        </p>
+        <div
+          className={`mt-6 flex min-h-0 flex-col ${scrollContent ? "max-h-80 overflow-y-auto pr-2 sm:max-h-none" : ""}`}
+        >
+          {children}
+        </div>
       </div>
       {footer && (
         <div data-testid="wizard-footer" className="shrink-0 pt-5">

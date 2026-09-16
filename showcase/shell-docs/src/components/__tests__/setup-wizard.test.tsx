@@ -828,9 +828,7 @@ describe("PickGrid size per step", () => {
     expect(
       screen.getByRole("heading", { name: "Your agent backend" }),
     ).not.toBeNull();
-    expect(
-      screen.getByRole("button", { name: "SummaryBackend" }),
-    ).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Mastra" })).not.toBeNull();
     expect(screen.queryByText("The backend summary line.")).toBeNull();
   });
 });
