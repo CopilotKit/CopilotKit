@@ -3,7 +3,7 @@ import type { CopilotRuntimeLike } from "../../core/runtime";
 import { createSseEventResponse } from "../shared/sse-response";
 import {
   mergeForwardableHeaders,
-  resolveForwardHeadersPolicy,
+  policyFor,
 } from "../header-utils";
 
 /**
@@ -63,11 +63,7 @@ export function handleSseConnect({
         headers: mergeForwardableHeaders(
           agent?.headers,
           request,
-          // Optional on `CopilotRuntimeLike` (non-breaking minor release);
-          // coalesce a policy-less external implementor to the default resolved
-          // policy (default-on denylist) instead of dereffing undefined.
-          runtime.forwardHeadersPolicy ??
-            resolveForwardHeadersPolicy(undefined),
+          policyFor(runtime),
         ),
       }),
   });
