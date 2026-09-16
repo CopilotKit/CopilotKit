@@ -846,11 +846,7 @@ export default async function FrameworkScopedDocsPage({
   //               to the agnostic page, e.g. enterprise CTAs).
   //   generated — root MDX wins (Model 1, current behavior); the
   //               per-framework tree is a sparse override layer.
-  for (const candidate of docCandidateOrder(
-    docsMode,
-    docsFolder,
-    slugPath,
-  )) {
+  for (const candidate of docCandidateOrder(docsMode, docsFolder, slugPath)) {
     const found = loadDoc(candidate);
     if (found) {
       doc = found;

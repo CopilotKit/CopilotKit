@@ -2398,9 +2398,7 @@ export function docCandidateOrder(
   const frameworkPath = `integrations/${docsFolder}/${slugPath}`;
   const frameworkFirst =
     docsMode === "authored" || FRAMEWORK_WINS_SLUGS.has(slugPath);
-  return frameworkFirst
-    ? [frameworkPath, slugPath]
-    : [slugPath, frameworkPath];
+  return frameworkFirst ? [frameworkPath, slugPath] : [slugPath, frameworkPath];
 }
 
 export function loadDoc(
