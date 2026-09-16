@@ -136,8 +136,9 @@ describe("BuiltInAgent.modelHostClass", () => {
 
   it("reports unknown for a factory config, which owns its own LLM call", () => {
     const agent = new BuiltInAgent({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      factory: (() => {}) as any,
+      type: "custom",
+      // Never invoked — constructing the agent is the whole test.
+      factory: async function* () {},
     });
     expect(agent.modelHostClass).toBe("unknown");
   });
