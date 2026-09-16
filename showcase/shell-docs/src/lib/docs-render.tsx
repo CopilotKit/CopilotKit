@@ -2025,7 +2025,10 @@ export function inlineSnippets(
         // above removes the import line; gatherMdxImportComponentInfo()
         // preserved the runtime import set so the inliner can tell these
         // apart from genuine missing-snippet cases.
-        if (runtimeComponentNames.has(componentName)) {
+        if (
+          runtimeComponentNames.has(componentName) ||
+          componentName === "PageAgentPrompt"
+        ) {
           return match;
         }
         // Log so docs authors see a clean signal when a <Component />

@@ -31,6 +31,11 @@ import {
   createIntelligenceOnboardingPrompt,
   createOnboardingRunId,
 } from "@/lib/intelligence-onboarding-prompt";
+import {
+  createChannelsOnboardingPrompt,
+  isChannelOnboardingId,
+  CHANNELS_ONBOARDING_INTENT,
+} from "@/lib/channels-onboarding-prompt";
 import ClaudeIcon from "@/components/icons/claude";
 import ClaudeCodeIcon from "@/components/icons/claude-code";
 import CodexIcon from "@/components/icons/codex";
@@ -204,8 +209,11 @@ export function OnboardingPromptCopyButton({
   framework,
   frontend,
   markdownUrl,
+  task,
   ...props
 }: ComponentProps<"button"> & {
+  /** The specific setup goal of an in-content quickstart. */
+  task?: string;
   /**
    * The agent framework this docs page is about: `slug` is the docs registry
    * slug, `name` the display name. On the root surface and in the cookbook
@@ -254,14 +262,47 @@ export function OnboardingPromptCopyButton({
         const graphFrontend = frontend
           ? onboardingFrontendSlug(frontend.id)
           : undefined;
+        /**
+         * Channel pages take the Channels intent route instead of the generic
+         * one. Their frontend id is deliberately unknown to the graph, so the
+         * generic prompt reached them naming no channel at all and started
+         * every run by asking what the page had already answered.
+         */
+        const channel =
+          frontend && isChannelOnboardingId(frontend.id)
+            ? { id: frontend.id, name: frontend.name }
+            : undefined;
+        const source =
+          ` The developer copied this prompt from ${getClientBaseUrl().replace(/\/+$/, "")}${markdownUrl}.` +
+          (task
+            ? ` Their goal for this quickstart is: ${task} Follow the linked guide for this framework and frontend.`
+            : "");
         return {
-          text:
-            createIntelligenceOnboardingPrompt(runId) +
-            (framework
-              ? frameworkPromptSuffix(framework.slug, framework.name)
-              : "") +
-            (frontend ? frontendPromptSuffix(frontend.id, frontend.name) : "") +
-            ` The developer copied this prompt from ${getClientBaseUrl().replace(/\/+$/, "")}${markdownUrl}.`,
+          /**
+           * The channel route carries no selection sentences, and that is the
+           * route's design rather than an omission here.
+           * `feature/channels/start` asks Slack or Teams as its own scripted
+           * question, and it inspects the project for existing agent code
+           * instead of being told a framework — it treats empty folders,
+           * agent-only folders and existing CopilotKit apps as equally valid
+           * starts. On a channel page the framework is the route default, not
+           * a reader's choice, so asserting it would be the one sentence here
+           * that is not true.
+           *
+           * The source sentence stays on both branches: it reports where the
+           * copy happened rather than claiming anything about the project, and
+           * it is the only attribution left when a run id fails to join.
+           */
+          text: channel
+            ? createChannelsOnboardingPrompt(runId) + source
+            : createIntelligenceOnboardingPrompt(runId) +
+              (framework
+                ? frameworkPromptSuffix(framework.slug, framework.name)
+                : "") +
+              (frontend
+                ? frontendPromptSuffix(frontend.id, frontend.name)
+                : "") +
+              source,
           onAction: (action) =>
             posthog?.capture(
               "docs.intelligence_onboarding_prompt_action_clicked",
@@ -272,6 +313,10 @@ export function OnboardingPromptCopyButton({
                 surface: ONBOARDING_COPY_SURFACE,
                 agent_framework: graphFramework,
                 frontend: graphFrontend,
+                channel: channel?.id,
+                onboarding_intent: channel
+                  ? CHANNELS_ONBOARDING_INTENT
+                  : undefined,
               },
             ),
           onCopied: (action) =>
@@ -282,6 +327,10 @@ export function OnboardingPromptCopyButton({
               surface: ONBOARDING_COPY_SURFACE,
               agent_framework: graphFramework,
               frontend: graphFrontend,
+              channel: channel?.id,
+              onboarding_intent: channel
+                ? CHANNELS_ONBOARDING_INTENT
+                : undefined,
             }),
         };
       }}

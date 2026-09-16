@@ -65,7 +65,6 @@ import {
   CopilotKitMisuseError,
   readBody,
   getZodParameters,
-  isTelemetryDisabled,
 } from "@copilotkit/shared";
 import type {
   Action,
@@ -103,7 +102,6 @@ import type {
 } from "../../../v2/runtime";
 
 export type { AgentsConfig, AgentsFactory, AgentFactoryContext };
-import { TelemetryAgentRunner } from "./telemetry-agent-runner";
 import telemetry from "../telemetry-client";
 import { logRuntimeTelemetryDisclosure } from "../telemetry-disclosure";
 
@@ -473,23 +471,24 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
           : {};
     this.telemetry = telemetry.createScope(resolvedTelemetryIdentity);
 
-    // Determine the base runner (user-provided or default)
-    const baseRunner = params?.runner ?? new InMemoryAgentRunner();
-
-    // Wrap with TelemetryAgentRunner unless telemetry is disabled
-    // This ensures we always capture agent execution telemetry when enabled,
-    // even if the user provides their own custom runner.
-    const runner = isTelemetryDisabled()
-      ? baseRunner
-      : new TelemetryAgentRunner({
-          runner: baseRunner,
-          telemetry: this.telemetry,
-        });
+    // No TelemetryAgentRunner wrap. The V2 SSE path already emits
+    // `agent_execution_stream_*` for this runtime, and since it now emits
+    // through this entrypoint's scope, wrapping would put two copies of
+    // every stream event on the wire. The class stays exported for callers
+    // who construct it themselves. The rawEvent enrichment it used to add
+    // moved to `v2/runtime/handlers/shared/sse-response.ts`, so nothing is
+    // lost and v2 callers gain it too.
+    const runner = params?.runner ?? new InMemoryAgentRunner();
 
     const sharedRuntimeArgs = {
       agents: mergedAgents,
       telemetryId: resolvedTelemetryId,
       licenseToken: resolvedLicenseToken,
+      // Emit through this entrypoint's own scope rather than letting the
+      // delegated V2 runtime build its own. That scope writes to Segment
+      // and stamps the v1 surface, so handing it down is what lets the v1
+      // middleware below stop emitting the same events a second time.
+      ɵtelemetry: this.telemetry,
       telemetryProperties: params?.telemetryProperties,
       debug: params?.debug,
       // TODO: add support for transcriptionService from CopilotRuntimeOptionsVNext once it is ready
@@ -727,29 +726,12 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     return async (hookParams: BeforeRequestMiddlewareFnParameters[0]) => {
       const { request } = hookParams;
 
-      // Capture telemetry for copilot request creation
-      const publicApiKey = request.headers.get("x-copilotcloud-public-api-key");
+      // No `copilot_request_created` capture here. The V2 handlers this
+      // runtime delegates to already emit it, through this runtime's own
+      // scope, and they know the route — so `requestType` is "run" or
+      // "connect" rather than the "unknown" this site reported for every
+      // request that did not set `forwardedProps.metadata.requestType`.
       const body = (await readBody(request)) as RunAgentInput;
-
-      const forwardedProps = body?.forwardedProps as
-        | {
-            cloud?: { guardrails?: unknown };
-            metadata?: { requestType?: string };
-          }
-        | undefined;
-
-      // Get cloud base URL from environment or default
-      const cloudBaseUrl =
-        process.env.COPILOT_CLOUD_BASE_URL || "https://api.cloud.copilotkit.ai";
-
-      this.telemetry.capture("oss.runtime.copilot_request_created", {
-        "cloud.guardrails.enabled":
-          forwardedProps?.cloud?.guardrails !== undefined,
-        requestType: forwardedProps?.metadata?.requestType ?? "unknown",
-        "cloud.api_key_provided": !!publicApiKey,
-        ...(publicApiKey ? { "cloud.public_api_key": publicApiKey } : {}),
-        "cloud.base_url": cloudBaseUrl,
-      });
 
       // We do not process middleware for the internal GET requests
       if (request.method === "GET" || !body) return;

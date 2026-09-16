@@ -39,18 +39,17 @@ test("configures the shared coding-agent prompt card for Automatic Learning", as
       "docs_learning_setup_prompt",
     );
 
-    const toggle = screen.getByRole("button", { name: "Show prompt text" });
-    const promptId = toggle.getAttribute("aria-controls");
-    fireEvent.click(toggle);
-    expect(document.getElementById(promptId ?? "")?.textContent).toBe(
-      LEARNING_SETUP_PROMPT,
-    );
-
     fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
     await waitFor(() =>
-      expect(writeText).toHaveBeenCalledWith(LEARNING_SETUP_PROMPT),
+      expect(
+        writeText.mock.calls[0]?.[0]?.replace(/ --run [a-f0-9]{12}/, ""),
+      ).toBe(LEARNING_SETUP_PROMPT),
     );
-    expect(screen.getByRole("button", { name: "Copied" })).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toBe("Prompt copied");
+    expect(screen.getByRole("button", { name: "Open in Codex" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "More page actions" }),
+    ).toBeTruthy();
   } finally {
     if (originalClipboard) {
       Object.defineProperty(navigator, "clipboard", originalClipboard);
@@ -73,4 +72,17 @@ test("sends the coding agent to the Learning route and carries nothing else", ()
   // No run id: this string is static and llm-text inlines it into cached raw
   // Markdown, so one minted here would be shared by every reader.
   expect(LEARNING_SETUP_PROMPT).not.toContain("--run");
+});
+
+vi.mock("fumadocs-core/framework", () => ({
+  usePathname: () => "/quickstart",
+}));
+
+vi.mock("@/lib/runtime-config.client", () => ({
+  getRuntimeConfig: () => ({ baseUrl: "https://docs.copilotkit.ai" }),
+}));
+
+test("keeps credential protection without the diagnostic feedback restriction", () => {
+  expect(LEARNING_SETUP_PROMPT).toContain("Never reveal credentials.");
+  expect(LEARNING_SETUP_PROMPT).not.toContain("diagnostic");
 });

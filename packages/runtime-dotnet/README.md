@@ -301,7 +301,7 @@ Events exclude API keys, prompts, user IDs, thread IDs, run IDs, and raw errors.
 | ------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | `TelemetryDisabled`                               | Disables analytics                                                                        |
 | `DO_NOT_TRACK` or `COPILOTKIT_TELEMETRY_DISABLED` | `true` or `1` disables analytics regardless of other configuration                        |
-| `TelemetrySampleRate`                             | Probability from 0 to 1, default `0.05`                                                   |
+| `TelemetrySampleRate`                             | Probability from 0 to 1, default `1` (no sampling)                                        |
 | `COPILOTKIT_TELEMETRY_SAMPLE_RATE`                | Overrides the rate. Invalid or non-finite values fail configuration                       |
 | `TelemetryUrl` / `COPILOTKIT_TELEMETRY_URL`       | Changes the destination. The environment value wins                                       |
 | `TelemetryId` / `CPK_TELEMETRY_ID`                | Selects the first valid configured or environment identity                                |

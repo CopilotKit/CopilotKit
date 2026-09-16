@@ -61,15 +61,18 @@ export function getChannelsActivationGuideHref(
  */
 export const CHANNELS_GUIDE_URL = "https://copilotkit.ai/channels-guide.md";
 
-/**
- * A pointer, deliberately not a workflow, and deliberately unparameterised.
+/*
+ * `CHANNELS_BUILD_PROMPT` used to live here: a pointer at the guide above,
+ * deliberately unparameterised, because the CLI had no Channels route and a
+ * prompt naming one would have promised a path it could not walk.
  *
- * These surfaces used to carry the whole setup as prose — six copies across
- * three repos, which drifted and went stale against the CLI independently.
+ * The Channels intent route replaces it. Every docs surface now copies
+ * `createChannelsOnboardingAttempt` from `channels-onboarding-prompt.ts`, which
+ * reaches the graph, carries a run id, and reports friction back — none of
+ * which a fetched Markdown file could do.
  *
- * The channel and backend the reader picked are not interpolated: the guide asks
- * for both itself. A pointer that named them would be promising coverage on the
- * page's behalf, which is exactly what made the earlier skill-based pointer
- * wrong for Teams — it named a skill scoped to Slack.
+ * `CHANNELS_GUIDE_URL` is kept rather than deleted: its remaining consumers are
+ * outside this repo (the marketing site, the channels-sdk README, and a skill),
+ * and retiring the hosted guide is a decision for whoever owns those, not a
+ * side effect of this change.
  */
-export const CHANNELS_BUILD_PROMPT = `Read ${CHANNELS_GUIDE_URL} and help the user build their first channel`;

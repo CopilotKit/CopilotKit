@@ -46,6 +46,8 @@ async def test_license_identity_bypasses_sampling_without_exposing_token(
             "telemetry_identified",
         )
     ] == [1, 0, 1, True]
+    # This runtime exposes the v2 API only, so it reports that surface.
+    assert globals["telemetry_surface"] == "v2"
     wire = str(requests[0].headers) + requests[0].content.decode()
     assert (
         token not in wire
@@ -133,7 +135,8 @@ async def test_canonical_envelope_identity_header_and_seconds():
         "sampleRateAdjustmentFactor": 0,
         "sampleWeight": 1,
         "telemetry_identified": False,
-        "telemetry_emitter": "native-python",
+        "telemetry_emitter": "runtime-python",
+        "telemetry_surface": "v2",
         "telemetry_transport": "lambda",
     }
     assert requests[0].headers["x-copilotkit-telemetry-id"] == "team-123"
@@ -225,3 +228,37 @@ async def test_half_sampling_carries_weight_and_unknown_events_do_not_export(mon
     assert events[0]["global_properties"]["sampleWeight"] == 2
     assert events[0]["global_properties"]["sampleRateAdjustmentFactor"] == 0.5
     await telemetry.aclose()
+
+
+@pytest.mark.anyio
+async def test_default_is_unsampled_and_env_still_overrides(monkeypatch):
+    """Anonymous events are not gated by default.
+
+    The sink is CopilotKit's own, so anonymous volume costs nothing per event
+    and a real count beats one extrapolated from a fraction of the population.
+    ``sample_rate`` and ``COPILOTKIT_TELEMETRY_SAMPLE_RATE`` still dial it down.
+    """
+    events: list = []
+
+    async def sink(event):
+        events.append(event)
+
+    # A draw that the former 0.05 default would have rejected outright.
+    monkeypatch.setattr("copilotkit_runtime.telemetry.random.random", lambda: 0.99)
+    telemetry = Telemetry(sink=sink)
+    assert telemetry.sample_rate == 1
+    await telemetry.emit(STARTED)
+    await telemetry.flush()
+    assert len(events) == 1
+    assert telemetry.stats.sampled_out == 0
+    assert events[0]["global_properties"]["sampleWeight"] == 1
+    await telemetry.aclose()
+
+    monkeypatch.setenv("COPILOTKIT_TELEMETRY_SAMPLE_RATE", "0")
+    gated = Telemetry(sink=sink)
+    assert gated.sample_rate == 0
+    await gated.emit(STARTED)
+    await gated.flush()
+    assert len(events) == 1
+    assert gated.stats.sampled_out == 1
+    await gated.aclose()

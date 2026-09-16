@@ -104,7 +104,7 @@ jobs:
 
       - name: Setup Ruby
         if: matrix.language == 'ruby'
-        uses: ruby/setup-ruby@bec3f19a76460dbe12f60def7d1a77585f07516c # v1.322.0
+        uses: ruby/setup-ruby@984c0c890880bbf811283d6f09c4607c62d210a4 # v1.323.0
         with:
           ruby-version: "3.3"
           bundler: "2.4.22"

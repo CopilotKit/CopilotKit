@@ -9,6 +9,12 @@ hideTOC: true
 
 The package has three import surfaces — `/headless` (provider + hooks, no native peer dependencies, **1.64.0+**), the root barrel, and `/components` (the rendered chat UI). See [Import surfaces](#import-surfaces) for what each one pulls in; this guide uses `/headless` throughout.
 
+## Start with your coding agent
+
+Use this prompt to set up CopilotKit in your React Native app, configure Metro and polyfills, and verify chat against your Runtime. You can also follow the manual steps below.
+
+<PageAgentPrompt />
+
 ## Prerequisites
 
 - An OpenAI API key (or another model provider supported by [Model Selection](/model-selection))

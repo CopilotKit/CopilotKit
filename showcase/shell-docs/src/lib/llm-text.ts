@@ -74,6 +74,7 @@ import { resolveDocsHref } from "./docs-link-rewrite";
 import { resolveBundledSetupConcept } from "./setup-content";
 import type { SetupContentBundle } from "./setup-content";
 import { RICH_THREADS_SETUP_PROMPT } from "./rich-threads-setup-prompt";
+import { MEMORY_SETUP_PROMPT } from "./memory-setup-prompt";
 import { LEARNING_SETUP_PROMPT } from "./learning-setup-prompt";
 
 interface Region {
@@ -939,14 +940,23 @@ export function renderPageToLlmText(
     }
   }
 
-  // Interactive prompt buttons cannot run in raw Markdown or LLM feeds.
-  body = expandRichThreadsSetupPrompts(body);
-  body = expandLearningSetupPrompts(body);
-
   // 1) Inline `<Component />` shared snippets (`<AGUI />`, etc.). Uses
   //    the SNIPPET_MAP / SUBPATH_TO_COMPONENT logic — same as the page
   //    renderer uses for the live HTML view.
   body = inlineSnippets(body, page.loadSlug);
+
+  // Expand interactive prompts after inlining so prompts inside shared
+  // snippets are also available in raw Markdown and LLM feeds.
+  body = body.replace(
+    /<PageAgentPrompt\s*\/>/g,
+    "Ask your coding agent to follow the setup steps on this page for your selected framework and frontend.",
+  );
+  body = expandRichThreadsSetupPrompts(body);
+  body = expandLearningSetupPrompts(body);
+  body = body.replace(
+    /<MemorySetupPrompt\s*\/>/g,
+    `### Copy this prompt into your coding agent\n\n${fenceFor("text", MEMORY_SETUP_PROMPT)}`,
+  );
 
   // Imported snippets can contain frontend-scoped branches of their own.
   // Filter after inlining so raw Markdown output follows the same frontend
