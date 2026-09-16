@@ -948,6 +948,19 @@ figure.shiki > div:first-child[class*="border-b"] {
  * grid down by the nav height plus a small breathing gap so the first page
  * content does not feel pinned to the chrome. Fumadocs v16 no longer ships
  * this `pt-(--fd-nav-height)` default on the grid root the way v15 did. */
+/* The compact TOC sticks inside the docs scroller, beneath the fixed nav.
+ * The banner already offsets that scroller in normal document flow. */
+@media (max-width: 1279px) {
+  #nd-docs-layout {
+    --fd-docs-height: calc(
+      100dvh - var(--fd-banner-height, 0px) - 1.5rem
+    ) !important;
+    min-height: 0 !important;
+    height: 100%;
+    --fd-docs-row-2: 0px !important;
+  }
+}
+
 @media (max-width: 767px) {
   #nd-docs-layout {
     --fd-docs-row-1: 0px !important;
