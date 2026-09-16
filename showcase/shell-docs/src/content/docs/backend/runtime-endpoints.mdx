@@ -204,6 +204,38 @@ curl -i http://localhost:4000/api/copilotkit/inspector-metadata
   runtime route.
 </Callout>
 
+### Thread routes
+
+The runtime also serves the conversation history behind the threads UI. These
+routes exist in multi-route mode whichever runner you use:
+
+| Method & path | Purpose |
+|---|---|
+| `GET /api/copilotkit/threads` | List every thread the runtime holds. |
+| `GET /api/copilotkit/threads/:threadId/messages` | That thread's full message history. |
+| `GET /api/copilotkit/threads/:threadId/events` | That thread's compacted AG-UI event stream. |
+| `GET /api/copilotkit/threads/:threadId/state` | That thread's last state snapshot. |
+| `POST /api/copilotkit/threads/clear` | Wipe the in-memory thread history. A no-op on an Intelligence runtime, whose history lives in a database. |
+| `PATCH` or `DELETE /api/copilotkit/threads/:threadId` | Rename or delete a thread. Intelligence only. |
+| `POST /api/copilotkit/threads/:threadId/archive` | Archive a thread. Intelligence only. |
+| `POST /api/copilotkit/threads/subscribe` | Subscribe to thread changes. Intelligence only. |
+
+<Callout type="warn" title="Thread routes are not authorized for you">
+On an Intelligence runtime these routes resolve the caller through your
+`identifyUser` and only reach that user's threads.
+
+On the default `InMemoryAgentRunner` — and on anything extending it, such as
+`AgentCoreRunner` — they read the runner's local store and resolve no user at
+all: any caller that reaches the route reads the thread it names, `GET
+/threads` lists every thread in the process, and `POST /threads/clear` wipes
+them all. A runner that serves neither, such as `SqliteAgentRunner`, answers
+these routes with a 422 instead.
+
+`:threadId` is chosen by the client on the run, so it is not a secret. If more
+than one person uses your deployment, authorize these routes yourself — see
+[Authorizing threads](/auth#authorizing-threads).
+</Callout>
+
 ### Probing the runtime with curl
 
 The fastest way to confirm a self-hosted runtime is wired up is to hit `/info`
@@ -538,7 +570,35 @@ createCopilotExpressHandler({
 });
 ```
 
-See [Auth](/auth) for the full authentication guide.
+`onRequest` runs before routing, so it knows the path but not the route. For
+per-thread decisions use `onBeforeHandler`, which runs after routing and
+receives the resolved `route`, including its `threadId`:
+
+```ts
+createCopilotExpressHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  hooks: {
+    onBeforeHandler: async ({ request, route }) => {
+      if ("threadId" in route) {
+        const user = await resolveUser(request);
+        if (!(await userOwnsThread(user.id, route.threadId))) {
+          throw new Response("Forbidden", { status: 403 });
+        }
+      }
+    },
+  },
+});
+```
+
+`route.threadId` is present on `agent/stop`, `threads/messages`,
+`threads/events`, `threads/state`, `threads/update` and `threads/archive`.
+`threads/list` and `threads/clear` carry no thread, so the only decision
+available for those two is whether to allow them at all.
+
+See [Auth](/auth) for the full authentication guide and
+[Authorizing threads](/auth#authorizing-threads) for the ownership map this
+example assumes.
 
 For Inspector metadata, Core sends these current browser-to-runtime headers and
 fetch credentials on the optional request. The Runtime then starts a separate

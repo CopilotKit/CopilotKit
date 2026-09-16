@@ -638,10 +638,66 @@ Filter server-side. Hiding rows in the UI leaves the underlying route open.
   [Self-managed thread persistence](/threads-self-managed).
 </Callout>
 
+## Authorizing threads
+
+Authentication answers *who is calling*. It does not, on its own, stop that
+caller reaching someone else's conversation. The runtime's
+[thread routes](/backend/runtime-endpoints#thread-routes) serve message
+history, event streams and state snapshots, and outside CopilotKit
+Intelligence they resolve no user.
+
+Two facts decide what you have to write:
+
+- **CopilotKit Intelligence scopes threads for you.** It resolves the caller
+  through your `identifyUser` and passes that user into every thread
+  operation, so one user's request cannot read another user's thread.
+- **The default `InMemoryAgentRunner` does not.** It keeps threads in process
+  memory keyed by `threadId` with no owner recorded, so those routes answer for
+  any thread they are given. The same applies to anything extending it, such as
+  `AgentCoreRunner`. Ownership is yours to track and enforce.
+
+Enforce it in the `onBeforeHandler` hook, which runs after routing and
+receives the resolved route:
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  hooks: {
+    onRequest: async ({ request }) => {
+      // Authentication: who is calling?
+      const user = await verifyToken(request.headers.get("authorization"));
+      if (!user) throw new Response("Unauthorized", { status: 401 });
+    },
+    onBeforeHandler: async ({ request, route }) => {
+      // Authorization: may this caller touch this thread?
+      if (!("threadId" in route)) return;
+      const user = await verifyToken(request.headers.get("authorization"));
+      if (!(await userOwnsThread(user.id, route.threadId))) {
+        throw new Response("Forbidden", { status: 403 });
+      }
+    },
+  },
+});
+```
+
+`userOwnsThread` is yours to write. Record the owner when your frontend opens
+a thread — the `threadId` is chosen by the client, so your application already
+knows it — and read that record back here.
+
+<Callout type="warn" title="Two routes carry no thread id">
+`GET /threads` and `POST /threads/clear` are not about one thread: the first
+lists them all and the second wipes them all. `route` has no `threadId` for
+either, so the only decision `onBeforeHandler` can make is whether to allow
+the call. On a deployment with more than one user, reject both unless the
+caller is an operator.
+</Callout>
+
 ## Security checklist
 
 - **Always validate** the token on the backend. Never trust the frontend's claim.
 - **Scope every read and write** to the resolved user. Auth context only matters if you actually use it to filter data.
+- **Authorize the thread routes.** Verifying the token does not stop a caller naming someone else's `threadId`. See [Authorizing threads](#authorizing-threads).
 - **Authenticate in `onRequest`.** It is the only hook that runs on every route. `identifyUser` names a caller; it does not gate one, and some routes never invoke it.
 - **Bind threads to a user.** On CopilotKit Intelligence that means a correct `identifyUser`, plus your own guard on `threads/events`, `threads/state`, and `agent/stop`; off it, an ownership check on every thread route rather than only at login. See [Thread authorization](#thread-authorization).
 - **Don't log raw tokens.** Log the resolved user id (or `anonymous`) instead.
