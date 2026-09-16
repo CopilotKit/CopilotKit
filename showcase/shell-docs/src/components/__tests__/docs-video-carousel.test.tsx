@@ -33,12 +33,12 @@ describe("DocsVideoCarousel", () => {
     expect(screen.queryByRole("heading")).toBeNull();
   });
 
-  it("renders all three tabs, in the documented order, with their titles", () => {
+  it("renders three recordings and a live demo tab, in the documented order, with their titles", () => {
     render(<DocsVideoCarousel />);
 
     const tabs = screen.getAllByRole("tab");
-    expect(tabs).toHaveLength(3);
-    expect(tabs.map((tab) => tabTitle(tab))).toEqual(TITLES);
+    expect(tabs).toHaveLength(4);
+    expect(tabs.map((tab) => tabTitle(tab))).toEqual([...TITLES, "Live demo"]);
   });
 
   it("selects exactly one tab, the first, initially", () => {
@@ -113,7 +113,7 @@ describe("DocsVideoCarousel", () => {
     fireEvent.keyDown(firstTab, { key: "ArrowLeft" });
 
     const tabs = screen.getAllByRole("tab");
-    expect(tabs[2].getAttribute("aria-selected")).toBe("true");
+    expect(tabs[3].getAttribute("aria-selected")).toBe("true");
   });
 
   it("jumps to the first tab on Home and the last tab on End", () => {
@@ -121,11 +121,11 @@ describe("DocsVideoCarousel", () => {
 
     const firstTab = screen.getAllByRole("tab")[0];
     fireEvent.keyDown(firstTab, { key: "End" });
-    expect(screen.getAllByRole("tab")[2].getAttribute("aria-selected")).toBe(
+    expect(screen.getAllByRole("tab")[3].getAttribute("aria-selected")).toBe(
       "true",
     );
 
-    fireEvent.keyDown(screen.getAllByRole("tab")[2], { key: "Home" });
+    fireEvent.keyDown(screen.getAllByRole("tab")[3], { key: "Home" });
     expect(screen.getAllByRole("tab")[0].getAttribute("aria-selected")).toBe(
       "true",
     );
@@ -150,7 +150,7 @@ describe("DocsVideoCarousel", () => {
   it("gives every iframe a non-empty title", () => {
     render(<DocsVideoCarousel />);
 
-    for (const tab of screen.getAllByRole("tab")) {
+    for (const tab of screen.getAllByRole("tab").slice(0, 3)) {
       fireEvent.click(tab);
       fireEvent.click(screen.getByRole("button", { name: /^Play / }));
       const iframe = document.querySelector("iframe");
@@ -170,7 +170,10 @@ describe("DocsVideoCarousel", () => {
 
   it("keeps the caption row removed and offers a fallback inside the active player", () => {
     render(<DocsVideoCarousel />);
-    for (const [index, tab] of screen.getAllByRole("tab").entries()) {
+    for (const [index, tab] of screen
+      .getAllByRole("tab")
+      .slice(0, 3)
+      .entries()) {
       fireEvent.click(tab);
       expect(
         screen.queryByText(/Available with CopilotKit Intelligence/),
@@ -186,9 +189,22 @@ describe("DocsVideoCarousel", () => {
   it("never renders an em-dash", () => {
     const { container } = render(<DocsVideoCarousel />);
 
-    for (const tab of screen.getAllByRole("tab")) {
+    for (const tab of screen.getAllByRole("tab").slice(0, 3)) {
       fireEvent.click(tab);
       expect(container.innerHTML).not.toContain("—");
     }
   });
+});
+
+it("mounts the live showcase only when its tab is selected", () => {
+  render(<DocsVideoCarousel />);
+  expect(document.querySelector("iframe")).toBeNull();
+  fireEvent.click(screen.getByRole("tab", { name: "Live demo" }));
+  expect(
+    screen
+      .getByTitle("Live demo: change the background with your agent")
+      .getAttribute("src"),
+  ).toContain("/demos/frontend-tools");
+  fireEvent.click(screen.getByRole("tab", { name: "Shared state" }));
+  expect(document.querySelector("iframe")).toBeNull();
 });

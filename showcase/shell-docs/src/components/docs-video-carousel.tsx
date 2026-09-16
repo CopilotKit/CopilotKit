@@ -8,6 +8,7 @@ import {
   MessagesSquare,
   Play,
   Workflow,
+  MousePointer2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -46,6 +47,13 @@ const RECORDINGS: readonly Recording[] = [
   },
 ] as const;
 
+const LIVE_DEMO_URL =
+  "https://showcase-built-in-agent-production.up.railway.app/demos/frontend-tools";
+const TABS = [
+  ...RECORDINGS,
+  { id: "live-demo", title: "Live demo", icon: MousePointer2 },
+];
+
 const TAB_ID_PREFIX = "docs-video-tab-";
 const PANEL_ID_PREFIX = "docs-video-panel-";
 
@@ -58,6 +66,8 @@ export function DocsVideoCarousel() {
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const active = RECORDINGS[activeIndex];
+  const activeTab = TABS[activeIndex];
+  const isLiveDemo = activeIndex === RECORDINGS.length;
 
   function selectAndFocus(index: number) {
     setPlaying(false);
@@ -69,13 +79,11 @@ export function DocsVideoCarousel() {
     switch (event.key) {
       case "ArrowRight":
         event.preventDefault();
-        selectAndFocus((activeIndex + 1) % RECORDINGS.length);
+        selectAndFocus((activeIndex + 1) % TABS.length);
         break;
       case "ArrowLeft":
         event.preventDefault();
-        selectAndFocus(
-          (activeIndex - 1 + RECORDINGS.length) % RECORDINGS.length,
-        );
+        selectAndFocus((activeIndex - 1 + TABS.length) % TABS.length);
         break;
       case "Home":
         event.preventDefault();
@@ -83,7 +91,7 @@ export function DocsVideoCarousel() {
         break;
       case "End":
         event.preventDefault();
-        selectAndFocus(RECORDINGS.length - 1);
+        selectAndFocus(TABS.length - 1);
         break;
       default:
         break;
@@ -96,13 +104,22 @@ export function DocsVideoCarousel() {
       className="overflow-hidden rounded-xl border border-[var(--nav-control-border)] bg-[var(--bg-surface)]"
     >
       <div
-        id={`${PANEL_ID_PREFIX}${active.id}`}
+        id={`${PANEL_ID_PREFIX}${activeTab.id}`}
         role="tabpanel"
-        aria-labelledby={`${TAB_ID_PREFIX}${active.id}`}
+        aria-labelledby={`${TAB_ID_PREFIX}${activeTab.id}`}
         className="relative"
       >
-        <div className="not-prose aspect-video w-full overflow-hidden bg-[var(--bg-elevated)]">
-          {playing ? (
+        <div
+          className={`not-prose aspect-video w-full overflow-hidden bg-[var(--bg-elevated)] ${isLiveDemo ? "min-h-[420px]" : ""}`}
+        >
+          {isLiveDemo ? (
+            <iframe
+              src={LIVE_DEMO_URL}
+              title="Live demo: change the background with your agent"
+              className="h-full w-full border-0"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            />
+          ) : playing ? (
             <iframe
               src={`https://www.loom.com/embed/${active.loomId}?autoplay=1`}
               title={`${active.title}: CopilotKit product walkthrough`}
@@ -131,7 +148,18 @@ export function DocsVideoCarousel() {
             </button>
           )}
         </div>
-        {playing && (
+        {isLiveDemo && (
+          <a
+            href={LIVE_DEMO_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="absolute bottom-3 left-3 inline-flex min-h-9 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--bg-surface)] px-3 text-xs font-medium text-[var(--text)] shadow-sm hover:text-[var(--accent)]"
+          >
+            Open demo{" "}
+            <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" />
+          </a>
+        )}
+        {!isLiveDemo && playing && (
           <a
             href={`https://www.loom.com/share/${active.loomId}`}
             target="_blank"
@@ -146,9 +174,9 @@ export function DocsVideoCarousel() {
       <div
         role="tablist"
         aria-label="Product walkthrough recordings"
-        className="grid grid-cols-3 gap-1 border-t border-[var(--nav-control-border)] p-1.5"
+        className="grid grid-cols-4 gap-1 border-t border-[var(--nav-control-border)] p-1.5"
       >
-        {RECORDINGS.map((recording, index) => {
+        {TABS.map((recording, index) => {
           const isActive = index === activeIndex;
           const Icon = recording.icon;
           return (
