@@ -107,14 +107,44 @@ describe("copilot_request_created — CopilotCloud guardrails", () => {
     expect(properties()["cloud.guardrails.enabled"]).toBe(false);
   });
 
-  it("does not read the body when there is no CopilotCloud key", async () => {
-    // Guardrails only ever arrive from a CopilotCloud client, which always
-    // sends its key. Reading otherwise would clone every request body to
-    // learn a constant false, on the hot path, for every self-hosted user.
-    const request = runRequest({
-      forwardedProps: { cloud: { guardrails: { rules: [] } } },
+  it("reports forwarded guardrails even without a CopilotCloud key", async () => {
+    // An earlier version skipped the body whenever the key header was absent,
+    // on the assumption that guardrails only ever arrive from a CopilotCloud
+    // client and that client always sends its key. Production disagrees: of
+    // 112 guardrails-enabled requests over 90 days, 2 carried no key. Those
+    // undercounted as false, so the key is no longer a precondition.
+    await handleRunAgent({
+      runtime: mockRuntime(),
+      request: runRequest({
+        forwardedProps: { cloud: { guardrails: { rules: [] } } },
+      }),
+      agentId: "missing",
     });
-    const clone = vi.spyOn(request, "clone");
+
+    expect(properties()).toMatchObject({
+      "cloud.guardrails.enabled": true,
+      "cloud.api_key_provided": false,
+    });
+  });
+
+  it("reports guardrails off for a body that forwards none", async () => {
+    await handleRunAgent({
+      runtime: mockRuntime(),
+      request: runRequest({ forwardedProps: {} }),
+      agentId: "missing",
+    });
+
+    expect(properties()["cloud.guardrails.enabled"]).toBe(false);
+  });
+
+  it("survives a body that is not readable as JSON", async () => {
+    // Telemetry must never decide whether a request is served, so a malformed
+    // body reports false rather than throwing out of the handler.
+    const request = new Request("https://example.com/agent/missing/run", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{not json",
+    });
 
     await handleRunAgent({
       runtime: mockRuntime(),
@@ -123,6 +153,5 @@ describe("copilot_request_created — CopilotCloud guardrails", () => {
     });
 
     expect(properties()["cloud.guardrails.enabled"]).toBe(false);
-    expect(clone).not.toHaveBeenCalled();
   });
 });

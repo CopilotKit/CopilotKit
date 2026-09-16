@@ -17,16 +17,21 @@ import type { RunAgentInput } from "@ag-ui/client";
 /**
  * Whether the caller forwarded CopilotCloud guardrails configuration.
  *
- * Reads the body only when a CopilotCloud key is present. Guardrails reach a
- * runtime as `forwardedProps.cloud.guardrails`, which only a CopilotCloud
- * client sends, and that client always sends its key — so for every other
- * request this would clone the body to learn a constant `false`. `readBody`
- * clones rather than consuming, so the handler can still parse the request.
+ * Guardrails reach a runtime as `forwardedProps.cloud.guardrails`. An earlier
+ * version read the body only when the CopilotCloud key header was present,
+ * because in principle only a CopilotCloud client sends guardrails and that
+ * client always sends its key. Production does not hold to that: of 112
+ * guardrails-enabled requests over 90 days, 2 carried no key, and they
+ * undercounted as `false`. The signal is rare enough — 13 people across 9
+ * Cloud keys in a year — that losing 2% of it to save a body clone is a bad
+ * trade, so the body is now always read.
+ *
+ * `readBody` clones rather than consuming, so the handler can still parse the
+ * request afterwards.
  */
 export async function readGuardrailsEnabled(
   request: Request,
 ): Promise<boolean> {
-  if (!request.headers.get("x-copilotcloud-public-api-key")) return false;
   try {
     const body = (await readBody(request)) as RunAgentInput | undefined;
     const forwardedProps = body?.forwardedProps as
