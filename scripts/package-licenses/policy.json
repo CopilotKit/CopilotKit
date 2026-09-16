@@ -18,6 +18,12 @@
     "notice": "packages/angular/LICENSE"
   },
   {
+    "directory": "packages/channels",
+    "names": ["@copilotkit/channels"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
     "directory": "packages/channels-core",
     "names": ["@copilotkit/channels-core"],
     "license": "MIT",
@@ -66,14 +72,20 @@
     "notice": "LICENSE"
   },
   {
-    "directory": "packages/channels",
-    "names": ["@copilotkit/channels"],
+    "directory": "packages/core",
+    "names": ["@copilotkit/core"],
     "license": "MIT",
     "notice": "LICENSE"
   },
   {
-    "directory": "packages/core",
-    "names": ["@copilotkit/core"],
+    "directory": "packages/intelligence-langgraph",
+    "names": ["@copilotkit/intelligence-langgraph"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
+    "directory": "packages/intelligence-mastra",
+    "names": ["@copilotkit/intelligence-mastra"],
     "license": "MIT",
     "notice": "LICENSE"
   },
@@ -108,14 +120,14 @@
     "notice": "LICENSE"
   },
   {
-    "directory": "packages/runtime-client-gql",
-    "names": ["@copilotkit/runtime-client-gql"],
+    "directory": "packages/runtime",
+    "names": ["@copilotkit/runtime"],
     "license": "MIT",
     "notice": "LICENSE"
   },
   {
-    "directory": "packages/runtime",
-    "names": ["@copilotkit/runtime"],
+    "directory": "packages/runtime-client-gql",
+    "names": ["@copilotkit/runtime-client-gql"],
     "license": "MIT",
     "notice": "LICENSE"
   },
