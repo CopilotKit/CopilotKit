@@ -2347,46 +2347,50 @@ samp {
   padding: 0.5rem;
   border-top: 1px solid var(--border);
 }
+.partner-feature-carousel > .overflow-hidden {
+  flex: 1;
+  min-width: 0;
+}
 .partner-carousel-arrow {
+  position: static;
+  translate: none;
+  transform: none;
   display: grid;
   place-items: center;
   flex: 0 0 40px;
-  min-height: 44px;
+  height: 44px;
   border-radius: 6px;
   cursor: pointer;
-  color: var(--text-secondary);
 }
 .partner-feature-track {
-  position: relative;
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
+  margin-left: 0;
   gap: 0.4rem;
 }
-.partner-feature-track::-webkit-scrollbar {
-  display: none;
+.partner-feature-item {
+  flex-basis: auto;
+  padding-left: 0;
 }
-.partner-feature-track button {
-  scroll-snap-align: center;
-  flex: 0 0 auto;
+.partner-feature-item button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   min-height: 44px;
   padding: 0.65rem 1rem;
   white-space: nowrap;
+  border: 1px solid transparent;
   border-radius: 6px;
   font-size: 0.85rem;
   color: var(--text-secondary);
   cursor: pointer;
 }
-.partner-feature-track button[aria-pressed="true"] {
-  background: var(--accent-dim);
-  color: var(--accent);
-  font-weight: 600;
-}
-.partner-feature-carousel button:hover {
+.partner-feature-item button:hover {
   background: var(--bg-elevated);
+}
+.partner-feature-item button[aria-pressed="true"] {
+  background: var(--accent-fill);
+  color: var(--primary-foreground);
+  border-color: var(--accent-fill);
+  font-weight: 600;
 }
 .partner-feature-carousel button:focus-visible,
 .partner-cli button:focus-visible {
@@ -2460,7 +2464,7 @@ samp {
   color: var(--accent);
 }
 
-.partner-demo-guide {
+.partner-landing .partner-demo-guide {
   position: absolute;
   top: 1rem;
   right: 1rem;

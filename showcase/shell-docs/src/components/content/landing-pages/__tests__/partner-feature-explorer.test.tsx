@@ -4,9 +4,26 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PartnerFeatureExplorer } from "../partner-feature-explorer";
 
 beforeEach(() => {
-  Element.prototype.scrollTo = vi.fn();
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn(() => ({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })),
+  );
+  class Observer {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  vi.stubGlobal("ResizeObserver", Observer);
+  vi.stubGlobal("IntersectionObserver", Observer);
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 describe("partner feature explorer", () => {
   it("loads only the selected partner demo and switches to product walkthroughs", () => {
     const href =
@@ -37,6 +54,11 @@ describe("partner feature explorer", () => {
         .getByRole("link", { name: "Get started with Generative UI" })
         .getAttribute("href"),
     ).toBe("/angular/mastra/features#gen-ui-tool-based");
+    expect(
+      screen
+        .getByRole("button", { name: "Generative UI" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
     expect(document.querySelectorAll("iframe")).toHaveLength(1);
     expect(
       screen

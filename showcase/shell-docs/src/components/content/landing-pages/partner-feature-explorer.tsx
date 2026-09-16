@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowUpRight, Check } from "lucide-react";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselPrevious,
+  CarouselNext,
+} from "@/components/ui/carousel";
+import type { CarouselApi } from "@/components/ui/carousel";
 import type { PartnerShowcaseDemo } from "@/lib/partner-showcase-demos";
 
 type Feature = {
@@ -138,24 +146,17 @@ export function PartnerFeatureExplorer({
   );
   const active =
     features.find((feature) => feature.id === selected) ?? features[0];
-  const track = useRef<HTMLDivElement>(null);
+  const [api, setApi] = useState<CarouselApi>();
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
   const activeIndex = features.indexOf(active);
+  const initialIndex = useRef(activeIndex).current;
+  useEffect(() => {
+    api?.scrollTo(activeIndex);
+  }, [api, activeIndex]);
   function select(index: number, focus = false) {
     const next = (index + features.length) % features.length;
     setSelected(features[next].id);
-    const button = buttons.current[next];
-    const strip = track.current;
-    if (button && strip) {
-      strip.scrollTo({
-        left:
-          button.offsetLeft -
-          strip.offsetLeft -
-          (strip.clientWidth - button.clientWidth) / 2,
-        behavior: "instant",
-      });
-      if (focus) button.focus({ preventScroll: true });
-    }
+    if (focus) buttons.current[next]?.focus({ preventScroll: true });
   }
   return (
     <section
@@ -169,54 +170,54 @@ export function PartnerFeatureExplorer({
         guideHref={`${hrefPrefix}${active.guide ?? (hrefPrefix.startsWith("/angular/") ? `/features#${active.id}` : (FEATURE_GUIDES[active.id] ?? "/quickstart"))}`}
         frameworkName={frameworkName}
       />
-      <div
+      <Carousel
+        setApi={setApi}
+        opts={{
+          align: "center",
+          containScroll: false,
+          startIndex: initialIndex,
+        }}
         className="partner-feature-carousel"
-        aria-label="Feature carousel"
-        aria-roledescription="carousel"
+        aria-label="Choose a feature"
+        onKeyDownCapture={(event) => {
+          if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+            event.preventDefault();
+            select(activeIndex + (event.key === "ArrowRight" ? 1 : -1), true);
+          }
+        }}
       >
-        <button
-          type="button"
+        <CarouselPrevious
           className="partner-carousel-arrow"
           aria-label="Previous feature"
+          disabled={false}
           onClick={() => select(activeIndex - 1)}
-        >
-          <ChevronLeft size={18} />
-        </button>
-        <div
-          className="partner-feature-track"
-          ref={track}
-          role="group"
-          aria-label="Choose a feature"
-          onKeyDown={(event) => {
-            if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
-              event.preventDefault();
-              select(activeIndex + (event.key === "ArrowRight" ? 1 : -1), true);
-            }
-          }}
-        >
+        />
+        <CarouselContent className="partner-feature-track">
           {features.map((feature, index) => (
-            <button
-              key={feature.id}
-              ref={(element) => {
-                buttons.current[index] = element;
-              }}
-              type="button"
-              aria-pressed={active.id === feature.id}
-              onClick={() => select(index)}
-            >
-              {feature.title}
-            </button>
+            <CarouselItem key={feature.id} className="partner-feature-item">
+              <button
+                ref={(element) => {
+                  buttons.current[index] = element;
+                }}
+                type="button"
+                aria-pressed={active.id === feature.id}
+                onClick={() => select(index)}
+              >
+                {active.id === feature.id && (
+                  <Check size={14} aria-hidden="true" />
+                )}
+                {feature.title}
+              </button>
+            </CarouselItem>
           ))}
-        </div>
-        <button
-          type="button"
+        </CarouselContent>
+        <CarouselNext
           className="partner-carousel-arrow"
           aria-label="Next feature"
+          disabled={false}
           onClick={() => select(activeIndex + 1)}
-        >
-          <ChevronRight size={18} />
-        </button>
-      </div>
+        />
+      </Carousel>
     </section>
   );
 }
