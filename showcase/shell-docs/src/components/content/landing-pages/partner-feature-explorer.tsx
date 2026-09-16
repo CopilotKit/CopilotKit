@@ -2,7 +2,20 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpRight, Check } from "lucide-react";
+import {
+  ArrowUpRight,
+  MessageSquare,
+  MessagesSquare,
+  Brain,
+  PanelsTopLeft,
+  LayoutTemplate,
+  UserRound,
+  Wrench,
+  RefreshCw,
+  Code,
+  Network,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import {
   Carousel,
   CarouselContent,
@@ -21,6 +34,19 @@ type Feature = {
   embedHref?: string;
   video?: string;
   guide?: string;
+};
+
+const FEATURE_ICONS: Record<string, LucideIcon> = {
+  "agentic-chat": MessageSquare,
+  threads: MessagesSquare,
+  learning: Brain,
+  "gen-ui-tool-based": PanelsTopLeft,
+  "declarative-gen-ui": LayoutTemplate,
+  "hitl-in-chat": UserRound,
+  "frontend-tools": Wrench,
+  "shared-state-read-write": RefreshCw,
+  "headless-complete": Code,
+  subagents: Network,
 };
 
 const FEATURE_GUIDES: Record<string, string> = {
@@ -137,17 +163,19 @@ export function PartnerFeatureExplorer({
         guide: "/learning",
       },
       ...demos
-        .filter((demo) => demo.id !== "agentic-chat")
+        .filter(
+          (demo) =>
+            demo.id !== "agentic-chat" && demo.id !== "background-agents",
+        )
         .sort((a, b) => {
           const order = [
             "gen-ui-tool-based",
+            "declarative-gen-ui",
             "hitl-in-chat",
             "frontend-tools",
             "shared-state-read-write",
             "headless-complete",
             "subagents",
-            "background-agents",
-            "declarative-gen-ui",
           ];
           return order.indexOf(a.id) - order.indexOf(b.id);
         })
@@ -211,24 +239,22 @@ export function PartnerFeatureExplorer({
           title="Previous feature"
         />
         <CarouselContent className="partner-feature-track">
-          {features.map((feature, index) => (
-            <CarouselItem key={feature.id} className="partner-feature-item">
-              <button
-                type="button"
-                aria-pressed={active.id === feature.id}
-                onClick={() => api?.scrollTo(index)}
-              >
-                <Check
-                  size={14}
-                  aria-hidden="true"
-                  className={
-                    active.id === feature.id ? "opacity-100" : "opacity-0"
-                  }
-                />
-                {feature.title}
-              </button>
-            </CarouselItem>
-          ))}
+          {features.map((feature, index) => {
+            const Icon = FEATURE_ICONS[feature.id] ?? PanelsTopLeft;
+            return (
+              <CarouselItem key={feature.id} className="partner-feature-item">
+                <button
+                  className="shell-docs-radius-control"
+                  type="button"
+                  aria-pressed={active.id === feature.id}
+                  onClick={() => api?.scrollTo(index)}
+                >
+                  <Icon size={14} aria-hidden="true" className="shrink-0" />
+                  {feature.title}
+                </button>
+              </CarouselItem>
+            );
+          })}
         </CarouselContent>
         <CarouselNext
           className="partner-carousel-arrow"

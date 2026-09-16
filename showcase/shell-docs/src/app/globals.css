@@ -2381,7 +2381,7 @@ samp {
   padding: 0.65rem 1rem;
   white-space: nowrap;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--shell-docs-radius-control);
   font-size: 0.85rem;
   color: var(--text-secondary);
   cursor: pointer;

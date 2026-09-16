@@ -42,6 +42,8 @@ afterEach(() => {
 describe("partner feature explorer", () => {
   it("starts with Chat and presents the requested feature order", () => {
     const ids = [
+      "background-agents",
+      "declarative-gen-ui",
       "shared-state-read-write",
       "frontend-tools",
       "hitl-in-chat",
@@ -49,6 +51,8 @@ describe("partner feature explorer", () => {
       "agentic-chat",
     ];
     const titles = [
+      "Background tasks",
+      "Declarative UI",
       "Shared state",
       "Frontend tools",
       "Human approvals",
@@ -79,6 +83,7 @@ describe("partner feature explorer", () => {
       "Rich Threads",
       "Automatic Learning",
       "Generative UI",
+      "Declarative UI",
       "Human-in-the-loop",
       "Frontend tools",
       "Shared state",
