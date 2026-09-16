@@ -13,6 +13,7 @@ import { useDefaultAgentId } from "../context";
 // Import from the tailwind-free leaf module (not ../lib/slots, which pulls
 // tailwind-merge) so this provider stays lean in the headless entry (issue #4893).
 import { useShallowStableRef } from "../lib/shallow-stable-ref";
+import type { AgentId } from "../types/copilotkit-types";
 
 // Default labels
 export const CopilotChatDefaultLabels = {
@@ -166,7 +167,7 @@ const CopilotChatConfiguration =
 export interface CopilotChatConfigurationProviderProps {
   children: ReactNode;
   labels?: Partial<CopilotChatLabels>;
-  agentId?: string;
+  agentId?: AgentId;
   threadId?: string;
   // Lets internal wrappers (e.g. the v1 CopilotKit bridge, which pipes a
   // ThreadsProvider-minted UUID through as `threadId`) declare that the

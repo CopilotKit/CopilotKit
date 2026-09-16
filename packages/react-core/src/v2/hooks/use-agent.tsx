@@ -9,6 +9,7 @@ import {
 } from "@copilotkit/core";
 import type { SubscribeToAgentSubscriber } from "@copilotkit/core";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
+import type { AgentId } from "../types/copilotkit-types";
 
 export enum UseAgentUpdate {
   OnMessagesChanged = "OnMessagesChanged",
@@ -66,7 +67,7 @@ interface UseAgentThreadScopedProps {
    * silently shadows it, depending on whether runtime discovery has landed — so
    * the caller has to name it.
    */
-  agentId: string;
+  agentId: AgentId;
   /**
    * Thread to scope the agent's run to. Written onto the underlying agent, so
    * `/agent/run`, `/agent/connect`, and `/agent/stop` address this thread.
@@ -113,7 +114,7 @@ interface UseAgentUnscopedProps {
    * Agent to bind to. Resolution precedence: this property, then the surrounding
    * chat configuration's agentId, then the global default.
    */
-  agentId?: string;
+  agentId?: AgentId;
   /** Requires `runtimeAgentId`. See {@link UseAgentThreadScopedProps.threadId}. */
   threadId?: undefined;
   /** Requires `threadId`. See {@link UseAgentThreadScopedProps.runtimeAgentId}. */
