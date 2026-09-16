@@ -84,7 +84,7 @@ When setup finishes you have CopilotKit installed, the provider configured, your
 
 ### Already running CopilotKit
 
-Add Intelligence for rich threads, user memories, product analytics, and automatic learning — see the [Intelligence Quickstart](https://docs.copilotkit.ai/intelligence/quickstart?ref=github_readme).
+Add Intelligence for rich threads, user memories, product analytics, and **Automatic Learning** — see the [Intelligence Quickstart](https://docs.copilotkit.ai/intelligence/quickstart?ref=github_readme).
 
 <details>
 <summary>Prefer to drive your coding agent directly? Copy this prompt.</summary>
