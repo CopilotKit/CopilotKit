@@ -2775,7 +2775,7 @@ importers:
         version: 1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
     devDependencies:
       '@ag-ui/client':
-        specifier: 0.0.59
+        specifier: '>=0.0.59 <0.1.0'
         version: 0.0.59
       jsdom:
         specifier: ^26.1.0
@@ -3603,8 +3603,8 @@ importers:
         specifier: '>=0.0.59 <0.1.0'
         version: 0.0.59
       '@ag-ui/core':
-        specifier: '>=0.0.48'
-        version: 0.0.57
+        specifier: '>=0.0.59 <0.1.0'
+        version: 0.0.59
       '@copilotkit/license-verifier':
         specifier: ~0.5.0
         version: 0.5.0
