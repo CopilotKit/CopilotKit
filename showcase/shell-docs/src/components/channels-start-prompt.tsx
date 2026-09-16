@@ -23,10 +23,7 @@ import {
   CHANNELS_ACTIVATION_EVENTS,
   CHANNELS_ACTIVATION_SURFACES,
 } from "@/lib/channels-activation-contracts";
-import {
-  CHANNELS_ONBOARDING_INTENT,
-  createChannelsOnboardingAttempt,
-} from "@/lib/channels-onboarding-prompt";
+import { createChannelsOnboardingAttempt } from "@/lib/channels-onboarding-prompt";
 import type { ChannelsActivationChannelId } from "@/lib/channels-activation-contracts";
 
 export interface ChannelsStartPromptProps {
@@ -129,7 +126,6 @@ export function ChannelsStartPrompt({ frontend }: ChannelsStartPromptProps) {
               analyticsProperties: {
                 ...analyticsProperties,
                 onboarding_run_id: attempt.runId,
-                onboarding_intent: CHANNELS_ONBOARDING_INTENT,
               },
             };
           }}

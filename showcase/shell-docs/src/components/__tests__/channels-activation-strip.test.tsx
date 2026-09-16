@@ -121,6 +121,9 @@ describe("ChannelsActivationStrip", () => {
         onboarding_run_id: expect.stringMatching(/^[0-9a-f]{12}$/),
       }),
     );
+    expect(analytics.capture.mock.calls.at(-1)?.[1]).not.toHaveProperty(
+      "onboarding_intent",
+    );
   });
 
   it("shows copy failure without emitting success telemetry", async () => {
