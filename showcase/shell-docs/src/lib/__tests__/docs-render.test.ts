@@ -250,16 +250,23 @@ describe("loadDoc", () => {
     );
 
     const screenshot = overview.indexOf("support-desk-threads.png");
-    const gettingStarted = overview.indexOf("## Get started");
+    const agentSetup = overview.indexOf("## Start with your coding agent");
+    const prompt = overview.indexOf("<RichThreadsSetupPrompt />");
+    const gettingStarted = overview.indexOf("## Set up Rich Threads manually");
+    const manualSteps = overview.indexOf("<Steps>");
     const why = overview.indexOf("## Why use CopilotKit Rich Threads?");
     const diagram = overview.indexOf("threads-diagram-light.png");
 
     expect(screenshot).toBeGreaterThan(-1);
-    expect(screenshot).toBeLessThan(gettingStarted);
+    expect(screenshot).toBeLessThan(agentSetup);
+    expect(agentSetup).toBeLessThan(prompt);
+    expect(prompt).toBeLessThan(gettingStarted);
+    expect(gettingStarted).toBeLessThan(manualSteps);
+    expect(manualSteps).toBeLessThan(why);
     expect(gettingStarted).toBeLessThan(why);
     expect(why).toBeLessThan(diagram);
     expect(overview).toContain("npx copilotkit@latest init");
-    expect(overview).toContain("<IntelligenceOnboardingPrompt");
+    expect(overview).not.toContain("<IntelligenceOnboardingPrompt");
     expect(overview).not.toContain("docs_threads_agent_prompt");
     expect(overview).toContain("Threads-capable CLI starters already include");
     expect(overview).toContain("Book time with a CopilotKit engineer");

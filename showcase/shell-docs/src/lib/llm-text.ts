@@ -939,18 +939,19 @@ export function renderPageToLlmText(
     }
   }
 
-  // Interactive prompt buttons cannot run in raw Markdown or LLM feeds.
+  // 1) Inline `<Component />` shared snippets (`<AGUI />`, etc.). Uses
+  //    the SNIPPET_MAP / SUBPATH_TO_COMPONENT logic — same as the page
+  //    renderer uses for the live HTML view.
+  body = inlineSnippets(body, page.loadSlug);
+
+  // Expand interactive prompts after inlining so prompts inside shared
+  // snippets are also available in raw Markdown and LLM feeds.
   body = body.replace(
     /<PageAgentPrompt\s*\/>/g,
     "Ask your coding agent to follow the setup steps on this page for your selected framework and frontend.",
   );
   body = expandRichThreadsSetupPrompts(body);
   body = expandLearningSetupPrompts(body);
-
-  // 1) Inline `<Component />` shared snippets (`<AGUI />`, etc.). Uses
-  //    the SNIPPET_MAP / SUBPATH_TO_COMPONENT logic — same as the page
-  //    renderer uses for the live HTML view.
-  body = inlineSnippets(body, page.loadSlug);
 
   // Imported snippets can contain frontend-scoped branches of their own.
   // Filter after inlining so raw Markdown output follows the same frontend
