@@ -417,14 +417,20 @@ export function packageEntrypoints(packagesDir = PACKAGES_DIR) {
         .replace(/^\.\//, "")
         .replace(/^dist\//, "src/")
         .replace(/\.(m|c)?js$/, "");
+      // Derived from the dist path first. Angular ships flat `fesm2022`
+      // bundles whose filenames have no `src` twin, so fall back to candidates
+      // derived from the SUBPATH — never to the package root, which would map
+      // `@copilotkit/angular/mcp-apps` onto `@copilotkit/angular` and hide the
+      // very gap the unresolved list exists to report.
+      const subpathStem = subpath === "." ? "" : `${subpath.slice(2)}/`;
       const candidates = [
         `${stem}.ts`,
         `${stem}.tsx`,
         `${stem}/index.ts`,
         `${stem}/index.tsx`,
-        // Angular ships a flat fesm bundle whose name has no `src` twin.
-        "src/public-api.ts",
-        "src/index.ts",
+        `src/${subpathStem}index.ts`,
+        `src/${subpathStem}index.tsx`,
+        `src/${subpathStem}public-api.ts`,
       ];
       const src = candidates
         .map((candidate) => path.join(packagesDir, name, candidate))
