@@ -222,12 +222,12 @@
       "type": ["string", "null"],
       "enum": [
         "langgraph",
-        "ag2-context-variables",
+        "ag2-dependencies",
         "microsoft-agent-framework",
         "runtime-onrequest",
         null
       ],
-      "description": "Implementation pattern used by this integration for the `auth` feature. Set only when the feature is wired. `langgraph` = LangGraph Platform `@auth.authenticate` decorator OR self-hosted `langgraph_config['configurable']` (frontend uses `properties.authorization`); `ag2-context-variables` = AG2 backend reads the Authorization header on `/chat` and passes the validated user to `stream.dispatch(..., dependencies={'auth_user': ...})`, which tools read with `Inject('auth_user')` (frontend uses `properties.authorization`); `microsoft-agent-framework` = ASP.NET Core JwtBearer or FastAPI middleware (frontend uses `headers={{Authorization}}`); `runtime-onrequest` = generic V2 runtime `onRequest` hook validates the Bearer header injected by `<CopilotKit headers={{Authorization}}>`. Consumed by docs `<WhenFrameworkHas>`."
+      "description": "Implementation pattern used by this integration for the `auth` feature. Set only when the feature is wired. `langgraph` = LangGraph Platform `@auth.authenticate` decorator OR self-hosted `langgraph_config['configurable']` (frontend uses `properties.authorization`); `ag2-dependencies` = AG2 backend reads the Authorization header on `/chat` and passes the validated user to `stream.dispatch(..., dependencies={'auth_user': ...})`, which tools read with `Inject('auth_user')` (frontend uses `properties.authorization`); `microsoft-agent-framework` = ASP.NET Core JwtBearer or FastAPI middleware (frontend uses `headers={{Authorization}}`); `runtime-onrequest` = generic V2 runtime `onRequest` hook validates the Bearer header injected by `<CopilotKit headers={{Authorization}}>`. Consumed by docs `<WhenFrameworkHas>`."
     },
     "voice_backend_pattern": {
       "type": ["string", "null"],

@@ -226,7 +226,7 @@ Guides written for CopilotKit v1 wrapped the graph in `CopilotKitRemoteEndpoint(
 
 </WhenFrameworkHas>
 
-<WhenFrameworkHas flag="auth_pattern" equals="ag2-context-variables">
+<WhenFrameworkHas flag="auth_pattern" equals="ag2-dependencies">
 
 ## Frontend
 
@@ -316,7 +316,18 @@ def get_account_data(
     return {"account_id": account_id, "owner": auth_user["user_id"]}
 ```
 
-Register the tool on the agent with `tools=[get_account_data]`.
+Finally, register the tool on the agent so the LLM can call it:
+
+```python title="backend/server.py"
+from backend.tools import get_account_data # [!code highlight]
+
+agent = Agent(
+    name="assistant",
+    prompt="You are a helpful assistant.",
+    config=OpenAIConfig(model="gpt-5.4-mini"),
+    tools=[get_account_data], # [!code highlight]
+)
+```
 
 </WhenFrameworkHas>
 

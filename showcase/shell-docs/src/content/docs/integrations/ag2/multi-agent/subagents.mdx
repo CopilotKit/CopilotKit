@@ -123,6 +123,12 @@ Two consequences worth knowing before you build UI on top of it:
   researcher's isolated stream, so it does not appear as a separate `TOOL_CALL_*` pair in the
   coordinator's AG-UI output. If you need that visibility, give the specialist its own
   endpoint instead of delegating to it.
+- **Shared state does not flow back out of a specialist.** A delegation gets a *copy* of the
+  coordinator's conversation variables, and the specialist's writes to `context.variables` are
+  deliberately not merged back — concurrent delegations would otherwise clobber each other.
+  A specialist that writes state changes nothing the UI sees, and nothing fails. Return the
+  value from the delegation and have the coordinator write it instead. Dependencies are copied
+  in the same way, so `Inject(...)` keeps working inside a specialist.
 
 ## Render the delegation in the chat
 

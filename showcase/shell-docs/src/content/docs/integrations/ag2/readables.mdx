@@ -87,9 +87,15 @@ This context can then be shared with your AG2 backend.
                                 (item.value for item in message.context if item.description == description),
                                 None,
                             )
-                            # [!code highlight:2]
-                            # The value is a JSON string, so parse it before use
-                            return json.loads(raw) if raw is not None else None
+                            if raw is None:
+                                return None
+                            # [!code highlight:5]
+                            # `useAgentContext` JSON-encodes objects and arrays, but passes a
+                            # plain string through untouched — so decoding is best-effort.
+                            try:
+                                return json.loads(raw)
+                            except json.JSONDecodeError:
+                                return raw
                         ```
                     </Tab>
                 </Tabs>
@@ -118,9 +124,15 @@ This context can then be shared with your AG2 backend.
                                 (item.value for item in message.context if item.description == description),
                                 None,
                             )
-                            # [!code highlight:2]
-                            # The value is a JSON string, so parse it before use
-                            return json.loads(raw) if raw is not None else None
+                            if raw is None:
+                                return None
+                            # [!code highlight:5]
+                            # `useAgentContext` JSON-encodes objects and arrays, but passes a
+                            # plain string through untouched — so decoding is best-effort.
+                            try:
+                                return json.loads(raw)
+                            except json.JSONDecodeError:
+                                return raw
 
                         @tool
                         def get_colleagues(
@@ -203,7 +215,7 @@ This context can then be shared with your AG2 backend.
 
             <Step>
                 ### Consume the data in your AG2 backend
-                For a minimal backend, inject all readables directly into the agent's prompt for the run — no tools required:
+                For a minimal backend, inject all readables directly into the agent's prompt for the run — no tools required. `prompt=` on `dispatch` **replaces** the agent's own prompt rather than adding to it, so pass your instructions along with the readables:
 
                 <Tabs groupId="language_ag2_readables_minimal" items={['Python']} default="Python" persist>
                     <Tab value="Python">
@@ -215,9 +227,11 @@ This context can then be shared with your AG2 backend.
                         from ag2.ag_ui import AGUIStream, RunAgentInput
                         from ag2.config import OpenAIConfig
 
+                        SYSTEM_PROMPT = "You are a helpful assistant." # [!code highlight]
+
                         agent = Agent(
                             name="assistant",
-                            prompt="You are a helpful assistant.",
+                            prompt=SYSTEM_PROMPT,
                             config=OpenAIConfig(model="gpt-5.4-mini"),
                         )
 
@@ -233,8 +247,10 @@ This context can then be shared with your AG2 backend.
                             readables = [
                                 f"{item.description}: {item.value}" for item in message.context
                             ]
+                            # [!code highlight:3]
+                            # `prompt=` overrides the agent's prompt, so send it along with the readables.
                             return StreamingResponse(
-                                stream.dispatch(message, prompt=readables, accept=accept),
+                                stream.dispatch(message, prompt=[SYSTEM_PROMPT, *readables], accept=accept),
                                 media_type=accept or "text/event-stream",
                             )
                         ```

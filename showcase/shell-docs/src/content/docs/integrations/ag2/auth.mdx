@@ -134,7 +134,16 @@ def get_account_data(
     return {"account_id": account_id, "owner": auth_user["user_id"]}
 ```
 
-Register the tool on the agent with `tools=[get_account_data]`. The `Inject("auth_user")` annotation pulls the dependency you passed to `stream.dispatch(...)` — it is invisible to the LLM and never leaves the server.
+The `Inject("auth_user")` annotation pulls the dependency you passed to `stream.dispatch(...)` — it is invisible to the LLM and never leaves the server. Register the tool on the agent so the LLM can call it:
+
+```python
+agent = Agent(
+    name="assistant",
+    prompt="You are a helpful assistant.",
+    config=OpenAIConfig(model="gpt-5.4-mini"),
+    tools=[get_account_data], # [!code highlight]
+)
+```
 
 ## Self-hosted Deployment
 
@@ -154,6 +163,7 @@ agent = Agent(
     name="assistant",
     prompt="You are a helpful assistant.",
     config=OpenAIConfig(model="gpt-5.4-mini"),
+    tools=[get_account_data], # [!code highlight]
 )
 
 stream = AGUIStream(agent)

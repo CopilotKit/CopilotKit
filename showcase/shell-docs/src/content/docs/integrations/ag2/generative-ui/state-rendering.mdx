@@ -121,10 +121,11 @@ is a situation where a user and an agent are working together to solve a problem
     function YourMainContent() {
       // ...
 
-      // [!code highlight:3]
+      // [!code highlight:4]
       const { agent } = useAgent({
         agentId: "my_agent", // MUST match the agent name in CopilotRuntime
       })
+      const state = (agent.state ?? {}) as Partial<AgentState>;
 
       // ...
 
@@ -133,7 +134,7 @@ is a situation where a user and an agent are working together to solve a problem
           {/* ... */}
           <div className="flex flex-col gap-2 mt-4">
             {/* [!code highlight:5] */}
-            {agent.state.searches?.map((search, index) => (
+            {state.searches?.map((search, index) => (
               <div key={index} className="flex flex-row">
                 {search.done ? "✅" : "❌"} {search.query}
               </div>

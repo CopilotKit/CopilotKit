@@ -116,7 +116,7 @@ state updates, you can reflect these updates natively in your application.
         agent.setState({ ...(agent.state ?? {}), language: "english" });
       }, [agent, isReady, state.language]);
 
-      const language = (agent.state.language as AgentState["language"]) ?? "english";
+      const language = state.language ?? "english";
 
       // ...
 

@@ -116,7 +116,7 @@ You can use this when you want to keep your interface and backend agent state sy
       }, [agent, isReady, state.language]);
 
       // default to english until the UI or the agent sets it
-      const language = (agent.state.language as AgentState["language"]) ?? "english";
+      const language = state.language ?? "english";
 
       const toggleLanguage = () => {
         agent.setState({ ...(agent.state ?? {}), language: state.language === "english" ? "spanish" : "english" }); // [!code highlight]
@@ -170,7 +170,7 @@ function YourMainContent() {
 
   // setup to be called when some event in the app occurs
   const toggleLanguage = async () => {
-    const newLanguage = agent.state.language === "english" ? "spanish" : "english";
+    const newLanguage = agent.state?.language === "english" ? "spanish" : "english";
     agent.setState({ language: newLanguage });
 
     // add a hint message and re-run the agent

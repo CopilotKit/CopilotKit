@@ -103,7 +103,7 @@ export interface Integration {
   agent_config_pattern?: "shared-state" | "runtime-properties" | null;
   auth_pattern?:
     | "langgraph"
-    | "ag2-context-variables"
+    | "ag2-dependencies"
     | "microsoft-agent-framework"
     | "runtime-onrequest"
     | null;
