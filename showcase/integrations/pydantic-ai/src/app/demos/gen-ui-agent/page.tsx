@@ -50,7 +50,7 @@ type AgentState = {
 function Chat() {
   const { agent } = useAgent({
     agentId: "gen-ui-agent",
-    updates: [UseAgentUpdate.OnStateChanged],
+    updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
   });
 
   useSuggestions();
