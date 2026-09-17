@@ -6,6 +6,34 @@
 export const DEFAULT_SSE_KEEP_ALIVE_INTERVAL_SECONDS = 15;
 
 /**
+ * Longest interval the timer can honour. Timers take a signed 32-bit
+ * millisecond delay; Node silently replaces anything larger with 1 ms, which
+ * would turn a keep-alive into a flood.
+ */
+export const MAX_SSE_KEEP_ALIVE_INTERVAL_SECONDS = (2 ** 31 - 1) / 1000;
+
+/**
+ * Resolves the `sseKeepAliveIntervalSeconds` runtime option once, at
+ * construction, so every SSE call site reads one validated value.
+ * `undefined` takes the default; `0` disables the keep-alive.
+ */
+export function resolveSseKeepAliveIntervalSeconds(
+  value: number | undefined,
+): number {
+  const seconds = value ?? DEFAULT_SSE_KEEP_ALIVE_INTERVAL_SECONDS;
+  if (
+    !Number.isFinite(seconds) ||
+    seconds < 0 ||
+    seconds > MAX_SSE_KEEP_ALIVE_INTERVAL_SECONDS
+  ) {
+    throw new RangeError(
+      `sseKeepAliveIntervalSeconds must be between 0 and ${MAX_SSE_KEEP_ALIVE_INTERVAL_SECONDS}, got ${String(value)}`,
+    );
+  }
+  return seconds;
+}
+
+/**
  * SSE comment frame. Parsers drop comment lines, so no AG-UI event is
  * invented and the verifier, history and middleware never see it.
  * @see https://html.spec.whatwg.org/multipage/server-sent-events.html#authoring-notes

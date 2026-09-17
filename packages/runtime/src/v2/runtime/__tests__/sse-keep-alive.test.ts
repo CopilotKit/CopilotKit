@@ -2,7 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NEVER, Subject } from "rxjs";
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
-import { keepAliveSse } from "../handlers/shared/sse-keep-alive";
+import {
+  keepAliveSse,
+  MAX_SSE_KEEP_ALIVE_INTERVAL_SECONDS,
+} from "../handlers/shared/sse-keep-alive";
 import { createSseEventResponse } from "../handlers/shared/sse-response";
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import { CopilotRuntime } from "../core/runtime";
@@ -200,16 +203,27 @@ describe("CopilotRuntime sseKeepAliveIntervalSeconds", () => {
     ).toBe(0);
   });
 
-  it.each([-1, Number.NaN, Number.POSITIVE_INFINITY])(
-    "rejects %s at construction",
-    (value) => {
-      expect(
-        () =>
-          new CopilotRuntime({
-            agents: {},
-            sseKeepAliveIntervalSeconds: value,
-          }),
-      ).toThrow(RangeError);
-    },
-  );
+  it("accepts the longest interval a timer can honour", () => {
+    expect(
+      new CopilotRuntime({
+        agents: {},
+        sseKeepAliveIntervalSeconds: MAX_SSE_KEEP_ALIVE_INTERVAL_SECONDS,
+      }).sseKeepAliveIntervalSeconds,
+    ).toBe(MAX_SSE_KEEP_ALIVE_INTERVAL_SECONDS);
+  });
+
+  it.each([
+    -1,
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    MAX_SSE_KEEP_ALIVE_INTERVAL_SECONDS + 0.001,
+  ])("rejects %s at construction", (value) => {
+    expect(
+      () =>
+        new CopilotRuntime({
+          agents: {},
+          sseKeepAliveIntervalSeconds: value,
+        }),
+    ).toThrow(RangeError);
+  });
 });

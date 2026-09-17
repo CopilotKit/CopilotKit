@@ -12,7 +12,7 @@ import type { LicenseChecker } from "@copilotkit/license-verifier";
 import { resolveDebugConfig } from "@copilotkit/shared";
 import type { ResolvedDebugConfig, DebugConfig } from "@copilotkit/shared";
 import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
-import { DEFAULT_SSE_KEEP_ALIVE_INTERVAL_SECONDS } from "../handlers/shared/sse-keep-alive";
+import { resolveSseKeepAliveIntervalSeconds } from "../handlers/shared/sse-keep-alive";
 import type {
   ForwardHeadersConfig,
   ResolvedForwardHeadersPolicy,
@@ -487,17 +487,9 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     this.forwardHeadersPolicy = resolveForwardHeadersPolicy(
       options.forwardHeaders,
     );
-    this.sseKeepAliveIntervalSeconds =
-      options.sseKeepAliveIntervalSeconds ??
-      DEFAULT_SSE_KEEP_ALIVE_INTERVAL_SECONDS;
-    if (
-      !Number.isFinite(this.sseKeepAliveIntervalSeconds) ||
-      this.sseKeepAliveIntervalSeconds < 0
-    ) {
-      throw new RangeError(
-        `sseKeepAliveIntervalSeconds must be a non-negative number, got ${String(options.sseKeepAliveIntervalSeconds)}`,
-      );
-    }
+    this.sseKeepAliveIntervalSeconds = resolveSseKeepAliveIntervalSeconds(
+      options.sseKeepAliveIntervalSeconds,
+    );
     // Secure default: the client-facing memory proxy routes stay hidden (404)
     // unless a deployment explicitly opts in.
     this.memory = (options as { memory?: CopilotRuntimeMemoryConfig }).memory;
