@@ -6,7 +6,7 @@ The Intelligence monitor dispatches `intelligence-compatibility-monitor.yml` wit
 
 Required fields: `schemaVersion: 1`, UUID `requestId`, one of the five `adapterId` values in `request.mjs`, `track: source | published`, 40-character `sourceSha`, exact `dependencies` for **every** watched framework dependency, and boolean `experimental`. Published requests also require exact `adapterVersion`. Unknown fields, paths, URLs, commands and floating versions are rejected before candidate commands run.
 
-The source SHA fixes fixtures and tests for both source and published tracks. Source tests install packed artifacts; published tests install registry versions. The two TypeScript Zod lanes use 3.25.76 and 4.6.1. Native tests use local fake models and snapshot responses, including resume, approval, denial, cancellation, streaming and isolation cases where supported by the adapter. Internal TypeScript source-unit suites remain in normal adapter CI; monitor lifecycle tests import the installed public API.
+The source SHA fixes fixtures and tests for both source and published tracks. Source tests install packed artifacts; published tests install registry versions. TypeScript requests must include an exact Zod version; the coordinator dispatches Zod 3 and 4 separately. Native tests use local fake models and snapshot responses, including resume, approval, denial, cancellation, streaming and isolation cases where supported by the adapter. Internal TypeScript source-unit suites remain in normal adapter CI; monitor lifecycle tests import the installed public API.
 
 ```sh
 pnpm nx run compatibility-monitor:test
@@ -17,7 +17,7 @@ Install the checkout's frozen pnpm dependencies first. Runners need Node 22.13.0
 
 ## Evidence and conservative outcomes
 
-`result.json` follows the handoff contract. `resolvedDependencies` records watched packages verified in the consumer; `resolvedGraph` additionally records the resolved package graph for comparison across runs (npm keys include Zod lane and install path). Logs, request, and available lockfiles accompany the artifact. The coordinator must compare graphs before attributing failure to the requested upgrade: other dependency changes may explain a difference.
+`result.json` follows the handoff contract. `resolvedDependencies` records watched packages verified in the consumer; `resolvedGraph` additionally records the resolved package graph for comparison across runs (npm keys include install paths). Logs, request, and available lockfiles accompany the artifact. The coordinator must compare graphs before attributing failure to the requested upgrade: other dependency changes may explain a difference.
 
 An installation failure, missing test tool, missing loaded-version evidence, or missing executed contract produces `blocked`, never `passed`. Python skipped contracts prevent a green result. A .NET build failure before framework-load evidence remains blocked. Missing registry packages currently produce blocked install evidence; registry discovery in the coordinator handles unpublished adapters.
 

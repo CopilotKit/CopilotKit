@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import {
+  verifyNativeReport,
   monitorPlan,
   monitorOutput,
   prepareMonitorConsumer,
@@ -126,8 +127,7 @@ void inference;
 for (const [lane, peers] of Object.entries(
   monitor
     ? {
-        zod3: { zod: "3.25.76", ...monitor.dependencies },
-        zod4: { zod: "4.6.1", ...monitor.dependencies },
+        exact: monitor.dependencies,
       }
     : lanes,
 )) {
@@ -200,7 +200,16 @@ for (const [lane, peers] of Object.entries(
     ["smoke.mjs", "import"],
     ["smoke.mjs", "require"],
     ["node_modules/typescript/bin/tsc", "-p", "tsconfig.json"],
-    ["node_modules/vitest/vitest.mjs", "run"],
+    [
+      "node_modules/vitest/vitest.mjs",
+      "run",
+      ...(monitor
+        ? [
+            "--reporter=json",
+            `--outputFile=${join(monitorArtifacts, "native-results.json")}`,
+          ]
+        : []),
+    ],
   ]) {
     execFileSync(process.execPath, args, {
       cwd,
@@ -208,6 +217,12 @@ for (const [lane, peers] of Object.entries(
       env: consumerEnv,
     });
   }
+  if (monitor)
+    verifyNativeReport(
+      JSON.parse(
+        readFileSync(join(monitorArtifacts, "native-results.json"), "utf8"),
+      ),
+    );
   console.log(
     `${lane}: installed distribution, ESM/CJS inference, and native suites passed`,
   );

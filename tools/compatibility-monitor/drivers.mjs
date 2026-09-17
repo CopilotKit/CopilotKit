@@ -7,6 +7,7 @@ import {
   writeFileSync,
   readdirSync,
   existsSync,
+  rmSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -15,7 +16,7 @@ import { adapters, verifyResolved } from "./request.mjs";
 export async function runAdapter(request, context) {
   const work = mkdtempSync(join(tmpdir(), "compatibility-consumer-"));
   const state = { resolvedDependencies: {}, cases: [] };
-  const { output, command } = context;
+  const { output } = context;
   const runCase = (id, fn) => {
     try {
       fn();
@@ -24,7 +25,7 @@ export async function runAdapter(request, context) {
       state.cases.push({
         contractId: id,
         status: "failed",
-        message: e.message,
+        message: e.message.slice(0, 4000),
       });
     }
   };
@@ -32,13 +33,13 @@ export async function runAdapter(request, context) {
     if (request.adapterId.endsWith("-ts"))
       await typescript(request, { ...context, work, state, runCase });
     else if (request.adapterId.endsWith("-python"))
-      python(request, { ...context, work, state, runCase });
+      runPython(request, { ...context, work, state, runCase });
     else dotnet(request, { ...context, work, state, runCase });
   } catch (e) {
     state.cases.push({
       contractId: "installation-or-harness",
       status: "blocked",
-      message: e.message,
+      message: e.message.slice(0, 4000),
     });
     state.failureStage = "installation-or-harness";
   } finally {
@@ -58,7 +59,7 @@ export async function runAdapter(request, context) {
   }
   return state;
 }
-function python(r, { source, output, work, command, state, runCase }) {
+function runPython(r, { source, output, work, command, state, runCase }) {
   const adapter = adapters[r.adapterId];
   const root = join(source, "packages", adapter.directory);
   const artifacts = join(work, "artifacts");
@@ -120,8 +121,8 @@ function python(r, { source, output, work, command, state, runCase }) {
     r.adapterId === "langgraph-python"
       ? { langchain: "langchain", langgraph: "langgraph.graph" }
       : { "google-adk": "google.adk" };
-  const module = adapter.name.replaceAll("-", "_");
-  const probe = `import importlib,importlib.metadata,json,pathlib\nimport ${module} as adapter\nassert 'site-packages' in str(pathlib.Path(adapter.__file__).resolve())\npackages=${JSON.stringify(imports)}\nfor module in packages.values(): importlib.import_module(module)\nprint(json.dumps({name:importlib.metadata.version(name) for name in packages}))\n`;
+  const adapterModule = adapter.name.replaceAll("-", "_");
+  const probe = `import importlib,importlib.metadata,json,pathlib\nimport ${adapterModule} as adapter\nassert 'site-packages' in str(pathlib.Path(adapter.__file__).resolve())\npackages=${JSON.stringify(imports)}\nfor module in packages.values(): importlib.import_module(module)\nprint(json.dumps({name:importlib.metadata.version(name) for name in packages}))\n`;
   state.resolvedDependencies = JSON.parse(
     command(python, ["-I", "-c", probe], work),
   );
@@ -180,6 +181,7 @@ async function typescript(
       ["nx", "run", adapter.name + ":build", "--skip-nx-cache"],
       source,
     );
+  rmSync(join(output, "consumer-evidence.json"), { force: true });
   const plan = join(work, "plan.json");
   writeFileSync(plan, JSON.stringify({ ...r, output }));
   // The native harness exports evidence before propagating a failed test.
@@ -194,6 +196,16 @@ async function typescript(
   assert.ok(existsSync(evidence), "Consumer did not record loaded versions");
   Object.assign(state, JSON.parse(readFileSync(evidence, "utf8")));
   verifyResolved(r, state.resolvedDependencies);
+  const reportPath = join(output, "native-results.json");
+  if (existsSync(reportPath)) {
+    const report = JSON.parse(readFileSync(reportPath, "utf8"));
+    if (!report.numTotalTests || report.numPendingTests)
+      state.cases.push({
+        contractId: "native-coverage",
+        status: "blocked",
+        message: "Native tests were absent or skipped",
+      });
+  }
 }
 function dotnet(r, { source, output, work, command, state, runCase }) {
   const root = join(source, "packages/intelligence-agent-framework-dotnet");
@@ -280,11 +292,17 @@ function dotnet(r, { source, output, work, command, state, runCase }) {
   assert.ok(text.includes(marker));
   text = text.replace(
     marker,
-    `Console.WriteLine("COMPAT_LOADED:" + typeof(Microsoft.Agents.AI.AIAgent).Assembly.Location);\n${marker}`,
+    `Console.WriteLine("COMPAT_LOADED:" + typeof(Microsoft.Agents.AI.ChatClientAgent).Assembly.Location);\n${marker}`,
   );
   writeFileSync(program, text);
   runCase("native-lifecycle", () => {
-    const stdout = command("dotnet", ["run", "--no-restore"], work);
+    let stdout, failure;
+    try {
+      stdout = command("dotnet", ["run", "--no-restore"], work);
+    } catch (error) {
+      stdout = String(error.stdout ?? "");
+      failure = error;
+    }
     assert.match(
       stdout,
       /COMPAT_LOADED:.*Microsoft\.Agents\.AI\.dll/,
@@ -293,6 +311,7 @@ function dotnet(r, { source, output, work, command, state, runCase }) {
     assert.match(stdout, /PASS /, "No native assertions ran");
     state.resolvedDependencies = { "Microsoft.Agents.AI": key.split("/")[1] };
     verifyResolved(r, state.resolvedDependencies);
+    if (failure) throw failure;
   });
   // When the executable fails, retain resolution metadata but do not claim a loaded version.
   if (!Object.keys(state.resolvedDependencies).length)

@@ -1,17 +1,14 @@
-import {
-  readFileSync,
-  writeFileSync,
-  cpSync,
-  existsSync,
-  mkdirSync,
-} from "node:fs";
+import assert from "node:assert/strict";
+import { readFileSync, writeFileSync, cpSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
-import { validateRequest, cleanEnvironment, adapters } from "./request.mjs";
+import { validateRequest, adapters } from "./request.mjs";
 export function monitorPlan(argv = process.argv) {
   const i = argv.indexOf("--monitor-plan");
   if (i < 0) return undefined;
-  const { output, ...request } = JSON.parse(readFileSync(argv[i + 1], "utf8"));
+  const { output: _output, ...request } = JSON.parse(
+    readFileSync(argv[i + 1], "utf8"),
+  );
   return validateRequest(request);
 }
 export function monitorOutput(argv = process.argv) {
@@ -20,7 +17,7 @@ export function monitorOutput(argv = process.argv) {
     ? undefined
     : JSON.parse(readFileSync(argv[i + 1], "utf8")).output;
 }
-export function prepareMonitorConsumer(plan, cwd, packageRoot) {
+export function prepareMonitorConsumer(plan, cwd) {
   if (!plan) return;
   // Only public-boundary native tests execute. Internal source unit suites remain
   // covered by ordinary adapter CI; they cannot establish published compatibility.
@@ -84,6 +81,7 @@ export function installMonitorConsumer(plan, cwd, env, output) {
     "@langchain/langgraph": "@langchain/langgraph",
     langchain: "langchain",
     "@mastra/core": "@mastra/core/agent",
+    zod: "zod",
   };
   const code = `import {createRequire} from 'node:module';import {readFileSync,existsSync} from 'node:fs';import {dirname,join} from 'node:path';const root=createRequire(import.meta.url);const contexts=[root,createRequire(root.resolve(${JSON.stringify(adapters[plan.adapterId].name)}))];const expected=${JSON.stringify(plan.dependencies)};const entries=${JSON.stringify(entrypoints)};let result={};for(const [name,version] of Object.entries(expected)){for(const require of contexts){const entry=require.resolve(entries[name]);await import(entry);let dir=dirname(entry);while(!existsSync(join(dir,'package.json'))||JSON.parse(readFileSync(join(dir,'package.json'))).name!==name){const parent=dirname(dir);if(parent===dir)throw Error('Package metadata absent');dir=parent;}const actual=JSON.parse(readFileSync(join(dir,'package.json'))).version;if(actual!==version)throw Error('Loaded version mismatch: '+name+' '+actual);result[name]=actual;}}console.log(JSON.stringify({resolvedDependencies:result}));`;
   writeFileSync(join(cwd, "versions.mjs"), code);
@@ -100,7 +98,7 @@ export function installMonitorConsumer(plan, cwd, env, output) {
   const graph = Object.fromEntries(
     Object.entries(lock.packages)
       .filter(([key, value]) => key && value.version)
-      .map(([key, value]) => [`zod${zod}/${key}`, value.version]),
+      .map(([key, value]) => [key, value.version]),
   );
   writeFileSync(
     target,
@@ -108,5 +106,15 @@ export function installMonitorConsumer(plan, cwd, env, output) {
       ...JSON.parse(evidence),
       resolvedGraph: { ...previous.resolvedGraph, ...graph },
     }),
+  );
+}
+
+export function verifyNativeReport(report) {
+  assert.ok(report.numTotalTests > 0, "No native tests executed");
+  assert.equal(report.numPendingTests, 0, "Native tests were skipped");
+  assert.equal(
+    report.numPassedTests,
+    report.numTotalTests,
+    "Native tests did not all pass",
   );
 }

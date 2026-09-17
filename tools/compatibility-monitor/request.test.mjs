@@ -11,7 +11,7 @@ const request = {
   adapterId: "mastra-ts",
   track: "source",
   sourceSha: "a".repeat(40),
-  dependencies: { "@mastra/core": "1.66.0" },
+  dependencies: { "@mastra/core": "1.66.0", zod: "4.6.1" },
   experimental: false,
 };
 test("accepts exact stable and prerelease requests", () => {
@@ -19,7 +19,7 @@ test("accepts exact stable and prerelease requests", () => {
   assert.ok(
     validateRequest({
       ...request,
-      dependencies: { "@mastra/core": "2.0.0-beta.1" },
+      dependencies: { "@mastra/core": "2.0.0-beta.1", zod: "4.6.1" },
     }),
   );
 });
@@ -35,7 +35,10 @@ test("rejects executable, floating, unknown and partial input before commands", 
     "--help",
   ])
     assert.throws(() =>
-      validateRequest({ ...request, dependencies: { "@mastra/core": value } }),
+      validateRequest({
+        ...request,
+        dependencies: { "@mastra/core": value, zod: "4.6.1" },
+      }),
     );
   for (const patch of [
     { sourceSha: "main" },

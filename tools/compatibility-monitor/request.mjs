@@ -3,12 +3,12 @@ export const adapters = {
   "langgraph-ts": {
     directory: "intelligence-langgraph",
     name: "@copilotkit/intelligence-langgraph",
-    packages: ["langchain", "@langchain/langgraph", "@langchain/core"],
+    packages: ["langchain", "@langchain/langgraph", "@langchain/core", "zod"],
   },
   "mastra-ts": {
     directory: "intelligence-mastra",
     name: "@copilotkit/intelligence-mastra",
-    packages: ["@mastra/core"],
+    packages: ["@mastra/core", "zod"],
   },
   "langgraph-python": {
     directory: "intelligence-langgraph-python",

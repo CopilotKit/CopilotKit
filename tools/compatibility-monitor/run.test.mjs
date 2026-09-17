@@ -10,7 +10,7 @@ const request = {
   adapterId: "mastra-ts",
   track: "source",
   sourceSha: "a".repeat(40),
-  dependencies: { "@mastra/core": "1.66.0" },
+  dependencies: { "@mastra/core": "1.66.0", zod: "4.6.1" },
   experimental: false,
 };
 test("writes blocked evidence even when installation fails", async () => {
