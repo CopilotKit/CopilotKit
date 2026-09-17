@@ -61,12 +61,17 @@ history for any id it is given, `GET /threads` lists every thread in the
 process, and `POST /threads/clear` wipes all of them.
 
 That is fine for local development and for a deployment serving one person. If
-more than one person uses it, authorize those routes yourself before you ship
-— see [Authorizing threads](/auth#authorizing-threads) — or move to a runner
-that scopes threads to a user. `SqliteAgentRunner` and `IntelligenceAgentRunner`
-are both fine here: the thread routes are served from a runner's local store
-only when the runner opts in, and only `InMemoryAgentRunner` does — along with
-anything extending it, such as `AgentCoreRunner`.
+more than one person uses it, authorize those routes yourself before you ship.
+See [Thread authorization](/auth#thread-authorization) for the ownership-table
+pattern and the `onBeforeHandler` enforcement point.
+
+Changing runner narrows the exposure rather than removing it. A runner serves
+the thread routes from its local store only when it opts in, and only
+`InMemoryAgentRunner` does, along with anything extending it such as
+`AgentCoreRunner`. `SqliteAgentRunner` opts out, so its read routes answer
+`422`. `IntelligenceAgentRunner` scopes most thread operations to the user your
+`identifyUser` returns, but `threads/events`, `threads/state` and `agent/stop`
+still read the thread by id alone.
 </Callout>
 
 ## Choosing a runner

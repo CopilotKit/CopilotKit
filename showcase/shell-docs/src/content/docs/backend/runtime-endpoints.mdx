@@ -215,25 +215,27 @@ routes exist in multi-route mode whichever runner you use:
 | `GET /api/copilotkit/threads/:threadId/messages` | That thread's full message history. |
 | `GET /api/copilotkit/threads/:threadId/events` | That thread's compacted AG-UI event stream. |
 | `GET /api/copilotkit/threads/:threadId/state` | That thread's last state snapshot. |
-| `POST /api/copilotkit/threads/clear` | Wipe the in-memory thread history. A no-op on an Intelligence runtime, whose history lives in a database. |
+| `POST /api/copilotkit/threads/clear` | Wipe the in-memory thread history. Always answers `204`, and clears nothing on a runner that keeps no local store. |
 | `PATCH` or `DELETE /api/copilotkit/threads/:threadId` | Rename or delete a thread. Intelligence only. |
 | `POST /api/copilotkit/threads/:threadId/archive` | Archive a thread. Intelligence only. |
 | `POST /api/copilotkit/threads/subscribe` | Subscribe to thread changes. Intelligence only. |
 
 <Callout type="warn" title="Thread routes are not authorized for you">
-On an Intelligence runtime these routes resolve the caller through your
-`identifyUser` and only reach that user's threads.
-
 On the default `InMemoryAgentRunner` — and on anything extending it, such as
-`AgentCoreRunner` — they read the runner's local store and resolve no user at
-all: any caller that reaches the route reads the thread it names, `GET
+`AgentCoreRunner` — these routes read the runner's local store and resolve no
+user at all: any caller that reaches the route reads the thread it names, `GET
 /threads` lists every thread in the process, and `POST /threads/clear` wipes
-them all. A runner that serves neither, such as `SqliteAgentRunner`, answers
-these routes with a 422 instead.
+them all. A runner that keeps no local store, such as `SqliteAgentRunner`,
+answers the four read routes with a `422` instead.
+
+An Intelligence runtime scopes **most** of them to the user your `identifyUser`
+returns, but not all: `threads/events`, `threads/state` and
+`POST /agent/:agentId/stop/:threadId` read the thread by id alone. Guard those
+three yourself even on the platform.
 
 `:threadId` is chosen by the client on the run, so it is not a secret. If more
 than one person uses your deployment, authorize these routes yourself — see
-[Authorizing threads](/auth#authorizing-threads).
+[Thread authorization](/auth#thread-authorization).
 </Callout>
 
 ### Probing the runtime with curl
@@ -580,9 +582,21 @@ createCopilotExpressHandler({
   basePath: "/api/copilotkit",
   hooks: {
     onBeforeHandler: async ({ request, route }) => {
+      const user = await resolveUser(request);
+
+      // Routes that name a thread on `route`.
       if ("threadId" in route) {
-        const user = await resolveUser(request);
         if (!(await userOwnsThread(user.id, route.threadId))) {
+          throw new Response("Forbidden", { status: 403 });
+        }
+        return;
+      }
+
+      // agent/run and agent/connect carry the thread in the body instead.
+      if (route.method === "agent/run" || route.method === "agent/connect") {
+        // Clone: the handler still needs to read the original body.
+        const { threadId } = await request.clone().json();
+        if (threadId && !(await userOwnsThread(user.id, threadId))) {
           throw new Response("Forbidden", { status: 403 });
         }
       }
@@ -593,11 +607,11 @@ createCopilotExpressHandler({
 
 `route.threadId` is present on `agent/stop`, `threads/messages`,
 `threads/events`, `threads/state`, `threads/update` and `threads/archive`.
-`threads/list` and `threads/clear` carry no thread, so the only decision
-available for those two is whether to allow them at all.
+`threads/list`, `threads/clear` and `threads/subscribe` carry no thread at all,
+so the only decision available for those three is whether to allow them.
 
 See [Auth](/auth) for the full authentication guide and
-[Authorizing threads](/auth#authorizing-threads) for the ownership map this
+[Thread authorization](/auth#thread-authorization) for the ownership map this
 example assumes.
 
 For Inspector metadata, Core sends these current browser-to-runtime headers and
