@@ -547,6 +547,7 @@ describe("framework nav", () => {
       "Interactivity",
       "Agent capabilities",
       "Intelligence",
+      "Solutions",
       "Backend",
       "Learn",
       "Other",
@@ -611,8 +612,9 @@ describe("framework nav", () => {
       "Overview",
       "Get started",
       "Rich Threads",
-      "Automatic Learning",
+      "Self-improving agents",
       "User Memories",
+      "Channels · Slack",
       "Hosting",
     ]);
     expect(
@@ -622,7 +624,7 @@ describe("framework nav", () => {
       sectionNodes(navTree, "Agent capabilities").map((node) => node.title),
     ).toEqual([
       "Built-in Agent",
-      "Automatic Learning",
+      "Self-improving agents",
       "User Memories",
       "Sub-agents",
     ]);
@@ -643,7 +645,7 @@ describe("framework nav", () => {
       { type: "page", title: "Rich Threads", slug: "threads" },
       {
         type: "page",
-        title: "Automatic Learning",
+        title: "Self-improving agents",
         slug: "learning",
       },
       {
@@ -651,19 +653,25 @@ describe("framework nav", () => {
         title: "User Memories",
         slug: "intelligence/memories",
       },
+      {
+        type: "page",
+        title: "Channels · Slack",
+        slug: "slack",
+        href: "/slack",
+      },
     ]);
     expect(groupPageEntries(navTree, "Hosting")).toEqual([
       { title: "Cloud", slug: "intelligence/managed-intelligence-platform" },
       { title: "Self-hosted", slug: "intelligence/self-hosting" },
     ]);
-    expect(findPageByTitle(navTree, "Automatic Learning")).toMatchObject({
+    expect(findPageByTitle(navTree, "Self-improving agents")).toMatchObject({
       slug: "learning",
     });
     expect(findPageByTitle(navTree, "WebMCP")).toMatchObject({
       slug: "webmcp",
     });
     expect(
-      hasSectionPage(navTree, "Agent capabilities", "Automatic Learning"),
+      hasSectionPage(navTree, "Agent capabilities", "Self-improving agents"),
     ).toBe(true);
     expect(hasSectionPage(navTree, "Agent capabilities", "User Memories")).toBe(
       true,
@@ -703,6 +711,7 @@ describe("framework nav", () => {
       "Interactivity",
       "Agent capabilities",
       "Intelligence",
+      "Solutions",
       "Backend",
       "Learn",
       "Other",
@@ -713,6 +722,7 @@ describe("framework nav", () => {
       "Interactivity",
       "Agent capabilities",
       "Intelligence",
+      "Solutions",
       "Backend",
       "Learn",
       "Other",
@@ -962,8 +972,9 @@ describe("framework nav", () => {
       "Overview",
       "Get started",
       "Rich Threads",
-      "Automatic Learning",
+      "Self-improving agents",
       "User Memories",
+      "Channels · Slack",
       "Hosting",
     ]);
     expect(groupPageEntries(navTree, "Get started")).toEqual([
@@ -986,13 +997,19 @@ describe("framework nav", () => {
       { type: "page", title: "Rich Threads", slug: "threads" },
       {
         type: "page",
-        title: "Automatic Learning",
+        title: "Self-improving agents",
         slug: "learning",
       },
       {
         type: "page",
         title: "User Memories",
         slug: "intelligence/memories",
+      },
+      {
+        type: "page",
+        title: "Channels · Slack",
+        slug: "slack",
+        href: "/slack",
       },
     ]);
     expect(groupPageEntries(navTree, "Hosting")).toEqual([

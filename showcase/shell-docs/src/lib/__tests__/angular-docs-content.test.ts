@@ -229,6 +229,7 @@ test("uses the normalized sidebar flow for Angular docs", () => {
     "Interactivity",
     "Agent capabilities",
     "Intelligence",
+    "Solutions",
     "Backend",
     "Learn",
     "Other",
@@ -250,7 +251,7 @@ test("uses the normalized sidebar flow for Angular docs", () => {
   ).toBe(true);
   expect(agentCapabilities.map((node) => node.title)).toEqual([
     "Built-in Agent",
-    "Automatic Learning",
+    "Self-improving agents",
     "User Memories",
     "Sub-agents",
   ]);

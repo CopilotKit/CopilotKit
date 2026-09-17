@@ -1,0 +1,41 @@
+---
+title: Self-Improving Agents & Product Learning
+description: Turn repeated corrections into reviewed, reusable Skills, starting with one supported agent workflow.
+icon: "lucide/Sparkles"
+frontend: universal
+doc_type: guide
+---
+
+An agent that repeatedly makes the same mistake creates work for its users. CopilotKit Intelligence helps you turn supported interaction history into reusable instructions through **Automatic Learning**: capture evidence, propose Skills, review them, and publish the useful changes.
+
+## Start with one repeated correction
+
+Consider a reporting agent that keeps choosing the current quarter when the team needs the last completed quarter. This is an illustrative evaluation workflow, not a claim about a measured customer result.
+
+1. **Capture the work.** Connect [Rich Threads](/threads), complete a report, and record the correction in the conversation. Confirm that the relevant messages and tool activity were captured.
+2. **Group related examples.** Create a Learning container for reporting and assign new Threads from your Runtime. Keep each Thread’s container assignment stable.
+3. **Generate and review.** Run Learning, inspect the proposed Insights and their source Threads, and review a candidate Skill such as “confirm the reporting period before fetching data.”
+4. **Publish and deliver.** Approve the useful Skill and use [automatic learned skill delivery](/intelligence/learned-skills) or the manual download workflow to load it into your agent.
+5. **Evaluate the next interaction.** Run a comparable task and check whether the approved instruction helps. A proposed Skill is evidence to inspect, not a guaranteed improvement.
+
+[Set up the Learning workflow](/learning)
+
+## What changes in your agent?
+
+A published Skill is a versioned set of instructions. Learning does not fine-tune the model or silently rewrite your agent. You choose the workflow, inspect the evidence, and decide which proposed Skills to publish.
+
+Intelligence uses the supported interaction history captured in Rich Threads. It does not imply that every click or navigation event throughout your product is automatically collected.
+
+## Explore broader product learning
+
+You may want to learn from how people work throughout your product, beyond agent conversations. That is a separate **demo or early-access conversation**, with instrumentation, data boundaries, and supported workflows to establish with our team.
+
+[Discuss product learning with an engineer](https://www.copilotkit.ai/talk-to-an-engineer)
+
+## Choose a useful first milestone
+
+Connect one app, send a message, and inspect its Thread in Intelligence. Start free with Rich Threads; usage and retention limits apply. Learning availability and costs depend on your plan.
+
+- [Connect an app to Intelligence](/intelligence/quickstart)
+- [See current plans and limits](https://www.copilotkit.ai/pricing)
+- [Share the product overview with your team](https://www.copilotkit.ai/copilotkit-intelligence/product-brief)

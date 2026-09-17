@@ -8,6 +8,8 @@ CopilotKit Intelligence is CopilotKit's production layer for persistent Rich Thr
 
 Start here when you are deciding what the platform gives you and where it should run. The rest of the Intelligence docs are deeper dives into the specific feature or hosting path you choose.
 
+Start free with Rich Threads: conversations and app state users can return to. Usage and retention limits apply; check [current plans](https://www.copilotkit.ai/pricing). Rich Threads complement supported backend persistence, so you can keep your existing agent stack.
+
 Ready to connect an existing app? Follow the [CopilotKit Intelligence quickstart](/intelligence/quickstart) to store and inspect your first thread.
 
 <InspectorPaneLearning />
@@ -20,8 +22,8 @@ Ready to connect an existing app? Follow the [CopilotKit Intelligence quickstart
 | Existing conversation history | Import supported LangGraph threads or Google ADK sessions as Rich Threads, then synchronize future CopilotKit-mediated runs. | [LangGraph history](/langgraph-python/threads-import) and [Google ADK history](/google-adk/threads-import) |
 | Channels | Run your agent in messaging channels through managed Intelligence connections. Managed Slack is available now; managed Teams is a controlled integration target. | [Slack](/slack) and [Microsoft Teams](/teams) |
 | Memory | Durable facts and preferences that can be recalled across conversations. | [Memories & Recall](/intelligence/memories) |
-| Analytics | See what your agents do and where users get value, from the same interaction data. | [Analytics](https://www.copilotkit.ai/copilotkit-intelligence#analytics-insights) |
-| Automatic learning | Agents improve from real usage. No fine-tuning pipeline required. | [Learning](/learning) and [Automatic skill delivery](/intelligence/learned-skills) |
+| Analytics | Inspect captured activity, errors, tool usage, tokens, and duration. Views depend on your data and plan. | [Analytics](https://www.copilotkit.ai/copilotkit-intelligence#analytics-insights) |
+| Automatic learning | Turn supported agent history into proposed Skills; review, publish, and evaluate useful changes. | [Learning](/learning) and [Automatic skill delivery](/intelligence/learned-skills) |
 | Cloud-hosted Intelligence features | Projects, project API keys, conversation history, thread inspection, and plan management. | [Cloud-hosted CopilotKit Intelligence](/intelligence/managed-intelligence-platform) |
 | Platform-gated UI capabilities | Platform-gated UI surfaces such as Fully Headless Chat UI. | [Fully Headless Chat UI](/intelligence/headless-ui) |
 | Self-hosting | The same platform running inside your own Kubernetes cluster, VPC, or data boundary. | [Self-host CopilotKit Intelligence](/intelligence/self-hosting) |
@@ -42,6 +44,8 @@ If you are adding a user-facing app to an agent that already has conversation hi
 Historical import is a one-time operation, not a continuous mirror of every change in your source store. Future CopilotKit-mediated runs synchronize with Intelligence and continue through your framework's native persistence path when it remains configured with durable storage. Follow your framework's guide for agent mapping and thread continuity.
 
 ## Hosting options
+
+Managed Cloud stores thread data in the managed service. Bring-your-own-database applies to self-hosted Intelligence, a separate deployment choice from self-hosting the open-source frontend and runtime.
 
 | Option | Choose it when | What you operate |
 |---|---|---|

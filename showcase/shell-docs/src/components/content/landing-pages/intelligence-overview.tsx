@@ -47,14 +47,14 @@ const FEATURES = [
   },
   {
     title: "Analytics",
-    body: "See what your agents do and where users get value, from the same interaction data.",
+    body: "Inspect captured activity, errors, tool usage, tokens, and duration. Available views depend on captured data and your plan.",
     href: "https://www.copilotkit.ai/copilotkit-intelligence#analytics-insights",
     cta: "See Analytics on the product page",
     icon: BarChart3,
   },
   {
-    title: "Automatic Learning",
-    body: "Agents improve from real usage. No fine-tuning pipeline required.",
+    title: "Self-improving agents",
+    body: "Turn supported agent history into proposed Skills. Review the evidence, publish useful changes, and evaluate the results.",
     href: "/learning",
     cta: "Open the Learning guide",
     icon: Sparkles,

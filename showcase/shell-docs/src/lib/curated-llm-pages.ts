@@ -52,6 +52,12 @@ export const CURATED_LLM_PAGES = [
       "Choose the CopilotKit frontend, agent connection, and production path for your application.",
   },
   {
+    url: "introduction",
+    title: "CopilotKit and Intelligence: Product Introduction",
+    description:
+      "Understand the open-source framework and the five Intelligence capabilities before choosing a setup path.",
+  },
+  {
     url: "agentic-chat-ui",
     title: "Chat UI",
     description:
@@ -77,9 +83,15 @@ export const CURATED_LLM_PAGES = [
   },
   {
     url: "learning",
-    title: "Automatic Learning",
+    title: "Self-Improving Agents & Product Learning",
     description:
       "Turn evidence from completed application workflows into reviewed, reusable agent skills.",
+  },
+  {
+    url: "solutions/self-improving-agents",
+    title: "Self-Improving Agent Workflow",
+    description:
+      "Follow a report-correction example from captured interaction to reviewed and published Skills, and distinguish broader product learning early access.",
   },
   {
     url: "intelligence/overview",
