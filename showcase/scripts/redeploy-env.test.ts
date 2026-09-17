@@ -690,7 +690,7 @@ describe("makeLiveRedeploy", () => {
     expect(capturedInit?.signal).toBeInstanceOf(AbortSignal);
   });
 
-  it("updates the staging worker policy and replica count before deploying desired state", async () => {
+  it("updates the staging worker policy without replacing its configured image", async () => {
     const fetchMock = stubFetch(async (_url, init) => {
       const body = JSON.parse(String(init?.body)) as {
         query: string;
@@ -727,9 +727,6 @@ describe("makeLiveRedeploy", () => {
         serviceId: SERVICES["harness-workers"].serviceId,
         environmentId: STAGING_ENV_ID,
         input: {
-          source: {
-            image: "ghcr.io/copilotkit/showcase-harness:latest",
-          },
           restartPolicyType: "ALWAYS",
           multiRegionConfig: {
             "us-west2": { numReplicas: 6 },
@@ -737,8 +734,35 @@ describe("makeLiveRedeploy", () => {
         },
       },
     });
+    expect(requests[0].variables.input).not.toHaveProperty("source");
     expect(requests[0].query).toContain("serviceInstanceUpdate");
     expect(requests[1].query).toContain("serviceInstanceDeployV2");
+  });
+
+  it("reports a deployment error instead of initializing an unconfigured worker image", async () => {
+    const fetchMock = stubFetch(async (_url, init) => {
+      const body = JSON.parse(String(init?.body)) as { query: string };
+      return {
+        ok: true,
+        json: async () =>
+          body.query.includes("serviceInstanceUpdate")
+            ? { data: { serviceInstanceUpdate: true } }
+            : { errors: [{ message: "Worker image is not configured" }] },
+      };
+    });
+
+    const outcome = await makeLiveRedeploy("test-token")(
+      SERVICES["harness-workers"].serviceId,
+      STAGING_ENV_ID,
+    );
+
+    expect(outcome).toEqual({
+      ok: false,
+      error: "Worker image is not configured",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const update = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(update.variables.input).not.toHaveProperty("source");
   });
 
   it("does not deploy the staging worker when its policy update fails", async () => {
