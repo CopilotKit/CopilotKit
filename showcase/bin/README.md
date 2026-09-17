@@ -99,6 +99,8 @@ showcase/bin/railway promote --yes
 showcase/bin/railway restore --env production --snapshot before-promote.yaml --yes
 ```
 
+Docs production does not use `bin/railway promote --all`. Merge the `release/docs/prod` PR (pin file `showcase/pins/docs-prod.json`). Emergency only: `showcase/bin/railway promote docs --yes`.
+
 ## CI integration
 
 `.github/workflows/showcase_lint_prod.yml` runs `bin/railway lint-prod` on
