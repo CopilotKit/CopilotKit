@@ -50,6 +50,12 @@ describe("Compatibility tab", () => {
     expect(
       screen.getByTestId("compatibility-summary-langgraph"),
     ).toHaveTextContent("70");
+    expect(
+      screen.getByRole("columnheader", { name: "SDK" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("rowheader", { name: "SDK package" }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders MAF and AWS variants as separate base columns with current-only scores", () => {
@@ -206,7 +212,7 @@ describe("Compatibility tab", () => {
     ).toBeInTheDocument();
   });
 
-  it("keeps variant scores in overview columns when SDK packages are expanded", () => {
+  it("shows SDK package score contributions when packages are expanded", () => {
     render(<CompatibilityTab />);
     fireEvent.click(screen.getByRole("button", { name: "Expand CrewAI SDKs" }));
     fireEvent.click(
@@ -221,16 +227,47 @@ describe("Compatibility tab", () => {
     expect(
       screen.getByTestId("compatibility-summary-strands-typescript"),
     ).toHaveTextContent("100");
-    for (const column of [
-      "Conversational flows ag-ui-crewai",
-      "Conversational flows crewai",
-      "Conversational flows crewai-tools",
-      "Flows ag-ui-crewai",
-      "TypeScript @ag-ui/aws-strands",
-      "TypeScript @strands-agents/sdk",
-    ]) {
-      expect(getMetricCell("Compatibility", column)).toHaveTextContent(/^—$/);
-    }
+    expect(
+      getMetricCell("Compatibility", "Conversational flows ag-ui-crewai"),
+    ).toHaveTextContent(/^Not included$/);
+    expect(
+      getMetricCell("Compatibility", "Conversational flows crewai"),
+    ).toHaveTextContent(/100\s*Sets score/);
+    expect(
+      getMetricCell("Compatibility", "Conversational flows crewai-tools"),
+    ).toHaveTextContent(/100\s*Sets score/);
+    expect(
+      getMetricCell("Compatibility", "Flows ag-ui-crewai"),
+    ).toHaveTextContent(/^Not included$/);
+    expect(
+      getMetricCell("Compatibility", "TypeScript @ag-ui/aws-strands"),
+    ).toHaveTextContent(/^Not included$/);
+    expect(
+      getMetricCell("Compatibility", "TypeScript @strands-agents/sdk"),
+    ).toHaveTextContent(/100\s*Sets score/);
+  });
+
+  it("marks only the minimum LangGraph TypeScript packages as setting the score", () => {
+    render(<CompatibilityTab />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Expand LangGraph SDKs" }),
+    );
+
+    const primaryPackage = getMetricCell(
+      "Compatibility",
+      "TypeScript @langchain/langgraph",
+    );
+    expect(primaryPackage).toHaveTextContent(/^90$/);
+    expect(primaryPackage).not.toHaveTextContent(/Sets score/);
+    expect(
+      getMetricCell("Compatibility", "TypeScript @langchain/langgraph-api"),
+    ).toHaveTextContent(/70\s*Sets score/);
+    expect(
+      getMetricCell("Compatibility", "TypeScript @langchain/langgraph-sdk"),
+    ).toHaveTextContent(/70\s*Sets score/);
+    expect(
+      getMetricCell("Compatibility", "TypeScript @ag-ui/langgraph"),
+    ).toHaveTextContent(/^Not included$/);
   });
 
   it("keeps a single Running version field and distinguishes unavailable registry versions", () => {
@@ -369,8 +406,14 @@ describe("Compatibility tab", () => {
       getMetricCell("Running version", "Python google-adk"),
     ).toHaveTextContent(/^Not verified$/);
     expect(
+      getMetricCell("Compatibility", "Python google-adk"),
+    ).toHaveTextContent(/^Not verified$/);
+    expect(
       getMetricCell("Running version", "Python ag-ui-adk"),
     ).toHaveTextContent(/^0\.7\.0$/);
+    expect(
+      getMetricCell("Compatibility", "Python ag-ui-adk"),
+    ).toHaveTextContent(/^Not included$/);
     expect(
       getMetricCell("Running version", "Python langroid"),
     ).toHaveTextContent(/^Not verified$/);

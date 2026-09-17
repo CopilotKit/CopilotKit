@@ -8,13 +8,7 @@ import type {
 } from "@/lib/compatibility";
 import { COMPATIBILITY_SNAPSHOT } from "@/lib/compatibility";
 
-type Metric =
-  | "score"
-  | "package"
-  | "runningVersion"
-  | "graceTarget"
-  | "latest"
-  | "source";
+type Metric = "score" | "runningVersion" | "graceTarget" | "latest" | "source";
 
 const sections: {
   name: string;
@@ -33,11 +27,6 @@ const sections: {
   {
     name: "SDK versions",
     rows: [
-      {
-        id: "package",
-        label: "SDK package",
-        hint: "Framework and adapter packages recorded in the package inventory.",
-      },
       {
         id: "runningVersion",
         label: "Running version",
@@ -98,14 +87,20 @@ function VersionValue({
   );
 }
 
-function PackageValue({ sdk }: { sdk?: SdkAssessment }) {
-  if (!sdk) return null;
+function SdkScoreValue({ sdk }: { sdk: SdkAssessment }) {
+  if (!sdk.drivesCompatibility) return <EmptyValue>Not included</EmptyValue>;
+  if (sdk.compatibilityScore === null)
+    return <EmptyValue>Not verified</EmptyValue>;
   return (
-    <div>
-      <span className="break-words font-mono text-[11px]">{sdk.name}</span>
-      <div className="mt-1 text-[10px] capitalize text-[var(--text-muted)]">
-        {sdk.role.replaceAll("_", " ")}
-      </div>
+    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 leading-tight">
+      <span className="font-semibold tabular-nums">
+        {sdk.compatibilityScore}
+      </span>
+      {sdk.setsVariantScore && (
+        <span className="text-[10px] font-medium text-[var(--text-muted)]">
+          Sets score
+        </span>
+      )}
     </div>
   );
 }
@@ -122,20 +117,11 @@ function MetricValue({
   const assessment = variant.assessment;
   switch (metric) {
     case "score":
-      if (sdk) return <EmptyValue>—</EmptyValue>;
+      if (sdk) return <SdkScoreValue sdk={sdk} />;
       return assessment.currentScore === null ? (
         <EmptyValue>{assessment.label}</EmptyValue>
       ) : (
         <Score value={assessment.currentScore} />
-      );
-    case "package":
-      return sdk ? (
-        <PackageValue sdk={sdk} />
-      ) : (
-        <span>
-          {assessment.packages.length} package
-          {assessment.packages.length === 1 ? "" : "s"}
-        </span>
       );
     case "runningVersion": {
       const pkg =
@@ -267,7 +253,7 @@ export function CompatibilityGrid({
             scope="col"
             className="sticky left-0 z-30 border-b border-r border-[var(--border)] bg-[var(--bg-surface)] px-5 py-3 text-[10px] font-medium uppercase tracking-wider text-[var(--text-secondary)]"
           >
-            Metric
+            SDK
           </th>
           {columns.map((column) => (
             <th
@@ -327,14 +313,14 @@ export function CompatibilityGrid({
                     <th
                       scope="row"
                       title={row.hint}
-                      className="sticky left-0 z-10 border-b border-r border-[var(--border)] bg-[var(--bg-surface)] px-5 py-4 align-top text-[11px] font-medium text-[var(--text-secondary)]"
+                      className="sticky left-0 z-10 border-b border-r border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3 align-top text-[11px] font-medium text-[var(--text-secondary)]"
                     >
                       {row.label}
                     </th>
                     {columns.map((column) => (
                       <td
                         key={column.key}
-                        className="border-b border-r border-[var(--border)] bg-[var(--bg)] px-4 py-3 align-top"
+                        className="border-b border-r border-[var(--border)] bg-[var(--bg)] px-3 py-2.5 align-top"
                         data-testid={
                           row.id === "score" && !column.variant
                             ? `compatibility-summary-${column.platform.id}`
@@ -348,18 +334,23 @@ export function CompatibilityGrid({
                             sdk={column.sdk}
                           />
                         ) : (
-                          <div className="space-y-3">
+                          <div className="space-y-1.5">
                             {column.platform.variants.map((variant) => (
-                              <div key={variant.slug}>
+                              <div
+                                key={variant.slug}
+                                className="flex flex-wrap items-baseline gap-x-2 gap-y-1 leading-tight"
+                              >
                                 {column.platform.variants.length > 1 && (
-                                  <div className="mb-1 text-[10px] text-[var(--text-secondary)]">
+                                  <span className="shrink-0 text-[10px] text-[var(--text-secondary)]">
                                     {variant.label}
-                                  </div>
+                                  </span>
                                 )}
-                                <MetricValue
-                                  metric={row.id}
-                                  variant={variant}
-                                />
+                                <span className="min-w-0 flex-1">
+                                  <MetricValue
+                                    metric={row.id}
+                                    variant={variant}
+                                  />
+                                </span>
                               </div>
                             ))}
                           </div>
