@@ -36,6 +36,7 @@ import {
   CopilotChatDefaultLabels,
 } from "../../providers/CopilotChatConfigurationProvider";
 import { useKeyboardHeight } from "../../hooks/use-keyboard-height";
+import { ScrollPinnedContext } from "./scroll-pinned-context";
 import { normalizeAutoScroll } from "./normalize-auto-scroll";
 import type { AutoScrollMode } from "./normalize-auto-scroll";
 import { usePinToSend } from "../../hooks/use-pin-to-send";
@@ -479,36 +480,41 @@ export namespace CopilotChatView {
       // useVirtualizer's getScrollElement. Using state (not the raw ref) means
       // the context value updates reactively when the element mounts.
       <ScrollElementContext.Provider value={scrollEl}>
-        <>
-          <StickToBottom.Content
-            className="cpk:overflow-y-auto cpk:overflow-x-hidden"
-            style={{ flex: "1 1 0%", minHeight: 0 }}
-          >
-            <div className="cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6">
-              {children}
-            </div>
-          </StickToBottom.Content>
-
-          {BoundFeather}
-
-          {/* Scroll to bottom button - hidden during resize */}
-          {!isAtBottom && !isResizing && (
-            <div
-              className="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
-              style={{
-                bottom: `${inputContainerHeight + SCROLL_BUTTON_OFFSET}px`,
-              }}
+        {/* While the pin is following the bottom it is the sole owner of the
+            scroll position; the virtualizer stands down (see
+            ScrollPinnedContext). */}
+        <ScrollPinnedContext.Provider value={isAtBottom}>
+          <>
+            <StickToBottom.Content
+              className="cpk:overflow-y-auto cpk:overflow-x-hidden"
+              style={{ flex: "1 1 0%", minHeight: 0 }}
             >
-              {renderSlot(
-                scrollToBottomButton,
-                CopilotChatView.ScrollToBottomButton,
-                {
-                  onClick: () => scrollToBottom(),
-                },
-              )}
-            </div>
-          )}
-        </>
+              <div className="cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6">
+                {children}
+              </div>
+            </StickToBottom.Content>
+
+            {BoundFeather}
+
+            {/* Scroll to bottom button - hidden during resize */}
+            {!isAtBottom && !isResizing && (
+              <div
+                className="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
+                style={{
+                  bottom: `${inputContainerHeight + SCROLL_BUTTON_OFFSET}px`,
+                }}
+              >
+                {renderSlot(
+                  scrollToBottomButton,
+                  CopilotChatView.ScrollToBottomButton,
+                  {
+                    onClick: () => scrollToBottom(),
+                  },
+                )}
+              </div>
+            )}
+          </>
+        </ScrollPinnedContext.Provider>
       </ScrollElementContext.Provider>
     );
   };
