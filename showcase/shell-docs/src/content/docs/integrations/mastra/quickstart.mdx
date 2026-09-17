@@ -29,16 +29,17 @@ import {
 } from "lucide-react";
 import CopilotUI from "@/snippets/copilot-ui.mdx";
 
-<IntelligenceOnboardingPrompt
-  feature="learning"
-  surface="docs_mastra_quickstart"
-/>
+## Start with your coding agent
+
+Use this prompt to connect your Mastra agent to CopilotKit and verify a working conversation. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
+
+<PageAgentPrompt />
 
 ## Prerequisites
 
 Before you begin, you'll need the following:
 
-- An OpenAI API key
+- An OpenAI API key, or an Anthropic API key if you run the agent on Claude
 - Node.js 20+
 - Your favorite package manager
 
@@ -94,8 +95,33 @@ Before you begin, you'll need the following:
                 OPENAI_API_KEY=your_openai_api_key
                 ```
 
-                <Callout type="info" title="What about other models?">
-                  The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by Mastra.
+                <ApiKeyHint provider="openai" />
+
+                <Callout type="info" title="Running the agent on Anthropic instead">
+                  The starter template runs on an OpenAI model, which is why the step
+                  above sets `OPENAI_API_KEY`. To run it on Claude instead, install
+                  Anthropic's AI SDK provider:
+
+                  ```bash
+                  npm install @ai-sdk/anthropic
+                  ```
+
+                  Set Anthropic's credential variable in the same `.env` (the agent reads
+                  `ANTHROPIC_API_KEY`, not `OPENAI_API_KEY`):
+
+                  ```plaintext title=".env"
+                  ANTHROPIC_API_KEY=your_anthropic_api_key
+                  ```
+
+                  Then, in the agent file the template scaffolded, import `anthropic`
+                  from `@ai-sdk/anthropic` and set the agent's `model` to
+                  `anthropic("claude-sonnet-4-6")` in place of the `openai(...)` call.
+
+                  <ApiKeyHint provider="anthropic" />
+
+                  Mastra takes any AI SDK provider, so the same three steps — install the
+                  provider, set its credential variable, swap the `model` setting — cover
+                  Google and the rest.
                 </Callout>
             </Step>
             <Step>
@@ -169,8 +195,20 @@ Before you begin, you'll need the following:
                 });
                 ```
 
-                <Callout type="info" title="What about other models?">
-                  This example uses OpenAI's GPT-4o, but you can modify it to use any language model supported by Mastra.
+                <Callout type="info" title="Running this agent on Anthropic instead">
+                  This example uses OpenAI's `gpt-5.4`. For Claude, install
+                  `@ai-sdk/anthropic`, then swap the import and the `model` setting:
+
+                  ```ts title="src/mastra/agents/index.ts"
+                  import { anthropic } from "@ai-sdk/anthropic";
+                  // model: anthropic("claude-sonnet-4-6"),
+                  ```
+
+                  The credential variable changes with the vendor — Anthropic's provider
+                  reads `ANTHROPIC_API_KEY`, so export that instead of
+                  `OPENAI_API_KEY` in the next step.
+
+                  <ApiKeyHint provider="anthropic" />
                 </Callout>
             </Step>
             <Step>
@@ -181,6 +219,8 @@ Before you begin, you'll need the following:
                 ```bash
                 export OPENAI_API_KEY=your_openai_api_key
                 ```
+
+                <ApiKeyHint provider="openai" />
             </Step>
             <Step>
                 ### Start your agent
@@ -284,6 +324,8 @@ Before you begin, you'll need the following:
 
                 export const GET = handler;
                 export const POST = handler;
+                export const PATCH = handler;
+                export const DELETE = handler;
                 ```
 
                 This route needs two values from *this* app's environment — the license
@@ -318,10 +360,27 @@ Before you begin, you'll need the following:
             <Step>
                 ### Configure CopilotKit Provider
 
-                Wrap your application with the CopilotKit provider:
+                Everything `@copilotkit/react-core/v2` exports is a client component, so
+                the provider goes in a file of your own marked `"use client"`:
+
+                ```tsx title="app/providers.tsx"
+                "use client";
+
+                import { CopilotKit } from "@copilotkit/react-core/v2";
+
+                export function Providers({ children }: { children: React.ReactNode }) {
+                  return (
+                    <CopilotKit runtimeUrl="/api/copilotkit" agent="myAgent" useSingleEndpoint={false}>
+                      {children}
+                    </CopilotKit>
+                  );
+                }
+                ```
+
+                Then wrap your application with that file:
 
                 ```tsx title="app/layout.tsx"
-                import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import { Providers } from "./providers"; // [!code highlight]
                 import "@copilotkit/react-core/v2/styles.css";
                 import './globals.css';
 
@@ -332,14 +391,22 @@ Before you begin, you'll need the following:
                     <html lang="en">
                       <body>
                         {/* [!code highlight:3] */}
-                        <CopilotKit runtimeUrl="/api/copilotkit" agent="myAgent" useSingleEndpoint={false}>
+                        <Providers>
                           {children}
-                        </CopilotKit>
+                        </Providers>
                       </body>
                     </html>
                   );
                 }
                 ```
+
+                <Callout type="warn" title="Importing the provider straight into the layout breaks the build">
+                  `app/layout.tsx` is a server component. `@copilotkit/react-core/v2` is marked
+                  `"use client"` and re-exports `@copilotkit/core` and `@ag-ui/client` with
+                  `export *`, which Next.js cannot enumerate across that boundary. On Next.js 16
+                  with webpack the build fails and the page returns 500. A client file of your own
+                  between the two keeps that import inside the client graph.
+                </Callout>
 
                 <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
                   `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
@@ -355,6 +422,8 @@ Before you begin, you'll need the following:
               Add the CopilotSidebar component to your page:
 
               ```tsx title="app/page.tsx"
+              "use client"; // [!code highlight]
+
               import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
 
               export default function Page() {

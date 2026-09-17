@@ -208,7 +208,7 @@ async def chat_node(
     """
 
     # 1. Define the model
-    model = ChatOpenAI(model="gpt-4o")
+    model = ChatOpenAI(model="gpt-5-mini")
 
     # 2. Prepare and bind tools to the model (dedupe, allowlist, and cap)
     def _extract_tool_name(tool: Any) -> Optional[str]:

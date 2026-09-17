@@ -14,6 +14,32 @@ import {
 } from "../llm-text";
 import { getDocsMode, getIntegrations, ROOT_FRAMEWORK } from "../registry";
 
+test.each([
+  ["langgraph-python", "LangGraph", "/langgraph-python/threads-import"],
+  ["google-adk", "Google ADK", "/google-adk/threads-import"],
+])(
+  "keeps %s overview discovery links in machine-readable output",
+  (framework, name, href) => {
+    const page = getAllLlmPages().find((entry) => entry.url === framework);
+    expect(page).toBeDefined();
+    const output = renderPageToLlmText(page!);
+
+    expect(output).toContain(`## Already have ${name}`);
+    expect(output).toContain(`](${href})`);
+    expect(output).toContain("CopilotKit Intelligence");
+    expect(output).toContain("not a continuous mirror");
+
+    // The section belongs to the overview, not every page in this framework.
+    const quickstart = getAllLlmPages().find(
+      (entry) => entry.url === `${framework}/quickstart`,
+    );
+    expect(quickstart).toBeDefined();
+    expect(renderPageToLlmText(quickstart!)).not.toContain(
+      `## Already have ${name}`,
+    );
+  },
+);
+
 test("publishes canonical Angular URLs instead of source-tree URLs", () => {
   const urls = getAllLlmPages().map((page) => page.url);
 

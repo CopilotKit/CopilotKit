@@ -31,6 +31,10 @@ import {
   createIntelligenceOnboardingPrompt,
   createOnboardingRunId,
 } from "@/lib/intelligence-onboarding-prompt";
+import {
+  createChannelsOnboardingPrompt,
+  isChannelOnboardingId,
+} from "@/lib/channels-onboarding-prompt";
 import ClaudeIcon from "@/components/icons/claude";
 import ClaudeCodeIcon from "@/components/icons/claude-code";
 import CodexIcon from "@/components/icons/codex";
@@ -204,8 +208,11 @@ export function OnboardingPromptCopyButton({
   framework,
   frontend,
   markdownUrl,
+  task,
   ...props
 }: ComponentProps<"button"> & {
+  /** The specific setup goal of an in-content quickstart. */
+  task?: string;
   /**
    * The agent framework this docs page is about: `slug` is the docs registry
    * slug, `name` the display name. On the root surface and in the cookbook
@@ -254,14 +261,42 @@ export function OnboardingPromptCopyButton({
         const graphFrontend = frontend
           ? onboardingFrontendSlug(frontend.id)
           : undefined;
+        /**
+         * Channel pages copy the same small prompt as the website CTA. They
+         * do not add a Channel sentence. Slack and Teams are not graph
+         * frontend slugs, so the framework and frontend sentences stay off.
+         * The source sentence stays: the graph uses a Slack or Teams docs
+         * page as the named frontend.
+         */
+        const channel =
+          frontend && isChannelOnboardingId(frontend.id)
+            ? { id: frontend.id, name: frontend.name }
+            : undefined;
+        const source =
+          ` The developer copied this prompt from ${getClientBaseUrl().replace(/\/+$/, "")}${markdownUrl}.` +
+          (task
+            ? ` Their goal for this quickstart is: ${task} Follow the linked guide for this framework and frontend.`
+            : "");
         return {
-          text:
-            createIntelligenceOnboardingPrompt(runId) +
-            (framework
-              ? frameworkPromptSuffix(framework.slug, framework.name)
-              : "") +
-            (frontend ? frontendPromptSuffix(frontend.id, frontend.name) : "") +
-            ` The developer copied this prompt from ${getClientBaseUrl().replace(/\/+$/, "")}${markdownUrl}.`,
+          /**
+           * Channel pages copy the generic command plus the source sentence.
+           * They do not name Slack or Teams in extra copy. The source URL is
+           * how the graph sees which docs page the reader copied from.
+           *
+           * The source sentence stays on both branches: it reports where the
+           * copy happened rather than claiming anything about the project, and
+           * it is the only attribution left when a run id fails to join.
+           */
+          text: channel
+            ? createChannelsOnboardingPrompt(runId) + source
+            : createIntelligenceOnboardingPrompt(runId) +
+              (framework
+                ? frameworkPromptSuffix(framework.slug, framework.name)
+                : "") +
+              (frontend
+                ? frontendPromptSuffix(frontend.id, frontend.name)
+                : "") +
+              source,
           onAction: (action) =>
             posthog?.capture(
               "docs.intelligence_onboarding_prompt_action_clicked",
@@ -272,6 +307,7 @@ export function OnboardingPromptCopyButton({
                 surface: ONBOARDING_COPY_SURFACE,
                 agent_framework: graphFramework,
                 frontend: graphFrontend,
+                channel: channel?.id,
               },
             ),
           onCopied: (action) =>
@@ -282,6 +318,7 @@ export function OnboardingPromptCopyButton({
               surface: ONBOARDING_COPY_SURFACE,
               agent_framework: graphFramework,
               frontend: graphFrontend,
+              channel: channel?.id,
             }),
         };
       }}

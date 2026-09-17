@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Copy } from "lucide-react";
+import { DocsPromptActions } from "./docs-prompt-actions";
 import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { FrontendLogo } from "./frontend-logo";
@@ -12,15 +12,13 @@ import {
   CHANNELS_ACTIVATION_EVENTS,
   CHANNELS_ACTIVATION_SURFACES,
   CHANNELS_OPENTAG_HREF,
-  CHANNELS_BUILD_PROMPT,
   getChannelsActivationGuideHref,
 } from "@/lib/channels-activation-contracts";
+import { createChannelsOnboardingAttempt } from "@/lib/channels-onboarding-prompt";
 import type {
   ChannelsActivationBackendOption,
   ChannelsActivationChannelId,
 } from "@/lib/channels-activation-contracts";
-
-type CopyState = "idle" | "copied" | "error";
 
 /** In-docs path for the Channels overview. */
 const CHANNELS_SDK_DOCS_PATH = "/channels";
@@ -49,10 +47,6 @@ export function ChannelsActivationStrip({
   const [channel, setChannel] =
     React.useState<ChannelsActivationChannelId>("slack");
   const [backendSlug, setBackendSlug] = React.useState(backends[0]?.slug ?? "");
-  const [copyState, setCopyState] = React.useState<CopyState>("idle");
-  const resetTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
   const stripRef = React.useRef<HTMLElement | null>(null);
   const viewedRef = React.useRef(false);
 
@@ -61,13 +55,6 @@ export function ChannelsActivationStrip({
   const selectedChannel =
     CHANNELS_ACTIVATION_CHANNELS.find((option) => option.id === channel) ??
     CHANNELS_ACTIVATION_CHANNELS[0];
-
-  React.useEffect(
-    () => () => {
-      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
-    },
-    [],
-  );
 
   // Impression, so the copy count has a denominator. The strip sits below the
   // fold on the landing page, so mount is not the same as seen.
@@ -113,35 +100,6 @@ export function ChannelsActivationStrip({
     }
   }
 
-  async function copyBuildPrompt() {
-    if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
-
-    try {
-      await navigator.clipboard.writeText(CHANNELS_BUILD_PROMPT);
-      setCopyState("copied");
-      capture(CHANNELS_ACTIVATION_EVENTS.promptCopied, {
-        channel,
-        backend: backend.slug,
-        from_path: pathname,
-        guide_url: guideUrl,
-        // Every road into onboarding emits the same event with a distinct
-        // surface, so the funnel can answer which one people actually take.
-        surface: CHANNELS_ACTIVATION_SURFACES.docsLandingStrip,
-      });
-      resetTimerRef.current = setTimeout(() => setCopyState("idle"), 1800);
-    } catch {
-      setCopyState("error");
-      resetTimerRef.current = setTimeout(() => setCopyState("idle"), 2600);
-    }
-  }
-
-  const copyStatus =
-    copyState === "copied"
-      ? "Prompt copied"
-      : copyState === "error"
-        ? "Copy failed"
-        : "";
-
   return (
     <section
       ref={stripRef}
@@ -185,21 +143,24 @@ export function ChannelsActivationStrip({
             channel with you, on any supported agent framework.
           </p>
 
-          <button
-            type="button"
-            onClick={copyBuildPrompt}
-            className="shell-docs-radius-control inline-flex min-h-11 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-[var(--accent-fill)] bg-[var(--accent-fill)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none sm:w-auto"
-          >
-            <Copy aria-hidden="true" className="h-4 w-4" />
-            {copyState === "copied"
-              ? "Copied"
-              : copyState === "error"
-                ? "Copy blocked"
-                : "Copy prompt"}
-          </button>
-          <span aria-live="polite" className="sr-only">
-            {copyStatus}
-          </span>
+          <DocsPromptActions
+            surface={CHANNELS_ACTIVATION_SURFACES.docsLandingStrip}
+            copiedEvent={CHANNELS_ACTIVATION_EVENTS.promptCopied}
+            createPrompt={() => {
+              const attempt = createChannelsOnboardingAttempt();
+              return {
+                text: attempt.prompt,
+                analyticsProperties: {
+                  channel,
+                  backend: backend.slug,
+                  from_path: pathname,
+                  guide_url: guideUrl,
+                  onboarding_run_id: attempt.runId,
+                  surface: CHANNELS_ACTIVATION_SURFACES.docsLandingStrip,
+                },
+              };
+            }}
+          />
         </div>
       </div>
 
