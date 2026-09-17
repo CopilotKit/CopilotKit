@@ -107,3 +107,18 @@ for (const width of [320, 390, 1280]) {
     );
   });
 }
+
+test("the Rich Threads sidebar label opens its overview", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(docsUrl!);
+  const threads = page
+    .locator("#nd-sidebar")
+    .getByRole("link", { name: "Rich Threads", exact: true })
+    .first();
+  await expect(threads).toBeVisible();
+  await threads.click();
+  await expect(page).toHaveURL(/\/threads$/);
+  await expect(
+    page.getByRole("heading", { name: "Rich Threads", exact: true }),
+  ).toBeVisible();
+});
