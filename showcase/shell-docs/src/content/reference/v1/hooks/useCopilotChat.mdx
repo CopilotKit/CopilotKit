@@ -28,7 +28,7 @@ Get started with [useCopilotChatHeadless_c](https://docs.copilotkit.ai/reference
 ## Usage
  
 ```tsx
-import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";
+import { TextMessage, Role } from "@copilotkit/runtime-client-gql";
  
 const { appendMessage } = useCopilotChat();
  
@@ -36,7 +36,7 @@ const { appendMessage } = useCopilotChat();
 const handleSendMessage = async (content: string) => {
   await appendMessage(
     new TextMessage({
-      role: MessageRole.User,
+      role: Role.User,
       content,
     })
   );

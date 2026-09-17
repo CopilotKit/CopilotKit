@@ -224,19 +224,16 @@ See [MCP Apps](/generative-ui/mcp-apps) for setup.
         ```tsx
         "use client";
 
-        import {
-          useFrontendTool,
-          CatchAllActionRenderProps,
-        } from "@copilotkit/react-core/v2";
+        import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
 
         export function ToolRenderer() {
-          useFrontendTool({
-            /**
-             * The asterisk (*) matches all tool calls
-             */
-            name: "*",
-            render: ({ name, status, args, result }: CatchAllActionRenderProps<[]>) => (
-              <McpToolCall status={status} name={name} args={args} result={result} />
+          /**
+           * useDefaultRenderTool registers the wildcard ("*") renderer,
+           * so it paints every tool call that has no renderer of its own.
+           */
+          useDefaultRenderTool({
+            render: ({ name, status, parameters, result }) => (
+              <McpToolCall status={status} name={name} args={parameters} result={result} />
             ),
           });
           return null;

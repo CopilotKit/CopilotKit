@@ -443,6 +443,42 @@
           }
         ]
       }
+    },
+    {
+      "_comment": "The concierge has no Document panel: answer this writing request in chat. The system-prompt and tool gates keep this response separate from the dedicated streaming writer.",
+      "match": {
+        "userMessage": "poem about autumn leaves",
+        "context": "mastra",
+        "systemMessage": "You are a travel & lifestyle concierge.",
+        "toolName": "get_weather"
+      },
+      "response": {
+        "content": "Crimson and amber in slow descent, / each leaf a quiet ledger of summer spent. / The wind, a courier with nothing to say, / files them gently into the morning's gray. / Somewhere a kettle hums, and afternoons grow brief \u2014 / autumn keeps its books in vermilion and gold leaf."
+      }
+    },
+    {
+      "_comment": "The concierge has no Document panel: answer this writing request in chat. The system-prompt and tool gates keep this response separate from the dedicated streaming writer.",
+      "match": {
+        "userMessage": "polite email declining",
+        "context": "mastra",
+        "systemMessage": "You are a travel & lifestyle concierge.",
+        "toolName": "get_weather"
+      },
+      "response": {
+        "content": "Hi \u2014 thanks for sending the invite for Tuesday afternoon. Unfortunately I won't be able to make it this week. I'd love to find time later in the month if your schedule allows. In the meantime, feel free to send any pre-reads my way and I'll review them async so we don't lose momentum. Best, [name]"
+      }
+    },
+    {
+      "_comment": "The concierge has no Document panel: answer this writing request in chat. The system-prompt and tool gates keep this response separate from the dedicated streaming writer.",
+      "match": {
+        "userMessage": "quantum computing for a curious teenager",
+        "context": "mastra",
+        "systemMessage": "You are a travel & lifestyle concierge.",
+        "toolName": "get_weather"
+      },
+      "response": {
+        "content": "A regular computer stores information in bits \u2014 tiny switches that are either on (1) or off (0). A quantum computer uses qubits, which can sit in a fuzzy superposition of both states at once until you check them. Stack many qubits together and they can explore lots of possibilities in parallel, which is why people are excited.\n\nThis doesn't make quantum computers faster at everything. They're great at problems with hidden structure \u2014 like factoring big numbers, simulating molecules, or searching certain databases \u2014 but useless for, say, opening Excel. Today's machines are noisy and small, so we mostly use them to test ideas rather than replace your laptop."
+      }
     }
   ]
 }
