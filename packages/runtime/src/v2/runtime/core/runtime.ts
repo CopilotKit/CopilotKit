@@ -28,7 +28,7 @@ import { createLogger } from "../../../v1-deprecated/lib/logger";
 import type { CopilotRuntimeLogger } from "../../../v1-deprecated/lib/logger";
 import { logRuntimeTelemetryDisclosure } from "../../../v1-deprecated/lib/telemetry-disclosure";
 import type { TranscriptionService } from "../transcription-service/transcription-service";
-import { DebugEventBus } from "./debug-event-bus";
+import { DebugEventBus, isDebugEventFeedEnabled } from "./debug-event-bus";
 import type { AgentRunner } from "../runner/agent-runner";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
@@ -461,7 +461,17 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
       telemetry.setGlobalProperties(options.telemetryProperties);
     }
 
-    if (process.env.NODE_ENV !== "production") {
+    this.debug = resolveDebugConfig(options.debug);
+    if (this.debug.enabled) {
+      this.debugLogger = createLogger({
+        level: "debug",
+        component: "copilotkit-debug",
+      });
+    }
+    // The debug feed carries every thread's events to any subscriber, so the
+    // bus only exists where the feed is allowed to be served. Resolving
+    // `debug` first keeps the bus and the route gate reading one value.
+    if (isDebugEventFeedEnabled(this.debug)) {
       this.debugEventBus = new DebugEventBus();
     }
     // Resolve the inbound-header forwarding policy once (mirroring the
@@ -476,13 +486,6 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     this.memory = (options as { memory?: CopilotRuntimeMemoryConfig }).memory;
     this.exposeMemoryRoutes =
       this.memory !== undefined || (options.exposeMemoryRoutes ?? false);
-    this.debug = resolveDebugConfig(options.debug);
-    if (this.debug.enabled) {
-      this.debugLogger = createLogger({
-        level: "debug",
-        component: "copilotkit-debug",
-      });
-    }
   }
 }
 

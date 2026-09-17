@@ -19,6 +19,7 @@
  */
 
 import { spawnSync } from "child_process";
+import { join, relative } from "node:path";
 import {
   getCurrentVersion,
   getPackagesForScope,
@@ -190,6 +191,12 @@ async function main() {
     console.log(`  Publishing ${p.name}@${version}...`);
     run("pnpm", ["pack"], { cwd: p.dir });
     const tarball = `${p.name.replace("@", "").replace("/", "-")}-${version}.tgz`;
+    run(process.execPath, [
+      "scripts/package-licenses/check.mjs",
+      "archive",
+      join(p.dir, tarball),
+      relative(ROOT, p.dir),
+    ]);
     run(npmBin, ["publish", tarball, "--tag", "latest", "--access", "public"], {
       cwd: p.dir,
     });

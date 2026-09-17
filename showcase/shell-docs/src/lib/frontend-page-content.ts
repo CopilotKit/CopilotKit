@@ -112,6 +112,9 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "human-in-the-loop/tool-based": "guides/human-in-the-loop",
   "human-in-the-loop/useInterrupt": "guides/human-in-the-loop",
   "human-in-the-loop/headless": "guides/human-in-the-loop",
+  // Added 2026-08-01 with the governed-action page; the redirect was missed,
+  // so the React nav had a destination Angular could not reach.
+  "human-in-the-loop/governed-actions": "guides/human-in-the-loop",
   "shared-state": "guides/shared-state",
   "shared-state/in-app-agent-read": "guides/shared-state",
   "shared-state/in-app-agent-write": "guides/shared-state",
