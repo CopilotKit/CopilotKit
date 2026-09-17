@@ -6,12 +6,6 @@ name: "Showcase: Float staging image refs to :latest"
 
 on:
   workflow_dispatch:
-  # Same-repo operator PR: run once so staging can float before this
-  # workflow exists on main. Harmless no-op if no digest pins remain.
-  pull_request:
-    paths:
-      - ".github/workflows/showcase_float_staging.yml"
-      - "showcase/scripts/float-staging-latest.ts"
 
 permissions:
   contents: read
