@@ -195,6 +195,19 @@ Before you begin, you'll need the following:
                 });
                 ```
 
+                <Callout type="warn" title="The record key is the agent's name, not its `id`">
+                  Mastra advertises each agent under the **key you register it with** — `myAgent`
+                  here — and that key is what the runtime map, and so the provider's `agent` prop,
+                  is keyed by. The `name` above (`"My Agent"`) is display text, and an `id`, if you
+                  set one, is not used for routing either. `listAgents()` returns `myAgent` even
+                  when the agent declares `id: "my-agent"`.
+
+                  The same rule applies to tools: `tools: { weatherTool }` advertises
+                  `weatherTool`, so a `createTool({ id: "get-weather" })` registered under that key
+                  is still called `weatherTool` on the wire. Match your `useFrontendTool` name to
+                  the record key, not the `id`.
+                </Callout>
+
                 <Callout type="info" title="Running this agent on Anthropic instead">
                   This example uses OpenAI's `gpt-5.4`. For Claude, install
                   `@ai-sdk/anthropic`, then swap the import and the `model` setting:
