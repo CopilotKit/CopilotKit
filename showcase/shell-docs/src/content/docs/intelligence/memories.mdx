@@ -198,7 +198,7 @@ runtime-authenticated user. It hydrates from a REST snapshot and then stays
 current from realtime deltas.
 
 ```tsx title="components/memory-list.tsx"
-import { useMemories } from "@copilotkit/react-core";
+import { useMemories } from "@copilotkit/react-core/v2";
 
 export function MemoryList() {
   const { memories, isLoading, isAvailable, removeMemory } = useMemories();

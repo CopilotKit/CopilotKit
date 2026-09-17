@@ -565,6 +565,15 @@ See [Scope Rich Threads to the signed-in user](/threads-lifecycle#scope-rich-thr
 
 Without CopilotKit Intelligence there is no server-side binding between a `threadId` and a user. A `threadId` is just an opaque id travelling in a request: if user A learns user B's, every thread route accepts it. The rest of this section is the pattern for a custom store, a plain SSE runtime, or the local in-memory runner — and it's also what you narrow to `threads/events`, `threads/state`, and `agent/stop` if you *are* on the platform.
 
+The default `InMemoryAgentRunner` is the plainest case. It holds threads in a
+process-global map keyed by `threadId` with no owner field, so every
+[thread route](/backend/runtime-endpoints#thread-routes) answers for any id it
+is handed: `GET /threads` lists every thread in the process, and
+`GET /threads/:threadId/messages` returns that thread's history to whoever asks.
+Anything extending it, such as `AgentCoreRunner`, inherits the same store.
+`SqliteAgentRunner` does not serve them at all: its read routes answer `422`.
+A runner swap is therefore a fix for durability, not for thread authorization.
+
 #### Own the mapping
 
 Whatever stores your threads, keep a record of who each one belongs to. The minimum is a table your runtime can query:
@@ -632,6 +641,12 @@ The routes that carry a `threadId` on `route` are `agent/stop`, `threads/update`
 `threads/list` has no `threadId` to check, so `onBeforeHandler` has nothing to authorize against. Off the platform the route returns whatever the configured store holds — the local in-memory runner filters by `agentId` only, and a custom store returns exactly what you wrote. Build the list from your own ownership table instead, and drive the chat with the selected id.
 
 Filter server-side. Hiding rows in the UI leaves the underlying route open.
+
+`threads/clear` is the other route with no `threadId` on `route`. On the
+in-memory runner it wipes every thread in the process and returns `204`, so the
+only decision `onBeforeHandler` can make is whether to allow the call. With
+more than one user on the deployment, reject it unless the caller is an
+operator.
 
 <Callout type="info">
   With no platform thread store, the ownership table above *is* your thread list. See
