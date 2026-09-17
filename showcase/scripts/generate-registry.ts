@@ -66,56 +66,6 @@ function frontendCatalogRevisions(): {
   };
 }
 
-/**
- * The instant stamped into `catalog.json`'s `metadata.generated_at`.
- *
- * DETERMINISM (PE-110): this used to be `new Date()` inside the shared
- * flatten, which made every regeneration from byte-identical input produce a
- * different file. Two regenerations must be byte-equal, otherwise a diff in
- * `catalog.json` is evidence of nothing and a reviewer has to ignore it.
- *
- * So the stamp is a function of the INPUT, not of the clock, in the same
- * spirit as `frontendCatalogRevisions()` pinning the frontend catalog to the
- * checkout's commit:
- *
- *   1. `SOURCE_DATE_EPOCH` — the reproducible-builds convention, honored
- *      first so a build system can pin every artifact from one place.
- *   2. The HEAD commit's committer date, so the stamp answers "which source
- *      revision is this catalog a view of".
- *   3. The Unix epoch, when Git is unavailable (e.g. a Docker build staged
- *      without `.git`). An unknown source revision gets an unmistakable
- *      value rather than a plausible-but-arbitrary one — the same choice as
- *      `source_commit: "unknown"` above. Nothing reads this field at
- *      runtime; the live `/api/matrix` read-model drops `metadata` entirely.
- */
-function catalogGeneratedAt(): string {
-  const epoch = process.env.SOURCE_DATE_EPOCH?.trim();
-  if (epoch && /^\d+$/.test(epoch)) {
-    const stamped = new Date(Number(epoch) * 1000);
-    if (!Number.isNaN(stamped.getTime())) return stamped.toISOString();
-  }
-
-  const committed = gitHeadCommitDate();
-  if (committed) return committed;
-
-  return new Date(0).toISOString();
-}
-
-/** The HEAD commit's committer date, ISO-8601, when Git is available. */
-function gitHeadCommitDate(): string | undefined {
-  try {
-    const raw = execFileSync("git", ["show", "-s", "--format=%cI", "HEAD"], {
-      cwd: path.resolve(ROOT, ".."),
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-    const parsed = new Date(raw);
-    return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
-  } catch {
-    return undefined;
-  }
-}
-
 /** Read the checkout revision when Git is available in the build context. */
 function gitHeadRevision(): string | undefined {
   try {
@@ -712,9 +662,7 @@ function main() {
   // with stdout ignored and stderr inherited).
   let catalog: ReturnType<typeof generateCatalog>;
   try {
-    catalog = generateCatalog(featureRegistry, integrations, {
-      generatedAt: catalogGeneratedAt(),
-    });
+    catalog = generateCatalog(featureRegistry, integrations);
   } catch (e) {
     if (e instanceof MissingReferenceIntegrationError) {
       console.error(`ERROR: ${e.message}`);
