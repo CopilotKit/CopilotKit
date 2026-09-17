@@ -127,17 +127,25 @@ const families: Record<string, { id: string; name: string; label: string }> = {
     label: "TypeScript",
   },
   "langgraph-fastapi": { id: "langgraph", name: "LangGraph", label: "FastAPI" },
-  "ms-agent-python": { id: "microsoft", name: "Microsoft", label: "Python" },
-  "ms-agent-dotnet": { id: "microsoft", name: "Microsoft", label: ".NET" },
+  "ms-agent-python": {
+    id: "ms-agent-python",
+    name: "MAF Python",
+    label: "Python",
+  },
+  "ms-agent-dotnet": {
+    id: "ms-agent-dotnet",
+    name: "MAF .NET",
+    label: ".NET",
+  },
   "ms-agent-harness-dotnet": {
-    id: "microsoft",
-    name: "Microsoft",
+    id: "ms-agent-harness-dotnet",
+    name: ".NET Harness",
     label: ".NET Harness",
   },
-  strands: { id: "strands", name: "AWS Strands", label: "Python" },
+  strands: { id: "strands", name: "AWS Strands Python", label: "Python" },
   "strands-typescript": {
-    id: "strands",
-    name: "AWS Strands",
+    id: "strands-typescript",
+    name: "AWS Strands TypeScript",
     label: "TypeScript",
   },
   "claude-sdk-python": {

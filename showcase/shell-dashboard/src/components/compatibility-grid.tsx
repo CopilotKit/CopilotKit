@@ -235,7 +235,12 @@ export function CompatibilityGrid({
               variant,
               sdk,
             });
-        } else columns.push({ key: variant.slug, platform, variant });
+        } else
+          columns.push({
+            key: `${variant.slug}:unassessed`,
+            platform,
+            variant,
+          });
       }
     }
     return { platform, columns };
