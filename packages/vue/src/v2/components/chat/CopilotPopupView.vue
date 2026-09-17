@@ -75,7 +75,6 @@ const internalProps = computed(() => {
 const forwardedEventListeners = computed(() => {
   const listeners: Record<string, unknown> = {
     onSubmitMessage: (value: string) => emit("submit-message", value),
-    onStop: () => emit("stop"),
     onInputChange: (value: string) => emit("input-change", value),
     onSelectSuggestion: (
       suggestion: (typeof props.suggestions)[number],
@@ -83,6 +82,9 @@ const forwardedEventListeners = computed(() => {
     ) => emit("select-suggestion", suggestion, index),
   };
 
+  if (props.onStop) {
+    listeners.onStop = () => emit("stop");
+  }
   if (props.onAddFile) {
     listeners.onAddFile = () => emit("add-file");
   }

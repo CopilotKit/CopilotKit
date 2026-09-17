@@ -104,9 +104,13 @@ const showBranchNavigation = computed(
     props.numberOfBranches > 1 && typeof props.onSwitchToBranch === "function",
 );
 
-const canGoPrev = computed(() => props.branchIndex > 0);
+const canGoPrev = computed(
+  () => showBranchNavigation.value && props.branchIndex > 0,
+);
 const canGoNext = computed(
-  () => props.branchIndex < props.numberOfBranches - 1,
+  () =>
+    showBranchNavigation.value &&
+    props.branchIndex < props.numberOfBranches - 1,
 );
 
 function resetCopiedStateWithDelay() {

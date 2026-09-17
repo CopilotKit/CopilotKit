@@ -126,6 +126,20 @@ For render bridges, the mirror strategy is deterministic slot translation at cha
 
 This is a constraint for future parity work: new React render-hook behavior should be mirrored by extending slot contracts, not by re-introducing provider render props in Vue.
 
+### Interaction callback and capability map
+
+Vue components expose optional callback props when the component must reactively decide whether a built-in control is available. Scoped slots receive stable command functions plus explicit capability flags, so slot consumers never need to infer availability from function presence.
+
+| Vue surface                                                 | Callback and capability contract                                                                                                                                           | Intentional Vue shape                                                                            |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `CopilotChatView`                                           | Optional `onStop`, `onAddFile`, and transcription callbacks determine `canStop`, `canAddFile`, and `canTranscribe` for `#input` and `#welcome-screen`.                     | Event-shaped callback props mirror emitted interactions only to support reactive control gating. |
+| `CopilotChatInput`                                          | Optional action callbacks gate the corresponding default controls.                                                                                                         | The component emits interactions while callback presence describes availability.                 |
+| `CopilotPopupView` / `CopilotSidebarView`                   | Optional callbacks are forwarded only when the corresponding action is available.                                                                                          | Wrapper layers must not turn an absent callback into a truthy no-op capability.                  |
+| `CopilotChatUserMessage`                                    | Optional edit and branch-switch callbacks gate controls; branch slot commands expose `canGoPrev` and `canGoNext`.                                                          | `#branch-navigation` receives stable commands even when navigation is unavailable.               |
+| `CopilotChatAssistantMessage`                               | Optional feedback, read-aloud, and regenerate callbacks gate toolbar actions.                                                                                              | Toolbar slots stay slot-first while callback props provide reactive availability.                |
+| `CopilotSidebarWelcomeScreen` / `CopilotPopupWelcomeScreen` | `#input` receives stable commands plus `canStop`, `canAddFile`, and `canTranscribe`, forwarded from the parent view or derived from optional callbacks when used directly. | Wrapper commands may be stable no-ops, so capability flags are the source of truth.              |
+| `LicenseWarningBanner`                                      | Optional `onDismiss` controls whether the dismiss button is rendered.                                                                                                      | A callback prop is used because listener introspection is not reactive or public Vue API.        |
+
 ## Architectural decision: Render hooks -> Composable state + slots
 
 Vue also diverges intentionally from React for render-oriented hooks that mix behavior with a render callback.

@@ -434,6 +434,9 @@ export interface CopilotSidebarWelcomeScreenInputSlotProps {
   isRunning: boolean;
   inputMode: CopilotChatInputMode;
   inputToolsMenu: (ToolsMenuItem | "-")[];
+  canStop: boolean;
+  canAddFile: boolean;
+  canTranscribe: boolean;
   onUpdateModelValue: (value: string) => void;
   onSubmitMessage: (value: string) => void;
   onStop: () => void;
@@ -463,12 +466,20 @@ type WelcomeScreenCommandProps =
   | "onFinishTranscribe"
   | "onFinishTranscribeWithAudio";
 
+type WelcomeScreenDerivedCapabilityProps =
+  | "canStop"
+  | "canAddFile"
+  | "canTranscribe";
+
 export type CopilotSidebarWelcomeScreenProps = Omit<
   CopilotSidebarWelcomeScreenLayoutSlotProps,
-  WelcomeScreenCommandProps
+  WelcomeScreenCommandProps | WelcomeScreenDerivedCapabilityProps
 > &
   Partial<
-    Pick<CopilotSidebarWelcomeScreenLayoutSlotProps, WelcomeScreenCommandProps>
+    Pick<
+      CopilotSidebarWelcomeScreenLayoutSlotProps,
+      WelcomeScreenCommandProps | WelcomeScreenDerivedCapabilityProps
+    >
   >;
 
 export interface CopilotSidebarViewHeaderSlotProps {
@@ -503,8 +514,7 @@ export type CopilotPopupWelcomeScreenSuggestionViewSlotProps =
 export type CopilotPopupWelcomeScreenLayoutSlotProps =
   CopilotSidebarWelcomeScreenLayoutSlotProps;
 
-export type CopilotPopupWelcomeScreenProps =
-  CopilotPopupWelcomeScreenLayoutSlotProps;
+export type CopilotPopupWelcomeScreenProps = CopilotSidebarWelcomeScreenProps;
 
 export interface CopilotPopupViewProps extends CopilotChatViewProps {
   width?: number | string;
