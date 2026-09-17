@@ -1,0 +1,30 @@
+name: "Showcase: Float staging image refs to :latest"
+
+# Operator repair: staging `source.image` must be `ghcr.io/copilotkit/<repo>:latest`.
+# Digest pins fail verify-image-refs and skip every showcase image build.
+# Workflow_dispatch only. Does not change the image-ref gate.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  float:
+    name: Float staging digest pins
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Same secret scope as the staging reconciler write path.
+    environment: railway
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+      - name: Float digest-pinned staging services to :latest
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: npx --yes tsx@4.21.0 showcase/scripts/float-staging-latest.ts
