@@ -5,13 +5,8 @@ import React from "react";
 /**
  * Step shape this card renders.
  *
- * NOTE: nothing in this package emits it yet. `gen-ui-agent` has no route
- * override in `src/app/api/copilotkit/route.ts`, so it proxies to the root
- * sales agent (`src/agents/agent.py`) — which has no `set_steps` tool and no
- * `steps` state slot. `set_steps` appears in zero Python files here. The cell
- * is red on `main`; tracked in GH #6381. The fix is to port a
- * `gen_ui_agent.py` (see `showcase/integrations/llamaindex/src/agents/
- * gen_ui_agent.py` for the reference implementation) and repoint the route.
+ * Matches `Step` in `src/agents/gen_ui_agent.py`. The backend's
+ * `set_steps` tool publishes the complete list in an AG-UI state snapshot.
  *
  * Status transitions: pending -> in_progress -> completed.
  */
