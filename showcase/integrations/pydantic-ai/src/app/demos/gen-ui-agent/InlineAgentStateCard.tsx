@@ -25,9 +25,11 @@ export function InlineAgentStateCard({
 }) {
   const total = steps.length;
   const done = steps.filter((s) => s.status === "completed").length;
-  const headline =
-    status === "complete" || (total > 0 && done === total)
-      ? `All ${total} steps complete`
+  const isComplete = total > 0 && done === total;
+  const headline = isComplete
+    ? `All ${total} steps complete`
+    : status === "complete"
+      ? `${done} of ${total} steps complete`
       : total > 0
         ? `Step ${Math.min(done + 1, total)} of ${total}`
         : "Planning…";
@@ -38,10 +40,12 @@ export function InlineAgentStateCard({
       className="my-3 mx-4 rounded-2xl border border-[#DBDBE5] bg-white p-4 shadow-sm"
     >
       <div className="flex items-center gap-2">
-        {status === "inProgress" && done < total ? (
+        {isComplete ? (
+          <CheckIcon />
+        ) : status === "inProgress" ? (
           <SpinnerIcon />
         ) : (
-          <CheckIcon />
+          <IncompleteIcon />
         )}
         <span className="text-sm font-semibold text-[#010507]">{headline}</span>
       </div>
@@ -174,6 +178,20 @@ function CheckIcon() {
         strokeWidth={3}
         d="M5 13l4 4L19 7"
       />
+    </svg>
+  );
+}
+
+function IncompleteIcon() {
+  return (
+    <svg
+      className="w-4 h-4 text-[#57575B]"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <circle cx="12" cy="12" r="9" strokeWidth={2} />
+      <path strokeLinecap="round" strokeWidth={2} d="M8 12h8" />
     </svg>
   );
 }
