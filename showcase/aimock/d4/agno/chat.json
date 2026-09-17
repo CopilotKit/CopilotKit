@@ -640,7 +640,7 @@
     },
     {
       "match": {
-        "userMessage": "detailed",
+        "userMessage": "budget",
         "context": "agno"
       },
       "response": {

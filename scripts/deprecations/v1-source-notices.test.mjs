@@ -13,10 +13,10 @@ import {
 } from "./v1-public-api.mjs";
 
 const expectedCounts = new Map([
-  ["react-core", 78],
+  ["react-core", 79],
   ["react-ui", 38],
   ["react-textarea", 14],
-  ["runtime", 66],
+  ["runtime", 69],
   ["runtime-langgraph", 6],
   ["sdk-js", 2],
   ["sdk-js-langchain", 15],
@@ -161,7 +161,7 @@ test("inventory covers every configured v1 importable export", () => {
     );
     total += exports.length;
   }
-  assert.equal(total, 245);
+  assert.equal(total, 249);
 });
 
 test("every v1 importable export has an IDE-visible use-v2 deprecation", () => {
@@ -579,7 +579,7 @@ test("the generic v2 reference is never mislabeled as the v2 docs homepage", () 
   }
 });
 
-test("the agent-readable docs map contains all 245 v1 exports", () => {
+test("the agent-readable docs map contains all 249 v1 exports", () => {
   const source = readFileSync(
     path.join(
       repoRoot,
@@ -605,5 +605,5 @@ test("the agent-readable docs map contains all 245 v1 exports", () => {
       rows += 1;
     }
   }
-  assert.equal(rows, 245);
+  assert.equal(rows, 249);
 });

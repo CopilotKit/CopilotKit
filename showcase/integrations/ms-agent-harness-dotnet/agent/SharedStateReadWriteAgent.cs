@@ -112,6 +112,7 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
         {
             yield return new AgentResponseUpdate
             {
+                Role = ChatRole.Assistant,
                 Contents = [new TextContent(deterministic)],
             };
             await foreach (var snapshotUpdate in EmitSnapshotAsync(thread, cancellationToken).ConfigureAwait(false))
