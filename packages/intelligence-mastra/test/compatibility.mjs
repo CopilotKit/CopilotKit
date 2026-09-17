@@ -1,4 +1,12 @@
 #!/usr/bin/env node
+import {
+  monitorPlan,
+  monitorOutput,
+  prepareMonitorConsumer,
+  installMonitorConsumer,
+} from "../../../tools/compatibility-monitor/typescript.mjs";
+const monitor = monitorPlan();
+const monitorArtifacts = monitorOutput();
 // Run after the package and canonical runtime have been built through Nx.
 // Every install and test copy lives in a temporary standalone consumer.
 import assert from "node:assert/strict";
@@ -55,9 +63,11 @@ assert.equal(
   ],
   undefined,
 );
-for (const file of readdirSync(join(packageRoot, "dist"), {
-  recursive: true,
-})) {
+for (const file of monitor?.track === "published"
+  ? []
+  : readdirSync(join(packageRoot, "dist"), {
+      recursive: true,
+    })) {
   if (!/\.(?:mjs|cjs|js|d\.ts|d\.mts|d\.cts)$/.test(file)) continue;
   assert.doesNotMatch(
     readFileSync(join(packageRoot, "dist", file), "utf8"),
@@ -65,8 +75,15 @@ for (const file of readdirSync(join(packageRoot, "dist"), {
     `Private core package reference remains in ${file}`,
   );
 }
-const adapter = pack(packageRoot);
-const runtimeWorkspace = packRuntimeWorkspace(workspaceRoot, artifacts);
+const adapter =
+  monitor?.track === "published" ? monitor.adapterVersion : pack(packageRoot);
+const runtimeWorkspace =
+  monitor?.track === "published"
+    ? {
+        dependencies: { "@copilotkit/runtime": monitor.adapterVersion },
+        overrides: {},
+      }
+    : packRuntimeWorkspace(workspaceRoot, artifacts);
 const lanes = {
   minimum: { "@mastra/core": "1.0.0", zod: "3.25.76" },
   latest: manifest(packageRoot).peerDependencies,
@@ -106,7 +123,14 @@ async function inference() {
 void inference;
 `;
 
-for (const [lane, peers] of Object.entries(lanes)) {
+for (const [lane, peers] of Object.entries(
+  monitor
+    ? {
+        zod3: { zod: "3.25.76", ...monitor.dependencies },
+        zod4: { zod: "4.6.1", ...monitor.dependencies },
+      }
+    : lanes,
+)) {
   if (selectedLane && selectedLane !== lane) continue;
   const cwd = join(work, lane);
   mkdirSync(cwd);
@@ -120,7 +144,8 @@ for (const [lane, peers] of Object.entries(lanes)) {
         overrides: runtimeWorkspace.overrides,
         dependencies: {
           ...peers,
-          "@copilotkit/intelligence-mastra": `file:${adapter}`,
+          "@copilotkit/intelligence-mastra":
+            monitor?.track === "published" ? adapter : `file:${adapter}`,
           ...runtimeWorkspace.dependencies,
           typescript: "5.8.2",
           "@types/node": "22.15.3",
@@ -132,21 +157,7 @@ for (const [lane, peers] of Object.entries(lanes)) {
       2,
     ),
   );
-  execFileSync(
-    "npm",
-    [
-      "exec",
-      "--yes",
-      "--package=npm@11.6.2",
-      "--",
-      "npm",
-      "install",
-      "--ignore-scripts",
-      "--no-audit",
-      "--no-fund",
-    ],
-    { cwd, stdio: "inherit", env: consumerEnv },
-  );
+  installMonitorConsumer(monitor, cwd, consumerEnv, monitorArtifacts);
   writeFileSync(join(cwd, "smoke.mjs"), smoke);
   writeFileSync(join(cwd, "types.mts"), types);
   writeFileSync(join(cwd, "types.cts"), types);
@@ -184,6 +195,7 @@ for (const [lane, peers] of Object.entries(lanes)) {
     join(cwd, "vitest.config.mts"),
     'import { defineConfig } from "vitest/config"; import { fileURLToPath } from "node:url"; export default defineConfig({resolve:{alias:{"@copilotkit/intelligence-delivery-core":fileURLToPath(new URL("./delivery-core/src/index.ts",import.meta.url))}},test:{environment:"node",include:["src/**/__tests__/**/*.test.ts","delivery-core/src/**/__tests__/**/*.test.ts"],maxWorkers:2,env:{COPILOTKIT_TELEMETRY_DISABLED:"true"}}});',
   );
+  prepareMonitorConsumer(monitor, cwd, packageRoot);
   for (const args of [
     ["smoke.mjs", "import"],
     ["smoke.mjs", "require"],

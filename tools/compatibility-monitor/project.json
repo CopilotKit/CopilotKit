@@ -1,0 +1,28 @@
+{
+  "name": "compatibility-monitor",
+  "root": "tools/compatibility-monitor",
+  "projectType": "library",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node --test tools/compatibility-monitor/*.test.mjs"
+      },
+      "cache": false
+    },
+    "run": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node tools/compatibility-monitor/run.mjs"
+      },
+      "cache": false
+    },
+    "format": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "oxfmt --write tools/compatibility-monitor packages/intelligence-langgraph/test/compatibility.mjs packages/intelligence-mastra/test/compatibility.mjs .github/workflows/intelligence-compatibility-monitor.yml"
+      },
+      "cache": false
+    }
+  }
+}
