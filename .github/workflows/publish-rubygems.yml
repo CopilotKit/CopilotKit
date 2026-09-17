@@ -41,7 +41,9 @@ jobs:
       - name: Test, lint, and build the gem
         run: BUNDLE_GEMFILE="$PWD/packages/runtime-ruby/Gemfile" bundle exec pnpm nx run-many -t test,lint,build -p runtime-ruby --parallel=1
       - name: Test Rack runtime protocol conformance
-        run: BUNDLE_GEMFILE="$PWD/packages/runtime-ruby/Gemfile" bundle exec pnpm nx run runtime-ruby:test-rack
+        run: |
+          pnpm nx run @copilotkit/core:build
+          BUNDLE_GEMFILE="$PWD/packages/runtime-ruby/Gemfile" bundle exec pnpm nx run runtime-ruby:test-rack
       - name: Test installation without source references
         run: pnpm nx run runtime-ruby:verify-distribution
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
