@@ -20,6 +20,38 @@ function folderNamed(
 }
 
 describe("navTreeToPageTree sidebar hierarchy", () => {
+  it("links a topic heading to its explicit overview while retaining expandable children", () => {
+    const tree = navTreeToPageTree(
+      [
+        {
+          type: "group",
+          title: "Rich threads",
+          slug: "sidebar#rich-threads",
+          indexSlug: "threads",
+          children: [
+            {
+              type: "group",
+              title: "",
+              slug: "inline",
+              children: [
+                { type: "page", title: "Drawer", slug: "drawer" },
+                { type: "page", title: "Lifecycle", slug: "lifecycle" },
+              ],
+            },
+            { type: "page", title: "Overview", slug: "threads" },
+          ],
+        },
+      ],
+      "/langgraph",
+    );
+    const folder = folderNamed(tree.children, "Rich Threads");
+    expect(folder?.index?.url).toBe("/langgraph/threads");
+    expect(folder?.children).toMatchObject([
+      { type: "page", url: "/langgraph/drawer" },
+      { type: "page", url: "/langgraph/lifecycle" },
+    ]);
+  });
+
   const navTree: NavNode[] = [
     { type: "page", title: "Introduction", slug: "" },
     { type: "page", title: "Quickstart", slug: "quickstart" },

@@ -229,6 +229,7 @@ test("uses the normalized sidebar flow for Angular docs", () => {
     "Interactivity",
     "Agent capabilities",
     "Intelligence",
+    "Solutions",
     "Backend",
     "Learn",
     "Other",
