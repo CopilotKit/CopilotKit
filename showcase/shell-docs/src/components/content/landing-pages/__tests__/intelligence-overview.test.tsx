@@ -140,7 +140,7 @@ describe("IntelligenceOverview", () => {
       "Channels",
       "Memory",
       "Analytics",
-      "Automatic Learning",
+      "Self-improving agents",
       "Self-hosting",
     ]) {
       const card = screen

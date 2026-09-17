@@ -231,24 +231,31 @@ export function navNodeToPageTreeNodes(
     return childNodes;
   }
   // If one of the group's NavNode children is a page representing the
-  // folder's own `index.mdx` (slug === `${group.slug}/index`), lift it
+  // folder's explicit overview (or its own `index.mdx`), lift it
   // into `folder.index` so Fumadocs renders the folder name itself as a
   // link to that page instead of a separate "Overview" entry inside the
   // expanded folder. The URL drops the `/index` suffix so the canonical
   // folder root (e.g. `/agentic-protocols`) is what the link points at.
-  const indexNavIdx = node.children.findIndex(
-    (c) => c.type === "page" && c.slug === `${node.slug}/index`,
+  const indexNode = node.children.find(
+    (child) =>
+      child.type === "page" &&
+      child.slug === (node.indexSlug ?? `${node.slug}/index`),
   );
   let folderIndex: PageTree.Item | undefined;
   let folderChildren: PageTree.Node[] = childNodes;
-  if (indexNavIdx >= 0) {
-    const lifted = childNodes[indexNavIdx];
-    if (lifted && lifted.type === "page") {
-      const url = lifted.url.endsWith("/index")
-        ? lifted.url.slice(0, -"/index".length)
-        : lifted.url;
+  if (indexNode) {
+    const [lifted] = navNodeToPageTreeNodes(indexNode, slugHrefPrefix);
+    if (lifted?.type === "page") {
+      const url =
+        !node.indexSlug && lifted.url.endsWith("/index")
+          ? lifted.url.slice(0, -"/index".length)
+          : lifted.url;
       folderIndex = { ...lifted, url };
-      folderChildren = childNodes.filter((_, i) => i !== indexNavIdx);
+      // Filter the source node before flattening unnamed groups. Source and
+      // rendered positions can differ when an earlier group has many children.
+      folderChildren = node.children
+        .filter((child) => child !== indexNode)
+        .flatMap((child) => navNodeToPageTreeNodes(child, slugHrefPrefix));
     }
   }
   return [

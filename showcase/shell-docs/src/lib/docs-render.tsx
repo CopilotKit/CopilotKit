@@ -56,6 +56,7 @@ export type NavNode =
       slug: string;
       children: NavNode[];
       defaultOpen?: boolean;
+      indexSlug?: string;
       icon?: string;
       variant?: NavNodeVariant;
     };
@@ -86,6 +87,7 @@ const SECTION_ICONS: Record<string, string> = {
   intelligence: "custom/copilotkit-kite",
   "intelligence platform": "custom/copilotkit-kite",
   channels: "lucide/MessagesSquare",
+  solutions: "lucide/Lightbulb",
   deploy: "lucide/Cloud",
   deployment: "lucide/Cloud",
   other: "lucide/Wrench",
@@ -779,6 +781,7 @@ const SIDEBAR_SECTION_TITLES: Record<string, string> = {
   "add agent powers": "App Control",
   "app control": "App Control",
   intelligence: "Intelligence",
+  solutions: "Solutions",
   "intelligence platform": "Intelligence",
   backend: "Runtime",
   runtime: "Runtime",
@@ -858,6 +861,7 @@ function sidebarTopicGroup(
   title: string,
   slug: string,
   source: NavNode | NavNode[] | null,
+  options: { defaultOpen?: boolean; indexSlug?: string } = {},
 ): Extract<NavNode, { type: "group" }> | null {
   if (!source) return null;
   const children = Array.isArray(source)
@@ -866,7 +870,14 @@ function sidebarTopicGroup(
       ? source.children
       : [source];
   if (children.length === 0) return null;
-  return { type: "group", title, slug, children, defaultOpen: false };
+  return {
+    type: "group",
+    title,
+    slug,
+    children,
+    defaultOpen: false,
+    ...options,
+  };
 }
 
 function withoutRouteGroupSlug(slug: string): string {
@@ -923,6 +934,7 @@ const RESERVED_SIDEBAR_SECTIONS = new Set([
   "Agent capabilities",
   "Runtime",
   "Intelligence",
+  "Solutions",
   "Backend",
   "Deployment",
   "Concepts",
@@ -1057,6 +1069,7 @@ export function normalizeSidebarNav(
     "Rich threads",
     "sidebar#rich-threads",
     richThreads,
+    { indexSlug: "threads" },
   );
   const frontendTools = findPage("frontend-tools");
 
@@ -1160,7 +1173,7 @@ export function normalizeSidebarNav(
   );
   const intelligenceAutomaticLearning = intelligencePage(
     "learning",
-    "Automatic Learning",
+    "Self-improving agents",
   );
   const intelligenceMemory = intelligencePage(
     "intelligence/memories",
@@ -1246,7 +1259,7 @@ export function normalizeSidebarNav(
     ...sidebarSection("Agent capabilities", [
       ...frameworkGroups,
       learning?.type === "page"
-        ? { ...learning, title: "Automatic Learning", icon: undefined }
+        ? { ...learning, title: "Self-improving agents", icon: undefined }
         : null,
       intelligenceMemory,
       subagents?.type === "page"
@@ -1269,13 +1282,34 @@ export function normalizeSidebarNav(
         : null,
       intelligenceAutomaticLearning,
       intelligenceMemory,
+      {
+        type: "page",
+        title: "Channels · Slack",
+        slug: "slack",
+        href: "/slack",
+      },
       sidebarTopicGroup(
         "Hosting",
         "sidebar#intelligence-hosting",
         [intelligenceCloud, intelligenceSelfHosted].filter(
           (node): node is NavNode => node !== null,
         ),
+        { defaultOpen: true },
       ),
+    ]),
+    ...sidebarSection("Solutions", [
+      {
+        type: "page",
+        title: "Your agent in Slack",
+        slug: "slack",
+        href: "/slack",
+      },
+      {
+        type: "page",
+        title: "Self-improving agents",
+        slug: "solutions/self-improving-agents",
+        href: "/solutions/self-improving-agents",
+      },
     ]),
     ...sidebarSection("Backend", [
       sidebarTopicGroup("Runtime", "sidebar#runtime", runtimeSource),
