@@ -961,14 +961,12 @@ export class CpkLearningView extends LitElement {
     );
   }
 
-  private intelligenceLink(
+  private externalLink(
+    url: string | null,
     label: string,
     className = "primary",
     category: "learning" | "runs" | "candidates" = "learning",
   ) {
-    // Intelligence does not support the snapshot's deep routes yet. Enter
-    // through its configured app origin so authentication can complete.
-    const url = this.snapshot?.webAppOrigin;
     return url
       ? html`<a
           class=${className}
@@ -1168,8 +1166,9 @@ export class CpkLearningView extends LitElement {
                 </div>
                 ${
                   ready || running
-                    ? this.intelligenceLink(
-                        "Open Intelligence",
+                    ? this.externalLink(
+                        this.snapshot?.links.runs ?? null,
+                        "Open in web app",
                         "primary setup-cta",
                         "runs",
                       )
@@ -1322,8 +1321,9 @@ export class CpkLearningView extends LitElement {
         <span class="result-count">${snapshot.skillsPage.total}</span>
         ${
           snapshot.pendingCandidateCount > 0
-            ? this.intelligenceLink(
-                `${snapshot.pendingCandidateCount} ${snapshot.pendingCandidateCount === 1 ? "Skill" : "Skills"} for review in Intelligence ↗`,
+            ? this.externalLink(
+                snapshot.links.candidates,
+                `${snapshot.pendingCandidateCount} ${snapshot.pendingCandidateCount === 1 ? "Skill" : "Skills"} for review in web app ↗`,
                 "review-link",
                 "candidates",
               )
@@ -1466,8 +1466,9 @@ export class CpkLearningView extends LitElement {
                 <h2>Find new Insights and Skills</h2>
                 <p>You have new threads ready to be analyzed.</p>
               </div>
-              ${this.intelligenceLink(
-                "Open Intelligence",
+              ${this.externalLink(
+                snapshot.links.runs,
+                "Open in web app",
                 "primary results-cta",
                 "runs",
               )}
@@ -1495,7 +1496,7 @@ export class CpkLearningView extends LitElement {
     </div>`;
   }
 
-  private renderEmptyResults() {
+  private renderEmptyResults(snapshot: InspectorLearningSnapshotV1) {
     return html`<section class="analysis-card">
         <div class="analysis-row">
           <div class="analysis-copy">
@@ -1526,8 +1527,9 @@ export class CpkLearningView extends LitElement {
           <p>Learning did not find a useful pattern in these Threads.</p>
         </div>
       </section>
-      ${this.intelligenceLink(
-        "Open Intelligence ↗",
+      ${this.externalLink(
+        snapshot.links.learning,
+        "Open in web app ↗",
         "quiet-link",
         "learning",
       )}`;
@@ -1581,8 +1583,9 @@ export class CpkLearningView extends LitElement {
     } else if (state === "selection_required") {
       content = this.renderCompactState({
         title: "Inspector cannot choose a Learning container for this agent.",
-        action: this.intelligenceLink(
-          "Open Intelligence",
+        action: this.externalLink(
+          this.snapshot!.links.learning,
+          "Open in web app",
           "primary",
           "learning",
         ),
@@ -1600,7 +1603,7 @@ export class CpkLearningView extends LitElement {
     } else if (state === "ready") {
       content = this.renderSetupProgress("ready");
     } else if (state === "empty") {
-      content = this.renderEmptyResults();
+      content = this.renderEmptyResults(this.snapshot!);
     } else {
       content = this.renderResults(this.snapshot!);
     }
@@ -1617,7 +1620,11 @@ export class CpkLearningView extends LitElement {
           <div class="pane-actions">
             ${
               state === "results"
-                ? this.intelligenceLink("Open Intelligence ↗", "secondary")
+                ? this.externalLink(
+                    this.snapshot!.webAppOrigin,
+                    "Open Intelligence ↗",
+                    "secondary",
+                  )
                 : nothing
             }
             ${

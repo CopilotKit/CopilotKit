@@ -30,7 +30,7 @@ function snapshot(
       items: [],
     },
     links: {
-      learning: "https://app.copilotkit.ai/learning",
+      learning: "https://app.copilotkit.ai/o/acme/checkout/learning",
       candidates: null,
       runs: null,
     },
@@ -191,7 +191,8 @@ describe("Learning results hierarchy", () => {
         latest: null,
       },
       links: {
-        learning: "https://app.copilotkit.ai/learning?project=project-safe-key",
+        learning:
+          "https://app.copilotkit.ai/o/acme/checkout/learning/container-1",
         candidates: null,
         runs: null,
       },
@@ -201,8 +202,10 @@ describe("Learning results hierarchy", () => {
 
     const link =
       view.shadowRoot!.querySelector<HTMLAnchorElement>("a.quiet-link");
-    expect(link?.textContent?.trim()).toBe("Open Intelligence ↗");
-    expect(link?.href).toBe("https://app.copilotkit.ai/");
+    expect(link?.textContent?.trim()).toBe("Open in web app ↗");
+    expect(link?.href).toBe(
+      "https://app.copilotkit.ai/o/acme/checkout/learning/container-1",
+    );
     expect(link?.target).toBe("_blank");
     expect(link?.rel.split(/\s+/).sort()).toEqual(["noopener", "noreferrer"]);
     view.remove();
@@ -305,14 +308,39 @@ describe("Learning setup progress", () => {
   }
 
   it.each([
-    { configuration: { state: "selection_required" as const } },
-    { pendingThreadCount: 3 },
-    { run: { hasActiveRun: true, hasEverSucceeded: false, latest: null } },
-    { pendingCandidateCount: 2, pendingThreadCount: 3 },
+    {
+      overrides: { configuration: { state: "selection_required" as const } },
+      selectors: [["a.primary", "learning"]],
+    },
+    {
+      overrides: { pendingThreadCount: 3 },
+      selectors: [["a.setup-cta", "runs"]],
+    },
+    {
+      overrides: {
+        run: { hasActiveRun: true, hasEverSucceeded: false, latest: null },
+      },
+      selectors: [["a.setup-cta", "runs"]],
+    },
+    {
+      overrides: { pendingCandidateCount: 2, pendingThreadCount: 3 },
+      selectors: [
+        [".pane-actions a", "home"],
+        ["a.review-link", "candidates"],
+        ["a.results-cta", "runs"],
+      ],
+    },
   ])(
-    "uses the configured Intelligence origin for every action: %j",
-    async (overrides) => {
+    "preserves each scoped action and the general app link: %j",
+    async ({ overrides, selectors }) => {
       const origin = "https://intelligence.customer.example";
+      const learning = `${origin}/o/acme/project/learning/container-1`;
+      const destinations: Record<string, string> = {
+        home: `${origin}/`,
+        learning,
+        candidates: `${learning}/skills`,
+        runs: `${learning}/analysis-results`,
+      };
       const view = await renderProgress(
         snapshot({
           configuration: {
@@ -321,28 +349,33 @@ describe("Learning setup progress", () => {
           },
           webAppOrigin: origin,
           links: {
-            learning: `${origin}/learning?container=container-1`,
-            candidates: `${origin}/o/acme/project/learning/container-1/skills`,
-            runs: `${origin}/learning?container=container-1&tab=runs`,
+            learning,
+            candidates: destinations.candidates!,
+            runs: destinations.runs!,
           },
           ...overrides,
         }),
       );
-      const links = [...view.shadowRoot!.querySelectorAll("a")];
-      expect(links.length).toBeGreaterThan(0);
       const opened = vi.fn();
       view.addEventListener("learning-web-link", opened);
-      for (const link of links) {
-        expect(link.href).toBe(`${origin}/`);
-        expect(link.textContent).toContain("Intelligence");
-        expect(link.target).toBe("_blank");
-        expect(link.rel.split(/\s+/).sort()).toEqual([
+      expect(view.shadowRoot!.querySelectorAll("a")).toHaveLength(
+        selectors.length,
+      );
+      for (const [selector, category] of selectors) {
+        const link = view.shadowRoot!.querySelector<HTMLAnchorElement>(
+          selector!,
+        );
+        expect(link?.href).toBe(destinations[category!]);
+        expect(link?.target).toBe("_blank");
+        expect(link?.rel.split(/\s+/).sort()).toEqual([
           "noopener",
           "noreferrer",
         ]);
-        link.click();
+        link!.click();
+        expect(opened.mock.calls.at(-1)?.[0].detail).toEqual({
+          category: category === "home" ? "learning" : category,
+        });
       }
-      expect(opened).toHaveBeenCalledTimes(links.length);
       view.remove();
     },
   );
@@ -421,9 +454,9 @@ describe("Learning setup progress", () => {
         },
         pendingThreadCount: 3,
         links: {
-          learning: "https://app.copilotkit.ai/learning",
+          learning: "https://app.copilotkit.ai/o/acme/checkout/learning",
           candidates: null,
-          runs: "https://app.copilotkit.ai/learning?tab=runs",
+          runs: "https://app.copilotkit.ai/o/acme/checkout/learning/container-1/analysis-results",
         },
       }),
     );
@@ -431,7 +464,7 @@ describe("Learning setup progress", () => {
     expect(view.shadowRoot!.textContent).toContain("Threads ready to analyze");
     expect(view.shadowRoot!.textContent).toMatch(/3\s*New Threads/);
     expect(view.shadowRoot!.querySelector("a")?.textContent).toContain(
-      "Open Intelligence",
+      "Open in web app",
     );
     view.remove();
   });

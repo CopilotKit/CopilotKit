@@ -40,10 +40,10 @@ describe("integrated Inspector Learning state lab runtime", () => {
       insightsPage: { page: 2, pageSize: 4, total: 7 },
       links: {
         learning:
-          "https://app.copilotkit.ai/learning?container=checkout-assistant-default",
+          "https://app.copilotkit.ai/o/acme/checkout/learning/checkout-assistant-default",
         candidates:
           "https://app.copilotkit.ai/o/acme/checkout/learning/checkout-assistant-default/skills",
-        runs: "https://app.copilotkit.ai/learning?container=checkout-assistant-default&tab=runs",
+        runs: "https://app.copilotkit.ai/o/acme/checkout/learning/checkout-assistant-default/analysis-results",
       },
     });
   });
