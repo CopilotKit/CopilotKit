@@ -673,7 +673,7 @@ const MOVED_ROOT_REDIRECTS: RedirectEntry[] = [
   {
     id: "MV-gs-open-json-ui",
     source: "/generative-ui/specs/open-json-ui",
-    destination: "/generative-ui/open-json-ui",
+    destination: "/generative-ui/a2ui",
   },
   {
     id: "MV-gs-root",

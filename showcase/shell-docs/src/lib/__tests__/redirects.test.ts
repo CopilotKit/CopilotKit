@@ -37,6 +37,21 @@ describe("Next config build boundary", () => {
   });
 });
 
+describe("retired Open-JSON-UI docs", () => {
+  it("redirects unscoped and framework-scoped links to A2UI in one hop", async () => {
+    for (const suffix of RAW_DOC_SUFFIXES) {
+      await expectPermanentOneHop(
+        `/generative-ui/open-json-ui${suffix}`,
+        `/generative-ui/a2ui${suffix}`,
+      );
+      await expectPermanentOneHop(
+        `/langgraph-python/generative-ui/open-json-ui${suffix}`,
+        `/langgraph-python/generative-ui/a2ui${suffix}`,
+      );
+    }
+  });
+});
+
 function interpolateDestination(
   destination: string,
   params: Record<string, unknown>,

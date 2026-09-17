@@ -817,7 +817,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/learn/generative-ui/specs/open-json-ui",
-        destination: "/generative-ui/open-json-ui",
+        destination: "/generative-ui/a2ui",
         permanent: true,
       },
       {
@@ -926,13 +926,17 @@ const nextConfig: NextConfig = {
         "/reference/v1/sdk/python/LangGraphAgent",
         "/reference/v1/sdk/python/LangGraphAGUIAgent",
       ),
-      // AI-slop placeholder pulled from nav until properly authored;
-      // file stays on disk for rewrite.
-      {
-        source: "/generative-ui/open-json-ui",
-        destination: "/generative-ui",
-        permanent: false,
-      },
+      // Open-JSON-UI was removed from the docs navigation. Preserve old
+      // unscoped and framework-scoped links by sending readers to the
+      // corresponding A2UI root page in one hop, including raw-doc URLs.
+      ...permanentRedirectsWithSuffixes(
+        "/generative-ui/open-json-ui",
+        "/generative-ui/a2ui",
+      ),
+      ...permanentRedirectsWithSuffixes(
+        "/:framework/generative-ui/open-json-ui",
+        "/:framework/generative-ui/a2ui",
+      ),
       // ag-ui-middleware moved into the agentic-protocols group so it
       // appears in the sidebar under AG-UI rather than as an orphan
       // root page. 302 (not 301) since the new home is recent and we
