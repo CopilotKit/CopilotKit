@@ -111,7 +111,7 @@ function mount(catalog: CatalogData) {
       title="Feature Matrix"
       renderCell={() => null}
       liveStatus={mergeRowsToMap(rows)}
-      connection="connected"
+      connection="live"
       now={NOW}
       catalog={catalog}
     />,
