@@ -1,116 +1,27 @@
+import { COMPATIBILITY_SNAPSHOT } from "@/data/compatibility-snapshot";
+import type {
+  CompatibilitySnapshotPackage,
+  CompatibilitySnapshotRow,
+  CompatibilitySnapshotStatus,
+} from "@/data/compatibility-snapshot";
 import type { Integration } from "./registry";
 
-/** A historical, manually assessed snapshot. Never infer deployed versions from manifests. */
-export const COMPATIBILITY_SNAPSHOT = {
-  date: "August 19, 2026",
-  assessedAt: "2026-08-19T07:37:31Z",
-  revision: "9dec75e4ca164e06fb4304efb952af9d9d90520e",
-  rubric: "2.0",
-  source:
-    "https://app.notion.com/p/copilotkit/scorecard-3c23aa381852803dae5cf99a2e76979f",
-  methodology:
-    "https://app.notion.com/p/copilotkit/executive-summary-3c13aa38185280eb903ec600e6c7d0b5",
-} as const;
+export { COMPATIBILITY_SNAPSHOT };
 
-export interface SdkAssessment {
-  name: string;
-  running: string;
-  latest: string;
-  graceTarget: string;
-  /** The scorecard abbreviates the Microsoft registry targets to release lines. */
-  targetsAreReleaseLines?: boolean;
-  score: number;
-}
+export interface SdkAssessment extends CompatibilitySnapshotPackage {}
 
 export interface CompatibilityAssessment {
-  score: number;
+  currentScore: number | null;
+  status: CompatibilitySnapshotStatus;
+  label: string;
   packages: SdkAssessment[];
 }
-
-// Slugs intentionally match the generated Showcase registry. Package scores
-// follow the source's currency curve; variant scores are imported, not live.
-const assessments: Record<string, CompatibilityAssessment> = {
-  strands: {
-    score: 100,
-    packages: [
-      {
-        name: "strands-agents",
-        running: "1.52.0",
-        latest: "1.52.0",
-        graceTarget: "1.48.0",
-        score: 100,
-      },
-    ],
-  },
-  "strands-typescript": {
-    score: 60,
-    packages: [
-      {
-        name: "@strands-agents/sdk",
-        running: "1.1.0",
-        latest: "1.13.0",
-        graceTarget: "1.10.0",
-        score: 60,
-      },
-    ],
-  },
-  "ms-agent-python": {
-    score: 100,
-    packages: [
-      {
-        name: "agent-framework-ag-ui",
-        running: "1.1.0",
-        latest: "1.1",
-        graceTarget: "1.0",
-        targetsAreReleaseLines: true,
-        score: 100,
-      },
-      {
-        name: "agent-framework-core",
-        running: "1.14.0",
-        latest: "1.14",
-        graceTarget: "1.11",
-        targetsAreReleaseLines: true,
-        score: 100,
-      },
-      {
-        name: "agent-framework-openai",
-        running: "1.13.0",
-        latest: "1.13",
-        graceTarget: "1.10",
-        targetsAreReleaseLines: true,
-        score: 100,
-      },
-    ],
-  },
-  "ms-agent-dotnet": {
-    score: 60,
-    packages: [
-      {
-        name: "Microsoft.Agents.AI.OpenAI",
-        running: "1.0.0-preview.251110.1",
-        latest: "1.18",
-        graceTarget: "1.13",
-        targetsAreReleaseLines: true,
-        score: 60,
-      },
-      {
-        name: "Microsoft.Agents.AI.Hosting.AGUI.AspNetCore",
-        running: "1.0.0-preview.251110.1",
-        latest: "1.18-preview.260818",
-        graceTarget: "1.13-preview.260703",
-        targetsAreReleaseLines: true,
-        score: 60,
-      },
-    ],
-  },
-};
 
 export interface CompatibilityVariant {
   slug: string;
   name: string;
   label: string;
-  assessment: CompatibilityAssessment | null;
+  assessment: CompatibilityAssessment;
 }
 
 export interface CompatibilityPlatform {
@@ -118,6 +29,10 @@ export interface CompatibilityPlatform {
   name: string;
   variants: CompatibilityVariant[];
 }
+
+const assessments = new Map<string, CompatibilitySnapshotRow>(
+  COMPATIBILITY_SNAPSHOT.rows.map((row) => [row.slug, row]),
+);
 
 const families: Record<string, { id: string; name: string; label: string }> = {
   "langgraph-python": { id: "langgraph", name: "LangGraph", label: "Python" },
@@ -173,12 +88,31 @@ const languageLabels: Record<string, string> = {
   java: "Java",
 };
 
-/** Preserve Coverage's order and include new registry entries as unassessed. */
+const statusLabels: Record<CompatibilitySnapshotStatus, string> = {
+  build_verified_fallback_scored: "Scored",
+  policy_pending_or_incomplete_package_score: "Not scored",
+  not_verified: "Not verified",
+  stale_historical_only_not_current: "Not verified",
+  internal_non_comparable: "Not applicable",
+};
+
+function toAssessment(row: CompatibilitySnapshotRow): CompatibilityAssessment {
+  return {
+    currentScore: row.currentScore,
+    status: row.status,
+    label: statusLabels[row.status],
+    packages: row.packages.map((pkg) => ({ ...pkg })),
+  };
+}
+
 export function getCompatibilityPlatforms(
   integrations: Integration[],
 ): CompatibilityPlatform[] {
   const platforms = new Map<string, CompatibilityPlatform>();
   for (const integration of integrations) {
+    const row = assessments.get(integration.slug);
+    if (!row) continue;
+
     const family = families[integration.slug];
     const id = family?.id ?? integration.slug;
     let platform = platforms.get(id);
@@ -193,13 +127,13 @@ export function getCompatibilityPlatforms(
         family?.label ??
         languageLabels[integration.language] ??
         integration.language,
-      assessment: assessments[integration.slug] ?? null,
+      assessment: toAssessment(row),
     });
   }
   return [...platforms.values()];
 }
 
-export type CompatibilityFilter = "all" | "assessed" | "upgrade";
+export type CompatibilityFilter = "all" | "scored" | "attention";
 
 export function filterCompatibilityPlatforms(
   platforms: CompatibilityPlatform[],
@@ -210,18 +144,27 @@ export function filterCompatibilityPlatforms(
   return platforms.filter((platform) => {
     const matchesStatus =
       filter === "all" ||
-      platform.variants.some(
-        ({ assessment }) =>
-          assessment !== null &&
-          (filter === "assessed" || assessment.score < 100),
-      );
+      platform.variants.some(({ assessment }) => {
+        if (filter === "scored") return assessment.currentScore !== null;
+        return (
+          assessment.currentScore === null &&
+          assessment.status !== "internal_non_comparable"
+        );
+      });
     const searchable = [
       platform.name,
       ...platform.variants.flatMap((variant) => [
         variant.name,
         variant.label,
         variant.slug,
-        ...(variant.assessment?.packages.map((sdk) => sdk.name) ?? []),
+        variant.assessment.label,
+        ...(variant.assessment.packages.flatMap((sdk) => [
+          sdk.name,
+          sdk.role,
+          sdk.runningVersion ?? "",
+          sdk.latest ?? "",
+          sdk.graceTarget ?? "",
+        ]) ?? []),
       ]),
     ]
       .join(" ")

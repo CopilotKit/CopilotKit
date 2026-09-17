@@ -23,23 +23,29 @@ export function CompatibilityTab() {
   const [expanded, setExpanded] = useState(new Set<string>());
   const visible = filterCompatibilityPlatforms(platforms, query, filter);
   const variants = platforms.flatMap((platform) => platform.variants);
-  const assessed = variants.filter((variant) => variant.assessment !== null);
-  const behind = assessed.filter((variant) => variant.assessment!.score < 100);
-  const packageCount = assessed.reduce(
-    (sum, variant) => sum + variant.assessment!.packages.length,
+  const scored = variants.filter(
+    (variant) => variant.assessment.currentScore !== null,
+  );
+  const notScored = variants.filter(
+    (variant) =>
+      variant.assessment.currentScore === null &&
+      variant.assessment.status !== "internal_non_comparable",
+  );
+  const packageCount = variants.reduce(
+    (sum, variant) => sum + variant.assessment.packages.length,
     0,
   );
   const filters: { id: CompatibilityFilter; label: string; count: number }[] = [
     { id: "all", label: "All platforms", count: platforms.length },
     {
-      id: "assessed",
-      label: "Assessed",
-      count: filterCompatibilityPlatforms(platforms, "", "assessed").length,
+      id: "scored",
+      label: "Current score",
+      count: filterCompatibilityPlatforms(platforms, "", "scored").length,
     },
     {
-      id: "upgrade",
-      label: "Needs upgrade",
-      count: filterCompatibilityPlatforms(platforms, "", "upgrade").length,
+      id: "attention",
+      label: "Not scored",
+      count: filterCompatibilityPlatforms(platforms, "", "attention").length,
     },
   ];
 
@@ -60,58 +66,52 @@ export function CompatibilityTab() {
       <div className="shrink-0 border-b border-[var(--border)] bg-[var(--bg-surface)] px-4 py-5 sm:px-8">
         <div className="mb-2 flex flex-wrap items-center gap-2 text-[10px] font-medium">
           <span className="rounded border border-[var(--border)] bg-[var(--bg-muted)] px-2 py-0.5 uppercase tracking-wider text-[var(--text-secondary)]">
-            Prototype
+            Snapshot
           </span>
           <span className="text-[var(--text-secondary)]">
             {COMPATIBILITY_SNAPSHOT.date} snapshot
           </span>
-          <a
-            href={COMPATIBILITY_SNAPSHOT.source}
-            target="_blank"
-            rel="noreferrer"
-            className="ml-auto text-[var(--accent)] hover:underline"
-          >
-            View source scorecard ↗
-          </a>
         </div>
         <h1 className="text-xl font-semibold tracking-tight">Compatibility</h1>
         <p className="mt-1 max-w-3xl text-xs leading-relaxed text-[var(--text-secondary)]">
-          How current are the SDKs powering Showcase? Expand a platform to
-          compare its SDK packages. Versions and scores reflect the assessment
-          date.
+          Current SDK compatibility for Showcase integrations. Expand a platform
+          to compare running, latest, and grace target package versions.
         </p>
         <div className="mt-4 flex flex-wrap gap-x-8 gap-y-2 text-xs">
           <div>
             <span className="font-semibold tabular-nums">
-              {assessed.length}
+              {scored.length}
               <span className="font-normal text-[var(--text-muted)]">
                 {" "}
                 / {variants.length}
               </span>
             </span>{" "}
             <span className="text-[var(--text-secondary)]">
-              variants assessed
+              variants scored
             </span>
           </div>
           <div>
             <span className="font-semibold tabular-nums">{packageCount}</span>{" "}
             <span className="text-[var(--text-secondary)]">
-              SDK packages recorded
+              SDK package entries
             </span>
           </div>
           <div>
             <span className="font-semibold tabular-nums text-[var(--amber)]">
-              {behind.length}
+              {notScored.length}
             </span>{" "}
-            <span className="text-[var(--text-secondary)]">
-              variants behind target
-            </span>
+            <span className="text-[var(--text-secondary)]">not scored</span>
           </div>
           <div>
             <span className="font-semibold tabular-nums text-[var(--text-secondary)]">
-              {variants.length - assessed.length}
+              {
+                variants.filter(
+                  (variant) =>
+                    variant.assessment.status === "internal_non_comparable",
+                ).length
+              }
             </span>{" "}
-            <span className="text-[var(--text-secondary)]">not assessed</span>
+            <span className="text-[var(--text-secondary)]">not applicable</span>
           </div>
         </div>
       </div>
@@ -207,19 +207,18 @@ export function CompatibilityTab() {
           <p>
             Current line: 100. One / two / three minor lines behind: 90 / 80 /
             70. Four or more minors behind: 60. One major behind: 20. Two or
-            more majors behind: 5.
+            more majors behind: 5. For stable 0.x releases, minor changes count
+            as major changes. Preview-only packages follow their configured
+            release trains.
           </p>
           <p>
             Each variant takes the lowest score among its required SDK packages.
-            Python, TypeScript, .NET, and other variants keep separate scores. A
-            currency score describes version freshness; successful execution
-            requires separate evidence.
+            Python, TypeScript, .NET, and other variants keep separate scores.
+            Rows without a verified running SDK version are not scored.
           </p>
           <p>
-            A verified newer supported version can earn limited credit. This
-            snapshot includes no tested-ceiling detail or comparable history.
-            Microsoft release targets are shown at the precision reported by the
-            source.
+            Latest and grace target values are release inventory context. They
+            do not replace an unknown running version.
           </p>
           <a
             href={COMPATIBILITY_SNAPSHOT.methodology}
@@ -227,7 +226,7 @@ export function CompatibilityTab() {
             rel="noreferrer"
             className="inline-block text-[var(--accent)] hover:underline"
           >
-            Read the scoring methodology ↗
+            Read the historical scoring rubric ↗
           </a>
         </div>
       </details>

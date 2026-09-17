@@ -10,15 +10,10 @@ import { COMPATIBILITY_SNAPSHOT } from "@/lib/compatibility";
 
 type Metric =
   | "score"
-  | "currency"
-  | "opportunity"
   | "package"
-  | "running"
+  | "runningVersion"
   | "graceTarget"
   | "latest"
-  | "assessed"
-  | "ceiling"
-  | "trend"
   | "source";
 
 const sections: {
@@ -30,18 +25,8 @@ const sections: {
     rows: [
       {
         id: "score",
-        label: "Compatibility score",
-        hint: "Each variant uses its lowest required SDK package score. Variants are never averaged.",
-      },
-      {
-        id: "currency",
-        label: "SDK currency",
-        hint: "Currency at the assessment date, after the 30-day release grace period.",
-      },
-      {
-        id: "opportunity",
-        label: "Available improvement",
-        hint: "Compatibility points available by bringing the required SDK packages to the grace target.",
+        label: "Compatibility",
+        hint: "Current score when the deployed SDK package version is verified.",
       },
     ],
   },
@@ -50,13 +35,13 @@ const sections: {
     rows: [
       {
         id: "package",
-        label: "Required SDK package",
-        hint: "Independently versioned framework packages recorded in the assessment.",
+        label: "SDK package",
+        hint: "Framework and adapter packages recorded in the package inventory.",
       },
       {
-        id: "running",
+        id: "runningVersion",
         label: "Running version",
-        hint: "The exact Showcase version recorded on the assessment date.",
+        hint: "Verified deployed SDK or package version when available.",
       },
       {
         id: "graceTarget",
@@ -65,33 +50,13 @@ const sections: {
       },
       {
         id: "latest",
-        label: "Latest available",
+        label: "Latest",
         hint: "Latest available at assessment time, not a live registry lookup.",
-      },
-    ],
-  },
-  {
-    name: "Assessment evidence",
-    rows: [
-      {
-        id: "assessed",
-        label: "Assessed on",
-        hint: "When the package facts were assessed.",
-      },
-      {
-        id: "ceiling",
-        label: "Newer tested version",
-        hint: "A separately tested newer version; no ceiling evidence was included in this snapshot.",
-      },
-      {
-        id: "trend",
-        label: "90-day trend",
-        hint: "Comparable history is required before a trend can be shown.",
       },
       {
         id: "source",
-        label: "Source",
-        hint: "The original assessment and scoring rubric.",
+        label: "Registry",
+        hint: "Current registry fact source for package versions.",
       },
     ],
   },
@@ -115,6 +80,36 @@ function Score({ value }: { value: number }) {
   );
 }
 
+function EmptyValue({ children }: { children: string }) {
+  return <span className="text-[var(--text-muted)]">{children}</span>;
+}
+
+function VersionValue({
+  value,
+  emptyLabel,
+}: {
+  value: string | null;
+  emptyLabel: string;
+}) {
+  return value ? (
+    <span className="break-words font-mono text-[11px]">{value}</span>
+  ) : (
+    <EmptyValue>{emptyLabel}</EmptyValue>
+  );
+}
+
+function PackageValue({ sdk }: { sdk?: SdkAssessment }) {
+  if (!sdk) return null;
+  return (
+    <div>
+      <span className="break-words font-mono text-[11px]">{sdk.name}</span>
+      <div className="mt-1 text-[10px] capitalize text-[var(--text-muted)]">
+        {sdk.role.replaceAll("_", " ")}
+      </div>
+    </div>
+  );
+}
+
 function MetricValue({
   metric,
   variant,
@@ -125,83 +120,65 @@ function MetricValue({
   sdk?: SdkAssessment;
 }) {
   const assessment = variant.assessment;
-  if (!assessment)
-    return <span className="text-[var(--text-muted)]">Not assessed</span>;
-  const score = sdk?.score ?? assessment.score;
   switch (metric) {
     case "score":
-      return <Score value={score} />;
-    case "currency":
-      return (
-        <span
-          className="inline-flex items-center gap-1.5 text-[11px]"
-          style={{ color: score === 100 ? "var(--ok)" : "var(--amber)" }}
-        >
-          <span aria-hidden>{score === 100 ? "✓" : "↗"}</span>
-          {score === 100 ? "Within grace target" : "4+ minor lines behind"}
-        </span>
-      );
-    case "opportunity":
-      return score === 100 ? (
-        <span className="text-[var(--text-muted)]">At target</span>
+      if (sdk) return <EmptyValue>—</EmptyValue>;
+      return assessment.currentScore === null ? (
+        <EmptyValue>{assessment.label}</EmptyValue>
       ) : (
-        <span className="font-medium text-[var(--accent)]">
-          +{100 - score} compatibility points
-        </span>
+        <Score value={assessment.currentScore} />
       );
     case "package":
       return sdk ? (
-        <span className="break-words font-mono text-[11px]">{sdk.name}</span>
+        <PackageValue sdk={sdk} />
       ) : (
         <span>
-          {assessment.packages.length} required SDK
+          {assessment.packages.length} package
           {assessment.packages.length === 1 ? "" : "s"}
         </span>
       );
-    case "running":
+    case "runningVersion": {
+      const pkg =
+        sdk ??
+        (assessment.packages.length === 1 ? assessment.packages[0] : undefined);
+      return pkg ? (
+        <VersionValue value={pkg.runningVersion} emptyLabel="Not verified" />
+      ) : (
+        <span className="text-[var(--text-secondary)]">
+          {assessment.packages.length} versions · expand SDKs
+        </span>
+      );
+    }
     case "graceTarget":
     case "latest": {
       const pkg =
         sdk ??
         (assessment.packages.length === 1 ? assessment.packages[0] : undefined);
-      if (!pkg)
-        return (
-          <span className="text-[var(--text-secondary)]">
-            {assessment.packages.length} versions · expand SDKs
-          </span>
-        );
-      return (
-        <div>
-          <span className="break-words font-mono text-[11px]">
-            {pkg[metric]}
-          </span>
-          {metric !== "running" && pkg.targetsAreReleaseLines && (
-            <div className="mt-1 text-[10px] text-[var(--text-muted)]">
-              Release line reported
-            </div>
-          )}
-        </div>
+      return pkg ? (
+        <VersionValue value={pkg[metric]} emptyLabel="Not available" />
+      ) : (
+        <span className="text-[var(--text-secondary)]">
+          {assessment.packages.length} versions · expand SDKs
+        </span>
       );
     }
-    case "assessed":
-      return (
-        <time dateTime={COMPATIBILITY_SNAPSHOT.assessedAt}>Aug 19, 2026</time>
-      );
-    case "ceiling":
-      return <span className="text-[var(--text-muted)]">Not recorded</span>;
-    case "trend":
-      return <span className="text-[var(--text-muted)]">Initial baseline</span>;
-    case "source":
+    case "source": {
+      const pkg =
+        sdk ??
+        (assessment.packages.length === 1 ? assessment.packages[0] : undefined);
+      if (!pkg) return <EmptyValue>Expand SDKs</EmptyValue>;
+      if (!pkg.sourceUrl) return <EmptyValue>Not available</EmptyValue>;
       return (
         <a
           className="text-[var(--accent)] underline-offset-2 hover:underline"
-          href={COMPATIBILITY_SNAPSHOT.source}
+          href={pkg.sourceUrl}
           target="_blank"
           rel="noreferrer"
         >
-          Scorecard v2 ↗
+          Registry
         </a>
       );
+    }
   }
 }
 
@@ -226,21 +203,14 @@ export function CompatibilityGrid({
     const columns: Column[] = [{ key: platform.id, platform }];
     if (expanded.has(platform.id)) {
       for (const variant of platform.variants) {
-        const packages = variant.assessment?.packages;
-        if (packages?.length) {
-          for (const sdk of packages)
-            columns.push({
-              key: `${variant.slug}:${sdk.name}`,
-              platform,
-              variant,
-              sdk,
-            });
-        } else
+        for (const sdk of variant.assessment.packages) {
           columns.push({
-            key: `${variant.slug}:unassessed`,
+            key: `${variant.slug}:${sdk.name}`,
             platform,
             variant,
+            sdk,
           });
+        }
       }
     }
     return { platform, columns };
@@ -253,8 +223,8 @@ export function CompatibilityGrid({
       style={{ width: 210 + columns.length * 240, tableLayout: "fixed" }}
     >
       <caption className="sr-only">
-        Framework SDK compatibility — August 19, 2026 snapshot. Platforms expand
-        horizontally into SDK package columns.
+        Framework SDK compatibility — {COMPATIBILITY_SNAPSHOT.date} snapshot.
+        Platforms expand horizontally into SDK package columns.
       </caption>
       <colgroup>
         <col style={{ width: 210 }} />
@@ -286,7 +256,7 @@ export function CompatibilityGrid({
               >
                 <span className="text-xs font-semibold">{platform.name}</span>
                 <span className="shrink-0 text-[10px] font-medium text-[var(--accent)]">
-                  {expanded.has(platform.id) ? "− Hide SDKs" : "+ SDKs"}
+                  {expanded.has(platform.id) ? "- Hide SDKs" : "+ SDKs"}
                 </span>
               </button>
             </th>
@@ -310,7 +280,7 @@ export function CompatibilityGrid({
               </div>
               {column.variant ? (
                 <div className="break-words font-mono text-[11px] leading-relaxed">
-                  {column.sdk?.name ?? "SDK inventory not assessed"}
+                  {column.sdk?.name}
                 </div>
               ) : (
                 <div className="text-[11px] text-[var(--text-muted)]">

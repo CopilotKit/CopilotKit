@@ -22,13 +22,21 @@ function expectAlignedRows() {
   expect(new Set(widths).size).toBe(1);
 }
 
+function getMetricCell(metric: string, column: string) {
+  const header = screen.getByRole<HTMLTableCellElement>("columnheader", {
+    name: column,
+  });
+  const row = screen.getByRole("rowheader", { name: metric }).closest("tr")!;
+  return row.cells[header.cellIndex];
+}
+
 describe("Compatibility tab", () => {
   it("keeps platforms across columns and labels the assessment snapshot", () => {
     render(<CompatibilityTab />);
     expect(
       screen.getByRole("heading", { name: "Compatibility" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("August 19, 2026 snapshot")).toBeInTheDocument();
+    expect(screen.getByText("September 17, 2026 snapshot")).toBeInTheDocument();
     const headers = screen.getAllByRole("columnheader");
     expect(
       headers.findIndex((h) => h.textContent?.includes("LangGraph")),
@@ -37,10 +45,10 @@ describe("Compatibility tab", () => {
     );
     expect(
       screen.getByTestId("compatibility-summary-langgraph"),
-    ).toHaveTextContent("Not assessed");
+    ).toHaveTextContent("Not verified");
   });
 
-  it("renders MAF and AWS variants as separate base columns with independent scores", () => {
+  it("renders MAF and AWS variants as separate base columns with current-only scores", () => {
     render(<CompatibilityTab />);
 
     for (const name of [
@@ -57,19 +65,19 @@ describe("Compatibility tab", () => {
 
     expect(
       screen.getByTestId("compatibility-summary-ms-agent-python"),
-    ).toHaveTextContent("100");
+    ).toHaveTextContent("Not verified");
     expect(
       screen.getByTestId("compatibility-summary-ms-agent-dotnet"),
-    ).toHaveTextContent("60");
+    ).toHaveTextContent("Not verified");
     expect(
       screen.getByTestId("compatibility-summary-ms-agent-harness-dotnet"),
-    ).toHaveTextContent("Not assessed");
+    ).toHaveTextContent("60");
     expect(
       screen.getByTestId("compatibility-summary-strands"),
-    ).toHaveTextContent("100");
+    ).toHaveTextContent("Not verified");
     expect(
       screen.getByTestId("compatibility-summary-strands-typescript"),
-    ).toHaveTextContent("60");
+    ).toHaveTextContent("100");
   });
 
   it("expands and collapses MAF SDK columns independently", () => {
@@ -91,7 +99,7 @@ describe("Compatibility tab", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Expand MAF .NET SDKs" }),
     );
-    expect(screen.getAllByRole("columnheader")).toHaveLength(before + 5);
+    expect(screen.getAllByRole("columnheader")).toHaveLength(before + 8);
     expect(
       screen.getByRole("columnheader", { name: /Microsoft.Agents.AI.OpenAI/ }),
     ).toBeInTheDocument();
@@ -100,7 +108,7 @@ describe("Compatibility tab", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Collapse MAF Python SDKs" }),
     );
-    expect(screen.getAllByRole("columnheader")).toHaveLength(before + 2);
+    expect(screen.getAllByRole("columnheader")).toHaveLength(before + 5);
     expect(
       screen.getByRole("columnheader", { name: /Microsoft.Agents.AI.OpenAI/ }),
     ).toBeInTheDocument();
@@ -118,9 +126,9 @@ describe("Compatibility tab", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Expand AWS Strands Python SDKs" }),
     );
-    expect(screen.getAllByRole("columnheader")).toHaveLength(before + 1);
+    expect(screen.getAllByRole("columnheader")).toHaveLength(before + 3);
     expect(
-      screen.getByRole("columnheader", { name: /strands-agents/ }),
+      screen.getByRole("columnheader", { name: /^Python strands-agents$/ }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("columnheader", { name: /@strands-agents\/sdk/ }),
@@ -131,16 +139,16 @@ describe("Compatibility tab", () => {
         name: "Expand AWS Strands TypeScript SDKs",
       }),
     );
-    expect(screen.getAllByRole("columnheader")).toHaveLength(before + 2);
+    expect(screen.getAllByRole("columnheader")).toHaveLength(before + 5);
     expect(
       screen.getByRole("columnheader", { name: /@strands-agents\/sdk/ }),
     ).toBeInTheDocument();
     expectAlignedRows();
   });
 
-  it("filters to upgrade opportunities without turning unknown variants into scores", () => {
+  it("filters to current numeric scores without turning unknown variants into scores", () => {
     render(<CompatibilityTab />);
-    fireEvent.click(screen.getByRole("button", { name: /Needs upgrade/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Current score/ }));
     expect(
       screen.queryByRole("button", { name: "Expand LangGraph SDKs" }),
     ).not.toBeInTheDocument();
@@ -148,13 +156,13 @@ describe("Compatibility tab", () => {
       screen.queryByRole("button", { name: "Expand MAF Python SDKs" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Expand .NET Harness SDKs" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "Expand .NET Harness SDKs" }),
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Expand AWS Strands Python SDKs" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Expand MAF .NET SDKs" }),
+      screen.getByRole("button", { name: "Expand CrewAI SDKs" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
@@ -162,15 +170,137 @@ describe("Compatibility tab", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByTestId("compatibility-summary-ms-agent-dotnet"),
-    ).toHaveTextContent("60");
+      screen.getByTestId("compatibility-summary-crewai"),
+    ).toHaveTextContent("100");
     expect(
       screen.getByTestId("compatibility-summary-strands-typescript"),
+    ).toHaveTextContent("100");
+    expect(
+      screen.getByTestId("compatibility-summary-ms-agent-harness-dotnet"),
     ).toHaveTextContent("60");
     fireEvent.click(screen.getByRole("button", { name: /All platforms/ }));
     expect(
       screen.getByRole("button", { name: "Expand LangGraph SDKs" }),
     ).toBeInTheDocument();
+  });
+
+  it("keeps variant scores in overview columns when SDK packages are expanded", () => {
+    render(<CompatibilityTab />);
+    fireEvent.click(screen.getByRole("button", { name: "Expand CrewAI SDKs" }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Expand AWS Strands TypeScript SDKs",
+      }),
+    );
+
+    expect(
+      screen.getByTestId("compatibility-summary-crewai"),
+    ).toHaveTextContent("100");
+    expect(
+      screen.getByTestId("compatibility-summary-strands-typescript"),
+    ).toHaveTextContent("100");
+    for (const column of [
+      "Conversational flows ag-ui-crewai",
+      "Conversational flows crewai",
+      "Conversational flows crewai-tools",
+      "Flows ag-ui-crewai",
+      "TypeScript @ag-ui/aws-strands",
+      "TypeScript @strands-agents/sdk",
+    ]) {
+      expect(getMetricCell("Compatibility", column)).toHaveTextContent(/^—$/);
+    }
+  });
+
+  it("distinguishes unavailable registry versions from unverified running versions", () => {
+    render(<CompatibilityTab />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Expand Spring AI SDKs" }),
+    );
+
+    for (const column of [
+      "Java com.ag-ui.community:java-server / com.ag-ui.community:spring",
+      "Java com.ag-ui.community:spring-ai",
+    ]) {
+      expect(getMetricCell("Running version", column)).toHaveTextContent(
+        /^Not verified$/,
+      );
+      expect(getMetricCell("Grace target", column)).toHaveTextContent(
+        /^Not available$/,
+      );
+      expect(getMetricCell("Latest", column)).toHaveTextContent(
+        /^Not available$/,
+      );
+      expect(getMetricCell("Registry", column)).toHaveTextContent(
+        /^Not available$/,
+      );
+    }
+  });
+
+  it("summarizes multiple registry sources until their SDK columns are expanded", () => {
+    render(<CompatibilityTab />);
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: "Find a platform or SDK" }),
+      { target: { value: "AWS Strands TypeScript" } },
+    );
+
+    expect(
+      getMetricCell("Registry", "Overview 1 variant · individual scores"),
+    ).toHaveTextContent(/^Expand SDKs$/);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Expand AWS Strands TypeScript SDKs",
+      }),
+    );
+
+    for (const name of ["@ag-ui/aws-strands", "@strands-agents/sdk"]) {
+      const cell = getMetricCell("Registry", `TypeScript ${name}`);
+      expect(
+        within(cell).getByRole("link", { name: "Registry" }),
+      ).toHaveAttribute("href", `https://www.npmjs.com/package/${name}`);
+      expect(cell).not.toHaveTextContent("Not available");
+    }
+  });
+
+  it("scores Harness against its stable target while preserving the running preview version", () => {
+    render(<CompatibilityTab />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Expand .NET Harness SDKs" }),
+    );
+
+    expect(
+      screen.getByRole("columnheader", {
+        name: /Microsoft.Agents.AI.Harness/,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId("compatibility-summary-ms-agent-harness-dotnet"),
+    ).toHaveTextContent("60");
+    const column = ".NET Harness Microsoft.Agents.AI.Harness";
+    expect(getMetricCell("Running version", column)).toHaveTextContent(
+      /^1\.6\.1-preview\.260514\.1$/,
+    );
+    expect(getMetricCell("Grace target", column)).toHaveTextContent(
+      /^1\.18\.0$/,
+    );
+    expect(getMetricCell("Latest", column)).toHaveTextContent(/^1\.21\.0$/);
+    expect(screen.queryByText(/repository/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/repo/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/build verified/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/runtime observed/i)).not.toBeInTheDocument();
+  });
+
+  it("never substitutes repository versions for unknown running versions", () => {
+    render(<CompatibilityTab />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Expand LangGraph SDKs" }),
+    );
+
+    expect(
+      screen.getByRole("columnheader", { name: /@langchain\/langgraph-sdk/ }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Not verified").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("1.11.0").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("1.9.29").length).toBeGreaterThan(0);
   });
 
   it("finds a package inside a collapsed platform and offers a recoverable empty state", () => {
@@ -196,7 +326,7 @@ describe("Compatibility tab", () => {
     ).toBeInTheDocument();
   });
 
-  it("uses a distinct expanded placeholder key for an unassessed standalone integration", () => {
+  it("uses distinct expanded keys for standalone package inventory", () => {
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
@@ -207,7 +337,12 @@ describe("Compatibility tab", () => {
       fireEvent.click(
         screen.getByRole("button", { name: "Expand .NET Harness SDKs" }),
       );
-      expect(screen.getAllByRole("columnheader")).toHaveLength(before + 1);
+      expect(screen.getAllByRole("columnheader")).toHaveLength(before + 5);
+      expect(
+        screen.getByRole("columnheader", {
+          name: /Microsoft.Agents.AI.Harness/,
+        }),
+      ).toBeInTheDocument();
       expect(
         screen.getByRole("button", { name: "Expand AWS Strands Python SDKs" }),
       ).toBeInTheDocument();
