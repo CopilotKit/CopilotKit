@@ -15,8 +15,8 @@ vi.mock("../content/landing-pages/intelligence-overview", () => ({
 }));
 let intersect: (entries: Partial<IntersectionObserverEntry>[]) => void;
 let motion: EventTarget & { matches: boolean };
-let play: ReturnType<typeof vi.fn>;
-let pause: ReturnType<typeof vi.fn>;
+let play: ReturnType<typeof vi.fn<() => Promise<void>>>;
+let pause: ReturnType<typeof vi.fn<() => void>>;
 
 beforeEach(() => {
   motion = Object.assign(new EventTarget(), { matches: false });
