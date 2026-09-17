@@ -1,5 +1,6 @@
 "use client";
 
+import { IntelligencePreview } from "./intelligence-preview";
 import { useHomepageTelemetry } from "@/lib/use-homepage-telemetry";
 
 import { useRef, useState } from "react";
@@ -16,6 +17,7 @@ import type { LucideIcon } from "lucide-react";
 interface Recording {
   readonly id: string;
   readonly title: string;
+  readonly telemetryTitle?: string;
   readonly loomId: string;
   readonly icon: LucideIcon;
   readonly thumbnail: string;
@@ -32,7 +34,8 @@ const RECORDINGS: readonly Recording[] = [
   },
   {
     id: "user-memories",
-    title: "Automatic Learning",
+    title: "Self-improving agents",
+    telemetryTitle: "Automatic Learning",
     loomId: "2978fbfe42324e509057ac5fd46b7a70",
     icon: Brain,
     thumbnail:
@@ -65,7 +68,8 @@ export function DocsVideoCarousel() {
   function selectAndFocus(index: number) {
     if (index !== activeIndex)
       track("walkthrough_selected", {
-        walkthrough: RECORDINGS[index].title,
+        walkthrough:
+          RECORDINGS[index].telemetryTitle ?? RECORDINGS[index].title,
         loom_id: RECORDINGS[index].loomId,
       });
     setPlaying(false);
@@ -109,7 +113,9 @@ export function DocsVideoCarousel() {
         aria-labelledby={`${TAB_ID_PREFIX}${active.id}`}
         className="relative"
       >
-        <div className="not-prose h-[520px] w-full overflow-hidden bg-[var(--bg-elevated)] sm:h-[600px]">
+        <div
+          className={`not-prose w-full overflow-hidden bg-[var(--bg-elevated)] ${activeIndex === 0 && !playing ? "" : "aspect-video"}`}
+        >
           {playing ? (
             <iframe
               src={`https://www.loom.com/embed/${active.loomId}?autoplay=1`}
@@ -119,12 +125,28 @@ export function DocsVideoCarousel() {
               allowFullScreen
               sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
             />
+          ) : activeIndex === 0 ? (
+            <IntelligencePreview>
+              <button
+                type="button"
+                onClick={() => {
+                  track("video_play_clicked", {
+                    walkthrough: active.telemetryTitle ?? active.title,
+                    loom_id: active.loomId,
+                  });
+                  setPlaying(true);
+                }}
+                className="rounded-full border border-[var(--border)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-semibold text-[var(--text)]"
+              >
+                Watch full walkthrough
+              </button>
+            </IntelligencePreview>
           ) : (
             <button
               type="button"
               onClick={() => {
                 track("video_play_clicked", {
-                  walkthrough: active.title,
+                  walkthrough: active.telemetryTitle ?? active.title,
                   loom_id: active.loomId,
                 });
                 setPlaying(true);
@@ -186,7 +208,7 @@ export function DocsVideoCarousel() {
               className={`shell-docs-radius-control inline-flex min-h-11 min-w-0 cursor-pointer flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-medium leading-tight sm:flex-row sm:gap-2 sm:px-2 sm:text-xs transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)] focus-visible:outline-none ${isActive ? "bg-[var(--accent-dim)] text-[var(--accent)]" : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"}`}
             >
               <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
-              <span data-testid="tab-title" className="whitespace-nowrap">
+              <span data-testid="tab-title" className="text-center">
                 {recording.title}
               </span>
             </button>
