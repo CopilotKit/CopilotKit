@@ -119,6 +119,13 @@ describe("createSseEventResponse keep-alive", () => {
     );
     expect(vi.getTimerCount()).toBe(0);
   });
+
+  it("rejects an interval above the timer limit before arming it", () => {
+    expect(() => respond(MAX_SSE_KEEP_ALIVE_INTERVAL_SECONDS + 0.001)).toThrow(
+      RangeError,
+    );
+    expect(vi.getTimerCount()).toBe(0);
+  });
 });
 
 const postAgent = (path: string, body: unknown) =>
