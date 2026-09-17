@@ -12,4 +12,3 @@
 # problem it reports, not just the one seen on 2026-09-17. That is the cost of
 # keeping the list short, and it is also why the list has to shrink.
 
-agent-spec|examples/integrations/agent-spec/agent/pyproject.toml|`[tool.uv.sources]` points ag-ui-agent-spec at `../../ag-ui/integrations/agent-spec/python`, which resolves to examples/integrations/ag-ui/... and does not exist in this repository. The agent cannot be installed from a clean clone by anyone. PE-140 follow-up (agent-spec agent source).
