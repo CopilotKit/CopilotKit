@@ -1,3 +1,7 @@
+import type {
+  ObservationApplyRequest,
+  ObservationApplyResponse,
+} from "../writers/selected-observation.js";
 import type { Logger } from "../types/index.js";
 import { formatCvdiag } from "../probes/helpers/cv-diag.js";
 
@@ -52,6 +56,9 @@ export interface ListResult<T> {
 }
 
 export interface PbClient {
+  applyFleetObservation?(
+    input: ObservationApplyRequest,
+  ): Promise<ObservationApplyResponse>;
   getOne<T>(collection: string, id: string): Promise<T | null>;
   getFirst<T>(collection: string, filter: string): Promise<T | null>;
   list<T>(collection: string, opts?: ListOpts): Promise<ListResult<T>>;
@@ -497,6 +504,22 @@ export function createPbClient(config: PbClientConfig): PbClient {
   }
 
   const client: PbClient = {
+    async applyFleetObservation(input) {
+      const path = "/api/fleet/observations/apply";
+      const res = await request(path, {
+        method: "POST",
+        body: JSON.stringify(input),
+      });
+      if (!res.ok) {
+        throw new PbHttpError({
+          statusCode: res.status,
+          bodyText: await res.text(),
+          path,
+        });
+      }
+      return (await res.json()) as ObservationApplyResponse;
+    },
+
     async getOne<T>(collection: string, id: string): Promise<T | null> {
       const res = await request(
         `/api/collections/${encodeURIComponent(collection)}/records/${encodeURIComponent(id)}`,
