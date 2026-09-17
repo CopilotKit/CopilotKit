@@ -1,9 +1,9 @@
-import { resolveRegistryConfig } from "./config.js";
-import type { RegistryConfig, SkillRegistryOptions } from "./config.js";
-import { SkillDeliveryError, invalidSnapshot } from "./errors.js";
-import type { SkillDeliveryErrorCode } from "./errors.js";
-import { validateSnapshot } from "./snapshot.js";
-import type { VerifiedSnapshot } from "./snapshot.js";
+import { resolveRegistryConfig } from "./config";
+import type { RegistryConfig, SkillRegistryOptions } from "./config";
+import { SkillDeliveryError, invalidSnapshot } from "./errors";
+import type { SkillDeliveryErrorCode } from "./errors";
+import { validateSnapshot } from "./snapshot";
+import type { VerifiedSnapshot } from "./snapshot";
 
 export interface SkillRegistryStatus {
   readonly initialized: boolean;

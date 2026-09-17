@@ -1,6 +1,6 @@
 import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { describe, expect, it, vi } from "vitest";
-import { resolveRegistryConfig } from "../config.js";
+import { resolveRegistryConfig } from "../index.js";
 
 const environment = {
   CPK_INTELLIGENCE_API_KEY: "environment-key",

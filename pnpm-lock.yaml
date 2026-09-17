@@ -2677,9 +2677,6 @@ importers:
       "@copilotkit/runtime":
         specifier: workspace:*
         version: link:../runtime
-      yauzl:
-        specifier: 2.10.0
-        version: 2.10.0
     devDependencies:
       "@copilotkit/typescript-config":
         specifier: workspace:*
@@ -2708,9 +2705,6 @@ importers:
       "@copilotkit/runtime":
         specifier: workspace:*
         version: link:../runtime
-      yauzl:
-        specifier: 2.10.0
-        version: 2.10.0
     devDependencies:
       "@copilotkit/typescript-config":
         specifier: workspace:*
@@ -2751,9 +2745,6 @@ importers:
       "@copilotkit/runtime":
         specifier: workspace:*
         version: link:../runtime
-      yauzl:
-        specifier: 2.10.0
-        version: 2.10.0
     devDependencies:
       "@copilotkit/typescript-config":
         specifier: workspace:*
@@ -3405,6 +3396,9 @@ importers:
       ws:
         specifier: ^8.18.0
         version: 8.19.0
+      yauzl:
+        specifier: 2.10.0
+        version: 2.10.0
       zod:
         specifier: '>=3.22.3'
         version: 3.25.76
@@ -3424,6 +3418,9 @@ importers:
       '@types/node':
         specifier: ^18.11.17
         version: 18.19.130
+      '@types/yauzl':
+        specifier: 2.10.3
+        version: 2.10.3
       '@types/phoenix':
         specifier: ^1.6.6
         version: 1.6.7

@@ -1,5 +1,5 @@
-import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
-import { SkillDeliveryError } from "./errors.js";
+import { CopilotKitIntelligence } from "../client";
+import { SkillDeliveryError } from "./errors";
 
 export interface SkillRegistryOptions {
   client?: CopilotKitIntelligence;
