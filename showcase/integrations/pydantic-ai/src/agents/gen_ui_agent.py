@@ -20,7 +20,7 @@ class GenUiAgentState(BaseModel):
 
 
 agent = Agent(
-    model=OpenAIResponsesModel("gpt-4.1-mini"),
+    model=OpenAIResponsesModel("gpt-5-mini"),
     deps_type=StateDeps[GenUiAgentState],
     system_prompt=(
         "You are an agentic planner. For each user request, plan exactly "
