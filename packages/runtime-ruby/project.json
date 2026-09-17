@@ -45,6 +45,14 @@
       },
       "cache": false,
       "dependsOn": []
+    },
+    "verify-distribution": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bash packages/runtime-ruby/test/check-package.sh"
+      },
+      "cache": false,
+      "dependsOn": ["build"]
     }
   }
 }
