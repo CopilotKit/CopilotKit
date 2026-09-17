@@ -92,6 +92,18 @@ describe("BuiltInAgent learned skills", () => {
     expect(factory).not.toHaveBeenCalled();
   });
 
+  it("does not start classic MCP setup after immediate unsubscribe", async () => {
+    const tools = vi.fn(async () => ({}));
+    const agent = new BuiltInAgent({
+      model: "openai/gpt-4o",
+      mcpClients: [{ tools }],
+    });
+    agent.run(createDefaultInput()).subscribe().unsubscribe();
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(tools).not.toHaveBeenCalled();
+    expect(streamText).not.toHaveBeenCalled();
+  });
+
   it("keeps a configured empty snapshot empty and discovers skills on a later run", async () => {
     const { fetch, learnedSkills } = setup();
     fetch.mockResolvedValueOnce(response("empty"));

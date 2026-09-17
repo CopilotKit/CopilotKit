@@ -1433,6 +1433,7 @@ export class BuiltInAgent extends AbstractAgent {
             this.skillRegistry,
             abortController.signal,
           );
+          abortController.signal.throwIfAborted();
           if (learnedSkills.catalog) {
             messages.unshift({
               role: "system",
