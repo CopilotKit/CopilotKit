@@ -240,7 +240,7 @@ def copilotkit_customize_config(
             DeprecationWarning,
             stacklevel=2,
         )
-    metadata = base_config.get("metadata", {}) if base_config else {}
+    metadata = dict(base_config.get("metadata", {})) if base_config else {}
 
     if emit_all is True:
         metadata["copilotkit:emit-tool-calls"] = True
