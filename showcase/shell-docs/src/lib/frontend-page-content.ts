@@ -76,6 +76,7 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "prebuilt-components/chat-controls": "guides/chat-ui",
   "custom-look-and-feel/css": "guides/chat-ui",
   "custom-look-and-feel/slots": "guides/chat-ui",
+  "custom-look-and-feel/markdown": "guides/chat-ui",
   "custom-look-and-feel/reasoning-messages": "guides/chat-ui",
   "multimodal-attachments": "guides/voice-multimodal",
   voice: "guides/voice-multimodal",
