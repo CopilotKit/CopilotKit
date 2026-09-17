@@ -40,3 +40,28 @@ describe("docs_open_release_pr.yml", () => {
     expect(prStep?.with?.branch).toBe("release/docs/prod");
   });
 });
+
+describe("docs_promote.yml", () => {
+  it("promotes only a merged release/docs/prod PR", () => {
+    const doc = load("docs_promote.yml");
+    const concurrency = doc.concurrency as { group: string; "cancel-in-progress": boolean };
+    expect(concurrency.group).toBe("docs-promote");
+    expect(concurrency["cancel-in-progress"]).toBe(false);
+    const yaml = readFileSync(
+      join(workflowsDir, "docs_promote.yml"),
+      "utf8",
+    );
+    expect(yaml).not.toMatch(/showcase-promote/);
+    const jobs = doc.jobs as Record<
+      string,
+      { if?: string; environment?: string; steps: Array<{ run?: string }> }
+    >;
+    const promote = jobs.promote;
+    expect(promote.environment).toBe("railway");
+    expect(promote.if).toMatch(/release\/docs\/prod/);
+    expect(promote.if).toMatch(/merged/);
+    const runs = promote.steps.map((s) => s.run ?? "").join("\n");
+    expect(runs).toMatch(/bin\/railway promote docs --digest/);
+    expect(runs).toMatch(/verify-deploy\.ts --env prod --services docs/);
+  });
+});
