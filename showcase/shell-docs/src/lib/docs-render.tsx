@@ -257,7 +257,6 @@ export type MetaPageEntry =
       title: string;
       pages: MetaPageEntry[];
       defaultOpen?: boolean;
-      indexSlug?: string;
       icon?: string;
     };
 
