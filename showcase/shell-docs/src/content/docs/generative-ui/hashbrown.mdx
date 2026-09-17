@@ -1,5 +1,5 @@
 ---
-title: BYOC — Hashbrown
+title: Hashbrown
 description: Bring your own component library. Have the agent stream structured output and let Hashbrown's progressive JSON parser render it as React components in real time.
 icon: "lucide/Component"
 snippet_cell: declarative-hashbrown
@@ -15,7 +15,7 @@ You have a chat surface and you want the agent to draw a dashboard, not just des
 - **Agents authoring structured UI** where the output is JSON-shaped, not free text.
 - **Cases where you already use Hashbrown** for UI generation elsewhere in your stack.
 
-If you'd rather work with an explicit catalog of registered components rather than streaming a JSON tree, see the sibling page [BYOC — JSON Render](/generative-ui/json-render) for the same scenario implemented with `@json-render/react`.
+If you'd rather work with an explicit catalog of registered components rather than streaming a JSON tree, see the sibling page [JSON Render](/generative-ui/json-render) for the same scenario implemented with `@json-render/react`.
 
 ## Frontend
 
@@ -97,7 +97,7 @@ Or a tree:
 
 Hashbrown's parser tolerates partial JSON, so the user sees `MetricCard` resolve before `BarChart` even starts streaming.
 
-## Comparing the two BYOC patterns
+## Comparing the two patterns
 
 Both `byoc-hashbrown` and [`byoc-json-render`](/generative-ui/json-render) solve the same problem (agent-authored structured UI, rendered through a typed catalog), with two different rendering libraries. Pick whichever you already use elsewhere — the agent contract is the same shape; the React glue is what changes.
 
