@@ -7,8 +7,8 @@ export function verifyLocalNugetArtifacts(artifacts, assets) {
     "CopilotKit.Intelligence",
     "CopilotKit.Intelligence.AgentFramework",
   ]) {
-    const key = Object.keys(assets.libraries).find((key) =>
-      key.startsWith(name + "/"),
+    const key = Object.keys(assets.libraries).find((entry) =>
+      entry.startsWith(name + "/"),
     );
     assert.ok(key, `Missing source artifact ${name}`);
     const archive = readFileSync(
