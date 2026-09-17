@@ -12,5 +12,3 @@
 # problem it reports, not just the one seen on 2026-09-17. That is the cost of
 # keeping the list short, and it is also why the list has to shrink.
 
-a2a-a2ui|examples/integrations/a2a-a2ui/package.json|`next build` fails typechecking the scaffolded copilotkit:intelligence block in src/app/api/copilotkit/[[...slug]]/route.ts against the pinned @copilotkit/runtime 1.61.0: the conditional spread produces `apiUrl?: string | undefined` where CopilotKitIntelligenceConfig wants `string`. Same block, same error, in agent-spec. Every other starter carries the identical block but sets `typescript.ignoreBuildErrors: true`, which is why only these two show it. PE-140 follow-up (intelligence scaffold types).
-agent-spec|examples/integrations/agent-spec/package.json|Same scaffolded copilotkit:intelligence type error as a2a-a2ui above. PE-140 follow-up (intelligence scaffold types).
