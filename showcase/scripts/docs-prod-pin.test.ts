@@ -46,7 +46,8 @@ describe("parseDocsProdPin", () => {
   it("throws when image does not match digest", () => {
     const raw = JSON.stringify({
       ...VALID,
-      image: "ghcr.io/copilotkit/showcase-shell-docs@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      image:
+        "ghcr.io/copilotkit/showcase-shell-docs@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     });
     expect(() => parseDocsProdPin(raw)).toThrow(/image/);
   });

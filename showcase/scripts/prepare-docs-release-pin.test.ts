@@ -90,15 +90,19 @@ describe("prepare-docs-release-pin CLI", () => {
   it("does not write when staging equals the pin already on disk", () => {
     writeFileSync(
       pinPath,
-      `${JSON.stringify({
-        schema_version: 1,
-        service: "docs",
-        image: `ghcr.io/copilotkit/showcase-shell-docs@${DIGEST_A}`,
-        digest: DIGEST_A,
-        git_sha: GIT_SHA,
-        staging_url: "https://docs.staging.copilotkit.ai",
-        verified_at: VERIFIED_AT,
-      }, null, 2)}\n`,
+      `${JSON.stringify(
+        {
+          schema_version: 1,
+          service: "docs",
+          image: `ghcr.io/copilotkit/showcase-shell-docs@${DIGEST_A}`,
+          digest: DIGEST_A,
+          git_sha: GIT_SHA,
+          staging_url: "https://docs.staging.copilotkit.ai",
+          verified_at: VERIFIED_AT,
+        },
+        null,
+        2,
+      )}\n`,
     );
     execFileSync(
       "npx",

@@ -52,7 +52,10 @@ export function parseDocsProdPin(raw: string): DocsProdPin {
   if (typeof parsed.git_sha !== "string" || parsed.git_sha.length === 0) {
     throw new Error("docs prod pin git_sha is missing");
   }
-  if (typeof parsed.staging_url !== "string" || parsed.staging_url.length === 0) {
+  if (
+    typeof parsed.staging_url !== "string" ||
+    parsed.staging_url.length === 0
+  ) {
     throw new Error("docs prod pin staging_url is missing");
   }
   if (
