@@ -32,11 +32,15 @@ function getMetricCell(metric: string, column: string) {
 
 describe("Compatibility tab", () => {
   it("keeps platforms across columns and labels the assessment snapshot", () => {
-    render(<CompatibilityTab />);
+    const { container } = render(<CompatibilityTab />);
     expect(
       screen.getByRole("heading", { name: "Compatibility" }),
     ).toBeInTheDocument();
     expect(screen.getByText("September 17, 2026 snapshot")).toBeInTheDocument();
+    expect(container).toHaveTextContent("17 / 21 variants scored");
+    expect(container).toHaveTextContent("58 SDK package entries");
+    expect(container).toHaveTextContent("3 not scored");
+    expect(container).toHaveTextContent("1 not applicable");
     const headers = screen.getAllByRole("columnheader");
     expect(
       headers.findIndex((h) => h.textContent?.includes("LangGraph")),
@@ -45,7 +49,7 @@ describe("Compatibility tab", () => {
     );
     expect(
       screen.getByTestId("compatibility-summary-langgraph"),
-    ).toHaveTextContent("Not verified");
+    ).toHaveTextContent("70");
   });
 
   it("renders MAF and AWS variants as separate base columns with current-only scores", () => {
@@ -65,16 +69,16 @@ describe("Compatibility tab", () => {
 
     expect(
       screen.getByTestId("compatibility-summary-ms-agent-python"),
-    ).toHaveTextContent("Not verified");
+    ).toHaveTextContent("100");
     expect(
       screen.getByTestId("compatibility-summary-ms-agent-dotnet"),
-    ).toHaveTextContent("Not verified");
+    ).toHaveTextContent("60");
     expect(
       screen.getByTestId("compatibility-summary-ms-agent-harness-dotnet"),
     ).toHaveTextContent("60");
     expect(
       screen.getByTestId("compatibility-summary-strands"),
-    ).toHaveTextContent("Not verified");
+    ).toHaveTextContent("100");
     expect(
       screen.getByTestId("compatibility-summary-strands-typescript"),
     ).toHaveTextContent("100");
@@ -150,17 +154,17 @@ describe("Compatibility tab", () => {
     render(<CompatibilityTab />);
     fireEvent.click(screen.getByRole("button", { name: /Current score/ }));
     expect(
-      screen.queryByRole("button", { name: "Expand LangGraph SDKs" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "Expand LangGraph SDKs" }),
+    ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Expand MAF Python SDKs" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "Expand MAF Python SDKs" }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Expand .NET Harness SDKs" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Expand AWS Strands Python SDKs" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "Expand AWS Strands Python SDKs" }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Expand CrewAI SDKs" }),
     ).toBeInTheDocument();
@@ -173,11 +177,29 @@ describe("Compatibility tab", () => {
       screen.getByTestId("compatibility-summary-crewai"),
     ).toHaveTextContent("100");
     expect(
+      screen.getByTestId("compatibility-summary-langgraph"),
+    ).toHaveTextContent("70");
+    expect(
+      screen.getByTestId("compatibility-summary-ms-agent-python"),
+    ).toHaveTextContent("100");
+    expect(
+      screen.getByTestId("compatibility-summary-strands"),
+    ).toHaveTextContent("100");
+    expect(
       screen.getByTestId("compatibility-summary-strands-typescript"),
     ).toHaveTextContent("100");
     expect(
       screen.getByTestId("compatibility-summary-ms-agent-harness-dotnet"),
     ).toHaveTextContent("60");
+    expect(
+      screen.queryByRole("button", { name: "Expand AG2 SDKs" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Expand Google ADK SDKs" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Expand Langroid SDKs" }),
+    ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /All platforms/ }));
     expect(
       screen.getByRole("button", { name: "Expand LangGraph SDKs" }),
@@ -211,8 +233,11 @@ describe("Compatibility tab", () => {
     }
   });
 
-  it("distinguishes unavailable registry versions from unverified running versions", () => {
+  it("keeps a single Running version field and distinguishes unavailable registry versions", () => {
     render(<CompatibilityTab />);
+    expect(
+      screen.getAllByRole("rowheader", { name: "Running version" }),
+    ).toHaveLength(1);
     fireEvent.click(
       screen.getByRole("button", { name: "Expand Spring AI SDKs" }),
     );
@@ -221,9 +246,6 @@ describe("Compatibility tab", () => {
       "Java com.ag-ui.community:java-server / com.ag-ui.community:spring",
       "Java com.ag-ui.community:spring-ai",
     ]) {
-      expect(getMetricCell("Running version", column)).toHaveTextContent(
-        /^Not verified$/,
-      );
       expect(getMetricCell("Grace target", column)).toHaveTextContent(
         /^Not available$/,
       );
@@ -234,6 +256,15 @@ describe("Compatibility tab", () => {
         /^Not available$/,
       );
     }
+    expect(
+      getMetricCell(
+        "Running version",
+        "Java com.ag-ui.community:java-server / com.ag-ui.community:spring",
+      ),
+    ).toHaveTextContent(/^0\.0\.1$/);
+    expect(
+      getMetricCell("Running version", "Java com.ag-ui.community:spring-ai"),
+    ).toHaveTextContent(/^1\.0\.1$/);
   });
 
   it("summarizes multiple registry sources until their SDK columns are expanded", () => {
@@ -283,24 +314,66 @@ describe("Compatibility tab", () => {
       /^1\.18\.0$/,
     );
     expect(getMetricCell("Latest", column)).toHaveTextContent(/^1\.21\.0$/);
-    expect(screen.queryByText(/repository/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/repo/i)).not.toBeInTheDocument();
+    expect(
+      getMetricCell(
+        "Running version",
+        ".NET Harness Microsoft.Extensions.AI.OpenAI",
+      ),
+    ).toHaveTextContent(/^10\.5\.1$/);
+    expect(
+      getMetricCell("Running version", ".NET Harness OpenAI"),
+    ).toHaveTextContent(/^2\.10\.0$/);
+    expect(screen.queryByText(/\brepository\b/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\brepo\b/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/build verified/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/runtime observed/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/origin\/main/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\bdeployed\b/i)).not.toBeInTheDocument();
   });
 
-  it("never substitutes repository versions for unknown running versions", () => {
+  it("keeps range and unresolved declarations unscored", () => {
     render(<CompatibilityTab />);
-    fireEvent.click(
-      screen.getByRole("button", { name: "Expand LangGraph SDKs" }),
+
+    expect(screen.getByTestId("compatibility-summary-ag2")).toHaveTextContent(
+      "Not verified",
     );
+    expect(
+      screen.getByTestId("compatibility-summary-google-adk"),
+    ).toHaveTextContent("Not verified");
+    expect(
+      screen.getByTestId("compatibility-summary-langroid"),
+    ).toHaveTextContent("Not verified");
+    expect(
+      screen.getByTestId("compatibility-summary-built-in-agent"),
+    ).toHaveTextContent("Not applicable");
+
+    for (const name of ["AG2", "Google ADK", "Langroid"]) {
+      fireEvent.click(
+        screen.getByRole("button", { name: `Expand ${name} SDKs` }),
+      );
+    }
 
     expect(
-      screen.getByRole("columnheader", { name: /@langchain\/langgraph-sdk/ }),
+      screen.getByRole("columnheader", { name: /^Python ag2$/ }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("Not verified").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("1.11.0").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("1.9.29").length).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("columnheader", { name: /^Python google-adk$/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: /^Python langroid$/ }),
+    ).toBeInTheDocument();
+    expect(getMetricCell("Running version", "Python ag2")).toHaveTextContent(
+      /^Not verified$/,
+    );
+    expect(
+      getMetricCell("Running version", "Python google-adk"),
+    ).toHaveTextContent(/^Not verified$/);
+    expect(
+      getMetricCell("Running version", "Python ag-ui-adk"),
+    ).toHaveTextContent(/^0\.7\.0$/);
+    expect(
+      getMetricCell("Running version", "Python langroid"),
+    ).toHaveTextContent(/^Not verified$/);
   });
 
   it("finds a package inside a collapsed platform and offers a recoverable empty state", () => {

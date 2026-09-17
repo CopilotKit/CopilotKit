@@ -214,7 +214,7 @@ export function CompatibilityTab() {
           <p>
             Each variant takes the lowest score among its required SDK packages.
             Python, TypeScript, .NET, and other variants keep separate scores.
-            Rows without a verified running SDK version are not scored.
+            Rows without a comparable running SDK version are not scored.
           </p>
           <p>
             Latest and grace target values are release inventory context. They

@@ -26,7 +26,7 @@ const sections: {
       {
         id: "score",
         label: "Compatibility",
-        hint: "Current score when the deployed SDK package version is verified.",
+        hint: "Current score when comparable SDK package versions are available.",
       },
     ],
   },
@@ -41,7 +41,7 @@ const sections: {
       {
         id: "runningVersion",
         label: "Running version",
-        hint: "Verified deployed SDK or package version when available.",
+        hint: "SDK or package version used for this snapshot when available.",
       },
       {
         id: "graceTarget",

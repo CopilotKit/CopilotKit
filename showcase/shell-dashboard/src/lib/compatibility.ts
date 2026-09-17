@@ -90,6 +90,7 @@ const languageLabels: Record<string, string> = {
 
 const statusLabels: Record<CompatibilitySnapshotStatus, string> = {
   build_verified_fallback_scored: "Scored",
+  source_declared_prototype_scored: "Scored",
   policy_pending_or_incomplete_package_score: "Not scored",
   not_verified: "Not verified",
   stale_historical_only_not_current: "Not verified",
