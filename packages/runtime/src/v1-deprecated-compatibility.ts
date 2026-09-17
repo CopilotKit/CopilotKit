@@ -4,7 +4,7 @@
  * This is the deprecated v1 entrypoint `@copilotkit/runtime`. Use v2 instead.
  * Migrate to `@copilotkit/runtime/v2` and follow each export's specific
  * IDE deprecation warning below; renamed APIs are not safe search-and-replaces.
- * This entrypoint currently exposes 66 deprecated public exports.
+ * This entrypoint currently exposes 69 deprecated public exports.
  * V2 source entrypoint: packages/runtime/src/v2/index.ts
  * V2 docs: https://docs.copilotkit.ai/
  * V2 reference docs: https://docs.copilotkit.ai/reference/v2
@@ -239,6 +239,15 @@ export {
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type GraphQLContext,
+  /**
+   * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
+   * No 1:1 v2 replacement is available.
+   * Start with `@copilotkit/runtime/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
+   * Migration guide: https://docs.copilotkit.ai/migrate/v2
+   */
+  type GraphQLRequestContext,
 } from "./v1-deprecated/lib/integrations/shared";
 
 export {
@@ -479,6 +488,15 @@ export {
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type AnthropicPromptCachingConfig,
+  /**
+   * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
+   * No 1:1 v2 replacement is available.
+   * Start with `@copilotkit/runtime/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
+   * Migration guide: https://docs.copilotkit.ai/migrate/v2
+   */
+  FilterThinkingTextBuffer,
 } from "./v1-deprecated/service-adapters/anthropic/anthropic-adapter";
 
 export {
@@ -715,6 +733,15 @@ export {
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   getSdkClientOptions,
+  /**
+   * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
+   * No 1:1 v2 replacement is available.
+   * Start with `@copilotkit/runtime/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
+   * Migration guide: https://docs.copilotkit.ai/migrate/v2
+   */
+  type SdkClientLike,
 } from "./v1-deprecated/service-adapters/shared/sdk-client-utils";
 
 export {
