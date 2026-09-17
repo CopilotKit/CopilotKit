@@ -13,9 +13,10 @@ const workflowsDir = join(
 );
 
 function load(name: string): Record<string, unknown> {
-  return parseYaml(
-    readFileSync(join(workflowsDir, name), "utf8"),
-  ) as Record<string, unknown>;
+  return parseYaml(readFileSync(join(workflowsDir, name), "utf8")) as Record<
+    string,
+    unknown
+  >;
 }
 
 type WorkflowStep = {
@@ -31,12 +32,19 @@ describe("docs_open_release_pr.yml", () => {
   it("runs after Verify Deploy on every conclusion", () => {
     const doc = load("docs_open_release_pr.yml");
     const on = doc.on as {
-      workflow_run: { workflows: string[]; types: string[]; branches: string[] };
+      workflow_run: {
+        workflows: string[];
+        types: string[];
+        branches: string[];
+      };
     };
     expect(on.workflow_run.workflows).toEqual(["Showcase: Verify Deploy"]);
     expect(on.workflow_run.types).toEqual(["completed"]);
     expect(on.workflow_run.branches).toEqual(["main"]);
-    const jobs = doc.jobs as Record<string, { if?: string; steps: WorkflowStep[] }>;
+    const jobs = doc.jobs as Record<
+      string,
+      { if?: string; steps: WorkflowStep[] }
+    >;
     const open = jobs["open-pr"];
     expect(open.if ?? "").not.toMatch(/workflow_run\.conclusion/);
     const tokenStep = open.steps.find((s) =>
@@ -59,13 +67,13 @@ describe("docs_open_release_pr.yml", () => {
 describe("docs_promote.yml", () => {
   it("promotes only a merged release/docs/prod PR", () => {
     const doc = load("docs_promote.yml");
-    const concurrency = doc.concurrency as { group: string; "cancel-in-progress": boolean };
+    const concurrency = doc.concurrency as {
+      group: string;
+      "cancel-in-progress": boolean;
+    };
     expect(concurrency.group).toBe("docs-promote");
     expect(concurrency["cancel-in-progress"]).toBe(false);
-    const yaml = readFileSync(
-      join(workflowsDir, "docs_promote.yml"),
-      "utf8",
-    );
+    const yaml = readFileSync(join(workflowsDir, "docs_promote.yml"), "utf8");
     expect(yaml).not.toMatch(/showcase-promote/);
     const jobs = doc.jobs as Record<
       string,
