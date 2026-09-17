@@ -59,7 +59,11 @@ export function InlineAgentStateCard({
               data-status={step.status}
               className="flex items-start gap-3"
             >
-              <StepMarker status={step.status} index={idx} />
+              <StepMarker
+                status={step.status}
+                index={idx}
+                isRunning={status === "inProgress"}
+              />
               <span
                 className={
                   "text-xs leading-5 " +
@@ -83,9 +87,11 @@ export function InlineAgentStateCard({
 function StepMarker({
   status,
   index,
+  isRunning,
 }: {
   status: Step["status"];
   index: number;
+  isRunning: boolean;
 }) {
   if (status === "completed") {
     return (
@@ -110,7 +116,7 @@ function StepMarker({
     return (
       <span className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-[#BEC2FF] text-[#010507]">
         <svg
-          className="h-3 w-3 animate-spin"
+          className={"h-3 w-3" + (isRunning ? " animate-spin" : "")}
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
