@@ -104,15 +104,6 @@ const PYTHON_DEBT = {
 
 export const ALLOWLIST = [
   {
-    starter: "a2a-middleware",
-    rule: "npm-floating-tag",
-    subject: "@a2a-js/sdk",
-    // PE-139. The pin has to land together with the Python side's
-    // `a2a-sdk[http-server]>=0.3,<1.0`, because @ag-ui/a2a-middleware 0.0.2
-    // bundles @a2a-js/sdk 0.2.5 and speaks the pre-1.0 wire format.
-    ticket: "PE-139",
-  },
-  {
     starter: "adk-angular",
     rule: "undeclared-peer",
     subject: "@angular/forms",
