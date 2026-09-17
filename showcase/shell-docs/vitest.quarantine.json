@@ -1,0 +1,49 @@
+{
+  "$comment": [
+    "QUARANTINE MANIFEST for the shell-docs unit suite's CI gate.",
+    "",
+    "WHY THIS FILE EXISTS. Until the shell-docs job landed in",
+    "`test / unit-showcase`, NO CI job ran this package's 116-file vitest",
+    "suite \u2014 `test_unit-showcase.yml` covered `harness` and `shell-dashboard`",
+    "only, and shell-docs is outside the pnpm workspace so nx cannot select it",
+    "either. Wiring it up found the suite already RED on `origin/main` with",
+    "twelve failures in six files. A newly added job that is red on arrival",
+    "gets ignored or deleted, so the three files below are quarantined HERE \u2014",
+    "explicitly, in source, with a reason and an exit criterion \u2014 instead of",
+    "being deleted or weakened.",
+    "",
+    "EVERY ENTRY BELOW IS A REAL DEFECT, not a stale assertion. Five other",
+    "failures in the same sweep were genuine test rot and were FIXED",
+    "rather than quarantined; these three describe content that is actually",
+    "wrong or missing, and each needs an owner who knows the subject.",
+    "",
+    "THIS IS NOT A HOLE IN THE GATE. `scripts/quarantine-ratchet.ts` runs the",
+    "quarantined files in their OWN vitest invocation and requires each one to",
+    "STILL FAIL. The moment somebody fixes a quarantined test, the ratchet goes",
+    "red and forces its removal from this list. A quarantine entry can therefore",
+    "never outlive the failure it excuses.",
+    "",
+    "`file` paths are relative to `showcase/shell-docs/` and must match the",
+    "path vitest reports, so the exclude glob and the ratchet agree."
+  ],
+  "quarantined": [
+    {
+      "file": "src/lib/__tests__/angular-docs-content.test.ts",
+      "since": "2026-09-16",
+      "reason": "Five failures, all real Angular-surface defects rather than assertion rot. (1) Published Angular pages still match /\\bReact\\b/ \u2014 e.g. a Copilot Runtime guide link rendered in React prose. (2) `human-in-the-loop/governed-actions` has no published Angular destination, so a React nav entry maps to nothing. (3) `server-tools` names the React hooks `useFrontendTool` and `useRenderTool` on the Angular surface. (4) `built-in-agent/quickstart` links out to `/react-spa` from inside Angular context. (5) `built-in-agent/server-tools` carries the same React hook names. The test is doing its job; the Angular docs have gaps.",
+      "unquarantineWhen": "The Angular surface stops leaking React identifiers and links, and `human-in-the-loop/governed-actions` gains a published Angular page (or is removed from the React nav map). Needs the Angular docs owner \u2014 the fix is content, not the assertion."
+    },
+    {
+      "file": "src/lib/__tests__/llm-text.test.ts",
+      "since": "2026-09-16",
+      "reason": "One failure: the mastra `tool-rendering` example is not dependency-complete. `showcase/integrations/mastra/src/mastra/tools/index.ts` opens `@region[weather-tool-backend]` at line 36, AFTER its imports, so the published snippet uses `createTool` without ever showing `import { createTool } from \"@mastra/core/tools\";`. Every other integration marks the region from its imports (google-adk and langgraph-python both pass this test). A reader copying the mastra example gets code that does not compile.",
+      "unquarantineWhen": "The mastra region includes its imports \u2014 either by moving the marker above them, or by adding a second `@region[weather-tool-backend]` block around lines 1-2 (the extractor stores an array per region name, so repeated blocks are supported). Touches showcase integration source, which also feeds Docker builds and Playwright e2e, so it wants its own PR."
+    },
+    {
+      "file": "src/lib/__tests__/ms-agent-python-stable-api.test.ts",
+      "since": "2026-09-16",
+      "reason": "One failure: the rendered Microsoft Agent Framework human-in-the-loop page omits `from agent_framework.openai import OpenAIChatClient`. That import IS present on sibling MAF pages (`human-in-the-loop/tool-based.mdx`, `frontend-tools.mdx`, `auth.mdx`), so the stable-API example on the HITL index alone is incomplete.",
+      "unquarantineWhen": "The MAF human-in-the-loop page carries the stable `agent_framework.openai` import its siblings already show."
+    }
+  ]
+}

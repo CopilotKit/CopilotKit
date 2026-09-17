@@ -173,6 +173,16 @@ export class RunHandler {
   private _disabledToolKeys = new Set<string>();
 
   /**
+   * Registry keys already reported by {@link warnOnMissingToolParameters}.
+   * Development only, and per instance rather than per module so tests and
+   * multiple cores stay independent. Deliberately NOT cleared by
+   * {@link removeTool}: `useFrontendTool` tears down and re-registers on every
+   * dependency change, so clearing it would turn one warning into one per
+   * render. Key = `capabilityKey(name, agentId)`.
+   */
+  private _warnedMissingToolParameters = new Set<string>();
+
+  /**
    * Tracks whether the current run (including in-flight tool execution)
    * has been aborted via `stopAgent()` or `agent.abortRun()`. Created
    * fresh in `runAgent()`, aborted by `abortCurrentRun()`.
@@ -290,6 +300,7 @@ export class RunHandler {
     // the array the provider passed in.)
     this._propTools = [...tools];
     this._cachedMergedTools = null;
+    this.warnOnMissingToolParameters(this._propTools);
     this.syncWebMCP();
   }
 
@@ -314,7 +325,46 @@ export class RunHandler {
 
     this._hookTools.set(key, tool);
     this._cachedMergedTools = null;
+    this.warnOnMissingToolParameters([tool]);
     this.syncWebMCP();
+  }
+
+  /**
+   * Report, once per tool and at development time only, a tool registered with
+   * no `parameters` schema.
+   *
+   * `createToolSchema` substitutes `{ type: "object", properties: {} }` for a
+   * missing `parameters` and returns silently, and `parameters` is optional on
+   * `FrontendTool`, so nothing — not the compiler, not the runtime — tells the
+   * developer that the model was handed a tool with nothing to fill in. It then
+   * calls the tool with no arguments. `useComponent`, `useFrontendTool` and
+   * `useHumanInTheLoop` all funnel into {@link addTool}; the provider's `tools`
+   * prop funnels into {@link initialize} and {@link setTools}.
+   *
+   * A parameterless tool is legitimate (a HITL confirm dialog, say), so this
+   * stays a warning rather than an error.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private warnOnMissingToolParameters(tools: FrontendTool<any>[]): void {
+    if (process.env.NODE_ENV === "production") {
+      return;
+    }
+
+    for (const tool of tools) {
+      if (tool.parameters) {
+        continue;
+      }
+      const key = this.capabilityKey(tool.name, tool.agentId);
+      if (this._warnedMissingToolParameters.has(key)) {
+        continue;
+      }
+      this._warnedMissingToolParameters.add(key);
+      logger.warn(
+        `Tool has no parameters schema: '${tool.name}' for agent '${tool.agentId || "global"}'. ` +
+          `The model is told it takes no arguments and will call it with none. ` +
+          `Add \`parameters\` (a Zod or Standard Schema object) if it should receive arguments.`,
+      );
+    }
   }
 
   /**
@@ -364,6 +414,7 @@ export class RunHandler {
   setTools(tools: FrontendTool<any>[]): void {
     this._propTools = [...tools];
     this._cachedMergedTools = null;
+    this.warnOnMissingToolParameters(this._propTools);
     this.syncWebMCP();
   }
 

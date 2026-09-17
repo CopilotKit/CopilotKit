@@ -321,7 +321,14 @@ describe("RunHandler WebMCP registration", () => {
     // registration that was deliberately replaced.
     rejectFirst(new Error("late failure"));
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(warnSpy).not.toHaveBeenCalled();
+    // Scoped to the WebMCP channel: these fixtures declare no `parameters`, so
+    // the registry also warns about the missing schema (PE-109). The guard's
+    // only observable here is the registration-failure warning.
+    expect(
+      warnSpy.mock.calls.filter((call) =>
+        String(call[0]).includes("WebMCP registration failed"),
+      ),
+    ).toEqual([]);
 
     // The replacement's bookkeeping survived: removeTool aborts the live
     // registration's own signal, so the browser entry goes away.
