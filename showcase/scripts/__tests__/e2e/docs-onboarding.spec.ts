@@ -122,3 +122,43 @@ test("the Rich Threads sidebar label opens its overview", async ({ page }) => {
     page.getByRole("heading", { name: "Rich Threads", exact: true }),
   ).toBeVisible();
 });
+
+test("the capability explanation leads to an interactive Dojo example", async ({
+  page,
+}, testInfo) => {
+  await page.goto(docsUrl!);
+  const demos = page
+    .locator("#intelligence")
+    .getByRole("link", { name: "Explore interactive demos" });
+  await expect(demos).toHaveAttribute(
+    "href",
+    "https://dojo.showcase.copilotkit.ai/?integration=langgraph-python&demo=beautiful-chat",
+  );
+  await demos.scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: testInfo.outputPath("docs-contextual-dojo.png"),
+  });
+  await demos.click();
+  await expect(page).toHaveURL(
+    "https://dojo.showcase.copilotkit.ai/?integration=langgraph-python&demo=beautiful-chat",
+  );
+  await expect(page).toHaveTitle("CopilotKit Interactive Dojo");
+  await expect(
+    page.getByText("CopilotKit Interactive Dojo", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("LangGraph (Python)", { exact: true }),
+  ).toBeVisible();
+  await expect(page.locator("main iframe")).toHaveAttribute(
+    "src",
+    /langgraph-python.*\/demos\/beautiful-chat$/,
+  );
+  await expect(
+    page
+      .frameLocator("main iframe")
+      .getByText("How can I help you today?", { exact: true }),
+  ).toBeVisible({ timeout: 15_000 });
+  await page.screenshot({
+    path: testInfo.outputPath("docs-dojo-destination.png"),
+  });
+});

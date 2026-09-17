@@ -92,6 +92,16 @@ export function DocsIntelligenceJourney() {
           </section>
         ))}
       </div>
+      <p className="mt-5 text-sm leading-7 text-[var(--text-secondary)]">
+        Try interactive chat and agent UI patterns in the Dojo.{" "}
+        <Link
+          href="https://dojo.showcase.copilotkit.ai/?integration=langgraph-python&demo=beautiful-chat"
+          className="font-semibold text-[var(--accent)] underline underline-offset-4"
+        >
+          Explore interactive demos
+        </Link>
+        .
+      </p>
       <p
         id="share-with-your-team"
         className="mt-5 text-sm leading-7 text-[var(--text-secondary)]"
