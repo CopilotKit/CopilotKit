@@ -33,7 +33,7 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22.x"
-      - uses: ruby/setup-ruby@984c0c890880bbf811283d6f09c4607c62d210a4 # v1.323.0
+      - uses: ruby/setup-ruby@a0102e0972be65f351c307e2d64b9314a57c8073 # v1.324.0
         with:
           ruby-version: "3.3"
       - run: pnpm install --frozen-lockfile --ignore-scripts
@@ -66,7 +66,7 @@ jobs:
         with:
           name: ruby-gem
           path: artifacts
-      - uses: ruby/setup-ruby@984c0c890880bbf811283d6f09c4607c62d210a4 # v1.323.0
+      - uses: ruby/setup-ruby@a0102e0972be65f351c307e2d64b9314a57c8073 # v1.324.0
         with:
           ruby-version: "3.3"
       # RubyGems publisher: CopilotKit/CopilotKit, publish-rubygems.yml,
