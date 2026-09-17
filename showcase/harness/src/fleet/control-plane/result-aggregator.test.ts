@@ -19,10 +19,12 @@ import {
   FLEET_COMM_ERROR_SIGNAL_KEY,
   commErrorFromStatusSignal,
   probeResultsForServiceJobResult,
-  type PoolCommError,
-  type ServiceJobResult,
 } from "../contracts.js";
-import { createResultAggregator } from "./result-aggregator.js";
+import type { PoolCommError, ServiceJobResult } from "../contracts.js";
+import {
+  createResultAggregator,
+  createJobFeatureScopeResolver,
+} from "./result-aggregator.js";
 import { createStatusWriter } from "../../writers/status-writer.js";
 
 // Wrap the projection in a PASSTHROUGH vi.fn so the empty-projection guard
@@ -252,8 +254,11 @@ function makeFakeRunWriter(): {
     async findByJobId(jobId) {
       if (!jobId) return null;
       // Newest-first, mirroring the real -started_at sort.
-      const match = [...rows].reverse().find((r) => r.jobId === jobId);
-      return match ? { id: match.id, terminal: match.terminal } : null;
+      for (let index = rows.length - 1; index >= 0; index--) {
+        const row = rows[index];
+        if (row.jobId === jobId) return { id: row.id, terminal: row.terminal };
+      }
+      return null;
     },
     async update(opts) {
       calls.update.push(opts);
@@ -346,6 +351,166 @@ describe("createResultAggregator", () => {
       now: () => now,
     });
   }
+
+  it("preserves the full aggregate for an authoritative filtered job", async () => {
+    const agg = createResultAggregator({
+      statusWriter: statusFake.writer,
+      runWriter: runFake.writer,
+      logger: makeLogger(),
+      now: () => now,
+      resolveFeatureScope: async () => ["shared-state"],
+    });
+    await agg.aggregate(makeResult());
+    expect(statusFake.writes.map((w) => w.result.key)).toEqual([
+      "d6:langgraph-python/shared-state",
+    ]);
+    expect(runFake.calls.finish[0].state).toBe("completed");
+    expect(runFake.calls.finish[0].summary).toMatchObject({
+      total: 1,
+      passed: 1,
+      failed: 0,
+    });
+  });
+
+  it("retains an explicit driver error despite a passing selected cell", async () => {
+    const agg = createResultAggregator({
+      statusWriter: statusFake.writer,
+      runWriter: runFake.writer,
+      logger: makeLogger(),
+      now: () => now,
+      resolveFeatureScope: async () => ["shared-state"],
+    });
+    await agg.aggregate(makeResult({ aggregateState: "error" }));
+    expect(runFake.calls.finish[0].state).toBe("failed");
+  });
+
+  it("retains a communication failure despite a passing selected cell", async () => {
+    const agg = createResultAggregator({
+      statusWriter: statusFake.writer,
+      runWriter: runFake.writer,
+      logger: makeLogger(),
+      now: () => now,
+      resolveFeatureScope: async () => ["shared-state"],
+    });
+    await agg.aggregate(
+      makeResult({ aggregateState: "green", commError: SAMPLE_COMM_ERROR }),
+    );
+    expect(runFake.calls.finish[0].state).toBe("failed");
+  });
+
+  it.each([
+    { aggregatePadding: "", cellPadding: " " },
+    { aggregatePadding: " ", cellPadding: "" },
+    { aggregatePadding: " ", cellPadding: " " },
+  ])(
+    "normalizes scoped keys before membership: %j",
+    async ({ aggregatePadding, cellPadding }) => {
+      const agg = createResultAggregator({
+        statusWriter: statusFake.writer,
+        runWriter: runFake.writer,
+        logger: makeLogger(),
+        now: () => now,
+        resolveFeatureScope: async () => ["shared-state"],
+      });
+      const result = makeResult();
+      await agg.aggregate({
+        ...result,
+        aggregateKey: `${aggregatePadding}${result.aggregateKey}${aggregatePadding}`,
+        cells: result.cells.map((cell) => ({
+          ...cell,
+          cellKey: `${cellPadding}${cell.cellKey}${cellPadding}`,
+        })),
+      });
+      expect(statusFake.writes.map((write) => write.result.key)).toEqual([
+        "d6:langgraph-python/shared-state",
+      ]);
+      expect(runFake.calls.finish[0].summary).toMatchObject({
+        total: 1,
+        passed: 1,
+        failed: 0,
+      });
+    },
+  );
+
+  it.each([
+    { errorClass: "skipped-incapable" },
+    { note: "skipped: deploy in progress (0s ago)" },
+    { note: "filtered-by-trigger" },
+  ])("does not persist or count a selected legacy skip: %j", async (signal) => {
+    const agg = createResultAggregator({
+      statusWriter: statusFake.writer,
+      runWriter: runFake.writer,
+      logger: makeLogger(),
+      now: () => now,
+      resolveFeatureScope: async () => ["shared-state"],
+    });
+    const result = makeResult();
+    await agg.aggregate({
+      ...result,
+      cells: result.cells.map((cell) => ({ ...cell, signal })),
+    });
+    expect(statusFake.writes).toEqual([]);
+    expect(runFake.calls.finish[0].summary).toMatchObject({
+      total: 0,
+      passed: 0,
+      failed: 0,
+    });
+  });
+
+  it("preserves legacy skip handling for unfiltered jobs", async () => {
+    const agg = makeAggregator();
+    const result = makeResult();
+    await agg.aggregate({
+      ...result,
+      cells: result.cells.map((cell) => ({
+        ...cell,
+        signal: { errorClass: "skipped-incapable" },
+      })),
+    });
+    expect(statusFake.writes).toHaveLength(3);
+  });
+
+  it("preserves scoped communication failure evidence when no cells returned", async () => {
+    const agg = createResultAggregator({
+      statusWriter: statusFake.writer,
+      runWriter: runFake.writer,
+      logger: makeLogger(),
+      now: () => now,
+      resolveFeatureScope: async () => ["shared-state"],
+    });
+    const outcome = await agg.aggregate(
+      makeResult({
+        aggregateState: "error",
+        cells: [],
+        commError: SAMPLE_COMM_ERROR,
+      }),
+    );
+    expect(statusFake.writes).toEqual([]);
+    expect(statusFake.overlays.map((overlay) => overlay.key)).toEqual([
+      "d6:langgraph-python/shared-state",
+    ]);
+    expect(outcome.droppedCommError).toBe(false);
+    expect(runFake.calls.finish[0].state).toBe("failed");
+    expect(runFake.calls.finish[0].summary).toMatchObject({
+      total: 0,
+      passed: 0,
+      failed: 0,
+    });
+  });
+
+  it("writes nothing when authoritative scope cannot be resolved", async () => {
+    const agg = createResultAggregator({
+      statusWriter: statusFake.writer,
+      runWriter: runFake.writer,
+      logger: makeLogger(),
+      now: () => now,
+      resolveFeatureScope: async () => {
+        throw new Error("job missing");
+      },
+    });
+    await expect(agg.aggregate(makeResult())).rejects.toThrow("job missing");
+    expect(statusFake.writes).toEqual([]);
+  });
 
   it("writes the aggregate primary row + one side row per cell, preserving keys", async () => {
     const agg = makeAggregator();
@@ -3492,5 +3657,46 @@ describe("[H1] comm-error overlay preserves attribution + counters (real status-
     expect(row.first_failure_at).toBe("2026-06-03T23:00:00.000Z");
     expect(row.state).toBe("red");
     expect(commErrorFromStatusSignal(row.signal)).toEqual(SAMPLE_COMM_ERROR);
+  });
+});
+
+describe("authoritative feature scope lookup", () => {
+  it.each([undefined, []])(
+    "proves absent or empty selection is unfiltered",
+    async (cellIds) => {
+      const row = { id: "job", payload: { driverKind: "e2e_d6", cellIds } };
+      const resolver = createJobFeatureScopeResolver({
+        async getOne<T>() {
+          return row as T;
+        },
+      });
+      await expect(resolver("job")).resolves.toBeUndefined();
+    },
+  );
+  it("returns the persisted selection", async () => {
+    const row = {
+      id: "job",
+      payload: { driverKind: "e2e_d6", cellIds: ["frontend-tools-async"] },
+    };
+    const resolver = createJobFeatureScopeResolver({
+      async getOne<T>() {
+        return row as T;
+      },
+    });
+    await expect(resolver("job")).resolves.toEqual(["frontend-tools-async"]);
+  });
+  it.each([
+    null,
+    { id: "foreign", payload: { driverKind: "e2e_d6" } },
+    { id: "job", payload: [] },
+    { id: "job", payload: { cellIds: ["x"] } },
+    { id: "job", payload: { driverKind: "e2e_d6", cellIds: "x" } },
+  ])("rejects unproven job scope", async (row) => {
+    const resolver = createJobFeatureScopeResolver({
+      async getOne<T>() {
+        return row as T;
+      },
+    });
+    await expect(resolver("job")).rejects.toThrow(/scope/);
   });
 });

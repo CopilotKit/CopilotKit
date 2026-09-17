@@ -68,6 +68,7 @@ import type {
   WriteOutcome,
 } from "../../types/index.js";
 import { asKnownState } from "../../types/index.js";
+import type { PbClient } from "../../storage/pb-client.js";
 import type { ProbeRunWriter } from "../../probes/run-history.js";
 import type {
   OverlayWriteOutcome,
@@ -85,9 +86,8 @@ import {
   probeResultsForServiceJobResult,
   runSummaryForServiceJobResult,
   terminalJobStatus,
-  type PoolCommError,
-  type ServiceJobResult,
 } from "../contracts.js";
+import type { PoolCommError, ServiceJobResult } from "../contracts.js";
 
 /** Outcome of aggregating one `ServiceJobResult`. */
 export interface AggregateOutcome {
@@ -325,7 +325,46 @@ export type AggregatorPriorStateResolver = (
   aggregateKey: string,
 ) => Promise<State | null | undefined> | State | null | undefined;
 
+export function createJobFeatureScopeResolver(pb: Pick<PbClient, "getOne">) {
+  return async (jobId: string): Promise<readonly string[] | undefined> => {
+    const row = await pb.getOne<{ id: string; payload: unknown }>(
+      "probe_jobs",
+      jobId,
+    );
+    if (
+      !row ||
+      row.id !== jobId ||
+      row.payload === null ||
+      typeof row.payload !== "object" ||
+      Array.isArray(row.payload)
+    ) {
+      throw new Error(`fleet.aggregator: unknown scope for job ${jobId}`);
+    }
+    const payload = row.payload as Record<string, unknown>;
+    if (
+      typeof payload.driverKind !== "string" ||
+      !payload.driverKind ||
+      (payload.cellIds !== undefined &&
+        (!Array.isArray(payload.cellIds) ||
+          payload.cellIds.some((id) => typeof id !== "string")))
+    ) {
+      throw new Error(`fleet.aggregator: invalid scope for job ${jobId}`);
+    }
+    if (
+      payload.driverKind !== "e2e_d6" ||
+      !Array.isArray(payload.cellIds) ||
+      payload.cellIds.length === 0
+    )
+      return undefined;
+    return payload.cellIds;
+  };
+}
+
 export interface ResultAggregatorDeps {
+  /** Authoritative persisted job filter. Lookup failures reject before writes. */
+  resolveFeatureScope?: (
+    jobId: string,
+  ) => Promise<readonly string[] | undefined>;
   statusWriter: StatusWriter;
   runWriter: ProbeRunWriter;
   logger: Logger;
@@ -366,6 +405,20 @@ function withCommErrorOverlay(
     return { ...(aggregateSignal as Record<string, unknown>), ...overlay };
   }
   return overlay;
+}
+
+/** Older drivers emitted green rows for these non-executed classifications. */
+function isLegacySkipSignal(signal: unknown): boolean {
+  if (signal === null || typeof signal !== "object" || Array.isArray(signal))
+    return false;
+  if ("errorClass" in signal && signal.errorClass === "skipped-incapable")
+    return true;
+  return (
+    "note" in signal &&
+    typeof signal.note === "string" &&
+    (signal.note === "filtered-by-trigger" ||
+      signal.note.startsWith("skipped: deploy in progress ("))
+  );
 }
 
 export function createResultAggregator(
@@ -433,6 +486,39 @@ export function createResultAggregator(
 
   return {
     async aggregate(result) {
+      const featureScope = await deps.resolveFeatureScope?.(result.jobId);
+      const selectedKeys = featureScope
+        ? new Set(
+            featureScope.map((id) => `${result.aggregateKey.trim()}/${id}`),
+          )
+        : undefined;
+      if (selectedKeys) {
+        const cells = result.cells.filter(
+          (cell) =>
+            selectedKeys.has(cell.cellKey.trim()) &&
+            !isLegacySkipSignal(cell.signal),
+        );
+        result = {
+          ...result,
+          cells,
+          // A legacy worker can report an aggregate failure caused solely by
+          // excluded cells. Derive the scoped terminal result from observations,
+          // but retain explicit driver/communication failures and empty results.
+          aggregateState:
+            cells.length > 0 &&
+            !result.commError &&
+            result.aggregateState !== "error"
+              ? cells.every((cell) => cell.state === "green")
+                ? "green"
+                : "red"
+              : result.aggregateState,
+          rollup: {
+            total: cells.length,
+            passed: cells.filter((cell) => cell.state === "green").length,
+            failed: cells.filter((cell) => cell.state !== "green").length,
+          },
+        };
+      }
       // ── IDEMPOTENCY GATE ────────────────────────────────────────────────
       // The consumer aggregates-then-latches `result_processed`. If that latch
       // write fails (or the process crashes before it), the SAME job's result
@@ -625,6 +711,28 @@ export function createResultAggregator(
         });
       }
 
+      // A communication failure can return no cell observations at all. The
+      // scoped job still identifies which cells could not be reached. Route
+      // those keys through the existing error-overlay/history-only path; do
+      // not add them to cells or rollup as if a test had executed.
+      if (
+        selectedKeys &&
+        result.commError &&
+        result.cells.length === 0 &&
+        probeResults.length > 0 &&
+        !skipDriftedPrimary &&
+        result.aggregateKey.trim()
+      ) {
+        for (const key of selectedKeys) {
+          probeResults.push({
+            key,
+            state: "error",
+            signal: {},
+            observedAt: result.commError.observedAt,
+          });
+        }
+      }
+
       // Open a run-history row up-front so its started_at brackets the writes
       // (mirrors probe-invoker), stamping the jobId so a re-process dedupes via
       // findByJobId above. When RESUMING a crashed-mid-aggregate run we reuse
@@ -741,6 +849,8 @@ export function createResultAggregator(
           )
         : undefined;
       for (const [i, rawPr] of probeResults.entries()) {
+        if (selectedKeys && (i === 0 || !selectedKeys.has(rawPr.key.trim())))
+          continue;
         // G2r8: a drifted primary (identity check above) is refused outright
         // — its identity is unknown, so neither a durable write nor an
         // overlay may touch it (already error-logged + surfaced via
