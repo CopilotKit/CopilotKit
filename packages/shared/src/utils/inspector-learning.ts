@@ -13,6 +13,8 @@ export type InspectorLearningEvidence =
       readonly threadId: string;
       readonly threadName: string | null;
       readonly messageIds: readonly string[];
+      /** SHA-256 of JSON.stringify([role, content]), aligned with messageIds. */
+      readonly messageHashes?: readonly (string | null)[];
       readonly updatedAt: string;
     }
   | { readonly status: "unavailable" };
@@ -168,8 +170,21 @@ function parseEvidence(value: unknown): InspectorLearningEvidence | undefined {
   ) {
     return undefined;
   }
+  const hashes = value.messageHashes;
+  if (
+    hashes !== undefined &&
+    (!Array.isArray(hashes) ||
+      hashes.length !== value.messageIds.length ||
+      !hashes.every(
+        (hash) =>
+          hash === null ||
+          (typeof hash === "string" && /^[a-f0-9]{64}$/u.test(hash)),
+      ))
+  )
+    return undefined;
   return {
     status: "available",
+    ...(hashes === undefined ? {} : { messageHashes: [...hashes] }),
     threadId: value.threadId,
     threadName: value.threadName,
     messageIds: [...value.messageIds],

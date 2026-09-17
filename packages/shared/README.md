@@ -198,3 +198,12 @@ request the optional metadata route when a runtime reports
 # Documentation
 
 To get started with CopilotKit, please check out the [documentation](https://docs.copilotkit.ai).
+
+## Inspector Learning evidence contract
+
+`InspectorLearningEvidence` accepts optional `messageHashes` in `messageIds` order.
+Each entry is lowercase SHA-256 over the UTF-8 bytes of
+`JSON.stringify([role, content])`, or `null` when verification is unavailable.
+The parser copies valid hashes and rejects malformed values or a count that differs
+from `messageIds`. Older producers can omit the field. Runtime and browser consumers
+must both use the updated parser to retain hashes through the response path.

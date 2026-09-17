@@ -114,3 +114,16 @@ identifiers already used by Inspector telemetry.
 The usage UI does not add usage impressions or values to telemetry. The trusted
 metadata footer action remains visible only on Threads. The existing metadata
 action impression and click events keep their coarse allowlist.
+
+## Learning evidence navigation
+
+Learning evidence carries optional `messageHashes`, aligned with `messageIds`.
+Inspector checks the cited message and the displayed row before it scrolls to and
+highlights evidence. If the content changed, the message disappeared, or verification
+is unavailable, the Thread stays open with an evidence-unavailable notice.
+
+The check uses SHA-256 through browser Web Crypto and requires HTTPS or localhost.
+An older API or runtime can omit the hashes. In that case, Inspector shows the notice
+and does not highlight the message as verified evidence. Ordinary Thread navigation
+does not require a hash. Update the Intelligence API, runtime, and Inspector to enable
+verified Learning navigation.
