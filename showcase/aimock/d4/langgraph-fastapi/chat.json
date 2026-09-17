@@ -274,11 +274,24 @@
       "response": {
         "toolCalls": [
           {
-            "id": "call_fp_get_weather_001",
+            "id": "call_fp_get_weather_san_francisco_001",
             "name": "get_weather",
-            "arguments": "{\"location\":\"Tokyo\"}"
+            "arguments": "{\"location\":\"San Francisco\"}"
           }
         ]
+      }
+    },
+    {
+      "_comment": "Continue only from the matching native San Francisco weather result.",
+      "match": {
+        "userMessage": "weather in San Francisco",
+        "hasToolResult": true,
+        "toolCallId": "call_fp_get_weather_san_francisco_001",
+        "toolResultContains": "{\"city\": \"San Francisco\", \"temperature\": 68, \"humidity\": 55, \"wind_speed\": 10, \"conditions\": \"Sunny\"}",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "San Francisco is 68°F and sunny."
       }
     },
     {
@@ -930,6 +943,17 @@
       },
       "response": {
         "content": "Hi from the popup! I'm your CopilotKit assistant, tucked away in this little overlay. Ask me anything — a quick question, a limerick, or a math walk-through. What would you like?"
+      }
+    },
+    {
+      "_comment": "Shared-state greeting for the preferences agent, which advertises set_notes. Keep the generic sidebar greeting below for agents without that capability.",
+      "match": {
+        "userMessage": "Say hi and introduce yourself",
+        "context": "langgraph-fastapi",
+        "toolName": "set_notes"
+      },
+      "response": {
+        "content": "Hi — I'm your shared-state co-pilot. Your Preferences panel (name, tone, language, interests) is fed to me on every turn, and I jot notes back into the Agent Scratch Pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something."
       }
     },
     {
