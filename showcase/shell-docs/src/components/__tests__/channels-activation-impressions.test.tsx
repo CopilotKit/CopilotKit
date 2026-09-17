@@ -11,6 +11,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChannelsActivationStrip } from "../channels-activation-strip";
 import { ChannelsStartPrompt } from "../channels-start-prompt";
+import { DocsPromptActionsProvider } from "../docs-prompt-actions";
 import {
   CHANNELS_ACTIVATION_EVENTS,
   CHANNELS_ACTIVATION_SURFACES,
@@ -87,6 +88,40 @@ afterEach(() => {
 // copilotkit.ai/channels, which sends its own event name with the same
 // property) separable inside one funnel.
 describe("Channels activation impressions", () => {
+  it.each(["slack", "teams"])(
+    "copies generic onboarding with the %s page context",
+    async (frontend) => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText },
+      });
+      HTMLDialogElement.prototype.showModal = function () {
+        this.open = true;
+      };
+      render(
+        <DocsPromptActionsProvider
+          value={{ markdownUrl: `/${frontend}.mdx`, githubUrl: "", frontend }}
+        >
+          <ChannelsStartPrompt frontend={frontend} />
+        </DocsPromptActionsProvider>,
+      );
+      expect(
+        screen.getByRole("region", {
+          name: /Set up .* with your coding agent/,
+        }),
+      ).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: /Copy prompt/i }));
+      await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+      const prompt = writeText.mock.calls[0][0];
+      expect(prompt).toContain("onboard start");
+      expect(prompt).not.toContain("add-channels");
+      expect(prompt).toContain(
+        `The developer copied this prompt from https://docs.copilotkit.ai/${frontend}.mdx.`,
+      );
+    },
+  );
+
   it("reports the landing strip the first time it is seen", () => {
     render(
       <ChannelsActivationStrip

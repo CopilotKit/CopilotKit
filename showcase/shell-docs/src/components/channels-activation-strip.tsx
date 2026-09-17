@@ -14,10 +14,7 @@ import {
   CHANNELS_OPENTAG_HREF,
   getChannelsActivationGuideHref,
 } from "@/lib/channels-activation-contracts";
-import {
-  CHANNELS_ONBOARDING_INTENT,
-  createChannelsOnboardingAttempt,
-} from "@/lib/channels-onboarding-prompt";
+import { createChannelsOnboardingAttempt } from "@/lib/channels-onboarding-prompt";
 import type {
   ChannelsActivationBackendOption,
   ChannelsActivationChannelId,
@@ -159,7 +156,6 @@ export function ChannelsActivationStrip({
                   from_path: pathname,
                   guide_url: guideUrl,
                   onboarding_run_id: attempt.runId,
-                  onboarding_intent: CHANNELS_ONBOARDING_INTENT,
                   surface: CHANNELS_ACTIVATION_SURFACES.docsLandingStrip,
                 },
               };

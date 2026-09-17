@@ -67,7 +67,7 @@ module CopilotKit
                      {}
                    end
       event = { 'event' => name, 'properties' => properties, 'ts' => Time.now.to_i,
-                'package' => { 'name' => 'copilotkit-runtime-ruby', 'version' => '0.1.0' },
+                'package' => { 'name' => 'copilotkit-runtime-ruby', 'version' => '0.1.0.rc.1' },
                 'global_properties' => { 'sampleRate' => @rate, 'sampleRateAdjustmentFactor' => 1 - @rate,
                   'sampleWeight' => 1 / @rate, 'telemetry_identified' => @identified,
                   'telemetry_emitter' => 'runtime-ruby', 'telemetry_surface' => 'v2',

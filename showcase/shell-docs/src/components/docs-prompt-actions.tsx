@@ -5,6 +5,7 @@ import { usePostHog } from "posthog-js/react";
 import { usePathname } from "next/navigation";
 import { PromptPill } from "./prompt-pill";
 import { ViewOptionsPopover } from "./ai/page-actions";
+import { getRuntimeConfig } from "@/lib/runtime-config.client";
 
 /** Preserve the canonical page and source links when actions move into MDX. */
 const PageContext = React.createContext<{
@@ -19,6 +20,7 @@ export const DocsPromptActionsProvider = PageContext.Provider;
 export function DocsPromptActions({
   createPrompt,
   copiedEvent = "docs.intelligence_onboarding_prompt_copied",
+  includePageSource = false,
   ...props
 }: Omit<React.ComponentProps<typeof PromptPill>, "createPrompt"> & {
   createPrompt: () => {
@@ -27,6 +29,7 @@ export function DocsPromptActions({
   };
   /** Preserve existing surface-specific success events. */
   copiedEvent?: string;
+  includePageSource?: boolean;
 }) {
   const posthog = usePostHog();
   const pathname = usePathname();
@@ -45,7 +48,9 @@ export function DocsPromptActions({
             surface: props.surface,
           };
           return {
-            text: payload.text,
+            text: includePageSource
+              ? `${payload.text} The developer copied this prompt from ${getRuntimeConfig().baseUrl.replace(/\/+$/, "")}${page?.markdownUrl ?? `${pathname?.replace(/\/$/, "") || ""}.mdx`}.`
+              : payload.text,
             onAction: (action) =>
               posthog?.capture(
                 "docs.intelligence_onboarding_prompt_action_clicked",
