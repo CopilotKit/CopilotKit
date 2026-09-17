@@ -1,3 +1,4 @@
+import { verifyLocalNugetArtifacts, sourceNugetConfig } from "./nuget.mjs";
 import assert from "node:assert/strict";
 import {
   cpSync,
@@ -260,7 +261,15 @@ function dotnet(r, { source, output, work, command, state, runCase }) {
     "--source",
     "https://api.nuget.org/v3/index.json",
   ];
-  if (r.track === "source") restore.push("--source", artifacts);
+  if (r.track === "source") {
+    writeFileSync(join(work, "NuGet.Config"), sourceNugetConfig(artifacts));
+    restore.splice(
+      1,
+      restore.length - 1,
+      "--configfile",
+      join(work, "NuGet.Config"),
+    );
+  }
   // NU1608 records a declared range violation even if NuGet otherwise allows it.
   try {
     command("dotnet", [...restore, "-warnaserror:NU1608,NU1605"], work);
@@ -275,6 +284,7 @@ function dotnet(r, { source, output, work, command, state, runCase }) {
   const assets = JSON.parse(
     readFileSync(join(work, "obj/project.assets.json"), "utf8"),
   );
+  if (r.track === "source") verifyLocalNugetArtifacts(artifacts, assets);
   state.resolvedGraph = Object.fromEntries(
     Object.keys(assets.libraries).map((key) => [
       key.slice(0, key.lastIndexOf("/")),
