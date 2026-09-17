@@ -25,6 +25,17 @@
         ],
         "parallel": false
       }
+    },
+    "validate-doc-deprecated-imports": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "commands": [
+          "node --test scripts/__tests__/validate-doc-deprecated-imports.test.mjs",
+          "node scripts/validate-doc-deprecated-imports.mjs"
+        ],
+        "parallel": false
+      }
     }
   },
   "tags": []

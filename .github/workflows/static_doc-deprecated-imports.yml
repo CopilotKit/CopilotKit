@@ -1,0 +1,73 @@
+name: static / doc deprecated imports
+
+# PE-115. Fails when a documented code block teaches an import of a symbol our
+# own packages mark @deprecated.
+#
+# A retired class sat in the LangGraph quickstart, and then on six further
+# pages, until an onboarding run tripped over it. Nothing in the build would
+# have said so, and neither of the two obvious gates would have:
+#
+#   Compilation cannot see it. A deprecated symbol is still a valid symbol —
+#   PE-108 recorded that the pre-fix code compiled clean against the page's own
+#   pins, and `tsc` ignores @deprecated at any strictness.
+#
+#   More `doctest` tags cannot reach it. Most documented code is, correctly,
+#   not a compilable unit: partial fragments, elided troubleshooting snippets,
+#   and blocks that would hit the extractor's same-fence-title concatenation
+#   trap. PE-108 measured that only one of its six blocks could be tagged.
+#
+# So the check is textual and needs no build, no install of the docs site and
+# no network — a few seconds of work, on every pull request.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    # Only a docs change, a change to a package's public surface (which is
+    # where the @deprecated tags live) or a change to the validator itself can
+    # introduce a violation. The unconditional `push: main` run is the backstop.
+    paths:
+      - "showcase/shell-docs/src/content/**"
+      - "packages/*/package.json"
+      - "packages/*/src/**"
+      - "scripts/validate-doc-deprecated-imports.mjs"
+      - "scripts/__tests__/validate-doc-deprecated-imports.test.mjs"
+      - "scripts/project.json"
+      - ".github/workflows/static_doc-deprecated-imports.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Use Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      # Runs the validator's own unit tests (which pin the alias handling, the
+      # tag-not-text keying and the export-map allow path) and then the
+      # validator against the working tree. Same target a developer runs.
+      - name: Test validator and check documented imports
+        run: pnpm nx run repo-scripts:validate-doc-deprecated-imports
