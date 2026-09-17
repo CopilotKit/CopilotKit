@@ -103,7 +103,10 @@ import {
 } from "./fleet/worker/worker-loop.js";
 import type { DriverRegistry } from "./fleet/worker/worker-loop.js";
 import { registerWorker } from "./fleet/worker/registration.js";
-import { createResultAggregator } from "./fleet/control-plane/result-aggregator.js";
+import {
+  createResultAggregator,
+  createJobFeatureScopeResolver,
+} from "./fleet/control-plane/result-aggregator.js";
 import { createResultConsumer } from "./fleet/control-plane/result-consumer.js";
 import {
   createFleetHealthMonitor,
@@ -2744,6 +2747,7 @@ export async function runControlPlane(
     }
   };
   const aggregator = createResultAggregator({
+    resolveFeatureScope: createJobFeatureScopeResolver(pb),
     statusWriter,
     runWriter: createProbeRunWriter(pb),
     logger,
