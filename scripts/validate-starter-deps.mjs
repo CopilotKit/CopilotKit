@@ -112,15 +112,6 @@ export const ALLOWLIST = [
     // bundles @a2a-js/sdk 0.2.5 and speaks the pre-1.0 wire format.
     ticket: "PE-139",
   },
-  {
-    starter: "adk-angular",
-    rule: "undeclared-peer",
-    subject: "@angular/forms",
-    // Found by this check on 2026-09-17. @angular/forms is a real runtime peer,
-    // auto-installed by npm and declared nowhere — the same class of defect as
-    // PE-38, in a starter nothing else installs.
-    ticket: "PE-140 follow-up (Angular starter)",
-  },
   ...Object.entries(PYTHON_DEBT).flatMap(([starter, subjects]) =>
     subjects.map((subject) => ({
       starter,
