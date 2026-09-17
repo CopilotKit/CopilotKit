@@ -44,7 +44,9 @@ type FrontendToolHandlerContext = {
 </PropertyReference>
 
 <PropertyReference name="parameters" type="StandardSchemaV1<any, T>">
-  Standard Schema describing the tool's arguments. Used to validate and type the `args` passed to `handler`.
+  Standard Schema describing the tool's arguments. It defines the advertised
+  tool schema and types the `args` passed to `handler`. Runtime arguments are
+  JSON-parsed but are not validated against that schema.
 </PropertyReference>
 
 <PropertyReference name="handler" type="(args: T, context: FrontendToolHandlerContext) => Promise<unknown>">
