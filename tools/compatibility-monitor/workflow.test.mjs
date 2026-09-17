@@ -30,7 +30,7 @@ test("monitor plan accepts output location but validates request payload", () =>
     track: "published",
     adapterVersion: "1.71.2",
     sourceSha: "a".repeat(40),
-    dependencies: { "@mastra/core": "1.66.0" },
+    dependencies: { "@mastra/core": "1.66.0", zod: "4.6.1" },
     experimental: false,
   };
   writeFileSync(file, JSON.stringify({ ...r, output: "/tmp/artifacts" }));
@@ -50,4 +50,28 @@ test("published native harness never reads missing workspace dist", () => {
       /monitor\?\.track === "published"\s*\? \[\]\s*: readdirSync/,
     );
   }
+});
+test("skipped or empty native suites cannot establish compatibility", async () => {
+  const { verifyNativeReport } = await import("./typescript.mjs");
+  assert.throws(() =>
+    verifyNativeReport({
+      numTotalTests: 0,
+      numPassedTests: 0,
+      numPendingTests: 0,
+    }),
+  );
+  assert.throws(() =>
+    verifyNativeReport({
+      numTotalTests: 3,
+      numPassedTests: 2,
+      numPendingTests: 1,
+    }),
+  );
+  assert.doesNotThrow(() =>
+    verifyNativeReport({
+      numTotalTests: 3,
+      numPassedTests: 3,
+      numPendingTests: 0,
+    }),
+  );
 });
