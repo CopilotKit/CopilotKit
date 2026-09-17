@@ -1,0 +1,108 @@
+name: "Docs: open prod release PR"
+
+on:
+  workflow_run:
+    workflows: ["Showcase: Verify Deploy"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: docs-open-release-pr
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  open-pr:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: railway
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          ref: main
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+
+      - working-directory: showcase/scripts
+        env:
+          EMIT_SKIP_OXFMT: "1"
+        run: |
+          npm ci
+          npx tsx emit-railway-envs-json.ts
+
+      - name: Probe docs staging
+        id: probe
+        working-directory: showcase/scripts
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RAILWAY_TOKEN:-}" ]; then
+            echo "::notice::RAILWAY_TOKEN is not set; skipping docs release PR."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if npx tsx verify-deploy.ts --env staging --services docs; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::docs staging probe is red; not opening a release PR."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prepare pin file
+        id: pin
+        if: steps.probe.outputs.skip != 'true'
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          GIT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          npx tsx showcase/scripts/prepare-docs-release-pin.ts \
+            --pin-path=showcase/pins/docs-prod.json \
+            --git-sha="$GIT_SHA"
+
+      - name: Mint devops-bot token
+        if: steps.probe.outputs.skip != 'true' && steps.pin.outputs.skip != 'true'
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: "1108748"
+          private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+
+      - name: Open or update docs release PR
+        if: steps.probe.outputs.skip != 'true' && steps.pin.outputs.skip != 'true'
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
+        env:
+          LEFTHOOK: "0"
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          branch: release/docs/prod
+          delete-branch: false
+          add-paths: showcase/pins/docs-prod.json
+          commit-message: "chore: release docs ${{ github.event.workflow_run.head_sha || github.sha }}"
+          title: "chore: release docs to prod"
+          labels: docs-release
+          body: |
+            Staging docs is green. Merge this PR to pin `docs.copilotkit.ai`
+            to the digest in `showcase/pins/docs-prod.json`.
+
+            - Staging: https://docs.staging.copilotkit.ai
+            - Git SHA: `${{ github.event.workflow_run.head_sha || github.sha }}`
+
+            This is the docs prod gate. It does not promote the showcase fleet.
+
+            - [ ] Staging page looks right
+            - [ ] Digest in the pin file is the one you want
