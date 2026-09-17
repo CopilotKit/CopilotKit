@@ -44,7 +44,14 @@ Before you begin, you'll need the following:
         ```
 
         <Callout type="info" title="Already have an app?">
-          Keep your current setup and install CopilotKit there. Use the [React SPA guide](/react-spa) for a client-only Vite app, or [deploy the runtime to your server framework](/runtime-server-adapter) with the React Router or TanStack Start examples. The CopilotKit CLI (`npx copilotkit@latest create`, aliased as `init`) creates a separate project; it does not modify an existing app.
+          Keep your current setup and install CopilotKit there. The CopilotKit CLI (`npx copilotkit@latest create`, aliased as `init`) creates a separate project; it does not modify an existing app.
+
+          <FrontendOnly frontend="react">
+          Use the [React SPA guide](/react-spa) for a client-only Vite app, or [deploy the runtime to your server framework](/runtime-server-adapter) with the React Router or TanStack Start examples.
+          </FrontendOnly>
+          <FrontendOnly frontend="angular">
+          Use the [Angular guide](/angular) for your existing app, or [deploy the runtime to your server framework](/runtime-server-adapter).
+          </FrontendOnly>
         </Callout>
     </Step>
     <Step>
