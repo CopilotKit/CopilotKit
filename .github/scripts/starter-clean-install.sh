@@ -125,11 +125,19 @@ for MANIFEST in $PY_MANIFESTS; do
   INSTALLED=0
   VENV=""
   PYRUN=()
+  # The two install paths fail for different reasons, so they say different
+  # things. `uv sync` also builds the project itself, which is deliberate: that
+  # is the command a developer runs, and a broken build backend is a real
+  # clean-install failure rather than something to skip past with
+  # --no-install-project. The message just must not call it a dependency
+  # problem.
+  INSTALL_FAILURE="the declared Python dependencies do not install from a clean state."
 
   if [ -f "$MDIR/uv.lock" ] && command -v uv >/dev/null 2>&1; then
     # A committed uv.lock is what a developer actually resolves, so reproduce
     # that rather than a free resolution. uv manages its own environment (at
     # the workspace root for a workspace member), so do not hand it one.
+    INSTALL_FAILURE="\`uv sync --frozen\` failed — this agent does not install from a clean state (its locked dependencies, its own build backend, or a workspace source that is not there)."
     if (cd "$MDIR" && uv sync --frozen --no-progress); then
       INSTALLED=1
       PYRUN=(uv run --frozen --no-progress python)
@@ -168,7 +176,7 @@ for MANIFEST in $PY_MANIFESTS; do
   fi
 
   if [ "$INSTALLED" -ne 1 ]; then
-    fail "$MANIFEST" "the declared Python dependencies do not install from a clean state."
+    fail "$MANIFEST" "$INSTALL_FAILURE"
     [ -n "$VENV" ] && rm -rf "$VENV"
     continue
   fi

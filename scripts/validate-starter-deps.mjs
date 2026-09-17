@@ -149,6 +149,27 @@ function readJson(file) {
 }
 
 /**
+ * Drop a trailing TOML comment, but only when the `#` sits outside a quoted
+ * string. A PEP 508 direct reference carries its hash in the URL fragment,
+ * `"pkg @ https://host/pkg.whl#sha256=..."`, and a blind `replace(/#.*$/)`
+ * would eat the closing quote and the rest of the line with it.
+ */
+export function stripTomlComment(line) {
+  let quote = null;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quote) {
+      if (c === quote) quote = null;
+    } else if (c === '"' || c === "'") {
+      quote = c;
+    } else if (c === "#") {
+      return line.slice(0, i);
+    }
+  }
+  return line;
+}
+
+/**
  * Pull `[project] dependencies` and `[project.optional-dependencies]` out of a
  * pyproject.toml without taking a TOML dependency. Section-aware on purpose:
  * `[tool.poetry] dependencies` and `[build-system] requires` must not leak in.
@@ -158,7 +179,7 @@ export function parsePyprojectDeps(text) {
   let section = "";
   let inArray = false;
   for (const raw of text.split("\n")) {
-    const line = raw.replace(/#.*$/, "");
+    const line = stripTomlComment(raw);
     const header = line.match(/^\s*\[([^\]]+)\]\s*$/);
     if (header) {
       section = header[1];
@@ -315,7 +336,7 @@ export function parseUvSources(text) {
   const names = new Set();
   let section = "";
   for (const raw of text.split("\n")) {
-    const line = raw.replace(/#.*$/, "");
+    const line = stripTomlComment(raw);
     const header = line.match(/^\s*\[([^\]]+)\]\s*$/);
     if (header) {
       section = header[1];

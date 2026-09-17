@@ -8,6 +8,7 @@ import {
   parsePyprojectDeps,
   parseUvSources,
   splitRequirement,
+  stripTomlComment,
   validateStarterDeps,
 } from "../validate-starter-deps.mjs";
 
@@ -324,6 +325,29 @@ ag-ui-agent-spec = { path = "../../ag-ui", editable = true }
       of(violations, "python-unconstrained").map((v) => v.subject),
       ["uvicorn"],
     );
+  });
+
+  it("keeps a `#` that is inside a quoted string", () => {
+    // A PEP 508 direct reference carries its hash in the URL fragment. Stripping
+    // from the first `#` would eat the closing quote, drop the dependency, and
+    // leave the array parser open until some later `]`.
+    assert.equal(
+      stripTomlComment('  "pkg @ https://h/p.whl#sha256=abc",  # real comment'),
+      '  "pkg @ https://h/p.whl#sha256=abc",  ',
+    );
+    assert.equal(stripTomlComment("# whole line"), "");
+    assert.equal(stripTomlComment("plain = 1"), "plain = 1");
+
+    const deps = parsePyprojectDeps(`[project]
+dependencies = [
+  "pkg @ https://h/p.whl#sha256=abc",
+  "after-the-url>=1.0",
+]
+`);
+    assert.deepEqual(deps, [
+      "pkg @ https://h/p.whl#sha256=abc",
+      "after-the-url>=1.0",
+    ]);
   });
 
   it("splits extras and environment markers off a requirement", () => {
