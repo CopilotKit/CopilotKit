@@ -77,7 +77,7 @@ if [ "$INPUT" = "all" ]; then
     echo "::error::--digest cannot be combined with 'all' (a single digest is meaningless across multiple services); pick one service."
     exit 1
   fi
-  CSV=$(jq -r '.services[] | select(.probe.prod == true) | .name' "$GENERATED" | sort -u | tr '\n' ',' | sed 's/,$//')
+  CSV=$(jq -r '.services[] | select(.probe.prod == true and .standalone != true) | .name' "$GENERATED" | sort -u | tr '\n' ',' | sed 's/,$//')
   # Fail loud if 'all' resolved to nothing (e.g. an SSOT regression dropped every
   # probe.prod entry). An empty CSV would otherwise propagate downstream with
   # exit 0; mirror the single-service branch's fail-loud style.
