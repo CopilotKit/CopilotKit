@@ -133,6 +133,12 @@ Retryable failures produce an `unavailable` result and an `unknown` compatibilit
 
 ## Install
 
+The initial release candidate is `0.1.0.rc.1`. After publication:
+
+```sh
+gem install copilotkit-runtime --version 0.1.0.rc.1
+```
+
 1. Add the gem from your checkout to your application's `Gemfile`:
 
    ```ruby
