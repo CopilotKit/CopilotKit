@@ -13,6 +13,8 @@ on:
       - "pnpm-workspace.yaml"
       - "package.json"
       - "tools/learned-skill-conformance/**"
+      - "tools/compatibility-monitor/**"
+      - ".github/workflows/intelligence-compatibility-monitor.yml"
       - "nx.json"
       - ".github/workflows/intelligence-skill-adapters.yml"
   push:
@@ -27,6 +29,8 @@ on:
       - "pnpm-workspace.yaml"
       - "package.json"
       - "tools/learned-skill-conformance/**"
+      - "tools/compatibility-monitor/**"
+      - ".github/workflows/intelligence-compatibility-monitor.yml"
       - "nx.json"
       - ".github/workflows/intelligence-skill-adapters.yml"
   workflow_dispatch:
@@ -66,6 +70,8 @@ jobs:
           version: "0.9.7"
           enable-cache: false
       - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Compatibility dispatch validation
+        run: pnpm nx run compatibility-monitor:test
       - run: pnpm nx run-many -t test,lint,typecheck -p runtime-python,intelligence-delivery-python-core --parallel=1
       - name: Independent Python wheel ownership
         run: pnpm nx run learned-skill-conformance:verify-python-distributions
