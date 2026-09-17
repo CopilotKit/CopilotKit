@@ -1,5 +1,5 @@
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
-import { finalizeRunEvents } from "@copilotkit/shared";
+import { createRunEventFinalizer } from "@copilotkit/shared";
 import { Observable } from "rxjs";
 import type { CopilotRuntimeLike } from "../core/runtime";
 import {
@@ -109,24 +109,23 @@ export async function handleSuggestAgent({
     captureTelemetry: false,
     observableFactory: () =>
       new Observable<BaseEvent>((subscriber) => {
-        // Collected so `finalizeRunEvents` can append any missing terminal
-        // events (e.g. an unclosed message/tool call, or a `RUN_FINISHED`) —
-        // the same closure the runner applies — so the client sees a
-        // well-formed AG-UI sequence.
-        const collected: BaseEvent[] = [];
+        // Tracks open message/tool lifecycles so the missing terminal events
+        // (an unclosed message/tool call, or a `RUN_FINISHED`) can be appended
+        // — the same closure the runner applies — so the client sees a
+        // well-formed AG-UI sequence. Nothing is persisted here, so only the
+        // open ids are kept, never the streamed events themselves.
+        const finalizer = createRunEventFinalizer();
         let settled = false;
 
         void agent
           .runAgent(input, {
             onEvent: ({ event }) => {
-              collected.push(event);
+              finalizer.observe(event);
               subscriber.next(event);
             },
           })
           .then(() => {
-            for (const event of finalizeRunEvents(collected, {
-              stopRequested: false,
-            })) {
+            for (const event of finalizer.finalize({ stopRequested: false })) {
               subscriber.next(event);
             }
             settled = true;
