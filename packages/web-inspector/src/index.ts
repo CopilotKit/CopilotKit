@@ -1,5 +1,9 @@
 import { LitElement, css, html, nothing, render, unsafeCSS } from "lit";
 import type { TemplateResult } from "lit";
+import {
+  renderThreadConversation,
+  threadConversationStyles,
+} from "./components/thread-conversation.js";
 import { marked } from "marked";
 import { styleMap } from "lit/directives/style-map.js";
 import tailwindStyles from "./styles/generated.css";
@@ -1285,7 +1289,7 @@ interface ApiAgentEvent {
   rawEvent?: ThreadDebuggerEvent;
 }
 
-type ThreadDetailsTab = "timeline" | "state" | "raw-events";
+type ThreadDetailsTab = "conversation" | "timeline" | "state" | "raw-events";
 type ThreadDetailsPanelCacheSlot = ThreadDetailsTab | "timeline-fallback";
 
 type TimelineItemKind =
@@ -2167,6 +2171,7 @@ class CpkThreadList extends PortableLitElement {
 // the legacy CopilotKit Inspector wrapper can still pass runtime URL inputs.
 export class CpkThreadInspector extends PortableLitElement {
   static properties = {
+    conversationView: { type: Boolean, attribute: "conversation-view" },
     threadId: { attribute: false },
     provider: { attribute: false },
     thread: { attribute: false },
@@ -2187,6 +2192,8 @@ export class CpkThreadInspector extends PortableLitElement {
     _tab: { state: true },
     _fetchedMetadata: { state: true },
     _conversation: { state: true },
+    _messageRecords: { state: true },
+    _messageRefreshError: { state: true },
     _fetchedEvents: { state: true },
     _fetchedState: { state: true },
     _loadingMessages: { state: true },
@@ -2208,6 +2215,8 @@ export class CpkThreadInspector extends PortableLitElement {
   };
 
   threadId: string | null = null;
+  /** Opt into a read-only conversation first, with all diagnostic views retained. */
+  conversationView = false;
   provider: ThreadDebuggerProvider | null = null;
   thread: ThreadDebuggerMetadata | ɵThread | null = null;
   runtimeUrl = "";
@@ -2238,6 +2247,8 @@ export class CpkThreadInspector extends PortableLitElement {
   private _tab: ThreadDetailsTab = "timeline";
   private _fetchedMetadata: ThreadDebuggerMetadata | null = null;
   private _conversation: ConversationItem[] = [];
+  private _messageRecords: ThreadDebuggerMessage[] = [];
+  private _messageRefreshError: string | null = null;
   private _fetchedEvents: ApiAgentEvent[] | null = null;
   private _fetchedState: Record<string, unknown> | null = null;
   private _loadingMessages = false;
@@ -2273,7 +2284,7 @@ export class CpkThreadInspector extends PortableLitElement {
    * switching back to AG-UI Events on a thread with hundreds of events
    * triggers a multi-second DOM-creation pass each time.
    *
-   * Reset to {"timeline"} when the selected thread changes.
+   * Reset to the configured initial view when the selected thread changes.
    */
   private _activatedTabs: Set<ThreadDetailsTab> = new Set(["timeline"]);
   /**
@@ -2336,6 +2347,20 @@ export class CpkThreadInspector extends PortableLitElement {
     { id: "state", label: "State" },
   ];
 
+  private get tabs(): typeof CpkThreadInspector.TAB_LIST {
+    return this.conversationView
+      ? [
+          { id: "conversation", label: "Conversation" },
+          { id: "timeline", label: "Timeline" },
+          ...CpkThreadInspector.TAB_LIST.slice(1),
+        ]
+      : CpkThreadInspector.TAB_LIST;
+  }
+
+  private get initialTab(): ThreadDetailsTab {
+    return this.conversationView ? "conversation" : "timeline";
+  }
+
   private static providerIds = new WeakMap<ThreadDebuggerProvider, number>();
   private static nextProviderId = 1;
 
@@ -2372,6 +2397,7 @@ export class CpkThreadInspector extends PortableLitElement {
   }
 
   private renderTabContent(id: ThreadDetailsTab): TemplateResult {
+    if (id === "conversation") return this.renderConversationReader();
     if (id === "timeline") {
       return this.withMessagesToolbar(this.renderTimeline());
     }
@@ -2394,26 +2420,23 @@ export class CpkThreadInspector extends PortableLitElement {
     event: KeyboardEvent,
     currentId: ThreadDetailsTab,
   ): void {
-    const currentIndex = CpkThreadInspector.TAB_LIST.findIndex(
-      (tab) => tab.id === currentId,
-    );
+    const tabs = this.tabs;
+    const currentIndex = tabs.findIndex((tab) => tab.id === currentId);
     if (currentIndex < 0) return;
 
     let targetIndex: number | null = null;
     if (event.key === "ArrowRight") {
-      targetIndex = (currentIndex + 1) % CpkThreadInspector.TAB_LIST.length;
+      targetIndex = (currentIndex + 1) % tabs.length;
     } else if (event.key === "ArrowLeft") {
-      targetIndex =
-        (currentIndex - 1 + CpkThreadInspector.TAB_LIST.length) %
-        CpkThreadInspector.TAB_LIST.length;
+      targetIndex = (currentIndex - 1 + tabs.length) % tabs.length;
     } else if (event.key === "Home") {
       targetIndex = 0;
     } else if (event.key === "End") {
-      targetIndex = CpkThreadInspector.TAB_LIST.length - 1;
+      targetIndex = tabs.length - 1;
     }
     if (targetIndex === null) return;
 
-    const target = CpkThreadInspector.TAB_LIST[targetIndex];
+    const target = tabs[targetIndex];
     if (!target) return;
     event.preventDefault();
     this.activateTab(target.id);
@@ -2423,6 +2446,7 @@ export class CpkThreadInspector extends PortableLitElement {
   }
 
   private activateTab(id: ThreadDetailsTab): void {
+    if (!this.tabs.some((tab) => tab.id === id)) return;
     if (this._tab === id) return;
     const isFirstActivation = !this._activatedTabs.has(id);
     this._tab = id;
@@ -2519,7 +2543,7 @@ export class CpkThreadInspector extends PortableLitElement {
          gets tight (the drawer being open eats noticeably into width). */
       min-width: 0;
       flex-shrink: 1;
-      overflow: hidden;
+      overflow-x: auto;
     }
 
     .cpk-td__tab {
@@ -3694,6 +3718,7 @@ export class CpkThreadInspector extends PortableLitElement {
     :host([data-color-scheme="dark"]) .cpk-tdp__divider {
       background: #343742;
     }
+    ${threadConversationStyles}
   `;
 
   updated(_changed: Map<string, unknown>): void {
@@ -3738,19 +3763,32 @@ export class CpkThreadInspector extends PortableLitElement {
       void this.fetchMessages(this.threadId, true);
     }
 
+    if (_changed.has("conversationView") && this._tab !== this.initialTab) {
+      this._tab = this.initialTab;
+      this._activatedTabs = new Set([...this._activatedTabs, this.initialTab]);
+    }
+
     const focusedContentChanged =
       _changed.has("_fetchedEvents") ||
       _changed.has("agentEventsInput") ||
       _changed.has("agentMessagesInput") ||
-      _changed.has("_conversation");
+      _changed.has("_conversation") ||
+      _changed.has("_messageRecords");
     if (
       this.focusMessageId &&
       (this.focusRequestId > this._scrolledFocusRequestId ||
         focusedContentChanged)
     ) {
-      if (this._tab !== "timeline") {
-        this._activatedTabs = new Set([...this._activatedTabs, "timeline"]);
-        this._tab = "timeline";
+      const focusTab =
+        this.conversationView &&
+        this._messageRecords.some(
+          (message) => message.id === this.focusMessageId,
+        )
+          ? "conversation"
+          : "timeline";
+      if (this._tab !== focusTab) {
+        this._activatedTabs = new Set([...this._activatedTabs, focusTab]);
+        this._tab = focusTab;
         this.requestUpdate();
       }
       requestAnimationFrame(() => this.scrollToFocusedMessage());
@@ -3760,7 +3798,9 @@ export class CpkThreadInspector extends PortableLitElement {
   private scrollToFocusedMessage(): void {
     if (!this.focusMessageId) return;
     const message = Array.from(
-      this.shadowRoot?.querySelectorAll<HTMLElement>("[data-message-id]") ?? [],
+      this.shadowRoot?.querySelectorAll<HTMLElement>(
+        `#${this.panelDomId(this._tab)}:not([hidden]) [data-message-id]`,
+      ) ?? [],
     ).find((candidate) => candidate.dataset.messageId === this.focusMessageId);
     if (!message) return;
     message.scrollIntoView?.({ block: "center" });
@@ -3827,8 +3867,8 @@ export class CpkThreadInspector extends PortableLitElement {
   }
 
   private resetLoadedThreadData(): void {
-    this._tab = "timeline";
-    this._activatedTabs = new Set(["timeline"]);
+    this._tab = this.initialTab;
+    this._activatedTabs = new Set([this.initialTab]);
     this._panelTplCache = new Map();
     this._timelineItemsCache = null;
     this._liveEventsWithSourceIndexCache = null;
@@ -3855,10 +3895,12 @@ export class CpkThreadInspector extends PortableLitElement {
     this._loadingEvents = false;
     this._loadingState = false;
     this._messagesError = null;
+    this._messageRefreshError = null;
     this._eventsError = null;
     this._stateError = null;
     this._fetchedMetadata = null;
     this._conversation = [];
+    this._messageRecords = [];
     this._fetchedEvents = null;
     this._fetchedState = null;
   }
@@ -3876,7 +3918,7 @@ export class CpkThreadInspector extends PortableLitElement {
       this._fetchedMetadata = metadata;
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
-      if (this.threadId !== threadId) return;
+      if (controller.signal.aborted || this.threadId !== threadId) return;
       this._fetchedMetadata = null;
     }
   }
@@ -3913,18 +3955,26 @@ export class CpkThreadInspector extends PortableLitElement {
           })
         : await this.fetchRuntimeMessages(threadId, controller.signal);
       if (controller.signal.aborted || this.threadId !== threadId) return;
+      this._messageRecords = messages;
       this._conversation = this.mapMessages(messages);
+      this._messagesError = null;
+      this._messageRefreshError = null;
     } catch (err) {
+      if (controller.signal.aborted || this.threadId !== threadId) return;
       if (err instanceof Error && err.name === "AbortError") return;
       if (!silent) {
         this._messagesError =
           err instanceof Error ? err.message : "Failed to load messages";
         this._conversation = [];
+        this._messageRecords = [];
+      } else {
+        this._messageRefreshError =
+          "Could not refresh messages. Showing the last loaded conversation.";
       }
-      // Silent mode: keep last-good conversation, don't surface the error.
-      // The next successful live re-fetch will recover automatically.
+      // Preserve last-good messages; the opt-in reader marks them stale until
+      // the next successful refresh. The diagnostic fallback stays unchanged.
     } finally {
-      if (!silent && !controller.signal.aborted) {
+      if (!controller.signal.aborted && this.threadId === threadId) {
         this._loadingMessages = false;
       }
     }
@@ -3963,7 +4013,7 @@ export class CpkThreadInspector extends PortableLitElement {
       this._fetchedEvents = mappedEvents;
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
-      if (this.threadId !== threadId) return;
+      if (controller.signal.aborted || this.threadId !== threadId) return;
       this._eventsError =
         err instanceof Error ? err.message : "Failed to load events";
       this._fetchedEvents = [];
@@ -4002,7 +4052,7 @@ export class CpkThreadInspector extends PortableLitElement {
       this._fetchedState = result.state ?? null;
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
-      if (this.threadId !== threadId) return;
+      if (controller.signal.aborted || this.threadId !== threadId) return;
       this._stateError =
         err instanceof Error ? err.message : "Failed to load state";
       this._fetchedState = null;
@@ -4732,7 +4782,7 @@ export class CpkThreadInspector extends PortableLitElement {
               role="tablist"
               aria-label="Thread detail views"
             >
-              ${CpkThreadInspector.TAB_LIST.map(
+              ${this.tabs.map(
                 (tab) => html`
                   <button
                     id=${this.tabDomId(tab.id)}
@@ -4771,7 +4821,7 @@ export class CpkThreadInspector extends PortableLitElement {
                   `
                 : nothing
             }
-            ${CpkThreadInspector.TAB_LIST.map((tab) =>
+            ${this.tabs.map((tab) =>
               this._activatedTabs.has(tab.id)
                 ? html`<div
                     id=${this.panelDomId(tab.id)}
@@ -5212,6 +5262,42 @@ export class CpkThreadInspector extends PortableLitElement {
             : nothing
         }
       </div>
+    `;
+  }
+
+  /** Read the canonical message record without losing the diagnostic history. */
+  private renderConversationReader(): TemplateResult {
+    const openTimeline = () => this.activateTab("timeline");
+    const runErrors = this.activeTimelineItems.filter(
+      (item) => item.severity === "error",
+    );
+    return html`
+      <div class="cpk-conversation-heading">
+        <p>Read-only conversation</p>
+        <button type="button" class="cpk-td__timeline-bulk-toggle" @click=${() => this.activateTab("state")}>Inspect app state</button>
+      </div>
+      ${runErrors.map((item) => this.renderTimelineItem(item))}
+      ${this._eventsError ? html`<p class="cpk-td__status cpk-td__status--error" role="status">Event history could not be loaded: ${this._eventsError}</p>` : nothing}
+      ${this._messageRefreshError ? html`<p class="cpk-td__status cpk-td__status--error" role="status">${this._messageRefreshError}</p>` : nothing}
+      ${
+        this._loadingMessages
+          ? html`
+              <div class="cpk-td__status" role="status">Loading messages…</div>
+            `
+          : this._messagesError
+            ? html`<div class="cpk-td__empty-state"><span class="cpk-td__status--error" role="status">Could not load conversation messages: ${this._messagesError}</span><button type="button" class="cpk-td__timeline-bulk-toggle" @click=${openTimeline}>Open timeline</button></div>`
+            : this._messageRecords.length > 0
+              ? this.cachedPanelTpl(
+                  "conversation",
+                  [this._messageRecords],
+                  () => renderThreadConversation(this._messageRecords),
+                )
+              : html`<div class="cpk-td__empty-state">
+                <span>${!this.canFetchMessages() ? "Conversation messages are unavailable" : this.activeEvents.length > 0 ? "No conversation messages were returned" : "No messages captured yet"}</span>
+                <span class="cpk-td__empty-hint">Open Timeline for recorded activity, or State for the latest available app state.</span>
+                <button type="button" class="cpk-td__timeline-bulk-toggle" @click=${openTimeline}>Open timeline</button>
+              </div>`
+      }
     `;
   }
 

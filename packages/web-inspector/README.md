@@ -1,5 +1,32 @@
 # @copilotkit/web-inspector
 
+## Embedded conversation reader
+
+Hosts of `cpk-thread-inspector` can set `conversationView = true` (or the
+`conversation-view` boolean attribute) before mounting the element. This opts
+into **Conversation** as the initial read-only view, alongside **Timeline**,
+**AG-UI Events**, and **State**. The Inspector overlay keeps its existing default.
+
+The conversation uses the provider's canonical `getMessages` order. User and
+assistant text is visible; tool calls, results, other message roles, and complete
+rich payloads remain available in keyboard-accessible disclosures. Payloads are
+displayed as inert text: the reader does not execute app UI or load attachments.
+Tool result presence does not imply that the operation succeeded. Run errors and
+failed message refreshes remain visible. Hosts without message access receive an
+unavailable explanation and a Timeline action rather than a fabricated transcript.
+
+The option reuses the existing provider, request cancellation, thread reset, and
+`liveMessageVersion` refresh contract. A message focus request selects the
+conversation when that canonical message exists, or the diagnostic timeline
+otherwise. Tab switches preserve opened message disclosures.
+
+Preview both views with the standalone workbench running:
+`/conversation-reader.html` and `/conversation-reader.html?view=timeline`.
+These use illustrative fixtures, not a live Intelligence organization. Consuming
+applications must upgrade to a published release containing this option before
+claiming it is enabled. This source change does not publish a package or change
+Intelligence's pinned dependency.
+
 ## Trusted project context
 
 The Web Inspector reads optional `InspectorMetadataV1` data from

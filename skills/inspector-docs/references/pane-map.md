@@ -20,6 +20,8 @@ Update this file in the same change that adds or removes a pane.
 
 ## Unshipped (no Callout)
 
+- Conversation: opt-in `cpk-thread-inspector` host view; package release and
+  consuming-app dependency upgrade required. The developer overlay default is unchanged.
 - Emit events
 - Pop-out window
 
