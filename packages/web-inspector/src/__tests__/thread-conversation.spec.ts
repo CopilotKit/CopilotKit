@@ -189,6 +189,77 @@ test("recorded run errors remain visible beside a readable conversation", async 
   );
 });
 
+test("non-JSON tool arguments preserve readable values and the rest of the conversation", async () => {
+  const shared = { cartId: "cart-42" };
+  const args: Record<string, unknown> = {
+    count: 9007199254740993n,
+    first: shared,
+    second: shared,
+    missing: undefined,
+    callback: () => undefined,
+    token: Symbol("record"),
+    duration: Infinity,
+  };
+  args.self = args;
+  const detail = mount({
+    getMessages: async () => [
+      {
+        id: "unusual-tool",
+        role: "assistant",
+        content: "Restoring your cart.",
+        toolCalls: [{ id: "unusual-call", name: "restore_cart", args }],
+      },
+      ...messages.slice(3),
+    ],
+  });
+  await settle(detail);
+  const record = activePanel(detail).querySelector(
+    '[data-message-id="unusual-tool"]',
+  )!;
+  const argumentsText = record.querySelector("details pre")!.textContent!;
+  expect(argumentsText).toContain("[BigInt: 9007199254740993]");
+  expect(argumentsText).toContain("[Circular reference]");
+  expect(argumentsText.match(/cart-42/g)).toHaveLength(2);
+  expect(argumentsText).toContain("[Undefined value]");
+  expect(argumentsText).toContain("[Function value]");
+  expect(argumentsText).toContain("[Symbol value: Symbol(record)]");
+  expect(argumentsText).toContain("[Non-finite number: Infinity]");
+  expect(
+    record.querySelector(".cpk-conversation-disclosure--raw")!.textContent,
+  ).toContain("[BigInt: 9007199254740993]");
+  expect(activePanel(detail).textContent).toContain(
+    "Your two items are ready.",
+  );
+});
+
+test("an unserializable payload is labeled explicitly without breaking other messages", async () => {
+  const args = Object.defineProperty({ cartId: "cart-42" }, "unreadable", {
+    enumerable: true,
+    get() {
+      throw new Error("Unreadable provider value");
+    },
+  });
+  const detail = mount({
+    getMessages: async () => [
+      {
+        id: "unreadable-tool",
+        role: "assistant",
+        content: "Restoring your cart.",
+        toolCalls: [{ id: "unreadable-call", name: "restore_cart", args }],
+      },
+      ...messages.slice(3),
+    ],
+  });
+  await settle(detail);
+  expect(activePanel(detail).textContent).toContain(
+    "[Unable to display this recorded value as JSON]",
+  );
+  expect(activePanel(detail).textContent).toContain("Restoring your cart.");
+  expect(activePanel(detail).textContent).toContain(
+    "Your two items are ready.",
+  );
+});
+
 test("loading and fetch errors do not pretend the conversation is empty", async () => {
   let reject!: (reason: Error) => void;
   const detail = mount({

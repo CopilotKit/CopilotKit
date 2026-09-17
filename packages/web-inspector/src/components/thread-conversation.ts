@@ -15,16 +15,45 @@ function messageText(content: unknown): string {
     .join("\n");
 }
 
-/** Displays recorded data as inert text; never executes or loads rich payloads. */
+/** Formats recorded data as text, explicitly marking values JSON cannot represent. */
 function payloadText(value: unknown): string {
   if (typeof value === "string") {
+    const recordedText = value;
     try {
-      return JSON.stringify(JSON.parse(value), null, 2);
+      value = JSON.parse(value);
     } catch {
-      return value;
+      return recordedText;
     }
   }
-  return JSON.stringify(value, null, 2) ?? "";
+  const ancestors: object[] = [];
+  try {
+    return (
+      JSON.stringify(
+        value,
+        function (this: unknown, _key, current: unknown) {
+          if (typeof current === "bigint") return `[BigInt: ${current}]`;
+          if (typeof current === "undefined") return "[Undefined value]";
+          if (typeof current === "function") return "[Function value]";
+          if (typeof current === "symbol")
+            return `[Symbol value: ${String(current)}]`;
+          if (typeof current === "number" && !Number.isFinite(current))
+            return `[Non-finite number: ${current}]`;
+          if (typeof current !== "object" || current === null) return current;
+          // Track ancestors, not every seen object: repeated siblings are valid JSON.
+          while (ancestors.length > 0 && ancestors.at(-1) !== this)
+            ancestors.pop();
+          if (ancestors.includes(current)) return "[Circular reference]";
+          ancestors.push(current);
+          return current;
+        },
+        2,
+      ) ?? "[Undefined value]"
+    );
+  } catch {
+    // Providers may also supply throwing accessors/toJSON methods. Keep the
+    // rest of the read-only record visible without pretending this value is empty.
+    return "[Unable to display this recorded value as JSON]";
+  }
 }
 
 /** Canonical message order, including non-chat roles and unmatched tool results. */
