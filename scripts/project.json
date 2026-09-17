@@ -4,6 +4,17 @@
   "sourceRoot": "scripts",
   "projectType": "library",
   "targets": {
+    "validate-starter-deps": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "commands": [
+          "node --test scripts/__tests__/validate-starter-deps.test.mjs",
+          "node scripts/validate-starter-deps.mjs"
+        ],
+        "parallel": false
+      }
+    },
     "validate-retired-anthropic-models": {
       "executor": "nx:run-commands",
       "cache": false,
