@@ -62,13 +62,14 @@ jobs:
       - name: Prepare pin file
         id: pin
         if: steps.probe.outputs.skip != 'true'
+        working-directory: showcase/scripts
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           GIT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
           set -euo pipefail
-          npx tsx showcase/scripts/prepare-docs-release-pin.ts \
-            --pin-path=showcase/pins/docs-prod.json \
+          npx tsx prepare-docs-release-pin.ts \
+            --pin-path=../../showcase/pins/docs-prod.json \
             --git-sha="$GIT_SHA"
 
       - name: Mint devops-bot token
@@ -101,6 +102,7 @@ jobs:
 
             - Staging: https://docs.staging.copilotkit.ai
             - Git SHA: `${{ github.event.workflow_run.head_sha || github.sha }}`
+            - Digest: `${{ steps.pin.outputs.digest }}`
 
             This is the docs prod gate. It does not promote the showcase fleet.
 

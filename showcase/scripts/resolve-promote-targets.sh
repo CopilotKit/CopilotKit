@@ -12,8 +12,8 @@
 #
 #   1. services_csv — the EXISTING leaf-set CSV the actual promote loop consumes.
 #      For a single service this is just that service's SSOT name; for `all` it
-#      is every prod-eligible (`probe.prod == true`) SSOT name, sorted (the prior
-#      inline behavior, byte-for-byte). U4 still drives the real promote off this.
+#      is every prod-eligible (`probe.prod == true`) and not-standalone SSOT
+#      name, sorted. U4 still drives the real promote off this.
 #
 #   2. closure_csv / closure_plan — the TIERED promote closure computed from the
 #      generated JSON's `closure` block: the requested set ∪ transitive
