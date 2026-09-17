@@ -151,7 +151,9 @@ async function railwayGql<T>(
 function workerUpdateInput(image: string): Record<string, unknown> {
   const provisioning = workerProvisioningFor("harness-workers", "staging");
   if (provisioning === undefined) {
-    throw new Error("harness-workers staging provisioning is missing from SSOT");
+    throw new Error(
+      "harness-workers staging provisioning is missing from SSOT",
+    );
   }
   return {
     source: { image },
