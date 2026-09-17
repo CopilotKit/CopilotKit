@@ -3,6 +3,7 @@ import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 import { streamText, stepCountIs } from "ai";
 import { MockLanguageModelV3, simulateReadableStream } from "ai/test";
+import { z } from "zod";
 import { EventType } from "@ag-ui/client";
 import { BuiltInAgent, convertMessagesToVercelAISDKMessages } from "../index";
 import { collectEvents, createDefaultInput } from "./agent-test-helpers";
@@ -67,6 +68,66 @@ async function deliveryServer() {
 }
 
 describe("native AI SDK skill delivery over canonical HTTP transport", () => {
+  it.each([false, true])(
+    "pauses on an interrupt with prior skill loading: %s",
+    async (loadFirst) => {
+      const server = await deliveryServer();
+      let calls = 0;
+      const model = new MockLanguageModelV3({
+        doStream: async () => {
+          const load = loadFirst && calls++ === 0;
+          return {
+            stream: simulateReadableStream<StreamPart>({
+              chunks: [
+                {
+                  type: "tool-call",
+                  toolCallId: load ? "load" : "approval",
+                  toolName: load ? "copilotkit_load_skill" : "approve",
+                  input: JSON.stringify(
+                    load ? { skill_name: "refund-policy" } : {},
+                  ),
+                },
+                {
+                  type: "finish",
+                  finishReason: { unified: "tool-calls", raw: "tool_calls" },
+                  usage,
+                },
+              ],
+            }),
+          };
+        },
+      });
+      const agent = new BuiltInAgent({
+        model,
+        learnedSkills: server.options,
+        tools: [
+          {
+            name: "approve",
+            description: "Ask for approval",
+            parameters: z.object({}),
+            interrupt: true,
+          },
+        ],
+      });
+      const events = await collectEvents(
+        agent.run(
+          createDefaultInput({
+            messages: [{ id: "user", role: "user", content: "Get approval." }],
+          }),
+        ),
+      );
+      expect(model.doStreamCalls).toHaveLength(loadFirst ? 2 : 1);
+      expect(
+        events.find((event) => event.type === EventType.RUN_FINISHED),
+      ).toMatchObject({
+        outcome: { type: "interrupt", interrupts: [{ id: "approval" }] },
+      });
+      expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(
+        false,
+      );
+    },
+  );
+
   it.each(["classic", "factory"] as const)(
     "%s executes both skill tools and refreshes on resume",
     async (mode) => {

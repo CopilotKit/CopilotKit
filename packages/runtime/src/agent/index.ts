@@ -365,9 +365,8 @@ export interface ToolDefinition<
    * When true, calling this tool pauses the run and emits a standard AG-UI
    * interrupt (RUN_FINISHED outcome:interrupt) keyed by the tool call's id.
    * The human response (resume payload) is injected as this tool call's result
-   * on the resume run. Interrupt tools must NOT define `execute`, and require
-   * the default `maxSteps: 1` — with `maxSteps > 1` the AI SDK's agentic loop
-   * would try to continue past the unexecuted tool call instead of pausing.
+   * on the resume run. Interrupt tools must NOT define `execute`. The AI SDK
+   * pauses when a tool call has no result, even with a multi-step limit.
    */
   interrupt?: boolean;
   /** Optional categorical reason surfaced on the Interrupt (default: "tool_call"). */
