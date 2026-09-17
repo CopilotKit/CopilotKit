@@ -62,4 +62,4 @@ jobs:
           name: compatibility-result-${{ steps.request.outputs.requestId }}
           path: compatibility-output/
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 90

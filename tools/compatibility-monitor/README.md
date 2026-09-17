@@ -17,7 +17,7 @@ Install the checkout's frozen pnpm dependencies first. Runners need Node 22.13.0
 
 ## Evidence and conservative outcomes
 
-`result.json` follows the handoff contract. `resolvedDependencies` records watched packages verified in the consumer; `resolvedGraph` additionally records the resolved package graph for comparison across runs (npm keys include install paths). Logs, request, and available lockfiles accompany the artifact. The coordinator must compare graphs before attributing failure to the requested upgrade: other dependency changes may explain a difference.
+`result.json` follows the handoff contract. `resolvedDependencies` records watched packages verified in the consumer; `resolvedGraph` additionally records the resolved package graph for comparison across runs (npm keys include install paths). Logs, request, and available lockfiles accompany the artifact. GitHub retains these artifacts for 90 days. The coordinator must compare graphs before attributing failure to the requested upgrade: other dependency changes may explain a difference.
 
 An installation failure, missing test tool, missing loaded-version evidence, or missing executed contract produces `blocked`, never `passed`. Python skipped contracts prevent a green result. A .NET build failure before framework-load evidence remains blocked. Missing registry packages currently produce blocked install evidence; registry discovery in the coordinator handles unpublished adapters.
 
