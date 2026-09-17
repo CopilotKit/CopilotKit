@@ -175,7 +175,7 @@ function parseEvidence(value: unknown): InspectorLearningEvidence | undefined {
     hashes !== undefined &&
     (!Array.isArray(hashes) ||
       hashes.length !== value.messageIds.length ||
-      !hashes.every(
+      !Array.from(hashes).every(
         (hash) =>
           hash === null ||
           (typeof hash === "string" && /^[a-f0-9]{64}$/u.test(hash)),

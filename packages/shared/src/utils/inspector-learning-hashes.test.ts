@@ -68,3 +68,8 @@ test("preserves valid hashes and permits old producers and unverifiable messages
   insight.evidence[0]!.messageHashes = undefined;
   expect(parseInspectorLearningSnapshotV1(snapshot) !== undefined).toBe(true);
 });
+
+test("rejects sparse evidence hashes even when the length matches message IDs", () => {
+  const { snapshot } = setup(new Array<string>(1));
+  expect(parseInspectorLearningSnapshotV1(snapshot)).toBeUndefined();
+});
