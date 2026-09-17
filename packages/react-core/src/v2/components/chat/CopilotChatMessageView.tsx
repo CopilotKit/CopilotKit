@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ScrollElementContext } from "./scroll-element-context";
+import { ScrollPinnedContext } from "./scroll-pinned-context";
 import type { WithSlots } from "../../lib/slots";
 import { renderSlot, isReactComponentType } from "../../lib/slots";
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
@@ -435,6 +436,7 @@ export function CopilotChatMessageView({
   className,
   ...props
 }: CopilotChatMessageViewProps) {
+  const isPinnedToBottom = useContext(ScrollPinnedContext);
   const renderCustomMessage = useRenderCustomMessages();
   const { renderActivityMessage } = useRenderActivityMessage();
   const { copilotkit } = useCopilotKit();
@@ -588,19 +590,57 @@ export function CopilotChatMessageView({
     !children &&
     deduplicatedMessages.length > VIRTUALIZE_THRESHOLD;
 
+  // Running mean of every row measured so far, used as the estimate for rows
+  // that have not been measured yet. A flat 100 px estimate is off by roughly
+  // an order of magnitude for a message carrying a code block, so the total
+  // size lurches every time such a row is measured; an estimate drawn from
+  // this thread's own rows keeps those corrections small. Held in a ref
+  // because feeding it back through state would re-render on every measure.
+  const measuredRef = React.useRef({ count: 0, total: 0 });
+  const isPinnedToBottomRef = React.useRef(isPinnedToBottom);
+  const shouldAdjustScrollOnResize = React.useCallback(
+    () => !isPinnedToBottomRef.current,
+    [],
+  );
+  const estimateRowSize = React.useCallback(() => {
+    const { count, total } = measuredRef.current;
+    return count > 0 ? Math.max(1, Math.round(total / count)) : 100;
+  }, []);
+
   const virtualizer = useVirtualizer({
     // count=0 disables the virtualizer without changing hook call order.
     count: shouldVirtualize ? deduplicatedMessages.length : 0,
     getScrollElement: () => scrollElement,
-    // Conservative height estimate. Items are measured by ResizeObserver after
-    // first render so the estimate only affects the initial total height.
-    estimateSize: () => 100,
+    estimateSize: estimateRowSize,
     overscan: 5,
-    measureElement: (el: Element) => el?.getBoundingClientRect().height ?? 0,
+    measureElement: (el: Element) => {
+      const height = el?.getBoundingClientRect().height ?? 0;
+      if (height > 0) {
+        measuredRef.current.count += 1;
+        measuredRef.current.total += height;
+      }
+      return height;
+    },
     // Assume a 600 px viewport before the real element is measured so that
     // the first virtual render shows ~6 items rather than 0.
     initialRect: { width: 0, height: 600 },
   });
+
+  // While the pin-to-bottom behaviour is following the bottom it is already
+  // going to move the scroll position, and its ResizeObserver reads our
+  // total-size changes as content growth. Compensating here as well makes the
+  // two fight: each correction triggers an animation, the animation pulls
+  // unmeasured rows into view, measuring them moves the total again. Stand
+  // down while it is pinned; keep compensating when the reader has scrolled
+  // up, which is the case the compensation is actually for.
+  //
+  // This is an instance property on the virtualizer rather than one of its
+  // options, so it has to be assigned. Assigned during render (not in an
+  // effect) because a row can be measured before effects run. The read goes
+  // through a ref so the assigned function stays referentially stable.
+  isPinnedToBottomRef.current = isPinnedToBottom;
+  virtualizer.shouldAdjustScrollPositionOnItemSizeChange =
+    shouldAdjustScrollOnResize;
 
   // Scroll to the bottom when virtual mode first activates or the thread changes
   // (detected by the first message ID changing). For streaming new messages,
@@ -633,7 +673,13 @@ export function CopilotChatMessageView({
   // ---------------------------------------------------------------------------
   const renderMessageBlock = (message: Message): React.ReactElement[] => {
     const elements: (React.ReactElement | null | undefined)[] = [];
-    const stateSnapshot = getStateSnapshotForMessage(message.id);
+    // Only custom message renderers consume the snapshot, and resolving it
+    // deep-clones the agent's whole state (LangGraph's includes the `messages`
+    // channel). Computing it unconditionally cost one clone per message per
+    // render even when no renderer was registered.
+    const stateSnapshot = renderCustomMessage
+      ? getStateSnapshotForMessage(message.id)
+      : undefined;
 
     if (renderCustomMessage) {
       elements.push(
