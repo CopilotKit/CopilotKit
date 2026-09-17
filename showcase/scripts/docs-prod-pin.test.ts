@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  decideDocsReleasePin,
   parseDocsProdPin,
   serializeDocsProdPin,
 } from "./docs-prod-pin";
@@ -17,6 +18,11 @@ const VALID: DocsProdPin = {
   staging_url: "https://docs.staging.copilotkit.ai",
   verified_at: "2026-09-17T12:00:00.000Z",
 };
+
+const GIT_SHA = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
+const VERIFIED_AT = "2026-09-17T12:00:00.000Z";
+const DIGEST_B =
+  "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
 describe("parseDocsProdPin", () => {
   it("parses a valid pin", () => {
@@ -57,5 +63,65 @@ describe("serializeDocsProdPin", () => {
 
   it("ends with a newline", () => {
     expect(serializeDocsProdPin(VALID).endsWith("\n")).toBe(true);
+  });
+});
+
+describe("decideDocsReleasePin", () => {
+  it("skips when staging digest is null", () => {
+    expect(
+      decideDocsReleasePin({
+        stagingDigest: null,
+        prodDigest: DIGEST,
+        pinOnMain: null,
+        gitSha: GIT_SHA,
+        verifiedAt: VERIFIED_AT,
+      }),
+    ).toEqual({ action: "skip", reason: "staging digest is missing" });
+  });
+
+  it("skips when staging digest equals prod digest", () => {
+    expect(
+      decideDocsReleasePin({
+        stagingDigest: DIGEST,
+        prodDigest: DIGEST,
+        pinOnMain: null,
+        gitSha: GIT_SHA,
+        verifiedAt: VERIFIED_AT,
+      }),
+    ).toEqual({
+      action: "skip",
+      reason: "staging digest equals prod digest",
+    });
+  });
+
+  it("skips when staging digest equals the pin on main", () => {
+    expect(
+      decideDocsReleasePin({
+        stagingDigest: DIGEST,
+        prodDigest: DIGEST_B,
+        pinOnMain: VALID,
+        gitSha: GIT_SHA,
+        verifiedAt: VERIFIED_AT,
+      }),
+    ).toEqual({
+      action: "skip",
+      reason: "staging digest equals pin on main",
+    });
+  });
+
+  it("writes when staging digest differs from prod and pin", () => {
+    expect(
+      decideDocsReleasePin({
+        stagingDigest: DIGEST,
+        prodDigest: DIGEST_B,
+        pinOnMain: null,
+        gitSha: GIT_SHA,
+        verifiedAt: VERIFIED_AT,
+      }),
+    ).toEqual({
+      action: "write",
+      reason: "staging digest differs from prod and pin",
+      pin: VALID,
+    });
   });
 });

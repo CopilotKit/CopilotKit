@@ -75,3 +75,42 @@ export function parseDocsProdPin(raw: string): DocsProdPin {
 export function serializeDocsProdPin(pin: DocsProdPin): string {
   return `${JSON.stringify(pin, null, 2)}\n`;
 }
+
+export type DecideDocsReleasePinInput = {
+  stagingDigest: string | null;
+  prodDigest: string | null;
+  pinOnMain: DocsProdPin | null;
+  gitSha: string;
+  verifiedAt: string;
+};
+
+export type DecideDocsReleasePinResult =
+  | { action: "skip"; reason: string }
+  | { action: "write"; reason: string; pin: DocsProdPin };
+
+export function decideDocsReleasePin(
+  input: DecideDocsReleasePinInput,
+): DecideDocsReleasePinResult {
+  if (input.stagingDigest === null) {
+    return { action: "skip", reason: "staging digest is missing" };
+  }
+  if (input.stagingDigest === input.prodDigest) {
+    return { action: "skip", reason: "staging digest equals prod digest" };
+  }
+  if (input.pinOnMain?.digest === input.stagingDigest) {
+    return { action: "skip", reason: "staging digest equals pin on main" };
+  }
+  return {
+    action: "write",
+    reason: "staging digest differs from prod and pin",
+    pin: {
+      schema_version: 1,
+      service: "docs",
+      image: `${DOCS_GHCR_IMAGE}@${input.stagingDigest}`,
+      digest: input.stagingDigest,
+      git_sha: input.gitSha,
+      staging_url: DOCS_STAGING_URL,
+      verified_at: input.verifiedAt,
+    },
+  };
+}
