@@ -225,10 +225,13 @@ describe("inlineSnippets", () => {
 
 describe("loadDoc", () => {
   it("resolves clean URLs to files stored under route-group folders", () => {
-    const doc = loadDoc("integrations/aws-strands/telemetry");
+    // llamaindex is an `authored` integration, so this file is served content
+    // rather than a copy the root page shadows. The aws-strands equivalent
+    // this used to assert on was deleted as a never-served duplicate.
+    const doc = loadDoc("integrations/llamaindex/telemetry");
 
     expect(doc?.filePath.split(path.sep).join("/")).toContain(
-      "integrations/aws-strands/(other)/telemetry/index.mdx",
+      "integrations/llamaindex/(other)/telemetry/index.mdx",
     );
   });
 
@@ -391,7 +394,7 @@ describe("migration docs", () => {
     );
 
     expect(referenceIndex).toContain(
-      'import { CopilotKit } from "@copilotkit/react-core/v2";',
+      'import { CopilotKitProvider } from "@copilotkit/react-core/v2";',
     );
     expect(referenceIndex).not.toContain(
       "CopilotKit is imported from the root package",

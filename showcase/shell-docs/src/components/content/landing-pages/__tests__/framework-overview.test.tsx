@@ -9,9 +9,9 @@ import type { FrameworkOverviewData } from "@/data/frameworks/types";
 
 const overviewData: FrameworkOverviewData = {
   slug: "langgraph-python",
-  frameworkName: "LangChain",
+  frameworkName: "LangGraph",
   iconKey: "langgraph",
-  header: "Bring your LangChain agents to your users",
+  header: "Bring your LangGraph agents to your users",
   subheader: "Build rich, interactive, agent-powered applications.",
   guideLink: "/langgraph-python/quickstart",
   initCommand: "npx copilotkit@latest init",
@@ -93,10 +93,6 @@ describe("FrameworkOverview", () => {
   });
 
   it("leads with the prompt on a framework whose init command is bespoke", () => {
-    // The Claude Agent SDK overviews pass a framework-scoped init command, so
-    // they render the chip branch rather than the shared hero action row. They
-    // still have to lead with the prompt, and they still have to keep the
-    // command chip: nothing else on the page carries that command.
     const initCommand =
       "npx copilotkit@latest init --framework claude-sdk-python";
     const markup = renderToStaticMarkup(
@@ -108,62 +104,108 @@ describe("FrameworkOverview", () => {
 
     expect(markup).toContain("Copy Prompt");
     expect(markup).toContain('data-surface="docs_framework_hero"');
-    expect(markup).toContain(initCommand);
+    expect(markup).not.toContain(initCommand);
 
-    // Prompt first, then Quickstart in the bordered treatment, then the chip.
+    // Keep the primary setup actions without an extra terminal section.
     expect(markup.indexOf("Copy Prompt")).toBeLessThan(
       markup.indexOf("Quickstart"),
-    );
-    expect(markup.indexOf("Quickstart")).toBeLessThan(
-      markup.indexOf(initCommand),
     );
     expect(markup).toContain("shell-docs-cta-link");
   });
 
-  it("renders the framework identity icon in accent purple", () => {
+  it("adapts the main landing positioning to the selected partner", () => {
     const markup = renderToStaticMarkup(
       <FrameworkOverview
         data={overviewData}
         currentFramework="langgraph-python"
       />,
     );
-
+    expect(markup).toContain("Bring your LangGraph agents");
+    expect(markup).toContain("into any app");
+    expect(markup).toContain("open-source framework");
     expect(markup).toContain(
-      "shell-docs-radius-icon flex h-10 w-10 items-center justify-center border border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]",
+      "Give your agents chat, generative UI, human-in-the-loop, rich threads, automatic learning and more.",
     );
+    expect(markup).toContain("Start building");
+    expect(markup).not.toContain("Watch product walkthroughs");
+    expect(markup).not.toContain("How CopilotKit connects to");
   });
 
-  it("does not add top padding before the framework hero", () => {
+  it("keeps the selected partner’s showcase destination and hero quickstart", () => {
+    const markup = renderToStaticMarkup(
+      <FrameworkOverview
+        data={overviewData}
+        currentFramework="langgraph-typescript"
+        showcaseDemos={[
+          {
+            id: "agentic-chat",
+            embedHref:
+              "https://showcase-langgraph-typescript-production.up.railway.app/demos/agentic-chat",
+            title: "Chat",
+            description: "Try chat",
+            href: "https://showcase.copilotkit.ai/react/langgraph-typescript/agentic-chat",
+          },
+        ]}
+      />,
+    );
+    expect(markup).toContain(
+      'src="https://showcase-langgraph-typescript-production.up.railway.app/demos/agentic-chat"',
+    );
+    expect(markup).toContain('href="/langgraph-typescript/quickstart"');
+    expect(markup).not.toContain("examples-coagents");
+  });
+
+  it("replaces duplicate demo cards and tutorial links with one feature explorer", () => {
     const markup = renderToStaticMarkup(
       <FrameworkOverview
         data={overviewData}
         currentFramework="langgraph-python"
       />,
     );
-
-    expect(markup).toContain('class="pb-8 sm:pb-12"');
-    expect(markup).not.toContain("pt-2 sm:pt-4");
+    expect(markup).toContain("Rich Threads");
+    expect(markup).toContain("Automatic Learning");
+    expect(markup).not.toContain("Build on your integration");
+    expect(markup).not.toContain("partner-tutorial");
+    expect(markup).not.toContain("Try LangGraph in action");
   });
 
-  it("renders framework feature copy for the selected Angular frontend", () => {
+  it("renders authored capabilities and connection content", () => {
     const markup = renderToStaticMarkup(
       <FrameworkOverview
         data={{
           ...overviewData,
+          lede: "Capability-specific copy.",
           supportedFeatures: [
             {
               title: "Generative UI",
-              description: "Render custom React components from agent output.",
-              documentationLink: "/langgraph-python/quickstart",
+              description: "Render agent output in the app.",
+              documentationLink: "/langgraph-python/generative-ui",
             },
           ],
+          capabilitiesFootnote: {
+            text: "More capabilities are available.",
+            linkLabel: "See them all",
+            href: "/langgraph-python/build-with-agents",
+          },
+          connect: {
+            intro: "Run the agent in your own service.",
+            filename: "app/api/copilotkit/route.ts",
+            code: "export const runtime = {};",
+            guideLink: "/langgraph-python/quickstart",
+          },
+          showcase: {
+            integration: "langgraph-python",
+            intro: "Explore the running integration.",
+            demos: [],
+          },
         }}
         currentFramework="langgraph-python"
-        frontendOverride="angular"
       />,
     );
 
-    expect(markup).toContain("custom Angular components");
-    expect(markup).not.toContain("React components");
+    expect(markup).toContain("Capability-specific copy.");
+    expect(markup).toContain("Run the agent in your own service.");
+    expect(markup).toContain("export const runtime = {};");
+    expect(markup).toContain("Explore the running integration.");
   });
 });

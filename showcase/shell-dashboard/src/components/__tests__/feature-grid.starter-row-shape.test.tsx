@@ -53,7 +53,6 @@ const METADATA: CatalogData["metadata"] = {
   unshipped: 0,
   unsupported: 0,
   docs_only: 0,
-  generated_at: FRESH,
 };
 
 /** An ordinary FEATURE cell — what the other 1029 catalog entries are.

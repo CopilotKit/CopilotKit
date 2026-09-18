@@ -41,7 +41,7 @@ env:
 jobs:
   scope:
     name: Runtime change scope
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
       required: ${{ steps.scope.outputs.required }}
@@ -62,7 +62,7 @@ jobs:
     needs: scope
     if: needs.scope.outputs.required == 'true'
     name: IntelligenceRunner / ${{ matrix.language }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 35
     strategy:
       fail-fast: false
@@ -104,7 +104,7 @@ jobs:
 
       - name: Setup Ruby
         if: matrix.language == 'ruby'
-        uses: ruby/setup-ruby@984c0c890880bbf811283d6f09c4607c62d210a4 # v1.323.0
+        uses: ruby/setup-ruby@a0102e0972be65f351c307e2d64b9314a57c8073 # v1.324.0
         with:
           ruby-version: "3.3"
           bundler: "2.4.22"
@@ -203,7 +203,7 @@ jobs:
     name: Intelligence runtime conformance
     if: always()
     needs: [scope, conformance]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

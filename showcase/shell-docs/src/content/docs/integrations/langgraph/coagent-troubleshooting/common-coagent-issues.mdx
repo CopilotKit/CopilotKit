@@ -225,9 +225,11 @@ If you're seeing this error, it means the LangGraph platform client cannot conne
 
         To:
         ```
+        import { HttpAgent } from "@ag-ui/client";
+
         new CopilotRuntime({
             agents: {
-                'agent-name': new LangGraphHttpAgent({
+                'agent-name': new HttpAgent({
                     url: 'https://your-fastapi-endpoint:port/your-agent-uri'
                 }),
             }

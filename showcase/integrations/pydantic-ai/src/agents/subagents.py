@@ -71,7 +71,7 @@ class SubagentsState(BaseModel):
 # Each sub-agent is a full-fledged ``Agent(model=..., system_prompt=...)``
 # with its own system prompt. They don't share memory or tools with the
 # supervisor — the supervisor only sees their return value.
-_SUB_MODEL = OpenAIResponsesModel("gpt-4o-mini")
+_SUB_MODEL = OpenAIResponsesModel("gpt-5-mini")
 
 _research_agent: Agent[None, str] = Agent(
     model=_SUB_MODEL,
@@ -134,7 +134,7 @@ _SUPERVISOR_PROMPT = (
 
 
 agent = Agent(
-    model=OpenAIResponsesModel("gpt-4o-mini"),
+    model=OpenAIResponsesModel("gpt-5-mini"),
     deps_type=StateDeps[SubagentsState],
     system_prompt=_SUPERVISOR_PROMPT,
 )
