@@ -1,6 +1,7 @@
 import { Component, Injectable, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { ChatState } from "../../../chat-state";
+import { CopilotKit } from "../../../copilotkit";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -22,6 +23,16 @@ class ChatStateStub extends ChatState {
   override readonly attachmentsEnabled = signal(false);
   override readonly attachmentsUploading = signal(false);
 }
+
+@Injectable()
+class CopilotKitStub {
+  readonly audioFileTranscriptionEnabled = signal(true);
+}
+
+const defaultInputProviders = [
+  { provide: ChatState, useClass: ChatStateStub },
+  { provide: CopilotKit, useClass: CopilotKitStub },
+];
 
 @Component({
   imports: [CopilotChatInput],
@@ -115,7 +126,7 @@ describe("CopilotChat icon buttons", () => {
 
   it("names every icon-only control in the default chat input", () => {
     TestBed.configureTestingModule({
-      providers: [{ provide: ChatState, useClass: ChatStateStub }],
+      providers: defaultInputProviders,
     });
     const fixture = TestBed.createComponent(DefaultInputHost);
     fixture.detectChanges();
@@ -130,7 +141,7 @@ describe("CopilotChat icon buttons", () => {
 
   it("exposes the canonical chat textarea test id", () => {
     TestBed.configureTestingModule({
-      providers: [{ provide: ChatState, useClass: ChatStateStub }],
+      providers: defaultInputProviders,
     });
     const fixture = TestBed.createComponent(DefaultInputHost);
     fixture.detectChanges();

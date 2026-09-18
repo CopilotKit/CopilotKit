@@ -5,7 +5,7 @@ import {
   provideZonelessChangeDetection,
 } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
-import { test, expect } from "vitest";
+import { test, expect, vi } from "vitest";
 import { Observable } from "rxjs";
 import { AbstractAgent } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
@@ -282,6 +282,43 @@ test("hides the welcome screen once the configuration activates an explicit thre
 
   expect(config.hasExplicitThreadId()).toBe(true);
   expect(welcomeScreen()).toBeNull();
+});
+
+test("inserts transcribed audio into the editable composer text", async () => {
+  const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        text: "voice draft",
+        size: 5,
+        type: "audio/webm",
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    ),
+  );
+
+  try {
+    const { fixture } = setup();
+    fixture.componentInstance.copilotKit.updateRuntime({
+      runtimeUrl: "https://runtime.local",
+      runtimeTransport: "rest",
+    });
+
+    fixture.componentInstance.changeInput("Existing");
+    await fixture.componentInstance.finishTranscription(
+      new Blob(["audio"], { type: "audio/webm" }),
+    );
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://runtime.local/transcribe",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.any(FormData),
+      }),
+    );
+    expect(fixture.componentInstance.inputValue()).toBe("Existing voice draft");
+  } finally {
+    fetchSpy.mockRestore();
+  }
 });
 
 // ─── A1: component [agentId] input takes precedence over ambient config ───────
