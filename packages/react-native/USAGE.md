@@ -163,20 +163,19 @@ useRenderTool({
 });
 ```
 
-**Deprecated on React Native, for one release.** React Native used to export a
-_different_ hook under this name — one that registered a tool as well as a
-renderer — so `useRenderTool` here is currently a compatibility shim over both
-react-core hooks, scheduled for removal in the next minor. Your existing call
-still works: `name: "*"` always registers a renderer only, and any other name
-carrying `description` or `handler` is routed to `useFrontendTool` the way the
-old hook did. Either way it warns in development (dev only, once per tool name)
-and tells you what to rename the call to. One thing does not carry over: on a
-named renderer the render props are `parameters`, not `args`, so a typed
-`render: ({ args }) => …` fails with `TS2339` (the wildcard's props are untyped,
-so it still compiles there).
+**Migrating from React Native's old `useRenderTool`.** React Native used to
+export a _different_ hook under this name — one that registered a tool as well
+as a renderer, which meant `name: "*"` registered a frontend tool literally
+called `*`. It was replaced by react-core's hook in 1.68 and kept working
+behind a deprecated compatibility shim, which has now been removed. A call
+carrying `description` or `handler` no longer type-checks and no longer
+registers a tool — rename it to `useFrontendTool`, same config object.
+On a named renderer the render props are `parameters`, not `args`, so a typed
+`render: ({ args }) => …` fails with `TS2339` (the wildcard's props are
+untyped, so it still compiles there).
 
 See the [`useRenderTool` reference](https://docs.copilotkit.ai/reference/react-native/hooks/useRenderTool)
-for the routing rules, the warnings, and the full migration table.
+for the full migration table.
 
 ## Alternative Import Path
 

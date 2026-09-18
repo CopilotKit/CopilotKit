@@ -154,5 +154,5 @@ async def handle_run(request: Request) -> StreamingResponse:
     return await _run_byoc(
         system_prompt=_SYSTEM_PROMPT,
         request=request,
-        default_model="gpt-4o-mini",
+        default_model="gpt-5-mini",
     )

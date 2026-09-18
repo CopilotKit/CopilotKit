@@ -1,3 +1,5 @@
+import AgentNameBinding from "@/snippets/agent-name-binding.mdx";
+
 The Copilot Runtime is the backend layer that connects your frontend application to your AI agents. It's set up during the [quickstart](/quickstart) and is the recommended way to use CopilotKit.
 
 ## Setting Up the Runtime
@@ -34,6 +36,8 @@ const handler = createCopilotRuntimeHandler({
 
 export const GET = handler;
 export const POST = handler;
+export const PATCH = handler;
+export const DELETE = handler;
 ```
 
 With the route in place, `GET /api/copilotkit/info` returns a JSON description of the
@@ -77,6 +81,8 @@ provideCopilotKit({
 </FrontendOnly>
 
 For setup with other backend frameworks (Express, NestJS, Node.js HTTP), see the [quickstart](/quickstart).
+
+<AgentNameBinding />
 
 ## The Default Agent
 

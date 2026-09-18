@@ -494,7 +494,7 @@ describe("§7.3: clock-glyph suffix on the stale-degraded badge", () => {
     // lastSuccessAt 3 h ago > 2 × 1 h period → family silent → glyph.
     const { container } = renderWithWorkerRuns(ctx, [makeFamily()]);
     const rt = findBadgeByName(container, "UI");
-    expect(rt.textContent).toContain("⏱");
+    expect(rt.textContent).toContain("!");
     // The badge keeps its degraded label — the glyph is a SUFFIX, not a
     // replacement (spec §7.3 "minimal: suffix only").
     expect(rt.textContent).toContain("~");
@@ -510,7 +510,7 @@ describe("§7.3: clock-glyph suffix on the stale-degraded badge", () => {
     const { container } = renderWithWorkerRuns(ctx, [makeFamily()]);
     const rt = findBadgeByName(container, "UI");
     expect(rt.textContent).toContain("✗");
-    expect(rt.textContent).not.toContain("⏱");
+    expect(rt.textContent).not.toContain("!");
   });
 
   it("glyph never decorates a producer-degraded badge (fail_count > 0 is a failure, not staleness)", () => {
@@ -530,7 +530,7 @@ describe("§7.3: clock-glyph suffix on the stale-degraded badge", () => {
     });
     const { container } = renderWithWorkerRuns(ctx, [makeFamily()]);
     const rt = findBadgeByName(container, "UI");
-    expect(rt.textContent).not.toContain("⏱");
+    expect(rt.textContent).not.toContain("!");
   });
 
   it("glyph uses server periodMs — a non-default periodMs in the payload shifts the threshold (no client cron parsing)", () => {
@@ -543,13 +543,13 @@ describe("§7.3: clock-glyph suffix on the stale-degraded badge", () => {
     const fast = renderWithWorkerRuns(ctx, [
       makeFamily({ periodMs: 900_000, lastSuccessAt }),
     ]);
-    expect(findBadgeByName(fast.container, "UI").textContent).toContain("⏱");
+    expect(findBadgeByName(fast.container, "UI").textContent).toContain("!");
     // Same payload but a 30 min period: 40 < 2×30 → not silent → no glyph.
     const slow = renderWithWorkerRuns(ctx, [
       makeFamily({ periodMs: 1_800_000, lastSuccessAt }),
     ]);
     expect(findBadgeByName(slow.container, "UI").textContent).not.toContain(
-      "⏱",
+      "!",
     );
   });
 
@@ -565,14 +565,14 @@ describe("§7.3: clock-glyph suffix on the stale-degraded badge", () => {
     ]);
     expect(
       findBadgeByName(neverSucceeded.container, "UI").textContent,
-    ).toContain("⏱");
+    ).toContain("!");
     // Zero batches: nothing to reference → never silent → no glyph.
     const zeroBatches = renderWithWorkerRuns(ctx, [
       makeFamily({ lastSuccessAt: null, lastRun: null, inflight: null }),
     ]);
     expect(
       findBadgeByName(zeroBatches.container, "UI").textContent,
-    ).not.toContain("⏱");
+    ).not.toContain("!");
   });
 
   it("renders no glyph when no WorkerRunsProvider is mounted (no-data default)", () => {
@@ -581,6 +581,6 @@ describe("§7.3: clock-glyph suffix on the stale-degraded badge", () => {
       liveStatus: new Map([[row.key, row]]) as LiveStatusMap,
     });
     const { container } = render(<CellStatus ctx={ctx} />);
-    expect(findBadgeByName(container, "UI").textContent).not.toContain("⏱");
+    expect(findBadgeByName(container, "UI").textContent).not.toContain("!");
   });
 });

@@ -314,7 +314,7 @@ if os.environ.get("OPENAI_BASE_URL"):
 def _a2ui_fixed_workflow_factory() -> Callable[[], Awaitable[Workflow]]:
     async def factory() -> Workflow:
         return _A2UIRenderToolCallWorkflow(
-            llm=OpenAI(model="gpt-4o-mini", **_openai_kwargs),
+            llm=OpenAI(model="gpt-5-mini", **_openai_kwargs),
             frontend_tools=[],
             backend_tools=[display_flight],
             system_prompt=SYSTEM_PROMPT,

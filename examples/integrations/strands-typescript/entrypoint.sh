@@ -23,7 +23,9 @@ sleep 3
 # Start Next.js. This image is a non-standalone build (.next + node_modules +
 # package.json), so serve via `next start`, not standalone server.js.
 echo "[entrypoint] Starting Next.js on port ${PORT:-3000}..."
-HOSTNAME=0.0.0.0 PORT=${PORT:-3000} ./node_modules/.bin/next start -H 0.0.0.0 -p "${PORT:-3000}" 2>&1 &
+PORT="${PORT:-3000}"
+export PORT HOSTNAME=0.0.0.0
+./node_modules/.bin/next start -H 0.0.0.0 -p "$PORT" 2>&1 &
 NEXT_PID=$!
 
 echo "[entrypoint] Agent=$AGENT_PID Next=$NEXT_PID"

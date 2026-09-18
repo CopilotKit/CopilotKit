@@ -295,17 +295,34 @@ point the runtime at the LangSmith deployment URL.
       <Step>
         ### Add the CopilotKit provider
 
-        ```tsx title="app/layout.tsx"
+        ```tsx title="app/providers.tsx"
+        "use client";
+
         import { CopilotKit } from "@copilotkit/react-core/v2";
+
+        export function Providers({ children }: { children: React.ReactNode }) {
+          return (
+            <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
+              {children}
+            </CopilotKit>
+          );
+        }
+        ```
+
+        `app/layout.tsx` is a server component and cannot import the provider
+        directly, so it renders your client file instead:
+
+        ```tsx title="app/layout.tsx"
+        import { Providers } from "./providers";
         import "@copilotkit/react-core/v2/styles.css";
 
         export default function RootLayout({ children }: { children: React.ReactNode }) {
           return (
             <html lang="en">
               <body>
-                <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
+                <Providers>
                   {children}
-                </CopilotKit>
+                </Providers>
               </body>
             </html>
           );
@@ -400,17 +417,34 @@ point the runtime at the LangSmith deployment URL.
       <Step>
         ### Add the CopilotKit provider
 
-        ```tsx title="app/layout.tsx"
+        ```tsx title="app/providers.tsx"
+        "use client";
+
         import { CopilotKit } from "@copilotkit/react-core/v2";
+
+        export function Providers({ children }: { children: React.ReactNode }) {
+          return (
+            <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
+              {children}
+            </CopilotKit>
+          );
+        }
+        ```
+
+        `app/layout.tsx` is a server component and cannot import the provider
+        directly, so it renders your client file instead:
+
+        ```tsx title="app/layout.tsx"
+        import { Providers } from "./providers";
         import "@copilotkit/react-core/v2/styles.css";
 
         export default function RootLayout({ children }: { children: React.ReactNode }) {
           return (
             <html lang="en">
               <body>
-                <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
+                <Providers>
                   {children}
-                </CopilotKit>
+                </Providers>
               </body>
             </html>
           );
@@ -424,6 +458,8 @@ point the runtime at the LangSmith deployment URL.
         Drop a chat interface into any page:
 
         ```tsx title="app/page.tsx"
+        "use client"; // [!code highlight]
+
         import { CopilotSidebar } from "@copilotkit/react-core/v2";
 
         export default function Page() {

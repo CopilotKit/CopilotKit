@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from tools import (
     RENDER_A2UI_TOOL_SCHEMA,
     build_a2ui_operations_from_tool_call,
+    get_revenue_chart_impl,
     get_weather_impl,
     query_data_impl,
     schedule_meeting_impl,
@@ -49,6 +50,12 @@ def query_data(query: str):
         str: Query results as JSON.
     """
     return json.dumps(query_data_impl(query))
+
+
+@tool
+def get_revenue_chart():
+    """Get the canonical six-month revenue chart as JSON."""
+    return json.dumps(get_revenue_chart_impl())
 
 
 @tool(external_execution=True)
@@ -218,7 +225,7 @@ def generate_a2ui(context: str):
     client = openai.OpenAI()
 
     response = client.chat.completions.create(
-        model="gpt-4.1",
+        model="gpt-5-mini",
         messages=[
             {"role": "system", "content": context or "Generate a useful dashboard UI."},
             {
@@ -258,13 +265,14 @@ agent = Agent(
     # under normal load.  The default httpx timeout is too short when aimock
     # is proxying to the upstream LLM — observed "Request timed out" errors
     # that crash the agent run and trigger watchdog restarts.
-    model=OpenAIChat(id="gpt-4o", timeout=120),
+    model=OpenAIChat(id="gpt-5-mini", timeout=120),
     # Frontend and HITL tools pause the run before the browser responds.
     # Keep the session in a writable location so Agno can resume that run.
     db=_create_session_db(),
     tools=[
         get_weather,
         query_data,
+        get_revenue_chart,
         manage_sales_todos,
         schedule_meeting,
         change_background,
@@ -290,8 +298,11 @@ agent = Agent(
         Only call the get_weather tool if the user asks about the weather.
         If the user does not specify a location, use "Everywhere ever in the whole wide world".
 
+        REVENUE CHART:
+        Use get_revenue_chart when the user asks for a chart of revenue over the last six months.
+
         QUERY DATA:
-        Use the query_data tool when the user asks for financial data, charts, or analytics.
+        Use query_data for other financial data, charts, or analytics.
 
         SCHEDULE MEETING:
         Use the schedule_meeting tool when the user wants to schedule a meeting.

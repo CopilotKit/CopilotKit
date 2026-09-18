@@ -15,6 +15,7 @@
  */
 
 import { formatTs } from "./format-ts.js";
+import { GLYPHS } from "./glyphs.js";
 import {
   D4_STALE_AFTER_MS,
   E2E_STALE_AFTER_MS,
@@ -817,18 +818,40 @@ export const STARTER_LEVELS = [
 export type StarterLevel = (typeof STARTER_LEVELS)[number];
 
 /**
- * The dashboard column slugs that HAVE a smoke starter (the 12 mapped columns,
- * §a). This is the dashboard's own copy of the *value set* of `STARTER_TO_COLUMN`
- * in `showcase/harness/src/probes/helpers/starter-mapping.ts` — the harness owns
- * the producer-side remap and the dashboard cannot import across the package
- * boundary, so the column list is mirrored here. The
- * `starter-mapping-drift.test.ts` lint test guards the harness side against slug
- * drift; `live-status.test.ts` asserts THIS set has exactly 12 entries so the
- * 12-mapped / 7-not-supported split (12 + 7 = 19) can never silently rot.
+ * The LADDER row-key level segments, in depth order — `starter:<col>/<level>`
+ * for S1/S2/S3. Derived from `STARTER_AXIS.ladderKinds` in
+ * `cell-model.combine.ts` (S1 → shell, S2 → runtime, S3 → agentrun), NOT
+ * re-typed independently of it.
  *
- * A column ABSENT from this set has NO starter and renders the dashboard's
- * existing grey "not supported" ✗ state (§d) — keyed off the MAPPING, never off
- * a missing row, so it never collides with the gray `?` not-yet-run state.
+ * EVERY name here is DISJOINT from every name in `STARTER_LEVELS` above. That
+ * is load-bearing, not incidental: the Phase-0 cutover dual-writes both sets
+ * for >=3 consecutive ticks, and S3's assertion set is a strict SUPERSET of
+ * legacy `chat`'s, so reusing the `chat` key would have been an OVERWRITE that
+ * could flip the live, unflagged Chat row red and move its `fail_count` /
+ * `first_failure_at` — history that stopping the write does not restore.
+ *
+ * The user-visible LABELS deliberately differ from these keys on every rung
+ * (`D3 chat (mocked)` is keyed `agentrun`); they are two namespaces and neither
+ * is derived from the other. The labels also differ from the `S<n>` kinds: they
+ * read `D1`/`D2`/`D3`, the same depth notation the feature cells use. See
+ * `STARTER_RUNGS` in `cell-model.ts`.
+ */
+export const STARTER_ROW_LEVELS = ["shell", "runtime", "agentrun"] as const;
+
+export type StarterRowLevel = (typeof STARTER_ROW_LEVELS)[number];
+
+/**
+ * The dashboard column slugs that are PROBED by the starter-smoke fleet. This
+ * is the dashboard's own copy of the *value set* of `STARTER_TO_COLUMN` in
+ * `showcase/harness/src/probes/helpers/starter-mapping.ts` — the harness owns
+ * the producer-side remap and the dashboard cannot import across the package
+ * boundary, so the column list is mirrored here.
+ * `starter-column-equality.test.ts` asserts SET-EQUALITY with the harness value
+ * set, and `starter-mapping-drift.test.ts` guards both against the filesystem.
+ *
+ * This set answers "is there a live probe?", NOT "does a starter exist?" — see
+ * `STARTER_COLUMNS_UNPROBED` and `starterSupport()` below for why the two are
+ * no longer conflated.
  */
 export const STARTER_COLUMNS: ReadonlySet<string> = new Set([
   // 5 drift columns (starter slug ≠ column slug on the producer side)
@@ -847,7 +870,71 @@ export const STARTER_COLUMNS: ReadonlySet<string> = new Set([
   "pydantic-ai",
 ]);
 
-/** `true` when `columnSlug` has a mapped smoke starter (§a). */
+/**
+ * Dashboard columns that HAVE a real starter under `examples/integrations/` but
+ * that the starter-smoke fleet does NOT probe, so no `starter:<slug>/<level>`
+ * row will ever land for them.
+ *
+ * These columns used to fall through to the `!isSupported` branch of
+ * `buildStarterBadge` and render 🚫 **"Not supported by this framework"** — an
+ * outward-facing capability claim about a third-party integration, used to
+ * describe a fact about our own plumbing. It was false for all three:
+ *
+ *   - `strands-typescript`   — in the CI smoke matrix
+ *                              (`.github/workflows/test_smoke-starter.yml`) and
+ *                              in `starter-smoke.spec.ts`, but has no live
+ *                              Railway service to probe.
+ *   - `claude-sdk-python`    — full starter (Dockerfile +
+ *   - `claude-sdk-typescript`  `docker-compose.test.yml`), not yet in the smoke
+ *                              matrix.
+ *
+ * `crewai-conversational-flows` joined them on 2026-09-15. Its starter is
+ * `examples/integrations/crewai-flows` (the name drifts, so the identity is
+ * declared in `UNPROBED_STARTER_TO_COLUMN` in the harness `starter-mapping.ts`,
+ * which also carries the evidence). It is in the CI smoke matrix but is the one
+ * matrix starter with no root `Dockerfile`, so `build-starters` publishes no
+ * `starter-crewai-flows` image and no Railway service exists to probe.
+ *
+ * Membership is guarded against the filesystem by
+ * `starter-mapping-drift.test.ts`: a column may only sit here if an
+ * identically-named directory exists under `examples/integrations/`, and no
+ * column outside this set may have one.
+ *
+ * NOTE (forward direction): the converged `SPEC-starter-ladder.md` replaces
+ * BOTH this set and `STARTER_COLUMNS` with a per-manifest `starter_validation:`
+ * key, so the mapping is derived rather than hand-mirrored. This set is the
+ * stopgap that stops the false claim now; it is deliberately shaped as the same
+ * three-way disposition (probed / starter-exists-unprobed / unsupported) that
+ * the manifest key will carry.
+ */
+export const STARTER_COLUMNS_UNPROBED: ReadonlySet<string> = new Set([
+  "strands-typescript",
+  "claude-sdk-python",
+  "claude-sdk-typescript",
+  "crewai-conversational-flows",
+]);
+
+/**
+ * How a dashboard column relates to the starter fleet. Three states, because
+ * two were a lie:
+ *
+ *   - `"probed"`      — a starter exists AND the fleet probes it. Data-bearing.
+ *   - `"unprobed"`    — a starter exists in-repo but nothing probes it. Renders
+ *                       the gray `?` no-data chip with an honest tooltip; it
+ *                       makes NO claim about the framework.
+ *   - `"unsupported"` — no starter exists. Only this state may render 🚫
+ *                       "Not supported by this framework".
+ */
+export type StarterSupport = "probed" | "unprobed" | "unsupported";
+
+/** Resolve a column slug to its three-way starter disposition. */
+export function starterSupport(columnSlug: string): StarterSupport {
+  if (STARTER_COLUMNS.has(columnSlug)) return "probed";
+  if (STARTER_COLUMNS_UNPROBED.has(columnSlug)) return "unprobed";
+  return "unsupported";
+}
+
+/** `true` when `columnSlug` has a mapped, live-probed smoke starter (§a). */
 export function starterIsSupported(columnSlug: string): boolean {
   return STARTER_COLUMNS.has(columnSlug);
 }
@@ -1013,22 +1100,46 @@ function toleratedSoftMissRow(row: StatusRow | null): StatusRow | null {
 
 export function buildStarterBadge(
   level: StarterLevel,
-  isSupported: boolean,
+  support: StarterSupport,
   row: StatusRow | null,
   now: number,
   connection: ConnectionStatus,
 ): BadgeRender {
-  if (!isSupported) {
-    // Mapping-derived: this column has no starter (§a). Renders the 🚫
-    // "unsupported" treatment (matching depth-chip/unified-cell), which is
-    // distinct from BOTH the gray `?` no-data state AND the red smoke-failed
-    // ✗. NOT data-derived, so it renders identically before and after the
-    // first probe tick. Tone stays slate/gray (the muted unsupported fill);
-    // the 🚫 glyph — not the tone — is what communicates "unsupported".
+  if (support === "unsupported") {
+    // Mapping-derived: this column has NO starter under
+    // `examples/integrations/` at all (§a). Renders the `∅` "unsupported"
+    // treatment (matching depth-chip/unified-cell) as a HOLLOW chip, which is
+    // distinct from BOTH the `?` no-data state AND the red smoke-failed ✗.
+    // NOT data-derived, so it renders identically before and after the first
+    // probe tick.
+    //
+    // The mark used to be `🚫` — an Emoji-presentation code point, which the
+    // browser draws from the colour-emoji font and therefore paints RED
+    // regardless of the chip's `text-white`. A grey "nothing to test here"
+    // chip with a red mark asserted two contradictory things at once. `∅` is
+    // text-presentation, so its colour is the colour the CSS asks for.
+    //
+    // This branch makes an outward-facing CAPABILITY claim about a third-party
+    // framework, so it is reachable ONLY from a positive "no starter exists"
+    // determination — never from "we happen not to probe it". That is the
+    // `"unprobed"` branch below, and `starter-mapping-drift.test.ts` fails if a
+    // column reaching THIS branch has a starter directory on disk.
     return {
       tone: "gray",
-      label: "🚫",
+      label: GLYPHS.notSupported.mark,
       tooltip: "Not supported by this framework",
+      row: null,
+    };
+  }
+  if (support === "unprobed") {
+    // A real starter exists in-repo but nothing probes it, so no row will ever
+    // land. Gray `?` (the same no-data chip an unprobed cell already uses) with
+    // a tooltip that describes OUR plumbing rather than the framework's
+    // capabilities.
+    return {
+      tone: "gray",
+      label: GLYPHS.noData.mark,
+      tooltip: "Starter exists in-repo; no live starter probe yet",
       row: null,
     };
   }
@@ -1102,7 +1213,7 @@ function formatLabel(
   row: StatusRow | null,
   stale: boolean,
 ): string {
-  if (!row) return "?";
+  if (!row) return GLYPHS.noData.mark;
   if (dim === "health") {
     if (row.state === "green") return "up";
     if (row.state === "red") return "down";
@@ -1114,25 +1225,25 @@ function formatLabel(
     // Exhaustiveness check for `health` dim — see rowTone() comment.
     const _exhaustive: never = row.state;
     void _exhaustive;
-    return "?";
+    return GLYPHS.noData.mark;
   }
   switch (row.state) {
     case "red":
-      return "✗";
+      return GLYPHS.fail.mark;
     // degraded must NOT render a green "✓" glyph — it contradicts the
     // tooltip and misleads operators into thinking the signal is healthy.
     // Use "~" to visually match the amber tone.
     case "degraded":
-      return "~";
+      return GLYPHS.degraded.mark;
     case "green":
-      return "✓";
+      return GLYPHS.pass.mark;
     default: {
-      // Exhaustiveness check (mirrors rowTone). Returning "?" instead of
-      // a silent "✓" prevents an unmapped future state from being
+      // Exhaustiveness check (mirrors rowTone). Returning the no-data mark
+      // instead of a silent "✓" prevents an unmapped future state from being
       // surfaced as green to operators.
       const _exhaustive: never = row.state;
       void _exhaustive;
-      return "?";
+      return GLYPHS.noData.mark;
     }
   }
 }

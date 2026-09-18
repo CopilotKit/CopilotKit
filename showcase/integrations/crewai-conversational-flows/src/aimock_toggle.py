@@ -21,7 +21,7 @@ Design intent:
 - Production default UNCHANGED: when `AIMOCK_URL` is unset, behave exactly as
   today (real OpenAI, real `OPENAI_API_KEY` required from env).
 - Dev / CI / smoke paths opt in by exporting `AIMOCK_URL` (e.g. to a locally
-  running `npx aimock` server or a CI service).
+  running `llmock` server from @copilotkit/aimock, or a CI service).
 - Operates purely via standard env vars that litellm + OpenAI SDK already
   respect. No runtime dependency on aimock itself; aimock is reached over HTTP.
 
