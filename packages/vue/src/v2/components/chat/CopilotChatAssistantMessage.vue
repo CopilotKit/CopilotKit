@@ -2,7 +2,6 @@
 import {
   computed,
   defineComponent,
-  getCurrentInstance,
   h,
   onBeforeUnmount,
   onMounted,
@@ -43,6 +42,10 @@ const props = withDefaults(
     messages?: Message[];
     isRunning?: boolean;
     toolbarVisible?: boolean;
+    onThumbsUp?: (message: AssistantMessage) => void;
+    onThumbsDown?: (message: AssistantMessage) => void;
+    onReadAloud?: (message: AssistantMessage) => void;
+    onRegenerate?: (message: AssistantMessage) => void;
   }>(),
   {
     messages: () => [],
@@ -88,12 +91,8 @@ const emit = defineEmits<{
 
 const config = useCopilotChatConfiguration();
 const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
-const instance = getCurrentInstance();
 const copied = ref(false);
 let copiedResetTimeout: ReturnType<typeof setTimeout> | null = null;
-const vnodeProps = computed(
-  () => (instance?.vnode.props ?? {}) as Record<string, unknown>,
-);
 
 const toolbarButtonClass = [
   "cpk:inline-flex cpk:h-8 cpk:w-8 cpk:items-center cpk:justify-center cpk:rounded-md cpk:p-0",
@@ -643,18 +642,10 @@ const normalizedContent = computed(() =>
   normalizeContent(props.message.content),
 );
 const hasContent = computed(() => normalizedContent.value.trim().length > 0);
-function hasListener(listenerName: string) {
-  const listener = vnodeProps.value[listenerName];
-  if (Array.isArray(listener)) {
-    return listener.length > 0;
-  }
-  return !!listener;
-}
-
-const hasThumbsUp = computed(() => hasListener("onThumbsUp"));
-const hasThumbsDown = computed(() => hasListener("onThumbsDown"));
-const hasReadAloud = computed(() => hasListener("onReadAloud"));
-const hasRegenerate = computed(() => hasListener("onRegenerate"));
+const hasThumbsUp = computed(() => typeof props.onThumbsUp === "function");
+const hasThumbsDown = computed(() => typeof props.onThumbsDown === "function");
+const hasReadAloud = computed(() => typeof props.onReadAloud === "function");
+const hasRegenerate = computed(() => typeof props.onRegenerate === "function");
 const isLatestAssistantMessage = computed(
   () => props.messages[props.messages.length - 1]?.id === props.message.id,
 );
@@ -815,7 +806,7 @@ onBeforeUnmount(() => {
             </slot>
 
             <slot
-              v-if="hasThumbsUp"
+              v-if="hasThumbsUp || $slots['thumbs-up-button']"
               name="thumbs-up-button"
               :on-thumbs-up="handleThumbsUp"
               :label="labels.assistantMessageToolbarThumbsUpLabel"
@@ -832,7 +823,7 @@ onBeforeUnmount(() => {
             </slot>
 
             <slot
-              v-if="hasThumbsDown"
+              v-if="hasThumbsDown || $slots['thumbs-down-button']"
               name="thumbs-down-button"
               :on-thumbs-down="handleThumbsDown"
               :label="labels.assistantMessageToolbarThumbsDownLabel"
@@ -849,7 +840,7 @@ onBeforeUnmount(() => {
             </slot>
 
             <slot
-              v-if="hasReadAloud"
+              v-if="hasReadAloud || $slots['read-aloud-button']"
               name="read-aloud-button"
               :on-read-aloud="handleReadAloud"
               :label="labels.assistantMessageToolbarReadAloudLabel"
@@ -866,7 +857,7 @@ onBeforeUnmount(() => {
             </slot>
 
             <slot
-              v-if="hasRegenerate"
+              v-if="hasRegenerate || $slots['regenerate-button']"
               name="regenerate-button"
               :on-regenerate="handleRegenerate"
               :label="labels.assistantMessageToolbarRegenerateLabel"
