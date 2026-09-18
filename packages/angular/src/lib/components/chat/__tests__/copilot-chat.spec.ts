@@ -756,4 +756,39 @@ describe("CopilotChat", () => {
       await successor;
     });
   });
+
+  describe("voice transcription", () => {
+    test("inserts transcribed audio into the editable composer text", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            text: "voice draft",
+            size: 5,
+            type: "audio/webm",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+
+      const { fixture } = createChatFixture();
+      fixture.componentInstance.copilotKit.updateRuntime({
+        runtimeUrl: "https://runtime.local",
+        runtimeTransport: "rest",
+      });
+
+      fixture.componentInstance.changeInput("Existing");
+      await fixture.componentInstance.finishTranscription(
+        new Blob(["audio"], { type: "audio/webm" }),
+      );
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "https://runtime.local/transcribe",
+        expect.objectContaining({
+          method: "POST",
+          body: expect.any(FormData),
+        }),
+      );
+      expect(fixture.componentInstance.inputValue()).toBe("Existing voice draft");
+    });
+  });
 });
