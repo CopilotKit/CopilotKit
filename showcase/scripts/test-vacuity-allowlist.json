@@ -1,0 +1,53 @@
+{
+  "_policy": "Allowlist for showcase/scripts/validate-test-vacuity.ts. SHRINK-ONLY RATCHET. Every entry is keyed by {rule, file, symbol} -- deliberately NOT by line number, so unrelated edits above a violation do not invalidate it. Rules: (1) every entry carries `added` (ISO date), `justification` (what is actually going on, and what removing it requires) and `owner` (who/what removes it); (2) an entry whose file EXISTS but whose violation no longer fires is reported STALE and FAILS the gate, so a fixed violation forces its entry to be deleted rather than leaving permanent cover; (3) an entry naming a file that does not exist yet is PENDING -- used to pre-register violations arriving on an unmerged branch -- and is neither enforced nor reported stale; (4) additions need the same scrutiny as a `// eslint-disable`: prefer fixing the assertion. This list should only ever get shorter.",
+  "entries": [
+    {
+      "rule": "degenerate-spread-aggregate",
+      "file": "showcase/harness/src/fleet/queue-client.test.ts",
+      "symbol": "hist",
+      "added": "2026-07-24",
+      "justification": "TRUE POSITIVE, pre-existing on main, deliberately not fixed in this gate-only PR. `Math.max(...hist)` at :1748 and the `for (const count of hist)` band-check above it are BOTH satisfied when firstAttemptHistogram returns an empty array, so the uniform-shuffle fairness claim is unpinned on the degenerate input. Fix is one line -- assert `hist` has PAGE_IDS.length entries before the band check -- and belongs to whoever next touches the queue-client shuffle tests. Remove this entry with that fix.",
+      "owner": "harness/fleet queue-client owner (next change to the shuffle fairness tests)"
+    },
+    {
+      "rule": "degenerate-spread-aggregate",
+      "file": "showcase/harness/src/probes/helpers/conversation-runner.test.ts",
+      "symbol": "perPollCounts",
+      "added": "2026-07-24",
+      "justification": "Non-emptiness IS asserted here, in a shape the scanner cannot read: the line after the bound asserts `perPollCounts.reduce((a, b) => a + b, 0)` is greater than 0, which can only hold for a non-empty array. The seeded `Math.max(0, ...perPollCounts)` still returns 0 on the empty input, so the bound alone would be vacuous -- the reduce is what saves it. Replacing that reduce with `expect(perPollCounts).not.toHaveLength(0)` makes the guard machine-visible and this entry disappears.",
+      "owner": "harness/probes conversation-runner owner (next change to the surface-read poll tests)"
+    },
+    {
+      "rule": "degenerate-spread-aggregate",
+      "file": "showcase/shell-dashboard/src/hooks/useLiveStatus.supplemental-bounds.test.tsx",
+      "symbol": "runawaySupplementalPages",
+      "added": "2026-07-24",
+      "justification": "PENDING -- arrives with PR #6156 (branch fix/cold-load-gray-masks-red, head 938be2accf2a), which is unmerged, so this file does not exist on main yet and the entry is inert until it lands. This is one of the two instances the gate was built for: `Math.max(...runawaySupplementalPages)` at :409 is -Infinity when the supplemental loop never ran, so the cap assertion passes for a hook that fetched nothing. Owned by the #6156 A1-vacuity fix agent; delete this entry with that fix rather than merging it forward.",
+      "owner": "PR #6156 A1-vacuity fix agent"
+    },
+    {
+      "rule": "degenerate-spread-aggregate",
+      "file": "showcase/shell-dashboard/src/hooks/useLiveStatus.supplemental-bounds.test.tsx",
+      "symbol": "runawayBulkOnlyPages",
+      "added": "2026-07-24",
+      "justification": "PENDING -- arrives with PR #6156 (see the sibling entry). Second known instance: `Math.max(...runawayBulkOnlyPages)` at :533 pins the bulk-loop page cap and is satisfied when the bulk loop issued zero requests. Owned by the #6156 A1-vacuity fix agent.",
+      "owner": "PR #6156 A1-vacuity fix agent"
+    },
+    {
+      "rule": "one-sided-tuned-constant",
+      "file": "showcase/shell-dashboard/src/hooks/useLiveStatus.supplemental-bounds.test.tsx",
+      "symbol": "EXPECTED_MAX_INITIAL_PAGES",
+      "added": "2026-07-24",
+      "justification": "PENDING -- arrives with PR #6156 (see the sibling entries). The headline A2 instance: the cap is asserted only via toBeLessThanOrEqual, and reviewers empirically halved the production MAX_INITIAL_FETCH_PAGES to 10 and then to 5 with the suite staying fully green. `not.toContain(EXPECTED_MAX_INITIAL_PAGES + 1)` constrains the neighbouring page number, not the cap. Owned by the #6156 A2-pin fix agent.",
+      "owner": "PR #6156 A2-pin fix agent"
+    },
+    {
+      "rule": "pin-comment-without-import",
+      "file": "showcase/shell-dashboard/src/hooks/useLiveStatus.supplemental-bounds.test.tsx",
+      "symbol": "MAX_INITIAL_FETCH_PAGES",
+      "added": "2026-07-24",
+      "justification": "PENDING -- arrives with PR #6156 (see the sibling entries). The file's own JSDoc says the literal MUST match `MAX_INITIAL_FETCH_PAGES` in useLiveStatus.ts, but that constant is not exported and is therefore hand-copied. The durable fix is to export it from useLiveStatus.ts and import it here, which also dissolves the one-sided-pin entry above. Owned by the #6156 A2-pin fix agent.",
+      "owner": "PR #6156 A2-pin fix agent"
+    }
+  ]
+}
