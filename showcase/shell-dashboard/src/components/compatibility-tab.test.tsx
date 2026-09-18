@@ -63,8 +63,8 @@ function renderGridScore(score: number | null) {
 describe("Compatibility score colors", () => {
   it.each([
     { score: 90, color: "var(--ok)" },
-    { score: 89, color: "var(--amber)" },
-    { score: 60, color: "var(--amber)" },
+    { score: 89, color: "var(--compatibility-amber-light)" },
+    { score: 60, color: "var(--compatibility-amber-deep)" },
     { score: 59, color: "var(--danger)" },
   ])("renders $score with $color", ({ score, color }) => {
     renderGridScore(score);
@@ -86,7 +86,7 @@ describe("Compatibility score colors", () => {
       patchesBehind: 6,
       runningVersion: "1.2.4",
       score: 89,
-      color: "var(--amber)",
+      color: "var(--compatibility-amber-light)",
     },
   ])(
     "renders a version $patchesBehind patches behind as $score with $color",
@@ -158,7 +158,21 @@ describe("Compatibility tab", () => {
         label: "Current or nearly current",
         color: "var(--ok)",
       },
-      { range: "60–89", label: "Updates needed", color: "var(--amber)" },
+      {
+        range: "80–89",
+        label: "Updates needed",
+        color: "var(--compatibility-amber-light)",
+      },
+      {
+        range: "70–79",
+        label: "Further behind",
+        color: "var(--compatibility-amber-medium)",
+      },
+      {
+        range: "60–69",
+        label: "Significantly behind",
+        color: "var(--compatibility-amber-deep)",
+      },
       { range: "0–59", label: "Large version gap", color: "var(--danger)" },
     ]) {
       const description = within(legend).getByText(label);
@@ -173,7 +187,7 @@ describe("Compatibility tab", () => {
       "100 means latest in this snapshot; 1–5 patch versions behind score 99–95",
     );
     expect(legend).toHaveTextContent(
-      "Each framework’s score is the lowest score among its required libraries",
+      "Each framework’s score is the lowest score among its required libraries. Darker amber means further behind.",
     );
   });
 
@@ -192,7 +206,7 @@ describe("Compatibility tab", () => {
     );
     expect(container).toHaveTextContent("minor versions behind: 89 / 80 / 70");
     expect(container).toHaveTextContent(
-      "Green: 90–100. Amber: 60–89. Red: below 60",
+      "Green: 90–100. Light amber: 80–89. Medium amber: 70–79. Deep amber: 60–69. Red: below 60",
     );
     expect(container).toHaveTextContent(
       "release saved at this snapshot’s assessment time",
@@ -397,7 +411,7 @@ describe("Compatibility tab", () => {
       const cell = getMetricCell("Compatibility", column);
       expect(
         within(cell).getByRole("img", { name: `${score} out of 100` }),
-      ).toHaveStyle({ backgroundColor: "var(--amber)" });
+      ).toHaveStyle({ backgroundColor: "var(--compatibility-amber-light)" });
       expect(cell).toHaveTextContent("Sets score");
     }
   });
@@ -415,7 +429,7 @@ describe("Compatibility tab", () => {
     expect(primaryPackage).toHaveTextContent(/^89$/);
     expect(
       within(primaryPackage).getByRole("img", { name: "89 out of 100" }),
-    ).toBeInTheDocument();
+    ).toHaveStyle({ backgroundColor: "var(--compatibility-amber-light)" });
     expect(primaryPackage).not.toHaveTextContent(/Sets score/);
     const apiPackage = getMetricCell(
       "Compatibility",
@@ -423,7 +437,7 @@ describe("Compatibility tab", () => {
     );
     expect(
       within(apiPackage).getByRole("img", { name: "70 out of 100" }),
-    ).toBeInTheDocument();
+    ).toHaveStyle({ backgroundColor: "var(--compatibility-amber-medium)" });
     expect(apiPackage).not.toHaveTextContent(/Sets score/);
     const sdkPackage = getMetricCell(
       "Compatibility",
@@ -431,7 +445,7 @@ describe("Compatibility tab", () => {
     );
     expect(
       within(sdkPackage).getByRole("img", { name: "60 out of 100" }),
-    ).toBeInTheDocument();
+    ).toHaveStyle({ backgroundColor: "var(--compatibility-amber-deep)" });
     expect(sdkPackage).toHaveTextContent(/60\s*Sets score/);
   });
 
@@ -442,8 +456,16 @@ describe("Compatibility tab", () => {
     );
 
     for (const { name, score, color } of [
-      { name: "agent-framework-ag-ui", score: 89, color: "var(--amber)" },
-      { name: "agent-framework-core", score: 70, color: "var(--amber)" },
+      {
+        name: "agent-framework-ag-ui",
+        score: 89,
+        color: "var(--compatibility-amber-light)",
+      },
+      {
+        name: "agent-framework-core",
+        score: 70,
+        color: "var(--compatibility-amber-medium)",
+      },
       { name: "agent-framework-openai", score: 97, color: "var(--ok)" },
     ]) {
       const cell = getMetricCell("Compatibility", `Python ${name}`);
@@ -460,7 +482,7 @@ describe("Compatibility tab", () => {
       within(
         screen.getByTestId("compatibility-summary-ms-agent-python"),
       ).getByRole("img", { name: "70 out of 100" }),
-    ).toHaveStyle({ backgroundColor: "var(--amber)" });
+    ).toHaveStyle({ backgroundColor: "var(--compatibility-amber-medium)" });
   });
 
   it("keeps a single Running version field and the contributing Spring libraries", () => {

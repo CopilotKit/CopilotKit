@@ -203,9 +203,19 @@ export function CompatibilityTab() {
                 color: "var(--ok)",
               },
               {
-                range: "60–89",
+                range: "80–89",
                 label: "Updates needed",
-                color: "var(--amber)",
+                color: "var(--compatibility-amber-light)",
+              },
+              {
+                range: "70–79",
+                label: "Further behind",
+                color: "var(--compatibility-amber-medium)",
+              },
+              {
+                range: "60–69",
+                label: "Significantly behind",
+                color: "var(--compatibility-amber-deep)",
               },
               {
                 range: "0–59",
@@ -227,7 +237,7 @@ export function CompatibilityTab() {
           <p className="mt-2 text-[11px] leading-relaxed text-[var(--text-secondary)]">
             100 means latest in this snapshot; 1–5 patch versions behind score
             99–95. Each framework’s score is the lowest score among its required
-            libraries.
+            libraries. Darker amber means further behind.
           </p>
         </div>
         <details className="mt-2">
@@ -239,8 +249,8 @@ export function CompatibilityTab() {
               Exact latest: 100. Within the same major and minor version, one
               through five patch increments behind score 99 through 95; six or
               more score 89. Patch gaps use the numeric version difference, not
-              the number of published releases. Green: 90–100. Amber: 60–89.
-              Red: below 60.
+              the number of published releases. Green: 90–100. Light amber:
+              80–89. Medium amber: 70–79. Deep amber: 60–69. Red: below 60.
             </p>
             <p>
               One / two / three minor versions behind: 89 / 80 / 70. Four or

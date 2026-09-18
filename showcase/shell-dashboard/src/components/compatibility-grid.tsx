@@ -49,9 +49,13 @@ const sections: {
 function scoreColor(value: number) {
   return value >= 90
     ? "var(--ok)"
-    : value >= 60
-      ? "var(--amber)"
-      : "var(--danger)";
+    : value >= 80
+      ? "var(--compatibility-amber-light)"
+      : value >= 70
+        ? "var(--compatibility-amber-medium)"
+        : value >= 60
+          ? "var(--compatibility-amber-deep)"
+          : "var(--danger)";
 }
 
 function ScoreSquare({ value }: { value: number }) {
