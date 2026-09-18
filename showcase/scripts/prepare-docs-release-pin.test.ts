@@ -102,6 +102,7 @@ describe("prepare-docs-release-pin CLI", () => {
         SCRIPT,
         `--pin-path=${pinPath}`,
         `--staging-digest=${DIGEST_A}`,
+        `--verified-staging-digest=${DIGEST_A}`,
         `--prod-digest=${DIGEST_B}`,
         `--git-sha=${GIT_SHA}`,
         `--verified-at=${VERIFIED_AT}`,
@@ -130,6 +131,34 @@ describe("prepare-docs-release-pin CLI", () => {
     expect(readFileSync(githubOutput, "utf8")).toMatch(/skip=false/);
     expect(out).toMatch(/staging digest differs from prod and pin/);
   });
+
+  it.each([DIGEST_B, ""])(
+    "does not pin staging that changed after the probe: %s",
+    (stagingDigest) => {
+      execFileSync(
+        process.execPath,
+        [
+          "--import",
+          "tsx",
+          SCRIPT,
+          `--pin-path=${pinPath}`,
+          `--git-sha=${GIT_SHA}`,
+          `--verified-staging-digest=${DIGEST_A}`,
+          `--staging-digest=${stagingDigest}`,
+          `--prod-digest=${DIGEST_A}`,
+        ],
+        {
+          encoding: "utf8",
+          env: { ...process.env, GITHUB_OUTPUT: githubOutput },
+        },
+      );
+      expect(() => readFileSync(pinPath, "utf8")).toThrow();
+      expect(readFileSync(githubOutput, "utf8")).toContain("skip=true");
+      expect(readFileSync(githubOutput, "utf8")).toContain(
+        "staging digest changed during verification",
+      );
+    },
+  );
 
   it("does not write when staging equals prod", () => {
     execFileSync(

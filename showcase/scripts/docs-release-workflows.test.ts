@@ -28,6 +28,7 @@ type WorkflowStep = {
   run?: string;
   "working-directory"?: string;
   with?: Record<string, string>;
+  env?: Record<string, string>;
 };
 
 describe("docs_open_release_pr.yml", () => {
@@ -133,6 +134,21 @@ describe("docs_open_release_pr.yml", () => {
     );
     expect(tokenStep?.with?.["app-id"]).toBe("1108748");
     const pinStep = open.steps.find((s) => s.id === "pin");
+    const probeStep = open.steps.find((s) => s.id === "probe");
+    const probeScript = probeStep?.run ?? "";
+    expect(probeScript).toContain(
+      "liveFetchDeployedDigest(resolveRailwayToken().token",
+    );
+    expect(probeScript.indexOf("STAGING_DIGEST=$(")).toBeLessThan(
+      probeScript.indexOf("verify-deploy.ts"),
+    );
+    expect(probeScript).toContain('echo "staging-digest=$STAGING_DIGEST"');
+    expect(pinStep?.env?.VERIFIED_STAGING_DIGEST).toBe(
+      "${{ steps.probe.outputs.staging-digest }}",
+    );
+    expect(pinStep?.run).toContain(
+      '--verified-staging-digest="$VERIFIED_STAGING_DIGEST"',
+    );
     expect(pinStep?.["working-directory"]).toBe("showcase/scripts");
     expect(pinStep?.run ?? "").toMatch(
       /--pin-path=\.\.\/\.\.\/showcase\/pins\/docs-prod\.json/,
