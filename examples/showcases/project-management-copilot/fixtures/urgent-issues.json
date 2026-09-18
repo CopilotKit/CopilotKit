@@ -1,0 +1,30 @@
+{
+  "name": "urgent-issues",
+  "description": "Mock flow for the 'Show me all the urgent issues right now.' suggestion chip. Two LLM calls per click: (1) initial user msg → issueTable tool call against ISS-101 + ISS-107 (the two Urgent rows in the seed); (2) post-tool LLM call → final assistant text. Tool-response fixture is listed FIRST so it wins the post-tool call (last msg role:tool with matching toolCallId); the chip fixture is SECOND and matches the initial user msg. NOTE: do NOT gate the user-message fixture on `hasToolResult: false` — aimock's `hasToolResult` checks whether ANY message in history is a tool result, not just the last one, so once an earlier flow (sprint-planning, etc.) has run on this thread the gate would never let urgent-issues fire again. Ordering is enough: the toolCallId fixture above requires the LAST message to be a tool result with the matching id, so it can't accidentally win on a fresh user message. Gated on the cowork agent's system marker so the BFF's auto-thread-title call can't accidentally match the userMessage substring.",
+  "fixtures": [
+    {
+      "match": {
+        "toolCallId": "call_urgent_issue_table",
+        "systemMessage": "project-management copilot"
+      },
+      "response": {
+        "content": "Two urgent items right now: **ISS-101** (Safari payment integration, Alex, in progress) and **ISS-107** (Postgres pool exhaustion at peak, Jordan, in progress). Both are due this week — ISS-107 today. Want me to pull either into review or escalate?"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me all the urgent issues right now",
+        "systemMessage": "project-management copilot"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_urgent_issue_table",
+            "name": "issueTable",
+            "arguments": "{\"issueIds\":[\"ISS-101\",\"ISS-107\"],\"caption\":\"Urgent issues\"}"
+          }
+        ]
+      }
+    }
+  ]
+}
