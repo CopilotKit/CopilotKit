@@ -4,6 +4,8 @@ description: "The Copilot Runtime is the backend that connects your frontend to 
 icon: "lucide/Server"
 ---
 
+import AgentNameBinding from "@/snippets/agent-name-binding.mdx";
+
 The Copilot Runtime is the backend layer that connects your frontend application to your AI agents. It's set up during the [quickstart](/quickstart) and is the recommended way to use CopilotKit.
 
 ## Setting up the runtime
@@ -117,6 +119,8 @@ run its own agent instance — construct it inside the request rather than at mo
 or to serialise turns per user. A single shared instance is fine for local development and
 for a single-user surface.
 </Callout>
+
+<AgentNameBinding />
 
 ## The default agent
 

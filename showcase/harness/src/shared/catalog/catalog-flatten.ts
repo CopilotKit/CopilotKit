@@ -238,7 +238,6 @@ export interface CatalogMetadata {
   unsupported: number;
   /** Cells for docs-only features — excluded from wired/stub/unshipped/unsupported. */
   docs_only: number;
-  generated_at: string;
 }
 
 export interface Catalog {
@@ -302,22 +301,6 @@ export function determineCellStatus(
   return "stub";
 }
 
-export interface GenerateCatalogOptions {
-  /**
-   * The value to stamp into `metadata.generated_at`.
-   *
-   * DETERMINISM (PE-110): reading the wall clock inside the flatten made
-   * `catalog.json` differ on every regeneration from byte-identical input, so
-   * the artifact could not be used as evidence that a change did or did not
-   * affect it. The clock is now an INPUT, not an ambient read: the codegen
-   * (`showcase/scripts/generate-registry.ts`) passes a value derived from the
-   * source revision. Omitting it keeps the previous wall-clock behavior for
-   * the live read-model, which discards `metadata` anyway (`buildCatalogCells`
-   * returns only `.cells`).
-   */
-  generatedAt?: string;
-}
-
 /**
  * Generate the full catalog by cross-joining features x integrations
  * (features.length × integrations.length integrated cells), plus one
@@ -327,13 +310,7 @@ export interface GenerateCatalogOptions {
 export function generateCatalog(
   featureRegistry: FeatureRegistry,
   integrations: Record<string, unknown>[],
-  options: GenerateCatalogOptions = {},
 ): Catalog {
-  // One timestamp for the whole call — both the empty-registry short-circuit
-  // and the normal return read this, so a single flatten can never stamp two
-  // different instants.
-  const generatedAt = options.generatedAt ?? new Date().toISOString();
-
   // Build feature -> category lookup
   const featureCategoryMap = new Map<string, string>();
   for (const feature of featureRegistry.features) {
@@ -446,7 +423,6 @@ export function generateCatalog(
           unshipped: 0,
           unsupported: 0,
           docs_only: 0,
-          generated_at: generatedAt,
         },
         cells: [],
       };
@@ -597,7 +573,6 @@ export function generateCatalog(
     unshipped: unshippedCount,
     unsupported: unsupportedCount,
     docs_only: docsOnlyCount,
-    generated_at: generatedAt,
   };
 
   return {

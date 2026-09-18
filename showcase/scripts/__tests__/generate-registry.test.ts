@@ -24,11 +24,11 @@ import { SCRIPTS_DIR, SHELL_DATA_DIR } from "./paths";
 // the full write set must be snapshotted, not just the shell
 // registry/constraints pair. (catalog.json used to drift on every run too,
 // from a wall-clock `generated_at`; PE-110 pinned that stamp to the source
-// revision, but the snapshot is still what keeps the rest of the emitted
-// files from leaking.) Snapshot in beforeAll; restore after each test and
-// at the end of the suite. These paths overlap with the
-// catalog and integration-smoke suites, so each generator mutation window
-// holds the generated-data lock.
+// revision and PE-118 removed the field, but the snapshot is still what
+// keeps the rest of the emitted files from leaking.) Snapshot in beforeAll;
+// restore after each test and at the end of the suite. These paths overlap
+// with the catalog and integration-smoke suites, so each generator mutation
+// window holds the generated-data lock.
 const SHOWCASE_ROOT = path.resolve(SCRIPTS_DIR, "..");
 const DATA_FILES = [
   path.join(SHELL_DATA_DIR, "registry.json"),

@@ -103,10 +103,13 @@ describe("Catalog Generator", () => {
     // Top-level keys must be exactly { metadata, cells }
     expect(Object.keys(catalog).sort()).toEqual(["cells", "metadata"]);
 
-    // metadata must have exactly the CatalogMetadata keys
+    // metadata must have exactly the CatalogMetadata keys. EXACT, not a
+    // subset: PE-118 removed `metadata.generated_at` (a wall-clock stamp
+    // nothing read — `/api/matrix` goes through `buildCatalogCells`, which
+    // returns only `.cells`), and this equality is what fails if a clock read
+    // is ever re-added to the flatten. Do not relax it to arrayContaining.
     expect(Object.keys(catalog.metadata).sort()).toEqual([
       "docs_only",
-      "generated_at",
       "reference",
       "stub",
       "total_cells",
@@ -143,12 +146,15 @@ describe("Catalog Generator", () => {
   // PE-110. THE regression guard: regenerate twice from input nobody touched
   // and require the two emissions to be byte-identical.
   //
-  // Before the fix, `generateCatalog` read `new Date()` for
-  // `metadata.generated_at`, so six consecutive regenerations from pristine
-  // `origin/main` produced six different hashes. The cost was not the diff
-  // noise — `catalog.json` is gitignored — it was that the artifact could not
-  // be used as EVIDENCE: a reviewer could never conclude from an unchanged
-  // catalog that a change had left the matrix alone.
+  // `generateCatalog` used to read `new Date()` for `metadata.generated_at`,
+  // so six consecutive regenerations from pristine `origin/main` produced six
+  // different hashes. The cost was not the diff noise — `catalog.json` is
+  // gitignored — it was that the artifact could not be used as EVIDENCE: a
+  // reviewer could never conclude from an unchanged catalog that a change had
+  // left the matrix alone. PE-110 pinned the stamp to the source revision;
+  // PE-118 removed the field outright. This check is deliberately kept: it
+  // compares whole files, so it still guards every other field against a
+  // clock read creeping back in.
   //
   // Bytes, not a parsed deep-equal: JSON.parse would hide key-order drift,
   // which is the other classic nondeterminism in a generated file.
@@ -458,29 +464,6 @@ describe("Catalog Generator", () => {
         `Invalid category "${cell.category}" for cell ${cell.id}`,
       ).toBe(true);
     }
-  });
-
-  it("metadata.generated_at is a valid ISO-8601 instant", () => {
-    runGenerator();
-    const catalog = readCatalog();
-
-    expect(catalog.metadata.generated_at).toBeDefined();
-    const genTime = new Date(catalog.metadata.generated_at).getTime();
-    expect(Number.isNaN(genTime)).toBe(false);
-    // Round-trips: the emitted string is already normalized ISO-8601 UTC, so
-    // re-serializing it is a no-op. This is what lets the stamp be compared
-    // byte-for-byte across regenerations.
-    expect(new Date(genTime).toISOString()).toBe(catalog.metadata.generated_at);
-  });
-
-  // PE-110. The stamp is derived from the INPUT (SOURCE_DATE_EPOCH, else the
-  // HEAD commit date), never from the wall clock — pinning the input pins the
-  // output exactly.
-  it("metadata.generated_at is derived from SOURCE_DATE_EPOCH when set", () => {
-    runGenerator({ SOURCE_DATE_EPOCH: "1234567890" });
-    const catalog = readCatalog();
-
-    expect(catalog.metadata.generated_at).toBe("2009-02-13T23:31:30.000Z");
   });
 
   it("integrated cells have human-readable display names from registries", () => {

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {
   computed,
-  getCurrentInstance,
   nextTick,
   onBeforeUnmount,
   onMounted,
@@ -74,9 +73,12 @@ defineSlots<{
     inputMode: CopilotChatInputMode;
     inputToolsMenu: (ToolsMenuItem | "-")[];
     attachments: Attachment[];
+    canStop: boolean;
+    canAddFile: boolean;
+    canTranscribe: boolean;
     onUpdateModelValue: (value: string) => void;
     onSubmitMessage: (value: string) => void;
-    onStop?: () => void;
+    onStop: () => void;
     onAddFile: () => void;
     onStartTranscribe: () => void;
     onCancelTranscribe: () => void;
@@ -96,9 +98,12 @@ defineSlots<{
     isRunning: boolean;
     inputMode: CopilotChatInputMode;
     inputToolsMenu: (ToolsMenuItem | "-")[];
+    canStop: boolean;
+    canAddFile: boolean;
+    canTranscribe: boolean;
     onUpdateModelValue: (value: string) => void;
     onSubmitMessage: (value: string) => void;
-    onStop?: () => void;
+    onStop: () => void;
     onAddFile: () => void;
     onStartTranscribe: () => void;
     onCancelTranscribe: () => void;
@@ -123,7 +128,6 @@ const emit = defineEmits<{
 
 const config = useCopilotChatConfiguration();
 const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
-const instance = getCurrentInstance();
 const componentSlots = useSlots();
 
 const scrollContainerRef = ref<HTMLElement | null>(null);
@@ -174,9 +178,6 @@ const hasSuggestions = computed(
 const hasAttachments = computed(
   () => Array.isArray(props.attachments) && props.attachments.length > 0,
 );
-const vnodeProps = computed(
-  () => (instance?.vnode.props ?? {}) as Record<string, unknown>,
-);
 const forwardedMessageViewSlotNames = computed(() =>
   Object.keys(componentSlots).filter(
     (slotName) =>
@@ -196,20 +197,6 @@ const shouldShowWelcomeScreen = computed(
     props.welcomeScreen !== false &&
     !props.isConnecting &&
     !props.hasExplicitThreadId,
-);
-const hasAddFileAction = computed(() => hasListener("onAddFile"));
-const hasStopAction = computed(() => hasListener("onStop"));
-const hasStartTranscribeAction = computed(() =>
-  hasListener("onStartTranscribe"),
-);
-const hasCancelTranscribeAction = computed(() =>
-  hasListener("onCancelTranscribe"),
-);
-const hasFinishTranscribeAction = computed(() =>
-  hasListener("onFinishTranscribe"),
-);
-const hasFinishTranscribeWithAudioAction = computed(
-  () => typeof props.onFinishTranscribeWithAudio === "function",
 );
 // Mirrors React: `paddingBottom = inputContainerHeight + (hasSuggestions ? 4 : 32)`.
 // React intentionally does NOT add bonus padding for attachments — the
@@ -343,14 +330,6 @@ function handleScroll() {
   updateIsAtBottom();
 }
 
-function hasListener(listenerName: string) {
-  const listener = vnodeProps.value[listenerName];
-  if (Array.isArray(listener)) {
-    return listener.length > 0;
-  }
-  return !!listener;
-}
-
 function handleInputValueChange(value: string) {
   if (!isControlledInput.value) {
     localInputValue.value = value;
@@ -405,30 +384,34 @@ async function handleFinishTranscribeWithAudio(audioBlob: Blob) {
 const inputEventProps = computed(() => {
   const listeners: Record<string, unknown> = {
     "onUpdate:modelValue": handleInputValueChange,
-    onSubmitMessage: handleSubmitMessage,
+    onSubmitMessage: props.onSubmitMessage ? handleSubmitMessage : undefined,
   };
 
-  if (hasStopAction.value) {
+  if (props.onStop) {
     listeners.onStop = handleStop;
   }
-  if (hasAddFileAction.value) {
+  if (props.onAddFile) {
     listeners.onAddFile = handleAddFile;
   }
-  if (hasStartTranscribeAction.value) {
+  if (props.onStartTranscribe) {
     listeners.onStartTranscribe = handleStartTranscribe;
   }
-  if (hasCancelTranscribeAction.value) {
+  if (props.onCancelTranscribe) {
     listeners.onCancelTranscribe = handleCancelTranscribe;
   }
-  if (hasFinishTranscribeAction.value) {
+  if (props.onFinishTranscribe) {
     listeners.onFinishTranscribe = handleFinishTranscribe;
   }
-  if (hasFinishTranscribeWithAudioAction.value) {
+  if (props.onFinishTranscribeWithAudio) {
     listeners.onFinishTranscribeWithAudio = handleFinishTranscribeWithAudio;
   }
 
   return listeners;
 });
+
+const canStop = computed(() => !!props.onStop);
+const canAddFile = computed(() => !!props.onAddFile);
+const canTranscribe = computed(() => !!props.onStartTranscribe);
 
 onMounted(async () => {
   await nextTick();
@@ -484,9 +467,12 @@ onBeforeUnmount(() => {
       :is-running="isRunning"
       :input-mode="inputMode"
       :input-tools-menu="inputToolsMenu"
+      :can-stop="canStop"
+      :can-add-file="canAddFile"
+      :can-transcribe="canTranscribe"
       :on-update-model-value="handleInputValueChange"
       :on-submit-message="handleSubmitMessage"
-      :on-stop="hasStopAction ? handleStop : undefined"
+      :on-stop="handleStop"
       :on-add-file="handleAddFile"
       :on-start-transcribe="handleStartTranscribe"
       :on-cancel-transcribe="handleCancelTranscribe"
@@ -527,9 +513,12 @@ onBeforeUnmount(() => {
               :input-mode="inputMode"
               :input-tools-menu="inputToolsMenu"
               :attachments="attachments ?? []"
+              :can-stop="canStop"
+              :can-add-file="canAddFile"
+              :can-transcribe="canTranscribe"
               :on-update-model-value="handleInputValueChange"
               :on-submit-message="handleSubmitMessage"
-              :on-stop="hasStopAction ? handleStop : undefined"
+              :on-stop="handleStop"
               :on-add-file="handleAddFile"
               :on-start-transcribe="handleStartTranscribe"
               :on-cancel-transcribe="handleCancelTranscribe"
@@ -713,9 +702,12 @@ onBeforeUnmount(() => {
           :input-mode="inputMode"
           :input-tools-menu="inputToolsMenu"
           :attachments="attachments ?? []"
+          :can-stop="canStop"
+          :can-add-file="canAddFile"
+          :can-transcribe="canTranscribe"
           :on-update-model-value="handleInputValueChange"
           :on-submit-message="handleSubmitMessage"
-          :on-stop="hasStopAction ? handleStop : undefined"
+          :on-stop="handleStop"
           :on-add-file="handleAddFile"
           :on-start-transcribe="handleStartTranscribe"
           :on-cancel-transcribe="handleCancelTranscribe"
