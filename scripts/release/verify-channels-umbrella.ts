@@ -21,7 +21,6 @@ import {
   workspaceDependencyClosure,
 } from "./lib/pack-workspace.js";
 import { loadPublishedChannelsManifest } from "./lib/channels-registry.js";
-import { materializeAgUiPreviews } from "./lib/ag-ui-previews.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -247,16 +246,6 @@ async function main(): Promise<void> {
 
     const umbrellaTarball = tarballs.get("@copilotkit/channels");
     if (!umbrellaTarball) throw new Error("missing packed umbrella tarball");
-
-    if (!registryMode) {
-      for (const [name, tarball] of await materializeAgUiPreviews({
-        root: ROOT,
-        directory: join(temp, "ag-ui"),
-        packedTarballs: tarballs,
-      })) {
-        tarballs.set(name, tarball);
-      }
-    }
 
     writeConsumer(
       consumerDir,

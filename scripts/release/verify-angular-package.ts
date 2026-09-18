@@ -22,7 +22,6 @@ import {
   packAngularArtifacts,
   readAngularArtifactSet,
 } from "./lib/angular-artifacts.js";
-import { materializeAgUiPreviews } from "./lib/ag-ui-previews.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const ANGULAR_PACKAGE = "@copilotkit/angular";
@@ -93,7 +92,7 @@ function assertFrameworkIndependent(consumerDir: string): void {
   }
 }
 
-async function main(): Promise<void> {
+function main(): void {
   const temp = mkdtempSync(join(tmpdir(), "copilotkit-angular-package-"));
 
   try {
@@ -143,13 +142,6 @@ async function main(): Promise<void> {
 
     const siblingTarballs = new Map(artifactSet.tarballs);
     siblingTarballs.delete(ANGULAR_PACKAGE);
-    for (const [name, tarball] of await materializeAgUiPreviews({
-      root: ROOT,
-      directory: join(temp, "ag-ui"),
-      packedTarballs: artifactSet.tarballs,
-    })) {
-      siblingTarballs.set(name, tarball);
-    }
 
     const support = readAngularSupportContract(packedManifest);
     const agUiClient = readAgUiClientDependency(packedManifest);
@@ -202,7 +194,9 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error: unknown) => {
+try {
+  main();
+} catch (error) {
   console.error(error instanceof Error ? error.message : error);
   process.exitCode = 1;
-});
+}

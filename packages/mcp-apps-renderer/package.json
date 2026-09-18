@@ -66,7 +66,7 @@
     "zod": ">=3.25"
   },
   "devDependencies": {
-    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@629f20f09af0f1e9003e16c83362a7a31d1db921",
+    "@ag-ui/client": "1.0.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "jsdom": "^26.1.0",
     "tsdown": "^0.20.3",

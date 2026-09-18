@@ -36,7 +36,7 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@629f20f09af0f1e9003e16c83362a7a31d1db921",
+    "@ag-ui/client": "1.0.0",
     "@copilotkit/shared": "workspace:*",
     "@tanstack/pacer": "^0.20.1",
     "phoenix": "^1.8.4",
@@ -44,6 +44,7 @@
     "zod-to-json-schema": "^3.24.6"
   },
   "devDependencies": {
+    "@ag-ui/core": "1.0.0",
     "@copilotkit/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
     "@types/phoenix": "^1.6.6",

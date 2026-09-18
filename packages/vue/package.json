@@ -78,8 +78,8 @@
   },
   "dependencies": {
     "@a2ui/web_core": "0.10.4",
-    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@629f20f09af0f1e9003e16c83362a7a31d1db921",
-    "@ag-ui/core": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@629f20f09af0f1e9003e16c83362a7a31d1db921",
+    "@ag-ui/client": "1.0.0",
+    "@ag-ui/core": "1.0.0",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@copilotkit/web-components": "workspace:*",
