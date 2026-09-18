@@ -130,7 +130,7 @@ export function WizardProgress({
                         : "border-[var(--text-muted)] bg-[var(--bg-surface)]"
                   }`}
                 >
-                  {step.n}
+                  {index + 1}
                 </span>
                 <span className="whitespace-nowrap text-[10px] sm:text-xs">
                   {step.label}
@@ -228,7 +228,9 @@ export function ChoiceGrid({
   onSelect: (id: string, pointerActivated: boolean) => void;
 }): React.JSX.Element {
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div
+      className={`grid gap-3 ${options.length === 3 ? "wizard-three-choices grid-cols-1" : "grid-cols-2"}`}
+    >
       {options.map((option) => {
         const selected = option.id === selectedId;
         const Icon = option.icon;
