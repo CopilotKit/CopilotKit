@@ -50,7 +50,7 @@ function useComponent<TSchema extends StandardSchemaV1 | undefined = undefined>(
   </PropertyReference>
 
   <PropertyReference name="parameters" type="StandardSchemaV1">
-    Optional [Standard Schema](https://standardschema.dev) (for example a Zod schema) for typed and validated parameters. When provided, the `render` component's props are inferred from the schema output. When omitted, the component accepts any props.
+    Optional [Standard Schema](https://standardschema.dev) (for example a Zod schema) for the advertised tool schema and typed parameters. When provided, the `render` component's props are inferred from the schema output; the runtime parameters are JSON-parsed but are not validated against that schema. When omitted, the component accepts any props.
   </PropertyReference>
 
   <PropertyReference name="render" type="Component<NoInfer<InferRenderProps<TSchema>>>" required>

@@ -26,30 +26,60 @@
       "match": {
         "userMessage": "Issue a $50 refund to customer #12345",
         "hasToolResult": true,
-        "context": "langgraph-fastapi"
+        "context": "langgraph-fastapi",
+        "toolCallId": "call_d5_request_approval_001",
+        "toolResultContains": "\"approved\":true"
       },
       "response": {
         "content": "Approved — processing the $50 refund to customer #12345 now."
-      }
+      },
+      "_comment": "Match the actual approval Boolean; a rejection reason does not change the decision."
     },
     {
-      "_comment": "hitl-in-app — refund pill (#12345), post-tool-result response. Content includes BOTH approve and reject key phrases so both test assertions can match (the test checks for a substring, not the full string). This avoids sequenceIndex which is fragile across aimock restarts.",
+      "match": {
+        "userMessage": "Issue a $50 refund to customer #12345",
+        "hasToolResult": true,
+        "context": "langgraph-fastapi",
+        "toolCallId": "call_d5_request_approval_001",
+        "toolResultContains": "\"approved\":false"
+      },
+      "response": {
+        "content": "The refund request was not approved. I will not process the $50 refund to customer #12345."
+      },
+      "_comment": "Match the actual approval Boolean; a rejection reason does not change the decision."
+    },
+    {
+      "_comment": "Refund continuation: narrate the actual approval from the current tool result. Notes do not change the Boolean decision.",
       "match": {
         "userMessage": "$50 refund to Jordan Rivera on ticket #12345",
         "toolCallId": "call_d5_hitl_refund_12345_001",
         "hasToolResult": true,
-        "context": "langgraph-fastapi"
+        "context": "langgraph-fastapi",
+        "toolResultContains": "\"approved\":true"
       },
       "response": {
-        "content": "I am processing the $50 refund to Jordan Rivera on ticket #12345 now. The refund request was not approved by default — your explicit approval or rejection determines the outcome."
+        "content": "I am processing the $50 refund to Jordan Rivera on ticket #12345 now."
       }
     },
     {
-      "_comment": "hitl-in-app — refund pill (#12345). 1st turn: emit request_user_approval tool call. The post-tool-result fixture above (with toolCallId + hasToolResult: true) is more specific and wins on the 2nd turn, so hasToolResult: false is NOT needed here — omitting it allows this fixture to match even in multi-pill conversations where prior tool results exist.",
+      "_comment": "Refund continuation: narrate the actual rejection from the current tool result. Notes do not change the Boolean decision.",
       "match": {
         "userMessage": "$50 refund to Jordan Rivera on ticket #12345",
-        "turnIndex": 0,
-        "context": "langgraph-fastapi"
+        "toolCallId": "call_d5_hitl_refund_12345_001",
+        "hasToolResult": true,
+        "context": "langgraph-fastapi",
+        "toolResultContains": "\"approved\":false"
+      },
+      "response": {
+        "content": "The refund request was not approved. I will not process the $50 refund to Jordan Rivera on ticket #12345."
+      }
+    },
+    {
+      "_comment": "Refund initial request. Match only the current user turn, including after earlier tool results, so the continuation cannot reopen the approval dialog.",
+      "match": {
+        "userMessage": "$50 refund to Jordan Rivera on ticket #12345",
+        "context": "langgraph-fastapi",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -62,23 +92,37 @@
       }
     },
     {
-      "_comment": "hitl-in-app — downgrade pill (#12346), 2nd turn. Same pattern as refund/escalate. Without this entry, the generic 'plan' catch-all in feature-parity.json hijacks the downgrade message.",
+      "_comment": "Downgrade continuation: narrate the actual approval from the current tool result. Notes do not change the Boolean decision.",
       "match": {
         "userMessage": "downgrade Priya Shah (#12346) to the Starter plan",
         "toolCallId": "call_d5_hitl_downgrade_12346_001",
         "hasToolResult": true,
-        "context": "langgraph-fastapi"
+        "context": "langgraph-fastapi",
+        "toolResultContains": "\"approved\":true"
       },
       "response": {
         "content": "Downgrade confirmed — Priya Shah (#12346) will move to the Starter plan effective next billing cycle."
       }
     },
     {
-      "_comment": "hitl-in-app — downgrade pill (#12346). 1st turn: emit request_user_approval tool call. Specific userMessage substring takes precedence over the bare 'plan' fixture in feature-parity.json (which lives later in the load order). hasToolResult: false omitted so multi-pill conversations still match.",
+      "_comment": "Downgrade continuation: narrate the actual rejection from the current tool result. Notes do not change the Boolean decision.",
       "match": {
         "userMessage": "downgrade Priya Shah (#12346) to the Starter plan",
-        "turnIndex": 0,
-        "context": "langgraph-fastapi"
+        "toolCallId": "call_d5_hitl_downgrade_12346_001",
+        "hasToolResult": true,
+        "context": "langgraph-fastapi",
+        "toolResultContains": "\"approved\":false"
+      },
+      "response": {
+        "content": "Downgrade not approved. Priya Shah (#12346) will remain on the current plan."
+      }
+    },
+    {
+      "_comment": "Downgrade initial request. Match only the current user turn, including after earlier tool results, so the continuation cannot reopen the approval dialog.",
+      "match": {
+        "userMessage": "downgrade Priya Shah (#12346) to the Starter plan",
+        "context": "langgraph-fastapi",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -91,23 +135,37 @@
       }
     },
     {
-      "_comment": "hitl-in-app — escalate pill (#12347), post-tool-result response. Content includes both approve and reject key phrases.",
+      "_comment": "Escalation continuation: narrate the actual approval from the current tool result. Notes do not change the Boolean decision.",
       "match": {
         "userMessage": "escalate ticket #12347 to the payments team",
         "toolCallId": "call_d5_hitl_escalate_12347_001",
         "hasToolResult": true,
-        "context": "langgraph-fastapi"
+        "context": "langgraph-fastapi",
+        "toolResultContains": "\"approved\":true"
       },
       "response": {
-        "content": "Escalated ticket #12347 to the payments team for Morgan Lee. Not escalated by default — your explicit approval determines the outcome."
+        "content": "Escalated ticket #12347 to the payments team for Morgan Lee."
       }
     },
     {
-      "_comment": "hitl-in-app — escalate pill (#12347). 1st turn: emit request_user_approval tool call. hasToolResult: false omitted so multi-pill conversations still match (the post-tool-result fixture above with toolCallId is more specific and wins on the 2nd turn).",
+      "_comment": "Escalation continuation: narrate the actual rejection from the current tool result. Notes do not change the Boolean decision.",
       "match": {
         "userMessage": "escalate ticket #12347 to the payments team",
-        "turnIndex": 0,
-        "context": "langgraph-fastapi"
+        "toolCallId": "call_d5_hitl_escalate_12347_001",
+        "hasToolResult": true,
+        "context": "langgraph-fastapi",
+        "toolResultContains": "\"approved\":false"
+      },
+      "response": {
+        "content": "Not escalated. I will not escalate ticket #12347 to the payments team."
+      }
+    },
+    {
+      "_comment": "Escalation initial request. Match only the current user turn, including after earlier tool results, so the continuation cannot reopen the approval dialog.",
+      "match": {
+        "userMessage": "escalate ticket #12347 to the payments team",
+        "context": "langgraph-fastapi",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [

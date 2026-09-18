@@ -19,10 +19,12 @@ import {
   FLEET_COMM_ERROR_SIGNAL_KEY,
   commErrorFromStatusSignal,
   probeResultsForServiceJobResult,
-  type PoolCommError,
-  type ServiceJobResult,
 } from "../contracts.js";
-import { createResultAggregator } from "./result-aggregator.js";
+import type { PoolCommError, ServiceJobResult } from "../contracts.js";
+import {
+  createResultAggregator,
+  createJobFeatureScopeResolver,
+} from "./result-aggregator.js";
 import { createStatusWriter } from "../../writers/status-writer.js";
 
 // Wrap the projection in a PASSTHROUGH vi.fn so the empty-projection guard
@@ -65,6 +67,14 @@ function makeFakeStatusWriter(): {
   const writes: RecordedWrite[] = [];
   const overlays: RecordedOverlay[] = [];
   const writer: StatusWriter = {
+    async writeSelected(input) {
+      if (input.overlay) {
+        const overlay = await writer.writeOverlay(input.overlay);
+        if (overlay.applied) return { kind: "overlay", value: overlay };
+      }
+      return { kind: "write", value: await writer.write(input.result) };
+    },
+
     async write(result) {
       writes.push({ result });
       const outcome: WriteOutcome = {
@@ -182,7 +192,8 @@ function makeErrorRoutingFakeStatusWriter(): {
 function makeCannedTransitionStatusWriter(
   outcomesByKey: Record<
     string,
-    Pick<WriteOutcome, "previousState" | "newState">
+    Pick<WriteOutcome, "previousState" | "newState"> &
+      Partial<Pick<WriteOutcome, "persisted" | "transition">>
   >,
 ): { writer: StatusWriter; writes: RecordedWrite[] } {
   const writes: RecordedWrite[] = [];
@@ -196,10 +207,12 @@ function makeCannedTransitionStatusWriter(
         newState:
           canned?.newState ??
           (result.state === "error" ? "error" : result.state),
-        transition: canned?.newState === "error" ? "error" : "first",
+        transition:
+          canned?.transition ??
+          (canned?.newState === "error" ? "error" : "first"),
         firstFailureAt: null,
         failCount: 0,
-        persisted: true,
+        persisted: canned?.persisted ?? true,
       };
       return outcome;
     },
@@ -228,6 +241,7 @@ interface RunWriterCalls {
 
 /** A stateful run-row the fake tracks so findByJobId reflects start/finish. */
 interface FakeRunRow {
+  selectedObservationFingerprint?: string;
   id: string;
   jobId?: string;
   terminal: boolean;
@@ -252,8 +266,16 @@ function makeFakeRunWriter(): {
     async findByJobId(jobId) {
       if (!jobId) return null;
       // Newest-first, mirroring the real -started_at sort.
-      const match = [...rows].reverse().find((r) => r.jobId === jobId);
-      return match ? { id: match.id, terminal: match.terminal } : null;
+      for (let index = rows.length - 1; index >= 0; index--) {
+        const row = rows[index];
+        if (row.jobId === jobId)
+          return {
+            id: row.id,
+            terminal: row.terminal,
+            selectedObservationFingerprint: row.selectedObservationFingerprint,
+          };
+      }
+      return null;
     },
     async update(opts) {
       calls.update.push(opts);
@@ -261,7 +283,11 @@ function makeFakeRunWriter(): {
     async finish(opts) {
       calls.finish.push(opts);
       const row = rows.find((r) => r.id === opts.id);
-      if (row) row.terminal = true;
+      if (row) {
+        row.terminal = true;
+        row.selectedObservationFingerprint =
+          opts.summary?.selectedObservationFingerprint;
+      }
     },
     async recent(): Promise<ProbeRunRecord[]> {
       return [];
@@ -346,6 +372,380 @@ describe("createResultAggregator", () => {
       now: () => now,
     });
   }
+
+  it("preserves the full aggregate for an authoritative filtered job", async () => {
+    const agg = createResultAggregator({
+      statusWriter: statusFake.writer,
+      runWriter: runFake.writer,
+      logger: makeLogger(),
+      now: () => now,
+      resolveFeatureScope: async () => ["shared-state"],
+    });
+    await agg.aggregate(makeResult());
+    expect(statusFake.writes.map((w) => w.result.key)).toEqual([
+      "d6:langgraph-python/shared-state",
+    ]);
+    expect(runFake.calls.finish[0].state).toBe("completed");
+    expect(runFake.calls.finish[0].summary).toMatchObject({
+      total: 1,
+      passed: 1,
+      failed: 0,
+    });
+  });
+
+  function makeD5Result(overrides: Partial<ServiceJobResult> = {}) {
+    return makeResult({
+      probeKey: "d5-single-pill-e2e:langgraph-python",
+      aggregateKey: "d5-single-pill-e2e:langgraph-python",
+      cells: makeResult().cells.map((cell) => ({
+        ...cell,
+        cellKey: cell.cellKey.replace(/^d6:/, "d5:"),
+      })),
+      ...overrides,
+    });
+  }
+
+  function makeD5ScopedAggregator() {
+    return createResultAggregator({
+      statusWriter: statusFake.writer,
+      runWriter: runFake.writer,
+      logger: makeLogger(),
+      now: () => now,
+      resolveFeatureScope: async () => ["shared-state"],
+    });
+  }
+
+  it("retries a selected D5 status failure without terminalizing or duplicating the run", async () => {
+    const failure = new Error("PB status temporarily unavailable");
+    const originalWrite = statusFake.writer.write;
+    statusFake.writer.write = vi
+      .fn(originalWrite)
+      .mockRejectedValueOnce(failure);
+    const agg = makeD5ScopedAggregator();
+    const result = makeD5Result();
+
+    await expect(agg.aggregate(result)).rejects.toBe(failure);
+    expect(runFake.calls.finish).toHaveLength(0);
+    expect(runFake.rows).toHaveLength(1);
+    expect(runFake.rows[0].terminal).toBe(false);
+    expect(statusFake.writes).toHaveLength(0);
+
+    await agg.aggregate(result);
+    expect(runFake.calls.start).toHaveLength(1);
+    expect(runFake.calls.finish).toHaveLength(1);
+    expect(statusFake.writes).toHaveLength(1);
+    expect(statusFake.writes[0].result.key).toBe(
+      "d5:langgraph-python/shared-state",
+    );
+    expect((await agg.aggregate(result)).skipped).toBe(true);
+    expect(statusFake.writes).toHaveLength(1);
+  });
+
+  it.each(["green", "red"] as const)(
+    "persists the selected D5 %s result under its native row namespace",
+    async (state) => {
+      const result = makeD5Result();
+      await makeD5ScopedAggregator().aggregate({
+        ...result,
+        cells: result.cells.map((cell) => ({ ...cell, state })),
+      });
+      expect(
+        statusFake.writes.map((w) => [w.result.key, w.result.state]),
+      ).toEqual([["d5:langgraph-python/shared-state", state]]);
+      expect(runFake.calls.finish[0].summary).toMatchObject({
+        total: 1,
+        passed: state === "green" ? 1 : 0,
+        failed: state === "red" ? 1 : 0,
+      });
+    },
+  );
+
+  it("records missing selected D5 keys beside a partial communication error", async () => {
+    const agg = createResultAggregator({
+      statusWriter: statusFake.writer,
+      runWriter: runFake.writer,
+      logger: makeLogger(),
+      now: () => now,
+      resolveFeatureScope: async () => ["shared-state", "missing-cell"],
+    });
+    const result = makeD5Result({ commError: SAMPLE_COMM_ERROR });
+    await agg.aggregate({
+      ...result,
+      cells: result.cells.map((cell) => ({ ...cell, state: "red" })),
+    });
+    expect(statusFake.writes.map((write) => write.result.key)).toEqual([
+      "d5:langgraph-python/shared-state",
+    ]);
+    expect(statusFake.writes[0].result).toMatchObject({ state: "red" });
+    expect(statusFake.overlays.map((overlay) => overlay.key)).toEqual([
+      "d5:langgraph-python/missing-cell",
+    ]);
+    expect(runFake.calls.finish[0].summary).toMatchObject({
+      total: 1,
+      passed: 0,
+      failed: 1,
+    });
+  });
+
+  it.each([false, true])(
+    "counts only the accepted D5 duplicate (commError: %s)",
+    async (commError) => {
+      const result = makeD5Result();
+      const cell = result.cells[0];
+      await makeD5ScopedAggregator().aggregate({
+        ...result,
+        cells: [cell, { ...cell, cellKey: ` ${cell.cellKey} `, state: "red" }],
+        ...(commError ? { commError: SAMPLE_COMM_ERROR } : {}),
+      });
+      expect(statusFake.writes.map((w) => w.result.state)).toEqual([
+        commError ? "red" : "green",
+      ]);
+      expect(runFake.calls.finish[0].summary).toMatchObject({
+        total: 1,
+        passed: commError ? 0 : 1,
+        failed: commError ? 1 : 0,
+      });
+      expect(runFake.calls.finish[0].state).toBe(
+        commError ? "failed" : "completed",
+      );
+    },
+  );
+
+  it.each([false, true])(
+    "excludes corrupt D5 observations from the summary (valid companion: %s)",
+    async (validCompanion) => {
+      const result = makeD5Result();
+      const cell = result.cells[0];
+      const corrupt = { ...cell };
+      // The consumer accepts per-cell JSON states; exercise its malformed input.
+      Object.defineProperty(corrupt, "state", { value: "purple" });
+      const outcome = await makeD5ScopedAggregator().aggregate({
+        ...result,
+        aggregateState: "green",
+        cells: validCompanion ? [corrupt, cell] : [corrupt],
+      });
+      expect(outcome.corruptStateSkippedKeys).toEqual([cell.cellKey]);
+      expect(statusFake.writes).toHaveLength(validCompanion ? 1 : 0);
+      expect(runFake.calls.finish[0].summary).toMatchObject({
+        total: validCompanion ? 1 : 0,
+        passed: validCompanion ? 1 : 0,
+        failed: 0,
+      });
+      expect(runFake.calls.finish[0].state).toBe(
+        validCompanion ? "completed" : "failed",
+      );
+    },
+  );
+
+  it.each([
+    "d5:another-service/shared-state",
+    "d6:langgraph-python/shared-state",
+    "d5:langgraph-python/human-in-the-loop",
+  ])(
+    "rejects an out-of-scope D5 key even with a selected cellId: %s",
+    async (cellKey) => {
+      const result = makeD5Result();
+      await makeD5ScopedAggregator().aggregate({
+        ...result,
+        cells: result.cells.map((cell) => ({
+          ...cell,
+          cellId: "shared-state",
+          cellKey,
+        })),
+      });
+      expect(statusFake.writes).toEqual([]);
+      expect(runFake.calls.finish[0].summary).toMatchObject({
+        total: 0,
+        passed: 0,
+        failed: 0,
+      });
+    },
+  );
+
+  it("preserves an empty scoped driver error without inventing cell observations", async () => {
+    const result = makeD5Result({
+      aggregateState: "error",
+      aggregateSignal: { error: "featureSource.filter is not a function" },
+      cells: [],
+    });
+    await makeD5ScopedAggregator().aggregate(result);
+    expect(statusFake.writes.map((write) => write.result)).toEqual([
+      {
+        key: "d5:langgraph-python/shared-state",
+        state: "error",
+        signal: result.aggregateSignal,
+        observedAt: result.finishedAt,
+      },
+    ]);
+    expect(statusFake.overlays).toEqual([]);
+    expect(runFake.calls.finish[0].state).toBe("failed");
+    expect(runFake.calls.finish[0].summary).toMatchObject({
+      total: 0,
+      passed: 0,
+      failed: 0,
+    });
+  });
+
+  it("preserves empty D5 communication failure evidence on the native cell key", async () => {
+    const outcome = await makeD5ScopedAggregator().aggregate(
+      makeD5Result({
+        aggregateState: "error",
+        cells: [],
+        commError: SAMPLE_COMM_ERROR,
+      }),
+    );
+    expect(statusFake.writes).toEqual([]);
+    expect(statusFake.overlays.map((overlay) => overlay.key)).toEqual([
+      "d5:langgraph-python/shared-state",
+    ]);
+    expect(outcome.droppedCommError).toBe(false);
+    expect(runFake.calls.finish[0].state).toBe("failed");
+    expect(runFake.calls.finish[0].summary).toMatchObject({
+      total: 0,
+      passed: 0,
+      failed: 0,
+    });
+  });
+
+  it("retains an explicit driver error despite a passing selected cell", async () => {
+    const agg = createResultAggregator({
+      statusWriter: statusFake.writer,
+      runWriter: runFake.writer,
+      logger: makeLogger(),
+      now: () => now,
+      resolveFeatureScope: async () => ["shared-state"],
+    });
+    await agg.aggregate(makeResult({ aggregateState: "error" }));
+    expect(runFake.calls.finish[0].state).toBe("failed");
+  });
+
+  it("retains a communication failure despite a passing selected cell", async () => {
+    const agg = createResultAggregator({
+      statusWriter: statusFake.writer,
+      runWriter: runFake.writer,
+      logger: makeLogger(),
+      now: () => now,
+      resolveFeatureScope: async () => ["shared-state"],
+    });
+    await agg.aggregate(
+      makeResult({ aggregateState: "green", commError: SAMPLE_COMM_ERROR }),
+    );
+    expect(runFake.calls.finish[0].state).toBe("failed");
+  });
+
+  it.each([
+    { aggregatePadding: "", cellPadding: " " },
+    { aggregatePadding: " ", cellPadding: "" },
+    { aggregatePadding: " ", cellPadding: " " },
+  ])(
+    "normalizes scoped keys before membership: %j",
+    async ({ aggregatePadding, cellPadding }) => {
+      const agg = createResultAggregator({
+        statusWriter: statusFake.writer,
+        runWriter: runFake.writer,
+        logger: makeLogger(),
+        now: () => now,
+        resolveFeatureScope: async () => ["shared-state"],
+      });
+      const result = makeResult();
+      await agg.aggregate({
+        ...result,
+        aggregateKey: `${aggregatePadding}${result.aggregateKey}${aggregatePadding}`,
+        cells: result.cells.map((cell) => ({
+          ...cell,
+          cellKey: `${cellPadding}${cell.cellKey}${cellPadding}`,
+        })),
+      });
+      expect(statusFake.writes.map((write) => write.result.key)).toEqual([
+        "d6:langgraph-python/shared-state",
+      ]);
+      expect(runFake.calls.finish[0].summary).toMatchObject({
+        total: 1,
+        passed: 1,
+        failed: 0,
+      });
+    },
+  );
+
+  it.each([
+    { errorClass: "skipped-incapable" },
+    { note: "skipped: deploy in progress (0s ago)" },
+    { note: "filtered-by-trigger" },
+  ])("does not persist or count a selected legacy skip: %j", async (signal) => {
+    const agg = createResultAggregator({
+      statusWriter: statusFake.writer,
+      runWriter: runFake.writer,
+      logger: makeLogger(),
+      now: () => now,
+      resolveFeatureScope: async () => ["shared-state"],
+    });
+    const result = makeResult();
+    await agg.aggregate({
+      ...result,
+      cells: result.cells.map((cell) => ({ ...cell, signal })),
+    });
+    expect(statusFake.writes).toEqual([]);
+    expect(runFake.calls.finish[0].summary).toMatchObject({
+      total: 0,
+      passed: 0,
+      failed: 0,
+    });
+  });
+
+  it("preserves legacy skip handling for unfiltered jobs", async () => {
+    const agg = makeAggregator();
+    const result = makeResult();
+    await agg.aggregate({
+      ...result,
+      cells: result.cells.map((cell) => ({
+        ...cell,
+        signal: { errorClass: "skipped-incapable" },
+      })),
+    });
+    expect(statusFake.writes).toHaveLength(3);
+  });
+
+  it("preserves scoped communication failure evidence when no cells returned", async () => {
+    const agg = createResultAggregator({
+      statusWriter: statusFake.writer,
+      runWriter: runFake.writer,
+      logger: makeLogger(),
+      now: () => now,
+      resolveFeatureScope: async () => ["shared-state"],
+    });
+    const outcome = await agg.aggregate(
+      makeResult({
+        aggregateState: "error",
+        cells: [],
+        commError: SAMPLE_COMM_ERROR,
+      }),
+    );
+    expect(statusFake.writes).toEqual([]);
+    expect(statusFake.overlays.map((overlay) => overlay.key)).toEqual([
+      "d6:langgraph-python/shared-state",
+    ]);
+    expect(outcome.droppedCommError).toBe(false);
+    expect(runFake.calls.finish[0].state).toBe("failed");
+    expect(runFake.calls.finish[0].summary).toMatchObject({
+      total: 0,
+      passed: 0,
+      failed: 0,
+    });
+  });
+
+  it("writes nothing when authoritative scope cannot be resolved", async () => {
+    const agg = createResultAggregator({
+      statusWriter: statusFake.writer,
+      runWriter: runFake.writer,
+      logger: makeLogger(),
+      now: () => now,
+      resolveFeatureScope: async () => {
+        throw new Error("job missing");
+      },
+    });
+    await expect(agg.aggregate(makeResult())).rejects.toThrow("job missing");
+    expect(statusFake.writes).toEqual([]);
+  });
 
   it("writes the aggregate primary row + one side row per cell, preserving keys", async () => {
     const agg = makeAggregator();
@@ -2012,10 +2412,10 @@ describe("createResultAggregator", () => {
   describe("[G2r9] corrupt non-State colours on the NO-commError path are loudly skipped", () => {
     // Planning computes asKnownState(pr.state) but only consulted it under a
     // commError — without one, a corrupt non-State, non-"error" colour
-    // flowed straight into statusWriter.write, 400-ing on PB's required
-    // `state` select; aggregate() then REJECTED and the consumer
-    // unlatch-retried the same deterministic fault forever (the hot-loop
-    // class this file guards everywhere else).
+    // could reach statusWriter.write and fail PB's required `state` select.
+    // This unfiltered, no-commError path catches ordinary write failures, so
+    // rejection and a consumer retry must not be assumed. The planning guard
+    // instead skips the invalid row and exposes the skip on the outcome.
     it("skips the corrupt row (no write), logs at ERROR level, and surfaces it on corruptStateSkippedKeys", async () => {
       const errors: { msg: string; ctx?: Record<string, unknown> }[] = [];
       const logger: Logger = {
@@ -2065,8 +2465,8 @@ describe("createResultAggregator", () => {
           (e) => e.msg === "fleet.aggregator.corrupt-state-skipped",
         ),
       ).toHaveLength(1);
-      // … and caller-observable (not a throw: a deterministic corrupt
-      // colour would infinite-retry through unlatch-on-reject).
+      // … and caller-observable without relying on a write failure or retry.
+      // Ordinary write failures are caught and can be latched by the consumer.
       expect(outcome.corruptStateSkippedKeys).toEqual([
         "d6:langgraph-python/corrupt",
       ]);
@@ -2889,11 +3289,13 @@ describe("createResultAggregator", () => {
 
       const outcome = await agg.aggregate(makeResult());
 
-      // The lookup throw is UNCERTAIN: aggregation proceeds with the status
-      // writes (idempotent via the writer state machine) but does NOT mint a
-      // fresh run-history row — minting could duplicate a row that already
-      // exists (which the failed lookup couldn't see). A subsequent successful
-      // tick reconciles the run-history row.
+      // The ordinary lookup failure leaves prior run existence uncertain, so
+      // aggregation writes status but does not risk minting a duplicate run.
+      // This call resolves; the consumer can latch the result as processed,
+      // leaving no automatic retry or guaranteed run-history reconciliation.
+      // If a later attempt does run, ordinary status writes can repeat their
+      // counters/history effects; the writer state machine is not a receipt.
+      // Selected jobs instead reject this lookup failure before status writes.
       expect(outcome.skipped).toBe(false);
       expect(statusFake.writes).toHaveLength(3);
       expect(runFake.calls.start).toHaveLength(0);
@@ -2910,7 +3312,8 @@ describe("createResultAggregator", () => {
       const outcome = await agg.aggregate(makeResult());
 
       // No run row exists, so finish is skipped — but the status writes (the
-      // dashboard contract) all still land.
+      // dashboard contract) all still land. This ordinary call resolves and
+      // can be latched; the missing run row does not guarantee a later retry.
       expect(outcome.runRowId).toBeNull();
       expect(outcome.skipped).toBe(false);
       expect(statusFake.writes).toHaveLength(3);
@@ -3073,7 +3476,8 @@ describe("createResultAggregator", () => {
     function makeAggregatorWith(
       outcomesByKey: Record<
         string,
-        Pick<WriteOutcome, "previousState" | "newState">
+        Pick<WriteOutcome, "previousState" | "newState"> &
+          Partial<Pick<WriteOutcome, "persisted" | "transition">>
       >,
     ) {
       const fake = makeCannedTransitionStatusWriter(outcomesByKey);
@@ -3147,6 +3551,34 @@ describe("createResultAggregator", () => {
       expect(runFake.calls.finish[0].summary?.redsIntroduced).toBe(1);
       expect(runFake.calls.finish[0].summary?.redsCleared).toBe(0);
     });
+
+    it.each([
+      { persisted: false, transition: "error" },
+      { persisted: true, transition: "error" },
+      { persisted: false, transition: "red_to_green" },
+    ] as const)(
+      "excludes uncommitted colour changes from red counters: %j",
+      async (disposition) => {
+        const agg = makeAggregatorWith({
+          "d6:langgraph-python": {
+            previousState: "red",
+            newState: "green",
+            ...disposition,
+          },
+          "d6:langgraph-python/shared-state": {
+            previousState: "green",
+            newState: "red",
+            ...disposition,
+          },
+        });
+        await agg.aggregate(makeResult());
+
+        expect(runFake.calls.finish[0].summary).toMatchObject({
+          redsIntroduced: 0,
+          redsCleared: 0,
+        });
+      },
+    );
 
     it("a writer that resolves without an outcome contributes nothing (no crash)", async () => {
       // orchestrator.test.ts doMock's the status-writer with a write() that
@@ -3492,5 +3924,46 @@ describe("[H1] comm-error overlay preserves attribution + counters (real status-
     expect(row.first_failure_at).toBe("2026-06-03T23:00:00.000Z");
     expect(row.state).toBe("red");
     expect(commErrorFromStatusSignal(row.signal)).toEqual(SAMPLE_COMM_ERROR);
+  });
+});
+
+describe("authoritative feature scope lookup", () => {
+  it.each([undefined, []])(
+    "proves absent or empty selection is unfiltered",
+    async (cellIds) => {
+      const row = { id: "job", payload: { driverKind: "e2e_d6", cellIds } };
+      const resolver = createJobFeatureScopeResolver({
+        async getOne<T>() {
+          return row as T;
+        },
+      });
+      await expect(resolver("job")).resolves.toBeUndefined();
+    },
+  );
+  it("returns the persisted selection", async () => {
+    const row = {
+      id: "job",
+      payload: { driverKind: "e2e_d6", cellIds: ["frontend-tools-async"] },
+    };
+    const resolver = createJobFeatureScopeResolver({
+      async getOne<T>() {
+        return row as T;
+      },
+    });
+    await expect(resolver("job")).resolves.toEqual(["frontend-tools-async"]);
+  });
+  it.each([
+    null,
+    { id: "foreign", payload: { driverKind: "e2e_d6" } },
+    { id: "job", payload: [] },
+    { id: "job", payload: { cellIds: ["x"] } },
+    { id: "job", payload: { driverKind: "e2e_d6", cellIds: "x" } },
+  ])("rejects unproven job scope", async (row) => {
+    const resolver = createJobFeatureScopeResolver({
+      async getOne<T>() {
+        return row as T;
+      },
+    });
+    await expect(resolver("job")).rejects.toThrow(/scope/);
   });
 });
