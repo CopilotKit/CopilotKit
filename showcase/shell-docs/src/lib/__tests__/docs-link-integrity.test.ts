@@ -10,6 +10,7 @@ import {
 import { matchesSeoRedirectSource } from "../seo-redirects";
 import { resolveDocsHref } from "../docs-link-rewrite";
 import { CONTENT_DIR } from "../docs-render";
+import { FRONTEND_PAGE_IDS } from "../frontend-page-content";
 import {
   getDocsFolder,
   getDocsMode,
@@ -30,7 +31,8 @@ import {
  * here is a check nobody can trust.
  */
 
-const FRONTEND_SEGMENTS = ["vue", "react-native", "angular", "slack", "teams"];
+// Same source as the search-index builder: derived, never listed.
+const FRONTEND_SEGMENTS: string[] = FRONTEND_PAGE_IDS;
 const CONTENT_ROOT = path.resolve(CONTENT_DIR, "..");
 const PUBLIC_DIR = path.resolve(CONTENT_DIR, "../../../public");
 
@@ -40,10 +42,6 @@ const PUBLIC_DIR = path.resolve(CONTENT_DIR, "../../../public");
  * defect, not an exemption — see the notes.
  */
 const KNOWN_BROKEN_LINKS: ReadonlyArray<readonly [string, string]> = [
-  [
-    "/a2a/generative-ui/declarative-a2ui",
-    "page is served at /docs/integrations/a2a/…; `a2a` is not a registry slug so /a2a/* is not a route",
-  ],
   [
     "/agent-spec/frontend-tools",
     "no frontend-tools page under integrations/agent-spec",
@@ -65,10 +63,6 @@ const KNOWN_BROKEN_LINKS: ReadonlyArray<readonly [string, string]> = [
     "directory has display-only.mdx and interactive.mdx but no index.mdx",
   ],
   [
-    "/react-spa",
-    "real page at frontends/react-spa.mdx, but the bare link is scoped to /built-in-agent/react-spa",
-  ],
-  [
     "/shared-state/in-app-agent-read",
     "exists per framework, not on the root surface",
   ],
@@ -79,18 +73,6 @@ const KNOWN_MISSING_META_PAGES: ReadonlyArray<readonly [string, string]> = [
   [
     "docs -> index",
     "the site root is rendered by app code, not by an MDX file",
-  ],
-  [
-    "docs/channels/reference -> callbacks",
-    "the whole directory is a meta.json with no pages",
-  ],
-  [
-    "docs/channels/reference -> channel",
-    "the whole directory is a meta.json with no pages",
-  ],
-  [
-    "docs/channels/reference -> thread",
-    "the whole directory is a meta.json with no pages",
   ],
   [
     "docs/integrations/a2a -> index",
