@@ -2145,4 +2145,118 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
       agent.complete();
     });
   });
+
+  describe("Authoritative args after MESSAGES_SNAPSHOT regression (#4935)", () => {
+    it("render receives the accumulated TOOL_CALL_ARGS data, not the snapshot's raw LLM args", async () => {
+      const agent = new MockStepwiseAgent({ agentId: "default" });
+
+      let renderedArgs: { addresses?: Array<{ id: string }> } | null = null;
+
+      const AuthoritativeArgsTool: React.FC = () => {
+        const tool: ReactFrontendTool<{ postcode: string; addresses: Array<{ id: string; line1: string }> }> = {
+          name: "selectAddress",
+          render: ({ args }) => {
+            renderedArgs = args;
+            return (
+              <div data-testid="authoritative-tool">
+                {args.addresses?.map((address) => (
+                  <span key={address.id} data-testid={`address-${address.id}`}>
+                    {address.line1}
+                  </span>
+                ))}
+              </div>
+            );
+          },
+        };
+        useFrontendTool(tool);
+        return null;
+      };
+
+      renderWithCopilotKit({
+        agent,
+        children: (
+          <>
+            <AuthoritativeArgsTool />
+            <div style={{ height: 400 }}>
+              <CopilotChat welcomeScreen={false} />
+            </div>
+          </>
+        ),
+      });
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Look up addresses" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Look up addresses")).toBeDefined();
+      });
+
+      const messageId = testId("msg");
+      const toolCallId = testId("tc");
+      const authoritativeArgs = JSON.stringify({
+        postcode: "M1 1AA",
+        addresses: [
+          { id: "6", line1: "1 Piccadilly" },
+          { id: "7", line1: "15 Portland Street" },
+        ],
+      });
+      const hallucinatedArgs = JSON.stringify({
+        postcode: "M1 1AA",
+        addresses: [{ id: "1", line1: "1 Piccadilly Gardens" }],
+      });
+
+      // args_streamer flow: START, one ARGS delta carrying the full enriched
+      // payload, END — the accumulated buffer matches the enriched args.
+      agent.emit({ type: EventType.RUN_STARTED } as BaseEvent);
+      agent.emit({
+        type: EventType.TOOL_CALL_START,
+        toolCallId,
+        toolCallName: "selectAddress",
+        parentMessageId: messageId,
+      } as BaseEvent);
+      agent.emit({
+        type: EventType.TOOL_CALL_ARGS,
+        toolCallId,
+        delta: authoritativeArgs,
+      } as BaseEvent);
+      agent.emit({ type: EventType.TOOL_CALL_END, toolCallId } as BaseEvent);
+
+      // The streamed args render first.
+      await waitFor(() => {
+        expect(screen.getByTestId("address-6")).toBeDefined();
+      });
+
+      // A later MESSAGES_SNAPSHOT still carries the LLM's raw args and
+      // replaces the message — the render must keep the authoritative args.
+      agent.emit({
+        type: EventType.MESSAGES_SNAPSHOT,
+        messages: [
+          {
+            id: messageId,
+            role: "assistant",
+            content: "",
+            toolCalls: [
+              {
+                id: toolCallId,
+                type: "function",
+                function: { name: "selectAddress", arguments: hallucinatedArgs },
+              },
+            ],
+          },
+        ],
+      } as unknown as BaseEvent);
+
+      // Give the snapshot regression + core-side correction a tick.
+      await waitFor(() => {
+        expect(renderedArgs?.addresses?.map((a) => a.id)).toEqual(["6", "7"]);
+      });
+
+      expect(screen.queryByTestId("address-1")).toBeNull();
+      expect(screen.getByTestId("address-7")).toBeDefined();
+
+      agent.emit({ type: EventType.RUN_FINISHED } as BaseEvent);
+      agent.complete();
+    });
+  });
 });
