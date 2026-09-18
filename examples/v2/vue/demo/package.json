@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@ag-ui/client": "1.0.0",
-    "@ag-ui/core": "0.0.52",
+    "@ag-ui/core": "1.0.0",
     "@ag-ui/mcp-apps-middleware": "0.0.2",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
