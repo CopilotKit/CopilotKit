@@ -46,7 +46,7 @@ public class DeclarativeGenUiAgent
 
     public AIAgent Create()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
 
         // Instructions (not Description) is the system prompt ChatClientAgent
         // actually sends to the model. Without it the agent narrates walls of

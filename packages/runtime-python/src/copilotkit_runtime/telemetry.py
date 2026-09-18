@@ -67,14 +67,19 @@ class TelemetryStats:
 
 
 class Telemetry:
-    """Sample canonical events and enqueue them without delaying request handling."""
+    """Enqueue canonical events without delaying request handling.
+
+    Unsampled by default: the sink is ours, so a real count beats one
+    extrapolated from a fraction of the population. ``sample_rate`` and
+    ``COPILOTKIT_TELEMETRY_SAMPLE_RATE`` still dial it down.
+    """
 
     def __init__(
         self,
         enabled: bool = True,
         sink: EventSink | None = None,
         *,
-        sample_rate: float = 0.05,
+        sample_rate: float = 1.0,
         telemetry_id: str | None = None,
         license_token: str | None = None,
         url: str = "https://telemetry.copilotkit.ai/ingest",
@@ -188,7 +193,8 @@ class Telemetry:
                 "sampleRateAdjustmentFactor": 1 - self.sample_rate,
                 "sampleWeight": 1 / self.sample_rate,
                 "telemetry_identified": self.identified,
-                "telemetry_emitter": "native-python",
+                "telemetry_emitter": "runtime-python",
+                "telemetry_surface": "v2",
                 "telemetry_transport": "lambda",
             },
         }

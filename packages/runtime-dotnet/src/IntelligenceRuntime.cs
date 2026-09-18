@@ -185,7 +185,7 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
         foreach (var pair in options.Agents) agents[pair.Key] = new JsonObject { ["name"] = pair.Key, ["description"] = pair.Value.Description, ["className"] = pair.Value.GetType().Name };
         var info = new JsonObject
         {
-            ["version"] = "0.1.0", ["mode"] = "intelligence", ["agents"] = agents,
+            ["version"] = "0.1.0-rc.1", ["mode"] = "intelligence", ["agents"] = agents,
             ["audioFileTranscriptionEnabled"] = false, ["a2uiEnabled"] = options.A2UI?.Enabled == true, ["openGenerativeUIEnabled"] = false,
             ["threadEndpoints"] = new JsonObject { ["list"] = true, ["inspect"] = true, ["mutations"] = true, ["realtimeMetadata"] = true },
             ["intelligence"] = new JsonObject { ["wsUrl"] = options.ClientUrl.ToString().TrimEnd('/') },

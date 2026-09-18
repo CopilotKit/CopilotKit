@@ -4442,7 +4442,8 @@ describe("orchestrator runControlPlane REQ-B worker-self-report wiring (aggregat
     });
 
     // pb fake: getFirst(status, key=d6:selfreport-svc) returns a prior RED row
-    // so the wired resolvePriorState reads "red"; getOne unused on this leg;
+    // so the wired resolvePriorState reads "red"; getOne supplies the authoritative
+    // persisted unfiltered job used by the scope resolver;
     // health() true so the role boots clean.
     vi.doMock("./storage/pb-client.js", async () => {
       const actual = await vi.importActual<
@@ -4452,7 +4453,10 @@ describe("orchestrator runControlPlane REQ-B worker-self-report wiring (aggregat
         ...actual,
         createPbClient: () => ({
           health: async () => true,
-          getOne: async () => null,
+          getOne: async (collection: string, id: string) =>
+            collection === "probe_jobs" && id === "job-selfreport-1"
+              ? { id, payload: { driverKind: "e2e_d6", cellIds: [] } }
+              : null,
           getFirst: async (collection: string, filter: string) => {
             if (
               collection === "status" &&

@@ -5,10 +5,11 @@ icon: "lucide/Rocket"
 ---
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
-<IntelligenceOnboardingPrompt
-  feature="learning"
-  surface="docs_deepagents_quickstart"
-/>
+## Start with your coding agent
+
+Use this prompt to connect your Deep Agents agent to CopilotKit and verify a working conversation. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
+
+<PageAgentPrompt />
 
 ## Prerequisites
 
@@ -311,11 +312,11 @@ Before you begin, you'll need the following:
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
                 } from "@copilotkit/runtime/v2";
-                import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
+                import { HttpAgent } from "@ag-ui/client";
 
                 const runtime = new CopilotRuntime({
                     agents: {
-                        sample_agent: new LangGraphHttpAgent({
+                        sample_agent: new HttpAgent({
                             url: process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
                         }),
                     },

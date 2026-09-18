@@ -818,6 +818,29 @@ export const STARTER_LEVELS = [
 export type StarterLevel = (typeof STARTER_LEVELS)[number];
 
 /**
+ * The LADDER row-key level segments, in depth order — `starter:<col>/<level>`
+ * for S1/S2/S3. Derived from `STARTER_AXIS.ladderKinds` in
+ * `cell-model.combine.ts` (S1 → shell, S2 → runtime, S3 → agentrun), NOT
+ * re-typed independently of it.
+ *
+ * EVERY name here is DISJOINT from every name in `STARTER_LEVELS` above. That
+ * is load-bearing, not incidental: the Phase-0 cutover dual-writes both sets
+ * for >=3 consecutive ticks, and S3's assertion set is a strict SUPERSET of
+ * legacy `chat`'s, so reusing the `chat` key would have been an OVERWRITE that
+ * could flip the live, unflagged Chat row red and move its `fail_count` /
+ * `first_failure_at` — history that stopping the write does not restore.
+ *
+ * The user-visible LABELS deliberately differ from these keys on every rung
+ * (`D3 chat (mocked)` is keyed `agentrun`); they are two namespaces and neither
+ * is derived from the other. The labels also differ from the `S<n>` kinds: they
+ * read `D1`/`D2`/`D3`, the same depth notation the feature cells use. See
+ * `STARTER_RUNGS` in `cell-model.ts`.
+ */
+export const STARTER_ROW_LEVELS = ["shell", "runtime", "agentrun"] as const;
+
+export type StarterRowLevel = (typeof STARTER_ROW_LEVELS)[number];
+
+/**
  * The dashboard column slugs that are PROBED by the starter-smoke fleet. This
  * is the dashboard's own copy of the *value set* of `STARTER_TO_COLUMN` in
  * `showcase/harness/src/probes/helpers/starter-mapping.ts` — the harness owns

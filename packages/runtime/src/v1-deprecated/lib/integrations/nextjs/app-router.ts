@@ -6,11 +6,11 @@
  * the linked v2 documentation before generating replacement code.
  *
  * @copilotkit/runtime — copilotRuntimeNextJSAppRouterEndpoint:
- *   No 1:1 v2 replacement is available.
- *   Related v2 docs (Runtime server adapter): https://docs.copilotkit.ai/runtime-server-adapter
- *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/
- *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 import and usage:
+ *     import { createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
+ *     const v2CreateCopilotRuntimeHandler = createCopilotRuntimeHandler;
+ *   V2 replacement source: packages/runtime/src/v2/runtime/core/fetch-handler.ts
+ *   V2 docs: https://docs.copilotkit.ai/runtime-server-adapter
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *

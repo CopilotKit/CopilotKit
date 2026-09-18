@@ -1,6 +1,6 @@
 # CopilotKit.Intelligence.AgentFramework
 
-Learned-skill delivery for native Microsoft Agent Framework `ChatClientAgent` agents. Version `0.1.0` targets .NET 9 and supports Agent Framework `>=1.0.0,<2.0.0`.
+Learned-skill delivery for native Microsoft Agent Framework `ChatClientAgent` agents. Version `0.1.0-rc.1` targets .NET 9 and supports Agent Framework `>=1.0.0,<2.0.0`.
 
 Publication requires a deployed learned-skill delivery API and a published canonical `CopilotKit.Intelligence` client with `GetLearnedSkillsSnapshotAsync`. This source checkout uses the canonical client project in the same repository.
 

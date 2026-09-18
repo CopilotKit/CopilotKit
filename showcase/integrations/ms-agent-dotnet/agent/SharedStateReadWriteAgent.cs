@@ -105,11 +105,14 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
         // TEXT_MESSAGE_* events when Role == Assistant. A Role-less update
         // is effectively dropped by the client — chat stays empty even though
         // the server emitted content (and notes snapshots still land).
+        // A message ID also lets the host open the text message before its
+        // content; without one it emits TEXT_MESSAGE_CONTENT with a null ID.
         var deterministic = TryBuildDeterministicReply(messageList, thread);
         if (deterministic is not null)
         {
             yield return new AgentRunResponseUpdate
             {
+                MessageId = $"msg_{Guid.NewGuid():N}",
                 Role = ChatRole.Assistant,
                 Contents = [new TextContent(deterministic)],
             };
@@ -670,7 +673,7 @@ public sealed class SharedStateReadWriteAgentFactory
 
     public AIAgent CreateAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
 
         // The tool closes over `_store`; this is intentional — each tool
         // invocation must update the same per-thread slot the wrapping

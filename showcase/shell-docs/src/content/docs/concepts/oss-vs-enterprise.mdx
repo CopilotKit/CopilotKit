@@ -9,7 +9,7 @@ CopilotKit ships in two layers: an **open-source frontend stack** (npm packages,
 
 ## The 30-second version
 
-- **OSS is enough for** building a working agentic application with framework-native APIs, prebuilt chat, frontend tools, gen-UI, and any AG-UI integration. Apache 2.0, runs anywhere.
+- **OSS is enough for** building a working agentic application with framework-native APIs, prebuilt chat, frontend tools, gen-UI, and any AG-UI integration. MIT, runs anywhere.
 - **CopilotKit Intelligence adds** durable threads, persistence across reloads and devices, realtime WebSocket sync, hosted inspection, and an admin console.
 - **CopilotKit Intelligence runs two ways** — as [Cloud-hosted CopilotKit Intelligence](/intelligence/managed-intelligence-platform), or self-hosted via the `copilot-intelligence` Helm chart on your own Kubernetes.
 - **Your app code doesn't change** between OSS-only, cloud-hosted, and self-hosted. The boundary is a runtime config switch.
@@ -40,7 +40,7 @@ Everything you need to build a working agentic app, with no external service fro
 - **Integrations** — first-party adapters for LangGraph (Python / TypeScript / FastAPI), Mastra, CrewAI, Pydantic AI, Microsoft Agent Framework, AWS Strands, Google ADK, and others.
 - **Generative UI primitives** — tool rendering, state rendering, headless APIs, and framework-native theming.
 
-Apache 2.0 licensed. Run it on any host, in any cloud, with any LLM provider.
+MIT licensed. Run it on any host, in any cloud, with any LLM provider.
 
 ## What's in CopilotKit Intelligence
 
@@ -65,6 +65,11 @@ Application code doesn't change between cloud-hosted and self-hosted — same fr
 The OSS runtime knows how to talk to CopilotKit Intelligence but doesn't require it.
 
 If your app keeps state in your own backend (Postgres, your own auth) and you're fine reconstructing thread context from your own store, OSS may be enough. The moment you want CopilotKit to *be* the conversation persistence layer — across users, devices, and sessions — CopilotKit Intelligence is the right answer.
+
+## Licenses
+
+The OSS SDKs and runtime use MIT. CopilotKit Intelligence and Showcase have
+separate terms.
 
 ## Where to go next
 

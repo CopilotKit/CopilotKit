@@ -23,7 +23,7 @@ The package requires the .NET 8 SDK and an ASP.NET Core host.
 2. From your application directory, install the package from that local feed:
 
    ```sh
-   dotnet add package CopilotKit.Intelligence.Runtime --version 0.1.0-preview.1 --source /absolute/path/to/CopilotKit/packages/runtime-dotnet/src/bin/packages
+   dotnet add package CopilotKit.Intelligence.Runtime --version 0.1.0-rc.1 --source /absolute/path/to/CopilotKit/packages/runtime-dotnet/src/bin/packages
    ```
 
 The local feed path must point to your checkout.
@@ -301,7 +301,7 @@ Events exclude API keys, prompts, user IDs, thread IDs, run IDs, and raw errors.
 | ------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | `TelemetryDisabled`                               | Disables analytics                                                                        |
 | `DO_NOT_TRACK` or `COPILOTKIT_TELEMETRY_DISABLED` | `true` or `1` disables analytics regardless of other configuration                        |
-| `TelemetrySampleRate`                             | Probability from 0 to 1, default `0.05`                                                   |
+| `TelemetrySampleRate`                             | Probability from 0 to 1, default `1` (no sampling)                                        |
 | `COPILOTKIT_TELEMETRY_SAMPLE_RATE`                | Overrides the rate. Invalid or non-finite values fail configuration                       |
 | `TelemetryUrl` / `COPILOTKIT_TELEMETRY_URL`       | Changes the destination. The environment value wins                                       |
 | `TelemetryId` / `CPK_TELEMETRY_ID`                | Selects the first valid configured or environment identity                                |

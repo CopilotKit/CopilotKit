@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { loadDoc } from "@/lib/docs-render";
+import { docCandidateOrder, loadDoc } from "@/lib/docs-render";
 import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
 import { resolveAngularDoc } from "@/lib/angular-doc-navigation";
 import {
@@ -363,14 +363,12 @@ function resolveFrameworkScopedPage(
   const rootSlugPath = tail;
   const frameworkSlugPath = `integrations/${docsFolder}/${tail}`;
 
-  // `authored` frameworks own their entire IA — try the per-framework
-  // tree first. `generated` is the inverse — root wins, framework
-  // tree is the override, except quickstart where the root file is
-  // only a routing shim and the page route prefers framework content.
-  const candidateOrder =
-    docsMode === "authored" || tail === "quickstart"
-      ? [frameworkSlugPath, rootSlugPath]
-      : [rootSlugPath, frameworkSlugPath];
+  // Shared with the page route (docCandidateOrder) so raw Markdown and the
+  // rendered page never disagree. This previously treated only `quickstart`
+  // as framework-wins; the page route also gives `threads-import` to the
+  // framework, so llms-mdx served root content for a URL the site renders
+  // from the framework tree.
+  const candidateOrder = docCandidateOrder(docsMode, docsFolder, tail);
   if (tail === "index") {
     candidateOrder.push(`integrations/${docsFolder}/quickstart`);
   }

@@ -152,7 +152,7 @@ export function PromptPill({
   }
 
   return (
-    <div className="prompt-pill" data-docs-copy-surface={surface}>
+    <div className="prompt-pill not-prose" data-docs-copy-surface={surface}>
       <div className="prompt-pill-dock" role="group" aria-label="Agent prompt">
         <button
           {...props}

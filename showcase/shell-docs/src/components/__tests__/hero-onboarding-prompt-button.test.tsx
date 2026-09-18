@@ -112,8 +112,11 @@ it("copies the canonical prompt unchanged when no framework is given", async () 
 
   const copied = writeText.mock.calls[0][0] as string;
   const runId = copied.match(/onboard start --run (\S+)/)?.[1] as string;
+  // Exact equality with the canonical prompt is the whole assertion. The
+  // trailing-sentence check that used to sit here pinned wording removed in
+  // 704a4cd6fe ("shrink the copied onboarding prompt to one command") and was
+  // already subsumed by the line above.
   expect(copied).toBe(createIntelligenceOnboardingPrompt(runId));
-  expect(copied.endsWith("until onboarding is complete.")).toBe(true);
 });
 
 it("appends the framework sentence without disturbing the CLI command", async () => {

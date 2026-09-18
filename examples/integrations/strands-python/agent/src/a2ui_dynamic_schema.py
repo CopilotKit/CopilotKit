@@ -35,7 +35,7 @@ def generate_a2ui(user_intent: str) -> str:
     A secondary LLM designs the UI schema and data. The result is returned
     as an a2ui_operations container for the runtime to detect and render.
     """
-    model = ChatOpenAI(model="gpt-4.1")
+    model = ChatOpenAI(model="gpt-5-mini")
     model_with_tool = model.bind_tools(
         [_A2UIRenderArgs.model_json_schema()],
         tool_choice={

@@ -67,19 +67,19 @@ export type FeatureOnboardingIntent = "add-learning" | "add-rich-threads";
  * changes, which is what happened to the hand-written Learning prompt this
  * function replaced.
  *
- * No `--run` id: these strings are static, and `llm-text` inlines them into
- * cached raw Markdown, so one id minted here would be shared by every reader.
- * The CLI mints its own when the flag is absent.
+ * Static Markdown omits `--run`; interactive controls supply a fresh ID per
+ * attempt so docs actions and CLI runs can be joined without caching an ID.
  */
 export function createFeatureSetupPrompt(
   intent: FeatureOnboardingIntent,
+  runId?: string,
 ): string {
   return (
     "Help me set this up in my CopilotKit app. Run this command and follow " +
     "the instructions:\n\nnpx --yes copilotkit@latest onboard start " +
     `--intent ${intent}` +
+    (runId ? ` --run ${runId}` : "") +
     "\n\nIf it requires a CopilotKit CLI session check, you have permission " +
-    "to run it. Never reveal credentials or send optional diagnostic " +
-    "feedback reports."
+    "to run it. Never reveal credentials."
   );
 }

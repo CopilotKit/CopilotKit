@@ -80,8 +80,13 @@ Once configured, any A2UI output returned from your agent will automatically be 
 The A2UI renderer activates automatically — no extra configuration needed on the frontend. Optionally, pass a custom theme:
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core/v2";
-import { myCustomTheme } from "@copilotkit/a2ui-renderer";
+import { CopilotKit, type A2UITheme } from "@copilotkit/react-core/v2";
+
+// Your own theme object — the renderer reads the keys it understands.
+// Leave the `a2ui` prop off entirely to keep the built-in theme.
+const myCustomTheme: A2UITheme = {
+  // ...your theme keys
+};
 
 <CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }}>
   {children}
@@ -102,5 +107,4 @@ Check out the [A2UI Composer](https://a2ui-editor.ag-ui.com/gallery) to create a
 - [Generative UI Guide](/generative-ui/tool-based) - Build with Generative UI in CopilotKit
 - [A2UI Site](https://a2ui.org/) - Visit the A2UI site
 - [AG-UI Protocol](/agentic-protocols/ag-ui) - Learn about the protocol that supports A2UI
-- [Open-JSON-UI](/generative-ui/open-json-ui) - OpenAI's alternative approach
 - [MCP Apps](/generative-ui/mcp-apps) - Iframe-based Generative UI extending MCP
