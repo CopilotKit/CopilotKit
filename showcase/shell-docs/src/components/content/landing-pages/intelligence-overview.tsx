@@ -4,6 +4,8 @@ import Link from "next/link";
 import {
   ArrowRight,
   BarChart3,
+  Brain,
+  Hash,
   MessagesSquare,
   Server,
   Sparkles,
@@ -30,6 +32,20 @@ const FEATURES = [
     icon: MessagesSquare,
   },
   {
+    title: "Channels",
+    body: "Run your agent in Slack through managed Intelligence connections. See the guide for Teams availability and other channel adapters.",
+    href: "/slack",
+    cta: "Open the Channels guide",
+    icon: Hash,
+  },
+  {
+    title: "Memory",
+    body: "Carry durable facts and preferences across conversations without tying them to one thread.",
+    href: "/intelligence/memories",
+    cta: "Open the Memory guide",
+    icon: Brain,
+  },
+  {
     title: "Analytics",
     body: "See what your agents do and where users get value, from the same interaction data.",
     href: "https://www.copilotkit.ai/copilotkit-intelligence#analytics-insights",
@@ -39,8 +55,8 @@ const FEATURES = [
   {
     title: "Automatic Learning",
     body: "Agents improve from real usage. No fine-tuning pipeline required.",
-    href: "https://www.copilotkit.ai/copilotkit-intelligence#self-improvement",
-    cta: "See Automatic Learning on the product page",
+    href: "/learning",
+    cta: "Open the Learning guide",
     icon: Sparkles,
   },
   {

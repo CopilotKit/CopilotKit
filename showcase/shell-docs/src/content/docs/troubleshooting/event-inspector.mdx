@@ -12,19 +12,27 @@ Use it when:
 - You need to inspect tool call arguments or state deltas for a specific interaction
 
 <Callout type="info">
-  The in-app Inspector handles a locked Threads tab from the Runtime's current
-  license state. It can show **Enable Intelligence**, **Renew**, or **Manage
-  plan** only when the Runtime supplies a matching trusted action URL. See
-  [Inspector](/inspector) for the state matrix.
+  The in-app Inspector locks the Threads tab when the Runtime does not advertise
+  the Threads list capability, regardless of license metadata. The locked view
+  offers **Copy setup prompt** and **Talk to an Engineer**. See
+  [Inspector](/inspector#enable-or-repair-intelligence) for the setup flow.
 </Callout>
 
 ## Prerequisites
 
-- A CopilotKit runtime running locally in development mode (`NODE_ENV` is **not** `production`)
+- A CopilotKit runtime running locally with `NODE_ENV` set to `development`, or with `debug` enabled on the runtime
 - The [CopilotKit VS Code extension](/vs-code-extension) installed
 
 <Callout type="warning">
-  The `/cpk-debug-events` endpoint is disabled when `NODE_ENV=production`. This is intentional — it streams internal event data that should not be exposed in production environments.
+  The `/cpk-debug-events` endpoint streams every event of every thread, including full message content, to any subscriber. It is served in exactly two cases: `NODE_ENV` is `development`, or the runtime sets `debug`. Everywhere else it returns 404.
+
+  An *unset* `NODE_ENV` counts as everywhere else. A plain `node server.js` sets no value, so a self-hosted runtime does not expose the feed by accident. If you need it on such a host, ask for it explicitly:
+
+  ```ts
+  const runtime = new CopilotRuntime({ agents, debug: true });
+  ```
+
+  Treat that as you would any other way of reading conversation content, and do not enable it on a runtime the public can reach.
 </Callout>
 
 <Callout type="warning">
@@ -42,7 +50,7 @@ Use it when:
 <Step>
 ### Ensure your runtime is running in development mode
 
-The debug event endpoint is available at `GET {runtimeUrl}/cpk-debug-events`. It activates automatically when `NODE_ENV !== 'production'` — no extra configuration needed. If you're using the default dev setup, you're already good to go.
+The debug event endpoint is available at `GET {runtimeUrl}/cpk-debug-events`. It activates automatically when `NODE_ENV` is `development`, which `next dev` and most dev servers set for you — no extra configuration needed. On a host that sets no `NODE_ENV`, set `debug: true` on the runtime instead.
 
 The path is relative to the `basePath` the runtime is mounted at, not to the server's origin. A runtime mounted at `/api/copilotkit` on port 8200 serves the stream at `http://localhost:8200/api/copilotkit/cpk-debug-events`; requesting `http://localhost:8200/cpk-debug-events` returns `404 {"error":"Not found"}`. Confirm the URL before you connect:
 

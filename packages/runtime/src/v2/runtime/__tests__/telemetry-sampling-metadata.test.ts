@@ -19,16 +19,20 @@ function jwtWithTelemetryId(telemetryId: string): string {
   return `header.${payload}.sig`;
 }
 
-/** Creates one isolated V2 telemetry capture with a fixed sampling decision. */
+/**
+ * Creates one isolated V2 telemetry capture.
+ *
+ * The Math.random spy stays even though this client no longer samples: a
+ * dice roll reappearing here is exactly the regression these tests exist
+ * to catch, and `expect(random).not.toHaveBeenCalled()` only means
+ * something while the spy is installed.
+ */
 function setupRuntimeCapture(identity: TelemetryIdentity, randomValue: number) {
   const priorSampleRate = process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
   delete process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
   const random = vi.spyOn(Math, "random").mockReturnValue(randomValue);
   const send = vi.spyOn(lambdaClient, "send").mockResolvedValue(undefined);
-  const client = new TelemetryClient({
-    telemetryDisabled: false,
-    sampleRate: 0.05,
-  });
+  const client = new TelemetryClient({ telemetryDisabled: false });
   client.setTelemetryIdentity(identity);
 
   return {
@@ -72,9 +76,14 @@ test.each([
     telemetryId: string | undefined;
   };
 }[])(
-  "V2 $label sampled send includes its configured sampling metadata",
+  "V2 $label send is unsampled and says so in its metadata",
   async ({ identity, expectedTransportIdentity }) => {
-    const { client, random, send, teardown } = setupRuntimeCapture(identity, 0);
+    // Math.random is pinned to 0.99, which under the old 0.05 gate would
+    // have dropped this event outright.
+    const { client, random, send, teardown } = setupRuntimeCapture(
+      identity,
+      0.99,
+    );
 
     try {
       await client.capture(
@@ -82,17 +91,18 @@ test.each([
         instanceCreatedEvent,
       );
 
-      expect(random).toHaveBeenCalledTimes(1);
+      expect(random).not.toHaveBeenCalled();
       expect(send).toHaveBeenCalledTimes(1);
       expect(send.mock.calls[0]?.[0]).toMatchObject({
         ...expectedTransportIdentity,
       });
       expect(send.mock.calls[0]?.[0].properties).toEqual(instanceCreatedEvent);
       expect(send.mock.calls[0]?.[0].globalProperties).toEqual({
-        sampleRate: 0.05,
-        sampleRateAdjustmentFactor: 0.95,
-        sampleWeight: 20,
+        sampleRate: 1,
+        sampleRateAdjustmentFactor: 0,
+        sampleWeight: 1,
         telemetry_emitter: "v2-runtime",
+        telemetry_surface: "v2",
         telemetry_identified: false,
         telemetry_transport: "lambda",
       });
@@ -102,7 +112,24 @@ test.each([
   },
 );
 
-test("V2 legacy-authorized send includes full-fidelity sampling metadata", async () => {
+test("COPILOTKIT_TELEMETRY_SAMPLE_RATE no longer gates the V2 client", async () => {
+  // The knob was removed here rather than left as dead configuration. A
+  // rate of 0 used to silence this client completely; the documented
+  // opt-out is COPILOTKIT_TELEMETRY_DISABLED.
+  process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE = "0";
+  const { client, random, send, teardown } = setupRuntimeCapture({}, 0.99);
+
+  try {
+    await client.capture("oss.runtime.instance_created", instanceCreatedEvent);
+
+    expect(random).not.toHaveBeenCalled();
+    expect(send).toHaveBeenCalledTimes(1);
+  } finally {
+    teardown();
+  }
+});
+
+test("V2 legacy-authorized send is marked identified", async () => {
   const licenseToken = jwtWithTelemetryId("legacy-license-id");
   const { client, random, send, teardown } = setupRuntimeCapture(
     { licenseToken },
@@ -124,6 +151,7 @@ test("V2 legacy-authorized send includes full-fidelity sampling metadata", async
       sampleRateAdjustmentFactor: 0,
       sampleWeight: 1,
       telemetry_emitter: "v2-runtime",
+      telemetry_surface: "v2",
       telemetry_identified: true,
       telemetry_transport: "lambda",
     });

@@ -33,6 +33,7 @@
     "---Add Agent Powers---",
     "frontend-tools",
     "webmcp",
+    "learning",
     {
       "title": "Shared State",
       "pages": [
@@ -55,6 +56,8 @@
     "vs-code-extension",
     "---Intelligence---",
     "intelligence/overview",
+    "intelligence/memories",
+    "intelligence/learned-skills",
     "intelligence/quickstart",
     "intelligence/managed-intelligence-platform",
     "intelligence/connect-your-runtime",
@@ -89,7 +92,11 @@
     },
     {
       "title": "Migrate",
-      "pages": ["migrate/v2", "migrate/1.10.X", "migrate/1.8.2"]
+      "pages": [
+        "migrate/v2",
+        "migrate/1.10.X",
+        "migrate/1.8.2"
+      ]
     }
   ]
 }

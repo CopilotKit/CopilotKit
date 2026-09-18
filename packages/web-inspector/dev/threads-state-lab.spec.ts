@@ -36,6 +36,7 @@ import type {
   ThreadRequestCounters,
   ThreadsStateScenario,
 } from "./threads-state-lab.js";
+import { LEARNING_WORKBENCH_SCENARIOS } from "./learning-state-fixtures.js";
 import {
   createThreadsStateLabPlugin,
   createThreadsStateLabRuntime,
@@ -73,6 +74,7 @@ const EXPECTED_EDGE_KEYS = [
   "pro-warning-4500-of-5000",
   "pro-at-limit-5000-of-5000",
   "oss-no-metadata-enabled-zero",
+  "oss-ephemeral-existing",
   "capability-absent",
   "unknown-limit",
   "missing-expiry",
@@ -89,9 +91,21 @@ const EXPECTED_EDGE_KEYS = [
 ] as const;
 
 const EXPECTED_LEARNING_KEYS = [
-  "learning-enabled-existing",
-  "learning-enabled-empty",
-  "learning-disabled",
+  "learning-landing",
+  "learning-setup-pending",
+  "learning-no-threads",
+  "learning-threads-available",
+  "learning-first-run",
+  "learning-success",
+  "learning-insights-only",
+  "learning-multiple-skills",
+  "learning-new-threads",
+  "learning-candidates-only",
+  "learning-empty-results",
+  "learning-setup-error",
+  "learning-loading",
+  "learning-data-error",
+  "learning-selection-required",
 ] as const;
 
 const EXPECTED_RECORDING_THREADS = [
@@ -382,26 +396,15 @@ function expectedOverviewCopy(
   scenario: ThreadsStateScenario,
 ): Readonly<{ heading: string; description: string }> | null {
   if (scenario.data === "error") return null;
-  if (scenario.runtimeInfo.licenseStatus === "none") {
+  if (
+    scenario.capability !== "enabled" ||
+    (!scenario.runtimeInfo.intelligence && scenario.threads.length === 0)
+  ) {
     return {
       heading:
         "Production-grade chat threads without the complexity. Self hostable.",
       description:
         "Chat threads that go beyond text with generative UI and multimodal inputs, built to replay missed events and stay in sync across tabs, sessions, and devices.",
-    };
-  }
-  if (scenario.runtimeInfo.licenseStatus === "expired") {
-    return {
-      heading: "Renew Intelligence to inspect Threads.",
-      description:
-        "Your Intelligence access has expired. Renew it to inspect saved thread history.",
-    };
-  }
-  if (scenario.capability !== "enabled") {
-    return {
-      heading: "Finish setting up Rich Threads",
-      description:
-        "Copy this prompt into your coding agent to finish the setup.",
     };
   }
   if (scenario.data === "existing") return null;
@@ -489,7 +492,7 @@ function nextSocketMessage(socket: WebSocket): Promise<unknown> {
   });
 }
 
-test("exports the exact ordered 37-scenario route catalog", () => {
+test("exports the exact ordered 50-scenario route catalog", () => {
   expect(CORE_SCENARIO_KEYS).toEqual(EXPECTED_CORE_KEYS);
   expect(LEARNING_SCENARIO_KEYS).toEqual(EXPECTED_LEARNING_KEYS);
   expect(EDGE_SCENARIO_KEYS).toEqual(EXPECTED_EDGE_KEYS);
@@ -498,7 +501,7 @@ test("exports the exact ordered 37-scenario route catalog", () => {
     ...EXPECTED_LEARNING_KEYS,
     ...EXPECTED_EDGE_KEYS,
   ]);
-  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(37);
+  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(50);
   expect(Object.keys(THREADS_STATE_SCENARIOS)).toEqual(ALL_SCENARIO_KEYS);
 });
 
@@ -556,24 +559,26 @@ test("models every plan deployment capability and data matrix cell", () => {
   }
 });
 
-test("models enabled, empty, and disabled Automatic Learning fixtures", () => {
-  const existing = getThreadsStateScenario("learning-enabled-existing");
-  const empty = getThreadsStateScenario("learning-enabled-empty");
-  const disabled = getThreadsStateScenario("learning-disabled");
+test("models the complete Automatic Learning workbench matrix", () => {
+  expect(LEARNING_SCENARIO_KEYS).toEqual(
+    LEARNING_WORKBENCH_SCENARIOS.map(({ key }) => key),
+  );
 
-  expect(existing.learning).toBe("enabled");
-  expect(existing.initialMenu).toBe("memories");
-  expect(existing.memories.map((memory) => memory.kind)).toEqual([
-    "topical",
-    "episodic",
-    "operational",
-  ]);
-  expect(empty.learning).toBe("enabled");
-  expect(empty.initialMenu).toBe("memories");
-  expect(empty.memories).toEqual([]);
-  expect(disabled.learning).toBe("disabled");
-  expect(disabled.initialMenu).toBe("memories");
-  expect(disabled.memories).toEqual([]);
+  for (const descriptor of LEARNING_WORKBENCH_SCENARIOS) {
+    const scenario = getThreadsStateScenario(descriptor.key);
+    expect(scenario.label).toBe(`Automatic Learning · ${descriptor.label}`);
+    expect(scenario.learningState).toBe(descriptor.state);
+    expect(scenario.initialMenu).toBe("memories");
+    expect(scenario.learning).toBe("disabled");
+    expect(scenario.memories).toEqual([]);
+    expect(scenario.runtimeInfo.inspectorLearning).toBe(
+      descriptor.state === "setup-pending" ? undefined : true,
+    );
+  }
+
+  expect(LEARNING_SCENARIO_KEYS).not.toContain("learning-enabled-existing");
+  expect(LEARNING_SCENARIO_KEYS).not.toContain("learning-enabled-empty");
+  expect(LEARNING_SCENARIO_KEYS).not.toContain("learning-disabled");
 });
 
 test("models zero-thread routes with available usage as true zero states", () => {
@@ -774,50 +779,6 @@ test("serves deterministic list and bounded list-error responses", async () => {
   expect(await readJson(failure)).toEqual({
     error: "Thread list unavailable in this lab scenario.",
   });
-  await runtime.dispose();
-});
-
-test("serves Automatic Learning records, realtime credentials, recall, and the disabled gate", async () => {
-  const runtime = createThreadsStateLabRuntime();
-  const enabledBase =
-    "http://127.0.0.1/inspector-lab-runtime/learning-enabled-existing";
-  const list = await runtime.handleRequest(
-    new Request(`${enabledBase}/memories`),
-  );
-  expect(await readJson(list)).toMatchObject({
-    memories: [
-      { kind: "topical" },
-      { kind: "episodic" },
-      { kind: "operational" },
-    ],
-  });
-  const subscribe = await runtime.handleRequest(
-    new Request(`${enabledBase}/memories/subscribe`, {
-      method: "POST",
-      body: "{}",
-    }),
-  );
-  expect(await readJson(subscribe)).toEqual({
-    joinToken: "threads-lab-token-learning-enabled-existing",
-    joinCode: "memories-threads-lab-learning-enabled-existing",
-  });
-  const recall = await runtime.handleRequest(
-    new Request(`${enabledBase}/memories/recall`, {
-      method: "POST",
-      body: JSON.stringify({ query: "launch review" }),
-    }),
-  );
-  const recallBody = (await readJson(recall)) as { memories: unknown[] };
-  expect(recallBody).toMatchObject({
-    memories: expect.any(Array),
-  });
-  expect(recallBody.memories[0]).toMatchObject({ score: 0.95 });
-  const disabled = await runtime.handleRequest(
-    new Request(
-      "http://127.0.0.1/inspector-lab-runtime/learning-disabled/memories",
-    ),
-  );
-  expect(disabled.status).toBe(404);
   await runtime.dispose();
 });
 
@@ -1168,6 +1129,7 @@ test("parses direct links and limits reset to the Inspector-owned keys", () => {
     "cpk:inspector:state",
     "cpk:inspector:threads-example-tour:v1",
     "cpk:inspector:dismissed_until",
+    "cpk:inspector:learning-setup:v1",
   ]);
 });
 
@@ -1363,7 +1325,17 @@ test("runs teardown before real select and reset control navigation", async () =
   }
 });
 
-test("drives the real Core, Inspector, stores, surfaces, and ledger for all 37 routes", async () => {
+// The timeout below is 180s, not the 60s this started with.
+//
+// One test drives 34 routes against a real lab server, so its cost is the sum
+// of 34 bounded waits and it lands wherever the runner's load puts it. Measured
+// across `test / unit` shards of the SAME commit: 29.2s (Node 24/React 19),
+// 56.1s (Node 22/React 18), 57.1s (Node 20/React 19), and, on two runs of one
+// commit on Node 20/React 18, 41.4s and then a timeout at the old 60s ceiling.
+// A 5% margin on the slowest shard is not a budget, so this is sized at ~3x the
+// slowest passing run rather than just above it. The number is a ceiling for a
+// hang, not a performance assertion — nothing here asserts elapsed time.
+test("drives the real Core, Inspector, stores, surfaces, and ledger for all Thread routes", async () => {
   const restoreNodeBridges = installNodeIntegrationBridges();
   const matchMediaDescriptor = Object.getOwnPropertyDescriptor(
     window,
@@ -1388,7 +1360,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 37 r
           }),
         });
       }
-      for (const key of ALL_SCENARIO_KEYS) {
+      for (const key of [...CORE_SCENARIO_KEYS, ...EDGE_SCENARIO_KEYS]) {
         const scenario = getThreadsStateScenario(key);
         const runtimeUrl = runtimeUrlFor(lab.origin, key);
         const resetResponse = await fetch(`${runtimeUrl}/request-log/reset`, {
@@ -1582,7 +1554,10 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 37 r
             root,
             '[data-inspector-feature-setup-prompt="threads"]',
           );
-          const expectsSetup = scenario.capability !== "enabled";
+          const expectsSetup =
+            scenario.capability !== "enabled" ||
+            (!scenario.runtimeInfo.intelligence &&
+              scenario.threads.length === 0);
           expect(setupPrompts, `${key}: setup prompt presence`).toHaveLength(
             expectsSetup ? 1 : 0,
           );
@@ -1686,7 +1661,9 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 37 r
             'a[href^="https://docs.copilotkit.ai/intelligence/self-hosting"]',
           );
           const showsEnabledZeroOverview =
-            scenario.capability === "enabled" && scenario.data === "zero";
+            scenario.capability === "enabled" &&
+            scenario.data === "zero" &&
+            Boolean(scenario.runtimeInfo.intelligence);
           const showsSelfHostedOnboarding =
             showsEnabledZeroOverview && scenario.deployment === "self_hosted";
           expect(
@@ -1750,7 +1727,8 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 37 r
             expect(examples, `${key}: list-error examples`).toHaveLength(0);
           } else if (
             scenario.capability === "enabled" &&
-            scenario.data === "zero"
+            scenario.data === "zero" &&
+            Boolean(scenario.runtimeInfo.intelligence)
           ) {
             expect(examples, `${key}: local examples`).toHaveLength(3);
             for (let index = 0; index < 3; index += 1) {
@@ -1781,7 +1759,10 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 37 r
             expect(await requestCounters(lab.origin, scenario), key).toEqual(
               scenario.expectedRequests,
             );
-          } else if (scenario.capability === "enabled") {
+          } else if (
+            scenario.capability === "enabled" &&
+            scenario.data !== "zero"
+          ) {
             expect(examples, `${key}: no local examples`).toHaveLength(0);
             for (const thread of scenario.threads) {
               expect(
@@ -1854,7 +1835,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 37 r
                   key,
                 ).toEqual({
                   list: 1,
-                  subscribe: 1,
+                  subscribe: scenario.runtimeInfo.intelligence ? 1 : 0,
                   inspect: 0,
                   messages: 1,
                   events: 1,
@@ -1903,7 +1884,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 37 r
       Reflect.deleteProperty(window, "matchMedia");
     }
   }
-}, 60_000);
+}, 180_000);
 
 test("freezes media error reduced-motion and telemetry opt-out configuration", () => {
   expect(getThreadsStateScenario("video-error").media).toBe("video_error");

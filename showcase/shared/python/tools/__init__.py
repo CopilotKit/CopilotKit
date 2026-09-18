@@ -7,6 +7,7 @@ from .types import (
     WeatherResult,
 )
 from .get_weather import get_weather_impl
+from .get_revenue_chart import get_revenue_chart_impl
 from .query_data import query_data_impl
 from .sales_todos import (
     INITIAL_TODOS,
@@ -30,6 +31,8 @@ __all__ = [
     "WeatherResult",
     # Weather
     "get_weather_impl",
+    # Revenue chart
+    "get_revenue_chart_impl",
     # Query data
     "query_data_impl",
     # Sales todos

@@ -9,6 +9,7 @@ import {
   CopilotKitCoreRuntimeConnectionStatus,
 } from "@copilotkit/core";
 import type {
+  InspectorLearningSnapshotV1,
   IntelligenceRuntimeInfo,
   RuntimeLicenseStatus,
   ThreadEndpointRuntimeInfo,
@@ -31,9 +32,12 @@ type Options = Readonly<{
   endpoints?: ThreadEndpointRuntimeInfo;
   intelligence?: boolean;
   licenseStatus?: RuntimeLicenseStatus;
+  learningSnapshot?: InspectorLearningSnapshotV1;
+  learningStatus?: number;
 }>;
 
 class HudTestCore extends CopilotKitCore {
+  private readonly learningSupported: boolean;
   private readonly endpointsValue: ThreadEndpointRuntimeInfo | undefined;
   private readonly intelligenceValue: IntelligenceRuntimeInfo | undefined;
   private readonly licenseStatusValue: RuntimeLicenseStatus | undefined;
@@ -44,12 +48,17 @@ class HudTestCore extends CopilotKitCore {
       runtimeTransport: "rest",
       deferInitialConnection: true,
     });
+    this.learningSupported = options.learningSnapshot !== undefined;
     this.endpointsValue = options.endpoints;
     this.intelligenceValue =
       options.intelligence === true
         ? { wsUrl: "wss://intelligence.launcher-hud.test" }
         : undefined;
     this.licenseStatusValue = options.licenseStatus;
+  }
+
+  override get inspectorLearning(): boolean {
+    return this.learningSupported;
   }
 
   override get threadEndpoints(): ThreadEndpointRuntimeInfo | undefined {
@@ -154,6 +163,11 @@ async function setup(options: Options = {}): Promise<{
           input instanceof Request ? input.url : String(input),
           window.location.href,
         ).href;
+        if (href.startsWith(`${RUNTIME_URL}/inspector-learning`)) {
+          return new Response(JSON.stringify(options.learningSnapshot), {
+            status: options.learningStatus ?? 200,
+          });
+        }
         if (href === ANNOUNCEMENT_URL) {
           return new Response(null, { status: 404 });
         }
@@ -217,7 +231,7 @@ test("the HUD stays closed during the initial page-settle delay", async () => {
   expect(hud(inspector)).toBeNull();
 });
 
-test("the HUD previews every feature in sequence on page load, then leaves", async () => {
+test("the HUD previews only disabled features in sequence on page load, then leaves", async () => {
   vi.useFakeTimers();
   const { inspector } = await setup({
     intelligence: true,
@@ -230,10 +244,7 @@ test("the HUD previews every feature in sequence on page load, then leaves", asy
 
   const introHud = requireElement(hud(inspector));
   expect(introHud.getAttribute("data-cpk-hud-intro")).toBe("true");
-  expect(hudRowLabels(inspector)).toEqual([
-    "Rich Threads",
-    "Automatic Learning",
-  ]);
+  expect(hudRowLabels(inspector)).toEqual(["Automatic Learning"]);
   expect(
     [
       root(inspector).querySelector<HTMLElement>(
@@ -245,7 +256,7 @@ test("the HUD previews every feature in sequence on page load, then leaves", asy
     ].map((item) =>
       requireElement(item).style.getPropertyValue("--cpk-hud-waterfall-delay"),
     ),
-  ).toEqual(["180ms", "350ms", "520ms"]);
+  ).toEqual(["180ms", "350ms"]);
 
   await vi.advanceTimersByTimeAsync(3400);
   await settle(inspector);
@@ -294,26 +305,16 @@ test("hovering the launcher shows its feature states without a redundant header"
   expect(hud(inspector)?.getAttribute("data-cpk-hud-vertical")).toBe("top");
 });
 
-test("feature toggles reflect only capability states the Inspector has proved", async () => {
+test("enabled features are hidden while unconfigured features remain available", async () => {
   const { inspector, openHud } = await setup({
     intelligence: true,
     endpoints: ENABLED_ENDPOINTS,
   });
   await openHud();
-  expect(hudRowLabels(inspector)).toEqual([
-    "Rich Threads",
-    "Automatic Learning",
-  ]);
-  const threadsToggle = requireElement(
-    root(inspector).querySelector<HTMLButtonElement>(
-      '[data-cpk-hud-toggle="threads"]',
-    ),
-  );
-  expect(threadsToggle.getAttribute("data-enabled")).toBe("true");
-  expect(threadsToggle.disabled).toBe(true);
-  expect(threadsToggle.getAttribute("aria-label")).toBe(
-    "Rich Threads is enabled",
-  );
+  expect(hudRowLabels(inspector)).toEqual(["Automatic Learning"]);
+  expect(
+    root(inspector).querySelector('[data-cpk-hud-row="threads"]'),
+  ).toBeNull();
 
   const learningToggle = requireElement(
     root(inspector).querySelector<HTMLButtonElement>(
@@ -367,27 +368,14 @@ test("the floating window does not cover the sidebar toggle with a SW handle", a
   expect(tree.querySelector("[data-inspector-sidebar-toggle]")).not.toBeNull();
 });
 
-test("an enabled row body keeps its Inspector destination", async () => {
-  const { inspector, openHud } = await setup({
-    intelligence: true,
-    endpoints: ENABLED_ENDPOINTS,
-  });
+test("a disabled row body keeps its Inspector destination", async () => {
+  const { inspector, openHud } = await setup();
   await openHud();
   const row = requireElement(
     root(inspector).querySelector<HTMLElement>('[data-cpk-hud-row="threads"]'),
   );
   row.click();
   await settle(inspector);
-  expect(currentMenu(inspector)).toBe("threads");
-});
-
-test("Rich Threads on still lands on the Threads view", async () => {
-  const { inspector, openHud, clickHud } = await setup({
-    intelligence: true,
-    endpoints: ENABLED_ENDPOINTS,
-  });
-  await openHud();
-  await clickHud("threads");
   expect(currentMenu(inspector)).toBe("threads");
 });
 
@@ -452,11 +440,13 @@ test("disabled feature rows open their landing pages, where setup prompts can be
 
     expect(writeText).toHaveBeenCalledTimes(1);
     const threadsPrompt = String(writeText.mock.calls[0]?.[0]);
-    expect(threadsPrompt).toContain(
+    // The Threads button names the outcome and lets the route carry the rest;
+    // the guide link it used to paste belongs to feature/rich-threads.
+    expect(threadsPrompt).toContain("--intent add-rich-threads");
+    expect(threadsPrompt).not.toContain(
       "This task is specifically to enable Threads",
     );
-    expect(threadsPrompt).toContain("https://docs.copilotkit.ai/threads");
-    expect(threadsPrompt).not.toContain("--intent");
+    expect(threadsPrompt).not.toContain("https://docs.copilotkit.ai/threads");
     expect(copyThreads.dataset.copyState).toBe("copied");
     expect(copyThreads.getAttribute("aria-label")).toBe(
       "Threads setup prompt copied",
@@ -469,16 +459,15 @@ test("disabled feature rows open their landing pages, where setup prompts can be
     ).click();
     await settle(inspector);
     expect(currentMenu(inspector)).toBe("memories");
-    requireElement(
-      root(inspector).querySelector<HTMLButtonElement>(
-        '[data-inspector-feature-setup-prompt="memory"]',
+    const learningPreview = requireElement(
+      root(inspector).querySelector<HTMLElement>(
+        '[data-inspector-locked-feature="memory"]',
       ),
-    ).click();
-    await settle(inspector);
-    expect(writeText).toHaveBeenCalledTimes(2);
-    expect(String(writeText.mock.calls[1]?.[0])).toContain(
-      "This task is specifically to enable Learning",
     );
+    expect(learningPreview.textContent).toContain(
+      "Turn every interaction into reusable context.",
+    );
+    expect(writeText).toHaveBeenCalledTimes(1);
     expect(root(inspector).querySelector(".inspector-window")).not.toBeNull();
   } finally {
     if (originalClipboard) {
@@ -520,4 +509,90 @@ test("focusing the launcher opens the HUD; Escape closes it", async () => {
   );
   await settle(inspector);
   expect(hudOpen(inspector)).toBe(false);
+});
+
+const configuredLearning: InspectorLearningSnapshotV1 = {
+  schemaVersion: 1,
+  projectKey: "project",
+  snapshotVersion: "1",
+  webAppOrigin: "https://app.copilotkit.ai",
+  configuration: {
+    state: "configured",
+    container: { id: "support", name: "Support" },
+  },
+  pendingThreadCount: 0,
+  pendingCandidateCount: 0,
+  run: { hasActiveRun: false, hasEverSucceeded: false, latest: null },
+  skillsPage: { page: 1, pageSize: 3, total: 0, totalPages: 0, items: [] },
+  insightsPage: { page: 1, pageSize: 4, total: 0, totalPages: 0, items: [] },
+  links: {
+    learning: "https://app.copilotkit.ai/learning",
+    candidates: null,
+    runs: null,
+  },
+};
+
+test("launcher hides enabled features before any Learning runs, without probing Memory", async () => {
+  const memoryProbe = vi.spyOn(CopilotKitCore.prototype, "getMemoryStore");
+  const { inspector, openHud } = await setup({
+    intelligence: true,
+    endpoints: ENABLED_ENDPOINTS,
+    learningSnapshot: configuredLearning,
+  });
+  await openHud();
+  await vi.waitFor(() => {
+    expect(hudRowLabels(inspector)).toEqual([]);
+  });
+  expect(
+    root(inspector).querySelector(".cpk-launcher-hud__feature-list"),
+  ).toBeNull();
+  expect(
+    root(inspector).querySelector('[data-cpk-dismiss-inspector="day"]'),
+  ).not.toBeNull();
+  expect(hud(inspector)?.hasAttribute("data-cpk-hud-dismiss-only")).toBe(true);
+  expect(root(inspector).querySelector(".cpk-launcher-hud__arrow")).toBeNull();
+  const dismiss = requireElement(
+    root(inspector).querySelector<HTMLButtonElement>(
+      '[data-cpk-dismiss-inspector="day"]',
+    ),
+  );
+  expect(dismiss.style.getPropertyValue("--cpk-hud-waterfall-delay")).toBe(
+    "180ms",
+  );
+  dismiss.click();
+  await settle(inspector);
+  expect(hud(inspector)).toBeNull();
+  expect(memoryProbe).not.toHaveBeenCalled();
+});
+
+test.each(["not_configured", "selection_required"] as const)(
+  "launcher does not show %s Learning as enabled",
+  async (state) => {
+    const { inspector, openHud } = await setup({
+      intelligence: true,
+      learningSnapshot: { ...configuredLearning, configuration: { state } },
+    });
+    await openHud();
+    await settle(inspector);
+    expect(
+      root(inspector)
+        .querySelector('[data-cpk-hud-row="learning"] [data-cpk-hud-toggle]')
+        ?.getAttribute("data-enabled"),
+    ).toBe("false");
+  },
+);
+
+test("launcher does not treat an advertised endpoint with a failed Learning read as enabled", async () => {
+  const { inspector, openHud } = await setup({
+    intelligence: true,
+    learningSnapshot: configuredLearning,
+    learningStatus: 503,
+  });
+  await openHud();
+  await settle(inspector);
+  expect(
+    root(inspector)
+      .querySelector('[data-cpk-hud-row="learning"] [data-cpk-hud-toggle]')
+      ?.getAttribute("data-enabled"),
+  ).toBe("false");
 });

@@ -220,6 +220,7 @@ test("maps every React navigation destination to a published Angular destination
 test("uses the normalized sidebar flow for Angular docs", () => {
   const navTree = getAngularDocsNavTree(null);
   const titles = sectionTitles(navTree);
+  const interactivity = sectionNodes(navTree, "Interactivity");
   const agentCapabilities = sectionNodes(navTree, "Agent capabilities");
 
   expect(titles).toEqual([
@@ -238,9 +239,8 @@ test("uses the normalized sidebar flow for Angular docs", () => {
     slug: "",
   });
   expect(
-    agentCapabilities.some(
-      (node) =>
-        node.type === "page" && node.title === "WebMCP",
+    interactivity.some(
+      (node) => node.type === "page" && node.title === "WebMCP",
     ),
   ).toBe(true);
   expect(
@@ -248,6 +248,12 @@ test("uses the normalized sidebar flow for Angular docs", () => {
       (node) => node.type === "group" && node.title === "Built-in Agent",
     ),
   ).toBe(true);
+  expect(agentCapabilities.map((node) => node.title)).toEqual([
+    "Built-in Agent",
+    "Automatic Learning",
+    "User Memories",
+    "Sub-agents",
+  ]);
 });
 
 test("resolves canonical contribution aliases through shared Angular content", () => {

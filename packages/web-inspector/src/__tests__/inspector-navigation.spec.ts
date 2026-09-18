@@ -42,6 +42,7 @@ type SetupOptions = {
     announcement: string;
   };
   runtimeMode?: "sse" | "intelligence";
+  intelligenceEnabled?: boolean;
   telemetryDisabled?: boolean;
   threads?: ɵThread[];
   failThreadMessages?: boolean;
@@ -145,6 +146,7 @@ async function setup(
             : {},
           audioFileTranscriptionEnabled: false,
           mode: options.runtimeMode ?? "sse",
+          intelligence: options.intelligenceEnabled ? { wsUrl: "" } : undefined,
           threadEndpoints: {
             list: Boolean(options.threads),
             inspect: Boolean(options.threads),
@@ -753,7 +755,11 @@ test("Try from here stays on Threads when messages fail", async () => {
 });
 
 test("Try from here is hidden on example tour threads", async () => {
-  const context = await setup({ agent: true, threads: [] });
+  const context = await setup({
+    agent: true,
+    threads: [],
+    intelligenceEnabled: true,
+  });
   try {
     await context.open();
     await context.selectLeaf("threads");
@@ -871,7 +877,10 @@ test("Playground surface styles live in the Web Inspector shadow root", () => {
 });
 
 test("trusted identity stays on Home while connection state moves into branded chrome", async () => {
-  const context = await setup({ metadata: trustedMetadata() });
+  const context = await setup({
+    metadata: trustedMetadata(),
+    intelligenceEnabled: true,
+  });
   try {
     await context.open();
 
@@ -1334,20 +1343,20 @@ test("Home feature actions copy correlated onboarding prompts", async () => {
       String(prompt),
     );
     const onboardingRunIds = copiedPrompts.map((prompt) => {
-      expect(prompt).toContain(
-        "Identify your coding-agent slug (for example, `codex` or `claude-code`)",
-      );
-      expect(prompt).toContain(
-        "never reveal credentials or send optional diagnostic feedback reports",
-      );
-      expect(prompt).toContain(
-        "local validation proves A2UI works—not merely that the code compiles",
-      );
-      expect(prompt).toContain("A2UI guide");
-      expect(prompt).not.toContain("--intent");
-      const match = prompt.match(
-        /--run ([A-Za-z0-9_-]{12}) --coding-agent <coding-agent-slug>/,
-      );
+      // Identification left the copied text for the graph, which asks for the
+      // slug with `onboard identify` (Intelligence OSS-1157). The standing
+      // permission stays: a human grants it by copying this, and the graph
+      // cannot grant it to itself.
+      expect(prompt).toContain("Help me set this up in my CopilotKit app.");
+      expect(prompt).not.toContain("Identify your coding-agent slug");
+      expect(prompt).toContain("Never reveal credentials");
+      expect(prompt).not.toContain("optional diagnostic feedback");
+      // The A2UI route owns the guide link, the plan and the proof step. The
+      // button's whole job is to name the outcome.
+      expect(prompt).toContain("--intent add-a2ui");
+      expect(prompt).not.toContain("A2UI guide");
+      expect(prompt).not.toContain("not merely that the code compiles");
+      const match = prompt.match(/--run ([A-Za-z0-9_-]{12})/);
       expect(match?.[1]).toBeDefined();
       return match![1]!;
     });
@@ -1633,7 +1642,8 @@ test("persisted leaves restore after Inspector has been opened, and first upgrad
     {
       leaf: "threads",
       group: "workbench",
-      marker: "Threads are unavailable.",
+      marker:
+        "Production-grade chat threads without the complexity. Self hostable.",
     },
     { leaf: "memories", group: "workbench", marker: "Learning" },
     { leaf: "home", group: "home", marker: "System Health" },
@@ -1660,9 +1670,8 @@ test("persisted leaves restore after Inspector has been opened, and first upgrad
         "Web Inspector shadow root was not rendered",
       );
       expectCurrentNavigation(root, expected.group, expected.leaf);
-      expect(root.querySelector("#cpk-main-scroll")?.textContent).toContain(
-        expected.marker,
-      );
+      const renderedText = root.querySelector("#cpk-main-scroll")?.textContent;
+      expect(renderedText).toContain(expected.marker);
       expect(storedSelectedMenu()).toBe(expected.leaf);
     } finally {
       context.teardown();

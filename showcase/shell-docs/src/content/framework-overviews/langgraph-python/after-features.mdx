@@ -1,0 +1,13 @@
+<div className="reference-content">
+
+## Already have LangGraph conversations?
+
+When you add a user-facing app to an existing LangGraph agent, your users may need to open and continue conversations they already started. [CopilotKit Intelligence](/intelligence/overview) can import supported LangGraph history as Rich Threads so your app does not start with an empty thread list.
+
+The importer reads LangGraph Server, LangGraph Platform, or LangSmith Deployment thread and run APIs. It does not import standalone LangChain message stores, LangSmith traces, or embedded checkpointers that are not exposed through those APIs.
+
+Import history once; future CopilotKit-mediated runs synchronize with Intelligence and continue through LangGraph's native persistence path when your durable checkpointer or Platform deployment remains configured. This is not a continuous mirror of runs made outside CopilotKit.
+
+[Import and synchronize LangGraph threads](/langgraph-python/threads-import) for source setup, agent mapping, and thread continuity.
+
+</div>

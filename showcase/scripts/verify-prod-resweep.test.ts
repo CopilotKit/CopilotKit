@@ -231,8 +231,8 @@ describe("freshnessKeysForCell", () => {
       probeAxis: "starter",
     });
     // Starter axis: the 4 per-level rows, NOT the agent e2e/chat/d5/d6 keys.
-    expect(keys).toContain(keyFor("starter", "google-adk", "health"));
-    expect(keys).toContain(keyFor("starter", "google-adk", "interaction"));
+    expect(keys).toContain(keyFor("starter", "google-adk", "shell"));
+    expect(keys).toContain(keyFor("starter", "google-adk", "agentrun"));
     expect(keys).not.toContain(keyFor("e2e", "google-adk", MAPPED_FEATURE));
   });
 });
@@ -588,10 +588,9 @@ describe("createRealProdControlPlane axis split", () => {
     // axis ↔ freshness keyspace must agree, else the poll times out.
     const keys = freshnessKeysForCell(STARTER_CELL("google-adk"));
     expect(keys).toEqual([
-      keyFor("starter", "google-adk", "health"),
-      keyFor("starter", "google-adk", "agent"),
-      keyFor("starter", "google-adk", "chat"),
-      keyFor("starter", "google-adk", "interaction"),
+      keyFor("starter", "google-adk", "shell"),
+      keyFor("starter", "google-adk", "runtime"),
+      keyFor("starter", "google-adk", "agentrun"),
     ]);
     // It must NOT consult the d6 keyspace the (wrong) d6 tick would produce.
     expect(keys).not.toContain(keyFor("d6", "google-adk", MAPPED_FEATURE));

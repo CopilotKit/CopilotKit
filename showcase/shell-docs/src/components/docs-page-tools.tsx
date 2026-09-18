@@ -1,8 +1,8 @@
-// DocsPageTools — the compact split action that sits beside a docs page title.
+// DocsPageTools — the compact split action shown beneath a docs page intro.
 // "Copy prompt" is the default action; its chevron progressively discloses
 // "Copy page" and the existing "Open in <LLM>" destinations.
 //
-// Extracted from `docs-page-view.tsx` so the row sits in a component small
+// Extracted from `docs-page-view.tsx` so the action sits in a component small
 // enough to unit-test. `DocsPageView` itself loads MDX off disk and builds the
 // whole nav tree, so asserting the row's contents through it would mean
 // standing up most of the docs pipeline.
@@ -43,6 +43,8 @@ export interface DocsPageToolsProps {
   onboardingFrontend?: { id: string; name: string };
   /** Hide the generic onboarding prompt when the page provides its own CTA. */
   hideOnboardingPrompt?: boolean;
+  /** Page-specific setup goal for an in-content quickstart prompt. */
+  promptTask?: string;
 }
 
 /**
@@ -69,11 +71,12 @@ export function DocsPageTools({
   onboardingFramework,
   onboardingFrontend,
   hideOnboardingPrompt = false,
+  promptTask,
 }: DocsPageToolsProps): React.JSX.Element {
   const markdownUrl = docsMarkdownUrl(slugHrefPrefix, slugPath);
   return (
     <div
-      className="docs-page-tools flex min-w-0 flex-row items-center"
+      className={`docs-page-tools flex min-w-0 flex-row items-center${hideOnboardingPrompt ? "" : " docs-page-tools-prompt"}`}
       role="group"
       aria-label="Page actions"
     >
@@ -87,6 +90,7 @@ export function DocsPageTools({
         </MarkdownCopyButton>
       ) : (
         <OnboardingPromptCopyButton
+          task={promptTask}
           framework={onboardingFramework}
           frontend={onboardingFrontend}
           markdownUrl={markdownUrl}

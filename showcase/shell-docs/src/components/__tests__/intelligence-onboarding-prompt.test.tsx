@@ -44,12 +44,16 @@ it("names the copied run id the same way every other onboarding surface does", a
   );
   fireEvent.click(screen.getByRole("button", { name: /copy/i }));
 
-  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+  await waitFor(() =>
+    expect(analytics.capture).toHaveBeenCalledWith(
+      INTELLIGENCE_ONBOARDING_EVENTS.promptCopied,
+      expect.any(Object),
+    ),
+  );
 
-  const [event, properties] = analytics.capture.mock.calls[0] as [
-    string,
-    Record<string, unknown>,
-  ];
+  const [event, properties] = analytics.capture.mock.calls.find(
+    ([eventName]) => eventName === INTELLIGENCE_ONBOARDING_EVENTS.promptCopied,
+  ) as [string, Record<string, unknown>];
   expect(event).toBe(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied);
   expect(properties).not.toHaveProperty("run_id");
   expect(properties.onboarding_run_id).toEqual(expect.any(String));
@@ -57,3 +61,11 @@ it("names the copied run id the same way every other onboarding surface does", a
   // run that never existed.
   expect(writeText.mock.calls[0][0]).toContain(properties.onboarding_run_id);
 });
+
+vi.mock("fumadocs-core/framework", () => ({
+  usePathname: () => "/quickstart",
+}));
+
+vi.mock("@/lib/runtime-config.client", () => ({
+  getRuntimeConfig: () => ({ baseUrl: "https://docs.copilotkit.ai" }),
+}));

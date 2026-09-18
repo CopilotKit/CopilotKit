@@ -7,13 +7,13 @@
   "scripts": {
     "dev": "tsx --watch src/server.ts",
     "start": "tsx src/server.ts",
-    "test": "tsx --test src/header-forwarding.test.ts",
+    "test": "tsx --test src/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@ag-ui/a2ui-toolkit": "0.0.4",
     "@ag-ui/aws-strands": "0.2.3",
-    "@ag-ui/core": "0.0.57",
+    "@ag-ui/core": "0.0.59",
     "@modelcontextprotocol/sdk": "1.29.0",
     "@strands-agents/sdk": "1.6.0",
     "csv-parse": "^6.1.0",

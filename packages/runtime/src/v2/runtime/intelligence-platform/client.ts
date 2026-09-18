@@ -1,11 +1,45 @@
-import { logger, parseInspectorMetadataV1 } from "@copilotkit/shared";
+import {
+  logger,
+  parseInspectorLearningSnapshotV1,
+  parseInspectorMetadataV1,
+} from "@copilotkit/shared";
 import type {
+  InspectorLearningRequestV1,
+  InspectorLearningSnapshotV1,
   InspectorMetadataV1,
   RuntimeEntitlementResponse,
 } from "@copilotkit/shared";
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import type { GetLearningContainerId } from "../core/learning";
+
+import {
+  LearnedSkillsError,
+  learnedSkillsResponseError,
+} from "./learned-skills";
+import type {
+  GetLearnedSkillsSnapshotRequest,
+  LearnedSkillsSnapshotResult,
+} from "./learned-skills";
+
+/** Let a confirmed HTTP denial survive an error body that never completes. */
+async function learnedSkillsErrorBody(
+  response: Response,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  if (!signal) return response.json();
+  let onAbort: (() => void) | undefined;
+  try {
+    return await new Promise((resolve, reject) => {
+      onAbort = () => reject(signal.reason);
+      signal.addEventListener("abort", onAbort, { once: true });
+      if (signal.aborted) onAbort();
+      else response.json().then(resolve, reject);
+    });
+  } finally {
+    if (onAbort) signal.removeEventListener("abort", onAbort);
+  }
+}
 
 const RUNTIME_ENTITLEMENTS_REQUEST_TIMEOUT_MS = 1_500;
 const RUNTIME_ENTITLEMENTS_SUCCESS_TTL_MS = 30_000;
@@ -34,7 +68,11 @@ function isRetryableRuntimeEntitlementStatus(status: number): boolean {
 const runtimeEntitlementSchema = z
   .object({
     active: z.boolean(),
-    source: z.enum(["managedOrgSubscription", "selfHostedDeploymentLicense"]),
+    source: z.enum([
+      "managedOrgSubscription",
+      "selfHostedDeploymentLicense",
+      "awsMarketplaceDeploymentLicense",
+    ]),
     features: z.record(z.string(), z.boolean()),
     limits: z.record(z.string(), z.number()),
     planCode: z.string().optional(),
@@ -159,6 +197,7 @@ const MANAGED_INTELLIGENCE_WS_URL = "wss://realtime.intelligence.copilotkit.ai";
 
 /** Maximum time spent on the optional Inspector metadata provider request. */
 const INSPECTOR_METADATA_REQUEST_TIMEOUT_MS = 5_000;
+const INSPECTOR_LEARNING_REQUEST_TIMEOUT_MS = 5_000;
 
 /**
  * Error thrown when a CopilotKit Intelligence HTTP request returns a non-2xx
@@ -792,6 +831,140 @@ export class CopilotKitIntelligence {
   }
 
   /**
+   * Fetch one authorized learned-skills ZIP with this client's project key.
+   * No retries, archive parsing, or cache. A caller signal bounds the request
+   * and body read. Native cancellation is preserved; deadline failures use
+   * {@link LearnedSkillsError} with code `TIMEOUT`.
+   */
+  async getLearnedSkillsSnapshot(
+    params: GetLearnedSkillsSnapshotRequest,
+  ): Promise<LearnedSkillsSnapshotResult> {
+    try {
+      params.signal?.throwIfAborted();
+      if (
+        typeof params.containerId !== "string" ||
+        !params.containerId.trim() ||
+        (params.revision !== undefined &&
+          (typeof params.revision !== "string" || !params.revision.length)) ||
+        (params.ifNoneMatch !== undefined &&
+          (typeof params.ifNoneMatch !== "string" ||
+            !params.ifNoneMatch.length ||
+            /[\r\n]/.test(params.ifNoneMatch)))
+      ) {
+        throw new LearnedSkillsError("INVALID_CONFIG", false);
+      }
+      let url: URL;
+      try {
+        url = new URL(
+          `${this.#apiUrl}/api/v1/learning/containers/${encodeURIComponent(params.containerId)}/skills`,
+        );
+        if (
+          !["http:", "https:"].includes(url.protocol) ||
+          url.username ||
+          url.password
+        ) {
+          throw new Error("Invalid API URL");
+        }
+        if (params.revision !== undefined)
+          url.searchParams.set("revision", params.revision);
+      } catch {
+        throw new LearnedSkillsError("INVALID_CONFIG", false);
+      }
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.#apiKey}`,
+          Accept: "application/zip",
+          ...(params.ifNoneMatch !== undefined
+            ? { "If-None-Match": params.ifNoneMatch }
+            : {}),
+        },
+        signal: params.signal,
+        redirect: "error",
+      });
+      if (response.status === 401) {
+        void response.body?.cancel().catch(() => {});
+        throw new LearnedSkillsError("AUTHENTICATION_FAILED", false);
+      }
+      if (response.status !== 403) params.signal?.throwIfAborted();
+      if (response.status !== 200 && response.status !== 304) {
+        const denialCode =
+          response.status === 403 ? "AUTHORIZATION_FAILED" : undefined;
+        let body: unknown;
+        try {
+          body = await learnedSkillsErrorBody(response, params.signal);
+        } catch (error) {
+          if (denialCode) {
+            throw new LearnedSkillsError(
+              denialCode,
+              false,
+              error instanceof SyntaxError ? undefined : error,
+            );
+          }
+          params.signal?.throwIfAborted();
+          if (!(error instanceof SyntaxError)) throw error;
+        }
+        const responseError = learnedSkillsResponseError(body);
+        // An HTTP denial must never become a transient failure that permits
+        // consumers to keep serving a previously authorized snapshot.
+        if (
+          response.status === 403 &&
+          ![
+            "AUTHENTICATION_FAILED",
+            "AUTHORIZATION_FAILED",
+            "ENTITLEMENT_REQUIRED",
+            "DELIVERY_DISABLED",
+            "CONTAINER_NOT_FOUND",
+            "REVISION_NOT_FOUND",
+            "REVISION_REVOKED",
+          ].includes(responseError.code)
+        ) {
+          throw new LearnedSkillsError(denialCode!, false);
+        }
+        throw responseError;
+      }
+      const revision = response.headers.get("X-CopilotKit-Skills-Revision");
+      const etag = response.headers.get("ETag");
+      if (
+        !revision ||
+        !etag ||
+        !/^"[a-f0-9]{64}"$/.test(etag) ||
+        (params.revision !== undefined && revision !== params.revision)
+      ) {
+        throw new LearnedSkillsError("INVALID_SNAPSHOT", false);
+      }
+      if (response.status === 304) {
+        if (params.ifNoneMatch === undefined)
+          throw new LearnedSkillsError("INVALID_SNAPSHOT", false);
+        return { status: "unchanged", revision, etag };
+      }
+      const contentType = response.headers.get("Content-Type");
+      if (
+        !contentType ||
+        contentType.split(";", 1)[0].trim().toLowerCase() !== "application/zip"
+      ) {
+        throw new LearnedSkillsError("INVALID_SNAPSHOT", false);
+      }
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      params.signal?.throwIfAborted();
+      return { status: "snapshot", bytes, revision, etag, contentType };
+    } catch (error) {
+      if (error instanceof LearnedSkillsError) throw error;
+      const cause = params.signal?.aborted ? params.signal.reason : error;
+      if (cause instanceof Error && cause.name === "TimeoutError") {
+        throw new LearnedSkillsError("TIMEOUT", true, cause);
+      }
+      if (
+        params.signal?.aborted ||
+        (cause instanceof Error && cause.name === "AbortError")
+      ) {
+        throw cause;
+      }
+      throw new LearnedSkillsError("NETWORK_ERROR", true, error);
+    }
+  }
+
+  /**
    * Fetch trusted Inspector metadata for this runtime's Intelligence project.
    *
    * The request always uses the server-configured Intelligence API key. A 404
@@ -856,6 +1029,58 @@ export class CopilotKitIntelligence {
       if (timeoutId !== undefined) {
         clearTimeout(timeoutId);
       }
+    }
+  }
+
+  /** Fetches one credential-scoped, bounded Learning projection for Inspector. */
+  async getInspectorLearning(
+    request: InspectorLearningRequestV1 & {
+      readonly runtimeContainerId?: string;
+    },
+  ): Promise<InspectorLearningSnapshotV1> {
+    const path = "/api/inspector/learning";
+    const url = new URL(`${this.#apiUrl}${path}`);
+    if (request.agentId) url.searchParams.set("agentId", request.agentId);
+    if (request.skillsPage)
+      url.searchParams.set("skillsPage", String(request.skillsPage));
+    if (request.insightsPage) {
+      url.searchParams.set("insightsPage", String(request.insightsPage));
+    }
+    if (request.runtimeContainerId) {
+      url.searchParams.set("runtimeContainerId", request.runtimeContainerId);
+    }
+    const controller = new AbortController();
+    const timeoutError = new Error(
+      "Intelligence Inspector Learning request timed out",
+    );
+    const timeout = setTimeout(
+      () => controller.abort(timeoutError),
+      INSPECTOR_LEARNING_REQUEST_TIMEOUT_MS,
+    );
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${this.#apiKey}` },
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        throw new PlatformRequestError(
+          `Intelligence platform error ${response.status}`,
+          response.status,
+          response.status === 429 || response.status >= 500,
+        );
+      }
+      const snapshot = parseInspectorLearningSnapshotV1(await response.json());
+      if (!snapshot) {
+        throw new PlatformRequestError(
+          "Invalid Inspector Learning response",
+          502,
+          true,
+        );
+      }
+      return snapshot;
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
@@ -954,7 +1179,10 @@ export class CopilotKitIntelligence {
       let payload: unknown;
       try {
         payload = await response.json();
-      } catch {
+      } catch (error) {
+        if (controller.signal.aborted) {
+          throw error;
+        }
         throw new PlatformRequestError(
           "Runtime entitlement response was malformed",
           502,
@@ -1251,6 +1479,9 @@ export class CopilotKitIntelligence {
 
   /**
    * Update thread metadata (e.g. name).
+   *
+   * Fields in updates take precedence, preserving the server-side SDK contract.
+   * HTTP handlers must remove untrusted identity fields before calling this method.
    *
    * Triggers the `onThreadUpdated` lifecycle callback on success.
    *

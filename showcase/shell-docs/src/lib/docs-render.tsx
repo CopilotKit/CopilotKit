@@ -804,7 +804,8 @@ function splitSidebarSections(navTree: NavNode[]): SidebarBuckets {
       continue;
     }
 
-    const title = SIDEBAR_SECTION_TITLES[node.title.toLowerCase()] ?? node.title;
+    const title =
+      SIDEBAR_SECTION_TITLES[node.title.toLowerCase()] ?? node.title;
     const existing = sectionsByTitle.get(title);
     if (existing) {
       current = existing;
@@ -941,6 +942,7 @@ function isSharedFrameworkNode(node: NavNode): boolean {
   return (
     slug === "frontend-tools" ||
     slug === "webmcp" ||
+    slug === "learning" ||
     slug === "inspector" ||
     slug === "vs-code-extension" ||
     slug === "telemetry" ||
@@ -1090,8 +1092,7 @@ export function normalizeSidebarNav(
     findGroup(interactivitySources, "Human in the loop") ??
     findNavNode(
       interactivitySources,
-      (node) =>
-        node.type === "group" && node.slug === "human-in-the-loop",
+      (node) => node.type === "group" && node.slug === "human-in-the-loop",
     );
 
   const existingAgentCapabilities = sidebarSectionChildren(
@@ -1101,9 +1102,7 @@ export function normalizeSidebarNav(
   const existingFrameworkGroups = existingAgentCapabilities.filter(
     (node) =>
       node.type === "group" &&
-      !["automatic learning", "sub-agents"].includes(
-        node.title.toLowerCase(),
-      ),
+      !["automatic learning", "sub-agents"].includes(node.title.toLowerCase()),
   );
   const frameworkGroups =
     existingFrameworkGroups.length > 0
@@ -1128,12 +1127,11 @@ export function normalizeSidebarNav(
           );
   const subagents = findPage("multi-agent/subagents");
   const webMcp = findPage("webmcp");
+  const learning = findPage("learning");
 
   const intelligencePage = (slug: string, title: string): NavNode | null => {
     const page = findPage(slug);
-    return page?.type === "page"
-      ? { ...page, title, icon: undefined }
-      : null;
+    return page?.type === "page" ? { ...page, title, icon: undefined } : null;
   };
   const intelligenceOverview = intelligencePage(
     "intelligence/overview",
@@ -1160,12 +1158,14 @@ export function normalizeSidebarNav(
     "intelligence/self-hosting",
     "Self-hosted",
   );
-  const intelligenceAutomaticLearning: NavNode = {
-    type: "page",
-    title: "Automatic learning",
-    slug: "intelligence/automatic-learning",
-    href: "https://www.copilotkit.ai/copilotkit-intelligence#self-improvement",
-  };
+  const intelligenceAutomaticLearning = intelligencePage(
+    "learning",
+    "Automatic Learning",
+  );
+  const intelligenceMemory = intelligencePage(
+    "intelligence/memories",
+    "User Memories",
+  );
 
   const existingBackend = sidebarSectionChildren(input, "Backend");
   const inputDeployment = sidebarSectionChildren(input, "Deployment");
@@ -1208,9 +1208,7 @@ export function normalizeSidebarNav(
     sidebarTopicGroup(
       "Troubleshooting",
       "sidebar#troubleshooting-source",
-      flattenUntitledGroups(
-        sidebarSectionChildren(input, "Troubleshooting"),
-      ),
+      flattenUntitledGroups(sidebarSectionChildren(input, "Troubleshooting")),
     );
   const telemetry =
     findNavNode(
@@ -1241,12 +1239,16 @@ export function normalizeSidebarNav(
         "sidebar#human-in-the-loop",
         humanInTheLoop,
       ),
-    ]),
-    ...sidebarSection("Agent capabilities", [
       webMcp?.type === "page"
         ? { ...webMcp, title: "WebMCP", icon: undefined }
         : null,
+    ]),
+    ...sidebarSection("Agent capabilities", [
       ...frameworkGroups,
+      learning?.type === "page"
+        ? { ...learning, title: "Automatic Learning", icon: undefined }
+        : null,
+      intelligenceMemory,
       subagents?.type === "page"
         ? { ...subagents, title: "Sub-agents", icon: undefined }
         : null,
@@ -1262,13 +1264,11 @@ export function normalizeSidebarNav(
           intelligenceRuntime,
         ].filter((node): node is NavNode => node !== null),
       ),
-      sidebarTopicGroup(
-        "Features",
-        "sidebar#intelligence-features",
-        [intelligenceThreads, intelligenceAutomaticLearning].filter(
-          (node): node is NavNode => node !== null,
-        ),
-      ),
+      intelligenceThreads?.type === "page"
+        ? { ...intelligenceThreads, title: "Rich Threads" }
+        : null,
+      intelligenceAutomaticLearning,
+      intelligenceMemory,
       sidebarTopicGroup(
         "Hosting",
         "sidebar#intelligence-hosting",
@@ -2025,7 +2025,10 @@ export function inlineSnippets(
         // above removes the import line; gatherMdxImportComponentInfo()
         // preserved the runtime import set so the inliner can tell these
         // apart from genuine missing-snippet cases.
-        if (runtimeComponentNames.has(componentName)) {
+        if (
+          runtimeComponentNames.has(componentName) ||
+          componentName === "PageAgentPrompt"
+        ) {
           return match;
         }
         // Log so docs authors see a clean signal when a <Component />
@@ -2352,6 +2355,52 @@ function resolveRouteGroupedDocPath(slugPath: string): string | null {
  * Load an MDX file by slug and return its raw source + parsed frontmatter
  * metadata for rendering. Returns null when the file doesn't exist.
  */
+/**
+ * Slugs whose per-framework file wins even under `docs_mode: generated`.
+ *
+ * - `/quickstart` at the root is a routing shim; the real quickstart content
+ *   lives per-framework.
+ * - `/threads-import` is a cross-source overview at the root, but ADK and
+ *   LangGraph ship source-specific import guides at the same framework URL.
+ */
+export const FRAMEWORK_WINS_SLUGS: ReadonlySet<string> = new Set([
+  "quickstart",
+  "threads-import",
+]);
+
+/**
+ * The order in which a framework-scoped URL resolves to MDX.
+ *
+ *   authored  — the per-framework file wins for every slug; fall back to root
+ *               only when the framework has no file (preserves the shared
+ *               fallback for slugs a framework deliberately leaves agnostic).
+ *   generated — root wins; the per-framework tree is a sparse override layer,
+ *               except for FRAMEWORK_WINS_SLUGS.
+ *
+ * SHARED ON PURPOSE. This order previously existed as three separate copies —
+ * the page route's body resolver, `llms-mdx`, and `frameworkMetadata` — and
+ * they had drifted apart in two different ways:
+ *
+ *   - `frameworkMetadata` had no docsMode branch at all, so a generated-mode
+ *     page served the ROOT file's body under the FRAMEWORK file's <title> and
+ *     meta description. 76 URLs advertised content the site does not render.
+ *   - `llms-mdx` treated only `quickstart` as framework-wins, not
+ *     `threads-import`, so raw Markdown disagreed with the rendered page.
+ *
+ * Callers that need extra candidates (llms-mdx appends a quickstart fallback
+ * for `index`) append them to the returned array.
+ */
+export function docCandidateOrder(
+  docsMode: "generated" | "authored" | "hidden",
+  docsFolder: string,
+  slugPath: string,
+): string[] {
+  const frameworkPath = `integrations/${docsFolder}/${slugPath}`;
+  const frameworkFirst =
+    docsMode === "authored" || FRAMEWORK_WINS_SLUGS.has(slugPath);
+  return frameworkFirst ? [frameworkPath, slugPath] : [slugPath, frameworkPath];
+}
+
 export function loadDoc(
   slugPath: string,
 ): { source: string; filePath: string; fm: DocFrontmatter } | null {
@@ -2465,6 +2514,55 @@ function navNodeContainsSlug(node: NavNode, slugPath: string): boolean {
   }
 
   return normalizeNavSlug(node.slug) === normalizeNavSlug(slugPath);
+}
+
+function navGroupTrailForSlug(
+  node: NavNode,
+  slugPath: string,
+): string[] | null {
+  if (node.type === "section") return null;
+  if (node.type === "page") {
+    return normalizeNavSlug(node.slug) === normalizeNavSlug(slugPath)
+      ? []
+      : null;
+  }
+
+  for (const child of node.children) {
+    const childTrail = navGroupTrailForSlug(child, slugPath);
+    if (childTrail !== null) {
+      return node.title ? [node.title, ...childTrail] : childTrail;
+    }
+  }
+
+  return null;
+}
+
+/** Return the visible sidebar hierarchy above a guide page. */
+export function navAncestorBreadcrumbsForSlug(
+  navTree: NavNode[],
+  slugPath: string,
+): Breadcrumb[] | null {
+  let currentSection: string | null = null;
+
+  for (const node of navTree) {
+    if (node.type === "section") {
+      currentSection = node.title;
+      continue;
+    }
+
+    const groupTrail = navGroupTrailForSlug(node, slugPath);
+    if (groupTrail === null) continue;
+
+    const labels = currentSection
+      ? [currentSection, ...groupTrail]
+      : groupTrail;
+    return labels.map((label) => ({
+      label: label === "Rich threads" ? "Rich Threads" : label,
+      href: null,
+    }));
+  }
+
+  return null;
 }
 
 /** Return the sidebar section that contains a guide page. */

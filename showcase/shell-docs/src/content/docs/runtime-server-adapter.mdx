@@ -33,7 +33,9 @@ The runtime supports two endpoint modes:
   { "method": "agent/run", "params": { "agentId": "default" }, "body": { ... } }
   ```
 
-Single-route mode is useful when your platform only allows a single route handler (e.g. a single serverless function), or when you prefer a simpler URL structure.
+Both modes use the same Runtime handlers. A current client and Runtime also carry Intelligence thread, memory, and annotation operations through the single endpoint. They negotiate this support through Runtime info, so older clients and servers keep their existing behavior.
+
+Single-route mode is useful when your platform only allows one route handler, or when you prefer a simpler URL structure.
 
 <FrontendOnly frontend="react">
 <Callout type="warn" title="The mode you pick here binds the frontend">
