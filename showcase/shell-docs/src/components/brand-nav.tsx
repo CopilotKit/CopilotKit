@@ -6,7 +6,6 @@ import { usePostHog } from "posthog-js/react";
 import { CalendarDays, ChefHat } from "lucide-react";
 import { SearchTrigger } from "./search-trigger";
 import { CopilotKitMark } from "./copilotkit-mark";
-import { ThemeSwitch } from "./theme-switch";
 import ConsoleIcon from "./icons/console";
 import ExternalLinkIcon from "./icons/external-link";
 import { DocsMegaMenu } from "./docs-mega-menu";
@@ -136,6 +135,23 @@ export function BrandNav(_props: BrandNavProps = {}) {
 
         <div className="flex min-w-0 items-center gap-2 justify-self-end pl-4">
           <SearchTrigger iconOnly />
+          <button
+            type="button"
+            onClick={handleTalkToEngineersClick}
+            className="shell-docs-nav-cta shell-docs-radius-control hidden h-10 cursor-pointer items-center whitespace-nowrap border px-4 text-sm font-medium shadow-[var(--shadow-control)] transition-colors duration-200 [@media(width>=1500px)]:flex"
+            aria-label="Talk to an engineer"
+          >
+            Talk to an engineer
+          </button>
+          <button
+            type="button"
+            onClick={handleTalkToEngineersClick}
+            className="shell-docs-nav-cta shell-docs-radius-control hidden h-10 w-10 cursor-pointer items-center justify-center border shadow-[var(--shadow-control)] transition-colors duration-200 xl:flex [@media(width>=1500px)]:hidden"
+            aria-label="Talk to an engineer"
+            data-tooltip="Talk to an engineer"
+          >
+            <CalendarDays className="h-4 w-4" />
+          </button>
           <DocsPublicAuthControl
             fallback={
               <Link
@@ -152,26 +168,6 @@ export function BrandNav(_props: BrandNavProps = {}) {
               </Link>
             }
           />
-          {/* Talk to an engineer. Secondary in the docs nav so search can own
-           * the far-right utility slot. */}
-          <button
-            type="button"
-            onClick={handleTalkToEngineersClick}
-            className="shell-docs-nav-cta shell-docs-radius-control hidden h-10 cursor-pointer items-center whitespace-nowrap border px-4 text-sm font-medium shadow-[var(--shadow-control)] transition-colors duration-200 [@media(width>=1500px)]:flex"
-            aria-label="Talk to an engineer"
-          >
-            Talk to an engineer
-          </button>
-          <button
-            type="button"
-            onClick={handleTalkToEngineersClick}
-            className="shell-docs-nav-cta shell-docs-radius-control hidden h-10 w-10 cursor-pointer items-center justify-center border shadow-[var(--shadow-control)] transition-colors duration-200 xl:flex [@media(width>=1500px)]:hidden"
-            aria-label="Talk to an engineer"
-            title="Talk to an engineer"
-          >
-            <CalendarDays className="h-4 w-4" />
-          </button>
-          <ThemeSwitch />
         </div>
       </div>
     </nav>

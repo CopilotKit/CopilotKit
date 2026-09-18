@@ -37,8 +37,9 @@ function useFrontendTool<T extends Record<string, unknown>>(
 </PropertyReference>
 
 <PropertyReference name="parameters" type="z.ZodSchema" required>
-  A Zod schema defining the tool's input parameters. The schema is used for both
-  validation and type inference.
+  A Zod schema defining the tool's input parameters. The schema drives the
+  advertised tool schema and type inference. Runtime arguments are JSON-parsed
+  but are not validated against that schema.
 </PropertyReference>
 
 <PropertyReference
@@ -47,7 +48,8 @@ function useFrontendTool<T extends Record<string, unknown>>(
   required
 >
   An async function that executes when the agent calls the tool. Receives the
-  validated, typed arguments and the context object:
+  parsed arguments, typed from `parameters` but not validated against it, and
+  the context object:
 
   - `toolCall` (`ToolCall`) -- the raw tool call metadata
   - `agent` (`AbstractAgent | undefined`) -- the agent instance that invoked

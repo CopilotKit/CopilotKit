@@ -524,3 +524,11 @@ demos:
       - src/app/demos/a2ui-fixed-schema/page.tsx
       - src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts
       - src/app/api/copilotkit-a2ui-fixed-schema/route.ts
+
+# Starter VALIDATION ladder (dashboard). NOT the `starter:` key.
+# A starter exists in-repo, but Dockerfile + docker-compose.test.yml exist; not in the smoke matrix, no Railway service,
+# so no `starter:<col>/<rung>` row can ever land. `service:` is therefore
+# omitted and the cell renders the gray no-data state, never a capability
+# claim that this framework has no starter.
+starter_validation:
+  path: examples/integrations/claude-sdk-python

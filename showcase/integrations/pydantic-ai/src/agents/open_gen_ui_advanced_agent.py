@@ -70,6 +70,6 @@ SYSTEM_PROMPT = dedent(
 
 
 agent = Agent(
-    model=OpenAIResponsesModel("gpt-4.1"),
+    model=OpenAIResponsesModel("gpt-5-mini"),
     system_prompt=SYSTEM_PROMPT,
 )

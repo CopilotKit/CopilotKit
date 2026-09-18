@@ -7,10 +7,11 @@ hideTOC: true
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
 
-<IntelligenceOnboardingPrompt
-  feature="learning"
-  surface="docs_aws_strands_quickstart"
-/>
+## Start with your coding agent
+
+Use this prompt to connect your AWS Strands agent to CopilotKit and verify a working conversation. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
+
+<PageAgentPrompt />
 
 ## Prerequisites
 
@@ -343,8 +344,25 @@ Before you begin, you'll need the following:
 
                 Wrap your application with the CopilotKit provider:
 
+                ```tsx title="app/providers.tsx"
+                "use client";
+
+                import { CopilotKit } from "@copilotkit/react-core/v2";
+
+                export function Providers({ children }: { children: React.ReactNode }) {
+                  return (
+                    <CopilotKit runtimeUrl="/api/copilotkit" agent="strands_agent" useSingleEndpoint={false}>
+                      {children}
+                    </CopilotKit>
+                  );
+                }
+                ```
+
+                `app/layout.tsx` is a server component and cannot import the provider
+                directly, so it renders your client file instead:
+
                 ```tsx title="app/layout.tsx"
-                import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import { Providers } from "./providers"; // [!code highlight]
                 import "@copilotkit/react-core/v2/styles.css";
                 import './globals.css';
 
@@ -355,9 +373,9 @@ Before you begin, you'll need the following:
                     <html lang="en">
                       <body>
                         {/* [!code highlight:3] */}
-                        <CopilotKit runtimeUrl="/api/copilotkit" agent="strands_agent" useSingleEndpoint={false}>
+                        <Providers>
                           {children}
-                        </CopilotKit>
+                        </Providers>
                       </body>
                     </html>
                   );
@@ -370,6 +388,8 @@ Before you begin, you'll need the following:
               Add the CopilotSidebar component to your page:
 
               ```tsx title="app/page.tsx"
+              "use client"; // [!code highlight]
+
               import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
 
               export default function Page() {

@@ -627,3 +627,9 @@ demos:
       - src/app/demos/observational-memory/page.tsx
       - src/app/demos/observational-memory/activity-renderer.tsx
       - src/app/api/copilotkit-observational-memory/route.ts
+
+# Starter VALIDATION ladder (dashboard). NOT the `starter:` key — that one
+# drives the public "Full Starter" section on the integration profile page.
+starter_validation:
+  path: examples/integrations/mastra
+  service: starter-mastra

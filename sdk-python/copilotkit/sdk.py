@@ -68,6 +68,18 @@ class CopilotKitRemoteEndpoint:
     CopilotKitRemoteEndpoint lets you connect actions and agents written in Python to your
     CopilotKit application.
 
+    <Callout type="warn" title="Deprecated: `actions` are no longer called">
+    This endpoint is part of the deprecated v1 SDK. It still serves
+    `POST actions/execute` and still runs your handlers correctly, but the
+    TypeScript runtime no longer calls it: the client that spoke this protocol
+    was removed in v1.50.0. An `actions=[...]` list registered here will never
+    be invoked.
+
+    Agents remain supported through AG-UI. For server-side tools, define them
+    on the agent instead — see
+    [Built-in agent tools](/docs/integrations/built-in-agent).
+    </Callout>
+
     To install CopilotKit for Python, run:
 
     ```bash

@@ -28,6 +28,8 @@ export const CHANGELOG_PATHS: Record<ReleaseScope, string> = {
   monorepo: "CHANGELOG.md",
   angular: "packages/angular/CHANGELOG.md",
   channels: "packages/channels/CHANGELOG.md",
+  "intelligence-langgraph": "packages/intelligence-langgraph/CHANGELOG.md",
+  "intelligence-mastra": "packages/intelligence-mastra/CHANGELOG.md",
 };
 
 export function changelogPathForScope(scope: ReleaseScope): string {

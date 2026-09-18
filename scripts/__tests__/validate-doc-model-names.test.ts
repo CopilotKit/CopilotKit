@@ -284,3 +284,233 @@ describe("validateFiles", () => {
     fs.rmSync(dir, { recursive: true });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Ship vs recognize (PE-70)
+// ---------------------------------------------------------------------------
+
+/**
+ * The allowlist used to answer one question: is this a real model name? Every
+ * stale pin passed, because `gpt-3.5-turbo` is as real as `gpt-5.5`. A starter
+ * a developer clones has to answer a second question: is this one we still
+ * ship? Documentation may name an old model; a starter may not pin one.
+ */
+
+describe("ship and recognize tiers", () => {
+  function createTempDir(): string {
+    return fs.mkdtempSync(path.join(os.tmpdir(), "model-tier-"));
+  }
+
+  const split = {
+    openai: {
+      ship: ["gpt-5-mini"],
+      recognize: ["gpt-4o", "gpt-4o-mini"],
+    },
+  };
+
+  it("ship returns only what we still put in a starter", () => {
+    const dir = createTempDir();
+    const allowlist = path.join(dir, "allowlist.json");
+    fs.writeFileSync(allowlist, JSON.stringify(split));
+
+    expect([...loadAllowlist(allowlist, "ship")].sort()).toEqual([
+      "gpt-5-mini",
+    ]);
+
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it("all returns every name we recognize, for prose that names an old one", () => {
+    const dir = createTempDir();
+    const allowlist = path.join(dir, "allowlist.json");
+    fs.writeFileSync(allowlist, JSON.stringify(split));
+
+    expect([...loadAllowlist(allowlist, "all")].sort()).toEqual([
+      "gpt-4o",
+      "gpt-4o-mini",
+      "gpt-5-mini",
+    ]);
+
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it("a flat provider list still means both tiers", () => {
+    const dir = createTempDir();
+    const allowlist = path.join(dir, "allowlist.json");
+    fs.writeFileSync(allowlist, JSON.stringify({ openai: ["gpt-5-mini"] }));
+
+    expect([...loadAllowlist(allowlist, "ship")]).toEqual(["gpt-5-mini"]);
+    expect([...loadAllowlist(allowlist, "all")]).toEqual(["gpt-5-mini"]);
+
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it("a starter tree flags a model we only recognize", () => {
+    const dir = createTempDir();
+    const allowlist = path.join(dir, "allowlist.json");
+    fs.writeFileSync(allowlist, JSON.stringify(split));
+    fs.writeFileSync(
+      path.join(dir, "agent.py"),
+      'agent = ChatOpenAI(model="gpt-4o-mini")\n',
+    );
+
+    const violations = validateFiles(dir, allowlist, {
+      tier: "ship",
+      extensions: [".py"],
+    });
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0].model).toBe("gpt-4o-mini");
+
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it("the same model passes where prose may name it", () => {
+    const dir = createTempDir();
+    const allowlist = path.join(dir, "allowlist.json");
+    fs.writeFileSync(allowlist, JSON.stringify(split));
+    fs.writeFileSync(
+      path.join(dir, "page.mdx"),
+      ["```python", 'ChatOpenAI(model="gpt-4o-mini")', "```"].join("\n"),
+    );
+
+    expect(validateFiles(dir, allowlist, { tier: "all" })).toEqual([]);
+
+    fs.rmSync(dir, { recursive: true });
+  });
+});
+
+/**
+ * A source file is not MDX. The whole file is code, so nothing is inside a
+ * fence, and the .NET starter names its model as a call argument rather than a
+ * `model=` attribute. The line that produced PE-70 is the .cs one below.
+ */
+
+describe("source files", () => {
+  function createTempDir(): string {
+    return fs.mkdtempSync(path.join(os.tmpdir(), "model-source-"));
+  }
+
+  const allowOnlyNew = { openai: { ship: ["gpt-5-mini"], recognize: [] } };
+
+  it.each([
+    ["agent.py", 'llm = ChatOpenAI(model="gpt-4o-mini")\n'],
+    [
+      "agent.ts",
+      'const agent = new BuiltInAgent({ model: "openai/gpt-4o-mini" });\n',
+    ],
+    ["Program.cs", '_openAiClient.GetChatClient("gpt-4o-mini").AsAIAgent(\n'],
+  ])("finds the pin in %s", (name, body) => {
+    const dir = createTempDir();
+    const allowlist = path.join(dir, "allowlist.json");
+    fs.writeFileSync(allowlist, JSON.stringify(allowOnlyNew));
+    fs.writeFileSync(path.join(dir, name), body);
+
+    const violations = validateFiles(dir, allowlist, {
+      tier: "ship",
+      extensions: [path.extname(name)],
+    });
+
+    expect(violations.map((v) => v.model)).toEqual(["gpt-4o-mini"]);
+
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it("does not treat an English sentence as a call argument", () => {
+    const dir = createTempDir();
+    const allowlist = path.join(dir, "allowlist.json");
+    fs.writeFileSync(allowlist, JSON.stringify(allowOnlyNew));
+    fs.writeFileSync(
+      path.join(dir, "notes.py"),
+      '# We moved off the old model last year. See print("done")\n',
+    );
+
+    expect(
+      validateFiles(dir, allowlist, { tier: "ship", extensions: [".py"] }),
+    ).toEqual([]);
+
+    fs.rmSync(dir, { recursive: true });
+  });
+});
+
+/**
+ * Three shapes the widened scan met on its first run over the starter trees.
+ * None is a stale pin, and all three would have to be silenced by hand if the
+ * gate could not tell them apart.
+ */
+
+describe("what the shipped scan must not flag", () => {
+  function createTempDir(): string {
+    return fs.mkdtempSync(path.join(os.tmpdir(), "model-noise-"));
+  }
+
+  const allowlist = { openai: { ship: ["gpt-5-mini"], recognize: [] } };
+
+  function scan(dir: string, listPath: string) {
+    return validateFiles(dir, listPath, {
+      tier: "ship",
+      extensions: [".ts", ".md"],
+    });
+  }
+
+  it("a wildcard in prose is not a model name", () => {
+    const dir = createTempDir();
+    const list = path.join(dir, "allowlist.json");
+    fs.writeFileSync(list, JSON.stringify(allowlist));
+    // `examples/slack/README.md` names a family, not a version.
+    fs.writeFileSync(
+      path.join(dir, "README.md"),
+      "Gemini (`google/gemini-2.5-*`) models are supported.\n",
+    );
+
+    expect(scan(dir, list)).toEqual([]);
+
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it("a test file is not a shipped pin", () => {
+    const dir = createTempDir();
+    const list = path.join(dir, "allowlist.json");
+    fs.writeFileSync(list, JSON.stringify(allowlist));
+    fs.writeFileSync(
+      path.join(dir, "adapter.test.ts"),
+      'expect(normalize({ model: "gpt-4o-mini" })).toBe("x");\n',
+    );
+
+    expect(scan(dir, list)).toEqual([]);
+
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it("a line marked ignore is a deliberate mention", () => {
+    const dir = createTempDir();
+    const list = path.join(dir, "allowlist.json");
+    fs.writeFileSync(list, JSON.stringify(allowlist));
+    // The Claude adapter normalizes a legacy spelling, so it has to name it.
+    fs.writeFileSync(
+      path.join(dir, "adapter.ts"),
+      'return model === "claude-sonnet-4.6" ? "claude-sonnet-4-6" : model; // model-allowlist-ignore\n',
+    );
+
+    expect(scan(dir, list)).toEqual([]);
+
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it("an unmarked stale pin in the same file still fails", () => {
+    const dir = createTempDir();
+    const list = path.join(dir, "allowlist.json");
+    fs.writeFileSync(list, JSON.stringify(allowlist));
+    fs.writeFileSync(
+      path.join(dir, "agent.ts"),
+      [
+        'const legacy = "gpt-4o"; // model-allowlist-ignore',
+        'const agent = { model: "gpt-4o-mini" };',
+      ].join("\n"),
+    );
+
+    expect(scan(dir, list).map((v) => v.model)).toEqual(["gpt-4o-mini"]);
+
+    fs.rmSync(dir, { recursive: true });
+  });
+});

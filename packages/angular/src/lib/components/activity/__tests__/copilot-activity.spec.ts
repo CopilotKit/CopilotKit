@@ -5,10 +5,8 @@ import { z } from "zod";
 import type { ActivityMessage } from "@ag-ui/core";
 import { CopilotActivity } from "../copilot-activity";
 import { CopilotKit } from "../../../copilotkit";
-import {
-  anyActivityContentSchema,
-  type RenderActivityMessageConfig,
-} from "../../../activity-renderer";
+import { anyActivityContentSchema } from "../../../activity-renderer";
+import type { RenderActivityMessageConfig } from "../../../activity-renderer";
 import {
   PrimaryActivityRenderer,
   WildcardActivityRenderer,

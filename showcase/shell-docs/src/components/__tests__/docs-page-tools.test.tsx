@@ -80,15 +80,11 @@ it("renders the onboarding button when a framework is passed", () => {
   renderRow({ slug: "mastra", name: "Mastra" });
 
   const button = screen.getByRole("button", { name: /copy prompt/i });
-  const descriptionId = button.getAttribute("aria-describedby");
-
-  expect(button.getAttribute("data-tooltip")).toBe(
-    "Copy a prompt that guides your coding agent through CopilotKit setup.",
-  );
-  expect(descriptionId).toBeTruthy();
-  expect(document.getElementById(descriptionId!)?.textContent).toBe(
-    "Copy a prompt that guides your coding agent through CopilotKit setup.",
-  );
+  expect(button.textContent).toContain("Copy Prompt");
+  expect(
+    screen.getByRole("button", { name: "Open in Claude Code" }),
+  ).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Open in Codex" })).toBeTruthy();
 });
 
 it("gives the onboarding button the same .mdx URL as the markdown button", async () => {
@@ -123,4 +119,28 @@ describe("docsMarkdownUrl", () => {
   it("keeps a root-surface page at the origin", () => {
     expect(docsMarkdownUrl("", "quickstart")).toBe("/quickstart.mdx");
   });
+});
+
+it("includes the quickstart goal with its framework, frontend, and source", async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.assign(navigator, { clipboard: { writeText } });
+  render(
+    <DocsPageTools
+      slugPath="quickstart"
+      slugHrefPrefix="/angular/mastra"
+      githubUrl={GITHUB_URL}
+      onboardingFramework={{ slug: "mastra", name: "Mastra" }}
+      onboardingFrontend={{ id: "angular", name: "Angular" }}
+      promptTask="Connect an Angular app to Copilot Runtime."
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: /copy prompt/i }));
+  await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+  const prompt = writeText.mock.calls[0][0];
+  expect(prompt).toContain("Mastra");
+  expect(prompt).toContain("Angular");
+  expect(prompt).toContain("/angular/mastra/quickstart.mdx");
+  expect(prompt).toContain(
+    "Their goal for this quickstart is: Connect an Angular app to Copilot Runtime.",
+  );
 });

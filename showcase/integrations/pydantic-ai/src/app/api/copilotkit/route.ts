@@ -78,6 +78,9 @@ agents["default"] = createAgent();
 agents["headless-complete"] = new HttpAgent({
   url: `${AGENT_URL}/headless_complete/`,
 });
+agents["shared-state-read"] = new HttpAgent({
+  url: `${AGENT_URL}/shared_state_read/`,
+});
 agents["shared-state-read-write"] = new HttpAgent({
   url: `${AGENT_URL}/shared_state_read_write/`,
 });
@@ -86,6 +89,9 @@ agents["subagents"] = new HttpAgent({
 });
 agents["gen-ui-tool-based"] = new HttpAgent({
   url: `${AGENT_URL}/gen_ui_tool_based/`,
+});
+agents["gen-ui-agent"] = new HttpAgent({
+  url: `${AGENT_URL}/gen_ui_agent/`,
 });
 
 // In-Chat HITL — chat-only agent; the `book_call` tool is defined on the
