@@ -450,9 +450,10 @@ it("does not report ITS OWN event when the clipboard rejects", async () => {
     expect(screen.getByRole("status").textContent).toContain("Copy blocked"),
   );
   expect(analytics.capture).not.toHaveBeenCalled();
-  // The rejection is swallowed rather than re-thrown, so the console line is
-  // the only trace a blocked copy leaves.
-  expect(screen.getByRole("dialog")).toBeTruthy();
+  // The fallback prompt opens after the rejected write has committed. Wait
+  // for it rather than assuming it renders in the same React commit as the
+  // status message.
+  await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
   expect(screen.getByRole("textbox")).toBeTruthy();
   expect(consoleError).not.toHaveBeenCalled();
 });

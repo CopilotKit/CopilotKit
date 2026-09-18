@@ -513,6 +513,7 @@ export async function DocsPageView({
                               frameworkOverride ?? props.currentFramework
                             }
                             hrefPrefix={slugHrefPrefix}
+                            frontendOverride={frontendOverride}
                           />
                         ),
                         // Same closure pattern: thread the URL framework
