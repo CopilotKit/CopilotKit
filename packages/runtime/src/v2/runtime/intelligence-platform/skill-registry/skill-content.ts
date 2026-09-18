@@ -1,4 +1,4 @@
-import type { VerifiedSnapshot } from "./snapshot.js";
+import type { VerifiedSnapshot } from "./snapshot";
 
 const compare = (left: string, right: string) =>
   Buffer.compare(Buffer.from(left), Buffer.from(right));

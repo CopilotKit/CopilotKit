@@ -17,6 +17,7 @@ Developer instructions retain precedence. Learned skills cannot override the age
 
 | Framework                 | Package                                  | Native extension                                                     |
 | ------------------------- | ---------------------------------------- | -------------------------------------------------------------------- |
+| BuiltInAgent              | `@copilotkit/runtime/v2`                 | `learnedSkills` configuration                                        |
 | LangGraph Python          | `copilotkit-intelligence-langgraph`      | `create_skill_registry_middleware`                                   |
 | LangGraph TypeScript      | `@copilotkit/intelligence-langgraph`     | `createSkillRegistryMiddleware`                                      |
 | Mastra                    | `@copilotkit/intelligence-mastra`        | `createSkillRegistryProcessor`                                       |
@@ -30,6 +31,65 @@ TypeScript uses the canonical client from `@copilotkit/runtime/v2`. Python uses 
 ## Native setup
 
 These adapters require the server and canonical client releases described below.
+
+### BuiltInAgent
+
+Configure `learnedSkills` directly on `BuiltInAgent`. No wrapper or separate adapter package is required.
+
+```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const agent = new BuiltInAgent({
+  model: "openai/gpt-4o",
+  prompt: "Follow the application's support policy.",
+  learnedSkills: {
+    containerId: "support-learning",
+    // revision: "exact-revision-id", // Optional: pin a published revision.
+  },
+});
+```
+
+Set `CPK_INTELLIGENCE_API_KEY` for skill delivery and your model provider's key separately. The configuration also accepts an existing `CopilotKitIntelligence` instance as `client`, or explicit `apiKey` and `apiUrl`. These credentials apply to Intelligence, not the model provider. The environment fallbacks and refresh settings below apply.
+
+Classic mode adds the catalog and both executable skill tools before the model call. When skills are available, the default step limit is 10 so the model can load and use guidance. An explicit `maxSteps` takes precedence. Without available skills, the existing default step limit remains unchanged.
+
+#### Factory mode
+
+BuiltInAgent fetches the snapshot before it calls your factory. Connect the catalog and tools to your model call:
+
+```typescript
+import {
+  BuiltInAgent,
+  convertMessagesToVercelAISDKMessages,
+} from "@copilotkit/runtime/v2";
+import { openai } from "@ai-sdk/openai";
+import { stepCountIs, streamText } from "ai";
+
+const agent = new BuiltInAgent({
+  type: "aisdk",
+  learnedSkills: { containerId: "support-learning" },
+  factory: ({ input, abortSignal, learnedSkills }) =>
+    streamText({
+      model: openai("gpt-4o"),
+      system: [
+        "Follow the application's support policy.",
+        learnedSkills.catalog,
+      ].filter(Boolean).join("\n\n"),
+      messages: convertMessagesToVercelAISDKMessages(input.messages),
+      tools: { ...learnedSkills.tools },
+      stopWhen: stepCountIs(10),
+      abortSignal,
+    }),
+});
+```
+
+Import `BuiltInAgentFactoryContext` from `@copilotkit/runtime/v2` to annotate a factory context. Every factory receives a `learnedSkills` object. Its `catalog` is `""` and its `tools` is `{}` when delivery is unconfigured or the verified snapshot contains no skills. Omitting the configuration disables all skill requests, even when delivery environment variables exist. With configuration, later runs check for newly published skills according to the freshness window.
+
+The tools use AI SDK schemas and executors. TanStack and custom factories receive the same object and must adapt the tools to their model library; they are not TanStack-native tool definitions. Factory code owns the model call and its step limit. Keep the supplied catalog and tools together within that invocation. The tool map is read-only; spread it into a new object to add application tools.
+
+Each run, including a resume, acquires one snapshot before factory or model work. Agent clones share the refresh cache; each invocation retains its own snapshot. Cancellation stops that invocation's delivery wait without cancelling another clone's shared refresh. Snapshots stay out of application state. Existing cached skills can cover transient failures, but a confirmed delivery denial blocks new execution.
+
+Reserve `copilotkit_load_skill` and `copilotkit_read_skill_file` for delivery. Classic mode rejects conflicting client, configuration, or MCP tool names. Factory code must avoid overwriting these names when it combines tool maps.
 
 ### LangGraph Python
 
@@ -201,7 +261,7 @@ Published revisions have no automatic expiry. A revoked revision cannot be used 
 
 ## Read tools
 
-Both tools remain registered even when the snapshot is empty:
+The framework adapters keep both tools registered even when the snapshot is empty. BuiltInAgent omits both tools for an empty snapshot; its factory receives `tools: {}`. With available skills, the tools are:
 
 - `copilotkit_load_skill(skill_name)` returns `SKILL.md` and the supporting file list.
 - `copilotkit_read_skill_file(skill_name, path)` returns one supporting UTF-8 text file.

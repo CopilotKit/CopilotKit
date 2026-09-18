@@ -1,7 +1,7 @@
 import { fromBuffer } from "yauzl";
 import type { Entry, ZipFile } from "yauzl";
 import type { Readable } from "node:stream";
-import { invalidSnapshot } from "./errors.js";
+import { invalidSnapshot } from "./errors";
 
 /** Internal corruption bounds, including manifest and directory entries. */
 export const MAX_ARCHIVE_ENTRIES = 1_000;
