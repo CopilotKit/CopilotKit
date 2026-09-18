@@ -36,7 +36,7 @@ import { TypingIndicator } from "./typing-indicator";
 
 export function Chat({ agentId }: { agentId: string }) {
   // @region[page-send-message]
-  const { agent } = useAgent({ agentId });
+  const { agent, isReady } = useAgent({ agentId });
   const { copilotkit } = useCopilotKit();
 
   const {
@@ -63,12 +63,12 @@ export function Chat({ agentId }: { agentId: string }) {
   // the multimodal `content` array if needed, then dispatch the run.
   const sendText = useCallback(
     (text: string) => {
+      if (!isReady || agent.isRunning) return;
       const trimmed = text.trim();
       // Consume queued uploads first so they get sent even if the user
       // didn't type any text alongside them.
       const ready = consumeAttachments();
       if (!trimmed && ready.length === 0) return;
-      if (agent.isRunning) return;
 
       stickRef.current = true;
 
@@ -84,13 +84,14 @@ export function Chat({ agentId }: { agentId: string }) {
           console.error("[headless-complete] runAgent failed", err),
         );
     },
-    [agent, copilotkit, consumeAttachments],
+    [agent, isReady, copilotkit, consumeAttachments],
   );
 
   const handleSend = useCallback(() => {
+    if (!isReady) return;
     sendText(input);
     setInput("");
-  }, [input, sendText]);
+  }, [input, isReady, sendText]);
 
   const handleSuggestion = useCallback(
     (text: string) => {
@@ -120,6 +121,7 @@ export function Chat({ agentId }: { agentId: string }) {
   );
   const hasReadyAttachment = attachments.some((a) => a.status === "ready");
   const sendDisabled =
+    !isReady ||
     agent.isRunning ||
     hasUploadingAttachment ||
     (!input.trim() && !hasReadyAttachment);
@@ -139,7 +141,7 @@ export function Chat({ agentId }: { agentId: string }) {
             // `h-full` propagation, so a centered empty state inside it
             // hugs the top of the viewport.
             <div className="flex min-h-0 flex-1 flex-col">
-              <EmptyState onPick={handleSuggestion} />
+              <EmptyState onPick={handleSuggestion} disabled={!isReady} />
             </div>
           ) : (
             <ScrollArea className="min-h-0 flex-1">
