@@ -82,10 +82,8 @@ import type {
   CopilotServiceAdapter,
   RemoteChainParameters,
 } from "../../service-adapters";
-import {
-  CopilotRuntime as CopilotRuntimeVNext,
-  InMemoryAgentRunner,
-} from "../../../v2/runtime";
+import { CopilotRuntime as CopilotRuntimeVNext } from "../../../v2/runtime/core/runtime";
+import { InMemoryAgentRunner } from "../../../v2/runtime/runner";
 import {
   createRuntimeErrorReporter,
   runtimeErrorReporterOption,
@@ -95,11 +93,11 @@ import type {
   CopilotIntelligenceRuntimeOptions,
   CopilotRuntimeOptions,
   CopilotRuntimeOptions as CopilotRuntimeOptionsVNext,
-  AgentRunner,
   AgentsConfig,
   AgentsFactory,
   AgentFactoryContext,
-} from "../../../v2/runtime";
+} from "../../../v2/runtime/core/runtime";
+import type { AgentRunner } from "../../../v2/runtime/runner";
 
 export type { AgentsConfig, AgentsFactory, AgentFactoryContext };
 import telemetry from "../telemetry-client";
