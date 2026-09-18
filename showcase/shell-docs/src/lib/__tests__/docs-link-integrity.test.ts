@@ -43,20 +43,12 @@ const PUBLIC_DIR = path.resolve(CONTENT_DIR, "../../../public");
  */
 const KNOWN_BROKEN_LINKS: ReadonlyArray<readonly [string, string]> = [
   [
-    "/agent-spec/frontend-tools",
-    "no frontend-tools page under integrations/agent-spec",
-  ],
-  [
     "/agentcore/full-stack-example",
     "no such page anywhere in the content tree",
   ],
   [
     "/custom-look-and-feel/bring-your-own-components",
     "exists only as a snippet, which is not routable",
-  ],
-  [
-    "/features",
-    "no root `features` page; the Angular one is /angular/features",
   ],
   [
     "/generative-ui/your-components",
@@ -216,8 +208,11 @@ describe("every internal docs link resolves", () => {
     expect(fresh.sort()).toEqual([]);
   });
 
-  it("keeps the known-broken list honest — no entry that already resolves", () => {
-    const stale = [...known.keys()].filter((target) => resolves(target));
+  it("keeps the known-broken list honest — every entry is still broken here", () => {
+    // Stricter than "does it resolve": an entry also rots when the last link
+    // to it is deleted or repointed, which leaves the list describing a
+    // target nothing references any more.
+    const stale = [...known.keys()].filter((target) => !unresolved.has(target));
     expect(stale.sort()).toEqual([]);
   });
 });
