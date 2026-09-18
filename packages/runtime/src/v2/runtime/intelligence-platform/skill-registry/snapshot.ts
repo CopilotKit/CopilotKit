@@ -1,11 +1,7 @@
 import { createHash } from "node:crypto";
-import type { LearnedSkillsSnapshotResult } from "@copilotkit/runtime/v2";
-import { SkillDeliveryError, invalidSnapshot } from "./errors.js";
-import {
-  MAX_SNAPSHOT_BYTES,
-  readArchive,
-  safeRelativePath,
-} from "./archive.js";
+import type { LearnedSkillsSnapshotResult } from "../learned-skills";
+import { SkillDeliveryError, invalidSnapshot } from "./errors";
+import { MAX_SNAPSHOT_BYTES, readArchive, safeRelativePath } from "./archive";
 
 export interface SnapshotFile {
   readonly path: string;

@@ -1757,6 +1757,20 @@
           }
         },
         {
+          "importPath": "@copilotkit/runtime/internal/learned-skills",
+          "exportKey": "./internal/learned-skills",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/internal/learned-skills.mjs",
+            "require": "./dist/internal/learned-skills.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/runtime/package.json",
+            "selector": "exports[\"./internal/learned-skills\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/runtime/langgraph",
           "exportKey": "./langgraph",
           "kind": "code",
@@ -3058,6 +3072,7 @@
       {
         "type": "aisdk",
         "configurationKeys": [
+          "learnedSkills",
           "type",
           "factory"
         ],
@@ -3077,6 +3092,7 @@
       {
         "type": "tanstack",
         "configurationKeys": [
+          "learnedSkills",
           "type",
           "factory"
         ],
@@ -3096,6 +3112,7 @@
       {
         "type": "custom",
         "configurationKeys": [
+          "learnedSkills",
           "type",
           "factory"
         ],

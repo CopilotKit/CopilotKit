@@ -6,7 +6,7 @@ import type { LearnedSkillsErrorCode } from "@copilotkit/runtime/v2";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import lifecycle from "../../conformance/lifecycle.v1.json";
 import snapshots from "../../conformance/snapshots.v1.json";
-import { SkillRegistry } from "../registry.js";
+import { SkillRegistry } from "../index.js";
 
 interface Step {
   advanceMs?: number;
