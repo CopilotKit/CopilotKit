@@ -41,7 +41,7 @@ env:
 jobs:
   scope:
     name: Runtime change scope
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
       required: ${{ steps.scope.outputs.required }}
@@ -62,7 +62,7 @@ jobs:
     needs: scope
     if: needs.scope.outputs.required == 'true'
     name: IntelligenceRunner / ${{ matrix.language }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 35
     strategy:
       fail-fast: false
@@ -203,7 +203,7 @@ jobs:
     name: Intelligence runtime conformance
     if: always()
     needs: [scope, conformance]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
