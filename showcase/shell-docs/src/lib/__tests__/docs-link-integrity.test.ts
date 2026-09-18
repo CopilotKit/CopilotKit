@@ -186,10 +186,11 @@ describe("every internal docs link resolves", () => {
       // scope, so its bare links are rewritten before the reader sees them.
       let rewritten = target;
       try {
-        rewritten = resolveDocsHref(target, {
-          slugHrefPrefix: scope ? `/${scope}` : "",
-          frameworkOverride: scope ?? null,
-        });
+        rewritten =
+          resolveDocsHref(target, {
+            slugHrefPrefix: scope ? `/${scope}` : "",
+            frameworkOverride: scope ?? null,
+          }) ?? target;
       } catch {
         // resolveDocsHref refused this shape; judge the raw target instead.
       }
