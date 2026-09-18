@@ -3,6 +3,15 @@
 // Every install and test copy lives in a temporary standalone consumer.
 import assert from "node:assert/strict";
 import {
+  verifyNativeReport,
+  monitorPlan,
+  monitorOutput,
+  prepareMonitorConsumer,
+  installMonitorConsumer,
+} from "../../../tools/compatibility-monitor/typescript.mjs";
+const monitor = monitorPlan();
+const monitorArtifacts = monitorOutput();
+import {
   packRuntimeWorkspace,
   standaloneConsumerEnv,
 } from "../../../tools/learned-skill-conformance/workspace-artifacts.mjs";
@@ -50,9 +59,11 @@ assert.equal(
   ],
   undefined,
 );
-for (const file of readdirSync(join(packageRoot, "dist"), {
-  recursive: true,
-})) {
+for (const file of monitor?.track === "published"
+  ? []
+  : readdirSync(join(packageRoot, "dist"), {
+      recursive: true,
+    })) {
   if (!/\.(?:mjs|cjs|js|d\.ts|d\.mts|d\.cts)$/.test(file)) continue;
   assert.doesNotMatch(
     readFileSync(join(packageRoot, "dist", file), "utf8"),
@@ -60,8 +71,15 @@ for (const file of readdirSync(join(packageRoot, "dist"), {
     `Private core package reference remains in ${file}`,
   );
 }
-const adapter = pack(packageRoot);
-const runtime = packRuntimeWorkspace(workspaceRoot, artifacts);
+const adapter =
+  monitor?.track === "published" ? monitor.adapterVersion : pack(packageRoot);
+const runtime =
+  monitor?.track === "published"
+    ? {
+        dependencies: { "@copilotkit/runtime": monitor.adapterVersion },
+        overrides: {},
+      }
+    : packRuntimeWorkspace(workspaceRoot, artifacts);
 const consumerEnv = standaloneConsumerEnv();
 const lanes = {
   minimum: {
@@ -144,7 +162,13 @@ async function inference() {
 void same; void inference;
 `;
 
-for (const [lane, peers] of Object.entries(lanes)) {
+for (const [lane, peers] of Object.entries(
+  monitor
+    ? {
+        exact: monitor.dependencies,
+      }
+    : lanes,
+)) {
   if (selectedLane && selectedLane !== lane) continue;
   const cwd = join(work, lane);
   mkdirSync(cwd);
@@ -157,7 +181,8 @@ for (const [lane, peers] of Object.entries(lanes)) {
         type: "module",
         dependencies: {
           ...peers,
-          "@copilotkit/intelligence-langgraph": `file:${adapter}`,
+          "@copilotkit/intelligence-langgraph":
+            monitor?.track === "published" ? adapter : `file:${adapter}`,
           ...runtime.dependencies,
           typescript: "5.8.2",
           "@types/node": "22.15.3",
@@ -172,21 +197,7 @@ for (const [lane, peers] of Object.entries(lanes)) {
     ),
   );
   // npm 10 Arborist crashes on Runtime's optional peer graph; pin test tooling.
-  execFileSync(
-    "npm",
-    [
-      "exec",
-      "--yes",
-      "--package=npm@11.6.2",
-      "--",
-      "npm",
-      "install",
-      "--ignore-scripts",
-      "--no-audit",
-      "--no-fund",
-    ],
-    { cwd, stdio: "inherit", env: consumerEnv },
-  );
+  installMonitorConsumer(monitor, cwd, consumerEnv, monitorArtifacts);
   writeFileSync(join(cwd, "smoke.mjs"), smoke);
   writeFileSync(join(cwd, "types.mts"), types);
   writeFileSync(join(cwd, "types.cts"), types);
@@ -220,11 +231,21 @@ for (const [lane, peers] of Object.entries(lanes)) {
     join(cwd, "vitest.config.mts"),
     'import { defineConfig } from "vitest/config"; import { fileURLToPath } from "node:url"; export default defineConfig({resolve:{alias:{"@copilotkit/intelligence-delivery-core":fileURLToPath(new URL("./delivery-core/src/index.ts",import.meta.url))}},test:{environment:"node",include:["src/**/__tests__/**/*.test.ts","delivery-core/src/**/__tests__/**/*.test.ts"],maxWorkers:2,env:{COPILOTKIT_TELEMETRY_DISABLED:"true"}}});',
   );
+  prepareMonitorConsumer(monitor, cwd, packageRoot);
   for (const args of [
     ["smoke.mjs", "import"],
     ["smoke.mjs", "require"],
     ["node_modules/typescript/bin/tsc", "-p", "tsconfig.json"],
-    ["node_modules/vitest/vitest.mjs", "run"],
+    [
+      "node_modules/vitest/vitest.mjs",
+      "run",
+      ...(monitor
+        ? [
+            "--reporter=json",
+            `--outputFile=${join(monitorArtifacts, "native-results.json")}`,
+          ]
+        : []),
+    ],
   ]) {
     execFileSync(process.execPath, args, {
       cwd,
@@ -232,6 +253,12 @@ for (const [lane, peers] of Object.entries(lanes)) {
       env: { ...consumerEnv, COPILOTKIT_TELEMETRY_DISABLED: "true" },
     });
   }
+  if (monitor)
+    verifyNativeReport(
+      JSON.parse(
+        readFileSync(join(monitorArtifacts, "native-results.json"), "utf8"),
+      ),
+    );
   console.log(
     `${lane}: installed distribution, ESM/CJS inference, and native suites passed`,
   );
