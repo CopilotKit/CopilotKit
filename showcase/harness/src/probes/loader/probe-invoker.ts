@@ -380,6 +380,7 @@ export function buildProbeInvoker(
     // than silently degrading to "filter=undefined → run everything".
     const filterSlugs = invokeOpts?.filter?.slugs;
     const featureTypes = invokeOpts?.filter?.featureTypes;
+    const filteredD6 = cfg.kind === "e2e_d6" && Boolean(featureTypes?.length);
     let inputs: ResolvedInput[] = allInputs;
     if (filterSlugs !== undefined) {
       const wanted = new Set(filterSlugs);
@@ -393,8 +394,14 @@ export function buildProbeInvoker(
       // problems. Surface preErrors regardless of filter so a `--slugs foo`
       // trigger still sees the misconfigured-record tiles alongside foo's
       // result.
+      // Discovery failures describe the roster itself, not a service slug.
+      // Keep both sentinels so targeted triggers cannot hide those failures.
       inputs = allInputs.filter(
-        (r) => r.preError !== undefined || wanted.has(r.key),
+        (r) =>
+          r.preError !== undefined ||
+          r.input === MISCONFIGURED_DISCOVERY_INPUT ||
+          r.input === ENUMERATE_FAILED_INPUT ||
+          wanted.has(r.key),
       );
     }
 
@@ -644,7 +651,37 @@ export function buildProbeInvoker(
         //   error     → tracker.fail(slug, errorDesc)    failed++
         // The summary's `failed` count rolls up degraded + red + error so
         // the scheduler-side `lastRunSummary` reflects "anything not green".
-        if (result.state === "error") {
+        const scopedSignal = result.signal as
+          | { scope?: unknown; passed?: unknown; failed?: unknown }
+          | undefined;
+        const scopedCounts =
+          filteredD6 &&
+          scopedSignal?.scope &&
+          typeof scopedSignal.passed === "number" &&
+          Number.isSafeInteger(scopedSignal.passed) &&
+          scopedSignal.passed >= 0 &&
+          Array.isArray(scopedSignal.failed) &&
+          scopedSignal.failed.every((feature) => typeof feature === "string") &&
+          // A launcher/driver failure can precede every feature and therefore
+          // have no failed feature names. Keep its non-green target outcome.
+          (result.state === "green" || scopedSignal.failed.length > 0)
+            ? {
+                passed: scopedSignal.passed,
+                failed: scopedSignal.failed.length,
+              }
+            : undefined;
+        if (scopedCounts) {
+          passed += scopedCounts.passed;
+          failed += scopedCounts.failed;
+          tracker.complete(key, scopedCounts.failed > 0 ? "red" : "green");
+        } else if (filteredD6 && result.state === "green") {
+          tracker.fail(key, "filtered result missing execution counts");
+          failed++;
+          logger.error("probe.filtered-counts-missing", {
+            probeId: cfg.id,
+            key,
+          });
+        } else if (result.state === "error") {
           const errDesc =
             (result.signal as { errorDesc?: string } | undefined)?.errorDesc ??
             "unknown error";
@@ -679,7 +716,9 @@ export function buildProbeInvoker(
         // artifact. Writing the detail row first means the persisted counter
         // can never outrun its backing detail row.
         try {
-          await writer.write(result);
+          if (!(cfg.kind === "e2e_d6" && featureTypes?.length)) {
+            await writer.write(result);
+          }
         } catch (err) {
           // Writer failures are already surfaced by status-writer's own
           // `writer.failed` bus emission. We log here for probe-side
@@ -702,7 +741,11 @@ export function buildProbeInvoker(
           try {
             await runWriter.update({
               id: runRowId,
-              summary: { total: inputs.length, passed, failed },
+              summary: {
+                total: filteredD6 ? passed + failed : inputs.length,
+                passed,
+                failed,
+              },
             });
           } catch (err) {
             logger.error("probe.run-writer-update-failed", {
@@ -785,11 +828,12 @@ export function buildProbeInvoker(
       // `total === passed + failed` holds by construction. The
       // discoveryFailed and happy-path branches keep their existing
       // `total` semantics.
-      const baseTotal = outerInvariantFailure
-        ? passed + failed
-        : resolved.ok
-          ? inputs.length
-          : 1;
+      const baseTotal =
+        outerInvariantFailure || filteredD6
+          ? passed + failed
+          : resolved.ok
+            ? inputs.length
+            : 1;
       const summary: RunSummary = {
         total: baseTotal,
         passed,
@@ -871,11 +915,12 @@ export function buildProbeInvoker(
     // passed+failed sum (which already includes the +1 synthetic
     // invariant tile) so the returned summary matches what was
     // persisted by the finally block above.
-    const returnTotal = outerInvariantFailure
-      ? passed + failed
-      : resolved.ok
-        ? inputs.length
-        : 1;
+    const returnTotal =
+      outerInvariantFailure || filteredD6
+        ? passed + failed
+        : resolved.ok
+          ? inputs.length
+          : 1;
     return {
       total: returnTotal,
       passed,

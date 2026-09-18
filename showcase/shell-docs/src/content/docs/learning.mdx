@@ -30,20 +30,19 @@ Learning starts with a container, which groups Threads from the same kind of wor
 
 When a pattern can be reused, Learning proposes a Skill. You review the supporting Threads and decide whether to publish it. A published Skill is a versioned set of instructions that you load into your agent; Learning does not change the model itself.
 
-## Set up Learning
+Automatic Learning checks eligible containers on a daily schedule. After you approve a Skill, automatic skill delivery makes it available to connected agents. Scheduling, publication, and delivery are separate: a scheduled run does not approve Skills, and enabling delivery does not connect your agent for you.
+
+## Start with your coding agent
+
+Copy this prompt into your coding agent to inspect your existing app and configure Automatic Learning for one focused workflow. Prefer to work through the setup yourself? Follow the manual steps below.
+
+<LearningSetupPrompt />
+
+## Set up Learning manually
 
 When you are done, your Runtime will send selected Threads to a Learning container, ready to be analyzed and turned into reviewed Skills.
 
 <Steps>
-  <Step>
-    ### Optional: Set it up with your coding agent
-
-    Copy this prompt into your coding agent to inspect your existing app and configure Automatic Learning for one focused workflow. Prefer to work through the setup yourself? Skip this step and continue below.
-
-    <LearningSetupPrompt />
-
-  </Step>
-
   <Step>
     ### Connect CopilotKit Intelligence
 
@@ -97,12 +96,27 @@ When you are done, your Runtime will send selected Threads to a Learning contain
 
     Use the application normally and complete several related workflows. Corrections, tool calls, and application interactions all help Learning understand what a good result looks like.
 
+    The container shows how many eligible Threads are ready and how many more are needed. By default, automatic Learning requires **15 eligible Threads** for both the first run and each run after a success. Use the count shown in your container if your deployment has a different threshold.
+
+  </Step>
+
+  <Step>
+    ### Choose the daily schedule
+
+    In the container, select **Edit schedule**. Under **This project**, keep **Use organization schedule** or choose **Custom project schedule**, set the daily time and time zone, and save. The schedule applies to all containers in the project.
+
+    Organizations start with a daily default of **02:00 UTC**. The **Organization default** tab changes the schedule for every project without an override and asks you to confirm that scope. Projects with a custom schedule keep it; choosing **Use organization schedule** again restores inheritance, including future changes to the default.
+
+    When the container is eligible, **Next scheduled run** shows a countdown and the scheduled time in your local zone and UTC. This is the next eligibility check: reaching the Thread threshold does not start a run immediately. An active analysis, a failure block, or disabled automatic Learning can prevent a run. Saving a schedule does not start or cancel an analysis.
+
   </Step>
 
   <Step>
     ### Run Learning and review
 
-    Open the container's **Runs** tab and select **Run Learning**. Review the resulting Insights and their source Threads, then approve or reject each proposed Skill. Approved revisions appear under **Skills**.
+    Wait for the scheduled run, or select **Start manual run now** to analyze available evidence without waiting for the daily schedule or automatic Thread threshold. Follow its progress under **Analysis results**.
+
+    Review the resulting Insights and their source Threads, then approve or reject each proposed Skill. Approved revisions appear under **Skills**. Automatic runs use the same review process; only published Skills are available for delivery.
 
   </Step>
 </Steps>
@@ -110,6 +124,49 @@ When you are done, your Runtime will send selected Threads to a Learning contain
 <InspectorPaneLearning />
 
 ## Use published Skills
+
+### Set up automatic skill delivery
+
+Once you have published a Skill, connect the agent that should use it:
+
+<Steps>
+  <Step>
+    #### Enable delivery for the container
+
+    Open the container's **Skills** tab and check that **Skill delivery** shows **Delivery enabled**. This controls new requests for published Skills from this container.
+  </Step>
+
+  <Step>
+    #### Connect your agent
+
+    Select **Set up skill delivery**, then **Copy setup prompt**, and paste it into your coding agent. The prompt includes your container ID and asks the coding agent to inspect your framework, preserve existing agent behavior, and configure the supported native adapter.
+
+    For manual setup, follow the [framework adapter examples](/intelligence/learned-skills#native-setup) for LangGraph Python, LangGraph TypeScript, Mastra, Google ADK, or Microsoft Agent Framework. Configure the adapter in the agent's server environment with the **same Intelligence project key and container ID** used above:
+
+    ```bash title="Agent server environment"
+    CPK_INTELLIGENCE_API_KEY=your-project-key
+    CPK_INTELLIGENCE_LEARNING_CONTAINER_ID=expense-review
+    ```
+
+    Keep the key server-side. Leave `CPK_INTELLIGENCE_SKILLS_REVISION` unset to follow the latest published Skills. See [container configuration](/intelligence/learned-skills#configure-one-container) for self-hosted endpoints and exact revision pins.
+  </Step>
+
+  <Step>
+    #### Verify delivery in a new invocation
+
+    Initialize the adapter and start a new agent invocation. Confirm that the published Skill appears in its catalog, `copilotkit_load_skill` can load its `SKILL.md`, and `copilotkit_read_skill_file` can read a supporting file if the Skill has one. Copying the setup prompt or enabling the toggle alone does not verify the connection.
+
+    The adapter refreshes published Skills automatically, with a default freshness window of five seconds. Each invocation keeps one snapshot; a newly published revision is available to later invocations after refresh. The model decides when to load and follow a Skill.
+  </Step>
+</Steps>
+
+<Callout type="info" title="Pausing delivery is separate from Learning">
+  Turning off **Skill delivery** does not stop Learning runs or revoke published revisions. Once an adapter checks delivery and receives the denial, it blocks new invocations; invocations already in progress keep their captured Skills. Pausing Learning runs likewise does not stop delivery of published Skills.
+</Callout>
+
+### Download Skills manually
+
+Use the CLI for offline inspection or frameworks without a supported adapter. If you switch an agent from downloaded Skills to automatic delivery, remove the old manual loading for that container to avoid loading the same Skills twice.
 
 From a directory connected to the same Intelligence project, download the container's published Skills:
 
@@ -127,8 +184,11 @@ The output contains a directory and `SKILL.md` for each published Skill. Configu
 | A Thread never appears in the container     | Confirm the callback returned an existing stable ID before the Thread's first run and that the run reached a terminal state. |
 | The Runtime reports a container conflict    | The selector returned a different ID for an already-bound Thread. Restore the original mapping or start a new Thread.        |
 | A run has no new evidence                   | Runs created before assignment, still in progress, or already included in an earlier Learning run are not new input.         |
+| An automatic run has not started            | Check the container's readiness count, daily schedule, and active or failed analysis. If it shows **Automatic learning is off**, scheduling is disabled for the deployment; editing the time does not enable it. Manual runs remain available. |
+| Learning is waiting after a failed run      | Inspect the failure under **Analysis results**. Automatic Learning waits for additional eligible Threads before retrying that evidence; you can also start a manual run. |
 | A run succeeds without a Skill candidate    | Inspect the Insights. The evidence may be useful without supporting a reusable procedural Skill.                             |
-| An approved Skill does not affect the agent | Download the latest bundle and confirm that your agent environment loads the generated Skill directory.                      |
+| An approved Skill does not affect the agent | Confirm delivery is enabled, the adapter uses the correct project and container, and a new invocation can load the Skill. Check for an exact revision pin. For manual loading, download the latest bundle and confirm your agent loads its directory. |
+| Delivery status is unavailable              | Select **Retry delivery status**. For self-hosted deployments, verify the delivery endpoint and migration are installed before relying on an adapter. See [deployment requirements](/intelligence/learned-skills#deployment-requirements). |
 
 ## Related guides
 

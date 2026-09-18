@@ -15,9 +15,8 @@
       "response": {
         "toolCalls": [
           {
-            "id": "call_d6_agno_gen_ui_open_3d_001",
             "name": "generateSandboxedUi",
-            "arguments": "{\"html\":\"<!DOCTYPE html><html><head><style>body{margin:0;display:flex;justify-content:center;align-items:center;height:100vh;background:#1a1a2e;font-family:monospace}canvas{border:1px solid #333}</style></head><body><canvas id='c' width='400' height='400'></canvas><script>const c=document.getElementById('c'),x=c.getContext('2d');x.translate(200,200);x.strokeStyle='#e94560';x.beginPath();x.moveTo(0,0);x.lineTo(150,0);x.stroke();x.strokeStyle='#0f3460';x.beginPath();x.moveTo(0,0);x.lineTo(0,-150);x.stroke();x.strokeStyle='#16213e';x.beginPath();x.moveTo(0,0);x.lineTo(-80,80);x.stroke();x.fillStyle='#eee';x.font='14px monospace';x.fillText('X',155,5);x.fillText('Y',5,-155);x.fillText('Z',-90,90)</script></body></html>\"}"
+            "arguments": "{\"html\":\"<!DOCTYPE html><html><head><style>html,body{margin:0;background:#101827;color:#f8fafc;font-family:system-ui,sans-serif}body{display:flex;justify-content:center}svg{display:block;width:100%;max-width:320px;height:200px}text{font-weight:600}</style></head><body><svg xmlns=\\\"http://www.w3.org/2000/svg\\\" viewBox=\\\"0 0 320 200\\\" preserveAspectRatio=\\\"xMidYMid meet\\\" role=\\\"img\\\" aria-label=\\\"Model airplane with X, Y and Z axes\\\"><title>Model airplane in three-dimensional coordinates</title><text x=\\\"160\\\" y=\\\"20\\\" text-anchor=\\\"middle\\\" fill=\\\"#f8fafc\\\" font-size=\\\"14\\\">Model airplane \\u00b7 3D axes</text><g fill=\\\"none\\\" stroke-width=\\\"2.5\\\" stroke-linecap=\\\"round\\\"><path d=\\\"M160 106H282m-8-5 8 5-8 5\\\" stroke=\\\"#fb7185\\\"/><path d=\\\"M160 106V40m-5 8 5-8 5 8\\\" stroke=\\\"#67e8f9\\\"/><path d=\\\"m160 106-98 61m3-9-3 9 10 1\\\" stroke=\\\"#c4b5fd\\\"/></g><g data-part=\\\"airplane\\\" transform=\\\"translate(160 109) rotate(28)\\\" fill=\\\"#e2e8f0\\\" stroke=\\\"#94a3b8\\\" stroke-width=\\\"1.5\\\" stroke-linejoin=\\\"round\\\"><path d=\\\"M-5-12-46 17-46 24-4 9 4 9 46 24 46 17 5-12Z\\\"/><path d=\\\"M-4 25-21 40-21 45 0 38 21 45 21 40 4 25Z\\\"/><path d=\\\"M0-44Q7-39 7-25L5 35 0 45-5 35-7-25Q-7-39 0-44Z\\\" fill=\\\"#f8fafc\\\"/><path d=\\\"M-4-26Q0-31 4-26L4-16H-4Z\\\" fill=\\\"#38bdf8\\\" stroke=\\\"#0ea5e9\\\"/></g><g font-size=\\\"16\\\"><text x=\\\"288\\\" y=\\\"112\\\" fill=\\\"#fb7185\\\">X</text><text x=\\\"171\\\" y=\\\"46\\\" fill=\\\"#67e8f9\\\">Y</text><text x=\\\"43\\\" y=\\\"179\\\" fill=\\\"#c4b5fd\\\">Z</text></g></svg></body></html>\"}"
           }
         ]
       }
@@ -29,7 +28,7 @@
         "context": "agno"
       },
       "response": {
-        "content": "3D axis visualization rendered above in the sandboxed iframe — the X, Y, and Z axes are drawn on a dark canvas."
+        "content": "Model airplane rendered above with labeled X, Y and Z axes in the sandboxed iframe."
       }
     },
     {

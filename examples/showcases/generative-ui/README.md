@@ -229,7 +229,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 
 const agent = new BuiltInAgent({
-  model: "openai/gpt-4o",
+  model: "openai/gpt-5-mini",
   prompt: "You are a helpful assistant.",
 }).use(
   new MCPAppsMiddleware({

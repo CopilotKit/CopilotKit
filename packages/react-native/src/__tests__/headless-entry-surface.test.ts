@@ -108,12 +108,11 @@ const ALLOWED_REACT_CORE_ENTRIES = [
  * were that `useComponent` (which registers into core's registry) rendered
  * nowhere on RN, and that renderers vanished from chat history on unmount.
  *
- * Paired with the delegation test below, this is the replacement for the
- * `useRenderTool` identity assertion: identity cannot police a deprecated shim
- * that is RN's own binding by construction, but "RN owns no registry" and "the
- * shim delegates" together catch everything identity caught — a local hook
- * re-grown under the name has to either write to a registry itself (caught
- * here) or stop calling core's hooks (caught there).
+ * This sits alongside the two identity assertions below rather than behind
+ * them. Identity pins what `useFrontendTool` and `useRenderTool` ARE; this pins
+ * that nothing ELSE in the graph has grown a registry to compete with core's —
+ * a component, a provider, a helper module that never touches either hook's
+ * name and would therefore pass identity untouched.
  */
 const FORBIDDEN_REGISTRY_APIS: readonly (readonly [
   identifier: string,
@@ -635,11 +634,9 @@ describe("@copilotkit/react-native/headless entry", () => {
       // (src/hooks/__tests__/useRenderTool.test.tsx pins the behaviour; this pins
       // the wiring).
       //
-      // `useRenderTool` is currently a deprecated compatibility SHIM (removal
-      // scheduled for the next minor), so its binding is RN's own by
-      // construction and identity cannot be the instrument. The tests below
-      // carry that half instead, deliberately at equal strength: the shim must
-      // DELEGATE, and no module in this entry's graph may own a registry.
+      // PR #6533 converged both names onto react-core behind a temporary
+      // routing shim, during which this half of the assertion could not be
+      // identity; #6976 removed the shim and the test below is identity again.
       expect(
         mod.useFrontendTool,
         "`useFrontendTool` on the RN headless entry is NOT the binding from " +
@@ -649,27 +646,23 @@ describe("@copilotkit/react-native/headless entry", () => {
       ).toBe(coreHeadless.useFrontendTool);
     });
 
-    it("`useRenderTool` is core's hook, or a shim that DELEGATES to core's hooks", () => {
-      // The replacement for the `useRenderTool` half of the identity assertion
-      // above, at equal strength and with the same target: RN must never own a
-      // render-tool implementation, whatever the export is called.
+    it("exports react-core's `useRenderTool` ITSELF, not an RN copy of it", () => {
+      // The other half of the identity assertion above, and the one with the
+      // history. RN's local `useRenderTool` forwarded its whole body to core's
+      // `useFrontendTool`, so `name: "*"` registered a frontend tool literally
+      // named `*` — core's catch-all HANDLER name — and a display-only wildcard
+      // auto-answered every otherwise-unanswered tool call with an empty tool
+      // result and asked for a follow-up turn. Both names were present through
+      // that entire period, so every presence check above stayed green while
+      // verifying nothing about which hook a consumer gets.
       //
-      // Two admissible states, and the guard picks its instrument from the entry
-      // source rather than being told which world it is in:
-      //
-      //   • the END STATE (shim removed): `headless.ts` re-exports the name
-      //     straight from `@copilotkit/react-core/v2/headless`, and this asserts
-      //     RUNTIME IDENTITY — the original assertion, unweakened;
-      //   • the SHIM STATE (now): the name comes from a local module, which must
-      //     import BOTH core hooks from core's headless entry and CALL both. A
-      //     local reimplementation — a hook that registers by itself instead of
-      //     forwarding — fails here, and so does a shim that quietly stops
-      //     delegating (the calls are what is asserted, not the imports alone).
-      //
-      // What this cannot see is WHICH core hook a given config reaches; that is
-      // routing, and it is asserted against core's own observable state (getTool,
-      // core.tools, the advertised tool list on a real run) in
-      // src/hooks/__tests__/useRenderTool.test.tsx.
+      // Asserted TWICE, on purpose. Runtime identity is the claim; the source
+      // check is what keeps the failure legible, because a local module that
+      // re-exported core's binding unchanged today could grow a body tomorrow
+      // and the runtime assertion would only start failing then. Requiring the
+      // export to come straight from core's headless entry means an RN-local
+      // module cannot be introduced under this name at all — which is the state
+      // #6976 restored when it removed the compatibility shim.
       const source = fs.readFileSync(headlessEntry, "utf8");
       const from = reExportSpecifierOf(source, "useRenderTool");
       expect(
@@ -678,66 +671,19 @@ describe("@copilotkit/react-native/headless entry", () => {
           "this guard cannot tell what a consumer gets. If the export moved to " +
           "another form, teach `reExportSpecifierOf` about it.",
       ).not.toBeNull();
-
-      if (from === CORE_HEADLESS) {
-        expect(
-          mod.useRenderTool,
-          "`useRenderTool` on the RN headless entry is NOT the binding from " +
-            `${CORE_HEADLESS}, though src/headless.ts re-exports it from there.`,
-        ).toBe(coreHeadless.useRenderTool);
-        return;
-      }
+      expect(
+        from,
+        `src/headless.ts re-exports \`useRenderTool\` from "${from}". It must ` +
+          `come straight from ${CORE_HEADLESS}: an RN-local module under this ` +
+          `name is what shipped the \`*\`-named-tool bug, and the temporary ` +
+          `shim that replaced it was removed in #6976.`,
+      ).toBe(CORE_HEADLESS);
 
       expect(
-        from!.startsWith("."),
-        `src/headless.ts re-exports \`useRenderTool\` from "${from}", which is ` +
-          `neither ${CORE_HEADLESS} nor a local module. Only those two are ` +
-          `admissible: anything else is an implementation RN does not control.`,
-      ).toBe(true);
-
-      const shimFile = resolveLocal(headlessEntry, from!);
-      expect(
-        shimFile,
-        `cannot resolve the module "${from}" that src/headless.ts exports ` +
-          `\`useRenderTool\` from`,
-      ).not.toBeNull();
-      // Non-vacuity: the deny-list test below reasons about this file too, so a
-      // shim outside the walked graph would make both pass for the wrong reason.
-      expect(
-        rel(graphFor(headlessEntry).seen),
-        `the shim module "${from}" is not in the walked headless graph`,
-      ).toContain(path.relative(srcDir, shimFile!));
-
-      const shimSource = stripComments(fs.readFileSync(shimFile!, "utf8"));
-      const { specs } = extractSpecs(shimSource);
-      expect(
-        specs,
-        `${path.relative(srcDir, shimFile!)} does not import from ` +
-          `${CORE_HEADLESS}, so it cannot be delegating to core's hooks — it is ` +
-          `an RN-local implementation of \`useRenderTool\`.`,
-      ).toContain(CORE_HEADLESS);
-
-      // Both core hooks must be REACHED, not merely imported: the shim's whole
-      // job is to route a legacy tool-shaped call to `useFrontendTool` and
-      // everything else to core's `useRenderTool`. An import with no call site
-      // is a shim that has stopped delegating.
-      for (const hook of ["useRenderTool", "useFrontendTool"]) {
-        const imported = new RegExp(
-          `\\b${hook}\\b(?:\\s+as\\s+(\\w+))?[^;]*?from\\s*["'\`]${CORE_HEADLESS.replace(/[/.]/g, "\\$&")}["'\`]`,
-        ).exec(shimSource);
-        expect(
-          imported,
-          `${path.relative(srcDir, shimFile!)} does not import \`${hook}\` from ` +
-            `${CORE_HEADLESS}. The shim must delegate BOTH routes to core.`,
-        ).not.toBeNull();
-        const localName = imported?.[1] ?? hook;
-        expect(
-          new RegExp(`\\b${localName}\\s*\\(`).test(shimSource),
-          `${path.relative(srcDir, shimFile!)} imports \`${hook}\` (as ` +
-            `\`${localName}\`) from ${CORE_HEADLESS} but never calls it. A shim ` +
-            `that does not delegate registers nothing, or registers it itself.`,
-        ).toBe(true);
-      }
+        mod.useRenderTool,
+        "`useRenderTool` on the RN headless entry is NOT the binding from " +
+          `${CORE_HEADLESS}, though src/headless.ts re-exports it from there.`,
+      ).toBe(coreHeadless.useRenderTool);
     });
 
     it("no longer exports the removed registry hook or its provider", () => {

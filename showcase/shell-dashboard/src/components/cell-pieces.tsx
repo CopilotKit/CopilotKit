@@ -10,6 +10,7 @@ import type { BadgeRender } from "@/lib/live-status";
 import type { Feature, Integration } from "@/lib/registry";
 import { useLastTransition, deriveFromTo } from "@/hooks/useLastTransition";
 import { formatTs } from "@/lib/format-ts";
+import { GLYPHS } from "@/lib/glyphs";
 import {
   useWorkerRuns,
   isFamilySilent,
@@ -145,20 +146,23 @@ function DocsLink({
   // union would silently fall through to undefined glyph/tone.
   switch (state) {
     case "ok":
-      glyph = "✓";
+      glyph = GLYPHS.pass.mark;
       tone = "text-[var(--ok)]";
       break;
     case "missing":
-      glyph = "\u00B7"; // middle dot
+      glyph = GLYPHS.notShipped.mark;
       tone = "text-[var(--text-muted)]";
       break;
     case "notfound":
-      glyph = "✗";
+      glyph = GLYPHS.fail.mark;
       tone = "text-[var(--danger)]";
       break;
     case "error":
-      glyph = "!";
-      tone = "text-[var(--amber)]";
+      glyph = GLYPHS.fault.mark;
+      // A docs probe that ERRORED is a fault on our side, not a verdict about
+      // the docs — so it wears the fault colour, never amber (which means
+      // "judged and degraded").
+      tone = "text-indigo-500 dark:text-indigo-300";
       break;
     default: {
       const _exhaustive: never = state;
@@ -232,7 +236,7 @@ function LiveBadge({
   // the amber branch thinking it's dead — the degraded-row path depends on it.
   const eligible = badge.tone === "red" || badge.tone === "amber";
   // §7.3 clock glyph: a STALE-degraded badge whose worker family has no
-  // successful run within 2× the server-computed `periodMs` gains a `·⏱`
+  // successful run within 2× the server-computed `periodMs` gains a `·!`
   // suffix, distinguishing scheduler/worker silence from a fresh red.
   // Safe by construction without a provider: `useWorkerRuns()` never throws
   // and returns the no-data default (`null`) — see the T10 no-provider
@@ -264,7 +268,7 @@ function LiveBadge({
     isFamilySilent(silentFamily, Date.now(), bounceAtMs);
   // Minimal per §7.3: a label SUFFIX only — tone, tooltip machinery, and the
   // amber branch above stay intact.
-  const label = clockGlyph ? `${badge.label} ·⏱` : badge.label;
+  const label = clockGlyph ? `${badge.label} ·!` : badge.label;
   // B.4: the INITIAL status projection (`STATUS_LIST_FIELDS` in live-status.ts)
   // drops the heavy `signal` blob, so a row materialised from the bulk fetch
   // arrives with `signal === undefined` until a live SSE delta re-attaches it.

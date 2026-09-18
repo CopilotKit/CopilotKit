@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import type { APIResponse } from "@playwright/test";
 
 /**
  * Auth demo lifecycle. The demo defaults to UNAUTHENTICATED on first
@@ -150,4 +151,120 @@ test.describe("Authentication", () => {
       page.locator('[data-testid="copilot-assistant-message"]').first(),
     ).toBeVisible({ timeout: 30000 });
   });
+
+  for (const ordering of [
+    "before-reauth",
+    "after-reauth",
+    "after-reauth-and-signout",
+  ] as const) {
+    test(`a real delayed rejection belongs to its original auth session: ${ordering}`, async ({
+      page,
+    }) => {
+      const handshake = page.waitForResponse(
+        (response) =>
+          response.url().endsWith("/api/copilotkit-auth/info") &&
+          response.status() === 200,
+      );
+      await page.getByTestId("auth-sign-in-button").click();
+      await handshake;
+      const input = page.getByPlaceholder("Type a message");
+      const runResponse = () =>
+        page.waitForResponse(
+          (response) =>
+            response
+              .url()
+              .endsWith("/api/copilotkit-auth/agent/auth-demo/run") &&
+            response.request().method() === "POST",
+        );
+      const firstResponse = runResponse();
+      await input.fill("Say hello in one short sentence");
+      await input.press("Enter");
+      const first = await firstResponse;
+      expect(first.status()).toBe(200);
+      await first.body();
+      const assistants = page.getByTestId("copilot-assistant-message");
+      await expect(assistants).toHaveCount(1);
+      const initialText = await assistants.first().innerText();
+      await page.getByTestId("auth-sign-out-button").click();
+      await expect(page.getByTestId("auth-banner")).toHaveAttribute(
+        "data-authenticated",
+        "false",
+      );
+
+      let held:
+        | { response: APIResponse; authorization: string | undefined }
+        | undefined;
+      const { promise: responseGate, resolve: releaseResponse } =
+        Promise.withResolvers<void>();
+      const pattern = "**/api/copilotkit-auth/agent/auth-demo/run";
+      await page.route(pattern, async (route) => {
+        const authorization = (await route.request().allHeaders())
+          .authorization;
+        if (held || authorization) {
+          await route.continue();
+          return;
+        }
+        const response = await route.fetch();
+        held = { response, authorization };
+        await responseGate;
+        await route.fulfill({ response });
+      });
+      try {
+        const rejectionResponse = runResponse();
+        await input.fill("Tell me a one-line joke");
+        await input.press("Enter");
+        await expect.poll(() => held !== undefined).toBe(true);
+        if (!held)
+          throw new Error("The real runtime response was not captured");
+        expect(held.authorization).toBeUndefined();
+        expect(held.response.status()).toBe(401);
+        const originalBytes = await held.response.body();
+        const error = page.getByTestId("auth-demo-error");
+        if (ordering === "before-reauth") {
+          releaseResponse();
+          await rejectionResponse;
+          await expect(error).toBeVisible();
+          await expect(error).toContainText("HTTP 401");
+        }
+        await page.getByTestId("auth-authenticate-button").click();
+        await expect(page.getByTestId("auth-banner")).toHaveAttribute(
+          "data-authenticated",
+          "true",
+        );
+        await expect(error).toHaveCount(0);
+        if (ordering === "after-reauth-and-signout") {
+          await page.getByTestId("auth-sign-out-button").click();
+          await expect(page.getByTestId("auth-banner")).toHaveAttribute(
+            "data-authenticated",
+            "false",
+          );
+        }
+        releaseResponse();
+        const rejection = await rejectionResponse;
+        expect(rejection.status()).toBe(401);
+        expect(await rejection.body()).toEqual(originalBytes);
+        // The empty composer stops offering cancellation when the run settles.
+        await expect(page.getByTestId("copilot-send-button")).toBeDisabled();
+        await expect(error).toHaveCount(0);
+        await expect(assistants).toHaveCount(1);
+        await expect(assistants.first()).toHaveText(initialText);
+        if (ordering === "after-reauth-and-signout") {
+          await page.getByTestId("auth-authenticate-button").click();
+        }
+        const resumedResponse = runResponse();
+        await input.fill("Give me a fun fact");
+        await input.press("Enter");
+        const resumed = await resumedResponse;
+        expect(resumed.status()).toBe(200);
+        const wire = await resumed.text();
+        expect(wire).toContain('"type":"RUN_FINISHED"');
+        await expect(assistants).toHaveCount(2);
+        await expect(assistants.first()).toHaveText(initialText);
+        await expect(error).toHaveCount(0);
+      } finally {
+        releaseResponse();
+        await page.unroute(pattern);
+      }
+    });
+  }
 });

@@ -52,6 +52,7 @@ import {
 import type { NavNode } from "./docs-render";
 import { getDocsFolder, getDocsMode, getIntegrations } from "./registry";
 import { isRouteGroupSegment } from "./route-groups";
+import { FRONTEND_PAGE_IDS } from "./frontend-page-content";
 
 /**
  * One sidebar the docs app can actually render. `integrationFolder` is set
@@ -107,8 +108,19 @@ const NON_DOCS_ROOT_SEGMENTS = new Set([
   "_next",
 ]);
 
-/** Frontend surfaces are routed at `/<frontend>/<topic>`, like frameworks. */
-const FRONTEND_SEGMENTS = ["vue", "react-native", "angular", "slack", "teams"];
+/**
+ * Frontend surfaces are routed at `/<frontend>/<topic>`, like frameworks.
+ *
+ * Derived from the registry rather than listed, because the list had already
+ * drifted: it omitted `react-spa`. `react` is excluded because it is the
+ * unprefixed default surface.
+ *
+ * Regenerating the index over this change moves nothing — 772 entries before
+ * and after, no slug added or removed — because the frontend landing pages
+ * reach the index through the builder rather than through rule (b). The fix
+ * is to stop the drift, not to recover a missing page.
+ */
+const FRONTEND_SEGMENTS: string[] = FRONTEND_PAGE_IDS;
 
 /**
  * Sidebar titles that identify nothing once the surrounding group is gone.

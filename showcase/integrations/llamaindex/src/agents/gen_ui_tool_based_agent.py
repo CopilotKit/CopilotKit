@@ -35,7 +35,7 @@ if os.environ.get("OPENAI_BASE_URL"):
     _openai_kwargs["api_base"] = os.environ["OPENAI_BASE_URL"]
 
 gen_ui_tool_based_router = get_ag_ui_workflow_router(
-    llm=OpenAI(model="gpt-4o-mini", **_openai_kwargs),
+    llm=OpenAI(model="gpt-5-mini", **_openai_kwargs),
     frontend_tools=[],
     backend_tools=[],
     system_prompt=SYSTEM_PROMPT,

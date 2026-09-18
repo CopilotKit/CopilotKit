@@ -595,3 +595,11 @@ demos:
       - src/agent/interrupt-agent.ts
       - src/app/demos/interrupt-headless/page.tsx
       - src/app/api/copilotkit/route.ts
+
+# Starter VALIDATION ladder (dashboard). NOT the `starter:` key.
+# A starter exists in-repo, but in the starter-smoke matrix; no Railway service provisioned,
+# so no `starter:<col>/<rung>` row can ever land. `service:` is therefore
+# omitted and the cell renders the gray no-data state, never a capability
+# claim that this framework has no starter.
+starter_validation:
+  path: examples/integrations/strands-typescript

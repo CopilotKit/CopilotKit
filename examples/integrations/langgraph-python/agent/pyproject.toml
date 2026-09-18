@@ -14,7 +14,21 @@ dependencies = [
   "langgraph-cli[inmem]==0.4.21",
   "langchain-openai==1.1.9",
   "copilotkit==0.1.96",
-  "ag-ui-protocol==0.1.19",
+  # Pinned explicitly even though copilotkit pulls it in transitively: without
+  # this the lock floats and re-resolved to 0.0.43, whose clone() — called by
+  # the fastapi endpoint on EVERY request — forwards
+  # enable_legacy_on_interrupt_event and two sibling flags unconditionally,
+  # while the published copilotkit 0.1.96's LangGraphAGUIAgent.__init__ accepts
+  # only (name, graph, description, config), so every run 500s. Measured
+  # against copilotkit 0.1.96: 0.0.42 OK, 0.0.43 FAILS, 0.0.44 OK, 0.0.45 OK.
+  # Must stay in step with this starter's Dockerfile pin.
+  "ag-ui-langgraph[fastapi]==0.0.44",
+  # 0.1.22, NOT 0.1.19: ag-ui-langgraph 0.0.44 requires ag-ui-protocol>=0.1.21,
+  # so 0.1.19 makes the pin above unsatisfiable. 0.1.22 is also what this
+  # starter's Dockerfile already installs — it pins ag-ui-langgraph and lets
+  # ag-ui-protocol resolve transitively — so this closes a second image/local
+  # drift rather than opening one.
+  "ag-ui-protocol==0.1.22",
   "langgraph-api==0.7.101",
   "pip>=26.0.1",
   "langchain-anthropic==1.4.1",

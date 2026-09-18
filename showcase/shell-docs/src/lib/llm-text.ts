@@ -35,6 +35,7 @@
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
+import { frameworkOverviews } from "@/data/frameworks";
 import { INTELLIGENCE_ONBOARDING_PROMPT } from "./intelligence-onboarding-prompt";
 import {
   isV1ReferenceUrl,
@@ -73,6 +74,7 @@ import { resolveDocsHref } from "./docs-link-rewrite";
 import { resolveBundledSetupConcept } from "./setup-content";
 import type { SetupContentBundle } from "./setup-content";
 import { RICH_THREADS_SETUP_PROMPT } from "./rich-threads-setup-prompt";
+import { MEMORY_SETUP_PROMPT } from "./memory-setup-prompt";
 import { LEARNING_SETUP_PROMPT } from "./learning-setup-prompt";
 
 interface Region {
@@ -910,14 +912,51 @@ export function renderPageToLlmText(
 
   let body = stripFrontmatter(raw);
 
-  // Interactive prompt buttons cannot run in raw Markdown or LLM feeds.
-  body = expandRichThreadsSetupPrompts(body);
-  body = expandLearningSetupPrompts(body);
+  // Generated HTML intros mount authored after-features sections separately
+  // from their index/quickstart source. Include that same content in the
+  // overview's Markdown and full corpus, but never in ordinary guide pages.
+  const overviewUrl = frontend ? `${frontend}/${framework}` : framework;
+  if (
+    framework &&
+    (!frontend || frontend === "angular") &&
+    page.url === overviewUrl &&
+    getDocsMode(framework) === "generated" &&
+    frameworkOverviews[framework]?.hasAfterFeaturesMdx
+  ) {
+    const overviewSection = path.join(
+      CONTENT_DIR,
+      "../framework-overviews",
+      framework,
+      "after-features.mdx",
+    );
+    if (fs.existsSync(overviewSection)) {
+      body += `\n\n${fs.readFileSync(overviewSection, "utf8")}`;
+    } else {
+      // Match HTML's fallback for variants whose shared overview record
+      // enables a slot without providing variant-specific authored content.
+      console.error(
+        `[llm-text] missing framework overview section: ${overviewSection}`,
+      );
+    }
+  }
 
   // 1) Inline `<Component />` shared snippets (`<AGUI />`, etc.). Uses
   //    the SNIPPET_MAP / SUBPATH_TO_COMPONENT logic — same as the page
   //    renderer uses for the live HTML view.
   body = inlineSnippets(body, page.loadSlug);
+
+  // Expand interactive prompts after inlining so prompts inside shared
+  // snippets are also available in raw Markdown and LLM feeds.
+  body = body.replace(
+    /<PageAgentPrompt\s*\/>/g,
+    "Ask your coding agent to follow the setup steps on this page for your selected framework and frontend.",
+  );
+  body = expandRichThreadsSetupPrompts(body);
+  body = expandLearningSetupPrompts(body);
+  body = body.replace(
+    /<MemorySetupPrompt\s*\/>/g,
+    `### Copy this prompt into your coding agent\n\n${fenceFor("text", MEMORY_SETUP_PROMPT)}`,
+  );
 
   // Imported snippets can contain frontend-scoped branches of their own.
   // Filter after inlining so raw Markdown output follows the same frontend

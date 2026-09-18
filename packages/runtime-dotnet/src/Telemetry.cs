@@ -40,11 +40,11 @@ public sealed class HttpTelemetryExporter : IRuntimeTelemetryExporter
             Content = JsonContent.Create(new
             {
                 @event = value.Event, ts = value.Timestamp.ToUnixTimeSeconds(),
-                package = new { name = "CopilotKit.Intelligence.Runtime", version = "0.1.0" },
+                package = new { name = "CopilotKit.Intelligence.Runtime", version = "0.1.0-rc.1" },
                 global_properties = value.GlobalProperties, properties = value.Attributes
             })
         };
-        request.Headers.UserAgent.ParseAdd("CopilotKit-Runtime/0.1.0 (CopilotKit.Intelligence.Runtime)");
+        request.Headers.UserAgent.ParseAdd("CopilotKit-Runtime/0.1.0-rc.1 (CopilotKit.Intelligence.Runtime)");
         if (value.Identity is not null) request.Headers.Add("X-CopilotKit-Telemetry-Id", value.Identity);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(3));
@@ -108,8 +108,8 @@ internal sealed record TelemetrySettings(bool Disabled, double SampleRate, strin
 
 internal sealed class RuntimeTelemetry : IAsyncDisposable
 {
-    public static readonly ActivitySource ActivitySource = new("CopilotKit.Intelligence.Runtime", "0.1.0");
-    private readonly Meter meter = new("CopilotKit.Intelligence.Runtime", "0.1.0");
+    public static readonly ActivitySource ActivitySource = new("CopilotKit.Intelligence.Runtime", "0.1.0-rc.1");
+    private readonly Meter meter = new("CopilotKit.Intelligence.Runtime", "0.1.0-rc.1");
     private readonly Counter<long> events;
     private readonly Histogram<double> durations;
     private readonly Counter<long> dropped;
@@ -149,7 +149,7 @@ internal sealed class RuntimeTelemetry : IAsyncDisposable
         var globals = new ReadOnlyDictionary<string, object?>(new Dictionary<string, object?>
         {
             ["sampleRate"] = settings.SampleRate, ["sampleRateAdjustmentFactor"] = 1 - settings.SampleRate, ["sampleWeight"] = 1 / settings.SampleRate,
-            ["telemetry_identified"] = settings.Identified, ["telemetry_emitter"] = "native", ["telemetry_transport"] = "lambda"
+            ["telemetry_identified"] = settings.Identified, ["telemetry_emitter"] = "runtime-dotnet", ["telemetry_surface"] = "v2", ["telemetry_transport"] = "lambda"
         });
         var value = new RuntimeTelemetryEvent(name, DateTimeOffset.UtcNow, new ReadOnlyDictionary<string, object?>(attributes)) { GlobalProperties = globals, Identity = settings.Identity };
         if (!queue.Writer.TryWrite(value)) dropped.Add(1);
