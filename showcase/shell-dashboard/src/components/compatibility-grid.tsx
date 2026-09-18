@@ -51,17 +51,19 @@ const sections: {
   },
 ];
 
+function scoreColor(value: number) {
+  return value === 100
+    ? "var(--ok)"
+    : value >= 60
+      ? "var(--amber)"
+      : "var(--danger)";
+}
+
 function Score({ value }: { value: number }) {
-  const color =
-    value === 100
-      ? "var(--ok)"
-      : value >= 60
-        ? "var(--amber)"
-        : "var(--danger)";
   return (
     <span
       className="inline-flex items-baseline gap-1.5 tabular-nums"
-      style={{ color }}
+      style={{ color: scoreColor(value) }}
     >
       <span className="text-2xl font-semibold tracking-tight">{value}</span>
       <span className="text-[10px] text-[var(--text-muted)]">/ 100</span>
@@ -93,7 +95,10 @@ function SdkScoreValue({ sdk }: { sdk: SdkAssessment }) {
     return <EmptyValue>Not verified</EmptyValue>;
   return (
     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 leading-tight">
-      <span className="font-semibold tabular-nums">
+      <span
+        className="font-semibold tabular-nums"
+        style={{ color: scoreColor(sdk.compatibilityScore) }}
+      >
         {sdk.compatibilityScore}
       </span>
       {sdk.setsVariantScore && (
