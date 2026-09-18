@@ -194,6 +194,50 @@ describe("convertMessagesToVercelAISDKMessages", () => {
     });
   });
 
+  it("should omit unanswered calls from replayed assistant history", () => {
+    const messages: Message[] = [
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: null,
+        toolCalls: [
+          {
+            id: "pending",
+            type: "function",
+            function: { name: "pending", arguments: "{}" },
+          },
+          {
+            id: "complete",
+            type: "function",
+            function: { name: "complete", arguments: "{}" },
+          },
+        ],
+      },
+      {
+        id: "tool-1",
+        role: "tool",
+        toolCallId: "complete",
+        content: "ok",
+      },
+      { id: "user-1", role: "user", content: "Continue" },
+    ];
+
+    const result = convertMessagesToVercelAISDKMessages(messages);
+
+    expect(result[0]).toEqual({
+      role: "assistant",
+      content: [
+        {
+          type: "tool-call",
+          toolCallId: "complete",
+          toolName: "complete",
+          input: {},
+        },
+      ],
+    });
+    expect(result).toHaveLength(3);
+  });
+
   it("should handle multiple messages", () => {
     const messages: Message[] = [
       { id: "1", role: "user", content: "Hi" },
