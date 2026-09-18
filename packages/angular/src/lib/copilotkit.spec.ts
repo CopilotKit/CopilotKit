@@ -273,7 +273,7 @@ describe("CopilotKit", () => {
 
     expect(copilotKit.humanInTheLoopToolRenderConfigs()).toEqual([toolConfig]);
     expect(mockAddTool).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "approval" }),
+      expect.objectContaining({ name: "approval", type: "human-in-the-loop" }),
     );
 
     const tool = mockAddTool.mock.calls.at(-1)![0];
