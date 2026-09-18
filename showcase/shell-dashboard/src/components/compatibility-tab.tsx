@@ -22,6 +22,9 @@ export function CompatibilityTab() {
   const [filter, setFilter] = useState<CompatibilityFilter>("all");
   const [expanded, setExpanded] = useState(new Set<string>());
   const visible = filterCompatibilityPlatforms(platforms, query, filter);
+  const expandablePlatforms = visible.filter((platform) =>
+    platform.variants.some((variant) => variant.assessment.packages.length > 0),
+  );
   const variants = platforms.flatMap((platform) => platform.variants);
   const scored = variants.filter(
     (variant) => variant.assessment.currentScore !== null,
@@ -74,8 +77,9 @@ export function CompatibilityTab() {
         </div>
         <h1 className="text-xl font-semibold tracking-tight">Compatibility</h1>
         <p className="mt-1 max-w-3xl text-xs leading-relaxed text-[var(--text-secondary)]">
-          Current SDK compatibility for Showcase integrations. Expand a platform
-          to compare running, latest, and grace target package versions.
+          Current library compatibility for Showcase integrations. Expand a
+          platform to compare running, latest, and grace target library
+          versions.
         </p>
         <div className="mt-4 flex flex-wrap gap-x-8 gap-y-2 text-xs">
           <div>
@@ -93,7 +97,7 @@ export function CompatibilityTab() {
           <div>
             <span className="font-semibold tabular-nums">{packageCount}</span>{" "}
             <span className="text-[var(--text-secondary)]">
-              SDK package entries
+              library entries
             </span>
           </div>
           <div>
@@ -119,8 +123,8 @@ export function CompatibilityTab() {
       <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3 sm:px-8">
         <input
           type="search"
-          aria-label="Find a platform or SDK"
-          placeholder="Find a platform or SDK…"
+          aria-label="Find a platform or library"
+          placeholder="Find a platform or library…"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           className="min-w-0 basis-full flex-1 rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-xs outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] sm:basis-auto sm:max-w-[260px]"
@@ -144,15 +148,19 @@ export function CompatibilityTab() {
         <div className="flex gap-2 sm:ml-auto">
           <button
             type="button"
-            className={buttonStyle}
+            className={`${buttonStyle} disabled:cursor-default disabled:opacity-50`}
+            disabled={expandablePlatforms.length === 0}
             onClick={() =>
               setExpanded(
                 (prev) =>
-                  new Set([...prev, ...visible.map((platform) => platform.id)]),
+                  new Set([
+                    ...prev,
+                    ...expandablePlatforms.map((platform) => platform.id),
+                  ]),
               )
             }
           >
-            Expand SDKs
+            Expand libraries
           </button>
           <button
             type="button"
@@ -180,7 +188,7 @@ export function CompatibilityTab() {
           <div className="px-8 py-16 text-center">
             <h2 className="text-sm font-semibold">No matching platforms</h2>
             <p className="my-2 text-xs text-[var(--text-secondary)]">
-              Try another platform, SDK package, or filter.
+              Try another platform, library, or filter.
             </p>
             <button
               type="button"
@@ -208,13 +216,13 @@ export function CompatibilityTab() {
             Current line: 100. One / two / three minor lines behind: 90 / 80 /
             70. Four or more minors behind: 60. One major behind: 20. Two or
             more majors behind: 5. For stable 0.x releases, minor changes count
-            as major changes. Preview-only packages follow their configured
+            as major changes. Preview-only libraries follow their configured
             release trains.
           </p>
           <p>
-            Each variant takes the lowest score among its required SDK packages.
+            Each variant takes the lowest score among its required libraries.
             Python, TypeScript, .NET, and other variants keep separate scores.
-            Rows without a comparable running SDK version are not scored.
+            Rows without a comparable running library version are not scored.
           </p>
           <p>
             Latest and grace target values are release inventory context. They

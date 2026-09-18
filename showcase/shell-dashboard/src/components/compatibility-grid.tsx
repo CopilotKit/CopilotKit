@@ -20,17 +20,17 @@ const sections: {
       {
         id: "score",
         label: "Compatibility",
-        hint: "Current score when comparable SDK package versions are available.",
+        hint: "Current score when comparable library versions are available.",
       },
     ],
   },
   {
-    name: "SDK versions",
+    name: "Library versions",
     rows: [
       {
         id: "runningVersion",
         label: "Running version",
-        hint: "SDK or package version used for this snapshot when available.",
+        hint: "Library version used for this snapshot when available.",
       },
       {
         id: "graceTarget",
@@ -45,7 +45,7 @@ const sections: {
       {
         id: "source",
         label: "Registry",
-        hint: "Current registry fact source for package versions.",
+        hint: "Current registry fact source for library versions.",
       },
     ],
   },
@@ -59,14 +59,18 @@ function scoreColor(value: number) {
       : "var(--danger)";
 }
 
-function Score({ value }: { value: number }) {
+function ScoreSquare({ value }: { value: number }) {
   return (
     <span
-      className="inline-flex items-baseline gap-1.5 tabular-nums"
-      style={{ color: scoreColor(value) }}
+      role="img"
+      aria-label={`${value} out of 100`}
+      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-sm border border-transparent text-[10px] font-semibold leading-none tabular-nums"
+      style={{
+        backgroundColor: scoreColor(value),
+        color: value >= 60 ? "#000000" : "var(--bg)",
+      }}
     >
-      <span className="text-2xl font-semibold tracking-tight">{value}</span>
-      <span className="text-[10px] text-[var(--text-muted)]">/ 100</span>
+      {value}
     </span>
   );
 }
@@ -90,17 +94,11 @@ function VersionValue({
 }
 
 function SdkScoreValue({ sdk }: { sdk: SdkAssessment }) {
-  if (!sdk.drivesCompatibility) return <EmptyValue>Not included</EmptyValue>;
   if (sdk.compatibilityScore === null)
     return <EmptyValue>Not verified</EmptyValue>;
   return (
-    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 leading-tight">
-      <span
-        className="font-semibold tabular-nums"
-        style={{ color: scoreColor(sdk.compatibilityScore) }}
-      >
-        {sdk.compatibilityScore}
-      </span>
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 leading-tight">
+      <ScoreSquare value={sdk.compatibilityScore} />
       {sdk.setsVariantScore && (
         <span className="text-[10px] font-medium text-[var(--text-muted)]">
           Sets score
@@ -120,13 +118,15 @@ function MetricValue({
   sdk?: SdkAssessment;
 }) {
   const assessment = variant.assessment;
+  if (metric !== "score" && !sdk && assessment.packages.length === 0)
+    return <EmptyValue>Not applicable</EmptyValue>;
   switch (metric) {
     case "score":
       if (sdk) return <SdkScoreValue sdk={sdk} />;
       return assessment.currentScore === null ? (
         <EmptyValue>{assessment.label}</EmptyValue>
       ) : (
-        <Score value={assessment.currentScore} />
+        <ScoreSquare value={assessment.currentScore} />
       );
     case "runningVersion": {
       const pkg =
@@ -136,7 +136,7 @@ function MetricValue({
         <VersionValue value={pkg.runningVersion} emptyLabel="Not verified" />
       ) : (
         <span className="text-[var(--text-secondary)]">
-          {assessment.packages.length} versions · expand SDKs
+          {assessment.packages.length} versions · expand libs
         </span>
       );
     }
@@ -149,7 +149,7 @@ function MetricValue({
         <VersionValue value={pkg[metric]} emptyLabel="Not available" />
       ) : (
         <span className="text-[var(--text-secondary)]">
-          {assessment.packages.length} versions · expand SDKs
+          {assessment.packages.length} versions · expand libs
         </span>
       );
     }
@@ -157,7 +157,7 @@ function MetricValue({
       const pkg =
         sdk ??
         (assessment.packages.length === 1 ? assessment.packages[0] : undefined);
-      if (!pkg) return <EmptyValue>Expand SDKs</EmptyValue>;
+      if (!pkg) return <EmptyValue>Expand libraries</EmptyValue>;
       if (!pkg.sourceUrl) return <EmptyValue>Not available</EmptyValue>;
       return (
         <a
@@ -191,8 +191,11 @@ export function CompatibilityGrid({
 }) {
   const [collapsedSections, setCollapsedSections] = useState(new Set<string>());
   const groups = platforms.map((platform) => {
+    const canExpand = platform.variants.some(
+      (variant) => variant.assessment.packages.length > 0,
+    );
     const columns: Column[] = [{ key: platform.id, platform }];
-    if (expanded.has(platform.id)) {
+    if (canExpand && expanded.has(platform.id)) {
       for (const variant of platform.variants) {
         for (const sdk of variant.assessment.packages) {
           columns.push({
@@ -204,7 +207,7 @@ export function CompatibilityGrid({
         }
       }
     }
-    return { platform, columns };
+    return { platform, columns, canExpand };
   });
   const columns = groups.flatMap((group) => group.columns);
 
@@ -214,8 +217,8 @@ export function CompatibilityGrid({
       style={{ width: 210 + columns.length * 240, tableLayout: "fixed" }}
     >
       <caption className="sr-only">
-        Framework SDK compatibility — {COMPATIBILITY_SNAPSHOT.date} snapshot.
-        Platforms expand horizontally into SDK package columns.
+        Framework library compatibility — {COMPATIBILITY_SNAPSHOT.date}{" "}
+        snapshot. Platforms expand horizontally into library columns.
       </caption>
       <colgroup>
         <col style={{ width: 210 }} />
@@ -231,25 +234,31 @@ export function CompatibilityGrid({
           >
             Platform
           </th>
-          {groups.map(({ platform, columns: groupColumns }) => (
+          {groups.map(({ platform, columns: groupColumns, canExpand }) => (
             <th
               key={platform.id}
               scope="colgroup"
               colSpan={groupColumns.length}
               className="border-b border-r border-[var(--border-strong)] bg-[var(--bg-muted)] p-0 align-top"
             >
-              <button
-                type="button"
-                aria-label={`${expanded.has(platform.id) ? "Collapse" : "Expand"} ${platform.name} SDKs`}
-                aria-expanded={expanded.has(platform.id)}
-                onClick={() => onToggle(platform.id)}
-                className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-4 text-left hover:bg-[var(--bg-hover)] focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[var(--accent)]"
-              >
-                <span className="text-xs font-semibold">{platform.name}</span>
-                <span className="shrink-0 text-[10px] font-medium text-[var(--accent)]">
-                  {expanded.has(platform.id) ? "- Hide SDKs" : "+ SDKs"}
-                </span>
-              </button>
+              {canExpand ? (
+                <button
+                  type="button"
+                  aria-label={`${expanded.has(platform.id) ? "Collapse" : "Expand"} ${platform.name} libraries`}
+                  aria-expanded={expanded.has(platform.id)}
+                  onClick={() => onToggle(platform.id)}
+                  className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-4 text-left hover:bg-[var(--bg-hover)] focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[var(--accent)]"
+                >
+                  <span className="text-xs font-semibold">{platform.name}</span>
+                  <span className="shrink-0 text-[10px] font-medium text-[var(--accent)]">
+                    {expanded.has(platform.id) ? "- Hide Libs" : "+ Libs"}
+                  </span>
+                </button>
+              ) : (
+                <div className="px-4 py-4 text-xs font-semibold">
+                  {platform.name}
+                </div>
+              )}
             </th>
           ))}
         </tr>
@@ -258,7 +267,7 @@ export function CompatibilityGrid({
             scope="col"
             className="sticky left-0 z-30 border-b border-r border-[var(--border)] bg-[var(--bg-surface)] px-5 py-3 text-[10px] font-medium uppercase tracking-wider text-[var(--text-secondary)]"
           >
-            SDK
+            Libraries
           </th>
           {columns.map((column) => (
             <th

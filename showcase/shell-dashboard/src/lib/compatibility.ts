@@ -102,7 +102,9 @@ function toAssessment(row: CompatibilitySnapshotRow): CompatibilityAssessment {
     currentScore: row.currentScore,
     status: row.status,
     label: statusLabels[row.status],
-    packages: row.packages.map((pkg) => ({ ...pkg })),
+    packages: row.packages
+      .filter((pkg) => pkg.drivesCompatibility)
+      .map((pkg) => ({ ...pkg })),
   };
 }
 
