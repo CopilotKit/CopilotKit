@@ -78,8 +78,8 @@ export function CompatibilityTab() {
         <h1 className="text-xl font-semibold tracking-tight">Compatibility</h1>
         <p className="mt-1 max-w-3xl text-xs leading-relaxed text-[var(--text-secondary)]">
           Current library compatibility for Showcase integrations. Expand a
-          platform to compare running, latest, and grace target library
-          versions.
+          platform to compare running library versions with the latest releases
+          saved in this snapshot.
         </p>
         <div className="mt-4 flex flex-wrap gap-x-8 gap-y-2 text-xs">
           <div>
@@ -204,40 +204,87 @@ export function CompatibilityTab() {
         )}
       </div>
 
-      <details className="shrink-0 border-t border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3 text-xs sm:px-8">
-        <summary className="cursor-pointer text-[var(--text-secondary)]">
-          How compatibility is scored{" "}
-          <span className="ml-2 text-[10px] text-[var(--text-muted)]">
-            30-day grace · patch releases carry no penalty
-          </span>
-        </summary>
-        <div className="mt-3 max-h-40 space-y-2 overflow-auto text-[11px] leading-relaxed text-[var(--text-secondary)]">
-          <p>
-            Current line: 100. One / two / three minor lines behind: 90 / 80 /
-            70. Four or more minors behind: 60. One major behind: 20. Two or
-            more majors behind: 5. For stable 0.x releases, minor changes count
-            as major changes. Preview-only libraries follow their configured
-            release trains.
+      <div className="shrink-0 border-t border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3 text-xs sm:px-8">
+        <div role="group" aria-label="Compatibility score legend">
+          <ul className="flex flex-wrap gap-x-6 gap-y-2 text-[11px] text-[var(--text-secondary)]">
+            {[
+              {
+                range: "90–100",
+                label: "Current or nearly current",
+                color: "var(--ok)",
+              },
+              {
+                range: "60–89",
+                label: "Updates needed",
+                color: "var(--amber)",
+              },
+              {
+                range: "0–59",
+                label: "Large version gap",
+                color: "var(--danger)",
+              },
+            ].map(({ range, label, color }) => (
+              <li key={range} className="inline-flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="h-3 w-3 shrink-0 rounded-sm"
+                  style={{ backgroundColor: color }}
+                />
+                <span className="font-semibold tabular-nums">{range}</span>
+                <span>{label}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[11px] leading-relaxed text-[var(--text-secondary)]">
+            100 means latest in this snapshot; 1–5 patch versions behind score
+            99–95. Each framework’s score is the lowest score among its required
+            libraries.
           </p>
-          <p>
-            Each variant takes the lowest score among its required libraries.
-            Python, TypeScript, .NET, and other variants keep separate scores.
-            Rows without a comparable running library version are not scored.
-          </p>
-          <p>
-            Latest and grace target values are release inventory context. They
-            do not replace an unknown running version.
-          </p>
-          <a
-            href={COMPATIBILITY_SNAPSHOT.methodology}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-block text-[var(--accent)] hover:underline"
-          >
-            Read the historical scoring rubric ↗
-          </a>
         </div>
-      </details>
+        <details className="mt-2">
+          <summary className="cursor-pointer text-[var(--text-secondary)]">
+            How compatibility is scored
+          </summary>
+          <div className="mt-3 max-h-40 space-y-2 overflow-auto text-[11px] leading-relaxed text-[var(--text-secondary)]">
+            <p>
+              Exact latest: 100. Within the same major and minor version, one
+              through five patch increments behind score 99 through 95; six or
+              more score 89. Patch gaps use the numeric version difference, not
+              the number of published releases. Green: 90–100. Amber: 60–89.
+              Red: below 60.
+            </p>
+            <p>
+              One / two / three minor versions behind: 89 / 80 / 70. Four or
+              more minors behind: 60. One major behind: 20. Two or more majors
+              behind: 5. For stable 0.x releases, minor changes count as major
+              changes.
+            </p>
+            <p>
+              Preview-only libraries count distinct eligible release trains in
+              the saved inventory, including separate dates in the same month,
+              using the minor-version scale. Different major versions use the
+              major-version scale; revisions within one train use the patch
+              scale. Against a stable latest release, a supported preview is
+              compared by its numeric base only when that base is no newer than
+              latest. Displayed preview versions stay unchanged.
+            </p>
+            <p>
+              Each variant takes the lowest score among its required libraries.
+              Every library tied for that minimum is marked as setting the
+              score. Python, TypeScript, .NET, and other variants keep separate
+              scores. A variant is not scored if any required library cannot be
+              scored.
+            </p>
+            <p>
+              Latest means the release saved at this snapshot’s assessment time,
+              not a live registry lookup. Missing, range, unsupported, and newer
+              than latest versions are not scored. Preview-only libraries also
+              require saved train evidence. Latest never replaces an unknown
+              running version.
+            </p>
+          </div>
+        </details>
+      </div>
     </section>
   );
 }

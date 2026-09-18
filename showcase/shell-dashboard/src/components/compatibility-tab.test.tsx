@@ -6,6 +6,8 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { scoreCompatibilityVersion } from "@/lib/compatibility-score";
+import { CompatibilityGrid } from "./compatibility-grid";
 import { CompatibilityTab } from "./compatibility-tab";
 
 afterEach(cleanup);
@@ -30,6 +32,80 @@ function getMetricCell(metric: string, column: string) {
   return row.cells[header.cellIndex];
 }
 
+function renderGridScore(score: number | null) {
+  render(
+    <CompatibilityGrid
+      platforms={[
+        {
+          id: "boundary",
+          name: "Boundary",
+          variants: [
+            {
+              slug: "boundary",
+              name: "Boundary",
+              label: "TypeScript",
+              assessment: {
+                currentScore: score,
+                status: "source_declared_prototype_scored",
+                label: "Scored",
+                packages: [],
+              },
+            },
+          ],
+        },
+      ]}
+      expanded={new Set()}
+      onToggle={() => {}}
+    />,
+  );
+}
+
+describe("Compatibility score colors", () => {
+  it.each([
+    { score: 90, color: "var(--ok)" },
+    { score: 89, color: "var(--amber)" },
+    { score: 60, color: "var(--amber)" },
+    { score: 59, color: "var(--danger)" },
+  ])("renders $score with $color", ({ score, color }) => {
+    renderGridScore(score);
+    expect(
+      screen.getByRole("img", { name: `${score} out of 100` }),
+    ).toHaveStyle({
+      backgroundColor: color,
+    });
+  });
+
+  it.each([
+    {
+      patchesBehind: 5,
+      runningVersion: "1.2.5",
+      score: 95,
+      color: "var(--ok)",
+    },
+    {
+      patchesBehind: 6,
+      runningVersion: "1.2.4",
+      score: 89,
+      color: "var(--amber)",
+    },
+  ])(
+    "renders a version $patchesBehind patches behind as $score with $color",
+    ({ runningVersion, score, color }) => {
+      const result = scoreCompatibilityVersion({
+        runningVersion,
+        latest: "1.2.10",
+      });
+      expect(result).toBe(score);
+      renderGridScore(result);
+      expect(
+        screen.getByRole("img", { name: `${score} out of 100` }),
+      ).toHaveStyle({
+        backgroundColor: color,
+      });
+    },
+  );
+});
+
 describe("Compatibility tab", () => {
   it("keeps platforms across columns and labels the assessment snapshot", () => {
     const { container } = render(<CompatibilityTab />);
@@ -49,7 +125,7 @@ describe("Compatibility tab", () => {
     );
     expect(
       screen.getByTestId("compatibility-summary-langgraph"),
-    ).toHaveTextContent("70");
+    ).toHaveTextContent("60");
     expect(
       screen.getByRole("columnheader", { name: "Libraries" }),
     ).toBeInTheDocument();
@@ -62,9 +138,74 @@ describe("Compatibility tab", () => {
     expect(
       within(screen.getByTestId("compatibility-summary-langgraph")).getByRole(
         "img",
-        { name: "70 out of 100" },
+        { name: "60 out of 100" },
       ),
     ).toBeInTheDocument();
+  });
+
+  it("keeps an executive score legend visible while detailed rules are collapsed", () => {
+    const { container } = render(<CompatibilityTab />);
+    const legend = screen.getByRole("group", {
+      name: "Compatibility score legend",
+    });
+
+    expect(legend).toBeVisible();
+    expect(legend.closest("details")).toBeNull();
+    expect(container.querySelector("details")).not.toHaveAttribute("open");
+    for (const { range, label, color } of [
+      {
+        range: "90–100",
+        label: "Current or nearly current",
+        color: "var(--ok)",
+      },
+      { range: "60–89", label: "Updates needed", color: "var(--amber)" },
+      { range: "0–59", label: "Large version gap", color: "var(--danger)" },
+    ]) {
+      const description = within(legend).getByText(label);
+      expect(description).toBeVisible();
+      const item = description.closest("li")!;
+      expect(item).toHaveTextContent(range);
+      expect(item.querySelector('[aria-hidden="true"]')).toHaveStyle({
+        backgroundColor: color,
+      });
+    }
+    expect(legend).toHaveTextContent(
+      "100 means latest in this snapshot; 1–5 patch versions behind score 99–95",
+    );
+    expect(legend).toHaveTextContent(
+      "Each framework’s score is the lowest score among its required libraries",
+    );
+  });
+
+  it("explains scoring against saved latest releases without a grace target", () => {
+    const { container } = render(<CompatibilityTab />);
+
+    expect(
+      screen.queryByRole("rowheader", { name: "Grace target" }),
+    ).not.toBeInTheDocument();
+    expect(container).not.toHaveTextContent(
+      /grace|patch releases carry no penalty|patch.*ignored/i,
+    );
+    expect(container).toHaveTextContent("Exact latest: 100");
+    expect(container).toHaveTextContent(
+      "one through five patch increments behind score 99 through 95; six or more score 89",
+    );
+    expect(container).toHaveTextContent("minor versions behind: 89 / 80 / 70");
+    expect(container).toHaveTextContent(
+      "Green: 90–100. Amber: 60–89. Red: below 60",
+    );
+    expect(container).toHaveTextContent(
+      "release saved at this snapshot’s assessment time",
+    );
+    expect(container).toHaveTextContent(
+      "A variant is not scored if any required library cannot be scored",
+    );
+    expect(
+      screen.queryByRole("link", { name: /historical scoring rubric/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/historical scoring rubric/i),
+    ).not.toBeInTheDocument();
   });
 
   it("renders MAF and AWS variants as separate base columns with current-only scores", () => {
@@ -84,7 +225,7 @@ describe("Compatibility tab", () => {
 
     expect(
       screen.getByTestId("compatibility-summary-ms-agent-python"),
-    ).toHaveTextContent("100");
+    ).toHaveTextContent("70");
     expect(
       screen.getByTestId("compatibility-summary-ms-agent-dotnet"),
     ).toHaveTextContent("60");
@@ -93,10 +234,10 @@ describe("Compatibility tab", () => {
     ).toHaveTextContent("60");
     expect(
       screen.getByTestId("compatibility-summary-strands"),
-    ).toHaveTextContent("100");
+    ).toHaveTextContent("80");
     expect(
       screen.getByTestId("compatibility-summary-strands-typescript"),
-    ).toHaveTextContent("100");
+    ).toHaveTextContent("80");
   });
 
   it("expands and collapses MAF library columns independently", () => {
@@ -198,19 +339,19 @@ describe("Compatibility tab", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByTestId("compatibility-summary-crewai"),
-    ).toHaveTextContent("100");
+    ).toHaveTextContent("89");
     expect(
       screen.getByTestId("compatibility-summary-langgraph"),
-    ).toHaveTextContent("70");
+    ).toHaveTextContent("60");
     expect(
       screen.getByTestId("compatibility-summary-ms-agent-python"),
-    ).toHaveTextContent("100");
+    ).toHaveTextContent("70");
     expect(
       screen.getByTestId("compatibility-summary-strands"),
-    ).toHaveTextContent("100");
+    ).toHaveTextContent("80");
     expect(
       screen.getByTestId("compatibility-summary-strands-typescript"),
-    ).toHaveTextContent("100");
+    ).toHaveTextContent("80");
     expect(
       screen.getByTestId("compatibility-summary-ms-agent-harness-dotnet"),
     ).toHaveTextContent("60");
@@ -242,26 +383,26 @@ describe("Compatibility tab", () => {
 
     expect(
       screen.getByTestId("compatibility-summary-crewai"),
-    ).toHaveTextContent("100");
+    ).toHaveTextContent("89");
     expect(
       screen.getByTestId("compatibility-summary-strands-typescript"),
-    ).toHaveTextContent("100");
-    for (const column of [
-      "Conversational flows crewai",
-      "Conversational flows crewai-tools",
-      "Flows crewai",
-      "Flows crewai-tools",
-      "TypeScript @strands-agents/sdk",
+    ).toHaveTextContent("80");
+    for (const { column, score } of [
+      { column: "Conversational flows crewai", score: 89 },
+      { column: "Conversational flows crewai-tools", score: 89 },
+      { column: "Flows crewai", score: 89 },
+      { column: "Flows crewai-tools", score: 89 },
+      { column: "TypeScript @strands-agents/sdk", score: 80 },
     ]) {
       const cell = getMetricCell("Compatibility", column);
       expect(
-        within(cell).getByRole("img", { name: "100 out of 100" }),
-      ).toBeInTheDocument();
-      expect(cell).toHaveTextContent(/100\s*Sets score/);
+        within(cell).getByRole("img", { name: `${score} out of 100` }),
+      ).toHaveStyle({ backgroundColor: "var(--amber)" });
+      expect(cell).toHaveTextContent("Sets score");
     }
   });
 
-  it("marks only the minimum LangGraph TypeScript packages as setting the score", () => {
+  it("marks only the minimum LangGraph TypeScript package as setting the score", () => {
     render(<CompatibilityTab />);
     fireEvent.click(
       screen.getByRole("button", { name: "Expand LangGraph libraries" }),
@@ -271,21 +412,55 @@ describe("Compatibility tab", () => {
       "Compatibility",
       "TypeScript @langchain/langgraph",
     );
-    expect(primaryPackage).toHaveTextContent(/^90$/);
+    expect(primaryPackage).toHaveTextContent(/^89$/);
     expect(
-      within(primaryPackage).getByRole("img", { name: "90 out of 100" }),
+      within(primaryPackage).getByRole("img", { name: "89 out of 100" }),
     ).toBeInTheDocument();
     expect(primaryPackage).not.toHaveTextContent(/Sets score/);
-    for (const column of [
+    const apiPackage = getMetricCell(
+      "Compatibility",
       "TypeScript @langchain/langgraph-api",
+    );
+    expect(
+      within(apiPackage).getByRole("img", { name: "70 out of 100" }),
+    ).toBeInTheDocument();
+    expect(apiPackage).not.toHaveTextContent(/Sets score/);
+    const sdkPackage = getMetricCell(
+      "Compatibility",
       "TypeScript @langchain/langgraph-sdk",
+    );
+    expect(
+      within(sdkPackage).getByRole("img", { name: "60 out of 100" }),
+    ).toBeInTheDocument();
+    expect(sdkPackage).toHaveTextContent(/60\s*Sets score/);
+  });
+
+  it("shows the MAF OpenAI library's 97 in green while core sets the variant score", () => {
+    render(<CompatibilityTab />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Expand MAF Python libraries" }),
+    );
+
+    for (const { name, score, color } of [
+      { name: "agent-framework-ag-ui", score: 89, color: "var(--amber)" },
+      { name: "agent-framework-core", score: 70, color: "var(--amber)" },
+      { name: "agent-framework-openai", score: 97, color: "var(--ok)" },
     ]) {
-      const cell = getMetricCell("Compatibility", column);
+      const cell = getMetricCell("Compatibility", `Python ${name}`);
       expect(
-        within(cell).getByRole("img", { name: "70 out of 100" }),
-      ).toBeInTheDocument();
-      expect(cell).toHaveTextContent(/70\s*Sets score/);
+        within(cell).getByRole("img", { name: `${score} out of 100` }),
+      ).toHaveStyle({ backgroundColor: color });
+      if (name === "agent-framework-core") {
+        expect(cell).toHaveTextContent(/70\s*Sets score/);
+      } else {
+        expect(cell).not.toHaveTextContent(/Sets score/);
+      }
     }
+    expect(
+      within(
+        screen.getByTestId("compatibility-summary-ms-agent-python"),
+      ).getByRole("img", { name: "70 out of 100" }),
+    ).toHaveStyle({ backgroundColor: "var(--amber)" });
   });
 
   it("keeps a single Running version field and the contributing Spring libraries", () => {
@@ -301,9 +476,6 @@ describe("Compatibility tab", () => {
       const column = `Java org.springframework.ai:${name}`;
       expect(getMetricCell("Running version", column)).toHaveTextContent(
         /^1\.0\.1$/,
-      );
-      expect(getMetricCell("Grace target", column)).toHaveTextContent(
-        /^2\.0\.0$/,
       );
       expect(getMetricCell("Latest", column)).toHaveTextContent(/^2\.0\.1$/);
       expect(
@@ -363,9 +535,6 @@ describe("Compatibility tab", () => {
     expect(getMetricCell("Running version", overview)).toHaveTextContent(
       /^1\.16\.0$/,
     );
-    expect(getMetricCell("Grace target", overview)).toHaveTextContent(
-      /^1\.13\.0$/,
-    );
     expect(getMetricCell("Latest", overview)).toHaveTextContent(/^1\.18\.0$/);
     expect(
       within(getMetricCell("Registry", overview)).getByRole("link", {
@@ -377,7 +546,7 @@ describe("Compatibility tab", () => {
     );
   });
 
-  it("scores Harness against its stable target while preserving the running preview version", () => {
+  it("scores Harness against latest while preserving the running preview version", () => {
     render(<CompatibilityTab />);
     fireEvent.click(
       screen.getByRole("button", { name: "Expand .NET Harness libraries" }),
@@ -395,17 +564,11 @@ describe("Compatibility tab", () => {
     expect(getMetricCell("Running version", column)).toHaveTextContent(
       /^1\.6\.1-preview\.260514\.1$/,
     );
-    expect(getMetricCell("Grace target", column)).toHaveTextContent(
-      /^1\.18\.0$/,
-    );
     expect(getMetricCell("Latest", column)).toHaveTextContent(/^1\.21\.0$/);
     const hostingColumn =
       ".NET Harness Microsoft.Agents.AI.Hosting.AGUI.AspNetCore";
     expect(getMetricCell("Running version", hostingColumn)).toHaveTextContent(
       /^1\.6\.1-preview\.260514\.1$/,
-    );
-    expect(getMetricCell("Grace target", hostingColumn)).toHaveTextContent(
-      /^1\.18\.0-preview\.260818\.1$/,
     );
     expect(getMetricCell("Latest", hostingColumn)).toHaveTextContent(
       /^1\.21\.0-preview\.260911\.1$/,
@@ -502,6 +665,28 @@ describe("Compatibility tab", () => {
     ).toBeInTheDocument();
   });
 
+  it("searches saved running and latest versions without retired grace targets", () => {
+    render(<CompatibilityTab />);
+    const search = screen.getByRole("searchbox", {
+      name: "Find a platform or library",
+    });
+
+    for (const version of ["1.16.0", "1.18.0"]) {
+      fireEvent.change(search, { target: { value: version } });
+      expect(
+        screen.getByRole("button", {
+          name: "Expand AWS Strands TypeScript libraries",
+        }),
+      ).toBeInTheDocument();
+    }
+    fireEvent.change(search, { target: { value: "1.13.0" } });
+    expect(
+      screen.queryByRole("button", {
+        name: "Expand AWS Strands TypeScript libraries",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
   it("omits excluded packages from expanded columns and search", () => {
     render(<CompatibilityTab />);
     const before = screen.getAllByRole("columnheader").length;
@@ -553,7 +738,6 @@ describe("Compatibility tab", () => {
     for (const metric of [
       "Compatibility",
       "Running version",
-      "Grace target",
       "Latest",
       "Registry",
     ]) {

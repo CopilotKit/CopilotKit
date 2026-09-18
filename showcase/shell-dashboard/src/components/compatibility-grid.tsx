@@ -8,7 +8,7 @@ import type {
 } from "@/lib/compatibility";
 import { COMPATIBILITY_SNAPSHOT } from "@/lib/compatibility";
 
-type Metric = "score" | "runningVersion" | "graceTarget" | "latest" | "source";
+type Metric = "score" | "runningVersion" | "latest" | "source";
 
 const sections: {
   name: string;
@@ -33,11 +33,6 @@ const sections: {
         hint: "Library version used for this snapshot when available.",
       },
       {
-        id: "graceTarget",
-        label: "Grace target",
-        hint: "The release target after allowing 30 days for adoption.",
-      },
-      {
         id: "latest",
         label: "Latest",
         hint: "Latest available at assessment time, not a live registry lookup.",
@@ -52,7 +47,7 @@ const sections: {
 ];
 
 function scoreColor(value: number) {
-  return value === 100
+  return value >= 90
     ? "var(--ok)"
     : value >= 60
       ? "var(--amber)"
@@ -160,7 +155,6 @@ function MetricValue({
         </span>
       );
     }
-    case "graceTarget":
     case "latest": {
       const pkg =
         sdk ??

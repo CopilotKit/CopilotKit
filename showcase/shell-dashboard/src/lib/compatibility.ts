@@ -166,7 +166,6 @@ export function filterCompatibilityPlatforms(
           sdk.role,
           sdk.runningVersion ?? "",
           sdk.latest ?? "",
-          sdk.graceTarget ?? "",
         ]) ?? []),
       ]),
     ]
