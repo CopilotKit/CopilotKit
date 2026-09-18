@@ -218,7 +218,7 @@ def generate_a2ui(context: str):
     client = openai.OpenAI()
 
     response = client.chat.completions.create(
-        model="gpt-4.1",
+        model="gpt-5-mini",
         messages=[
             {"role": "system", "content": context or "Generate a useful dashboard UI."},
             {
@@ -258,7 +258,7 @@ agent = Agent(
     # under normal load.  The default httpx timeout is too short when aimock
     # is proxying to the upstream LLM — observed "Request timed out" errors
     # that crash the agent run and trigger watchdog restarts.
-    model=OpenAIChat(id="gpt-4o", timeout=120),
+    model=OpenAIChat(id="gpt-5-mini", timeout=120),
     # Frontend and HITL tools pause the run before the browser responds.
     # Keep the session in a writable location so Agno can resume that run.
     db=_create_session_db(),

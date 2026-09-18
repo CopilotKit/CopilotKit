@@ -72,6 +72,7 @@ const data: FrameworkOverviewData = {
     ctaLabel: "Create a free account",
     surface: "docs_langgraph_overview",
   },
+  hasAfterFeaturesMdx: true,
 };
 
 export default data;

@@ -3,7 +3,7 @@
  * cells that consumes a pre-computed CellModel.
  *
  * Verifies:
- *   1. Unsupported cells render only the ban icon (Bug 3 regression guard)
+ *   1. Unsupported cells render only the hollow ∅ chip (Bug 3 regression guard)
  *   2. Supported cells render depth chip with correct chipColor
  *   3. Only shows badges for test levels that exist
  *   4. Shows all three badges when all levels exist
@@ -52,10 +52,10 @@ vi.mock("@/components/depth-chip", () => ({
 }));
 
 vi.mock("@/components/badges", () => ({
-  // Mirror the REAL Badge contract: a "?" label means no-data and the real
-  // Badge returns null (hides). Replicating that here keeps these tests from
-  // being overfit to a mock that renders unconditionally — a gated D6 routed
-  // through label "?" would vanish in production but pass against a naive mock.
+  // Mirror the REAL Badge contract. The real Badge USED to return null for a
+  // "?" label; it no longer does — the main grid was computing a no-data state
+  // it never painted, which is what made the legend's `?` entry false there.
+  // The mock renders every label, exactly as production does.
   Badge: vi.fn(
     ({
       name,
@@ -64,12 +64,18 @@ vi.mock("@/components/badges", () => ({
       name: string;
       state: { tone: string; label: string };
       title?: string;
-    }) =>
-      state.label === "?" ? null : (
-        <span data-testid={`mock-badge-${name}`} data-tone={state.tone}>
-          {name} {state.label}
-        </span>
-      ),
+    }) => (
+      <span data-testid={`mock-badge-${name}`} data-tone={state.tone}>
+        {name} {state.label}
+      </span>
+    ),
+  ),
+  StatusChip: vi.fn(
+    ({ label, title }: { label?: string; tone: string; title?: string }) => (
+      <span data-testid="mock-status-chip" title={title}>
+        {label}
+      </span>
+    ),
   ),
   FlashOnChange: vi.fn(
     ({ children }: { children: React.ReactNode; tone: string }) => (
@@ -206,9 +212,9 @@ describe("UnifiedCell", () => {
     vi.clearAllMocks();
   });
 
-  // ── Test 1: Unsupported cell renders only ban icon (Bug 3) ────────
+  // ── Test 1: Unsupported cell renders only the ∅ chip (Bug 3) ──────
   describe("unsupported cells", () => {
-    it("renders only the ban icon with no badges and no depth chip", () => {
+    it("renders only the ∅ chip with no badges and no depth chip", () => {
       const ctx = makeCtx();
       const model = makeModel({ supported: false });
       const { getByTestId, queryByTestId } = render(
@@ -236,7 +242,7 @@ describe("UnifiedCell", () => {
       expect(queryByTestId("docs-layer")).not.toBeInTheDocument();
     });
 
-    it("renders ban icon even when all overlays are active", () => {
+    it("renders the ∅ chip even when all overlays are active", () => {
       const ctx = makeCtx();
       const model = makeModel({
         supported: false,
@@ -549,19 +555,25 @@ describe("UnifiedCell", () => {
       expect(badge.textContent).toContain("✓");
     });
 
-    it("hides a no-data (null status) rung — the real Badge nulls a '?' label", () => {
+    it("SHOWS a no-data (null status) rung as a visible '?'", () => {
       const ctx = makeCtx();
       const model = makeModel({
         d3: makeLevel(true, null), // exists but no status yet → label "?"
         d4: makeLevel(false),
         d5: makeLevel(false),
       });
-      const { queryByTestId } = render(
+      const { getByTestId, queryByTestId } = render(
         <UnifiedCell ctx={ctx} model={model} overlays={overlaySet("health")} />,
       );
 
-      // A no-data rung emits label "?", which the real Badge hides → no badge.
-      expect(queryByTestId("mock-badge-UI")).not.toBeInTheDocument();
+      // A rung that EXISTS and simply has not reported yet now paints a quiet
+      // `?`. It used to be suppressed, which made a blank rung ambiguous
+      // between "never configured", "never reported" and "the dashboard
+      // dropped it" — and made the legend's `?` entry false for this grid.
+      expect(getByTestId("mock-badge-UI")).toHaveTextContent("UI ?");
+      // A rung that does NOT exist still renders nothing — that check lives in
+      // TestBadge (`!level.exists`), and it is a different fact.
+      expect(queryByTestId("mock-badge-BE")).not.toBeInTheDocument();
     });
   });
 

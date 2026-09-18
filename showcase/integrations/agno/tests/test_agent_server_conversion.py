@@ -16,13 +16,18 @@ Covers PR-A backlog fixes:
    client instead of reporting a successful, empty/partial run.
 """
 
+import asyncio.base_events
 import sys
+from contextlib import ExitStack
+from unittest.mock import patch
 from pathlib import Path
 
 import pytest
 from ag_ui.core import (
     EventType,
     RunErrorEvent,
+    RunAgentInput,
+    Tool,
     TextMessageContentEvent,
     ToolCallResultEvent,
 )
@@ -34,21 +39,36 @@ from ag_ui.core.types import (
     UserMessage,
 )
 
+from agno.agent import Agent, _tools
+from agno.models.openai import OpenAIChat
+from agno.run.agent import RunCompletedEvent
+from agno.tools.function import Function
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 
-def _import_agent_server():
-    """Import ``agent_server`` lazily inside a test.
+from agents import _header_forwarding as hf  # noqa: E402
 
-    Importing the module runs ``install_executor_contextvar_propagation()``
-    which PERMANENTLY monkeypatches the event loop's ``run_in_executor``.
-    The autouse ``conftest`` fixture snapshots/restores that patch around
-    every test, so deferring the import to call time (rather than module
-    collection time) keeps the executor-ctxvar RED tests order-independent.
-    """
+# Server bootstrap patches constructors and executors. Restore them after
+# collection so the other tests start with their normal unpatched environment.
+with ExitStack() as bootstrap_patches:
+    bootstrap_patches.enter_context(
+        patch.object(
+            asyncio.base_events.BaseEventLoop,
+            "run_in_executor",
+            asyncio.base_events.BaseEventLoop.run_in_executor,
+        )
+    )
+    for sentinel in ("_EXECUTOR_CTXVAR_PATCHED", "_GLOBAL_HTTPX_PATCHED"):
+        bootstrap_patches.enter_context(
+            patch.object(hf, sentinel, getattr(hf, sentinel))
+        )
+    for transport in hf._available_httpx_modules():
+        for client in (transport.Client, transport.AsyncClient):
+            bootstrap_patches.enter_context(
+                patch.object(client, "__init__", client.__init__)
+            )
     import agent_server
-
-    return agent_server
 
 
 def _falsy_tool_msg(content: str) -> ToolMessage:
@@ -85,7 +105,6 @@ def _assistant_with_tool_call(call_id: str) -> AssistantMessage:
 
 def test_falsy_id_tool_messages_not_collapsed():
     """Two distinct falsy-id tool results must not collapse into one."""
-    agent_server = _import_agent_server()
     messages = [
         UserMessage(id="u1", role="user", content="hi"),
         _falsy_tool_msg("result A"),
@@ -107,7 +126,6 @@ def test_falsy_id_tool_messages_not_collapsed():
 
 def test_orphan_tool_result_dropped():
     """A tool result whose id is not on any assistant tool_calls is dropped."""
-    agent_server = _import_agent_server()
     messages = [
         UserMessage(id="u1", role="user", content="hi"),
         # assistant never called tool 'orphan-id'
@@ -122,7 +140,6 @@ def test_orphan_tool_result_dropped():
 
 def test_paired_tool_result_retained():
     """A tool result paired with an assistant tool_calls id is kept."""
-    agent_server = _import_agent_server()
     messages = [
         UserMessage(id="u1", role="user", content="hi"),
         _assistant_with_tool_call("call-1"),
@@ -139,7 +156,6 @@ def test_paired_tool_result_retained():
 def test_assistant_tool_call_without_result_dropped():
     """An assistant turn with content + an orphaned tool_call keeps the
     content but drops the orphan tool_call (pair incomplete)."""
-    agent_server = _import_agent_server()
     messages = [
         UserMessage(id="u1", role="user", content="hi"),
         # has content, so the turn is retained even though the call is orphaned
@@ -173,7 +189,6 @@ def test_empty_assistant_turn_with_only_orphan_tool_call_dropped():
     OpenAI rejects ``{role: "assistant"}`` with neither ``content`` nor
     ``tool_calls``; emitting one also pollutes HITL history.
     """
-    agent_server = _import_agent_server()
     messages = [
         UserMessage(id="u1", role="user", content="hi"),
         _assistant_with_tool_call("call-1"),  # content=None, no tool result
@@ -201,7 +216,6 @@ class _FakeAgent:
 @pytest.mark.asyncio
 async def test_reasoning_agent_propagates_run_error(monkeypatch):
     """A RUN_ERROR from the inner stream must reach the client."""
-    agent_server = _import_agent_server()
 
     async def _fake_stream(*args, **kwargs):
         # Inner agno stream errors out after starting.
@@ -239,7 +253,6 @@ async def test_reasoning_agent_propagates_run_error(monkeypatch):
 async def test_reasoning_agent_forwards_tool_call_result(monkeypatch):
     """The reasoning agent has tools; a TOOL_CALL_RESULT from the inner stream
     must be flushed to the client, not silently dropped."""
-    agent_server = _import_agent_server()
 
     async def _fake_stream(*args, **kwargs):
         # Answer text, then a tool-call lifecycle including the RESULT.
@@ -295,7 +308,6 @@ def test_reasoning_route_mounted_by_attach_reasoning_route():
     guards against a duplicate/colliding mount or a regression back to the
     stock STEP_* emitting interface.
     """
-    agent_server = _import_agent_server()
     app = agent_server.app
 
     reasoning_routes = [
@@ -320,7 +332,6 @@ async def test_reasoning_route_handler_emits_reasoning_message(monkeypatch):
     Drive the actual mounted route handler (not the bare coroutine) so the
     wiring from route -> _run_reasoning_agent is exercised end-to-end.
     """
-    agent_server = _import_agent_server()
     app = agent_server.app
 
     async def _fake_stream(*args, **kwargs):
@@ -335,8 +346,6 @@ async def test_reasoning_route_handler_emits_reasoning_message(monkeypatch):
     )
 
     route = next(r for r in app.routes if getattr(r, "path", None) == "/reasoning/agui")
-
-    from ag_ui.core import RunAgentInput
 
     run_input = RunAgentInput(
         thread_id="t1",
@@ -363,3 +372,88 @@ async def test_reasoning_route_handler_emits_reasoning_message(monkeypatch):
         "stock AGUI STEP_* events must NOT appear (would indicate the stock "
         "mount, not _attach_reasoning_route)"
     )
+
+
+def _frontend_tool(name="browser_action"):
+    return Tool(
+        name=name,
+        description="Runs in the browser",
+        parameters={
+            "type": "object",
+            "properties": {"value": {"type": "string"}},
+        },
+    )
+
+
+def test_no_frontend_tools_keeps_native_agent():
+    native = Agent(tools=[Function(name="native_action")])
+    assert agent_server._with_frontend_tools(native, []) is native
+
+
+def test_frontend_tools_are_external_and_request_scoped():
+    native = Agent(tools=[Function(name="native_action")])
+    first = agent_server._with_frontend_tools(native, [_frontend_tool("first")])
+    second = agent_server._with_frontend_tools(native, [_frontend_tool("second")])
+    assert [tool.name for tool in native.tools] == ["native_action"]
+    assert [tool.name for tool in first.tools] == ["native_action", "first"]
+    assert [tool.name for tool in second.tools] == ["native_action", "second"]
+    external = first.tools[-1]
+    assert external.entrypoint is None
+    assert external.external_execution is True
+    assert external.parameters == _frontend_tool().parameters
+
+
+def test_native_tool_collision_uses_sdk_first_registration_policy():
+    native = Agent(model=OpenAIChat(), tools=[Function(name="browser_action")])
+    request_agent = agent_server._with_frontend_tools(native, [_frontend_tool()])
+    parsed = _tools.parse_tools(request_agent, request_agent.tools, request_agent.model)
+    assert len(parsed) == 1
+    assert parsed[0].name == "browser_action"
+    assert not parsed[0].external_execution
+
+
+@pytest.mark.asyncio
+async def test_frontend_result_continues_once_with_paired_messages():
+    calls = []
+
+    class RecordingAgent(Agent):
+        def arun(self, input, **kwargs):
+            calls.append((input, kwargs))
+
+            async def complete():
+                yield RunCompletedEvent()
+
+            return complete()
+
+    native = RecordingAgent(tools=[Function(name="native_action")])
+    run_input = RunAgentInput(
+        thread_id="thread",
+        run_id="continuation",
+        state={},
+        context=[],
+        tools=[_frontend_tool("do_thing")],
+        forwarded_props={},
+        messages=[
+            UserMessage(id="u", role="user", content="run browser action"),
+            _assistant_with_tool_call("browser-call"),
+            ToolMessage(
+                id="result",
+                role="tool",
+                tool_call_id="browser-call",
+                content="browser-result",
+            ),
+        ],
+    )
+    events = [
+        event
+        async for event in agent_server._run_main_agent_hitl_aware(native, run_input)
+    ]
+    assert len(calls) == 1
+    messages, options = calls[0]
+    assert options["add_history_to_context"] is False
+    assert options["session_id"] == "thread"
+    assert messages[-1].tool_call_id == "browser-call"
+    assert messages[-1].content == "browser-result"
+    assert messages[-2].tool_calls[0]["id"] == "browser-call"
+    assert [tool.name for tool in native.tools] == ["native_action"]
+    assert sum(event.type == EventType.RUN_FINISHED for event in events) == 1

@@ -5,12 +5,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <!-- Adapter versions are independent of the canonical client's preview release train.
-         Keep NuGet's preview-dependency warning visible; it is a documented publication prerequisite. -->
-    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU5104</WarningsNotAsErrors>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageId>CopilotKit.Intelligence.AgentFramework</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.1.0-rc.1</Version>
     <Description>Learned skill delivery for Microsoft Agent Framework through CopilotKit Intelligence.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/CopilotKit/CopilotKit</RepositoryUrl>

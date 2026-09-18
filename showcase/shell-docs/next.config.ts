@@ -6,6 +6,12 @@ interface PermanentRedirect {
   readonly permanent: true;
 }
 
+interface MovedPermanentlyRedirect {
+  readonly source: string;
+  readonly destination: string;
+  readonly statusCode: 301;
+}
+
 // Keep redirect configuration self-contained. Importing an application module
 // from next.config.ts causes Turbopack to trace the config into app-route NFT
 // output when that module is also used at runtime. The redirect tests iterate
@@ -44,6 +50,57 @@ function permanentRedirectsWithSuffixes(
     permanent: true,
   }));
 }
+
+const NON_REACT_DOCS_FRONTENDS = ["react-spa", "vue", "react-native"] as const;
+
+const OPEN_JSON_UI_RETIREMENT_REDIRECTS: PermanentRedirect[] = [
+  ...permanentRedirectsWithSuffixes(
+    "/learn/generative-ui/specs/open-json-ui",
+    "/generative-ui/a2ui",
+  ),
+  ...permanentRedirectsWithSuffixes(
+    "/generative-ui/specs/open-json-ui",
+    "/generative-ui/a2ui",
+  ),
+  ...permanentRedirectsWithSuffixes(
+    "/generative-ui/open-json-ui",
+    "/generative-ui/a2ui",
+  ),
+  ...permanentRedirectsWithSuffixes(
+    "/built-in-agent/generative-ui/open-json-ui",
+    "/generative-ui/a2ui",
+  ),
+  ...permanentRedirectsWithSuffixes(
+    "/react/generative-ui/open-json-ui",
+    "/generative-ui/a2ui",
+  ),
+  ...permanentRedirectsWithSuffixes(
+    "/react/:framework/generative-ui/open-json-ui",
+    "/:framework/generative-ui/a2ui",
+  ),
+  ...permanentRedirectsWithSuffixes(
+    "/angular/generative-ui/open-json-ui",
+    "/angular/guides/a2ui",
+  ),
+  ...permanentRedirectsWithSuffixes(
+    "/angular/:framework/generative-ui/open-json-ui",
+    "/angular/:framework/guides/a2ui",
+  ),
+  ...NON_REACT_DOCS_FRONTENDS.flatMap((frontend) => [
+    ...permanentRedirectsWithSuffixes(
+      `/${frontend}/generative-ui/open-json-ui`,
+      `/${frontend}/generative-ui/a2ui`,
+    ),
+    ...permanentRedirectsWithSuffixes(
+      `/${frontend}/:framework/generative-ui/open-json-ui`,
+      `/${frontend}/:framework/generative-ui/a2ui`,
+    ),
+  ]),
+  ...permanentRedirectsWithSuffixes(
+    "/:framework/generative-ui/open-json-ui",
+    "/:framework/generative-ui/a2ui",
+  ),
+];
 
 function channelChildRedirects(
   legacySlug: string,
@@ -317,22 +374,22 @@ const AG_UI_DOCS_ORIGIN = "https://docs.ag-ui.com";
 function agUiMirrorRedirects(
   mirrorPath: string,
   upstreamPath: string,
-): PermanentRedirect[] {
+): MovedPermanentlyRedirect[] {
   return [
     {
       source: `/ag-ui${mirrorPath}.mdx`,
       destination: `${AG_UI_DOCS_ORIGIN}${upstreamPath}.md`,
-      permanent: true,
+      statusCode: 301,
     },
     {
       source: `/ag-ui${mirrorPath}.md`,
       destination: `${AG_UI_DOCS_ORIGIN}${upstreamPath}.md`,
-      permanent: true,
+      statusCode: 301,
     },
     {
       source: `/ag-ui${mirrorPath}`,
       destination: `${AG_UI_DOCS_ORIGIN}${upstreamPath}`,
-      permanent: true,
+      statusCode: 301,
     },
   ];
 }
@@ -355,7 +412,7 @@ const AG_UI_MIRROR_EXCEPTIONS = [
   ["/sdk/rust/core/types", "/sdk/rust/overview"],
 ] as const;
 
-const AG_UI_MIRROR_REDIRECTS: PermanentRedirect[] = [
+const AG_UI_MIRROR_REDIRECTS: MovedPermanentlyRedirect[] = [
   ...AG_UI_MIRROR_EXCEPTIONS.flatMap(([mirrorPath, upstreamPath]) =>
     agUiMirrorRedirects(mirrorPath, upstreamPath),
   ),
@@ -365,17 +422,17 @@ const AG_UI_MIRROR_REDIRECTS: PermanentRedirect[] = [
   {
     source: "/ag-ui/:path*.mdx",
     destination: `${AG_UI_DOCS_ORIGIN}/:path*.md`,
-    permanent: true,
+    statusCode: 301,
   },
   {
     source: "/ag-ui/:path*.md",
     destination: `${AG_UI_DOCS_ORIGIN}/:path*.md`,
-    permanent: true,
+    statusCode: 301,
   },
   {
     source: "/ag-ui/:path*",
     destination: `${AG_UI_DOCS_ORIGIN}/:path*`,
-    permanent: true,
+    statusCode: 301,
   },
 ];
 
@@ -457,6 +514,9 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      // Open-JSON-UI is retired. Keep every previously published HTML and
+      // raw-doc URL on a one-hop path to the matching A2UI landing page.
+      ...OPEN_JSON_UI_RETIREMENT_REDIRECTS,
       // OSS-615: legacy global, scoped, generated-reference, and Bots URLs
       // resolve directly to the canonical Slack/Teams guide trees.
       ...CHANNEL_REDIRECTS,
@@ -760,10 +820,9 @@ const nextConfig: NextConfig = {
 
       // /learn/* tree retired. The seven explanation-tier pages were
       // promoted into the Concepts subgroup, the multi-conversation
-      // tutorial moved to /tutorials/, the open-json-ui page moved to
-      // /generative-ui/, and the What's New tree became its own
-      // top-level section. Redirects below funnel old URLs to the
-      // canonical homes.
+      // tutorial moved to /tutorials/, Open-JSON-UI was retired in
+      // favor of A2UI, and the What's New tree became its own top-level
+      // section. Redirects below funnel old URLs to the canonical homes.
       {
         source: "/learn",
         destination: "/concepts/architecture",
@@ -807,11 +866,6 @@ const nextConfig: NextConfig = {
       {
         source: "/learn/generative-ui",
         destination: "/concepts/generative-ui-overview",
-        permanent: true,
-      },
-      {
-        source: "/learn/generative-ui/specs/open-json-ui",
-        destination: "/generative-ui/open-json-ui",
         permanent: true,
       },
       {
@@ -920,13 +974,6 @@ const nextConfig: NextConfig = {
         "/reference/v1/sdk/python/LangGraphAgent",
         "/reference/v1/sdk/python/LangGraphAGUIAgent",
       ),
-      // AI-slop placeholder pulled from nav until properly authored;
-      // file stays on disk for rewrite.
-      {
-        source: "/generative-ui/open-json-ui",
-        destination: "/generative-ui",
-        permanent: false,
-      },
       // ag-ui-middleware moved into the agentic-protocols group so it
       // appears in the sidebar under AG-UI rather than as an orphan
       // root page. 302 (not 301) since the new home is recent and we

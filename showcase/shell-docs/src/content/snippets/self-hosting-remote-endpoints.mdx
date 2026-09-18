@@ -32,13 +32,13 @@ import { Tab } from "../components/react/tabs";
   <Tab value="Self hosted (FastAPI)">
     ```ts
     import { CopilotRuntime } from "@copilotkit/runtime/v2";
-    import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
+    import { HttpAgent } from "@ag-ui/client";
     // ...
     const runtime = new CopilotRuntime({
       agents: {
           // [!code highlight:2]
           // Our FastAPI endpoint URL
-          'sample_agent': new LangGraphHttpAgent({url: "http://localhost:8000/your-agent-endpoint"}),
+          'sample_agent': new HttpAgent({url: "http://localhost:8000/your-agent-endpoint"}),
       },
     });
     // ...

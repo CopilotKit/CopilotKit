@@ -10,15 +10,15 @@ import OpenAI from "openai";
 
 const determineModel = () => {
   if (process.env.OPENAI_API_KEY?.trim()) {
-    return "openai/gpt-4o";
+    return "openai/gpt-5-mini";
   }
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
-    return "anthropic/claude-sonnet-4.5";
+    return "anthropic/claude-sonnet-4-6";
   }
   if (process.env.GOOGLE_API_KEY?.trim()) {
     return "google/gemini-2.5-pro";
   }
-  return "openai/gpt-4o";
+  return "openai/gpt-5-mini";
 };
 
 const agent = new BuiltInAgent({

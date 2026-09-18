@@ -46,7 +46,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run actionlint on release workflows
-        uses: reviewdog/action-actionlint@8b682e1e7e512151d73a6b9449cbff173846226e # v1.74.0
+        uses: reviewdog/action-actionlint@0f79693de552e66b9934daa63513584415a955e4 # v1.75.2
         with:
           reporter: github-check
           level: error

@@ -1,4 +1,5 @@
 import { CopilotRuntimeLike } from "../core/runtime";
+import { isDebugEventFeedEnabled } from "../core/debug-event-bus";
 import { DebugEventEnvelope } from "@copilotkit/shared";
 
 interface HandleDebugEventsParams {
@@ -10,7 +11,7 @@ export function handleDebugEvents({
   runtime,
   request,
 }: HandleDebugEventsParams): Response {
-  if (process.env.NODE_ENV === "production") {
+  if (!isDebugEventFeedEnabled(runtime.debug)) {
     return new Response("Not Found", { status: 404 });
   }
 

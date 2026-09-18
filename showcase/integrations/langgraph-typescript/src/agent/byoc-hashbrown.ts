@@ -101,7 +101,7 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
   // contract honest. Passed via `modelKwargs` so it survives the
   // LangChain → OpenAI chat-completions mapping.
   const model = makeChatOpenAI(config, {
-    model: "gpt-4o-mini",
+    model: "gpt-5-mini",
     modelKwargs: { response_format: { type: "json_object" } },
   });
   const response = await model.invoke(

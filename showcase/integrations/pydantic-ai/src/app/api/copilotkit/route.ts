@@ -87,6 +87,9 @@ agents["subagents"] = new HttpAgent({
 agents["gen-ui-tool-based"] = new HttpAgent({
   url: `${AGENT_URL}/gen_ui_tool_based/`,
 });
+agents["gen-ui-agent"] = new HttpAgent({
+  url: `${AGENT_URL}/gen_ui_agent/`,
+});
 
 // In-Chat HITL — chat-only agent; the `book_call` tool is defined on the
 // frontend via `useHumanInTheLoop`. Backed by the dedicated mount at

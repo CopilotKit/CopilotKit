@@ -27,7 +27,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     parameters: z.object({
       title: z.string().describe("The title of the task"),
     }),
-    handler: ({ title }) => {
+    handler: async ({ title }) => {
       addTask(title);
       return `Added task: ${title}`;
     },
@@ -40,7 +40,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     parameters: z.object({
       id: z.number().describe("The id of the task"),
     }),
-    handler: ({ id }) => {
+    handler: async ({ id }) => {
       deleteTask(id);
       return `Deleted task ${id}`;
     },
@@ -56,7 +56,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
         .enum(Object.values(TaskStatus) as [string, ...string[]])
         .describe("The status of the task"),
     }),
-    handler: ({ id, status }) => {
+    handler: async ({ id, status }) => {
       setTaskStatus(id, status);
       return `Set task ${id} status to ${status}`;
     },
@@ -90,7 +90,7 @@ Your copilot is now more helpful than ever 💪
 <Card
   title="← Previous: Read app state"
   href="/tutorials/ai-todo-app/step-3-copilot-readable-state"
-  description="Use useCopilotReadable so the copilot can answer questions about your todos."
+  description="Use useAgentContext so the copilot can answer questions about your todos."
 />
 <Card
   title="Next: Wrap up →"

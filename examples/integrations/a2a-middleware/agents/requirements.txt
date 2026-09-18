@@ -12,11 +12,20 @@ ag-ui-adk>=0.0.1
 # ============================================================================
 # A2A Protocol Implementation
 # ============================================================================
-# a2a: Core A2A Protocol SDK for agent-to-agent communication
-# a2a-sdk: Additional utilities including HTTP server support
-# These packages enable the Research and Analysis agents to communicate via A2A
-a2a>=0.1.0
-a2a-sdk[http-server]
+# a2a-sdk: The A2A Protocol SDK, which owns the `a2a` import namespace.
+# This package enables the Research and Analysis agents to communicate via A2A.
+#
+# Do NOT add a bare `a2a` requirement here. The project published on PyPI as
+# `a2a` is an unrelated AWS/Azure service-mapping tool that installs into the
+# same `a2a/` directory and drags in scrapy, twisted and lxml.
+#
+# The upper bound is load-bearing. a2a-sdk 1.x implements A2A protocol v1.0:
+# it drops `a2a.server.apps` (and `A2AStarletteApplication` with it) and moves
+# to a protobuf core, so the agents below do not import under it. The frontend
+# side of this starter is pinned to @ag-ui/a2a-middleware 0.0.2, which bundles
+# @a2a-js/sdk 0.2.5 and speaks the pre-1.0 wire format, so the Python agents
+# have to stay on the 0.3 line until that middleware ships a v1.0 client.
+a2a-sdk[http-server]>=0.3,<1.0
 
 # ============================================================================
 # Google ADK (Agent Development Kit)

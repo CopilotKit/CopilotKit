@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { combine, type LadderDepth } from "./cell-model.combine.js";
+import { combine, AGENT_AXIS, LIVENESS_AXIS } from "./cell-model.combine.js";
+import type { LadderDepth } from "./cell-model.combine.js";
 import type {
   ContributionKind,
   RungContribution,
@@ -56,7 +57,7 @@ function agent(
 describe("combine — §4f agent truth table", () => {
   it("all green → green, ach6, ceil6, d6Eff green, no reg", () => {
     const { contribs, ceiling } = agent();
-    expect(combine(contribs, ceiling, NOW)).toEqual({
+    expect(combine(contribs, ceiling, NOW, AGENT_AXIS)).toEqual({
       chipColor: "green",
       achievedDepth: 6,
       ceilingDepth: 6,
@@ -67,7 +68,7 @@ describe("combine — §4f agent truth table", () => {
 
   it("D6 fresh-red over green D5 → amber, ach5, d6Eff red, reg yes (soft-parity top)", () => {
     const { contribs, ceiling } = agent({ D6: "FAIL_FRESH" });
-    expect(combine(contribs, ceiling, NOW)).toEqual({
+    expect(combine(contribs, ceiling, NOW, AGENT_AXIS)).toEqual({
       chipColor: "amber",
       achievedDepth: 5,
       ceilingDepth: 6,
@@ -78,7 +79,7 @@ describe("combine — §4f agent truth table", () => {
 
   it("D6 stale over green D5 → amber, ach5, no reg (soft-parity, grounded item 1)", () => {
     const { contribs, ceiling } = agent({ D6: "STALE_DEGRADED" });
-    const r = combine(contribs, ceiling, NOW);
+    const r = combine(contribs, ceiling, NOW, AGENT_AXIS);
     expect(r.chipColor).toBe("amber");
     expect(r.achievedDepth).toBe(5);
     expect(r.d6Effective).toBe("amber");
@@ -87,7 +88,7 @@ describe("combine — §4f agent truth table", () => {
 
   it("D6 absent over green D5 → amber, ach5, d6Eff null, no reg (soft-parity)", () => {
     const { contribs, ceiling } = agent({ D6: "ABSENT" });
-    const r = combine(contribs, ceiling, NOW);
+    const r = combine(contribs, ceiling, NOW, AGENT_AXIS);
     expect(r.chipColor).toBe("amber");
     expect(r.achievedDepth).toBe(5);
     expect(r.d6Effective).toBeNull();
@@ -96,7 +97,7 @@ describe("combine — §4f agent truth table", () => {
 
   it("D5 fresh-red → red, ach4, d6Eff null, reg yes", () => {
     const { contribs, ceiling } = agent({ D5: "FAIL_FRESH", D6: "ABSENT" });
-    expect(combine(contribs, ceiling, NOW)).toEqual({
+    expect(combine(contribs, ceiling, NOW, AGENT_AXIS)).toEqual({
       chipColor: "red",
       achievedDepth: 4,
       ceilingDepth: 6,
@@ -107,7 +108,7 @@ describe("combine — §4f agent truth table", () => {
 
   it("D5 stale → amber, ach4, no reg (I2)", () => {
     const { contribs, ceiling } = agent({ D5: "STALE_DEGRADED", D6: "ABSENT" });
-    const r = combine(contribs, ceiling, NOW);
+    const r = combine(contribs, ceiling, NOW, AGENT_AXIS);
     expect(r.chipColor).toBe("amber");
     expect(r.achievedDepth).toBe(4);
     expect(r.isRegression).toBe(false);
@@ -119,7 +120,7 @@ describe("combine — §4f agent truth table", () => {
       D5: "ABSENT",
       D6: "ABSENT",
     });
-    const r = combine(contribs, ceiling, NOW);
+    const r = combine(contribs, ceiling, NOW, AGENT_AXIS);
     expect(r.chipColor).toBe("amber");
     expect(r.achievedDepth).toBe(3);
     expect(r.isRegression).toBe(false);
@@ -131,7 +132,7 @@ describe("combine — §4f agent truth table", () => {
       D5: "FAIL_FRESH",
       D6: "ABSENT",
     });
-    const r = combine(contribs, ceiling, NOW);
+    const r = combine(contribs, ceiling, NOW, AGENT_AXIS);
     expect(r.chipColor).toBe("red");
     expect(r.achievedDepth).toBe(2);
     expect(r.isRegression).toBe(false);
@@ -139,7 +140,7 @@ describe("combine — §4f agent truth table", () => {
 
   it("D3 absent, green above → gray, ach2, no reg (I1)", () => {
     const { contribs, ceiling } = agent({ D3: "ABSENT" });
-    const r = combine(contribs, ceiling, NOW);
+    const r = combine(contribs, ceiling, NOW, AGENT_AXIS);
     expect(r.chipColor).toBe("gray");
     expect(r.achievedDepth).toBe(2);
     expect(r.isRegression).toBe(false);
@@ -147,7 +148,7 @@ describe("combine — §4f agent truth table", () => {
 
   it("D4 absent (single), green above → gray, ach3, no reg (I1 symmetric)", () => {
     const { contribs, ceiling } = agent({ D4: "ABSENT" });
-    const r = combine(contribs, ceiling, NOW);
+    const r = combine(contribs, ceiling, NOW, AGENT_AXIS);
     expect(r.chipColor).toBe("gray");
     expect(r.achievedDepth).toBe(3);
     expect(r.isRegression).toBe(false);
@@ -155,7 +156,7 @@ describe("combine — §4f agent truth table", () => {
 
   it("D5 unmapped (ceiling 4), green D3/D4 → gray, ach4, ceil4, no reg (A3)", () => {
     const { contribs, ceiling } = agent({}, { ceiling: 4 });
-    expect(combine(contribs, ceiling, NOW)).toEqual({
+    expect(combine(contribs, ceiling, NOW, AGENT_AXIS)).toEqual({
       chipColor: "gray",
       achievedDepth: 4,
       ceilingDepth: 4,
@@ -166,7 +167,7 @@ describe("combine — §4f agent truth table", () => {
 
   it("infra-red D3, green above → gray, ach2, no reg (U7 + I4)", () => {
     const { contribs, ceiling } = agent({ D3: "INFRA_RED_FRESH" });
-    const r = combine(contribs, ceiling, NOW);
+    const r = combine(contribs, ceiling, NOW, AGENT_AXIS);
     expect(r.chipColor).toBe("gray");
     expect(r.achievedDepth).toBe(2);
     expect(r.isRegression).toBe(false);
@@ -183,7 +184,7 @@ describe("combine — §F D1/D2 liveness gate", () => {
       c("D5", "GREEN_FRESH"),
       c("D6", "GREEN_FRESH"),
     ];
-    expect(combine(contribs, 6, NOW)).toEqual({
+    expect(combine(contribs, 6, NOW, AGENT_AXIS)).toEqual({
       chipColor: "green",
       achievedDepth: 6,
       ceilingDepth: 6,
@@ -201,7 +202,7 @@ describe("combine — §F D1/D2 liveness gate", () => {
       c("D5", "GREEN_FRESH"),
       c("D6", "GREEN_FRESH"),
     ];
-    const r = combine(contribs, 6, NOW);
+    const r = combine(contribs, 6, NOW, AGENT_AXIS);
     expect(r.chipColor).toBe("green");
     expect(r.achievedDepth).toBe(6);
   });
@@ -215,7 +216,7 @@ describe("combine — §F D1/D2 liveness gate", () => {
       c("D5", "GREEN_FRESH"),
       c("D6", "GREEN_FRESH"),
     ];
-    expect(combine(contribs, 6, NOW)).toEqual({
+    expect(combine(contribs, 6, NOW, AGENT_AXIS)).toEqual({
       chipColor: "red",
       achievedDepth: 0,
       ceilingDepth: 6,
@@ -228,7 +229,7 @@ describe("combine — §F D1/D2 liveness gate", () => {
 describe("combine — null-feature liveness-only cell", () => {
   it("green D1+D2 → green, ach2, ceil2, no reg", () => {
     const contribs = [c("D1", "GREEN_FRESH"), c("D2", "GREEN_FRESH")];
-    expect(combine(contribs, 2, NOW)).toEqual({
+    expect(combine(contribs, 2, NOW, LIVENESS_AXIS)).toEqual({
       chipColor: "green",
       achievedDepth: 2,
       ceilingDepth: 2,
@@ -239,9 +240,33 @@ describe("combine — null-feature liveness-only cell", () => {
 
   it("fresh-red D2 gates → red, ach0, reg yes (§F: present fresh-red liveness gates to 0)", () => {
     const contribs = [c("D1", "GREEN_FRESH"), c("D2", "FAIL_FRESH")];
-    const r = combine(contribs, 2, NOW);
+    const r = combine(contribs, 2, NOW, LIVENESS_AXIS);
     expect(r.chipColor).toBe("red");
     expect(r.achievedDepth).toBe(0);
     expect(r.isRegression).toBe(true);
+  });
+
+  // ── LIVENESS_AXIS.gateGapBreaks — UNCOVERED by all 17 pre-existing cases ──
+  //
+  // The 17 cases above (12 agent + 3 gate + 2 null-feature) do not exercise one
+  // of `LIVENESS_AXIS`'s two boolean inputs: mutation-tested, setting
+  // `LIVENESS_AXIS.gateGapBreaks = false` passes ALL 17. The null-feature block
+  // is two cases (green D1+D2; fresh-red D2) and NEITHER carries an ABSENT or
+  // STUB gate rung.
+  //
+  // The regression it would hide is real: a null-feature cell with an ABSENT D1
+  // over a green D2 goes from `achieved 0` to `achieved 2`, and the gray chip
+  // then contradicts the depth — the precise incoherence the walk's gap break
+  // exists to prevent.
+  //
+  // MUTATION THAT REDS THIS CASE: flip `LIVENESS_AXIS.gateGapBreaks` to `false`
+  // in `cell-model.combine.ts`. `achievedDepth` becomes 2 (the walk no longer
+  // stops at the absent D1) while the chip stays gray.
+  it("ABSENT D1 + green D2 → gray, ach0 (gateGapBreaks: the gap stops the walk)", () => {
+    const contribs = [c("D1", "ABSENT"), c("D2", "GREEN_FRESH")];
+    const r = combine(contribs, 2, NOW, LIVENESS_AXIS);
+    expect(r.chipColor).toBe("gray");
+    expect(r.achievedDepth).toBe(0);
+    expect(r.achievedDepth).toBeLessThan(r.ceilingDepth);
   });
 });

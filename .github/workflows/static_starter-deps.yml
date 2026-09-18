@@ -1,0 +1,62 @@
+name: static / starter deps
+
+# The static half of PE-140. Reads the dependency manifests of every starter
+# under examples/integrations/ and fails on a declaration that cannot be
+# trusted: a floating npm tag, a Python dependency with no version constraint,
+# or a peer dependency that only exists because npm auto-installed it.
+#
+# No network and ~0.1s of work, so it runs on every pull request rather than on
+# a schedule. It is the half that would have PREVENTED PE-129 and PE-38 rather
+# than detecting them after an upstream published. The detecting half is
+# test_starter-clean-install.yml.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    # Only a change to a starter manifest or to the validator itself can
+    # introduce a violation. The unconditional `push: main` run above is the
+    # backstop for anything that lands another way.
+    paths:
+      - "examples/integrations/**"
+      - "scripts/validate-starter-deps.mjs"
+      - "scripts/__tests__/validate-starter-deps.test.mjs"
+      - "scripts/project.json"
+      - ".github/workflows/static_starter-deps.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Use Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      # Runs the validator's own unit tests (which encode the PE-129 and PE-38
+      # pre-fix manifests as fixtures) and then the validator itself against the
+      # working tree. Same target a developer runs locally.
+      - name: Test validator and check starter manifests
+        run: pnpm nx run repo-scripts:validate-starter-deps

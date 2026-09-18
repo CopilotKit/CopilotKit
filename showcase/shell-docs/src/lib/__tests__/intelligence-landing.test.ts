@@ -21,7 +21,7 @@ test("the Intelligence overview uses landing-page chrome", () => {
   expect(page.data.title).toBe("CopilotKit Intelligence");
   expect(page.data.nav_title).toBe("Overview");
   expect(page.data.description).toBe(
-    "CopilotKit Intelligence adds persistent threads, memory, analytics, automatic learning, and production operations on top of the runtime you already run.",
+    "CopilotKit Intelligence adds persistent Rich Threads, messaging Channels, memory, analytics, and automatic learning. Import supported LangGraph and Google ADK history, then synchronize future CopilotKit runs.",
   );
   expect(page.data.hideHeader).toBeUndefined();
   expect(page.data.full).toBe(true);
@@ -104,8 +104,8 @@ test("the Learning guide stays focused on the reviewed Learning workflow", () =>
 
   expect(guide).toContain("## Overview");
   expect(guide).toContain("## How Learning works");
-  expect(guide).toContain("## Set up Learning");
-  expect(guide).toContain("### Optional: Set it up with your coding agent");
+  expect(guide).toContain("## Set up Learning manually");
+  expect(guide).toContain("## Start with your coding agent");
   expect(guide).toContain("<LearningSetupPrompt />");
   expect(guide).toContain("### Connect CopilotKit Intelligence");
   expect(guide).toContain("](/intelligence/quickstart)");
@@ -132,4 +132,11 @@ test("the MDX registry and page view wire IntelligenceOverview and its chrome", 
   expect(registry).toContain("IntelligenceFeatureCards,");
   expect(pageView).toContain("hideHeading={doc.fm.hideHeader}");
   expect(pageView).toContain("!doc.fm.hidePageActions");
+});
+
+test("the docs home has one onboarding offer without the redundant Intelligence callout", () => {
+  const home = read("app/[[...slug]]/page.tsx");
+  expect(home.match(/<HeroOnboardingPromptButton\b/g)).toHaveLength(1);
+  expect(home).not.toContain("IntelligenceOnboardingPrompt");
+  expect(home).not.toContain("docs_landing_learning");
 });

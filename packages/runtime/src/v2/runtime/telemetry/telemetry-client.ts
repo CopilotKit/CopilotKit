@@ -4,6 +4,7 @@ import {
   parseAndWarnTelemetryId,
   computeSamplingMeta,
   TELEMETRY_EMITTER_V2,
+  TELEMETRY_SURFACE_V2,
 } from "@copilotkit/shared";
 import * as packageJson from "../../../../package.json";
 import { firstNonBlankTelemetryId } from "./telemetry-identity";
@@ -42,19 +43,23 @@ export function isTelemetryDisabled(): boolean {
 
 export class TelemetryClient {
   private telemetryDisabled: boolean = false;
-  // Client-side sampling rate for anonymous events. Identified callers
-  // (license token with telemetry_id) bypass the gate. Default 0.05
-  // caps anonymous OSS-runtime egress; identified customers send at
-  // full fidelity. Override via COPILOTKIT_TELEMETRY_SAMPLE_RATE.
-  private sampleRate: number = 0.05;
+  // Opt-down for anonymous events, defaulting to 1: the sink is ours, so a
+  // real count beats one extrapolated from a fraction of the population.
+  // It stays configurable because it is the cross-SDK lever for reducing or
+  // stopping anonymous volume — the Go, Python, Ruby, and .NET runtimes all
+  // expose it, and the cross-language conformance suite drives it to 0 to
+  // assert silence. Identified callers bypass it.
+  private sampleRate: number = 1;
   // EIP / Intelligence license token (Ed25519-signed JWT). Kept separate
   // from standalone identity so the transport receives only the selected
   // identity source.
   private licenseToken: string | null = null;
-  // Standalone identity sent as a transport claim. It does not grant sampling
-  // authority.
+  // Standalone identity sent as a transport claim. It does not make an
+  // event identified.
   private telemetryId: string | null = null;
-  // License-derived identity used only as sampling authority.
+  // License-derived identity. This client sends every event either way;
+  // the id is what sets telemetry_identified on the sampling block, which
+  // is how the two populations stay separable downstream.
   private licenseTelemetryId: string | null = null;
   // Properties merged into every event this client sends.
   //
@@ -140,8 +145,8 @@ export class TelemetryClient {
     identity: ResolvedTelemetryIdentity,
   ): Promise<void> {
     if (this.telemetryDisabled) return;
-    // Standalone identity is a transport claim, not sampling authority.
-    // Only a legacy license token with telemetry_id bypasses sampleRate.
+    // Nothing is gated at the default rate of 1. A caller who dialled it
+    // down means it, and identified callers are exempt either way.
     if (!identity.licenseTelemetryId && !this.shouldSendEvent()) return;
 
     await lambdaClient.send({
@@ -153,9 +158,11 @@ export class TelemetryClient {
       // the analytics event, and v1's client sends package name and version the
       // same way. Folding it in would work and would put a process-level fact
       // in the per-event slot, where nothing downstream expects to find one.
-      // Sampling metadata rides in the same slot, as it does in v1: an event
-      // that records no sampling decision can't be weighted, and anyone
-      // counting raw events understates anonymous volume ~20× (OSS-1017).
+      // Sampling metadata rides in the same slot, as it does in v1. It
+      // reads 1/1 unless a caller dialled the rate down, and is stamped
+      // either way: a consumer summing sampleWeight across emitters must
+      // not find the field missing on a quarter of the rows, which is the
+      // state that made ~24% of runtime volume unweightable (OSS-1017).
       globalProperties: {
         ...this.globalProperties,
         ...computeSamplingMeta({
@@ -163,6 +170,11 @@ export class TelemetryClient {
           sampleRate: this.sampleRate,
         }),
         telemetry_emitter: TELEMETRY_EMITTER_V2,
+        // Constant here: a v1 request never reaches this client. The v1
+        // entrypoint hands its own capture scope to the V2 runtime it
+        // builds, so v1 traffic is emitted by the v1 client and stamped
+        // v1 there — which is also what keeps it on the Segment wire.
+        telemetry_surface: TELEMETRY_SURFACE_V2,
         // This client has one transport, so the marker is constant here. It
         // is stamped anyway so the property means the same thing on every
         // event whichever client produced it (OSS-1019).
@@ -199,7 +211,7 @@ export class TelemetryClient {
   private setSampleRate(sampleRate: number | undefined) {
     let _sampleRate: number;
 
-    _sampleRate = sampleRate ?? 0.05;
+    _sampleRate = sampleRate ?? 1;
 
     if (process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE) {
       _sampleRate = parseFloat(process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE);

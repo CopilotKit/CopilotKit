@@ -48,7 +48,8 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createVertex } from "@ai-sdk/google-vertex";
-import { safeParseToolArgs } from "@copilotkit/shared";
+import { safeParseToolArgs, classifyModelHost } from "@copilotkit/shared";
+import type { ModelHostClass } from "@copilotkit/shared";
 import { z } from "zod";
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
 import { schemaToJsonSchema } from "@copilotkit/shared";
@@ -317,6 +318,58 @@ export function resolveModel(
       throw new Error(
         `Unknown provider "${provider}" in "${spec}". Supported: openai, anthropic, google (gemini).`,
       );
+  }
+}
+
+/**
+ * Which vendor a model specifier will actually reach, as a closed vocabulary.
+ *
+ * `resolveModel` above is the only place this runtime builds a provider, so it
+ * is the only place that knows the endpoint. Once built, the endpoint is gone:
+ * an AI SDK model reports `provider: "openai.responses"` whether it points at
+ * api.openai.com, Azure, OpenRouter or a laptop, and its base URL survives
+ * only inside a closure that the public `LanguageModelV3` type does not
+ * expose. Azure's own migration guide tells customers to use that same OpenAI
+ * client, so the case we are blindest to is the common one.
+ *
+ * A caller who hands us an already-built LanguageModel gets `unknown`. Nobody
+ * can recover the host from it, and saying so is more useful than guessing
+ * `openai` from a provider label that means only "speaks the OpenAI wire".
+ *
+ * The branches below mirror `resolveModel`'s switch and must change with it.
+ * `model-host-class.test.ts` walks every provider that switch accepts and
+ * fails if one lands here as `unknown`.
+ */
+export function classifyModelSpec(spec: ModelSpecifier): ModelHostClass {
+  // A pre-built model: the endpoint was decided before it reached us.
+  if (typeof spec !== "string") return "unknown";
+
+  const provider = spec.replace("/", ":").trim().split(":")[0]?.toLowerCase();
+
+  switch (provider) {
+    case "openai":
+      return classifyModelHost(process.env.OPENAI_BASE_URL, "openai");
+    case "anthropic":
+      return classifyModelHost(process.env.ANTHROPIC_BASE_URL, "anthropic");
+    case "google":
+    case "gemini":
+    case "google-gemini":
+      return classifyModelHost(
+        process.env.GOOGLE_GENERATIVE_AI_BASE_URL,
+        "google",
+      );
+    case "minimax":
+      return classifyModelHost(
+        process.env.MINIMAX_BASE_URL || "https://api.minimax.io/v1",
+        "minimax",
+      );
+    case "vertex":
+      // `createVertex()` takes no base URL — the endpoint comes from ambient
+      // Google credentials, so there is nothing to classify and nothing to leak.
+      return "vertex";
+    default:
+      // `resolveModel` throws on anything else, so the run never starts.
+      return "unknown";
   }
 }
 
@@ -1038,8 +1091,26 @@ function isFactoryConfig(
 export class BuiltInAgent extends AbstractAgent {
   private abortController?: AbortController;
 
+  /**
+   * Which vendor this agent's configured model reaches. Read by the SSE layer
+   * onto `agent_execution_stream_*` telemetry.
+   *
+   * Computed once, from the configured model, because that is what holds for
+   * the agent's lifetime. A per-request `forwardedProps.model` override
+   * (handled further down in `run`) can point somewhere else for one run and
+   * is not reflected here — overrides are rare and the field describes the
+   * agent, not the call.
+   *
+   * Factory-mode configs own their own LLM call, so there is no model for us
+   * to classify.
+   */
+  readonly modelHostClass: ModelHostClass;
+
   constructor(private config: BuiltInAgentConfiguration) {
     super();
+    this.modelHostClass = isFactoryConfig(config)
+      ? "unknown"
+      : classifyModelSpec(config.model);
   }
 
   /**
