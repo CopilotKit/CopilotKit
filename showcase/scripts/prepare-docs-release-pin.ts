@@ -47,6 +47,18 @@ async function main(): Promise<void> {
   }
 
   const stagingDigest = await resolveDigest(arg("staging-digest"), "staging");
+  const verifiedStagingDigest = arg("verified-staging-digest");
+  if (
+    verifiedStagingDigest !== undefined &&
+    (stagingDigest === null || stagingDigest !== verifiedStagingDigest)
+  ) {
+    appendOutput("skip=true");
+    appendOutput("reason=staging digest changed during verification");
+    console.log(
+      "staging digest changed during verification; retry on the next run",
+    );
+    return;
+  }
   const prodDigest = await resolveDigest(arg("prod-digest"), "prod");
   let pinOnMain = null;
   if (existsSync(pinPath)) {

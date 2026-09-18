@@ -82,7 +82,24 @@ jobs:
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          # Bracket the health probe with digest reads. The pin CLI checks
+          # this snapshot against Railway again rather than pinning a newer,
+          # unprobed deployment that arrived while verification was running.
+          STAGING_DIGEST=$(npx tsx -e '
+            import { resolveRailwayToken } from "./lib/railway-token.ts";
+            import { liveFetchDeployedDigest } from "./reconcile-staging.ts";
+            import { ENV_ID_BY_NAME, SERVICES } from "./railway-envs.ts";
+            liveFetchDeployedDigest(resolveRailwayToken().token, SERVICES.docs.serviceId, ENV_ID_BY_NAME.staging)
+              .then(digest => console.log(digest ?? ""))
+              .catch(error => { console.error(error); process.exit(1); });
+          ')
+          if [ -z "$STAGING_DIGEST" ]; then
+            echo "::notice::docs staging has no deployed digest; skipping release PR."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if npx tsx verify-deploy.ts --env staging --services docs; then
+            echo "staging-digest=$STAGING_DIGEST" >> "$GITHUB_OUTPUT"
             echo "skip=false" >> "$GITHUB_OUTPUT"
           else
             echo "::notice::docs staging probe is red; not opening a release PR."
@@ -96,10 +113,12 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           GIT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          VERIFIED_STAGING_DIGEST: ${{ steps.probe.outputs.staging-digest }}
         run: |
           set -euo pipefail
           npx tsx prepare-docs-release-pin.ts \
             --pin-path=../../showcase/pins/docs-prod.json \
+            --verified-staging-digest="$VERIFIED_STAGING_DIGEST" \
             --git-sha="$GIT_SHA"
 
       - name: Mint devops-bot token
