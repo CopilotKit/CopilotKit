@@ -73,5 +73,8 @@ History commits at an explicit checkpoint. Applied live events then advance the 
 
 If delivery fails before that checkpoint, the SDK restores its prior messages, state, and cursor.
 After the checkpoint, failure rolls back only an unfinished live frame.
+Detaching waits for pending replay callbacks before the final rollback.
+A channel error cancels the old restore and starts a fresh session on rejoin.
+The replacement session waits for the old callbacks and rollback, then resumes from the last committed cursor.
 Subscriber effects outside agent messages and state must tolerate retries.
 This option bounds gateway delivery queues; it does not paginate or bound the client's full thread state.

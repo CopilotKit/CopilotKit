@@ -20,6 +20,15 @@ vi.mock("phoenix", async () => {
 });
 const { IntelligenceAgent } = await import("../intelligence-agent");
 
+/** A test-owned callback gate makes cancellation races deterministic. */
+function deferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
 async function setup(subscriber?: AgentSubscriber) {
   const index = sockets.created.length;
   const requests: unknown[] = [];
@@ -86,10 +95,7 @@ function batch(sequence = 1) {
 }
 
 test("bounded replay uses the versioned topic and acknowledges only after state application", async () => {
-  let finish: () => void = () => {};
-  const gate = new Promise<void>((resolve) => {
-    finish = resolve;
-  });
+  const { promise: gate, resolve: finish } = deferred();
   const context = await setup({ onStateDeltaEvent: () => gate });
   try {
     expect(context.channel.topic).toBe("bounded_thread:thread-1");
@@ -216,10 +222,7 @@ test("live events advance the cursor after application and stale controls cannot
 });
 
 test("acknowledgements wait for asynchronous state subscribers", async () => {
-  let finish: () => void = () => {};
-  const gate = new Promise<void>((resolve) => {
-    finish = resolve;
-  });
+  const { promise: gate, resolve: finish } = deferred();
   const context = await setup({ onStateChanged: () => gate });
   try {
     context.channel.serverPush("bounded_replay_batch", batch());
@@ -229,6 +232,160 @@ test("acknowledgements wait for asynchronous state subscribers", async () => {
     await vi.waitFor(() => expect(context.channel.pushLog).toHaveLength(1));
   } finally {
     finish();
+    await context.teardown();
+  }
+});
+
+test("detach waits for an in-flight callback and restores the checkpoint before the next run", async () => {
+  const { promise: gate, resolve: release } = deferred();
+  const entered = vi.fn();
+  const context = await setup({
+    onStateDeltaEvent: async () => {
+      entered();
+      await gate;
+    },
+  });
+  try {
+    context.channel.serverPush("bounded_replay_batch", batch());
+    await vi.waitFor(() => expect(entered).toHaveBeenCalledOnce());
+    const detached = context.agent.detachActiveRun();
+    release();
+    await detached;
+    expect(context.agent.state).toEqual({ counter: 0 });
+    expect(context.channel.pushLog).toHaveLength(0);
+  } finally {
+    release();
+    await context.teardown();
+  }
+});
+
+test("channel rejoin accepts a fresh restore and excludes pending callbacks from the old session", async () => {
+  const { promise: gate, resolve: release } = deferred();
+  const entered = vi.fn();
+  const context = await setup({
+    onStateDeltaEvent: async ({ agent }) => {
+      entered();
+      if (entered.mock.calls.length === 1) {
+        await gate;
+        agent.setState({ counter: 77 });
+      }
+    },
+  });
+  try {
+    context.channel.serverPush("bounded_replay_batch", batch());
+    await vi.waitFor(() => expect(entered).toHaveBeenCalledOnce());
+    context.channel.triggerError("server restart");
+    context.channel.triggerJoin("ok", { replay_protocol: "bounded_v1" });
+    context.channel.serverPush("bounded_replay_batch", {
+      ...batch(),
+      restore_id: "replacement",
+      events: [
+        {
+          type: EventType.STATE_DELTA,
+          delta: [
+            { op: "test", path: "/counter", value: 0 },
+            { op: "replace", path: "/counter", value: 2 },
+          ],
+        },
+      ],
+    });
+    release();
+    await vi.waitFor(() => expect(context.channel.pushLog).toHaveLength(1));
+    expect(context.channel.pushLog[0]?.payload.restore_id).toBe("replacement");
+    expect(context.agent.state).toEqual({ counter: 2 });
+    context.channel.serverPush("bounded_replay_commit", {
+      restore_id: "replacement",
+      token: "commit-new",
+      latestEventId: "replacement-1",
+    });
+    await vi.waitFor(() => expect(context.channel.pushLog).toHaveLength(2));
+  } finally {
+    release();
+    await context.teardown();
+  }
+});
+
+test("bounded replay preserves chunk assembly across acknowledged frames", async () => {
+  const context = await setup();
+  try {
+    context.channel.serverPush("bounded_replay_batch", {
+      ...batch(),
+      events: [
+        {
+          type: EventType.TEXT_MESSAGE_CHUNK,
+          messageId: "message-1",
+          role: "assistant",
+          delta: "hello ",
+        },
+      ],
+    });
+    await vi.waitFor(() => expect(context.channel.pushLog).toHaveLength(1));
+    context.channel.serverPush("bounded_replay_batch", {
+      ...batch(2),
+      events: [{ type: EventType.TEXT_MESSAGE_CHUNK, delta: "world" }],
+    });
+    await vi.waitFor(() => expect(context.channel.pushLog).toHaveLength(2));
+    expect(context.agent.messages).toMatchObject([
+      { id: "message-1", content: "hello world" },
+    ]);
+  } finally {
+    await context.teardown();
+  }
+});
+
+test("channel error rolls back applied history and rejoin uses the last committed live cursor", async () => {
+  const context = await setup();
+  try {
+    context.channel.serverPush("bounded_replay_batch", batch());
+    await vi.waitFor(() => expect(context.channel.pushLog).toHaveLength(1));
+    context.channel.triggerError("before commit");
+    await vi.waitFor(() => expect(context.agent.state).toEqual({ counter: 0 }));
+    context.channel.triggerJoin("ok");
+    context.channel.serverPush("bounded_replay_batch", {
+      ...batch(),
+      restore_id: "new",
+    });
+    await vi.waitFor(() => expect(context.channel.pushLog).toHaveLength(2));
+    context.channel.serverPush("bounded_replay_commit", {
+      restore_id: "new",
+      token: "commit",
+      latestEventId: "history-1",
+    });
+    await vi.waitFor(() => expect(context.channel.pushLog).toHaveLength(3));
+    context.channel.serverPush("bounded_replay_batch", {
+      ...batch(2),
+      restore_id: "new",
+      phase: "live",
+    });
+    await vi.waitFor(() => expect(context.channel.pushLog).toHaveLength(4));
+    context.channel.triggerError("after live frame");
+    expect(context.channel.params.last_seen_event_id).toBe("history-2");
+    expect(context.agent.state).toEqual({ counter: 2 });
+  } finally {
+    await context.teardown();
+  }
+});
+
+test("detach awaits state listeners that mutate the agent after cancellation", async () => {
+  const { promise: gate, resolve: release } = deferred();
+  const entered = vi.fn();
+  const context = await setup({
+    onStateChanged: async ({ agent }) => {
+      entered();
+      await gate;
+      agent.setState({ counter: 99 });
+    },
+  });
+  try {
+    context.channel.serverPush("bounded_replay_batch", batch());
+    await vi.waitFor(() => expect(entered).toHaveBeenCalledOnce());
+    const detached = context.agent.detachActiveRun();
+    release();
+    await detached;
+    expect(context.agent.state).toEqual({ counter: 0 });
+    expect(context.channel.pushLog).toHaveLength(0);
+  } finally {
+    release();
     await context.teardown();
   }
 });
