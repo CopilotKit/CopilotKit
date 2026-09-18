@@ -6,16 +6,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI
-from langchain.chat_models import ChatOpenAI
-from langchain.vectorstores import FAISS
-from langchain.embeddings import OpenAIEmbeddings
+from langchain_openai import ChatOpenAI
+from langchain_community.vectorstores import FAISS
+from langchain_openai import OpenAIEmbeddings
 from langchain.agents import AgentExecutor, tool
-from langchain.tools.render import format_tool_to_openai_function
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.agents.output_parsers import OpenAIFunctionsAgentOutputParser
-from langchain.pydantic_v1 import BaseModel
+from langchain_core.utils.function_calling import convert_to_openai_function
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain.agents.output_parsers.openai_functions import OpenAIFunctionsAgentOutputParser
+from pydantic import BaseModel
 from typing import Any
-from langchain.agents.format_scratchpad import format_to_openai_functions
+from langchain.agents.format_scratchpad.openai_functions import format_to_openai_functions
 
 from langserve import add_routes
 
@@ -69,7 +69,7 @@ def get_eugene_thoughts(query: str) -> list:
 
 tools = [get_eugene_thoughts]
 llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0, streaming=True)
-llm_with_tools = llm.bind(functions=[format_tool_to_openai_function(t) for t in tools])
+llm_with_tools = llm.bind(functions=[convert_to_openai_function(t) for t in tools])
 prompt = ChatPromptTemplate.from_messages(
     [
         ("system", "You are a helpful assistant."),
