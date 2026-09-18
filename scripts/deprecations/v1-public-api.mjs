@@ -13,13 +13,57 @@ export const MIGRATION_GUIDE = "https://docs.copilotkit.ai/migrate/v2";
 export const V2_DOCS = "https://docs.copilotkit.ai/";
 export const V2_REFERENCE = "https://docs.copilotkit.ai/reference/v2";
 
+// Every published v2 module a replacement may legitimately live in, most
+// general first. The lookup below walks these in order and stops at the first
+// module that exports the name, so the root barrel — the import path the docs
+// teach — wins whenever it carries the symbol, and a narrower subpath is only
+// named when it is the sole home.
+//
+// Before PE-123 this was a single `v2File`, and five of the nine entrypoints
+// set it to `null`. For those the lookup could not run at all, so their rows
+// reported "no replacement" by construction rather than by looking. Listing the
+// modules per entrypoint makes every row a real answer.
+const reactV2Modules = [
+  {
+    file: "packages/react-core/src/v2/index.ts",
+    importPath: "@copilotkit/react-core/v2",
+  },
+  {
+    file: "packages/react-core/src/v2/headless.ts",
+    importPath: "@copilotkit/react-core/v2/headless",
+  },
+  {
+    file: "packages/react-core/src/v2/context.ts",
+    importPath: "@copilotkit/react-core/v2/context",
+  },
+];
+
+const runtimeV2Modules = [
+  {
+    file: "packages/runtime/src/v2/index.ts",
+    importPath: "@copilotkit/runtime/v2",
+  },
+  {
+    file: "packages/runtime/src/v2/node.ts",
+    importPath: "@copilotkit/runtime/v2/node",
+  },
+  {
+    file: "packages/runtime/src/v2/express.ts",
+    importPath: "@copilotkit/runtime/v2/express",
+  },
+  {
+    file: "packages/runtime/src/v2/hono.ts",
+    importPath: "@copilotkit/runtime/v2/hono",
+  },
+];
+
 export const v1Entrypoints = [
   {
     id: "react-core",
     file: "packages/react-core/src/v1-deprecated-compatibility.ts",
     packageRoot: "packages/react-core",
     importPath: "@copilotkit/react-core",
-    v2File: "packages/react-core/src/v2/index.ts",
+    v2Modules: reactV2Modules,
     v2ImportPath: "@copilotkit/react-core/v2",
     v2Source: "packages/react-core/src/v2/index.ts",
     docsKind: "react",
@@ -34,7 +78,7 @@ export const v1Entrypoints = [
     file: "packages/react-ui/src/index.tsx",
     packageRoot: "packages/react-ui",
     importPath: "@copilotkit/react-ui",
-    v2File: "packages/react-core/src/v2/index.ts",
+    v2Modules: reactV2Modules,
     v2ImportPath: "@copilotkit/react-core/v2",
     v2Source: "packages/react-core/src/v2/index.ts",
     docsKind: "react",
@@ -49,7 +93,7 @@ export const v1Entrypoints = [
     file: "packages/react-textarea/src/index.tsx",
     packageRoot: "packages/react-textarea",
     importPath: "@copilotkit/react-textarea",
-    v2File: null,
+    v2Modules: reactV2Modules,
     v2ImportPath: "@copilotkit/react-core/v2",
     v2Source: "packages/react-core/src/v2/index.ts",
     docsKind: "react",
@@ -64,7 +108,7 @@ export const v1Entrypoints = [
     file: "packages/runtime/src/v1-deprecated-compatibility.ts",
     packageRoot: "packages/runtime",
     importPath: "@copilotkit/runtime",
-    v2File: "packages/runtime/src/v2/index.ts",
+    v2Modules: runtimeV2Modules,
     v2ImportPath: "@copilotkit/runtime/v2",
     v2Source: "packages/runtime/src/v2/index.ts",
     docsKind: "runtime",
@@ -79,7 +123,7 @@ export const v1Entrypoints = [
     file: "packages/runtime/src/v1-deprecated/langgraph.ts",
     packageRoot: "packages/runtime",
     importPath: "@copilotkit/runtime/langgraph",
-    v2File: "packages/runtime/src/v2/index.ts",
+    v2Modules: runtimeV2Modules,
     v2ImportPath: "@copilotkit/runtime/v2",
     v2Source: "packages/runtime/src/v2/index.ts",
     docsKind: "runtime",
@@ -94,7 +138,7 @@ export const v1Entrypoints = [
     file: "packages/sdk-js/src/index.ts",
     packageRoot: "packages/sdk-js",
     importPath: "@copilotkit/sdk-js",
-    v2File: null,
+    v2Modules: runtimeV2Modules,
     v2ImportPath: "@copilotkit/runtime/v2",
     v2Source: "packages/runtime/src/v2/index.ts",
     docsKind: "runtime",
@@ -109,7 +153,7 @@ export const v1Entrypoints = [
     file: "packages/sdk-js/src/langchain.ts",
     packageRoot: "packages/sdk-js",
     importPath: "@copilotkit/sdk-js/langchain",
-    v2File: null,
+    v2Modules: runtimeV2Modules,
     v2ImportPath: "@copilotkit/runtime/v2",
     v2Source: "packages/runtime/src/v2/index.ts",
     docsKind: "runtime",
@@ -124,7 +168,7 @@ export const v1Entrypoints = [
     file: "packages/sdk-js/src/langgraph/index.ts",
     packageRoot: "packages/sdk-js",
     importPath: "@copilotkit/sdk-js/langgraph",
-    v2File: null,
+    v2Modules: runtimeV2Modules,
     v2ImportPath: "@copilotkit/runtime/v2",
     v2Source: "packages/runtime/src/v2/index.ts",
     docsKind: "runtime",
@@ -139,7 +183,7 @@ export const v1Entrypoints = [
     file: "packages/sdk-js/src/langgraph-middlewares.ts",
     packageRoot: "packages/sdk-js",
     importPath: "@copilotkit/sdk-js/langgraph-middlewares",
-    v2File: null,
+    v2Modules: runtimeV2Modules,
     v2ImportPath: "@copilotkit/runtime/v2",
     v2Source: "packages/runtime/src/v2/index.ts",
     docsKind: "runtime",
@@ -776,9 +820,9 @@ function defaultExample(name, importPath, typeOnly, declaration) {
 export function getV1PublicApi() {
   const rootNames = [
     ...v1Entrypoints.map(({ file }) => path.join(repoRoot, file)),
-    ...v1Entrypoints
-      .map(({ v2File }) => v2File && path.join(repoRoot, v2File))
-      .filter(Boolean),
+    ...v1Entrypoints.flatMap(({ v2Modules }) =>
+      v2Modules.map(({ file }) => path.join(repoRoot, file)),
+    ),
   ];
   const program = ts.createProgram(rootNames, compilerOptions);
   const checker = program.getTypeChecker();
@@ -790,15 +834,25 @@ export function getV1PublicApi() {
     );
     if (!sourceFile?.symbol)
       throw new Error(`Unable to load ${entrypoint.file}`);
-    const targetSource = entrypoint.v2File
-      ? program.getSourceFile(path.join(repoRoot, entrypoint.v2File))
-      : null;
-    const targetExports = targetSource?.symbol
-      ? checker.getExportsOfModule(targetSource.symbol)
-      : [];
-    const targetByName = new Map(
-      targetExports.map((symbol) => [symbol.name, symbol]),
-    );
+    // Walk the entrypoint's v2 modules most-general first and keep the first
+    // module that exports each name, recording which import path it came from.
+    // A later module never displaces an earlier one, so the root barrel stays
+    // the import path a row names whenever it carries the symbol.
+    const targetByName = new Map();
+    for (const v2Module of entrypoint.v2Modules) {
+      const moduleSource = program.getSourceFile(
+        path.join(repoRoot, v2Module.file),
+      );
+      if (!moduleSource?.symbol) {
+        throw new Error(
+          `Unable to load v2 module ${v2Module.file} for ${entrypoint.importPath}`,
+        );
+      }
+      for (const symbol of checker.getExportsOfModule(moduleSource.symbol)) {
+        if (targetByName.has(symbol.name)) continue;
+        targetByName.set(symbol.name, { symbol, v2Module });
+      }
+    }
     const targetNames = new Set(targetByName.keys());
     const exports = checker
       .getExportsOfModule(sourceFile.symbol)
@@ -836,15 +890,20 @@ export function getV1PublicApi() {
           );
         }
         const replacementName = override?.replacementName ?? symbol.name;
-        // A replacement can live on a narrower v2 subpath than the
-        // entrypoint's root one. The Express handler is the case that matters:
-        // it is reachable from `@copilotkit/runtime/v2` through the endpoints
-        // barrel, but the docs import it from `@copilotkit/runtime/v2/express`,
-        // which is the path that does not pull the rest of the barrel in.
-        const replacementImportPath =
-          override?.importPath ?? entrypoint.v2ImportPath;
-        const targetSymbol = targetByName.get(replacementName);
+        const targetEntry = targetByName.get(replacementName);
+        const targetSymbol = targetEntry?.symbol ?? null;
         const hasReplacement = Boolean(targetSymbol);
+        // A replacement can live on a narrower v2 subpath than the entrypoint's
+        // root one, so a row names the module the lookup actually found it in.
+        // An explicit override still wins, because a symbol can be reachable
+        // from the root barrel and still be better imported from a subpath: the
+        // Express handler is re-exported by `@copilotkit/runtime/v2`, but the
+        // docs import it from `@copilotkit/runtime/v2/express`, the path that
+        // does not pull the rest of the barrel in.
+        const replacementImportPath =
+          override?.importPath ??
+          targetEntry?.v2Module.importPath ??
+          entrypoint.v2ImportPath;
         const resolvedTarget = targetSymbol
           ? resolveAlias(checker, targetSymbol)
           : null;
@@ -923,6 +982,10 @@ export function getV1PublicApi() {
             ? {
                 name: replacementName,
                 importPath: replacementImportPath,
+                // The v2 module the lookup actually found the name in, before
+                // any `importPath` override. Lets a test tell "the root barrel
+                // carries this" from "only this subpath carries this".
+                resolvedFrom: targetEntry.v2Module.importPath,
                 source: replacementSource,
                 docs,
                 importLine: example.importLine,
