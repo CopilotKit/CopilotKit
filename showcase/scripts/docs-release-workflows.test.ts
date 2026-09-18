@@ -1,4 +1,6 @@
-import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -29,6 +31,85 @@ type WorkflowStep = {
 };
 
 describe("docs_open_release_pr.yml", () => {
+  it.each([0, 1])(
+    "leaves the candidate unchanged when %i release PRs are open",
+    (count) => {
+      const doc = load("docs_open_release_pr.yml");
+      const jobs = doc.jobs as Record<
+        string,
+        {
+          if?: string;
+          needs?: string;
+          outputs?: Record<string, string>;
+          steps: WorkflowStep[];
+        }
+      >;
+      const pending = jobs["pending-release"];
+      expect(pending.if).toContain("head_branch == 'main'");
+      expect(pending.outputs?.exists).toBe(
+        "${{ steps.pending.outputs.exists }}",
+      );
+      expect(jobs["open-pr"].needs).toBe("pending-release");
+      expect(jobs["open-pr"].if).toBe(
+        "needs.pending-release.outputs.exists == 'false'",
+      );
+      const script = pending.steps.find((step) => step.id === "pending")?.run;
+      expect(script).toBeTruthy();
+      const dir = mkdtempSync(join(tmpdir(), "docs-pending-"));
+      try {
+        const output = join(dir, "output");
+        const args = join(dir, "args");
+        execFileSync(
+          "bash",
+          [
+            "-c",
+            `
+        gh() { printf '%s\\n' "$@" > "$GH_ARGS"; printf '%s\\n' "$PR_COUNT"; }
+        ${script}
+      `,
+          ],
+          {
+            env: {
+              ...process.env,
+              GH_ARGS: args,
+              PR_COUNT: String(count),
+              GITHUB_OUTPUT: output,
+              GITHUB_REPOSITORY: "CopilotKit/CopilotKit",
+            },
+          },
+        );
+        expect(readFileSync(output, "utf8")).toBe(`exists=${count > 0}\n`);
+        expect(readFileSync(args, "utf8").trim().split("\n")).toEqual([
+          "pr",
+          "list",
+          "--repo",
+          "CopilotKit/CopilotKit",
+          "--base",
+          "main",
+          "--head",
+          "release/docs/prod",
+          "--state",
+          "open",
+          "--json",
+          "number",
+          "--jq",
+          "length",
+        ]);
+        expect(() =>
+          execFileSync("bash", ["-c", `gh() { return 1; }; ${script}`], {
+            env: {
+              ...process.env,
+              GITHUB_OUTPUT: join(dir, "failed-output"),
+              GITHUB_REPOSITORY: "CopilotKit/CopilotKit",
+            },
+          }),
+        ).toThrow();
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  );
+
   it("runs after Verify Deploy on every conclusion", () => {
     const doc = load("docs_open_release_pr.yml");
     const on = doc.on as {
@@ -80,6 +161,12 @@ describe("docs_promote.yml", () => {
       { if?: string; environment?: string; steps: WorkflowStep[] }
     >;
     const promote = jobs.promote;
+    const checkout = promote.steps.find((step) =>
+      step.uses?.startsWith("actions/checkout@"),
+    );
+    expect(checkout?.with?.ref).toBe(
+      "${{ github.event.pull_request.merge_commit_sha || github.sha }}",
+    );
     expect(promote.environment).toBe("railway");
     expect(promote.if).toMatch(/release\/docs\/prod/);
     expect(promote.if).toMatch(/merged/);
@@ -87,5 +174,18 @@ describe("docs_promote.yml", () => {
     expect(runs).toMatch(/bin\/railway promote docs --digest/);
     expect(runs).toMatch(/verify-deploy\.ts --env prod --services docs/);
     expect(runs).toMatch(/parseDocsProdPin/);
+  });
+});
+
+describe("showcase_validate.yml", () => {
+  it("runs workflow contracts for docs workflow-only changes on PRs and main", () => {
+    const doc = load("showcase_validate.yml");
+    const on = doc.on as Record<string, { paths: string[] }>;
+    for (const event of ["pull_request", "push"]) {
+      expect(on[event].paths).toContain(
+        ".github/workflows/docs_open_release_pr.yml",
+      );
+      expect(on[event].paths).toContain(".github/workflows/docs_promote.yml");
+    }
   });
 });
