@@ -151,6 +151,44 @@ describe("BuiltInAgent learned skills", () => {
     expect(input.state).toEqual({});
   });
 
+  it("supplies executable skills to a TanStack factory and refreshes on resume", async () => {
+    const { fetch, learnedSkills } = setup();
+    const contexts: AgentFactoryContext[] = [];
+    const agent = new BuiltInAgent({
+      type: "tanstack",
+      learnedSkills,
+      factory: async function* (context) {
+        contexts.push(context);
+        const delta = context.learnedSkills.catalog
+          ? ((await execute(
+              context.learnedSkills.tools,
+              "copilotkit_load_skill",
+              { skill_name: "refund-policy" },
+            )) as string)
+          : "No skills";
+        yield { type: "TEXT_MESSAGE_CONTENT", delta };
+      },
+    });
+    const events = await collectEvents(agent.run(createDefaultInput()));
+    expect(contexts[0].learnedSkills.catalog).toContain("refund-policy");
+    expect(JSON.stringify(events)).toContain("Use the published refund policy");
+    expect(events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
+    fetch.mockResolvedValue(response("empty"));
+    const resumed = await collectEvents(
+      agent.run(
+        createDefaultInput({
+          runId: "resumed",
+          resume: [
+            { interruptId: "approval", status: "resolved", payload: true },
+          ],
+        }),
+      ),
+    );
+    expect(contexts[1].learnedSkills).toEqual({ catalog: "", tools: {} });
+    expect(JSON.stringify(resumed)).toContain("No skills");
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
   it("automatically adds the catalog and executable tools to classic model calls", async () => {
     const { learnedSkills } = setup();
     const agent = new BuiltInAgent({
@@ -278,14 +316,23 @@ describe("BuiltInAgent learned skills", () => {
     expect(contexts.map((ctx) => ctx.input.threadId)).toEqual(["survivor"]);
   });
 
-  it.each(["NETWORK_ERROR", "AUTHORIZATION_FAILED"] as const)(
-    "blocks cold factory work on %s and emits RUN_ERROR",
-    async (code) => {
+  it.each(
+    (["NETWORK_ERROR", "AUTHORIZATION_FAILED"] as const).flatMap((code) =>
+      (["classic", "factory"] as const).map((mode) => ({ code, mode })),
+    ),
+  )(
+    "blocks cold $mode work on $code and emits RUN_ERROR",
+    async ({ code, mode }) => {
       const { fetch, learnedSkills } = setup();
       fetch.mockRejectedValue(
         new LearnedSkillsError(code, code === "NETWORK_ERROR"),
       );
-      const { agent, contexts } = factoryAgent(learnedSkills);
+      const factory = factoryAgent(learnedSkills);
+      const { contexts } = factory;
+      const agent =
+        mode === "classic"
+          ? new BuiltInAgent({ model: "openai/gpt-4o", learnedSkills })
+          : factory.agent;
       const events: string[] = [];
       await expect(
         new Promise<void>((resolve, reject) =>
@@ -298,6 +345,7 @@ describe("BuiltInAgent learned skills", () => {
       ).rejects.toMatchObject({ code });
       expect(contexts).toHaveLength(0);
       expect(events).toEqual([EventType.RUN_STARTED, EventType.RUN_ERROR]);
+      expect(streamText).not.toHaveBeenCalled();
     },
   );
 

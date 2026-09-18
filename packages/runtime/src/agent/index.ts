@@ -875,6 +875,9 @@ export interface AgentFactoryContext {
   interrupt: (interrupts: Interrupt[]) => Promise<ResumeEntry[]>;
 }
 
+/** Public name that avoids the runtime's request-scoped AgentFactoryContext. */
+export type BuiltInAgentFactoryContext = AgentFactoryContext;
+
 /**
  * Factory config for AI SDK backend.
  * The factory must return an object with a `fullStream` async iterable
@@ -1500,6 +1503,7 @@ export class BuiltInAgent extends AbstractAgent {
           if (config.mcpClients && config.mcpClients.length > 0) {
             for (const client of config.mcpClients) {
               const mcpTools = await client.tools();
+              abortController.signal.throwIfAborted();
               streamTextParams.tools = {
                 ...streamTextParams.tools,
                 ...mcpTools,
@@ -1530,6 +1534,7 @@ export class BuiltInAgent extends AbstractAgent {
                 // actually ask for SSE ever load it.
                 const { SSEClientTransport } =
                   await import("@modelcontextprotocol/sdk/client/sse.js");
+                abortController.signal.throwIfAborted();
                 // SSEClientTransport's second arg is SSEClientTransportOptions
                 // (`requestInit.headers`), not a raw header map. Passing
                 // `{ Authorization: ... }` as options is silently ignored.
@@ -1550,22 +1555,30 @@ export class BuiltInAgent extends AbstractAgent {
                 try {
                   mcpClient = await createMCPClient({ transport });
                 } catch (err) {
+                  abortController.signal.throwIfAborted();
                   console.error(
                     `[CopilotKit] MCP server ${serverConfig.url} failed to connect — skipping it for this run:`,
                     err,
                   );
                   continue;
                 }
+                // Unsubscribe may have already cleaned up while connection was pending.
+                if (abortController.signal.aborted) {
+                  await mcpClient.close();
+                  abortController.signal.throwIfAborted();
+                }
                 // Track it so it's closed on cleanup even if tools() fails.
                 mcpClients.push(mcpClient);
                 try {
                   // Get tools from this MCP server and merge with existing tools
                   const mcpTools = await mcpClient.tools();
+                  abortController.signal.throwIfAborted();
                   streamTextParams.tools = {
                     ...streamTextParams.tools,
                     ...mcpTools,
                   } as ToolSet;
                 } catch (err) {
+                  abortController.signal.throwIfAborted();
                   console.error(
                     `[CopilotKit] MCP server ${serverConfig.url} tools() failed — skipping its tools for this run:`,
                     err,

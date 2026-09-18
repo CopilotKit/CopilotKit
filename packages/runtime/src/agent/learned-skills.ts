@@ -14,7 +14,7 @@ export type BuiltInAgentLearnedSkillsOptions = SkillRegistryOptions;
 /** One invocation's catalog and executable AI SDK tools. Always present in factories. */
 export interface BuiltInAgentLearnedSkills {
   readonly catalog: string;
-  readonly tools: ToolSet;
+  readonly tools: Readonly<ToolSet>;
 }
 
 const empty: BuiltInAgentLearnedSkills = Object.freeze({

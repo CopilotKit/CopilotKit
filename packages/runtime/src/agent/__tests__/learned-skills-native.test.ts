@@ -128,7 +128,7 @@ describe("native AI SDK skill delivery over canonical HTTP transport", () => {
     },
   );
 
-  it.each(["classic", "factory"] as const)(
+  it.each(["classic", "factory", "classic-single-step"] as const)(
     "%s executes both skill tools and refreshes on resume",
     async (mode) => {
       const server = await deliveryServer();
@@ -181,11 +181,12 @@ describe("native AI SDK skill delivery over canonical HTTP transport", () => {
         }),
       });
       const agent =
-        mode === "classic"
+        mode !== "factory"
           ? new BuiltInAgent({
               model,
               prompt: "Host instructions",
               learnedSkills: server.options,
+              ...(mode === "classic-single-step" ? { maxSteps: 1 } : {}),
             })
           : new BuiltInAgent({
               type: "aisdk",
@@ -218,14 +219,17 @@ describe("native AI SDK skill delivery over canonical HTTP transport", () => {
         "Use the published refund policy",
       );
       expect(JSON.stringify(results)).toContain("30 days");
-      expect(model.doStreamCalls).toHaveLength(2);
+      const expectedCalls = mode === "classic-single-step" ? 1 : 2;
+      expect(model.doStreamCalls).toHaveLength(expectedCalls);
       const firstPrompt = JSON.stringify(model.doStreamCalls[0].prompt);
       expect(firstPrompt).toContain("Host instructions");
       expect(firstPrompt).toContain("refund-policy");
       expect(firstPrompt).not.toContain("30 days");
-      expect(JSON.stringify(model.doStreamCalls[1].prompt)).toContain(
-        "30 days",
-      );
+      if (expectedCalls === 2) {
+        expect(JSON.stringify(model.doStreamCalls[1].prompt)).toContain(
+          "30 days",
+        );
+      }
       expect(server.requests).toHaveLength(1);
       expect(server.requests[0].url).toContain("learning");
       expect(server.requests[0].authorization).toContain("test-delivery-key");
@@ -245,11 +249,12 @@ describe("native AI SDK skill delivery over canonical HTTP transport", () => {
       expect(server.requests[1].etag).toBe(
         fixtures.cases.find((item) => item.name === "text-skill")!.etag,
       );
-      expect(JSON.stringify(model.doStreamCalls[2].prompt)).not.toContain(
-        "copilotkit_learned_skills",
-      );
       expect(
-        model.doStreamCalls[2].tools?.map((tool) => tool.name) ?? [],
+        JSON.stringify(model.doStreamCalls[expectedCalls].prompt),
+      ).not.toContain("copilotkit_learned_skills");
+      expect(
+        model.doStreamCalls[expectedCalls].tools?.map((tool) => tool.name) ??
+          [],
       ).not.toContain("copilotkit_load_skill");
       expect(input.state).toEqual({});
     },

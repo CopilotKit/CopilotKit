@@ -83,9 +83,9 @@ const agent = new BuiltInAgent({
 });
 ```
 
-Every factory receives a `learnedSkills` object. Its `catalog` is `""` and its `tools` is `{}` when delivery is unconfigured or the verified snapshot contains no skills. Omitting the configuration disables all skill requests, even when delivery environment variables exist. With configuration, later runs check for newly published skills according to the freshness window.
+Import `BuiltInAgentFactoryContext` from `@copilotkit/runtime/v2` to annotate a factory context. Every factory receives a `learnedSkills` object. Its `catalog` is `""` and its `tools` is `{}` when delivery is unconfigured or the verified snapshot contains no skills. Omitting the configuration disables all skill requests, even when delivery environment variables exist. With configuration, later runs check for newly published skills according to the freshness window.
 
-The tools use AI SDK schemas and executors. TanStack and custom factories receive the same object and must adapt the tools to their model library; they are not TanStack-native tool definitions. Factory code owns the model call and its step limit. Keep the supplied catalog and tools together within that invocation.
+The tools use AI SDK schemas and executors. TanStack and custom factories receive the same object and must adapt the tools to their model library; they are not TanStack-native tool definitions. Factory code owns the model call and its step limit. Keep the supplied catalog and tools together within that invocation. The tool map is read-only; spread it into a new object to add application tools.
 
 Each run, including a resume, acquires one snapshot before factory or model work. Agent clones share the refresh cache; each invocation retains its own snapshot. Cancellation stops that invocation's delivery wait without cancelling another clone's shared refresh. Snapshots stay out of application state. Existing cached skills can cover transient failures, but a confirmed delivery denial blocks new execution.
 
@@ -261,7 +261,7 @@ Published revisions have no automatic expiry. A revoked revision cannot be used 
 
 ## Read tools
 
-Both tools remain registered even when the snapshot is empty:
+The framework adapters keep both tools registered even when the snapshot is empty. BuiltInAgent omits both tools for an empty snapshot; its factory receives `tools: {}`. With available skills, the tools are:
 
 - `copilotkit_load_skill(skill_name)` returns `SKILL.md` and the supporting file list.
 - `copilotkit_read_skill_file(skill_name, path)` returns one supporting UTF-8 text file.
