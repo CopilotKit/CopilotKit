@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { ENV_ID_BY_NAME, SERVICES } from "./railway-envs";
 
 const SCRIPT = resolve(__dirname, "prepare-docs-release-pin.ts");
 const DIGEST_A =
@@ -25,6 +26,72 @@ describe("prepare-docs-release-pin CLI", () => {
 
   afterEach(() => {
     rmSync(workDir, { recursive: true, force: true });
+  });
+
+  it("authenticates both live digest queries without override flags", () => {
+    const fetchStub = join(workDir, "railway-fetch.mjs");
+    const requestsPath = join(workDir, "requests.jsonl");
+    // Intercept only the network boundary in a real CLI subprocess. In
+    // particular, do not mock token resolution or the digest fetcher.
+    writeFileSync(
+      fetchStub,
+      `
+      import { appendFileSync } from "node:fs";
+      globalThis.fetch = async (url, options) => {
+        if (url !== "https://backboard.railway.app/graphql/v2") {
+          throw new Error("Unexpected network request: " + url);
+        }
+        if (options.headers.Authorization !== "Bearer docs-pin-test-token") {
+          return new Response("unauthorized", { status: 401 });
+        }
+        const { variables } = JSON.parse(options.body);
+        appendFileSync(${JSON.stringify(requestsPath)}, JSON.stringify(variables) + "\\n");
+        const digest = variables.environmentId === ${JSON.stringify(ENV_ID_BY_NAME.staging)}
+          ? ${JSON.stringify(DIGEST_A)} : ${JSON.stringify(DIGEST_B)};
+        return Response.json({ data: { deployments: { edges: [{ node: {
+          id: "test-deployment", status: "SUCCESS", createdAt: "2026-09-17T12:00:00Z",
+          meta: { imageDigest: digest }
+        } }] } } });
+      };
+    `,
+    );
+    execFileSync(
+      process.execPath,
+      [
+        "--import",
+        "tsx",
+        "--import",
+        fetchStub,
+        SCRIPT,
+        `--pin-path=${pinPath}`,
+        `--git-sha=${GIT_SHA}`,
+        `--verified-at=${VERIFIED_AT}`,
+      ],
+      {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          RAILWAY_TOKEN: "docs-pin-test-token",
+          GITHUB_OUTPUT: githubOutput,
+        },
+      },
+    );
+    expect(JSON.parse(readFileSync(pinPath, "utf8")).digest).toBe(DIGEST_A);
+    const requests = readFileSync(requestsPath, "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(requests).toEqual([
+      {
+        serviceId: SERVICES.docs.serviceId,
+        environmentId: ENV_ID_BY_NAME.staging,
+      },
+      {
+        serviceId: SERVICES.docs.serviceId,
+        environmentId: ENV_ID_BY_NAME.prod,
+      },
+    ]);
+    expect(readFileSync(githubOutput, "utf8")).toContain("skip=false");
   });
 
   it("writes the pin and sets skip=false when staging differs", () => {

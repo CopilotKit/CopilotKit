@@ -30,7 +30,7 @@ async function resolveDigest(
   if (flag !== undefined) {
     return flag.length === 0 ? null : flag;
   }
-  const token = resolveRailwayToken();
+  const { token } = resolveRailwayToken();
   return liveFetchDeployedDigest(
     token,
     SERVICES.docs.serviceId,
