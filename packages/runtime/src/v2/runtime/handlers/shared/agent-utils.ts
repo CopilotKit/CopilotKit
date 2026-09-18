@@ -1,6 +1,9 @@
 import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
 import { RunAgentInputSchema } from "@ag-ui/client";
-import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
+import {
+  A2UIMiddleware,
+  OpenGenerativeUIMiddleware,
+} from "@copilotkit/shared/event-transforms";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { MCPMiddleware } from "@ag-ui/mcp-middleware";
 import type { CopilotRuntimeLike } from "../../core/runtime";
@@ -9,7 +12,6 @@ import {
   isIntelligenceRuntime,
   resolveAgents,
 } from "../../core/runtime";
-import { OpenGenerativeUIMiddleware } from "../../open-generative-ui-middleware";
 import {
   INTELLIGENCE_MEMORY_GRANT_HEADER,
   INTELLIGENCE_USER_ID_HEADER,

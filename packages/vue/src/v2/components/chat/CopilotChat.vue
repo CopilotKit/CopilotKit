@@ -5,6 +5,7 @@ import {
   HttpAgent,
 } from "@ag-ui/client";
 import {
+  createAttachmentContent,
   DEFAULT_AGENT_ID,
   randomUUID,
   TranscriptionErrorCode,
@@ -581,14 +582,7 @@ async function handleSubmitMessage(value: string) {
       contentParts.push({ type: "text", text: value });
     }
     for (const attachment of readyAttachments) {
-      contentParts.push({
-        type: attachment.type,
-        source: attachment.source,
-        metadata: {
-          ...(attachment.filename ? { filename: attachment.filename } : {}),
-          ...attachment.metadata,
-        },
-      } as InputContent);
+      contentParts.push(createAttachmentContent(attachment));
     }
     agent.value.addMessage({
       id: randomUUID(),

@@ -103,7 +103,6 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "ai": "^6.0.104",
-    "clarinet": "^0.12.4",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "cors": "^2.8.5",
