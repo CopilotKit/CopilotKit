@@ -106,17 +106,6 @@ export function CompatibilityTab() {
             </span>{" "}
             <span className="text-[var(--text-secondary)]">not scored</span>
           </div>
-          <div>
-            <span className="font-semibold tabular-nums text-[var(--text-secondary)]">
-              {
-                variants.filter(
-                  (variant) =>
-                    variant.assessment.status === "internal_non_comparable",
-                ).length
-              }
-            </span>{" "}
-            <span className="text-[var(--text-secondary)]">not applicable</span>
-          </div>
         </div>
       </div>
 

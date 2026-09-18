@@ -113,10 +113,10 @@ describe("Compatibility tab", () => {
       screen.getByRole("heading", { name: "Compatibility" }),
     ).toBeInTheDocument();
     expect(screen.getByText("September 17, 2026 snapshot")).toBeInTheDocument();
-    expect(container).toHaveTextContent("17 / 21 variants scored");
+    expect(container).toHaveTextContent("17 / 20 variants scored");
     expect(container).toHaveTextContent("33 library entries");
     expect(container).toHaveTextContent("3 not scored");
-    expect(container).toHaveTextContent("1 not applicable");
+    expect(screen.queryByText("not applicable")).not.toBeInTheDocument();
     const headers = screen.getAllByRole("columnheader");
     expect(
       headers.findIndex((h) => h.textContent?.includes("LangGraph")),
@@ -599,8 +599,8 @@ describe("Compatibility tab", () => {
       screen.getByTestId("compatibility-summary-langroid"),
     ).toHaveTextContent("Not verified");
     expect(
-      screen.getByTestId("compatibility-summary-built-in-agent"),
-    ).toHaveTextContent("Not applicable");
+      screen.queryByTestId("compatibility-summary-built-in-agent"),
+    ).not.toBeInTheDocument();
 
     for (const name of ["AG2", "Google ADK", "Langroid"]) {
       fireEvent.click(
@@ -722,38 +722,35 @@ describe("Compatibility tab", () => {
     }
   });
 
-  it("keeps a zero-library platform useful without an expansion control", () => {
+  it("omits the built-in agent and recovers from its empty search", () => {
     render(<CompatibilityTab />);
-    fireEvent.change(
-      screen.getByRole("searchbox", { name: "Find a platform or library" }),
-      { target: { value: "Built-in Agent" } },
-    );
-
     expect(
-      screen.getByRole("columnheader", { name: "CopilotKit's Built-in Agent" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("columnheader", {
+        name: "CopilotKit's Built-in Agent",
+      }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /Built-in Agent libraries/ }),
     ).not.toBeInTheDocument();
-    for (const metric of [
-      "Compatibility",
-      "Running version",
-      "Latest",
-      "Registry",
-    ]) {
-      expect(
-        getMetricCell(metric, "Overview 1 variant · individual scores"),
-      ).toHaveTextContent(/^Not applicable$/);
-    }
+    const search = screen.getByRole("searchbox", {
+      name: "Find a platform or library",
+    });
+    fireEvent.change(search, { target: { value: "Built-in Agent" } });
+    expect(screen.getByText("No matching platforms")).toBeInTheDocument();
     const expand = screen.getByRole("button", { name: "Expand libraries" });
     expect(expand).toBeDisabled();
-    const before = screen.getAllByRole("columnheader").length;
     fireEvent.click(expand);
-    expect(screen.getAllByRole("columnheader")).toHaveLength(before);
+    expect(screen.queryAllByRole("columnheader")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(search).toHaveValue("");
+    expect(expand).toBeEnabled();
     expect(
-      within(
-        getMetricCell("Registry", "Overview 1 variant · individual scores"),
-      ).queryByRole("link"),
+      screen.getByRole("button", { name: "Expand LangGraph libraries" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("columnheader", {
+        name: "CopilotKit's Built-in Agent",
+      }),
     ).not.toBeInTheDocument();
     expectAlignedRows();
   });

@@ -114,7 +114,7 @@ export function getCompatibilityPlatforms(
   const platforms = new Map<string, CompatibilityPlatform>();
   for (const integration of integrations) {
     const row = assessments.get(integration.slug);
-    if (!row) continue;
+    if (!row || row.status === "internal_non_comparable") continue;
 
     const family = families[integration.slug];
     const id = family?.id ?? integration.slug;
