@@ -1862,8 +1862,7 @@
           "@langchain/langgraph-sdk",
           "@langchain/openai",
           "groq-sdk",
-          "langchain",
-          "openai"
+          "langchain"
         ],
         "provenance": [
           {

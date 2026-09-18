@@ -12,6 +12,7 @@ import type {
   ToolMessage,
 } from "@ag-ui/client";
 import type { AbstractAgent } from "@ag-ui/client";
+import { contentToText } from "@ag-ui/client";
 import { CopilotKit } from "./copilotkit";
 import type {
   FrontendToolConfig,
@@ -215,7 +216,7 @@ export class RenderToolCalls {
         name: toolCall.function.name,
         args,
         status: "complete",
-        result: message.content,
+        result: contentToText(message.content),
       };
     } else if (this.isLoading()) {
       return {
@@ -288,7 +289,7 @@ export class RenderToolCalls {
         name: toolCall.function.name,
         args,
         status: "complete",
-        result: message.content!,
+        result: contentToText(message.content),
         respond,
       };
     } else if (this.isLoading()) {

@@ -1,5 +1,6 @@
 import { AbstractAgent, EventType, transformChunks } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import { EventSchema } from "@ag-ui/core/schemas";
 import { firstValueFrom, of, toArray } from "rxjs";
 import type { Observable } from "rxjs";
 import { describe, expect, it } from "vitest";
@@ -356,8 +357,8 @@ describe("StateManager direct text-start raw event sidecar", () => {
     ).toEqual({ trace: { id: "trace-3039" } });
   });
 
-  it("preserves false, 0, empty string, and null while ignoring undefined", async () => {
-    const values: unknown[] = [false, 0, "", null, undefined];
+  it("preserves false, 0, empty string, and nested null while ignoring undefined", async () => {
+    const values: unknown[] = [false, 0, "", { payload: null }, undefined];
     const agent = new RawEventAgent((input) => [
       {
         type: EventType.RUN_STARTED,
@@ -395,10 +396,81 @@ describe("StateManager direct text-start raw event sidecar", () => {
           `boundary-${index}`,
         ),
       ),
-    ).toEqual([false, 0, "", null]);
+    ).toEqual([false, 0, "", { payload: null }]);
     expect(
       core.getRawEventForMessage(agent.agentId!, agent.threadId, "boundary-4"),
     ).toBeUndefined();
+  });
+
+  it("omits a legacy null rawEvent and completes with valid events", async () => {
+    const agent = new RawEventAgent((input) =>
+      startAndFinish(input, "null-raw-event-message", null),
+    );
+    const core = new CopilotKitCore({});
+    core.setAgents__unsafe_dev_only({ [agent.agentId!]: agent });
+    const events: BaseEvent[] = [];
+    agent.subscribe({
+      onEvent: ({ event }) => {
+        events.push(event);
+      },
+    });
+
+    await agent.runAgent({ runId: "null-raw-event-run" });
+
+    const startEvent = events.find(
+      (event) => event.type === EventType.TEXT_MESSAGE_START,
+    );
+    expect(startEvent).toMatchObject({ messageId: "null-raw-event-message" });
+    expect(startEvent).not.toHaveProperty("rawEvent");
+    expect(events.at(-1)).toMatchObject({ type: EventType.RUN_FINISHED });
+    expect(events.every((event) => EventSchema.safeParse(event).success)).toBe(
+      true,
+    );
+    expect(
+      EventSchema.safeParse({ ...startEvent, rawEvent: null }).success,
+    ).toBe(false);
+    expect(
+      core.getRawEventForMessage(
+        agent.agentId!,
+        agent.threadId,
+        "null-raw-event-message",
+      ),
+    ).toBeUndefined();
+  });
+
+  it("preserves required null payloads through the agent stream", async () => {
+    const payloadEvents: BaseEvent[] = [
+      { type: EventType.RAW, event: null },
+      { type: EventType.CUSTOM, name: "null-payload", value: null },
+      { type: EventType.STATE_SNAPSHOT, snapshot: null },
+    ];
+    const agent = new RawEventAgent((input) => [
+      {
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+      },
+      ...payloadEvents,
+      {
+        type: EventType.RUN_FINISHED,
+        threadId: input.threadId,
+        runId: input.runId,
+      },
+    ]);
+    const events: BaseEvent[] = [];
+    agent.subscribe({
+      onEvent: ({ event }) => {
+        events.push(event);
+      },
+    });
+
+    await agent.runAgent({ runId: "required-null-payload-run" });
+
+    expect(events.slice(1, -1)).toEqual(payloadEvents);
+    expect(events.at(-1)).toMatchObject({ type: EventType.RUN_FINISHED });
+    expect(events.every((event) => EventSchema.safeParse(event).success)).toBe(
+      true,
+    );
   });
 
   it("prunes removed messages and leaves snapshot metadata outside the sidecar", async () => {
