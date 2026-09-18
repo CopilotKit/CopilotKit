@@ -1,9 +1,10 @@
-import { Message } from "@ag-ui/core";
+import type { Message } from "@ag-ui/core";
+import type { AgentId } from "./copilotkit-types";
 
 export type ReactCustomMessageRendererPosition = "before" | "after";
 
-export interface ReactCustomMessageRenderer {
-  agentId?: string;
+export interface ReactCustomMessageRenderer<A extends AgentId = AgentId> {
+  agentId?: A;
   render: React.ComponentType<{
     message: Message;
     position: ReactCustomMessageRendererPosition;
