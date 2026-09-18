@@ -3,6 +3,8 @@ FROM node:22-slim AS frontend
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --legacy-peer-deps
+COPY runtime-patches ./runtime-patches
+RUN node runtime-patches/apply.cjs
 COPY . .
 RUN npm run build
 
