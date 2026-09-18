@@ -1,6 +1,9 @@
 name: "Docs: open prod release PR"
 
 on:
+  # Chain: push -> Build & Push -> Verify Deploy -> this workflow. GitHub
+  # limits workflow_run chaining to three downstream levels; do not grow
+  # this pipeline without checking that limit. Promotion uses a PR event.
   workflow_run:
     workflows: ["Showcase: Verify Deploy"]
     types: [completed]
@@ -15,8 +18,35 @@ permissions:
   contents: read
 
 jobs:
-  open-pr:
+  pending-release:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    outputs:
+      exists: ${{ steps.pending.outputs.exists }}
+    steps:
+      # Never push a new pin over a reviewed release. A maintainer must merge
+      # or close it before another candidate is prepared.
+      - name: Keep an open release PR stable
+        id: pending
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          count=$(gh pr list --repo "$GITHUB_REPOSITORY" --base main \
+            --head release/docs/prod --state open --json number --jq 'length')
+          if [ "$count" -gt 0 ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::An open docs release PR is awaiting review; leaving its pin unchanged."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  open-pr:
+    needs: pending-release
+    if: needs.pending-release.outputs.exists == 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: railway
@@ -83,7 +113,7 @@ jobs:
           permission-pull-requests: write
           permission-issues: write
 
-      - name: Open or update docs release PR
+      - name: Open docs release PR
         if: steps.probe.outputs.skip != 'true' && steps.pin.outputs.skip != 'true'
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
         env:
@@ -101,10 +131,19 @@ jobs:
             to the digest in `showcase/pins/docs-prod.json`.
 
             - Staging: https://docs.staging.copilotkit.ai
-            - Git SHA: `${{ github.event.workflow_run.head_sha || github.sha }}`
+            - Verification trigger SHA: `${{ github.event.workflow_run.head_sha || github.sha }}`
             - Digest: `${{ steps.pin.outputs.digest }}`
 
             This is the docs prod gate. It does not promote the showcase fleet.
+            The trigger SHA can be a scripts-only change, not the image's source
+            revision; the digest above is the release identity.
+
+            The bot will not refresh this PR while it is open. Update its branch
+            to main if required, then obtain approval of the latest push and merge
+            once required checks pass. To replace this candidate, close the PR and
+            dispatch **Docs: open prod release PR** again on main.
+            Staging can advance during review, so inspect the pinned digest as
+            well as the current staging page. See showcase/bin/README.md for gates.
 
             - [ ] Staging page looks right
             - [ ] Digest in the pin file is the one you want

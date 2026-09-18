@@ -101,6 +101,37 @@ showcase/bin/railway restore --env production --snapshot before-promote.yaml --y
 
 Docs production does not use `bin/railway promote --all`. Merge the `release/docs/prod` PR (pin file `showcase/pins/docs-prod.json`). Emergency only: `showcase/bin/railway promote docs --yes`.
 
+### Landing a docs release
+
+The bot opens one candidate after a green docs staging probe and leaves it
+unchanged while the PR is open. Later builds do not push new pins over approvals.
+To replace an unmerged candidate, close its PR and dispatch **Docs: open prod
+release PR** on `main`. After a merge, the next Verify Deploy completion (or a
+manual dispatch) can propose the next staging digest.
+
+1. Inspect the digest in `showcase/pins/docs-prod.json` and the staging page.
+   The pin's `git_sha` is the verification trigger SHA, which can be a
+   scripts-only commit; it is not guaranteed to be the image's source revision.
+   The immutable digest is the release identity. Staging can advance during
+   review, so its current page may no longer represent the pinned candidate.
+2. Update the release branch from `main` if GitHub requires it. Obtain approval
+   **after** that update: the current rules require one approval, dismiss stale
+   approvals, require approval of the last push, and require an up-to-date branch
+   with passing checks. Further manual pushes can require reapproval.
+3. Merge once GitHub's merge box is green. The workflow checks out that exact
+   merge commit and promotes its pin; it does not resolve a closed PR merge ref.
+
+The extra-approval setting for unattributed changes applies to
+[unattributed GitHub Copilot PRs](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets#additional-approval-for-unattributed-copilot-pull-requests),
+not all app-authored commits. This workflow uses the devops-bot GitHub App, not
+Copilot, so that setting alone does not require a second reviewer. Always use
+GitHub's current merge requirements as the authority; no rule bypass is enabled.
+
+Promotion deliberately uses `--digest`: it skips P2's in-flight race check and
+the staging-drift signal so it can ship the reviewed candidate even after staging
+advances. P1 (digest exists in GHCR) and P3 (staging live-green) still run. This is
+review-gated delivery, not automatic production deployment.
+
 ## CI integration
 
 `.github/workflows/showcase_lint_prod.yml` runs `bin/railway lint-prod` on

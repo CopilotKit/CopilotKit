@@ -35,6 +35,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+          # Closed PR merge refs are not durable. Read the pin that actually
+          # landed; manual dispatch instead reads the explicitly selected ref.
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
 
       - uses: ruby/setup-ruby@984c0c890880bbf811283d6f09c4607c62d210a4 # v1.323.0
         with:
@@ -86,6 +89,9 @@ jobs:
             echo "::error::RAILWAY_TOKEN is not set"
             exit 1
           fi
+          # Explicit --digest deploys the reviewed pin, even if staging has
+          # advanced. It skips P2 (in-flight race) and staging-drift checks;
+          # P1 (digest exists) and P3 (staging live-green) still run.
           showcase/bin/railway promote docs --digest "$IMAGE" --yes --non-interactive
 
       - name: Probe docs prod
