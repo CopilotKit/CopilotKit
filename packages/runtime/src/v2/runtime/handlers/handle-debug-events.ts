@@ -1,6 +1,6 @@
-import type { CopilotRuntimeLike } from "../core/runtime";
+import { CopilotRuntimeLike } from "../core/runtime";
 import { isDebugEventFeedEnabled } from "../core/debug-event-bus";
-import type { DebugEventEnvelope } from "@copilotkit/shared";
+import { DebugEventEnvelope } from "@copilotkit/shared";
 
 interface HandleDebugEventsParams {
   runtime: CopilotRuntimeLike;
