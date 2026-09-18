@@ -614,7 +614,8 @@
     {
       "match": {
         "userMessage": "summarize",
-        "context": "agno"
+        "context": "agno",
+        "toolName": "manage_sales_todos"
       },
       "response": {
         "content": "Here's a summary of your current sales pipeline:\n\n- **Total Pipeline Value**: $185,000\n- **Active Deals**: 5 deals across Prospect, Qualified, and Proposal stages\n- **Top Deal**: Acme Corp at $50,000 (Proposal stage)\n- **Win Rate**: 62% this quarter\n\nThe pipeline is healthy with good distribution across stages. Would you like to drill into any specific metric?"
