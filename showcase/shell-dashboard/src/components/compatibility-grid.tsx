@@ -108,6 +108,26 @@ function SdkScoreValue({ sdk }: { sdk: SdkAssessment }) {
   );
 }
 
+function registryLabel(sourceUrl: string) {
+  try {
+    const hostname = new URL(sourceUrl).hostname;
+    switch (hostname.replace(/^www\./, "")) {
+      case "pypi.org":
+        return "PyPI";
+      case "npmjs.com":
+        return "npm";
+      case "nuget.org":
+        return "NuGet";
+      case "central.sonatype.com":
+        return "Maven Central";
+      default:
+        return hostname || "Registry";
+    }
+  } catch {
+    return "Registry";
+  }
+}
+
 function MetricValue({
   metric,
   variant,
@@ -166,7 +186,7 @@ function MetricValue({
           target="_blank"
           rel="noreferrer"
         >
-          Registry
+          {registryLabel(pkg.sourceUrl)}
         </a>
       );
     }

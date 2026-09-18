@@ -313,7 +313,7 @@ describe("Compatibility tab", () => {
       ).toBeInTheDocument();
       expect(
         within(getMetricCell("Registry", column)).getByRole("link", {
-          name: "Registry",
+          name: "Maven Central",
         }),
       ).toHaveAttribute(
         "href",
@@ -344,9 +344,10 @@ describe("Compatibility tab", () => {
       "agent-framework-openai",
     ]) {
       const cell = getMetricCell("Registry", `Python ${name}`);
-      expect(
-        within(cell).getByRole("link", { name: "Registry" }),
-      ).toHaveAttribute("href", `https://pypi.org/project/${name}/`);
+      expect(within(cell).getByRole("link", { name: "PyPI" })).toHaveAttribute(
+        "href",
+        `https://pypi.org/project/${name}/`,
+      );
       expect(cell).not.toHaveTextContent("Not available");
     }
   });
@@ -368,7 +369,7 @@ describe("Compatibility tab", () => {
     expect(getMetricCell("Latest", overview)).toHaveTextContent(/^1\.18\.0$/);
     expect(
       within(getMetricCell("Registry", overview)).getByRole("link", {
-        name: "Registry",
+        name: "npm",
       }),
     ).toHaveAttribute(
       "href",
@@ -566,7 +567,9 @@ describe("Compatibility tab", () => {
     fireEvent.click(expand);
     expect(screen.getAllByRole("columnheader")).toHaveLength(before);
     expect(
-      screen.queryByRole("link", { name: "Registry" }),
+      within(
+        getMetricCell("Registry", "Overview 1 variant · individual scores"),
+      ).queryByRole("link"),
     ).not.toBeInTheDocument();
     expectAlignedRows();
   });
