@@ -830,10 +830,8 @@ agent_os = AgentOS(
         # events instead of the stock AGUI STEP_STARTED/STEP_FINISHED.
         # MCP Apps is mounted separately below so incoming MCP tool schemas
         # and tool-result continuations reach its dedicated no-tools agent.
-        # No-tools agent for the Open Generative UI cells. The runtime's
-        # `openGenerativeUI` middleware injects the `generateSandboxedUi`
-        # tool the LLM uses to author HTML+CSS for the sandboxed iframe.
-        AGUI(agent=open_gen_ui_agent, prefix="/open-gen-ui"),  # -> /open-gen-ui/agui
+        # OpenUI is mounted separately below so runtime-injected tools and
+        # their result continuations reach its dedicated no-tools agent.
         # Vision-capable agent (gpt-4o) for the Multimodal Attachments cell.
         AGUI(agent=multimodal_agent, prefix="/multimodal"),  # -> /multimodal/agui
         # BYOC: hashbrown — agent emits a hashbrown UI-kit envelope as a single
@@ -870,6 +868,18 @@ mcp_apps_status_router.routes = [
 ]
 app.include_router(mcp_apps_status_router)
 _attach_hitl_aware_route(app, mcp_apps_agent, "/mcp-apps")
+
+# Preserve OpenUI status while admitting runtime-injected sandbox tools.
+open_gen_ui_status_router = AGUI(
+    agent=open_gen_ui_agent, prefix="/open-gen-ui"
+).get_router()
+open_gen_ui_status_router.routes = [
+    route
+    for route in open_gen_ui_status_router.routes
+    if getattr(route, "path", None) == "/open-gen-ui/status"
+]
+app.include_router(open_gen_ui_status_router)
+_attach_hitl_aware_route(app, open_gen_ui_agent, "/open-gen-ui")
 
 # Interrupt-adapted scheduling agent. Shared by gen-ui-interrupt and
 # interrupt-headless demos -- backend has tools=[], the frontend provides
