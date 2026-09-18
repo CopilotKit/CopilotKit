@@ -7,6 +7,8 @@
 // framework-scoped views keep every internal link in the `<framework>`
 // namespace without duplicating the nav builder.
 
+import { onboardingFrameworkSlug } from "@/lib/intelligence-onboarding-framework";
+import { onboardingFrontendSlug } from "@/lib/intelligence-onboarding-frontend";
 import React from "react";
 import Link from "next/link";
 import { MDXRemote } from "next-mdx-remote/rsc";
@@ -21,7 +23,9 @@ import { DocsContentHeader } from "@/components/docs-content-header";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { EarlyAccessGate } from "@/components/early-access-gate";
 import { getEarlyAccessGate } from "@/lib/early-access";
-import { DocsPageTools } from "@/components/docs-page-tools";
+import { hasInContentPrompt } from "@/lib/docs-prompt-placement";
+import { DocsPromptActionsProvider } from "@/components/docs-prompt-actions";
+import { DocsPageTools, docsMarkdownUrl } from "@/components/docs-page-tools";
 import { Snippet } from "@/components/snippet";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { WhenAngularBackend } from "@/components/when-angular-backend";
@@ -35,6 +39,7 @@ import type { OpsPlatformCTAProps } from "@/components/react/ops-platform-cta";
 import { ChannelsStartPrompt } from "@/components/channels-start-prompt";
 import type { ChannelsStartPromptProps } from "@/components/channels-start-prompt";
 import { RichThreadsSetupPrompt } from "@/components/rich-threads-setup-prompt";
+import { MemorySetupPrompt } from "@/components/memory-setup-prompt";
 import { LearningSetupPrompt } from "@/components/learning-setup-prompt";
 import { IntelligenceOnboardingPrompt } from "@/components/intelligence-onboarding-prompt";
 import type { IntelligenceOnboardingPromptProps } from "@/components/intelligence-onboarding-prompt";
@@ -43,7 +48,7 @@ import { SignupLink } from "@/components/react/signup-link";
 import type { SignupLinkProps } from "@/components/react/signup-link";
 import { FrameworkSetup } from "@/lib/setup-concept";
 import { docsComponents } from "@/lib/mdx-registry";
-import { resolveDocsHref } from "@/lib/docs-link-rewrite";
+import { resolveCtaCardHrefs, resolveDocsHref } from "@/lib/docs-link-rewrite";
 import { transformerMeta } from "@/lib/rehype-code-meta";
 import { getIntegration, getTabDefault } from "@/lib/registry";
 import type { NavNode } from "@/lib/docs-render";
@@ -281,16 +286,16 @@ export async function DocsPageView({
               description={doc.fm.description}
               hideHeading={doc.fm.hideHeader}
             >
-              {!doc.fm.hidePageActions && (
-                <DocsPageTools
-                  slugPath={slugPath}
-                  slugHrefPrefix={slugHrefPrefix}
-                  githubUrl={buildGitHubUrl(doc.filePath)}
-                  onboardingFramework={onboardingFramework}
-                  onboardingFrontend={onboardingFrontend}
-                  hideOnboardingPrompt={slugPath === "webmcp"}
-                />
-              )}
+              {!doc.fm.hidePageActions &&
+                (hideBody || !hasInContentPrompt(tocSource)) && (
+                  <DocsPageTools
+                    slugPath={slugPath}
+                    slugHrefPrefix={slugHrefPrefix}
+                    githubUrl={buildGitHubUrl(doc.filePath)}
+                    onboardingFramework={onboardingFramework}
+                    onboardingFrontend={onboardingFrontend}
+                  />
+                )}
             </DocsContentHeader>
 
             {bannerSlot}
@@ -319,6 +324,31 @@ export async function DocsPageView({
                               : props.href;
                           return <CardComp {...props} href={href} />;
                         },
+                        // `<CTACards>` renders its cards through the
+                        // `Card` imported by the registry, so they never
+                        // reach the href-resolving `Card` override
+                        // above. Resolve each card href here instead.
+                        // Without this, a card on
+                        // `/ms-agent-python/human-in-the-loop` links to
+                        // the authored `/human-in-the-loop/...` path,
+                        // which leaves the active framework.
+                        CTACards: (
+                          props: React.ComponentProps<
+                            typeof docsComponents.CTACards
+                          >,
+                        ) => {
+                          const CTACardsComp = docsComponents.CTACards;
+                          return (
+                            <CTACardsComp
+                              {...props}
+                              cards={resolveCtaCardHrefs(props.cards, {
+                                slugHrefPrefix,
+                                frameworkOverride,
+                                frontendOverride,
+                              })}
+                            />
+                          );
+                        },
                         ChannelsStartPrompt: (
                           props: ChannelsStartPromptProps,
                         ) => (
@@ -327,8 +357,21 @@ export async function DocsPageView({
                             frontend={props.frontend ?? docsFrontend}
                           />
                         ),
+                        PageAgentPrompt: () => (
+                          <div className="not-prose my-6">
+                            <DocsPageTools
+                              slugPath={slugPath}
+                              slugHrefPrefix={slugHrefPrefix}
+                              githubUrl={buildGitHubUrl(doc.filePath)}
+                              promptTask={doc.fm.description ?? doc.fm.title}
+                              onboardingFramework={onboardingFramework}
+                              onboardingFrontend={onboardingFrontend}
+                            />
+                          </div>
+                        ),
                         RichThreadsSetupPrompt,
                         LearningSetupPrompt,
+                        MemorySetupPrompt,
                         QuickstartIntelligenceCta,
                         IntelligenceOnboardingPrompt:
                           IntelligenceOnboardingPromptMdx,
@@ -415,6 +458,12 @@ export async function DocsPageView({
                         // TAB_DEFAULTS_BY_SLUG) fall through to the MDX
                         // `default` and the component's first-label
                         // fallback unchanged.
+                        //
+                        // Pass this as `urlDefault`, NOT by overwriting
+                        // `default`: <Tabs> ranks a persisted pick above
+                        // the author's `default` but below the URL, and
+                        // it can only tell the two apart if they arrive
+                        // on separate props.
                         Tabs: (props: {
                           groupId?: string;
                           default?: string;
@@ -427,10 +476,7 @@ export async function DocsPageView({
                             props.groupId,
                           );
                           return (
-                            <DocsTabs
-                              {...props}
-                              default={urlDefault ?? props.default}
-                            >
+                            <DocsTabs {...props} urlDefault={urlDefault}>
                               {props.children}
                             </DocsTabs>
                           );
@@ -467,6 +513,7 @@ export async function DocsPageView({
                               frameworkOverride ?? props.currentFramework
                             }
                             hrefPrefix={slugHrefPrefix}
+                            frontendOverride={frontendOverride}
                           />
                         ),
                         // Same closure pattern: thread the URL framework
@@ -565,6 +612,26 @@ export async function DocsPageView({
                         ),
                       }}
                       options={{
+                        // next-mdx-remote 6 defaults `blockJS` to true,
+                        // which runs a remark plugin that DELETES every
+                        // JSX attribute whose value is an expression
+                        // (`cards={[...]}`, `icon={<Sparkles />}`) and
+                        // every `{expression}` node. The default
+                        // sandboxes untrusted remote MDX; every source
+                        // here is first-party content from
+                        // `src/content`, so the sandbox only silently
+                        // dropped authored props — a `<CTACards
+                        // cards={[...]} />` reached the component with
+                        // no props at all and rendered an empty grid.
+                        // `blockDangerousJS` keeps its default.
+                        //
+                        // Scoped to this route on purpose. The other
+                        // MDXRemote call sites keep the default; the
+                        // ag-ui tree in particular relies on the
+                        // stripping, because `ag-ui/introduction.mdx`
+                        // authors inline `onMouseEnter={...}` handlers
+                        // that would otherwise reach a server component.
+                        blockJS: false,
                         mdxOptions: {
                           remarkPlugins: [remarkGfm],
                           // Use Fumadocs's Shiki-based `rehypeCode` for
@@ -592,10 +659,26 @@ export async function DocsPageView({
                     />
                   </DocsBody>
                 );
-                if (ContentWrapper) {
-                  return <ContentWrapper>{body}</ContentWrapper>;
-                }
-                return body;
+                return (
+                  <DocsPromptActionsProvider
+                    value={{
+                      markdownUrl: docsMarkdownUrl(slugHrefPrefix, slugPath),
+                      githubUrl: buildGitHubUrl(doc.filePath),
+                      agentFramework: onboardingFramework
+                        ? onboardingFrameworkSlug(onboardingFramework.slug)
+                        : undefined,
+                      frontend: onboardingFrontend
+                        ? onboardingFrontendSlug(onboardingFrontend.id)
+                        : undefined,
+                    }}
+                  >
+                    {ContentWrapper ? (
+                      <ContentWrapper>{body}</ContentWrapper>
+                    ) : (
+                      body
+                    )}
+                  </DocsPromptActionsProvider>
+                );
               })()}
           </div>
         </MaybeEarlyAccessGate>

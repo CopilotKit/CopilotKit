@@ -38,7 +38,7 @@ export const canvasAgent = new Agent({
   name: "sample_agent",
   description: "Canvas agent powering CopilotKit AG-UI interactions.",
   tools: { setPlan, updatePlanProgress, completePlan },
-  model: openai("gpt-4o-mini"),
+  model: openai("gpt-5-mini"),
   instructions:
     "You are a helpful assistant managing a canvas of items. Prefer shared state over chat history.",
   memory: new Memory({

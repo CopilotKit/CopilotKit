@@ -1,5 +1,6 @@
 import type { AgentCapabilities } from "@ag-ui/core";
 import type { CopilotRuntimeLike } from "../core/runtime";
+import { hasLearningContainerConfiguration } from "../core/learning";
 import {
   isA2UIEnabled,
   isIntelligenceRuntime,
@@ -188,6 +189,9 @@ export async function handleGetRuntimeInfo({
               wsUrl: runtime.intelligence.ɵgetClientWsUrl(),
             },
             inspectorMetadata: true,
+            ...(hasLearningContainerConfiguration(runtime)
+              ? { inspectorLearning: true }
+              : {}),
           }
         : {}),
       // Legacy flat flag, kept for older clients. The `a2ui` object below is

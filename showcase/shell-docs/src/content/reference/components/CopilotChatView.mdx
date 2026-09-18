@@ -12,14 +12,13 @@ Every visual piece of `CopilotChatView` is exposed as a **slot**, so you can rep
 ## Import
 
 ```tsx
-import CopilotChatView from "@copilotkit/react-core/v2";
+import { CopilotChatView } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
 ```
 
 <Callout type="info">
-  `CopilotChatView` is a named export: `import {CopilotChatView} from
-  "@copilotkit/react-core"` also works via the re-export from
-  `CopilotChat.View`.
+  `CopilotChatView` is a **named** export of the `@copilotkit/react-core/v2`
+  entry point. The package root, `@copilotkit/react-core`, does not export it.
 </Callout>
 
 ## Slots

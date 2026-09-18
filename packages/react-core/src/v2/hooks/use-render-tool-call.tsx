@@ -1,4 +1,10 @@
-import React, { useCallback, useMemo, useSyncExternalStore } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 import type { ToolCall, ToolMessage } from "@ag-ui/core";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
@@ -102,6 +108,48 @@ const ToolCallRenderer = React.memo(
   },
 );
 
+const IS_DEVELOPMENT = process.env.NODE_ENV !== "production";
+
+/**
+ * Reports tool calls that resolved to no renderer.
+ *
+ * A tool call with no renderer paints an empty message container and says
+ * nothing else, so the only signal a developer gets today is a blank space in
+ * the chat. This names the call and the renderers that *are* registered, which
+ * is the whole diagnosis when the cause is a name that does not match.
+ *
+ * @param toolNames - The unmatched tool names collected during render.
+ * @param registered - The registry as it stands now, re-read at report time.
+ * @param alreadyWarned - Names already reported, mutated to keep this once per name.
+ */
+function warnAboutUnrenderedToolCalls(
+  toolNames: readonly string[],
+  registered: readonly { readonly name: string }[],
+  alreadyWarned: Set<string>,
+): void {
+  const registeredNames = Array.from(new Set(registered.map((rc) => rc.name)));
+  const hasWildcard = registeredNames.includes("*");
+
+  for (const toolName of toolNames) {
+    // Re-check against the current registry: a renderer registered after the
+    // render that recorded the miss makes the miss stale, not real.
+    if (hasWildcard || registeredNames.includes(toolName)) continue;
+    if (alreadyWarned.has(toolName)) continue;
+    alreadyWarned.add(toolName);
+
+    console.warn(
+      `[CopilotKit] The agent called the tool "${toolName}", and no renderer is ` +
+        `registered for it, so that message rendered nothing. ` +
+        (registeredNames.length === 0
+          ? "No tool-call renderers are registered. "
+          : `Registered renderers: ${registeredNames.map((name) => `"${name}"`).join(", ")}. `) +
+        `Register one with useRenderTool({ name: "${toolName}", ... }), or call ` +
+        `useDefaultRenderTool() for a built-in card that covers every tool the ` +
+        `agent calls. This warning is development-only.`,
+    );
+  }
+}
+
 /**
  * Hook that returns a function to render tool calls based on the render functions
  * defined in CopilotKitProvider.
@@ -112,6 +160,11 @@ export function useRenderToolCall() {
   const { copilotkit, executingToolCallIds } = useCopilotKit();
   const config = useCopilotChatConfiguration();
   const agentId = config?.agentId ?? DEFAULT_AGENT_ID;
+
+  // Development-only bookkeeping for the warning below. Collected during render
+  // and reported afterwards, because the registry is not settled during render.
+  const unrenderedToolNames = useRef<Set<string>>(new Set());
+  const warnedToolNames = useRef<Set<string>>(new Set());
 
   // Subscribe to render tool calls changes using useSyncExternalStore
   // This ensures we always have the latest value, even if subscriptions run in any order
@@ -160,6 +213,9 @@ export function useRenderToolCall() {
       // tool names plus raw args/result JSON into every app's chat in
       // production, so the card must be explicitly enabled.
       if (!renderConfig) {
+        if (IS_DEVELOPMENT) {
+          unrenderedToolNames.current.add(toolCall.function.name);
+        }
         return null;
       }
 
@@ -180,6 +236,33 @@ export function useRenderToolCall() {
     },
     [renderToolCalls, executingToolCallIds, agentId],
   );
+
+  // Report unmatched tool calls after the commit that rendered them, deferred
+  // one task past this subtree's effects. `useRenderTool` registers from an
+  // effect in the component that renders the chat, and React runs child effects
+  // before parent ones, so at effect time here a renderer the app does register
+  // may not be in the registry yet. A timeout puts the check after every effect
+  // in the tree, and `warnAboutUnrenderedToolCalls` re-reads the registry then.
+  //
+  // No dependency array on purpose: the misses live in a ref, so an effect that
+  // only reran when `renderToolCalls` changed would never flush the common case
+  // of a registry that never changes again.
+  useEffect(() => {
+    if (!IS_DEVELOPMENT) return;
+    if (unrenderedToolNames.current.size === 0) return;
+
+    const timer = setTimeout(() => {
+      const pending = Array.from(unrenderedToolNames.current);
+      unrenderedToolNames.current.clear();
+      warnAboutUnrenderedToolCalls(
+        pending,
+        copilotkit.renderToolCalls,
+        warnedToolNames.current,
+      );
+    }, 0);
+
+    return () => clearTimeout(timer);
+  });
 
   return renderToolCall;
 }

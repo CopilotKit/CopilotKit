@@ -74,7 +74,7 @@ type AgentState = typeof AgentStateAnnotation.State;
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
   const model = makeChatOpenAI(config, {
-    model: "gpt-4.1",
+    model: "gpt-5-mini",
     modelKwargs: { parallel_tool_calls: false },
   });
 

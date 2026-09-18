@@ -1,0 +1,26 @@
+{
+  "package": "@copilotkit/runtime",
+  "version": "1.68.2",
+  "license": "MIT; original package LICENSE retained",
+  "source": "src/v2/runtime/handlers/sse/run.ts at v1.68.2",
+  "helperPath": "dist/v2/runtime/handlers/sse/agno-mcp-proxy.cjs",
+  "helperSha256": "8e19cda7370edc9ddaa8650cd54e17aafe7d88f414d7d3a73fa309bf5534ef8f",
+  "modules": [
+    {
+      "path": "dist/v2/runtime/handlers/sse/run.mjs",
+      "inputSha256": "48adfc34e407c7fe00731b6d928d950c19f81d84727877c8db1b903bddf5ab73",
+      "outputSha256": "57e3f37da9db79ff75d681f75cc1a451348c2680e155d729fa194f2081111274",
+      "anchor": "function handleSseRun({ runtime, request, agent, input, agentId, debug, logger, startTime }) {\n",
+      "import": "import { handleMcpProxy } from \"./agno-mcp-proxy.cjs\";\n",
+      "branch": "\tconst proxyResponse = handleMcpProxy({ runtime, request, agent, input, agentId, startTime, runtimeErrorReporter: getRuntimeErrorReporter(runtime) });\n\tif (proxyResponse) return proxyResponse;\n"
+    },
+    {
+      "path": "dist/v2/runtime/handlers/sse/run.cjs",
+      "inputSha256": "058462ee501b7cd28daced2fb8e9a44286cf6f1cb9b1c2d8ec586d15e4cdc5fe",
+      "outputSha256": "f79c1c066e5058bbd6bcced4cbee0a8ea38e32303d797fc694f43a31b7f8d455",
+      "anchor": "function handleSseRun({ runtime, request, agent, input, agentId, debug, logger, startTime }) {\n",
+      "import": "const { handleMcpProxy } = require(\"./agno-mcp-proxy.cjs\");\n",
+      "branch": "\tconst proxyResponse = handleMcpProxy({ runtime, request, agent, input, agentId, startTime, runtimeErrorReporter: require_runtime_error_reporter.getRuntimeErrorReporter(runtime) });\n\tif (proxyResponse) return proxyResponse;\n"
+    }
+  ]
+}

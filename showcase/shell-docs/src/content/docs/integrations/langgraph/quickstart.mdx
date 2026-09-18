@@ -7,10 +7,11 @@ hideTOC: true
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
 
-<IntelligenceOnboardingPrompt
-  feature="learning"
-  surface="docs_langgraph_quickstart"
-/>
+## Start with your coding agent
+
+Use this prompt to connect your LangGraph agent to CopilotKit and verify a working conversation. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
+
+<PageAgentPrompt />
 
 ## Prerequisites
 
@@ -20,6 +21,16 @@ Before you begin, you'll need the following:
 - Node.js 20+
 - Your favorite package manager
 - (Optional) A LangSmith API key - only required if using an existing LangGraph agent
+
+<Callout type="info" title="Zod version for TypeScript agents">
+When adding `@copilotkit/sdk-js` 1.71.0 to a TypeScript agent, install Zod 3 alongside it:
+
+```bash
+npm install @copilotkit/sdk-js@1.71.0 zod@3
+```
+
+An unversioned `zod` install selects Zod 4, which does not satisfy this SDK release's peer dependency. Use `zod@3` with pnpm or Yarn too. If your agent already requires Zod 4, check SDK compatibility before changing its dependencies; do not bypass the conflict with `--force` or `--legacy-peer-deps`.
+</Callout>
 
 ## Getting started
 
@@ -72,6 +83,8 @@ Before you begin, you'll need the following:
                 ```plaintext title=".env"
                 OPENAI_API_KEY=your_openai_api_key
                 ```
+
+                <ApiKeyHint provider="openai" />
 
                 <Callout type="info" title="What about other models?">
                   The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by LangGraph.
@@ -304,6 +317,8 @@ Before you begin, you'll need the following:
               OPENAI_API_KEY=your_openai_api_key
               ```
 
+              <ApiKeyHint provider="openai" />
+
               <Callout type="info" title="What about other models?">
                 The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by LangGraph.
               </Callout>
@@ -386,19 +401,19 @@ Before you begin, you'll need the following:
                 ```
               </Tab>
               <Tab value="FastAPI">
-                ```tsx title="app/api/copilotkit/route.ts"
+                ```tsx title="app/api/copilotkit/route.ts" doctest="component"
                 import {
                   CopilotKitIntelligence,
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
                 } from "@copilotkit/runtime/v2";
                 // [!code highlight]
-                import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
+                import { HttpAgent } from "@ag-ui/client";
 
                 const runtime = new CopilotRuntime({
                   agents: {
                     // [!code highlight:3]
-                    sample_agent: new LangGraphHttpAgent({
+                    sample_agent: new HttpAgent({
                       url:  process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
                     }),
                   },
@@ -455,9 +470,26 @@ Before you begin, you'll need the following:
                 [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
               </Callout>
 
+              ```tsx title="app/providers.tsx"
+              "use client";
+
+              import { CopilotKit } from "@copilotkit/react-core/v2";
+
+              export function Providers({ children }: { children: React.ReactNode }) {
+                return (
+                  <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent" useSingleEndpoint>
+                    {children}
+                  </CopilotKit>
+                );
+              }
+              ```
+
+              `app/layout.tsx` is a server component and cannot import the provider
+              directly, so it renders your client file instead:
+
               ```tsx title="app/layout.tsx"
               // [!code highlight:2]
-              import { CopilotKit } from "@copilotkit/react-core/v2";
+              import { Providers } from "./providers";
               import "@copilotkit/react-core/v2/styles.css";
               import './globals.css';
 
@@ -468,9 +500,9 @@ Before you begin, you'll need the following:
                   <html lang="en">
                     <body>
                       {/* [!code highlight:3] */}
-                      <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent" useSingleEndpoint>
+                      <Providers>
                         {children}
-                      </CopilotKit>
+                      </Providers>
                     </body>
                   </html>
                 );
@@ -491,6 +523,8 @@ Before you begin, you'll need the following:
             Add the CopilotSidebar component to your page:
 
             ```tsx title="app/page.tsx"
+            "use client"; // [!code highlight]
+
             import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
 
             export default function Page() {

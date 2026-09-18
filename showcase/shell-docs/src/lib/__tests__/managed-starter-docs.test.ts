@@ -207,7 +207,9 @@ test("managed quickstarts provision a project API key instead of a license key",
   const quickstarts = mdxFilesIn(path.join(CONTENT_DIR, "docs")).filter(
     (file) =>
       file.endsWith("quickstart.mdx") &&
-      fs.readFileSync(file, "utf8").includes("<IntelligenceOnboardingPrompt"),
+      /<SignupLink\s+surface="[^"]*quickstart_step1"/.test(
+        fs.readFileSync(file, "utf8"),
+      ),
   );
 
   expect(quickstarts.length).toBeGreaterThan(0);
@@ -275,7 +277,9 @@ test("managed telemetry docs distinguish the project key from self-hosted tokens
   expect(source).toContain(
     "Managed Intelligence starters use `CPK_INTELLIGENCE_API_KEY` for platform access",
   );
-  expect(source).toContain("do not receive `COPILOTKIT_LICENSE_TOKEN`");
+  expect(source).toContain(
+    "Managed project setup does not issue `COPILOTKIT_LICENSE_TOKEN`",
+  );
   expect(source).not.toContain(
     "Current managed Threads starters receive `COPILOTKIT_LICENSE_TOKEN`",
   );

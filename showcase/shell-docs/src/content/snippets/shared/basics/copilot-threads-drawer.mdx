@@ -125,10 +125,26 @@ Three bounded escape hatches pierce the boundary:
 
 ## Intelligence access
 
-Threads require CopilotKit Intelligence. If the runtime reports that Threads are
-not available, the drawer shows a locked view in place of the list. Managed
-projects use a server-side `CPK_INTELLIGENCE_API_KEY`; licensed self-hosted
-deployments use `COPILOTKIT_LICENSE_TOKEN` on the server.
+Threads require CopilotKit Intelligence. The drawer resolves its entitlement
+through the Runtime, so the credential is server-side configuration rather than a
+prop on the provider. Which credential you set depends on how you deploy.
+
+**Managed Intelligence.** The project-scoped `CPK_INTELLIGENCE_API_KEY` is the
+credential, and the Runtime resolves the drawer's entitlement from your
+organization's subscription. Managed project setup does not issue
+`COPILOTKIT_LICENSE_TOKEN`. That token is only for offline or self-hosted
+licensing and does not replace the managed project API key. If the CLI created
+your project, the key is already in `.env` and the drawer needs nothing further.
+
+**Self-hosted and OSS.** Give the Runtime a license token, either as the
+`licenseToken` option or as the `COPILOTKIT_LICENSE_TOKEN` environment variable.
+The option wins when you set both. Without a token the drawer shows a locked
+view with an Upgrade link in place of the list, and it issues no thread
+requests.
+
+The locked view appears whenever the Runtime reports no active entitlement: a
+self-hosted deployment whose license token is missing or expired, or a managed
+project whose subscription is inactive.
 
 ## Related
 

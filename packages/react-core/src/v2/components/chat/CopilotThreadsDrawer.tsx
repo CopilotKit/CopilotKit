@@ -31,6 +31,7 @@ import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { useThreads } from "../../hooks/use-threads";
 import type { Thread } from "../../hooks/use-threads";
 import { useLicenseContext } from "../../providers/CopilotKitProvider";
+import { useDefaultAgentId } from "../../context";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 
 /**
@@ -264,7 +265,9 @@ export function CopilotThreadsDrawer({
   // `threads` feature) surfaces the locked view.
   const licensePending = status === null;
 
-  const resolvedAgentId = agentId ?? configuration?.agentId ?? DEFAULT_AGENT_ID;
+  const providerAgentId = useDefaultAgentId();
+  const resolvedAgentId =
+    agentId ?? configuration?.agentId ?? providerAgentId ?? DEFAULT_AGENT_ID;
   const activeThreadId = configuration?.threadId ?? null;
 
   // While unlicensed, skip the thread fetch entirely: the element shows only

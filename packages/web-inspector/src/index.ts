@@ -36,6 +36,9 @@ import type {
   RuntimeLicenseStatus,
 } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber, Message } from "@ag-ui/client";
+import type { InspectorLearningSnapshotV1 } from "@copilotkit/shared";
+import { deriveLearningViewState } from "./components/learning-view.js";
+import type { LearningViewState } from "./components/learning-view.js";
 import type {
   Anchor,
   ContextKey,
@@ -71,6 +74,18 @@ import {
 } from "./lib/persistence.js";
 import type { PersistedState } from "./lib/persistence.js";
 import {
+  clearLearningSetupMarker,
+  learningSetupMarkerMatches,
+  readLearningSetupMarker,
+  subscribeToLearningSetupMarker,
+  writeLearningSetupMarker,
+} from "./lib/learning-setup.js";
+import type { LearningSetupMarker } from "./lib/learning-setup.js";
+import {
+  fetchInspectorLearning,
+  InspectorLearningUnsupportedError,
+} from "./lib/inspector-learning.js";
+import {
   buildPopOutFeatures,
   ensureBrandFont,
   openPopOutWindow,
@@ -83,7 +98,6 @@ import type {
 } from "./lib/inspector-metadata.js";
 import {
   buildHomeModel,
-  homeFeatureImplementationPrompt,
   runtimeConnectionNeedsAttention,
 } from "./lib/home-briefing.js";
 import type {
@@ -114,6 +128,15 @@ import {
   trackHomeStoryBeatSelected,
   trackHomeViewed,
   trackInspectorOpened,
+  learningCountBucket,
+  learningDurationBucket,
+  trackLearningEvidenceOpened,
+  trackLearningPageChanged,
+  trackLearningPaneViewed,
+  trackLearningSetupPromptClicked,
+  trackLearningSkillToggled,
+  trackLearningSnapshotLoaded,
+  trackLearningWebAppOpened,
   trackMetadataActionClicked,
   trackMetadataModuleViewed,
   trackTalkToEngineerClicked,
@@ -137,6 +160,7 @@ import {
   trackWhatsNewViewed,
 } from "./lib/telemetry.js";
 import {
+  createFeatureOnboardingPrompt,
   createOnboardingPrompt,
   createOnboardingRunId,
 } from "./lib/onboarding-prompt.js";
@@ -182,6 +206,7 @@ export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
  * "memories" for persistence and telemetry stability.
  */
 const LEARNING_VIEW_LABEL = "Learning";
+const LEARNING_RECOPY_CONFIRMATION_MS = 2_000;
 
 /**
  * User-facing label for the What's new view. Its menu key stays `whats-new`
@@ -387,7 +412,6 @@ type HomeFeaturePromptId = HomeServiceId;
 type HomeFeaturePromptTarget = Readonly<{
   id: HomeFeaturePromptId;
   label: string;
-  docsUrl: string;
 }>;
 
 const LAUNCHER_SIGNALS: Readonly<
@@ -999,6 +1023,13 @@ const AGENT_EVENT_TYPES: readonly InspectorAgentEventType[] = [
   "ACTIVITY_SNAPSHOT",
   "ACTIVITY_DELTA",
 ] as const;
+
+const THREADS_LOCKED_COPY = {
+  heading:
+    "Production-grade chat threads without the complexity. Self hostable.",
+  description:
+    "Chat threads that go beyond text with generative UI and multimodal inputs, built to replay missed events and stay in sync across tabs, sessions, and devices.",
+} as const;
 
 type SanitizedValue =
   | string
@@ -6445,6 +6476,25 @@ export class WebInspectorElement extends LitElement {
   // SDK). Distinct from `_memoriesAvailable` (memory not enabled on an
   // otherwise-current deployment) so the teaser can show upgrade-the-SDK copy.
   private _memoryStoreUnsupported = false;
+  private learningSnapshot: InspectorLearningSnapshotV1 | null = null;
+  private learningSnapshotScope: string | null = null;
+  private learningProjectIdentity: string | null = null;
+  private learningLoading = false;
+  private learningRefreshing = false;
+  private learningError: string | null = null;
+  private learningSupported = false;
+  private learningRequestGeneration = 0;
+  private learningAbortController: AbortController | null = null;
+  private learningPollTimer: ReturnType<typeof setTimeout> | null = null;
+  private learningPollFailureCount = 0;
+  private learningSetupMarker: LearningSetupMarker | null = null;
+  private learningSetupCopyRequest = 0;
+  private learningSetupUnsubscribe: (() => void) | null = null;
+  private learningPromptCopyState: "idle" | "copied" | "error" = "idle";
+  private learningPromptRecopyState: "idle" | "copied" | "error" = "idle";
+  private learningPromptRecopyTimer: ReturnType<typeof setTimeout> | null =
+    null;
+  private learningViewedState: LearningViewState | null = null;
   // ── Semantic recall (B3) ──────────────────────────────────────────────
   // `null` = no recall run yet (section hidden). `[]` = ran, no matches.
   private _recallResults: Memory[] | null = null;
@@ -6550,6 +6600,7 @@ export class WebInspectorElement extends LitElement {
   };
   private lastScrolledAgentNavigationLayout: string | null = null;
   private selectedThreadId: string | null = null;
+  private ephemeralThreadsSetupOpen = false;
   private inAppThreadId: string | null = null;
   private inAppAgentId: string | null = null;
   private inAppSource: "app" | "override" | null = null;
@@ -6715,6 +6766,7 @@ export class WebInspectorElement extends LitElement {
   private launcherHudIntroEndTimer: ReturnType<typeof setTimeout> | null = null;
   /** Host-wide deadline that suppresses both the Inspector and its launcher. */
   private inspectorDismissedUntil: number | null = null;
+  private lastReportedInspectorVisibility: boolean | null = null;
   private inspectorDismissalTimer: ReturnType<typeof setTimeout> | null = null;
   /**
    * Leaf a HUD row asked for. Consumed by `openInspector` so a red dot on
@@ -6801,6 +6853,7 @@ export class WebInspectorElement extends LitElement {
     this.detachFromCore();
 
     const hadResolvedCore = this.hasResolvedCore;
+    this.ephemeralThreadsSetupOpen = false;
     this._core = value ?? null;
     if (this._core) {
       this.hasResolvedCore = true;
@@ -7096,6 +7149,7 @@ export class WebInspectorElement extends LitElement {
     if (
       this.selectedMenu !== "threads" ||
       this.settingsOpen ||
+      this.ephemeralThreadsSetupOpen ||
       !this.areThreadEndpointsAvailable()
     ) {
       return false;
@@ -7217,6 +7271,14 @@ export class WebInspectorElement extends LitElement {
       this._threadsByAgent.set(agentId, threads as ɵThread[]);
       this.rebuildFlattenedThreads();
       this.autoSelectLatestThread();
+      if (
+        this.selectedMenu === "memories" &&
+        this.shouldPollLearningSetup() &&
+        !this.learningLoading &&
+        !this.learningRefreshing
+      ) {
+        void this.refreshLearningSnapshot({ preserve: true });
+      }
       this.requestUpdate();
     });
     const statusSub = store
@@ -7505,6 +7567,10 @@ export class WebInspectorElement extends LitElement {
     this.updateInspectorMetadataProjection(
       this.readCoreInspectorMetadata(core),
     );
+    this.learningSupported = core.inspectorLearning;
+    this.learningProjectIdentity = JSON.stringify(
+      this.inspectorMetadataProjection.identity ?? null,
+    );
 
     this.coreSubscriber = {
       onRuntimeConnectionStatusChanged: ({ status }) => {
@@ -7514,11 +7580,16 @@ export class WebInspectorElement extends LitElement {
           this.threadCapabilityEnabled === true;
         this.synchronizeThreadCapability();
         if (status === "connected") {
+          this.learningSupported = core.inspectorLearning;
           if (!core.telemetryDisabled) {
             ensureTelemetryDistinctId();
             maybeShowDisclosure();
           }
           this.flushPendingWhatsNewTelemetry();
+          if (this.isLearningStatusVisible()) {
+            this.clearLearningSnapshot();
+            void this.refreshLearningSnapshot({ preserve: false });
+          }
           if (
             threadCapabilityWasEnabled &&
             this.areThreadEndpointsAvailable()
@@ -7532,6 +7603,7 @@ export class WebInspectorElement extends LitElement {
           this._threadsByAgent.clear();
           this._threads = [];
           this.clearInspectorUsageRefresh();
+          this.clearLearningSnapshot();
         }
         this.requestUpdate();
       },
@@ -7550,6 +7622,16 @@ export class WebInspectorElement extends LitElement {
                 return;
               }
               this.updateInspectorMetadataProjection(inspectorMetadata);
+              const identity = JSON.stringify(
+                this.inspectorMetadataProjection.identity ?? null,
+              );
+              if (identity !== this.learningProjectIdentity) {
+                this.learningProjectIdentity = identity;
+                this.clearLearningSnapshot();
+                if (this.isLearningStatusVisible()) {
+                  void this.refreshLearningSnapshot({ preserve: false });
+                }
+              }
               this.requestUpdate();
             },
           }
@@ -7770,6 +7852,429 @@ export class WebInspectorElement extends LitElement {
     this.requestUpdate();
   }
 
+  private getLearningAgentId(): string | null {
+    if (
+      this.selectedContext !== "all-agents" &&
+      this.core?.agents[this.selectedContext]
+    ) {
+      return this.selectedContext;
+    }
+    // `all-agents` is intentionally unscoped. Choosing the first object key
+    // silently binds Learning to whichever agent happened to be enumerated
+    // first and can select the wrong container. Omit agentId so Intelligence
+    // applies its deterministic sole-container / selection-required rules.
+    return null;
+  }
+
+  /** Whether a visible surface needs the current Learning connection status. */
+  private isLearningStatusVisible(): boolean {
+    return (
+      this.launcherHudOpen ||
+      (this.isOpen &&
+        (this.selectedMenu === "home" || this.selectedMenu === "memories"))
+    );
+  }
+
+  private isLearningSetupActive(): boolean {
+    const runtimeUrl = this.core?.runtimeUrl;
+    if (!runtimeUrl) return false;
+    return learningSetupMarkerMatches(
+      this.learningSetupMarker,
+      runtimeUrl,
+      this.getLearningAgentId(),
+    );
+  }
+
+  private trackLearningViewState(): void {
+    if (
+      !this.isOpen ||
+      this.selectedMenu !== "memories" ||
+      this.core?.telemetryDisabled
+    ) {
+      return;
+    }
+    const state = deriveLearningViewState({
+      supported: this.learningSupported,
+      loading: this.learningLoading,
+      error: this.learningError,
+      snapshot: this.learningSnapshot,
+      setupActive: this.isLearningSetupActive(),
+    });
+    if (state === this.learningViewedState) return;
+    this.learningViewedState = state;
+    trackLearningPaneViewed({ state });
+  }
+
+  private cancelLearningPoll(): void {
+    if (this.learningPollTimer !== null) {
+      clearTimeout(this.learningPollTimer);
+      this.learningPollTimer = null;
+    }
+  }
+
+  private shouldPollLearningSetup(): boolean {
+    if (
+      !this.isOpen ||
+      this.selectedMenu !== "memories" ||
+      document.visibilityState !== "visible" ||
+      !this.learningSupported
+    ) {
+      return false;
+    }
+    const snapshot = this.learningSnapshot;
+    if (!snapshot) return this.isLearningSetupActive();
+    if (snapshot.configuration.state === "not_configured") {
+      return this.isLearningSetupActive();
+    }
+    return (
+      snapshot.configuration.state === "configured" &&
+      !snapshot.run.hasEverSucceeded &&
+      !snapshot.run.hasActiveRun &&
+      snapshot.pendingThreadCount === 0 &&
+      snapshot.skillsPage.total === 0 &&
+      snapshot.insightsPage.total === 0
+    );
+  }
+
+  private scheduleLearningPoll(): void {
+    this.cancelLearningPoll();
+    if (!this.shouldPollLearningSetup()) return;
+    const delay =
+      this.learningPollFailureCount === 0
+        ? 5_000
+        : this.learningPollFailureCount === 1
+          ? 10_000
+          : 30_000;
+    this.learningPollTimer = setTimeout(() => {
+      this.learningPollTimer = null;
+      void this.refreshLearningSnapshot({ preserve: true });
+    }, delay);
+  }
+
+  private clearLearningSnapshot(): void {
+    this.cancelLearningRequest();
+    this.learningSnapshot = null;
+    this.learningSnapshotScope = null;
+    this.learningError = null;
+    this.learningLoading = false;
+    this.learningRefreshing = false;
+    this.cancelLearningPoll();
+  }
+
+  private cancelLearningRequest(): void {
+    this.learningRequestGeneration += 1;
+    this.learningAbortController?.abort();
+    this.learningAbortController = null;
+  }
+
+  private refreshLearningSnapshot = async (
+    options: {
+      preserve?: boolean;
+      skillsPage?: number;
+      insightsPage?: number;
+    } = {},
+  ): Promise<void> => {
+    const core = this.core;
+    const runtimeUrl = core?.runtimeUrl;
+    this.learningSupported = Boolean(core?.inspectorLearning);
+    if (!core || !runtimeUrl || !this.learningSupported) {
+      this.clearLearningSnapshot();
+      this.requestUpdate();
+      this.trackLearningViewState();
+      return;
+    }
+    this.cancelLearningPoll();
+    const startedAt = performance.now();
+    let loadOutcome: "success" | "unsupported" | "failure" = "failure";
+    let loadedSkills = 0;
+    let loadedInsights = 0;
+    let loadedPendingThreads = 0;
+    let resetSkillsPage = false;
+    let resetInsightsPage = false;
+    const previousSnapshot = this.learningSnapshot;
+    const agentId = this.getLearningAgentId();
+    const requestContext = `${runtimeUrl.replace(/\/+$/u, "")}|${agentId ?? ""}`;
+    if (
+      this.learningSnapshotScope &&
+      !this.learningSnapshotScope.startsWith(`${requestContext}|`)
+    ) {
+      this.clearLearningSnapshot();
+    }
+    const generation = ++this.learningRequestGeneration;
+    this.learningAbortController?.abort();
+    const controller = new AbortController();
+    this.learningAbortController = controller;
+    const preserve =
+      options.preserve === true && this.learningSnapshot !== null;
+    this.learningLoading = !preserve;
+    this.learningRefreshing = preserve;
+    this.learningError = null;
+    this.requestUpdate();
+    try {
+      const snapshot = await fetchInspectorLearning({
+        runtimeUrl,
+        runtimeTransport: core.runtimeTransport,
+        request: {
+          ...(agentId ? { agentId } : {}),
+          skillsPage:
+            options.skillsPage ?? this.learningSnapshot?.skillsPage.page ?? 1,
+          insightsPage:
+            options.insightsPage ??
+            this.learningSnapshot?.insightsPage.page ??
+            1,
+        },
+        fetch: core.ɵruntimeFetch,
+        headers: core.headers,
+        credentials: core.credentials,
+        signal: controller.signal,
+      });
+      if (generation !== this.learningRequestGeneration) return;
+      if (
+        (snapshot.pendingThreadCount > 0 && !snapshot.links.runs) ||
+        (snapshot.pendingCandidateCount > 0 && !snapshot.links.candidates)
+      ) {
+        throw new Error(
+          "Learning snapshot is missing a required web-app link.",
+        );
+      }
+      const containerId =
+        snapshot.configuration.state === "configured"
+          ? snapshot.configuration.container.id
+          : "";
+      const previousContainerId =
+        previousSnapshot?.configuration.state === "configured"
+          ? previousSnapshot.configuration.container.id
+          : "";
+      const scopeChanged =
+        previousSnapshot !== null &&
+        (previousSnapshot.projectKey !== snapshot.projectKey ||
+          previousContainerId !== containerId);
+      const isBackgroundRefresh =
+        options.skillsPage === undefined && options.insightsPage === undefined;
+      resetSkillsPage = Boolean(
+        isBackgroundRefresh &&
+        previousSnapshot &&
+        previousSnapshot.skillsPage.page > 1 &&
+        (scopeChanged ||
+          JSON.stringify([
+            previousSnapshot.skillsPage.total,
+            previousSnapshot.skillsPage.items.map((skill) => [
+              skill.id,
+              skill.revision,
+            ]),
+          ]) !==
+            JSON.stringify([
+              snapshot.skillsPage.total,
+              snapshot.skillsPage.items.map((skill) => [
+                skill.id,
+                skill.revision,
+              ]),
+            ])),
+      );
+      resetInsightsPage = Boolean(
+        isBackgroundRefresh &&
+        previousSnapshot &&
+        previousSnapshot.insightsPage.page > 1 &&
+        (scopeChanged ||
+          JSON.stringify([
+            previousSnapshot.insightsPage.total,
+            previousSnapshot.insightsPage.items.map((insight) => insight.id),
+          ]) !==
+            JSON.stringify([
+              snapshot.insightsPage.total,
+              snapshot.insightsPage.items.map((insight) => insight.id),
+            ])),
+      );
+      this.learningSnapshot = snapshot;
+      loadOutcome = "success";
+      loadedSkills = snapshot.skillsPage.total;
+      loadedInsights = snapshot.insightsPage.total;
+      loadedPendingThreads = snapshot.pendingThreadCount;
+      this.learningSnapshotScope = `${requestContext}|${snapshot.projectKey}|${containerId}`;
+      this.learningError = null;
+      this.learningPollFailureCount = 0;
+      if (snapshot.configuration.state === "configured") {
+        clearLearningSetupMarker();
+        this.learningSetupMarker = null;
+      }
+    } catch (error) {
+      if (
+        generation !== this.learningRequestGeneration ||
+        controller.signal.aborted
+      )
+        return;
+      if (error instanceof InspectorLearningUnsupportedError) {
+        loadOutcome = "unsupported";
+        this.learningSupported = false;
+        this.learningSnapshot = null;
+      } else {
+        this.learningError =
+          error instanceof Error
+            ? error.message
+            : "Learning data is unavailable.";
+        this.learningPollFailureCount += 1;
+      }
+    } finally {
+      if (generation === this.learningRequestGeneration) {
+        this.learningLoading = false;
+        this.learningRefreshing = false;
+        this.learningAbortController = null;
+        if (!core.telemetryDisabled) {
+          trackLearningSnapshotLoaded({
+            outcome: loadOutcome,
+            duration_bucket: learningDurationBucket(
+              performance.now() - startedAt,
+            ),
+            skills_bucket: learningCountBucket(loadedSkills),
+            insights_bucket: learningCountBucket(loadedInsights),
+            pending_threads_bucket: learningCountBucket(loadedPendingThreads),
+          });
+        }
+        this.scheduleLearningPoll();
+        this.requestUpdate();
+        this.trackLearningViewState();
+        if (resetSkillsPage || resetInsightsPage) {
+          void this.refreshLearningSnapshot({
+            preserve: true,
+            ...(resetSkillsPage ? { skillsPage: 1 } : {}),
+            ...(resetInsightsPage ? { insightsPage: 1 } : {}),
+          });
+        }
+      }
+    }
+  };
+
+  private copyFeaturePromptToClipboard = async (
+    service: HomeFeaturePromptTarget,
+    event?: Event,
+    onboardingRunId = createOnboardingRunId(),
+  ): Promise<boolean> => {
+    const clipboard = this.getClipboard(event);
+    if (!clipboard?.writeText) return false;
+    try {
+      await clipboard.writeText(
+        createFeatureOnboardingPrompt(service.id, onboardingRunId),
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  private handleLearningSetupCopy = async (
+    event?: Event,
+    recopy = false,
+  ): Promise<void> => {
+    // The Learning tile, not the Threads one. This pane borrowed the Threads
+    // target, so its button copied a Threads prompt and announced itself as
+    // "Threads setup prompt copied" under a Learning heading (OSS-1151).
+    //
+    // Learning does not need the Threads feature first. A runtime mounted
+    // `mode: "single-route"` serves no thread route at all and still binds
+    // Containers, because the binding happens server-side while a run starts;
+    // and `learningOn` reads the `memory` tile independently of `threadsOn`.
+    // `add-learning` inspects its own prerequisites and refuses through
+    // `feature/stop` when one is missing, which is why the route decides that
+    // rather than this pane.
+    const service = this.getHomeFeaturePromptTarget("memory");
+    if (!service || !this.core?.runtimeUrl) return;
+    const request = ++this.learningSetupCopyRequest;
+    const copied = await this.copyFeaturePromptToClipboard(
+      service,
+      event,
+      this.getOnboardingRunId(),
+    );
+    if (request !== this.learningSetupCopyRequest) return;
+    if (!this.core.telemetryDisabled) {
+      trackLearningSetupPromptClicked({
+        outcome: copied ? "success" : "failure",
+      });
+    }
+    if (!copied) {
+      if (recopy) {
+        this.cancelLearningPromptRecopyReset();
+        this.learningPromptRecopyState = "error";
+      } else {
+        this.learningPromptCopyState = "error";
+      }
+      this.requestUpdate();
+      return;
+    }
+    if (recopy) {
+      this.cancelLearningPromptRecopyReset();
+      this.learningPromptRecopyState = "copied";
+      this.learningPromptRecopyTimer = setTimeout(() => {
+        this.learningPromptRecopyTimer = null;
+        this.learningPromptRecopyState = "idle";
+        this.requestUpdate();
+      }, LEARNING_RECOPY_CONFIRMATION_MS);
+    } else {
+      this.learningPromptCopyState = "copied";
+    }
+    this.learningSetupMarker = writeLearningSetupMarker({
+      runtimeUrl: this.core.runtimeUrl,
+      agentId: this.getLearningAgentId(),
+    });
+    this.selectedMenu = "memories";
+    this.persistState();
+    this.requestUpdate();
+    void this.refreshLearningSnapshot({ preserve: false });
+  };
+
+  private cancelLearningPromptRecopyReset(): void {
+    if (this.learningPromptRecopyTimer !== null) {
+      clearTimeout(this.learningPromptRecopyTimer);
+      this.learningPromptRecopyTimer = null;
+    }
+  }
+
+  private handleLearningGoBack = (): void => {
+    this.learningSetupCopyRequest += 1;
+    this.cancelLearningPromptRecopyReset();
+    clearLearningSetupMarker();
+    this.learningSetupMarker = null;
+    this.learningPromptCopyState = "idle";
+    this.learningPromptRecopyState = "idle";
+    this.cancelLearningPoll();
+    this.requestUpdate();
+    this.trackLearningViewState();
+  };
+
+  private handleLearningPage = (
+    event: CustomEvent<{
+      section: "skills" | "insights";
+      page: number;
+    }>,
+  ): void => {
+    const { section, page } = event.detail;
+    const currentPage =
+      section === "skills"
+        ? (this.learningSnapshot?.skillsPage.page ?? 1)
+        : (this.learningSnapshot?.insightsPage.page ?? 1);
+    if (!this.core?.telemetryDisabled) {
+      trackLearningPageChanged({
+        section,
+        direction: page < currentPage ? "previous" : "next",
+      });
+    }
+    void this.refreshLearningSnapshot({
+      preserve: true,
+      ...(section === "skills" ? { skillsPage: page } : { insightsPage: page }),
+    });
+  };
+
+  private handleLearningEvidence = (
+    event: CustomEvent<{
+      threadId: string;
+      messageId?: string;
+    }>,
+  ): void => {
+    this.focusThread({
+      threadId: event.detail.threadId,
+      ...(event.detail.messageId ? { messageId: event.detail.messageId } : {}),
+    });
+  };
+
   private detachFromCore(): void {
     this.threadCapabilityGeneration += 1;
     this.threadCapabilityEnabled = null;
@@ -7793,6 +8298,8 @@ export class WebInspectorElement extends LitElement {
     // activation re-subscribes (and re-evaluates SDK support) cleanly.
     this._memorySubscribed = false;
     this._memoryStoreUnsupported = false;
+    this.cancelLearningPromptRecopyReset();
+    this.learningPromptRecopyState = "idle";
     // Reset recall state and bump the sequence token so any in-flight recall
     // resolving after detach is ignored.
     this._recallSeq += 1;
@@ -7800,6 +8307,8 @@ export class WebInspectorElement extends LitElement {
     this._recallLoading = false;
     this._recallError = null;
     this._recallQuery = "";
+    this.clearLearningSnapshot();
+    this.learningSupported = false;
     this.coreSubscriber = null;
     this.runtimeStatus = null;
     this.cancelThreadRefreshDebounce();
@@ -7835,6 +8344,7 @@ export class WebInspectorElement extends LitElement {
   private processAgentsChanged(
     agents: Readonly<Record<string, AbstractAgent>>,
   ): void {
+    const previousLearningAgentId = this.getLearningAgentId();
     this.synchronizeThreadCapability();
     const seenAgentIds = new Set<string>();
 
@@ -7861,6 +8371,29 @@ export class WebInspectorElement extends LitElement {
     }
 
     this.updateContextOptions(seenAgentIds);
+    const learningAgentId = this.getLearningAgentId();
+    if (
+      learningAgentId &&
+      this.core?.runtimeUrl &&
+      this.learningSetupMarker?.agentId === null &&
+      learningSetupMarkerMatches(
+        this.learningSetupMarker,
+        this.core.runtimeUrl,
+        null,
+      )
+    ) {
+      this.learningSetupMarker = writeLearningSetupMarker({
+        runtimeUrl: this.core.runtimeUrl,
+        agentId: learningAgentId,
+      });
+    }
+    if (
+      previousLearningAgentId !== learningAgentId &&
+      this.isLearningStatusVisible()
+    ) {
+      this.clearLearningSnapshot();
+      void this.refreshLearningSnapshot({ preserve: false });
+    }
     this.refreshToolsSnapshot();
     this.requestUpdate();
   }
@@ -9896,6 +10429,24 @@ export class WebInspectorElement extends LitElement {
         );
       }
 
+      /* With no news or setup actions, the dismissal is the whole HUD. */
+      .cpk-launcher-hud[data-cpk-hud-dismiss-only] {
+        --hud-dismiss-day-height: 36px;
+        width: max-content;
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-dismiss-only][data-cpk-hud-vertical="top"] {
+        top: calc((var(--cpk-launcher-size) - var(--hud-dismiss-day-height)) / 2);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-dismiss-only][data-cpk-hud-vertical="bottom"] {
+        bottom: calc((var(--cpk-launcher-size) - var(--hud-dismiss-day-height)) / 2);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-dismiss-only] .cpk-launcher-hud__card {
+        width: max-content;
+      }
+
       .cpk-launcher-hud__list {
         margin: 0;
         padding: 0;
@@ -10060,6 +10611,11 @@ export class WebInspectorElement extends LitElement {
           border-color 120ms ease,
           background 120ms ease,
           color 120ms ease;
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-dismiss-only] .cpk-launcher-hud__dismiss-day {
+        font-size: 11px;
+        white-space: nowrap;
       }
 
       .cpk-launcher-hud__dismiss-day:hover,
@@ -10280,8 +10836,8 @@ export class WebInspectorElement extends LitElement {
 
       .cpk-launcher-hud__toggle[data-enabled="true"]
         .cpk-launcher-hud__toggle-track {
-        border-color: var(--hud-accent);
-        background: color-mix(in srgb, var(--hud-accent) 76%, transparent);
+        border-color: #087653;
+        background: #087653;
       }
 
       .cpk-launcher-hud__toggle[data-enabled="true"]
@@ -10304,8 +10860,8 @@ export class WebInspectorElement extends LitElement {
       .cpk-launcher-hud[data-color-scheme="light"]
         .cpk-launcher-hud__toggle[data-enabled="true"]
         .cpk-launcher-hud__toggle-track {
-        border-color: #6757b0;
-        background: #7563c7;
+        border-color: #087653;
+        background: #087653;
       }
 
       .cpk-launcher-hud[data-color-scheme="light"]
@@ -10876,6 +11432,14 @@ export class WebInspectorElement extends LitElement {
 
       // Load state early (before first render) so menu selection is correct
       this.hydrateStateFromStorageEarly();
+      this.learningSetupMarker = readLearningSetupMarker();
+      this.learningSetupUnsubscribe = subscribeToLearningSetupMarker(
+        (marker) => {
+          this.learningSetupMarker = marker;
+          this.requestUpdate();
+          this.scheduleLearningPoll();
+        },
+      );
       this.refreshInspectorDismissalState();
       this.subscribeToSystemColorScheme();
       this.exampleTourDismissed = this.readThreadsExampleTourDismissed();
@@ -10908,6 +11472,15 @@ export class WebInspectorElement extends LitElement {
     ) {
       this.flushPendingSignalPulse();
     }
+    if (
+      document.visibilityState === "visible" &&
+      this.isOpen &&
+      this.selectedMenu === "memories"
+    ) {
+      void this.refreshLearningSnapshot({ preserve: true });
+    } else {
+      this.cancelLearningPoll();
+    }
     this.requestUpdate();
   };
 
@@ -10938,6 +11511,9 @@ export class WebInspectorElement extends LitElement {
     }
     this.clearIconRailContextCloseTimer();
     this.unsubscribeFromInspectorThreadBridge();
+    this.learningSetupUnsubscribe?.();
+    this.learningSetupUnsubscribe = null;
+    this.clearLearningSnapshot();
     this.stopIntelligenceStory();
     this.clearIntelligencePromptReset();
     this.homeFeaturePromptCopyGeneration += 1;
@@ -11044,6 +11620,17 @@ export class WebInspectorElement extends LitElement {
   }
 
   protected updated(): void {
+    // Host message shortcuts follow the actual Inspector, including persisted
+    // dismissals and their expiry. Closing the panel still leaves it available.
+    const visible = !this.isInspectorDismissed;
+    if (visible !== this.lastReportedInspectorVisibility) {
+      this.lastReportedInspectorVisibility = visible;
+      this.dispatchEvent(
+        new CustomEvent("cpk-inspector-visibility-change", {
+          detail: { visible },
+        }),
+      );
+    }
     this.syncInspectorPortal();
     this.syncThreadsExampleOverviewVideo();
     this.maybeTrackInspectorMetadataViews();
@@ -11406,6 +11993,7 @@ export class WebInspectorElement extends LitElement {
       this.resolveLauncherHudSide();
       this.launcherHudIntro = true;
       this.launcherHudOpen = true;
+      void this.refreshLearningSnapshot({ preserve: true });
       this.requestUpdate();
       this.launcherHudIntroEndTimer = setTimeout(() => {
         this.launcherHudIntroEndTimer = null;
@@ -11460,6 +12048,7 @@ export class WebInspectorElement extends LitElement {
     }
     if (this.launcherHudOpen) return;
     this.launcherHudOpen = true;
+    void this.refreshLearningSnapshot({ preserve: true });
     this.requestUpdate();
   }
 
@@ -11583,7 +12172,8 @@ export class WebInspectorElement extends LitElement {
     icon: LucideIconName;
     connected?: boolean;
     introIndex: number;
-  }): TemplateResult {
+  }): TemplateResult | typeof nothing {
+    if (args.connected) return nothing;
     const detailId = `cpk-hud-detail-${args.id}`;
     return html`
       <li
@@ -11674,11 +12264,13 @@ export class WebInspectorElement extends LitElement {
     );
     const announcementTitle = this.getUnreadAnnouncementTitle();
     const featureBlockIntroIndex = announcementTitle ? 1 : 0;
+    const dismissOnly = !announcementTitle && threadsOn && learningOn;
     return html`
       <div
         class="cpk-launcher-hud"
         id="cpk-launcher-hud"
         data-cpk-launcher-hud
+        ?data-cpk-hud-dismiss-only=${dismissOnly}
         data-cpk-hud-side=${this.launcherHudSide}
         data-cpk-hud-vertical=${this.contextState.button.anchor.vertical}
         data-cpk-hud-intro=${this.launcherHudIntro ? "true" : nothing}
@@ -11688,7 +12280,13 @@ export class WebInspectorElement extends LitElement {
           "--cpk-launcher-hud-waterfall-duration": `${LAUNCHER_HUD_INTRO_MS.waterfallDuration}ms`,
         })}
       >
-        <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
+        ${
+          dismissOnly
+            ? nothing
+            : html`
+                <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
+              `
+        }
         <div class="cpk-launcher-hud__card">
           ${
             announcementTitle
@@ -11733,37 +12331,48 @@ export class WebInspectorElement extends LitElement {
                 `
               : nothing
           }
-          <ul
-            class="cpk-launcher-hud__list cpk-launcher-hud__feature-list"
-            role="list"
-            style=${styleMap({
-              "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(
-                featureBlockIntroIndex,
-              ),
-            })}
-          >
-            ${this.renderHudRow({
-              id: "threads",
-              label: HUD_THREADS_LABEL,
-              icon: "MessageSquare",
-              connected: threadsOn,
-              introIndex: featureBlockIntroIndex + 1,
-            })}
-            ${this.renderHudRow({
-              id: "learning",
-              label: HUD_LEARNING_LABEL,
-              icon: "Brain",
-              connected: learningOn,
-              introIndex: featureBlockIntroIndex + 2,
-            })}
-          </ul>
+          ${
+            threadsOn && learningOn
+              ? nothing
+              : html`
+                  <ul
+                    class="cpk-launcher-hud__list cpk-launcher-hud__feature-list"
+                    role="list"
+                    style=${styleMap({
+                      "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(
+                        featureBlockIntroIndex,
+                      ),
+                    })}
+                  >
+                    ${this.renderHudRow({
+                      id: "threads",
+                      label: HUD_THREADS_LABEL,
+                      icon: "MessageSquare",
+                      connected: threadsOn,
+                      introIndex: featureBlockIntroIndex + 1,
+                    })}
+                    ${this.renderHudRow({
+                      id: "learning",
+                      label: HUD_LEARNING_LABEL,
+                      icon: "Brain",
+                      connected: learningOn,
+                      introIndex: featureBlockIntroIndex + (threadsOn ? 1 : 2),
+                    })}
+                  </ul>
+                `
+          }
           <button
             type="button"
             class="cpk-launcher-hud__dismiss-day"
             data-cpk-dismiss-inspector="day"
             style=${styleMap({
               "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(
-                featureBlockIntroIndex + 3,
+                dismissOnly
+                  ? 0
+                  : featureBlockIntroIndex +
+                      Number(!threadsOn) +
+                      Number(!learningOn) +
+                      1,
               ),
             })}
             @click=${this.handleHudDismissDayClick}
@@ -12129,13 +12738,12 @@ export class WebInspectorElement extends LitElement {
             timestamp: lastRuntimeEvent.timestamp,
           }
         : undefined,
-      // `available` begins optimistic inside the lazy Memory store. Until the
-      // first capability probe has actually settled, showing Learning as on
-      // would be a false positive that corrects itself only after navigation.
-      memoriesOn:
-        this._memorySubscribed &&
-        !this._memoriesLoading &&
-        this._memoriesAvailable,
+      // A capability advertises the endpoint, not a configured Learning
+      // container. Use its successful snapshot for Home and launcher status.
+      learningOn:
+        this.learningSupported &&
+        this.learningError === null &&
+        this.learningSnapshot?.configuration.state === "configured",
       a2uiOn: this._core?.a2uiEnabled === true,
       openGenUiOn: this._core?.openGenerativeUIEnabled === true,
       suggestionsOn: this._core?.suggestions === true,
@@ -12909,20 +13517,11 @@ export class WebInspectorElement extends LitElement {
       });
     }
 
-    const clipboard = this.getClipboard(event);
-    if (!clipboard?.writeText) {
-      this.showHomeFeaturePromptCopyState(service.id, "error", generation);
-      return;
-    }
-
-    try {
-      await clipboard.writeText(
-        homeFeatureImplementationPrompt(service, {
-          onboardingRunId,
-        }),
-      );
+    if (
+      await this.copyFeaturePromptToClipboard(service, event, onboardingRunId)
+    ) {
       this.showHomeFeaturePromptCopyState(service.id, "copied", generation);
-    } catch {
+    } else {
       this.showHomeFeaturePromptCopyState(service.id, "error", generation);
     }
   };
@@ -12938,13 +13537,18 @@ export class WebInspectorElement extends LitElement {
   private renderFeatureSetupPrompt(
     serviceId: HomeFeaturePromptId,
     className: string,
+    options?: Readonly<{
+      copyState?: HomeFeaturePromptCopyState;
+      onClick?: (event: Event) => void;
+    }>,
   ): TemplateResult | typeof nothing {
     const service = this.getHomeFeaturePromptTarget(serviceId);
     if (!service) return nothing;
     const copyState =
-      this.homeFeaturePromptCopyState?.serviceId === service.id
+      options?.copyState ??
+      (this.homeFeaturePromptCopyState?.serviceId === service.id
         ? this.homeFeaturePromptCopyState.state
-        : "idle";
+        : "idle");
     const label =
       copyState === "copied"
         ? "Copied"
@@ -12968,7 +13572,9 @@ export class WebInspectorElement extends LitElement {
               : `Copy setup prompt for ${service.label}`
         }
         @click=${(event: Event) =>
-          this.handleHomeFeaturePromptCopy(service, event)}
+          options?.onClick
+            ? options.onClick(event)
+            : this.handleHomeFeaturePromptCopy(service, event)}
       >
         ${this.renderIcon(copyState === "copied" ? "Check" : "Copy")}
         ${label}
@@ -14884,6 +15490,11 @@ export class WebInspectorElement extends LitElement {
     this.ensureAnnouncementLoading();
 
     this.isOpen = true;
+    if (this.isLearningStatusVisible()) {
+      void this.refreshLearningSnapshot({
+        preserve: this.learningSnapshot !== null,
+      });
+    }
     // The launcher is gone, so its gesture is gone with it — and the slot it
     // was holding is free again for whatever beats after the panel closes.
     this.cancelGestureTail();
@@ -14927,6 +15538,9 @@ export class WebInspectorElement extends LitElement {
     }
 
     this.isOpen = false;
+    this.cancelLearningPoll();
+    this.cancelLearningRequest();
+    this.learningViewedState = null;
 
     // Remove docking styles when closing
     if (this.dockMode !== "floating") {
@@ -17585,6 +18199,7 @@ export class WebInspectorElement extends LitElement {
     videoUrl,
     videoTitle,
     outlineItems,
+    setupPrompt,
   }: {
     serviceId: HomeFeaturePromptId;
     featureName: string;
@@ -17593,6 +18208,11 @@ export class WebInspectorElement extends LitElement {
     videoUrl: string;
     videoTitle: string;
     outlineItems: ReadonlyArray<LockedFeatureOutlineItem>;
+    setupPrompt?: Readonly<{
+      serviceId: HomeFeaturePromptId;
+      copyState: HomeFeaturePromptCopyState;
+      onClick: (event: Event) => void;
+    }>;
   }) {
     return html`
       <div
@@ -17616,8 +18236,14 @@ export class WebInspectorElement extends LitElement {
               <p class="cpk-locked-feature-description">${description}</p>
               <div class="cpk-threads-overview-actions">
                 ${this.renderFeatureSetupPrompt(
-                  serviceId,
+                  setupPrompt?.serviceId ?? serviceId,
                   "inspector-account-cta cpk-locked-feature-setup-cta",
+                  setupPrompt
+                    ? {
+                        copyState: setupPrompt.copyState,
+                        onClick: setupPrompt.onClick,
+                      }
+                    : undefined,
                 )}
                 <a
                   data-inspector-locked-feature-talk=${serviceId}
@@ -17747,39 +18373,6 @@ export class WebInspectorElement extends LitElement {
     `;
   }
 
-  private getThreadsLockedCopy(): {
-    heading: string;
-    description: string;
-  } {
-    switch (this.inspectorMetadataProjection.licenseState) {
-      case "valid":
-        return {
-          heading: "Finish setting up Rich Threads",
-          description:
-            "Copy this prompt into your coding agent to finish the setup.",
-        };
-      case "none":
-        return {
-          heading:
-            "Production-grade chat threads without the complexity. Self hostable.",
-          description:
-            "Chat threads that go beyond text with generative UI and multimodal inputs, built to replay missed events and stay in sync across tabs, sessions, and devices.",
-        };
-      case "expired":
-        return {
-          heading: "Renew Intelligence to inspect Threads.",
-          description:
-            "Your Intelligence access has expired. Renew it to inspect saved thread history.",
-        };
-      case "unknown":
-        return {
-          heading: "Threads are unavailable.",
-          description:
-            "This runtime does not expose Threads for the Inspector.",
-        };
-    }
-  }
-
   /**
    * Renders the realtime-connection indicator in the memory-store header.
    * Only `"connected"` shows the live (green-dot) state; `"connecting"` shows a
@@ -17827,6 +18420,93 @@ export class WebInspectorElement extends LitElement {
   }
 
   private renderMemoriesView() {
+    const state = deriveLearningViewState({
+      supported: this.learningSupported,
+      loading: this.learningLoading,
+      error: this.learningError,
+      snapshot: this.learningSnapshot,
+      setupActive: this.isLearningSetupActive(),
+    });
+    if (state === "landing") {
+      return this.renderLockedFeatureOverview({
+        serviceId: "memory",
+        featureName: "Learning",
+        heading: "Turn every interaction into reusable context.",
+        description:
+          "Learning captures durable information from agent interactions and brings it back when it matters, so your product gets more useful over time.",
+        videoUrl: LEARNING_LOCKED_VIDEO_URL,
+        videoTitle: "CopilotKit Learning overview",
+        outlineItems: LEARNING_LOCKED_FEATURE_OUTLINE,
+        setupPrompt: {
+          serviceId: "memory",
+          copyState: this.learningPromptCopyState,
+          onClick: (event) => void this.handleLearningSetupCopy(event),
+        },
+      });
+    }
+    return html`
+      <cpk-learning-view
+        data-color-scheme=${this.colorScheme}
+        .supported=${this.learningSupported}
+        .loading=${this.learningLoading}
+        .refreshing=${this.learningRefreshing}
+        .error=${this.learningError}
+        .snapshot=${this.learningSnapshot}
+        .setupActive=${this.isLearningSetupActive()}
+        .copyState=${this.learningPromptCopyState}
+        .recopyState=${this.learningPromptRecopyState}
+        .setupPrompt=${createFeatureOnboardingPrompt(
+          "memory",
+          this.getOnboardingRunId(),
+        )}
+        @learning-retry=${() =>
+          this.refreshLearningSnapshot({
+            preserve: this.learningSnapshot !== null,
+          })}
+        @learning-copy-setup=${(event: Event) =>
+          this.handleLearningSetupCopy(event)}
+        @learning-recopy-setup=${(event: Event) =>
+          this.handleLearningSetupCopy(event, true)}
+        @learning-go-back=${this.handleLearningGoBack}
+        @learning-page=${(event: CustomEvent) =>
+          this.handleLearningPage(
+            event as CustomEvent<{
+              section: "skills" | "insights";
+              page: number;
+            }>,
+          )}
+        @learning-open-evidence=${(event: CustomEvent) =>
+          this.handleLearningEvidence(
+            event as CustomEvent<{
+              threadId: string;
+              messageId?: string;
+            }>,
+          )}
+        @learning-evidence-opened=${() => {
+          if (!this.core?.telemetryDisabled) trackLearningEvidenceOpened();
+        }}
+        @learning-skill-toggle=${(
+          event: CustomEvent<{ action: "expanded" | "collapsed" }>,
+        ) => {
+          if (!this.core?.telemetryDisabled) {
+            trackLearningSkillToggled({ action: event.detail.action });
+          }
+        }}
+        @learning-web-link=${(
+          event: CustomEvent<{
+            category: "learning" | "runs" | "candidates";
+          }>,
+        ) => {
+          if (!this.core?.telemetryDisabled) {
+            trackLearningWebAppOpened({ category: event.detail.category });
+          }
+        }}
+      ></cpk-learning-view>
+    `;
+  }
+
+  /** Legacy Memory rendering kept isolated while published Memory APIs remain. */
+  private renderLegacyMemoriesView() {
     // Once the user enters Learning, its lazy subscription is the capability
     // probe. Preserve the loading state while that request is in flight, then
     // let an unavailable response fall through to the setup gate.
@@ -18120,23 +18800,49 @@ export class WebInspectorElement extends LitElement {
   }
 
   private renderThreadsView() {
-    const locked = !this.areThreadEndpointsAvailable();
-    if (locked) {
-      this.trackThreadsViewStateOnce("locked");
-      const lockedCopy = this.getThreadsLockedCopy();
-      return this.renderLockedFeatureOverview({
-        serviceId: "threads",
-        featureName: "Rich Threads",
-        heading: lockedCopy.heading,
-        description: lockedCopy.description,
-        videoUrl: THREADS_LOCKED_VIDEO_URL,
-        videoTitle: "Rich Threads overview",
-        outlineItems: THREADS_LOCKED_FEATURE_OUTLINE,
-      });
-    }
-
     const { displayThreads, threadsErrorMessage, threadsLoading } =
       this.getActiveThreadsState();
+    const ephemeral = !this._core?.intelligence;
+    const available = this.areThreadEndpointsAvailable();
+    const hasEphemeralThreads =
+      ephemeral && available && displayThreads.length > 0;
+    if (!ephemeral) this.ephemeralThreadsSetupOpen = false;
+    const locked =
+      !available ||
+      (ephemeral &&
+        displayThreads.length === 0 &&
+        !threadsLoading &&
+        !threadsErrorMessage);
+    if (locked || this.ephemeralThreadsSetupOpen) {
+      this.trackThreadsViewStateOnce("locked");
+      return html`
+        ${
+          hasEphemeralThreads
+            ? html`
+          <nav class="cpk-threads-setup-navigation" aria-label="Threads setup navigation">
+            <button type="button" class="cpk-threads-setup-back"
+              data-inspector-ephemeral-back
+              @click=${() => {
+                this.ephemeralThreadsSetupOpen = false;
+                this.requestUpdate();
+              }}>
+              <span aria-hidden="true">←</span> Back to your threads
+            </button>
+          </nav>
+        `
+            : nothing
+        }
+        ${this.renderLockedFeatureOverview({
+          serviceId: "threads",
+          featureName: "Rich Threads",
+          heading: THREADS_LOCKED_COPY.heading,
+          description: THREADS_LOCKED_COPY.description,
+          videoUrl: THREADS_LOCKED_VIDEO_URL,
+          videoTitle: "Rich Threads overview",
+          outlineItems: THREADS_LOCKED_FEATURE_OUTLINE,
+        })}`;
+    }
+
     const loadingWithoutRows =
       threadsLoading && !threadsErrorMessage && displayThreads.length === 0;
 
@@ -18183,6 +18889,28 @@ export class WebInspectorElement extends LitElement {
               this.threadListWidth
             }px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #DBDBE5;"
           >
+        ${
+          ephemeral
+            ? html`
+          <button type="button" class="cpk-ephemeral-threads-banner"
+            data-inspector-ephemeral-banner data-inspector-ephemeral-upgrade
+            aria-label="Make threads permanent. Ephemeral history can disappear on restart."
+            @click=${() => {
+              this.ephemeralThreadsSetupOpen = true;
+              this.requestUpdate();
+            }}>
+            <span class="cpk-ephemeral-threads-icon" aria-hidden="true">${this.renderIcon("Clock")}</span>
+            <span class="cpk-ephemeral-threads-copy">
+              <span class="cpk-ephemeral-threads-headline">
+                <strong>Keep your threads.</strong>
+              </span>
+              <span class="cpk-ephemeral-threads-description">Ephemeral history can disappear on restart.</span>
+              <span class="cpk-ephemeral-threads-upgrade">Make them permanent <span aria-hidden="true">${this.renderIcon("ArrowRight")}</span></span>
+            </span>
+          </button>
+        `
+            : nothing
+        }
             <cpk-thread-list
               style="min-height:0;flex:1;"
               data-color-scheme=${this.colorScheme}
@@ -19274,16 +20002,23 @@ export class WebInspectorElement extends LitElement {
     }
 
     if (key === "memories") {
-      // Lazily create + subscribe to the memory store on first activation. This
-      // is the only place that touches getMemoryStore(), so the store/realtime
-      // are never started just by attaching the inspector.
-      this.ensureMemorySubscription();
+      this.learningSupported = Boolean(this.core?.inspectorLearning);
+      if (previousMenu !== "memories" || this.learningSnapshot === null) {
+        void this.refreshLearningSnapshot({
+          preserve: previousMenu === "memories",
+        });
+      }
       if (previousMenu !== "memories" && !this.core?.telemetryDisabled) {
         trackMemoriesTabClicked(this.getMemoriesTelemetryProps());
       }
+    } else if (previousMenu === "memories") {
+      this.learningViewedState = null;
+      this.cancelLearningPoll();
+      this.cancelLearningRequest();
     }
 
     if (key === "home" && previousMenu !== "home") {
+      void this.refreshLearningSnapshot({ preserve: true });
       this.homeViewedThisOpen = false;
     }
 
@@ -19390,6 +20125,9 @@ export class WebInspectorElement extends LitElement {
       this.autoSelectLatestThread();
       if (this.selectedMenu === "playground") {
         this.startPlaygroundSession(false);
+      } else if (this.isLearningStatusVisible()) {
+        this.clearLearningSnapshot();
+        void this.refreshLearningSnapshot({ preserve: false });
       }
     }
 

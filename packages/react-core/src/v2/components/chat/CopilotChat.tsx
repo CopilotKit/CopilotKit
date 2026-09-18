@@ -30,7 +30,11 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useCopilotKit, useLicenseContext } from "../../context";
+import {
+  useCopilotKit,
+  useDefaultAgentId,
+  useLicenseContext,
+} from "../../context";
 import { InlineFeatureWarning } from "../../components/license-warning-banner";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
@@ -43,6 +47,10 @@ import {
 import { LastUserMessageContext } from "./last-user-message-context";
 import type { LastUserMessageState } from "./last-user-message-context";
 import { useInspectorThreadOverride } from "../../providers/use-inspector-thread-override";
+import {
+  CopilotKitInspectorContextProvider,
+  useCopilotKitInspector,
+} from "../CopilotKitInspectorContext";
 
 export type CopilotChatProps = Omit<
   CopilotChatViewProps,
@@ -63,7 +71,14 @@ export type CopilotChatProps = Omit<
   agentId?: string;
   threadId?: string;
   labels?: Partial<CopilotChatLabels>;
-  chatView?: SlotValue<typeof CopilotChatView>;
+  /**
+   * Enable Inspector message shortcuts for this chat (enabled by default).
+   * An explicit CopilotKit provider enableInspector value takes priority.
+   * Shortcuts only appear in local development while Inspector is visible.
+   */
+  inspectorTools?: boolean;
+  /** Accepts a className, partial props, or any component with CopilotChatView props — static namespace members are not required. */
+  chatView?: SlotValue<React.ComponentType<CopilotChatViewProps>>;
   isModalDefaultOpen?: boolean;
   /** Enable multimodal file attachments (images, audio, video, documents). */
   attachments?: AttachmentsConfig;
@@ -94,6 +109,7 @@ export function CopilotChat({
   agentId,
   threadId,
   labels,
+  inspectorTools,
   chatView,
   isModalDefaultOpen,
   attachments: attachmentsConfig,
@@ -103,10 +119,21 @@ export function CopilotChat({
 }: CopilotChatProps) {
   // Check for existing configuration provider
   const existingConfig = useCopilotChatConfiguration();
+  const inspector = useCopilotKitInspector();
+  const inspectorContextValue = useMemo(
+    () => ({
+      ...inspector,
+      isInspectorEnabled:
+        inspector.isInspectorEnabled &&
+        (inspector.providerEnableInspector ?? inspectorTools ?? true),
+    }),
+    [inspector, inspectorTools],
+  );
 
   // Apply priority: props > existing config > defaults
+  const providerAgentId = useDefaultAgentId();
   const resolvedAgentId =
-    agentId ?? existingConfig?.agentId ?? DEFAULT_AGENT_ID;
+    agentId ?? existingConfig?.agentId ?? providerAgentId ?? DEFAULT_AGENT_ID;
   const providedThreadId = threadId ?? existingConfig?.threadId;
   const baseThreadId = useMemo(
     () => providedThreadId ?? randomUUID(),
@@ -1196,7 +1223,9 @@ export function CopilotChat({
           </div>
         )}
         <LastUserMessageContext.Provider value={lastUserMessageState}>
-          {RenderedChatView}
+          <CopilotKitInspectorContextProvider value={inspectorContextValue}>
+            {RenderedChatView}
+          </CopilotKitInspectorContextProvider>
         </LastUserMessageContext.Provider>
       </div>
     </CopilotChatConfigurationProvider>

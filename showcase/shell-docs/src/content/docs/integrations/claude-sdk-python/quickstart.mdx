@@ -7,10 +7,11 @@ hideTOC: true
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
 
-<IntelligenceOnboardingPrompt
-  feature="learning"
-  surface="docs_claude_sdk_python_quickstart"
-/>
+## Start with your coding agent
+
+Use this prompt to connect your Claude Agent SDK for Python agent to CopilotKit and verify a working conversation. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
+
+<PageAgentPrompt />
 
 This quickstart gives you two working paths:
 
@@ -275,8 +276,25 @@ Before you begin, you'll need the following:
 
           Wrap your app with `CopilotKit` and target the agent name you registered in the runtime route.
 
-          ```tsx title="app/layout.tsx"
+          ```tsx title="app/providers.tsx"
+          "use client";
+
           import { CopilotKit } from "@copilotkit/react-core/v2";
+
+          export function Providers({ children }: { children: React.ReactNode }) {
+            return (
+              <CopilotKit runtimeUrl="/api/copilotkit" agent="claude_agent">
+                {children}
+              </CopilotKit>
+            );
+          }
+          ```
+
+          `app/layout.tsx` is a server component and cannot import the provider
+          directly, so it renders your client file instead:
+
+          ```tsx title="app/layout.tsx"
+          import { Providers } from "./providers";
           import "@copilotkit/react-core/v2/styles.css";
           import "./globals.css";
 
@@ -284,9 +302,9 @@ Before you begin, you'll need the following:
             return (
               <html lang="en">
                 <body>
-                  <CopilotKit runtimeUrl="/api/copilotkit" agent="claude_agent">
+                  <Providers>
                     {children}
-                  </CopilotKit>
+                  </Providers>
                 </body>
               </html>
             );

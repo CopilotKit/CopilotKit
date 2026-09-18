@@ -6,9 +6,14 @@ WORKDIR /app
 # Copy only what the shell + scripts need
 COPY showcase/scripts/package.json ./scripts/package.json
 COPY showcase/shell/package.json ./shell/package.json
+COPY showcase/shell/package-lock.json ./shell/package-lock.json
 
-# Install deps for both (standalone, no workspace)
-RUN cd scripts && npm install --silent && cd ../shell && npm install --silent
+# The scripts package is workspace-managed and has no standalone npm lockfile.
+# Ignore optional peer auto-installation here: npm 10 can crash while resolving
+# Vitest's optional Vite devtools peers. The shell is standalone and must use its
+# committed lockfile so a partially-published CopilotKit release cannot break CI.
+RUN cd scripts && npm install --legacy-peer-deps --no-audit --no-fund \
+    && cd ../shell && npm ci --no-audit --no-fund
 
 # Copy source
 COPY showcase/shared/ ./shared/
@@ -18,6 +23,20 @@ COPY showcase/shell/ ./shell/
 COPY showcase/angular/src/ ./angular/src/
 COPY showcase/shell-docs/src/content/ ./shell-docs/src/content/
 
+# generate-search-index.ts only indexes docs pages a reader can reach from a
+# sidebar, and that decision is computed by shell-docs (see
+# shell-docs/scripts/emit-searchable-pages.ts). This app consumes the docs rows
+# too — its header search links across to the docs host — so it needs the same
+# decision, or its search silently loses every docs row.
+#
+# Stage the two trees the emit script needs plus the tsconfig that resolves
+# shell-docs' `@/…` alias. No shell-docs install is needed: the generator
+# runs the emit script with this image's scripts node_modules on NODE_PATH,
+# and `scripts/package.json` declares tsx and gray-matter for exactly that.
+COPY showcase/shell-docs/src/lib/ ./shell-docs/src/lib/
+COPY showcase/shell-docs/scripts/ ./shell-docs/scripts/
+COPY showcase/shell-docs/tsconfig.json ./shell-docs/tsconfig.json
+
 # Bake commit info into Next.js build
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
 ENV NEXT_PUBLIC_BRANCH=${BRANCH}
@@ -25,11 +44,18 @@ ENV NEXT_PUBLIC_BRANCH=${BRANCH}
 # generate-registry.ts imports the catalog cross-join/flatten fold from
 # ../harness/src/shared/catalog/catalog-flatten.js. That file is ESM (relies on
 # the harness package.json's `"type": "module"`) and does `import yaml from
-# "js-yaml"`, resolved by walking up from the harness tree. Stage the fold + the
-# harness package.json for the ESM scope, then point harness/node_modules at the
-# already-installed scripts node_modules so js-yaml (+ its argparse dep) resolve
-# — no second install of the harness package.
-COPY showcase/harness/src/shared/catalog/ ./harness/src/shared/catalog/
+# "js-yaml"`, resolved by walking up from the harness tree. Stage the harness's
+# shared tree + the harness package.json for the ESM scope, then point
+# harness/node_modules at the already-installed scripts node_modules so js-yaml
+# (+ its argparse dep) resolve — no second install of the harness package.
+#
+# Copy the WHOLE `src/shared` tree, not just `catalog/`. This used to stage
+# `catalog/` alone, which held only as long as catalog-flatten.ts imported
+# nothing outside it; the moment Step 5 read `STARTER_CEILING` from
+# `../cell-model/cell-model.combine.js` the build died with
+# ERR_MODULE_NOT_FOUND at `generate-registry.ts`. A whole-tree copy means the
+# next shared-path import cannot reintroduce that.
+COPY showcase/harness/src/shared/ ./harness/src/shared/
 COPY showcase/harness/package.json ./harness/package.json
 RUN ln -s ../scripts/node_modules harness/node_modules
 

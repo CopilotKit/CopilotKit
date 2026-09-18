@@ -4,8 +4,8 @@
       "@copilotkit/runtime@1.68.3",
       "@ag-ui/client@0.0.57",
       "@ag-ui/core@0.0.57",
-      "@ag-ui/mastra",
-      "@mastra/client-js",
+      "@ag-ui/mastra@1.1.2",
+      "@mastra/client-js@1.44.0",
       "next"
     ]
   }

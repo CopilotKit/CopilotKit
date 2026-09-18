@@ -243,3 +243,23 @@ export function resolveDocsHref(
 
   return href;
 }
+
+/**
+ * Resolve the `href` of every `<CTACards>` card against the active docs
+ * surface.
+ *
+ * The cards render through the `Card` imported by `mdx-registry.tsx`, so
+ * they never pass through the href-resolving `Card` override in the
+ * page's MDX component map. Content authors these hrefs root-relative
+ * (`/human-in-the-loop/tool-based`), and each one must pick up the
+ * framework prefix of the page being read.
+ */
+export function resolveCtaCardHrefs<Card extends { href: string }>(
+  cards: Card[] | undefined,
+  options: ResolveDocsHrefOptions,
+): Card[] | undefined {
+  return cards?.map((card) => ({
+    ...card,
+    href: resolveDocsHref(card.href, options) ?? card.href,
+  }));
+}
