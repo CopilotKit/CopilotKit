@@ -394,7 +394,7 @@ describe("migration docs", () => {
     );
 
     expect(referenceIndex).toContain(
-      'import { CopilotKit } from "@copilotkit/react-core/v2";',
+      'import { CopilotKitProvider } from "@copilotkit/react-core/v2";',
     );
     expect(referenceIndex).not.toContain(
       "CopilotKit is imported from the root package",

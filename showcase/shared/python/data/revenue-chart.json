@@ -1,0 +1,12 @@
+{
+  "title": "Quarterly revenue",
+  "subtitle": "Last six months · USD thousands",
+  "data": [
+    { "label": "Jan", "value": 38 },
+    { "label": "Feb", "value": 47 },
+    { "label": "Mar", "value": 52 },
+    { "label": "Apr", "value": 49 },
+    { "label": "May", "value": 63 },
+    { "label": "Jun", "value": 71 }
+  ]
+}
