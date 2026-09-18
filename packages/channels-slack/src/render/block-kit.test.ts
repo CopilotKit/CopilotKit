@@ -1,6 +1,15 @@
-import { Header, Message, Section, renderToIR } from "@copilotkit/channels-ui";
+import {
+  Actions,
+  Header,
+  Input,
+  Message,
+  Section,
+  Select,
+  renderToIR,
+} from "@copilotkit/channels-ui";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import { describe, expect, it } from "vitest";
+import { decodeInteraction } from "../interaction.js";
 import { renderBlockKit, renderSlackMessage } from "./block-kit.js";
 
 const ISSUE_URL = "https://linear.app/copilotkit/issue/CPK-1234";
@@ -111,6 +120,8 @@ describe("renderBlockKit", () => {
     ).toEqual([
       {
         type: "input",
+        // No `name` given, so the block id falls back to the minted handler id.
+        block_id: "ck:in1",
         dispatch_action: true,
         element: {
           type: "plain_text_input",
@@ -435,5 +446,142 @@ describe("renderSlackMessage", () => {
       blocks: [{ type: "section", text: { type: "mrkdwn", text: "hi" } }],
       accent: undefined,
     });
+  });
+});
+
+/**
+ * OSS-848: the `ctx.values` key a handler reads is the rendered BLOCK id, so it
+ * has to come from the author's `name` — Teams already keys its fields that way
+ * (`channels-teams/src/render/adaptive-card.ts`), and without it Slack hands the
+ * handler a fresh random key per render.
+ *
+ * These go through the renderer on purpose. Tests that hand-write a payload
+ * cannot catch this: they invent block ids that are already meaningful names,
+ * which is a shape only a hand-authored native block produces.
+ */
+/**
+ * Rebuild the `state.values` Slack would send for these blocks: `blockId →
+ * actionId → element`. A block the renderer left unnamed gets the random id
+ * Slack would mint, which is exactly the failure mode under test.
+ */
+const stateValuesFor = (
+  blocks: unknown[],
+  report: Record<string, unknown>,
+): Record<string, Record<string, unknown>> => {
+  const out: Record<string, Record<string, unknown>> = {};
+  let random = 0;
+  for (const raw of blocks) {
+    const block = raw as {
+      type: string;
+      block_id?: string;
+      element?: { action_id?: string; type?: string };
+      elements?: { action_id?: string; type?: string }[];
+    };
+    const elements =
+      block.type === "input" && block.element
+        ? [block.element]
+        : block.type === "actions"
+          ? (block.elements ?? [])
+          : [];
+    const stateful = elements.filter((el) => el.type !== "button");
+    if (stateful.length === 0) continue;
+    const blockId = block.block_id ?? `slack-random-${++random}`;
+    out[blockId] = {};
+    for (const el of stateful) {
+      out[blockId]![el.action_id ?? "?"] = { type: el.type, ...report };
+    }
+  }
+  return out;
+};
+
+describe("author-named fields survive into the rendered block (OSS-848)", () => {
+  /** The blocks' `block_id`s, in render order. */
+  const blockIds = (ir: ChannelNode[]): (string | undefined)[] =>
+    renderBlockKit(ir).map((b) => (b as { block_id?: string }).block_id);
+
+  it("keys an <Input name> block by the author's name", () => {
+    expect(
+      blockIds(renderToIR(Input({ name: "root_cause", placeholder: "Why?" }))),
+    ).toEqual(["root_cause"]);
+  });
+
+  it("keys a <Select multi name> block by the author's name", () => {
+    expect(
+      blockIds(
+        renderToIR(
+          Actions({
+            children: Select({
+              name: "services",
+              multi: true,
+              options: [{ label: "Payments", value: "pay" }],
+            }),
+          }),
+        ),
+      ),
+    ).toEqual(["services"]);
+  });
+
+  it("gives a named <Select> in <Actions> a block of its own so its name is representable", () => {
+    // A block carries ONE block_id, so a named select cannot share one.
+    const ir = renderToIR(
+      Actions({
+        children: [
+          Select({
+            name: "severity",
+            options: [{ label: "High", value: "h" }],
+          }),
+          Select({ options: [{ label: "A", value: "a" }] }),
+        ],
+      }),
+    );
+    expect(blockIds(ir)).toEqual(["severity", undefined]);
+  });
+
+  it("falls back to the minted handler id, then to a positional id", () => {
+    // `onSubmit` is pre-bound by the action registry to a `{ id }` stamp.
+    const ir: ChannelNode[] = [
+      { type: "input", props: { onSubmit: { id: "ck:h1" } } },
+      { type: "input", props: { placeholder: "unnamed" } },
+    ];
+    expect(blockIds(ir)).toEqual(["ck:h1", "input_2"]);
+  });
+
+  it("de-duplicates a repeated name, because Slack rejects a duplicate block_id", () => {
+    const ir = renderToIR(
+      Message({
+        children: [Input({ name: "note" }), Input({ name: "note" })],
+      }),
+    );
+    expect(blockIds(ir)).toEqual(["note", "note_1"]);
+  });
+
+  it("round-trips <Input name> through render → Slack state.values → ctx.values", () => {
+    const blocks = renderBlockKit(
+      renderToIR(
+        Message({
+          children: [
+            Input({ name: "root_cause", placeholder: "Why?" }),
+            Actions({
+              children: Select({
+                name: "severity",
+                options: [{ label: "High", value: "high" }],
+              }),
+            }),
+          ],
+        }),
+      ),
+    );
+    const evt = decodeInteraction({
+      type: "block_actions",
+      channel: { id: "C1" },
+      message: { ts: "1.0" },
+      actions: [{ action_id: "ck:submit", value: "go" }],
+      state: { values: stateValuesFor(blocks, { value: "pool exhausted" }) },
+    });
+    // The author's own names, not Slack's random ids.
+    expect(Object.keys(evt!.values!).sort()).toEqual([
+      "root_cause",
+      "severity",
+    ]);
   });
 });
