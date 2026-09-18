@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Thread conversation reader · local fixture</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #f6f6fa;
+        color: #232330;
+        font-family: system-ui, sans-serif;
+      }
+      header {
+        padding: 16px 24px;
+        font-size: 14px;
+        border-bottom: 1px solid #dedee8;
+        background: white;
+      }
+      header span {
+        display: block;
+        color: #666675;
+        font-size: 12px;
+        margin-top: 4px;
+      }
+      main {
+        height: calc(100dvh - 77px);
+        padding: 24px;
+        max-width: 1200px;
+        margin: auto;
+      }
+      cpk-thread-inspector {
+        display: block;
+        height: 100%;
+        border: 1px solid #dddde8;
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      @media (max-width: 600px) {
+        main {
+          padding: 8px;
+        }
+        header {
+          padding: 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      Saved conversation: restore a cart<span
+        >Local component fixture · illustrative data · unreleased conversation
+        view</span
+      >
+    </header>
+    <main></main>
+    <script type="module">
+      import { CpkThreadInspector } from "@copilotkit/web-inspector";
+      const params = new URLSearchParams(location.search);
+      const messages = [
+        {
+          id: "user-one",
+          role: "user",
+          content: "Can I continue with the cart I saved yesterday?",
+        },
+        {
+          id: "assistant-one",
+          role: "assistant",
+          content:
+            "I'll restore your saved items and check their availability.",
+          toolCalls: [
+            {
+              id: "restore",
+              name: "restore_cart",
+              args: { cartId: "cart-42" },
+            },
+          ],
+        },
+        {
+          id: "tool-one",
+          role: "tool",
+          toolCallId: "restore",
+          content:
+            '{"items":[{"name":"Everyday backpack","quantity":1},{"name":"Travel bottle","quantity":1}],"restored":true}',
+        },
+        {
+          id: "assistant-two",
+          role: "assistant",
+          content:
+            "Your backpack and travel bottle are back in the cart. Both are available. Would you like to review delivery options?",
+        },
+        {
+          id: "cart-preview",
+          role: "activity",
+          activityType: "cart-preview",
+          content:
+            '{"cartId":"cart-42","itemCount":2,"checkoutStep":"delivery"}',
+        },
+        {
+          id: "user-two",
+          role: "user",
+          content: "Yes, show me delivery for Friday.",
+        },
+      ];
+      const events = [
+        { type: "RUN_STARTED", timestamp: 1, payload: { runId: "run-one" } },
+        {
+          type: "TEXT_MESSAGE_START",
+          timestamp: 2,
+          payload: { role: "assistant", messageId: "assistant-one" },
+        },
+        {
+          type: "TEXT_MESSAGE_CONTENT",
+          timestamp: 3,
+          payload: { messageId: "assistant-one", delta: messages[1].content },
+        },
+        {
+          type: "TOOL_CALL_START",
+          timestamp: 4,
+          payload: { toolCallId: "restore", toolCallName: "restore_cart" },
+        },
+        {
+          type: "TOOL_CALL_ARGS",
+          timestamp: 5,
+          payload: { toolCallId: "restore", delta: '{"cartId":"cart-42"}' },
+        },
+        {
+          type: "TOOL_CALL_END",
+          timestamp: 6,
+          payload: { toolCallId: "restore" },
+        },
+        {
+          type: "TOOL_CALL_RESULT",
+          timestamp: 7,
+          payload: { toolCallId: "restore", content: messages[2].content },
+        },
+        {
+          type: "TEXT_MESSAGE_START",
+          timestamp: 8,
+          payload: { role: "assistant", messageId: "assistant-two" },
+        },
+        {
+          type: "TEXT_MESSAGE_CONTENT",
+          timestamp: 9,
+          payload: { messageId: "assistant-two", delta: messages[3].content },
+        },
+        {
+          type: "STATE_SNAPSHOT",
+          timestamp: 10,
+          payload: {
+            snapshot: {
+              cartId: "cart-42",
+              itemCount: 2,
+              checkoutStep: "delivery",
+            },
+          },
+        },
+        { type: "RUN_FINISHED", timestamp: 11, payload: { runId: "run-one" } },
+      ];
+      const detail = new CpkThreadInspector();
+      detail.conversationView = params.get("view") !== "timeline";
+      detail.threadId = "saved-cart-example";
+      detail.thread = {
+        id: detail.threadId,
+        name: "Restore a saved cart",
+        agentId: "shopping-assistant",
+      };
+      detail.provider = {
+        getMessages: async () => messages,
+        getEvents: async () => events,
+        getState: async () => ({
+          cartId: "cart-42",
+          itemCount: 2,
+          checkoutStep: "delivery",
+        }),
+      };
+      document.querySelector("main").append(detail);
+      document.documentElement.dataset.ready = "true";
+    </script>
+  </body>
+</html>
