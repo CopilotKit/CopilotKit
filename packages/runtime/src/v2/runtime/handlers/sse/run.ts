@@ -36,6 +36,7 @@ export function handleSseRun({
     runtimeErrorReporter: getRuntimeErrorReporter(runtime),
     startTime,
     telemetry: runtime.telemetry,
+    keepAliveIntervalSeconds: runtime.sseKeepAliveIntervalSeconds,
     // Read structurally rather than via `instanceof BuiltInAgent`, which would
     // pull the agent module into this handler. Any agent can opt in by
     // exposing the same property.
