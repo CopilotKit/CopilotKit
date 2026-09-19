@@ -58,7 +58,8 @@ export type CopilotChatViewProps = WithSlots<
   {
     messageView: typeof CopilotChatMessageView;
     scrollView: typeof CopilotChatView.ScrollView;
-    input: typeof CopilotChatInput;
+    /** Any component with CopilotChatInput props — static namespace members are not required. */
+    input: React.ComponentType<CopilotChatInputProps>;
     suggestionView: typeof CopilotChatSuggestionView;
   },
   {
