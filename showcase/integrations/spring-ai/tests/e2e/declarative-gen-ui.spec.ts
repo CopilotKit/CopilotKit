@@ -47,7 +47,7 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
       "Show a KPI dashboard",
       "Pie chart — sales by region",
       "Bar chart — quarterly revenue",
-      "Status report",
+      "Accounts at risk",
     ];
     for (const title of expected) {
       await expect(suggestions.filter({ hasText: title }).first()).toBeVisible({
@@ -145,11 +145,11 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
       .toBeGreaterThanOrEqual(3);
   });
 
-  test("Status report pill renders a Card with a StatusBadge pill", async ({
+  test("Accounts at risk pill renders a Card with a StatusBadge pill", async ({
     page,
   }) => {
     const suggestions = page.locator('[data-testid="copilot-suggestion"]');
-    await suggestions.filter({ hasText: "Status report" }).first().click();
+    await suggestions.filter({ hasText: "Accounts at risk" }).first().click();
 
     // StatusBadge renderer emits `data-testid="declarative-status-badge"`.
     const badges = page.locator('[data-testid="declarative-status-badge"]');
