@@ -82,6 +82,7 @@ A `RUN_ERROR` is highlighted and expanded while it remains in the event
 buffer. A tool call is highlighted when the error includes its call id; a
 missing tool has no call to highlight.
 
+
 Learning data is fetched the first time you open **Learning**, so a Learning
 load error can only be routed there after that first visit.
 
@@ -91,6 +92,23 @@ Mode](/troubleshooting/debug-mode) to inspect the server-side pipeline. Use
 `onError` on `CopilotKit` or `CopilotChat` when the application UI or your
 production observability system should also receive the error. See [Error
 Debugging & Observability](/troubleshooting/error-debugging) for that setup.
+
+## What's New
+
+What's New lists updates that match your stable frontend SDK version and confirmed
+runtime configuration. A single preview beside the launcher highlights an update.
+Read it or close its preview to quiet the updates already available to you. They remain
+in What's New for later reading. Reading a different update does not dismiss the highlight.
+
+New updates can show a preview later. Copy edits to an update you already read stay quiet.
+The Inspector remembers your choices on the current host; if cookies are blocked, it
+falls back to storage for the current origin. Updates load once per page and do not poll.
+Production, server rendering, and disabled Inspectors do not fetch notifications.
+
+The cohort-capable Inspector reads only the versioned notification feed. Older SDK
+releases continue reading the separate legacy `announcements.json` feed. A legacy
+announcement reaches those older clients without cohort targeting; it is not a
+fallback for the updated Inspector when the cohort feed is empty or unavailable.
 
 ## Follow a run from input to result
 

@@ -1,3 +1,8 @@
+import {
+  emptyNotificationState,
+  parseNotificationState,
+} from "./notifications.js";
+import type { NotificationState } from "./notifications.js";
 import type { Anchor, DockMode, Position, Size } from "./types.js";
 
 export type PersistedContextState = {
@@ -229,22 +234,6 @@ function parseInspectorDismissalPayload(raw: string | null): number | null {
   }
 }
 
-// Announcement read state — "have I read this announcement" is a property of
-// the person, not of the project, so it must survive a change of localhost
-// port. localStorage cannot express that: it is partitioned by origin and
-// origin includes the port, so :3000 and :5173 are separate stores. Cookies
-// are partitioned by host, so a cookie set on `localhost` without a `domain`
-// attribute is shared by every port on that host.
-//
-// Underscores, not colons: `:` is a separator in RFC 6265 and is not valid in
-// a cookie name. Browsers are lenient about it; we don't rely on that.
-const ANNOUNCEMENT_READ_COOKIE_NAME = "cpk_inspector_announcements";
-
-// localStorage mirror of the cookie, so a browser that blocks cookies
-// degrades to per-port behaviour instead of losing the read state entirely.
-// A NEW key on purpose — the legacy one is abandoned, not migrated.
-const ANNOUNCEMENT_READ_MIRROR_KEY = "cpk:inspector:announcement_read";
-
 // The superseded key. Every existing user is re-armed exactly once so they
 // discover the surface that replaced the announcement bubble, and the key is
 // deleted rather than left in place so nothing can fall back to it later.
@@ -255,35 +244,6 @@ const LEGACY_ANNOUNCEMENT_READ_KEY = "cpk:inspector:announcements";
 // announcement for the rest of that tab's life, and the feed is fetched once
 // per mount with no polling.
 const ANNOUNCEMENT_PULSED_SESSION_KEY = "cpk:inspector:pulsed";
-
-// Roughly one year. No `Secure` — local development is served over plain
-// HTTP — and no `HttpOnly`, because the component reads the value from
-// script. `Path=/` and `SameSite=Lax` keep it host-wide and same-site only.
-const ANNOUNCEMENT_READ_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
-
-/**
- * The announcement timestamp the user has already read, or `null` when
- * nothing has been read yet. Prefers the host-scoped cookie and falls back to
- * the origin-scoped mirror, so cookie-blocking browsers still remember the
- * read within the port they are on.
- */
-export function loadAnnouncementReadTimestamp(): string | null {
-  return (
-    parseTimestampPayload(readAnnouncementCookie()) ??
-    parseTimestampPayload(readLocalStorageItem(ANNOUNCEMENT_READ_MIRROR_KEY))
-  );
-}
-
-/**
- * Records an announcement as read in both the host-scoped cookie and the
- * origin-scoped mirror. The stored value is `{"timestamp":"…"}` — the same
- * shape the announcement state has always used.
- */
-export function saveAnnouncementReadTimestamp(timestamp: string): void {
-  const payload = JSON.stringify({ timestamp });
-  writeAnnouncementCookie(payload);
-  writeLocalStorageItem(ANNOUNCEMENT_READ_MIRROR_KEY, payload);
-}
 
 /**
  * Deletes the superseded origin-scoped read state. Safe to call on every
@@ -304,38 +264,6 @@ export function loadAnnouncementPulsedTimestamp(): string | null {
   } catch {
     return null;
   }
-}
-
-/** Suppresses further pulses for this announcement in this browser tab. */
-export function saveAnnouncementPulsedTimestamp(timestamp: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.setItem(ANNOUNCEMENT_PULSED_SESSION_KEY, timestamp);
-  } catch {
-    // No-op — a lost suppression costs one extra pulse, never correctness.
-  }
-}
-
-function parseTimestampPayload(raw: string | null): string | null {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as { timestamp?: unknown };
-    return typeof parsed?.timestamp === "string" ? parsed.timestamp : null;
-  } catch {
-    return null;
-  }
-}
-
-function readAnnouncementCookie(): string | null {
-  return readCookie(ANNOUNCEMENT_READ_COOKIE_NAME);
-}
-
-function writeAnnouncementCookie(value: string): void {
-  writeCookie(
-    ANNOUNCEMENT_READ_COOKIE_NAME,
-    value,
-    `Max-Age=${ANNOUNCEMENT_READ_COOKIE_MAX_AGE_SECONDS}`,
-  );
 }
 
 function readCookie(name: string): string | null {
@@ -491,4 +419,65 @@ function generateUuidV4(): string {
     const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
+}
+
+const NOTIFICATION_COOKIE = "cpk_inspector_notifications_v1";
+const NOTIFICATION_STORAGE = "cpk:inspector:notifications:v1";
+
+/** Load host-scoped delivery state, with per-origin fallback when cookies are blocked. */
+export function loadNotificationState(): NotificationState {
+  for (const raw of [
+    readCookie(NOTIFICATION_COOKIE),
+    readLocalStorageItem(NOTIFICATION_STORAGE),
+  ]) {
+    if (!raw) continue;
+    try {
+      const state = parseNotificationState(JSON.parse(raw));
+      if (state) return state;
+    } catch {
+      /* Try the mirror. */
+    }
+  }
+  return emptyNotificationState();
+}
+
+/** Save without dropping acknowledgement history or letting storage errors escape. */
+export function saveNotificationState(state: NotificationState): void {
+  const raw = JSON.stringify(state);
+  writeLocalStorageItem(NOTIFICATION_STORAGE, raw);
+  // Leave room for cookie attributes. Oversized history degrades to localStorage,
+  // rather than keeping a stale host cookie that would re-arm read notices.
+  if (encodeURIComponent(raw).length < 3500)
+    writeCookie(NOTIFICATION_COOKIE, raw, "Max-Age=31536000");
+  else writeCookie(NOTIFICATION_COOKIE, "", "Max-Age=0");
+}
+
+/** ID-based pulse state is separate from the legacy announcement timestamp. */
+const NOTIFICATION_PULSED_SESSION_KEY = "cpk:inspector:notification-pulsed-id";
+export function saveNotificationPulsedId(id: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(NOTIFICATION_PULSED_SESSION_KEY, id);
+  } catch {
+    /* A lost suppression must not disrupt the host. */
+  }
+}
+export function hasNotificationPulsed(
+  id: string,
+  publishedAt: string,
+): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const current = window.sessionStorage.getItem(
+      NOTIFICATION_PULSED_SESSION_KEY,
+    );
+    if (current !== null) return current === id;
+    if (loadAnnouncementPulsedTimestamp() === publishedAt) {
+      saveNotificationPulsedId(id);
+      return true;
+    }
+  } catch {
+    /* Treat unavailable storage as a fresh tab. */
+  }
+  return false;
 }
