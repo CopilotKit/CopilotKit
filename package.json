@@ -111,6 +111,7 @@
     },
     "//": "Next.js overrides keep each supported major on its security floor (GHSA-2xp9-vwfh-vxw4, GHSA-p293-qw3h-jr36). Next 14 examples declare Next 15 explicitly because neither advisory has a Next 14 fix.",
     "overrides": {
+      "mermaid": "11.12.3",
       "streamdown>react": "^19.0.0",
       "@types/react": "19.1.8",
       "@types/react-dom": "^19.0.2",
