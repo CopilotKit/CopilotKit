@@ -394,7 +394,11 @@ Your picker can now take a request, show a useful control, and act on the answer
 
 What if users keep correcting the same mistake? Perhaps “I need to focus” keeps bringing up the team table. [Automatic Learning](/learning) can turn those corrections into reusable Skills that help the agent make better choices.
 
-To add it, connect [Intelligence](/intelligence/quickstart), persist Threads, and assign a stable Learning container **before each Thread’s first run**. Associate each user’s Threads with their authenticated identity. The picker above works without this extension.
+<Callout type="info" title="Let your coding agent handle setup">
+You can simply ask your coding agent to use the [CopilotKit CLI](/cli) to set up Automatic Learning for this app, including passing approved Skills into Jev. Start with the [Automatic Learning setup prompt](/learning#start-with-your-coding-agent). You only need to follow the manual steps below if you prefer to wire it up yourself.
+</Callout>
+
+To set it up manually, connect [Intelligence](/intelligence/quickstart), persist Threads, and assign a stable Learning container **before each Thread’s first run**. Associate each user’s Threads with their authenticated identity. The picker above works without this extension.
 
 Collect completed interactions, including what users corrected and what happened next. Run Learning, inspect the Insights and their supporting Threads, then review the proposed Skills before publishing them. You can start an analysis manually or configure a recurring schedule.
 
