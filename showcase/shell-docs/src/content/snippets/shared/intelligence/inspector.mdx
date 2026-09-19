@@ -112,10 +112,11 @@ locked after setup, Inspector shows one Rich Threads setup view with **Copy
 setup prompt** and **Talk to an Engineer**. The view is based on Runtime Threads
 capability rather than license metadata.
 
-`NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY` is a browser-visible publishable key. It is
-different from the server-side `CPK_INTELLIGENCE_API_KEY` that
-`copilotkit project select` writes into your `.env`. The Runtime consumes the
-server-side key; never expose it to the browser.
+For managed Intelligence, `copilotkit project select` writes
+`CPK_INTELLIGENCE_API_KEY` to your server-side `.env`. The Runtime uses that key
+and reports Intelligence access to the browser. Never expose the project API
+key to the browser. See [Runtime endpoints](/backend/runtime-endpoints) for the
+complete setup.
 
 ## Review what Learning found
 
@@ -144,7 +145,7 @@ To disable Inspector in React:
 
 ```tsx
 <CopilotKit
-  publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
+  runtimeUrl="/api/copilotkit"
   enableInspector={false}
 >
   {children}

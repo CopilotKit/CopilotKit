@@ -229,12 +229,16 @@ To disable Inspector in a React development build:
 
 ```tsx
 <CopilotKit
-  publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
+  runtimeUrl="/api/copilotkit"
   enableInspector={false}
 >
   {children}
 </CopilotKit>
 ```
+
+For managed Intelligence, keep `CPK_INTELLIGENCE_API_KEY` on the runtime server.
+The runtime reports Intelligence access to the browser. Do not expose the project
+API key in a `NEXT_PUBLIC_` environment variable.
 
 Vue uses the template prop `:enable-inspector="false"`. Angular uses
 `provideCopilotKit({ enableInspector: false })`. An explicit `true` keeps
