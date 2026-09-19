@@ -80,6 +80,7 @@ vi.mock("@copilotkit/core", async (importOriginal) => {
     headers: Record<string, string> = {};
     a2uiEnabled = false;
     openGenerativeUIEnabled = false;
+    audioFileTranscriptionEnabled = false;
     runtimeConnectionStatus =
       CopilotKitCoreRuntimeConnectionStatus.Disconnected;
     listener?: Parameters<typeof mockSubscribe>[0];
