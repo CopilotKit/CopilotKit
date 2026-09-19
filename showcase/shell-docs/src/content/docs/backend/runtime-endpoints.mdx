@@ -552,6 +552,22 @@ createCopilotExpressHandler({
 });
 ```
 
+<Callout type="warn" title="`credentials: true` needs an explicit origin">
+Setting `credentials: true` without an `origin` (or with `origin: "*"`) is
+refused when the handler is built:
+
+```
+Invalid CORS configuration: `credentials: true` requires an explicit `origin`.
+```
+
+Allowing credentials from any origin would let any website send cookies and
+authorization headers to your runtime, so name the origins you trust instead:
+
+```ts
+cors: { origin: ["https://app.example.com"], credentials: true }
+```
+</Callout>
+
 ## Authenticating requests
 
 Because these routes run on your server, they're the right place to enforce

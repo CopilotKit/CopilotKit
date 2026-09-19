@@ -73,7 +73,11 @@ import {
   runOnError,
 } from "./hooks";
 import type { CopilotCorsConfig } from "./fetch-cors";
-import { handleCors, addCorsHeaders } from "./fetch-cors";
+import {
+  handleCors,
+  addCorsHeaders,
+  assertValidCorsConfig,
+} from "./fetch-cors";
 import { matchRoute } from "./fetch-router";
 import {
   callBeforeRequestMiddleware,
@@ -934,6 +938,8 @@ function resolveCorsConfig(
 ): CopilotCorsConfig | null {
   if (!cors) return null;
   if (cors === true) return {};
+  // Fail when the handler is built, not on the first cross-origin request.
+  assertValidCorsConfig(cors);
   return cors;
 }
 
