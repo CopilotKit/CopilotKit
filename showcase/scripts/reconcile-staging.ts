@@ -625,6 +625,8 @@ export async function reconcileStaging(
 // ── Live wiring (main) ──────────────────────────────────────────────────────
 
 const RAILWAY_API = RAILWAY_GRAPHQL_ENDPOINT;
+const RAILWAY_DEPLOYMENTS_QUERY_ATTEMPTS = 3;
+const RAILWAY_DEPLOYMENTS_QUERY_RETRY_DELAYS_MS = [500, 1_000] as const;
 
 /**
  * Resolve the Railway bearer token, mapping a RailwayTokenError onto the
@@ -715,52 +717,170 @@ export function pickNewestSuccessDigest(
   return digest;
 }
 
+function isRetryableRailwayReadStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+function hasRetryableTransportSignature(error: TypeError): boolean {
+  if (
+    /^(failed to fetch|fetch failed|terminated)$/i.test(error.message) ||
+    /^networkerror when attempting to fetch resource\.?$/i.test(
+      error.message,
+    ) ||
+    /^the operation (was )?aborted\.?$/i.test(error.message) ||
+    /^the operation timed out\.?$/i.test(error.message)
+  ) {
+    return true;
+  }
+
+  const cause = error.cause;
+  if (cause === null || typeof cause !== "object") return false;
+
+  const code = (cause as { code?: unknown }).code;
+  if (
+    typeof code === "string" &&
+    (code.startsWith("UND_ERR_") ||
+      [
+        "ENOTFOUND",
+        "ECONNRESET",
+        "ECONNREFUSED",
+        "ETIMEDOUT",
+        "EAI_AGAIN",
+      ].includes(code))
+  ) {
+    return true;
+  }
+
+  const message = (cause as { message?: unknown }).message;
+  return (
+    typeof message === "string" &&
+    (/^(failed to fetch|fetch failed|terminated)$/i.test(message) ||
+      /^networkerror when attempting to fetch resource\.?$/i.test(message) ||
+      /^the operation (was )?aborted\.?$/i.test(message) ||
+      /^the operation timed out\.?$/i.test(message))
+  );
+}
+
+function isRetryableTransportError(error: unknown) {
+  if (error instanceof DOMException) {
+    return (
+      error.name === "AbortError" ||
+      error.name === "NetworkError" ||
+      error.name === "TimeoutError"
+    );
+  }
+  if (!(error instanceof TypeError)) return false;
+  return hasRetryableTransportSignature(error);
+}
+
+function railwayReadRetryDelay(attempt: number): Promise<void> {
+  const delay = RAILWAY_DEPLOYMENTS_QUERY_RETRY_DELAYS_MS[attempt - 1] ?? 0;
+  return new Promise((resolve) => setTimeout(resolve, delay));
+}
+
+async function readRailwayErrorBody(res: Response): Promise<string> {
+  try {
+    return sanitizeErrorBody(await res.text());
+  } catch (e) {
+    const message = sanitizeErrorBody(
+      e instanceof Error ? e.message : String(e),
+    );
+    return `body unavailable: ${message}`;
+  }
+}
+
 /**
  * Read the digest the staging deployment is ACTUALLY running: the newest
  * SUCCESS deployment's `meta.imageDigest`. Mirrors `showcase/bin/railway`'s
  * `staging_running_digest`. Returns null when no SUCCESS deployment /
  * imageDigest is available.
  */
-async function liveFetchDeployedDigest(
+export async function liveFetchDeployedDigest(
   token: string,
   serviceId: string,
   environmentId: string,
 ): Promise<string | null> {
-  const res = await fetch(RAILWAY_API, {
-    method: "POST",
-    signal: AbortSignal.timeout(30_000),
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      // first:10 is a safe upper bound: a staging service's newest SUCCESS is
-      // effectively always among its 10 most-recent deployments (queued/failed
-      // attempts included). We do NOT rely on the connection's order — see
-      // pickNewestSuccessDigest, which sorts by createdAt.
-      query: `query Deployments($serviceId: String!, $environmentId: String!) {
-        deployments(first: 10, input: { serviceId: $serviceId, environmentId: $environmentId }) {
-          edges { node { id status meta createdAt } }
-        }
-      }`,
-      variables: { serviceId, environmentId },
-    }),
-  });
-  if (!res.ok) {
-    const body = sanitizeErrorBody(await res.text());
-    throw new Error(`Railway deployments query HTTP ${res.status}: ${body}`);
+  for (
+    let attempt = 1;
+    attempt <= RAILWAY_DEPLOYMENTS_QUERY_ATTEMPTS;
+    attempt++
+  ) {
+    let res: Response;
+    try {
+      res = await fetch(RAILWAY_API, {
+        method: "POST",
+        signal: AbortSignal.timeout(30_000),
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          // first:10 is a safe upper bound: a staging service's newest SUCCESS is
+          // effectively always among its 10 most-recent deployments (queued/failed
+          // attempts included). We do NOT rely on the connection's order — see
+          // pickNewestSuccessDigest, which sorts by createdAt.
+          query: `query Deployments($serviceId: String!, $environmentId: String!) {
+            deployments(first: 10, input: { serviceId: $serviceId, environmentId: $environmentId }) {
+              edges { node { id status meta createdAt } }
+            }
+          }`,
+          variables: { serviceId, environmentId },
+        }),
+      });
+    } catch (e) {
+      if (
+        attempt < RAILWAY_DEPLOYMENTS_QUERY_ATTEMPTS &&
+        isRetryableTransportError(e)
+      ) {
+        await railwayReadRetryDelay(attempt);
+        continue;
+      }
+      throw e;
+    }
+
+    if (!res.ok) {
+      const body = await readRailwayErrorBody(res);
+      const error = new Error(
+        `Railway deployments query HTTP ${res.status}: ${body}`,
+      );
+      if (
+        attempt < RAILWAY_DEPLOYMENTS_QUERY_ATTEMPTS &&
+        isRetryableRailwayReadStatus(res.status)
+      ) {
+        await railwayReadRetryDelay(attempt);
+        continue;
+      }
+      throw error;
+    }
+
+    let json: {
+      data?: DeploymentsResponse;
+      errors?: Array<{ message: string }>;
+    };
+    try {
+      json = (await res.json()) as {
+        data?: DeploymentsResponse;
+        errors?: Array<{ message: string }>;
+      };
+    } catch (e) {
+      if (
+        attempt < RAILWAY_DEPLOYMENTS_QUERY_ATTEMPTS &&
+        isRetryableTransportError(e)
+      ) {
+        await railwayReadRetryDelay(attempt);
+        continue;
+      }
+      throw e;
+    }
+    if (json.errors?.length) {
+      throw new Error(
+        json.errors.map((e) => sanitizeErrorBody(e.message)).join("; "),
+      );
+    }
+    const edges = json.data?.deployments?.edges ?? [];
+    return pickNewestSuccessDigest(edges);
   }
-  const json = (await res.json()) as {
-    data?: DeploymentsResponse;
-    errors?: Array<{ message: string }>;
-  };
-  if (json.errors?.length) {
-    throw new Error(
-      json.errors.map((e) => sanitizeErrorBody(e.message)).join("; "),
-    );
-  }
-  const edges = json.data?.deployments?.edges ?? [];
-  return pickNewestSuccessDigest(edges);
+  throw new Error("Railway deployments query retry loop exhausted");
 }
 
 /**
