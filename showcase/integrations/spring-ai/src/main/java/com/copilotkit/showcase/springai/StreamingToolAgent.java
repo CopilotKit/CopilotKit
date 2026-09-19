@@ -14,6 +14,8 @@ import com.agui.core.state.State;
 import com.agui.core.tool.Tool;
 import com.agui.core.tool.ToolCall;
 import com.copilotkit.showcase.springai.cvdiag.CvdiagBackend;
+import com.copilotkit.showcase.springai.tools.GenerateA2uiTool;
+import java.util.Map;
 import com.copilotkit.showcase.springai.cvdiag.CvdiagRunContext;
 import com.copilotkit.showcase.springai.cvdiag.CvdiagSchema.CvdiagOutcome;
 import org.springframework.ai.chat.client.ChatClient;
@@ -503,6 +505,14 @@ public class StreamingToolAgent extends PropagatingLocalAgent {
             request = chatClient.prompt(
                     Prompt.builder().content(userContent).build())
                     .system(systemMessage);
+        }
+
+        GenerateA2uiTool.UiContext ui = GenerateA2uiTool.uiContext(input.context());
+        if (ui != null) {
+            request.system(systemMessage + "\nFor this A2UI page, call generate_a2ui with userRequest "
+                    + "to generate the requested surface using the supplied catalog and facts.\n"
+                    + ui.instructions());
+            request.toolContext(Map.of(GenerateA2uiTool.UI_CONTEXT_KEY, ui));
         }
 
         if (disableInternalToolExecution) {
