@@ -234,7 +234,9 @@ export function useInterrupt<
       interruptRunIdsRef.current.clear();
       legacyRunIdRef.current = undefined;
       pendingThreadIdRef.current = undefined;
-      ɵclearLegacyInterrupt(agent);
+      // Scoped to the thread the run belongs to. A run started in another
+      // conversation must not erase the gate this one is still waiting on.
+      ɵclearLegacyInterrupt(agent, agent.threadId);
       interruptState.clear();
       setPending(null);
     };
@@ -372,7 +374,10 @@ export function useInterrupt<
         console.error(
           `[CopilotKit] useInterrupt: interrupt ${decision.interrupt.id} expired at ${decision.interrupt.expiresAt}; not resuming.`,
         );
-        ɵclearLegacyInterrupt(agent);
+        ɵclearLegacyInterrupt(
+          agent,
+          pendingThreadIdRef.current ?? agent.threadId,
+        );
         interruptStateRef.current.clear();
         setPending(null);
         return;
@@ -430,7 +435,10 @@ export function useInterrupt<
           "[CopilotKit] useInterrupt: cancel() is not supported for legacy on_interrupt interrupts; dismissing.",
         );
         // A dismissal ends the gate, so drop the recovery record with it.
-        ɵclearLegacyInterrupt(agent);
+        ɵclearLegacyInterrupt(
+          agent,
+          pendingThreadIdRef.current ?? agent.threadId,
+        );
         interruptStateRef.current.clear();
         setPending(null);
         return;
@@ -439,7 +447,10 @@ export function useInterrupt<
         console.error(
           `[CopilotKit] useInterrupt: interrupt ${decision.interrupt.id} expired at ${decision.interrupt.expiresAt}; not resuming.`,
         );
-        ɵclearLegacyInterrupt(agent);
+        ɵclearLegacyInterrupt(
+          agent,
+          pendingThreadIdRef.current ?? agent.threadId,
+        );
         interruptStateRef.current.clear();
         setPending(null);
         return;
