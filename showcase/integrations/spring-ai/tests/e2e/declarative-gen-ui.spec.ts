@@ -70,6 +70,17 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
       .first()
       .click();
 
+    const pieChart = page.getByTestId("declarative-pie-chart").first();
+    await expect(pieChart).toBeVisible({ timeout: 90_000 });
+    await expect(pieChart).toContainText("North America");
+    await expect(pieChart).toContainText("1,900,000");
+    await expect(pieChart).toContainText("EMEA");
+    await expect(pieChart).toContainText("1,300,000");
+    await expect(pieChart).toContainText("APAC");
+    await expect(pieChart).toContainText("720,000");
+    await expect(pieChart).toContainText("LATAM");
+    await expect(pieChart).toContainText("280,000");
+
     // At least background circle + 2 slice circles. 90s budget: on
     // cold starts the secondary-LLM `generate_a2ui` pass can eat most
     // of a minute before emitting the PieChart node.
@@ -99,15 +110,25 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
       .click();
 
     // 90s budget for the same cold-start reason as PieChart above.
-    const barChartRoot = page.locator(".recharts-responsive-container").first();
-    await expect(barChartRoot).toBeVisible({ timeout: 90_000 });
+    const barChart = page.getByTestId("declarative-bar-chart").first();
+    await expect(barChart).toBeVisible({ timeout: 90_000 });
+    await expect(barChart).toContainText("Q1");
+    await expect(barChart).toContainText("Q2");
+    await expect(barChart).not.toContainText("Q3");
+    await expect(barChart).not.toContainText("Q4");
+    await expect(barChart).toContainText(
+      "Aggregated from Jan-Jun monthly revenue",
+    );
+    const barChartRoot = barChart.locator(".recharts-responsive-container");
+    await expect(barChartRoot).toBeVisible();
 
-    // At least 2 bar rectangles should render. The custom shape renders a
+    // Exactly 2 bar rectangles should render: Q1 and Q2, both grounded in the
+    // explicit Jan-Jun monthly revenue facts.
     // recharts <Rectangle> inside a <g>, which keeps the standard class.
-    const bars = page.locator(".recharts-bar-rectangle");
+    const bars = barChart.locator(".recharts-bar-rectangle");
     await expect
       .poll(async () => await bars.count(), { timeout: 15_000 })
-      .toBeGreaterThanOrEqual(2);
+      .toBe(2);
 
     // Regression guard (#4734): the deployed KPI / dashboard pills used to
     // loop with "A2UI render error: Cannot create component root without a

@@ -56,6 +56,38 @@
       }
     },
     {
+      "_comment": "Observed Spring secondary plain-JSON request for the standalone region pie chart.",
+      "match": {
+        "userMessage": "Show a pie chart of sales by region.",
+        "context": "spring-ai",
+        "hasToolResult": false,
+        "systemMessage": [
+          "Respond with ONLY plain JSON, no markdown or tool calls.",
+          "declarative-gen-ui-catalog",
+          "North America $1.9M"
+        ]
+      },
+      "response": {
+        "content": "{\"surfaceId\":\"region-revenue\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"PieChart\",\"title\":\"Revenue by region\",\"description\":\"Vantage Threads - Q2 sales\",\"data\":[{\"label\":\"North America\",\"value\":1900000},{\"label\":\"EMEA\",\"value\":1300000},{\"label\":\"APAC\",\"value\":720000},{\"label\":\"LATAM\",\"value\":280000}]}]}"
+      }
+    },
+    {
+      "_comment": "Observed Spring secondary plain-JSON request for grounded quarterly revenue bars.",
+      "match": {
+        "userMessage": "Render a bar chart of quarterly revenue.",
+        "context": "spring-ai",
+        "hasToolResult": false,
+        "systemMessage": [
+          "Respond with ONLY plain JSON, no markdown or tool calls.",
+          "declarative-gen-ui-catalog",
+          "Jan $1.21M"
+        ]
+      },
+      "response": {
+        "content": "{\"surfaceId\":\"quarterly-revenue\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"BarChart\",\"title\":\"Quarterly revenue\",\"description\":\"Vantage Threads - Aggregated from Jan-Jun monthly revenue\",\"data\":[{\"label\":\"Q1\",\"value\":4200000},{\"label\":\"Q2\",\"value\":4200000}]}]}"
+      }
+    },
+    {
       "match": {
         "userMessage": "render the a2ui schema",
         "turnIndex": 0,
@@ -207,90 +239,6 @@
     },
     {
       "match": {
-        "userMessage": "pie chart of sales by region",
-        "toolCallId": "call_d5_a2ui_dynamic_pie_001",
-        "context": "spring-ai"
-      },
-      "response": {
-        "content": "Here is the pie chart by region."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "pie chart of sales by region",
-        "toolName": "generate_a2ui",
-        "context": "spring-ai"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "name": "generate_a2ui",
-            "arguments": "{\"context\":\"pie chart of sales by region\"}",
-            "id": "call_d5_a2ui_dynamic_pie_001"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "pie chart of sales by region",
-        "toolName": "_design_a2ui_surface",
-        "context": "spring-ai"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d5_design_a2ui_pie_001",
-            "name": "_design_a2ui_surface",
-            "arguments": "{\"surfaceId\": \"pie-sales\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"PieChart\", \"title\": \"Sales by region\", \"description\": \"Q4 revenue split\", \"data\": [{\"label\": \"NA\", \"value\": 540}, {\"label\": \"EMEA\", \"value\": 320}, {\"label\": \"APAC\", \"value\": 210}, {\"label\": \"LATAM\", \"value\": 90}]}]}"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "bar chart of quarterly revenue",
-        "toolCallId": "call_d5_a2ui_dynamic_bar_001",
-        "context": "spring-ai"
-      },
-      "response": {
-        "content": "Here is the bar chart of quarterly revenue."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "bar chart of quarterly revenue",
-        "toolName": "generate_a2ui",
-        "context": "spring-ai"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "name": "generate_a2ui",
-            "arguments": "{\"context\":\"bar chart of quarterly revenue\"}",
-            "id": "call_d5_a2ui_dynamic_bar_001"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "bar chart of quarterly revenue",
-        "toolName": "_design_a2ui_surface",
-        "context": "spring-ai"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d5_design_a2ui_bar_001",
-            "name": "_design_a2ui_surface",
-            "arguments": "{\"surfaceId\": \"bar-quarterly\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"BarChart\", \"title\": \"Quarterly revenue\", \"description\": \"FY 2025 per quarter\", \"data\": [{\"label\": \"Q1\", \"value\": 820}, {\"label\": \"Q2\", \"value\": 950}, {\"label\": \"Q3\", \"value\": 1100}, {\"label\": \"Q4\", \"value\": 1240}]}]}"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
         "userMessage": "status report on system health",
         "toolCallId": "call_d5_a2ui_dynamic_status_001",
         "context": "spring-ai"
@@ -383,98 +331,6 @@
                   "label": "Churn",
                   "value": "2.1%",
                   "trend": "down"
-                }
-              ],
-              "data": {}
-            }
-          }
-        ]
-      }
-    },
-    {
-      "_comment": "render_a2ui — pie-chart pill (Google-ADK). Flat {id, component, ...props} shape.",
-      "match": {
-        "userMessage": "pie chart of sales by region",
-        "toolName": "render_a2ui",
-        "context": "spring-ai"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "name": "render_a2ui",
-            "arguments": {
-              "surfaceId": "declarative-surface",
-              "catalogId": "declarative-gen-ui-catalog",
-              "components": [
-                {
-                  "id": "root",
-                  "component": "PieChart",
-                  "title": "Sales by region",
-                  "description": "Q4 — share of total revenue",
-                  "data": [
-                    {
-                      "label": "North America",
-                      "value": 540
-                    },
-                    {
-                      "label": "EMEA",
-                      "value": 320
-                    },
-                    {
-                      "label": "APAC",
-                      "value": 210
-                    },
-                    {
-                      "label": "LATAM",
-                      "value": 90
-                    }
-                  ]
-                }
-              ],
-              "data": {}
-            }
-          }
-        ]
-      }
-    },
-    {
-      "_comment": "render_a2ui — bar-chart pill (Google-ADK). Flat {id, component, ...props} shape.",
-      "match": {
-        "userMessage": "bar chart of quarterly revenue",
-        "toolName": "render_a2ui",
-        "context": "spring-ai"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "name": "render_a2ui",
-            "arguments": {
-              "surfaceId": "declarative-surface",
-              "catalogId": "declarative-gen-ui-catalog",
-              "components": [
-                {
-                  "id": "root",
-                  "component": "BarChart",
-                  "title": "Quarterly revenue",
-                  "description": "FY24 — USD thousands",
-                  "data": [
-                    {
-                      "label": "Q1",
-                      "value": 820
-                    },
-                    {
-                      "label": "Q2",
-                      "value": 940
-                    },
-                    {
-                      "label": "Q3",
-                      "value": 1080
-                    },
-                    {
-                      "label": "Q4",
-                      "value": 1240
-                    }
-                  ]
                 }
               ],
               "data": {}

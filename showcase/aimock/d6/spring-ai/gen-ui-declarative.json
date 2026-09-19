@@ -124,59 +124,63 @@
       }
     },
     {
-      "_comment": "gen-ui-declarative pill 2: pie chart — emits render_a2ui with PieChart component.",
+      "_comment": "Observed original pie prompt routed through the advertised Spring generator.",
       "match": {
-        "userMessage": "pie chart of sales by region",
+        "userMessage": "Show a pie chart of sales by region.",
         "hasToolResult": false,
-        "context": "spring-ai"
+        "context": "spring-ai",
+        "toolName": "generate_a2ui"
       },
       "response": {
         "toolCalls": [
           {
             "id": "call_d6_decl_pie_001",
-            "name": "render_a2ui",
-            "arguments": "{\"components\":[{\"type\":\"PieChart\",\"props\":{\"title\":\"Sales by Region\",\"data\":[{\"label\":\"North America\",\"value\":45},{\"label\":\"Europe\",\"value\":30},{\"label\":\"Asia\",\"value\":20},{\"label\":\"Other\",\"value\":5}]}}]}"
+            "name": "generate_a2ui",
+            "arguments": "{\"userRequest\":\"Show a pie chart of sales by region.\"}"
           }
         ]
       }
     },
     {
-      "_comment": "gen-ui-declarative pill 2: pie chart — follow-up.",
+      "_comment": "Observed continuation for source-grounded regional revenue operations.",
       "match": {
-        "userMessage": "pie chart of sales by region",
+        "userMessage": "Show a pie chart of sales by region.",
         "hasToolResult": true,
-        "context": "spring-ai"
+        "context": "spring-ai",
+        "toolResultContains": "region-revenue"
       },
       "response": {
         "content": "Pie chart rendered above showing sales breakdown by region."
       }
     },
     {
-      "_comment": "gen-ui-declarative pill 3: bar chart — emits render_a2ui with BarChart component.",
+      "_comment": "Observed original quarterly revenue prompt routed through the advertised Spring generator.",
       "match": {
-        "userMessage": "bar chart of quarterly revenue",
+        "userMessage": "Render a bar chart of quarterly revenue.",
         "hasToolResult": false,
-        "context": "spring-ai"
+        "context": "spring-ai",
+        "toolName": "generate_a2ui"
       },
       "response": {
         "toolCalls": [
           {
             "id": "call_d6_decl_bar_001",
-            "name": "render_a2ui",
-            "arguments": "{\"components\":[{\"type\":\"BarChart\",\"props\":{\"title\":\"Quarterly Revenue\",\"data\":[{\"label\":\"Q1\",\"value\":1800000},{\"label\":\"Q2\",\"value\":2100000},{\"label\":\"Q3\",\"value\":2300000},{\"label\":\"Q4\",\"value\":2400000}]}}]}"
+            "name": "generate_a2ui",
+            "arguments": "{\"userRequest\":\"Render a bar chart of quarterly revenue.\"}"
           }
         ]
       }
     },
     {
-      "_comment": "gen-ui-declarative pill 3: bar chart — follow-up.",
+      "_comment": "Observed continuation for source-grounded quarterly revenue operations.",
       "match": {
-        "userMessage": "bar chart of quarterly revenue",
+        "userMessage": "Render a bar chart of quarterly revenue.",
         "hasToolResult": true,
-        "context": "spring-ai"
+        "context": "spring-ai",
+        "toolResultContains": "quarterly-revenue"
       },
       "response": {
-        "content": "Bar chart rendered above showing quarterly revenue growth."
+        "content": "Bar chart rendered above showing Q1 and Q2 quarterly revenue from Jan-Jun monthly totals."
       }
     },
     {
