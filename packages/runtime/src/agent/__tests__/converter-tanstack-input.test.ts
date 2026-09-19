@@ -129,6 +129,72 @@ describe("convertInputToTanStackAI", () => {
       expect(messages[0].role).toBe("tool");
       expect(messages[0].toolCallId).toBe("tc-1");
     });
+
+    it("drops unanswered assistant tool calls while keeping completed calls", () => {
+      const input = createDefaultInput({
+        messages: [
+          {
+            id: "msg-1",
+            role: "assistant",
+            content: "Working on it",
+            toolCalls: [
+              {
+                id: "tc-complete",
+                type: "function",
+                function: { name: "done", arguments: "{}" },
+              },
+              {
+                id: "tc-pending",
+                type: "function",
+                function: { name: "pending", arguments: "{}" },
+              },
+            ],
+          },
+          {
+            id: "msg-2",
+            role: "tool",
+            content: "ok",
+            toolCallId: "tc-complete",
+          },
+          { id: "msg-3", role: "user", content: "Continue" },
+        ],
+      });
+
+      const { messages } = convertInputToTanStackAI(input);
+
+      expect(messages).toHaveLength(3);
+      expect(messages[0].toolCalls).toEqual([
+        {
+          id: "tc-complete",
+          type: "function",
+          function: { name: "done", arguments: "{}" },
+        },
+      ]);
+    });
+
+    it("removes an assistant message containing only unanswered calls", () => {
+      const input = createDefaultInput({
+        messages: [
+          {
+            id: "msg-1",
+            role: "assistant",
+            content: null,
+            toolCalls: [
+              {
+                id: "tc-pending",
+                type: "function",
+                function: { name: "pending", arguments: "{}" },
+              },
+            ],
+          },
+          { id: "msg-2", role: "user", content: "Continue" },
+        ],
+      });
+
+      expect(convertInputToTanStackAI(input).messages).toEqual([
+        { role: "user", content: "Continue" },
+      ]);
+    });
   });
 
   // -------------------------------------------------------------------------

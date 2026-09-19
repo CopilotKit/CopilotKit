@@ -19,6 +19,7 @@ import type {
 import { EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
 import { createStateEventNormalizer } from "../state-delta";
+import { filterUnansweredToolCalls } from "./message-history";
 import {
   aggregateRunUsage,
   collectStandardRunFinishedDetails,
@@ -259,7 +260,9 @@ export function convertInputToTanStackAI(
   // Other roles (system, developer, activity, reasoning) are either
   // extracted into systemPrompts or not applicable.
   const chatRoles = new Set(["user", "assistant", "tool"]);
-  const messages: TanStackChatMessage[] = input.messages
+  const messages: TanStackChatMessage[] = filterUnansweredToolCalls(
+    input.messages,
+  )
     .filter((m: Message) => chatRoles.has(m.role))
     .map((m: Message): TanStackChatMessage => {
       const msg: TanStackChatMessage = {
