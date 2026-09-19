@@ -6,9 +6,9 @@ showIcon: true
 doc_type: how-to
 ---
 
-Turn a request into a useful control without waiting for a text-generating model on every turn. This recipe adds a Jev decision step to a Next.js App Router application: choose a clarification or comparison panel, rank known candidates, and send the user's selection back to the agent.
+“I need somewhere to work” could mean a quiet room for one person or a table for the whole team. Your agent needs to decide whether to ask a question or show some options. With Jev and CopilotKit, it can make that decision and put the next step on a button.
 
-You will build a small workspace picker. Its three fictional workspaces are example data; replace them with records from your own catalog. The pattern comes from a music application that used Jev to select clarification, replacement, and planning controls. The workspace example is an adaptation, not an evaluated recommendation system.
+You’ll build a workspace picker in Next.js that asks clarifying questions, compares rooms, and remembers the user’s selection. Jev chooses the panel and ranks the options; CopilotKit connects it to your React UI through AG-UI. Start with three sample workspaces, then swap in your own catalog.
 
 | Part | Responsibility |
 | --- | --- |
@@ -17,7 +17,7 @@ You will build a small workspace picker. Its three fictional workspaces are exam
 | **Your application** | Owns schemas, components, fixed labels, candidate IDs, validation, and confirmed actions. |
 | **Intelligence, optionally** | Persists Threads, analyzes evidence into Insights and candidate Skills, and delivers approved versions. |
 
-Jev does not replace AG-UI or learn from your Threads. React renders components you wrote; the model selects and composes controls and data rather than generating arbitrary JSX. Better behavior can mean asking the right question before acting. Better generative UI makes that question easy to answer.
+You design the components and their labels. Jev decides which one fits the moment and what goes in it; AG-UI carries the result to your UI. Asking the right question is better agent behavior. Giving the user two useful buttons makes it better generative UI, too.
 
 <Callout type="info">
 This recipe renders [shared agent state](/shared-state). For tool-call-based rendering and other approaches, see [Generative UI](/concepts/generative-ui-overview).
@@ -27,7 +27,7 @@ This recipe renders [shared agent state](/shared-state). For tool-call-based ren
 
 Use a Next.js App Router project with TypeScript, React 19, a root layout, and the `@/*` alias pointing to the project root. If your project uses `src/`, place all files below inside `src/` and point the alias there. Use Node.js 22 or later.
 
-The recipe uses the API generation verified in the source application: CopilotKit 1.73.0, AG-UI 0.0.59, TypeSafe SDK 0.6.0, and RxJS 7.8.1. Keep these versions together; do not substitute AG-UI 1.x into this stack. The `/v2` imports select CopilotKit's current API within the 1.x package version.
+Use these compatible versions: CopilotKit 1.73.0, AG-UI 0.0.59, TypeSafe SDK 0.6.0, and RxJS 7.8.1. Keep these versions together; do not substitute AG-UI 1.x into this stack. The `/v2` imports select CopilotKit's current API within the 1.x package version.
 
 ```bash
 npm install @copilotkit/core@1.73.0 @copilotkit/react-core@1.73.0 @copilotkit/runtime@1.73.0 @ag-ui/client@0.0.59 @ag-ui/core@0.0.59 @typesafe-ai/sdk@0.6.0 rxjs@7.8.1 zod@4.6.5 @langchain/openai@1.5.13 @langchain/core@1.2.11
@@ -48,7 +48,7 @@ The OpenAI model handles requests outside the two prepared panels. It is not cal
 
 ## Define the state and candidate IDs
 
-Keep the catalog authoritative and the panel schema small. Showing a preview must not apply the selection.
+Start with three rooms and two panel types: a question and a comparison. Keep the user’s selection separate from the panel so browsing options never selects a room for them.
 
 ```ts title="lib/workspaces.ts"
 import { z } from "zod";
@@ -82,7 +82,7 @@ export const clarificationOptions = [
 
 ## Batch the control choice and candidate scores
 
-The [TypeSafe SDK](https://docs.typesafe.ai/sdk) accepts multiple typed questions against one shared state. Each score evaluates a candidate independently; your code sorts the results. The control question must not depend on another question's answer.
+Ask Jev two things in one call: “What should I show next?” and “How well does each room fit?” The [TypeSafe SDK](https://docs.typesafe.ai/sdk) evaluates these questions independently against the same state, then your code sorts the scores. Each question needs enough context to stand on its own.
 
 ```ts title="lib/choose-panel.ts"
 import { TypeSafeClient, choice, score } from "@typesafe-ai/sdk";
@@ -148,7 +148,7 @@ export async function choosePanel(
 }
 ```
 
-The panel labels are authored copy. Candidate IDs always come from the catalog, even though Jev determines their order. A malformed response fails visibly rather than becoming a fake successful recommendation.
+Jev controls the order of the options; your catalog controls which rooms exist. The checks above catch missing scores or an unknown panel type before either reaches the UI.
 
 </Step>
 <Step>
@@ -236,14 +236,14 @@ export class PickerAgent extends AbstractAgent {
 }
 ```
 
-This fallback explains; a production agent can instead run validated tools. The source music app uses a LangChain agent with queue, search, and save tools after Jev defers. Keep tool authorization and business validation in that execution path. Never treat a preview as permission to book, purchase, or update an external record.
+The fallback gives your agent somewhere to go when buttons aren’t enough—for example, explaining what an enclosed workspace offers. To add booking later, connect a tool that checks availability and permissions after the user confirms a room.
 
 </Step>
 <Step>
 
 ## Connect the runtime and React controls
 
-The endpoint uses the same `createCopilotEndpoint` API as the pinned source application.
+Register the picker with your runtime, then render its state in React. Each button sends the user’s answer back through CopilotKit to start the next turn.
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import { CopilotRuntime, createCopilotEndpoint } from "@copilotkit/runtime/v2";
@@ -326,7 +326,7 @@ function Picker() {
 
 ## Verify the complete interaction
 
-Start your application's development server and open the page. Try “Help me find a workspace” and “Compare rooms for quiet work.” Model choices can vary; inspect the control and candidate order instead of assuming a specific response.
+Start your development server and open the page. Try a broad request like “Help me find a workspace,” then a more specific one like “Compare rooms for quiet work.” Watch how the panel and room order respond to the extra detail.
 
 1. Confirm that a panel appears and **Selected workspace** stays unchanged.
 2. Answer a clarification, if offered. The answer should move the conversation forward rather than repeat the question.
@@ -334,20 +334,22 @@ Start your application's development server and open the page. Try “Help me fi
 4. Ask “Explain what an enclosed workspace means.” Confirm that a deferred request reaches the language-model path.
 5. Cancel an in-flight request and test an invalid key locally. Errors must appear as errors, with no fabricated successful selection.
 
-You now have a full request → structured decision → AG-UI state → React control → confirmed action loop. Replace the catalog and prepared controls to adapt it to product comparisons, scheduling options, or editable plans. These are suggested applications, not measured outcomes of this example.
+Your picker can now take a request, show a useful control, and act on the answer. To build a product comparison or scheduling assistant, swap the room catalog and panels for the options your users need.
 
 </Step>
 </Steps>
 
 ## Optional: improve decisions and UI with Automatic Learning
 
-The core recipe needs no Intelligence account. When you want feedback to improve future decisions, connect [Intelligence](/intelligence/quickstart) and follow [Automatic Learning](/learning) to persist Threads and assign a stable Learning container **before each Thread's first run**. Use your authenticated user identity; do not copy a fixed demo identity into a multi-user application.
+What if users keep correcting the same mistake? Perhaps “I need to focus” keeps bringing up the team table. [Automatic Learning](/learning) can turn those corrections into reusable Skills that help the agent make better choices.
 
-Collect completed interactions that include corrections and follow-through. Analyze them, inspect the supporting Threads, and review candidate Skills before publishing. For a demonstration, scripted conversations can exercise this loop, but label them as scripted evidence. Manually starting an analysis is distinct from configuring a recurring schedule.
+To add it, connect [Intelligence](/intelligence/quickstart), persist Threads, and assign a stable Learning container **before each Thread’s first run**. Associate each user’s Threads with their authenticated identity. The picker above works without this extension.
 
-Then configure [automatic learned skill delivery](/intelligence/learned-skills) for your framework. In the source music application, the LangGraph TypeScript adapter made approved Skills available to the model. **Separate custom code** supplied the published `SKILL.md` text to Jev. Installing the model adapter alone does not add guidance to `systemOne`.
+Collect completed interactions, including what users corrected and what happened next. Run Learning, inspect the Insights and their supporting Threads, then review the proposed Skills before publishing them. You can start an analysis manually or configure a recurring schedule.
 
-For that custom Jev bridge, install `@copilotkit/intelligence-langgraph@1.71.2` alongside the pinned stack above and configure server-only `CPK_INTELLIGENCE_API_KEY` and `CPK_INTELLIGENCE_LEARNING_CONTAINER_ID`. Omit `CPK_INTELLIGENCE_SKILLS_REVISION` to follow the latest approved version, or set an actual revision for a controlled comparison; do not set it to an empty string.
+Next, make the approved Skills available to Jev. [Automatic learned skill delivery](/intelligence/learned-skills) provides a registry of published Skills. The helper below reads their `SKILL.md` contents so you can pass them into `systemOne` as guidance. This is your application’s connection to Jev; installing a model adapter alone does not make that connection.
+
+Install `@copilotkit/intelligence-langgraph@1.71.2` alongside the pinned stack above and configure server-only `CPK_INTELLIGENCE_API_KEY` and `CPK_INTELLIGENCE_LEARNING_CONTAINER_ID`. Omit `CPK_INTELLIGENCE_SKILLS_REVISION` to follow the latest approved version, or set an actual revision for a controlled comparison; do not set it to an empty string.
 
 ```ts title="lib/learned-guidance.ts"
 import { SkillRegistry } from "@copilotkit/intelligence-langgraph";
@@ -371,10 +373,10 @@ In `picker-agent.ts`, import `loadGuidance` from `./learned-guidance`. Immediate
 
 This extension only supplies Jev with instructions. If you replace the simple explanatory fallback with a native LangChain `createAgent`, attach `createSkillRegistryMiddleware({ registry })` and invoke the result of `skills.wrapAgent(agent)`, as shown in the [delivery guide](/intelligence/learned-skills#langgraph-typescript). That model-side loading mechanism is separate from passing text to Jev.
 
-Intelligence learns reusable procedures from conversation evidence; human review determines which Skills are published. Delivery adds instructions to inference context. It does not fine-tune Jev, modify React components, or guarantee every decision improves. A Skill that teaches the agent to clarify an ambiguous correction can improve both its behavior and the interactive control it chooses.
+Intelligence turns conversation evidence into reusable procedures, and you decide which ones to publish. Delivery adds those instructions to inference context; it doesn’t fine-tune Jev or rewrite your components. A Skill might help the picker recognize when to ask about noise preferences, then offer the right buttons to answer. Check both parts: did it make a better decision, and did the resulting UI help the user?
 
 ## Measure the decision and the interaction separately
 
 The timer above measures one Jev API call, including its network round trip. Measure request-to-first-usable-control separately in the browser, and measure whether the confirmed action succeeds. Compare decision quality using fresh Threads, identical starting state, and recorded model and Skill revisions. Keep evaluation Threads out of later Learning input when you need a stable test set.
 
-In the source music demonstration, the first six paired Jev calls took 86–165 ms. That is not an end-to-end UI measurement or evidence of a speedup against another model. Three repeated “Skip this one” trials clarified with approved Skills 3/3 times versus 0/3 without them; another prompt over-selected a whole-session planner. Treat this as a small behavioral demonstration and evaluate your own controls, including cases where the best response is a smaller intervention.
+Include requests that should need no extra questions, such as a direct room selection. A helpful picker should know when to ask—and when the user has already given it enough to act.
