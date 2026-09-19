@@ -3,6 +3,8 @@ FROM node:22-slim AS frontend
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --legacy-peer-deps
+COPY runtime-patches ./runtime-patches
+RUN node runtime-patches/apply.cjs
 COPY . .
 RUN npm run build
 
@@ -59,6 +61,7 @@ COPY --chown=app:app src/agents/ ./agents/
 
 # Shared Python tools (symlinked locally, copied into build context by CI)
 COPY --chown=app:app tools/ /app/tools/
+COPY --chown=app:app data/revenue-chart.json /app/data/revenue-chart.json
 
 # Shared CVDIAG bootstrap module (single source: showcase/integrations/_shared;
 # symlinked in source, dereferenced into this build context by the harness

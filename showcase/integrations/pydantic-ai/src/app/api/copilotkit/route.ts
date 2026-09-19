@@ -78,6 +78,9 @@ agents["default"] = createAgent();
 agents["headless-complete"] = new HttpAgent({
   url: `${AGENT_URL}/headless_complete/`,
 });
+agents["shared-state-read"] = new HttpAgent({
+  url: `${AGENT_URL}/shared_state_read/`,
+});
 agents["shared-state-read-write"] = new HttpAgent({
   url: `${AGENT_URL}/shared_state_read_write/`,
 });

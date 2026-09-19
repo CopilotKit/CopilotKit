@@ -25,10 +25,12 @@ class RecordedEventAgent extends AbstractAgent {
     });
   }
 
+  /** Emit recorded events through this layer without contacting an agent. */
   run(input: RunAgentInput): Observable<BaseEvent> {
     return this.stream(input);
   }
 
+  /** Retain the current replay history and state in an independent agent. */
   clone(): AbstractAgent {
     return new RecordedEventAgent(
       { ...this.input, messages: this.messages, state: this.state },

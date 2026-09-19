@@ -34,7 +34,12 @@ export * from "./standard-schema";
 export * from "./attachments";
 
 export { logger } from "./logger";
-export { finalizeRunEvents } from "./finalize-events";
+export {
+  createRunEventFinalizer,
+  finalizeRunEvents,
+  type FinalizeRunOptions,
+  type RunEventFinalizer,
+} from "./finalize-events";
 
 export {
   TranscriptionErrorCode,

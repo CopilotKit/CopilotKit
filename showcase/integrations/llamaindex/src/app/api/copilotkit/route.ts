@@ -33,7 +33,6 @@ const sharedAgentNames = [
   "agentic_chat",
   "tool-rendering",
   "tool-rendering-default-catchall",
-  "tool-rendering-custom-catchall",
   "shared-state-read",
   "shared-state-write",
   "shared-state-streaming",
@@ -67,6 +66,7 @@ const sharedAgentNames = [
 // runtime. Each subpath matches the `include_router(..., prefix=)` in
 // src/agent_server.py.
 const specializedAgents: Record<string, string> = {
+  "tool-rendering-custom-catchall": "/custom-catchall",
   "agentic-chat-reasoning": "/reasoning",
   "reasoning-default-render": "/reasoning",
   "tool-rendering-reasoning-chain": "/tool-rendering-reasoning-chain",
