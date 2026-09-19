@@ -41,12 +41,17 @@ function readWorkspaceManifests(): readonly ScopedManifest[] {
 
   for (const entry of readdirSync(packagesDir)) {
     let parsed: unknown;
+    const manifestPath = join(packagesDir, entry, "package.json");
     try {
-      parsed = JSON.parse(
-        readFileSync(join(packagesDir, entry, "package.json"), "utf8"),
+      parsed = JSON.parse(readFileSync(manifestPath, "utf8"));
+    } catch (error) {
+      // Fail closed. A manifest this gate cannot read is a package it cannot
+      // check, and skipping it would let the gate report OK on a tree it only
+      // partly inspected. Every direct entry under packages/ carries one.
+      throw new Error(
+        `verify-cross-scope-pins: unreadable manifest ${manifestPath}: ${String(error)}`,
+        { cause: error },
       );
-    } catch {
-      continue;
     }
     const manifest = parsed as ScopedManifest;
     if (typeof manifest?.name === "string") manifests.push(manifest);
