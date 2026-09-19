@@ -20,7 +20,11 @@ import { CopilotMCPAppsWidget } from "./mcp-apps-widget";
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CopilotMCPAppsWidget],
   template: `
-    <copilot-mcp-apps-widget [data]="content()" [agent]="agent()" />
+    <copilot-mcp-apps-widget
+      [data]="content()"
+      [agent]="agent()"
+      [messageId]="message().id"
+    />
   `,
 })
 export class CopilotMCPAppsActivityRenderer implements ActivityRenderer<MCPAppsSnapshotContent> {
