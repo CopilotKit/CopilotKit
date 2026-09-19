@@ -224,6 +224,17 @@ export class RunHandler {
   private _anonymousAgentIds = new WeakMap<AbstractAgent, string>();
   private _nextAnonymousAgentId = 0;
 
+  /** Prevent reconnects from starting an interaction already executing locally. */
+  private _executingToolCalls = new WeakMap<AbstractAgent, Set<string>>();
+
+  private _replayAbortControllers = new Map<
+    AbstractAgent,
+    {
+      threadId: string | null;
+      controllers: Set<AbortController>;
+    }
+  >();
+
   constructor(private core: CopilotKitCore) {}
 
   /**
@@ -233,6 +244,9 @@ export class RunHandler {
    */
   abortCurrentRun(): void {
     this._runAbortController?.abort();
+    for (const replay of this._replayAbortControllers.values()) {
+      for (const controller of replay.controllers) controller.abort();
+    }
   }
 
   /**
@@ -464,6 +478,14 @@ export class RunHandler {
     agent,
   }: CopilotKitCoreConnectAgentParams): Promise<RunAgentResult> {
     const incomingThreadId = agent.threadId ?? null;
+    const previousReplay = this._replayAbortControllers.get(agent);
+    if (previousReplay && previousReplay.threadId !== incomingThreadId) {
+      for (const controller of previousReplay.controllers) controller.abort();
+      this._replayAbortControllers.delete(agent);
+      // Old handlers retain their own set until they settle. They must not
+      // prevent a fresh restoration when navigating back to this thread.
+      this._executingToolCalls.delete(agent);
+    }
     try {
       const restoreKey = this.getConnectRestoreKey(agent);
       const isFreshRestore =
@@ -525,11 +547,40 @@ export class RunHandler {
         this.createAgentErrorSubscriber(agent),
       );
 
-      return this.processAgentResult({
+      // Connecting ends when history is restored, not when a human answers.
+      // Keeping this promise open would block run-activity reconnects while
+      // another client answers the same interaction.
+      if ((agent.threadId ?? null) !== incomingThreadId) return runAgentResult;
+      const controller = new AbortController();
+      const replay = this._replayAbortControllers.get(agent) ?? {
+        threadId: incomingThreadId,
+        controllers: new Set<AbortController>(),
+      };
+      replay.controllers.add(controller);
+      this._replayAbortControllers.set(agent, replay);
+      void this.processAgentResult({
         runAgentResult,
         agent,
-        executeFrontendTools: false,
-      });
+        toolExecutionMode: "human-in-the-loop",
+        signal: controller.signal,
+      })
+        .catch(async (error: unknown) => {
+          await this._internal.emitError({
+            error: error instanceof Error ? error : new Error(String(error)),
+            code: CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED,
+            context: { agentId: agent.agentId, threadId: incomingThreadId },
+          });
+        })
+        .finally(() => {
+          replay.controllers.delete(controller);
+          if (
+            replay.controllers.size === 0 &&
+            this._replayAbortControllers.get(agent) === replay
+          ) {
+            this._replayAbortControllers.delete(agent);
+          }
+        });
+      return runAgentResult;
     } catch (error) {
       const connectError =
         error instanceof Error ? error : new Error(String(error));
@@ -714,12 +765,14 @@ export class RunHandler {
     runAgentResult,
     agent,
     runId,
-    executeFrontendTools = true,
+    toolExecutionMode = "all",
+    signal = this._runAbortController?.signal,
   }: {
     runAgentResult: RunAgentResult;
     agent: AbstractAgent;
     runId?: string;
-    executeFrontendTools?: boolean;
+    toolExecutionMode?: "all" | "human-in-the-loop";
+    signal?: AbortSignal;
   }): Promise<RunAgentResult> {
     const { newMessages } = runAgentResult;
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
@@ -727,53 +780,100 @@ export class RunHandler {
 
     let needsFollowUp = false;
 
-    if (executeFrontendTools) {
-      for (const message of newMessages) {
-        if (message.role === "assistant") {
-          for (const toolCall of message.toolCalls || []) {
-            const tool = this.getTool({
-              toolName: toolCall.function.name,
+    const threadId = agent.threadId;
+    const executing = this._executingToolCalls.get(agent) ?? new Set<string>();
+    this._executingToolCalls.set(agent, executing);
+
+    // One restoration pass owns the pending sequence. Skipping only the first
+    // executing call would start later calls concurrently and replace a HITL
+    // hook's response resolver. A saved remote answer releases this barrier.
+    if (
+      toolExecutionMode === "human-in-the-loop" &&
+      agent.messages.some(
+        (message) =>
+          message.role === "assistant" &&
+          message.toolCalls?.some(
+            (call) =>
+              executing.has(JSON.stringify([threadId, call.id])) &&
+              !agent.messages.some(
+                (result) =>
+                  result.role === "tool" &&
+                  result.toolCallId === call.id &&
+                  !this.isFrontendPlaceholderResult(result),
+              ),
+          ),
+      )
+    ) {
+      return runAgentResult;
+    }
+
+    for (const message of newMessages) {
+      if (message.role === "assistant") {
+        for (const toolCall of message.toolCalls || []) {
+          const tool = this.getTool({
+            toolName: toolCall.function.name,
+            agentId: agent.agentId,
+          });
+
+          let wildcardTool: FrontendTool<any> | undefined;
+          const getWildcardTool = () => {
+            if (tool || wildcardTool) {
+              return wildcardTool;
+            }
+            wildcardTool = this.getTool({
+              toolName: WILDCARD_TOOL_NAME,
               agentId: agent.agentId,
             });
+            return wildcardTool;
+          };
 
-            let wildcardTool: FrontendTool<any> | undefined;
-            const getWildcardTool = () => {
-              if (tool || wildcardTool) {
-                return wildcardTool;
-              }
-              wildcardTool = this.getTool({
-                toolName: WILDCARD_TOOL_NAME,
-                agentId: agent.agentId,
-              });
-              return wildcardTool;
-            };
+          const executableTool = tool ?? getWildcardTool();
+          if (
+            toolExecutionMode === "human-in-the-loop" &&
+            (executableTool?.type !== "human-in-the-loop" ||
+              !executableTool.handler)
+          ) {
+            continue;
+          }
+          const executionKey = JSON.stringify([threadId, toolCall.id]);
+          if (
+            signal?.aborted ||
+            agent.threadId !== threadId ||
+            executing.has(executionKey)
+          ) {
+            continue;
+          }
 
-            let existingResultIndex = newMessages.findIndex(
+          const existingResultIndex = newMessages.findIndex(
+            (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+          );
+          // Live messages may contain a remote answer received while an
+          // earlier handler awaited input; never replace it with stale replay.
+          let existingResult =
+            agent.messages.find(
+              (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+            ) ?? newMessages[existingResultIndex];
+
+          if (
+            existingResult &&
+            executableTool?.handler &&
+            this.isFrontendPlaceholderResult(existingResult)
+          ) {
+            if (existingResultIndex !== -1)
+              newMessages.splice(existingResultIndex, 1);
+            existingResult = undefined;
+
+            const agentMsgIdx = agent.messages.findIndex(
               (m) => m.role === "tool" && m.toolCallId === toolCall.id,
             );
-            const existingResult =
-              existingResultIndex === -1
-                ? undefined
-                : newMessages[existingResultIndex];
-            const executableTool = tool ?? getWildcardTool();
-
-            if (
-              existingResult &&
-              executableTool?.handler &&
-              this.isFrontendPlaceholderResult(existingResult)
-            ) {
-              newMessages.splice(existingResultIndex, 1);
-              existingResultIndex = -1;
-
-              const agentMsgIdx = agent.messages.findIndex(
-                (m) => m.role === "tool" && m.toolCallId === toolCall.id,
-              );
-              if (agentMsgIdx !== -1) {
-                agent.messages.splice(agentMsgIdx, 1);
-              }
+            if (agentMsgIdx !== -1) {
+              agent.messages.splice(agentMsgIdx, 1);
             }
+          }
 
-            if (existingResultIndex === -1) {
+          if (!existingResult) {
+            executing.add(executionKey);
+            try {
               if (tool) {
                 const followUp = await this.executeSpecificTool(
                   tool,
@@ -781,6 +881,8 @@ export class RunHandler {
                   message,
                   agent,
                   agentId,
+                  signal,
+                  toolExecutionMode === "human-in-the-loop",
                 );
                 if (followUp) {
                   needsFollowUp = true;
@@ -794,19 +896,23 @@ export class RunHandler {
                     message,
                     agent,
                     agentId,
+                    signal,
+                    toolExecutionMode === "human-in-the-loop",
                   );
                   if (followUp) {
                     needsFollowUp = true;
                   }
                 }
               }
+            } finally {
+              executing.delete(executionKey);
             }
           }
         }
       }
     }
 
-    if (needsFollowUp && !this._runAbortController?.signal.aborted) {
+    if (needsFollowUp && agent.threadId === threadId && !signal?.aborted) {
       // Circuit breaker: bail out instead of recursing once the follow-up
       // chain exceeds an absolute safety cap. `_runDepth` reflects the current
       // depth of nested runAgent calls (it is incremented in runAgent and
@@ -863,6 +969,8 @@ export class RunHandler {
     handlerArgs,
     toolType,
     messageId,
+    signal = this._runAbortController?.signal,
+    discardOnAbort = false,
   }: {
     tool: FrontendTool<any>;
     toolCall: { id: string; function: { name: string; arguments: string } };
@@ -871,6 +979,8 @@ export class RunHandler {
     handlerArgs: unknown;
     toolType: string;
     messageId?: string;
+    signal?: AbortSignal;
+    discardOnAbort?: boolean;
   }): Promise<ExecuteToolHandlerResult> {
     let toolCallResult = "";
     let errorMessage: string | undefined;
@@ -915,7 +1025,7 @@ export class RunHandler {
         const result = await tool.handler!(parsedArgs as any, {
           toolCall: toolCall as any,
           agent,
-          signal: this._runAbortController?.signal,
+          signal,
         });
         if (result === undefined || result === null) {
           toolCallResult = "";
@@ -928,18 +1038,20 @@ export class RunHandler {
         const handlerError =
           error instanceof Error ? error : new Error(String(error));
         errorMessage = handlerError.message;
-        await this._internal.emitError({
-          error: handlerError,
-          code: CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED,
-          context: {
-            agentId,
-            toolCallId: toolCall.id,
-            toolName: toolCall.function.name,
-            parsedArgs,
-            toolType,
-            ...(messageId ? { messageId } : {}),
-          },
-        });
+        if (!(discardOnAbort && signal?.aborted)) {
+          await this._internal.emitError({
+            error: handlerError,
+            code: CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED,
+            context: {
+              agentId,
+              toolCallId: toolCall.id,
+              toolName: toolCall.function.name,
+              parsedArgs,
+              toolType,
+              ...(messageId ? { messageId } : {}),
+            },
+          });
+        }
       }
     }
 
@@ -972,7 +1084,10 @@ export class RunHandler {
     message: Message,
     agent: AbstractAgent,
     agentId: string,
+    signal?: AbortSignal,
+    discardOnAbort = false,
   ): Promise<boolean> {
+    const threadId = agent.threadId;
     // Check if tool is constrained to a specific agent
     if (tool?.agentId && tool.agentId !== agent.agentId) {
       // Tool is not available for this agent, skip it
@@ -994,15 +1109,26 @@ export class RunHandler {
         handlerArgs: toolCall.function.arguments,
         toolType: "specific",
         messageId: message.id,
+        signal,
+        discardOnAbort,
       });
     }
 
     {
       const messageIndex = agent.messages.findIndex((m) => m.id === message.id);
-      if (messageIndex === -1) {
-        // Parent message no longer in agent's messages (e.g. thread was switched
-        // while the tool handler was still executing). Skip result insertion and
-        // do not request a follow-up to avoid mutating the wrong thread.
+      if (
+        (discardOnAbort && signal?.aborted) ||
+        agent.threadId !== threadId ||
+        messageIndex === -1 ||
+        agent.messages.some(
+          (m) =>
+            m.role === "tool" &&
+            m.toolCallId === toolCall.id &&
+            !this.isFrontendPlaceholderResult(m),
+        )
+      ) {
+        // The interaction was removed, the thread changed, or another client
+        // already answered. Do not insert a stale answer or start a follow-up.
         return false;
       }
       // Find the correct insertion point: after the parent assistant message
@@ -1044,7 +1170,10 @@ export class RunHandler {
     message: Message,
     agent: AbstractAgent,
     agentId: string,
+    signal?: AbortSignal,
+    discardOnAbort = false,
   ): Promise<boolean> {
+    const threadId = agent.threadId;
     // Check if wildcard tool is constrained to a specific agent
     if (wildcardTool?.agentId && wildcardTool.agentId !== agent.agentId) {
       // Wildcard tool is not available for this agent, skip it
@@ -1101,6 +1230,7 @@ export class RunHandler {
           const result = await wildcardTool.handler(wildcardArgs as any, {
             toolCall,
             agent,
+            signal,
           });
           if (result === undefined || result === null) {
             toolCallResult = "";
@@ -1113,18 +1243,20 @@ export class RunHandler {
           const handlerError =
             error instanceof Error ? error : new Error(String(error));
           errorMessage = handlerError.message;
-          await this._internal.emitError({
-            error: handlerError,
-            code: CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED,
-            context: {
-              agentId: agentId,
-              toolCallId: toolCall.id,
-              toolName: toolCall.function.name,
-              parsedArgs: wildcardArgs,
-              toolType: "wildcard",
-              messageId: message.id,
-            },
-          });
+          if (!(discardOnAbort && signal?.aborted)) {
+            await this._internal.emitError({
+              error: handlerError,
+              code: CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED,
+              context: {
+                agentId: agentId,
+                toolCallId: toolCall.id,
+                toolName: toolCall.function.name,
+                parsedArgs: wildcardArgs,
+                toolType: "wildcard",
+                messageId: message.id,
+              },
+            });
+          }
         }
       }
 
@@ -1148,10 +1280,19 @@ export class RunHandler {
 
     {
       const messageIndex = agent.messages.findIndex((m) => m.id === message.id);
-      if (messageIndex === -1) {
-        // Parent message no longer in agent's messages (e.g. thread was switched
-        // while the tool handler was still executing). Skip result insertion and
-        // do not request a follow-up to avoid mutating the wrong thread.
+      if (
+        (discardOnAbort && signal?.aborted) ||
+        agent.threadId !== threadId ||
+        messageIndex === -1 ||
+        agent.messages.some(
+          (m) =>
+            m.role === "tool" &&
+            m.toolCallId === toolCall.id &&
+            !this.isFrontendPlaceholderResult(m),
+        )
+      ) {
+        // The interaction was removed, the thread changed, or another client
+        // already answered. Do not insert a stale answer or start a follow-up.
         return false;
       }
       // Find the correct insertion point: after the parent assistant message

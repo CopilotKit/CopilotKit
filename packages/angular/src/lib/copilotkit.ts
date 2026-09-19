@@ -565,6 +565,7 @@ export class CopilotKit {
   ): FrontendTool {
     return {
       ...humanInTheLoopTool,
+      type: "human-in-the-loop",
       handler: (args, { toolCall }) => {
         return this.#hitl.onResult(toolCall.id, humanInTheLoopTool.name);
       },
