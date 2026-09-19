@@ -1298,6 +1298,7 @@ type TimelineItemKind =
 
 type TimelineItem = {
   id: string;
+  messageRole?: string;
   messageId?: string;
   kind: TimelineItemKind;
   title: string;
@@ -2180,6 +2181,8 @@ export class CpkThreadInspector extends PortableLitElement {
     viewInAppMode: { attribute: false },
     viewInAppError: { attribute: false },
     focusMessageId: { attribute: false },
+    focusMessageHash: { attribute: false },
+    _focusEvidenceStatus: { state: true },
     focusRequestId: { attribute: false },
     tryFromHereAvailable: { attribute: false },
     tryFromHereBusy: { attribute: false },
@@ -2230,6 +2233,10 @@ export class CpkThreadInspector extends PortableLitElement {
   viewInAppMode: "hidden" | "view" | "stop" = "hidden";
   viewInAppError: string | null = null;
   focusMessageId: string | null = null;
+  /** Null is ordinary navigation; an empty hash means unverifiable Learning evidence. */
+  focusMessageHash: string | null = null;
+  private _focusEvidenceStatus: string | null = null;
+  private _focusVerification = 0;
   focusRequestId = 0;
   tryFromHereAvailable = false;
   tryFromHereBusy = false;
@@ -2373,7 +2380,7 @@ export class CpkThreadInspector extends PortableLitElement {
 
   private renderTabContent(id: ThreadDetailsTab): TemplateResult {
     if (id === "timeline") {
-      return this.withMessagesToolbar(this.renderTimeline());
+      return html`${this._focusEvidenceStatus ? html`<div class="cpk-td__status" role="status">${this._focusEvidenceStatus}</div>` : nothing}${this.withMessagesToolbar(this.renderTimeline())}`;
     }
     if (id === "state") return this.renderState();
     return this.renderEvents();
@@ -3738,7 +3745,18 @@ export class CpkThreadInspector extends PortableLitElement {
       void this.fetchMessages(this.threadId, true);
     }
 
+    if (
+      _changed.has("focusMessageId") ||
+      _changed.has("focusMessageHash") ||
+      _changed.has("focusRequestId")
+    ) {
+      this._focusVerification += 1;
+      this._focusEvidenceStatus = null;
+    }
     const focusedContentChanged =
+      _changed.has("_loadingMessages") ||
+      _changed.has("_loadingEvents") ||
+      _changed.has("focusMessageHash") ||
       _changed.has("_fetchedEvents") ||
       _changed.has("agentEventsInput") ||
       _changed.has("agentMessagesInput") ||
@@ -3759,12 +3777,88 @@ export class CpkThreadInspector extends PortableLitElement {
 
   private scrollToFocusedMessage(): void {
     if (!this.focusMessageId) return;
+    if (this.focusMessageHash !== null) {
+      void this.verifyFocusedEvidence();
+      return;
+    }
     const message = Array.from(
       this.shadowRoot?.querySelectorAll<HTMLElement>("[data-message-id]") ?? [],
     ).find((candidate) => candidate.dataset.messageId === this.focusMessageId);
     if (!message) return;
     message.scrollIntoView?.({ block: "center" });
     this._scrolledFocusRequestId = this.focusRequestId;
+    this.pulseFocusedMessage(message);
+  }
+
+  /** Compare the canonical message with the content of the row we will highlight. */
+  private focusedEvidenceContent(): string | null {
+    const canonical = this._conversation.find(
+      (item) => item.id === this.focusMessageId,
+    );
+    if (
+      !canonical ||
+      (canonical.type !== "user" && canonical.type !== "assistant")
+    )
+      return null;
+    const content = JSON.stringify([canonical.type, canonical.content]);
+    const timeline = this.activeTimelineItems;
+    if (!this._eventsNotAvailable && timeline.length > 0) {
+      const row = timeline.find(
+        (item) => item.messageId === this.focusMessageId,
+      );
+      if (!row || JSON.stringify([row.messageRole, row.body]) !== content)
+        return null;
+    }
+    return content;
+  }
+
+  /** Never highlight a message until the displayed content matches its evidence hash. */
+  private async verifyFocusedEvidence(): Promise<void> {
+    const verification = ++this._focusVerification;
+    for (const highlighted of this.shadowRoot?.querySelectorAll(
+      ".cpk-td__focus-pulse",
+    ) ?? []) {
+      highlighted.classList.remove("cpk-td__focus-pulse");
+    }
+    if (this._loadingMessages || this._loadingEvents) {
+      this._focusEvidenceStatus = "Checking evidence…";
+      return;
+    }
+    this._scrolledFocusRequestId = this.focusRequestId;
+    const content = this.focusedEvidenceContent();
+    const expected = this.focusMessageHash;
+    this._focusEvidenceStatus = "Checking evidence…";
+    let matches = false;
+    try {
+      if (content !== null && expected) {
+        const bytes = await globalThis.crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(content),
+        );
+        matches =
+          Array.from(new Uint8Array(bytes), (byte) =>
+            byte.toString(16).padStart(2, "0"),
+          ).join("") === expected;
+      }
+    } catch {
+      // Older or insecure browser contexts cannot verify evidence. Fail closed.
+    }
+    if (
+      !this.isConnected ||
+      verification !== this._focusVerification ||
+      content !== this.focusedEvidenceContent()
+    )
+      return;
+    const message = Array.from(
+      this.shadowRoot?.querySelectorAll<HTMLElement>("[data-message-id]") ?? [],
+    ).find((candidate) => candidate.dataset.messageId === this.focusMessageId);
+    if (!matches || !message || this._messagesError || this._eventsError) {
+      this._focusEvidenceStatus =
+        "Evidence is no longer available. This message changed or could not be verified.";
+      return;
+    }
+    this._focusEvidenceStatus = null;
+    message.scrollIntoView?.({ block: "center" });
     this.pulseFocusedMessage(message);
   }
 
@@ -3827,6 +3921,8 @@ export class CpkThreadInspector extends PortableLitElement {
   }
 
   private resetLoadedThreadData(): void {
+    this._focusVerification += 1;
+    this._focusEvidenceStatus = null;
     this._tab = "timeline";
     this._activatedTabs = new Set(["timeline"]);
     this._panelTplCache = new Map();
@@ -4274,6 +4370,7 @@ export class CpkThreadInspector extends PortableLitElement {
       const row: TimelineItem = {
         id: `conversation-user-${user.id}`,
         messageId: user.id,
+        messageRole: "user",
         kind: "message",
         title: "User message",
         body: user.content,
@@ -4337,6 +4434,7 @@ export class CpkThreadInspector extends PortableLitElement {
         item = {
           id: `message-${key}`,
           messageId: key,
+          messageRole: role,
           kind: "message",
           title: messageTitle(role || "message"),
           body: "",
@@ -6611,6 +6709,7 @@ export class WebInspectorElement extends LitElement {
   private selectedLocalExampleThreadId: string | null = null;
   private requestedThreadId: string | null = null;
   private focusedThreadMessageId: string | null = null;
+  private focusedThreadMessageHash: string | null = null;
   private threadFocusRequestId = 0;
   private threadListWidth = 290;
   private threadDividerResizing = false;
@@ -8267,12 +8366,18 @@ export class WebInspectorElement extends LitElement {
     event: CustomEvent<{
       threadId: string;
       messageId?: string;
+      messageHash?: string;
     }>,
   ): void => {
-    this.focusThread({
-      threadId: event.detail.threadId,
-      ...(event.detail.messageId ? { messageId: event.detail.messageId } : {}),
-    });
+    this.focusThread(
+      {
+        threadId: event.detail.threadId,
+        ...(event.detail.messageId
+          ? { messageId: event.detail.messageId }
+          : {}),
+      },
+      event.detail.messageHash ?? "",
+    );
   };
 
   private detachFromCore(): void {
@@ -8803,7 +8908,10 @@ export class WebInspectorElement extends LitElement {
     return this.agentEvents.get(this.selectedContext) ?? [];
   }
 
-  private focusThread(options: InspectorOpenOptions): void {
+  private focusThread(
+    options: InspectorOpenOptions,
+    evidenceHash: string | null = null,
+  ): void {
     if (!options.threadId) return;
     this.pendingPersistedMenu = null;
     this.selectedMenu = "threads";
@@ -8822,6 +8930,7 @@ export class WebInspectorElement extends LitElement {
     this.selectedThreadId = options.threadId;
     this.selectedRealThreadIsExplicit = true;
     this.focusedThreadMessageId = options.messageId ?? null;
+    this.focusedThreadMessageHash = evidenceHash;
     this.threadFocusRequestId += 1;
 
     const { displayThreads } = this.getActiveThreadsState();
@@ -17673,6 +17782,7 @@ export class WebInspectorElement extends LitElement {
   ): void {
     this.requestedThreadId = null;
     this.focusedThreadMessageId = null;
+    this.focusedThreadMessageHash = null;
     if (
       showingExamples &&
       this.selectedThreadId === threadId &&
@@ -19014,6 +19124,7 @@ export class WebInspectorElement extends LitElement {
                         @viewInApp=${this.handleViewInApp}
                         @stopViewing=${this.handleStopViewing}
                         .focusMessageId=${this.focusedThreadMessageId}
+                        .focusMessageHash=${this.focusedThreadMessageHash}
                         .focusRequestId=${this.threadFocusRequestId}
                         .agentStateInput=${this.getLatestStateForAgent(
                           selectedThread.agentId,

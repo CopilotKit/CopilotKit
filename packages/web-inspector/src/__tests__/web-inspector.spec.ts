@@ -3840,10 +3840,13 @@ describe("WebInspectorElement memories — view states", () => {
     view.shadowRoot
       ?.querySelector<HTMLButtonElement>(".evidence-link")
       ?.click();
-    expect(focusThread).toHaveBeenCalledWith({
-      threadId: "thread-1",
-      messageId: "message-1",
-    });
+    expect(focusThread).toHaveBeenCalledWith(
+      {
+        threadId: "thread-1",
+        messageId: "message-1",
+      },
+      "",
+    );
     el.remove();
   });
 

@@ -1270,6 +1270,9 @@ export class CpkLearningView extends LitElement {
                       this.emit("learning-open-evidence", {
                         threadId: evidence.threadId,
                         messageId: evidence.messageIds[0],
+                        ...(evidence.messageHashes?.[0]
+                          ? { messageHash: evidence.messageHashes[0] }
+                          : {}),
                       })}
                   >
                     ⌁
