@@ -7,6 +7,55 @@
   },
   "fixtures": [
     {
+      "_comment": "Observed tool-free Spring risk generator request with the actual catalog and source-bound account exposures.",
+      "match": {
+        "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
+        "context": "spring-ai",
+        "hasToolResult": false,
+        "systemMessage": [
+          "Respond with ONLY plain JSON, no markdown or tool calls.",
+          "declarative-gen-ui-catalog",
+          "$615k"
+        ]
+      },
+      "response": {
+        "content": "{\"surfaceId\":\"risk-summary\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"children\":[\"risk-kpis\",\"northwind\",\"cascadia\",\"atlas\"]},{\"id\":\"risk-kpis\",\"component\":\"Row\",\"children\":[\"risk-arr\",\"risk-count\",\"risk-largest\"]},{\"id\":\"risk-arr\",\"component\":\"Metric\",\"label\":\"ARR at risk\",\"value\":\"$615k\",\"trend\":\"down\"},{\"id\":\"risk-count\",\"component\":\"Metric\",\"label\":\"Accounts at risk\",\"value\":\"3\"},{\"id\":\"risk-largest\",\"component\":\"Metric\",\"label\":\"Biggest exposure: Northwind\",\"value\":\"$340k\"},{\"id\":\"northwind\",\"component\":\"Card\",\"title\":\"Northwind Retail\",\"child\":\"northwind-content\"},{\"id\":\"northwind-content\",\"component\":\"Column\",\"children\":[\"northwind-badge\",\"northwind-reason\"]},{\"id\":\"northwind-badge\",\"component\":\"StatusBadge\",\"text\":\"High risk\",\"variant\":\"error\"},{\"id\":\"northwind-reason\",\"component\":\"Text\",\"text\":\"Renewal: $340k. No contact for 6 weeks.\"},{\"id\":\"cascadia\",\"component\":\"Card\",\"title\":\"Cascadia Outfitters\",\"child\":\"cascadia-content\"},{\"id\":\"cascadia-content\",\"component\":\"Column\",\"children\":[\"cascadia-badge\",\"cascadia-reason\"]},{\"id\":\"cascadia-badge\",\"component\":\"StatusBadge\",\"text\":\"Medium risk\",\"variant\":\"warning\"},{\"id\":\"cascadia-reason\",\"component\":\"Text\",\"text\":\"Renewal: $180k. Champion left.\"},{\"id\":\"atlas\",\"component\":\"Card\",\"title\":\"Atlas Goods\",\"child\":\"atlas-content\"},{\"id\":\"atlas-content\",\"component\":\"Column\",\"children\":[\"atlas-badge\",\"atlas-reason\"]},{\"id\":\"atlas-badge\",\"component\":\"StatusBadge\",\"text\":\"Medium risk\",\"variant\":\"warning\"},{\"id\":\"atlas-reason\",\"component\":\"Text\",\"text\":\"Renewal: $95k. Stalled legal review.\"}]}"
+      }
+    },
+    {
+      "_comment": "Observed Spring secondary request with the actual registered DataTable schema and source-bound rep values; schema-valid v0.9 response.",
+      "match": {
+        "userMessage": "How are our sales reps performing against quota?",
+        "context": "spring-ai",
+        "hasToolResult": false,
+        "systemMessage": [
+          "Respond with ONLY plain JSON, no markdown or tool calls.",
+          "declarative-gen-ui-catalog",
+          "Dana Whitfield 124%",
+          "\"DataTable\":"
+        ]
+      },
+      "response": {
+        "content": "{\"surfaceId\":\"sales-reps\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"children\":[\"rep-card\",\"quota\"]},{\"id\":\"rep-card\",\"component\":\"Card\",\"title\":\"Sales rep performance\",\"child\":\"reps\"},{\"id\":\"reps\",\"component\":\"DataTable\",\"columns\":[{\"key\":\"rep\",\"label\":\"Sales rep\"},{\"key\":\"attainment\",\"label\":\"Quota attainment\"}],\"rows\":[{\"rep\":\"Dana Whitfield\",\"attainment\":\"124%\"},{\"rep\":\"Marcus Lee\",\"attainment\":\"108%\"},{\"rep\":\"Priya Sharma\",\"attainment\":\"97%\"},{\"rep\":\"Tom Okafor\",\"attainment\":\"88%\"},{\"rep\":\"Elena Vasquez\",\"attainment\":\"71%\"}]},{\"id\":\"quota\",\"component\":\"BarChart\",\"title\":\"Quota attainment\",\"description\":\"Percent of quota by sales rep\",\"data\":[{\"label\":\"Dana Whitfield\",\"value\":124},{\"label\":\"Marcus Lee\",\"value\":108},{\"label\":\"Priya Sharma\",\"value\":97},{\"label\":\"Tom Okafor\",\"value\":88},{\"label\":\"Elena Vasquez\",\"value\":71}]}]}"
+      }
+    },
+    {
+      "_comment": "Observed Spring secondary plain-JSON request; catalog and source-bound Vantage Threads facts are present in the actual prompt.",
+      "match": {
+        "userMessage": "Show me my sales dashboard for this quarter.",
+        "context": "spring-ai",
+        "hasToolResult": false,
+        "systemMessage": [
+          "Respond with ONLY plain JSON, no markdown or tool calls.",
+          "declarative-gen-ui-catalog",
+          "$4.2M"
+        ]
+      },
+      "response": {
+        "content": "{\"surfaceId\":\"sales-dashboard\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"children\":[\"kpis\",\"region\",\"monthly\"]},{\"id\":\"kpis\",\"component\":\"Row\",\"children\":[\"revenue\",\"customers\",\"win\",\"deal\"]},{\"id\":\"revenue\",\"component\":\"Metric\",\"label\":\"Revenue\",\"value\":\"$4.2M\"},{\"id\":\"customers\",\"component\":\"Metric\",\"label\":\"New customers\",\"value\":\"186\"},{\"id\":\"win\",\"component\":\"Metric\",\"label\":\"Win rate\",\"value\":\"31%\"},{\"id\":\"deal\",\"component\":\"Metric\",\"label\":\"Average deal\",\"value\":\"$22.6k\"},{\"id\":\"region\",\"component\":\"PieChart\",\"title\":\"Revenue by region\",\"description\":\"Vantage Threads \\u00b7 Q2 sales\",\"data\":[{\"label\":\"North America\",\"value\":1900000},{\"label\":\"EMEA\",\"value\":1300000},{\"label\":\"APAC\",\"value\":720000},{\"label\":\"LATAM\",\"value\":280000}]},{\"id\":\"monthly\",\"component\":\"BarChart\",\"title\":\"Monthly revenue\",\"description\":\"Vantage Threads \\u00b7 USD\",\"data\":[{\"label\":\"Jan\",\"value\":1210000},{\"label\":\"Feb\",\"value\":1340000},{\"label\":\"Mar\",\"value\":1650000},{\"label\":\"Apr\",\"value\":1380000},{\"label\":\"May\",\"value\":1420000},{\"label\":\"Jun\",\"value\":1400000}]}]}"
+      }
+    },
+    {
       "match": {
         "userMessage": "render the a2ui schema",
         "turnIndex": 0,
@@ -490,6 +539,22 @@
           }
         ]
       }
-    }
-  ]
+    },
+{
+  "_comment": "Observed tool-free account request with actual InfoRow schema and canonical Meridian facts.",
+  "match": {
+    "userMessage": "Pull up the details on our biggest account.",
+    "context": "spring-ai",
+    "hasToolResult": false,
+    "systemMessage": [
+      "Respond with ONLY plain JSON, no markdown or tool calls.",
+      "declarative-gen-ui-catalog",
+      "Meridian Apparel Group"
+    ]
+  },
+  "response": {
+    "content": "{\"surfaceId\":\"account-details\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"children\":[\"account-card\",\"product-revenue\"]},{\"id\":\"account-card\",\"component\":\"Card\",\"title\":\"Meridian Apparel Group\",\"child\":\"account-facts\"},{\"id\":\"account-facts\",\"component\":\"Column\",\"children\":[\"owner\",\"region\",\"arr\",\"renewal\",\"contact\",\"health\",\"opportunities\"]},{\"id\":\"owner\",\"component\":\"InfoRow\",\"label\":\"Owner\",\"value\":\"Dana Whitfield\"},{\"id\":\"region\",\"component\":\"InfoRow\",\"label\":\"Region\",\"value\":\"North America\"},{\"id\":\"arr\",\"component\":\"InfoRow\",\"label\":\"ARR\",\"value\":\"$612k\"},{\"id\":\"renewal\",\"component\":\"InfoRow\",\"label\":\"Renewal date\",\"value\":\"Sep 30\"},{\"id\":\"contact\",\"component\":\"InfoRow\",\"label\":\"Last contact\",\"value\":\"3 days ago\"},{\"id\":\"health\",\"component\":\"InfoRow\",\"label\":\"Health\",\"value\":\"green\"},{\"id\":\"opportunities\",\"component\":\"InfoRow\",\"label\":\"Open opportunities\",\"value\":\"4 worth $210k\"},{\"id\":\"product-revenue\",\"component\":\"PieChart\",\"title\":\"Revenue by product line\",\"data\":[{\"label\":\"Outerwear\",\"value\":260000},{\"label\":\"Footwear\",\"value\":180000},{\"label\":\"Accessories\",\"value\":112000},{\"label\":\"Custom\",\"value\":60000}]}]}"
+  }
+}
+]
 }
