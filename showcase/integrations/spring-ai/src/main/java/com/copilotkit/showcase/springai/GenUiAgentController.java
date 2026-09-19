@@ -4,6 +4,15 @@ import com.agui.core.agent.AgentSubscriber;
 import com.agui.core.agent.AgentSubscriberParams;
 import com.agui.core.agent.RunAgentInput;
 import com.agui.core.event.BaseEvent;
+import com.agui.core.event.StateSnapshotEvent;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.observation.ObservationRegistry;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.ai.openai.OpenAiChatModel;
+import org.springframework.ai.model.tool.ToolCallingManager;
+import java.util.function.Consumer;
 import com.agui.core.exception.AGUIException;
 import com.agui.core.function.FunctionCall;
 import com.agui.core.message.AssistantMessage;
@@ -38,7 +47,6 @@ import java.util.UUID;
 import static com.agui.server.EventFactory.runErrorEvent;
 import static com.agui.server.EventFactory.runFinishedEvent;
 import static com.agui.server.EventFactory.runStartedEvent;
-import static com.agui.server.EventFactory.stateSnapshotEvent;
 import static com.agui.server.EventFactory.textMessageContentEvent;
 import static com.agui.server.EventFactory.textMessageEndEvent;
 import static com.agui.server.EventFactory.textMessageStartEvent;
@@ -97,7 +105,7 @@ public class GenUiAgentController {
 
             Rules: never call set_steps in parallel — always wait for one call
             to return before the next. Each step object has fields
-            {id: string, description: string, status: "pending"|"in_progress"|"completed"}.
+            {id: string, title: string, status: "pending"|"in_progress"|"completed"}.
             Always pass the FULL list of steps on every call (existing + updated).
             After all three steps are completed you MUST send a final assistant
             message and terminate.
@@ -105,21 +113,40 @@ public class GenUiAgentController {
 
     private final AgUiService agUiService;
     private final ChatModel chatModel;
+    private final ObjectMapper objectMapper;
+    private final ObservationRegistry observationRegistry;
 
     @Autowired
-    public GenUiAgentController(AgUiService agUiService, ChatModel chatModel) {
+    public GenUiAgentController(AgUiService agUiService, ChatModel chatModel,
+            ObjectMapper objectMapper, ObjectProvider<ObservationRegistry> observationRegistries) {
         this.agUiService = agUiService;
         this.chatModel = chatModel;
+        this.objectMapper = objectMapper;
+        this.observationRegistry = observationRegistries.getIfUnique(() -> ObservationRegistry.NOOP);
     }
 
     @PostMapping("/gen-ui-agent/run")
     public ResponseEntity<SseEmitter> run(@RequestBody AgUiParameters params) throws Exception {
         MessageListFilter.filterNulls(params);
-        GenUiAgent agent = new GenUiAgent(chatModel);
+        GenUiAgent agent = new GenUiAgent(plannerModel(), objectMapper);
         SseEmitter emitter = agUiService.runAgent(agent, params);
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noCache())
                 .body(emitter);
+    }
+
+    private ChatModel plannerModel() {
+        if (!(chatModel instanceof OpenAiChatModel openAiModel)) {
+            throw new IllegalStateException("The planner requires an OpenAiChatModel");
+        }
+        // A fresh manager per run permits seven transitions and a final model
+        // summary, while retaining an inclusive eight-tool-round safety bound.
+        // Never wrap the shared five-round manager or mutate singleton options.
+        ToolCallingManager delegate = ToolCallingManager.builder()
+                .observationRegistry(observationRegistry)
+                .build();
+        return openAiModel.mutate().toolCallingManager(
+                new BoundedToolCallingManagerConfig.BoundedToolCallingManager(delegate, 8)).build();
     }
 
     /**
@@ -132,10 +159,12 @@ public class GenUiAgentController {
     static class GenUiAgent extends PropagatingLocalAgent {
 
         private final ChatClient chatClient;
+        private final ObjectMapper objectMapper;
 
-        GenUiAgent(ChatModel chatModel) throws AGUIException {
+        GenUiAgent(ChatModel chatModel, ObjectMapper objectMapper) throws AGUIException {
             super(AGENT_ID, new State(), new ArrayList<>());
             this.chatClient = ChatClient.builder(chatModel).build();
+            this.objectMapper = objectMapper;
         }
 
         @Override
@@ -185,21 +214,20 @@ public class GenUiAgentController {
 
             // set_steps tool — Spring AI auto-invokes the handler inside
             // .call(), so hasToolCalls() is typically false on return. The
-            // handler queues its own per-tool AG-UI envelope events
+            // handler immediately emits its own per-tool AG-UI envelope events
             // (start/args/end/result) followed by a STATE_SNAPSHOT after
             // each call so the frontend sees every pending -> in_progress
             // -> completed transition. Envelope events go BEFORE the
             // snapshot per AG-UI ordering convention.
-            List<BaseEvent> deferredEvents = new ArrayList<>();
             List<ToolCall> handlerToolCalls = new ArrayList<>();
             SetStepsHandler setStepsHandler = new SetStepsHandler(
-                    runState, deferredEvents, handlerToolCalls, messageId);
+                    runState, event -> this.emitEvent(event, subscriber), handlerToolCalls, messageId, objectMapper);
             ToolCallback setStepsCallback = FunctionToolCallback
                     .builder("set_steps", setStepsHandler)
                     .description(
                         "Publish the current plan + step statuses. Call every time a step "
                         + "transitions (including the first enumeration of steps). Always "
-                        + "pass the FULL list of steps; each step has {id, description, "
+                        + "pass the FULL list of steps; each step has {id, title, "
                         + "status} where status is one of pending|in_progress|completed.")
                     .inputType(SetStepsRequest.class)
                     .build();
@@ -232,30 +260,10 @@ public class GenUiAgentController {
                     subscriber.onNewToolCall(call);
                 }
 
-                // Fallback: in the rare case Spring AI returns tool calls
-                // without auto-invoking (e.g. configuration override), still
-                // surface them via the same envelope. The handler list above
-                // is the primary path; this branch keeps behavioural symmetry
-                // with SharedStateReadWriteController.
+                // Unexecuted tool calls cannot be represented as successful
+                // results. Already executed callbacks have emitted their envelopes.
                 if (response != null && response.hasToolCalls()) {
-                    response.getResult().getOutput().getToolCalls().forEach(tc -> {
-                        String toolCallId = tc.id();
-                        ToolCall call = new ToolCall(toolCallId, "function",
-                                fnCall(tc.name(), tc.arguments()));
-                        if (assistantMessage.getToolCalls() == null) {
-                            assistantMessage.setToolCalls(new ArrayList<>());
-                        }
-                        assistantMessage.getToolCalls().add(call);
-                        deferredEvents.add(toolCallStartEvent(messageId, tc.name(), toolCallId));
-                        deferredEvents.add(toolCallArgsEvent(tc.arguments(), toolCallId));
-                        deferredEvents.add(toolCallEndEvent(toolCallId));
-                        deferredEvents.add(toolCallResultEvent(
-                                toolCallId,
-                                setStepsHandler.lastResult(),
-                                UUID.randomUUID().toString(),
-                                Role.tool));
-                        subscriber.onNewToolCall(call);
-                    });
+                    throw new IllegalStateException("Planner returned unexecuted tool calls");
                 }
 
                 String text = response != null
@@ -281,13 +289,6 @@ public class GenUiAgentController {
                 return;
             }
 
-            // Emit tool call events + state snapshots BEFORE textMessageEnd
-            // so the frontend's useRenderTool / OnStateChanged subscriptions
-            // see them while the message is still "open". Events emitted
-            // after textMessageEnd may be missed by renderers.
-            for (BaseEvent ev : deferredEvents) {
-                this.emitEvent(ev, subscriber);
-            }
             this.emitEvent(textMessageEndEvent(messageId), subscriber);
             subscriber.onNewMessage(assistantMessage);
             this.emitEvent(runFinishedEvent(threadId, runId), subscriber);
@@ -298,7 +299,7 @@ public class GenUiAgentController {
 
     /**
      * Tool handler for {@code set_steps} — replaces the {@code steps} slot of
-     * shared state with the supplied list and queues the per-tool AG-UI
+     * shared state with the supplied list and immediately emits the per-tool AG-UI
      * envelope events (start/args/end/result) FOLLOWED by a
      * {@code STATE_SNAPSHOT} (AG-UI ordering convention: snapshot follows the
      * tool-call result).
@@ -310,31 +311,28 @@ public class GenUiAgentController {
      * self-consistent frontend correlation.
      *
      * <p>Each step is normalized to a {@code LinkedHashMap} (preserves field
-     * order in the JSON snapshot) with keys {@code id}, {@code description},
+     * order in the JSON snapshot) with keys {@code id}, {@code title},
      * {@code status}; missing ids are filled with a stable UUID so the
      * frontend can use them as React keys.
      */
     public static class SetStepsHandler
             implements java.util.function.Function<SetStepsRequest, String> {
         private final State state;
-        private final List<BaseEvent> deferredEvents;
+        private final Consumer<BaseEvent> eventSink;
+        private final ObjectMapper objectMapper;
         private final List<ToolCall> capturedToolCalls;
         private final String parentMessageId;
-        private volatile String lastResult = "Steps updated.";
 
         public SetStepsHandler(
                 State state,
-                List<BaseEvent> deferredEvents,
+                Consumer<BaseEvent> eventSink,
                 List<ToolCall> capturedToolCalls,
-                String parentMessageId) {
+                String parentMessageId, ObjectMapper objectMapper) {
             this.state = state;
-            this.deferredEvents = deferredEvents;
+            this.eventSink = eventSink;
+            this.objectMapper = objectMapper;
             this.capturedToolCalls = capturedToolCalls;
             this.parentMessageId = parentMessageId;
-        }
-
-        public String lastResult() {
-            return lastResult;
         }
 
         @Override
@@ -350,7 +348,7 @@ public class GenUiAgentController {
                 entry.put("id",
                         s.id() != null && !s.id().isBlank() ? s.id()
                                 : UUID.randomUUID().toString());
-                entry.put("description", s.description() != null ? s.description() : "");
+                entry.put("title", s.title() != null ? s.title() : "");
                 entry.put("status", normalizeStatus(s.status()));
                 normalized.add(entry);
             }
@@ -358,11 +356,15 @@ public class GenUiAgentController {
 
             String toolCallId = UUID.randomUUID().toString();
             String argsJson;
+            State snapshot;
             try {
-                argsJson = new com.fasterxml.jackson.databind.ObjectMapper()
-                        .writeValueAsString(Map.of("steps", normalized));
+                argsJson = objectMapper.writeValueAsString(Map.of("steps", normalized));
+                // Round-trip the complete state to detach nested mutable values.
+                snapshot = new State(objectMapper.readValue(
+                        objectMapper.writeValueAsBytes(state.getState()),
+                        new TypeReference<Map<String, Object>>() {}));
             } catch (Exception e) {
-                argsJson = "{}";
+                throw new IllegalStateException("Unable to serialize planner state", e);
             }
 
             // Capture the tool call so the controller can attach it to the
@@ -371,18 +373,17 @@ public class GenUiAgentController {
             capturedToolCalls.add(new ToolCall(toolCallId, "function", fc));
 
             String result = String.format("Published %d step(s).", normalized.size());
-            this.lastResult = result;
 
             // Envelope events first, then the state snapshot — AG-UI order.
-            deferredEvents.add(toolCallStartEvent(parentMessageId, "set_steps", toolCallId));
-            deferredEvents.add(toolCallArgsEvent(argsJson, toolCallId));
-            deferredEvents.add(toolCallEndEvent(toolCallId));
+            eventSink.accept(toolCallStartEvent(parentMessageId, "set_steps", toolCallId));
+            eventSink.accept(toolCallArgsEvent(argsJson, toolCallId));
+            eventSink.accept(toolCallEndEvent(toolCallId));
             // Tool result message must have its own unique messageId — reusing
             // parentMessageId causes React deduplicateMessages() to overwrite
             // the assistant message with the tool message in the Map.
-            deferredEvents.add(toolCallResultEvent(
+            eventSink.accept(toolCallResultEvent(
                     toolCallId, result, UUID.randomUUID().toString(), Role.tool));
-            deferredEvents.add(stateSnapshotEvent(state));
+            eventSink.accept(new PlannerStateSnapshotEvent(snapshot));
 
             return result;
         }
@@ -397,6 +398,25 @@ public class GenUiAgentController {
         }
     }
 
+    /** Local wire adapter; the SDK otherwise serializes the payload as "state". */
+    static final class PlannerStateSnapshotEvent extends StateSnapshotEvent {
+        PlannerStateSnapshotEvent(State snapshot) {
+            setState(snapshot);
+        }
+
+        @Override
+        @JsonProperty("snapshot")
+        public State getState() {
+            return super.getState();
+        }
+
+        @Override
+        @JsonProperty("snapshot")
+        public void setState(State state) {
+            super.setState(state);
+        }
+    }
+
     /** Tool input schema for set_steps. */
     public record SetStepsRequest(List<Step> steps) {}
 
@@ -405,7 +425,7 @@ public class GenUiAgentController {
      * {@code pending}, {@code in_progress}, {@code completed}; values outside
      * that set are coerced to {@code pending} during normalization.
      */
-    public record Step(String id, String description, String status) {}
+    public record Step(String id, String title, String status) {}
 
     private static FunctionCall fnCall(String name, String arguments) {
         return new FunctionCall(name, arguments);
