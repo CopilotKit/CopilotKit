@@ -245,29 +245,25 @@ function cleanupTitleText(text: string): string {
 function deriveFallbackTitleFromMessages(
   messages: Message[] | undefined,
 ): string {
-  const firstUserMessage = (messages ?? []).find(
-    (message) =>
-      message.role === "user" &&
-      stringifyMessageContent(message.content).length > 0,
-  );
+  for (const message of messages ?? []) {
+    if (message.role !== "user") {
+      continue;
+    }
 
-  if (!firstUserMessage) {
-    return FALLBACK_THREAD_TITLE;
+    const cleaned = cleanupTitleText(stringifyMessageContent(message.content));
+    if (!cleaned) {
+      continue;
+    }
+
+    let title = cleaned.split(/\s+/).slice(0, MAX_TITLE_WORDS).join(" ");
+    if (title.length > MAX_TITLE_LENGTH) {
+      title = title.slice(0, MAX_TITLE_LENGTH).trim();
+    }
+
+    return title || FALLBACK_THREAD_TITLE;
   }
 
-  const cleaned = cleanupTitleText(
-    stringifyMessageContent(firstUserMessage.content),
-  );
-  if (!cleaned) {
-    return FALLBACK_THREAD_TITLE;
-  }
-
-  let title = cleaned.split(/\s+/).slice(0, MAX_TITLE_WORDS).join(" ");
-  if (title.length > MAX_TITLE_LENGTH) {
-    title = title.slice(0, MAX_TITLE_LENGTH).trim();
-  }
-
-  return title || FALLBACK_THREAD_TITLE;
+  return FALLBACK_THREAD_TITLE;
 }
 
 function selectGeneratedTitleFromMessages(messages: Message[]): string | null {
