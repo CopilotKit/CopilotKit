@@ -87,6 +87,7 @@ public class GenUiAgentController {
             LoggerFactory.getLogger(GenUiAgentController.class);
 
     private static final String AGENT_ID = "gen-ui-agent";
+    private static final int TOOL_ROUND_LIMIT = 8;
 
     private static final String SYSTEM_PROMPT = """
             You are an agentic planner. For each user request, follow this exact
@@ -146,7 +147,14 @@ public class GenUiAgentController {
                 .observationRegistry(observationRegistry)
                 .build();
         return openAiModel.mutate().toolCallingManager(
-                new BoundedToolCallingManagerConfig.BoundedToolCallingManager(delegate, 8)).build();
+                new BoundedToolCallingManagerConfig.BoundedToolCallingManager(delegate, TOOL_ROUND_LIMIT)).build();
+    }
+
+    static boolean isToolLimitResponse(ChatResponse response) {
+        // Spring AI builds assistant-shaped tool results when returnDirect
+        // stops its loop. These generations are not model narration.
+        return response != null && response.getResults().stream().anyMatch(
+                generation -> "returnDirect".equals(generation.getMetadata().getFinishReason()));
     }
 
     /**
@@ -258,6 +266,17 @@ public class GenUiAgentController {
                     }
                     assistantMessage.getToolCalls().add(call);
                     subscriber.onNewToolCall(call);
+                }
+
+                if (isToolLimitResponse(response)) {
+                    log.warn("Planner reached its {}-round tool-call limit without a final summary", TOOL_ROUND_LIMIT);
+                    this.emitEvent(textMessageEndEvent(messageId), subscriber);
+                    this.emitEvent(runErrorEvent(
+                            "Planner stopped after reaching its " + TOOL_ROUND_LIMIT
+                                    + "-round tool-call limit; no final summary was produced."), subscriber);
+                    subscriber.onRunFinalized(
+                            new AgentSubscriberParams(input.messages(), runState, this, input));
+                    return;
                 }
 
                 // Unexecuted tool calls cannot be represented as successful

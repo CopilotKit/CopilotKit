@@ -6,6 +6,12 @@ import com.agui.core.tool.ToolCall;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.model.tool.ToolExecutionResult;
+import org.springframework.ai.chat.messages.ToolResponseMessage;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -127,6 +133,28 @@ class GenUiAgentControllerTest {
                 () -> handler.apply(new GenUiAgentController.SetStepsRequest(List.of())));
         assertTrue(events.isEmpty());
         assertTrue(calls.isEmpty());
+    }
+
+    @Test
+    void distinguishesActualReturnDirectGenerationsFromModelNarration() throws Exception {
+        var handler = new GenUiAgentController.SetStepsHandler(
+                new State(), event -> {}, new ArrayList<>(), "parent", mapper);
+        var callback = FunctionToolCallback.builder("set_steps", handler)
+                .description("Publish steps").inputType(GenUiAgentController.SetStepsRequest.class).build();
+        String result = callback.call(input(PROGRESS.get(6)));
+        var execution = ToolExecutionResult.builder()
+                .conversationHistory(List.of(new ToolResponseMessage(List.of(
+                        new ToolResponseMessage.ToolResponse("cap-call", "set_steps", result)))))
+                .returnDirect(true).build();
+        var capped = new ChatResponse(ToolExecutionResult.buildGenerations(execution));
+        assertEquals("returnDirect", capped.getResult().getMetadata().getFinishReason());
+        assertEquals(result, capped.getResult().getOutput().getText());
+        assertTrue(GenUiAgentController.isToolLimitResponse(capped));
+
+        var normal = new ChatResponse(List.of(new Generation(
+                new AssistantMessage("The launch plan is complete."),
+                ChatGenerationMetadata.builder().finishReason("stop").build())));
+        assertFalse(GenUiAgentController.isToolLimitResponse(normal));
     }
 
     static final class UnserializableValue {
