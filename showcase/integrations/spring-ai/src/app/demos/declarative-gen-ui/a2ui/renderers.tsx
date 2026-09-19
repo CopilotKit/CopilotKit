@@ -59,6 +59,24 @@ const CHART_TOOLTIP_STYLE: React.CSSProperties = {
   boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
 };
 
+function formatAxisValue(value: number | string) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return String(value);
+
+  const absoluteValue = Math.abs(numericValue);
+  if (absoluteValue >= 1_000_000) {
+    const millions = numericValue / 1_000_000;
+    return `${Number.isInteger(millions) ? millions.toFixed(0) : millions.toFixed(1)}M`;
+  }
+
+  if (absoluteValue >= 1_000) {
+    const thousands = numericValue / 1_000;
+    return `${Number.isInteger(thousands) ? thousands.toFixed(0) : thousands.toFixed(1)}k`;
+  }
+
+  return numericValue.toLocaleString();
+}
+
 /** Custom SVG donut chart built with <circle> + stroke-dasharray. */
 function DonutChart({
   data,
@@ -390,7 +408,7 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
             <ResponsiveContainer width="100%" height={260}>
               <RechartsBarChart
                 data={safeData}
-                margin={{ top: 12, right: 12, bottom: 4, left: -8 }}
+                margin={{ top: 12, right: 12, bottom: 4, left: 0 }}
               >
                 <CartesianGrid
                   strokeDasharray="3 3"
@@ -405,6 +423,8 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
                   axisLine={false}
                 />
                 <YAxis
+                  width={38}
+                  tickFormatter={formatAxisValue}
                   tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
                   stroke="var(--border)"
                   tickLine={false}
