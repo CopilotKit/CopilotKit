@@ -49,7 +49,7 @@ export function WeatherCard({
           <>
             <div className="mt-5 text-4xl font-semibold text-[#010507] tracking-tight">
               {temperature ?? "--"}&deg;
-              <span className="ml-1 text-lg font-normal text-[#57575B]">F</span>
+              <span className="ml-1 text-lg font-normal text-[#57575B]">C</span>
             </div>
             <div className="mt-5 pt-4 border-t border-[#DBDBE5] grid grid-cols-2 gap-3 text-sm">
               <div data-testid="weather-humidity">
@@ -65,7 +65,7 @@ export function WeatherCard({
                   Wind
                 </p>
                 <p className="mt-1 font-medium text-[#010507]">
-                  {windSpeed ?? "--"} mph
+                  {windSpeed ?? "--"} km/h
                 </p>
               </div>
             </div>
