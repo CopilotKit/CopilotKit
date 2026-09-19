@@ -15,7 +15,7 @@ import {
 } from "@ag-ui/client";
 import type { Observable } from "rxjs";
 import { EMPTY, defer, from } from "rxjs";
-import { catchError, switchMap } from "rxjs/operators";
+import { catchError, finalize, switchMap } from "rxjs/operators";
 import {
   RUNTIME_MODE_SSE,
   RUNTIME_MODE_INTELLIGENCE,
@@ -121,6 +121,17 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   private _capabilities?: AgentCapabilities;
   private delegate?: AbstractAgent;
   private runtimeInfoPromise?: Promise<void>;
+  /**
+   * The HTTP `run` this agent started and has not yet seen finish, as the
+   * exact `{ threadId, runId }` it POSTed. `abortRun` narrows `/stop` to this
+   * run only while `threadId` still matches: `threadId` is a public field the
+   * host may reassign under a live run, and a runId from another thread must
+   * not be sent as if it were this thread's. Released when the run stream
+   * finalizes, cleared on `connect` (a reconnected thread may run under a
+   * runId this client never saw) and never copied by `clone`. Without a
+   * provable active run the stop stays thread-wide.
+   */
+  private activeRun?: { threadId: string; runId: string };
 
   constructor(config: ProxiedCopilotRuntimeAgentConfig) {
     const normalizedRuntimeUrl = config.runtimeUrl
@@ -225,6 +236,10 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     }
 
     const routedId = this.routedAgentId();
+    const runId =
+      this.activeRun?.threadId === this.threadId
+        ? this.activeRun.runId
+        : undefined;
 
     if (this.transport === "single") {
       if (!this.singleEndpointUrl) {
@@ -244,6 +259,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
             agentId: routedId,
             threadId: this.threadId,
           },
+          ...(runId === undefined ? {} : { body: { runId } }),
         }),
         ...(this.credentials ? { credentials: this.credentials } : {}),
       }).catch((error) => {
@@ -270,6 +286,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         "Content-Type": "application/json",
         ...this.headers,
       },
+      ...(runId === undefined ? {} : { body: JSON.stringify({ runId }) }),
       ...(this.credentials ? { credentials: this.credentials } : {}),
     }).catch((error) => {
       console.error("ProxiedCopilotRuntimeAgent: stop request failed", error);
@@ -401,6 +418,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   }
 
   #connectViaHttp(input: RunAgentInput): Observable<BaseEvent> {
+    this.activeRun = undefined;
     const routedId = this.routedAgentId();
     if (this.transport === "single") {
       if (!this.singleEndpointUrl) {
@@ -435,6 +453,17 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   }
 
   #runViaHttp(input: RunAgentInput): Observable<BaseEvent> {
+    const activeRun = { threadId: input.threadId, runId: input.runId };
+    // Hold this run's identity for as long as its stream lives. The identity
+    // check keeps a late-finalizing stream from releasing a newer run.
+    const trackActiveRun = (source: Observable<BaseEvent>) => {
+      this.activeRun = activeRun;
+      return source.pipe(
+        finalize(() => {
+          if (this.activeRun === activeRun) this.activeRun = undefined;
+        }),
+      );
+    };
     if (this.transport === "single") {
       if (!this.singleEndpointUrl) {
         throw new Error("Single endpoint transport requires a runtimeUrl");
@@ -450,10 +479,12 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       const httpEvents = runHttpRequest(() =>
         this.fetch(this.singleEndpointUrl!, requestInit),
       );
-      return withAbortErrorHandling(transformHttpEventStream(httpEvents));
+      return trackActiveRun(
+        withAbortErrorHandling(transformHttpEventStream(httpEvents)),
+      );
     }
 
-    return withAbortErrorHandling(super.run(input));
+    return trackActiveRun(withAbortErrorHandling(super.run(input)));
   }
 
   public override clone(): ProxiedCopilotRuntimeAgent {
