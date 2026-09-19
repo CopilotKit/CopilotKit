@@ -66,6 +66,7 @@ import {
   readBody,
   getZodParameters,
 } from "@copilotkit/shared";
+import { resolveMCPEntry } from "./mcp-client-cache";
 import type {
   Action,
   CopilotErrorHandler,
@@ -420,9 +421,19 @@ interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   params?: CopilotRuntimeConstructorParams<T>;
   private observability?: CopilotObservabilityConfig;
-  // Cache MCP tools per endpoint to avoid re-fetching repeatedly
-  private mcpToolsCache: Map<string, BuiltInAgentClassicConfig["tools"]> =
-    new Map();
+  /**
+   * The request-independent half of agent resolution: validation, and the
+   * default agent built from the service adapter. Resolved once, because
+   * re-running the misuse checks on every request would turn a configuration
+   * error into a per-request throw.
+   */
+  private baseAgents?: Promise<Record<string, AbstractAgent>>;
+  /**
+   * The `agents` value as configured, captured before the per-request factory
+   * replaces it, so that repeated `handleServiceAdapter` calls do not wrap the
+   * factory in itself.
+   */
+  private configuredAgents?: CopilotRuntimeOptions["agents"];
   private runtimeArgs: CopilotRuntimeOptions & RuntimeErrorReporterOptions;
   private _instance: CopilotRuntimeVNext;
   /** Runtime-bound telemetry identity and sampling authority. */
@@ -568,74 +579,182 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   }
 
   handleServiceAdapter(serviceAdapter: CopilotServiceAdapter) {
-    this.runtimeArgs.agents = Promise.resolve(
-      this.runtimeArgs.agents ?? {},
-    ).then(async (agents) => {
-      // An AgentsFactory function has no enumerable keys, so it flows through
-      // this path the same way an empty record does.
-      let agentsList = agents as Record<string, AbstractAgent>;
-      const isAgentsListEmpty = !Object.keys(agents).length;
-      const hasServiceAdapter = Boolean(serviceAdapter);
-      const illegalServiceAdapterNames = ["EmptyAdapter"];
-      const serviceAdapterCanBeUsedForAgent =
-        !illegalServiceAdapterNames.includes(serviceAdapter.name);
+    // Capture the configured value before the factory below replaces it, so a
+    // second call does not wrap the factory in itself.
+    this.configuredAgents ??= this.runtimeArgs.agents ?? {};
+    const configuredAgents = this.configuredAgents;
 
-      if (
-        isAgentsListEmpty &&
-        (!hasServiceAdapter || !serviceAdapterCanBeUsedForAgent)
-      ) {
-        throw new CopilotKitMisuseError({
-          message:
-            "No default agent provided. Please provide a default agent in the runtime config.",
-        });
-      }
+    // Resolve the request-independent half once. Calling this twice (the
+    // endpoint factory runs on every request under the documented v1 route)
+    // must not re-validate or rebuild the default agent.
+    //
+    // A caller who supplied their own agents factory has no request-independent
+    // half: their record is whatever they return for this request, so the same
+    // checks run per request further down.
+    if (typeof configuredAgents !== "function") {
+      this.baseAgents ??= Promise.resolve(configuredAgents).then((agents) =>
+        this.ensureDefaultAgent(
+          agents as Record<string, AbstractAgent>,
+          serviceAdapter,
+        ),
+      );
+      // A misconfigured adapter rejects that promise, and nothing awaits it
+      // until the first request arrives. Attach an inert handler so a runtime
+      // that is never called does not surface an unhandled rejection; the
+      // factory below still sees the rejection when it awaits.
+      this.baseAgents.catch(() => {});
+    }
 
-      if (isAgentsListEmpty) {
-        const languageModel = serviceAdapter.getLanguageModel?.();
-        if (languageModel) {
-          // Adapter exposes a pre-configured LanguageModel (e.g. OpenAI/Anthropic adapters)
-          agentsList.default = new BuiltInAgent({ model: languageModel });
-        } else if (serviceAdapter.provider && serviceAdapter.model) {
-          // Adapter exposes provider/model strings
-          agentsList.default = new BuiltInAgent({
-            model: `${serviceAdapter.provider}/${serviceAdapter.model}`,
-          });
-        } else {
-          throw new CopilotKitMisuseError({
-            message:
-              `Service adapter "${serviceAdapter.name ?? "unknown"}" does not provide model information. ` +
-              `When using adapters like LangChainAdapter without an explicit agents list, ` +
-              `please provide a default agent in the runtime config. Example:\n` +
-              `  new CopilotRuntime({\n` +
-              `    agents: { default: new BuiltInAgent({ model: "openai/gpt-4o" }) }\n` +
-              `  })`,
-          });
-        }
-      }
-
+    // Install the per-request factory the v2 runtime has supported since
+    // #2941. Resolving once was what kept a dynamic `actions` function from
+    // ever seeing request properties, and kept every request sharing one MCP
+    // client regardless of whose credentials built it (#7116, #2407).
+    const resolvePerRequest = async ({ request }: { request: Request }) => {
+      // A caller-supplied agents factory is called here, with this request.
+      // Treating it as a record instead (a function has no enumerable keys)
+      // meant the service adapter's default replaced it and the caller's
+      // function was never invoked at all.
+      const baseAgents =
+        typeof configuredAgents === "function"
+          ? this.ensureDefaultAgent(
+              { ...(await configuredAgents({ request })) },
+              serviceAdapter,
+            )
+          : await this.baseAgents!;
+      const properties = await this.readRequestProperties(request);
       const actions = this.params?.actions;
 
       // `actions` and `mcpServers` are attached independently: a runtime may
       // configure MCP servers without any local actions.
-      const mcpTools = await this.getToolsFromMCP();
-      const actionTools = actions ? this.getToolsFromActions(actions) : [];
-      agentsList = this.assignToolsToAgents(agentsList, [
-        ...actionTools,
-        ...mcpTools,
-      ]);
+      const mcpTools = await this.getToolsFromMCP({ properties });
+      const actionTools = actions
+        ? this.getToolsFromActions(actions, { properties, url: request.url })
+        : [];
+      const tools = [...actionTools, ...mcpTools];
 
-      return agentsList;
-    });
+      // Nothing to attach means nothing to isolate: hand the record back
+      // untouched, exactly as a runtime with no actions and no MCP behaved
+      // before this became a factory.
+      if (!tools.length) {
+        return baseAgents;
+      }
+
+      // Clone before attaching. `assignToolsToAgents` writes `config` onto the
+      // agent, so mutating the shared instances would let one request's tools
+      // reach another request that is already in flight.
+      const perRequestAgents: Record<string, AbstractAgent> = {};
+      for (const [agentId, agent] of Object.entries(baseAgents)) {
+        const clone = agent.clone() as AbstractAgent;
+        // `BuiltInAgent.clone()` rebuilds from `this.config`, so its own tools
+        // survive. An agent whose `clone()` does not know about `config` --
+        // `HttpAgent`, and anything else a v1 user registered -- would arrive
+        // here empty, and the tools it declares itself would be shadowed by a
+        // v1 action of the same name. Carry the config across when the clone
+        // did not.
+        if (
+          Reflect.get(clone, "config") === undefined &&
+          Reflect.get(agent, "config") !== undefined
+        ) {
+          Reflect.set(clone, "config", Reflect.get(agent, "config"));
+        }
+        perRequestAgents[agentId] = clone;
+      }
+
+      return this.assignToolsToAgents(perRequestAgents, tools);
+    };
+
+    this.runtimeArgs.agents =
+      resolvePerRequest as unknown as CopilotRuntimeOptions["agents"];
+  }
+
+  /**
+   * Fill in the default agent the service adapter implies, and reject a
+   * configuration that names no model at all.
+   */
+  private ensureDefaultAgent(
+    agentsList: Record<string, AbstractAgent>,
+    serviceAdapter: CopilotServiceAdapter,
+  ): Record<string, AbstractAgent> {
+    const isAgentsListEmpty = !Object.keys(agentsList).length;
+    const hasServiceAdapter = Boolean(serviceAdapter);
+    const illegalServiceAdapterNames = ["EmptyAdapter"];
+    const serviceAdapterCanBeUsedForAgent =
+      !illegalServiceAdapterNames.includes(serviceAdapter.name);
+
+    if (
+      isAgentsListEmpty &&
+      (!hasServiceAdapter || !serviceAdapterCanBeUsedForAgent)
+    ) {
+      throw new CopilotKitMisuseError({
+        message:
+          "No default agent provided. Please provide a default agent in the runtime config.",
+      });
+    }
+
+    if (isAgentsListEmpty) {
+      const languageModel = serviceAdapter.getLanguageModel?.();
+      if (languageModel) {
+        // Adapter exposes a pre-configured LanguageModel (e.g. OpenAI/Anthropic adapters)
+        agentsList.default = new BuiltInAgent({ model: languageModel });
+      } else if (serviceAdapter.provider && serviceAdapter.model) {
+        // Adapter exposes provider/model strings
+        agentsList.default = new BuiltInAgent({
+          model: `${serviceAdapter.provider}/${serviceAdapter.model}`,
+        });
+      } else {
+        throw new CopilotKitMisuseError({
+          message:
+            `Service adapter "${serviceAdapter.name ?? "unknown"}" does not provide model information. ` +
+            `When using adapters like LangChainAdapter without an explicit agents list, ` +
+            `please provide a default agent in the runtime config. Example:\n` +
+            `  new CopilotRuntime({\n` +
+            `    agents: { default: new BuiltInAgent({ model: "openai/gpt-4o" }) }\n` +
+            `  })`,
+        });
+      }
+    }
+
+    return agentsList;
+  }
+
+  /**
+   * The `forwardedProps` the browser sent with this request, which is what a
+   * v1 `actions` function and `mcpServers` overrides are documented to read.
+   *
+   * `readBody` clones, so the handler still gets an unconsumed body, and it
+   * returns `undefined` for GET, which is how the `/info` route reaches here.
+   */
+  private async readRequestProperties(
+    request: Request,
+  ): Promise<Record<string, unknown>> {
+    try {
+      const body = (await readBody(request)) as RunAgentInput | undefined;
+      const properties = body?.forwardedProps;
+      return properties && typeof properties === "object"
+        ? (properties as Record<string, unknown>)
+        : {};
+    } catch {
+      // A malformed body is the request handler's problem to report, not a
+      // reason to fail agent resolution.
+      return {};
+    }
   }
 
   // Receive this.params.action and turn it into the AbstractAgent tools
   private getToolsFromActions(
     actions: ActionsConfiguration<any>,
+    ctx: { properties: Record<string, unknown>; url?: string },
   ): BuiltInAgentClassicConfig["tools"] {
-    // Resolve actions to an array (handle function case)
+    // Resolve actions to an array (handle function case).
+    //
+    // The function form is documented to receive the request's properties and
+    // url. It was called once at resolution time with `{ properties: {}, url:
+    // undefined }`, so a runtime that keyed its action list on the tenant, the
+    // user, or anything else request-shaped got the same empty context every
+    // time (#7116).
     const actionsArray =
       typeof actions === "function"
-        ? actions({ properties: {}, url: undefined })
+        ? actions({ properties: ctx.properties, url: ctx.url })
         : actions;
 
     // Convert each Action to a ToolDefinition
@@ -924,36 +1043,42 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
     for (const config of effectiveEndpoints) {
       const endpointUrl = config.endpoint;
-      // Return cached tool definitions when available
-      const cached = this.mcpToolsCache.get(endpointUrl);
-      if (cached) {
-        allTools.push(...cached);
-        continue;
-      }
 
       try {
-        const client = await createMCPClient(config);
-        const toolsMap = await client.tools();
+        // Keyed by the client factory plus the whole config, so two callers
+        // with different credentials for one endpoint get one client each.
+        // Keying on the URL alone is #2407: the first caller's client served
+        // everyone, and the reporter's `?uid=<hash>` workaround existed only
+        // to force distinct keys.
+        const entry = await resolveMCPEntry<BuiltInAgentClassicConfig["tools"]>(
+          createMCPClient,
+          config,
+          async () => {
+            const client = await createMCPClient(config);
+            const toolsMap = await client.tools();
 
-        const toolDefs: BuiltInAgentClassicConfig["tools"] = Object.entries(
-          toolsMap,
-        ).map(([toolName, tool]: [string, MCPTool]) => {
-          const params: Parameter[] = extractParametersFromSchema(tool);
-          const zodSchema = getZodParameters(params);
-          return {
-            name: toolName,
-            description:
-              tool.description || `MCP tool: ${toolName} (from ${endpointUrl})`,
-            parameters: zodSchema,
-            // The MCP client stays live for the lifetime of the cached tool
-            // definitions; `tool.execute` calls the server.
-            execute: async (args: unknown) => tool.execute(args),
-          };
-        });
+            const toolDefs: BuiltInAgentClassicConfig["tools"] = Object.entries(
+              toolsMap,
+            ).map(([toolName, tool]: [string, MCPTool]) => {
+              const params: Parameter[] = extractParametersFromSchema(tool);
+              const zodSchema = getZodParameters(params);
+              return {
+                name: toolName,
+                description:
+                  tool.description ||
+                  `MCP tool: ${toolName} (from ${endpointUrl})`,
+                parameters: zodSchema,
+                // The MCP client stays live for the lifetime of the cached
+                // tool definitions; `tool.execute` calls the server.
+                execute: async (args: unknown) => tool.execute(args),
+              };
+            });
 
-        // Cache per endpoint and add to aggregate
-        this.mcpToolsCache.set(endpointUrl, toolDefs);
-        allTools.push(...toolDefs);
+            return { client, tools: toolDefs };
+          },
+        );
+
+        allTools.push(...(entry.tools ?? []));
       } catch (error) {
         console.error(
           `MCP: Failed to fetch tools from endpoint ${endpointUrl}. Skipping. Error:`,
@@ -962,7 +1087,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         // Deliberately not cached. Caching the empty result meant a server
         // that was briefly unreachable when the runtime first resolved stayed
         // toolless for the life of that runtime, even after it recovered.
-        // Leaving the entry absent lets a later resolution try again.
+        // `resolveMCPEntry` drops a rejected entry so a later request retries.
       }
     }
 

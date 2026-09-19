@@ -1,0 +1,164 @@
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * Internal helper for the v1 CopilotRuntime shim. Not exported from the
+ * package. The v2 path builds its MCP clients per run in `agent/index.ts`.
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
+import type { MCPClient, MCPEndpointConfig } from "./mcp-tools-utils";
+
+/**
+ * One cached MCP connection and the tool definitions built from it.
+ *
+ * The tool definitions close over `tool.execute` on this exact client, so the
+ * two share a lifetime: dropping the entry has to close the client, and
+ * closing the client has to drop the tools.
+ */
+export interface MCPCacheEntry<TTools> {
+  client: MCPClient;
+  tools: TTools;
+}
+
+/**
+ * Cap on live MCP connections. Reached only by runtimes whose endpoint config
+ * varies per request — a static `mcpServers` list occupies one slot per
+ * server for the life of the process.
+ */
+const MAX_ENTRIES = 100;
+
+/**
+ * Process-wide, not per runtime instance.
+ *
+ * The documented per-request pattern builds `new CopilotRuntime(...)` inside
+ * the request handler, so a cache owned by the instance is a fresh cache on
+ * every request: one connection per HTTP request, never closed. Keying the
+ * cache on the client factory plus the endpoint config instead means those
+ * runtimes share the connection they would otherwise re-open, and the entry
+ * count is bounded by the number of distinct credentials in play rather than
+ * by traffic.
+ */
+const cache = new Map<string, Promise<MCPCacheEntry<unknown>>>();
+
+/**
+ * Identity for a `createMCPClient` implementation.
+ *
+ * Two runtimes that pass the same factory may share a connection. Two that
+ * pass different factories must not: the second runtime's factory could wrap
+ * the transport, add auth, or point somewhere else entirely, and handing it a
+ * client built by the first would silently bypass all of that.
+ */
+const factoryIds = new WeakMap<object, string>();
+let nextFactoryId = 0;
+
+function factoryId(factory: object): string {
+  let id = factoryIds.get(factory);
+  if (!id) {
+    id = `f${++nextFactoryId}`;
+    factoryIds.set(factory, id);
+  }
+  return id;
+}
+
+/**
+ * Deterministic serialization of an endpoint config, so that two configs that
+ * differ only in key order produce one cache entry, and two that differ in
+ * `apiKey` produce two.
+ */
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value) ?? "null";
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map(stableStringify).join(",")}]`;
+  }
+  const entries = Object.entries(value as Record<string, unknown>)
+    .filter(([, v]) => typeof v !== "function" && v !== undefined)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`);
+  return `{${entries.join(",")}}`;
+}
+
+export function mcpCacheKey(
+  createMCPClient: object,
+  config: MCPEndpointConfig,
+): string {
+  return `${factoryId(createMCPClient)}::${stableStringify(config)}`;
+}
+
+async function closeQuietly(client: MCPClient, endpoint: string) {
+  try {
+    await client.close?.();
+  } catch (error) {
+    console.error(`MCP: Failed to close the client for ${endpoint}:`, error);
+  }
+}
+
+/** Drop the least recently used entries until the cache is within its cap. */
+async function evictDownToCap() {
+  while (cache.size > MAX_ENTRIES) {
+    const oldestKey = cache.keys().next().value as string | undefined;
+    if (oldestKey === undefined) return;
+    const evicted = cache.get(oldestKey);
+    cache.delete(oldestKey);
+    try {
+      const entry = await evicted;
+      if (entry) await closeQuietly(entry.client, oldestKey);
+    } catch {
+      // A rejected entry has nothing to close.
+    }
+  }
+}
+
+/**
+ * Return the cached connection for this factory and config, creating it on
+ * first use.
+ *
+ * A rejected creation is removed rather than cached, so a server that was
+ * briefly unreachable is retried on the next request instead of staying
+ * toolless for the life of the process.
+ */
+export function resolveMCPEntry<TTools>(
+  createMCPClient: object,
+  config: MCPEndpointConfig,
+  build: () => Promise<MCPCacheEntry<TTools>>,
+): Promise<MCPCacheEntry<TTools>> {
+  const key = mcpCacheKey(createMCPClient, config);
+  const hit = cache.get(key);
+  if (hit) {
+    // Re-insert so that Map iteration order stays least-recently-used first.
+    cache.delete(key);
+    cache.set(key, hit);
+    return hit as Promise<MCPCacheEntry<TTools>>;
+  }
+
+  const created = build().catch((error: unknown) => {
+    cache.delete(key);
+    throw error;
+  });
+  cache.set(key, created as Promise<MCPCacheEntry<unknown>>);
+  void evictDownToCap();
+  return created;
+}
+
+/** Test seam: close and forget every cached connection. */
+export async function __resetMCPClientCache() {
+  const entries = Array.from(cache.values());
+  cache.clear();
+  await Promise.all(
+    entries.map(async (pending) => {
+      try {
+        const entry = await pending;
+        await closeQuietly(entry.client, "reset");
+      } catch {
+        // Nothing to close.
+      }
+    }),
+  );
+}
+
+/** Test seam: how many connections are live. */
+export function __mcpClientCacheSize() {
+  return cache.size;
+}
