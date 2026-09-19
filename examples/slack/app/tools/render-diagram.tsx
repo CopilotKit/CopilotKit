@@ -14,7 +14,7 @@ import { renderDiagram } from "../render/diagram.js";
 const schema = z.object({
   title: z
     .string()
-    .optional()
+    .nullish()
     .describe("Short title shown as the image's filename/caption."),
   mermaid: z
     .string()
