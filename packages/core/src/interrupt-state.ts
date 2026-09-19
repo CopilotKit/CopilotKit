@@ -109,11 +109,20 @@ export function ɵreadLegacyInterrupt<TValue = unknown>(
 }
 
 /**
- * @internal Forget the legacy interrupt an agent was waiting on. Call this
- * when a new run starts, and when the interrupt is addressed or dismissed.
+ * @internal Forget the legacy interrupt an agent was waiting on in one thread.
+ * Call this when a new run starts, and when the interrupt is addressed or
+ * dismissed.
+ *
+ * Scoped to a thread for the reason {@link ɵreadLegacyInterrupt} is. One agent
+ * instance serves every conversation an app opens, so a run started in thread
+ * B would otherwise erase the gate thread A is still waiting on, and returning
+ * to A would surface nothing.
+ *
  * Application authors must not depend on this API.
  */
-export function ɵclearLegacyInterrupt(agent: object): void {
+export function ɵclearLegacyInterrupt(agent: object, threadId: string): void {
+  const record = legacyInterrupts.get(agent);
+  if (record && record.threadId !== threadId) return;
   legacyInterrupts.delete(agent);
 }
 

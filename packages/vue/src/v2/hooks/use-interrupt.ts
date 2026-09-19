@@ -217,7 +217,9 @@ export function useInterrupt<TValue = unknown, TResult = never>(
         legacyRunId = undefined;
         pendingThreadId = undefined;
         interruptRunIds.clear();
-        ɵclearLegacyInterrupt(resolvedAgent);
+        // Scoped to the thread the run belongs to. A run started in another
+        // conversation must not erase the gate this one is still waiting on.
+        ɵclearLegacyInterrupt(resolvedAgent, resolvedAgent.threadId);
         // Reset accumulated responses for the new run.
         for (const k of Object.keys(responses)) {
           delete responses[k];
@@ -399,7 +401,12 @@ export function useInterrupt<TValue = unknown, TResult = never>(
       );
       // A dismissal ends the gate, so drop the recovery record with it.
       const dismissedAgent = agent.value;
-      if (dismissedAgent) ɵclearLegacyInterrupt(dismissedAgent);
+      if (dismissedAgent) {
+        ɵclearLegacyInterrupt(
+          dismissedAgent,
+          pendingThreadId ?? dismissedAgent.threadId,
+        );
+      }
       pending.value = null;
       return;
     }

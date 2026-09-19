@@ -1559,6 +1559,35 @@ describe("useInterrupt", () => {
       expect(screen.getByTestId("gate").textContent).toBe("approve A?");
     });
 
+    it("recovers thread A's gate after a run happens in thread B", () => {
+      // The reader leaves an approval open in thread A, then goes and talks in
+      // thread B. That run's RUN_STARTED clears the hook's own state, which is
+      // right, but the recovery record belongs to A and must survive it.
+      const resolves: Array<(payload?: unknown) => Promise<unknown>> = [];
+      const first = render(<GateHarness resolves={resolves} />);
+      act(() => {
+        handlers.onCustomEvent?.({
+          event: { name: "on_interrupt", value: "approve A?" },
+        });
+        finalizeRun("run-a");
+      });
+      first.unmount();
+
+      (mockAgent as { threadId: string }).threadId = "thread-2";
+      const second = render(<GateHarness resolves={resolves} />);
+      act(() => {
+        handlers.onRunStartedEvent?.();
+        finalizeRun("run-b");
+      });
+      expect(screen.queryByTestId("gate")).toBeNull();
+      second.unmount();
+
+      (mockAgent as { threadId: string }).threadId = "thread-1";
+      render(<GateHarness resolves={resolves} />);
+
+      expect(screen.getByTestId("gate").textContent).toBe("approve A?");
+    });
+
     it("does not submit thread A's answer after a thread switch without a remount", async () => {
       // The thread can change on a mounted hook, because `useAgent` writes it
       // onto the agent instance in an effect of its own.

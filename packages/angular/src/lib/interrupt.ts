@@ -229,7 +229,9 @@ export class InterruptController<TValue = unknown, TResult = never> {
         standard = null;
         lastFinishedRunId = undefined;
         this.#threadId = agent.threadId;
-        ɵclearLegacyInterrupt(agent);
+        // Scoped to the thread the run belongs to. A run started in another
+        // conversation must not erase the gate this one is still waiting on.
+        ɵclearLegacyInterrupt(agent, agent.threadId);
         this.#clear();
       },
       // Fallback for a stream that ends without a RUN_FINISHED event. When
@@ -241,13 +243,13 @@ export class InterruptController<TValue = unknown, TResult = never> {
       onRunFailed: ({ error }) => {
         legacy = null;
         standard = null;
-        ɵclearLegacyInterrupt(agent);
+        ɵclearLegacyInterrupt(agent, agent.threadId);
         this.#clear(error);
       },
       onRunErrorEvent: ({ event }) => {
         legacy = null;
         standard = null;
-        ɵclearLegacyInterrupt(agent);
+        ɵclearLegacyInterrupt(agent, agent.threadId);
         this.#clear(new Error(event.message));
       },
     });
@@ -332,7 +334,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
         "[CopilotKit] injectInterrupt: legacy on_interrupt events cannot be cancelled; dismissing.",
       );
       // A dismissal ends the gate, so drop the recovery record with it.
-      ɵclearLegacyInterrupt(agent);
+      ɵclearLegacyInterrupt(agent, this.#threadId ?? agent.threadId);
       this.#clear();
       return;
     }

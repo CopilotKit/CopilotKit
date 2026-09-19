@@ -145,8 +145,34 @@ describe("legacy interrupt record", () => {
       event: { name: "on_interrupt", value: "approve?" },
       threadId: "thread-1",
     });
-    ɵclearLegacyInterrupt(agent);
+    ɵclearLegacyInterrupt(agent, "thread-1");
 
+    expect(ɵreadLegacyInterrupt(agent, "thread-1")).toBeNull();
+  });
+
+  it("keeps a record another thread still owns", () => {
+    // A run started in thread B must not erase the gate thread A is waiting
+    // on. The agent instance is shared, so an unscoped clear here is what
+    // makes A unrecoverable after the reader visits B.
+    const agent = {};
+    ɵrecordLegacyInterrupt(agent, {
+      event: { name: "on_interrupt", value: "approve A?" },
+      threadId: "thread-a",
+      runId: "run-a",
+    });
+
+    ɵclearLegacyInterrupt(agent, "thread-b");
+
+    expect(ɵreadLegacyInterrupt(agent, "thread-a")).toEqual({
+      event: { name: "on_interrupt", value: "approve A?" },
+      threadId: "thread-a",
+      runId: "run-a",
+    });
+  });
+
+  it("clears nothing when no record is stored", () => {
+    const agent = {};
+    expect(() => ɵclearLegacyInterrupt(agent, "thread-1")).not.toThrow();
     expect(ɵreadLegacyInterrupt(agent, "thread-1")).toBeNull();
   });
 });
