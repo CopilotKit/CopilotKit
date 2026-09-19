@@ -224,6 +224,53 @@ describe("findSupersededPublishedPins", () => {
     ).toEqual([]);
   });
 
+  it("allows a patch release a published 0.x caret range still admits", () => {
+    // `@copilotkit/runtime` crosses scopes into channels through
+    // `workspace:^`, which packs as `^0.9.2`. On 0.x a caret pins the minor,
+    // so the boundary sits one minor lower than the 1.x cases above.
+    expect(
+      findSupersededPublishedPins({
+        config: CONFIG,
+        publishedDependencies: {
+          "@copilotkit/angular": {
+            dependencies: { "@copilotkit/core": "^0.9.2" },
+          },
+        },
+        scope: "monorepo",
+        version: "0.9.3",
+        workspace: [
+          manifest("@copilotkit/angular", {
+            "@copilotkit/core": "workspace:^",
+          }),
+          manifest("@copilotkit/core"),
+        ],
+      }),
+    ).toEqual([]);
+  });
+
+  it("refuses a minor release no published 0.x caret range admits", () => {
+    const problems = findSupersededPublishedPins({
+      config: CONFIG,
+      publishedDependencies: {
+        "@copilotkit/angular": {
+          dependencies: { "@copilotkit/core": "^0.9.2" },
+        },
+      },
+      scope: "monorepo",
+      version: "0.10.0",
+      workspace: [
+        manifest("@copilotkit/angular", {
+          "@copilotkit/core": "workspace:^",
+        }),
+        manifest("@copilotkit/core"),
+      ],
+    });
+
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain("^0.9.2");
+    expect(problems[0]).toContain("0.10.0");
+  });
+
   it("refuses a major release no published caret range admits", () => {
     expect(
       findSupersededPublishedPins({
