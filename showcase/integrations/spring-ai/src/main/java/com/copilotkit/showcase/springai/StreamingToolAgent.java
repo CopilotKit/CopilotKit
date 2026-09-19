@@ -15,6 +15,8 @@ import com.agui.core.tool.Tool;
 import com.agui.core.tool.ToolCall;
 import com.copilotkit.showcase.springai.cvdiag.CvdiagBackend;
 import com.copilotkit.showcase.springai.tools.GenerateA2uiTool;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import com.copilotkit.showcase.springai.cvdiag.CvdiagRunContext;
 import com.copilotkit.showcase.springai.cvdiag.CvdiagSchema.CvdiagOutcome;
@@ -25,9 +27,11 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.definition.ToolDefinition;
 import org.springframework.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +41,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -54,39 +59,35 @@ import static com.agui.server.EventFactory.toolCallResultEvent;
 import static com.agui.server.EventFactory.toolCallStartEvent;
 
 /**
- * Streaming agent that supports tool execution.
+ * Streaming agent that advertises backend and runtime tool schemas while
+ * keeping tool selection separate from execution.
  *
- * <p>Spring AI's {@code ChatClient.stream()} does NOT auto-execute tool callbacks
- * (unlike {@code .call()} which has a built-in tool execution loop). The stock
- * AG-UI {@code SpringAIAgent} uses {@code .stream()} and therefore tools are
- * never invoked — the model returns {@code tool_calls} in the stream but the
- * tool functions are never called, leaving the CopilotKit runtime stuck in an
- * infinite re-invocation loop.
- *
- * <p>This agent implements a two-phase approach:
  * <ol>
- *   <li><b>Phase 1 — stream:</b> Use {@code .stream()} with
- *       {@code internalToolExecutionEnabled=false} for real-time text delivery.
- *       This prevents Spring AI's model layer from auto-executing tool calls
- *       through the global {@code ToolCallingManager} (which only knows about
- *       backend tools and would throw on frontend-provided tools like
- *       {@code generate_task_steps}, {@code show_card}, etc.). If the model
- *       wants to call tools, the stream will contain tool_calls metadata but
- *       they are detected without execution.</li>
- *   <li><b>Phase 2 — call with tools:</b> If tool calls were detected, re-invoke
- *       the model via {@code .call()} WITH tool callbacks attached. Spring AI's
- *       built-in tool execution loop handles all tool iterations automatically.
- *       The final text response is emitted as AG-UI events.</li>
+ *   <li><b>Stream and detect:</b> The first request includes backend callbacks
+ *       and runtime-provided tool definitions with
+ *       {@code internalToolExecutionEnabled=false}. Text is emitted in real
+ *       time; selected tool calls are captured without executing them.</li>
+ *   <li><b>Preserve runtime selections:</b> If any selected call belongs to
+ *       the runtime/frontend, preserve the original calls and emit their
+ *       AG-UI envelopes. Execute backend-only members of a mixed selection
+ *       directly with the request's tool context and emit their actual
+ *       results. Runtime members remain resultless for CopilotKit to execute.
+ *       Re-asking with backend-only schemas would lose those runtime calls;
+ *       a backend placeholder cannot execute the real runtime handler.</li>
+ *   <li><b>Backend-only Phase 2:</b> If no selected call belongs to the
+ *       runtime/frontend, re-invoke the model via {@code .call()} with backend
+ *       callbacks. Spring AI's internal tool loop handles execution, and the
+ *       final text response is emitted as AG-UI events.</li>
  * </ol>
  *
- * <p>When no tools are needed, the agent behaves as a pure streaming agent.
- * When tools are needed, the first streamed response is discarded (it's just
- * the tool call request) and the {@code .call()} path produces the complete
- * response including tool execution.
+ * <p>When no tools are selected, the streamed text is the response. Runtime
+ * selections do not enter the backend-only {@code .call()} path.
  */
 public class StreamingToolAgent extends PropagatingLocalAgent {
 
     private static final Logger log = LoggerFactory.getLogger(StreamingToolAgent.class);
+
+    private static final ObjectMapper TOOL_SCHEMA_MAPPER = new ObjectMapper();
 
     private final ChatClient chatClient;
     private final ChatMemory chatMemory;
@@ -159,8 +160,8 @@ public class StreamingToolAgent extends PropagatingLocalAgent {
         List<BaseEvent> deferredEvents = new ArrayList<>();
 
         try {
-            // Phase 1: Stream WITHOUT tool callbacks to detect whether tools
-            // are needed. Text chunks are emitted in real time.
+            // Phase 1: Advertise tool schemas but disable tool execution.
+            // Detect selected calls while emitting text chunks in real time.
             List<DetectedToolCall> detectedToolCalls = streamFirstTurn(
                     input, userContent, messageId, assistantMessage, subscriber);
 
@@ -172,46 +173,31 @@ public class StreamingToolAgent extends PropagatingLocalAgent {
                 // tool's result in a custom component". The runtime will
                 // re-invoke the agent with the tool result after the
                 // frontend handler runs.
-                Set<String> backendToolNames = getBackendToolNames();
                 Set<String> frontendToolNames = getFrontendToolNames(input);
-
                 boolean hasFrontendToolCalls = detectedToolCalls.stream()
                         .anyMatch(tc -> frontendToolNames.contains(tc.name()));
-                boolean hasBackendOnlyToolCalls = detectedToolCalls.stream()
-                        .anyMatch(tc -> backendToolNames.contains(tc.name())
-                                && !frontendToolNames.contains(tc.name()));
 
-                if (hasFrontendToolCalls && !hasBackendOnlyToolCalls) {
-                    // All tool calls are frontend tools (HITL, useFrontendTool).
-                    // Emit TOOL_CALL_START/ARGS/END events WITHOUT TOOL_CALL_RESULT
-                    // so the CopilotKit runtime's processAgentResult detects the
-                    // missing result and executes the frontend tool handler.
-                    // The runtime will then re-invoke the agent with the tool result.
-                    for (DetectedToolCall dtc : detectedToolCalls) {
-                        String toolCallId = dtc.id() != null ? dtc.id()
-                                : UUID.randomUUID().toString();
-
-                        // AG-UI tool call envelope: start, args, end (NO result)
-                        deferredEvents.add(toolCallStartEvent(messageId, dtc.name(), toolCallId));
-                        deferredEvents.add(toolCallArgsEvent(
-                                dtc.arguments() != null ? dtc.arguments() : "{}", toolCallId));
-                        deferredEvents.add(toolCallEndEvent(toolCallId));
-
-                        // Attach to assistant message so the runtime sees it
-                        FunctionCall fc = new FunctionCall(dtc.name(),
-                                dtc.arguments() != null ? dtc.arguments() : "{}");
-                        ToolCall call = new ToolCall(toolCallId, "function", fc);
-                        if (assistantMessage.getToolCalls() == null) {
-                            assistantMessage.setToolCalls(new ArrayList<>());
-                        }
-                        assistantMessage.getToolCalls().add(call);
-                        subscriber.onNewToolCall(call);
-                    }
-                    // Clear any streamed text (it was the model's tool-call
-                    // request preamble, not a final answer).
+                if (hasFrontendToolCalls) {
+                    // Preserve the model's selected calls. Backend members of a
+                    // mixed response execute here; runtime members remain pending
+                    // for CopilotKit. Re-asking with backend-only schemas loses them.
+                    GenerateA2uiTool.UiContext ui = GenerateA2uiTool.uiContext(input.context());
+                    ToolContext toolContext = new ToolContext(ui == null ? Map.of()
+                            : Map.of(GenerateA2uiTool.UI_CONTEXT_KEY, ui));
                     assistantMessage.setContent("");
+                    try {
+                        emitSelectedToolCalls(detectedToolCalls, frontendToolNames,
+                                toolCallbacks, toolContext, messageId, assistantMessage,
+                                subscriber, event -> this.emitEvent(event, subscriber));
+                    } catch (Exception error) {
+                        // Call identities and completed results were already emitted.
+                        // Retain the assistant attachment before the terminal failure;
+                        // do not reselect or retry any executed backend side effects.
+                        subscriber.onNewMessage(assistantMessage);
+                        throw error;
+                    }
                 } else {
-                    // Backend-only tools needed (or mixed with backend-only).
+                    // Backend-only tools needed.
                     // Discard the streamed text and re-invoke with .call()
                     // + tool callbacks so Spring AI's internal loop handles
                     // execution.
@@ -261,15 +247,54 @@ public class StreamingToolAgent extends PropagatingLocalAgent {
         }
     }
 
+    /** Preserves selected runtime calls while executing only actual backend callbacks. */
+    static void emitSelectedToolCalls(
+            List<DetectedToolCall> selected, Set<String> frontendNames,
+            List<ToolCallback> backendCallbacks, ToolContext toolContext,
+            String messageId, AssistantMessage assistantMessage,
+            AgentSubscriber subscriber, Consumer<BaseEvent> emit) {
+        List<ToolCall> calls = new ArrayList<>();
+        for (DetectedToolCall selectedCall : selected) {
+            String id = selectedCall.id() != null ? selectedCall.id() : UUID.randomUUID().toString();
+            String arguments = selectedCall.arguments() != null ? selectedCall.arguments() : "{}";
+            ToolCall call = new ToolCall(id, "function", new FunctionCall(selectedCall.name(), arguments));
+            calls.add(call);
+            if (assistantMessage.getToolCalls() == null) {
+                assistantMessage.setToolCalls(new ArrayList<>());
+            }
+            assistantMessage.getToolCalls().add(call);
+            subscriber.onNewToolCall(call);
+            emit.accept(toolCallStartEvent(messageId, selectedCall.name(), id));
+            emit.accept(toolCallArgsEvent(arguments, id));
+            emit.accept(toolCallEndEvent(id));
+        }
+        // Publish every selected identity before running side effects. Publish
+        // each completed result immediately so a later failure cannot discard it.
+        for (int index = 0; index < selected.size(); index++) {
+            DetectedToolCall selectedCall = selected.get(index);
+            if (frontendNames.contains(selectedCall.name())) {
+                continue;
+            }
+            for (ToolCallback backend : backendCallbacks) {
+                if (backend.getToolDefinition().name().equals(selectedCall.name())) {
+                    String arguments = selectedCall.arguments() != null ? selectedCall.arguments() : "{}";
+                    String result = backend.call(arguments, toolContext);
+                    emit.accept(toolCallResultEvent(calls.get(index).id(), result,
+                            UUID.randomUUID().toString(), Role.tool));
+                    break;
+                }
+            }
+        }
+    }
+
     /** Captured tool call from the streaming phase. */
-    private record DetectedToolCall(String id, String name, String arguments) {}
+    record DetectedToolCall(String id, String name, String arguments) {}
 
     /**
-     * Streams the first model turn WITHOUT tool callbacks. Text chunks are
-     * emitted as AG-UI events in real time. Returns a list of detected tool
-     * calls (empty if none). Each entry captures the tool call id, name, and
-     * arguments so the caller can decide whether to handle them as frontend
-     * tools or fall back to Phase 2.
+     * Streams the first model turn with schemas from streamingToolCallbacks
+     * and internal tool execution disabled. Text chunks are emitted as AG-UI
+     * events in real time. Returns detected call IDs, names, and arguments
+     * (empty if none) for selected-call handling or backend-only Phase 2.
      */
     private List<DetectedToolCall> streamFirstTurn(
             RunAgentInput input, String userContent, String messageId,
@@ -305,11 +330,13 @@ public class StreamingToolAgent extends PropagatingLocalAgent {
         // execution disabled — the LLM (or aimock) needs to see the tool
         // schemas to decide whether to emit tool_calls, but we don't want
         // Spring AI's model layer to auto-execute them through the global
-        // ToolCallingManager. Execution happens in Phase 2 if needed.
+        // ToolCallingManager. The caller preserves runtime selections or
+        // uses Phase 2 for backend-only selections.
         ChatClient.ChatClientRequestSpec request = buildBaseRequest(
                 input, userContent, true);
-        if (!toolCallbacks.isEmpty()) {
-            request = request.toolCallbacks(toolCallbacks);
+        List<ToolCallback> streamingCallbacks = streamingToolCallbacks(toolCallbacks, input.tools());
+        if (!streamingCallbacks.isEmpty()) {
+            request = request.toolCallbacks(streamingCallbacks);
         }
 
         request.stream()
@@ -396,13 +423,46 @@ public class StreamingToolAgent extends PropagatingLocalAgent {
         return Math.max(1, userContent.length() / 4);
     }
 
-    /** Returns the set of tool names registered as backend tool callbacks. */
-    private Set<String> getBackendToolNames() {
+    /** Advertise runtime tools without executing them inside Spring AI. */
+    static List<ToolCallback> streamingToolCallbacks(
+            List<ToolCallback> backendCallbacks, List<Tool> runtimeTools) {
+        List<ToolCallback> callbacks = new ArrayList<>(backendCallbacks);
         Set<String> names = new HashSet<>();
-        for (ToolCallback cb : toolCallbacks) {
-            names.add(cb.getToolDefinition().name());
+        for (ToolCallback callback : backendCallbacks) {
+            names.add(callback.getToolDefinition().name());
         }
-        return names;
+        if (runtimeTools == null) {
+            return callbacks;
+        }
+        for (Tool tool : runtimeTools) {
+            if (tool == null || !StringUtils.hasText(tool.name()) || !names.add(tool.name())) {
+                continue;
+            }
+            String schema;
+            try {
+                schema = TOOL_SCHEMA_MAPPER.writeValueAsString(tool.parameters());
+            } catch (JsonProcessingException e) {
+                throw new IllegalArgumentException("Cannot serialize runtime tool " + tool.name(), e);
+            }
+            ToolDefinition definition = ToolDefinition.builder()
+                    .name(tool.name())
+                    .description(tool.description() != null ? tool.description() : "")
+                    .inputSchema(schema)
+                    .build();
+            callbacks.add(new ToolCallback() {
+                @Override
+                public ToolDefinition getToolDefinition() {
+                    return definition;
+                }
+
+                @Override
+                public String call(String input) {
+                    throw new IllegalStateException(
+                            "Runtime tool must execute through CopilotKit: " + definition.name());
+                }
+            });
+        }
+        return callbacks;
     }
 
     /**
@@ -479,8 +539,9 @@ public class StreamingToolAgent extends PropagatingLocalAgent {
      *        auto-executing tool calls through the global
      *        {@link org.springframework.ai.model.tool.ToolCallingManager}.
      *        Used by the streaming path (Phase 1) so that tool_calls in
-     *        the stream are detected but not executed — execution happens
-     *        in Phase 2 via {@code .call()} with explicit tool callbacks.
+     *        the stream are detected but not executed. The caller delegates
+     *        runtime members and directly executes backend members of mixed
+     *        selections; backend-only selections use Phase 2 via {@code .call()}.
      */
     private ChatClient.ChatClientRequestSpec buildBaseRequest(
             RunAgentInput input, String userContent,
