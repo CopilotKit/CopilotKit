@@ -1,8 +1,8 @@
 import type { z } from "zod";
-import type { ZodObject, ZodRawShape, ZodTypeAny } from "zod";
+import type { ZodObject, ZodRawShape } from "zod";
 import { Catalog } from "@a2ui/web_core/v0_9";
 import type { ComponentApi } from "@a2ui/web_core/v0_9";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { catalogSchemaToJsonSchema } from "../catalog-schema";
 import { basicCatalog } from "./catalog/basic";
 import { createLitComponent } from "./adapter";
 import type {
@@ -173,9 +173,9 @@ function resolveCatalog(catalog?: unknown): CatalogContextValue {
 
 function toJsonSchema(
   schema: unknown,
-  options?: Parameters<typeof zodToJsonSchema>[1],
-): ReturnType<typeof zodToJsonSchema> {
-  return zodToJsonSchema(schema as ZodTypeAny, options);
+  options?: Parameters<typeof catalogSchemaToJsonSchema>[1],
+): Record<string, unknown> {
+  return catalogSchemaToJsonSchema(schema, options);
 }
 
 function extendsBasicCatalog(catalog: CatalogContextValue): boolean {
