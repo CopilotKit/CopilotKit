@@ -36,10 +36,15 @@ function useFrontendTools(
 </PropertyReference>
 
 <PropertyReference name="deps" type="ReadonlyArray<unknown>">
-  An optional dependency array, similar to `useEffect`. Registration is
-  refreshed whenever any value in the array changes. Use this when a handler
-  captures external state that is not part of the tool definition, such as a
-  router or a mutation function.
+  An optional dependency array. It has the same contract as the second argument
+  of `useEffect`. Entries are compared by identity, and the array must keep a
+  constant length across renders. Registration is refreshed whenever any entry
+  changes. Use this when a handler captures external state that is not part of
+  the tool definition, such as a router or a mutation function.
+
+  Do not put the source collection here. The hook already keys on the contents
+  of `tools`. Adding `reports` or `data` to `deps` would re-register every tool
+  on every render, because that array is rebuilt each time.
 </PropertyReference>
 
 ## Usage
@@ -150,13 +155,14 @@ function ChartTools({ metrics }: { metrics: Metric[] }) {
 
 ## Behavior
 
-- **Value-based re-registration**: The array is normally built inline, so its identity changes on every render. The hook keys on the `name`, `agentId`, `available`, and `webmcp` of every entry instead. A re-render that produces an equal list does not re-register anything.
+- **Value-based re-registration**: The array is normally built inline, so its identity changes on every render. The hook keys on the `name`, `description`, `agentId`, `available`, and `webmcp` of every entry instead. A re-render that produces an equal list does not re-register anything.
+- **Descriptions stay current**: `description` is part of the key. A description derived from your data, such as `` `Open the ${report.title} report` ``, reaches the agent as soon as the data changes, with no `deps` entry. This is the one place the key differs from [`useFrontendTool`](/reference/hooks/useFrontendTool), which keys only on `name`, `available`, and `webmcp`.
 - **Adding and removing**: When the list changes, tools that are new get registered and tools that left get unregistered. Tools present in both the old and new list are re-registered with their latest definition.
 - **Unmount**: Every tool the hook registered is unregistered on unmount.
 - **Duplicate names**: A `name` and `agentId` pair listed twice in one array is a mistake in the calling code. The last entry wins and the hook logs a warning naming the tool.
 - **Overriding another registration**: If a tool with the same `name` and `agentId` was already registered elsewhere, the hook overrides it and logs a warning, matching `useFrontendTool`.
 - **Render component lifecycle**: Entries with a `render` function register a renderer. Renderers are deliberately left in place after unmount so that past tool calls still render in the chat history.
-- **Handlers are not part of the key**: Changing only a `handler` does not re-register on its own. Pass `deps` when a handler closes over a value that must stay current.
+- **Handlers and parameters are not part of the key**: A `handler` is a function and a `parameters` schema is an object, so neither can be compared by value. Changing only one of them does not re-register on its own. Pass `deps` when a handler closes over a value that must stay current, as the examples above do with `navigate`.
 - **No return value**: The hook returns `void`.
 
 ## Related

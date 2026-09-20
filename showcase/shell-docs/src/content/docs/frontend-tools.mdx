@@ -64,6 +64,8 @@ useFrontendTools(
 ```
 
 Tools that leave the array are unregistered, tools that join it are registered,
-and a re-render that produces an equal list does not re-register anything.
+and a re-render that produces an equal list does not re-register anything. A
+description built from your data stays current on its own. The second argument
+is for values a handler closes over, such as `navigate` above.
 
 <IntegrationGrid path="frontend-tools" />

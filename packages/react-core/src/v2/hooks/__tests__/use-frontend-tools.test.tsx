@@ -362,6 +362,117 @@ describe("useFrontendTools", () => {
     ui.unmount();
   });
 
+  it("re-registers with the new description when only the description changes", async () => {
+    let coreRef: CopilotKitCoreReact | null = null;
+
+    // The headline use case: the tool set is built from data, so the
+    // description is derived from that data while the name stays put.
+    const RenamingTools: React.FC = () => {
+      const [title, setTitle] = useState("Q3");
+      useFrontendTools([
+        { ...makeTool("desc_a"), description: `Open the ${title} report` },
+      ]);
+      return (
+        <button data-testid="rename" onClick={() => setTitle("Q4")}>
+          rename
+        </button>
+      );
+    };
+
+    const ui = renderWithCopilotKit({
+      children: (
+        <>
+          <RenamingTools />
+          <CoreCapture
+            onCore={(c) => {
+              coreRef = c;
+            }}
+          />
+        </>
+      ),
+    });
+
+    await waitFor(() => {
+      expect(coreRef).not.toBeNull();
+      expect(coreRef!.tools.find((t) => t.name === "desc_a")?.description).toBe(
+        "Open the Q3 report",
+      );
+    });
+
+    fireEvent.click(screen.getByTestId("rename"));
+
+    await waitFor(() => {
+      expect(coreRef!.tools.find((t) => t.name === "desc_a")?.description).toBe(
+        "Open the Q4 report",
+      );
+    });
+
+    ui.unmount();
+  });
+
+  it("re-registers when a function passed in deps changes identity", async () => {
+    let coreRef: CopilotKitCoreReact | null = null;
+
+    // Everything the signature keys on is constant here, so only `deps` can
+    // trigger re-registration. A stringified deps array would collapse the
+    // callback to null and leave the first handler registered forever.
+    const ClosureTools: React.FC = () => {
+      const [count, setCount] = useState(0);
+      const handler = React.useCallback(
+        async () => ({ result: `count_${count}` }),
+        [count],
+      );
+      useFrontendTools(
+        [
+          {
+            name: "deps_a",
+            description: "Tool deps_a",
+            parameters: z.object({}),
+            handler,
+          } as ReactFrontendTool<Record<string, never>>,
+        ],
+        [handler],
+      );
+      return (
+        <button data-testid="bump" onClick={() => setCount((n) => n + 1)}>
+          bump
+        </button>
+      );
+    };
+
+    const ui = renderWithCopilotKit({
+      children: (
+        <>
+          <ClosureTools />
+          <CoreCapture
+            onCore={(c) => {
+              coreRef = c;
+            }}
+          />
+        </>
+      ),
+    });
+
+    const callHandler = async () => {
+      const tool = coreRef!.tools.find((t) => t.name === "deps_a");
+      return (await tool!.handler!({}, {} as never)) as { result: string };
+    };
+
+    await waitFor(() => {
+      expect(coreRef).not.toBeNull();
+      expect(coreRef!.tools.find((t) => t.name === "deps_a")).toBeDefined();
+    });
+    expect((await callHandler()).result).toBe("count_0");
+
+    fireEvent.click(screen.getByTestId("bump"));
+
+    await waitFor(async () => {
+      expect((await callHandler()).result).toBe("count_1");
+    });
+
+    ui.unmount();
+  });
+
   it("registers a renderer only for tools that define render, and keeps it after unmount", async () => {
     let coreRef: CopilotKitCoreReact | null = null;
 

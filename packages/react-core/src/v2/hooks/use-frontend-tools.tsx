@@ -19,8 +19,10 @@ const EMPTY_TOOLS: ReadonlyArray<ReactFrontendTool<any>> = [];
  * unmount so past tool calls still render in the chat history.
  *
  * @param tools - The tools to register. May be empty and may change length.
- * @param deps - Extra dependencies that force re-registration. Use this when a
- * handler closes over a value that is not part of the tool definition.
+ * @param deps - Extra dependencies that force re-registration, compared by
+ * identity like the second argument of `useEffect`. Use this when a handler
+ * closes over a value that is not part of the tool definition. Keep the array
+ * a constant length across renders.
  *
  * @example
  * Register one tool per item in application state:
@@ -61,12 +63,19 @@ export function useFrontendTools(
   const extraDeps = deps ?? EMPTY_DEPS;
 
   // The array is usually built inline, so its identity changes on every render
-  // and cannot be a dependency. Derive a value signature from the same fields
-  // useFrontendTool keys on, so the effect re-runs when the set of tools
+  // and cannot be a dependency. Derive a value signature from the fields that
+  // decide what the agent sees, so the effect re-runs when the set of tools
   // actually changes and not merely when the caller re-renders.
+  //
+  // `description` is in the signature even though useFrontendTool does not key
+  // on it. A singular caller writes a literal description, so it never changes
+  // without the component re-mounting. This hook exists to build tools from
+  // data, where the description is usually derived from that data, and a
+  // description the agent reads must not go stale while the names stay put.
   const signature = JSON.stringify(
     toolList.map((tool) => [
       tool.name,
+      tool.description ?? null,
       tool.agentId ?? null,
       tool.available ?? null,
       tool.webmcp ?? null,
@@ -126,5 +135,12 @@ export function useFrontendTools(
     // deliberately not a dependency. `available` and `webmcp` are folded into
     // the signature for the same reasons they are dependencies of
     // useFrontendTool: toggling either must re-register the tool.
-  }, [signature, copilotkit, JSON.stringify(extraDeps)]);
+    //
+    // `deps` is spread rather than stringified. JSON.stringify maps a function
+    // to null, so a stringified `[navigate]` is the constant "[null]", and a
+    // changed callback would never re-register. That is exactly the case `deps`
+    // exists to cover. Spreading gives the entries React's own identity
+    // comparison, the same contract as the second argument of useEffect. Pass a
+    // deps array of a constant length, as React requires everywhere else.
+  }, [signature, copilotkit, ...extraDeps]);
 }
