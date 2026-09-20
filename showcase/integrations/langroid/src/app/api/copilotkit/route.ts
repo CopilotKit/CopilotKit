@@ -105,6 +105,9 @@ agents["default"] = createAgent();
 // STATE_SNAPSHOT events between transitions.
 agents["gen-ui-agent"] = new HttpAgent({ url: `${AGENT_URL}/gen-ui-agent` });
 
+// The dedicated supervisor owns sub-agent execution and delegation state.
+agents["subagents"] = createAgent("/subagents");
+
 console.log(
   `[copilotkit/route] Registered ${Object.keys(agents).length} agent names: ${Object.keys(agents).join(", ")}`,
 );
