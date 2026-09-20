@@ -153,6 +153,7 @@ function runtimeInfo(
     agents,
     audioFileTranscriptionEnabled: false,
     mode: "sse",
+    intelligence: { wsUrl: "" },
     threadEndpoints: endpoints,
     inspectorMetadata: metadata !== undefined,
     licenseStatus: metadata?.license?.state ?? "valid",

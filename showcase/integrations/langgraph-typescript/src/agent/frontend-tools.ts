@@ -50,7 +50,7 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
   return runChatNode(
     state,
     config,
-    new ChatOpenAI({ temperature: 0, model: "gpt-4o-mini" }),
+    new ChatOpenAI({ temperature: 0, model: "gpt-5-mini" }),
   );
 }
 
@@ -71,7 +71,7 @@ async function chatNodeWithHeaders(state: AgentState, config: RunnableConfig) {
   return runChatNode(
     state,
     config,
-    makeChatOpenAI(config, { temperature: 0, model: "gpt-4o-mini" }),
+    makeChatOpenAI(config, { temperature: 0, model: "gpt-5-mini" }),
   );
 }
 

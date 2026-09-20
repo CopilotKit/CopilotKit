@@ -94,7 +94,7 @@
  * ```
  */
 import { useCopilotKit } from "../../v2";
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 
 /**
  * Options for the useCopilotReadable hook.
@@ -166,7 +166,10 @@ export function useCopilotReadable(
   const { copilotkit } = useCopilotKit();
   const ctxIdRef = useRef<string | undefined>(undefined);
 
-  useEffect(() => {
+  // Layout phase, not passive: a consumer mounted before this component (the
+  // chat's connect effect) must see the context. Register and cleanup stay in
+  // the one effect, so both sides remain in the same phase.
+  useLayoutEffect(() => {
     if (!copilotkit) return;
     if (available === "disabled") return;
 

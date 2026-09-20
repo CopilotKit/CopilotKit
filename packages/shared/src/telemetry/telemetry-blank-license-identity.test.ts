@@ -58,16 +58,21 @@ function setupSharedCapture(randomValue: number, telemetryId: string = " \t ") {
   };
 }
 
-test("Shared whitespace-only legacy claim stays subject to sampling", async () => {
+test("Shared whitespace-only legacy claim stays subject to the Segment gate", async () => {
   const sinkSpy = vi.spyOn(lambdaClient, "send").mockResolvedValue(undefined);
   const { client, randomSpy, teardown } = setupSharedCapture(0.99);
 
   try {
     await client.capture("oss.runtime.instance_created", instanceCreatedEvent);
 
+    // An unusable claim must not buy identified status. The gate it now
+    // fails is Segment's alone: the lambda copy goes either way, and what
+    // proves the claim was rejected is that it goes marked anonymous.
     expect(randomSpy).toHaveBeenCalledTimes(1);
-    expect(sinkSpy).not.toHaveBeenCalled();
     expect(segmentTrackMock).not.toHaveBeenCalled();
+    expect(sinkSpy.mock.calls[0][0].globalProperties).toMatchObject({
+      telemetry_identified: false,
+    });
   } finally {
     sinkSpy.mockRestore();
     teardown();
@@ -96,7 +101,7 @@ test("Shared sampled whitespace-only legacy claim sends no identity header", asy
 });
 
 test.each(["bad\nid", "bad\u0000id", "tenant-🚀"])(
-  "Shared header-invalid legacy claim %j stays subject to sampling",
+  "Shared header-invalid legacy claim %j stays subject to the Segment gate",
   async (invalidTelemetryId) => {
     const sinkSpy = vi.spyOn(lambdaClient, "send").mockResolvedValue(undefined);
     const { client, randomSpy, teardown } = setupSharedCapture(
@@ -111,8 +116,10 @@ test.each(["bad\nid", "bad\u0000id", "tenant-🚀"])(
       );
 
       expect(randomSpy).toHaveBeenCalledTimes(1);
-      expect(sinkSpy).not.toHaveBeenCalled();
       expect(segmentTrackMock).not.toHaveBeenCalled();
+      expect(sinkSpy.mock.calls[0][0].globalProperties).toMatchObject({
+        telemetry_identified: false,
+      });
     } finally {
       sinkSpy.mockRestore();
       teardown();

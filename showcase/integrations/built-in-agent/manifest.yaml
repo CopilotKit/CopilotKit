@@ -574,3 +574,11 @@ demos:
 # showcase/shared/constraints.yaml `constrained-explicit` allowlist does not
 # list it. Add it to that allowlist first (separate owner) to surface it as a
 # catalog demo.
+
+# Starter VALIDATION ladder (dashboard). NOT the `starter:` key.
+# A POSITIVE, reviewed declaration that this framework has no starter —
+# absence is never inferred from a missing block.
+starter_validation:
+  supported: false
+  reason: >-
+    CopilotKit's built-in agent needs no framework starter template — there is no external agent runtime to scaffold.

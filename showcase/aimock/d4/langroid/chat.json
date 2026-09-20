@@ -69,7 +69,7 @@
         "context": "langroid"
       },
       "response": {
-        "content": "The current weather in Tokyo is 22°C with partly cloudy skies. Humidity is at 65% with light winds from the east at 12 km/h. Perfect weather for a walk outside!"
+        "content": "The weather in Tokyo is sunny at 85°F, feeling like 84°F, with 43% humidity and wind at 21 mph."
       }
     },
     {

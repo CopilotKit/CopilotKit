@@ -59,7 +59,7 @@ def schedule_meeting(topic: str, attendee: Optional[str] = None) -> str:
 # @endregion[backend-interrupt-tool]
 
 
-model = ChatOpenAI(model="gpt-4o-mini")
+model = ChatOpenAI(model="gpt-5-mini")
 
 graph = create_agent(
     model=model,

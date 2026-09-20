@@ -4,10 +4,10 @@ category: enterprise-platform
 language: java
 logo: /logos/spring-ai.svg
 description: >-
-  CopilotKit integration with Spring AI. Java-based agent backend with full
-  feature coverage including frontend tools, in-chat and in-app human-in-the-
+  CopilotKit integration with Spring AI. Java-based agent backend with
+  support for frontend tools, in-chat and in-app human-in-the-
   loop, generative UI, per-tool renderers, agent context, interrupt-adapted
-  scheduling (Strategy B), per-token state streaming, and prebuilt chat surfaces
+  scheduling (Strategy B), and prebuilt chat surfaces
   (sidebar / popup / slots / headless). Demos that depend on LangGraph-specific
   primitives (interrupt, multi-agent orchestration, MCP-driven UI) are
   documented as skipped in PARITY_NOTES.md.
@@ -55,6 +55,10 @@ not_supported_features:
   - reasoning-default-render
   - agentic-chat-reasoning
   - tool-rendering-reasoning-chain
+  # Spring AI 1.0.1 merges OpenAI streaming tool-call argument deltas inside
+  # OpenAiApi.chatCompletionStream(...), leaving no supported public Spring AI
+  # adapter/configuration seam for genuine within-turn document progression.
+  - shared-state-streaming
 features:
   - cli-start
   - agentic-chat
@@ -77,7 +81,6 @@ features:
   - beautiful-chat
   - readonly-state-agent-context
   - shared-state-read-write
-  - shared-state-streaming
   - subagents
   - auth
   - voice
@@ -369,9 +372,10 @@ demos:
   - id: shared-state-streaming
     name: Shared State Streaming
     description:
-      Per-token state streaming — the agent's write_document tool streams
-      content into state.document via STATE_SNAPSHOT events; the frontend
-      renders the growing document live
+      Retained demo wiring for write_document, state.document, and the
+      document view. Genuine within-turn document progression is unsupported
+      with installed Spring AI 1.0.1, whose OpenAiApi merges streaming tool-call
+      argument deltas before they reach the controller.
     tags:
       - agent-state
     route: /demos/shared-state-streaming
@@ -590,3 +594,11 @@ demos:
       - src/main/java/com/copilotkit/showcase/springai/InterruptAgentController.java
       - src/app/demos/interrupt-headless/page.tsx
       - src/app/api/copilotkit/route.ts
+
+# Starter VALIDATION ladder (dashboard). NOT the `starter:` key.
+# A POSITIVE, reviewed declaration that this framework has no starter —
+# absence is never inferred from a missing block.
+starter_validation:
+  supported: false
+  reason: >-
+    Spring AI has no starter template in examples/integrations and is not in the starter-smoke matrix.

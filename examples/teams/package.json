@@ -17,6 +17,8 @@
   "dependencies": {
     "@copilotkit/channels": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
+    "@microsoft/agents-activity": "^1.5.3",
+    "@microsoft/agents-hosting": "^1.5.3",
     "zod": "^3.25.76"
   },
   "devDependencies": {

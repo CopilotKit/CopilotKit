@@ -13,8 +13,17 @@ import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
 // surface, which is a different protocol). Everything else — runtime
 // config, v2 endpoint wiring, MCP apps, openGenerativeUI, a2ui — mirrors
 // the reference demo.
+// `LANGGRAPH_DEPLOYMENT_URL` is accepted alongside `AGENT_URL` for parity with
+// the langgraph-python / langgraph-js starters, whose `createDefaultAgent()`
+// reads both: the LangGraph docs teach `LANGGRAPH_DEPLOYMENT_URL`, so a reader
+// coming from those starters (or from this repo's own compose stacks) would
+// otherwise silently get the localhost default and a connection-refused run.
 const defaultAgent = new LangGraphHttpAgent({
-  url: `${process.env.AGENT_URL || "http://localhost:8123"}/`,
+  url: `${
+    process.env.AGENT_URL ||
+    process.env.LANGGRAPH_DEPLOYMENT_URL ||
+    "http://localhost:8123"
+  }/`,
 });
 
 const runtime = new CopilotRuntime({

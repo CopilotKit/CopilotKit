@@ -62,6 +62,20 @@ export interface Integration {
    */
   not_supported_features?: string[];
   /**
+   * The `starter_validation:` manifest block (§3.5) — the SSOT for "does this
+   * column have a starter, and is one deployed". Every one of the 21 columns
+   * declares exactly one of the two branches: `path` (+ optional `service`), or
+   * `supported: false` with a `reason`. `generate-registry.ts` copies every
+   * schema-valid manifest key through verbatim, so this needed no producer
+   * change — only a type for the consumers that read it.
+   */
+  starter_validation?: {
+    path?: string;
+    service?: string;
+    supported?: boolean;
+    reason?: string;
+  };
+  /**
    * Per-column docs link overrides sourced from
    * `showcase/integrations/<slug>/docs-links.json`. The `shell_docs_path` is a
    * path relative to the shell root; callers combine it with the framework

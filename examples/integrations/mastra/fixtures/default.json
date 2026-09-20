@@ -9,7 +9,7 @@
     {
       "match": { "toolCallId": "call_get_weather_001" },
       "response": {
-        "content": "The weather in San Francisco is currently 70°F with clear skies, 45% humidity, and a light breeze at 5 mph. It feels like 72°F. A beautiful day!"
+        "content": "Here is the current weather in San Francisco — the readings are on the card above."
       }
     },
     {
@@ -17,7 +17,7 @@
       "response": {
         "toolCalls": [
           {
-            "name": "get-weather",
+            "name": "weatherTool",
             "arguments": "{\"location\":\"San Francisco\"}",
             "id": "call_get_weather_001"
           }

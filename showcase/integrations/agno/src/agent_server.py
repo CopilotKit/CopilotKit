@@ -15,9 +15,13 @@ Interfaces:
                                   sub-agents (custom router emits STATE_SNAPSHOT)
 """
 
+# Provider hooks must be installed before the agent imports construct clients.
+# ruff: noqa: E402
+
 import asyncio
 import os
 import uuid
+from copy import deepcopy
 from typing import Any, AsyncIterator, List, Optional, Set, Union
 
 # CVDIAG bootstrap — MUST be the first non-stdlib import (folded in from the
@@ -65,11 +69,13 @@ from ag_ui.core import (
     TextMessageStartEvent,
 )
 from ag_ui.core.types import Message as AGUIMessage
+from ag_ui.core.types import Tool as AGUITool
 from ag_ui.encoder import EventEncoder
 from agno.agent import Agent, RemoteAgent
 from agno.models.message import Message
 from agno.os import AgentOS
 from agno.os.interfaces.agui import AGUI
+from agno.tools.function import Function
 
 # TODO: migrate to agno 2.6.20+ API once agui.utils replacement is identified
 from agno.os.interfaces.agui.utils import (
@@ -77,7 +83,7 @@ from agno.os.interfaces.agui.utils import (
     extract_agui_user_input,
     validate_agui_state,
 )
-from agno.utils.log import log_debug, log_warning
+from agno.utils.log import log_debug
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -221,14 +227,38 @@ def _convert_agui_messages(messages: List[AGUIMessage]) -> List[Message]:
 # `extract_agui_user_input` behaviour.
 
 
+def _with_frontend_tools(agent: Agent, tools: List[AGUITool]) -> Agent:
+    """Admit browser schemas without mutating the process-shared agent."""
+    if not tools:
+        return agent
+    request_agent = agent.deep_copy()
+    # Agno keeps the first registration on name collisions. Native tools
+    # retain priority; frontend tools execute only in the browser.
+    request_agent.tools = [
+        *(request_agent.tools or []),
+        *[
+            Function(
+                name=tool.name,
+                description=tool.description,
+                parameters=deepcopy(tool.parameters),
+                external_execution=True,
+                external_execution_silent=True,
+            )
+            for tool in tools
+        ],
+    ]
+    return request_agent
+
+
 async def _run_main_agent_hitl_aware(
-    agent: Union[Agent, RemoteAgent], run_input: RunAgentInput
+    agent: Agent, run_input: RunAgentInput
 ) -> AsyncIterator[BaseEvent]:
     """Stream one agent run, forwarding tool results when present."""
     run_id = run_input.run_id or str(uuid.uuid4())
     thread_id = run_input.thread_id
 
     try:
+        agent = _with_frontend_tools(agent, run_input.tools)
         messages = run_input.messages or []
         has_results = _has_tool_results(messages)
 
@@ -798,14 +828,10 @@ agent_os = AgentOS(
         # reasoning_agent is mounted separately below via
         # _attach_reasoning_route so /reasoning/agui emits REASONING_MESSAGE_*
         # events instead of the stock AGUI STEP_STARTED/STEP_FINISHED.
-        # No-tools agent for the MCP Apps cell. The CopilotKit runtime's
-        # `mcpApps.servers` middleware injects MCP server tools at request
-        # time, so the LLM only sees the MCP-provided toolset.
-        AGUI(agent=mcp_apps_agent, prefix="/mcp-apps"),  # -> /mcp-apps/agui
-        # No-tools agent for the Open Generative UI cells. The runtime's
-        # `openGenerativeUI` middleware injects the `generateSandboxedUi`
-        # tool the LLM uses to author HTML+CSS for the sandboxed iframe.
-        AGUI(agent=open_gen_ui_agent, prefix="/open-gen-ui"),  # -> /open-gen-ui/agui
+        # MCP Apps is mounted separately below so incoming MCP tool schemas
+        # and tool-result continuations reach its dedicated no-tools agent.
+        # OpenUI is mounted separately below so runtime-injected tools and
+        # their result continuations reach its dedicated no-tools agent.
         # Vision-capable agent (gpt-4o) for the Multimodal Attachments cell.
         AGUI(agent=multimodal_agent, prefix="/multimodal"),  # -> /multimodal/agui
         # BYOC: hashbrown — agent emits a hashbrown UI-kit envelope as a single
@@ -832,6 +858,28 @@ app = agent_os.get_app()
 # are forwarded to the LLM on the second leg of HITL flows instead of being
 # silently dropped by ``extract_agui_user_input()``.
 _attach_hitl_aware_route(app, main_agent, "")
+
+# Preserve MCP status while replacing the stock handler that drops injected tools.
+mcp_apps_status_router = AGUI(agent=mcp_apps_agent, prefix="/mcp-apps").get_router()
+mcp_apps_status_router.routes = [
+    route
+    for route in mcp_apps_status_router.routes
+    if getattr(route, "path", None) == "/mcp-apps/status"
+]
+app.include_router(mcp_apps_status_router)
+_attach_hitl_aware_route(app, mcp_apps_agent, "/mcp-apps")
+
+# Preserve OpenUI status while admitting runtime-injected sandbox tools.
+open_gen_ui_status_router = AGUI(
+    agent=open_gen_ui_agent, prefix="/open-gen-ui"
+).get_router()
+open_gen_ui_status_router.routes = [
+    route
+    for route in open_gen_ui_status_router.routes
+    if getattr(route, "path", None) == "/open-gen-ui/status"
+]
+app.include_router(open_gen_ui_status_router)
+_attach_hitl_aware_route(app, open_gen_ui_agent, "/open-gen-ui")
 
 # Interrupt-adapted scheduling agent. Shared by gen-ui-interrupt and
 # interrupt-headless demos -- backend has tools=[], the frontend provides

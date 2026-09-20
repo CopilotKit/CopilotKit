@@ -1,9 +1,9 @@
 "use client";
 
 import React from "react";
-import { Copy, Lightbulb, MessagesSquare } from "lucide-react";
+import { DocsPromptActions } from "./docs-prompt-actions";
+import { Lightbulb, MessagesSquare } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { usePostHog } from "posthog-js/react";
 import {
   createIntelligenceOnboardingPrompt,
   createOnboardingRunId,
@@ -45,8 +45,6 @@ const FEATURE_COPY = {
   },
 } as const;
 
-type CopyState = "idle" | "copied" | "error";
-
 /** One onboarding action with feature-specific value copy. */
 export function IntelligenceOnboardingPrompt({
   feature,
@@ -54,40 +52,7 @@ export function IntelligenceOnboardingPrompt({
 }: IntelligenceOnboardingPromptProps): React.JSX.Element {
   const content = FEATURE_COPY[feature];
   const pathname = usePathname();
-  const posthog = usePostHog();
-  const [copyState, setCopyState] = React.useState<CopyState>("idle");
   const headingId = React.useId();
-
-  function capture(event: string, properties: Record<string, unknown>) {
-    try {
-      posthog?.capture(event, properties);
-    } catch {
-      // Analytics must never interrupt docs rendering or clipboard actions.
-    }
-  }
-
-  async function copyPrompt() {
-    const runId = createOnboardingRunId();
-
-    try {
-      await navigator.clipboard.writeText(
-        createIntelligenceOnboardingPrompt(runId),
-      );
-    } catch {
-      setCopyState("error");
-      setTimeout(() => setCopyState("idle"), 2600);
-      return;
-    }
-
-    setCopyState("copied");
-    capture(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied, {
-      feature,
-      from_path: pathname,
-      onboarding_run_id: runId,
-      surface,
-    });
-    setTimeout(() => setCopyState("idle"), 1800);
-  }
 
   return (
     <section
@@ -96,7 +61,7 @@ export function IntelligenceOnboardingPrompt({
       data-surface={surface}
       className="shell-docs-radius-surface not-prose relative border border-[#DBDBE5] bg-[linear-gradient(135deg,#FFFFFF_0%,#F7F7F9_46%,#EDEDF5_100%)] p-5 shadow-[0_1px_3px_rgba(1,5,7,0.08),inset_0_1px_0_rgba(255,255,255,0.9)] dark:border-[#57575B] dark:bg-[linear-gradient(135deg,#2B2B2B_0%,color-mix(in_oklch,#EDEDF5_8%,var(--bg-surface))_100%)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.32)]"
     >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <span
             aria-hidden="true"
@@ -117,18 +82,22 @@ export function IntelligenceOnboardingPrompt({
           </h2>
         </div>
 
-        <button
-          type="button"
-          onClick={copyPrompt}
-          className="shell-docs-radius-control inline-flex min-h-10 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-[#010507] bg-[#010507] px-4 text-sm font-semibold text-white shadow-[0_1px_3px_rgba(1,5,7,0.12)] transition-[background-color,transform] hover:bg-[#2B2B2B] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BEC2FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#EDEDF5] sm:w-auto"
-        >
-          <Copy aria-hidden="true" className="h-4 w-4" />
-          {copyState === "copied"
-            ? "Copied"
-            : copyState === "error"
-              ? "Copy blocked"
-              : "Copy prompt"}
-        </button>
+        <DocsPromptActions
+          surface={surface}
+          copiedEvent={INTELLIGENCE_ONBOARDING_EVENTS.promptCopied}
+          createPrompt={() => {
+            const runId = createOnboardingRunId();
+            return {
+              text: createIntelligenceOnboardingPrompt(runId),
+              analyticsProperties: {
+                feature,
+                from_path: pathname,
+                onboarding_run_id: runId,
+                surface,
+              },
+            };
+          }}
+        />
       </div>
 
       {feature === "learning" ? (
@@ -176,14 +145,6 @@ export function IntelligenceOnboardingPrompt({
           ))}
         </p>
       )}
-
-      <span aria-live="polite" className="sr-only">
-        {copyState === "copied"
-          ? "Prompt copied"
-          : copyState === "error"
-            ? "Prompt copy failed. Try again."
-            : ""}
-      </span>
     </section>
   );
 }

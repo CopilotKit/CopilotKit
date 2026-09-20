@@ -1,7 +1,7 @@
 """Multimodal PydanticAI agent — accepts image + document (PDF) attachments.
 
 Ports showcase/integrations/langgraph-python/src/agents/multimodal_agent.py to
-PydanticAI. The vision-capable model (`gpt-4o`) is scoped to this agent
+PydanticAI. The vision-capable model (`gpt-5-mini`) is scoped to this agent
 only so other demos keep their cheaper text-only models.
 
 Wire format the agent sees
@@ -914,13 +914,13 @@ class _MultimodalFlattenModel(WrapperModel):
             yield response_stream
 
 
-# Vision-capable model (``gpt-4o`` consumes image content natively), wrapped so
+# Vision-capable model (``gpt-5-mini`` consumes image content natively), wrapped so
 # the AG-UI attachment flatten is scoped to the model call and never persists
-# into UI-visible state. (The gpt-4o vs gpt-5.4 choice mirrors the
-# langgraph-python reference's intent but stays on gpt-4o here to keep the
+# into UI-visible state. (The gpt-5-mini vs gpt-5.4 choice mirrors the
+# langgraph-python reference's intent but stays on gpt-5-mini here to keep the
 # recorded aimock fixtures stable.)
 agent = Agent(
-    model=_MultimodalFlattenModel(OpenAIResponsesModel("gpt-4o")),
+    model=_MultimodalFlattenModel(OpenAIResponsesModel("gpt-5-mini")),
     system_prompt=SYSTEM_PROMPT,
 )
 

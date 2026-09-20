@@ -67,6 +67,7 @@ def test_tool_error_kind_values_pinned():
     complete set so a typo regression (``"get_wether_failed"``) or an
     accidental addition / removal is caught at unit-test time."""
     assert _ToolErrorKind.GET_WEATHER_FAILED.value == "get_weather_failed"
+    assert _ToolErrorKind.GET_REVENUE_CHART_FAILED.value == "get_revenue_chart_failed"
     assert _ToolErrorKind.QUERY_DATA_FAILED.value == "query_data_failed"
     assert _ToolErrorKind.MANAGE_SALES_TODOS_FAILED.value == "manage_sales_todos_failed"
     assert _ToolErrorKind.GET_SALES_TODOS_FAILED.value == "get_sales_todos_failed"
@@ -74,6 +75,7 @@ def test_tool_error_kind_values_pinned():
     assert _ToolErrorKind.SEARCH_FLIGHTS_FAILED.value == "search_flights_failed"
     assert {m.value for m in _ToolErrorKind} == {
         "get_weather_failed",
+        "get_revenue_chart_failed",
         "query_data_failed",
         "manage_sales_todos_failed",
         "get_sales_todos_failed",
@@ -173,8 +175,8 @@ def test_tool_tuples_contain_only_tool_message_subclasses():
     # ALL_TOOLS = BACKEND_TOOLS + FRONTEND_TOOLS — count pin so a new tool
     # not wired into ALL_TOOLS gets caught here too.
     assert len(ALL_TOOLS) == len(BACKEND_TOOLS) + len(FRONTEND_TOOLS)
-    assert len(ALL_TOOLS) == 9, (
-        f"ALL_TOOLS should have 9 entries (6 backend + 3 frontend); got "
+    assert len(ALL_TOOLS) == 11, (
+        f"ALL_TOOLS should have 11 entries (8 backend + 3 frontend); got "
         f"{len(ALL_TOOLS)}"
     )
 
@@ -344,7 +346,7 @@ def test_create_agent_wires_all_tools_with_stream_true(monkeypatch):
 
 def test_create_agent_default_model_when_langroid_model_unset(monkeypatch):
     """When ``LANGROID_MODEL`` is unset, ``create_agent`` falls back to the
-    documented default ``gpt-4.1``. Pins the default string so a silent
+    documented default ``gpt-5-mini``. Pins the default string so a silent
     drift between the primary agent default and documentation is caught."""
     monkeypatch.delenv("LANGROID_MODEL", raising=False)
 
@@ -371,7 +373,7 @@ def test_create_agent_default_model_when_langroid_model_unset(monkeypatch):
     ):
         create_agent()
 
-    assert captured_config_kwargs[0]["chat_model"] == "gpt-4.1"
+    assert captured_config_kwargs[0]["chat_model"] == "gpt-5-mini"
 
 
 # ---------------------------------------------------------------------------
@@ -567,3 +569,16 @@ def test_agent_module_import_does_not_warn_about_openai_on_stderr(tmp_path):
             assert not re.search(pat, stream_val), (
                 f"{stream_name} matched regression pattern {pat!r}: {stream_val!r}"
             )
+
+
+def test_registered_stock_tool_returns_shared_renderer_contract():
+    stock_tool = next(
+        tool
+        for tool in BACKEND_TOOLS
+        if tool.default_value("request") == "get_stock_price"
+    )
+    assert json.loads(stock_tool(ticker="aapl").handle()) == {
+        "ticker": "AAPL",
+        "price_usd": 189.42,
+        "change_pct": 1.27,
+    }

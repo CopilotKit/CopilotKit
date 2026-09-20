@@ -160,14 +160,6 @@ export interface CopilotRuntimeHandlerOptions {
   mode?: "multi-route" | "single-route";
 
   /**
-   * Explicitly exposes the read-only Inspector Learning capability.
-   *
-   * Defaults to `false`. Debug mode and the handler's normal request/auth
-   * middleware remain independent, additional gates.
-   */
-  inspectorLearning?: boolean;
-
-  /**
    * Optional CORS configuration.
    * When not provided, no CORS headers are added (let the framework handle it).
    * Set to true for permissive defaults, or provide an object.
@@ -331,14 +323,7 @@ export function createCopilotRuntimeHandler(
 export function createCopilotRuntimeHandler(
   options: CopilotRuntimeHandlerOptions,
 ): CopilotRuntimeFetchHandler {
-  const {
-    runtime,
-    basePath,
-    mode = "multi-route",
-    cors,
-    hooks,
-    inspectorLearning = false,
-  } = options;
+  const { runtime, basePath, mode = "multi-route", cors, hooks } = options;
 
   fireInstanceCreatedTelemetry({ runtime });
 
@@ -423,6 +408,11 @@ export function createCopilotRuntimeHandler(
           route.method === "transcribe"
         ) {
           request = createJsonRequest(request, methodCall.body);
+        } else if (route.method === "agent/stop") {
+          request = createJsonRequest(
+            request,
+            methodCall.body === undefined ? {} : methodCall.body,
+          );
         } else if (route.method === "inspector/learning") {
           const learningUrl = new URL(request.url);
           for (const key of [
@@ -443,7 +433,6 @@ export function createCopilotRuntimeHandler(
         }
         response = await dispatchRoute(runtime, request, route, {
           threadEndpointsEnabled: methodCall.method === "resource/request",
-          inspectorLearningEnabled: inspectorLearning,
           singleRouteResourceOperationsEnabled: true,
         });
       } else {
@@ -505,7 +494,6 @@ export function createCopilotRuntimeHandler(
         // 6. Handler dispatch
         response = await dispatchRoute(runtime, request, route, {
           threadEndpointsEnabled: true,
-          inspectorLearningEnabled: inspectorLearning,
           singleRouteResourceOperationsEnabled: false,
         });
       }
@@ -621,7 +609,6 @@ function dispatchRoute(
   route: RouteInfo,
   options: {
     threadEndpointsEnabled: boolean;
-    inspectorLearningEnabled: boolean;
     singleRouteResourceOperationsEnabled: boolean;
   },
 ): Promise<Response> {
@@ -677,7 +664,6 @@ function dispatchRoute(
         runtime,
         request,
         threadEndpointsEnabled: options.threadEndpointsEnabled,
-        inspectorLearningEnabled: options.inspectorLearningEnabled,
         singleRouteResourceOperationsEnabled:
           options.singleRouteResourceOperationsEnabled,
       });
@@ -687,7 +673,6 @@ function dispatchRoute(
       return handleInspectorLearning({
         runtime,
         request,
-        enabled: options.inspectorLearningEnabled,
       });
     case "transcribe":
       return handleTranscribe({ runtime, request });

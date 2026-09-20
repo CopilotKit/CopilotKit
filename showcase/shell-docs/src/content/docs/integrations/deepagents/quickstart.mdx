@@ -5,10 +5,11 @@ icon: "lucide/Rocket"
 ---
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
-<IntelligenceOnboardingPrompt
-  feature="learning"
-  surface="docs_deepagents_quickstart"
-/>
+## Start with your coding agent
+
+Use this prompt to connect your Deep Agents agent to CopilotKit and verify a working conversation. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
+
+<PageAgentPrompt />
 
 ## Prerequisites
 
@@ -23,9 +24,9 @@ Before you begin, you'll need the following:
 
 <Steps>
     <Step>
-        ### Create a free account
+        ### Set up CopilotKit Intelligence
 
-        <SignupLink surface="docs_deepagents_quickstart_step1">Sign up for a free developer account</SignupLink> for CopilotKit Intelligence to get a license key. You'll use it later to enable persistent threads and the inspector.
+        <SignupLink surface="docs_deepagents_quickstart_step1">Sign in to managed Intelligence</SignupLink>. Managed setup uses a server-side project API key and does not issue `COPILOTKIT_LICENSE_TOKEN`. You will connect the app after you create it below.
     </Step>
 
     <Step>
@@ -311,11 +312,11 @@ Before you begin, you'll need the following:
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
                 } from "@copilotkit/runtime/v2";
-                import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
+                import { HttpAgent } from "@ag-ui/client";
 
                 const runtime = new CopilotRuntime({
                     agents: {
-                        sample_agent: new LangGraphHttpAgent({
+                        sample_agent: new HttpAgent({
                             url: process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
                         }),
                     },
@@ -341,10 +342,15 @@ Before you begin, you'll need the following:
             </Tab>
         </Tabs>
 
-        The runtime reads the project API key from step 1. Add it to the app that serves
-        this route:
+        From this frontend app directory, connect the runtime to an Intelligence project:
 
-        ```plaintext title=".env.local"
+        ```bash title="Terminal"
+        npx copilotkit@latest project select
+        ```
+
+        The command writes the server-side project API key to `.env`. The runtime reads it here:
+
+        ```plaintext title=".env"
         CPK_INTELLIGENCE_API_KEY=cpk-...
         ```
 
@@ -361,8 +367,25 @@ Before you begin, you'll need the following:
 
         Wrap your application with the CopilotKit provider:
 
-        ```tsx title="app/layout.tsx"
+        ```tsx title="app/providers.tsx"
+        "use client";
+
         import { CopilotKit } from "@copilotkit/react-core/v2";
+
+        export function Providers({ children }: { children: React.ReactNode }) {
+          return (
+            <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent" useSingleEndpoint={false}>
+              {children}
+            </CopilotKit>
+          );
+        }
+        ```
+
+        `app/layout.tsx` is a server component and cannot import the provider
+        directly, so it renders your client file instead:
+
+        ```tsx title="app/layout.tsx"
+        import { Providers } from "./providers";
         import "@copilotkit/react-core/v2/styles.css";
 
         // ...
@@ -371,9 +394,9 @@ Before you begin, you'll need the following:
             return (
                 <html lang="en">
                     <body>
-                        <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent" useSingleEndpoint={false}>
+                        <Providers>
                             {children}
-                        </CopilotKit>
+                        </Providers>
                     </body>
                 </html>
             );

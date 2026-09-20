@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { InspectorLearningSnapshotV1 } from "@copilotkit/shared";
 import type { CpkLearningView } from "./learning-view.js";
 import { deriveLearningViewState } from "./learning-view.js";
@@ -30,7 +30,7 @@ function snapshot(
       items: [],
     },
     links: {
-      learning: "https://app.copilotkit.ai/learning",
+      learning: "https://app.copilotkit.ai/o/acme/checkout/learning",
       candidates: null,
       runs: null,
     },
@@ -177,7 +177,7 @@ describe("Learning results hierarchy", () => {
     view.remove();
   });
 
-  it("keeps the empty-result web-app management link quiet and safe", async () => {
+  it("keeps the empty-result Intelligence link quiet and safe", async () => {
     const view = document.createElement("cpk-learning-view") as CpkLearningView;
     view.supported = true;
     view.snapshot = snapshot({
@@ -191,7 +191,8 @@ describe("Learning results hierarchy", () => {
         latest: null,
       },
       links: {
-        learning: "https://app.copilotkit.ai/learning?project=project-safe-key",
+        learning:
+          "https://app.copilotkit.ai/o/acme/checkout/learning/container-1",
         candidates: null,
         runs: null,
       },
@@ -203,10 +204,19 @@ describe("Learning results hierarchy", () => {
       view.shadowRoot!.querySelector<HTMLAnchorElement>("a.quiet-link");
     expect(link?.textContent?.trim()).toBe("Open in web app ↗");
     expect(link?.href).toBe(
-      "https://app.copilotkit.ai/learning?project=project-safe-key",
+      "https://app.copilotkit.ai/o/acme/checkout/learning/container-1",
     );
     expect(link?.target).toBe("_blank");
     expect(link?.rel.split(/\s+/).sort()).toEqual(["noopener", "noreferrer"]);
+    view.remove();
+  });
+
+  it("opens Intelligence from results even without new Threads or pending candidates", async () => {
+    const view = await renderResults();
+    const link =
+      view.shadowRoot!.querySelector<HTMLAnchorElement>(".pane-actions a");
+    expect(link?.textContent?.trim()).toBe("Open Intelligence ↗");
+    expect(link?.href).toBe("https://app.copilotkit.ai/");
     view.remove();
   });
 
@@ -297,6 +307,79 @@ describe("Learning setup progress", () => {
     return view;
   }
 
+  it.each([
+    {
+      overrides: { configuration: { state: "selection_required" as const } },
+      selectors: [["a.primary", "learning"]],
+    },
+    {
+      overrides: { pendingThreadCount: 3 },
+      selectors: [["a.setup-cta", "runs"]],
+    },
+    {
+      overrides: {
+        run: { hasActiveRun: true, hasEverSucceeded: false, latest: null },
+      },
+      selectors: [["a.setup-cta", "runs"]],
+    },
+    {
+      overrides: { pendingCandidateCount: 2, pendingThreadCount: 3 },
+      selectors: [
+        [".pane-actions a", "home"],
+        ["a.review-link", "candidates"],
+        ["a.results-cta", "runs"],
+      ],
+    },
+  ])(
+    "preserves each scoped action and the general app link: %j",
+    async ({ overrides, selectors }) => {
+      const origin = "https://intelligence.customer.example";
+      const learning = `${origin}/o/acme/project/learning/container-1`;
+      const destinations: Record<string, string> = {
+        home: `${origin}/`,
+        learning,
+        candidates: `${learning}/skills`,
+        runs: `${learning}/analysis-results`,
+      };
+      const view = await renderProgress(
+        snapshot({
+          configuration: {
+            state: "configured",
+            container: { id: "container-1", name: "Production" },
+          },
+          webAppOrigin: origin,
+          links: {
+            learning,
+            candidates: destinations.candidates!,
+            runs: destinations.runs!,
+          },
+          ...overrides,
+        }),
+      );
+      const opened = vi.fn();
+      view.addEventListener("learning-web-link", opened);
+      expect(view.shadowRoot!.querySelectorAll("a")).toHaveLength(
+        selectors.length,
+      );
+      for (const [selector, category] of selectors) {
+        const link = view.shadowRoot!.querySelector<HTMLAnchorElement>(
+          selector!,
+        );
+        expect(link?.href).toBe(destinations[category!]);
+        expect(link?.target).toBe("_blank");
+        expect(link?.rel.split(/\s+/).sort()).toEqual([
+          "noopener",
+          "noreferrer",
+        ]);
+        link!.click();
+        expect(opened.mock.calls.at(-1)?.[0].detail).toEqual({
+          category: category === "home" ? "learning" : category,
+        });
+      }
+      view.remove();
+    },
+  );
+
   it("shows all three setup steps and keeps analysis disabled while waiting", async () => {
     const view = await renderProgress(snapshot(), true);
     expect(view.shadowRoot!.textContent).toContain("1 of 3 steps");
@@ -319,9 +402,46 @@ describe("Learning setup progress", () => {
     expect(promptStep.querySelector(".step-number")?.textContent).toBe("✓");
     expect(setupStep.classList.contains("current")).toBe(true);
     expect(
+      view.shadowRoot!.querySelector<HTMLButtonElement>(".copy-again")
+        ?.textContent,
+    ).toContain("Copy prompt again");
+    expect(
+      view.shadowRoot!.querySelector<HTMLButtonElement>(".pane-actions button")
+        ?.textContent,
+    ).toContain("Go back");
+    expect(
       view.shadowRoot!.querySelector<HTMLButtonElement>("button[disabled]")
         ?.textContent,
     ).toContain("Analyze Threads");
+    view.remove();
+  });
+
+  it("emits copy and back actions from setup progress", async () => {
+    const view = await renderProgress(snapshot(), true);
+    const copy = vi.fn();
+    const goBack = vi.fn();
+    view.addEventListener("learning-recopy-setup", copy);
+    view.addEventListener("learning-go-back", goBack);
+
+    view.shadowRoot!.querySelector<HTMLButtonElement>(".copy-again")?.click();
+    view
+      .shadowRoot!.querySelector<HTMLButtonElement>(".pane-actions button")
+      ?.click();
+
+    expect(copy).toHaveBeenCalledOnce();
+    expect(goBack).toHaveBeenCalledOnce();
+    view.remove();
+  });
+
+  it("confirms when the setup prompt is copied again", async () => {
+    const view = await renderProgress(snapshot(), true);
+    view.recopyState = "copied";
+    await view.updateComplete;
+
+    expect(
+      view.shadowRoot!.querySelector<HTMLButtonElement>(".copy-again")
+        ?.textContent,
+    ).toContain("Copied!");
     view.remove();
   });
 
@@ -334,9 +454,9 @@ describe("Learning setup progress", () => {
         },
         pendingThreadCount: 3,
         links: {
-          learning: "https://app.copilotkit.ai/learning",
+          learning: "https://app.copilotkit.ai/o/acme/checkout/learning",
           candidates: null,
-          runs: "https://app.copilotkit.ai/learning?tab=runs",
+          runs: "https://app.copilotkit.ai/o/acme/checkout/learning/container-1/analysis-results",
         },
       }),
     );

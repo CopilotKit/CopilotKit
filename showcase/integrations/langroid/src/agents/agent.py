@@ -8,7 +8,7 @@ protocol (SSE events) manually using the ag-ui-protocol types.
 The agent supports:
   - Agentic chat (streaming text responses)
   - Backend tool execution (get_weather, query_data, manage_sales_todos,
-    get_sales_todos, search_flights, generate_a2ui)
+    get_sales_todos, search_flights, get_stock_price, get_revenue_chart, generate_a2ui)
   - Frontend tool calls (change_background, generate_haiku, schedule_meeting)
   - Human-in-the-loop via schedule_meeting (frontend-rendered meeting time picker)
 
@@ -54,6 +54,8 @@ logger = logging.getLogger(__name__)
 # =====================================================================
 from tools import (
     get_weather_impl,
+    get_stock_price_impl,
+    get_revenue_chart_impl,
     query_data_impl,
     manage_sales_todos_impl,
     get_sales_todos_impl,
@@ -78,6 +80,7 @@ class _ToolErrorKind(str, Enum):
     """
 
     GET_WEATHER_FAILED = "get_weather_failed"
+    GET_REVENUE_CHART_FAILED = "get_revenue_chart_failed"
     QUERY_DATA_FAILED = "query_data_failed"
     MANAGE_SALES_TODOS_FAILED = "manage_sales_todos_failed"
     GET_SALES_TODOS_FAILED = "get_sales_todos_failed"
@@ -117,6 +120,30 @@ class GetWeatherTool(ToolMessage):
 
 
 # @endregion[weather-tool-backend]
+
+
+class GetStockPriceTool(ToolMessage):
+    request: str = "get_stock_price"
+    purpose: str = "Get the mock current stock price and daily percentage change."
+    ticker: str
+
+    def handle(self) -> str:
+        return _json_dumps(get_stock_price_impl(self.ticker))
+
+
+class GetRevenueChartTool(ToolMessage):
+    request: str = "get_revenue_chart"
+    purpose: str = "Get the mock revenue chart for the last six months."
+
+    def handle(self) -> str:
+        try:
+            return _json_dumps(get_revenue_chart_impl())
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("GetRevenueChartTool.handle failed")
+            return _tool_error(
+                error=_ToolErrorKind.GET_REVENUE_CHART_FAILED,
+                message=f"{exc.__class__.__name__}: {str(exc)[:200]}",
+            )
 
 
 class QueryDataTool(ToolMessage):
@@ -293,6 +320,8 @@ class GenerateA2UITool(ToolMessage):
 # Tools that execute server-side (Langroid handles them directly)
 BACKEND_TOOLS: tuple[type[ToolMessage], ...] = (
     GetWeatherTool,
+    GetStockPriceTool,
+    GetRevenueChartTool,
     QueryDataTool,
     ManageSalesTodosTool,
     GetSalesTodosTool,
@@ -342,8 +371,9 @@ SYSTEM_PROMPT = (
     "- Search flights and display rich A2UI cards (via search_flights tool)\n"
     "- Generate dynamic A2UI dashboards from conversation context (via generate_a2ui tool)\n"
     "- Generate step-by-step plans for user review (human-in-the-loop)\n"
+    "When asked about revenue over the last six months, use get_revenue_chart. "
     "When asked about weather, always use the get_weather tool. "
-    "When asked about data, charts, or graphs, use the query_data tool first."
+    "When asked about other data, charts, or graphs, use the query_data tool first."
 )
 
 
@@ -355,9 +385,9 @@ SYSTEM_PROMPT = (
 def create_agent(system_message: str | None = None) -> lr.ChatAgent:
     """Create a Langroid ChatAgent configured with all showcase tools.
 
-    Default model is the bare ``gpt-4.1`` (not ``openai/gpt-4.1``): langroid
+    Default model is the bare ``gpt-5-mini`` (not ``openai/gpt-5-mini``): langroid
     does NOT strip the ``openai/`` prefix before passing the string to the
-    OpenAI SDK, and the SDK rejects ``openai/gpt-4.1`` as "model not found".
+    OpenAI SDK, and the SDK rejects ``openai/gpt-5-mini`` as "model not found".
 
     ``system_message`` — optional override for the agent's system prompt.
     Used by the Agent Config Object demo to steer tone / expertise /
@@ -365,7 +395,7 @@ def create_agent(system_message: str | None = None) -> lr.ChatAgent:
     ``SYSTEM_PROMPT`` is used so behavior for every other demo is
     unchanged.
     """
-    model = os.getenv("LANGROID_MODEL", "gpt-4.1")
+    model = os.getenv("LANGROID_MODEL", "gpt-5-mini")
 
     llm_config = lm.OpenAIGPTConfig(
         chat_model=model,

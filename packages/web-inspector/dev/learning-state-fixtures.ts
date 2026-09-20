@@ -348,15 +348,14 @@ function page<T>(items: readonly T[], pageSize: 3 | 4, requested = 1) {
 }
 
 function links(container = false) {
+  const projectLearning = `${WEB_APP_ORIGIN}/o/acme/checkout/learning`;
   const learning = container
-    ? `${WEB_APP_ORIGIN}/learning?container=checkout-assistant-default`
-    : `${WEB_APP_ORIGIN}/learning`;
+    ? `${projectLearning}/checkout-assistant-default`
+    : projectLearning;
   return {
     learning,
-    candidates: container
-      ? `${WEB_APP_ORIGIN}/o/acme/checkout/learning/checkout-assistant-default/skills`
-      : null,
-    runs: container ? `${learning}&tab=runs` : null,
+    candidates: container ? `${learning}/skills` : null,
+    runs: container ? `${learning}/analysis-results` : null,
   };
 }
 

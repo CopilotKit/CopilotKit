@@ -1,0 +1,37 @@
+---
+title: Human-in-the-Loop
+icon: lucide/User
+description: Learn how to implement Human-in-the-Loop (HITL) using Microsoft Agent Framework agents.
+---
+
+## What is Human-in-the-Loop (HITL)?
+
+Human-in-the-loop (HITL) lets an agent ask for human input or approval while it runs. Use it when an action is expensive, destructive, or needs judgment the agent does not have.
+
+## How can I use this?
+
+Microsoft Agent Framework supports two patterns, and they solve different problems.
+
+Use **interrupt-based** HITL when the backend owns the decision. You mark a backend tool as approval-gated, and the agent pauses before it runs. The frontend does not need to know the tool's name.
+
+Use **tool-based** HITL when the frontend owns the work. You define a tool that runs in the browser, and the agent calls it like any other tool.
+
+<CTACards
+  columns={2}
+  cards={[
+    {
+      iconKey: "circlePause",
+      title: "Interrupt-based",
+      description:
+        "Mark a backend tool as approval-gated. The agent pauses, useInterrupt renders your approval UI, and your answer resumes the run.",
+      href: "/human-in-the-loop/interrupt-flow",
+    },
+    {
+      iconKey: "share2",
+      title: "Tool-based",
+      description:
+        "Register a frontend tool with useHumanInTheLoop that renders UI and waits for the user's response before returning a result.",
+      href: "/human-in-the-loop/tool-based",
+    },
+  ]}
+/>

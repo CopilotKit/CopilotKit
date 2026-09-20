@@ -1,29 +1,22 @@
 "use client";
 
-// Shared State (Read-only) — the UI publishes a recipe to the agent via
-// `agent.setState`; the agent reads that recipe on every turn but does
-// not mutate it (the wired graph is the neutral default agent with no
-// tools — see manifest entry `shared-state-read`).
-//
-// Single source of truth: `agent.state.recipe`. The form is a pure
-// controlled component on top of that — every edit flows straight into
-// `agent.setState({...})` and the next render reflects it.
+// Shared State (Read-only) — the UI owns the recipe and publishes its
+// current values as agent context on every turn. Backend state snapshots
+// cannot replace the form values with unrelated agent state.
 
-import React, { useEffect } from "react";
+import React, { useState } from "react";
 import {
   CopilotKit,
   CopilotSidebar,
   useAgent,
+  useAgentContext,
   UseAgentUpdate,
   useConfigureSuggestions,
   useCopilotKit,
 } from "@copilotkit/react-core/v2";
 import { RecipeCard } from "./recipe-card";
-import {
-  INITIAL_RECIPE,
-  type RecipeAgentState,
-  type RecipeData,
-} from "./types";
+import { INITIAL_RECIPE } from "./types";
+import type { RecipeData } from "./types";
 
 export default function SharedStateReadDemo() {
   return (
@@ -42,11 +35,17 @@ export default function SharedStateReadDemo() {
 }
 
 function Recipe() {
-  const { agent } = useAgent({
+  const [recipe, setRecipe] = useState<RecipeData>(INITIAL_RECIPE);
+  const { agent, isReady } = useAgent({
     agentId: "shared-state-read",
-    updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
+    updates: [UseAgentUpdate.OnRunStatusChanged],
   });
   const { copilotkit } = useCopilotKit();
+
+  useAgentContext({
+    description: "The current recipe displayed in the recipe editor",
+    value: JSON.stringify(recipe),
+  });
 
   useConfigureSuggestions({
     suggestions: [
@@ -66,25 +65,8 @@ function Recipe() {
     available: "always",
   });
 
-  // Seed the initial recipe into agent state once so the agent has
-  // something to read on the first turn. After this, every edit lands
-  // via `agent.setState` below.
-  useEffect(() => {
-    if (!(agent.state as RecipeAgentState | undefined)?.recipe) {
-      agent.setState({ recipe: INITIAL_RECIPE } satisfies RecipeAgentState);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const recipe =
-    (agent.state as RecipeAgentState | undefined)?.recipe ?? INITIAL_RECIPE;
-
-  const handleChange = (next: RecipeData) => {
-    agent.setState({ recipe: next } satisfies RecipeAgentState);
-  };
-
   const handleImprove = () => {
-    if (agent.isRunning) return;
+    if (!isReady || agent.isRunning) return;
     agent.addMessage({
       id: crypto.randomUUID(),
       role: "user",
@@ -100,8 +82,8 @@ function Recipe() {
   return (
     <RecipeCard
       recipe={recipe}
-      isLoading={agent.isRunning}
-      onChange={handleChange}
+      isLoading={!isReady || agent.isRunning}
+      onChange={setRecipe}
       onImprove={handleImprove}
     />
   );

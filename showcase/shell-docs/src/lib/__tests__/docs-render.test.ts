@@ -225,10 +225,13 @@ describe("inlineSnippets", () => {
 
 describe("loadDoc", () => {
   it("resolves clean URLs to files stored under route-group folders", () => {
-    const doc = loadDoc("integrations/aws-strands/telemetry");
+    // llamaindex is an `authored` integration, so this file is served content
+    // rather than a copy the root page shadows. The aws-strands equivalent
+    // this used to assert on was deleted as a never-served duplicate.
+    const doc = loadDoc("integrations/llamaindex/telemetry");
 
     expect(doc?.filePath.split(path.sep).join("/")).toContain(
-      "integrations/aws-strands/(other)/telemetry/index.mdx",
+      "integrations/llamaindex/(other)/telemetry/index.mdx",
     );
   });
 
@@ -250,16 +253,24 @@ describe("loadDoc", () => {
     );
 
     const screenshot = overview.indexOf("support-desk-threads.png");
-    const gettingStarted = overview.indexOf("## Get started");
+    const agentSetup = overview.indexOf("## Start with your coding agent");
+    const prompt = overview.indexOf("<RichThreadsSetupPrompt />");
+    const gettingStarted = overview.indexOf("## Set up Rich Threads manually");
+    const manualSteps = overview.indexOf("<Steps>");
     const why = overview.indexOf("## Why use CopilotKit Rich Threads?");
     const diagram = overview.indexOf("threads-diagram-light.png");
 
     expect(screenshot).toBeGreaterThan(-1);
-    expect(screenshot).toBeLessThan(gettingStarted);
+    expect(screenshot).toBeLessThan(agentSetup);
+    expect(agentSetup).toBeLessThan(prompt);
+    expect(prompt).toBeLessThan(gettingStarted);
+    expect(gettingStarted).toBeLessThan(manualSteps);
+    expect(manualSteps).toBeLessThan(why);
     expect(gettingStarted).toBeLessThan(why);
     expect(why).toBeLessThan(diagram);
     expect(overview).toContain("npx copilotkit@latest init");
-    expect(overview).toContain("Build and verify this with a coding agent");
+    expect(overview).not.toContain("<IntelligenceOnboardingPrompt");
+    expect(overview).not.toContain("docs_threads_agent_prompt");
     expect(overview).toContain("Threads-capable CLI starters already include");
     expect(overview).toContain("Book time with a CopilotKit engineer");
     expect(overview).toContain("## Sync existing conversations");
@@ -383,7 +394,7 @@ describe("migration docs", () => {
     );
 
     expect(referenceIndex).toContain(
-      'import { CopilotKit } from "@copilotkit/react-core/v2";',
+      'import { CopilotKitProvider } from "@copilotkit/react-core/v2";',
     );
     expect(referenceIndex).not.toContain(
       "CopilotKit is imported from the root package",
@@ -393,6 +404,10 @@ describe("migration docs", () => {
     );
     expect(componentReference).toContain("`@copilotkit/react-core/v2`");
     expect(componentReference).not.toContain("not from the v2 subpackage");
+    expect(componentReference).toContain("createCopilotRuntimeHandler({");
+    expect(componentReference).not.toContain(
+      "copilotRuntimeNextJSAppRouterEndpoint",
+    );
   });
 
   it("does not recommend stale v2 package paths in authored docs", () => {
@@ -436,8 +451,9 @@ describe("cookbook nav", () => {
   it("renders overview and recipes as top-level entries without changing slugs", () => {
     const navTree = buildCookbookNavTree();
 
-    expect(navTree).toHaveLength(7);
+    expect(navTree).toHaveLength(8);
     expect(navTree.map((node) => node.type)).toEqual([
+      "page",
       "page",
       "page",
       "page",
@@ -458,10 +474,12 @@ describe("cookbook nav", () => {
       ["Arcade", "cookbook/arcade"],
       ["Angular + Google ADK", "cookbook/angular-adk-agentic-app"],
       ["OpenBox Governance", "cookbook/openbox-governed-copilotkit"],
+      ["Jev: fast generative UI", "cookbook/jev-generative-ui"],
     ]);
 
     const pageTree = navTreeToPageTree(navTree, "");
     expect(pageTree.children.map((node) => node.type)).toEqual([
+      "page",
       "page",
       "page",
       "page",
@@ -480,6 +498,7 @@ describe("cookbook nav", () => {
       "/cookbook/arcade",
       "/cookbook/angular-adk-agentic-app",
       "/cookbook/openbox-governed-copilotkit",
+      "/cookbook/jev-generative-ui",
     ]);
 
     const overview = pageTree.children[0];
@@ -887,7 +906,7 @@ describe("framework nav", () => {
       "If your project was created from a CopilotKit CLI starter",
     );
     expect(drawer).toContain("add it to an existing CopilotKit application");
-    expect(drawer).toContain("Get a free developer account");
+    expect(drawer).toContain("Start managed onboarding");
     expect(drawer).toContain("## Set up the Threads Drawer");
     expect(drawer).not.toContain(
       "Start with the [Rich Threads overview](/threads)",

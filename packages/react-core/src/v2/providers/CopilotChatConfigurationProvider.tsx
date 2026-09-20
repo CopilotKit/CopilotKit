@@ -9,6 +9,7 @@ import React, {
   useState,
 } from "react";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
+import { useDefaultAgentId } from "../context";
 // Import from the tailwind-free leaf module (not ../lib/slots, which pulls
 // tailwind-merge) so this provider stays lean in the headless entry (issue #4893).
 import { useShallowStableRef } from "../lib/shallow-stable-ref";
@@ -25,7 +26,14 @@ export const CopilotChatDefaultLabels = {
   assistantMessageToolbarCopyCodeCopiedLabel: "Copied",
   assistantMessageToolbarCopyMessageLabel: "Copy",
   assistantMessageToolbarInspectorLabel: "View in Inspector",
-  assistantMessageToolbarInspectorLocalOnlyLabel: "Development Only",
+  assistantMessageToolbarInspectorDescription:
+    "Open this message in the Inspector",
+  assistantMessageToolbarInspectorLocalOnlyLabel: "Local only",
+  assistantMessageToolbarInspectorLocalOnlyDescription:
+    "Only visible on localhost or loopback hosts in development. Never shown in production.",
+  assistantMessageToolbarInspectorTitle: "CopilotKit Inspector",
+  assistantMessageToolbarInspectorHideLabel: "Hide this icon",
+  assistantMessageToolbarInspectorHideDescription: "Until you reload this page",
   assistantMessageToolbarThumbsUpLabel: "Good response",
   assistantMessageToolbarThumbsDownLabel: "Bad response",
   assistantMessageToolbarReadAloudLabel: "Read aloud",
@@ -196,7 +204,12 @@ export const CopilotChatConfigurationProvider: React.FC<
     [stableLabels, parentConfig?.labels],
   );
 
-  const resolvedAgentId = agentId ?? parentConfig?.agentId ?? DEFAULT_AGENT_ID;
+  // `<CopilotKitProvider agentId>` is the last fallback before the global
+  // default, so a provider-level agent reaches every chat that does not name
+  // one of its own.
+  const providerAgentId = useDefaultAgentId();
+  const resolvedAgentId =
+    agentId ?? parentConfig?.agentId ?? providerAgentId ?? DEFAULT_AGENT_ID;
 
   // A threadId prop is "authoritative" (caller-chosen) only when it is present
   // AND not explicitly flagged non-explicit. The v1 `<CopilotKit>` bridge pipes
