@@ -407,6 +407,7 @@ const createCopilotKit = () => {
           : "auto",
     headers: mergedHeaders.value,
     credentials: props.credentials,
+    messageFilter: props.messageFilter,
     properties: resolvedProperties.value,
     agents__unsafe_dev_only: mergedAgents.value,
     tools: allTools.value,
@@ -525,6 +526,7 @@ function syncRuntimeConfig() {
   );
   copilotkit.value.setHeaders(mergedHeaders.value);
   copilotkit.value.setCredentials(props.credentials);
+  copilotkit.value.setMessageFilter(props.messageFilter);
   copilotkit.value.setProperties(resolvedProperties.value);
   copilotkit.value.setAgents__unsafe_dev_only(mergedAgents.value);
   copilotkit.value.setDebug(props.debug);
@@ -536,6 +538,7 @@ watch(
     () => chatApiEndpoint.value,
     () => mergedHeaders.value,
     () => props.credentials,
+    () => props.messageFilter,
     () => resolvedProperties.value,
     () => mergedAgents.value,
     () => props.useSingleEndpoint,
