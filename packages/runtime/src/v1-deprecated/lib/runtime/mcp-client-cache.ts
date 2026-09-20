@@ -38,8 +38,35 @@ const MAX_ENTRIES = 100;
  * runtimes share the connection they would otherwise re-open, and the entry
  * count is bounded by the number of distinct credentials in play rather than
  * by traffic.
+ *
+ * The slot carries a redacted endpoint label beside the connection. The cache
+ * *key* cannot be used for that: it contains the serialized config, and the
+ * config contains `apiKey`.
  */
-const cache = new Map<string, Promise<MCPCacheEntry<unknown>>>();
+interface MCPCacheSlot {
+  /** Safe to log. See `describeEndpoint`. */
+  label: string;
+  entry: Promise<MCPCacheEntry<unknown>>;
+}
+
+const cache = new Map<string, MCPCacheSlot>();
+
+/**
+ * A form of the endpoint that is safe to write to application logs.
+ *
+ * Both halves of an endpoint URL can carry a secret: userinfo, and the query
+ * string — the #2407 reporter's own workaround appended `?uid=<hash of the
+ * API key>`. Only the origin and path survive.
+ */
+function describeEndpoint(endpoint: string | undefined): string {
+  if (!endpoint) return "an MCP endpoint";
+  try {
+    const url = new URL(endpoint);
+    return `${url.origin}${url.pathname}`;
+  } catch {
+    return "an MCP endpoint";
+  }
+}
 
 /**
  * Identity for a `createMCPClient` implementation.
@@ -87,11 +114,11 @@ export function mcpCacheKey(
   return `${factoryId(createMCPClient)}::${stableStringify(config)}`;
 }
 
-async function closeQuietly(client: MCPClient, endpoint: string) {
+async function closeQuietly(client: MCPClient, label: string) {
   try {
     await client.close?.();
   } catch (error) {
-    console.error(`MCP: Failed to close the client for ${endpoint}:`, error);
+    console.error(`MCP: Failed to close the client for ${label}:`, error);
   }
 }
 
@@ -102,9 +129,10 @@ async function evictDownToCap() {
     if (oldestKey === undefined) return;
     const evicted = cache.get(oldestKey);
     cache.delete(oldestKey);
+    if (!evicted) continue;
     try {
-      const entry = await evicted;
-      if (entry) await closeQuietly(entry.client, oldestKey);
+      const entry = await evicted.entry;
+      if (entry) await closeQuietly(entry.client, evicted.label);
     } catch {
       // A rejected entry has nothing to close.
     }
@@ -130,27 +158,43 @@ export function resolveMCPEntry<TTools>(
     // Re-insert so that Map iteration order stays least-recently-used first.
     cache.delete(key);
     cache.set(key, hit);
-    return hit as Promise<MCPCacheEntry<TTools>>;
+    return hit.entry as Promise<MCPCacheEntry<TTools>>;
   }
 
+  const slot: MCPCacheSlot = {
+    label: describeEndpoint(config?.endpoint),
+    // Assigned below; `build()` cannot run before the slot exists, because the
+    // rejection handler compares against it.
+    entry: undefined as unknown as Promise<MCPCacheEntry<unknown>>,
+  };
+
   const created = build().catch((error: unknown) => {
-    cache.delete(key);
+    // Only drop our own slot. Eviction can remove this key while `build()` is
+    // still in flight, and a later request can insert a replacement under it;
+    // an unconditional delete would evict that replacement and leave its
+    // client live but outside cache cleanup, which is the leak this file
+    // exists to prevent.
+    if (cache.get(key) === slot) {
+      cache.delete(key);
+    }
     throw error;
   });
-  cache.set(key, created as Promise<MCPCacheEntry<unknown>>);
+
+  slot.entry = created as Promise<MCPCacheEntry<unknown>>;
+  cache.set(key, slot);
   void evictDownToCap();
   return created;
 }
 
 /** Test seam: close and forget every cached connection. */
 export async function __resetMCPClientCache() {
-  const entries = Array.from(cache.values());
+  const slots = Array.from(cache.values());
   cache.clear();
   await Promise.all(
-    entries.map(async (pending) => {
+    slots.map(async (slot) => {
       try {
-        const entry = await pending;
-        await closeQuietly(entry.client, "reset");
+        const entry = await slot.entry;
+        await closeQuietly(entry.client, slot.label);
       } catch {
         // Nothing to close.
       }

@@ -299,6 +299,22 @@ export interface CopilotRuntimeConstructorParams_BASE<
    * Configuration for connecting to Model Context Protocol (MCP) servers.
    * Allows fetching and using tools defined on external MCP-compliant servers.
    * Requires providing the `createMCPClient` function during instantiation.
+   *
+   * A request can also name its own servers, as `mcpServers` (or the older
+   * `mcpEndpoints`) inside `forwardedProps` — that is what the frontend's
+   * `setMcpServers` sends. Those are merged with this list and connected from
+   * the server.
+   *
+   * That merge previously never ran: whatever the browser sent was accepted
+   * and discarded. It now takes effect, so a deployment that has been sending
+   * `setMcpServers` will start connecting to those endpoints without changing
+   * anything on its side.
+   *
+   * The destination is therefore caller-controlled, not only config-controlled.
+   * If your deployment does not mean to let the browser choose an MCP server,
+   * check `config.endpoint` inside `createMCPClient` and reject anything
+   * outside your allowlist. Without that check a request can aim the server at
+   * a loopback, link-local, or otherwise internal address (SSRF).
    * @experimental
    */
   mcpServers?: MCPEndpointConfig[];
@@ -1027,7 +1043,15 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       });
     }
 
-    // Merge and dedupe endpoints by URL; request-level overrides take precedence
+    // Merge and dedupe endpoints by URL; request-level overrides take precedence.
+    //
+    // `requestMcpServers` is caller-supplied: it arrives in `forwardedProps`
+    // from the browser. Validating it here is not this shim's call — the
+    // endpoint shape, the transport, and the auth all belong to the
+    // application's `createMCPClient`, and a hardcoded allowlist would break
+    // the multi-tenant case this per-request path exists to serve. The
+    // constraint is documented on `mcpServers` instead: a deployment that does
+    // not intend browser-chosen servers has to reject them in its factory.
     const effectiveEndpoints = (() => {
       const byUrl = new Map<string, MCPEndpointConfig>();
       for (const ep of runtimeMcpServers) {

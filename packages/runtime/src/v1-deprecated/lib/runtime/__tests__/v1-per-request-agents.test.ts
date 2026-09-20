@@ -6,6 +6,7 @@ import { resolveAgents } from "../../../../v2/runtime/core/runtime";
 import {
   __resetMCPClientCache,
   __mcpClientCacheSize,
+  resolveMCPEntry,
 } from "../mcp-client-cache";
 
 const adapter = { name: "OpenAIAdapter" } as any;
@@ -394,5 +395,112 @@ describe("v1 MCP clients are keyed by credential", () => {
 
     expect(__mcpClientCacheSize()).toBe(100);
     expect(closed).toEqual(["key-0"]);
+  });
+
+  it("keeps the credential out of the log when closing an evicted client fails", async () => {
+    const errors: string[] = [];
+    const spy = vi
+      .spyOn(console, "error")
+      .mockImplementation((...args: unknown[]) => {
+        errors.push(args.map(String).join(" "));
+      });
+
+    try {
+      const createMCPClient = vi.fn(async () => ({
+        tools: async () => toolsFor("t"),
+        close: async () => {
+          throw new Error("transport already gone");
+        },
+      }));
+      const runtime = new CopilotRuntime({
+        agents: agents(),
+        createMCPClient,
+        mcpServers: [],
+      } as any);
+      runtime.handleServiceAdapter(adapter);
+
+      for (let i = 0; i < 101; i++) {
+        await resolveFor(
+          runtime,
+          requestWith({
+            mcpServers: [
+              {
+                endpoint: "https://mcp.example.com/sse",
+                apiKey: `secret-${i}`,
+              },
+            ],
+          }),
+        );
+      }
+
+      const log = errors.join("\n");
+      // The failure is still reported, and still says which server.
+      expect(log).toContain("Failed to close the client");
+      expect(log).toContain("https://mcp.example.com/sse");
+      // The cache key embeds the whole config. It must not reach the log.
+      expect(log).not.toContain("secret-0");
+      expect(log).not.toMatch(/apiKey/);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+/** A promise the test settles by hand. */
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+/** A distinct `createMCPClient` identity; the cache only keys on the object. */
+const clientFactory = () => () => {};
+
+describe("the MCP client cache", () => {
+  it("drops only its own entry when a connection fails", async () => {
+    const factory = clientFactory();
+    const config = { endpoint: "https://mcp.example.com" } as any;
+
+    // First attempt, still in flight.
+    const slow = deferred<any>();
+    const failing = resolveMCPEntry(factory, config, () => slow.promise);
+    failing.catch(() => {});
+
+    // Push it out of the cache: it is the least recently used, and the cap is
+    // 100. Eviction happens while the connection is still pending.
+    for (let i = 0; i < 100; i++) {
+      await resolveMCPEntry(
+        clientFactory(),
+        { endpoint: `https://other-${i}.example.com` } as any,
+        async () => ({ client: {} as any, tools: [] as any[] }),
+      );
+    }
+
+    // A later request re-opens the same endpoint and succeeds.
+    const replacementClient = { close: vi.fn() };
+    const replacement = await resolveMCPEntry(factory, config, async () => ({
+      client: replacementClient as any,
+      tools: ["live"],
+    }));
+    expect(replacement.tools).toEqual(["live"]);
+
+    // Now the first attempt finally fails.
+    slow.reject(new Error("connection refused"));
+    await expect(failing).rejects.toThrow("connection refused");
+
+    // It must not have taken the replacement with it: a third caller gets the
+    // cached client rather than opening a fourth connection to the same
+    // endpoint with the same credential.
+    const build = vi.fn(async () => ({
+      client: {} as any,
+      tools: ["rebuilt"],
+    }));
+    const third = await resolveMCPEntry(factory, config, build);
+    expect(build).not.toHaveBeenCalled();
+    expect(third.tools).toEqual(["live"]);
   });
 });
