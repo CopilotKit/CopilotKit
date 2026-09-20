@@ -670,6 +670,7 @@ async def handle_run(request: Request) -> StreamingResponse:
             # UI card). The warning already fired inside
             # ``_parse_tool_args`` on the malformed path.
             calls_to_emit = []
+            completed_results = []
             for tc in oai_tool_calls:
                 fn = getattr(tc, "function", None)
                 name = getattr(fn, "name", None) if fn is not None else None
@@ -741,6 +742,13 @@ async def handle_run(request: Request) -> StreamingResponse:
                             )
 
                         if result:
+                            completed_results.append(
+                                {
+                                    "role": "tool",
+                                    "tool_call_id": call_id,
+                                    "content": result,
+                                }
+                            )
                             yield _sse_line(
                                 ToolCallResultEvent(
                                     type=EventType.TOOL_CALL_RESULT,
@@ -757,6 +765,54 @@ async def handle_run(request: Request) -> StreamingResponse:
                         message_id=tc_parent_id,
                     )
                 )
+
+            # Only locally completed batches can be narrated here. Frontend,
+            # injected and unknown tools must resume through the runtime.
+            if completed_results and len(completed_results) == len(
+                calls_to_emit
+            ) == len(oai_tool_calls):
+                continuation_messages = [
+                    *oai_messages,
+                    {
+                        "role": "assistant",
+                        "content": content or None,
+                        "tool_calls": [
+                            {
+                                "id": call_id,
+                                "type": "function",
+                                "function": {
+                                    "name": tool_name,
+                                    "arguments": json.dumps(tool_args),
+                                },
+                            }
+                            for call_id, tool_name, tool_args in calls_to_emit
+                        ],
+                    },
+                    *completed_results,
+                ]
+                try:
+                    # No tools on this single followup: finish the answer,
+                    # rather than starting an unbounded backend tool loop.
+                    narration = await _call_openai(continuation_messages, [], model)
+                    text = (
+                        getattr(narration, "content", None)
+                        or getattr(narration, "refusal", None)
+                        or ""
+                    )
+                    if not text or getattr(narration, "tool_calls", None):
+                        logger.warning(
+                            "Backend tool narration did not produce a final answer"
+                        )
+                        text = "The tool completed, but the assistant could not finish its response."
+                except (openai.APIError, httpx.HTTPError, asyncio.TimeoutError) as exc:
+                    logger.exception(
+                        "_call_openai failed during backend tool narration"
+                    )
+                    text = json.dumps(
+                        {"error": f"Agent run failed: {exc.__class__.__name__}"}
+                    )
+                for line in emit_text_block(str(uuid.uuid4()), text):
+                    yield line
 
             yield _sse_line(
                 RunFinishedEvent(

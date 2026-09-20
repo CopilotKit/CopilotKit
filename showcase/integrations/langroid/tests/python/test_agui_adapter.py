@@ -12,6 +12,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import uuid
+
+import httpx
 from types import SimpleNamespace
 from typing import Any
 
@@ -427,6 +431,9 @@ async def test_backend_tool_execution_happy_path(monkeypatch):
         "TOOL_CALL_END",
         "TOOL_CALL_RESULT",  # backend tool result
         "TEXT_MESSAGE_END",  # parent message close
+        "TEXT_MESSAGE_START",  # bounded followup rejects repeated fake tool call
+        "TEXT_MESSAGE_CONTENT",
+        "TEXT_MESSAGE_END",
         "RUN_FINISHED",
     ], f"unexpected event sequence: {types}"
 
@@ -920,3 +927,128 @@ def test_agui_messages_to_openai_full_tool_roundtrip():
     assert result[2]["tool_calls"][0]["id"] == "call_d5_show_card_001"
     assert result[3]["role"] == "tool"
     assert result[3]["tool_call_id"] == "call_d5_show_card_001"
+
+
+@pytest.mark.asyncio
+async def test_backend_weather_continuation_with_real_aimock(monkeypatch):
+    """Actual SDK + aimock must narrate the real backend result once."""
+    aimock_url = os.environ.get("S36_AIMOCK_URL")
+    if not aimock_url:
+        pytest.skip("Requires the owned strict S36 aimock runtime")
+    test_id = f"s36-weather-{uuid.uuid4()}"
+    monkeypatch.setenv("OPENAI_BASE_URL", f"{aimock_url}/v1")
+    monkeypatch.setenv("OPENAI_API_KEY", "mock-key")
+    monkeypatch.setattr(
+        agui_adapter,
+        "get_forwarded_headers",
+        lambda: {
+            "x-aimock-context": "langroid",
+            "x-aimock-strict": "true",
+            "x-test-id": test_id,
+            "x-diag-run-id": test_id,
+        },
+    )
+    body = _minimal_run_input(thread_id=test_id)
+    body["messages"][0]["content"] = "What is the weather in Tokyo?"
+    response = await handle_run(_FakeRequest(body))
+    events = _parse_events(await _collect(response))
+    results = [e for e in events if e["type"] == "TOOL_CALL_RESULT"]
+    assert len(results) == 1
+    result = json.loads(results[0]["content"])
+    assert result["city"] == "Tokyo"
+    narration = "".join(
+        e["delta"] for e in events if e["type"] == "TEXT_MESSAGE_CONTENT"
+    )
+    assert narration, "backend result must be followed by assistant narration"
+    assert str(result["temperature"]) in narration
+    assert str(result["humidity"]) in narration
+    assert str(result["wind_speed"]) in narration
+    assert sum(e["type"] == "RUN_FINISHED" for e in events) == 1
+    async with httpx.AsyncClient() as client:
+        journal = (await client.get(f"{aimock_url}/__aimock/journal")).json()
+    calls = [e for e in journal if e["headers"].get("x-test-id") == test_id]
+    assert len(calls) == 2
+    followup = calls[1]["body"]
+    assert not followup.get("tools")
+    assert followup["messages"][-1] == {
+        "role": "tool",
+        "tool_call_id": results[0]["toolCallId"],
+        "content": results[0]["content"],
+    }
+    assert followup["messages"][-2]["tool_calls"][0]["id"] == results[0]["toolCallId"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "scenario", ["frontend", "mixed", "unknown", "unexpected_tools", "api_error"]
+)
+async def test_backend_continuation_bound_with_real_aimock(monkeypatch, scenario):
+    """Real fixture replay checks ownership, termination, and sanitized errors."""
+    aimock_url = os.environ.get("S36_AIMOCK_URL")
+    if not aimock_url:
+        pytest.skip("Requires the owned strict S36 aimock runtime")
+    test_id = f"s36-{scenario}-{uuid.uuid4()}"
+    weather = {
+        "id": "s36-weather",
+        "name": "get_weather",
+        "arguments": '{"location":"Tokyo"}',
+    }
+    frontend = {
+        "id": "s36-frontend",
+        "name": "change_background",
+        "arguments": '{"background":"blue"}',
+    }
+    unknown = {"id": "s36-unknown", "name": "unknown_tool", "arguments": "{}"}
+    calls = {
+        "frontend": [frontend],
+        "mixed": [weather, frontend],
+        "unknown": [unknown],
+    }.get(scenario, [weather])
+    followup = {"content": "Unused followup for externally owned tools."}
+    if scenario == "unexpected_tools":
+        followup = {"toolCalls": [weather]}
+    elif scenario == "api_error":
+        followup = {"error": {"message": "private-provider-detail"}, "status": 400}
+    fixtures = [
+        {
+            "match": {"context": test_id, "hasToolResult": False},
+            "response": {"toolCalls": calls},
+        },
+        {"match": {"context": test_id, "hasToolResult": True}, "response": followup},
+    ]
+    async with httpx.AsyncClient() as client:
+        added = await client.post(
+            f"{aimock_url}/__aimock/fixtures", json={"fixtures": fixtures}
+        )
+        added.raise_for_status()
+    monkeypatch.setenv("OPENAI_BASE_URL", f"{aimock_url}/v1")
+    monkeypatch.setenv("OPENAI_API_KEY", "mock-key")
+    monkeypatch.setattr(
+        agui_adapter,
+        "get_forwarded_headers",
+        lambda: {
+            "x-aimock-context": test_id,
+            "x-aimock-strict": "true",
+            "x-test-id": test_id,
+        },
+    )
+    events = _parse_events(
+        await _collect(await handle_run(_FakeRequest(_minimal_run_input(test_id))))
+    )
+    assert sum(e["type"] == "RUN_FINISHED" for e in events) == 1
+    text = "".join(e["delta"] for e in events if e["type"] == "TEXT_MESSAGE_CONTENT")
+    async with httpx.AsyncClient() as client:
+        journal = (await client.get(f"{aimock_url}/__aimock/journal")).json()
+    requests = [e for e in journal if e["headers"].get("x-test-id") == test_id]
+    if scenario in {"frontend", "mixed", "unknown"}:
+        assert len(requests) == 1
+        assert not text
+    else:
+        assert len(requests) == 2
+        assert not requests[1]["body"].get("tools")
+        assert text
+        assert "private-provider-detail" not in text
+        if scenario == "api_error":
+            assert "BadRequestError" in text
+        else:
+            assert "could not finish its response" in text
