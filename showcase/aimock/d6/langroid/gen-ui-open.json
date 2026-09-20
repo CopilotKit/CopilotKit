@@ -45,7 +45,7 @@
           {
             "id": "call_d6_lr_open_adv_001",
             "name": "generateSandboxedUi",
-            "arguments": "{\"srcdoc\":\"<!DOCTYPE html><html><head><style>body{margin:0;padding:16px;font-family:system-ui;background:#f8f9fa}input{width:100%;padding:8px;font-size:16px;border:1px solid #dee2e6;border-radius:4px;margin-bottom:8px}#result{padding:12px;background:#e9ecef;border-radius:4px;font-family:monospace;min-height:24px}</style></head><body><h3>Expression Evaluator</h3><input id=expr placeholder='Type an expression e.g. 2+2' oninput=\\\"try{document.getElementById('result').textContent=eval(this.value)}catch(e){document.getElementById('result').textContent='...'}\\\"><div id=result>...</div></body></html>\"}"
+            "arguments": "{\"initialHeight\":220,\"placeholderMessages\":[\"Preparing the expression evaluator\"],\"css\":\"body{margin:0;padding:16px;box-sizing:border-box;font-family:system-ui;background:#f8f9fa}h3{margin:0 0 12px}label{display:block;margin-bottom:6px}input{box-sizing:border-box;width:100%;padding:8px;font-size:16px;border:1px solid #dee2e6;border-radius:4px;margin-bottom:8px}#result{padding:12px;background:#e9ecef;border-radius:4px;font-family:monospace;min-height:24px}\",\"html\":\"<h3>Expression Evaluator</h3><label for='expr'>Arithmetic expression</label><input id='expr' placeholder='Try 12 * (3 + 4.5)' autocomplete='off'><div id='result' role='status' aria-live='polite'>Enter an arithmetic expression.</div>\",\"jsFunctions\":\"\",\"jsExpressions\":[\"(()=>{const input=document.getElementById('expr');const output=document.getElementById('result');let latest=0;input.addEventListener('input',async()=>{const current=++latest;const expression=input.value;if(!expression.trim()){output.textContent='Enter an arithmetic expression.';return;}output.textContent='Evaluating on host…';try{const response=await Websandbox.connection.remote.evaluateExpression({expression});if(current!==latest)return;output.textContent=response.ok?String(response.value):response.error;}catch(error){if(current===latest)output.textContent='Could not evaluate on host.';}});})()\"]}"
           }
         ]
       }
@@ -58,7 +58,7 @@
         "context": "langroid"
       },
       "response": {
-        "content": "Expression evaluator rendered in a sandboxed iframe — type any JavaScript expression to see the result live."
+        "content": "Expression evaluator is ready. Enter an arithmetic expression to evaluate it on the host page."
       }
     }
   ]
