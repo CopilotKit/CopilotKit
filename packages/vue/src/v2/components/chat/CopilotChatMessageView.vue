@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useSlots, watch } from "vue";
+import { computed, onMounted, ref, useSlots, watch } from "vue";
 import type { Component } from "vue";
 import type {
   ActivityMessage,
@@ -21,7 +21,7 @@ import CopilotChatReasoningMessage from "./CopilotChatReasoningMessage.vue";
 import CopilotChatUserMessage from "./CopilotChatUserMessage.vue";
 import {
   createRowKeyStore,
-  pruneRowKeyStore,
+  commitRowKeyStore,
   resolveRowRenderKeys,
 } from "./rowRenderKeys";
 
@@ -199,12 +199,13 @@ const rowRenderKeys = computed(() =>
   resolveRowRenderKeys(rowKeyStore, deduplicatedMessages.value),
 );
 
-// Prune after the DOM is patched, never during computed evaluation: dropping an
-// anchor the rendered rows still need would re-mint their keys and tear them
-// down.
+// Record what the DOM was patched with, never what a computed merely
+// evaluated: an anchor from an evaluation Vue never patches would re-key a
+// rendered row and tear it down.
+onMounted(() => commitRowKeyStore(rowKeyStore, deduplicatedMessages.value));
 watch(
   deduplicatedMessages,
-  (messages) => pruneRowKeyStore(rowKeyStore, messages),
+  (messages) => commitRowKeyStore(rowKeyStore, messages),
   { flush: "post" },
 );
 const lastMessage = computed(() => props.messages[props.messages.length - 1]);

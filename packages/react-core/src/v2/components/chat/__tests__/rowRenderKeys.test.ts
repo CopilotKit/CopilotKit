@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Message, ToolCall } from "@ag-ui/core";
 import {
+  commitRowKeyStore,
   createRowKeyStore,
   pruneRowKeyStore,
   resolveRowRenderKeys,
@@ -18,13 +19,27 @@ function user(id: string): Message {
   return { id, role: "user", content: "hi" } as Message;
 }
 
+/**
+ * One render that reaches the screen: resolve keys, then flush anchors the way
+ * the component's post-commit effect does. Anchors only exist after a commit,
+ * so a test that spans renders has to commit between them.
+ */
+function renderPass(
+  store: ReturnType<typeof createRowKeyStore>,
+  messages: Message[],
+) {
+  const keys = resolveRowRenderKeys(store, messages);
+  commitRowKeyStore(store, messages);
+  return keys;
+}
+
 /** The row key a message resolves to for a given list. */
 function keyOf(
   store: ReturnType<typeof createRowKeyStore>,
   messages: Message[],
   id: string,
 ) {
-  return resolveRowRenderKeys(store, messages).get(id);
+  return renderPass(store, messages).get(id);
 }
 
 describe("resolveRowRenderKeys", () => {
@@ -61,7 +76,7 @@ describe("resolveRowRenderKeys", () => {
   it("holds the key steady when the snapshot re-keys the message id", () => {
     const store = createRowKeyStore();
 
-    resolveRowRenderKeys(store, [assistant("lc_run--1", [toolCall("call_A")])]);
+    renderPass(store, [assistant("lc_run--1", [toolCall("call_A")])]);
     const afterRekey = keyOf(
       store,
       [assistant("resp_1", [toolCall("call_A")])],
@@ -92,7 +107,7 @@ describe("resolveRowRenderKeys", () => {
   it("resolves through a surviving anchor when tool calls are reordered", () => {
     const store = createRowKeyStore();
 
-    resolveRowRenderKeys(store, [
+    renderPass(store, [
       assistant("lc_run--1", [toolCall("call_A"), toolCall("call_B")]),
     ]);
     // Snapshot re-keys the message AND presents the tool calls in the other
@@ -109,9 +124,9 @@ describe("resolveRowRenderKeys", () => {
   it("keeps a later tool call from stealing an established key", () => {
     const store = createRowKeyStore();
 
-    resolveRowRenderKeys(store, [assistant("lc_run--1", [toolCall("call_A")])]);
+    renderPass(store, [assistant("lc_run--1", [toolCall("call_A")])]);
     // A second tool call arrives on the same row; call_A already owns the key.
-    const keys = resolveRowRenderKeys(store, [
+    const keys = renderPass(store, [
       assistant("lc_run--1", [toolCall("call_A"), toolCall("call_B")]),
     ]);
 
@@ -142,8 +157,8 @@ describe("resolveRowRenderKeys", () => {
       assistant("a-2", [toolCall("call_X")]),
     ];
 
-    const first = resolveRowRenderKeys(store, messages);
-    const second = resolveRowRenderKeys(store, messages);
+    const first = renderPass(store, messages);
+    const second = renderPass(store, messages);
 
     expect(second.get("a-1")).toBe(first.get("a-1"));
     expect(second.get("a-2")).toBe(first.get("a-2"));
@@ -153,7 +168,7 @@ describe("resolveRowRenderKeys", () => {
     // Pathological: the store vends "ghost" for one row, and another message
     // literally has id "ghost". Keys must still be unique.
     const store = createRowKeyStore();
-    resolveRowRenderKeys(store, [assistant("ghost", [toolCall("call_X")])]);
+    renderPass(store, [assistant("ghost", [toolCall("call_X")])]);
 
     const keys = resolveRowRenderKeys(store, [
       assistant("live", [toolCall("call_X")]),
@@ -173,12 +188,66 @@ describe("resolveRowRenderKeys", () => {
       user("u-1"),
     ];
 
-    const first = resolveRowRenderKeys(store, messages);
+    const first = renderPass(store, messages);
     const snapshot = new Map(store.overrides);
-    const second = resolveRowRenderKeys(store, messages);
+    const second = renderPass(store, messages);
 
     expect([...second.entries()]).toEqual([...first.entries()]);
     expect([...store.overrides.entries()]).toEqual([...snapshot.entries()]);
+  });
+
+  it("leaves the store untouched, so a render is safe to abandon", () => {
+    const store = createRowKeyStore();
+
+    resolveRowRenderKeys(store, [assistant("lc_run--1", [toolCall("call_A")])]);
+
+    expect(store.overrides.size).toBe(0);
+  });
+
+  it("does not let an abandoned render's key reach the committed tree", () => {
+    // React may render a newer snapshot at low priority and then throw that
+    // render away. If resolving had recorded tc:call_A -> resp_1, the row the
+    // user is actually looking at (still lc_run--1) would re-key and remount
+    // on its next render — the flash this module exists to prevent.
+    const store = createRowKeyStore();
+
+    resolveRowRenderKeys(store, [assistant("resp_1", [toolCall("call_A")])]);
+    const committed = keyOf(
+      store,
+      [assistant("lc_run--1", [toolCall("call_A")])],
+      "lc_run--1",
+    );
+
+    expect(committed).toBe("lc_run--1");
+  });
+
+  it("registers anchors once the render commits", () => {
+    const store = createRowKeyStore();
+    const messages = [assistant("lc_run--1", [toolCall("call_A")])];
+
+    resolveRowRenderKeys(store, messages);
+    commitRowKeyStore(store, messages);
+
+    expect(store.overrides.get("tc:call_A")).toBe("lc_run--1");
+  });
+
+  it("does not hand a shared anchor's key to the survivor when the other row leaves", () => {
+    // Two rows carrying one tool-call id make that anchor useless as an
+    // identity: whichever row outlives the other would inherit the first
+    // row's key, and with it the first row's DOM and component state.
+    const store = createRowKeyStore();
+    renderPass(store, [
+      assistant("a-1", [toolCall("call_X")]),
+      assistant("a-2", [toolCall("call_X")]),
+    ]);
+
+    const survivor = keyOf(
+      store,
+      [assistant("a-2", [toolCall("call_X")])],
+      "a-2",
+    );
+
+    expect(survivor).toBe("a-2");
   });
 
   it("does not register anchors for non-assistant roles", () => {
@@ -190,7 +259,7 @@ describe("resolveRowRenderKeys", () => {
       toolCallId: "call_A",
     } as unknown as Message;
 
-    resolveRowRenderKeys(store, [toolMessage]);
+    renderPass(store, [toolMessage]);
 
     expect(store.overrides.size).toBe(0);
   });
@@ -198,7 +267,7 @@ describe("resolveRowRenderKeys", () => {
   it("ignores an empty toolCalls array", () => {
     const store = createRowKeyStore();
 
-    const keys = resolveRowRenderKeys(store, [assistant("a-1", [])]);
+    const keys = renderPass(store, [assistant("a-1", [])]);
 
     expect(keys.get("a-1")).toBe("a-1");
     expect(store.overrides.size).toBe(0);
@@ -221,7 +290,7 @@ describe("resolveRowRenderKeys", () => {
 describe("pruneRowKeyStore", () => {
   it("drops anchors whose messages are gone and keeps live ones", () => {
     const store = createRowKeyStore();
-    resolveRowRenderKeys(store, [
+    renderPass(store, [
       assistant("a-1", [toolCall("call_A")]),
       assistant("a-2", [toolCall("call_B")]),
     ]);
@@ -236,7 +305,7 @@ describe("pruneRowKeyStore", () => {
     const store = createRowKeyStore();
     for (let i = 0; i < 50; i++) {
       const live = [assistant(`a-${i}`, [toolCall(`call_${i}`)])];
-      resolveRowRenderKeys(store, live);
+      renderPass(store, live);
       pruneRowKeyStore(store, live);
     }
 
@@ -246,7 +315,7 @@ describe("pruneRowKeyStore", () => {
   it("preserves the key of a row that survives a prune", () => {
     const store = createRowKeyStore();
     const live = [assistant("lc_run--1", [toolCall("call_A")])];
-    resolveRowRenderKeys(store, live);
+    renderPass(store, live);
     pruneRowKeyStore(store, live);
 
     // The re-key must still resolve after an intervening prune.

@@ -34,8 +34,8 @@ import {
 import type { IntelligenceIndicatorView } from "../intelligence-indicator";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import {
+  commitRowKeyStore,
   createRowKeyStore,
-  pruneRowKeyStore,
   resolveRowRenderKeys,
 } from "./rowRenderKeys";
 import type { RowKeyStore } from "./rowRenderKeys";
@@ -510,10 +510,12 @@ export function CopilotChatMessageView({
     [rowKeyStore, deduplicatedMessages],
   );
 
-  // Prune after commit, never during render: dropping an anchor in a render
-  // React later abandons could re-mint a committed row's key and remount it.
-  useEffect(() => {
-    pruneRowKeyStore(rowKeyStore, deduplicatedMessages);
+  // Record what this commit rendered, never what a render merely proposed: an
+  // anchor from a render React goes on to abandon would re-key a committed row
+  // and remount it. Layout phase, so the store is current before any later
+  // render reads it.
+  useLayoutEffect(() => {
+    commitRowKeyStore(rowKeyStore, deduplicatedMessages);
   }, [rowKeyStore, deduplicatedMessages]);
 
   if (

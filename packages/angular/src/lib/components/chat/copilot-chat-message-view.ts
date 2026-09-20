@@ -19,8 +19,8 @@ import { CopilotChatReasoningMessage } from "./copilot-chat-reasoning-message";
 import { CopilotActivity } from "../activity/copilot-activity";
 import { cn } from "../../utils";
 import {
+  commitRowKeyStore,
   createRowKeyStore,
-  pruneRowKeyStore,
   resolveRowRenderKeys,
 } from "./row-render-keys";
 
@@ -205,10 +205,11 @@ export class CopilotChatMessageView {
     resolveRowRenderKeys(this.rowKeyStore, this.messagesValue()),
   );
 
-  // Prune after render, never inside the computed: dropping an anchor the
-  // rendered rows still need would re-mint their keys and recreate them.
-  private readonly rowKeyStorePrune = afterRenderEffect(() => {
-    pruneRowKeyStore(this.rowKeyStore, this.messagesValue());
+  // Record what actually rendered, never what the computed merely evaluated:
+  // an anchor from an evaluation that never reaches the DOM would re-key a
+  // rendered row and recreate it.
+  private readonly rowKeyStoreCommit = afterRenderEffect(() => {
+    commitRowKeyStore(this.rowKeyStore, this.messagesValue());
   });
   protected showCursorValue = computed(
     () => this.showCursor() && this.lastMessage()?.role !== "reasoning",

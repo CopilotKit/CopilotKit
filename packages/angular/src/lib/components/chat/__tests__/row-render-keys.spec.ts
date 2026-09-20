@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Message, ToolCall } from "@ag-ui/core";
 import {
+  commitRowKeyStore,
   createRowKeyStore,
   pruneRowKeyStore,
   resolveRowRenderKeys,
@@ -18,11 +19,25 @@ function user(id: string): Message {
   return { id, role: "user", content: "hi" } as Message;
 }
 
+/**
+ * One list that reaches the DOM: resolve keys, then record anchors the way the
+ * component's `afterRenderEffect` does. Anchors only exist after a render, so a
+ * test that spans renders has to commit between them.
+ */
+function renderPass(
+  store: ReturnType<typeof createRowKeyStore>,
+  messages: readonly (Message | undefined)[],
+) {
+  const keys = resolveRowRenderKeys(store, messages);
+  commitRowKeyStore(store, messages);
+  return keys;
+}
+
 describe("resolveRowRenderKeys", () => {
   it("tracks by message.id when there are no tool calls, leaving the store empty", () => {
     const store = createRowKeyStore();
 
-    const keys = resolveRowRenderKeys(store, [user("u1"), assistant("a1")]);
+    const keys = renderPass(store, [user("u1"), assistant("a1")]);
 
     expect(keys).toEqual(["u1", "a1"]);
     // Unaffected conversations carry no state and behave exactly like plain id
@@ -36,8 +51,8 @@ describe("resolveRowRenderKeys", () => {
     // row.
     const store = createRowKeyStore();
 
-    const streaming = resolveRowRenderKeys(store, [assistant("lc_run--1")]);
-    const withTool = resolveRowRenderKeys(store, [
+    const streaming = renderPass(store, [assistant("lc_run--1")]);
+    const withTool = renderPass(store, [
       assistant("lc_run--1", [toolCall("call_A")]),
     ]);
 
@@ -48,8 +63,8 @@ describe("resolveRowRenderKeys", () => {
   it("holds the key steady when the snapshot re-keys the message id", () => {
     const store = createRowKeyStore();
 
-    resolveRowRenderKeys(store, [assistant("lc_run--1", [toolCall("call_A")])]);
-    const afterRekey = resolveRowRenderKeys(store, [
+    renderPass(store, [assistant("lc_run--1", [toolCall("call_A")])]);
+    const afterRekey = renderPass(store, [
       assistant("resp_1", [toolCall("call_A")]),
     ]);
 
@@ -59,11 +74,11 @@ describe("resolveRowRenderKeys", () => {
   it("holds the key steady across the full streaming sequence", () => {
     const store = createRowKeyStore();
 
-    const k1 = resolveRowRenderKeys(store, [assistant("lc_run--1")])[0];
-    const k2 = resolveRowRenderKeys(store, [
+    const k1 = renderPass(store, [assistant("lc_run--1")])[0];
+    const k2 = renderPass(store, [
       assistant("lc_run--1", [toolCall("call_A")]),
     ])[0];
-    const k3 = resolveRowRenderKeys(store, [
+    const k3 = renderPass(store, [
       assistant("resp_1", [toolCall("call_A")]),
     ])[0];
 
@@ -73,10 +88,10 @@ describe("resolveRowRenderKeys", () => {
   it("resolves through a surviving anchor when tool calls are reordered", () => {
     const store = createRowKeyStore();
 
-    resolveRowRenderKeys(store, [
+    renderPass(store, [
       assistant("lc_run--1", [toolCall("call_A"), toolCall("call_B")]),
     ]);
-    const afterRekey = resolveRowRenderKeys(store, [
+    const afterRekey = renderPass(store, [
       assistant("resp_1", [toolCall("call_B"), toolCall("call_A")]),
     ]);
 
@@ -86,8 +101,8 @@ describe("resolveRowRenderKeys", () => {
   it("keeps a later tool call from stealing an established key", () => {
     const store = createRowKeyStore();
 
-    resolveRowRenderKeys(store, [assistant("lc_run--1", [toolCall("call_A")])]);
-    const keys = resolveRowRenderKeys(store, [
+    renderPass(store, [assistant("lc_run--1", [toolCall("call_A")])]);
+    const keys = renderPass(store, [
       assistant("lc_run--1", [toolCall("call_A"), toolCall("call_B")]),
     ]);
 
@@ -98,7 +113,7 @@ describe("resolveRowRenderKeys", () => {
   it("falls back to message.id when two messages share a tool-call id", () => {
     const store = createRowKeyStore();
 
-    const keys = resolveRowRenderKeys(store, [
+    const keys = renderPass(store, [
       assistant("a-1", [toolCall("call_X")]),
       assistant("a-2", [toolCall("call_X")]),
     ]);
@@ -113,8 +128,8 @@ describe("resolveRowRenderKeys", () => {
       assistant("a-2", [toolCall("call_X")]),
     ];
 
-    const first = resolveRowRenderKeys(store, messages);
-    const second = resolveRowRenderKeys(store, messages);
+    const first = renderPass(store, messages);
+    const second = renderPass(store, messages);
 
     expect(second).toEqual(first);
   });
@@ -125,7 +140,7 @@ describe("resolveRowRenderKeys", () => {
     // be structural.
     const store = createRowKeyStore();
 
-    const keys = resolveRowRenderKeys(store, [
+    const keys = renderPass(store, [
       assistant("dup"),
       assistant("dup"),
       assistant("dup"),
@@ -137,9 +152,9 @@ describe("resolveRowRenderKeys", () => {
 
   it("disambiguates when an override vends a key equal to a later message's id", () => {
     const store = createRowKeyStore();
-    resolveRowRenderKeys(store, [assistant("ghost", [toolCall("call_X")])]);
+    renderPass(store, [assistant("ghost", [toolCall("call_X")])]);
 
-    const keys = resolveRowRenderKeys(store, [
+    const keys = renderPass(store, [
       assistant("live", [toolCall("call_X")]),
       assistant("ghost"),
     ]);
@@ -157,9 +172,9 @@ describe("resolveRowRenderKeys", () => {
       user("u-1"),
     ];
 
-    const first = resolveRowRenderKeys(store, messages);
+    const first = renderPass(store, messages);
     const snapshot = new Map(store.overrides);
-    const second = resolveRowRenderKeys(store, messages);
+    const second = renderPass(store, messages);
 
     expect(second).toEqual(first);
     expect([...store.overrides.entries()]).toEqual([...snapshot.entries()]);
@@ -169,7 +184,7 @@ describe("resolveRowRenderKeys", () => {
     const store = createRowKeyStore();
     const idless = { role: "assistant", content: "x" } as unknown as Message;
 
-    const keys = resolveRowRenderKeys(store, [assistant("a-1"), idless]);
+    const keys = renderPass(store, [assistant("a-1"), idless]);
 
     expect(keys).toEqual(["a-1", "index-1"]);
   });
@@ -177,10 +192,60 @@ describe("resolveRowRenderKeys", () => {
   it("tolerates a sparse list without throwing", () => {
     const store = createRowKeyStore();
 
-    const keys = resolveRowRenderKeys(store, [undefined, assistant("a-1")]);
+    const keys = renderPass(store, [undefined, assistant("a-1")]);
 
     expect(keys[0]).toBe("index-0");
     expect(keys[1]).toBe("a-1");
+  });
+
+  it("leaves the store untouched, so an evaluation is safe to discard", () => {
+    const store = createRowKeyStore();
+
+    resolveRowRenderKeys(store, [assistant("lc_run--1", [toolCall("call_A")])]);
+
+    expect(store.overrides.size).toBe(0);
+  });
+
+  it("does not let a discarded evaluation's key reach the rendered rows", () => {
+    // Angular can evaluate the keys computed without that value ever reaching
+    // the DOM. If evaluating had recorded tc:call_A -> resp_1, the row the user
+    // is actually looking at (still lc_run--1) would re-key and be recreated on
+    // its next render — the flash this module exists to prevent.
+    const store = createRowKeyStore();
+
+    resolveRowRenderKeys(store, [assistant("resp_1", [toolCall("call_A")])]);
+    const rendered = renderPass(store, [
+      assistant("lc_run--1", [toolCall("call_A")]),
+    ]);
+
+    expect(rendered).toEqual(["lc_run--1"]);
+  });
+
+  it("records anchors once the rows render", () => {
+    const store = createRowKeyStore();
+    const messages = [assistant("lc_run--1", [toolCall("call_A")])];
+
+    resolveRowRenderKeys(store, messages);
+    commitRowKeyStore(store, messages);
+
+    expect(store.overrides.get("tc:call_A")).toBe("lc_run--1");
+  });
+
+  it("does not hand a shared anchor's key to the survivor when the other row leaves", () => {
+    // Two rows carrying one tool-call id make that anchor useless as an
+    // identity: whichever row outlives the other would inherit the first row's
+    // key, and with it the first row's DOM and component state.
+    const store = createRowKeyStore();
+    renderPass(store, [
+      assistant("a-1", [toolCall("call_X")]),
+      assistant("a-2", [toolCall("call_X")]),
+    ]);
+
+    const survivor = renderPass(store, [
+      assistant("a-2", [toolCall("call_X")]),
+    ]);
+
+    expect(survivor).toEqual(["a-2"]);
   });
 
   it("does not register anchors for non-assistant roles", () => {
@@ -192,7 +257,7 @@ describe("resolveRowRenderKeys", () => {
       toolCallId: "call_A",
     } as unknown as Message;
 
-    resolveRowRenderKeys(store, [toolMessage]);
+    renderPass(store, [toolMessage]);
 
     expect(store.overrides.size).toBe(0);
   });
@@ -200,7 +265,7 @@ describe("resolveRowRenderKeys", () => {
   it("ignores an empty toolCalls array", () => {
     const store = createRowKeyStore();
 
-    const keys = resolveRowRenderKeys(store, [assistant("a-1", [])]);
+    const keys = renderPass(store, [assistant("a-1", [])]);
 
     expect(keys).toEqual(["a-1"]);
     expect(store.overrides.size).toBe(0);
@@ -211,8 +276,8 @@ describe("resolveRowRenderKeys", () => {
     // across a rename. Recorded so a future change that fixes it is deliberate.
     const store = createRowKeyStore();
 
-    const before = resolveRowRenderKeys(store, [assistant("lc_run--1")]);
-    const after = resolveRowRenderKeys(store, [assistant("resp_1")]);
+    const before = renderPass(store, [assistant("lc_run--1")]);
+    const after = renderPass(store, [assistant("resp_1")]);
 
     expect(before).toEqual(["lc_run--1"]);
     expect(after).toEqual(["resp_1"]);
@@ -222,7 +287,7 @@ describe("resolveRowRenderKeys", () => {
 describe("pruneRowKeyStore", () => {
   it("drops anchors whose messages are gone and keeps live ones", () => {
     const store = createRowKeyStore();
-    resolveRowRenderKeys(store, [
+    renderPass(store, [
       assistant("a-1", [toolCall("call_A")]),
       assistant("a-2", [toolCall("call_B")]),
     ]);
@@ -237,7 +302,7 @@ describe("pruneRowKeyStore", () => {
     const store = createRowKeyStore();
     for (let i = 0; i < 50; i++) {
       const live = [assistant(`a-${i}`, [toolCall(`call_${i}`)])];
-      resolveRowRenderKeys(store, live);
+      renderPass(store, live);
       pruneRowKeyStore(store, live);
     }
 
@@ -247,10 +312,10 @@ describe("pruneRowKeyStore", () => {
   it("preserves the key of a row that survives a prune", () => {
     const store = createRowKeyStore();
     const live = [assistant("lc_run--1", [toolCall("call_A")])];
-    resolveRowRenderKeys(store, live);
+    renderPass(store, live);
     pruneRowKeyStore(store, live);
 
-    const afterRekey = resolveRowRenderKeys(store, [
+    const afterRekey = renderPass(store, [
       assistant("resp_1", [toolCall("call_A")]),
     ]);
 

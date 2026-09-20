@@ -87,10 +87,15 @@ export interface RowKeyStore {
    * tool call. Populated only for assistant messages that carry tool calls.
    */
   overrides: Map<string, string>;
+  /**
+   * Anchors carried by more than one message in the last rendered list. Such an
+   * anchor identifies no single row, so it is never used to vend a key.
+   */
+  ambiguous: Set<string>;
 }
 
 export function createRowKeyStore(): RowKeyStore {
-  return { overrides: new Map() };
+  return { overrides: new Map(), ambiguous: new Set() };
 }
 
 /**
@@ -115,12 +120,12 @@ function toolAnchorsOf(message: Message | undefined): string[] {
 /**
  * Resolves the track key for every message, returned by position.
  *
- * Mutates `store` additively — it registers anchors but never removes them, so
- * the call is idempotent for a given message list. That matters because this
- * runs inside a `computed`, which Angular may re-evaluate at will: re-running
- * yields the same keys. Removal happens in `pruneRowKeyStore` after render,
- * never during evaluation, so an anchor the rendered rows still need can't be
- * dropped out from under them.
+ * Pure: it reads `store` and never writes to it. This runs inside a
+ * `computed`, which Angular may evaluate without that value ever reaching the
+ * DOM. An anchor recorded by such an evaluation would vend its key to the pass
+ * that does render, re-keying a row the user is looking at — which is the
+ * teardown this module exists to prevent. Anchors are recorded by
+ * `commitRowKeyStore`, in an `afterRenderEffect`.
  *
  * Iteration order is significant — the first message to claim a key keeps it.
  */
@@ -140,6 +145,7 @@ export function resolveRowRenderKeys(
     // the later one falls back to its own id instead.
     let key: string | undefined;
     for (const anchor of anchors) {
+      if (store.ambiguous.has(anchor)) continue;
       const recorded = store.overrides.get(anchor);
       if (recorded !== undefined && !claimed.has(recorded)) {
         key = recorded;
@@ -161,21 +167,67 @@ export function resolveRowRenderKeys(
 
     keys.push(key);
     claimed.add(key);
-
-    // First claimant of an anchor owns it, so a re-keyed message resolves to
-    // the key the row already had rather than overwriting it.
-    for (const anchor of anchors) {
-      if (!store.overrides.has(anchor)) store.overrides.set(anchor, key);
-    }
   });
 
   return keys;
 }
 
 /**
+ * Records the anchors of a rendered list, then bounds the store to it. Call
+ * from an `afterRenderEffect`, never during `computed` evaluation — see
+ * `resolveRowRenderKeys`.
+ *
+ * Re-resolving here reproduces the keys the rows were rendered with, because
+ * the store cannot change between an evaluation and the render effect that
+ * follows it.
+ *
+ * An anchor carried by two rows in the same list is marked ambiguous rather
+ * than recorded. Recording it would give the first row's key to whichever row
+ * outlived the other, and with it that row's DOM and component state.
+ */
+export function commitRowKeyStore(
+  store: RowKeyStore,
+  messages: readonly (Message | undefined)[],
+): void {
+  const keys = resolveRowRenderKeys(store, messages);
+
+  const anchorCounts = new Map<string, number>();
+  for (const message of messages) {
+    for (const anchor of toolAnchorsOf(message)) {
+      anchorCounts.set(anchor, (anchorCounts.get(anchor) ?? 0) + 1);
+    }
+  }
+
+  // Ambiguity is a property of the rendered list, so it is recomputed rather
+  // than accumulated: an anchor left alone by the row that shadowed it becomes
+  // usable again.
+  store.ambiguous.clear();
+  for (const [anchor, count] of anchorCounts) {
+    if (count > 1) {
+      store.ambiguous.add(anchor);
+      store.overrides.delete(anchor);
+    }
+  }
+
+  // First claimant of an anchor owns it, so a re-keyed message resolves to
+  // the key the row already had rather than overwriting it.
+  messages.forEach((message, index) => {
+    const key = keys[index];
+    if (key === undefined) return;
+    for (const anchor of toolAnchorsOf(message)) {
+      if (store.ambiguous.has(anchor)) continue;
+      if (!store.overrides.has(anchor)) store.overrides.set(anchor, key);
+    }
+  });
+
+  pruneRowKeyStore(store, messages);
+}
+
+/**
  * Drops anchors no longer present in `messages`, bounding the store to the tool
- * calls of the currently-rendered messages. Call after render (an
- * `afterRenderEffect`), never during `computed` evaluation.
+ * calls of the currently-rendered messages. Called by `commitRowKeyStore`;
+ * like it, this writes to the store and so belongs in an `afterRenderEffect`,
+ * never in `computed` evaluation.
  *
  * Pruned entries are unreachable by construction: `resolveRowRenderKeys` only
  * looks up anchors belonging to messages in the list it is given.
@@ -191,5 +243,8 @@ export function pruneRowKeyStore(
 
   for (const anchor of store.overrides.keys()) {
     if (!live.has(anchor)) store.overrides.delete(anchor);
+  }
+  for (const anchor of store.ambiguous) {
+    if (!live.has(anchor)) store.ambiguous.delete(anchor);
   }
 }
