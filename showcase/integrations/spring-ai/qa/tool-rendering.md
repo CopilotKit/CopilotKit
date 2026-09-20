@@ -30,9 +30,9 @@
 - [ ] Verify loading state shows "Retrieving weather..." with a spinner
 - [ ] Verify the WeatherCard renders (`data-testid="weather-card"`) with:
   - [ ] City name displayed (`data-testid="weather-city"`)
-  - [ ] Temperature in both Celsius and Fahrenheit
+  - [ ] Temperature in Celsius (°C)
   - [ ] Humidity percentage (`data-testid="weather-humidity"`)
-  - [ ] Wind speed in mph (`data-testid="weather-wind"`)
+  - [ ] Wind speed in km/h (`data-testid="weather-wind"`)
   - [ ] Feels-like temperature (`data-testid="weather-feels-like"`)
   - [ ] Conditions text with appropriate weather icon (sun/rain/cloud)
 - [ ] Verify the card background color matches the weather condition theme:

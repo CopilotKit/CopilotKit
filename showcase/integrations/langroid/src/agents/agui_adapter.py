@@ -47,6 +47,7 @@ from ag_ui.core import (
 from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from agents._header_forwarding import get_forwarded_headers
 from agents.agent import (
     build_agent_config_system_prompt,
     extract_agent_config_properties,
@@ -459,6 +460,7 @@ async def _call_openai(
         model=model,
         messages=messages,
         tools=tools if tools else openai.NOT_GIVEN,
+        extra_headers=get_forwarded_headers(),
     )
     return response.choices[0].message
 

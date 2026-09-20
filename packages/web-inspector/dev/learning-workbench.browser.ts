@@ -91,6 +91,9 @@ test("enumerates and navigates the complete Automatic Learning matrix at the roo
     "https://app.copilotkit.ai/o/acme/checkout/learning/checkout-assistant-default/skills",
   );
   await expect(
+    page.getByRole("link", { name: "Open Intelligence" }),
+  ).toHaveAttribute("href", "https://app.copilotkit.ai");
+  await expect(
     page.getByText("Supporting Insight", { exact: true }),
   ).toBeVisible();
   await expect(
@@ -101,6 +104,43 @@ test("enumerates and navigates the complete Automatic Learning matrix at the roo
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
+});
+
+test("keeps Learning shortcuts scoped and general navigation available", async ({
+  page,
+}) => {
+  const container =
+    "https://app.copilotkit.ai/o/acme/checkout/learning/checkout-assistant-default";
+  for (const { state, links } of [
+    {
+      state: "new-threads",
+      links: [
+        [".pane-actions a", "https://app.copilotkit.ai"],
+        [".review-link", `${container}/skills`],
+        [".results-cta", `${container}/analysis-results`],
+      ],
+    },
+    {
+      state: "first-run",
+      links: [[".setup-cta", `${container}/analysis-results`]],
+    },
+    { state: "empty-results", links: [[".quiet-link", container]] },
+    {
+      state: "selection-required",
+      links: [
+        ["a.primary", "https://app.copilotkit.ai/o/acme/checkout/learning"],
+      ],
+    },
+  ] as const) {
+    await openWorkbenchState(page, state);
+    for (const [selector, href] of links) {
+      const link = page.locator("cpk-learning-view").locator(selector);
+      await expect(link).toBeVisible();
+      await expect(link).toHaveAttribute("href", href);
+      await expect(link).toHaveAttribute("target", "_blank");
+      await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    }
+  }
 });
 
 test("guides an unavailable Threads runtime through setup instead of showing a dead end", async ({
