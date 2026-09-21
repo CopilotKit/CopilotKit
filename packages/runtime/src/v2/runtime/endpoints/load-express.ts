@@ -43,7 +43,7 @@ export function loadExpress(
     throw new Error(
       "@copilotkit/runtime: the Express adapter requires `express`, which is an " +
         "optional peer dependency and is not installed. Install it with " +
-        "`npm install express` (^4.21.2 || ^5.0.0), or mount the Hono adapter " +
+        "`npm install express` (^4.18.0 || ^5.0.0), or mount the Hono adapter " +
         "from `@copilotkit/runtime/v2/hono` instead.",
       { cause },
     );

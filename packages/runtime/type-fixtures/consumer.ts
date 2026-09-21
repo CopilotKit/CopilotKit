@@ -13,7 +13,7 @@
  * ONE consumer, compiled TWICE: `express4/tsconfig.json` and
  * `express5/tsconfig.json` each include this file and point `express` at their
  * own major. A single file keeps the two majors from drifting apart, and the
- * declared peer range is `^4.21.2 || ^5.0.0`, so both halves need proving.
+ * declared peer range is `^4.18.0 || ^5.0.0`, so both halves need proving.
  *
  * What this file does NOT prove. Each project maps `express` for its whole
  * program, so neither can stage a tree where the library sees major 4 and the
@@ -60,3 +60,4 @@ router.use((_req: unknown, _res: unknown, next: (err?: unknown) => void) =>
 );
 router.get("/health", (_req: unknown, res: any) => res.sendStatus(200));
 router.route("/echo").get((_req: unknown, res: any) => res.sendStatus(204));
+router.param("id", (_req: unknown, _res: unknown, next: () => void) => next());

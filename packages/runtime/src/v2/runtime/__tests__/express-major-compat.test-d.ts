@@ -33,12 +33,17 @@ type Has<K extends string> = K extends keyof CopilotExpressRouter
   : false;
 
 /**
- * Members that exist ONLY on Express's own `Router`. Our exported type must not
- * carry them: taking them means taking one major's declaration, which is the
- * bug. `param` and `stack` are declared by both `@types/express@4` and
- * `@types/express@5`, so either major re-pinned here trips this.
+ * `stack` is Express's own internal middleware array, declared by both
+ * `@types/express@4` and `@types/express@5` and by nothing we write. Our
+ * exported type must not carry it: carrying it means we took one major's
+ * declaration, which is the bug. Either major re-pinned here trips this.
+ *
+ * It is one assertion rather than several because the configuration methods
+ * consumers actually call are declared structurally below, and a type that
+ * keeps its callers compiling is worth more than a second detector. The
+ * published declarations are guarded directly by
+ * `scripts/validate-dts-imports.ts`, which fails on any `express` import.
  */
-const mustNotCarryParam: Has<"param"> = false;
 const mustNotCarryStack: Has<"stack"> = false;
 
 /**
@@ -55,6 +60,7 @@ const keepsDelete: Has<"delete"> = true;
 const keepsOptions: Has<"options"> = true;
 const keepsAll: Has<"all"> = true;
 const keepsRoute: Has<"route"> = true;
+const keepsParam: Has<"param"> = true;
 
 /** It must still be callable as middleware... */
 declare const copilotRouter: CopilotExpressRouter;
@@ -70,7 +76,6 @@ const channelsStillTyped: ChannelsControl | undefined = copilotRouter.channels;
 /** ...and its configuration methods must stay chainable. */
 const chains: CopilotExpressRouter = copilotRouter.use(() => {}).get("/x");
 
-void mustNotCarryParam;
 void mustNotCarryStack;
 void keepsUse;
 void keepsGet;
@@ -81,6 +86,7 @@ void keepsDelete;
 void keepsOptions;
 void keepsAll;
 void keepsRoute;
+void keepsParam;
 void callableAsMiddleware;
 void channelsStillTyped;
 void chains;

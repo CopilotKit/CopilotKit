@@ -55,12 +55,19 @@ export type CopilotExpressRouter = ((
   options(...handlers: any[]): CopilotExpressRouter;
   all(...handlers: any[]): CopilotExpressRouter;
 
-  // `route()` is the one remaining Router-configuration method consumers reach
-  // for, and dropping it would break `router.route("/x").get(...)` callers for
-  // no gain: a re-pin to either Express major is caught by
+  // `route()` and `param()` are the remaining Router-configuration methods
+  // consumers reach for, and dropping them would break
+  // `router.route("/x").get(...)` and `router.param(...)` callers for no gain: a
+  // re-pin to either Express major is caught by
   // `scripts/validate-dts-imports.ts`, which fails on any published declaration
   // that names `express` at all.
+  //
+  // `stack` is deliberately absent. It is Express's own internal middleware
+  // array, not a configuration surface, and it is what
+  // `express-major-compat.test-d.ts` asserts against to keep this type from
+  // quietly becoming a `Router` again.
   route(path: any): any;
+  param(...handlers: any[]): CopilotExpressRouter;
 };
 
 export interface CopilotExpressEndpointParams {

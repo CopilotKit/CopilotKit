@@ -1,5 +1,5 @@
 {
-  // The Express 4 half of the declared peer range, `^4.21.2 || ^5.0.0`.
+  // The Express 4 half of the declared peer range, `^4.18.0 || ^5.0.0`.
   //
   // Sibling of express5/tsconfig.json: same consumer, same settings, `express`
   // pointed at major 4 instead. The fix for #7276 was to stop deriving
