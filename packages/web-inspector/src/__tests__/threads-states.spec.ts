@@ -382,7 +382,7 @@ async function exerciseLocalExamples(
     ).not.toEqual({});
     await harness.selectDetailTab("AG-UI Events");
     await harness.selectDetailTab("State");
-    await harness.selectDetailTab("Messages");
+    await harness.selectDetailTab("Conversation");
     assertDetailStaysLocal();
 
     if (name === "Realtime thread sync") {
@@ -1214,7 +1214,7 @@ test.each(lockedActionCases)(
         promptAction?.classList.contains("cpk-threads-overview-action-primary"),
       ).toBe(false);
       expect(promptAction?.getAttribute("aria-label")).toBe(
-        "Copy setup prompt for Threads",
+        "Copy setup prompt for Rich Threads",
       );
       expect(
         root.querySelector('.cpk-locked-feature-icon svg[viewBox="0 0 15 15"]'),
@@ -1260,7 +1260,9 @@ test("locked Threads copy the feature setup prompt", async () => {
     ).toContain("Copied");
     const status = promptAction.nextElementSibling;
     expect(status?.getAttribute("aria-live")).toBe("polite");
-    expect(status?.textContent?.trim()).toBe("Threads setup prompt copied.");
+    expect(status?.textContent?.trim()).toBe(
+      "Rich Threads setup prompt copied.",
+    );
   } finally {
     await harness.teardown();
     restoreClipboard();

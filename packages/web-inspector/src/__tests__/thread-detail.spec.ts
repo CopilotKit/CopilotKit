@@ -46,7 +46,7 @@ const ZERO_ROUTES = {
   state: 0,
 } as const satisfies ThreadRoutes;
 
-type HeaderFact = Readonly<{ label: string; value: string }>;
+type MetadataFact = Readonly<{ label: string; value: string }>;
 
 type ExampleHarness = Readonly<{
   inspector: WebInspectorElement;
@@ -175,6 +175,9 @@ async function expectUserMessageBeforeRun(
   userText: string,
   assistantText: string,
 ): Promise<void> {
+  await flushDetail(detail);
+  requireButton(detail.shadowRoot!, "Show event timeline").click();
+  await flushDetail(detail);
   await vi.waitFor(() => {
     const text = detail.shadowRoot?.textContent ?? "";
     expect(text).toContain(userText);
@@ -233,24 +236,17 @@ async function selectTab(
   return requireTab(detail, label);
 }
 
-function headerFacts(detail: CpkThreadInspector): HeaderFact[] {
-  const header = detail.shadowRoot?.querySelector<HTMLElement>(
-    '[aria-label="Thread metadata"]',
-  );
-  expect(header, "thread metadata header").not.toBeNull();
-  if (!header) throw new Error("Thread metadata header was not rendered");
-  return Array.from(
-    header.querySelectorAll<HTMLElement>(".cpk-td__metadata-pill"),
-  ).map((pill) => ({
-    label:
-      pill
-        .querySelector<HTMLElement>(".cpk-td__metadata-label")
-        ?.textContent?.trim() ?? "",
-    value:
-      pill
-        .querySelector<HTMLElement>(".cpk-td__metadata-value")
-        ?.textContent?.trim() ?? "",
+function metadataFacts(detail: CpkThreadInspector): MetadataFact[] {
+  const facts = Array.from(
+    detail.shadowRoot?.querySelectorAll(".cpk-tdp__row") ?? [],
+  ).map((row) => ({
+    label: row.querySelector(".cpk-tdp__label")?.textContent?.trim() ?? "",
+    value: row.querySelector(".cpk-tdp__value")?.textContent?.trim() ?? "",
   }));
+  return ["Name", "ID", "Agent", "Created", "Updated"].flatMap((label) => {
+    const fact = facts.find((item) => item.label === label);
+    return fact && fact.value !== "—" ? [fact] : [];
+  });
 }
 
 function expectedTime(value: string): string {
@@ -439,7 +435,7 @@ async function setupExampleHarness(): Promise<ExampleHarness> {
       await flushInspector(inspector);
       const detail = details();
       await vi.waitFor(() => {
-        expect(headerFacts(detail).map((fact) => fact.label)).toContain(
+        expect(metadataFacts(detail).map((fact) => fact.label)).toContain(
           "Created",
         );
       });
@@ -487,7 +483,7 @@ function expectNoMutationControls(
   }
 }
 
-test("real metadata renders the exact labels, full identity, and supplied optional facts", async () => {
+test("thread title uses provider metadata and full identity remains in the details drawer", async () => {
   prepareDom();
   const threadId = "thread-real-1234567890-abcdefghijklmnopqrstuvwxyz";
   const createdAt = "2026-06-25T10:00:00.000Z";
@@ -512,7 +508,7 @@ test("real metadata renders the exact labels, full identity, and supplied option
   });
   try {
     await vi.waitFor(() => {
-      expect(headerFacts(detail)).toEqual([
+      expect(metadataFacts(detail)).toEqual([
         { label: "Name", value: "Provider name" },
         { label: "ID", value: threadId },
         { label: "Agent", value: "agent-real" },
@@ -521,61 +517,15 @@ test("real metadata renders the exact labels, full identity, and supplied option
       ]);
     });
 
-    const header = detail.shadowRoot?.querySelector<HTMLElement>(
-      '[aria-label="Thread metadata"]',
+    const header = detail.shadowRoot?.querySelector(".cpk-td__thread-header");
+    expect(header?.textContent).toContain("Provider name");
+    expect(header?.textContent).not.toContain(threadId);
+    expect(header?.textContent).not.toContain(
+      "account-user-must-not-be-in-header",
     );
-    expect(header?.getAttribute("role")).toBe("group");
-    expect(header?.getAttribute("aria-label")).toBe("Thread metadata");
-    const headerChildren = Array.from(header?.children ?? []);
-    expect(headerChildren).toHaveLength(1);
     expect(
-      headerChildren[0]?.classList.contains("cpk-td__metadata-pills"),
-    ).toBe(true);
-    expect(header?.querySelector(".cpk-td__metadata-actions")).toBeNull();
-    expect(header?.textContent).not.toContain("End user");
-    expect(header?.textContent).not.toContain("Created by");
-    expect(header?.textContent).not.toContain("Status");
-    expect(header?.textContent).toContain(threadId);
-    const renderedStyle =
-      detail.shadowRoot?.querySelector("style")?.textContent;
-    if (!renderedStyle)
-      throw new Error("Thread detail styles were not rendered");
-    const parserStyle = document.createElement("style");
-    parserStyle.textContent = renderedStyle;
-    document.head.append(parserStyle);
-    try {
-      const styleRules = Array.from(parserStyle.sheet?.cssRules ?? []).filter(
-        (rule): rule is CSSStyleRule => rule instanceof CSSStyleRule,
-      );
-      for (const selector of [
-        ".cpk-td__tab",
-        ".cpk-td__metadata-label",
-        ".cpk-td__timeline-time",
-        ".cpk-td__event-time",
-        ".cpk-tdp__section-title",
-        ".cpk-tdp__label",
-      ]) {
-        const rule = styleRules.find(
-          (candidate) => candidate.selectorText === selector,
-        );
-        expect(rule?.style.color, selector).toBe("rgb(104, 104, 110)");
-      }
-    } finally {
-      parserStyle.remove();
-    }
-    const namedIdFact = detail.shadowRoot?.querySelector<HTMLElement>(
-      `[role="group"][aria-label="ID: ${threadId}"]`,
-    );
-    expect(namedIdFact).not.toBeNull();
-    expect(namedIdFact?.textContent).toContain(threadId);
-    expect(
-      header?.parentElement
-        ?.querySelector(".cpk-td__empty-hint")
-        ?.textContent?.replace(/\s+/g, " ")
-        .trim(),
-    ).toBe(
-      "Timeline rows are normalized from AG-UI events. Open AG-UI Events or State to inspect the available thread data.",
-    );
+      detail.shadowRoot?.querySelector(".cpk-td__empty-hint")?.textContent,
+    ).toContain("Timeline rows are normalized");
 
     detail.shadowRoot
       ?.querySelector<HTMLButtonElement>(".cpk-td__panel-toggle")
@@ -686,7 +636,7 @@ test("a message focus request scrolls and pulses once per request", async () => 
   }
 });
 
-test("missing metadata falls back to Untitled and the full thread ID without optional account facts", async () => {
+test("missing metadata keeps the full thread ID in the drawer and a fallback title", async () => {
   prepareDom();
   const threadId = "thread-fallback-full-0987654321-zyxwvutsrqponmlkjihgfedcba";
   const provider: ThreadDebuggerProvider = {
@@ -696,13 +646,11 @@ test("missing metadata falls back to Untitled and the full thread ID without opt
   const detail = appendDetail({ threadId, provider });
   try {
     await flushDetail(detail);
-    expect(headerFacts(detail)).toEqual([
-      { label: "Name", value: "Untitled" },
-      { label: "ID", value: threadId },
-    ]);
+    expect(metadataFacts(detail)).toEqual([{ label: "ID", value: threadId }]);
     const headerText =
-      detail.shadowRoot?.querySelector('[aria-label="Thread metadata"]')
-        ?.textContent ?? "";
+      detail.shadowRoot?.querySelector(".cpk-td__thread-title")?.textContent ??
+      "";
+    expect(headerText).toContain("Rich Thread");
     for (const absent of [
       "Agent",
       "Created",
@@ -757,7 +705,7 @@ test("click selection keeps stable unique tab and panel ARIA links across rerend
     const selected = await selectTab(first, "AG-UI Events");
     const tabs = detailTabs(first);
     expect(tabs.map((tab) => tab.textContent?.trim())).toEqual([
-      "Messages",
+      "Conversation",
       "AG-UI Events",
       "State",
     ]);
@@ -809,7 +757,7 @@ test("Arrow keys wrap and Home and End select and focus their exact tabs", async
   });
   try {
     await flushDetail(detail);
-    const messages = requireTab(detail, "Messages");
+    const messages = requireTab(detail, "Conversation");
     messages.focus();
     expect(detail.shadowRoot?.activeElement).toBe(messages);
 
@@ -827,30 +775,33 @@ test("Arrow keys wrap and Home and End select and focus their exact tabs", async
     );
     await flushDetail(detail);
     expect(left.defaultPrevented).toBe(true);
-    expect(selectedTab(detail).textContent?.trim()).toBe("Messages");
+    expect(selectedTab(detail).textContent?.trim()).toBe("Conversation");
 
-    dispatchNavigationKey(requireTab(detail, "Messages"), "ArrowLeft");
+    dispatchNavigationKey(requireTab(detail, "Conversation"), "ArrowLeft");
     await flushDetail(detail);
     expect(selectedTab(detail).textContent?.trim()).toBe("State");
     dispatchNavigationKey(requireTab(detail, "State"), "ArrowRight");
     await flushDetail(detail);
-    expect(selectedTab(detail).textContent?.trim()).toBe("Messages");
+    expect(selectedTab(detail).textContent?.trim()).toBe("Conversation");
 
-    dispatchNavigationKey(requireTab(detail, "Messages"), "End");
+    dispatchNavigationKey(requireTab(detail, "Conversation"), "End");
     await flushDetail(detail);
     expect(selectedTab(detail).textContent?.trim()).toBe("State");
     expect(detail.shadowRoot?.activeElement).toBe(requireTab(detail, "State"));
     dispatchNavigationKey(requireTab(detail, "State"), "Home");
     await flushDetail(detail);
-    expect(selectedTab(detail).textContent?.trim()).toBe("Messages");
+    expect(selectedTab(detail).textContent?.trim()).toBe("Conversation");
     expect(detail.shadowRoot?.activeElement).toBe(
-      requireTab(detail, "Messages"),
+      requireTab(detail, "Conversation"),
     );
 
-    const tabKey = dispatchNavigationKey(requireTab(detail, "Messages"), "Tab");
+    const tabKey = dispatchNavigationKey(
+      requireTab(detail, "Conversation"),
+      "Tab",
+    );
     await flushDetail(detail);
     expect(tabKey.defaultPrevented).toBe(false);
-    expect(selectedTab(detail).textContent?.trim()).toBe("Messages");
+    expect(selectedTab(detail).textContent?.trim()).toBe("Conversation");
   } finally {
     detail.remove();
     vi.restoreAllMocks();
@@ -893,18 +844,97 @@ test("real provider navigation shares events, loads messages with events, lazily
     expect(fetchMock).not.toHaveBeenCalled();
 
     await selectTab(detail, "AG-UI Events");
-    await selectTab(detail, "Messages");
+    await selectTab(detail, "Conversation");
     await selectTab(detail, "AG-UI Events");
     expect(getEvents).toHaveBeenCalledTimes(1);
     expect(getMessages).toHaveBeenCalledTimes(1);
 
     await selectTab(detail, "State");
     await vi.waitFor(() => expect(getState).toHaveBeenCalledTimes(1));
-    await selectTab(detail, "Messages");
+    await selectTab(detail, "Conversation");
     await selectTab(detail, "State");
     expect(getState).toHaveBeenCalledTimes(1);
     expect(getEvents).toHaveBeenCalledTimes(1);
     expect(fetchMock).not.toHaveBeenCalled();
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("conversation preserves long replies, tool details, and generative UI while view controls reuse fetched data", async () => {
+  prepareDom();
+  const reply = "A detailed reply. ".repeat(200) + "End of reply.";
+  const getMessages = vi.fn().mockResolvedValue([
+    { id: "user", role: "user", content: "Find a meeting time" },
+    {
+      id: "tool-message",
+      role: "assistant",
+      toolCalls: [
+        { id: "calendar", name: "check_calendars", args: { day: "Thursday" } },
+      ],
+    },
+    {
+      id: "result",
+      role: "tool",
+      toolCallId: "calendar",
+      content: '{"available":true}',
+    },
+    { id: "picker", role: "activity", activityType: "meeting_time_picker" },
+    { id: "reply", role: "assistant", content: reply },
+  ]);
+  const getEvents = vi.fn().mockResolvedValue([...RUN_EVENTS_WITHOUT_USER]);
+  const detail = appendDetail({
+    threadId: "mixed-conversation",
+    provider: { getMessages, getEvents },
+  });
+  try {
+    await flushDetail(detail);
+    const root = detail.shadowRoot!;
+    expect(
+      root.querySelector('[aria-label="User message"]')?.textContent,
+    ).toContain("Find a meeting time");
+    expect(root.querySelector(".cpk-td__genui")?.textContent).toContain(
+      "Generative UI",
+    );
+    expect(root.querySelector(".cpk-td__genui-component")?.textContent).toBe(
+      "meeting_time_picker",
+    );
+    expect(
+      root.querySelector('[aria-label="Assistant message"]')?.textContent,
+    ).not.toContain("End of reply.");
+    root.querySelector<HTMLElement>(".cpk-td__show-more")!.click();
+    await flushDetail(detail);
+    expect(
+      root.querySelector('[aria-label="Assistant message"]')?.textContent,
+    ).toContain("End of reply.");
+    root.querySelector<HTMLElement>(".cpk-td__tool-header")!.click();
+    await flushDetail(detail);
+    expect(root.querySelector(".cpk-td__tool-body")?.textContent).toContain(
+      "Thursday",
+    );
+    expect(root.querySelector(".cpk-td__tool-body")?.textContent).toContain(
+      "available",
+    );
+    const timelineToggle = requireButton(root, "Show event timeline");
+    expect(timelineToggle.closest(".cpk-td__thread-header")).not.toBeNull();
+    expect(timelineToggle.closest(".cpk-td__content")).toBeNull();
+    timelineToggle.click();
+    await flushDetail(detail);
+    requireButton(root, "Show conversation").click();
+    await flushDetail(detail);
+    expect(
+      root.querySelector('[aria-label="Assistant message"]')?.textContent,
+    ).toContain("End of reply.");
+    await selectTab(detail, "AG-UI Events");
+    requireButton(root, "Expand all").click();
+    await flushDetail(detail);
+    requireButton(root, "Collapse all").click();
+    await flushDetail(detail);
+    expect(requireButton(root, "Expand all")).toBeDefined();
+    expect(getMessages).toHaveBeenCalledTimes(1);
+    expect(getEvents).toHaveBeenCalledTimes(1);
   } finally {
     detail.remove();
     vi.restoreAllMocks();
@@ -1041,7 +1071,7 @@ test("all three local examples use the shared labels, created fact, local panels
     const routesBeforeExamples = harness.routes();
     for (const example of examples) {
       const detail = await harness.selectExample(example.name);
-      const facts = headerFacts(detail);
+      const facts = metadataFacts(detail);
       expect(facts.map((fact) => fact.label)).toEqual([
         "Name",
         "ID",
@@ -1057,7 +1087,7 @@ test("all three local examples use the shared labels, created fact, local panels
         "—",
       );
       expect(detailTabs(detail).map((tab) => tab.textContent?.trim())).toEqual([
-        "Messages",
+        "Conversation",
         "AG-UI Events",
         "State",
       ]);
@@ -1070,7 +1100,11 @@ test("all three local examples use the shared labels, created fact, local panels
       skip?.click();
       await harness.flush();
 
-      await selectTab(detail, "Messages");
+      await selectTab(detail, "Conversation");
+      if (detail.shadowRoot?.textContent?.includes("Show event timeline")) {
+        requireButton(detail.shadowRoot!, "Show event timeline").click();
+        await flushDetail(detail);
+      }
       expect(detail.shadowRoot?.textContent).toContain("Run started");
       await selectTab(detail, "AG-UI Events");
       expect(detail.shadowRoot?.textContent).toContain(example.event);
@@ -1092,9 +1126,9 @@ test("Sam's tour uses the new labels while preserving step bodies, storage, navi
     const root = harness.inspector.shadowRoot!;
     const expectedSteps = [
       {
-        label: "Messages",
+        label: "Conversation",
         tabSuffix: "-tab-timeline",
-        body: "The timeline turns messages, tool calls, state changes, and run markers into a scannable debugging trail.",
+        body: "Read messages and tool calls as a conversation. Switch to the event timeline to inspect state changes and run markers.",
       },
       {
         label: "AG-UI Events",
@@ -1143,7 +1177,7 @@ test("Sam's tour uses the new labels while preserving step bodies, storage, navi
     const reopenedTourText =
       root.querySelector('[role="dialog"]')?.textContent ?? "";
     expect(reopenedTourText).toContain("1/3");
-    expect(reopenedTourText).toContain("Messages");
+    expect(reopenedTourText).toContain("Conversation");
     expect(selectedTab(detail).id).toMatch(/-tab-timeline$/);
     expectNoMutationControls(harness.inspector, detail);
     expect(harness.routes()).toEqual(routesBeforeTour);

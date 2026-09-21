@@ -5102,3 +5102,37 @@ small.inspector-system-health-detail {
     border-width: 0;
   }
 }
+
+/* Inspector page headings. */
+.inspector-home-heading h1 {
+  font-size: 23px;
+  font-weight: 650;
+  margin: 0 0 6px;
+  letter-spacing: -0.5px;
+}
+.inspector-home-heading p {
+  margin: 0;
+  font-size: 13px;
+  opacity: 0.7;
+}
+.inspector-thread-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #b8afe030;
+}
+.inspector-thread-heading strong {
+  font-size: 14px;
+}
+.inspector-text-button {
+  font: inherit;
+  font-size: 11px;
+  color: #8872c5;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.inspector-home-heading {
+  margin-bottom: 22px;
+}
