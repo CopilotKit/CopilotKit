@@ -73,17 +73,18 @@ export const DOCS_MEGA_MENU_COLUMNS: readonly MegaMenuColumn[] = [
         icon: "kite",
         featured: true,
       },
-      { href: "/threads", label: "Threads", icon: "layers" },
+      { href: "/threads", label: "Rich Threads", icon: "layers" },
       {
-        href: "/backend/copilot-runtime",
-        label: "Learning",
+        href: "/learning",
+        label: "Automatic Learning",
         icon: "brain",
       },
       {
         href: "/intelligence/managed-intelligence-platform",
-        label: "Analytics",
+        label: "Product Analytics",
         icon: "chart",
       },
+      { href: "/intelligence/memories", label: "User Memories", icon: "brain" },
       { href: "/inspector", label: "Inspector", icon: "search" },
       { href: "/deploy/agentcore", label: "Deploy", icon: "cloud" },
       {
