@@ -247,6 +247,10 @@ export class RunHandler {
     const replay = this._interactionAbortControllers.get(agent);
     if (replay) {
       for (const controller of replay.controllers) controller.abort();
+      this._interactionAbortControllers.delete(agent);
+      // Cancellation is cooperative: an old handler may never settle. Let a
+      // reconnect restore it without waiting for its execution marker to clear.
+      this._executingToolCalls.delete(agent);
     }
   }
 

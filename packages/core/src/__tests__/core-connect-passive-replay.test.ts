@@ -339,6 +339,58 @@ describe("CopilotKitCore.connectAgent selective replay", () => {
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
+  it.each(["replay", "live"])(
+    "restores a stopped %s interaction even if its handler ignores cancellation",
+    async (source) => {
+      const { core, agent, message, toolCallId } = setup();
+      const stale = deferredAnswer();
+      const fresh = deferredAnswer();
+      const handler = vi
+        .fn()
+        .mockImplementationOnce(() => stale.promise)
+        .mockImplementationOnce(() => fresh.promise);
+      core.addTool(
+        createTool({
+          name: "approval",
+          type: "human-in-the-loop",
+          handler,
+          followUp: false,
+        }),
+      );
+      agent.runMessages = [message];
+      const initial =
+        source === "live"
+          ? core.runAgent({ agent })
+          : core.connectAgent({ agent });
+      await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+      core.stopAgent({ agent });
+      await core.connectAgent({ agent });
+      await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(2));
+
+      // The old handler can settle late without answering the restored call
+      // or removing the fresh execution's duplicate-prevention marker.
+      stale.resolve("stale answer");
+      await initial;
+      await setImmediate();
+      expect(agent.messages.some((entry) => entry.role === "tool")).toBe(false);
+      await core.connectAgent({ agent });
+      expect(handler).toHaveBeenCalledTimes(2);
+      fresh.resolve("fresh answer");
+      await vi.waitFor(() =>
+        expect(agent.messages).toContainEqual(
+          expect.objectContaining({
+            role: "tool",
+            toolCallId,
+            content: "fresh answer",
+          }),
+        ),
+      );
+      expect(
+        agent.messages.filter((entry) => entry.role === "tool"),
+      ).toHaveLength(1);
+    },
+  );
+
   it("does not submit a second answer after another client answered", async () => {
     const { core, agent, toolCallId } = setup();
     const answer = deferredAnswer();
