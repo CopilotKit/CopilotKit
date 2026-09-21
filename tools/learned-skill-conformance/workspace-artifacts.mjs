@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 /** Pack the checkout's public Runtime dependency graph for standalone consumers. */
-export function packRuntimeWorkspace(workspaceRoot, artifactsDirectory) {
+export function packRuntimeWorkspace(workspaceRoot, artifactsDirectory, env) {
   const packages = new Map();
   const packagesDirectory = join(workspaceRoot, "packages");
   for (const entry of readdirSync(packagesDirectory, { withFileTypes: true })) {
@@ -44,6 +44,7 @@ export function packRuntimeWorkspace(workspaceRoot, artifactsDirectory) {
     execFileSync("pnpm", ["pack", "--pack-destination", artifacts], {
       cwd: root,
       stdio: "pipe",
+      ...(env ? { env } : {}),
     });
     const archive = `${name.replace(/^@/, "").replaceAll("/", "-")}-${manifest.version}.tgz`;
     dependencies[name] = `file:${join(artifacts, archive)}`;
