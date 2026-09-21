@@ -15,7 +15,7 @@
         "context": "langroid"
       },
       "response": {
-        "content": "Tokyo is 22\u00b0C and partly cloudy \u2014 rendered through the custom wildcard catchall."
+        "content": "Tokyo's mock weather result (temperature: 85; conditions: Sunny) was rendered through the custom wildcard catchall."
       }
     },
     {
@@ -42,7 +42,7 @@
         "context": "langroid"
       },
       "response": {
-        "content": "AAPL is trading at $338.37, down 2.96% on the day \u2014 rendered through the custom wildcard catchall."
+        "content": "AAPL's mock quote is $189.42, up 1.27% on the day \u2014 rendered through the custom wildcard catchall."
       }
     },
     {
@@ -56,7 +56,7 @@
           {
             "id": "call_d6_lr_cc_stock_001",
             "name": "get_stock_price",
-            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+            "arguments": "{\"ticker\":\"AAPL\"}"
           }
         ]
       }
