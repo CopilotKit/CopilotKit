@@ -1,9 +1,9 @@
-import { AbstractAgent, EventType } from "@ag-ui/client";
+import { AbstractAgent, EventType, HttpAgent } from "@ag-ui/client";
 import type { Message, RunAgentInput } from "@ag-ui/client";
 import { of } from "rxjs";
 import { setImmediate } from "node:timers/promises";
 import { describe, expect, it, vi } from "vitest";
-import { CopilotKitCore } from "../core";
+import { CopilotKitCore, CopilotKitCoreErrorCode } from "../core";
 import {
   createTool,
   createToolCallMessage,
@@ -65,10 +65,12 @@ function setup() {
 
 function deferredAnswer() {
   let resolve!: (answer: string) => void;
-  const promise = new Promise<string>((done) => {
+  let reject!: (error: Error) => void;
+  const promise = new Promise<string>((done, fail) => {
     resolve = done;
+    reject = fail;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 describe("CopilotKitCore.connectAgent selective replay", () => {
@@ -339,9 +341,15 @@ describe("CopilotKitCore.connectAgent selective replay", () => {
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
-  it.each(["replay", "live"])(
-    "restores a stopped %s interaction even if its handler ignores cancellation",
-    async (source) => {
+  it.each([
+    ["replay", "success", "approval"],
+    ["live", "success", "approval"],
+    ["replay", "error", "approval"],
+    ["live", "error", "approval"],
+    ["live", "error", "*"],
+  ])(
+    "restores a stopped %s interaction after a late %s from %s",
+    async (source, lateResult, name) => {
       const { core, agent, message, toolCallId } = setup();
       const stale = deferredAnswer();
       const fresh = deferredAnswer();
@@ -351,7 +359,7 @@ describe("CopilotKitCore.connectAgent selective replay", () => {
         .mockImplementationOnce(() => fresh.promise);
       core.addTool(
         createTool({
-          name: "approval",
+          name,
           type: "human-in-the-loop",
           handler,
           followUp: false,
@@ -369,7 +377,9 @@ describe("CopilotKitCore.connectAgent selective replay", () => {
 
       // The old handler can settle late without answering the restored call
       // or removing the fresh execution's duplicate-prevention marker.
-      stale.resolve("stale answer");
+      if (lateResult === "error")
+        stale.reject(new Error("Human-in-the-loop interaction aborted"));
+      else stale.resolve("stale answer");
       await initial;
       await setImmediate();
       expect(agent.messages.some((entry) => entry.role === "tool")).toBe(false);
@@ -388,6 +398,67 @@ describe("CopilotKitCore.connectAgent selective replay", () => {
       expect(
         agent.messages.filter((entry) => entry.role === "tool"),
       ).toHaveLength(1);
+    },
+  );
+
+  it.each([
+    ["approval", "stopAgent"],
+    ["*", "stopAgent"],
+    ["approval", "abortRun"],
+    ["*", "abortRun"],
+  ])(
+    "records the live %s HITL cancellation result via %s without reconnect",
+    async (name, stop) => {
+      const { core, message, toolCallId } = setup();
+      const agent = new HttpAgent({
+        url: "http://localhost/unused",
+        agentId: "test",
+        threadId: "thread-1",
+      });
+      const run = vi
+        .spyOn(agent, "runAgent")
+        .mockImplementationOnce(async () => {
+          agent.setMessages([message]);
+          return { result: undefined, newMessages: [message] };
+        });
+      const onError = vi.fn();
+      core.subscribe({ onError });
+      const handler = vi.fn(
+        (_args, context) =>
+          new Promise<string>((_resolve, reject) => {
+            context.signal.addEventListener(
+              "abort",
+              () => reject(new Error("Human-in-the-loop interaction aborted")),
+              { once: true },
+            );
+          }),
+      );
+      core.addTool(
+        createTool({
+          name,
+          type: "human-in-the-loop",
+          handler,
+          followUp: true,
+        }),
+      );
+      const running = core.runAgent({ agent });
+      await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+      if (stop === "stopAgent") core.stopAgent({ agent });
+      else agent.abortRun();
+      await running;
+      expect(agent.messages).toContainEqual(
+        expect.objectContaining({
+          role: "tool",
+          toolCallId,
+          content: "Error: Human-in-the-loop interaction aborted",
+        }),
+      );
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED,
+        }),
+      );
+      expect(run).toHaveBeenCalledTimes(1);
     },
   );
 

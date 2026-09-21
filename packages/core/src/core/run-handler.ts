@@ -18,6 +18,28 @@ import { isForwardedToClientPlaceholder } from "./tool-result-content";
 import { createToolSchema } from "./tool-schema";
 import { WebMCPRegistry } from "./webmcp";
 
+class LiveHITLStopped {
+  constructor(readonly isCurrent: () => boolean) {}
+}
+
+// Explicitly stopping a live approval must retain its error result. History
+// restoration and thread-switch cancellation instead discard the old result.
+function discardAbortedResult(
+  signal: AbortSignal | undefined,
+  discardOnAbort: boolean,
+  errorMessage?: string,
+): boolean {
+  return !!(
+    discardOnAbort &&
+    signal?.aborted &&
+    !(
+      signal.reason instanceof LiveHITLStopped &&
+      signal.reason.isCurrent() &&
+      errorMessage
+    )
+  );
+}
+
 export interface CopilotKitCoreRunAgentParams {
   agent: AbstractAgent;
   forwardedProps?: Record<string, unknown>;
@@ -227,7 +249,9 @@ export class RunHandler {
   /** Prevent reconnects from starting an interaction already executing locally. */
   private _executingToolCalls = new WeakMap<AbstractAgent, Set<string>>();
 
-  private _interactionAbortControllers = new Map<
+  private _connectionGenerations = new WeakMap<AbstractAgent, object>();
+
+  private _interactionAbortControllers = new WeakMap<
     AbstractAgent,
     {
       threadId: string | null;
@@ -482,6 +506,7 @@ export class RunHandler {
   async connectAgent({
     agent,
   }: CopilotKitCoreConnectAgentParams): Promise<RunAgentResult> {
+    this._connectionGenerations.set(agent, {});
     const incomingThreadId = agent.threadId ?? null;
     const previousReplay = this._interactionAbortControllers.get(agent);
     if (previousReplay && previousReplay.threadId !== incomingThreadId) {
@@ -898,7 +923,17 @@ export class RunHandler {
               threadId: threadId ?? null,
               controllers: new Set<AbortController>(),
             };
-            const abortInteraction = () => interactionController?.abort();
+            const abortInteraction = () => {
+              const connectionGeneration =
+                this._connectionGenerations.get(agent);
+              interactionController?.abort(
+                new LiveHITLStopped(
+                  () =>
+                    this._connectionGenerations.get(agent) ===
+                      connectionGeneration && agent.threadId === threadId,
+                ),
+              );
+            };
             if (interactionController) {
               interactions.controllers.add(interactionController);
               this._interactionAbortControllers.set(agent, interactions);
@@ -1087,7 +1122,7 @@ export class RunHandler {
         const handlerError =
           error instanceof Error ? error : new Error(String(error));
         errorMessage = handlerError.message;
-        if (!(discardOnAbort && signal?.aborted)) {
+        if (!discardAbortedResult(signal, discardOnAbort, errorMessage)) {
           await this._internal.emitError({
             error: handlerError,
             code: CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED,
@@ -1166,7 +1201,7 @@ export class RunHandler {
     {
       const messageIndex = agent.messages.findIndex((m) => m.id === message.id);
       if (
-        (discardOnAbort && signal?.aborted) ||
+        discardAbortedResult(signal, discardOnAbort, handlerResult.error) ||
         agent.threadId !== threadId ||
         messageIndex === -1 ||
         agent.messages.some(
@@ -1294,7 +1329,7 @@ export class RunHandler {
           const handlerError =
             error instanceof Error ? error : new Error(String(error));
           errorMessage = handlerError.message;
-          if (!(discardOnAbort && signal?.aborted)) {
+          if (!discardAbortedResult(signal, discardOnAbort, errorMessage)) {
             await this._internal.emitError({
               error: handlerError,
               code: CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED,
@@ -1332,7 +1367,7 @@ export class RunHandler {
     {
       const messageIndex = agent.messages.findIndex((m) => m.id === message.id);
       if (
-        (discardOnAbort && signal?.aborted) ||
+        discardAbortedResult(signal, discardOnAbort, errorMessage) ||
         agent.threadId !== threadId ||
         messageIndex === -1 ||
         agent.messages.some(
