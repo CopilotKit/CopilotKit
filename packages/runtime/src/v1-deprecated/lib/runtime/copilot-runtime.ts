@@ -66,7 +66,11 @@ import {
   readBody,
   getZodParameters,
 } from "@copilotkit/shared";
-import { resolveMCPEntry, touchMCPEntry } from "./mcp-client-cache";
+import {
+  resolveMCPEntry,
+  touchMCPEntry,
+  describeEndpoint,
+} from "./mcp-client-cache";
 import type {
   Action,
   CopilotErrorHandler,
@@ -1075,7 +1079,10 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     const allTools: BuiltInAgentClassicConfig["tools"] = [];
 
     for (const config of effectiveEndpoints) {
-      const endpointUrl = config.endpoint;
+      // Everything that leaves this process with the endpoint in it uses the
+      // redacted form: the raw URL's query can carry the credential, which is
+      // exactly what the #2407 workaround puts there.
+      const endpointLabel = describeEndpoint(config.endpoint);
 
       try {
         // Keyed by the client factory plus the whole config, so two callers
@@ -1099,10 +1106,12 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
                 name: toolName,
                 description:
                   tool.description ||
-                  `MCP tool: ${toolName} (from ${endpointUrl})`,
+                  `MCP tool: ${toolName} (from ${endpointLabel})`,
                 parameters: zodSchema,
-                // The MCP client stays live for the lifetime of the cached
-                // tool definitions; `tool.execute` calls the server.
+                // `tool.execute` calls the server over the cached client. That
+                // client outlives this request but not necessarily this tool
+                // definition: eviction can close it while these defs are still
+                // held by an already-resolved agent.
                 execute: async (args: unknown) => {
                   // Executing is the only evidence this runtime gets that a
                   // connection is still in use. Without it the entry ages from
@@ -1121,7 +1130,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         allTools.push(...(entry.tools ?? []));
       } catch (error) {
         console.error(
-          `MCP: Failed to fetch tools from endpoint ${endpointUrl}. Skipping. Error:`,
+          `MCP: Failed to fetch tools from endpoint ${endpointLabel}. Skipping. Error:`,
           error,
         );
         // Deliberately not cached. Caching the empty result meant a server

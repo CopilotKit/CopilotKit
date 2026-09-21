@@ -397,6 +397,62 @@ describe("v1 MCP clients are keyed by credential", () => {
     expect(closed).toEqual(["key-0"]);
   });
 
+  it("keeps the credential out of the log when an endpoint fails to connect", async () => {
+    const errors: string[] = [];
+    const spy = vi
+      .spyOn(console, "error")
+      .mockImplementation((...args: unknown[]) => {
+        errors.push(args.map(String).join(" "));
+      });
+
+    try {
+      const runtime = new CopilotRuntime({
+        agents: agents(),
+        createMCPClient: async () => {
+          throw new Error("connection refused");
+        },
+        mcpServers: [
+          { endpoint: "https://mcp.example.com/sse?uid=SECRETHASH" },
+        ],
+      } as any);
+      runtime.handleServiceAdapter(adapter);
+      await resolveFor(runtime, requestWith({}));
+
+      const log = errors.join("\n");
+      expect(log).toContain("Failed to fetch tools from endpoint");
+      expect(log).toContain("https://mcp.example.com/sse");
+      // A failed connection is the common path, so this log line sees the
+      // credential far more often than the close-error one does.
+      expect(log).not.toContain("SECRETHASH");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("keeps the credential out of the tool description sent to the model", async () => {
+    const runtime = new CopilotRuntime({
+      agents: agents(),
+      createMCPClient: async () => ({
+        // No description of its own, so the fallback naming the endpoint is
+        // what reaches the model provider.
+        tools: async () => ({
+          search: {
+            schema: { parameters: { properties: {}, required: [] } },
+            execute: async () => "ok",
+          },
+        }),
+      }),
+      mcpServers: [{ endpoint: "https://mcp.example.com/sse?uid=SECRETHASH" }],
+    } as any);
+    runtime.handleServiceAdapter(adapter);
+
+    const resolved = await resolveFor(runtime, requestWith({}));
+    const description = toolsOf(resolved)[0].description;
+
+    expect(description).toContain("https://mcp.example.com/sse");
+    expect(description).not.toContain("SECRETHASH");
+  });
+
   it("does not evict a client whose tools are still being called", async () => {
     const closed: string[] = [];
     const createMCPClient = vi.fn(async (config: any) => ({

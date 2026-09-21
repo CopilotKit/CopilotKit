@@ -57,8 +57,11 @@ const cache = new Map<string, MCPCacheSlot>();
  * Both halves of an endpoint URL can carry a secret: userinfo, and the query
  * string — the #2407 reporter's own workaround appended `?uid=<hash of the
  * API key>`. Only the origin and path survive.
+ *
+ * Used for anything that leaves this process with an endpoint in it: log
+ * lines, and the tool descriptions that go to the model provider.
  */
-function describeEndpoint(endpoint: string | undefined): string {
+export function describeEndpoint(endpoint: string | undefined): string {
   if (!endpoint) return "an MCP endpoint";
   try {
     const url = new URL(endpoint);
