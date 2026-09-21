@@ -16,6 +16,92 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.73.1 - 2026-09-21
+
+This release makes Express an optional peer dependency so Express 5 apps can compile against the runtime, adds a `messageFilter` for trimming conversation history, and fixes several human-in-the-loop, MCP, and Intelligence transport issues across the client and runtime.
+
+## Breaking Changes
+
+### `@copilotkit/runtime`: Express is now an optional peer dependency (#7278)
+
+`express` is no longer a hard dependency of `@copilotkit/runtime`. It moves to an optional peer dependency with a widened range of `^4.18.0 || ^5.0.0`. This fixes compilation failures for Express 5 apps, where the runtime previously shipped Express 4 types and `app.use(copilotRouter)` failed with a missing `.param()` type error.
+
+**What you need to do:**
+
+- **If you mount the Express adapter,** install Express yourself: `npm install express` (`^4.18.0 || ^5.0.0`). Hono, Next.js, and Node consumers no longer install Express transitively (a saving of ~68 packages / 3.9 MB).
+- **If you're on npm/yarn and previously relied on hoisted Express**, you must now declare it directly.
+- **If you're pinned to Express `< 4.18`**, npm installs will fail with `ERESOLVE` until you upgrade. (The floor moved from `^4.21.2` to `^4.18.0`; the security-floor choice is now yours to make.)
+
+**Type changes:**
+
+- `CopilotExpressRouter` is now declared structurally rather than as Express's own `Router`. The methods consumers use (`use`, `get`, `post`, `put`, `patch`, `delete`, `options`, `all`, `route`, `param`) are all preserved, so mounting and configuring the returned router keeps compiling. The internal `stack` member is no longer typed.
+- `createCopilotEndpointSingleRouteExpress` now returns `CopilotExpressRouter` rather than Express's `Router`. If you annotated its result as `: Router`, widen the annotation.
+- Handler parameters on the structural methods are typed as `any`, so handlers are no longer type-checked against Express's `Request`/`Response`.
+
+If you mount the Express adapter without Express installed, you'll now get a clear error at call time telling you to install it or use the Hono adapter instead.
+
+v1 users are unaffected — `copilotRuntimeNodeExpressEndpoint` delegates to the Hono node-http endpoint and never imported Express.
+
+## Features
+
+- **`@copilotkit/core`, `@copilotkit/react-core`: trim the history sent to a runtime agent (#6926).** A new `messageFilter` lets you rewrite the conversation history CopilotKit sends on each run — useful when your backend already stores the thread (LangGraph, Mastra, Strands, etc.) and re-sending it inflates request bodies or duplicates context. Set it via the `messageFilter` prop on `<CopilotKit>` (also available on Vue, Angular, and React Native providers) or `CopilotKitCore`:
+
+  ```tsx
+  <CopilotKit runtimeUrl="/api/copilotkit" messageFilter={(messages) => messages.slice(-1)}>
+    {children}
+  </CopilotKit>
+  ```
+
+  The filter rewrites only the request body — the rendered transcript is untouched. Tool-call/result pairs are automatically repaired so a trimmed pair can't produce a protocol error, and a filter that throws or returns invalid data falls back to the full thread with a warning. Intelligence and suggestion runs are exempt. It applies to runtime-discovered agents too.
+
+- **`@copilotkit/react-core`: `useFrontendTools` for variable-length tool lists (#6994).** Register a set of frontend tools built from state, props, or a backend response — something `useFrontendTool` (singular) couldn't do since it registers exactly one tool per call.
+
+  ```tsx
+  useFrontendTools(
+    reports.map((report) => ({
+      name: `open_${report.id}`,
+      description: `Open the ${report.title} report`,
+      handler: async () => navigate(`/reports/${report.id}`),
+    })),
+    [navigate],
+  );
+  ```
+
+  The hook keys on a value signature (including `description`), removes exactly the tools a render registered when they drop out of the array, and compares `deps` by identity so a changed callback re-registers correctly. Exported from `@copilotkit/react-core/v2` and `/v2/headless`.
+
+## Fixes
+
+- **`@copilotkit/react-core`: v2 entry can now be imported from a server component (#7328).** The v2 entry previously carried star re-exports of external packages, breaking builds on Next.js App Router (Next 15 with webpack by default, and Next 16 with webpack) when `CopilotKitProvider` was placed in `app/layout.tsx`. Exports are now listed explicitly; the public surface is unchanged.
+
+- **`@copilotkit/react-core`, `@copilotkit/vue`: stable chat row keys prevent HITL remount flash (#6152).** Chat rows were keyed by `message.id`, but a message's id can change mid-turn (e.g. LangChain swapping a placeholder id for the provider's final id). This caused rows to remount — visibly flashing a rendered HITL approval card during a tool's `executing → complete` transition. Rows are now keyed stably using tool-call ids as anchors, with zero behavioral change for conversations without tool calls.
+
+- **`@copilotkit/core`, `@copilotkit/vue`: wait for the user on provider HITL tools, and abort wildcard handlers (#7315).** Vue's `humanInTheLoop` provider prop resolved immediately instead of waiting for user input, so the HITL UI flashed and disappeared; it now stays pending until `respond` is called and brings the prop path to parity with React and the `useHumanInTheLoop` composable. Separately, wildcard (`name: "*"`) tool handlers in core never received the abort signal, so a wildcard HITL tool stayed pending forever when the run was stopped — they now receive it.
+
+- **`@copilotkit/runtime`: resolve v1 agents per request so actions and MCP see the caller (#7157).** The v1 `CopilotRuntime` shim resolved agents once at startup. Now:
+  - A dynamic `actions` function runs per request with that request's `forwardedProps` and URL.
+  - Request-supplied `mcpServers` / `mcpEndpoints` are honored.
+  - MCP clients are keyed by credential (plus the client factory and endpoint config) rather than by URL alone, fixing cross-tenant client sharing (#2407). The cache is process-wide, LRU-capped at 100, closes evicted clients, and keeps clients alive while a run is calling their tools. MCP endpoint details are redacted in logs and tool descriptions.
+  - A caller-supplied `agents` factory is now actually invoked per request instead of being discarded.
+  - Tools attach to a per-request clone, so concurrent requests can't see each other's tools.
+
+  **Note:** because MCP destinations are now caller-controlled, deployments that don't intend browser-chosen servers must reject them in their own `createMCPClient`. `runtime.instance.agents` is now a per-request factory function at runtime — resolve it with `resolveAgents(runtime.instance.agents, request)`.
+
+- **`@copilotkit/core`, `@copilotkit/runtime`: Stop cancels only the run the client aborted (#6982).** Pressing Stop could cancel a newer run started on the same thread. The client now sends the specific `runId` it started (only while it can prove that run is still its own open run on that thread), and the runtime parses an optional `{ runId }` body for every runtime kind. Bodies carrying any other key, or non-JSON, are rejected with `400`. Old and new clients/runtimes remain compatible in every combination. (`@copilotkit/sqlite-runner` still ignores `runId`, so run-scoped stops behave thread-wide there.)
+
+- **`@copilotkit/core`: honor single-route transport for Intelligence chat (#7069).** Intelligence chat and reconnect now use the configured single-route mount instead of posting to unsupported `/agent/{run,connect}` paths. Trailing slashes on the runtime URL are preserved, and Intelligence join requests no longer follow redirects (preventing chat bodies from being forwarded elsewhere).
+
+- **`@copilotkit/core`: carry a changed runtime mode onto a preserved proxy agent (#7178).** If a runtime changed mode under an open page (e.g. a redeploy dropping `intelligence` to `sse`), every later run kept taking the Intelligence delegate path and threw. The new mode is now pushed onto the preserved agent, with any stale delegate torn down safely — no full reload needed.
+
+- **`@copilotkit/web-inspector`: let embedding pages own the thread title (#7336).** Added a `showThreadTitle` property (defaulting to `true`) so hosts that render their own thread heading can hide the Inspector's duplicate while keeping the conversation toolbar, tabs, messages, and metadata drawer.
+
+- **`@copilotkit/web-inspector`: add Intelligence access and preserve Learning shortcuts (#7194).** The Learning results view header now has an **Open Intelligence** button that opens the runtime-provided app origin (including custom deployments). Existing scoped Learning shortcuts retain their destinations, new-tab behavior, and telemetry.
+
+## Other Changes
+
+- **`@copilotkit/web-inspector`: aligned Inspector navigation and thread conversation layout (#7334).** Saved threads now open in a conversational view using the existing message renderer, with terminology updated to **Rich Threads**, **Automatic Learning**, and **Conversation**. The thread title and conversation actions stay visible while scrolling, the thread list can be hidden, and Expand/Collapse controls are unified into a single toggle. The event timeline, raw AG-UI events, state, and metadata remain accessible.
+
+- **`@copilotkit/shared`: reuse attachment and rich UI event transforms (#7272).** Attachment content construction now lives in `@copilotkit/shared` and is reused across frameworks. A new `@copilotkit/shared/event-transforms` server-only entry adds `transformRecordedEvents`, letting importers pass recorded AG-UI events through the Open GenUI and A2UI converters without executing agents or tools.
+
 ## 1.73.0 - 2026-09-19
 
 This release brings automatic Learning skill delivery to BuiltInAgent, more resilient SSE streaming, and richer runtime telemetry, alongside a set of targeted fixes across core, react-core, and Vue.
