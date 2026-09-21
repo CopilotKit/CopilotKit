@@ -126,6 +126,7 @@ function lastRunTone(lastRun: ProbeScheduleEntry["lastRun"]): Tone {
   // can't claim green — match the runs-list "unknown" semantics.
   if (!lastRun.summary) return "gray";
   if (lastRun.summary.failed > 0) return "red";
+  if (lastRun.summary.total <= 0) return "gray";
   // R3-B.1: mirror status-runs-list (R2-D.4). failed=0 alone is not
   // enough for green — if some services were skipped (passed < total)
   // render amber so the schedule view doesn't misread a partial run as
@@ -198,7 +199,7 @@ export function StatusTable({
               ).length;
 
               if (failed > 0) tone = "red";
-              else if (completed < total) tone = "amber";
+              else if (completed < total || passed < total) tone = "amber";
               else tone = "green";
 
               result = `${passed}/${total} pass`;
@@ -223,6 +224,23 @@ export function StatusTable({
                       : `${summary.total}/${summary.total} pass`
                   : "—"
                 : "never run";
+            }
+
+            // Schedule counts contain no per-cell public pill evidence. A
+            // completed functional probe is not itself functional acceptance.
+            const functional =
+              e.kind === "e2e_d6" || /(?:d5|d6|e2e-deep)/.test(e.id);
+            if (functional && tone === "green") {
+              tone = "gray";
+              result += " — unverified";
+            }
+            if (
+              !inflight &&
+              e.lastRun?.state === "completed" &&
+              e.lastRun.summary?.total === 0 &&
+              e.lastRun.summary.failed === 0
+            ) {
+              result = "No observations";
             }
 
             const nextRunMs = e.nextRunAt ? Date.parse(e.nextRunAt) : null;
