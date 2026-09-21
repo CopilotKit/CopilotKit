@@ -186,6 +186,29 @@ export function resolveMCPEntry<TTools>(
   return created;
 }
 
+/**
+ * Mark an entry as recently used.
+ *
+ * Without this, an entry's position is set once, when the agent resolves, and
+ * a run that is actively calling tools still ages toward eviction — so a busy
+ * process can close a connection out from under a live run. Tool execution is
+ * the only signal available that a connection is still wanted: the v1 runtime
+ * has no reliable end-of-run hook to lease against (an abandoned SSE run never
+ * fires one), so a lease taken at resolution could never be released.
+ *
+ * A no-op when the key is gone, which is the already-evicted case.
+ */
+export function touchMCPEntry(
+  createMCPClient: object,
+  config: MCPEndpointConfig,
+): void {
+  const key = mcpCacheKey(createMCPClient, config);
+  const slot = cache.get(key);
+  if (!slot) return;
+  cache.delete(key);
+  cache.set(key, slot);
+}
+
 /** Test seam: close and forget every cached connection. */
 export async function __resetMCPClientCache() {
   const slots = Array.from(cache.values());

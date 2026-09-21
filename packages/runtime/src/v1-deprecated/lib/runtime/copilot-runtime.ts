@@ -66,7 +66,7 @@ import {
   readBody,
   getZodParameters,
 } from "@copilotkit/shared";
-import { resolveMCPEntry } from "./mcp-client-cache";
+import { resolveMCPEntry, touchMCPEntry } from "./mcp-client-cache";
 import type {
   Action,
   CopilotErrorHandler,
@@ -343,6 +343,15 @@ export interface CopilotRuntimeConstructorParams_BASE<
    *   }
    * });
    * ```
+   *
+   * Define this once, at module scope, if you build a new `CopilotRuntime`
+   * per request. Connections are cached against the identity of this function
+   * plus the endpoint config, and an inline function is a new object on every
+   * request — so a per-request runtime with an inline factory opens a new
+   * connection each time and never reuses one. A module-scope factory, which
+   * is what the documented setup uses, shares connections across requests and
+   * keeps the cache bounded by how many distinct credentials are in play
+   * rather than by traffic.
    */
   createMCPClient?: CreateMCPClientFunction;
 
@@ -1094,7 +1103,14 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
                 parameters: zodSchema,
                 // The MCP client stays live for the lifetime of the cached
                 // tool definitions; `tool.execute` calls the server.
-                execute: async (args: unknown) => tool.execute(args),
+                execute: async (args: unknown) => {
+                  // Executing is the only evidence this runtime gets that a
+                  // connection is still in use. Without it the entry ages from
+                  // the moment the agent resolved, and a busy process evicts
+                  // and closes a client that a live run is still calling.
+                  touchMCPEntry(createMCPClient, config);
+                  return tool.execute(args);
+                },
               };
             });
 

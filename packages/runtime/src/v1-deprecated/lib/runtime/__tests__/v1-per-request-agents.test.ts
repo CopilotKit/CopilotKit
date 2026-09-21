@@ -397,6 +397,47 @@ describe("v1 MCP clients are keyed by credential", () => {
     expect(closed).toEqual(["key-0"]);
   });
 
+  it("does not evict a client whose tools are still being called", async () => {
+    const closed: string[] = [];
+    const createMCPClient = vi.fn(async (config: any) => ({
+      tools: async () => toolsFor("t"),
+      close: async () => {
+        closed.push(config.apiKey);
+      },
+    }));
+    const runtime = new CopilotRuntime({
+      agents: agents(),
+      createMCPClient,
+      mcpServers: [],
+    } as any);
+    runtime.handleServiceAdapter(adapter);
+
+    const withKey = (apiKey: string) =>
+      requestWith({
+        mcpServers: [{ endpoint: "https://mcp.example.com", apiKey }],
+      });
+
+    const first = await resolveFor(runtime, withKey("key-0"));
+    const firstTool = toolsOf(first)[0];
+
+    // Fill to the cap. `key-0` resolved first, so it is the oldest entry and
+    // the next eviction would take it.
+    for (let i = 1; i < 100; i++) {
+      await resolveFor(runtime, withKey(`key-${i}`));
+    }
+
+    // The run holding `key-0` is still calling its tool.
+    await firstTool.execute({});
+
+    // One more credential pushes the cache past the cap.
+    await resolveFor(runtime, withKey("key-100"));
+
+    expect(__mcpClientCacheSize()).toBe(100);
+    // The next-oldest goes instead. Closing `key-0` here would break a live
+    // run: its agent still holds tool closures over that client.
+    expect(closed).toEqual(["key-1"]);
+  });
+
   it("keeps the credential out of the log when closing an evicted client fails", async () => {
     const errors: string[] = [];
     const spy = vi
