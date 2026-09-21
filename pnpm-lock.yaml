@@ -2351,9 +2351,6 @@ importers:
       discord.js:
         specifier: ^14.16.0
         version: 14.26.4
-      zod:
-        specifier: '>=3.22.3'
-        version: 3.25.76
     devDependencies:
       '@copilotkit/typescript-config':
         specifier: workspace:^
@@ -2523,9 +2520,6 @@ importers:
       grammy:
         specifier: ^1.30.0
         version: 1.44.0(encoding@0.1.13)
-      zod:
-        specifier: '>=3.22.3'
-        version: 3.25.76
     devDependencies:
       '@copilotkit/typescript-config':
         specifier: workspace:^

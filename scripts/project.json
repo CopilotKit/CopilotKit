@@ -15,6 +15,17 @@
         "parallel": false
       }
     },
+    "validate-channels-zod": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "commands": [
+          "node --test scripts/__tests__/validate-channels-zod.test.mjs",
+          "node scripts/validate-channels-zod.mjs"
+        ],
+        "parallel": false
+      }
+    },
     "validate-retired-anthropic-models": {
       "executor": "nx:run-commands",
       "cache": false,
