@@ -564,6 +564,7 @@ export function convertMessagesToVercelAISDKMessages(
   const sanitizedMessages = filterUnansweredToolCalls(
     messages,
     options.additionalAnsweredToolCallIds,
+    { dropOrphanedToolResults: true },
   );
 
   for (const message of sanitizedMessages) {

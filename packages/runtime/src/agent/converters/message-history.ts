@@ -8,6 +8,7 @@ import type { Message } from "@ag-ui/client";
 export function filterUnansweredToolCalls(
   messages: Message[],
   additionalAnsweredToolCallIds?: ReadonlySet<string>,
+  options?: { dropOrphanedToolResults?: boolean },
 ): Message[] {
   const answeredToolCallIds = new Set(additionalAnsweredToolCallIds);
   for (const message of messages) {
@@ -32,7 +33,7 @@ export function filterUnansweredToolCalls(
       // Also discard stale results whose originating assistant call is absent.
       if (
         typeof message.toolCallId === "string" &&
-        assistantToolCallIds.size > 0 &&
+        options?.dropOrphanedToolResults &&
         !assistantToolCallIds.has(message.toolCallId)
       ) {
         return [];

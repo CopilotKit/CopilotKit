@@ -238,6 +238,22 @@ describe("convertMessagesToVercelAISDKMessages", () => {
     expect(result).toHaveLength(3);
   });
 
+  it("should omit orphaned tool results from Vercel model history", () => {
+    const messages: Message[] = [
+      {
+        id: "tool-1",
+        role: "tool",
+        toolCallId: "missing-assistant-call",
+        content: "stale result",
+      },
+      { id: "user-1", role: "user", content: "Continue" },
+    ];
+
+    const result = convertMessagesToVercelAISDKMessages(messages);
+
+    expect(result).toEqual([{ role: "user", content: "Continue" }]);
+  });
+
   it("should handle multiple messages", () => {
     const messages: Message[] = [
       { id: "1", role: "user", content: "Hi" },
