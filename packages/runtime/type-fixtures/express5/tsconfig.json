@@ -1,0 +1,37 @@
+{
+  // Stands in for a consumer project, NOT for this package.
+  //
+  // #7276 only reproduces under a consumer's own compiler settings: `strict:
+  // true`, and `express` types resolved from major 5. This package compiles
+  // with `strict: false` against `@types/express@4`, so nothing inside `src`
+  // can observe the failure. This project compiles `consumer.ts` the way an
+  // affected app does, against the BUILT declarations in `dist` — the artifact
+  // we actually publish — rather than against `src`.
+  //
+  // `@types/express-v5` is an alias devDependency (`npm:@types/express@^5`), so
+  // both majors can be installed side by side. `paths` points `express` at the
+  // v5 types; the `express` runtime package resolved here is already 5.x via
+  // the root `pnpm.overrides`. Note that `paths` applies to the whole program,
+  // including the declarations under `dist` -- see the note in consumer.ts for
+  // what that means this fixture can and cannot prove.
+  //
+  // Run by `pnpm --filter @copilotkit/runtime check-dts`, which depends on
+  // `build`.
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["es2023"],
+    "types": ["node"],
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "paths": {
+      "express": ["../../node_modules/@types/express-v5"],
+      "@copilotkit/runtime/v2/express": ["../../dist/v2/express.d.mts"],
+      "@copilotkit/runtime/v2": ["../../dist/v2/index.d.mts"]
+    }
+  },
+  "include": ["consumer.ts"]
+}

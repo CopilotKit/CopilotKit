@@ -1,9 +1,8 @@
-import express from "express";
+import { createRequire } from "node:module";
 import type {
   Request as ExpressRequest,
   Response as ExpressResponse,
   NextFunction,
-  Router,
 } from "express";
 import cors from "cors";
 import type { CorsOptions } from "cors";
@@ -18,15 +17,69 @@ import { autoStartChannels } from "./auto-start-channels";
 import type { CopilotRuntimeHooks } from "../core/hooks";
 
 /**
- * An Express {@link Router} that may also carry an optional
- * {@link ChannelsControl} surface. The Router object itself is request-scoped
- * middleware, but an Express app can only run inside a long-running
- * `http.Server` — so this wrapper is a lifecycle-owning host like
+ * Load `express` at call time rather than at module load time.
+ *
+ * `express` is an OPTIONAL peer: an app that mounts the Hono or Node adapter
+ * never installs it. This module is re-exported from the `@copilotkit/runtime/v2`
+ * barrel, so a static `import express from "express"` here would make that
+ * barrel unimportable for every consumer who does not use Express. Requiring it
+ * inside the factory keeps the barrel free of Express and moves the failure to
+ * the only place it is a real failure: calling an Express factory without
+ * Express installed.
+ */
+function loadExpress(): { Router: () => any } {
+  try {
+    return createRequire(import.meta.url)("express");
+  } catch (cause) {
+    throw new Error(
+      "@copilotkit/runtime: the Express adapter requires `express`, which is an " +
+        "optional peer dependency and is not installed. Install it with " +
+        "`npm install express` (^4.21.2 || ^5.0.0), or mount the Hono adapter " +
+        "from `@copilotkit/runtime/v2/hono` instead.",
+      { cause },
+    );
+  }
+}
+
+/**
+ * The middleware `createCopilotExpressHandler` returns: an Express router that
+ * may also carry an optional {@link ChannelsControl} surface. The router object
+ * itself is request-scoped middleware, but an Express app can only run inside a
+ * long-running `http.Server` — so this wrapper is a lifecycle-owning host like
  * `createCopilotNodeListener`: it STARTS activation of the runtime's declared
  * managed Channels at creation, and `.channels` is here to observe (`ready()`)
  * or tear down (`stop()`) that activation.
+ *
+ * Deliberately NOT typed as Express's own `Router`. Pinning that type binds our
+ * public surface to a single Express major: `@types/express@4` declares
+ * `Request.param()` and `@types/express@5` does not, so a v4-typed router is not
+ * assignable to a v5 `app.use()` and an Express 5 app cannot compile against us
+ * at all (#7276). The call signature below is what `use()` accepts in both
+ * majors, and the methods beside it are the router surface both majors share.
+ *
+ * The runtime value is still a real `express.Router()`; only the declared type
+ * is widened.
  */
-export type CopilotExpressRouter = Router & { channels?: ChannelsControl };
+export type CopilotExpressRouter = ((
+  req: any,
+  res: any,
+  next: (err?: unknown) => void,
+) => void) & {
+  channels?: ChannelsControl;
+
+  // The common router-configuration surface, declared structurally so that
+  // consumers who add their own middleware or routes to the returned value keep
+  // compiling. These are NOT taken from either Express major's `Router`, because
+  // that is exactly what makes the type un-mountable across majors.
+  use(...handlers: any[]): CopilotExpressRouter;
+  get(...handlers: any[]): CopilotExpressRouter;
+  post(...handlers: any[]): CopilotExpressRouter;
+  put(...handlers: any[]): CopilotExpressRouter;
+  patch(...handlers: any[]): CopilotExpressRouter;
+  delete(...handlers: any[]): CopilotExpressRouter;
+  options(...handlers: any[]): CopilotExpressRouter;
+  all(...handlers: any[]): CopilotExpressRouter;
+};
 
 export interface CopilotExpressEndpointParams {
   runtime: CopilotRuntimeLike;
@@ -154,7 +207,7 @@ export function createCopilotExpressHandler({
     }
   };
 
-  const router = express.Router();
+  const router = loadExpress().Router();
 
   // CORS middleware
   if (corsOption) {

@@ -95,7 +95,11 @@
     },
     "check-dts": {
       "dependsOn": ["build"],
-      "inputs": ["{projectRoot}/package.json", "{projectRoot}/dist/**"],
+      "inputs": [
+        "{projectRoot}/package.json",
+        "{projectRoot}/dist/**",
+        "{projectRoot}/type-fixtures/**"
+      ],
       "cache": true
     }
   },
