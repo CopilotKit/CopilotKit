@@ -4,7 +4,7 @@
 
     On every run the AG-UI Strands adapter registers a proxy tool in the
     agent's tool registry for each tool the request carries, so the agent
-    declares none of its own. A component registered with `useComponent`
+    declares none of its own. A tool registered with `useFrontendTool`
     reaches the model by name, and the browser executes the call.
 
     ```ts title="src/agent/agent.ts"
@@ -25,7 +25,7 @@
     ```
 
     A backend tool that already owns the name wins: the adapter never replaces
-    a native tool with a proxy. Keep the `useComponent` name distinct from
+    a native tool with a proxy. Keep the `useFrontendTool` name distinct from
     every tool in `tools`.
 
   </Step>
