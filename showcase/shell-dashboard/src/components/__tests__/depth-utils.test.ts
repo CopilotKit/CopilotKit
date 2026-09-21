@@ -1,3 +1,4 @@
+import { unitPillSignal } from "../../../../harness/src/shared/cell-model/cell-model.equivalence-fixtures";
 /**
  * Unit tests for the depth-derivation utility (deriveDepth).
  * Covers the D0-D6 ladder walk, short-circuit on non-green, unshipped/
@@ -25,7 +26,7 @@ function row(
     key,
     dimension,
     state,
-    signal: {},
+    signal: unitPillSignal(key, observedAt),
     observed_at: observedAt,
     transitioned_at: observedAt,
     fail_count: 0,

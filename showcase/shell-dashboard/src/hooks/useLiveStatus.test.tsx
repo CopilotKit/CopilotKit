@@ -4,6 +4,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
+import { classifyPbListRequest } from "./__tests__/pb-query-eval";
 
 // Track calls to React.startTransition without losing its real behavior. The
 // hook wraps the heavy initial `setRows(initial)` commit in startTransition so
@@ -124,7 +125,7 @@ vi.mock("../lib/pb", () => {
     collection: (_name: string) => ({
       // getList serves three callers:
       //   - heartbeat ping       → getList(1, 1, …)            (perPage 1)
-      //   - supplemental signal  → `fields` INCLUDING `signal`  (see below)
+      //   - supplemental signal  → non-green filter clause (see below)
       //   - bulk initial fetch   → getList(page, PB_PAGE_SIZE, …) per page
       // The bulk fetch issues page 1 first, then fans out pages 2..N
       // concurrently. To prove the merge is order-safe, a test can set
@@ -145,32 +146,11 @@ vi.mock("../lib/pb", () => {
             }
             return pageResponse(1, 1);
           }
-          // Supplemental signal fetch, identified by a projection that INCLUDES
-          // `signal` — it is the one request that asks for the heavy blob, which
-          // is the very reason it exists, while the bulk fetch always projects
-          // `signal` away (STATUS_LIST_FIELDS).
-          //
-          // Two earlier discriminators were both wrong, and both failed by
-          // misclassifying a supplemental request as a BULK page — silently
-          // corrupting the fan-out instrumentation below:
-          //   - `filter` containing `key !~`: that marker disappears when the
-          //     hook is scoped to a dimension outside the comm-error aggregate
-          //     set, because the clause carrying it is dropped;
-          //   - the ABSENCE of any `fields` projection: the supplemental fetch
-          //     now sends one of its own (STATUS_LIST_FIELDS + `signal`, so the
-          //     response is a complete StatusRow without PocketBase's undeclared
-          //     columns).
-          // Presence of `signal` in the projection is the property that actually
-          // defines this request, so it is what we key on.
-          //
-          // Served from a dedicated fixture VERBATIM (full rows, signal
-          // included) and deliberately NOT recorded into the bulk-fetch
-          // instrumentation (initialPageRequestOrder / initialPageOpts /
-          // lastInitialGetListOpts) so the fan-out order/count assertions keep
-          // targeting the bulk fetch alone.
+          // Classify by the supplemental filter, not projection: both reads
+          // now carry signal so initial green rows retain their proof.
           if (
-            opts?.fields === undefined ||
-            opts.fields.split(",").includes("signal")
+            classifyPbListRequest({ perPage, filter: opts?.filter ?? null }) ===
+            "supplemental"
           ) {
             mockState.getListCalls += 1;
             mockState.commFetchCalls += 1;
@@ -199,10 +179,8 @@ vi.mock("../lib/pb", () => {
           // inspecting the captured option string.
           const resp = pageResponse(page, perPage, opts?.sort);
           // Honour the `fields` projection like real PB: the hook's bulk
-          // initial fetch projects `signal` away (STATUS_LIST_FIELDS), so the
-          // rows it receives must NOT carry `signal` — the old mock returned
-          // full rows here, which is exactly how the CF7-F3 #1 cold-fetch
-          // overlay bug stayed invisible to this suite.
+          // initial fetch now includes signal. Keep projection handling faithful
+          // if a caller explicitly excludes it.
           const fields = opts?.fields;
           if (
             typeof fields === "string" &&
@@ -714,7 +692,7 @@ describe("useLiveStatus", () => {
     }));
     // Deterministic shuffle (reverse) so the source array is NOT pre-sorted by
     // id — the sorted page response must do the ordering work.
-    mockState.initial = [...built].reverse();
+    mockState.initial = [...built].toReversed();
     const { result } = renderHook(() => useLiveStatus("smoke"));
     await waitFor(() => expect(result.current.status).toBe("live"));
     // Exactly the 3 data pages were requested — no probe.
@@ -850,8 +828,7 @@ describe("useLiveStatus", () => {
       },
     };
     // The d6:<slug> AGGREGATE row as it exists in the collection: the bulk
-    // initial fetch returns it WITHOUT signal (projection), the supplemental
-    // fetch returns it WITH signal.
+    // both initial and supplemental fetches retain its signal.
     const aggregateRow = {
       id: "agg-acme",
       key: "d6:acme",
@@ -866,11 +843,8 @@ describe("useLiveStatus", () => {
 
     it("a mirrored comm error renders the overlay from a COLD initial fetch (no SSE delta)", async () => {
       // REGRESSION (CF7-F3 #1): decodeCellCommError derives the REQ-B
-      // unreachable overlay from row.signal, but the bulk initial fetch
-      // projects signal away (STATUS_LIST_FIELDS) — so on every page refresh
-      // active overlays vanished until an SSE delta happened to re-deliver
-      // the row. The supplemental aggregate fetch must restore the signal on
-      // the comm-error candidate rows at cold-load time.
+      // unreachable overlay from row.signal on the first bulk snapshot and
+      // preserves it when the supplemental snapshot is merged.
       mockState.initial = [aggregateRow];
       mockState.commAggregateRows = [aggregateRow];
 
@@ -928,7 +902,7 @@ describe("useLiveStatus", () => {
       // either: the reducer's no-op check compares signal PRESENCE only, so
       // a chimera row (newer core + stale signal) could swallow the next SSE
       // delta carrying the real current signal. The newer bulk row survives
-      // intact (signal-less); the live SSE subscription restores `signal`.
+      // intact, including its matching signal.
       const NEWER_OBSERVED_AT = new Date(Date.now() - 30_000).toISOString();
       const newerBulkRow = {
         ...aggregateRow,
@@ -937,10 +911,10 @@ describe("useLiveStatus", () => {
         transitioned_at: NEWER_OBSERVED_AT,
         fail_count: 1,
         first_failure_at: NEWER_OBSERVED_AT,
+        signal: { errorClass: "assertion-failed", message: "newer failure" },
       };
-      // Bulk snapshot carries the NEWER row (mock strips `signal` via the
-      // fields projection, like real PB); the supplemental response carries
-      // the OLDER signal-bearing snapshot.
+      // Bulk snapshot carries the NEWER row and signal; the supplemental
+      // response carries the OLDER signal-bearing snapshot.
       mockState.initial = [newerBulkRow];
       mockState.commAggregateRows = [aggregateRow];
 
@@ -955,7 +929,7 @@ describe("useLiveStatus", () => {
       expect(agg?.fail_count).toBe(1);
       // ...and the OLDER supplemental signal is NOT backfilled (unsafe — see
       // the chimera rationale above).
-      expect(agg?.signal).toBeUndefined();
+      expect(agg?.signal).toEqual(newerBulkRow.signal);
     });
 
     // This used to assert the out-of-set scope SKIPPED the supplemental fetch

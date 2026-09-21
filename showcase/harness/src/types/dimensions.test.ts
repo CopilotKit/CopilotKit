@@ -1,3 +1,4 @@
+import { unitPillSignal } from "../shared/cell-model/cell-model.equivalence-fixtures.js";
 import { describe, it, expect } from "vitest";
 import { DIMENSIONS } from "./index.js";
 import type { Logger, StatusRecord, ProbeState } from "./index.js";
@@ -187,7 +188,12 @@ describe("persisted dimension derivation (real status-writer over fake PB)", () 
         void (await writer.write({
           key,
           state,
-          signal: { ok: true },
+          signal:
+            state === "green"
+              ? (unitPillSignal(key, "2026-06-04T00:00:00.000Z") ?? {
+                  ok: true,
+                })
+              : { ok: true },
           observedAt: "2026-06-04T00:00:00.000Z",
         })),
     };
