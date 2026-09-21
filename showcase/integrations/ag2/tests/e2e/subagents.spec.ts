@@ -1,4 +1,6 @@
-import { expect, Page, test } from "@playwright/test";
+import { runToolsAgentLocalContract } from "../../../../harness/src/probes/scripts/_pill-contracts-tools-agents";
+import type { Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 // Sub-Agents demo (Phase-1D, multi-agent family).
 //
@@ -79,7 +81,7 @@ async function assertCardResultGenuine(page: Page, role: Role): Promise<void> {
   }
 }
 
-test.describe("Sub-Agents", () => {
+test.describe("[diagnostic] Sub-Agents", () => {
   test.setTimeout(180_000);
 
   test.beforeEach(async ({ page }) => {
@@ -173,4 +175,23 @@ test.describe("Sub-Agents", () => {
     await expect(criticCards).toHaveCount(1);
     await expect(critic).toHaveAttribute("data-status", "complete");
   });
+});
+
+// Shared canonical contract; direct local evidence cannot certify a public matrix cell.
+test("canonical actual-pill contract @functional-pill", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(600_000);
+  await page.goto("/demos/subagents");
+  const result = await runToolsAgentLocalContract(
+    page,
+    "subagents",
+    "ag2",
+    page.url(),
+  );
+  await testInfo.attach("canonical-pill-execution", {
+    body: JSON.stringify(result, null, 2),
+    contentType: "application/json",
+  });
+  expect(result.pillExecution?.completed, JSON.stringify(result)).toBe(true);
 });

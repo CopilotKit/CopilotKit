@@ -1,3 +1,4 @@
+import { noLgpCanonicalTurns } from "../../../../harness/src/probes/scripts/_pill-contracts-tools-agents";
 import { test, expect } from "@playwright/test";
 
 // QA reference: qa/browser-use.md
@@ -20,7 +21,7 @@ import { test, expect } from "@playwright/test";
 // NOT send a message or trigger a real browse. Exercising the full browse
 // flow is a manual / real-LLM QA step documented in qa/browser-use.md.
 
-test.describe("Browser Use (Mastra, local browser)", () => {
+test.describe("[diagnostic] Browser Use (Mastra, local browser)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/browser-use");
   });
@@ -42,4 +43,9 @@ test.describe("Browser Use (Mastra, local browser)", () => {
       suggestions.filter({ hasText: "CopilotKit homepage" }).first(),
     ).toBeVisible({ timeout: 15_000 });
   });
+});
+
+// No LGP counterpart exists; diagnostic smoke must never certify this cell.
+test("canonical contract unavailable @functional-pill", () => {
+  noLgpCanonicalTurns("browser-use");
 });

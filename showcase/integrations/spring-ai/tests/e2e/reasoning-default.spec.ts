@@ -1,3 +1,4 @@
+import { runToolsAgentLocalContract } from "../../../../harness/src/probes/scripts/_pill-contracts-tools-agents";
 import { test, expect } from "@playwright/test";
 
 // QA reference: qa/reasoning-default.md
@@ -9,7 +10,7 @@ import { test, expect } from "@playwright/test";
 // whose message matches the aimock fixture in showcase/aimock/d5-all.json,
 // so streaming is deterministic in CI.
 
-test.describe("Reasoning: Default", () => {
+test.describe("[diagnostic] Reasoning: Default", () => {
   test.setTimeout(120_000);
 
   test.beforeEach(async ({ page }) => {
@@ -38,4 +39,23 @@ test.describe("Reasoning: Default", () => {
       timeout: 60_000,
     });
   });
+});
+
+// Shared canonical contract; direct local evidence cannot certify a public matrix cell.
+test("canonical actual-pill contract @functional-pill", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(600_000);
+  await page.goto("/demos/reasoning-default");
+  const result = await runToolsAgentLocalContract(
+    page,
+    "reasoning-default",
+    "spring-ai",
+    page.url(),
+  );
+  await testInfo.attach("canonical-pill-execution", {
+    body: JSON.stringify(result, null, 2),
+    contentType: "application/json",
+  });
+  expect(result.pillExecution?.completed, JSON.stringify(result)).toBe(true);
 });

@@ -1,3 +1,5 @@
+import { createPlaywrightProbeExecutor } from "../../../../harness/src/probes/frontend-matrix-playwright.js";
+import { buildTurns as buildCanonicalTurns } from "../../../../harness/src/probes/scripts/d5-gen-ui-a2ui-fixed.js";
 import { test, expect } from "@playwright/test";
 
 // QA reference: qa/a2ui-fixed-schema.md
@@ -28,14 +30,14 @@ import { test, expect } from "@playwright/test";
 // W8-8: on Railway, `display_flight` occasionally stalls the secondary
 // LLM stage; render budget is 60s.
 
-test.describe("A2UI Fixed Schema (flight card)", () => {
+test.describe("@diagnostic A2UI Fixed Schema (flight card)", () => {
   test.setTimeout(120_000);
 
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/a2ui-fixed-schema");
   });
 
-  test("page loads with chat input and no flight card rendered", async ({
+  test("@diagnostic page loads with chat input and no flight card rendered", async ({
     page,
   }) => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
@@ -45,7 +47,7 @@ test.describe("A2UI Fixed Schema (flight card)", () => {
     await expect(page.getByText("Flight Details")).toHaveCount(0);
   });
 
-  test("single suggestion pill renders with verbatim title", async ({
+  test("@diagnostic single suggestion pill renders with verbatim title", async ({
     page,
   }) => {
     const suggestions = page.locator('[data-testid="copilot-suggestion"]');
@@ -54,7 +56,7 @@ test.describe("A2UI Fixed Schema (flight card)", () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 
-  test("search-flights pill renders a flight card matching flight_schema", async ({
+  test("@diagnostic search-flights pill renders a flight card matching flight_schema", async ({
     page,
   }) => {
     const suggestions = page.locator('[data-testid="copilot-suggestion"]');
@@ -105,4 +107,46 @@ test.describe("A2UI Fixed Schema (flight card)", () => {
       page.getByText(/Cannot create component .* without a type/i),
     ).toHaveCount(0);
   });
+});
+
+/** Functional proof is this runner artifact; supplemental test totals are not acceptance. */
+test("@canonical rendering a2ui-fixed-schema: all actual LGP pills and results", async ({
+  browser,
+  baseURL,
+}, testInfo) => {
+  test.setTimeout(480_000);
+  if (!baseURL)
+    throw new Error(
+      "canonical rendering requires configured actual demo baseURL",
+    );
+  const featureType = "gen-ui-a2ui-fixed" as const;
+  const run = createPlaywrightProbeExecutor({
+    browser,
+    scripts: new Map([
+      [
+        featureType,
+        { featureTypes: [featureType], buildTurns: buildCanonicalTurns },
+      ],
+    ]),
+    probeTimeoutMs: 450_000,
+  });
+  const result = await run({
+    cell: {
+      id: "react/ag2/a2ui-fixed-schema",
+      frontend: "react",
+      integration: "ag2",
+      feature: "a2ui-fixed-schema",
+      featureTypes: [featureType],
+    },
+    featureType,
+    url: new URL("/demos/a2ui-fixed-schema", baseURL).href,
+    backendUrl: baseURL,
+    testId: `canonical-rendering-${testInfo.workerIndex}-${Date.now()}`,
+    surface: "direct-diagnostic",
+  });
+  await testInfo.attach("canonical-pill-execution", {
+    body: JSON.stringify(result, null, 2),
+    contentType: "application/json",
+  });
+  expect(result.status, JSON.stringify(result)).toBe("passed");
 });

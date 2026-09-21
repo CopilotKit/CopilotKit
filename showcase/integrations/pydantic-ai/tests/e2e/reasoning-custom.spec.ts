@@ -1,3 +1,4 @@
+import { runToolsAgentLocalContract } from "../../../../harness/src/probes/scripts/_pill-contracts-tools-agents";
 import { test, expect } from "@playwright/test";
 
 // QA reference: qa/reasoning-custom.md
@@ -22,7 +23,7 @@ import { test, expect } from "@playwright/test";
 
 const REASONING_PROMPT = "show your reasoning step by step";
 
-test.describe("Reasoning: Custom", () => {
+test.describe("[diagnostic] Reasoning: Custom", () => {
   test.setTimeout(120_000);
 
   test.beforeEach(async ({ page }) => {
@@ -116,4 +117,23 @@ test.describe("Reasoning: Custom", () => {
       .first();
     await expect(reasoningBlock).toBeVisible({ timeout: 60_000 });
   });
+});
+
+// Shared canonical contract; direct local evidence cannot certify a public matrix cell.
+test("canonical actual-pill contract @functional-pill", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(600_000);
+  await page.goto("/demos/reasoning-custom");
+  const result = await runToolsAgentLocalContract(
+    page,
+    "reasoning-custom",
+    "pydantic-ai",
+    page.url(),
+  );
+  await testInfo.attach("canonical-pill-execution", {
+    body: JSON.stringify(result, null, 2),
+    contentType: "application/json",
+  });
+  expect(result.pillExecution?.completed, JSON.stringify(result)).toBe(true);
 });
