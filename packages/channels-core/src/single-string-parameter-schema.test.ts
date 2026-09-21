@@ -110,4 +110,60 @@ describe("singleStringParameterSchema", () => {
     expect(r.ok).toBe(false);
     expect(zodEquivalent.safeParse(value).success).toBe(false);
   });
+
+  /**
+   * The error string is what the agent reads back on a bad tool call, so it
+   * is part of the contract, not an implementation detail. Asserting only
+   * "both reject" let a real divergence through: a missing field reported
+   * "Expected string, received undefined" where Zod reports "Required".
+   * Compare the rendered text, formatted the same way `validateSchema` does.
+   */
+  it.each([
+    ["a missing field", {}],
+    ["a number field", { query: 42 }],
+    ["a null field", { query: null }],
+    ["an array field", { query: [] }],
+    ["a boolean field", { query: true }],
+    ["an object field", { query: {} }],
+    ["an explicit undefined field", { query: undefined }],
+    ["an empty string", { query: "" }],
+    ["null as the payload", null],
+    ["an array as the payload", []],
+    ["a string as the payload", "ada"],
+    ["a number as the payload", 7],
+  ])("renders the same error text as zod for %s", async (_label, value) => {
+    const mine = await validateSchema(schema, value);
+    const theirs = zodEquivalent.safeParse(value);
+
+    expect(mine.ok).toBe(theirs.success);
+    expect(theirs.success).toBe(false);
+
+    const zodText = theirs.success
+      ? null
+      : theirs.error.issues
+          .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+          .join("; ");
+    expect(mine.ok === false && mine.error).toBe(zodText);
+  });
+
+  /**
+   * `zodToJsonSchema` built a fresh document on every call and
+   * `toAgentToolDescriptors` hands its result straight to the caller, so a
+   * consumer that normalizes the schema in place (dropping `$schema` for a
+   * provider that rejects it, for instance) must not corrupt later turns.
+   */
+  it("returns a fresh JSON Schema document on every call", () => {
+    const first = toJsonSchema(schema) as {
+      properties: { query: { description: string } };
+    };
+    const second = toJsonSchema(schema);
+    expect(first).not.toBe(second);
+    expect(first).toEqual(second);
+
+    first.properties.query.description = "mutated by a consumer";
+    const third = toJsonSchema(schema) as {
+      properties: { query: { description: string } };
+    };
+    expect(third.properties.query.description).toBe(DESCRIPTION);
+  });
 });

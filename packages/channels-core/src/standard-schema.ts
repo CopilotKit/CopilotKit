@@ -180,7 +180,12 @@ export function singleStringParameterSchema<Name extends string>(options: {
   const { name, description, vendor } = options;
   type Output = { [K in Name]: string };
 
-  const jsonSchema: Record<string, unknown> = {
+  // Built per call, never shared. `zodToJsonSchema` returned a fresh document
+  // every time, and `toAgentToolDescriptors` hands its result straight to the
+  // caller. A single shared object would let one consumer's in-place edit —
+  // stripping `$schema` for a provider that rejects it, say — silently change
+  // what every later turn in the process is shown.
+  const buildJsonSchema = (): Record<string, unknown> => ({
     type: "object",
     properties: {
       [name]: { type: "string", minLength: 1, description },
@@ -188,7 +193,7 @@ export function singleStringParameterSchema<Name extends string>(options: {
     required: [name],
     additionalProperties: false,
     $schema: "http://json-schema.org/draft-07/schema#",
-  };
+  });
 
   function validate(value: unknown): StandardSchemaV1.Result<Output> {
     if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -199,13 +204,17 @@ export function singleStringParameterSchema<Name extends string>(options: {
       };
     }
     const field = (value as Record<string, unknown>)[name];
+    // Zod reports a missing required key as "Required", not as a type
+    // mismatch against `undefined`. The agent reads this back when it calls
+    // the tool with no argument, which is the most common bad call there is.
+    if (field === undefined) {
+      return { issues: [{ message: "Required", path: [name] }] };
+    }
     if (typeof field !== "string") {
       return {
         issues: [
           {
-            message:
-              "Expected string, received " +
-              (field === undefined ? "undefined" : parsedTypeOf(field)),
+            message: "Expected string, received " + parsedTypeOf(field),
             path: [name],
           },
         ],
@@ -231,8 +240,8 @@ export function singleStringParameterSchema<Name extends string>(options: {
       vendor,
       validate,
       jsonSchema: {
-        input: () => jsonSchema,
-        output: () => jsonSchema,
+        input: buildJsonSchema,
+        output: buildJsonSchema,
       },
     },
   };
