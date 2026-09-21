@@ -395,3 +395,17 @@ test("single-route resource errors report the matched resource path", async () =
     }),
   );
 });
+
+test("single-route 404s when the path shares only a string prefix with basePath", async () => {
+  const { handler } = setup();
+
+  const response = await handler(
+    new Request("https://example.com/api/copilotkit-extra", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ method: "info" }),
+    }),
+  );
+
+  expect(response.status).toBe(404);
+});
