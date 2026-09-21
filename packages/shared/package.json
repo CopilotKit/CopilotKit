@@ -32,6 +32,10 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
+    "./event-transforms": {
+      "import": "./dist/event-transforms/index.mjs",
+      "require": "./dist/event-transforms/index.cjs"
+    },
     "./telemetry": {
       "import": "./dist/telemetry/index.mjs",
       "require": "./dist/telemetry/index.cjs"
@@ -42,6 +46,9 @@
     "*": {
       "telemetry": [
         "./dist/telemetry/index.d.cts"
+      ],
+      "event-transforms": [
+        "./dist/event-transforms/index.d.cts"
       ]
     }
   },
@@ -61,18 +68,22 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
+    "@ag-ui/a2ui-middleware": "0.0.10",
     "@ag-ui/client": "0.0.59",
     "@copilotkit/license-verifier": "~0.5.0",
     "@segment/analytics-node": "^2.1.2",
     "@standard-schema/spec": "^1.0.0",
     "chalk": "4.1.2",
+    "clarinet": "^0.12.4",
     "graphql": "^16.8.1",
     "partial-json": "^0.1.7",
+    "rxjs": "7.8.1",
     "uuid": "^11.1.0",
     "zod": "^3.23.3",
     "zod-to-json-schema": "^3.23.5"
   },
   "devDependencies": {
+    "@types/clarinet": "^0.12.3",
     "@types/uuid": "^10.0.0",
     "@valibot/to-json-schema": "^1.5.0",
     "arktype": "^2.1.29",

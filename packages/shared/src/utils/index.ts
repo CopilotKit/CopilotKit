@@ -9,6 +9,7 @@ export * from "./inspector-visibility";
 export * from "./types";
 export * from "./random-id";
 export * from "./requests";
+export * from "./row-render-keys";
 
 import * as PartialJSON from "partial-json";
 
