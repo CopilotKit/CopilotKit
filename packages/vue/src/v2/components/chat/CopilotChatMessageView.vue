@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useSlots, watch } from "vue";
+import { computed, onMounted, ref, useSlots, watch } from "vue";
 import type { Component } from "vue";
 import type {
   ActivityMessage,
@@ -9,7 +9,12 @@ import type {
   ToolMessage,
   UserMessage,
 } from "@ag-ui/core";
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import {
+  DEFAULT_AGENT_ID,
+  commitRowKeyStore,
+  createRowKeyStore,
+  resolveRowRenderKeysById,
+} from "@copilotkit/shared";
 import type {
   InterruptRenderProps,
   VueCustomMessageRendererProps,
@@ -185,6 +190,24 @@ function deduplicateMessages(messages: Message[]): Message[] {
 const deduplicatedMessages = computed(() =>
   deduplicateMessages(props.messages),
 );
+
+// Stable per-row keys. Backends can re-key a message mid-stream, and keying
+// rows by the canonical id tears the row down on that swap (the HITL chat
+// flash). See @copilotkit/shared row-render-keys for the mechanism.
+const rowKeyStore = createRowKeyStore();
+const rowRenderKeys = computed(() =>
+  resolveRowRenderKeysById(rowKeyStore, deduplicatedMessages.value),
+);
+
+// Record what the DOM was patched with, never what a computed merely
+// evaluated: an anchor from an evaluation Vue never patches would re-key a
+// rendered row and tear it down.
+onMounted(() => commitRowKeyStore(rowKeyStore, deduplicatedMessages.value));
+watch(
+  deduplicatedMessages,
+  (messages) => commitRowKeyStore(rowKeyStore, messages),
+  { flush: "post" },
+);
 const lastMessage = computed(() => props.messages[props.messages.length - 1]);
 const showCursor = computed(
   () => props.isRunning && lastMessage.value?.role !== "reasoning",
@@ -343,7 +366,10 @@ function resolveToolMessage(
 
 <template>
   <div data-copilotkit class="cpk:flex cpk:flex-col" v-bind="$attrs">
-    <template v-for="message in deduplicatedMessages" :key="message.id">
+    <template
+      v-for="message in deduplicatedMessages"
+      :key="rowRenderKeys.get(message.id) ?? message.id"
+    >
       <slot
         v-if="componentSlots['message-before']"
         name="message-before"
