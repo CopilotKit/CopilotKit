@@ -62,16 +62,11 @@ example shows the essential structure to add to an existing app or preserve
 while customizing a starter.
 
 <Callout type="warn">
-  **Pair the Drawer with the v2 chat components.** It works with `CopilotChat`
-  or `CopilotSidebar` from `@copilotkit/react-core/v2`. The v1 `CopilotChat` and
-  `CopilotSidebar` from `@copilotkit/react-ui` cannot drive it, because the two
-  components coordinate through `CopilotChatConfigurationProvider`, and
-  `@copilotkit/react-ui` never mounts that provider. Both packages export these
-  names, so check the import path.
-
-  A v1 pairing fails quietly. The Drawer still renders and still lists threads,
-  but no launcher appears in the chat header, no row shows as active, and
-  selecting a row does not change the chat.
+  **These component names exist in two packages.** `@copilotkit/react-ui` also
+  exports `CopilotChat` and `CopilotSidebar`, and those are the [deprecated v1
+  components](/migrate/v2). This guide documents the v2 pairing: take the chat,
+  the Drawer, and the provider from `@copilotkit/react-core/v2`, as the example
+  below does.
 </Callout>
 
 ```tsx title="app/page.tsx"
