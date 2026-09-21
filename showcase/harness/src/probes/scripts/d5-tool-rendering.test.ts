@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { getD5Script, type D5BuildContext } from "../helpers/d5-registry.js";
+import { getD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { Page } from "../helpers/conversation-runner.js";
 // Top-level import triggers the script's `registerD5Script` side
 // effect against the singleton registry. We do NOT clear the registry
@@ -14,8 +15,8 @@ import {
   buildToolRenderingAssertion,
   validateProbe,
   TOOL_CARD_SELECTORS,
-  type ToolCardProbeResult,
 } from "./d5-tool-rendering.js";
+import type { ToolCardProbeResult } from "./d5-tool-rendering.js";
 
 /**
  * Tests for the D5 tool-rendering script. Three concerns:
@@ -36,8 +37,6 @@ import {
  * returns the appropriate ToolCardProbeResult shape (or throws to model
  * a chromium hiccup). No real browser is launched.
  */
-
-const FIXTURE_USER_MESSAGE = "weather in Tokyo";
 
 interface FakePageScript {
   /**
@@ -93,7 +92,7 @@ describe("d5-tool-rendering script", () => {
   });
 
   describe("buildTurns", () => {
-    it("produces one turn whose input matches the fixture user message verbatim", () => {
+    it("covers the five actual canonical tool pills", () => {
       const ctx: D5BuildContext = {
         integrationSlug: "langgraph-python",
         featureType: "tool-rendering",
@@ -101,12 +100,12 @@ describe("d5-tool-rendering script", () => {
       };
       const turns = buildTurns(ctx);
 
-      expect(turns).toHaveLength(1);
-      expect(turns[0]!.input).toBe(FIXTURE_USER_MESSAGE);
+      expect(turns).toHaveLength(5);
+      expect(turns[0]!.input).toBe("What's the weather in San Francisco?");
       expect(typeof turns[0]!.assertions).toBe("function");
     });
 
-    it("returns the same shape regardless of integrationSlug (no per-integration override yet)", () => {
+    it("uses identical canonical actions across integrations", () => {
       const a = buildTurns({
         integrationSlug: "langgraph-python",
         featureType: "tool-rendering",
@@ -117,8 +116,8 @@ describe("d5-tool-rendering script", () => {
         featureType: "tool-rendering",
         baseUrl: "https://b.test",
       });
-      expect(a).toHaveLength(1);
-      expect(b).toHaveLength(1);
+      expect(a).toHaveLength(5);
+      expect(b).toHaveLength(5);
       expect(a[0]!.input).toBe(b[0]!.input);
     });
   });

@@ -3,8 +3,8 @@ import {
   D5_REGISTRY,
   __clearD5RegistryForTesting,
   getD5Script,
-  type D5BuildContext,
 } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { Page } from "../helpers/conversation-runner.js";
 
 let scriptModule: typeof import("./d5-subagents.js");
@@ -48,8 +48,8 @@ describe("D5 subagents script — buildTurns", () => {
       baseUrl: "https://showcase-langgraph-python.example.com",
     };
     const turns = scriptModule.buildTurns(ctx);
-    expect(turns).toHaveLength(1);
-    expect(turns[0]!.input).toBe(scriptModule.USER_PROMPT);
+    expect(turns).toHaveLength(3);
+    expect(turns[0]!.action?.buttonName).toBe("Write a blog post");
     expect(typeof turns[0]!.assertions).toBe("function");
   });
 });

@@ -1,71 +1,43 @@
-import { describe, it, expect, vi } from "vitest";
-import { getD5Script } from "../helpers/d5-registry.js";
-import type { D5BuildContext } from "../helpers/d5-registry.js";
-import type { Page } from "../helpers/conversation-runner.js";
-import {
-  buildTurns,
-  buildA2uiFixedAssertion,
-  preNavigateRoute,
-  A2UI_FIXED_PILL_PROMPT,
-} from "./d5-gen-ui-a2ui-fixed.js";
+import { describe, expect, it } from "vitest";
+import { buildTurns, preNavigateRoute } from "./d5-gen-ui-a2ui-fixed.js";
+import { RENDERING_PILLS } from "./_pill-contracts-rendering.js";
 
-describe("d5-gen-ui-a2ui-fixed script", () => {
-  it("registers under featureType 'gen-ui-a2ui-fixed'", () => {
-    const script = getD5Script("gen-ui-a2ui-fixed");
-    expect(script).toBeDefined();
-    expect(script?.fixtureFile).toBe("gen-ui-a2ui-fixed.json");
-  });
-
-  it("preNavigateRoute resolves /demos/a2ui-fixed-schema", () => {
-    expect(preNavigateRoute("gen-ui-a2ui-fixed")).toBe(
-      "/demos/a2ui-fixed-schema",
+describe("gen-ui-a2ui-fixed canonical functional contract", () => {
+  const canonical = RENDERING_PILLS["a2ui-fixed-schema"];
+  const context = {
+    integrationSlug: "langgraph-python",
+    featureType: "gen-ui-a2ui-fixed",
+    baseUrl: "http://localhost:39200",
+  } as const;
+  it("drives every exact actual canonical control once", () => {
+    const turns = buildTurns(context);
+    expect(turns).toHaveLength(canonical.length);
+    expect(new Set(turns.map((turn) => turn.action?.id)).size).toBe(
+      canonical.length,
     );
+    for (const [index, turn] of turns.entries()) {
+      expect(turn.action).toEqual({
+        ...canonical[index],
+        kind: "pill",
+        submission: { kind: "immediate" },
+      });
+      expect(turn.input).toBe(canonical[index]!.expectedDispatchedPrompt);
+      expect(turn.assertions).toBeTypeOf("function");
+      expect(turn.preFill).toBeTypeOf("function");
+      expect(turn).not.toHaveProperty("skipFill");
+      expect(turn).not.toHaveProperty("skipSend");
+    }
   });
-
-  it("buildTurns sends the SFO/JFK pill prompt with extended timeout", () => {
-    const ctx: D5BuildContext = {
-      integrationSlug: "x",
-      featureType: "gen-ui-a2ui-fixed",
-      baseUrl: "https://x.test",
-    };
-    const turn = buildTurns(ctx)[0]!;
-    expect(turn.input).toBe(A2UI_FIXED_PILL_PROMPT);
-    expect(turn.responseTimeoutMs).toBeGreaterThanOrEqual(60_000);
-    expect(turn.completeOnMount).toEqual({
-      testIds: ["a2ui-fixed-card"],
-    });
+  it("never substitutes integration-specific prompts or weaker controls", () => {
+    const identities = (slug: string) =>
+      buildTurns({ ...context, integrationSlug: slug }).map((turn) => ({
+        input: turn.input,
+        action: turn.action,
+      }));
+    for (const slug of ["google-adk", "spring-ai", "mastra", "unknown"])
+      expect(identities(slug)).toEqual(identities("langgraph-python"));
   });
-
-  it("assertion succeeds when waitForSelector resolves for the testid", async () => {
-    const waitForSelector = vi.fn().mockResolvedValue(undefined);
-    const page: Page = {
-      waitForSelector: waitForSelector as Page["waitForSelector"],
-      async fill() {},
-      async press() {},
-      async evaluate<R>() {
-        return undefined as unknown as R;
-      },
-    };
-    const assertion = buildA2uiFixedAssertion({ timeoutMs: 100 });
-    await expect(assertion(page)).resolves.toBeUndefined();
-    expect(waitForSelector).toHaveBeenCalledWith(
-      '[data-testid="a2ui-fixed-card"]',
-      expect.objectContaining({ state: "visible" }),
-    );
-  });
-
-  it("assertion fails when waitForSelector throws (testid never mounts)", async () => {
-    const page: Page = {
-      async waitForSelector() {
-        throw new Error("timeout");
-      },
-      async fill() {},
-      async press() {},
-      async evaluate<R>() {
-        return undefined as unknown as R;
-      },
-    };
-    const assertion = buildA2uiFixedAssertion({ timeoutMs: 100 });
-    await expect(assertion(page)).rejects.toThrow(/a2ui-fixed-card.*mount/);
+  it("retains the actual demo route", () => {
+    expect(preNavigateRoute()).toBe("/demos/a2ui-fixed-schema");
   });
 });

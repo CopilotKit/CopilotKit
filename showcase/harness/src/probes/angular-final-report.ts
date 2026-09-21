@@ -1,3 +1,4 @@
+import { evaluateFrontendParity } from "./frontend-parity-gate.js";
 import type {
   AcceptedBaselineFailure,
   FrontendParityReport,
@@ -179,6 +180,21 @@ export function buildAngularFinalReport(input: {
   if (!input.parity.passed) {
     throw new Error("frontend parity report contains a blocking failure");
   }
+  if (!input.parity.evidence) {
+    throw new Error(
+      "frontend parity report requires matching public pill evidence",
+    );
+  }
+  const parity = evaluateFrontendParity({
+    ...input.parity.evidence,
+    frozenBaseCommit: input.parity.frozenBaseCommit,
+    pullRequestCommit: input.parity.pullRequestCommit,
+  });
+  if (!parity.passed) {
+    throw new Error(
+      "frontend parity report requires matching public pill evidence",
+    );
+  }
   if (input.canaries.length > REQUIRED_BROWSERS.length) {
     throw new Error("final report requires exactly three browser canaries");
   }
@@ -204,7 +220,7 @@ export function buildAngularFinalReport(input: {
     validateAcceptedFailure(failure);
   }
 
-  const comparisonsWithAngular = input.parity.comparisons.filter(
+  const comparisonsWithAngular = parity.comparisons.filter(
     (comparison) => comparison.pullRequestAngular !== null,
   );
   const supportedFeatureIds = new Set(input.supportedAngularFeatureIds);
@@ -240,7 +256,7 @@ export function buildAngularFinalReport(input: {
     status: "passed",
     pairedCells: comparisonsWithAngular.length,
     supportedAngularFeatures,
-    paritySummary: input.parity.summary,
+    paritySummary: parity.summary,
     browserCanaries: REQUIRED_BROWSERS.map((browser) => {
       const evidence = canariesByBrowser.get(browser)!;
       return {

@@ -1,3 +1,4 @@
+import { unitPillSignal } from "./cell-model.equivalence-fixtures.js";
 /**
  * §7 spec-conformance for the unified engine, exercised against the REAL engine
  * surface with seeded `LiveStatusMap`s. Each test asserts `buildCellModel`
@@ -40,7 +41,7 @@ function row(
     key,
     dimension: key.split(":")[0] ?? "",
     state,
-    signal: "signal" in opts ? opts.signal : null,
+    signal: "signal" in opts ? opts.signal : unitPillSignal(key, observed),
     observed_at: observed,
     transitioned_at: observed,
     fail_count: opts.failCount ?? (state === "red" ? 1 : 0),

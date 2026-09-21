@@ -1,50 +1,28 @@
-/** Framework-neutral probes for the Mastra-only feature family. */
+import { noLgpCanonicalTurns } from "./_pill-contracts-tools-agents.js";
+/** No LGP counterpart exists for these features; never infer functional success from a smoke check. */
 import { registerD5Script } from "../helpers/d5-registry.js";
 import type { D5BuildContext, D5FeatureType } from "../helpers/d5-registry.js";
 import type { ConversationTurn } from "../helpers/conversation-runner.js";
 
-const OBSERVATIONAL_MEMORY_PROJECT_BRIEF = `Here is a lot of context about my project. I'm building a B2B analytics platform called Northwind Insights. The core product is a dashboard that ingests events from our customers' web and mobile apps, runs them through a streaming pipeline, and surfaces funnels, retention cohorts, and revenue attribution. Our stack is a Next.js frontend, a Node.js ingestion service behind an API gateway, Kafka for the event bus, ClickHouse for the analytical store, and Postgres for application metadata. We deploy on AWS with EKS, and we use Terraform for infra. The team is eight engineers split across frontend, backend, and data. Our biggest customers are mid-market SaaS companies with fifty to five hundred employees, and our top three by revenue are Acme Retail, Globex, and Initech. Our current north-star metric is weekly active dashboards, and we're at about twelve hundred right now, up from eight hundred last quarter. The main pain points our customers report are slow query times on large date ranges, confusing funnel configuration, and a lack of alerting when metrics move sharply. On the roadmap we have anomaly detection, a self-serve SQL editor, and SSO via SAML. Our pricing is seat-based with a usage overage on event volume, and churn has been creeping up among smaller accounts who find the setup too heavy.
-
-Now, given all of that, summarize the top three product risks you see and suggest one concrete mitigation for each.`;
-
-/** Build the fixture-backed background-task activity turn. */
+/** Reject the unavailable canonical background-agent definition. */
 export function buildBackgroundAgentsTurns(
   _context: D5BuildContext,
 ): ConversationTurn[] {
-  return [
-    {
-      input:
-        "Kick off deep research on the current landscape of AI agent frameworks.",
-      responseTimeoutMs: 60_000,
-      completeOnMount: {
-        testIds: ["background-task-activity", "background-task-status"],
-        minNewMounts: 2,
-      },
-    },
-  ];
+  return noLgpCanonicalTurns("background-agents");
 }
 
-/** Build the threshold-sized observational-memory activity turn. */
+/** Reject the unavailable canonical observational-memory definition. */
 export function buildObservationalMemoryTurns(
   _context: D5BuildContext,
 ): ConversationTurn[] {
-  return [
-    {
-      input: OBSERVATIONAL_MEMORY_PROJECT_BRIEF,
-      responseTimeoutMs: 60_000,
-      completeOnMount: {
-        testIds: ["om-activity-card", "om-status-dot"],
-        minNewMounts: 2,
-      },
-    },
-  ];
+  return noLgpCanonicalTurns("observational-memory");
 }
 
-/** Keep Browser Use deterministic by testing navigation and hydration only. */
+/** An empty Browser Use action list cannot establish functional acceptance. */
 export function buildBrowserUseTurns(
   _context: D5BuildContext,
 ): ConversationTurn[] {
-  return [];
+  return noLgpCanonicalTurns("browser-use-smoke");
 }
 
 /** Resolve closed Mastra probe literals to public demo routes. */

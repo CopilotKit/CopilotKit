@@ -78,6 +78,30 @@ function fakeSource(
 const CTX: EnumerateContext = { triggered: false, runId: "run-1" };
 
 describe("createD6ServiceEnumerator", () => {
+  it.each([createD6ServiceEnumerator, createE2eDeepServiceEnumerator])(
+    "binds scheduled public execution to discovered image and built canonical source",
+    async (factory) => {
+      const targetRevision = `sha256:${"a".repeat(64)}`;
+      const canonicalRevision = "b".repeat(40);
+      const enumerate = factory({
+        source: fakeSource([svc({ deployedDigest: targetRevision })]),
+        env: {
+          SHOWCASE_PUBLIC_SHELL_URL: "http://localhost:39204",
+          COMMIT_SHA: canonicalRevision,
+        },
+        fetchImpl: fetch,
+        logger: SILENT_LOGGER,
+      });
+      const [job] = await enumerate(CTX);
+      expect(job.driverInputs).toMatchObject({
+        surface: "public",
+        publicShellBaseUrl: "http://localhost:39204",
+        targetRevision,
+        canonicalRevision,
+      });
+    },
+  );
+
   it("yields one spec per service with the exact d6 keys (probeKey d6:<slug>, kind e2e_d6)", async () => {
     const source = fakeSource([
       svc({ name: "showcase-langgraph-python" }),

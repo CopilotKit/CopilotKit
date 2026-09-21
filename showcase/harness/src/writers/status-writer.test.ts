@@ -4043,3 +4043,30 @@ describe("fakePb test-infra invariants (round-9 #8)", () => {
     expect(c.id).not.toBe(b.id);
   });
 });
+
+describe("functional result admission", () => {
+  it("keeps an observed failure and its age when a skipped legacy green arrives", async () => {
+    const env = fakePb();
+    const writer = createStatusWriter({
+      pb: env.pb,
+      bus: createEventBus(),
+      logger,
+    });
+    const failed = {
+      ...probeResult("red"),
+      key: "d6:langgraph-python/gen-ui-declarative",
+    };
+    await writer.write(failed);
+    const before = structuredClone(env.rows.get(failed.key));
+    const outcome = await writer.write({
+      ...failed,
+      state: "green",
+      observedAt: "2026-04-20T01:00:00Z",
+      signal: { skipped: true },
+    });
+    expect(outcome.persisted).toBe(false);
+    expect(outcome.newState).toBe("degraded");
+    expect(env.rows.get(failed.key)).toEqual(before);
+    expect(env.history).toHaveLength(2);
+  });
+});

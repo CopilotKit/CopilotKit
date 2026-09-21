@@ -41,23 +41,22 @@ describe("D5 mcp-apps script — buildTurns", () => {
     }
   });
 
-  it("returns one turn that runs the iframe-presence assertion", () => {
+  it("covers both canonical MCP pills without an iframe-only completion bypass", () => {
     const ctx: D5BuildContext = {
       integrationSlug: "langgraph-python",
       featureType: "mcp-apps",
       baseUrl: "https://showcase-langgraph-python.example.com",
     };
     const turns = scriptModule.buildTurns(ctx);
-    expect(turns).toHaveLength(1);
+    expect(turns).toHaveLength(2);
     expect(typeof turns[0]!.assertions).toBe("function");
-    // CF-1 REGRESSION: the settle gate must accept the FULL cascade, not the
-    // bare `mcp-app-iframe` testid. Gating on the testid alone red-lined D5/D6
-    // `mcp-apps` on every non-Angular integration (`reason=surface-missing`)
-    // while the demo rendered fine, because only Angular declared the testid.
-    expect(turns[0]!.completeOnMount).toEqual({
-      selectors: ['[data-testid="mcp-app-iframe"], iframe[sandbox]'],
-    });
-    expect(turns[0]!.completeOnMount?.testIds).toBeUndefined();
+    expect(turns.map((turn) => turn.action?.buttonName)).toEqual([
+      "Draw a flowchart",
+      "Sketch a system diagram",
+    ]);
+    expect(turns.every((turn) => turn.completeOnMount === undefined)).toBe(
+      true,
+    );
   });
 
   it("drives a real MCP-tool prompt (not the previous 'hello' no-op)", () => {
@@ -69,7 +68,7 @@ describe("D5 mcp-apps script — buildTurns", () => {
     const turns = scriptModule.buildTurns(ctx);
     // Verbatim pill prompt from
     // `langgraph-python/src/app/demos/mcp-apps/suggestions.ts`.
-    expect(turns[0]!.input).toBe(
+    expect(turns[1]!.input).toBe(
       "Open Excalidraw and sketch a system diagram with a client, server, and database.",
     );
     expect(turns[0]!.input).not.toBe("hello");

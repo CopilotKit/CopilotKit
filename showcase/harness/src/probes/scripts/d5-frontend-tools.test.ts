@@ -1,128 +1,118 @@
-import { describe, it, expect, vi } from "vitest";
-import { getD5Script, type D5BuildContext } from "../helpers/d5-registry.js";
-import type { Page } from "../helpers/conversation-runner.js";
+import type { StateToolsContract } from "./_pill-contracts-state-tools.js";
+import { getD5Script } from "../helpers/d5-registry.js";
 import {
-  buildTurns,
-  buildPillAssertion,
-  FRONTEND_TOOL_PILLS,
-  PILL_GRADIENT_HINTS,
-} from "./d5-frontend-tools.js";
+  STATE_TOOLS_CONTRACTS,
+  checkStateToolsResult,
+} from "./_pill-contracts-state-tools.js";
+import { describe, expect, it } from "vitest";
+import { buildTurns as canonicalBuildTurns } from "./d5-frontend-tools.js";
 
-/** Build a fake Page that reads its background-css attribute from a
- *  caller-controlled queue. Each `evaluate()` call dequeues the next
- *  scripted value, which lets a single test simulate the
- *  baseline -> changed -> stable cycle. */
-function makePage(values: string[]): Page {
-  let idx = 0;
-  return {
-    async waitForSelector() {},
-    async fill() {},
-    async press() {},
-    async evaluate<R>() {
-      const v = values[Math.min(idx, values.length - 1)] ?? "";
-      idx += 1;
-      return v as unknown as R;
-    },
-  };
-}
+const context = {
+  integrationSlug: "langgraph-python",
+  featureType: "frontend-tools",
+  baseUrl: "http://localhost:39200",
+} as const;
 
-describe("d5-frontend-tools script", () => {
-  it("registers under featureType 'frontend-tools'", () => {
-    const script = getD5Script("frontend-tools");
-    expect(script).toBeDefined();
-    expect(script?.featureTypes).toEqual(["frontend-tools"]);
-    expect(script?.fixtureFile).toBe("frontend-tools.json");
-  });
-
-  it("buildTurns produces three per-pill turns matching suggestions.ts", () => {
-    const ctx: D5BuildContext = {
-      integrationSlug: "langgraph-python",
-      featureType: "frontend-tools",
-      baseUrl: "https://x.test",
-    };
-    const turns = buildTurns(ctx);
-    expect(turns).toHaveLength(3);
-    expect(turns[0]!.input).toBe("Make the background a sunset gradient.");
-    expect(turns[1]!.input).toBe("Switch to a deep green forest gradient.");
-    expect(turns[2]!.input).toBe("Make it a navy → magenta cosmic gradient.");
-  });
-
-  it("FRONTEND_TOOL_PILLS covers sunset / forest / cosmic", () => {
-    const tags = FRONTEND_TOOL_PILLS.map((p) => p.tag);
-    expect(tags).toEqual(["sunset", "forest", "cosmic"]);
-  });
-
-  it("PILL_GRADIENT_HINTS lists per-family color tokens", () => {
-    expect(PILL_GRADIENT_HINTS.sunset).toContain("orange");
-    expect(PILL_GRADIENT_HINTS.forest).toContain("green");
-    expect(PILL_GRADIENT_HINTS.cosmic).toContain("magenta");
-  });
-
-  it("assertion succeeds when background changes to a gradient containing the pill's hint", async () => {
-    const baseline = { current: "#4f46e5" };
-    const assert = buildPillAssertion("sunset", baseline);
-    // First read: testid mount waitForSelector (no-op in fake).
-    // Second/third read: readBackgroundCss values.
-    const page = makePage(["#ff7e5f orange gradient"]);
-    await expect(assert(page)).resolves.toBeUndefined();
-    expect(baseline.current).toBe("#ff7e5f orange gradient");
-  });
-
-  it("assertion fails when background did not change off baseline", async () => {
-    // Drive `waitForBackgroundChange`'s polling loop forward with
-    // fake timers so the FIRST_SIGNAL_TIMEOUT_MS deadline expires
-    // synchronously inside the test instead of taking the real 60s.
-    vi.useFakeTimers();
-    try {
-      const baseline = { current: "#4f46e5" };
-      const assert = buildPillAssertion("sunset", baseline);
-      // Page always reports the baseline — the assertion should
-      // time out and throw a "did not change off baseline" error.
-      const page = makePage(["#4f46e5"]);
-      const promise = assert(page);
-      // Attach the rejection assertion BEFORE advancing timers so
-      // unhandled-rejection warnings don't fire while the loop spins.
-      const expectation = expect(promise).rejects.toThrow(
-        /did not change off baseline/,
-      );
-      // Fast-forward past the FIRST_SIGNAL_TIMEOUT_MS deadline.
-      await vi.advanceTimersByTimeAsync(70_000);
-      await expectation;
-    } finally {
-      vi.useRealTimers();
+describe("frontend-tools canonical pill contract", () => {
+  it("accounts for all three exact canonical controls", () => {
+    const turns = canonicalBuildTurns(context);
+    expect(turns.map((turn) => turn.action?.buttonName)).toEqual([
+      "Sunset theme",
+      "Forest theme",
+      "Cosmic theme",
+    ]);
+    expect(new Set(turns.map((turn) => turn.action?.id)).size).toBe(3);
+    for (const turn of turns) {
+      expect(turn.action?.kind).toBe("pill");
+      expect(turn.action?.expectedDispatchedPrompt).toBe(turn.input);
+      expect(turn.action?.submission).toEqual({ kind: "immediate" });
+      expect(turn.assertions).toBeTypeOf("function");
+      expect(turn.skipFill).toBeUndefined();
+      expect(turn.skipSend).toBeUndefined();
     }
   });
-
-  it("assertion fails when background changes to a wrong-family gradient", async () => {
-    const baseline = { current: "#4f46e5" };
-    const assert = buildPillAssertion("sunset", baseline);
-    // Sunset pill but the page reports a green/forest-flavored
-    // gradient — should throw a "sunset hint" error.
-    const page = makePage(["#0a3d2e green gradient"]);
-    await expect(assert(page)).rejects.toThrow(/sunset hint/);
+  it("uses identical canonical controls across integrations", () => {
+    const canonical = canonicalBuildTurns(context).map(({ input, action }) => ({
+      input,
+      action,
+    }));
+    for (const integrationSlug of [
+      "ag2",
+      "agno",
+      "spring-ai",
+      "claude-sdk-python",
+    ]) {
+      expect(
+        canonicalBuildTurns({ ...context, integrationSlug }).map(
+          ({ input, action }) => ({ input, action }),
+        ),
+      ).toEqual(canonical);
+    }
   });
+});
 
-  it("assertion accepts arbitrary green hex codes via channel-dominance fallback (real-LLM nondeterminism)", async () => {
-    // Real OpenAI returned `linear-gradient(to right, #005f00, #4caf50)`
-    // for the forest pill — perfectly valid green, but neither the
-    // word `green` nor any of the fixture-pinned hex codes
-    // (`#0a3d2e`/`#166534`/`#059669`) appears as a substring. The
-    // channel-dominance fallback parses the hex codes and accepts
-    // them because each one has G > R AND G > B. Without the
-    // fallback this assertion would throw.
-    const baseline = { current: "#4f46e5" };
-    const assert = buildPillAssertion("forest", baseline);
-    const page = makePage(["linear-gradient(to right, #005f00, #4caf50)"]);
-    await expect(assert(page)).resolves.toBeUndefined();
+describe("strict visible-result regressions", () => {
+  const contracts: readonly StateToolsContract[] =
+    STATE_TOOLS_CONTRACTS["frontend-tools"];
+  it("registers the functional builder with all required results", () => {
+    expect(getD5Script("frontend-tools")).toBeDefined();
   });
-
-  it("assertion still rejects a gradient with no on-family hex AND no on-family word", async () => {
-    // Forest pill, but page emitted only sunset-family hex codes.
-    // Word match misses (no green/forest etc.) AND channel-dominance
-    // misses (R-dominant, not G-dominant). Must throw.
-    const baseline = { current: "#4f46e5" };
-    const assert = buildPillAssertion("forest", baseline);
-    const page = makePage(["linear-gradient(to right, #ff7e5f, #ff6b6b)"]);
-    await expect(assert(page)).rejects.toThrow(/forest hint/);
-  });
+  for (const contract of contracts) {
+    it(`${contract.id} accepts only the established exact result`, () => {
+      const result = {
+        texts: [contract.texts.join(" ")],
+        attributes: [contract.value ?? null],
+        pills: [],
+        noteIds: [Array.from(contract.noteIds ?? [])],
+        noteRows: [Array.from(contract.noteRows ?? [])],
+        backgroundMatches: [true],
+      };
+      if (contract.unresolved) {
+        expect(() => checkStateToolsResult(contract, result, 0)).toThrow(
+          contract.unresolved,
+        );
+      } else {
+        expect(() => checkStateToolsResult(contract, result, 0)).not.toThrow();
+        expect(() =>
+          checkStateToolsResult(
+            contract,
+            { ...result, texts: ["Wrong result"], attributes: ["#4f46e5"] },
+            0,
+          ),
+        ).toThrow();
+        if (
+          !contract.attribute &&
+          contract.selector !== '[data-testid="document-content"]'
+        ) {
+          expect(() => checkStateToolsResult(contract, result, 1)).toThrow();
+        }
+        const noteIds = contract.noteIds;
+        if (noteIds) {
+          expect(() =>
+            checkStateToolsResult(
+              contract,
+              { ...result, noteIds: [[...noteIds, "note-n7"]] },
+              0,
+            ),
+          ).toThrow();
+        }
+      }
+    });
+    it(`${contract.id} rejects empty, hidden or stale results`, () => {
+      expect(() =>
+        checkStateToolsResult(
+          contract,
+          {
+            texts: [],
+            attributes: [],
+            pills: [],
+            noteIds: [],
+            noteRows: [],
+            backgroundMatches: [],
+          },
+          0,
+        ),
+      ).toThrow();
+    });
+  }
 });

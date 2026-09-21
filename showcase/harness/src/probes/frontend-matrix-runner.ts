@@ -1,10 +1,11 @@
+import { demosToFeatureTypes } from "./helpers/d5-feature-mapping.js";
 import type { D5FeatureType } from "./helpers/d5-registry.js";
 import type {
   FrontendMatrixCell,
   RunnableFrontend,
 } from "./frontend-matrix.js";
 
-export type FrontendProbeStatus = "passed" | "failed";
+export type FrontendProbeStatus = "passed" | "failed" | "unverified";
 
 export interface FrontendProbeResult {
   featureType: D5FeatureType;
@@ -300,6 +301,8 @@ export interface FrontendMatrixArtifactInput {
 }
 
 export interface FrontendMatrixArtifactProbe {
+  /** Runner evidence retained verbatim; admission validates persisted input. */
+  pillExecution?: unknown;
   featureType: D5FeatureType;
   status: FrontendProbeStatus;
   durationMs: number;
@@ -309,6 +312,8 @@ export interface FrontendMatrixArtifactProbe {
 }
 
 export interface FrontendMatrixArtifactCell {
+  startedAt?: string;
+  observedAt?: string;
   cellId: string;
   frontend: RunnableFrontend;
   integration: string;
@@ -337,6 +342,7 @@ export interface FrontendMatrixArtifact {
     total: number;
     passed: number;
     failed: number;
+    unverified?: number;
     p95CellDurationMs: number;
   };
   cells: FrontendMatrixArtifactCell[];
@@ -390,7 +396,14 @@ export function mergeFrontendMatrixShardArtifacts(
         throw new Error(`duplicate frontend phase cell ${cell.cellId}`);
       }
       cellIds.add(cell.cellId);
-      cells.push(cell);
+      cells.push({
+        ...cell,
+        status: admittedFrontendStatus({
+          ...cell,
+          startedAt: artifact.startedAt,
+          observedAt: artifact.finishedAt,
+        }),
+      });
     }
   }
 
@@ -402,6 +415,7 @@ export function mergeFrontendMatrixShardArtifacts(
       total: cells.length,
       passed: cells.filter((cell) => cell.status === "passed").length,
       failed: cells.filter((cell) => cell.status === "failed").length,
+      unverified: cells.filter((cell) => cell.status === "unverified").length,
       p95CellDurationMs: percentile(
         cells.map((cell) => cell.durationMs),
         0.95,
@@ -423,6 +437,9 @@ export function createFrontendMatrixArtifact(
           status: probe.status,
           durationMs: probe.durationMs,
           testId: probe.testId,
+          ...(probe.diagnostics?.pillExecution === undefined
+            ? {}
+            : { pillExecution: probe.diagnostics.pillExecution }),
           ...(probe.errorClass === undefined
             ? {}
             : { errorClass: probe.errorClass }),
@@ -431,7 +448,9 @@ export function createFrontendMatrixArtifact(
             : { failureReason: probe.failureReason }),
         }),
       );
-      return {
+      const artifactCell: FrontendMatrixArtifactCell = {
+        startedAt: input.startedAt,
+        observedAt: input.finishedAt,
         cellId: cell.id,
         frontend: cell.frontend,
         integration: cell.integration,
@@ -448,6 +467,7 @@ export function createFrontendMatrixArtifact(
           ? {}
           : { errorClass: result.errorClass }),
       };
+      return { ...artifactCell, status: admittedFrontendStatus(artifactCell) };
     },
   );
   return {
@@ -463,6 +483,7 @@ export function createFrontendMatrixArtifact(
       total: cells.length,
       passed: cells.filter((cell) => cell.status === "passed").length,
       failed: cells.filter((cell) => cell.status === "failed").length,
+      unverified: cells.filter((cell) => cell.status === "unverified").length,
       p95CellDurationMs: percentile(
         cells.map((cell) => cell.durationMs),
         0.95,
@@ -470,4 +491,113 @@ export function createFrontendMatrixArtifact(
     },
     cells,
   };
+}
+
+function record(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export interface FrontendProofCell {
+  feature: string;
+  frontend: string;
+  integration: string;
+  containerImageRevision: string;
+  featureContractRevision: string;
+  startedAt?: string;
+  observedAt?: string;
+  status: string;
+  probes?: readonly {
+    featureType: string;
+    status?: string;
+    pillExecution?: unknown;
+  }[];
+}
+
+/** A status alone cannot certify a public functional run, including old artifacts. */
+export function admittedFrontendStatus(
+  cell: FrontendProofCell,
+): FrontendProbeStatus {
+  if (cell.status === "failed") return "failed";
+  if (cell.status !== "passed" || !cell.probes?.length) return "unverified";
+  const expectedProbes = demosToFeatureTypes([cell.feature]);
+  const actualProbes = cell.probes.map((probe) => probe.featureType);
+  if (
+    !expectedProbes.length ||
+    expectedProbes.length !== actualProbes.length ||
+    new Set(actualProbes).size !== actualProbes.length ||
+    !expectedProbes.every((probe) => actualProbes.includes(probe))
+  )
+    return "unverified";
+  const start = Date.parse(cell.startedAt ?? "");
+  const observed = Date.parse(cell.observedAt ?? "");
+  if (
+    !Number.isFinite(start) ||
+    !Number.isFinite(observed) ||
+    observed < start ||
+    !/^sha256:[a-f0-9]{64}$/.test(cell.containerImageRevision) ||
+    !/^[a-f0-9]{40}$/.test(cell.featureContractRevision)
+  )
+    return "unverified";
+  const complete = cell.probes.every((probe) => {
+    const proof = probe.pillExecution;
+    if (
+      probe.status !== "passed" ||
+      !record(proof) ||
+      !record(proof.identity) ||
+      proof.mode !== "functional-pill" ||
+      proof.surface !== "public" ||
+      proof.completed !== true ||
+      proof.attempts !== 1 ||
+      !Array.isArray(proof.failures) ||
+      proof.failures.length !== 0 ||
+      proof.identity.canonical !== probe.featureType ||
+      proof.identity.integration !== cell.integration ||
+      proof.identity.frontend !== cell.frontend ||
+      proof.identity.targetRevision !== cell.containerImageRevision ||
+      proof.identity.canonicalRevision !== cell.featureContractRevision ||
+      typeof proof.startedAt !== "string" ||
+      typeof proof.completedAt !== "string"
+    )
+      return false;
+    const begun = Date.parse(proof.startedAt);
+    const ended = Date.parse(proof.completedAt);
+    if (
+      !Number.isFinite(begun) ||
+      !Number.isFinite(ended) ||
+      begun < start ||
+      ended < begun ||
+      ended > observed
+    )
+      return false;
+    const required = proof.requiredActions;
+    const actions = proof.actions;
+    if (
+      !Array.isArray(required) ||
+      !required.length ||
+      !required.every((id) => typeof id === "string" && id.trim()) ||
+      new Set(required).size !== required.length ||
+      !Array.isArray(actions) ||
+      actions.length !== required.length
+    )
+      return false;
+    const ids = new Set<string>();
+    return actions.every((action) => {
+      if (
+        !record(action) ||
+        typeof action.id !== "string" ||
+        ids.has(action.id) ||
+        !required.includes(action.id) ||
+        action.attempted !== true ||
+        action.clicked !== true ||
+        action.assertionPassed !== true ||
+        action.completed !== true ||
+        typeof action.dispatchedPrompt !== "string" ||
+        !action.dispatchedPrompt.trim()
+      )
+        return false;
+      ids.add(action.id);
+      return true;
+    });
+  });
+  return complete ? "passed" : "unverified";
 }
