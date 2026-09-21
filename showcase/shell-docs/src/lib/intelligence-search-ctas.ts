@@ -92,20 +92,15 @@ export const INTELLIGENCE_SEARCH_CTAS: readonly IntelligenceSearchCta[] = [
     ],
   },
   {
-    // No docs page describes learning on its own yet — it is a capability
-    // row on the Intelligence overview, which links out to the detail.
-    // The overview is also the right landing for a reader already running
-    // Intelligence, for whom a connect-in-five-minutes quickstart would
-    // be useless. Retargeting when a dedicated page ships is a one-line
-    // edit here.
+    // Send learning searches directly to the Automatic Learning guide.
     id: "learning",
     keywords: ["learning"],
     specificity: 10,
     title: "Agents that learn from real conversations",
     body: "Intelligence turns the conversations your agent already has into evaluations and improvements, instead of leaving that signal on the floor.",
     primary: {
-      label: "See what Intelligence adds",
-      href: "/intelligence/overview",
+      label: "Read the Automatic Learning guide",
+      href: "/learning",
     },
     secondary: [
       { label: "Connect Intelligence", href: "/intelligence/quickstart" },
@@ -113,8 +108,7 @@ export const INTELLIGENCE_SEARCH_CTAS: readonly IntelligenceSearchCta[] = [
     ],
   },
   {
-    // Same reasoning as "learning" above: analytics has no dedicated
-    // docs page yet.
+    // Analytics has no dedicated docs page yet, so use the overview.
     id: "analytics",
     keywords: ["analytics"],
     specificity: 10,
