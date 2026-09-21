@@ -184,7 +184,9 @@ export function lastTurnOnly(messages: Message[]): Message[] {
   );
 
   // Index the earlier assistant messages by the calls a kept result answers.
-  const issuerOf = new Map<string, Message>();
+  // `Message` is a union, so the map holds the assistant member: only that one
+  // carries `toolCalls`.
+  const issuerOf = new Map<string, Extract<Message, { role: "assistant" }>>();
   for (const message of messages.slice(0, start)) {
     if (message.role !== "assistant" || keptIds.has(message.id)) continue;
     // Keep only the calls a forwarded result answers. An assistant message can
@@ -202,7 +204,7 @@ export function lastTurnOnly(messages: Message[]): Message[] {
   // to be answered by the messages right after it, so collecting the rescued
   // calls at the front, or letting anything separate a parallel call from one
   // of its results, recreates the error.
-  const emittedIssuers = new Set<Message>();
+  const emittedIssuers = new Set<Extract<Message, { role: "assistant" }>>();
   const placedResults = new Set<string>();
   const forwarded: Message[] = [];
   for (const message of kept) {
