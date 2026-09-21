@@ -568,8 +568,12 @@ export class CopilotKit {
     return {
       ...humanInTheLoopTool,
       type: "human-in-the-loop",
-      handler: (args, { toolCall }) => {
-        return this.#hitl.onResult(toolCall.id, humanInTheLoopTool.name);
+      handler: (args, { toolCall, signal: abortSignal }) => {
+        return this.#hitl.onResult(
+          toolCall.id,
+          humanInTheLoopTool.name,
+          abortSignal,
+        );
       },
     };
   }

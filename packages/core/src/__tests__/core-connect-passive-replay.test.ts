@@ -12,6 +12,7 @@ import {
 
 class ReplayAgent extends AbstractAgent {
   readonly runs: RunAgentInput[] = [];
+  runMessages: Message[] = [];
   readonly connections: RunAgentInput[] = [];
   constructor(public replayMessages: Message[]) {
     super({ agentId: "test", threadId: "thread-1" });
@@ -40,6 +41,9 @@ class ReplayAgent extends AbstractAgent {
         threadId: input.threadId,
         runId: input.runId,
       },
+      ...(this.runMessages.length
+        ? [{ type: EventType.MESSAGES_SNAPSHOT, messages: this.runMessages }]
+        : []),
       {
         type: EventType.RUN_FINISHED,
         threadId: input.threadId,
@@ -223,59 +227,82 @@ describe("CopilotKitCore.connectAgent selective replay", () => {
     expect(agent.runs).toHaveLength(0);
   });
 
-  it("recreates the active response resolver after switching A to B to A", async () => {
-    const { core, agent, message, toolCallId } = setup();
-    const onError = vi.fn();
-    core.subscribe({ onError });
-    let respond: ((value: string) => void) | undefined;
-    // React/Vue HITL hooks hold one resolver per mounted registration.
-    const handler = vi.fn(
-      (_args, context) =>
-        new Promise<string>((resolve, reject) => {
-          respond = resolve;
-          context?.signal?.addEventListener(
-            "abort",
-            () => {
-              respond = undefined;
-              reject(new Error("Human-in-the-loop interaction aborted"));
-            },
-            { once: true },
-          );
+  it.each(["replay", "live"])(
+    "recreates the %s response resolver after switching A to B to A",
+    async (source) => {
+      const { core, agent, message, toolCallId } = setup();
+      const onError = vi.fn();
+      core.subscribe({ onError });
+      let respond: ((value: string) => void) | undefined;
+      // React/Vue HITL hooks hold one resolver per mounted registration.
+      const handler = vi.fn(
+        (_args, context) =>
+          new Promise<string>((resolve, reject) => {
+            respond = resolve;
+            context?.signal?.addEventListener(
+              "abort",
+              () => {
+                respond = undefined;
+                reject(new Error("Human-in-the-loop interaction aborted"));
+              },
+              { once: true },
+            );
+          }),
+      );
+      core.addTool(
+        createTool({
+          name: "approval",
+          type: "human-in-the-loop",
+          handler,
+          followUp: false,
         }),
-    );
-    core.addTool(
-      createTool({
-        name: "approval",
-        type: "human-in-the-loop",
-        handler,
-        followUp: false,
-      }),
-    );
-    await core.connectAgent({ agent });
-    await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
-    agent.threadId = "thread-2";
-    agent.replayMessages = [
-      createToolCallMessage("approval", { topic: "support" }),
-    ];
-    await core.connectAgent({ agent });
-    await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(2));
-    agent.threadId = "thread-1";
-    agent.replayMessages = [message];
-    await core.connectAgent({ agent });
-    await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(3));
-    respond?.("sales approved");
-    await vi.waitFor(() =>
-      expect(agent.messages).toContainEqual(
-        expect.objectContaining({
-          role: "tool",
-          toolCallId,
-          content: "sales approved",
-        }),
-      ),
-    );
-    expect(agent.messages.filter((m) => m.role === "tool")).toHaveLength(1);
-    expect(onError).not.toHaveBeenCalled();
-  });
+      );
+      agent.runMessages = [message];
+      const initial =
+        source === "live"
+          ? core.runAgent({ agent })
+          : core.connectAgent({ agent });
+      await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+      agent.threadId = "thread-2";
+      agent.replayMessages = [
+        createToolCallMessage("approval", { topic: "support" }),
+      ];
+      await core.connectAgent({ agent });
+      await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(2));
+      expect(handler.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
+      if (source === "live") {
+        // B's completed replay removes its controller group. A must still be
+        // restartable even when there is no previous replay left to cancel.
+        respond?.("support approved");
+        await vi.waitFor(() =>
+          expect(agent.messages).toContainEqual(
+            expect.objectContaining({
+              role: "tool",
+              content: "support approved",
+            }),
+          ),
+        );
+        await setImmediate();
+      }
+      agent.threadId = "thread-1";
+      agent.replayMessages = [message];
+      await core.connectAgent({ agent });
+      await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(3));
+      respond?.("sales approved");
+      await vi.waitFor(() =>
+        expect(agent.messages).toContainEqual(
+          expect.objectContaining({
+            role: "tool",
+            toolCallId,
+            content: "sales approved",
+          }),
+        ),
+      );
+      expect(agent.messages.filter((m) => m.role === "tool")).toHaveLength(1);
+      await initial;
+      expect(onError).not.toHaveBeenCalled();
+    },
+  );
 
   it("keeps classification out of the agent tool schema", async () => {
     const { core, agent } = setup();

@@ -227,7 +227,7 @@ export class RunHandler {
   /** Prevent reconnects from starting an interaction already executing locally. */
   private _executingToolCalls = new WeakMap<AbstractAgent, Set<string>>();
 
-  private _replayAbortControllers = new Map<
+  private _interactionAbortControllers = new Map<
     AbstractAgent,
     {
       threadId: string | null;
@@ -244,7 +244,7 @@ export class RunHandler {
    */
   abortCurrentRun(agent: AbstractAgent): void {
     this._runAbortController?.abort();
-    const replay = this._replayAbortControllers.get(agent);
+    const replay = this._interactionAbortControllers.get(agent);
     if (replay) {
       for (const controller of replay.controllers) controller.abort();
     }
@@ -479,10 +479,10 @@ export class RunHandler {
     agent,
   }: CopilotKitCoreConnectAgentParams): Promise<RunAgentResult> {
     const incomingThreadId = agent.threadId ?? null;
-    const previousReplay = this._replayAbortControllers.get(agent);
+    const previousReplay = this._interactionAbortControllers.get(agent);
     if (previousReplay && previousReplay.threadId !== incomingThreadId) {
       for (const controller of previousReplay.controllers) controller.abort();
-      this._replayAbortControllers.delete(agent);
+      this._interactionAbortControllers.delete(agent);
       // Old handlers retain their own set until they settle. They must not
       // prevent a fresh restoration when navigating back to this thread.
       this._executingToolCalls.delete(agent);
@@ -553,12 +553,12 @@ export class RunHandler {
       // another client answers the same interaction.
       if ((agent.threadId ?? null) !== incomingThreadId) return runAgentResult;
       const controller = new AbortController();
-      const replay = this._replayAbortControllers.get(agent) ?? {
+      const replay = this._interactionAbortControllers.get(agent) ?? {
         threadId: incomingThreadId,
         controllers: new Set<AbortController>(),
       };
       replay.controllers.add(controller);
-      this._replayAbortControllers.set(agent, replay);
+      this._interactionAbortControllers.set(agent, replay);
       void this.processAgentResult({
         runAgentResult,
         agent,
@@ -576,9 +576,9 @@ export class RunHandler {
           replay.controllers.delete(controller);
           if (
             replay.controllers.size === 0 &&
-            this._replayAbortControllers.get(agent) === replay
+            this._interactionAbortControllers.get(agent) === replay
           ) {
-            this._replayAbortControllers.delete(agent);
+            this._interactionAbortControllers.delete(agent);
           }
         });
       return runAgentResult;
@@ -881,6 +881,32 @@ export class RunHandler {
 
           if (!existingResult) {
             executing.add(executionKey);
+            // Live HITL handlers need the same thread-switch cancellation as
+            // restored ones, so returning to this thread can open a fresh UI.
+            const interactionController =
+              toolExecutionMode === "all" &&
+              executableTool?.type === "human-in-the-loop"
+                ? new AbortController()
+                : undefined;
+            const interactions = this._interactionAbortControllers.get(
+              agent,
+            ) ?? {
+              threadId: threadId ?? null,
+              controllers: new Set<AbortController>(),
+            };
+            const abortInteraction = () => interactionController?.abort();
+            if (interactionController) {
+              interactions.controllers.add(interactionController);
+              this._interactionAbortControllers.set(agent, interactions);
+              signal?.addEventListener("abort", abortInteraction, {
+                once: true,
+              });
+              if (signal?.aborted) abortInteraction();
+            }
+            const executionSignal = interactionController?.signal ?? signal;
+            const discardOnAbort =
+              toolExecutionMode === "human-in-the-loop" ||
+              !!interactionController;
             try {
               if (tool) {
                 const followUp = await this.executeSpecificTool(
@@ -889,8 +915,8 @@ export class RunHandler {
                   message,
                   agent,
                   agentId,
-                  signal,
-                  toolExecutionMode === "human-in-the-loop",
+                  executionSignal,
+                  discardOnAbort,
                 );
                 if (followUp) {
                   needsFollowUp = true;
@@ -904,8 +930,8 @@ export class RunHandler {
                     message,
                     agent,
                     agentId,
-                    signal,
-                    toolExecutionMode === "human-in-the-loop",
+                    executionSignal,
+                    discardOnAbort,
                   );
                   if (followUp) {
                     needsFollowUp = true;
@@ -914,7 +940,18 @@ export class RunHandler {
               }
             } finally {
               executing.delete(executionKey);
+              if (interactionController) {
+                signal?.removeEventListener("abort", abortInteraction);
+                interactions.controllers.delete(interactionController);
+                if (
+                  interactions.controllers.size === 0 &&
+                  this._interactionAbortControllers.get(agent) === interactions
+                ) {
+                  this._interactionAbortControllers.delete(agent);
+                }
+              }
             }
+            if (interactionController?.signal.aborted) return runAgentResult;
           }
         }
       }
