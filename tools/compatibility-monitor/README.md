@@ -23,7 +23,7 @@ Install the checkout's frozen pnpm dependencies first. Runners need Node 22.13.0
 
 An installation failure, missing test tool, missing loaded-version evidence, or missing executed contract produces `blocked`, never `passed`. Python skipped contracts prevent a green result. A .NET build failure before framework-load evidence remains blocked. Missing registry packages currently produce blocked install evidence; registry discovery in the coordinator handles unpublished adapters.
 
-Experimental requests first try normal dependency resolution, save any rejection, then try test-only resolver overrides. Published package manifests are never rewritten. A forced install does not establish a supported dependency range.
+Experimental requests first try normal dependency resolution, save any rejection, then try test-only resolver overrides. Published package manifests are never rewritten. A forced install does not establish a supported dependency range. `result.json` preserves `experimental` and records `forcedResolution: true` when a runner attempts an override, including when that retry fails. A normal install records `forcedResolution: false`, even if experimental overrides were allowed. The contract status still reports whether the behavior passed, failed, or was blocked.
 
 Each request has its own concurrency group. Setup initializes blocked result evidence before installing tools. Artifact upload runs after failed steps. If the runner is cancelled or the artifact cannot be uploaded, the coordinator must classify absent trustworthy results as blocked.
 

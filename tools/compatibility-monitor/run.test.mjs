@@ -128,3 +128,50 @@ test("CLI fails the CI job when checkout validation blocks the consumer", async 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+for (const outcome of ["passed", "failed", "blocked"]) {
+  test(`forced resolution remains visible when contracts are ${outcome}`, async () => {
+    const dir = mkdtempSync(join(tmpdir(), "monitor-forced-"));
+    const result = await executeRequest(
+      { ...request, experimental: true },
+      {
+        output: dir,
+        source: dir,
+        driver: async () => {
+          writeFileSync(
+            join(dir, "declared-install-rejected.txt"),
+            "Resolver rejected declared graph",
+          );
+          if (outcome === "blocked")
+            throw new Error("Forced installation also failed");
+          return {
+            resolvedDependencies: request.dependencies,
+            cases: [{ contractId: "native-lifecycle", status: outcome }],
+          };
+        },
+      },
+    );
+    assert.equal(result.status, outcome);
+    const saved = JSON.parse(readFileSync(join(dir, "result.json"), "utf8"));
+    assert.equal(saved.experimental, true);
+    assert.equal(saved.forcedResolution, true);
+  });
+}
+test("normal resolution clears stale forced evidence in a reused output directory", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "monitor-normal-"));
+  writeFileSync(join(dir, "declared-install-rejected.txt"), "Old rejection");
+  const result = await executeRequest(
+    { ...request, experimental: true },
+    {
+      output: dir,
+      source: dir,
+      driver: async () => ({
+        resolvedDependencies: request.dependencies,
+        cases: [{ contractId: "native-lifecycle", status: "passed" }],
+      }),
+    },
+  );
+  assert.equal(result.status, "passed");
+  assert.equal(result.experimental, true);
+  assert.equal(result.forcedResolution, false);
+});

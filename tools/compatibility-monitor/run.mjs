@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import {
   mkdirSync,
+  existsSync,
+  rmSync,
   readFileSync,
   writeFileSync,
   mkdtempSync,
@@ -30,7 +32,10 @@ export async function executeRequest(input, { output, source, driver } = {}) {
     startedAt,
   };
   delete result.dependencies;
-  delete result.experimental;
+  // Every driver writes this marker before attempting an experimental override.
+  // Clear old evidence so a reused output directory cannot taint this run.
+  const forcedMarker = join(output, "declared-install-rejected.txt");
+  rmSync(forcedMarker, { force: true });
   writeFileSync(join(output, "request.json"), JSON.stringify(request, null, 2));
   try {
     const evidence = await (driver ?? defaultDriver)(request, {
@@ -61,6 +66,8 @@ export async function executeRequest(input, { output, source, driver } = {}) {
       message: error.message,
     });
   }
+  // Read even after a driver throws: a failed forced retry is evidence too.
+  result.forcedResolution = existsSync(forcedMarker);
   result.completedAt = new Date().toISOString();
   result.reproduction = `node tools/compatibility-monitor/run.mjs request.json /absolute/path/to/checkout output`;
   writeFileSync(join(output, "result.json"), JSON.stringify(result, null, 2));
