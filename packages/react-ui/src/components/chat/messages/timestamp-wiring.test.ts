@@ -32,6 +32,10 @@ describe("message timestamp wiring", () => {
       /!seenAssistantMessageIdsRef\.current\.has\(message\.id\)/,
     );
     expect(hookSrc).toMatch(/timestamp: stampedTimestamp/);
+    expect(hookSrc).toMatch(
+      /\.\.\.assistantMessage,\s*generativeUI: bridgeRenderer/,
+    );
+    expect(hookSrc).toMatch(/\n\s*return assistantMessage;/);
   });
 
   it("documents that restored threads need persisted timestamps", () => {

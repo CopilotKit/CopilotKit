@@ -474,13 +474,16 @@ export function useCopilotChatInternal({
     for (const message of agent?.messages ?? []) {
       if (message.role !== "assistant") continue;
 
+      const messageTimestamp =
+        "timestamp" in message ? message.timestamp : undefined;
+
       nextSeenAssistantMessageIds.add(message.id);
 
       if (
-        typeof message.timestamp === "number" &&
-        Number.isFinite(message.timestamp)
+        typeof messageTimestamp === "number" &&
+        Number.isFinite(messageTimestamp)
       ) {
-        nextAssistantMessageTimestamps[message.id] = message.timestamp;
+        nextAssistantMessageTimestamps[message.id] = messageTimestamp;
         continue;
       }
 
@@ -708,9 +711,12 @@ export function useCopilotChatInternal({
         (Boolean(agent?.isRunning) || wasAgentRunningRef.current) &&
         !seenAssistantMessageIdsRef.current.has(message.id);
 
+      const messageTimestamp =
+        "timestamp" in message ? message.timestamp : undefined;
+
       const assistantMessage =
-        typeof message.timestamp === "number" &&
-        Number.isFinite(message.timestamp)
+        typeof messageTimestamp === "number" &&
+        Number.isFinite(messageTimestamp)
           ? message
           : typeof cachedTimestamp === "number"
             ? { ...message, timestamp: cachedTimestamp }
@@ -760,12 +766,12 @@ export function useCopilotChatInternal({
       if (bridgeRenderer) {
         // Attach a position so react-ui can render the custom UI above the assistant content.
         return {
-          ...message,
+          ...assistantMessage,
           generativeUI: bridgeRenderer,
           generativeUIPosition: "before" as const,
         };
       }
-      return message;
+      return assistantMessage;
     });
 
     const hasAssistantMessages = processedMessages.some(
