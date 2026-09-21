@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import {
   verifyNativeReport,
+  publishedRuntime,
   monitorPlan,
   monitorOutput,
   prepareMonitorConsumer,
@@ -80,10 +81,7 @@ const adapter =
   monitor?.track === "published" ? monitor.adapterVersion : pack(packageRoot);
 const runtimeWorkspace =
   monitor?.track === "published"
-    ? {
-        dependencies: { "@copilotkit/runtime": monitor.adapterVersion },
-        overrides: {},
-      }
+    ? publishedRuntime(monitor, consumerEnv)
     : packRuntimeWorkspace(workspaceRoot, artifacts);
 const lanes = {
   minimum: { "@mastra/core": "1.0.0", zod: "3.25.76" },

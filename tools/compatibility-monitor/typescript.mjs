@@ -3,6 +3,28 @@ import { readFileSync, writeFileSync, cpSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { validateRequest, adapters } from "./request.mjs";
+/** Use the selected published adapter's dependency, not its own version. */
+export function publishedRuntime(plan, env, command = execFileSync) {
+  const dependencies = JSON.parse(
+    command(
+      "npm",
+      [
+        "view",
+        `${adapters[plan.adapterId].name}@${plan.adapterVersion}`,
+        "dependencies",
+        "--json",
+      ],
+      { env, encoding: "utf8", timeout: 60_000 },
+    ),
+  );
+  const runtime = dependencies?.["@copilotkit/runtime"];
+  assert.ok(
+    typeof runtime === "string" && runtime.trim(),
+    "Published adapter is missing its runtime dependency",
+  );
+  return { dependencies: { "@copilotkit/runtime": runtime }, overrides: {} };
+}
+
 export function monitorPlan(argv = process.argv) {
   const i = argv.indexOf("--monitor-plan");
   if (i < 0) return undefined;

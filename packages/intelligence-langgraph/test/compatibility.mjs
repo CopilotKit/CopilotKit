@@ -4,6 +4,7 @@
 import assert from "node:assert/strict";
 import {
   verifyNativeReport,
+  publishedRuntime,
   monitorPlan,
   monitorOutput,
   prepareMonitorConsumer,
@@ -73,14 +74,11 @@ for (const file of monitor?.track === "published"
 }
 const adapter =
   monitor?.track === "published" ? monitor.adapterVersion : pack(packageRoot);
+const consumerEnv = standaloneConsumerEnv();
 const runtime =
   monitor?.track === "published"
-    ? {
-        dependencies: { "@copilotkit/runtime": monitor.adapterVersion },
-        overrides: {},
-      }
+    ? publishedRuntime(monitor, consumerEnv)
     : packRuntimeWorkspace(workspaceRoot, artifacts);
-const consumerEnv = standaloneConsumerEnv();
 const lanes = {
   minimum: {
     "@langchain/core": "1.2.10",
