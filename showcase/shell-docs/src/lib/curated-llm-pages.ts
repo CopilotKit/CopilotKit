@@ -227,7 +227,7 @@ export const CURATED_LLM_PAGES = [
   },
   {
     url: "intelligence/memories",
-    title: "Memories and Recall",
+    title: "User Memories",
     description:
       "Choose memory scope and integrate long-term recall through React, Angular, REST, or MCP.",
   },
