@@ -62,11 +62,11 @@ example shows the essential structure to add to an existing app or preserve
 while customizing a starter.
 
 <Callout type="warn">
-  **These component names exist in two packages.** `@copilotkit/react-ui` also
-  exports `CopilotChat` and `CopilotSidebar`, and those are the [deprecated v1
-  components](/migrate/v2). This guide documents the v2 pairing: take the chat,
-  the Drawer, and the provider from `@copilotkit/react-core/v2`, as the example
-  below does.
+  **The Drawer ships only in `@copilotkit/react-core/v2`.** There is no v1
+  Drawer, so take the Drawer, the chat and the provider from that one package.
+  Watch the import path: `@copilotkit/react-ui` is the [deprecated v1
+  package](/migrate/v2) and it exports its own `CopilotChat` and
+  `CopilotSidebar` under those same names.
 </Callout>
 
 ```tsx title="app/page.tsx"
@@ -97,6 +97,48 @@ active `threadId` in your own state and pass selection/new-thread handlers
 between the list and the chat; here the drawer and the
 `CopilotChatConfigurationProvider` share that state, so there is none of that
 wiring to write.
+
+## Use the Drawer with a sidebar chat
+
+`<CopilotChat>` is not the only host. `<CopilotSidebar>` works the same way,
+because it renders a `<CopilotChat>` inside itself and therefore shares the same
+chat configuration. Keep the Drawer as a sibling of your content and put the
+sidebar alongside it:
+
+```tsx title="app/page.tsx"
+import {
+  CopilotKitProvider,
+  CopilotChatConfigurationProvider,
+  CopilotSidebar,
+  CopilotThreadsDrawer,
+} from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+
+export default function Page() {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit">
+      <CopilotChatConfigurationProvider>
+        <div style={{ display: "flex", height: "100dvh" }}>
+          <CopilotThreadsDrawer />
+          <main style={{ flex: 1 }}>
+            <YourMainContent />
+            <CopilotSidebar defaultOpen={true} />
+          </main>
+        </div>
+      </CopilotChatConfigurationProvider>
+    </CopilotKitProvider>
+  );
+}
+```
+
+`<CopilotPopup>` hosts the Drawer on the same terms, for the same reason.
+
+<Callout type="info">
+  The launcher button that opens the Drawer from the chat header appears on
+  mobile viewports only. On desktop the Drawer is a persistent in-flow panel
+  that is always visible, so a launcher there would do nothing. A missing
+  desktop launcher is the design, not a broken wiring.
+</Callout>
 
 ## Configuring the drawer
 
