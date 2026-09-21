@@ -197,17 +197,28 @@ export function lastTurnOnly(messages: Message[]): Message[] {
     for (const call of toolCalls) issuerOf.set(call.id, narrowed);
   }
 
-  // Put each rescued call directly in front of the result that answers it. A
-  // provider expects a tool call to be answered by the message right after it,
-  // so collecting the rescued calls at the front would recreate the error.
-  const emitted = new Set<Message>();
+  // Put each rescued call directly in front of the result that answers it, and
+  // keep that message's other results with it. A provider expects a tool call
+  // to be answered by the messages right after it, so collecting the rescued
+  // calls at the front, or letting anything separate a parallel call from one
+  // of its results, recreates the error.
+  const emittedIssuers = new Set<Message>();
+  const placedResults = new Set<string>();
   const forwarded: Message[] = [];
   for (const message of kept) {
     if (message.role === "tool") {
+      if (placedResults.has(message.id)) continue;
       const issuer = issuerOf.get(message.toolCallId);
-      if (issuer && !emitted.has(issuer)) {
-        emitted.add(issuer);
+      if (issuer && !emittedIssuers.has(issuer)) {
+        emittedIssuers.add(issuer);
         forwarded.push(issuer);
+        for (const sibling of kept) {
+          if (sibling.role !== "tool") continue;
+          if (!issuer.toolCalls?.some((call) => call.id === sibling.toolCallId)) continue;
+          placedResults.add(sibling.id);
+          forwarded.push(sibling);
+        }
+        continue;
       }
     }
     forwarded.push(message);
@@ -280,6 +291,32 @@ trimmed.forEach((message, index) => {
 
 // The stored transcript is untouched: `a1` still holds both calls.
 assert.equal(messages[1].role === "assistant" && messages[1].toolCalls?.length, 2);
+
+// A second run: both results of one parallel call are retained, and an
+// assistant message sits between them. The rescued call must stay with BOTH
+// results, so nothing separates it from either one.
+const parallel: Message[] = [
+  { id: "u1", role: "user", content: "book both" },
+  { id: "a1", role: "assistant", toolCalls: [call("cA", "bookFlight"), call("cB", "bookHotel")] },
+  { id: "u2", role: "user", content: "go ahead" },
+  { id: "t-a", role: "tool", toolCallId: "cA", content: "flight booked" },
+  { id: "a3", role: "assistant", content: "one moment" },
+  { id: "t-b", role: "tool", toolCallId: "cB", content: "hotel booked" },
+];
+
+const trimmedParallel = lastTurnOnly(parallel);
+trimmedParallel.forEach((message, index) => {
+  for (const toolCall of message.role === "assistant" ? (message.toolCalls ?? []) : []) {
+    const answers = new Set<string>();
+    for (let i = index + 1; trimmedParallel[i]?.role === "tool"; i++) {
+      answers.add(trimmedParallel[i].toolCallId);
+    }
+    assert.ok(
+      answers.has(toolCall.id),
+      `tool call ${toolCall.id} is separated from its result`,
+    );
+  }
+});
 
 console.log("trim-history: forwarded only the answered call, next to its result");
 ```
