@@ -5,7 +5,8 @@ import {
   createRowKeyStore,
   pruneRowKeyStore,
   resolveRowRenderKeys,
-} from "../rowRenderKeys";
+  resolveRowRenderKeysById,
+} from "../row-render-keys";
 
 function toolCall(id: string, name = "approve"): ToolCall {
   return { id, type: "function", function: { name, arguments: "{}" } };
@@ -20,13 +21,23 @@ function user(id: string): Message {
 }
 
 /**
- * One render that reaches the screen: resolve keys, then flush anchors the way
- * the component's post-commit effect does. Anchors only exist after a commit,
+ * One render that reaches the screen: resolve keys, then record anchors the way
+ * each framework's post-render phase does. Anchors only exist after a render,
  * so a test that spans renders has to commit between them.
  */
 function renderPass(
   store: ReturnType<typeof createRowKeyStore>,
   messages: Message[],
+) {
+  const keys = resolveRowRenderKeysById(store, messages);
+  commitRowKeyStore(store, messages);
+  return keys;
+}
+
+/** The same, for callers that key rows by position rather than by id. */
+function renderPassByPosition(
+  store: ReturnType<typeof createRowKeyStore>,
+  messages: readonly (Message | undefined)[],
 ) {
   const keys = resolveRowRenderKeys(store, messages);
   commitRowKeyStore(store, messages);
@@ -47,7 +58,7 @@ describe("resolveRowRenderKeys", () => {
     const store = createRowKeyStore();
     const messages = [user("u1"), assistant("a1")];
 
-    const keys = resolveRowRenderKeys(store, messages);
+    const keys = resolveRowRenderKeysById(store, messages);
 
     expect(keys.get("u1")).toBe("u1");
     expect(keys.get("a1")).toBe("a1");
@@ -141,7 +152,7 @@ describe("resolveRowRenderKeys", () => {
       assistant("a-2", [toolCall("call_X")]),
     ];
 
-    const keys = resolveRowRenderKeys(store, messages);
+    const keys = resolveRowRenderKeysById(store, messages);
 
     expect(keys.get("a-1")).toBe("a-1");
     expect(keys.get("a-2")).toBe("a-2");
@@ -170,7 +181,7 @@ describe("resolveRowRenderKeys", () => {
     const store = createRowKeyStore();
     renderPass(store, [assistant("ghost", [toolCall("call_X")])]);
 
-    const keys = resolveRowRenderKeys(store, [
+    const keys = resolveRowRenderKeysById(store, [
       assistant("live", [toolCall("call_X")]),
       assistant("ghost"),
     ]);
@@ -196,7 +207,7 @@ describe("resolveRowRenderKeys", () => {
     expect([...store.overrides.entries()]).toEqual([...snapshot.entries()]);
   });
 
-  it("leaves the store untouched, so a render is safe to abandon", () => {
+  it("leaves the store untouched, so a render is safe to discard", () => {
     const store = createRowKeyStore();
 
     resolveRowRenderKeys(store, [assistant("lc_run--1", [toolCall("call_A")])]);
@@ -204,11 +215,11 @@ describe("resolveRowRenderKeys", () => {
     expect(store.overrides.size).toBe(0);
   });
 
-  it("does not let an abandoned render's key reach the committed tree", () => {
-    // React may render a newer snapshot at low priority and then throw that
-    // render away. If resolving had recorded tc:call_A -> resp_1, the row the
-    // user is actually looking at (still lc_run--1) would re-key and remount
-    // on its next render — the flash this module exists to prevent.
+  it("does not let a discarded render's key reach the rendered rows", () => {
+    // Every framework here can evaluate a render pass and then throw it away.
+    // If resolving had recorded tc:call_A -> resp_1, the row the user is
+    // actually looking at (still lc_run--1) would re-key and be torn down on
+    // its next render — the flash this module exists to prevent.
     const store = createRowKeyStore();
 
     resolveRowRenderKeys(store, [assistant("resp_1", [toolCall("call_A")])]);
@@ -221,7 +232,7 @@ describe("resolveRowRenderKeys", () => {
     expect(committed).toBe("lc_run--1");
   });
 
-  it("registers anchors once the render commits", () => {
+  it("records anchors once the render reaches the DOM", () => {
     const store = createRowKeyStore();
     const messages = [assistant("lc_run--1", [toolCall("call_A")])];
 
@@ -284,6 +295,53 @@ describe("resolveRowRenderKeys", () => {
 
     expect(before).toBe("lc_run--1");
     expect(after).toBe("resp_1");
+  });
+});
+
+describe("resolveRowRenderKeys by position", () => {
+  it("keeps keys unique when the list contains duplicate message ids", () => {
+    // A caller that does not deduplicate lets duplicate ids reach the view, and
+    // Angular reports duplicated track values as an error, so uniqueness has to
+    // be structural.
+    const store = createRowKeyStore();
+
+    const keys = renderPassByPosition(store, [
+      assistant("dup"),
+      assistant("dup"),
+      assistant("dup"),
+    ]);
+
+    expect(new Set(keys).size).toBe(3);
+    expect(keys[0]).toBe("dup");
+  });
+
+  it("falls back to the index for a message with no id", () => {
+    const store = createRowKeyStore();
+    const idless = { role: "assistant", content: "x" } as unknown as Message;
+
+    const keys = renderPassByPosition(store, [assistant("a-1"), idless]);
+
+    expect(keys).toEqual(["a-1", "index-1"]);
+  });
+
+  it("tolerates a sparse list without throwing", () => {
+    const store = createRowKeyStore();
+
+    const keys = renderPassByPosition(store, [undefined, assistant("a-1")]);
+
+    expect(keys).toEqual(["index-0", "a-1"]);
+  });
+
+  it("agrees with the id-keyed shape on a deduplicated list", () => {
+    const messages = [
+      assistant("lc_run--1", [toolCall("call_A")]),
+      user("u-1"),
+    ];
+
+    const byPosition = renderPassByPosition(createRowKeyStore(), messages);
+    const byId = renderPass(createRowKeyStore(), messages);
+
+    expect(byPosition).toEqual(messages.map((m) => byId.get(m.id)));
   });
 });
 

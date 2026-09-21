@@ -32,13 +32,13 @@ import {
   getIntelligenceTurnAnchors,
 } from "../intelligence-indicator";
 import type { IntelligenceIndicatorView } from "../intelligence-indicator";
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import {
+  DEFAULT_AGENT_ID,
   commitRowKeyStore,
   createRowKeyStore,
-  resolveRowRenderKeys,
-} from "./rowRenderKeys";
-import type { RowKeyStore } from "./rowRenderKeys";
+  resolveRowRenderKeysById,
+} from "@copilotkit/shared";
+import type { RowKeyStore } from "@copilotkit/shared";
 
 /**
  * Resolves a slot value into a { Component, slotProps } pair, handling the three
@@ -500,13 +500,13 @@ export function CopilotChatMessageView({
 
   // Stable per-row React keys. Backends can re-key a message mid-stream, and
   // keying rows by the canonical id remounts the row on that swap (the HITL
-  // chat flash). See ./rowRenderKeys for the mechanism and its limits.
+  // chat flash). See @copilotkit/shared row-render-keys for the mechanism.
   const rowKeyStoreRef = useRef<RowKeyStore | null>(null);
   rowKeyStoreRef.current ??= createRowKeyStore();
   const rowKeyStore = rowKeyStoreRef.current;
 
   const rowRenderKeys = useMemo(
-    () => resolveRowRenderKeys(rowKeyStore, deduplicatedMessages),
+    () => resolveRowRenderKeysById(rowKeyStore, deduplicatedMessages),
     [rowKeyStore, deduplicatedMessages],
   );
 

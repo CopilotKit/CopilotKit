@@ -22,7 +22,7 @@ import {
   commitRowKeyStore,
   createRowKeyStore,
   resolveRowRenderKeys,
-} from "./row-render-keys";
+} from "@copilotkit/shared";
 
 /**
  * CopilotChatMessageView component - Angular port of the React component.

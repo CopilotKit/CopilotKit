@@ -1,8 +1,9 @@
 import type { AssistantMessage, Message } from "@ag-ui/core";
 
 /**
- * Stable React keys for chat rows, across backends that re-key a message
- * mid-stream.
+ * Stable per-row view keys for chat transcripts, across backends that re-key a
+ * message mid-stream. Shared by every frontend package, because the defect and
+ * the correlation signal are in the message stream, not in any one framework.
  *
  * ## The problem
  *
@@ -14,20 +15,21 @@ import type { AssistantMessage, Message } from "@ag-ui/core";
  * preference"). The `MESSAGES_SNAPSHOT` therefore carries the provider's final
  * id (e.g. `resp_…`) for a message the client already knows as `lc_run--…`.
  *
- * Keying rows by `id` made React unmount and remount the row on that swap —
- * the visible HITL chat flash, where a rendered approval card appears to
- * reset during a tool's `executing → complete` transition.
+ * Every framework destroys and recreates a row whose key changes, so keying
+ * rows by `id` turned that swap into the visible HITL chat flash, where a
+ * rendered approval card appears to reset during a tool's
+ * `executing → complete` transition.
  *
- * This is provider-conditional: providers that stamp an id on every chunk
- * (so `chunk.message.id is None` never holds) never trigger a rename.
+ * This is provider-conditional: providers that stamp an id on every chunk (so
+ * `chunk.message.id is None` never holds) never trigger a rename.
  *
  * ## The approach
  *
  * Tool-call ids survive the rename, so they are used as *anchors*: the first
- * message seen carrying a given tool call records the row key it was assigned,
- * and any later message carrying that same tool call reuses it. The store is
- * an override table consulted before falling back to `message.id`. Rendering
- * only reads it; each commit then records what it rendered:
+ * message seen carrying a given tool call records the key it was assigned, and
+ * any later message carrying that same tool call reuses it. The store is an
+ * override table consulted before falling back to `message.id`. Resolving only
+ * reads it; each render that reaches the DOM then records what it rendered:
  *
  * ```text
  * render 1  id=lc_run--1  no tools    key = message.id = lc_run--1
@@ -35,23 +37,23 @@ import type { AssistantMessage, Message } from "@ag-ui/core";
  * render 2  id=lc_run--1  tc call_A   key = message.id = lc_run--1
  *   commit 2                                           store { tc:call_A -> lc_run--1 }
  * render 3  id=resp_1     tc call_A   key = store[tc:call_A]
- *                                         = lc_run--1  (no remount)
+ *                                         = lc_run--1  (row survives)
  *   commit 3                                                    store unchanged
  * ```
  *
  * Recording the anchor at commit 2 — while the id is still stable — is what
- * makes render 3 resolvable. Note the fix does not depend on render 2 existing:
- * a message born already carrying a tool call anchors on the first render that
- * commits it, under whatever id it holds then.
+ * makes render 3 resolvable. Note the fix does not depend on render 2
+ * existing: a message born already carrying a tool call anchors on the first
+ * render that commits it, under whatever id it holds then.
  *
  * ## Why an override table rather than keying rows by tool-call id
  *
  * Deriving the key from the tool call directly (`tc:<id>` whenever a tool call
  * is present) needs no state, but changes the key the moment a tool call
  * *appears* — so an assistant message that streams text and then calls a tool
- * remounts on that transition, for every provider, whether or not it renames.
- * That trades a conditional flash for an unconditional one. Recording an
- * override keeps the key the row already had.
+ * is torn down on that transition, for every provider, whether or not it
+ * renames. That trades a conditional flash for an unconditional one. Recording
+ * an override keeps the key the row already had.
  *
  * ## Cost
  *
@@ -63,12 +65,12 @@ import type { AssistantMessage, Message } from "@ag-ui/core";
  *
  * ## Known gaps
  *
- * - A text-only assistant message has no anchor, so it still remounts when
- *   re-keyed. No client-side correlation signal exists for it; the fix is
- *   stable ids upstream.
- * - If the tool call's arrival and the id swap land in the same React batch,
- *   the intermediate state never renders, the anchor is never registered, and
- *   the row remounts as before. Correlating in the event-apply layer (i.e. in
+ * - A text-only assistant message has no anchor, so it still re-keys. No
+ *   client-side correlation signal exists for it; the fix is stable ids
+ *   upstream.
+ * - If the tool call's arrival and the id swap land in the same update, the
+ *   intermediate state never renders, the anchor is never recorded, and the
+ *   row is recreated as before. Correlating in the event-apply layer (i.e. in
  *   the AG-UI client, which observes every intermediate state) would be immune.
  */
 
@@ -81,7 +83,7 @@ export interface RowKeyStore {
    */
   overrides: Map<string, string>;
   /**
-   * Anchors carried by more than one message in the last committed list. Such
+   * Anchors carried by more than one message in the last rendered list. Such
    * an anchor identifies no single row, so it is never used to vend a key.
    */
   ambiguous: Set<string>;
@@ -94,12 +96,12 @@ export function createRowKeyStore(): RowKeyStore {
 /**
  * Anchors a message contributes. Only assistant tool calls qualify: LangChain's
  * id preference applies when merging `AIMessageChunk`s, so user message ids are
- * not renamed, and `role: "tool"` messages are not rendered as rows at all.
- * Every tool call is used (not just the first) so the anchor survives tool-call
- * reordering between snapshots.
+ * not renamed, and `role: "tool"` messages are not rendered as rows. Every tool
+ * call is used (not just the first) so the anchor survives tool-call reordering
+ * between snapshots.
  */
-function toolAnchorsOf(message: Message): string[] {
-  if (message.role !== "assistant") return [];
+function toolAnchorsOf(message: Message | undefined): string[] {
+  if (message?.role !== "assistant") return [];
   const toolCalls = (message as AssistantMessage).toolCalls;
   if (!toolCalls?.length) return [];
 
@@ -111,33 +113,35 @@ function toolAnchorsOf(message: Message): string[] {
 }
 
 /**
- * Resolves `message.id` → row key for one render pass.
+ * Resolves the row key for every message, returned by position.
  *
- * Pure: it reads `store` and never writes to it. React may double-invoke a
- * render in StrictMode, and may render a newer snapshot at low priority and
- * then abandon that render entirely. An anchor recorded by a render that never
- * commits would vend its key to the render that does — re-keying the row the
- * user is looking at, which is the remount this module exists to prevent.
- * Anchors are therefore recorded by `commitRowKeyStore` after the commit.
+ * Pure: it reads `store` and never writes to it. Every framework here may
+ * evaluate a render pass whose result never reaches the DOM — an abandoned
+ * concurrent render in React, a discarded `computed` evaluation in Vue or
+ * Angular. An anchor recorded by such a pass would vend its key to the pass
+ * that does render, re-keying the row the user is looking at, which is the
+ * teardown this module exists to prevent. Anchors are recorded by
+ * `commitRowKeyStore`, from whichever phase each framework runs after the DOM
+ * is updated.
  *
- * `messages` must be deduplicated (see `deduplicateMessages`): duplicate ids
- * would overwrite each other in the returned map. Iteration order is
- * significant — the first message to claim a key keeps it.
+ * Uniqueness is structural rather than assumed: a caller that does not
+ * deduplicate can pass two rows with the same id, and an override can vend a
+ * key equal to a later message's own id.
  */
 export function resolveRowRenderKeys(
   store: RowKeyStore,
-  messages: Message[],
-): Map<string, string> {
-  const keys = new Map<string, string>();
+  messages: readonly (Message | undefined)[],
+): string[] {
+  const keys: string[] = [];
   const claimed = new Set<string>();
 
-  for (const message of messages) {
+  messages.forEach((message, index) => {
     const anchors = toolAnchorsOf(message);
 
     // Reuse the key recorded for any of this message's anchors. An override
-    // pointing at a key another row already claimed this pass is skipped:
-    // two messages can share a tool-call id (upstream bug, or replayed
-    // state), and the later one falls back to its own id instead.
+    // pointing at a key another row already claimed this pass is skipped: two
+    // messages can share a tool-call id (upstream bug, or replayed state), and
+    // the later one falls back to its own id instead.
     let key: string | undefined;
     for (const anchor of anchors) {
       if (store.ambiguous.has(anchor)) continue;
@@ -148,31 +152,47 @@ export function resolveRowRenderKeys(
       }
     }
 
-    key ??= message.id;
+    // The index fallback covers a message with no usable id.
+    key ??= message?.id || `index-${index}`;
 
-    // Backstop for a pathological collision: an override vends a key equal to
-    // a later message's own id. Deduplicated ids can't collide with each
-    // other, so this only triggers against an override-supplied key.
     if (claimed.has(key)) {
       let suffix = 2;
       while (claimed.has(`${key}:${suffix}`)) suffix += 1;
       key = `${key}:${suffix}`;
     }
 
-    keys.set(message.id, key);
+    keys.push(key);
     claimed.add(key);
-  }
+  });
 
   return keys;
 }
 
 /**
- * Records the anchors of a committed render, then bounds the store to it.
- * Call from a post-commit effect, never during render — see
- * `resolveRowRenderKeys`.
+ * `message.id` → row key, for callers that render by message rather than by
+ * position. `messages` must be deduplicated: duplicate ids would overwrite
+ * each other in the returned map.
+ */
+export function resolveRowRenderKeysById(
+  store: RowKeyStore,
+  messages: readonly Message[],
+): Map<string, string> {
+  const keys = resolveRowRenderKeys(store, messages);
+  const byId = new Map<string, string>();
+  messages.forEach((message, index) => {
+    const key = keys[index];
+    if (key !== undefined) byId.set(message.id, key);
+  });
+  return byId;
+}
+
+/**
+ * Records the anchors of a rendered list, then bounds the store to it. Call
+ * from the phase that runs after the DOM is updated, never while resolving —
+ * see `resolveRowRenderKeys`.
  *
- * Re-resolving here reproduces the keys the commit actually rendered with,
- * because the store cannot change between a render and its own commit effect.
+ * Re-resolving here reproduces the keys the rows were rendered with, because
+ * the store cannot change between a render and its own post-render phase.
  *
  * An anchor carried by two rows in the same list is marked ambiguous rather
  * than recorded. Recording it would give the first row's key to whichever row
@@ -180,7 +200,7 @@ export function resolveRowRenderKeys(
  */
 export function commitRowKeyStore(
   store: RowKeyStore,
-  messages: Message[],
+  messages: readonly (Message | undefined)[],
 ): void {
   const keys = resolveRowRenderKeys(store, messages);
 
@@ -191,7 +211,7 @@ export function commitRowKeyStore(
     }
   }
 
-  // Ambiguity is a property of the committed list, so it is recomputed rather
+  // Ambiguity is a property of the rendered list, so it is recomputed rather
   // than accumulated: an anchor left alone by the row that shadowed it becomes
   // usable again.
   store.ambiguous.clear();
@@ -202,16 +222,16 @@ export function commitRowKeyStore(
     }
   }
 
-  // First claimant of an anchor owns it, so a re-keyed message resolves to
-  // the key the row already had rather than overwriting it.
-  for (const message of messages) {
-    const key = keys.get(message.id);
-    if (key === undefined) continue;
+  // First claimant of an anchor owns it, so a re-keyed message resolves to the
+  // key the row already had rather than overwriting it.
+  messages.forEach((message, index) => {
+    const key = keys[index];
+    if (key === undefined) return;
     for (const anchor of toolAnchorsOf(message)) {
       if (store.ambiguous.has(anchor)) continue;
       if (!store.overrides.has(anchor)) store.overrides.set(anchor, key);
     }
-  }
+  });
 
   pruneRowKeyStore(store, messages);
 }
@@ -220,14 +240,14 @@ export function commitRowKeyStore(
  * Drops anchors no longer present in `messages`, bounding the store to the
  * tool calls of the currently-rendered messages. Called by
  * `commitRowKeyStore`; like it, this writes to the store and so belongs after
- * commit, never during render.
+ * the DOM is updated, never while resolving.
  *
  * Pruned entries are unreachable by construction: `resolveRowRenderKeys` only
  * looks up anchors belonging to messages in the list it is given.
  */
 export function pruneRowKeyStore(
   store: RowKeyStore,
-  messages: Message[],
+  messages: readonly (Message | undefined)[],
 ): void {
   const live = new Set<string>();
   for (const message of messages) {

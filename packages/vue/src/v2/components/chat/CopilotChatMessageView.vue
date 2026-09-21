@@ -9,7 +9,12 @@ import type {
   ToolMessage,
   UserMessage,
 } from "@ag-ui/core";
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import {
+  DEFAULT_AGENT_ID,
+  commitRowKeyStore,
+  createRowKeyStore,
+  resolveRowRenderKeysById,
+} from "@copilotkit/shared";
 import type {
   InterruptRenderProps,
   VueCustomMessageRendererProps,
@@ -19,11 +24,6 @@ import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfi
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage.vue";
 import CopilotChatReasoningMessage from "./CopilotChatReasoningMessage.vue";
 import CopilotChatUserMessage from "./CopilotChatUserMessage.vue";
-import {
-  createRowKeyStore,
-  commitRowKeyStore,
-  resolveRowRenderKeys,
-} from "./rowRenderKeys";
 
 interface MessageMetaProps {
   message: Message;
@@ -193,10 +193,10 @@ const deduplicatedMessages = computed(() =>
 
 // Stable per-row keys. Backends can re-key a message mid-stream, and keying
 // rows by the canonical id tears the row down on that swap (the HITL chat
-// flash). See ./rowRenderKeys for the mechanism and its limits.
+// flash). See @copilotkit/shared row-render-keys for the mechanism.
 const rowKeyStore = createRowKeyStore();
 const rowRenderKeys = computed(() =>
-  resolveRowRenderKeys(rowKeyStore, deduplicatedMessages.value),
+  resolveRowRenderKeysById(rowKeyStore, deduplicatedMessages.value),
 );
 
 // Record what the DOM was patched with, never what a computed merely
