@@ -45,7 +45,9 @@ trap cleanup EXIT
 
 # ── 1. Start aimock ──────────────────────────────────────────────────
 echo "[ci-native-eval] Starting aimock on :${AIMOCK_PORT}..."
-npx aimock --port "$AIMOCK_PORT" &
+# `pnpm aimock` runs the pinned fixtures CLI from the repo root. Never npx:
+# both `aimock` and `llmock` are taken on npm by unrelated projects.
+pnpm aimock --fixtures showcase/aimock --port "$AIMOCK_PORT" &
 PIDS+=($!)
 
 for i in $(seq 1 30); do

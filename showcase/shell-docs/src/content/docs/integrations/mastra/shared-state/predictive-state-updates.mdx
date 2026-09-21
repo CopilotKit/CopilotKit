@@ -72,6 +72,7 @@ Mastra injects a built-in `updateWorkingMemory` tool whenever working memory is 
 
     // 2. Create the agent with working memory enabled
     export const streamingAgent = new Agent({
+      id: "streaming-agent",
       name: "Streaming Agent",
       model: openai("gpt-4o"),
       // The prompt drives the model to write the full document straight into

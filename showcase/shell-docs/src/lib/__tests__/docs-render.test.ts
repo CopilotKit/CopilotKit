@@ -394,7 +394,7 @@ describe("migration docs", () => {
     );
 
     expect(referenceIndex).toContain(
-      'import { CopilotKit } from "@copilotkit/react-core/v2";',
+      'import { CopilotKitProvider } from "@copilotkit/react-core/v2";',
     );
     expect(referenceIndex).not.toContain(
       "CopilotKit is imported from the root package",
@@ -451,8 +451,9 @@ describe("cookbook nav", () => {
   it("renders overview and recipes as top-level entries without changing slugs", () => {
     const navTree = buildCookbookNavTree();
 
-    expect(navTree).toHaveLength(7);
+    expect(navTree).toHaveLength(8);
     expect(navTree.map((node) => node.type)).toEqual([
+      "page",
       "page",
       "page",
       "page",
@@ -473,10 +474,12 @@ describe("cookbook nav", () => {
       ["Arcade", "cookbook/arcade"],
       ["Angular + Google ADK", "cookbook/angular-adk-agentic-app"],
       ["OpenBox Governance", "cookbook/openbox-governed-copilotkit"],
+      ["Jev: fast generative UI", "cookbook/jev-generative-ui"],
     ]);
 
     const pageTree = navTreeToPageTree(navTree, "");
     expect(pageTree.children.map((node) => node.type)).toEqual([
+      "page",
       "page",
       "page",
       "page",
@@ -495,6 +498,7 @@ describe("cookbook nav", () => {
       "/cookbook/arcade",
       "/cookbook/angular-adk-agentic-app",
       "/cookbook/openbox-governed-copilotkit",
+      "/cookbook/jev-generative-ui",
     ]);
 
     const overview = pageTree.children[0];
@@ -902,7 +906,7 @@ describe("framework nav", () => {
       "If your project was created from a CopilotKit CLI starter",
     );
     expect(drawer).toContain("add it to an existing CopilotKit application");
-    expect(drawer).toContain("Get a free developer account");
+    expect(drawer).toContain("Start managed onboarding");
     expect(drawer).toContain("## Set up the Threads Drawer");
     expect(drawer).not.toContain(
       "Start with the [Rich Threads overview](/threads)",

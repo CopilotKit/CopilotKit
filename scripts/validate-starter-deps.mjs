@@ -102,34 +102,15 @@ const PYTHON_DEBT = {
   "pydantic-ai": ["uvicorn", "python-dotenv"],
 };
 
-export const ALLOWLIST = [
-  {
-    starter: "a2a-middleware",
-    rule: "npm-floating-tag",
-    subject: "@a2a-js/sdk",
-    // PE-139. The pin has to land together with the Python side's
-    // `a2a-sdk[http-server]>=0.3,<1.0`, because @ag-ui/a2a-middleware 0.0.2
-    // bundles @a2a-js/sdk 0.2.5 and speaks the pre-1.0 wire format.
-    ticket: "PE-139",
-  },
-  {
-    starter: "adk-angular",
-    rule: "undeclared-peer",
-    subject: "@angular/forms",
-    // Found by this check on 2026-09-17. @angular/forms is a real runtime peer,
-    // auto-installed by npm and declared nowhere — the same class of defect as
-    // PE-38, in a starter nothing else installs.
-    ticket: "PE-140 follow-up (Angular starter)",
-  },
-  ...Object.entries(PYTHON_DEBT).flatMap(([starter, subjects]) =>
+export const ALLOWLIST = Object.entries(PYTHON_DEBT).flatMap(
+  ([starter, subjects]) =>
     subjects.map((subject) => ({
       starter,
       rule: "python-unconstrained",
       subject,
       ticket: `PE-140 follow-up (${starter} starter)`,
     })),
-  ),
-];
+);
 
 function isAllowed(violation) {
   return ALLOWLIST.find(

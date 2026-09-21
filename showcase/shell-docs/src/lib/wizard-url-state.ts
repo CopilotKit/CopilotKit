@@ -23,6 +23,7 @@ export type WizardUrlState = {
    *  `"yes"` / `"no"`). Named and validated exactly like `frontend` and
    *  `backend` below, not specially. */
   readonly project?: string;
+  readonly agent?: "yes" | "no";
   readonly frontend?: string;
   readonly features: readonly string[];
   readonly backend?: string;
@@ -58,6 +59,8 @@ export type WizardUrlAllowlists = {
  */
 export function serializeWizardUrlState(state: WizardUrlState): string {
   const parts: string[] = [];
+
+  if (state.agent) parts.push(`agent=${state.agent}`);
 
   if (state.project) {
     const params = new URLSearchParams();
@@ -152,5 +155,7 @@ export function parseWizardUrlState(
   // (possibly repeated) list up.
   const features = allowed.features.filter((id) => requested.has(id));
 
-  return { project, frontend, features, backend };
+  const rawAgent = firstValue(params, "agent");
+  const agent = rawAgent === "yes" || rawAgent === "no" ? rawAgent : undefined;
+  return { project, frontend, features, backend, ...(agent ? { agent } : {}) };
 }

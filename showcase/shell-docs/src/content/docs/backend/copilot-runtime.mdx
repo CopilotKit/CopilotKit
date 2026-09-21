@@ -4,6 +4,8 @@ description: "The Copilot Runtime is the backend that connects your frontend to 
 icon: "lucide/Server"
 ---
 
+import AgentNameBinding from "@/snippets/agent-name-binding.mdx";
+
 The Copilot Runtime is the backend layer that connects your frontend application to your AI agents. It's set up during the [quickstart](/quickstart) and is the recommended way to use CopilotKit.
 
 ## Setting up the runtime
@@ -117,6 +119,8 @@ run its own agent instance — construct it inside the request rather than at mo
 or to serialise turns per user. A single shared instance is fine for local development and
 for a single-user surface.
 </Callout>
+
+<AgentNameBinding />
 
 ## The default agent
 
@@ -319,6 +323,10 @@ forwardHeaders: { allow: ["authorization", "x-tenant-id"] }
 <Callout type="warn" title="Allowlist mode bypasses the default denylist">
 In allowlist mode the built-in denylist does **not** apply — only your `allow` set (minus your own `deny`) forwards. Don't allow-list protected headers such as `x-copilotcloud-public-api-key` or `x-forwarded-*` unless you truly intend to forward them, since the default protection isn't there to catch them.
 </Callout>
+
+## Keeping quiet streams alive
+
+A run can be silent for a long time while the agent reasons or waits on a slow tool. The runtime writes a `: keep-alive` SSE comment after 15 seconds without output so proxies and browsers with idle timeouts keep the connection open. Comments are transport frames: they never become AG-UI events. Tune or disable this with `sseKeepAliveIntervalSeconds` (`0` disables it).
 
 ## Connecting to an AG-UI agent directly
 

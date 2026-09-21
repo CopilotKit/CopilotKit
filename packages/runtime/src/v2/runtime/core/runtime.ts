@@ -12,6 +12,7 @@ import type { LicenseChecker } from "@copilotkit/license-verifier";
 import { resolveDebugConfig } from "@copilotkit/shared";
 import type { ResolvedDebugConfig, DebugConfig } from "@copilotkit/shared";
 import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
+import { resolveSseKeepAliveIntervalSeconds } from "../handlers/shared/sse-keep-alive";
 import type {
   ForwardHeadersConfig,
   ResolvedForwardHeadersPolicy,
@@ -215,6 +216,14 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
    */
   forwardHeaders?: ForwardHeadersConfig;
   /**
+   * Seconds of silence on an SSE response before the runtime writes a
+   * `: keep-alive` comment, so proxies and browsers with idle timeouts keep
+   * the connection open through long reasoning or tool phases. Comments are
+   * transport frames and never become AG-UI events. `0` disables it.
+   * @default 15
+   */
+  sseKeepAliveIntervalSeconds?: number;
+  /**
    * Opt-in flag exposing the client-facing memory proxy routes
    * (`/memories`, `/memories/recall`, `/memories/subscribe`, `/memories/:id`).
    *
@@ -350,6 +359,12 @@ export interface CopilotRuntimeLike {
    */
   forwardHeadersPolicy?: ResolvedForwardHeadersPolicy;
   /**
+   * Resolved SSE keep-alive interval in seconds; `0` disables it. Optional on
+   * the published interface for the same source-compatibility reason as
+   * `forwardHeadersPolicy`; the SSE call sites fall back to the default.
+   */
+  sseKeepAliveIntervalSeconds?: number;
+  /**
    * Resolved opt-in flag for the client-facing memory proxy routes. Optional on
    * the published interface so an external `CopilotRuntimeLike` implementor
    * predating this field stays source-compatible; the dispatcher coalesces a
@@ -393,6 +408,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public debugLogger?: CopilotRuntimeLogger;
   public readonly telemetry: TelemetryCapture;
   public readonly forwardHeadersPolicy: ResolvedForwardHeadersPolicy;
+  public readonly sseKeepAliveIntervalSeconds: number;
   public readonly exposeMemoryRoutes: boolean;
   public readonly memory?: CopilotRuntimeMemoryConfig;
 
@@ -480,6 +496,9 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     // and can never diverge.
     this.forwardHeadersPolicy = resolveForwardHeadersPolicy(
       options.forwardHeaders,
+    );
+    this.sseKeepAliveIntervalSeconds = resolveSseKeepAliveIntervalSeconds(
+      options.sseKeepAliveIntervalSeconds,
     );
     // Secure default: the client-facing memory proxy routes stay hidden (404)
     // unless a deployment explicitly opts in.
@@ -903,6 +922,10 @@ class CopilotRuntimeShim implements CopilotRuntime {
 
   get forwardHeadersPolicy(): ResolvedForwardHeadersPolicy {
     return this.delegate.forwardHeadersPolicy;
+  }
+
+  get sseKeepAliveIntervalSeconds(): number {
+    return this.delegate.sseKeepAliveIntervalSeconds;
   }
 
   get exposeMemoryRoutes(): boolean | undefined {

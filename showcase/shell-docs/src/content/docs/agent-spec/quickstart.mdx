@@ -21,9 +21,9 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
 
 <Steps>
   <Step>
-    ### Create a free account
+    ### Set up CopilotKit Intelligence
 
-    <SignupLink surface="docs_agent_spec_quickstart_step1">Sign up for a free developer account</SignupLink> for CopilotKit Intelligence to get a license key. You'll use it later to enable persistent threads and the inspector.
+    <SignupLink surface="docs_agent_spec_quickstart_step1">Sign in to managed Intelligence</SignupLink>. Managed setup uses a server-side project API key and does not issue `COPILOTKIT_LICENSE_TOKEN`. You will connect the app after you create or clone it below.
   </Step>
 
   <Step>
@@ -41,7 +41,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
       description="Get started quickly with our ready-to-go Agent Spec starter."
     >
       <Step>
-          ### Install the Agent Spec AG‑UI adapter (backend) 
+          ### Install the Agent Spec AG‑UI adapter (backend)
 
           The AG‑UI integration for Agent Spec lives in `ag-ui/integrations/agent-spec/python`. You will need it to activate your agent environment in the starter. Here's how to install it:
 
@@ -91,7 +91,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
           uv add pyagentspec[langgraph]
           uv add wayflowcore
           ```
-        
+
       </Step>
       <Step>
           ### Configure your environment
@@ -106,7 +106,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
           Reference: Agent Spec docs AG‑UI tutorial at https://oracle.github.io/agent-spec/26.1.0/howtoguides/howto_ag_ui.html.
       </Step>
       <Step>
-          ### Scaffold the UI 
+          ### Scaffold the UI
 
           Use our starter repo template: https://github.com/CopilotKit/with-agent-spec. It includes an example definition of an Agent Spec agent [here](https://github.com/CopilotKit/with-agent-spec/blob/main/agent/src/agentspec_agent.py). Run the following commands
 
@@ -121,7 +121,10 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
           ```bash
           git clone https://github.com/CopilotKit/with-agent-spec.git
           cd with-agent-spec
+          npx copilotkit@latest project select
           ```
+
+          `project select` writes the server-side project API key to `.env` as `CPK_INTELLIGENCE_API_KEY`.
 
       </Step>
       <Step>
@@ -132,7 +135,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
           ```bash
           pnpm install
           ```
-          
+
       </Step>
       <Step>
           ### Run your project
@@ -174,7 +177,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
         <OpenInspectorStep components={props.components} />
     </Step>
 
-      
+
     </TailoredContentOption>
     <TailoredContentOption
       id="bring-your-own"
@@ -253,7 +256,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
           cd ag_ui_agentspec
           ```
 
-          create a main.py file in the ag_ui_agentspec directory 
+          create a main.py file in the ag_ui_agentspec directory
 
 
           ```bash
@@ -282,7 +285,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
 
           #OR you can specify your own agent_spec_config like below
           #agent_spec_config = <loaded json/yaml string of your Agent Spec agent>
-          
+
           runtime = "langgraph"  # or "wayflow"
 
           app = FastAPI()
@@ -348,10 +351,15 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
           export const POST = handler;
           ```
 
-          The runtime reads the project API key from step 1. Add it to the app that serves
-          this route:
+          From this frontend app directory, connect the runtime to an Intelligence project:
 
-          ```plaintext title=".env.local"
+          ```bash title="Terminal"
+          npx copilotkit@latest project select
+          ```
+
+          The command writes the server-side project API key to `.env`. The runtime reads it here:
+
+          ```plaintext title=".env"
           CPK_INTELLIGENCE_API_KEY=cpk-...
           ```
 
@@ -541,7 +549,7 @@ agent = AgentSpecAgent(
 add_agentspec_fastapi_endpoint(app, agentspec_agent=agent, path="/")
 ```
 
-Frontend tools (corresponding to Agent Spec `ClientTool`) run in the browser and don't need to be added to the tool registry — see [Generative UI Frontend Tools](/agent-spec/frontend-tools) for details.
+Frontend tools (corresponding to Agent Spec `ClientTool`) run in the browser and don't need to be added to the tool registry — see [Generative UI Frontend Tools](/frontend-tools) for details.
 
 ## What is happening under the hood
 
