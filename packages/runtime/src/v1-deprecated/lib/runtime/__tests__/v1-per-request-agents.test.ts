@@ -7,6 +7,7 @@ import {
   __resetMCPClientCache,
   __mcpClientCacheSize,
   resolveMCPEntry,
+  describeEndpoint,
 } from "../mcp-client-cache";
 
 const adapter = { name: "OpenAIAdapter" } as any;
@@ -556,6 +557,37 @@ function deferred<T>() {
 
 /** A distinct `createMCPClient` identity; the cache only keys on the object. */
 const clientFactory = () => () => {};
+
+describe("the redacted endpoint label", () => {
+  it("drops userinfo, query, and fragment but keeps the server legible", () => {
+    expect(describeEndpoint("https://mcp.example.com/sse?uid=SECRET")).toBe(
+      "https://mcp.example.com/sse",
+    );
+    expect(describeEndpoint("https://user:pw@mcp.example.com/sse")).toBe(
+      "https://mcp.example.com/sse",
+    );
+    expect(describeEndpoint("https://mcp.example.com:8443/a/b?t=1#f")).toBe(
+      "https://mcp.example.com:8443/a/b",
+    );
+  });
+
+  it("stays legible for a scheme other than http(s)", () => {
+    // `URL.origin` is the opaque origin — the literal string "null" — for any
+    // non-special scheme, and `pathname` is empty, so building the label from
+    // origin renders a stdio endpoint as "null" in logs and in the prompt.
+    expect(describeEndpoint("stdio://local")).toBe("stdio://local");
+  });
+
+  it("says nothing it cannot parse, rather than guessing", () => {
+    // An unparseable endpoint could be anything, including a command line
+    // with a secret in it, so it does not get echoed.
+    expect(describeEndpoint("npx -y server-filesystem /tmp")).toBe(
+      "an MCP endpoint",
+    );
+    expect(describeEndpoint("")).toBe("an MCP endpoint");
+    expect(describeEndpoint(undefined)).toBe("an MCP endpoint");
+  });
+});
 
 describe("the MCP client cache", () => {
   it("drops only its own entry when a connection fails", async () => {

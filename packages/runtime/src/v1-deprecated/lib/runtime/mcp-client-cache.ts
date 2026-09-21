@@ -65,7 +65,12 @@ export function describeEndpoint(endpoint: string | undefined): string {
   if (!endpoint) return "an MCP endpoint";
   try {
     const url = new URL(endpoint);
-    return `${url.origin}${url.pathname}`;
+    // Not `url.origin`: for any scheme other than http(s) that is the opaque
+    // origin, the literal string "null", and `pathname` is empty — so a
+    // `stdio://` endpoint would render as "null" in a log and in a prompt.
+    // Rebuilding from protocol and host keeps every scheme legible while
+    // still dropping userinfo, query, and fragment.
+    return `${url.protocol}//${url.host}${url.pathname}`;
   } catch {
     return "an MCP endpoint";
   }
