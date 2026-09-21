@@ -175,3 +175,24 @@ test("normal resolution clears stale forced evidence in a reused output director
   assert.equal(result.experimental, true);
   assert.equal(result.forcedResolution, false);
 });
+
+test("records the workflow revision independently from candidate source", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "monitor-provenance-"));
+  const old = process.env.GITHUB_WORKFLOW_SHA;
+  process.env.GITHUB_WORKFLOW_SHA = "b".repeat(40);
+  try {
+    const result = await executeRequest(request, {
+      output: dir,
+      source: dir,
+      driver: async () => ({
+        resolvedDependencies: request.dependencies,
+        cases: [{ contractId: "native-lifecycle", status: "passed" }],
+      }),
+    });
+    assert.equal(result.sourceSha, "a".repeat(40));
+    assert.equal(result.harnessSha, "b".repeat(40));
+  } finally {
+    if (old === undefined) delete process.env.GITHUB_WORKFLOW_SHA;
+    else process.env.GITHUB_WORKFLOW_SHA = old;
+  }
+});

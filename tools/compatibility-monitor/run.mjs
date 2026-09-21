@@ -68,6 +68,7 @@ export async function executeRequest(input, { output, source, driver } = {}) {
   }
   // Read even after a driver throws: a failed forced retry is evidence too.
   result.forcedResolution = existsSync(forcedMarker);
+  result.harnessSha = process.env.GITHUB_WORKFLOW_SHA;
   result.completedAt = new Date().toISOString();
   result.reproduction = `node tools/compatibility-monitor/run.mjs request.json /absolute/path/to/checkout output`;
   writeFileSync(join(output, "result.json"), JSON.stringify(result, null, 2));

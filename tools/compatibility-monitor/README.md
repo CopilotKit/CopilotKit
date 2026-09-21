@@ -19,7 +19,7 @@ Install the checkout's frozen pnpm dependencies first. Runners need Node 22.13.0
 
 ## Evidence and conservative outcomes
 
-`result.json` follows the handoff contract. `resolvedDependencies` records watched packages verified in the consumer; `resolvedGraph` additionally records the resolved package graph for comparison across runs (npm keys include install paths). Logs, request, and available lockfiles accompany the artifact. GitHub retains these artifacts for 90 days. The coordinator must compare graphs before attributing failure to the requested upgrade: other dependency changes may explain a difference.
+`result.json` follows the handoff contract. GitHub runs record `harnessSha` from the trusted workflow revision separately from the candidate `sourceSha`. The coordinator must require the same harness revision when comparing candidate, repeat, and baseline results. `resolvedDependencies` records watched packages verified in the consumer; `resolvedGraph` additionally records the resolved package graph for comparison across runs (npm keys include install paths). Logs, request, and available lockfiles accompany the artifact. GitHub retains these artifacts for 90 days. The coordinator must compare graphs before attributing failure to the requested upgrade: other dependency changes may explain a difference.
 
 An installation failure, missing test tool, missing loaded-version evidence, or missing executed contract produces `blocked`, never `passed`. Python skipped contracts prevent a green result. A .NET build failure before framework-load evidence remains blocked. Missing registry packages currently produce blocked install evidence; registry discovery in the coordinator handles unpublished adapters.
 
@@ -36,7 +36,7 @@ Merge this workflow and native harness support before enabling coordinator dispa
 Save a request as `request.json`, then run:
 
 ```sh
-gh workflow run intelligence-compatibility-monitor.yml --ref YOUR_COMMIT --raw-field request="$(cat request.json)"
+gh workflow run intelligence-compatibility-monitor.yml --ref main --raw-field request="$(cat request.json)"
 ```
 
-Use the same commit for `--ref` and `sourceSha`. For a built-in source request, set `adapterId` to `builtin-ts`, `track` to `source`, and `dependencies` to exact `ai` and `zod` versions. For a published request, also set `adapterVersion` to the exact `@copilotkit/runtime` version. The runtime version must contain the learned-skill public API. The workflow retains test results and installation evidence even when compatibility fails.
+The dispatch ref selects the trusted workflow branch (`main`); GitHub requires a branch or tag here. Keep the exact candidate commit only in `sourceSha`. The workflow checks out its own immutable `github.workflow_sha` into `harness` and the candidate SHA into `candidate`. Candidate builds, fixtures, and native tests still execute candidate code in the isolated consumer environment. For a built-in source request, set `adapterId` to `builtin-ts`, `track` to `source`, and `dependencies` to exact `ai` and `zod` versions. For a published request, also set `adapterVersion` to the exact `@copilotkit/runtime` version. The runtime version must contain the learned-skill public API. The workflow retains test results and installation evidence even when compatibility fails.

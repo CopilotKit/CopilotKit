@@ -75,3 +75,39 @@ test("skipped or empty native suites cannot establish compatibility", async () =
     }),
   );
 });
+
+test("setup failure evidence retains candidate and trusted workflow provenance", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const { fileURLToPath } = await import("node:url");
+  const dir = mkdtempSync(join(tmpdir(), "prepare-test-"));
+  const request = {
+    schemaVersion: 1,
+    requestId: "ea3bc291-5f5f-4aab-b46a-57207c717520",
+    adapterId: "mastra-ts",
+    track: "source",
+    sourceSha: "a".repeat(40),
+    dependencies: { "@mastra/core": "1.67.0", zod: "4.6.1" },
+    experimental: true,
+  };
+  execFileSync(
+    process.execPath,
+    [fileURLToPath(new URL("./prepare.mjs", import.meta.url))],
+    {
+      cwd: dir,
+      env: {
+        ...process.env,
+        COMPATIBILITY_REQUEST: JSON.stringify(request),
+        GITHUB_WORKFLOW_SHA: "b".repeat(40),
+        GITHUB_OUTPUT: join(dir, "outputs"),
+      },
+    },
+  );
+  const result = JSON.parse(
+    readFileSync(join(dir, "compatibility-output/result.json"), "utf8"),
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.sourceSha, request.sourceSha);
+  assert.equal(result.harnessSha, "b".repeat(40));
+  assert.equal(result.experimental, true);
+  assert.equal(result.forcedResolution, false);
+});
