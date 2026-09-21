@@ -92,6 +92,76 @@ describe("v2 external re-exports", () => {
     }
   });
 
+  // The entry's own exports are held back from the generated list, so that a
+  // name it exports itself is not exported twice. Working out which names those
+  // are means reading the entry's export statements, and reading one of them
+  // wrongly drops real names from the public surface without a word. Both forms
+  // below did exactly that, or would have.
+  describe("the entry's own export forms", () => {
+    const withEntryPatch = (patch, extraFiles, assertion) => {
+      const entryBefore = fs.readFileSync(entry, "utf8");
+      const generatedBefore = fs.readFileSync(generated, "utf8");
+      const written = [];
+      try {
+        for (const [name, contents] of Object.entries(extraFiles)) {
+          const file = path.join(pkgRoot, "src/v2", name);
+          fs.writeFileSync(file, contents);
+          written.push(file);
+        }
+        fs.writeFileSync(entry, entryBefore + patch);
+        assertion();
+      } finally {
+        fs.writeFileSync(entry, entryBefore);
+        fs.writeFileSync(generated, generatedBefore);
+        for (const file of written) fs.rmSync(file, { force: true });
+      }
+    };
+
+    it("a namespace re-export does not swallow the module's names", () => {
+      // `export * as ns from "./x"` exports ONE name. Treating it like
+      // `export * from "./x"` marks everything inside x as already taken by the
+      // entry, so a name x shares with @copilotkit/core silently vanishes.
+      withEntryPatch(
+        '\nexport * as __probeNamespace from "./__probe-module";\n',
+        { "__probe-module.ts": "export class CopilotKitCore {}\n" },
+        () => {
+          const result = spawnSync(process.execPath, [generator], {
+            cwd: pkgRoot,
+            encoding: "utf8",
+          });
+          assert.equal(result.status, 0, result.stderr);
+          assert.match(
+            fs.readFileSync(generated, "utf8"),
+            /^  CopilotKitCore,$/m,
+            "a namespace re-export dropped a name from the generated list",
+          );
+          assert.doesNotMatch(
+            fs.readFileSync(generated, "utf8"),
+            /__probeNamespace/,
+            "the namespace name leaked into the external list",
+          );
+        },
+      );
+    });
+
+    it("an export form the generator does not understand is a hard error", () => {
+      // Guessing at an unrecognised form is how a name goes missing quietly.
+      // Stopping is the safe direction.
+      withEntryPatch("\nexport default function () {}\n", {}, () => {
+        const result = spawnSync(process.execPath, [generator], {
+          cwd: pkgRoot,
+          encoding: "utf8",
+        });
+        assert.notEqual(
+          result.status,
+          0,
+          "the generator accepted a form it cannot read",
+        );
+        assert.match(result.stderr, /unhandled exported statement/);
+      });
+    });
+  });
+
   it("the built entry carries no star re-export", (t) => {
     if (!fs.existsSync(builtEntry)) {
       t.skip("dist/v2/index.mjs is not built");

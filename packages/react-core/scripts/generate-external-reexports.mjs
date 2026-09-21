@@ -105,18 +105,60 @@ const entrySource = program.getSourceFile(entryFile);
 if (!entrySource) throw new Error(`could not load entry: ${entryFile}`);
 
 const localNames = new Set();
+const isExported = (statement) =>
+  Boolean(ts.getCombinedModifierFlags(statement) & ts.ModifierFlags.Export);
+
 for (const statement of entrySource.statements) {
-  if (!ts.isExportDeclaration(statement)) continue;
+  // `export const x = ...`, `export function x() {}`, `export class X {}`, and
+  // the type-only equivalents: the entry declares the name itself.
+  if (!ts.isExportDeclaration(statement)) {
+    if (!isExported(statement)) continue;
+    if (statement.name && ts.isIdentifier(statement.name)) {
+      localNames.add(statement.name.text);
+      continue;
+    }
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        if (ts.isIdentifier(declaration.name))
+          localNames.add(declaration.name.text);
+      }
+      continue;
+    }
+    // Anything else exported from the entry is a form this script has never
+    // seen. Stop rather than guess: guessing wrong silently drops a name from
+    // the generated list, which is the failure this whole file exists to avoid.
+    throw new Error(
+      `unhandled exported statement in ${path.relative(packageDir, entryFile)} ` +
+        `at line ${entrySource.getLineAndCharacterOfPosition(statement.pos).line + 1}. ` +
+        "Teach generate-external-reexports.mjs about it.",
+    );
+  }
+
   const specifier = statement.moduleSpecifier?.text;
   if (specifier && EXTERNAL_PACKAGES.includes(specifier)) continue;
   if (specifier === outputSpecifier) continue;
 
-  if (statement.exportClause && ts.isNamedExports(statement.exportClause)) {
-    for (const element of statement.exportClause.elements) {
-      localNames.add(element.name.text);
+  if (statement.exportClause) {
+    // `export { a, b } from "./x"` and `export { a, b }`.
+    if (ts.isNamedExports(statement.exportClause)) {
+      for (const element of statement.exportClause.elements) {
+        localNames.add(element.name.text);
+      }
+      continue;
     }
-    continue;
+    // `export * as ns from "./x"` exports ONE name, the namespace. Walking the
+    // module's exports here would wrongly treat every name inside it as taken
+    // by the entry, and quietly drop those names from the generated list.
+    if (ts.isNamespaceExport(statement.exportClause)) {
+      localNames.add(statement.exportClause.name.text);
+      continue;
+    }
+    throw new Error(
+      `unhandled export clause in ${path.relative(packageDir, entryFile)}. ` +
+        "Teach generate-external-reexports.mjs about it.",
+    );
   }
+
   // `export * from "./components"` and friends.
   if (!specifier) continue;
   for (const symbol of moduleExports(resolve(specifier))) {
