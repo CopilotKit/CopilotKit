@@ -47,7 +47,10 @@ v1 users are unaffected — `copilotRuntimeNodeExpressEndpoint` delegates to the
 - **`@copilotkit/core`, `@copilotkit/react-core`: trim the history sent to a runtime agent (#6926).** A new `messageFilter` lets you rewrite the conversation history CopilotKit sends on each run — useful when your backend already stores the thread (LangGraph, Mastra, Strands, etc.) and re-sending it inflates request bodies or duplicates context. Set it via the `messageFilter` prop on `<CopilotKit>` (also available on Vue, Angular, and React Native providers) or `CopilotKitCore`:
 
   ```tsx
-  <CopilotKit runtimeUrl="/api/copilotkit" messageFilter={(messages) => messages.slice(-1)}>
+  <CopilotKit
+    runtimeUrl="/api/copilotkit"
+    messageFilter={(messages) => messages.slice(-1)}
+  >
     {children}
   </CopilotKit>
   ```
