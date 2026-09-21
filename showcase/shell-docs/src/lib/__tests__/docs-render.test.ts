@@ -451,8 +451,9 @@ describe("cookbook nav", () => {
   it("renders overview and recipes as top-level entries without changing slugs", () => {
     const navTree = buildCookbookNavTree();
 
-    expect(navTree).toHaveLength(7);
+    expect(navTree).toHaveLength(8);
     expect(navTree.map((node) => node.type)).toEqual([
+      "page",
       "page",
       "page",
       "page",
@@ -473,10 +474,12 @@ describe("cookbook nav", () => {
       ["Arcade", "cookbook/arcade"],
       ["Angular + Google ADK", "cookbook/angular-adk-agentic-app"],
       ["OpenBox Governance", "cookbook/openbox-governed-copilotkit"],
+      ["Jev: fast generative UI", "cookbook/jev-generative-ui"],
     ]);
 
     const pageTree = navTreeToPageTree(navTree, "");
     expect(pageTree.children.map((node) => node.type)).toEqual([
+      "page",
       "page",
       "page",
       "page",
@@ -495,6 +498,7 @@ describe("cookbook nav", () => {
       "/cookbook/arcade",
       "/cookbook/angular-adk-agentic-app",
       "/cookbook/openbox-governed-copilotkit",
+      "/cookbook/jev-generative-ui",
     ]);
 
     const overview = pageTree.children[0];

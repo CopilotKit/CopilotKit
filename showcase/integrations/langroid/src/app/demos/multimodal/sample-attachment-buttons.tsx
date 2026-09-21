@@ -23,10 +23,9 @@
  * runtime — but with no upload race because we build the
  * already-base64'd content part ourselves before calling addMessage.
  *
- * The `LegacyConverterShim` in page.tsx still rewrites our modern
- * `image|document` parts to the legacy `binary` shape the published
- * `@ag-ui/langgraph` converter understands, so the agent ultimately
- * receives the attachment in the form `multimodal_agent.py` expects.
+ * Modern `image|document` parts are sent to the dedicated multimodal
+ * endpoint. It forwards images to the provider and extracts PDF text
+ * with pypdf.
  */
 
 import { useCallback, useState } from "react";
@@ -189,7 +188,7 @@ function generateMessageId(): string {
 export function SampleAttachmentButtons({
   agentId,
 }: SampleAttachmentButtonsProps) {
-  const { agent } = useAgent({ agentId });
+  const { agent, isReady } = useAgent({ agentId });
   const { copilotkit } = useCopilotKit();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -199,7 +198,7 @@ export function SampleAttachmentButtons({
       setError(null);
       setLoading(spec.testId);
       try {
-        if (!agent) {
+        if (!isReady || !agent) {
           throw new Error(
             `Agent "${agentId}" is not yet available. Try again in a moment.`,
           );
@@ -209,10 +208,7 @@ export function SampleAttachmentButtons({
           spec.mimeType === "application/pdf" ? "document" : "image";
 
         // Build a multimodal user message as content parts: prompt text +
-        // the attachment. The `LegacyConverterShim` in page.tsx will
-        // rewrite the modern `image|document` part to the legacy `binary`
-        // shape the @ag-ui/langgraph converter understands before the
-        // request leaves the runtime.
+        // a modern image or document attachment for the dedicated endpoint.
         agent.addMessage({
           id: generateMessageId(),
           role: "user",
@@ -241,7 +237,7 @@ export function SampleAttachmentButtons({
         setLoading(null);
       }
     },
-    [agent, agentId, copilotkit],
+    [agent, isReady, agentId, copilotkit],
   );
 
   return (
@@ -259,7 +255,7 @@ export function SampleAttachmentButtons({
             key={spec.testId}
             type="button"
             data-testid={spec.testId}
-            disabled={loading !== null}
+            disabled={!isReady || loading !== null}
             onClick={() => void sendSample(spec)}
             className="rounded border border-black/15 bg-white px-3 py-1 text-xs font-medium text-black transition hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/15 dark:bg-neutral-900 dark:text-white dark:hover:bg-white/5"
           >

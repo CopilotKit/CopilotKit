@@ -26,9 +26,8 @@ function createAgent(path = "/") {
   return new HttpAgent({ url: `${AGENT_URL}${path}` });
 }
 
-// Register the same agent under all names used by demo pages.
-// The Langroid agent_server.py exposes a single unified agent on "/" that
-// handles every request — so every entry here maps to the same HttpAgent.
+// Register the unified backend as the default for demo agent names.
+// Further agent registrations follow below.
 const agentNames = [
   "agentic_chat",
   "human_in_the_loop",
@@ -104,6 +103,9 @@ agents["default"] = createAgent();
 // the pending -> in_progress -> completed state machine and emits
 // STATE_SNAPSHOT events between transitions.
 agents["gen-ui-agent"] = new HttpAgent({ url: `${AGENT_URL}/gen-ui-agent` });
+
+// The dedicated supervisor owns sub-agent execution and delegation state.
+agents["subagents"] = createAgent("/subagents");
 
 console.log(
   `[copilotkit/route] Registered ${Object.keys(agents).length} agent names: ${Object.keys(agents).join(", ")}`,

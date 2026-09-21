@@ -118,6 +118,55 @@ copilotRuntimeNextJSAppRouterEndpoint({
 
 </PropertyReference>
 
+<PropertyReference name="messageFilter" type="(messages: Message[], context: { agentId: string }) => Message[]"  >
+Rewrites the message list sent to the agent on every run.
+
+CopilotKit sends the whole thread with each request. When your agent already
+stores the conversation — a LangGraph checkpointer, a Mastra memory store, a
+Strands `SessionManager` — most of that payload is waste, and an agent that
+merges the inbound list with its own store can show the model every turn twice.
+
+Return the messages to send:
+
+```tsx
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  messageFilter={(messages) => messages.slice(-1)}
+>
+  {children}
+</CopilotKit>
+```
+
+The filter changes the request body only. The transcript the UI renders is
+untouched, so the chat still shows the full conversation.
+
+Broken tool-call pairs are repaired before the request goes out, and the repair
+always restores rather than discards: a tool result whose call was trimmed away
+gets that call put back in front of it, and a kept call whose result was trimmed
+gets the result back. A filter as blunt as `slice(-1)` therefore cannot strand a
+tool result mid-approval, and it cannot silently throw away the approval either.
+
+Limits to know:
+
+- Your agent must really store the conversation. Against a stateless agent, a
+  filter this aggressive means the model forgets the thread.
+- Agents reached through your CopilotRuntime honor this. An agent your app
+  constructs itself and passes in directly does not — use an AG-UI middleware
+  for those.
+- CopilotKit Intelligence runs are never filtered. That runtime is the store of
+  record for the thread, so the client does not get to decide what reaches it.
+- Suggestions are never filtered. A suggestion run uses a fresh thread, so the
+  messages sent with it are the only context the provider has.
+
+If the filter throws or returns something other than an array, CopilotKit warns
+and sends the full thread. Trimming is an optimization, so a bug in it does not
+fail the run.
+
+Prefer a stable reference (`useCallback`). An inline arrow re-registers the
+filter on every render, which is harmless but needless.
+
+</PropertyReference>
+
 <PropertyReference name="showDevConsole" type="boolean"  >
 Whether to show the dev console.
 

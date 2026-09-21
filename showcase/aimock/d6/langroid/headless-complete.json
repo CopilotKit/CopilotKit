@@ -83,8 +83,8 @@
     {
       "match": {
         "userMessage": "ship the demo on Friday",
-        "toolCallId": "call_d5_highlight_note_001",
-        "context": "langroid"
+        "context": "langroid",
+        "hasToolResult": true
       },
       "response": {
         "content": "Highlighted 'ship the demo on Friday' in yellow above. Let me know if you want a different color or a longer note."
@@ -94,12 +94,12 @@
       "match": {
         "userMessage": "ship the demo on Friday",
         "turnIndex": 0,
-        "context": "langroid"
+        "context": "langroid",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
           {
-            "id": "call_d5_highlight_note_001",
             "name": "highlight_note",
             "arguments": "{\"text\":\"ship the demo on Friday\",\"color\":\"yellow\"}"
           }

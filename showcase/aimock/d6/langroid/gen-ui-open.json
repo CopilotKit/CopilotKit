@@ -16,8 +16,8 @@
         "toolCalls": [
           {
             "id": "call_d6_lr_open_genui_001",
-            "name": "render_open_ui",
-            "arguments": "{\"srcdoc\":\"<!DOCTYPE html><html><head><style>body{margin:0;display:flex;justify-content:center;align-items:center;height:100vh;background:#1a1a2e;font-family:monospace}canvas{border:1px solid #333}</style></head><body><canvas id=c width=400 height=400></canvas><script>const c=document.getElementById('c'),x=c.getContext('2d');x.translate(200,200);x.strokeStyle='#e94560';x.beginPath();x.moveTo(-150,0);x.lineTo(150,0);x.stroke();x.strokeStyle='#0f3460';x.beginPath();x.moveTo(0,-150);x.lineTo(0,150);x.stroke();x.strokeStyle='#16213e';x.beginPath();x.moveTo(-100,100);x.lineTo(100,-100);x.stroke();x.fillStyle='#fff';x.font='14px monospace';x.fillText('X',155,5);x.fillText('Y',-5,-155);x.fillText('Z',105,-105)</script></body></html>\"}"
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":500,\"placeholderMessages\":[\"Drawing the airplane\",\"Labelling the three axes\"],\"css\":\"body{margin:0;background:#1a1a2e;color:#f8fafc;font-family:system-ui,sans-serif}.airplane-card{box-sizing:border-box;max-width:640px;margin:auto;padding:16px}h2{margin:0 0 6px;font-size:18px}p{margin:0 0 10px;font-size:13px;color:#cbd5e1}canvas{display:block;width:100%;height:auto}.legend{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:12px;margin-top:8px}\",\"html\":\"<section class='airplane-card'><h2>3D axes · model airplane</h2><p>Static oblique projection of three perpendicular axes</p><canvas id='airplane-axes' width='600' height='400' role='img' aria-label='Model airplane with fuselage, wings and tail; X longitudinal roll axis in red, Y lateral pitch axis in blue, and Z vertical yaw axis in gray'></canvas><div class='legend'><span>X · longitudinal · roll</span><span>Y · lateral · pitch</span><span>Z · vertical · yaw</span></div></section>\",\"jsFunctions\":\"\",\"jsExpressions\":[\"(()=>{const c=document.getElementById('airplane-axes');const x=c.getContext('2d');x.fillStyle='#1a1a2e';x.fillRect(0,0,600,400);const polygon=(points)=>{x.beginPath();points.forEach(([a,b],i)=>i?x.lineTo(a,b):x.moveTo(a,b));x.closePath();x.fill();x.stroke();};x.fillStyle='#cbd5e1';x.strokeStyle='#f8fafc';x.lineWidth=2;polygon([[225,125],[305,210],[385,305],[280,235]]);polygon([[180,200],[215,235],[250,285],[192,252]]);polygon([[455,185],[315,210],[180,250],[205,265],[330,238]]);x.fillStyle='#64748b';polygon([[365,205],[397,199],[375,216],[346,222]]);const axis=(a,b,color,label,lx,ly)=>{x.strokeStyle=color;x.fillStyle=color;x.lineWidth=3;x.beginPath();x.moveTo(300,230);x.lineTo(a,b);x.stroke();const angle=Math.atan2(b-230,a-300);x.beginPath();x.moveTo(a,b);x.lineTo(a-12*Math.cos(angle-.45),b-12*Math.sin(angle-.45));x.lineTo(a-12*Math.cos(angle+.45),b-12*Math.sin(angle+.45));x.closePath();x.fill();x.font='bold 24px system-ui';x.fillText(label,lx,ly);};axis(495,180,'#ef4444','X / Roll',480,159);axis(420,340,'#60a5fa','Y / Pitch',433,346);axis(300,55,'#cbd5e1','Z / Yaw',312,61);x.fillStyle='#fff';x.beginPath();x.arc(300,230,5,0,Math.PI*2);x.fill();})()\"]}"
           }
         ]
       }
@@ -45,7 +45,7 @@
           {
             "id": "call_d6_lr_open_adv_001",
             "name": "generateSandboxedUi",
-            "arguments": "{\"srcdoc\":\"<!DOCTYPE html><html><head><style>body{margin:0;padding:16px;font-family:system-ui;background:#f8f9fa}input{width:100%;padding:8px;font-size:16px;border:1px solid #dee2e6;border-radius:4px;margin-bottom:8px}#result{padding:12px;background:#e9ecef;border-radius:4px;font-family:monospace;min-height:24px}</style></head><body><h3>Expression Evaluator</h3><input id=expr placeholder='Type an expression e.g. 2+2' oninput=\\\"try{document.getElementById('result').textContent=eval(this.value)}catch(e){document.getElementById('result').textContent='...'}\\\"><div id=result>...</div></body></html>\"}"
+            "arguments": "{\"initialHeight\":220,\"placeholderMessages\":[\"Preparing the expression evaluator\"],\"css\":\"body{margin:0;padding:16px;box-sizing:border-box;font-family:system-ui;background:#f8f9fa}h3{margin:0 0 12px}label{display:block;margin-bottom:6px}input{box-sizing:border-box;width:100%;padding:8px;font-size:16px;border:1px solid #dee2e6;border-radius:4px;margin-bottom:8px}#result{padding:12px;background:#e9ecef;border-radius:4px;font-family:monospace;min-height:24px}\",\"html\":\"<h3>Expression Evaluator</h3><label for='expr'>Arithmetic expression</label><input id='expr' placeholder='Try 12 * (3 + 4.5)' autocomplete='off'><div id='result' role='status' aria-live='polite'>Enter an arithmetic expression.</div>\",\"jsFunctions\":\"\",\"jsExpressions\":[\"(()=>{const input=document.getElementById('expr');const output=document.getElementById('result');let latest=0;input.addEventListener('input',async()=>{const current=++latest;const expression=input.value;if(!expression.trim()){output.textContent='Enter an arithmetic expression.';return;}output.textContent='Evaluating on host…';try{const response=await Websandbox.connection.remote.evaluateExpression({expression});if(current!==latest)return;output.textContent=response.ok?String(response.value):response.error;}catch(error){if(current===latest)output.textContent='Could not evaluate on host.';}});})()\"]}"
           }
         ]
       }
@@ -58,7 +58,7 @@
         "context": "langroid"
       },
       "response": {
-        "content": "Expression evaluator rendered in a sandboxed iframe — type any JavaScript expression to see the result live."
+        "content": "Expression evaluator is ready. Enter an arithmetic expression to evaluate it on the host page."
       }
     }
   ]
