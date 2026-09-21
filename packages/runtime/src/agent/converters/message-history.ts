@@ -10,15 +10,10 @@ export function filterUnansweredToolCalls(
   additionalAnsweredToolCallIds?: ReadonlySet<string>,
   options?: { dropOrphanedToolResults?: boolean },
 ): Message[] {
-  const answeredToolCallIds = new Set(additionalAnsweredToolCallIds);
-  for (const message of messages) {
-    if (message.role === "tool" && typeof message.toolCallId === "string") {
-      answeredToolCallIds.add(message.toolCallId);
-    }
-  }
-
   const assistantToolCallIds = new Set<string>();
-  for (const message of messages) {
+  // A result is valid only after its originating call has appeared. Filter
+  // before collecting answers so discarded results cannot resolve later calls.
+  const orderedMessages = messages.filter((message) => {
     if (message.role === "assistant") {
       for (const toolCall of message.toolCalls ?? []) {
         if (typeof toolCall.id === "string") {
@@ -26,21 +21,21 @@ export function filterUnansweredToolCalls(
         }
       }
     }
+    return !(
+      options?.dropOrphanedToolResults &&
+      message.role === "tool" &&
+      typeof message.toolCallId === "string" &&
+      !assistantToolCallIds.has(message.toolCallId)
+    );
+  });
+  const answeredToolCallIds = new Set(additionalAnsweredToolCallIds);
+  for (const message of orderedMessages) {
+    if (message.role === "tool" && typeof message.toolCallId === "string") {
+      answeredToolCallIds.add(message.toolCallId);
+    }
   }
 
-  return messages.flatMap((message, index) => {
-    if (message.role === "tool") {
-      // Also discard stale results whose originating assistant call is absent.
-      if (
-        typeof message.toolCallId === "string" &&
-        options?.dropOrphanedToolResults &&
-        !assistantToolCallIds.has(message.toolCallId)
-      ) {
-        return [];
-      }
-      return [message];
-    }
-
+  return orderedMessages.flatMap((message, index) => {
     if (message.role !== "assistant" || !message.toolCalls?.length) {
       return [message];
     }
@@ -54,7 +49,7 @@ export function filterUnansweredToolCalls(
 
     // A final assistant tool call can still be waiting for a client-side
     // resume. Only sanitize calls that are followed by another turn.
-    const hasLaterTurn = messages
+    const hasLaterTurn = orderedMessages
       .slice(index + 1)
       .some(
         (nextMessage) =>

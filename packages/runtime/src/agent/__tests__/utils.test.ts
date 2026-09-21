@@ -254,6 +254,30 @@ describe("convertMessagesToVercelAISDKMessages", () => {
     expect(result).toEqual([{ role: "user", content: "Continue" }]);
   });
 
+  it("should not count a tool result that precedes its assistant call", () => {
+    const messages: Message[] = [
+      { id: "t1", role: "tool", toolCallId: "call1", content: "too early" },
+      {
+        id: "a1",
+        role: "assistant",
+        content: "Working",
+        toolCalls: [
+          {
+            id: "call1",
+            type: "function",
+            function: { name: "lookup", arguments: "{}" },
+          },
+        ],
+      },
+      { id: "u1", role: "user", content: "Continue" },
+    ];
+
+    expect(convertMessagesToVercelAISDKMessages(messages)).toEqual([
+      { role: "assistant", content: [{ type: "text", text: "Working" }] },
+      { role: "user", content: "Continue" },
+    ]);
+  });
+
   it("should handle multiple messages", () => {
     const messages: Message[] = [
       { id: "1", role: "user", content: "Hi" },

@@ -1218,10 +1218,10 @@ export class BuiltInAgent extends AbstractAgent {
       }
 
       // Resume injection: each ResumeEntry maps to the interrupt tool call it
-      // addresses (interruptId === toolCallId) and is appended as that call's
+      // addresses (interruptId === toolCallId) and is inserted as that call's
       // tool-role result so the model can continue the agentic loop.
       const resumeEntries: ResumeEntry[] = input.resume ?? [];
-      const resumeToolMessages: ToolModelMessage[] = [];
+      const resumeToolMessages = new Map<string, ToolModelMessage>();
       const resumeToolCallIds = new Set<string>();
       if (resumeEntries.length > 0) {
         // Recover the originating tool name for each interrupt tool call so the
@@ -1256,7 +1256,7 @@ export class BuiltInAgent extends AbstractAgent {
               ? { status: "cancelled" }
               : (entry.payload ?? { status: "resolved" });
           resumeToolCallIds.add(entry.interruptId);
-          resumeToolMessages.push({
+          resumeToolMessages.set(entry.interruptId, {
             role: "tool",
             content: [
               {
@@ -1281,7 +1281,23 @@ export class BuiltInAgent extends AbstractAgent {
           content: systemPrompt,
         });
       }
-      messages.push(...resumeToolMessages);
+      for (const [toolCallId, toolMessage] of resumeToolMessages) {
+        const assistantIndex = messages.findIndex(
+          (message) =>
+            message.role === "assistant" &&
+            Array.isArray(message.content) &&
+            message.content.some(
+              (part) =>
+                part.type === "tool-call" && part.toolCallId === toolCallId,
+            ),
+        );
+        // Answer the interrupted call before any later turn is replayed.
+        messages.splice(
+          assistantIndex === -1 ? messages.length : assistantIndex + 1,
+          0,
+          toolMessage,
+        );
+      }
 
       // Merge tools from input and config
       let allTools: ToolSet = convertToolsToVercelAITools(input.tools);
