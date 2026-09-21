@@ -1,18 +1,29 @@
-import { z } from "zod";
-import { defineChannelTool } from "@copilotkit/channels-core";
+import {
+  defineChannelTool,
+  singleStringParameterSchema,
+} from "@copilotkit/channels-core";
 import type { ChannelTool } from "@copilotkit/channels-core";
+
+/**
+ * Parameter schema for `lookup_discord_user`.
+ *
+ * Built by `singleStringParameterSchema` rather than by `z.object`, so that
+ * `@copilotkit/channels-discord` declares no `zod` range. See that helper for
+ * why the range was not free (PE-30). It emits the same JSON Schema document
+ * the Zod object emitted, so the descriptor the model is shown is unchanged.
+ */
+const lookupSchema = singleStringParameterSchema({
+  name: "query",
+  description: "A name, display name, or handle to resolve.",
+  vendor: "@copilotkit/channels-discord",
+});
 
 export const lookupDiscordUserTool: ChannelTool = defineChannelTool({
   name: "lookup_discord_user",
   description:
     "Resolve a person's name, display name, or handle to a Discord user id and a " +
     "ready-to-use <@id> mention.",
-  parameters: z.object({
-    query: z
-      .string()
-      .min(1)
-      .describe("A name, display name, or handle to resolve."),
-  }),
+  parameters: lookupSchema,
   async handler({ query }, { thread }) {
     let user;
     try {
