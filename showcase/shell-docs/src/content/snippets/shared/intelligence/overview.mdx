@@ -24,7 +24,7 @@ Ready to connect an existing app? Follow the [CopilotKit Intelligence quickstart
 | Automatic Learning | Agents improve from real usage. BuiltInAgent and framework adapters can load published skills automatically. | [Automatic Learning](/learning) and [Automatic skill delivery](/intelligence/learned-skills) |
 | Cloud-hosted Intelligence features | Projects, project API keys, conversation history, thread inspection, and plan management. | [Cloud-hosted CopilotKit Intelligence](/intelligence/managed-intelligence-platform) |
 | Platform-gated UI capabilities | Platform-gated UI surfaces such as Fully Headless Chat UI. | [Fully Headless Chat UI](/intelligence/headless-ui) |
-| Self-hosting | The same platform running inside your own Kubernetes cluster, VPC, or data boundary. | [Self-host CopilotKit Intelligence](/intelligence/self-hosting) |
+| Self-hosting | Run Intelligence in your own Kubernetes cluster or on AWS ECS/Fargate. | [Kubernetes and Helm](/intelligence/self-hosting) or [AWS ECS/Fargate](/intelligence/self-hosting-ecs) |
 
 <IntelligenceFeatureCards />
 
@@ -47,8 +47,9 @@ Historical import is a one-time operation, not a continuous mirror of every chan
 |---|---|---|
 | [Cloud-hosted CopilotKit Intelligence](/intelligence/managed-intelligence-platform) | You want CopilotKit to run the platform for you: hosted projects, API keys, thread history, dashboard inspection, and plan management. | Your app, your runtime, your agent, and your model provider credentials. |
 | [Self-host CopilotKit Intelligence](/intelligence/self-hosting) | You need the platform inside your own VPC, Kubernetes cluster, data residency boundary, or enterprise operations model. | The `copilot-intelligence` Helm release, Postgres, Redis, ingress, OIDC, secrets, upgrades, and monitoring. |
+| [Self-host on AWS ECS/Fargate](/intelligence/self-hosting-ecs) | Your team runs workloads on ECS and needs Intelligence in its AWS account. | The versioned CloudFormation bundle, Fargate services, ALB, PostgreSQL, Redis, OIDC, secrets, upgrades, and monitoring. |
 
-Both options use the same CopilotKit application surface. Your frontend still uses CopilotKit APIs, your runtime still speaks AG-UI, and your agents keep the same framework integration. The deployment choice changes the platform endpoint and credentials your runtime uses.
+These options use the same CopilotKit application surface. Your frontend still uses CopilotKit APIs, your runtime still speaks AG-UI, and your agents keep the same framework integration. The deployment choice changes the platform endpoint and credentials your runtime uses.
 
 ## Plans and access
 
@@ -70,6 +71,7 @@ Self-hosted access is available on the Team self-hosted plan or a custom Enterpr
 | Decide what the platform includes | Stay on this overview. |
 | Connect an app to hosted projects and API keys | [Cloud-hosted CopilotKit Intelligence](/intelligence/managed-intelligence-platform) |
 | Run the platform in your own cluster | [Self-host CopilotKit Intelligence](/intelligence/self-hosting) |
+| Run the platform on AWS ECS/Fargate | [Self-host on AWS ECS/Fargate](/intelligence/self-hosting-ecs) |
 | Understand the runtime/platform architecture | [CopilotKit Intelligence architecture](/intelligence/intelligence-platform) |
 | Add persistent conversations to an app | [Rich Threads](/threads) |
 | Let users open existing LangGraph conversations in a CopilotKit app | [Synchronize LangGraph Threads](/langgraph-python/threads-import) |
