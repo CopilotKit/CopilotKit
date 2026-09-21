@@ -1,4 +1,3 @@
-import { createRequire } from "node:module";
 import type {
   Request as ExpressRequest,
   Response as ExpressResponse,
@@ -13,33 +12,9 @@ import type {
   ChannelsControl,
 } from "../core/channel-manager";
 import { createExpressNodeHandler } from "./express-fetch-bridge";
+import { loadExpress } from "./load-express";
 import { autoStartChannels } from "./auto-start-channels";
 import type { CopilotRuntimeHooks } from "../core/hooks";
-
-/**
- * Load `express` at call time rather than at module load time.
- *
- * `express` is an OPTIONAL peer: an app that mounts the Hono or Node adapter
- * never installs it. This module is re-exported from the `@copilotkit/runtime/v2`
- * barrel, so a static `import express from "express"` here would make that
- * barrel unimportable for every consumer who does not use Express. Requiring it
- * inside the factory keeps the barrel free of Express and moves the failure to
- * the only place it is a real failure: calling an Express factory without
- * Express installed.
- */
-function loadExpress(): { Router: () => any } {
-  try {
-    return createRequire(import.meta.url)("express");
-  } catch (cause) {
-    throw new Error(
-      "@copilotkit/runtime: the Express adapter requires `express`, which is an " +
-        "optional peer dependency and is not installed. Install it with " +
-        "`npm install express` (^4.21.2 || ^5.0.0), or mount the Hono adapter " +
-        "from `@copilotkit/runtime/v2/hono` instead.",
-      { cause },
-    );
-  }
-}
 
 /**
  * The middleware `createCopilotExpressHandler` returns: an Express router that
@@ -79,6 +54,13 @@ export type CopilotExpressRouter = ((
   delete(...handlers: any[]): CopilotExpressRouter;
   options(...handlers: any[]): CopilotExpressRouter;
   all(...handlers: any[]): CopilotExpressRouter;
+
+  // `route()` is the one remaining Router-configuration method consumers reach
+  // for, and dropping it would break `router.route("/x").get(...)` callers for
+  // no gain: a re-pin to either Express major is caught by
+  // `scripts/validate-dts-imports.ts`, which fails on any published declaration
+  // that names `express` at all.
+  route(path: any): any;
 };
 
 export interface CopilotExpressEndpointParams {

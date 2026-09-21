@@ -33,5 +33,5 @@
       "@copilotkit/runtime/v2": ["../../dist/v2/index.d.mts"]
     }
   },
-  "include": ["consumer.ts"]
+  "include": ["../consumer.ts"]
 }

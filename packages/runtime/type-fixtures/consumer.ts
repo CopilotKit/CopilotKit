@@ -10,15 +10,20 @@
  *
  * `app.use(...)` below is the assertion: this is the mount that did not compile.
  *
- * What this file does NOT prove. `paths` maps `express` for the whole program,
- * so it cannot stage a tree where the library sees major 4 and the app sees
- * major 5 -- the mismatch itself. The guard against that is
+ * ONE consumer, compiled TWICE: `express4/tsconfig.json` and
+ * `express5/tsconfig.json` each include this file and point `express` at their
+ * own major. A single file keeps the two majors from drifting apart, and the
+ * declared peer range is `^4.21.2 || ^5.0.0`, so both halves need proving.
+ *
+ * What this file does NOT prove. Each project maps `express` for its whole
+ * program, so neither can stage a tree where the library sees major 4 and the
+ * app sees major 5 -- the mismatch itself. The guard against that is
  * `validate-optional-peer-entries.ts`'s sibling, `validate-dts-imports.ts`: it
  * fails if any published declaration imports `express` at all, which is what
  * re-pinning `CopilotExpressRouter` to either major's `Router` would emit. A
  * declaration that never names `express` cannot disagree with the consumer
  * about its major. This file proves the other half -- that what we do publish
- * mounts on Express 5 under a consumer's own `strict: true`.
+ * mounts on both majors under a consumer's own `strict: true`.
  */
 import express from "express";
 import {
@@ -54,3 +59,4 @@ router.use((_req: unknown, _res: unknown, next: (err?: unknown) => void) =>
   next(),
 );
 router.get("/health", (_req: unknown, res: any) => res.sendStatus(200));
+router.route("/echo").get((_req: unknown, res: any) => res.sendStatus(204));

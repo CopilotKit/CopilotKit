@@ -18,8 +18,9 @@
  * and would be worthless. The `keyof` assertions below are
  * strictness-independent: they fail the moment the type carries members that
  * only Express's own `Router` declares. The end-to-end proof is
- * `type-fixtures/express5/`, a `strict: true` consumer compiled against real
- * `@types/express@5` and the built `dist` declarations by `check-dts`.
+ * `type-fixtures/`: one `strict: true` consumer, compiled by `check-dts` against
+ * the built `dist` declarations twice, once against real `@types/express@4` and
+ * once against real `@types/express@5`.
  *
  * Checked by the package `check-types` target, whose tsconfig includes this
  * directory. Nothing runs at runtime.
@@ -34,11 +35,10 @@ type Has<K extends string> = K extends keyof CopilotExpressRouter
 /**
  * Members that exist ONLY on Express's own `Router`. Our exported type must not
  * carry them: taking them means taking one major's declaration, which is the
- * bug. `param`, `route` and `stack` are declared by both `@types/express@4` and
+ * bug. `param` and `stack` are declared by both `@types/express@4` and
  * `@types/express@5`, so either major re-pinned here trips this.
  */
 const mustNotCarryParam: Has<"param"> = false;
-const mustNotCarryRoute: Has<"route"> = false;
 const mustNotCarryStack: Has<"stack"> = false;
 
 /**
@@ -54,6 +54,7 @@ const keepsPatch: Has<"patch"> = true;
 const keepsDelete: Has<"delete"> = true;
 const keepsOptions: Has<"options"> = true;
 const keepsAll: Has<"all"> = true;
+const keepsRoute: Has<"route"> = true;
 
 /** It must still be callable as middleware... */
 declare const copilotRouter: CopilotExpressRouter;
@@ -70,7 +71,6 @@ const channelsStillTyped: ChannelsControl | undefined = copilotRouter.channels;
 const chains: CopilotExpressRouter = copilotRouter.use(() => {}).get("/x");
 
 void mustNotCarryParam;
-void mustNotCarryRoute;
 void mustNotCarryStack;
 void keepsUse;
 void keepsGet;
@@ -80,6 +80,7 @@ void keepsPatch;
 void keepsDelete;
 void keepsOptions;
 void keepsAll;
+void keepsRoute;
 void callableAsMiddleware;
 void channelsStillTyped;
 void chains;

@@ -76,7 +76,7 @@
     "generate-graphql-schema": "node -e \"const fs=require('fs');fs.rmSync('__snapshots__',{recursive:true,force:true})\" && ts-node --transpile-only ./scripts/generate-gql-schema.ts",
     "link:global": "pnpm link --global",
     "unlink:global": "pnpm unlink --global",
-    "check-dts": "tsx ../../scripts/validate-dts-ambient.ts dist && tsx ../../scripts/validate-dts-imports.ts dist && tsx ../../scripts/validate-optional-peer-entries.ts . && tsc --noEmit -p type-fixtures/express5/tsconfig.json",
+    "check-dts": "tsx ../../scripts/validate-dts-ambient.ts dist && tsx ../../scripts/validate-dts-imports.ts dist && tsx ../../scripts/validate-optional-peer-entries.ts . && tsc --noEmit -p type-fixtures/express4/tsconfig.json && tsc --noEmit -p type-fixtures/express5/tsconfig.json",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16"
   },

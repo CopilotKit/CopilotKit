@@ -88,7 +88,7 @@ describe("reachableBareSpecifiers", () => {
     expect([...reached.keys()]).toEqual(["deep"]);
   });
 
-  it("ignores require() and dynamic import()", () => {
+  it("ignores require() and dynamic import() in an ESM module", () => {
     const root = setup({
       dist: {
         "index.mjs":
@@ -100,6 +100,56 @@ describe("reachableBareSpecifiers", () => {
     });
     const reached = reachableBareSpecifiers(path.join(root, "dist/index.mjs"));
     expect([...reached.keys()]).toEqual(["node:module"]);
+  });
+
+  it("refuses to walk past a relative specifier that resolves to nothing", () => {
+    // A truncated walk would report "clean" for a graph it never traversed, and
+    // a vacuous pass is indistinguishable from a real one. One renamed build
+    // extension is enough to cause it.
+    const root = setup({
+      dist: { "index.mjs": 'export * from "./gone.mjs";' },
+      manifest: {},
+    });
+    expect(() =>
+      reachableBareSpecifiers(path.join(root, "dist/index.mjs")),
+    ).toThrow(/resolves to no file/);
+  });
+
+  describe("cjs", () => {
+    it("collects a top-level require and follows it", () => {
+      const root = setup({
+        dist: {
+          "index.cjs": 'const a = require("./a.cjs");\nmodule.exports = a;',
+          "a.cjs": 'const deep = require("deep");\nmodule.exports = deep;',
+        },
+        manifest: {},
+      });
+      const reached = reachableBareSpecifiers(
+        path.join(root, "dist/index.cjs"),
+        "cjs",
+      );
+      expect([...reached.keys()]).toEqual(["deep"]);
+    });
+
+    it("ignores a require inside a function body", () => {
+      // The whole point of the lazy loader: the call runs only if the consumer
+      // calls the factory. In a CJS bundle every static import is emitted as a
+      // require, so position -- not syntax -- is what separates the two.
+      const root = setup({
+        dist: {
+          "index.cjs":
+            'function load() { return require("lazy"); }\n' +
+            'const eager = require("eager");\n' +
+            "module.exports = { load, eager };",
+        },
+        manifest: {},
+      });
+      const reached = reachableBareSpecifiers(
+        path.join(root, "dist/index.cjs"),
+        "cjs",
+      );
+      expect([...reached.keys()]).toEqual(["eager"]);
+    });
   });
 });
 
@@ -121,9 +171,36 @@ describe("findPeerViolations", () => {
     expect(violations).toHaveLength(1);
     expect(violations[0]).toMatchObject({
       entry: "./v2",
+      format: "esm",
       peer: "express",
       specifier: "express",
     });
+  });
+
+  it("flags the require target too, not only the import target", () => {
+    // A CJS consumer loads the `require` condition and never evaluates the ESM
+    // one. Checking only `import` would leave that half of the published
+    // package unguarded.
+    const root = setup({
+      dist: {
+        "v2/index.mjs": "export const ok = true;",
+        "v2/index.cjs":
+          'const express = require("express");\nmodule.exports = { express };',
+      },
+      manifest: {
+        ...OPTIONAL_EXPRESS,
+        exports: {
+          "./v2": {
+            import: "./dist/v2/index.mjs",
+            require: "./dist/v2/index.cjs",
+          },
+        },
+      },
+    });
+
+    const violations = findPeerViolations(root);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({ entry: "./v2", format: "cjs" });
   });
 
   it("allows the entry point dedicated to that peer", () => {
@@ -158,16 +235,40 @@ describe("findPeerViolations", () => {
   });
 
   it("ignores a peer that is not optional", () => {
+    // Deliberately NOT the "." entry: that one carries a recorded exemption, so
+    // a fixture mounted there would pass whether or not this rule works.
     const root = setup({
       dist: {
-        "index.mjs": 'import { Hono } from "hono";\nexport { Hono };',
+        "v2/index.mjs": 'import { Hono } from "hono";\nexport { Hono };',
       },
       manifest: {
         peerDependencies: { hono: "^4.0.0" },
-        exports: { ".": { import: "./dist/index.mjs" } },
+        exports: { "./v2": { import: "./dist/v2/index.mjs" } },
       },
     });
 
     expect(findPeerViolations(root)).toEqual([]);
+  });
+
+  it("scopes a recorded exemption to the peer it was recorded for", () => {
+    // The v1 root is allowed to reach `openai`. It is not allowed to reach
+    // express: the whole point of #7278 was getting express out of that graph,
+    // and an entry-level exemption would let it back in unannounced.
+    const root = setup({
+      dist: {
+        "index.mjs": 'import "openai";\nimport "express";',
+      },
+      manifest: {
+        peerDependencies: { express: "^5.0.0", openai: ">=5.0.0" },
+        peerDependenciesMeta: {
+          express: { optional: true },
+          openai: { optional: true },
+        },
+        exports: { ".": { import: "./dist/index.mjs" } },
+      },
+    });
+
+    const violations = findPeerViolations(root);
+    expect(violations.map((v) => v.peer)).toEqual(["express"]);
   });
 });
