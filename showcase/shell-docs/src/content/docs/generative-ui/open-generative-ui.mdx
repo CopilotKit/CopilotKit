@@ -107,6 +107,36 @@ The middleware parses the tool-call arguments incrementally and emits
 activity events as each parameter completes, so the preview updates
 progressively.
 
+## Restoring history
+
+The activity that drives the preview is produced while the run streams. For
+each `MESSAGES_SNAPSHOT` passing through the middleware's run path, the
+middleware rebuilds the activity for every `generateSandboxedUi` call from its
+stored arguments. Interrupted calls retain the partial presentation that was
+already streamed. Nothing is executed on the host during that rebuild, and no
+tool result is invented: a call without a result is restored as `interrupted`.
+
+The projector is also exported from `@copilotkit/runtime/v2` as
+`projectOpenGenerativeUIHistory`. Apply it explicitly to snapshots delivered
+through paths that bypass the middleware, including `runner.connect`.
+
+An incoming Open Generative UI activity is replaced only when its ID matches a
+reconstructed call. Activities without a matching direct call, such as subagent
+output, retain their content and position. In that case the projector preserves
+existing snapshot authority without claiming it reconstructed the entire type.
+Snapshots must contain the complete tool history to remove obsolete projected
+activities reliably; partial histories cannot establish that completeness.
+
+Deletion requires the AG-UI client activity-authority contract proposed in
+[AG-UI #2709](https://github.com/ag-ui-protocol/ag-ui/pull/2709): scoped type lists,
+`null` for all types (including empty snapshots), and invalid declarations
+granting no deletion authority. The currently declared `@ag-ui/client` 0.0.59
+dependency does not provide this contract. Until a supporting client is released,
+projection can restore content but scoped deletion is not supported with that
+version. Composed projectors must also preserve this contract, including full
+authority. The runtime keeps the metadata logic local so importing it does not
+require a client helper that has not been released.
+
 ## Using CDN libraries
 
 The sandboxed iframe can load external libraries from CDNs; just include
