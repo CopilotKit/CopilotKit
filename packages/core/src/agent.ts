@@ -11,6 +11,7 @@ import type {
 import {
   HttpAgent,
   runHttpRequest,
+  structuredClone_,
   transformHttpEventStream,
 } from "@ag-ui/client";
 import type { Observable } from "rxjs";
@@ -30,6 +31,8 @@ import { IntelligenceAgent } from "./intelligence-agent";
 import type { CopilotRuntimeTransport } from "./types";
 import { runtimeInfoError } from "./utils/runtime-info-error";
 import { ɵconnectWithoutEventVerification } from "./utils/connect-replay";
+import type { CopilotKitMessageFilter } from "./core/message-filter";
+import { ɵrepairToolCallPairs } from "./core/message-filter";
 
 type ResolvedRuntimeMode = RuntimeMode | "pending";
 
@@ -97,6 +100,11 @@ export interface ProxiedCopilotRuntimeAgentConfig extends Omit<
    * bookkeeping; only outbound routing is overridden.
    */
   runtimeAgentId?: string;
+  /**
+   * Rewrites the outbound message list on every run. See
+   * {@link CopilotKitMessageFilter}. Not applied in Intelligence mode.
+   */
+  messageFilter?: CopilotKitMessageFilter;
 }
 
 export class ProxiedCopilotRuntimeAgent extends HttpAgent {
@@ -121,6 +129,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   private _capabilities?: AgentCapabilities;
   private delegate?: AbstractAgent;
   private runtimeInfoPromise?: Promise<void>;
+  private _messageFilter?: CopilotKitMessageFilter;
   /**
    * The HTTP `run` this agent started and has not yet seen finish, as the
    * exact `{ threadId, runId }` it POSTed. `abortRun` narrows `/stop` to this
@@ -165,6 +174,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     this.runtimeMode = config.runtimeMode ?? RUNTIME_MODE_SSE;
     this.intelligence = config.intelligence;
     this._capabilities = config.capabilities;
+    this._messageFilter = config.messageFilter;
     if (config.debug) {
       this.debug = config.debug;
     }
@@ -246,6 +256,80 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
 
   get capabilities(): AgentCapabilities | undefined {
     return this._capabilities;
+  }
+
+  /**
+   * The filter applied to the outbound message list on every run.
+   *
+   * Registry-owned. `AgentRegistry` writes it whenever the core-level filter
+   * changes, so an agent discovered before the app configured one still picks
+   * it up — and so a value written here by hand is replaced on the registry's
+   * next sweep. Configure it through `CopilotKitCore` instead.
+   */
+  get messageFilter(): CopilotKitMessageFilter | undefined {
+    return this._messageFilter;
+  }
+
+  set messageFilter(filter: CopilotKitMessageFilter | undefined) {
+    this._messageFilter = filter;
+  }
+
+  /**
+   * Narrow the outbound payload with the configured message filter.
+   *
+   * **Called from the HTTP paths only, and that placement is the Intelligence
+   * exemption.** An earlier revision applied the filter in
+   * `prepareRunAgentInput`, which runs before the runtime mode is resolved:
+   * with the default `"auto"` transport, or on a proxy still `"pending"` its
+   * first `/info`, `run()` prepared the input, *then* resolved the mode, then
+   * handed that already-filtered input to `#runViaDelegate` — so a managed
+   * runtime received a truncated thread despite the exemption. Filtering here
+   * makes that unreachable by construction: `#runViaHttp` and
+   * `#connectViaHttp` are only entered once the mode is known not to be
+   * Intelligence. Do not move this back up the call chain.
+   *
+   * The managed runtime is the store of record for the thread — the threads
+   * drawer and the Slack transcript read from it — so a client-side truncation
+   * there has a blast radius nobody asked for. Every reporter on #1482 is
+   * self-hosted.
+   *
+   * `prepareRunAgentInput` has already deep-cloned the thread and stripped
+   * `activity` messages by the time the input reaches here, so the filter
+   * cannot reach the messages the UI renders no matter what it does with the
+   * array it is handed. The filter gets a *second* deep clone on top of that,
+   * because `input.messages` is also the repair baseline and the untrimmed
+   * fallback: sharing the message objects let a filter that mutates a kept
+   * message's `toolCallId` corrupt the baseline, and an orphaned tool result
+   * then went out on the wire — a payload the provider rejects, which is
+   * exactly the failure this whole mechanism exists to prevent.
+   */
+  #applyMessageFilter(input: RunAgentInput): RunAgentInput {
+    const filter = this._messageFilter;
+    if (!filter) return input;
+
+    // A filter that throws, returns the wrong shape, or hands back entries the
+    // repair cannot read falls back to the untrimmed thread rather than
+    // failing the run. Trimming is an optimization, and taking the user's
+    // message down with it would be the worse outcome; the warning is what
+    // surfaces the bug.
+    try {
+      const kept = filter(structuredClone_(input.messages), {
+        agentId: this.agentId ?? "",
+      });
+      if (!Array.isArray(kept)) {
+        console.warn(
+          "ProxiedCopilotRuntimeAgent: messageFilter returned a non-array value; sending the full message history instead.",
+        );
+        return input;
+      }
+      return { ...input, messages: ɵrepairToolCallPairs(kept, input.messages) };
+    } catch (error) {
+      console.warn(
+        "ProxiedCopilotRuntimeAgent: messageFilter failed; sending the full message history instead.",
+        error,
+      );
+      return input;
+    }
   }
 
   override requestInit(input: RunAgentInput): RequestInit {
@@ -468,7 +552,8 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     );
   }
 
-  #connectViaHttp(input: RunAgentInput): Observable<BaseEvent> {
+  #connectViaHttp(unfiltered: RunAgentInput): Observable<BaseEvent> {
+    const input = this.#applyMessageFilter(unfiltered);
     this.activeRun = undefined;
     const routedId = this.routedAgentId();
     if (this.transport === "single") {
@@ -503,7 +588,8 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     );
   }
 
-  #runViaHttp(input: RunAgentInput): Observable<BaseEvent> {
+  #runViaHttp(unfiltered: RunAgentInput): Observable<BaseEvent> {
+    const input = this.#applyMessageFilter(unfiltered);
     const activeRun = { threadId: input.threadId, runId: input.runId };
     // Hold this run's identity for as long as its stream lives. The identity
     // check keeps a late-finalizing stream from releasing a newer run.
@@ -552,6 +638,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       capabilities: this._capabilities,
       debug: this.debug,
       fetch: this.fetch,
+      messageFilter: this._messageFilter,
     });
     cloned.threadId = this.threadId;
     cloned.setState(this.state);
