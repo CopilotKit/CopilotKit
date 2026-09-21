@@ -166,7 +166,7 @@ describe("Learning results hierarchy", () => {
     );
     expect(headings).toEqual(["Skills in registry", "More Insights"]);
     const disclosure = view.shadowRoot!.querySelector("details");
-    expect(disclosure?.open).toBe(true);
+    expect(disclosure?.open).toBe(false);
     expect(disclosure?.querySelector("summary")?.textContent).toContain(
       "View SKILL.md",
     );
@@ -384,10 +384,10 @@ describe("Learning setup progress", () => {
     const view = await renderProgress(snapshot(), true);
     expect(view.shadowRoot!.textContent).toContain("1 of 3 steps");
     expect(view.shadowRoot!.textContent).toContain(
-      "Waiting for Learning setup",
+      "Waiting for Automatic Learning setup",
     );
     expect(view.shadowRoot!.textContent).toContain("Copy the setup prompt");
-    expect(view.shadowRoot!.textContent).toContain("Set up Learning");
+    expect(view.shadowRoot!.textContent).toContain("Set up Automatic Learning");
     expect(view.shadowRoot!.textContent).toContain(
       "Nice work. You’ve completed the first step.",
     );
@@ -478,7 +478,7 @@ describe("Learning setup progress", () => {
     expect(view.shadowRoot!.textContent).toContain("Needs attention");
     expect(
       view.shadowRoot!.querySelector('[role="alert"]')?.textContent,
-    ).toContain("Inspector did not find the Learning container");
+    ).toContain("Inspector did not find the Learning Space");
     view.remove();
   });
 
