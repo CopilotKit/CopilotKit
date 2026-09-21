@@ -28,7 +28,7 @@ test("guides people and agents to a persistent Intelligence thread", () => {
   expect(manualSteps).toBeGreaterThan(agentPrompt);
   expect(source).toContain("persist conversations reliably in production");
   expect(source).toContain("improve your agents over time");
-  expect(source).toContain("AI analytics");
+  expect(source).toContain("Product Analytics");
   expect(source).toContain("npx copilotkit@latest project select");
   expect(source).toContain("new CopilotKitIntelligence");
   expect(source).toContain("identifyUser");
