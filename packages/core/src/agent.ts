@@ -11,6 +11,7 @@ import type {
 import {
   HttpAgent,
   runHttpRequest,
+  structuredClone_,
   transformHttpEventStream,
 } from "@ag-ui/client";
 import type { Observable } from "rxjs";
@@ -274,37 +275,37 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   }
 
   /**
-   * Apply the configured message filter to the outbound payload.
+   * Narrow the outbound payload with the configured message filter.
    *
-   * This is the only place the proxy narrows what goes on the wire. Both run
-   * paths build their input here (`#runViaHttp`, and `#runViaDelegate`, which
-   * forwards this exact input to the Intelligence delegate), and so does the
-   * self-hosted connect replay, so a filter set on this agent reaches every
-   * outbound request without each transport having to remember it.
+   * **Called from the HTTP paths only, and that placement is the Intelligence
+   * exemption.** An earlier revision applied the filter in
+   * `prepareRunAgentInput`, which runs before the runtime mode is resolved:
+   * with the default `"auto"` transport, or on a proxy still `"pending"` its
+   * first `/info`, `run()` prepared the input, *then* resolved the mode, then
+   * handed that already-filtered input to `#runViaDelegate` — so a managed
+   * runtime received a truncated thread despite the exemption. Filtering here
+   * makes that unreachable by construction: `#runViaHttp` and
+   * `#connectViaHttp` are only entered once the mode is known not to be
+   * Intelligence. Do not move this back up the call chain.
    *
-   * `super.prepareRunAgentInput` already deep-cloned the thread and stripped
-   * `activity` messages, so the filter cannot reach the messages the UI
-   * renders no matter what it does with the array it is handed.
+   * The managed runtime is the store of record for the thread — the threads
+   * drawer and the Slack transcript read from it — so a client-side truncation
+   * there has a blast radius nobody asked for. Every reporter on #1482 is
+   * self-hosted.
+   *
+   * `prepareRunAgentInput` has already deep-cloned the thread and stripped
+   * `activity` messages by the time the input reaches here, so the filter
+   * cannot reach the messages the UI renders no matter what it does with the
+   * array it is handed. The filter gets a *second* deep clone on top of that,
+   * because `input.messages` is also the repair baseline and the untrimmed
+   * fallback: sharing the message objects let a filter that mutates a kept
+   * message's `toolCallId` corrupt the baseline, and an orphaned tool result
+   * then went out on the wire — a payload the provider rejects, which is
+   * exactly the failure this whole mechanism exists to prevent.
    */
-  protected override prepareRunAgentInput(
-    parameters?: RunAgentParameters,
-  ): RunAgentInput {
-    const input = super.prepareRunAgentInput(parameters);
+  #applyMessageFilter(input: RunAgentInput): RunAgentInput {
     const filter = this._messageFilter;
     if (!filter) return input;
-
-    // Intelligence is exempt. The managed runtime is the store of record for
-    // the thread — the threads drawer and the Slack transcript read from it —
-    // so a client-side truncation there has a blast radius nobody asked for:
-    // every reporter on #1482 is self-hosted. It also keeps this agent
-    // self-consistent, because the Intelligence connect path runs through
-    // `delegate.connectAgent`, which builds its own input and could not be
-    // filtered here even if we wanted it to be.
-    //
-    // A "pending" mode still filters: the agent has not yet learned what the
-    // runtime is, and agents discovered from `/info` arrive with a resolved
-    // mode.
-    if (this.runtimeMode === RUNTIME_MODE_INTELLIGENCE) return input;
 
     // A filter that throws, returns the wrong shape, or hands back entries the
     // repair cannot read falls back to the untrimmed thread rather than
@@ -312,7 +313,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     // message down with it would be the worse outcome; the warning is what
     // surfaces the bug.
     try {
-      const kept = filter([...input.messages], {
+      const kept = filter(structuredClone_(input.messages), {
         agentId: this.agentId ?? "",
       });
       if (!Array.isArray(kept)) {
@@ -551,7 +552,8 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     );
   }
 
-  #connectViaHttp(input: RunAgentInput): Observable<BaseEvent> {
+  #connectViaHttp(unfiltered: RunAgentInput): Observable<BaseEvent> {
+    const input = this.#applyMessageFilter(unfiltered);
     this.activeRun = undefined;
     const routedId = this.routedAgentId();
     if (this.transport === "single") {
@@ -586,7 +588,8 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     );
   }
 
-  #runViaHttp(input: RunAgentInput): Observable<BaseEvent> {
+  #runViaHttp(unfiltered: RunAgentInput): Observable<BaseEvent> {
+    const input = this.#applyMessageFilter(unfiltered);
     const activeRun = { threadId: input.threadId, runId: input.runId };
     // Hold this run's identity for as long as its stream lives. The identity
     // check keeps a late-finalizing stream from releasing a newer run.

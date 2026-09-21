@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Message } from "@ag-ui/client";
+import type { Message, RunAgentInput } from "@ag-ui/client";
 import { EMPTY } from "rxjs";
 import { ProxiedCopilotRuntimeAgent } from "../agent";
 import { CopilotKitCore } from "../core";
@@ -267,11 +267,11 @@ describe("ProxiedCopilotRuntimeAgent messageFilter", () => {
     ]);
   });
 
-  it("hands the filtered list to run(), whichever transport it dispatches to", async () => {
-    // `run()` is the fork between the HTTP transports and the Intelligence
-    // delegate, and the delegate forwards this input rather than rebuilding
-    // one. Asserting here covers the delegate path without standing up a
-    // gateway.
+  it("trims below run(), so the transport fork never hands a delegate a trimmed thread", async () => {
+    // Placement is the Intelligence exemption. `run()` is the fork between the
+    // HTTP transports and the Intelligence delegate, and the delegate forwards
+    // whatever input it is handed. So the input reaching `run()` must still be
+    // the whole thread; only the HTTP branch below it may narrow the payload.
     const agent = new ProxiedCopilotRuntimeAgent({
       runtimeUrl: "https://runtime.example",
       agentId: "a",
@@ -283,9 +283,65 @@ describe("ProxiedCopilotRuntimeAgent messageFilter", () => {
 
     await agent.runAgent();
 
-    const input = run.mock.calls[0]?.[0];
-    expect(input?.messages.map((m) => m.id)).toEqual(["u2"]);
+    expect(run.mock.calls[0]?.[0].messages.map((m) => m.id)).toEqual([
+      "u1",
+      "a1",
+      "u2",
+    ]);
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(sentMessages(init).map((m) => m.id)).toEqual(["u2"]);
   });
+
+  it.each([
+    ["auto", { transport: "auto" as const }],
+    ["pending", { runtimeMode: "pending" as const }],
+  ])(
+    "never trims for a delegate when the mode resolves to Intelligence after the input was prepared (%s)",
+    async (_label, overrides) => {
+      // The regression this guards: `runAgent` prepares the input, and only
+      // THEN does `run()` resolve `/info`. With the default "auto" transport,
+      // or on a proxy still "pending" its first `/info`, an earlier revision
+      // had already filtered by that point and handed the truncated thread to
+      // the managed runtime — which is the store of record for that thread.
+      fetchMock.mockImplementation(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              version: "1.0.0",
+              mode: "intelligence",
+              intelligence: { wsUrl: "wss://intelligence.example/ws" },
+              audioFileTranscriptionEnabled: false,
+              agents: { a: { name: "a", className: "HttpAgent" } },
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
+        ),
+      );
+      const agent = new ProxiedCopilotRuntimeAgent({
+        runtimeUrl: "https://runtime.example",
+        agentId: "a",
+        messageFilter: (messages) => messages.slice(-1),
+        ...overrides,
+      });
+      agent.setMessages(history());
+
+      let delegateSaw: string[] | undefined;
+      // Stub only the delegate construction: the mode resolution and the
+      // filter — the things under test — still run for real.
+      (
+        agent as unknown as { resolveDelegate: () => Promise<unknown> }
+      ).resolveDelegate = async () => ({
+        run: (input: RunAgentInput) => {
+          delegateSaw = input.messages.map((m) => m.id);
+          return EMPTY;
+        },
+      });
+
+      await agent.runAgent().catch(() => undefined);
+
+      expect(delegateSaw).toEqual(["u1", "a1", "u2"]);
+    },
+  );
 
   it("drops a non-message entry the filter smuggled in, without failing the run", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -365,6 +421,36 @@ describe("ProxiedCopilotRuntimeAgent messageFilter", () => {
     await agent.runAgent();
 
     expect(seen[0]?.map((m) => m.id)).toEqual(["u1", "u2"]);
+  });
+
+  it("cannot corrupt the repair baseline by mutating a message it drops", async () => {
+    // The filter is handed its own deep copy. Sharing the message objects with
+    // `input.messages` — which is both the repair baseline and the untrimmed
+    // fallback — let a filter that rewrote a dropped message's tool call hide
+    // the issuer from the repair, and the kept tool result then went out
+    // orphaned: a payload the provider rejects.
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "https://runtime.example",
+      agentId: "a",
+      transport: "rest",
+      messageFilter: (messages) => {
+        const issuer = messages.find((m) => m.role === "assistant") as {
+          toolCalls?: { id: string }[];
+        };
+        if (issuer?.toolCalls?.[0]) issuer.toolCalls[0].id = "rewritten";
+        return messages.filter((m) => m.role === "tool");
+      },
+    });
+    const call = createToolCallMessage("lookup");
+    const result = createToolResultMessage(toolCallIdOf(call), "done");
+    agent.setMessages([createMessage({ id: "u1" }), call, result]);
+
+    await agent.runAgent();
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const sent = sentMessages(init);
+    expect(sent.map((m) => m.id)).toEqual([call.id, result.id]);
+    expect(toolCallIdsOf(sent[0]!)).toEqual([toolCallIdOf(call)]);
   });
 
   it("cannot corrupt the transcript by mutating the array it is handed", async () => {
