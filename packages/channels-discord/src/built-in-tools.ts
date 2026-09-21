@@ -15,7 +15,6 @@ import type { ChannelTool } from "@copilotkit/channels-core";
 const lookupSchema = singleStringParameterSchema({
   name: "query",
   description: "A name, display name, or handle to resolve.",
-  vendor: "@copilotkit/channels-discord",
 });
 
 export const lookupDiscordUserTool: ChannelTool = defineChannelTool({

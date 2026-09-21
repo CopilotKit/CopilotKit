@@ -13,6 +13,7 @@ import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { singleStringParameterSchema } from "./standard-schema.js";
+import type { InferSchemaOutput } from "./standard-schema.js";
 import { toJsonSchema, validateSchema } from "./standard-schema.js";
 
 const DESCRIPTION = "Handle, display name, or first name of the person.";
@@ -20,7 +21,6 @@ const DESCRIPTION = "Handle, display name, or first name of the person.";
 const schema = singleStringParameterSchema({
   name: "query",
   description: DESCRIPTION,
-  vendor: "@copilotkit/channels-core",
 });
 
 /** The exact Zod object this helper is a drop-in replacement for. */
@@ -39,7 +39,6 @@ describe("singleStringParameterSchema", () => {
     const renamed = singleStringParameterSchema({
       name: "handle",
       description: DESCRIPTION,
-      vendor: "test",
     });
     const doc = toJsonSchema(renamed) as {
       properties: Record<string, unknown>;
@@ -49,10 +48,18 @@ describe("singleStringParameterSchema", () => {
     expect(doc.required).toEqual(["handle"]);
   });
 
-  it("reports the declared vendor, not zod", () => {
-    // `schemaToJsonSchema` routes a `vendor: "zod"` schema through
-    // `zod-to-json-schema`. Anything else must carry its own document.
+  it("names this package as the vendor, not zod and not the caller", () => {
+    // The Standard Schema `vendor` names the library that produced the
+    // schema, which is `channels-core` whichever adapter calls the helper.
+    // It also has to not be "zod": `schemaToJsonSchema` routes a
+    // `vendor: "zod"` schema through `zod-to-json-schema`, and anything else
+    // must carry its own document.
     expect(schema["~standard"].vendor).toBe("@copilotkit/channels-core");
+    const renamed = singleStringParameterSchema({
+      name: "handle",
+      description: DESCRIPTION,
+    });
+    expect(renamed["~standard"].vendor).toBe("@copilotkit/channels-core");
   });
 
   it("accepts a valid value, exactly as the Zod object does", async () => {
@@ -165,5 +172,49 @@ describe("singleStringParameterSchema", () => {
       properties: { query: { description: string } };
     };
     expect(third.properties.query.description).toBe(DESCRIPTION);
+  });
+});
+
+/**
+ * Type-level assertions. `check-types` runs `tsconfig.check.json`, which
+ * includes this file, so a `@ts-expect-error` here fails the build when the
+ * error it expects stops happening. Nothing below runs.
+ *
+ * The output type is built by mapping over `Name`. A union of names would
+ * claim every member is a present `string` while the function creates exactly
+ * one key, and a widened `string` would claim every possible key. Both promise
+ * a `string` where the value is `undefined`, so both have to be rejected at
+ * the call.
+ */
+describe("type-level contract", () => {
+  it("is enforced by check-types, not at runtime", () => {
+    const literal = singleStringParameterSchema({
+      name: "query",
+      description: DESCRIPTION,
+    });
+    type Out = InferSchemaOutput<typeof literal>;
+    // The literal key is inferred, and nothing else exists on the output.
+    const ok: Out = { query: "ada" };
+    // @ts-expect-error `nope` is not a key of the inferred output
+    const bogus: Out = { query: "ada", nope: 1 };
+
+    const unionName = (Math.random() > 0.5 ? "query" : "handle") as
+      | "query"
+      | "handle";
+    singleStringParameterSchema({
+      // @ts-expect-error a union of names would promise a key that is never created
+      name: unionName,
+      description: DESCRIPTION,
+    });
+
+    const dynamicName: string = "query";
+    singleStringParameterSchema({
+      // @ts-expect-error a widened `string` would promise every possible key
+      name: dynamicName,
+      description: DESCRIPTION,
+    });
+
+    expect(ok.query).toBe("ada");
+    expect(bogus).toBeDefined();
   });
 });

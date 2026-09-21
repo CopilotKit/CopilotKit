@@ -22,7 +22,6 @@ import type { ChannelTool } from "@copilotkit/channels-core";
 const lookupSchema = singleStringParameterSchema({
   name: "query",
   description: "Handle, display name, or first name of the person to look up.",
-  vendor: "@copilotkit/channels-telegram",
 });
 
 export const lookupTelegramUserTool = defineChannelTool({

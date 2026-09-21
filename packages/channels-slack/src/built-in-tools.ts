@@ -27,7 +27,6 @@ const lookupSchema = singleStringParameterSchema({
   name: "query",
   description:
     "Handle, display name, first name, or email of the person to look up.",
-  vendor: "@copilotkit/channels-slack",
 });
 
 export const lookupSlackUserTool = defineChannelTool({

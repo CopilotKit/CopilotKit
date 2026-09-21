@@ -106,6 +106,28 @@ function formatIssues(issues: ReadonlyArray<StandardSchemaV1.Issue>): string {
     .join("; ");
 }
 
+/** True when `T` is a union of more than one member. */
+type IsUnion<T, U = T> = T extends unknown
+  ? [U] extends [T]
+    ? false
+    : true
+  : never;
+
+/**
+ * `Name` unless it is a union or the widened `string`, in which case `never`.
+ *
+ * The output type is built by mapping over `Name`, so a union claims every
+ * member is present while the function creates exactly one key, and a widened
+ * `string` claims every possible key. Either way the type promises a `string`
+ * where the value is `undefined`. Restricting the parameter to one literal is
+ * what makes `SingleStringParameterSchema` honest.
+ */
+type SingleLiteral<Name extends string> = string extends Name
+  ? never
+  : true extends IsUnion<Name>
+    ? never
+    : Name;
+
 /**
  * A parameter schema for a tool that takes exactly one required string.
  *
@@ -169,15 +191,24 @@ function parsedTypeOf(value: unknown): string {
  * The one-character floor is fixed rather than configurable because all three
  * call sites want it and a knob nobody turns is a knob nobody tests.
  */
-export function singleStringParameterSchema<Name extends string>(options: {
-  /** Field name, e.g. `"query"`. Becomes the sole key of the output object. */
-  name: Name;
+export function singleStringParameterSchema<
+  const Name extends string,
+>(options: {
+  /**
+   * Field name, e.g. `"query"`. Becomes the sole key of the output object.
+   *
+   * Must be a single string literal. A union or a widened `string` is a
+   * compile error, because the output type would then promise keys this
+   * function never creates. See `SingleLiteral`.
+   */
+  name: SingleLiteral<Name>;
   /** Field description handed to the model. Was `z.string().describe(...)`. */
   description: string;
-  /** Standard Schema `vendor` tag — pass the declaring package's name. */
-  vendor: string;
 }): SingleStringParameterSchema<Name> {
-  const { name, description, vendor } = options;
+  // `SingleLiteral<Name>` is a deferred conditional type, so TypeScript cannot
+  // prove it reduces to `Name` inside the body. It does for every value that
+  // reaches here, because any other value is a compile error at the call.
+  const { name, description } = options as { name: Name; description: string };
   type Output = { [K in Name]: string };
 
   // Built per call, never shared. `zodToJsonSchema` returned a fresh document
@@ -237,7 +268,12 @@ export function singleStringParameterSchema<Name extends string>(options: {
   return {
     "~standard": {
       version: 1,
-      vendor,
+      // The Standard Schema `vendor` names the library that produced the
+      // schema, and that library is this one whichever adapter calls it.
+      // Consumers branch on this tag — `isZodSchema` in `@copilotkit/runtime`
+      // is one — so three different tags for one implementation would be three
+      // things to teach such a branch about.
+      vendor: "@copilotkit/channels-core",
       validate,
       jsonSchema: {
         input: buildJsonSchema,
