@@ -465,7 +465,7 @@
         "peerDependencies": {
           "@microsoft/agents-activity": "^1.5.3",
           "@microsoft/agents-hosting": "^1.5.3",
-          "express": "^4.21.2 || ^5.0.0",
+          "express": "^4.18.0 || ^5.0.0",
           "vitest": "^4.0.0"
         },
         "optionalPeerDependencies": [
@@ -794,7 +794,7 @@
         "peerDependencies": {
           "@microsoft/agents-activity": "^1.5.3",
           "@microsoft/agents-hosting": "^1.5.3",
-          "express": "^4.21.2 || ^5.0.0"
+          "express": "^4.18.0 || ^5.0.0"
         },
         "optionalPeerDependencies": [
           "@microsoft/agents-activity",
