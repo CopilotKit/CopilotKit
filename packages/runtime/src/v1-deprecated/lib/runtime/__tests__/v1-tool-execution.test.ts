@@ -7,10 +7,20 @@ const adapter = { name: "OpenAIAdapter" } as any;
 const agents = () =>
   ({ default: new HttpAgent({ url: "https://example.com/a" }) }) as any;
 
-/** Pull the tools the runtime attached to the default agent. */
-async function toolsOf(runtime: CopilotRuntime) {
+/**
+ * Pull the tools the runtime attached to the default agent.
+ *
+ * Agents resolve per request, so this supplies the request the factory reads
+ * its properties from.
+ */
+async function toolsOf(runtime: CopilotRuntime, forwardedProps = {}) {
   runtime.handleServiceAdapter(adapter);
-  const resolved: any = await resolveAgents(runtime.instance.agents);
+  const request = new Request("https://app.example.com/api/copilotkit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [], forwardedProps }),
+  });
+  const resolved: any = await resolveAgents(runtime.instance.agents, request);
   return (Reflect.get(resolved.default, "config") as any)?.tools ?? [];
 }
 

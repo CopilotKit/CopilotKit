@@ -2103,6 +2103,20 @@
           }
         },
         {
+          "importPath": "@copilotkit/shared/event-transforms",
+          "exportKey": "./event-transforms",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/event-transforms/index.mjs",
+            "require": "./dist/event-transforms/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/shared/package.json",
+            "selector": "exports[\"./event-transforms\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/shared/package.json",
           "exportKey": "./package.json",
           "kind": "metadata",
