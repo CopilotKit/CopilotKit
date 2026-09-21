@@ -9,7 +9,10 @@ const mocks = vi.hoisted(() => ({
   conversationSettled: false,
 }));
 
-vi.mock("./helpers/conversation-runner.js", () => ({
+vi.mock("./helpers/conversation-runner.js", async () => ({
+  ...(await vi.importActual<typeof import("./helpers/conversation-runner.js")>(
+    "./helpers/conversation-runner.js",
+  )),
   runConversation: vi.fn(
     () =>
       new Promise((resolve) => {
@@ -58,6 +61,7 @@ describe("frontend matrix Playwright timeout cleanup", () => {
   it("waits for the interrupted conversation task before returning", async () => {
     const page = {
       on: vi.fn(),
+      evaluate: vi.fn(),
       goto: vi.fn(async () => ({ ok: () => true })),
       waitForFunction: vi.fn(async () => undefined),
     };
@@ -89,6 +93,8 @@ describe("frontend matrix Playwright timeout cleanup", () => {
     });
 
     expect(result.status).toBe("failed");
+    expect(result.errorClass).toBe("conversation-error");
+    expect(result.error).toBe("conversation failed");
     expect(mocks.conversationSettled).toBe(true);
     expect(close).toHaveBeenCalled();
   });

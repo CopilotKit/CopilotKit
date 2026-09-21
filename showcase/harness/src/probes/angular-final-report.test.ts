@@ -5,37 +5,75 @@ import {
   buildAngularFinalReport,
 } from "./angular-final-report.js";
 import type { AngularCanaryEvidence } from "./angular-final-report.js";
-import type { FrontendParityReport } from "./frontend-parity-gate.js";
+import { evaluateFrontendParity } from "./frontend-parity-gate.js";
+import type {
+  FrontendParityCell,
+  FrontendParityReport,
+} from "./frontend-parity-gate.js";
 
-const parity: FrontendParityReport = {
-  schemaVersion: 1,
+function proofCell(
+  frontend: "react" | "angular",
+  sourceCommit: string,
+): FrontendParityCell {
+  return {
+    frontend,
+    sourceCommit,
+    integration: "langgraph-python",
+    feature: "agentic-chat",
+    status: "passed",
+    containerImageRevision: `sha256:${"c".repeat(64)}`,
+    fixtureRevision: "b".repeat(40),
+    featureContractRevision: "d".repeat(40),
+    probeIds: ["agentic-chat"],
+    testIds: ["synthetic-proof"],
+    startedAt: "2026-09-21T00:00:00Z",
+    observedAt: "2026-09-21T00:00:01Z",
+    probes: [
+      {
+        featureType: "agentic-chat",
+        status: "passed",
+        pillExecution: {
+          mode: "functional-pill",
+          surface: "public",
+          completed: true,
+          attempts: 1,
+          failures: [],
+          startedAt: "2026-09-21T00:00:00Z",
+          completedAt: "2026-09-21T00:00:01Z",
+          identity: {
+            canonical: "agentic-chat",
+            integration: "langgraph-python",
+            frontend,
+            targetRevision: `sha256:${"c".repeat(64)}`,
+            canonicalRevision: "d".repeat(40),
+          },
+          requiredActions: ["sample"],
+          actions: [
+            {
+              id: "sample",
+              attempted: true,
+              clicked: true,
+              assertionPassed: true,
+              completed: true,
+              dispatchedPrompt: "Sample",
+            },
+          ],
+        },
+      },
+    ],
+  };
+}
+const parity: FrontendParityReport = evaluateFrontendParity({
   frozenBaseCommit: "a".repeat(40),
   pullRequestCommit: "b".repeat(40),
-  passed: true,
-  summary: {
-    passed: 1,
-    "angular-regression": 0,
-    "react-regression": 0,
-    "accepted-baseline-failure": 1,
-    "angular-improvement": 0,
-    "react-only": 0,
-    "unowned-baseline-failure": 0,
-    "identity-mismatch": 0,
-    "missing-result": 0,
-  },
-  comparisons: [
-    {
-      id: "langgraph-python/agentic-chat",
-      integration: "langgraph-python",
-      feature: "agentic-chat",
-      baseReact: "passed",
-      pullRequestReact: "passed",
-      pullRequestAngular: "passed",
-      outcome: "passed",
-      blockingReasons: [],
-    },
+  baselineReact: [proofCell("react", "a".repeat(40))],
+  pullRequest: [
+    proofCell("react", "b".repeat(40)),
+    proofCell("angular", "b".repeat(40)),
   ],
-};
+  expectedAngularCellIds: ["langgraph-python/agentic-chat"],
+  acceptedBaselineFailures: [],
+});
 
 const canary = (
   browser: AngularCanaryEvidence["browser"],
@@ -166,7 +204,7 @@ describe("Angular final CI report", () => {
           canary("chromium"),
           canary("firefox"),
           canary("webkit"),
-          { ...canary("chromium"), browser: "safari" as "chromium" },
+          canary("chromium"),
         ],
         acceptedBaselineFailures: [],
         supportedAngularFeatureIds: ["agentic-chat"],
@@ -193,4 +231,15 @@ describe("Angular final CI report", () => {
       }),
     ).toThrow(/ten runtime samples/i);
   });
+});
+
+it("rejects a legacy passed parity report with no retained evidence", () => {
+  expect(() =>
+    buildAngularFinalReport({
+      parity: { ...parity, evidence: undefined },
+      canaries: [],
+      acceptedBaselineFailures: [],
+      supportedAngularFeatureIds: [],
+    }),
+  ).toThrow(/public pill evidence/);
 });

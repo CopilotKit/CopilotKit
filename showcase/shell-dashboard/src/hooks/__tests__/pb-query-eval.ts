@@ -655,26 +655,17 @@ export function readPbListRequest(
 export type PbListCaller = "heartbeat" | "supplemental" | "bulk";
 
 /**
- * Classifies a request by the ONE property that structurally separates the
- * hook's three list callers, so the fakes' instrumentation can never conflate
- * them:
- *
- *  - the heartbeat ping is the only `perPage: 1` request;
- *  - the SUPPLEMENTAL signal fetch is the only one that asks for `signal` —
- *    bringing the heavy blob back is its entire purpose, and the bulk fetch
- *    always projects it AWAY (`STATUS_LIST_FIELDS`). A projection-LESS request
- *    is also supplemental: that was its pre-fix shape, and the bulk fetch has
- *    always carried a projection, so keying on it lets the same assertions run
- *    red and green across the change.
- *
- * Discriminating on a filter substring instead would be unreliable — the
- * supplemental filter is a UNION whose comm-error clause is DROPPED for a
- * dimension scope outside `FLEET_COMM_AGGREGATE_DIMENSIONS`.
+ * Heartbeats request one row. Supplemental reads always include the non-green
+ * clause, even when dimension-scoped; bulk reads only filter by dimension.
+ * Both reads project signal because cold-load green requires its proof.
  */
-export function classifyPbListRequest(req: PbListRequest): PbListCaller {
+export function classifyPbListRequest(
+  req: Pick<PbListRequest, "perPage" | "filter">,
+): PbListCaller {
   if (req.perPage === 1) return "heartbeat";
-  if (req.fields === null) return "supplemental";
-  return req.fields.split(",").includes("signal") ? "supplemental" : "bulk";
+  return /\bstate\s*!=\s*["']green["']/.test(req.filter ?? "")
+    ? "supplemental"
+    : "bulk";
 }
 
 /**

@@ -79,7 +79,31 @@ interface PageScript {
 
 function makePage(script: PageScript = {}): E2eFullPage {
   let messageCount = 0;
+  const requestListeners = new Set<
+    (request: { method(): string; postData(): string | null }) => void
+  >();
   return {
+    on: (_event, listener) => {
+      requestListeners.add(listener);
+    },
+    off: (_event, listener) => {
+      requestListeners.delete(listener);
+    },
+    getByRole: (_role, { name }) => ({
+      count: async () => 1,
+      isVisible: async () => true,
+      isEnabled: async () => true,
+      innerText: async () => name,
+      click: async () => {
+        if (!script.stallEvaluate) messageCount++;
+        for (const listener of requestListeners)
+          listener({
+            method: () => "POST",
+            postData: () =>
+              JSON.stringify({ messages: [{ role: "user", content: name }] }),
+          });
+      },
+    }),
     async goto() {
       if (script.throwOnGoto) throw script.throwOnGoto;
       if (script.stallGoto) {
@@ -205,11 +229,17 @@ function makeScript(
     featureTypes: featureTypes as D5Script["featureTypes"],
     fixtureFile: "test-fixture.json",
     buildTurns: () =>
-      opts?.turns ?? [
-        {
-          input: "hello",
+      (opts?.turns ?? [{ input: "hello" }]).map((turn, index) => ({
+        ...turn,
+        action: {
+          kind: "pill" as const,
+          id: `unit-pill-${index}`,
+          buttonName: turn.input,
+          expectedDispatchedPrompt: turn.input,
+          submission: { kind: "immediate" as const },
         },
-      ],
+        assertions: turn.assertions ?? (async () => {}),
+      })),
     preNavigateRoute: opts?.preNavigateRoute
       ? () => opts.preNavigateRoute!
       : undefined,
@@ -221,6 +251,82 @@ function makeScript(
 describe("e2e-full driver", () => {
   beforeEach(() => {
     __clearD5RegistryForTesting();
+  });
+
+  describe("scheduled public execution", () => {
+    async function runWithIdentity(
+      missing?: "shell" | "target" | "canonical" | "worker-skew",
+    ) {
+      registerD5Script(makeScript(["agentic-chat"]));
+      const rows: ProbeResult<unknown>[] = [];
+      // A typed boundary sentinel proves the public executor was reached without
+      // constructing an unrelated Playwright context for identity guard tests.
+      const newPublicContext = vi
+        .fn<NonNullable<E2eFullBrowser["newPublicContext"]>>()
+        .mockRejectedValue(new Error("public execution reached"));
+      const browser: E2eFullBrowser = { ...makeBrowser(), newPublicContext };
+      const driver = createE2eFullDriver({
+        launcher: async () => browser,
+        scriptLoader: noopScriptLoader(),
+      });
+      await driver.run(
+        {
+          ...makeCtx({
+            writer: {
+              write: async (row) => {
+                rows.push(row);
+              },
+            },
+          }),
+          // Omit both canonical values together so the canonical syntax guard
+          // is isolated from the separate worker/job equality guard.
+          env:
+            missing === "canonical"
+              ? {}
+              : {
+                  COMMIT_SHA: (missing === "worker-skew" ? "c" : "b").repeat(
+                    40,
+                  ),
+                },
+        },
+        {
+          key: "d6:test-slug",
+          backendUrl: "http://localhost:39200",
+          features: ["agentic-chat"],
+          surface: "public",
+          publicShellBaseUrl:
+            missing === "shell" ? undefined : "http://localhost:39204",
+          targetRevision:
+            missing === "target" ? undefined : `sha256:${"a".repeat(64)}`,
+          canonicalRevision:
+            missing === "canonical" ? undefined : "b".repeat(40),
+        },
+      );
+      return {
+        row: rows.find((row) => row.key === "d6:test-slug/agentic-chat"),
+        newPublicContext,
+      };
+    }
+
+    it.each(["shell", "target", "canonical", "worker-skew"] as const)(
+      "keeps scheduled execution unverified when %s identity is absent or mismatched",
+      async (missing) => {
+        const { row, newPublicContext } = await runWithIdentity(missing);
+        expect(row).toMatchObject({
+          state: "red",
+          signal: { errorClass: "unverified-definition" },
+        });
+        expect(newPublicContext).not.toHaveBeenCalled();
+      },
+    );
+
+    it("reaches public execution with valid matching identities", async () => {
+      const { row, newPublicContext } = await runWithIdentity();
+      expect(newPublicContext).toHaveBeenCalledOnce();
+      expect(row).toMatchObject({
+        signal: { errorDesc: "public execution reached" },
+      });
+    });
   });
 
   describe("exports", () => {
@@ -315,7 +421,7 @@ describe("e2e-full driver", () => {
       expect(sideRow).toBeDefined();
       expect(sideRow!.state).toBe("red");
       const sideSignal = sideRow!.signal as E2eFullFeatureSignal;
-      expect(sideSignal.errorClass).toBe("missing-script");
+      expect(sideSignal.errorClass).toBe("unverified-definition");
     });
   });
 
@@ -1116,6 +1222,29 @@ describe("e2e-full driver", () => {
       expect(pool.stats().inUse).toBe(0);
     });
 
+    it("rejects and releases once when aborted during public header reset", async () => {
+      const ac = new AbortController();
+      const resetHeaders = vi.fn(async () => {
+        ac.abort();
+      });
+      const pool = makeFakeContextPool(1, resetHeaders);
+      const browser = await createPooledE2eFullLauncher(
+        pool as unknown as BrowserPool,
+      )(ac.signal);
+      try {
+        if (!browser.newPublicContext)
+          throw new Error("Missing public context");
+        await expect(browser.newPublicContext()).rejects.toThrow(
+          "e2e-full launcher aborted",
+        );
+        expect(resetHeaders).toHaveBeenCalledWith({});
+        expect(pool._releaseLog).toHaveLength(1);
+        expect(pool.stats().inUse).toBe(0);
+      } finally {
+        await browser.close();
+      }
+    });
+
     it("launcher-level close is a no-op (contexts release themselves)", async () => {
       const pool = makeFakeContextPool(4);
       const launcher = createPooledE2eFullLauncher(
@@ -1134,7 +1263,10 @@ describe("e2e-full driver", () => {
 // above — lifted out of the describe so oxlint's consistent-function-scoping
 // is satisfied (the factory captures no parent state). Tracks per-CONTEXT
 // acquire/release and the contextOptions each acquire was called with.
-function makeFakeContextPool(maxContexts: number) {
+function makeFakeContextPool(
+  maxContexts: number,
+  setExtraHTTPHeaders = async (_headers: Record<string, string>) => {},
+) {
   let nextCtxId = 0;
   // Track the set of currently-live contexts so release fidelity matches
   // the real BrowserPool: an unknown / double release is a no-op (does
@@ -1152,6 +1284,7 @@ function makeFakeContextPool(maxContexts: number) {
       acquireOptions.push(options);
       const ctx = {
         __id: id,
+        setExtraHTTPHeaders,
         async newPage() {
           return {
             on: () => {},
@@ -1412,13 +1545,13 @@ function makeRetryLauncherFull(opts: { attempt1DelayMs: number }): {
   return { launcher: async () => browser, state };
 }
 
-describe("e2e-full per-feature retry signal isolation", () => {
+describe("e2e-full preserves the first functional failure", () => {
   beforeEach(() => {
     __clearD5RegistryForTesting();
   });
 
   it.each([false, true])(
-    "executes retries once per feature in the roster (filtered=%s)",
+    "does not retry a failed feature (filtered=%s)",
     async (filtered) => {
       // Attempt 1 fails retry-eligibly (goto-error) after
       // >= RETRY_MIN_DURATION_MS (2s); attempt 2 succeeds. The retry must
@@ -1457,9 +1590,9 @@ describe("e2e-full per-feature retry signal isolation", () => {
       );
 
       // Two attempts executed → two contexts opened.
-      expect(state.opened).toBe(2);
+      expect(state.opened).toBe(1);
       const aggRow = sideEmits.find((r) => r.key === "d6:test-slug");
-      expect(result.state).toBe("green");
+      expect(result.state).toBe("red");
       if (filtered) {
         expect(result.signal.scope).toEqual({
           requested: ["agentic-chat", "tool-rendering"],
@@ -1474,7 +1607,7 @@ describe("e2e-full per-feature retry signal isolation", () => {
         ]);
       } else {
         expect(result.signal.scope).toBeUndefined();
-        expect(aggRow?.state).toBe("green");
+        expect(aggRow?.state).toBe("red");
       }
     },
     15_000,

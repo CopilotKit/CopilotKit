@@ -1,3 +1,6 @@
+import { runConversation } from "../../../../harness/src/probes/helpers/conversation-runner.js";
+import { buildChatPlatformTurns } from "../../../../harness/src/probes/scripts/_pill-contracts-chat-platform.js";
+// Existing scenarios are diagnostics; only the canonical pill test below is functional acceptance.
 import { test, expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
@@ -83,12 +86,12 @@ async function waitForRoundTrip(
   return { userMsg, asstMsg };
 }
 
-test.describe("Multimodal Attachments", () => {
+test.describe("Diagnostic: Multimodal Attachments", () => {
   test.beforeEach(async ({ page }) => {
     await openDemo(page);
   });
 
-  test("page loads with sample row, sample buttons, composer, and paperclip", async ({
+  test("Diagnostic: page loads with sample row, sample buttons, composer, and paperclip", async ({
     page,
   }) => {
     await expect(
@@ -100,7 +103,7 @@ test.describe("Multimodal Attachments", () => {
     await expect(page.locator(ADD_MENU_BUTTON)).toBeVisible();
   });
 
-  test("sample image: auto-sends, user msg shows EXACTLY ONE image, assistant references it", async ({
+  test("Diagnostic: sample image: auto-sends, user msg shows EXACTLY ONE image, assistant references it", async ({
     page,
   }) => {
     await page.locator(SAMPLE_IMAGE_BTN).click();
@@ -119,7 +122,7 @@ test.describe("Multimodal Attachments", () => {
     await expect(asstMsg).toContainText(/copilotkit|logo|image/i);
   });
 
-  test("sample PDF: auto-sends, user msg shows EXACTLY ONE document chip (not a broken image)", async ({
+  test("Diagnostic: sample PDF: auto-sends, user msg shows EXACTLY ONE document chip (not a broken image)", async ({
     page,
   }) => {
     await page.locator(SAMPLE_PDF_BTN).click();
@@ -148,7 +151,7 @@ test.describe("Multimodal Attachments", () => {
     await expect(asstMsg).toContainText(/copilotkit/i);
   });
 
-  test("image then PDF in same session: each message keeps its own chip, no doubling", async ({
+  test("Diagnostic: image then PDF in same session: each message keeps its own chip, no doubling", async ({
     page,
   }) => {
     await page.locator(SAMPLE_IMAGE_BTN).click();
@@ -170,7 +173,7 @@ test.describe("Multimodal Attachments", () => {
     await expect(second.userMsg.getByText(/^PDF$/)).toBeVisible();
   });
 
-  test("PDF then image in same session: each message keeps its own chip, no doubling", async ({
+  test("Diagnostic: PDF then image in same session: each message keeps its own chip, no doubling", async ({
     page,
   }) => {
     await page.locator(SAMPLE_PDF_BTN).click();
@@ -191,4 +194,15 @@ test.describe("Multimodal Attachments", () => {
       0,
     );
   });
+});
+
+test("Canonical pill acceptance: multimodal", async ({ page }) => {
+  await page.goto("/demos/multimodal");
+  const result = await runConversation(
+    page,
+    buildChatPlatformTurns("multimodal"),
+    { mode: "functional-pill", surface: "direct-diagnostic" },
+  );
+  expect(result.error, JSON.stringify(result.pillExecution)).toBeUndefined();
+  expect(result.pillExecution?.completed).toBe(true);
 });

@@ -1,3 +1,4 @@
+import { unitPillSignal } from "../../../harness/src/shared/cell-model/cell-model.equivalence-fixtures";
 /**
  * Unit tests for the header `LiveIndicator` color-map (spec §5.7) and
  * `computeColumnTally` (§5.4 rollup + §5.3 offline handling).
@@ -117,7 +118,7 @@ function row(key: string, dim: string, state: StatusRow["state"]): StatusRow {
     key,
     dimension: dim,
     state,
-    signal: {},
+    signal: unitPillSignal(key, FRESH_OBSERVED_AT),
     observed_at: FRESH_OBSERVED_AT,
     transitioned_at: FRESH_OBSERVED_AT,
     fail_count: 0,

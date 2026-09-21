@@ -1,3 +1,5 @@
+import { createPlaywrightProbeExecutor } from "../../../../harness/src/probes/frontend-matrix-playwright.js";
+import { buildTurns as buildCanonicalTurns } from "../../../../harness/src/probes/scripts/d5-gen-ui-open.js";
 import { test, expect } from "@playwright/test";
 
 // QA reference: qa/open-gen-ui.md
@@ -26,14 +28,14 @@ import { test, expect } from "@playwright/test";
 // greeting (and never emit the open-gen-ui tool call). Keep the pill
 // message strings in `suggestions.ts` aligned with the fixture keys.
 
-test.describe("Open Generative UI (minimal)", () => {
+test.describe("@diagnostic Open Generative UI (minimal)", () => {
   test.setTimeout(120_000);
 
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/open-gen-ui");
   });
 
-  test("page loads with chat composer and 4 suggestion pills", async ({
+  test("@diagnostic page loads with chat composer and 4 suggestion pills", async ({
     page,
   }) => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible({
@@ -88,27 +90,69 @@ test.describe("Open Generative UI (minimal)", () => {
       .toBe(true);
   };
 
-  test("Fourier pill renders a sandboxed iframe with non-empty source", async ({
+  test("@diagnostic Fourier pill renders a sandboxed iframe with non-empty source", async ({
     page,
   }) => {
     await assertPillRendersIframe(page, "Fourier: square wave from sines");
   });
 
-  test("3D axis pill renders a sandboxed iframe with non-empty source", async ({
+  test("@diagnostic 3D axis pill renders a sandboxed iframe with non-empty source", async ({
     page,
   }) => {
     await assertPillRendersIframe(page, "3D axis visualization");
   });
 
-  test("Neural network pill renders a sandboxed iframe with non-empty source", async ({
+  test("@diagnostic Neural network pill renders a sandboxed iframe with non-empty source", async ({
     page,
   }) => {
     await assertPillRendersIframe(page, "How a neural network works");
   });
 
-  test("Quicksort pill renders a sandboxed iframe with non-empty source", async ({
+  test("@diagnostic Quicksort pill renders a sandboxed iframe with non-empty source", async ({
     page,
   }) => {
     await assertPillRendersIframe(page, "Quicksort visualization");
   });
+});
+
+/** Functional proof is this runner artifact; supplemental test totals are not acceptance. */
+test("@canonical rendering open-gen-ui: all actual LGP pills and results", async ({
+  browser,
+  baseURL,
+}, testInfo) => {
+  test.setTimeout(480_000);
+  if (!baseURL)
+    throw new Error(
+      "canonical rendering requires configured actual demo baseURL",
+    );
+  const featureType = "gen-ui-open" as const;
+  const run = createPlaywrightProbeExecutor({
+    browser,
+    scripts: new Map([
+      [
+        featureType,
+        { featureTypes: [featureType], buildTurns: buildCanonicalTurns },
+      ],
+    ]),
+    probeTimeoutMs: 450_000,
+  });
+  const result = await run({
+    cell: {
+      id: "react/ms-agent-python/open-gen-ui",
+      frontend: "react",
+      integration: "ms-agent-python",
+      feature: "open-gen-ui",
+      featureTypes: [featureType],
+    },
+    featureType,
+    url: new URL("/demos/open-gen-ui", baseURL).href,
+    backendUrl: baseURL,
+    testId: `canonical-rendering-${testInfo.workerIndex}-${Date.now()}`,
+    surface: "direct-diagnostic",
+  });
+  await testInfo.attach("canonical-pill-execution", {
+    body: JSON.stringify(result, null, 2),
+    contentType: "application/json",
+  });
+  expect(result.status, JSON.stringify(result)).toBe("passed");
 });

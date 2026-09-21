@@ -1,3 +1,5 @@
+import { createPlaywrightProbeExecutor } from "../../../../harness/src/probes/frontend-matrix-playwright.js";
+import { buildTurns as buildCanonicalTurns } from "../../../../harness/src/probes/scripts/d5-byoc.js";
 import { test, expect } from "@playwright/test";
 
 /**
@@ -5,12 +7,12 @@ import { test, expect } from "@playwright/test";
  * mirrors `gen-ui-tool-based.spec.ts` so the dashboard's BYOC rows
  * exercise the same surfaces (json-render-root + metric-card + chart).
  */
-test.describe("Declarative UI: json-render", () => {
+test.describe("@diagnostic Declarative UI: json-render", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/declarative-json-render");
   });
 
-  test("page loads with chat composer and suggestion pills", async ({
+  test("@diagnostic page loads with chat composer and suggestion pills", async ({
     page,
   }) => {
     // Chat composer
@@ -27,7 +29,7 @@ test.describe("Declarative UI: json-render", () => {
     await expect(page.getByText("Expense trend")).toBeVisible();
   });
 
-  test("sales dashboard request renders a json-render tree", async ({
+  test("@diagnostic sales dashboard request renders a json-render tree", async ({
     page,
   }) => {
     const input = page.locator('textarea, [placeholder*="message"]').first();
@@ -54,7 +56,9 @@ test.describe("Declarative UI: json-render", () => {
     ).toBeVisible({ timeout: 60000 });
   });
 
-  test("revenue-by-category request renders a pie chart", async ({ page }) => {
+  test("@diagnostic revenue-by-category request renders a pie chart", async ({
+    page,
+  }) => {
     const input = page.locator('textarea, [placeholder*="message"]').first();
     await input.fill("Break down revenue by category as a pie chart");
     await input.press("Enter");
@@ -64,7 +68,9 @@ test.describe("Declarative UI: json-render", () => {
     );
   });
 
-  test("expense-trend request renders a bar chart", async ({ page }) => {
+  test("@diagnostic expense-trend request renders a bar chart", async ({
+    page,
+  }) => {
     const input = page.locator('textarea, [placeholder*="message"]').first();
     await input.fill("Show me monthly expenses as a bar chart");
     await input.press("Enter");
@@ -73,4 +79,46 @@ test.describe("Declarative UI: json-render", () => {
       { timeout: 60000 },
     );
   });
+});
+
+/** Functional proof is this runner artifact; supplemental test totals are not acceptance. */
+test("@canonical rendering declarative-json-render: all actual LGP pills and results", async ({
+  browser,
+  baseURL,
+}, testInfo) => {
+  test.setTimeout(480_000);
+  if (!baseURL)
+    throw new Error(
+      "canonical rendering requires configured actual demo baseURL",
+    );
+  const featureType = "byoc" as const;
+  const run = createPlaywrightProbeExecutor({
+    browser,
+    scripts: new Map([
+      [
+        featureType,
+        { featureTypes: [featureType], buildTurns: buildCanonicalTurns },
+      ],
+    ]),
+    probeTimeoutMs: 450_000,
+  });
+  const result = await run({
+    cell: {
+      id: "react/ms-agent-dotnet/declarative-json-render",
+      frontend: "react",
+      integration: "ms-agent-dotnet",
+      feature: "declarative-json-render",
+      featureTypes: [featureType],
+    },
+    featureType,
+    url: new URL("/demos/declarative-json-render", baseURL).href,
+    backendUrl: baseURL,
+    testId: `canonical-rendering-${testInfo.workerIndex}-${Date.now()}`,
+    surface: "direct-diagnostic",
+  });
+  await testInfo.attach("canonical-pill-execution", {
+    body: JSON.stringify(result, null, 2),
+    contentType: "application/json",
+  });
+  expect(result.status, JSON.stringify(result)).toBe("passed");
 });

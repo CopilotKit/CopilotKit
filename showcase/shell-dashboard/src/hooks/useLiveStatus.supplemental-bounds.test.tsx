@@ -2,11 +2,9 @@
  * REAL-SDK regression tests for the BOUNDS and the FAILURE MODE of the
  * SUPPLEMENTAL signal fetch in `useLiveStatus`.
  *
- * Background. The bulk initial fetch projects the heavy `signal` blob away
- * (`STATUS_LIST_FIELDS`), so a supplemental fetch re-reads `signal` for exactly
- * the rows whose verdict depends on it: the comm-error candidate AGGREGATE rows
- * ∪ every row with `state != "green"`. Two properties of that fetch are
- * load-bearing and were previously untested:
+ * Bulk reads retain signal, including the proof required for green. The
+ * supplemental fetch re-reads comm-error candidate aggregate rows and every
+ * non-green row. Its pagination and failure behavior remain bounded.
  *
  *  1. IT IS BOUNDED. Its pagination loop is a `for(;;)` over a filter whose
  *     selectivity is a function of FLEET HEALTH — nominally ~360 of ~3100 rows
@@ -16,15 +14,9 @@
  *     keeps answering with full pages. So it degrades exactly when the dashboard
  *     matters most, and it is awaited BEFORE any row is returned.
  *
- *  2. ITS FAILURE IS NOT FATAL. It is an ENRICHMENT fetch: its rows only add
- *     `signal` to rows the bulk fetch already delivered. If it rejects, the
- *     right outcome is a dashboard that renders with `signal` unknown — under
- *     the classifier's fail-safe polarity a non-green row with no `signal` is
- *     painted RED, never gray — NOT a blanked dashboard. Propagating the
- *     rejection through `fetchInitial` → `connect()` → the retry chain lands
- *     `rows: []` + `status: "error"`, i.e. a supplemental failure hides the
- *     ENTIRE matrix, which is strictly worse than the half-blind cold load the
- *     fetch was added to fix.
+ *  2. ITS FAILURE IS NOT FATAL. If this refresh rejects, the dashboard keeps
+ *     the bulk rows and their signals. Propagating the rejection through the
+ *     retry chain would instead blank the entire matrix.
  *
  * These tests drive the REAL hook against the REAL PocketBase SDK over a real
  * socket (the sibling mocked suite cannot observe wire-level pagination or an
@@ -260,8 +252,7 @@ const RED_ROW: Record<string, unknown> = {
 
 /**
  * A GREEN `d6:<slug>` aggregate carrying a mirrored comm error — the clause-1
- * row. Green, so the non-green clause can never reach it; its overlay exists
- * only if the comm-error clause fetched it WITH `signal`.
+ * row. Green, so only the comm-error clause selects it for supplemental refresh.
  */
 const OVERLAY_AGGREGATE_ROW: Record<string, unknown> = {
   id: "agg-1",
@@ -659,16 +650,14 @@ describe("useLiveStatus supplemental fetch — failure degrades, never blanks", 
       expect(result.current.status).toBe("live");
       expect(result.current.rows).toHaveLength(HONEST_ROWS.length);
 
-      // The rows we could not enrich carry NO `signal`...
+      // A failed supplemental read must preserve the bulk failure signal.
       const red = result.current.rows.find(
         (r) => r.key === keyFor("e2e", RED_SLUG, FEATURE),
       );
       expect(red).toBeDefined();
-      expect(red?.signal).toBeUndefined();
+      expect(red?.signal).toEqual(RED_ROW.signal);
 
-      // ...and the fail-safe polarity means the cell still renders RED, which is
-      // the entire point of the PR this fetch belongs to. A signal-less red must
-      // never fall back to gray.
+      // The retained failure signal keeps the cell RED despite enrichment failure.
       const model = buildCellModel(
         mergeRowsToMap([...result.current.rows]),
         {
@@ -748,10 +737,10 @@ describe("useLiveStatus supplemental fetch — cold-load correctness + projectio
         new Set([keyFor("e2e", RED_SLUG, FEATURE), `d6:${OVERLAY_SLUG}`]),
       );
 
-      // The bulk pages still project `signal` away.
+      // Bulk pages retain signal for every row, including green proof.
       expect(honest.bulkQueries.length).toBeGreaterThan(0);
       for (const bq of honest.bulkQueries) {
-        expect((bq.get("fields") ?? "").split(",")).not.toContain("signal");
+        expect((bq.get("fields") ?? "").split(",")).toContain("signal");
       }
     } finally {
       unmount();
@@ -797,8 +786,10 @@ describe("useLiveStatus supplemental fetch — cold-load correctness + projectio
       expect(overlayModel.commError?.kind).toBe("worker-unreachable");
       expect(overlayModel.surfaceState).toBe("unreachable");
 
-      // And the green per-cell row is still signal-less (bulk projection intact).
-      expect(live.get(keyFor("e2e", "gamma", FEATURE))?.signal).toBeUndefined();
+      // Green per-cell rows retain their bulk signal without being re-fetched.
+      expect(live.get(keyFor("e2e", "gamma", FEATURE))?.signal).toEqual(
+        GREEN_FILLER_ROW.signal,
+      );
     } finally {
       unmount();
     }

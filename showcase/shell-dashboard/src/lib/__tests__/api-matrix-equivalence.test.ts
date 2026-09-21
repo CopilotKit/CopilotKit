@@ -1,3 +1,4 @@
+import { unitPillSignal } from "../../../../harness/src/shared/cell-model/cell-model.equivalence-fixtures";
 /**
  * `api == render == adapter` — the drift-guard for the §11 read-model.
  *
@@ -215,8 +216,24 @@ describe("fail-safe polarity — a stripped `signal` never grays a real red (§1
       row(agentKey, "green", signal),
     ];
     for (const ft of CATALOG_TO_D5_KEY[FEATURE] ?? []) {
-      rows.push(row(keyFor("d5", SLUG, ft), "green", signal));
-      rows.push(row(keyFor("d6", SLUG, ft), "green", signal));
+      rows.push(
+        row(
+          keyFor("d5", SLUG, ft),
+          "green",
+          signal === null
+            ? unitPillSignal(keyFor("d5", SLUG, ft), FRESH)
+            : signal,
+        ),
+      );
+      rows.push(
+        row(
+          keyFor("d6", SLUG, ft),
+          "green",
+          signal === null
+            ? unitPillSignal(keyFor("d6", SLUG, ft), FRESH)
+            : signal,
+        ),
+      );
     }
     return rows;
   }
@@ -309,18 +326,18 @@ describe("fail-safe polarity — a stripped `signal` never grays a real red (§1
     expect(coldLoadChip).toBe(serverChip);
     expect(apiChip).toBe(serverChip);
 
-    // The gray is INFRA-SOURCED, not no-data. Every other rung is green-fresh
-    // (see `greenScaffold`), and the D4 pill reads RED on both surfaces — so
-    // this is the "gray chip over a present red pill" rendering the U7 infra
-    // branch exists to produce, and the assertions above cannot be satisfied by
-    // an `ABSENT` rung standing in for the infra classification.
+    // Server siblings have full evidence; cold-load siblings lose their pill
+    // evidence and cannot claim green. D4 infra attribution still produces
+    // the same gray chip on both surfaces; its raw D4 red remains visible.
     for (const m of [serverModel, coldLoadModel]) {
       expect(m.d4).not.toBeNull();
       expect(m.d4!.exists).toBe(true);
       expect(m.d4!.status).toBe("red");
       expect(m.d3!.status).toBe("green");
-      expect(m.d5!.status).toBe("green");
     }
+    expect(serverModel.d5!.status).toBe("green");
+    // Projecting away public pill evidence cannot certify the functional rung.
+    expect(coldLoadModel.d5!.status).toBe("amber");
   });
 
   // The D1/D2 leg of the same flip, and the WIDEST case it has: `health:<slug>`

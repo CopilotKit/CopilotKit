@@ -355,15 +355,26 @@ describe("pb-query-eval — request parsing", () => {
     expect(() => parse("page=0")).toThrow(PbQueryError);
   });
 
-  it("classifies the hook's three list callers", () => {
+  it("classifies the hook's three list callers independently of signal projection", () => {
     expect(classifyPbListRequest(parse("perPage=1"))).toBe("heartbeat");
-    expect(
-      classifyPbListRequest(parse("perPage=500&fields=id,key,signal")),
-    ).toBe("supplemental");
-    expect(classifyPbListRequest(parse("perPage=500"))).toBe("supplemental");
-    expect(classifyPbListRequest(parse("perPage=500&fields=id,key"))).toBe(
-      "bulk",
-    );
+    for (const fields of ["id,key,signal", "id,key", ""]) {
+      expect(classifyPbListRequest(parse(`perPage=500&fields=${fields}`))).toBe(
+        "bulk",
+      );
+      for (const filter of [
+        'state != "green"',
+        `dimension = 'smoke' && (state != "green")`,
+        `(dimension = "d6" && key !~ "%/%") || (state != "green")`,
+      ]) {
+        expect(
+          classifyPbListRequest(
+            parse(
+              `perPage=500&fields=${fields}&filter=${encodeURIComponent(filter)}`,
+            ),
+          ),
+        ).toBe("supplemental");
+      }
+    }
   });
 });
 

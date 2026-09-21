@@ -1,241 +1,67 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { buildTurns } from "./d5-multimodal.js";
 import { getD5Script } from "../helpers/d5-registry.js";
-import type { D5BuildContext } from "../helpers/d5-registry.js";
-import type { Page } from "../helpers/conversation-runner.js";
 import {
-  buildTurns,
-  SAMPLE_IMAGE_BUTTON_SELECTOR,
-  SAMPLE_PDF_BUTTON_SELECTOR,
-} from "./d5-multimodal.js";
+  CHAT_PLATFORM_CONTRACTS,
+  assertChatPlatformResult,
+} from "./_pill-contracts-chat-platform.js";
 
-interface MultimodalFixtureFile {
-  fixtures: Array<{
-    match: { userMessage?: string };
-    response: { content: string };
-  }>;
-}
-
-function loadCanonicalFixture(): MultimodalFixtureFile {
-  const here = fileURLToPath(import.meta.url);
-  const fixturePath = path.resolve(
-    path.dirname(here),
-    "..",
-    "..",
-    "..",
-    "fixtures",
-    "d5",
-    "multimodal.json",
-  );
-  return JSON.parse(readFileSync(fixturePath, "utf8")) as MultimodalFixtureFile;
-}
-
-function makePage(transcript: string): Page {
-  return {
-    async waitForSelector() {},
-    async fill() {},
-    async press() {},
-    async evaluate() {
-      return transcript as never;
-    },
-  };
-}
-
-/**
- * Page fake that records every selector passed to `click()` and
- * `waitForSelector()` so tests can verify the preFill hook clicks the
- * right sample-attachment button. The structural Page interface in
- * `conversation-runner.ts` doesn't declare `click()`, so we extend it
- * here — the multimodal `clickSampleButton` helper feature-detects
- * `click` via `as unknown as { click?: ... }` and we want to satisfy
- * that path.
- */
-interface ClickRecordingPage extends Page {
-  click(selector: string, opts?: { timeout?: number }): Promise<void>;
-}
-
-function makeClickRecordingPage(): {
-  page: ClickRecordingPage;
-  clicks: string[];
-  waitedFor: string[];
-} {
-  const clicks: string[] = [];
-  const waitedFor: string[] = [];
-  const page: ClickRecordingPage = {
-    async waitForSelector(selector) {
-      waitedFor.push(selector);
-    },
-    async fill() {},
-    async press() {},
-    async evaluate() {
-      return "" as never;
-    },
-    async click(selector) {
-      clicks.push(selector);
-    },
-  };
-  return { page, clicks, waitedFor };
-}
-
-describe("d5-multimodal script", () => {
-  it("registers under featureType 'multimodal'", () => {
-    const script = getD5Script("multimodal");
-    expect(script).toBeDefined();
-    expect(script?.featureTypes).toEqual(["multimodal"]);
-    expect(script?.fixtureFile).toBe("multimodal.json");
+describe("multimodal canonical functional contract", () => {
+  it("registers the canonical builder", () => {
+    expect(getD5Script("multimodal")?.buildTurns).toBe(buildTurns);
   });
-
-  it("keeps the canonical D5 fixture aligned with the actual sample assets", () => {
-    const fixture = loadCanonicalFixture();
-    expect(fixture.fixtures).toHaveLength(2);
-
-    expect(fixture.fixtures[0]!.match.userMessage).toBe(
-      "can you tell me what is in this demo image I just attached",
-    );
-    expect(fixture.fixtures[0]!.response.content.toLowerCase()).toContain(
-      "copilotkit logo",
-    );
-
-    expect(fixture.fixtures[1]!.match.userMessage).toBe(
-      "can you tell me what is in this demo pdf I just attached",
-    );
-    expect(fixture.fixtures[1]!.response.content.toLowerCase()).toContain(
-      "copilotkit quickstart",
-    );
-
-    const serialized = JSON.stringify(fixture).toLowerCase();
-    expect(serialized).not.toContain("small abstract test pattern");
-    expect(serialized).not.toContain("single test page");
-    expect(serialized).not.toContain("confirms the binary attachment");
-  });
-
-  it("buildTurns produces two turns covering image + PDF", () => {
-    const ctx: D5BuildContext = {
-      integrationSlug: "langgraph-python",
-      featureType: "multimodal",
-      baseUrl: "https://x.test",
-    };
-    const turns = buildTurns(ctx);
+  it("accounts for every authored control with an exact dispatch and assertion", () => {
+    const turns = buildTurns();
     expect(turns).toHaveLength(2);
-    // These `input` values are auto-send button sentinels emitted by the
-    // in-app shim when the preFill hook clicks the sample-attachment
-    // buttons — they are NOT natural-language prompts the user types.
-    // Don't "fix" these expectations back to prose; the shim's auto-send
-    // path is what's under test here.
-    expect(turns[0]!.input).toBe("image-sample-button (auto-sent)");
-    expect(turns[1]!.input).toBe("pdf-sample-button (auto-sent)");
-  });
-
-  it("buildTurns wires preFill on both turns", () => {
-    const ctx: D5BuildContext = {
-      integrationSlug: "langgraph-python",
-      featureType: "multimodal",
-      baseUrl: "https://x.test",
-    };
-    const turns = buildTurns(ctx);
-    expect(typeof turns[0]!.preFill).toBe("function");
-    expect(typeof turns[1]!.preFill).toBe("function");
-  });
-
-  it("turn-1 preFill clicks the sample IMAGE button", async () => {
-    const ctx: D5BuildContext = {
-      integrationSlug: "langgraph-python",
-      featureType: "multimodal",
-      baseUrl: "https://x.test",
-    };
-    const turns = buildTurns(ctx);
-    const { page, clicks, waitedFor } = makeClickRecordingPage();
-    await turns[0]!.preFill!(page);
-    expect(clicks).toEqual([SAMPLE_IMAGE_BUTTON_SELECTOR]);
-    expect(waitedFor).toContain(SAMPLE_IMAGE_BUTTON_SELECTOR);
-  });
-
-  it("turn-2 preFill clicks the sample PDF button", async () => {
-    const ctx: D5BuildContext = {
-      integrationSlug: "langgraph-python",
-      featureType: "multimodal",
-      baseUrl: "https://x.test",
-    };
-    const turns = buildTurns(ctx);
-    const { page, clicks, waitedFor } = makeClickRecordingPage();
-    await turns[1]!.preFill!(page);
-    expect(clicks).toEqual([SAMPLE_PDF_BUTTON_SELECTOR]);
-    expect(waitedFor).toContain(SAMPLE_PDF_BUTTON_SELECTOR);
-  });
-
-  it("exposes the sample-button selectors", () => {
-    expect(SAMPLE_IMAGE_BUTTON_SELECTOR).toBe(
-      '[data-testid="multimodal-sample-image-button"]',
+    expect(new Set(turns.map((turn) => turn.action?.id)).size).toBe(
+      turns.length,
     );
-    expect(SAMPLE_PDF_BUTTON_SELECTOR).toBe(
-      '[data-testid="multimodal-sample-pdf-button"]',
+    expect(turns.map((turn) => turn.action?.buttonName)).toEqual(
+      CHAT_PLATFORM_CONTRACTS["multimodal"]!.map((item) => item.label),
     );
+    for (const turn of turns) {
+      expect(turn.input).toBe(turn.action?.expectedDispatchedPrompt);
+      expect(turn.action?.kind).toBe("pill");
+      expect(turn.skipFill).toBeUndefined();
+      expect(turn.skipSend).toBeUndefined();
+      expect(turn.assertions).toBeTypeOf("function");
+    }
   });
-
-  it("turn-1 assertion succeeds for the actual CopilotKit logo response", async () => {
-    const ctx: D5BuildContext = {
-      integrationSlug: "x",
-      featureType: "multimodal",
-      baseUrl: "https://x.test",
-    };
-    const turns = buildTurns(ctx);
-    await expect(
-      turns[0]!.assertions!(
-        makePage("the attached image is the copilotkit logo."),
-        { bubbleIndex: 0, text: "" },
+  it("requires the actual attachment asset descriptions", () => {
+    expect(() =>
+      assertChatPlatformResult(
+        "image",
+        "The attached image is the CopilotKit logo — a clean, geometric mark used across CopilotKit branding.",
       ),
-    ).resolves.toBeUndefined();
+    ).not.toThrow();
+    expect(() => assertChatPlatformResult("image", "A nice image.")).toThrow();
+    expect(() =>
+      assertChatPlatformResult(
+        "pdf",
+        "The attached PDF document is the CopilotKit Quickstart guide. It walks through installing the React packages, configuring the CopilotKit provider, and adding a CopilotKit chat component to an application.",
+      ),
+    ).not.toThrow();
+    expect(() =>
+      assertChatPlatformResult("pdf", "CopilotKit Quickstart"),
+    ).toThrow();
   });
+});
 
-  it("turn-1 assertion rejects the fabricated abstract-pattern response", async () => {
-    const ctx: D5BuildContext = {
-      integrationSlug: "x",
-      featureType: "multimodal",
-      baseUrl: "https://x.test",
-    };
-    const turns = buildTurns(ctx);
-    await expect(
-      turns[0]!.assertions!(
-        makePage(
-          "The image attachment shows a small abstract test pattern used by the demo.",
-        ),
-        { bubbleIndex: 0, text: "" },
+describe("contradictory canonical replies", () => {
+  it("rejects the image contradiction", () => {
+    expect(() =>
+      assertChatPlatformResult(
+        "image",
+        "This is not the CopilotKit logo; it is a photograph of a cat.",
       ),
-    ).rejects.toThrow(/missing expected phrase/);
-  }, 8_000);
-
-  it("turn-2 assertion requires the actual CopilotKit Quickstart response", async () => {
-    const ctx: D5BuildContext = {
-      integrationSlug: "x",
-      featureType: "multimodal",
-      baseUrl: "https://x.test",
-    };
-    const turns = buildTurns(ctx);
-    await expect(
-      turns[1]!.assertions!(
-        makePage("the attached pdf is the copilotkit quickstart guide."),
-        { bubbleIndex: 1, text: "" },
-      ),
-    ).resolves.toBeUndefined();
+    ).toThrow();
   });
-
-  it("turn-1 assertion fails when transcript lacks the D6 phrase", async () => {
-    const ctx: D5BuildContext = {
-      integrationSlug: "x",
-      featureType: "multimodal",
-      baseUrl: "https://x.test",
-    };
-    const turns = buildTurns(ctx);
-    // The internal poll deadline is 5s; raise the vitest timeout so
-    // the assertion has time to exhaust its budget and throw the
-    // missing-keyword error.
-    await expect(
-      turns[0]!.assertions!(makePage("nothing here"), {
-        bubbleIndex: 0,
-        text: "",
-      }),
-    ).rejects.toThrow(/missing expected phrase "copilotkit logo"/);
-  }, 8_000);
+  it("rejects the pdf contradiction", () => {
+    expect(() =>
+      assertChatPlatformResult(
+        "pdf",
+        "This is not the CopilotKit Quickstart; it says nothing about installing React packages, configuring the CopilotKit provider, or adding a CopilotKit chat component.",
+      ),
+    ).toThrow();
+  });
 });

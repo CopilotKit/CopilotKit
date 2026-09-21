@@ -70,6 +70,47 @@ interface RowOpts {
   failCount?: number;
 }
 
+/** Synthetic unit evidence only; real acceptance uses runner observations. */
+export function unitPillSignal(key: string, observedAt: string): unknown {
+  if (!/^(d5|d6):/.test(key)) return null;
+  const [integration, canonical] = key.slice(key.indexOf(":") + 1).split("/");
+  return {
+    targetRevision: "unit-target",
+    canonicalRevision: "unit-contract",
+    pillObservationKey: key,
+    pillObservedAt: observedAt,
+    pillExecution: {
+      mode: "functional-pill",
+      surface: "public",
+      completed: true,
+      startedAt: observedAt,
+      completedAt: observedAt,
+      attempts: 1,
+      failures: [],
+      identity: {
+        integration,
+        canonical,
+        frontend: "react",
+        url: "https://unit.invalid",
+        targetRevision: "unit-target",
+        canonicalRevision: "unit-contract",
+      },
+      requiredActions: ["unit-action"],
+      actions: [
+        {
+          id: "unit-action",
+          buttonName: "Unit button",
+          attempted: true,
+          clicked: true,
+          assertionPassed: true,
+          completed: true,
+          dispatchedPrompt: "Unit prompt",
+        },
+      ],
+    },
+  };
+}
+
 function row(key: string, state: State, opts: RowOpts = {}): StatusRow {
   const observed = opts.observedAt ?? FRESH;
   const [dimension = ""] = key.split(":");
@@ -79,7 +120,7 @@ function row(key: string, state: State, opts: RowOpts = {}): StatusRow {
     key,
     dimension,
     state,
-    signal: "signal" in opts ? opts.signal : null,
+    signal: "signal" in opts ? opts.signal : unitPillSignal(key, observed),
     observed_at: observed,
     transitioned_at: observed,
     fail_count: opts.failCount ?? (isRed ? 1 : 0),

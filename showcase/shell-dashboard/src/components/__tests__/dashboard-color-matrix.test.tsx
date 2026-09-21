@@ -1,3 +1,4 @@
+import { unitPillSignal } from "../../../../harness/src/shared/cell-model/cell-model.equivalence-fixtures";
 /**
  * Dashboard cell color / badge / chip / rollup MATRIX.
  *
@@ -69,7 +70,7 @@ function row(
     key,
     dimension,
     state,
-    signal: {},
+    signal: unitPillSignal(key, overrides.observed_at ?? FRESH),
     observed_at: FRESH,
     transitioned_at: FRESH,
     fail_count: state === "red" ? 1 : 0,
@@ -368,12 +369,12 @@ describe("(2) D6 / D5 enum fan-out rollup → chip color", () => {
       d6: "green",
       expectChip: "green",
     },
-    // D5 all-green + D6 any-fail → amber (D5 green, D6 red)
+    // An observed D6 failure remains red.
     {
       name: "D5 all-pass + D6 all-fail",
       d5: "green",
       d6: "red",
-      expectChip: "amber",
+      expectChip: "red",
     },
     // D5 all-green + D6 absent (unemitted) → amber (D5 green, D6 missing)
     {
@@ -558,7 +559,7 @@ describe("(3) per-cell D6 vs aggregate precedence (c64aebc42)", () => {
     const a = wiredModel(live, "agentic-chat");
     const b = wiredModel(live, "voice");
     expect(a.chipColor).toBe("green");
-    expect(b.chipColor).toBe("amber"); // D5 green + D6 red → amber
+    expect(b.chipColor).toBe("red"); // Observed D6 failure
     expect(a.d6?.row?.key).toBe("d6:agno/agentic-chat");
     expect(b.d6?.row?.key).toBe("d6:agno/voice");
   });
@@ -783,12 +784,12 @@ describe("(6) edges + rollup precedence", () => {
     ]);
     expect(resolveCell(amberLive, SLUG, FEATURE).rollup).toBe("amber");
 
-    // all green → green
+    // Diagnostic green alone cannot certify feature behavior.
     const greenLive = mapOf([
       row(keyFor("health", SLUG), "health", "green"),
       row(keyFor("e2e", SLUG, FEATURE), "e2e", "green"),
     ]);
-    expect(resolveCell(greenLive, SLUG, FEATURE).rollup).toBe("green");
+    expect(resolveCell(greenLive, SLUG, FEATURE).rollup).toBe("gray");
   });
 
   it("connection error → rollup forced to error tone (stale-green suppressed)", () => {

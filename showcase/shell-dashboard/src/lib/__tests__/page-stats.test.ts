@@ -1,3 +1,4 @@
+import { unitPillSignal } from "../../../../harness/src/shared/cell-model/cell-model.equivalence-fixtures";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   computeHealthStats,
@@ -26,7 +27,7 @@ function row(
     key,
     dimension,
     state,
-    signal: {},
+    signal: unitPillSignal(key, overrides.observed_at ?? FRESH),
     observed_at: FRESH,
     transitioned_at: FRESH,
     fail_count: state === "red" ? 1 : 0,

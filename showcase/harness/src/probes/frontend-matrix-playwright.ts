@@ -1,8 +1,15 @@
 import { createHash } from "node:crypto";
 
-import type { Browser } from "playwright";
+import type { Browser, Frame } from "playwright";
 
-import { runConversation } from "./helpers/conversation-runner.js";
+import {
+  runConversation,
+  UnverifiedDefinitionError,
+} from "./helpers/conversation-runner.js";
+import type {
+  ConversationResult,
+  Page as RunnerPage,
+} from "./helpers/conversation-runner.js";
 import { conversationFailureSummary } from "./helpers/privacy-safe-diagnostics.js";
 import type { D5FeatureType, D5Script } from "./helpers/d5-registry.js";
 import {
@@ -32,6 +39,7 @@ export interface FrontendProbeInput {
   url: string;
   backendUrl: string;
   testId: string;
+  surface?: "public" | "direct-diagnostic";
 }
 
 export type FrontendProbeExecutor = (
@@ -39,6 +47,7 @@ export type FrontendProbeExecutor = (
 ) => Promise<FrontendProbeResult>;
 
 export interface FrontendCellExecutorOptions {
+  publicShellBaseUrl?: string;
   angularBaseUrl: string;
   backendUrls: Readonly<Record<string, string>>;
   invocationId: string;
@@ -98,6 +107,7 @@ export function createFrontendCellExecutor(
     const url = urlForFrontendCell(cell, {
       angularBaseUrl: options.angularBaseUrl,
       reactBaseUrl: backendUrl,
+      publicShellBaseUrl: options.publicShellBaseUrl,
     });
     const probes: FrontendProbeResult[] = [];
     for (const featureType of cell.featureTypes) {
@@ -114,6 +124,9 @@ export function createFrontendCellExecutor(
             url,
             backendUrl,
             testId,
+            surface: options.publicShellBaseUrl
+              ? "public"
+              : "direct-diagnostic",
           }),
         );
       } catch {
@@ -202,7 +215,13 @@ function sseDiagnostics(
 }
 
 export interface PlaywrightProbeExecutorOptions {
-  browser: Browser;
+  /** Caller-declared run revisions; absent when no authoritative input exists. */
+  proofIdentityRevisions?: {
+    targetRevision: string;
+    canonicalRevision: string;
+  };
+  browser: Pick<Browser, "newContext">;
+  onConversation?: (result: ConversationResult) => void;
   scripts: ReadonlyMap<D5FeatureType, D5Script>;
   probeTimeoutMs?: number;
   hydrationTimeoutMs?: number;
@@ -224,29 +243,40 @@ export function createPlaywrightProbeExecutor(
         status: "failed",
         durationMs: Date.now() - startedAt,
         testId: input.testId,
-        errorClass: "probe-script-missing",
+        errorClass: "unverified-definition",
         error: `no deterministic script registered for ${input.featureType}`,
       };
     }
 
-    const context = await options.browser.newContext({
-      extraHTTPHeaders: {
-        "X-AIMock-Strict": "true",
-        "X-AIMock-Context": input.cell.integration,
-        "X-Test-Id": input.testId,
-        "X-Diag-Run-Id": input.testId,
-        "X-Diag-Hops": "frontend-matrix",
-      },
-    });
-    const page = await context.newPage();
+    const context = await options.browser.newContext(
+      input.surface === "public"
+        ? {}
+        : {
+            extraHTTPHeaders: {
+              "X-AIMock-Strict": "true",
+              "X-AIMock-Context": input.cell.integration,
+              "X-Test-Id": input.testId,
+              "X-Diag-Run-Id": input.testId,
+              "X-Diag-Hops": "frontend-matrix",
+            },
+          },
+    );
     const requestFailures: string[] = [];
     let pageErrorCount = 0;
-    page.on("pageerror", () => {
-      pageErrorCount += 1;
-    });
-    page.on("requestfailed", (request) => {
-      requestFailures.push(safeFailedRequest(request.url()));
-    });
+    let page: Awaited<ReturnType<typeof context.newPage>>;
+    try {
+      page = await context.newPage();
+      page.on("pageerror", () => {
+        pageErrorCount += 1;
+      });
+      page.on("requestfailed", (request) => {
+        requestFailures.push(safeFailedRequest(request.url()));
+      });
+    } catch (error) {
+      // Setup failures precede the run cleanup below but still own a context.
+      await context.close().catch(() => undefined);
+      throw error;
+    }
 
     let stage = "initialization";
     let capture: SseCapture | undefined;
@@ -261,8 +291,10 @@ export function createPlaywrightProbeExecutor(
         }, options.probeTimeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS);
       });
       const run = async (): Promise<FrontendProbeResult> => {
-        await installBrowserContextShims(page);
-        await installPrePaintFromEnv(page);
+        if (input.surface !== "public") {
+          await installBrowserContextShims(page);
+          await installPrePaintFromEnv(page);
+        }
         sseHandle = await attachSseInterceptor(page);
 
         stage = "navigation";
@@ -274,22 +306,84 @@ export function createPlaywrightProbeExecutor(
           throw new Error(`navigation returned HTTP ${response.status()}`);
         }
 
+        let frame: Frame | undefined;
+        if (input.surface === "public") {
+          const expected = urlForFrontendCell(input.cell, {
+            angularBaseUrl: input.backendUrl,
+            reactBaseUrl: input.backendUrl,
+          });
+          // Public shells may include analytics/support iframes. Require one
+          // actual demo iframe bound to this cell's exact canonical URL.
+          const iframe = page.locator(
+            `iframe[src=${JSON.stringify(expected)}]`,
+          );
+          await iframe.waitFor({
+            state: "visible",
+            timeout: options.hydrationTimeoutMs ?? DEFAULT_HYDRATION_TIMEOUT_MS,
+          });
+          if ((await iframe.count()) !== 1)
+            throw new Error(
+              "public preview requires exactly one canonical demo iframe",
+            );
+          const handle = await iframe.elementHandle();
+          frame = (await handle?.contentFrame()) ?? undefined;
+          if (!frame) throw new Error("public demo iframe is unavailable");
+          await frame.waitForURL(expected);
+        }
+        const surface = frame ?? page;
+        const runnerPage: RunnerPage = {
+          waitForSelector: (selector, opts) =>
+            surface.waitForSelector(selector, opts),
+          fill: (selector, value, opts) => surface.fill(selector, value, opts),
+          press: (selector, key, opts) => surface.press(selector, key, opts),
+          // The runner serializes plain arguments only; Playwright's Unboxed<A>
+          // overload cannot express that narrower generic evaluation contract.
+          evaluate: surface.evaluate.bind(surface) as RunnerPage["evaluate"],
+          reload: async () => {
+            await surface.goto(surface.url(), { waitUntil: "load" });
+            await waitForFrameworkHydration(
+              surface,
+              input.cell.frontend,
+              options.hydrationTimeoutMs,
+            );
+          },
+          frameLocator: (selector) => surface.frameLocator(selector),
+          inputValue: (selector) => surface.inputValue(selector),
+          hover: (selector, opts) => surface.hover(selector, opts),
+          getByTestId: (id) => surface.getByTestId(id),
+          getByRole: (role, opts) => surface.getByRole(role, opts),
+          on: (event, listener) => page.on(event, listener),
+          off: (event, listener) => page.off(event, listener),
+        };
         stage = "hydration";
         await waitForFrameworkHydration(
-          page,
+          surface,
           input.cell.frontend,
           options.hydrationTimeoutMs,
         );
 
         stage = "conversation";
         const conversation = await runConversation(
-          page,
+          runnerPage,
           script.buildTurns({
+            demoId: input.cell.feature,
             integrationSlug: input.cell.integration,
             featureType: input.featureType,
             baseUrl: input.backendUrl,
           }),
+          {
+            mode: "functional-pill",
+            surface: input.surface ?? "direct-diagnostic",
+            identity: {
+              ...options.proofIdentityRevisions,
+              canonical: input.featureType,
+              integration: input.cell.integration,
+              frontend: input.cell.frontend,
+              url: input.url,
+            },
+          },
         );
+        options.onConversation?.(conversation);
         if (conversation.failure_turn !== undefined) {
           const failureSummary = conversationFailureSummary(conversation.error);
           return {
@@ -297,11 +391,12 @@ export function createPlaywrightProbeExecutor(
             status: "failed",
             durationMs: Date.now() - startedAt,
             testId: input.testId,
-            errorClass: "conversation-error",
+            errorClass: conversation.errorClass ?? "conversation-error",
             failureReason: failureSummary,
             error: `conversation failed on turn ${conversation.failure_turn} (${failureSummary})`,
             diagnostics: {
               frontend: input.cell.frontend,
+              pillExecution: conversation.pillExecution,
               turnsCompleted: conversation.turns_completed,
               totalTurns: conversation.total_turns,
               pageErrorCount,
@@ -320,6 +415,7 @@ export function createPlaywrightProbeExecutor(
           testId: input.testId,
           diagnostics: {
             frontend: input.cell.frontend,
+            pillExecution: conversation.pillExecution,
             turnsCompleted: conversation.turns_completed,
             totalTurns: conversation.total_turns,
             pageErrorCount,
@@ -331,22 +427,24 @@ export function createPlaywrightProbeExecutor(
       };
       runPromise = run();
       return await Promise.race([runPromise, timedOut]);
-    } catch {
+    } catch (error) {
       return {
         featureType: input.featureType,
         status: "failed",
         durationMs: Date.now() - startedAt,
         testId: input.testId,
         errorClass:
-          stage === "navigation"
-            ? "goto-error"
-            : stage === "hydration"
-              ? "hydration-error"
-              : stage === "conversation"
-                ? "conversation-error"
-                : stage === "capture"
-                  ? "capture-error"
-                  : "infrastructure-error",
+          error instanceof UnverifiedDefinitionError
+            ? error.errorClass
+            : stage === "navigation"
+              ? "goto-error"
+              : stage === "hydration"
+                ? "hydration-error"
+                : stage === "conversation"
+                  ? "conversation-error"
+                  : stage === "capture"
+                    ? "capture-error"
+                    : "infrastructure-error",
         error: `${stage} failed`,
         diagnostics: {
           frontend: input.cell.frontend,

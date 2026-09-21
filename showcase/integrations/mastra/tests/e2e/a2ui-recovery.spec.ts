@@ -1,3 +1,5 @@
+import { createPlaywrightProbeExecutor } from "../../../../harness/src/probes/frontend-matrix-playwright.js";
+import { buildTurns as buildCanonicalTurns } from "../../../../harness/src/probes/scripts/d5-a2ui-recovery.js";
 import { test, expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
@@ -51,14 +53,14 @@ const EXHAUST_PILL = "Show an unrecoverable failure";
 const EXHAUST_MSG =
   "Draft a Vantage board that flunks every validation sweep so I can preview the fallback.";
 
-test.describe("A2UI Error Recovery", () => {
+test.describe("@diagnostic A2UI Error Recovery", () => {
   test.setTimeout(120_000);
 
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/a2ui-recovery");
   });
 
-  test("page loads with both recovery pills", async ({ page }) => {
+  test("@diagnostic page loads with both recovery pills", async ({ page }) => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
     const suggestions = page.locator('[data-testid="copilot-suggestion"]');
     for (const title of [HEAL_PILL, EXHAUST_PILL]) {
@@ -69,7 +71,7 @@ test.describe("A2UI Error Recovery", () => {
     await expect(page.getByTestId("declarative-metric")).toHaveCount(0);
   });
 
-  test("heal: invalid first render recovers into a valid surface", async ({
+  test("@diagnostic heal: invalid first render recovers into a valid surface", async ({
     page,
   }) => {
     await clickPill(page, HEAL_PILL, HEAL_MSG);
@@ -86,7 +88,7 @@ test.describe("A2UI Error Recovery", () => {
     await expect(page.getByText(/Catalog not found/i)).toHaveCount(0);
   });
 
-  test("exhaust: always-invalid render shows the hard-failure UI, no faulty surface", async ({
+  test("@diagnostic exhaust: always-invalid render shows the hard-failure UI, no faulty surface", async ({
     page,
   }) => {
     await clickPill(page, EXHAUST_PILL, EXHAUST_MSG);
@@ -103,4 +105,46 @@ test.describe("A2UI Error Recovery", () => {
     // Conversation remains usable after the hard failure.
     await expect(page.getByPlaceholder("Type a message")).toBeEnabled();
   });
+});
+
+/** Functional proof is this runner artifact; supplemental test totals are not acceptance. */
+test("@canonical rendering a2ui-recovery: all actual LGP pills and results", async ({
+  browser,
+  baseURL,
+}, testInfo) => {
+  test.setTimeout(480_000);
+  if (!baseURL)
+    throw new Error(
+      "canonical rendering requires configured actual demo baseURL",
+    );
+  const featureType = "a2ui-recovery" as const;
+  const run = createPlaywrightProbeExecutor({
+    browser,
+    scripts: new Map([
+      [
+        featureType,
+        { featureTypes: [featureType], buildTurns: buildCanonicalTurns },
+      ],
+    ]),
+    probeTimeoutMs: 450_000,
+  });
+  const result = await run({
+    cell: {
+      id: "react/mastra/a2ui-recovery",
+      frontend: "react",
+      integration: "mastra",
+      feature: "a2ui-recovery",
+      featureTypes: [featureType],
+    },
+    featureType,
+    url: new URL("/demos/a2ui-recovery", baseURL).href,
+    backendUrl: baseURL,
+    testId: `canonical-rendering-${testInfo.workerIndex}-${Date.now()}`,
+    surface: "direct-diagnostic",
+  });
+  await testInfo.attach("canonical-pill-execution", {
+    body: JSON.stringify(result, null, 2),
+    contentType: "application/json",
+  });
+  expect(result.status, JSON.stringify(result)).toBe("passed");
 });

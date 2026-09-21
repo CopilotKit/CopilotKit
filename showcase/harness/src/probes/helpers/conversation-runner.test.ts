@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import {
-  runConversation,
+  runConversation as runWithMode,
   fillAndVerifySend,
   readUserMessageCount,
   waitForContentAndSend,
@@ -12,9 +12,18 @@ import {
 } from "./conversation-runner.js";
 import type {
   ConversationTurn,
+  ConversationRunnerOptions,
   Page,
   CopilotRunningState,
 } from "./conversation-runner.js";
+
+// Legacy typed-input coverage is explicitly diagnostic. Functional behavior is
+// exercised against an actual local page in pill-execution.local.spec.ts.
+const runConversation = (
+  page: Page,
+  turns: ConversationTurn[],
+  options: ConversationRunnerOptions = {},
+) => runWithMode(page, turns, { ...options, mode: "diagnostic" });
 
 /**
  * Unit tests for the D5 conversation runner helper. Page is a structural
@@ -121,9 +130,7 @@ function wrapEvaluateForUserMessages(
     // probe that passes a runtime arg (e.g. `findAssistantBubbleAt`'s
     // bubbleIndex) still reaches the inner / synthesised branches.
     // eslint-disable-next-line prefer-rest-params
-    const argRuntime = (arguments as unknown as IArguments)[1] as
-      | number
-      | undefined;
+    const argRuntime = arguments[1] as number | undefined;
     const body = fn.toString();
     if (body.includes("copilot-user-message")) {
       return userCalls++ as never;
@@ -176,7 +183,7 @@ function wrapEvaluateForUserMessages(
       body.includes("{ count")
     ) {
       // eslint-disable-next-line prefer-rest-params
-      const innerArgsCascade = Array.from(arguments as unknown as IArguments);
+      const innerArgsCascade = Array.from(arguments);
       const innerResult = (await (
         inner as (...a: unknown[]) => Promise<unknown>
       )(...innerArgsCascade)) as unknown;
@@ -206,7 +213,7 @@ function wrapEvaluateForUserMessages(
     // the result as the new `latestCount` for the synthesised SSE/text
     // branches above.
     // eslint-disable-next-line prefer-rest-params
-    const innerArgs = Array.from(arguments as unknown as IArguments);
+    const innerArgs = Array.from(arguments);
     const result = (await (inner as (...a: unknown[]) => Promise<unknown>)(
       ...innerArgs,
     )) as unknown;
@@ -302,9 +309,7 @@ function makePage(script: PageScript = {}): Page {
       // second runtime arg via `arguments` since the structural signature
       // erases it.
       // eslint-disable-next-line prefer-rest-params
-      const argRuntime = (arguments as unknown as IArguments)[1] as
-        | number
-        | undefined;
+      const argRuntime = arguments[1] as number | undefined;
       if (script.evaluate) return script.evaluate(fn, argRuntime) as never;
 
       // Detect whether the evaluate call is reading user messages or
@@ -4256,5 +4261,21 @@ describe("waitForTurnComplete — data-copilot-running done-signal", () => {
       name: "TurnNotCompleteError",
       reason: "sse-missing",
     });
+  });
+});
+
+describe("functional pill contract rejects substitution", () => {
+  it("rejects an empty functional definition", async () => {
+    expect(
+      await runWithMode(makePage(), [], { mode: "functional-pill" }),
+    ).toMatchObject({ failure_turn: 1, turns_completed: 0 });
+  });
+  it("rejects typed turns before touching the composer", async () => {
+    const recorded = { fills: [] as string[], presses: [] as string[] };
+    const result = await runWithMode(makePage({ recorded }), [
+      { input: "hello" },
+    ]);
+    expect(result.error).toContain("canonical pill action");
+    expect(recorded).toEqual({ fills: [], presses: [] });
   });
 });

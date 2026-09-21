@@ -1,3 +1,5 @@
+import { createPlaywrightProbeExecutor } from "../../../../harness/src/probes/frontend-matrix-playwright.js";
+import { buildTurns as buildCanonicalTurns } from "../../../../harness/src/probes/scripts/d5-gen-ui-declarative.js";
 import { test, expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
@@ -56,14 +58,14 @@ async function clickPill(page: Page, title: string, message: string) {
   }).toPass({ timeout: 30_000 });
 }
 
-test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
+test.describe("@diagnostic Declarative Generative UI (A2UI dynamic schema)", () => {
   test.setTimeout(120_000);
 
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/declarative-gen-ui");
   });
 
-  test("page loads with chat input and no surface rendered", async ({
+  test("@diagnostic page loads with chat input and no surface rendered", async ({
     page,
   }) => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
@@ -72,7 +74,7 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
     await expect(page.locator(".recharts-responsive-container")).toHaveCount(0);
   });
 
-  test("all 4 suggestion pills render with verbatim titles", async ({
+  test("@diagnostic all 4 suggestion pills render with verbatim titles", async ({
     page,
   }) => {
     const suggestions = page.locator('[data-testid="copilot-suggestion"]');
@@ -89,7 +91,7 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
     }
   });
 
-  test("sales dashboard pill renders a composed surface: KPI strip + pie + bar (no surrounding card)", async ({
+  test("@diagnostic sales dashboard pill renders a composed surface: KPI strip + pie + bar (no surrounding card)", async ({
     page,
   }) => {
     await clickPill(
@@ -151,7 +153,7 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
     await expect(page.getByTestId("declarative-card")).toHaveCount(0);
   });
 
-  test("team performance pill renders a DataTable with rep rows", async ({
+  test("@diagnostic team performance pill renders a DataTable with rep rows", async ({
     page,
   }) => {
     await clickPill(
@@ -177,7 +179,9 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 
-  test("at-risk pill renders StatusBadge pills", async ({ page }) => {
+  test("@diagnostic at-risk pill renders StatusBadge pills", async ({
+    page,
+  }) => {
     await clickPill(
       page,
       "Anything at risk?",
@@ -207,7 +211,9 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
     await expect(page.getByTestId("declarative-data-table")).toHaveCount(0);
   });
 
-  test("top account pill renders InfoRow facts", async ({ page }) => {
+  test("@diagnostic top account pill renders InfoRow facts", async ({
+    page,
+  }) => {
     await clickPill(
       page,
       "Top account details",
@@ -234,4 +240,46 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
     await expect(page.getByTestId("declarative-data-table")).toHaveCount(0);
     await expect(page.getByTestId("declarative-status-badge")).toHaveCount(0);
   });
+});
+
+/** Functional proof is this runner artifact; supplemental test totals are not acceptance. */
+test("@canonical rendering declarative-gen-ui: all actual LGP pills and results", async ({
+  browser,
+  baseURL,
+}, testInfo) => {
+  test.setTimeout(480_000);
+  if (!baseURL)
+    throw new Error(
+      "canonical rendering requires configured actual demo baseURL",
+    );
+  const featureType = "gen-ui-declarative" as const;
+  const run = createPlaywrightProbeExecutor({
+    browser,
+    scripts: new Map([
+      [
+        featureType,
+        { featureTypes: [featureType], buildTurns: buildCanonicalTurns },
+      ],
+    ]),
+    probeTimeoutMs: 450_000,
+  });
+  const result = await run({
+    cell: {
+      id: "react/langgraph-python/declarative-gen-ui",
+      frontend: "react",
+      integration: "langgraph-python",
+      feature: "declarative-gen-ui",
+      featureTypes: [featureType],
+    },
+    featureType,
+    url: new URL("/demos/declarative-gen-ui", baseURL).href,
+    backendUrl: baseURL,
+    testId: `canonical-rendering-${testInfo.workerIndex}-${Date.now()}`,
+    surface: "direct-diagnostic",
+  });
+  await testInfo.attach("canonical-pill-execution", {
+    body: JSON.stringify(result, null, 2),
+    contentType: "application/json",
+  });
+  expect(result.status, JSON.stringify(result)).toBe("passed");
 });

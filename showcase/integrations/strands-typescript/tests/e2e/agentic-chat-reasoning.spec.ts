@@ -1,3 +1,4 @@
+// Existing scenarios are diagnostics; only the canonical pill test below is functional acceptance.
 import { test, expect } from "@playwright/test";
 
 // E2E smoke for the agentic-chat-reasoning demo (AWS Strands showcase).
@@ -8,7 +9,9 @@ import { test, expect } from "@playwright/test";
 // interaction flow). This spec asserts the page mounts and the CopilotKit
 // provider initializes without throwing.
 
-test("agentic-chat-reasoning loads without errors", async ({ page }) => {
+test("Diagnostic: agentic-chat-reasoning loads without errors", async ({
+  page,
+}) => {
   const errors: string[] = [];
   page.on("pageerror", (err) => errors.push(err.message));
 

@@ -1,3 +1,4 @@
+import { noLgpCanonicalTurns } from "../../../../harness/src/probes/scripts/_pill-contracts-tools-agents";
 import { test, expect } from "@playwright/test";
 
 // QA reference: qa/observational-memory.md
@@ -32,7 +33,7 @@ import { test, expect } from "@playwright/test";
 // and the adapter's own unit tests upstream. These specs assert the lifecycle
 // structure only.
 
-test.describe("Observational Memory (Mastra)", () => {
+test.describe("[diagnostic] Observational Memory (Mastra)", () => {
   test.setTimeout(120_000);
 
   test.beforeEach(async ({ page }) => {
@@ -122,4 +123,9 @@ test.describe("Observational Memory (Mastra)", () => {
       ),
     ).toHaveCount(1, { timeout: 20_000 });
   });
+});
+
+// No LGP counterpart exists; diagnostic smoke must never certify this cell.
+test("canonical contract unavailable @functional-pill", () => {
+  noLgpCanonicalTurns("observational-memory");
 });

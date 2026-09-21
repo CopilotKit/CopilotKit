@@ -1,95 +1,120 @@
 import { test, expect } from "@playwright/test";
 
-// QA reference: qa/frontend-tools.md
-// Demo source: src/app/demos/frontend-tools/page.tsx
-//
-// The demo registers ONE frontend tool via `useFrontendTool`:
-// `change_background(background: string)`. The handler calls `setBackground`
-// with a CSS value — gradient or solid color. The background host
-// (`data-testid="frontend-tools-background"`) starts at `#4f46e5` (solid
-// indigo) and mutates inline on success.
-//
-// We assert on the observable side effect (inline style changes) rather
-// than on any LLM-generated text. The demo exposes three suggestion pills:
-// "Sunset theme", "Forest theme", and "Cosmic theme". The existing aimock
-// feature-parity fixture covers the "sunset-themed gradient" prompt, and
-// the real Railway LLM handles the free-form prompts.
+import { runConversation } from "../../../../harness/src/probes/helpers/conversation-runner";
+import {
+  buildStateToolsTurns,
+  STATE_TOOLS_ROUTES,
+} from "../../../../harness/src/probes/scripts/_pill-contracts-state-tools";
 
-test.describe("Frontend Tools (change_background)", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/frontend-tools");
-  });
-
-  test("page loads with chat input and background container", async ({
+// The canonical LGP contract is shared by every integration: no alternate prompt
+// or framework-specific result can turn a failed actual pill into acceptance.
+test("frontend-tools: every canonical pill dispatches its exact prompt and renders its exact result", async ({
+  page,
+}) => {
+  test.setTimeout(240000);
+  await page.goto(STATE_TOOLS_ROUTES["frontend-tools"]);
+  const result = await runConversation(
     page,
-  }) => {
-    await expect(page.getByPlaceholder("Type a message")).toBeVisible();
-    await expect(
-      page.locator('[data-testid="frontend-tools-background"]'),
-    ).toBeVisible();
-  });
+    buildStateToolsTurns("frontend-tools"),
+    { mode: "functional-pill", surface: "direct-diagnostic" },
+  );
+  expect(result.pillExecution?.completed, JSON.stringify(result)).toBe(true);
+  expect(result.pillExecution?.actions).toHaveLength(3);
+});
 
-  test("background container starts with the solid indigo default", async ({
-    page,
-  }) => {
-    const bg = page.locator('[data-testid="frontend-tools-background"]');
-    // The initial inline style is #4f46e5 (solid indigo, from background.tsx).
-    const initial = await bg.getAttribute("style");
-    expect(initial ?? "").toContain("#4f46e5");
-  });
+// Existing extra coverage remains executable, but is not canonical pill acceptance.
+test.describe("diagnostic: existing integration regressions", () => {
+  // QA reference: qa/frontend-tools.md
+  // Demo source: src/app/demos/frontend-tools/page.tsx
+  //
+  // The demo registers ONE frontend tool via `useFrontendTool`:
+  // `change_background(background: string)`. The handler calls `setBackground`
+  // with a CSS value — gradient or solid color. The background host
+  // (`data-testid="frontend-tools-background"`) starts at `#4f46e5` (solid
+  // indigo) and mutates inline on success.
+  //
+  // We assert on the observable side effect (inline style changes) rather
+  // than on any LLM-generated text. The demo exposes three suggestion pills:
+  // "Sunset theme", "Forest theme", and "Cosmic theme". The existing aimock
+  // feature-parity fixture covers the "sunset-themed gradient" prompt, and
+  // the real Railway LLM handles the free-form prompts.
 
-  test("suggestion pills for Sunset, Forest, and Cosmic themes render", async ({
-    page,
-  }) => {
-    await expect(
-      page.getByRole("button", { name: /Sunset theme/i }),
-    ).toBeVisible({ timeout: 15000 });
-    await expect(
-      page.getByRole("button", { name: /Forest theme/i }),
-    ).toBeVisible({ timeout: 15000 });
-    await expect(
-      page.getByRole("button", { name: /Cosmic theme/i }),
-    ).toBeVisible({ timeout: 15000 });
-  });
+  test.describe("Frontend Tools (change_background)", () => {
+    test.beforeEach(async ({ page }) => {
+      await page.goto("/demos/frontend-tools");
+    });
 
-  test("Forest theme pill mutates the background inline style", async ({
-    page,
-  }) => {
-    await page.getByRole("button", { name: /Forest theme/i }).click();
+    test("page loads with chat input and background container", async ({
+      page,
+    }) => {
+      await expect(page.getByPlaceholder("Type a message")).toBeVisible();
+      await expect(
+        page.locator('[data-testid="frontend-tools-background"]'),
+      ).toBeVisible();
+    });
 
-    const bg = page.locator('[data-testid="frontend-tools-background"]');
+    test("background container starts with the solid indigo default", async ({
+      page,
+    }) => {
+      const bg = page.locator('[data-testid="frontend-tools-background"]');
+      // The initial inline style is #4f46e5 (solid indigo, from background.tsx).
+      const initial = await bg.getAttribute("style");
+      expect(initial ?? "").toContain("#4f46e5");
+    });
 
-    // The inline style flips away from the #4f46e5 default once the
-    // agent invokes change_background. Poll the style attribute rather
-    // than any LLM text.
-    await expect
-      .poll(
-        async () => {
-          const s = (await bg.getAttribute("style")) ?? "";
-          return !s.includes("#4f46e5");
-        },
-        { timeout: 45000 },
-      )
-      .toBe(true);
-  });
+    test("suggestion pills for Sunset, Forest, and Cosmic themes render", async ({
+      page,
+    }) => {
+      await expect(
+        page.getByRole("button", { name: /Sunset theme/i }),
+      ).toBeVisible({ timeout: 15000 });
+      await expect(
+        page.getByRole("button", { name: /Forest theme/i }),
+      ).toBeVisible({ timeout: 15000 });
+      await expect(
+        page.getByRole("button", { name: /Cosmic theme/i }),
+      ).toBeVisible({ timeout: 15000 });
+    });
 
-  test("Sunset theme pill triggers a gradient change", async ({ page }) => {
-    // The pill sends the verbatim prompt "Make the background a sunset
-    // gradient." — aimock fixture covers this; real LLM handles it on Railway.
-    await page.getByRole("button", { name: /Sunset theme/i }).click();
+    test("Forest theme pill mutates the background inline style", async ({
+      page,
+    }) => {
+      await page.getByRole("button", { name: /Forest theme/i }).click();
 
-    const bg = page.locator('[data-testid="frontend-tools-background"]');
+      const bg = page.locator('[data-testid="frontend-tools-background"]');
 
-    // Expect a gradient-containing inline style. `linear-gradient` is the
-    // common case for the sunset theme; `radial-gradient` is also accepted.
-    await expect
-      .poll(
-        async () => {
-          const s = (await bg.getAttribute("style")) ?? "";
-          return /linear-gradient|radial-gradient/.test(s);
-        },
-        { timeout: 45000 },
-      )
-      .toBe(true);
+      // The inline style flips away from the #4f46e5 default once the
+      // agent invokes change_background. Poll the style attribute rather
+      // than any LLM text.
+      await expect
+        .poll(
+          async () => {
+            const s = (await bg.getAttribute("style")) ?? "";
+            return !s.includes("#4f46e5");
+          },
+          { timeout: 45000 },
+        )
+        .toBe(true);
+    });
+
+    test("Sunset theme pill triggers a gradient change", async ({ page }) => {
+      // The pill sends the verbatim prompt "Make the background a sunset
+      // gradient." — aimock fixture covers this; real LLM handles it on Railway.
+      await page.getByRole("button", { name: /Sunset theme/i }).click();
+
+      const bg = page.locator('[data-testid="frontend-tools-background"]');
+
+      // Expect a gradient-containing inline style. `linear-gradient` is the
+      // common case for the sunset theme; `radial-gradient` is also accepted.
+      await expect
+        .poll(
+          async () => {
+            const s = (await bg.getAttribute("style")) ?? "";
+            return /linear-gradient|radial-gradient/.test(s);
+          },
+          { timeout: 45000 },
+        )
+        .toBe(true);
+    });
   });
 });

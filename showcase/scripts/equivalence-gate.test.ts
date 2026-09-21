@@ -1,3 +1,4 @@
+import { unitPillSignal } from "../harness/src/shared/cell-model/cell-model.equivalence-fixtures";
 import { describe, it, expect } from "vitest";
 import { runEquivalenceGate } from "./equivalence-gate";
 import type { EquivalenceGateInput, GateCell } from "./equivalence-gate";
@@ -35,7 +36,7 @@ function row(
       key,
       dimension,
       state,
-      signal: opts.signal ?? null,
+      signal: "signal" in opts ? opts.signal : unitPillSignal(key, observed),
       observed_at: observed,
       transitioned_at: observed,
       fail_count: state === "red" ? 1 : 0,
@@ -50,8 +51,8 @@ function row(
  * shapes the dashboard derives from so the gate reuses the real derivation:
  *   - "green": fresh-green D3 e2e + fresh-green chat (D4) + fresh-green d5/d6
  *     for the mapped featureType → ladder intact → green chip.
- *   - "amber": fresh-green e2e + chat + d5 but a fresh-RED d6 → ladder intact
- *     to D5, D6 not green → chip amber (cell-model §"D5 green + D6 red/amber
+ *   - "amber": fresh-green e2e + chat + d5 but a fresh-degraded d6 → ladder intact
+ *     to D5, D6 not green → chip amber (cell-model §"D5 green + D6 degraded
  *     /missing → amber"). amber is NOT-green, so staging-green/prod-amber is a
  *     gate mismatch.
  *   - "red": fresh-red e2e row → gate fails red.
@@ -77,7 +78,7 @@ function cellMap(
   const m: LiveStatusMap = new Map();
   if (color === "green" || color === "amber") {
     // Intact ladder up to D5: e2e green, chat green (D4), d5 green for the
-    // mapped featureType. D6 decides green vs amber — green for "green", red
+    // mapped featureType. D6 decides green vs amber — green for "green", degraded
     // for "amber" (cell-model: D5 green + D6 not-green → amber chip).
     m.set(
       ...row("e2e", slug, MAPPED_FEATURE, "green", { observedAt: observed }),
@@ -87,9 +88,15 @@ function cellMap(
       ...row("d5", slug, MAPPED_FEATURE, "green", { observedAt: observed }),
     );
     m.set(
-      ...row("d6", slug, MAPPED_FEATURE, color === "green" ? "green" : "red", {
-        observedAt: observed,
-      }),
+      ...row(
+        "d6",
+        slug,
+        MAPPED_FEATURE,
+        color === "green" ? "green" : "degraded",
+        {
+          observedAt: observed,
+        },
+      ),
     );
     return m;
   }

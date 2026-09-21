@@ -15,6 +15,7 @@
  * against committed fixtures forever (not against deleted design code).
  */
 
+import { unitPillSignal } from "../../shared/cell-model/cell-model.equivalence-fixtures.js";
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -57,7 +58,12 @@ function row(
     key,
     dimension,
     state,
-    signal: opts.signal ?? null,
+    signal:
+      "signal" in opts
+        ? opts.signal
+        : state === "green"
+          ? unitPillSignal(key, observed)
+          : null,
     observed_at: observed,
     transitioned_at: observed,
     fail_count: state === "red" ? 1 : 0,

@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
+import type { BrowserContext } from "playwright";
+import type { D5Script } from "./helpers/d5-registry.js";
 
 import type { FrontendMatrixCell } from "./frontend-matrix.js";
 import {
   conversationFailureSummary,
   createFrontendCellExecutor,
+  createPlaywrightProbeExecutor,
   testIdForFrontendProbe,
   waitForFrameworkHydration,
 } from "./frontend-matrix-playwright.js";
@@ -18,6 +21,41 @@ const ANGULAR_CELL: FrontendMatrixCell = {
 };
 
 describe("frontend matrix Playwright execution", () => {
+  it.each(["public", "direct-diagnostic"] as const)(
+    "releases the context when %s page creation rejects",
+    async (surface) => {
+      const failure = new Error("browserContext.newPage: Target closed");
+      const close = vi.fn<BrowserContext["close"]>().mockResolvedValue();
+      const context = {
+        newPage: vi.fn<BrowserContext["newPage"]>().mockRejectedValue(failure),
+        close,
+      } satisfies Pick<BrowserContext, "newPage" | "close">;
+      const script: D5Script = {
+        featureTypes: ["beautiful-chat-toggle-theme"],
+        buildTurns: () => [],
+      };
+      const execute = createPlaywrightProbeExecutor({
+        // Only page creation and cleanup are reachable on this failure path.
+        browser: {
+          newContext: async () => context as unknown as BrowserContext,
+        },
+        scripts: new Map([["beautiful-chat-toggle-theme", script]]),
+      });
+
+      await expect(
+        execute({
+          cell: ANGULAR_CELL,
+          featureType: "beautiful-chat-toggle-theme",
+          url: "http://127.0.0.1:4300/angular/beautiful-chat",
+          backendUrl: "http://127.0.0.1:4300",
+          testId: "page-creation-cleanup",
+          surface,
+        }),
+      ).rejects.toBe(failure);
+      expect(close).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it("classifies conversation failures without persisting response content", () => {
     expect(
       conversationFailureSummary(

@@ -1,35 +1,8 @@
+import { buildToolsAgentTurns } from "./_pill-contracts-tools-agents.js";
 /**
- * D5 — `tool-rendering-default-catchall` script.
- *
- * Phase-2A split (see `.claude/specs/lgp-test-genuine-pass.md`): the old
- * mapping pointed `tool-rendering-default-catchall` at the
- * `d5-tool-rendering.ts` probe, which asserts a per-tool `WeatherCard`
- * — the WRONG signal for the default catchall. The default catchall is
- * CopilotKit's BUILT-IN renderer that fires for ANY tool the user
- * doesn't explicitly handle. The probe must therefore assert the
- * built-in renderer's testid contract, NOT the per-tool card.
- *
- * Built-in default-catchall testid contract (Phase-1E production code):
- *   - container: `[data-testid="copilot-tool-render"]`
- *   - per-call:  `[data-tool-name="<tool_name>"]` attribute on the container
- *   - status:    a single status pill descendant element carrying
- *                `[data-testid="copilot-tool-render-status"]`. The
- *                lifecycle state (`inProgress` | `executing` |
- *                `complete`) is exposed on the container's
- *                `data-status` attribute, but the probe only asserts
- *                the pill testid's presence — that is sufficient to
- *                detect a regression where the renderer drops the
- *                pill entirely.
- *
- * The probe drives `/demos/tool-rendering-default-catchall` with a
- * weather prompt (the default-catchall demo uses `get_weather` as its
- * canonical tool — same fixture as `tool-rendering`), then asserts
- * the built-in renderer rendered the tool call with the expected
- * `data-tool-name` and a status pill.
- *
- * Side effect: importing this module triggers `registerD5Script`. The
- * default loader in `d6-all-pills.ts` discovers it via the `d5-*` filename
- * convention.
+ * Functional acceptance uses the shared canonical LGP pill contract below.
+ * Exported legacy assertion helpers remain for supplemental regression tests;
+ * buildTurns never uses their weaker diagnostic-only acceptance criteria.
  */
 
 import { registerD5Script } from "../helpers/d5-registry.js";
@@ -276,30 +249,7 @@ export async function assertDefaultCatchall(
 }
 
 export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
-  return [
-    {
-      input: "forecast for Tokyo",
-      // After the testid + tool-name checks pass, also assert the
-      // assistant narration content (the bubble text resolved by the
-      // conversation runner) does NOT contain the custom-catchall leak
-      // phrase. This catches the cross-fixture leak that the testid
-      // checks structurally cannot — see the
-      // `d5-tool-rendering-custom-catchall.ts` companion probe and PR
-      // #5465's failure mode for context.
-      assertions: async (page, ctx) => {
-        await assertDefaultCatchall(page);
-        if (ctx.text.includes(CUSTOM_CATCHALL_LEAK_PHRASE)) {
-          throw new Error(
-            "tool-rendering-default-catchall: narration content contains " +
-              `the custom-catchall leak phrase ${JSON.stringify(CUSTOM_CATCHALL_LEAK_PHRASE)} — ` +
-              "a custom-catchall fixture leaked into the default-catchall " +
-              "request (LGP-gold disjoint-prompts pattern violated). " +
-              `Observed text: ${JSON.stringify(ctx.text.slice(0, 200))}`,
-          );
-        }
-      },
-    },
-  ];
+  return buildToolsAgentTurns("tool-rendering-default-catchall");
 }
 
 /**

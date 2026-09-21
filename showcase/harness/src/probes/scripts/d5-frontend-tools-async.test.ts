@@ -1,86 +1,118 @@
-import { describe, it, expect } from "vitest";
-import { getD5Script, type D5BuildContext } from "../helpers/d5-registry.js";
-import type { Page } from "../helpers/conversation-runner.js";
+import type { StateToolsContract } from "./_pill-contracts-state-tools.js";
+import { getD5Script } from "../helpers/d5-registry.js";
 import {
-  buildTurns,
-  buildAsyncToolsAssertion,
-  ASYNC_PILL_PROMPT,
-} from "./d5-frontend-tools-async.js";
+  STATE_TOOLS_CONTRACTS,
+  checkStateToolsResult,
+} from "./_pill-contracts-state-tools.js";
+import { describe, expect, it } from "vitest";
+import { buildTurns as canonicalBuildTurns } from "./d5-frontend-tools-async.js";
 
-function makePage(state: {
-  cardMounted: boolean;
-  hasListItems: boolean;
-  hasEmptyState: boolean;
-}): Page {
-  return {
-    async waitForSelector() {},
-    async fill() {},
-    async press() {},
-    async evaluate<R>() {
-      return state as unknown as R;
-    },
-  };
-}
+const context = {
+  integrationSlug: "langgraph-python",
+  featureType: "frontend-tools-async",
+  baseUrl: "http://localhost:39200",
+} as const;
 
-describe("d5-frontend-tools-async script", () => {
-  it("registers under featureType 'frontend-tools-async'", () => {
-    const script = getD5Script("frontend-tools-async");
-    expect(script).toBeDefined();
-    expect(script?.featureTypes).toEqual(["frontend-tools-async"]);
-    expect(script?.fixtureFile).toBe("frontend-tools-async.json");
+describe("frontend-tools-async canonical pill contract", () => {
+  it("accounts for all three exact canonical controls", () => {
+    const turns = canonicalBuildTurns(context);
+    expect(turns.map((turn) => turn.action?.buttonName)).toEqual([
+      "Find project-planning notes",
+      "Search for 'auth'",
+      "What do I have about reading?",
+    ]);
+    expect(new Set(turns.map((turn) => turn.action?.id)).size).toBe(3);
+    for (const turn of turns) {
+      expect(turn.action?.kind).toBe("pill");
+      expect(turn.action?.expectedDispatchedPrompt).toBe(turn.input);
+      expect(turn.action?.submission).toEqual({ kind: "immediate" });
+      expect(turn.assertions).toBeTypeOf("function");
+      expect(turn.skipFill).toBeUndefined();
+      expect(turn.skipSend).toBeUndefined();
+    }
   });
-
-  it("buildTurns sends the project-planning pill prompt with extended timeout", () => {
-    const ctx: D5BuildContext = {
-      integrationSlug: "x",
-      featureType: "frontend-tools-async",
-      baseUrl: "https://x.test",
-    };
-    const turn = buildTurns(ctx)[0]!;
-    expect(turn.input).toBe(ASYNC_PILL_PROMPT);
-    expect(turn.responseTimeoutMs).toBeGreaterThanOrEqual(60_000);
+  it("uses identical canonical controls across integrations", () => {
+    const canonical = canonicalBuildTurns(context).map(({ input, action }) => ({
+      input,
+      action,
+    }));
+    for (const integrationSlug of [
+      "ag2",
+      "agno",
+      "spring-ai",
+      "claude-sdk-python",
+    ]) {
+      expect(
+        canonicalBuildTurns({ ...context, integrationSlug }).map(
+          ({ input, action }) => ({ input, action }),
+        ),
+      ).toEqual(canonical);
+    }
   });
+});
 
-  it("assertion succeeds when notes-card mounts with list items", async () => {
-    const assertion = buildAsyncToolsAssertion({ timeoutMs: 100 });
-    const page = makePage({
-      cardMounted: true,
-      hasListItems: true,
-      hasEmptyState: false,
+describe("strict visible-result regressions", () => {
+  const contracts: readonly StateToolsContract[] =
+    STATE_TOOLS_CONTRACTS["frontend-tools-async"];
+  it("registers the functional builder with all required results", () => {
+    expect(getD5Script("frontend-tools-async")).toBeDefined();
+  });
+  for (const contract of contracts) {
+    it(`${contract.id} accepts only the established exact result`, () => {
+      const result = {
+        texts: [contract.texts.join(" ")],
+        attributes: [contract.value ?? null],
+        pills: [],
+        noteIds: [Array.from(contract.noteIds ?? [])],
+        noteRows: [Array.from(contract.noteRows ?? [])],
+        backgroundMatches: [true],
+      };
+      if (contract.unresolved) {
+        expect(() => checkStateToolsResult(contract, result, 0)).toThrow(
+          contract.unresolved,
+        );
+      } else {
+        expect(() => checkStateToolsResult(contract, result, 0)).not.toThrow();
+        expect(() =>
+          checkStateToolsResult(
+            contract,
+            { ...result, texts: ["Wrong result"], attributes: ["#4f46e5"] },
+            0,
+          ),
+        ).toThrow();
+        if (
+          !contract.attribute &&
+          contract.selector !== '[data-testid="document-content"]'
+        ) {
+          expect(() => checkStateToolsResult(contract, result, 1)).toThrow();
+        }
+        const noteIds = contract.noteIds;
+        if (noteIds) {
+          expect(() =>
+            checkStateToolsResult(
+              contract,
+              { ...result, noteIds: [[...noteIds, "note-n7"]] },
+              0,
+            ),
+          ).toThrow();
+        }
+      }
     });
-    await expect(assertion(page)).resolves.toBeUndefined();
-  });
-
-  it("assertion succeeds when notes-card shows empty-state", async () => {
-    const assertion = buildAsyncToolsAssertion({ timeoutMs: 100 });
-    const page = makePage({
-      cardMounted: true,
-      hasListItems: false,
-      hasEmptyState: true,
+    it(`${contract.id} rejects empty, hidden or stale results`, () => {
+      expect(() =>
+        checkStateToolsResult(
+          contract,
+          {
+            texts: [],
+            attributes: [],
+            pills: [],
+            noteIds: [],
+            noteRows: [],
+            backgroundMatches: [],
+          },
+          0,
+        ),
+      ).toThrow();
     });
-    await expect(assertion(page)).resolves.toBeUndefined();
-  });
-
-  it("assertion fails when notes-card mounts but never settles", async () => {
-    const assertion = buildAsyncToolsAssertion({ timeoutMs: 100 });
-    let calls = 0;
-    const page: Page = {
-      async waitForSelector() {},
-      async fill() {},
-      async press() {},
-      async evaluate<R>() {
-        calls += 1;
-        // After a few polls, throw to force the assertion's settle
-        // loop to bail out — testing the structural failure path
-        // without paying the full FIRST_SIGNAL_TIMEOUT_MS budget.
-        if (calls > 3) throw new Error("simulated abort");
-        return {
-          cardMounted: true,
-          hasListItems: false,
-          hasEmptyState: false,
-        } as unknown as R;
-      },
-    };
-    await expect(assertion(page)).rejects.toThrow();
-  });
+  }
 });

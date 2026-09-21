@@ -1,3 +1,4 @@
+import { unitPillSignal } from "../harness/src/shared/cell-model/cell-model.equivalence-fixtures";
 import { describe, it, expect } from "vitest";
 import {
   enqueueProdResweep,
@@ -38,7 +39,7 @@ function row(
   featureId: string | undefined,
   state: StatusRow["state"],
   observedAtMs: number,
-  signal: unknown = null,
+  signal?: unknown,
 ): [string, StatusRow] {
   const key = keyFor(dimension, slug, featureId);
   const observed = new Date(observedAtMs).toISOString();
@@ -49,7 +50,7 @@ function row(
       key,
       dimension,
       state,
-      signal,
+      signal: signal === undefined ? unitPillSignal(key, observed) : signal,
       observed_at: observed,
       transitioned_at: observed,
       fail_count: state === "red" ? 1 : 0,

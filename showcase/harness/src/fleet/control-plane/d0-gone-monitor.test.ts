@@ -8,6 +8,7 @@
  * exercised deterministically without a real pool or PocketBase.
  */
 
+import { unitPillSignal } from "../../shared/cell-model/cell-model.equivalence-fixtures.js";
 import { describe, it, expect, beforeEach } from "vitest";
 import type { StatusRow, State } from "../../shared/cell-model/live-status.js";
 import { keyFor } from "../../shared/cell-model/live-status.js";
@@ -65,7 +66,7 @@ function row(slug: string, key: string, state: State, atMs: number): StatusRow {
     key,
     dimension,
     state,
-    signal: null,
+    signal: state === "green" ? unitPillSignal(key, at) : null,
     observed_at: at,
     transitioned_at: at,
     fail_count: state === "red" ? 1 : 0,
