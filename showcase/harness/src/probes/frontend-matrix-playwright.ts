@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import type { Browser, Frame } from "playwright";
+import type { Browser, Frame, Page as PlaywrightPage } from "playwright";
 
 import {
   runConversation,
@@ -331,7 +331,8 @@ export function createPlaywrightProbeExecutor(
           await frame.waitForURL(expected);
         }
         const surface = frame ?? page;
-        const runnerPage: RunnerPage = {
+        const runnerPage: RunnerPage & Pick<PlaywrightPage, "click"> = {
+          click: (selector, opts) => surface.click(selector, opts),
           waitForSelector: (selector, opts) =>
             surface.waitForSelector(selector, opts),
           fill: (selector, value, opts) => surface.fill(selector, value, opts),
