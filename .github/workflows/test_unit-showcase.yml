@@ -341,6 +341,20 @@ jobs:
           pnpm exec tsx bundle-setup-content.ts
           pnpm exec tsx generate-search-index.ts
 
+      - name: Typecheck shell-docs
+        working-directory: showcase/shell-docs
+        # Not reachable from `static_quality.yml`. That job runs
+        # `nx run-many -t check-types`, and shell-docs is outside the pnpm
+        # workspace with no project.json, so nx cannot select it even by name —
+        # the same reason the unit suite needed this workflow. Its tsconfig is
+        # `strict: true` over `**/*.ts`, so without this step nothing checked a
+        # single file here.
+        #
+        # Measured on the commit that added this: 0 errors. It is placed after
+        # the generators above because `src/lib` statically imports the
+        # generated `@/data/*.json`, exactly as the suite does.
+        run: npm exec -- tsc --noEmit
+
       - name: Run shell-docs unit suite
         working-directory: showcase/shell-docs
         # Not driven through nx: shell-docs is outside the pnpm workspace by

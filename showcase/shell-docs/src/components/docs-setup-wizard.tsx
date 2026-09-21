@@ -6,7 +6,7 @@
 // would ship the whole registry to the browser. This file exists so that
 // never happens again: it is the only module that reads
 // `@/lib/homepage-map`, and it does nothing else — it stays a plain server
-// module, and it does not transform, re-sort, or re-filter anything.
+// module. Docs-only partner roots add their fixed choice here.
 // Ordering and filtering are `homepage-map.ts`'s decisions, guarded by that
 // module's own tests.
 import React from "react";
@@ -17,12 +17,33 @@ import {
   COPILOTKIT_CAPABILITIES,
 } from "@/lib/homepage-map";
 
-export function DocsSetupWizard(): React.JSX.Element {
+export function DocsSetupWizard({
+  backend,
+  frontend,
+}: { backend?: string; frontend?: string } = {}): React.JSX.Element {
+  const backends = agentPicks();
+  const docsOnlyNames: Record<string, string> = {
+    a2a: "A2A",
+    "agent-spec": "Agent Spec",
+  };
+  if (
+    backend &&
+    docsOnlyNames[backend] &&
+    !backends.some((pick) => pick.id === backend)
+  ) {
+    backends.push({
+      id: backend,
+      name: docsOnlyNames[backend],
+      logo: { kind: "framework", slug: backend },
+    });
+  }
   return (
     <SetupWizard
+      fixedBackend={backend}
+      defaultFrontend={frontend}
       frontends={frontendPicks()}
       capabilities={COPILOTKIT_CAPABILITIES}
-      backends={agentPicks()}
+      backends={backends}
     />
   );
 }

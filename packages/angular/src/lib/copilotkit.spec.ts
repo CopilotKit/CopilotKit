@@ -33,6 +33,9 @@ const mockSetRuntimeUrl = vi.fn();
 const mockSetRuntimeTransport = vi.fn();
 const mockSetHeaders = vi.fn();
 const mockSetProperties = vi.fn();
+const mockSetMessageFilter = vi.fn();
+/** Keeps the final turn only — the shape #1482 asks for (see below). */
+const keepLastTurn = (messages: any[]) => messages.slice(-1);
 const mockSetAgents = vi.fn();
 const mockGetAgent = vi.fn();
 const mockGetTool = vi.fn();
@@ -69,6 +72,7 @@ vi.mock("@copilotkit/core", async (importOriginal) => {
     readonly setRuntimeTransport = mockSetRuntimeTransport;
     readonly setHeaders = mockSetHeaders;
     readonly setProperties = mockSetProperties;
+    readonly setMessageFilter = mockSetMessageFilter;
     readonly setAgents__unsafe_dev_only = mockSetAgents;
     readonly getAgent = mockGetAgent;
     readonly getTool = mockGetTool;
@@ -530,6 +534,80 @@ describe("CopilotKit", () => {
     expect(mockSetHeaders).toHaveBeenCalledWith({ Authorization: "different" });
     expect(mockSetProperties).toHaveBeenCalledWith({ locale: "en" });
     expect(mockSetAgents).toHaveBeenCalledWith({ a: {} });
+  });
+
+  // #1482: the message filter is the Angular half of the `messageFilter`
+  // React and Vue take as a prop. The filter's own behaviour is covered in
+  // packages/core; what is Angular-specific is that the configuration reaches
+  // the core, and that clearing it is expressible.
+  it("passes the configured message filter to core", () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({ licenseKey, messageFilter: keepLastTurn }),
+      ],
+    });
+
+    TestBed.inject(CopilotKit);
+
+    expect(lastCoreConfig.messageFilter).toBe(keepLastTurn);
+  });
+
+  it("leaves core unfiltered when no message filter is configured", () => {
+    TestBed.configureTestingModule({
+      providers: [provideCopilotKit({ licenseKey })],
+    });
+
+    TestBed.inject(CopilotKit);
+
+    expect(lastCoreConfig.messageFilter).toBeUndefined();
+  });
+
+  it("updates the message filter through updateRuntime", () => {
+    TestBed.configureTestingModule({
+      providers: [provideCopilotKit({ licenseKey })],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+
+    copilotKit.updateRuntime({ messageFilter: keepLastTurn });
+
+    expect(mockSetMessageFilter).toHaveBeenCalledWith(keepLastTurn);
+  });
+
+  it("clears the message filter when updateRuntime passes undefined", () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({
+          licenseKey,
+          messageFilter: keepLastTurn,
+        }),
+      ],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+
+    // Passing the key explicitly is how an app turns trimming off. An
+    // `options.messageFilter !== undefined` guard would silently ignore it.
+    copilotKit.updateRuntime({ messageFilter: undefined });
+
+    expect(mockSetMessageFilter).toHaveBeenCalledWith(undefined);
+  });
+
+  it("leaves the message filter alone when updateRuntime does not mention it", () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({
+          licenseKey,
+          messageFilter: keepLastTurn,
+        }),
+      ],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+
+    copilotKit.updateRuntime({ runtimeUrl: "https://other" });
+
+    expect(mockSetMessageFilter).not.toHaveBeenCalled();
   });
 
   it("reflects agent updates from core subscriptions", () => {

@@ -341,39 +341,92 @@ describe("CopilotKitCore.connectAgent selective replay", () => {
     expect(agent.runs).toHaveLength(0);
   });
 
-  it("restores the next prompt when another client answered the previous one", async () => {
-    const { core, agent, toolCallId } = setup();
+  it.each([false, true])(
+    "restores the next prompt after a remote answer (already known: %s)",
+    async (alreadyKnown) => {
+      const { core, agent, toolCallId } = setup();
+      const nextPrompt = createToolCallMessage("approval", {
+        topic: "support",
+      });
+      if (alreadyKnown) agent.replayMessages.push(nextPrompt);
+      const first = deferredAnswer();
+      const second = deferredAnswer();
+      const handler = vi
+        .fn()
+        .mockImplementationOnce(() => first.promise)
+        .mockImplementationOnce(() => second.promise);
+      core.addTool(
+        createTool({
+          name: "approval",
+          type: "human-in-the-loop",
+          handler,
+          followUp: false,
+        }),
+      );
+      await core.connectAgent({ agent });
+      await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+      agent.replayMessages = [
+        ...agent.messages,
+        createToolResultMessage(toolCallId, "remote answer"),
+        ...(alreadyKnown ? [] : [nextPrompt]),
+      ];
+      const replay = await core.connectAgent({ agent });
+      if (alreadyKnown) {
+        expect(
+          replay.newMessages.some((message) => message.id === nextPrompt.id),
+        ).toBe(false);
+      }
+      await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(2));
+      first.resolve("stale answer");
+      second.resolve("support approved");
+      await vi.waitFor(() =>
+        expect(agent.messages.filter((m) => m.role === "tool")).toHaveLength(2),
+      );
+      expect(
+        agent.messages.filter((m) => m.role === "tool").map((m) => m.content),
+      ).toEqual(["remote answer", "support approved"]);
+    },
+  );
+
+  it("stopping one agent leaves another agent's replay answerable", async () => {
+    const { core, agent } = setup();
+    const otherMessage = createToolCallMessage("approval", {
+      topic: "support",
+    });
+    const other = new ReplayAgent([otherMessage]);
+    other.agentId = "other";
     const first = deferredAnswer();
     const second = deferredAnswer();
-    const handler = vi
-      .fn()
-      .mockImplementationOnce(() => first.promise)
-      .mockImplementationOnce(() => second.promise);
+    const signals = new Map<AbstractAgent, AbortSignal | undefined>();
+    const handler = vi.fn((_args, context) => {
+      signals.set(context.agent, context.signal);
+      return context.agent === agent ? first.promise : second.promise;
+    });
     core.addTool(
       createTool({
         name: "approval",
         type: "human-in-the-loop",
         handler,
-        followUp: false,
+        followUp: true,
       }),
     );
     await core.connectAgent({ agent });
-    await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
-    agent.replayMessages = [
-      ...agent.messages,
-      createToolResultMessage(toolCallId, "remote answer"),
-      createToolCallMessage("approval", { topic: "support" }),
-    ];
-    await core.connectAgent({ agent });
+    await core.connectAgent({ agent: other });
     await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(2));
-    first.resolve("stale answer");
+    core.stopAgent({ agent });
+    expect(signals.get(agent)?.aborted).toBe(true);
+    expect(signals.get(other)?.aborted).toBe(false);
     second.resolve("support approved");
-    await vi.waitFor(() =>
-      expect(agent.messages.filter((m) => m.role === "tool")).toHaveLength(2),
+    await vi.waitFor(() => expect(other.runs).toHaveLength(1));
+    expect(other.runs[0]?.messages).toContainEqual(
+      expect.objectContaining({ role: "tool", content: "support approved" }),
     );
-    expect(
-      agent.messages.filter((m) => m.role === "tool").map((m) => m.content),
-    ).toEqual(["remote answer", "support approved"]);
+    first.resolve("stopped answer");
+    await setImmediate();
+    expect(agent.runs).toHaveLength(0);
+    expect(agent.messages.some((message) => message.role === "tool")).toBe(
+      false,
+    );
   });
 
   it("continues to execute ordinary tools during normal runs", async () => {

@@ -2677,9 +2677,6 @@ importers:
       "@copilotkit/runtime":
         specifier: workspace:*
         version: link:../runtime
-      yauzl:
-        specifier: 2.10.0
-        version: 2.10.0
     devDependencies:
       "@copilotkit/typescript-config":
         specifier: workspace:*
@@ -2687,9 +2684,6 @@ importers:
       "@types/node":
         specifier: ^22.15.3
         version: 22.19.11
-      "@types/yauzl":
-        specifier: 2.10.3
-        version: 2.10.3
       tsdown:
         specifier: ^0.20.3
         version: 0.20.3(@arethetypeswrong/core@0.18.2)(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(oxc-resolver@11.24.2)(publint@0.3.17)(synckit@0.11.12)(typescript@5.8.2)
@@ -2708,9 +2702,6 @@ importers:
       "@copilotkit/runtime":
         specifier: workspace:*
         version: link:../runtime
-      yauzl:
-        specifier: 2.10.0
-        version: 2.10.0
     devDependencies:
       "@copilotkit/typescript-config":
         specifier: workspace:*
@@ -2751,9 +2742,6 @@ importers:
       "@copilotkit/runtime":
         specifier: workspace:*
         version: link:../runtime
-      yauzl:
-        specifier: 2.10.0
-        version: 2.10.0
     devDependencies:
       "@copilotkit/typescript-config":
         specifier: workspace:*
@@ -3405,6 +3393,9 @@ importers:
       ws:
         specifier: ^8.18.0
         version: 8.19.0
+      yauzl:
+        specifier: 2.10.0
+        version: 2.10.0
       zod:
         specifier: '>=3.22.3'
         version: 3.25.76
@@ -3424,6 +3415,9 @@ importers:
       '@types/node':
         specifier: ^18.11.17
         version: 18.19.130
+      '@types/yauzl':
+        specifier: 2.10.3
+        version: 2.10.3
       '@types/phoenix':
         specifier: ^1.6.6
         version: 1.6.7

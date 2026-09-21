@@ -16,6 +16,7 @@ Layout:
 - `/byoc_hashbrown`            BYOC hashbrown demo
 - `/multimodal`                Multimodal attachments (image/PDF)
 - `/agent_config`              Agent-config forwarded-props demo
+- `/shared_state_read`         Shared State (Read-only) — current recipe
 - `/shared_state_read_write`   Shared State (Read + Write) — bidirectional state
 - `/subagents`                 Sub-Agents — supervisor + 3 specialists
 - `/gen_ui_agent`              Agentic Generative UI — live plan steps
@@ -84,6 +85,8 @@ from agents.byoc_hashbrown_agent import agent as byoc_hashbrown_agent
 from agents.multimodal_agent import agent as multimodal_agent
 from agents.agent_config_agent import AgentConfigState
 from agents.agent_config_agent import agent as agent_config_agent
+from agents.shared_state_read import RecipeState
+from agents.shared_state_read import agent as shared_state_read_agent
 from agents.shared_state_read_write import SharedStateRWState
 from agents.shared_state_read_write import agent as shared_state_read_write_agent
 from agents.subagents import SubagentsState
@@ -193,6 +196,7 @@ mount_agent("/multimodal", multimodal_agent)
 mount_agent("/agent_config", agent_config_agent, AgentConfigState)
 
 # ── Shared state (read + write) and sub-agents ───────────────────────
+mount_agent("/shared_state_read", shared_state_read_agent, RecipeState)
 mount_agent(
     "/shared_state_read_write", shared_state_read_write_agent, SharedStateRWState
 )

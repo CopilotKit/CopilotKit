@@ -5,7 +5,7 @@ import {
 import type { LearnedSkillsSnapshotResult } from "@copilotkit/runtime/v2";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import fixtures from "../../conformance/snapshots.v1.json";
-import { SkillRegistry } from "../registry.js";
+import { SkillRegistry } from "../index.js";
 
 function response(name = "text-skill"): LearnedSkillsSnapshotResult {
   const fixture = fixtures.cases.find((item) => item.name === name)!;

@@ -828,14 +828,10 @@ agent_os = AgentOS(
         # reasoning_agent is mounted separately below via
         # _attach_reasoning_route so /reasoning/agui emits REASONING_MESSAGE_*
         # events instead of the stock AGUI STEP_STARTED/STEP_FINISHED.
-        # No-tools agent for the MCP Apps cell. The CopilotKit runtime's
-        # `mcpApps.servers` middleware injects MCP server tools at request
-        # time, so the LLM only sees the MCP-provided toolset.
-        AGUI(agent=mcp_apps_agent, prefix="/mcp-apps"),  # -> /mcp-apps/agui
-        # No-tools agent for the Open Generative UI cells. The runtime's
-        # `openGenerativeUI` middleware injects the `generateSandboxedUi`
-        # tool the LLM uses to author HTML+CSS for the sandboxed iframe.
-        AGUI(agent=open_gen_ui_agent, prefix="/open-gen-ui"),  # -> /open-gen-ui/agui
+        # MCP Apps is mounted separately below so incoming MCP tool schemas
+        # and tool-result continuations reach its dedicated no-tools agent.
+        # OpenUI is mounted separately below so runtime-injected tools and
+        # their result continuations reach its dedicated no-tools agent.
         # Vision-capable agent (gpt-4o) for the Multimodal Attachments cell.
         AGUI(agent=multimodal_agent, prefix="/multimodal"),  # -> /multimodal/agui
         # BYOC: hashbrown — agent emits a hashbrown UI-kit envelope as a single
@@ -862,6 +858,28 @@ app = agent_os.get_app()
 # are forwarded to the LLM on the second leg of HITL flows instead of being
 # silently dropped by ``extract_agui_user_input()``.
 _attach_hitl_aware_route(app, main_agent, "")
+
+# Preserve MCP status while replacing the stock handler that drops injected tools.
+mcp_apps_status_router = AGUI(agent=mcp_apps_agent, prefix="/mcp-apps").get_router()
+mcp_apps_status_router.routes = [
+    route
+    for route in mcp_apps_status_router.routes
+    if getattr(route, "path", None) == "/mcp-apps/status"
+]
+app.include_router(mcp_apps_status_router)
+_attach_hitl_aware_route(app, mcp_apps_agent, "/mcp-apps")
+
+# Preserve OpenUI status while admitting runtime-injected sandbox tools.
+open_gen_ui_status_router = AGUI(
+    agent=open_gen_ui_agent, prefix="/open-gen-ui"
+).get_router()
+open_gen_ui_status_router.routes = [
+    route
+    for route in open_gen_ui_status_router.routes
+    if getattr(route, "path", None) == "/open-gen-ui/status"
+]
+app.include_router(open_gen_ui_status_router)
+_attach_hitl_aware_route(app, open_gen_ui_agent, "/open-gen-ui")
 
 # Interrupt-adapted scheduling agent. Shared by gen-ui-interrupt and
 # interrupt-headless demos -- backend has tools=[], the frontend provides

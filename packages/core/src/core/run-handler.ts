@@ -242,9 +242,10 @@ export class RunHandler {
    * that in-flight tool handlers should stop and `processAgentResult` should
    * not start a follow-up run.
    */
-  abortCurrentRun(): void {
+  abortCurrentRun(agent: AbstractAgent): void {
     this._runAbortController?.abort();
-    for (const replay of this._replayAbortControllers.values()) {
+    const replay = this._replayAbortControllers.get(agent);
+    if (replay) {
       for (const controller of replay.controllers) controller.abort();
     }
   }
@@ -807,7 +808,14 @@ export class RunHandler {
       return runAgentResult;
     }
 
-    for (const message of newMessages) {
+    // Reconnect deltas omit messages already hydrated by earlier replays.
+    // Reconcile the current history so a remote answer can unblock a pending
+    // call that was already present. Snapshot it because handlers insert results.
+    const messagesToProcess =
+      toolExecutionMode === "human-in-the-loop"
+        ? [...agent.messages]
+        : newMessages;
+    for (const message of messagesToProcess) {
       if (message.role === "assistant") {
         for (const toolCall of message.toolCalls || []) {
           const tool = this.getTool({
@@ -1230,6 +1238,8 @@ export class RunHandler {
           const result = await wildcardTool.handler(wildcardArgs as any, {
             toolCall,
             agent,
+            // Use the same execution signal as named tools, including the
+            // replay-specific signal when restoring a wildcard HITL handler.
             signal,
           });
           if (result === undefined || result === null) {
