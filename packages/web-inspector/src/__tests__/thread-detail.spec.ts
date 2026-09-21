@@ -548,6 +548,46 @@ test("thread title uses provider metadata and full identity remains in the detai
   }
 });
 
+test("embedding hosts can hide the title without losing conversation controls", async () => {
+  prepareDom();
+  const detail = appendDetail({
+    threadId: "embedded-thread",
+    thread: { id: "embedded-thread", name: "Host owns this title" },
+    provider: {
+      getMessages: async () => [{ id: "m1", role: "user", content: "Hello" }],
+      getEvents: async () => [],
+    },
+  });
+  try {
+    await flushDetail(detail);
+    expect(
+      detail.shadowRoot?.querySelector(".cpk-td__thread-title")?.textContent,
+    ).toContain("Host owns this title");
+    Object.assign(detail, { showThreadTitle: false });
+    await flushDetail(detail);
+    expect(
+      detail.shadowRoot?.querySelector(".cpk-td__thread-title"),
+    ).toBeNull();
+    expect(
+      requireButton(detail.shadowRoot!, "Show event timeline"),
+    ).toBeDefined();
+    expect(
+      detail.shadowRoot?.querySelector(
+        '[role="group"][aria-label="User message"]',
+      )?.textContent,
+    ).toContain("Hello");
+    Object.assign(detail, { showThreadTitle: true });
+    await flushDetail(detail);
+    expect(
+      detail.shadowRoot?.querySelector(".cpk-td__thread-title")?.textContent,
+    ).toContain("Host owns this title");
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
 test("a message focus request scrolls and pulses once per request", async () => {
   prepareDom();
   const scrollIntoView = vi.fn();
