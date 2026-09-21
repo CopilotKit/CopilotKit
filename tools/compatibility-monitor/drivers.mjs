@@ -1,3 +1,4 @@
+import { runBuiltin } from "./builtin.mjs";
 import { verifyLocalNugetArtifacts, sourceNugetConfig } from "./nuget.mjs";
 import assert from "node:assert/strict";
 import {
@@ -31,7 +32,9 @@ export async function runAdapter(request, context) {
     }
   };
   try {
-    if (request.adapterId.endsWith("-ts"))
+    if (request.adapterId === "builtin-ts")
+      await runBuiltin(request, { ...context, work, state, runCase });
+    else if (request.adapterId.endsWith("-ts"))
       await typescript(request, { ...context, work, state, runCase });
     else if (request.adapterId.endsWith("-python"))
       runPython(request, { ...context, work, state, runCase });

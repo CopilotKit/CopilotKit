@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { executeRequest } from "./run.mjs";
@@ -88,4 +88,43 @@ test("no tests is blocked rather than green", async () => {
     ).status,
     "blocked",
   );
+});
+
+test("CLI fails the CI job when checkout validation blocks the consumer", async () => {
+  const { spawnSync } = await import("node:child_process");
+  const { resolve } = await import("node:path");
+  const { rmSync } = await import("node:fs");
+  const dir = mkdtempSync(join(tmpdir(), "monitor-cli-test-"));
+  try {
+    const input = join(dir, "request.json");
+    writeFileSync(
+      input,
+      JSON.stringify({
+        schemaVersion: 1,
+        requestId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        adapterId: "mastra-ts",
+        track: "source",
+        sourceSha: "a".repeat(40),
+        experimental: false,
+        dependencies: { "@mastra/core": "1.67.0", zod: "4.6.1" },
+      }),
+    );
+    const result = spawnSync(
+      process.execPath,
+      [
+        "tools/compatibility-monitor/run.mjs",
+        input,
+        resolve("."),
+        join(dir, "output"),
+      ],
+      { encoding: "utf8" },
+    );
+    assert.equal(
+      JSON.parse(readFileSync(join(dir, "output/result.json"), "utf8")).status,
+      "blocked",
+    );
+    assert.equal(result.status, 1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

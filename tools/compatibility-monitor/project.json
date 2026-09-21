@@ -20,9 +20,15 @@
     "format": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "oxfmt --write tools/compatibility-monitor packages/intelligence-langgraph/test/compatibility.mjs packages/intelligence-mastra/test/compatibility.mjs .github/workflows/intelligence-compatibility-monitor.yml"
+        "command": "oxfmt --write tools/compatibility-monitor packages/intelligence-langgraph/test/compatibility.mjs packages/intelligence-mastra/test/compatibility.mjs .github/workflows/intelligence-compatibility-monitor.yml .github/workflows/intelligence-skill-adapters.yml tools/learned-skill-conformance/workspace-artifacts.mjs"
       },
       "cache": false
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "oxlint tools/compatibility-monitor tools/learned-skill-conformance/workspace-artifacts.mjs"
+      }
     }
   }
 }

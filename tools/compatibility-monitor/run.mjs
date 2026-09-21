@@ -98,15 +98,19 @@ export async function defaultDriver(request, { output, source }) {
     "Checkout SHA differs from request",
   );
   const { runAdapter } = await import("./drivers.mjs");
-  return runAdapter(request, { output, source, command });
+  return runAdapter(request, { output, source, command, env });
 }
 if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(resolve(process.argv[1])).href
 ) {
   const [requestFile, source, output] = process.argv.slice(2);
-  await executeRequest(JSON.parse(readFileSync(requestFile, "utf8")), {
-    source,
-    output,
-  });
+  const result = await executeRequest(
+    JSON.parse(readFileSync(requestFile, "utf8")),
+    {
+      source,
+      output,
+    },
+  );
+  process.exitCode = result.status === "passed" ? 0 : 1;
 }

@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
 export const adapters = {
+  "builtin-ts": {
+    directory: "runtime",
+    name: "@copilotkit/runtime",
+    entrypoint: "@copilotkit/runtime/v2",
+    packages: ["ai", "zod"],
+  },
   "langgraph-ts": {
     directory: "intelligence-langgraph",
     name: "@copilotkit/intelligence-langgraph",
