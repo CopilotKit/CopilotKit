@@ -1619,6 +1619,15 @@ export class CpkLearningView extends LitElement {
           </div>
           <div class="pane-actions">
             ${
+              state === "results"
+                ? this.externalLink(
+                    this.snapshot!.webAppOrigin,
+                    "Open Intelligence ↗",
+                    "secondary",
+                  )
+                : nothing
+            }
+            ${
               state === "setup" && this.setupActive
                 ? html`<button
                     class="secondary"

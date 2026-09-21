@@ -13,6 +13,7 @@ export interface WizardPromptSelection {
    *  two, this has no CLI graph slug to translate -- see the sentence it
    *  drives, below. */
   project: "yes" | "no" | null;
+  agent?: "yes" | "no" | null;
 }
 
 /**
@@ -77,6 +78,11 @@ export function composeWizardOnboardingPrompt(
     frameworkSentence +
     frontendSentence +
     projectSentence +
+    (selection.agent === "yes"
+      ? ` They already have a ${selection.backend?.name ?? "working"} agent. Connect that existing agent without replacing it.`
+      : selection.agent === "no"
+        ? ` They need a new ${selection.backend?.name ?? "AI"} agent. Create it as part of the setup.`
+        : "") +
     featuresSentence
   );
 }
