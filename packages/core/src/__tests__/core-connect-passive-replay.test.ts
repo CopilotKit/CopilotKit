@@ -462,6 +462,65 @@ describe("CopilotKitCore.connectAgent selective replay", () => {
     },
   );
 
+  it("records a live stop result even when AbortSignal has no reason", async () => {
+    // React Native installs the `abort-controller@3` polyfill as the global
+    // AbortController. Its `abort()` takes no reason and its signals never
+    // expose one, so the stop must not be signalled through `signal.reason`.
+    const reason = Object.getOwnPropertyDescriptor(
+      AbortSignal.prototype,
+      "reason",
+    );
+    if (!reason) throw new Error("AbortSignal.reason is not defined here");
+    Object.defineProperty(AbortSignal.prototype, "reason", {
+      configurable: true,
+      get: () => undefined,
+    });
+    try {
+      const { core, message, toolCallId } = setup();
+      const agent = new HttpAgent({
+        url: "http://localhost/unused",
+        agentId: "test",
+        threadId: "thread-1",
+      });
+      vi.spyOn(agent, "runAgent").mockImplementationOnce(async () => {
+        agent.setMessages([message]);
+        return { result: undefined, newMessages: [message] };
+      });
+      const handler = vi.fn(
+        (_args, context) =>
+          new Promise<string>((_resolve, reject) => {
+            context.signal.addEventListener(
+              "abort",
+              () => reject(new Error("Human-in-the-loop interaction aborted")),
+              { once: true },
+            );
+          }),
+      );
+      core.addTool(
+        createTool({
+          name: "approval",
+          type: "human-in-the-loop",
+          handler,
+          followUp: true,
+        }),
+      );
+      const running = core.runAgent({ agent });
+      await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+      expect(handler.mock.calls[0]?.[1]?.signal?.reason).toBeUndefined();
+      core.stopAgent({ agent });
+      await running;
+      expect(agent.messages).toContainEqual(
+        expect.objectContaining({
+          role: "tool",
+          toolCallId,
+          content: "Error: Human-in-the-loop interaction aborted",
+        }),
+      );
+    } finally {
+      Object.defineProperty(AbortSignal.prototype, "reason", reason);
+    }
+  });
+
   it("does not submit a second answer after another client answered", async () => {
     const { core, agent, toolCallId } = setup();
     const answer = deferredAnswer();

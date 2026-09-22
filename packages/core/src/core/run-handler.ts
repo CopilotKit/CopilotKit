@@ -18,9 +18,16 @@ import { isForwardedToClientPlaceholder } from "./tool-result-content";
 import { createToolSchema } from "./tool-schema";
 import { WebMCPRegistry } from "./webmcp";
 
-class LiveHITLStopped {
-  constructor(readonly isCurrent: () => boolean) {}
-}
+/**
+ * Live approvals cancelled by stopping their own run, keyed by the handler's
+ * signal. The value reports whether that stop is still current: no reconnect
+ * has started and the thread is unchanged, so nothing will restore the call.
+ *
+ * Kept here rather than in `AbortSignal.reason`: React Native's global
+ * `AbortController` is the `abort-controller@3` polyfill, whose `abort()`
+ * takes no reason and whose signals never expose one.
+ */
+const liveHITLStops = new WeakMap<AbortSignal, () => boolean>();
 
 // Explicitly stopping a live approval must retain its error result. History
 // restoration and thread-switch cancellation instead discard the old result.
@@ -32,11 +39,7 @@ function discardAbortedResult(
   return !!(
     discardOnAbort &&
     signal?.aborted &&
-    !(
-      signal.reason instanceof LiveHITLStopped &&
-      signal.reason.isCurrent() &&
-      errorMessage
-    )
+    !(liveHITLStops.get(signal)?.() && errorMessage)
   );
 }
 
@@ -924,15 +927,16 @@ export class RunHandler {
               controllers: new Set<AbortController>(),
             };
             const abortInteraction = () => {
+              if (!interactionController) return;
               const connectionGeneration =
                 this._connectionGenerations.get(agent);
-              interactionController?.abort(
-                new LiveHITLStopped(
-                  () =>
-                    this._connectionGenerations.get(agent) ===
-                      connectionGeneration && agent.threadId === threadId,
-                ),
+              liveHITLStops.set(
+                interactionController.signal,
+                () =>
+                  this._connectionGenerations.get(agent) ===
+                    connectionGeneration && agent.threadId === threadId,
               );
+              interactionController.abort();
             };
             if (interactionController) {
               interactions.controllers.add(interactionController);
