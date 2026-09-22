@@ -1,0 +1,156 @@
+---
+title: Product Analytics
+nav_title: Product Analytics
+description: See how people use your agent, how reliable it is, and what it costs, from the runs Intelligence already records.
+icon: "lucide/BarChart3"
+doc_type: how-to
+---
+
+## Overview
+
+Product Analytics shows what people do with your agent, how reliable it is, and what it costs, from the agent runs Intelligence already records. There is nothing extra to instrument.
+
+<Image
+  src="/images/cloud-hosted/cloud-hosted-product-analytics.png"
+  alt="The Product Analytics page for a cloud-hosted project. The Activity tab shows runtime events, active users, event volume, and tool usage share."
+  width={2000}
+  height={1469}
+  className="my-8 w-full rounded-xl border border-[var(--border)]"
+/>
+
+Which tools does the agent call? How many people use it? How often does a run fail? The Activity, Reliability, Tokens, and Memory tabs answer those questions for one project and one time range.
+
+Product Analytics is included on every plan. It appears in the project sidebar as soon as the project exists.
+
+## See your first metrics
+
+<Steps>
+  <Step>
+    ### Connect your app
+
+    Follow the [quickstart](/intelligence/quickstart). It signs you in with the CLI, selects a project, and writes the project key to `.env`. Product Analytics only counts runs that reach Intelligence through that key.
+
+  </Step>
+
+  <Step>
+    ### Send a few messages
+
+    Use your app the way a person would: ask a question, trigger a tool, finish a conversation. Each run becomes a set of runtime events in the project. Confirm the run landed by opening the thread in [Rich Threads](/threads) or in the Inspector.
+
+  </Step>
+
+  <Step>
+    ### Open Product Analytics
+
+    Open your project in [cloud-hosted Intelligence](/intelligence/managed-intelligence-platform) and select **Product Analytics** in the sidebar. The status pill in the top right reads **Loading metrics**, then **Metrics loaded**.
+
+    If it reads **No project metrics yet**, no run has reached the project. The page shows a demo dashboard until one does.
+
+  </Step>
+
+  <Step>
+    ### Pick a time range
+
+    Select **1 hour**, **1 day**, **3 days**, or **7 days**. Select **Custom** for a start and end time of your own. The range you choose applies to every tab. A range with no runs reads **No data in this range**.
+
+  </Step>
+
+  <Step>
+    ### Read the Activity tab
+
+    **Activity** opens first. Four tiles summarize the range, and three charts show how it changed over time. The next section explains each one.
+
+  </Step>
+</Steps>
+
+## How Product Analytics works
+
+### What gets counted
+
+Every agent run that goes through Intelligence produces runtime events: the run starts, messages stream, tools are called, the model responds, the run finishes or fails. Intelligence writes those events to a time-series store a moment after each run is accepted. Product Analytics queries that store for your project.
+
+Two things are not counted:
+
+- Threads you [imported](/threads-import) from another system. Only live runs produce runtime events.
+- Runs that never reached Intelligence, such as a local app without a project key.
+
+Runtime events are kept for **90 days**. A range that starts earlier than that returns what is still stored.
+
+### Buckets
+
+Every chart groups events into buckets. The bucket size follows the range:
+
+| Range                      | Bucket |
+| -------------------------- | ------ |
+| 1 hour, 1 day, 3 days      | Hourly |
+| 7 days                     | Daily  |
+| Custom, up to 3 days       | Hourly |
+| Custom, longer than 3 days | Daily  |
+
+Tiles that say **latest bucket** or **busiest bucket** refer to those groups. The small percentage on a tile compares the last bucket in the range with the first one. A rising error rate is shown as a negative trend even though the number went up.
+
+### Tabs
+
+| Tab             | Tiles                                                    | Charts                                                                                                                                                         |
+| --------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Activity**    | Runtime events, Active users, Avg volume, Peak volume    | **Event volume**, runtime events per bucket. **Active users**, people who interacted with agents in the period. **Tool usage share**, calls per tool.          |
+| **Reliability** | Error rate, Error events, Tool calls, Clean runs         | **Error rate** over time, normalized against total activity. **Tool usage**, most-used tools per bucket. **Error share**, clean runs versus runs with an error. |
+| **Tokens**      | Total tokens, Avg response, Peak response, Output tokens | **Token volume**, **Response time**, and **Token split** between input and output.                                                                              |
+| **Memory**      | Created, Invalidated, Net new, Retention                 | **Memory created**, **Memory invalidated**, and **Memory split** per day.                                                                                      |
+
+A few definitions:
+
+- **Active users** counts distinct app users. Intelligence records the user ID your app passes with each run, so pass a stable ID per person. See [Scope Rich Threads to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user).
+- **Tool usage share** groups tool calls by tool name. The legend shows each name in words, so a tool called `show_capabilities` appears as **Show capabilities**.
+- **Error events** are runs that ended with an error. **Clean runs** is the share that did not.
+- **Tokens** and **response time** are recorded when a run finishes. Runs that fail before the model responds have no token count.
+- The **Memory** tab reads [User Memories](/intelligence/memories) rather than runtime events, so it reflects what memory saved and invalidated each day. The tab appears only when Automatic Learning is on for the project.
+
+### Status messages
+
+| The page says                               | What it means                                                 | What to do                                                            |
+| ------------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------- |
+| **Metrics loaded**                          | Every metric returned data.                                   | Nothing.                                                              |
+| **No data in this range**                   | The store has events for the project, but none in this range. | Widen the range.                                                      |
+| **No project metrics yet**                  | No run has reached the project.                               | Finish the [quickstart](/intelligence/quickstart) and send a message. |
+| **Analytics isn't available for your role** | Your role on this project cannot read analytics.              | Ask a project admin for access.                                       |
+| **Analytics is temporarily unavailable**    | The store did not answer.                                     | Select **Retry** on the tile, or try again shortly.                   |
+
+A tile that could not load shows **N/A** and a **Retry** button. Other tiles keep working.
+
+## Self-hosted deployments
+
+On cloud-hosted Intelligence, CopilotKit runs the analytics pipeline for you. A [self-hosted](/intelligence/self-hosting) deployment runs it inside your network. Turn it on in the Helm values:
+
+```yaml title="values.yaml"
+analytics:
+  enabled: true
+  database:
+    # A Secret that holds the TimescaleDB URL. Use sslmode=verify-full.
+    existingSecret: intelligence-analytics-db
+    secretKeys:
+      url: timescale-url
+  migrations:
+    enabled: true
+    # A schema-owner credential. Do not reuse the runtime credential.
+    existingSecret: intelligence-analytics-db-owner
+```
+
+The chart passes the TimescaleDB URL to the app API and the realtime gateway and runs the schema migration as a Job. Your license must include analytics. Events are recorded for the whole deployment as soon as the pipeline is on, so the history is there when you open the page. The rest of the install is in the [self-hosting guide](/intelligence/self-hosting).
+
+## Export to your own tools
+
+Product Analytics is a view inside Intelligence. The charts themselves are not exported.
+
+A self-hosted deployment can send two OTLP streams to a collector you run:
+
+- **Traces** from the app API and the realtime gateway, through the `observability.tracing` Helm values.
+- **Product events** as OTLP logs, such as a thread created or a run requested, through the `appApi.channelTelemetry.endpoint` value. These events carry IDs and attributes only. Message content is never sent.
+
+Leave an endpoint unset to keep that stream off.
+
+## Next steps
+
+- Open a thread in the [cloud-hosted project](/intelligence/managed-intelligence-platform) to see the events behind one number.
+- [Automatic Learning](/learning) turns the same runs into Skills you review and publish.
+- [Plans](/intelligence/plans) shows the limits that apply to your project.

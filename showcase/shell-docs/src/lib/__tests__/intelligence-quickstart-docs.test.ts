@@ -26,17 +26,20 @@ test("guides people and agents to a persistent Intelligence thread", () => {
 
   expect(agentPrompt).toBeGreaterThan(-1);
   expect(manualSteps).toBeGreaterThan(agentPrompt);
-  expect(source).toContain("persist conversations reliably in production");
-  expect(source).toContain("improve your agents over time");
-  expect(source).toContain("Product Analytics");
+  expect(source).toContain(
+    "You want Rich Threads, User Memory, Automatic Learning, Channels, and Product Analytics",
+  );
+  expect(source).toContain("Intelligence adds that layer");
   expect(source).toContain("npx copilotkit@latest project select");
   expect(source).toContain("new CopilotKitIntelligence");
   expect(source).toContain("identifyUser");
   expect(source).toContain('mode: "single-route"');
-  expect(source).toContain("export const POST = handler");
+  expect(source).toContain("/runtime-server-adapter");
+  expect(source).not.toContain("next.config.ts");
+  expect(source).not.toContain("app/api/copilotkit/route.ts");
   expect(source).toContain("useSingleEndpoint");
   expect(source).toContain("Intelligence connected");
-  expect(source).toContain("Open **Threads** in Inspector");
+  expect(source).toContain("Open **Rich Threads** in Inspector");
   expect(source).toContain("**Messages** contains the message");
   expect(source).toContain('frontend="vue"');
   expect(source).toContain("@copilotkit/vue/v2");
@@ -66,9 +69,7 @@ test("expands the setup prompt for coding agents", () => {
 test("links the Intelligence landing page to the quickstart", () => {
   const overview = renderDoc("intelligence/overview");
 
-  expect(overview).toContain(
-    "[CopilotKit Intelligence quickstart](/intelligence/quickstart)",
-  );
+  expect(overview).toContain("[quickstart](/intelligence/quickstart)");
 });
 
 test("forwards thread mutation methods in linked framework examples", () => {

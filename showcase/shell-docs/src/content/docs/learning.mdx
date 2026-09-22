@@ -1,6 +1,6 @@
 ---
 title: Automatic Learning
-description: Turn real application use into evidence-backed Insights and reviewed, reusable Skills.
+description: Turn real use of your app into skills you can review and publish.
 icon: "lucide/Sparkles"
 frontend: universal
 doc_type: how-to
@@ -10,7 +10,7 @@ import InspectorPaneLearning from "@/snippets/shared/inspector/open-inspector-pa
 
 ## Overview
 
-Automatic Learning turns patterns from real agent runs into reusable Skills. It looks at completed conversations and application interactions in [Rich Threads](/threads), produces evidence-backed Insights, and proposes instructions you can review before publishing.
+Automatic Learning turns patterns from real agent runs into skills you can publish. It reads completed conversations in [Rich Threads](/threads), writes insights, and proposes instructions you review before you publish them.
 
 <div className="not-prose shell-docs-radius-surface aspect-[7/4] w-full overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]">
   <iframe
@@ -22,7 +22,7 @@ Automatic Learning turns patterns from real agent runs into reusable Skills. It 
   />
 </div>
 
-The walkthrough begins with User Memories, a separate Intelligence capability, then shows an expense-review workflow becoming a reusable Skill.
+The video also shows [User Memory](/intelligence/memories), then an expense-review workflow that becomes a skill.
 
 ## How Automatic Learning works
 
@@ -30,7 +30,7 @@ Learning starts with a container, which groups Threads from the same kind of wor
 
 When a pattern can be reused, Learning proposes a Skill. You review the supporting Threads and decide whether to publish it. A published Skill is a versioned set of instructions that you load into your agent; Learning does not change the model itself.
 
-Automatic Learning checks eligible containers on a daily schedule. After you approve a Skill, automatic skill delivery makes it available to connected agents. Scheduling, publication, and delivery are separate: a scheduled run does not approve Skills, and enabling delivery does not connect your agent for you.
+Automatic Learning checks eligible containers on a daily schedule. After you approve a skill, [skill delivery](/intelligence/learned-skills) makes it available to connected agents. A scheduled run does not approve skills. Turning on delivery does not connect your agent for you.
 
 ## Collect runs and deliver Skills
 
@@ -38,7 +38,7 @@ The learning loop has two connections. Run ingestion collects evidence in a Lear
 
 | Connection | Configuration | Result |
 | --- | --- | --- |
-| Runtime to Learning | `CopilotKitIntelligence.getLearningContainerId` | Assigns selected Threads to a container for analysis. |
+| Runtime to Automatic Learning | `CopilotKitIntelligence.getLearningContainerId` | Assigns selected Threads to a container for analysis. |
 | Learning to agent | An Intelligence SDK adapter for your framework | Makes published Skills available during agent invocations. |
 
 When an agent must learn from its own workflow, use the same project and container for both connections. The SDK adapters also work with native agents outside a CopilotKit frontend, but they do not collect those agents' runs automatically.
@@ -59,7 +59,7 @@ When you are done, your Runtime will send selected Threads to a Learning contain
   <Step>
     ### Connect CopilotKit Intelligence
 
-    Complete the [Intelligence quickstart](/intelligence/quickstart), then send a message and confirm that it appears in [Rich Threads](/threads). Open your project in [CopilotKit Intelligence](https://dashboard.operations.copilotkit.ai/) and confirm that Learning is available.
+    Complete the [Intelligence quickstart](/intelligence/quickstart). That page signs you in with the CLI and selects the project. Then send a message and make sure that it appears in [Rich Threads](/threads). Open your project in [CopilotKit Intelligence](https://dashboard.operations.copilotkit.ai/) and make sure that Learning is available.
 
   </Step>
 
@@ -75,7 +75,7 @@ When you are done, your Runtime will send selected Threads to a Learning contain
   <Step>
     ### Assign Threads from your Runtime
 
-    Return the container's stable ID from `getLearningContainerId` on your `CopilotKitIntelligence` client.
+    Return the container's stable ID from `getLearningContainerId` on the CopilotKit runtime you already run. Keep your agents as they are. The callback is the same for every agent framework.
 
     ```ts title="Your CopilotKit runtime"
     import {
@@ -138,7 +138,7 @@ When you are done, your Runtime will send selected Threads to a Learning contain
 
 ## Use published Skills
 
-### Set up automatic skill delivery
+### Set up skill delivery
 
 Once you have published a Skill, connect the agent that should use it:
 
@@ -154,10 +154,17 @@ Once you have published a Skill, connect the agent that should use it:
 
     Select **Set up skill delivery**, then **Copy setup prompt**, and paste it into your coding agent. The prompt includes your container ID and asks the coding agent to inspect your framework, preserve existing agent behavior, and configure the supported native adapter.
 
-    For manual setup, follow the [framework adapter examples](/intelligence/learned-skills#native-setup) for LangGraph Python, LangGraph TypeScript, Mastra, Google ADK, or Microsoft Agent Framework. Configure the adapter in the agent's server environment with the **same Intelligence project key and container ID** used above:
+    For manual setup, follow the [framework adapter examples](/intelligence/learned-skills#native-setup). Pick the adapter for the agent you already run. Configure that adapter in the agent server environment with the same project key and container ID used above.
+
+    If that server does not already have the key, sign in and select the project from its directory:
+
+    ```bash title="Terminal"
+    npx copilotkit@latest login
+    npx copilotkit@latest project select
+    ```
 
     ```bash title="Agent server environment"
-    CPK_INTELLIGENCE_API_KEY=your-project-key
+    CPK_INTELLIGENCE_API_KEY=cpk-...
     CPK_INTELLIGENCE_LEARNING_CONTAINER_ID=expense-review
     ```
 
@@ -181,11 +188,12 @@ Once you have published a Skill, connect the agent that should use it:
 
 Use the CLI for offline inspection or frameworks without a supported adapter. If you switch an agent from downloaded Skills to automatic delivery, remove the old manual loading for that container to avoid loading the same Skills twice.
 
-From a directory connected to the same Intelligence project, download the container's published Skills:
+From the agent directory, sign in and select the same Intelligence project. Then download the container's published Skills:
 
 ```bash title="Terminal"
-copilotkit project select
-copilotkit skills download expense-review --output ./learned-skills
+npx copilotkit@latest login
+npx copilotkit@latest project select
+npx copilotkit@latest skills download expense-review --output ./learned-skills
 ```
 
 The output contains a directory and `SKILL.md` for each published Skill. Configure your agent environment to load `./learned-skills` before expecting the new behavior in a run.

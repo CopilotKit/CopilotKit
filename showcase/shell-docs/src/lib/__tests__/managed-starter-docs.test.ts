@@ -14,7 +14,7 @@ const MANAGED_CTA_SOURCES = [
 ];
 const MANAGED_RUNTIME_GUIDES = [
   "docs/backend/runtime-endpoints.mdx",
-  "docs/intelligence/connect-your-runtime.mdx",
+  "docs/intelligence/quickstart.mdx",
   "snippets/shared/threads/headless-threads.mdx",
 ];
 const MANAGED_DASHBOARD_URL = "https://dashboard.operations.copilotkit.ai/";
@@ -47,54 +47,57 @@ function expectPatternsInOrder(
   }
 }
 
-test("documents the conditional managed onboarding journey", () => {
-  const sequence = [
-    /Clerk signup,[^.]*\b(?:new users accept|a new user accepts)\b[^.]*CopilotKit Self-Service Agreement/i,
-    /select or create an organization/i,
-    /every new hosted organization created at or after[^.]*cutoff[^.]*explicitly choose[^.]*Developer[^.]*paid plan/i,
-    /### (?:Return to the terminal|Continue where you started)/i,
+test("documents the CLI sign-in journey without internal billing rules", () => {
+  const source = readSources(["snippets/shared/cli/cli.mdx"])[0];
+
+  expectPatternsInOrder(source, [
+    /A new account accepts the CopilotKit Self-Service Agreement/i,
+    /### Select or create an organization/i,
+    /chooses the Developer plan or a paid plan/i,
+    /### Return to the terminal/i,
     /### Select or create a project/i,
-  ];
-
-  for (const source of readSources(MANAGED_ONBOARDING_GUIDES)) {
-    expectPatternsInOrder(source, sequence);
-  }
+  ]);
+  expect(source).not.toMatch(/\bClerk\b/);
+  expect(source).not.toMatch(/rollout cutoff/i);
 });
 
-test("documents grandfathering, consent, and self-hosted admission boundaries", () => {
-  for (const source of readSources(MANAGED_ONBOARDING_GUIDES)) {
-    expect(source).toMatch(
-      /(?:existing )?hosted organizations created before[^.]*cutoff[^.]*continue without a plan prompt/i,
-    );
-    expect(source).toMatch(/existing accounts do not re-consent/i);
-    expect(source).toMatch(
-      /customer-run self-hosted deployment[^.]*customer[^.]*identity provider[^.]*never sees[^.]*Clerk admission/i,
-    );
-  }
+test("documents the cloud-hosted sign-in journey without internal billing rules", () => {
+  const source = readSources([
+    "docs/intelligence/managed-intelligence-platform.mdx",
+  ])[0];
+
+  expectPatternsInOrder(source, [
+    /New accounts accept the CopilotKit Self-Service Agreement/i,
+    /chooses the Developer plan or a paid plan/i,
+    /### Create or select an organization/i,
+    /### Return to the tool that sent you/i,
+    /### Select or create a project/i,
+  ]);
+  expect(source).not.toMatch(/\bClerk\b/);
+  expect(source).not.toMatch(/rollout cutoff/i);
 });
 
-test("does not count Clerk automatic Free as the required organization choice", () => {
-  for (const source of readSources(MANAGED_ONBOARDING_GUIDES)) {
-    expect(source).toMatch(
-      /Clerk(?:'s|’s) automatic Free assignment does not (?:satisfy|count as) the required Developer-or-paid choice/i,
-    );
-    expect(source).not.toMatch(
-      /Clerk(?:'s|’s) automatic Free assignment (?:satisfies|counts as) the required Developer-or-paid choice/i,
-    );
-  }
+test("documents the Team Self-hosted plan without naming the identity vendor", () => {
+  const source = readSources(["snippets/shared/cli/cli.mdx"])[0];
+
+  expect(source).toMatch(
+    /Team Self-hosted is the plan for a self-hosted deployment/i,
+  );
+  expect(source).toMatch(/The deployment uses your identity provider/i);
+  expect(source).not.toMatch(/\bClerk\b/);
 });
 
 test("removes automatic-Free promises from managed onboarding calls to action", () => {
   for (const source of readSources(MANAGED_CTA_SOURCES)) {
     expect(source).not.toMatch(/Create a free account/i);
-    expect(source).toContain('ctaLabel="Start managed onboarding"');
+    expect(source).toContain('ctaLabel="Start cloud-hosted setup"');
   }
 });
 
 test("points managed onboarding calls to action at the hosted dashboard", () => {
   for (const source of readSources(MANAGED_CTA_SOURCES)) {
     const managedCta = source.match(
-      /<OpsPlatformCTA[^>]*ctaLabel="Start managed onboarding"[^>]*\/>/,
+      /<OpsPlatformCTA[^>]*ctaLabel="Start cloud-hosted setup"[^>]*\/>/,
     )?.[0];
 
     expect(managedCta).toContain(`href="${MANAGED_DASHBOARD_URL}"`);
@@ -130,9 +133,7 @@ test("documents the managed CLI credential without an offline license token", ()
   );
 
   for (const source of sources) {
-    expect(source).toContain(
-      "Managed project setup does not issue `COPILOTKIT_LICENSE_TOKEN`.",
-    );
+    expect(source).toContain("does not issue `COPILOTKIT_LICENSE_TOKEN`");
     expect(source).toContain("`CPK_INTELLIGENCE_API_KEY`");
     expect(source).not.toContain(`\`${oldKeyName}\``);
     expect(source).not.toContain("COPILOTKIT_LICENSE_TOKEN=...");
@@ -275,10 +276,10 @@ test("managed telemetry docs distinguish the project key from self-hosted tokens
   const [source] = readSources(["snippets/shared/telemetry/anonymous.mdx"]);
 
   expect(source).toContain(
-    "Managed Intelligence starters use `CPK_INTELLIGENCE_API_KEY` for platform access",
+    "Cloud-hosted Intelligence starters use `CPK_INTELLIGENCE_API_KEY` for platform access",
   );
   expect(source).toContain(
-    "Managed project setup does not issue `COPILOTKIT_LICENSE_TOKEN`",
+    "Cloud-hosted setup does not issue `COPILOTKIT_LICENSE_TOKEN`",
   );
   expect(source).not.toContain(
     "Current managed Threads starters receive `COPILOTKIT_LICENSE_TOKEN`",

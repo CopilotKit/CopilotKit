@@ -1,16 +1,29 @@
 ---
-title: Automatic learned skill delivery
-description: Keep published Learning skills available to agents with verified snapshots, automatic refresh, and exact revision pins.
+title: Skill delivery
+nav_title: Skill delivery
+description: Keep published skills available to agents, with verified snapshots and exact revision pins.
 frontend: universal
 doc_type: explanation
 ---
 
-Learned skill delivery makes one Learning container's published skills available to an agent without another CLI download or process restart. A framework adapter adds an alphabetical catalog and two tools. The model decides when to load and follow a skill.
+## Overview
 
-Developer instructions retain precedence. Learned skills cannot override the agent's role, safety rules, tool restrictions, or application policy.
+Skill delivery makes one Learning container's published skills available to an agent without another CLI download or process restart. A framework adapter adds an alphabetical catalog and two tools.
+
+<Image
+  src="/images/cloud-hosted/cloud-hosted-skill-delivery.png"
+  alt="The Skills tab of a Learning container in cloud-hosted Intelligence. The Skill delivery toggle is on, and skill candidates wait for review."
+  width={2000}
+  height={1447}
+  className="my-8 w-full rounded-xl border border-[var(--border)]"
+/>
+
+The model decides when to load and follow a skill.
+
+Developer instructions retain precedence. Skills cannot override the agent's role, safety rules, tool restrictions, or application policy.
 
 <Callout type="info">
-  Start with the [Automatic Learning guide](/learning) to collect Threads, configure daily runs, and review Skills. Before connecting an adapter, check that **Skill delivery** is enabled in the container's **Skills** tab. For guided setup, select **Set up skill delivery** there and copy the prompt into your coding agent.
+  Start with [Automatic Learning](/learning) to collect threads, configure daily runs, and review skills. Before connecting an adapter, check that **Skill delivery** is enabled in the container's **Skills** tab. For guided setup, select **Set up skill delivery** there and copy the prompt into your coding agent.
 </Callout>
 
 ## Before you start
@@ -37,7 +50,7 @@ Set your model provider's credentials separately. Replace model placeholders wit
 
 To follow the latest published Skills, omit the revision parameter in code and leave `CPK_INTELLIGENCE_SKILLS_REVISION` unset. See [container configuration](#configure-one-container) for exact revision pins.
 
-Skill delivery does not send native agent runs to Learning. To collect new evidence, also [assign your Runtime's Threads to a container](/learning#assign-threads-from-your-runtime).
+Skill delivery does not send native agent runs to Automatic Learning. To collect new evidence, also [assign your Runtime's Threads to a container](/learning#assign-threads-from-your-runtime).
 
 ## Choose an adapter
 
@@ -358,10 +371,10 @@ These fields accept one stable container ID, not a list. Use separate registries
 
 An injected canonical Intelligence client supplies its existing project key, endpoint, and HTTP lifecycle. Your application retains ownership of that client. The adapter does not construct a second authenticated transport.
 
-Environment-based setup uses these variables:
+Environment-based setup uses these variables. `npx copilotkit@latest project select` writes the project key. If the CLI has no session, run `npx copilotkit@latest login` first. If the agent server is a different directory, copy the key into this environment.
 
 ```bash
-CPK_INTELLIGENCE_API_KEY=your-project-key
+CPK_INTELLIGENCE_API_KEY=cpk-...
 CPK_INTELLIGENCE_LEARNING_CONTAINER_ID=expense-review
 # Self-hosted deployments only:
 INTELLIGENCE_API_URL=https://intelligence.example.com
@@ -450,6 +463,6 @@ Remove the old manual Learning-directory wiring when you enable an adapter for t
 
 ## Deployment requirements
 
-Managed and self-hosted Intelligence use the same delivery contract. The server migration and v1 delivery endpoint must deploy before adapters rely on them. Each adapter also requires a published canonical client version with the learned-snapshot operation.
+Cloud-hosted and self-hosted Intelligence use the same delivery contract. The server migration and v1 delivery endpoint must deploy before adapters rely on them. Each adapter also requires a published canonical client version with the learned-snapshot operation.
 
 Pausing new Learning runs does not stop delivery. Entitlement, explicit delivery disablement, and revision revocation control access to published snapshots separately.

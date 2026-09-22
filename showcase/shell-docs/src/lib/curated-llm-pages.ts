@@ -91,7 +91,7 @@ export const CURATED_LLM_PAGES = [
     url: "slack",
     title: "Channels for Slack",
     description:
-      "Bring an AG-UI agent into Slack with native messages and approvals through Channels and managed Intelligence connections.",
+      "Bring an AG-UI agent into Slack with native messages and approvals through Channels and cloud-hosted Intelligence connections.",
   },
   {
     url: "teams",
@@ -137,7 +137,7 @@ export const CURATED_LLM_PAGES = [
   },
   {
     url: "concepts/oss-vs-enterprise",
-    title: "Open Source and Intelligence",
+    title: "Open source vs Intelligence",
     description:
       "Decide which capabilities belong to the open-source stack and which require Intelligence.",
   },

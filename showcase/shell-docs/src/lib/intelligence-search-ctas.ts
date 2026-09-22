@@ -108,15 +108,14 @@ export const INTELLIGENCE_SEARCH_CTAS: readonly IntelligenceSearchCta[] = [
     ],
   },
   {
-    // Analytics has no dedicated docs page yet, so use the overview.
     id: "analytics",
     keywords: ["analytics"],
     specificity: 10,
     title: "See what your agent actually does",
     body: "Intelligence reports on the runs, tool calls and conversations behind your agent, so you can tell what is working in production.",
     primary: {
-      label: "See what Intelligence adds",
-      href: "/intelligence/overview",
+      label: "Open Product Analytics",
+      href: "/intelligence/analytics",
     },
     secondary: [
       { label: "Connect Intelligence", href: "/intelligence/quickstart" },
@@ -130,7 +129,7 @@ export const INTELLIGENCE_SEARCH_CTAS: readonly IntelligenceSearchCta[] = [
     // why "intelligence threads" resolves to the threads entry.
     specificity: 1,
     title: "CopilotKit Intelligence",
-    body: "Rich Threads, Product Analytics, Automatic Learning and production operations on top of the runtime you already run.",
+    body: "Rich Threads, Product Analytics, Automatic Learning, and the rest of Intelligence on top of the runtime you already run.",
     primary: {
       label: "See what Intelligence adds",
       href: "/intelligence/overview",
