@@ -8,8 +8,10 @@
 //     from a name-based scan (the emit sites pass non-literal props, so their
 //     inline keys are NOT authoritative — the catalog is).
 //   - docs (showcase/shell-docs) → inline `posthog.capture("name", { ... })`.
-//     `extractCallees` collects the string-literal name + inline object keys,
-//     same best-effort static rules as the shared registry extractor.
+//     `extractCallees` collects the event name + inline object keys, same
+//     best-effort static rules as the shared registry extractor. The name may
+//     be a string literal or a `const` in the same file set (see
+//     `collectEventConstants`).
 //
 // Both outputs are deterministic (sorted, deduped) so the fragment is byte
 // stable and the CI content-gate can compare event sets reliably.
@@ -71,12 +73,107 @@ function parse(path: string, content: string): ts.SourceFile {
   return sf;
 }
 
+// ---------------------------------------------------------------------------
+// Event-name constants.
+//
+// Emit sites do not always pass a string. The docs setup wizard calls
+// `capture(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied, { ... })`, and a
+// string-literal-only reader skipped it entirely: the call site was missing
+// from the published fragment, and from the pin meant to guard it (PE-218).
+//
+// Resolution is deliberately shallow. It reads `const` declarations in the
+// files it was handed -- the docs emitter walks all of `showcase/shell-docs/src`,
+// so the declaring module is already in the set -- and only where the value is
+// a string literal. No imports are followed and no expressions are evaluated.
+// ---------------------------------------------------------------------------
+
+/** Unwraps `{ ... } as const` to the expression it asserts. */
+function withoutAssertion(node: ts.Expression): ts.Expression {
+  return ts.isAsExpression(node) ? withoutAssertion(node.expression) : node;
+}
+
+/**
+ * Maps `NAME` and `NAME.key` to the string literal each one names.
+ *
+ * A name two files define differently is dropped rather than guessed at: the
+ * point of this reader is to say what the code emits, and a wrong event name is
+ * worse in a published registry than a missing one.
+ *
+ * @param files - The same files the caller is extracting from.
+ * @returns Every unambiguous constant, by reference text.
+ */
+function collectEventConstants(
+  files: Array<{ path: string; content: string }>,
+): ReadonlyMap<string, string> {
+  const found = new Map<string, string>();
+  const ambiguous = new Set<string>();
+
+  const record = (key: string, value: string): void => {
+    const existing = found.get(key);
+    if (existing !== undefined && existing !== value) {
+      ambiguous.add(key);
+      return;
+    }
+    found.set(key, value);
+  };
+
+  for (const file of files) {
+    const sf = parse(file.path, file.content);
+    const visit = (node: ts.Node): void => {
+      if (
+        ts.isVariableDeclaration(node) &&
+        ts.isIdentifier(node.name) &&
+        node.initializer
+      ) {
+        const name = node.name.text;
+        const initializer = withoutAssertion(node.initializer);
+        if (ts.isStringLiteralLike(initializer)) {
+          record(name, initializer.text);
+        } else if (ts.isObjectLiteralExpression(initializer)) {
+          for (const prop of initializer.properties) {
+            if (!ts.isPropertyAssignment(prop) || !prop.name) continue;
+            const key = ts.isIdentifier(prop.name)
+              ? prop.name.text
+              : ts.isStringLiteralLike(prop.name)
+                ? prop.name.text
+                : undefined;
+            const value = withoutAssertion(prop.initializer);
+            if (key !== undefined && ts.isStringLiteralLike(value)) {
+              record(`${name}.${key}`, value.text);
+            }
+          }
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(sf);
+  }
+
+  for (const key of ambiguous) found.delete(key);
+  return found;
+}
+
+/** Reads the event name from `arg[0]`, resolving a constant reference. */
+function eventNameOf(
+  node: ts.Expression | undefined,
+  constants: ReadonlyMap<string, string>,
+): string | undefined {
+  if (!node) return undefined;
+  if (ts.isStringLiteralLike(node)) return node.text;
+  if (ts.isIdentifier(node)) return constants.get(node.text);
+  if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression)) {
+    return constants.get(`${node.expression.text}.${node.name.text}`);
+  }
+  return undefined;
+}
+
 export function extractCallees(
   files: Array<{ path: string; content: string }>,
   config: { calleeNames: string[]; callSites?: "file" | "line" },
 ): FragmentEvent[] {
   const callSites = config.callSites ?? "file";
   const wanted = new Set(config.calleeNames);
+  const constants = collectEventConstants(files);
   const byEvent = new Map<string, { props: Set<string>; sites: string[] }>();
 
   for (const file of files) {
@@ -84,13 +181,10 @@ export function extractCallees(
     const visit = (node: ts.Node): void => {
       if (ts.isCallExpression(node)) {
         const names = calleeNames(node);
-        const first = node.arguments[0];
-        if (
-          names.some((n) => wanted.has(n)) &&
-          first &&
-          ts.isStringLiteralLike(first)
-        ) {
-          const event = first.text;
+        const event = names.some((n) => wanted.has(n))
+          ? eventNameOf(node.arguments[0], constants)
+          : undefined;
+        if (event !== undefined) {
           const entry = byEvent.get(event) ?? {
             props: new Set<string>(),
             sites: [],
