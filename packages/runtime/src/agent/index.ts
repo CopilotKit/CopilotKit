@@ -21,6 +21,7 @@ import type {
 } from "@ag-ui/client";
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import { Validator } from "@cfworker/json-schema";
+import { contentToText } from "@ag-ui/core";
 import type { AgentCapabilities } from "@ag-ui/core";
 import type {
   LanguageModel,
@@ -404,14 +405,26 @@ export function defineTool<TParameters extends StandardSchemaV1>(config: {
 }
 
 type AGUIUserMessage = Extract<Message, { role: "user" }>;
+type LegacyBinaryContent = {
+  type: "binary";
+  mimeType?: string;
+  data?: string;
+  url?: string;
+};
+
+function warnUnsupportedFileSource(partType: string): void {
+  console.warn(
+    `[CopilotKit] convertUserMessageContent: provider file handle is not supported for ${partType} parts — skipping`,
+  );
+}
 
 /**
  * Converts AG-UI user message content to Vercel AI SDK UserContent format.
- * Handles plain strings, new modality-specific parts (image/audio/video/document),
- * and legacy BinaryInputContent for backward compatibility.
+ * Handles plain strings, 1.0 modality-specific content parts, and the legacy
+ * binary shape for callers that bypass the AG-UI client compatibility boundary.
  */
 function convertUserMessageContent(
-  content: AGUIUserMessage["content"],
+  content: AGUIUserMessage["content"] | LegacyBinaryContent[],
 ): string | Array<TextPart | ImagePart | FilePart> {
   if (!content) {
     return "";
@@ -424,40 +437,37 @@ function convertUserMessageContent(
   const parts: Array<TextPart | ImagePart | FilePart> = [];
 
   for (const part of content) {
-    if (!part || typeof part !== "object" || !("type" in part)) {
-      continue;
-    }
-
     switch (part.type) {
       case "text": {
-        const text = (part as { text?: string }).text;
-        if (text) {
-          parts.push({ type: "text", text });
-        }
+        parts.push({ type: "text", text: part.text });
         break;
       }
 
       case "image": {
-        const source = (part as { source?: any }).source;
-        if (!source) break;
-        if (source.type === "data") {
-          parts.push({
-            type: "image",
-            image: source.value,
-            mediaType: source.mimeType,
-          });
-        } else if (source.type === "url") {
-          try {
+        switch (part.source.type) {
+          case "data":
             parts.push({
               type: "image",
-              image: new URL(source.value),
-              mediaType: source.mimeType,
+              image: part.source.value,
+              mediaType: part.source.mimeType,
             });
-          } catch {
-            console.error(
-              `[CopilotKit] convertUserMessageContent: invalid URL "${source.value}" in image part — skipping`,
-            );
-          }
+            break;
+          case "url":
+            try {
+              parts.push({
+                type: "image",
+                image: new URL(part.source.value),
+                mediaType: part.source.mimeType,
+              });
+            } catch {
+              console.error(
+                `[CopilotKit] convertUserMessageContent: invalid URL "${part.source.value}" in image part — skipping`,
+              );
+            }
+            break;
+          case "file":
+            warnUnsupportedFileSource("image");
+            break;
         }
         break;
       }
@@ -465,57 +475,54 @@ function convertUserMessageContent(
       case "audio":
       case "video":
       case "document": {
-        const source = (part as { source?: any }).source;
-        if (!source) break;
-        if (source.type === "data") {
-          parts.push({
-            type: "file",
-            data: source.value,
-            mediaType: source.mimeType,
-          });
-        } else if (source.type === "url") {
-          try {
+        switch (part.source.type) {
+          case "data":
             parts.push({
               type: "file",
-              data: new URL(source.value),
-              mediaType: source.mimeType ?? "application/octet-stream",
+              data: part.source.value,
+              mediaType: part.source.mimeType,
             });
-          } catch {
-            console.error(
-              `[CopilotKit] convertUserMessageContent: invalid URL "${source.value}" in ${part.type} part — skipping`,
-            );
-          }
+            break;
+          case "url":
+            try {
+              parts.push({
+                type: "file",
+                data: new URL(part.source.value),
+                mediaType: part.source.mimeType ?? "application/octet-stream",
+              });
+            } catch {
+              console.error(
+                `[CopilotKit] convertUserMessageContent: invalid URL "${part.source.value}" in ${part.type} part — skipping`,
+              );
+            }
+            break;
+          case "file":
+            warnUnsupportedFileSource(part.type);
+            break;
         }
         break;
       }
-
-      // Legacy BinaryInputContent backward compatibility
       case "binary": {
-        const legacy = part as {
-          mimeType?: string;
-          data?: string;
-          url?: string;
-        };
-        const mimeType = legacy.mimeType ?? "application/octet-stream";
+        const mimeType = part.mimeType ?? "application/octet-stream";
         const isImage = mimeType.startsWith("image/");
 
-        if (legacy.data) {
+        if (part.data) {
           if (isImage) {
             parts.push({
               type: "image",
-              image: legacy.data,
+              image: part.data,
               mediaType: mimeType,
             });
           } else {
             parts.push({
               type: "file",
-              data: legacy.data,
+              data: part.data,
               mediaType: mimeType,
             });
           }
-        } else if (legacy.url) {
+        } else if (part.url) {
           try {
-            const url = new URL(legacy.url);
+            const url = new URL(part.url);
             if (isImage) {
               parts.push({ type: "image", image: url, mediaType: mimeType });
             } else {
@@ -523,17 +530,10 @@ function convertUserMessageContent(
             }
           } catch {
             console.error(
-              `[CopilotKit] convertUserMessageContent: invalid URL "${legacy.url}" in binary part — skipping`,
+              `[CopilotKit] convertUserMessageContent: invalid URL "${part.url}" in binary part — skipping`,
             );
           }
         }
-        break;
-      }
-
-      default: {
-        console.error(
-          `[CopilotKit] convertUserMessageContent: unrecognized content part type "${(part as { type: string }).type}" — skipping`,
-        );
         break;
       }
     }
@@ -621,7 +621,10 @@ export function convertMessagesToVercelAISDKMessages(
         toolName: toolName,
         output: {
           type: "text",
-          value: message.content,
+          value:
+            typeof message.content === "string"
+              ? message.content
+              : contentToText(message.content),
         },
       };
 

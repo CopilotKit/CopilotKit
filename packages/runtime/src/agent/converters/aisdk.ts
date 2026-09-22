@@ -30,10 +30,6 @@ export function getAISDKRunFinishedDetails(
 ): AgentRunFinishedDetails {
   const details: AgentRunFinishedDetails = {};
 
-  if (typeof part.finishReason === "string") {
-    details.finishReason = part.finishReason;
-  }
-
   if (
     part.totalUsage === null ||
     typeof part.totalUsage !== "object" ||

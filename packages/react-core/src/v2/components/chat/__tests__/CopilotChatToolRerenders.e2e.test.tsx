@@ -9,41 +9,44 @@ import {
 import { z } from "zod";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChat } from "../CopilotChat";
-import {
-  AbstractAgent,
-  EventType,
-  type BaseEvent,
-  type RunAgentInput,
-} from "@ag-ui/client";
-import { Observable, Subject } from "rxjs";
-import { defineToolCallRenderer, ReactToolCallRenderer } from "../../../types";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import type { Observable } from "rxjs";
+import { Subject } from "rxjs";
+import type { ReactToolCallRenderer } from "../../../types";
+import { defineToolCallRenderer } from "../../../types";
 import { ToolCallStatus } from "@copilotkit/core";
 import { CopilotChatMessageView } from "../CopilotChatMessageView";
 import { CopilotChatView, CopilotChatViewProps } from "../CopilotChatView";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
-import { ActivityMessage, AssistantMessage, Message } from "@ag-ui/core";
-import {
+import type { ActivityMessage, AssistantMessage, Message } from "@ag-ui/core";
+import type {
   ReactActivityMessageRenderer,
   ReactCustomMessageRenderer,
 } from "../../../types";
-import CopilotChatInput, { CopilotChatInputProps } from "../CopilotChatInput";
+import type { CopilotChatInputProps } from "../CopilotChatInput";
+import CopilotChatInput from "../CopilotChatInput";
 import { CopilotChatSuggestionView } from "../CopilotChatSuggestionView";
 import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
+import { withTestRunContext } from "../../../__tests__/utils/test-helpers";
 
 // A controllable streaming agent to step through events deterministically
 class MockStepwiseAgent extends AbstractAgent {
   private subject = new Subject<BaseEvent>();
 
   emit(event: BaseEvent) {
-    if (event.type === EventType.RUN_STARTED) {
+    const contextualEvent = withTestRunContext(
+      event as unknown as Record<string, unknown>,
+    );
+    if (contextualEvent.type === EventType.RUN_STARTED) {
       this.isRunning = true;
     } else if (
-      event.type === EventType.RUN_FINISHED ||
-      event.type === EventType.RUN_ERROR
+      contextualEvent.type === EventType.RUN_FINISHED ||
+      contextualEvent.type === EventType.RUN_ERROR
     ) {
       this.isRunning = false;
     }
-    this.subject.next(event);
+    this.subject.next(contextualEvent);
   }
 
   complete() {

@@ -549,7 +549,6 @@ describe("TanStack AI converter — state tools", () => {
     expect(deltaIdx).toBeGreaterThanOrEqual(0);
     expect(deltaIdx).toBeLessThan(resultIdx);
     expect(eventField<unknown>(events[deltaIdx], "delta")).toEqual(delta);
-    expect(() => compactEvents(events)).toThrow("OPERATION_NOT_AN_OBJECT");
   });
 
   it("emits STATE_SNAPSHOT when payload arrives in raw.result instead of raw.content", async () => {

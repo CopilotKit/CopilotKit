@@ -9,7 +9,6 @@ export interface AgentRunUsage {
 }
 
 export interface AgentRunFinishedDetails {
-  finishReason?: string;
   usage?: AgentRunUsage[];
 }
 
@@ -67,10 +66,6 @@ export function collectStandardRunFinishedDetails(
   details: AgentRunFinishedDetails,
   fallbackIdentity: { provider?: string; model?: string } = {},
 ): void {
-  if (typeof event.finishReason === "string") {
-    details.finishReason = event.finishReason;
-  }
-
   if (!Array.isArray(event.usage)) return;
 
   aggregateRunUsage(

@@ -5,6 +5,7 @@ import React, {
   useRef,
   useSyncExternalStore,
 } from "react";
+import { contentToText } from "@ag-ui/core";
 import type { ToolCall, ToolMessage } from "@ag-ui/core";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
@@ -56,7 +57,7 @@ const ToolCallRenderer = React.memo(
           toolCallId={toolCall.id}
           args={args}
           status={ToolCallStatus.Complete}
-          result={toolMessage.content}
+          result={contentToText(toolMessage.content)}
         />
       );
     } else if (isExecuting) {

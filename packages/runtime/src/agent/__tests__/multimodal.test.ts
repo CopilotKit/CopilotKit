@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { convertMessagesToVercelAISDKMessages } from "../index";
 import type { Message, InputContent } from "@ag-ui/client";
 import type { UserModelMessage } from "ai";
@@ -123,6 +123,22 @@ describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
     ]);
     // Malformed URL part is skipped, text part preserved
     expect(result.content).toEqual([{ type: "text", text: "check this" }]);
+  });
+  it("skips provider file handles with a warning", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    try {
+      const result = convertUserContent([
+        { type: "image", source: { type: "file", value: "file-1" } },
+      ]);
+
+      expect(result.content).toBe("");
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("provider file handle is not supported"),
+      );
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   // Legacy backward compat — BinaryInputContent is not in the current schema

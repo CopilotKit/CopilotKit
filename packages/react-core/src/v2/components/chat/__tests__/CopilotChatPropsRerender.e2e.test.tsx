@@ -19,17 +19,15 @@ import {
   waitFor,
   act,
 } from "@testing-library/react";
-import {
-  AbstractAgent,
-  EventType,
-  type BaseEvent,
-  type RunAgentInput,
-} from "@ag-ui/client";
-import { Observable, Subject } from "rxjs";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import type { Observable } from "rxjs";
+import { Subject } from "rxjs";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChat } from "../CopilotChat";
-import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
+import type { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
 import { useCopilotChatConfiguration } from "../../../providers/CopilotChatConfigurationProvider";
+import { withTestRunContext } from "../../../__tests__/utils/test-helpers";
 
 // ---------------------------------------------------------------------------
 // Shared mock agent (same pattern as CopilotChatToolRerenders.e2e.test.tsx)
@@ -38,16 +36,19 @@ class MockStepwiseAgent extends AbstractAgent {
   private subject = new Subject<BaseEvent>();
 
   emit(event: BaseEvent) {
-    if (event.type === EventType.RUN_STARTED) {
+    const contextualEvent = withTestRunContext(
+      event as unknown as Record<string, unknown>,
+    );
+    if (contextualEvent.type === EventType.RUN_STARTED) {
       this.isRunning = true;
     } else if (
-      event.type === EventType.RUN_FINISHED ||
-      event.type === EventType.RUN_ERROR
+      contextualEvent.type === EventType.RUN_FINISHED ||
+      contextualEvent.type === EventType.RUN_ERROR
     ) {
       this.isRunning = false;
     }
     act(() => {
-      this.subject.next(event);
+      this.subject.next(contextualEvent);
     });
   }
 

@@ -39,7 +39,11 @@ describe("finalizeRunEvents", () => {
       (event): event is ToolCallResultEvent =>
         event.type === EventType.TOOL_CALL_RESULT,
     );
-    expect(JSON.parse(resultEvent?.content ?? "")).toEqual(
+    expect(
+      JSON.parse(
+        typeof resultEvent?.content === "string" ? resultEvent.content : "",
+      ),
+    ).toEqual(
       expect.objectContaining({
         status: "stopped",
         reason: "stop_requested",
@@ -68,7 +72,11 @@ describe("finalizeRunEvents", () => {
       (event): event is ToolCallResultEvent =>
         event.type === EventType.TOOL_CALL_RESULT,
     );
-    expect(JSON.parse(resultEvent?.content ?? "")).toEqual(
+    expect(
+      JSON.parse(
+        typeof resultEvent?.content === "string" ? resultEvent.content : "",
+      ),
+    ).toEqual(
       expect.objectContaining({
         status: "error",
         reason: "missing_terminal_event",

@@ -14,6 +14,17 @@ import type {
 } from "../../types";
 import type { ReactCustomMessageRenderer } from "../../types/react-custom-message-renderer";
 
+export const TEST_THREAD_ID = "test-thread";
+export const TEST_RUN_ID = "test-run";
+
+export function withTestRunContext(event: Record<string, unknown>): BaseEvent {
+  return {
+    threadId: TEST_THREAD_ID,
+    runId: TEST_RUN_ID,
+    ...event,
+  } as unknown as BaseEvent;
+}
+
 /**
  * A controllable mock agent for deterministic E2E testing.
  * Exposes emit() and complete() methods to drive agent events step-by-step.
@@ -25,6 +36,8 @@ import type { ReactCustomMessageRenderer } from "../../types/react-custom-messag
  * `AbstractAgent`, so it is assigned through a narrow runtime cast.
  */
 export class MockStepwiseAgent extends AbstractAgent {
+  private testRunCounter = 0;
+  private testRunId = TEST_RUN_ID;
   private subject = new Subject<BaseEvent>();
 
   /**
@@ -44,15 +57,22 @@ export class MockStepwiseAgent extends AbstractAgent {
    */
   emit(event: BaseEvent) {
     if (event.type === EventType.RUN_STARTED) {
+      this.testRunId = `${TEST_RUN_ID}-${++this.testRunCounter}`;
+    }
+    const contextualEvent = {
+      ...withTestRunContext(event as unknown as Record<string, unknown>),
+      runId: this.testRunId,
+    };
+    if (contextualEvent.type === EventType.RUN_STARTED) {
       this.isRunning = true;
     } else if (
-      event.type === EventType.RUN_FINISHED ||
-      event.type === EventType.RUN_ERROR
+      contextualEvent.type === EventType.RUN_FINISHED ||
+      contextualEvent.type === EventType.RUN_ERROR
     ) {
       this.isRunning = false;
     }
     act(() => {
-      this.subject.next(event);
+      this.subject.next(contextualEvent);
     });
   }
 
@@ -226,24 +246,24 @@ export function renderWithCopilotKit({
  * Helper to create a RUN_STARTED event
  */
 export function runStartedEvent(): BaseEvent {
-  return { type: EventType.RUN_STARTED } as BaseEvent;
+  return withTestRunContext({ type: EventType.RUN_STARTED });
 }
 
 /**
  * Helper to create a RUN_FINISHED event
  */
 export function runFinishedEvent(): BaseEvent {
-  return { type: EventType.RUN_FINISHED } as BaseEvent;
+  return withTestRunContext({ type: EventType.RUN_FINISHED });
 }
 
 /**
  * Helper to create a STATE_SNAPSHOT event
  */
 export function stateSnapshotEvent(snapshot: unknown): BaseEvent {
-  return {
+  return withTestRunContext({
     type: EventType.STATE_SNAPSHOT,
     snapshot,
-  } as BaseEvent;
+  });
 }
 
 /**
@@ -258,12 +278,12 @@ export function activitySnapshotEvent({
   activityType: string;
   content: Record<string, unknown>;
 }): BaseEvent {
-  return {
+  return withTestRunContext({
     type: EventType.ACTIVITY_SNAPSHOT,
     messageId,
     activityType,
     content,
-  } as BaseEvent;
+  });
 }
 
 /**
@@ -273,11 +293,11 @@ export function textMessageStartEvent(
   messageId: string,
   role: "assistant" | "developer" | "system" | "user" = "assistant",
 ): BaseEvent {
-  return {
+  return withTestRunContext({
     type: EventType.TEXT_MESSAGE_START,
     messageId,
     role,
-  } as BaseEvent;
+  });
 }
 
 /**
@@ -287,32 +307,32 @@ export function textMessageContentEvent(
   messageId: string,
   delta: string,
 ): BaseEvent {
-  return {
+  return withTestRunContext({
     type: EventType.TEXT_MESSAGE_CONTENT,
     messageId,
     delta,
-  } as BaseEvent;
+  });
 }
 
 /**
  * Helper to end a text message
  */
 export function textMessageEndEvent(messageId: string): BaseEvent {
-  return {
+  return withTestRunContext({
     type: EventType.TEXT_MESSAGE_END,
     messageId,
-  } as BaseEvent;
+  });
 }
 
 /**
  * Helper to create a TEXT_MESSAGE_CHUNK event
  */
 export function textChunkEvent(messageId: string, delta: string): BaseEvent {
-  return {
+  return withTestRunContext({
     type: EventType.TEXT_MESSAGE_CHUNK,
     messageId,
     delta,
-  } as BaseEvent;
+  });
 }
 
 /**
@@ -329,13 +349,13 @@ export function toolCallChunkEvent({
   parentMessageId: string;
   delta: string;
 }): BaseEvent {
-  return {
+  return withTestRunContext({
     type: EventType.TOOL_CALL_CHUNK,
     toolCallId,
     toolCallName,
     parentMessageId,
     delta,
-  } as BaseEvent;
+  });
 }
 
 /**
@@ -350,33 +370,33 @@ export function toolCallResultEvent({
   messageId: string;
   content: string;
 }): BaseEvent {
-  return {
+  return withTestRunContext({
     type: EventType.TOOL_CALL_RESULT,
     toolCallId,
     messageId,
     content,
-  } as BaseEvent;
+  });
 }
 
 /**
  * Helper to create a REASONING_START event
  */
 export function reasoningStartEvent(messageId: string): BaseEvent {
-  return {
+  return withTestRunContext({
     type: EventType.REASONING_START,
     messageId,
-  } as BaseEvent;
+  });
 }
 
 /**
  * Helper to create a REASONING_MESSAGE_START event
  */
 export function reasoningMessageStartEvent(messageId: string): BaseEvent {
-  return {
+  return withTestRunContext({
     type: EventType.REASONING_MESSAGE_START,
     messageId,
     role: "reasoning",
-  } as BaseEvent;
+  });
 }
 
 /**
@@ -386,31 +406,31 @@ export function reasoningMessageContentEvent(
   messageId: string,
   delta: string,
 ): BaseEvent {
-  return {
+  return withTestRunContext({
     type: EventType.REASONING_MESSAGE_CONTENT,
     messageId,
     delta,
-  } as BaseEvent;
+  });
 }
 
 /**
  * Helper to create a REASONING_MESSAGE_END event
  */
 export function reasoningMessageEndEvent(messageId: string): BaseEvent {
-  return {
+  return withTestRunContext({
     type: EventType.REASONING_MESSAGE_END,
     messageId,
-  } as BaseEvent;
+  });
 }
 
 /**
  * Helper to create a REASONING_END event
  */
 export function reasoningEndEvent(messageId: string): BaseEvent {
-  return {
+  return withTestRunContext({
     type: EventType.REASONING_END,
     messageId,
-  } as BaseEvent;
+  });
 }
 
 /**
@@ -571,7 +591,7 @@ export class SuggestionsProviderAgent extends MockStepwiseAgent {
     // Use setTimeout to emit events asynchronously through the existing subject
     setTimeout(() => {
       const messageId = testId("suggest-msg");
-      this.emit({ type: EventType.RUN_STARTED } as BaseEvent);
+      this.emit(runStartedEvent());
 
       emitSuggestionToolCall(this, {
         toolCallId: testId("tc"),
@@ -579,7 +599,7 @@ export class SuggestionsProviderAgent extends MockStepwiseAgent {
         suggestions: this._shared.suggestions,
       });
 
-      this.emit({ type: EventType.RUN_FINISHED } as BaseEvent);
+      this.emit(runFinishedEvent());
       this.complete();
     }, 0);
 

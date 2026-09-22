@@ -28,6 +28,20 @@ import {
 } from "./usage";
 import type { AgentRunFinishedDetails } from "./usage";
 
+type AGUIUserMessage = Extract<Message, { role: "user" }>;
+type LegacyBinaryContent = {
+  type: "binary";
+  mimeType?: string;
+  data?: string;
+  url?: string;
+};
+
+function warnUnsupportedFileSource(partType: string): void {
+  console.warn(
+    `[CopilotKit] convertUserContent: provider file handle is not supported for ${partType} parts — skipping`,
+  );
+}
+
 type ContentPartSource =
   | { type: "data"; value: string; mimeType: string }
   | { type: "url"; value: string; mimeType?: string };
@@ -105,7 +119,7 @@ export interface TanStackInputResult {
  * and legacy BinaryInputContent for backward compatibility.
  */
 function convertUserContent(
-  content: unknown,
+  content: AGUIUserMessage["content"] | LegacyBinaryContent[],
 ): string | null | TanStackContentPart[] {
   if (!content) return null;
   if (typeof content === "string") return content;
@@ -117,67 +131,65 @@ function convertUserContent(
   for (const part of content) {
     if (!part || typeof part !== "object" || !("type" in part)) continue;
 
-    switch ((part as { type: string }).type) {
-      case "text": {
-        const text = (part as { text?: string }).text;
-        if (text != null) parts.push({ type: "text", content: text });
+    switch (part.type) {
+      case "text":
+        if (part.text != null) {
+          parts.push({ type: "text", content: part.text });
+        }
         break;
-      }
 
       case "image":
       case "audio":
       case "video":
       case "document": {
-        const source = (part as { source?: any }).source;
-        if (!source) break;
-        const partType = (part as { type: string }).type as
-          | "image"
-          | "audio"
-          | "video"
-          | "document";
-        if (source.type === "data") {
-          parts.push({
-            type: partType,
-            source: {
-              type: "data",
-              value: source.value,
-              mimeType: source.mimeType,
-            },
-          });
-        } else if (source.type === "url") {
-          parts.push({
-            type: partType,
-            source: {
-              type: "url",
-              value: source.value,
-              ...(source.mimeType ? { mimeType: source.mimeType } : {}),
-            },
-          });
+        if (!part.source) break;
+
+        switch (part.source.type) {
+          case "data":
+            parts.push({
+              type: part.type,
+              source: {
+                type: "data",
+                value: part.source.value,
+                mimeType: part.source.mimeType,
+              },
+            });
+            break;
+          case "url":
+            parts.push({
+              type: part.type,
+              source: {
+                type: "url",
+                value: part.source.value,
+                ...(part.source.mimeType
+                  ? { mimeType: part.source.mimeType }
+                  : {}),
+              },
+            });
+            break;
+          case "file":
+            warnUnsupportedFileSource(part.type);
+            break;
         }
         break;
       }
 
       // Legacy BinaryInputContent backward compatibility
       case "binary": {
-        const legacy = part as {
-          mimeType?: string;
-          data?: string;
-          url?: string;
-        };
-        const mimeType = legacy.mimeType ?? "application/octet-stream";
+        const mimeType = part.mimeType ?? "application/octet-stream";
         const isImage = mimeType.startsWith("image/");
 
-        if (legacy.data) {
+        if (part.data) {
           const partType = isImage ? "image" : "document";
           parts.push({
             type: partType,
-            source: { type: "data", value: legacy.data, mimeType },
+            source: { type: "data", value: part.data, mimeType },
           });
-        } else if (legacy.url) {
+        } else if (part.url) {
           const partType = isImage ? "image" : "document";
           parts.push({
             type: partType,
-            source: { type: "url", value: legacy.url, mimeType },
+            source: { type: "url", value: part.url, mimeType },
           });
         }
         break;
@@ -609,10 +621,6 @@ function collectTanStackRunFinishedDetails(
   details?: AgentRunFinishedDetails,
 ): void {
   if (!details) return;
-
-  if (typeof event.finishReason === "string") {
-    details.finishReason = event.finishReason;
-  }
 
   const fallbackIdentity = {
     provider: getNonEmptyString(event.provider),

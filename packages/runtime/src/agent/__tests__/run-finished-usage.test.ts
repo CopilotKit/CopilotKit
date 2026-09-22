@@ -65,7 +65,6 @@ test("classic AI SDK runs include total token usage on RUN_FINISHED", async () =
 
     expect(events.at(-1)).toMatchObject({
       type: EventType.RUN_FINISHED,
-      finishReason: "stop",
       usage: [
         {
           provider: "test-provider",
@@ -98,7 +97,6 @@ test("AI SDK factory runs include total token usage on RUN_FINISHED", async () =
 
     expect(events.at(-1)).toMatchObject({
       type: EventType.RUN_FINISHED,
-      finishReason: "stop",
       usage: [
         {
           inputTokens: 12,
@@ -134,7 +132,6 @@ test("AI SDK approval interrupts retain total token usage", async () => {
 
     expect(events.at(-1)).toMatchObject({
       type: EventType.RUN_FINISHED,
-      finishReason: "stop",
       usage: [
         {
           inputTokens: 12,

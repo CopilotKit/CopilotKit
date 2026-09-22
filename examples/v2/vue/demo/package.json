@@ -10,8 +10,8 @@
     "lint": "eslint \"**/*.{js,mjs,cjs,ts,vue}\""
   },
   "dependencies": {
-    "@ag-ui/core": "0.0.52",
-    "@ag-ui/mcp-apps-middleware": "0.0.2",
+    "@ag-ui/core": "1.0.0",
+    "@ag-ui/mcp-apps-middleware": "0.1.1",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
     "@copilotkit/voice": "workspace:*",

@@ -2,18 +2,17 @@ import React, { useEffect, useState, useReducer } from "react";
 import { screen, fireEvent, waitFor } from "@testing-library/react";
 import { z } from "zod";
 import { useFrontendTool } from "../use-frontend-tool";
-import { ReactFrontendTool } from "../../types";
+import type { ReactFrontendTool } from "../../types";
 import { CopilotChat } from "../../components/chat/CopilotChat";
 import CopilotChatToolCallsView from "../../components/chat/CopilotChatToolCallsView";
-import { AssistantMessage, Message } from "@ag-ui/core";
+import type { AssistantMessage, Message } from "@ag-ui/core";
 import { ToolCallStatus } from "@copilotkit/core";
-import {
-  AbstractAgent,
-  EventType,
-  type AgentSubscriber,
-  type BaseEvent,
-  type RunAgentInput,
-  type RunAgentParameters,
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type {
+  AgentSubscriber,
+  BaseEvent,
+  RunAgentInput,
+  RunAgentParameters,
 } from "@ag-ui/client";
 import { Observable } from "rxjs";
 import {
@@ -25,6 +24,7 @@ import {
   toolCallResultEvent,
   textChunkEvent,
   testId,
+  withTestRunContext,
 } from "../../__tests__/utils/test-helpers";
 
 describe("useFrontendTool E2E - Dynamic Registration", () => {
@@ -597,15 +597,28 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
             const toolCallId = testId("tc");
             this.runCount += 1;
             const valueArg = this.runCount === 1 ? "first call" : "second call";
-            observer.next({ type: EventType.RUN_STARTED } as BaseEvent);
-            observer.next({
-              type: EventType.TOOL_CALL_CHUNK,
-              toolCallId,
-              toolCallName: "temporaryTool",
-              parentMessageId: messageId,
-              delta: JSON.stringify({ value: valueArg }),
-            } as BaseEvent);
-            observer.next({ type: EventType.RUN_FINISHED } as BaseEvent);
+            observer.next(
+              withTestRunContext({
+                threadId: this.threadId,
+                type: EventType.RUN_STARTED,
+              }),
+            );
+            observer.next(
+              withTestRunContext({
+                threadId: this.threadId,
+                type: EventType.TOOL_CALL_CHUNK,
+                toolCallId,
+                toolCallName: "temporaryTool",
+                parentMessageId: messageId,
+                delta: JSON.stringify({ value: valueArg }),
+              }),
+            );
+            observer.next(
+              withTestRunContext({
+                threadId: this.threadId,
+                type: EventType.RUN_FINISHED,
+              }),
+            );
             observer.complete();
             return () => {};
           });

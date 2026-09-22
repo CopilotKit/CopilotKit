@@ -35,10 +35,10 @@ function emitStepStarted(stepName: string) {
   subscriber?.onStepStartedEvent?.({ event: { stepName } } as any);
 }
 
-function emitRunFinished(outcome: "success" | "interrupt") {
+function emitRunFinished(outcome: "success" | "interrupt" | "cancelled") {
   subscriber?.onRunFinishedEvent?.({
     outcome,
-  } as any);
+  } as Parameters<NonNullable<AgentSubscriber["onRunFinishedEvent"]>>[0]);
 }
 
 beforeEach(() => {
@@ -117,6 +117,19 @@ describe("useAgentNodeName", () => {
     act(() => emitRunFinished("interrupt"));
 
     expect(renderedNodeNames.at(-1)).toBe("process_feedback_node");
+  });
+  it("reports 'end' for a cancelled run without treating it as an interrupt", () => {
+    const renderedNodeNames: string[] = [];
+    const Component: React.FC = () => {
+      renderedNodeNames.push(useAgentNodeName("default"));
+      return null;
+    };
+
+    render(<Component />);
+    act(() => emitStepStarted("process_feedback_node"));
+    act(() => emitRunFinished("cancelled"));
+
+    expect(renderedNodeNames.at(-1)).toBe("end");
   });
 
   it("keeps the active node after a legacy interrupt", () => {

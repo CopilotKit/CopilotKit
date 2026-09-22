@@ -6,23 +6,17 @@ import {
   useCopilotKit,
 } from "../../../providers/CopilotKitProvider";
 import { CopilotChat } from "../CopilotChat";
-import {
-  AbstractAgent,
-  EventType,
-  type BaseEvent,
-  type RunAgentInput,
-} from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { Observable, Subject } from "rxjs";
-import {
-  defineToolCallRenderer,
-  ReactToolCallRenderer,
-  ReactFrontendTool,
-} from "../../../types";
+import type { ReactToolCallRenderer, ReactFrontendTool } from "../../../types";
+import { defineToolCallRenderer } from "../../../types";
 import CopilotChatToolCallsView from "../CopilotChatToolCallsView";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
-import { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
+import type { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useFrontendTool } from "../../../hooks/use-frontend-tool";
+import { withTestRunContext } from "../../../__tests__/utils/test-helpers";
 
 // A minimal mock agent that streams a tool call and a result
 class MockStreamingAgent extends AbstractAgent {
@@ -38,42 +32,50 @@ class MockStreamingAgent extends AbstractAgent {
       const toolCallId = `tc_${Date.now()}`;
 
       // Start run
-      observer.next({ type: EventType.RUN_STARTED } as BaseEvent);
+      observer.next(withTestRunContext({ type: EventType.RUN_STARTED }));
 
       // Stream assistant text chunks
-      observer.next({
-        type: EventType.TEXT_MESSAGE_CHUNK,
-        messageId,
-        delta: "I will check the weather.",
-      } as BaseEvent);
+      observer.next(
+        withTestRunContext({
+          type: EventType.TEXT_MESSAGE_CHUNK,
+          messageId,
+          delta: "I will check the weather.",
+        }),
+      );
 
       // Start tool call (first chunk contains name + first args)
-      observer.next({
-        type: EventType.TOOL_CALL_CHUNK,
-        toolCallId,
-        toolCallName: "getWeather",
-        parentMessageId: messageId,
-        delta: '{"location":"Paris","unit":"c',
-      } as BaseEvent);
+      observer.next(
+        withTestRunContext({
+          type: EventType.TOOL_CALL_CHUNK,
+          toolCallId,
+          toolCallName: "getWeather",
+          parentMessageId: messageId,
+          delta: '{"location":"Paris","unit":"c',
+        }),
+      );
 
       // Continue tool call args
-      observer.next({
-        type: EventType.TOOL_CALL_CHUNK,
-        toolCallId,
-        parentMessageId: messageId,
-        delta: 'elsius"}',
-      } as BaseEvent);
+      observer.next(
+        withTestRunContext({
+          type: EventType.TOOL_CALL_CHUNK,
+          toolCallId,
+          parentMessageId: messageId,
+          delta: 'elsius"}',
+        }),
+      );
 
       // Tool result
-      observer.next({
-        type: EventType.TOOL_CALL_RESULT,
-        toolCallId,
-        messageId: `${messageId}_result`,
-        content: JSON.stringify({ temperature: 21, unit: "celsius" }),
-      } as BaseEvent);
+      observer.next(
+        withTestRunContext({
+          type: EventType.TOOL_CALL_RESULT,
+          toolCallId,
+          messageId: `${messageId}_result`,
+          content: JSON.stringify({ temperature: 21, unit: "celsius" }),
+        }),
+      );
 
       // Finish run
-      observer.next({ type: EventType.RUN_FINISHED } as BaseEvent);
+      observer.next(withTestRunContext({ type: EventType.RUN_FINISHED }));
       observer.complete();
 
       return () => {};
@@ -233,15 +235,18 @@ class MockStepwiseAgent extends AbstractAgent {
   private subject = new Subject<BaseEvent>();
 
   emit(event: BaseEvent) {
-    if (event.type === EventType.RUN_STARTED) {
+    const contextualEvent = withTestRunContext(
+      event as unknown as Record<string, unknown>,
+    );
+    if (contextualEvent.type === EventType.RUN_STARTED) {
       this.isRunning = true;
     } else if (
-      event.type === EventType.RUN_FINISHED ||
-      event.type === EventType.RUN_ERROR
+      contextualEvent.type === EventType.RUN_FINISHED ||
+      contextualEvent.type === EventType.RUN_ERROR
     ) {
       this.isRunning = false;
     }
-    this.subject.next(event);
+    this.subject.next(contextualEvent);
   }
 
   complete() {

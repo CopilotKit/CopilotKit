@@ -14,7 +14,7 @@ type AgentNodeNameEvent =
   | { type: "runStarted" }
   | { type: "stepStarted"; nodeName: string }
   | { type: "legacyInterruptReceived" }
-  | { type: "runFinished"; outcome: "success" | "interrupt" }
+  | { type: "runFinished"; outcome: "success" | "interrupt" | "cancelled" }
   | { type: "runError" };
 
 type AgentNodeNameTransition = (
@@ -83,7 +83,10 @@ export function useAgentNodeName(agentName?: string) {
         transition({ type: "runStarted" });
       },
       onRunFinishedEvent: ({ outcome }) => {
-        transition({ type: "runFinished", outcome });
+        transition({
+          type: "runFinished",
+          outcome,
+        });
       },
       onRunErrorEvent: () => {
         transition({ type: "runError" });

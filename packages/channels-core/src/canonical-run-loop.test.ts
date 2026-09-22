@@ -39,7 +39,6 @@ function lifecycleBatch(
     outputTokens?: number;
     totalTokens?: number;
   }>,
-  finishReason?: RunFinishedEvent["finishReason"],
 ): TestEvent[] {
   return [
     {
@@ -53,7 +52,6 @@ function lifecycleBatch(
       threadId: "inner-thread",
       runId,
       ...(usage ? { usage } : {}),
-      ...(finishReason !== undefined ? { finishReason } : {}),
     } as RunFinishedEvent,
   ];
 }
@@ -72,7 +70,6 @@ async function emitBatch(
   runId: string,
   middle: readonly TestEvent[],
   usage?: Parameters<typeof lifecycleBatch>[2],
-  finishReason?: Parameters<typeof lifecycleBatch>[3],
 ): Promise<void> {
   const input: RunAgentInput = {
     threadId: agent.threadId,
@@ -90,7 +87,7 @@ async function emitBatch(
     input,
   };
 
-  for (const event of lifecycleBatch(runId, middle, usage, finishReason)) {
+  for (const event of lifecycleBatch(runId, middle, usage)) {
     await subscriber.onEvent?.({ ...params, event });
     switch (event.type) {
       case EventType.RUN_STARTED:
@@ -101,6 +98,7 @@ async function emitBatch(
           ...params,
           event,
           outcome: "success",
+          pendingToolCallIds: [],
         });
         break;
       case EventType.RUN_ERROR:
@@ -201,16 +199,15 @@ test("managed runAgentLoop aggregates token usage across agent iterations", asyn
   });
 });
 
-test("managed runAgentLoop preserves the latest inner finish reason", async () => {
+test("managed runAgentLoop emits the canonical run completion", async () => {
   let agent!: FakeAgent;
   agent = new FakeAgent([
-    (subscriber) =>
-      emitBatch(subscriber, agent, "inner-run-1", [], undefined, "length"),
-    (subscriber) =>
-      emitBatch(subscriber, agent, "inner-run-2", [], undefined, "stop"),
+    (subscriber) => emitBatch(subscriber, agent, "inner-run-1", []),
+    (subscriber) => emitBatch(subscriber, agent, "inner-run-2", []),
   ]);
   const { renderer } = setupRenderer();
   const ingestedEvents: BaseEvent[] = [];
+  let pendingToolCallIds: string[] | undefined;
   const echo: ChannelTool = {
     name: "echo",
     description: "Return the value.",
@@ -244,14 +241,19 @@ test("managed runAgentLoop preserves the latest inner finish reason", async () =
       onEvent: ({ event }) => {
         ingestedEvents.push(event);
       },
+      onRunFinishedEvent: (params) => {
+        if (params.outcome === "success") {
+          pendingToolCallIds = params.pendingToolCallIds;
+        }
+      },
     },
     canonicalRun,
   });
 
   expect(ingestedEvents.at(-1)).toMatchObject({
     type: EventType.RUN_FINISHED,
-    finishReason: "stop",
   });
+  expect(pendingToolCallIds).toEqual([]);
 });
 
 function setupRenderer(

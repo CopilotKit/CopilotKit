@@ -1,5 +1,5 @@
 import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
-import { RunAgentInputSchema } from "@ag-ui/client";
+import { RunAgentInputSchema } from "@ag-ui/core/schemas";
 import {
   A2UIMiddleware,
   OpenGenerativeUIMiddleware,
@@ -264,12 +264,133 @@ export async function attachIntelligenceEnterpriseLearning(params: {
   );
 }
 
+const legacyNullableMediaPartTypes: Record<string, true> = {
+  image: true,
+  audio: true,
+  video: true,
+  document: true,
+};
+
+function omitNullProperty(value: unknown, property: string): unknown {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return value;
+  }
+
+  const record = value as Record<string, unknown>;
+  if (record[property] !== null) return value;
+
+  const copy = { ...record };
+  delete copy[property];
+  return copy;
+}
+
+function mapChanged(
+  values: unknown[],
+  map: (value: unknown) => unknown,
+): unknown[] {
+  let changed = false;
+  const mapped = values.map((value) => {
+    const next = map(value);
+    changed ||= next !== value;
+    return next;
+  });
+  return changed ? mapped : values;
+}
+
+/**
+ * Preserve the null compatibility that the 0.x request parser provided.
+ *
+ * This intentionally only removes whole optional protocol fields that 0.x
+ * accepted as null. Nulls inside application data, metadata, and required
+ * fields must remain untouched and be validated by the 1.0 schema.
+ */
+function normalizeLegacyRunInputNulls(value: unknown): unknown {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return value;
+  }
+
+  const body = value as Record<string, unknown>;
+  const normalized = { ...body };
+  let changed = false;
+
+  if (body.forwardedProps === null) {
+    delete normalized.forwardedProps;
+    changed = true;
+  }
+
+  if (Array.isArray(body.tools)) {
+    const tools = mapChanged(body.tools, (tool) =>
+      omitNullProperty(tool, "parameters"),
+    );
+    if (tools !== body.tools) {
+      normalized.tools = tools;
+      changed = true;
+    }
+  }
+
+  if (Array.isArray(body.resume)) {
+    const resume = mapChanged(body.resume, (entry) =>
+      omitNullProperty(entry, "payload"),
+    );
+    if (resume !== body.resume) {
+      normalized.resume = resume;
+      changed = true;
+    }
+  }
+
+  if (Array.isArray(body.messages)) {
+    const messages = mapChanged(body.messages, (message) => {
+      if (
+        message === null ||
+        typeof message !== "object" ||
+        Array.isArray(message)
+      ) {
+        return message;
+      }
+
+      const messageRecord = message as Record<string, unknown>;
+      if (!Array.isArray(messageRecord.content)) return message;
+
+      const content = mapChanged(messageRecord.content, (part) => {
+        if (part === null || typeof part !== "object" || Array.isArray(part)) {
+          return part;
+        }
+
+        const partRecord = part as Record<string, unknown>;
+        return typeof partRecord.type === "string" &&
+          legacyNullableMediaPartTypes[partRecord.type] === true
+          ? omitNullProperty(part, "metadata")
+          : part;
+      });
+
+      return content === messageRecord.content
+        ? message
+        : { ...messageRecord, content };
+    });
+    if (messages !== body.messages) {
+      normalized.messages = messages;
+      changed = true;
+    }
+  }
+
+  return changed ? normalized : value;
+}
+
+function parseRunAgentInput(value: unknown): RunAgentInput {
+  // The schema is generated from the same protocol but exports Zod's output
+  // type from a different package entrypoint; the runtime shape is normalized
+  // above before this boundary cast.
+  return RunAgentInputSchema.parse(
+    normalizeLegacyRunInputNulls(value),
+  ) as RunAgentInput;
+}
+
 export async function parseRunRequest(
   request: Request,
 ): Promise<RunAgentInput | Response> {
   try {
     const requestBody = await request.json();
-    return RunAgentInputSchema.parse(requestBody);
+    return parseRunAgentInput(requestBody);
   } catch (error) {
     logger.error("Invalid run request body:", error);
     return new Response(
@@ -294,7 +415,7 @@ export async function parseConnectRequest(request: Request): Promise<
 > {
   try {
     const requestBody = await request.json();
-    const input = RunAgentInputSchema.parse(requestBody);
+    const input = parseRunAgentInput(requestBody);
     let lastSeenEventId: string | null = null;
 
     if (

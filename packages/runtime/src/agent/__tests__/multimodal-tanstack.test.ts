@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { convertInputToTanStackAI } from "../converters/tanstack";
 import { createDefaultInput } from "./agent-test-helpers";
 import type { Message, InputContent } from "@ag-ui/client";
@@ -164,6 +164,21 @@ describe("convertInputToTanStackAI — multimodal", () => {
       { type: "image" } as any,
     ]);
     expect(result.content).toEqual([{ type: "text", content: "check this" }]);
+  });
+
+  it("skips provider file handles with a warning", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const result = convertUserContent([
+        { type: "image", source: { type: "file", value: "file-1" } },
+      ]);
+      expect(result.content).toBe("");
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("provider file handle is not supported"),
+      );
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("silently skips unknown part types", () => {

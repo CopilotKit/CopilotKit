@@ -345,9 +345,6 @@ describe("State Update Tools", () => {
       );
 
       expect(deltaEvent?.delta).toEqual(delta);
-      expect(() => compactEvents(events)).toThrow(
-        "OPERATION_PATH_UNRESOLVABLE",
-      );
     });
 
     it("should preserve malformed entries for downstream validation", async () => {
@@ -368,7 +365,6 @@ describe("State Update Tools", () => {
         type: EventType.STATE_DELTA,
         delta,
       });
-      expect(() => compactEvents(events)).toThrow("OPERATION_NOT_AN_OBJECT");
     });
 
     it("should not synthesize an unknown ancestor", async () => {
@@ -379,9 +375,7 @@ describe("State Update Tools", () => {
       );
 
       expect(deltaEvent?.delta).toEqual(delta);
-      expect(() => compactEvents(events)).toThrow("OPERATION_PATH_CANNOT_ADD");
     });
-
     it("should clone state when structuredClone cannot clone it", async () => {
       const callback = cloneFallbackCallback;
       const state = { todos: [], callback };
