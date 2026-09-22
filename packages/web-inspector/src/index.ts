@@ -1231,6 +1231,7 @@ interface ConversationToolCall {
   arguments: Record<string, unknown>;
   result: Record<string, unknown> | null;
   hasResult: boolean;
+  resultUnreadable?: boolean;
   createdAt: string;
   groupId?: string;
 }
@@ -2391,6 +2392,10 @@ export class CpkThreadInspector extends PortableLitElement {
   private renderTabContent(id: ThreadDetailsTab): TemplateResult {
     if (id === "timeline") {
       return html`${
+        this._messageRefreshError
+          ? html`<div class="cpk-td__status cpk-td__status--error" role="status">${this._messageRefreshError}</div>`
+          : nothing
+      }${
         this._showEventTimeline
           ? html`<div class="cpk-td__timeline-toolbar">${this.renderTimelineBulkButtons()}</div>${this.renderTimeline()}`
           : this._conversation.length ||
@@ -4012,6 +4017,7 @@ export class CpkThreadInspector extends PortableLitElement {
     if (!silent) {
       this._loadingMessages = true;
       this._messagesError = null;
+      this._messageRefreshError = null;
     }
     try {
       const messages = this.provider?.getMessages
@@ -4248,6 +4254,7 @@ export class CpkThreadInspector extends PortableLitElement {
         const tc = toolCallMap.get(msg.toolCallId);
         if (tc) {
           tc.hasResult = true;
+          tc.resultUnreadable = false;
           try {
             tc.result = this.parseToolCallContent(msg.content);
           } catch (err) {
@@ -4258,6 +4265,7 @@ export class CpkThreadInspector extends PortableLitElement {
               "[CopilotKit Inspector] Failed to parse tool-call result content",
               { toolCallId: msg.toolCallId, raw: msg.content, error: err },
             );
+            tc.resultUnreadable = true;
             tc.result = { __parseError: true, __raw: msg.content ?? null };
           }
         }
@@ -5274,33 +5282,74 @@ export class CpkThreadInspector extends PortableLitElement {
         </div>
       `;
     }
-    // Include message, event, and disclosure state so unchanged conversations
-    // reuse their template, while refresh warnings and run errors stay current.
+    const items = this.renderItems;
+    const errors = this.conversationRunErrors(items);
+    // Event chunks must not rebuild a long conversation. Only the error rows
+    // and their placement are relevant to this panel, not the full event list.
     return this.cachedPanelTpl(
       "timeline-fallback",
       [
         this._conversation,
         this._expandedTools,
         this._expandedMessages,
-        this._messageRefreshError,
-        this._fetchedEvents,
-        this.agentEventsInput,
-        this.agentMessagesInput,
-        this._eventsNotAvailable,
+        JSON.stringify(errors),
         this._expandedTimelineDetails,
       ],
-      () => html`
-        ${
-          this._messageRefreshError
-            ? html`<div class="cpk-td__status cpk-td__status--error" role="status">${this._messageRefreshError}</div>`
-            : nothing
+      () => {
+        const errorsAfter = new Map<number, TimelineItem[]>();
+        for (const { after, item } of errors) {
+          const group = errorsAfter.get(after) ?? [];
+          group.push(item);
+          errorsAfter.set(after, group);
         }
-        ${this.activeTimelineItems
-          .filter((item) => item.severity === "error")
-          .map((item) => this.renderTimelineItem(item))}
-        ${this.renderItems.map((item) => this.renderRenderItem(item))}
-      `,
+        const renderErrors = (after: number) =>
+          errorsAfter.get(after)?.map((item) => this.renderTimelineItem(item));
+        return html`
+          ${renderErrors(-1)}
+          ${items.map((item, index) => html`${this.renderRenderItem(item)}${renderErrors(index)}`)}
+        `;
+      },
     );
+  }
+
+  private conversationRunErrors(items: RenderItem[]) {
+    const positions = new Map<string, number>();
+    items.forEach((item, index) => {
+      positions.set(item.id, index);
+      if (item.type === "tool_call_group") {
+        for (const tool of item.items) positions.set(tool.id, index);
+      }
+    });
+    const errors: Array<{ after: number; item: TimelineItem }> = [];
+    let after = -1;
+    let hasAnchor = false;
+    for (const event of this.activeEvents) {
+      const keys = event.type.startsWith("TOOL_CALL")
+        ? ["toolCallId", "tool_call_id", "callId", "id"]
+        : event.type.startsWith("TEXT_MESSAGE") ||
+            event.type.startsWith("ACTIVITY")
+          ? ["messageId", "message_id", "id"]
+          : [];
+      const id = keys
+        .map((key) => event.payload[key])
+        .find((value) => typeof value === "string");
+      const position = id == null ? undefined : positions.get(id);
+      if (position !== undefined) {
+        after = Math.max(after, position);
+        hasAnchor = true;
+      }
+      if (event.type === "RUN_ERROR" || event.type === "ERROR") {
+        for (const item of this.timelineItemsFromEvents([event])) {
+          errors.push({ after, item });
+        }
+      }
+    }
+    // Some runtimes supply errors without message events. Keep those visible
+    // after the saved conversation rather than pretending they happened first.
+    if (!hasAnchor) {
+      for (const error of errors) error.after = items.length - 1;
+    }
+    return errors;
   }
 
   /**
@@ -5426,15 +5475,21 @@ export class CpkThreadInspector extends PortableLitElement {
           </svg>
           <span class="cpk-td__tool-name">${item.toolName}</span>
           ${
-            item.hasResult
+            item.resultUnreadable
               ? html`
-                  <span class="cpk-td__tool-status">Result received</span>
-                `
-              : html`
                   <span class="cpk-td__tool-status cpk-td__tool-status--pending"
-                    >No result recorded</span
+                    >Result unreadable</span
                   >
                 `
+              : item.hasResult
+                ? html`
+                    <span class="cpk-td__tool-status">Result received</span>
+                  `
+                : html`
+                    <span class="cpk-td__tool-status cpk-td__tool-status--pending"
+                      >No result recorded</span
+                    >
+                  `
           }
           <span class="cpk-td__tool-chevron">${expanded ? "▾" : "▸"}</span>
         </button>
