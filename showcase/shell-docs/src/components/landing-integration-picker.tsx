@@ -69,7 +69,7 @@ export function LandingIntegrationPicker({
                 className="peer sr-only"
               />
               <span
-                className={`shell-docs-radius-control inline-flex min-h-10 items-center gap-2 border px-3 text-xs font-medium transition-colors peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--accent)] ${frontend === option.id ? "border-[var(--nav-control-border)] bg-[var(--bg-surface)] text-[var(--accent)] shadow-sm" : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text)]"}`}
+                className={`shell-docs-radius-pill inline-flex min-h-10 items-center gap-2 border px-3 text-xs font-medium transition-colors peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--accent)] ${frontend === option.id ? "border-[var(--nav-control-border)] bg-[var(--bg-surface)] text-[var(--accent)] shadow-sm" : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text)]"}`}
               >
                 <span aria-hidden="true">
                   <PickLogoMark logo={option.logo} size={17} />

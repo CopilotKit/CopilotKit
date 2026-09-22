@@ -122,7 +122,7 @@ export function WizardProgress({
                 }`}
               >
                 <span
-                  className={`shell-docs-radius-control flex h-7 w-7 shrink-0 items-center justify-center border text-xs font-semibold ${
+                  className={`shell-docs-radius-pill flex h-7 w-7 shrink-0 items-center justify-center border text-xs font-semibold ${
                     isCurrent
                       ? "border-[var(--accent-fill)] bg-[var(--accent-fill)] text-[var(--primary-foreground)]"
                       : reached

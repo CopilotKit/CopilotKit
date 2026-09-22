@@ -43,11 +43,20 @@
   --docs-reading-width: 46rem;
   --docs-breakout-width: 51.25rem;
   --docs-content-gutter: 1rem;
-  --radius: 0.875rem;
-  --shell-docs-radius: var(--radius);
-  --shell-docs-radius-control: var(--radius);
-  --shell-docs-radius-surface: var(--radius);
-  --shell-docs-radius-icon: var(--radius);
+  /* Match the website's radius scale. Semantic aliases keep docs chrome
+   * consistent without flattening Tailwind/Fumadocs rounded-* utilities. */
+  --radius: 0.5rem;
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-2xl: 48px;
+  --radius-3xl: 200px;
+  --shell-docs-radius-control: var(--radius-md);
+  --shell-docs-radius-surface: var(--radius-lg);
+  --shell-docs-radius-icon: var(--radius-sm);
+  --shell-docs-radius-pill: var(--radius-3xl);
   --shadow-control: 0 1px 0 rgba(1, 5, 7, 0.03);
   --shadow-panel: 0 18px 50px rgba(1, 5, 7, 0.18);
   --shadow-modal:
@@ -243,7 +252,7 @@
     margin-inline: auto;
     padding: 0 18px 0 24px;
     border: 1px solid var(--border);
-    border-radius: 999px;
+    border-radius: var(--shell-docs-radius-pill);
     background: var(--card);
     box-shadow:
       0 12px 30px rgb(24 22 65 / 10%),
@@ -291,7 +300,7 @@
 .shell-docs-brand-nav .shell-docs-nav-cta {
   height: 40px;
   border: 1px solid var(--border);
-  border-radius: 999px !important;
+  border-radius: var(--shell-docs-radius-pill) !important;
   box-shadow: var(--shadow-control);
 }
 
@@ -325,6 +334,10 @@
   border-radius: var(--shell-docs-radius-icon) !important;
 }
 
+.shell-docs-radius-pill {
+  border-radius: var(--shell-docs-radius-pill) !important;
+}
+
 .shell-docs-surface {
   border: 1px solid var(--border);
   border-radius: var(--shell-docs-radius-surface);
@@ -343,7 +356,7 @@
 }
 
 .shell-docs-picker-group {
-  border-radius: calc(var(--shell-docs-radius-surface) + 4px);
+  border-radius: var(--shell-docs-radius-surface);
   background: var(--card);
   padding: 4px;
 }
@@ -366,6 +379,11 @@
 
 .shell-docs-picker-row {
   border-radius: var(--shell-docs-radius-control);
+}
+
+/* The selected page is navigation, like the website's active pills. */
+.shell-docs-sidebar a[data-active="true"] {
+  border-radius: var(--shell-docs-radius-pill);
 }
 
 .shell-docs-picker-row:hover {
@@ -396,7 +414,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 9999px;
+  border-radius: var(--shell-docs-radius-pill);
   background: color-mix(in srgb, var(--accent) 9%, var(--card));
   color: var(--accent);
 }
@@ -947,7 +965,7 @@
   position: relative;
   display: block;
   height: 0.375rem;
-  border-radius: 9999px;
+  border-radius: var(--shell-docs-radius-pill);
   background: color-mix(in oklch, var(--text-faint) 19%, transparent);
 }
 
@@ -977,8 +995,18 @@
  * caption, the code body, and the tab strip read as one clean rounded box. */
 figure.shiki,
 .docs-inner-content [data-orientation="horizontal"]:has(> [role="tablist"]) {
+  border-radius: var(--shell-docs-radius-surface) !important;
   background-color: var(--bg-surface) !important;
   box-shadow: none !important;
+}
+
+/* Code and explanatory callouts are content surfaces, not large panels. */
+.reference-content .fd-step > div[class*="rounded-xl"] {
+  border-radius: var(--shell-docs-radius-surface);
+}
+
+.reference-content a.shell-docs-radius-surface > div.not-prose:first-child {
+  border-radius: var(--shell-docs-radius-icon);
 }
 .dark figure.shiki,
 .dark
@@ -1266,7 +1294,7 @@ figure.shiki > div:first-child[class*="border-b"] {
 }
 
 .docs-page-breadcrumb a:focus-visible {
-  border-radius: 0.25rem;
+  border-radius: var(--radius-xs);
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
@@ -1389,7 +1417,7 @@ figure.shiki > div:first-child[class*="border-b"] {
   width: max-content;
   max-width: min(17rem, calc(100vw - 2rem));
   border: 1px solid var(--border);
-  border-radius: 0.625rem;
+  border-radius: var(--radius-md);
   background: var(--text);
   box-shadow: 0 0.5rem 1.5rem rgba(1, 5, 7, 0.16);
   color: var(--bg-surface);
@@ -1628,15 +1656,14 @@ figure.shiki > div:first-child[class*="border-b"] {
  * (`bg-fd-background`, etc.) and Fumadocs's internal components both
  * resolve to the shell-docs palette. */
 @theme inline {
-  /* Fumadocs ships Tailwind utilities that use rounded-md/lg/xl/2xl in
-   * generated layout chrome. Map those radius tokens back to the shadcn
-   * `--radius` value so custom and Fumadocs surfaces share one shape
-   * instead of each rounded-* utility choosing a different corner size. */
-  --radius-sm: var(--shell-docs-radius);
-  --radius-md: var(--shell-docs-radius);
-  --radius-lg: var(--shell-docs-radius);
-  --radius-xl: var(--shell-docs-radius);
-  --radius-2xl: var(--shell-docs-radius);
+  /* Keep Tailwind/Fumadocs on the same scale as ~/Code/website. */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-2xl: 48px;
+  --radius-3xl: 200px;
   --color-fd-background: var(--bg);
   --color-fd-foreground: var(--text);
   --color-fd-card: var(--bg-surface);
@@ -2046,7 +2073,7 @@ samp {
   font-size: 0.8125rem;
   background: var(--bg-elevated);
   padding: 0.125rem 0.375rem;
-  border-radius: var(--shell-docs-radius-control);
+  border-radius: var(--radius-xs);
   font-family: var(--font-docs-code);
   color: var(--text);
 }
@@ -2236,7 +2263,7 @@ samp {
 .fd-step::before {
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--shell-docs-radius-icon);
+  border-radius: var(--shell-docs-radius-pill);
   color: var(--accent);
   font-size: 0.75rem;
   font-weight: 600;
@@ -2451,7 +2478,7 @@ samp {
 .partner-architecture {
   max-width: 100%;
   height: auto;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
 }
 .partner-footer {
   display: flex;
@@ -2485,7 +2512,7 @@ samp {
 }
 .partner-video-options button {
   padding: 0.6rem 0.75rem;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 0.8125rem;
   cursor: pointer;
 }
@@ -2500,7 +2527,7 @@ samp {
   display: block;
   width: 100%;
   aspect-ratio: 16/9;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
 }
 .partner-video-status {
   position: absolute;
@@ -2512,7 +2539,7 @@ samp {
   gap: 0.75rem;
   background: var(--bg-elevated);
   color: var(--text-secondary);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
 }
 .partner-video-status a {
   display: inline-flex;
@@ -2555,7 +2582,7 @@ samp {
 .partner-explorer {
   margin-top: 2rem;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 .partner-explorer-frame {
@@ -2597,7 +2624,7 @@ samp {
   place-items: center;
   flex: 0 0 40px;
   height: 44px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
 }
 .partner-feature-track {
@@ -2709,7 +2736,7 @@ samp {
   max-width: calc(100vw - 32px);
   padding: 6px 10px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--bg-surface);
   color: var(--text);
   box-shadow: var(--shadow-control);

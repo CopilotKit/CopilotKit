@@ -183,7 +183,7 @@ export function DocsVideoCarousel() {
               tabIndex={isActive ? 0 : -1}
               onClick={() => selectAndFocus(index)}
               onKeyDown={handleKeyDown}
-              className={`shell-docs-radius-control inline-flex min-h-11 min-w-0 cursor-pointer flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-medium leading-tight sm:flex-row sm:gap-2 sm:px-2 sm:text-xs transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)] focus-visible:outline-none ${isActive ? "bg-[var(--accent-dim)] text-[var(--accent)]" : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"}`}
+              className={`shell-docs-radius-pill inline-flex min-h-11 min-w-0 cursor-pointer flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-medium leading-tight sm:flex-row sm:gap-2 sm:px-2 sm:text-xs transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)] focus-visible:outline-none ${isActive ? "bg-[var(--accent-dim)] text-[var(--accent)]" : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"}`}
             >
               <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
               <span data-testid="tab-title" className="whitespace-nowrap">
