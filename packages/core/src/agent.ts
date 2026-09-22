@@ -481,10 +481,9 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       onRunFailed: () => {
         this.isRunning = false;
       },
-      // Protocol-level RUN_ERROR event from the backend
-      onRunErrorEvent: () => {
-        this.isRunning = false;
-      },
+      // A replay can contain RUN_ERROR from an older run followed by more
+      // history. Only the connect pipeline's finalization/failure releases
+      // the agent; otherwise queued MCP reads can overlap its remaining replay.
     });
 
     // Forward the proxy's subscribers to the delegate so that UI hooks
