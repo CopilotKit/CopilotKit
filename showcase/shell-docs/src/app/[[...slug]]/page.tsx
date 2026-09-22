@@ -145,8 +145,8 @@ function DocsOverview() {
               <strong className="font-semibold text-[var(--text)]">
                 open-source framework
               </strong>{" "}
-              that connects your app to AI agents. Add chat, interactive UI,
-              and human approvals with your choice of any agent backend. Add{" "}
+              that connects your app to AI agents. Add chat, interactive UI, and
+              human approvals with your choice of any agent backend. Add{" "}
               <strong className="font-semibold text-[var(--text)]">
                 CopilotKit Intelligence
               </strong>{" "}
