@@ -16,10 +16,8 @@ Layout:
 - `/byoc_hashbrown`            BYOC hashbrown demo
 - `/multimodal`                Multimodal attachments (image/PDF)
 - `/agent_config`              Agent-config forwarded-props demo
-- `/shared_state_read`         Shared State (Read-only) — current recipe
 - `/shared_state_read_write`   Shared State (Read + Write) — bidirectional state
 - `/subagents`                 Sub-Agents — supervisor + 3 specialists
-- `/gen_ui_agent`              Agentic Generative UI — live plan steps
 
 Sub-paths are mounted BEFORE the root catch-all so Starlette resolves
 them first. The existing single-agent behaviour at `/` is preserved for
@@ -85,15 +83,11 @@ from agents.byoc_hashbrown_agent import agent as byoc_hashbrown_agent
 from agents.multimodal_agent import agent as multimodal_agent
 from agents.agent_config_agent import AgentConfigState
 from agents.agent_config_agent import agent as agent_config_agent
-from agents.shared_state_read import RecipeState
-from agents.shared_state_read import agent as shared_state_read_agent
 from agents.shared_state_read_write import SharedStateRWState
 from agents.shared_state_read_write import agent as shared_state_read_write_agent
 from agents.subagents import SubagentsState
 from agents.subagents import agent as subagents_agent
 from agents.gen_ui_tool_based import agent as gen_ui_tool_based_agent
-from agents.gen_ui_agent import GenUiAgentState
-from agents.gen_ui_agent import agent as gen_ui_agent
 from agents.reasoning_agent import agent as reasoning_agent
 from agents.tool_rendering_reasoning_chain_agent import (
     agent as tool_rendering_reasoning_chain_agent,
@@ -196,15 +190,13 @@ mount_agent("/multimodal", multimodal_agent)
 mount_agent("/agent_config", agent_config_agent, AgentConfigState)
 
 # ── Shared state (read + write) and sub-agents ───────────────────────
-mount_agent("/shared_state_read", shared_state_read_agent, RecipeState)
 mount_agent(
     "/shared_state_read_write", shared_state_read_write_agent, SharedStateRWState
 )
 mount_agent("/subagents", subagents_agent, SubagentsState)
 
-# ── Generative UI — charts and agent-owned plan steps ───────────────
+# ── Tool-Based Generative UI — chart-viz system prompt ───────────────
 mount_agent("/gen_ui_tool_based", gen_ui_tool_based_agent)
-mount_agent("/gen_ui_agent", gen_ui_agent, GenUiAgentState)
 
 # ── Reasoning trio (gpt-5 reasoning model) ───────────────────────────
 # Same reasoning agent backs both `agentic-chat-reasoning` and

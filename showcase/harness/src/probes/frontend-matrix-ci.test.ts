@@ -138,8 +138,7 @@ describe("frontend matrix CI contracts", () => {
 
     expect(report.summary).toMatchObject({
       total: 2,
-      passed: 0,
-      unverified: 2,
+      passed: 2,
       failed: 0,
       p95ShardWallTimeMs: 1000,
     });
@@ -180,65 +179,4 @@ describe("frontend matrix CI contracts", () => {
       aggregateFrontendMatrixArtifacts(CELLS, [wrong, artifact(1)]),
     ).toThrow(/identity.*angular\/langgraph-python\/agentic-chat/i);
   });
-});
-
-it("does not count legacy status-only artifacts as functional passes", () => {
-  const report = aggregateFrontendMatrixArtifacts(CELLS, [
-    artifact(0),
-    artifact(1),
-  ]);
-  expect(report.summary.passed).toBe(0);
-  expect(report.cells.every((cell) => cell.status === "unverified")).toBe(true);
-});
-
-it("rejects inherited proof outside the enclosing shard observation", () => {
-  const input = artifact(0);
-  input.shard = { index: 0, count: 1 };
-  input.containerImageRevision = `sha256:${"a".repeat(64)}`;
-  input.featureContractRevision = "b".repeat(40);
-  const cell = input.cells[0]!;
-  Object.assign(cell, {
-    containerImageRevision: input.containerImageRevision,
-    featureContractRevision: input.featureContractRevision,
-    startedAt: input.startedAt,
-    observedAt: input.finishedAt,
-  });
-  cell.probes[0]!.pillExecution = {
-    mode: "functional-pill",
-    surface: "public",
-    completed: true,
-    attempts: 1,
-    failures: [],
-    startedAt: input.startedAt,
-    completedAt: input.finishedAt,
-    identity: {
-      canonical: "agentic-chat",
-      frontend: cell.frontend,
-      integration: cell.integration,
-      targetRevision: input.containerImageRevision,
-      canonicalRevision: input.featureContractRevision,
-    },
-    requiredActions: ["sample"],
-    actions: [
-      {
-        id: "sample",
-        attempted: true,
-        clicked: true,
-        assertionPassed: true,
-        completed: true,
-        dispatchedPrompt: "Sample",
-      },
-    ],
-  };
-  expect(
-    aggregateFrontendMatrixArtifacts([CELLS[0]!], [input]).summary.passed,
-  ).toBe(1);
-  const later = {
-    ...input,
-    startedAt: "2026-07-21T01:00:00Z",
-    finishedAt: "2026-07-21T01:00:01Z",
-  };
-  expect(
-    aggregateFrontendMatrixArtifacts([CELLS[0]!], [later]).summary.unverified,
-  ).toBe(1);
 });

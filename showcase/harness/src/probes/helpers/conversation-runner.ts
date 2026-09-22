@@ -27,7 +27,7 @@
  * structural typing makes it transparent.
  */
 
-import type { Page as PlaywrightPage, Locator, Request } from "playwright";
+import type { Page as PlaywrightPage } from "playwright";
 
 import { conversationFailureSummary } from "./privacy-safe-diagnostics.js";
 import {
@@ -256,29 +256,7 @@ function coldStartRetryMinSettleMs(settleMs: number): number {
  * lib into this module would force every consumer to acquire DOM types
  * just to call the helper, and the runner only needs four methods.
  */
-type PillButton = Pick<
-  Locator,
-  "count" | "isVisible" | "isEnabled" | "innerText" | "click"
-> &
-  Partial<Pick<Locator, "evaluate" | "waitFor">>;
-
 export interface Page {
-  frameLocator?: PlaywrightPage["frameLocator"];
-  hover?: PlaywrightPage["hover"];
-  getByTestId?(id: string): PillButton;
-  getByRole?(
-    role: "button",
-    options: { name: string; exact: true },
-  ): PillButton;
-  on?(
-    event: "request",
-    listener: (request: Pick<Request, "method" | "postData">) => void,
-  ): unknown;
-  off?(
-    event: "request",
-    listener: (request: Pick<Request, "method" | "postData">) => void,
-  ): unknown;
-
   waitForSelector(
     selector: string,
     opts?: { timeout?: number; state?: "visible" },
@@ -331,57 +309,7 @@ export interface Page {
   reload?(): Promise<unknown>;
 }
 
-export type PillAction = {
-  kind: "pill";
-  id: string;
-  buttonName: string;
-  expectedDispatchedPrompt: string;
-  submission:
-    | { kind: "immediate" }
-    | {
-        kind: "composer";
-        sendButtonName: string;
-        sendButtonTestId?: string;
-        expectedComposerText: string;
-      };
-};
-
-export interface PillActionEvidence {
-  id: string;
-  buttonName: string;
-  resetBefore?: boolean;
-  attempted: boolean;
-  clicked: boolean;
-  dispatchedPrompt?: string;
-  assertionPassed: boolean;
-  completed: boolean;
-  error?: string;
-}
-
-export interface PillExecutionSummary {
-  startedAt: string;
-  completedAt?: string;
-  mode: "functional-pill" | "diagnostic";
-  identity?: {
-    canonical: string;
-    integration: string;
-    frontend: string;
-    url: string;
-    targetRevision?: string;
-    canonicalRevision?: string;
-  };
-  surface: "public" | "direct-diagnostic";
-  requiredActions: string[];
-  actions: PillActionEvidence[];
-  attempts: number;
-  failures: string[];
-  completed: boolean;
-}
-
 export interface ConversationTurn {
-  /** Canonical independent initial-page scenario; never a failure retry. */
-  scenario?: "fresh";
-  action?: PillAction;
   /** The user message to type into the chat input. */
   input: string;
   /**
@@ -521,18 +449,7 @@ export interface ConversationTurn {
   };
 }
 
-/** A required canonical test definition or result oracle is unavailable. */
-export class UnverifiedDefinitionError extends Error {
-  readonly errorClass = "unverified-definition" as const;
-  constructor(message: string) {
-    super(message);
-    this.name = "UnverifiedDefinitionError";
-  }
-}
-
 export interface ConversationResult {
-  errorClass?: "unverified-definition";
-  pillExecution?: PillExecutionSummary;
   /** Number of turns that completed successfully (0-indexed count). */
   turns_completed: number;
   /** Total turns the runner was asked to execute. */
@@ -552,10 +469,6 @@ export interface ConversationResult {
 }
 
 export interface ConversationRunnerOptions {
-  /** Omitted mode fails closed into pill-only execution. Typed input is diagnostic only. */
-  mode?: "functional-pill" | "diagnostic";
-  identity?: PillExecutionSummary["identity"];
-  surface?: PillExecutionSummary["surface"];
   /**
    * Override the chat-input selector. When set, the 6-selector cascade
    * is skipped and only this selector is tried. Useful for showcases
@@ -571,128 +484,6 @@ export interface ConversationRunnerOptions {
   assistantSettleMs?: number;
 }
 
-function validatePillTurns(turns: ConversationTurn[]): string | undefined {
-  if (!turns.length)
-    return "functional pill execution requires at least one action";
-  const ids = new Set<string>();
-  for (const turn of turns) {
-    const action = turn.action;
-    if (
-      !action ||
-      action.kind !== "pill" ||
-      !action.id.trim() ||
-      !action.buttonName.trim() ||
-      !action.expectedDispatchedPrompt.trim()
-    ) {
-      return "functional turn is missing its canonical pill action";
-    }
-    if (ids.has(action.id)) return "functional action IDs must be unique";
-    ids.add(action.id);
-    if (!turn.assertions)
-      return "functional pill action requires expected-result assertions";
-    if (turn.skipFill || turn.skipSend)
-      return "functional pill action cannot use legacy send bypasses";
-    if (turn.input !== action.expectedDispatchedPrompt)
-      return "functional input differs from canonical action prompt";
-  }
-}
-
-async function exactEnabledButton(
-  page: Page,
-  name: string,
-  testId?: string,
-): Promise<PillButton> {
-  if (!page.getByRole)
-    throw new Error("real Playwright button lookup is unavailable");
-  const button = testId
-    ? page.getByTestId?.(testId)
-    : page.getByRole("button", { name, exact: true });
-  if (!button) throw new Error("canonical Send locator unavailable");
-  if ((await button.count()) !== 1)
-    throw new Error(`expected exactly one canonical pill/button: ${name}`);
-  if (!(await button.isVisible()) || !(await button.isEnabled()))
-    throw new Error(`canonical pill/button is hidden or disabled: ${name}`);
-  // Accessible-name matching normalizes whitespace. The visible label must
-  // independently equal the canonical wording, including case/punctuation.
-  const wording = button.evaluate
-    ? await button.evaluate((element) => {
-        const copy = element.cloneNode(true);
-        if (
-          !("querySelectorAll" in copy) ||
-          typeof copy.querySelectorAll !== "function"
-        ) {
-          throw new Error("canonical button clone is not an element");
-        }
-        copy
-          .querySelectorAll('[aria-hidden="true"]')
-          .forEach((node: { remove(): void }) => node.remove());
-        return copy.textContent ?? "";
-      })
-    : await button.innerText();
-  if (wording !== name)
-    throw new Error(`canonical pill/button wording differs: ${name}`);
-  return button;
-}
-
-function findDispatchedUserPrompt(value: unknown): string | undefined {
-  if (typeof value !== "object" || value === null) return undefined;
-  if ("messages" in value && Array.isArray(value.messages)) {
-    const users = value.messages.filter(
-      (message: unknown) =>
-        typeof message === "object" &&
-        message !== null &&
-        "role" in message &&
-        message.role === "user",
-    );
-    const last: unknown = users.at(-1);
-    if (typeof last === "object" && last !== null && "content" in last) {
-      if (typeof last.content === "string") return last.content;
-      if (Array.isArray(last.content)) {
-        const texts = last.content.flatMap((part: unknown) =>
-          typeof part === "object" &&
-          part !== null &&
-          "type" in part &&
-          part.type === "text" &&
-          "text" in part &&
-          typeof part.text === "string"
-            ? [part.text]
-            : [],
-        );
-        if (texts.length) return texts.join("");
-      }
-    }
-  }
-  for (const child of Object.values(value)) {
-    const prompt = findDispatchedUserPrompt(child);
-    if (prompt !== undefined) return prompt;
-  }
-}
-
-function dispatchedUserPrompt(body: string | null): string | undefined {
-  if (!body) return undefined;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(body);
-  } catch {
-    return undefined;
-  }
-
-  return findDispatchedUserPrompt(parsed);
-}
-
-function functionalHookPage(page: Page): Page {
-  return new Proxy(page, {
-    get(target, property) {
-      if (property === "fill" || property === "press")
-        return () => {
-          throw new Error("functional hooks cannot fill or press the composer");
-        };
-      const value: unknown = Reflect.get(target, property);
-      return typeof value === "function" ? value.bind(target) : value;
-    },
-  });
-}
-
 /**
  * Run a multi-turn conversation. Returns a `ConversationResult`
  * regardless of success/failure — callers should not throw out of this
@@ -703,29 +494,6 @@ export async function runConversation(
   turns: ConversationTurn[],
   opts: ConversationRunnerOptions = {},
 ): Promise<ConversationResult> {
-  const functional = opts.mode !== "diagnostic";
-  const pillExecution: PillExecutionSummary = {
-    startedAt: new Date().toISOString(),
-    mode: functional ? "functional-pill" : "diagnostic",
-    identity: opts.identity,
-    surface: opts.surface ?? "direct-diagnostic",
-    requiredActions: turns.map((turn) => turn.action?.id ?? ""),
-    actions: [],
-    attempts: 1,
-    failures: [],
-    completed: false,
-  };
-  const contractError = functional ? validatePillTurns(turns) : undefined;
-  if (contractError)
-    return {
-      turns_completed: 0,
-      total_turns: turns.length,
-      failure_turn: 1,
-      error: contractError,
-      errorClass: "unverified-definition",
-      turn_durations_ms: [],
-      pillExecution,
-    };
   const total = turns.length;
   const settleMs = opts.assistantSettleMs ?? DEFAULT_SETTLE_MS;
   const durations: number[] = [];
@@ -745,7 +513,6 @@ export async function runConversation(
       turns_completed: 0,
       total_turns: 0,
       turn_durations_ms: [],
-      pillExecution,
     };
   }
 
@@ -768,11 +535,10 @@ export async function runConversation(
   // resolution fails — that's specifically the auth shape, where the
   // chat tree mounts later.
   try {
-    if (!functional)
-      chatInputSelector = await resolveChatInputSelector(
-        page,
-        opts.chatInputSelector,
-      );
+    chatInputSelector = await resolveChatInputSelector(
+      page,
+      opts.chatInputSelector,
+    );
     console.debug(
       "[conversation-runner] resolved chat input selector at boot",
       { selector: chatInputSelector },
@@ -796,9 +562,7 @@ export async function runConversation(
     );
   }
 
-  let scenarioTurn = 0;
   for (let idx = 0; idx < total; idx++) {
-    scenarioTurn += 1;
     const turn = turns[idx]!;
     const turnNum = idx + 1;
     const turnTimeoutMs = turn.responseTimeoutMs ?? DEFAULT_RESPONSE_TIMEOUT_MS;
@@ -821,25 +585,6 @@ export async function runConversation(
     // the turn it protects. The fast-fail retry fires while this is below
     // `COLD_START_RETRY_MAX` (1), so at most one reload+re-send per turn.
     let coldStartRetries = 0;
-    const evidence: PillActionEvidence | undefined =
-      turn.action && functional
-        ? {
-            id: turn.action.id,
-            buttonName: turn.action.buttonName,
-            attempted: false,
-            clicked: false,
-            assertionPassed: false,
-            completed: false,
-          }
-        : undefined;
-    if (evidence) pillExecution.actions.push(evidence);
-    const dispatches: string[] = [];
-    const onRequest = (request: Pick<Request, "method" | "postData">): void => {
-      if (request.method() !== "POST") return;
-      const prompt = dispatchedUserPrompt(request.postData());
-      if (prompt !== undefined) dispatches.push(prompt);
-    };
-    if (functional) page.on?.("request", onRequest);
 
     console.debug(
       `[conversation-runner] turn ${turnNum}/${total} — sending message`,
@@ -850,20 +595,6 @@ export async function runConversation(
     );
 
     try {
-      if (functional && idx > 0 && turn.scenario === "fresh") {
-        if (!page.reload)
-          throw new Error("canonical fresh scenario requires real page reset");
-        await page.reload();
-        scenarioTurn = 1;
-        chatInputSelector = null;
-        if (evidence) evidence.resetBefore = true;
-        await page
-          .getByRole?.("button", { name: turn.action!.buttonName, exact: true })
-          .waitFor?.({
-            state: "visible",
-            timeout: Math.max(1, turnDeadline - Date.now()),
-          });
-      }
       // skipSend baseline hoist: on a `skipSend` turn, `preFill` ITSELF issues
       // the run (it clicks a sample button that dispatches
       // `agent.addMessage` + `copilotkit.runAgent`), so the run-start / bubble
@@ -893,20 +624,13 @@ export async function runConversation(
         console.debug(
           `[conversation-runner] turn ${turnNum}/${total} — running preFill hook`,
         );
-        await turn.preFill(functional ? functionalHookPage(page) : page);
-        if (functional && dispatches.length)
-          throw new Error(
-            "preparation dispatched a prompt before the pill click",
-          );
+        await turn.preFill(page);
         console.debug(
           `[conversation-runner] turn ${turnNum}/${total} — preFill hook completed`,
         );
       }
 
-      if (
-        chatInputSelector === null &&
-        (!functional || turn.action?.submission.kind === "composer")
-      ) {
+      if (chatInputSelector === null) {
         try {
           chatInputSelector = await resolveChatInputSelector(
             page,
@@ -927,7 +651,6 @@ export async function runConversation(
             failure_turn: turnNum,
             error: `chat input not found: ${errorMessage(err)}`,
             turn_durations_ms: durations,
-            pillExecution,
           };
         }
       }
@@ -940,68 +663,7 @@ export async function runConversation(
       // local capture is safe.
       const selector = chatInputSelector;
       const sendTurnMessage = async (): Promise<void> => {
-        if (functional) {
-          if (
-            !turn.action ||
-            !evidence ||
-            !page.getByRole ||
-            !page.on ||
-            !page.off
-          ) {
-            throw new Error(
-              "functional pill execution requires a real Playwright action/request surface",
-            );
-          }
-          evidence.attempted = true;
-          const button = await exactEnabledButton(page, turn.action.buttonName);
-          await button.click({
-            timeout: Math.max(1, turnDeadline - Date.now()),
-          });
-          evidence.clicked = true;
-          if (turn.action.submission.kind === "composer") {
-            if (!selector || !page.inputValue)
-              throw new Error("pill composer is missing");
-            const submission = turn.action.submission;
-            while (
-              (await page.inputValue(selector)) !==
-              submission.expectedComposerText
-            ) {
-              if (Date.now() >= turnDeadline)
-                throw new Error(
-                  "pill did not populate the canonical composer text",
-                );
-              await new Promise((resolve) =>
-                setTimeout(resolve, POLL_INTERVAL_MS),
-              );
-            }
-            if (dispatches.length)
-              throw new Error(
-                "composer pill dispatched before the required Send click",
-              );
-            await (
-              await exactEnabledButton(
-                page,
-                submission.sendButtonName,
-                submission.sendButtonTestId,
-              )
-            ).click({ timeout: Math.max(1, turnDeadline - Date.now()) });
-          }
-          while (dispatches.length === 0) {
-            if (Date.now() >= turnDeadline)
-              throw new Error("pill click did not dispatch a user prompt");
-            await new Promise((resolve) =>
-              setTimeout(resolve, POLL_INTERVAL_MS),
-            );
-          }
-          evidence.dispatchedPrompt = dispatches[0];
-          if (
-            evidence.dispatchedPrompt !== turn.action.expectedDispatchedPrompt
-          ) {
-            throw new Error(
-              "pill dispatched a prompt different from the exact canonical prompt",
-            );
-          }
-        } else if (turn.skipSend) {
+        if (turn.skipSend) {
           console.debug(
             `[conversation-runner] turn ${turnNum}/${total} — skipSend=true, preFill handled submission; not touching textarea`,
           );
@@ -1009,9 +671,9 @@ export async function runConversation(
           console.debug(
             `[conversation-runner] turn ${turnNum}/${total} — skipFill=true, waiting for textarea content then pressing Enter`,
           );
-          await waitForContentAndSend(page, selector!, turnTimeoutMs);
+          await waitForContentAndSend(page, selector, turnTimeoutMs);
         } else {
-          await fillAndVerifySend(page, selector!, turn.input);
+          await fillAndVerifySend(page, selector, turn.input);
         }
       };
 
@@ -1071,16 +733,13 @@ export async function runConversation(
         );
       }
 
-      const baselineBanner = await readErrorBanner(page);
-      const baselineBannerText =
-        baselineBanner.state === "visible" ? baselineBanner.text : null;
       await sendTurnMessage();
 
       console.debug(
         `[conversation-runner] turn ${turnNum}/${total} — waiting for assistant settle`,
         {
           selector: chatInputSelector,
-          turnIndex: scenarioTurn,
+          turnIndex: turnNum,
           settleMs,
           timeoutMs: turnTimeoutMs,
         },
@@ -1125,15 +784,16 @@ export async function runConversation(
       // (treat-as-absent) — we don't know the baseline so any visible
       // banner during settle is a candidate, preserving the historical
       // "fresh banner ⇒ fast-fail" behaviour on a transient probe hiccup.
+      const baselineBanner = await readErrorBanner(page);
+      const baselineBannerText =
+        baselineBanner.state === "visible" ? baselineBanner.text : null;
       let settleResult: WaitForTurnCompleteResult;
       try {
         settleResult = await waitForTurnComplete({
           page,
-          turnIndex: scenarioTurn,
+          turnIndex: turnNum,
           settleMs,
-          timeoutMs: functional
-            ? Math.max(1, turnDeadline - Date.now())
-            : turnTimeoutMs,
+          timeoutMs: turnTimeoutMs,
           maxTurnDurationMs: computeMaxTurnDurationMs(turnTimeoutMs, settleMs),
           baselineBannerText,
           baselineCount,
@@ -1191,7 +851,7 @@ export async function runConversation(
           }
         }
 
-        const isPlainFillTurn = !functional && !turn.skipSend && !turn.skipFill;
+        const isPlainFillTurn = !turn.skipSend && !turn.skipFill;
         const isColdStartWindow =
           turnNum === 1 &&
           coldStartRetries < COLD_START_RETRY_MAX &&
@@ -1201,8 +861,6 @@ export async function runConversation(
           isColdStartWindow
         ) {
           coldStartRetries++;
-          pillExecution.attempts++;
-          pillExecution.failures.push(errorMessage(translatedErr));
           console.warn(
             `[conversation-runner] turn ${turnNum}/${total} — cold-start banner fast-fail; reloading + re-sending ONCE before fast-fail`,
             {
@@ -1301,7 +959,7 @@ export async function runConversation(
             );
             settleResult = await waitForTurnComplete({
               page,
-              turnIndex: scenarioTurn,
+              turnIndex: turnNum,
               settleMs,
               timeoutMs: retryTimeoutMs,
               maxTurnDurationMs: computeMaxTurnDurationMs(
@@ -1376,7 +1034,7 @@ export async function runConversation(
             textLength: settleResult.text.length,
           },
         );
-        await turn.assertions(functional ? functionalHookPage(page) : page, {
+        await turn.assertions(page, {
           bubbleIndex: settleResult.bubbleIndex,
           text: settleResult.text,
         });
@@ -1385,14 +1043,8 @@ export async function runConversation(
         );
       }
 
-      if (evidence) {
-        evidence.assertionPassed = true;
-        evidence.completed = true;
-      }
       durations.push(Date.now() - startedAt);
     } catch (err) {
-      if (evidence) evidence.error = errorMessage(err);
-      pillExecution.failures.push(errorMessage(err));
       // Spec: `turn_durations_ms.length === turns_completed`. The failed
       // turn's partial duration is intentionally NOT recorded so callers
       // can compute average successful-turn latency without partial-
@@ -1445,18 +1097,11 @@ export async function runConversation(
         total_turns: total,
         failure_turn: turnNum,
         error: errorMessage(err),
-        errorClass:
-          err instanceof UnverifiedDefinitionError ? err.errorClass : undefined,
         turn_durations_ms: durations,
-        pillExecution,
       };
-    } finally {
-      if (functional) page.off?.("request", onRequest);
     }
   }
 
-  pillExecution.completed = true;
-  pillExecution.completedAt = new Date().toISOString();
   console.debug("[conversation-runner] conversation completed successfully", {
     turnsCompleted: total,
     totalDurationMs: durations.reduce((a, b) => a + b, 0),
@@ -1466,7 +1111,6 @@ export async function runConversation(
     turns_completed: total,
     total_turns: total,
     turn_durations_ms: durations,
-    pillExecution,
   };
 }
 

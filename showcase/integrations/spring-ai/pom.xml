@@ -86,17 +86,6 @@
 
     <build>
         <finalName>agent</finalName>
-        <resources>
-            <resource>
-                <directory>src/main/resources</directory>
-            </resource>
-            <resource>
-                <directory>${project.basedir}/data</directory>
-                <includes>
-                    <include>revenue-chart.json</include>
-                </includes>
-            </resource>
-        </resources>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

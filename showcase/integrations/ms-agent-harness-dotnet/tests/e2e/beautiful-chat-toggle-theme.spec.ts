@@ -1,25 +1,29 @@
-import { runConversation } from "../../../../harness/src/probes/helpers/conversation-runner.js";
-import { attachSseInterceptor } from "../../../../harness/src/probes/helpers/sse-interceptor.js";
-import { buildTurns } from "../../../../harness/src/probes/scripts/d5-beautiful-chat-toggle-theme.js";
 import { expect, test } from "@playwright/test";
-test("beautiful-chat-toggle-theme canonical actual pill", async ({ page }) => {
-  test.setTimeout(900_000);
-  const capture = await attachSseInterceptor(page);
-  try {
-    await page.goto("/demos/beautiful-chat");
-    const result = await runConversation(
-      page,
-      buildTurns({
-        integrationSlug: "ms-agent-harness-dotnet",
-        featureType: "beautiful-chat-toggle-theme",
-        baseUrl: new URL(page.url()).origin,
-      }),
-      { mode: "functional-pill" },
-    );
-    expect(result.error).toBeUndefined();
-    expect(result.pillExecution?.completed).toBe(true);
-    expect(result.pillExecution?.actions).toHaveLength(9);
-  } finally {
-    await capture.stop();
-  }
+import {
+  clickBeautifulChatPill,
+  openBeautifulChat,
+} from "./beautiful-chat-helpers";
+
+test.describe("Beautiful Chat frontend tool", () => {
+  test.beforeEach(async ({ page }) => {
+    await openBeautifulChat(page);
+  });
+
+  test("Toggle Theme pill flips the html dark class", async ({ page }) => {
+    const html = page.locator("html");
+    const initialClass = (await html.getAttribute("class")) ?? "";
+    const initiallyDark = initialClass.includes("dark");
+
+    await clickBeautifulChatPill(page, "Toggle Theme (Frontend Tools)");
+
+    await expect
+      .poll(
+        async () => {
+          const cls = (await html.getAttribute("class")) ?? "";
+          return cls.includes("dark");
+        },
+        { timeout: 30_000 },
+      )
+      .toBe(!initiallyDark);
+  });
 });

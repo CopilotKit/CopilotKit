@@ -81,7 +81,7 @@ describe("CellDrilldown", () => {
     expect(queryByText("Smoke")).toBeNull();
   });
 
-  it("renders a red BE (Agent) row while missing functional proof keeps the cell unverified", () => {
+  it("renders a red BE (Agent) row for a red D4 fold while the service line stays green (headline drilldown-parity bug)", () => {
     // The dimension that turns the pill red (D4: red tools round-trip) must
     // be VISIBLE in the popup. Pre-fix the popup had no D4 row at all, so a
     // pill-red cell showed nothing non-green to explain itself.
@@ -110,8 +110,8 @@ describe("CellDrilldown", () => {
     const rtBadge = getByTestId("drilldown-badge-be--agent-");
     expect(rtBadge.textContent).toContain("BE (Agent)");
     expect(rtBadge.textContent).toContain("✗");
-    // Diagnostic readiness alone cannot certify a functional cell.
-    expect(getByText("gray")).toBeDefined();
+    // The service-scoped line (health + e2e) is still green — honest scope.
+    expect(getByText("green")).toBeDefined();
     // Cross-resolver pin: the SAME map drives the chip non-green via the D4
     // fold — so a non-green D4 cause always has a visible non-green row in the
     // drilldown. §C item 6 de-amplifies this first tools strike (fail_count 1
@@ -182,7 +182,7 @@ describe("CellDrilldown", () => {
     expect(rtBadge.querySelector(".line-through")).not.toBeNull();
   });
 
-  it("labels the rollup line as Cell status", () => {
+  it("labels the rollup line with its honest scope — Service (health + e2e), not Rollup", () => {
     const { getByText, queryByText } = render(
       <CellDrilldown
         slug="lgp"
@@ -193,7 +193,7 @@ describe("CellDrilldown", () => {
         onClose={() => {}}
       />,
     );
-    expect(getByText("Cell status")).toBeDefined();
+    expect(getByText("Service (health + e2e)")).toBeDefined();
     expect(queryByText("Rollup")).toBeNull();
   });
 

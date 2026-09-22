@@ -18,9 +18,13 @@ import { useSuggestions } from "./suggestions";
  * (`steps: list[Step]`) and exposes a custom `set_steps` tool that the model
  * calls to mutate that state, streaming updated `steps` to the client.
  *
- * The `gen-ui-agent` runtime route targets `/gen_ui_agent/`, backed by
- * `src/agents/gen_ui_agent.py`. Its typed `steps` state and `set_steps`
- * tool publish AG-UI state snapshots as each plan step progresses.
+ * NOT IMPLEMENTED IN THIS PACKAGE. There is no `src/agents/gen_ui_agent.py`
+ * and no `set_steps` tool anywhere in this package's Python. `gen-ui-agent`
+ * has no route override, so it proxies to the root sales agent
+ * (`src/agents/agent.py`), whose state slot is `todos`, not `steps` — the
+ * card below therefore never populates. The frontend, the D6 fixture and
+ * `tests/e2e/gen-ui-agent.spec.ts` were all copied from a parity sweep that
+ * did not port the backend. Tracked in GH #6381.
  *
  * On the client we subscribe to agent state via `useAgent` (v2) and render a
  * single `InlineAgentStateCard` inside the chat transcript via
@@ -50,7 +54,7 @@ type AgentState = {
 function Chat() {
   const { agent } = useAgent({
     agentId: "gen-ui-agent",
-    updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
+    updates: [UseAgentUpdate.OnStateChanged],
   });
 
   useSuggestions();

@@ -69,7 +69,7 @@
         "context": "langroid"
       },
       "response": {
-        "content": "The weather in Tokyo is sunny at 85°F, feeling like 84°F, with 43% humidity and wind at 21 mph."
+        "content": "The current weather in Tokyo is 22°C with partly cloudy skies. Humidity is at 65% with light winds from the east at 12 km/h. Perfect weather for a walk outside!"
       }
     },
     {
@@ -614,8 +614,7 @@
     {
       "match": {
         "userMessage": "summarize",
-        "context": "langroid",
-        "systemMessage": "You are a polished, professional demo assistant for CopilotKit."
+        "context": "langroid"
       },
       "response": {
         "content": "Here's a summary of your current sales pipeline:\n\n- **Total Pipeline Value**: $185,000\n- **Active Deals**: 5 deals across Prospect, Qualified, and Proposal stages\n- **Top Deal**: Acme Corp at $50,000 (Proposal stage)\n- **Win Rate**: 62% this quarter\n\nThe pipeline is healthy with good distribution across stages. Would you like to drill into any specific metric?"

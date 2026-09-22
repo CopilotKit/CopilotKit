@@ -9,7 +9,7 @@ test.describe("Beautiful Chat fixture sequencing", () => {
     await openBeautifulChat(page);
   });
 
-  test("[diagnostic supplemental] Pie Chart then Search Flights keeps FlightCard rendering stable", async ({
+  test("Pie Chart then Search Flights keeps FlightCard rendering stable", async ({
     page,
   }) => {
     test.setTimeout(180_000);
@@ -28,7 +28,7 @@ test.describe("Beautiful Chat fixture sequencing", () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 
-  test("[diagnostic supplemental] Search Flights then Sales Dashboard still renders dashboard UI", async ({
+  test("Search Flights then Sales Dashboard still renders dashboard UI", async ({
     page,
   }) => {
     test.setTimeout(240_000);
