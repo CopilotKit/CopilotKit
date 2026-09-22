@@ -13,16 +13,38 @@ Developer instructions retain precedence. Learned skills cannot override the age
   Start with the [Automatic Learning guide](/learning) to collect Threads, configure daily runs, and review Skills. Before connecting an adapter, check that **Skill delivery** is enabled in the container's **Skills** tab. For guided setup, select **Set up skill delivery** there and copy the prompt into your coding agent.
 </Callout>
 
+## Before you start
+
+The Intelligence SDK adapters load published Skills into your agent automatically. They add a catalog and tools that read skill instructions during a run.
+
+Complete these steps before you run an example:
+
+1. Create a Learning container in your Intelligence project.
+2. Publish a Skill and enable **Skill delivery** in the container's **Skills** tab.
+3. Set the following variables in the agent's server environment.
+
+```bash title="Agent server environment"
+export CPK_INTELLIGENCE_API_KEY="your-project-key"
+export CPK_INTELLIGENCE_LEARNING_CONTAINER_ID="support-learning"
+# Mastra and LangGraph examples use OpenAI. ADK uses a Google key below.
+export OPENAI_API_KEY="your-openai-key"
+# For self-hosted Intelligence, also set INTELLIGENCE_API_URL.
+```
+
+Leave `CPK_INTELLIGENCE_SKILLS_REVISION` unset to receive later published Skills. See [container configuration](#configure-one-container) for exact revision pins.
+
+Skill delivery does not send native agent runs to Learning. To collect new evidence, also [assign your Runtime's Threads to a container](/learning#assign-threads-from-your-runtime).
+
 ## Choose an adapter
 
 | Framework                 | Package                                  | Native extension                                                     |
 | ------------------------- | ---------------------------------------- | -------------------------------------------------------------------- |
-| BuiltInAgent              | `@copilotkit/runtime/v2`                 | `learnedSkills` configuration                                        |
-| LangGraph Python          | `copilotkit-intelligence-langgraph`      | `create_skill_registry_middleware`                                   |
-| LangGraph TypeScript      | `@copilotkit/intelligence-langgraph`     | `createSkillRegistryMiddleware`                                      |
-| Mastra                    | `@copilotkit/intelligence-mastra`        | `createSkillRegistryProcessor`                                       |
-| Google ADK                | `copilotkit-intelligence-adk`            | `SkillRegistry` and `SkillToolset`                                   |
-| Microsoft Agent Framework | `CopilotKit.Intelligence.AgentFramework` | `SkillRegistryContextProvider` and `AddCopilotKitIntelligenceSkills` |
+| [BuiltInAgent](#builtinagent) | `@copilotkit/runtime/v2`                 | `learnedSkills` configuration                                        |
+| [LangGraph Python](#langgraph-python) | `copilotkit-intelligence-langgraph`      | `create_skill_registry_middleware`                                   |
+| [LangGraph TypeScript](#langgraph-typescript) | `@copilotkit/intelligence-langgraph`     | `createSkillRegistryMiddleware`                                      |
+| [Mastra](#mastra) | `@copilotkit/intelligence-mastra`        | `createSkillRegistryProcessor`                                       |
+| [Google ADK](#google-adk) | `copilotkit-intelligence-adk`            | `SkillRegistry` and `SkillToolset`                                   |
+| [Microsoft Agent Framework](#microsoft-agent-framework) | `CopilotKit.Intelligence.AgentFramework` | `SkillRegistryContextProvider` and `AddCopilotKitIntelligenceSkills` |
 
 Attach an adapter to the agents that need skills. Adapters do not inspect or rebuild arbitrary graphs or agent hierarchies. Subagent behavior follows the selected framework.
 
@@ -93,32 +115,53 @@ Reserve `copilotkit_load_skill` and `copilotkit_read_skill_file` for delivery. C
 
 ### LangGraph Python
 
-Use the middleware with native asynchronous agents from `langchain.agents.create_agent`:
+Use Python 3.11 or later with native asynchronous agents from `langchain.agents.create_agent`.
+
+```bash title="Terminal"
+python -m pip install copilotkit-intelligence-langgraph langchain-openai
+```
+
+Save this example as `agent.py`. Run it with `python agent.py`:
 
 ```python
+import asyncio
+
 from copilotkit_intelligence_langgraph import create_skill_registry_middleware
 from langchain.agents import create_agent
 
-skills = create_skill_registry_middleware()  # Uses the environment below.
-try:
-    await skills.initialize()
-    agent = create_agent(
-        "your-provider:your-model",
-        system_prompt="Follow the application's support policy.",
-        middleware=[skills],
-    )
-    result = await agent.ainvoke(
-        {"messages": [{"role": "user", "content": "Help with a refund"}]}
-    )
-finally:
-    await skills.aclose()
+
+async def main():
+    skills = create_skill_registry_middleware()  # Uses the environment above.
+    try:
+        await skills.initialize()
+        agent = create_agent(
+            "openai:gpt-4.1",
+            system_prompt="Follow the application's support policy.",
+            middleware=[skills],
+        )
+        result = await agent.ainvoke(
+            {"messages": [{"role": "user", "content": "Help with a refund"}]}
+        )
+        print(result["messages"][-1].content)
+    finally:
+        await skills.aclose()
+
+
+asyncio.run(main())
 ```
 
 Use `ainvoke` or `astream`; synchronous execution is unsupported. The adapter supports LangChain `>=1.2.16,<2` and LangGraph `>=1.1.10,<2`. Attach middleware explicitly to each agent that needs skills. Arbitrary compiled graphs are outside this integration.
 
 ### LangGraph TypeScript
 
-Use Node.js 20.19 or later with native LangChain agents:
+Use Node.js 20.19 or later with native LangChain agents.
+
+```bash title="Terminal"
+npm install @copilotkit/intelligence-langgraph langchain @langchain/core @langchain/langgraph @langchain/openai zod
+npm install --save-dev tsx
+```
+
+Save this example as `agent.mts`. Run it with `npx tsx agent.mts`:
 
 ```typescript
 import { createAgent } from "langchain";
@@ -127,12 +170,12 @@ import {
   createSkillRegistryMiddleware,
 } from "@copilotkit/intelligence-langgraph";
 
-const registry = new SkillRegistry(); // Uses the environment below.
+const registry = new SkillRegistry(); // Uses the environment above.
 await registry.initialize(); // Catch this error in your application's startup code.
 const skills = createSkillRegistryMiddleware({ registry });
 const agent = skills.wrapAgent(
   createAgent({
-    model: "your-provider:your-model",
+    model: "openai:gpt-4.1",
     systemPrompt: "Follow the application's support policy.",
     middleware: [skills],
   }),
@@ -140,6 +183,7 @@ const agent = skills.wrapAgent(
 const result = await agent.invoke({
   messages: [{ role: "user", content: "Help with a refund" }],
 });
+console.log(result.messages.at(-1)?.content);
 ```
 
 The wrapper is currently required because affected LangChain/LangGraph versions cannot keep private transient middleware state correctly. Use the wrapped agent for `invoke`, `stream`, and `streamEvents`, including native `Command` resumes. `withConfig` retains the wrapper. Apply default cancellation signals with `agent.withConfig` after wrapping, or pass the signal to each invocation. Stream objects, readers, and native cancellation remain available. Calling the middleware without its wrapper returns `INVALID_CONFIG`.
@@ -152,7 +196,14 @@ The supported dependency ranges are LangChain `>=1.5.11,<2`, LangGraph `>=1.4.14
 
 ### Mastra
 
-Use Node.js 22.13 or later with `@mastra/core>=1.0.0,<2`. Install `@copilotkit/intelligence-mastra` alongside Mastra, then register the processor and its tools on a native `Agent`:
+Use Node.js 22.13 or later with `@mastra/core>=1.0.0,<2`.
+
+```bash title="Terminal"
+npm install @copilotkit/intelligence-mastra @mastra/core zod
+npm install --save-dev tsx
+```
+
+Save this example as `agent.mts`. Run it with `npx tsx agent.mts`. Register the processor and its tools on the native `Agent`:
 
 ```typescript
 import { Agent } from "@mastra/core/agent";
@@ -161,7 +212,7 @@ import {
   createSkillRegistryProcessor,
 } from "@copilotkit/intelligence-mastra";
 
-const registry = new SkillRegistry(); // Uses the environment below.
+const registry = new SkillRegistry(); // Uses the environment above.
 await registry.initialize(); // Catch this error in your application's startup code.
 const skills = createSkillRegistryProcessor({ registry });
 const agent = skills.wrapAgent(
@@ -187,22 +238,53 @@ Pass `abortSignal` in the invocation options to cancel both the delivery wait an
 
 ### Google ADK
 
-Add `SkillToolset` to a standard ADK `LlmAgent`:
+Use Python 3.11 or later and add `SkillToolset` to a standard ADK `LlmAgent`.
+
+```bash title="Terminal"
+python -m pip install copilotkit-intelligence-adk
+export GOOGLE_API_KEY="your-google-api-key"
+```
+
+This example uses Google instead of OpenAI. Save it as `agent.py`, then run `python agent.py`:
 
 ```python
+import asyncio
+
 from copilotkit_intelligence_adk import SkillRegistry, SkillToolset
 from google.adk.agents import LlmAgent
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
+from google.genai import types
 
-registry = SkillRegistry()
-await registry.initialize()
-agent = LlmAgent(
-    name="support",
-    model="your-model",
-    instruction="Follow the application's support policy.",
-    tools=[SkillToolset(registry)],
-)
-# Run this agent with your application's normal async ADK Runner.
-# Call await registry.aclose() after all runners finish.
+
+async def main():
+    registry = SkillRegistry()
+    try:
+        await registry.initialize()
+        agent = LlmAgent(
+            name="support",
+            model="gemini-2.5-flash",
+            instruction="Follow the application's support policy.",
+            tools=[SkillToolset(registry)],
+        )
+        sessions = InMemorySessionService()
+        session = await sessions.create_session(app_name="support", user_id="demo")
+        runner = Runner(agent=agent, app_name="support", session_service=sessions)
+        message = types.Content(
+            role="user", parts=[types.Part(text="Help with a refund.")]
+        )
+        async for event in runner.run_async(
+            user_id="demo", session_id=session.id, new_message=message
+        ):
+            if event.is_final_response() and event.content:
+                for part in event.content.parts or []:
+                    if part.text:
+                        print(part.text)
+    finally:
+        await registry.aclose()
+
+
+asyncio.run(main())
 ```
 
 The adapter supports `google-adk>=1.17,<2`. Several selected agents can share one registry. Closing a toolset does not close that shared registry. Native resumed runs receive a fresh invocation pin; session state contains no snapshot or lock.
@@ -245,6 +327,38 @@ CPK_INTELLIGENCE_SKILLS_REVISION=42
 Explicit configuration overrides environment values. An injected client overrides connection environment values. Freshness and request timeout each default to five seconds; debug logging defaults to false. Configure these behavior options in code.
 
 Initialization can run during application startup. A valid empty container initializes successfully. Initialization failures are catchable and retryable; the adapter never terminates the process. Model work cannot start until a verified snapshot exists.
+
+### Reuse an Intelligence SDK client
+
+If your server already creates an Intelligence client, pass that client to the registry. This reuses its project key and endpoint.
+
+```typescript
+import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { SkillRegistry } from "@copilotkit/intelligence-mastra";
+
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+  apiUrl: process.env.INTELLIGENCE_API_URL,
+});
+const registry = new SkillRegistry({
+  client: intelligence,
+  containerId: "support-learning",
+});
+await registry.initialize();
+```
+
+For LangGraph TypeScript, import `SkillRegistry` from `@copilotkit/intelligence-langgraph` and use the same configuration. Then pass the registry to the framework adapter shown above.
+
+## Make sure delivery works
+
+1. Initialize the adapter with a published Skill in its container.
+2. Start a new invocation with a request that relates to that Skill.
+3. Inspect the model's tool calls for `copilotkit_load_skill` and, when needed, `copilotkit_read_skill_file`.
+4. Publish a new revision, wait past the freshness window, and start another invocation.
+
+The registry's status exposes the loaded revision and any stale state. A valid empty container can initialize successfully, so initialization alone does not prove that a Skill exists.
+
+The model chooses whether to call the skill tools. A run without a skill tool call does not prove that delivery failed. Inspect the catalog and registry status too.
 
 ## Refresh and invocation behavior
 
