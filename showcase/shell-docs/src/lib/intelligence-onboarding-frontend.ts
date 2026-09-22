@@ -1,3 +1,7 @@
+import {
+  ARGUMENT_TEMPLATES,
+  fillArgumentTemplate,
+} from "@/lib/onboarding-argument-templates";
 /**
  * Frontend slugs the CLI's onboarding graph accepts.
  *
@@ -65,5 +69,8 @@ export function frontendPromptSuffix(
   if (graphSlug === undefined) {
     return "";
   }
-  return ` I use the ${displayName} frontend (\`${graphSlug}\`).`;
+  return fillArgumentTemplate(ARGUMENT_TEMPLATES.frontend, {
+    name: displayName,
+    slug: graphSlug,
+  });
 }

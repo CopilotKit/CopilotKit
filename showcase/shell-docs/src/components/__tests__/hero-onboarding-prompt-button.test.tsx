@@ -177,6 +177,7 @@ it("reports the graph framework slug to analytics", async () => {
 
   expect(analytics.capture.mock.calls[0][1]).toStrictEqual({
     action: "copy",
+    argument_version: "90b0c15f555f",
     from_path: "/",
     onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
     surface: "framework-hero",
@@ -196,6 +197,7 @@ it("sends no framework property when no framework is given", async () => {
   expect(props.agent_framework).toBeUndefined();
   expect(JSON.parse(JSON.stringify(props))).toStrictEqual({
     action: "copy",
+    argument_version: "90b0c15f555f",
     from_path: "/",
     onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
     surface: "docs-home-hero",
@@ -246,6 +248,7 @@ it("records view and preview copy with the same run id and framework context", a
   expect(actions[0][1].onboarding_run_id).toBe(actions[1][1].onboarding_run_id);
   expect(analytics.capture.mock.calls[0][1]).toEqual({
     action: "copy_preview",
+    argument_version: "90b0c15f555f",
     from_path: "/",
     onboarding_run_id: actions[0][1].onboarding_run_id,
     surface: "docs_framework_hero",
@@ -254,6 +257,7 @@ it("records view and preview copy with the same run id and framework context", a
   expect(Object.keys(actions[0][1]).sort()).toEqual([
     "action",
     "agent_framework",
+    "argument_version",
     "from_path",
     "onboarding_run_id",
     "surface",

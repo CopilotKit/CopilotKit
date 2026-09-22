@@ -267,8 +267,7 @@ export function getAllLlmPages(
     const integrationEntries = walkMdx(integrationDir);
     let emittedFrameworkRoot = false;
     let quickstartEntry:
-      | { readonly slug: string; readonly filePath: string }
-      | undefined;
+      { readonly slug: string; readonly filePath: string } | undefined;
 
     for (const { slug, filePath } of integrationEntries) {
       const isRoot = !slug;

@@ -1,6 +1,10 @@
 import { frameworkPromptSuffix } from "@/lib/intelligence-onboarding-framework";
 import { frontendPromptSuffix } from "@/lib/intelligence-onboarding-frontend";
 import { createIntelligenceOnboardingPrompt } from "@/lib/intelligence-onboarding-prompt";
+import {
+  ARGUMENT_TEMPLATES,
+  fillArgumentTemplate,
+} from "@/lib/onboarding-argument-templates";
 
 /** The wizard's picks, translated into the coding-agent prompt. */
 export interface WizardPromptSelection {
@@ -50,7 +54,10 @@ export function composeWizardOnboardingPrompt(
     : "";
   const frontendSentence =
     selection.frontend?.id === "slack" || selection.frontend?.id === "teams"
-      ? ` I want to connect my agent to ${selection.frontend.name} using CopilotKit Channels. Follow the channel setup documentation at https://docs.copilotkit.ai/${selection.frontend.id}.`
+      ? fillArgumentTemplate(ARGUMENT_TEMPLATES.wizardChannelsFrontend, {
+          name: selection.frontend.name,
+          id: selection.frontend.id,
+        })
       : selection.frontend
         ? frontendPromptSuffix(selection.frontend.id, selection.frontend.name)
         : "";
@@ -60,9 +67,9 @@ export function composeWizardOnboardingPrompt(
   // recognize.
   const projectSentence =
     selection.project === "yes"
-      ? " I already have an existing project and want CopilotKit added to it."
+      ? ARGUMENT_TEMPLATES.wizardProjectExisting
       : selection.project === "no"
-        ? " I am starting a brand new project."
+        ? ARGUMENT_TEMPLATES.wizardProjectNew
         : "";
   // Omitted entirely for an empty list rather than rendered as an empty
   // clause — there is nothing to append, and it wasn't the previous
@@ -70,7 +77,9 @@ export function composeWizardOnboardingPrompt(
   // doesn't recognize.
   const featuresSentence =
     selection.featureTitles.length > 0
-      ? ` I also want these CopilotKit features set up: ${selection.featureTitles.join(", ")}.`
+      ? fillArgumentTemplate(ARGUMENT_TEMPLATES.wizardFeatures, {
+          titles: selection.featureTitles.join(", "),
+        })
       : "";
 
   return (
@@ -79,9 +88,13 @@ export function composeWizardOnboardingPrompt(
     frontendSentence +
     projectSentence +
     (selection.agent === "yes"
-      ? ` I already have a ${selection.backend?.name ?? "working"} agent. Connect that existing agent without replacing it.`
+      ? fillArgumentTemplate(ARGUMENT_TEMPLATES.wizardAgentExisting, {
+          name: selection.backend?.name ?? "working",
+        })
       : selection.agent === "no"
-        ? ` I need a new ${selection.backend?.name ?? "AI"} agent. Create it as part of the setup.`
+        ? fillArgumentTemplate(ARGUMENT_TEMPLATES.wizardAgentNew, {
+            name: selection.backend?.name ?? "AI",
+          })
         : "") +
     featuresSentence
   );

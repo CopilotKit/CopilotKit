@@ -1,3 +1,7 @@
+import {
+  ARGUMENT_TEMPLATES,
+  fillArgumentTemplate,
+} from "@/lib/onboarding-argument-templates";
 /**
  * Agent-framework slugs the CLI's onboarding graph accepts.
  *
@@ -71,5 +75,8 @@ export function frameworkPromptSuffix(
   if (graphSlug === undefined) {
     return "";
   }
-  return ` I use the ${displayName} agent framework (\`${graphSlug}\`).`;
+  return fillArgumentTemplate(ARGUMENT_TEMPLATES.framework, {
+    name: displayName,
+    slug: graphSlug,
+  });
 }

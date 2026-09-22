@@ -40,6 +40,11 @@ import ClaudeCodeIcon from "@/components/icons/claude-code";
 import CodexIcon from "@/components/icons/codex";
 import WindsurfIcon from "@/components/icons/windsurf";
 import { getRuntimeConfig } from "@/lib/runtime-config.client";
+import {
+  ARGUMENT_TEMPLATES,
+  fillArgumentTemplate,
+  ONBOARDING_ARGUMENT_VERSION,
+} from "@/lib/onboarding-argument-templates";
 
 /**
  * Resolve the canonical base URL on the client. Reads from
@@ -273,9 +278,11 @@ export function OnboardingPromptCopyButton({
             ? { id: frontend.id, name: frontend.name }
             : undefined;
         const source =
-          ` I copied this prompt from ${getClientBaseUrl().replace(/\/+$/, "")}${markdownUrl}.` +
+          fillArgumentTemplate(ARGUMENT_TEMPLATES.pageSource, {
+            url: `${getClientBaseUrl().replace(/\/+$/, "")}${markdownUrl}`,
+          }) +
           (task
-            ? ` Their goal for this quickstart is: ${task} Follow the linked guide for this framework and frontend.`
+            ? fillArgumentTemplate(ARGUMENT_TEMPLATES.pageTask, { task })
             : "");
         return {
           /**
@@ -308,6 +315,7 @@ export function OnboardingPromptCopyButton({
                 agent_framework: graphFramework,
                 frontend: graphFrontend,
                 channel: channel?.id,
+                argument_version: ONBOARDING_ARGUMENT_VERSION,
               },
             ),
           onCopied: (action) =>
@@ -319,6 +327,10 @@ export function OnboardingPromptCopyButton({
               agent_framework: graphFramework,
               frontend: graphFrontend,
               channel: channel?.id,
+              // Which revision of the argument prose was appended. The hosted
+              // document versions its own text; this is the other half of what
+              // the developer copied (PE-255).
+              argument_version: ONBOARDING_ARGUMENT_VERSION,
             }),
         };
       }}

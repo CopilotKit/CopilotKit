@@ -167,13 +167,11 @@ export function getAngularDocsNavTree(
       href: `/${getFrontendReferenceSlug("angular")}`,
     },
     { type: "section", title: "Angular Guides", icon: "lucide/BookOpen" },
-    ...ANGULAR_GUIDE_PAGES.map(
-      (guide): NavNode => ({
-        type: "page",
-        title: guide.title,
-        slug: guide.slug,
-      }),
-    ),
+    ...ANGULAR_GUIDE_PAGES.map((guide): NavNode => ({
+      type: "page",
+      title: guide.title,
+      slug: guide.slug,
+    })),
   ];
 
   const backendNodes = filterResolvableAngularNodes(

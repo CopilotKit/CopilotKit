@@ -63,7 +63,9 @@ import type {
   StepDirection,
   StepSwapAnimation,
 } from "@/lib/wizard-step-transition";
+import { onboardingFrameworkSlug } from "@/lib/intelligence-onboarding-framework";
 import { composeWizardOnboardingPrompt } from "@/lib/wizard-onboarding-prompt";
+import { ONBOARDING_ARGUMENT_VERSION } from "@/lib/onboarding-argument-templates";
 import {
   createOnboardingRunId,
   INTELLIGENCE_ONBOARDING_EVENTS,
@@ -567,8 +569,28 @@ export function SetupWizard({
       onboarding_run_id: runId,
       project: projectAnswer,
       frontend: frontendId,
+      // The wizard's fifth argument. It reaches the copied prompt through
+      // `composeWizardOnboardingPrompt` and was the only one telemetry could
+      // not see, so a run seeded with "I already have an agent" was
+      // indistinguishable from one seeded with "I need a new agent" (PE-255).
+      // `undefined` for a backend with no partner question, matching the
+      // composer, and PostHog drops the key rather than recording a null.
+      agent: partnerBackend ? (agentAnswer ?? undefined) : undefined,
       backend: backendId,
+      // `backend` is the docs registry slug this picker works in; the hero
+      // button and page actions emit `agent_framework` already mapped to the
+      // onboarding graph's vocabulary. Grouping the two together on `backend`
+      // would split `strands` from `strands-python` without saying so, and
+      // `built-in-agent` maps to nothing at all. Both are emitted rather than
+      // renaming `backend`, because dashboards already read it (PE-255).
+      agent_framework: backendId
+        ? onboardingFrameworkSlug(backendId)
+        : undefined,
       features: [...featureIds],
+      // Which revision of the argument prose the wizard appended. The
+      // hosted document versions its own text; this is the other half
+      // of what the developer copied (PE-255).
+      argument_version: ONBOARDING_ARGUMENT_VERSION,
     });
     resetTimerRef.current = setTimeout(() => {
       if (mountedRef.current) setCopyState("idle");

@@ -9,6 +9,7 @@ import React from "react";
 import { PromptPill } from "./prompt-pill";
 import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
+import { ONBOARDING_ARGUMENT_VERSION } from "@/lib/onboarding-argument-templates";
 import {
   frameworkPromptSuffix,
   onboardingFrameworkSlug,
@@ -57,6 +58,7 @@ export function HeroOnboardingPromptButton({
                 onboarding_run_id: runId,
                 surface,
                 agent_framework: graphFramework,
+                argument_version: ONBOARDING_ARGUMENT_VERSION,
               },
             ),
           onCopied: (action) =>
@@ -66,6 +68,10 @@ export function HeroOnboardingPromptButton({
               onboarding_run_id: runId,
               surface,
               agent_framework: graphFramework,
+              // Which revision of the argument prose was appended. The hosted
+              // document versions its own text; this is the other half of what
+              // the developer copied (PE-255).
+              argument_version: ONBOARDING_ARGUMENT_VERSION,
             }),
         };
       }}
