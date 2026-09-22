@@ -227,29 +227,23 @@
   }
 }
 
-/* Match the marketing site's inset capsule without changing the docs grid. */
+/* Keep the header aligned with the centered docs grid and its page surface. */
 @media (min-width: 1280px) {
   .shell-docs-brand-nav {
     height: 96px;
-    padding: 12px 40px;
-    background: #f7f8ff;
+    padding: 12px 0;
+    background: var(--bg);
   }
 
   .shell-docs-brand-nav-inner {
-    width: 100%;
+    width: min(var(--shell-docs-layout-width), calc(100% - 2rem));
     height: 72px;
+    margin-inline: auto;
     padding: 0 18px 0 24px;
+    border: 1px solid var(--border);
     border-radius: 999px;
-    background: #fff;
-    box-shadow: 0 15px 35px rgb(30 31 65 / 5%);
-  }
-
-  .dark .shell-docs-brand-nav {
-    background: #1a1a25;
-  }
-
-  .dark .shell-docs-brand-nav-inner {
     background: var(--card);
+    box-shadow: var(--shadow-control);
   }
 }
 
@@ -279,19 +273,31 @@
   color: var(--text);
 }
 
-.shell-docs-brand-nav .shell-docs-auth-link {
+.shell-docs-brand-nav button[aria-label="Search"],
+.shell-docs-brand-nav .shell-docs-auth-link,
+.shell-docs-brand-nav .shell-docs-nav-cta {
+  height: 40px;
+  border: 1px solid var(--border);
   border-radius: 999px !important;
-  background: #088e9f;
-  color: white;
+  box-shadow: var(--shadow-control);
 }
 
-.shell-docs-brand-nav .shell-docs-auth-link:hover {
-  background: #057a88;
-  color: white;
+.shell-docs-brand-nav .shell-docs-auth-link,
+.shell-docs-brand-nav button[aria-label="Search"] {
+  background: var(--bg-surface);
+  color: var(--text);
 }
 
-.shell-docs-brand-nav .shell-docs-auth-link svg {
-  color: white;
+.shell-docs-brand-nav .shell-docs-auth-link:hover,
+.shell-docs-brand-nav button[aria-label="Search"]:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.shell-docs-brand-nav :is(button, a):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .shell-docs-radius-control {
@@ -571,27 +577,16 @@
 
 .shell-docs-nav-cta {
   display: inline-flex;
-  height: 48px;
   align-items: center;
   justify-content: center;
-  border: 0;
-  border-radius: 999px;
-  background: #17171b;
+  border-color: var(--accent-fill) !important;
+  background: var(--accent-fill);
   color: #fff;
 }
 
 .shell-docs-nav-cta:hover {
-  background: #35353b;
+  background: var(--accent-strong);
   color: #fff;
-}
-
-.dark .shell-docs-nav-cta {
-  background: #42424d;
-  color: #fff;
-}
-
-.dark .shell-docs-nav-cta:hover {
-  background: #535360;
 }
 
 .dark .shell-docs-nav-link-idle:hover {

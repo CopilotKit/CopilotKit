@@ -5,13 +5,12 @@ import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { SearchTrigger } from "./search-trigger";
 import { CopilotKitMark } from "./copilotkit-mark";
-import ExternalLinkIcon from "./icons/external-link";
 import { DocsMegaMenu } from "./docs-mega-menu";
 import { isDocsExplorePath } from "@/lib/docs-mega-menu";
 import {
   DocsPublicAuthControl,
   buildDocsAuthEntryHref,
-  useDocsAuthEntryHref,
+  useDocsAuthAction,
 } from "./docs-public-auth-control";
 
 // CopilotKit Intelligence sign-up CTA. UTM params let marketing
@@ -52,7 +51,7 @@ export interface BrandNavProps {
 export function BrandNav(_props: BrandNavProps = {}) {
   const pathname = usePathname();
   const posthog = usePostHog();
-  const authEntryHref = useDocsAuthEntryHref();
+  const authAction = useDocsAuthAction();
 
   // Active-route detection: Reference and Cookbook each own their prefix.
   // Everything else highlights Docs.
@@ -69,13 +68,20 @@ export function BrandNav(_props: BrandNavProps = {}) {
     window.location.href = TALK_TO_ENGINEER_HREF;
   };
 
-  const handleFreeDeveloperAccessClick = () => {
-    posthog?.capture("try_for_free_clicked", { location: "docs_navbar_right" });
+  const handleAuthClick = () => {
+    posthog?.capture(
+      authAction.label === "Sign up"
+        ? "try_for_free_clicked"
+        : "sign_in_clicked",
+      {
+        location: "docs_navbar_right",
+      },
+    );
   };
 
   return (
     <nav className="shell-docs-brand-nav relative hidden bg-[var(--bg)] xl:block">
-      <div className="shell-docs-brand-nav-inner relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-8 bg-[var(--nav-surface)]">
+      <div className="shell-docs-brand-nav-inner relative grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-8 bg-[var(--nav-surface)]">
         <Link
           href="/"
           className="shell-docs-brand-link flex min-w-0 shrink-0 items-center gap-2 justify-self-start"
@@ -122,32 +128,22 @@ export function BrandNav(_props: BrandNavProps = {}) {
           <DocsPublicAuthControl
             fallback={
               <Link
-                href={authEntryHref}
+                href={authAction.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={handleFreeDeveloperAccessClick}
-                className="shell-docs-auth-link shell-docs-radius-control flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center whitespace-nowrap text-sm font-medium no-underline transition-colors duration-200 [@media(width>=1600px)]:w-auto [@media(width>=1600px)]:px-4"
-                aria-label="Get CopilotKit Intelligence free"
-                data-tooltip="Get CopilotKit Intelligence free"
+                onClick={handleAuthClick}
+                className="shell-docs-auth-link flex h-10 shrink-0 cursor-pointer items-center justify-center whitespace-nowrap px-4 text-sm font-medium no-underline transition-colors duration-200"
+                aria-label={`${authAction.label} to CopilotKit Intelligence`}
                 suppressHydrationWarning
               >
-                <span className="hidden [@media(width>=1600px)]:inline">
-                  Get CopilotKit Intelligence free
-                </span>
-                <span
-                  className="[@media(width>=1600px)]:hidden"
-                  aria-hidden="true"
-                >
-                  <CopilotKitMark className="h-5 w-5" />
-                </span>
-                <ExternalLinkIcon className="hidden text-current opacity-70 [@media(width>=1600px)]:block" />
+                {authAction.label}
               </Link>
             }
           />
           <button
             type="button"
             onClick={handleTalkToEngineersClick}
-            className="shell-docs-nav-cta cursor-pointer whitespace-nowrap px-5 text-base font-semibold transition-colors duration-200"
+            className="shell-docs-nav-cta cursor-pointer whitespace-nowrap px-4 text-sm font-medium transition-colors duration-200"
             aria-label="Talk to an engineer"
           >
             Talk to an Engineer

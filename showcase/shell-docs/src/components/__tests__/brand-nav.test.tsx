@@ -50,6 +50,7 @@ vi.mock("@clerk/nextjs", () => {
 import { BrandNav, buildDocsAuthEntryHref } from "../brand-nav";
 import { PrimaryDocsTabs } from "../primary-docs-tabs";
 import {
+  buildDocsAuthAction,
   buildDocsUserMenuHref,
   DocsAuthFallbackBoundary,
 } from "../docs-public-auth-control";
@@ -93,7 +94,9 @@ test("PrimaryDocsTabs keeps Intelligence out of the mobile links", () => {
 });
 
 test("BrandNav keeps space between the center rail and search", () => {
-  expect(brandNavSource).toContain("grid-cols-[auto_minmax(0,1fr)_auto]");
+  expect(brandNavSource).toContain(
+    "grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]",
+  );
   expect(brandNavSource).toContain("gap-x-8");
   expect(brandNavSource).toContain("pl-4");
 });
@@ -109,18 +112,21 @@ test("BrandNav uses the docs grid desktop layout cap", () => {
   expect(globalsCss).toContain(
     "--fd-layout-width: var(--shell-docs-layout-width);",
   );
+  expect(globalsCss).toContain(
+    "width: min(var(--shell-docs-layout-width), calc(100% - 2rem));",
+  );
   expect(brandNavSource).not.toContain("max-w-[calc(");
   expect(brandNavSource).not.toContain("max-w-[1534px]");
 });
 
-test("BrandNav keeps the public auth CTA while Clerk is loading", () => {
+test("BrandNav shows sign-up while Clerk is loading", () => {
   clerkState.isLoaded = false;
   clerkState.isSignedIn = false;
   clerkState.shouldThrow = false;
 
   const markup = renderToStaticMarkup(<BrandNav />);
 
-  expect(markup).toContain("Get CopilotKit Intelligence free");
+  expect(markup).toContain("Sign up");
   expect(markup).not.toContain("Account menu");
 });
 
@@ -145,7 +151,7 @@ test("BrandNav renders Clerk's user button in the desktop auth slot", () => {
     'href="https://dashboard.operations.copilotkit.ai/pricing"',
   );
   expect(markup).toContain("Manage your plan");
-  expect(markup).not.toContain("Get CopilotKit Intelligence free");
+  expect(markup).not.toContain("Sign up to CopilotKit Intelligence");
 });
 
 test("BrandNav uses the environment-specific Ops origin for user menu links", () => {
@@ -171,6 +177,17 @@ test("BrandNav sends public auth entry to Intelligence onboarding", () => {
   );
 });
 
+test("BrandNav sends new and returning visitors to the matching auth route", () => {
+  expect(buildDocsAuthAction(false)).toEqual({
+    label: "Sign up",
+    href: "https://dashboard.operations.copilotkit.ai/sign-up?post_auth_redirect=ready&utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=navbar",
+  });
+  expect(buildDocsAuthAction(true)).toEqual({
+    label: "Sign in",
+    href: buildDocsAuthEntryHref(),
+  });
+});
+
 test("BrandNav uses the environment-specific Ops origin for auth entry", () => {
   const href = buildDocsAuthEntryHref(
     "https://dashboard.staging.operations.copilotkit.ai",
@@ -185,16 +202,14 @@ test("BrandNav keeps the public auth CTA when Clerk state cannot resolve", () =>
   const boundary = new DocsAuthFallbackBoundary({
     children: <button type="button">Account menu</button>,
     fallback: (
-      <a href="https://dashboard.operations.copilotkit.ai/sign-in">
-        Get CopilotKit Intelligence free
-      </a>
+      <a href="https://dashboard.operations.copilotkit.ai/sign-in">Sign up</a>
     ),
   });
   boundary.state = DocsAuthFallbackBoundary.getDerivedStateFromError();
 
   const markup = renderToStaticMarkup(boundary.render());
 
-  expect(markup).toContain("Get CopilotKit Intelligence free");
+  expect(markup).toContain("Sign up");
   expect(markup).not.toContain("Account menu");
 });
 
