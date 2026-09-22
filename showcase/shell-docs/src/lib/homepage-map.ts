@@ -81,13 +81,13 @@ export const COPILOTKIT_CAPABILITIES: readonly MapCapability[] = [
   },
   {
     id: "threads",
-    title: "Rich Threads",
+    title: "Threads",
     body: "Keep conversations organized and resume them later.",
     icon: "MessagesSquare",
   },
   {
     id: "learning",
-    title: "Automatic Learning",
+    title: "Learning",
     body: "Help your agent improve from interactions and feedback.",
     icon: "Brain",
   },

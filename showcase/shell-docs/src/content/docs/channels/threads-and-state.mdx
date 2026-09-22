@@ -9,11 +9,10 @@ Every delivered Slack or Teams conversation becomes a Channels SDK `Thread`.
 It is the reply and workflow handle passed to `onMessage`, tools, interactions,
 and interrupt callbacks.
 
-<Callout type="info" title="Channels Thread is not Rich Threads">
-  A Channels `Thread` represents one platform conversation inside the SDK. [Rich
-  Threads](/threads) is CopilotKit's application UI for browsing and restoring
-  agent conversations. They share the idea of a stable thread id, but they are
-  different APIs and surfaces.
+<Callout type="info" title="A Channels thread is not an Intelligence thread">
+  A Channels `Thread` is one platform conversation inside the SDK. [Threads](/threads)
+  is the application UI for browsing and restoring agent conversations. They share
+  a stable thread id. They are different APIs.
 </Callout>
 
 ## Conversation identity

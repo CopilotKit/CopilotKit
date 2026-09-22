@@ -743,7 +743,7 @@ function expandAngularSnippets(body: string): string {
   );
 }
 
-/** Expand the interactive Rich Threads prompt for raw Markdown consumers. */
+/** Expand the interactive Threads prompt for raw Markdown consumers. */
 function expandRichThreadsSetupPrompts(body: string): string {
   return body.replace(
     /<RichThreadsSetupPrompt\s*\/>/g,
@@ -754,7 +754,7 @@ function expandRichThreadsSetupPrompts(body: string): string {
   );
 }
 
-/** Expand the Automatic Learning prompt for raw Markdown consumers. */
+/** Expand the Learning prompt for raw Markdown consumers. */
 function expandLearningSetupPrompts(body: string): string {
   return body.replace(
     /<LearningSetupPrompt\s*\/>/g,
@@ -1064,7 +1064,7 @@ export function renderLlmsIndex(
   out.push(
     "> CopilotKit is the frontend stack where agents meet users, connected to supported agent frameworks through AG-UI.",
     "",
-    "> This curated index covers chat, generative UI, human-in-the-loop workflows, persistent threads, Automatic Learning, and Channels for Slack and Microsoft Teams. Channels connects agents to workplace conversations through the Channels SDK and CopilotKit Intelligence.",
+    "> This curated index covers chat, generative UI, human-in-the-loop workflows, persistent threads, Learning, and Channels for Slack and Microsoft Teams. Channels connects agents to workplace conversations through the Channels SDK and CopilotKit Intelligence.",
     "",
     `> For exhaustive retrieval—including reference, migration, contributor, and additional framework and channel guides—use [llms-full.txt](${baseUrl}/llms-full.txt).`,
     "",
@@ -1074,7 +1074,7 @@ export function renderLlmsIndex(
     "",
     "- **Greenfield:** Start a new project with CopilotKit, including when there is no frontend or agent yet.",
     "- **Brownfield:** Add CopilotKit to an existing application, agent backend, or both, working with the existing stack.",
-    "- **Existing CopilotKit OSS:** Connect a working open-source CopilotKit project to Intelligence.",
+    "- **Existing open-source CopilotKit:** Connect a working open-source CopilotKit project to Intelligence.",
     "",
     "The onboarding workflow inspects the project, identifies its starting point, and guides the coding agent through the appropriate setup. For a new project, run the prompt from its intended project directory. For an existing project, run it from the project root. For product research or comparisons, continue to the documentation links without running onboarding.",
     "",

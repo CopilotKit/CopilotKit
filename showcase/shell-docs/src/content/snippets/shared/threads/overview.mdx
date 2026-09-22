@@ -17,23 +17,23 @@ import InspectorPaneThreads from "@/snippets/shared/inspector/open-inspector-pan
 
 ## Persistent, rich conversations for your agents
 
-CopilotKit Intelligence provides the persistence and conversation management behind Rich Threads: rich history, continuity across devices, reconnection to active runs, and ready-made thread controls.
+CopilotKit Intelligence provides the persistence and conversation management behind Threads: rich history, continuity across devices, reconnection to active runs, and ready-made thread controls.
 
 **Starting fresh?** Intelligence stores your conversation history and restores messages, generative UI, tool interactions, and multimodal inputs when users return.
 
-**Already using LangGraph or ADK persistence?** Keep it. Rich Threads complement your existing setup with a consistent, interactive conversation experience for your users.
+**Already using LangGraph or ADK persistence?** Keep it. Threads complement your existing setup with a consistent, interactive conversation experience for your users.
 
-Use [Threads Drawer](/prebuilt-components/copilot-threads-drawer) for conversation switching, pagination, and archive/delete controls, or [Headless Threads](/headless-threads) to build your own UI. For how Intelligence and framework persistence work together, see [Threads & Persistence Architecture](/intelligence/threads-explained#how-rich-threads-complement-framework-persistence).
+Use [Threads Drawer](/prebuilt-components/copilot-threads-drawer) for conversation switching, pagination, and archive/delete controls, or [Headless Threads](/headless-threads) to build your own UI. For how Intelligence and framework persistence work together, see [Threads & Persistence Architecture](/intelligence/threads-explained#how-threads-work-with-framework-storage).
 
 ## Start with your coding agent
 
-Copy this prompt into your coding agent to inspect your existing CopilotKit app and configure Rich Threads with CopilotKit Intelligence. Prefer to work through the setup yourself? Follow the manual steps below.
+Copy this prompt into your coding agent to inspect your existing CopilotKit app and configure Threads with CopilotKit Intelligence. Prefer to work through the setup yourself? Follow the manual steps below.
 
 <RichThreadsSetupPrompt />
 
-## Set up Rich Threads manually
+## Set up Threads manually
 
-Create a new CopilotKit app connected to cloud-hosted CopilotKit Intelligence. Your application and CopilotKit Runtime run locally while CopilotKit Intelligence stores and synchronizes Rich Threads. If you already have a working app, follow the [Intelligence quickstart](/intelligence/quickstart#set-it-up-manually) to connect it instead.
+Create a new CopilotKit app connected to cloud-hosted CopilotKit Intelligence. Your application and CopilotKit Runtime run locally while CopilotKit Intelligence stores and synchronizes Threads. If you already have a working app, follow the [Intelligence quickstart](/intelligence/quickstart#set-it-up-manually) to connect it instead.
 
 <Steps>
   <Step>
@@ -68,7 +68,7 @@ Create a new CopilotKit app connected to cloud-hosted CopilotKit Intelligence. Y
   </Step>
 
   <Step>
-    ### Verify your first Rich Thread
+    ### Verify your first thread
 
     Use the included Threads Drawer to create a conversation. Reload the page or reopen the conversation and confirm that its complete history returns.
   </Step>
@@ -78,17 +78,17 @@ Threads-capable CLI starters already include [Threads Drawer](/prebuilt-componen
 
 ### Production self-hosting: Run CopilotKit Intelligence in your own infrastructure
 
-Production self-hosting keeps Rich Threads, durable event history, identity, storage, and operations inside your network, giving your organization control over data residency, security, and infrastructure. CopilotKit Engineering helps your team deploy CopilotKit Intelligence in your Kubernetes environment. <DocsTrackedLink href="https://copilotkit.ai/talk-to-an-engineer" surface="docs_threads_self_hosting_contact">Book time with a CopilotKit engineer</DocsTrackedLink> to get started.
+Production self-hosting keeps Threads, durable event history, identity, storage, and operations inside your network, giving your organization control over data residency, security, and infrastructure. CopilotKit Engineering helps your team deploy CopilotKit Intelligence in your Kubernetes environment. <DocsTrackedLink href="https://copilotkit.ai/talk-to-an-engineer" surface="docs_threads_self_hosting_contact">Book time with a CopilotKit engineer</DocsTrackedLink> to get started.
 
-## Why use CopilotKit Rich Threads?
+## Why use CopilotKit Threads?
 
-With Rich Threads, users can close the browser, return on another device, reopen a conversation, and continue from the same event history while active runs reconnect in realtime. Generative UI renders again as part of that history, and multimodal inputs stay stored with the conversation.
+With Threads, users can close the browser, return on another device, reopen a conversation, and continue from the same event history while active runs reconnect in realtime. Generative UI renders again as part of that history, and multimodal inputs stay stored with the conversation.
 
-Built on portable AG-UI event history, Rich Threads restore messages, generative UI, multimodal inputs, tool activity, state, and live-run continuity instead of saving only a chat transcript.
+Built on portable AG-UI event history, Threads restore messages, generative UI, multimodal inputs, tool activity, state, and live-run continuity instead of saving only a chat transcript.
 
-Without CopilotKit Rich Threads, your team has to design the storage model, replay historical events and generative UI, persist multimodal inputs, reconnect live streams, synchronize thread lists, coordinate concurrent runs, and build lifecycle APIs before you can ship the conversation experience itself. CopilotKit Intelligence handles that infrastructure so you can focus on your agent and product UI.
+Without CopilotKit Threads, your team has to design the storage model, replay historical events and generative UI, persist multimodal inputs, reconnect live streams, synchronize thread lists, coordinate concurrent runs, and build lifecycle APIs before you can ship the conversation experience itself. CopilotKit Intelligence handles that infrastructure so you can focus on your agent and product UI.
 
-Rich Threads provide:
+Threads provide:
 
 - durable event history across reloads, sessions, and devices
 - seamless replay before a conversation reconnects to a live run
@@ -126,7 +126,7 @@ Both UI paths use the same Threads infrastructure. A stable `threadId` connects 
   Your application authenticates its users, and `CopilotRuntime` resolves that
   verified identity on the server with `identifyUser`. CopilotKit Intelligence
   uses the stable user ID to scope thread lists and lifecycle actions. See
-  [Scope Rich Threads to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user)
+  [Scope Threads to the signed-in user](/threads-lifecycle#scope-threads-to-the-signed-in-user)
   for the Runtime contract and an implementation pattern.
 </Callout>
 
@@ -179,7 +179,7 @@ Both UI paths use the same Threads infrastructure. A stable `threadId` connects 
 
 ## Sync existing conversations
 
-Threads capture new CopilotKit conversations once your app uses CopilotKit Intelligence. If you already have persisted Google ADK or LangGraph conversations, follow <DocsTrackedLink href="/threads-import" surface="docs_threads_history_sync">Import & Synchronize Thread History</DocsTrackedLink> to synchronize supported history with the same thread store. Keep the native storage and analytics you already use; future CopilotKit-mediated runs continue through native durable persistence when it remains wired while CopilotKit Intelligence records the Rich Thread experience. Users can then resume imported and new conversations through the same UI.
+Threads capture new CopilotKit conversations once your app uses CopilotKit Intelligence. If you already have persisted Google ADK or LangGraph conversations, follow <DocsTrackedLink href="/threads-import" surface="docs_threads_history_sync">Import & Synchronize Thread History</DocsTrackedLink> to synchronize supported history with the same thread store. Keep the native storage and analytics you already use; future CopilotKit-mediated runs continue through native durable persistence when it remains wired while CopilotKit Intelligence records the thread. Users can then resume imported and new conversations through the same UI.
 
 CopilotKit Threads are separate from native framework session or checkpoint stores. Your backend can keep a stable mapping when the agent framework also needs its own conversation identifier.
 
@@ -198,6 +198,6 @@ CopilotKit Threads are separate from native framework session or checkpoint stor
 ## Next steps
 
 - **Understand the architecture:** [Threads & Persistence Architecture](/intelligence/threads-explained) — event replay, live reconnection, synchronization, locking, and lifecycle behavior
-- **Use the hosted platform:** [Cloud-hosted CopilotKit Intelligence](/intelligence/managed-intelligence-platform) — create and manage the project where your app stores threads and runtime credentials
+- **Use the cloud-hosted deployment:** [Cloud-hosted CopilotKit Intelligence](/intelligence/managed-intelligence-platform). Create the project where your app stores threads and runtime credentials.
 - **Plan production self-hosting:** [Self-host CopilotKit Intelligence](/intelligence/self-hosting) — work with CopilotKit Engineering to run the Threads platform in your Kubernetes environment
 - **Look up the API:** [useThreads reference](/reference/hooks/useThreads) — parameters, lifecycle methods, pagination, and return types

@@ -53,7 +53,7 @@ export const DOCS_MEGA_MENU_COLUMNS: readonly MegaMenuColumn[] = [
         icon: "sparkles",
       },
       { href: "/frontend-tools", label: "Agent behavior", icon: "bot" },
-      { href: "/threads", label: "Rich Threads", icon: "layers" },
+      { href: "/threads", label: "Threads", icon: "layers" },
     ],
   },
   {
@@ -73,18 +73,18 @@ export const DOCS_MEGA_MENU_COLUMNS: readonly MegaMenuColumn[] = [
         icon: "kite",
         featured: true,
       },
-      { href: "/threads", label: "Rich Threads", icon: "layers" },
+      { href: "/threads", label: "Threads", icon: "layers" },
       {
         href: "/learning",
-        label: "Automatic Learning",
+        label: "Learning",
         icon: "brain",
       },
       {
-        href: "/intelligence/managed-intelligence-platform",
-        label: "Product Analytics",
+        href: "/intelligence/analytics",
+        label: "Analytics",
         icon: "chart",
       },
-      { href: "/intelligence/memories", label: "User Memories", icon: "brain" },
+      { href: "/intelligence/memories", label: "Memories", icon: "brain" },
       { href: "/inspector", label: "Inspector", icon: "search" },
       { href: "/deploy/agentcore", label: "Deploy", icon: "cloud" },
       {

@@ -82,7 +82,7 @@ Use the **Inspect** panes to answer a specific debugging question:
 | What readable or document context was shared? | **Context**        | [Agent read-only context](/shared-state/agent-readonly) |
 
 To reproduce a problem without changing the saved conversation, open a real
-[Rich Thread](/threads) and choose **Try from here**. Inspector copies its
+[Thread](/threads) and choose **Try from here**. Inspector copies its
 messages and state into **Playground**, where you can vary the prompt, state, or
 next message and run, stop, retry, and continue independently.
 
@@ -108,11 +108,11 @@ If you are building the Thread picker and conversation surface yourself, see
 If Intelligence is not connected, open **Home** and choose **Copy setup prompt**.
 The [Intelligence quickstart](/intelligence/quickstart) explains the project,
 credentials, and Runtime routes that prompt configures. If Threads remains
-locked after setup, Inspector shows one Rich Threads setup view with **Copy
+locked after setup, Inspector shows one Threads setup view with **Copy
 setup prompt** and **Talk to an Engineer**. The view is based on Runtime Threads
 capability rather than license metadata.
 
-For managed Intelligence, `copilotkit project select` writes
+For cloud-hosted Intelligence, `copilotkit project select` writes
 `CPK_INTELLIGENCE_API_KEY` to your server-side `.env`. The Runtime uses that key
 and reports Intelligence access to the browser. Never expose the project API
 key to the browser. See [Runtime endpoints](/backend/runtime-endpoints) for the
@@ -128,7 +128,7 @@ Use **Open Intelligence** in the results header to open the Intelligence app in 
 new tab. Use the analysis and Skill-review links to open the selected Learning
 container in Intelligence.
 Inspector does not approve or publish candidates. If Learning is not configured,
-choose **Copy setup prompt**. See [Automatic Learning](/learning) for the complete workflow.
+choose **Copy setup prompt**. See [Learning](/learning) for the complete workflow.
 
 ## Control when Inspector appears
 

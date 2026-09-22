@@ -79,8 +79,8 @@ describe("partner feature explorer", () => {
         .map((button) => button.textContent),
     ).toEqual([
       "Chat",
-      "Rich Threads",
-      "Automatic Learning",
+      "Threads",
+      "Learning",
       "Generative UI",
       "Declarative UI",
       "Human-in-the-loop",
@@ -125,19 +125,16 @@ describe("partner feature explorer", () => {
         .getAllByRole("button")
         .slice(1, 4)
         .map((button) => button.textContent),
-    ).toEqual(["Rich Threads", "Automatic Learning", "Generative UI"]);
-    fireEvent.click(screen.getByRole("button", { name: "Rich Threads" }));
+    ).toEqual(["Threads", "Learning", "Generative UI"]);
+    fireEvent.click(screen.getByRole("button", { name: "Threads" }));
     expect(screen.queryByTitle("Mastra: Generative UI live demo")).toBeNull();
-    expect(screen.getByTitle("Rich Threads product walkthrough")).toBeTruthy();
+    expect(screen.getByTitle("Threads product walkthrough")).toBeTruthy();
     expect(document.querySelector(".partner-explorer-caption")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Next feature" }));
-    expect(
-      screen.getByTitle("Automatic Learning product walkthrough"),
-    ).toBeTruthy();
-    fireEvent.keyDown(
-      screen.getByRole("button", { name: "Automatic Learning" }),
-      { key: "ArrowRight" },
-    );
+    expect(screen.getByTitle("Learning product walkthrough")).toBeTruthy();
+    fireEvent.keyDown(screen.getByRole("button", { name: "Learning" }), {
+      key: "ArrowRight",
+    });
     expect(screen.getByTitle("Mastra: Generative UI live demo")).toBeTruthy();
   });
 });

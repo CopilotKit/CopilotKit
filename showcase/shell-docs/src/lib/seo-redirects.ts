@@ -1024,6 +1024,11 @@ const PREMIUM_URL_FRAMEWORKS: string[] = [
 // ---------------------------------------------------------------------------
 
 const RETIRED_INTELLIGENCE_REDIRECTS: RedirectEntry[] = [
+  {
+    id: "INTEL-connect-runtime",
+    source: "/intelligence/connect-your-runtime",
+    destination: "/intelligence/quickstart",
+  },
   // Sources keep the legacy `premium` segment (that is the URL the SEO
   // surface saw); destinations follow the `premium/` → `intelligence/`
   // folder rename (OSS-1078). These are EXACT entries, so middleware

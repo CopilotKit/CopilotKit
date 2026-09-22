@@ -117,7 +117,7 @@ and strings are clamped to Slack's native limits. If a message exceeds the
 top-level block budget, the renderer adds a truncation notice.
 
 Although the direct Slack renderer can return an attachment accent, the current
-managed Intelligence post and update path forwards only blocks. Do not rely on
+cloud-hosted Intelligence post and update path forwards only blocks. Do not rely on
 `Message.accent` in a managed Slack workflow.
 
 Do not put essential information only in `Chart`: the Slack renderer currently

@@ -103,47 +103,33 @@ describe("IntelligenceOverview", () => {
     render(<IntelligenceFeatureCards />);
 
     expect(
-      screen
-        .getByRole("link", { name: "Open the Rich Threads guide" })
-        .getAttribute("href"),
+      screen.getByRole("link", { name: "Open Threads" }).getAttribute("href"),
     ).toBe("/threads");
     expect(
-      screen
-        .getByRole("link", { name: "Open the Channels guide" })
-        .getAttribute("href"),
-    ).toBe("/slack");
+      screen.getByRole("link", { name: "Open Channels" }).getAttribute("href"),
+    ).toBe("/intelligence/channels");
     expect(
-      screen
-        .getByRole("link", { name: "Open the User Memories guide" })
-        .getAttribute("href"),
+      screen.getByRole("link", { name: "Open Memories" }).getAttribute("href"),
     ).toBe("/intelligence/memories");
     expect(
-      screen
-        .getByRole("link", {
-          name: "See Product Analytics on the product page",
-        })
-        .getAttribute("href"),
-    ).toBe(
-      "https://www.copilotkit.ai/copilotkit-intelligence#analytics-insights",
-    );
+      screen.getByRole("link", { name: "Open Analytics" }).getAttribute("href"),
+    ).toBe("/intelligence/analytics");
     expect(
-      screen
-        .getByRole("link", { name: "Open the Automatic Learning guide" })
-        .getAttribute("href"),
+      screen.getByRole("link", { name: "Open Learning" }).getAttribute("href"),
     ).toBe("/learning");
     expect(
       screen
-        .getByRole("link", { name: "Open the self-hosting guide" })
+        .getByRole("link", { name: "Open Headless UI" })
         .getAttribute("href"),
-    ).toBe("/intelligence/self-hosting");
+    ).toBe("/intelligence/headless-ui");
 
     for (const title of [
-      "Rich Threads",
+      "Threads",
       "Channels",
-      "User Memories",
-      "Product Analytics",
-      "Automatic Learning",
-      "Self-hosting",
+      "Memories",
+      "Analytics",
+      "Learning",
+      "Headless UI",
     ]) {
       const card = screen
         .getByRole("heading", { name: title })

@@ -7,7 +7,7 @@ import {
   Brain,
   Hash,
   MessagesSquare,
-  Server,
+  PanelsTopLeft,
   Sparkles,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
@@ -25,46 +25,46 @@ const CONNECT_HREF = "/intelligence/quickstart";
 
 const FEATURES = [
   {
-    title: "Rich Threads",
-    body: "Keep messages, generative UI, and tool activity across reloads and devices.",
+    title: "Threads",
+    body: "Save the conversation and open it again on another device.",
     href: "/threads",
-    cta: "Open the Rich Threads guide",
+    cta: "Open Threads",
     icon: MessagesSquare,
   },
   {
-    title: "Channels",
-    body: "Run your agent in Slack through managed Intelligence connections. See the guide for Teams availability and other channel adapters.",
-    href: "/slack",
-    cta: "Open the Channels guide",
-    icon: Hash,
-  },
-  {
-    title: "User Memories",
-    body: "Carry durable facts and preferences across conversations without tying them to one thread.",
+    title: "Memories",
+    body: "Keep facts about a person after the conversation ends.",
     href: "/intelligence/memories",
-    cta: "Open the User Memories guide",
+    cta: "Open Memories",
     icon: Brain,
   },
   {
-    title: "Product Analytics",
-    body: "See what your agents do and where users get value, from the same interaction data.",
-    href: "https://www.copilotkit.ai/copilotkit-intelligence#analytics-insights",
-    cta: "See Product Analytics on the product page",
-    icon: BarChart3,
-  },
-  {
-    title: "Automatic Learning",
-    body: "Agents improve from real usage. No fine-tuning pipeline required.",
+    title: "Learning",
+    body: "Turn real usage into skills you can review and publish.",
     href: "/learning",
-    cta: "Open the Automatic Learning guide",
+    cta: "Open Learning",
     icon: Sparkles,
   },
   {
-    title: "Self-hosting",
-    body: "Run the same platform in your own cluster, VPC, or data boundary.",
-    href: "/intelligence/self-hosting",
-    cta: "Open the self-hosting guide",
-    icon: Server,
+    title: "Analytics",
+    body: "See what people do with your agent.",
+    href: "/intelligence/analytics",
+    cta: "Open Analytics",
+    icon: BarChart3,
+  },
+  {
+    title: "Channels",
+    body: "Run the same agent in Slack or Microsoft Teams.",
+    href: "/intelligence/channels",
+    cta: "Open Channels",
+    icon: Hash,
+  },
+  {
+    title: "Headless UI",
+    body: "Build the chat UI yourself.",
+    href: "/intelligence/headless-ui",
+    cta: "Open Headless UI",
+    icon: PanelsTopLeft,
   },
 ] as const;
 

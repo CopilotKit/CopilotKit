@@ -32,7 +32,7 @@ const RECORDINGS: readonly Recording[] = [
   },
   {
     id: "user-memories",
-    title: "Automatic Learning",
+    title: "Learning",
     loomId: "2978fbfe42324e509057ac5fd46b7a70",
     icon: Brain,
     thumbnail:
@@ -40,7 +40,7 @@ const RECORDINGS: readonly Recording[] = [
   },
   {
     id: "rich-threads",
-    title: "Rich Threads",
+    title: "Threads",
     loomId: "79817778d29e490c97225127d2f17b3a",
     icon: MessagesSquare,
     thumbnail:

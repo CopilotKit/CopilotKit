@@ -10,7 +10,7 @@ export function LearningSetupPrompt(): React.JSX.Element {
     <CodingAgentSetupPrompt
       feature="learning"
       onboardingIntent="add-learning"
-      summary="Use this pre-built prompt to set up Automatic Learning faster."
+      summary="Use this pre-built prompt to set up Learning faster."
       prompt={LEARNING_SETUP_PROMPT}
       copySurface="docs_learning_setup_prompt"
     />

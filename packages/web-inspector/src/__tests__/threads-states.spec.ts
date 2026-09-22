@@ -988,7 +988,7 @@ const lockedCapabilityCases = [
 }>;
 
 test.each(lockedCapabilityCases)(
-  "locked Threads render the full-page Rich Threads gate for $name without real routes",
+  "locked Threads render the full-page Threads gate for $name without real routes",
   async (case_) => {
     const harness = await setupSettledState({
       endpoints: case_.endpoints,
@@ -1008,7 +1008,7 @@ test.each(lockedCapabilityCases)(
     try {
       const root = harness.inspector.shadowRoot!;
       expect(root.querySelector("cpk-thread-list")).toBeNull();
-      expect(root.textContent).toContain("Rich Threads");
+      expect(root.textContent).toContain("Threads");
       expect(root.textContent).toContain(
         "Production-grade chat threads without the complexity. Self hostable.",
       );
@@ -1021,9 +1021,7 @@ test.each(lockedCapabilityCases)(
       const outline = root.querySelector(
         '[data-inspector-feature-outline="threads"]',
       );
-      expect(outline?.getAttribute("aria-label")).toBe(
-        "Rich Threads capabilities",
-      );
+      expect(outline?.getAttribute("aria-label")).toBe("Threads capabilities");
       expect(outline?.textContent).toContain(
         "The whole conversation comes back",
       );
@@ -1199,7 +1197,7 @@ test.each(lockedActionCases)(
         expect(root.textContent).toContain(case_.description);
       }
       expect(root.querySelector("cpk-thread-list")).toBeNull();
-      expect(root.textContent).toContain("Rich Threads");
+      expect(root.textContent).toContain("Threads");
       expect(promptAction?.textContent?.trim()).toBe("Copy setup prompt");
       expect(metadataBodyAction).toBeNull();
       expect(talkAction?.textContent?.trim()).toBe("Talk to an Engineer");
@@ -1214,7 +1212,7 @@ test.each(lockedActionCases)(
         promptAction?.classList.contains("cpk-threads-overview-action-primary"),
       ).toBe(false);
       expect(promptAction?.getAttribute("aria-label")).toBe(
-        "Copy setup prompt for Rich Threads",
+        "Copy setup prompt for Threads",
       );
       expect(
         root.querySelector('.cpk-locked-feature-icon svg[viewBox="0 0 15 15"]'),
@@ -1260,9 +1258,7 @@ test("locked Threads copy the feature setup prompt", async () => {
     ).toContain("Copied");
     const status = promptAction.nextElementSibling;
     expect(status?.getAttribute("aria-live")).toBe("polite");
-    expect(status?.textContent?.trim()).toBe(
-      "Rich Threads setup prompt copied.",
-    );
+    expect(status?.textContent?.trim()).toBe("Threads setup prompt copied.");
   } finally {
     await harness.teardown();
     restoreClipboard();

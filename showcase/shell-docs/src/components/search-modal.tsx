@@ -358,7 +358,7 @@ function scoreResult(
   // longer word. This slot used to be `title.startsWith(q)`, which was a
   // crude stand-in for the same idea: it rewarded the query only when it
   // was the FIRST word, so searching "threads" put "Threads Drawer" above
-  // the canonical "Rich Threads" guide, and left "useThreads" — where
+  // the canonical "Threads" guide, and left "useThreads" — where
   // "threads" is not a word at all — tied with it.
   else if (matchesWholeWord(title, q)) score -= 18;
   else if (title.includes(q)) score -= 8;
@@ -388,7 +388,7 @@ function compareResults(
   if (byScore !== 0) return byScore;
 
   // A shorter title is nearly always the more general, canonical page for
-  // a topic: "Rich Threads" is the Threads guide, "Threads Drawer" is one
+  // a topic: "Threads" is the Threads guide, "Threads Drawer" is one
   // component within it.
   if (a.title.length !== b.title.length) {
     return a.title.length - b.title.length;

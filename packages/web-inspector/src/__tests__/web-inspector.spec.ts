@@ -2226,7 +2226,7 @@ function setupRuntimeDiagnostics() {
 
     const threadsButton = Array.from(
       inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
-    ).find((button) => button.textContent?.trim() === "Rich Threads");
+    ).find((button) => button.textContent?.trim() === "Threads");
     expect(threadsButton).toBeDefined();
     threadsButton?.click();
     await inspector.updateComplete;
@@ -2406,7 +2406,7 @@ test.each([
       const threadsButton = Array.from(
         inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ??
           [],
-      ).find((button) => button.textContent?.trim() === "Rich Threads");
+      ).find((button) => button.textContent?.trim() === "Threads");
       expect(threadsButton).toBeDefined();
       await vi.waitFor(() => {
         expect(
@@ -2466,7 +2466,7 @@ test.each([
       const threadsButton = Array.from(
         inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ??
           [],
-      ).find((button) => button.textContent?.trim() === "Rich Threads");
+      ).find((button) => button.textContent?.trim() === "Threads");
       expect(threadsButton).toBeDefined();
       expect(inspector.shadowRoot?.textContent ?? "").toContain(lockedHeading);
       expect(threadListText(inspector)).not.toContain(
@@ -2738,7 +2738,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     );
     expect(engineer?.closest("#cpk-main-scroll")).not.toBeNull();
     expect(inspector.shadowRoot?.querySelector("cpk-thread-list")).toBeNull();
-    expect(text).toContain("Rich Threads");
+    expect(text).toContain("Threads");
     expect(text).not.toContain("No threads yet");
     expect(
       fetchMock.mock.calls.some((call) => String(call[0]).includes("/threads")),
@@ -2823,7 +2823,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     const threadsButton = Array.from(
       inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
-    ).find((button) => button.textContent?.trim() === "Rich Threads");
+    ).find((button) => button.textContent?.trim() === "Threads");
     expect(threadsButton, "Threads menu button should render").toBeDefined();
 
     threadsButton!.click();
@@ -3628,12 +3628,10 @@ describe("WebInspectorElement memories — view states", () => {
       view?.shadowRoot?.querySelector('[data-learning-state="setup"]'),
     ).not.toBeNull();
     expect(view?.shadowRoot?.textContent).toContain(
-      "Waiting for Automatic Learning setup",
+      "Waiting for Learning setup",
     );
     expect(view?.shadowRoot?.textContent).toContain("Copy the setup prompt");
-    expect(view?.shadowRoot?.textContent).toContain(
-      "Set up Automatic Learning",
-    );
+    expect(view?.shadowRoot?.textContent).toContain("Set up Learning");
     expect(
       view?.shadowRoot?.querySelector(".step")?.classList.contains("complete"),
     ).toBe(true);

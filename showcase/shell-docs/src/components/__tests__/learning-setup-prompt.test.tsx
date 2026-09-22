@@ -18,7 +18,7 @@ afterEach(() => {
   cleanup();
 });
 
-test("configures the shared coding-agent prompt card for Automatic Learning", async () => {
+test("configures the shared coding-agent prompt card for Learning", async () => {
   const originalClipboard = Object.getOwnPropertyDescriptor(
     navigator,
     "clipboard",
@@ -33,7 +33,7 @@ test("configures the shared coding-agent prompt card for Automatic Learning", as
     render(<LearningSetupPrompt />);
 
     const region = screen.getByRole("region", {
-      name: "Use this pre-built prompt to set up Automatic Learning faster.",
+      name: "Use this pre-built prompt to set up Learning faster.",
     });
     expect(region.getAttribute("data-docs-copy-surface")).toBe(
       "docs_learning_setup_prompt",

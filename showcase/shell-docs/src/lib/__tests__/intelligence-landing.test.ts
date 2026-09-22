@@ -21,7 +21,7 @@ test("the Intelligence overview uses landing-page chrome", () => {
   expect(page.data.title).toBe("CopilotKit Intelligence");
   expect(page.data.nav_title).toBe("Overview");
   expect(page.data.description).toBe(
-    "CopilotKit Intelligence adds persistent Rich Threads, messaging Channels, User Memories, Product Analytics, and Automatic Learning. Import supported LangGraph and Google ADK history, then synchronize future CopilotKit runs.",
+    "CopilotKit Intelligence adds threads, memories, learning, channels, and analytics to the CopilotKit app you already run.",
   );
   expect(page.data.hideHeader).toBeUndefined();
   expect(page.data.full).toBe(true);
@@ -55,14 +55,14 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
   expect(snippet.indexOf("<IntelligenceOverview")).toBeLessThan(
     snippet.indexOf("## What is CopilotKit Intelligence?"),
   );
-  expect(snippet).toContain("## What the platform adds");
-  expect(snippet).toContain("| Product Analytics |");
-  expect(snippet).toContain("| Automatic Learning |");
-  expect(snippet).toContain("| User Memories |");
-  expect(snippet).toContain("[User Memories](/intelligence/memories)");
-  expect(snippet).toContain("[Automatic Learning](/learning)");
+  expect(snippet).toContain("## What is CopilotKit Intelligence?");
+  expect(snippet).not.toContain("| Analytics |");
+  expect(snippet).not.toContain("| Learning |");
   expect(snippet).toContain(
-    "[Automatic skill delivery](/intelligence/learned-skills)",
+    "[architecture page](/intelligence/intelligence-platform)",
+  );
+  expect(snippet).not.toContain(
+    "https://www.copilotkit.ai/copilotkit-intelligence",
   );
   expect(
     existsSync(
@@ -70,9 +70,6 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
     ),
   ).toBe(true);
   expect(snippet).toContain("<IntelligenceFeatureCards");
-  expect(snippet).toContain(
-    "Follow the Intelligence quickstart to connect your runtime and confirm threads work.",
-  );
   expect(snippet).toContain("](/intelligence/quickstart)");
   expect(
     existsSync(resolve(here, "../../content/docs/intelligence/quickstart.mdx")),
@@ -83,23 +80,19 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
   expect(
     existsSync(resolve(here, "../../content/docs/intelligence/memories.mdx")),
   ).toBe(true);
-  expect(snippet.indexOf("## What the platform adds")).toBeLessThan(
+  expect(snippet.indexOf("## What is CopilotKit Intelligence?")).toBeLessThan(
     snippet.indexOf("<IntelligenceFeatureCards"),
   );
   expect(snippet.indexOf("<IntelligenceFeatureCards")).toBeLessThan(
-    snippet.indexOf(
-      "Follow the Intelligence quickstart to connect your runtime and confirm threads work.",
-    ),
+    snippet.indexOf("## Choose where Intelligence runs"),
   );
+  expect(snippet).toContain("## Choose where Intelligence runs");
   expect(
-    snippet.indexOf(
-      "Follow the Intelligence quickstart to connect your runtime and confirm threads work.",
-    ),
-  ).toBeLessThan(snippet.indexOf("## Hosting options"));
-  expect(snippet).toContain("## Hosting options");
-  expect(snippet).toContain(
-    "[AWS ECS/Fargate](/intelligence/self-hosting-ecs)",
-  );
+    existsSync(resolve(here, "../../content/docs/intelligence/analytics.mdx")),
+  ).toBe(true);
+  expect(
+    existsSync(resolve(here, "../../content/docs/intelligence/channels.mdx")),
+  ).toBe(true);
   expect(
     existsSync(
       resolve(here, "../../content/docs/intelligence/self-hosting-ecs.mdx"),
@@ -111,8 +104,8 @@ test("the Learning guide stays focused on the reviewed Learning workflow", () =>
   const guide = read("content/docs/learning.mdx");
 
   expect(guide).toContain("## Overview");
-  expect(guide).toContain("## How Automatic Learning works");
-  expect(guide).toContain("## Set up Automatic Learning manually");
+  expect(guide).toContain("## How Learning works");
+  expect(guide).toContain("## Set up Learning manually");
   expect(guide).toContain("## Start with your coding agent");
   expect(guide).toContain("<LearningSetupPrompt />");
   expect(guide).toContain("### Connect CopilotKit Intelligence");

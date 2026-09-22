@@ -58,7 +58,6 @@ function renderNavName(
   },
   iconAfter = false,
 ): React.ReactNode {
-  if (title === "Rich threads") title = "Rich Threads";
   const isReactDocsProxy = variant === "react-docs-proxy";
   if (variant === "frontend-docs-upcoming") {
     const frontendDocsStatus = links?.frontendDocsStatus ?? "early-access";

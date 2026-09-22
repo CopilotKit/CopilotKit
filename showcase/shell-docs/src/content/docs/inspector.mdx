@@ -1,7 +1,7 @@
 ---
 title: Inspector
 icon: "lucide/SearchCheck"
-description: Verify your setup, debug agent runs, reproduce issues, and review Rich Threads and Automatic Learning.
+description: Verify your setup, debug agent runs, reproduce issues, and review Threads and Learning.
 ---
 
 The CopilotKit Inspector is a debugging overlay for the live connection between
@@ -33,10 +33,10 @@ production error reporting.
 | Find out why a run or tool failed              | The red launcher or error pill          |
 | Inspect one `CopilotChat` response             | **View in Inspector** on the message    |
 | Follow messages, events, tools, state, context | **Agent** and the **Inspect** panes     |
-| Reproduce a saved conversation safely          | **Rich Threads** → **Try from here**    |
-| Continue a saved Thread in your application    | **Rich Threads** → **View in your app** |
-| Enable or repair Intelligence                  | **Home** or a locked **Rich Threads**   |
-| Review what Learning found                     | **Automatic Learning**                  |
+| Reproduce a saved conversation safely          | **Threads** → **Try from here**    |
+| Continue a saved Thread in your application    | **Threads** → **View in your app** |
+| Enable or repair Intelligence                  | **Home** or a locked **Threads**   |
+| Review what Learning found                     | **Learning**                  |
 | Move or hide the overlay                       | The Inspector header and settings       |
 
 ## Show Inspector and confirm your setup
@@ -51,7 +51,7 @@ Confirm the connection before debugging anything else:
 1. Open **Agent**. Your connected agent should be listed.
 2. Send a message in your application, then open **AG-UI Events**. You should
    see events arrive while the run is active.
-3. Open **Rich Threads**. A connected Intelligence setup shows your saved Threads.
+3. Open **Threads**. A connected Intelligence setup shows your saved Threads.
    Without Intelligence, the pane is locked and offers a setup path instead.
 
 Home summarizes project, Runtime, and service status. When Intelligence is
@@ -73,16 +73,16 @@ pane with the most useful evidence:
 | Failure                      | Where Inspector takes you | What to check                                |
 | ---------------------------- | ------------------------- | -------------------------------------------- |
 | Runtime or connection        | **Home**                  | Runtime and service status                   |
-| Loading the Thread list      | **Rich Threads**          | The list error and Intelligence state        |
+| Loading the Thread list      | **Threads**          | The list error and Intelligence state        |
 | Agent run or `RUN_ERROR`     | **AG-UI Events**          | The highlighted event, agent name, and error |
 | Tool handler or missing tool | **Agent**                 | The agent, tool, call, and error             |
-| Loading Learning data        | **Automatic Learning**    | The pane error and setup state               |
+| Loading Learning data        | **Learning**    | The pane error and setup state               |
 
 A `RUN_ERROR` is highlighted and expanded while it remains in the event
 buffer. A tool call is highlighted when the error includes its call id; a
 missing tool has no call to highlight.
 
-Learning data is fetched the first time you open **Automatic Learning**, so a Learning
+Learning data is fetched the first time you open **Learning**, so a Learning
 load error can only be routed there after that first visit.
 
 Inspector is best for locating the failing layer during development. If the
@@ -103,7 +103,7 @@ debugging question:
 | Which events crossed the AG-UI connection?    | **AG-UI Events**                                                    | [AG-UI protocol](/agentic-protocols/ag-ui)                 |
 | Which browser-side tools are registered?      | **Frontend Tools**                                                  | [Frontend Tools](/frontend-tools)                          |
 | What readable or document context was shared? | **Context**                                                         | [Agent read-only context](/shared-state/agent-readonly)    |
-| What did a saved conversation contain?        | **Rich Threads** → **Conversation**, **AG-UI Events**, or **State** | [Rich Threads](/threads) and [Shared State](/shared-state) |
+| What did a saved conversation contain?        | **Threads** → **Conversation**, **AG-UI Events**, or **State** | [Threads](/threads) and [Shared State](/shared-state) |
 
 In an official React `CopilotChat`, open an assistant message's toolbar and
 choose **View in Inspector** to jump directly to that message in its Thread.
@@ -130,7 +130,7 @@ safely.
 
 To reproduce a problem from a real conversation:
 
-1. Open **Rich Threads** and select the saved Thread.
+1. Open **Threads** and select the saved Thread.
 2. Choose **Try from here**.
 3. Continue the copied conversation in **Playground**.
 
@@ -180,17 +180,17 @@ then return to Inspector to follow setup through the first eligible Thread. The
 [Intelligence quickstart](/intelligence/quickstart) explains the project,
 credentials, and Runtime routes that prompt configures.
 
-If Threads remains locked, Inspector shows one Rich Threads setup view with
+If Threads remains locked, Inspector shows one Threads setup view with
 **Copy setup prompt** and **Talk to an Engineer**. The view is based on Runtime
 Threads capability rather than license metadata. To configure incomplete
 routes, use the Runtime route guide.
-[Enable Rich Threads routes](/backend/runtime-endpoints#enable-rich-threads-routes)
+[Enable Threads routes](/backend/runtime-endpoints#enable-threads-routes)
 explains how to configure application-user identity, mount every required HTTP
 method, and verify the capability response.
 
 ## Review what Learning found
 
-Open **Automatic Learning** to trace completed Threads into evidence-backed Insights and
+Open **Learning** to trace completed Threads into evidence-backed Insights and
 reviewed Skills. A configured pane shows:
 
 - new Threads ready for analysis;
@@ -205,7 +205,7 @@ Inspector lets you inspect the evidence, but does not approve or publish a candi
 
 If Learning is not configured, choose **Copy setup prompt**. If the Runtime
 cannot select one Learning Space for the active agent, Inspector sends you
-to the web app to choose it. See [Automatic Learning](/learning) for the complete workflow.
+to the web app to choose it. See [Learning](/learning) for the complete workflow.
 
 ## Control when Inspector appears
 
@@ -239,7 +239,7 @@ To disable Inspector in a React development build:
 </CopilotKit>
 ```
 
-For managed Intelligence, keep `CPK_INTELLIGENCE_API_KEY` on the runtime server.
+For cloud-hosted Intelligence, keep `CPK_INTELLIGENCE_API_KEY` on the runtime server.
 The runtime reports Intelligence access to the browser. Do not expose the project
 API key in a `NEXT_PUBLIC_` environment variable.
 

@@ -1056,7 +1056,7 @@ test("trusted identity stays on Home while connection state moves into branded c
       learning
         .querySelector(".inspector-home-feature-status")
         ?.getAttribute("aria-label"),
-    ).toBe("Automatic Learning is not enabled in your runtime");
+    ).toBe("Learning is not enabled in your runtime");
     expect(
       learning.querySelector('[data-inspector-home-feature-prompt="memory"]'),
     ).not.toBeNull();
@@ -1753,7 +1753,7 @@ test("Workbench remembers Learning, and Settings does not persist a settings lea
     );
     await context.toggleSettings();
     expect(root.querySelector("#cpk-main-scroll")?.textContent).toContain(
-      "Automatic Learning",
+      "Learning",
     );
   } finally {
     context.teardown();

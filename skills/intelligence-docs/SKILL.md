@@ -25,7 +25,10 @@ Load this skill when:
   `showcase/shell-docs/src/content/docs/intelligence/`
 - The shared Intelligence overview snippet or feature cards change
 
-Do not load it for OSS frontend guides that do not use Intelligence, or for
+Before writing customer-facing words on those pages, also follow
+`skills/intelligence-vocabulary/SKILL.md`.
+
+Do not load it for open-source frontend guides that do not use Intelligence, or for
 Inspector pane callouts (`inspector-docs`).
 
 ## Landing sources

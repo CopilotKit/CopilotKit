@@ -6,10 +6,9 @@ icon: "lucide/Play"
 doc_type: how-to
 ---
 
-You want to persist conversations reliably in production, improve your agents over time, understand their performance with Product Analytics, and inspect every thread, event, and state change.
-CopilotKit Intelligence adds these capabilities to your existing app without changing your frontend or agent framework.
+You want saved threads, memories, learning, channels, and analytics on the CopilotKit app you already have. Intelligence adds that layer. Your frontend and your agent stay where they are.
 
-You are done when Inspector shows that Intelligence is connected and displays your first saved thread. React Native apps confirm the thread in the hosted Intelligence project because React Native does not include Inspector.
+You are done when Inspector shows that Intelligence is connected and shows your first saved thread. A React Native app has no Inspector. Confirm the thread in the cloud-hosted project instead.
 
 ## Start with your coding agent
 
@@ -25,20 +24,28 @@ Before you start, make sure that you have a CopilotKit app with a working agent,
   <Step>
     ### Select an Intelligence project
 
-    Sign in from your project root. Then select the project that will store your threads.
+    Sign in from your app directory. Then select the project that will store your threads.
 
     ```bash title="Terminal"
     npx copilotkit@latest login
     npx copilotkit@latest project select
     ```
 
-    `project select` writes a project API key to `.env` as `CPK_INTELLIGENCE_API_KEY`. Keep this key on the server.
+    `project select` creates a project API key and writes it to `.env` as `CPK_INTELLIGENCE_API_KEY`. Put that key in the environment of the process that runs your CopilotKit runtime. The command output does not print the key. Read it from `.env`.
+
+    ```bash title=".env"
+    CPK_INTELLIGENCE_API_KEY=cpk-...
+    ```
+
+    The CLI writes `.env` in the directory where you run the command. If your runtime process loads a different file, copy the key into that file. A value that the host already sets stays as it is.
+
+    Keep the key on the server. Do not put it in a variable that the frontend build sends to the browser.
   </Step>
 
   <Step>
     ### Connect your runtime
 
-    Construct the Intelligence client. Then pass it and your existing user lookup to `CopilotRuntime`.
+    Add an Intelligence client to the CopilotKit runtime you already run. Keep the agents you already configured. The client is the same for every agent framework.
 
     ```ts title="Your CopilotKit runtime"
     import {
@@ -73,14 +80,40 @@ Before you start, make sure that you have a CopilotKit app with a working agent,
     <Callout type="warn" title="Protect every Runtime route before production">
       `identifyUser` names the caller, but it is not an authentication gate. Use the handler's `onRequest` hook to reject unauthenticated requests. You must also enforce thread ownership for `threads/events`, `threads/state`, and `agent/stop`. Follow the [thread authorization guide](/auth#thread-authorization) for the complete pattern.
     </Callout>
+
+    A web runtime requires `identifyUser`. A Channels-only runtime has no web surface. Pass a non-empty `channels` array instead.
+
+    The runtime reads the key from the client you pass. It does not read the key from the environment on its own. `apiKey` is the only required field. You do not pass an organization id or a project id.
+
+    ### An existing runtime that already has a runner
+
+    An open-source runtime often passes `runner`. That option chooses where runs are stored. Intelligence stores the runs itself. Remove `runner` when you add `intelligence`.
+
+    ```ts
+    const runtime = new CopilotRuntime({
+      agents,
+      runner: new InMemoryAgentRunner(), // [!code --]
+      intelligence, // [!code ++]
+      identifyUser,
+    });
+    ```
+
+    TypeScript rejects both options together. A JavaScript runtime throws this error:
+
+    ```text
+    Intelligence Runtime auto-wires its own `runner`; passing `runner` alongside
+    `intelligence` is not supported.
+    ```
+
+    You can keep `runner` and omit `intelligence`. The runtime then stays in SSE mode, and Threads in Inspector stay locked. See [AgentRunner and persistence](/backend/agent-runner).
   </Step>
 
   <Step>
     ### Expose one Runtime route
 
-    Use the single-route handler. It carries chat, thread, memory, and annotation requests through one `POST` endpoint.
+    Create one handler and mount it on a single POST route in the server you already use.
 
-    ```ts title="app/api/copilotkit/route.ts"
+    ```ts title="Your runtime server"
     import { createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
 
     const handler = createCopilotRuntimeHandler({
@@ -88,13 +121,11 @@ Before you start, make sure that you have a CopilotKit app with a working agent,
       basePath: "/api/copilotkit",
       mode: "single-route",
     });
-
-    export const POST = handler;
     ```
 
+    Pass `handler` to that server as the POST handler for `basePath`. The handler accepts a Web `Request` and returns a Web `Response`. The file name and the export depend on your server. Mount the handler with the [runtime adapter guide](/runtime-server-adapter).
+
     The client and server negotiate resource support before the client sends Intelligence requests through this route. Multi-route remains supported.
-    The fetch-based handler works with any server that uses standard Web `Request` and `Response` objects.
-    For another server, use the [runtime adapter guide](/runtime-server-adapter#multi-route-vs-single-route).
   </Step>
 
   <Step>
@@ -221,5 +252,33 @@ Before you start, make sure that you have a CopilotKit app with a working agent,
 </Steps>
 
 <Callout type="success" title="Intelligence is connected">
-  Your runtime stores new conversations in Intelligence. Browser apps can inspect their messages, events, and state in Inspector. React Native apps can inspect them in the hosted Intelligence project.
+  Your runtime stores new conversations in Intelligence. A browser app can inspect messages, events, and state in Inspector. A React Native app can inspect them in the cloud-hosted project.
 </Callout>
+
+A chat reply does not prove that the key is in use. An SSE runtime replies with the key unread. Use the Inspector check above, or open the thread in the [cloud-hosted project](/intelligence/managed-intelligence-platform).
+
+## Self-hosted deployments
+
+`apiUrl` and `wsUrl` default to the cloud-hosted service. Set both, or set neither. The API and the realtime service use different hosts. The client cannot derive the websocket URL from the API URL. One URL alone leaves the other host on the cloud-hosted service.
+
+```ts
+const intelligence = new CopilotKitIntelligence({
+  apiUrl: "https://api.intelligence.internal",
+  wsUrl: "wss://realtime.intelligence.internal",
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+});
+```
+
+Pass the bare websocket base. The client appends `/runner` and `/client`. It also prepends `/api` to every REST call. An `apiUrl` that already ends in `/api` produces `/api/api/threads`.
+
+Install steps are on [Self-host on Kubernetes](/intelligence/self-hosting) and [Self-host on ECS](/intelligence/self-hosting-ecs).
+
+## Troubleshooting
+
+| What you see | Cause |
+| --- | --- |
+| Chat works, and the project has no thread | `intelligence` was not passed to `CopilotRuntime`. The runtime is in SSE mode. |
+| An auth error on the first request | `CPK_INTELLIGENCE_API_KEY` is empty, or it belongs to another project. |
+| The socket stays on `connecting`, then reports that it did not settle in time | `wsUrl` was set alone, or it points at the API host. |
+| Request logs show `/api/api/...` | `apiUrl` included an `/api` suffix. |
+| A type error or a throw that names `runner` | `runner` and `intelligence` are both set. Intelligence wires its own runner. |

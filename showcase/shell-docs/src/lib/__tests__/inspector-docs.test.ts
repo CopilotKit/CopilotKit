@@ -157,10 +157,10 @@ test("Inspector Callout snippets name shipped panes and skip retired controls", 
   ).toContain("**Context**");
   expect(
     read("snippets/shared/inspector/open-inspector-pane-learning.mdx"),
-  ).toContain("**Automatic Learning**");
+  ).toContain("**Learning**");
   expect(
     read("snippets/shared/inspector/open-inspector-pane-threads.mdx"),
-  ).toContain("**Rich Threads**");
+  ).toContain("**Threads**");
 });
 
 test("pane map lists each shipped pane with a Callout or no page yet", () => {
@@ -169,11 +169,11 @@ test("pane map lists each shipped pane with a Callout or no page yet", () => {
   for (const pane of [
     "Agent",
     "AG-UI Events",
-    "Rich Threads",
+    "Threads",
     "Frontend Tools",
     "State",
     "Context",
-    "Automatic Learning",
+    "Learning",
     "Capabilities",
   ]) {
     expect(paneMap).toMatch(new RegExp(`\\|\\s*${pane}\\s*\\|`));

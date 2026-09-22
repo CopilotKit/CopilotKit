@@ -121,7 +121,7 @@ for both Slack and Microsoft Teams.
     Slack and Teams use the same managed delivery path. If a provider says
     **Not on your plan**, change the project entitlement before continuing.
 
-    Managed Intelligence support for Discord and WhatsApp shows **Coming
+    Cloud-hosted Intelligence support for Discord and WhatsApp shows **Coming
     soon**. The Channels SDK already exports developer-operated direct adapters
     for those providers.
 
@@ -144,7 +144,7 @@ for both Slack and Microsoft Teams.
        direct message with it.
 
     Slack sends signed Events API requests to the public Intelligence URL in
-    the generated manifest. Hosted Intelligence provides that URL; a
+    the generated manifest. Cloud-hosted Intelligence provides that URL; a
     self-hosted deployment must expose it. Managed slash commands are not part
     of the Channels product surface.
 
@@ -264,8 +264,18 @@ for both Slack and Microsoft Teams.
     On the new Channel page, open **Connect a runtime**. The **Environment file
     (.env)** block names the Intelligence variables with blank values.
 
-    Store the project-scoped API key in your secret manager and configure your
-    long-running Channels process with:
+    From the directory of your Channels process, sign in and select the project.
+    `project select` writes `CPK_INTELLIGENCE_API_KEY`.
+
+    ```bash title="Terminal"
+    npx copilotkit@latest login
+    npx copilotkit@latest project select
+    ```
+
+    Set `CHANNEL_CODE` to the Code from this Channel. If the process does not
+    load that `.env` file, store the key in your secret manager. The project
+    **API Keys** page is the other way to copy a key. Configure the process
+    with:
 
     ```dotenv title=".env"
     CPK_INTELLIGENCE_API_KEY=<project-api-key>
@@ -276,7 +286,7 @@ for both Slack and Microsoft Teams.
     # INTELLIGENCE_GATEWAY_WS_URL=wss://realtime.intelligence.example.com
     ```
 
-    Hosted Intelligence supplies both managed base URLs by default. If you
+    Cloud-hosted Intelligence supplies both default base URLs. If you
     override them for a self-hosted or non-production deployment, replace both
     together. The REST and realtime planes use separate hosts, so do not derive
     the WebSocket URL by changing the API URL's scheme. Pass bare base URLs:

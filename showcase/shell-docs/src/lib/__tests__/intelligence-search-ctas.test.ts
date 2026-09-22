@@ -25,9 +25,9 @@ const ALL_LINKS = ALL_ENTRIES.flatMap((cta) =>
 );
 
 describe("Intelligence search CTA destinations", () => {
-  it("sends learning searches to the Automatic Learning guide", () => {
+  it("sends learning searches to the Learning guide", () => {
     expect(matchIntelligenceSearchCta("learning")?.primary).toEqual({
-      label: "Read the Automatic Learning guide",
+      label: "Read the Learning guide",
       href: "/learning",
     });
   });

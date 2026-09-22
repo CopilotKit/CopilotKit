@@ -155,9 +155,9 @@ describe("docs search ordering", () => {
     await search("threads");
 
     const titles = resultTitles();
-    expect(titles).toContain("Rich Threads");
+    expect(titles).toContain("Threads");
     expect(titles).toContain("Threads Drawer");
-    expect(titles.indexOf("Rich Threads")).toBeLessThan(
+    expect(titles.indexOf("Threads")).toBeLessThan(
       titles.indexOf("Threads Drawer"),
     );
   });

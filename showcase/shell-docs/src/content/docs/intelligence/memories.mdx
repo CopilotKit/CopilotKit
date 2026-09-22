@@ -1,5 +1,5 @@
 ---
-title: "User Memories"
+title: "Memories"
 description: "Give your agents long-term memory across conversations."
 icon: "lucide/Brain"
 doc_type: explanation
@@ -7,7 +7,7 @@ doc_type: explanation
 
 import { MemorySetupPrompt } from "@/components/memory-setup-prompt";
 
-Rich Threads remember a conversation. User Memories remember a person. This page explains
+Threads remember a conversation. Memories remember a person. This page explains
 what a memory is, how recall selects them, and what has to be true of your
 deployment before the memory surfaces exist at all.
 
@@ -92,7 +92,7 @@ Copy this prompt into your coding agent to inspect your existing CopilotKit app 
 
 <MemorySetupPrompt />
 
-## Set up User Memories manually
+## Set up Memories
 
 When you are done, your app will be able to save a memory for a signed-in user and recall it in a later conversation.
 
@@ -100,13 +100,13 @@ When you are done, your app will be able to save a memory for a signed-in user a
   <Step>
     ### Connect CopilotKit Intelligence
 
-    Complete the [Intelligence quickstart](/intelligence/quickstart#set-it-up-manually) to connect your existing app and configure server-side user identity.
+    Complete the [Intelligence quickstart](/intelligence/quickstart#set-it-up-manually). That page signs you in with the CLI, selects the project, and configures server-side user identity. Your existing app and agent stay in place.
   </Step>
 
   <Step>
     ### Confirm memory access
 
-    Check your deployment's memory entitlement and embedding configuration using [Activating memory](#activating-memory) below. Managed deployments require no embedder configuration on your side; self-hosted deployments need both a memory-enabled license and a configured embedder.
+    Check your deployment's memory entitlement and embedding configuration using [Activating memory](#activating-memory) below. Cloud-hosted deployments require no embedder configuration on your side. Self-hosted deployments need both a memory-enabled license and a configured embedder.
   </Step>
 
   <Step>
@@ -184,7 +184,7 @@ migration, not a config tweak.
 
 ### Managed
 
-On the managed platform, memory is resolved per organization from that
+On cloud-hosted Intelligence, memory is resolved per organization from that
 organization's effective entitlement, combining its plan features with any
 enterprise override. Nothing needs configuring on your side.
 

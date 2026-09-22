@@ -44,7 +44,7 @@ test("body prompts take precedence, including prompts inherited from snippets", 
 test("every authored quickstart has one contextual agent section", () => {
   const files = mdxFiles(CONTENT_DIR).filter(
     (file) =>
-      file.endsWith("/quickstart.mdx") &&
+      file.replaceAll("\\", "/").endsWith("/quickstart.mdx") &&
       file !== join(CONTENT_DIR, "quickstart.mdx"),
   );
   files.push(
@@ -72,9 +72,9 @@ test("Learning offers its agent section before numbered manual setup", () => {
     source.indexOf("<LearningSetupPrompt />"),
   );
   expect(source.indexOf("<LearningSetupPrompt />")).toBeLessThan(
-    source.indexOf("## Set up Automatic Learning manually"),
+    source.indexOf("## Set up Learning manually"),
   );
-  expect(source.indexOf("## Set up Automatic Learning manually")).toBeLessThan(
+  expect(source.indexOf("## Set up Learning manually")).toBeLessThan(
     source.indexOf("<Steps>"),
   );
   expect(source.match(/<LearningSetupPrompt\s*\/>/g)).toHaveLength(1);

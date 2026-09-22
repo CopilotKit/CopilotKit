@@ -1,6 +1,6 @@
 ---
 title: "Jev: fast generative UI"
-description: "Use Jev to choose and rank prepared controls, render them through CopilotKit and AG-UI, and optionally improve those choices with Automatic Learning."
+description: "Use Jev to choose and rank prepared controls, render them through CopilotKit and AG-UI, and optionally improve those choices with Learning."
 icon: "lucide/SlidersHorizontal"
 showIcon: true
 doc_type: how-to
@@ -390,19 +390,19 @@ Your picker can now take a request, show a useful control, and act on the answer
 </Step>
 </Steps>
 
-## Optional: improve decisions and UI with Automatic Learning
+## Optional: improve decisions and UI with Learning
 
-What if users keep correcting the same mistake? Perhaps “I need to focus” keeps bringing up the team table. [Automatic Learning](/learning) can turn those corrections into reusable Skills that help the agent make better choices.
+What if users keep correcting the same mistake? Perhaps “I need to focus” keeps bringing up the team table. [Learning](/learning) can turn those corrections into reusable Skills that help the agent make better choices.
 
 <Callout type="info" title="Let your coding agent handle setup">
-You can simply ask your coding agent to use the [CopilotKit CLI](/cli) to set up Automatic Learning for this app, including passing approved Skills into Jev. Start with the [Automatic Learning setup prompt](/learning#start-with-your-coding-agent). You only need to follow the manual steps below if you prefer to wire it up yourself.
+You can simply ask your coding agent to use the [CopilotKit CLI](/cli) to set up Learning for this app, including passing approved Skills into Jev. Start with the [Learning setup prompt](/learning#start-with-your-coding-agent). You only need to follow the manual steps below if you prefer to wire it up yourself.
 </Callout>
 
 To set it up manually, connect [Intelligence](/intelligence/quickstart), persist Threads, and assign a stable Learning container **before each Thread’s first run**. Associate each user’s Threads with their authenticated identity. The picker above works without this extension.
 
 Collect completed interactions, including what users corrected and what happened next. Run Learning, inspect the Insights and their supporting Threads, then review the proposed Skills before publishing them. You can start an analysis manually or configure a recurring schedule.
 
-Next, make the approved Skills available to Jev. [Automatic learned skill delivery](/intelligence/learned-skills) provides a registry of published Skills. The helper below reads their `SKILL.md` contents so you can pass them into `systemOne` as guidance. This is your application’s connection to Jev; installing a model adapter alone does not make that connection.
+Next, make the approved Skills available to Jev. [Skill delivery](/intelligence/learned-skills) provides a registry of published Skills. The helper below reads their `SKILL.md` contents so you can pass them into `systemOne` as guidance. This is your application’s connection to Jev; installing a model adapter alone does not make that connection.
 
 Install `@copilotkit/intelligence-langgraph@1.71.2` alongside the pinned stack above and configure server-only `CPK_INTELLIGENCE_API_KEY` and `CPK_INTELLIGENCE_LEARNING_CONTAINER_ID`. Omit `CPK_INTELLIGENCE_SKILLS_REVISION` to follow the latest approved version, or set a published revision to keep using a specific set of Skills.
 

@@ -122,7 +122,7 @@ async function setup(
   await inspector.updateComplete;
   const threads = Array.from(
     inspector.shadowRoot?.querySelectorAll<HTMLElement>("button") ?? [],
-  ).find((element) => element.textContent?.trim() === "Rich Threads");
+  ).find((element) => element.textContent?.trim() === "Threads");
   if (!threads) throw new Error("Threads was not rendered");
   threads.click();
   await inspector.updateComplete;
@@ -483,9 +483,9 @@ test("the Threads footer stays scoped to Threads across navigation and Settings"
     expect(findFooter()).not.toBeNull();
     await context.selectTab("Agent");
     expect(findFooter()).toBeNull();
-    await context.selectTab("Automatic Learning");
+    await context.selectTab("Learning");
     expect(findFooter()).toBeNull();
-    await context.selectTab("Rich Threads");
+    await context.selectTab("Threads");
     expect(findFooter()).not.toBeNull();
     await context.toggleSettings();
     expect(findFooter()).toBeNull();

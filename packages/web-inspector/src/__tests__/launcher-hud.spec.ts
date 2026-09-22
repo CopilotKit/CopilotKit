@@ -244,7 +244,7 @@ test("the HUD previews only disabled features in sequence on page load, then lea
 
   const introHud = requireElement(hud(inspector));
   expect(introHud.getAttribute("data-cpk-hud-intro")).toBe("true");
-  expect(hudRowLabels(inspector)).toEqual(["Automatic Learning"]);
+  expect(hudRowLabels(inspector)).toEqual(["Learning"]);
   expect(
     [
       root(inspector).querySelector<HTMLElement>(
@@ -286,10 +286,7 @@ test("hovering the launcher shows its feature states without a redundant header"
     "CopilotKit Inspector",
   );
   expect(root(inspector).querySelector("[data-cpk-hud-header]")).toBeNull();
-  expect(hudRowLabels(inspector)).toEqual([
-    "Rich Threads",
-    "Automatic Learning",
-  ]);
+  expect(hudRowLabels(inspector)).toEqual(["Threads", "Learning"]);
   expect(
     root(inspector).querySelector('[data-cpk-hud-row="inspector"]'),
   ).toBeNull();
@@ -311,7 +308,7 @@ test("enabled features are hidden while unconfigured features remain available",
     endpoints: ENABLED_ENDPOINTS,
   });
   await openHud();
-  expect(hudRowLabels(inspector)).toEqual(["Automatic Learning"]);
+  expect(hudRowLabels(inspector)).toEqual(["Learning"]);
   expect(
     root(inspector).querySelector('[data-cpk-hud-row="threads"]'),
   ).toBeNull();
@@ -324,7 +321,7 @@ test("enabled features are hidden while unconfigured features remain available",
   expect(learningToggle.getAttribute("data-enabled")).toBe("false");
   expect(learningToggle.disabled).toBe(false);
   expect(learningToggle.getAttribute("aria-label")).toBe(
-    "Open Automatic Learning in Inspector",
+    "Open Learning in Inspector",
   );
 });
 
@@ -337,10 +334,7 @@ test("the HUD respects a runtime that is not entitled to Intelligence", async ()
 
   await openHud();
 
-  expect(hudRowLabels(inspector)).toEqual([
-    "Rich Threads",
-    "Automatic Learning",
-  ]);
+  expect(hudRowLabels(inspector)).toEqual(["Threads", "Learning"]);
   for (const row of ["threads", "learning"] as const) {
     const toggle = requireElement(
       root(inspector).querySelector<HTMLButtonElement>(
@@ -449,7 +443,7 @@ test("disabled feature rows open their landing pages, where setup prompts can be
     expect(threadsPrompt).not.toContain("https://docs.copilotkit.ai/threads");
     expect(copyThreads.dataset.copyState).toBe("copied");
     expect(copyThreads.getAttribute("aria-label")).toBe(
-      "Rich Threads setup prompt copied",
+      "Threads setup prompt copied",
     );
 
     requireElement(

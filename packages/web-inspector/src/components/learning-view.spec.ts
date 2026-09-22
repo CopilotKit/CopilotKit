@@ -384,10 +384,10 @@ describe("Learning setup progress", () => {
     const view = await renderProgress(snapshot(), true);
     expect(view.shadowRoot!.textContent).toContain("1 of 3 steps");
     expect(view.shadowRoot!.textContent).toContain(
-      "Waiting for Automatic Learning setup",
+      "Waiting for Learning setup",
     );
     expect(view.shadowRoot!.textContent).toContain("Copy the setup prompt");
-    expect(view.shadowRoot!.textContent).toContain("Set up Automatic Learning");
+    expect(view.shadowRoot!.textContent).toContain("Set up Learning");
     expect(view.shadowRoot!.textContent).toContain(
       "Nice work. You’ve completed the first step.",
     );

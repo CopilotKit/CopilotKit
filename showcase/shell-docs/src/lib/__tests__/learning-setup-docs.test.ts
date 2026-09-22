@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import { loadDoc } from "../docs-render";
 import { renderPageToLlmText } from "../llm-text";
 
-test("offers the Automatic Learning prompt before the manual setup steps", () => {
+test("offers the Learning prompt before the manual setup steps", () => {
   const source = loadDoc("learning")?.source ?? "";
   const prompt = source.indexOf("<LearningSetupPrompt />");
   const manualSetup = source.indexOf("### Connect CopilotKit Intelligence");
@@ -11,7 +11,7 @@ test("offers the Automatic Learning prompt before the manual setup steps", () =>
   expect(manualSetup).toBeGreaterThan(prompt);
 });
 
-test("expands the Automatic Learning prompt for Markdown and LLM readers", () => {
+test("expands the Learning prompt for Markdown and LLM readers", () => {
   const doc = loadDoc("learning");
   if (!doc) throw new Error("Learning doc is missing");
 

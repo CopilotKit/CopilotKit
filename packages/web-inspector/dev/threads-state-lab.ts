@@ -2,6 +2,8 @@ import type { CopilotKitCore, Memory } from "@copilotkit/core";
 import type { InspectorMetadataV1, RuntimeInfo } from "@copilotkit/shared";
 import type { WebInspectorElement } from "@copilotkit/web-inspector";
 
+import { INSPECTOR_LEARNING_LABEL } from "../src/control-labels";
+
 import {
   LEARNING_WORKBENCH_SCENARIOS,
   learningRuntimeInfo,
@@ -884,7 +886,7 @@ function buildLearningScenario(
 
   return buildScenario({
     key,
-    label: `Automatic Learning · ${label}`,
+    label: `${INSPECTOR_LEARNING_LABEL} · ${label}`,
     description: `Integrated Inspector fixture for the ${label.toLowerCase()} state.`,
     deployment: "managed",
     plan: "pro",

@@ -33,10 +33,10 @@ describe("docs mega menu data", () => {
     });
     expect(shipColumn?.links.map((link) => [link.label, link.href])).toEqual([
       ["Intelligence", "/intelligence/overview"],
-      ["Rich Threads", "/threads"],
-      ["Automatic Learning", "/learning"],
-      ["Product Analytics", "/intelligence/managed-intelligence-platform"],
-      ["User Memories", "/intelligence/memories"],
+      ["Threads", "/threads"],
+      ["Learning", "/learning"],
+      ["Analytics", "/intelligence/analytics"],
+      ["Memories", "/intelligence/memories"],
       ["Inspector", "/inspector"],
       ["Deploy", "/deploy/agentcore"],
       ["Self-hosting", "/intelligence/self-hosting"],

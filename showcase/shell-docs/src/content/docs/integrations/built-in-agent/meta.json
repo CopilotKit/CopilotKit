@@ -11,7 +11,7 @@
     "---Basics---",
     "prebuilt-components",
     {
-      "title": "Rich Threads",
+      "title": "Threads",
       "defaultOpen": true,
       "pages": [
         "threads",

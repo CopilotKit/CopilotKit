@@ -606,7 +606,7 @@ describe("Inspector pop-out", () => {
         context.popDoc.querySelector(
           '[data-inspector-locked-feature="threads"]',
         )?.textContent,
-      ).toContain("Rich Threads");
+      ).toContain("Threads");
     } finally {
       context.teardown();
     }

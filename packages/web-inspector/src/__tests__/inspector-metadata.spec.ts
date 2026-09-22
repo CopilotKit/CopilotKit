@@ -218,7 +218,7 @@ test("renders the trusted manage link in the Threads usage footer", async () => 
     expect(identity?.textContent).toContain("Support");
     expect(identity?.textContent).toContain("Acme Inc.");
     expect(plan?.textContent).toContain("Enterprise");
-    await context.selectTab("Rich Threads");
+    await context.selectTab("Threads");
     const action = root.querySelector<HTMLAnchorElement>(
       '[data-inspector-action-placement="threads-footer"]',
     );
@@ -244,7 +244,7 @@ test("keeps the Threads footer action clickable outside the drag handle", async 
   });
   try {
     await context.open();
-    await context.selectTab("Rich Threads");
+    await context.selectTab("Threads");
 
     const action =
       context.inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
@@ -281,7 +281,7 @@ test.each([
     });
     try {
       await context.open();
-      await context.selectTab("Rich Threads");
+      await context.selectTab("Threads");
 
       const root = context.inspector.shadowRoot!;
       expect(root.querySelector("cpk-thread-list")).not.toBeNull();
@@ -313,7 +313,7 @@ test.each([
     });
     try {
       await context.open();
-      await context.selectTab("Rich Threads");
+      await context.selectTab("Threads");
 
       const root = context.inspector.shadowRoot!;
       const action = root.querySelector<HTMLAnchorElement>(
@@ -369,7 +369,7 @@ test("an old runtime omits metadata UI and keeps the guided setup fallback", asy
   });
   try {
     await context.open();
-    await context.selectTab("Rich Threads");
+    await context.selectTab("Threads");
 
     const root = context.inspector.shadowRoot!;
     expect(root.querySelector("[data-inspector-metadata]")).toBeNull();
@@ -434,7 +434,7 @@ test("known license disagreement uses Runtime copy and hides the metadata action
   });
   try {
     await context.open();
-    await context.selectTab("Rich Threads");
+    await context.selectTab("Threads");
 
     const root = context.inspector.shadowRoot!;
     expect(root.textContent).toContain(
@@ -459,7 +459,7 @@ test("metadata refresh rerenders without resetting the selected example or reque
   });
   try {
     await context.open();
-    await context.selectTab("Rich Threads");
+    await context.selectTab("Threads");
     const list = context.inspector.shadowRoot?.querySelector("cpk-thread-list");
     await waitFor(
       () => list?.shadowRoot?.querySelector(".cpk-tl__item") !== null,
@@ -484,7 +484,7 @@ test("metadata refresh rerenders without resetting the selected example or reque
           ?.textContent?.includes("Scale") === true,
       "the refreshed plan label",
     );
-    await context.selectTab("Rich Threads");
+    await context.selectTab("Threads");
 
     const selectedAfter = Reflect.get(
       context.inspector.shadowRoot?.querySelector("cpk-thread-details") ?? {},
@@ -509,7 +509,7 @@ test("metadata usage stays independent from Threads capability and debug navigat
   });
   try {
     await context.open();
-    await context.selectTab("Rich Threads");
+    await context.selectTab("Threads");
 
     const root = context.inspector.shadowRoot!;
     const usage = context.core.inspectorMetadata?.usage;
@@ -534,12 +534,7 @@ test("metadata usage stays independent from Threads capability and debug navigat
     ).toHaveLength(0);
     expect(talk).toBeInstanceOf(HTMLAnchorElement);
     expect(talk).not.toBe(lockedAction);
-    for (const label of [
-      "Home",
-      "Rich Threads",
-      "Automatic Learning",
-      "Agent",
-    ]) {
+    for (const label of ["Home", "Threads", "Learning", "Agent"]) {
       expect(findControl(root, label), label).toBeDefined();
     }
     await context.selectTab("Agent");

@@ -126,7 +126,7 @@ const FRONTEND_SEGMENTS: string[] = FRONTEND_PAGE_IDS;
  * Sidebar titles that identify nothing once the surrounding group is gone.
  *
  * A page can set `nav_title: Overview` so the sidebar reads
- * "Rich Threads › Overview" while the page itself is titled "Rich Threads".
+ * "Threads › Overview" while the page itself is titled "Threads".
  * Search results are a flat list with no parent to lean on, so a bare
  * "Overview" row is useless — the page's own title is kept instead.
  */
@@ -341,7 +341,7 @@ export function docsSlugCandidatesFromLinkTarget(
 }
 
 // Stops at whitespace as well as `)` so a link that carries a title —
-// `](/threads "Rich threads")` — still yields `/threads`.
+// `](/threads "guide")` — still yields `/threads`.
 const MARKDOWN_LINK = /\]\(\s*(\/[^)\s]*)/g;
 const JSX_HREF = /href=["'](\/[^"']*)["']/g;
 
