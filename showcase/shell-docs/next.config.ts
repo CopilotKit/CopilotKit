@@ -314,8 +314,10 @@ const CHANNEL_ROOT_REDIRECTS: PermanentRedirect[] = [
     ...permanentRedirectsWithSuffixes(`/${frontend}/channels`, `/${frontend}`),
   ]),
   ...permanentRedirectsWithSuffixes("/built-in-agent/channels", "/slack"),
+  // `intelligence` is a docs section, not a channel framework. Without this
+  // exclusion, `/intelligence/channels` becomes `/slack/intelligence`.
   ...permanentRedirectsWithSuffixes(
-    "/:framework((?!reference)[^/]+)/channels",
+    "/:framework((?!reference|intelligence)[^/]+)/channels",
     "/slack/:framework",
   ),
   ...permanentRedirectsWithSuffixes("/channels", "/slack"),

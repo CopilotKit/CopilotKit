@@ -18,6 +18,11 @@ builds and serves **docs.copilotkit.ai**:
 When you add a **guide page** under `showcase/shell-docs/src/content/docs/`, also update
 that section's `meta.json` so it appears in navigation.
 
+When the page is customer-facing Intelligence docs, follow
+`skills/intelligence-vocabulary/SKILL.md` before writing. One concept gets one
+approved name. Do not rename code identifiers, route slugs, env vars, or API
+fields to match that list.
+
 ### Hybrid docs architecture
 
 Framework docs are in a hybrid state while showcase coverage is being completed. The

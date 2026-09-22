@@ -80,7 +80,7 @@ export const DOCS_MEGA_MENU_COLUMNS: readonly MegaMenuColumn[] = [
         icon: "brain",
       },
       {
-        href: "/intelligence/managed-intelligence-platform",
+        href: "/intelligence/analytics",
         label: "Product Analytics",
         icon: "chart",
       },

@@ -96,7 +96,7 @@ This restores text. It does not restore generative UI, tool-call renders, or att
 
 Self-managed persistence is a reasonable fit when conversations are simple and mostly textual, you already run a database and an auth layer, and you'd rather own the storage than add a dependency.
 
-It stops being the cheaper option once you want a thread list with rename and archive, conversations that look the same on return as when the user left, realtime sync across tabs, or the ability to rejoin a run still in progress. At that point you are re-implementing the platform, and the boundary in [OSS vs Enterprise](/concepts/oss-vs-enterprise) is worth re-reading.
+It stops being the cheaper option once you want a thread list with rename and archive, conversations that look the same on return as when the user left, realtime sync across tabs, or the ability to rejoin a run still in progress. At that point you are re-implementing the platform, and the boundary in [Open source vs Intelligence](/concepts/oss-vs-enterprise) is worth re-reading.
 
 If you have existing conversations in a framework store and want them as Rich Threads, [Importing and synchronizing thread history](/threads-import) covers the migration.
 
@@ -104,5 +104,5 @@ If you have existing conversations in a framework store and want them as Rich Th
 
 - [Thread lifecycle](/threads-lifecycle) — how ids are minted, hydrated, and switched
 - [Thread authorization](/auth#thread-authorization) — scoping threads to their owner
-- [OSS vs CopilotKit Intelligence](/concepts/oss-vs-enterprise) — where the capability boundary sits
+- [Open source vs Intelligence](/concepts/oss-vs-enterprise) — where the capability boundary sits
 - [Rich Threads](/threads) — what the platform-backed path looks like

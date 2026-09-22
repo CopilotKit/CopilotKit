@@ -59,7 +59,7 @@ test("configures the shared coding-agent prompt card for Automatic Learning", as
   }
 });
 
-test("sends the coding agent to the Learning route and carries nothing else", () => {
+test("sends the coding agent to the Automatic Learning route and carries nothing else", () => {
   // The route owns the guide link, the container-selection rules and the
   // `getLearningContainerId` wiring this prompt used to repeat. That copy had
   // already drifted from the shipped API once; OSS-1150 retired it.

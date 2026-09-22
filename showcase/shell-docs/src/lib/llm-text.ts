@@ -1074,7 +1074,7 @@ export function renderLlmsIndex(
     "",
     "- **Greenfield:** Start a new project with CopilotKit, including when there is no frontend or agent yet.",
     "- **Brownfield:** Add CopilotKit to an existing application, agent backend, or both, working with the existing stack.",
-    "- **Existing CopilotKit OSS:** Connect a working open-source CopilotKit project to Intelligence.",
+    "- **Existing open-source CopilotKit:** Connect a working open-source CopilotKit project to Intelligence.",
     "",
     "The onboarding workflow inspects the project, identifies its starting point, and guides the coding agent through the appropriate setup. For a new project, run the prompt from its intended project directory. For an existing project, run it from the project root. For product research or comparisons, continue to the documentation links without running onboarding.",
     "",
