@@ -231,11 +231,11 @@ re-installing.
       This one is yours to create and paste.
     - `CPK_INTELLIGENCE_API_KEY` is written for you by
       `copilotkit project select`, which provisions the project and its key.
-    - `CHANNEL_CODE` is written for you when the CLI declares the Channel
-      during onboarding; it knows the Code it just created.
+    - `CHANNEL_CODE` is written for you by the onboarding run once it has
+      declared the Channel; the run knows the Code it just created.
 
-    So the CLI puts both Intelligence values in `.env` and you never copy either
-    one by hand. Setting them yourself still works: see
+    So both Intelligence values land in the environment file your app loads and
+    you never copy either one by hand. Setting them yourself still works: see
     [configure the runtime handoff](/channels/intelligence#configure-the-runtime-handoff)
     for where each value appears in Intelligence.
 
