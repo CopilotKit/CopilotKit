@@ -119,6 +119,14 @@ export class CopilotKit {
    * consumers re-run when `/info` lands.
    */
   readonly threadEndpoints = this.#threadEndpoints.asReadonly();
+  readonly #audioFileTranscriptionEnabled = signal(false);
+  /**
+   * Voice transcription capability advertised by the connected runtime's
+   * `/info` response. The value remains false until the runtime explicitly
+   * reports support.
+   */
+  readonly audioFileTranscriptionEnabled =
+    this.#audioFileTranscriptionEnabled.asReadonly();
   readonly #intelligence = signal<IntelligenceRuntimeInfo | undefined>(
     undefined,
   );
@@ -230,6 +238,9 @@ export class CopilotKit {
     this.#headers.set(this.core.headers);
     this.#credentials.set(this.core.credentials);
     this.#threadEndpoints.set(this.core.threadEndpoints);
+    this.#audioFileTranscriptionEnabled.set(
+      this.core.audioFileTranscriptionEnabled,
+    );
     this.#intelligence.set(this.core.intelligence);
     this.#licenseStatus.set(this.core.licenseStatus);
     this.#runtimeEntitlements.set(this.core.runtimeEntitlements);
@@ -274,6 +285,9 @@ export class CopilotKit {
         // `/info` resolves.
         this.#runtimeConnectionStatus.set(status);
         this.#threadEndpoints.set(this.core.threadEndpoints);
+        this.#audioFileTranscriptionEnabled.set(
+          this.core.audioFileTranscriptionEnabled,
+        );
         this.#intelligence.set(this.core.intelligence);
         this.#licenseStatus.set(this.core.licenseStatus);
         this.#runtimeEntitlements.set(this.core.runtimeEntitlements);
