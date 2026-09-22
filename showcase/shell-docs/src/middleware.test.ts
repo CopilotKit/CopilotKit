@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { NextFetchEvent, NextRequest } from "next/server";
 
@@ -219,6 +220,59 @@ describe("the boundary with ordinary docs pageviews", () => {
 
     expect(response.status).toBe(301);
     expect(events.map((event) => event.event)).toEqual(["seo_redirect"]);
+  });
+});
+
+describe("telemetry must not be able to break a fetch", () => {
+  it("swallows a PostHog rejection instead of rejecting into waitUntil", async () => {
+    // The promise handed to `event.waitUntil` runs after the response is
+    // already sent, so a rejection here cannot help the caller — it only
+    // surfaces as an unhandled rejection in the Edge runtime.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("nope", { status: 503 })),
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await expect(
+      runMiddleware("/llms.txt", { userAgent: CLAUDE_CODE }),
+    ).resolves.toBeDefined();
+    expect(warn).toHaveBeenCalled();
+
+    warn.mockRestore();
+  });
+
+  it("stays silent when no PostHog key is configured", async () => {
+    vi.stubEnv("POSTHOG_KEY", "");
+    const { events } = await runMiddleware("/llms.txt", {
+      userAgent: CLAUDE_CODE,
+    });
+
+    expect(events).toEqual([]);
+  });
+});
+
+describe("the shape the telemetry registry reads", () => {
+  it('emits through a literal `posthog.capture("name", { ... })` call', async () => {
+    // `scripts/telemetry/extract.ts` indexes call sites by callee name
+    // (`posthog.capture` / `capture`), takes the event name only from a STRING
+    // LITERAL first argument, and the property list only from an INLINE OBJECT
+    // LITERAL second argument. The `telemetry / docs fragment` workflow runs it
+    // over `showcase/shell-docs/src/**`.
+    //
+    // Posting the same JSON through a bare `fetch` satisfies PostHog and is
+    // invisible to the extractor — which is why `docs_pageview` and
+    // `seo_redirect`, both emitted that way above, are absent from the
+    // catalog. Hoisting the name into a constant would silently do the same to
+    // this event, so the shape is pinned here rather than left to review.
+    const source = await readFile(
+      new URL("./middleware.ts", import.meta.url),
+      "utf8",
+    );
+
+    expect(source).toContain(
+      'posthog.capture(\n      "docs.llm_text_fetched",\n      {',
+    );
   });
 });
 

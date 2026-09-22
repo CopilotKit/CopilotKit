@@ -138,8 +138,6 @@ function trackRedirect(id: string, fromPath: string, toPath: string): void {
 // the project.
 // ---------------------------------------------------------------------------
 
-const LLM_TEXT_EVENT = "docs.llm_text_fetched";
-
 // The user agent is caller-controlled and forwarded verbatim so buckets
 // can be re-cut later. Real ones are well under this; the cap just stops
 // a hostile caller from pushing arbitrarily large strings into the
@@ -202,6 +200,47 @@ function deploymentEnvironment(): string {
   );
 }
 
+/**
+ * The capture surface, shaped the way the telemetry registry can read.
+ *
+ * A method named `capture`, called with a LITERAL event name first and an
+ * INLINE object literal of properties second, because that is exactly what
+ * `scripts/telemetry/extract.ts` indexes (`calleeNames: ["posthog.capture",
+ * "capture"]`, string-literal arg 0, object-literal arg 1). The
+ * `telemetry / docs fragment` workflow runs that extractor over
+ * `showcase/shell-docs/src/**` and publishes the result to
+ * `oss-path-to-production`.
+ *
+ * `capturePageView` and `trackRedirect` above post the same way but put the
+ * event name inside a JSON body, so `docs_pageview` and `seo_redirect` are
+ * invisible to the extractor and missing from the catalog. That is a
+ * pre-existing gap, left alone here; the point of this shape is that the new
+ * event does not join them.
+ */
+const posthog = {
+  async capture(
+    event: string,
+    properties: Record<string, unknown>,
+    distinctId: string,
+  ): Promise<void> {
+    const response = await fetch(`${getPosthogHost()}/capture/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: POSTHOG_KEY,
+        event,
+        distinct_id: distinctId,
+        properties,
+      }),
+    });
+    // PostHog answers 200 with `{"status":1}`; a non-OK status means the
+    // event was dropped, which is worth a log line rather than silence.
+    if (!response.ok) {
+      throw new Error(`posthog capture responded ${response.status}`);
+    }
+  },
+};
+
 async function captureLlmTextFetch(
   request: NextRequest,
   pathname: string,
@@ -213,42 +252,32 @@ async function captureLlmTextFetch(
 
   const userAgent = request.headers.get("user-agent");
   const caller = classifyLlmTextCaller(userAgent);
+  const distinctId = await callerKey(clientIp(request), userAgent);
 
   try {
-    const response = await fetch(`${getPosthogHost()}/capture/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: POSTHOG_KEY,
-        event: LLM_TEXT_EVENT,
-        distinct_id: await callerKey(clientIp(request), userAgent),
-        properties: {
-          path: pathname,
-          surface,
-          caller_class: caller.class,
-          caller_agent: caller.agent,
-          // Our own classification is the reportable one. PostHog's
-          // computed `$virt_traffic_*` properties read `claude-code` as
-          // ordinary browser traffic — the exact caller this event
-          // exists to count. The raw UA travels so a bucket that turns
-          // out to be wrong can be re-cut over history without a
-          // redeploy.
-          $raw_user_agent: userAgent?.slice(0, MAX_USER_AGENT_LENGTH) ?? null,
-          environment: deploymentEnvironment(),
-          referrer: request.headers.get("referer"),
-          $geoip_disable: true,
-          $process_person_profile: false,
-        },
-      }),
-    });
-    if (!response.ok) {
-      console.warn(
-        "[middleware] posthog llm-text capture non-2xx",
-        response.status,
-        response.statusText,
-      );
-    }
+    await posthog.capture(
+      "docs.llm_text_fetched",
+      {
+        path: pathname,
+        surface,
+        caller_class: caller.class,
+        caller_agent: caller.agent,
+        // Our own classification is the reportable one. PostHog's computed
+        // `$virt_traffic_*` properties read `claude-code` as ordinary browser
+        // traffic — the exact caller this event exists to count. The raw UA
+        // travels so a bucket that turns out to be wrong can be re-cut over
+        // history without a redeploy.
+        $raw_user_agent: userAgent?.slice(0, MAX_USER_AGENT_LENGTH) ?? null,
+        environment: deploymentEnvironment(),
+        referrer: request.headers.get("referer"),
+        $geoip_disable: true,
+        $process_person_profile: false,
+      },
+      distinctId,
+    );
   } catch (err) {
+    // Telemetry must never turn into a failed fetch. By the time this runs the
+    // response is already sent, so this can only be logged.
     console.warn("[middleware] posthog llm-text capture failed", err);
   }
 }
