@@ -66,16 +66,8 @@ describe("frontendPromptSuffix", () => {
   });
 
   it.each([
-    [
-      "react-spa",
-      "React SPA",
-      " I use the React SPA frontend (`react-spa`).",
-    ],
-    [
-      "angular",
-      "Angular",
-      " I use the Angular frontend (`angular`).",
-    ],
+    ["react-spa", "React SPA", " I use the React SPA frontend (`react-spa`)."],
+    ["angular", "Angular", " I use the Angular frontend (`angular`)."],
     [
       "react-native",
       "React Native",
