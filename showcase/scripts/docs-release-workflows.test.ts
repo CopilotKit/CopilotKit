@@ -193,6 +193,53 @@ describe("docs_promote.yml", () => {
   });
 });
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function dangerousTriggerIgnores(value: unknown): string[] {
+  if (!isRecord(value)) {
+    throw new Error("zizmor.yml root is not an object");
+  }
+  if (!isRecord(value.rules)) {
+    throw new Error("zizmor.yml rules is not an object");
+  }
+  const rule = value.rules["dangerous-triggers"];
+  if (!isRecord(rule) || !Array.isArray(rule.ignore)) {
+    throw new Error("dangerous-triggers.ignore is missing");
+  }
+  const names: string[] = [];
+  for (const item of rule.ignore) {
+    if (typeof item !== "string") {
+      throw new Error("dangerous-triggers.ignore is not a string list");
+    }
+    names.push(item);
+  }
+  return names;
+}
+
+describe("zizmor.yml", () => {
+  it("allows the docs release workflow_run trigger with a safety comment", () => {
+    const configPath = join(
+      dirname(fileURLToPath(import.meta.url)),
+      "..",
+      "..",
+      ".github",
+      "zizmor.yml",
+    );
+    const text = readFileSync(configPath, "utf8");
+    expect(dangerousTriggerIgnores(parseYaml(text))).toContain(
+      "docs_open_release_pr.yml",
+    );
+    const entry = text.match(
+      /# docs_open_release_pr\.yml:[\s\S]*?- docs_open_release_pr\.yml/,
+    );
+    expect(entry?.[0]).toContain("head_branch == 'main'");
+    expect(entry?.[0]).toContain("ref: main");
+    expect(entry?.[0]).toContain("persist-credentials: false");
+  });
+});
+
 describe("showcase_validate.yml", () => {
   it("runs workflow contracts for docs workflow-only changes on PRs and main", () => {
     const doc = load("showcase_validate.yml");
