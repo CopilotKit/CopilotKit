@@ -5415,11 +5415,11 @@ export class CpkThreadInspector extends PortableLitElement {
           aria-expanded=${expanded}
           @click=${() => this.toggleToolExpand(item.id)}
         >
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path
-              d="M1 9C1 9 2 7 5 7C8 7 9 9 9 9M5 1C5 1 7 2.5 7 4.5C7 6.5 5 7 5 7C5 7 3 6.5 3 4.5C3 2.5 5 1 5 1Z"
+              d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94z"
               stroke="currentColor"
-              stroke-width="1.2"
+              stroke-width="2"
               stroke-linecap="round"
               stroke-linejoin="round"
             />
