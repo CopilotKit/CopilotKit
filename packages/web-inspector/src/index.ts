@@ -1230,6 +1230,8 @@ interface ConversationToolCall {
   toolCallId: string;
   arguments: Record<string, unknown>;
   result: Record<string, unknown> | null;
+  hasResult: boolean;
+  resultUnreadable?: boolean;
   createdAt: string;
   groupId?: string;
 }
@@ -2194,6 +2196,7 @@ export class CpkThreadInspector extends PortableLitElement {
     _loadingEvents: { state: true },
     _loadingState: { state: true },
     _messagesError: { state: true },
+    _messageRefreshError: { state: true },
     _eventsError: { state: true },
     _stateError: { state: true },
     _expandedTools: { state: true },
@@ -2248,6 +2251,7 @@ export class CpkThreadInspector extends PortableLitElement {
   private _loadingEvents = false;
   private _loadingState = false;
   private _messagesError: string | null = null;
+  private _messageRefreshError: string | null = null;
   private _eventsError: string | null = null;
   private _stateError: string | null = null;
   private _expandedTools = new Set<string>();
@@ -2388,6 +2392,10 @@ export class CpkThreadInspector extends PortableLitElement {
   private renderTabContent(id: ThreadDetailsTab): TemplateResult {
     if (id === "timeline") {
       return html`${
+        this._messageRefreshError
+          ? html`<div class="cpk-td__status cpk-td__status--error" role="status">${this._messageRefreshError}</div>`
+          : nothing
+      }${
         this._showEventTimeline
           ? html`<div class="cpk-td__timeline-toolbar">${this.renderTimelineBulkButtons()}</div>${this.renderTimeline()}`
           : this._conversation.length ||
@@ -2984,8 +2992,17 @@ export class CpkThreadInspector extends PortableLitElement {
       background: #ffffff;
       color: #71717a;
       cursor: pointer;
+      width: 100%;
+      border: 0;
+      font-family: inherit;
+      text-align: left;
       font-size: 11px;
       user-select: none;
+    }
+
+    .cpk-td__tool-header:focus-visible {
+      outline: 2px solid var(--cpk-primary-color, #7076b3);
+      outline-offset: -2px;
     }
 
     .cpk-td__tool-header:hover {
@@ -3852,7 +3869,9 @@ export class CpkThreadInspector extends PortableLitElement {
   private scrollToFocusedMessage(): void {
     if (!this.focusMessageId) return;
     const message = Array.from(
-      this.shadowRoot?.querySelectorAll<HTMLElement>("[data-message-id]") ?? [],
+      this.shadowRoot?.querySelectorAll<HTMLElement>(
+        `#${this.panelDomId(this._tab)}:not([hidden]) [data-message-id]`,
+      ) ?? [],
     ).find((candidate) => candidate.dataset.messageId === this.focusMessageId);
     if (!message) return;
     message.scrollIntoView?.({ block: "center" });
@@ -3947,6 +3966,7 @@ export class CpkThreadInspector extends PortableLitElement {
     this._loadingEvents = false;
     this._loadingState = false;
     this._messagesError = null;
+    this._messageRefreshError = null;
     this._eventsError = null;
     this._stateError = null;
     this._fetchedMetadata = null;
@@ -3968,7 +3988,7 @@ export class CpkThreadInspector extends PortableLitElement {
       this._fetchedMetadata = metadata;
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
-      if (this.threadId !== threadId) return;
+      if (controller.signal.aborted || this.threadId !== threadId) return;
       this._fetchedMetadata = null;
     }
   }
@@ -3997,6 +4017,7 @@ export class CpkThreadInspector extends PortableLitElement {
     if (!silent) {
       this._loadingMessages = true;
       this._messagesError = null;
+      this._messageRefreshError = null;
     }
     try {
       const messages = this.provider?.getMessages
@@ -4006,17 +4027,22 @@ export class CpkThreadInspector extends PortableLitElement {
         : await this.fetchRuntimeMessages(threadId, controller.signal);
       if (controller.signal.aborted || this.threadId !== threadId) return;
       this._conversation = this.mapMessages(messages);
+      this._messagesError = null;
+      this._messageRefreshError = null;
     } catch (err) {
+      if (controller.signal.aborted || this.threadId !== threadId) return;
       if (err instanceof Error && err.name === "AbortError") return;
-      if (!silent) {
+      if (!silent || this._conversation.length === 0) {
         this._messagesError =
           err instanceof Error ? err.message : "Failed to load messages";
         this._conversation = [];
+      } else {
+        this._messageRefreshError =
+          "Could not refresh messages. Showing the last loaded conversation.";
       }
-      // Silent mode: keep last-good conversation, don't surface the error.
-      // The next successful live re-fetch will recover automatically.
     } finally {
-      if (!silent && !controller.signal.aborted) {
+      // A live refresh can replace the initial request before it finishes.
+      if (!controller.signal.aborted && this.threadId === threadId) {
         this._loadingMessages = false;
       }
     }
@@ -4055,7 +4081,7 @@ export class CpkThreadInspector extends PortableLitElement {
       this._fetchedEvents = mappedEvents;
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
-      if (this.threadId !== threadId) return;
+      if (controller.signal.aborted || this.threadId !== threadId) return;
       this._eventsError =
         err instanceof Error ? err.message : "Failed to load events";
       this._fetchedEvents = [];
@@ -4094,7 +4120,7 @@ export class CpkThreadInspector extends PortableLitElement {
       this._fetchedState = result.state ?? null;
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
-      if (this.threadId !== threadId) return;
+      if (controller.signal.aborted || this.threadId !== threadId) return;
       this._stateError =
         err instanceof Error ? err.message : "Failed to load state";
       this._fetchedState = null;
@@ -4201,6 +4227,7 @@ export class CpkThreadInspector extends PortableLitElement {
               toolCallId: tc.id,
               arguments: args,
               result: null,
+              hasResult: false,
               createdAt: "",
             };
             toolCallMap.set(tc.id, item);
@@ -4226,6 +4253,8 @@ export class CpkThreadInspector extends PortableLitElement {
       } else if (msg.role === "tool" && msg.toolCallId) {
         const tc = toolCallMap.get(msg.toolCallId);
         if (tc) {
+          tc.hasResult = true;
+          tc.resultUnreadable = false;
           try {
             tc.result = this.parseToolCallContent(msg.content);
           } catch (err) {
@@ -4236,6 +4265,7 @@ export class CpkThreadInspector extends PortableLitElement {
               "[CopilotKit Inspector] Failed to parse tool-call result content",
               { toolCallId: msg.toolCallId, raw: msg.content, error: err },
             );
+            tc.resultUnreadable = true;
             tc.result = { __parseError: true, __raw: msg.content ?? null };
           }
         }
@@ -5252,19 +5282,74 @@ export class CpkThreadInspector extends PortableLitElement {
         </div>
       `;
     }
-    // Expand state is part of the cache key because clicking a tool-call
-    // header or the "Show more" button on a long message replaces
-    // `_expandedTools` / `_expandedMessages` without touching
-    // `_conversation` — without those keys the cache returns the
-    // pre-toggle template and the disclosure appears broken.
+    const items = this.renderItems;
+    const errors = this.conversationRunErrors(items);
+    // Event chunks must not rebuild a long conversation. Only the error rows
+    // and their placement are relevant to this panel, not the full event list.
     return this.cachedPanelTpl(
       "timeline-fallback",
-      [this._conversation, this._expandedTools, this._expandedMessages],
+      [
+        this._conversation,
+        this._expandedTools,
+        this._expandedMessages,
+        JSON.stringify(errors),
+        this._expandedTimelineDetails,
+      ],
       () => {
-        const items = this.renderItems;
-        return html`${items.map((item) => this.renderRenderItem(item))}`;
+        const errorsAfter = new Map<number, TimelineItem[]>();
+        for (const { after, item } of errors) {
+          const group = errorsAfter.get(after) ?? [];
+          group.push(item);
+          errorsAfter.set(after, group);
+        }
+        const renderErrors = (after: number) =>
+          errorsAfter.get(after)?.map((item) => this.renderTimelineItem(item));
+        return html`
+          ${renderErrors(-1)}
+          ${items.map((item, index) => html`${this.renderRenderItem(item)}${renderErrors(index)}`)}
+        `;
       },
     );
+  }
+
+  private conversationRunErrors(items: RenderItem[]) {
+    const positions = new Map<string, number>();
+    items.forEach((item, index) => {
+      positions.set(item.id, index);
+      if (item.type === "tool_call_group") {
+        for (const tool of item.items) positions.set(tool.id, index);
+      }
+    });
+    const errors: Array<{ after: number; item: TimelineItem }> = [];
+    let after = -1;
+    let hasAnchor = false;
+    for (const event of this.activeEvents) {
+      const keys = event.type.startsWith("TOOL_CALL")
+        ? ["toolCallId", "tool_call_id", "callId", "id"]
+        : event.type.startsWith("TEXT_MESSAGE") ||
+            event.type.startsWith("ACTIVITY")
+          ? ["messageId", "message_id", "id"]
+          : [];
+      const id = keys
+        .map((key) => event.payload[key])
+        .find((value) => typeof value === "string");
+      const position = id == null ? undefined : positions.get(id);
+      if (position !== undefined) {
+        after = Math.max(after, position);
+        hasAnchor = true;
+      }
+      if (event.type === "RUN_ERROR" || event.type === "ERROR") {
+        for (const item of this.timelineItemsFromEvents([event])) {
+          errors.push({ after, item });
+        }
+      }
+    }
+    // Some runtimes supply errors without message events. Keep those visible
+    // after the saved conversation rather than pretending they happened first.
+    if (!hasAnchor) {
+      for (const error of errors) error.after = items.length - 1;
+    }
+    return errors;
   }
 
   /**
@@ -5373,31 +5458,41 @@ export class CpkThreadInspector extends PortableLitElement {
     const expanded = this._expandedTools.has(item.id);
     return html`
       <div class="cpk-td__tool-block">
-        <div
+        <button
+          type="button"
           class="cpk-td__tool-header"
+          aria-expanded=${expanded}
           @click=${() => this.toggleToolExpand(item.id)}
         >
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path
-              d="M1 9C1 9 2 7 5 7C8 7 9 9 9 9M5 1C5 1 7 2.5 7 4.5C7 6.5 5 7 5 7C5 7 3 6.5 3 4.5C3 2.5 5 1 5 1Z"
+              d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94z"
               stroke="currentColor"
-              stroke-width="1.2"
+              stroke-width="2"
               stroke-linecap="round"
               stroke-linejoin="round"
             />
           </svg>
           <span class="cpk-td__tool-name">${item.toolName}</span>
           ${
-            item.result || Object.keys(item.arguments).length > 0
+            item.resultUnreadable
               ? html`
-                  <span class="cpk-td__tool-status">Complete</span>
+                  <span class="cpk-td__tool-status cpk-td__tool-status--pending"
+                    >Result unreadable</span
+                  >
                 `
-              : html`
-                  <span class="cpk-td__tool-status cpk-td__tool-status--pending">Pending</span>
-                `
+              : item.hasResult
+                ? html`
+                    <span class="cpk-td__tool-status">Result received</span>
+                  `
+                : html`
+                    <span class="cpk-td__tool-status cpk-td__tool-status--pending"
+                      >No result recorded</span
+                    >
+                  `
           }
           <span class="cpk-td__tool-chevron">${expanded ? "▾" : "▸"}</span>
-        </div>
+        </button>
         ${
           expanded
             ? html`
@@ -5405,7 +5500,7 @@ export class CpkThreadInspector extends PortableLitElement {
                 <div class="cpk-td__tool-section-label">Arguments</div>
                 ${renderHighlightedJsonBlock(item.arguments)}
                 ${
-                  item.result
+                  item.hasResult
                     ? html`
                       <div
                         class="cpk-td__tool-section-label"
@@ -12774,9 +12869,8 @@ export class WebInspectorElement extends LitElement {
         data-inspector-home-state=${connected ? "connected" : "disconnected"}
       >
         ${this.renderHomeWhatsNewPreview(model.news)}
-        <header class="inspector-home-heading"><div><h1>${connected ? (model.project?.projectName ?? "Your agent workspace") : "Welcome to Intelligence"}</h1><p>${connected ? "Inspect conversations and see what your agent is learning." : "Connect your agent. Intelligence learns from experience."}</p></div></header>
-        ${connected ? this.renderHomeSystemHealth(model) : this.renderHomeIntelligenceHud(model)}
-        ${connected ? this.renderHomeIntelligenceHud(model) : this.renderHomeSystemHealth(model)}
+        ${this.renderHomeSystemHealth(model)}
+        ${this.renderHomeIntelligenceHud(model)}
         ${this.renderHomeFeatures(model)}
       </div>
     `;
