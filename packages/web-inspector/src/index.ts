@@ -1230,6 +1230,7 @@ interface ConversationToolCall {
   toolCallId: string;
   arguments: Record<string, unknown>;
   result: Record<string, unknown> | null;
+  hasResult: boolean;
   createdAt: string;
   groupId?: string;
 }
@@ -2194,6 +2195,7 @@ export class CpkThreadInspector extends PortableLitElement {
     _loadingEvents: { state: true },
     _loadingState: { state: true },
     _messagesError: { state: true },
+    _messageRefreshError: { state: true },
     _eventsError: { state: true },
     _stateError: { state: true },
     _expandedTools: { state: true },
@@ -2248,6 +2250,7 @@ export class CpkThreadInspector extends PortableLitElement {
   private _loadingEvents = false;
   private _loadingState = false;
   private _messagesError: string | null = null;
+  private _messageRefreshError: string | null = null;
   private _eventsError: string | null = null;
   private _stateError: string | null = null;
   private _expandedTools = new Set<string>();
@@ -2984,8 +2987,17 @@ export class CpkThreadInspector extends PortableLitElement {
       background: #ffffff;
       color: #71717a;
       cursor: pointer;
+      width: 100%;
+      border: 0;
+      font-family: inherit;
+      text-align: left;
       font-size: 11px;
       user-select: none;
+    }
+
+    .cpk-td__tool-header:focus-visible {
+      outline: 2px solid var(--cpk-primary-color, #7076b3);
+      outline-offset: -2px;
     }
 
     .cpk-td__tool-header:hover {
@@ -3852,7 +3864,9 @@ export class CpkThreadInspector extends PortableLitElement {
   private scrollToFocusedMessage(): void {
     if (!this.focusMessageId) return;
     const message = Array.from(
-      this.shadowRoot?.querySelectorAll<HTMLElement>("[data-message-id]") ?? [],
+      this.shadowRoot?.querySelectorAll<HTMLElement>(
+        `#${this.panelDomId(this._tab)}:not([hidden]) [data-message-id]`,
+      ) ?? [],
     ).find((candidate) => candidate.dataset.messageId === this.focusMessageId);
     if (!message) return;
     message.scrollIntoView?.({ block: "center" });
@@ -3947,6 +3961,7 @@ export class CpkThreadInspector extends PortableLitElement {
     this._loadingEvents = false;
     this._loadingState = false;
     this._messagesError = null;
+    this._messageRefreshError = null;
     this._eventsError = null;
     this._stateError = null;
     this._fetchedMetadata = null;
@@ -3968,7 +3983,7 @@ export class CpkThreadInspector extends PortableLitElement {
       this._fetchedMetadata = metadata;
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
-      if (this.threadId !== threadId) return;
+      if (controller.signal.aborted || this.threadId !== threadId) return;
       this._fetchedMetadata = null;
     }
   }
@@ -4006,17 +4021,22 @@ export class CpkThreadInspector extends PortableLitElement {
         : await this.fetchRuntimeMessages(threadId, controller.signal);
       if (controller.signal.aborted || this.threadId !== threadId) return;
       this._conversation = this.mapMessages(messages);
+      this._messagesError = null;
+      this._messageRefreshError = null;
     } catch (err) {
+      if (controller.signal.aborted || this.threadId !== threadId) return;
       if (err instanceof Error && err.name === "AbortError") return;
-      if (!silent) {
+      if (!silent || this._conversation.length === 0) {
         this._messagesError =
           err instanceof Error ? err.message : "Failed to load messages";
         this._conversation = [];
+      } else {
+        this._messageRefreshError =
+          "Could not refresh messages. Showing the last loaded conversation.";
       }
-      // Silent mode: keep last-good conversation, don't surface the error.
-      // The next successful live re-fetch will recover automatically.
     } finally {
-      if (!silent && !controller.signal.aborted) {
+      // A live refresh can replace the initial request before it finishes.
+      if (!controller.signal.aborted && this.threadId === threadId) {
         this._loadingMessages = false;
       }
     }
@@ -4055,7 +4075,7 @@ export class CpkThreadInspector extends PortableLitElement {
       this._fetchedEvents = mappedEvents;
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
-      if (this.threadId !== threadId) return;
+      if (controller.signal.aborted || this.threadId !== threadId) return;
       this._eventsError =
         err instanceof Error ? err.message : "Failed to load events";
       this._fetchedEvents = [];
@@ -4094,7 +4114,7 @@ export class CpkThreadInspector extends PortableLitElement {
       this._fetchedState = result.state ?? null;
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
-      if (this.threadId !== threadId) return;
+      if (controller.signal.aborted || this.threadId !== threadId) return;
       this._stateError =
         err instanceof Error ? err.message : "Failed to load state";
       this._fetchedState = null;
@@ -4201,6 +4221,7 @@ export class CpkThreadInspector extends PortableLitElement {
               toolCallId: tc.id,
               arguments: args,
               result: null,
+              hasResult: false,
               createdAt: "",
             };
             toolCallMap.set(tc.id, item);
@@ -4226,6 +4247,7 @@ export class CpkThreadInspector extends PortableLitElement {
       } else if (msg.role === "tool" && msg.toolCallId) {
         const tc = toolCallMap.get(msg.toolCallId);
         if (tc) {
+          tc.hasResult = true;
           try {
             tc.result = this.parseToolCallContent(msg.content);
           } catch (err) {
@@ -5252,18 +5274,32 @@ export class CpkThreadInspector extends PortableLitElement {
         </div>
       `;
     }
-    // Expand state is part of the cache key because clicking a tool-call
-    // header or the "Show more" button on a long message replaces
-    // `_expandedTools` / `_expandedMessages` without touching
-    // `_conversation` — without those keys the cache returns the
-    // pre-toggle template and the disclosure appears broken.
+    // Include message, event, and disclosure state so unchanged conversations
+    // reuse their template, while refresh warnings and run errors stay current.
     return this.cachedPanelTpl(
       "timeline-fallback",
-      [this._conversation, this._expandedTools, this._expandedMessages],
-      () => {
-        const items = this.renderItems;
-        return html`${items.map((item) => this.renderRenderItem(item))}`;
-      },
+      [
+        this._conversation,
+        this._expandedTools,
+        this._expandedMessages,
+        this._messageRefreshError,
+        this._fetchedEvents,
+        this.agentEventsInput,
+        this.agentMessagesInput,
+        this._eventsNotAvailable,
+        this._expandedTimelineDetails,
+      ],
+      () => html`
+        ${
+          this._messageRefreshError
+            ? html`<div class="cpk-td__status cpk-td__status--error" role="status">${this._messageRefreshError}</div>`
+            : nothing
+        }
+        ${this.activeTimelineItems
+          .filter((item) => item.severity === "error")
+          .map((item) => this.renderTimelineItem(item))}
+        ${this.renderItems.map((item) => this.renderRenderItem(item))}
+      `,
     );
   }
 
@@ -5373,8 +5409,10 @@ export class CpkThreadInspector extends PortableLitElement {
     const expanded = this._expandedTools.has(item.id);
     return html`
       <div class="cpk-td__tool-block">
-        <div
+        <button
+          type="button"
           class="cpk-td__tool-header"
+          aria-expanded=${expanded}
           @click=${() => this.toggleToolExpand(item.id)}
         >
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
@@ -5388,16 +5426,18 @@ export class CpkThreadInspector extends PortableLitElement {
           </svg>
           <span class="cpk-td__tool-name">${item.toolName}</span>
           ${
-            item.result || Object.keys(item.arguments).length > 0
+            item.hasResult
               ? html`
-                  <span class="cpk-td__tool-status">Complete</span>
+                  <span class="cpk-td__tool-status">Result received</span>
                 `
               : html`
-                  <span class="cpk-td__tool-status cpk-td__tool-status--pending">Pending</span>
+                  <span class="cpk-td__tool-status cpk-td__tool-status--pending"
+                    >No result recorded</span
+                  >
                 `
           }
           <span class="cpk-td__tool-chevron">${expanded ? "▾" : "▸"}</span>
-        </div>
+        </button>
         ${
           expanded
             ? html`
@@ -5405,7 +5445,7 @@ export class CpkThreadInspector extends PortableLitElement {
                 <div class="cpk-td__tool-section-label">Arguments</div>
                 ${renderHighlightedJsonBlock(item.arguments)}
                 ${
-                  item.result
+                  item.hasResult
                     ? html`
                       <div
                         class="cpk-td__tool-section-label"
