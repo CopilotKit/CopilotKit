@@ -234,6 +234,8 @@ The path above publishes CopilotKit tools onto the page for browser agents.
 
 Use `useWebmcpTools` (React and Vue) or `registerWebmcpTools` (Angular) to import page tools into CopilotKit. Then a CopilotKit agent can call tools that the page already registered on `document.modelContext`.
 
+<FrontendOnly frontend="react">
+
 ```tsx
 import { useWebmcpTools } from "@copilotkit/react-core/v2";
 
@@ -241,6 +243,30 @@ useWebmcpTools({
   filter: (tool) => tool.name.startsWith("search"),
 });
 ```
+
+</FrontendOnly>
+<FrontendOnly frontend="vue">
+
+```ts
+import { useWebmcpTools } from "@copilotkit/vue/v2";
+
+useWebmcpTools({
+  filter: (tool) => tool.name.startsWith("search"),
+});
+```
+
+</FrontendOnly>
+<FrontendOnly frontend="angular">
+
+```ts
+import { registerWebmcpTools } from "@copilotkit/angular";
+
+registerWebmcpTools({
+  filter: (tool) => tool.name.startsWith("search"),
+});
+```
+
+</FrontendOnly>
 
 `filter` receives the page tool and returns true to import it. Filter order is allow, then deny, then `filter`.
 
