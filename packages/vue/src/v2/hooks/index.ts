@@ -2,6 +2,8 @@ export { useAgent, UseAgentUpdate } from "./use-agent";
 export { useAgentContext } from "./use-agent-context";
 export type { AgentContextInput, JsonSerializable } from "./use-agent-context";
 export { useFrontendTool } from "./use-frontend-tool";
+export { useWebmcpTools } from "./use-webmcp-tools";
+export type { WebMCPToolsOptions } from "./use-webmcp-tools";
 export { useComponent } from "./use-component";
 export { useRenderTool } from "./use-render-tool";
 export { useDefaultRenderTool } from "./use-default-render-tool";
