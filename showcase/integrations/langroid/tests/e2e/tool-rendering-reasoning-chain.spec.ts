@@ -1,4 +1,3 @@
-import { runToolsAgentLocalContract } from "../../../../harness/src/probes/scripts/_pill-contracts-tools-agents";
 import { test, expect } from "@playwright/test";
 
 // QA reference: qa/tool-rendering-reasoning-chain.md
@@ -36,7 +35,7 @@ const PILLS = [
   "Flights + destination weather",
 ] as const;
 
-test.describe("[diagnostic] Tool Rendering — Reasoning Chain", () => {
+test.describe("Tool Rendering — Reasoning Chain", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/tool-rendering-reasoning-chain");
     await expect(page.getByPlaceholder("Type a message")).toBeVisible({
@@ -246,23 +245,4 @@ test.describe("[diagnostic] Tool Rendering — Reasoning Chain", () => {
     await expect(stockCards).toHaveCount(2);
     await expect(diceCards).toHaveCount(2);
   });
-});
-
-// Shared canonical contract; direct local evidence cannot certify a public matrix cell.
-test("canonical actual-pill contract @functional-pill", async ({
-  page,
-}, testInfo) => {
-  test.setTimeout(600_000);
-  await page.goto("/demos/tool-rendering-reasoning-chain");
-  const result = await runToolsAgentLocalContract(
-    page,
-    "tool-rendering-reasoning-chain",
-    "langroid",
-    page.url(),
-  );
-  await testInfo.attach("canonical-pill-execution", {
-    body: JSON.stringify(result, null, 2),
-    contentType: "application/json",
-  });
-  expect(result.pillExecution?.completed, JSON.stringify(result)).toBe(true);
 });

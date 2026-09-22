@@ -25,12 +25,8 @@
 // `<CopilotChat onError>` covers agent-run rejections, which is what the
 // sign-out path produces.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  CopilotKit,
-  CopilotChat,
-  useCopilotKit,
-} from "@copilotkit/react-core/v2";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/react-core/v2";
 import { AuthBanner } from "./auth-banner";
 import { SignInCard } from "./sign-in-card";
@@ -42,38 +38,9 @@ interface AuthDemoErrorState {
   code: CopilotKitCoreErrorCode | string;
 }
 
-function AuthRequestOwnership({
-  getGeneration,
-  recordError,
-}: {
-  getGeneration: () => number;
-  recordError: (error: Error, generation: number) => void;
-}) {
-  const { copilotkit } = useCopilotKit();
-
-  useEffect(() => {
-    const active = new Set<{ unsubscribe: () => void }>();
-    const coreSubscription = copilotkit.subscribe({
-      onAgentRunStarted: ({ agent }) => {
-        if (agent.agentId !== "auth-demo") return;
-        const generation = getGeneration();
-        const subscription = agent.subscribe({
-          onRunFailed: ({ error }) => recordError(error, generation),
-          onRunFinalized: () => {
-            subscription.unsubscribe();
-            active.delete(subscription);
-          },
-        });
-        active.add(subscription);
-      },
-    });
-    return () => {
-      coreSubscription.unsubscribe();
-      for (const subscription of active) subscription.unsubscribe();
-    };
-  }, [copilotkit, getGeneration, recordError]);
-
-  return null;
+interface AuthErrorEvent {
+  error?: { message?: string } | null;
+  code: CopilotKitCoreErrorCode;
 }
 
 export default function AuthDemoPage() {
@@ -86,63 +53,36 @@ export default function AuthDemoPage() {
   } = useDemoAuth();
 
   const headers = useMemo<Record<string, string>>(
-    (): Record<string, string> =>
-      authorizationHeader ? { Authorization: authorizationHeader } : {},
+    () => (authorizationHeader ? { Authorization: authorizationHeader } : {}),
     [authorizationHeader],
   );
 
   const [authError, setAuthError] = useState<AuthDemoErrorState | null>(null);
-  const authGeneration = useRef(0);
-  const errorGenerations = useRef(new WeakMap<object, number>());
-  const getGeneration = useCallback(() => authGeneration.current, []);
-  const recordError = useCallback((error: Error, generation: number) => {
-    errorGenerations.current.set(error, generation);
-  }, []);
-  const signInCurrentSession = useCallback(
-    (token: string) => {
-      authGeneration.current += 1;
-      setAuthError(null);
-      signIn(token);
-    },
-    [signIn],
-  );
-  const signOutCurrentSession = useCallback(() => {
-    authGeneration.current += 1;
-    signOut();
-  }, [signOut]);
 
   // Shared error handler wired to BOTH the provider-level and chat-level
   // `onError` channels (see the file header for why both are needed).
-  const handleAuthError = useCallback((event: unknown) => {
-    if (typeof event !== "object" || event === null || !("error" in event))
-      return;
-    const detail = event.error;
-    if (typeof detail === "object" && detail !== null) {
-      const generation = errorGenerations.current.get(detail);
-      if (generation !== undefined && generation !== authGeneration.current)
-        return;
-    }
-    const rawMessage =
-      typeof detail === "object" &&
-      detail !== null &&
-      "message" in detail &&
-      typeof detail.message === "string"
-        ? detail.message
-        : "";
-    const code =
-      "code" in event && typeof event.code === "string"
-        ? event.code
-        : "type" in event && typeof event.type === "string"
-          ? event.type
-          : "request_error";
+  const handleAuthError = useCallback((event: AuthErrorEvent) => {
     setAuthError({
-      message: rawMessage.trim() || `Request rejected (${code})`,
-      code,
+      message:
+        (event.error?.message && event.error.message.trim()) ||
+        (event.code
+          ? `Request rejected (${event.code})`
+          : "The request was rejected."),
+      code: event.code,
     });
   }, []);
 
-  // Re-authentication clears the visible error. Request ownership above also
-  // prevents an older rejected request from restoring it after this effect.
+  // Clear stale errors as soon as the user re-authenticates. This is the
+  // ONLY thing that gates the amber error surface on auth state — the render
+  // condition below keys off `authError` alone. Coupling the render to a
+  // second `!isAuthenticated` slice (the obvious-but-wrong guard) created a
+  // post-sign-out race: the rejection's `onError` fires and calls
+  // `setAuthError`, but if that commit landed in a render where the auth
+  // state hadn't yet settled to false, `authError && !isAuthenticated`
+  // evaluated false and the banner never appeared. Driving the surface off
+  // `authError` and clearing it here on re-auth removes the cross-slice
+  // ordering dependency: a rejection always renders, and signing back in
+  // always wipes it.
   useEffect(() => {
     if (isAuthenticated) setAuthError(null);
   }, [isAuthenticated]);
@@ -150,7 +90,7 @@ export default function AuthDemoPage() {
   if (!hasEverSignedIn) {
     return (
       <div className="flex h-screen flex-col">
-        <SignInCard onSignIn={signInCurrentSession} />
+        <SignInCard onSignIn={signIn} />
       </div>
     );
   }
@@ -166,15 +106,11 @@ export default function AuthDemoPage() {
       useSingleEndpoint={false}
       onError={handleAuthError}
     >
-      <AuthRequestOwnership
-        getGeneration={getGeneration}
-        recordError={recordError}
-      />
       <div className="flex h-screen flex-col gap-3 p-6">
         <AuthBanner
           authenticated={isAuthenticated}
-          onSignOut={signOutCurrentSession}
-          onSignIn={() => signInCurrentSession(DEMO_TOKEN)}
+          onSignOut={signOut}
+          onSignIn={() => signIn(DEMO_TOKEN)}
         />
         <header>
           <h1 className="text-lg font-semibold">Authentication</h1>

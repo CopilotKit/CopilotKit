@@ -1,8 +1,33 @@
-import { buildToolsAgentTurns } from "./_pill-contracts-tools-agents.js";
 /**
- * Functional acceptance uses the shared canonical LGP pill contract below.
- * Exported legacy assertion helpers remain for supplemental regression tests;
- * buildTurns never uses their weaker diagnostic-only acceptance criteria.
+ * D5 — `subagents` script.
+ *
+ * Phase-2A split (see `.claude/specs/lgp-test-genuine-pass.md`): the old
+ * `d5-mcp-subagents.ts` probe claimed both `mcp-apps` and `subagents`
+ * with a shared text-fragment assertion. This probe is now scoped to
+ * `subagents` only and asserts the 3 subagent-card testids that
+ * Phase-1D introduces in production code:
+ *
+ *   - `[data-testid="subagent-card-researcher"]`
+ *   - `[data-testid="subagent-card-writer"]`
+ *   - `[data-testid="subagent-card-critic"]`
+ *
+ * The chain unfolds as research → writing → critique. We still rely on
+ * the existing `mcp-subagents.json` fixture (recorded against this same
+ * supervisor flow) so the conversation drives all three sub-agents in
+ * one turn.
+ *
+ * Assertions:
+ *   1. All three subagent cards present at terminal state.
+ *   2. The critic appears EXACTLY ONCE (no looping / re-entry — Phase-1D
+ *      backend bug fix). Drift here would indicate the supervisor
+ *      regressed into re-invoking the critic agent.
+ *   3. The rendered transcript contains non-boilerplate content — proxy
+ *      for "the chain produced a coherent reply rather than canned
+ *      placeholder text".
+ *
+ * Side effect: importing this module triggers `registerD5Script`. The
+ * default loader in `d6-all-pills.ts` discovers it via the `d5-*` filename
+ * convention.
  */
 
 import { registerD5Script } from "../helpers/d5-registry.js";
@@ -209,7 +234,22 @@ export async function assertSubagentsChain(
  * land and the critic has run exactly once.
  */
 export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
-  return buildToolsAgentTurns("subagents");
+  return [
+    {
+      input: USER_PROMPT,
+      // Wrapped so the assertions callback ignores the Phase-4 `ctx`
+      // argument: `assertSubagentsChain` takes `(page, timeoutMs?, dwellMs?)`,
+      // not `(page, ctx)`, and ctx is irrelevant to the chain-card probe.
+      assertions: async (page) => {
+        await assertSubagentsChain(page);
+      },
+      // The chain involves 3 LLM round-trips; bump the per-turn
+      // response timeout to match the polling budget so the runner
+      // doesn't declare timeout BEFORE the assertion has a chance to
+      // poll on a settled DOM.
+      responseTimeoutMs: 60_000,
+    },
+  ];
 }
 
 registerD5Script({

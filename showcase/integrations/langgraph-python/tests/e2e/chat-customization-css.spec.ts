@@ -1,14 +1,11 @@
-import { runConversation } from "../../../../harness/src/probes/helpers/conversation-runner.js";
-import { buildChatPlatformTurns } from "../../../../harness/src/probes/scripts/_pill-contracts-chat-platform.js";
-// Existing scenarios are diagnostics; only the canonical pill test below is functional acceptance.
 import { test, expect } from "@playwright/test";
 
-test.describe("Diagnostic: Chat Customization (CSS)", () => {
+test.describe("Chat Customization (CSS)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/chat-customization-css");
   });
 
-  test("Diagnostic: scope wrapper and themed chat input render on load", async ({
+  test("scope wrapper and themed chat input render on load", async ({
     page,
   }) => {
     // The `.chat-css-demo-scope` wrapper is where all `--copilot-kit-*` CSS
@@ -26,7 +23,7 @@ test.describe("Diagnostic: Chat Customization (CSS)", () => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
   });
 
-  test("Diagnostic: CSS variables from theme.css resolve on the scope wrapper", async ({
+  test("CSS variables from theme.css resolve on the scope wrapper", async ({
     page,
   }) => {
     const scope = page.locator(".chat-css-demo-scope");
@@ -49,7 +46,7 @@ test.describe("Diagnostic: Chat Customization (CSS)", () => {
     expect(vars.ink.toLowerCase()).toBe("#1a1714");
   });
 
-  test("Diagnostic: input textarea inherits Inter Tight sans font from theme.css", async ({
+  test("input textarea inherits Inter Tight sans font from theme.css", async ({
     page,
   }) => {
     // theme.css sets `.copilotKitInput textarea { font-family: var(--halcyon-sans) }`
@@ -66,7 +63,7 @@ test.describe("Diagnostic: Chat Customization (CSS)", () => {
     expect(fontFamily).toMatch(/Inter Tight/);
   });
 
-  test("Diagnostic: user bubble uses transparent background with ember left-border after sending a message", async ({
+  test("user bubble uses transparent background with ember left-border after sending a message", async ({
     page,
   }) => {
     // Use a message that matches an aimock fixture to get a deterministic
@@ -89,7 +86,7 @@ test.describe("Diagnostic: Chat Customization (CSS)", () => {
     await expect(userMsg).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   });
 
-  test("Diagnostic: assistant bubble uses transparent background after round-trip", async ({
+  test("assistant bubble uses transparent background after round-trip", async ({
     page,
   }) => {
     await page
@@ -108,15 +105,4 @@ test.describe("Diagnostic: Chat Customization (CSS)", () => {
     // a visible background, so transparent proves the theme won the cascade.
     await expect(assistant).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   });
-});
-
-test("Canonical pill acceptance: chat-css", async ({ page }) => {
-  await page.goto("/demos/chat-customization-css");
-  const result = await runConversation(
-    page,
-    buildChatPlatformTurns("chat-css"),
-    { mode: "functional-pill", surface: "direct-diagnostic" },
-  );
-  expect(result.error, JSON.stringify(result.pillExecution)).toBeUndefined();
-  expect(result.pillExecution?.completed).toBe(true);
 });

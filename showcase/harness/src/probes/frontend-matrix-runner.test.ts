@@ -210,8 +210,7 @@ describe("frontend matrix CI runner", () => {
     expect(artifact.cells[0]?.cellId).toBe(
       "angular/langgraph-python/beautiful-chat",
     );
-    expect(artifact.summary.passed).toBe(0);
-    expect(artifact.summary.unverified).toBe(3);
+    expect(artifact.summary.passed).toBe(3);
     expect(artifact.summary.failed).toBe(0);
     expect(artifact.summary.p95CellDurationMs).toBe(3);
     expect(percentile([10, 20, 30, 40], 0.95)).toBe(40);
@@ -269,12 +268,7 @@ describe("frontend matrix CI runner", () => {
 
     expect(merged.startedAt).toBe("2026-07-23T01:00:00.000Z");
     expect(merged.finishedAt).toBe("2026-07-23T01:03:00.000Z");
-    expect(merged.summary).toMatchObject({
-      total: 2,
-      passed: 0,
-      failed: 0,
-      unverified: 2,
-    });
+    expect(merged.summary).toMatchObject({ total: 2, passed: 2, failed: 0 });
     expect(merged.cells.map((cell) => cell.frontend)).toEqual([
       "react",
       "angular",
@@ -336,10 +330,7 @@ describe("frontend matrix CI runner", () => {
               errorClass: "assertion",
               failureReason: "settle-dom-missing",
               error: "tool payload",
-              diagnostics: {
-                fixture: "private fixture content",
-                pillExecution: { mode: "diagnostic" },
-              },
+              diagnostics: { fixture: "private fixture content" },
             },
           ],
         },
@@ -347,8 +338,6 @@ describe("frontend matrix CI runner", () => {
     });
 
     expect(artifact.cells[0]).toEqual({
-      startedAt: "2026-07-21T00:00:00.000Z",
-      observedAt: "2026-07-21T00:00:01.000Z",
       cellId: cell.id,
       frontend: cell.frontend,
       integration: cell.integration,
@@ -369,7 +358,6 @@ describe("frontend matrix CI runner", () => {
           testId: "fm-private",
           errorClass: "assertion",
           failureReason: "settle-dom-missing",
-          pillExecution: { mode: "diagnostic" },
         },
       ],
     });

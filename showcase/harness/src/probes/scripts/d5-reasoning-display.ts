@@ -1,8 +1,31 @@
-import { buildToolsAgentTurns } from "./_pill-contracts-tools-agents.js";
 /**
- * Functional acceptance uses the shared canonical LGP pill contract below.
- * Exported legacy assertion helpers remain for supplemental regression tests;
- * buildTurns never uses their weaker diagnostic-only acceptance criteria.
+ * D5 — reasoning-display script.
+ *
+ * Covers BOTH `/demos/reasoning-custom` and `/demos/reasoning-default` as
+ * independent feature types. They share the prompt and assertion contract,
+ * but each route gets its own browser run and D5/D6 result.
+ *
+ * NOTE: in the LGP demo-pass these routes were renamed from
+ * `agentic-chat-reasoning` → `reasoning-custom` and
+ * `reasoning-default-render` → `reasoning-default`; the genuine-pass Phase 0
+ * cleanup updates the mapping and this branch logic accordingly.
+ *
+ * Assertion (strict-only): a reasoning-role message must render via
+ * one of the known stable selectors:
+ *   - `[data-testid="reasoning-block"]`
+ *   - `[data-testid="reasoning-content"]`
+ *   - `[data-testid="reasoning-default"]`
+ *   - `[data-message-role="reasoning"]`
+ *
+ * The probe used to also accept a transcript-keyword fallback
+ * (`"reasoning"`, `"step"`, `"thinking"`), but those tokens are
+ * typical assistant acknowledgements of the user prompt
+ * ("show your reasoning step by step") and made the assertion
+ * pass regardless of whether the framework actually surfaced
+ * REASONING_MESSAGE_* events to the frontend. The fallback was
+ * non-genuine and has been removed. Integrations that render
+ * reasoning inline without a stable testid must add one to be
+ * counted by this probe.
  */
 
 import { registerD5Script } from "../helpers/d5-registry.js";
@@ -72,12 +95,13 @@ export function buildReasoningAssertion(opts?: {
   };
 }
 
-export function buildTurns(ctx: D5BuildContext): ConversationTurn[] {
-  return buildToolsAgentTurns(
-    ctx.featureType === "reasoning-default"
-      ? "reasoning-default"
-      : "reasoning-custom",
-  );
+export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
+  return [
+    {
+      input: "show your reasoning step by step",
+      assertions: buildReasoningAssertion(),
+    },
+  ];
 }
 
 /** Route each probe identity to the surface it reports. */

@@ -97,6 +97,9 @@ describe("CopilotKitProvider wildcard behavior", () => {
     const { getCore } = mountWithProvider(() => h("div"), { humanInTheLoop });
 
     expect(getCore().getTool({ toolName: "*" })).toBeDefined();
+    expect(getCore().getTool({ toolName: "*" })?.type).toBe(
+      "human-in-the-loop",
+    );
     const wildcardRender = getCore().renderToolCalls.find(
       (rc) => rc.name === "*",
     );

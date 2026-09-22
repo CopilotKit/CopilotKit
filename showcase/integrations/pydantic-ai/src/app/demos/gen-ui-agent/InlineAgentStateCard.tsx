@@ -5,8 +5,13 @@ import React from "react";
 /**
  * Step shape this card renders.
  *
- * Matches `Step` in `src/agents/gen_ui_agent.py`. The backend's
- * `set_steps` tool publishes the complete list in an AG-UI state snapshot.
+ * NOTE: nothing in this package emits it yet. `gen-ui-agent` has no route
+ * override in `src/app/api/copilotkit/route.ts`, so it proxies to the root
+ * sales agent (`src/agents/agent.py`) — which has no `set_steps` tool and no
+ * `steps` state slot. `set_steps` appears in zero Python files here. The cell
+ * is red on `main`; tracked in GH #6381. The fix is to port a
+ * `gen_ui_agent.py` (see `showcase/integrations/llamaindex/src/agents/
+ * gen_ui_agent.py` for the reference implementation) and repoint the route.
  *
  * Status transitions: pending -> in_progress -> completed.
  */
@@ -25,11 +30,9 @@ export function InlineAgentStateCard({
 }) {
   const total = steps.length;
   const done = steps.filter((s) => s.status === "completed").length;
-  const isComplete = total > 0 && done === total;
-  const headline = isComplete
-    ? `All ${total} steps complete`
-    : status === "complete"
-      ? `${done} of ${total} steps complete`
+  const headline =
+    status === "complete" || (total > 0 && done === total)
+      ? `All ${total} steps complete`
       : total > 0
         ? `Step ${Math.min(done + 1, total)} of ${total}`
         : "Planning…";
@@ -40,12 +43,10 @@ export function InlineAgentStateCard({
       className="my-3 mx-4 rounded-2xl border border-[#DBDBE5] bg-white p-4 shadow-sm"
     >
       <div className="flex items-center gap-2">
-        {isComplete ? (
-          <CheckIcon />
-        ) : status === "inProgress" ? (
+        {status === "inProgress" && done < total ? (
           <SpinnerIcon />
         ) : (
-          <IncompleteIcon />
+          <CheckIcon />
         )}
         <span className="text-sm font-semibold text-[#010507]">{headline}</span>
       </div>
@@ -59,11 +60,7 @@ export function InlineAgentStateCard({
               data-status={step.status}
               className="flex items-start gap-3"
             >
-              <StepMarker
-                status={step.status}
-                index={idx}
-                isRunning={status === "inProgress"}
-              />
+              <StepMarker status={step.status} index={idx} />
               <span
                 className={
                   "text-xs leading-5 " +
@@ -87,11 +84,9 @@ export function InlineAgentStateCard({
 function StepMarker({
   status,
   index,
-  isRunning,
 }: {
   status: Step["status"];
   index: number;
-  isRunning: boolean;
 }) {
   if (status === "completed") {
     return (
@@ -116,7 +111,7 @@ function StepMarker({
     return (
       <span className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-[#BEC2FF] text-[#010507]">
         <svg
-          className={"h-3 w-3" + (isRunning ? " animate-spin" : "")}
+          className="h-3 w-3 animate-spin"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
@@ -184,20 +179,6 @@ function CheckIcon() {
         strokeWidth={3}
         d="M5 13l4 4L19 7"
       />
-    </svg>
-  );
-}
-
-function IncompleteIcon() {
-  return (
-    <svg
-      className="w-4 h-4 text-[#57575B]"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <circle cx="12" cy="12" r="9" strokeWidth={2} />
-      <path strokeLinecap="round" strokeWidth={2} d="M8 12h8" />
     </svg>
   );
 }

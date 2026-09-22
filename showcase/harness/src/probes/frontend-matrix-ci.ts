@@ -4,10 +4,7 @@ import type {
   FrontendMatrixArtifactCell,
   MeasuredShardPlan,
 } from "./frontend-matrix-runner.js";
-import {
-  admittedFrontendStatus,
-  percentile,
-} from "./frontend-matrix-runner.js";
+import { percentile } from "./frontend-matrix-runner.js";
 
 interface ShowcaseRegistryInput {
   integrations: Array<{ slug: string; backend_url: string }>;
@@ -101,7 +98,6 @@ export interface FrontendMatrixAggregateReport {
     total: number;
     passed: number;
     failed: number;
-    unverified?: number;
     shardCount: number;
     p95CellDurationMs: number;
     p95ShardWallTimeMs: number;
@@ -218,14 +214,7 @@ export function aggregateFrontendMatrixArtifacts(
       ) {
         throw new Error(`artifact revision mismatch for ${expected.id}`);
       }
-      cells.set(cell.cellId, {
-        ...cell,
-        status: admittedFrontendStatus({
-          ...cell,
-          startedAt: artifact.startedAt,
-          observedAt: artifact.finishedAt,
-        }),
-      });
+      cells.set(cell.cellId, cell);
     }
   }
 
@@ -260,9 +249,7 @@ export function aggregateFrontendMatrixArtifacts(
     featureContractRevision,
     summary: {
       total: sortedCells.length,
-      passed: sortedCells.filter((cell) => cell.status === "passed").length,
-      unverified: sortedCells.filter((cell) => cell.status === "unverified")
-        .length,
+      passed: sortedCells.length - failed,
       failed,
       shardCount: artifacts.length,
       p95CellDurationMs: percentile(

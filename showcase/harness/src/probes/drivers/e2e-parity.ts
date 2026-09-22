@@ -8,10 +8,7 @@ import type {
   D5FeatureType,
   D5Script,
 } from "../helpers/d5-registry.js";
-import {
-  runConversation,
-  UnverifiedDefinitionError,
-} from "../helpers/conversation-runner.js";
+import { runConversation } from "../helpers/conversation-runner.js";
 import type {
   ConversationResult,
   Page as RunnerPage,
@@ -237,7 +234,6 @@ export type E2eParityLoadReference = (
 export type E2eParityRunConversation = (
   page: E2eParityPage,
   turns: ReturnType<D5Script["buildTurns"]>,
-  options?: { mode: "diagnostic" | "functional-pill" },
 ) => Promise<ConversationResult>;
 
 /**
@@ -468,15 +464,8 @@ const defaultSerializeDom: E2eParitySerializeDom = (page) =>
 const defaultLoadReference: E2eParityLoadReference = (featureType, outputDir) =>
   loadReferenceSnapshot(featureType, outputDir);
 
-const defaultRunConversation: E2eParityRunConversation = (
-  page,
-  turns,
-  options,
-) =>
-  runConversation(page.asPlaywrightPage?.() ?? (page as RunnerPage), turns, {
-    mode: options?.mode ?? "functional-pill",
-    surface: "direct-diagnostic",
-  });
+const defaultRunConversation: E2eParityRunConversation = (page, turns) =>
+  runConversation(page as RunnerPage, turns);
 
 /**
  * Default fleet resolver — reads `registry.json` (same path
@@ -1072,7 +1061,6 @@ export function createE2eParityDriver(
             pageTimeoutMs,
             script,
             buildCtx: {
-              demoId: new URL(url).pathname.split("/").filter(Boolean).at(-1),
               integrationSlug: slug,
               featureType: ft,
               baseUrl: backendUrl,
@@ -1268,7 +1256,7 @@ async function runFeatureCapture(
     if (turns.length === 0) {
       return {
         ok: false,
-        errorClass: "unverified-definition",
+        errorClass: "script-error",
         errorDesc: "script produced zero turns",
       };
     }
@@ -1321,7 +1309,7 @@ async function runFeatureCapture(
           turnResult.error ?? "conversation failed without error message";
         return {
           ok: false,
-          errorClass: turnResult.errorClass ?? "conversation-error",
+          errorClass: "conversation-error",
           errorDesc: truncateUtf8(
             `turn ${outerTurnIndex}: ${innerError}`,
             1200,
@@ -1348,11 +1336,7 @@ async function runFeatureCapture(
     const msg = err instanceof Error ? err.message : String(err);
     return {
       ok: false,
-      errorClass: abortSignal.aborted
-        ? "abort"
-        : err instanceof UnverifiedDefinitionError
-          ? err.errorClass
-          : "driver-error",
+      errorClass: abortSignal.aborted ? "abort" : "driver-error",
       errorDesc: truncateUtf8(msg, 1200),
     };
   } finally {

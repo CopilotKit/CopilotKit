@@ -223,6 +223,22 @@ re-installing.
     # INTELLIGENCE_GATEWAY_WS_URL=wss://realtime.intelligence.example.com
     ```
 
+    #### Where these values come from
+
+    Three variables matter here, and you supply only one:
+
+    - `OPENAI_API_KEY`, or the key for whichever model provider your agent uses.
+      This one is yours to create and paste.
+    - `CPK_INTELLIGENCE_API_KEY` is written for you by
+      `copilotkit project select`, which provisions the project and its key.
+    - `CHANNEL_CODE` is written for you by the onboarding run once it has
+      declared the Channel; the run knows the Code it just created.
+
+    So both Intelligence values land in the environment file your app loads and
+    you never copy either one by hand. Setting them yourself still works: see
+    [configure the runtime handoff](/channels/intelligence#configure-the-runtime-handoff)
+    for where each value appears in Intelligence.
+
     Hosted Intelligence supplies both managed base URLs by default. For a
     self-hosted or non-production deployment, override both together. The REST
     and realtime planes use separate hosts, so do not derive the WebSocket URL

@@ -16,7 +16,7 @@ const AGENT_ID = "video-agent";
 const VIDEO_URL =
   "https://cdn.copilotkit.ai/corp-site/videos/copilotkit-generative-ui-agentic-frontend-demo.webm";
 const VIDEO_FALLBACK =
-  "The demo video is unavailable. Use the example threads to explore Messages, AG-UI Events, and State.";
+  "The demo video is unavailable. Use the example threads to explore Conversation, AG-UI Events, and State.";
 
 const ENABLED_ENDPOINTS = {
   list: true,

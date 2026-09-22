@@ -204,8 +204,6 @@ export function isD5FeatureType(value: unknown): value is D5FeatureType {
  * conversation can compose absolute URLs.
  */
 export interface D5BuildContext {
-  /** Actual selected demo, distinct from a shared feature category. */
-  demoId?: string;
   integrationSlug: string;
   featureType: D5FeatureType;
   baseUrl: string;

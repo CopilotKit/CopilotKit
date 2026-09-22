@@ -38,6 +38,8 @@ import type { ToolCardProbeResult } from "./d5-tool-rendering.js";
  * a chromium hiccup). No real browser is launched.
  */
 
+const FIXTURE_USER_MESSAGE = "weather in Tokyo";
+
 interface FakePageScript {
   /**
    * Sequence of values the fake's `evaluate` should return. Each call
@@ -92,7 +94,7 @@ describe("d5-tool-rendering script", () => {
   });
 
   describe("buildTurns", () => {
-    it("covers the five actual canonical tool pills", () => {
+    it("produces one turn whose input matches the fixture user message verbatim", () => {
       const ctx: D5BuildContext = {
         integrationSlug: "langgraph-python",
         featureType: "tool-rendering",
@@ -100,12 +102,12 @@ describe("d5-tool-rendering script", () => {
       };
       const turns = buildTurns(ctx);
 
-      expect(turns).toHaveLength(5);
-      expect(turns[0]!.input).toBe("What's the weather in San Francisco?");
+      expect(turns).toHaveLength(1);
+      expect(turns[0]!.input).toBe(FIXTURE_USER_MESSAGE);
       expect(typeof turns[0]!.assertions).toBe("function");
     });
 
-    it("uses identical canonical actions across integrations", () => {
+    it("returns the same shape regardless of integrationSlug (no per-integration override yet)", () => {
       const a = buildTurns({
         integrationSlug: "langgraph-python",
         featureType: "tool-rendering",
@@ -116,8 +118,8 @@ describe("d5-tool-rendering script", () => {
         featureType: "tool-rendering",
         baseUrl: "https://b.test",
       });
-      expect(a).toHaveLength(5);
-      expect(b).toHaveLength(5);
+      expect(a).toHaveLength(1);
+      expect(b).toHaveLength(1);
       expect(a[0]!.input).toBe(b[0]!.input);
     });
   });

@@ -287,7 +287,7 @@
         "context": "agno"
       },
       "response": {
-        "content": "I retrieved AAPL's price and percentage change. The stock result above shows the returned values."
+        "content": "AAPL is trading at $189.42, up 1.27% on the day. The card above shows the live ticker and the percentage change."
       }
     },
     {

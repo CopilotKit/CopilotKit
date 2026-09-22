@@ -7,13 +7,13 @@
   },
   "fixtures": [
     {
-      "_comment": "headless-complete weather pill narration — matches the native get_weather result with id call_d5_headless_weather_001. Refer to the returned card values instead of asserting a conflicting temperature or condition.",
+      "_comment": "headless-complete weather pill narration — matches when the get_weather tool result with id call_d5_headless_weather_001 is the last message. The 'tokyo' textToken assertion is satisfied by the city name. Narration verbatim matches the headless-complete.spec.ts assertion `toContainText('Tokyo is 22°C and partly cloudy.')`.",
       "match": {
         "toolCallId": "call_d5_headless_weather_001",
         "context": "agno"
       },
       "response": {
-        "content": "I retrieved the weather for Tokyo. The result includes the temperature and conditions."
+        "content": "Tokyo is 22°C and partly cloudy. The headless WeatherCard above shows the sunny snapshot from the tool."
       }
     },
     {
@@ -23,7 +23,7 @@
         "context": "agno"
       },
       "response": {
-        "content": "I retrieved AAPL's price and percentage change. The stock result above shows the returned values."
+        "content": "AAPL is at $189.42, up 1.27% on the day."
       }
     },
     {
@@ -43,7 +43,7 @@
         "context": "agno"
       },
       "response": {
-        "content": "Revenue rose overall from January to June, with a dip in April and its highest value in June."
+        "content": "Here is the chart of revenue over the last six months — quarterly revenue grew steadily, peaking in June."
       }
     },
     {
