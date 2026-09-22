@@ -3616,7 +3616,7 @@ describe("WebInspectorElement memories — view states", () => {
     // through `feature/stop` when a prerequisite is missing, which is why the
     // route beats this pane guessing at one.
     expect(String(writeText.mock.calls[0]?.[0])).toContain(
-      "--intent add-learning",
+      "?intent=add-learning",
     );
     expect(copy?.getAttribute("aria-label")).toContain("Learning");
     expect(internals.selectedMenu).toBe("memories");

@@ -442,7 +442,7 @@ test("disabled feature rows open their landing pages, where setup prompts can be
     const threadsPrompt = String(writeText.mock.calls[0]?.[0]);
     // The Threads button names the outcome and lets the route carry the rest;
     // the guide link it used to paste belongs to feature/rich-threads.
-    expect(threadsPrompt).toContain("--intent add-rich-threads");
+    expect(threadsPrompt).toContain("?intent=add-rich-threads");
     expect(threadsPrompt).not.toContain(
       "This task is specifically to enable Threads",
     );
