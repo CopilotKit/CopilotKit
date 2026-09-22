@@ -66,6 +66,7 @@ Before editing anything that looks like product docs, read [Documentation](.clau
 - When an Intelligence feature ships or Intelligence docs are added, renamed, or removed, follow `skills/intelligence-docs/SKILL.md` so `/intelligence/overview` stays in sync.
 - **AG-UI protocol docs** are canonical upstream in `ag-ui-protocol/ag-ui`. The `showcase/shell-docs/src/content/ag-ui/` tree is a downstream mirror; change AG-UI upstream first, then sync the mirror back.
 - **Do not recreate `docs/content/docs/`**. Top-level `docs/` is only a symlink to shell-docs. The retired Next app no longer publishes to `docs.copilotkit.ai`. Historical content is available from the archive branch/tag, not from `main`.
+- Production docs (`docs.copilotkit.ai`) ship when the `release/docs/prod` pin PR merges. Do not dispatch `showcase_promote.yml` for docs-only updates. Staging is `docs.staging.copilotkit.ai`.
 - To run shell-docs locally, follow `showcase/shell-docs/README.md` and use the shell-docs npm commands.
 
 ## Reference (read when relevant to your task)
