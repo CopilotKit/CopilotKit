@@ -10,6 +10,8 @@ import {
   Cloud,
   Code,
   PanelLeft,
+  Rocket,
+  CircleDollarSign,
   Server,
   Share2,
 } from "lucide-react";
@@ -308,6 +310,8 @@ const CTA_GRID_COLUMNS: Record<number, string> = {
 };
 
 export const docsComponents = {
+  Rocket,
+  CircleDollarSign,
   Callout,
   ChannelsIntegrationPicker,
   Cards,
