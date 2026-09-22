@@ -18,7 +18,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /* Top-of-layout chrome heights:
- *   - Desktop (xl+): BrandNav is rendered in body flow at 64px.
+ *   - Desktop (xl+): BrandNav is rendered in body flow at 96px.
  *   - Tablet/mobile (< xl): BrandNav is hidden; MobileTopNav (inside
  *     DocsLayout's nav slot, position: fixed) renders as a compact
  *     single-row header.
@@ -227,29 +227,71 @@
   }
 }
 
-/* BrandNav keeps its content inset, but the bottom divider should span the
- * full viewport width instead of stopping at the nav's 22px desktop margins. */
-.shell-docs-brand-nav::after {
-  position: absolute;
-  right: -22px;
-  bottom: 0;
-  left: -22px;
-  height: 1px;
-  background: var(--border);
-  content: "";
+/* Match the marketing site's inset capsule without changing the docs grid. */
+@media (min-width: 1280px) {
+  .shell-docs-brand-nav {
+    height: 96px;
+    padding: 12px 40px;
+    background: #f7f8ff;
+  }
+
+  .shell-docs-brand-nav-inner {
+    width: 100%;
+    height: 72px;
+    padding: 0 18px 0 24px;
+    border-radius: 999px;
+    background: #fff;
+    box-shadow: 0 15px 35px rgb(30 31 65 / 5%);
+  }
+
+  .dark .shell-docs-brand-nav {
+    background: #1a1a25;
+  }
+
+  .dark .shell-docs-brand-nav-inner {
+    background: var(--card);
+  }
 }
 
-/* BrandNav is a full-width top bar. Keep a named hook so layout tests can
- * assert the header does not regress back to the earlier capped pill chrome. */
-.shell-docs-brand-nav-inner {
-  width: 100%;
+.shell-docs-brand-nav .shell-docs-brand-nav-menu > svg:first-child {
+  display: none;
 }
 
-.shell-docs-brand-link {
-  margin-left: max(
-    0px,
-    calc((100vw - var(--shell-docs-layout-width)) / 2 - 22px)
-  );
+.shell-docs-brand-nav .shell-docs-nav-link-idle,
+.shell-docs-brand-nav .shell-docs-nav-link-active {
+  color: var(--text);
+}
+
+.shell-docs-brand-nav .shell-docs-nav-link-active {
+  background: transparent;
+  box-shadow: none;
+}
+
+.dark .shell-docs-brand-nav .shell-docs-nav-link-active {
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+}
+
+.shell-docs-brand-nav .shell-docs-nav-link-idle:hover,
+.shell-docs-brand-nav .shell-docs-nav-link-active:hover {
+  background: var(--bg-elevated);
+  color: var(--text);
+}
+
+.shell-docs-brand-nav .shell-docs-auth-link {
+  border-radius: 999px !important;
+  background: #088e9f;
+  color: white;
+}
+
+.shell-docs-brand-nav .shell-docs-auth-link:hover {
+  background: #057a88;
+  color: white;
+}
+
+.shell-docs-brand-nav .shell-docs-auth-link svg {
+  color: white;
 }
 
 .shell-docs-radius-control {
@@ -528,15 +570,28 @@
 }
 
 .shell-docs-nav-cta {
-  border-color: var(--nav-control-border);
-  background: color-mix(in oklch, var(--accent) 8%, transparent);
-  color: var(--accent);
+  display: inline-flex;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: #17171b;
+  color: #fff;
 }
 
 .shell-docs-nav-cta:hover {
-  border-color: var(--nav-control-border-hover);
-  background: color-mix(in oklch, var(--accent) 13%, transparent);
-  color: var(--accent);
+  background: #35353b;
+  color: #fff;
+}
+
+.dark .shell-docs-nav-cta {
+  background: #42424d;
+  color: #fff;
+}
+
+.dark .shell-docs-nav-cta:hover {
+  background: #535360;
 }
 
 .dark .shell-docs-nav-link-idle:hover {
@@ -931,8 +986,8 @@ figure.shiki > div:first-child[class*="border-b"] {
 /* Tighten Fumadocs DocsPage spacing.
  *
  * On desktop (xl+), shell-docs's BrandNav sits OUTSIDE DocsLayout in
- * body flow — so `#nd-docs-layout`'s `pt-(--fd-nav-height)` would be a
- * second 88px stacked on top of BrandNav's 88px (a doubled gap). We
+ * body flow — so `#nd-docs-layout`'s `pt-(--fd-nav-height)` would add
+ * an unwanted second header-sized gap. We
  * zero it on xl+ only.
  *
  * On tablet/mobile (< xl), BrandNav is hidden and the fixed-positioned

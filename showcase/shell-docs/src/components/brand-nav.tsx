@@ -3,10 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
-import { CalendarDays, ChefHat } from "lucide-react";
 import { SearchTrigger } from "./search-trigger";
 import { CopilotKitMark } from "./copilotkit-mark";
-import ConsoleIcon from "./icons/console";
 import ExternalLinkIcon from "./icons/external-link";
 import { DocsMegaMenu } from "./docs-mega-menu";
 import { isDocsExplorePath } from "@/lib/docs-mega-menu";
@@ -31,17 +29,14 @@ export const TALK_TO_ENGINEER_HREF =
 type LeftLink = {
   href: string;
   label: string;
-  icon: React.ReactNode;
 };
 
 const LEFT_LINKS: LeftLink[] = [
   {
-    icon: <ConsoleIcon className="text-current" />,
     label: "Reference",
     href: "/reference",
   },
   {
-    icon: <ChefHat className="w-5 h-5 text-current" />,
     label: "Cookbook",
     href: "/cookbook",
   },
@@ -79,28 +74,22 @@ export function BrandNav(_props: BrandNavProps = {}) {
   };
 
   return (
-    <nav className="shell-docs-brand-nav relative hidden h-16 bg-[var(--bg)] xl:mx-[22px] xl:block">
-      <div className="shell-docs-brand-nav-inner relative grid h-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-8 bg-[var(--nav-surface)]">
+    <nav className="shell-docs-brand-nav relative hidden bg-[var(--bg)] xl:block">
+      <div className="shell-docs-brand-nav-inner relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-8 bg-[var(--nav-surface)]">
         <Link
           href="/"
           className="shell-docs-brand-link flex min-w-0 shrink-0 items-center gap-2 justify-self-start"
           aria-label="CopilotKit Docs"
         >
-          <CopilotKitMark />
-          <span className="text-base font-bold tracking-tight text-[var(--text)]">
+          <span className="text-xl font-bold tracking-tight text-[var(--text)]">
             CopilotKit
           </span>
-          <span
-            className="shell-docs-radius-control ml-1 border border-[var(--border)] bg-[var(--accent-dim)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--accent)]"
-            aria-hidden="true"
-          >
-            Docs
-          </span>
+          <CopilotKitMark />
         </Link>
         <ul className="hidden min-w-0 items-center gap-2 justify-self-center xl:flex">
           <li className="relative h-full">
             <DocsMegaMenu
-              triggerClassName={`shell-docs-radius-control h-10 px-4 text-sm font-medium whitespace-nowrap transition-colors duration-200 ${
+              triggerClassName={`shell-docs-brand-nav-menu shell-docs-radius-control h-10 px-3 text-base font-medium whitespace-nowrap transition-colors duration-200 ${
                 isDocsExplorePath(pathname)
                   ? "shell-docs-nav-link-active"
                   : "shell-docs-nav-link-idle"
@@ -113,19 +102,14 @@ export function BrandNav(_props: BrandNavProps = {}) {
               <li key={link.href} className="relative h-full group">
                 <Link
                   href={link.href}
-                  className={`shell-docs-radius-control flex h-10 items-center px-4 transition-colors duration-200 ${
+                  className={`shell-docs-radius-control flex h-10 items-center px-3 transition-colors duration-200 ${
                     isActive
                       ? "shell-docs-nav-link-active"
                       : "shell-docs-nav-link-idle"
                   }`}
                 >
-                  <span className="flex items-center gap-2">
-                    <span className="[@media(width<808px)]:hidden">
-                      {link.icon}
-                    </span>
-                    <span className="text-sm font-medium whitespace-nowrap">
-                      {link.label}
-                    </span>
+                  <span className="text-base font-medium whitespace-nowrap">
+                    {link.label}
                   </span>
                 </Link>
               </li>
@@ -133,25 +117,8 @@ export function BrandNav(_props: BrandNavProps = {}) {
           })}
         </ul>
 
-        <div className="flex min-w-0 items-center gap-2 justify-self-end pl-4">
+        <div className="flex min-w-0 items-center gap-3 justify-self-end pl-4">
           <SearchTrigger iconOnly />
-          <button
-            type="button"
-            onClick={handleTalkToEngineersClick}
-            className="shell-docs-nav-cta shell-docs-radius-control hidden h-10 cursor-pointer items-center whitespace-nowrap border px-4 text-sm font-medium shadow-[var(--shadow-control)] transition-colors duration-200 [@media(width>=1500px)]:flex"
-            aria-label="Talk to an engineer"
-          >
-            Talk to an engineer
-          </button>
-          <button
-            type="button"
-            onClick={handleTalkToEngineersClick}
-            className="shell-docs-nav-cta shell-docs-radius-control hidden h-10 w-10 cursor-pointer items-center justify-center border shadow-[var(--shadow-control)] transition-colors duration-200 xl:flex [@media(width>=1500px)]:hidden"
-            aria-label="Talk to an engineer"
-            data-tooltip="Talk to an engineer"
-          >
-            <CalendarDays className="h-4 w-4" />
-          </button>
           <DocsPublicAuthControl
             fallback={
               <Link
@@ -159,15 +126,32 @@ export function BrandNav(_props: BrandNavProps = {}) {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={handleFreeDeveloperAccessClick}
-                className="shell-docs-nav-cta shell-docs-radius-control hidden h-10 cursor-pointer items-center gap-2 whitespace-nowrap border px-4 text-sm font-medium no-underline shadow-[var(--shadow-control)] transition-colors duration-200 [@media(width>=1280px)]:flex"
+                className="shell-docs-auth-link shell-docs-radius-control flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center whitespace-nowrap text-sm font-medium no-underline transition-colors duration-200 [@media(width>=1600px)]:w-auto [@media(width>=1600px)]:px-4"
                 aria-label="Get CopilotKit Intelligence free"
+                data-tooltip="Get CopilotKit Intelligence free"
                 suppressHydrationWarning
               >
-                Get CopilotKit Intelligence free
-                <ExternalLinkIcon className="text-current opacity-70" />
+                <span className="hidden [@media(width>=1600px)]:inline">
+                  Get CopilotKit Intelligence free
+                </span>
+                <span
+                  className="[@media(width>=1600px)]:hidden"
+                  aria-hidden="true"
+                >
+                  <CopilotKitMark className="h-5 w-5" />
+                </span>
+                <ExternalLinkIcon className="hidden text-current opacity-70 [@media(width>=1600px)]:block" />
               </Link>
             }
           />
+          <button
+            type="button"
+            onClick={handleTalkToEngineersClick}
+            className="shell-docs-nav-cta cursor-pointer whitespace-nowrap px-5 text-base font-semibold transition-colors duration-200"
+            aria-label="Talk to an engineer"
+          >
+            Talk to an Engineer
+          </button>
         </div>
       </div>
     </nav>
