@@ -131,7 +131,9 @@ from langchain.agents import create_agent
 
 
 async def main():
-    skills = create_skill_registry_middleware()  # Uses the environment above.
+    skills = create_skill_registry_middleware(
+        # revision="exact-revision-id",  # Optional: pin a published revision.
+    )  # Uses the environment above for the project and container.
     try:
         await skills.initialize()
         agent = create_agent(
@@ -170,7 +172,9 @@ import {
   createSkillRegistryMiddleware,
 } from "@copilotkit/intelligence-langgraph";
 
-const registry = new SkillRegistry(); // Uses the environment above.
+const registry = new SkillRegistry({
+  // revision: "exact-revision-id", // Optional: pin a published revision.
+}); // Uses the environment above for the project and container.
 await registry.initialize(); // Catch this error in your application's startup code.
 const skills = createSkillRegistryMiddleware({ registry });
 const agent = skills.wrapAgent(
@@ -212,7 +216,9 @@ import {
   createSkillRegistryProcessor,
 } from "@copilotkit/intelligence-mastra";
 
-const registry = new SkillRegistry(); // Uses the environment above.
+const registry = new SkillRegistry({
+  // revision: "exact-revision-id", // Optional: pin a published revision.
+}); // Uses the environment above for the project and container.
 await registry.initialize(); // Catch this error in your application's startup code.
 const skills = createSkillRegistryProcessor({ registry });
 const agent = skills.wrapAgent(
@@ -257,7 +263,9 @@ from google.genai import types
 
 
 async def main():
-    registry = SkillRegistry()
+    registry = SkillRegistry(
+        # revision="exact-revision-id",  # Optional: pin a published revision.
+    )
     try:
         await registry.initialize()
         agent = LlmAgent(
@@ -296,7 +304,10 @@ Use the provider's native agent factory with your application's `IChatClient`:
 using CopilotKit.Intelligence.AgentFramework;
 using Microsoft.Agents.AI;
 
-using var skills = new SkillRegistryContextProvider(new SkillRegistryOptions());
+using var skills = new SkillRegistryContextProvider(new SkillRegistryOptions
+{
+    // Revision = "exact-revision-id", // Optional: pin a published revision.
+});
 await skills.InitializeAsync();
 var agent = skills.CreateAgent(chatClient, new ChatClientAgentOptions
 {
@@ -342,6 +353,7 @@ const intelligence = new CopilotKitIntelligence({
 const registry = new SkillRegistry({
   client: intelligence,
   containerId: "support-learning",
+  // revision: "exact-revision-id", // Optional: pin a published revision.
 });
 await registry.initialize();
 ```
