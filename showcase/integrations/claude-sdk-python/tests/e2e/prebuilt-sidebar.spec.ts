@@ -1,11 +1,14 @@
+import { runConversation } from "../../../../harness/src/probes/helpers/conversation-runner.js";
+import { buildChatPlatformTurns } from "../../../../harness/src/probes/scripts/_pill-contracts-chat-platform.js";
+// Existing scenarios are diagnostics; only the canonical pill test below is functional acceptance.
 import { test, expect } from "@playwright/test";
 
-test.describe("Pre-Built Sidebar", () => {
+test.describe("Diagnostic: Pre-Built Sidebar", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/prebuilt-sidebar");
   });
 
-  test("page loads with heading, main content, and sidebar open by default", async ({
+  test("Diagnostic: page loads with heading, main content, and sidebar open by default", async ({
     page,
   }) => {
     // Main content heading is verbatim from the demo source and confirms the
@@ -24,7 +27,7 @@ test.describe("Pre-Built Sidebar", () => {
     ).toBeVisible();
   });
 
-  test('"Say hi" suggestion pill renders and sends on click', async ({
+  test('Diagnostic: "Say hi" suggestion pill renders and sends on click', async ({
     page,
   }) => {
     // useConfigureSuggestions registers a single "Say hi" pill with
@@ -45,7 +48,7 @@ test.describe("Pre-Built Sidebar", () => {
     ).toBeVisible({ timeout: 45000 });
   });
 
-  test("typing a message and clicking send produces an assistant response", async ({
+  test("Diagnostic: typing a message and clicking send produces an assistant response", async ({
     page,
   }) => {
     const input = page.getByPlaceholder("Type a message");
@@ -63,7 +66,7 @@ test.describe("Pre-Built Sidebar", () => {
     ).toBeVisible({ timeout: 45000 });
   });
 
-  test("sidebar close toggles aria-hidden and the launcher re-opens it", async ({
+  test("Diagnostic: sidebar close toggles aria-hidden and the launcher re-opens it", async ({
     page,
   }) => {
     const sidebar = page.locator('[data-testid="copilot-sidebar"]');
@@ -101,4 +104,15 @@ test.describe("Pre-Built Sidebar", () => {
     // URL unchanged — toggling is pure client-side state.
     await expect(page).toHaveURL(/\/demos\/prebuilt-sidebar$/);
   });
+});
+
+test("Canonical pill acceptance: prebuilt-sidebar", async ({ page }) => {
+  await page.goto("/demos/prebuilt-sidebar");
+  const result = await runConversation(
+    page,
+    buildChatPlatformTurns("prebuilt-sidebar"),
+    { mode: "functional-pill", surface: "direct-diagnostic" },
+  );
+  expect(result.error, JSON.stringify(result.pillExecution)).toBeUndefined();
+  expect(result.pillExecution?.completed).toBe(true);
 });

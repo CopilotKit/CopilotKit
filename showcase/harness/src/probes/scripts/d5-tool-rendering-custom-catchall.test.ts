@@ -44,23 +44,25 @@ describe("D5 tool-rendering-custom-catchall — buildTurns", () => {
     }
   });
 
-  it("returns two turns matching the prompt/tool pair contract", () => {
+  it("covers all four actual canonical catchall pills", () => {
     const ctx: D5BuildContext = {
       integrationSlug: "langgraph-python",
       featureType: "tool-rendering-custom-catchall",
       baseUrl: "https://showcase-langgraph-python.example.com",
     };
     const turns = scriptModule.buildTurns(ctx);
-    expect(turns).toHaveLength(2);
-    // LGP-gold disjoint-prompts pattern (supersedes #5465): both
-    // prompts must be unique substrings that no default-catchall
-    // fixture matcher can satisfy. See PROMPT_TOOL_PAIRS comment.
-    expect(turns[0]!.input).toBe(
-      "Forecast Tokyo through the wildcard renderer",
-    );
-    expect(turns[1]!.input).toBe("Quote AAPL through the wildcard renderer");
-    expect(typeof turns[0]!.assertions).toBe("function");
-    expect(typeof turns[1]!.assertions).toBe("function");
+    expect(turns).toHaveLength(4);
+    expect(turns.map((turn) => turn.action?.buttonName)).toEqual([
+      "Weather in SF",
+      "Find flights",
+      "Roll a d20",
+      "Chain tools",
+    ]);
+    expect(
+      turns.every(
+        (turn) => turn.input === turn.action?.expectedDispatchedPrompt,
+      ),
+    ).toBe(true);
   });
 });
 

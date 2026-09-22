@@ -1,3 +1,10 @@
+import { buildTurns as build0 } from "../../../../harness/src/probes/scripts/d5-beautiful-chat-bar-chart.js";
+import { buildTurns as build1 } from "../../../../harness/src/probes/scripts/d5-beautiful-chat-pie-chart.js";
+import { buildTurns as build2 } from "../../../../harness/src/probes/scripts/d5-beautiful-chat-schedule-meeting.js";
+import { buildTurns as build3 } from "../../../../harness/src/probes/scripts/d5-beautiful-chat-search-flights.js";
+import { buildTurns as build4 } from "../../../../harness/src/probes/scripts/d5-beautiful-chat-toggle-theme.js";
+import { runConversation } from "../../../../harness/src/probes/helpers/conversation-runner.js";
+import { attachSseInterceptor } from "../../../../harness/src/probes/helpers/sse-interceptor.js";
 import { test, expect } from "@playwright/test";
 
 test.describe("Beautiful Chat", () => {
@@ -55,113 +62,7 @@ test.describe("Beautiful Chat", () => {
     }
   });
 
-  test("Toggle Theme pill flips the html class and runs the toggleTheme tool", async ({
-    page,
-  }) => {
-    // "Toggle Theme" is the fastest round-trip: a single frontend tool call,
-    // no chart rendering. Its aimock fixture (userMessage keyword "toggle")
-    // returns a toggleTheme tool call.
-    const html = page.locator("html");
-    const initialClass = (await html.getAttribute("class")) ?? "";
-    const initiallyDark = initialClass.includes("dark");
-
-    await page
-      .getByRole("button", { name: "Toggle Theme (Frontend Tools)" })
-      .click();
-
-    // Round-trip signal: the html `dark` class flips — proves both that the
-    // agent responded AND that the frontend tool fired. The beautiful-chat
-    // demo does not emit `[data-testid="copilot-assistant-message"]` on its chat turns (tool
-    // calls render in-transcript without a text bubble), so we assert on the
-    // tool's observable side effect instead of a chat-bubble selector.
-    await expect
-      .poll(
-        async () => {
-          const cls = (await html.getAttribute("class")) ?? "";
-          return cls.includes("dark");
-        },
-        { timeout: 30000 },
-      )
-      .toBe(!initiallyDark);
-  });
-
-  test("Pie Chart pill renders a donut SVG with slice circles", async ({
-    page,
-  }) => {
-    await page
-      .getByRole("button", { name: "Pie Chart (Controlled Generative UI)" })
-      .click();
-
-    // The PieChart component renders an inline <svg> with one background
-    // <circle> plus one <circle> per data slice
-    // (components/generative-ui/charts/pie-chart.tsx). The aimock fixture for
-    // "revenue distribution by category" returns 4 slices, so wait for at
-    // least 5 circles total (background + 4 slices).
-    const circles = page.locator("svg circle");
-    await expect
-      .poll(async () => await circles.count(), { timeout: 45000 })
-      .toBeGreaterThanOrEqual(3);
-
-    // Legend rows include a percentage ending in "%".
-    await expect(page.getByText(/\d+%/).first()).toBeVisible({ timeout: 5000 });
-  });
-
-  test("Bar Chart pill renders a recharts bar chart with rectangles", async ({
-    page,
-  }) => {
-    await page
-      .getByRole("button", { name: "Bar Chart (Controlled Generative UI)" })
-      .click();
-
-    // Recharts renders bars inside a ResponsiveContainer. The root class is
-    // stable across recharts versions.
-    const barChartRoot = page.locator(".recharts-responsive-container").first();
-    await expect(barChartRoot).toBeVisible({ timeout: 45000 });
-
-    // At least 2 bar rectangles should render.
-    const bars = page.locator(".recharts-bar-rectangle");
-    await expect
-      .poll(async () => await bars.count(), { timeout: 15000 })
-      .toBeGreaterThanOrEqual(2);
-  });
-
-  test("Search Flights pill renders FlightCard surface from A2UI fixed schema", async ({
-    page,
-  }) => {
-    test.setTimeout(120_000);
-    // Backend: search_flights tool emits an a2ui_operations container with one
-    // FlightCard component per flight. The agent (`src/agents/beautiful_chat.py`
-    // `_build_flight_components`) emits literal-children components rather than
-    // the structural-children template form, because the binder's structural
-    // expansion isn't reliably exercised by sibling demos. Aimock returns 2
-    // flights — United at $349 and Delta at $289.
-    //
-    // Visual fingerprint: the airline names and prices are inlined into each
-    // FlightCard so they appear as literal text.
-    const pill = page.getByRole("button", {
-      name: "Search Flights (A2UI Fixed Schema)",
-    });
-    await expect(pill).toBeVisible({ timeout: 15_000 });
-    await pill.click();
-
-    // 60s budget: tool call + a2ui_operations round-trip can be slow on cold
-    // starts. Assertion targets are aimock-fixture text, not LLM output, so
-    // they're stable across runs.
-    await expect(page.getByText("United Airlines").first()).toBeVisible({
-      timeout: 60_000,
-    });
-    await expect(page.getByText("Delta").first()).toBeVisible({
-      timeout: 5_000,
-    });
-    await expect(page.getByText("$349").first()).toBeVisible({
-      timeout: 5_000,
-    });
-    await expect(page.getByText("$289").first()).toBeVisible({
-      timeout: 5_000,
-    });
-  });
-
-  test("Sales Dashboard pill renders A2UI dashboard surface", async ({
+  test("[diagnostic supplemental] Sales Dashboard pill renders A2UI dashboard surface", async ({
     page,
   }) => {
     test.setTimeout(180_000);
@@ -222,7 +123,7 @@ test.describe("Beautiful Chat", () => {
     }
   });
 
-  test("Task Manager pill streams 3 todos into the shared-state canvas", async ({
+  test("[diagnostic supplemental] Task Manager pill streams 3 todos into the shared-state canvas", async ({
     page,
   }) => {
     test.setTimeout(120_000);
@@ -245,3 +146,34 @@ test.describe("Beautiful Chat", () => {
     });
   });
 });
+
+// Canonical functional certification shares the production driver and expectations.
+for (const [feature, build] of [
+  ["beautiful-chat-bar-chart", build0],
+  ["beautiful-chat-pie-chart", build1],
+  ["beautiful-chat-schedule-meeting", build2],
+  ["beautiful-chat-search-flights", build3],
+  ["beautiful-chat-toggle-theme", build4],
+] as const) {
+  test(feature + " canonical actual pill", async ({ page }) => {
+    test.setTimeout(900_000);
+    const capture = await attachSseInterceptor(page);
+    try {
+      await page.goto("/demos/beautiful-chat");
+      const result = await runConversation(
+        page,
+        build({
+          integrationSlug: "ms-agent-python",
+          featureType: feature,
+          baseUrl: new URL(page.url()).origin,
+        }),
+        { mode: "functional-pill" },
+      );
+      expect(result.error).toBeUndefined();
+      expect(result.pillExecution?.completed).toBe(true);
+      expect(result.pillExecution?.actions).toHaveLength(9);
+    } finally {
+      await capture.stop();
+    }
+  });
+}

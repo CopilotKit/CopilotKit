@@ -1,74 +1,27 @@
 import { describe, it, expect } from "vitest";
-import { getD5Script, type D5BuildContext } from "../helpers/d5-registry.js";
-import type { Page } from "../helpers/conversation-runner.js";
-import {
-  buildTurns,
-  buildPrebuiltPopupAssertion,
-  POPUP_ROOT_SELECTOR,
-} from "./d5-prebuilt-popup.js";
+import { buildTurns } from "./d5-prebuilt-popup.js";
+import { getD5Script } from "../helpers/d5-registry.js";
+import { CHAT_PLATFORM_CONTRACTS } from "./_pill-contracts-chat-platform.js";
 
-function makePage(opts: {
-  throwOnWait?: boolean;
-  messageInside?: boolean;
-}): Page {
-  return {
-    async waitForSelector() {
-      if (opts.throwOnWait)
-        throw new Error("waitForSelector timeout (test fake)");
-    },
-    async fill() {},
-    async press() {},
-    async evaluate() {
-      return (opts.messageInside ?? false) as never;
-    },
-  };
-}
-
-describe("d5-prebuilt-popup script", () => {
-  it("registers under featureType 'prebuilt-popup'", () => {
-    const script = getD5Script("prebuilt-popup");
-    expect(script).toBeDefined();
-    expect(script?.featureTypes).toEqual(["prebuilt-popup"]);
-    expect(script?.fixtureFile).toBe("prebuilt-popup.json");
+describe("prebuilt-popup canonical functional contract", () => {
+  it("registers the canonical builder", () => {
+    expect(getD5Script("prebuilt-popup")?.buildTurns).toBe(buildTurns);
   });
-
-  it("buildTurns input matches fixture", () => {
-    const ctx: D5BuildContext = {
-      integrationSlug: "langgraph-python",
-      featureType: "prebuilt-popup",
-      baseUrl: "https://x.test",
-    };
-    expect(buildTurns(ctx)[0]!.input).toBe("hi from the popup test");
-  });
-
-  it("exposes the popup root selector", () => {
-    expect(POPUP_ROOT_SELECTOR).toBe(".copilotKitPopup");
-  });
-
-  it("assertion fails when the popup root never appears", async () => {
-    const assertion = buildPrebuiltPopupAssertion({
-      rootTimeoutMs: 50,
-      scopedTimeoutMs: 50,
-    });
-    await expect(assertion(makePage({ throwOnWait: true }))).rejects.toThrow(
-      /popup root.*did not appear/,
+  it("accounts for every authored control with an exact dispatch and assertion", () => {
+    const turns = buildTurns();
+    expect(turns).toHaveLength(3);
+    expect(new Set(turns.map((turn) => turn.action?.id)).size).toBe(
+      turns.length,
     );
-  });
-
-  it("assertion fails when the popup is up but no message inside", async () => {
-    const assertion = buildPrebuiltPopupAssertion({
-      rootTimeoutMs: 50,
-      scopedTimeoutMs: 50,
-    });
-    await expect(assertion(makePage({ messageInside: false }))).rejects.toThrow(
-      /did not land inside/,
+    expect(turns.map((turn) => turn.action?.buttonName)).toEqual(
+      CHAT_PLATFORM_CONTRACTS["prebuilt-popup"]!.map((item) => item.label),
     );
-  });
-
-  it("assertion succeeds when popup is up and message lands inside", async () => {
-    const assertion = buildPrebuiltPopupAssertion();
-    await expect(
-      assertion(makePage({ messageInside: true })),
-    ).resolves.toBeUndefined();
+    for (const turn of turns) {
+      expect(turn.input).toBe(turn.action?.expectedDispatchedPrompt);
+      expect(turn.action?.kind).toBe("pill");
+      expect(turn.skipFill).toBeUndefined();
+      expect(turn.skipSend).toBeUndefined();
+      expect(turn.assertions).toBeTypeOf("function");
+    }
   });
 });

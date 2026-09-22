@@ -114,19 +114,21 @@ describe("IntelligenceOverview", () => {
     ).toBe("/slack");
     expect(
       screen
-        .getByRole("link", { name: "Open the Memory guide" })
+        .getByRole("link", { name: "Open the User Memories guide" })
         .getAttribute("href"),
     ).toBe("/intelligence/memories");
     expect(
       screen
-        .getByRole("link", { name: "See Analytics on the product page" })
+        .getByRole("link", {
+          name: "See Product Analytics on the product page",
+        })
         .getAttribute("href"),
     ).toBe(
       "https://www.copilotkit.ai/copilotkit-intelligence#analytics-insights",
     );
     expect(
       screen
-        .getByRole("link", { name: "Open the Learning guide" })
+        .getByRole("link", { name: "Open the Automatic Learning guide" })
         .getAttribute("href"),
     ).toBe("/learning");
     expect(
@@ -138,8 +140,8 @@ describe("IntelligenceOverview", () => {
     for (const title of [
       "Rich Threads",
       "Channels",
-      "Memory",
-      "Analytics",
+      "User Memories",
+      "Product Analytics",
       "Automatic Learning",
       "Self-hosting",
     ]) {

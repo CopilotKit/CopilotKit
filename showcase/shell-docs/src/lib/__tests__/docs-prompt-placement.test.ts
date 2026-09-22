@@ -72,9 +72,9 @@ test("Learning offers its agent section before numbered manual setup", () => {
     source.indexOf("<LearningSetupPrompt />"),
   );
   expect(source.indexOf("<LearningSetupPrompt />")).toBeLessThan(
-    source.indexOf("## Set up Learning manually"),
+    source.indexOf("## Set up Automatic Learning manually"),
   );
-  expect(source.indexOf("## Set up Learning manually")).toBeLessThan(
+  expect(source.indexOf("## Set up Automatic Learning manually")).toBeLessThan(
     source.indexOf("<Steps>"),
   );
   expect(source.match(/<LearningSetupPrompt\s*\/>/g)).toHaveLength(1);

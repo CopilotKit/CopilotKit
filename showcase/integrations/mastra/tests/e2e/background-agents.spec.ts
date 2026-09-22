@@ -1,3 +1,4 @@
+import { noLgpCanonicalTurns } from "../../../../harness/src/probes/scripts/_pill-contracts-tools-agents";
 import { test, expect } from "@playwright/test";
 
 // QA reference: qa/background-agents.md
@@ -22,7 +23,7 @@ import { test, expect } from "@playwright/test";
 // the deterministic subset: page loads, pills render, and a "working"
 // activity card appears. It intentionally does NOT assert completion.
 
-test.describe("Background Agents (Mastra background task → activity card)", () => {
+test.describe("[diagnostic] Background Agents (Mastra background task → activity card)", () => {
   test.setTimeout(120_000);
 
   test.beforeEach(async ({ page }) => {
@@ -90,4 +91,9 @@ test.describe("Background Agents (Mastra background task → activity card)", ()
       page.locator('[data-testid="background-task-activity"]').first(),
     ).toBeVisible({ timeout: 60_000 });
   });
+});
+
+// No LGP counterpart exists; diagnostic smoke must never certify this cell.
+test("canonical contract unavailable @functional-pill", () => {
+  noLgpCanonicalTurns("background-agents");
 });

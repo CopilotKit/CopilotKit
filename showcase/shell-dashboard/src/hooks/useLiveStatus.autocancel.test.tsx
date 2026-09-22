@@ -104,8 +104,7 @@ const ALL_ROWS = Array.from({ length: TOTAL_ROWS }, (_, i) => makeRow(i));
 // `skipTotal` are actually sent on the wire. Reset per test.
 const initialFetchQueries: URLSearchParams[] = [];
 /**
- * The supplemental signal fetch's queries — projected, but WITH `signal`, which
- * is what separates them from the bulk pages (see the split below).
+ * Supplemental queries are distinguished by their non-green filter clause.
  */
 const supplementalQueries: URLSearchParams[] = [];
 
@@ -126,9 +125,7 @@ function startPbServer(): Promise<{ server: Server; url: string }> {
     const req = readPbListRequest(url);
     // Split the wire instrumentation three ways. The perPage=1 heartbeat ping
     // is ignored, and the SUPPLEMENTAL signal fetch is recorded SEPARATELY from
-    // the bulk pages (it deliberately asks for `signal` in its projection, so
-    // folding it in would fail the "every bulk page projects `signal` away"
-    // assertion).
+    // the bulk pages by its non-green filter clause. Both carry signal.
     if (req.perPage > 1) {
       const q = new URLSearchParams(url.searchParams);
       if (classifyPbListRequest(req) === "supplemental") {
@@ -260,8 +257,7 @@ describe("useLiveStatus (real PocketBase SDK — auto-cancellation regression)",
       expect(result.current.rows).toHaveLength(TOTAL_ROWS);
       expect(result.current.error).toBeNull();
 
-      // B.1 wire contract: the bulk initial fetch must trim the heavy `signal`
-      // field (lightweight `fields=` projection) and skip the COUNT(*) query
+      // Bulk requests retain signal for cold-load proof and skip the COUNT(*) query
       // (`skipTotal`). With skipTotal the server returns no totalPages, so the
       // hook can only have collected all 1300 rows by paginating on
       // items.length — proving the length-based switch landed. We assert the
@@ -273,8 +269,8 @@ describe("useLiveStatus (real PocketBase SDK — auto-cancellation regression)",
         expect(skipTotal === "1" || skipTotal === "true").toBe(true);
         const fields = q.get("fields");
         expect(fields).toBeTruthy();
-        // The projection must exclude the heavy `signal` blob but keep `key`.
-        expect(fields).not.toContain("signal");
+        // The projection must retain proof-bearing signal and row identity.
+        expect(fields).toContain("signal");
         expect(fields).toContain("key");
       }
 

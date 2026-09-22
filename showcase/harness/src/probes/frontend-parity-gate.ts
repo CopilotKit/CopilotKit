@@ -1,4 +1,6 @@
-export type FrontendParityStatus = "passed" | "failed";
+import { admittedFrontendStatus } from "./frontend-matrix-runner.js";
+import type { FrontendProofCell } from "./frontend-matrix-runner.js";
+export type FrontendParityStatus = "passed" | "failed" | "unverified";
 export type FrontendFailureCategory =
   | "product"
   | "integration"
@@ -7,6 +9,9 @@ export type FrontendFailureCategory =
   | "infrastructure";
 
 export interface FrontendParityCell {
+  startedAt?: string;
+  observedAt?: string;
+  probes?: FrontendProofCell["probes"];
   frontend: "react" | "angular";
   integration: string;
   feature: string;
@@ -36,7 +41,8 @@ export type FrontendParityOutcome =
   | "react-only"
   | "unowned-baseline-failure"
   | "identity-mismatch"
-  | "missing-result";
+  | "missing-result"
+  | "unverified";
 
 export interface FrontendParityComparison {
   id: string;
@@ -51,6 +57,13 @@ export interface FrontendParityComparison {
 }
 
 export interface FrontendParityReport {
+  evidence?: Pick<
+    FrontendParityInput,
+    | "baselineReact"
+    | "pullRequest"
+    | "expectedAngularCellIds"
+    | "acceptedBaselineFailures"
+  >;
   schemaVersion: 1;
   frozenBaseCommit: string;
   pullRequestCommit: string;
@@ -66,7 +79,8 @@ export type CurrentFrontendParityOutcome =
   | "angular-improvement"
   | "react-only"
   | "identity-mismatch"
-  | "missing-counterpart";
+  | "missing-counterpart"
+  | "unverified";
 
 export interface CurrentFrontendParityComparison {
   id: string;
@@ -105,6 +119,7 @@ const OUTCOMES: readonly FrontendParityOutcome[] = [
   "unowned-baseline-failure",
   "identity-mismatch",
   "missing-result",
+  "unverified",
 ];
 
 const CURRENT_OUTCOMES: readonly CurrentFrontendParityOutcome[] = [
@@ -115,6 +130,7 @@ const CURRENT_OUTCOMES: readonly CurrentFrontendParityOutcome[] = [
   "react-only",
   "identity-mismatch",
   "missing-counterpart",
+  "unverified",
 ];
 
 function comparisonId(
@@ -142,7 +158,7 @@ function indexCells(
     }
     const key = `${cell.frontend}/${comparisonId(cell)}`;
     if (indexed.has(key)) throw new Error(`duplicate frontend result ${key}`);
-    indexed.set(key, cell);
+    indexed.set(key, { ...cell, status: admittedFrontendStatus(cell) });
   }
   return indexed;
 }
@@ -258,6 +274,11 @@ function comparisonFor(
     return result("identity-mismatch", identityReasons);
   }
 
+  if ([base, react, angular].some((cell) => cell?.status === "unverified")) {
+    return result("unverified", [
+      "public pill evidence is missing or does not match this observation and target",
+    ]);
+  }
   if (base.status === "failed" && !accepted) {
     return result("unowned-baseline-failure", [
       "baseline failure requires category, owner, and issue",
@@ -337,11 +358,19 @@ export function evaluateFrontendParity(
 
   return {
     schemaVersion: 1,
+    evidence: {
+      baselineReact: input.baselineReact,
+      pullRequest: input.pullRequest,
+      expectedAngularCellIds: input.expectedAngularCellIds,
+      acceptedBaselineFailures: input.acceptedBaselineFailures,
+    },
     frozenBaseCommit: input.frozenBaseCommit,
     pullRequestCommit: input.pullRequestCommit,
-    passed: comparisons.every(
-      (comparison) => comparison.blockingReasons.length === 0,
-    ),
+    passed:
+      comparisons.length > 0 &&
+      comparisons.every(
+        (comparison) => comparison.blockingReasons.length === 0,
+      ),
     summary,
     comparisons,
   };
@@ -386,7 +415,15 @@ export function evaluateCurrentFrontendParity(input: {
           "Angular cell has no React counterpart",
         ]);
       }
-      if (!angular) return result("react-only");
+      if (react.sourceCommit !== input.sourceCommit) {
+        return result("identity-mismatch", ["source commit differs"]);
+      }
+      if (!angular)
+        return react.status === "unverified"
+          ? result("unverified", [
+              "public pill evidence is missing or does not match this observation and target",
+            ])
+          : result("react-only");
 
       const identityReasons = pairIdentityReasons(
         react,
@@ -395,6 +432,11 @@ export function evaluateCurrentFrontendParity(input: {
       );
       if (identityReasons.length > 0) {
         return result("identity-mismatch", identityReasons);
+      }
+      if (react.status === "unverified" || angular.status === "unverified") {
+        return result("unverified", [
+          "public pill evidence is missing or does not match this observation and target",
+        ]);
       }
       if (react.status === "passed" && angular.status === "failed") {
         return result("angular-regression", [
@@ -420,9 +462,11 @@ export function evaluateCurrentFrontendParity(input: {
   return {
     schemaVersion: 1,
     sourceCommit: input.sourceCommit,
-    passed: comparisons.every(
-      (comparison) => comparison.blockingReasons.length === 0,
-    ),
+    passed:
+      comparisons.length > 0 &&
+      comparisons.every(
+        (comparison) => comparison.blockingReasons.length === 0,
+      ),
     summary,
     comparisons,
   };
@@ -438,7 +482,9 @@ interface FrontendAggregateCellInput {
   fixtureRevision: string;
   featureContractRevision: string;
   testIds: string[];
-  probes: Array<{ featureType: string }>;
+  probes: NonNullable<FrontendProofCell["probes"]>;
+  startedAt?: string;
+  observedAt?: string;
 }
 
 interface FrontendAggregateInput {
@@ -453,14 +499,21 @@ export function frontendParityCellsFromAggregate(
     if (cell.frontend !== "react" && cell.frontend !== "angular") {
       throw new Error(`unsupported aggregate frontend ${cell.frontend}`);
     }
-    if (cell.status !== "passed" && cell.status !== "failed") {
+    if (
+      cell.status !== "passed" &&
+      cell.status !== "failed" &&
+      cell.status !== "unverified"
+    ) {
       throw new Error(`unsupported aggregate status ${cell.status}`);
     }
     return {
       frontend: cell.frontend,
       integration: cell.integration,
       feature: cell.feature,
-      status: cell.status,
+      status: admittedFrontendStatus(cell),
+      probes: cell.probes,
+      startedAt: cell.startedAt,
+      observedAt: cell.observedAt,
       sourceCommit: cell.sourceCommit,
       containerImageRevision: cell.containerImageRevision,
       fixtureRevision: cell.fixtureRevision,

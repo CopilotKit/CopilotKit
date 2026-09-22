@@ -1,11 +1,14 @@
+import { runConversation } from "../../../../harness/src/probes/helpers/conversation-runner.js";
+import { buildChatPlatformTurns } from "../../../../harness/src/probes/scripts/_pill-contracts-chat-platform.js";
+// Existing scenarios are diagnostics; only the canonical pill test below is functional acceptance.
 import { test, expect } from "@playwright/test";
 
-test.describe("Pre-Built Popup", () => {
+test.describe("Diagnostic: Pre-Built Popup", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/prebuilt-popup");
   });
 
-  test("page loads with heading and the popup open by default", async ({
+  test("Diagnostic: page loads with heading and the popup open by default", async ({
     page,
   }) => {
     // Verbatim heading from the demo source confirms the route mounted.
@@ -27,7 +30,7 @@ test.describe("Pre-Built Popup", () => {
     ).toBeVisible();
   });
 
-  test('"Say hi" suggestion pill renders and produces an assistant response', async ({
+  test('Diagnostic: "Say hi" suggestion pill renders and produces an assistant response', async ({
     page,
   }) => {
     // useConfigureSuggestions registers "Say hi" with available: "always".
@@ -45,7 +48,7 @@ test.describe("Pre-Built Popup", () => {
     ).toBeVisible({ timeout: 45000 });
   });
 
-  test("typing a message and clicking send produces an assistant response", async ({
+  test("Diagnostic: typing a message and clicking send produces an assistant response", async ({
     page,
   }) => {
     const input = page.getByPlaceholder("Ask the popup anything...");
@@ -63,7 +66,7 @@ test.describe("Pre-Built Popup", () => {
     ).toBeVisible({ timeout: 45000 });
   });
 
-  test("popup close button unmounts the popup; launcher re-mounts it", async ({
+  test("Diagnostic: popup close button unmounts the popup; launcher re-mounts it", async ({
     page,
   }) => {
     const popup = page.locator('[data-testid="copilot-popup"]');
@@ -90,4 +93,15 @@ test.describe("Pre-Built Popup", () => {
     // URL unchanged — toggling is pure client-side state.
     await expect(page).toHaveURL(/\/demos\/prebuilt-popup$/);
   });
+});
+
+test("Canonical pill acceptance: prebuilt-popup", async ({ page }) => {
+  await page.goto("/demos/prebuilt-popup");
+  const result = await runConversation(
+    page,
+    buildChatPlatformTurns("prebuilt-popup"),
+    { mode: "functional-pill", surface: "direct-diagnostic" },
+  );
+  expect(result.error, JSON.stringify(result.pillExecution)).toBeUndefined();
+  expect(result.pillExecution?.completed).toBe(true);
 });

@@ -9,6 +9,8 @@ description: "Prebuilt threads drawer that lists, switches, and manages conversa
 
 When `onThreadSelect` / `onNewThread` are omitted, the drawer drives the surrounding chat configuration directly: selecting a row connects the chat to that thread (and replays its history); the "New Conversation" row resets the chat to a fresh welcome screen. Pass the callbacks only to take control of the active thread yourself.
 
+Pair it with the v2 `CopilotChat` or `CopilotSidebar` from `@copilotkit/react-core/v2`. `@copilotkit/react-ui` exports components with those same two names, and those are the [deprecated v1 components](/migrate/v2).
+
 See the [CopilotThreadsDrawer guide](/prebuilt-components/copilot-threads-drawer) for a walkthrough, and [`useThreads`](/reference/hooks/useThreads) for the headless data layer underneath.
 
 ## Import

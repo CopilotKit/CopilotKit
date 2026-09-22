@@ -62,6 +62,7 @@
     "intelligence/managed-intelligence-platform",
     "intelligence/connect-your-runtime",
     "intelligence/self-hosting",
+    "intelligence/self-hosting-ecs",
     "intelligence/intelligence-platform",
     "---Deploy---",
     "...deploy",

@@ -465,7 +465,7 @@
         "peerDependencies": {
           "@microsoft/agents-activity": "^1.5.3",
           "@microsoft/agents-hosting": "^1.5.3",
-          "express": "^4.21.2 || ^5.0.0",
+          "express": "^4.18.0 || ^5.0.0",
           "vitest": "^4.0.0"
         },
         "optionalPeerDependencies": [
@@ -794,7 +794,7 @@
         "peerDependencies": {
           "@microsoft/agents-activity": "^1.5.3",
           "@microsoft/agents-hosting": "^1.5.3",
-          "express": "^4.21.2 || ^5.0.0"
+          "express": "^4.18.0 || ^5.0.0"
         },
         "optionalPeerDependencies": [
           "@microsoft/agents-activity",
@@ -1864,6 +1864,7 @@
           "@langchain/google-gauth": ">=0.1.0",
           "@langchain/langgraph-sdk": ">=0.1.2",
           "@langchain/openai": ">=0.4.2",
+          "express": "^4.18.0 || ^5.0.0",
           "groq-sdk": ">=0.3.0 <1.0.0",
           "langchain": ">=0.3.3",
           "openai": "^4.85.1 || >=5.0.0"
@@ -1875,6 +1876,7 @@
           "@langchain/google-gauth",
           "@langchain/langgraph-sdk",
           "@langchain/openai",
+          "express",
           "groq-sdk",
           "langchain",
           "openai"

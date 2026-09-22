@@ -43,7 +43,9 @@ describe("d5-reasoning-display script", () => {
       featureType: "reasoning-custom",
       baseUrl: "https://x.test",
     };
-    expect(buildTurns(ctx)[0]!.input).toBe("show your reasoning step by step");
+    expect(buildTurns(ctx)[0]!.input).toBe(
+      "Explain step by step why the sky appears blue during the day but red at sunset.",
+    );
   });
 
   it("preNavigateRoute sends the custom probe to its own route", () => {

@@ -90,7 +90,11 @@ import {
   STARTER_ROW_LEVELS,
 } from "./live-status.js";
 import { E2E_STALE_AFTER_MS } from "./staleness.js";
-import { FIXTURES, NOW } from "./cell-model.equivalence-fixtures.js";
+import {
+  FIXTURES,
+  NOW,
+  unitPillSignal,
+} from "./cell-model.equivalence-fixtures.js";
 
 type Coherable = Pick<
   CellModel,
@@ -129,12 +133,11 @@ function assertCoherent(label: string, m: Coherable): void {
     expect(chipColor, `${label}: INV3 d6Eff green⟹chip green`).toBe("green");
   }
 
-  // INV4 — a non-green D6 badge is the soft-parity amber top over a green D5 ladder.
-  if (d6Effective === "red" || d6Effective === "amber") {
-    expect(chipColor, `${label}: INV4 d6Eff∈{red,amber}⟹chip amber`).toBe(
-      "amber",
-    );
-    expect(achievedDepth, `${label}: INV4 d6Eff∈{red,amber}⟹ach==5`).toBe(5);
+  // A failed functional run stays red; only degraded parity is amber.
+  if (d6Effective === "red") expect(chipColor).toBe("red");
+  if (d6Effective === "amber") {
+    expect(chipColor).toBe("amber");
+    expect(achievedDepth).toBe(5);
   }
 
   // INV5 — a RED D6 badge is a GENUINE regression (never an infra/soft red).
@@ -143,7 +146,7 @@ function assertCoherent(label: string, m: Coherable): void {
   }
 
   // INV6 — d6Effective is only meaningful on a ladder green through D5.
-  if (d6Effective !== null) {
+  if (d6Effective !== null && d6Effective !== "red") {
     expect(
       achievedDepth >= 5,
       `${label}: INV6 d6Eff!=null⟹ach>=5 (got ${achievedDepth})`,
@@ -472,7 +475,7 @@ describe("cell-model coherence — INV7 soundness (scope + stale exemption)", ()
       key,
       dimension,
       state,
-      signal: "signal" in opts ? opts.signal : null,
+      signal: "signal" in opts ? opts.signal : unitPillSignal(key, observed),
       observed_at: observed,
       transitioned_at: observed,
       fail_count: isRed ? 3 : 0,
@@ -725,21 +728,7 @@ describe("cell-model coherence — INV7 soundness (scope + stale exemption)", ()
     ).toThrow(/INV7/);
   });
 
-  it("FAILS on UNPERTURBED engine output: an infra-red D4 grays a product-red D6", () => {
-    // The sharpest teeth case, because nothing is perturbed. `scanWorst` folds
-    // D3→D5 only, so a red D6 never reaches the chip; an INFRA_RED_FRESH D4
-    // (gray severity) therefore decides the chip while the D6 pill still
-    // renders a fresh, sustained PRODUCT red. The ladder is GAPLESS — every
-    // rung has an observation — so the I1 allowance does not apply and must
-    // not: this is a real red rendered as benign, which is precisely what INV7
-    // is for. It is a DIFFERENT masking mechanism from the I1 gap-break (round-2
-    // d4) and from the `signal`-polarity class this PR fixes; both live in
-    // `combine.ts`/`cell-model.contribution.ts` and are out of this PR's scope,
-    // so the engine still emits this shape today.
-    //
-    // If that ever changes, `expect(m.chipColor).toBe("gray")` fails loudly and
-    // this case should be re-derived rather than deleted — INV7's teeth on
-    // unperturbed output are the whole point of keeping it.
+  it("keeps an actual D6 failure red despite unknown diagnostic prerequisites", () => {
     const live = mergeRowsToMap([
       mkRow(keyFor("health", SLUG), "green"),
       mkRow(keyFor("agent", SLUG), "green"),
@@ -754,17 +743,17 @@ describe("cell-model coherence — INV7 soundness (scope + stale exemption)", ()
       }),
     ]);
     const m = buildCellModel(live, input, NOW);
-    expect(m.chipColor).toBe("gray");
+    expect(m.chipColor).toBe("red");
     expect(m.isStaleCell).toBe(false);
     expect(m.d6?.status).toBe("red");
     // GAPLESS: every rung of the chip's scan has an observation.
     expect(m.d3?.status).toBe("green");
     expect(m.d4?.status).toBe("red");
     expect(m.d5?.status).toBe("green");
-    // No perturbation — INV7 rejects the model the engine actually built.
+    // The actual product failure remains visible.
     expect(() =>
       assertChipStripCoherent("teeth-unperturbed-d6", m, live, input),
-    ).toThrow(/INV7/);
+    ).not.toThrow();
   });
 });
 

@@ -1,61 +1,8 @@
+import { buildToolsAgentTurns } from "./_pill-contracts-tools-agents.js";
 /**
- * D5 — tool-rendering script.
- *
- * Drives the `/demos/tool-rendering` page through one user turn ("weather
- * in Tokyo") and asserts the assistant invokes the `get_weather` tool
- * AND the frontend renders a structured weather card in the DOM. The
- * heart of D5 for this feature is verifying CARD STRUCTURE, not just
- * text — `e2e-smoke.ts`'s `tools:<slug>` row already covers vocabulary
- * matching, so this deeper probe checks that the per-tool renderer
- * actually produced a card element with the expected sub-pieces.
- *
- * Why a single turn: the recorded fixture
- * (`showcase/harness/fixtures/d5/tool-rendering.json`) contains one
- * userMessage match — `"weather in Tokyo"` — which emits a single tool
- * call (`get_weather`) on the LGP backend per its system prompt. The
- * `toolCallId`-routed fixture handles the second leg of the tool's
- * request/response. From the conversation runner's
- * perspective this is still ONE user turn — the runner sends one
- * message, waits for the assistant to settle, and runs the assertion
- * once on the resulting DOM.
- *
- * Selector cascade: the LGP reference implementation marks the weather
- * card with `data-testid="weather-card"` (see
- * `showcase/integrations/langgraph-python/src/app/demos/tool-rendering/weather-card.tsx`).
- * Other integrations may use different testids, class names, or
- * data-attributes for the same card. We probe a 4-selector cascade so
- * the script works across the fleet without a per-integration override:
- *
- *   1. `[data-testid="weather-card"]`        — LGP canonical.
- *   2. `[data-tool-name="get_weather"]`      — alternative convention
- *                                              for integrations that key
- *                                              off the tool name rather
- *                                              than a fixed testid.
- *   3. `.copilotkit-tool-render`             — class-based fallback
- *                                              (e.g. catch-all renderers
- *                                              that wrap in a known
- *                                              CopilotKit class).
- *   4. `[data-testid="copilot-tool-render"]` — generic CopilotKit testid
- *                                              for any rendered tool.
- *
- * Failure mode: if NONE of the 4 selectors match within the timeout,
- * the assertion throws with a specific message
- * (`"tool-rendering: expected card for `get_weather` but selector
- * cascade matched 0 elements"`) so an operator triaging a red row can
- * tell "framework regression" (no card at all) from "content
- * regression" (card present, no temperature inside).
- *
- * Structural sub-assertions: once the card is found, we read its
- * textContent and child-element count and assert presence of:
- *   - a numeric temperature (any digit run),
- *   - at least one inner element (childCount >= 1) — proxy for
- *     "non-empty structured card", since exact image/icon selectors
- *     vary by integration.
- *
- * Note: the city label ("Tokyo") is intentionally NOT asserted. Some
- * integrations render the card with only temperature + condition,
- * omitting the city name from the card element's textContent. The
- * city label is a D3 rendering-detail concern, not a D5 signal.
+ * Functional acceptance uses the shared canonical LGP pill contract below.
+ * Exported legacy assertion helpers remain for supplemental regression tests;
+ * buildTurns never uses their weaker diagnostic-only acceptance criteria.
  */
 
 import { registerD5Script } from "../helpers/d5-registry.js";
@@ -304,12 +251,7 @@ export function buildToolRenderingAssertion(opts?: {
  * `ctx.integrationSlug` without changing the function signature.
  */
 export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
-  return [
-    {
-      input: "weather in Tokyo",
-      assertions: buildToolRenderingAssertion(),
-    },
-  ];
+  return buildToolsAgentTurns("tool-rendering");
 }
 
 // Side-effect registration — picked up by the e2e-deep driver's

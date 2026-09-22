@@ -1,3 +1,4 @@
+import { unitPillSignal } from "../../../../harness/src/shared/cell-model/cell-model.equivalence-fixtures";
 /**
  * U7 REAL-SURFACE PROOF (spec §7.1).
  *
@@ -34,20 +35,15 @@ function mapOf(rows: StatusRow[]): LiveStatusMap {
   return m;
 }
 
-// A contiguous GREEN D3/D4/D5 ladder for agno/agentic-chat, observed at the
-// same instant as the captured fixture rows (2026-06-19T08:00:00Z). Under the
-// unified ladder (I1) a D6 row fed ALONE grays because the rungs below it are
-// absent/unverified — so to isolate the D6 verdict under test the lower ladder
-// must be present and green. With an intact ladder, a genuine (non-infra) D6
-// red surfaces as AMBER via the D6 soft-parity top (d6Effective carries the
-// red), NOT gray — that is the masks-real-red guard under §7.
+// A verified D3–D5 scaffold isolates the D6 verdict. A genuine functional
+// failure paints red; an infra D6 remains unverified and paints amber.
 function greenLadderBelowD6(observedAt: string): StatusRow[] {
   const mk = (key: string, dimension: string): StatusRow => ({
     id: `id-${key}`,
     key,
     dimension,
     state: "green",
-    signal: {},
+    signal: unitPillSignal(key, observedAt),
     observed_at: observedAt,
     transitioned_at: observedAt,
     fail_count: 0,
@@ -138,17 +134,8 @@ function genuineD4Red(failCount: number): StatusRow {
 
 describe("U7 real-surface proof: the infra fold changes the rendered outcome", () => {
   // ── D6-position infra rows ────────────────────────────────────────────
-  // A D6 red over an INTACT green D3–D5 ladder surfaces via the D6 soft-parity
-  // top: chip AMBER regardless of infra-ness (a non-green D6 over a green
-  // D1–D5 is always the amber "attention" state — never solid danger red, and
-  // never no-data gray, because the ladder below is verified). So at the chip
-  // surface the D6 infra fold is INVISIBLE — the fold's whole observable effect
-  // is on `d6Effective`: an infra D6 collapses to `null` (a gray/no-data D6
-  // badge/stat), whereas a genuine D6 red surfaces `d6Effective = "red"`. These
-  // tests therefore prove the fold on the SAME intact ladder by asserting BOTH
-  // the rendered chip (amber, never the danger RED_FILL) AND `d6Effective`,
-  // with a genuine counterfactual that pins the discriminator: delete the fold
-  // and the infra `d6Effective` would read "red", failing the null assertion.
+  // Infra D6 errors keep the verified D5 ladder amber and d6Effective null.
+  // Genuine functional failures must instead paint red and retain the red badge.
   it("a real per-cell d6 driver-error row folds to d6Effective=null while the chip stays amber (not red)", () => {
     const rows = [
       ...greenLadderBelowD6(FIXTURE_OBSERVED_AT),
@@ -173,15 +160,11 @@ describe("U7 real-surface proof: the infra fold changes the rendered outcome", (
   });
 
   it("masks-real-red guard: a GENUINE D6 red on the SAME intact ladder surfaces d6Effective=red (fold must NOT swallow it)", () => {
-    // Same placement and chip (amber soft-parity top) as the infra rows above,
-    // but d6Effective = "red" — proving the fold discriminates infra from a real
-    // ran-and-failed red. This is the assertion the infra tests would ALSO pass
-    // (d6Effective=red) if the infra fold were deleted, so together they give
-    // the fold genuine teeth.
+    // A genuine D6 failure paints red while infra evidence remains amber.
     const rows = [...greenLadderBelowD6(FIXTURE_OBSERVED_AT), genuineD6Red(1)];
     const chip = renderChipFor(rows);
-    expect(chip.className).toContain(AMBER_FILL);
-    expect(chip.className).not.toContain(RED_FILL);
+    expect(chip.className).toContain(RED_FILL);
+    expect(chip.className).not.toContain(AMBER_FILL);
     expect(modelFor(rows).d6Effective).toBe("red");
   });
 
@@ -222,19 +205,16 @@ describe("U7 real-surface proof: the infra fold changes the rendered outcome", (
  * Reuses the SAME genuine `selector-timeout` D6 row the harness persists, on an
  * intact green ladder, rendered at two `now` values — proving the matrix-
  * staleness fold is visible at the render surface: FRESH → the genuine D6
- * failure surfaces AMBER (D6 soft-parity, d6Effective = red); the SAME rows
+ * failure surfaces RED (d6Effective = red); the SAME rows
  * past the re-sweep window → no-data GRAY ("re-sweep pending", U8 all-stale).
- * (Under §7 a genuine D6 red never paints solid red — over an intact ladder it
- * is the amber soft-parity top; the U7/U8 point is that it is not swallowed to
- * gray while fresh, then folds to gray once stale.)
  */
-describe("U8 real-surface proof: a fresh D6 failure is amber, stale folds to gray", () => {
+describe("U8 real-surface proof: a fresh D6 failure is red, stale folds to gray", () => {
   // The captured fixture rows are observed at 2026-06-19T08:00:00Z.
   const ROW_OBSERVED_MS = Date.parse("2026-06-19T08:00:00.000Z");
   const FRESH_NOW = ROW_OBSERVED_MS + 60 * 1000; // 1 min later — fresh
   const STALE_NOW = ROW_OBSERVED_MS + E2E_STALE_AFTER_MS + 60 * 60 * 1000; // past window
 
-  it("the real selector-timeout D6 failure surfaces AMBER while FRESH", () => {
+  it("the real selector-timeout D6 failure surfaces RED while FRESH", () => {
     const chip = renderChipForAt(
       [
         ...greenLadderBelowD6(FIXTURE_OBSERVED_AT),
@@ -242,7 +222,7 @@ describe("U8 real-surface proof: a fresh D6 failure is amber, stale folds to gra
       ],
       FRESH_NOW,
     );
-    expect(chip.className).toContain(AMBER_FILL);
+    expect(chip.className).toContain(RED_FILL);
     expect(chip.className).not.toContain(GRAY_FILL);
   });
 

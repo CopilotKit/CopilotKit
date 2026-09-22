@@ -497,6 +497,7 @@ function toDriverInputs(
     demos: [...svc.demos],
     notSupportedFeatures: [...svc.notSupportedFeatures],
     shape: svc.shape,
+    ...(svc.deployedDigest ? { targetRevision: svc.deployedDigest } : {}),
     // Omitted when empty so the driver's deploy-churn grace window only engages
     // for a genuine timestamp (the driver guards on length/parse anyway).
     ...(svc.deployedAt ? { deployedAt: svc.deployedAt } : {}),
@@ -656,7 +657,12 @@ export function createD6ServiceEnumerator(
     filter,
     // Convey the YAML outer-cap so the fleet worker's d6 driver honors the
     // `d6-all-pills-e2e.yml` budget instead of its hardcoded DEFAULT_TIMEOUT_MS.
-    extraDriverInputs: { timeout_ms: timeoutMs },
+    extraDriverInputs: {
+      timeout_ms: timeoutMs,
+      surface: "public",
+      publicShellBaseUrl: env.SHOWCASE_PUBLIC_SHELL_URL,
+      canonicalRevision: env.COMMIT_SHA,
+    },
     // Forward Railway-GQL resilience knobs (test-only stubs in production
     // wiring; real defaults otherwise — `defaultSleep` / `Date.now` /
     // `ENUMERATE_RETRY_BACKOFF_MS`).
@@ -738,6 +744,9 @@ export function createE2eDeepServiceEnumerator(
     // worker's d6 driver honors the `e2e-deep.yml` budget rather than its
     // hardcoded DEFAULT_TIMEOUT_MS.
     extraDriverInputs: {
+      surface: "public",
+      publicShellBaseUrl: env.SHOWCASE_PUBLIC_SHELL_URL,
+      canonicalRevision: env.COMMIT_SHA,
       representativeOnly: true,
       rowPrefix: "d5",
       timeout_ms: timeoutMs,

@@ -1,0 +1,358 @@
+---
+title: Self-host Intelligence on AWS ECS/Fargate
+nav_title: Self-host on AWS ECS
+description: Deploy the versioned CopilotKit Intelligence ECS bundle with CloudFormation, your own AWS services, and OIDC. Configure, deploy, verify, upgrade, and roll back.
+icon: "lucide/Server"
+doc_type: how-to
+---
+
+Deploy CopilotKit Intelligence in your AWS account with the versioned ECS/Fargate bundle and its `cpki-ecs` command. You start with your own network, databases, secrets, and OIDC provider. You finish with the Intelligence dashboard behind HTTPS, an authenticated session, and a runtime connected to your deployment.
+
+<Callout type="info" title="Choose your deployment path">
+  This page covers ECS/Fargate. For a Kubernetes deployment, use the [Helm guide](/intelligence/self-hosting). To evaluate ECS before preparing production resources, use the [reference environment](#evaluate-with-the-reference-environment).
+</Callout>
+
+## What the bundle deploys
+
+The bundle uses the same released Intelligence service images as the Helm chart. It pins each first-party task image to a digest from `release-manifest.json`.
+
+| Stack | Resources |
+| --- | --- |
+| `<deploymentName>-foundation` | ECS cluster, HTTPS Application Load Balancer, security groups, private Cloud Map discovery, KMS-encrypted CloudWatch log groups, IAM roles, and scheduler dead-letter queue. |
+| `<deploymentName>-release` | Task definitions for app API, frontend, realtime gateway, embeddings, migrations, bootstrap, and thread culling. |
+| `<deploymentName>-services` | Four running services, ALB routing, CPU autoscaling, and a disabled thread-culler schedule. |
+
+| Service | Container port | Public route |
+| --- | --- | --- |
+| `app-api` | 4201 | `/api`, `/api/*`, `/auth`, and `/auth/*` on the UI host. |
+| `app-frontend` | 8080 | Remaining paths on the UI host, including `/healthz`. |
+| `realtime-gateway` | 4401 | All paths on the realtime host, including WebSocket routes and `/health`. |
+| `embeddings` | 8080 | Private Cloud Map endpoint; no public route. |
+
+All four services run in private subnets with public IP assignment disabled. The embeddings service runs even when the deployment has no Memory entitlement; app API requires its provider configuration at startup. The composite image is not an ECS task in this bundle.
+
+The three stacks do not create your VPC, PostgreSQL, Redis, OIDC provider, certificate, KMS keys, secret values, or application DNS records.
+
+## Before you start
+
+### Release access and tools
+
+Obtain `copilot-intelligence-ecs-<version>.tar.gz` and `release-manifest.json` from the **same release**. The [Intelligence GitHub releases](https://github.com/CopilotKit/Intelligence/releases) require repository access. If you do not have access, [contact your CopilotKit account team](https://copilotkit.ai/talk-to-an-engineer) for the release bundle.
+
+Install AWS CLI v2, Bash, `jq`, `curl`, `tar`, and Python 3 on the deployment machine. Use AWS credentials that can create CloudFormation stacks and their IAM roles, pass the generated task roles, and add ingress rules to the database and Redis security groups. Configuration validation uses read-only AWS APIs; deployment requires write access.
+
+### AWS resources
+
+| Resource | Required configuration |
+| --- | --- |
+| Network | One VPC with at least two public subnets and two private subnets. Each subnet set must span at least two Availability Zones. Public subnets need an active `0.0.0.0/0` route to an internet gateway; private subnets need an active `0.0.0.0/0` route to a NAT gateway. The configurator rejects endpoint-only private networking. |
+| Databases | PostgreSQL with pgvector, reachable on port 5432, and Redis on port 6379. Supply their security group IDs and the PostgreSQL server's actual connection limit. The foundation stack adds ingress from its runtime security group. |
+| HTTPS and DNS | An issued ACM certificate covering both `uiHostName` and `realtimeHostName`. After deployment, point both names at the foundation ALB. |
+| Identity | An HTTPS OIDC issuer and client. Register `https://<uiHostName>/auth/callback/<authProviderId>` as the callback. The default provider ID is `enterprise-sso`. |
+| Encryption | Two distinct, enabled, customer-managed symmetric KMS keys in the deployment account and region: `kmsKeyArn` for logs and `secretKmsKeyArn` for secrets. Supply full key ARNs, not aliases. |
+
+The log key policy must allow the regional CloudWatch Logs service (`logs.<region>.amazonaws.com`) to use `kms:Encrypt`, `kms:Decrypt`, `kms:ReEncrypt*`, `kms:GenerateDataKey*`, and `kms:Describe*`, scoped to the encryption context for `/ecs/<deploymentName>/*`. The secret key policy must allow account IAM permissions so the task execution roles' `kms:Decrypt` grants take effect. The [reference environment](#evaluate-with-the-reference-environment)'s `substrate.yaml` contains both policies.
+
+The configurator calls `sts:GetCallerIdentity`, EC2 describe APIs for the supplied VPC, subnets, routes, and security groups, `acm:DescribeCertificate`, `kms:DescribeKey`, and `secretsmanager:DescribeSecret`. If you configure object storage, it also needs `s3:GetBucketLocation`. It checks the OIDC discovery document over HTTPS. It does not read secret values or test database credentials.
+
+### Secrets
+
+Create a separate Secrets Manager secret for each required field below. Encrypt every secret with the exact `secretKmsKeyArn` you will supply to the configurator. Configuration files contain ARNs; the tasks receive the secret values when they start.
+
+| Configuration field | Secret value |
+| --- | --- |
+| `databaseUrlSecretArn` | PostgreSQL connection URL (`DATABASE_URL`). |
+| `redisUrlSecretArn` | Redis connection URL (`REDIS_URL`). |
+| `authSecretArn` | Session secret (`AUTH_SECRET`), at least 32 characters. |
+| `authClientIdSecretArn` | OIDC client ID (`AUTH_CLIENT_ID`). |
+| `authClientSecretSecretArn` | OIDC client secret (`AUTH_CLIENT_SECRET`). |
+| `runnerAuthSecretArn` | Realtime runner authentication secret (`RUNNER_AUTH_SECRET`). |
+| `secretKeyBaseSecretArn` | Phoenix secret key base (`SECRET_KEY_BASE`). |
+| `releaseCookieSecretArn` | Shared realtime cluster cookie (`RELEASE_COOKIE`). |
+| `providerCredentialEncryptionKeySecretArn` | 64-character hex AES-256 key (`APP_HOSTED_BOTS_CREDENTIAL_ENCRYPTION_KEY`). |
+
+For RDS, the service images include the CA bundle at `/etc/cpki/rds-ca/global-bundle.pem`. The bundle README documents `sslmode=verify-full` with that CA path. Match the Redis URL's TLS settings to your Redis service.
+
+| Optional field | When to supply it |
+| --- | --- |
+| `licenseTokenSecretArn` | Your signed deployment license (`COPILOTKIT_LICENSE_TOKEN`) for licensed capabilities. A project API key is a separate runtime credential. |
+| `bootstrapConfigSecretArn` | Base64-encoded bootstrap JSON (`BOOTSTRAP_CONFIG_B64`). Supply this on a first install to create organization access mappings. Existing deployments can keep their mappings. |
+| `timescaleUrlSecretArn` | Restricted runtime TimescaleDB URL for analytics. |
+| `timescaleMigratorUrlSecretArn` | Schema-owner TimescaleDB URL for analytics migrations. |
+
+Analytics defaults to disabled. To enable it, set `analyticsEnabled` to `true` and supply **both** Timescale secret ARNs. The migration task receives the owner URL and the runtime URL; app API and realtime receive only the runtime URL. Both runtime services and the migration task must reach TimescaleDB.
+
+### First-install organization access
+
+An OIDC login does not grant organization access. Prepare a bootstrap file using the bundle's `config/bootstrap.example.json`. The following example creates one organization and grants membership to users whose OIDC `groups` claim contains the exact, case-sensitive value `intelligence-users`:
+
+```json title="bootstrap.json"
+{
+  "organizations": [
+    {
+      "slug": "my-organization",
+      "name": "My Organization",
+      "mappings": [
+        {
+          "role": "org_member",
+          "claimName": "groups",
+          "claimValue": "intelligence-users"
+        }
+      ]
+    }
+  ],
+  "platformAdminMappings": [],
+  "emergencyPlatformAdminGrants": []
+}
+```
+
+Replace the organization and claim values with yours. Your IdP must emit the matching claim. The supported claim names are `groups`, `roles`, `department`, and `entitlements`; an email domain does not grant membership. Use the example file's `platformAdminMappings` shape if you also need to grant platform administration to a specific IdP group.
+
+Base64-encode your file and store the resulting text as a Secrets Manager secret under the same secret KMS key:
+
+```bash title="Terminal"
+base64 < bootstrap.json | tr -d '\n' > bootstrap.b64
+```
+
+Supply that secret's ARN as `bootstrapConfigSecretArn`. Deployment runs bootstrap after migrations. If no organization or access mapping exists, the UI reports that the deployment has not been bootstrapped. If the signed-in user matches no mapping, it reports that the user is not assigned to an organization.
+
+## Deploy and verify
+
+Run the following commands in Bash. Keep the same shell open so the paths set in the first step remain available.
+
+<Steps>
+  <Step>
+    ### Unpack one release
+
+    Put the two release assets in an empty working directory. Set `CPKI_VERSION` to the version you obtained; `0.12.9` is an example published release.
+
+    ```bash title="Terminal"
+    export CPKI_VERSION=0.12.9
+    export CPKI_DEPLOY_DIR="$PWD"
+
+    tar -xzf "copilot-intelligence-ecs-${CPKI_VERSION}.tar.gz"
+    cd "copilot-intelligence-ecs-${CPKI_VERSION}"
+    export CPKI_CONFIG="$CPKI_DEPLOY_DIR/parameters.json"
+    export CPKI_MANIFEST="$CPKI_DEPLOY_DIR/release-manifest.json"
+
+    cmp ./release-manifest.json "$CPKI_MANIFEST"
+    ./bin/cpki-ecs validate --offline
+    ```
+
+    `cmp` must report no difference between the bundled manifest and the downloaded manifest. Offline validation checks required bundle files and the manifest contract. It does not contact AWS or validate your account resources.
+  </Step>
+
+  <Step>
+    ### Generate your configuration
+
+    Run the guided configurator with the IDs, ARNs, host names, and issuer prepared above:
+
+    ```bash title="Terminal"
+    ./bin/cpki-ecs configure --interactive --output "$CPKI_CONFIG"
+    ```
+
+    The command asks one question at a time, checks local constraints and AWS metadata, and writes the file only after validation passes. It creates no AWS resources. Existing output is not overwritten unless you pass `--force`.
+
+    If you use a named AWS profile, select it for the entire shell with `AWS_PROFILE` before configuring or deploying. The configurator's `--profile` option applies only to that invocation and is not saved in the file.
+
+    For a prepared JSON file, copy the supplied example outside the bundle, replace its placeholders, and validate it:
+
+    ```bash title="Alternative: prepared JSON"
+    cp ./config/example.parameters.json "$CPKI_DEPLOY_DIR/draft.parameters.json"
+    # Edit draft.parameters.json with your resource IDs, ARNs, and settings.
+    ./bin/cpki-ecs configure \
+      --from-json "$CPKI_DEPLOY_DIR/draft.parameters.json" \
+      --output "$CPKI_CONFIG"
+    ```
+
+    Choose either the guided or JSON path. For automation, `./bin/cpki-ecs configure --help` lists every flag for `--non-interactive` mode.
+
+    Before deploying, check these settings:
+
+    | Setting | Contract |
+    | --- | --- |
+    | App API and frontend counts | Desired, minimum, and maximum counts must be at least 2. Realtime desired/minimum can be 1; its maximum must be at least 2. |
+    | Database pools | The configurator budgets the maximum API and realtime counts at 200% rollout capacity. Their combined pools must fit within 70% of `databaseMaxConnections`. |
+    | Embeddings | Keep the supplied digest-pinned `embeddingsImage` and `embeddingsModel` unless you have selected another compatible provider image and model. |
+    | Optional S3 | Set `objectStorageBucket` and its actual `objectStorageRegion` for channel files and realtime archives. The templates grant scoped task-role access. |
+    | Thread culling | Keep `threadCullerState` set to `DISABLED`. This task deletes data. |
+
+    With the example's API and realtime maximum counts of 10 and pool sizes of 10, the rollout budget is `20 × 10 + 20 × 10 = 400` connections. Set `databaseMaxConnections` to your server's limit; adjust counts and pools if 400 exceeds 70% of that limit.
+  </Step>
+
+  <Step>
+    ### Deploy the stacks and migrations
+
+    ```bash title="Terminal"
+    ./bin/cpki-ecs deploy \
+      --config "$CPKI_CONFIG" \
+      --manifest "$CPKI_MANIFEST"
+    ```
+
+    The command applies foundation and release, runs product migrations, runs analytics migrations when enabled, and runs bootstrap when configured. Each one-shot task must exit with code zero before services update. The command then verifies the deployed services against the requested release.
+
+    A failed migration or bootstrap stops the deployment before the service update. Read the task diagnostics and the component's CloudWatch logs before trying again.
+  </Step>
+
+  <Step>
+    ### Set DNS and check health
+
+    Read the foundation outputs:
+
+    ```bash title="Terminal"
+    export AWS_REGION="$(jq -r '.region' "$CPKI_CONFIG")"
+    export CPKI_DEPLOYMENT_NAME="$(jq -r '.deploymentName' "$CPKI_CONFIG")"
+    export CPKI_UI_HOST="$(jq -r '.uiHostName' "$CPKI_CONFIG")"
+    export CPKI_REALTIME_HOST="$(jq -r '.realtimeHostName' "$CPKI_CONFIG")"
+
+    aws cloudformation describe-stacks \
+      --region "$AWS_REGION" \
+      --stack-name "${CPKI_DEPLOYMENT_NAME}-foundation" \
+      --query 'Stacks[0].Outputs' --output table
+    ```
+
+    Create DNS records for both hosts using `LoadBalancerDnsName` and, for Route53 aliases, `LoadBalancerCanonicalHostedZoneId`. The source release's `deploy/ecs/examples/reference-environment/app-dns.yaml` provides a Route53 example; see [how to obtain the reference templates](#evaluate-with-the-reference-environment).
+
+    Once both names resolve to the ALB, verify the release and health routes:
+
+    ```bash title="Terminal"
+    ./bin/cpki-ecs verify \
+      --config "$CPKI_CONFIG" \
+      --manifest "$CPKI_MANIFEST"
+
+    curl --fail "https://${CPKI_UI_HOST}/healthz"
+    curl --fail "https://${CPKI_UI_HOST}/api/health"
+    curl --fail "https://${CPKI_REALTIME_HOST}/health"
+    ```
+
+    `verify` checks stack state, stable service counts, completed rollouts, and the requested task definitions and image digests. It does not perform an OIDC login or prove that a browser can open a WebSocket.
+  </Step>
+
+  <Step>
+    ### Sign in and connect your runtime
+
+    Open the UI host in a browser and sign in through your OIDC provider with a user who matches your bootstrap access mapping. Select the organization, select or create a project, and create a project API key in that deployment.
+
+    Follow [Connect your runtime](/intelligence/connect-your-runtime#self-hosted-deployments), using both of your deployment's base URLs:
+
+    ```ts title="Intelligence client in your server-side runtime"
+    import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+
+    const intelligence = new CopilotKitIntelligence({
+      apiUrl: "https://intelligence.example.com",
+      wsUrl: "wss://realtime.intelligence.example.com",
+      apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+    });
+    ```
+
+    Replace the hosts with `uiHostName` and `realtimeHostName`, and set the server-side key to the project key you just created. Pass `intelligence` to your existing `CopilotRuntime` as shown in the runtime guide. Do not append `/api`, `/runner`, or `/client` to these base URLs; the client adds the paths.
+
+    <Callout type="info" title="Check your application's browser origin">
+      The `0.12.9` release template sets realtime `CHECK_ORIGIN` to `https://<uiHostName>`. The configurator has no additional browser-origin field. If your app runs on another origin, review the gateway origin configuration with your deployment team before testing its browser connection; changing the runtime's URLs alone does not change that setting.
+    </Callout>
+
+    Send a message from your app. Confirm the realtime connection upgrades to a WebSocket, the response streams, and the thread appears in your self-hosted project. Reload the app and reopen that thread to check persistence. These checks exercise the user path beyond the three HTTP health probes.
+  </Step>
+</Steps>
+
+## Evaluate with the reference environment
+
+The Intelligence source repository provides an AWS evaluation environment under `deploy/ecs/examples/reference-environment/`. The bundle root's `README.md` contains the full **Quickstart: reference environment** commands, including output-to-parameter wiring.
+
+<Callout type="info" title="Obtain the reference templates separately">
+  The published `0.12.9` ECS archive does not contain `examples/reference-environment/`, even though its README refers to that directory. Obtain it from the matching source release or your CopilotKit account team before following the quickstart. The three production templates are already in the ECS archive.
+</Callout>
+
+After the unpack step above, you can retrieve the source with the GitHub CLI authenticated to an account that has Intelligence repository access:
+
+```bash title="Terminal"
+gh release download "v${CPKI_VERSION}" \
+  --repo CopilotKit/Intelligence \
+  --archive tar.gz \
+  --output "$CPKI_DEPLOY_DIR/intelligence-source.tar.gz"
+
+mkdir "$CPKI_DEPLOY_DIR/reference-source"
+tar -xzf "$CPKI_DEPLOY_DIR/intelligence-source.tar.gz" \
+  --strip-components=1 -C "$CPKI_DEPLOY_DIR/reference-source"
+
+cd "$CPKI_DEPLOY_DIR/copilot-intelligence-ecs-${CPKI_VERSION}"
+cp -R "$CPKI_DEPLOY_DIR/reference-source/deploy/ecs/examples" ./examples
+```
+
+Now follow **Quickstart: reference environment** in `README.md` from the extracted ECS bundle directory. Use your downloaded release manifest; you do not need to construct one from image tags.
+
+| Order | Template or command | Purpose |
+| --- | --- | --- |
+| 1 | `substrate.yaml` | VPC, public/private subnets, NAT, RDS PostgreSQL, ElastiCache Redis, KMS keys, ACM certificate, and database password secret. |
+| 2 | `secrets.yaml` | Runtime secrets and connection URLs derived from the substrate outputs. |
+| 3 | `keycloak.yaml` with `realm-cpki.json` | Evaluation OIDC issuer, application client, and demo user. |
+| 4 | `cpki-ecs configure`, then `cpki-ecs deploy` | The same three Intelligence stacks used in production. |
+| 5 | `app-dns.yaml`, then health/login checks | UI and realtime Route53 aliases, followed by verification. |
+
+<Callout type="warn" title="Use your own domain and evaluation-only credentials">
+  Supply your own Route53 hosted zone and host names. Override the substrate's `WildcardDomain` parameter: its default is a CopilotKit domain. The certificate must cover the UI, realtime, and Keycloak hosts. The imported realm includes `demo` / `Passw0rd!`; use the reference environment for evaluation only. Production uses your own identity provider and managed resources.
+</Callout>
+
+The reference environment does not add a TimescaleDB instance. Leave analytics disabled unless you supply one and both analytics secret ARNs.
+
+The reference realm also does not define organization claim mappings. Its demo login can verify OIDC, but project access still needs a supported claim from the IdP and the [bootstrap mapping](#first-install-organization-access) above.
+
+## Operate the deployment
+
+### Upgrade or roll back
+
+Keep the previous bundle, manifest, and configuration. Back up the database under your recovery policy and check migration compatibility before upgrading. Obtain the new bundle and matching manifest, unpack them in a new directory, and run its `deploy` command with your configuration. Repeat the health, sign-in, and runtime checks above.
+
+To roll application tasks back, run from the retained prior bundle with its manifest:
+
+```bash title="Terminal"
+./bin/cpki-ecs rollback \
+  --config "$CPKI_CONFIG" \
+  --manifest ./release-manifest.json
+```
+
+Rollback registers the prior task definitions, updates services, and verifies their release. **It does not reverse database migrations.** The ECS deployment circuit breaker also rolls back failed service deployments; it does not reverse migrations or foundation changes.
+
+### Rotate secrets or change capacity
+
+After changing a secret value, start a new deployment for every service that consumes it. For example, after rotating an app API secret:
+
+```bash title="Terminal"
+aws ecs update-service \
+  --region "$AWS_REGION" \
+  --cluster "$CPKI_DEPLOYMENT_NAME" \
+  --service "${CPKI_DEPLOYMENT_NAME}-app-api" \
+  --force-new-deployment
+```
+
+Running tasks do not receive new environment-secret values until they restart. To change service counts, validate an updated configuration and run `deploy` with the same manifest. API, frontend, and realtime use CPU target tracking through `targetCpuUtilization`.
+
+### Inspect a failed rollout
+
+Use ECS service events, stopped-task reasons, and `/ecs/<deploymentName>/...` CloudWatch log groups. Container Insights defaults to enabled. `otlpEndpoint` passes exporter configuration to instrumented workloads; the bundle does not install an observability backend.
+
+| Failure | Check |
+| --- | --- |
+| Configuration is rejected | The named resource, account/region, NAT route, certificate host coverage, exact secret KMS key, and OIDC discovery response. |
+| Migration or bootstrap fails | The stopped task and its component log group. Services do not update until each required task exits zero. |
+| ALB health fails | `/api/health`, `/healthz`, or `/health` on the correct host; task access to PostgreSQL and Redis. |
+| OIDC redirect is rejected | The exact `https://<uiHostName>/auth/callback/<authProviderId>` registered at your IdP. |
+| Realtime discovery fails | Cloud Map records and runtime security-group rules for EPMD 4369 and BEAM distribution 9000–9010. |
+
+### Remove the deployment
+
+Remove application DNS records first. From the bundle directory, delete the three Intelligence stacks:
+
+```bash title="Terminal — removes the deployment"
+./bin/cpki-ecs teardown \
+  --config "$CPKI_CONFIG" \
+  --confirm "$CPKI_DEPLOYMENT_NAME"
+```
+
+The confirmation must exactly match `deploymentName`. This disables ALB deletion protection and deletes services, release, and foundation in that order. CloudWatch log groups remain. Customer-managed databases, Redis, VPC, IdP, secrets, certificate, and KMS keys remain.
+
+For the reference environment, follow the bundle README's full teardown order: application DNS, bundle stacks, Keycloak, secrets, then substrate. `cpki-ecs teardown` alone does not remove those additional stacks.
+
+## Implementation references
+
+The release bundle's `README.md`, `config/example.parameters.json`, and `bin/cpki-ecs configure --help` travel with the version you deploy. For source review, the [CLI and configuration validators](https://github.com/CopilotKit/Intelligence/tree/main/deploy/ecs/bin) and [CloudFormation templates](https://github.com/CopilotKit/Intelligence/tree/main/deploy/ecs/cloudformation) require Intelligence repository access.

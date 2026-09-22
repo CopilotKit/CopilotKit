@@ -1,3 +1,6 @@
+import { runConversation } from "../../../../harness/src/probes/helpers/conversation-runner.js";
+import { buildChatPlatformTurns } from "../../../../harness/src/probes/scripts/_pill-contracts-chat-platform.js";
+// Existing scenarios are diagnostics; only the canonical pill test below is functional acceptance.
 import { test, expect } from "@playwright/test";
 
 // E2E for the voice demo — sample-audio path only.
@@ -15,12 +18,12 @@ import { test, expect } from "@playwright/test";
 //
 // Stability expectation: 3 consecutive runs against Railway must pass.
 
-test.describe("Voice Input", () => {
+test.describe("Diagnostic: Voice Input", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/voice");
   });
 
-  test("page loads with sample button, chat composer, and mic affordance", async ({
+  test("Diagnostic: page loads with sample button, chat composer, and mic affordance", async ({
     page,
   }) => {
     await expect(
@@ -43,7 +46,7 @@ test.describe("Voice Input", () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 
-  test("sample audio button injects the canned phrase into the input", async ({
+  test("Diagnostic: sample audio button injects the canned phrase into the input", async ({
     page,
   }) => {
     const sampleButton = page.locator(
@@ -62,7 +65,7 @@ test.describe("Voice Input", () => {
     await expect(sampleButton).toBeEnabled();
   });
 
-  test("sending the transcribed text produces a weather tool render", async ({
+  test("Diagnostic: sending the transcribed text produces a weather tool render", async ({
     page,
   }) => {
     // The end-to-end flow (click → run agent → first assistant chunk) can run
@@ -96,4 +99,14 @@ test.describe("Voice Input", () => {
       .first();
     await expect(assistantOrTool).toBeVisible({ timeout: 45000 });
   });
+});
+
+test("Canonical pill acceptance: voice", async ({ page }) => {
+  await page.goto("/demos/voice");
+  const result = await runConversation(page, buildChatPlatformTurns("voice"), {
+    mode: "functional-pill",
+    surface: "direct-diagnostic",
+  });
+  expect(result.error, JSON.stringify(result.pillExecution)).toBeUndefined();
+  expect(result.pillExecution?.completed).toBe(true);
 });

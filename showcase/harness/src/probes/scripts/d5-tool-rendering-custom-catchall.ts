@@ -1,33 +1,8 @@
+import { buildToolsAgentTurns } from "./_pill-contracts-tools-agents.js";
 /**
- * D5 — `tool-rendering-custom-catchall` script.
- *
- * Phase-2A split (see `.claude/specs/lgp-test-genuine-pass.md`): the old
- * mapping pointed `tool-rendering-custom-catchall` at the
- * `d5-tool-rendering.ts` probe, which asserts a per-tool `WeatherCard`.
- * The custom catchall is a USER-supplied wildcard renderer that fires
- * for ANY tool the integration didn't register a per-tool renderer for.
- * The signal we want here is "the SAME custom wildcard testid renders
- * for two DIFFERENT tool calls" — i.e. the wildcard truly catches all
- * tools, not just one.
- *
- * Custom-catchall testid contract (Phase-1E production code, see
- * `showcase/integrations/langgraph-python/src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx`):
- *   - the user-supplied component renders a wrapper carrying
- *     `[data-testid="custom-wildcard-card"]` on every invocation,
- *     regardless of tool name.
- *   - the wrapper carries the tool name on `[data-tool-name="<name>"]`
- *     so the cross-tool snapshot can verify a SINGLE testid maps to
- *     MULTIPLE tool names.
- *
- * The probe sends two distinct prompts in sequence (driving two
- * different tool calls) and asserts both render through the same
- * `custom-wildcard-card` testid with distinct `data-tool-name`
- * values. This is the "cross-test signature snapshot" called out in
- * Phase-2A.
- *
- * Side effect: importing this module triggers `registerD5Script`. The
- * default loader in `d6-all-pills.ts` discovers it via the `d5-*` filename
- * convention.
+ * Functional acceptance uses the shared canonical LGP pill contract below.
+ * Exported legacy assertion helpers remain for supplemental regression tests;
+ * buildTurns never uses their weaker diagnostic-only acceptance criteria.
  */
 
 import { registerD5Script } from "../helpers/d5-registry.js";
@@ -318,43 +293,7 @@ export async function assertCustomCatchall(
  * everything".
  */
 export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
-  const allExpected = PROMPT_TOOL_PAIRS.map((p) => p.tool);
-  return [
-    {
-      input: PROMPT_TOOL_PAIRS[0].prompt,
-      assertions: (page: Page) =>
-        assertCustomCatchall(page, [PROMPT_TOOL_PAIRS[0].tool]),
-    },
-    {
-      input: PROMPT_TOOL_PAIRS[1].prompt,
-      // After the second turn, BOTH tool calls must have rendered
-      // through the same custom-catchall testid AND the assistant's
-      // narration content (passed in via `ctx.text` — the turn-scoped
-      // bubble text resolved by the conversation runner's settle path)
-      // must include the custom-catchall content phrase. The narration
-      // content check proves the response came from the custom-catchall
-      // fixture rather than a leaked default-catchall fixture
-      // (LGP-gold disjoint-prompts guard). We use `ctx.text` instead
-      // of a probe-side DOM read so the check is cascade-consistent
-      // with the rest of the harness (turn-indexed, defect-2 safe —
-      // see `d5-gen-ui-custom.ts` for the same pattern).
-      assertions: async (page, ctx) => {
-        await assertCustomCatchall(page, allExpected, {
-          requireContentPhrase: true,
-          timeoutMs: POLL_TIMEOUT_MS,
-        });
-        const phrase = CUSTOM_CATCHALL_CONTENT_PHRASE;
-        if (!ctx.text.includes(phrase)) {
-          throw new Error(
-            "tool-rendering-custom-catchall: narration content does not " +
-              `include the custom-catchall content phrase ${JSON.stringify(phrase)} — ` +
-              `narration may have come from a leaked default-catchall fixture. ` +
-              `Observed text: ${JSON.stringify(ctx.text.slice(0, 200))}`,
-          );
-        }
-      },
-    },
-  ];
+  return buildToolsAgentTurns("tool-rendering-custom-catchall");
 }
 
 export function preNavigateRoute(): string {

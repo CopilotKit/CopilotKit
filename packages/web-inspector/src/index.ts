@@ -205,7 +205,7 @@ export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
  * User-facing label for the learning view. The legacy menu key stays
  * "memories" for persistence and telemetry stability.
  */
-const LEARNING_VIEW_LABEL = "Learning";
+const LEARNING_VIEW_LABEL = "Automatic Learning";
 const LEARNING_RECOPY_CONFIRMATION_MS = 2_000;
 
 /**
@@ -701,7 +701,7 @@ const SELF_HOSTED_INTELLIGENCE_URL =
 const INTELLIGENCE_STORY_BEATS = [
   {
     id: "threads",
-    label: "Threads",
+    label: "Rich Threads",
     // Roughly 24 words of copy plus a picture to take in. The upstream timings
     // were written for a page where the animation carried itself; here it has
     // to be read, so every beat gets time for two sentences at a comfortable
@@ -726,7 +726,7 @@ const INTELLIGENCE_STORY_BEATS = [
   },
   {
     id: "learning",
-    label: "Learning",
+    label: "Automatic Learning",
     duration: 6_000,
     lead: "Your users already told you what to fix.",
     // Insights are a first-class concept in the product, and the evidence link
@@ -734,7 +734,7 @@ const INTELLIGENCE_STORY_BEATS = [
     // not a model's opinion. Learning's own onboarding leads with "46 evidence
     // refs" across "12 Threads" for exactly this reason.
     support:
-      "Learning reads the runs behind those threads and finds the patterns — every Insight linked to the messages that back it.",
+      "Automatic Learning reads the runs behind those threads and finds the patterns — every Insight linked to the messages that back it.",
   },
   {
     id: "skill",
@@ -835,7 +835,7 @@ const INTELLIGENCE_STORY_CHAIN = [
 const THREADS_EXAMPLE_OVERVIEW_VIDEO_URL =
   "https://cdn.copilotkit.ai/corp-site/videos/copilotkit-generative-ui-agentic-frontend-demo.webm";
 const THREADS_EXAMPLE_OVERVIEW_VIDEO_FALLBACK =
-  "The demo video is unavailable. Use the example threads to explore Messages, AG-UI Events, and State.";
+  "The demo video is unavailable. Use the example threads to explore Conversation, AG-UI Events, and State.";
 const THREADS_LOCKED_VIDEO_URL =
   "https://www.loom.com/embed/79817778d29e490c97225127d2f17b3a?hide_owner=true&hide_share=true&hide_title=true&hideEmbedTopBar=true&hide_speed=true";
 const LEARNING_LOCKED_VIDEO_URL =
@@ -1541,9 +1541,9 @@ const THREADS_EXAMPLE_TOUR_STEPS: ReadonlyArray<{
 }> = [
   {
     tab: "timeline",
-    label: "Messages",
+    label: "Conversation",
     title: "Read the run as a story",
-    body: "The timeline turns messages, tool calls, state changes, and run markers into a scannable debugging trail.",
+    body: "Read messages and tool calls as a conversation. Switch to the event timeline to inspect state changes and run markers.",
   },
   {
     tab: "raw-events",
@@ -2168,6 +2168,7 @@ class CpkThreadList extends PortableLitElement {
 export class CpkThreadInspector extends PortableLitElement {
   static properties = {
     threadId: { attribute: false },
+    showThreadTitle: { type: Boolean, attribute: false },
     provider: { attribute: false },
     thread: { attribute: false },
     runtimeUrl: { attribute: false },
@@ -2207,6 +2208,8 @@ export class CpkThreadInspector extends PortableLitElement {
     _activatedTabs: { state: true },
   };
 
+  /** Whether to render the viewer title. Set false when the embedding page owns its heading. */
+  showThreadTitle = true;
   threadId: string | null = null;
   provider: ThreadDebuggerProvider | null = null;
   thread: ThreadDebuggerMetadata | ɵThread | null = null;
@@ -2236,6 +2239,7 @@ export class CpkThreadInspector extends PortableLitElement {
   tryFromHereError: string | null = null;
 
   private _tab: ThreadDetailsTab = "timeline";
+  private _showEventTimeline = false;
   private _fetchedMetadata: ThreadDebuggerMetadata | null = null;
   private _conversation: ConversationItem[] = [];
   private _fetchedEvents: ApiAgentEvent[] | null = null;
@@ -2331,7 +2335,7 @@ export class CpkThreadInspector extends PortableLitElement {
     id: ThreadDetailsTab;
     label: string;
   }> = [
-    { id: "timeline", label: "Messages" },
+    { id: "timeline", label: "Conversation" },
     { id: "raw-events", label: "AG-UI Events" },
     { id: "state", label: "State" },
   ];
@@ -2371,9 +2375,27 @@ export class CpkThreadInspector extends PortableLitElement {
     );
   }
 
+  private renderConversationActions() {
+    return html`<div class="cpk-td__timeline-toolbar">
+        <button type="button" class="cpk-td__timeline-bulk-toggle" aria-pressed=${this._showEventTimeline} @click=${() => {
+          this._showEventTimeline = !this._showEventTimeline;
+          this.requestUpdate();
+        }}>${this._showEventTimeline ? "Show conversation" : "Show event timeline"}</button>
+        ${this.renderTryFromHereControl()}
+      </div>`;
+  }
+
   private renderTabContent(id: ThreadDetailsTab): TemplateResult {
     if (id === "timeline") {
-      return this.withMessagesToolbar(this.renderTimeline());
+      return html`${
+        this._showEventTimeline
+          ? html`<div class="cpk-td__timeline-toolbar">${this.renderTimelineBulkButtons()}</div>${this.renderTimeline()}`
+          : this._conversation.length ||
+              this._loadingMessages ||
+              this._messagesError
+            ? this.renderConversation()
+            : this.renderTimeline()
+      }`;
     }
     if (id === "state") return this.renderState();
     return this.renderEvents();
@@ -2616,6 +2638,49 @@ export class CpkThreadInspector extends PortableLitElement {
       margin-inline-start: 0;
     }
 
+    .cpk-td__thread-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px 16px;
+      padding: 12px 16px;
+      flex-shrink: 0;
+      border-bottom: 1px solid #dbdbe540;
+    }
+    .cpk-td__thread-title {
+      flex: 1 1 180px;
+      min-width: 0;
+      overflow-wrap: anywhere;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .cpk-td__pinned-actions {
+      margin-left: auto;
+      max-width: 100%;
+    }
+    .cpk-td__pinned-actions .cpk-td__timeline-toolbar {
+      justify-content: flex-end;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__bubble-inner--assistant {
+      background: transparent;
+      color: #e7e7ed;
+    }
+    :host([data-color-scheme="dark"]) .cpk-td__bubble-inner--user {
+      background: #27272a;
+      color: #f4f4f5;
+    }
+    :host([data-color-scheme="dark"]) .cpk-td__show-more {
+      color: #c5b5ff;
+    }
+    .cpk-td__timeline-bulk-toggle[aria-pressed="true"] {
+      background: #ece7fa;
+      color: #51418b;
+    }
+    .cpk-td__bubble-inner {
+      line-height: 1.65;
+      overflow-wrap: anywhere;
+    }
     .cpk-td__metadata-strip {
       display: flex;
       flex-direction: column;
@@ -2861,7 +2926,7 @@ export class CpkThreadInspector extends PortableLitElement {
     /* ── Conversation bubbles ────────────────────────────────────────── */
     .cpk-td__bubble {
       display: flex;
-      margin-bottom: 2px;
+      margin-bottom: 10px;
     }
 
     .cpk-td__bubble--user {
@@ -2873,16 +2938,16 @@ export class CpkThreadInspector extends PortableLitElement {
     }
 
     .cpk-td__bubble-inner {
-      padding: 9px 14px;
-      max-width: 75%;
-      font-size: 13px;
-      line-height: 1.55;
+      padding: 10px 16px;
+      max-width: 80%;
+      font-size: 14px;
+      line-height: 1.65;
     }
 
     .cpk-td__bubble-inner--user {
-      background: #eee6fe;
-      color: #57575b;
-      border-radius: 12px 12px 4px 12px;
+      background: #f4f4f5;
+      color: #18181b;
+      border-radius: 18px;
     }
 
     .cpk-td__show-more {
@@ -2897,16 +2962,17 @@ export class CpkThreadInspector extends PortableLitElement {
     }
 
     .cpk-td__bubble-inner--assistant {
-      background: #f7f7f9;
+      background: transparent;
       color: #010507;
-      border-radius: 12px 12px 12px 4px;
-      border: 1px solid #e9e9ef;
+      max-width: 100%;
+      padding: 4px 0;
+      border: 0;
     }
 
     /* ── Tool call blocks ────────────────────────────────────────────── */
     .cpk-td__tool-block {
       border: 1px solid #e9e9ef;
-      border-radius: 7px;
+      border-radius: 12px;
       overflow: hidden;
     }
 
@@ -2914,34 +2980,38 @@ export class CpkThreadInspector extends PortableLitElement {
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 6px 10px;
-      background: rgba(133, 236, 206, 0.15);
+      padding: 12px;
+      background: #ffffff;
+      color: #71717a;
       cursor: pointer;
       font-size: 11px;
       user-select: none;
     }
 
     .cpk-td__tool-header:hover {
-      background: rgba(133, 236, 206, 0.22);
+      background: #fafafa;
     }
 
     .cpk-td__tool-name {
-      font-family: "Spline Sans Mono", monospace;
-      font-size: 10px;
+      font-size: 13px;
       font-weight: 500;
-      color: #087653;
-      text-transform: uppercase;
+      color: #18181b;
+      overflow-wrap: anywhere;
+      min-width: 0;
       flex: 1;
     }
 
     .cpk-td__tool-status {
-      font-family: "Spline Sans Mono", monospace;
-      font-size: 9px;
-      text-transform: uppercase;
-      color: #087653;
+      font-size: 10px;
+      font-weight: 500;
+      padding: 3px 7px;
+      border-radius: 999px;
+      background: #d1fae5;
+      color: #065f46;
     }
 
     .cpk-td__tool-status--pending {
+      background: #fef3c7;
       color: #8a5900;
     }
 
@@ -3249,21 +3319,25 @@ export class CpkThreadInspector extends PortableLitElement {
       display: flex;
       flex-direction: column;
       gap: 6px;
-      padding: 4px 16px 8px;
+      padding: 0;
       animation: cpk-genui-enter 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
 
     .cpk-td__genui-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
-      border-radius: 5px;
-      background: #eee6fe;
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 12px;
+      min-height: 44px;
+      box-sizing: border-box;
+      border: 1px solid #e5def5;
+      border-radius: 12px;
+      background: #f7f4fc;
       color: #57575b;
-      font-size: 10px;
-      font-weight: 600;
-      align-self: flex-start;
+      font-size: 13px;
+      line-height: 20px;
+      font-weight: 500;
     }
 
     .cpk-td__genui-card {
@@ -3274,13 +3348,32 @@ export class CpkThreadInspector extends PortableLitElement {
       box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08);
     }
 
-    .cpk-td__genui-placeholder {
-      padding: 8px 12px;
-      border-radius: 10px;
-      border: 1px solid #ede9fe;
-      background: #f5f3ff;
-      color: #7c3aed;
-      font-size: 11px;
+    .cpk-td__genui-component {
+      margin-left: 6px;
+      font-size: 13px;
+      font-weight: 400;
+      overflow-wrap: anywhere;
+      min-width: 0;
+      line-height: inherit;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__genui-badge {
+      border-color: #49405f;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__tool-header {
+      background: #191c24;
+    }
+    :host([data-color-scheme="dark"]) .cpk-td__tool-name {
+      color: #f4f4f5;
+    }
+    :host([data-color-scheme="dark"]) .cpk-td__tool-status {
+      background: #17392e;
+      color: #6ee7b7;
+    }
+    :host([data-color-scheme="dark"]) .cpk-td__tool-status--pending {
+      background: #3d3019;
+      color: #fbbf24;
     }
 
     /* ── AG-UI Events ────────────────────────────────────────────────── */
@@ -3520,7 +3613,6 @@ export class CpkThreadInspector extends PortableLitElement {
 
     :host([data-color-scheme="dark"]) .cpk-td__metadata-pill,
     :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
-    :host([data-color-scheme="dark"]) .cpk-td__bubble-inner--assistant,
     :host([data-color-scheme="dark"]) .cpk-td__tool-block,
     :host([data-color-scheme="dark"]) .cpk-td__event,
     :host([data-color-scheme="dark"]) .cpk-td__genui-card,
@@ -3705,8 +3797,8 @@ export class CpkThreadInspector extends PortableLitElement {
       this.resetLoadedThreadData();
 
       if (this.threadId) {
-        // Timeline is the default tab and should be event-derived. Fetch
-        // events eagerly; the raw tab reuses the same response when opened.
+        // Keep fetching events alongside messages so the timeline and raw
+        // events views reuse the same response when opened.
         // User messages often never appear as TEXT_MESSAGE events (they are
         // added locally before RUN_STARTED), so also load the conversation.
         void this.fetchMetadata(this.threadId);
@@ -4760,7 +4852,14 @@ export class CpkThreadInspector extends PortableLitElement {
             }
             ${this.renderPanelToggle()}
           </div>
-          ${this.renderMetadataStrip()}
+          <div class="cpk-td__thread-header">
+            ${
+              this.showThreadTitle
+                ? html`<div class="cpk-td__thread-title">${this.metadata?.name || this.thread?.name || "Rich Thread"}</div>`
+                : nothing
+            }
+            ${this._tab === "timeline" ? html`<div class="cpk-td__pinned-actions">${this.renderConversationActions()}</div>` : nothing}
+          </div>
 
           <!-- Scrollable content -->
           <div class="cpk-td__content">
@@ -4813,61 +4912,6 @@ export class CpkThreadInspector extends PortableLitElement {
               : nothing
           }
           ${this.renderDetailPanel()}
-        </div>
-      </div>
-    `;
-  }
-
-  private renderMetadataStrip() {
-    const metadata = this.metadata;
-    const pills: Array<{ label: string; value: string; wrap?: boolean }> = [
-      {
-        label: "Name",
-        value: metadata?.name ?? this.thread?.name ?? "Untitled",
-      },
-      { label: "ID", value: metadata?.id ?? this.threadId ?? "—" },
-    ];
-    for (const fact of [
-      { label: "Agent", value: metadata?.agentId },
-      { label: "Created", value: metadata?.createdAt },
-      { label: "Updated", value: metadata?.updatedAt },
-    ]) {
-      if (fact.value == null || fact.value === "") continue;
-      pills.push({
-        label: fact.label,
-        value:
-          fact.label === "Created" || fact.label === "Updated"
-            ? this.fmtTime(fact.value)
-            : fact.value,
-      });
-    }
-    return html`
-      <div
-        class="cpk-td__metadata-strip"
-        role="group"
-        aria-label="Thread metadata"
-      >
-        <div class="cpk-td__metadata-pills">
-          ${pills.map(
-            (pill) => html`
-              <span
-                class="cpk-td__metadata-pill ${
-                  pill.wrap ? "cpk-td__metadata-pill--wrap" : ""
-                }"
-                role="group"
-                title=${pill.value}
-                aria-label=${`${pill.label}: ${pill.value}`}
-              >
-                <span class="cpk-td__metadata-label">${pill.label}</span>
-                <span
-                  class="cpk-td__metadata-value ${
-                    pill.wrap ? "cpk-td__metadata-value--wrap" : ""
-                  }"
-                  >${pill.value}</span
-                >
-              </span>
-            `,
-          )}
         </div>
       </div>
     `;
@@ -4956,15 +5000,6 @@ export class CpkThreadInspector extends PortableLitElement {
     );
   };
 
-  private renderTimelineBulkControls() {
-    const bulk = this.renderTimelineBulkButtons();
-    const tryFromHere = this.renderTryFromHereControl();
-    if (bulk === nothing && tryFromHere === nothing) return nothing;
-    return html`<div class="cpk-td__timeline-toolbar">
-      ${bulk}${tryFromHere}
-    </div>`;
-  }
-
   private renderTimelineBulkButtons() {
     if (this._eventsNotAvailable) return nothing;
 
@@ -4976,26 +5011,14 @@ export class CpkThreadInspector extends PortableLitElement {
     const allExpanded = detailIds.every((id) =>
       this._expandedTimelineDetails.has(id),
     );
-    const allCollapsed = detailIds.every(
-      (id) => !this._expandedTimelineDetails.has(id),
-    );
 
     return html`
       <button
         type="button"
         class="cpk-td__timeline-bulk-toggle"
-        ?disabled=${allExpanded}
-        @click=${() => this.expandTimelineDetails(detailIds)}
+        @click=${() => (allExpanded ? this.collapseTimelineDetails(detailIds) : this.expandTimelineDetails(detailIds))}
       >
-        Expand all
-      </button>
-      <button
-        type="button"
-        class="cpk-td__timeline-bulk-toggle"
-        ?disabled=${allCollapsed}
-        @click=${() => this.collapseTimelineDetails(detailIds)}
-      >
-        Collapse all
+        ${allExpanded ? "Collapse all" : "Expand all"}
       </button>
     `;
   }
@@ -5005,26 +5028,14 @@ export class CpkThreadInspector extends PortableLitElement {
     if (eventIds.length <= 1) return nothing;
 
     const allExpanded = eventIds.every((id) => this._expandedRawEvents.has(id));
-    const allCollapsed = eventIds.every(
-      (id) => !this._expandedRawEvents.has(id),
-    );
 
     return html`<div class="cpk-td__timeline-toolbar">
       <button
         type="button"
         class="cpk-td__timeline-bulk-toggle"
-        ?disabled=${allExpanded}
-        @click=${() => this.expandRawEventDetails(eventIds)}
+        @click=${() => (allExpanded ? this.collapseRawEventDetails(eventIds) : this.expandRawEventDetails(eventIds))}
       >
-        Expand all
-      </button>
-      <button
-        type="button"
-        class="cpk-td__timeline-bulk-toggle"
-        ?disabled=${allCollapsed}
-        @click=${() => this.collapseRawEventDetails(eventIds)}
-      >
-        Collapse all
+        ${allExpanded ? "Collapse all" : "Expand all"}
       </button>
     </div>`;
   }
@@ -5039,10 +5050,6 @@ export class CpkThreadInspector extends PortableLitElement {
       );
       source?.scrollIntoView?.({ block: "center" });
     });
-  }
-
-  private withMessagesToolbar(content: unknown) {
-    return html`${this.renderTimelineBulkControls()}${content}`;
   }
 
   private renderTimeline() {
@@ -5337,6 +5344,8 @@ export class CpkThreadInspector extends PortableLitElement {
           isUser ? "cpk-td__bubble--user" : "cpk-td__bubble--assistant"
         }"
         data-message-id=${item.id}
+        role="group"
+        aria-label=${isUser ? "User message" : "Assistant message"}
       >
         <div
           class="cpk-td__bubble-inner ${
@@ -5345,7 +5354,7 @@ export class CpkThreadInspector extends PortableLitElement {
               : "cpk-td__bubble-inner--assistant"
           }"
         >
-          ${shown}
+          <div style="white-space:pre-wrap">${shown}</div>
           ${
             tooLong
               ? html`<span
@@ -5371,7 +5380,7 @@ export class CpkThreadInspector extends PortableLitElement {
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
             <path
               d="M1 9C1 9 2 7 5 7C8 7 9 9 9 9M5 1C5 1 7 2.5 7 4.5C7 6.5 5 7 5 7C5 7 3 6.5 3 4.5C3 2.5 5 1 5 1Z"
-              stroke="#087653"
+              stroke="currentColor"
               stroke-width="1.2"
               stroke-linecap="round"
               stroke-linejoin="round"
@@ -5381,10 +5390,10 @@ export class CpkThreadInspector extends PortableLitElement {
           ${
             item.result || Object.keys(item.arguments).length > 0
               ? html`
-                  <span class="cpk-td__tool-status">DONE</span>
+                  <span class="cpk-td__tool-status">Complete</span>
                 `
               : html`
-                  <span class="cpk-td__tool-status cpk-td__tool-status--pending">PENDING</span>
+                  <span class="cpk-td__tool-status cpk-td__tool-status--pending">Pending</span>
                 `
           }
           <span class="cpk-td__tool-chevron">${expanded ? "▾" : "▸"}</span>
@@ -5434,10 +5443,8 @@ export class CpkThreadInspector extends PortableLitElement {
           <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
             <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
           </svg>
-          Generative UI
-        </div>
-        <div class="cpk-td__genui-placeholder">
-          ${item.activityType} — rendered in chat
+          <span>Generative UI</span>
+          <code class="cpk-td__genui-component">${item.activityType}</code>
         </div>
       </div>
     `;
@@ -6612,7 +6619,8 @@ export class WebInspectorElement extends LitElement {
   private requestedThreadId: string | null = null;
   private focusedThreadMessageId: string | null = null;
   private threadFocusRequestId = 0;
-  private threadListWidth = 290;
+  private threadListWidth = 240;
+  private threadListCollapsed = false;
   private threadDividerResizing = false;
   private threadDividerPointerId = -1;
   private threadDividerStartX = 0;
@@ -6957,7 +6965,7 @@ export class WebInspectorElement extends LitElement {
       },
       {
         key: "threads",
-        label: "Threads",
+        label: "Rich Threads",
         icon: "MessageSquare" as LucideIconName,
       },
       {
@@ -12598,7 +12606,7 @@ export class WebInspectorElement extends LitElement {
         : "Intelligence is off";
       const setupLabel = renewing
         ? "Renew to restore access"
-        : "Set up Threads and Memory";
+        : "Connect Intelligence";
       return html`
         <a
           class="inspector-sidebar-status-card inspector-sidebar-intelligence inspector-sidebar-intelligence-setup"
@@ -12608,7 +12616,7 @@ export class WebInspectorElement extends LitElement {
           href=${action.url}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label="${action.label} to enable Threads and Memory (opens in a new tab)"
+          aria-label="${action.label} to enable Rich Threads and Automatic Learning (opens in a new tab)"
           title=${action.label}
           style=${INTERACTIVE_FOCUS_BASE_STYLE}
           @click=${() => this.handleHomeHeroCta(action)}
@@ -12631,14 +12639,14 @@ export class WebInspectorElement extends LitElement {
       ? planLabel
         ? `${planLabel} plan`
         : "Connected"
-      : "Threads and Memory are off";
+      : "Rich Threads and Automatic Learning are off";
     const label = connected
       ? `${primaryLabel}, ${secondaryLabel}, Intelligence connected`
       : "Connect Intelligence";
     const actionLabel = action?.label;
     const description = connected
       ? `${secondaryLabel} · Intelligence connected`
-      : "Threads and Memory need Intelligence.";
+      : "Rich Threads and Automatic Learning need Intelligence.";
     return html`
       <section
         class="inspector-sidebar-status-card inspector-sidebar-intelligence"
@@ -12766,8 +12774,9 @@ export class WebInspectorElement extends LitElement {
         data-inspector-home-state=${connected ? "connected" : "disconnected"}
       >
         ${this.renderHomeWhatsNewPreview(model.news)}
-        ${this.renderHomeSystemHealth(model)}
-        ${this.renderHomeIntelligenceHud(model)}
+        <header class="inspector-home-heading"><div><h1>${connected ? (model.project?.projectName ?? "Your agent workspace") : "Welcome to Intelligence"}</h1><p>${connected ? "Inspect conversations and see what your agent is learning." : "Connect your agent. Intelligence learns from experience."}</p></div></header>
+        ${connected ? this.renderHomeSystemHealth(model) : this.renderHomeIntelligenceHud(model)}
+        ${connected ? this.renderHomeIntelligenceHud(model) : this.renderHomeSystemHealth(model)}
         ${this.renderHomeFeatures(model)}
       </div>
     `;
@@ -13158,7 +13167,7 @@ export class WebInspectorElement extends LitElement {
           class="inspector-home-section-header inspector-system-health-header"
         >
           <div class="inspector-system-health-heading">
-            <h1 class="inspector-home-section-title">System Health</h1>
+            <h2 class="inspector-home-section-title">System Health</h2>
           </div>
           <span
             class="inspector-system-health-state"
@@ -18430,7 +18439,7 @@ export class WebInspectorElement extends LitElement {
     if (state === "landing") {
       return this.renderLockedFeatureOverview({
         serviceId: "memory",
-        featureName: "Learning",
+        featureName: "Automatic Learning",
         heading: "Turn every interaction into reusable context.",
         description:
           "Learning captures durable information from agent interactions and brings it back when it matters, so your product gets more useful over time.",
@@ -18519,7 +18528,7 @@ export class WebInspectorElement extends LitElement {
     if (!learningEnabled) {
       return this.renderLockedFeatureOverview({
         serviceId: "memory",
-        featureName: "Learning",
+        featureName: "Automatic Learning",
         heading: this._memoryStoreUnsupported
           ? "Upgrade to enable Learning"
           : "Turn every interaction into reusable context.",
@@ -18882,12 +18891,16 @@ export class WebInspectorElement extends LitElement {
       <div
         style="display:flex;height:100%;overflow:hidden;flex-direction:column;"
       >
+        <div class="inspector-thread-heading"><strong>Rich Threads</strong><button type="button" class="inspector-text-button" aria-expanded=${!this.threadListCollapsed} @click=${() => {
+          this.threadListCollapsed = !this.threadListCollapsed;
+          this.requestUpdate();
+        }}>${this.threadListCollapsed ? "Show thread list" : "Hide thread list"}</button></div>
         <div style="display:flex;min-height:0;flex:1;overflow:hidden;">
           <!-- Left sidebar: thread list -->
           <div
-            style="width:${
+            style="display:${this.threadListCollapsed ? "none" : "flex"};width:${
               this.threadListWidth
-            }px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #DBDBE5;"
+            }px;flex-shrink:0;overflow:hidden;flex-direction:column;border-right:1px solid #DBDBE5;"
           >
         ${
           ephemeral

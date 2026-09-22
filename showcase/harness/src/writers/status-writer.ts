@@ -5,6 +5,11 @@ import type {
   SelectedOutcome,
 } from "./selected-observation.js";
 import { hostname } from "node:os";
+import {
+  isFunctionalStatusKey,
+  hasQualifyingPillProof,
+  isUnverifiedDefinitionSignal,
+} from "../shared/cell-model/live-status.js";
 
 import type {
   TypedEventBus,
@@ -753,6 +758,56 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter & {
           `key = ${JSON.stringify(result.key)}`,
         );
     const prevState: State | null = readValidatedState(result.key, existing);
+    if (
+      isFunctionalStatusKey(result.key) &&
+      (isUnverifiedDefinitionSignal(result.signal) ||
+        (result.state === "green" &&
+          !hasQualifyingPillProof(
+            result.key,
+            result.signal,
+            result.observedAt,
+          )))
+    ) {
+      // A skip or unverified result is history, never a refresh of functional proof.
+      const history: StatusHistoryRecord = {
+        key: result.key,
+        dimension: deriveDimensionWithWarn(result.key),
+        state: "degraded",
+        transition: "error",
+        signal: result.signal,
+        observed_at:
+          toPbSafeDate(result.observedAt) ?? new Date().toISOString(),
+      };
+      const outcome: WriteOutcome = {
+        previousState: prevState,
+        newState: "degraded",
+        transition: "error",
+        firstFailureAt: existing?.first_failure_at || null,
+        failCount: existing?.fail_count ?? 0,
+        persisted: false,
+      };
+      if (atomic)
+        await atomic.commit(existing, null, history, {
+          kind: "write",
+          value: outcome,
+        });
+      else
+        await pb.create(
+          "status_history",
+          history as unknown as Record<string, unknown>,
+        );
+      return outcome;
+    }
+    if (result.state === "green" && isFunctionalStatusKey(result.key)) {
+      result = {
+        ...result,
+        signal: {
+          ...(result.signal as Record<string, unknown>),
+          pillObservationKey: result.key,
+          pillObservedAt: result.observedAt,
+        },
+      };
+    }
     const transition = detectTransition(prevState, result.state);
 
     if (result.state === "error") {
