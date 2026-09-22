@@ -132,8 +132,9 @@ from langchain.agents import create_agent
 
 async def main():
     skills = create_skill_registry_middleware(
+        container_id="support-learning",
         # revision="exact-revision-id",  # Optional: pin a published revision.
-    )  # Uses the environment above for the project and container.
+    )  # Uses the environment above for the project key.
     try:
         await skills.initialize()
         agent = create_agent(
@@ -173,8 +174,9 @@ import {
 } from "@copilotkit/intelligence-langgraph";
 
 const registry = new SkillRegistry({
+  containerId: "support-learning",
   // revision: "exact-revision-id", // Optional: pin a published revision.
-}); // Uses the environment above for the project and container.
+}); // Uses the environment above for the project key.
 await registry.initialize(); // Catch this error in your application's startup code.
 const skills = createSkillRegistryMiddleware({ registry });
 const agent = skills.wrapAgent(
@@ -217,8 +219,9 @@ import {
 } from "@copilotkit/intelligence-mastra";
 
 const registry = new SkillRegistry({
+  containerId: "support-learning",
   // revision: "exact-revision-id", // Optional: pin a published revision.
-}); // Uses the environment above for the project and container.
+}); // Uses the environment above for the project key.
 await registry.initialize(); // Catch this error in your application's startup code.
 const skills = createSkillRegistryProcessor({ registry });
 const agent = skills.wrapAgent(
@@ -264,6 +267,7 @@ from google.genai import types
 
 async def main():
     registry = SkillRegistry(
+        container_id="support-learning",
         # revision="exact-revision-id",  # Optional: pin a published revision.
     )
     try:
@@ -306,6 +310,7 @@ using Microsoft.Agents.AI;
 
 using var skills = new SkillRegistryContextProvider(new SkillRegistryOptions
 {
+    ContainerId = "support-learning",
     // Revision = "exact-revision-id", // Optional: pin a published revision.
 });
 await skills.InitializeAsync();
@@ -320,6 +325,10 @@ var response = await agent.RunAsync("Help with a refund.");
 The adapter targets .NET 9 and Agent Framework `>=1.0.0,<2.0.0`. `AddCopilotKitIntelligenceSkills` also registers a keyed provider and native agent through dependency injection. Use this extension or `CreateAgent` for complete invocation checks. Background responses and continuation tokens are unsupported because the framework bypasses context providers for those calls.
 
 ## Configure one container
+
+Each registry or middleware instance reads one Learning container. Set `containerId` in TypeScript, `container_id` in Python, or `ContainerId` in .NET, as shown above. BuiltInAgent uses `learnedSkills.containerId`.
+
+These fields accept one stable container ID, not a list. Use separate registries for agents that read different containers. Several agents can share one registry when they use the same container.
 
 An injected canonical Intelligence client supplies its existing project key, endpoint, and HTTP lifecycle. Your application retains ownership of that client. The adapter does not construct a second authenticated transport.
 
