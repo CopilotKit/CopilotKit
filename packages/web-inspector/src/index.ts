@@ -2168,6 +2168,7 @@ class CpkThreadList extends PortableLitElement {
 export class CpkThreadInspector extends PortableLitElement {
   static properties = {
     threadId: { attribute: false },
+    showThreadTitle: { type: Boolean, attribute: false },
     provider: { attribute: false },
     thread: { attribute: false },
     runtimeUrl: { attribute: false },
@@ -2207,6 +2208,8 @@ export class CpkThreadInspector extends PortableLitElement {
     _activatedTabs: { state: true },
   };
 
+  /** Whether to render the viewer title. Set false when the embedding page owns its heading. */
+  showThreadTitle = true;
   threadId: string | null = null;
   provider: ThreadDebuggerProvider | null = null;
   thread: ThreadDebuggerMetadata | ɵThread | null = null;
@@ -4850,7 +4853,11 @@ export class CpkThreadInspector extends PortableLitElement {
             ${this.renderPanelToggle()}
           </div>
           <div class="cpk-td__thread-header">
-            <div class="cpk-td__thread-title">${this.metadata?.name || this.thread?.name || "Rich Thread"}</div>
+            ${
+              this.showThreadTitle
+                ? html`<div class="cpk-td__thread-title">${this.metadata?.name || this.thread?.name || "Rich Thread"}</div>`
+                : nothing
+            }
             ${this._tab === "timeline" ? html`<div class="cpk-td__pinned-actions">${this.renderConversationActions()}</div>` : nothing}
           </div>
 
