@@ -242,7 +242,8 @@ it("copies the page sentence alone when the caller names no framework", async ()
   await waitFor(() => expect(writeText).toHaveBeenCalled());
 
   const copied = writeText.mock.calls[0][0] as string;
-  const runId = (copied.match(/--run (\S+)/) ?? [])[1] as string;
+  const runId = (copied.match(/onboarding-prompts\/([A-Za-z0-9_-]+)/) ??
+    [])[1] as string;
   expect(copied).toBe(
     createIntelligenceOnboardingPrompt(runId) + PAGE_SENTENCE,
   );

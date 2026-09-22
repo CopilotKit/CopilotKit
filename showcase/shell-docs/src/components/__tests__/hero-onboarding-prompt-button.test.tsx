@@ -66,7 +66,7 @@ it("copies the CLI onboarding prompt and confirms with a Copied label", async ()
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
 
   const copied = writeText.mock.calls[0][0] as string;
-  expect(copied).toContain("npx --yes copilotkit@latest onboard start --run");
+  expect(copied).toContain("https://copilotkit.ai/onboarding-prompts/");
 
   await waitFor(() =>
     expect(screen.getByRole("status").textContent).toContain("Prompt copied"),
@@ -84,7 +84,7 @@ it("embeds a run id the CLI accepts", async () => {
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
 
   const copied = writeText.mock.calls[0][0] as string;
-  const runId = copied.match(/onboard start --run (\S+)/)?.[1];
+  const runId = copied.match(/onboarding-prompts\/([A-Za-z0-9_-]+)/)?.[1];
   expect(runId).toMatch(/^[A-Za-z0-9_-]{12}$/);
 });
 
@@ -111,7 +111,9 @@ it("copies the canonical prompt unchanged when no framework is given", async () 
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
 
   const copied = writeText.mock.calls[0][0] as string;
-  const runId = copied.match(/onboard start --run (\S+)/)?.[1] as string;
+  const runId = copied.match(
+    /onboarding-prompts\/([A-Za-z0-9_-]+)/,
+  )?.[1] as string;
   // Exact equality with the canonical prompt is the whole assertion. The
   // trailing-sentence check that used to sit here pinned wording removed in
   // 704a4cd6fe ("shrink the copied onboarding prompt to one command") and was
@@ -138,7 +140,7 @@ it("appends the framework sentence without disturbing the CLI command", async ()
   expect(suffix).not.toBe("");
 
   const copied = writeText.mock.calls[0][0] as string;
-  expect(copied).toContain("npx --yes copilotkit@latest onboard start --run");
+  expect(copied).toContain("https://copilotkit.ai/onboarding-prompts/");
   expect(copied.endsWith(suffix)).toBe(true);
 });
 
@@ -156,7 +158,7 @@ it("keeps the run id intact when the framework sentence is appended", async () =
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
 
   const copied = writeText.mock.calls[0][0] as string;
-  const runId = copied.match(/onboard start --run (\S+)/)?.[1];
+  const runId = copied.match(/onboarding-prompts\/([A-Za-z0-9_-]+)/)?.[1];
   expect(runId).toMatch(/^[A-Za-z0-9_-]{12}$/);
 });
 
@@ -214,7 +216,9 @@ it("stays canonical for a framework the onboarding graph does not cover", async 
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
 
   const copied = writeText.mock.calls[0][0] as string;
-  const runId = copied.match(/onboard start --run (\S+)/)?.[1] as string;
+  const runId = copied.match(
+    /onboarding-prompts\/([A-Za-z0-9_-]+)/,
+  )?.[1] as string;
   expect(copied).toBe(createIntelligenceOnboardingPrompt(runId));
 
   await waitFor(() => expect(analytics.capture).toHaveBeenCalledTimes(1));

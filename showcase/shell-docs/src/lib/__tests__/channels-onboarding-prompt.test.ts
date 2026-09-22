@@ -45,6 +45,6 @@ describe("channels onboarding prompt", () => {
 
     expect(first.runId).toMatch(/^[0-9a-f]{12}$/);
     expect(second.runId).not.toBe(first.runId);
-    expect(first.prompt).toContain(`--run ${first.runId}`);
+    expect(first.prompt).toContain(`/onboarding-prompts/${first.runId}`);
   });
 });

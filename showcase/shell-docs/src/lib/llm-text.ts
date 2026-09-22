@@ -1080,7 +1080,7 @@ export function renderLlmsIndex(
     "",
     `This is the same prompt offered by the **Copy onboarding prompt** button on the [docs home](${baseUrl}/). A coding agent can use the text directly; a chat assistant without project or terminal access can give it to the user to paste into their coding agent.`,
     "",
-    "Generate a fresh 12-character hexadecimal run ID for each new onboarding session and replace `<run-id>` before running the command. Replace `<coding-agent-slug>` with the coding-agent product's slug. Do not execute the placeholders literally or reuse an ID from a cached index.",
+    "Generate a fresh 12-character hexadecimal run ID for each new onboarding session and replace `<run-id>` in the URL before fetching it. Do not fetch the placeholder literally or reuse an ID from a cached index.",
     "",
     "```text",
     INTELLIGENCE_ONBOARDING_PROMPT,
