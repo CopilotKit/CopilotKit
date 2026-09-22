@@ -9,6 +9,7 @@ export interface TimeSlot {
 export interface MeetingTimePickerProps {
   status: "inProgress" | "executing" | "complete";
   respond?: (response: string) => void;
+  result?: string;
   reasonForScheduling?: string;
   meetingDuration?: number;
   title?: string;
@@ -18,6 +19,7 @@ export interface MeetingTimePickerProps {
 export function MeetingTimePicker({
   status,
   respond,
+  result,
   reasonForScheduling,
   meetingDuration,
   title = "Schedule a Meeting",
@@ -47,6 +49,25 @@ export function MeetingTimePicker({
       "The user declined all proposed meeting times. Please suggest alternative times or ask for their availability.",
     );
   };
+
+  // Replayed tool results survive a remount; local selection state does not.
+  if (status === "complete" && result) {
+    const wasDeclined = result.startsWith(
+      "The user declined all proposed meeting times.",
+    );
+    return (
+      <div className="max-w-md w-full mx-auto mb-4 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--card)]">
+        <div className="p-6 text-center">
+          <h3 className="text-lg font-bold text-[var(--foreground)]">
+            {wasDeclined ? "No Time Selected" : "Meeting Scheduled"}
+          </h3>
+          <p className="text-sm text-[var(--muted-foreground)] mt-1">
+            {result}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Confirmed state
   if (selectedSlot) {
