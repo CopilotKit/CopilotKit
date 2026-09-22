@@ -35,8 +35,7 @@ export function shouldAdjustMessageScroll(
 ): boolean {
   // A row crossing the top edge can grow below the reading position. Moving
   // scrollTop by its entire size delta makes the visible text jump.
-  return (
-    instance.scrollDirection !== "backward" &&
-    item.end <= (instance.scrollOffset ?? 0)
-  );
+  // Wholly hidden rows shift every following message, including while
+  // scrolling backward into newly measured overscan rows.
+  return item.end <= (instance.scrollOffset ?? 0);
 }
