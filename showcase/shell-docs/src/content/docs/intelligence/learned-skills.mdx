@@ -21,7 +21,11 @@ Complete these steps before you run an example:
 
 1. Create a Learning container in your Intelligence project.
 2. Publish a Skill and enable **Skill delivery** in the container's **Skills** tab.
-3. Set the following variables in the agent's server environment.
+3. Configure the agent with your project key and Learning container ID.
+
+You can set the container and revision **in code or with environment variables**. The examples below show code parameters. To use environment variables instead, omit the corresponding parameters from the code. You can mix both approaches: an explicit code value overrides its environment variable.
+
+For example, this environment configuration supplies the project key and container:
 
 ```bash title="Agent server environment"
 export CPK_INTELLIGENCE_API_KEY="your-project-key"
@@ -31,7 +35,7 @@ export CPK_INTELLIGENCE_LEARNING_CONTAINER_ID="support-learning"
 
 Set your model provider's credentials separately. Replace model placeholders with your configured model and install its provider package when required by your framework.
 
-Leave `CPK_INTELLIGENCE_SKILLS_REVISION` unset to receive later published Skills. See [container configuration](#configure-one-container) for exact revision pins.
+To follow the latest published Skills, omit the revision parameter in code and leave `CPK_INTELLIGENCE_SKILLS_REVISION` unset. See [container configuration](#configure-one-container) for exact revision pins.
 
 Skill delivery does not send native agent runs to Learning. To collect new evidence, also [assign your Runtime's Threads to a container](/learning#assign-threads-from-your-runtime).
 
@@ -58,7 +62,7 @@ These adapters require the server and canonical client releases described below.
 
 Configure `learnedSkills` directly on `BuiltInAgent`. No wrapper or separate adapter package is required.
 
-[Environment variables](#configure-one-container) can supply the container and revision. Explicit values override them.
+Set the container and revision in code below, **or** omit those parameters and use [environment variables](#configure-one-container). Code values take precedence.
 
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
@@ -67,7 +71,7 @@ const agent = new BuiltInAgent({
   model: "openai/gpt-4o",
   prompt: "Follow the application's support policy.",
   learnedSkills: {
-    // Optional: omit containerId and revision to use environment variables.
+    // Set these here, or omit them to use environment variables (linked above).
     containerId: "support-learning",
     // revision: "exact-revision-id", // Optional: pin a published revision.
   },
@@ -82,7 +86,7 @@ Classic mode adds the catalog and both executable skill tools before the model c
 
 BuiltInAgent fetches the snapshot before it calls your factory. Connect the catalog and tools to your model call:
 
-[Environment variables](#configure-one-container) can supply the container and revision. Explicit values override them.
+Set the container and revision in code below, **or** omit those parameters and use [environment variables](#configure-one-container). Code values take precedence.
 
 ```typescript
 import {
@@ -95,7 +99,7 @@ import { stepCountIs, streamText } from "ai";
 const agent = new BuiltInAgent({
   type: "aisdk",
   learnedSkills: {
-    // Optional: omit containerId and revision to use environment variables.
+    // Set these here, or omit them to use environment variables (linked above).
     containerId: "support-learning",
     // revision: "exact-revision-id", // Optional: pin a published revision.
   },
@@ -132,7 +136,7 @@ python -m pip install copilotkit-intelligence-langgraph
 
 Save this example as `agent.py`. Run it with `python agent.py`:
 
-[Environment variables](#configure-one-container) can supply the container and revision. Explicit values override them.
+Set the container and revision in code below, **or** omit those parameters and use [environment variables](#configure-one-container). Code values take precedence.
 
 ```python
 import asyncio
@@ -143,7 +147,7 @@ from langchain.agents import create_agent
 
 async def main():
     skills = create_skill_registry_middleware(
-        # Optional: omit container_id and revision to use environment variables.
+        # Set these here, or omit them to use environment variables (linked above).
         container_id="support-learning",
         # revision="exact-revision-id",  # Optional: pin a published revision.
     )  # Uses the environment above for the project key.
@@ -178,7 +182,7 @@ npm install --save-dev tsx
 
 Save this example as `agent.mts`. Run it with `npx tsx agent.mts`:
 
-[Environment variables](#configure-one-container) can supply the container and revision. Explicit values override them.
+Set the container and revision in code below, **or** omit those parameters and use [environment variables](#configure-one-container). Code values take precedence.
 
 ```typescript
 import { createAgent } from "langchain";
@@ -188,7 +192,7 @@ import {
 } from "@copilotkit/intelligence-langgraph";
 
 const registry = new SkillRegistry({
-  // Optional: omit containerId and revision to use environment variables.
+  // Set these here, or omit them to use environment variables (linked above).
   containerId: "support-learning",
   // revision: "exact-revision-id", // Optional: pin a published revision.
 }); // Uses the environment above for the project key.
@@ -226,7 +230,7 @@ npm install --save-dev tsx
 
 Save this example as `agent.mts`. Run it with `npx tsx agent.mts`. Register the processor and its tools on the native `Agent`:
 
-[Environment variables](#configure-one-container) can supply the container and revision. Explicit values override them.
+Set the container and revision in code below, **or** omit those parameters and use [environment variables](#configure-one-container). Code values take precedence.
 
 ```typescript
 import { Agent } from "@mastra/core/agent";
@@ -236,7 +240,7 @@ import {
 } from "@copilotkit/intelligence-mastra";
 
 const registry = new SkillRegistry({
-  // Optional: omit containerId and revision to use environment variables.
+  // Set these here, or omit them to use environment variables (linked above).
   containerId: "support-learning",
   // revision: "exact-revision-id", // Optional: pin a published revision.
 }); // Uses the environment above for the project key.
@@ -273,7 +277,7 @@ python -m pip install copilotkit-intelligence-adk
 
 Save this example as `agent.py`. Run it with `python agent.py`:
 
-[Environment variables](#configure-one-container) can supply the container and revision. Explicit values override them.
+Set the container and revision in code below, **or** omit those parameters and use [environment variables](#configure-one-container). Code values take precedence.
 
 ```python
 import asyncio
@@ -287,7 +291,7 @@ from google.genai import types
 
 async def main():
     registry = SkillRegistry(
-        # Optional: omit container_id and revision to use environment variables.
+        # Set these here, or omit them to use environment variables (linked above).
         container_id="support-learning",
         # revision="exact-revision-id",  # Optional: pin a published revision.
     )
@@ -325,7 +329,7 @@ The adapter supports `google-adk>=1.17,<2`. Several selected agents can share on
 
 Use the provider's native agent factory with your application's `IChatClient`:
 
-[Environment variables](#configure-one-container) can supply the container and revision. Explicit values override them.
+Set the container and revision in code below, **or** omit those parameters and use [environment variables](#configure-one-container). Code values take precedence.
 
 ```csharp
 using CopilotKit.Intelligence.AgentFramework;
@@ -333,7 +337,7 @@ using Microsoft.Agents.AI;
 
 using var skills = new SkillRegistryContextProvider(new SkillRegistryOptions
 {
-    // Optional: omit ContainerId and Revision to use environment variables.
+    // Set these here, or omit them to use environment variables (linked above).
     ContainerId = "support-learning",
     // Revision = "exact-revision-id", // Optional: pin a published revision.
 });
@@ -375,7 +379,7 @@ Initialization can run during application startup. A valid empty container initi
 
 If your server already creates an Intelligence client, pass that client to the registry. This reuses its project key and endpoint.
 
-[Environment variables](#configure-one-container) can supply the container and revision. Explicit values override them.
+Set the container and revision in code below, **or** omit those parameters and use [environment variables](#configure-one-container). Code values take precedence.
 
 ```typescript
 import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
@@ -387,7 +391,7 @@ const intelligence = new CopilotKitIntelligence({
 });
 const registry = new SkillRegistry({
   client: intelligence,
-  // Optional: omit containerId and revision to use environment variables.
+  // Set these here, or omit them to use environment variables (linked above).
   containerId: "support-learning",
   // revision: "exact-revision-id", // Optional: pin a published revision.
 });
