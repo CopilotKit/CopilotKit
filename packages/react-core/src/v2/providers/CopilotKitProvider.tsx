@@ -597,6 +597,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     humanInTheLoopList.forEach((tool) => {
       // Create a promise-based handler for each human-in-the-loop tool
       const frontendTool: FrontendTool = {
+        type: "human-in-the-loop",
         name: tool.name,
         description: tool.description,
         parameters: tool.parameters,

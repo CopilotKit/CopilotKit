@@ -267,7 +267,7 @@ describe("CopilotKit", () => {
       name: "approval",
       args: z.object({ summary: z.string() }),
       component: class {
-        toolCall = signal({} as any);
+        toolCall = signal({});
       },
       toolCall: vi.fn(),
       agentId: "agent-1",
@@ -277,19 +277,25 @@ describe("CopilotKit", () => {
 
     expect(copilotKit.humanInTheLoopToolRenderConfigs()).toEqual([toolConfig]);
     expect(mockAddTool).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "approval" }),
+      expect.objectContaining({ name: "approval", type: "human-in-the-loop" }),
     );
 
     const tool = mockAddTool.mock.calls.at(-1)![0];
+    const controller = new AbortController();
     const mockAgent = { agentId: "agent-1" };
     await tool.handler(
       {},
       {
         toolCall: { id: "call-1", function: { name: "approval" } },
         agent: mockAgent,
+        signal: controller.signal,
       },
     );
-    expect(onResultSpy).toHaveBeenCalledWith("call-1", "approval");
+    expect(onResultSpy).toHaveBeenCalledWith(
+      "call-1",
+      "approval",
+      controller.signal,
+    );
 
     onResultSpy.mockRestore();
   });
