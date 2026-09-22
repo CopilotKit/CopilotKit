@@ -15,7 +15,7 @@ import type {
   ThreadRequestKind,
   ThreadsStateScenario,
 } from "./threads-state-lab.js";
-import { INSPECTOR_LEARNING_LABEL } from "../src/control-labels";
+import { INSPECTOR_LEARNING_LABEL } from "../src/control-labels.js";
 
 const BASE_PATH = "/inspector-lab-runtime";
 const MAX_HTTP_BODY_BYTES = 4_096;

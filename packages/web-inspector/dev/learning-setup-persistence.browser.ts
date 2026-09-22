@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { INSPECTOR_LEARNING_LABEL } from "../src/control-labels";
+import { INSPECTOR_LEARNING_LABEL } from "../src/control-labels.js";
 
 for (const transport of ["rest", "single"] as const) {
   test(`restores copied Learning setup over ${transport}`, async ({

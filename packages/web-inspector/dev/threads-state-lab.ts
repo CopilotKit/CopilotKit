@@ -2,7 +2,7 @@ import type { CopilotKitCore, Memory } from "@copilotkit/core";
 import type { InspectorMetadataV1, RuntimeInfo } from "@copilotkit/shared";
 import type { WebInspectorElement } from "@copilotkit/web-inspector";
 
-import { INSPECTOR_LEARNING_LABEL } from "../src/control-labels";
+import { INSPECTOR_LEARNING_LABEL } from "../src/control-labels.js";
 
 import {
   LEARNING_WORKBENCH_SCENARIOS,

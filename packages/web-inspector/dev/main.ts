@@ -8,7 +8,7 @@ import type { WebInspectorElement } from "@copilotkit/web-inspector";
 import {
   INSPECTOR_LEARNING_LABEL,
   INSPECTOR_THREADS_LABEL,
-} from "../src/control-labels";
+} from "../src/control-labels.js";
 
 import {
   ALL_SCENARIO_KEYS,

@@ -41,7 +41,7 @@ import { deriveLearningViewState } from "./components/learning-view.js";
 import {
   INSPECTOR_LEARNING_LABEL,
   INSPECTOR_THREADS_LABEL,
-} from "./control-labels";
+} from "./control-labels.js";
 import type { LearningViewState } from "./components/learning-view.js";
 import type {
   Anchor,

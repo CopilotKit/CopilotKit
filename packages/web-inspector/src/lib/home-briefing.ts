@@ -2,7 +2,7 @@ import type { InspectorMetadataProjection } from "./inspector-metadata.js";
 import {
   INSPECTOR_LEARNING_LABEL,
   INSPECTOR_THREADS_LABEL,
-} from "../control-labels";
+} from "../control-labels.js";
 
 export type HomeHeroActionKind =
   | "enable_intelligence"

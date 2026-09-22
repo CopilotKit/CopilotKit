@@ -2,7 +2,7 @@ import { LitElement, css, html, nothing } from "lit";
 import {
   INSPECTOR_LEARNING_LABEL,
   INSPECTOR_THREADS_LABEL,
-} from "../control-labels";
+} from "../control-labels.js";
 import type {
   InspectorLearningInsight,
   InspectorLearningSnapshotV1,

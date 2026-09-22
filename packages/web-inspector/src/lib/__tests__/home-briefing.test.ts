@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { INSPECTOR_LEARNING_LABEL } from "../../control-labels";
+import { INSPECTOR_LEARNING_LABEL } from "../../control-labels.js";
 import { projectInspectorMetadata } from "../inspector-metadata.js";
 import {
   announcementPreview,

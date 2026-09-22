@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   INSPECTOR_LEARNING_LABEL,
   INSPECTOR_THREADS_LABEL,
-} from "./control-labels";
+} from "./control-labels.js";
 
 describe("inspector control labels", () => {
   it("uses one shared string for the threads and learning controls", () => {

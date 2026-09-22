@@ -40,7 +40,7 @@ import { LEARNING_WORKBENCH_SCENARIOS } from "./learning-state-fixtures.js";
 import {
   INSPECTOR_LEARNING_LABEL,
   INSPECTOR_THREADS_LABEL,
-} from "../src/control-labels";
+} from "../src/control-labels.js";
 import {
   createThreadsStateLabPlugin,
   createThreadsStateLabRuntime,
