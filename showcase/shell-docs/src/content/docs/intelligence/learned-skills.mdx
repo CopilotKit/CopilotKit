@@ -26,10 +26,10 @@ Complete these steps before you run an example:
 ```bash title="Agent server environment"
 export CPK_INTELLIGENCE_API_KEY="your-project-key"
 export CPK_INTELLIGENCE_LEARNING_CONTAINER_ID="support-learning"
-# Mastra and LangGraph examples use OpenAI. ADK uses a Google key below.
-export OPENAI_API_KEY="your-openai-key"
 # For self-hosted Intelligence, also set INTELLIGENCE_API_URL.
 ```
+
+Set your model provider's credentials separately. Replace model placeholders with your configured model and install its provider package when required by your framework.
 
 Leave `CPK_INTELLIGENCE_SKILLS_REVISION` unset to receive later published Skills. See [container configuration](#configure-one-container) for exact revision pins.
 
@@ -118,7 +118,7 @@ Reserve `copilotkit_load_skill` and `copilotkit_read_skill_file` for delivery. C
 Use Python 3.11 or later with native asynchronous agents from `langchain.agents.create_agent`.
 
 ```bash title="Terminal"
-python -m pip install copilotkit-intelligence-langgraph langchain-openai
+python -m pip install copilotkit-intelligence-langgraph
 ```
 
 Save this example as `agent.py`. Run it with `python agent.py`:
@@ -135,7 +135,7 @@ async def main():
     try:
         await skills.initialize()
         agent = create_agent(
-            "openai:gpt-4.1",
+            "your-provider:your-model",
             system_prompt="Follow the application's support policy.",
             middleware=[skills],
         )
@@ -157,7 +157,7 @@ Use `ainvoke` or `astream`; synchronous execution is unsupported. The adapter su
 Use Node.js 20.19 or later with native LangChain agents.
 
 ```bash title="Terminal"
-npm install @copilotkit/intelligence-langgraph langchain @langchain/core @langchain/langgraph @langchain/openai zod
+npm install @copilotkit/intelligence-langgraph langchain @langchain/core @langchain/langgraph zod
 npm install --save-dev tsx
 ```
 
@@ -175,7 +175,7 @@ await registry.initialize(); // Catch this error in your application's startup c
 const skills = createSkillRegistryMiddleware({ registry });
 const agent = skills.wrapAgent(
   createAgent({
-    model: "openai:gpt-4.1",
+    model: "your-provider:your-model",
     systemPrompt: "Follow the application's support policy.",
     middleware: [skills],
   }),
@@ -242,10 +242,9 @@ Use Python 3.11 or later and add `SkillToolset` to a standard ADK `LlmAgent`.
 
 ```bash title="Terminal"
 python -m pip install copilotkit-intelligence-adk
-export GOOGLE_API_KEY="your-google-api-key"
 ```
 
-This example uses Google instead of OpenAI. Save it as `agent.py`, then run `python agent.py`:
+Save this example as `agent.py`. Run it with `python agent.py`:
 
 ```python
 import asyncio
@@ -263,7 +262,7 @@ async def main():
         await registry.initialize()
         agent = LlmAgent(
             name="support",
-            model="gemini-2.5-flash",
+            model="your-model",
             instruction="Follow the application's support policy.",
             tools=[SkillToolset(registry)],
         )
