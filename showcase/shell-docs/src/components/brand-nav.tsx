@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
@@ -52,6 +53,19 @@ export function BrandNav(_props: BrandNavProps = {}) {
   const pathname = usePathname();
   const posthog = usePostHog();
   const authAction = useDocsAuthAction();
+  const [contentScrolled, setContentScrolled] = useState(false);
+
+  useEffect(() => {
+    const scroller = document.querySelector<HTMLElement>(
+      ".docs-content-wrapper",
+    );
+    if (!scroller) return;
+
+    const updateScrollShadow = () => setContentScrolled(scroller.scrollTop > 1);
+    updateScrollShadow();
+    scroller.addEventListener("scroll", updateScrollShadow, { passive: true });
+    return () => scroller.removeEventListener("scroll", updateScrollShadow);
+  }, [pathname]);
 
   // Active-route detection: Reference and Cookbook each own their prefix.
   // Everything else highlights Docs.
@@ -80,7 +94,10 @@ export function BrandNav(_props: BrandNavProps = {}) {
   };
 
   return (
-    <nav className="shell-docs-brand-nav relative hidden bg-[var(--bg)] xl:block">
+    <nav
+      className="shell-docs-brand-nav relative hidden bg-[var(--bg)] xl:block"
+      data-content-scrolled={contentScrolled || undefined}
+    >
       <div className="shell-docs-brand-nav-inner relative grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-8 bg-[var(--nav-surface)]">
         <Link
           href="/"

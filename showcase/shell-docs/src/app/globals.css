@@ -32,6 +32,7 @@
  * --fd-banner-height is set dynamically by Banners (40px / 0px). */
 :root {
   --fd-nav-height: 64px;
+  --shell-docs-desktop-nav-height: 96px;
   /* Keep the desktop docs shell inside one centered editorial frame. This is
    * wide enough for comfortable prose, demos, and a TOC without returning the
    * sidebar to the browser edge like the previous 97rem default did. */
@@ -230,9 +231,18 @@
 /* Keep the header aligned with the centered docs grid and its page surface. */
 @media (min-width: 1280px) {
   .shell-docs-brand-nav {
-    height: 96px;
+    height: var(--shell-docs-desktop-nav-height);
     padding: 12px 0;
     background: var(--bg);
+    z-index: 20;
+  }
+
+  .shell-docs-brand-nav[data-content-scrolled] {
+    box-shadow: 0 14px 20px -16px rgb(20 18 54 / 42%);
+  }
+
+  .dark .shell-docs-brand-nav[data-content-scrolled] {
+    box-shadow: 0 14px 22px -14px rgb(0 0 0 / 70%);
   }
 
   .shell-docs-brand-nav-inner {
@@ -243,7 +253,15 @@
     border: 1px solid var(--border);
     border-radius: 999px;
     background: var(--card);
-    box-shadow: var(--shadow-control);
+    box-shadow:
+      0 12px 30px rgb(24 22 65 / 10%),
+      0 2px 7px rgb(24 22 65 / 6%);
+  }
+
+  .dark .shell-docs-brand-nav-inner {
+    box-shadow:
+      0 14px 32px rgb(0 0 0 / 34%),
+      0 2px 8px rgb(0 0 0 / 20%);
   }
 }
 
@@ -1064,6 +1082,7 @@ figure.shiki > div:first-child[class*="border-b"] {
   #nd-docs-layout {
     width: var(--shell-docs-layout-width) !important;
     max-width: calc(100% - 2rem) !important;
+    height: calc(100% - var(--shell-docs-grid-top-offset));
     margin-inline: auto !important;
     margin-top: var(--shell-docs-grid-top-offset) !important;
     padding-top: 0 !important;
@@ -1083,7 +1102,7 @@ figure.shiki > div:first-child[class*="border-b"] {
     --fd-docs-row-1: 0px !important;
     /* Override fumadocs's default `--fd-docs-height: 100dvh`. That
      * assumes the docs grid spans the whole viewport, but shell-docs
-     * has BrandNav (64px) + mt-3 (12px) + mb-3 (12px) around `main`, plus
+     * has BrandNav + mb-3 (12px) around `main`, plus
      * a small grid top offset, in body flow (body itself is
      * `overflow: hidden`, fixed 100dvh). We can't use `100%` here:
      * the docs grid uses `min-h-(--fd-docs-height)`, so when the
@@ -1093,7 +1112,8 @@ figure.shiki > div:first-child[class*="border-b"] {
      * full content height (3000px+) rather than the visible column.
      * Use a viewport-bound calc that subtracts the chrome instead. */
     --fd-docs-height: calc(
-      100dvh - var(--fd-banner-height, 0px) - 64px - 1.5rem -
+      100dvh - var(--fd-banner-height, 0px) -
+        var(--shell-docs-desktop-nav-height) - 0.75rem -
         var(--shell-docs-grid-top-offset)
     ) !important;
   }
