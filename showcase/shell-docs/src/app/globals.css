@@ -1872,6 +1872,34 @@ samp {
   scrollbar-width: thin;
 }
 
+@media (min-width: 1280px) {
+  /* Fade content as it reaches the top of the scroll viewport. The first
+   * mask layer keeps the stationary sidebar fully opaque; the second fades
+   * the article lane so headings and media do not hit a hard clipping edge. */
+  .shell-docs-brand-nav[data-content-scrolled] + main .docs-content-wrapper {
+    --shell-docs-sidebar-mask-edge: calc(
+      max(0px, (100% - var(--shell-docs-layout-width)) / 2) +
+        var(--fd-sidebar-width)
+    );
+    -webkit-mask-image:
+      linear-gradient(
+        to right,
+        #000 var(--shell-docs-sidebar-mask-edge),
+        transparent var(--shell-docs-sidebar-mask-edge)
+      ),
+      linear-gradient(to bottom, transparent, #000 28px);
+    mask-image:
+      linear-gradient(
+        to right,
+        #000 var(--shell-docs-sidebar-mask-edge),
+        transparent var(--shell-docs-sidebar-mask-edge)
+      ),
+      linear-gradient(to bottom, transparent, #000 28px);
+    -webkit-mask-composite: source-over;
+    mask-composite: add;
+  }
+}
+
 [data-theme="dark"] .docs-content-wrapper,
 .dark .docs-content-wrapper {
   background-color: var(--bg);
