@@ -16,6 +16,10 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.73.2 - 2026-09-22
+
+No changes since last release.
+
 ## 1.73.1 - 2026-09-21
 
 This release makes Express an optional peer dependency so Express 5 apps can compile against the runtime, adds a `messageFilter` for trimming conversation history, and fixes several human-in-the-loop, MCP, and Intelligence transport issues across the client and runtime.
