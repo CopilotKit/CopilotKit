@@ -518,7 +518,7 @@ test("loaded data fades in and resolved guarded playback enters playing", async 
   }
 });
 
-test("locked Threads use the Threads Loom embed without starting the native demo lifecycle", async () => {
+test("locked Threads use the Rich Threads Loom embed without starting the native demo lifecycle", async () => {
   const harness = await setupFixture({
     mode: "locked",
     reducedMotion: true,
@@ -534,14 +534,14 @@ test("locked Threads use the Threads Loom embed without starting the native demo
     expect(video?.src).toBe(
       "https://www.loom.com/embed/79817778d29e490c97225127d2f17b3a?hide_owner=true&hide_share=true&hide_title=true&hideEmbedTopBar=true&hide_speed=true",
     );
-    expect(video?.title).toBe("Threads overview");
+    expect(video?.title).toBe("Rich Threads overview");
     expect(root.querySelector(".cpk-threads-overview-video")).toBeNull();
     expect(
       root.querySelector(".cpk-threads-overview-video-control"),
     ).toBeNull();
     expect(exampleRows(root)).toHaveLength(0);
     expect(root.querySelector("cpk-thread-list")).toBeNull();
-    expect(root.textContent).toContain("Threads");
+    expect(root.textContent).toContain("Rich Threads");
     expect(harness.play).not.toHaveBeenCalled();
     expect(harness.routes()).toEqual(ZERO_ROUTES);
   } finally {

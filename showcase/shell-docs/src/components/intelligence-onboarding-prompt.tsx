@@ -22,11 +22,11 @@ const FEATURE_COPY = {
     title: "Build agents that get smarter with every use.",
     points: [
       {
-        label: "Threads",
+        label: "Rich Threads",
         body: "keep messages, generative UI, and tool activity available across sessions and devices.",
       },
       {
-        label: "Learning",
+        label: "Automatic Learning",
         body: "turns real usage into skills that improve your agent.",
       },
       {
@@ -38,7 +38,7 @@ const FEATURE_COPY = {
     title: "Conversations that never lose context.",
     points: [
       {
-        label: "CopilotKit Intelligence Threads",
+        label: "CopilotKit Intelligence Rich Threads",
         body: "keep messages, generative UI, and tool activity available across sessions and devices. Build a new agent or bring one you already have. Any frontend, any backend.",
       },
     ],

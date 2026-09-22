@@ -1032,8 +1032,8 @@ export function normalizeSidebarNav(
   const canonicalBasics = sidebarSectionChildren(canonical, "Basics");
   const existingChat = findGroup(inputBasics, "Chat");
   const richThreads =
-    findGroup(allInputNodes, "Threads") ??
-    findGroup(canonicalBasics, "Threads");
+    findGroup(allInputNodes, "Rich Threads") ??
+    findGroup(canonicalBasics, "Rich Threads");
   const filterChatNodes = (nodes: NavNode[]) =>
     nodes.filter(
       (node) =>
@@ -1054,7 +1054,7 @@ export function normalizeSidebarNav(
     uniqueSidebarNodes(chatSource),
   );
   const richThreadsTopic = sidebarTopicGroup(
-    "Threads",
+    "Rich Threads",
     "sidebar#rich-threads",
     richThreads,
   );
@@ -1145,16 +1145,12 @@ export function normalizeSidebarNav(
     "Architecture",
   );
 
-  const intelligenceThreads = intelligencePage("threads", "Threads");
+  const intelligenceThreads = intelligencePage("threads", "Rich Threads");
   const intelligenceCloud = intelligencePage(
     "intelligence/managed-intelligence-platform",
     "Cloud-hosted",
   );
   const intelligencePlans = intelligencePage("intelligence/plans", "Plans");
-  const intelligenceInspect = intelligencePage(
-    "intelligence/inspect",
-    "Inspect a thread",
-  );
   const intelligenceSelfHosted = intelligencePage(
     "intelligence/self-hosting",
     "Self-hosted",
@@ -1163,26 +1159,35 @@ export function normalizeSidebarNav(
     "intelligence/self-hosting-ecs",
     "AWS ECS/Fargate",
   );
-  const intelligenceLearning = intelligencePage("learning", "Learning");
+  const intelligenceLearning = intelligencePage(
+    "learning",
+    "Automatic Learning",
+  );
   const intelligenceMemory = intelligencePage(
     "intelligence/memories",
-    "Memories",
+    "User Memories",
   );
   const intelligenceSkillDelivery = intelligencePage(
     "intelligence/learned-skills",
     "Skill delivery",
   );
+  // Skill delivery is a step inside Automatic Learning, so it nests under
+  // that page. The group shares the page's slug, and page-tree-bridge lifts
+  // the matching child onto the folder so the folder title links to /learning.
+  const intelligenceLearningGroup = sidebarTopicGroup(
+    "Automatic Learning",
+    "learning",
+    [intelligenceLearning, intelligenceSkillDelivery].filter(
+      (node): node is NavNode => node !== null,
+    ),
+  );
   const intelligenceAnalytics = intelligencePage(
     "intelligence/analytics",
-    "Analytics",
+    "Product Analytics",
   );
   const intelligenceChannels = intelligencePage(
     "intelligence/channels",
     "Channels",
-  );
-  const intelligenceHeadless = intelligencePage(
-    "intelligence/headless-ui",
-    "Headless UI",
   );
 
   const existingBackend = sidebarSectionChildren(input, "Backend");
@@ -1272,33 +1277,29 @@ export function normalizeSidebarNav(
       sidebarTopicGroup(
         "Get started",
         "sidebar#intelligence-get-started",
-        [intelligenceQuickstart, intelligenceArchitecture].filter(
-          (node): node is NavNode => node !== null,
-        ),
+        [
+          intelligenceQuickstart,
+          intelligenceArchitecture,
+          intelligencePlans,
+        ].filter((node): node is NavNode => node !== null),
       ),
       sidebarTopicGroup(
         "Features",
         "sidebar#intelligence-features",
         [
           intelligenceThreads,
+          intelligenceLearningGroup,
           intelligenceMemory,
-          intelligenceLearning,
-          intelligenceSkillDelivery,
           intelligenceAnalytics,
           intelligenceChannels,
-          intelligenceHeadless,
         ].filter((node): node is NavNode => node !== null),
       ),
       sidebarTopicGroup(
         "Hosting",
         "sidebar#intelligence-hosting",
-        [
-          intelligenceCloud,
-          intelligencePlans,
-          intelligenceInspect,
-          intelligenceSelfHosted,
-          intelligenceEcs,
-        ].filter((node): node is NavNode => node !== null),
+        [intelligenceCloud, intelligenceSelfHosted, intelligenceEcs].filter(
+          (node): node is NavNode => node !== null,
+        ),
       ),
     ]),
     ...sidebarSection("Backend", [

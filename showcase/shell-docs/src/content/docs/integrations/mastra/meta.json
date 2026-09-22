@@ -10,7 +10,7 @@
     "---Basics---",
     "prebuilt-components",
     {
-      "title": "Threads",
+      "title": "Rich Threads",
       "defaultOpen": true,
       "pages": [
         "threads",
@@ -27,7 +27,9 @@
     "---Generative UI---",
     "...generative-ui",
     "---App Control---",
-    "frontend-tools", "shared-state", "agent-app-context",
+    "frontend-tools",
+    "shared-state",
+    "agent-app-context",
     "---Mastra---",
     "...human-in-the-loop",
     "background-tasks",

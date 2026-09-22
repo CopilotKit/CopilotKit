@@ -199,9 +199,6 @@
   .prompt-pill-shelf button {
     min-height: 44px;
   }
-  .docs-page-tools.docs-page-tools-prompt {
-    margin-bottom: 0;
-  }
   .prompt-pill-app {
     width: 44px;
     height: 38px;
@@ -217,7 +214,11 @@
   gap: 8px;
   align-items: flex-start;
   overflow: visible;
-  margin-bottom: 38px;
+  /* The hover shelf is absolutely positioned and overlays the content
+   * below, so the header keeps the same rhythm as pages without a pill. */
+  margin-bottom: 0;
+  position: relative;
+  z-index: 1;
 }
 .docs-page-tools-prompt::before,
 .docs-page-tools-prompt::after {

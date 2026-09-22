@@ -93,6 +93,38 @@ function findPageByTitle(
 
 type NavPageEntry = { title: string; slug: string };
 
+type NavGroupEntry =
+  | NavPageEntry
+  | { title: string; slug: string; children: NavPageEntry[] };
+
+/** Like groupPageEntries, but allows one level of nested group. */
+function groupEntries(navTree: NavNode[], groupTitle: string): NavGroupEntry[] {
+  for (const node of navTree) {
+    if (node.type !== "group") continue;
+    if (node.title === groupTitle) {
+      return node.children.map((child) => {
+        if (child.type === "page")
+          return { title: child.title, slug: child.slug };
+        if (child.type === "group") {
+          return {
+            title: child.title,
+            slug: child.slug,
+            children: child.children.map((grandchild) => {
+              if (grandchild.type !== "page")
+                throw new Error("expected page entry");
+              return { title: grandchild.title, slug: grandchild.slug };
+            }),
+          };
+        }
+        throw new Error(`${groupTitle} contains an unexpected node`);
+      });
+    }
+    const nested = groupEntries(node.children, groupTitle);
+    if (nested.length > 0) return nested;
+  }
+  return [];
+}
+
 function groupPageEntries(
   navTree: NavNode[],
   groupTitle: string,
@@ -235,10 +267,12 @@ describe("loadDoc", () => {
     );
   });
 
-  it("keeps the Threads overview and headless implementation on separate routes", () => {
-    expect(loadDoc("threads")?.fm.title).toBe("Threads");
+  it("keeps the Rich Threads overview and headless implementation on separate routes", () => {
+    expect(loadDoc("threads")?.fm.title).toBe("Rich Threads");
     expect(loadDoc("headless-threads")?.fm.title).toBe("Headless Threads");
-    expect(loadDoc("integrations/mastra/threads")?.fm.title).toBe("Threads");
+    expect(loadDoc("integrations/mastra/threads")?.fm.title).toBe(
+      "Rich Threads",
+    );
     expect(loadDoc("integrations/mastra/headless-threads")?.fm.title).toBe(
       "Headless Threads",
     );
@@ -253,9 +287,9 @@ describe("loadDoc", () => {
     const screenshot = overview.indexOf("support-desk-threads.png");
     const agentSetup = overview.indexOf("## Start with your coding agent");
     const prompt = overview.indexOf("<RichThreadsSetupPrompt />");
-    const gettingStarted = overview.indexOf("## Set up Threads manually");
+    const gettingStarted = overview.indexOf("## Set up Rich Threads manually");
     const manualSteps = overview.indexOf("<Steps>");
-    const why = overview.indexOf("## Why use CopilotKit Threads?");
+    const why = overview.indexOf("## Why use CopilotKit Rich Threads?");
     const diagram = overview.indexOf("threads-diagram-light.png");
 
     expect(screenshot).toBeGreaterThan(-1);
@@ -275,11 +309,11 @@ describe("loadDoc", () => {
     expect(overview).toContain("threads-diagram-dark.png");
   });
 
-  it("links locked Inspector users to both Threads Runtime route modes", () => {
+  it("links locked Inspector users to both Rich Threads Runtime route modes", () => {
     const runtimeEndpoints = loadDoc("backend/runtime-endpoints")?.source ?? "";
     const inspector = loadDoc("inspector")?.source ?? "";
 
-    expect(runtimeEndpoints).toContain("## Enable Threads routes");
+    expect(runtimeEndpoints).toContain("## Enable Rich Threads routes");
     expect(runtimeEndpoints).toContain('mode: "single-route"');
     expect(runtimeEndpoints).toContain(
       'import { CopilotKitProvider } from "@copilotkit/react-core/v2";',
@@ -291,7 +325,7 @@ describe("loadDoc", () => {
     expect(runtimeEndpoints).toContain('"list": true');
     expect(runtimeEndpoints).toContain('"inspect": true');
     expect(inspector).toContain(
-      "[Enable Threads routes](/backend/runtime-endpoints#enable-threads-routes)",
+      "[Enable Rich Threads routes](/backend/runtime-endpoints#enable-rich-threads-routes)",
     );
   });
 });
@@ -337,7 +371,7 @@ describe("readTitle", () => {
       filePath,
       [
         "---",
-        'title: "Threads"',
+        'title: "Rich Threads"',
         'nav_title: "Overview"',
         "---",
         "",
@@ -346,7 +380,7 @@ describe("readTitle", () => {
     );
 
     expect(readTitle(filePath)).toBe("Overview");
-    expect(loadDoc("threads")?.fm.title).toBe("Threads");
+    expect(loadDoc("threads")?.fm.title).toBe("Rich Threads");
   });
 });
 
@@ -518,7 +552,7 @@ describe("framework nav", () => {
     ]);
     expect(navAncestorBreadcrumbsForSlug(navTree, "threads")).toEqual([
       { label: "Basics", href: null },
-      { label: "Threads", href: null },
+      { label: "Rich Threads", href: null },
     ]);
     expect(
       navAncestorBreadcrumbsForSlug(navTree, "prebuilt-components"),
@@ -604,7 +638,7 @@ describe("framework nav", () => {
     ).toBe(true);
     expect(sectionNodes(navTree, "Basics").map((node) => node.title)).toEqual([
       "Chat",
-      "Threads",
+      "Rich Threads",
       "Frontend-tools",
     ]);
     expect(
@@ -619,36 +653,40 @@ describe("framework nav", () => {
     expect(groupPageEntries(navTree, "Get started")).toEqual([
       { title: "Quickstart", slug: "intelligence/quickstart" },
       { title: "Architecture", slug: "intelligence/intelligence-platform" },
+      { title: "Plans", slug: "intelligence/plans" },
     ]);
-    expect(groupPageEntries(navTree, "Features")).toEqual([
-      { title: "Threads", slug: "threads" },
-      { title: "Memories", slug: "intelligence/memories" },
-      { title: "Learning", slug: "learning" },
-      { title: "Skill delivery", slug: "intelligence/learned-skills" },
-      { title: "Analytics", slug: "intelligence/analytics" },
+    expect(groupEntries(navTree, "Features")).toEqual([
+      { title: "Rich Threads", slug: "threads" },
+      {
+        title: "Automatic Learning",
+        slug: "learning",
+        children: [
+          { title: "Automatic Learning", slug: "learning" },
+          { title: "Skill delivery", slug: "intelligence/learned-skills" },
+        ],
+      },
+      { title: "User Memories", slug: "intelligence/memories" },
+      { title: "Product Analytics", slug: "intelligence/analytics" },
       { title: "Channels", slug: "intelligence/channels" },
-      { title: "Headless UI", slug: "intelligence/headless-ui" },
     ]);
     expect(groupPageEntries(navTree, "Hosting")).toEqual([
       {
         title: "Cloud-hosted",
         slug: "intelligence/managed-intelligence-platform",
       },
-      { title: "Plans", slug: "intelligence/plans" },
-      { title: "Inspect a thread", slug: "intelligence/inspect" },
       { title: "Self-hosted", slug: "intelligence/self-hosting" },
       { title: "AWS ECS/Fargate", slug: "intelligence/self-hosting-ecs" },
     ]);
-    expect(findPageByTitle(navTree, "Learning")).toMatchObject({
+    expect(findPageByTitle(navTree, "Automatic Learning")).toMatchObject({
       slug: "learning",
     });
     expect(findPageByTitle(navTree, "WebMCP")).toMatchObject({
       slug: "webmcp",
     });
-    expect(hasSectionPage(navTree, "Agent capabilities", "Learning")).toBe(
-      false,
-    );
-    expect(hasSectionPage(navTree, "Agent capabilities", "Memories")).toBe(
+    expect(
+      hasSectionPage(navTree, "Agent capabilities", "Automatic Learning"),
+    ).toBe(false);
+    expect(hasSectionPage(navTree, "Agent capabilities", "User Memories")).toBe(
       false,
     );
     expect(sectionNodes(navTree, "Backend").map((node) => node.title)).toEqual([
@@ -772,7 +810,7 @@ describe("framework nav", () => {
     }
   });
 
-  it("orders the Threads job routes consistently across framework modes", () => {
+  it("orders the Rich Threads job routes consistently across framework modes", () => {
     const generatedNav = buildFrameworkNav(
       "langgraph",
       "LangGraph (Python)",
@@ -796,7 +834,7 @@ describe("framework nav", () => {
         slug: "intelligence/threads-explained",
       },
     ];
-    expect(groupPageEntries(generatedNav, "Threads")).toEqual(expected);
+    expect(groupPageEntries(generatedNav, "Rich Threads")).toEqual(expected);
 
     const authoredFolders = [
       ...new Set(
@@ -808,7 +846,7 @@ describe("framework nav", () => {
 
     for (const folder of authoredFolders) {
       expect(
-        groupPageEntries(buildFrameworkOnlyNav(folder), "Threads"),
+        groupPageEntries(buildFrameworkOnlyNav(folder), "Rich Threads"),
       ).toEqual(expected);
     }
   });
@@ -834,7 +872,7 @@ describe("framework nav", () => {
       "LangGraph (Python)",
       "langgraph-python",
     );
-    expect(groupPageEntries(generatedNav, "Threads")).toContainEqual({
+    expect(groupPageEntries(generatedNav, "Rich Threads")).toContainEqual({
       title: "Synchronize Thread History",
       slug: "threads-import",
     });
@@ -883,7 +921,9 @@ describe("framework nav", () => {
     expect(drawer).toContain("add it to an existing CopilotKit application");
     expect(drawer).toContain("Start cloud-hosted setup");
     expect(drawer).toContain("## Set up the Threads Drawer");
-    expect(drawer).not.toContain("Start with the [Threads overview](/threads)");
+    expect(drawer).not.toContain(
+      "Start with the [Rich Threads overview](/threads)",
+    );
 
     expect(headless).toContain(
       "If your app came from a CopilotKit CLI starter",
@@ -916,11 +956,11 @@ describe("framework nav", () => {
     expect(architecture).toContain("general replication link");
   });
 
-  it("links the hosted Intelligence guide to the Threads journey", () => {
+  it("links the hosted Intelligence guide to the Rich Threads journey", () => {
     const managed =
       loadDoc("intelligence/managed-intelligence-platform")?.source ?? "";
 
-    expect(managed).toContain("[inspect page](/intelligence/inspect)");
+    expect(managed).toContain("cloud-hosted-thread-detail.png");
     expect(managed).toContain("[CopilotKit CLI](/cli)");
     expect(managed).toContain("[quickstart](/intelligence/quickstart)");
   });
@@ -942,23 +982,27 @@ describe("framework nav", () => {
         title: "Architecture",
         slug: "intelligence/intelligence-platform",
       },
+      { title: "Plans", slug: "intelligence/plans" },
     ]);
-    expect(groupPageEntries(navTree, "Features")).toEqual([
-      { title: "Threads", slug: "threads" },
-      { title: "Memories", slug: "intelligence/memories" },
-      { title: "Learning", slug: "learning" },
-      { title: "Skill delivery", slug: "intelligence/learned-skills" },
-      { title: "Analytics", slug: "intelligence/analytics" },
+    expect(groupEntries(navTree, "Features")).toEqual([
+      { title: "Rich Threads", slug: "threads" },
+      {
+        title: "Automatic Learning",
+        slug: "learning",
+        children: [
+          { title: "Automatic Learning", slug: "learning" },
+          { title: "Skill delivery", slug: "intelligence/learned-skills" },
+        ],
+      },
+      { title: "User Memories", slug: "intelligence/memories" },
+      { title: "Product Analytics", slug: "intelligence/analytics" },
       { title: "Channels", slug: "intelligence/channels" },
-      { title: "Headless UI", slug: "intelligence/headless-ui" },
     ]);
     expect(groupPageEntries(navTree, "Hosting")).toEqual([
       {
         title: "Cloud-hosted",
         slug: "intelligence/managed-intelligence-platform",
       },
-      { title: "Plans", slug: "intelligence/plans" },
-      { title: "Inspect a thread", slug: "intelligence/inspect" },
       { title: "Self-hosted", slug: "intelligence/self-hosting" },
       { title: "AWS ECS/Fargate", slug: "intelligence/self-hosting-ecs" },
     ]);

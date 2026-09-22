@@ -29,7 +29,7 @@ Do not load this skill to rename code. Identifiers, route slugs, env vars, API f
 2. Use the **Use** column for headings, nav titles, button labels, alt text, and body prose.
 3. Keep plan names as Developer, Team, Team Self-hosted, and Enterprise.
 4. If a fact already has a home in `references/words.md`, link to that page. Do not explain the fact again under a second name.
-5. Write Inspector click steps with the labels the shipped controls render: **Threads** and **Learning**.
+5. Write Inspector click steps with the labels the shipped controls render: **Rich Threads** and **Automatic Learning**.
 
 ### Procedure 2: Check the change
 

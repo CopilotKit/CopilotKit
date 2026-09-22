@@ -126,14 +126,14 @@ export function PartnerFeatureExplorer({
       ...demos.filter((demo) => demo.id === "agentic-chat"),
       {
         id: "threads",
-        title: "Threads",
+        title: "Rich Threads",
         description:
           "Keep conversations, UI, and tool activity across sessions.",
         video: "79817778d29e490c97225127d2f17b3a",
       },
       {
         id: "learning",
-        title: "Learning",
+        title: "Automatic Learning",
         description: "Turn past interactions into improvements you can review.",
         video: "2978fbfe42324e509057ac5fd46b7a70",
       },

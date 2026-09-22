@@ -1,8 +1,4 @@
 import { LitElement, css, html, nothing } from "lit";
-import {
-  INSPECTOR_LEARNING_LABEL,
-  INSPECTOR_THREADS_LABEL,
-} from "../control-labels.js";
 import type {
   InspectorLearningInsight,
   InspectorLearningSnapshotV1,
@@ -1060,7 +1056,7 @@ export class CpkLearningView extends LitElement {
       ? "Learning setup needs attention"
       : mode === "setup"
         ? waitingForLearningSetup
-          ? "Waiting for Learning setup"
+          ? "Waiting for Automatic Learning setup"
           : "Waiting for the first Thread"
         : ready
           ? "Threads ready to analyze"
@@ -1075,7 +1071,7 @@ export class CpkLearningView extends LitElement {
       aria-labelledby="learning-setup-title"
     >
       <div class="setup-top">
-        <h2 id="learning-setup-title">Set up ${INSPECTOR_LEARNING_LABEL}</h2>
+        <h2 id="learning-setup-title">Set up Automatic Learning</h2>
         <span class="progress-count">${completedSteps} of 3 steps</span>
       </div>
       <div class="progress-track" aria-hidden="true">
@@ -1126,14 +1122,14 @@ export class CpkLearningView extends LitElement {
           <h3>
             ${
               waitingForLearningSetup
-                ? `Set up ${INSPECTOR_LEARNING_LABEL}`
+                ? "Set up Automatic Learning"
                 : "Create your first Thread"
             }
           </h3>
           <p>
             ${
               waitingForLearningSetup
-                ? "Run the copied prompt in your coding agent. This page will continue when Learning is ready."
+                ? "Run the copied prompt in your coding agent. This page will continue when Automatic Learning is ready."
                 : "Open Checkout Assistant and complete a conversation."
             }
           </p>
@@ -1198,7 +1194,7 @@ export class CpkLearningView extends LitElement {
                         : running
                           ? "Analysis running"
                           : waitingForLearningSetup
-                            ? "Waiting for Learning setup"
+                            ? "Waiting for Automatic Learning setup"
                             : "Waiting for first Thread"
                     }
                   </dd>
@@ -1505,7 +1501,7 @@ export class CpkLearningView extends LitElement {
             <p class="eyebrow">Analysis complete</p>
             <h2>No new Insights or Skills</h2>
             <p>
-              Create more Threads with Checkout Assistant. You can run Learning
+              Create more Threads with Checkout Assistant. You can run Automatic Learning
               again when new Threads are available.
             </p>
           </div>
@@ -1517,7 +1513,7 @@ export class CpkLearningView extends LitElement {
         </div>
         <div class="empty-card">
           <h3>No Skills from this analysis</h3>
-          <p>Learning did not generate a Skill for review.</p>
+          <p>Automatic Learning did not generate a Skill for review.</p>
         </div>
       </section>
       <section class="result-section">
@@ -1526,7 +1522,7 @@ export class CpkLearningView extends LitElement {
         </div>
         <div class="empty-card">
           <h3>No Insights from this analysis</h3>
-          <p>Learning did not find a useful pattern in these Threads.</p>
+          <p>Automatic Learning did not find a useful pattern in these Threads.</p>
         </div>
       </section>
       ${this.externalLink(
@@ -1565,13 +1561,13 @@ export class CpkLearningView extends LitElement {
     let content: unknown;
     if (state === "loading") {
       content = html`
-        <div class="skeleton" aria-label="Loading Learning">
+        <div class="skeleton" aria-label="Loading Automatic Learning">
           <span></span><span></span><span></span>
         </div>
       `;
     } else if (state === "error") {
       content = this.renderCompactState({
-        title: "Learning data is unavailable",
+        title: "Automatic Learning data is unavailable",
         copy: this.error ?? undefined,
         error: true,
         action: html`<button
@@ -1616,8 +1612,8 @@ export class CpkLearningView extends LitElement {
     return html`<main class="pane-inner" data-learning-state=${state}>
         <header class="pane-heading">
           <div>
-            <h1>${INSPECTOR_LEARNING_LABEL}</h1>
-            <p>Intelligence finds patterns in Threads and proposes reusable Skills.</p>
+            <h1>Automatic Learning</h1>
+            <p>Intelligence finds patterns in Rich Threads and proposes reusable Skills.</p>
             ${this.snapshot?.configuration.state === "configured" ? html`<p style="font-size:12px;margin-top:10px">Learning Space <strong>${this.snapshot.configuration.container.name}</strong></p>` : nothing}
           </div>
           <div class="pane-actions">
@@ -1665,7 +1661,7 @@ export class CpkLearningView extends LitElement {
             >
               <header>
                 <div>
-                  <h2 id="learning-prompt-title">Set up ${INSPECTOR_THREADS_LABEL}</h2>
+                  <h2 id="learning-prompt-title">Set up Rich Threads</h2>
                   <p>Paste this prompt into your coding agent.</p>
                 </div>
                 <button

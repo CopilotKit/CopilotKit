@@ -38,10 +38,6 @@ import type {
 import type { AbstractAgent, AgentSubscriber, Message } from "@ag-ui/client";
 import type { InspectorLearningSnapshotV1 } from "@copilotkit/shared";
 import { deriveLearningViewState } from "./components/learning-view.js";
-import {
-  INSPECTOR_LEARNING_LABEL,
-  INSPECTOR_THREADS_LABEL,
-} from "./control-labels.js";
 import type { LearningViewState } from "./components/learning-view.js";
 import type {
   Anchor,
@@ -209,7 +205,7 @@ export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
  * User-facing label for the learning view. The legacy menu key stays
  * "memories" for persistence and telemetry stability.
  */
-const LEARNING_VIEW_LABEL = INSPECTOR_LEARNING_LABEL;
+const LEARNING_VIEW_LABEL = "Automatic Learning";
 const LEARNING_RECOPY_CONFIRMATION_MS = 2_000;
 
 /**
@@ -400,8 +396,8 @@ type LauncherHudRowId = "threads" | "learning";
 
 const HUD_INSPECTOR_LABEL = "CopilotKit Inspector";
 const HUD_ANNOUNCEMENT_TITLE_LIMIT = 80;
-const HUD_THREADS_LABEL = INSPECTOR_THREADS_LABEL;
-const HUD_LEARNING_LABEL = INSPECTOR_LEARNING_LABEL;
+const HUD_THREADS_LABEL = "Rich Threads";
+const HUD_LEARNING_LABEL = "Automatic Learning";
 const HUD_LEARN_MORE_LABEL = "Click to learn more";
 
 type InspectorDismissalDuration = "day" | "week";
@@ -705,7 +701,7 @@ const SELF_HOSTED_INTELLIGENCE_URL =
 const INTELLIGENCE_STORY_BEATS = [
   {
     id: "threads",
-    label: INSPECTOR_THREADS_LABEL,
+    label: "Rich Threads",
     // Roughly 24 words of copy plus a picture to take in. The upstream timings
     // were written for a page where the animation carried itself; here it has
     // to be read, so every beat gets time for two sentences at a comfortable
@@ -722,15 +718,15 @@ const INTELLIGENCE_STORY_BEATS = [
     // yet, and "thousands" would read as a lie on day one while still being
     // true at scale. "All the others" holds in both cases.
     lead: "You only see this session. Your users have all the others.",
-    // "Threads" is the product's own name for the durable ones, and the
+    // "Rich Threads" is the product's own name for the durable ones, and the
     // distinction is the sale: the Inspector's Threads tab already lists local
     // ones that die on reload.
     support:
-      "Threads keep every conversation and its state, so you can open the one that broke instead of reproducing it.",
+      "Rich Threads keep every conversation and its state, so you can open the one that broke instead of reproducing it.",
   },
   {
     id: "learning",
-    label: INSPECTOR_LEARNING_LABEL,
+    label: "Automatic Learning",
     duration: 6_000,
     lead: "Your users already told you what to fix.",
     // Insights are a first-class concept in the product, and the evidence link
@@ -738,7 +734,7 @@ const INTELLIGENCE_STORY_BEATS = [
     // not a model's opinion. Learning's own onboarding leads with "46 evidence
     // refs" across "12 Threads" for exactly this reason.
     support:
-      "Learning reads the runs behind those threads and finds the patterns — every Insight linked to the messages that back it.",
+      "Automatic Learning reads the runs behind those threads and finds the patterns — every Insight linked to the messages that back it.",
   },
   {
     id: "skill",
@@ -854,7 +850,7 @@ const THREADS_LOCKED_FEATURE_OUTLINE = [
     icon: "MessagesSquare",
     title: "The whole conversation comes back",
     description:
-      "Threads restores the complete interaction, not just a transcript. Messages, tool calls, shared state, generated interfaces, and supported files return together when a user reopens the thread.",
+      "Rich Threads restores the complete interaction, not just a transcript. Messages, tool calls, shared state, generated interfaces, and supported files return together when a user reopens the thread.",
   },
   {
     icon: "LayoutGrid",
@@ -866,7 +862,7 @@ const THREADS_LOCKED_FEATURE_OUTLINE = [
     icon: "RefreshCw",
     title: "Return without starting over",
     description:
-      "Users can move across sessions and devices while thread lists stay synchronized across open tabs. Threads replays missed events and reconnects to work already in progress.",
+      "Users can move across sessions and devices while thread lists stay synchronized across open tabs. Rich Threads replays missed events and reconnects to work already in progress.",
   },
   {
     icon: "Server",
@@ -4859,7 +4855,7 @@ export class CpkThreadInspector extends PortableLitElement {
           <div class="cpk-td__thread-header">
             ${
               this.showThreadTitle
-                ? html`<div class="cpk-td__thread-title">${this.metadata?.name || this.thread?.name || "Thread"}</div>`
+                ? html`<div class="cpk-td__thread-title">${this.metadata?.name || this.thread?.name || "Rich Thread"}</div>`
                 : nothing
             }
             ${this._tab === "timeline" ? html`<div class="cpk-td__pinned-actions">${this.renderConversationActions()}</div>` : nothing}
@@ -6969,7 +6965,7 @@ export class WebInspectorElement extends LitElement {
       },
       {
         key: "threads",
-        label: INSPECTOR_THREADS_LABEL,
+        label: "Rich Threads",
         icon: "MessageSquare" as LucideIconName,
       },
       {
@@ -12620,7 +12616,7 @@ export class WebInspectorElement extends LitElement {
           href=${action.url}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label="${action.label} to enable Threads and Learning (opens in a new tab)"
+          aria-label="${action.label} to enable Rich Threads and Automatic Learning (opens in a new tab)"
           title=${action.label}
           style=${INTERACTIVE_FOCUS_BASE_STYLE}
           @click=${() => this.handleHomeHeroCta(action)}
@@ -12643,14 +12639,14 @@ export class WebInspectorElement extends LitElement {
       ? planLabel
         ? `${planLabel} plan`
         : "Connected"
-      : "Threads and Learning are off";
+      : "Rich Threads and Automatic Learning are off";
     const label = connected
       ? `${primaryLabel}, ${secondaryLabel}, Intelligence connected`
       : "Connect Intelligence";
     const actionLabel = action?.label;
     const description = connected
       ? `${secondaryLabel} · Intelligence connected`
-      : "Threads and Learning need Intelligence.";
+      : "Rich Threads and Automatic Learning need Intelligence.";
     return html`
       <section
         class="inspector-sidebar-status-card inspector-sidebar-intelligence"
@@ -18443,7 +18439,7 @@ export class WebInspectorElement extends LitElement {
     if (state === "landing") {
       return this.renderLockedFeatureOverview({
         serviceId: "memory",
-        featureName: INSPECTOR_LEARNING_LABEL,
+        featureName: "Automatic Learning",
         heading: "Turn every interaction into reusable context.",
         description:
           "Learning captures durable information from agent interactions and brings it back when it matters, so your product gets more useful over time.",
@@ -18532,7 +18528,7 @@ export class WebInspectorElement extends LitElement {
     if (!learningEnabled) {
       return this.renderLockedFeatureOverview({
         serviceId: "memory",
-        featureName: INSPECTOR_LEARNING_LABEL,
+        featureName: "Automatic Learning",
         heading: this._memoryStoreUnsupported
           ? "Upgrade to enable Learning"
           : "Turn every interaction into reusable context.",
@@ -18847,11 +18843,11 @@ export class WebInspectorElement extends LitElement {
         }
         ${this.renderLockedFeatureOverview({
           serviceId: "threads",
-          featureName: INSPECTOR_THREADS_LABEL,
+          featureName: "Rich Threads",
           heading: THREADS_LOCKED_COPY.heading,
           description: THREADS_LOCKED_COPY.description,
           videoUrl: THREADS_LOCKED_VIDEO_URL,
-          videoTitle: `${INSPECTOR_THREADS_LABEL} overview`,
+          videoTitle: "Rich Threads overview",
           outlineItems: THREADS_LOCKED_FEATURE_OUTLINE,
         })}`;
     }
@@ -18895,7 +18891,7 @@ export class WebInspectorElement extends LitElement {
       <div
         style="display:flex;height:100%;overflow:hidden;flex-direction:column;"
       >
-        <div class="inspector-thread-heading"><strong>${INSPECTOR_THREADS_LABEL}</strong><button type="button" class="inspector-text-button" aria-expanded=${!this.threadListCollapsed} @click=${() => {
+        <div class="inspector-thread-heading"><strong>Rich Threads</strong><button type="button" class="inspector-text-button" aria-expanded=${!this.threadListCollapsed} @click=${() => {
           this.threadListCollapsed = !this.threadListCollapsed;
           this.requestUpdate();
         }}>${this.threadListCollapsed ? "Show thread list" : "Hide thread list"}</button></div>

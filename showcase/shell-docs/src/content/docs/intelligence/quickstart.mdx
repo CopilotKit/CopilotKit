@@ -6,7 +6,9 @@ icon: "lucide/Play"
 doc_type: how-to
 ---
 
-You want saved threads, memories, learning, channels, and analytics on the CopilotKit app you already have. Intelligence adds that layer. Your frontend and your agent stay where they are.
+## Overview
+
+You want Rich Threads, User Memory, Automatic Learning, Channels, and Product Analytics on the app you already have. Intelligence adds that layer. Your frontend and your agent stay where they are.
 
 You are done when Inspector shows that Intelligence is connected and shows your first saved thread. A React Native app has no Inspector. Confirm the thread in the cloud-hosted project instead.
 
@@ -217,7 +219,7 @@ Before you start, make sure that you have a CopilotKit app with a working agent,
 
       1. Open **Home**. Make sure that **Intelligence connected** appears beside **What's going on**.
       2. Return to your app and send one message to create a thread.
-      3. Open **Threads** in Inspector. Your new thread must appear in the list.
+      3. Open **Rich Threads** in Inspector. Your new thread must appear in the list.
       4. Open the thread. Make sure that **Messages** contains the message that you sent.
 
       If Home does not show **Intelligence connected**, or Threads is locked, the setup is incomplete. Follow the action shown in Inspector or review the [Inspector setup states](/inspector#project-context-and-usage).
@@ -228,7 +230,7 @@ Before you start, make sure that you have a CopilotKit app with a working agent,
 
       1. Open **Home**. Make sure that **Intelligence connected** appears beside **What's going on**.
       2. Return to your app and send one message to create a thread.
-      3. Open **Threads** in Inspector. Your new thread must appear in the list.
+      3. Open **Rich Threads** in Inspector. Your new thread must appear in the list.
       4. Open the thread. Make sure that **Messages** contains the message that you sent.
 
       If Home does not show **Intelligence connected**, or Threads is locked, the setup is incomplete. Follow the action shown in Inspector or review the [Inspector setup states](/inspector#project-context-and-usage).
@@ -239,7 +241,7 @@ Before you start, make sure that you have a CopilotKit app with a working agent,
 
       1. Open **Home**. Make sure that **Intelligence connected** appears beside **What's going on**.
       2. Return to your app and send one message to create a thread.
-      3. Open **Threads** in Inspector. Your new thread must appear in the list.
+      3. Open **Rich Threads** in Inspector. Your new thread must appear in the list.
       4. Open the thread. Make sure that **Messages** contains the message that you sent.
 
       If Home does not show **Intelligence connected**, or Threads is locked, the setup is incomplete. Follow the action shown in Inspector or review the [Inspector setup states](/inspector#project-context-and-usage).
@@ -250,10 +252,6 @@ Before you start, make sure that you have a CopilotKit app with a working agent,
     </FrontendOnly>
   </Step>
 </Steps>
-
-<Callout type="success" title="Intelligence is connected">
-  Your runtime stores new conversations in Intelligence. A browser app can inspect messages, events, and state in Inspector. A React Native app can inspect them in the cloud-hosted project.
-</Callout>
 
 A chat reply does not prove that the key is in use. An SSE runtime replies with the key unread. Use the Inspector check above, or open the thread in the [cloud-hosted project](/intelligence/managed-intelligence-platform).
 
@@ -275,10 +273,20 @@ Install steps are on [Self-host on Kubernetes](/intelligence/self-hosting) and [
 
 ## Troubleshooting
 
-| What you see | Cause |
-| --- | --- |
-| Chat works, and the project has no thread | `intelligence` was not passed to `CopilotRuntime`. The runtime is in SSE mode. |
-| An auth error on the first request | `CPK_INTELLIGENCE_API_KEY` is empty, or it belongs to another project. |
-| The socket stays on `connecting`, then reports that it did not settle in time | `wsUrl` was set alone, or it points at the API host. |
-| Request logs show `/api/api/...` | `apiUrl` included an `/api` suffix. |
-| A type error or a throw that names `runner` | `runner` and `intelligence` are both set. Intelligence wires its own runner. |
+<Accordions>
+  <Accordion title="Chat works, and the project has no thread">
+    `intelligence` was not passed to `CopilotRuntime`. The runtime is in SSE mode.
+  </Accordion>
+  <Accordion title="An auth error on the first request">
+    `CPK_INTELLIGENCE_API_KEY` is empty, or it belongs to another project.
+  </Accordion>
+  <Accordion title="The socket stays on connecting, then reports that it did not settle in time">
+    `wsUrl` was set alone, or it points at the API host.
+  </Accordion>
+  <Accordion title="Request logs show /api/api/...">
+    `apiUrl` included an `/api` suffix.
+  </Accordion>
+  <Accordion title="A type error or a throw that names runner">
+    `runner` and `intelligence` are both set. Intelligence wires its own runner.
+  </Accordion>
+</Accordions>

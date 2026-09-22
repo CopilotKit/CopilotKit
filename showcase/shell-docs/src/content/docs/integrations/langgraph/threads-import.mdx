@@ -1,18 +1,21 @@
 ---
 title: Synchronize LangGraph Threads
 nav_title: Synchronize Thread History
-description: "Import historical LangGraph Server, LangGraph Platform, or LangSmith Deployment threads into CopilotKit Intelligence, then add Threads while continuing to use LangGraph persistence."
+description: "Import historical LangGraph Server, LangGraph Platform, or LangSmith Deployment threads into CopilotKit Intelligence, then add Rich Threads while continuing to use LangGraph persistence."
 icon: "lucide/Repeat"
 doc_type: how-to
 ---
 
 ## What is this?
 
-The LangGraph importer reads already-persisted LangGraph Server, LangGraph Platform, or LangSmith Deployment threads and writes them into CopilotKit Intelligence as Threads.
+The LangGraph importer reads already-persisted LangGraph Server, LangGraph Platform, or LangSmith Deployment threads and writes them into CopilotKit Intelligence as Rich Threads.
 
 This works for LangGraph Python, LangGraph TypeScript, and LangGraph FastAPI when the source history is available through the LangGraph SDK thread and run APIs. It does not import classic LangChain message history stores, LangSmith traces, or embedded checkpointers that are not exposed through LangGraph Server / Platform.
 
-<Callout type="info" title="Keep your LangGraph persistence and add Threads">
+<Callout
+  type="info"
+  title="Keep your LangGraph persistence and add Rich Threads"
+>
   Import existing history once, then keep LangGraph or LangSmith storage and analytics in place. Future CopilotKit-mediated runs persist to CopilotKit Intelligence and continue through the native persistence path when your agent remains wired to a durable LangGraph checkpointer or Platform deployment. CLI-created starters already include the Threads Drawer; use [Headless Threads](/headless-threads) only for a custom UI.
 </Callout>
 

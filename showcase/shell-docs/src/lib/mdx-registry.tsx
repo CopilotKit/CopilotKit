@@ -5,7 +5,14 @@
 
 import React from "react";
 import Link from "next/link";
-import { CirclePause, Share2 } from "lucide-react";
+import {
+  CirclePause,
+  Cloud,
+  Code,
+  PanelLeft,
+  Server,
+  Share2,
+} from "lucide-react";
 import {
   Cards,
   Card,
@@ -22,6 +29,7 @@ import {
 import { NewLookAndFeelPreview } from "@/components/react/component-previews/new-look-and-feel";
 import { FrameworkTabs } from "@/components/framework-tabs";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
+import { ChannelsIntegrationPicker } from "@/components/channels-integration-picker";
 import { SignupLink } from "@/components/react/signup-link";
 import {
   DocsTrackedCopy,
@@ -271,6 +279,10 @@ function warnSilentNull(component: string, reason: string): void {
 // throwing, which keeps a typo from blanking the page.
 export const ctaIcons: Record<string, React.ComponentType> = {
   circlePause: CirclePause,
+  cloud: Cloud,
+  code: Code,
+  panelLeft: PanelLeft,
+  server: Server,
   share2: Share2,
 };
 
@@ -297,6 +309,7 @@ const CTA_GRID_COLUMNS: Record<number, string> = {
 
 export const docsComponents = {
   Callout,
+  ChannelsIntegrationPicker,
   Cards,
   Card,
   Accordions,

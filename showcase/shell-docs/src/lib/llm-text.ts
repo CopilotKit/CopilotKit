@@ -743,7 +743,7 @@ function expandAngularSnippets(body: string): string {
   );
 }
 
-/** Expand the interactive Threads prompt for raw Markdown consumers. */
+/** Expand the interactive Rich Threads prompt for raw Markdown consumers. */
 function expandRichThreadsSetupPrompts(body: string): string {
   return body.replace(
     /<RichThreadsSetupPrompt\s*\/>/g,
@@ -754,7 +754,7 @@ function expandRichThreadsSetupPrompts(body: string): string {
   );
 }
 
-/** Expand the Learning prompt for raw Markdown consumers. */
+/** Expand the Automatic Learning prompt for raw Markdown consumers. */
 function expandLearningSetupPrompts(body: string): string {
   return body.replace(
     /<LearningSetupPrompt\s*\/>/g,
@@ -1064,7 +1064,7 @@ export function renderLlmsIndex(
   out.push(
     "> CopilotKit is the frontend stack where agents meet users, connected to supported agent frameworks through AG-UI.",
     "",
-    "> This curated index covers chat, generative UI, human-in-the-loop workflows, persistent threads, Learning, and Channels for Slack and Microsoft Teams. Channels connects agents to workplace conversations through the Channels SDK and CopilotKit Intelligence.",
+    "> This curated index covers chat, generative UI, human-in-the-loop workflows, persistent threads, Automatic Learning, and Channels for Slack and Microsoft Teams. Channels connects agents to workplace conversations through the Channels SDK and CopilotKit Intelligence.",
     "",
     `> For exhaustive retrieval—including reference, migration, contributor, and additional framework and channel guides—use [llms-full.txt](${baseUrl}/llms-full.txt).`,
     "",

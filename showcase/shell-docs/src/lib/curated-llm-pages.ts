@@ -71,13 +71,13 @@ export const CURATED_LLM_PAGES = [
   },
   {
     url: "threads",
-    title: "Threads",
+    title: "Rich Threads",
     description:
       "Build persistent conversations that restore messages, UI, inputs, and live runs across sessions.",
   },
   {
     url: "learning",
-    title: "Learning",
+    title: "Automatic Learning",
     description:
       "Turn evidence from completed application workflows into reviewed, reusable agent skills.",
   },
@@ -227,7 +227,7 @@ export const CURATED_LLM_PAGES = [
   },
   {
     url: "intelligence/memories",
-    title: "Memories",
+    title: "User Memories",
     description:
       "Choose memory scope and integrate long-term recall through React, Angular, REST, or MCP.",
   },

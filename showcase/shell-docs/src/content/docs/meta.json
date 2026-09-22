@@ -12,7 +12,7 @@
     "---Build Chat UIs---",
     "prebuilt-components",
     {
-      "title": "Threads",
+      "title": "Rich Threads",
       "defaultOpen": true,
       "pages": [
         "threads",
@@ -63,10 +63,8 @@
     "intelligence/learned-skills",
     "intelligence/analytics",
     "intelligence/channels",
-    "intelligence/headless-ui",
     "intelligence/managed-intelligence-platform",
     "intelligence/plans",
-    "intelligence/inspect",
     "intelligence/self-hosting",
     "intelligence/self-hosting-ecs",
     "---Deploy---",

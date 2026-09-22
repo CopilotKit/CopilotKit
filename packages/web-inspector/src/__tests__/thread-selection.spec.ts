@@ -245,7 +245,7 @@ async function setup(options: SetupOptions): Promise<ThreadSelectionHarness> {
 
   const threadsButton = Array.from(
     inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
-  ).find((button) => button.textContent?.trim() === "Threads");
+  ).find((button) => button.textContent?.trim() === "Rich Threads");
   if (!threadsButton) throw new Error("Threads menu button not found");
   threadsButton.click();
   await flushInspector(inspector);

@@ -10,7 +10,7 @@ test("Memory offers one agent prompt before manual setup and exports its instruc
   const source = doc.source;
   const agent = source.indexOf("## Start with your coding agent");
   const prompt = source.indexOf("<MemorySetupPrompt />");
-  const manual = source.indexOf("## Set up Memories");
+  const manual = source.indexOf("## Set up User Memories");
   expect(agent).toBeGreaterThan(-1);
   expect(agent).toBeLessThan(prompt);
   expect(prompt).toBeLessThan(manual);

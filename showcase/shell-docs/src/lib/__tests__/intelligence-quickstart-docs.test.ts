@@ -27,7 +27,7 @@ test("guides people and agents to a persistent Intelligence thread", () => {
   expect(agentPrompt).toBeGreaterThan(-1);
   expect(manualSteps).toBeGreaterThan(agentPrompt);
   expect(source).toContain(
-    "You want saved threads, memories, learning, channels, and analytics",
+    "You want Rich Threads, User Memory, Automatic Learning, Channels, and Product Analytics",
   );
   expect(source).toContain("Intelligence adds that layer");
   expect(source).toContain("npx copilotkit@latest project select");
@@ -39,7 +39,7 @@ test("guides people and agents to a persistent Intelligence thread", () => {
   expect(source).not.toContain("app/api/copilotkit/route.ts");
   expect(source).toContain("useSingleEndpoint");
   expect(source).toContain("Intelligence connected");
-  expect(source).toContain("Open **Threads** in Inspector");
+  expect(source).toContain("Open **Rich Threads** in Inspector");
   expect(source).toContain("**Messages** contains the message");
   expect(source).toContain('frontend="vue"');
   expect(source).toContain("@copilotkit/vue/v2");

@@ -1,27 +1,38 @@
-import InspectorPaneLearning from "@/snippets/shared/inspector/open-inspector-pane-learning.mdx";
 
 <IntelligenceOverview />
 
 ## What is CopilotKit Intelligence?
 
-You want saved threads, memories, learning, channels, and analytics without operating that storage yourself. CopilotKit Intelligence adds that layer to the CopilotKit app you already have. Your frontend, your agent, and your model stay where they are.
+You want Rich Threads, User Memory, Automatic Learning, Channels, and Product Analytics without operating that storage yourself. CopilotKit Intelligence adds that layer to the CopilotKit app you already have. Your frontend, your agent, and your model stay where they are.
 
 Open the page for the one thing you want to add. Each page below owns that topic.
 
 Connect an existing app in the [quickstart](/intelligence/quickstart).
 
-<InspectorPaneLearning />
-
 <IntelligenceFeatureCards />
 
 ## Choose where Intelligence runs
 
-Cloud-hosted and self-hosted use the same app APIs. Compare them on the [architecture page](/intelligence/intelligence-platform).
+Cloud-hosted and self-hosted use the same app APIs, so you can start on one and move later.
 
-<OpsPlatformCTA
-  variant="inline"
-  title="Create a cloud-hosted Intelligence account"
-  body="Create a project, then inspect your first thread in the web app."
-  ctaLabel="Start cloud-hosted setup"
-  surface="docs_intelligence_overview"
+<div className="intelligence-accent-cards">
+<CTACards
+  columns={2}
+  cards={[
+    {
+      iconKey: "cloud",
+      title: "Cloud-hosted",
+      description:
+        "CopilotKit runs Intelligence for you. Create a project, get a key, and manage your plan in the web app.",
+      href: "/intelligence/managed-intelligence-platform",
+    },
+    {
+      iconKey: "server",
+      title: "Self-hosted",
+      description:
+        "Run Intelligence in your own Kubernetes cluster or AWS account with the Helm chart or the ECS bundle.",
+      href: "/intelligence/self-hosting",
+    },
+  ]}
 />
+</div>

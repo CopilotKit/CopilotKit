@@ -116,9 +116,12 @@ describe("generated docs search index", () => {
         (entry) => entry.href === "/docs/tutorials/multi-conversation-chat",
       ),
     ).toBe(true);
+    // `intelligence/headless-ui` is in no sidebar. It stays searchable
+    // because the Intelligence overview feature cards link to it.
     expect(searchable.fromNavigation.has("intelligence/headless-ui")).toBe(
-      true,
+      false,
     );
+    expect(searchable.fromLinks.has("intelligence/headless-ui")).toBe(true);
   });
 
   it("needs no frontmatter override to reach its current coverage", () => {

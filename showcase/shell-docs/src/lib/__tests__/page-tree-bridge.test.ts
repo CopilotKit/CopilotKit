@@ -41,7 +41,7 @@ describe("navTreeToPageTree sidebar hierarchy", () => {
     },
     {
       type: "group",
-      title: "Threads",
+      title: "Rich Threads",
       slug: "sidebar#rich-threads",
       children: [{ type: "page", title: "Overview", slug: "threads" }],
       defaultOpen: false,
@@ -120,7 +120,7 @@ describe("navTreeToPageTree sidebar hierarchy", () => {
 
   it("keeps topic groups collapsible beneath static sections", () => {
     const chat = folderNamed(pageTree.children, "Chat");
-    const threads = folderNamed(pageTree.children, "Threads");
+    const threads = folderNamed(pageTree.children, "Rich Threads");
     const controlled = folderNamed(pageTree.children, "Controlled");
 
     expect(chat?.defaultOpen).toBe(false);

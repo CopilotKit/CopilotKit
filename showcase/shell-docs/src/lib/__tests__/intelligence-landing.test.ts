@@ -21,7 +21,7 @@ test("the Intelligence overview uses landing-page chrome", () => {
   expect(page.data.title).toBe("CopilotKit Intelligence");
   expect(page.data.nav_title).toBe("Overview");
   expect(page.data.description).toBe(
-    "CopilotKit Intelligence adds threads, memories, learning, channels, and analytics to the CopilotKit app you already run.",
+    "CopilotKit Intelligence adds Rich Threads, User Memories, Automatic Learning, Channels, and Product Analytics to the CopilotKit app you already run.",
   );
   expect(page.data.hideHeader).toBeUndefined();
   expect(page.data.full).toBe(true);
@@ -56,11 +56,14 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
     snippet.indexOf("## What is CopilotKit Intelligence?"),
   );
   expect(snippet).toContain("## What is CopilotKit Intelligence?");
-  expect(snippet).not.toContain("| Analytics |");
-  expect(snippet).not.toContain("| Learning |");
+  expect(snippet).not.toContain("| Product Analytics |");
+  expect(snippet).not.toContain("| Automatic Learning |");
+  // The hosting choice is two cards; the architecture comparison lives on
+  // the Cloud-hosted and Self-hosted pages, not on the landing.
   expect(snippet).toContain(
-    "[architecture page](/intelligence/intelligence-platform)",
+    'href: "/intelligence/managed-intelligence-platform"',
   );
+  expect(snippet).toContain('href: "/intelligence/self-hosting"');
   expect(snippet).not.toContain(
     "https://www.copilotkit.ai/copilotkit-intelligence",
   );
@@ -100,12 +103,12 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
   ).toBe(true);
 });
 
-test("the Learning guide stays focused on the reviewed Learning workflow", () => {
+test("the Automatic Learning guide stays focused on the reviewed workflow", () => {
   const guide = read("content/docs/learning.mdx");
 
   expect(guide).toContain("## Overview");
-  expect(guide).toContain("## How Learning works");
-  expect(guide).toContain("## Set up Learning manually");
+  expect(guide).toContain("## How Automatic Learning works");
+  expect(guide).toContain("## Set up Automatic Learning manually");
   expect(guide).toContain("## Start with your coding agent");
   expect(guide).toContain("<LearningSetupPrompt />");
   expect(guide).toContain("### Connect CopilotKit Intelligence");

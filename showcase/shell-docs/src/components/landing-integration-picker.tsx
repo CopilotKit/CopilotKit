@@ -29,11 +29,17 @@ const ROW_CLASS =
 export function LandingIntegrationPicker({
   frontends,
   integrations,
+  defaultFrontend = "react",
+  frontendLegend = "Your frontend",
 }: {
   frontends: readonly MapPick[];
   integrations: readonly LandingIntegration[];
+  /** Frontend selected on first render. Must be one of `frontends`. */
+  defaultFrontend?: FrontendId;
+  /** Legend above the frontend radio group. */
+  frontendLegend?: string;
 }) {
-  const [frontend, setFrontend] = useState<FrontendId>("react");
+  const [frontend, setFrontend] = useState<FrontendId>(defaultFrontend);
   const id = useId();
   const track = useHomepageTelemetry();
 
@@ -41,7 +47,7 @@ export function LandingIntegrationPicker({
     <>
       <fieldset className="mt-7 min-w-0 border-0 p-0">
         <legend className="mb-3 text-xs font-medium text-[var(--text-secondary)]">
-          Your frontend
+          {frontendLegend}
         </legend>
         <div className="flex w-fit max-w-full flex-wrap gap-1 rounded-xl border border-[var(--nav-control-border)] bg-[var(--bg-elevated)] p-1">
           {frontends.map((option) => (

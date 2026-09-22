@@ -21,15 +21,15 @@ production error reporting.
 
 ## Choose what you need to do
 
-| Your goal                                      | Start here                          |
-| ---------------------------------------------- | ----------------------------------- |
-| Confirm that CopilotKit is connected           | **Home**, then **Agent**            |
-| Find out why a run or tool failed              | The red launcher or error pill      |
-| Follow messages, events, tools, state, context | **Agent** and the **Inspect** panes |
-| Reproduce a saved conversation safely          | **Threads** → **Try from here**     |
-| Continue a saved Thread in your application    | **Threads** → **View in your app**  |
-| Enable or repair Intelligence                  | **Home** or a locked **Threads**    |
-| Review what Learning found                     | **Learning**                        |
+| Your goal                                      | Start here                              |
+| ---------------------------------------------- | --------------------------------------- |
+| Confirm that CopilotKit is connected           | **Home**, then **Agent**                |
+| Find out why a run or tool failed              | The red launcher or error pill          |
+| Follow messages, events, tools, state, context | **Agent** and the **Inspect** panes     |
+| Reproduce a saved conversation safely          | **Rich Threads** → **Try from here**    |
+| Continue a saved Thread in your application    | **Rich Threads** → **View in your app** |
+| Enable or repair Intelligence                  | **Home** or a locked **Rich Threads**   |
+| Review what Learning found                     | **Automatic Learning**                  |
 
 ## Show Inspector and confirm your setup
 
@@ -39,7 +39,7 @@ pane you used.
 
 1. Open **Agent** and confirm that your agent is listed.
 2. Send a message, then open **AG-UI Events** and confirm that events arrived.
-3. Open **Threads** and confirm that saved Threads appear. If Intelligence is
+3. Open **Rich Threads** and confirm that saved Threads appear. If Intelligence is
    not connected, the locked pane offers a setup path instead.
 
 When Intelligence is connected, Home shows an **Intelligence connected** chip.
@@ -55,13 +55,13 @@ When CopilotKit reports an error, the Inspector launcher turns red and may show
 a short error pill. Click either one. Inspector routes common failures to the
 view with the most useful evidence:
 
-| Failure                      | Opened view      |
-| ---------------------------- | ---------------- |
-| Runtime or connection        | **Home**         |
-| Loading the Thread list      | **Threads**      |
-| Agent run or `RUN_ERROR`     | **AG-UI Events** |
-| Tool handler or missing tool | **Agent**        |
-| Loading Learning data        | **Learning**     |
+| Failure                      | Opened view            |
+| ---------------------------- | ---------------------- |
+| Runtime or connection        | **Home**               |
+| Loading the Thread list      | **Rich Threads**       |
+| Agent run or `RUN_ERROR`     | **AG-UI Events**       |
+| Tool handler or missing tool | **Agent**              |
+| Loading Learning data        | **Automatic Learning** |
 
 Inspector is best for locating the failing layer during development. If the
 event stream stops before it reaches the browser, enable [Runtime Debug
@@ -92,7 +92,7 @@ requests.
 
 ## Inspect or continue a saved Thread
 
-Open **Threads** and select a row to inspect its **Messages**, **AG-UI Events**,
+Open **Rich Threads** and select a row to inspect its **Messages**, **AG-UI Events**,
 and **State**.
 
 Selecting a row does not change your live application chat. Choose **View in
@@ -108,7 +108,7 @@ If you are building the Thread picker and conversation surface yourself, see
 If Intelligence is not connected, open **Home** and choose **Copy setup prompt**.
 The [Intelligence quickstart](/intelligence/quickstart) explains the project,
 credentials, and Runtime routes that prompt configures. If Threads remains
-locked after setup, Inspector shows one Threads setup view with **Copy
+locked after setup, Inspector shows one Rich Threads setup view with **Copy
 setup prompt** and **Talk to an Engineer**. The view is based on Runtime Threads
 capability rather than license metadata.
 
@@ -120,7 +120,7 @@ complete setup.
 
 ## Review what Learning found
 
-Open **Learning** to inspect new Threads ready for analysis, published Skills,
+Open **Automatic Learning** to inspect new Threads ready for analysis, published Skills,
 their supporting Insights, and the Thread evidence behind each pattern. Select
 evidence to open the matching Thread and message.
 
@@ -128,7 +128,7 @@ Use **Open Intelligence** in the results header to open the Intelligence app in 
 new tab. Use the analysis and Skill-review links to open the selected Learning
 container in Intelligence.
 Inspector does not approve or publish candidates. If Learning is not configured,
-choose **Copy setup prompt**. See [Learning](/learning) for the complete workflow.
+choose **Copy setup prompt**. See [Automatic Learning](/learning) for the complete workflow.
 
 ## Control when Inspector appears
 

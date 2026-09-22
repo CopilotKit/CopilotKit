@@ -82,7 +82,7 @@ handler half below applies to you.
 
 <Callout type="info" title="The framework wrappers support Intelligence resources">
   Every `copilotRuntime*Endpoint` wrapper builds its handler with
-  `mode: "single-route"`. A current client and Runtime carry Threads,
+  `mode: "single-route"`. A current client and Runtime carry Rich Threads,
   Memory, and annotation requests through that endpoint. Setting
   `useSingleEndpoint={false}` still points the browser at REST routes that these
   wrappers do not serve.
@@ -252,16 +252,16 @@ You should get back a JSON body describing the registered agents. If you get a
 isn't mounted). If you get a connection error, the server isn't listening on that
 host/port.
 
-## Enable Threads routes
+## Enable Rich Threads routes
 
-If the Inspector shows the Threads setup view, the client did not find the
+If the Inspector shows the Rich Threads setup view, the client did not find the
 features used to list and inspect saved Threads. This view is based on Runtime
 Threads capability, not license metadata. Complete these steps so Runtime info
 advertises those features and the Inspector can load saved history.
 
 ### Start with your coding agent
 
-Use this prompt to configure Intelligence and verify that your Runtime exposes Threads.
+Use this prompt to configure Intelligence and verify that your Runtime exposes Rich Threads.
 
 <RichThreadsSetupPrompt />
 
@@ -269,7 +269,7 @@ Use this prompt to configure Intelligence and verify that your Runtime exposes T
 <Step>
 ### Choose a Runtime route mode
 
-Single-route and multi-route handlers both expose Threads. Use single-route
+Single-route and multi-route handlers both expose Rich Threads. Use single-route
 when your server should expose only one `POST` endpoint:
 
 ```ts
@@ -364,7 +364,7 @@ const runtime = new CopilotRuntime({
 });
 ```
 
-See [Scope Threads to the signed-in user](/threads-lifecycle#scope-threads-to-the-signed-in-user)
+See [Scope Rich Threads to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user)
 for the full identity and authorization pattern.
 
 </Step>
@@ -400,7 +400,7 @@ Restart the Runtime. For multi-route, request its info endpoint:
 curl -s http://localhost:4000/api/copilotkit/info
 ```
 
-An Intelligence-backed web Runtime that is ready for Threads includes:
+An Intelligence-backed web Runtime that is ready for Rich Threads includes:
 
 ```json
 {

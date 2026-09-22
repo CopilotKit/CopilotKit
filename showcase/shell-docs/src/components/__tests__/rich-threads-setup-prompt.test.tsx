@@ -26,7 +26,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-test("copies the Threads prompt using the standard actions", async () => {
+test("copies the Rich Threads prompt using the standard actions", async () => {
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.assign(navigator, { clipboard: { writeText } });
   render(<RichThreadsSetupPrompt />);
@@ -62,7 +62,7 @@ test("previews the exact setup prompt and recovers from blocked clipboard access
   expect(screen.getByRole("status").textContent).toContain("Copy blocked");
 });
 
-test("sends the coding agent to the Threads route and carries nothing else", () => {
+test("sends the coding agent to the Rich Threads route and carries nothing else", () => {
   // The route owns the guide links, the identity rules, the ownership checks
   // and the Inspector proof this prompt used to repeat. A copy of them here
   // drifts the next time the Runtime API changes, which is what OSS-1150

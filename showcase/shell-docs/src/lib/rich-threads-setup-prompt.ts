@@ -1,7 +1,7 @@
 import { createFeatureSetupPrompt } from "./intelligence-onboarding-prompt";
 
 /**
- * Canonical coding-agent prompt for completing Threads Runtime setup.
+ * Canonical coding-agent prompt for completing Rich Threads Runtime setup.
  *
  * The `add-rich-threads` route owns every instruction; see
  * `createFeatureSetupPrompt` for why none of them are repeated here.

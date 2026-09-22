@@ -6,11 +6,6 @@ import { WEB_INSPECTOR_TAG } from "@copilotkit/web-inspector";
 import type { WebInspectorElement } from "@copilotkit/web-inspector";
 
 import {
-  INSPECTOR_LEARNING_LABEL,
-  INSPECTOR_THREADS_LABEL,
-} from "../src/control-labels.js";
-
-import {
   ALL_SCENARIO_KEYS,
   CORE_SCENARIO_KEYS,
   LEARNING_SCENARIO_KEYS,
@@ -246,7 +241,7 @@ function populateScenarioSelect(): void {
   const coreGroup = document.createElement("optgroup");
   coreGroup.label = "Plan and capability matrix";
   const learningGroup = document.createElement("optgroup");
-  learningGroup.label = INSPECTOR_LEARNING_LABEL;
+  learningGroup.label = "Automatic Learning";
   const edgeGroup = document.createElement("optgroup");
   edgeGroup.label = "Edge cases";
   for (const key of ALL_SCENARIO_KEYS) {
@@ -473,9 +468,7 @@ async function openInspectorSurface(
   launcher.click();
   if (initialMenu !== "home") {
     const menuLabel =
-      initialMenu === "memories"
-        ? INSPECTOR_LEARNING_LABEL
-        : INSPECTOR_THREADS_LABEL;
+      initialMenu === "memories" ? "Automatic Learning" : "Rich Threads";
     const menuButton = await waitForButton(
       (button) => button.textContent?.trim() === menuLabel,
       `the ${menuLabel} navigation button`,

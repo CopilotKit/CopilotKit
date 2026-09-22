@@ -1,13 +1,57 @@
 ---
 title: Channels
 nav_title: Channels
-description: Run your agent in Slack or Microsoft Teams through CopilotKit Intelligence.
+description: Put the agent you already built into Slack or Microsoft Teams. Intelligence owns the connection; your agent stays where it runs.
 icon: "lucide/Hash"
 doc_type: explanation
 ---
 
-You want the agent you already built to answer in Slack or Microsoft Teams. Channels is that connection. Your agent still runs in your app. Intelligence carries each turn to the channel and sends the reply back.
+## Overview
 
-1. [Set up Slack](/slack).
-2. [Set up Microsoft Teams](/teams).
-3. [Configure the channel in Intelligence](/channels/intelligence).
+Channels lets the agent you already built answer in Slack or Microsoft Teams. Intelligence owns the connection; your agent stays where it runs.
+
+<Image
+  src="/images/cloud-hosted/cloud-hosted-channels-slack.png"
+  alt="A Slack channel where a person mentions the agent and asks for a chart. The agent replies in the thread with a native bar chart and a short summary."
+  width={2000}
+  height={1567}
+  className="my-8 w-full rounded-xl border border-[var(--border)]"
+/>
+
+Someone mentions the agent in a channel, it runs with the same tools and context it has in your app, and it replies in the thread with native messages, cards, and charts.
+
+## What Channels does
+
+- **One agent, every surface.** The agent process you run for your app also serves Slack and Teams. No second agent, no second prompt, no second set of tools.
+- **Native replies.** Text, buttons, approvals, and charts render as Slack Block Kit or Teams Adaptive Cards. In the screenshot the agent answers a question with a bar chart, not a link.
+- **Conversations that persist.** Each Slack or Teams conversation shares a stable thread id with the agent run, so Intelligence keeps its history and the run appears in Product Analytics like any other.
+- **Identity you control.** Your code maps the Slack or Teams user to your app user, so tools and permissions follow the person, and you decide when a run may use User Memory.
+
+## How it works
+
+Intelligence sits between the platform and your agent. It holds the Slack or Teams credentials, receives each message event, and delivers the turn to a long-running Channels SDK process that you run. Your process runs the agent over AG-UI and sends the rendered reply back through Intelligence to the thread.
+
+You never hand platform credentials to your agent, and CopilotKit never runs your agent or your tools. The full message path and the split of responsibilities are on the [Channels overview](/channels).
+
+Slack is available on cloud-hosted Intelligence. Teams is in controlled availability.
+
+## Pick your channel and framework
+
+Choose where the agent should answer, then the framework it already runs on. The guide you land on starts from that framework and ends with the agent replying in a channel.
+
+<ChannelsIntegrationPicker />
+
+## Where to go next
+
+| You want to                                           | Read                                                            |
+| ----------------------------------------------------- | --------------------------------------------------------------- |
+| Give the agent application actions and context        | [Tools and context](/channels/tools)                            |
+| Map Slack or Teams users to your app users            | [Identity and Memory](/channels/identity-and-memory)            |
+| Send cards, charts, and formatted messages            | [Rich messages and components](/channels/rich-messages)         |
+| Add buttons and approval steps                        | [Interactive messages and approvals](/channels/interactive)     |
+| Handle slash commands and emoji reactions             | [Commands and reactions](/channels/commands-and-reactions)      |
+| Accept files and images from the conversation         | [Files and multimodal input](/channels/files-and-multimodality) |
+| See how a channel conversation relates to Rich Threads | [Threads and state](/channels/threads-and-state)               |
+| Make workflow state survive a restart                 | [Persistence and scaling](/channels/persistence-and-scaling)    |
+| Read conversation history or keep a transcript        | [History and transcripts](/channels/history-and-transcripts)    |
+| Run the listener in production                        | [Deploy and operate](/channels/deploy-and-operate)              |

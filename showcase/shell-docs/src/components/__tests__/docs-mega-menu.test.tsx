@@ -43,16 +43,20 @@ test("opens a five-column docs map with Intelligence featured", () => {
   expect(intelligence.querySelector("svg")?.getAttribute("fill")).toBe(
     "currentColor",
   );
-  for (const link of screen.getAllByRole("link", { name: "Threads" })) {
+  for (const link of screen.getAllByRole("link", { name: "Rich Threads" })) {
     expect(link.getAttribute("href")).toBe("/threads");
   }
   expect(
-    screen.getByRole("link", { name: "Memories" }).getAttribute("href"),
+    screen.getByRole("link", { name: "User Memories" }).getAttribute("href"),
   ).toBe("/intelligence/memories");
   expect(
-    screen.getByRole("link", { name: "Learning" }).getAttribute("href"),
+    screen
+      .getByRole("link", { name: "Automatic Learning" })
+      .getAttribute("href"),
   ).toBe("/learning");
   expect(
-    screen.getByRole("link", { name: "Analytics" }).getAttribute("href"),
+    screen
+      .getByRole("link", { name: "Product Analytics" })
+      .getAttribute("href"),
   ).toBe("/intelligence/analytics");
 });

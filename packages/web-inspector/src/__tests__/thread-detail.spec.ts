@@ -690,8 +690,7 @@ test("missing metadata keeps the full thread ID in the drawer and a fallback tit
     const headerText =
       detail.shadowRoot?.querySelector(".cpk-td__thread-title")?.textContent ??
       "";
-    expect(headerText).toContain("Thread");
-    expect(headerText).not.toContain("Rich Thread");
+    expect(headerText).toContain("Rich Thread");
     for (const absent of [
       "Agent",
       "Created",

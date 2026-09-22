@@ -38,10 +38,6 @@ import type {
 } from "./threads-state-lab.js";
 import { LEARNING_WORKBENCH_SCENARIOS } from "./learning-state-fixtures.js";
 import {
-  INSPECTOR_LEARNING_LABEL,
-  INSPECTOR_THREADS_LABEL,
-} from "../src/control-labels.js";
-import {
   createThreadsStateLabPlugin,
   createThreadsStateLabRuntime,
 } from "./threads-state-lab-server.js";
@@ -563,16 +559,14 @@ test("models every plan deployment capability and data matrix cell", () => {
   }
 });
 
-test("models the complete Learning workbench matrix", () => {
+test("models the complete Automatic Learning workbench matrix", () => {
   expect(LEARNING_SCENARIO_KEYS).toEqual(
     LEARNING_WORKBENCH_SCENARIOS.map(({ key }) => key),
   );
 
   for (const descriptor of LEARNING_WORKBENCH_SCENARIOS) {
     const scenario = getThreadsStateScenario(descriptor.key);
-    expect(scenario.label).toBe(
-      `${INSPECTOR_LEARNING_LABEL} · ${descriptor.label}`,
-    );
+    expect(scenario.label).toBe(`Automatic Learning · ${descriptor.label}`);
     expect(scenario.learningState).toBe(descriptor.state);
     expect(scenario.initialMenu).toBe("memories");
     expect(scenario.learning).toBe("disabled");
@@ -1417,7 +1411,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all Thre
           // refused — so wait for the launcher to say so rather than assume
           // the request already lost. Two microtask turns is not a wait.
           const landingLabel =
-            key === "thread-list-error" ? INSPECTOR_THREADS_LABEL : "Home";
+            key === "thread-list-error" ? "Rich Threads" : "Home";
           if (landingLabel !== "Home") {
             await vi.waitFor(
               () => {
@@ -1436,7 +1430,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all Thre
           const landingButton =
             landingLabel === "Home"
               ? homeButton
-              : inspectorButton(inspector, INSPECTOR_THREADS_LABEL);
+              : inspectorButton(inspector, "Rich Threads");
           expect(
             landingButton?.classList.contains("inspector-nav-control-active"),
             `${key}: ${landingLabel} default`,
@@ -1496,10 +1490,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all Thre
               `${key}: run error raises no launcher error tone`,
             ).toHaveLength(0);
           }
-          const threadsButton = inspectorButton(
-            inspector,
-            INSPECTOR_THREADS_LABEL,
-          );
+          const threadsButton = inspectorButton(inspector, "Rich Threads");
           expect(threadsButton, `${key}: Threads nav`).toBeDefined();
           threadsButton?.click();
           await flushInspector(inspector);
@@ -1547,13 +1538,9 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all Thre
           const text = inspectorText(inspector);
           const navigation = collectDeep(root, '[aria-label="Inspector"]');
           expect(navigation, `${key}: grouped nav`).toHaveLength(1);
-          expect(text, `${key}: Threads nav`).toContain(
-            INSPECTOR_THREADS_LABEL,
-          );
+          expect(text, `${key}: Threads nav`).toContain("Rich Threads");
           expect(text, `${key}: Agent nav`).toContain("Agent");
-          expect(text, `${key}: Learning nav`).toContain(
-            INSPECTOR_LEARNING_LABEL,
-          );
+          expect(text, `${key}: Learning nav`).toContain("Automatic Learning");
           expect(text, `${key}: Home nav`).toContain("Home");
           const overviewCopy = expectedOverviewCopy(scenario);
           if (overviewCopy) {

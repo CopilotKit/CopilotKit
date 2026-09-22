@@ -7,13 +7,9 @@
     "---Basics---",
     "prebuilt-components",
     {
-      "title": "Threads",
+      "title": "Rich Threads",
       "defaultOpen": true,
-      "pages": [
-        "threads",
-        "headless-threads",
-        "threads-import"
-      ]
+      "pages": ["threads", "headless-threads", "threads-import"]
     },
     "custom-look-and-feel",
     "programmatic-control",

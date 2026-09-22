@@ -8,14 +8,14 @@ Use the word in the **Use** column for customer-facing prose, headings, nav titl
 | The deployment CopilotKit runs               | Cloud-hosted                                                              | managed, hosted, or Ops platform as that deployment's name       |
 | The deployment the customer runs             | Self-hosted                                                               | A second product name for the same deployment                    |
 | The verb for that work                       | Self-host                                                                 |                                                                  |
-| Conversation record                          | Thread                                                                    | Rich Thread, durable thread                                      |
-| Facts about a person that outlive one thread | Memories                                                                  | User Memories as the feature name                                |
+| The saved-conversation feature               | Rich Threads. One record is a thread.                                     | Threads as the feature name, durable threads                     |
+| Facts about a person that outlive one thread | User Memory. In titles, nav, and cards: User Memories.                    | Memories alone as the feature name                               |
 | A memory for one person                      | User memory                                                               |                                                                  |
 | A memory shared by the project               | Project memory                                                            |                                                                  |
-| The feature that turns usage into skills     | Learning                                                                  | Automatic Learning                                               |
+| The feature that turns usage into skills     | Automatic Learning                                                        | Learning alone as the feature name                               |
 | The artifact Learning publishes              | Skill                                                                     | Learned skill                                                    |
 | Getting a skill to the agent                 | Skill delivery                                                            | Automatic skill delivery, automatic learned skill delivery       |
-| Usage data in the product                    | Analytics                                                                 | Product Analytics                                                |
+| Usage data in the product                    | Product Analytics                                                         | Analytics alone as the feature name                              |
 | Messaging surfaces                           | Channels                                                                  | Messaging Channels                                               |
 | Chat UI with no prebuilt components          | Headless UI                                                               | Fully Headless UI, Fully Headless Chat UI                        |
 | The plan for large customers                 | Enterprise                                                                | Enterprise Intelligence, Enterprise Intelligence tier            |
@@ -28,11 +28,11 @@ Slack is available on cloud-hosted Intelligence. Teams is in controlled availabi
 
 ## Labels and image paths
 
-| Surface          | Use                                                                                                                                                                            | Stop                                                    |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
-| Signup button    | Start cloud-hosted setup                                                                                                                                                       | Start managed onboarding                                |
-| Image folder     | `/images/cloud-hosted/`                                                                                                                                                        | `/images/enterprise-intelligence/`                      |
-| Image file names | `cloud-hosted-ready.png`, `cloud-hosted-projects.png`, `cloud-hosted-thread-list.png`, `cloud-hosted-thread-detail.png`, `cloud-hosted-api-keys.png`, `cloud-hosted-plans.png` | `managed-ready.png` and the other `managed-*.png` files |
+| Surface          | Use                                                                                                                                                                                                                                                                                        | Stop                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
+| Signup button    | Start cloud-hosted setup                                                                                                                                                                                                                                                                   | Start managed onboarding                                |
+| Image folder     | `/images/cloud-hosted/`                                                                                                                                                                                                                                                                    | `/images/enterprise-intelligence/`                      |
+| Image file names | `cloud-hosted-ready.png`, `cloud-hosted-projects.png`, `cloud-hosted-thread-list.png`, `cloud-hosted-thread-detail.png`, `cloud-hosted-api-keys.png`, `cloud-hosted-plans.png`, `cloud-hosted-product-analytics.png`, `cloud-hosted-skill-delivery.png`, `cloud-hosted-channels-slack.png` | `managed-ready.png` and the other `managed-*.png` files |
 
 The React component `OpsPlatformCTA` keeps its code name. Only the visible label changes.
 
@@ -53,17 +53,17 @@ A page that is not the home links to the home. It does not explain the fact agai
 | ----------------------------------------------------------- | --------------------------- |
 | What Intelligence is                                        | Overview                    |
 | Connect an app until Inspector shows Intelligence connected | Quickstart                  |
-| How to build the thread UI                                  | Threads                     |
-| How a thread is saved and replayed                          | Threads, one page           |
-| Memories                                                    | Memories                    |
-| Learning                                                    | Learning                    |
+| How to build the thread UI                                  | Rich Threads                |
+| How a thread is saved and replayed                          | Rich Threads, one page      |
+| User Memory                                                 | User Memories               |
+| Automatic Learning                                          | Automatic Learning          |
 | Skill delivery                                              | Skill delivery              |
-| Analytics                                                   | Analytics                   |
+| Product Analytics                                           | Product Analytics           |
 | Channels                                                    | Channels                    |
 | Headless UI                                                 | Headless UI                 |
 | Organizations, projects, and keys                           | Cloud-hosted                |
 | Plans and limits                                            | Plans                       |
-| Open one thread in the cloud-hosted project                 | Inspect a thread            |
+| Open one thread in the cloud-hosted project                 | Cloud-hosted                |
 | Cloud-hosted vs self-hosted                                 | Architecture                |
 | Install on Kubernetes                                       | Self-host on Kubernetes     |
 | Install on ECS                                              | Self-host on ECS            |

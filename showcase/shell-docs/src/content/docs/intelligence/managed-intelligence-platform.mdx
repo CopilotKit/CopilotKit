@@ -6,9 +6,13 @@ icon: "lucide/Cloud"
 doc_type: how-to
 ---
 
-You want Intelligence running for you, with a project and an API key, and no cluster to operate. Cloud-hosted Intelligence is that deployment. Your app still uses the CopilotKit SDK. The cloud-hosted service stores the project's threads, events, and API keys.
+## Overview
+
+Cloud-hosted Intelligence runs the platform for you, with a project and an API key and no cluster to operate. Your app still uses the CopilotKit SDK.
 
 ![The cloud-hosted Intelligence ready page.](/images/cloud-hosted/cloud-hosted-ready.png)
+
+The cloud-hosted service stores the project's threads, events, and API keys. You create the project once, connect your app with the CLI, and everything else is in the web app.
 
 <OpsPlatformCTA
   variant="inline"
@@ -70,7 +74,11 @@ Inside a project, the web app lists the threads for that project.
 
 ![A cloud-hosted project and its threads.](/images/cloud-hosted/cloud-hosted-thread-list.png)
 
-Open one thread on the [inspect page](/intelligence/inspect).
+Open one thread to read its event timeline.
+
+![A cloud-hosted thread with its event timeline.](/images/cloud-hosted/cloud-hosted-thread-detail.png)
+
+The thread page shows the agent, the app user, the status, the last update time, and the event timeline. Open an event when you need the raw payload. **Rename**, **Archive**, and **Delete** match the thread API in your app: archive hides the thread from the active list and keeps the history, delete removes it. Read [Rich Threads](/threads) for how a thread works in your app.
 
 ## Create an API key
 
@@ -89,5 +97,4 @@ Connect the key in the [quickstart](/intelligence/quickstart).
 ## Next
 
 - [Plans](/intelligence/plans) shows limits and how to change the plan.
-- [Inspect a thread](/intelligence/inspect) opens the event timeline.
 - [Self-host Intelligence](/intelligence/self-hosting) when the platform must run in your cluster.

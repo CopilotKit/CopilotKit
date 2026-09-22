@@ -102,39 +102,18 @@ describe("IntelligenceOverview", () => {
   it("links each feature card to its guide", () => {
     render(<IntelligenceFeatureCards />);
 
-    expect(
-      screen.getByRole("link", { name: "Open Threads" }).getAttribute("href"),
-    ).toBe("/threads");
-    expect(
-      screen.getByRole("link", { name: "Open Channels" }).getAttribute("href"),
-    ).toBe("/intelligence/channels");
-    expect(
-      screen.getByRole("link", { name: "Open Memories" }).getAttribute("href"),
-    ).toBe("/intelligence/memories");
-    expect(
-      screen.getByRole("link", { name: "Open Analytics" }).getAttribute("href"),
-    ).toBe("/intelligence/analytics");
-    expect(
-      screen.getByRole("link", { name: "Open Learning" }).getAttribute("href"),
-    ).toBe("/learning");
-    expect(
-      screen
-        .getByRole("link", { name: "Open Headless UI" })
-        .getAttribute("href"),
-    ).toBe("/intelligence/headless-ui");
-
-    for (const title of [
-      "Threads",
-      "Channels",
-      "Memories",
-      "Analytics",
-      "Learning",
-      "Headless UI",
-    ]) {
-      const card = screen
-        .getByRole("heading", { name: title })
-        .closest("article");
-      expect(card?.querySelector("svg")).toBeTruthy();
+    const expected: Array<[string, string]> = [
+      ["Rich Threads", "/threads"],
+      ["Channels", "/intelligence/channels"],
+      ["User Memories", "/intelligence/memories"],
+      ["Product Analytics", "/intelligence/analytics"],
+      ["Automatic Learning", "/learning"],
+      ["Inspector", "/inspector"],
+    ];
+    for (const [title, href] of expected) {
+      const card = screen.getByRole("link", { name: new RegExp(title) });
+      expect(card.getAttribute("href")).toBe(href);
+      expect(card.querySelector("svg")).toBeTruthy();
     }
   });
 });

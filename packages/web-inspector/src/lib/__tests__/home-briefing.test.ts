@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { INSPECTOR_LEARNING_LABEL } from "../../control-labels.js";
 import { projectInspectorMetadata } from "../inspector-metadata.js";
 import {
   announcementPreview,
@@ -70,7 +69,7 @@ describe("home-briefing", () => {
       (service) => service.id === "suggestions",
     );
     const voice = model.services.find((service) => service.id === "audio");
-    expect(learning).toMatchObject({ label: INSPECTOR_LEARNING_LABEL });
+    expect(learning).toMatchObject({ label: "Automatic Learning" });
     expect(voice).toMatchObject({ label: "Voice" });
     expect(suggestions).toMatchObject({
       docsUrl:

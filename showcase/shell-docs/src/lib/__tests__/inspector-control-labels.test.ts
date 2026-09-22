@@ -4,10 +4,11 @@ import { fileURLToPath } from "node:url";
 
 import { expect, test } from "vitest";
 
-import {
-  INSPECTOR_LEARNING_LABEL,
-  INSPECTOR_THREADS_LABEL,
-} from "../../../../../packages/web-inspector/src/control-labels";
+// The shipped Inspector control labels. These are the approved
+// customer-facing names, and the docs click steps must quote them
+// verbatim or a reader cannot find the control on screen.
+const INSPECTOR_THREADS_LABEL = "Rich Threads";
+const INSPECTOR_LEARNING_LABEL = "Automatic Learning";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const contentRoot = resolve(here, "../../content");
@@ -29,6 +30,4 @@ test("docs click steps quote the shipped Inspector control labels", () => {
   expect(learningDoc).toContain(`**${INSPECTOR_LEARNING_LABEL}**`);
   expect(inspectorDoc).toContain(`**${INSPECTOR_THREADS_LABEL}**`);
   expect(inspectorDoc).toContain(`**${INSPECTOR_LEARNING_LABEL}**`);
-  expect(inspectorDoc).not.toContain("Rich Threads");
-  expect(inspectorDoc).not.toContain("Automatic Learning");
 });

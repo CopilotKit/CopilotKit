@@ -15,7 +15,6 @@ import type {
   ThreadRequestKind,
   ThreadsStateScenario,
 } from "./threads-state-lab.js";
-import { INSPECTOR_LEARNING_LABEL } from "../src/control-labels.js";
 
 const BASE_PATH = "/inspector-lab-runtime";
 const MAX_HTTP_BODY_BYTES = 4_096;
@@ -308,7 +307,7 @@ export function createThreadsStateLabRuntime(): ThreadsStateLabRuntime {
       if (scenario.learning !== "enabled") {
         return errorResponse(
           404,
-          `${INSPECTOR_LEARNING_LABEL} is unavailable in this scenario.`,
+          "Automatic Learning is unavailable in this scenario.",
         );
       }
       if (request.method === "GET" && !second) {
@@ -328,10 +327,7 @@ export function createThreadsStateLabRuntime(): ThreadsStateLabRuntime {
           })),
         });
       }
-      return errorResponse(
-        404,
-        `Unknown ${INSPECTOR_LEARNING_LABEL} lab route.`,
-      );
+      return errorResponse(404, "Unknown Automatic Learning lab route.");
     }
 
     if (scenario.capability !== "enabled") {

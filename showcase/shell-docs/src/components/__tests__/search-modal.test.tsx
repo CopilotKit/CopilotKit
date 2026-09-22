@@ -151,13 +151,13 @@ describe("docs search results stay on the docs host", () => {
 });
 
 describe("docs search ordering", () => {
-  it("ranks the canonical Threads guide above the threads drawer page", async () => {
+  it("ranks the canonical Rich Threads guide above the threads drawer page", async () => {
     await search("threads");
 
     const titles = resultTitles();
-    expect(titles).toContain("Threads");
+    expect(titles).toContain("Rich Threads");
     expect(titles).toContain("Threads Drawer");
-    expect(titles.indexOf("Threads")).toBeLessThan(
+    expect(titles.indexOf("Rich Threads")).toBeLessThan(
       titles.indexOf("Threads Drawer"),
     );
   });

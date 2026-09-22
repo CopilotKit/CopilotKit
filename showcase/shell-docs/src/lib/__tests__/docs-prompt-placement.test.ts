@@ -66,15 +66,15 @@ test("every authored quickstart has one contextual agent section", () => {
   }
 });
 
-test("Learning offers its agent section before numbered manual setup", () => {
+test("Automatic Learning offers its agent section before numbered manual setup", () => {
   const source = readFileSync(join(CONTENT_DIR, "learning.mdx"), "utf8");
   expect(source.indexOf("## Start with your coding agent")).toBeLessThan(
     source.indexOf("<LearningSetupPrompt />"),
   );
   expect(source.indexOf("<LearningSetupPrompt />")).toBeLessThan(
-    source.indexOf("## Set up Learning manually"),
+    source.indexOf("## Set up Automatic Learning manually"),
   );
-  expect(source.indexOf("## Set up Learning manually")).toBeLessThan(
+  expect(source.indexOf("## Set up Automatic Learning manually")).toBeLessThan(
     source.indexOf("<Steps>"),
   );
   expect(source.match(/<LearningSetupPrompt\s*\/>/g)).toHaveLength(1);

@@ -18,7 +18,7 @@ afterEach(() => {
   cleanup();
 });
 
-test("configures the shared coding-agent prompt card for Learning", async () => {
+test("configures the shared coding-agent prompt card for Automatic Learning", async () => {
   const originalClipboard = Object.getOwnPropertyDescriptor(
     navigator,
     "clipboard",
@@ -33,7 +33,7 @@ test("configures the shared coding-agent prompt card for Learning", async () => 
     render(<LearningSetupPrompt />);
 
     const region = screen.getByRole("region", {
-      name: "Use this pre-built prompt to set up Learning faster.",
+      name: "Use this pre-built prompt to set up Automatic Learning faster.",
     });
     expect(region.getAttribute("data-docs-copy-surface")).toBe(
       "docs_learning_setup_prompt",
@@ -59,7 +59,7 @@ test("configures the shared coding-agent prompt card for Learning", async () => 
   }
 });
 
-test("sends the coding agent to the Learning route and carries nothing else", () => {
+test("sends the coding agent to the Automatic Learning route and carries nothing else", () => {
   // The route owns the guide link, the container-selection rules and the
   // `getLearningContainerId` wiring this prompt used to repeat. That copy had
   // already drifted from the shipped API once; OSS-1150 retired it.

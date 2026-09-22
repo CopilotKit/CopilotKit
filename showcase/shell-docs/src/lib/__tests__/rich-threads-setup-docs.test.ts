@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import { loadDoc } from "../docs-render";
 import { renderPageToLlmText } from "../llm-text";
 
-test("offers the Threads agent prompt before the manual repair steps", () => {
+test("offers the Rich Threads agent prompt before the manual repair steps", () => {
   const source = loadDoc("backend/runtime-endpoints")?.source ?? "";
   const prompt = source.indexOf("<RichThreadsSetupPrompt />");
   const manualSteps = source.indexOf("<Steps>", prompt);
@@ -16,7 +16,7 @@ test.each([
   "threads",
   "integrations/mastra/threads",
 ])(
-  "expands the Threads agent prompt for Markdown and LLM readers on %s",
+  "expands the Rich Threads agent prompt for Markdown and LLM readers on %s",
   (slug) => {
     const doc = loadDoc(slug);
     if (!doc) throw new Error(`Doc is missing: ${slug}`);

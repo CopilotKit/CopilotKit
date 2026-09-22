@@ -38,7 +38,7 @@ Edit these in the same change as the feature or docs page:
 | Surface                              | File                                                                                                |
 | ------------------------------------ | --------------------------------------------------------------------------------------------------- |
 | Hero CTA (`CONNECT_HREF`) and cards  | `showcase/shell-docs/src/components/content/landing-pages/intelligence-overview.tsx`                |
-| Table, body, and MDX quickstart link | `showcase/shell-docs/src/content/snippets/shared/intelligence/overview.mdx`                         |
+| Body, quickstart link, hosting links | `showcase/shell-docs/src/content/snippets/shared/intelligence/overview.mdx`                         |
 | Section nav                          | `showcase/shell-docs/src/content/docs/intelligence/meta.json`                                       |
 | Root sidebar Intelligence group      | `showcase/shell-docs/src/content/docs/meta.json`                                                    |
 | Card and CTA tests                   | `showcase/shell-docs/src/components/content/landing-pages/__tests__/intelligence-overview.test.tsx` |
@@ -55,23 +55,24 @@ in `docs/intelligence/overview.mdx`.
    threads/channels path the feature already uses).
 2. Put the page in `intelligence/meta.json` and in the Intelligence group in
    `docs/meta.json` when it belongs in the sidebar.
-3. Add a row to **What the platform adds** in the shared snippet. The deeper
-   dive must be a real URL.
-4. If the feature is a user-facing pillar, add a card to `FEATURES` in
-   `intelligence-overview.tsx` with a unique CTA label and the same URL.
+3. Link the page from the shared snippet. A user-facing pillar gets a card in
+   `FEATURES` in `intelligence-overview.tsx` with a unique CTA label. A
+   hosting or account page gets a link under **Choose where Intelligence
+   runs**. Every link must be a real URL.
+4. Do not add a second link for the same page. One page, one landing entry.
 5. If the feature is a named pillar in the hero, add it to the subtitle.
 6. Extend the tests in the same commit. Pin the new CTA href as a literal.
 
 ### Procedure 2: Rename or move a page
 
-1. Update every landing CTA that pointed at the old path: table row, card
-   `href`, quickstart link, and "Which page should I read next?".
+1. Update every landing CTA that pointed at the old path: card `href`,
+   quickstart link, and the links under **Choose where Intelligence runs**.
 2. Update `meta.json` files.
 3. Update the tests that pin those hrefs.
 
 ### Procedure 3: Remove a feature or page
 
-1. Remove the table row, card, subtitle mention, and nav entry.
+1. Remove the card or snippet link, subtitle mention, and nav entry.
 2. Remove the matching test assertions.
 3. Do not leave a landing link to a deleted page.
 
@@ -84,18 +85,18 @@ in `docs/intelligence/overview.mdx`.
 
 ## Red Flags
 
-| Signal                                                   | What it means                   | Do instead                             |
-| -------------------------------------------------------- | ------------------------------- | -------------------------------------- |
-| Guide merged, landing unchanged                          | Readers cannot find the feature | Procedure 1 in the same PR             |
-| Card href and table href differ                          | Two stories for one feature     | Use one URL                            |
-| CTA points at the marketing site when a docs page exists | Landing skips the guide         | Point at the docs page                 |
-| Hero subtitle lists a pillar with no card or table row   | Copy without a path             | Add both, or drop the subtitle mention |
+| Signal                                                   | What it means                   | Do instead                        |
+| -------------------------------------------------------- | ------------------------------- | --------------------------------- |
+| Guide merged, landing unchanged                          | Readers cannot find the feature | Procedure 1 in the same PR        |
+| Card href and snippet link differ                        | Two stories for one feature     | Use one URL                       |
+| CTA points at the marketing site when a docs page exists | Landing skips the guide         | Point at the docs page            |
+| Hero subtitle lists a pillar with no card                | Copy without a path             | Add the card, or drop the mention |
 
 ## Error Handling
 
-- **No docs page yet:** do not invent a guide. You can still add a table row
-  that points at the current public product URL, and replace it when the
-  guide ships.
+- **No docs page yet:** do not invent a guide. You can still add a snippet
+  link that points at the current public product URL, and replace it when
+  the guide ships.
 - **Feature is Intelligence-only but lives outside `docs/intelligence/`:**
   still add the landing CTA. Use the real path (`/threads`, `/channels`, and
   similar).

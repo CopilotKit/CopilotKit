@@ -1,7 +1,5 @@
 import { expect, test } from "@playwright/test";
 
-import { INSPECTOR_LEARNING_LABEL } from "../src/control-labels.js";
-
 for (const transport of ["rest", "single"] as const) {
   test(`restores copied Learning setup over ${transport}`, async ({
     context,
@@ -19,18 +17,16 @@ for (const transport of ["rest", "single"] as const) {
     });
 
     await page
-      .getByRole("button", {
-        name: `Copy setup prompt for ${INSPECTOR_LEARNING_LABEL}`,
-      })
+      .getByRole("button", { name: "Copy setup prompt for Automatic Learning" })
       .click();
 
     const setup = page.getByRole("region", {
-      name: `Set up ${INSPECTOR_LEARNING_LABEL}`,
+      name: "Set up Automatic Learning",
     });
     await expect(setup.getByText("1 of 3 steps")).toBeVisible();
     await expect(
       setup.getByRole("heading", {
-        name: `Waiting for ${INSPECTOR_LEARNING_LABEL} setup`,
+        name: "Waiting for Automatic Learning setup",
       }),
     ).toBeVisible();
     await expect(
@@ -48,7 +44,7 @@ for (const transport of ["rest", "single"] as const) {
     await expect(setup.getByText("1 of 3 steps")).toBeVisible();
     await expect(
       setup.getByRole("heading", {
-        name: `Waiting for ${INSPECTOR_LEARNING_LABEL} setup`,
+        name: "Waiting for Automatic Learning setup",
       }),
     ).toBeVisible();
     await expect(
