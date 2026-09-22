@@ -1,10 +1,10 @@
+"use client";
 import {
   ARGUMENT_TEMPLATES,
   ONBOARDING_ARGUMENT_TEXT,
   ONBOARDING_ARGUMENT_VERSION,
   fillArgumentTemplate,
 } from "@/lib/onboarding-argument-templates";
-("use client");
 import { useMemo, useState } from "react";
 import type { ComponentProps } from "react";
 import {

@@ -1,8 +1,8 @@
+"use client";
 import {
   ONBOARDING_ARGUMENT_TEXT,
   ONBOARDING_ARGUMENT_VERSION,
 } from "@/lib/onboarding-argument-templates";
-("use client");
 
 import { useHomepageTelemetry } from "@/lib/use-homepage-telemetry";
 

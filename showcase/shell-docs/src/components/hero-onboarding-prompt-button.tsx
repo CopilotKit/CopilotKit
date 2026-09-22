@@ -1,8 +1,8 @@
+"use client";
 import {
   ONBOARDING_ARGUMENT_TEXT,
   ONBOARDING_ARGUMENT_VERSION,
 } from "@/lib/onboarding-argument-templates";
-("use client");
 
 // <HeroOnboardingPromptButton> — the compact hero twin of
 // <IntelligenceOnboardingPrompt>. Same prompt, same run id, same PostHog event
