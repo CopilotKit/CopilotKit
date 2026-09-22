@@ -1,5 +1,24 @@
 import { useState } from "react";
 
+// Some persisted tool responses wrap the original frontend response in JSON.
+// Plain text is also a supported response, so parse failures retain that text.
+function getSavedResponse(result: string): string {
+  try {
+    const response: unknown = JSON.parse(result);
+    if (
+      typeof response === "object" &&
+      response !== null &&
+      "result" in response &&
+      typeof response.result === "string"
+    ) {
+      return response.result;
+    }
+  } catch {
+    return result;
+  }
+  return result;
+}
+
 export interface TimeSlot {
   date: string;
   time: string;
@@ -52,7 +71,8 @@ export function MeetingTimePicker({
 
   // Replayed tool results survive a remount; local selection state does not.
   if (status === "complete" && result) {
-    const wasDeclined = result.startsWith(
+    const savedResponse = getSavedResponse(result);
+    const wasDeclined = savedResponse.startsWith(
       "The user declined all proposed meeting times.",
     );
     return (
@@ -62,7 +82,7 @@ export function MeetingTimePicker({
             {wasDeclined ? "No Time Selected" : "Meeting Scheduled"}
           </h3>
           <p className="text-sm text-[var(--muted-foreground)] mt-1">
-            {result}
+            {savedResponse}
           </p>
         </div>
       </div>
