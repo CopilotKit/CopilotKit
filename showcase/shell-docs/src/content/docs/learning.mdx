@@ -32,6 +32,19 @@ When a pattern can be reused, Learning proposes a Skill. You review the supporti
 
 Automatic Learning checks eligible containers on a daily schedule. After you approve a Skill, automatic skill delivery makes it available to connected agents. Scheduling, publication, and delivery are separate: a scheduled run does not approve Skills, and enabling delivery does not connect your agent for you.
 
+## Collect runs and deliver Skills
+
+The learning loop has two connections. Run ingestion collects evidence in a Learning container. Skill delivery loads published instructions into an agent.
+
+| Connection | Configuration | Result |
+| --- | --- | --- |
+| Runtime to Learning | `CopilotKitIntelligence.getLearningContainerId` | Assigns selected Threads to a container for analysis. |
+| Learning to agent | An Intelligence SDK adapter for your framework | Makes published Skills available during agent invocations. |
+
+When an agent must learn from its own workflow, use the same project and container for both connections. The SDK adapters also work with native agents outside a CopilotKit frontend, but they do not collect those agents' runs automatically.
+
+For agent setup, use the [Mastra](/intelligence/learned-skills#mastra), [LangGraph TypeScript](/intelligence/learned-skills#langgraph-typescript), or [LangGraph Python](/intelligence/learned-skills#langgraph-python) example. The delivery guide also covers [Google ADK](/intelligence/learned-skills#google-adk), [BuiltInAgent](/intelligence/learned-skills#builtinagent), and [Microsoft Agent Framework](/intelligence/learned-skills#microsoft-agent-framework).
+
 ## Start with your coding agent
 
 Copy this prompt into your coding agent to inspect your existing app and configure Automatic Learning for one focused workflow. Prefer to work through the setup yourself? Follow the manual steps below.
