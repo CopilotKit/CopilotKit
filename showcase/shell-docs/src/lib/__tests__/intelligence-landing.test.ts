@@ -97,6 +97,14 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
     ),
   ).toBeLessThan(snippet.indexOf("## Hosting options"));
   expect(snippet).toContain("## Hosting options");
+  expect(snippet).toContain(
+    "[AWS ECS/Fargate](/intelligence/self-hosting-ecs)",
+  );
+  expect(
+    existsSync(
+      resolve(here, "../../content/docs/intelligence/self-hosting-ecs.mdx"),
+    ),
+  ).toBe(true);
 });
 
 test("the Learning guide stays focused on the reviewed Learning workflow", () => {
