@@ -203,20 +203,6 @@ describe("FrameworkSelector", () => {
     expect(cssSource).toContain("clip-path: inset(0 -48px -48px -48px)");
   });
 
-  it("keeps the picker fill subtler than active navigation", () => {
-    const cssSource = readFileSync(
-      new URL("../../app/globals.css", import.meta.url),
-      "utf8",
-    );
-
-    expect(cssSource).toContain(`.shell-docs-picker-group-selected {
-  background: color-mix(in oklch, var(--accent-dim) 34%, transparent);
-}`);
-    expect(cssSource).not.toContain(`.shell-docs-picker-group-selected {
-  background: color-mix(in oklch, var(--accent) 13%, transparent);
-}`);
-  });
-
   it("routes backend selections even from frontend docs routes", () => {
     const componentSource = readFileSync(
       new URL("../framework-selector.tsx", import.meta.url),
