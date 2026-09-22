@@ -6,7 +6,7 @@ const CAPABILITIES = [
     title: "Rich Threads: conversations and app state",
     body: "A user returns to a report, approval, or conversation. Keep the supported messages, tool results, interactive UI, and state they need to continue. Rich Threads complement your agent framework’s persistence; keep your existing backend.",
     href: "/threads",
-    cta: "Start with free Threads",
+    cta: "Start with Rich Threads",
     note: "Free plan usage and retention limits apply.",
   },
   {
@@ -26,15 +26,15 @@ const CAPABILITIES = [
   },
   {
     id: "product-analytics",
-    title: "Product analytics: understand what happened",
+    title: "Product Analytics: understand what happened",
     body: "Inspect captured conversations and available activity, errors, tool usage, token usage, and duration. Use real interactions to decide what to investigate next. Available views depend on captured data and your plan.",
     href: "https://www.copilotkit.ai/copilotkit-intelligence#analytics-insights",
-    cta: "Explore product analytics",
+    cta: "Explore Product Analytics",
   },
   {
     id: "self-hosting",
     title: "Choose where Intelligence runs",
-    body: "Managed Cloud stores thread data in the managed service. Self-hosted Intelligence runs with your infrastructure and database. This is a separate deployment choice from self-hosting the open-source frontend and runtime.",
+    body: "Cloud-hosted Intelligence stores thread data in the service CopilotKit runs. Self-hosted Intelligence runs with your infrastructure and database. This is a separate deployment choice from self-hosting the open-source frontend and runtime.",
     href: "/intelligence/self-hosting",
     cta: "Compare self-hosted requirements",
   },

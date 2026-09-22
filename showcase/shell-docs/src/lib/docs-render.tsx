@@ -1174,7 +1174,7 @@ export function normalizeSidebarNav(
   );
   const intelligenceLearning = intelligencePage(
     "learning",
-    "Self-improving agents",
+    "Automatic Learning",
   );
   const intelligenceMemory = intelligencePage(
     "intelligence/memories",

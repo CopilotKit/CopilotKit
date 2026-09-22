@@ -25,7 +25,7 @@ describe("navTreeToPageTree sidebar hierarchy", () => {
       [
         {
           type: "group",
-          title: "Rich threads",
+          title: "Rich Threads",
           slug: "sidebar#rich-threads",
           indexSlug: "threads",
           children: [
