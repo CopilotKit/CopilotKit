@@ -1544,3 +1544,83 @@ test("long conversations place run errors in context without rebuilding on unrel
     vi.unstubAllGlobals();
   }
 });
+
+test("tool shimmer requires live argument streaming for this thread", async () => {
+  prepareDom();
+  const detail = appendDetail({
+    threadId: "tool-streaming",
+    provider: {
+      getMessages: async () => [
+        {
+          id: "call",
+          role: "assistant",
+          toolCalls: [{ id: "lookup", name: "search_support_cases", args: {} }],
+        },
+      ],
+    },
+  });
+  const start = {
+    type: "TOOL_CALL_START",
+    timestamp: 2,
+    payload: { toolCallId: "lookup" },
+  };
+  const run = {
+    type: "RUN_STARTED",
+    timestamp: 1,
+    payload: { threadId: "tool-streaming" },
+  };
+  try {
+    await flushDetail(detail);
+    const root = detail.shadowRoot!;
+    const streaming = () => root.querySelector(".cpk-td__tool-name--streaming");
+    expect(streaming()).toBeNull();
+    expect(root.querySelector(".cpk-td__tool-name")?.textContent).toBe(
+      "Search support cases",
+    );
+
+    detail.agentEventsInput = [
+      start,
+      { ...run, payload: { threadId: "another-thread" } },
+    ];
+    await flushDetail(detail);
+    expect(streaming()).toBeNull();
+
+    detail.agentEventsInput = [start, run];
+    await flushDetail(detail);
+    expect(streaming()).not.toBeNull();
+    expect(root.querySelector(".cpk-td__tool-status")?.textContent).toContain(
+      "Receiving arguments",
+    );
+
+    // The subscriber wraps TOOL_CALL_END alongside parsed arguments.
+    detail.agentEventsInput = [
+      {
+        type: "TOOL_CALL_END",
+        timestamp: 3,
+        payload: { event: { toolCallId: "lookup" }, toolCallArgs: {} },
+      },
+      start,
+      run,
+    ];
+    await flushDetail(detail);
+    expect(streaming()).toBeNull();
+    expect(root.querySelector(".cpk-td__tool-status")?.textContent).toContain(
+      "No result recorded",
+    );
+
+    detail.agentEventsInput = [start, run];
+    await flushDetail(detail);
+    expect(streaming()).not.toBeNull();
+    detail.agentEventsInput = [
+      { type: "RUN_ERROR", timestamp: 4, payload: { message: "Disconnected" } },
+      start,
+      run,
+    ];
+    await flushDetail(detail);
+    expect(streaming()).toBeNull();
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});

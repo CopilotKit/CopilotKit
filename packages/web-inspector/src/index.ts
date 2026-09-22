@@ -2984,82 +2984,120 @@ export class CpkThreadInspector extends PortableLitElement {
       border: 0;
     }
 
-    /* ── Tool call blocks ────────────────────────────────────────────── */
+    /* Tool activity stays compact in the conversation; raw data is opt-in. */
     .cpk-td__tool-block {
-      border: 1px solid #e9e9ef;
-      border-radius: 12px;
+      min-width: 0;
+      border-radius: 10px;
       overflow: hidden;
     }
-
     .cpk-td__tool-header {
       display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 12px;
-      background: #ffffff;
-      color: #71717a;
+      gap: 10px;
+      padding: 10px 12px;
+      background: transparent;
+      color: #68686e;
       cursor: pointer;
       width: 100%;
       border: 0;
       font-family: inherit;
       text-align: left;
-      font-size: 11px;
-      user-select: none;
+      font-size: 12px;
     }
-
+    .cpk-td__tool-header > svg {
+      flex-shrink: 0;
+    }
     .cpk-td__tool-header:focus-visible {
       outline: 2px solid var(--cpk-primary-color, #7076b3);
       outline-offset: -2px;
     }
-
-    .cpk-td__tool-header:hover {
-      background: #fafafa;
+    .cpk-td__tool-header:hover,
+    .cpk-td__tool-header[aria-expanded="true"] {
+      background: #f7f7f9;
     }
-
+    .cpk-td__tool-copy {
+      flex: 1;
+      min-width: 0;
+    }
     .cpk-td__tool-name {
+      display: block;
       font-size: 13px;
       font-weight: 500;
-      color: #18181b;
+      line-height: 1.6;
+      color: #57575b;
       overflow-wrap: anywhere;
-      min-width: 0;
-      flex: 1;
     }
-
     .cpk-td__tool-status {
-      font-size: 10px;
-      font-weight: 500;
-      padding: 3px 7px;
-      border-radius: 999px;
-      background: #d1fae5;
-      color: #065f46;
+      display: block;
+      font-size: 11px;
+      line-height: 1.6;
+      color: #68686e;
     }
-
     .cpk-td__tool-status--pending {
-      background: #fef3c7;
       color: #8a5900;
     }
-
     .cpk-td__tool-chevron {
-      color: #68686e;
-      font-size: 10px;
+      flex-shrink: 0;
+      transition: transform 150ms;
     }
-
+    .cpk-td__tool-header[aria-expanded="true"] .cpk-td__tool-chevron {
+      transform: rotate(90deg);
+    }
+    .cpk-td__tool-name--streaming {
+      width: fit-content;
+      background: linear-gradient(100deg, #68686e 35%, #c9c9d5 50%, #68686e 65%);
+      background-size: 250% 100%;
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+      animation: cpk-tool-shimmer 2s linear infinite;
+    }
+    @keyframes cpk-tool-shimmer {
+      from {
+        background-position: 150% 0;
+      }
+      to {
+        background-position: -100% 0;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .cpk-td__tool-name--streaming {
+        animation: none;
+        background: none;
+        color: inherit;
+      }
+      .cpk-td__tool-chevron {
+        transition: none;
+      }
+    }
     .cpk-td__tool-body {
-      padding: 8px 10px;
-      border-top: 1px solid #e9e9ef;
+      margin: 0 12px 12px 36px;
+      padding: 12px;
+      border: 1px solid #e9e9ef;
+      border-radius: 8px;
       background: #ffffff;
+      min-width: 0;
     }
-
-    .cpk-td__tool-section-label {
-      font-family: "Spline Sans Mono", monospace;
-      font-size: 9px;
-      font-weight: 500;
+    .cpk-td__tool-identifier {
+      display: block;
       color: #68686e;
-      text-transform: uppercase;
-      margin-bottom: 4px;
-      letter-spacing: 0.3px;
+      font:
+        11px/1.6 "Spline Sans Mono",
+        monospace;
+      overflow-wrap: anywhere;
+      margin-bottom: 12px;
     }
-
+    .cpk-td__tool-data {
+      display: grid;
+      gap: 16px;
+    }
+    .cpk-td__tool-section-label {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      color: #68686e;
+      margin-bottom: 6px;
+    }
     .cpk-td__tool-pre {
       margin: 0;
       font-family: "Spline Sans Mono", monospace;
@@ -3074,33 +3112,16 @@ export class CpkThreadInspector extends PortableLitElement {
       color: #010507;
       line-height: 1.65;
     }
-
-    /* ── Tool call group ─────────────────────────────────────────────── */
     .cpk-td__tool-group {
-      border: 1px solid #e9e9ef;
-      border-radius: 7px;
-      overflow: hidden;
+      min-width: 0;
     }
-
     .cpk-td__tool-group-header {
-      padding: 5px 10px;
-      background: rgba(133, 236, 206, 0.15);
-      font-family: "Spline Sans Mono", monospace;
-      font-size: 10px;
-      color: #087653;
-      text-transform: uppercase;
-      font-weight: 500;
-      border-bottom: 1px solid #e9e9ef;
+      padding: 4px 12px;
+      font-size: 11px;
+      color: #68686e;
     }
-
     .cpk-td__tool-group .cpk-td__tool-block {
-      border: none;
-      border-bottom: 1px solid #e9e9ef;
-      border-radius: 0;
-    }
-
-    .cpk-td__tool-group .cpk-td__tool-block:last-child {
-      border-bottom: none;
+      margin-left: 12px;
     }
 
     /* ── Inline chips (reasoning / state update) ─────────────────────── */
@@ -3392,11 +3413,9 @@ export class CpkThreadInspector extends PortableLitElement {
       color: #f4f4f5;
     }
     :host([data-color-scheme="dark"]) .cpk-td__tool-status {
-      background: #17392e;
-      color: #6ee7b7;
+      color: #a1a1aa;
     }
     :host([data-color-scheme="dark"]) .cpk-td__tool-status--pending {
-      background: #3d3019;
       color: #fbbf24;
     }
 
@@ -3797,6 +3816,28 @@ export class CpkThreadInspector extends PortableLitElement {
     :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
     :host([data-color-scheme="dark"]) .cpk-tdp__value {
       color: #f3f4f8;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__tool-status,
+    :host([data-color-scheme="dark"]) .cpk-td__tool-section-label,
+    :host([data-color-scheme="dark"]) .cpk-td__tool-identifier,
+    :host([data-color-scheme="dark"]) .cpk-td__tool-group-header {
+      color: #aeb1bd;
+    }
+    :host([data-color-scheme="dark"]) .cpk-td__tool-name--streaming {
+      color: transparent;
+      background-image: linear-gradient(
+        100deg,
+        #aeb1bd 35%,
+        #ffffff 50%,
+        #aeb1bd 65%
+      );
+    }
+    @media (prefers-reduced-motion: reduce) {
+      :host([data-color-scheme="dark"]) .cpk-td__tool-name--streaming {
+        background: none;
+        color: #f3f4f8;
+      }
     }
 
     :host([data-color-scheme="dark"]) .cpk-td__event-payload,
@@ -5291,8 +5332,9 @@ export class CpkThreadInspector extends PortableLitElement {
     }
     const items = this.renderItems;
     const errors = this.conversationRunErrors(items);
+    const streamingTools = this.streamingToolCallIds();
     // Event chunks must not rebuild a long conversation. Only the error rows
-    // and their placement are relevant to this panel, not the full event list.
+    // and tool streaming transitions are relevant, not the full event list.
     return this.cachedPanelTpl(
       "timeline-fallback",
       [
@@ -5300,6 +5342,7 @@ export class CpkThreadInspector extends PortableLitElement {
         this._expandedTools,
         this._expandedMessages,
         JSON.stringify(errors),
+        JSON.stringify([...streamingTools]),
         this._expandedTimelineDetails,
       ],
       () => {
@@ -5313,10 +5356,40 @@ export class CpkThreadInspector extends PortableLitElement {
           errorsAfter.get(after)?.map((item) => this.renderTimelineItem(item));
         return html`
           ${renderErrors(-1)}
-          ${items.map((item, index) => html`${this.renderRenderItem(item)}${renderErrors(index)}`)}
+          ${items.map((item, index) => html`${this.renderRenderItem(item, streamingTools)}${renderErrors(index)}`)}
         `;
       },
     );
+  }
+
+  private streamingToolCallIds(): Set<string> {
+    const streaming = new Set<string>();
+    let currentThread = false;
+    // The parent's live event buffer is newest first. Scope by RUN_STARTED
+    // because this buffer is per agent and may contain other threads.
+    for (let i = this.agentEventsInput.length - 1; i >= 0; i--) {
+      const event = this.agentEventsInput[i]!;
+      const payload =
+        event.payload.event && typeof event.payload.event === "object"
+          ? (event.payload.event as Record<string, unknown>)
+          : event.payload;
+      if (event.type === "RUN_STARTED") {
+        streaming.clear();
+        currentThread = payload.threadId === this.threadId;
+      } else if (event.type === "RUN_FINISHED" || event.type === "RUN_ERROR") {
+        streaming.clear();
+        currentThread = false;
+      } else if (currentThread && typeof payload.toolCallId === "string") {
+        if (event.type === "TOOL_CALL_START") streaming.add(payload.toolCallId);
+        if (
+          event.type === "TOOL_CALL_END" ||
+          event.type === "TOOL_CALL_RESULT"
+        ) {
+          streaming.delete(payload.toolCallId);
+        }
+      }
+    }
+    return streaming;
   }
 
   private conversationRunErrors(items: RenderItem[]) {
@@ -5395,15 +5468,15 @@ export class CpkThreadInspector extends PortableLitElement {
     return null;
   }
 
-  private renderRenderItem(item: RenderItem) {
+  private renderRenderItem(item: RenderItem, streamingTools: Set<string>) {
     switch (item.type) {
       case "user":
       case "assistant":
         return this.renderBubble(item);
       case "tool_call":
-        return this.renderToolBlock(item);
+        return this.renderToolBlock(item, streamingTools.has(item.toolCallId));
       case "tool_call_group":
-        return this.renderToolGroup(item);
+        return this.renderToolGroup(item, streamingTools);
       case "reasoning":
         return html`<div class="cpk-td__inline-chip">
           <span>Reasoned for ${item.duration}</span>
@@ -5461,7 +5534,12 @@ export class CpkThreadInspector extends PortableLitElement {
     `;
   }
 
-  private renderToolBlock(item: ConversationToolCall) {
+  private renderToolBlock(item: ConversationToolCall, streaming = false) {
+    streaming = streaming && !item.hasResult;
+    const label = item.toolName
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .replace(/[_-]+/g, " ");
+    const readableName = label.charAt(0).toUpperCase() + label.slice(1);
     const expanded = this._expandedTools.has(item.id);
     return html`
       <div class="cpk-td__tool-block">
@@ -5480,45 +5558,42 @@ export class CpkThreadInspector extends PortableLitElement {
               stroke-linejoin="round"
             />
           </svg>
-          <span class="cpk-td__tool-name">${item.toolName}</span>
-          ${
-            item.resultUnreadable
-              ? html`
-                  <span class="cpk-td__tool-status cpk-td__tool-status--pending"
-                    >Result unreadable</span
-                  >
-                `
-              : item.hasResult
-                ? html`
-                    <span class="cpk-td__tool-status">Result received</span>
-                  `
-                : html`
-                    <span class="cpk-td__tool-status cpk-td__tool-status--pending"
-                      >No result recorded</span
-                    >
-                  `
-          }
-          <span class="cpk-td__tool-chevron">${expanded ? "▾" : "▸"}</span>
+          <span class="cpk-td__tool-copy">
+            <span class="cpk-td__tool-name ${streaming ? "cpk-td__tool-name--streaming" : ""}">${readableName}</span>
+            <span class="cpk-td__tool-status ${item.resultUnreadable || (!item.hasResult && !streaming) ? "cpk-td__tool-status--pending" : ""}">${
+              streaming
+                ? "Receiving arguments"
+                : item.resultUnreadable
+                  ? "Result unreadable"
+                  : item.hasResult
+                    ? "Result received"
+                    : "No result recorded"
+            }</span>
+          </span>
+          <svg class="cpk-td__tool-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
         </button>
         ${
           expanded
             ? html`
               <div class="cpk-td__tool-body">
-                <div class="cpk-td__tool-section-label">Arguments</div>
-                ${renderHighlightedJsonBlock(item.arguments)}
-                ${
-                  item.hasResult
-                    ? html`
-                      <div
-                        class="cpk-td__tool-section-label"
-                        style="margin-top:8px"
-                      >
-                        Result
-                      </div>
+                <code class="cpk-td__tool-identifier">${item.toolName}</code>
+                <div class="cpk-td__tool-data">
+                  <section>
+                    <div class="cpk-td__tool-section-label">Arguments</div>
+                    ${renderHighlightedJsonBlock(item.arguments)}
+                  </section>
+                  ${
+                    item.hasResult
+                      ? html`
+                    <section>
+                      <div class="cpk-td__tool-section-label">Result</div>
                       ${renderHighlightedJsonBlock(item.result)}
-                    `
-                    : nothing
-                }
+                    </section>`
+                      : nothing
+                  }
+                </div>
               </div>
             `
             : nothing
@@ -5527,13 +5602,13 @@ export class CpkThreadInspector extends PortableLitElement {
     `;
   }
 
-  private renderToolGroup(group: ToolCallGroup) {
+  private renderToolGroup(group: ToolCallGroup, streamingTools: Set<string>) {
     return html`
       <div class="cpk-td__tool-group">
         <div class="cpk-td__tool-group-header">
           ${group.items.length} tool call${group.items.length !== 1 ? "s" : ""}
         </div>
-        ${group.items.map((tc) => this.renderToolBlock(tc))}
+        ${group.items.map((tc) => this.renderToolBlock(tc, streamingTools.has(tc.toolCallId)))}
       </div>
     `;
   }
