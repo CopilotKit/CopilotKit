@@ -76,7 +76,10 @@ describe("the wording manifest", () => {
       "utf8",
     ),
   ) as {
-    versions: Record<string, { recordedAt: string; templates: Record<string, string> }>;
+    versions: Record<
+      string,
+      { recordedAt: string; templates: Record<string, string> }
+    >;
   };
 
   it("records the version now in force, with the exact templates it hashed", () => {
