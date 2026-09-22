@@ -35,9 +35,7 @@ test.describe("State Streaming", () => {
 
     // When no document has been streamed, the placeholder italic text shows
     await expect(
-      page.getByText(
-        "Progressive document streaming is unsupported with Spring AI 1.0.1.",
-      ),
+      page.getByText("Ask the agent to write something"),
     ).toBeVisible({ timeout: 10000 });
 
     // document-content testid should NOT be present in the empty state

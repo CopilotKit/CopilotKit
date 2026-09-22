@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { getD5Script, type D5BuildContext } from "../helpers/d5-registry.js";
+import { getD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { Page } from "../helpers/conversation-runner.js";
 // Top-level import triggers the script's `registerD5Script` side
 // effect against the singleton registry. We do NOT clear the registry
@@ -14,8 +15,8 @@ import {
   buildToolRenderingAssertion,
   validateProbe,
   TOOL_CARD_SELECTORS,
-  type ToolCardProbeResult,
 } from "./d5-tool-rendering.js";
+import type { ToolCardProbeResult } from "./d5-tool-rendering.js";
 
 /**
  * Tests for the D5 tool-rendering script. Three concerns:

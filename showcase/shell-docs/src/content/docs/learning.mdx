@@ -1,5 +1,5 @@
 ---
-title: Learning
+title: Automatic Learning
 description: Turn real application use into evidence-backed Insights and reviewed, reusable Skills.
 icon: "lucide/Sparkles"
 frontend: universal
@@ -10,21 +10,21 @@ import InspectorPaneLearning from "@/snippets/shared/inspector/open-inspector-pa
 
 ## Overview
 
-Learning turns patterns from real agent runs into reusable Skills. It looks at completed conversations and application interactions in [Rich Threads](/threads), produces evidence-backed Insights, and proposes instructions you can review before publishing.
+Automatic Learning turns patterns from real agent runs into reusable Skills. It looks at completed conversations and application interactions in [Rich Threads](/threads), produces evidence-backed Insights, and proposes instructions you can review before publishing.
 
 <div className="not-prose shell-docs-radius-surface aspect-[7/4] w-full overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]">
   <iframe
     src="https://www.loom.com/embed/2978fbfe42324e509057ac5fd46b7a70"
-    title="Learning and Memory in CopilotKit"
+    title="Automatic Learning and User Memories in CopilotKit"
     className="h-full w-full"
     frameBorder="0"
     allowFullScreen
   />
 </div>
 
-The walkthrough begins with Memory, a separate Intelligence capability, then shows an expense-review workflow becoming a reusable Skill.
+The walkthrough begins with User Memories, a separate Intelligence capability, then shows an expense-review workflow becoming a reusable Skill.
 
-## How Learning works
+## How Automatic Learning works
 
 Learning starts with a container, which groups Threads from the same kind of work. Intelligence analyzes completed runs in that container and summarizes recurring patterns as Insights.
 
@@ -38,7 +38,7 @@ Copy this prompt into your coding agent to inspect your existing app and configu
 
 <LearningSetupPrompt />
 
-## Set up Learning manually
+## Set up Automatic Learning manually
 
 When you are done, your Runtime will send selected Threads to a Learning container, ready to be analyzed and turned into reviewed Skills.
 
@@ -96,7 +96,7 @@ When you are done, your Runtime will send selected Threads to a Learning contain
 
     Use the application normally and complete several related workflows. Corrections, tool calls, and application interactions all help Learning understand what a good result looks like.
 
-    The container shows how many eligible Threads are ready and how many more are needed. By default, automatic Learning requires **15 eligible Threads** for both the first run and each run after a success. Use the count shown in your container if your deployment has a different threshold.
+    The container shows how many eligible Threads are ready and how many more are needed. By default, Automatic Learning requires **15 eligible Threads** for both the first run and each run after a success. Use the count shown in your container if your deployment has a different threshold.
 
   </Step>
 
@@ -107,7 +107,7 @@ When you are done, your Runtime will send selected Threads to a Learning contain
 
     Organizations start with a daily default of **02:00 UTC**. The **Organization default** tab changes the schedule for every project without an override and asks you to confirm that scope. Projects with a custom schedule keep it; choosing **Use organization schedule** again restores inheritance, including future changes to the default.
 
-    When the container is eligible, **Next scheduled run** shows a countdown and the scheduled time in your local zone and UTC. This is the next eligibility check: reaching the Thread threshold does not start a run immediately. An active analysis, a failure block, or disabled automatic Learning can prevent a run. Saving a schedule does not start or cancel an analysis.
+    When the container is eligible, **Next scheduled run** shows a countdown and the scheduled time in your local zone and UTC. This is the next eligibility check: reaching the Thread threshold does not start a run immediately. An active analysis, a failure block, or disabled Automatic Learning can prevent a run. Saving a schedule does not start or cancel an analysis.
 
   </Step>
 

@@ -449,7 +449,7 @@ test("disabled feature rows open their landing pages, where setup prompts can be
     expect(threadsPrompt).not.toContain("https://docs.copilotkit.ai/threads");
     expect(copyThreads.dataset.copyState).toBe("copied");
     expect(copyThreads.getAttribute("aria-label")).toBe(
-      "Threads setup prompt copied",
+      "Rich Threads setup prompt copied",
     );
 
     requireElement(

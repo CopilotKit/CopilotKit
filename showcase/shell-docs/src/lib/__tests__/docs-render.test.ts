@@ -659,6 +659,7 @@ describe("framework nav", () => {
     expect(groupPageEntries(navTree, "Hosting")).toEqual([
       { title: "Cloud", slug: "intelligence/managed-intelligence-platform" },
       { title: "Self-hosted", slug: "intelligence/self-hosting" },
+      { title: "AWS ECS/Fargate", slug: "intelligence/self-hosting-ecs" },
     ]);
     expect(findPageByTitle(navTree, "Automatic Learning")).toMatchObject({
       slug: "learning",
@@ -1005,6 +1006,7 @@ describe("framework nav", () => {
         slug: "intelligence/managed-intelligence-platform",
       },
       { title: "Self-hosted", slug: "intelligence/self-hosting" },
+      { title: "AWS ECS/Fargate", slug: "intelligence/self-hosting-ecs" },
     ]);
   });
 });

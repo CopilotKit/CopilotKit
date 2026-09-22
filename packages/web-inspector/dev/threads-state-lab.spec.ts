@@ -1410,7 +1410,8 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all Thre
           // flight at this point, and the signal only arms once it has been
           // refused — so wait for the launcher to say so rather than assume
           // the request already lost. Two microtask turns is not a wait.
-          const landingLabel = key === "thread-list-error" ? "Threads" : "Home";
+          const landingLabel =
+            key === "thread-list-error" ? "Rich Threads" : "Home";
           if (landingLabel !== "Home") {
             await vi.waitFor(
               () => {
@@ -1429,7 +1430,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all Thre
           const landingButton =
             landingLabel === "Home"
               ? homeButton
-              : inspectorButton(inspector, "Threads");
+              : inspectorButton(inspector, "Rich Threads");
           expect(
             landingButton?.classList.contains("inspector-nav-control-active"),
             `${key}: ${landingLabel} default`,
@@ -1489,7 +1490,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all Thre
               `${key}: run error raises no launcher error tone`,
             ).toHaveLength(0);
           }
-          const threadsButton = inspectorButton(inspector, "Threads");
+          const threadsButton = inspectorButton(inspector, "Rich Threads");
           expect(threadsButton, `${key}: Threads nav`).toBeDefined();
           threadsButton?.click();
           await flushInspector(inspector);
@@ -1537,9 +1538,9 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all Thre
           const text = inspectorText(inspector);
           const navigation = collectDeep(root, '[aria-label="Inspector"]');
           expect(navigation, `${key}: grouped nav`).toHaveLength(1);
-          expect(text, `${key}: Threads nav`).toContain("Threads");
+          expect(text, `${key}: Threads nav`).toContain("Rich Threads");
           expect(text, `${key}: Agent nav`).toContain("Agent");
-          expect(text, `${key}: Learning nav`).toContain("Learning");
+          expect(text, `${key}: Learning nav`).toContain("Automatic Learning");
           expect(text, `${key}: Home nav`).toContain("Home");
           const overviewCopy = expectedOverviewCopy(scenario);
           if (overviewCopy) {
@@ -1695,7 +1696,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all Thre
             video?.dispatchEvent(new Event("error"));
             await flushInspector(inspector);
             expect(inspectorText(inspector), `${key}: fallback copy`).toContain(
-              "The demo video is unavailable. Use the example threads to explore Messages, AG-UI Events, and State.",
+              "The demo video is unavailable. Use the example threads to explore Conversation, AG-UI Events, and State.",
             );
             expect(
               exampleButtons(inspector),
@@ -1743,7 +1744,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all Thre
                   )
                   .filter((label) => label !== undefined);
                 expect(detailTabs, `${key}: fallback detail tabs`).toEqual([
-                  "Messages",
+                  "Conversation",
                   "AG-UI Events",
                   "State",
                 ]);
@@ -1800,7 +1801,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all Thre
               `${key}: selected newest name`,
             ).toContain(newestThread?.name);
             for (const [tab, kind] of [
-              ["Messages", null],
+              ["Conversation", null],
               ["AG-UI Events", "events"],
               ["State", "state"],
             ] as const) {

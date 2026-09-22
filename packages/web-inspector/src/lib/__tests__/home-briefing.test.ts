@@ -69,7 +69,7 @@ describe("home-briefing", () => {
       (service) => service.id === "suggestions",
     );
     const voice = model.services.find((service) => service.id === "audio");
-    expect(learning).toMatchObject({ label: "Learning" });
+    expect(learning).toMatchObject({ label: "Automatic Learning" });
     expect(voice).toMatchObject({ label: "Voice" });
     expect(suggestions).toMatchObject({
       docsUrl:
