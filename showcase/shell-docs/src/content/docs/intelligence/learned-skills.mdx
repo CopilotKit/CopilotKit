@@ -132,11 +132,9 @@ Reserve `copilotkit_load_skill` and `copilotkit_read_skill_file` for delivery. C
 
 Use Python 3.11 or later with native asynchronous agents from `langchain.agents.create_agent`.
 
-```bash title="Terminal"
-python -m pip install copilotkit-intelligence-langgraph
-```
-
-Save this example as `agent.py`. Run it with `python agent.py`:
+<Callout type="warn" title="Python adapter pending release">
+  `copilotkit-intelligence-langgraph` is not yet published on PyPI. The code below previews its API; a public installation command will follow package publication.
+</Callout>
 
 Set the container and revision in code below, **or** omit those parameters and use [environment variables](#configure-one-container). Code values take precedence.
 
@@ -273,11 +271,9 @@ Pass `abortSignal` in the invocation options to cancel both the delivery wait an
 
 Use Python 3.11 or later and add `SkillToolset` to a standard ADK `LlmAgent`.
 
-```bash title="Terminal"
-python -m pip install copilotkit-intelligence-adk
-```
-
-Save this example as `agent.py`. Run it with `python agent.py`:
+<Callout type="warn" title="Python adapter pending release">
+  `copilotkit-intelligence-adk` is not yet published on PyPI. The code below previews its API; a public installation command will follow package publication.
+</Callout>
 
 Set the container and revision in code below, **or** omit those parameters and use [environment variables](#configure-one-container). Code values take precedence.
 
@@ -404,12 +400,15 @@ For LangGraph TypeScript, import `SkillRegistry` from `@copilotkit/intelligence-
 
 ## Make sure delivery works
 
-1. Initialize the adapter with a published Skill in its container.
+For framework adapters, this check requires automatic updates. Remove `revision` (or `Revision` in .NET) from the example and unset `CPK_INTELLIGENCE_SKILLS_REVISION`. A pinned adapter continues to use its selected revision after you publish a newer one.
+
+1. Initialize the adapter with a published Skill in its container. Record the loaded revision from the adapter's status.
 2. Start a new invocation with a request that relates to that Skill.
 3. Inspect the model's tool calls for `copilotkit_load_skill` and, when needed, `copilotkit_read_skill_file`.
 4. Publish a new revision, wait past the freshness window, and start another invocation.
+5. Make sure that the loaded revision in the adapter's status changed to the newly published revision.
 
-The registry's status exposes the loaded revision and any stale state. A valid empty container can initialize successfully, so initialization alone does not prove that a Skill exists.
+Read `registry.status.revision` in TypeScript, `skills.status.revision` for LangGraph Python, `registry.status.revision` for ADK, or `skills.Status.Revision` in .NET. BuiltInAgent does not expose a public registry status; inspect the loaded Skill's content in the tool result for your published change. A valid empty container can initialize successfully, so initialization alone does not prove that a Skill exists.
 
 The model chooses whether to call the skill tools. A run without a skill tool call does not prove that delivery failed. Inspect the catalog and registry status too.
 
