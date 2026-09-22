@@ -275,7 +275,7 @@
     },
     {
       "name": "@copilotkit/channels",
-      "version": "0.10.0",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels",
       "entrypoints": [
         {
@@ -507,7 +507,7 @@
     },
     {
       "name": "@copilotkit/channels-core",
-      "version": "0.10.0",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels-core",
       "entrypoints": [
         {
@@ -607,7 +607,7 @@
     },
     {
       "name": "@copilotkit/channels-discord",
-      "version": "0.10.0",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels-discord",
       "entrypoints": [
         {
@@ -648,7 +648,7 @@
     },
     {
       "name": "@copilotkit/channels-intelligence",
-      "version": "0.10.0",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels-intelligence",
       "entrypoints": [
         {
@@ -689,7 +689,7 @@
     },
     {
       "name": "@copilotkit/channels-slack",
-      "version": "0.10.0",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels-slack",
       "entrypoints": [
         {
@@ -758,7 +758,7 @@
     },
     {
       "name": "@copilotkit/channels-teams",
-      "version": "0.10.0",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels-teams",
       "entrypoints": [
         {
@@ -834,7 +834,7 @@
     },
     {
       "name": "@copilotkit/channels-telegram",
-      "version": "0.10.0",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels-telegram",
       "entrypoints": [
         {
@@ -875,7 +875,7 @@
     },
     {
       "name": "@copilotkit/channels-ui",
-      "version": "0.10.0",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels-ui",
       "entrypoints": [
         {
@@ -944,7 +944,7 @@
     },
     {
       "name": "@copilotkit/channels-whatsapp",
-      "version": "0.10.0",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels-whatsapp",
       "entrypoints": [
         {
