@@ -74,33 +74,33 @@ export function IntelligencePreview({ children }: { children?: ReactNode }) {
             }
           }}
         />
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 p-3">
-        <button
-          type="button"
-          className="rounded-full border border-[var(--border)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-semibold text-[var(--text)]"
-          onClick={() => {
-            const video = videoRef.current;
-            if (!video) return;
-            if (playing) {
-              canResume.current = false;
-              video.pause();
-            } else {
-              if (finished) video.currentTime = 0;
-              canResume.current = true;
-              userInitiated.current = true;
-              setFinished(false);
-              void video.play().catch(() => setPlaying(false));
-            }
-          }}
-        >
-          {playing
-            ? "Pause preview"
-            : finished
-              ? "Replay 8-second preview"
-              : "Play 8-second preview"}
-        </button>
-        {children}
+        <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-center justify-between gap-2 p-3">
+          <button
+            type="button"
+            className="rounded-full border border-[var(--border)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-semibold text-[var(--text)] shadow-[var(--shadow-control)]"
+            onClick={() => {
+              const video = videoRef.current;
+              if (!video) return;
+              if (playing) {
+                canResume.current = false;
+                video.pause();
+              } else {
+                if (finished) video.currentTime = 0;
+                canResume.current = true;
+                userInitiated.current = true;
+                setFinished(false);
+                void video.play().catch(() => setPlaying(false));
+              }
+            }}
+          >
+            {playing
+              ? "Pause preview"
+              : finished
+                ? "Replay 8-second preview"
+                : "Play 8-second preview"}
+          </button>
+          {children}
+        </div>
       </div>
     </div>
   );
