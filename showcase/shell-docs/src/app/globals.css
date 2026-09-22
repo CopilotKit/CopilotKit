@@ -248,27 +248,12 @@
     box-shadow:
       0 12px 30px rgb(24 22 65 / 10%),
       0 2px 7px rgb(24 22 65 / 6%);
-    transition: box-shadow 180ms ease;
-  }
-
-  .shell-docs-brand-nav[data-content-scrolled] .shell-docs-brand-nav-inner {
-    box-shadow:
-      0 20px 38px rgb(24 22 65 / 18%),
-      0 5px 12px rgb(24 22 65 / 9%);
   }
 
   .dark .shell-docs-brand-nav-inner {
     box-shadow:
       0 14px 32px rgb(0 0 0 / 34%),
       0 2px 8px rgb(0 0 0 / 20%);
-  }
-
-  .dark
-    .shell-docs-brand-nav[data-content-scrolled]
-    .shell-docs-brand-nav-inner {
-    box-shadow:
-      0 20px 38px rgb(0 0 0 / 52%),
-      0 5px 12px rgb(0 0 0 / 30%);
   }
 }
 

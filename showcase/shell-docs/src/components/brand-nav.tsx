@@ -61,10 +61,10 @@ export function BrandNav(_props: BrandNavProps = {}) {
     );
     if (!scroller) return;
 
-    const updateScrollShadow = () => setContentScrolled(scroller.scrollTop > 1);
-    updateScrollShadow();
-    scroller.addEventListener("scroll", updateScrollShadow, { passive: true });
-    return () => scroller.removeEventListener("scroll", updateScrollShadow);
+    const updateScrollFade = () => setContentScrolled(scroller.scrollTop > 1);
+    updateScrollFade();
+    scroller.addEventListener("scroll", updateScrollFade, { passive: true });
+    return () => scroller.removeEventListener("scroll", updateScrollFade);
   }, [pathname]);
 
   // Active-route detection: Reference and Cookbook each own their prefix.
