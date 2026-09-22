@@ -67,8 +67,6 @@ RUN pnpm --filter @copilotkit/showcase-harness --prod --legacy --ignore-scripts 
 # custom apk dance. Build stage stays Alpine (just compiles TS and
 # prunes node_modules — no browser needed there).
 FROM node:22-bookworm-slim
-ARG COMMIT_SHA
-ENV COMMIT_SHA=${COMMIT_SHA}
 WORKDIR /app
 ENV NODE_ENV=production
 # qa probe: repo-root override so the walk-up from dist/probes/drivers/

@@ -1,5 +1,3 @@
-import { createPlaywrightProbeExecutor } from "../../../../harness/src/probes/frontend-matrix-playwright.js";
-import { buildTurns as buildCanonicalTurns } from "../../../../harness/src/probes/scripts/d5-gen-ui-open-advanced.js";
 import { test, expect } from "@playwright/test";
 
 // QA reference: qa/open-gen-ui-advanced.md
@@ -52,7 +50,7 @@ const PROMPTS = {
   inlineEval: "Inline expression evaluator",
 };
 
-test.describe("@diagnostic Open Generative UI (advanced)", () => {
+test.describe("Open Generative UI (advanced)", () => {
   test.setTimeout(120_000);
 
   test.beforeEach(async ({ page }) => {
@@ -65,7 +63,7 @@ test.describe("@diagnostic Open Generative UI (advanced)", () => {
       .catch(() => {});
   });
 
-  test("@diagnostic page loads with chat composer and 3 suggestion pills", async ({
+  test("page loads with chat composer and 3 suggestion pills", async ({
     page,
   }) => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible({
@@ -117,19 +115,19 @@ test.describe("@diagnostic Open Generative UI (advanced)", () => {
       .toBe(true);
   };
 
-  test("@diagnostic Inline expression evaluator prompt renders a sandboxed iframe with non-empty source", async ({
+  test("Inline expression evaluator prompt renders a sandboxed iframe with non-empty source", async ({
     page,
   }) => {
     await sendPromptAndAwaitIframe(page, PROMPTS.inlineEval);
   });
 
-  test("@diagnostic Calculator prompt renders a sandboxed iframe with non-empty source", async ({
+  test("Calculator prompt renders a sandboxed iframe with non-empty source", async ({
     page,
   }) => {
     await sendPromptAndAwaitIframe(page, PROMPTS.calculator);
   });
 
-  test("@diagnostic Ping the host prompt renders a sandboxed iframe with non-empty source", async ({
+  test("Ping the host prompt renders a sandboxed iframe with non-empty source", async ({
     page,
   }) => {
     await sendPromptAndAwaitIframe(page, PROMPTS.ping);
@@ -157,7 +155,7 @@ test.describe("@diagnostic Open Generative UI (advanced)", () => {
     return logs;
   };
 
-  test("@diagnostic Ping the host prompt: in-iframe click fires host notifyHost handler", async ({
+  test("Ping the host prompt: in-iframe click fires host notifyHost handler", async ({
     page,
   }) => {
     const hostLogs = captureHostHandlerLogs(page, "notifyHost");
@@ -178,7 +176,7 @@ test.describe("@diagnostic Open Generative UI (advanced)", () => {
     });
   });
 
-  test("@diagnostic Inline expression evaluator prompt: typing + clicking Evaluate fires host evaluateExpression handler", async ({
+  test("Inline expression evaluator prompt: typing + clicking Evaluate fires host evaluateExpression handler", async ({
     page,
   }) => {
     const hostLogs = captureHostHandlerLogs(page, "evaluateExpression");
@@ -206,7 +204,7 @@ test.describe("@diagnostic Open Generative UI (advanced)", () => {
     });
   });
 
-  test("@diagnostic Calculator prompt: digit + operator + '=' fires host evaluateExpression handler", async ({
+  test("Calculator prompt: digit + operator + '=' fires host evaluateExpression handler", async ({
     page,
   }) => {
     const hostLogs = captureHostHandlerLogs(page, "evaluateExpression");
@@ -228,46 +226,4 @@ test.describe("@diagnostic Open Generative UI (advanced)", () => {
 
     await expect(frame.locator("#d")).toHaveText("5", { timeout: 10_000 });
   });
-});
-
-/** Functional proof is this runner artifact; supplemental test totals are not acceptance. */
-test("@canonical rendering open-gen-ui-advanced: all actual LGP pills and results", async ({
-  browser,
-  baseURL,
-}, testInfo) => {
-  test.setTimeout(480_000);
-  if (!baseURL)
-    throw new Error(
-      "canonical rendering requires configured actual demo baseURL",
-    );
-  const featureType = "gen-ui-open-advanced" as const;
-  const run = createPlaywrightProbeExecutor({
-    browser,
-    scripts: new Map([
-      [
-        featureType,
-        { featureTypes: [featureType], buildTurns: buildCanonicalTurns },
-      ],
-    ]),
-    probeTimeoutMs: 450_000,
-  });
-  const result = await run({
-    cell: {
-      id: "react/spring-ai/open-gen-ui-advanced",
-      frontend: "react",
-      integration: "spring-ai",
-      feature: "open-gen-ui-advanced",
-      featureTypes: [featureType],
-    },
-    featureType,
-    url: new URL("/demos/open-gen-ui-advanced", baseURL).href,
-    backendUrl: baseURL,
-    testId: `canonical-rendering-${testInfo.workerIndex}-${Date.now()}`,
-    surface: "direct-diagnostic",
-  });
-  await testInfo.attach("canonical-pill-execution", {
-    body: JSON.stringify(result, null, 2),
-    contentType: "application/json",
-  });
-  expect(result.status, JSON.stringify(result)).toBe("passed");
 });

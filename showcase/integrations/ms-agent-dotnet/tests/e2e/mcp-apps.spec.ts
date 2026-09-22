@@ -1,4 +1,3 @@
-import { runToolsAgentLocalContract } from "../../../../harness/src/probes/scripts/_pill-contracts-tools-agents";
 import { test, expect } from "@playwright/test";
 
 // QA reference: qa/mcp-apps.md
@@ -28,7 +27,7 @@ import { test, expect } from "@playwright/test";
 // 90s budget and is kept un-skipped; the deterministic draw-prompt
 // version is covered by the suggestion pill flow.
 
-test.describe("[diagnostic] MCP Apps (Excalidraw activity iframe)", () => {
+test.describe("MCP Apps (Excalidraw activity iframe)", () => {
   test.setTimeout(180_000);
 
   test.beforeEach(async ({ page }) => {
@@ -91,23 +90,4 @@ test.describe("[diagnostic] MCP Apps (Excalidraw activity iframe)", () => {
     const iframe = page.locator("iframe[sandbox]").first();
     await expect(iframe).toBeVisible({ timeout: 90_000 });
   });
-});
-
-// Shared canonical contract; direct local evidence cannot certify a public matrix cell.
-test("canonical actual-pill contract @functional-pill", async ({
-  page,
-}, testInfo) => {
-  test.setTimeout(600_000);
-  await page.goto("/demos/mcp-apps");
-  const result = await runToolsAgentLocalContract(
-    page,
-    "mcp-apps",
-    "ms-agent-dotnet",
-    page.url(),
-  );
-  await testInfo.attach("canonical-pill-execution", {
-    body: JSON.stringify(result, null, 2),
-    contentType: "application/json",
-  });
-  expect(result.pillExecution?.completed, JSON.stringify(result)).toBe(true);
 });

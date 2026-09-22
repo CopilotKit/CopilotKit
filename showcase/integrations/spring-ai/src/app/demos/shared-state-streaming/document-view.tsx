@@ -53,7 +53,8 @@ export function DocumentView({ content, isStreaming }: DocumentViewProps) {
       <div className="flex-1 overflow-y-auto p-6">
         {content.length === 0 && !isStreaming ? (
           <p className="text-[#838389] italic">
-            Progressive document streaming is unsupported with Spring AI 1.0.1.
+            Ask the agent to write something — its output will stream here token
+            by token.
           </p>
         ) : (
           <div

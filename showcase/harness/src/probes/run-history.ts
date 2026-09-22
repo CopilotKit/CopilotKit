@@ -25,8 +25,6 @@ export type ProbeRunState = "running" | "completed" | "failed";
 
 /** JSON blob persisted into the `summary` column. */
 export interface ProbeRunSummary {
-  /** Set only after all selected observation receipts persist. */
-  selectedObservationFingerprint?: string;
   total: number;
   passed: number;
   failed: number;
@@ -65,18 +63,14 @@ export interface ProbeRunRecord {
 }
 
 /**
- * Run disposition and selected-observation certificate returned by
- * `findByJobId`. The fleet aggregator skips terminal unfiltered runs and
- * resumes running runs. For selected results, a terminal run is skipped only
- * when its certificate matches the planned-result fingerprint; otherwise the
- * caller reopens it and uses atomic per-observation receipts during replay.
- * Terminal state alone does not certify selected-result persistence.
+ * The terminal-vs-running disposition of a `probe_runs` row, returned by
+ * `findByJobId` so the fleet aggregator can decide between SKIP (already fully
+ * applied) and RESUME (a previous attempt crashed mid-aggregate).
  */
 export interface ProbeRunByJob {
   id: string;
   /** True once the row reached a terminal state (`completed` | `failed`). */
   terminal: boolean;
-  selectedObservationFingerprint?: string;
 }
 
 export interface ProbeRunWriter {
@@ -85,11 +79,10 @@ export interface ProbeRunWriter {
    * it to `finish()` once the probe completes. `startedAt` is a numeric
    * epoch-ms (matching `Date.now()`) — converted to ISO inside.
    *
-   * `jobId` (optional) stamps the fleet `probe_jobs` row id onto the run for
-   * the aggregator's lookup and replay decisions (see `findByJobId`). The
+   * `jobId` (optional) stamps the fleet `probe_jobs` row id onto the run so
+   * the aggregator can dedupe a re-processed result (see `findByJobId`). The
    * in-process probe-invoker omits it (no job); only the fleet aggregator
-   * supplies it. Creating or finding a run row does not itself make its
-   * observation writes idempotent.
+   * supplies it.
    */
   start(opts: {
     probeId: string;
@@ -98,15 +91,12 @@ export interface ProbeRunWriter {
     jobId?: string;
   }): Promise<{ id: string }>;
   /**
-   * Find the newest run row stamped with `jobId`, or null when none exists.
-   * Returns its id, terminal flag and selected-observation certificate; the
-   * caller decides whether to skip, resume or reopen it. The fleet aggregator
-   * skips terminal unfiltered runs, but requires a matching planned-result
-   * fingerprint before skipping a terminal selected run. A missing or
-   * different certificate causes that selected run to reopen before writes.
-   * Running rows are reused. Ordinary writes may repeat on resume; selected
-   * writes use atomic per-observation receipts to avoid repeated database
-   * effects. This lookup alone provides no exactly-once guarantee.
+   * Find the run row previously stamped with `jobId`, or null when none
+   * exists. The fleet aggregator calls this BEFORE doing any work so a
+   * re-processed result (latch write failed, or crash before latch) is a true
+   * idempotent no-op rather than re-bumping flap counts / appending duplicate
+   * history / minting a duplicate run row. Returns the row id + whether it is
+   * terminal so the caller can SKIP (terminal) vs RESUME (still running).
    */
   findByJobId(jobId: string): Promise<ProbeRunByJob | null>;
   /**
@@ -117,32 +107,21 @@ export interface ProbeRunWriter {
    * computed. Without this, a `running` row that never reaches `finish()`
    * has a null summary, and the boot-time `sweepStaleRuns` has nothing to
    * preserve — the dashboard then shows `failed / total:0` even though
-   * dozens of features actually passed. By default only `summary` changes;
-   * `reopen` also restores `running` and clears the terminal timing fields.
-   * A missing row warns and returns unless `reopen` is set. Storage errors
-   * propagate in either mode.
+   * dozens of features actually passed. State stays `running`; only
+   * `summary` is updated. Best-effort, like `finish()`.
    */
-  update(opts: {
-    id: string;
-    summary: ProbeRunSummary;
-    /** Restore `running`, clear finish time/duration, and reject a missing row. */
-    reopen?: true;
-  }): Promise<void>;
+  update(opts: { id: string; summary: ProbeRunSummary }): Promise<void>;
   /**
    * Mark a row finished. `duration_ms` is computed from
    * `finishedAt - row.started_at` (read off the persisted row, not from a
    * caller-supplied startedAt) so the contract holds even if the caller
    * forgets to thread the same monotonic clock through both calls.
-   * A missing row warns and returns unless `required` is set. Storage errors
-   * propagate in either mode.
    */
   finish(opts: {
     id: string;
     finishedAt: number;
     state: "completed" | "failed";
     summary: ProbeRunSummary | null;
-    /** Reject a missing row so selected-result persistence can be retried. */
-    required?: true;
   }): Promise<void>;
   /**
    * Return the last `limit` runs for `probeId`, sorted by `started_at`
@@ -219,32 +198,27 @@ export function createProbeRunWriter(pb: PbClient): ProbeRunWriter {
       return {
         id: row.id,
         terminal: row.state === "completed" || row.state === "failed",
-        selectedObservationFingerprint:
-          row.summary?.selectedObservationFingerprint,
       };
     },
 
     async update(opts) {
-      // Ordinary updates change only the partial summary. Selected replay
-      // uses `reopen` to restore `running`, clear finished_at, and reset
-      // duration_ms to zero. A missing row warns and returns in ordinary
-      // mode but rejects in reopen mode; storage failures always propagate.
+      // Refresh only the partial summary on a still-running row. We leave
+      // `state`, `finished_at`, and `duration_ms` untouched so this can be
+      // called repeatedly mid-run without prematurely marking the row
+      // terminal. The row must exist (start() created it); a missing row
+      // means the caller is updating an id it never created — surface it
+      // rather than silently writing junk, mirroring finish()'s guard.
       const existing = await pb.getOne<ProbeRunRow>(
         PROBE_RUNS_COLLECTION,
         opts.id,
       );
       if (!existing) {
-        if (opts.reopen)
-          throw new Error("run-history.resume: selected run row missing");
         // eslint-disable-next-line no-console
         console.warn("run-history.update: row missing", { runId: opts.id });
         return;
       }
       await pb.update<ProbeRunRow>(PROBE_RUNS_COLLECTION, opts.id, {
         summary: opts.summary,
-        ...(opts.reopen
-          ? { state: "running", finished_at: "", duration_ms: 0 }
-          : {}),
       });
     },
 
@@ -253,17 +227,19 @@ export function createProbeRunWriter(pb: PbClient): ProbeRunWriter {
       // the row — see the JSDoc on `finish()` for why we don't trust a
       // caller-supplied startedAt.
       //
-      // Do not update a missing row. Ordinary callers get a warning and
-      // early return; `required` selected-result writes reject so the
-      // consumer can retry. Read and update failures propagate in both
-      // modes; callers choose whether to handle them as best-effort.
+      // R2-A.7: when the row is missing (returns null), do NOT call
+      // pb.update on a non-existent id. The previous code fell through
+      // with NaN duration and either threw on the underlying client or
+      // silently wrote a junk row. Log a warning so the missing-row
+      // case is observable, then return early. This is best-effort
+      // observability — never throw, never block the caller (the
+      // probe-invoker already swallows runWriter failures, but make
+      // the writer itself behave gracefully too).
       const existing = await pb.getOne<ProbeRunRow>(
         PROBE_RUNS_COLLECTION,
         opts.id,
       );
       if (!existing) {
-        if (opts.required)
-          throw new Error("run-history.finish: selected run row missing");
         // eslint-disable-next-line no-console
         console.warn("run-history.finish: row missing", {
           runId: opts.id,

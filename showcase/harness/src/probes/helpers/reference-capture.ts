@@ -104,7 +104,6 @@ export interface ReferenceCaptureDeps {
   runConversation: (
     page: ReferenceCapturePage,
     turns: ReturnType<D5Script["buildTurns"]>,
-    options: { mode: "diagnostic" },
   ) => Promise<{
     turns_completed: number;
     total_turns: number;
@@ -229,9 +228,7 @@ export async function captureReferenceForFeature(
         };
       }
 
-      const turnResult = await deps.runConversation(page, [turn], {
-        mode: "diagnostic",
-      });
+      const turnResult = await deps.runConversation(page, [turn]);
 
       let capture: SseCapture;
       try {

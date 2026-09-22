@@ -43,7 +43,6 @@ from ag_ui.core import (
     TextMessageStartEvent,
     ToolCallArgsEvent,
     ToolCallEndEvent,
-    ToolCallResultEvent,
     ToolCallStartEvent,
 )
 from fastapi import Request
@@ -52,8 +51,6 @@ from fastapi.responses import JSONResponse, StreamingResponse
 import langroid as lr
 import langroid.language_models as lm
 from langroid.agent.tool_message import ToolMessage
-
-from ._header_forwarding import install_httpx_hook
 
 logger = logging.getLogger(__name__)
 
@@ -155,9 +152,7 @@ def _build_sub_agent(name: str) -> lr.ChatAgent:
         llm=llm_config,
         system_message=system_prompt,
     )
-    agent = lr.ChatAgent(agent_config)
-    install_httpx_hook(agent.llm.async_client)
-    return agent
+    return lr.ChatAgent(agent_config)
 
 
 # @endregion[subagent-setup]
@@ -292,7 +287,6 @@ def _create_supervisor() -> lr.ChatAgent:
     llm_config = lm.OpenAIGPTConfig(chat_model=model, stream=False)
     agent_config = lr.ChatAgentConfig(llm=llm_config, system_message=_SUPERVISOR_PROMPT)
     agent = lr.ChatAgent(agent_config)
-    install_httpx_hook(agent.llm.async_client)
     agent.enable_message(list(_SUPERVISOR_TOOLS))
     return agent
 
@@ -572,15 +566,6 @@ async def handle_run(request: Request) -> StreamingResponse:
                     StateSnapshotEvent(
                         type=EventType.STATE_SNAPSHOT,
                         snapshot=state,
-                    )
-                )
-                yield _sse_line(
-                    ToolCallResultEvent(
-                        type=EventType.TOOL_CALL_RESULT,
-                        message_id=str(uuid.uuid4()),
-                        tool_call_id=call_id,
-                        content=sub_result,
-                        role="tool",
                     )
                 )
                 results.append(f"[{sub_name} result]\n{sub_result}")

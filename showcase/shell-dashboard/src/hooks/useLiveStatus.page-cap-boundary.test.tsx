@@ -39,7 +39,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import type { StatusRow } from "../lib/live-status";
-import { classifyPbListRequest } from "./__tests__/pb-query-eval";
 
 /** PocketBase clamps `perPage` server-side; the hook's page size. */
 const PB_PAGE_SIZE = 500;
@@ -82,17 +81,17 @@ vi.mock("../lib/pb", () => {
         async (
           pageNo: number,
           perPage: number,
-          opts?: { fields?: string; filter?: string },
+          opts?: { fields?: string },
         ): Promise<{ items: unknown[]; page: number; perPage: number }> => {
           // Heartbeat ping (perPage 1) — never part of either page loop.
           if (perPage === 1) {
             return { items: [], page: 1, perPage: 1 };
           }
-          // The supplemental filter distinguishes the two signal-bearing reads.
-          if (
-            classifyPbListRequest({ perPage, filter: opts?.filter ?? null }) ===
-            "supplemental"
-          ) {
+          // Same discriminator the sibling suites use: the supplemental fetch is
+          // THE request that asks for the heavy `signal` blob; the bulk fetch
+          // always projects it away.
+          const fields = opts?.fields;
+          if (fields === undefined || fields.split(",").includes("signal")) {
             mockState.supplementalPages.push(pageNo);
             return {
               items: page(mockState.supplementalRows, pageNo),
@@ -101,9 +100,13 @@ vi.mock("../lib/pb", () => {
             };
           }
           mockState.bulkPages.push(pageNo);
-          // Bulk projection now retains signal for cold-load proof.
+          // Honour the projection like real PB: the bulk rows must arrive
+          // WITHOUT `signal`, which is what makes the fail-safe red polarity
+          // below a real assertion rather than an artifact of the fake.
           return {
-            items: page(mockState.bulkRows, pageNo),
+            items: page(mockState.bulkRows, pageNo).map(
+              ({ signal: _signal, ...rest }) => rest,
+            ),
             page: pageNo,
             perPage,
           };
@@ -295,7 +298,7 @@ describe("useLiveStatus bulk fetch — the cap boundary is not an outage", () =>
       expect(result.current.rows).toHaveLength(CAP * PB_PAGE_SIZE);
 
       // Rendering, not merely present: the red cell still paints RED from a
-      // bulk row carrying its failure signal, which is the verdict the
+      // signal-less bulk row (fail-safe polarity), which is the verdict the
       // whole PR exists to protect.
       const model = buildCellModel(
         mergeRowsToMap([...result.current.rows]),

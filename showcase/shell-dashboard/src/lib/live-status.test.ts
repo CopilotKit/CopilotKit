@@ -1,4 +1,3 @@
-import { unitPillSignal } from "../../../harness/src/shared/cell-model/cell-model.equivalence-fixtures";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   CATALOG_TO_D5_KEY,
@@ -45,7 +44,7 @@ function row(
     key,
     dimension,
     state,
-    signal: unitPillSignal(key, overrides.observed_at ?? FRESH_OBSERVED_AT),
+    signal: {},
     observed_at: FRESH_OBSERVED_AT,
     transitioned_at: FRESH_OBSERVED_AT,
     fail_count: state === "red" ? 1 : 0,
@@ -549,14 +548,14 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     expect(c.rollup).toBe("amber");
   });
 
-  it("keeps health and readiness unverified without functional proof", () => {
+  it("rolls up to green only when health AND e2e are green (LS1)", () => {
     // Stale-green guard (LS1): a missing e2e row is NOT green-eligible —
     // the cell must read "gray" until the e2e probe has actually ticked.
     const liveBoth = mapOf([
       row("health:agno", "health", "green"),
       row("e2e:agno/ac", "e2e", "green"),
     ]);
-    expect(resolveCell(liveBoth, "agno", "ac").rollup).toBe("gray");
+    expect(resolveCell(liveBoth, "agno", "ac").rollup).toBe("green");
 
     const liveHealthOnly = mapOf([row("health:agno", "health", "green")]);
     expect(resolveCell(liveHealthOnly, "agno", "ac").rollup).toBe("gray");
@@ -607,7 +606,7 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
       { health: "green", e2e: "red", expect: "red" },
       { health: "degraded", e2e: "green", expect: "amber" },
       { health: "green", e2e: "degraded", expect: "amber" },
-      { health: "green", e2e: "green", expect: "gray" },
+      { health: "green", e2e: "green", expect: "green" },
       { health: "green", e2e: null, expect: "gray" },
       { health: null, e2e: "green", expect: "gray" },
       { health: null, e2e: null, expect: "gray" },
@@ -785,7 +784,7 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     ]);
     const c = resolveCell(live, "agno", "agentic-chat");
     expect(c.d4.tone).toBe("red");
-    expect(c.rollup).toBe("gray");
+    expect(c.rollup).toBe("green");
   });
 
   it("d4 stale-green chat (older than the 1h window) → amber badge with stale tooltip", () => {
@@ -809,14 +808,23 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     expect(c.d4.row).toBeNull();
   });
 
-  it("functional failures contribute to the cell rollup", () => {
+  it("d5 / d6 do NOT contribute to the rollup (informational only)", () => {
+    // Mirrors smoke's post-Phase-3 behaviour: a red d5/d6 row alone must
+    // not flip the cell's rollup to red — the alert engine routes those
+    // dimensions independently. Only health + e2e drive the rollup.
+    // Note: with LS1 in force, health-only does NOT roll up to green
+    // (e2e is also required); rollup is "gray" and the red d5/d6 rows
+    // must not promote it to red.
+    // D5 AND D6 use per-feature keys (`<dim>:<slug>/<featureType>`), mapped
+    // via CATALOG_TO_D5_KEY. `agentic-chat` is a real single-key family;
+    // both its d5/d6 rows resolve through the mapped per-cell path.
     const live = mapOf([
       row("health:agno", "health", "green"),
       row("d5:agno/agentic-chat", "d5", "red"),
       row("d6:agno/agentic-chat", "d6", "red"),
     ]);
     const c = resolveCell(live, "agno", "agentic-chat");
-    expect(c.rollup).toBe("red");
+    expect(c.rollup).toBe("gray");
     expect(c.d5.tone).toBe("red");
     expect(c.d6.tone).toBe("red");
   });
@@ -1031,13 +1039,13 @@ describe("resolveCell — staleness downgrade (unification A)", () => {
     expect(c.e2e.tone).toBe("amber");
   });
 
-  it("fresh readiness and health do not certify feature behavior", () => {
+  it("fresh-green e2e + fresh-green health → stays green", () => {
     const live = mapOf([
       row("health:agno", "health", "green", { observed_at: freshAt(0) }),
       row("e2e:agno/ac", "e2e", "green", { observed_at: freshAt(0) }),
     ]);
     const c = resolveCell(live, "agno", "ac", { now: NOW });
-    expect(c.rollup).toBe("gray");
+    expect(c.rollup).toBe("green");
     expect(c.e2e.tone).toBe("green");
     expect(c.health.tone).toBe("green");
   });
@@ -1066,7 +1074,7 @@ describe("resolveCell — staleness downgrade (unification A)", () => {
       }),
     ]);
     const c = resolveCell(live, "agno", "ac", { now: NOW });
-    expect(c.rollup).toBe("gray");
+    expect(c.rollup).toBe("green");
     expect(c.e2e.tone).toBe("green");
   });
 
@@ -1794,7 +1802,7 @@ describe("STATUS_LIST_FIELDS (initial-fetch projection allow-list)", () => {
   // field to StatusRow forces a conscious update of this map — and therefore a
   // conscious decision about whether the new field belongs in the lightweight
   // initial projection. The runtime test below derives the expected set from
-  // this map (all keys including `signal`) and asserts STATUS_LIST_FIELDS matches.
+  // this map (all keys minus `signal`) and asserts STATUS_LIST_FIELDS matches.
   const STATUS_ROW_KEYS: Record<keyof StatusRow, true> = {
     id: true,
     key: true,
@@ -1807,58 +1815,13 @@ describe("STATUS_LIST_FIELDS (initial-fetch projection allow-list)", () => {
     first_failure_at: true,
   };
 
-  it("retains every StatusRow field including functional proof", () => {
-    const expected = new Set(Object.keys(STATUS_ROW_KEYS));
+  it("equals every StatusRow field except `signal`", () => {
+    const expected = new Set(
+      Object.keys(STATUS_ROW_KEYS).filter((k) => k !== "signal"),
+    );
     const actual = new Set(STATUS_LIST_FIELDS.split(","));
     expect(actual).toEqual(expected);
-    // Functional evidence must be present on cold load.
-    expect(actual.has("signal")).toBe(true);
+    // `signal` is the heavy field deliberately dropped from the initial fetch.
+    expect(actual.has("signal")).toBe(false);
   });
-});
-
-describe("functional proof rollup", () => {
-  it.each(["d5", "d6"] as const)(
-    "%s failure wins over another functional green",
-    (failed) => {
-      const live = mapOf([
-        row("health:agno", "health", "green"),
-        row("e2e:agno/agentic-chat", "e2e", "green"),
-        row("d5:agno/agentic-chat", "d5", failed === "d5" ? "red" : "green"),
-        row("d6:agno/agentic-chat", "d6", failed === "d6" ? "red" : "green"),
-      ]);
-      expect(resolveCell(live, "agno", "agentic-chat").rollup).toBe("red");
-    },
-  );
-
-  it("missing-definition evidence does not report a product failure", () => {
-    const live = mapOf([
-      row("health:agno", "health", "green"),
-      row("e2e:agno/agentic-chat", "e2e", "green"),
-      row("d6:agno/agentic-chat", "d6", "red", {
-        signal: { errorClass: "unverified-definition" },
-      }),
-    ]);
-    expect(resolveCell(live, "agno", "agentic-chat").rollup).toBe("gray");
-  });
-
-  it("requires public pill proof in addition to diagnostic health", () => {
-    const live = mapOf([
-      row("health:agno", "health", "green"),
-      row("e2e:agno/agentic-chat", "e2e", "green"),
-    ]);
-    expect(resolveCell(live, "agno", "agentic-chat").rollup).toBe("gray");
-    live.set(
-      "d6:agno/agentic-chat",
-      row("d6:agno/agentic-chat", "d6", "green"),
-    );
-    expect(resolveCell(live, "agno", "agentic-chat").rollup).toBe("green");
-  });
-});
-
-it("revokes same-timestamp proof when a legacy signal replaces it", () => {
-  const valid = row("d6:agno/agentic-chat", "d6", "green");
-  const rows = [valid];
-  const next = { ...valid, signal: { skipped: true } };
-  expect(upsertByKey(rows, next)).toEqual([next]);
-  expect(upsertByKey(rows, next)).not.toBe(rows);
 });

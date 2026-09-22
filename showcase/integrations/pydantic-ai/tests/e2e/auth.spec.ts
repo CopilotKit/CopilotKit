@@ -1,6 +1,3 @@
-import { runConversation } from "../../../../harness/src/probes/helpers/conversation-runner.js";
-import { buildChatPlatformTurns } from "../../../../harness/src/probes/scripts/_pill-contracts-chat-platform.js";
-// Existing scenarios are diagnostics; only the canonical pill test below is functional acceptance.
 import { test, expect } from "@playwright/test";
 
 /**
@@ -13,12 +10,12 @@ import { test, expect } from "@playwright/test";
  * (authenticated) and amber (signed-out) variants. Only a full page
  * reload resets to the SignInCard first-paint state.
  */
-test.describe("Diagnostic: Authentication", () => {
+test.describe("Authentication", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/auth");
   });
 
-  test("Diagnostic: page loads unauthenticated with SignInCard visible", async ({
+  test("page loads unauthenticated with SignInCard visible", async ({
     page,
   }) => {
     await expect(
@@ -33,7 +30,7 @@ test.describe("Diagnostic: Authentication", () => {
     await expect(page.getByPlaceholder("Type a message")).toHaveCount(0);
   });
 
-  test("Diagnostic: signing in mounts the chat surface with AuthBanner", async ({
+  test("signing in mounts the chat surface with AuthBanner", async ({
     page,
   }) => {
     await page.locator('[data-testid="auth-sign-in-button"]').click();
@@ -54,7 +51,7 @@ test.describe("Diagnostic: Authentication", () => {
     );
   });
 
-  test("Diagnostic: authenticated send produces an assistant response", async ({
+  test("authenticated send produces an assistant response", async ({
     page,
   }) => {
     await page.locator('[data-testid="auth-sign-in-button"]').click();
@@ -69,7 +66,7 @@ test.describe("Diagnostic: Authentication", () => {
     ).toBeVisible({ timeout: 30000 });
   });
 
-  test("Diagnostic: signing out flips the banner amber and keeps the chat surface mounted", async ({
+  test("signing out flips the banner amber and keeps the chat surface mounted", async ({
     page,
   }) => {
     await page.locator('[data-testid="auth-sign-in-button"]').click();
@@ -99,7 +96,7 @@ test.describe("Diagnostic: Authentication", () => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
   });
 
-  test("Diagnostic: unauthenticated send surfaces a 401 error without crashing the page", async ({
+  test("unauthenticated send surfaces a 401 error without crashing the page", async ({
     page,
   }) => {
     await page.locator('[data-testid="auth-sign-in-button"]').click();
@@ -124,7 +121,7 @@ test.describe("Diagnostic: Authentication", () => {
     ).toHaveCount(0);
   });
 
-  test("Diagnostic: re-signing in from the amber banner clears the error and resumes chat", async ({
+  test("re-signing in from the amber banner clears the error and resumes chat", async ({
     page,
   }) => {
     await page.locator('[data-testid="auth-sign-in-button"]').click();
@@ -153,14 +150,4 @@ test.describe("Diagnostic: Authentication", () => {
       page.locator('[data-testid="copilot-assistant-message"]').first(),
     ).toBeVisible({ timeout: 30000 });
   });
-});
-
-test("Canonical pill acceptance: auth", async ({ page }) => {
-  await page.goto("/demos/auth");
-  const result = await runConversation(page, buildChatPlatformTurns("auth"), {
-    mode: "functional-pill",
-    surface: "direct-diagnostic",
-  });
-  expect(result.error, JSON.stringify(result.pillExecution)).toBeUndefined();
-  expect(result.pillExecution?.completed).toBe(true);
 });

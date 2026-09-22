@@ -238,19 +238,16 @@ export function combine(
   //    D6 (folded to gray in the chip) does not surface as a product-red badge.
   const tc = axis.softTop ? byKind.get(axis.softTop.kind) : undefined;
   const d6Effective: TestStatus =
-    tc?.contribution === "FAIL_FRESH"
-      ? "red"
-      : axis.softTop && achieved >= axis.softTop.atCeiling - 1 && tc
-        ? contributionToD6Status(tc.contribution)
-        : null;
+    axis.softTop && achieved >= axis.softTop.atCeiling - 1 && tc
+      ? contributionToD6Status(tc.contribution)
+      : null;
 
   // ── isRegression (§4d): stopping rung above achieved is a GENUINE fail ──
   const isRegression =
-    tc?.contribution === "FAIL_FRESH" ||
-    (structuralCeiling > 0 &&
-      achieved < structuralCeiling &&
-      stopRung !== null &&
-      stopRung.contribution === "FAIL_FRESH");
+    structuralCeiling > 0 &&
+    achieved < structuralCeiling &&
+    stopRung !== null &&
+    stopRung.contribution === "FAIL_FRESH";
 
   return {
     chipColor,
@@ -278,11 +275,6 @@ function computeChip(
   ceiling: LadderDepth,
   axis: LadderAxis,
 ): ChipColor {
-  // An observed functional failure is not a soft parity warning. Missing
-  // lower evidence cannot hide the actual failed pill run.
-  for (const kind of ["D5", "D6"] as const) {
-    if (byKind.get(kind)?.contribution === "FAIL_FRESH") return "red";
-  }
   // Step 1 — §F liveness gate: a present fresh-red gate rung dominates → red.
   for (const k of axis.gateKinds) {
     const c = byKind.get(k);

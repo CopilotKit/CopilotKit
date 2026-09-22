@@ -48,8 +48,8 @@ describe("D5 subagents script — buildTurns", () => {
       baseUrl: "https://showcase-langgraph-python.example.com",
     };
     const turns = scriptModule.buildTurns(ctx);
-    expect(turns).toHaveLength(3);
-    expect(turns[0]!.action?.buttonName).toBe("Write a blog post");
+    expect(turns).toHaveLength(1);
+    expect(turns[0]!.input).toBe(scriptModule.USER_PROMPT);
     expect(typeof turns[0]!.assertions).toBe("function");
   });
 });

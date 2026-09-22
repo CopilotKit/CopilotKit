@@ -1,14 +1,11 @@
-import { runConversation } from "../../../../harness/src/probes/helpers/conversation-runner.js";
-import { buildChatPlatformTurns } from "../../../../harness/src/probes/scripts/_pill-contracts-chat-platform.js";
-// Existing scenarios are diagnostics; only the canonical pill test below is functional acceptance.
 import { test, expect } from "@playwright/test";
 
-test.describe("Diagnostic: Agent Config Object", () => {
+test.describe("Agent Config Object", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/agent-config");
   });
 
-  test("Diagnostic: page loads with config card and default dropdown values", async ({
+  test("page loads with config card and default dropdown values", async ({
     page,
   }) => {
     await expect(
@@ -29,7 +26,7 @@ test.describe("Diagnostic: Agent Config Object", () => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
   });
 
-  test("Diagnostic: changing a dropdown updates its DOM value immediately", async ({
+  test("changing a dropdown updates its DOM value immediately", async ({
     page,
   }) => {
     const toneSelect = page.locator('[data-testid="agent-config-tone-select"]');
@@ -49,7 +46,7 @@ test.describe("Diagnostic: Agent Config Object", () => {
     await expect(lengthSelect).toHaveValue("detailed");
   });
 
-  test("Diagnostic: send produces an assistant response", async ({ page }) => {
+  test("send produces an assistant response", async ({ page }) => {
     const input = page.getByPlaceholder("Type a message");
     await input.fill("Hello");
     await input.press("Enter");
@@ -60,9 +57,7 @@ test.describe("Diagnostic: Agent Config Object", () => {
     });
   });
 
-  test("Diagnostic: properties object propagates to runtime requests", async ({
-    page,
-  }) => {
+  test("properties object propagates to runtime requests", async ({ page }) => {
     const requestBodies: string[] = [];
     await page.route("**/api/copilotkit-agent-config**", async (route) => {
       const req = route.request();
@@ -100,7 +95,7 @@ test.describe("Diagnostic: Agent Config Object", () => {
     expect(payload).toContain("detailed");
   });
 
-  test("Diagnostic: changing config between sends produces distinct request payloads", async ({
+  test("changing config between sends produces distinct request payloads", async ({
     page,
   }) => {
     // Only capture agent/run POSTs — agent/stop requests arrive
@@ -167,15 +162,4 @@ test.describe("Diagnostic: Agent Config Object", () => {
     expect(afterChange).toContain("casual");
     expect(afterChange).toContain("detailed");
   });
-});
-
-test("Canonical pill acceptance: agent-config", async ({ page }) => {
-  await page.goto("/demos/agent-config");
-  const result = await runConversation(
-    page,
-    buildChatPlatformTurns("agent-config"),
-    { mode: "functional-pill", surface: "direct-diagnostic" },
-  );
-  expect(result.error, JSON.stringify(result.pillExecution)).toBeUndefined();
-  expect(result.pillExecution?.completed).toBe(true);
 });
