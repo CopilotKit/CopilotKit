@@ -1872,14 +1872,14 @@ samp {
         #000 var(--shell-docs-sidebar-mask-edge),
         transparent var(--shell-docs-sidebar-mask-edge)
       ),
-      linear-gradient(to bottom, transparent, #000 28px);
+      linear-gradient(to bottom, rgb(0 0 0 / 65%), #000 18px);
     mask-image:
       linear-gradient(
         to right,
         #000 var(--shell-docs-sidebar-mask-edge),
         transparent var(--shell-docs-sidebar-mask-edge)
       ),
-      linear-gradient(to bottom, transparent, #000 28px);
+      linear-gradient(to bottom, rgb(0 0 0 / 65%), #000 18px);
     -webkit-mask-composite: source-over;
     mask-composite: add;
   }
