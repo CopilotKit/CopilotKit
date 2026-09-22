@@ -5,9 +5,9 @@ import {
   BarChart3,
   Brain,
   Hash,
+  Lightbulb,
   MessagesSquare,
   SearchCheck,
-  Sparkles,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
 
@@ -39,7 +39,7 @@ const FEATURES = [
     title: "Automatic Learning",
     body: "Turn real usage into skills you can review and publish.",
     href: "/learning",
-    icon: Sparkles,
+    icon: Lightbulb,
   },
   {
     title: "Product Analytics",
@@ -122,7 +122,7 @@ export function IntelligenceOverview() {
                 href={CONNECT_HREF}
                 fromPath="/intelligence/overview"
                 variant="secondary"
-                label="Connect an app"
+                label="Quickstart"
               />
             }
           />

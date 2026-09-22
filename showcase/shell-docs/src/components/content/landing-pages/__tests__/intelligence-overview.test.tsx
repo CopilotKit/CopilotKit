@@ -40,8 +40,8 @@ describe("IntelligenceOverview", () => {
     ).toBeNull();
     expect(screen.getByRole("button", { name: /^copy prompt$/i })).toBeTruthy();
 
-    const connect = screen.getByRole("link", { name: /connect an app/i });
-    expect(connect.getAttribute("href")).toBe("/intelligence/quickstart");
+    const quickstart = screen.getByRole("link", { name: /^quickstart$/i });
+    expect(quickstart.getAttribute("href")).toBe("/intelligence/quickstart");
   });
 
   it("swallows autoplay rejection so the page still renders", async () => {

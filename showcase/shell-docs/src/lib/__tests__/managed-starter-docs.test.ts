@@ -17,7 +17,7 @@ const MANAGED_RUNTIME_GUIDES = [
   "docs/intelligence/quickstart.mdx",
   "snippets/shared/threads/headless-threads.mdx",
 ];
-const MANAGED_DASHBOARD_URL = "https://dashboard.operations.copilotkit.ai/";
+const INTELLIGENCE_APP_URL = "https://intelligence.copilotkit.ai/";
 
 /** Reads managed-onboarding docs as whitespace-normalized contract fixtures. */
 function readSources(relativePaths: readonly string[]): string[] {
@@ -94,13 +94,13 @@ test("removes automatic-Free promises from managed onboarding calls to action", 
   }
 });
 
-test("points managed onboarding calls to action at the hosted dashboard", () => {
+test("points managed onboarding calls to action at CopilotKit Intelligence", () => {
   for (const source of readSources(MANAGED_CTA_SOURCES)) {
     const managedCta = source.match(
       /<OpsPlatformCTA[^>]*ctaLabel="Start cloud-hosted setup"[^>]*\/>/,
     )?.[0];
 
-    expect(managedCta).toContain(`href="${MANAGED_DASHBOARD_URL}"`);
+    expect(managedCta).toContain(`href="${INTELLIGENCE_APP_URL}"`);
   }
 });
 
