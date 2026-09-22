@@ -1,0 +1,20 @@
+{
+  "$comment": "Append-only. Maps each ONBOARDING_ARGUMENT_VERSION to the argument sentence templates it hashed, so a wording emitted in telemetry can be read back without walking git history. Maintained by onboarding-argument-templates.test.ts; never edit or remove an existing entry.",
+  "versions": {
+    "90b0c15f555f": {
+      "recordedAt": "2026-09-22",
+      "templates": {
+        "framework": " I use the <name> agent framework (`<slug>`).",
+        "frontend": " I use the <name> frontend (`<slug>`).",
+        "wizardChannelsFrontend": " I want to connect my agent to <name> using CopilotKit Channels. Follow the channel setup documentation at https://docs.copilotkit.ai/<id>.",
+        "wizardProjectExisting": " I already have an existing project and want CopilotKit added to it.",
+        "wizardProjectNew": " I am starting a brand new project.",
+        "wizardAgentExisting": " I already have a <name> agent. Connect that existing agent without replacing it.",
+        "wizardAgentNew": " I need a new <name> agent. Create it as part of the setup.",
+        "wizardFeatures": " I also want these CopilotKit features set up: <titles>.",
+        "pageSource": " I copied this prompt from <url>.",
+        "pageTask": " My goal for this quickstart is: <task> Follow the linked guide for this framework and frontend."
+      }
+    }
+  }
+}
