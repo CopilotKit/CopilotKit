@@ -624,6 +624,12 @@
   opacity: 1;
 }
 
+/* Virtual rows must measure actual code-block heights, including overscan.
+   Streamdown's offscreen placeholder otherwise changes height as it enters view. */
+[data-copilotkit-virtual-message] [data-streamdown="code-block"] {
+  content-visibility: visible !important;
+}
+
 /* ─── Keyframes ─────────────────────────────────────────────────────── */
 
 @keyframes cpk-intelligence-spin {

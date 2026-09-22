@@ -8,6 +8,10 @@ import React, {
   useState,
 } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import {
+  estimateMessageHeight,
+  shouldAdjustMessageScroll,
+} from "./virtual-message-layout";
 import { ScrollElementContext } from "./scroll-element-context";
 import type { WithSlots } from "../../lib/slots";
 import { renderSlot, isReactComponentType } from "../../lib/slots";
@@ -619,15 +623,20 @@ export function CopilotChatMessageView({
     // count=0 disables the virtualizer without changing hook call order.
     count: shouldVirtualize ? deduplicatedMessages.length : 0,
     getScrollElement: () => scrollElement,
-    // Conservative height estimate. Items are measured by ResizeObserver after
-    // first render so the estimate only affects the initial total height.
-    estimateSize: () => 100,
+    estimateSize: (index) =>
+      estimateMessageHeight(
+        deduplicatedMessages[index]!,
+        scrollElement?.clientWidth ?? 600,
+      ),
     overscan: 5,
     measureElement: (el: Element) => el?.getBoundingClientRect().height ?? 0,
     // Assume a 600 px viewport before the real element is measured so that
     // the first virtual render shows ~6 items rather than 0.
     initialRect: { width: 0, height: 600 },
   });
+
+  virtualizer.shouldAdjustScrollPositionOnItemSizeChange =
+    shouldAdjustMessageScroll;
 
   // Scroll to the bottom when virtual mode first activates or the thread changes
   // (detected by the first message ID changing). For streaming new messages,
@@ -786,7 +795,11 @@ export function CopilotChatMessageView({
         // Virtual path: only visible items are in the DOM; outer div maintains
         // total scroll height so the scrollbar reflects the full list size.
         <div
-          style={{ height: virtualizer.getTotalSize(), position: "relative" }}
+          style={{
+            height: virtualizer.getTotalSize(),
+            position: "relative",
+            overflowAnchor: "none",
+          }}
         >
           {virtualizer.getVirtualItems().map((virtualItem) => {
             const message = deduplicatedMessages[virtualItem.index]!;
@@ -794,6 +807,7 @@ export function CopilotChatMessageView({
               <div
                 key={rowRenderKeys.get(message.id) ?? message.id}
                 data-index={virtualItem.index}
+                data-copilotkit-virtual-message=""
                 ref={virtualizer.measureElement}
                 style={{
                   position: "absolute",
