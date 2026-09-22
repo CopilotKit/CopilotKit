@@ -2859,6 +2859,13 @@ export class CpkThreadInspector extends PortableLitElement {
       flex-direction: column;
       gap: 12px;
     }
+    .cpk-td__panel--conversation {
+      width: 100%;
+      max-width: 800px;
+      min-width: 0;
+      margin-inline: auto;
+    }
+
     .cpk-td__panel > * {
       flex-shrink: 0;
     }
@@ -4904,7 +4911,7 @@ export class CpkThreadInspector extends PortableLitElement {
               this._activatedTabs.has(tab.id)
                 ? html`<div
                     id=${this.panelDomId(tab.id)}
-                    class="cpk-td__panel"
+                    class="cpk-td__panel ${tab.id === "timeline" && !this._showEventTimeline && this._conversation.length > 0 ? "cpk-td__panel--conversation" : ""}"
                     role="tabpanel"
                     aria-labelledby=${this.tabDomId(tab.id)}
                     ?hidden=${this._tab !== tab.id || this._panelInitializing}
