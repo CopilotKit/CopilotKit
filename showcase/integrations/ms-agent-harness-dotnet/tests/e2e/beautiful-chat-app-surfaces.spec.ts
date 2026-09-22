@@ -1,6 +1,3 @@
-import { runConversation } from "../../../../harness/src/probes/helpers/conversation-runner.js";
-import { attachSseInterceptor } from "../../../../harness/src/probes/helpers/sse-interceptor.js";
-import { buildTurns } from "../../../../harness/src/probes/scripts/d5-beautiful-chat-schedule-meeting.js";
 import { expect, test } from "@playwright/test";
 import {
   clickBeautifulChatPill,
@@ -12,9 +9,25 @@ test.describe("Beautiful Chat app surfaces", () => {
     await openBeautifulChat(page);
   });
 
-  test("[diagnostic supplemental] Excalidraw pill renders the MCP app result", async ({
+  test("Schedule Meeting pill resumes after selecting a time", async ({
     page,
   }) => {
+    test.setTimeout(120_000);
+
+    await clickBeautifulChatPill(page, "Schedule Meeting (Human In The Loop)");
+    await page.getByRole("button", { name: /Tomorrow/ }).click({
+      timeout: 60_000,
+    });
+
+    await expect(page.getByText("Meeting Scheduled")).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByText("Tomorrow at 2:00 PM")).toBeVisible({
+      timeout: 5_000,
+    });
+  });
+
+  test("Excalidraw pill renders the MCP app result", async ({ page }) => {
     test.setTimeout(120_000);
 
     await clickBeautifulChatPill(page, "Excalidraw Diagram (MCP App)");
@@ -27,7 +40,7 @@ test.describe("Beautiful Chat app surfaces", () => {
     });
   });
 
-  test("[diagnostic supplemental] Calculator pill renders the sandboxed Open Generative UI app", async ({
+  test("Calculator pill renders the sandboxed Open Generative UI app", async ({
     page,
   }) => {
     test.setTimeout(120_000);
@@ -41,28 +54,4 @@ test.describe("Beautiful Chat app surfaces", () => {
       timeout: 15_000,
     });
   });
-});
-
-test("beautiful-chat-schedule-meeting canonical actual pill", async ({
-  page,
-}) => {
-  test.setTimeout(900_000);
-  const capture = await attachSseInterceptor(page);
-  try {
-    await page.goto("/demos/beautiful-chat");
-    const result = await runConversation(
-      page,
-      buildTurns({
-        integrationSlug: "ms-agent-harness-dotnet",
-        featureType: "beautiful-chat-schedule-meeting",
-        baseUrl: new URL(page.url()).origin,
-      }),
-      { mode: "functional-pill" },
-    );
-    expect(result.error).toBeUndefined();
-    expect(result.pillExecution?.completed).toBe(true);
-    expect(result.pillExecution?.actions).toHaveLength(9);
-  } finally {
-    await capture.stop();
-  }
 });

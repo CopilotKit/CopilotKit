@@ -36,7 +36,6 @@ RUN AG_UI_SHA="$(tr -d '[:space:]' < /tmp/.ag-ui-sha)" && \
 
 COPY src/main/java/ src/main/java/
 COPY src/main/resources/ src/main/resources/
-COPY data/ data/
 RUN mvn package -DskipTests -B
 
 # Stage 2: Build Next.js frontend

@@ -54,8 +54,6 @@ from ag_ui.core import (
 from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from ._header_forwarding import install_httpx_hook
-
 logger = logging.getLogger(__name__)
 
 
@@ -322,7 +320,6 @@ async def handle_run(request: Request) -> StreamingResponse:
 
         try:
             client = openai.AsyncOpenAI()
-            install_httpx_hook(client)
             stream = await client.chat.completions.create(
                 model=model,
                 messages=oai_messages,

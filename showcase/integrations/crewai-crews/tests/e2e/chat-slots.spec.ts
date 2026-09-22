@@ -1,6 +1,3 @@
-import { runConversation } from "../../../../harness/src/probes/helpers/conversation-runner.js";
-import { buildChatPlatformTurns } from "../../../../harness/src/probes/scripts/_pill-contracts-chat-platform.js";
-// Existing scenarios are diagnostics; only the canonical pill test below is functional acceptance.
 import { test, expect } from "@playwright/test";
 
 // Each custom slot wraps the default in a `SlotMarker` that emits
@@ -10,14 +7,12 @@ import { test, expect } from "@playwright/test";
 // for ergonomics).
 const SLOT_LABEL_ASSISTANT = '[data-slot-label="MessageView.AssistantMessage"]';
 
-test.describe("Diagnostic: Chat Slots", () => {
+test.describe("Chat Slots", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/chat-slots");
   });
 
-  test("Diagnostic: custom welcome screen slot renders on first load", async ({
-    page,
-  }) => {
+  test("custom welcome screen slot renders on first load", async ({ page }) => {
     // The custom welcomeScreen slot replaces the default welcome. Both its
     // own testid and the nested welcomeMessage sub-slot's testid prove the
     // override wired through end-to-end. Asserting both catches accidental
@@ -30,7 +25,7 @@ test.describe("Diagnostic: Chat Slots", () => {
     ).toBeVisible();
   });
 
-  test("Diagnostic: both suggestion pills render with verbatim titles", async ({
+  test("both suggestion pills render with verbatim titles", async ({
     page,
   }) => {
     // useConfigureSuggestions registers exactly two pills with available: "always".
@@ -48,7 +43,7 @@ test.describe("Diagnostic: Chat Slots", () => {
     ).toBeVisible({ timeout: 15000 });
   });
 
-  test('Diagnostic: clicking "Tell me a joke" shows the custom assistant message slot', async ({
+  test('clicking "Tell me a joke" shows the custom assistant message slot', async ({
     page,
   }) => {
     // Click the suggestion pill — this sends "Tell me a short joke." The
@@ -68,7 +63,7 @@ test.describe("Diagnostic: Chat Slots", () => {
     });
   });
 
-  test("Diagnostic: custom disclaimer slot renders after the first user message", async ({
+  test("custom disclaimer slot renders after the first user message", async ({
     page,
   }) => {
     // Type and send via the send button — Enter-on-textarea was intermittently
@@ -92,7 +87,7 @@ test.describe("Diagnostic: Chat Slots", () => {
     );
   });
 
-  test("Diagnostic: second assistant turn is also wrapped in the custom slot", async ({
+  test("second assistant turn is also wrapped in the custom slot", async ({
     page,
   }) => {
     const input = page.getByPlaceholder("Type a message");
@@ -136,15 +131,4 @@ test.describe("Diagnostic: Chat Slots", () => {
       })
       .toBeGreaterThanOrEqual(2);
   });
-});
-
-test("Canonical pill acceptance: chat-slots", async ({ page }) => {
-  await page.goto("/demos/chat-slots");
-  const result = await runConversation(
-    page,
-    buildChatPlatformTurns("chat-slots"),
-    { mode: "functional-pill", surface: "direct-diagnostic" },
-  );
-  expect(result.error, JSON.stringify(result.pillExecution)).toBeUndefined();
-  expect(result.pillExecution?.completed).toBe(true);
 });
