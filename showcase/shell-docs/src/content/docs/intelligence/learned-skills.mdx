@@ -58,6 +58,8 @@ TypeScript uses the canonical client from `@copilotkit/runtime/v2`. Python uses 
 
 These adapters require the server and canonical client releases described below.
 
+Each example shows an optional revision pin. Replace `"exact-revision-id"` with a published revision ID, or remove that parameter to use the environment fallback. If neither code nor environment specifies a revision, the adapter follows the latest published Skills. The SDK does not support `"auto"` as a special value.
+
 ### BuiltInAgent
 
 Configure `learnedSkills` directly on `BuiltInAgent`. No wrapper or separate adapter package is required.
@@ -73,7 +75,7 @@ const agent = new BuiltInAgent({
   learnedSkills: {
     // Set these here, or omit them to use environment variables (linked above).
     containerId: "support-learning",
-    // revision: "exact-revision-id", // Optional: pin a published revision.
+    revision: "exact-revision-id", // Optional: pin a published revision.
   },
 });
 ```
@@ -101,7 +103,7 @@ const agent = new BuiltInAgent({
   learnedSkills: {
     // Set these here, or omit them to use environment variables (linked above).
     containerId: "support-learning",
-    // revision: "exact-revision-id", // Optional: pin a published revision.
+    revision: "exact-revision-id", // Optional: pin a published revision.
   },
   factory: ({ input, abortSignal, learnedSkills }) =>
     streamText({
@@ -149,7 +151,7 @@ async def main():
     skills = create_skill_registry_middleware(
         # Set these here, or omit them to use environment variables (linked above).
         container_id="support-learning",
-        # revision="exact-revision-id",  # Optional: pin a published revision.
+        revision="exact-revision-id",  # Optional: pin a published revision.
     )  # Uses the environment above for the project key.
     try:
         await skills.initialize()
@@ -194,7 +196,7 @@ import {
 const registry = new SkillRegistry({
   // Set these here, or omit them to use environment variables (linked above).
   containerId: "support-learning",
-  // revision: "exact-revision-id", // Optional: pin a published revision.
+  revision: "exact-revision-id", // Optional: pin a published revision.
 }); // Uses the environment above for the project key.
 await registry.initialize(); // Catch this error in your application's startup code.
 const skills = createSkillRegistryMiddleware({ registry });
@@ -242,7 +244,7 @@ import {
 const registry = new SkillRegistry({
   // Set these here, or omit them to use environment variables (linked above).
   containerId: "support-learning",
-  // revision: "exact-revision-id", // Optional: pin a published revision.
+  revision: "exact-revision-id", // Optional: pin a published revision.
 }); // Uses the environment above for the project key.
 await registry.initialize(); // Catch this error in your application's startup code.
 const skills = createSkillRegistryProcessor({ registry });
@@ -293,7 +295,7 @@ async def main():
     registry = SkillRegistry(
         # Set these here, or omit them to use environment variables (linked above).
         container_id="support-learning",
-        # revision="exact-revision-id",  # Optional: pin a published revision.
+        revision="exact-revision-id",  # Optional: pin a published revision.
     )
     try:
         await registry.initialize()
@@ -339,7 +341,7 @@ using var skills = new SkillRegistryContextProvider(new SkillRegistryOptions
 {
     // Set these here, or omit them to use environment variables (linked above).
     ContainerId = "support-learning",
-    // Revision = "exact-revision-id", // Optional: pin a published revision.
+    Revision = "exact-revision-id", // Optional: pin a published revision.
 });
 await skills.InitializeAsync();
 var agent = skills.CreateAgent(chatClient, new ChatClientAgentOptions
@@ -393,7 +395,7 @@ const registry = new SkillRegistry({
   client: intelligence,
   // Set these here, or omit them to use environment variables (linked above).
   containerId: "support-learning",
-  // revision: "exact-revision-id", // Optional: pin a published revision.
+  revision: "exact-revision-id", // Optional: pin a published revision.
 });
 await registry.initialize();
 ```
