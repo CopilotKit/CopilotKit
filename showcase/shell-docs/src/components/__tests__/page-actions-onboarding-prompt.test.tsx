@@ -303,6 +303,7 @@ it("reports the shared onboarding event with the graph's framework slug", async 
   expect(properties).toEqual({
     action: "copy",
     argument_version: "90b0c15f555f",
+    argument_text: expect.stringContaining("framework:"),
     from_path: "/mastra/generative-ui",
     onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
     surface: "docs_page_tools_onboarding_prompt",
@@ -331,6 +332,7 @@ it("omits the framework property entirely when the graph has no slug", async () 
       .sort(),
   ).toEqual([
     "action",
+    "argument_text",
     "argument_version",
     "from_path",
     "onboarding_run_id",
@@ -650,6 +652,7 @@ it("reports the frontend property with the graph's slug", async () => {
   expect(analytics.capture.mock.calls[0][1]).toEqual({
     action: "copy",
     argument_version: "90b0c15f555f",
+    argument_text: expect.stringContaining("framework:"),
     from_path: "/mastra/generative-ui",
     onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
     surface: "docs_page_tools_onboarding_prompt",
@@ -687,6 +690,7 @@ it("reports a channel page on the channel axis, never the frontend one", async (
   ).toEqual([
     "action",
     "agent_framework",
+    "argument_text",
     "argument_version",
     "channel",
     "from_path",
@@ -720,6 +724,7 @@ it("records click intent before a failed copy with framework and frontend contex
   expect(properties).toEqual({
     action: "copy",
     argument_version: "90b0c15f555f",
+    argument_text: expect.stringContaining("framework:"),
     from_path: "/mastra/generative-ui",
     onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
     surface: "docs_page_tools_onboarding_prompt",

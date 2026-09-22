@@ -1,4 +1,8 @@
-"use client";
+import {
+  ONBOARDING_ARGUMENT_TEXT,
+  ONBOARDING_ARGUMENT_VERSION,
+} from "@/lib/onboarding-argument-templates";
+("use client");
 
 import { useHomepageTelemetry } from "@/lib/use-homepage-telemetry";
 
@@ -65,7 +69,7 @@ import type {
 } from "@/lib/wizard-step-transition";
 import { onboardingFrameworkSlug } from "@/lib/intelligence-onboarding-framework";
 import { composeWizardOnboardingPrompt } from "@/lib/wizard-onboarding-prompt";
-import { ONBOARDING_ARGUMENT_VERSION } from "@/lib/onboarding-argument-templates";
+
 import {
   createOnboardingRunId,
   INTELLIGENCE_ONBOARDING_EVENTS,
@@ -591,6 +595,7 @@ export function SetupWizard({
       // hosted document versions its own text; this is the other half
       // of what the developer copied (PE-255).
       argument_version: ONBOARDING_ARGUMENT_VERSION,
+      argument_text: ONBOARDING_ARGUMENT_TEXT,
     });
     resetTimerRef.current = setTimeout(() => {
       if (mountedRef.current) setCopyState("idle");

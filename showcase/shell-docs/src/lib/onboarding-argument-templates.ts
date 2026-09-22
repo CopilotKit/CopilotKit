@@ -58,3 +58,23 @@ export const ARGUMENT_TEMPLATES = {
  * than a silent measurement gap.
  */
 export const ONBOARDING_ARGUMENT_VERSION = "90b0c15f555f";
+
+/**
+ * The wording behind that version, emitted beside it.
+ *
+ * Serialised exactly as the hash consumes it -- `key:template` per line, keys
+ * sorted -- so the text verifies its own version rather than merely
+ * accompanying it.
+ *
+ * Emitted rather than kept in a manifest: at 650 bytes on events running about
+ * 120 a day, the manifest saved roughly 25 MB a year and cost a dependency
+ * across three repositories. It also could not describe wording served from a
+ * deploy no repository state matches. Measured before choosing (PE-255).
+ */
+export const ONBOARDING_ARGUMENT_TEXT = Object.keys(ARGUMENT_TEMPLATES)
+  .sort()
+  .map(
+    (key) =>
+      `${key}:${ARGUMENT_TEMPLATES[key as keyof typeof ARGUMENT_TEMPLATES]}`,
+  )
+  .join("\n");

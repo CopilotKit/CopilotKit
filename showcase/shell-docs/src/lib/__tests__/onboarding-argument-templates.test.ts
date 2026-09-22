@@ -1,6 +1,4 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   ARGUMENT_TEMPLATES,
@@ -56,52 +54,5 @@ describe("onboarding argument templates", () => {
     for (const template of Object.values(ARGUMENT_TEMPLATES)) {
       expect(template).not.toMatch(/\bThe developer\b|\bThey \b|\bTheir\b/);
     }
-  });
-});
-
-/**
- * The wording each version hashed, so a value emitted in telemetry can be read
- * back.
- *
- * A hash is one-way. Without this the wording behind a past `argument_version`
- * is recoverable only by walking git history and recomputing at every commit,
- * which works but is archaeology nobody will do while looking at a chart. The
- * manifest is append-only and costs nothing per event, unlike shipping the
- * text on every capture.
- */
-describe("the wording manifest", () => {
-  const manifest = JSON.parse(
-    readFileSync(
-      path.join(process.cwd(), "src/lib/onboarding-argument-wordings.json"),
-      "utf8",
-    ),
-  ) as {
-    versions: Record<
-      string,
-      { recordedAt: string; templates: Record<string, string> }
-    >;
-  };
-
-  it("records the version now in force, with the exact templates it hashed", () => {
-    const entry = manifest.versions[ONBOARDING_ARGUMENT_VERSION];
-
-    expect(entry).toBeDefined();
-    expect(entry.templates).toEqual({ ...ARGUMENT_TEMPLATES });
-  });
-
-  // Self-validating history: every stored entry must hash to its own key, so a
-  // past wording cannot be quietly edited to say something it never said.
-  it("keeps every past entry consistent with the key it is filed under", () => {
-    for (const [version, entry] of Object.entries(manifest.versions)) {
-      const hash = createHash("sha256");
-      for (const key of Object.keys(entry.templates).sort()) {
-        hash.update(`${key}:${entry.templates[key]}\n`);
-      }
-      expect(hash.digest("hex").slice(0, 12)).toBe(version);
-    }
-  });
-
-  it("never drops a version, so history stays readable", () => {
-    expect(Object.keys(manifest.versions).length).toBeGreaterThanOrEqual(1);
   });
 });

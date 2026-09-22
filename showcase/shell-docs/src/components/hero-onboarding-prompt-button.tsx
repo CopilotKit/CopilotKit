@@ -1,4 +1,8 @@
-"use client";
+import {
+  ONBOARDING_ARGUMENT_TEXT,
+  ONBOARDING_ARGUMENT_VERSION,
+} from "@/lib/onboarding-argument-templates";
+("use client");
 
 // <HeroOnboardingPromptButton> — the compact hero twin of
 // <IntelligenceOnboardingPrompt>. Same prompt, same run id, same PostHog event
@@ -9,7 +13,7 @@ import React from "react";
 import { PromptPill } from "./prompt-pill";
 import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
-import { ONBOARDING_ARGUMENT_VERSION } from "@/lib/onboarding-argument-templates";
+
 import {
   frameworkPromptSuffix,
   onboardingFrameworkSlug,
@@ -59,6 +63,7 @@ export function HeroOnboardingPromptButton({
                 surface,
                 agent_framework: graphFramework,
                 argument_version: ONBOARDING_ARGUMENT_VERSION,
+                argument_text: ONBOARDING_ARGUMENT_TEXT,
               },
             ),
           onCopied: (action) =>
@@ -72,6 +77,7 @@ export function HeroOnboardingPromptButton({
               // document versions its own text; this is the other half of what
               // the developer copied (PE-255).
               argument_version: ONBOARDING_ARGUMENT_VERSION,
+              argument_text: ONBOARDING_ARGUMENT_TEXT,
             }),
         };
       }}
