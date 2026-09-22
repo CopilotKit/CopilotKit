@@ -9,7 +9,6 @@ import com.copilotkit.showcase.springai.tools.GetSalesTodosTool;
 import com.copilotkit.showcase.springai.tools.ManageSalesTodosTool;
 import com.copilotkit.showcase.springai.tools.SearchFlightsTool;
 import com.copilotkit.showcase.springai.tools.GetStockPriceTool;
-import com.copilotkit.showcase.springai.tools.GetRevenueChartTool;
 import com.copilotkit.showcase.springai.tools.RollD20Tool;
 import com.copilotkit.showcase.springai.tools.GenerateA2uiTool;
 import org.springframework.ai.chat.model.ChatModel;
@@ -55,8 +54,7 @@ public class AgentConfig {
                     these are provided by the frontend — use them when relevant to the user's request.
                     When asked to plan or create steps, use the generate_task_steps tool.
                     When asked about weather, use the get_weather tool.
-                    When asked for a revenue chart, use the get_revenue_chart tool.
-                    For other data, charts, or analytics, use the query_data tool.
+                    When asked about data, charts, or analytics, use the query_data tool.
                     When asked to schedule a meeting, use the schedule_meeting tool.
                     When asked about the sales pipeline or deals, use get_sales_todos first.
                     When asked to search for flights, use the search_flights tool.
@@ -104,12 +102,6 @@ public class AgentConfig {
                     FunctionToolCallback.builder("get_stock_price", new GetStockPriceTool())
                         .description("Get a mock current price for a stock ticker")
                         .inputType(GetStockPriceTool.Request.class)
-                        .build()
-                )
-                .toolCallback(
-                    FunctionToolCallback.builder("get_revenue_chart", new GetRevenueChartTool())
-                        .description("Get the shared six-month revenue chart, including title, subtitle, and monthly data points")
-                        .inputType(GetRevenueChartTool.Request.class)
                         .build()
                 )
                 .toolCallback(

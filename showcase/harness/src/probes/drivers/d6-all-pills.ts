@@ -180,14 +180,6 @@ export interface E2eFullFeatureSignal {
  * skips apart from operational ones.
  */
 export interface E2eFullAggregateSignal {
-  scope?: {
-    requested: string[];
-    selected: string[];
-    excluded: string[];
-    executed: string[];
-    missingScript: string[];
-    skipped: string[];
-  };
   shape: "package";
   slug: string;
   backendUrl: string;
@@ -895,34 +887,6 @@ export function createE2eFullDriver(
         );
       }
 
-      // Operator selection precedes every classification and side effect.
-      const filtered = Boolean(ctx.featureTypes?.length);
-      const originalFeatures = [...requestedFeatures];
-      const allowedFeatures = new Set(ctx.featureTypes);
-      const excludedFeatures = filtered
-        ? requestedFeatures.filter((ft) => !allowedFeatures.has(ft))
-        : [];
-      if (filtered) {
-        requestedFeatures = requestedFeatures.filter((ft) =>
-          allowedFeatures.has(ft),
-        );
-      }
-      const executedFeatures: string[] = [];
-      const missingFeatures: string[] = [];
-      const withScope = (result: ProbeResult<E2eFullAggregateSignal>) => {
-        if (filtered) {
-          result.signal.scope = {
-            requested: originalFeatures,
-            selected: [...requestedFeatures],
-            excluded: excludedFeatures,
-            executed: [...executedFeatures],
-            missingScript: [...missingFeatures],
-            skipped: [...result.signal.skipped],
-          };
-        }
-        return result;
-      };
-
       // NSF reclassification: features the integration's manifest
       // declares in `not_supported_features` are architecturally
       // incapable on this framework. Partition them out BEFORE script
@@ -955,15 +919,12 @@ export function createE2eFullDriver(
             passed: 0,
             failed: [],
             skipped: [],
-            note:
-              filtered && originalFeatures.length > 0
-                ? "no D5 features match operator selection"
-                : "no D5 features declared",
+            note: "no D5 features declared",
           },
           observedAt,
         };
         await emitAggregate(ctx, slug, aggregateResult, rowPrefix);
-        return withScope(aggregateResult);
+        return aggregateResult;
       }
 
       // Deploy-churn grace window
@@ -982,7 +943,7 @@ export function createE2eFullDriver(
               graceMs: DEPLOY_CHURN_GRACE_MS,
             });
 
-            for (const ft of filtered ? [] : requestedFeatures) {
+            for (const ft of requestedFeatures) {
               await sideEmit(ctx, {
                 key: `${rowPrefix}:${slug}/${ft}`,
                 state: "green",
@@ -1012,7 +973,7 @@ export function createE2eFullDriver(
               observedAt,
             };
             await emitAggregate(ctx, slug, aggregateResult, rowPrefix);
-            return withScope(aggregateResult);
+            return aggregateResult;
           }
         }
       }
@@ -1046,8 +1007,28 @@ export function createE2eFullDriver(
           runnable.push(ft);
         } else {
           missingScript.push(ft);
-          missingFeatures.push(ft);
         }
+      }
+
+      // Apply feature-type filter from the trigger layer.
+      const filteredByTrigger: string[] = [];
+      if (ctx.featureTypes?.length) {
+        const allowed = new Set(ctx.featureTypes);
+        const kept: D5FeatureType[] = [];
+        for (const ft of runnable) {
+          if (allowed.has(ft)) {
+            kept.push(ft);
+          } else {
+            filteredByTrigger.push(ft);
+          }
+        }
+        if (filteredByTrigger.length > 0) {
+          ctx.logger.info("probe.e2e-full.feature-type-filter-applied", {
+            featureTypes: ctx.featureTypes,
+            filteredOut: filteredByTrigger.length,
+          });
+        }
+        runnable = kept;
       }
 
       // Hard-timeout + abort plumbing
@@ -1097,7 +1078,7 @@ export function createE2eFullDriver(
             observedAt,
           };
           await emitAggregate(ctx, slug, aggregateResult, rowPrefix);
-          return withScope(aggregateResult);
+          return aggregateResult;
         }
 
         // Emit red side rows for missing-script features upfront.
@@ -1116,12 +1097,27 @@ export function createE2eFullDriver(
           });
         }
 
+        // Emit green side rows for filtered-by-trigger features.
+        for (const ft of filteredByTrigger) {
+          await sideEmit(ctx, {
+            key: `${rowPrefix}:${slug}/${ft}`,
+            state: "green",
+            signal: {
+              slug,
+              featureType: ft,
+              backendUrl,
+              note: "filtered-by-trigger",
+            },
+            observedAt: ctx.now().toISOString(),
+          });
+        }
+
         // Emit green side rows for NSF-incapable features. Distinct
         // `errorClass: "skipped-incapable"` so log scrapers can
         // distinguish manifest-declared framework gaps from operational
         // skips. State is green so the dashboard does NOT count these
         // as red, but the side-row carries the reason for auditability.
-        for (const ft of filtered ? [] : incapableFeatures) {
+        for (const ft of incapableFeatures) {
           await sideEmit(ctx, {
             key: `${rowPrefix}:${slug}/${ft}`,
             state: "green",
@@ -1148,7 +1144,7 @@ export function createE2eFullDriver(
               total: requestedFeatures.length,
               passed: 0,
               failed: missingScript,
-              skipped: [...incapableFeatures],
+              skipped: [...filteredByTrigger, ...incapableFeatures],
               incapable:
                 incapableFeatures.length > 0
                   ? incapableFeatures.map(String)
@@ -1160,10 +1156,10 @@ export function createE2eFullDriver(
             observedAt,
           };
           await emitAggregate(ctx, slug, aggregateResult, rowPrefix);
-          return withScope(aggregateResult);
+          return aggregateResult;
         }
 
-        // All selected features are incapable; empty selections returned above.
+        // If nothing is runnable and everything was filtered, green.
         if (runnable.length === 0) {
           const aggregateResult: ProbeResult<E2eFullAggregateSignal> = {
             key: input.key,
@@ -1175,17 +1171,20 @@ export function createE2eFullDriver(
               total: requestedFeatures.length,
               passed: 0,
               failed: [],
-              skipped: [...incapableFeatures],
+              skipped: [...filteredByTrigger, ...incapableFeatures],
               incapable:
                 incapableFeatures.length > 0
                   ? incapableFeatures.map(String)
                   : undefined,
-              note: "all requested features are NSF-incapable",
+              note:
+                filteredByTrigger.length > 0
+                  ? "all runnable features filtered by trigger"
+                  : "all requested features are NSF-incapable",
             },
             observedAt,
           };
           await emitAggregate(ctx, slug, aggregateResult, rowPrefix);
-          return withScope(aggregateResult);
+          return aggregateResult;
         }
 
         // Run features with bounded parallelism.
@@ -1364,7 +1363,6 @@ export function createE2eFullDriver(
             let featureResult: Awaited<ReturnType<typeof runFeature>>;
             try {
               const attempt1Start = Date.now();
-              executedFeatures.push(ft);
               featureResult = await runOnce();
               const attempt1Duration = Date.now() - attempt1Start;
 
@@ -1576,7 +1574,7 @@ export function createE2eFullDriver(
           slug,
           passed,
           failed: failed.length,
-          skipped: incapableFeatures.length,
+          skipped: filteredByTrigger.length + incapableFeatures.length,
           incapable: incapableFeatures.length,
           total: requestedFeatures.length,
           state: aggregateGreen ? "green" : "red",
@@ -1592,7 +1590,7 @@ export function createE2eFullDriver(
             total: requestedFeatures.length,
             passed,
             failed,
-            skipped: [...incapableFeatures],
+            skipped: [...filteredByTrigger, ...incapableFeatures],
             incapable:
               incapableFeatures.length > 0
                 ? incapableFeatures.map(String)
@@ -1607,7 +1605,7 @@ export function createE2eFullDriver(
         // to display red (vs blank). Placed after the loop so per-feature
         // timeouts inside the loop can never skip it.
         await emitAggregate(ctx, slug, aggregateResult, rowPrefix);
-        return withScope(aggregateResult);
+        return aggregateResult;
       } finally {
         clearTimeout(timeoutHandle);
         if (externalAbort) {
@@ -2457,7 +2455,6 @@ async function emitAggregate(
   result: ProbeResult<E2eFullAggregateSignal>,
   rowPrefix: "d5" | "d6",
 ): Promise<void> {
-  if (ctx.featureTypes?.length) return;
   const aggKey = `${rowPrefix}:${slug}`;
   if (!ctx.writer) {
     ctx.logger.warn("probe.e2e-full.aggregate-writer-missing", {

@@ -262,6 +262,7 @@ const processedHumanInTheLoop = computed(() => {
 
   for (const tool of props.humanInTheLoop) {
     tools.push({
+      type: "human-in-the-loop",
       name: tool.name,
       description: tool.description,
       parameters: tool.parameters,

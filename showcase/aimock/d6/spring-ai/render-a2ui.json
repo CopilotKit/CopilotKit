@@ -7,87 +7,6 @@
   },
   "fixtures": [
     {
-      "_comment": "Observed tool-free Spring risk generator request with the actual catalog and source-bound account exposures.",
-      "match": {
-        "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
-        "context": "spring-ai",
-        "hasToolResult": false,
-        "systemMessage": [
-          "Respond with ONLY plain JSON, no markdown or tool calls.",
-          "declarative-gen-ui-catalog",
-          "$615k"
-        ]
-      },
-      "response": {
-        "content": "{\"surfaceId\":\"risk-summary\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"children\":[\"risk-kpis\",\"northwind\",\"cascadia\",\"atlas\"]},{\"id\":\"risk-kpis\",\"component\":\"Row\",\"children\":[\"risk-arr\",\"risk-count\",\"risk-largest\"]},{\"id\":\"risk-arr\",\"component\":\"Metric\",\"label\":\"ARR at risk\",\"value\":\"$615k\",\"trend\":\"down\"},{\"id\":\"risk-count\",\"component\":\"Metric\",\"label\":\"Accounts at risk\",\"value\":\"3\"},{\"id\":\"risk-largest\",\"component\":\"Metric\",\"label\":\"Biggest exposure: Northwind\",\"value\":\"$340k\"},{\"id\":\"northwind\",\"component\":\"Card\",\"title\":\"Northwind Retail\",\"child\":\"northwind-content\"},{\"id\":\"northwind-content\",\"component\":\"Column\",\"children\":[\"northwind-badge\",\"northwind-reason\"]},{\"id\":\"northwind-badge\",\"component\":\"StatusBadge\",\"text\":\"High risk\",\"variant\":\"error\"},{\"id\":\"northwind-reason\",\"component\":\"Text\",\"text\":\"Renewal: $340k. No contact for 6 weeks.\"},{\"id\":\"cascadia\",\"component\":\"Card\",\"title\":\"Cascadia Outfitters\",\"child\":\"cascadia-content\"},{\"id\":\"cascadia-content\",\"component\":\"Column\",\"children\":[\"cascadia-badge\",\"cascadia-reason\"]},{\"id\":\"cascadia-badge\",\"component\":\"StatusBadge\",\"text\":\"Medium risk\",\"variant\":\"warning\"},{\"id\":\"cascadia-reason\",\"component\":\"Text\",\"text\":\"Renewal: $180k. Champion left.\"},{\"id\":\"atlas\",\"component\":\"Card\",\"title\":\"Atlas Goods\",\"child\":\"atlas-content\"},{\"id\":\"atlas-content\",\"component\":\"Column\",\"children\":[\"atlas-badge\",\"atlas-reason\"]},{\"id\":\"atlas-badge\",\"component\":\"StatusBadge\",\"text\":\"Medium risk\",\"variant\":\"warning\"},{\"id\":\"atlas-reason\",\"component\":\"Text\",\"text\":\"Renewal: $95k. Stalled legal review.\"}]}"
-      }
-    },
-    {
-      "_comment": "Observed Spring secondary request with the actual registered DataTable schema and source-bound rep values; schema-valid v0.9 response.",
-      "match": {
-        "userMessage": "How are our sales reps performing against quota?",
-        "context": "spring-ai",
-        "hasToolResult": false,
-        "systemMessage": [
-          "Respond with ONLY plain JSON, no markdown or tool calls.",
-          "declarative-gen-ui-catalog",
-          "Dana Whitfield 124%",
-          "\"DataTable\":"
-        ]
-      },
-      "response": {
-        "content": "{\"surfaceId\":\"sales-reps\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"children\":[\"rep-card\"]},{\"id\":\"rep-card\",\"component\":\"Card\",\"title\":\"Sales rep performance\",\"child\":\"rep-content\"},{\"id\":\"rep-content\",\"component\":\"Column\",\"children\":[\"reps\",\"quota\"]},{\"id\":\"reps\",\"component\":\"DataTable\",\"columns\":[{\"key\":\"rep\",\"label\":\"Sales rep\"},{\"key\":\"attainment\",\"label\":\"Quota attainment\"}],\"rows\":[{\"rep\":\"Dana Whitfield\",\"attainment\":\"124%\"},{\"rep\":\"Marcus Lee\",\"attainment\":\"108%\"},{\"rep\":\"Priya Sharma\",\"attainment\":\"97%\"},{\"rep\":\"Tom Okafor\",\"attainment\":\"88%\"},{\"rep\":\"Elena Vasquez\",\"attainment\":\"71%\"}]},{\"id\":\"quota\",\"component\":\"BarChart\",\"title\":\"Quota attainment\",\"description\":\"Percent of quota by sales rep\",\"data\":[{\"label\":\"Dana Whitfield\",\"value\":124},{\"label\":\"Marcus Lee\",\"value\":108},{\"label\":\"Priya Sharma\",\"value\":97},{\"label\":\"Tom Okafor\",\"value\":88},{\"label\":\"Elena Vasquez\",\"value\":71}]}]}"
-      }
-    },
-    {
-      "_comment": "Observed Spring secondary plain-JSON request; catalog and source-bound Vantage Threads facts are present in the actual prompt.",
-      "match": {
-        "userMessage": "Show me my sales dashboard for this quarter.",
-        "context": "spring-ai",
-        "hasToolResult": false,
-        "systemMessage": [
-          "Respond with ONLY plain JSON, no markdown or tool calls.",
-          "declarative-gen-ui-catalog",
-          "$4.2M"
-        ]
-      },
-      "response": {
-        "content": "{\"surfaceId\":\"sales-dashboard\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"children\":[\"kpis\",\"charts\"]},{\"id\":\"kpis\",\"component\":\"Row\",\"children\":[\"revenue\",\"customers\",\"win\",\"deal\"]},{\"id\":\"charts\",\"component\":\"Row\",\"children\":[\"region\",\"monthly\"]},{\"id\":\"revenue\",\"component\":\"Metric\",\"label\":\"Revenue\",\"value\":\"$4.2M\",\"trend\":\"up\"},{\"id\":\"customers\",\"component\":\"Metric\",\"label\":\"New customers\",\"value\":\"186\",\"trend\":\"up\"},{\"id\":\"win\",\"component\":\"Metric\",\"label\":\"Win rate\",\"value\":\"31%\",\"trend\":\"down\"},{\"id\":\"deal\",\"component\":\"Metric\",\"label\":\"Average deal\",\"value\":\"$22.6k\",\"trend\":\"up\"},{\"id\":\"region\",\"component\":\"PieChart\",\"title\":\"Revenue by region\",\"description\":\"Vantage Threads · Q2 sales\",\"data\":[{\"label\":\"North America\",\"value\":1900000},{\"label\":\"EMEA\",\"value\":1300000},{\"label\":\"APAC\",\"value\":720000},{\"label\":\"LATAM\",\"value\":280000}]},{\"id\":\"monthly\",\"component\":\"BarChart\",\"title\":\"Monthly revenue\",\"description\":\"Vantage Threads · USD\",\"data\":[{\"label\":\"Jan\",\"value\":1210000},{\"label\":\"Feb\",\"value\":1340000},{\"label\":\"Mar\",\"value\":1650000},{\"label\":\"Apr\",\"value\":1380000},{\"label\":\"May\",\"value\":1420000},{\"label\":\"Jun\",\"value\":1400000}]}]}"
-      }
-    },
-    {
-      "_comment": "Observed Spring secondary plain-JSON request for the standalone region pie chart.",
-      "match": {
-        "userMessage": "Show a pie chart of sales by region.",
-        "context": "spring-ai",
-        "hasToolResult": false,
-        "systemMessage": [
-          "Respond with ONLY plain JSON, no markdown or tool calls.",
-          "declarative-gen-ui-catalog",
-          "North America $1.9M"
-        ]
-      },
-      "response": {
-        "content": "{\"surfaceId\":\"region-revenue\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"PieChart\",\"title\":\"Revenue by region\",\"description\":\"Vantage Threads - Q2 sales\",\"data\":[{\"label\":\"North America\",\"value\":1900000},{\"label\":\"EMEA\",\"value\":1300000},{\"label\":\"APAC\",\"value\":720000},{\"label\":\"LATAM\",\"value\":280000}]}]}"
-      }
-    },
-    {
-      "_comment": "Observed Spring secondary plain-JSON request for grounded quarterly revenue bars.",
-      "match": {
-        "userMessage": "Render a bar chart of quarterly revenue.",
-        "context": "spring-ai",
-        "hasToolResult": false,
-        "systemMessage": [
-          "Respond with ONLY plain JSON, no markdown or tool calls.",
-          "declarative-gen-ui-catalog",
-          "Jan $1.21M"
-        ]
-      },
-      "response": {
-        "content": "{\"surfaceId\":\"quarterly-revenue\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"BarChart\",\"title\":\"Quarterly revenue\",\"description\":\"Vantage Threads - Aggregated from Jan-Jun monthly revenue\",\"data\":[{\"label\":\"Q1\",\"value\":4200000},{\"label\":\"Q2\",\"value\":4200000}]}]}"
-      }
-    },
-    {
       "match": {
         "userMessage": "render the a2ui schema",
         "turnIndex": 0,
@@ -239,6 +158,90 @@
     },
     {
       "match": {
+        "userMessage": "pie chart of sales by region",
+        "toolCallId": "call_d5_a2ui_dynamic_pie_001",
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "Here is the pie chart by region."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "toolName": "generate_a2ui",
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"pie chart of sales by region\"}",
+            "id": "call_d5_a2ui_dynamic_pie_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "toolName": "_design_a2ui_surface",
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_design_a2ui_pie_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\": \"pie-sales\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"PieChart\", \"title\": \"Sales by region\", \"description\": \"Q4 revenue split\", \"data\": [{\"label\": \"NA\", \"value\": 540}, {\"label\": \"EMEA\", \"value\": 320}, {\"label\": \"APAC\", \"value\": 210}, {\"label\": \"LATAM\", \"value\": 90}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "toolCallId": "call_d5_a2ui_dynamic_bar_001",
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "Here is the bar chart of quarterly revenue."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "toolName": "generate_a2ui",
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"bar chart of quarterly revenue\"}",
+            "id": "call_d5_a2ui_dynamic_bar_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "toolName": "_design_a2ui_surface",
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_design_a2ui_bar_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\": \"bar-quarterly\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"BarChart\", \"title\": \"Quarterly revenue\", \"description\": \"FY 2025 per quarter\", \"data\": [{\"label\": \"Q1\", \"value\": 820}, {\"label\": \"Q2\", \"value\": 950}, {\"label\": \"Q3\", \"value\": 1100}, {\"label\": \"Q4\", \"value\": 1240}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
         "userMessage": "status report on system health",
         "toolCallId": "call_d5_a2ui_dynamic_status_001",
         "context": "spring-ai"
@@ -340,6 +343,98 @@
       }
     },
     {
+      "_comment": "render_a2ui — pie-chart pill (Google-ADK). Flat {id, component, ...props} shape.",
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "toolName": "render_a2ui",
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "PieChart",
+                  "title": "Sales by region",
+                  "description": "Q4 — share of total revenue",
+                  "data": [
+                    {
+                      "label": "North America",
+                      "value": 540
+                    },
+                    {
+                      "label": "EMEA",
+                      "value": 320
+                    },
+                    {
+                      "label": "APAC",
+                      "value": 210
+                    },
+                    {
+                      "label": "LATAM",
+                      "value": 90
+                    }
+                  ]
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "render_a2ui — bar-chart pill (Google-ADK). Flat {id, component, ...props} shape.",
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "toolName": "render_a2ui",
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "BarChart",
+                  "title": "Quarterly revenue",
+                  "description": "FY24 — USD thousands",
+                  "data": [
+                    {
+                      "label": "Q1",
+                      "value": 820
+                    },
+                    {
+                      "label": "Q2",
+                      "value": 940
+                    },
+                    {
+                      "label": "Q3",
+                      "value": 1080
+                    },
+                    {
+                      "label": "Q4",
+                      "value": 1240
+                    }
+                  ]
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
       "_comment": "render_a2ui — status-report pill (Google-ADK). Card has single `child` slot, so wrap the three StatusBadges in a basic-catalog Column.",
       "match": {
         "userMessage": "status report on system health",
@@ -395,22 +490,6 @@
           }
         ]
       }
-    },
-{
-  "_comment": "Observed tool-free account request with actual InfoRow schema and canonical Meridian facts.",
-  "match": {
-    "userMessage": "Pull up the details on our biggest account.",
-    "context": "spring-ai",
-    "hasToolResult": false,
-    "systemMessage": [
-      "Respond with ONLY plain JSON, no markdown or tool calls.",
-      "declarative-gen-ui-catalog",
-      "Meridian Apparel Group"
-    ]
-  },
-  "response": {
-    "content": "{\"surfaceId\":\"account-details\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"children\":[\"account-card\",\"product-revenue\"]},{\"id\":\"account-card\",\"component\":\"Card\",\"title\":\"Meridian Apparel Group\",\"child\":\"account-facts\"},{\"id\":\"account-facts\",\"component\":\"Column\",\"children\":[\"owner\",\"region\",\"arr\",\"renewal\",\"contact\",\"health\",\"opportunities\"]},{\"id\":\"owner\",\"component\":\"InfoRow\",\"label\":\"Owner\",\"value\":\"Dana Whitfield\"},{\"id\":\"region\",\"component\":\"InfoRow\",\"label\":\"Region\",\"value\":\"North America\"},{\"id\":\"arr\",\"component\":\"InfoRow\",\"label\":\"ARR\",\"value\":\"$612k\"},{\"id\":\"renewal\",\"component\":\"InfoRow\",\"label\":\"Renewal date\",\"value\":\"Sep 30\"},{\"id\":\"contact\",\"component\":\"InfoRow\",\"label\":\"Last contact\",\"value\":\"3 days ago\"},{\"id\":\"health\",\"component\":\"InfoRow\",\"label\":\"Health\",\"value\":\"green\"},{\"id\":\"opportunities\",\"component\":\"InfoRow\",\"label\":\"Open opportunities\",\"value\":\"4 worth $210k\"},{\"id\":\"product-revenue\",\"component\":\"PieChart\",\"title\":\"Revenue by product line\",\"description\":\"Meridian Apparel Group annual recurring revenue by product line.\",\"data\":[{\"label\":\"Outerwear\",\"value\":260000},{\"label\":\"Footwear\",\"value\":180000},{\"label\":\"Accessories\",\"value\":112000},{\"label\":\"Custom\",\"value\":60000}]}]}"
-  }
-}
-]
+    }
+  ]
 }

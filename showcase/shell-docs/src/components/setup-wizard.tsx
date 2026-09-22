@@ -92,6 +92,12 @@ export interface SetupWizardProps {
 
 type CopyState = "idle" | "copied" | "error";
 
+// Names this control in `docs.intelligence_onboarding_prompt_copied`, the event
+// <PromptPill> also emits from the docs hero and page tools. Every other
+// emitter sets `surface`, so a wizard copy without one is the only row in that
+// stream that cannot be attributed to a control.
+const WIZARD_COPY_SURFACE = "docs_setup_wizard";
+
 const STEPPER_STEPS: readonly StepperStep[] = [
   { n: 1, label: "Project" },
   { n: 2, label: "Frontend" },
@@ -549,6 +555,15 @@ export function SetupWizard({
     if (!mountedRef.current) return;
     setCopyState("copied");
     capture(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied, {
+      // The wizard has one copy control and never hands the prompt to an app,
+      // so every write here is a deliberate copy. <PromptPill> emits this same
+      // event for its `open_claude`/`open_codex` deep links; without `action`
+      // the two are indistinguishable downstream. See PE-218.
+      action: "copy",
+      surface: WIZARD_COPY_SURFACE,
+      // Read at click time rather than through `usePathname`, matching how the
+      // rest of this component reads the URL it rewrites as the user answers.
+      from_path: window.location.pathname,
       onboarding_run_id: runId,
       project: projectAnswer,
       frontend: frontendId,

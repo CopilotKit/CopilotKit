@@ -267,22 +267,19 @@ describe("e2e-full driver", () => {
   });
 
   describe("no features declared", () => {
-    it.each([undefined, ["voice"]])(
-      "returns green with empty features and filter %j",
-      async (featureTypes) => {
-        const driver = createE2eFullDriver({
-          launcher: async () => makeBrowser(),
-          scriptLoader: noopScriptLoader(),
-        });
-        const result = await driver.run(makeCtx({ featureTypes }), {
-          key: "e2e_d6:showcase-test-slug",
-          backendUrl: "https://test.example.com",
-          features: [],
-        });
-        expect(result.state).toBe("green");
-        expect(result.signal.note).toBe("no D5 features declared");
-      },
-    );
+    it("returns green with empty features", async () => {
+      const driver = createE2eFullDriver({
+        launcher: async () => makeBrowser(),
+        scriptLoader: noopScriptLoader(),
+      });
+      const result = await driver.run(makeCtx(), {
+        key: "e2e_d6:showcase-test-slug",
+        backendUrl: "https://test.example.com",
+        features: [],
+      });
+      expect(result.state).toBe("green");
+      expect(result.signal.note).toContain("no D5 features declared");
+    });
   });
 
   describe("missing script handling (strict)", () => {
@@ -1417,68 +1414,40 @@ describe("e2e-full per-feature retry signal isolation", () => {
     __clearD5RegistryForTesting();
   });
 
-  it.each([false, true])(
-    "executes retries once per feature in the roster (filtered=%s)",
-    async (filtered) => {
-      // Attempt 1 fails retry-eligibly (goto-error) after
-      // >= RETRY_MIN_DURATION_MS (2s); attempt 2 succeeds. The retry must
-      // run with a fresh, un-aborted signal — observed by TWO contexts
-      // being opened (a poisoned/aborted retry would open only one).
-      registerD5Script(makeScript(["agentic-chat"]));
+  it("executes the second attempt after a retry-eligible failure (fresh, non-aborted signal)", async () => {
+    // Attempt 1 fails retry-eligibly (goto-error) after
+    // >= RETRY_MIN_DURATION_MS (2s); attempt 2 succeeds. The retry must
+    // run with a fresh, un-aborted signal — observed by TWO contexts
+    // being opened (a poisoned/aborted retry would open only one).
+    registerD5Script(makeScript(["agentic-chat"]));
 
-      const { launcher, state } = makeRetryLauncherFull({
-        attempt1DelayMs: 2_100,
-      });
+    const { launcher, state } = makeRetryLauncherFull({
+      attempt1DelayMs: 2_100,
+    });
 
-      const driver = createE2eFullDriver({
-        launcher,
-        scriptLoader: noopScriptLoader(),
-        featureTimeoutMs: 30_000, // above attempt durations — no timeout
-      });
-      const sideEmits: ProbeResult<unknown>[] = [];
-      const writer: ProbeResultWriter = {
-        write: async (r) => {
-          sideEmits.push(r);
-        },
-      };
+    const driver = createE2eFullDriver({
+      launcher,
+      scriptLoader: noopScriptLoader(),
+      featureTimeoutMs: 30_000, // above attempt durations — no timeout
+    });
+    const sideEmits: ProbeResult<unknown>[] = [];
+    const writer: ProbeResultWriter = {
+      write: async (r) => {
+        sideEmits.push(r);
+      },
+    };
 
-      const result = await driver.run(
-        makeCtx({
-          writer,
-          featureTypes: filtered ? ["agentic-chat"] : undefined,
-        }),
-        {
-          key: "d6-all-pills-e2e:showcase-test-slug",
-          backendUrl: "https://test.example.com",
-          features: filtered
-            ? ["agentic-chat", "tool-rendering"]
-            : ["agentic-chat"],
-        },
-      );
+    await driver.run(makeCtx({ writer }), {
+      key: "d6-all-pills-e2e:showcase-test-slug",
+      backendUrl: "https://test.example.com",
+      features: ["agentic-chat"],
+    });
 
-      // Two attempts executed → two contexts opened.
-      expect(state.opened).toBe(2);
-      const aggRow = sideEmits.find((r) => r.key === "d6:test-slug");
-      expect(result.state).toBe("green");
-      if (filtered) {
-        expect(result.signal.scope).toEqual({
-          requested: ["agentic-chat", "tool-rendering"],
-          selected: ["agentic-chat"],
-          excluded: ["tool-rendering"],
-          executed: ["agentic-chat"],
-          missingScript: [],
-          skipped: [],
-        });
-        expect(sideEmits.map((row) => row.key)).toEqual([
-          "d6:test-slug/agentic-chat",
-        ]);
-      } else {
-        expect(result.signal.scope).toBeUndefined();
-        expect(aggRow?.state).toBe("green");
-      }
-    },
-    15_000,
-  );
+    // Two attempts executed → two contexts opened.
+    expect(state.opened).toBe(2);
+    const aggRow = sideEmits.find((r) => r.key === "d6:test-slug");
+    expect(aggRow?.state).toBe("green");
+  }, 15_000);
 
   // --- D5-take-one knobs ---------------------------------------------------
   //
@@ -2028,146 +1997,5 @@ describe("parseFailureClassifier (conversation-error breadcrumb)", () => {
       parseFailureClassifier("turn 0 failed: no breadcrumb"),
     ).toBeUndefined();
     expect(parseFailureClassifier(undefined)).toBeUndefined();
-  });
-});
-
-describe("filtered runs preserve unselected observations", () => {
-  it("selected missing script fails without classifying excluded missing or incapable features", async () => {
-    __clearD5RegistryForTesting();
-    const rows: ProbeResult[] = [];
-    const driver = createE2eFullDriver({
-      launcher: async () => makeBrowser(),
-      scriptLoader: noopScriptLoader(),
-    });
-    const result = await driver.run(
-      makeCtx({
-        featureTypes: ["frontend-tools-async"],
-        writer: {
-          async write(row) {
-            rows.push(row);
-          },
-        },
-      }),
-      {
-        key: "d6:agno",
-        backendUrl: "http://localhost:3000",
-        features: ["frontend-tools-async", "mcp-apps", "shared-state-read"],
-        notSupportedFeatures: ["shared-state-read"],
-      },
-    );
-    expect(rows.map((row) => row.key)).toEqual([
-      "d6:agno/frontend-tools-async",
-    ]);
-    expect(rows[0].state).toBe("red");
-    expect(result.signal.scope).toEqual({
-      requested: ["frontend-tools-async", "mcp-apps", "shared-state-read"],
-      selected: ["frontend-tools-async"],
-      excluded: ["mcp-apps", "shared-state-read"],
-      executed: [],
-      missingScript: ["frontend-tools-async"],
-      skipped: [],
-    });
-  });
-
-  it("selected unsupported feature is skipped without a green observation", async () => {
-    __clearD5RegistryForTesting();
-    const rows: ProbeResult[] = [];
-    const driver = createE2eFullDriver({
-      launcher: async () => makeBrowser(),
-      scriptLoader: noopScriptLoader(),
-    });
-    const result = await driver.run(
-      makeCtx({
-        featureTypes: ["shared-state-read"],
-        writer: {
-          async write(row) {
-            rows.push(row);
-          },
-        },
-      }),
-      {
-        key: "d6:agno",
-        backendUrl: "http://localhost:3000",
-        features: ["frontend-tools-async", "shared-state-read"],
-        notSupportedFeatures: ["shared-state-read"],
-      },
-    );
-    expect(rows).toEqual([]);
-    expect(result.signal.scope?.executed).toEqual([]);
-    expect(result.signal.scope?.skipped).toEqual(["shared-state-read"]);
-    expect(result.signal.incapable).toEqual(["shared-state-read"]);
-    expect(result.signal.note).toBe("all requested features are NSF-incapable");
-    expect(result.signal.passed).toBe(0);
-  });
-
-  beforeEach(() => __clearD5RegistryForTesting());
-
-  it.each(["d5", "d6"] as const)(
-    "%s empty selection emits no durable rows or browser work",
-    async (rowPrefix) => {
-      registerD5Script(makeScript(["frontend-tools-async"]));
-      const rows: ProbeResult[] = [];
-      const launcher = vi.fn(async () => makeBrowser());
-      const driver = createE2eFullDriver({
-        launcher,
-        scriptLoader: noopScriptLoader(),
-      });
-      const result = await driver.run(
-        makeCtx({
-          featureTypes: ["voice"],
-          writer: {
-            async write(row) {
-              rows.push(row);
-            },
-          },
-        }),
-        {
-          key: `${rowPrefix}:agno`,
-          backendUrl: "http://localhost:3000",
-          features: ["frontend-tools-async", "shared-state-read"],
-          notSupportedFeatures: ["shared-state-read"],
-          rowPrefix,
-        },
-      );
-      expect(rows).toEqual([]);
-      expect(launcher).not.toHaveBeenCalled();
-      expect(result.signal.passed).toBe(0);
-      expect(result.signal.total).toBe(0);
-      expect(result.signal.note).toBe(
-        "no D5 features match operator selection",
-      );
-      expect(result.signal.scope?.requested).toEqual([
-        "frontend-tools-async",
-        "shared-state-read",
-      ]);
-      expect(result.signal.scope?.selected).toEqual([]);
-      expect(result.signal.scope?.executed).toEqual([]);
-    },
-  );
-
-  it("filtered deploy churn preserves selected and excluded rows", async () => {
-    const rows: ProbeResult[] = [];
-    const driver = createE2eFullDriver({
-      launcher: async () => makeBrowser(),
-      scriptLoader: noopScriptLoader(),
-    });
-    const result = await driver.run(
-      makeCtx({
-        featureTypes: ["frontend-tools-async"],
-        writer: {
-          async write(row) {
-            rows.push(row);
-          },
-        },
-      }),
-      {
-        key: "d6:agno",
-        backendUrl: "http://localhost:3000",
-        features: ["frontend-tools-async", "shared-state-read"],
-        deployedAt: "2024-12-31T23:59:59Z",
-      },
-    );
-    expect(rows).toEqual([]);
-    expect(result.signal.passed).toBe(0);
   });
 });

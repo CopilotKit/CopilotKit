@@ -919,7 +919,14 @@ describe("HITL Thread Reconnection Bug", () => {
             <div data-testid="hitl-tool">
               <div data-testid="hitl-status">{status}</div>
               <div data-testid="hitl-action">{args.action ?? "no-action"}</div>
-              {respond && <button data-testid="hitl-respond">Respond</button>}
+              {respond && (
+                <button
+                  data-testid="hitl-respond"
+                  onClick={() => respond("approved")}
+                >
+                  Respond
+                </button>
+              )}
             </div>
           );
         },
@@ -1008,12 +1015,20 @@ describe("HITL Thread Reconnection Bug", () => {
       expect(screen.getByTestId("hitl-action").textContent).toBe("delete");
     });
 
-    // Passive /connect replay hydrates the historical tool call and its args.
-    // Core-level coverage asserts that passive replay does not re-invoke local
-    // frontend handlers for replayed assistant tool calls.
+    // Restoring a pending HITL must recreate the response handler, not just its UI.
     await waitFor(() => {
-      expect(screen.getByTestId("hitl-status").textContent).toMatch(
-        /^(executing|inProgress)$/,
+      expect(screen.getByTestId("hitl-status").textContent).toBe(
+        ToolCallStatus.Executing,
+      );
+    });
+    fireEvent.click(screen.getByTestId("hitl-respond"));
+    await waitFor(() => {
+      expect(agent.messages).toContainEqual(
+        expect.objectContaining({
+          role: "tool",
+          toolCallId,
+          content: "approved",
+        }),
       );
     });
   });

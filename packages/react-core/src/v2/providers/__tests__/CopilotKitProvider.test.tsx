@@ -358,6 +358,7 @@ describe("CopilotKitProvider", () => {
       });
       expect(tool).toBeDefined();
       expect(tool?.name).toBe("approvalTool");
+      expect(tool?.type).toBe("human-in-the-loop");
       expect(tool?.handler).toBeDefined();
 
       // Check that render component is registered

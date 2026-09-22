@@ -1056,7 +1056,7 @@ test("trusted identity stays on Home while connection state moves into branded c
       learning
         .querySelector(".inspector-home-feature-status")
         ?.getAttribute("aria-label"),
-    ).toBe("Learning is not enabled in your runtime");
+    ).toBe("Automatic Learning is not enabled in your runtime");
     expect(
       learning.querySelector('[data-inspector-home-feature-prompt="memory"]'),
     ).not.toBeNull();
@@ -1189,7 +1189,7 @@ test("disabled Intelligence becomes a setup action in the sidebar and on Home", 
       "Sidebar Intelligence setup action was not rendered",
     );
     expect(sidebarSetup.textContent?.replace(/\s+/g, " ")).toContain(
-      "Intelligence is off Set up Threads and Memory",
+      "Intelligence is off Connect Intelligence",
     );
     expect(sidebarSetup.href).toBe(setupUrl);
 
@@ -1753,7 +1753,7 @@ test("Workbench remembers Learning, and Settings does not persist a settings lea
     );
     await context.toggleSettings();
     expect(root.querySelector("#cpk-main-scroll")?.textContent).toContain(
-      "Learning",
+      "Automatic Learning",
     );
   } finally {
     context.teardown();

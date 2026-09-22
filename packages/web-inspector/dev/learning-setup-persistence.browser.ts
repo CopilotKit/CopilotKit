@@ -17,13 +17,17 @@ for (const transport of ["rest", "single"] as const) {
     });
 
     await page
-      .getByRole("button", { name: "Copy setup prompt for Learning" })
+      .getByRole("button", { name: "Copy setup prompt for Automatic Learning" })
       .click();
 
-    const setup = page.getByRole("region", { name: "Set up Learning" });
+    const setup = page.getByRole("region", {
+      name: "Set up Automatic Learning",
+    });
     await expect(setup.getByText("1 of 3 steps")).toBeVisible();
     await expect(
-      setup.getByRole("heading", { name: "Waiting for Learning setup" }),
+      setup.getByRole("heading", {
+        name: "Waiting for Automatic Learning setup",
+      }),
     ).toBeVisible();
     await expect(
       setup.getByRole("heading", { name: "Copy the setup prompt" }),
@@ -39,7 +43,9 @@ for (const transport of ["rest", "single"] as const) {
     });
     await expect(setup.getByText("1 of 3 steps")).toBeVisible();
     await expect(
-      setup.getByRole("heading", { name: "Waiting for Learning setup" }),
+      setup.getByRole("heading", {
+        name: "Waiting for Automatic Learning setup",
+      }),
     ).toBeVisible();
     await expect(
       setup.getByRole("heading", { name: "Copy the setup prompt" }),
