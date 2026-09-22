@@ -1151,6 +1151,10 @@ export function normalizeSidebarNav(
     "Cloud-hosted",
   );
   const intelligencePlans = intelligencePage("intelligence/plans", "Plans");
+  const intelligenceInspect = intelligencePage(
+    "intelligence/inspect",
+    "Inspect a thread",
+  );
   const intelligenceSelfHosted = intelligencePage(
     "intelligence/self-hosting",
     "Self-hosted",
@@ -1291,6 +1295,7 @@ export function normalizeSidebarNav(
         [
           intelligenceCloud,
           intelligencePlans,
+          intelligenceInspect,
           intelligenceSelfHosted,
           intelligenceEcs,
         ].filter((node): node is NavNode => node !== null),

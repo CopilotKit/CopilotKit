@@ -635,6 +635,7 @@ describe("framework nav", () => {
         slug: "intelligence/managed-intelligence-platform",
       },
       { title: "Plans", slug: "intelligence/plans" },
+      { title: "Inspect a thread", slug: "intelligence/inspect" },
       { title: "Self-hosted", slug: "intelligence/self-hosting" },
       { title: "AWS ECS/Fargate", slug: "intelligence/self-hosting-ecs" },
     ]);
@@ -957,6 +958,7 @@ describe("framework nav", () => {
         slug: "intelligence/managed-intelligence-platform",
       },
       { title: "Plans", slug: "intelligence/plans" },
+      { title: "Inspect a thread", slug: "intelligence/inspect" },
       { title: "Self-hosted", slug: "intelligence/self-hosting" },
       { title: "AWS ECS/Fargate", slug: "intelligence/self-hosting-ecs" },
     ]);

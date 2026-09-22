@@ -53,14 +53,7 @@ Start at [dashboard.operations.copilotkit.ai](https://dashboard.operations.copil
 
     A project holds one app or one environment. Create a separate project for production, staging, demos, and experiments. Their API keys and threads stay separate.
 
-    From your app directory, sign in and select the project:
-
-    ```bash title="Terminal"
-    npx copilotkit@latest login
-    npx copilotkit@latest project select
-    ```
-
-    `project select` writes `CPK_INTELLIGENCE_API_KEY` to `.env` and records the project in `.copilotkit/project.json`.
+    Sign in and select the project in the [quickstart](/intelligence/quickstart#select-an-intelligence-project). That page writes `CPK_INTELLIGENCE_API_KEY` to `.env`.
 
     Two other commands fit a different starting point:
 
@@ -81,7 +74,7 @@ Open one thread on the [inspect page](/intelligence/inspect).
 
 ## Create an API key
 
-A project API key connects your runtime to this project. `npx copilotkit@latest project select` writes the key to `.env` as `CPK_INTELLIGENCE_API_KEY`. If the CLI has no session, run `npx copilotkit@latest login` first. `init` or its `create` alias writes the same key when it creates an app.
+A project API key connects your runtime to this project. The [quickstart](/intelligence/quickstart#select-an-intelligence-project) writes it to `.env` as `CPK_INTELLIGENCE_API_KEY`. `init` or its `create` alias writes the same key when it creates an app.
 
 Cloud-hosted setup does not issue `COPILOTKIT_LICENSE_TOKEN`. A license key is only for a self-hosted deployment. It does not replace the project API key.
 

@@ -1080,9 +1080,10 @@ const RETIRED_INTELLIGENCE_REDIRECTS: RedirectEntry[] = [
 // `premium/` → `intelligence/` content-folder rename (OSS-1078).
 //
 // Only the parent segment changed — every page slug under the folder
-// (`overview`, `managed-intelligence-platform`, `connect-your-runtime`,
-// `self-hosting`, `intelligence-platform`, `threads-explained`,
-// `headless-ui`) is unchanged. So this is expressed as WILDCARDS rather
+// (`overview`, `managed-intelligence-platform`, `self-hosting`,
+// `intelligence-platform`, `threads-explained`, `headless-ui`) is unchanged.
+// `connect-your-runtime` is not a live page. `/intelligence/connect-your-runtime`
+// redirects to the quickstart. So this is expressed as WILDCARDS rather
 // than one SUBPATH_RENAMES entry per page: `/premium/:path*` →
 // `/intelligence/:path*` covers today's pages, their `.md`/`.mdx` LLM
 // variants, and any page added under `intelligence/` later without

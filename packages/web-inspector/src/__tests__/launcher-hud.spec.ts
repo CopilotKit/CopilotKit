@@ -16,6 +16,10 @@ import type {
 } from "@copilotkit/shared";
 import { afterEach, expect, test, vi } from "vitest";
 
+import {
+  INSPECTOR_LEARNING_LABEL,
+  INSPECTOR_THREADS_LABEL,
+} from "../control-labels.js";
 import { WebInspectorElement } from "../index.js";
 
 const RUNTIME_URL = "https://runtime.launcher-hud.test";
@@ -286,7 +290,12 @@ test("hovering the launcher shows its feature states without a redundant header"
     "CopilotKit Inspector",
   );
   expect(root(inspector).querySelector("[data-cpk-hud-header]")).toBeNull();
-  expect(hudRowLabels(inspector)).toEqual(["Threads", "Learning"]);
+  expect(hudRowLabels(inspector)).toEqual([
+    INSPECTOR_THREADS_LABEL,
+    INSPECTOR_LEARNING_LABEL,
+  ]);
+  expect(root(inspector).textContent).not.toContain("Rich Threads");
+  expect(root(inspector).textContent).not.toContain("Automatic Learning");
   expect(
     root(inspector).querySelector('[data-cpk-hud-row="inspector"]'),
   ).toBeNull();

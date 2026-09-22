@@ -1,35 +1,68 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
+import {
+  CopilotKitCore,
+  CopilotKitCoreRuntimeConnectionStatus,
+} from "@copilotkit/core";
 
 import {
   INSPECTOR_LEARNING_LABEL,
   INSPECTOR_THREADS_LABEL,
 } from "./control-labels.js";
+import { WebInspectorElement } from "./index.js";
 
-describe("inspector control labels", () => {
-  it("uses one shared string for the threads and learning controls", () => {
-    const source = readFileSync(join(import.meta.dirname, "index.ts"), "utf8");
-    const learningView = readFileSync(
-      join(import.meta.dirname, "components", "learning-view.ts"),
-      "utf8",
-    );
-    const homeBriefing = readFileSync(
-      join(import.meta.dirname, "lib", "home-briefing.ts"),
-      "utf8",
-    );
+class LabelTestCore extends CopilotKitCore {
+  constructor() {
+    super({
+      runtimeUrl: "https://runtime.control-labels.test",
+      runtimeTransport: "rest",
+      deferInitialConnection: true,
+    });
+  }
 
-    expect(INSPECTOR_THREADS_LABEL).toBe("Threads");
-    expect(INSPECTOR_LEARNING_LABEL).toBe("Learning");
-    expect(source).toContain("INSPECTOR_THREADS_LABEL");
-    expect(source).toContain("INSPECTOR_LEARNING_LABEL");
-    expect(learningView).toContain("INSPECTOR_THREADS_LABEL");
-    expect(learningView).toContain("INSPECTOR_LEARNING_LABEL");
-    expect(homeBriefing).toContain("INSPECTOR_THREADS_LABEL");
-    expect(homeBriefing).toContain("INSPECTOR_LEARNING_LABEL");
-    expect(source).not.toContain("Rich Threads");
-    expect(source).not.toContain("Automatic Learning");
-    expect(homeBriefing).not.toContain("Rich Threads");
-    expect(homeBriefing).not.toContain("Automatic Learning");
-  });
+  async emitStatus(
+    status: CopilotKitCoreRuntimeConnectionStatus,
+  ): Promise<void> {
+    await this.notifySubscribers(
+      (subscriber) =>
+        subscriber.onRuntimeConnectionStatusChanged?.({
+          copilotkit: this,
+          status,
+        }),
+      "label test runtime subscriber failed",
+    );
+  }
+}
+
+afterEach(() => {
+  document.body.replaceChildren();
+  vi.unstubAllGlobals();
+});
+
+test("the launcher shows the shared Threads and Learning labels", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response(null, { status: 404 })),
+  );
+  const inspector = new WebInspectorElement();
+  const core = new LabelTestCore();
+  document.body.append(inspector);
+  inspector.core = core;
+  await core.emitStatus(CopilotKitCoreRuntimeConnectionStatus.Connected);
+  await inspector.updateComplete;
+
+  const wrapper = inspector.shadowRoot?.querySelector(
+    ".console-button-wrapper",
+  );
+  wrapper?.dispatchEvent(
+    new PointerEvent("pointerenter", { bubbles: true, composed: true }),
+  );
+  await inspector.updateComplete;
+
+  const labels = Array.from(
+    inspector.shadowRoot?.querySelectorAll("[data-cpk-hud-action]") ?? [],
+  ).map((node) => node.textContent?.replace(/\s+/g, " ").trim());
+
+  expect(labels).toEqual([INSPECTOR_THREADS_LABEL, INSPECTOR_LEARNING_LABEL]);
+  expect(inspector.shadowRoot?.textContent).not.toContain("Rich Threads");
+  expect(inspector.shadowRoot?.textContent).not.toContain("Automatic Learning");
 });
