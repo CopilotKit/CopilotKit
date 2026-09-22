@@ -12814,9 +12814,8 @@ export class WebInspectorElement extends LitElement {
         data-inspector-home-state=${connected ? "connected" : "disconnected"}
       >
         ${this.renderHomeWhatsNewPreview(model.news)}
-        <header class="inspector-home-heading"><div><h1>${connected ? (model.project?.projectName ?? "Your agent workspace") : "Welcome to Intelligence"}</h1><p>${connected ? "Inspect conversations and see what your agent is learning." : "Connect your agent. Intelligence learns from experience."}</p></div></header>
-        ${connected ? this.renderHomeSystemHealth(model) : this.renderHomeIntelligenceHud(model)}
-        ${connected ? this.renderHomeIntelligenceHud(model) : this.renderHomeSystemHealth(model)}
+        ${this.renderHomeSystemHealth(model)}
+        ${this.renderHomeIntelligenceHud(model)}
         ${this.renderHomeFeatures(model)}
       </div>
     `;
