@@ -159,7 +159,19 @@ describe("attachIntelligenceEnterpriseLearning", () => {
     });
   });
 
-  it("returns forbidden when configured agent Memory is denied", async () => {
+  /**
+   * A Memory policy that grants nothing switches Memory OFF for this run. It
+   * does not refuse the run: `memory.access` is a Memory policy, and a runtime
+   * that wants to reject the request has `beforeRequestMiddleware`. Refusing
+   * here left a tenant with Memory disabled unable to hold a conversation at
+   * all, and the failure surfaced only as a bare run error.
+   *
+   * Both spellings of "nothing" behave identically, because they are one
+   * outcome and not two states — mirroring `hasMemoryAccess` in
+   * @copilotkit/channels-core, where both scopes are optional and default to
+   * `"none"`, so all-none is what you get by writing nothing.
+   */
+  it("runs without Memory tools given a null grant", async () => {
     const agent = makeAgent();
     const result = await attachIntelligenceEnterpriseLearning({
       runtime: makeRuntime({
@@ -171,8 +183,75 @@ describe("attachIntelligenceEnterpriseLearning", () => {
       agent,
     });
 
+    expect(result).toBeUndefined();
+    expect(agent.use).not.toHaveBeenCalled();
+  });
+
+  it("runs without Memory tools given an explicit all-none grant", async () => {
+    const agent = makeAgent();
+    const result = await attachIntelligenceEnterpriseLearning({
+      runtime: makeRuntime({
+        intelligence: makeIntelligenceStub(),
+        identifyUser: async () => ({ id: "u1", name: "User" }),
+        memory: { access: () => ({ user: "none", project: "none" }) },
+      }),
+      request: request(),
+      agent,
+    });
+
+    expect(result).toBeUndefined();
+    expect(agent.use).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The narrowest grant that still asks for something must NOT be swept up by
+   * the skip above — read-only user Memory is a real posture (recall what is
+   * already known, record nothing new), and silently dropping its tools would
+   * turn a supported configuration into no Memory at all.
+   */
+  it("still attaches when only one scope is granted read access", async () => {
+    const agent = makeAgent();
+    const result = await attachIntelligenceEnterpriseLearning({
+      runtime: makeRuntime({
+        intelligence: makeIntelligenceStub(),
+        identifyUser: async () => ({ id: "u1", name: "User" }),
+        memory: { access: () => ({ user: "read", project: "none" }) },
+      }),
+      request: request(),
+      agent,
+    });
+
+    expect(result).toBeUndefined();
+    expect(agent.use).toHaveBeenCalled();
+    const [servers] = mcpMiddlewareCalls.at(-1) as [
+      Array<{ headers: Record<string, string> }>,
+    ];
+    expect(servers[0]?.headers).toMatchObject({
+      [INTELLIGENCE_MEMORY_GRANT_HEADER]: JSON.stringify({
+        user: "read",
+        project: "none",
+      }),
+    });
+  });
+
+  it("still fails the run when the policy itself is broken", async () => {
+    const agent = makeAgent();
+    const result = await attachIntelligenceEnterpriseLearning({
+      runtime: makeRuntime({
+        intelligence: makeIntelligenceStub(),
+        identifyUser: async () => ({ id: "u1", name: "User" }),
+        memory: {
+          access: () => {
+            throw new Error("policy exploded");
+          },
+        },
+      }),
+      request: request(),
+      agent,
+    });
+
     expect(result).toBeInstanceOf(Response);
-    expect((result as Response).status).toBe(403);
+    expect((result as Response).status).toBe(500);
     expect(agent.use).not.toHaveBeenCalled();
   });
 

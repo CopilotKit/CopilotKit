@@ -22,7 +22,7 @@ import {
 } from "../header-utils";
 import { resolveMcpAppsServers } from "./mcp-apps-servers";
 import { resolveIntelligenceUser } from "./resolve-intelligence-user";
-import { resolveWebMemory } from "./memory-policy";
+import { grantAllowsMemory, resolveWebMemory } from "./memory-policy";
 import { errorResponse } from "./json-response";
 import { logger } from "@copilotkit/shared";
 
@@ -241,6 +241,15 @@ export async function attachIntelligenceEnterpriseLearning(params: {
   if (userResult instanceof Response) return userResult;
   const access = await resolveWebMemory(runtime, request, userResult, "agent");
   if (access instanceof Response) return access;
+
+  // A policy that grants no scope means this run gets no Memory — it does NOT
+  // mean the run is refused. Attach nothing and let the conversation proceed,
+  // exactly as a Channel does when its grant asks for nothing
+  // (`hasMemoryAccess` in @copilotkit/channels-core). Returning a 403 here
+  // instead fails the whole run, so switching Memory off for one tenant would
+  // leave that tenant with no assistant, and the only signal is a run error the
+  // chat surface has no reason to render.
+  if (runtime.memory && !grantAllowsMemory(access.grant)) return;
 
   agent.use(
     new MCPMiddleware([
