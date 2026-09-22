@@ -4,6 +4,9 @@ import { seoRedirects } from "@/lib/seo-redirects";
 import { stripRouteGroupSegmentsFromPathname } from "@/lib/route-groups";
 import { getRuntimeConfigForMiddleware } from "@/lib/runtime-config";
 import registry from "@/data/registry.json";
+import { classifyLlmTextCaller } from "@/lib/llm-text-callers";
+import { resolveLlmTextSurface } from "@/lib/llm-text-surface";
+import type { LlmTextSurface } from "@/lib/llm-text-surface";
 
 // ---------------------------------------------------------------------------
 // shell-docs middleware
@@ -15,14 +18,20 @@ import registry from "@/data/registry.json";
 //      `seo-redirects.ts`. Tracked in PostHog via the `seo_redirect`
 //      event so the decommission report can identify zero-traffic
 //      entries.
-//   2. Pageview tracking — capture a `docs_pageview` event for every
-//      passthrough (non-redirected) request, with a stable
+//   2. Raw-text tracking — capture a `docs.llm_text_fetched` event for
+//      the agent-facing surface (`/llms.txt`, `/llms-full.txt`, and
+//      every `<path>.md`). See `AGENT-FACING RAW TEXT` below for why
+//      this cannot live in those route handlers.
+//   3. Pageview tracking — capture a `docs_pageview` event for every
+//      other passthrough (non-redirected) request, with a stable
 //      first-party-cookie distinct_id.
 //
 // The redirect table is checked FIRST. If a request matches, we issue
 // the 301 and fire `seo_redirect`; we do NOT also fire `docs_pageview`
 // for that request (the pageview will be captured on the redirect's
-// destination). Otherwise we fall through to pageview tracking.
+// destination). Otherwise we fall through to the tracking below, where
+// a request reports as EITHER a raw-text fetch or a pageview, never
+// both — one fetch must not be counted twice.
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
@@ -103,6 +112,145 @@ function trackRedirect(id: string, fromPath: string, toPath: string): void {
   }).catch(() => {
     // Silently ignore tracking failures — don't block redirects
   });
+}
+
+// ---------------------------------------------------------------------------
+// AGENT-FACING RAW TEXT
+//
+// `/llms.txt`, `/llms-full.txt` and every `<path>.md` serve text to an
+// LLM reader over HTTP. Nothing renders, so the client-side PostHog
+// snippet never runs and the whole surface is invisible from the
+// browser side.
+//
+// The counting lives HERE and not in the three route handlers for two
+// reasons. First, `llms.txt` and `llms-full.txt` both set
+// `revalidate = false`, so Next serves their cached response and the
+// handler body does not re-run — a capture inside it would fire about
+// once per deploy. Forcing it to run means `dynamic = "force-dynamic"`,
+// which re-walks the entire docs tree on every `/llms-full.txt` fetch.
+// Second, middleware already receives 100% of these requests (it runs
+// before the `.md` rewrite in `next.config.ts`), so nothing is gained
+// by counting them twice.
+//
+// What these events must NOT do is become people. The fetches carry no
+// cookie and no session, so a person profile per caller would add one
+// person per IP+UA pair — mostly crawlers — to every person count in
+// the project.
+// ---------------------------------------------------------------------------
+
+const LLM_TEXT_EVENT = "docs.llm_text_fetched";
+
+// The user agent is caller-controlled and forwarded verbatim so buckets
+// can be re-cut later. Real ones are well under this; the cap just stops
+// a hostile caller from pushing arbitrarily large strings into the
+// event stream.
+const MAX_USER_AGENT_LENGTH = 512;
+
+function clientIp(request: NextRequest): string | null {
+  // Take the left-most `x-forwarded-for` entry, which is the original
+  // client rather than any proxy that handled the request after it.
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0]?.trim() || null;
+  return request.headers.get("x-real-ip");
+}
+
+/**
+ * A stable handle for "the same caller fetching twice".
+ *
+ * The pageview path mints a random UUID for a caller with no cookie,
+ * which makes `uniq(distinct_id)` a restatement of the event count —
+ * and agents never return a cookie. Hashing IP+UA instead makes the
+ * distinct-caller count mean something.
+ *
+ * The address is hashed and then discarded: it is deliberately NOT sent
+ * as `$ip`, and `$geoip_disable` keeps PostHog from stamping the
+ * POSTing server's own location in its place.
+ *
+ * `crypto.subtle` rather than `node:crypto` — this runs in the Edge
+ * runtime, where the Node module is unavailable.
+ */
+async function callerKey(
+  ip: string | null,
+  userAgent: string | null,
+): Promise<string> {
+  const material = `${ip ?? "no-ip"}|${userAgent ?? "no-ua"}`;
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(material),
+  );
+  const hex = Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return `llm-text:${hex.slice(0, 16)}`;
+}
+
+/**
+ * Which deployment served the fetch.
+ *
+ * Preview deployments are publicly reachable and get crawled, and local
+ * dev reports to the same PostHog project. Without this, reporting
+ * silently mixes them into the production count it is meant to measure.
+ * shell-docs runs on Railway; `VERCEL_ENV` is kept as a fallback so a
+ * preview built elsewhere still labels itself.
+ */
+function deploymentEnvironment(): string {
+  return (
+    process.env.RAILWAY_ENVIRONMENT_NAME ??
+    process.env.VERCEL_ENV ??
+    process.env.NODE_ENV ??
+    "development"
+  );
+}
+
+async function captureLlmTextFetch(
+  request: NextRequest,
+  pathname: string,
+  surface: LlmTextSurface,
+): Promise<void> {
+  if (!POSTHOG_KEY) {
+    return;
+  }
+
+  const userAgent = request.headers.get("user-agent");
+  const caller = classifyLlmTextCaller(userAgent);
+
+  try {
+    const response = await fetch(`${getPosthogHost()}/capture/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: POSTHOG_KEY,
+        event: LLM_TEXT_EVENT,
+        distinct_id: await callerKey(clientIp(request), userAgent),
+        properties: {
+          path: pathname,
+          surface,
+          caller_class: caller.class,
+          caller_agent: caller.agent,
+          // Our own classification is the reportable one. PostHog's
+          // computed `$virt_traffic_*` properties read `claude-code` as
+          // ordinary browser traffic — the exact caller this event
+          // exists to count. The raw UA travels so a bucket that turns
+          // out to be wrong can be re-cut over history without a
+          // redeploy.
+          $raw_user_agent: userAgent?.slice(0, MAX_USER_AGENT_LENGTH) ?? null,
+          environment: deploymentEnvironment(),
+          referrer: request.headers.get("referer"),
+          $geoip_disable: true,
+          $process_person_profile: false,
+        },
+      }),
+    });
+    if (!response.ok) {
+      console.warn(
+        "[middleware] posthog llm-text capture non-2xx",
+        response.status,
+        response.statusText,
+      );
+    }
+  } catch (err) {
+    console.warn("[middleware] posthog llm-text capture failed", err);
+  }
 }
 
 async function capturePageView(
@@ -243,10 +391,13 @@ export function middleware(
     return NextResponse.redirect(new URL(destination, request.url), 301);
   }
 
-  // 2. Pageview tracking — only on real GET pageviews, not prefetches.
+  // 2. Tracking gate — only real GET requests, not prefetches.
   //
-  // Skip non-GET (HEAD, POST, etc.) and Next.js router prefetches —
-  // these are not real pageviews and would pollute analytics. Next.js
+  // Skip non-GET and Next.js router prefetches — these are not real
+  // reads and would pollute analytics. HEAD is excluded on purpose for
+  // the raw-text surface too: agents commonly probe with HEAD before
+  // fetching, and counting it would double every such caller against
+  // agents that only ever GET. Next.js
   // prefetches links via low-priority fetches that still hit middleware,
   // so we filter on both the `next-router-prefetch` header (App Router)
   // and the generic `purpose: prefetch` header.
@@ -266,6 +417,19 @@ export function middleware(
     return NextResponse.next();
   }
 
+  // 3. Agent-facing raw text. Reported instead of `docs_pageview`, not
+  // as well as it: the same fetch counted under both would only move
+  // the inflation, and `docs_pageview` is read downstream as a docs
+  // visitor "building something", which a training crawler is not.
+  // No distinct_id cookie either — these callers never return one, so
+  // minting it buys nothing and the handle below is derived instead.
+  const llmTextSurface = resolveLlmTextSurface(pathname);
+  if (llmTextSurface) {
+    event.waitUntil(captureLlmTextFetch(request, pathname, llmTextSurface));
+    return NextResponse.next();
+  }
+
+  // 4. Ordinary docs pageview.
   // Read existing distinct_id cookie, or mint a new one for first-time
   // visitors. The cookie is attached to the response via Set-Cookie.
   const existingDistinctId = request.cookies.get(DISTINCT_ID_COOKIE)?.value;
