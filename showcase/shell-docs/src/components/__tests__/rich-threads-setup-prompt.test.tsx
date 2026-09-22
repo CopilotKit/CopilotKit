@@ -33,7 +33,7 @@ test("copies the Rich Threads prompt using the standard actions", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
   await waitFor(() =>
     expect(writeText.mock.calls[0]?.[0]).toMatch(
-      /^Read https:\/\/copilotkit\.ai\/onboarding-prompts\/[a-f0-9]{12}\?intent=add-rich-threads and help me set this up$/,
+      /^Read https:\/\/copilotkit\.ai\/onboarding-prompts\/[a-f0-9]{12}\?intent=add-rich-threads and help me set this up\.$/,
     ),
   );
   expect(screen.getByRole("status").textContent).toBe("Prompt copied");
@@ -54,7 +54,7 @@ test("previews the exact setup prompt and recovers from blocked clipboard access
   fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
   await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
   expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toMatch(
-    /^Read https:\/\/copilotkit\.ai\/onboarding-prompts\/[a-f0-9]{12}\?intent=add-rich-threads and help me set this up$/,
+    /^Read https:\/\/copilotkit\.ai\/onboarding-prompts\/[a-f0-9]{12}\?intent=add-rich-threads and help me set this up\.$/,
   );
   expect(screen.getByRole("status").textContent).toContain("Copy blocked");
 });

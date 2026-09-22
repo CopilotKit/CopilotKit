@@ -273,7 +273,7 @@ export function OnboardingPromptCopyButton({
             ? { id: frontend.id, name: frontend.name }
             : undefined;
         const source =
-          ` The developer copied this prompt from ${getClientBaseUrl().replace(/\/+$/, "")}${markdownUrl}.` +
+          ` I copied this prompt from ${getClientBaseUrl().replace(/\/+$/, "")}${markdownUrl}.` +
           (task
             ? ` Their goal for this quickstart is: ${task} Follow the linked guide for this framework and frontend.`
             : "");

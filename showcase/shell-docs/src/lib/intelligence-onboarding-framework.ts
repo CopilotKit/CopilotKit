@@ -71,5 +71,5 @@ export function frameworkPromptSuffix(
   if (graphSlug === undefined) {
     return "";
   }
-  return ` The developer selected the ${displayName} agent framework (\`${graphSlug}\`).`;
+  return ` I use the ${displayName} agent framework (\`${graphSlug}\`).`;
 }

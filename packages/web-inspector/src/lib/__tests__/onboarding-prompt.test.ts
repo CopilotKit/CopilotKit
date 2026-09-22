@@ -20,7 +20,7 @@ describe("onboarding-prompt", () => {
     // If this URL drifts from the route that serves it, the copied prompt
     // sends the coding agent to a 404 and onboarding dead-ends silently.
     expect(ONBOARDING_PROMPT_TEMPLATE).toBe(
-      "Read https://copilotkit.ai/onboarding-prompts/<run-id> and help me get set up",
+      "Read https://copilotkit.ai/onboarding-prompts/<run-id> and help me get set up.",
     );
   });
 
@@ -118,7 +118,7 @@ describe("feature onboarding intents", () => {
     const prompt = createFeatureOnboardingPrompt("a2ui", "abc123def456");
 
     expect(prompt).toBe(
-      "Read https://copilotkit.ai/onboarding-prompts/abc123def456?intent=add-a2ui and help me set this up",
+      "Read https://copilotkit.ai/onboarding-prompts/abc123def456?intent=add-a2ui and help me set this up.",
     );
     expect(prompt).not.toContain("<run-id>");
     expect(prompt).not.toContain("<intent>");

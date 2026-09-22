@@ -65,5 +65,5 @@ export function frontendPromptSuffix(
   if (graphSlug === undefined) {
     return "";
   }
-  return ` The developer selected the ${displayName} frontend (\`${graphSlug}\`).`;
+  return ` I use the ${displayName} frontend (\`${graphSlug}\`).`;
 }

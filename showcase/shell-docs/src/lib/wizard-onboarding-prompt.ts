@@ -50,7 +50,7 @@ export function composeWizardOnboardingPrompt(
     : "";
   const frontendSentence =
     selection.frontend?.id === "slack" || selection.frontend?.id === "teams"
-      ? ` They want to connect their agent to ${selection.frontend.name} using CopilotKit Channels. Follow the channel setup documentation at https://docs.copilotkit.ai/${selection.frontend.id}.`
+      ? ` I want to connect my agent to ${selection.frontend.name} using CopilotKit Channels. Follow the channel setup documentation at https://docs.copilotkit.ai/${selection.frontend.id}.`
       : selection.frontend
         ? frontendPromptSuffix(selection.frontend.id, selection.frontend.name)
         : "";
@@ -60,9 +60,9 @@ export function composeWizardOnboardingPrompt(
   // recognize.
   const projectSentence =
     selection.project === "yes"
-      ? " They already have an existing project and want CopilotKit added to it."
+      ? " I already have an existing project and want CopilotKit added to it."
       : selection.project === "no"
-        ? " They are starting a brand new project."
+        ? " I am starting a brand new project."
         : "";
   // Omitted entirely for an empty list rather than rendered as an empty
   // clause — there is nothing to append, and it wasn't the previous
@@ -70,7 +70,7 @@ export function composeWizardOnboardingPrompt(
   // doesn't recognize.
   const featuresSentence =
     selection.featureTitles.length > 0
-      ? ` They also want these CopilotKit features set up: ${selection.featureTitles.join(", ")}.`
+      ? ` I also want these CopilotKit features set up: ${selection.featureTitles.join(", ")}.`
       : "";
 
   return (
@@ -79,9 +79,9 @@ export function composeWizardOnboardingPrompt(
     frontendSentence +
     projectSentence +
     (selection.agent === "yes"
-      ? ` They already have a ${selection.backend?.name ?? "working"} agent. Connect that existing agent without replacing it.`
+      ? ` I already have a ${selection.backend?.name ?? "working"} agent. Connect that existing agent without replacing it.`
       : selection.agent === "no"
-        ? ` They need a new ${selection.backend?.name ?? "AI"} agent. Create it as part of the setup.`
+        ? ` I need a new ${selection.backend?.name ?? "AI"} agent. Create it as part of the setup.`
         : "") +
     featuresSentence
   );

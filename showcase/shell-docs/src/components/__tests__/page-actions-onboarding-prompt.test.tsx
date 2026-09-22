@@ -97,7 +97,7 @@ const REACT = { id: "react", name: "React" };
  */
 const SLACK = { id: "slack", name: "Slack" };
 const PAGE_MARKDOWN_URL = "/mastra/generative-ui.mdx";
-const PAGE_SENTENCE = ` The developer copied this prompt from ${DOCS_ORIGIN}${PAGE_MARKDOWN_URL}.`;
+const PAGE_SENTENCE = ` I copied this prompt from ${DOCS_ORIGIN}${PAGE_MARKDOWN_URL}.`;
 
 /**
  * Render with the props every framework-scoped page supplies, so each test
@@ -570,7 +570,7 @@ it("names the React frontend by its docs name and the graph's slug", async () =>
   await waitFor(() => expect(writeText).toHaveBeenCalled());
 
   expect(writeText.mock.calls[0][0]).toContain(
-    " The developer selected the React frontend (`nextjs`).",
+    " I use the React frontend (`nextjs`).",
   );
 });
 
@@ -607,7 +607,7 @@ it("carries the frontend sentence alone when the graph knows no framework", asyn
 
   expect(writeText.mock.calls[0][0]).toBe(
     createIntelligenceOnboardingPrompt(reportedRunId()) +
-      " The developer selected the React frontend (`nextjs`)." +
+      " I use the React frontend (`nextjs`)." +
       PAGE_SENTENCE,
   );
 });

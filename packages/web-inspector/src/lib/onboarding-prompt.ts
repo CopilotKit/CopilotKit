@@ -31,7 +31,7 @@ const RUN_ID_PLACEHOLDER = "<run-id>";
 
 export const ONBOARDING_PROMPT_ORIGIN = "https://copilotkit.ai";
 
-export const ONBOARDING_PROMPT_TEMPLATE = `Read ${ONBOARDING_PROMPT_ORIGIN}/onboarding-prompts/${RUN_ID_PLACEHOLDER} and help me get set up`;
+export const ONBOARDING_PROMPT_TEMPLATE = `Read ${ONBOARDING_PROMPT_ORIGIN}/onboarding-prompts/${RUN_ID_PLACEHOLDER} and help me get set up.`;
 
 /** Length and alphabet are the CLI's, so a run id copied here resolves there. */
 const RUN_ID_LENGTH = 12;
@@ -137,7 +137,7 @@ const INTENT_PLACEHOLDER = "<intent>";
  * credentials warning beside it, moved with the command into the document the
  * URL serves. They are not dropped.
  */
-export const FEATURE_ONBOARDING_PROMPT_TEMPLATE = `Read ${ONBOARDING_PROMPT_ORIGIN}/onboarding-prompts/${RUN_ID_PLACEHOLDER}?intent=${INTENT_PLACEHOLDER} and help me set this up`;
+export const FEATURE_ONBOARDING_PROMPT_TEMPLATE = `Read ${ONBOARDING_PROMPT_ORIGIN}/onboarding-prompts/${RUN_ID_PLACEHOLDER}?intent=${INTENT_PLACEHOLDER} and help me set this up.`;
 
 /** Bind one run id and one tile's feature outcome into the copied prompt. */
 export function createFeatureOnboardingPrompt(

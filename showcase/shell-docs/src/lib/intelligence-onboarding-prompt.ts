@@ -25,7 +25,7 @@ export const ONBOARDING_PROMPT_ORIGIN = "https://copilotkit.ai";
  * Inspector. The CLI prompt graph decides the correct path after it inspects
  * the repository; the docs CTA only changes the feature promise.
  */
-export const INTELLIGENCE_ONBOARDING_PROMPT = `Read ${ONBOARDING_PROMPT_ORIGIN}/onboarding-prompts/${RUN_ID_PLACEHOLDER} and help me get set up`;
+export const INTELLIGENCE_ONBOARDING_PROMPT = `Read ${ONBOARDING_PROMPT_ORIGIN}/onboarding-prompts/${RUN_ID_PLACEHOLDER} and help me get set up.`;
 
 const RUN_ID_LENGTH = 12;
 
@@ -106,5 +106,5 @@ export function createFeatureSetupPrompt(
       "to run it. Never reveal credentials."
     );
   }
-  return `Read ${ONBOARDING_PROMPT_ORIGIN}/onboarding-prompts/${runId}?intent=${intent} and help me set this up`;
+  return `Read ${ONBOARDING_PROMPT_ORIGIN}/onboarding-prompts/${runId}?intent=${intent} and help me set this up.`;
 }

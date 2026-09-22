@@ -45,7 +45,7 @@ test("configures the shared coding-agent prompt card for Automatic Learning", as
     // run to point at. The two differing here is the point, not a drift.
     await waitFor(() =>
       expect(writeText.mock.calls[0]?.[0]).toMatch(
-        /^Read https:\/\/copilotkit\.ai\/onboarding-prompts\/[a-f0-9]{12}\?intent=add-learning and help me set this up$/,
+        /^Read https:\/\/copilotkit\.ai\/onboarding-prompts\/[a-f0-9]{12}\?intent=add-learning and help me set this up\.$/,
       ),
     );
     expect(screen.getByRole("status").textContent).toBe("Prompt copied");
