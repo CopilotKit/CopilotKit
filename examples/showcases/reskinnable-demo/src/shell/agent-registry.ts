@@ -56,6 +56,36 @@ export type IdentifyRunUser = (
   properties: { userRole?: string; userId?: string } | undefined,
 ) => { id: string; name: string };
 
+/**
+ * ── WHAT IS AND IS NOT DEMOABLE ABOUT MEMORY SCOPE ─────────────────────────
+ *
+ * The single authority for every skin. Each registration below points here
+ * rather than restating it: six near-identical paragraphs is exactly the drift
+ * this app's CLAUDE.md warns about, and they were already disagreeing.
+ *
+ * There are TWO switchers, and they behave differently.
+ *
+ * 1. The skin's own PERSONA switcher (keel's role picker, Rowan's operator,
+ *    bookstore's shopper) — still NOT a memory-isolation story. It rides on the
+ *    client's run `properties`, which live in the run request BODY, and those
+ *    frequently do not reach `identifyUser`. Both personas then land in the same
+ *    default bucket and switching re-scopes nothing. That is why every skin's
+ *    seeding covers the DEFAULT bucket, usually alongside the mapped person's.
+ *    Unchanged, and still the thing not to claim on stage.
+ *
+ * 2. The shell's ORGANIZATION switcher (`src/shell/governance-popover.tsx`) — IS
+ *    a memory-isolation story, and is the one to demo. It rides on a cookie, so
+ *    it reaches `identifyUser` on EVERY request including the bodyless ones
+ *    (memory lists, thread lists), and the shared CopilotKit route namespaces
+ *    the resolved id under it (`acme:keel-demo-user`). Measured end to end:
+ *    teach as one organization, ask as the other, nothing comes back; switch
+ *    back and it recalls. Threads scope the same way.
+ *
+ * So: per-ORGANIZATION isolation is real and demonstrable. Per-PERSONA isolation
+ * within one organization is not. A skin's own `intelligence/user-id.ts` remains
+ * the authority for how that skin names its buckets.
+ */
+
 export interface AgentRegistration {
   /**
    * Factory for this skin's server-only agent.
@@ -107,11 +137,9 @@ const REGISTRATIONS: Record<string, AgentRegistration> = {
   // through them. It was "identity plumbing only" for two releases, which is the
   // most expensive way to build the hardest half of this and get no demo out of it.
   //
-  // ⚠ Same caveat as Rowan, Bellwether and Keel: the client's `properties`
-  // frequently do not reach `identifyUser` on a run, so switching planner often
-  // re-scopes nothing — which is why the seed targets the default bucket AND the
-  // mapped one. Read `intelligence/user-id.ts` before claiming per-planner
-  // isolation on stage.
+  // ⚠ Memory scope: switching PERSONA here re-scopes nothing; switching
+  // ORGANIZATION does. See the note above `IdentifyRunUser`, and this skin's
+  // own `intelligence/user-id.ts` for how it names buckets.
   logistics: {
     createAgent: logisticsAgent,
     identifyUser: logisticsIdentifyUser,
@@ -122,53 +150,32 @@ const REGISTRATIONS: Record<string, AgentRegistration> = {
   // arms beats 4 and 5, and `intelligence/forget-memories.ts` + the gated
   // `POST /api/keel/v1/dev/reset` clear whatever beat 6 taught.
   //
-  // ⚠ Same caveat as Rowan and Bellwether: do NOT present this as per-persona
-  // memory ISOLATION on stage. The client's `properties` frequently do not reach
-  // `identifyUser` on a run, so switching persona in the header often re-scopes
-  // nothing — which is exactly why `memorySeedTargetUserIds()` seeds the default
-  // bucket AND every persona's. Read `intelligence/user-id.ts` before claiming
-  // otherwise.
+  // ⚠ Memory scope: switching PERSONA here re-scopes nothing; switching
+  // ORGANIZATION does. See the note above `IdentifyRunUser`, and this skin's
+  // own `intelligence/user-id.ts` for how it names buckets.
   keel: { createAgent: keelAgent, identifyUser: keelIdentifyUser },
   // Rowan resolves a per-operator identity — `OPERATOR_IDENTITY` maps each
   // operator 1:1 — and its seeded beat-4 preference and beat-5 procedure are
   // Maya's.
   //
-  // ⚠ Same caveat as Bellwether below: do NOT present this as per-operator
-  // memory isolation on stage. The client's `properties` frequently do not
-  // reach `identifyUser` on a run, so Maya AND Clara both resolve to the same
-  // `rowan-demo-user` bucket and switching operator in the sidebar re-scopes
-  // NOTHING — the "Clara has taught it nothing" contrast is not demoable until
-  // properties forwarding is fixed. That is also why `dev/reset` seeds BOTH the
-  // default bucket and Maya's mapped id; see `SEED_TARGET_USER_IDS` in
-  // `src/skins/people/intelligence/user-id.ts`, the authority on which inputs
-  // land in which bucket.
+  // ⚠ Memory scope: switching PERSONA here re-scopes nothing; switching
+  // ORGANIZATION does. See the note above `IdentifyRunUser`, and this skin's
+  // own `intelligence/user-id.ts` for how it names buckets.
   people: { createAgent: peopleAgent, identifyUser: peopleIdentifyUser },
   // Bellwether resolves a per-operator identity — `OPERATOR_IDENTITY` maps each
   // operator 1:1 — and its seeded beat-4 preference and beat-5 procedure belong
   // to Nadia.
   //
-  // ⚠ Do NOT present that as per-operator memory isolation on stage. The
-  // client's `properties` frequently do not reach `identifyUser` on a run, so
-  // Nadia AND Theo both resolve to the same `bellwether-demo-user` bucket and
-  // switching operator in the sidebar re-scopes NOTHING: the "Theo has taught it
-  // nothing" contrast is not demoable until properties forwarding is fixed.
-  // `src/skins/commerce/intelligence/user-id.ts` is the authority on which
-  // inputs land in which bucket; read its `memorySeedTargetUserIds` note (and
-  // the pinned-`INTELLIGENCE_USER_ID` short-circuit) before changing this.
+  // ⚠ Memory scope: switching PERSONA here re-scopes nothing; switching
+  // ORGANIZATION does. See the note above `IdentifyRunUser`, and this skin's
+  // own `intelligence/user-id.ts` for how it names buckets.
   commerce: { createAgent: commerceAgent, identifyUser: commerceIdentifyUser },
   // Bookstore resolves a per-shopper identity — a known shopper id maps 1:1 onto
   // `bookstore-<id>` — and its seeded beat-4 taste preference is Maya's.
   //
-  // ⚠ Same caveat as Rowan and Bellwether above: do NOT present this as
-  // per-shopper memory isolation. The client's `properties` frequently do not
-  // reach `identifyUser` on a run, so Maya AND Guest both resolve to the same
-  // `bookstore-demo-shopper` bucket and the sidebar shopper switcher re-scopes
-  // NOTHING — shopping as Guest can recall Maya's preference. What IS demoable is
-  // the recall itself: the agent names the remembered taste in `recommendBooks`'
-  // `note` slot. That is why `dev/reset` seeds BOTH the default bucket and Maya's
-  // mapped id; see `bookstoreMemorySeedTargetUserIds` in
-  // `src/skins/bookstore/intelligence/user-id.ts`, the authority on which inputs
-  // land in which bucket.
+  // ⚠ Memory scope: switching PERSONA here re-scopes nothing; switching
+  // ORGANIZATION does. See the note above `IdentifyRunUser`, and this skin's
+  // own `intelligence/user-id.ts` for how it names buckets.
   bookstore: {
     createAgent: bookstoreAgent,
     identifyUser: bookstoreIdentifyUser,
@@ -178,14 +185,9 @@ const REGISTRATIONS: Record<string, AgentRegistration> = {
   // `cascade-chief-of-staff` 1:1, and its seeded beat-4 reporting preference is
   // theirs.
   //
-  // ⚠ Same caveat as Rowan, Bellwether, Keel and Bookstore above: do NOT
-  // present this as per-operator memory isolation on stage. The client's
-  // `properties` frequently do not reach `identifyUser` on a run, so runs
-  // actually resolve to the `vantage-demo-user` default bucket regardless of
-  // the mapped operator —
-  // which is exactly why `SEED_TARGET_USER_IDS` seeds BOTH the default bucket
-  // AND the mapped chief-of-staff id. Read `intelligence/user-id.ts` before
-  // claiming otherwise.
+  // ⚠ Memory scope: switching PERSONA here re-scopes nothing; switching
+  // ORGANIZATION does. See the note above `IdentifyRunUser`, and this skin's
+  // own `intelligence/user-id.ts` for how it names buckets.
   exec: { createAgent: execAgent, identifyUser: execIdentifyUser },
 };
 
