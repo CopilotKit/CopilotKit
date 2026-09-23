@@ -7,6 +7,7 @@
 // intentionally minimal — a scan of showcase/shell-docs content shows
 // no H2 collisions today; if that changes, swap in rehype-slug.
 
+import { frameworkGateMatches, parseFrameworkGate } from "./framework-gate";
 import { getIntegration } from "./registry";
 import type { FrontendId } from "./frontend-options";
 
@@ -43,12 +44,15 @@ function plainHeadingText(raw: string): string {
 // not render given the current framework, so headings inside non-matching
 // branches don't leak into the right-rail TOC.
 //
-// Mirrors the runtime evaluation in `components/when-framework-has.tsx`:
+// Evaluates the same gate as `components/when-framework-has.tsx`
+// (`frameworkGateMatches` in framework-gate.ts):
 //
 //   - `<WhenFrameworkHas flag="X" equals="Y">…</WhenFrameworkHas>` is
 //     kept only when `integration[X] === "Y"`.
 //   - `<WhenFrameworkHas flag="X" absent>…</WhenFrameworkHas>` is kept
 //     only when `integration[X]` is null/missing.
+//   - `<WhenFrameworkHas flag="X" noneOf="A B">…</WhenFrameworkHas>` is
+//     kept when `integration[X]` is null/missing or neither A nor B.
 //   - When `framework` is null/undefined or the integration can't be
 //     resolved, every gated block is stripped (matches the runtime
 //     behavior — `WhenFrameworkHas` returns null with no framework).
@@ -63,9 +67,6 @@ export function filterFrameworkScopedBlocks(
   framework: string | null | undefined,
 ): string {
   const integration = framework ? getIntegration(framework) : undefined;
-  const flags = integration
-    ? (integration as unknown as Record<string, unknown>)
-    : null;
 
   const openRe = /<WhenFrameworkHas\b([^>]*)>/g;
   const closeTag = "</WhenFrameworkHas>";
@@ -95,21 +96,7 @@ export function filterFrameworkScopedBlocks(
     const blockEnd = closeIdx + closeTag.length;
     const inner = source.slice(openEnd, closeIdx);
 
-    const flagMatch = attrs.match(/\bflag\s*=\s*"([^"]+)"/);
-    const equalsMatch = attrs.match(/\bequals\s*=\s*"([^"]+)"/);
-    const isAbsent = /\babsent\b/.test(attrs);
-
-    let keep = false;
-    if (flagMatch && flags) {
-      const value = flags[flagMatch[1]];
-      if (isAbsent) {
-        keep = value == null;
-      } else if (equalsMatch) {
-        keep = value === equalsMatch[1];
-      }
-    }
-
-    if (keep) {
+    if (frameworkGateMatches(integration, parseFrameworkGate(attrs))) {
       // Preserve the inner content but drop the surrounding tags so a
       // stray opener/closer can't confuse a recursive caller.
       out.push(inner);

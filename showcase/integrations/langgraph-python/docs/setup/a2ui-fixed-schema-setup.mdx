@@ -3,10 +3,11 @@
     ### Give the graph the tool
 
     The reference graph is a `create_agent` agent whose only tool is
-    `display_flight`. `CopilotKitMiddleware` passes CopilotKit's frontend tools
-    and agent state through to the model. The system prompt tells the model to
-    call `display_flight` once and stop, because the tool result is the
-    rendered card.
+    `display_flight`. `CopilotKitMiddleware` adds CopilotKit's frontend tools
+    and the frontend's agent context to each model call. It doesn't put agent
+    state in the prompt unless you opt in with `expose_state`, and this graph
+    doesn't need to. The system prompt tells the model to call `display_flight`
+    once and stop, because the tool result is the rendered card.
 
     <DemoCode file="src/agents/a2ui_fixed.py" region="a2ui-fixed-schema-agent" />
 

@@ -5,8 +5,8 @@
     The Built-in Agent runs in-process, and its factory receives the AG-UI
     run input directly. The `systemPrompts` that
     `convertInputToTanStackAI(input)` returns include one prompt for each
-    `useAgentContext` entry, formatted as the entry's `description`, a
-    newline, and its `value`:
+    `useAgentContext` entry, formatted as the entry's `description`, a colon,
+    a newline, and its `value` (`description:\nvalue`):
 
     <DemoCode
       file="src/lib/factory/tanstack-factory.ts"
