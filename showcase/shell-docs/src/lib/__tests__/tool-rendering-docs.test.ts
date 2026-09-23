@@ -60,3 +60,26 @@ test("the shared default-rendering guidance uses the selected Showcase region", 
   expect(output).not.toContain("JSON.stringify(result, null, 2)");
   expect(output).not.toContain("useRenderToolCall");
 });
+
+test("the Strands TypeScript guide resolves its runnable weather tool", () => {
+  const doc = loadDoc("generative-ui/tool-rendering");
+  expect(doc).not.toBeNull();
+
+  const output = renderPageToLlmText(
+    {
+      url: "strands-typescript/generative-ui/tool-rendering",
+      title: doc!.fm.title,
+      description: doc!.fm.description,
+      filePath: doc!.filePath,
+      loadSlug: "generative-ui/tool-rendering",
+      framework: "strands-typescript",
+    },
+    { framework: "strands-typescript" },
+  );
+
+  expect(output.match(/export const getWeather = tool/g)).toHaveLength(1);
+  expect(output).toContain('name: "get_weather"');
+  expect(output).not.toContain(
+    "region 'weather-tool-backend' missing in strands-typescript::tool-rendering",
+  );
+});

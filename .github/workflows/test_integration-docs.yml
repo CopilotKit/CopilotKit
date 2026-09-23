@@ -4,6 +4,10 @@ on:
     branches: [main]
     paths:
       - "showcase/shell-docs/src/content/**"
+      - "scripts/validate-docs-deprecated-imports.mjs"
+      - "scripts/__tests__/validate-docs-deprecated-imports.test.mjs"
+      - "scripts/docs-deprecated-imports-baseline.json"
+      - "scripts/deprecations/**"
       - "showcase/shell-docs/model-allowlist.json"
       - "showcase/shell-docs/src/lib/__tests__/ms-agent-dotnet-provider.test.ts"
       # The setup-concept gate below reads snippets owned by the integration
@@ -14,7 +18,11 @@ on:
       - "showcase/integrations/*/manifest.yaml"
       - "showcase/shell-docs/src/lib/setup-content.ts"
       - "showcase/shell-docs/src/lib/setup-concept.tsx"
+      - "showcase/shell-docs/src/components/mdx-code-block.tsx"
+      - "showcase/shell-docs/src/lib/mdx-registry-loader.tsx"
+      - "showcase/shell-docs/src/lib/rehype-code-meta.ts"
       - "showcase/shell-docs/src/lib/__tests__/frontend-tools-setup-coverage.test.ts"
+      - "showcase/shell-docs/src/lib/__tests__/setup-concept-rendering.test.tsx"
       - "showcase/shell-docs/src/lib/__tests__/setup-concept.test.ts"
       # The docs feature prompts only name a CLI intent now, so the route owns
       # the instructions. Nothing else in CI reads these files, and OSS-1150
@@ -33,11 +41,16 @@ on:
       - "examples/integrations/ms-agent-framework-dotnet/**"
       - "scripts/validate-doc-model-names.ts"
       - "scripts/doc-tests/**"
+      - "tools/learned-skill-conformance/workspace-artifacts*.mjs"
       - ".github/workflows/test_integration-docs.yml"
   push:
     branches: [main]
     paths:
       - "showcase/shell-docs/src/content/**"
+      - "scripts/validate-docs-deprecated-imports.mjs"
+      - "scripts/__tests__/validate-docs-deprecated-imports.test.mjs"
+      - "scripts/docs-deprecated-imports-baseline.json"
+      - "scripts/deprecations/**"
       - "showcase/shell-docs/model-allowlist.json"
       - "showcase/shell-docs/src/lib/__tests__/ms-agent-dotnet-provider.test.ts"
       # The setup-concept gate below reads snippets owned by the integration
@@ -48,7 +61,11 @@ on:
       - "showcase/integrations/*/manifest.yaml"
       - "showcase/shell-docs/src/lib/setup-content.ts"
       - "showcase/shell-docs/src/lib/setup-concept.tsx"
+      - "showcase/shell-docs/src/components/mdx-code-block.tsx"
+      - "showcase/shell-docs/src/lib/mdx-registry-loader.tsx"
+      - "showcase/shell-docs/src/lib/rehype-code-meta.ts"
       - "showcase/shell-docs/src/lib/__tests__/frontend-tools-setup-coverage.test.ts"
+      - "showcase/shell-docs/src/lib/__tests__/setup-concept-rendering.test.tsx"
       - "showcase/shell-docs/src/lib/__tests__/setup-concept.test.ts"
       # The docs feature prompts only name a CLI intent now, so the route owns
       # the instructions. Nothing else in CI reads these files, and OSS-1150
@@ -67,6 +84,7 @@ on:
       - "examples/integrations/ms-agent-framework-dotnet/**"
       - "scripts/validate-doc-model-names.ts"
       - "scripts/doc-tests/**"
+      - "tools/learned-skill-conformance/workspace-artifacts*.mjs"
       - ".github/workflows/test_integration-docs.yml"
 
 # Least-privilege by default. Individual jobs/steps can widen when needed.
@@ -92,6 +110,11 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm tsx scripts/validate-doc-model-names.ts
+      # Fails when a page teaches a deprecated v1 symbol it did not teach
+      # before. v1 is still supported and documented on purpose, so this is a
+      # ratchet against a baseline rather than a ban — see the validator's
+      # header for why a ban reports 184 findings on a clean tree.
+      - run: pnpm nx run repo-scripts:validate-docs-deprecated-imports
 
   ms-agent-dotnet-guidance:
     name: Microsoft Agent Framework .NET guidance
@@ -155,6 +178,7 @@ jobs:
         run: |
           npm exec -- vitest run \
             src/lib/__tests__/frontend-tools-setup-coverage.test.ts \
+            src/lib/__tests__/setup-concept-rendering.test.tsx \
             src/lib/__tests__/setup-concept.test.ts
 
   feature-prompt-intents:
@@ -240,4 +264,8 @@ jobs:
           cat /tmp/aimock.log
           exit 1
       - run: pnpm tsx scripts/doc-tests/extract.ts
+      - name: Build checkout Runtime packages for JavaScript snippets
+        run: pnpm nx run @copilotkit/runtime:build
+      - name: Test docs dependency installation
+        run: pnpm nx run learned-skill-conformance:test-doc-dependencies
       - run: pnpm tsx scripts/doc-tests/run.ts

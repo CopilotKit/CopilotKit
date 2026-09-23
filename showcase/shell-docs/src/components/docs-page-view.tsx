@@ -7,6 +7,8 @@
 // framework-scoped views keep every internal link in the `<framework>`
 // namespace without duplicating the nav builder.
 
+import { onboardingFrameworkSlug } from "@/lib/intelligence-onboarding-framework";
+import { onboardingFrontendSlug } from "@/lib/intelligence-onboarding-frontend";
 import React from "react";
 import Link from "next/link";
 import { MDXRemote } from "next-mdx-remote/rsc";
@@ -21,7 +23,9 @@ import { DocsContentHeader } from "@/components/docs-content-header";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { EarlyAccessGate } from "@/components/early-access-gate";
 import { getEarlyAccessGate } from "@/lib/early-access";
-import { DocsPageTools } from "@/components/docs-page-tools";
+import { hasInContentPrompt } from "@/lib/docs-prompt-placement";
+import { DocsPromptActionsProvider } from "@/components/docs-prompt-actions";
+import { DocsPageTools, docsMarkdownUrl } from "@/components/docs-page-tools";
 import { Snippet } from "@/components/snippet";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { WhenAngularBackend } from "@/components/when-angular-backend";
@@ -35,6 +39,7 @@ import type { OpsPlatformCTAProps } from "@/components/react/ops-platform-cta";
 import { ChannelsStartPrompt } from "@/components/channels-start-prompt";
 import type { ChannelsStartPromptProps } from "@/components/channels-start-prompt";
 import { RichThreadsSetupPrompt } from "@/components/rich-threads-setup-prompt";
+import { MemorySetupPrompt } from "@/components/memory-setup-prompt";
 import { LearningSetupPrompt } from "@/components/learning-setup-prompt";
 import { IntelligenceOnboardingPrompt } from "@/components/intelligence-onboarding-prompt";
 import type { IntelligenceOnboardingPromptProps } from "@/components/intelligence-onboarding-prompt";
@@ -281,25 +286,25 @@ export async function DocsPageView({
               description={doc.fm.description}
               hideHeading={doc.fm.hideHeader}
             >
-              {!doc.fm.hidePageActions && (
-                <DocsPageTools
-                  slugPath={slugPath}
-                  slugHrefPrefix={slugHrefPrefix}
-                  githubUrl={buildGitHubUrl(doc.filePath)}
-                  onboardingFramework={onboardingFramework}
-                  onboardingFrontend={onboardingFrontend}
-                  onboardingFeature={
-                    doc.fm.defaultCell
-                      ? {
-                          cell: doc.fm.defaultCell,
-                          title: doc.fm.title,
-                          description: doc.fm.description,
-                        }
-                      : undefined
-                  }
-                  hideOnboardingPrompt={slugPath === "webmcp"}
-                />
-              )}
+              {!doc.fm.hidePageActions &&
+                (hideBody || !hasInContentPrompt(tocSource)) && (
+                  <DocsPageTools
+                    slugPath={slugPath}
+                    slugHrefPrefix={slugHrefPrefix}
+                    githubUrl={buildGitHubUrl(doc.filePath)}
+                    onboardingFramework={onboardingFramework}
+                    onboardingFrontend={onboardingFrontend}
+                    onboardingFeature={
+                      doc.fm.defaultCell
+                        ? {
+                            cell: doc.fm.defaultCell,
+                            title: doc.fm.title,
+                            description: doc.fm.description,
+                          }
+                        : undefined
+                    }
+                  />
+                )}
             </DocsContentHeader>
 
             {bannerSlot}
@@ -361,8 +366,21 @@ export async function DocsPageView({
                             frontend={props.frontend ?? docsFrontend}
                           />
                         ),
+                        PageAgentPrompt: () => (
+                          <div className="not-prose my-6">
+                            <DocsPageTools
+                              slugPath={slugPath}
+                              slugHrefPrefix={slugHrefPrefix}
+                              githubUrl={buildGitHubUrl(doc.filePath)}
+                              promptTask={doc.fm.description ?? doc.fm.title}
+                              onboardingFramework={onboardingFramework}
+                              onboardingFrontend={onboardingFrontend}
+                            />
+                          </div>
+                        ),
                         RichThreadsSetupPrompt,
                         LearningSetupPrompt,
+                        MemorySetupPrompt,
                         QuickstartIntelligenceCta,
                         IntelligenceOnboardingPrompt:
                           IntelligenceOnboardingPromptMdx,
@@ -504,6 +522,7 @@ export async function DocsPageView({
                               frameworkOverride ?? props.currentFramework
                             }
                             hrefPrefix={slugHrefPrefix}
+                            frontendOverride={frontendOverride}
                           />
                         ),
                         // Same closure pattern: thread the URL framework
@@ -649,10 +668,26 @@ export async function DocsPageView({
                     />
                   </DocsBody>
                 );
-                if (ContentWrapper) {
-                  return <ContentWrapper>{body}</ContentWrapper>;
-                }
-                return body;
+                return (
+                  <DocsPromptActionsProvider
+                    value={{
+                      markdownUrl: docsMarkdownUrl(slugHrefPrefix, slugPath),
+                      githubUrl: buildGitHubUrl(doc.filePath),
+                      agentFramework: onboardingFramework
+                        ? onboardingFrameworkSlug(onboardingFramework.slug)
+                        : undefined,
+                      frontend: onboardingFrontend
+                        ? onboardingFrontendSlug(onboardingFrontend.id)
+                        : undefined,
+                    }}
+                  >
+                    {ContentWrapper ? (
+                      <ContentWrapper>{body}</ContentWrapper>
+                    ) : (
+                      body
+                    )}
+                  </DocsPromptActionsProvider>
+                );
               })()}
           </div>
         </MaybeEarlyAccessGate>

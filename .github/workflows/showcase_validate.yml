@@ -11,6 +11,9 @@ on:
       - ".github/workflows/showcase_validate.yml"
       - ".github/workflows/aeo_synthetics.yml"
       - ".github/workflows/showcase_deploy.yml"
+      # docs-release-workflows.test.ts must gate changes to these workflows.
+      - ".github/workflows/docs_open_release_pr.yml"
+      - ".github/workflows/docs_promote.yml"
       # This job runs showcase/scripts/advance-latest-tag.test.ts, which
       # asserts against the LIVE text of showcase_build.yml (that the build
       # step pushes no `:latest`, stamps the revision label, and runs the
@@ -29,6 +32,8 @@ on:
       - ".github/workflows/showcase_validate.yml"
       - ".github/workflows/aeo_synthetics.yml"
       - ".github/workflows/showcase_deploy.yml"
+      - ".github/workflows/docs_open_release_pr.yml"
+      - ".github/workflows/docs_promote.yml"
       - ".github/workflows/showcase_build.yml"
 
 # Least-privilege by default. Individual jobs/steps can widen when needed.
@@ -711,6 +716,28 @@ jobs:
       - name: Shellcheck promote workflow scripts
         # shellcheck is preinstalled on ubuntu-latest.
         run: shellcheck showcase/scripts/promote-fleet.sh showcase/scripts/verify-prod-display.sh showcase/scripts/reconcile-prod-gate.sh
+
+      - name: Shellcheck starter shell scripts
+        # The starters under examples/integrations/ ship `entrypoint.sh` as the
+        # production container's CMD, plus dev helper scripts under scripts/.
+        # None of them were linted by anything, so shell defects in the exact
+        # file that starts the shipped image reached users unreviewed. Globbed
+        # (not an explicit file list) so a new starter is covered the day it
+        # lands instead of silently opting out.
+        #
+        # --severity=warning matches the release-script job: `info`/`style` on
+        # these files is mostly SC2086 on values we control, which would drown
+        # real findings. Anything at warning or above fails the job.
+        run: |
+          set -euo pipefail
+          shopt -s nullglob globstar
+          files=(examples/integrations/**/*.sh)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::No starter shell scripts matched — the glob is stale."
+            exit 1
+          fi
+          printf 'Linting %d starter shell script(s)\n' "${#files[@]}"
+          shellcheck --severity=warning "${files[@]}"
 
       - name: Run bats suite
         run: bats showcase/scripts/__tests__/

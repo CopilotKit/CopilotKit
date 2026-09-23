@@ -1,19 +1,33 @@
+/* Share the docs theme across every prompt placement and its page menu. */
+.dark .prompt-pill,
+.dark .docs-page-tools-prompt {
+  --prompt-text: var(--text);
+  --prompt-muted: var(--text-secondary);
+  --prompt-surface: var(--bg-surface);
+  --prompt-border: var(--border);
+  --prompt-hover: var(--bg-hover);
+  --prompt-active: var(--bg-elevated);
+  --prompt-input: var(--bg);
+  --prompt-focus: var(--accent);
+  --prompt-success: var(--success);
+}
+
 .prompt-pill {
   position: relative;
   display: inline-block;
   flex-shrink: 0;
   max-width: 100%;
   margin-bottom: 0;
-  color: #010507;
+  color: var(--prompt-text, #010507);
 }
 .prompt-pill-dock {
   display: flex;
   align-items: center;
   height: 44px;
   padding: 3px 5px 3px 3px;
-  border: 1px solid #dddde7;
+  border: 1px solid var(--prompt-border, #dddde7);
   border-radius: var(--shell-docs-radius-control);
-  background: #fff;
+  background: var(--prompt-surface, #fff);
   box-shadow: 0 2px 4px #01050705;
 }
 .prompt-pill button {
@@ -21,7 +35,7 @@
   transition: background-color 120ms ease;
 }
 .prompt-pill button:focus-visible {
-  outline: 2px solid #666cda;
+  outline: 2px solid var(--prompt-focus, #666cda);
   outline-offset: 3px;
 }
 .prompt-pill button:disabled {
@@ -50,19 +64,19 @@
 }
 .prompt-pill-copy:hover,
 .prompt-pill-app:hover {
-  background: #f1f1f7;
+  background: var(--prompt-hover, #f1f1f7);
 }
 .prompt-pill-copy:active,
 .prompt-pill-app:active {
-  background: #e8e8f1;
+  background: var(--prompt-active, #e8e8f1);
 }
 .prompt-pill-check {
-  color: #189370;
+  color: var(--prompt-success, #189370);
 }
 .prompt-pill-divider {
   width: 1px;
   height: 19px;
-  background: #e4e4ec;
+  background: var(--prompt-border, #e4e4ec);
   margin: 0 5px;
 }
 .prompt-pill-app {
@@ -77,6 +91,8 @@
   color: inherit;
 }
 .prompt-pill-app img {
+  display: block;
+  margin: 0;
   width: 18px;
   height: 18px;
   object-fit: contain;
@@ -103,10 +119,10 @@
   gap: 6px;
   min-height: 32px;
   padding: 4px 12px;
-  border: 1px solid #dddde7;
+  border: 1px solid var(--prompt-border, #dddde7);
   border-radius: var(--shell-docs-radius-control);
-  background: #fff;
-  color: #555561;
+  background: var(--prompt-surface, #fff);
+  color: var(--prompt-muted, #555561);
   font-size: 12px;
 }
 .prompt-pill-shelf svg {
@@ -120,10 +136,10 @@
   max-height: 85dvh;
   margin: auto;
   padding: 24px;
-  border: 1px solid #dddde7;
+  border: 1px solid var(--prompt-border, #dddde7);
   border-radius: var(--shell-docs-radius-surface);
-  background: #fff;
-  color: #010507;
+  background: var(--prompt-surface, #fff);
+  color: var(--prompt-text, #010507);
   box-shadow: 0 24px 80px #01050729;
 }
 .prompt-pill-dialog::backdrop {
@@ -155,10 +171,10 @@
   min-height: 220px;
   padding: 14px;
   resize: vertical;
-  border: 1px solid #dddde7;
+  border: 1px solid var(--prompt-border, #dddde7);
   border-radius: var(--shell-docs-radius-control);
-  background: #f7f7fa;
-  color: #010507;
+  background: var(--prompt-input, #f7f7fa);
+  color: var(--prompt-text, #010507);
   font: 13px/1.7 monospace;
 }
 .prompt-pill-dialog p {
@@ -169,20 +185,19 @@
   min-height: 44px;
   padding: 10px 18px;
   border-radius: var(--shell-docs-radius-control);
-  background: #010507;
-  color: white;
+  background: var(--prompt-text, #010507);
+  color: var(--prompt-surface, white);
   font-size: 13px;
 }
 @media (hover: none), (pointer: coarse) {
+  /* Touch users always see preview, so reserve its space in every placement. */
   .prompt-pill-shelf {
+    position: static;
     opacity: 1;
     visibility: visible;
   }
   .prompt-pill-shelf button {
     min-height: 44px;
-  }
-  .docs-page-tools-prompt {
-    margin-bottom: 50px;
   }
   .prompt-pill-app {
     width: 44px;
@@ -199,7 +214,11 @@
   gap: 8px;
   align-items: flex-start;
   overflow: visible;
-  margin-bottom: 38px;
+  /* The hover shelf is absolutely positioned and overlays the content
+   * below, so the header keeps the same rhythm as pages without a pill. */
+  margin-bottom: 0;
+  position: relative;
+  z-index: 1;
 }
 .docs-page-tools-prompt::before,
 .docs-page-tools-prompt::after {
@@ -210,9 +229,9 @@
   align-self: flex-start;
   margin: 0;
   border-radius: var(--shell-docs-radius-control) !important;
-  border-color: #dddde7 !important;
-  background: #fff !important;
-  color: #555561 !important;
+  border-color: var(--prompt-border, #dddde7) !important;
+  background: var(--prompt-surface, #fff) !important;
+  color: var(--prompt-muted, #555561) !important;
 }
 
 /* Keep the page-tools menu alongside the pill on narrow phones. */

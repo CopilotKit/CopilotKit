@@ -201,21 +201,11 @@ test("separates the Voice sample-text path from microphone transcription", () =>
   expect(output).not.toContain("<Snippet");
 });
 
-test("replaces four LangGraph Python legacy viewer guides with Showcase sources", () => {
+test("replaces two LangGraph Python legacy viewer guides with Showcase sources", () => {
+  // predictive-state-updates and agent-app-context were returned to upstream
+  // content when merging origin/main; their Showcase rewrites are follow-up
+  // work, so they are not asserted here.
   const cases = [
-    {
-      slug: "integrations/langgraph/shared-state/predictive-state-updates",
-      url: "langgraph-python/shared-state/predictive-state-updates",
-      sourceTerms: [
-        "shared-state-streaming",
-        "state-streaming-middleware",
-        "frontend-use-coagent-state",
-      ],
-      outputTerms: [
-        "StateStreamingMiddleware",
-        'agentId: "shared-state-streaming"',
-      ],
-    },
     {
       slug: "integrations/langgraph/shared-state/state-inputs-outputs",
       url: "langgraph-python/shared-state/state-inputs-outputs",
@@ -225,16 +215,6 @@ test("replaces four LangGraph Python legacy viewer guides with Showcase sources"
         "use-agent-write",
       ],
       outputTerms: ["PreferencesInjectorMiddleware", "agent.setState"],
-    },
-    {
-      slug: "integrations/langgraph/agent-app-context",
-      url: "langgraph-python/agent-app-context",
-      sourceTerms: [
-        "readonly-state-agent-context",
-        "use-agent-context-call",
-        "agent-context-setup",
-      ],
-      outputTerms: ["useAgentContext({", "CopilotKitMiddleware"],
     },
     {
       slug: "integrations/langgraph/multi-agent-flows",

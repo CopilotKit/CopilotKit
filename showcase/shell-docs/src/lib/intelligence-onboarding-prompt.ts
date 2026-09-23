@@ -5,20 +5,27 @@ export const INTELLIGENCE_ONBOARDING_EVENTS = {
 } as const;
 
 /**
+ * Where the hosted prompt documents live.
+ *
+ * The apex host is deliberate: `copilotkit.ai` 308s to `www` and preserves the
+ * path, and the shorter string is the one people read.
+ */
+export const ONBOARDING_PROMPT_ORIGIN = "https://copilotkit.ai";
+
+/**
  * The coding-agent prompt used by Intelligence, Inspector, and Shell Docs.
  *
+ * One sentence. It used to carry the `npx` command itself, which put a command
+ * line and a telemetry id in the one piece of text a human reads, decides on
+ * and pastes. The command now lives in the document the URL serves, with the
+ * run id already written into it (PE-216/PE-217).
+ *
  * Keep this byte-identical to `INTELLIGENCE_ONBOARDING_PROMPT` in
- * Intelligence's `intelligence-home.tsx` and `ONBOARDING_PROMPT_TEMPLATE` in
- * the Inspector. The CLI prompt graph decides the correct path after it
- * inspects the repository; the docs CTA only changes the feature promise.
+ * Intelligence's react-shell and `ONBOARDING_PROMPT_TEMPLATE` in the
+ * Inspector. The CLI prompt graph decides the correct path after it inspects
+ * the repository; the docs CTA only changes the feature promise.
  */
-export const INTELLIGENCE_ONBOARDING_PROMPT =
-  "Identify which coding-agent product you are, using a short slug such as " +
-  "`codex` or `claude-code`. From the root of the project where you want " +
-  "CopilotKit, run `npx --yes copilotkit@latest onboard start --run " +
-  `${RUN_ID_PLACEHOLDER}` +
-  " --coding-agent <coding-agent-slug>`. Follow the Markdown instructions it " +
-  "prints until onboarding is complete.";
+export const INTELLIGENCE_ONBOARDING_PROMPT = `Read ${ONBOARDING_PROMPT_ORIGIN}/onboarding-prompts/${RUN_ID_PLACEHOLDER} and help me get set up.`;
 
 const RUN_ID_LENGTH = 12;
 
@@ -70,20 +77,34 @@ export type FeatureOnboardingIntent = "add-learning" | "add-rich-threads";
  * changes, which is what happened to the hand-written Learning prompt this
  * function replaced.
  *
- * No `--run` id: these strings are static, and `llm-text` inlines them into
- * cached raw Markdown, so one id minted here would be shared by every reader.
- * The CLI mints its own when the flag is absent.
+ * With a run id the session-check permission and the credentials warning move
+ * with the command, into the document the URL serves. They are not dropped.
+ * Without one the command stays here, warning included.
  */
 export function createFeatureSetupPrompt(
   intent: FeatureOnboardingIntent,
+  runId?: string,
 ): string {
-  return (
-    "Identify your coding-agent slug (for example, `codex` or " +
-    "`claude-code`). From the root of this repository, run `npx --yes " +
-    `copilotkit@latest onboard start --coding-agent <coding-agent-slug> --intent ${intent}` +
-    "`. Follow the Markdown instructions it prints until setup is complete. " +
-    "If it requires a CopilotKit CLI session check, you have permission to " +
-    "run it; never reveal credentials or send optional diagnostic feedback " +
-    "reports."
-  );
+  // Two shapes, decided by whether there is a run to point at.
+  //
+  // With a run id -- every interactive control -- the link is the prompt, and
+  // the fetch of it joins the copy to the CLI run that follows.
+  //
+  // Without one, the link would have nothing to identify, so this keeps the
+  // command it has always carried. The static callers are raw-Markdown
+  // consumers: `llm-text.ts` inlines this into cached `.md` output, so an id
+  // minted here would be baked into the cache and shared by every reader.
+  // A run-id-less URL was considered and rejected -- it can be counted but
+  // never joined to a funnel or an identity, and nothing measures whether
+  // that surface is read at all today (PE-224).
+  if (runId === undefined) {
+    return (
+      "Help me set this up in my CopilotKit app. Run this command and follow " +
+      "the instructions:\n\nnpx --yes copilotkit@latest onboard start " +
+      `--intent ${intent}` +
+      "\n\nIf it requires a CopilotKit CLI session check, you have permission " +
+      "to run it. Never reveal credentials."
+    );
+  }
+  return `Read ${ONBOARDING_PROMPT_ORIGIN}/onboarding-prompts/${runId}?intent=${intent} and help me set this up.`;
 }

@@ -1,4 +1,4 @@
-import { loadDoc } from "./docs-render";
+import { docCandidateOrder, loadDoc } from "./docs-render";
 import { getDocsFolder, getDocsMode } from "./registry";
 
 /**
@@ -21,19 +21,11 @@ export function resolveFrameworkContent(
   if (docsMode === "hidden") return null;
 
   const docsFolder = getDocsFolder(framework);
-  const frameworkSlugPath = `integrations/${docsFolder}/${slugPath}`;
-  const rootSlugPath = slugPath;
 
-  // Authored integrations own their pages. Generated integrations use root
-  // content by default, except these root routing shims which intentionally
-  // resolve to a framework-specific guide when it exists.
-  const frameworkFirst =
-    docsMode === "authored" ||
-    slugPath === "quickstart" ||
-    slugPath === "threads-import";
-  const candidates = frameworkFirst
-    ? [frameworkSlugPath, rootSlugPath]
-    : [rootSlugPath, frameworkSlugPath];
+  // Same order the page route and `llms-mdx` use (see docCandidateOrder):
+  // authored integrations own their pages; generated integrations use root
+  // content except for the framework-wins routing shims.
+  const candidates = docCandidateOrder(docsMode, docsFolder, slugPath);
 
   // The raw-Markdown resolver asks for `index` when a framework path has no
   // tail. The HTML route renders its landing page separately, but Markdown

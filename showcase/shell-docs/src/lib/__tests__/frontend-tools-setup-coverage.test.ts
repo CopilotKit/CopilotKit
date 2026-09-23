@@ -64,9 +64,10 @@ test("Google ADK frontend-tool setup stays neutral across its three consumers", 
     setupContent,
   );
 
+  // The snippet is self-contained: it defines its own termination callback
+  // rather than importing a showcase-only helper, and it must stay neutral.
   expect(source).not.toBeNull();
-  expect(source).toContain("shared_chat.py");
-  expect(source).toContain("build_simple_chat_agent");
+  expect(source).toContain("def stop_on_terminal_text");
   expect(source).toContain("tools=[AGUIToolset()]");
   expect(source).toContain("after_model_callback=stop_on_terminal_text");
   expect(source).not.toContain("render_bar_chart");
@@ -93,17 +94,60 @@ test("Google ADK frontend-tool setup stays neutral across its three consumers", 
       },
       { framework: "google-adk" },
     );
-    const setupStart = output.indexOf('~~~~python title="shared_chat.py"');
-    expect(setupStart, loadSlug).toBeGreaterThanOrEqual(0);
-    const setupEnd = output.indexOf("~~~~", setupStart + 4);
-    const setup = output.slice(setupStart, setupEnd);
-    expect(setup, loadSlug).toContain("build_simple_chat_agent");
+    const blocks = output.match(/(`{3,}|~{3,})python[^\n]*\n[\s\S]*?\n[ \t]*\1/g);
+    const setup = blocks?.find((block) =>
+      block.includes("def stop_on_terminal_text"),
+    );
+    expect(setup, loadSlug).toBeDefined();
     expect(setup, loadSlug).toContain("tools=[AGUIToolset()]");
+    expect(setup, loadSlug).toContain(
+      "after_model_callback=stop_on_terminal_text",
+    );
     expect(setup, loadSlug).not.toContain("render_bar_chart");
     expect(setup, loadSlug).not.toContain("generate_task_steps");
     expect(output, loadSlug).not.toContain("<FrameworkSetup");
   }
 });
+
+test("the shared Strands TypeScript setup does not choose a page-specific hook", () => {
+  const source = resolveBundledSetupConcept(
+    "strands-typescript",
+    CONCEPT,
+    setupContent,
+  );
+
+  expect(source).not.toContain("useFrontendTool");
+  expect(source).not.toContain("useComponent");
+});
+
+test.each([
+  ["frontend-tools", "useFrontendTool", "useComponent"],
+  ["generative-ui/tool-based", "useComponent", "useFrontendTool"],
+  ["generative-ui/display", "useComponent", "useFrontendTool"],
+])(
+  "the Strands TypeScript %s guide keeps its own hook guidance",
+  (route, hook, otherHook) => {
+    const doc = loadDoc(route);
+    expect(doc).not.toBeNull();
+
+    const output = renderPageToLlmText(
+      {
+        url: `strands-typescript/${route}`,
+        title: doc!.fm.title,
+        description: doc!.fm.description,
+        filePath: doc!.filePath,
+        loadSlug: route,
+        framework: "strands-typescript",
+      },
+      { framework: "strands-typescript" },
+    );
+    const section = output
+      .split("## How it works in code")[1]
+      ?.split("\n## ")[0];
+    expect(section).toContain(hook);
+    expect(section).not.toContain(otherHook);
+  },
+);
 
 // The two shapes the bundled snippets have to keep apart. A framework whose adapter
 // forwards the tools on its own still needs the model told to call the component --

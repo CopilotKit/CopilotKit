@@ -15,6 +15,8 @@
 // correctly even though Next.js routes them here before [[...slug]].
 
 import React from "react";
+import { DocsSetupWizard } from "@/components/docs-setup-wizard";
+import { partnerShowcaseDemos } from "@/lib/partner-showcase-demos";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
@@ -43,7 +45,6 @@ import {
 import { buildAngularBackendOverview } from "@/lib/angular-backend-overview";
 import { docsComponents } from "@/lib/mdx-registry";
 import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
-import { resolveFrameworkContent } from "@/lib/framework-content-resolution";
 import {
   getFrontendGuidanceContentSlug,
   getFrontendContentSlug,
@@ -70,6 +71,7 @@ import {
   findFrameworksWithCell,
   findFrameworksWithPage,
   loadDoc,
+  docCandidateOrder,
 } from "@/lib/docs-render";
 import type { NavNode } from "@/lib/docs-render";
 import {
@@ -252,11 +254,19 @@ function frameworkMetadata(
     title = doc?.fm.title ?? humanizeSlug(unscopedPath);
     description = doc?.fm.description;
   } else if (slugPath) {
-    const docsFolder = getDocsFolder(framework);
-    const frameworkScopedDoc = loadDoc(
-      `integrations/${docsFolder}/${slugPath}`,
+    // Use the SAME order the body resolver uses (docCandidateOrder). This
+    // branch previously loaded the framework-scoped doc unconditionally, so a
+    // generated-mode page rendered the ROOT file's body under the FRAMEWORK
+    // file's title and description.
+    const candidates = docCandidateOrder(
+      getDocsMode(framework),
+      getDocsFolder(framework),
+      slugPath,
     );
-    const doc = frameworkScopedDoc ?? loadDoc(slugPath);
+    const doc = candidates.reduce<ReturnType<typeof loadDoc>>(
+      (found, candidate) => found ?? loadDoc(candidate),
+      null,
+    );
     if (doc) {
       title = doc.fm.title;
       description = doc.fm.description;
@@ -824,9 +834,28 @@ export default async function FrameworkScopedDocsPage({
     frameworkOverviews[scopedFramework]?.frameworkName ??
     scopedFramework;
 
-  const resolvedContent = resolveFrameworkContent(scopedFramework, slugPath);
-  const contentSlugPath = resolvedContent?.contentSlugPath ?? slugPath;
-  const doc = resolvedContent?.doc ?? null;
+  let contentSlugPath: string = slugPath;
+  let doc: ReturnType<typeof loadDoc> = null;
+
+  // Content resolution order depends on docs_mode:
+  //
+  //   authored  — per-framework MDX wins for every slug. Authored pages
+  //               can replace root pages while keeping the framework's
+  //               authored sidebar IA.
+  //               Only fall back to root if the framework simply has no
+  //               file for the requested slug (preserves the "shared"
+  //               fallback for slugs the framework intentionally leaves
+  //               to the agnostic page, e.g. enterprise CTAs).
+  //   generated — root MDX wins (Model 1, current behavior); the
+  //               per-framework tree is a sparse override layer.
+  for (const candidate of docCandidateOrder(docsMode, docsFolder, slugPath)) {
+    const found = loadDoc(candidate);
+    if (found) {
+      doc = found;
+      contentSlugPath = candidate;
+      break;
+    }
+  }
 
   // Authored integrations own their full docs tree and sidebar IA.
   // Generated integrations use the root docs IA with a sparse
@@ -1184,6 +1213,7 @@ async function FrameworkRootPage({
                   {...props}
                   currentFramework={framework ?? props.currentFramework}
                   hrefPrefix={slugHrefPrefix}
+                  frontendOverride={frontendOverride}
                 />
               ),
               // Mirror the binding in DocsPageView so any
@@ -1256,6 +1286,14 @@ async function FrameworkRootPage({
           hrefPrefix={slugHrefPrefix}
           frontendOverride={frontendOverride}
           afterFeatures={afterFeatures}
+          showcaseDemos={partnerShowcaseDemos(framework, frontendOverride)}
+          setupContent={
+            <DocsSetupWizard
+              key={`${frontendOverride ?? "react"}/${framework}`}
+              backend={framework}
+              frontend={frontendOverride ?? "react"}
+            />
+          }
         />
       </FrameworkRootShell>
     );
@@ -1318,7 +1356,22 @@ function FrameworkRootShell({
         breadcrumb={{ enabled: false }}
         footer={{ enabled: false }}
       >
-        <div className="docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pt-0 pb-6">
+        {/* Two classes here are load-bearing.
+            `docs-article-content` is the docs' own "one stable reading measure"
+            class (see globals.css), which the authored-MDX pages already carry.
+            Without it this path fell to the unlayered
+            `.docs-inner-content { max-width: min(1100px, 100%) }` rule, so the
+            same component came out 780px wide here and 736px on the MDX
+            partner pages. A Tailwind `max-w-*` cannot fix that: the rule is
+            unlayered and beats every utility.
+
+            The top padding is the shared docs value rather than the `pt-0`
+            this route carried since "fix(docs): polish shell docs UX"
+            (2026-05-28). That zero was set for the previous landing layout;
+            with the current one it left the framework icon flush against the
+            top while every other page in the docs — including the Intelligence
+            landing, which likewise renders no breadcrumb — starts 16px down. */}
+        <div className="docs-inner-content docs-article-content mx-auto px-4 pb-6 pt-2 md:px-6 md:pt-3 xl:pt-4">
           {children}
         </div>
       </DocsPage>

@@ -35,6 +35,7 @@
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
+import { frameworkOverviews } from "@/data/frameworks";
 import { INTELLIGENCE_ONBOARDING_PROMPT } from "./intelligence-onboarding-prompt";
 import {
   isV1ReferenceUrl,
@@ -59,11 +60,7 @@ import {
   loadReferenceVersionItems,
   resolveReferencePage,
 } from "./reference-items";
-import {
-  AG_UI_CONTENT_DIR,
-  DOCS_CONTENT_DIR,
-  walkMdx,
-} from "./sitemap-helpers";
+import { DOCS_CONTENT_DIR, walkMdx } from "./sitemap-helpers";
 import demoContent from "@/data/demo-content.json";
 import catalogData from "@/data/catalog.json";
 import angularSourceContent from "@/data/angular-source-content.json";
@@ -78,6 +75,7 @@ import { resolveDocsHref } from "./docs-link-rewrite";
 import { resolveBundledSetupConcept } from "./setup-content";
 import type { SetupContentBundle } from "./setup-content";
 import { RICH_THREADS_SETUP_PROMPT } from "./rich-threads-setup-prompt";
+import { MEMORY_SETUP_PROMPT } from "./memory-setup-prompt";
 import { LEARNING_SETUP_PROMPT } from "./learning-setup-prompt";
 
 interface Region {
@@ -190,7 +188,6 @@ export interface LlmPage {
  *   - Per-framework        (/<framework>/<slug>)
  *   - Channel-scoped       (/<slack|teams>/<framework?>/<guide?>)
  *   - Reference            (/reference/<slug>)
- *   - AG-UI                (/ag-ui/<slug>)
  *
  * We intentionally do NOT cross-product unscoped pages × every framework
  * — that would emit dozens of near-duplicate entries for the LLM. The
@@ -421,18 +418,6 @@ export function getAllLlmPages(
         loadSlug: `__reference__/${resolved.contentSlug}`,
       });
     }
-  }
-
-  // 5. AG-UI.
-  for (const { slug, filePath } of walkMdx(AG_UI_CONTENT_DIR)) {
-    const meta = readMetaFromFile(filePath);
-    push({
-      url: slug ? `ag-ui/${slug}` : "ag-ui",
-      title: meta.title ?? slug,
-      description: meta.description,
-      filePath,
-      loadSlug: `__ag-ui__/${slug || "index"}`,
-    });
   }
 
   return pages.sort((a, b) => a.url.localeCompare(b.url));
@@ -988,16 +973,51 @@ export function renderPageToLlmText(
 
   let body = stripFrontmatter(raw);
 
+  // Generated HTML intros mount authored after-features sections separately
+  // from their index/quickstart source. Include that same content in the
+  // overview's Markdown and full corpus, but never in ordinary guide pages.
+  const overviewUrl = frontend ? `${frontend}/${framework}` : framework;
+  if (
+    framework &&
+    (!frontend || frontend === "angular") &&
+    page.url === overviewUrl &&
+    getDocsMode(framework) === "generated" &&
+    frameworkOverviews[framework]?.hasAfterFeaturesMdx
+  ) {
+    const overviewSection = path.join(
+      CONTENT_DIR,
+      "../framework-overviews",
+      framework,
+      "after-features.mdx",
+    );
+    if (fs.existsSync(overviewSection)) {
+      body += `\n\n${fs.readFileSync(overviewSection, "utf8")}`;
+    } else {
+      // Match HTML's fallback for variants whose shared overview record
+      // enables a slot without providing variant-specific authored content.
+      console.error(
+        `[llm-text] missing framework overview section: ${overviewSection}`,
+      );
+    }
+  }
+
   // 1) Inline `<Component />` shared snippets (`<AGUI />`, etc.). Uses
   //    the SNIPPET_MAP / SUBPATH_TO_COMPONENT logic — same as the page
   //    renderer uses for the live HTML view.
   body = inlineSnippets(body, page.loadSlug);
 
-  // Interactive prompt buttons cannot run in raw Markdown or LLM feeds. Do
-  // this after shared snippets are inlined: root pages can place either prompt
-  // inside an imported snippet.
+  // Expand interactive prompts after inlining so prompts inside shared
+  // snippets are also available in raw Markdown and LLM feeds.
+  body = body.replace(
+    /<PageAgentPrompt\s*\/>/g,
+    "Ask your coding agent to follow the setup steps on this page for your selected framework and frontend.",
+  );
   body = expandRichThreadsSetupPrompts(body);
   body = expandLearningSetupPrompts(body);
+  body = body.replace(
+    /<MemorySetupPrompt\s*\/>/g,
+    `### Copy this prompt into your coding agent\n\n${fenceFor("text", MEMORY_SETUP_PROMPT)}`,
+  );
 
   // Imported snippets can contain frontend-scoped branches of their own.
   // Filter after inlining so raw Markdown output follows the same frontend
@@ -1065,13 +1085,10 @@ export function renderPageToLlmText(
 /**
  * Read the source MDX for a page. Bare docs slugs go through
  * `loadDoc()` (which also handles index files and frontmatter parsing).
- * Reference / AG-UI files use the absolute path stashed on `LlmPage`.
+ * Reference files use the absolute path stashed on `LlmPage`.
  */
 function readSource(page: LlmPage): string | null {
-  if (
-    page.loadSlug.startsWith("__reference__/") ||
-    page.loadSlug.startsWith("__ag-ui__/")
-  ) {
+  if (page.loadSlug.startsWith("__reference__/")) {
     try {
       return fs.readFileSync(page.filePath, "utf-8");
     } catch (err) {
@@ -1118,13 +1135,13 @@ export function renderLlmsIndex(
     "",
     "- **Greenfield:** Start a new project with CopilotKit, including when there is no frontend or agent yet.",
     "- **Brownfield:** Add CopilotKit to an existing application, agent backend, or both, working with the existing stack.",
-    "- **Existing CopilotKit OSS:** Connect a working open-source CopilotKit project to Intelligence.",
+    "- **Existing open-source CopilotKit:** Connect a working open-source CopilotKit project to Intelligence.",
     "",
     "The onboarding workflow inspects the project, identifies its starting point, and guides the coding agent through the appropriate setup. For a new project, run the prompt from its intended project directory. For an existing project, run it from the project root. For product research or comparisons, continue to the documentation links without running onboarding.",
     "",
     `This is the same prompt offered by the **Copy onboarding prompt** button on the [docs home](${baseUrl}/). A coding agent can use the text directly; a chat assistant without project or terminal access can give it to the user to paste into their coding agent.`,
     "",
-    "Generate a fresh 12-character hexadecimal run ID for each new onboarding session and replace `<run-id>` before running the command. Replace `<coding-agent-slug>` with the coding-agent product's slug. Do not execute the placeholders literally or reuse an ID from a cached index.",
+    "Generate a fresh 12-character hexadecimal run ID for each new onboarding session and replace `<run-id>` in the URL before fetching it. Do not fetch the placeholder literally or reuse an ID from a cached index.",
     "",
     "```text",
     INTELLIGENCE_ONBOARDING_PROMPT,

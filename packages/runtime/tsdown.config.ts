@@ -130,6 +130,7 @@ export default defineConfig({
     "v2/hono": "src/v2/hono.ts",
     "v2/node": "src/v2/node.ts",
     langgraph: "src/v1-deprecated/langgraph.ts",
+    "internal/learned-skills": "src/internal/learned-skills.ts",
   },
   format: runtimeFormats,
   dts: true,

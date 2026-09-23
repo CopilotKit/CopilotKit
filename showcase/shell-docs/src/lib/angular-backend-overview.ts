@@ -187,6 +187,7 @@ export function buildAngularBackendOverview(
   return {
     ...overview,
     guideLink: `/${integration}/quickstart`,
+    tutorialLink: `/${integration}/quickstart`,
     supportedFeatures,
     liveDemos: matchedDemos.map(({ demo, overviewFeature }) => ({
       type: demo.cell.feature,

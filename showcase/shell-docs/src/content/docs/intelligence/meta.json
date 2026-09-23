@@ -6,11 +6,15 @@
   "pages": [
     "overview",
     "quickstart",
-    "managed-intelligence-platform",
-    "connect-your-runtime",
-    "self-hosting",
     "intelligence-platform",
-    "threads-explained",
-    "memories"
+    "memories",
+    "learned-skills",
+    "analytics",
+    "channels",
+    "managed-intelligence-platform",
+    "plans",
+    "self-hosting",
+    "self-hosting-ecs",
+    "threads-explained"
   ]
 }

@@ -1,6 +1,6 @@
 import React from "react";
 import { act, render, waitFor } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import { AbstractAgent } from "@ag-ui/client";
 import type { RunAgentParameters, RunAgentResult } from "@ag-ui/client";
@@ -12,14 +12,13 @@ import {
 } from "../../headless";
 import type { CopilotKitContextValue } from "../../headless";
 import { TestCopilotKit } from "../../__mocks__/test-copilotkit";
-import { __resetRenderToolShimWarnings } from "../useRenderTool";
 
 /**
- * `useRenderTool` on `@copilotkit/react-native` is a DEPRECATED COMPATIBILITY
- * SHIM over react-core's two hooks (`src/hooks/useRenderTool.ts`), scheduled
- * for removal in the next minor. It registers nothing itself — every route
- * delegates — and the delegation is asserted structurally in
- * `src/__tests__/headless-entry-surface.test.ts` and behaviourally here.
+ * `useRenderTool` on `@copilotkit/react-native` IS react-core's
+ * `useRenderTool` — a plain re-export from `src/headless.ts`, with no RN
+ * implementation behind it. That wiring is asserted structurally in
+ * `src/__tests__/headless-entry-surface.test.ts`; this file asserts the
+ * BEHAVIOUR a React Native consumer gets through that entry.
  *
  * ─── What this file is for ───────────────────────────────────────────────────
  *
@@ -42,10 +41,11 @@ import { __resetRenderToolShimWarnings } from "../useRenderTool";
  * otherwise-unanswered tool call with an EMPTY tool result and asked for
  * another turn.
  *
- * So the assertions below are about which core hook a given call shape reaches,
- * and about the property that would silently regress if a local implementation
- * ever re-grew under this name: the wildcard must register no TOOL, only a
- * renderer.
+ * PR #6533 converged the name onto react-core behind a temporary routing shim;
+ * #6976 removed the shim. So the assertions below are the properties that would
+ * silently regress if a local implementation ever re-grew under this name: the
+ * wildcard must register no TOOL, only a renderer, and a named renderer must
+ * land in CORE's registry and advertise nothing.
  *
  * ─── Why nothing here is mocked ──────────────────────────────────────────────
  *
@@ -314,156 +314,9 @@ describe("agentId on a render-only registration", () => {
   });
 });
 
-// ─── The routing rules of the compatibility shim ──────────────────────────────
+// ─── The renderer-only registration path ─────────────────────────────────────
 
-/**
- * The three rules `src/hooks/useRenderTool.ts` implements, each asserted on
- * core's OWN observable state rather than on a spy's call arguments:
- *
- *   1. `name === "*"` wins UNCONDITIONALLY -> core's `useRenderTool`
- *      (renderer-only, wildcard path), whatever else was supplied.
- *   2. otherwise `handler` or `description` present -> core's `useFrontendTool`
- *      (tool AND renderer), which is what the old RN hook actually did.
- *   3. otherwise -> core's `useRenderTool`.
- *
- * Rule 1 is the load-bearing one and it is deliberately not the obvious
- * reading. The old RN hook made `description` REQUIRED, so every wildcard
- * renderer anyone ever wrote carries the old tool fields; routing "has old
- * fields" to `useFrontendTool` would recreate the `*`-named-tool bug for exactly
- * the people who had tried hardest to use the wildcard.
- *
- * Each probe uses a tool name no other test in this file uses, because the
- * shim's deprecation warning is deduped per tool name for the lifetime of the
- * module.
- */
-
-/**
- * Rule 1: a wildcard call carrying the OLD tool fields — the only shape the old
- * hook's required `description` allowed.
- */
-function LegacyWildcardProbe({ paints }: { paints: string }) {
-  useRenderTool(
-    {
-      name: "*",
-      description: "renders every tool call nothing else claims",
-      parameters: z.object({ anything: z.string() }),
-      handler: async () => "should never be registered, let alone run",
-      render: ({ name, status }) => <>{`legacy-wildcard|${name}|${status}`}</>,
-    },
-    [],
-  );
-  const renderToolCall = useRenderToolCall();
-  return <>{renderToolCall(renderOneCall(paints))}</>;
-}
-
-describe('rule 1: `name: "*"` wins unconditionally', () => {
-  it("paints as a fallback renderer and registers NO tool named `*`", async () => {
-    // The regression rule 1 exists to prevent. Under the old hook this exact
-    // call shape registered a frontend tool literally named `*` — claiming
-    // core's catch-all HANDLER slot, so every otherwise-unanswered tool call
-    // got auto-answered with an empty tool result plus a follow-up turn.
-    const coreRef: { current: Core | null } = { current: null };
-    const agent = new ToolListRecordingAgent();
-
-    const { container } = render(
-      <TestCopilotKit messages={[]} agent={agent}>
-        <CaptureCore into={coreRef} />
-        <LegacyWildcardProbe paints="someServerToolNobodyClaimed" />
-      </TestCopilotKit>,
-    );
-    const core = coreRef.current!;
-
-    // Half one: it still paints, as a FALLBACK — the tool call it renders has
-    // no renderer of its own.
-    await waitFor(() =>
-      expect(container.textContent).toBe(
-        "legacy-wildcard|someServerToolNobodyClaimed|inProgress",
-      ),
-    );
-    expect(core.renderToolCalls.map((r) => r.name)).toContain("*");
-
-    // Half two: nothing named `*` is a TOOL. These two are the discriminating
-    // assertions — the tool registry is the thing rule 1 keeps clean, and
-    // mutating rule 1 kills exactly this pair.
-    expect(core.getTool({ toolName: "*" })).toBeUndefined();
-    expect(core.tools.map((t) => t.name)).not.toContain("*");
-
-    // Forward guard only, as in the sibling test above: `buildFrontendTools`
-    // already withholds `*`, so this recorded `[[]]` on `origin/main` too and
-    // cannot fail for the old defect. It pins that `*` stays unadvertisable.
-    await act(async () => {
-      await core.runAgent({ agent });
-    });
-    expect(agent.advertised).toEqual([[]]);
-  });
-});
-
-/**
- * Rule 2: the old tool-plus-renderer shape, under a real name.
- *
- * `handler` returns a value the test can observe through core's own execution
- * path, because "the handler never runs again" is the silent half of the break
- * this shim exists for.
- */
-function LegacyToolProbe() {
-  useRenderTool(
-    {
-      name: "sendEmail",
-      description: "Send an email on the user's behalf",
-      parameters: z.object({ to: z.string() }),
-      handler: async ({ to }) => `sent to ${to}`,
-      render: ({ status, parameters }) => (
-        <>{`legacy-tool|${status}|${parameters.to ?? ""}`}</>
-      ),
-    },
-    [],
-  );
-  const renderToolCall = useRenderToolCall();
-  return (
-    <>{renderToolCall(renderOneCall("sendEmail", '{"to":"a@b.example"}'))}</>
-  );
-}
-
-describe("rule 2: `handler`/`description` route to `useFrontendTool`", () => {
-  it("registers a callable, advertised tool AND its renderer", async () => {
-    const coreRef: { current: Core | null } = { current: null };
-    const agent = new ToolListRecordingAgent();
-
-    const { container } = render(
-      <TestCopilotKit messages={[]} agent={agent}>
-        <CaptureCore into={coreRef} />
-        <LegacyToolProbe />
-      </TestCopilotKit>,
-    );
-    const core = coreRef.current!;
-
-    await waitFor(() =>
-      expect(core.getTool({ toolName: "sendEmail" })).toBeDefined(),
-    );
-
-    // The tool half: present, described, advertised, and — the assertion that
-    // separates "registered" from "works" — actually executable through core.
-    expect(core.getTool({ toolName: "sendEmail" })?.description).toBe(
-      "Send an email on the user's behalf",
-    );
-    expect(core.tools.map((t) => t.name)).toContain("sendEmail");
-    await expect(
-      core.runTool({ name: "sendEmail", parameters: { to: "a@b.example" } }),
-    ).resolves.toMatchObject({
-      result: "sent to a@b.example",
-      error: undefined,
-    });
-    await act(async () => {
-      await core.runAgent({ agent });
-    });
-    expect(agent.advertised).toEqual([["sendEmail"]]);
-
-    // The renderer half: registered through the same call, and painting.
-    expect(container.textContent).toBe("legacy-tool|inProgress|a@b.example");
-  });
-});
-
-/** Rule 3: the new, renderer-only shape — no tool fields at all. */
+/** The renderer-only shape: a schema and a renderer, no tool fields. */
 function ModernRendererProbe() {
   useRenderTool(
     {
@@ -481,12 +334,12 @@ function ModernRendererProbe() {
   );
 }
 
-describe("rule 3: no tool fields routes to core's `useRenderTool`", () => {
+describe("a renderer-only registration through RN's entry", () => {
   it("lands the renderer in CopilotKitCoreReact's registry and advertises nothing", async () => {
-    // Also the behavioural half of the delegation guard: a registration made
-    // through RN's shim has to end up in CORE's registry, which is the property
-    // an RN-local registry (RN once had one) would break while every
-    // export-surface check stayed green.
+    // Also the behavioural half of the "RN owns no registry" guard: a
+    // registration made through RN's entry has to end up in CORE's registry,
+    // which is the property an RN-local registry (RN once had one) would break
+    // while every export-surface check stayed green.
     const coreRef: { current: Core | null } = { current: null };
     const agent = new ToolListRecordingAgent();
 
@@ -511,320 +364,5 @@ describe("rule 3: no tool fields routes to core's `useRenderTool`", () => {
       await core.runAgent({ agent });
     });
     expect(agent.advertised).toEqual([[]]);
-  });
-});
-
-// ─── The deprecation warning ──────────────────────────────────────────────────
-
-/**
- * A legacy tool-shaped call whose tool NAME the caller chooses, so each warning
- * test gets a name of its own — the warning is deduped per tool name for the
- * lifetime of the module, which is the property under test.
- */
-function WarningProbe({ name }: { name: string }) {
-  useRenderTool(
-    {
-      name,
-      description: "a legacy tool-plus-renderer registration",
-      parameters: z.object({ x: z.string() }),
-      handler: async () => "ok",
-      render: () => null,
-    },
-    [],
-  );
-  return null;
-}
-
-/**
- * The renderer-only call with NO legacy fields at all: `{ name, parameters,
- * render }`. Simultaneously the correct new spelling and the one old-JS shape
- * the shim cannot tell apart from it, so the warning carries it.
- */
-function RendererOnlyProbe({ name }: { name: string }) {
-  useRenderTool(
-    {
-      name,
-      parameters: z.object({ x: z.string() }),
-      render: () => null,
-    },
-    [],
-  );
-  return null;
-}
-
-/**
- * A call whose SHAPE changes between renders — `handler`/`description` appear
- * only once `legacy` is true, which is what a `handler: enabled ? fn : undefined`
- * call site looks like from the shim's side.
- */
-function ShapeShiftingProbe({ legacy }: { legacy: boolean }) {
-  useRenderTool(
-    {
-      name: "shapeShifter",
-      parameters: z.object({ x: z.string() }),
-      render: () => null,
-      ...(legacy
-        ? { description: "now a tool as well", handler: async () => "ok" }
-        : {}),
-    },
-    [],
-  );
-  return null;
-}
-
-describe("the shim's deprecation warning", () => {
-  // The dedup key is the tool NAME and it lives as long as the module, so
-  // without this the wildcard's warning (always `"*"`) would already have been
-  // consumed by the rule-1 test above and these tests would have to depend on
-  // file order to observe anything.
-  beforeEach(() => {
-    __resetRenderToolShimWarnings();
-  });
-
-  it("fires once per distinct tool name, not once per render", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    try {
-      const { rerender, unmount } = render(
-        <TestCopilotKit messages={[]}>
-          <WarningProbe name="warnOnceTool" />
-        </TestCopilotKit>,
-      );
-      await waitFor(() => expect(warn).toHaveBeenCalledTimes(1));
-
-      // Re-render the same tree several times. A warning emitted from the
-      // render path — or keyed on anything per-render — shows up here as a
-      // growing count.
-      for (let i = 0; i < 3; i++) {
-        rerender(
-          <TestCopilotKit messages={[]}>
-            <WarningProbe name="warnOnceTool" />
-          </TestCopilotKit>,
-        );
-      }
-      await waitFor(() => expect(warn).toHaveBeenCalledTimes(1));
-
-      // Then MOUNT IT AGAIN, which is what makes the module-level dedup set the
-      // load-bearing part rather than the effect's dependency array: a fresh
-      // mount runs a fresh effect. On a real device this is navigating back to
-      // a screen, and re-warning there would put the notice in a loop.
-      unmount();
-      render(
-        <TestCopilotKit messages={[]}>
-          <WarningProbe name="warnOnceTool" />
-        </TestCopilotKit>,
-      );
-      await waitFor(() => expect(warn).toHaveBeenCalledTimes(1));
-
-      const message = String(warn.mock.calls[0]![0]);
-      // What was received, which hook it was routed to, and what to change the
-      // call to — a warning that says less than that is not actionable.
-      expect(message).toContain("[CopilotKit]");
-      expect(message).toContain("warnOnceTool");
-      expect(message).toContain("`description`");
-      expect(message).toContain("`handler`");
-      expect(message).toContain("`useFrontendTool`");
-      expect(message).toContain("removal in the next minor");
-    } finally {
-      warn.mockRestore();
-    }
-  });
-
-  it("names the fields a wildcard call ignored, and says no `*` tool is registered", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    try {
-      render(
-        <TestCopilotKit messages={[]}>
-          <LegacyWildcardProbe paints="anything" />
-        </TestCopilotKit>,
-      );
-      await waitFor(() => expect(warn).toHaveBeenCalledTimes(1));
-
-      const message = String(warn.mock.calls[0]![0]);
-      expect(message).toContain("IGNORED");
-      expect(message).toContain("`description`");
-      expect(message).toContain("`handler`");
-      expect(message).toContain("`parameters`");
-      expect(message).toContain("RENDERER ONLY");
-    } finally {
-      warn.mockRestore();
-    }
-  });
-
-  it("warns on the renderer-only route even with NO legacy fields to name", async () => {
-    // The one shape routing cannot discriminate, and therefore the one the
-    // warning has to carry alone.
-    //
-    // `{ name, parameters, render }` is BOTH the correct new renderer-only
-    // spelling AND — for an untyped JS caller, the population this shim exists
-    // for — a call that on `origin/main` registered and ADVERTISED a real tool.
-    // (`description` was required by the old hook's types, so TypeScript
-    // callers could not reach this shape; `FrontendTool.handler` is optional
-    // and `buildFrontendTools` does not filter on it, so the registration and
-    // the advertisement both happened without either field.) Measured against
-    // a vendored copy of the old hook, this call went from advertising
-    // `["rendererOnlyNoLegacyFields"]` to advertising nothing — so silence
-    // here would be the exact failure the shim exists to prevent.
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    try {
-      const coreRef: { current: Core | null } = { current: null };
-      render(
-        <TestCopilotKit messages={[]}>
-          <CaptureCore into={coreRef} />
-          <RendererOnlyProbe name="rendererOnlyNoLegacyFields" />
-        </TestCopilotKit>,
-      );
-
-      // Wait on the REGISTRATION, not on the warning: a hook that did nothing
-      // at all could satisfy a warning-only assertion.
-      await waitFor(() =>
-        expect(coreRef.current!.renderToolCalls.map((r) => r.name)).toContain(
-          "rendererOnlyNoLegacyFields",
-        ),
-      );
-      await waitFor(() => expect(warn).toHaveBeenCalledTimes(1));
-
-      const message = String(warn.mock.calls[0]![0]);
-      expect(message).toContain("rendererOnlyNoLegacyFields");
-      expect(message).toContain("RENDERER ONLY");
-      // The actionable half: what was lost, and what to use if it was wanted.
-      expect(message).toContain("advertised");
-      expect(message).toContain("`useFrontendTool`");
-
-      // And the registration really is renderer-only.
-      expect(
-        coreRef.current!.getTool({ toolName: "rendererOnlyNoLegacyFields" }),
-      ).toBeUndefined();
-    } finally {
-      warn.mockRestore();
-    }
-  });
-
-  it("dedups the renderer-only warning per tool name, and stays silent in production", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    try {
-      const { rerender, unmount } = render(
-        <TestCopilotKit messages={[]}>
-          <RendererOnlyProbe name="rendererOnlyDedup" />
-        </TestCopilotKit>,
-      );
-      await waitFor(() => expect(warn).toHaveBeenCalledTimes(1));
-
-      rerender(
-        <TestCopilotKit messages={[]}>
-          <RendererOnlyProbe name="rendererOnlyDedup" />
-        </TestCopilotKit>,
-      );
-      unmount();
-      render(
-        <TestCopilotKit messages={[]}>
-          <RendererOnlyProbe name="rendererOnlyDedup" />
-        </TestCopilotKit>,
-      );
-      await waitFor(() => expect(warn).toHaveBeenCalledTimes(1));
-    } finally {
-      warn.mockRestore();
-    }
-
-    // Same route, production gate on: nothing at all.
-    const prodWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const previous = process.env.NODE_ENV;
-    process.env.NODE_ENV = "production";
-    try {
-      const coreRef: { current: Core | null } = { current: null };
-      render(
-        <TestCopilotKit messages={[]}>
-          <CaptureCore into={coreRef} />
-          <RendererOnlyProbe name="rendererOnlyProdSilent" />
-        </TestCopilotKit>,
-      );
-      await waitFor(() =>
-        expect(coreRef.current!.renderToolCalls.map((r) => r.name)).toContain(
-          "rendererOnlyProdSilent",
-        ),
-      );
-      expect(prodWarn).not.toHaveBeenCalled();
-    } finally {
-      process.env.NODE_ENV = previous;
-      prodWarn.mockRestore();
-    }
-  });
-
-  it("reports, rather than silently acts on, a config that changes shape mid-life", async () => {
-    // The route is frozen at first render because a hook cannot be called
-    // conditionally unless the condition is stable for the component's
-    // lifetime. That is a real limitation, so it is stated out loud rather than
-    // papered over: the registration stays where it started (renderer-only
-    // here, so `shapeShifter` never becomes a tool) and the consumer is told to
-    // call the hook they actually want.
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    try {
-      const coreRef: { current: Core | null } = { current: null };
-      const { rerender } = render(
-        <TestCopilotKit messages={[]}>
-          <CaptureCore into={coreRef} />
-          <ShapeShiftingProbe legacy={false} />
-        </TestCopilotKit>,
-      );
-      await waitFor(() =>
-        expect(coreRef.current!.renderToolCalls.map((r) => r.name)).toContain(
-          "shapeShifter",
-        ),
-      );
-      // Rule 3 on the first render. This warns too — the renderer-only route
-      // is never silent, because on the old hook this same shape registered
-      // and advertised a tool (see the dedicated test below).
-      await waitFor(() => expect(warn).toHaveBeenCalledTimes(1));
-      expect(String(warn.mock.calls[0]![0])).toContain("RENDERER ONLY");
-
-      rerender(
-        <TestCopilotKit messages={[]}>
-          <CaptureCore into={coreRef} />
-          <ShapeShiftingProbe legacy />
-        </TestCopilotKit>,
-      );
-
-      // Wait for the DRIFT message specifically: the renderer-only notice
-      // above has already been emitted, so a bare `toHaveBeenCalled()` would
-      // be satisfied by it and never observe the drift warning at all.
-      await waitFor(() => {
-        const messages = warn.mock.calls.map((call) => String(call[0]));
-        expect(
-          messages.some((m) => m.includes("changed shape between renders")),
-        ).toBe(true);
-      });
-      // And the frozen route is the observable consequence: still no tool.
-      expect(
-        coreRef.current!.getTool({ toolName: "shapeShifter" }),
-      ).toBeUndefined();
-    } finally {
-      warn.mockRestore();
-    }
-  });
-
-  it("is silent in production", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const previous = process.env.NODE_ENV;
-    process.env.NODE_ENV = "production";
-    try {
-      const coreRef: { current: Core | null } = { current: null };
-      render(
-        <TestCopilotKit messages={[]}>
-          <CaptureCore into={coreRef} />
-          <WarningProbe name="productionSilentTool" />
-        </TestCopilotKit>,
-      );
-      // Wait for the REGISTRATION rather than for a timeout: the claim is
-      // "routed and silent", and a test that only waited for silence would pass
-      // just as well if the hook had done nothing at all.
-      await waitFor(() =>
-        expect(
-          coreRef.current!.getTool({ toolName: "productionSilentTool" }),
-        ).toBeDefined(),
-      );
-      expect(warn).not.toHaveBeenCalled();
-    } finally {
-      process.env.NODE_ENV = previous;
-      warn.mockRestore();
-    }
   });
 });

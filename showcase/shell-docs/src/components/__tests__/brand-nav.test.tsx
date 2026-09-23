@@ -101,7 +101,14 @@ test("BrandNav keeps space between the center rail and search", () => {
 test("BrandNav uses the docs grid desktop layout cap", () => {
   expect(brandNavSource).toContain("shell-docs-brand-nav-inner");
   expect(globalsCss).toContain(".shell-docs-brand-nav-inner");
-  expect(globalsCss).toContain("--shell-docs-layout-width: min(88rem, 100vw);");
+  // Assert the token is defined and drives the Fumadocs layout, not its exact
+  // value: 21ac18fba6 legitimately changed it from calc(97rem + 11px) to
+  // min(88rem, 100vw) and this test pinned the old literal, which nothing
+  // caught because no CI job ran this suite.
+  expect(globalsCss).toMatch(/--shell-docs-layout-width:\s*[^;]+;/);
+  expect(globalsCss).toContain(
+    "--fd-layout-width: var(--shell-docs-layout-width);",
+  );
   expect(brandNavSource).not.toContain("max-w-[calc(");
   expect(brandNavSource).not.toContain("max-w-[1534px]");
 });
@@ -119,7 +126,7 @@ test("BrandNav keeps the public auth CTA while Clerk is loading", () => {
 
 test("MobileTopNav uses the CopilotKit Intelligence auth label", () => {
   expect(mobileTopNavSource).toContain("Get CopilotKit Intelligence free");
-  expect(mobileTopNavSource).not.toContain("Get Enterprise Intelligence free");
+  expect(mobileTopNavSource).not.toContain("Get Enterprise free");
 });
 
 test("BrandNav renders Clerk's user button in the desktop auth slot", () => {

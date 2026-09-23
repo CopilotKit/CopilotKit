@@ -16,21 +16,21 @@ describe("onboarding-prompt", () => {
     vi.unstubAllGlobals();
   });
 
-  it("keeps the CLI entry point the graph resolves", () => {
-    // If this string drifts, the copied prompt sends the coding agent to a
-    // command the CLI does not expose and onboarding dead-ends silently.
-    expect(ONBOARDING_PROMPT_TEMPLATE).toContain(
-      "npx --yes copilotkit@latest onboard start --run <run-id> --coding-agent <coding-agent-slug>",
+  it("points at the hosted prompt, which is what now carries the command", () => {
+    // If this URL drifts from the route that serves it, the copied prompt
+    // sends the coding agent to a 404 and onboarding dead-ends silently.
+    expect(ONBOARDING_PROMPT_TEMPLATE).toBe(
+      "Read https://copilotkit.ai/onboarding-prompts/<run-id> and help me get set up.",
     );
   });
 
   it("substitutes the run id and leaves no placeholder behind", () => {
     const prompt = createOnboardingPrompt("abc123def456");
 
-    expect(prompt).toContain("--run abc123def456");
+    expect(prompt).toContain("/onboarding-prompts/abc123def456");
     expect(prompt).not.toContain("<run-id>");
     // The agent-slug placeholder is the coding agent's to fill, so it stays.
-    expect(prompt).toContain("<coding-agent-slug>");
+    expect(prompt).not.toContain("<coding-agent-slug>");
   });
 
   it("mints a 12-character id from randomUUID", () => {
@@ -117,13 +117,13 @@ describe("feature onboarding intents", () => {
   it("sends the coding agent to one feature route and nothing else", () => {
     const prompt = createFeatureOnboardingPrompt("a2ui", "abc123def456");
 
-    expect(prompt).toContain(
-      "npx --yes copilotkit@latest onboard start --run abc123def456 --coding-agent <coding-agent-slug> --intent add-a2ui",
+    expect(prompt).toBe(
+      "Read https://copilotkit.ai/onboarding-prompts/abc123def456?intent=add-a2ui and help me set this up.",
     );
     expect(prompt).not.toContain("<run-id>");
     expect(prompt).not.toContain("<intent>");
     // The agent-slug placeholder is the coding agent's to fill, so it stays.
-    expect(prompt).toContain("<coding-agent-slug>");
+    expect(prompt).not.toContain("<coding-agent-slug>");
   });
 
   it("carries no feature-specific instruction of its own", () => {

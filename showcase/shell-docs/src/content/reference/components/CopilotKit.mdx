@@ -53,11 +53,15 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
 
 </PropertyReference>
 
+<PropertyReference name="licenseToken" type="string">
+  Signed license token for offline verification of CopilotKit Intelligence features.
+</PropertyReference>
+
 <PropertyReference name="guardrails_c" type="{ validTopics?: string[]; invalidTopics?: string[]; }"  >
 Restrict input to specific topics using guardrails.
   @remarks
 
-This feature is only available when using CopilotKit's hosted cloud service. To use this feature, sign up at https://dashboard.operations.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
+This feature is only available when using CopilotKit's cloud-hosted service. To use this feature, sign up at https://dashboard.operations.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
 
 </PropertyReference>
 
@@ -74,15 +78,20 @@ This feature is only available when using CopilotKit's hosted cloud service. To 
   The endpoint for the Copilot text to speech service.
 </PropertyReference>
 
-<PropertyReference name="headers" type="Record<string, string>"  >
-Additional headers to be sent with the request.
+<PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>)"  >
+Additional headers to be sent with runtime requests. Pass an object for static
+headers, or a function when headers need to be refreshed from current auth
+state.
 
 For example:
 
-```json
-{
-  "Authorization": "Bearer X"
-}
+```tsx
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  headers={() => ({ Authorization: `Bearer ${getToken()}` })}
+>
+  {children}
+</CopilotKit>
 ```
 
 </PropertyReference>
@@ -146,6 +155,16 @@ Defaults to `false` for production safety.
 
 </PropertyReference>
 
+<PropertyReference name="selfManagedAgents" type="Record<string, AbstractAgent>">
+  AG-UI agents managed by your app and registered directly with CopilotKit.
+  Use this when you connect to agents without routing through a Copilot Runtime.
+</PropertyReference>
+
+<PropertyReference name="agents__unsafe_dev_only" type="Record<string, AbstractAgent>">
+  Preconfigured local agents for development and tests. Use `selfManagedAgents`
+  for production direct-agent setups.
+</PropertyReference>
+
 <PropertyReference name="a2ui" type="{ theme?: Theme }">
 Configuration for the A2UI (Agent-to-UI) renderer.
 
@@ -161,8 +180,22 @@ needed if you want to override the default theme.
 
 </PropertyReference>
 
+<PropertyReference name="openGenerativeUI" type="{ sandboxFunctions?: SandboxFunction[]; designSkill?: string }">
+  Configuration for Open Generative UI. Use `sandboxFunctions` to expose host
+  functions to generated sandboxed iframes, and `designSkill` to override the
+  design guidance injected as agent context for `generateSandboxedUi`.
+</PropertyReference>
+
+<PropertyReference name="defaultThrottleMs" type="number">
+  Default throttle interval, in milliseconds, for `useAgent` re-renders caused
+  by message and state updates. Individual `useAgent` calls and prebuilt chat
+  components can override it with their own `throttleMs`.
+</PropertyReference>
+
 <PropertyReference name="agent" type="string">
-  The name of the agent to use.
+  The agent to talk to, named by its **key in the runtime's `agents` map** — not the
+  agent's own `name` or `id`. See [Which name identifies an
+  agent](/backend/copilot-runtime#which-name-identifies-an-agent).
 </PropertyReference>
 
 <PropertyReference
@@ -176,7 +209,7 @@ needed if you want to override the default theme.
 The auth config to use for the CopilotKit.
   @remarks
 
-This feature is only available when using CopilotKit's hosted cloud service. To use this feature, sign up at https://dashboard.operations.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
+This feature is only available when using CopilotKit's cloud-hosted service. To use this feature, sign up at https://dashboard.operations.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
 
 </PropertyReference>
 
@@ -194,13 +227,15 @@ This is a CopilotKit Intelligence feature.
 
 @example
 
-```typescript
+```tsx
 <CopilotKit
   publicApiKey="ck_pub_your_key"
   onError={(errorEvent) => {
     debugDashboard.capture(errorEvent);
   }}
 >
+  {children}
+</CopilotKit>
 ```
 
 </PropertyReference>
@@ -208,6 +243,13 @@ This is a CopilotKit Intelligence feature.
 <PropertyReference name="enableInspector" type="boolean">
   Enable or disable the CopilotKit Inspector, letting you inspect AG-UI events,
   view agent messages, check agent state, and visualize agent context. It is
-  enabled by default in development browser builds and is always disabled in
-  production and during server rendering.
+  enabled by default in development browser builds on localhost or loopback
+  hosts, and is always disabled on remote hosts, in production, and during
+  server rendering.
+</PropertyReference>
+
+<PropertyReference name="debug" type="DebugConfig">
+  Enable client-side debug logging for the AG-UI transport and event pipeline.
+  Pass `true` for event and lifecycle summaries, or a config object with
+  `verbose: true` to include full event payloads.
 </PropertyReference>

@@ -7,6 +7,12 @@ const stableApiRoutes = [
   "generative-ui/tool-rendering",
   "frontend-tools",
   "auth",
+  // The `human-in-the-loop` index is a chooser page — two CTACards pointing at
+  // the sub-pages, no code at all — so it can neither satisfy nor violate a
+  // "shows the stable API" assertion. `tool-based` is the sub-page that
+  // actually carries the Python agent setup, and it was untested. (The other
+  // sub-page, `interrupt-flow`, shows only a .NET snippet.)
+  "human-in-the-loop/tool-based",
   "quickstart",
   "shared-state/in-app-agent-read",
   "shared-state/in-app-agent-write",

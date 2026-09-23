@@ -7,10 +7,11 @@ hideTOC: true
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
 
-<IntelligenceOnboardingPrompt
-  feature="learning"
-  surface="docs_langgraph_quickstart"
-/>
+## Start with your coding agent
+
+Use this prompt to connect your LangGraph agent to CopilotKit and verify a working conversation. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
+
+<PageAgentPrompt />
 
 ## Prerequisites
 
@@ -21,13 +22,23 @@ Before you begin, you'll need the following:
 - Your favorite package manager
 - (Optional) A LangSmith API key - only required if using an existing LangGraph agent
 
+<Callout type="info" title="Zod version for TypeScript agents">
+When adding `@copilotkit/sdk-js` 1.71.0 to a TypeScript agent, install Zod 3 alongside it:
+
+```bash
+npm install @copilotkit/sdk-js@1.71.0 zod@3
+```
+
+An unversioned `zod` install selects Zod 4, which does not satisfy this SDK release's peer dependency. Use `zod@3` with pnpm or Yarn too. If your agent already requires Zod 4, check SDK compatibility before changing its dependencies; do not bypass the conflict with `--force` or `--legacy-peer-deps`.
+</Callout>
+
 ## Getting started
 
 <Steps>
     <Step>
-        ### Create a free account
+        ### Set up CopilotKit Intelligence
 
-        <SignupLink surface="docs_langgraph_quickstart_step1">Sign up for a free developer account</SignupLink> for CopilotKit Intelligence to get a license key. You'll use it later to enable persistent threads and the inspector.
+        <SignupLink surface="docs_langgraph_quickstart_step1">Sign in to cloud-hosted Intelligence</SignupLink>. Cloud-hosted setup uses a server-side project API key and does not issue `COPILOTKIT_LICENSE_TOKEN`. You will connect the app after you create it below.
     </Step>
 
     <Step>
@@ -345,7 +356,7 @@ Before you begin, you'll need the following:
               ```
 
               <Callout type="info" title="One route supports the full Intelligence experience">
-                A current client and Runtime can carry chat, Threads, Memory,
+                A current client and Runtime can carry chat, Rich Threads, User Memory,
                 annotations, and Inspector requests through one `POST`
                 endpoint. They negotiate this support before sending resource
                 requests. The example below uses that mode.
@@ -392,19 +403,19 @@ Before you begin, you'll need the following:
                 ```
               </Tab>
               <Tab value="FastAPI">
-                ```tsx title="app/api/copilotkit/route.ts"
+                ```tsx title="app/api/copilotkit/route.ts" doctest="component"
                 import {
                   CopilotKitIntelligence,
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
                 } from "@copilotkit/runtime/v2";
                 // [!code highlight]
-                import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
+                import { HttpAgent } from "@ag-ui/client";
 
                 const runtime = new CopilotRuntime({
                   agents: {
                     // [!code highlight:3]
-                    sample_agent: new LangGraphHttpAgent({
+                    sample_agent: new HttpAgent({
                       url:  process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
                     }),
                   },
@@ -437,10 +448,15 @@ Before you begin, you'll need the following:
                 [Thread authorization](/auth#thread-authorization).
               </Callout>
 
-              The runtime reads the project API key from step 1. Add it to the app that serves
-              this route:
+              From this frontend app directory, connect the runtime to an Intelligence project:
 
-              ```plaintext title=".env.local"
+              ```bash title="Terminal"
+              npx copilotkit@latest project select
+              ```
+
+              The command writes the server-side project API key to `.env`. The runtime reads it here:
+
+              ```plaintext title=".env"
               CPK_INTELLIGENCE_API_KEY=cpk-...
               ```
 
@@ -448,7 +464,7 @@ Before you begin, you'll need the following:
                 Drop the `intelligence` and `identifyUser` options and the runtime falls back
                 to SSE mode with an in-memory runner. Chat still works, but Threads and the
                 Inspector stay locked and the key is never read. See
-                [Connect your runtime to Intelligence](/intelligence/connect-your-runtime) for the
+                [Connect your runtime to Intelligence](/intelligence/quickstart) for the
                 full constructor and how to confirm the key is in use.
               </Callout>
           </Step>
@@ -463,9 +479,26 @@ Before you begin, you'll need the following:
                 [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
               </Callout>
 
+              ```tsx title="app/providers.tsx"
+              "use client";
+
+              import { CopilotKit } from "@copilotkit/react-core/v2";
+
+              export function Providers({ children }: { children: React.ReactNode }) {
+                return (
+                  <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent" useSingleEndpoint>
+                    {children}
+                  </CopilotKit>
+                );
+              }
+              ```
+
+              `app/layout.tsx` is a server component and cannot import the provider
+              directly, so it renders your client file instead:
+
               ```tsx title="app/layout.tsx"
               // [!code highlight:2]
-              import { CopilotKit } from "@copilotkit/react-core/v2";
+              import { Providers } from "./providers";
               import "@copilotkit/react-core/v2/styles.css";
               import './globals.css';
 
@@ -476,9 +509,9 @@ Before you begin, you'll need the following:
                   <html lang="en">
                     <body>
                       {/* [!code highlight:3] */}
-                      <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent" useSingleEndpoint>
+                      <Providers>
                         {children}
-                      </CopilotKit>
+                      </Providers>
                     </body>
                   </html>
                 );
@@ -499,6 +532,8 @@ Before you begin, you'll need the following:
             Add the CopilotSidebar component to your page:
 
             ```tsx title="app/page.tsx"
+            "use client"; // [!code highlight]
+
             import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
 
             export default function Page() {

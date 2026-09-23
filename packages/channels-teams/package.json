@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/channels-teams",
-  "version": "0.9.2",
+  "version": "0.11.0",
   "description": "Microsoft Teams platform adapter for CopilotKit JSX channels (@copilotkit/channels).",
   "license": "MIT",
   "repository": {
@@ -54,17 +54,31 @@
     "@copilotkit/channels-ui": "workspace:^",
     "@copilotkit/core": "workspace:^",
     "@copilotkit/shared": "workspace:^",
+    "rxjs": "^7.8.1"
+  },
+  "peerDependencies": {
     "@microsoft/agents-activity": "^1.5.3",
     "@microsoft/agents-hosting": "^1.5.3",
-    "express": "^4.21.2",
-    "rxjs": "^7.8.1",
-    "zod": "^3.25.76",
-    "zod-to-json-schema": "^3.25.1"
+    "express": "^4.18.0 || ^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@microsoft/agents-activity": {
+      "optional": true
+    },
+    "@microsoft/agents-hosting": {
+      "optional": true
+    },
+    "express": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:^",
+    "@microsoft/agents-activity": "^1.5.3",
+    "@microsoft/agents-hosting": "^1.5.3",
     "@types/express": "^4.17.21",
     "@types/node": "^22.10.0",
+    "express": "^4.18.0 || ^5.0.0",
     "typescript": "^5.6.3",
     "vitest": "^4.1.3"
   }

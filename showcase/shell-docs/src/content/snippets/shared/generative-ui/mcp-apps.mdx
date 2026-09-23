@@ -155,9 +155,26 @@ If you're looking to add an MCP App into an existing application, let's walk thr
 
     Wrap your application with the CopilotKit provider:
 
+    ```tsx title="app/providers.tsx"
+    "use client";
+
+    import { CopilotKit } from "@copilotkit/react-core/v2";
+
+    export function Providers({ children }: { children: React.ReactNode }) {
+      return (
+        <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+          {children}
+        </CopilotKit>
+      );
+    }
+    ```
+
+    `app/layout.tsx` is a server component and cannot import the provider
+    directly, so it renders your client file instead:
+
     ```tsx title="app/layout.tsx"
     // [!code highlight:2]
-    import { CopilotKit } from "@copilotkit/react-core/v2";
+    import { Providers } from "./providers";
     import "@copilotkit/react-core/v2/styles.css";
 
     // ...
@@ -167,9 +184,9 @@ If you're looking to add an MCP App into an existing application, let's walk thr
             <html lang="en">
                 <body>
                     {/* [!code highlight:3] */}
-                    <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+                    <Providers>
                         {children}
-                    </CopilotKit>
+                    </Providers>
                 </body>
             </html>
         );

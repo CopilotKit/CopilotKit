@@ -45,6 +45,8 @@ on:
           - monorepo
           - angular
           - channels
+          - intelligence-langgraph
+          - intelligence-mastra
           # Sentinel, not a scope (see ALL_SCOPES in scripts/release/lib/config.ts).
           # PRERELEASE ONLY — rejected for mode=stable by the "Determine scope and
           # mode" guard below, since a stable release derives its tag, release
@@ -730,7 +732,7 @@ jobs:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: ">=0.8.0"
 

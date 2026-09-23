@@ -62,7 +62,9 @@ test("enumerates and navigates the complete Automatic Learning matrix at the roo
     }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Copy setup prompt for Learning" }),
+    page.getByRole("button", {
+      name: "Copy setup prompt for Automatic Learning",
+    }),
   ).toBeVisible();
   await expect(
     page.locator('[data-inspector-locked-feature-talk="memory"]'),
@@ -91,6 +93,9 @@ test("enumerates and navigates the complete Automatic Learning matrix at the roo
     "https://app.copilotkit.ai/o/acme/checkout/learning/checkout-assistant-default/skills",
   );
   await expect(
+    page.getByRole("link", { name: "Open Intelligence" }),
+  ).toHaveAttribute("href", "https://app.copilotkit.ai");
+  await expect(
     page.getByText("Supporting Insight", { exact: true }),
   ).toBeVisible();
   await expect(
@@ -103,11 +108,48 @@ test("enumerates and navigates the complete Automatic Learning matrix at the roo
   ).toBe(true);
 });
 
+test("keeps Learning shortcuts scoped and general navigation available", async ({
+  page,
+}) => {
+  const container =
+    "https://app.copilotkit.ai/o/acme/checkout/learning/checkout-assistant-default";
+  for (const { state, links } of [
+    {
+      state: "new-threads",
+      links: [
+        [".pane-actions a", "https://app.copilotkit.ai"],
+        [".review-link", `${container}/skills`],
+        [".results-cta", `${container}/analysis-results`],
+      ],
+    },
+    {
+      state: "first-run",
+      links: [[".setup-cta", `${container}/analysis-results`]],
+    },
+    { state: "empty-results", links: [[".quiet-link", container]] },
+    {
+      state: "selection-required",
+      links: [
+        ["a.primary", "https://app.copilotkit.ai/o/acme/checkout/learning"],
+      ],
+    },
+  ] as const) {
+    await openWorkbenchState(page, state);
+    for (const [selector, href] of links) {
+      const link = page.locator("cpk-learning-view").locator(selector);
+      await expect(link).toBeVisible();
+      await expect(link).toHaveAttribute("href", href);
+      await expect(link).toHaveAttribute("target", "_blank");
+      await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    }
+  }
+});
+
 test("guides an unavailable Threads runtime through setup instead of showing a dead end", async ({
   page,
 }) => {
   await openWorkbenchState(page, "landing");
-  await page.getByRole("button", { name: "Threads", exact: true }).click();
+  await page.getByRole("button", { name: "Rich Threads", exact: true }).click();
 
   await expect(
     page.getByRole("heading", {
@@ -116,7 +158,7 @@ test("guides an unavailable Threads runtime through setup instead of showing a d
   ).toBeVisible();
   await expect(page.getByText("Threads are unavailable.")).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: "Copy setup prompt for Threads" }),
+    page.getByRole("button", { name: "Copy setup prompt for Rich Threads" }),
   ).toBeVisible();
   await expect(
     page.locator('iframe[title="Rich Threads overview"]'),
@@ -154,14 +196,18 @@ test("provides a dedicated post-copy Learning setup state", async ({
   await page.setViewportSize({ width: 1702, height: 1200 });
   await openWorkbenchState(page, "setup-pending");
 
-  const setup = page.getByRole("region", { name: "Set up Learning" });
+  const setup = page.getByRole("region", { name: "Set up Automatic Learning" });
   await expect(setup.getByText("1 of 3 steps")).toBeVisible();
   await expect(setup.locator("#learning-setup-title")).toBeVisible();
   await expect(
-    setup.getByRole("heading", { name: "Waiting for Learning setup" }),
+    setup.getByRole("heading", {
+      name: "Waiting for Automatic Learning setup",
+    }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Copy setup prompt for Learning" }),
+    page.getByRole("button", {
+      name: "Copy setup prompt for Automatic Learning",
+    }),
   ).toHaveCount(0);
 });
 
@@ -191,10 +237,10 @@ test("keeps the copied Learning setup state after a root workbench reload", asyn
   });
   await openWorkbenchState(page, "landing");
   await page
-    .getByRole("button", { name: "Copy setup prompt for Learning" })
+    .getByRole("button", { name: "Copy setup prompt for Automatic Learning" })
     .click();
 
-  const setup = page.getByRole("region", { name: "Set up Learning" });
+  const setup = page.getByRole("region", { name: "Set up Automatic Learning" });
   await expect(
     setup.getByRole("heading", { name: "Copy the setup prompt" }),
   ).toBeVisible();
@@ -202,7 +248,7 @@ test("keeps the copied Learning setup state after a root workbench reload", asyn
     setup
       .locator(".step")
       .nth(1)
-      .getByRole("heading", { name: "Set up Learning" }),
+      .getByRole("heading", { name: "Set up Automatic Learning" }),
   ).toBeVisible();
   await expect(setup.locator(".step").first()).toHaveClass(/complete/);
 
@@ -211,19 +257,21 @@ test("keeps the copied Learning setup state after a root workbench reload", asyn
     timeout: 15_000,
   });
   await expect(
-    page.getByRole("region", { name: "Set up Learning" }),
+    page.getByRole("region", { name: "Set up Automatic Learning" }),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Copy the setup prompt" }),
   ).toBeVisible();
   await expect(
     page
-      .getByRole("region", { name: "Set up Learning" })
+      .getByRole("region", { name: "Set up Automatic Learning" })
       .locator(".step")
       .first(),
   ).toHaveClass(/complete/);
   await expect(
-    page.getByRole("button", { name: "Copy setup prompt for Learning" }),
+    page.getByRole("button", {
+      name: "Copy setup prompt for Automatic Learning",
+    }),
   ).toHaveCount(0);
 });
 
@@ -241,7 +289,7 @@ test("renders the narrow root workbench with an icon rail and stacked setup step
   await expect(
     page.locator('.inspector-sidebar[data-icon-rail="true"]'),
   ).toBeVisible();
-  const setup = page.getByRole("region", { name: "Set up Learning" });
+  const setup = page.getByRole("region", { name: "Set up Automatic Learning" });
   await expect(setup.getByText("1 of 3 steps")).toBeVisible();
   await expect(
     setup.getByRole("heading", { name: "Waiting for the first Thread" }),

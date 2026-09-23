@@ -226,7 +226,7 @@ SYSTEM_PROMPT = (
 )
 
 agentic_chat_router = get_ag_ui_workflow_router(
-    llm=OpenAI(model="gpt-4.1"),
+    llm=OpenAI(model="gpt-5-mini"),
     # Provide frontend tool stubs so the model knows their names/signatures.
     frontend_tools=[
         createItem,

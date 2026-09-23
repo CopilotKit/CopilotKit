@@ -19,9 +19,8 @@ import {
   FLEET_COMM_ERROR_SIGNAL_KEY,
   commErrorFromStatusSignal,
   probeResultsForServiceJobResult,
-  type PoolCommError,
-  type ServiceJobResult,
 } from "../contracts.js";
+import type { PoolCommError, ServiceJobResult } from "../contracts.js";
 import { createResultAggregator } from "./result-aggregator.js";
 import { createStatusWriter } from "../../writers/status-writer.js";
 
@@ -252,8 +251,13 @@ function makeFakeRunWriter(): {
     async findByJobId(jobId) {
       if (!jobId) return null;
       // Newest-first, mirroring the real -started_at sort.
-      const match = [...rows].reverse().find((r) => r.jobId === jobId);
-      return match ? { id: match.id, terminal: match.terminal } : null;
+      for (let index = rows.length - 1; index >= 0; index -= 1) {
+        const match = rows[index];
+        if (match.jobId === jobId) {
+          return { id: match.id, terminal: match.terminal };
+        }
+      }
+      return null;
     },
     async update(opts) {
       calls.update.push(opts);

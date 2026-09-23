@@ -73,7 +73,11 @@ To update showcase-driven docs:
    registry inputs.
 2. Edit shared/root MDX only when the change applies across generated frameworks.
 3. Add sparse framework overrides only for real framework-specific differences.
-4. Do not hand-edit generated files under `src/data/frameworks/`.
+4. Edit the landing-page record under `src/data/frameworks/` by hand. Despite an
+   older header on some of these files, nothing generates them — the script it
+   named does not exist in this repository. Only `docs_mode: generated` slugs
+   have a record here; an `authored` slug's landing page is its
+   `integrations/<docsFolder>/index.mdx`.
 5. Validate routes, sidebar state, search results, snippets, and framework switching.
 
 ### Authored Framework Docs
@@ -120,12 +124,6 @@ non-React frontend docs:
 
 Do not use "showcase-driven" as a proxy for frontend availability. Showcase derivation is an
 authoring/source detail; frontend applicability controls routing and sidebar inclusion.
-
-### AG-UI Mirrored Docs
-
-AG-UI protocol docs are authored upstream in `ag-ui-protocol/ag-ui`. The
-`src/content/ag-ui/` tree is a downstream mirror rendered on the CopilotKit docs host.
-Change AG-UI docs upstream first, then sync the mirror back into shell-docs.
 
 ## Top-Level Docs Symlink
 

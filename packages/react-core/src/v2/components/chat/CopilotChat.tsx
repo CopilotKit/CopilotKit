@@ -10,6 +10,7 @@ import {
   useCopilotChatConfiguration,
 } from "../../providers/CopilotChatConfigurationProvider";
 import {
+  createAttachmentContent,
   DEFAULT_AGENT_ID,
   randomUUID,
   TranscriptionErrorCode,
@@ -77,7 +78,8 @@ export type CopilotChatProps = Omit<
    * Shortcuts only appear in local development while Inspector is visible.
    */
   inspectorTools?: boolean;
-  chatView?: SlotValue<typeof CopilotChatView>;
+  /** Accepts a className, partial props, or any component with CopilotChatView props — static namespace members are not required. */
+  chatView?: SlotValue<React.ComponentType<CopilotChatViewProps>>;
   isModalDefaultOpen?: boolean;
   /** Enable multimodal file attachments (images, audio, video, documents). */
   attachments?: AttachmentsConfig;
@@ -781,14 +783,7 @@ export function CopilotChat({
           contentParts.push({ type: "text", text: value });
         }
         for (const att of readyAttachments) {
-          contentParts.push({
-            type: att.type,
-            source: att.source,
-            metadata: {
-              ...(att.filename ? { filename: att.filename } : {}),
-              ...att.metadata,
-            },
-          } as InputContent);
+          contentParts.push(createAttachmentContent(att));
         }
         agent.addMessage({
           id: randomUUID(),

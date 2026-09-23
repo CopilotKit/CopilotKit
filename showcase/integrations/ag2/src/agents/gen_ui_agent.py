@@ -117,7 +117,7 @@ SYSTEM_PROMPT = dedent(
 agent = ConversableAgent(
     name="gen_ui_agent",
     system_message=SYSTEM_PROMPT,
-    llm_config=LLMConfig({"model": "gpt-4o-mini", "stream": True}),
+    llm_config=LLMConfig({"model": "gpt-5-mini", "stream": True}),
     human_input_mode="NEVER",
     # Nominal cost is ~7 set_steps cycles + 1 final model turn.
     # 15 gives ~2x headroom for retries inside the LLM loop while still

@@ -74,6 +74,7 @@ const EXPECTED_EDGE_KEYS = [
   "pro-warning-4500-of-5000",
   "pro-at-limit-5000-of-5000",
   "oss-no-metadata-enabled-zero",
+  "oss-ephemeral-existing",
   "capability-absent",
   "unknown-limit",
   "missing-expiry",
@@ -395,26 +396,15 @@ function expectedOverviewCopy(
   scenario: ThreadsStateScenario,
 ): Readonly<{ heading: string; description: string }> | null {
   if (scenario.data === "error") return null;
-  if (scenario.runtimeInfo.licenseStatus === "none") {
+  if (
+    scenario.capability !== "enabled" ||
+    (!scenario.runtimeInfo.intelligence && scenario.threads.length === 0)
+  ) {
     return {
       heading:
         "Production-grade chat threads without the complexity. Self hostable.",
       description:
         "Chat threads that go beyond text with generative UI and multimodal inputs, built to replay missed events and stay in sync across tabs, sessions, and devices.",
-    };
-  }
-  if (scenario.runtimeInfo.licenseStatus === "expired") {
-    return {
-      heading: "Renew Intelligence to inspect Threads.",
-      description:
-        "Your Intelligence access has expired. Renew it to inspect saved thread history.",
-    };
-  }
-  if (scenario.capability !== "enabled") {
-    return {
-      heading: "Finish setting up Rich Threads",
-      description:
-        "Copy this prompt into your coding agent to finish the setup.",
     };
   }
   if (scenario.data === "existing") return null;
@@ -502,7 +492,7 @@ function nextSocketMessage(socket: WebSocket): Promise<unknown> {
   });
 }
 
-test("exports the exact ordered 49-scenario route catalog", () => {
+test("exports the exact ordered 50-scenario route catalog", () => {
   expect(CORE_SCENARIO_KEYS).toEqual(EXPECTED_CORE_KEYS);
   expect(LEARNING_SCENARIO_KEYS).toEqual(EXPECTED_LEARNING_KEYS);
   expect(EDGE_SCENARIO_KEYS).toEqual(EXPECTED_EDGE_KEYS);
@@ -511,7 +501,7 @@ test("exports the exact ordered 49-scenario route catalog", () => {
     ...EXPECTED_LEARNING_KEYS,
     ...EXPECTED_EDGE_KEYS,
   ]);
-  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(49);
+  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(50);
   expect(Object.keys(THREADS_STATE_SCENARIOS)).toEqual(ALL_SCENARIO_KEYS);
 });
 
@@ -1345,7 +1335,7 @@ test("runs teardown before real select and reset control navigation", async () =
 // A 5% margin on the slowest shard is not a budget, so this is sized at ~3x the
 // slowest passing run rather than just above it. The number is a ceiling for a
 // hang, not a performance assertion — nothing here asserts elapsed time.
-test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 Thread routes", async () => {
+test("drives the real Core, Inspector, stores, surfaces, and ledger for all Thread routes", async () => {
   const restoreNodeBridges = installNodeIntegrationBridges();
   const matchMediaDescriptor = Object.getOwnPropertyDescriptor(
     window,
@@ -1420,7 +1410,8 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 T
           // flight at this point, and the signal only arms once it has been
           // refused — so wait for the launcher to say so rather than assume
           // the request already lost. Two microtask turns is not a wait.
-          const landingLabel = key === "thread-list-error" ? "Threads" : "Home";
+          const landingLabel =
+            key === "thread-list-error" ? "Rich Threads" : "Home";
           if (landingLabel !== "Home") {
             await vi.waitFor(
               () => {
@@ -1439,7 +1430,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 T
           const landingButton =
             landingLabel === "Home"
               ? homeButton
-              : inspectorButton(inspector, "Threads");
+              : inspectorButton(inspector, "Rich Threads");
           expect(
             landingButton?.classList.contains("inspector-nav-control-active"),
             `${key}: ${landingLabel} default`,
@@ -1499,7 +1490,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 T
               `${key}: run error raises no launcher error tone`,
             ).toHaveLength(0);
           }
-          const threadsButton = inspectorButton(inspector, "Threads");
+          const threadsButton = inspectorButton(inspector, "Rich Threads");
           expect(threadsButton, `${key}: Threads nav`).toBeDefined();
           threadsButton?.click();
           await flushInspector(inspector);
@@ -1547,9 +1538,9 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 T
           const text = inspectorText(inspector);
           const navigation = collectDeep(root, '[aria-label="Inspector"]');
           expect(navigation, `${key}: grouped nav`).toHaveLength(1);
-          expect(text, `${key}: Threads nav`).toContain("Threads");
+          expect(text, `${key}: Threads nav`).toContain("Rich Threads");
           expect(text, `${key}: Agent nav`).toContain("Agent");
-          expect(text, `${key}: Learning nav`).toContain("Learning");
+          expect(text, `${key}: Learning nav`).toContain("Automatic Learning");
           expect(text, `${key}: Home nav`).toContain("Home");
           const overviewCopy = expectedOverviewCopy(scenario);
           if (overviewCopy) {
@@ -1564,7 +1555,10 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 T
             root,
             '[data-inspector-feature-setup-prompt="threads"]',
           );
-          const expectsSetup = scenario.capability !== "enabled";
+          const expectsSetup =
+            scenario.capability !== "enabled" ||
+            (!scenario.runtimeInfo.intelligence &&
+              scenario.threads.length === 0);
           expect(setupPrompts, `${key}: setup prompt presence`).toHaveLength(
             expectsSetup ? 1 : 0,
           );
@@ -1668,7 +1662,9 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 T
             'a[href^="https://docs.copilotkit.ai/intelligence/self-hosting"]',
           );
           const showsEnabledZeroOverview =
-            scenario.capability === "enabled" && scenario.data === "zero";
+            scenario.capability === "enabled" &&
+            scenario.data === "zero" &&
+            Boolean(scenario.runtimeInfo.intelligence);
           const showsSelfHostedOnboarding =
             showsEnabledZeroOverview && scenario.deployment === "self_hosted";
           expect(
@@ -1700,7 +1696,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 T
             video?.dispatchEvent(new Event("error"));
             await flushInspector(inspector);
             expect(inspectorText(inspector), `${key}: fallback copy`).toContain(
-              "The demo video is unavailable. Use the example threads to explore Messages, AG-UI Events, and State.",
+              "The demo video is unavailable. Use the example threads to explore Conversation, AG-UI Events, and State.",
             );
             expect(
               exampleButtons(inspector),
@@ -1732,7 +1728,8 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 T
             expect(examples, `${key}: list-error examples`).toHaveLength(0);
           } else if (
             scenario.capability === "enabled" &&
-            scenario.data === "zero"
+            scenario.data === "zero" &&
+            Boolean(scenario.runtimeInfo.intelligence)
           ) {
             expect(examples, `${key}: local examples`).toHaveLength(3);
             for (let index = 0; index < 3; index += 1) {
@@ -1747,7 +1744,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 T
                   )
                   .filter((label) => label !== undefined);
                 expect(detailTabs, `${key}: fallback detail tabs`).toEqual([
-                  "Messages",
+                  "Conversation",
                   "AG-UI Events",
                   "State",
                 ]);
@@ -1763,7 +1760,10 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 T
             expect(await requestCounters(lab.origin, scenario), key).toEqual(
               scenario.expectedRequests,
             );
-          } else if (scenario.capability === "enabled") {
+          } else if (
+            scenario.capability === "enabled" &&
+            scenario.data !== "zero"
+          ) {
             expect(examples, `${key}: no local examples`).toHaveLength(0);
             for (const thread of scenario.threads) {
               expect(
@@ -1801,7 +1801,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 T
               `${key}: selected newest name`,
             ).toContain(newestThread?.name);
             for (const [tab, kind] of [
-              ["Messages", null],
+              ["Conversation", null],
               ["AG-UI Events", "events"],
               ["State", "state"],
             ] as const) {
@@ -1836,7 +1836,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 T
                   key,
                 ).toEqual({
                   list: 1,
-                  subscribe: 1,
+                  subscribe: scenario.runtimeInfo.intelligence ? 1 : 0,
                   inspect: 0,
                   messages: 1,
                   events: 1,
