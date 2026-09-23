@@ -17,10 +17,12 @@
 
     <DemoCode file="src/agent/tool-rendering.ts" region="tool-rendering-bind-tools" />
 
-    The rest of `chatNode` returns the response as the node's new message.
-    `makeChatOpenAI` is the Showcase's `ChatOpenAI` factory. It copies the
-    request's `x-*` headers, which the Showcase's test fixtures rely on, onto
-    the OpenAI call. In your app, construct `ChatOpenAI` directly.
+    `tools` is the list of backend tools: `get_weather`, `search_flights`,
+    `get_stock_price` and `roll_d20`. `model` is a `ChatOpenAI` instance.
+    The Showcase builds it with a helper that also forwards the request's
+    `x-*` headers so its recorded-response tests can match. In your graph,
+    `new ChatOpenAI({ model: "gpt-5.4" })` is enough. The rest of `chatNode`
+    returns the response as the node's new message.
 
   </Step>
   <Step>

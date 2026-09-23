@@ -16,7 +16,7 @@
     "agent_config_agent": "./agent-config.ts:showcaseGraph",
     "agentic-chat-reasoning": "./reasoning-agent.ts:graph",
     "tool_rendering": "./tool-rendering.ts:graph",
-    "tool-rendering-reasoning-chain": "./tool-rendering-reasoning-chain.ts:graph",
+    "tool-rendering-reasoning-chain": "./tool-rendering-reasoning-chain.ts:showcaseGraph",
     "interrupt_agent": "./interrupt-agent.ts:graph",
     "a2ui_dynamic": "./a2ui-dynamic.ts:graph",
     "a2ui_fixed": "./a2ui-fixed.ts:graph",
@@ -34,7 +34,7 @@
     "shared_state_read_write": "./shared-state-read-write.ts:graph",
     "shared_state_streaming": "./shared-state-streaming.ts:graph",
     "subagents": "./subagents.ts:showcaseGraph",
-    "gen_ui_agent": "./gen-ui-agent.ts:graph",
+    "gen_ui_agent": "./gen-ui-agent.ts:showcaseGraph",
     "gen_ui_tool_based": "./gen-ui-tool-based.ts:graph"
   },
   "env": "../../.env"

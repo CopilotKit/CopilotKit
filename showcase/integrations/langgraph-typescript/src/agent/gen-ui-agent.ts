@@ -108,10 +108,6 @@ const setSteps = tool(
 );
 // @endregion[gen-ui-agent-backend]
 
-// @region[gen-ui-agent-wiring]
-const tools = [setSteps];
-// @endregion[gen-ui-agent-wiring]
-
 // ---------------------------------------------------------------------------
 // 3. System prompt — matches the LGP agent's instruction sequence.
 // ---------------------------------------------------------------------------
@@ -136,16 +132,22 @@ const SYSTEM_PROMPT =
   "send a final assistant message and terminate.";
 
 // ---------------------------------------------------------------------------
-// 4. Chat node.
+// 4. Chat node, routing and graph. The model calls `set_steps` in a loop;
+//    `tool_node` runs it unless the call is a CopilotKit frontend action.
+//
+// The prompt drives ~7 set_steps cycles + 1 final model turn, so nominal
+// cost is ~15 supersteps. recursionLimit=50 gives ~3x headroom for
+// retries inside the LLM loop.
 // ---------------------------------------------------------------------------
 
 // @region[gen-ui-agent-wiring]
-async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = makeChatOpenAI(config, {
-    temperature: 0,
-    model: "gpt-5-mini",
-  });
+const tools = [setSteps];
 
+async function runChatNode(
+  state: AgentState,
+  config: RunnableConfig,
+  model: ChatOpenAI,
+) {
   const modelWithTools = model.bindTools!([
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),
     ...tools,
@@ -159,10 +161,13 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
   return { messages: response };
 }
 
-// ---------------------------------------------------------------------------
-// 5. Routing — send tool calls to tool_node unless they're CopilotKit
-//    frontend actions.
-// ---------------------------------------------------------------------------
+async function chatNode(state: AgentState, config: RunnableConfig) {
+  return runChatNode(
+    state,
+    config,
+    new ChatOpenAI({ temperature: 0, model: "gpt-5-mini" }),
+  );
+}
 
 function shouldContinue({ messages, copilotkit }: AgentState) {
   const lastMessage = messages[messages.length - 1] as AIMessage;
@@ -179,25 +184,28 @@ function shouldContinue({ messages, copilotkit }: AgentState) {
   return "__end__";
 }
 
-// ---------------------------------------------------------------------------
-// 6. Compile the graph.
-//
-// The prompt drives ~7 set_steps cycles + 1 final model turn, so nominal
-// cost is ~15 supersteps. recursion_limit=50 gives ~3x headroom for
-// retries inside the LLM loop.
-// ---------------------------------------------------------------------------
+function compileGraph(node: typeof chatNode) {
+  return new StateGraph(AgentStateAnnotation)
+    .addNode("chat_node", node)
+    .addNode("tool_node", new ToolNode(tools))
+    .addEdge(START, "chat_node")
+    .addEdge("tool_node", "chat_node")
+    .addConditionalEdges("chat_node", shouldContinue as any)
+    .compile({ checkpointer: new MemorySaver() })
+    .withConfig({ recursionLimit: 50 });
+}
 
-const workflow = new StateGraph(AgentStateAnnotation)
-  .addNode("chat_node", chatNode)
-  .addNode("tool_node", new ToolNode(tools))
-  .addEdge(START, "chat_node")
-  .addEdge("tool_node", "chat_node")
-  .addConditionalEdges("chat_node", shouldContinue as any);
-
-const memory = new MemorySaver();
-
-export const graph = workflow.compile({
-  checkpointer: memory,
-  recursionLimit: 50,
-});
+export const graph = compileGraph(chatNode);
 // @endregion[gen-ui-agent-wiring]
+
+// The LangGraph CLI targets this export so showcase probes retain inbound
+// x-* header forwarding; the public `graph` above stays copy-pasteable.
+async function chatNodeWithHeaders(state: AgentState, config: RunnableConfig) {
+  return runChatNode(
+    state,
+    config,
+    makeChatOpenAI(config, { temperature: 0, model: "gpt-5-mini" }),
+  );
+}
+
+export const showcaseGraph = compileGraph(chatNodeWithHeaders);
