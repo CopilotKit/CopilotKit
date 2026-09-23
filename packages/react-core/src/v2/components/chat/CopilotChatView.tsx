@@ -461,7 +461,8 @@ export namespace CopilotChatView {
     inputContainerHeight,
     isResizing,
   }) => {
-    const { isAtBottom, scrollToBottom, scrollRef } = useStickToBottomContext();
+    const { isAtBottom, scrollToBottom, scrollRef, state } =
+      useStickToBottomContext();
 
     // Capture the scroll element in state so the context value is reactive —
     // consumers re-render when the element is first set rather than reading a
@@ -482,8 +483,27 @@ export namespace CopilotChatView {
       <ScrollElementContext.Provider value={scrollEl}>
         {/* While the pin is following the bottom it is the sole owner of the
             scroll position; the virtualizer stands down (see
-            ScrollPinnedContext). */}
-        <ScrollPinnedContext.Provider value={isAtBottom}>
+            ScrollPinnedContext).
+
+            `state.isAtBottom`, not the context's `isAtBottom`: the latter is
+            `isAtBottom || isNearBottom`. Scrolling up a little — still inside
+            the near-bottom band — clears `state.isAtBottom`, which is what the
+            pin's animation loop checks before it moves anything, while the
+            combined flag stays true. Using the combined flag would stand the
+            virtualizer down in a window where nothing owns the scroll
+            position.
+
+            `state` is a stable object, so this is only read again when
+            something re-renders us. Every transition *out* of the pin sets
+            `escapedFromLock` in the same breath, and that is one of the deps
+            of the memo behind this context, so the re-render is there for the
+            case that matters. The way back in can lag a render, which leaves
+            the virtualizer compensating slightly longer than it needs to —
+            the harmless direction, and what it does by default anyway.
+
+            The scroll-to-bottom button keeps the combined flag: it should
+            stay hidden anywhere in the near-bottom band. */}
+        <ScrollPinnedContext.Provider value={state.isAtBottom}>
           <>
             <StickToBottom.Content
               className="cpk:overflow-y-auto cpk:overflow-x-hidden"

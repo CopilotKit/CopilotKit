@@ -8,6 +8,7 @@ import React, {
   useState,
 } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import type { VirtualItem, Virtualizer } from "@tanstack/react-virtual";
 import { ScrollElementContext } from "./scroll-element-context";
 import { ScrollPinnedContext } from "./scroll-pinned-context";
 import type { WithSlots } from "../../lib/slots";
@@ -617,22 +618,79 @@ export function CopilotChatMessageView({
     !children &&
     deduplicatedMessages.length > VIRTUALIZE_THRESHOLD;
 
-  // Running mean of every row measured so far, used as the estimate for rows
-  // that have not been measured yet. A flat 100 px estimate is off by roughly
-  // an order of magnitude for a message carrying a code block, so the total
-  // size lurches every time such a row is measured; an estimate drawn from
-  // this thread's own rows keeps those corrections small. Held in a ref
-  // because feeding it back through state would re-render on every measure.
-  const measuredRef = React.useRef({ count: 0, total: 0 });
+  // Mean of the rows measured so far in this thread, used as the estimate for
+  // rows that have not been measured yet. A flat 100 px estimate is off by
+  // roughly an order of magnitude for a message carrying a code block, so the
+  // total size lurches every time such a row is measured; an estimate drawn
+  // from this thread's own rows keeps those corrections small.
+  //
+  // Sizes are kept per row rather than as a running sum because a row is
+  // re-measured every time its ResizeObserver fires — a streaming message
+  // reports a new height on every chunk — and treating each of those as a
+  // fresh sample would drag the mean toward whatever that one row happened to
+  // be mid-stream. Held in a ref because feeding it back through state would
+  // re-render on every measure.
+  const measuredRef = React.useRef({
+    total: 0,
+    sizes: new Map<number, number>(),
+  });
+
+  // The measurements describe one thread, so drop them when the thread
+  // changes (detected by the first message ID changing, same as the
+  // scroll-to-bottom effect below). Done during render rather than in that
+  // effect because rows are measured from ref callbacks, which run before
+  // layout effects — resetting there would discard the new thread's first
+  // measurements instead of the old thread's.
+  const firstMessageId = deduplicatedMessages[0]?.id;
+  const measuredThreadRef = React.useRef(firstMessageId);
+  if (measuredThreadRef.current !== firstMessageId) {
+    measuredThreadRef.current = firstMessageId;
+    measuredRef.current = { total: 0, sizes: new Map() };
+  }
+
+  const estimateRowSize = React.useCallback(() => {
+    const { total, sizes } = measuredRef.current;
+    return sizes.size > 0 ? Math.max(1, Math.round(total / sizes.size)) : 100;
+  }, []);
+
+  const measureRowElement = React.useCallback((el: Element) => {
+    const height = el?.getBoundingClientRect().height ?? 0;
+    // `data-index` is set on every virtual row below, and is what the
+    // virtualizer itself uses to identify a measured element.
+    const index = Number((el as HTMLElement | null)?.dataset?.index);
+    if (height > 0 && Number.isInteger(index)) {
+      const { total, sizes } = measuredRef.current;
+      measuredRef.current.total = total - (sizes.get(index) ?? 0) + height;
+      sizes.set(index, height);
+    }
+    return height;
+  }, []);
+
   const isPinnedToBottomRef = React.useRef(isPinnedToBottom);
   const shouldAdjustScrollOnResize = React.useCallback(
-    () => !isPinnedToBottomRef.current,
+    (
+      item: VirtualItem,
+      _delta: number,
+      instance: Virtualizer<HTMLElement, Element>,
+    ) => {
+      // While the pin is following the bottom it owns the scroll position;
+      // compensating as well is what makes the two fight (see below).
+      if (isPinnedToBottomRef.current) return false;
+      // Otherwise keep the rule this property replaces rather than
+      // compensating for every resize: only a row starting above the current
+      // scroll offset can shift what the reader is looking at when it
+      // changes size. Moving the scroll position for a row *below* the
+      // viewport — an overscanned row settling, say — is the same unwanted
+      // motion, just in the other direction. `scrollAdjustments` is not on
+      // the public type but is part of that rule; leaving it out would drop
+      // the corrections already applied.
+      const scrollAdjustments =
+        (instance as unknown as { scrollAdjustments?: number })
+          .scrollAdjustments ?? 0;
+      return item.start < (instance.scrollOffset ?? 0) + scrollAdjustments;
+    },
     [],
   );
-  const estimateRowSize = React.useCallback(() => {
-    const { count, total } = measuredRef.current;
-    return count > 0 ? Math.max(1, Math.round(total / count)) : 100;
-  }, []);
 
   const virtualizer = useVirtualizer({
     // count=0 disables the virtualizer without changing hook call order.
@@ -640,14 +698,7 @@ export function CopilotChatMessageView({
     getScrollElement: () => scrollElement,
     estimateSize: estimateRowSize,
     overscan: 5,
-    measureElement: (el: Element) => {
-      const height = el?.getBoundingClientRect().height ?? 0;
-      if (height > 0) {
-        measuredRef.current.count += 1;
-        measuredRef.current.total += height;
-      }
-      return height;
-    },
+    measureElement: measureRowElement,
     // Assume a 600 px viewport before the real element is measured so that
     // the first virtual render shows ~6 items rather than 0.
     initialRect: { width: 0, height: 600 },
@@ -675,7 +726,6 @@ export function CopilotChatMessageView({
   // on the virtualizer's total-size div — same as the flat path. Adding
   // deduplicatedMessages.length here would forcibly yank the user to the bottom
   // on every streaming chunk even if they've scrolled up to read history.
-  const firstMessageId = deduplicatedMessages[0]?.id;
   useLayoutEffect(() => {
     if (!shouldVirtualize || !deduplicatedMessages.length) return;
     virtualizer.scrollToIndex(deduplicatedMessages.length - 1, {
