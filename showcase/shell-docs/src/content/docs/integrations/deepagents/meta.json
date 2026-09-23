@@ -20,8 +20,7 @@
         "threads",
         "headless-threads",
         "threads-lifecycle",
-        "threads-import",
-        "threads-self-managed"
+        "threads-import"
       ]
     }
   ]
