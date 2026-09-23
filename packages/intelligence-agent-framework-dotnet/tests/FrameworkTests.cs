@@ -76,6 +76,55 @@ internal static class FrameworkTests
         }
     }
 
+    internal static async Task MultiContainerAsync()
+    {
+        foreach (var streaming in new[] { false, true })
+        {
+            var current = "text-skill";
+            var denied = false;
+            var requests = 0;
+            using var http = new HttpClient(new Handler(() => {
+                requests++;
+                return denied ? new HttpResponseMessage(HttpStatusCode.Forbidden) : Reply(current);
+            }));
+            using var client = new IntelligenceClient(new IntelligenceOptions { ApiKey = "test" }, http);
+            using var provider = new SkillRegistryContextProvider(new SkillRegistryOptions {
+                Client = client, Containers = [new() { Id = "support" }, new() { Id = "company" }],
+                FreshnessWindow = TimeSpan.Zero
+            });
+            var turns = 0;
+            using var model = new Model(async (messages, options, token) => {
+                turns++;
+                if (!options!.Instructions!.Contains("support/refund-policy") || !options.Instructions.Contains("company/refund-policy"))
+                    throw new Exception("qualified catalog missing");
+                if (turns == 1)
+                {
+                    if (requests != 2) throw new Exception("model reached before all containers loaded");
+                    current = "empty-r2";
+                    await provider.InitializeAsync(token);
+                    return Tool("load", "copilotkit_load_skill", new() { ["skill_name"] = "support/refund-policy" });
+                }
+                var results = messages.SelectMany(message => message.Contents).OfType<FunctionResultContent>().ToArray();
+                if (turns == 2)
+                {
+                    if (!(results.Single().Result?.ToString() ?? "").Contains("# Refund policy")) throw new Exception("qualified load lost pin");
+                    return Tool("read", "copilotkit_read_skill_file", new() { ["skill_name"] = "company/refund-policy", ["path"] = "reference.txt" });
+                }
+                if (!(results.Last().Result?.ToString() ?? "").Contains("30 days")) throw new Exception("qualified file lost pin");
+                return new ChatResponse(new ChatMessage(ChatRole.Assistant, "done"));
+            });
+            var agent = provider.CreateAgent(model);
+            if (streaming) { await foreach (var _ in agent.RunStreamingAsync("help")) { } }
+            else await agent.RunAsync("help");
+            if (turns != 3) throw new Exception("multi native loop failed");
+            denied = true;
+            try { await agent.RunAsync("denied"); throw new Exception("denied invocation succeeded"); }
+            catch (LearnedSkillsException error) when (error.Code == "AUTHORIZATION_FAILED") { }
+            if (turns != 3) throw new Exception("denied invocation reached model");
+        }
+        Console.WriteLine("PASS multi-container native streaming and non-streaming loops, pinned tools, and denial");
+    }
+
     internal static async Task DependencyInjectionAsync()
     {
         var requests = 0;

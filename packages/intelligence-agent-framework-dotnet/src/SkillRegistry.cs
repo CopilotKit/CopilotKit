@@ -1,7 +1,7 @@
 namespace CopilotKit.Intelligence.AgentFramework;
 
 /// <summary>Owns refresh state; invocation tools retain their own immutable snapshot.</summary>
-internal sealed class SkillRegistry : IDisposable
+internal sealed class SingleSkillRegistry : IDisposable
 {
     private readonly object gate = new();
     private readonly RegistryConfiguration configuration;
@@ -14,9 +14,9 @@ internal sealed class SkillRegistry : IDisposable
     private bool disposed;
     private SkillRegistryStatus status;
 
-    internal SkillRegistry(SkillRegistryOptions options, TimeProvider? clock = null)
+    internal SingleSkillRegistry(RegistryConfiguration configuration, TimeProvider? clock = null)
     {
-        configuration = RegistryConfiguration.Resolve(options);
+        this.configuration = configuration;
         this.clock = clock ?? TimeProvider.System;
         status = new(false, null, configuration.Revision is null ? "latest" : "pinned", null, false, null);
     }

@@ -1,6 +1,6 @@
 # CopilotKit Intelligence ADK
 
-`SkillRegistry` and `SkillToolset` deliver one Learning container's published skills to standard ADK `LlmAgent` instances. The adapter supports `google-adk>=1.17,<2`. It does not patch arbitrary custom `BaseAgent` implementations.
+`SkillRegistry` and `SkillToolset` deliver one or more Learning containers’ published skills to standard ADK `LlmAgent` instances. The adapter supports `google-adk>=1.17,<2`. It does not patch arbitrary custom `BaseAgent` implementations.
 
 ```python
 from copilotkit_intelligence import Intelligence
@@ -26,7 +26,7 @@ async with Intelligence(api_key="your-project-key") as intelligence:
 
 A registry can serve several explicitly selected agents. `SkillToolset.close()` does not close that shared application-owned registry. `registry.aclose()` closes a helper-created canonical client but leaves an injected client and HTTP pool application-owned. Startup errors are catchable and initialization can retry. `status` exposes immutable `initialized`, `revision`, `mode`, `last_checked_at`, `stale`, and `last_error` values.
 
-`SkillRegistry` accepts `client`, `api_key`, `api_url`, `container_id`, `revision`, `freshness_window`, `request_timeout`, and `debug`. Durations use seconds and default to five. Debug defaults to false. Explicit values override `CPK_INTELLIGENCE_API_KEY`, `INTELLIGENCE_API_URL`, `CPK_INTELLIGENCE_LEARNING_CONTAINER_ID`, and `CPK_INTELLIGENCE_SKILLS_REVISION`. An injected canonical client supplies all connection configuration.
+`SkillRegistry` accepts `client`, `api_key`, `api_url`, `container_id`, `revision`, `containers`, `freshness_window`, `request_timeout`, and `debug`. Durations use seconds and default to five. Debug defaults to false. Explicit values override `CPK_INTELLIGENCE_API_KEY`, `INTELLIGENCE_API_URL`, `CPK_INTELLIGENCE_LEARNING_CONTAINER_ID`, and `CPK_INTELLIGENCE_SKILLS_REVISION`. An injected canonical client supplies all connection configuration.
 
 The toolset always exposes `copilotkit_load_skill` and `copilotkit_read_skill_file`, including for an empty container. Its native `process_llm_request` hook waits for an authorized snapshot before the model runs, then appends an alphabetical catalog. Developer-authored instructions outrank learned skills. The model chooses which skills to use. Tool discovery does not perform authorization, because ADK can suppress discovery failures.
 
@@ -39,3 +39,33 @@ Warm transient failures retain the previous snapshot indefinitely and mark statu
 Builds vendor shared private source into `copilotkit_intelligence_adk._delivery`. There is no dependency on another public adapter or a separate public core distribution. The canonical runtime dependency must be published with learned-snapshot and per-request deadline support before release. Its existing Runtime dependencies remain part of the installation.
 
 Repository checks use Nx targets `intelligence-adk-python:test`, `:test-minimum`, `:test-latest`, `:typecheck`, `:lint`, `:build`, and `:verify-distribution`. The distribution check rebuilds the sdist outside the checkout and imports the resulting wheel without editable adapter source. Resumability tests use ADK's native experimental `ResumabilityConfig`; applications retain control over enabling that framework feature.
+
+## Multiple containers
+
+```python
+skills = SkillRegistry(
+    client=intelligence,
+    containers=[
+        {"id": "support", "revision": "published-revision"},
+        {"id": "company-wide"},
+    ],
+)
+```
+
+`containers` requires a nonempty list with unique, nonblank IDs. Each optional revision must be a nonblank string.
+Do not combine `containers` with `container_id` or a top-level `revision`.
+An explicit list ignores the container and revision environment variables. All entries share the client, credentials, and timeout configuration.
+
+The catalog and tool arguments always use `encodeURIComponent(container_id) + "/" + skill_name`, even for a list with one container.
+For example, use `support/refund-policy` with `copilotkit_load_skill`.
+The legacy `container_id` interface keeps its original skill names.
+
+Each container keeps its own cache, revision, and authorization state.
+The adapter acquires every snapshot before model or tool work. A cold failure or confirmed denial in any container fails the invocation.
+A warm transient failure can use that container's previous snapshot. Existing invocations keep their captured snapshots.
+
+In this mode, `status` is a `MultiStatus` with an immutable `containers` tuple.
+Each `ContainerStatus` has an `id` and the original diagnostic fields.
+Aggregate mode is `pinned` only when every entry has a revision.
+The aggregate status revision is `None`. Each container reports its own server revision.
+`ContainerSource`, `ContainerStatus`, `MultiStatus`, and `Status` are public imports.

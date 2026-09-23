@@ -25,6 +25,9 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using var skills = new SkillRegistryContextProvider(new SkillRegistryOptions { ApiKey = "test", ContainerId = "container" });
 if (skills.Status.Initialized) throw new Exception("construction performed registry work");
+using var multi = new SkillRegistryContextProvider(new SkillRegistryOptions { ApiKey = "test", Containers = [new SkillContainerSource { Id = "support" }] });
+if (multi.Status is not MultiSkillRegistryStatus status || status.Containers.Single().Id != "support" || status.Revision is not null)
+    throw new Exception("multi-container public types missing");
 Func<IChatClient, AIAgent> create = client => skills.CreateAgent(client);
 var services = new ServiceCollection();
 services.AddCopilotKitIntelligenceSkills("support", new SkillRegistryOptions { ApiKey = "test", ContainerId = "container" }, _ => throw new NotSupportedException());

@@ -11,3 +11,10 @@ Snapshots contain frozen dataclasses and tuples. ZIP parsing uses memory only, w
 The JSON files under `conformance` are copied unchanged from the TypeScript adapter checkpoint. They are temporary shared inputs for Python and .NET in this stack. After the TypeScript stack merges, move all language consumers to one repository-wide conformance location. Runtime socket fixtures remain separate.
 
 Run `pnpm exec nx run intelligence-delivery-python-core:test`, `:lint`, and `:typecheck` from the repository root. These targets use this project's own uv environment.
+
+`Registry(containers=[{"id": "support", "revision": "r1"}, {"id": "company-wide"}])`
+composes independent single-container registries with one shared client.
+It rejects explicit legacy fields, ignores legacy container/revision environment values, and copies the supplied sources.
+Every child must yield an authorized snapshot before the aggregate catalog is available.
+Names always include the URI-encoded container ID in this mode, including a one-entry list.
+`MultiStatus.containers` exposes immutable status records with an `id`. The aggregate status revision is `None`; snapshots use a private composite identity.

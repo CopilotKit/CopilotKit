@@ -374,3 +374,43 @@ async def test_holder_cannot_resolve_against_another_registry():
         await holder.resolve(second._registry)
     assert error.value.code == "INVALID_CONFIG"
     fetch.assert_not_called()
+
+
+async def test_multiple_containers_pin_qualified_tools_before_model_work():
+    client = AsyncMock(spec=Intelligence)
+    client.get_learned_skills_snapshot.return_value = response()
+    middleware = create_skill_registry_middleware(
+        client=client, containers=[{"id": "support"}, {"id": "company"}], freshness_window=0
+    )
+    model = FakeModel()
+    model._tool_calls = [
+        {
+            "name": "copilotkit_load_skill",
+            "args": {"skill_name": "support/refund-policy"},
+            "id": "a",
+        },
+        {
+            "name": "copilotkit_read_skill_file",
+            "args": {"skill_name": "company/refund-policy", "path": "reference.txt"},
+            "id": "b",
+        },
+    ]
+    model._on_call = lambda: setattr(
+        client.get_learned_skills_snapshot, "return_value", response("empty-r2")
+    )
+    agent = create_agent(model, middleware=[middleware])
+    result = await agent.ainvoke({"messages": [{"role": "user", "content": "help"}]})
+    messages = [message for message in result["messages"] if isinstance(message, ToolMessage)]
+    assert any("# Refund policy" in message.content for message in messages)
+    assert any("30 days" in message.content for message in messages)
+    assert client.get_learned_skills_snapshot.await_count == 2
+    assert "support/refund-policy" in model._calls[0][0].content
+    assert "company/refund-policy" in model._calls[0][0].content
+    client.get_learned_skills_snapshot.side_effect = LearnedSkillsError(
+        "AUTHORIZATION_FAILED", False
+    )
+    previous_calls = len(model._calls)
+    with pytest.raises(LearnedSkillsError):
+        await agent.ainvoke({"messages": [{"role": "user", "content": "again"}]})
+    assert len(model._calls) == previous_calls
+    await middleware.aclose()
