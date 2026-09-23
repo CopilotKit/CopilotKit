@@ -174,14 +174,13 @@
       "chunkSize": 9999
     },
     {
-      "_comment": "D5 mcp-apps probe — verbatim probe prompt drives a real `create_view` MCP tool call so the runtime's MCP Apps middleware fetches the UI resource and mounts the iframe. Mirrored in showcase/harness/fixtures/d5/mcp-apps.json. Non-empty `content` is load-bearing (see tool-rendering-reasoning-chain.json header).",
+      "_comment": "D5 mcp-apps probe — verbatim probe prompt drives a real `create_view` MCP tool call so the runtime's MCP Apps middleware fetches the UI resource and mounts the iframe. Mirrored in showcase/harness/fixtures/d5/mcp-apps.json. Non-empty `content` is load-bearing (see tool-rendering-reasoning-chain.json header). No `reasoning` channel: the langgraph-typescript graph streams this turn over OpenAI Chat Completions, which never sends reasoning for gpt-5 models. aimock 1.37.4 also streams fixture reasoning ahead of the `role` delta, and langchain-js turns that role-less first delta into a generic message that drops the tool call (see showcase/GOTCHAS.md, langgraph-typescript).",
       "match": {
         "userMessage": "Open Excalidraw and sketch a system diagram",
         "toolName": "create_view",
         "context": "langgraph-typescript"
       },
       "response": {
-        "reasoning": "The user wants a sketch of a client/server/database architecture. I'll call create_view once with three labelled rectangles connected by arrows and a title, framed by a cameraUpdate.",
         "content": "Sketching a client → server → database diagram in Excalidraw.",
         "toolCalls": [
           {
