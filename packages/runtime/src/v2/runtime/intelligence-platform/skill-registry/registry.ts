@@ -225,7 +225,7 @@ function batchLoader(client: CopilotKitIntelligence) {
         try {
           const results = await client.getLearnedSkillsSnapshots({
             containers: batch.map(
-              ({ request: { signal, ...source } }) => source,
+              ({ request: { signal: _signal, ...source } }) => source,
             ),
             signal: batch[0].request.signal,
           });

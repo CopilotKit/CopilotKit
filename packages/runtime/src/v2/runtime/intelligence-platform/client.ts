@@ -987,6 +987,8 @@ export class CopilotKitIntelligence {
           !item ||
           typeof item.containerId !== "string" ||
           !item.containerId.trim() ||
+          // Reject control characters in caller-provided container IDs.
+          // eslint-disable-next-line no-control-regex
           /[\u0000-\u001f\u007f]/.test(item.containerId) ||
           (item.revision !== undefined &&
             (typeof item.revision !== "string" || !item.revision.trim())) ||

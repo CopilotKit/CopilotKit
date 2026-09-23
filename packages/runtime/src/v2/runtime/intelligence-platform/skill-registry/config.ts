@@ -83,6 +83,8 @@ export function resolveRegistryConfig(
             !source ||
             typeof source.id !== "string" ||
             !source.id.trim() ||
+            // Reject control characters in caller-provided container IDs.
+            // eslint-disable-next-line no-control-regex
             /[\u0000-\u001f\u007f]/.test(source.id) ||
             seen.has(source.id) ||
             (source.revision !== undefined &&
