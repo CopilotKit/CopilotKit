@@ -92,16 +92,14 @@ describe("QuickstartLinkButton", () => {
   it("renders a custom label when one is passed", () => {
     render(
       <QuickstartLinkButton
-        href="/intelligence/connect-your-runtime"
+        href="/intelligence/quickstart"
         label="Connect an app"
       />,
     );
 
     const link = screen.getByRole("link", { name: /connect an app/i });
 
-    expect(link.getAttribute("href")).toBe(
-      "/intelligence/connect-your-runtime",
-    );
+    expect(link.getAttribute("href")).toBe("/intelligence/quickstart");
     expect(screen.queryByRole("link", { name: /^quickstart$/i })).toBeNull();
   });
 

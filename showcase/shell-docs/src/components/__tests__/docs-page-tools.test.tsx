@@ -141,6 +141,6 @@ it("includes the quickstart goal with its framework, frontend, and source", asyn
   expect(prompt).toContain("Angular");
   expect(prompt).toContain("/angular/mastra/quickstart.mdx");
   expect(prompt).toContain(
-    "Their goal for this quickstart is: Connect an Angular app to Copilot Runtime.",
+    "My goal for this quickstart is: Connect an Angular app to Copilot Runtime.",
   );
 });

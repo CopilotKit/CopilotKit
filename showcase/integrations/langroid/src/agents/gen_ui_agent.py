@@ -50,8 +50,6 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 import openai
 
-from ._header_forwarding import install_httpx_hook
-
 logger = logging.getLogger(__name__)
 
 
@@ -218,7 +216,6 @@ async def _call_openai(
     """
     model = os.getenv("LANGROID_MODEL", "gpt-4.1")
     client = openai.AsyncOpenAI()
-    install_httpx_hook(client)
     response = await client.chat.completions.create(
         model=model,
         messages=messages,

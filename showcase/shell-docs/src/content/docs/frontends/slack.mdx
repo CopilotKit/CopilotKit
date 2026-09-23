@@ -1,6 +1,6 @@
 ---
 title: Connect and run your agent in Slack
-description: Run any supported agent framework in Slack through a managed CopilotKit Intelligence connection.
+description: Run any supported agent framework in Slack through a cloud-hosted Intelligence connection.
 icon: "lucide/Slack"
 doc_type: tutorial
 ---
@@ -125,7 +125,7 @@ Use this prompt to connect your agent to Slack, start the Channels SDK listener,
 
     const intelligence = new CopilotKitIntelligence({
       apiKey: required("CPK_INTELLIGENCE_API_KEY"),
-      // Managed deployments use the hosted defaults. Override both URLs
+      // Cloud-hosted deployments use the default URLs. Override both URLs
       // together only for self-hosted or non-production Intelligence.
       apiUrl: process.env.INTELLIGENCE_API_URL,
       wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL,
@@ -196,7 +196,23 @@ Use this prompt to connect your agent to Slack, start the Channels SDK listener,
     # INTELLIGENCE_GATEWAY_WS_URL=wss://realtime.intelligence.example.com
     ```
 
-    Hosted Intelligence supplies both managed base URLs by default. For a
+    #### Where these values come from
+
+    Three variables matter here, and you supply only one:
+
+    - `OPENAI_API_KEY`, or the key for whichever model provider your agent uses.
+      This one is yours to create and paste.
+    - `CPK_INTELLIGENCE_API_KEY` is written for you by
+      `copilotkit project select`, which provisions the project and its key.
+    - `CHANNEL_CODE` is written for you by the onboarding run once it has
+      declared the Channel; the run knows the Code it just created.
+
+    So both Intelligence values land in the environment file your app loads and
+    you never copy either one by hand. Setting them yourself still works: see
+    [configure the runtime handoff](/channels/intelligence#configure-the-runtime-handoff)
+    for where each value appears in Intelligence.
+
+    Cloud-hosted Intelligence supplies both default base URLs. For a
     self-hosted or non-production deployment, override both together. The REST
     and realtime planes use separate hosts, so do not derive the WebSocket URL
     from the API URL. Pass each as a bare base URL without `/api`, `/socket`,

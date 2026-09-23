@@ -171,7 +171,7 @@ describe("searchable pages", () => {
     const contentDir = contentTree({
       quickstart: "# Quickstart\n",
       "intelligence/headless-ui":
-        "---\ntitle: Fully Headless UI\nsearch: true\n---\n",
+        "---\ntitle: Headless UI\nsearch: true\n---\n",
     });
 
     const { slugs, fromNavigation, forcedIn } = computeSearchablePages({
@@ -236,7 +236,7 @@ describe("searchable pages", () => {
       surfaces: surface([
         {
           type: "group",
-          title: "Rich threads",
+          title: "Rich Threads",
           slug: "sidebar#rich-threads",
           children: [page("threads")],
         },
@@ -306,15 +306,15 @@ describe("searchable pages", () => {
 
     const { navTitles } = computeSearchablePages({
       contentDir,
-      surfaces: surface([page("threads", "Rich threads")]),
+      surfaces: surface([page("threads", "Rich Threads")]),
     });
 
-    expect(navTitles.get("threads")).toBe("Rich threads");
+    expect(navTitles.get("threads")).toBe("Rich Threads");
   });
 
   it("ignores a sidebar title that only makes sense next to its parent", () => {
     const contentDir = contentTree({
-      threads: "---\ntitle: Rich Threads\n---\n",
+      threads: "---\ntitle: Threads\n---\n",
     });
 
     // `nav_title: Overview` reads fine under a "Rich Threads" group and

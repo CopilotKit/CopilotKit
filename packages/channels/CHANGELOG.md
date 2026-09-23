@@ -10,6 +10,20 @@ To change what ships, edit the section on the release PR branch before merging.
 Entries begin with the first release cut after this file was added. The lane had
 no changelog before that.
 
+## 0.11.0 - 2026-09-22
+
+### Fixes
+
+- fix(channels): widen the express floor so an older express stops failing installs (#7331) (1504af8)
+- fix(channels)!: stop shipping a zod range from channels-discord and channels-telegram (PE-30) (#7325) (e2199aa)
+
+### Breaking Changes
+
+- fix(channels)!: stop shipping a zod range from channels-discord and channels-telegram (PE-30) (#7325) (e2199aa)
+  `@copilotkit/channels-discord` and
+  `@copilotkit/channels-telegram` no longer declare `zod`. An application that
+  relied on them to install it must declare zod itself.
+
 ## 0.10.0 - 2026-09-15
 
 This release trims the dependency footprint of the Teams and Slack channel packages and fixes Telegram code-block formatting. The headline change is a breaking one for self-hosted Teams users: the Microsoft Agents SDK and Express are now optional peer dependencies.

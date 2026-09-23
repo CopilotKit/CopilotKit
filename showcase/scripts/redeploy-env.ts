@@ -60,6 +60,7 @@ import {
   ENV_ID_BY_NAME,
   SERVICES,
   STAGING_ENV_ID,
+  repoNameFor,
   resolveEnv,
   serviceForDispatchName,
   workerProvisioningFor,
@@ -165,8 +166,7 @@ export function makeLiveRedeploy(token: string): RedeployFn {
       }
 
       // A clean recycle needs the replacement policy in the deployment
-      // Railway creates from desired state. Preserve its configured source;
-      // a policy update must not replace an operator's image pin.
+      // Railway creates from desired state.
       const update = await railwayMutation(
         token,
         `mutation serviceInstanceUpdate($serviceId: String!, $environmentId: String!, $input: ServiceInstanceUpdateInput!) {
@@ -176,6 +176,12 @@ export function makeLiveRedeploy(token: string): RedeployFn {
           serviceId,
           environmentId,
           input: {
+            source: {
+              image: `ghcr.io/copilotkit/${repoNameFor(
+                "harness-workers",
+                "staging",
+              )}:latest`,
+            },
             restartPolicyType: provisioning.restartPolicyType,
             multiRegionConfig: {
               "us-west2": {

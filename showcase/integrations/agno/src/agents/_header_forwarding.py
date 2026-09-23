@@ -43,10 +43,8 @@ Scope and limits
 from __future__ import annotations
 
 import contextvars
-import importlib
 import logging
 import warnings
-from types import ModuleType
 from typing import Any, Dict, Optional
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -177,22 +175,11 @@ def _find_event_hooks_target(client: Any) -> Optional[Any]:
     return None
 
 
-def _available_httpx_modules():
-    # OpenAI 3 uses httpx2; older providers still construct httpx clients.
-    # Either transport may be absent in an integration environment.
-    for name in ("httpx", "httpx2"):
-        try:
-            yield importlib.import_module(name)
-        except ModuleNotFoundError as exc:
-            if exc.name != name:
-                raise
-
-
 def _is_async_httpx_target(target: Any) -> bool:
     """Best-effort detection: is this an httpx async client?
 
     Detection is HIGH-CONFIDENCE when ``isinstance`` against the real
-    ``httpx`` or ``httpx2`` client types succeeds. The MRO name-only
+    ``httpx.AsyncClient`` / ``httpx.Client`` succeeds. The MRO name-only
     fallback (matching a class literally named ``AsyncClient``) is
     LOW-CONFIDENCE: a wrapped/duck-typed client whose class happens to be
     named ``AsyncClient`` (or that is async but is NOT so named) can be
@@ -202,7 +189,9 @@ def _is_async_httpx_target(target: Any) -> bool:
     misdetection is greppable in the logs. The return values themselves are
     unchanged — only the diagnostics are new.
     """
-    for httpx in _available_httpx_modules():
+    try:
+        import httpx
+
         if isinstance(target, httpx.AsyncClient):
             _cvdiag(
                 "async-detect",
@@ -219,6 +208,8 @@ def _is_async_httpx_target(target: Any) -> bool:
                 error="path=isinstance-sync confidence=high",
             )
             return False
+    except ImportError:  # pragma: no cover
+        pass
 
     # Fall back to exact class-name match for wrapped/duck-typed clients.
     # LOW-CONFIDENCE: this can misdetect async-vs-sync for oddly-named
@@ -346,7 +337,7 @@ _GLOBAL_HTTPX_PATCHED = False
 
 
 def install_global_httpx_hook() -> None:
-    """Patch installed httpx/httpx2 clients so EVERY future
+    """Patch ``httpx.Client`` / ``httpx.AsyncClient`` so EVERY future
     instance auto-attaches the forwarded-header hook on construction.
 
     Use this when the LLM client is buried behind opaque framework
@@ -365,13 +356,11 @@ def install_global_httpx_hook() -> None:
     if _GLOBAL_HTTPX_PATCHED:
         return
 
-    for httpx in _available_httpx_modules():
-        _patch_httpx_module(httpx)
-    _GLOBAL_HTTPX_PATCHED = True
+    try:
+        import httpx
+    except ImportError:  # pragma: no cover
+        return
 
-
-def _patch_httpx_module(httpx: ModuleType) -> None:
-    """Wrap one transport's constructors with independently bound originals."""
     _orig_sync_init = httpx.Client.__init__
     _orig_async_init = httpx.AsyncClient.__init__
 
@@ -411,6 +400,7 @@ def _patch_httpx_module(httpx: ModuleType) -> None:
 
     httpx.Client.__init__ = _patched_sync_init
     httpx.AsyncClient.__init__ = _patched_async_init
+    _GLOBAL_HTTPX_PATCHED = True
 
 
 # Module-scope sentinel preventing repeated executor patching.

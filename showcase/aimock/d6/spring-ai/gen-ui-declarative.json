@@ -6,96 +6,6 @@
   },
   "fixtures": [
     {
-      "_comment": "Observed continuation for source-grounded risk-summary operations.",
-      "match": {
-        "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
-        "hasToolResult": true,
-        "context": "spring-ai",
-        "toolResultContains": "risk-summary"
-      },
-      "response": {
-        "content": "Three accounts have $615k ARR at risk. Northwind Retail is the largest exposure at $340k; Cascadia Outfitters and Atlas Goods account for $180k and $95k."
-      }
-    },
-    {
-      "_comment": "Observed original risk prompt, routed through the advertised Spring generator.",
-      "match": {
-        "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
-        "hasToolResult": false,
-        "context": "spring-ai",
-        "toolName": "generate_a2ui"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_decl_risk_001",
-            "name": "generate_a2ui",
-            "arguments": "{\"userRequest\":\"Are any accounts or pipeline deals at risk this quarter?\"}"
-          }
-        ]
-      }
-    },
-    {
-      "_comment": "Observed original rep-performance continuation after the generator returned sales-reps operations.",
-      "match": {
-        "userMessage": "How are our sales reps performing against quota?",
-        "hasToolResult": true,
-        "context": "spring-ai",
-        "toolResultContains": "sales-reps"
-      },
-      "response": {
-        "content": "Dana Whitfield is at 124% of quota, Marcus Lee 108%, Priya Sharma 97%, Tom Okafor 88%, and Elena Vasquez 71%."
-      }
-    },
-    {
-      "_comment": "Observed original rep-performance primary request, using the advertised Spring generator.",
-      "match": {
-        "userMessage": "How are our sales reps performing against quota?",
-        "hasToolResult": false,
-        "context": "spring-ai",
-        "toolName": "generate_a2ui"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_decl_sales_reps_001",
-            "name": "generate_a2ui",
-            "arguments": "{\"userRequest\":\"How are our sales reps performing against quota?\"}"
-          }
-        ]
-      }
-    },
-    {
-      "_comment": "Original sales dashboard prompt: route through the advertised Spring AI generate_a2ui tool.",
-      "match": {
-        "userMessage": "Show me my sales dashboard for this quarter.",
-        "hasToolResult": false,
-        "context": "spring-ai",
-        "toolName": "generate_a2ui"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_decl_sales_dashboard_001",
-            "name": "generate_a2ui",
-            "arguments": "{\"userRequest\":\"Show me my sales dashboard for this quarter.\"}"
-          }
-        ]
-      }
-    },
-    {
-      "_comment": "Observed original dashboard continuation after generate_a2ui returned the sales-dashboard operations.",
-      "match": {
-        "userMessage": "Show me my sales dashboard for this quarter.",
-        "hasToolResult": true,
-        "context": "spring-ai",
-        "toolResultContains": "sales-dashboard"
-      },
-      "response": {
-        "content": "Your sales dashboard shows $4.2M in revenue, 186 new customers, a 31% win rate, and an average deal of $22.6k, with regional and monthly revenue charts."
-      }
-    },
-    {
       "_comment": "gen-ui-declarative pill 1: KPI dashboard — emits render_a2ui with Card + Metric components. hasToolResult:false on toolCalls.",
       "match": {
         "userMessage": "KPI dashboard",
@@ -124,63 +34,59 @@
       }
     },
     {
-      "_comment": "Observed original pie prompt routed through the advertised Spring generator.",
+      "_comment": "gen-ui-declarative pill 2: pie chart — emits render_a2ui with PieChart component.",
       "match": {
-        "userMessage": "Show a pie chart of sales by region.",
+        "userMessage": "pie chart of sales by region",
         "hasToolResult": false,
-        "context": "spring-ai",
-        "toolName": "generate_a2ui"
+        "context": "spring-ai"
       },
       "response": {
         "toolCalls": [
           {
             "id": "call_d6_decl_pie_001",
-            "name": "generate_a2ui",
-            "arguments": "{\"userRequest\":\"Show a pie chart of sales by region.\"}"
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"PieChart\",\"props\":{\"title\":\"Sales by Region\",\"data\":[{\"label\":\"North America\",\"value\":45},{\"label\":\"Europe\",\"value\":30},{\"label\":\"Asia\",\"value\":20},{\"label\":\"Other\",\"value\":5}]}}]}"
           }
         ]
       }
     },
     {
-      "_comment": "Observed continuation for source-grounded regional revenue operations.",
+      "_comment": "gen-ui-declarative pill 2: pie chart — follow-up.",
       "match": {
-        "userMessage": "Show a pie chart of sales by region.",
+        "userMessage": "pie chart of sales by region",
         "hasToolResult": true,
-        "context": "spring-ai",
-        "toolResultContains": "region-revenue"
+        "context": "spring-ai"
       },
       "response": {
         "content": "Pie chart rendered above showing sales breakdown by region."
       }
     },
     {
-      "_comment": "Observed original quarterly revenue prompt routed through the advertised Spring generator.",
+      "_comment": "gen-ui-declarative pill 3: bar chart — emits render_a2ui with BarChart component.",
       "match": {
-        "userMessage": "Render a bar chart of quarterly revenue.",
+        "userMessage": "bar chart of quarterly revenue",
         "hasToolResult": false,
-        "context": "spring-ai",
-        "toolName": "generate_a2ui"
+        "context": "spring-ai"
       },
       "response": {
         "toolCalls": [
           {
             "id": "call_d6_decl_bar_001",
-            "name": "generate_a2ui",
-            "arguments": "{\"userRequest\":\"Render a bar chart of quarterly revenue.\"}"
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"BarChart\",\"props\":{\"title\":\"Quarterly Revenue\",\"data\":[{\"label\":\"Q1\",\"value\":1800000},{\"label\":\"Q2\",\"value\":2100000},{\"label\":\"Q3\",\"value\":2300000},{\"label\":\"Q4\",\"value\":2400000}]}}]}"
           }
         ]
       }
     },
     {
-      "_comment": "Observed continuation for source-grounded quarterly revenue operations.",
+      "_comment": "gen-ui-declarative pill 3: bar chart — follow-up.",
       "match": {
-        "userMessage": "Render a bar chart of quarterly revenue.",
+        "userMessage": "bar chart of quarterly revenue",
         "hasToolResult": true,
-        "context": "spring-ai",
-        "toolResultContains": "quarterly-revenue"
+        "context": "spring-ai"
       },
       "response": {
-        "content": "Bar chart rendered above showing Q1 and Q2 quarterly revenue from Jan-Jun monthly totals."
+        "content": "Bar chart rendered above showing quarterly revenue growth."
       }
     },
     {
@@ -210,36 +116,6 @@
       "response": {
         "content": "System health report rendered above. API and database are healthy; background workers show slight degradation."
       }
-    },
-{
-  "_comment": "Observed original account prompt routed through the advertised Spring generator.",
-  "match": {
-    "userMessage": "Pull up the details on our biggest account.",
-    "hasToolResult": false,
-    "context": "spring-ai",
-    "toolName": "generate_a2ui"
-  },
-  "response": {
-    "toolCalls": [
-      {
-        "id": "call_d6_decl_account_001",
-        "name": "generate_a2ui",
-        "arguments": "{\"userRequest\":\"Pull up the details on our biggest account.\"}"
-      }
-    ]
-  }
-},
-{
-  "_comment": "Observed continuation for source-grounded Meridian account operations.",
-  "match": {
-    "userMessage": "Pull up the details on our biggest account.",
-    "hasToolResult": true,
-    "context": "spring-ai",
-    "toolResultContains": "account-details"
-  },
-  "response": {
-    "content": "Meridian Apparel Group is our biggest account at $612k ARR. Dana Whitfield owns the North America account; renewal is Sep 30, health is green, and four open opportunities are worth $210k."
-  }
-}
-]
+    }
+  ]
 }
