@@ -230,28 +230,34 @@ export function navNodeToPageTreeNodes(
     return childNodes;
   }
   // If one of the group's NavNode children is a page representing the
-  // folder's own `index.mdx` (slug === `${group.slug}/index`), lift it
+  // folder's explicit overview (or its own `index.mdx`), lift it
   // into `folder.index` so Fumadocs renders the folder name itself as a
   // link to that page instead of a separate "Overview" entry inside the
   // expanded folder. The URL drops the `/index` suffix so the canonical
   // folder root (e.g. `/agentic-protocols`) is what the link points at.
   // A child whose slug equals the group's own slug (a topic group built
   // around a real page, e.g. "learning") is lifted the same way.
-  const indexNavIdx = node.children.findIndex(
+  const indexNode = node.children.find(
     (c) =>
       c.type === "page" &&
-      (c.slug === `${node.slug}/index` || c.slug === node.slug),
+      (c.slug === (node.indexSlug ?? `${node.slug}/index`) ||
+        (!node.indexSlug && c.slug === node.slug)),
   );
   let folderIndex: PageTree.Item | undefined;
   let folderChildren: PageTree.Node[] = childNodes;
-  if (indexNavIdx >= 0) {
-    const lifted = childNodes[indexNavIdx];
-    if (lifted && lifted.type === "page") {
-      const url = lifted.url.endsWith("/index")
-        ? lifted.url.slice(0, -"/index".length)
-        : lifted.url;
+  if (indexNode) {
+    const [lifted] = navNodeToPageTreeNodes(indexNode, slugHrefPrefix);
+    if (lifted?.type === "page") {
+      const url =
+        !node.indexSlug && lifted.url.endsWith("/index")
+          ? lifted.url.slice(0, -"/index".length)
+          : lifted.url;
       folderIndex = { ...lifted, url };
-      folderChildren = childNodes.filter((_, i) => i !== indexNavIdx);
+      // Filter the source node before flattening unnamed groups. Source and
+      // rendered positions can differ when an earlier group has many children.
+      folderChildren = node.children
+        .filter((child) => child !== indexNode)
+        .flatMap((child) => navNodeToPageTreeNodes(child, slugHrefPrefix));
     }
   }
   return [

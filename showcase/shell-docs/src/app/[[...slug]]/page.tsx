@@ -8,6 +8,7 @@
 import type { Metadata } from "next";
 import { DocsLandingNext } from "@/components/docs-landing-next";
 import { DocsSetupWizard } from "@/components/docs-setup-wizard";
+import { DocsIntelligenceJourney } from "@/components/docs-intelligence-journey";
 import { DocsVideoCarousel } from "@/components/docs-video-carousel";
 import { HeroOnboardingPromptButton } from "@/components/hero-onboarding-prompt-button";
 import { HeroQuickstartDropdown } from "@/components/hero-quickstart-dropdown";
@@ -67,7 +68,7 @@ export async function generateMetadata({
     return buildDocMetadata({
       title: "CopilotKit: bring your agent into any app",
       description:
-        "CopilotKit is an open-source framework that connects your app to AI agents. Add chat, interactive UI, and human approvals, with your choice of any agent backend.",
+        "Connect any agent to your app with CopilotKit’s open-source UI. Add Intelligence for persistent conversations, channels, analytics, and reviewed agent learning.",
       canonicalPath: "/",
     });
   }
@@ -139,10 +140,18 @@ function DocsOverview() {
               <br />
               <span className="text-[var(--accent)]">into any app</span>
             </h1>
-            <p className="mt-6 max-w-[54ch] text-base leading-relaxed text-[var(--text-secondary)] sm:text-lg">
-              CopilotKit is an open-source framework that connects your app to
-              AI agents. Add chat, interactive UI, and human approvals, with
-              your choice of any agent backend.
+            <p className="mt-6 w-full text-base leading-relaxed text-[var(--text-secondary)] sm:text-lg">
+              CopilotKit is an{" "}
+              <strong className="font-semibold text-[var(--text)]">
+                open-source framework
+              </strong>{" "}
+              that connects your app to AI agents. Add chat, interactive UI, and
+              human approvals with your choice of any agent backend. Add{" "}
+              <strong className="font-semibold text-[var(--text)]">
+                CopilotKit Intelligence
+              </strong>{" "}
+              when you need persistent conversations, usage insights, and
+              reviewed Skills.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
               <HeroOnboardingPromptButton surface="docs_landing_hero" />
@@ -171,6 +180,8 @@ function DocsOverview() {
             </div>
             <DocsSetupWizard />
           </section>
+
+          <DocsIntelligenceJourney />
 
           <DocsLandingNext />
 

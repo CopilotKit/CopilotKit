@@ -67,6 +67,8 @@
     "intelligence/plans",
     "intelligence/self-hosting",
     "intelligence/self-hosting-ecs",
+    "---Solutions---",
+    "solutions/self-improving-agents",
     "---Deploy---",
     "...deploy",
     "---Other---",

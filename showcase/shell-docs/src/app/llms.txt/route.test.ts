@@ -60,13 +60,15 @@ test("keeps the curated policy ordered, unique, and on canonical routes", () => 
     ),
   );
 
-  expect(urls.slice(0, 11)).toEqual([
+  expect(urls.slice(0, 13)).toEqual([
     "",
+    "introduction",
     "agentic-chat-ui",
     "concepts/generative-ui-overview",
     "human-in-the-loop",
     "threads",
     "learning",
+    "solutions/self-improving-agents",
     "intelligence/overview",
     "slack",
     "teams",

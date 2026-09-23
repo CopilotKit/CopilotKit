@@ -56,6 +56,7 @@ export type NavNode =
       slug: string;
       children: NavNode[];
       defaultOpen?: boolean;
+      indexSlug?: string;
       icon?: string;
       variant?: NavNodeVariant;
     };
@@ -86,6 +87,7 @@ const SECTION_ICONS: Record<string, string> = {
   intelligence: "custom/copilotkit-kite",
   "intelligence platform": "custom/copilotkit-kite",
   channels: "lucide/MessagesSquare",
+  solutions: "lucide/Lightbulb",
   deploy: "lucide/Cloud",
   deployment: "lucide/Cloud",
   other: "lucide/Wrench",
@@ -779,6 +781,7 @@ const SIDEBAR_SECTION_TITLES: Record<string, string> = {
   "add agent powers": "App Control",
   "app control": "App Control",
   intelligence: "Intelligence",
+  solutions: "Solutions",
   "intelligence platform": "Intelligence",
   backend: "Runtime",
   runtime: "Runtime",
@@ -858,6 +861,7 @@ function sidebarTopicGroup(
   title: string,
   slug: string,
   source: NavNode | NavNode[] | null,
+  options: { defaultOpen?: boolean; indexSlug?: string } = {},
 ): Extract<NavNode, { type: "group" }> | null {
   if (!source) return null;
   const children = Array.isArray(source)
@@ -866,7 +870,14 @@ function sidebarTopicGroup(
       ? source.children
       : [source];
   if (children.length === 0) return null;
-  return { type: "group", title, slug, children, defaultOpen: false };
+  return {
+    type: "group",
+    title,
+    slug,
+    children,
+    defaultOpen: false,
+    ...options,
+  };
 }
 
 function withoutRouteGroupSlug(slug: string): string {
@@ -923,6 +934,7 @@ const RESERVED_SIDEBAR_SECTIONS = new Set([
   "Agent capabilities",
   "Runtime",
   "Intelligence",
+  "Solutions",
   "Backend",
   "Deployment",
   "Concepts",
@@ -1057,6 +1069,7 @@ export function normalizeSidebarNav(
     "Rich Threads",
     "sidebar#rich-threads",
     richThreads,
+    { indexSlug: "threads" },
   );
   const frontendTools = findPage("frontend-tools");
 
@@ -1300,7 +1313,22 @@ export function normalizeSidebarNav(
         [intelligenceCloud, intelligenceSelfHosted, intelligenceEcs].filter(
           (node): node is NavNode => node !== null,
         ),
+        { defaultOpen: true },
       ),
+    ]),
+    ...sidebarSection("Solutions", [
+      {
+        type: "page",
+        title: "Your agent in Slack",
+        slug: "slack",
+        href: "/slack",
+      },
+      {
+        type: "page",
+        title: "Self-improving agents",
+        slug: "solutions/self-improving-agents",
+        href: "/solutions/self-improving-agents",
+      },
     ]),
     ...sidebarSection("Backend", [
       sidebarTopicGroup("Runtime", "sidebar#runtime", runtimeSource),
