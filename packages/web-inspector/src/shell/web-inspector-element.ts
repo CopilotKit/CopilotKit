@@ -711,6 +711,8 @@ export class WebInspectorElement extends LitElement {
     activeRoot: () => this.activeRoot,
     announcement: () => this.announcement,
     telemetryDisabled: () => this.core?.telemetryDisabled ?? false,
+    runtimeConnected: () =>
+      this.runtimeStatus === CopilotKitCoreRuntimeConnectionStatus.Connected,
     isWiringErrorBroken: (source, currentlyArmed) =>
       this.isErrorSourceBroken(source, currentlyArmed),
     isEventErrorLandingVisible: (key) =>
@@ -857,7 +859,7 @@ export class WebInspectorElement extends LitElement {
       },
       {
         key: "threads",
-        label: "Threads",
+        label: "Rich Threads",
         icon: "MessageSquare" as LucideIconName,
       },
       {
@@ -1776,7 +1778,7 @@ export class WebInspectorElement extends LitElement {
     const isThreads = serviceId === "threads";
     return renderLockedFeatureOverview({
       serviceId,
-      featureName: isThreads ? "Rich Threads" : "Learning",
+      featureName: isThreads ? "Rich Threads" : "Automatic Learning",
       heading: isThreads
         ? THREADS_LOCKED_COPY.heading
         : LEARNING_LOCKED_COPY.heading,
@@ -2409,6 +2411,7 @@ export class WebInspectorElement extends LitElement {
     this.syncThreadsExampleOverviewVideo();
     this.maybeTrackInspectorMetadataViews();
     this.launcher.maybeTrackNewsSignalViewed();
+    this.launcher.maybeTrackHudViews();
     // The pill's full width is only measurable once it has been laid out, and
     // the answer decides both the direction and the telemetry label below, so
     // this runs before the visibility event rather than after it.
@@ -2698,7 +2701,7 @@ export class WebInspectorElement extends LitElement {
         : "Intelligence is off";
       const setupLabel = renewing
         ? "Renew to restore access"
-        : "Set up Threads and Memory";
+        : "Connect Intelligence";
       return html`
         <a
           class="inspector-sidebar-status-card inspector-sidebar-intelligence inspector-sidebar-intelligence-setup"
@@ -2708,7 +2711,7 @@ export class WebInspectorElement extends LitElement {
           href=${action.url}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label="${action.label} to enable Threads and Memory (opens in a new tab)"
+          aria-label="${action.label} to enable Rich Threads and Automatic Learning (opens in a new tab)"
           title=${action.label}
           style=${INTERACTIVE_FOCUS_BASE_STYLE}
           @click=${() => this.handleHomeHeroCta(action)}
@@ -2731,14 +2734,14 @@ export class WebInspectorElement extends LitElement {
       ? planLabel
         ? `${planLabel} plan`
         : "Connected"
-      : "Threads and Memory are off";
+      : "Rich Threads and Automatic Learning are off";
     const label = connected
       ? `${primaryLabel}, ${secondaryLabel}, Intelligence connected`
       : "Connect Intelligence";
     const actionLabel = action?.label;
     const description = connected
       ? `${secondaryLabel} · Intelligence connected`
-      : "Threads and Memory need Intelligence.";
+      : "Rich Threads and Automatic Learning need Intelligence.";
     return html`
       <section
         class="inspector-sidebar-status-card inspector-sidebar-intelligence"
@@ -5043,6 +5046,10 @@ export class WebInspectorElement extends LitElement {
         viewInApp: this.handleViewInApp,
         stopViewing: this.handleStopViewing,
         tryFromHere: this.handleTryFromHere,
+        toggleThreadList: () => {
+          this.threads.threadListCollapsed = !this.threads.threadListCollapsed;
+          this.requestUpdate();
+        },
       },
     );
   }
@@ -5716,6 +5723,7 @@ export class WebInspectorElement extends LitElement {
   }
 
   private flushAnnouncementTelemetry(): void {
+    this.launcher.flushPendingHudTelemetry();
     this.announcementTelemetry.flush(
       this.runtimeStatus === CopilotKitCoreRuntimeConnectionStatus.Connected,
       this.core?.telemetryDisabled ?? false,

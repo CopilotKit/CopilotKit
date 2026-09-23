@@ -1,26 +1,27 @@
-import { AbstractAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import type { FrontendTool, CopilotRuntimeTransport } from "@copilotkit/core";
 import {
-  FrontendTool,
   CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
-  CopilotRuntimeTransport,
-  type CopilotKitCoreGetSuggestionsResult,
-  type IntelligenceRuntimeInfo,
-  type RuntimeLicenseStatus,
-  type SuggestionsConfig,
-  type ThreadEndpointRuntimeInfo,
 } from "@copilotkit/core";
+import type {
+  CopilotKitCoreGetSuggestionsResult,
+  CopilotKitMessageFilter,
+  IntelligenceRuntimeInfo,
+  RuntimeLicenseStatus,
+  SuggestionsConfig,
+  ThreadEndpointRuntimeInfo,
+} from "@copilotkit/core";
+import type { Signal, WritableSignal } from "@angular/core";
 import {
   Injectable,
   Injector,
-  Signal,
-  WritableSignal,
   computed,
   runInInjectionContext,
   signal,
   inject,
 } from "@angular/core";
-import {
+import type {
   FrontendToolConfig,
   HumanInTheLoopConfig,
   RenderToolCallConfig,
@@ -29,16 +30,16 @@ import {
   A2UI_DEFAULT_DESIGN_GUIDELINES,
   A2UI_DEFAULT_GENERATION_GUIDELINES,
   schemaToJsonSchema,
-  type RuntimeEntitlementResponse,
 } from "@copilotkit/shared";
+import type { RuntimeEntitlementResponse } from "@copilotkit/shared";
 import {
   A2UI_SCHEMA_CONTEXT_DESCRIPTION,
   buildCatalogContextValue,
   extractCatalogComponentSchemas,
 } from "@copilotkit/a2ui-renderer/web-components";
+import type { RenderActivityMessageConfig } from "./activity-renderer";
 import {
   ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS,
-  RenderActivityMessageConfig,
   anyActivityContentSchema,
 } from "./activity-renderer";
 import { injectCopilotKitConfig } from "./config";
@@ -57,8 +58,8 @@ import {
   GENERATE_SANDBOXED_UI_TOOL_NAME,
   GenerateSandboxedUiArgsSchema,
   OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
-  type GenerateSandboxedUiArgs,
 } from "./open-generative-ui";
+import type { GenerateSandboxedUiArgs } from "./open-generative-ui";
 import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-generative-ui/open-generative-ui-activity-renderer";
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
 import { standardSchemaZodToJsonSchema } from "./standard-schema-zod";
@@ -161,6 +162,7 @@ export class CopilotKit {
     runtimeUrl: this.#config.runtimeUrl,
     headers: this.#config.headers,
     credentials: this.#config.credentials,
+    messageFilter: this.#config.messageFilter,
     agents__unsafe_dev_only: {
       ...this.#config.agents,
       ...this.#config.selfManagedAgents,
@@ -565,8 +567,13 @@ export class CopilotKit {
   ): FrontendTool {
     return {
       ...humanInTheLoopTool,
-      handler: (args, { toolCall }) => {
-        return this.#hitl.onResult(toolCall.id, humanInTheLoopTool.name);
+      type: "human-in-the-loop",
+      handler: (args, { toolCall, signal: abortSignal }) => {
+        return this.#hitl.onResult(
+          toolCall.id,
+          humanInTheLoopTool.name,
+          abortSignal,
+        );
       },
     };
   }
@@ -638,6 +645,7 @@ export class CopilotKit {
     runtimeTransport?: CopilotRuntimeTransport;
     headers?: Record<string, string>;
     credentials?: RequestCredentials;
+    messageFilter?: CopilotKitMessageFilter;
     properties?: Record<string, unknown>;
     agents?: Record<string, AbstractAgent>;
     selfManagedAgents?: Record<string, AbstractAgent>;
@@ -657,6 +665,11 @@ export class CopilotKit {
     if ("credentials" in options) {
       this.core.setCredentials(options.credentials);
       this.#credentials.set(options.credentials);
+    }
+    // `in`, not `!== undefined`: clearing the filter is a real instruction, and
+    // `undefined` is the value that expresses it.
+    if ("messageFilter" in options) {
+      this.core.setMessageFilter(options.messageFilter);
     }
     if (options.properties !== undefined) {
       this.core.setProperties(

@@ -3,7 +3,7 @@ import type { TemplateResult } from "lit";
 import type { DirectiveResult } from "lit/directive.js";
 import type { LearningState } from "./state.js";
 
-export const LEARNING_VIEW_LABEL = "Learning";
+export const LEARNING_VIEW_LABEL = "Automatic Learning";
 export const MEMORY_LOAD_ERROR_LABEL = "Failed to load learning data";
 
 export type LearningViewModel = Readonly<{

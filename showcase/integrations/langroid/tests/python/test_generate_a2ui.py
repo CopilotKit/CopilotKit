@@ -344,7 +344,7 @@ def test_create_agent_wires_all_tools_with_stream_true(monkeypatch):
 
 def test_create_agent_default_model_when_langroid_model_unset(monkeypatch):
     """When ``LANGROID_MODEL`` is unset, ``create_agent`` falls back to the
-    documented default ``gpt-4.1``. Pins the default string so a silent
+    documented default ``gpt-5-mini``. Pins the default string so a silent
     drift between the primary agent default and documentation is caught."""
     monkeypatch.delenv("LANGROID_MODEL", raising=False)
 
@@ -371,7 +371,7 @@ def test_create_agent_default_model_when_langroid_model_unset(monkeypatch):
     ):
         create_agent()
 
-    assert captured_config_kwargs[0]["chat_model"] == "gpt-4.1"
+    assert captured_config_kwargs[0]["chat_model"] == "gpt-5-mini"
 
 
 # ---------------------------------------------------------------------------

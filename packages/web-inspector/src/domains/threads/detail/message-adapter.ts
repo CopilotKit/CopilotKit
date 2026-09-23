@@ -21,6 +21,8 @@ export interface ConversationToolCall {
   toolCallId: string;
   arguments: Record<string, unknown>;
   result: Record<string, unknown> | null;
+  hasResult: boolean;
+  resultUnreadable?: boolean;
   createdAt: string;
   groupId?: string;
 }
@@ -141,6 +143,7 @@ export function adaptThreadMessages(
           toolCallId: toolCall.id,
           arguments: args,
           result: null,
+          hasResult: false,
           createdAt: "",
         };
         toolCallMap.set(toolCall.id, item);
@@ -171,6 +174,8 @@ export function adaptThreadMessages(
     if (message.role === "tool" && message.toolCallId) {
       const toolCall = toolCallMap.get(message.toolCallId);
       if (!toolCall) continue;
+      toolCall.hasResult = true;
+      toolCall.resultUnreadable = false;
       try {
         toolCall.result = parseToolCallContent(message.content);
       } catch (error) {
@@ -178,6 +183,7 @@ export function adaptThreadMessages(
           "[CopilotKit Inspector] Failed to parse tool-call result content",
           { toolCallId: message.toolCallId, raw: message.content, error },
         );
+        toolCall.resultUnreadable = true;
         toolCall.result = {
           __parseError: true,
           __raw: message.content ?? null,

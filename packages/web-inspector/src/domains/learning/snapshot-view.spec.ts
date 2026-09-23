@@ -34,7 +34,7 @@ function snapshot(
       items: [],
     },
     links: {
-      learning: "https://app.copilotkit.ai/learning",
+      learning: "https://app.copilotkit.ai/o/acme/checkout/learning",
       candidates: null,
       runs: null,
     },
@@ -170,7 +170,7 @@ describe("Learning results hierarchy", () => {
     );
     expect(headings).toEqual(["Skills in registry", "More Insights"]);
     const disclosure = view.shadowRoot!.querySelector("details");
-    expect(disclosure?.open).toBe(true);
+    expect(disclosure?.open).toBe(false);
     expect(disclosure?.querySelector("summary")?.textContent).toContain(
       "View SKILL.md",
     );
@@ -181,7 +181,7 @@ describe("Learning results hierarchy", () => {
     view.remove();
   });
 
-  it("keeps the empty-result web-app management link quiet and safe", async () => {
+  it("keeps the empty-result Intelligence link quiet and safe", async () => {
     const view = new CpkLearningView();
     view.supported = true;
     view.snapshot = snapshot({
@@ -195,7 +195,8 @@ describe("Learning results hierarchy", () => {
         latest: null,
       },
       links: {
-        learning: "https://app.copilotkit.ai/learning?project=project-safe-key",
+        learning:
+          "https://app.copilotkit.ai/o/acme/checkout/learning/container-1",
         candidates: null,
         runs: null,
       },
@@ -207,10 +208,19 @@ describe("Learning results hierarchy", () => {
       view.shadowRoot!.querySelector<HTMLAnchorElement>("a.quiet-link");
     expect(link?.textContent?.trim()).toBe("Open in web app ↗");
     expect(link?.href).toBe(
-      "https://app.copilotkit.ai/learning?project=project-safe-key",
+      "https://app.copilotkit.ai/o/acme/checkout/learning/container-1",
     );
     expect(link?.target).toBe("_blank");
     expect(link?.rel.split(/\s+/).sort()).toEqual(["noopener", "noreferrer"]);
+    view.remove();
+  });
+
+  it("opens Intelligence from results even without new Threads or pending candidates", async () => {
+    const view = await renderResults();
+    const link =
+      view.shadowRoot!.querySelector<HTMLAnchorElement>(".pane-actions a");
+    expect(link?.textContent?.trim()).toBe("Open Intelligence ↗");
+    expect(link?.href).toBe("https://app.copilotkit.ai/");
     view.remove();
   });
 
@@ -301,14 +311,87 @@ describe("Learning setup progress", () => {
     return view;
   }
 
+  it.each([
+    {
+      overrides: { configuration: { state: "selection_required" as const } },
+      selectors: [["a.primary", "learning"]],
+    },
+    {
+      overrides: { pendingThreadCount: 3 },
+      selectors: [["a.setup-cta", "runs"]],
+    },
+    {
+      overrides: {
+        run: { hasActiveRun: true, hasEverSucceeded: false, latest: null },
+      },
+      selectors: [["a.setup-cta", "runs"]],
+    },
+    {
+      overrides: { pendingCandidateCount: 2, pendingThreadCount: 3 },
+      selectors: [
+        [".pane-actions a", "home"],
+        ["a.review-link", "candidates"],
+        ["a.results-cta", "runs"],
+      ],
+    },
+  ])(
+    "preserves each scoped action and the general app link: %j",
+    async ({ overrides, selectors }) => {
+      const origin = "https://intelligence.customer.example";
+      const learning = `${origin}/o/acme/project/learning/container-1`;
+      const destinations: Record<string, string> = {
+        home: `${origin}/`,
+        learning,
+        candidates: `${learning}/skills`,
+        runs: `${learning}/analysis-results`,
+      };
+      const view = await renderProgress(
+        snapshot({
+          configuration: {
+            state: "configured",
+            container: { id: "container-1", name: "Production" },
+          },
+          webAppOrigin: origin,
+          links: {
+            learning,
+            candidates: destinations.candidates!,
+            runs: destinations.runs!,
+          },
+          ...overrides,
+        }),
+      );
+      const opened = vi.fn();
+      view.addEventListener("learning-web-link", opened);
+      expect(view.shadowRoot!.querySelectorAll("a")).toHaveLength(
+        selectors.length,
+      );
+      for (const [selector, category] of selectors) {
+        const link = view.shadowRoot!.querySelector<HTMLAnchorElement>(
+          selector!,
+        );
+        expect(link?.href).toBe(destinations[category!]);
+        expect(link?.target).toBe("_blank");
+        expect(link?.rel.split(/\s+/).sort()).toEqual([
+          "noopener",
+          "noreferrer",
+        ]);
+        link!.click();
+        expect(opened.mock.calls.at(-1)?.[0].detail).toEqual({
+          category: category === "home" ? "learning" : category,
+        });
+      }
+      view.remove();
+    },
+  );
+
   it("shows all three setup steps and keeps analysis disabled while waiting", async () => {
     const view = await renderProgress(snapshot(), true);
     expect(view.shadowRoot!.textContent).toContain("1 of 3 steps");
     expect(view.shadowRoot!.textContent).toContain(
-      "Waiting for Learning setup",
+      "Waiting for Automatic Learning setup",
     );
     expect(view.shadowRoot!.textContent).toContain("Copy the setup prompt");
-    expect(view.shadowRoot!.textContent).toContain("Set up Learning");
+    expect(view.shadowRoot!.textContent).toContain("Set up Automatic Learning");
     expect(view.shadowRoot!.textContent).toContain(
       "Nice work. You’ve completed the first step.",
     );
@@ -375,9 +458,9 @@ describe("Learning setup progress", () => {
         },
         pendingThreadCount: 3,
         links: {
-          learning: "https://app.copilotkit.ai/learning",
+          learning: "https://app.copilotkit.ai/o/acme/checkout/learning",
           candidates: null,
-          runs: "https://app.copilotkit.ai/learning?tab=runs",
+          runs: "https://app.copilotkit.ai/o/acme/checkout/learning/container-1/analysis-results",
         },
       }),
     );
@@ -399,7 +482,7 @@ describe("Learning setup progress", () => {
     expect(view.shadowRoot!.textContent).toContain("Needs attention");
     expect(
       view.shadowRoot!.querySelector('[role="alert"]')?.textContent,
-    ).toContain("Inspector did not find the Learning container");
+    ).toContain("Inspector did not find the Learning Space");
     view.remove();
   });
 

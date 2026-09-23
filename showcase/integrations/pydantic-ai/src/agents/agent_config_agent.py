@@ -136,7 +136,7 @@ def _build_system_prompt(tone: str, expertise: str, response_length: str) -> str
 
 
 agent = Agent(
-    model=OpenAIResponsesModel("gpt-4o-mini"),
+    model=OpenAIResponsesModel("gpt-5-mini"),
     deps_type=StateDeps[AgentConfigState],
 )
 

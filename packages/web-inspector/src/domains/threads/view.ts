@@ -280,6 +280,7 @@ export interface ThreadsViewActions {
   viewInApp: () => void;
   stopViewing: () => void;
   tryFromHere: (threadId: string | null) => void;
+  toggleThreadList: () => void;
 }
 
 export function renderThreadsView(
@@ -289,9 +290,20 @@ export function renderThreadsView(
   const { state, selectedThread } = model;
   return html`
     <div style="display:flex;height:100%;overflow:hidden;flex-direction:column;">
+      <div class="inspector-thread-heading">
+        <strong>Rich Threads</strong>
+        <button
+          type="button"
+          class="inspector-text-button"
+          aria-expanded=${!state.threadListCollapsed}
+          @click=${actions.toggleThreadList}
+        >
+          ${state.threadListCollapsed ? "Show thread list" : "Hide thread list"}
+        </button>
+      </div>
       <div style="display:flex;min-height:0;flex:1;overflow:hidden;">
         <div
-          style="width:${state.threadListWidth}px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #DBDBE5;"
+          style="display:${state.threadListCollapsed ? "none" : "flex"};width:${state.threadListWidth}px;flex-shrink:0;overflow:hidden;flex-direction:column;border-right:1px solid #DBDBE5;"
         >
           ${model.ephemeralBanner ?? nothing}
           <cpk-thread-list

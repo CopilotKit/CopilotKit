@@ -1,7 +1,7 @@
 ---
 title: Synchronize ADK Threads
 nav_title: Synchronize Thread History
-description: "Import historical Google ADK sessions into CopilotKit Intelligence, then keep future CopilotKit runs synchronized as Rich Threads."
+description: "Import historical Google ADK sessions into CopilotKit Intelligence, then add Rich Threads while continuing to use ADK persistence."
 icon: "lucide/Repeat"
 doc_type: how-to
 ---
@@ -15,6 +15,8 @@ The ADK importer reads already-persisted Google ADK sessions and writes them int
 Import existing sessions once, then keep ADK session storage and analytics in place for future runs. CopilotKit-mediated runs persist to CopilotKit Intelligence. When your agent remains wired to a durable ADK session service with appropriate retention, those future runs continue through ADK's native persistence path as well.
 
 CLI-created starters already include the Threads Drawer for opening and switching Rich Threads. Use [Headless Threads](/headless-threads) only when you need a custom thread UI.
+
+CopilotKit Intelligence adds rich conversation history, continuity across devices, reconnection to active runs, and thread controls around your existing agent. Your ADK persistence continues to retain the agent's native conversation and execution state. See [how threads work with framework storage](/intelligence/threads-explained#how-threads-work-with-framework-storage).
 
 ## Prerequisites
 
@@ -152,13 +154,15 @@ npx copilotkit@latest import \
   --replace
 ```
 
-## Keep future ADK conversations synced
+## Continue using ADK persistence
+
+Importing copies supported history; it does not establish ongoing database replication. Intelligence rename, archive, and delete operations affect only Intelligence records, leaving the native ADK session records unchanged.
 
 Your CLI-created app sends future CopilotKit conversations to CopilotKit Intelligence. To keep each conversation continuous, reopen it with the same CopilotKit `threadId`. If your agent remains wired to a durable ADK session service and retains its sessions, the same future runs continue to persist in ADK for its native storage and analytics.
 
 - **Threads Drawer:** already included in CLI-created starters. Use the [Threads Drawer guide](/prebuilt-components/copilot-threads-drawer) to customize its ready-made thread UI.
 - **Headless Threads:** use the [Headless Threads guide](/headless-threads) only when you need a custom UI. Select a thread with `useThreads`, store its `thread.id`, and pass that value to your chat component as `threadId`.
 
-Keep the mapping between CopilotKit thread IDs and ADK session IDs stable so a resumed Rich Thread reaches the expected ADK session.
+Keep the mapping between CopilotKit thread IDs and ADK session IDs stable so a resumed thread reaches the expected ADK session.
 
 Create one new conversation through CopilotKit, then confirm that it appears in CopilotKit Intelligence and in the ADK session store that remains connected to your agent.

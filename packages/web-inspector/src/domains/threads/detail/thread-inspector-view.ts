@@ -12,17 +12,16 @@ import type {
   ThreadActivityCounts,
   ThreadDetailsPanelCacheSlot,
   ThreadDetailsTab,
-  ThreadMetadataPill,
 } from "./thread-inspector-model.js";
 import { renderThreadStateView } from "./state-view.js";
-import type { TimelineItem } from "./timeline-model.js";
+import type { ConversationRunError, TimelineItem } from "./timeline-model.js";
 import { renderTimelineItems } from "./timeline-view.js";
 
 export const THREAD_DETAILS_TABS: ReadonlyArray<{
   id: ThreadDetailsTab;
   label: string;
 }> = [
-  { id: "timeline", label: "Messages" },
+  { id: "timeline", label: "Conversation" },
   { id: "raw-events", label: "AG-UI Events" },
   { id: "state", label: "State" },
 ];
@@ -86,7 +85,7 @@ export function renderThreadInspectorView(options: {
   onDetailDividerDown: (event: PointerEvent) => void;
   onDetailDividerMove: (event: PointerEvent) => void;
   onDetailDividerUp: (event: PointerEvent) => void;
-  metadataStrip: TemplateResult;
+  threadHeader: TemplateResult;
   viewInAppAction: TemplateResult | typeof nothing;
   panelToggle: TemplateResult;
   detailPanel: TemplateResult;
@@ -133,7 +132,7 @@ export function renderThreadInspectorView(options: {
           }
           ${options.panelToggle}
         </div>
-        ${options.metadataStrip}
+        ${options.threadHeader}
 
         <div class="cpk-td__content">
           ${
@@ -188,39 +187,41 @@ export function renderThreadInspectorView(options: {
   `;
 }
 
-export function renderMetadataStrip(
-  pills: ThreadMetadataPill[],
-): TemplateResult {
-  return html`
-    <div
-      class="cpk-td__metadata-strip"
-      role="group"
-      aria-label="Thread metadata"
-    >
-      <div class="cpk-td__metadata-pills">
-        ${pills.map(
-          (pill) => html`
-            <span
-              class="cpk-td__metadata-pill ${
-                pill.wrap ? "cpk-td__metadata-pill--wrap" : ""
-              }"
-              role="group"
-              title=${pill.value}
-              aria-label=${`${pill.label}: ${pill.value}`}
-            >
-              <span class="cpk-td__metadata-label">${pill.label}</span>
-              <span
-                class="cpk-td__metadata-value ${
-                  pill.wrap ? "cpk-td__metadata-value--wrap" : ""
-                }"
-                >${pill.value}</span
+export function renderThreadHeader(options: {
+  title: string | null;
+  showActions: boolean;
+  showEventTimeline: boolean;
+  onToggleEventTimeline: () => void;
+  tryFromHere: TemplateResult | typeof nothing;
+}): TemplateResult {
+  return html`<div class="cpk-td__thread-header">
+    ${
+      options.title !== null
+        ? html`<div class="cpk-td__thread-title">${options.title}</div>`
+        : nothing
+    }
+    ${
+      options.showActions
+        ? html`<div class="cpk-td__pinned-actions">
+            <div class="cpk-td__timeline-toolbar">
+              <button
+                type="button"
+                class="cpk-td__timeline-bulk-toggle"
+                aria-pressed=${options.showEventTimeline}
+                @click=${options.onToggleEventTimeline}
               >
-            </span>
-          `,
-        )}
-      </div>
-    </div>
-  `;
+                ${
+                  options.showEventTimeline
+                    ? "Show conversation"
+                    : "Show event timeline"
+                }
+              </button>
+              ${options.tryFromHere}
+            </div>
+          </div>`
+        : nothing
+    }
+  </div>`;
 }
 
 export function renderViewInAppAction(options: {
@@ -477,12 +478,16 @@ export function renderConversationPanel(options: {
   error: string | null;
   conversation: ConversationItem[];
   renderItems: () => ConversationRenderItem[];
+  runErrors: (items: ConversationRenderItem[]) => ConversationRunError[];
   expandedTools: Set<string>;
   expandedMessages: Set<string>;
+  expandedDetails: Set<string>;
   collapseThreshold: number;
   cache: PanelTemplateCache;
   onToggleMessage: (id: string) => void;
   onToggleTool: (id: string) => void;
+  onToggleDetails: (id: string) => void;
+  onRevealSourceEvent: (sourceIndex: number) => void;
 }): TemplateResult {
   if (options.loading) {
     return html`
@@ -513,17 +518,50 @@ export function renderConversationPanel(options: {
       </div>
     `;
   }
+  const items = options.renderItems();
+  const errors = options.runErrors(items);
+  // Event chunks must not rebuild a long conversation. Only the error rows
+  // and their placement are relevant to this panel, not the full event list.
   return options.cache.create(
     "timeline-fallback",
-    [options.conversation, options.expandedTools, options.expandedMessages],
-    () =>
-      renderConversationItems(options.renderItems(), {
-        collapseThreshold: options.collapseThreshold,
-        expandedMessages: options.expandedMessages,
-        expandedTools: options.expandedTools,
-        onToggleMessage: options.onToggleMessage,
-        onToggleTool: options.onToggleTool,
-      }),
+    [
+      options.conversation,
+      options.expandedTools,
+      options.expandedMessages,
+      JSON.stringify(errors),
+      options.expandedDetails,
+    ],
+    () => {
+      const errorsAfter = new Map<number, TimelineItem[]>();
+      for (const { after, item } of errors) {
+        const group = errorsAfter.get(after) ?? [];
+        group.push(item);
+        errorsAfter.set(after, group);
+      }
+      const renderErrors = (after: number) => {
+        const group = errorsAfter.get(after);
+        if (!group) return nothing;
+        return renderTimelineItems({
+          items: group,
+          expandedDetails: options.expandedDetails,
+          onToggleDetails: options.onToggleDetails,
+          onRevealSourceEvent: options.onRevealSourceEvent,
+        });
+      };
+      return html`
+        ${renderErrors(-1)}
+        ${items.map(
+          (item, index) =>
+            html`${renderConversationItems([item], {
+              collapseThreshold: options.collapseThreshold,
+              expandedMessages: options.expandedMessages,
+              expandedTools: options.expandedTools,
+              onToggleMessage: options.onToggleMessage,
+              onToggleTool: options.onToggleTool,
+            })}${renderErrors(index)}`,
+        )}
+      `;
+    },
   );
 }
 

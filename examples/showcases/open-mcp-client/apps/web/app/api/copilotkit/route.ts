@@ -5,11 +5,12 @@ import {
 } from "@copilotkit/runtime";
 import { BuiltInAgent, defineTool } from "@copilotkit/runtime/v2";
 import { z } from "zod";
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { MCPAppsMiddleware, getServerHash } from "@ag-ui/mcp-apps-middleware";
 import { map } from "rxjs/operators";
 import { E2BWorkspaceProvider } from "@/lib/workspace/e2b";
-import { getDefaultMcpServers, type McpServerConfig } from "@/lib/mcp-defaults";
+import { getDefaultMcpServers } from "@/lib/mcp-defaults";
+import type { McpServerConfig } from "@/lib/mcp-defaults";
 
 // Allow up to 5 minutes for long agent loops
 export const maxDuration = 300;
@@ -580,7 +581,7 @@ export const POST = async (req: NextRequest) => {
   const middleware = new MCPAppsMiddlewareFixBase({ mcpServers });
 
   const agent = new BuiltInAgent({
-    model: "openai/gpt-4o",
+    model: "openai/gpt-5-mini",
     prompt: AGENT_SYSTEM_PROMPT,
     // Cast: defineTool() returns specific Zod types; BuiltInAgent expects ToolDefinition<ZodTypeAny>[]
     tools: workspaceTools as unknown as ConstructorParameters<

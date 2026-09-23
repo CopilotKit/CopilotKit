@@ -115,6 +115,11 @@ describe("Channels documentation journey", () => {
     );
     expect(overview?.source).toContain('title="More channels are on the way"');
     expect(overview?.source).toContain(
+      "Slack is available now on cloud-hosted Intelligence. Teams is in controlled availability.",
+    );
+    expect(overview?.source).not.toContain("Managed Slack");
+    expect(overview?.source).not.toContain("Managed Teams");
+    expect(overview?.source).toContain(
       'surface="docs_channels_more_channels_contact"',
     );
     expect(overview?.source).toContain('ctaLabel="Book time with an engineer"');
@@ -152,7 +157,7 @@ describe("Channels documentation journey", () => {
     expect(teams?.fm.earlyAccess).toBeUndefined();
     for (const doc of [slack, teams]) {
       expect(doc?.source).not.toContain(
-        "Managed Intelligence support for Discord and WhatsApp is coming soon.",
+        "Cloud-hosted Intelligence support for Discord and WhatsApp is coming soon.",
       );
       expect(doc?.source).not.toContain("production-ready");
       expect(doc?.source).not.toContain("<OpsPlatformCTA");
@@ -244,7 +249,7 @@ describe("Channels documentation journey", () => {
         "wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL",
       );
       expect(source, slug).toMatch(
-        /hosted Intelligence supplies both managed base URLs by default/i,
+        /Cloud-hosted Intelligence supplies both default base URLs/i,
       );
       expect(source, slug).not.toContain('required("INTELLIGENCE_API_URL")');
       expect(source, slug).not.toContain(
@@ -471,7 +476,7 @@ describe("Channels documentation journey", () => {
     }
     expect(directAdapters).toMatch(/Direct does not mean standalone/i);
     expect(directAdapters).toMatch(
-      /Managed Intelligence support for Discord and WhatsApp is coming soon/i,
+      /Cloud-hosted Intelligence support for Discord and WhatsApp is coming soon/i,
     );
     expect(directAdapters).toMatch(/does not traverse the managed Realtime/i);
     expect(directAdapters).toContain("ESM-only");

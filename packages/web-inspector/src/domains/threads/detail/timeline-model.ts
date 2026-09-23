@@ -1,6 +1,10 @@
 import { humanizeEventType } from "./event-adapter.js";
 import type { ApiAgentEvent } from "./event-adapter.js";
-import type { ConversationItem, ConversationUser } from "./message-adapter.js";
+import type {
+  ConversationItem,
+  ConversationRenderItem,
+  ConversationUser,
+} from "./message-adapter.js";
 
 export type TimelineItemKind =
   | "message"
@@ -376,4 +380,53 @@ export function createTimelineItems(
     timelineItemsFromEvents(events),
     conversationUsers(conversation, agentMessages),
   );
+}
+
+export type ConversationRunError = { after: number; item: TimelineItem };
+
+/**
+ * Place run errors after the last conversation item their preceding events
+ * point at, so a failure shows where it happened in the saved conversation.
+ */
+export function conversationRunErrors(
+  items: ConversationRenderItem[],
+  events: ApiAgentEvent[],
+): ConversationRunError[] {
+  const positions = new Map<string, number>();
+  items.forEach((item, index) => {
+    positions.set(item.id, index);
+    if (item.type === "tool_call_group") {
+      for (const tool of item.items) positions.set(tool.id, index);
+    }
+  });
+  const errors: ConversationRunError[] = [];
+  let after = -1;
+  let hasAnchor = false;
+  for (const event of events) {
+    const keys = event.type.startsWith("TOOL_CALL")
+      ? ["toolCallId", "tool_call_id", "callId", "id"]
+      : event.type.startsWith("TEXT_MESSAGE") ||
+          event.type.startsWith("ACTIVITY")
+        ? ["messageId", "message_id", "id"]
+        : [];
+    const id = keys
+      .map((key) => event.payload[key])
+      .find((value) => typeof value === "string");
+    const position = id == null ? undefined : positions.get(id);
+    if (position !== undefined) {
+      after = Math.max(after, position);
+      hasAnchor = true;
+    }
+    if (event.type === "RUN_ERROR" || event.type === "ERROR") {
+      for (const item of timelineItemsFromEvents([event])) {
+        errors.push({ after, item });
+      }
+    }
+  }
+  // Some runtimes supply errors without message events. Keep those visible
+  // after the saved conversation rather than pretending they happened first.
+  if (!hasAnchor) {
+    for (const error of errors) error.after = items.length - 1;
+  }
+  return errors;
 }

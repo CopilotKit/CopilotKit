@@ -188,7 +188,7 @@ test("reduced motion parks the story until the developer selects a beat", async 
         ?.getAttribute("data-beat"),
     ).toBe("intelligence");
 
-    storyTab(harness.root, "Learning").click();
+    storyTab(harness.root, "Automatic Learning").click();
     await harness.inspector.updateComplete;
 
     expect(
@@ -204,7 +204,7 @@ test("reduced motion parks the story until the developer selects a beat", async 
 test("a telemetry-disabled runtime reports nothing at all", async () => {
   const harness = await mount({ telemetryDisabled: true });
   try {
-    storyTab(harness.root, "Learning").click();
+    storyTab(harness.root, "Automatic Learning").click();
     await harness.inspector.updateComplete;
 
     expect(storyEvents(harness)).toHaveLength(0);

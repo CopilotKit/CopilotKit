@@ -1,5 +1,5 @@
 import type { ɵThread } from "@copilotkit/core";
-import { html } from "lit";
+import { html, nothing } from "lit";
 import type { TemplateResult } from "lit";
 import type {
   ThreadDebuggerMetadata,
@@ -23,8 +23,8 @@ import {
   addEventSourceIndexes,
   addSetValues,
   countThreadActivity,
-  createThreadMetadataPills,
   EMPTY_INSPECTOR_MESSAGES,
+  THREAD_INSPECTOR_PROPERTIES,
   formatThreadDuration,
   formatThreadTime,
   removeSetValues,
@@ -37,10 +37,10 @@ import {
   renderConversationPanel,
   renderDetailPanel,
   renderEventsPanel,
-  renderMetadataStrip,
   renderPanelToggle,
   renderStatePanel,
   renderThreadInspectorView,
+  renderThreadHeader,
   renderTimelinePanel,
   renderTryFromHereAction,
   renderViewInAppAction,
@@ -51,54 +51,21 @@ import {
   fetchRuntimeMessages,
   fetchRuntimeState,
 } from "./thread-runtime.js";
-import { createTimelineItems } from "./timeline-model.js";
+import {
+  conversationRunErrors,
+  createTimelineItems,
+} from "./timeline-model.js";
 import type { TimelineItem } from "./timeline-model.js";
-import { renderTimelineToolbar } from "./timeline-view.js";
+import { renderTimelineBulkToggle } from "./timeline-view.js";
 import { threadInspectorStyles } from "./thread-inspector.styles.js";
 
 export type { ThreadDetailsTab } from "./thread-inspector-model.js";
 
 export class CpkThreadInspector extends PortableLitElement {
-  static properties = {
-    threadId: { attribute: false },
-    provider: { attribute: false },
-    thread: { attribute: false },
-    runtimeUrl: { attribute: false },
-    headers: { attribute: false },
-    threadInspectionAvailable: { attribute: false },
-    agentStateInput: { attribute: false },
-    agentEventsInput: { attribute: false },
-    agentMessagesInput: { attribute: false },
-    liveMessageVersion: { attribute: false },
-    viewInAppMode: { attribute: false },
-    viewInAppError: { attribute: false },
-    tryFromHereAvailable: { attribute: false },
-    tryFromHereBusy: { attribute: false },
-    tryFromHereError: { attribute: false },
-    focusMessageId: { attribute: false },
-    focusRequestId: { attribute: false },
-    _tab: { state: true },
-    _fetchedMetadata: { state: true },
-    _conversation: { state: true },
-    _fetchedEvents: { state: true },
-    _fetchedState: { state: true },
-    _loadingMessages: { state: true },
-    _loadingEvents: { state: true },
-    _loadingState: { state: true },
-    _messagesError: { state: true },
-    _eventsError: { state: true },
-    _stateError: { state: true },
-    _expandedTools: { state: true },
-    _expandedMessages: { state: true },
-    _expandedTimelineDetails: { state: true },
-    _expandedRawEvents: { state: true },
-    _showDetailPanel: { state: true },
-    _detailPanelWidth: { state: true },
-    _eventsNotAvailable: { state: true },
-    _stateNotAvailable: { state: true },
-    _panelInitializing: { state: true },
-    _activatedTabs: { state: true },
-  };
+  static properties = THREAD_INSPECTOR_PROPERTIES;
+
+  /** Whether to render the viewer title. Set false when the embedding page owns its heading. */
+  showThreadTitle = true;
   threadId: string | null = null;
   provider: ThreadDebuggerProvider | null = null;
   thread: ThreadDebuggerMetadata | ɵThread | null = null;
@@ -121,6 +88,7 @@ export class CpkThreadInspector extends PortableLitElement {
   focusMessageId: string | null = null;
   focusRequestId = 0;
   private _tab: ThreadDetailsTab = "timeline";
+  private _showEventTimeline = false;
   private _fetchedMetadata: ThreadDebuggerMetadata | null = null;
   private _conversation: ConversationItem[] = [];
   private _fetchedEvents: ApiAgentEvent[] | null = null;
@@ -129,6 +97,7 @@ export class CpkThreadInspector extends PortableLitElement {
   private _loadingEvents = false;
   private _loadingState = false;
   private _messagesError: string | null = null;
+  private _messageRefreshError: string | null = null;
   private _eventsError: string | null = null;
   private _stateError: string | null = null;
   private _expandedTools = new Set<string>();
@@ -174,19 +143,32 @@ export class CpkThreadInspector extends PortableLitElement {
 
   private renderTabContent(id: ThreadDetailsTab): TemplateResult {
     if (id === "timeline") {
-      const items = this._eventsNotAvailable
-        ? []
-        : this.timelineItemsForEvents(this.activeEvents);
-      return html`${renderTimelineToolbar({
-        items,
-        expandedDetails: this._expandedTimelineDetails,
-        action: renderTryFromHereAction(this),
-        onExpandAll: (ids) => this.expandTimelineDetails(ids),
-        onCollapseAll: (ids) => this.collapseTimelineDetails(ids),
-      })}${this.renderTimeline()}`;
+      return html`${
+        this._messageRefreshError
+          ? html`<div class="cpk-td__status cpk-td__status--error" role="status">${this._messageRefreshError}</div>`
+          : nothing
+      }${
+        this._showEventTimeline
+          ? html`<div class="cpk-td__timeline-toolbar">${this.renderTimelineBulkToggle()}</div>${this.renderTimeline()}`
+          : this._conversation.length ||
+              this._loadingMessages ||
+              this._messagesError
+            ? this.renderConversation()
+            : this.renderTimeline()
+      }`;
     }
     if (id === "state") return this.renderState();
     return this.renderEvents();
+  }
+
+  private renderTimelineBulkToggle() {
+    if (this._eventsNotAvailable) return nothing;
+    return renderTimelineBulkToggle({
+      items: this.timelineItemsForEvents(this.activeEvents),
+      expandedDetails: this._expandedTimelineDetails,
+      onExpandAll: (ids) => this.expandTimelineDetails(ids),
+      onCollapseAll: (ids) => this.collapseTimelineDetails(ids),
+    });
   }
 
   private tabDomId(id: ThreadDetailsTab): string {
@@ -313,7 +295,9 @@ export class CpkThreadInspector extends PortableLitElement {
   private scrollToFocusedMessage(): void {
     if (!this.focusMessageId) return;
     const message = Array.from(
-      this.shadowRoot?.querySelectorAll<HTMLElement>("[data-message-id]") ?? [],
+      this.shadowRoot?.querySelectorAll<HTMLElement>(
+        `#${this.panelDomId(this._tab)}:not([hidden]) [data-message-id]`,
+      ) ?? [],
     ).find((candidate) => candidate.dataset.messageId === this.focusMessageId);
     if (!message) return;
     message.scrollIntoView?.({ block: "center" });
@@ -396,6 +380,7 @@ export class CpkThreadInspector extends PortableLitElement {
     this._loadingEvents = false;
     this._loadingState = false;
     this._messagesError = null;
+    this._messageRefreshError = null;
     this._eventsError = null;
     this._stateError = null;
     this._fetchedMetadata = null;
@@ -438,6 +423,7 @@ export class CpkThreadInspector extends PortableLitElement {
     if (!silent) {
       this._loadingMessages = true;
       this._messagesError = null;
+      this._messageRefreshError = null;
     }
     try {
       const messages = this.provider?.getMessages
@@ -452,19 +438,22 @@ export class CpkThreadInspector extends PortableLitElement {
           });
       if (!this.isCurrentLoad(controller, this._messagesAbort, loadKey)) return;
       this._conversation = adaptThreadMessages(messages);
+      this._messagesError = null;
+      this._messageRefreshError = null;
     } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return;
       if (!this.isCurrentLoad(controller, this._messagesAbort, loadKey)) return;
-      if (!silent) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      if (!silent || this._conversation.length === 0) {
         this._messagesError =
           err instanceof Error ? err.message : "Failed to load messages";
         this._conversation = [];
+      } else {
+        this._messageRefreshError =
+          "Could not refresh messages. Showing the last loaded conversation.";
       }
     } finally {
-      if (
-        !silent &&
-        this.isCurrentLoad(controller, this._messagesAbort, loadKey)
-      ) {
+      // A live refresh can replace the initial request before it finishes.
+      if (this.isCurrentLoad(controller, this._messagesAbort, loadKey)) {
         this._loadingMessages = false;
       }
     }
@@ -684,22 +673,22 @@ export class CpkThreadInspector extends PortableLitElement {
       onDetailDividerDown: this.onDetailDividerDown,
       onDetailDividerMove: this.onDetailDividerMove,
       onDetailDividerUp: this.onDetailDividerUp,
-      metadataStrip: this.renderMetadataStrip(),
+      threadHeader: renderThreadHeader({
+        title: this.showThreadTitle
+          ? this.metadata?.name || this.thread?.name || "Rich Thread"
+          : null,
+        showActions: this._tab === "timeline",
+        showEventTimeline: this._showEventTimeline,
+        onToggleEventTimeline: () => {
+          this._showEventTimeline = !this._showEventTimeline;
+        },
+        tryFromHere: renderTryFromHereAction(this),
+      }),
       viewInAppAction: renderViewInAppAction(this),
       panelToggle: this.renderPanelToggle(),
       detailPanel: this.renderDetailPanel(),
       renderTabContent: (id) => this.renderTabContent(id),
     });
-  }
-
-  private renderMetadataStrip(): TemplateResult {
-    return renderMetadataStrip(
-      createThreadMetadataPills({
-        metadata: this.metadata,
-        fallbackName: this.thread?.name,
-        threadId: this.threadId,
-      }),
-    );
   }
 
   private revealSourceEvent(sourceIndex: number): void {
@@ -738,12 +727,16 @@ export class CpkThreadInspector extends PortableLitElement {
       error: this._messagesError,
       conversation: this._conversation,
       renderItems: () => groupConversationItems(this._conversation),
+      runErrors: (items) => conversationRunErrors(items, this.activeEvents),
       expandedTools: this._expandedTools,
       expandedMessages: this._expandedMessages,
+      expandedDetails: this._expandedTimelineDetails,
       collapseThreshold: CpkThreadInspector.COLLAPSE_THRESHOLD,
       cache: this.panelTemplateCache,
       onToggleMessage: (id) => this.toggleMessageExpand(id),
       onToggleTool: (id) => this.toggleToolExpand(id),
+      onToggleDetails: (id) => this.toggleTimelineDetails(id),
+      onRevealSourceEvent: (sourceIndex) => this.revealSourceEvent(sourceIndex),
     });
   }
 

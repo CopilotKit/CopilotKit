@@ -80,7 +80,7 @@ export function SearchTrigger({
         onClick={toggleShellSearch}
         className="shell-docs-radius-control flex h-10 w-10 cursor-pointer items-center justify-center border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-muted)] shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
         aria-label="Search"
-        title="Search"
+        data-tooltip="Search"
       >
         <Search className="h-4 w-4" aria-hidden="true" />
       </button>

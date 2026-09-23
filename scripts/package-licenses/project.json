@@ -1,0 +1,28 @@
+{
+  "name": "package-licenses",
+  "projectType": "library",
+  "sourceRoot": "scripts/package-licenses",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "node --test scripts/package-licenses/check.test.mjs"
+      }
+    },
+    "check": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "node scripts/package-licenses/check.mjs check"
+      }
+    },
+    "pack": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "node scripts/package-licenses/check.mjs pack"
+      }
+    }
+  }
+}

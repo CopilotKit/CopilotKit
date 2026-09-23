@@ -55,6 +55,17 @@ test("the known-gap list holds no framework that has since been documented", () 
   ).toEqual([]);
 });
 
+test("the Strands TypeScript setup uses the frontend-tool hook name", () => {
+  const source = resolveBundledSetupConcept(
+    "strands-typescript",
+    CONCEPT,
+    setupContent,
+  );
+
+  expect(source).toContain("useFrontendTool");
+  expect(source).not.toContain("useComponent");
+});
+
 // The two shapes the bundled snippets have to keep apart. A framework whose adapter
 // forwards the tools on its own still needs the model told to call the component --
 // omitting that is why an agent answers in prose and the component never renders -- and a

@@ -6,7 +6,7 @@ import {
 export const INTELLIGENCE_STORY_BEATS = [
   {
     id: "threads",
-    label: "Threads",
+    label: "Rich Threads",
     duration: 6_500,
     lead: "You only see this session. Your users have all the others.",
     support:
@@ -14,11 +14,11 @@ export const INTELLIGENCE_STORY_BEATS = [
   },
   {
     id: "learning",
-    label: "Learning",
+    label: "Automatic Learning",
     duration: 6_000,
     lead: "Your users already told you what to fix.",
     support:
-      "Learning reads the runs behind those threads and finds the patterns — every Insight linked to the messages that back it.",
+      "Automatic Learning reads the runs behind those threads and finds the patterns — every Insight linked to the messages that back it.",
   },
   {
     id: "skill",

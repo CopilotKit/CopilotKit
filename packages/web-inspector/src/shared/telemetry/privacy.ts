@@ -4,7 +4,10 @@ import {
   isTelemetryOptedOut,
   markTelemetryDisclosureShown,
 } from "../persistence/telemetry.js";
+import type { RuntimeUrlType } from "./runtime-url.js";
 import { TELEMETRY_EVENTS, track } from "./transport.js";
+
+export { getRuntimeUrlType } from "./runtime-url.js";
 
 const PACKAGE_NAME = "@copilotkit/web-inspector";
 
@@ -14,54 +17,14 @@ const PACKAGE_NAME = "@copilotkit/web-inspector";
 // Mirror constant: packages/runtime/src/v1-deprecated/lib/telemetry-disclosure.ts
 export const TELEMETRY_DOCS_URL = "https://docs.copilotkit.ai/telemetry";
 
-export type RuntimeUrlType =
-  | "missing"
-  | "relative"
-  | "localhost"
-  | "same_origin"
-  | "remote"
-  | "invalid";
-
-export function getRuntimeUrlType(
-  runtimeUrl: string | undefined,
-): RuntimeUrlType {
-  if (!runtimeUrl) return "missing";
-  if (runtimeUrl.startsWith("/") && !runtimeUrl.startsWith("//")) {
-    return "relative";
-  }
-
-  try {
-    const baseHref =
-      typeof window !== "undefined"
-        ? window.location.href
-        : "https://copilotkit.ai";
-    const url = new URL(runtimeUrl, baseHref);
-    const baseUrl = new URL(baseHref);
-    const hostname = url.hostname.toLowerCase();
-
-    if (
-      hostname === "localhost" ||
-      hostname === "127.0.0.1" ||
-      hostname === "[::1]"
-    ) {
-      return "localhost";
-    }
-
-    return url.origin === baseUrl.origin ? "same_origin" : "remote";
-  } catch {
-    return "invalid";
-  }
-}
-
 // --- Typed per-event helpers ---
 // These enforce the known property shape for each V1 event at the call
 // site, so callers can't accidentally include PII under a wrong key.
 
 /**
  * Where an announcement was rendered when the event fired. What's new is the
- * only surface that carries one, so the value is currently a constant — it
- * stays a stamped property rather than an inferred one so a second surface
- * can be added without changing the event's shape.
+ * only surface of `whats_new_viewed`. The HUD has its own notification event,
+ * so its impressions do not change the meaning of this event.
  */
 export type WhatsNewSurface = "whats_new";
 
@@ -109,6 +72,52 @@ export function trackWhatsNewSignalViewed(props: {
   cta_label?: string;
 }): void {
   track(TELEMETRY_EVENTS.whatsNewSignalViewed, props);
+}
+
+export type HudFeature = "threads" | "learning";
+
+/** One impression per rendered HUD presentation in a visible tab. */
+export function trackHudViewed(): void {
+  track(TELEMETRY_EVENTS.hudViewed);
+}
+
+/** The timestamp identifies the served announcement without sending its copy. */
+export function trackHudNotificationViewed(props: { banner_id: string }): void {
+  track(TELEMETRY_EVENTS.hudNotificationViewed, props);
+}
+
+export function trackHudNotificationClicked(props: {
+  banner_id: string;
+  action: "open" | "dismiss";
+}): void {
+  track(TELEMETRY_EVENTS.hudNotificationClicked, props);
+}
+
+export function trackHudFeatureToggleViewed(props: {
+  feature: HudFeature;
+}): void {
+  track(TELEMETRY_EVENTS.hudFeatureToggleViewed, props);
+}
+
+export function trackHudFeatureToggleClicked(props: {
+  feature: HudFeature;
+}): void {
+  track(TELEMETRY_EVENTS.hudFeatureToggleClicked, props);
+}
+
+export function trackHudFeatureClicked(props: {
+  feature: HudFeature;
+  control: "row" | "action" | "learn_more";
+}): void {
+  track(TELEMETRY_EVENTS.hudFeatureClicked, props);
+}
+
+export function trackHudHideViewed(): void {
+  track(TELEMETRY_EVENTS.hudHideViewed);
+}
+
+export function trackHudHideClicked(): void {
+  track(TELEMETRY_EVENTS.hudHideClicked);
 }
 
 /**

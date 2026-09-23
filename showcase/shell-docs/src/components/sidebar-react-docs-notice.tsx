@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Check, Copy, X } from "lucide-react";
+import { ArrowRight, X } from "lucide-react";
+import { DocsPromptActions } from "./docs-prompt-actions";
 import { usePathname } from "next/navigation";
 import {
   frontendFromPathname,
@@ -15,8 +16,6 @@ type ReactDocsNotice = {
   href: string;
   label: string;
 };
-
-type CopyState = "idle" | "copied" | "error";
 
 function toRelativeHref(href: string): string {
   try {
@@ -37,38 +36,6 @@ function normalizeLabel(label: string): string {
 
 function reactDocsUrl(href: string): string {
   return new URL(href, window.location.origin).toString();
-}
-
-async function writeClipboardText(text: string): Promise<void> {
-  let clipboardError: unknown;
-
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return;
-    } catch (err) {
-      clipboardError = err;
-    }
-  }
-
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.setAttribute("readonly", "");
-  textarea.style.position = "fixed";
-  textarea.style.left = "-9999px";
-  textarea.style.top = "0";
-
-  document.body.appendChild(textarea);
-  textarea.focus();
-  textarea.select();
-
-  try {
-    if (!document.execCommand("copy")) {
-      throw clipboardError ?? new Error("document.execCommand copy failed");
-    }
-  } finally {
-    document.body.removeChild(textarea);
-  }
 }
 
 function agentPrompt({
@@ -92,9 +59,7 @@ export function SidebarReactDocsNotice() {
   const pathname = usePathname() ?? "";
   const frontendId = frontendFromPathname(pathname);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [notice, setNotice] = useState<ReactDocsNotice | null>(null);
-  const [copyState, setCopyState] = useState<CopyState>("idle");
 
   useEffect(() => {
     if (!frontendId) return;
@@ -120,11 +85,6 @@ export function SidebarReactDocsNotice() {
       if (!anchor.querySelector(REACT_DOCS_PROXY_SELECTOR)) return;
 
       event.preventDefault();
-      if (copyResetTimerRef.current) {
-        clearTimeout(copyResetTimerRef.current);
-        copyResetTimerRef.current = null;
-      }
-      setCopyState("idle");
       setNotice({
         href: toRelativeHref(anchor.href),
         label: normalizeLabel(anchor.textContent || "") || "this feature",
@@ -148,41 +108,9 @@ export function SidebarReactDocsNotice() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [notice]);
 
-  useEffect(
-    () => () => {
-      if (copyResetTimerRef.current) clearTimeout(copyResetTimerRef.current);
-    },
-    [],
-  );
-
   if (!frontendId || !notice) return null;
 
   const frontendName = getFrontendOption(frontendId).name;
-  const copied = copyState === "copied";
-  const copyBlocked = copyState === "error";
-
-  const handleCopyPrompt = async () => {
-    if (copyResetTimerRef.current) {
-      clearTimeout(copyResetTimerRef.current);
-      copyResetTimerRef.current = null;
-    }
-
-    try {
-      await writeClipboardText(
-        agentPrompt({
-          featureName: notice.label,
-          frontendName,
-          href: notice.href,
-        }),
-      );
-      setCopyState("copied");
-      copyResetTimerRef.current = setTimeout(() => setCopyState("idle"), 1800);
-    } catch (err) {
-      console.warn("[sidebar-react-docs-notice] prompt copy failed", err);
-      setCopyState("error");
-      copyResetTimerRef.current = setTimeout(() => setCopyState("idle"), 2400);
-    }
-  };
 
   return (
     <>
@@ -234,36 +162,16 @@ export function SidebarReactDocsNotice() {
             <span className="truncate">Open selected page in React docs</span>
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </a>
-          <button
-            type="button"
-            aria-label={
-              copyBlocked
-                ? "Copy prompt blocked"
-                : copied
-                  ? "Prompt copied"
-                  : `Copy prompt for your agent for ${notice.label}`
-            }
-            className={[
-              "shell-docs-radius-control inline-flex h-10 items-center gap-2 border px-4 text-[13px] font-semibold transition-colors",
-              copied
-                ? "border-[var(--accent-light)] bg-[var(--accent-light)] text-[var(--accent)]"
-                : copyBlocked
-                  ? "border-[var(--border)] bg-[var(--bg-elevated)] text-[var(--text)]"
-                  : "border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text)] hover:bg-[var(--bg-elevated)]",
-            ].join(" ")}
-            onClick={handleCopyPrompt}
-          >
-            {copied ? (
-              <Check className="h-4 w-4" aria-hidden="true" />
-            ) : (
-              <Copy className="h-4 w-4" aria-hidden="true" />
-            )}
-            {copied
-              ? "Prompt copied"
-              : copyBlocked
-                ? "Copy blocked"
-                : "Copy prompt for agent"}
-          </button>
+          <DocsPromptActions
+            surface="docs_frontend_translation_prompt"
+            createPrompt={() => ({
+              text: agentPrompt({
+                featureName: notice.label,
+                frontendName,
+                href: notice.href,
+              }),
+            })}
+          />
           <a
             href={guidanceHref(frontendId)}
             className="shell-docs-radius-control inline-flex h-10 items-center px-4 text-[13px] font-semibold text-[var(--accent)] underline decoration-[1px] underline-offset-[3px] hover:decoration-2"

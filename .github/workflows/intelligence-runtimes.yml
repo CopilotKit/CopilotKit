@@ -41,7 +41,7 @@ env:
 jobs:
   scope:
     name: Runtime change scope
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
       required: ${{ steps.scope.outputs.required }}
@@ -62,7 +62,7 @@ jobs:
     needs: scope
     if: needs.scope.outputs.required == 'true'
     name: IntelligenceRunner / ${{ matrix.language }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 35
     strategy:
       fail-fast: false
@@ -90,7 +90,7 @@ jobs:
 
       - name: Setup uv
         if: matrix.language == 'python'
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: "0.9.7"
           enable-cache: false
@@ -104,7 +104,7 @@ jobs:
 
       - name: Setup Ruby
         if: matrix.language == 'ruby'
-        uses: ruby/setup-ruby@bec3f19a76460dbe12f60def7d1a77585f07516c # v1.322.0
+        uses: ruby/setup-ruby@e8944e80fb94b20106697132f8c20c665fab29e9 # v1.325.0
         with:
           ruby-version: "3.3"
           bundler: "2.4.22"
@@ -203,7 +203,7 @@ jobs:
     name: Intelligence runtime conformance
     if: always()
     needs: [scope, conformance]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

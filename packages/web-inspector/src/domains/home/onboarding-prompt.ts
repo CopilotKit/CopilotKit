@@ -9,10 +9,9 @@ import type { HomeServiceId } from "./model.js";
  */
 const RUN_ID_PLACEHOLDER = "<run-id>";
 
-export const ONBOARDING_PROMPT_TEMPLATE =
-  "Help me get started with CopilotKit. Run this command and follow the " +
-  "instructions:\n\nnpx --yes copilotkit@latest onboard start --run " +
-  `${RUN_ID_PLACEHOLDER}`;
+export const ONBOARDING_PROMPT_ORIGIN = "https://copilotkit.ai";
+
+export const ONBOARDING_PROMPT_TEMPLATE = `Read ${ONBOARDING_PROMPT_ORIGIN}/onboarding-prompts/${RUN_ID_PLACEHOLDER} and help me get set up.`;
 
 const RUN_ID_LENGTH = 12;
 
@@ -68,12 +67,7 @@ export const FEATURE_ONBOARDING_INTENT: Record<
 
 const INTENT_PLACEHOLDER = "<intent>";
 
-export const FEATURE_ONBOARDING_PROMPT_TEMPLATE =
-  "Help me set this up in my CopilotKit app. Run this command and follow the " +
-  "instructions:\n\nnpx --yes copilotkit@latest onboard start --run " +
-  `${RUN_ID_PLACEHOLDER} --intent ${INTENT_PLACEHOLDER}` +
-  "\n\nIf it requires a CopilotKit CLI session check, you have permission to " +
-  "run it. Never reveal credentials.";
+export const FEATURE_ONBOARDING_PROMPT_TEMPLATE = `Read ${ONBOARDING_PROMPT_ORIGIN}/onboarding-prompts/${RUN_ID_PLACEHOLDER}?intent=${INTENT_PLACEHOLDER} and help me set this up.`;
 
 export function createFeatureOnboardingPrompt(
   serviceId: HomeServiceId,

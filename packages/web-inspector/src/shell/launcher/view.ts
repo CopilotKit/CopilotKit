@@ -226,7 +226,7 @@ function renderHudRow(
           data-cpk-hud-action
           aria-label=${`Open ${args.label} in Inspector`}
           @click=${(event: Event) =>
-            controller.handleHudActionClick(event, args.id)}
+            controller.handleHudActionClick(event, args.id, "action")}
           @pointerdown=${(event: Event) => event.stopPropagation()}
         >
           <span
@@ -249,7 +249,7 @@ function renderHudRow(
           aria-label=${`Learn more about ${args.label}`}
           aria-describedby=${detailId}
           @click=${(event: Event) =>
-            controller.handleHudActionClick(event, args.id)}
+            controller.handleHudActionClick(event, args.id, "learn_more")}
           @pointerdown=${(event: Event) => event.stopPropagation()}
         >
           ${options.renderIcon("CircleHelp")}
@@ -266,7 +266,7 @@ function renderHudRow(
           }
           ?disabled=${args.connected}
           @click=${(event: Event) =>
-            controller.handleHudActionClick(event, args.id)}
+            controller.handleHudActionClick(event, args.id, "toggle")}
           @pointerdown=${(event: Event) => event.stopPropagation()}
         >
           <span

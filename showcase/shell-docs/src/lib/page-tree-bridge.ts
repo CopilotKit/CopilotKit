@@ -235,8 +235,12 @@ export function navNodeToPageTreeNodes(
   // link to that page instead of a separate "Overview" entry inside the
   // expanded folder. The URL drops the `/index` suffix so the canonical
   // folder root (e.g. `/agentic-protocols`) is what the link points at.
+  // A child whose slug equals the group's own slug (a topic group built
+  // around a real page, e.g. "learning") is lifted the same way.
   const indexNavIdx = node.children.findIndex(
-    (c) => c.type === "page" && c.slug === `${node.slug}/index`,
+    (c) =>
+      c.type === "page" &&
+      (c.slug === `${node.slug}/index` || c.slug === node.slug),
   );
   let folderIndex: PageTree.Item | undefined;
   let folderChildren: PageTree.Node[] = childNodes;

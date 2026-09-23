@@ -112,46 +112,28 @@ export function renderTimelineItems(options: {
   })}`;
 }
 
-export function renderTimelineToolbar(options: {
+export function renderTimelineBulkToggle(options: {
   items: TimelineItem[];
   expandedDetails: Set<string>;
-  action: TemplateResult | typeof nothing;
   onExpandAll: (ids: string[]) => void;
   onCollapseAll: (ids: string[]) => void;
-}) {
+}): TemplateResult | typeof nothing {
   const detailIds = options.items
     .filter((item) => item.details)
     .map((item) => item.id);
-  const showBulkActions = detailIds.length > 1;
-  if (!showBulkActions && options.action === nothing) return nothing;
+  if (detailIds.length <= 1) return nothing;
   const allExpanded = detailIds.every((id) => options.expandedDetails.has(id));
-  const allCollapsed = detailIds.every(
-    (id) => !options.expandedDetails.has(id),
-  );
 
-  return html`<div class="cpk-td__timeline-toolbar">
-    ${
-      showBulkActions
-        ? html`
-          <button
-            type="button"
-            class="cpk-td__timeline-bulk-toggle"
-            ?disabled=${allExpanded}
-            @click=${() => options.onExpandAll(detailIds)}
-          >
-            Expand all
-          </button>
-          <button
-            type="button"
-            class="cpk-td__timeline-bulk-toggle"
-            ?disabled=${allCollapsed}
-            @click=${() => options.onCollapseAll(detailIds)}
-          >
-            Collapse all
-          </button>
-        `
-        : nothing
-    }
-    ${options.action}
-  </div>`;
+  return html`
+    <button
+      type="button"
+      class="cpk-td__timeline-bulk-toggle"
+      @click=${() =>
+        allExpanded
+          ? options.onCollapseAll(detailIds)
+          : options.onExpandAll(detailIds)}
+    >
+      ${allExpanded ? "Collapse all" : "Expand all"}
+    </button>
+  `;
 }

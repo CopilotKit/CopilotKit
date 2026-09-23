@@ -19,7 +19,7 @@
   "packages": [
     {
       "name": "@copilotkit/a2ui-renderer",
-      "version": "1.71.2",
+      "version": "1.73.3",
       "sourceDirectory": "packages/a2ui-renderer",
       "entrypoints": [
         {
@@ -136,7 +136,7 @@
     },
     {
       "name": "@copilotkit/agentcore-runner",
-      "version": "1.71.2",
+      "version": "1.73.3",
       "sourceDirectory": "packages/agentcore-runner",
       "entrypoints": [
         {
@@ -275,7 +275,7 @@
     },
     {
       "name": "@copilotkit/channels",
-      "version": "0.9.3",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels",
       "entrypoints": [
         {
@@ -463,9 +463,15 @@
       ],
       "compatibility": {
         "peerDependencies": {
+          "@microsoft/agents-activity": "^1.5.3",
+          "@microsoft/agents-hosting": "^1.5.3",
+          "express": "^4.18.0 || ^5.0.0",
           "vitest": "^4.0.0"
         },
         "optionalPeerDependencies": [
+          "@microsoft/agents-activity",
+          "@microsoft/agents-hosting",
+          "express",
           "vitest"
         ],
         "provenance": [
@@ -501,7 +507,7 @@
     },
     {
       "name": "@copilotkit/channels-core",
-      "version": "0.9.3",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels-core",
       "entrypoints": [
         {
@@ -601,7 +607,7 @@
     },
     {
       "name": "@copilotkit/channels-discord",
-      "version": "0.9.3",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels-discord",
       "entrypoints": [
         {
@@ -642,7 +648,7 @@
     },
     {
       "name": "@copilotkit/channels-intelligence",
-      "version": "0.9.3",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels-intelligence",
       "entrypoints": [
         {
@@ -683,7 +689,7 @@
     },
     {
       "name": "@copilotkit/channels-slack",
-      "version": "0.9.3",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels-slack",
       "entrypoints": [
         {
@@ -752,7 +758,7 @@
     },
     {
       "name": "@copilotkit/channels-teams",
-      "version": "0.9.3",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels-teams",
       "entrypoints": [
         {
@@ -785,7 +791,28 @@
         }
       ],
       "compatibility": {
-        "provenance": []
+        "peerDependencies": {
+          "@microsoft/agents-activity": "^1.5.3",
+          "@microsoft/agents-hosting": "^1.5.3",
+          "express": "^4.18.0 || ^5.0.0"
+        },
+        "optionalPeerDependencies": [
+          "@microsoft/agents-activity",
+          "@microsoft/agents-hosting",
+          "express"
+        ],
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels-teams/package.json",
+            "selector": "peerDependencies"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/channels-teams/package.json",
+            "selector": "peerDependenciesMeta.*.optional"
+          }
+        ]
       },
       "provenance": {
         "name": {
@@ -807,7 +834,7 @@
     },
     {
       "name": "@copilotkit/channels-telegram",
-      "version": "0.9.3",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels-telegram",
       "entrypoints": [
         {
@@ -848,7 +875,7 @@
     },
     {
       "name": "@copilotkit/channels-ui",
-      "version": "0.9.3",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels-ui",
       "entrypoints": [
         {
@@ -917,7 +944,7 @@
     },
     {
       "name": "@copilotkit/channels-whatsapp",
-      "version": "0.9.3",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels-whatsapp",
       "entrypoints": [
         {
@@ -958,7 +985,7 @@
     },
     {
       "name": "@copilotkit/core",
-      "version": "1.71.2",
+      "version": "1.73.3",
       "sourceDirectory": "packages/core",
       "entrypoints": [
         {
@@ -1161,7 +1188,7 @@
     },
     {
       "name": "@copilotkit/mcp-apps-renderer",
-      "version": "1.71.2",
+      "version": "1.73.3",
       "sourceDirectory": "packages/mcp-apps-renderer",
       "entrypoints": [
         {
@@ -1245,7 +1272,7 @@
     },
     {
       "name": "@copilotkit/react-core",
-      "version": "1.71.2",
+      "version": "1.73.3",
       "sourceDirectory": "packages/react-core",
       "entrypoints": [
         {
@@ -1361,7 +1388,7 @@
     },
     {
       "name": "@copilotkit/react-native",
-      "version": "1.71.2",
+      "version": "1.73.3",
       "sourceDirectory": "packages/react-native",
       "entrypoints": [
         {
@@ -1556,7 +1583,7 @@
     },
     {
       "name": "@copilotkit/react-textarea",
-      "version": "1.71.2",
+      "version": "1.73.3",
       "sourceDirectory": "packages/react-textarea",
       "entrypoints": [
         {
@@ -1629,7 +1656,7 @@
     },
     {
       "name": "@copilotkit/react-ui",
-      "version": "1.71.2",
+      "version": "1.73.3",
       "sourceDirectory": "packages/react-ui",
       "entrypoints": [
         {
@@ -1712,7 +1739,7 @@
     },
     {
       "name": "@copilotkit/runtime",
-      "version": "1.71.2",
+      "version": "1.73.3",
       "sourceDirectory": "packages/runtime",
       "entrypoints": [
         {
@@ -1727,6 +1754,20 @@
             "kind": "package-json",
             "path": "packages/runtime/package.json",
             "selector": "exports[\".\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/runtime/internal/learned-skills",
+          "exportKey": "./internal/learned-skills",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/internal/learned-skills.mjs",
+            "require": "./dist/internal/learned-skills.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/runtime/package.json",
+            "selector": "exports[\"./internal/learned-skills\"]"
           }
         },
         {
@@ -1823,6 +1864,7 @@
           "@langchain/google-gauth": ">=0.1.0",
           "@langchain/langgraph-sdk": ">=0.1.2",
           "@langchain/openai": ">=0.4.2",
+          "express": "^4.18.0 || ^5.0.0",
           "groq-sdk": ">=0.3.0 <1.0.0",
           "langchain": ">=0.3.3",
           "openai": "^4.85.1 || >=5.0.0"
@@ -1834,6 +1876,7 @@
           "@langchain/google-gauth",
           "@langchain/langgraph-sdk",
           "@langchain/openai",
+          "express",
           "groq-sdk",
           "langchain",
           "openai"
@@ -1876,7 +1919,7 @@
     },
     {
       "name": "@copilotkit/runtime-client-gql",
-      "version": "1.71.2",
+      "version": "1.73.3",
       "sourceDirectory": "packages/runtime-client-gql",
       "entrypoints": [
         {
@@ -1937,7 +1980,7 @@
     },
     {
       "name": "@copilotkit/sdk-js",
-      "version": "1.71.2",
+      "version": "1.73.3",
       "sourceDirectory": "packages/sdk-js",
       "entrypoints": [
         {
@@ -2044,7 +2087,7 @@
     },
     {
       "name": "@copilotkit/shared",
-      "version": "1.71.2",
+      "version": "1.73.3",
       "sourceDirectory": "packages/shared",
       "entrypoints": [
         {
@@ -2059,6 +2102,20 @@
             "kind": "package-json",
             "path": "packages/shared/package.json",
             "selector": "exports[\".\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/shared/event-transforms",
+          "exportKey": "./event-transforms",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/event-transforms/index.mjs",
+            "require": "./dist/event-transforms/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/shared/package.json",
+            "selector": "exports[\"./event-transforms\"]"
           }
         },
         {
@@ -2119,7 +2176,7 @@
     },
     {
       "name": "@copilotkit/sqlite-runner",
-      "version": "1.71.2",
+      "version": "1.73.3",
       "sourceDirectory": "packages/sqlite-runner",
       "entrypoints": [
         {
@@ -2196,7 +2253,7 @@
     },
     {
       "name": "@copilotkit/voice",
-      "version": "1.71.2",
+      "version": "1.73.3",
       "sourceDirectory": "packages/voice",
       "entrypoints": [
         {
@@ -2265,7 +2322,7 @@
     },
     {
       "name": "@copilotkit/vue",
-      "version": "1.71.2",
+      "version": "1.73.3",
       "sourceDirectory": "packages/vue",
       "entrypoints": [
         {
@@ -2371,7 +2428,7 @@
     },
     {
       "name": "@copilotkit/web-components",
-      "version": "1.71.2",
+      "version": "1.73.3",
       "sourceDirectory": "packages/web-components",
       "entrypoints": [
         {
@@ -2466,7 +2523,7 @@
     },
     {
       "name": "@copilotkit/web-inspector",
-      "version": "1.71.2",
+      "version": "1.73.3",
       "sourceDirectory": "packages/web-inspector",
       "entrypoints": [
         {
@@ -3031,6 +3088,7 @@
       {
         "type": "aisdk",
         "configurationKeys": [
+          "learnedSkills",
           "type",
           "factory"
         ],
@@ -3050,6 +3108,7 @@
       {
         "type": "tanstack",
         "configurationKeys": [
+          "learnedSkills",
           "type",
           "factory"
         ],
@@ -3069,6 +3128,7 @@
       {
         "type": "custom",
         "configurationKeys": [
+          "learnedSkills",
           "type",
           "factory"
         ],

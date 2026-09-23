@@ -32,7 +32,7 @@ describe("Home feature setup", () => {
     });
 
     expect(writeText).toHaveBeenCalledWith(
-      expect.stringContaining("--run run_12345678"),
+      expect.stringContaining("/onboarding-prompts/run_12345678"),
     );
     expect(trackClick).toHaveBeenCalledWith("a2ui", "run_12345678");
     expect(homeFeaturePromptCopyState(state, "a2ui")).toBe("copied");

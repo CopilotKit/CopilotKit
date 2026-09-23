@@ -1,12 +1,12 @@
 import express from "express";
 import dotenv from "dotenv";
 import { z } from "zod";
+import type { ToolDefinition } from "@copilotkit/runtime/v2";
 import {
   CopilotRuntime,
   createCopilotEndpointSingleRouteExpress,
   BuiltInAgent,
   defineTool,
-  ToolDefinition,
 } from "@copilotkit/runtime/v2";
 
 dotenv.config();
@@ -26,7 +26,7 @@ const roastTool = defineTool({
 const runtime = new CopilotRuntime({
   agents: {
     default: new BuiltInAgent({
-      model: "openai/gpt-4o-mini",
+      model: "openai/gpt-5-mini",
       tools: [roastTool],
     }),
   },

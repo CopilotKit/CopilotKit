@@ -29,6 +29,10 @@ on:
     paths:
       - "examples/integrations/**"
       - ".github/workflows/test_smoke-starter.yml"
+      # Both the two-container smoke job and the production-image gate run
+      # showcase/tests/e2e/starter-smoke.spec.ts, so a change to the spec or
+      # its helpers must re-run them.
+      - "showcase/tests/**"
   workflow_dispatch: {}
 
 permissions:
@@ -36,6 +40,187 @@ permissions:
   packages: read
 
 jobs:
+  # ---------------------------------------------------------------------
+  # Production-image gate (added 2026-09-14).
+  #
+  # `smoke-starter` above builds docker/Dockerfile.app + docker/Dockerfile.agent
+  # into a two-container stack with AGENT_URL / LANGGRAPH_DEPLOYMENT_URL
+  # injected by compose. That is NOT what ships. showcase_build.yml's
+  # `build-starters` job builds `examples/integrations/<slug>/Dockerfile` —
+  # the single-container root Dockerfile with its own entrypoint.sh and its
+  # own Docker route override — and pushes it to
+  # ghcr.io/copilotkit/starter-<slug>, which is what the Railway starter
+  # services run. CI was therefore green on an artifact production never
+  # sees, and 5 of 12 starters sat broken for months behind it.
+  #
+  # These two jobs close that hole: build the ROOT Dockerfile and run the
+  # same starter-smoke spec (health + agent endpoint + a real AG-UI chat
+  # round-trip against aimock + UI interaction) against the resulting
+  # container. Build-only would not be enough — the langgraph route-override
+  # bug builds clean and 404s at runtime.
+  #
+  # SCOPE — what is and is NOT gated, deliberately:
+  #   * Gated on PRs: only starters whose own examples/integrations/<slug>/**
+  #     files changed (plus all 12 when this workflow file itself changes).
+  #     Each slot is a full Next.js + Python/.NET image build, so running all
+  #     12 on every PR would add ~12 x 10-15 min of build to every starter PR.
+  #   * NOT gated on PRs: a starter broken by a change OUTSIDE its own
+  #     directory (a packages/** change, a floating transitive dependency, an
+  #     upstream CopilotKit release). The 6h `schedule` and the post-release
+  #     `workflow_run` triggers run ALL 12 and cover exactly that case.
+  #   * NOT covered at all: crewai-flows and strands-typescript. They are in
+  #     the `smoke-starter` matrix but NOT in showcase_build.yml's
+  #     `build-starters` matrix, so no production image is published for them
+  #     and there is nothing here to gate. Add them to both if that changes.
+  detect-production-starters:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      has_changes: ${{ steps.matrix.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Detect changed starter paths
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            workflow_config:
+              - '.github/workflows/test_smoke-starter.yml'
+              - 'examples/integrations/docker-compose.production-image.yml'
+              - 'examples/integrations/production-image-gate.sh'
+              - 'showcase/tests/**'
+            langgraph-python:
+              - 'examples/integrations/langgraph-python/**'
+            mastra:
+              - 'examples/integrations/mastra/**'
+            langgraph-js:
+              - 'examples/integrations/langgraph-js/**'
+            crewai-crews:
+              - 'examples/integrations/crewai-crews/**'
+            pydantic-ai:
+              - 'examples/integrations/pydantic-ai/**'
+            adk:
+              - 'examples/integrations/adk/**'
+            agno:
+              - 'examples/integrations/agno/**'
+            llamaindex:
+              - 'examples/integrations/llamaindex/**'
+            langgraph-fastapi:
+              - 'examples/integrations/langgraph-fastapi/**'
+            strands-python:
+              - 'examples/integrations/strands-python/**'
+            ms-agent-framework-python:
+              - 'examples/integrations/ms-agent-framework-python/**'
+            ms-agent-framework-dotnet:
+              - 'examples/integrations/ms-agent-framework-dotnet/**'
+
+      - name: Build production-image matrix
+        id: matrix
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          FILTER_CHANGES: ${{ steps.filter.outputs.changes }}
+        run: |
+          set -euo pipefail
+          # SSOT: must stay identical to showcase_build.yml's
+          # detect-starter-changes ALL_STARTERS slug list — that job decides
+          # which images production actually runs, and this gate is only
+          # meaningful for exactly those slugs. The filter keys above are the
+          # slugs verbatim, so no slug->key mapping can drift.
+          ALL='["langgraph-python","mastra","langgraph-js","crewai-crews","pydantic-ai","adk","agno","llamaindex","langgraph-fastapi","strands-python","ms-agent-framework-python","ms-agent-framework-dotnet"]'
+
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            # schedule / workflow_run / workflow_dispatch: full fleet.
+            MATRIX="$ALL"
+          else
+            CHANGES="${FILTER_CHANGES:-[]}"
+            if echo "$CHANGES" | jq -e 'index("workflow_config") != null' >/dev/null; then
+              MATRIX="$ALL"
+            else
+              # `. as $slug` is load-bearing: inside `$changes | index(.)`
+              # the `.` would rebind to $changes, making every non-empty
+              # CHANGES match and silently expanding the matrix to all 12.
+              MATRIX=$(jq -cn --argjson all "$ALL" --argjson changes "$CHANGES" \
+                '[$all[] | . as $slug | select($changes | index($slug) != null)]')
+            fi
+          fi
+
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+          if [ "$MATRIX" = "[]" ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No deployed starter changed — production-image gate skipped. The 6h schedule covers the full fleet."
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Production-image gate will run for: $MATRIX"
+          fi
+
+  smoke-starter-production-image:
+    needs: detect-production-starters
+    if: needs.detect-production-starters.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+    strategy:
+      fail-fast: false
+      matrix:
+        starter: ${{ fromJSON(needs.detect-production-starters.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+          lfs: false
+          persist-credentials: false
+
+      - name: Assert the gate builds the file build-starters publishes
+        env:
+          STARTER: ${{ matrix.starter }}
+        run: |
+          set -euo pipefail
+          # Guard against the divergence re-opening silently: if the
+          # published Dockerfile path ever moves, fail here rather than
+          # quietly gating the wrong artifact again.
+          grep -qE '^ *file: examples/integrations/.*/Dockerfile$' \
+            .github/workflows/showcase_build.yml \
+            || { echo "::error::showcase_build.yml no longer builds examples/integrations/<slug>/Dockerfile — this gate is now testing the wrong artifact"; exit 1; }
+          test -f "examples/integrations/$STARTER/Dockerfile"
+
+      - name: Build and smoke-test the production image
+        working-directory: examples/integrations
+        env:
+          STARTER: ${{ matrix.starter }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        run: |
+          docker compose -f docker-compose.production-image.yml \
+            up --build --abort-on-container-exit --exit-code-from tests
+
+      - name: Dump container logs on failure
+        if: failure()
+        working-directory: examples/integrations
+        env:
+          STARTER: ${{ matrix.starter }}
+        run: docker compose -f docker-compose.production-image.yml logs --no-color --tail 200
+
+      - name: Tear down
+        if: always()
+        working-directory: examples/integrations
+        env:
+          STARTER: ${{ matrix.starter }}
+        run: docker compose -f docker-compose.production-image.yml down -v
+
+      - name: Alert Slack on failure
+        if: failure() && env.SLACK_WEBHOOK != '' && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ${{ toJSON(format(':x: `[ci:{2}]` *Starter PRODUCTION IMAGE failing: {0}* — this is the artifact Railway runs{4}<{1}/{2}/actions/runs/{3}|View run>', matrix.starter, github.server_url, github.repository, github.run_id, fromJSON('"\n"'))) }} }
+
   smoke-starter:
     runs-on: ubuntu-latest
     timeout-minutes: 20

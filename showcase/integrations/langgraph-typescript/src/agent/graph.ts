@@ -7,10 +7,11 @@
  */
 
 import { z } from "zod";
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import { AIMessage, SystemMessage } from "@langchain/core/messages";
+import type { AIMessage } from "@langchain/core/messages";
+import { SystemMessage } from "@langchain/core/messages";
 import {
   MemorySaver,
   START,
@@ -165,7 +166,7 @@ const searchFlights = tool(
 // host catalog and emits the a2ui_operations envelope. Replaces the prior
 // hand-rolled generate_a2ui tool.
 const generateA2ui = getA2UITools({
-  model: new ChatOpenAI({ model: "gpt-4.1" }),
+  model: new ChatOpenAI({ model: "gpt-5-mini" }),
   defaultCatalogId: "copilotkit://app-dashboard-catalog",
 });
 
@@ -184,7 +185,7 @@ const tools = [
 // ---------------------------------------------------------------------------
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = makeChatOpenAI(config, { temperature: 0, model: "gpt-4o" });
+  const model = makeChatOpenAI(config, { temperature: 0, model: "gpt-5-mini" });
 
   const modelWithTools = model.bindTools!([
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),

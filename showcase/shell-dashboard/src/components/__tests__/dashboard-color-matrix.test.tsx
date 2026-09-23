@@ -315,9 +315,10 @@ describe("(1) per-depth badge rendering — UI/BE/1P/D6", () => {
     expect(rtLabels.length).toBe(0);
   });
 
-  it("no-data depth (mapped, unemitted) → no badge (glyph '?' → Badge null)", () => {
-    // Gate green, D5 mapped but unemitted → d5.status null → 1P glyph "?"
-    // → Badge returns null. The 1P badge must NOT render.
+  it("no-data depth (mapped, unemitted) → a VISIBLE '1P ?' badge", () => {
+    // Gate green, D5 mapped but unemitted → d5.status null → 1P glyph "?".
+    // The rung EXISTS and has simply not reported, so it now paints the quiet
+    // no-data mark instead of vanishing.
     const live = mapOf(gateGreen(FEATURE));
     const model = wiredModel(live, FEATURE);
     expect(model.d5?.exists).toBe(true);
@@ -326,7 +327,9 @@ describe("(1) per-depth badge rendering — UI/BE/1P/D6", () => {
     const cvLabels = Array.from(container.querySelectorAll("span")).filter(
       (s) => s.textContent === "1P",
     );
-    expect(cvLabels.length).toBe(0);
+    expect(cvLabels.length).toBe(1);
+    const noData = container.querySelector('[data-glyph="noData"]');
+    expect(noData?.textContent).toBe("?");
   });
 });
 
@@ -626,22 +629,29 @@ describe("(4) depth chip rendering D0..D6 × wired/unwired", () => {
     expect(getByTestId("depth-chip").className).toContain(CHIP_CLASS.gray);
   });
 
-  it("unshipped chip renders '--' dashed (not a depth)", () => {
+  it("unshipped chip renders the not-shipped '·', hollow + dashed", () => {
     const { getByTestId } = render(
       <DepthChip chipColor="gray" depth={0} status="unshipped" />,
     );
     const chip = getByTestId("depth-chip");
-    expect(chip.textContent).toBe("--");
+    expect(chip.textContent).toBe("·");
     expect(chip.getAttribute("data-status")).toBe("unshipped");
+    expect(chip.getAttribute("data-glyph-form")).toBe("hollow");
+    expect(chip.className).toContain("border-dashed");
   });
 
-  it("unsupported chip renders the ban glyph + slate fill", () => {
+  it("unsupported chip renders '∅', hollow + SOLID border (a settled fact)", () => {
     const { getByTestId } = render(
       <DepthChip chipColor="gray" depth={0} status="unsupported" />,
     );
     const chip = getByTestId("depth-chip");
+    expect(chip.textContent).toBe("∅");
     expect(chip.getAttribute("data-status")).toBe("unsupported");
-    expect(chip.className).toContain("bg-slate-500/10");
+    // Hollow, NOT the old slate fill: a transparent background makes no claim,
+    // which is the whole point — nothing was judged here.
+    expect(chip.getAttribute("data-glyph-form")).toBe("hollow");
+    expect(chip.className).toContain("bg-transparent");
+    expect(chip.className).toContain("border-solid");
   });
 });
 
@@ -718,12 +728,18 @@ describe("(6) edges + rollup precedence", () => {
     expect(model.chipColor).toBe("gray");
     expect(model.achievedDepth).toBe(0);
     const { queryByTestId } = renderCell(live, FEATURE, ["health", "depth"]);
-    // No badges (all levels no-data/missing → all glyph "?" → Badge null).
-    // Scope to the HealthLayer — the DepthChip span ALSO carries
-    // `tabular-nums`, so a container-wide selector would catch the chip.
+    // Every level that EXISTS but has no data now paints a visible `?`; levels
+    // that do not exist still render nothing. Scope to the HealthLayer — the
+    // DepthChip span ALSO carries `tabular-nums`.
     const healthLayer = queryByTestId("health-layer");
     expect(healthLayer).not.toBeNull();
-    expect(healthLayer?.querySelectorAll("span.tabular-nums").length).toBe(0);
+    const marks = Array.from(
+      healthLayer?.querySelectorAll("[data-glyph]") ?? [],
+    );
+    expect(marks.length).toBeGreaterThan(0);
+    for (const m of marks) {
+      expect(m.getAttribute("data-glyph")).toBe("noData");
+    }
     expect(queryByTestId("depth-chip")?.className).toContain(CHIP_CLASS.gray);
   });
 

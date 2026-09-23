@@ -21,25 +21,18 @@ export function renderThreadEventsView(options: {
 }): TemplateResult {
   const eventIds = options.events.map(rawEventId);
   const allExpanded = eventIds.every((id) => options.expandedEvents.has(id));
-  const allCollapsed = eventIds.every((id) => !options.expandedEvents.has(id));
   const controls =
     eventIds.length > 1
       ? html`<div class="cpk-td__timeline-toolbar">
           <button
             type="button"
             class="cpk-td__timeline-bulk-toggle"
-            ?disabled=${allExpanded}
-            @click=${() => options.onExpandAll(eventIds)}
+            @click=${() =>
+              allExpanded
+                ? options.onCollapseAll(eventIds)
+                : options.onExpandAll(eventIds)}
           >
-            Expand all
-          </button>
-          <button
-            type="button"
-            class="cpk-td__timeline-bulk-toggle"
-            ?disabled=${allCollapsed}
-            @click=${() => options.onCollapseAll(eventIds)}
-          >
-            Collapse all
+            ${allExpanded ? "Collapse all" : "Expand all"}
           </button>
         </div>`
       : nothing;

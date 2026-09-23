@@ -34,6 +34,7 @@ export interface ThreadsState {
   focusedThreadMessageId: string | null;
   threadFocusRequestId: number;
   threadListWidth: number;
+  threadListCollapsed: boolean;
   threadDividerResizing: boolean;
   threadDividerPointerId: number;
   threadDividerStartX: number;
@@ -91,7 +92,8 @@ export function createThreadsState(): ThreadsState {
     requestedThreadId: null,
     focusedThreadMessageId: null,
     threadFocusRequestId: 0,
-    threadListWidth: 290,
+    threadListWidth: 240,
+    threadListCollapsed: false,
     threadDividerResizing: false,
     threadDividerPointerId: -1,
     threadDividerStartX: 0,

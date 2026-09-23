@@ -1055,7 +1055,7 @@ test("trusted identity stays on Home while connection state moves into branded c
       learning
         .querySelector(".inspector-home-feature-status")
         ?.getAttribute("aria-label"),
-    ).toBe("Learning is not enabled in your runtime");
+    ).toBe("Automatic Learning is not enabled in your runtime");
     expect(
       learning.querySelector('[data-inspector-home-feature-prompt="memory"]'),
     ).not.toBeNull();
@@ -1188,7 +1188,7 @@ test("disabled Intelligence becomes a setup action in the sidebar and on Home", 
       "Sidebar Intelligence setup action was not rendered",
     );
     expect(sidebarSetup.textContent?.replace(/\s+/g, " ")).toContain(
-      "Intelligence is off Set up Threads and Memory",
+      "Intelligence is off Connect Intelligence",
     );
     expect(sidebarSetup.href).toBe(setupUrl);
 
@@ -1342,20 +1342,21 @@ test("Home feature actions copy correlated onboarding prompts", async () => {
       String(prompt),
     );
     const onboardingRunIds = copiedPrompts.map((prompt) => {
-      // Identification left the copied text for the graph, which asks for the
-      // slug with `onboard identify` (Intelligence OSS-1157). The standing
-      // permission stays: a human grants it by copying this, and the graph
-      // cannot grant it to itself.
-      expect(prompt).toContain("Help me set this up in my CopilotKit app.");
+      // The copied text is one sentence pointing at the hosted document. The
+      // setup wording, the standing permission for the session check, and the
+      // credentials warning all moved there with the command -- they are not
+      // dropped, and the website repo's `onboarding-prompt-document.test.ts`
+      // is what pins them now.
+      expect(prompt).toContain("copilotkit.ai/onboarding-prompts/");
+      expect(prompt).toContain("help me set this up");
       expect(prompt).not.toContain("Identify your coding-agent slug");
-      expect(prompt).toContain("Never reveal credentials");
       expect(prompt).not.toContain("optional diagnostic feedback");
       // The A2UI route owns the guide link, the plan and the proof step. The
       // button's whole job is to name the outcome.
-      expect(prompt).toContain("--intent add-a2ui");
+      expect(prompt).toContain("?intent=add-a2ui");
       expect(prompt).not.toContain("A2UI guide");
       expect(prompt).not.toContain("not merely that the code compiles");
-      const match = prompt.match(/--run ([A-Za-z0-9_-]{12})/);
+      const match = prompt.match(/onboarding-prompts\/([A-Za-z0-9_-]{12})/);
       expect(match?.[1]).toBeDefined();
       return match![1]!;
     });
@@ -1752,7 +1753,7 @@ test("Workbench remembers Learning, and Settings does not persist a settings lea
     );
     await context.toggleSettings();
     expect(root.querySelector("#cpk-main-scroll")?.textContent).toContain(
-      "Learning",
+      "Automatic Learning",
     );
   } finally {
     context.teardown();

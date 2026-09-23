@@ -53,7 +53,7 @@ describe("conversation view controls", () => {
     expect(onToggleMessage).toHaveBeenCalledWith("message-1");
   });
 
-  it("keeps tool calls pending until a result exists", () => {
+  it("says no result is recorded until a result exists", () => {
     const onToggleTool = vi.fn();
     const pendingTool: ConversationRenderItem = {
       id: "tool-1",
@@ -62,6 +62,7 @@ describe("conversation view controls", () => {
       toolCallId: "tool-1",
       arguments: { query: "CopilotKit" },
       result: null,
+      hasResult: false,
       createdAt: "",
     };
     const container = renderConversation([pendingTool], { onToggleTool });
@@ -71,17 +72,17 @@ describe("conversation view controls", () => {
     );
     expect(toggle?.type).toBe("button");
     expect(toggle?.getAttribute("aria-expanded")).toBe("false");
-    expect(container.querySelector(".cpk-td__tool-status")?.textContent).toBe(
-      "PENDING",
-    );
+    expect(
+      container.querySelector(".cpk-td__tool-status")?.textContent?.trim(),
+    ).toBe("No result recorded");
 
     toggle?.click();
     expect(onToggleTool).toHaveBeenCalledWith("tool-1");
 
-    renderConversation([{ ...pendingTool, result: {} }]);
+    renderConversation([{ ...pendingTool, result: {}, hasResult: true }]);
     const statuses = Array.from(
       document.querySelectorAll(".cpk-td__tool-status"),
     );
-    expect(statuses.at(-1)?.textContent).toBe("DONE");
+    expect(statuses.at(-1)?.textContent?.trim()).toBe("Result received");
   });
 });

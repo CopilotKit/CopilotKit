@@ -453,7 +453,7 @@ describe("CpkThreadInspector provider contract", () => {
     expect(internals._fetchedEvents).toHaveLength(6);
 
     const text = textContentIncludingJson(el.shadowRoot!);
-    expect(text).toContain("Messages");
+    expect(text).toContain("Conversation");
     expect(text).toContain("AG-UI Events");
     expect(text).toContain("State");
     expect(text).toContain("Run started");
@@ -815,7 +815,7 @@ describe("CpkThreadInspector provider contract", () => {
       ?.click();
     await flushProviderWork(el);
 
-    expect(el.shadowRoot?.textContent ?? "").toContain("Messages");
+    expect(el.shadowRoot?.textContent ?? "").toContain("Conversation");
     expect(el.shadowRoot?.textContent ?? "").toContain("2");
   });
 

@@ -16,8 +16,9 @@
  * need bespoke MCP client wiring.
  */
 
-import { RunnableConfig } from "@langchain/core/runnables";
-import { AIMessage, SystemMessage } from "@langchain/core/messages";
+import type { RunnableConfig } from "@langchain/core/runnables";
+import type { AIMessage } from "@langchain/core/messages";
+import { SystemMessage } from "@langchain/core/messages";
 import {
   MemorySaver,
   START,
@@ -72,11 +73,11 @@ const AgentStateAnnotation = Annotation.Root({
 export type AgentState = typeof AgentStateAnnotation.State;
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  // gpt-4o-mini for speed — Excalidraw element emission is simple JSON and
+  // gpt-5-mini for speed — Excalidraw element emission is simple JSON and
   // we're biasing hard toward sub-30s generation.
   const model = makeChatOpenAI(config, {
     temperature: 0,
-    model: "gpt-4o-mini",
+    model: "gpt-5-mini",
   });
 
   // The MCP Apps middleware injects MCP tools into state.copilotkit.actions

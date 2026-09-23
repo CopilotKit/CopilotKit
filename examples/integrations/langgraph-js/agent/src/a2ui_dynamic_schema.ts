@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { tool, type ToolRuntime } from "@langchain/core/tools";
+import { tool } from "@langchain/core/tools";
+import type { ToolRuntime } from "@langchain/core/tools";
 import { SystemMessage } from "@langchain/core/messages";
 import { ChatOpenAI } from "@langchain/openai";
 import {
@@ -49,7 +50,7 @@ export const generate_a2ui = tool(
       .filter(Boolean)
       .join("\n\n");
 
-    const model = new ChatOpenAI({ model: "gpt-4.1" });
+    const model = new ChatOpenAI({ model: "gpt-5-mini" });
     const modelWithTool = model.bindTools!([renderA2ui], {
       tool_choice: "render_a2ui",
     });

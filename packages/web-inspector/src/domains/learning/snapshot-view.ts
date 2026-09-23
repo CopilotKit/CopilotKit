@@ -142,7 +142,7 @@ export class CpkLearningView extends LitElement {
       ? "Learning setup needs attention"
       : mode === "setup"
         ? waitingForLearningSetup
-          ? "Waiting for Learning setup"
+          ? "Waiting for Automatic Learning setup"
           : "Waiting for the first Thread"
         : ready
           ? "Threads ready to analyze"
@@ -157,7 +157,7 @@ export class CpkLearningView extends LitElement {
       aria-labelledby="learning-setup-title"
     >
       <div class="setup-top">
-        <h2 id="learning-setup-title">Set up Learning</h2>
+        <h2 id="learning-setup-title">Set up Automatic Learning</h2>
         <span class="progress-count">${completedSteps} of 3 steps</span>
       </div>
       <div class="progress-track" aria-hidden="true">
@@ -208,14 +208,14 @@ export class CpkLearningView extends LitElement {
           <h3>
             ${
               waitingForLearningSetup
-                ? "Set up Learning"
+                ? "Set up Automatic Learning"
                 : "Create your first Thread"
             }
           </h3>
           <p>
             ${
               waitingForLearningSetup
-                ? "Run the copied prompt in your coding agent. This page will continue when Learning is ready."
+                ? "Run the copied prompt in your coding agent. This page will continue when Automatic Learning is ready."
                 : "Open Checkout Assistant and complete a conversation."
             }
           </p>
@@ -233,7 +233,7 @@ export class CpkLearningView extends LitElement {
             attention
               ? html`<div class="error-alert" role="alert">
                 <p>
-                  Inspector did not find the Learning container or app
+                  Inspector did not find the Learning Space or app
                   instrumentation. Open the setup prompt, run it in your coding
                   agent, then try again.
                 </p>
@@ -270,7 +270,7 @@ export class CpkLearningView extends LitElement {
               : html`<details class="technical-details">
                 <summary>Technical details</summary>
                 <dl>
-                  <dt>Container</dt>
+                  <dt>Learning Space</dt>
                   <dd>${container?.id ?? "Waiting for setup"}</dd>
                   <dt>Status</dt>
                   <dd>
@@ -280,7 +280,7 @@ export class CpkLearningView extends LitElement {
                         : running
                           ? "Analysis running"
                           : waitingForLearningSetup
-                            ? "Waiting for Learning setup"
+                            ? "Waiting for Automatic Learning setup"
                             : "Waiting for first Thread"
                     }
                   </dd>
@@ -390,7 +390,6 @@ export class CpkLearningView extends LitElement {
   }
 
   private renderSkills(snapshot: InspectorLearningSnapshotV1) {
-    const firstSkillId = snapshot.skillsPage.items[0]?.id ?? null;
     const containerId =
       snapshot.configuration.state === "configured"
         ? snapshot.configuration.container.id
@@ -398,8 +397,7 @@ export class CpkLearningView extends LitElement {
     const skillPageKey = `${snapshot.projectKey}|${containerId}|${snapshot.skillsPage.page}|${snapshot.skillsPage.items.map((skill) => skill.id).join(",")}`;
     if (skillPageKey !== this.skillPageKey) {
       this.skillPageKey = skillPageKey;
-      this.expandedSkillId =
-        snapshot.skillsPage.page === 1 ? firstSkillId : null;
+      this.expandedSkillId = null;
     }
     return html`<section class="result-section" aria-labelledby="skills-title">
       <div class="result-section-heading">
@@ -589,7 +587,7 @@ export class CpkLearningView extends LitElement {
             <p class="eyebrow">Analysis complete</p>
             <h2>No new Insights or Skills</h2>
             <p>
-              Create more Threads with Checkout Assistant. You can run Learning
+              Create more Threads with Checkout Assistant. You can run Automatic Learning
               again when new Threads are available.
             </p>
           </div>
@@ -601,7 +599,7 @@ export class CpkLearningView extends LitElement {
         </div>
         <div class="empty-card">
           <h3>No Skills from this analysis</h3>
-          <p>Learning did not generate a Skill for review.</p>
+          <p>Automatic Learning did not generate a Skill for review.</p>
         </div>
       </section>
       <section class="result-section">
@@ -610,7 +608,7 @@ export class CpkLearningView extends LitElement {
         </div>
         <div class="empty-card">
           <h3>No Insights from this analysis</h3>
-          <p>Learning did not find a useful pattern in these Threads.</p>
+          <p>Automatic Learning did not find a useful pattern in these Threads.</p>
         </div>
       </section>
       ${this.externalLink(
@@ -649,13 +647,13 @@ export class CpkLearningView extends LitElement {
     let content: unknown;
     if (state === "loading") {
       content = html`
-        <div class="skeleton" aria-label="Loading Learning">
+        <div class="skeleton" aria-label="Loading Automatic Learning">
           <span></span><span></span><span></span>
         </div>
       `;
     } else if (state === "error") {
       content = this.renderCompactState({
-        title: "Learning data is unavailable",
+        title: "Automatic Learning data is unavailable",
         copy: this.error ?? undefined,
         error: true,
         action: html`<button
@@ -668,7 +666,7 @@ export class CpkLearningView extends LitElement {
       });
     } else if (state === "selection_required") {
       content = this.renderCompactState({
-        title: "Inspector cannot choose a Learning container for this agent.",
+        title: "Inspector cannot choose a Learning Space for this agent.",
         action: this.externalLink(
           this.snapshot!.links.learning,
           "Open in web app",
@@ -700,10 +698,20 @@ export class CpkLearningView extends LitElement {
     return html`<main class="pane-inner" data-learning-state=${state}>
         <header class="pane-heading">
           <div>
-            <h1>Learning</h1>
-            <p>Your Agent learns from conversations and improves over time.</p>
+            <h1>Automatic Learning</h1>
+            <p>Intelligence finds patterns in Rich Threads and proposes reusable Skills.</p>
+            ${this.snapshot?.configuration.state === "configured" ? html`<p style="font-size:12px;margin-top:10px">Learning Space <strong>${this.snapshot.configuration.container.name}</strong></p>` : nothing}
           </div>
           <div class="pane-actions">
+            ${
+              state === "results"
+                ? this.externalLink(
+                    this.snapshot!.webAppOrigin,
+                    "Open Intelligence ↗",
+                    "secondary",
+                  )
+                : nothing
+            }
             ${
               state === "setup" && this.setupActive
                 ? html`<button

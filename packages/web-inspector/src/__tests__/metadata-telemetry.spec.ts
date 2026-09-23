@@ -256,7 +256,7 @@ test("metadata impressions wait for an open connected Inspector and use last-fin
     expect(metadataBodies(context)).toEqual([]);
 
     await context.open();
-    await context.selectTab("Threads");
+    await context.selectTab("Rich Threads");
 
     expect(
       metadataBodies(context).map(({ properties }) => properties.module),
@@ -295,7 +295,7 @@ test("a metadata module re-emits after an open-panel absent transition", async (
   });
   try {
     await context.open();
-    await context.selectTab("Threads");
+    await context.selectTab("Rich Threads");
     expect(metadataBodies(context)).toHaveLength(5);
 
     await context.core.refreshInspectorMetadata();
@@ -321,7 +321,7 @@ test("Threads footer action emits one impression per visible transition and one 
   });
   try {
     await context.open();
-    await context.selectTab("Threads");
+    await context.selectTab("Rich Threads");
 
     const root = requireShadowRoot(context.inspector);
     const actions = root.querySelectorAll<HTMLAnchorElement>(
@@ -385,7 +385,7 @@ test("Threads footer action emits one impression per visible transition and one 
       ),
     ).toHaveLength(1);
 
-    await context.selectTab("Threads");
+    await context.selectTab("Rich Threads");
     expect(
       root.querySelectorAll(
         '[data-inspector-action-placement="threads-footer"]',
@@ -413,7 +413,7 @@ test("locked Threads suppress the footer action and its impression", async () =>
   });
   try {
     await context.open();
-    await context.selectTab("Threads");
+    await context.selectTab("Rich Threads");
 
     const root = requireShadowRoot(context.inspector);
     const footer = root.querySelectorAll("[data-inspector-threads-footer]");
@@ -459,7 +459,7 @@ test.each(metadataActionCases)(
     });
     try {
       await context.open();
-      await context.selectTab("Threads");
+      await context.selectTab("Rich Threads");
       const action =
         context.inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
           `[data-inspector-action-placement="${
@@ -505,7 +505,7 @@ test("locked metadata actions yield to the unified engineer CTA", async () => {
   });
   try {
     await context.open();
-    await context.selectTab("Threads");
+    await context.selectTab("Rich Threads");
     expect(
       metadataBodies(context).map(({ properties }) => properties.module),
     ).toEqual(["identity", "plan", "identity", "plan"]);
@@ -528,7 +528,7 @@ test("locked metadata actions yield to the unified engineer CTA", async () => {
 
     await context.selectTab("Agent");
     await context.selectTab("AG-UI Events");
-    await context.selectTab("Threads");
+    await context.selectTab("Rich Threads");
     expect(
       metadataBodies(context).filter(
         ({ properties }) => properties.module === "action",
@@ -568,7 +568,7 @@ test("runtime telemetry opt-out suppresses metadata impressions and action click
   });
   try {
     await context.open();
-    await context.selectTab("Threads");
+    await context.selectTab("Rich Threads");
     const action =
       context.inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
         '[data-inspector-action-placement="threads-footer"]',
@@ -591,7 +591,7 @@ test("a stale rendered action does not emit after the Inspector disconnects", as
   const context = await setup({ metadataResponses: [fullMetadata()] });
   try {
     await context.open();
-    await context.selectTab("Threads");
+    await context.selectTab("Rich Threads");
 
     const action =
       context.inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
@@ -650,7 +650,7 @@ test("telemetry delivery failures do not break metadata rendering or action clic
   });
   try {
     await context.open();
-    await context.selectTab("Threads");
+    await context.selectTab("Rich Threads");
     const root = context.inspector.shadowRoot;
     const action = root?.querySelector<HTMLAnchorElement>(
       '[data-inspector-action-placement="threads-footer"]',
@@ -680,7 +680,7 @@ test("metadata events never include local identity, URLs, usage, limits, counts,
   });
   try {
     await context.open();
-    await context.selectTab("Threads");
+    await context.selectTab("Rich Threads");
     const action =
       context.inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
         '[data-inspector-action-placement="threads-footer"]',

@@ -12,9 +12,9 @@ export const THREADS_EXAMPLE_TOUR_STEPS: ReadonlyArray<{
 }> = [
   {
     tab: "timeline",
-    label: "Messages",
+    label: "Conversation",
     title: "Read the run as a story",
-    body: "The timeline turns messages, tool calls, state changes, and run markers into a scannable debugging trail.",
+    body: "Read messages and tool calls as a conversation. Switch to the event timeline to inspect state changes and run markers.",
   },
   {
     tab: "raw-events",

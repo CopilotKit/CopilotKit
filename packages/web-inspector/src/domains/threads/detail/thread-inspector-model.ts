@@ -19,12 +19,6 @@ export type ThreadActivityCounts = {
   generativeUi: number;
 };
 
-export type ThreadMetadataPill = {
-  label: string;
-  value: string;
-  wrap?: boolean;
-};
-
 export function toggleSetValue(values: Set<string>, id: string): Set<string> {
   const next = new Set(values);
   if (next.has(id)) next.delete(id);
@@ -96,31 +90,46 @@ export function formatThreadDuration(
   return `${minutes}m ${seconds % 60}s`;
 }
 
-export function createThreadMetadataPills(options: {
-  metadata: ThreadDebuggerMetadata | null;
-  fallbackName: string | null | undefined;
-  threadId: string | null;
-}): ThreadMetadataPill[] {
-  const pills: ThreadMetadataPill[] = [
-    {
-      label: "Name",
-      value: options.metadata?.name ?? options.fallbackName ?? "Untitled",
-    },
-    { label: "ID", value: options.metadata?.id ?? options.threadId ?? "—" },
-  ];
-  for (const fact of [
-    { label: "Agent", value: options.metadata?.agentId },
-    { label: "Created", value: options.metadata?.createdAt },
-    { label: "Updated", value: options.metadata?.updatedAt },
-  ]) {
-    if (fact.value == null || fact.value === "") continue;
-    pills.push({
-      label: fact.label,
-      value:
-        fact.label === "Created" || fact.label === "Updated"
-          ? formatThreadTime(fact.value)
-          : fact.value,
-    });
-  }
-  return pills;
-}
+export const THREAD_INSPECTOR_PROPERTIES = {
+  threadId: { attribute: false },
+  showThreadTitle: { type: Boolean, attribute: false },
+  provider: { attribute: false },
+  thread: { attribute: false },
+  runtimeUrl: { attribute: false },
+  headers: { attribute: false },
+  threadInspectionAvailable: { attribute: false },
+  agentStateInput: { attribute: false },
+  agentEventsInput: { attribute: false },
+  agentMessagesInput: { attribute: false },
+  liveMessageVersion: { attribute: false },
+  viewInAppMode: { attribute: false },
+  viewInAppError: { attribute: false },
+  tryFromHereAvailable: { attribute: false },
+  tryFromHereBusy: { attribute: false },
+  tryFromHereError: { attribute: false },
+  focusMessageId: { attribute: false },
+  focusRequestId: { attribute: false },
+  _tab: { state: true },
+  _fetchedMetadata: { state: true },
+  _conversation: { state: true },
+  _fetchedEvents: { state: true },
+  _fetchedState: { state: true },
+  _loadingMessages: { state: true },
+  _loadingEvents: { state: true },
+  _loadingState: { state: true },
+  _messagesError: { state: true },
+  _messageRefreshError: { state: true },
+  _showEventTimeline: { state: true },
+  _eventsError: { state: true },
+  _stateError: { state: true },
+  _expandedTools: { state: true },
+  _expandedMessages: { state: true },
+  _expandedTimelineDetails: { state: true },
+  _expandedRawEvents: { state: true },
+  _showDetailPanel: { state: true },
+  _detailPanelWidth: { state: true },
+  _eventsNotAvailable: { state: true },
+  _stateNotAvailable: { state: true },
+  _panelInitializing: { state: true },
+  _activatedTabs: { state: true },
+};

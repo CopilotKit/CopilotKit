@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/react-core",
-  "version": "1.71.2",
+  "version": "1.73.3",
   "private": false,
   "keywords": [
     "ai",
@@ -58,20 +58,21 @@
   },
   "scripts": {
     "build:css": "tailwindcss -i ./src/v2/styles/globals.css -o ./dist/v2/index.css -m && node scripts/scope-preflight.mjs ./dist/v2/index.css",
-    "build": "tsdown && node ../../scripts/deprecations/v1-dist-notices.mjs --entrypoint react-core && pnpm run build:css && node scripts/context-singleton-preflight.mjs",
+    "build": "node scripts/generate-external-reexports.mjs --check && tsdown && node ../../scripts/deprecations/v1-dist-notices.mjs --entrypoint react-core && pnpm run build:css && node scripts/context-singleton-preflight.mjs",
     "size": "size-limit",
     "size:headline": "node scripts/measure-copilotchat.mjs",
     "size:assert-headless": "node scripts/assert-headless-purity.mjs",
     "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}' && es-check es2020 'dist/**/*.umd.js'",
     "dev": "tsdown --watch",
     "test": "vitest run && pnpm run test:scripts",
-    "test:scripts": "node --test scripts/__tests__/measure-copilotchat.test.mjs scripts/__tests__/assert-headless-purity.test.mjs",
+    "test:scripts": "node --test scripts/__tests__/measure-copilotchat.test.mjs scripts/__tests__/assert-headless-purity.test.mjs scripts/__tests__/generate-external-reexports.test.mjs",
     "test:watch": "vitest",
     "check-types": "tsc --noEmit",
     "link:global": "pnpm link --global",
     "unlink:global": "pnpm unlink --global",
     "publint": "publint .",
-    "attw": "attw --pack . --profile node16"
+    "attw": "attw --pack . --profile node16",
+    "generate:external-reexports": "node scripts/generate-external-reexports.mjs"
   },
   "dependencies": {
     "@ag-ui/client": "0.0.59",

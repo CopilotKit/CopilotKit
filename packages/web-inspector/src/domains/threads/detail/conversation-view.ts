@@ -35,6 +35,8 @@ function renderBubble(
         isUser ? "cpk-td__bubble--user" : "cpk-td__bubble--assistant"
       }"
       data-message-id=${item.id}
+      role="group"
+      aria-label=${isUser ? "User message" : "Assistant message"}
     >
       <div
         class="cpk-td__bubble-inner ${
@@ -43,7 +45,7 @@ function renderBubble(
             : "cpk-td__bubble-inner--assistant"
         }"
       >
-        ${shown}
+        <div style="white-space:pre-wrap">${shown}</div>
         ${
           tooLong
             ? html`<button
@@ -73,24 +75,32 @@ function renderToolBlock(
         aria-expanded=${expanded ? "true" : "false"}
         @click=${() => options.onToggleTool(item.id)}
       >
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path
-            d="M1 9C1 9 2 7 5 7C8 7 9 9 9 9M5 1C5 1 7 2.5 7 4.5C7 6.5 5 7 5 7C5 7 3 6.5 3 4.5C3 2.5 5 1 5 1Z"
-            stroke="#087653"
-            stroke-width="1.2"
+            d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94z"
+            stroke="currentColor"
+            stroke-width="2"
             stroke-linecap="round"
             stroke-linejoin="round"
           />
         </svg>
         <span class="cpk-td__tool-name">${item.toolName}</span>
         ${
-          item.result !== null
+          item.resultUnreadable
             ? html`
-                <span class="cpk-td__tool-status">DONE</span>
+                <span class="cpk-td__tool-status cpk-td__tool-status--pending"
+                  >Result unreadable</span
+                >
               `
-            : html`
-                <span class="cpk-td__tool-status cpk-td__tool-status--pending">PENDING</span>
-              `
+            : item.hasResult
+              ? html`
+                  <span class="cpk-td__tool-status">Result received</span>
+                `
+              : html`
+                  <span class="cpk-td__tool-status cpk-td__tool-status--pending"
+                    >No result recorded</span
+                  >
+                `
         }
         <span class="cpk-td__tool-chevron">${expanded ? "▾" : "▸"}</span>
       </button>
@@ -101,7 +111,7 @@ function renderToolBlock(
               <div class="cpk-td__tool-section-label">Arguments</div>
               ${renderThreadJsonValue(item.arguments)}
               ${
-                item.result
+                item.hasResult
                   ? html`
                     <div
                       class="cpk-td__tool-section-label"
@@ -144,10 +154,8 @@ function renderGenerativeUI(
         <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
           <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
         </svg>
-        Generative UI
-      </div>
-      <div class="cpk-td__genui-placeholder">
-        ${item.activityType} — rendered in chat
+        <span>Generative UI</span>
+        <code class="cpk-td__genui-component">${item.activityType}</code>
       </div>
     </div>
   `;

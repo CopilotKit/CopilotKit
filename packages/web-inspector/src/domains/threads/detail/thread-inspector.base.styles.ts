@@ -351,7 +351,7 @@ export const threadInspectorBaseStyles = css`
   /* ── Conversation bubbles ────────────────────────────────────────── */
   .cpk-td__bubble {
     display: flex;
-    margin-bottom: 2px;
+    margin-bottom: 10px;
   }
 
   .cpk-td__bubble--user {
@@ -363,16 +363,17 @@ export const threadInspectorBaseStyles = css`
   }
 
   .cpk-td__bubble-inner {
-    padding: 9px 14px;
-    max-width: 75%;
-    font-size: 13px;
-    line-height: 1.55;
+    padding: 10px 16px;
+    max-width: 80%;
+    font-size: 14px;
+    line-height: 1.65;
+    overflow-wrap: anywhere;
   }
 
   .cpk-td__bubble-inner--user {
-    background: #eee6fe;
-    color: #57575b;
-    border-radius: 12px 12px 4px 12px;
+    background: #f4f4f5;
+    color: #18181b;
+    border-radius: 18px;
   }
 
   .cpk-td__show-more {
@@ -392,16 +393,17 @@ export const threadInspectorBaseStyles = css`
   }
 
   .cpk-td__bubble-inner--assistant {
-    background: #f7f7f9;
+    background: transparent;
     color: #010507;
-    border-radius: 12px 12px 12px 4px;
-    border: 1px solid #e9e9ef;
+    max-width: 100%;
+    padding: 4px 0;
+    border: 0;
   }
 
   /* ── Tool call blocks ────────────────────────────────────────────── */
   .cpk-td__tool-block {
     border: 1px solid #e9e9ef;
-    border-radius: 7px;
+    border-radius: 12px;
     overflow: hidden;
   }
 
@@ -411,10 +413,10 @@ export const threadInspectorBaseStyles = css`
     width: 100%;
     align-items: center;
     gap: 6px;
-    padding: 6px 10px;
+    padding: 12px;
     border: 0;
-    background: rgba(133, 236, 206, 0.15);
-    color: inherit;
+    background: #ffffff;
+    color: #71717a;
     cursor: pointer;
     font-family: inherit;
     font-size: 11px;
@@ -422,27 +424,35 @@ export const threadInspectorBaseStyles = css`
     user-select: none;
   }
 
+  .cpk-td__tool-header:focus-visible {
+    outline: 2px solid var(--cpk-primary-color, #7076b3);
+    outline-offset: -2px;
+  }
+
   .cpk-td__tool-header:hover {
-    background: rgba(133, 236, 206, 0.22);
+    background: #fafafa;
   }
 
   .cpk-td__tool-name {
-    font-family: "Spline Sans Mono", monospace;
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 500;
-    color: #087653;
-    text-transform: uppercase;
+    color: #18181b;
+    overflow-wrap: anywhere;
+    min-width: 0;
     flex: 1;
   }
 
   .cpk-td__tool-status {
-    font-family: "Spline Sans Mono", monospace;
-    font-size: 9px;
-    text-transform: uppercase;
-    color: #087653;
+    font-size: 10px;
+    font-weight: 500;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: #d1fae5;
+    color: #065f46;
   }
 
   .cpk-td__tool-status--pending {
+    background: #fef3c7;
     color: #8a5900;
   }
 

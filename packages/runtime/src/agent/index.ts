@@ -46,7 +46,8 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createVertex } from "@ai-sdk/google-vertex";
-import { safeParseToolArgs } from "@copilotkit/shared";
+import { safeParseToolArgs, classifyModelHost } from "@copilotkit/shared";
+import type { ModelHostClass } from "@copilotkit/shared";
 import { z } from "zod";
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
 import { schemaToJsonSchema } from "@copilotkit/shared";
@@ -66,6 +67,20 @@ import { createStateEventNormalizer } from "./state-delta";
 import type { StreamableHTTPClientTransportOptions } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { randomUUID } from "@copilotkit/shared";
+
+import { SkillRegistry } from "../v2/runtime/intelligence-platform/skill-registry";
+import {
+  prepareLearnedSkills,
+  assertNoSkillToolConflicts,
+} from "./learned-skills";
+import type {
+  BuiltInAgentLearnedSkills,
+  BuiltInAgentLearnedSkillsOptions,
+} from "./learned-skills";
+export type {
+  BuiltInAgentLearnedSkills,
+  BuiltInAgentLearnedSkillsOptions,
+} from "./learned-skills";
 
 /**
  * Properties that can be overridden by forwardedProps
@@ -269,6 +284,58 @@ export function resolveModel(
 }
 
 /**
+ * Which vendor a model specifier will actually reach, as a closed vocabulary.
+ *
+ * `resolveModel` above is the only place this runtime builds a provider, so it
+ * is the only place that knows the endpoint. Once built, the endpoint is gone:
+ * an AI SDK model reports `provider: "openai.responses"` whether it points at
+ * api.openai.com, Azure, OpenRouter or a laptop, and its base URL survives
+ * only inside a closure that the public `LanguageModelV3` type does not
+ * expose. Azure's own migration guide tells customers to use that same OpenAI
+ * client, so the case we are blindest to is the common one.
+ *
+ * A caller who hands us an already-built LanguageModel gets `unknown`. Nobody
+ * can recover the host from it, and saying so is more useful than guessing
+ * `openai` from a provider label that means only "speaks the OpenAI wire".
+ *
+ * The branches below mirror `resolveModel`'s switch and must change with it.
+ * `model-host-class.test.ts` walks every provider that switch accepts and
+ * fails if one lands here as `unknown`.
+ */
+export function classifyModelSpec(spec: ModelSpecifier): ModelHostClass {
+  // A pre-built model: the endpoint was decided before it reached us.
+  if (typeof spec !== "string") return "unknown";
+
+  const provider = spec.replace("/", ":").trim().split(":")[0]?.toLowerCase();
+
+  switch (provider) {
+    case "openai":
+      return classifyModelHost(process.env.OPENAI_BASE_URL, "openai");
+    case "anthropic":
+      return classifyModelHost(process.env.ANTHROPIC_BASE_URL, "anthropic");
+    case "google":
+    case "gemini":
+    case "google-gemini":
+      return classifyModelHost(
+        process.env.GOOGLE_GENERATIVE_AI_BASE_URL,
+        "google",
+      );
+    case "minimax":
+      return classifyModelHost(
+        process.env.MINIMAX_BASE_URL || "https://api.minimax.io/v1",
+        "minimax",
+      );
+    case "vertex":
+      // `createVertex()` takes no base URL — the endpoint comes from ambient
+      // Google credentials, so there is nothing to classify and nothing to leak.
+      return "vertex";
+    default:
+      // `resolveModel` throws on anything else, so the run never starts.
+      return "unknown";
+  }
+}
+
+/**
  * Thrown by `AgentFactoryContext.interrupt()` on a fresh (non-resume) run to
  * pause the factory. Caught in `runFactory` and translated into a RUN_FINISHED
  * event carrying `outcome:{type:"interrupt",interrupts}`. Not a real error.
@@ -298,9 +365,8 @@ export interface ToolDefinition<
    * When true, calling this tool pauses the run and emits a standard AG-UI
    * interrupt (RUN_FINISHED outcome:interrupt) keyed by the tool call's id.
    * The human response (resume payload) is injected as this tool call's result
-   * on the resume run. Interrupt tools must NOT define `execute`, and require
-   * the default `maxSteps: 1` — with `maxSteps > 1` the AI SDK's agentic loop
-   * would try to continue past the unexecuted tool call instead of pausing.
+   * on the resume run. Interrupt tools must NOT define `execute`. The AI SDK
+   * pauses when a tool call has no result, even with a multi-step limit.
    */
   interrupt?: boolean;
   /** Optional categorical reason surfaced on the Interrupt (default: "tool_call"). */
@@ -788,6 +854,8 @@ export function convertToolDefinitionsToVercelAITools(
  * Context passed to the user-supplied factory function in factory mode.
  */
 export interface AgentFactoryContext {
+  /** Verified catalog and AI SDK tools for this run; empty when disabled or no skills exist. */
+  learnedSkills: BuiltInAgentLearnedSkills;
   input: RunAgentInput;
   /**
    * Prefer `abortSignal` for most use cases (AI SDK, fetch, custom backends).
@@ -807,12 +875,17 @@ export interface AgentFactoryContext {
   interrupt: (interrupts: Interrupt[]) => Promise<ResumeEntry[]>;
 }
 
+/** Public name that avoids the runtime's request-scoped AgentFactoryContext. */
+export type BuiltInAgentFactoryContext = AgentFactoryContext;
+
 /**
  * Factory config for AI SDK backend.
  * The factory must return an object with a `fullStream` async iterable
  * (compatible with the result of `streamText()` — only `fullStream` is consumed).
  */
 export interface BuiltInAgentAISDKFactoryConfig {
+  /** Opt in to automatic snapshot acquisition before each run, including resumes. */
+  learnedSkills?: BuiltInAgentLearnedSkillsOptions;
   type: "aisdk";
   factory: (
     ctx: AgentFactoryContext,
@@ -826,6 +899,8 @@ export interface BuiltInAgentAISDKFactoryConfig {
  * The factory must return an async iterable of TanStack AI stream chunks.
  */
 export interface BuiltInAgentTanStackFactoryConfig {
+  /** Opt in to automatic snapshot acquisition before each run, including resumes. */
+  learnedSkills?: BuiltInAgentLearnedSkillsOptions;
   type: "tanstack";
   factory: (
     ctx: AgentFactoryContext,
@@ -836,6 +911,8 @@ export interface BuiltInAgentTanStackFactoryConfig {
  * Factory config for a custom backend that directly yields AG-UI events.
  */
 export interface BuiltInAgentCustomFactoryConfig {
+  /** Opt in to automatic snapshot acquisition before each run, including resumes. */
+  learnedSkills?: BuiltInAgentLearnedSkillsOptions;
   type: "custom";
   factory: (
     ctx: AgentFactoryContext,
@@ -854,6 +931,8 @@ export type BuiltInAgentFactoryConfig =
  * Classic config — BuiltInAgent handles streamText, tools, MCP, state tools, prompt building.
  */
 export interface BuiltInAgentClassicConfig {
+  /** Opt in to automatic snapshot acquisition before each run, including resumes. */
+  learnedSkills?: BuiltInAgentLearnedSkillsOptions;
   /**
    * The model to use
    */
@@ -868,7 +947,7 @@ export interface BuiltInAgentClassicConfig {
    */
   apiKey?: string;
   /**
-   * Maximum number of steps/iterations for tool calling (default: 1)
+   * Maximum number of steps/iterations for tool calling (default: 1, or 10 when learned skills are available)
    */
   maxSteps?: number;
   /**
@@ -987,9 +1066,32 @@ function isFactoryConfig(
 
 export class BuiltInAgent extends AbstractAgent {
   private abortController?: AbortController;
+  private skillRegistry?: SkillRegistry;
+
+  /**
+   * Which vendor this agent's configured model reaches. Read by the SSE layer
+   * onto `agent_execution_stream_*` telemetry.
+   *
+   * Computed once, from the configured model, because that is what holds for
+   * the agent's lifetime. A per-request `forwardedProps.model` override
+   * (handled further down in `run`) can point somewhere else for one run and
+   * is not reflected here — overrides are rare and the field describes the
+   * agent, not the call.
+   *
+   * Factory-mode configs own their own LLM call, so there is no model for us
+   * to classify.
+   */
+  readonly modelHostClass: ModelHostClass;
 
   constructor(private config: BuiltInAgentConfiguration) {
     super();
+    this.skillRegistry =
+      config.learnedSkills === undefined
+        ? undefined
+        : new SkillRegistry(config.learnedSkills);
+    this.modelHostClass = isFactoryConfig(config)
+      ? "unknown"
+      : classifyModelSpec(config.model);
   }
 
   /**
@@ -1329,6 +1431,20 @@ export class BuiltInAgent extends AbstractAgent {
         };
 
         try {
+          const learnedSkills = await prepareLearnedSkills(
+            this.skillRegistry,
+            abortController.signal,
+          );
+          abortController.signal.throwIfAborted();
+          if (learnedSkills.catalog) {
+            messages.unshift({
+              role: "system",
+              content: learnedSkills.catalog,
+            });
+            // Loading a skill must leave room for a model step that uses it.
+            if (config.maxSteps === undefined)
+              streamTextParams.stopWhen = stepCountIs(10);
+          }
           // Add AG-UI state update tools
           streamTextParams.tools = {
             ...streamTextParams.tools,
@@ -1387,6 +1503,7 @@ export class BuiltInAgent extends AbstractAgent {
           if (config.mcpClients && config.mcpClients.length > 0) {
             for (const client of config.mcpClients) {
               const mcpTools = await client.tools();
+              abortController.signal.throwIfAborted();
               streamTextParams.tools = {
                 ...streamTextParams.tools,
                 ...mcpTools,
@@ -1417,6 +1534,7 @@ export class BuiltInAgent extends AbstractAgent {
                 // actually ask for SSE ever load it.
                 const { SSEClientTransport } =
                   await import("@modelcontextprotocol/sdk/client/sse.js");
+                abortController.signal.throwIfAborted();
                 // SSEClientTransport's second arg is SSEClientTransportOptions
                 // (`requestInit.headers`), not a raw header map. Passing
                 // `{ Authorization: ... }` as options is silently ignored.
@@ -1437,22 +1555,30 @@ export class BuiltInAgent extends AbstractAgent {
                 try {
                   mcpClient = await createMCPClient({ transport });
                 } catch (err) {
+                  abortController.signal.throwIfAborted();
                   console.error(
                     `[CopilotKit] MCP server ${serverConfig.url} failed to connect — skipping it for this run:`,
                     err,
                   );
                   continue;
                 }
+                // Unsubscribe may have already cleaned up while connection was pending.
+                if (abortController.signal.aborted) {
+                  await mcpClient.close();
+                  abortController.signal.throwIfAborted();
+                }
                 // Track it so it's closed on cleanup even if tools() fails.
                 mcpClients.push(mcpClient);
                 try {
                   // Get tools from this MCP server and merge with existing tools
                   const mcpTools = await mcpClient.tools();
+                  abortController.signal.throwIfAborted();
                   streamTextParams.tools = {
                     ...streamTextParams.tools,
                     ...mcpTools,
                   } as ToolSet;
                 } catch (err) {
+                  abortController.signal.throwIfAborted();
                   console.error(
                     `[CopilotKit] MCP server ${serverConfig.url} tools() failed — skipping its tools for this run:`,
                     err,
@@ -1461,6 +1587,15 @@ export class BuiltInAgent extends AbstractAgent {
               }
             }
           }
+
+          if (this.skillRegistry) {
+            assertNoSkillToolConflicts(streamTextParams.tools ?? {});
+            streamTextParams.tools = {
+              ...streamTextParams.tools,
+              ...learnedSkills.tools,
+            };
+          }
+          abortController.signal.throwIfAborted();
 
           // Call streamText and process the stream
           const response = streamText({
@@ -1892,13 +2027,17 @@ export class BuiltInAgent extends AbstractAgent {
             subscriber.error(error);
           }
         } finally {
-          this.abortController = undefined;
+          if (this.abortController === abortController)
+            this.abortController = undefined;
           await Promise.all(mcpClients.map((client) => client.close()));
         }
       })();
 
       // Cleanup function
       return () => {
+        abortController.abort();
+        if (this.abortController === abortController)
+          this.abortController = undefined;
         // Cleanup MCP clients if stream is unsubscribed
         Promise.all(mcpClients.map((client) => client.close())).catch(() => {
           // Ignore cleanup errors
@@ -1929,7 +2068,7 @@ export class BuiltInAgent extends AbstractAgent {
       };
       subscriber.next(startEvent);
 
-      const ctx: AgentFactoryContext = {
+      const ctx: Omit<AgentFactoryContext, "learnedSkills"> = {
         input,
         abortController: controller,
         abortSignal: controller.signal,
@@ -1984,11 +2123,20 @@ export class BuiltInAgent extends AbstractAgent {
         resumeToolMessages.length > 0 && config.type !== "custom"
           ? { ...input, messages: [...input.messages, ...resumeToolMessages] }
           : input;
-      const factoryCtx: AgentFactoryContext = { ...ctx, input: factoryInput };
 
       (async () => {
         const runFinishedDetails: AgentRunFinishedDetails = {};
         try {
+          const learnedSkills = await prepareLearnedSkills(
+            this.skillRegistry,
+            controller.signal,
+          );
+          controller.signal.throwIfAborted();
+          const factoryCtx: AgentFactoryContext = {
+            ...ctx,
+            input: factoryInput,
+            learnedSkills,
+          };
           let events: AsyncIterable<BaseEvent>;
           let customRunFinishedEvent: RunFinishedEvent | undefined;
           // Filled by the converters with one Interrupt per native approval
@@ -2019,7 +2167,7 @@ export class BuiltInAgent extends AbstractAgent {
               break;
             }
             case "custom": {
-              events = await config.factory(ctx);
+              events = await config.factory(factoryCtx);
               break;
             }
             default: {
@@ -2087,18 +2235,27 @@ export class BuiltInAgent extends AbstractAgent {
             subscriber.error(error);
           }
         } finally {
-          this.abortController = undefined;
+          if (this.abortController === controller)
+            this.abortController = undefined;
         }
       })();
 
       return () => {
         controller.abort();
+        if (this.abortController === controller)
+          this.abortController = undefined;
       };
     });
   }
 
   clone() {
-    const cloned = new BuiltInAgent(this.config);
+    // Reuse resolved delivery configuration; cloning must not re-read environment.
+    const cloned = new BuiltInAgent({
+      ...this.config,
+      learnedSkills: undefined,
+    });
+    cloned.config = this.config;
+    cloned.skillRegistry = this.skillRegistry;
     // AbstractAgent.middlewares is private in @ag-ui/client — no public accessor exists.
     // This coupling is intentional: clone() must preserve middleware chains.
     // @ts-expect-error accessing private AbstractAgent.middlewares

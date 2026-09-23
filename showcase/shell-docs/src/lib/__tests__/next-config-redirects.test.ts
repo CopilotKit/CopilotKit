@@ -5,6 +5,31 @@ describe("next.config redirects", () => {
     vi.unstubAllEnvs();
   });
 
+  it("keeps /intelligence/channels on the Intelligence page", async () => {
+    vi.stubEnv("NEXT_PUBLIC_BASE_URL", "http://localhost:3003");
+    vi.stubEnv("NEXT_PUBLIC_SHELL_URL", "http://localhost:3000");
+
+    const nextConfig = (await import("../../../next.config")).default;
+    const redirects = (await nextConfig.redirects?.()) ?? [];
+    const frameworkChannels = redirects.filter(
+      (redirect) =>
+        redirect.source.startsWith("/:framework((?!") &&
+        /\/channels(?:\.mdx?)?$/.test(redirect.source),
+    );
+
+    expect(frameworkChannels.length).toBeGreaterThan(0);
+    for (const redirect of frameworkChannels) {
+      const excluded =
+        redirect.source.match(/\(\?!([^)]+)\)/)?.[1]?.split("|") ?? [];
+      expect(excluded).toContain("intelligence");
+      expect(excluded).toContain("reference");
+      const pattern = new RegExp(`^(?!${excluded.join("|")})[^/]+$`);
+      expect(pattern.test("intelligence")).toBe(false);
+      expect(pattern.test("reference")).toBe(false);
+      expect(pattern.test("langgraph")).toBe(true);
+    }
+  });
+
   it("does not redirect authored framework-scoped Generative UI component pages", async () => {
     vi.stubEnv("NEXT_PUBLIC_BASE_URL", "http://localhost:3003");
     vi.stubEnv("NEXT_PUBLIC_SHELL_URL", "http://localhost:3000");
@@ -70,45 +95,45 @@ describe("next.config redirects", () => {
         {
           source: "/ag-ui/:path*",
           destination: "https://docs.ag-ui.com/:path*",
-          permanent: true,
+          statusCode: 301,
         },
         // Upstream serves `.md` but not `.mdx`, so both collapse onto `.md`.
         {
           source: "/ag-ui/:path*.md",
           destination: "https://docs.ag-ui.com/:path*.md",
-          permanent: true,
+          statusCode: 301,
         },
         {
           source: "/ag-ui/:path*.mdx",
           destination: "https://docs.ag-ui.com/:path*.md",
-          permanent: true,
+          statusCode: 301,
         },
         // Mirror root rendered the upstream introduction page.
         {
           source: "/ag-ui",
           destination: "https://docs.ag-ui.com/introduction",
-          permanent: true,
+          statusCode: 301,
         },
         // Paths with no upstream equivalent land on the nearest live page.
         {
           source: "/ag-ui/drafts/interrupts",
           destination: "https://docs.ag-ui.com/concepts/interrupts",
-          permanent: true,
+          statusCode: 301,
         },
         {
           source: "/ag-ui/drafts/multimodal-messages",
           destination: "https://docs.ag-ui.com/concepts/messages",
-          permanent: true,
+          statusCode: 301,
         },
         {
           source: "/ag-ui/sdk/dart/client/overview",
           destination: "https://docs.ag-ui.com/sdk/dart/overview",
-          permanent: true,
+          statusCode: 301,
         },
         {
           source: "/ag-ui/sdk/rust/core/types",
           destination: "https://docs.ag-ui.com/sdk/rust/overview",
-          permanent: true,
+          statusCode: 301,
         },
       ]),
     );
@@ -137,6 +162,8 @@ describe("next.config redirects", () => {
     expect(exceptions).toHaveLength(30);
     for (const exception of exceptions) {
       expect(redirects.indexOf(exception)).toBeLessThan(catchAll);
+      expect(exception).toMatchObject({ statusCode: 301 });
+      expect(exception).not.toHaveProperty("permanent");
     }
   });
 });

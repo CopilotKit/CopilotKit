@@ -8,7 +8,7 @@ const THREADS_EXAMPLE_OVERVIEW_VIDEO_URL =
   "https://cdn.copilotkit.ai/corp-site/videos/copilotkit-generative-ui-agentic-frontend-demo.webm";
 
 const THREADS_EXAMPLE_OVERVIEW_VIDEO_FALLBACK =
-  "The demo video is unavailable. Use the example threads to explore Messages, AG-UI Events, and State.";
+  "The demo video is unavailable. Use the example threads to explore Conversation, AG-UI Events, and State.";
 
 export interface ThreadsExampleVideoEnvironment {
   state: ThreadsState;

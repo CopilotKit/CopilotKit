@@ -1248,7 +1248,7 @@ test("a thread failure names its own class on the launcher and its entry", async
     root(context.inspector)
       .querySelector('button[data-inspector-menu-key="threads"]')
       ?.getAttribute("aria-label"),
-  ).toBe("Threads, thread loading error");
+  ).toBe("Rich Threads, thread loading error");
 });
 
 // The contract this test guards CHANGED with the pill: "nothing overlays the

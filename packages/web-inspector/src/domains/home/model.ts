@@ -355,7 +355,7 @@ function heroForState(args: {
       // assistive tech and this one stable sentence is exposed instead. It has
       // to carry the whole chain on its own.
       body: renewing
-        ? "Renew Intelligence to restore persistent Threads and Memory."
+        ? "Renew Intelligence to restore Rich Threads and Automatic Learning."
         : "Intelligence keeps every thread your users have, finds evidence-backed patterns in them, and proposes skills you approve before your agent uses them.",
       action: connectIntelligenceAction(
         args.action,
@@ -368,7 +368,7 @@ function heroForState(args: {
   return {
     connection: "connected",
     title: "Connected to Intelligence",
-    body: "Use Workbench to inspect threads and memory.",
+    body: "Use Workbench to inspect Rich Threads and Automatic Learning.",
     action:
       args.action?.kind === "enable_intelligence" ? undefined : args.action,
   };
@@ -579,14 +579,14 @@ export function buildHomeModel(input: HomeBriefingInput): HomeModel {
     services: [
       {
         id: "threads",
-        label: "Threads",
+        label: "Rich Threads",
         enabled: intelligenceConnected && input.threadsAvailable,
         url: input.runtimeUrl,
         docsUrl: SERVICE_DOCS_URL.threads,
       },
       {
         id: "memory",
-        label: "Learning",
+        label: "Automatic Learning",
         enabled: intelligenceConnected && input.learningOn,
         docsUrl: SERVICE_DOCS_URL.memory,
       },

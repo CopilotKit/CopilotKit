@@ -1,6 +1,39 @@
 import { css } from "lit";
 
 export const threadInspectorDetailStyles = css`
+  /* ── Thread header ───────────────────────────────────────────── */
+  .cpk-td__thread-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 16px;
+    padding: 12px 16px;
+    flex-shrink: 0;
+    border-bottom: 1px solid #dbdbe540;
+  }
+
+  .cpk-td__thread-title {
+    flex: 1 1 180px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .cpk-td__pinned-actions {
+    margin-left: auto;
+    max-width: 100%;
+  }
+
+  .cpk-td__pinned-actions .cpk-td__timeline-toolbar {
+    justify-content: flex-end;
+  }
+
+  .cpk-td__timeline-bulk-toggle[aria-pressed="true"] {
+    background: #ece7fa;
+    color: #51418b;
+  }
+
   /* ── Generative UI ──────────────────────────────────────────────── */
   @keyframes cpk-genui-enter {
     from {
@@ -17,21 +50,25 @@ export const threadInspectorDetailStyles = css`
     display: flex;
     flex-direction: column;
     gap: 6px;
-    padding: 4px 16px 8px;
+    padding: 0;
     animation: cpk-genui-enter 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .cpk-td__genui-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
-    border-radius: 5px;
-    background: #eee6fe;
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 12px;
+    min-height: 44px;
+    box-sizing: border-box;
+    border: 1px solid #e5def5;
+    border-radius: 12px;
+    background: #f7f4fc;
     color: #57575b;
-    font-size: 10px;
-    font-weight: 600;
-    align-self: flex-start;
+    font-size: 13px;
+    line-height: 20px;
+    font-weight: 500;
   }
 
   .cpk-td__genui-card {
@@ -42,13 +79,13 @@ export const threadInspectorDetailStyles = css`
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08);
   }
 
-  .cpk-td__genui-placeholder {
-    padding: 8px 12px;
-    border-radius: 10px;
-    border: 1px solid #ede9fe;
-    background: #f5f3ff;
-    color: #7c3aed;
-    font-size: 11px;
+  .cpk-td__genui-component {
+    margin-left: 6px;
+    font-size: 13px;
+    font-weight: 400;
+    overflow-wrap: anywhere;
+    min-width: 0;
+    line-height: inherit;
   }
 
   /* ── AG-UI Events ────────────────────────────────────────────────── */

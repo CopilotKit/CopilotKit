@@ -41,7 +41,6 @@ export const threadInspectorDarkStyles = css`
 
   :host([data-color-scheme="dark"]) .cpk-td__metadata-pill,
   :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
-  :host([data-color-scheme="dark"]) .cpk-td__bubble-inner--assistant,
   :host([data-color-scheme="dark"]) .cpk-td__tool-block,
   :host([data-color-scheme="dark"]) .cpk-td__event,
   :host([data-color-scheme="dark"]) .cpk-td__genui-card,
@@ -207,5 +206,41 @@ export const threadInspectorDarkStyles = css`
 
   :host([data-color-scheme="dark"]) .cpk-tdp__divider {
     background: #343742;
+  }
+
+  :host([data-color-scheme="dark"]) .cpk-td__bubble-inner--assistant {
+    background: transparent;
+    color: #e7e7ed;
+  }
+
+  :host([data-color-scheme="dark"]) .cpk-td__bubble-inner--user {
+    background: #27272a;
+    color: #f4f4f5;
+  }
+
+  :host([data-color-scheme="dark"]) .cpk-td__show-more {
+    color: #c5b5ff;
+  }
+
+  :host([data-color-scheme="dark"]) .cpk-td__genui-badge {
+    border-color: #49405f;
+  }
+
+  :host([data-color-scheme="dark"]) .cpk-td__tool-header {
+    background: #191c24;
+  }
+
+  :host([data-color-scheme="dark"]) .cpk-td__tool-name {
+    color: #f4f4f5;
+  }
+
+  :host([data-color-scheme="dark"]) .cpk-td__tool-status {
+    background: #17392e;
+    color: #6ee7b7;
+  }
+
+  :host([data-color-scheme="dark"]) .cpk-td__tool-status--pending {
+    background: #3d3019;
+    color: #fbbf24;
   }
 `;

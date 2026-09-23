@@ -115,7 +115,7 @@ function renderSystemHealth(model: HomeModel, actions: HomeViewActions) {
       class="inspector-home-section-header inspector-system-health-header"
     >
       <div class="inspector-system-health-heading">
-        <h1 class="inspector-home-section-title">System Health</h1>
+        <h2 class="inspector-home-section-title">System Health</h2>
       </div>
       <span
         class="inspector-system-health-state"

@@ -15,7 +15,7 @@
  * system prompt teaches the LLM the sandbox-function calling contract.
  */
 
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { SystemMessage } from "@langchain/core/messages";
 import {
   MemorySaver,
@@ -86,7 +86,7 @@ type AgentState = typeof AgentStateAnnotation.State;
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
   const model = makeChatOpenAI(config, {
-    model: "gpt-4.1",
+    model: "gpt-5-mini",
     modelKwargs: { parallel_tool_calls: false },
   });
 

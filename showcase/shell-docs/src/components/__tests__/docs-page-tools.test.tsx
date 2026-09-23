@@ -120,3 +120,27 @@ describe("docsMarkdownUrl", () => {
     expect(docsMarkdownUrl("", "quickstart")).toBe("/quickstart.mdx");
   });
 });
+
+it("includes the quickstart goal with its framework, frontend, and source", async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.assign(navigator, { clipboard: { writeText } });
+  render(
+    <DocsPageTools
+      slugPath="quickstart"
+      slugHrefPrefix="/angular/mastra"
+      githubUrl={GITHUB_URL}
+      onboardingFramework={{ slug: "mastra", name: "Mastra" }}
+      onboardingFrontend={{ id: "angular", name: "Angular" }}
+      promptTask="Connect an Angular app to Copilot Runtime."
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: /copy prompt/i }));
+  await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+  const prompt = writeText.mock.calls[0][0];
+  expect(prompt).toContain("Mastra");
+  expect(prompt).toContain("Angular");
+  expect(prompt).toContain("/angular/mastra/quickstart.mdx");
+  expect(prompt).toContain(
+    "My goal for this quickstart is: Connect an Angular app to Copilot Runtime.",
+  );
+});

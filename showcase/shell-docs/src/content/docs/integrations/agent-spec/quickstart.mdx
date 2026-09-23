@@ -6,10 +6,11 @@ hideTOC: true
 ---
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
-<IntelligenceOnboardingPrompt
-  feature="learning"
-  surface="docs_agent_spec_quickstart"
-/>
+## Start with your coding agent
+
+Use this prompt to connect your Agent Spec agent to CopilotKit and verify a working conversation. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
+
+<PageAgentPrompt />
 
 ## Prerequisites
 
@@ -20,9 +21,9 @@ import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.m
 
 <Steps>
   <Step>
-    ### Create a free account
+    ### Set up CopilotKit Intelligence
 
-    <SignupLink surface="docs_agent_spec_quickstart_step1">Sign up for a free developer account</SignupLink> for CopilotKit Intelligence to get a license key. You'll use it later to enable persistent threads and the inspector.
+    <SignupLink surface="docs_agent_spec_quickstart_step1">Sign in to cloud-hosted Intelligence</SignupLink>. Cloud-hosted setup uses a server-side project API key and does not issue `COPILOTKIT_LICENSE_TOKEN`. You will connect the app after you create or clone it below.
   </Step>
 
   <Step>
@@ -40,7 +41,7 @@ import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.m
       description="Get started quickly with our ready-to-go Agent Spec starter."
     >
       <Step>
-          ### Install the Agent Spec AG‑UI adapter (backend) 
+          ### Install the Agent Spec AG‑UI adapter (backend)
 
           The AG‑UI integration for Agent Spec lives in `ag-ui/integrations/agent-spec/python`. You will need it to activate your agent environment in the starter. Here's how to install it:
 
@@ -90,7 +91,7 @@ import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.m
           uv add pyagentspec[langgraph]
           uv add wayflowcore
           ```
-        
+
       </Step>
       <Step>
           ### Configure your environment
@@ -105,7 +106,7 @@ import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.m
           Reference: Agent Spec docs AG‑UI tutorial at https://oracle.github.io/agent-spec/26.1.0/howtoguides/howto_ag_ui.html.
       </Step>
       <Step>
-          ### Scaffold the UI 
+          ### Scaffold the UI
 
           Use our starter repo template: https://github.com/CopilotKit/with-agent-spec. It includes an example definition of an Agent Spec agent [here](https://github.com/CopilotKit/with-agent-spec/blob/main/agent/src/agentspec_agent.py). Run the following commands
 
@@ -120,7 +121,10 @@ import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.m
           ```bash
           git clone https://github.com/CopilotKit/with-agent-spec.git
           cd with-agent-spec
+          npx copilotkit@latest project select
           ```
+
+          `project select` writes the server-side project API key to `.env` as `CPK_INTELLIGENCE_API_KEY`.
 
       </Step>
       <Step>
@@ -131,7 +135,7 @@ import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.m
           ```bash
           pnpm install
           ```
-          
+
       </Step>
       <Step>
           ### Run your project
@@ -173,7 +177,7 @@ import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.m
         <OpenInspectorStep components={props.components} />
     </Step>
 
-      
+
     </TailoredContentOption>
     <TailoredContentOption
       id="bring-your-own"
@@ -252,7 +256,7 @@ import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.m
           cd ag_ui_agentspec
           ```
 
-          create a main.py file in the ag_ui_agentspec directory 
+          create a main.py file in the ag_ui_agentspec directory
 
 
           ```bash
@@ -281,7 +285,7 @@ import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.m
 
           #OR you can specify your own agent_spec_config like below
           #agent_spec_config = <loaded json/yaml string of your Agent Spec agent>
-          
+
           runtime = "langgraph"  # or "wayflow"
 
           app = FastAPI()
@@ -358,7 +362,7 @@ import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.m
             Drop the `intelligence` and `identifyUser` options and the runtime falls back
             to SSE mode with an in-memory runner. Chat still works, but Threads and the
             Inspector stay locked and the key is never read. See
-            [Connect your runtime to Intelligence](/intelligence/connect-your-runtime) for the
+            [Connect your runtime to Intelligence](/intelligence/quickstart) for the
             full constructor and how to confirm the key is in use.
           </Callout>
       </Step>
@@ -367,8 +371,25 @@ import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.m
 
           Wrap your application with the CopilotKit provider:
 
+          ```tsx title="app/providers.tsx"
+          "use client";
+
+          import { CopilotKit } from "@copilotkit/react-core/v2";
+
+          export function Providers({ children }: { children: React.ReactNode }) {
+            return (
+              <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
+                {children}
+              </CopilotKit>
+            );
+          }
+          ```
+
+          `app/layout.tsx` is a server component and cannot import the provider
+          directly, so it renders your client file instead:
+
           ```tsx title="app/layout.tsx"
-          import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+          import { Providers } from "./providers"; // [!code highlight]
           import "@copilotkit/react-core/v2/styles.css";
           import './globals.css';
 
@@ -379,9 +400,9 @@ import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.m
               <html lang="en">
                 <body>
                   {/* [!code highlight:3] */}
-                  <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
+                  <Providers>
                     {children}
-                  </CopilotKit>
+                  </Providers>
                 </body>
               </html>
             );
@@ -402,6 +423,8 @@ import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.m
         Add the CopilotSidebar component to your page:
 
         ```tsx title="app/page.tsx"
+        "use client"; // [!code highlight]
+
         import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
 
         export default function Page() {
@@ -521,7 +544,7 @@ agent = AgentSpecAgent(
 add_agentspec_fastapi_endpoint(app, agentspec_agent=agent, path="/")
 ```
 
-Frontend tools (corresponding to Agent Spec `ClientTool`) run in the browser and don't need to be added to the tool registry — see [Generative UI Frontend Tools](/agent-spec/frontend-tools) for details.
+Frontend tools (corresponding to Agent Spec `ClientTool`) run in the browser and don't need to be added to the tool registry — see [Generative UI Frontend Tools](/frontend-tools) for details.
 
 ## What is happening under the hood
 

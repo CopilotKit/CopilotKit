@@ -511,7 +511,7 @@ async function setup(options: SetupOptions): Promise<CapabilityHarness> {
       const threadsButton = Array.from(
         inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ??
           [],
-      ).find((button) => button.textContent?.trim() === "Threads");
+      ).find((button) => button.textContent?.trim() === "Rich Threads");
       if (!threadsButton) throw new Error("Threads menu button not found");
       threadsButton.click();
       await flushInspector(inspector);
@@ -742,6 +742,10 @@ test("inspect true loads events, empty-events messages fallback, and state witho
     directInspector.threadInspectionAvailable = true;
     document.body.append(directInspector);
     await directInspector.updateComplete;
+    Array.from(directInspector.shadowRoot!.querySelectorAll("button"))
+      .find((button) => button.textContent?.trim() === "Show event timeline")!
+      .click();
+    await directInspector.updateComplete;
     await vi.waitFor(() => {
       expect(providerSignals).toHaveLength(1);
       expect(directInspector.shadowRoot?.textContent).toContain("Run started");
@@ -953,7 +957,9 @@ test("enabled zero keeps all three local examples and their providers off real r
 
     await harness.selectThread("Realtime thread sync");
     await vi.waitFor(() =>
-      expect(harness.detailsText()).toContain("Run started"),
+      expect(
+        harness.details()?.shadowRoot?.querySelector(".cpk-td__bubble"),
+      ).not.toBeNull(),
     );
     const detail = harness.details();
     if (!detail?.provider?.getMessages) {
