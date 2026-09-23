@@ -1,16 +1,20 @@
-fastapi>=0.115.0
-uvicorn[standard]>=0.34.0
+# Floors are the versions resolved and tested (google-adk 2.9.2 itself needs
+# fastapi>=0.133; ag-ui-adk 0.7.0 needs uvicorn>=0.35).
+fastapi>=0.141.1
+uvicorn[standard]>=0.53.0
 python-dotenv
 pydantic
-google-adk
+google-adk==2.9.2
 # google-genai is required by both the primary LlmAgent (via google-adk) and
-# the secondary generate_a2ui planner call. Explicit pin keeps the version
-# floor independent of google-adk's transitive resolution.
-google-genai>=0.8.0
+# the secondary generate_a2ui planner call. google-adk 2.9.2 needs
+# google-genai>=2.19,<3.
+google-genai==2.25.0
 # 0.7.0 ships the OSS-158 A2UI middleware path (auto-injected generate_a2ui,
 # toolkit recovery loop, render_as_llm_instructions prompt + parse_and_fix
-# healing, hard-failure envelope). Raises the effective google-adk floor to
-# >=1.28.1 and adds a2ui-agent-sdk + ag-ui-a2ui-toolkit transitively.
-# ag-ui-protocol stays at 0.1.18 (satisfies the middleware's >=0.1.15 floor).
+# healing, hard-failure envelope). It needs google-adk>=1.28.1,<3 and
+# a2ui-agent-sdk>=0.2.4,<0.3.0, and adds ag-ui-a2ui-toolkit transitively.
 ag-ui-adk==0.7.0
-ag-ui-protocol==0.1.18
+a2ui-agent-sdk==0.2.4
+# Stays on 0.1.x: CopilotKit 1.73.3 speaks the pre-1.0 AG-UI protocol, so
+# ag-ui-protocol 1.0.0 is not supported yet.
+ag-ui-protocol==0.1.22
