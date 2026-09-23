@@ -82,7 +82,7 @@ it("plays a silent local loop only in view, then replaces it with full Loom play
   );
   expect(container.querySelector("video")).toBeNull();
   expect(container.querySelector("iframe")?.src).toContain(
-    "https://www.loom.com/embed/recording?autoplay=1",
+    "https://www.loom.com/embed/recording?autoplay=1&t=0s",
   );
 });
 it("keeps the poster under reduced motion while allowing explicit full playback", () => {

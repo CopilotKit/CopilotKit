@@ -106,7 +106,7 @@ export function DocsVideoPreview({ title, loomId, poster, previewSrc }: Props) {
           }
         >
           <iframe
-            src={`${LOOM_ORIGIN}/embed/${loomId}?autoplay=1&hide_owner=true&hide_title=true`}
+            src={`${LOOM_ORIGIN}/embed/${loomId}?autoplay=1&t=0s&hide_owner=true&hide_title=true`}
             title={`${title}: full walkthrough`}
             className="h-full w-full"
             allow="autoplay; fullscreen"
