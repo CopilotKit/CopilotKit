@@ -5,15 +5,15 @@ description: Run a production Channels listener, expose truthful health checks, 
 doc_type: how-to
 ---
 
+import ChannelsSdkInstall from "@/snippets/shared/channels/install-sdk-pair.mdx";
+
 A managed Channel is a long-running worker with an outbound realtime
 connection. It is not a serverless request handler. Deploy it like a queue
 consumer or WebSocket worker.
 
 ## Use the tested runtime pair
 
-```bash title="Terminal"
-npm install --save-exact @copilotkit/channels@0.9.2 @copilotkit/runtime@1.70.2
-```
+<ChannelsSdkInstall />
 
 Run Node.js 22 or later. The managed launcher relies on the global `WebSocket`
 available in Node.js 22+.

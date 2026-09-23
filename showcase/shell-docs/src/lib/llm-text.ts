@@ -37,6 +37,7 @@ import path from "path";
 import matter from "gray-matter";
 import { frameworkOverviews } from "@/data/frameworks";
 import { INTELLIGENCE_ONBOARDING_PROMPT } from "./intelligence-onboarding-prompt";
+import { createChannelsOnboardingPrompt } from "./channels-onboarding-prompt";
 import {
   isV1ReferenceUrl,
   renderV1DeprecationNoticeUseV2InsteadMarkdown,
@@ -754,6 +755,34 @@ function expandRichThreadsSetupPrompts(body: string): string {
   );
 }
 
+/**
+ * Expand the Channels start card for raw Markdown consumers. The live card
+ * mints a run id per click, so the Markdown carries the placeholder and says
+ * how to fill it, then links both provider guides for the manual path.
+ */
+function expandChannelsStartPrompts(
+  body: string,
+  frontend: FrontendId | undefined,
+): string {
+  const channelLabel =
+    frontend === "teams"
+      ? "Microsoft Teams"
+      : frontend === "slack"
+        ? "Slack"
+        : "Slack or Microsoft Teams";
+  return body.replace(/<ChannelsStartPrompt\s*\/>/g, () =>
+    [
+      `### Set up ${channelLabel} with your coding agent`,
+      "",
+      "Replace `<run-id>` with a fresh 12-character hexadecimal run ID before your coding agent fetches the URL.",
+      "",
+      fenceFor("text", createChannelsOnboardingPrompt("<run-id>")),
+      "",
+      `To connect and run the agent yourself, follow [Connect and run your agent in Slack](${channelConnectHref("slack", undefined)}) or [Connect and run your agent in Microsoft Teams](${channelConnectHref("teams", undefined)}).`,
+    ].join("\n"),
+  );
+}
+
 /** Expand the Automatic Learning prompt for raw Markdown consumers. */
 function expandLearningSetupPrompts(body: string): string {
   return body.replace(
@@ -951,6 +980,7 @@ export function renderPageToLlmText(
     /<PageAgentPrompt\s*\/>/g,
     "Ask your coding agent to follow the setup steps on this page for your selected framework and frontend.",
   );
+  body = expandChannelsStartPrompts(body, frontend);
   body = expandRichThreadsSetupPrompts(body);
   body = expandLearningSetupPrompts(body);
   body = body.replace(

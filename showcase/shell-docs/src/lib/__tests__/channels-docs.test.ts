@@ -1,8 +1,14 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { buildRootSurfaceNav, loadDoc, readTitle } from "../docs-render";
+import {
+  buildRootSurfaceNav,
+  inlineSnippets,
+  loadDoc,
+  readTitle,
+} from "../docs-render";
 import type { NavNode } from "../docs-render";
+import { renderPageToLlmText } from "../llm-text";
 import { filterFrontendScopedBlocks } from "../toc";
 
 const maintainedChannelSlugs = [
@@ -42,6 +48,34 @@ const channelReferenceFiles = {
   directAdapters: "../../content/reference/channels/sdk/direct-adapters.mdx",
   index: "../../content/reference/channels/index.mdx",
 } as const;
+
+// The one place the Channels install command lives. Every page that shows the
+// command imports this snippet instead of repeating the versions.
+const channelsInstallSnippet =
+  "../../content/snippets/shared/channels/install-sdk-pair.mdx";
+const channelsInstallImport =
+  'import ChannelsSdkInstall from "@/snippets/shared/channels/install-sdk-pair.mdx";';
+const channelsInstallDocSlugs = [
+  "frontends/slack",
+  "frontends/teams",
+  "channels/deploy-and-operate",
+] as const;
+const channelsInstallReferenceKeys = ["index", "directAdapters"] as const;
+
+/** Version of a monorepo package, read from its own package.json. */
+function repoPackageVersion(packageDir: string): string {
+  const manifest = JSON.parse(
+    readFileSync(
+      new URL(
+        `../../../../../packages/${packageDir}/package.json`,
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  ) as { version?: unknown };
+  expect(manifest.version, `${packageDir} version`).toBeTypeOf("string");
+  return manifest.version as string;
+}
 
 function bodyFor(slug: (typeof maintainedChannelSlugs)[number]): string {
   const doc = loadDoc(slug);
@@ -189,40 +223,153 @@ describe("Channels documentation journey", () => {
     expect(loadDoc("frontends/whatsapp")).toBeNull();
   });
 
-  it("installs the exact stable Channels SDK pair in both provider quickstarts", () => {
-    const testedInstall =
-      "npm install --save-exact @copilotkit/channels@0.9.2 @copilotkit/runtime@1.70.2";
-    const nonExactInstall =
-      "npm install @copilotkit/channels@0.9.2 @copilotkit/runtime@1.70.2";
+  it("installs the current Channels and Runtime releases from one shared snippet", () => {
+    const channelsVersion = repoPackageVersion("channels");
+    const runtimeVersion = repoPackageVersion("runtime");
+    const testedInstall = `npm install --save-exact @copilotkit/channels@${channelsVersion} @copilotkit/runtime@${runtimeVersion}`;
+    const snippet = readFileSync(
+      new URL(channelsInstallSnippet, import.meta.url),
+      "utf8",
+    );
 
+    // Fails as soon as a release bumps either package without the docs.
+    expect(
+      snippet,
+      "the shared install snippet drifted from packages/channels and packages/runtime",
+    ).toContain(testedInstall);
+    expect(snippet).toMatch(
+      /Channels API needs `@copilotkit\/runtime` 1\.63\.0 or later/,
+    );
+    expect(snippet).toMatch(/two copies of `@copilotkit\/channels-core`/);
+
+    const pages = [
+      ...channelsInstallDocSlugs.map((slug) => ({
+        name: slug,
+        source: loadDoc(slug)?.source ?? "",
+      })),
+      ...channelsInstallReferenceKeys.map((key) => ({
+        name: `reference ${key}`,
+        source: readFileSync(
+          new URL(channelReferenceFiles[key], import.meta.url),
+          "utf8",
+        ),
+      })),
+    ];
+
+    for (const { name, source } of pages) {
+      expect(source, `${name} imports the shared install`).toContain(
+        channelsInstallImport,
+      );
+      expect(source, name).toContain("<ChannelsSdkInstall />");
+      // A version typed into a page is the drift this snippet replaced.
+      expect(source, `${name} repeats a package version`).not.toMatch(
+        /@copilotkit\/(?:channels|runtime)@\d/,
+      );
+
+      const rendered = inlineSnippets(source, name);
+      expect(rendered, name).toContain(testedInstall);
+      expect(rendered, `${name} has an unpinned Channels install`).not.toMatch(
+        /npm install\s+@copilotkit\/channels(?!@)\b/,
+      );
+      expect(rendered, `${name} has an unpinned runtime install`).not.toMatch(
+        /npm install[^\n]*@copilotkit\/runtime(?!@)\b/,
+      );
+      expect(rendered, `${name} uses a moving package tag`).not.toMatch(
+        /@copilotkit\/(?:channels|runtime)@(?:latest|next)\b/,
+      );
+      expect(
+        rendered.match(/npm install[^\n]*@copilotkit\/channels@/g),
+        `${name} shows exactly one Channels install`,
+      ).toHaveLength(1);
+    }
+
+    const allChannelSources = [
+      ...maintainedChannelSlugs.map((slug) => loadDoc(slug)?.source ?? ""),
+      ...Object.keys(channelReferenceFiles).map((key) =>
+        referenceBodyFor(key as keyof typeof channelReferenceFiles),
+      ),
+    ].join("\n");
+    expect(allChannelSources).not.toMatch(
+      /@copilotkit\/(?:channels|runtime)@\d/,
+    );
+  });
+
+  it("names the runner's own requirements next to the provider snippets", () => {
     for (const slug of providerQuickstartSlugs) {
       const source = bodyFor(slug);
 
-      expect(source, slug).toContain(testedInstall);
+      // A Channel answers only through its own agent.
+      expect(source, slug).toContain("agents: {},");
+      expect(source, slug).toMatch(
+        /does not fall\s+back to the runtime's `agents` map/,
+      );
+      expect(source, slug).toMatch(
+        /declared without `agent` fails every `runAgent\(\)` call/,
+      );
+
+      // The lifecycle port must not collide with `next dev`.
+      expect(source, slug).toContain("Number(process.env.PORT ?? 3001)");
+      expect(source, slug).toContain("PORT=3001");
+      expect(source, slug).not.toContain("PORT ?? 3000");
+      expect(source, slug).not.toContain("PORT=3000");
+      expect(source, slug).toMatch(
+        /`PORT` is the Channel runner's own lifecycle port[\s\S]{0,120}`next dev`[\s\S]{0,80}3000/,
+      );
+
+      // A web UI on the same Intelligence runtime needs its own identity.
+      expect(source, slug).toContain(
+        'title="Also serving a web chat from this runtime?"',
+      );
+      expect(source, slug).toMatch(
+        /must set its own top-level `identifyUser` on\s+`CopilotRuntime`/,
+      );
+      expect(source, slug).toMatch(
+        /hides every agent\s+from `\/info` and the web chat loses its agents/,
+      );
       expect(
-        source,
-        `${slug} allows npm to rewrite the tested versions`,
-      ).not.toContain(nonExactInstall);
-      expect(source, `${slug} has an unpinned Channels install`).not.toMatch(
-        /npm install\s+@copilotkit\/channels(?!@)\b/,
+        source.indexOf("Also serving a web chat from this runtime?"),
+        `${slug} places the identity callout after the runtime`,
+      ).toBeGreaterThan(source.indexOf("const runtime = new CopilotRuntime({"));
+
+      // tsx stays the run command, with the compiled fallback beside it.
+      expect(source, slug).toContain(
+        "node --env-file=.env --import tsx channel.ts",
       );
-      expect(source, `${slug} has an unpinned runtime install`).not.toMatch(
-        /npm install[^\n]*@copilotkit\/runtime(?!@)\b/,
+      expect(source, slug).toContain(
+        'title="If tsx cannot resolve fast-json-patch"',
       );
-      expect(source, `${slug} uses a moving package tag`).not.toMatch(
-        /@copilotkit\/(?:channels|runtime)@(?:latest|next)\b/,
-      );
-      expect(source, `${slug} retains Channels 0.5.0`).not.toContain(
-        "@copilotkit/channels@0.5.0",
-      );
-      expect(
-        source,
-        `${slug} retains the broken Channels 0.6.0 release`,
-      ).not.toContain("@copilotkit/channels@0.6.0");
-      expect(source, `${slug} retains Runtime 1.64.2`).not.toContain(
-        "@copilotkit/runtime@1.64.2",
-      );
+      expect(source, slug).toContain("npx tsc --noEmit false --outDir dist");
+      expect(source, slug).toContain("node --env-file=.env dist/channel.js");
     }
+
+    const createChannel = referenceBodyFor("createChannel");
+    expect(createChannel).toMatch(
+      /\| `agent` [^\n]*Required for the Channel to answer\. There is no fallback to the runtime's `agents` map/,
+    );
+  });
+
+  it("renders the Channels start prompt and both connect guides in Markdown", () => {
+    const doc = loadDoc("channels");
+    expect(doc).not.toBeNull();
+
+    const output = renderPageToLlmText({
+      url: "channels",
+      title: doc!.fm.title,
+      description: doc!.fm.description,
+      filePath: doc!.filePath,
+      loadSlug: "channels",
+    });
+
+    expect(output).not.toContain("<ChannelsStartPrompt");
+    expect(output).toContain(
+      "Read https://copilotkit.ai/onboarding-prompts/<run-id> and help me get set up.",
+    );
+    expect(output).toContain(
+      "[Connect and run your agent in Slack](/slack/connect)",
+    );
+    expect(output).toContain(
+      "[Connect and run your agent in Microsoft Teams](/teams/connect)",
+    );
   });
 
   it("requires Node.js 22 for the managed launcher in both quickstarts", () => {

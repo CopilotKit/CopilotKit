@@ -5,6 +5,8 @@ icon: "lucide/MessagesSquare"
 doc_type: tutorial
 ---
 
+import ChannelsSdkInstall from "@/snippets/shared/channels/install-sdk-pair.mdx";
+
 In this guide, you will connect an AG-UI agent to a managed Microsoft Teams
 bot, start a long-running Channels SDK listener, and verify a real Microsoft
 Teams message. CopilotKit Intelligence owns the public messaging endpoint and
@@ -71,7 +73,13 @@ re-installing.
     cd my-teams-channel
     npm init -y
     npm pkg set type=module
-    npm install --save-exact @copilotkit/channels@0.9.2 @copilotkit/runtime@1.70.2
+    ```
+
+    <ChannelsSdkInstall />
+
+    Add the TypeScript tooling:
+
+    ```bash title="Terminal"
     npm install -D tsx typescript @types/node
     ```
 
@@ -189,7 +197,7 @@ re-installing.
       throw new Error(`Teams Channel is not online: ${JSON.stringify(status)}`);
     }
 
-    const port = Number(process.env.PORT ?? 3000);
+    const port = Number(process.env.PORT ?? 3001);
     server.listen(port, () => {
       console.log(`Teams Channel online; lifecycle server listening on :${port}`);
     });
@@ -203,9 +211,25 @@ re-installing.
     Channel online. Skip `ready()` and activation failures land in your logs
     instead.
 
+    The Channel answers only through its own `agent` option: it does not fall
+    back to the runtime's `agents` map, so `agents: {}` above is intentional,
+    and a Channel declared without `agent` fails every `runAgent()` call.
+
     The runner does not expose a Teams webhook. Teams delivers to the
     Intelligence messaging endpoint, which setup registered on the bot for
     you.
+
+    `PORT` is the Channel runner's own lifecycle port, and it defaults to 3001
+    because `next dev`, used by a Next.js agent backend or web app, already
+    listens on 3000.
+
+    <Callout type="warn" title="Also serving a web chat from this runtime?">
+      The Channel's `identifyUser` covers only chat users. A runtime that also
+      serves a web UI must set its own top-level `identifyUser` on
+      `CopilotRuntime`; without it, an Intelligence runtime hides every agent
+      from `/info` and the web chat loses its agents. See the
+      [Intelligence quickstart](/intelligence/quickstart).
+    </Callout>
 
   </Step>
 
@@ -216,7 +240,7 @@ re-installing.
     CPK_INTELLIGENCE_API_KEY=<project-api-key>
     CHANNEL_CODE=support-teams
     # Add the agent variables shown for your selected backend.
-    PORT=3000
+    PORT=3001
 
     # Optional paired overrides for self-hosted or non-production Intelligence:
     # INTELLIGENCE_API_URL=https://intelligence.example.com
@@ -251,6 +275,18 @@ re-installing.
     ```bash title="Terminal"
     node --env-file=.env --import tsx channel.ts
     ```
+
+    <Callout type="info" title="If tsx cannot resolve fast-json-patch">
+      `fast-json-patch`, a dependency of `@ag-ui/client`, ships a stray
+      `index.ts` beside its compiled `index.js`. Some tsx installs load that
+      TypeScript file and then fail on its missing `./src/core` import. If
+      startup fails that way, compile the runner and run the output with Node:
+
+      ```bash title="Terminal"
+      npx tsc --noEmit false --outDir dist
+      node --env-file=.env dist/channel.js
+      ```
+    </Callout>
 
     Intelligence should report **Online**.
 

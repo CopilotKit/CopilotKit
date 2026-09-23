@@ -1,0 +1,7 @@
+```bash title="Terminal"
+npm install --save-exact @copilotkit/channels@0.11.0 @copilotkit/runtime@1.73.3
+```
+
+The Channels API needs `@copilotkit/runtime` 1.63.0 or later; the two
+versions above are the combination tested together. Mismatched versions can
+install two copies of `@copilotkit/channels-core`, which makes `tsc` fail.
