@@ -9,7 +9,6 @@
     "dev:ui": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
     "install:agent": "./scripts/setup-agent.sh || scripts\\setup-agent.bat",
     "postinstall": "npm run install:agent",
     "channel": "tsx --tsconfig tsconfig.channel.json channel-host.mts",
