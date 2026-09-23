@@ -1,6 +1,7 @@
 import { afterEach, expect, test, vi } from "vitest";
 import {
   loadNotificationState,
+  migrateAnnouncementReadState,
   hasNotificationPulsed,
   saveNotificationPulsedId,
   saveNotificationState,
@@ -11,6 +12,7 @@ afterEach(() => {
   localStorage.clear();
   sessionStorage.clear();
   document.cookie = "cpk_inspector_notifications_v1=; Max-Age=0; Path=/";
+  document.cookie = "cpk_inspector_announcements=; Max-Age=0; Path=/";
 });
 test("keeps selection, read and suppression separate across reloads", () => {
   const state = {
@@ -90,3 +92,17 @@ test("does not pulse an earlier notification again after another one pulses", ()
   expect(hasNotificationPulsed(first, date)).toBe(true);
   expect(hasNotificationPulsed(second, date)).toBe(true);
 });
+
+test.each(["invalid JSON", "null", '{"timestamp":"unmatched"}'])(
+  "leaves new notifications unread for invalid or unmatched legacy state: %s",
+  (raw) => {
+    localStorage.setItem("cpk:inspector:announcement_read", raw);
+    const state = emptyNotificationState();
+    expect(
+      migrateAnnouncementReadState(state, {
+        schemaVersion: 1,
+        notifications: [],
+      }),
+    ).toEqual(state);
+  },
+);

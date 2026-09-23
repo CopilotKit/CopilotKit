@@ -2,7 +2,7 @@ import {
   emptyNotificationState,
   parseNotificationState,
 } from "./notifications.js";
-import type { NotificationState } from "./notifications.js";
+import type { NotificationState, NotificationFeed } from "./notifications.js";
 import type { Anchor, DockMode, Position, Size } from "./types.js";
 
 export type PersistedContextState = {
@@ -234,9 +234,7 @@ function parseInspectorDismissalPayload(raw: string | null): number | null {
   }
 }
 
-// The superseded key. Every existing user is re-armed exactly once so they
-// discover the surface that replaced the announcement bubble, and the key is
-// deleted rather than left in place so nothing can fall back to it later.
+// Obsolete pre-cookie state; the cookie and its mirror are migrated below.
 const LEGACY_ANNOUNCEMENT_READ_KEY = "cpk:inspector:announcements";
 
 // Pulse suppression is per browser tab, and stores the announcement timestamp
@@ -439,6 +437,40 @@ export function loadNotificationState(): NotificationState {
     }
   }
   return emptyNotificationState();
+}
+
+/** Preserve a legacy acknowledgement when the same announcement enters the new feed. */
+export function migrateAnnouncementReadState(
+  state: NotificationState,
+  feed: NotificationFeed,
+): NotificationState {
+  for (const raw of [
+    readCookie("cpk_inspector_announcements"),
+    readLocalStorageItem("cpk:inspector:announcement_read"),
+  ]) {
+    if (!raw) continue;
+    try {
+      const value: unknown = JSON.parse(raw);
+      if (!value || typeof value !== "object" || !("timestamp" in value))
+        continue;
+      const ids = feed.notifications
+        .filter((notice) => notice.publishedAt === value.timestamp)
+        .map((notice) => notice.id);
+      if (!ids.length) continue;
+      const migrated = {
+        ...state,
+        readIds: [...new Set([...state.readIds, ...ids])],
+        suppressedIds: [...new Set([...state.suppressedIds, ...ids])],
+      };
+      saveNotificationState(migrated);
+      writeCookie("cpk_inspector_announcements", "", "Max-Age=0");
+      removeLocalStorageItem("cpk:inspector:announcement_read");
+      return migrated;
+    } catch {
+      // Malformed legacy data must not disrupt the host app.
+    }
+  }
+  return state;
 }
 
 /** Save without dropping acknowledgement history or letting storage errors escape. */

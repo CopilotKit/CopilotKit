@@ -47,6 +47,11 @@
       }
     ]
   },
+  "invalidAudiences": [
+    { "sdkVersion": "<1.70.2" },
+    { "sdkVersion": "*" },
+    { "sdkVersion": "<1.70.2", "intelligence": "enabled" }
+  ],
   "cases": [
     {
       "name": "react boundary lower",

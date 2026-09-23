@@ -10,7 +10,7 @@
 // Privacy invariants enforced here:
 //   - We never send message content, agent state, prompts, completions,
 //     or announcement markdown. Feature-specific properties are scoped to
-//     event metadata only (banner_id/timestamp, cta location). Reviewers
+//     event metadata only (notification UUID, cta location). Reviewers
 //     should grep call sites for any unintended payload.
 //   - The opt-out short-circuits before any network call. There is no
 //     buffer, no retry queue.
@@ -256,9 +256,10 @@ export function trackHudViewed(props: { trigger: HudTrigger }): void {
   track(TELEMETRY_EVENTS.hudViewed, props);
 }
 
-/** The timestamp identifies the served announcement without sending its copy. */
+/** The UUID identifies the notification consistently across HUD and article events. */
 export function trackHudNotificationViewed(props: {
   banner_id: string;
+  notification_id: string;
   trigger: HudTrigger;
 }): void {
   track(TELEMETRY_EVENTS.hudNotificationViewed, props);
@@ -266,6 +267,7 @@ export function trackHudNotificationViewed(props: {
 
 export function trackHudNotificationClicked(props: {
   banner_id: string;
+  notification_id: string;
   action: "open" | "dismiss";
   trigger: HudTrigger;
 }): void {

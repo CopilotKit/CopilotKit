@@ -4,6 +4,7 @@ import { parseNotificationFeed, matchNotification } from "../notifications.js";
 import type { NotificationContext } from "../notifications.js";
 const fixture: {
   feed: unknown;
+  invalidAudiences: Record<string, string>[];
   cases: { name: string; context: NotificationContext; matching: string[] }[];
 } = JSON.parse(
   readFileSync("src/lib/__tests__/notification-conformance.json", "utf8"),
@@ -17,3 +18,17 @@ test.each(fixture.cases)("producer/consumer conformance: $name", (entry) => {
       .map((n) => n.id),
   ).toEqual(entry.matching);
 });
+
+test.each(fixture.invalidAudiences)(
+  "rejects SDK ranges without a framework: %j",
+  (audience) => {
+    const feed = parseNotificationFeed(fixture.feed);
+    if (!feed) throw new Error("Invalid conformance feed");
+    expect(
+      parseNotificationFeed({
+        ...feed,
+        notifications: [{ ...feed.notifications[0], audiences: [audience] }],
+      }),
+    ).toBeNull();
+  },
+);

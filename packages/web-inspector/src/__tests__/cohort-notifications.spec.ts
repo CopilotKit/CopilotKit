@@ -41,6 +41,7 @@ afterEach(() => {
   localStorage.clear();
   sessionStorage.clear();
   document.cookie = "cpk_inspector_notifications_v1=; Path=/; Max-Age=0";
+  document.cookie = "cpk_inspector_announcements=; Path=/; Max-Age=0";
   vi.clearAllMocks();
 });
 
@@ -286,3 +287,22 @@ test("clearing the core removes runtime-targeted notices and reconnecting restor
     "e0897224-968b-5a24-b46c-6744c2b2b254",
   );
 });
+
+test.each(["cookie", "localStorage"])(
+  "preserves legacy read state from %s before selecting a notification",
+  async (storage) => {
+    const notice = feed.notifications[0];
+    if (!notice) throw new Error("Missing test notification");
+    const payload = JSON.stringify({ timestamp: notice.publishedAt });
+    if (storage === "cookie")
+      document.cookie = `cpk_inspector_announcements=${encodeURIComponent(payload)}; Path=/`;
+    else localStorage.setItem("cpk:inspector:announcement_read", payload);
+    await mount();
+    const state = loadNotificationState();
+    expect(state.readIds).toContain(notice.id);
+    expect(state.suppressedIds).toContain(notice.id);
+    expect(state.activeId).not.toBe(notice.id);
+    expect(document.cookie).not.toContain("cpk_inspector_announcements=");
+    expect(localStorage.getItem("cpk:inspector:announcement_read")).toBeNull();
+  },
+);

@@ -90,6 +90,8 @@ export function validNotificationConditions(
   value: unknown,
 ): value is NotificationConditions {
   if (!record(value)) return false;
+  if (value.sdkVersion !== undefined && value.framework === undefined)
+    return false;
   return Object.entries(value).every(([key, expected]) => {
     if (!text(expected)) return false;
     if (key === "sdkVersion" || key === "runtimeVersion")

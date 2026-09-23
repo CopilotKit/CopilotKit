@@ -11,6 +11,7 @@ import type {
 } from "./lib/notifications.js";
 import {
   loadNotificationState,
+  migrateAnnouncementReadState,
   saveNotificationState,
 } from "./lib/persistence.js";
 import { LitElement, css, html, nothing, render, unsafeCSS } from "lit";
@@ -6813,7 +6814,6 @@ export class WebInspectorElement extends LitElement {
   private selectedNotificationId: string | null = null;
   private announcementHtml: string | null = null;
   private announcementId: string | null = null;
-  private announcementTimestamp: string | null = null;
   private announcementLoaded = false;
   private announcementPromise: Promise<void> | null = null;
   private newsSignalArmed = false;
@@ -11426,10 +11426,7 @@ export class WebInspectorElement extends LitElement {
       this.refreshInspectorDismissalState();
       this.subscribeToSystemColorScheme();
       this.exampleTourDismissed = this.readThreadsExampleTourDismissed();
-      // The superseded, origin-scoped read state is discarded rather than
-      // migrated: every existing user is re-armed exactly once so they
-      // discover the surface that replaced the announcement bubble. Deleting
-      // the key rather than leaving it means nothing can fall back to it.
+      // The pre-cookie key is obsolete; migrate the cookie and mirror after loading the feed.
       clearLegacyAnnouncementReadState();
       this.tryAutoAttachCore();
       if (!this.isInspectorDismissed) {
@@ -12142,13 +12139,14 @@ export class WebInspectorElement extends LitElement {
     };
     const trigger = this.launcherHudTrigger;
     once("hud", () => trackHudViewed({ trigger }));
-    if (
-      hud.querySelector("[data-cpk-hud-news]") &&
-      this.announcementTimestamp
-    ) {
-      const banner_id = this.announcementTimestamp;
+    if (hud.querySelector("[data-cpk-hud-news]") && this.announcementId) {
+      const banner_id = this.announcementId;
       once(`notification:${banner_id}`, () =>
-        trackHudNotificationViewed({ banner_id, trigger }),
+        trackHudNotificationViewed({
+          banner_id,
+          notification_id: banner_id,
+          trigger,
+        }),
       );
     }
     for (const feature of ["threads", "learning"] as const) {
@@ -12196,11 +12194,16 @@ export class WebInspectorElement extends LitElement {
   private handleHudNewsClick = (event: Event): void => {
     event.preventDefault();
     event.stopPropagation();
-    const banner_id = this.announcementTimestamp;
+    const banner_id = this.announcementId;
     if (banner_id) {
       const trigger = this.launcherHudTrigger;
       this.queueHudTelemetry(() =>
-        trackHudNotificationClicked({ banner_id, action: "open", trigger }),
+        trackHudNotificationClicked({
+          banner_id,
+          notification_id: banner_id,
+          action: "open",
+          trigger,
+        }),
       );
     }
     this.hudLandingMenu = WHATS_NEW_MENU_KEY;
@@ -12213,11 +12216,16 @@ export class WebInspectorElement extends LitElement {
   private handleHudNewsDismissClick = (event: Event): void => {
     event.preventDefault();
     event.stopPropagation();
-    const banner_id = this.announcementTimestamp;
+    const banner_id = this.announcementId;
     if (banner_id) {
       const trigger = this.launcherHudTrigger;
       this.queueHudTelemetry(() =>
-        trackHudNotificationClicked({ banner_id, action: "dismiss", trigger }),
+        trackHudNotificationClicked({
+          banner_id,
+          notification_id: banner_id,
+          action: "dismiss",
+          trigger,
+        }),
       );
     }
     this.clearNewsSignal();
@@ -17471,7 +17479,7 @@ export class WebInspectorElement extends LitElement {
     if (this.clickedBannerIds.has(key)) return;
     this.clickedBannerIds.add(key);
     trackWhatsNewClicked({
-      banner_id: "notice-" + Date.parse(this.announcementTimestamp!),
+      banner_id: id,
       notification_id: id,
       cta: opts.cta,
     });
@@ -21934,7 +21942,7 @@ export class WebInspectorElement extends LitElement {
     if (!id || this.viewedNewsSignalIds.has(id)) return;
     this.viewedNewsSignalIds.add(id);
     this.pendingNewsSignalViewed = {
-      banner_id: "notice-" + Date.parse(notice!.publishedAt),
+      banner_id: id,
       notification_id: id,
       surface: "launcher",
       presentation:
@@ -22005,7 +22013,7 @@ export class WebInspectorElement extends LitElement {
     if (this.pendingBannerViewed.length >= MAX_PENDING_BANNER_VIEWED) return;
     this.viewedBannerSurfaces.add(key);
     this.pendingBannerViewed.push({
-      banner_id: "notice-" + Date.parse(this.announcementTimestamp!),
+      banner_id: id,
       notification_id: id,
       surface,
     });
@@ -22116,6 +22124,10 @@ export class WebInspectorElement extends LitElement {
 
   private refreshNotifications(): void {
     if (!this.notificationFeed) return;
+    this.notificationState = migrateAnnouncementReadState(
+      this.notificationState,
+      this.notificationFeed,
+    );
     const previousActiveId = this.notificationState.activeId;
     this.notificationState = reconcileNotifications(
       this.notificationState,
@@ -22140,7 +22152,6 @@ export class WebInspectorElement extends LitElement {
         .filter((n) => this.notificationState.eligibleIds.includes(n.id))
         .sort(compareNotifications)[0];
     this.announcementId = notice?.id ?? null;
-    this.announcementTimestamp = notice?.publishedAt ?? null;
     this.announcementHtml = notice
       ? (this.notificationDocuments.get(notice.id) ?? null)
       : null;
