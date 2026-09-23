@@ -144,13 +144,11 @@ const AgentStateAnnotation = Annotation.Root({
 type AgentState = typeof AgentStateAnnotation.State;
 
 // @region[reasoning-chain-model]
-async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = makeChatOpenAI(config, {
-    model: REASONING_MODEL,
-    useResponsesApi: true,
-    reasoning: { effort: "low", summary: "auto" },
-  });
-
+async function runChatNode(
+  state: AgentState,
+  config: RunnableConfig,
+  model: ChatOpenAI,
+) {
   const modelWithTools = model.bindTools!(tools);
 
   const response = await modelWithTools.invoke(
@@ -160,6 +158,18 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
 
   return { messages: response };
 }
+
+async function chatNode(state: AgentState, config: RunnableConfig) {
+  return runChatNode(
+    state,
+    config,
+    new ChatOpenAI({
+      model: REASONING_MODEL,
+      useResponsesApi: true,
+      reasoning: { effort: "low", summary: "auto" },
+    }),
+  );
+}
 // @endregion[reasoning-chain-model]
 
 function shouldContinue({ messages }: AgentState) {
@@ -168,15 +178,30 @@ function shouldContinue({ messages }: AgentState) {
   return "__end__";
 }
 
-const workflow = new StateGraph(AgentStateAnnotation)
-  .addNode("chat_node", chatNode)
-  .addNode("tool_node", new ToolNode(tools))
-  .addEdge(START, "chat_node")
-  .addEdge("tool_node", "chat_node")
-  .addConditionalEdges("chat_node", shouldContinue as any);
+function compileGraph(node: typeof chatNode) {
+  return new StateGraph(AgentStateAnnotation)
+    .addNode("chat_node", node)
+    .addNode("tool_node", new ToolNode(tools))
+    .addEdge(START, "chat_node")
+    .addEdge("tool_node", "chat_node")
+    .addConditionalEdges("chat_node", shouldContinue as any)
+    .compile({ checkpointer: new MemorySaver() });
+}
 
-const memory = new MemorySaver();
+export const graph = compileGraph(chatNode);
 
-export const graph = workflow.compile({
-  checkpointer: memory,
-});
+// The LangGraph CLI targets this export so showcase probes retain inbound
+// x-* header forwarding; the public `graph` above stays copy-pasteable.
+async function chatNodeWithHeaders(state: AgentState, config: RunnableConfig) {
+  return runChatNode(
+    state,
+    config,
+    makeChatOpenAI(config, {
+      model: REASONING_MODEL,
+      useResponsesApi: true,
+      reasoning: { effort: "low", summary: "auto" },
+    }),
+  );
+}
+
+export const showcaseGraph = compileGraph(chatNodeWithHeaders);
