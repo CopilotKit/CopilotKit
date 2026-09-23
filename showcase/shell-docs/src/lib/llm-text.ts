@@ -1095,7 +1095,7 @@ export function renderLlmsIndex(
     "",
     `- **Connect an existing app and agent:** Read your framework's overview and quickstart below together with [Architecture](${baseUrl}/concepts/architecture) and the relevant frontend guide.`,
     `- **Build an interaction:** Read [Chat UI](${baseUrl}/agentic-chat-ui), [Generative UI](${baseUrl}/concepts/generative-ui-overview), and [Human-in-the-Loop](${baseUrl}/human-in-the-loop) together, then use your framework's implementation guides.`,
-    `- **Keep conversation history:** Read [Rich Threads](${baseUrl}/threads), [Thread Lifecycle](${baseUrl}/threads-lifecycle), and [Self-Managed Thread Persistence](${baseUrl}/threads-self-managed) together; for existing history, use the LangGraph or ADK import guide below.`,
+    `- **Keep conversation history:** Read [Rich Threads](${baseUrl}/threads) and [Thread Lifecycle](${baseUrl}/threads-lifecycle) together; for existing history, use the LangGraph or ADK import guide below.`,
     `- **Evaluate Intelligence:** Read [Open source vs Intelligence](${baseUrl}/concepts/oss-vs-enterprise) with the [Intelligence overview](${baseUrl}/intelligence/overview), then follow the capability and deployment guides relevant to your project.`,
     "",
   );

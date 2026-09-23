@@ -10,7 +10,7 @@ CopilotKit's **open-source SDKs and runtime** connect your frontend to your agen
 ## The 30-second version
 
 - **The open-source packages are enough for** building a working agentic application with framework-native APIs, prebuilt chat, frontend tools, gen-UI, and any AG-UI integration. The license is MIT. The packages run anywhere.
-- **Your own persistence remains an option.** LangGraph checkpointers, ADK session services, and application-owned storage can retain history without Intelligence. You own the storage and UI integration; see [Self-Managed Thread Persistence](/threads-self-managed).
+- **Your own persistence remains an option.** LangGraph checkpointers, ADK session services, and application-owned storage can retain history without Intelligence. You own the storage and UI integration.
 - **CopilotKit Intelligence adds** conversation replay and continuity across devices, memory beyond one conversation, reviewed skills from real usage, usage data, and channel connections.
 - **CopilotKit Intelligence runs two ways** — [cloud-hosted](/intelligence/managed-intelligence-platform), or self-hosted on [Kubernetes](/intelligence/self-hosting) or [AWS ECS](/intelligence/self-hosting-ecs). Both deployments use the same app APIs.
 
@@ -73,12 +73,6 @@ Same CopilotKit Intelligence — you pick where it runs:
 - **Self-hosted** runs in your infrastructure. Follow the [Kubernetes guide](/intelligence/self-hosting) for the Helm chart or the [AWS ECS guide](/intelligence/self-hosting-ecs) for the ECS bundle. You operate the services and their dependencies; use the deployment guide for the required infrastructure and credentials.
 
 Application code doesn't change between cloud-hosted and self-hosted — same frontend SDK and runtime APIs. Only the platform endpoint and credential set change.
-
-## Where the boundary lives
-
-The open-source runtime knows how to talk to CopilotKit Intelligence. It does not require Intelligence.
-
-If your app keeps state in your own backend, the open-source packages may be enough. Add Intelligence when you need one of its services. Framework persistence and Intelligence can coexist: supported [LangGraph history](/langgraph-python/threads-import) and [ADK sessions](/google-adk/threads-import) can be imported once, while future CopilotKit-mediated runs persist to Intelligence and continue through your configured durable native persistence. Import does not create ongoing database replication.
 
 ## Licenses
 
