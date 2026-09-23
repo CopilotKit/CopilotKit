@@ -79,6 +79,7 @@ describe("shared-state guide: publishing UI-owned state", () => {
 
   test.each([
     ["langgraph-python", 'region="shared-state-read-agent"'],
+    ["langgraph-typescript", 'region="shared-state-read-agent"'],
     ["google-adk", 'region="shared-state-read-agent"'],
     ["strands", 'region="shared-state-recipe-prompt"'],
   ])(
@@ -90,12 +91,6 @@ describe("shared-state guide: publishing UI-owned state", () => {
       expect(text).not.toContain("Publishing the value is only half");
     },
   );
-
-  test("langgraph-typescript says the demo does not read the recipe yet", () => {
-    const text = section("langgraph-typescript");
-    expect(text).toContain("doesn't read `recipe` yet");
-    expect(text).not.toContain("To test it");
-  });
 
   test.each([
     "langgraph-fastapi",

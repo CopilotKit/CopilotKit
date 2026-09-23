@@ -263,12 +263,13 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: shared-state-read
     name: "Shared State: Read-only"
-    description: "Recipe editor publishes form state via agent.setState; the agent reads the recipe context but does not mutate it (no backend tool — neutral default agent)."
+    description: "Recipe editor publishes form state via agent.setState; a dedicated graph declares `recipe` in its state and puts it in a system message on every model call, but has no tool that mutates it."
     tags:
       - agent-state
     route: /demos/shared-state-read
     animated_preview_url:
     highlight:
+      - src/agent/shared-state-read.ts
       - src/app/demos/shared-state-read/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: subagents

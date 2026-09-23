@@ -68,6 +68,7 @@ const graphSpec = {
   byoc_json_render: "./byoc-json-render.ts:graph",
   open_gen_ui: "./open-gen-ui.ts:graph",
   open_gen_ui_advanced: "./open-gen-ui-advanced.ts:graph",
+  shared_state_read: "./shared-state-read.ts:showcaseGraph",
   shared_state_read_write: "./shared-state-read-write.ts:graph",
   shared_state_streaming: "./shared-state-streaming.ts:graph",
   subagents: "./subagents.ts:showcaseGraph",

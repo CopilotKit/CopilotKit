@@ -39,7 +39,6 @@ function createAgent(graphId: string = "starterAgent") {
 const starterAgentNames = [
   "agentic_chat",
   "human_in_the_loop",
-  "shared-state-read",
   "shared-state-write",
   // Chat-UI demos — all reuse the default starterAgent.
   "prebuilt-sidebar",
@@ -65,6 +64,10 @@ agents["starterAgent"] = createAgent();
 // schedule_meeting tool.
 agents["gen-ui-interrupt"] = createAgent("interrupt_agent");
 agents["interrupt-headless"] = createAgent("interrupt_agent");
+
+// Shared State (Read-only): a dedicated graph declares the UI-owned `recipe`
+// in its state and reads it on every model call.
+agents["shared-state-read"] = createAgent("shared_state_read");
 
 // Demo-specific graphs. Agent name (as used on the frontend
 // `<CopilotKit agent="...">` prop) → graphId in src/agent/langgraph.json.
