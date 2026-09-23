@@ -94,7 +94,9 @@ test("Google ADK frontend-tool setup stays neutral across its three consumers", 
       },
       { framework: "google-adk" },
     );
-    const blocks = output.match(/(`{3,}|~{3,})python[^\n]*\n[\s\S]*?\n[ \t]*\1/g);
+    const blocks = output.match(
+      /(`{3,}|~{3,})python[^\n]*\n[\s\S]*?\n[ \t]*\1/g,
+    );
     const setup = blocks?.find((block) =>
       block.includes("def stop_on_terminal_text"),
     );
