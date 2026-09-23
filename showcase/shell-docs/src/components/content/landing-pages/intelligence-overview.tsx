@@ -1,14 +1,13 @@
 "use client";
 
-import Link from "next/link";
+import { Card, Cards } from "@/components/mdx-components";
 import {
-  ArrowRight,
   BarChart3,
   Brain,
   Hash,
+  Lightbulb,
   MessagesSquare,
-  Server,
-  Sparkles,
+  SearchCheck,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
 
@@ -26,45 +25,39 @@ const CONNECT_HREF = "/intelligence/quickstart";
 const FEATURES = [
   {
     title: "Rich Threads",
-    body: "Keep messages, generative UI, and tool activity across reloads and devices.",
+    body: "Save the conversation and open it again on another device.",
     href: "/threads",
-    cta: "Open the Rich Threads guide",
     icon: MessagesSquare,
   },
   {
-    title: "Channels",
-    body: "Run your agent in Slack through managed Intelligence connections. See the guide for Teams availability and other channel adapters.",
-    href: "/slack",
-    cta: "Open the Channels guide",
-    icon: Hash,
-  },
-  {
     title: "User Memories",
-    body: "Carry durable facts and preferences across conversations without tying them to one thread.",
+    body: "Keep facts about a person after the conversation ends.",
     href: "/intelligence/memories",
-    cta: "Open the User Memories guide",
     icon: Brain,
   },
   {
+    title: "Automatic Learning",
+    body: "Turn real usage into skills you can review and publish.",
+    href: "/learning",
+    icon: Lightbulb,
+  },
+  {
     title: "Product Analytics",
-    body: "See what your agents do and where users get value, from the same interaction data.",
-    href: "https://www.copilotkit.ai/copilotkit-intelligence#analytics-insights",
-    cta: "See Product Analytics on the product page",
+    body: "See what people do with your agent.",
+    href: "/intelligence/analytics",
     icon: BarChart3,
   },
   {
-    title: "Automatic Learning",
-    body: "Agents improve from real usage. No fine-tuning pipeline required.",
-    href: "/learning",
-    cta: "Open the Automatic Learning guide",
-    icon: Sparkles,
+    title: "Channels",
+    body: "Run the same agent in Slack or Microsoft Teams.",
+    href: "/intelligence/channels",
+    icon: Hash,
   },
   {
-    title: "Self-hosting",
-    body: "Run the same platform in your own cluster, VPC, or data boundary.",
-    href: "/intelligence/self-hosting",
-    cta: "Open the self-hosting guide",
-    icon: Server,
+    title: "Inspector",
+    body: "Watch threads, learning, and tool calls from your app on localhost.",
+    href: "/inspector",
+    icon: SearchCheck,
   },
 ] as const;
 
@@ -129,7 +122,7 @@ export function IntelligenceOverview() {
                 href={CONNECT_HREF}
                 fromPath="/intelligence/overview"
                 variant="secondary"
-                label="Connect an app"
+                label="Quickstart"
               />
             }
           />
@@ -141,41 +134,25 @@ export function IntelligenceOverview() {
 
 export function IntelligenceFeatureCards() {
   return (
-    <section
-      aria-labelledby="intelligence-features-heading"
-      className="not-prose"
-    >
-      <h2
-        id="intelligence-features-heading"
-        className="text-[1.5rem] font-semibold tracking-[-0.015em] text-[var(--text)] sm:text-[1.75rem]"
-      >
-        What you can add next
-      </h2>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        {FEATURES.map((feature) => (
-          <article
-            key={feature.title}
-            className="shell-docs-radius-surface border border-[var(--border)] bg-[var(--bg-surface)] px-5 pb-5 pt-3 shadow-[var(--shadow-panel)]"
-          >
-            <h3 className="m-0 flex items-center gap-2 text-lg font-semibold leading-none text-[var(--text)]">
-              <feature.icon
-                className="size-[1em] shrink-0 text-[var(--accent)]"
-                aria-hidden="true"
-              />
-              <span>{feature.title}</span>
-            </h3>
-            <p className="mt-3 text-[15px] leading-[1.6] text-[var(--text-muted)]">
-              {feature.body}
-            </p>
-            <Link
+    <section aria-labelledby="intelligence-features-heading">
+      <h2 id="intelligence-features-heading">What Intelligence gives you</h2>
+      <p>
+        Each capability is a page of its own, and every one works with the agent
+        and frontend you already run. Open the one you want to add first.
+      </p>
+      {/* Cards are links; keep them out of the prose link styling. */}
+      <div className="not-prose intelligence-accent-cards">
+        <Cards>
+          {FEATURES.map((feature) => (
+            <Card
+              key={feature.title}
               href={feature.href}
-              className="mt-4 inline-flex items-center gap-1.5 text-[14px] font-medium text-[var(--accent)] no-underline hover:brightness-110"
-            >
-              {feature.cta}
-              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-            </Link>
-          </article>
-        ))}
+              title={feature.title}
+              description={feature.body}
+              icon={<feature.icon aria-hidden="true" />}
+            />
+          ))}
+        </Cards>
       </div>
     </section>
   );

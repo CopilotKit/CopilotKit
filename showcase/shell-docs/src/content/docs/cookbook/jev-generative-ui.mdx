@@ -402,7 +402,7 @@ To set it up manually, connect [Intelligence](/intelligence/quickstart), persist
 
 Collect completed interactions, including what users corrected and what happened next. Run Learning, inspect the Insights and their supporting Threads, then review the proposed Skills before publishing them. You can start an analysis manually or configure a recurring schedule.
 
-Next, make the approved Skills available to Jev. [Automatic learned skill delivery](/intelligence/learned-skills) provides a registry of published Skills. The helper below reads their `SKILL.md` contents so you can pass them into `systemOne` as guidance. This is your application’s connection to Jev; installing a model adapter alone does not make that connection.
+Next, make the approved Skills available to Jev. [Skill delivery](/intelligence/learned-skills) provides a registry of published Skills. The helper below reads their `SKILL.md` contents so you can pass them into `systemOne` as guidance. This is your application’s connection to Jev; installing a model adapter alone does not make that connection.
 
 Install `@copilotkit/intelligence-langgraph@1.71.2` alongside the pinned stack above and configure server-only `CPK_INTELLIGENCE_API_KEY` and `CPK_INTELLIGENCE_LEARNING_CONTAINER_ID`. Omit `CPK_INTELLIGENCE_SKILLS_REVISION` to follow the latest approved version, or set a published revision to keep using a specific set of Skills.
 

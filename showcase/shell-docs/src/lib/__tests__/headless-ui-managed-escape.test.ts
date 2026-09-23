@@ -24,7 +24,7 @@ const GLOBAL_HREF = "/custom-look-and-feel/headless-ui";
 
 function calloutHrefs(): string[] {
   const source = readFileSync(SNIPPET, "utf8");
-  return [...source.matchAll(/\[Fully Headless UI\]\(([^)]+)\)/g)].map(
+  return [...source.matchAll(/\[Headless UI\]\(([^)]+)\)/g)].map(
     (match) => match[1]!,
   );
 }

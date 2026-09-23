@@ -35,11 +35,11 @@ describe("docs mega menu data", () => {
       ["Intelligence", "/intelligence/overview"],
       ["Rich Threads", "/threads"],
       ["Automatic Learning", "/learning"],
-      ["Product Analytics", "/intelligence/managed-intelligence-platform"],
+      ["Product Analytics", "/intelligence/analytics"],
       ["User Memories", "/intelligence/memories"],
       ["Inspector", "/inspector"],
       ["Deploy", "/deploy/agentcore"],
-      ["Self-hosting", "/intelligence/self-hosting"],
+      ["Self-Hosting", "/intelligence/self-hosting"],
     ]);
   });
 });

@@ -97,7 +97,7 @@ const REACT = { id: "react", name: "React" };
  */
 const SLACK = { id: "slack", name: "Slack" };
 const PAGE_MARKDOWN_URL = "/mastra/generative-ui.mdx";
-const PAGE_SENTENCE = ` The developer copied this prompt from ${DOCS_ORIGIN}${PAGE_MARKDOWN_URL}.`;
+const PAGE_SENTENCE = ` I copied this prompt from ${DOCS_ORIGIN}${PAGE_MARKDOWN_URL}.`;
 
 /**
  * Render with the props every framework-scoped page supplies, so each test
@@ -242,7 +242,8 @@ it("copies the page sentence alone when the caller names no framework", async ()
   await waitFor(() => expect(writeText).toHaveBeenCalled());
 
   const copied = writeText.mock.calls[0][0] as string;
-  const runId = (copied.match(/--run (\S+)/) ?? [])[1] as string;
+  const runId = (copied.match(/onboarding-prompts\/([A-Za-z0-9_-]+)/) ??
+    [])[1] as string;
   expect(copied).toBe(
     createIntelligenceOnboardingPrompt(runId) + PAGE_SENTENCE,
   );
@@ -301,6 +302,8 @@ it("reports the shared onboarding event with the graph's framework slug", async 
   // property. The distinction this button needs lives in `surface`.
   expect(properties).toEqual({
     action: "copy",
+    argument_version: "90b0c15f555f",
+    argument_text: expect.stringContaining("framework:"),
     from_path: "/mastra/generative-ui",
     onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
     surface: "docs_page_tools_onboarding_prompt",
@@ -327,7 +330,14 @@ it("omits the framework property entirely when the graph has no slug", async () 
     Object.keys(properties)
       .filter((key) => properties[key] !== undefined)
       .sort(),
-  ).toEqual(["action", "from_path", "onboarding_run_id", "surface"]);
+  ).toEqual([
+    "action",
+    "argument_text",
+    "argument_version",
+    "from_path",
+    "onboarding_run_id",
+    "surface",
+  ]);
 });
 
 it("mints a fresh run id on every click", async () => {
@@ -569,7 +579,7 @@ it("names the React frontend by its docs name and the graph's slug", async () =>
   await waitFor(() => expect(writeText).toHaveBeenCalled());
 
   expect(writeText.mock.calls[0][0]).toContain(
-    " The developer selected the React frontend (`nextjs`).",
+    " I use the React frontend (`nextjs`).",
   );
 });
 
@@ -606,7 +616,7 @@ it("carries the frontend sentence alone when the graph knows no framework", asyn
 
   expect(writeText.mock.calls[0][0]).toBe(
     createIntelligenceOnboardingPrompt(reportedRunId()) +
-      " The developer selected the React frontend (`nextjs`)." +
+      " I use the React frontend (`nextjs`)." +
       PAGE_SENTENCE,
   );
 });
@@ -641,6 +651,8 @@ it("reports the frontend property with the graph's slug", async () => {
   expect(onboardingFrontendSlug(REACT.id)).toBe("nextjs");
   expect(analytics.capture.mock.calls[0][1]).toEqual({
     action: "copy",
+    argument_version: "90b0c15f555f",
+    argument_text: expect.stringContaining("framework:"),
     from_path: "/mastra/generative-ui",
     onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
     surface: "docs_page_tools_onboarding_prompt",
@@ -678,6 +690,8 @@ it("reports a channel page on the channel axis, never the frontend one", async (
   ).toEqual([
     "action",
     "agent_framework",
+    "argument_text",
+    "argument_version",
     "channel",
     "from_path",
     "onboarding_run_id",
@@ -709,6 +723,8 @@ it("records click intent before a failed copy with framework and frontend contex
   expect(event).toBe("docs.intelligence_onboarding_prompt_action_clicked");
   expect(properties).toEqual({
     action: "copy",
+    argument_version: "90b0c15f555f",
+    argument_text: expect.stringContaining("framework:"),
     from_path: "/mastra/generative-ui",
     onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
     surface: "docs_page_tools_onboarding_prompt",

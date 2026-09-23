@@ -1,5 +1,5 @@
 // Inspector-side anonymous telemetry. V1 events fire from index.ts for
-// What's new and thread-inspection interactions. POSTs directly from the
+// the launcher HUD, What's new, and thread-inspection interactions. POSTs directly from the
 // browser to the CopilotKit telemetry sink at
 // `telemetry.copilotkit.ai/ingest`, where a Lambda fan-out forwards events to
 // PostHog / Reo / Scarf.
@@ -33,6 +33,14 @@ export const TELEMETRY_EVENTS = {
   whatsNewSignalViewed: "oss.inspector.whats_new_signal_viewed",
   errorSignalViewed: "oss.inspector.error_signal_viewed",
   whatsNewClicked: "oss.inspector.whats_new_clicked",
+  hudViewed: "oss.inspector.hud_viewed",
+  hudNotificationViewed: "oss.inspector.hud_notification_viewed",
+  hudNotificationClicked: "oss.inspector.hud_notification_clicked",
+  hudFeatureToggleViewed: "oss.inspector.hud_feature_toggle_viewed",
+  hudFeatureToggleClicked: "oss.inspector.hud_feature_toggle_clicked",
+  hudFeatureClicked: "oss.inspector.hud_feature_clicked",
+  hudHideViewed: "oss.inspector.hud_hide_viewed",
+  hudHideClicked: "oss.inspector.hud_hide_clicked",
   threadsTabClicked: "oss.inspector.threads_tab_clicked",
   threadsTryFromHereClicked: "oss.inspector.threads_try_from_here_clicked",
   threadsLockedViewed: "oss.inspector.threads_locked_viewed",
@@ -180,9 +188,8 @@ export function track(
 
 /**
  * Where an announcement was rendered when the event fired. What's new is the
- * only surface that carries one, so the value is currently a constant — it
- * stays a stamped property rather than an inferred one so a second surface
- * can be added without changing the event's shape.
+ * only surface of `whats_new_viewed`. The HUD has its own notification event,
+ * so its impressions do not change the meaning of this event.
  */
 export type WhatsNewSurface = "whats_new";
 
@@ -230,6 +237,67 @@ export function trackWhatsNewSignalViewed(props: {
   cta_label?: string;
 }): void {
   track(TELEMETRY_EVENTS.whatsNewSignalViewed, props);
+}
+
+export type HudFeature = "threads" | "learning";
+
+/**
+ * What opened the HUD presentation. `intro` is the automatic preview that
+ * plays after every mount, `user` is a pointer or keyboard open. A user who
+ * takes over a playing intro keeps `intro`, because the presentation itself
+ * was not requested.
+ */
+export type HudTrigger = "intro" | "user";
+
+/** One impression per rendered HUD presentation in a visible tab. */
+export function trackHudViewed(props: { trigger: HudTrigger }): void {
+  track(TELEMETRY_EVENTS.hudViewed, props);
+}
+
+/** The timestamp identifies the served announcement without sending its copy. */
+export function trackHudNotificationViewed(props: {
+  banner_id: string;
+  trigger: HudTrigger;
+}): void {
+  track(TELEMETRY_EVENTS.hudNotificationViewed, props);
+}
+
+export function trackHudNotificationClicked(props: {
+  banner_id: string;
+  action: "open" | "dismiss";
+  trigger: HudTrigger;
+}): void {
+  track(TELEMETRY_EVENTS.hudNotificationClicked, props);
+}
+
+export function trackHudFeatureToggleViewed(props: {
+  feature: HudFeature;
+  trigger: HudTrigger;
+}): void {
+  track(TELEMETRY_EVENTS.hudFeatureToggleViewed, props);
+}
+
+export function trackHudFeatureToggleClicked(props: {
+  feature: HudFeature;
+  trigger: HudTrigger;
+}): void {
+  track(TELEMETRY_EVENTS.hudFeatureToggleClicked, props);
+}
+
+export function trackHudFeatureClicked(props: {
+  feature: HudFeature;
+  control: "row" | "action" | "learn_more";
+  trigger: HudTrigger;
+}): void {
+  track(TELEMETRY_EVENTS.hudFeatureClicked, props);
+}
+
+export function trackHudHideViewed(props: { trigger: HudTrigger }): void {
+  track(TELEMETRY_EVENTS.hudHideViewed, props);
+}
+
+export function trackHudHideClicked(props: { trigger: HudTrigger }): void {
+  track(TELEMETRY_EVENTS.hudHideClicked, props);
 }
 
 /**

@@ -1,12 +1,6 @@
-import {
-  EnvironmentInjector,
-  createEnvironmentInjector,
-  runInInjectionContext,
-  signal,
-} from "@angular/core";
+import { signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
-import { test, expect, vi } from "vitest";
-import { HttpAgent } from "@ag-ui/client";
+import { afterEach, beforeEach, describe, test, expect, vi } from "vitest";
 import {
   injectChatConfiguration,
   provideCopilotChatConfiguration,
@@ -14,296 +8,120 @@ import {
 import type { AgentStore } from "./agent";
 import { connectActiveThread } from "./active-thread-connector";
 
-/**
- * Builds a fake agent + agent-store signal and wires the connector under an
- * injection context with a real {@link CopilotChatConfiguration}.
- *
- * @returns The config service, the fake agent, and the connect spy.
- */
-function setup() {
-  const fake = {
-    agent: {
-      threadId: "t0",
-      messages: [{ id: "m1" }] as { id: string }[],
-      setMessages: vi.fn((arr: { id: string }[]) => {
-        fake.agent.messages = arr;
-      }),
-      detachActiveRun: vi.fn(() => Promise.resolve()),
-    },
+function makeFakeAgent() {
+  const agent = {
+    threadId: "t0",
+    messages: [{ id: "m1" }] as { id: string }[],
+    setMessages: vi.fn((arr: { id: string }[]) => {
+      agent.messages = arr;
+    }),
   };
-
-  const connect = vi.fn();
-
-  TestBed.configureTestingModule({
-    providers: [provideCopilotChatConfiguration()],
-  });
-
-  const config = TestBed.runInInjectionContext(() => {
-    const cfg = injectChatConfiguration();
-    const agentStore = signal(fake as never) as unknown as () => AgentStore;
-    connectActiveThread(cfg, agentStore, connect);
-    return cfg;
-  });
-
-  return { config, fake, connect };
+  return agent;
 }
 
-test("explicit switch connects the agent to the picked thread", async () => {
-  const { config, fake, connect } = setup();
+function createConnectorFixture() {
+  const agent = makeFakeAgent();
+  const disposes: ReturnType<typeof vi.fn>[] = [];
+  const connect = vi.fn(() => {
+    const dispose = vi.fn();
+    disposes.push(dispose);
+    return { dispose };
+  });
 
-  config.setActiveThreadId("picked-1");
-  TestBed.flushEffects();
-  await Promise.resolve();
-
-  expect(fake.agent.threadId).toBe("picked-1");
-  expect(connect).toHaveBeenCalledWith(
-    expect.objectContaining({ agent: fake.agent }),
-  );
-});
-
-test("initial mount does not clear messages", async () => {
-  const { fake, connect } = setup();
-
-  TestBed.flushEffects();
-  await Promise.resolve();
-
-  expect(fake.agent.setMessages).not.toHaveBeenCalled();
-  expect(fake.agent.messages).toEqual([{ id: "m1" }]);
-  expect(connect).not.toHaveBeenCalled();
-});
-
-test("an explicit switch detaches the prior in-flight run on re-run", async () => {
-  const { config, fake } = setup();
-
-  config.setActiveThreadId("picked-1");
-  TestBed.flushEffects();
-  await Promise.resolve();
-
-  expect(fake.agent.detachActiveRun).not.toHaveBeenCalled();
-
-  config.setActiveThreadId("picked-2");
-  TestBed.flushEffects();
-  await Promise.resolve();
-
-  expect(fake.agent.detachActiveRun).toHaveBeenCalledTimes(1);
-});
-
-test("destroying the injector detaches the connected run", async () => {
-  const fake = {
-    agent: {
-      threadId: "t0",
-      messages: [{ id: "m1" }] as { id: string }[],
-      setMessages: vi.fn(),
-      detachActiveRun: vi.fn(() => Promise.resolve()),
-    },
-  };
-  const connect = vi.fn();
   TestBed.configureTestingModule({
+    teardown: { destroyAfterEach: true },
     providers: [provideCopilotChatConfiguration()],
   });
-  const parent = TestBed.inject(EnvironmentInjector);
-  const childInjector = createEnvironmentInjector([], parent);
-  const config = runInInjectionContext(childInjector, () => {
+
+  const agentStore = signal({ agent } as unknown as AgentStore);
+  const config = TestBed.runInInjectionContext(() => {
     const cfg = injectChatConfiguration();
-    const agentStore = signal(fake as never) as unknown as () => AgentStore;
     connectActiveThread(cfg, agentStore, connect);
     return cfg;
   });
 
-  config.setActiveThreadId("picked-1");
-  TestBed.flushEffects();
-  await Promise.resolve();
+  return { config, agent, agentStore, connect, disposes };
+}
 
-  childInjector.destroy();
-
-  expect(fake.agent.detachActiveRun).toHaveBeenCalledTimes(1);
-});
-
-test("a genuine new-thread transition clears messages and skips connect", async () => {
-  const { config, fake } = setup();
-
-  config.setActiveThreadId("picked");
-  TestBed.flushEffects();
-  await Promise.resolve();
-
-  config.startNewThread();
-  TestBed.flushEffects();
-  await Promise.resolve();
-
-  expect(fake.agent.setMessages).toHaveBeenCalledWith([]);
-  expect(fake.agent.messages).toEqual([]);
-});
-
-/**
- * Builds a fake agent + agent-store signal and wires the connector with
- * explicit cursor hooks and a caller-supplied connect implementation.
- *
- * @param connect - The connect implementation under test.
- * @returns The config service, the fake agent, the connect spy, and the
- *   `onConnectStart`/`onConnectSettle` hook spies.
- */
-function setupWithHooks(connect: (params: { agent: unknown }) => unknown) {
-  const fake = {
-    agent: {
-      threadId: "t0",
-      messages: [{ id: "m1" }] as { id: string }[],
-      setMessages: vi.fn((arr: { id: string }[]) => {
-        fake.agent.messages = arr;
-      }),
-      detachActiveRun: vi.fn(() => Promise.resolve()),
-    },
-  };
-
-  const onConnectStart = vi.fn();
-  const onConnectSettle = vi.fn();
-
-  TestBed.configureTestingModule({
-    providers: [provideCopilotChatConfiguration()],
+describe("connectActiveThread", () => {
+  let context: ReturnType<typeof createConnectorFixture>;
+  beforeEach(() => {
+    TestBed.resetTestingModule();
+    context = createConnectorFixture();
   });
+  afterEach(() => TestBed.resetTestingModule());
 
-  const config = TestBed.runInInjectionContext(() => {
-    const cfg = injectChatConfiguration();
-    const agentStore = signal(fake as never) as unknown as () => AgentStore;
-    connectActiveThread(cfg, agentStore, connect as never, {
-      onConnectStart,
-      onConnectSettle,
+  describe("thread transitions", () => {
+    test("explicit switch pins the thread and opens a connect for the agent", () => {
+      const { config, agent, connect } = context;
+
+      config.setActiveThreadId("picked-1");
+      TestBed.tick();
+
+      expect(agent.threadId).toBe("picked-1");
+      expect(connect).toHaveBeenCalledTimes(1);
+      expect(connect).toHaveBeenCalledWith(agent);
     });
-    return cfg;
+
+    test("initial mount does not clear messages and does not connect", () => {
+      const { agent, connect } = context;
+
+      TestBed.tick();
+
+      expect(agent.setMessages).not.toHaveBeenCalled();
+      expect(agent.messages).toEqual([{ id: "m1" }]);
+      expect(connect).not.toHaveBeenCalled();
+    });
+
+    test("a genuine new-thread transition clears messages and skips connect", () => {
+      const { config, agent, connect } = context;
+
+      config.setActiveThreadId("picked");
+      TestBed.tick();
+
+      config.startNewThread();
+      TestBed.tick();
+
+      expect(agent.setMessages).toHaveBeenCalledWith([]);
+      expect(agent.messages).toEqual([]);
+      expect(connect).toHaveBeenCalledTimes(1);
+    });
+
+    test("an agent-store swap on the same fresh thread does not clear messages", () => {
+      const { agent: first, agentStore, connect } = context;
+      const second = makeFakeAgent();
+      TestBed.tick();
+      agentStore.set({ agent: second } as unknown as AgentStore);
+      TestBed.tick();
+      expect(first.setMessages).not.toHaveBeenCalled();
+      expect(second.setMessages).not.toHaveBeenCalled();
+      expect(connect).not.toHaveBeenCalled();
+    });
   });
 
-  return { config, fake, onConnectStart, onConnectSettle };
-}
+  describe("connection cleanup", () => {
+    test("a second explicit switch disposes the prior connect and opens a new one", () => {
+      const { config, connect, disposes } = context;
 
-test("N1: a rejecting connect does not raise an unhandled rejection and still settles the cursor", async () => {
-  const unhandled: unknown[] = [];
-  const onUnhandled = (event: PromiseRejectionEvent) => {
-    unhandled.push(event.reason);
-  };
-  globalThis.addEventListener?.("unhandledrejection", onUnhandled);
+      config.setActiveThreadId("picked-1");
+      TestBed.tick();
 
-  const { config, onConnectStart, onConnectSettle } = setupWithHooks(() =>
-    Promise.reject(new Error("connect failed")),
-  );
+      expect(disposes[0]).not.toHaveBeenCalled();
 
-  config.setActiveThreadId("picked-1", { explicit: true });
-  TestBed.flushEffects();
+      config.setActiveThreadId("picked-2");
+      TestBed.tick();
 
-  // Flush microtasks so the connect promise and its caught/finally chain run.
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
+      expect(connect).toHaveBeenCalledTimes(2);
+      expect(disposes[0]).toHaveBeenCalledTimes(1);
+      expect(disposes[1]).not.toHaveBeenCalled();
+    });
 
-  expect(onConnectStart).toHaveBeenCalledTimes(1);
-  expect(onConnectSettle).toHaveBeenCalledTimes(1);
-  expect(unhandled).toEqual([]);
-
-  globalThis.removeEventListener?.("unhandledrejection", onUnhandled);
-});
-
-test("N2: a superseded connect does not settle the cursor; the live connect does", async () => {
-  let resolveFirst: (() => void) | undefined;
-  let resolveSecond: (() => void) | undefined;
-  const deferreds: Array<Promise<void>> = [
-    new Promise<void>((resolve) => {
-      resolveFirst = resolve;
-    }),
-    new Promise<void>((resolve) => {
-      resolveSecond = resolve;
-    }),
-  ];
-  let call = 0;
-  const connect = vi.fn(() => deferreds[call++]);
-
-  const { config, onConnectSettle } = setupWithHooks(connect);
-
-  config.setActiveThreadId("picked-1", { explicit: true });
-  TestBed.flushEffects();
-  await Promise.resolve();
-
-  // Second explicit thread supersedes the first connect before it settles.
-  config.setActiveThreadId("picked-2", { explicit: true });
-  TestBed.flushEffects();
-  await Promise.resolve();
-
-  // Settle the FIRST (now superseded) connect: its settle must be suppressed.
-  resolveFirst?.();
-  await Promise.resolve();
-  await Promise.resolve();
-  expect(onConnectSettle).not.toHaveBeenCalled();
-
-  // Settle the SECOND (live) connect: its settle fires.
-  resolveSecond?.();
-  await Promise.resolve();
-  await Promise.resolve();
-  expect(onConnectSettle).toHaveBeenCalledTimes(1);
-});
-
-test("N3: cleanup detaches the connected run", async () => {
-  const fake = {
-    agent: {
-      threadId: "t0",
-      messages: [{ id: "m1" }] as { id: string }[],
-      setMessages: vi.fn(),
-      detachActiveRun: vi.fn(() => Promise.resolve()),
-    },
-  };
-  const connect = vi.fn(() => Promise.resolve());
-
-  TestBed.configureTestingModule({
-    providers: [provideCopilotChatConfiguration()],
+    test("destroying the injector disposes the live connect", () => {
+      const { config, disposes } = context;
+      config.setActiveThreadId("picked-1");
+      TestBed.tick();
+      TestBed.resetTestingModule();
+      expect(disposes[0]).toHaveBeenCalledOnce();
+    });
   });
-  const parent = TestBed.inject(EnvironmentInjector);
-  const childInjector = createEnvironmentInjector([], parent);
-  const config = runInInjectionContext(childInjector, () => {
-    const cfg = injectChatConfiguration();
-    const agentStore = signal(fake as never) as unknown as () => AgentStore;
-    connectActiveThread(cfg, agentStore, connect as never);
-    return cfg;
-  });
-
-  config.setActiveThreadId("picked-1", { explicit: true });
-  TestBed.flushEffects();
-  await Promise.resolve();
-
-  childInjector.destroy();
-
-  expect(fake.agent.detachActiveRun).toHaveBeenCalledTimes(1);
-});
-
-test("N3: cleanup aborts the agent's AbortController for an HttpAgent", async () => {
-  const abort = vi.fn();
-  // A minimal HttpAgent: the connector sets `agent.abortController` only when
-  // `agent instanceof HttpAgent`, so use a real instance with a stubbed
-  // controller to assert the abort fires on teardown.
-  const agent = new HttpAgent({ url: "http://localhost/agent" });
-  agent.abortController = { abort } as never;
-  const detachSpy = vi
-    .spyOn(agent, "detachActiveRun")
-    .mockResolvedValue(undefined);
-
-  const fake = { agent };
-  const connect = vi.fn(() => Promise.resolve());
-
-  TestBed.configureTestingModule({
-    providers: [provideCopilotChatConfiguration()],
-  });
-  const parent = TestBed.inject(EnvironmentInjector);
-  const childInjector = createEnvironmentInjector([], parent);
-  const config = runInInjectionContext(childInjector, () => {
-    const cfg = injectChatConfiguration();
-    const agentStore = signal(fake as never) as unknown as () => AgentStore;
-    connectActiveThread(cfg, agentStore, connect as never);
-    return cfg;
-  });
-
-  config.setActiveThreadId("picked-1", { explicit: true });
-  TestBed.flushEffects();
-  await Promise.resolve();
-
-  childInjector.destroy();
-
-  // The connector replaced `agent.abortController` with its own per-run
-  // controller before connecting; assert it aborted on teardown and detached.
-  expect(detachSpy).toHaveBeenCalledTimes(1);
-  expect(agent.abortController?.signal.aborted).toBe(true);
 });

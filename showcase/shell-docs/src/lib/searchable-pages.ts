@@ -18,8 +18,8 @@
  *   (b) A navigable page links to it, counting the snippets that page
  *       inlines as part of it — most CopilotKit pages are thin wrappers
  *       around shared snippets, and that is where the prose links live
- *       (`intelligence/overview.mdx` is nothing but `<Overview />`, whose
- *       snippet links to `intelligence/headless-ui`). One hop only, no
+ *       (`threads-lifecycle.mdx` is nothing but a snippet import, and that
+ *       snippet links to `tutorials/multi-conversation-chat`). One hop only, no
  *       transitive closure. A page kept out of the sidebar but linked from
  *       prose is intentional content, not a leftover.
  *
@@ -341,7 +341,7 @@ export function docsSlugCandidatesFromLinkTarget(
 }
 
 // Stops at whitespace as well as `)` so a link that carries a title —
-// `](/threads "Rich threads")` — still yields `/threads`.
+// `](/threads "guide")` — still yields `/threads`.
 const MARKDOWN_LINK = /\]\(\s*(\/[^)\s]*)/g;
 const JSX_HREF = /href=["'](\/[^"']*)["']/g;
 

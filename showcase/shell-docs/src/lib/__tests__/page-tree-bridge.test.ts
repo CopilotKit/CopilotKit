@@ -41,7 +41,7 @@ describe("navTreeToPageTree sidebar hierarchy", () => {
     },
     {
       type: "group",
-      title: "Rich threads",
+      title: "Rich Threads",
       slug: "sidebar#rich-threads",
       children: [{ type: "page", title: "Overview", slug: "threads" }],
       defaultOpen: false,

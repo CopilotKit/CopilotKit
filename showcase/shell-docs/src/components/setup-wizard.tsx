@@ -1,4 +1,8 @@
 "use client";
+import {
+  ONBOARDING_ARGUMENT_TEXT,
+  ONBOARDING_ARGUMENT_VERSION,
+} from "@/lib/onboarding-argument-templates";
 
 import { useHomepageTelemetry } from "@/lib/use-homepage-telemetry";
 
@@ -63,7 +67,9 @@ import type {
   StepDirection,
   StepSwapAnimation,
 } from "@/lib/wizard-step-transition";
+import { onboardingFrameworkSlug } from "@/lib/intelligence-onboarding-framework";
 import { composeWizardOnboardingPrompt } from "@/lib/wizard-onboarding-prompt";
+
 import {
   createOnboardingRunId,
   INTELLIGENCE_ONBOARDING_EVENTS,
@@ -91,6 +97,12 @@ export interface SetupWizardProps {
 }
 
 type CopyState = "idle" | "copied" | "error";
+
+// Names this control in `docs.intelligence_onboarding_prompt_copied`, the event
+// <PromptPill> also emits from the docs hero and page tools. Every other
+// emitter sets `surface`, so a wizard copy without one is the only row in that
+// stream that cannot be attributed to a control.
+const WIZARD_COPY_SURFACE = "docs_setup_wizard";
 
 const STEPPER_STEPS: readonly StepperStep[] = [
   { n: 1, label: "Project" },
@@ -549,11 +561,41 @@ export function SetupWizard({
     if (!mountedRef.current) return;
     setCopyState("copied");
     capture(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied, {
+      // The wizard has one copy control and never hands the prompt to an app,
+      // so every write here is a deliberate copy. <PromptPill> emits this same
+      // event for its `open_claude`/`open_codex` deep links; without `action`
+      // the two are indistinguishable downstream. See PE-218.
+      action: "copy",
+      surface: WIZARD_COPY_SURFACE,
+      // Read at click time rather than through `usePathname`, matching how the
+      // rest of this component reads the URL it rewrites as the user answers.
+      from_path: window.location.pathname,
       onboarding_run_id: runId,
       project: projectAnswer,
       frontend: frontendId,
+      // The wizard's fifth argument. It reaches the copied prompt through
+      // `composeWizardOnboardingPrompt` and was the only one telemetry could
+      // not see, so a run seeded with "I already have an agent" was
+      // indistinguishable from one seeded with "I need a new agent" (PE-255).
+      // `undefined` for a backend with no partner question, matching the
+      // composer, and PostHog drops the key rather than recording a null.
+      agent: partnerBackend ? (agentAnswer ?? undefined) : undefined,
       backend: backendId,
+      // `backend` is the docs registry slug this picker works in; the hero
+      // button and page actions emit `agent_framework` already mapped to the
+      // onboarding graph's vocabulary. Grouping the two together on `backend`
+      // would split `strands` from `strands-python` without saying so, and
+      // `built-in-agent` maps to nothing at all. Both are emitted rather than
+      // renaming `backend`, because dashboards already read it (PE-255).
+      agent_framework: backendId
+        ? onboardingFrameworkSlug(backendId)
+        : undefined,
       features: [...featureIds],
+      // Which revision of the argument prose the wizard appended. The
+      // hosted document versions its own text; this is the other half
+      // of what the developer copied (PE-255).
+      argument_version: ONBOARDING_ARGUMENT_VERSION,
+      argument_text: ONBOARDING_ARGUMENT_TEXT,
     });
     resetTimerRef.current = setTimeout(() => {
       if (mountedRef.current) setCopyState("idle");

@@ -60,7 +60,7 @@ prepared delivery only to its originating provider.
 | `components`     | `ChannelComponent[]`                           | Named JSX components used to reconstruct callbacks.                                                                                  |
 | `commands`       | `ChannelCommand[]`                             | Declared commands routed from provider ingress.                                                                                      |
 | `store`          | `StoreConfig`                                  | State, persistence, turn concurrency (`parallel` default), transcripts, and dedup.                                                   |
-| `adapters`       | `PlatformAdapter[]`                            | Developer-owned direct transports that may coexist with the managed Intelligence adapter.                                            |
+| `adapters`       | `PlatformAdapter[]`                            | Developer-owned direct transports that may coexist with the cloud-hosted Intelligence adapter.                                            |
 
 The managed runtime validates `name` as lowercase kebab-case, 3–64 characters,
 not equal to `channels`, and unique within the Runtime.

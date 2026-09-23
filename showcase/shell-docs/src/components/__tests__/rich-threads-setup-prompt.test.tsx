@@ -32,9 +32,9 @@ test("copies the Rich Threads prompt using the standard actions", async () => {
   render(<RichThreadsSetupPrompt />);
   fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
   await waitFor(() =>
-    expect(
-      writeText.mock.calls[0]?.[0]?.replace(/ --run [a-f0-9]{12}/, ""),
-    ).toBe(RICH_THREADS_SETUP_PROMPT),
+    expect(writeText.mock.calls[0]?.[0]).toMatch(
+      /^Read https:\/\/copilotkit\.ai\/onboarding-prompts\/[a-f0-9]{12}\?intent=add-rich-threads and help me set this up\.$/,
+    ),
   );
   expect(screen.getByRole("status").textContent).toBe("Prompt copied");
   expect(
@@ -53,12 +53,9 @@ test("previews the exact setup prompt and recovers from blocked clipboard access
   render(<RichThreadsSetupPrompt />);
   fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
   await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
-  expect(
-    (screen.getByRole("textbox") as HTMLTextAreaElement).value.replace(
-      / --run [a-f0-9]{12}/,
-      "",
-    ),
-  ).toBe(RICH_THREADS_SETUP_PROMPT);
+  expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toMatch(
+    /^Read https:\/\/copilotkit\.ai\/onboarding-prompts\/[a-f0-9]{12}\?intent=add-rich-threads and help me set this up\.$/,
+  );
   expect(screen.getByRole("status").textContent).toContain("Copy blocked");
 });
 
@@ -76,7 +73,9 @@ test("sends the coding agent to the Rich Threads route and carries nothing else"
     "Never use a fixed demo identity in production",
   );
   // No run id: this string is static and llm-text inlines it into cached raw
-  // Markdown, so one minted here would be shared by every reader.
+  // Markdown, so one minted here would be shared by every reader. That is also
+  // why it keeps the command rather than a link -- a run-id-less URL could be
+  // counted but never joined (PE-224).
   expect(RICH_THREADS_SETUP_PROMPT).not.toContain("--run");
 });
 

@@ -1,0 +1,168 @@
+name: "Docs: open prod release PR"
+
+on:
+  # Chain: push -> Build & Push -> Verify Deploy -> this workflow. GitHub
+  # limits workflow_run chaining to three downstream levels; do not grow
+  # this pipeline without checking that limit. Promotion uses a PR event.
+  workflow_run:
+    workflows: ["Showcase: Verify Deploy"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: docs-open-release-pr
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pending-release:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    outputs:
+      exists: ${{ steps.pending.outputs.exists }}
+    steps:
+      # Never push a new pin over a reviewed release. A maintainer must merge
+      # or close it before another candidate is prepared.
+      - name: Keep an open release PR stable
+        id: pending
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          count=$(gh pr list --repo "$GITHUB_REPOSITORY" --base main \
+            --head release/docs/prod --state open --json number --jq 'length')
+          if [ "$count" -gt 0 ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::An open docs release PR is awaiting review; leaving its pin unchanged."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  open-pr:
+    needs: pending-release
+    if: needs.pending-release.outputs.exists == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: railway
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          ref: main
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+
+      - working-directory: showcase/scripts
+        env:
+          EMIT_SKIP_OXFMT: "1"
+        run: |
+          npm ci
+          npx tsx emit-railway-envs-json.ts
+
+      - name: Probe docs staging
+        id: probe
+        working-directory: showcase/scripts
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RAILWAY_TOKEN:-}" ]; then
+            echo "::notice::RAILWAY_TOKEN is not set; skipping docs release PR."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Bracket the health probe with digest reads. The pin CLI checks
+          # this snapshot against Railway again rather than pinning a newer,
+          # unprobed deployment that arrived while verification was running.
+          STAGING_DIGEST=$(npx tsx -e '
+            import { resolveRailwayToken } from "./lib/railway-token.ts";
+            import { liveFetchDeployedDigest } from "./reconcile-staging.ts";
+            import { ENV_ID_BY_NAME, SERVICES } from "./railway-envs.ts";
+            liveFetchDeployedDigest(resolveRailwayToken().token, SERVICES.docs.serviceId, ENV_ID_BY_NAME.staging)
+              .then(digest => console.log(digest ?? ""))
+              .catch(error => { console.error(error); process.exit(1); });
+          ')
+          if [ -z "$STAGING_DIGEST" ]; then
+            echo "::notice::docs staging has no deployed digest; skipping release PR."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if npx tsx verify-deploy.ts --env staging --services docs; then
+            echo "staging-digest=$STAGING_DIGEST" >> "$GITHUB_OUTPUT"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::docs staging probe is red; not opening a release PR."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prepare pin file
+        id: pin
+        if: steps.probe.outputs.skip != 'true'
+        working-directory: showcase/scripts
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          GIT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          VERIFIED_STAGING_DIGEST: ${{ steps.probe.outputs.staging-digest }}
+        run: |
+          set -euo pipefail
+          npx tsx prepare-docs-release-pin.ts \
+            --pin-path=../../showcase/pins/docs-prod.json \
+            --verified-staging-digest="$VERIFIED_STAGING_DIGEST" \
+            --git-sha="$GIT_SHA"
+
+      - name: Mint devops-bot token
+        if: steps.probe.outputs.skip != 'true' && steps.pin.outputs.skip != 'true'
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: "1108748"
+          private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+
+      - name: Open docs release PR
+        if: steps.probe.outputs.skip != 'true' && steps.pin.outputs.skip != 'true'
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
+        env:
+          LEFTHOOK: "0"
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          branch: release/docs/prod
+          delete-branch: false
+          add-paths: showcase/pins/docs-prod.json
+          commit-message: "chore: release docs ${{ github.event.workflow_run.head_sha || github.sha }}"
+          title: "chore: release docs to prod"
+          labels: docs-release
+          body: |
+            Staging docs is green. Merge this PR to pin `docs.copilotkit.ai`
+            to the digest in `showcase/pins/docs-prod.json`.
+
+            - Staging: https://docs.staging.copilotkit.ai
+            - Verification trigger SHA: `${{ github.event.workflow_run.head_sha || github.sha }}`
+            - Digest: `${{ steps.pin.outputs.digest }}`
+
+            This is the docs prod gate. It does not promote the showcase fleet.
+            The trigger SHA can be a scripts-only change, not the image's source
+            revision; the digest above is the release identity.
+
+            The bot will not refresh this PR while it is open. Update its branch
+            to main if required, then obtain approval of the latest push and merge
+            once required checks pass. To replace this candidate, close the PR and
+            dispatch **Docs: open prod release PR** again on main.
+            Staging can advance during review, so inspect the pinned digest as
+            well as the current staging page. See showcase/bin/README.md for gates.
+
+            - [ ] Staging page looks right
+            - [ ] Digest in the pin file is the one you want

@@ -128,9 +128,6 @@ test("mapped feature pages import the matching Inspector Callout", () => {
   expect(read("docs/human-in-the-loop/index.mdx")).toContain(
     "open-inspector-pane-frontend-tools.mdx",
   );
-  expect(read("snippets/shared/intelligence/overview.mdx")).toContain(
-    "open-inspector-pane-learning.mdx",
-  );
   expect(read("docs/learning.mdx")).toContain(
     "open-inspector-pane-learning.mdx",
   );
@@ -188,7 +185,7 @@ test("shared Inspector docs preserve task routes and production guards", () => {
   const sharedPage = read("snippets/shared/intelligence/inspector.mdx");
 
   expect(sharedPage).toContain("## Choose what you need to do");
-  expect(sharedPage).toContain("**Threads** → **Try from here**");
+  expect(sharedPage).toContain("**Rich Threads** → **Try from here**");
   expect(sharedPage).toContain("## Control when Inspector appears");
   expect(sharedPage).toMatch(
     /never loaded or rendered in a\s+production build/,

@@ -43,6 +43,13 @@ import matter from "gray-matter";
 //   - Frontmatter is stripped and replaced with an H1 + description
 //     blockquote so the title survives.
 //
+// TELEMETRY LIVES IN `src/middleware.ts`, NOT HERE. Every `<path>.md`
+// fetch is reported as `docs.llm_text_fetched`, with the caller
+// classified from its user agent. Middleware runs before the
+// `next.config.ts` rewrite that maps `.md`/`.mdx` onto this route, so
+// it sees the request under its public path; a second capture here
+// would count the same fetch twice.
+//
 // URL resolution mirrors what `app/[framework]/[[...slug]]/page.tsx` does:
 //   - Frontend-scoped URLs reuse the same `/<frontend>` content
 //     resolution as the live frontend pages.
