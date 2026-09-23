@@ -289,6 +289,40 @@ describe("createChannel", () => {
     expect(renderer.finishCalls).toBe(1);
   });
 
+  it("rejects runAgent without an agent with a coded, actionable error", async () => {
+    const fake = new FakeAdapter();
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+    });
+    let caught: unknown;
+    channel.onMention(async ({ thread }) => {
+      try {
+        await thread.runAgent();
+      } catch (error) {
+        caught = error;
+      }
+    });
+
+    await channel.ɵruntime.start();
+    await fake.getSink().onTurn({
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "hi",
+      platform: "fake",
+    });
+
+    expect(caught).toBeInstanceOf(Error);
+    expect(caught).toMatchObject({
+      code: "channel_agent_not_configured",
+      name: "ChannelAgentNotConfiguredError",
+    });
+    expect((caught as Error).message).toContain("no agent configured");
+    expect((caught as Error).message).toContain(
+      "A Channel does not inherit the runtime's `agents`",
+    );
+  });
+
   it("defaults runAgent prompt to the inbound message text", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();

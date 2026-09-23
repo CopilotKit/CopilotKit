@@ -11,7 +11,10 @@ import { CopilotKit } from "./copilotkit";
 import { InterruptController, type InterruptRunner } from "./interrupt";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { AgentSubscriber, Message, State } from "@ag-ui/client";
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import {
+  DEFAULT_AGENT_ID,
+  RUNTIME_MODE_INTELLIGENCE,
+} from "@copilotkit/shared";
 import type { CopilotKitCore } from "@copilotkit/core";
 import {
   ProxiedCopilotRuntimeAgent,
@@ -207,12 +210,23 @@ export class CopilotkitAgentFactory {
       const runtimePart = isRuntimeConfigured
         ? `runtimeUrl=${runtimeUrl}`
         : "no runtimeUrl";
+      // An intelligence-mode runtime without a runtime-level `identifyUser`
+      // answers /info with no agents; name that cause only when it can apply.
+      const identifyUserHint =
+        isRuntimeConfigured &&
+        runtimeConnectionStatus ===
+          CopilotKitCoreRuntimeConnectionStatus.Connected &&
+        this.#copilotkit.core.runtimeMode === RUNTIME_MODE_INTELLIGENCE &&
+        knownAgents.length === 0
+          ? " If the runtime runs in intelligence mode (with `intelligence` options), /info only exposes agents when a runtime-level `identifyUser` is configured."
+          : "";
       throw new Error(
         `injectAgentStore: Agent '${resolvedAgentId}' not found after runtime sync (${runtimePart}). ` +
           (knownAgents.length
             ? `Known agents: [${knownAgents.join(", ")}]`
             : "No agents registered.") +
-          " Verify your runtime /info and/or agents__unsafe_dev_only.",
+          " Verify your runtime /info and/or agents__unsafe_dev_only." +
+          identifyUserHint,
       );
     };
 

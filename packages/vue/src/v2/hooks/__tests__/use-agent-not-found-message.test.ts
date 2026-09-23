@@ -1,35 +1,17 @@
-import React from "react";
-import { render, waitFor } from "@testing-library/react";
+import { defineComponent } from "vue";
+import { render, cleanup } from "@testing-library/vue";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { CopilotKitProvider } from "../../providers/CopilotKitProvider";
+import CopilotKitProvider from "../../providers/CopilotKitProvider.vue";
 import { useAgent } from "../use-agent";
+
+const HINT =
+  "If the runtime runs in intelligence mode (with `intelligence` options), /info only exposes agents when a runtime-level `identifyUser` is configured.";
 
 /**
  * An intelligence-mode runtime without a runtime-level `identifyUser` answers
  * /info with no agents. The "not found" error names that cause only when it
  * can apply.
  */
-
-class ErrorBoundary extends React.Component<
-  { children: React.ReactNode; onError: (e: Error) => void },
-  { hasError: boolean }
-> {
-  state = { hasError: false };
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-  componentDidCatch(error: Error) {
-    this.props.onError(error);
-  }
-  render() {
-    if (this.state.hasError) return <div data-testid="boundary-fallback" />;
-    return this.props.children as React.ReactElement;
-  }
-}
-
-const HINT =
-  "If the runtime runs in intelligence mode (with `intelligence` options), /info only exposes agents when a runtime-level `identifyUser` is configured.";
-
 describe("useAgent not-found error", () => {
   const originalFetch = global.fetch;
   const originalWindow = (globalThis as { window?: unknown }).window;
@@ -46,29 +28,43 @@ describe("useAgent not-found error", () => {
   }
 
   async function notFoundMessage(): Promise<string> {
-    const errors: Error[] = [];
-    function Consumer() {
-      useAgent();
-      return null;
-    }
-    render(
-      <ErrorBoundary onError={(e) => errors.push(e)}>
-        <CopilotKitProvider runtimeUrl="http://localhost:3000/api">
+    const capturedErrors: Error[] = [];
+    const Consumer = defineComponent({
+      setup() {
+        useAgent();
+        return {};
+      },
+      template: "<div />",
+    });
+    const Host = defineComponent({
+      components: { CopilotKitProvider, Consumer },
+      template: `
+        <CopilotKitProvider runtime-url="http://localhost:3000/api">
           <Consumer />
         </CopilotKitProvider>
-      </ErrorBoundary>,
-    );
-    await waitFor(() => expect(errors.length).toBeGreaterThan(0));
-    return errors[0]!.message;
+      `,
+    });
+    render(Host, {
+      global: {
+        config: {
+          errorHandler: (error) => {
+            capturedErrors.push(error as Error);
+          },
+        },
+      },
+    });
+    await vi.waitFor(() => expect(capturedErrors.length).toBeGreaterThan(0));
+    return capturedErrors[0]!.message;
   }
 
   beforeEach(() => {
-    (globalThis as { window?: unknown }).window =
-      (globalThis as any).window ?? {};
+    (globalThis as { window?: unknown }).window = {};
     vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
   });
 
   afterEach(() => {
+    cleanup();
     vi.restoreAllMocks();
     global.fetch = originalFetch;
     if (originalWindow === undefined) {

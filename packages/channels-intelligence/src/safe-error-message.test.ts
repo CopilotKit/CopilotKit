@@ -74,6 +74,41 @@ describe("redactSecretLikeValues", () => {
     ).toBe("connect https://[redacted]@db.example.com/x");
   });
 
+  test("redacts URL userinfo up to the last @ before the host", () => {
+    expect(
+      redactSecretLikeValues("connect https://user:p@ss@db.example.com/x"),
+    ).toBe("connect https://[redacted]@db.example.com/x");
+  });
+
+  test("redacts URL userinfo without a password", () => {
+    const token = join("gh", "p_abcdEFGH1234");
+    expect(
+      redactSecretLikeValues(`clone https://${token}@github.com/repo failed`),
+    ).toBe("clone https://[redacted]@github.com/repo failed");
+  });
+
+  test("redacts a quoted value with an escaped quote inside", () => {
+    expect(redactSecretLikeValues('{"password":"abc\\"def ghi"} next')).toBe(
+      '{"password":"[redacted]"} next',
+    );
+  });
+
+  test("redacts an unclosed quoted value to the end of the line or text", () => {
+    expect(redactSecretLikeValues('password: "open sesame')).toBe(
+      'password: "[redacted]',
+    );
+    expect(redactSecretLikeValues("secret='open sesame\nnext line")).toBe(
+      "secret='[redacted]\nnext line",
+    );
+  });
+
+  test("judges each path segment on its own", () => {
+    const path = "/api/copilotkit/v2/agents/default/run2/threads/xyz";
+    expect(redactSecretLikeValues(`POST ${path} failed`)).toBe(
+      `POST ${path} failed`,
+    );
+  });
+
   test("leaves ordinary text alone", () => {
     const text =
       "createChannel: no agent configured (pass `agent` to use runAgent); deliveryId dlv_delivery_01";
@@ -83,45 +118,61 @@ describe("redactSecretLikeValues", () => {
 });
 
 describe("safeErrorMessage", () => {
-  test("returns the message of an Error, a string, or a message-shaped object", () => {
-    expect(safeErrorMessage(new Error("boom"))).toBe("boom");
-    expect(safeErrorMessage("plain failure")).toBe("plain failure");
-    expect(safeErrorMessage({ message: "object failure" })).toBe(
-      "object failure",
-    );
+  test("returns the message, trimmed", () => {
+    expect(safeErrorMessage("  boom ")).toBe("boom");
   });
 
   test("returns undefined when there is nothing to report", () => {
-    expect(safeErrorMessage(undefined)).toBeUndefined();
-    expect(safeErrorMessage(null)).toBeUndefined();
-    expect(safeErrorMessage(42)).toBeUndefined();
-    expect(safeErrorMessage(new Error(""))).toBeUndefined();
-    expect(safeErrorMessage(new Error(" \n\t "))).toBeUndefined();
+    expect(safeErrorMessage("")).toBeUndefined();
+    expect(safeErrorMessage(" \n\t ")).toBeUndefined();
   });
 
   test("collapses newlines and control characters to one line", () => {
-    expect(safeErrorMessage(new Error("line one\nline two\r\n\u0007end"))).toBe(
+    expect(safeErrorMessage("line one\nline two\r\n\u0007end")).toBe(
       "line one line two end",
     );
   });
 
   test("bounds the length", () => {
-    const message = safeErrorMessage(new Error("word ".repeat(1_000)))!;
+    const message = safeErrorMessage("word ".repeat(1_000))!;
     expect(message.length).toBe(SAFE_ERROR_MESSAGE_MAX_LENGTH);
     expect(message.endsWith("…")).toBe(true);
   });
 
   test("redacts before truncating so a cut secret cannot leak a prefix", () => {
     const secret = join("xo", "xb-", "9".repeat(400));
-    const message = safeErrorMessage(
-      new Error(`${"a ".repeat(140)}${secret}`),
-    )!;
+    const message = safeErrorMessage(`${"a ".repeat(140)}${secret}`)!;
     expect(message).not.toContain(join("xo", "xb"));
     expect(message).not.toMatch(/9{5,}/);
   });
 
-  test("never includes the stack", () => {
-    const error = new Error("top-level message");
-    expect(safeErrorMessage(error)).toBe("top-level message");
+  test("redacts a secret far into the text before any cut", () => {
+    // A long opaque run collapses to `[redacted]`, pulling a later key into
+    // the visible output; that key must be whole when it is redacted.
+    const opaque = "a1".repeat(2_000);
+    const key = join("cp", "k-abcdefgh12345678");
+    const message = safeErrorMessage(`${opaque} then ${key} end`)!;
+    expect(message).toBe("[redacted] then [redacted] end");
+  });
+
+  test("does not split a surrogate pair when truncating", () => {
+    const text = `${"a".repeat(SAFE_ERROR_MESSAGE_MAX_LENGTH - 2)}\u{1F600}${"b".repeat(50)}`;
+    const message = safeErrorMessage(text)!;
+    expect(message.length).toBeLessThanOrEqual(SAFE_ERROR_MESSAGE_MAX_LENGTH);
+    expect(message.endsWith("…")).toBe(true);
+    expect(message).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/);
+  });
+
+  test("stays fast on pathological input at the scan cap", () => {
+    const inputs = [
+      "a".repeat(70_000),
+      "a.".repeat(35_000),
+      "a://".repeat(17_500),
+      "eyJ-".repeat(17_500),
+      '"password":"'.repeat(5_000),
+    ];
+    const started = Date.now();
+    for (const input of inputs) safeErrorMessage(input);
+    expect(Date.now() - started).toBeLessThan(2_000);
   });
 });

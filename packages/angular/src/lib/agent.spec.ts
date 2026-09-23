@@ -32,6 +32,7 @@ type StubCore = Pick<
   | "runtimeUrl"
   | "runtimeTransport"
   | "runtimeConnectionStatus"
+  | "runtimeMode"
   | "headers"
   | "subscribeToAgentWithOptions"
   | "runAgent"
@@ -174,6 +175,7 @@ class CopilotKitStub {
     runtimeUrl: undefined,
     runtimeTransport: "auto",
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Disconnected,
+    runtimeMode: "sse",
     headers: {},
     subscribeToAgentWithOptions:
       this.#coreInstance.subscribeToAgentWithOptions.bind(this.#coreInstance),
@@ -188,6 +190,10 @@ class CopilotKitStub {
   setRuntimeConnectionStatus(value: CopilotKitCoreRuntimeConnectionStatus) {
     this.#runtimeConnectionStatus.set(value);
     this.core = { ...this.core, runtimeConnectionStatus: value };
+  }
+
+  setRuntimeMode(value: "sse" | "intelligence") {
+    this.core = { ...this.core, runtimeMode: value };
   }
 
   setRuntimeUrl(value: string | undefined) {
@@ -613,6 +619,33 @@ describe("injectAgentStore", () => {
 
     expect(() => fixture.componentInstance.store()).toThrowError(
       /injectAgentStore: Agent 'missing' not found after runtime sync/,
+    );
+    expect(() => fixture.componentInstance.store()).not.toThrowError(
+      /identifyUser/,
+    );
+  });
+
+  it("names identifyUser when an intelligence runtime reports no agents", () => {
+    copilotKitStub.setAgents({});
+    copilotKitStub.setRuntimeUrl("https://runtime.local");
+    copilotKitStub.setRuntimeMode("intelligence");
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class MissingAgentHost {
+      store = injectAgentStore("missing");
+    }
+
+    const fixture = TestBed.createComponent(MissingAgentHost);
+    fixture.detectChanges();
+
+    expect(() => fixture.componentInstance.store()).toThrowError(
+      "No agents registered. Verify your runtime /info and/or agents__unsafe_dev_only. If the runtime runs in intelligence mode (with `intelligence` options), /info only exposes agents when a runtime-level `identifyUser` is configured.",
     );
   });
 

@@ -658,6 +658,23 @@ function resolveBackend(
   return providers[0]?.stateStore ?? new MemoryStore();
 }
 
+/**
+ * A Channel handler called `runAgent` but the Channel has no `agent`.
+ * `code` is stable: @copilotkit/channels-intelligence classifies delivery
+ * failures by it.
+ */
+class ChannelAgentNotConfiguredError extends Error {
+  readonly code = "channel_agent_not_configured";
+
+  constructor() {
+    super(
+      "createChannel: no agent configured (pass `agent` to use runAgent). " +
+        "A Channel does not inherit the runtime's `agents`; give it its own `agent`.",
+    );
+    this.name = "ChannelAgentNotConfiguredError";
+  }
+}
+
 export function createChannel<
   TStateSchema extends StandardSchemaV1 | undefined = undefined,
 >(
@@ -701,12 +718,7 @@ export function createChannel<
     const a = opts.agent;
     if (!a) {
       return () => {
-        // Keep "no agent configured" stable: @copilotkit/channels-intelligence
-        // classifies delivery failures by that phrase.
-        throw new Error(
-          "createChannel: no agent configured (pass `agent` to use runAgent). " +
-            "A Channel does not inherit the runtime's `agents`; give it its own `agent`.",
-        );
+        throw new ChannelAgentNotConfiguredError();
       };
     }
     // Clone per turn for both shapes, so concurrent turns never share one

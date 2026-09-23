@@ -1451,57 +1451,82 @@ test("classifies timeout/expiry errors from message text", async () => {
     safeChannelErrorMetadata(
       new Error("realtime gateway delivery join timed out"),
     ),
-  ).toEqual({
-    errorCategory: "timeout",
-    errorMessage: "realtime gateway delivery join timed out",
-  });
+  ).toEqual({ errorCategory: "timeout" });
   expect(
     safeChannelErrorMetadata(new Error("Channel delivery ownership expired")),
-  ).toEqual({
-    errorCategory: "timeout",
-    errorMessage: "Channel delivery ownership expired",
-  });
+  ).toEqual({ errorCategory: "timeout" });
 });
 
 const NO_AGENT_MESSAGE =
   "createChannel: no agent configured (pass `agent` to use runAgent). " +
   "A Channel does not inherit the runtime's `agents`; give it its own `agent`.";
 
-test("classifies a Channel without an agent as its own category and keeps the message", () => {
-  expect(safeChannelErrorMetadata(new Error(NO_AGENT_MESSAGE))).toEqual({
+function noAgentError(message = NO_AGENT_MESSAGE): Error {
+  return Object.assign(new Error(message), {
+    name: "ChannelAgentNotConfiguredError",
+    code: "channel_agent_not_configured",
+  });
+}
+
+test("classifies a Channel without an agent by its code and keeps the message", () => {
+  expect(safeChannelErrorMetadata(noAgentError())).toEqual({
     errorCategory: "agent_not_configured",
     errorMessage: NO_AGENT_MESSAGE,
   });
-  // The message thrown by older channels-core versions still matches.
+  // The code wins even if the text is reworded.
+  expect(
+    safeChannelErrorMetadata(noAgentError("Channel needs an agent")),
+  ).toEqual({
+    errorCategory: "agent_not_configured",
+    errorMessage: "Channel needs an agent",
+  });
+});
+
+test("falls back to the text for older channels-core errors without a code", () => {
   expect(
     safeChannelErrorMetadata(
       new Error(
         "createChannel: no agent configured (pass `agent` to use runAgent)",
       ),
-    ).errorCategory,
-  ).toBe("agent_not_configured");
+    ),
+  ).toEqual({
+    errorCategory: "agent_not_configured",
+    errorMessage:
+      "createChannel: no agent configured (pass `agent` to use runAgent)",
+  });
 });
 
-test("carries a redacted, bounded message and never the stack", () => {
+test("redacts and bounds a logged message", () => {
   // Assembled at runtime so no token-shaped literal lives in the source.
   const slackLike = ["xo", "xb-1234567890-abcdefghij"].join("");
-  const error = new Error(
-    `upstream rejected ${slackLike} with Bearer abc.def.ghi ${"x".repeat(1_000)}`,
+  const metadata = safeChannelErrorMetadata(
+    noAgentError(`no agent; saw ${slackLike} ${"x ".repeat(500)}`),
   );
-  const metadata = safeChannelErrorMetadata(error);
-  expect(metadata.errorCategory).toBe("unknown");
-  expect(metadata.errorMessage).toMatch(
-    /^upstream rejected \[redacted\] with Bearer \[redacted\] x+…$/,
-  );
+  expect(metadata.errorCategory).toBe("agent_not_configured");
+  expect(metadata.errorMessage).toMatch(/^no agent; saw \[redacted\] (x )+/);
   expect(metadata.errorMessage!.length).toBeLessThanOrEqual(300);
   expect(JSON.stringify(metadata)).not.toContain(slackLike);
-  expect(JSON.stringify(metadata)).not.toContain(error.stack!.split("\n")[1]);
-  expect(Object.keys(metadata)).toEqual(["errorCategory", "errorMessage"]);
 });
 
-test("omits errorMessage when the failure has no message", () => {
-  expect(safeChannelErrorMetadata(new Error(""))).toEqual({
-    errorCategory: "unknown",
+test.each([
+  ["unknown", new Error("agent backend replied 400: user said hello")],
+  ["validation", new Error("invalid schema for user said hello")],
+  ["auth", new Error("401 from agent backend: user said hello")],
+  ["network", new Error("fetch failed for user said hello")],
+  ["timeout", new Error("timed out while user said hello")],
+  ["conflict", new Error("packet conflict for user said hello")],
+] as const)(
+  "keeps only fixed metadata for the %s category, which can echo user content",
+  (category, error) => {
+    const metadata = safeChannelErrorMetadata(error);
+    expect(metadata).toEqual({ errorCategory: category });
+    expect(JSON.stringify(metadata)).not.toContain("user said hello");
+  },
+);
+
+test("omits errorMessage when an allowlisted failure has no message", () => {
+  expect(safeChannelErrorMetadata(noAgentError(""))).toEqual({
+    errorCategory: "agent_not_configured",
   });
   expect(safeChannelErrorMetadata({ code: 42 })).toEqual({
     errorCategory: "unknown",
@@ -1526,7 +1551,7 @@ test("logs the cause of a failed delivery handler", async () => {
     log,
   });
   transport.start(async () => {
-    throw new Error(NO_AGENT_MESSAGE);
+    throw noAgentError();
   });
 
   const invitationHandler = vi.mocked(control.on).mock.calls[0]![1];

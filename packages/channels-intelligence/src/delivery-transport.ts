@@ -1287,27 +1287,47 @@ function isSupersession(
 }
 
 /**
- * Error text thrown by `createChannel` in `@copilotkit/channels-core` when a
- * Channel has no `agent` and a handler calls `runAgent`. Matched by substring
- * so the category survives a reworded tail.
+ * `code` on the error `createChannel` in `@copilotkit/channels-core` throws
+ * when a Channel has no `agent` and a handler calls `runAgent`.
  */
-const AGENT_NOT_CONFIGURED_PATTERN = /no agent configured/;
+const AGENT_NOT_CONFIGURED_CODE = "channel_agent_not_configured";
+
+/**
+ * Fallback for channels-core versions that threw a plain `Error` without a
+ * `code`; matched by substring so a reworded tail still classifies.
+ */
+const AGENT_NOT_CONFIGURED_TEXT = /no agent configured/;
+
+type ChannelErrorCategory =
+  | "agent_not_configured"
+  | "auth"
+  | "network"
+  | "timeout"
+  | "validation"
+  | "conflict"
+  | "unknown";
+
+/**
+ * Categories whose `errorMessage` is logged. Only setup or configuration
+ * errors raised by the developer's own code qualify: their text is written by
+ * CopilotKit or the developer and names what to fix. Every other category
+ * (auth, network, timeout, validation, conflict, unknown) can carry text from
+ * an agent backend or provider response, which may echo end-user chat
+ * content, so those keep the fixed metadata only.
+ */
+const MESSAGE_LOGGED_CATEGORIES: ReadonlySet<ChannelErrorCategory> = new Set([
+  "agent_not_configured",
+]);
 
 /**
  * Map arbitrary failures to safe log metadata: a fixed-cardinality
- * `errorCategory` plus, for errors that are not structured provider failures,
- * the error's own message bounded and redacted by {@link safeErrorMessage}.
- * Never includes stacks, causes, or payloads.
+ * `errorCategory`, plus the error's own message (bounded and redacted by
+ * {@link safeErrorMessage}) for the configuration categories in
+ * {@link MESSAGE_LOGGED_CATEGORIES}. Never includes stacks, causes, or
+ * payloads.
  */
 export function safeChannelErrorMetadata(error: unknown): {
-  errorCategory:
-    | "agent_not_configured"
-    | "auth"
-    | "network"
-    | "timeout"
-    | "validation"
-    | "conflict"
-    | "unknown";
+  errorCategory: ChannelErrorCategory;
   errorMessage?: string;
   provider?: "slack" | "teams";
   operation?: string;
@@ -1339,17 +1359,21 @@ export function safeChannelErrorMetadata(error: unknown): {
           ? error
           : "";
   const errorCategory = classifyChannelError(
+    value?.code,
     `${String(value?.name ?? "")} ${String(value?.code ?? "")} ${message}`,
   );
+  if (!MESSAGE_LOGGED_CATEGORIES.has(errorCategory)) return { errorCategory };
   const errorMessage = safeErrorMessage(message);
   return errorMessage ? { errorCategory, errorMessage } : { errorCategory };
 }
 
 function classifyChannelError(
+  code: unknown,
   text: string,
-): ReturnType<typeof safeChannelErrorMetadata>["errorCategory"] {
+): ChannelErrorCategory {
+  if (code === AGENT_NOT_CONFIGURED_CODE) return "agent_not_configured";
   const classification = text.toLowerCase();
-  if (AGENT_NOT_CONFIGURED_PATTERN.test(classification)) {
+  if (AGENT_NOT_CONFIGURED_TEXT.test(classification)) {
     return "agent_not_configured";
   }
   if (/timeout|expired|deadline|timed out/.test(classification)) {
