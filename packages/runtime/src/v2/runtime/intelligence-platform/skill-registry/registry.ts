@@ -60,9 +60,9 @@ class SingleContainerRegistry {
 
   constructor(
     config: SingleContainerConfig,
-    private readonly fetchSnapshot = config.client.getLearnedSkillsSnapshot.bind(
-      config.client,
-    ),
+    private readonly fetchSnapshot = (
+      request: GetLearnedSkillsSnapshotRequest,
+    ) => config.client.getLearnedSkillsSnapshot(request),
   ) {
     this.#config = config;
   }
