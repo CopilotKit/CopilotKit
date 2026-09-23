@@ -10,6 +10,7 @@ import { expect, test, vi } from "vitest";
 
 import { CpkThreadInspector, WebInspectorElement } from "../index.js";
 import type {
+  ThreadDebuggerMessage,
   ThreadDebuggerMetadata,
   ThreadDebuggerProvider,
 } from "../index.js";
@@ -46,7 +47,7 @@ const ZERO_ROUTES = {
   state: 0,
 } as const satisfies ThreadRoutes;
 
-type HeaderFact = Readonly<{ label: string; value: string }>;
+type MetadataFact = Readonly<{ label: string; value: string }>;
 
 type ExampleHarness = Readonly<{
   inspector: WebInspectorElement;
@@ -61,6 +62,9 @@ type ExampleHarness = Readonly<{
 }>;
 
 class ExampleTestCore extends CopilotKitCore {
+  override get intelligence() {
+    return { wsUrl: "" };
+  }
   constructor() {
     super({
       runtimeUrl: RUNTIME_URL,
@@ -127,17 +131,82 @@ async function flushInspector(inspector: WebInspectorElement): Promise<void> {
   }
 }
 
+const RUN_EVENTS_WITHOUT_USER = [
+  {
+    type: "RUN_STARTED",
+    timestamp: "2026-06-25T10:00:00.000Z",
+    payload: { runId: "run-1" },
+  },
+  {
+    type: "TEXT_MESSAGE_START",
+    timestamp: "2026-06-25T10:00:01.000Z",
+    payload: { messageId: "assistant-1", role: "assistant" },
+  },
+  {
+    type: "TEXT_MESSAGE_CONTENT",
+    timestamp: "2026-06-25T10:00:02.000Z",
+    payload: { messageId: "assistant-1", delta: "Hello back" },
+  },
+  {
+    type: "RUN_FINISHED",
+    timestamp: "2026-06-25T10:00:03.000Z",
+    payload: { runId: "run-1" },
+  },
+] as const;
+
 function appendDetail(options: {
   threadId: string;
   provider?: ThreadDebuggerProvider;
   thread?: ThreadDebuggerMetadata;
+  agentMessagesInput?: CpkThreadInspector["agentMessagesInput"];
 }): CpkThreadInspector {
   const detail = new CpkThreadInspector();
   detail.threadId = options.threadId;
   detail.provider = options.provider ?? null;
   detail.thread = options.thread ?? null;
+  if (options.agentMessagesInput) {
+    detail.agentMessagesInput = options.agentMessagesInput;
+  }
   document.body.append(detail);
   return detail;
+}
+
+async function expectUserMessageBeforeRun(
+  detail: CpkThreadInspector,
+  userText: string,
+  assistantText: string,
+): Promise<void> {
+  await flushDetail(detail);
+  requireButton(detail.shadowRoot!, "Show event timeline").click();
+  await flushDetail(detail);
+  await vi.waitFor(() => {
+    const text = detail.shadowRoot?.textContent ?? "";
+    expect(text).toContain(userText);
+    expect(text).toContain(assistantText);
+    expect(text).toContain("User message");
+  });
+  const titles = Array.from(
+    detail.shadowRoot?.querySelectorAll(".cpk-td__timeline-title") ?? [],
+  ).map((node) => node.textContent?.trim());
+  expect(titles[0]).toBe("User message");
+  expect(titles).toContain("Run started");
+  expect(titles).toContain("Assistant message");
+  const items = Array.from(
+    detail.shadowRoot?.querySelectorAll(".cpk-td__timeline-item") ?? [],
+  );
+  expect(
+    items.some((node) =>
+      node.classList.contains("cpk-td__timeline-item--user"),
+    ),
+  ).toBe(true);
+  expect(
+    items.some((node) =>
+      node.classList.contains("cpk-td__timeline-item--assistant"),
+    ),
+  ).toBe(true);
+  expect(
+    items.some((node) => node.classList.contains("cpk-td__timeline-item--run")),
+  ).toBe(true);
 }
 
 function detailTabs(detail: CpkThreadInspector): HTMLButtonElement[] {
@@ -168,24 +237,17 @@ async function selectTab(
   return requireTab(detail, label);
 }
 
-function headerFacts(detail: CpkThreadInspector): HeaderFact[] {
-  const header = detail.shadowRoot?.querySelector<HTMLElement>(
-    '[aria-label="Thread metadata"]',
-  );
-  expect(header, "thread metadata header").not.toBeNull();
-  if (!header) throw new Error("Thread metadata header was not rendered");
-  return Array.from(
-    header.querySelectorAll<HTMLElement>(".cpk-td__metadata-pill"),
-  ).map((pill) => ({
-    label:
-      pill
-        .querySelector<HTMLElement>(".cpk-td__metadata-label")
-        ?.textContent?.trim() ?? "",
-    value:
-      pill
-        .querySelector<HTMLElement>(".cpk-td__metadata-value")
-        ?.textContent?.trim() ?? "",
+function metadataFacts(detail: CpkThreadInspector): MetadataFact[] {
+  const facts = Array.from(
+    detail.shadowRoot?.querySelectorAll(".cpk-tdp__row") ?? [],
+  ).map((row) => ({
+    label: row.querySelector(".cpk-tdp__label")?.textContent?.trim() ?? "",
+    value: row.querySelector(".cpk-tdp__value")?.textContent?.trim() ?? "",
   }));
+  return ["Name", "ID", "Agent", "Created", "Updated"].flatMap((label) => {
+    const fact = facts.find((item) => item.label === label);
+    return fact && fact.value !== "—" ? [fact] : [];
+  });
 }
 
 function expectedTime(value: string): string {
@@ -327,13 +389,13 @@ async function setupExampleHarness(): Promise<ExampleHarness> {
   await flushInspector(inspector);
 
   const opener = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-    'button[aria-label="Web Inspector"]',
+    'button[aria-label^="Web Inspector"]',
   );
   if (!opener) throw new Error("Web Inspector opener was not rendered");
   opener.click();
   await flushInspector(inspector);
   const threads = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-    'button[data-inspector-group="threads"]',
+    'button[data-inspector-menu-key="threads"]',
   );
   if (!threads) throw new Error("Threads group was not rendered");
   threads.click();
@@ -374,7 +436,7 @@ async function setupExampleHarness(): Promise<ExampleHarness> {
       await flushInspector(inspector);
       const detail = details();
       await vi.waitFor(() => {
-        expect(headerFacts(detail).map((fact) => fact.label)).toContain(
+        expect(metadataFacts(detail).map((fact) => fact.label)).toContain(
           "Created",
         );
       });
@@ -422,7 +484,7 @@ function expectNoMutationControls(
   }
 }
 
-test("real metadata renders the exact labels, full identity, and supplied optional facts", async () => {
+test("thread title uses provider metadata and full identity remains in the details drawer", async () => {
   prepareDom();
   const threadId = "thread-real-1234567890-abcdefghijklmnopqrstuvwxyz";
   const createdAt = "2026-06-25T10:00:00.000Z";
@@ -447,7 +509,7 @@ test("real metadata renders the exact labels, full identity, and supplied option
   });
   try {
     await vi.waitFor(() => {
-      expect(headerFacts(detail)).toEqual([
+      expect(metadataFacts(detail)).toEqual([
         { label: "Name", value: "Provider name" },
         { label: "ID", value: threadId },
         { label: "Agent", value: "agent-real" },
@@ -456,55 +518,15 @@ test("real metadata renders the exact labels, full identity, and supplied option
       ]);
     });
 
-    const header = detail.shadowRoot?.querySelector<HTMLElement>(
-      '[aria-label="Thread metadata"]',
+    const header = detail.shadowRoot?.querySelector(".cpk-td__thread-header");
+    expect(header?.textContent).toContain("Provider name");
+    expect(header?.textContent).not.toContain(threadId);
+    expect(header?.textContent).not.toContain(
+      "account-user-must-not-be-in-header",
     );
-    expect(header?.getAttribute("role")).toBe("group");
-    expect(header?.getAttribute("aria-label")).toBe("Thread metadata");
-    expect(header?.textContent).not.toContain("End user");
-    expect(header?.textContent).not.toContain("Created by");
-    expect(header?.textContent).not.toContain("Status");
-    expect(header?.textContent).toContain(threadId);
-    const renderedStyle =
-      detail.shadowRoot?.querySelector("style")?.textContent;
-    if (!renderedStyle)
-      throw new Error("Thread detail styles were not rendered");
-    const parserStyle = document.createElement("style");
-    parserStyle.textContent = renderedStyle;
-    document.head.append(parserStyle);
-    try {
-      const styleRules = Array.from(parserStyle.sheet?.cssRules ?? []).filter(
-        (rule): rule is CSSStyleRule => rule instanceof CSSStyleRule,
-      );
-      for (const selector of [
-        ".cpk-td__tab",
-        ".cpk-td__metadata-label",
-        ".cpk-td__timeline-time",
-        ".cpk-td__event-time",
-        ".cpk-tdp__section-title",
-        ".cpk-tdp__label",
-      ]) {
-        const rule = styleRules.find(
-          (candidate) => candidate.selectorText === selector,
-        );
-        expect(rule?.style.color, selector).toBe("rgb(104, 104, 110)");
-      }
-    } finally {
-      parserStyle.remove();
-    }
-    const namedIdFact = detail.shadowRoot?.querySelector<HTMLElement>(
-      `[role="group"][aria-label="ID: ${threadId}"]`,
-    );
-    expect(namedIdFact).not.toBeNull();
-    expect(namedIdFact?.textContent).toContain(threadId);
     expect(
-      header?.parentElement
-        ?.querySelector(".cpk-td__empty-hint")
-        ?.textContent?.replace(/\s+/g, " ")
-        .trim(),
-    ).toBe(
-      "Timeline rows are normalized from AG-UI events. Open AG-UI Events or State to inspect the available thread data.",
-    );
+      detail.shadowRoot?.querySelector(".cpk-td__empty-hint")?.textContent,
+    ).toContain("Timeline rows are normalized");
 
     detail.shadowRoot
       ?.querySelector<HTMLButtonElement>(".cpk-td__panel-toggle")
@@ -527,7 +549,135 @@ test("real metadata renders the exact labels, full identity, and supplied option
   }
 });
 
-test("missing metadata falls back to Untitled and the full thread ID without optional account facts", async () => {
+test("embedding hosts can hide the title without losing conversation controls", async () => {
+  prepareDom();
+  const detail = appendDetail({
+    threadId: "embedded-thread",
+    thread: { id: "embedded-thread", name: "Host owns this title" },
+    provider: {
+      getMessages: async () => [{ id: "m1", role: "user", content: "Hello" }],
+      getEvents: async () => [],
+    },
+  });
+  try {
+    await flushDetail(detail);
+    expect(
+      detail.shadowRoot?.querySelector(".cpk-td__thread-title")?.textContent,
+    ).toContain("Host owns this title");
+    Object.assign(detail, { showThreadTitle: false });
+    await flushDetail(detail);
+    expect(
+      detail.shadowRoot?.querySelector(".cpk-td__thread-title"),
+    ).toBeNull();
+    expect(
+      requireButton(detail.shadowRoot!, "Show event timeline"),
+    ).toBeDefined();
+    expect(
+      detail.shadowRoot?.querySelector(
+        '[role="group"][aria-label="User message"]',
+      )?.textContent,
+    ).toContain("Hello");
+    Object.assign(detail, { showThreadTitle: true });
+    await flushDetail(detail);
+    expect(
+      detail.shadowRoot?.querySelector(".cpk-td__thread-title")?.textContent,
+    ).toContain("Host owns this title");
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("a message focus request scrolls and pulses once per request", async () => {
+  prepareDom();
+  const scrollIntoView = vi.fn();
+  const originalScrollIntoView = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    "scrollIntoView",
+  );
+  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+    configurable: true,
+    value: scrollIntoView,
+  });
+  const detail = new CpkThreadInspector();
+  detail.threadId = "thread-focused-message";
+  detail.focusMessageId = "assistant-message-1";
+  detail.focusRequestId = 1;
+  detail.provider = {
+    getEvents: vi.fn().mockResolvedValue([
+      {
+        type: "TEXT_MESSAGE_START",
+        timestamp: "2026-06-25T10:00:00.000Z",
+        payload: {
+          messageId: "assistant-message-1",
+          role: "assistant",
+        },
+      },
+      {
+        type: "TEXT_MESSAGE_CONTENT",
+        timestamp: "2026-06-25T10:00:01.000Z",
+        payload: {
+          messageId: "assistant-message-1",
+          delta: "Focused response",
+        },
+      },
+    ]),
+  };
+  document.body.append(detail);
+
+  try {
+    await vi.waitFor(() => {
+      const focusedMessage = detail.shadowRoot?.querySelector<HTMLElement>(
+        '[data-message-id="assistant-message-1"]',
+      );
+      expect(focusedMessage).not.toBeNull();
+      expect(focusedMessage?.classList.contains("cpk-td__focus-pulse")).toBe(
+        true,
+      );
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "center" });
+    });
+
+    const focusedMessage = detail.shadowRoot?.querySelector<HTMLElement>(
+      '[data-message-id="assistant-message-1"]',
+    );
+    focusedMessage?.dispatchEvent(new Event("animationend"));
+    expect(focusedMessage?.classList.contains("cpk-td__focus-pulse")).toBe(
+      false,
+    );
+
+    scrollIntoView.mockClear();
+    detail.agentEventsInput = [...detail.agentEventsInput];
+    await detail.updateComplete;
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "center" });
+    expect(focusedMessage?.classList.contains("cpk-td__focus-pulse")).toBe(
+      false,
+    );
+
+    detail.focusRequestId = 2;
+    await detail.updateComplete;
+    await vi.waitFor(() => {
+      expect(focusedMessage?.classList.contains("cpk-td__focus-pulse")).toBe(
+        true,
+      );
+    });
+  } finally {
+    detail.remove();
+    if (originalScrollIntoView) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        "scrollIntoView",
+        originalScrollIntoView,
+      );
+    } else {
+      Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
+    }
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("missing metadata keeps the full thread ID in the drawer and a fallback title", async () => {
   prepareDom();
   const threadId = "thread-fallback-full-0987654321-zyxwvutsrqponmlkjihgfedcba";
   const provider: ThreadDebuggerProvider = {
@@ -537,13 +687,11 @@ test("missing metadata falls back to Untitled and the full thread ID without opt
   const detail = appendDetail({ threadId, provider });
   try {
     await flushDetail(detail);
-    expect(headerFacts(detail)).toEqual([
-      { label: "Name", value: "Untitled" },
-      { label: "ID", value: threadId },
-    ]);
+    expect(metadataFacts(detail)).toEqual([{ label: "ID", value: threadId }]);
     const headerText =
-      detail.shadowRoot?.querySelector('[aria-label="Thread metadata"]')
-        ?.textContent ?? "";
+      detail.shadowRoot?.querySelector(".cpk-td__thread-title")?.textContent ??
+      "";
+    expect(headerText).toContain("Rich Thread");
     for (const absent of [
       "Agent",
       "Created",
@@ -598,7 +746,7 @@ test("click selection keeps stable unique tab and panel ARIA links across rerend
     const selected = await selectTab(first, "AG-UI Events");
     const tabs = detailTabs(first);
     expect(tabs.map((tab) => tab.textContent?.trim())).toEqual([
-      "Messages",
+      "Conversation",
       "AG-UI Events",
       "State",
     ]);
@@ -650,7 +798,7 @@ test("Arrow keys wrap and Home and End select and focus their exact tabs", async
   });
   try {
     await flushDetail(detail);
-    const messages = requireTab(detail, "Messages");
+    const messages = requireTab(detail, "Conversation");
     messages.focus();
     expect(detail.shadowRoot?.activeElement).toBe(messages);
 
@@ -668,30 +816,33 @@ test("Arrow keys wrap and Home and End select and focus their exact tabs", async
     );
     await flushDetail(detail);
     expect(left.defaultPrevented).toBe(true);
-    expect(selectedTab(detail).textContent?.trim()).toBe("Messages");
+    expect(selectedTab(detail).textContent?.trim()).toBe("Conversation");
 
-    dispatchNavigationKey(requireTab(detail, "Messages"), "ArrowLeft");
+    dispatchNavigationKey(requireTab(detail, "Conversation"), "ArrowLeft");
     await flushDetail(detail);
     expect(selectedTab(detail).textContent?.trim()).toBe("State");
     dispatchNavigationKey(requireTab(detail, "State"), "ArrowRight");
     await flushDetail(detail);
-    expect(selectedTab(detail).textContent?.trim()).toBe("Messages");
+    expect(selectedTab(detail).textContent?.trim()).toBe("Conversation");
 
-    dispatchNavigationKey(requireTab(detail, "Messages"), "End");
+    dispatchNavigationKey(requireTab(detail, "Conversation"), "End");
     await flushDetail(detail);
     expect(selectedTab(detail).textContent?.trim()).toBe("State");
     expect(detail.shadowRoot?.activeElement).toBe(requireTab(detail, "State"));
     dispatchNavigationKey(requireTab(detail, "State"), "Home");
     await flushDetail(detail);
-    expect(selectedTab(detail).textContent?.trim()).toBe("Messages");
+    expect(selectedTab(detail).textContent?.trim()).toBe("Conversation");
     expect(detail.shadowRoot?.activeElement).toBe(
-      requireTab(detail, "Messages"),
+      requireTab(detail, "Conversation"),
     );
 
-    const tabKey = dispatchNavigationKey(requireTab(detail, "Messages"), "Tab");
+    const tabKey = dispatchNavigationKey(
+      requireTab(detail, "Conversation"),
+      "Tab",
+    );
     await flushDetail(detail);
     expect(tabKey.defaultPrevented).toBe(false);
-    expect(selectedTab(detail).textContent?.trim()).toBe("Messages");
+    expect(selectedTab(detail).textContent?.trim()).toBe("Conversation");
   } finally {
     detail.remove();
     vi.restoreAllMocks();
@@ -699,7 +850,7 @@ test("Arrow keys wrap and Home and End select and focus their exact tabs", async
   }
 });
 
-test("real provider navigation shares events, lazily loads state once, and adds no request", async () => {
+test("real provider navigation shares events, loads messages with events, lazily loads state once, and adds no request", async () => {
   prepareDom();
   const currentFetch = globalThis.fetch;
   const fetchMock = Object.assign(
@@ -725,25 +876,106 @@ test("real provider navigation shares events, lazily loads state once, and adds 
     provider: { getThreadMetadata, getMessages, getEvents, getState },
   });
   try {
-    await vi.waitFor(() => expect(getEvents).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => {
+      expect(getEvents).toHaveBeenCalledTimes(1);
+      expect(getMessages).toHaveBeenCalledTimes(1);
+    });
     expect(getThreadMetadata).toHaveBeenCalledTimes(1);
-    expect(getMessages).not.toHaveBeenCalled();
     expect(getState).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
 
     await selectTab(detail, "AG-UI Events");
-    await selectTab(detail, "Messages");
+    await selectTab(detail, "Conversation");
     await selectTab(detail, "AG-UI Events");
     expect(getEvents).toHaveBeenCalledTimes(1);
-    expect(getMessages).not.toHaveBeenCalled();
+    expect(getMessages).toHaveBeenCalledTimes(1);
 
     await selectTab(detail, "State");
     await vi.waitFor(() => expect(getState).toHaveBeenCalledTimes(1));
-    await selectTab(detail, "Messages");
+    await selectTab(detail, "Conversation");
     await selectTab(detail, "State");
     expect(getState).toHaveBeenCalledTimes(1);
     expect(getEvents).toHaveBeenCalledTimes(1);
     expect(fetchMock).not.toHaveBeenCalled();
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("conversation preserves long replies, tool details, and generative UI while view controls reuse fetched data", async () => {
+  prepareDom();
+  const reply = "A detailed reply. ".repeat(200) + "End of reply.";
+  const getMessages = vi.fn().mockResolvedValue([
+    { id: "user", role: "user", content: "Find a meeting time" },
+    {
+      id: "tool-message",
+      role: "assistant",
+      toolCalls: [
+        { id: "calendar", name: "check_calendars", args: { day: "Thursday" } },
+      ],
+    },
+    {
+      id: "result",
+      role: "tool",
+      toolCallId: "calendar",
+      content: '{"available":true}',
+    },
+    { id: "picker", role: "activity", activityType: "meeting_time_picker" },
+    { id: "reply", role: "assistant", content: reply },
+  ]);
+  const getEvents = vi.fn().mockResolvedValue([...RUN_EVENTS_WITHOUT_USER]);
+  const detail = appendDetail({
+    threadId: "mixed-conversation",
+    provider: { getMessages, getEvents },
+  });
+  try {
+    await flushDetail(detail);
+    const root = detail.shadowRoot!;
+    expect(
+      root.querySelector('[aria-label="User message"]')?.textContent,
+    ).toContain("Find a meeting time");
+    expect(root.querySelector(".cpk-td__genui")?.textContent).toContain(
+      "Generative UI",
+    );
+    expect(root.querySelector(".cpk-td__genui-component")?.textContent).toBe(
+      "meeting_time_picker",
+    );
+    expect(
+      root.querySelector('[aria-label="Assistant message"]')?.textContent,
+    ).not.toContain("End of reply.");
+    root.querySelector<HTMLElement>(".cpk-td__show-more")!.click();
+    await flushDetail(detail);
+    expect(
+      root.querySelector('[aria-label="Assistant message"]')?.textContent,
+    ).toContain("End of reply.");
+    root.querySelector<HTMLElement>(".cpk-td__tool-header")!.click();
+    await flushDetail(detail);
+    expect(root.querySelector(".cpk-td__tool-body")?.textContent).toContain(
+      "Thursday",
+    );
+    expect(root.querySelector(".cpk-td__tool-body")?.textContent).toContain(
+      "available",
+    );
+    const timelineToggle = requireButton(root, "Show event timeline");
+    expect(timelineToggle.closest(".cpk-td__thread-header")).not.toBeNull();
+    expect(timelineToggle.closest(".cpk-td__content")).toBeNull();
+    timelineToggle.click();
+    await flushDetail(detail);
+    requireButton(root, "Show conversation").click();
+    await flushDetail(detail);
+    expect(
+      root.querySelector('[aria-label="Assistant message"]')?.textContent,
+    ).toContain("End of reply.");
+    await selectTab(detail, "AG-UI Events");
+    requireButton(root, "Expand all").click();
+    await flushDetail(detail);
+    requireButton(root, "Collapse all").click();
+    await flushDetail(detail);
+    expect(requireButton(root, "Expand all")).toBeDefined();
+    expect(getMessages).toHaveBeenCalledTimes(1);
+    expect(getEvents).toHaveBeenCalledTimes(1);
   } finally {
     detail.remove();
     vi.restoreAllMocks();
@@ -788,13 +1020,65 @@ test("a source-event link selects AG-UI Events and reveals the indexed event", a
     expect(event?.closest<HTMLElement>('[role="tabpanel"]')?.hidden).toBe(
       false,
     );
-    expect(event?.textContent).toContain("RUN_STARTED");
+    expect(event?.textContent).toContain("Run started");
+    expect(event?.classList.contains("cpk-td__event--run")).toBe(true);
     expect(
-      getComputedStyle(
-        event?.querySelector<HTMLElement>(".cpk-td__event-type") ??
-          document.body,
-      ).color,
-    ).toBe("rgb(138, 89, 0)");
+      event?.querySelector(".cpk-td__event-type")?.getAttribute("style"),
+    ).toBeNull();
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("Messages timeline shows user messages that events omit", async () => {
+  prepareDom();
+  const detail = appendDetail({
+    threadId: "thread-user-message",
+    provider: {
+      getEvents: vi.fn().mockResolvedValue([...RUN_EVENTS_WITHOUT_USER]),
+      getMessages: vi.fn().mockResolvedValue([
+        { id: "user-1", role: "user", content: "Hello from the user" },
+        { id: "assistant-1", role: "assistant", content: "Hello back" },
+      ]),
+    },
+  });
+  try {
+    await expectUserMessageBeforeRun(
+      detail,
+      "Hello from the user",
+      "Hello back",
+    );
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("Messages timeline shows live agent user messages when the runtime omits them", async () => {
+  prepareDom();
+  const detail = appendDetail({
+    threadId: "thread-live-user-message",
+    provider: {
+      getEvents: vi.fn().mockResolvedValue([...RUN_EVENTS_WITHOUT_USER]),
+      getMessages: vi.fn().mockResolvedValue([]),
+    },
+    agentMessagesInput: [
+      {
+        id: "user-live-1",
+        role: "user",
+        contentText: "Hello from the live agent",
+      },
+    ],
+  });
+  try {
+    await expectUserMessageBeforeRun(
+      detail,
+      "Hello from the live agent",
+      "Hello back",
+    );
   } finally {
     detail.remove();
     vi.restoreAllMocks();
@@ -808,19 +1092,19 @@ test("all three local examples use the shared labels, created fact, local panels
     {
       id: "example-realtime-sync",
       name: "Realtime thread sync",
-      event: "RUN_STARTED",
+      event: "Run started",
       state: "cart_demo_42",
     },
     {
       id: "example-manage-history",
       name: "Manage saved conversations",
-      event: "CUSTOM_EVENT",
+      event: "Custom event",
       state: "Billing escalation handoff",
     },
     {
       id: "example-inspect-runs",
       name: "Inspect durable run history",
-      event: "TOOL_CALL_START",
+      event: "Tool call start",
       state: "auditLogsRequired",
     },
   ] as const;
@@ -828,7 +1112,7 @@ test("all three local examples use the shared labels, created fact, local panels
     const routesBeforeExamples = harness.routes();
     for (const example of examples) {
       const detail = await harness.selectExample(example.name);
-      const facts = headerFacts(detail);
+      const facts = metadataFacts(detail);
       expect(facts.map((fact) => fact.label)).toEqual([
         "Name",
         "ID",
@@ -844,7 +1128,7 @@ test("all three local examples use the shared labels, created fact, local panels
         "—",
       );
       expect(detailTabs(detail).map((tab) => tab.textContent?.trim())).toEqual([
-        "Messages",
+        "Conversation",
         "AG-UI Events",
         "State",
       ]);
@@ -857,7 +1141,11 @@ test("all three local examples use the shared labels, created fact, local panels
       skip?.click();
       await harness.flush();
 
-      await selectTab(detail, "Messages");
+      await selectTab(detail, "Conversation");
+      if (detail.shadowRoot?.textContent?.includes("Show event timeline")) {
+        requireButton(detail.shadowRoot!, "Show event timeline").click();
+        await flushDetail(detail);
+      }
       expect(detail.shadowRoot?.textContent).toContain("Run started");
       await selectTab(detail, "AG-UI Events");
       expect(detail.shadowRoot?.textContent).toContain(example.event);
@@ -879,9 +1167,9 @@ test("Sam's tour uses the new labels while preserving step bodies, storage, navi
     const root = harness.inspector.shadowRoot!;
     const expectedSteps = [
       {
-        label: "Messages",
+        label: "Conversation",
         tabSuffix: "-tab-timeline",
-        body: "The timeline turns messages, tool calls, state changes, and run markers into a scannable debugging trail.",
+        body: "Read messages and tool calls as a conversation. Switch to the event timeline to inspect state changes and run markers.",
       },
       {
         label: "AG-UI Events",
@@ -930,11 +1218,329 @@ test("Sam's tour uses the new labels while preserving step bodies, storage, navi
     const reopenedTourText =
       root.querySelector('[role="dialog"]')?.textContent ?? "";
     expect(reopenedTourText).toContain("1/3");
-    expect(reopenedTourText).toContain("Messages");
+    expect(reopenedTourText).toContain("Conversation");
     expect(selectedTab(detail).id).toMatch(/-tab-timeline$/);
     expectNoMutationControls(harness.inspector, detail);
     expect(harness.routes()).toEqual(routesBeforeTour);
   } finally {
     await harness.teardown();
+  }
+});
+
+test("tool disclosures distinguish missing, null, and unreadable results", async () => {
+  prepareDom();
+  const getMessages = vi
+    .fn<NonNullable<ThreadDebuggerProvider["getMessages"]>>()
+    .mockResolvedValue([
+      {
+        id: "call",
+        role: "assistant",
+        toolCalls: [{ id: "lookup", name: "lookup", args: { query: "test" } }],
+      },
+    ]);
+  const detail = appendDetail({
+    threadId: "tool-results",
+    provider: { getMessages },
+  });
+  try {
+    await flushDetail(detail);
+    const root = detail.shadowRoot;
+    if (!root) throw new Error("Missing thread detail root");
+    const disclosure = root.querySelector<HTMLButtonElement>(
+      "button.cpk-td__tool-header",
+    );
+    if (!disclosure) throw new Error("Missing tool disclosure button");
+    expect(disclosure.getAttribute("aria-expanded")).toBe("false");
+    expect(disclosure.textContent).toContain("No result recorded");
+    disclosure.click();
+    await flushDetail(detail);
+    expect(disclosure.getAttribute("aria-expanded")).toBe("true");
+    expect(root.querySelector(".cpk-td__tool-body")?.textContent).toContain(
+      "test",
+    );
+
+    getMessages.mockResolvedValue([
+      {
+        id: "call",
+        role: "assistant",
+        toolCalls: [{ id: "lookup", name: "lookup", args: { query: "test" } }],
+      },
+      { id: "result", role: "tool", toolCallId: "lookup", content: "null" },
+    ]);
+    detail.liveMessageVersion += 1;
+    await flushDetail(detail);
+    expect(root.querySelector(".cpk-td__tool-header")?.textContent).toContain(
+      "Result received",
+    );
+    expect(root.querySelector(".cpk-td__tool-body")?.textContent).toContain(
+      "null",
+    );
+    const parseError = vi.spyOn(console, "error").mockImplementation(() => {});
+    getMessages.mockResolvedValue([
+      {
+        id: "call",
+        role: "assistant",
+        toolCalls: [{ id: "lookup", name: "lookup", args: {} }],
+      },
+      { id: "result", role: "tool", toolCallId: "lookup", content: "{broken" },
+    ]);
+    detail.liveMessageVersion += 1;
+    await flushDetail(detail);
+    expect(root.querySelector(".cpk-td__tool-header")?.textContent).toContain(
+      "Result unreadable",
+    );
+    expect(
+      root.querySelector(".cpk-td__tool-header")?.textContent,
+    ).not.toContain("Result received");
+    expect(root.querySelector(".cpk-td__tool-body")?.textContent).toContain(
+      "{broken",
+    );
+    expect(parseError).toHaveBeenCalledOnce();
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("conversation shows run errors and keeps last-good messages when refresh fails", async () => {
+  prepareDom();
+  const getMessages = vi
+    .fn<NonNullable<ThreadDebuggerProvider["getMessages"]>>()
+    .mockResolvedValueOnce([
+      { id: "reply", role: "assistant", content: "Partial answer" },
+    ])
+    .mockRejectedValueOnce(new Error("Network unavailable"))
+    .mockResolvedValue([
+      { id: "reply", role: "assistant", content: "Recovered answer" },
+    ]);
+  const detail = appendDetail({
+    threadId: "failed-run",
+    provider: {
+      getMessages,
+      getEvents: async () => [
+        {
+          type: "RUN_ERROR",
+          timestamp: "2026-09-22T12:00:00Z",
+          payload: { message: "Calendar service unavailable" },
+        },
+      ],
+    },
+  });
+  try {
+    await flushDetail(detail);
+    const root = detail.shadowRoot;
+    if (!root) throw new Error("Missing thread detail root");
+    expect(
+      root.querySelector('[role="tabpanel"]:not([hidden])')?.textContent,
+    ).toContain("Calendar service unavailable");
+    detail.liveMessageVersion += 1;
+    await flushDetail(detail);
+    expect(root.textContent).toContain("Partial answer");
+    expect(root.textContent).toContain(
+      "Could not refresh messages. Showing the last loaded conversation.",
+    );
+    requireButton(root, "Show event timeline").click();
+    await flushDetail(detail);
+    expect(root.querySelector('[role="status"]')?.textContent).toContain(
+      "Could not refresh messages",
+    );
+    requireButton(root, "Show conversation").click();
+    await flushDetail(detail);
+    getMessages.mockImplementationOnce(
+      () => new Promise<ThreadDebuggerMessage[]>(() => {}),
+    );
+    // Exercise a non-silent retry while the prior refresh warning is visible.
+    void detail["fetchMessages"]("failed-run");
+    await flushDetail(detail);
+    expect(root.textContent).toContain("Loading messages…");
+    expect(root.textContent).not.toContain("Could not refresh messages");
+    detail.liveMessageVersion += 1;
+    await flushDetail(detail);
+    expect(root.textContent).toContain("Recovered answer");
+    expect(root.textContent).not.toContain("Could not refresh messages");
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test.each([false, true])(
+  "live refresh replacing the first message request clears loading (failure=%s)",
+  async (fails) => {
+    prepareDom();
+    const getMessages = vi
+      .fn<NonNullable<ThreadDebuggerProvider["getMessages"]>>()
+      .mockImplementationOnce(
+        () => new Promise<ThreadDebuggerMessage[]>(() => {}),
+      );
+    if (fails) getMessages.mockRejectedValue(new Error("Messages unavailable"));
+    else
+      getMessages.mockResolvedValue([
+        { id: "reply", role: "assistant", content: "Latest answer" },
+      ]);
+    const detail = appendDetail({
+      threadId: "loading-refresh",
+      provider: { getMessages },
+    });
+    try {
+      await flushDetail(detail);
+      expect(detail.shadowRoot?.textContent).toContain("Loading messages…");
+      detail.liveMessageVersion += 1;
+      await flushDetail(detail);
+      expect(detail.shadowRoot?.textContent).not.toContain("Loading messages…");
+      expect(detail.shadowRoot?.textContent).toContain(
+        fails ? "Messages unavailable" : "Latest answer",
+      );
+    } finally {
+      detail.remove();
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+    }
+  },
+);
+
+test("late errors from a replaced provider cannot erase the new thread data", async () => {
+  prepareDom();
+  const rejectOldRequests: Array<(reason: Error) => void> = [];
+  const pendingRequest = () =>
+    new Promise<never>((_resolve, reject) => {
+      rejectOldRequests.push(reject);
+    });
+  const detail = appendDetail({
+    threadId: "same-thread",
+    provider: {
+      getThreadMetadata: pendingRequest,
+      getMessages: pendingRequest,
+      getEvents: pendingRequest,
+      getState: pendingRequest,
+    },
+  });
+  try {
+    await flushDetail(detail);
+    await selectTab(detail, "State");
+    expect(rejectOldRequests).toHaveLength(4);
+    detail.provider = {
+      getThreadMetadata: async () => ({
+        id: "same-thread",
+        name: "New provider title",
+      }),
+      getMessages: async () => [
+        { id: "reply", role: "assistant", content: "New provider answer" },
+      ],
+      getEvents: async () => [
+        {
+          type: "RUN_ERROR",
+          timestamp: "2026-09-22T12:00:00Z",
+          payload: { message: "New provider run error" },
+        },
+      ],
+      getState: async () => ({ source: "new provider state" }),
+    };
+    await flushDetail(detail);
+    await selectTab(detail, "State");
+    for (const reject of rejectOldRequests)
+      reject(new Error("Old provider failed"));
+    await flushDetail(detail);
+    expect(detail.shadowRoot?.textContent).toContain("new provider state");
+    await selectTab(detail, "Conversation");
+    expect(detail.shadowRoot?.textContent).toContain("New provider title");
+    expect(detail.shadowRoot?.textContent).toContain("New provider answer");
+    expect(detail.shadowRoot?.textContent).toContain("New provider run error");
+    expect(detail.shadowRoot?.textContent).not.toContain("Old provider failed");
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("long conversations place run errors in context without rebuilding on unrelated events", async () => {
+  prepareDom();
+  const messages: ThreadDebuggerMessage[] = Array.from(
+    { length: 200 },
+    (_, index) => ({
+      id: `reply-${index}`,
+      role: "assistant",
+      content: `Answer ${index}`,
+    }),
+  );
+  messages.push({
+    id: "later",
+    role: "assistant",
+    content: "A later run recovered",
+  });
+  const detail = appendDetail({
+    threadId: "long-active-run",
+    provider: { getMessages: async () => messages },
+  });
+  detail.agentEventsInput = [
+    {
+      type: "TEXT_MESSAGE_START",
+      timestamp: 1,
+      payload: { messageId: "reply-199", role: "assistant" },
+    },
+    {
+      type: "RUN_ERROR",
+      timestamp: 2,
+      payload: { message: "Run interrupted" },
+    },
+    {
+      type: "TEXT_MESSAGE_START",
+      timestamp: 3,
+      payload: { messageId: "later", role: "assistant" },
+    },
+  ];
+  try {
+    await flushDetail(detail);
+    const root = detail.shadowRoot;
+    if (!root) throw new Error("Missing thread detail root");
+    const rows = () =>
+      Array.from(
+        root.querySelectorAll(
+          ".cpk-td__bubble, .cpk-td__timeline-item--warning",
+        ),
+        (row) => row.textContent?.trim(),
+      );
+    expect(rows().slice(-3)).toEqual([
+      "Answer 199",
+      expect.stringContaining("Run interrupted"),
+      "A later run recovered",
+    ]);
+    // Instrument the renderer to detect template rebuilds, not just DOM reuse.
+    const renderBubble = vi.fn(detail["renderBubble"].bind(detail));
+    detail["renderBubble"] = renderBubble;
+    for (let index = 0; index < 20; index++) {
+      detail.agentEventsInput = [
+        ...detail.agentEventsInput.map((event) => ({
+          ...event,
+          payload: { ...event.payload },
+        })),
+        { type: "STATE_DELTA", timestamp: index + 4, payload: { delta: [] } },
+      ];
+      await flushDetail(detail);
+    }
+    expect(renderBubble).not.toHaveBeenCalled();
+    detail.agentEventsInput = [
+      ...detail.agentEventsInput,
+      {
+        type: "RUN_ERROR",
+        timestamp: 30,
+        payload: { message: "Second run interrupted" },
+      },
+    ];
+    await flushDetail(detail);
+    expect(rows().slice(-2)).toEqual([
+      "A later run recovered",
+      expect.stringContaining("Second run interrupted"),
+    ]);
+    requireButton(root, "Show details").click();
+    await flushDetail(detail);
+    expect(requireButton(root, "Hide details")).toBeDefined();
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   }
 });

@@ -6,9 +6,17 @@ import { getDocsFolder, getDocsMode, getIntegrations } from "@/lib/registry";
 import { renderPageToLlmText } from "@/lib/llm-text";
 import { GET } from "./route";
 
-vi.mock("@/lib/docs-render", () => ({
-  loadDoc: vi.fn(),
-}));
+// `loadDoc` is mocked so each case controls which files "exist"; the
+// resolution ORDER is the real shared implementation, because these tests
+// assert that order and a stubbed one would make them vacuous.
+vi.mock("@/lib/docs-render", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/docs-render")>();
+  return {
+    loadDoc: vi.fn(),
+    docCandidateOrder: actual.docCandidateOrder,
+    FRAMEWORK_WINS_SLUGS: actual.FRAMEWORK_WINS_SLUGS,
+  };
+});
 
 vi.mock("@/lib/frontend-doc-policy", () => ({
   resolveFrontendDocPage: vi.fn(),
@@ -25,17 +33,28 @@ vi.mock("@/lib/frontend-options", () => ({
     (value: string) => value === "slack" || value === "teams",
   ),
   isFrontendId: vi.fn((value: string | undefined) =>
-    ["react", "vue", "react-native", "angular", "slack", "teams"].includes(
-      value ?? "",
-    ),
+    [
+      "react",
+      "react-spa",
+      "vue",
+      "react-native",
+      "angular",
+      "slack",
+      "teams",
+    ].includes(value ?? ""),
   ),
   parseFrontendRoutePath: vi.fn(
     (pathname: string, backendFrameworkSlugs: readonly string[] = []) => {
       const [first, ...rest] = pathname.split("/").filter(Boolean);
       if (
-        !["vue", "react-native", "angular", "slack", "teams"].includes(
-          first ?? "",
-        )
+        ![
+          "react-spa",
+          "vue",
+          "react-native",
+          "angular",
+          "slack",
+          "teams",
+        ].includes(first ?? "")
       ) {
         return null;
       }
@@ -77,10 +96,6 @@ vi.mock("@/lib/reference-items", () => ({
   resolveReferencePage: vi.fn(),
 }));
 
-vi.mock("@/lib/sitemap-helpers", () => ({
-  AG_UI_CONTENT_DIR: "/tmp/ag-ui",
-}));
-
 const loadDocMock = vi.mocked(loadDoc);
 const resolveFrontendDocPageMock = vi.mocked(resolveFrontendDocPage);
 const getFrontendContentSlugMock = vi.mocked(getFrontendContentSlug);
@@ -114,6 +129,53 @@ describe("llms-mdx route", () => {
       { slug: "langgraph-typescript" } as never,
     ]);
     renderPageToLlmTextMock.mockReturnValue("rendered markdown");
+  });
+
+  it("prefers a framework threads-import override for generated docs", async () => {
+    // Regression guard. This route special-cased only `quickstart`, while the
+    // page route also gives `threads-import` to the framework tree, so raw
+    // Markdown served ROOT content for a URL the site renders from the
+    // framework file. Both now share docCandidateOrder.
+    loadDocMock.mockImplementation((slug: string) =>
+      slug === "integrations/langgraph/threads-import"
+        ? {
+            source: "",
+            filePath: "integrations/langgraph/threads-import.mdx",
+            fm: {
+              title: "Import LangGraph threads",
+              description: "Source-specific import guide.",
+            },
+          }
+        : slug === "threads-import"
+          ? {
+              source: "",
+              filePath: "threads-import.mdx",
+              fm: {
+                title: "Import & Synchronize Thread History",
+                description: "Cross-source overview.",
+              },
+            }
+          : null,
+    );
+
+    const response = await callLlmsMdxRoute([
+      "langgraph-python",
+      "threads-import",
+    ]);
+
+    expect(response.status).toBe(200);
+    expect(loadDocMock).toHaveBeenNthCalledWith(
+      1,
+      "integrations/langgraph/threads-import",
+    );
+    expect(loadDocMock).not.toHaveBeenCalledWith("threads-import");
+    expect(renderPageToLlmTextMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filePath: "integrations/langgraph/threads-import.mdx",
+        loadSlug: "integrations/langgraph/threads-import",
+      }),
+      { framework: "langgraph-python" },
+    );
   });
 
   it("prefers framework quickstart overrides for generated docs", async () => {

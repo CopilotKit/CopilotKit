@@ -54,6 +54,10 @@ All reactive state is exposed as read-only Angular signals. Read a signal by cal
   The HTTP headers currently sent with runtime requests.
 </PropertyReference>
 
+<PropertyReference name="credentials" type="Signal<RequestCredentials | undefined>">
+  The current Fetch credentials mode, or `undefined` when none is configured.
+</PropertyReference>
+
 <PropertyReference name="threadEndpoints" type="Signal<ThreadEndpointRuntimeInfo | undefined>">
   Thread endpoint support advertised by the connected runtime's `/info`
   response. It is `undefined` until the runtime reports the capability.
@@ -169,9 +173,11 @@ All reactive state is exposed as read-only Angular signals. Read a signal by cal
 
 <PropertyReference name="updateRuntime" type="(options) => void">
   Update the runtime connection at runtime. `options` may include `runtimeUrl`,
-  `runtimeTransport`, `headers`, `properties`, `agents`, and
-  `selfManagedAgents`. Only the fields you pass are applied; `runtimeUrl`,
-  `runtimeTransport`, and `headers` also update the corresponding signals.
+  `runtimeTransport`, `headers`, `credentials`, `messageFilter`, `properties`,
+  `agents`, and `selfManagedAgents`. Only the fields you pass are applied;
+  `runtimeUrl`, `runtimeTransport`, `headers`, and `credentials` also update the
+  corresponding signals. `credentials` and `messageFilter` are applied whenever
+  the key is present, so passing either as `undefined` clears it.
 </PropertyReference>
 
 ## Usage

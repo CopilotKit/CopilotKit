@@ -21,6 +21,7 @@ import {
   trackThreadsLockedViewed,
   trackThreadsTabClicked,
   trackThreadsTalkToEngineerClicked,
+  trackThreadsTryFromHereClicked,
 } from "../telemetry.js";
 import type {
   InspectorMetadataActionClickedTelemetryProps,
@@ -61,7 +62,8 @@ type ThreadEventKey =
   | "example_kind"
   | "tour_step"
   | "tour_tab"
-  | "dismiss_method";
+  | "dismiss_method"
+  | "outcome";
 
 type ThreadEventFields = Required<
   Pick<InspectorThreadTelemetryProps, ThreadEventKey>
@@ -210,7 +212,7 @@ function expectedThreadCommonProperties(): Readonly<
     has_threads: true,
     usage_bucket: "within_limit",
     expiry_bucket: "positive",
-    group_key: "threads",
+    group_key: "workbench",
     leaf_key: "threads",
   };
 }
@@ -233,6 +235,7 @@ function createThreadFixture(
     tour_step: overrides.tour_step ?? 1,
     tour_tab: overrides.tour_tab ?? "timeline",
     dismiss_method: overrides.dismiss_method ?? "skip",
+    outcome: overrides.outcome ?? "success",
     ...forbidden,
   };
 
@@ -250,7 +253,7 @@ function createMetadataFixture(prefix: string): Readonly<{
     license_bucket: "expired",
     usage_bucket: "at_or_over_limit",
     expiry_bucket: "zero",
-    group_key: "threads",
+    group_key: "workbench",
     leaf_key: "threads",
     action_placement: "threads_footer",
     ...forbidden,
@@ -293,6 +296,13 @@ test.each<ThreadHelperCase>([
     invoke: trackThreadsTabClicked,
     expectedEvent: "oss.inspector.threads_tab_clicked",
     expectedProperties: {},
+  },
+  {
+    name: "threads try from here clicked",
+    invoke: trackThreadsTryFromHereClicked,
+    expectedEvent: "oss.inspector.threads_try_from_here_clicked",
+    eventOverrides: { outcome: "success" },
+    expectedProperties: { outcome: "success" },
   },
   {
     name: "threads locked viewed",
@@ -500,7 +510,7 @@ test.each<MetadataHelperCase>([
       license_bucket: "expired",
       usage_bucket: "at_or_over_limit",
       expiry_bucket: "zero",
-      group_key: "threads",
+      group_key: "workbench",
       leaf_key: "threads",
       action_placement: "threads_footer",
     };

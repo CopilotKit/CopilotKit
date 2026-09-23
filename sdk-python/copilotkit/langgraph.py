@@ -45,6 +45,7 @@ class CopilotKitProperties(TypedDict):
     # Private state for CopilotKit middleware
     intercepted_tool_calls: Any
     original_ai_message_id: Any
+    original_tool_calls: Any
 
 
 class CopilotKitState(MessagesState):
@@ -239,7 +240,7 @@ def copilotkit_customize_config(
             DeprecationWarning,
             stacklevel=2,
         )
-    metadata = base_config.get("metadata", {}) if base_config else {}
+    metadata = dict(base_config.get("metadata", {}) or {}) if base_config else {}
 
     if emit_all is True:
         metadata["copilotkit:emit-tool-calls"] = True

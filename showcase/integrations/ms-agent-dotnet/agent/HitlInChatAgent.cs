@@ -44,7 +44,7 @@ public sealed class HitlInChatAgentFactory
 
     public AIAgent CreateHitlInChatAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
 
         return new ChatClientAgent(
             chatClient,

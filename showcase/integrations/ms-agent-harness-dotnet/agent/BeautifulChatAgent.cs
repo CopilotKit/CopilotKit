@@ -154,7 +154,7 @@ Tool guidance:
 
     public AIAgent Create()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
 
         var harnessAgent = chatClient.AsHarnessAgent(
             HarnessMaxContextWindowTokens,

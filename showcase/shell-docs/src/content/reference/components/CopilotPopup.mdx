@@ -26,8 +26,24 @@ import "@copilotkit/react-core/v2/styles.css";
   default header displays a title and a close button.
 </PropertyReference>
 
-<PropertyReference name="defaultOpen" type="boolean" default="false">
-  Whether the popup should be open when the component first mounts.
+<PropertyReference name="defaultOpen" type="boolean" default="true">
+  Whether the popup is open when the component first mounts. After that the
+  popup owns the state. Use `open` instead to keep control.
+</PropertyReference>
+
+<PropertyReference name="open" type="boolean">
+  Controlled open state. When supplied, your component owns whether the popup is
+  open: the popup renders this value and never changes it on its own. Pair it
+  with `onOpenChange`. When both `open` and `defaultOpen` are passed, `open`
+  wins. See [Open, close, and
+  feedback](/prebuilt-components/chat-controls).
+</PropertyReference>
+
+<PropertyReference name="onOpenChange" type="(open: boolean) => void">
+  Called with the requested state whenever the popup asks to open or close (the
+  toggle button, click-outside, Escape, or the thread drawer on mobile). It
+  reports a request, not a change: in controlled mode nothing moves until you
+  update `open`.
 </PropertyReference>
 
 <PropertyReference name="width" type="number | string">
@@ -133,7 +149,7 @@ function App() {
 ## Behavior
 
 - **Toggle button**: Renders a floating toggle button (typically in the bottom-right corner) that opens and closes the popup. The button uses `CopilotChatToggleButton` internally.
-- **Modal state**: Open/close state is managed via the chat configuration context. The `defaultOpen` prop sets the initial state; after that, state changes come from user interaction (toggle button, close button, clicking outside).
+- **Modal state**: Open/close state is managed via the chat configuration context. The `defaultOpen` prop sets the initial state; after that, state changes come from user interaction (toggle button, close button, clicking outside). Pass `open` and `onOpenChange` to own the state yourself, and to open or close the popup from your own UI.
 - **Click outside**: When `clickOutsideToClose` is `true` (the default), clicking anywhere outside the popup panel closes it.
 - **Layout**: The popup uses `CopilotPopupView` internally, which provides a popup-specific welcome screen layout with the welcome message centered vertically and suggestions just above the input.
 - **Agent connection**: All agent wiring (messages, running state, suggestions) is handled by the parent `CopilotChat` logic.

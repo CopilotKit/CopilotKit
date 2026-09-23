@@ -31,7 +31,9 @@ fi
 
 # Start Next.js frontend
 echo "[entrypoint] Starting Next.js on port ${PORT:-3000}..."
-PORT=${PORT:-3000} npx next start --port ${PORT:-3000} 2>&1 | sed 's/^/[nextjs] /' &
+PORT="${PORT:-3000}"
+export PORT
+npx next start --port "$PORT" 2>&1 | sed 's/^/[nextjs] /' &
 NEXTJS_PID=$!
 
 echo "[entrypoint] Both processes running. Waiting..."

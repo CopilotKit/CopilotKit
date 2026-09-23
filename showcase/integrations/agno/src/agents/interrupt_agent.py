@@ -46,6 +46,9 @@ agent = Agent(
     # the frontend handler, which returns a Promise that only resolves
     # once the user picks a slot -- equivalent to `interrupt()` in the
     # LangGraph reference.
+    # A database is intentionally unnecessary here: this agent has no Agno
+    # `external_execution` tools, and the custom route forwards the frontend
+    # tool-result messages directly on the second leg.
     tools=[],
     tool_call_limit=5,
     description="Scheduling assistant for the interrupt-adapted demos.",

@@ -209,6 +209,19 @@ export const addPolicy = (policy: ExpensePolicy): ExpensePolicy => {
   return policy;
 };
 
+/**
+ * Append a charge to the ledger.
+ *
+ * Takes a FULLY-FORMED `Transaction` and only persists it, like `addCard` /
+ * `addPolicy`: defaulting, validation and the sign convention (spend is
+ * negative) belong to the calling route, which is the layer that knows what the
+ * caller sent. Filed by `POST /api/banking/v1/transactions`.
+ */
+export const addTransaction = (transaction: Transaction): Transaction => {
+  db.transactions.push(transaction);
+  return transaction;
+};
+
 export const updateTransaction = (
   id: string,
   patch: Partial<Transaction>,

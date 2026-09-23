@@ -7,7 +7,7 @@ description: "Vue composable for registering a client-side tool with an optional
 
 `useFrontendTool` registers a client-side tool with CopilotKit at the current component scope. When the agent decides to call the tool, the provided `handler` function executes in the browser. Optionally, you can supply a `render` (a Vue component or render function) to display custom UI in the chat showing the tool's execution progress and result.
 
-The composable manages the full registration lifecycle: it registers the tool (and its optional renderer) immediately, re-runs the registration when reactive dependencies change, and removes the tool automatically when the owning scope is disposed. Parameter schemas are defined with a [Standard Schema](https://standardschema.dev) such as a [Zod](https://zod.dev) object, which is used for both validation and type inference.
+The composable manages the full registration lifecycle: it registers the tool (and its optional renderer) immediately, re-runs the registration when reactive dependencies change, and removes the tool automatically when the owning scope is disposed. Parameter schemas are defined with a [Standard Schema](https://standardschema.dev) such as a [Zod](https://zod.dev) object, for the advertised tool schema and TypeScript inference. Runtime arguments are JSON-parsed but are not validated against that schema.
 
 <Callout type="info">
   Import from the `/v2` subpath: `@copilotkit/vue/v2`. Like all CopilotKit
@@ -45,22 +45,26 @@ function useFrontendTool<T extends Record<string, unknown>>(
 
   <PropertyReference name="parameters" type="StandardSchemaV1<any, T>">
     A [Standard Schema](https://standardschema.dev) (for example a Zod object)
-    defining the tool's input parameters. The schema is used for both validation
-    and type inference of the `handler` arguments. May be omitted for tools that
-    take no parameters.
+    defining the tool's input parameters. The schema drives the advertised tool
+    schema and type inference for the `handler` arguments. Runtime arguments are
+    JSON-parsed but are not validated against that schema. May be omitted for
+    tools that take no parameters.
   </PropertyReference>
 
   <PropertyReference
     name="handler"
-    type="(args: T, context: { toolCall, agent, signal? }) => Promise<unknown>"
+    type="(args: T, context: FrontendToolHandlerContext) => Promise<unknown>"
   >
     An async function that executes when the agent calls the tool. Receives the
-    validated, typed arguments and a context object: `toolCall` (the raw tool
-    call metadata), `agent` (the agent instance that invoked the tool), and
-    `signal` (an `AbortSignal` that is aborted when the user stops the agent).
+    parsed arguments, typed from `parameters` but not validated against it, and
+    the context object: `toolCall` (the raw tool call metadata), `agent` (the
+    agent instance that invoked the tool; absent when the tool is invoked
+    through WebMCP), and `signal` (an `AbortSignal` that is aborted when the
+    user stops the agent).
     Long-running handlers can check `signal.aborted` or pass `signal` to
     `fetch` to cancel cooperatively. The resolved value is surfaced back to the
-    agent as the tool result.
+    agent as the tool result. `FrontendToolHandlerContext` is exported from
+    `@copilotkit/core`.
   </PropertyReference>
 
   <PropertyReference
@@ -91,6 +95,15 @@ function useFrontendTool<T extends Record<string, unknown>>(
     Whether the agent should automatically continue the run after the tool
     result is returned.
   </PropertyReference>
+
+  <PropertyReference name="webmcp" type="boolean | { annotations?: { readOnlyHint?: boolean; untrustedContentHint?: boolean } }">
+    Also expose the tool to browser agents through the WebMCP API
+    (`document.modelContext`). Pass `true` to register with default
+    annotations, or an object to register with WebMCP annotations. The same
+    `handler` runs when a browser agent calls the tool; the context then has
+    no `agent`. This is a no-op where WebMCP is not available (SSR, or
+    browsers without the API enabled).
+  </PropertyReference>
 </PropertyReference>
 
 <PropertyReference name="deps" type="WatchSource<unknown>[]">
@@ -107,6 +120,7 @@ function useFrontendTool<T extends Record<string, unknown>>(
 - **Duplicate handling.** If a tool with the same `name` already exists for the same `agentId`, the previous registration is removed, the new one is added, and an override warning is logged. Only one tool per name (per agent) is active at a time.
 - **Renderer registration.** When `render` is provided, it is registered as a tool call renderer. The renderer is registered even when `parameters` is omitted, so parameter-free tools (for example confirm dialogs) can still render UI in the chat.
 - **Reactivity.** The registration re-runs when `tool.name`, `tool.available`, or any `deps` watch source changes. Pass changing reactive values through `deps`.
+- **WebMCP registration.** With `webmcp` set, the tool is also registered on `document.modelContext` and removed with the tool. The tool needs a `description` for this (WebMCP rejects tools without one).
 - **Automatic cleanup.** The tool is removed when the watch cleans up, including when the owning component scope is disposed. A `render` registered alongside the tool is intentionally left in place so earlier chat history can still render it.
 - **No return value.** The composable returns `void`.
 

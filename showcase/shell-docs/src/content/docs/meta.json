@@ -20,7 +20,7 @@
         "headless-threads",
         "threads-lifecycle",
         "threads-import",
-        "premium/threads-explained"
+        "intelligence/threads-explained"
       ]
     },
     "custom-look-and-feel",
@@ -31,6 +31,7 @@
     "...generative-ui",
     "---Add Agent Powers---",
     "frontend-tools",
+    "webmcp",
     {
       "title": "Shared State",
       "pages": [
@@ -50,13 +51,21 @@
     "auth",
     "---Observe & Operate---",
     "inspector",
-    "aeo",
     "vs-code-extension",
-    "---Intelligence Platform---",
-    "premium/overview",
-    "premium/managed-intelligence-platform",
-    "premium/self-hosting",
-    "premium/intelligence-platform",
+    "---Intelligence---",
+    "intelligence/overview",
+    "intelligence/quickstart",
+    "intelligence/intelligence-platform",
+    "threads",
+    "intelligence/memories",
+    "learning",
+    "intelligence/learned-skills",
+    "intelligence/analytics",
+    "intelligence/channels",
+    "intelligence/managed-intelligence-platform",
+    "intelligence/plans",
+    "intelligence/self-hosting",
+    "intelligence/self-hosting-ecs",
     "---Deploy---",
     "...deploy",
     "---Other---",
@@ -86,7 +95,11 @@
     },
     {
       "title": "Migrate",
-      "pages": ["migrate/v2", "migrate/1.10.X", "migrate/1.8.2"]
+      "pages": [
+        "migrate/v2",
+        "migrate/1.10.X",
+        "migrate/1.8.2"
+      ]
     }
   ]
 }

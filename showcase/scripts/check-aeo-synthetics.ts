@@ -33,7 +33,6 @@ const REQUIRED_ENDPOINTS = {
     ["/robots.txt", "text/plain"],
     ["/sitemap.xml", "application/xml"],
     ["/llms.txt", "text/plain"],
-    ["/llms-full.txt", "text/plain"],
   ]),
   docs: new Map([
     ["/", "text/html"],
@@ -240,6 +239,14 @@ function responseReasons(
     );
   }
   if (body.trim().length === 0) reasons.push("response body is empty");
+  // A fallback page can be mislabeled as plain text by a proxy or route.
+  // Check only the document prefix so HTML examples inside Markdown stay valid.
+  if (
+    target.contentType !== "text/html" &&
+    /^\s*(?:<!doctype\s+html\b|<html\b)/i.test(body)
+  ) {
+    reasons.push("machine endpoint returned an HTML document");
+  }
   const soft404 = soft404Reason(body, contentType);
   if (soft404) reasons.push(soft404);
 

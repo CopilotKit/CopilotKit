@@ -32,7 +32,7 @@ export async function research(query: string) {
         )} in plain English. Make sure to include the links to all images.`,
       },
     ],
-    model: "gpt-4o",
+    model: "gpt-5-mini",
   });
 
   console.log("SUMMARY", completion.choices[0].message.content);

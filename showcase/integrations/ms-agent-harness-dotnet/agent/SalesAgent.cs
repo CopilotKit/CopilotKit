@@ -323,7 +323,7 @@ public class SalesAgentFactory
 
     public AIAgent CreateSalesAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
 
         var harnessAgent = chatClient.AsHarnessAgent(
             HarnessMaxContextWindowTokens,
@@ -357,14 +357,14 @@ public class SalesAgentFactory
     // endpoint consumes attachments natively and does not need the harness
     // agent wrapper. Referenced by W0's Program.cs MapPost("/multimodal", ...).
     public IChatClient CreateMultimodalChatClient() =>
-        _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
 
     // Factory method for the Agent Config demo. Wraps a neutral harness agent
     // (no tools) in AgentConfigAgent so the tone/expertise/responseLength
     // directives read from AG-UI shared state steer the inner model per-turn.
     public AIAgent CreateAgentConfigAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
         var inner = chatClient.AsHarnessAgent(
             HarnessMaxContextWindowTokens,
             HarnessMaxOutputTokens,
@@ -386,7 +386,7 @@ public class SalesAgentFactory
     // harness agent and wraps it in the ReasoningAgent DelegatingAIAgent.
     public AIAgent CreateReasoningAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
         return ReasoningAgentFactory.Create(chatClient, _loggerFactory);
     }
 

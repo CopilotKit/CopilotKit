@@ -219,6 +219,96 @@ describe("mcpClients — user-managed MCP clients", () => {
     expect(events.some((e) => e.type === EventType.RUN_ERROR)).toBe(true);
   });
 
+  it("stops after a user-managed tool lookup is cancelled", async () => {
+    let resolve!: (tools: ToolSet) => void;
+    const first = makeMockProvider({});
+    first.tools = vi.fn(
+      () =>
+        new Promise<ToolSet>((done) => {
+          resolve = done;
+        }),
+    );
+    const second = makeMockProvider({});
+    const agent = new BasicAgent({
+      model: "openai/gpt-4o",
+      mcpClients: [first, second],
+    });
+    const subscription = agent.run(baseInput).subscribe();
+    await vi.waitFor(() => expect(first.tools).toHaveBeenCalledOnce());
+    subscription.unsubscribe();
+    resolve({});
+    await new Promise((done) => setImmediate(done));
+    expect(second.tools).not.toHaveBeenCalled();
+    expect(first.close).not.toHaveBeenCalled();
+    expect(streamText).not.toHaveBeenCalled();
+  });
+
+  it("closes a managed client created after cancellation without loading tools", async () => {
+    const { createMCPClient } = await import("@ai-sdk/mcp");
+    type Client = Awaited<ReturnType<typeof createMCPClient>>;
+    let resolve!: (client: Client) => void;
+    vi.mocked(createMCPClient).mockImplementation(
+      () =>
+        new Promise((done) => {
+          resolve = done;
+        }),
+    );
+    const client = {
+      tools: vi.fn(() => new Promise(() => {})),
+      close: vi.fn().mockResolvedValue(undefined),
+    };
+    const agent = new BasicAgent({
+      model: "openai/gpt-4o",
+      mcpServers: [{ type: "http", url: "http://localhost:8000/mcp" }],
+    });
+    const subscription = agent.run(baseInput).subscribe();
+    await vi.waitFor(() => expect(createMCPClient).toHaveBeenCalledOnce());
+    subscription.unsubscribe();
+    resolve(client as unknown as Client);
+    await new Promise((done) => setImmediate(done));
+    expect(client.close).toHaveBeenCalledOnce();
+    expect(client.tools).not.toHaveBeenCalled();
+    expect(streamText).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])(
+    "stops managed setup after a cancelled tool lookup (rejected=%s)",
+    async (rejected) => {
+      const { createMCPClient } = await import("@ai-sdk/mcp");
+      let resolve!: (tools: ToolSet) => void;
+      let reject!: (error: Error) => void;
+      const client = {
+        tools: vi.fn(
+          () =>
+            new Promise<ToolSet>((done, fail) => {
+              resolve = done;
+              reject = fail;
+            }),
+        ),
+        close: vi.fn().mockResolvedValue(undefined),
+      };
+      vi.mocked(createMCPClient).mockResolvedValue(
+        client as unknown as Awaited<ReturnType<typeof createMCPClient>>,
+      );
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+        mcpServers: [
+          { type: "http", url: "http://localhost:8000/first" },
+          { type: "http", url: "http://localhost:8000/second" },
+        ],
+      });
+      const subscription = agent.run(baseInput).subscribe();
+      await vi.waitFor(() => expect(client.tools).toHaveBeenCalledOnce());
+      subscription.unsubscribe();
+      expect(client.close).toHaveBeenCalledOnce();
+      if (rejected) reject(new Error("Disconnected"));
+      else resolve({});
+      await new Promise((done) => setImmediate(done));
+      expect(createMCPClient).toHaveBeenCalledOnce();
+      expect(streamText).not.toHaveBeenCalled();
+    },
+  );
+
   it("clone() shares the same mcpClients references", () => {
     const provider = makeMockProvider({});
 

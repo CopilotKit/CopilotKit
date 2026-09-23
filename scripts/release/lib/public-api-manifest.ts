@@ -171,7 +171,7 @@ const DEPRECATIONS: DeprecationSpec[] = [
     importPath: "@copilotkit/runtime",
     entrySource: "packages/runtime/src/index.ts",
     symbol,
-    declarationPath: "packages/runtime/src/lib/index.ts",
+    declarationPath: "packages/runtime/src/v1-deprecated/lib/index.ts",
     replacement: {
       importPath: "@copilotkit/runtime/langgraph",
       symbol,
@@ -542,7 +542,7 @@ function hostFactories(root: string): SourceApiEntry[] {
 }
 
 function exportedAdapterModules(root: string): string[] {
-  const path = "packages/runtime/src/service-adapters/index.ts";
+  const path = "packages/runtime/src/v1-deprecated/service-adapters/index.ts";
   const file = sourceFile(root, path);
   return file.statements.flatMap((statement) => {
     if (

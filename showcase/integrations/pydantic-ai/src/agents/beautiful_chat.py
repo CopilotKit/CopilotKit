@@ -94,7 +94,7 @@ SYSTEM_PROMPT = dedent(
 
 
 agent = Agent(
-    model=OpenAIResponsesModel("gpt-4.1"),
+    model=OpenAIResponsesModel("gpt-5-mini"),
     deps_type=StateDeps[BeautifulChatState],
     system_prompt=SYSTEM_PROMPT,
 )
@@ -274,7 +274,7 @@ def generate_a2ui(ctx: RunContext[StateDeps[BeautifulChatState]]) -> str:
     llm_messages.extend(conversation_messages)
 
     response = client.chat.completions.create(
-        model="gpt-4.1",
+        model="gpt-5-mini",
         messages=llm_messages,
         tools=[tool_schema],
         tool_choice={"type": "function", "function": {"name": "render_a2ui"}},

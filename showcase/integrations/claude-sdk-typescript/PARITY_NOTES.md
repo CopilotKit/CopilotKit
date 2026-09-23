@@ -27,10 +27,10 @@ does not implement are skipped below.
   changes.
 - `agentic-chat-reasoning` / `reasoning-default-render` /
   `tool-rendering-reasoning-chain` — `agent_server.ts` now opts into
-  Anthropic extended thinking (`thinking: { type: "enabled" }`) on the new
+  Anthropic adaptive thinking (`thinking: { type: "adaptive" }`) on the new
   `/reasoning` endpoint and forwards `thinking_delta` events as AG-UI
   `REASONING_MESSAGE_START | CONTENT | END`. Default model is
-  Claude 3.7 Sonnet; override via `CLAUDE_REASONING_MODEL`. A dedicated Next.js
+  Claude Opus 4.8; override via `CLAUDE_REASONING_MODEL`. A dedicated Next.js
   runtime route (`/api/copilotkit-reasoning/route.ts`) wires those agent ids
   to the new endpoint. Reasoning-chain reuses per-tool renderers + a wildcard
   catch-all.

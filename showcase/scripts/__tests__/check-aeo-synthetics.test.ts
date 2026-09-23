@@ -48,16 +48,18 @@ describe("AEO production synthetics", () => {
     expect(validateAeoSyntheticConfig(AEO_SYNTHETIC_CONFIG)).toEqual([]);
   });
 
-  it("checks the ten website/docs surfaces for four crawlers with bounded concurrency", async () => {
+  it("checks supported website/docs surfaces for four crawlers with bounded concurrency", async () => {
     const config = fixtureConfig();
     let active = 0;
     let maximumActive = 0;
     let requestCount = 0;
+    const requestedUrls = new Set<string>();
 
     const failures = await runAeoSyntheticChecks(
       config,
       async (input) => {
         requestCount += 1;
+        requestedUrls.add(String(input));
         active += 1;
         maximumActive = Math.max(maximumActive, active);
         await new Promise((resolveDelay) => setTimeout(resolveDelay, 1));
@@ -68,7 +70,13 @@ describe("AEO production synthetics", () => {
     );
 
     expect(failures).toEqual([]);
-    expect(requestCount).toBe(48);
+    expect(requestCount).toBe(44);
+    expect(requestedUrls.has("https://www.copilotkit.ai/llms-full.txt")).toBe(
+      false,
+    );
+    expect(requestedUrls.has("https://docs.copilotkit.ai/llms-full.txt")).toBe(
+      true,
+    );
     expect(maximumActive).toBeGreaterThan(1);
     expect(maximumActive).toBeLessThanOrEqual(4);
   });
@@ -86,7 +94,7 @@ describe("AEO production synthetics", () => {
       { validateConfig: false },
     );
 
-    expect(failures).toHaveLength(40);
+    expect(failures).toHaveLength(36);
     expect(formatSyntheticFailure(failures[0]!)).toContain(
       "https://www.copilotkit.ai/",
     );
@@ -115,6 +123,28 @@ describe("AEO production synthetics", () => {
     expect(failures[0]?.reason).toContain(
       "canonical URL uses https://preview.example.com",
     );
+  });
+
+  it("rejects an HTML fallback even when an LLM index declares plain text", async () => {
+    const config = fixtureConfig();
+    const failures = await runAeoSyntheticChecks(config, async (input) => {
+      const url = new URL(String(input));
+      if (url.pathname === "/llms.txt") {
+        return new Response(
+          `<!DOCTYPE html><html><body>[Home](${url.origin}/)</body></html>`,
+          { headers: { "content-type": "text/plain" } },
+        );
+      }
+      return successfulResponse(String(input));
+    });
+
+    expect(failures).toHaveLength(8);
+    expect(failures.every((failure) => failure.url.endsWith("/llms.txt"))).toBe(
+      true,
+    );
+    expect(
+      failures.every((failure) => failure.reason.includes("HTML document")),
+    ).toBe(true);
   });
 
   it("fails configuration when a canonical host is invalid", () => {

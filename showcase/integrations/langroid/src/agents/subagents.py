@@ -102,9 +102,9 @@ def _resolve_sub_model() -> str:
 
     Mirrors ``_resolve_a2ui_model`` in ``agents.agent``: bare model name
     (langroid passes the string literally to the OpenAI SDK, which
-    rejects ``openai/gpt-4.1`` as "model not found").
+    rejects ``openai/gpt-5-mini`` as "model not found").
     """
-    return os.getenv("SUBAGENT_MODEL") or os.getenv("LANGROID_MODEL") or "gpt-4.1"
+    return os.getenv("SUBAGENT_MODEL") or os.getenv("LANGROID_MODEL") or "gpt-5-mini"
 
 
 @functools.lru_cache(maxsize=8)
@@ -283,7 +283,7 @@ _SUPERVISOR_PROMPT = (
 
 
 def _create_supervisor() -> lr.ChatAgent:
-    model = os.getenv("LANGROID_MODEL", "gpt-4.1")
+    model = os.getenv("LANGROID_MODEL", "gpt-5-mini")
     llm_config = lm.OpenAIGPTConfig(chat_model=model, stream=False)
     agent_config = lr.ChatAgentConfig(llm=llm_config, system_message=_SUPERVISOR_PROMPT)
     agent = lr.ChatAgent(agent_config)

@@ -1,13 +1,14 @@
 import { defineComponent, ref, watch } from "vue";
 import type { PropType } from "vue";
 import { screen, fireEvent, waitFor, cleanup } from "@testing-library/vue";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { AssistantMessage, Message } from "@ag-ui/core";
 import { ToolCallStatus } from "@copilotkit/core";
 import CopilotChat from "../../components/chat/CopilotChat.vue";
 import CopilotChatToolCallsView from "../../components/chat/CopilotChatToolCallsView.vue";
 import { useHumanInTheLoop } from "../use-human-in-the-loop";
+import { useCopilotKit } from "../../providers/useCopilotKit";
 import {
   MockStepwiseAgent,
   MockReconnectableAgent,
@@ -843,11 +844,263 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
       });
     });
   });
+
+  describe("HITL attribution (toolCallId + agentId)", () => {
+    it("exposes toolCallId and the registered agentId to the render props", async () => {
+      const agent = new MockStepwiseAgent();
+      let renderedToolCallId: string | undefined;
+      let renderedAgentId: string | undefined;
+
+      const AttributionRenderer = defineComponent({
+        props: {
+          toolCallId: { type: String, required: true },
+          agentId: { type: String, required: false },
+          status: { type: String as PropType<ToolCallStatus>, required: true },
+          args: {
+            type: Object as PropType<{ action?: string }>,
+            required: true,
+          },
+        },
+        setup(props) {
+          watch(
+            () => [props.toolCallId, props.agentId],
+            () => {
+              renderedToolCallId = props.toolCallId;
+              renderedAgentId = props.agentId;
+            },
+            { immediate: true },
+          );
+          return {};
+        },
+        template: `
+          <div data-testid="attr-hitl">
+            <div data-testid="attr-tool-call-id">{{ toolCallId }}</div>
+            <div data-testid="attr-agent-id">{{ agentId ?? "none" }}</div>
+            <div data-testid="attr-status">{{ status }}</div>
+            <div data-testid="attr-action">{{ args.action ?? "" }}</div>
+          </div>
+        `,
+      });
+
+      const AttributionHITLComponent = defineComponent({
+        setup() {
+          useHumanInTheLoop({
+            name: "scopedApprovalTool",
+            description: "Scoped approval",
+            agentId: "research-agent",
+            parameters: z.object({ action: z.string() }),
+            render: AttributionRenderer,
+          });
+          return {};
+        },
+        template: `<div />`,
+      });
+
+      renderWithCopilotKit({
+        agent,
+        agentId: "research-agent",
+        children: createChatHost(AttributionHITLComponent),
+      });
+
+      await submitMessage("Need approval");
+      const messageId = testId("msg");
+      const toolCallId = testId("tc");
+      await agent.emit(runStartedEvent());
+      await agent.emit(
+        toolCallChunkEvent({
+          toolCallId,
+          toolCallName: "scopedApprovalTool",
+          parentMessageId: messageId,
+          delta: JSON.stringify({ action: "delete" }),
+        }),
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("attr-tool-call-id").textContent).toBe(
+          toolCallId,
+        );
+        expect(screen.getByTestId("attr-agent-id").textContent).toBe(
+          "research-agent",
+        );
+      });
+      expect(renderedToolCallId).toBe(toolCallId);
+      expect(renderedAgentId).toBe("research-agent");
+    });
+
+    it("leaves agentId undefined for an unscoped HITL tool", async () => {
+      const agent = new MockStepwiseAgent();
+      const UnscopedRenderer = defineComponent({
+        props: {
+          toolCallId: { type: String, required: true },
+          agentId: { type: String, required: false },
+          status: { type: String as PropType<ToolCallStatus>, required: true },
+          args: {
+            type: Object as PropType<{ action?: string }>,
+            required: true,
+          },
+        },
+        template: `
+          <div data-testid="unscoped-hitl">
+            <div data-testid="unscoped-tool-call-id">{{ toolCallId }}</div>
+            <div data-testid="unscoped-agent-id">{{ agentId ?? "none" }}</div>
+            <div data-testid="unscoped-status">{{ status }}</div>
+            <div data-testid="unscoped-action">{{ args.action ?? "" }}</div>
+          </div>
+        `,
+      });
+      const UnscopedHITLComponent = defineComponent({
+        setup() {
+          useHumanInTheLoop({
+            name: "unscopedApprovalTool",
+            description: "Unscoped approval",
+            parameters: z.object({ action: z.string() }),
+            render: UnscopedRenderer,
+          });
+          return {};
+        },
+        template: `<div />`,
+      });
+
+      renderWithCopilotKit({
+        agent,
+        children: createChatHost(UnscopedHITLComponent),
+      });
+      await submitMessage("Need approval");
+      const messageId = testId("msg");
+      const toolCallId = testId("tc");
+      await agent.emit(runStartedEvent());
+      await agent.emit(
+        toolCallChunkEvent({
+          toolCallId,
+          toolCallName: "unscopedApprovalTool",
+          parentMessageId: messageId,
+          delta: JSON.stringify({ action: "archive" }),
+        }),
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("unscoped-status").textContent).toBe(
+          ToolCallStatus.InProgress,
+        );
+        expect(screen.getByTestId("unscoped-tool-call-id").textContent).toBe(
+          toolCallId,
+        );
+        expect(screen.getByTestId("unscoped-agent-id").textContent).toBe(
+          "none",
+        );
+      });
+      await agent.emit(runFinishedEvent());
+      await agent.complete();
+      await waitFor(() => {
+        expect(screen.getByTestId("unscoped-status").textContent).toBe(
+          ToolCallStatus.Executing,
+        );
+        expect(screen.getByTestId("unscoped-tool-call-id").textContent).toBe(
+          toolCallId,
+        );
+        expect(screen.getByTestId("unscoped-agent-id").textContent).toBe(
+          "none",
+        );
+      });
+    });
+  });
+});
+
+describe("HITL Run Abort", () => {
+  it("rejects the pending HITL promise with an error tool result when the run is aborted", async () => {
+    const agent = new MockStepwiseAgent();
+    const toolExecutionEnds: Array<{ result: string; error?: string }> = [];
+    let stopRun: (() => void) | undefined;
+
+    const AbortHITLComponent = defineComponent({
+      setup() {
+        const { copilotkit } = useCopilotKit();
+        stopRun = () =>
+          copilotkit.value.stopAgent({
+            agent: copilotkit.value.getAgent("default")!,
+          });
+        copilotkit.value.subscribe({
+          onToolExecutionEnd: ({ result, error }) => {
+            toolExecutionEnds.push({ result, error });
+          },
+        });
+        useHumanInTheLoop({
+          name: "abortApprovalTool",
+          description: "Requires human approval",
+          parameters: z.object({ action: z.string() }),
+          render: defineComponent({
+            props: {
+              status: {
+                type: String as PropType<ToolCallStatus>,
+                required: true,
+              },
+              args: {
+                type: Object as PropType<{ action?: string }>,
+                required: true,
+              },
+              respond: {
+                type: Function as PropType<
+                  ((result: unknown) => Promise<void>) | undefined
+                >,
+                required: false,
+              },
+            },
+            template: `
+              <div data-testid="abort-hitl">
+                <div data-testid="abort-status">{{ status }}</div>
+                <div data-testid="abort-action">{{ args.action ?? "" }}</div>
+              </div>
+            `,
+          }),
+        });
+        return {};
+      },
+      template: `<div />`,
+    });
+
+    renderWithCopilotKit({
+      agent,
+      children: createChatHost(AbortHITLComponent),
+    });
+    await submitMessage("Request approval");
+    const messageId = testId("msg");
+    const toolCallId = testId("tc");
+    await agent.emit(runStartedEvent());
+    await agent.emit(
+      toolCallChunkEvent({
+        toolCallId,
+        toolCallName: "abortApprovalTool",
+        parentMessageId: messageId,
+        delta: JSON.stringify({ action: "delete" }),
+      }),
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("abort-status").textContent).toBe(
+        ToolCallStatus.InProgress,
+      );
+    });
+    await agent.emit(runFinishedEvent());
+    await agent.complete();
+    await waitFor(() => {
+      expect(screen.getByTestId("abort-status").textContent).toBe(
+        ToolCallStatus.Executing,
+      );
+    });
+
+    stopRun?.();
+    await waitFor(() => {
+      expect(toolExecutionEnds.length).toBeGreaterThan(0);
+      const last = toolExecutionEnds[toolExecutionEnds.length - 1];
+      expect(last.error).toBeDefined();
+      expect(last.error).not.toBe("");
+    });
+  });
 });
 
 describe("HITL Thread Reconnection Bug", () => {
   it("should show executing status when reconnecting to thread with pending HITL", async () => {
     const agent = new MockReconnectableAgent();
+    const handlerStarted = vi.fn();
 
     const HITLRenderer = defineComponent({
       props: {
@@ -864,7 +1117,7 @@ describe("HITL Thread Reconnection Bug", () => {
         <div data-testid="hitl-tool">
           <div data-testid="hitl-status">{{ status }}</div>
           <div data-testid="hitl-action">{{ args.action ?? "no-action" }}</div>
-          <button v-if="respond" data-testid="hitl-respond">Respond</button>
+          <button v-if="respond" data-testid="hitl-respond" @click="respond('approved')">Respond</button>
         </div>
       `,
     });
@@ -878,6 +1131,19 @@ describe("HITL Thread Reconnection Bug", () => {
           render: HITLRenderer,
         };
         useHumanInTheLoop(hitlTool);
+        const { copilotkit } = useCopilotKit();
+        const registered = copilotkit.value.getTool({
+          toolName: "approvalTool",
+        });
+        if (!registered?.handler) {
+          throw new Error("HITL handler was not registered");
+        }
+        const originalHandler = registered.handler;
+        registered.handler = (...args) => {
+          const pending = originalHandler(...args);
+          handlerStarted();
+          return pending;
+        };
         return {};
       },
       template: `<div />`,
@@ -944,11 +1210,23 @@ describe("HITL Thread Reconnection Bug", () => {
       expect(screen.getByTestId("hitl-action").textContent).toBe("delete");
     });
 
-    // Core-level coverage asserts that passive replay does not re-invoke local
-    // frontend handlers for replayed assistant tool calls.
     await waitFor(() => {
-      expect(screen.getByTestId("hitl-status").textContent).toMatch(
-        /^(executing|inProgress)$/,
+      expect(screen.getByTestId("hitl-status").textContent).toBe(
+        ToolCallStatus.Executing,
+      );
+    });
+    // Vue can paint Executing during the awaited execution-start notification,
+    // before core invokes the handler. Wait for the remounted hook to install
+    // its response resolver before dispatching a synchronous test click.
+    await waitFor(() => expect(handlerStarted).toHaveBeenCalledTimes(2));
+    await fireEvent.click(screen.getByTestId("hitl-respond"));
+    await waitFor(() => {
+      expect(agent.messages).toContainEqual(
+        expect.objectContaining({
+          role: "tool",
+          toolCallId,
+          content: "approved",
+        }),
       );
     });
   });

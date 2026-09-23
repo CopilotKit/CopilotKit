@@ -24,6 +24,7 @@ import {
 } from "./lib/tool-impls";
 import type { Flight } from "./lib/tool-impls";
 
+// @region[weather-tool-backend]
 export const getWeather = tool({
   name: "get_weather",
   description: "Get current weather for a location.",
@@ -32,6 +33,7 @@ export const getWeather = tool({
   }),
   callback: ({ location }) => JSON.stringify(getWeatherImpl(location)),
 });
+// @endregion[weather-tool-backend]
 
 export const queryData = tool({
   name: "query_data",
@@ -157,6 +159,7 @@ export const writeDocument = tool({
 
 // ---- Sub-agents ----------------------------------------------------------
 
+// @region[subagent-setup]
 const SUBAGENT_SYSTEM_PROMPTS: Record<string, string> = {
   research_agent:
     "You are a research sub-agent. Given a topic, produce a concise bulleted list of 3-5 key facts. No preamble, no closing.",
@@ -219,7 +222,9 @@ async function runSubagent(name: string, task: string): Promise<string> {
     return `${SUBAGENT_FAILURE_MARKER}${cls}`;
   }
 }
+// @endregion[subagent-setup]
 
+// @region[supervisor-delegation-tools]
 export const researchAgent = tool({
   name: "research_agent",
   description:
@@ -249,6 +254,7 @@ export const critiqueAgent = tool({
   }),
   callback: ({ task }) => runSubagent("critique_agent", task),
 });
+// @endregion[supervisor-delegation-tools]
 
 /** Full tool set for the shared showcase agent. */
 export const SHOWCASE_TOOLS = [

@@ -1,6 +1,10 @@
 "use client";
 
 import { CopilotKitMark } from "@/components/copilotkit-mark";
+import {
+  buildIntelligenceAuthEntryHref,
+  buildTrackedDocsHref,
+} from "@/lib/docs-cta-href";
 import { getRuntimeConfig } from "@/lib/runtime-config.client";
 import posthog from "posthog-js";
 import { useCallback } from "react";
@@ -67,11 +71,11 @@ export interface OpsPlatformCTAProps {
    * `location` property so CTA attribution stays consistent across docs
    * surfaces. */
   surface: string;
-  /** Optional override for the link label. Defaults to "Get Enterprise Intelligence free" */
+  /** Optional override for the link label. Defaults to "Get CopilotKit Intelligence free" */
   ctaLabel?: string;
   /** Optional override for CTAs that should keep the Enterprise styling but point elsewhere. */
   href?: string;
-  /** PostHog event captured on click. Defaults to the Enterprise Intelligence signup event. */
+  /** PostHog event captured on click. Defaults to CopilotKit Intelligence signup event. */
   analyticsEvent?: OpsPlatformCTAAnalyticsEvent;
   /** Frontend selected by the docs route. Included in outbound and PostHog attribution. */
   frontend?: string;
@@ -96,14 +100,10 @@ function buildHref(
   // CTA treatment for related Enterprise actions, such as talking to an
   // engineer about self-hosting.
   const signupUrl = getRuntimeConfig().intelligenceSignupUrl;
-  const url = new URL(hrefOverride ?? signupUrl);
-  url.searchParams.set("utm_source", "docs");
-  url.searchParams.set("utm_medium", "cta");
-  url.searchParams.set("utm_campaign", "intelligence");
-  url.searchParams.set("utm_content", surface);
-  if (frontend) url.searchParams.set("utm_frontend", frontend);
-  if (backend) url.searchParams.set("utm_backend", backend);
-  return url.toString();
+  const attribution = { surface, frontend, backend };
+  return hrefOverride
+    ? buildTrackedDocsHref(hrefOverride, attribution)
+    : buildIntelligenceAuthEntryHref(signupUrl, attribution);
 }
 
 export function OpsPlatformCTA({
@@ -111,7 +111,7 @@ export function OpsPlatformCTA({
   title,
   body,
   surface,
-  ctaLabel = "Get Enterprise Intelligence free",
+  ctaLabel = "Get CopilotKit Intelligence free",
   href: hrefOverride,
   analyticsEvent = "try_for_free_clicked",
   frontend,

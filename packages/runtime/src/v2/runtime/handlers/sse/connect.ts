@@ -43,6 +43,8 @@ export function handleSseConnect({
     // Forward the real agentId so debug envelopes reflect the agent the
     // route resolved to — not the literal string "connect".
     agentId,
+    telemetry: runtime.telemetry,
+    keepAliveIntervalSeconds: runtime.sseKeepAliveIntervalSeconds,
     observableFactory: () =>
       runtime.runner.connect({
         threadId,

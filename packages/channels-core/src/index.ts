@@ -39,11 +39,13 @@ export type {
   ChannelComponentRenderContext,
 } from "./channel-component.js";
 export {
+  channelActorIdentity,
   ChannelIdentityResolutionError,
   ChannelIdentityResultError,
   resolveChannelUser,
 } from "./identity.js";
 export type {
+  ChannelActorIdentity,
   ChannelConversation,
   ChannelEvent,
   ChannelIdentifyUser,
@@ -144,6 +146,11 @@ export type {
   ContextEntry,
   AgentToolDescriptor,
 } from "./tools.js";
+// Parameter-schema builder for the `lookup_<platform>_user` tool every
+// adapter ships. Lets an adapter describe a one-string parameter without
+// declaring `zod` (PE-30) — see `standard-schema.ts` for why that matters.
+export { singleStringParameterSchema } from "./standard-schema.js";
+export type { SingleStringParameterSchema } from "./standard-schema.js";
 
 // Id / serialization helpers
 export { mintId, stableStringify } from "./mint-id.js";

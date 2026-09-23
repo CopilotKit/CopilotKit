@@ -50,31 +50,27 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
     <Tab value="Python">
         ```python title="agent.py"
-        # ...
-        from copilotkit import CopilotKitState # extends MessagesState
-        # ...
+        from typing import NotRequired
 
-        # This is the state of the agent.
-        # It inherits from the CopilotKitState properties from CopilotKit.
+        from copilotkit import CopilotKitState
+
         class AgentState(CopilotKitState):
-            agent_name: str
+            agent_name: NotRequired[str]
         ```
     </Tab>
     <Tab value="TypeScript">
         ```ts title="agent.ts"
         import { createMiddleware } from "langchain";
-        import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+        import { zodState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
         import { z } from "zod";
 
-        // Define the agent's custom state as a middleware.
         export const agentNameMiddleware = createMiddleware({
             name: "AgentState",
             stateSchema: z.object({
-                agentName: z.string().optional(),
+                // zodState keeps this custom field in AG-UI state snapshots.
+                agentName: zodState(z.string().optional()), // [!code highlight]
             }),
         });
-
-        // createDeepAgent({ middleware: [agentNameMiddleware, copilotkitMiddleware], ... })
         ```
     </Tab>
 </Tabs>
@@ -93,15 +89,16 @@ We're going to have the agent ask us to name it, so we'll need a state property 
     <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
         <Tab value="Python">
             ```python title="agent.py"
-            from typing import Any
-            from copilotkit import CopilotKitState
+            from typing import Any, NotRequired
+
+            from copilotkit import CopilotKitMiddleware, CopilotKitState
+            from deepagents import create_deep_agent # [!code highlight]
             from langchain.agents.middleware import AgentMiddleware # [!code highlight]
             from langgraph.runtime import Runtime
             from langgraph.types import interrupt # [!code highlight]
 
-            # add the agent state definition from the previous step
             class AgentState(CopilotKitState):
-                agent_name: str
+                agent_name: NotRequired[str]
 
             class AgentNameMiddleware(AgentMiddleware[AgentState, Any]):
                 state_schema = AgentState
@@ -112,28 +109,60 @@ We're going to have the agent ask us to name it, so we'll need a state property 
                         name = interrupt("Before we start, what would you like to call me?") # [!code highlight]
                         return {"agent_name": name}
                     return None
+
+            agent = create_deep_agent(
+                model="openai:gpt-4o",
+                middleware=[
+                    AgentNameMiddleware(),
+                    CopilotKitMiddleware(expose_state=["agent_name"]), # [!code highlight]
+                ],
+                system_prompt=(
+                    "You are a helpful assistant. After the user chooses a name, "
+                    "Current agent state contains agent_name. Use that value as your own name."
+                ),
+            )
             ```
         </Tab>
         <Tab value="TypeScript">
             In Deep Agents TypeScript, wire the interrupt into a middleware hook rather than a custom node. The hook below runs before the model call and asks the user for a name the first time.
 
             ```ts title="agent.ts"
+            import {
+                createCopilotkitMiddleware,
+                zodState,
+            } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
             import { createMiddleware } from "langchain";
+            import { createDeepAgent } from "deepagents"; // [!code highlight]
             import { interrupt } from "@langchain/langgraph"; // [!code highlight]
             import { z } from "zod";
 
-            export const agentNameMiddleware = createMiddleware({
+            const agentNameMiddleware = createMiddleware({
                 name: "AgentState",
                 stateSchema: z.object({
-                    agentName: z.string().optional(),
+                    agentName: zodState(z.string().optional()), // [!code highlight]
                 }),
-                beforeModel: async (state) => {
+                beforeModel: (state) => {
                     if (!state.agentName) {
                         // Interrupt and wait for the user to respond with a name
-                        const name = await interrupt("Before we start, what would you like to call me?"); // [!code highlight]
+                        const name: string = interrupt("Before we start, what would you like to call me?"); // [!code highlight]
                         return { agentName: name };
                     }
                 },
+            });
+
+            const stateAwareCopilotKitMiddleware = createCopilotkitMiddleware({
+                exposeState: ["agentName"], // [!code highlight]
+            });
+
+            export const agent = createDeepAgent({
+                model: "openai:gpt-4o",
+                middleware: [
+                    agentNameMiddleware,
+                    stateAwareCopilotKitMiddleware,
+                ],
+                systemPrompt:
+                    "You are a helpful assistant. After the user chooses a name, " +
+                    "Current agent state contains agentName. Use that value as your own name.",
             });
             ```
         </Tab>
@@ -174,6 +203,8 @@ We're going to have the agent ask us to name it, so we'll need a state property 
     }
     ```
 
+    When your app already selects an agent in its `CopilotKit` provider, `useInterrupt` uses that configured agent. Pass `agentId` only when this component must target a different agent in a multi-agent app.
+
 </Step>
 <Step>
 ### Give it a try!
@@ -181,6 +212,12 @@ Try talking to your agent, you'll see that it now pauses execution and waits for
 <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/interrupt-flow.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
 </Step>
 </Steps>
+
+## Make your agent aware of interruptions
+
+Resuming an interrupt and making the model aware of the result are separate concerns. The custom middleware saves the response in thread state. In TypeScript, `zodState` also preserves the custom field in the graph output schema so AG-UI can send it to the frontend.
+
+The CopilotKit middleware then adds only the allowlisted name field to each model request. The system prompt explains what that field means, so after the run resumes the Deep Agent uses the selected name. Keep the allowlist narrow instead of exposing unrelated application state.
 
 ## Advanced usage
 
@@ -219,6 +256,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
             </Tab>
             <Tab value="TypeScript">
                 ```ts title="agent.ts"
+                import { zodState } from "@copilotkit/sdk-js/langgraph";
                 import { createMiddleware } from "langchain";
                 import { interrupt } from "@langchain/langgraph"; // [!code highlight]
                 import { z } from "zod";
@@ -226,15 +264,15 @@ For this reason, the hook can take an `enabled` argument which will apply it con
                 export const approvalAndNameMiddleware = createMiddleware({
                     name: "AgentState",
                     stateSchema: z.object({
-                        agentName: z.string().optional(),
-                        approval: z.unknown().optional(),
+                        agentName: zodState(z.string().optional()),
+                        approval: zodState(z.unknown().optional()),
                     }),
-                    beforeModel: async (state) => {
-                        const approval = await interrupt({ type: "approval", content: "please approve" }); // [!code highlight]
+                    beforeModel: (state) => {
+                        const approval = interrupt({ type: "approval", content: "please approve" }); // [!code highlight]
                         const updates: Record<string, unknown> = { approval };
 
                         if (!state.agentName) {
-                            updates.agentName = await interrupt({ type: "ask", content: "Before we start, what would you like to call me?" }); // [!code highlight]
+                            updates.agentName = interrupt({ type: "ask", content: "Before we start, what would you like to call me?" }); // [!code highlight]
                         }
 
                         return updates;

@@ -35,6 +35,7 @@ export const useShowcaseHooks = () => {
     name: "pieChart",
     description: "Controlled Generative UI that displays data as a pie chart.",
     parameters: PieChartProps,
+    followUp: false,
     render: PieChart,
   });
 
@@ -42,6 +43,7 @@ export const useShowcaseHooks = () => {
     name: "barChart",
     description: "Controlled Generative UI that displays data as a bar chart.",
     parameters: BarChartProps,
+    followUp: false,
     render: BarChart,
   });
 

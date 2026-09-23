@@ -19,7 +19,7 @@
   "packages": [
     {
       "name": "@copilotkit/a2ui-renderer",
-      "version": "1.67.1",
+      "version": "1.73.3",
       "sourceDirectory": "packages/a2ui-renderer",
       "entrypoints": [
         {
@@ -136,7 +136,7 @@
     },
     {
       "name": "@copilotkit/agentcore-runner",
-      "version": "1.67.1",
+      "version": "1.73.3",
       "sourceDirectory": "packages/agentcore-runner",
       "entrypoints": [
         {
@@ -167,7 +167,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=18"
+          "node": ">=20"
         },
         "provenance": [
           {
@@ -197,7 +197,7 @@
     },
     {
       "name": "@copilotkit/angular",
-      "version": "0.3.1",
+      "version": "0.5.2",
       "sourceDirectory": "packages/angular",
       "entrypoints": [
         {
@@ -205,10 +205,8 @@
           "exportKey": ".",
           "kind": "code",
           "conditions": {
-            "import": {
-              "types": "./dist/index.d.ts",
-              "default": "./dist/fesm2022/copilotkit-angular.mjs"
-            }
+            "types": "./dist/types/copilotkit-angular.d.ts",
+            "default": "./dist/fesm2022/copilotkit-angular.mjs"
           },
           "provenance": {
             "kind": "package-json",
@@ -221,10 +219,8 @@
           "exportKey": "./mcp-apps",
           "kind": "code",
           "conditions": {
-            "import": {
-              "types": "./dist/mcp-apps/index.d.ts",
-              "default": "./dist/fesm2022/copilotkit-angular-mcp-apps.mjs"
-            }
+            "types": "./dist/types/copilotkit-angular-mcp-apps.d.ts",
+            "default": "./dist/fesm2022/copilotkit-angular-mcp-apps.mjs"
           },
           "provenance": {
             "kind": "package-json",
@@ -246,9 +242,9 @@
       ],
       "compatibility": {
         "peerDependencies": {
-          "@angular/cdk": "^20.0.0 || ^21.0.0 || ^22.0.0",
-          "@angular/common": "^20.0.0 || ^21.0.0 || ^22.0.0",
-          "@angular/core": "^20.0.0 || ^21.0.0 || ^22.0.0",
+          "@angular/cdk": "^22.0.0",
+          "@angular/common": "^22.0.0",
+          "@angular/core": "^22.0.0",
           "rxjs": "^7.8.0"
         },
         "provenance": [
@@ -279,7 +275,7 @@
     },
     {
       "name": "@copilotkit/channels",
-      "version": "0.8.1",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels",
       "entrypoints": [
         {
@@ -467,9 +463,15 @@
       ],
       "compatibility": {
         "peerDependencies": {
+          "@microsoft/agents-activity": "^1.5.3",
+          "@microsoft/agents-hosting": "^1.5.3",
+          "express": "^4.18.0 || ^5.0.0",
           "vitest": "^4.0.0"
         },
         "optionalPeerDependencies": [
+          "@microsoft/agents-activity",
+          "@microsoft/agents-hosting",
+          "express",
           "vitest"
         ],
         "provenance": [
@@ -505,7 +507,7 @@
     },
     {
       "name": "@copilotkit/channels-core",
-      "version": "0.8.1",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels-core",
       "entrypoints": [
         {
@@ -605,7 +607,7 @@
     },
     {
       "name": "@copilotkit/channels-discord",
-      "version": "0.8.1",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels-discord",
       "entrypoints": [
         {
@@ -646,7 +648,7 @@
     },
     {
       "name": "@copilotkit/channels-intelligence",
-      "version": "0.8.1",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels-intelligence",
       "entrypoints": [
         {
@@ -687,7 +689,7 @@
     },
     {
       "name": "@copilotkit/channels-slack",
-      "version": "0.8.1",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels-slack",
       "entrypoints": [
         {
@@ -756,7 +758,7 @@
     },
     {
       "name": "@copilotkit/channels-teams",
-      "version": "0.8.1",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels-teams",
       "entrypoints": [
         {
@@ -789,7 +791,28 @@
         }
       ],
       "compatibility": {
-        "provenance": []
+        "peerDependencies": {
+          "@microsoft/agents-activity": "^1.5.3",
+          "@microsoft/agents-hosting": "^1.5.3",
+          "express": "^4.18.0 || ^5.0.0"
+        },
+        "optionalPeerDependencies": [
+          "@microsoft/agents-activity",
+          "@microsoft/agents-hosting",
+          "express"
+        ],
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels-teams/package.json",
+            "selector": "peerDependencies"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/channels-teams/package.json",
+            "selector": "peerDependenciesMeta.*.optional"
+          }
+        ]
       },
       "provenance": {
         "name": {
@@ -811,7 +834,7 @@
     },
     {
       "name": "@copilotkit/channels-telegram",
-      "version": "0.8.1",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels-telegram",
       "entrypoints": [
         {
@@ -852,7 +875,7 @@
     },
     {
       "name": "@copilotkit/channels-ui",
-      "version": "0.8.1",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels-ui",
       "entrypoints": [
         {
@@ -921,7 +944,7 @@
     },
     {
       "name": "@copilotkit/channels-whatsapp",
-      "version": "0.8.1",
+      "version": "0.11.0",
       "sourceDirectory": "packages/channels-whatsapp",
       "entrypoints": [
         {
@@ -962,7 +985,7 @@
     },
     {
       "name": "@copilotkit/core",
-      "version": "1.67.1",
+      "version": "1.73.3",
       "sourceDirectory": "packages/core",
       "entrypoints": [
         {
@@ -993,7 +1016,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=18"
+          "node": ">=20"
         },
         "provenance": [
           {
@@ -1022,8 +1045,234 @@
       }
     },
     {
+      "name": "@copilotkit/intelligence-langgraph",
+      "version": "1.71.2",
+      "sourceDirectory": "packages/intelligence-langgraph",
+      "entrypoints": [
+        {
+          "importPath": "@copilotkit/intelligence-langgraph",
+          "exportKey": ".",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/intelligence-langgraph/package.json",
+            "selector": "exports[\".\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/intelligence-langgraph/package.json",
+          "exportKey": "./package.json",
+          "kind": "metadata",
+          "conditions": "./package.json",
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/intelligence-langgraph/package.json",
+            "selector": "exports[\"./package.json\"]"
+          }
+        }
+      ],
+      "compatibility": {
+        "engines": {
+          "node": ">=20.19.0"
+        },
+        "peerDependencies": {
+          "@langchain/core": ">=1.2.10 <2",
+          "@langchain/langgraph": ">=1.4.14 <2",
+          "langchain": ">=1.5.11 <2",
+          "zod": "^3.25.76 || ^4.0.0"
+        },
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/intelligence-langgraph/package.json",
+            "selector": "engines"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/intelligence-langgraph/package.json",
+            "selector": "peerDependencies"
+          }
+        ]
+      },
+      "provenance": {
+        "name": {
+          "kind": "package-json",
+          "path": "packages/intelligence-langgraph/package.json",
+          "selector": "name"
+        },
+        "version": {
+          "kind": "package-json",
+          "path": "packages/intelligence-langgraph/package.json",
+          "selector": "version"
+        },
+        "releaseScope": {
+          "kind": "release-config",
+          "path": "release.config.json",
+          "selector": "scopes.intelligence-langgraph.packages"
+        }
+      }
+    },
+    {
+      "name": "@copilotkit/intelligence-mastra",
+      "version": "1.71.2",
+      "sourceDirectory": "packages/intelligence-mastra",
+      "entrypoints": [
+        {
+          "importPath": "@copilotkit/intelligence-mastra",
+          "exportKey": ".",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/intelligence-mastra/package.json",
+            "selector": "exports[\".\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/intelligence-mastra/package.json",
+          "exportKey": "./package.json",
+          "kind": "metadata",
+          "conditions": "./package.json",
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/intelligence-mastra/package.json",
+            "selector": "exports[\"./package.json\"]"
+          }
+        }
+      ],
+      "compatibility": {
+        "engines": {
+          "node": ">=22.13.0"
+        },
+        "peerDependencies": {
+          "@mastra/core": ">=1.0.0 <2",
+          "zod": "^3.25.76 || ^4.0.0"
+        },
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/intelligence-mastra/package.json",
+            "selector": "engines"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/intelligence-mastra/package.json",
+            "selector": "peerDependencies"
+          }
+        ]
+      },
+      "provenance": {
+        "name": {
+          "kind": "package-json",
+          "path": "packages/intelligence-mastra/package.json",
+          "selector": "name"
+        },
+        "version": {
+          "kind": "package-json",
+          "path": "packages/intelligence-mastra/package.json",
+          "selector": "version"
+        },
+        "releaseScope": {
+          "kind": "release-config",
+          "path": "release.config.json",
+          "selector": "scopes.intelligence-mastra.packages"
+        }
+      }
+    },
+    {
+      "name": "@copilotkit/mcp-apps-renderer",
+      "version": "1.73.3",
+      "sourceDirectory": "packages/mcp-apps-renderer",
+      "entrypoints": [
+        {
+          "importPath": "@copilotkit/mcp-apps-renderer",
+          "exportKey": ".",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/index.d.mts",
+              "default": "./dist/index.mjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/mcp-apps-renderer/package.json",
+            "selector": "exports[\".\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/mcp-apps-renderer/activity",
+          "exportKey": "./activity",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/activity.d.mts",
+              "default": "./dist/activity.mjs"
+            },
+            "require": {
+              "types": "./dist/activity.d.cts",
+              "default": "./dist/activity.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/mcp-apps-renderer/package.json",
+            "selector": "exports[\"./activity\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/mcp-apps-renderer/package.json",
+          "exportKey": "./package.json",
+          "kind": "metadata",
+          "conditions": "./package.json",
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/mcp-apps-renderer/package.json",
+            "selector": "exports[\"./package.json\"]"
+          }
+        }
+      ],
+      "compatibility": {
+        "peerDependencies": {
+          "@ag-ui/client": "0.0.59",
+          "zod": ">=3.25"
+        },
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/mcp-apps-renderer/package.json",
+            "selector": "peerDependencies"
+          }
+        ]
+      },
+      "provenance": {
+        "name": {
+          "kind": "package-json",
+          "path": "packages/mcp-apps-renderer/package.json",
+          "selector": "name"
+        },
+        "version": {
+          "kind": "package-json",
+          "path": "packages/mcp-apps-renderer/package.json",
+          "selector": "version"
+        },
+        "releaseScope": {
+          "kind": "release-config",
+          "path": "release.config.json",
+          "selector": "scopes.monorepo.packages"
+        }
+      }
+    },
+    {
       "name": "@copilotkit/react-core",
-      "version": "1.67.1",
+      "version": "1.73.3",
       "sourceDirectory": "packages/react-core",
       "entrypoints": [
         {
@@ -1109,7 +1358,7 @@
         "peerDependencies": {
           "react": "^18 || ^19 || ^19.0.0-rc",
           "react-dom": "^18 || ^19 || ^19.0.0-rc",
-          "zod": ">=3.0.0"
+          "zod": ">=3.25"
         },
         "provenance": [
           {
@@ -1139,7 +1388,7 @@
     },
     {
       "name": "@copilotkit/react-native",
-      "version": "1.67.1",
+      "version": "1.73.3",
       "sourceDirectory": "packages/react-native",
       "entrypoints": [
         {
@@ -1334,7 +1583,7 @@
     },
     {
       "name": "@copilotkit/react-textarea",
-      "version": "1.67.1",
+      "version": "1.73.3",
       "sourceDirectory": "packages/react-textarea",
       "entrypoints": [
         {
@@ -1407,7 +1656,7 @@
     },
     {
       "name": "@copilotkit/react-ui",
-      "version": "1.67.1",
+      "version": "1.73.3",
       "sourceDirectory": "packages/react-ui",
       "entrypoints": [
         {
@@ -1490,7 +1739,7 @@
     },
     {
       "name": "@copilotkit/runtime",
-      "version": "1.67.1",
+      "version": "1.73.3",
       "sourceDirectory": "packages/runtime",
       "entrypoints": [
         {
@@ -1505,6 +1754,20 @@
             "kind": "package-json",
             "path": "packages/runtime/package.json",
             "selector": "exports[\".\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/runtime/internal/learned-skills",
+          "exportKey": "./internal/learned-skills",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/internal/learned-skills.mjs",
+            "require": "./dist/internal/learned-skills.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/runtime/package.json",
+            "selector": "exports[\"./internal/learned-skills\"]"
           }
         },
         {
@@ -1590,6 +1853,9 @@
         }
       ],
       "compatibility": {
+        "engines": {
+          "node": ">=20"
+        },
         "peerDependencies": {
           "@anthropic-ai/sdk": ">=0.57.0",
           "@langchain/aws": ">=0.1.9",
@@ -1598,6 +1864,7 @@
           "@langchain/google-gauth": ">=0.1.0",
           "@langchain/langgraph-sdk": ">=0.1.2",
           "@langchain/openai": ">=0.4.2",
+          "express": "^4.18.0 || ^5.0.0",
           "groq-sdk": ">=0.3.0 <1.0.0",
           "langchain": ">=0.3.3",
           "openai": "^4.85.1 || >=5.0.0"
@@ -1609,11 +1876,17 @@
           "@langchain/google-gauth",
           "@langchain/langgraph-sdk",
           "@langchain/openai",
+          "express",
           "groq-sdk",
           "langchain",
           "openai"
         ],
         "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/runtime/package.json",
+            "selector": "engines"
+          },
           {
             "kind": "package-json",
             "path": "packages/runtime/package.json",
@@ -1646,7 +1919,7 @@
     },
     {
       "name": "@copilotkit/runtime-client-gql",
-      "version": "1.67.1",
+      "version": "1.73.3",
       "sourceDirectory": "packages/runtime-client-gql",
       "entrypoints": [
         {
@@ -1707,7 +1980,7 @@
     },
     {
       "name": "@copilotkit/sdk-js",
-      "version": "1.67.1",
+      "version": "1.73.3",
       "sourceDirectory": "packages/sdk-js",
       "entrypoints": [
         {
@@ -1814,7 +2087,7 @@
     },
     {
       "name": "@copilotkit/shared",
-      "version": "1.67.1",
+      "version": "1.73.3",
       "sourceDirectory": "packages/shared",
       "entrypoints": [
         {
@@ -1832,6 +2105,20 @@
           }
         },
         {
+          "importPath": "@copilotkit/shared/event-transforms",
+          "exportKey": "./event-transforms",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/event-transforms/index.mjs",
+            "require": "./dist/event-transforms/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/shared/package.json",
+            "selector": "exports[\"./event-transforms\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/shared/package.json",
           "exportKey": "./package.json",
           "kind": "metadata",
@@ -1840,6 +2127,20 @@
             "kind": "package-json",
             "path": "packages/shared/package.json",
             "selector": "exports[\"./package.json\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/shared/telemetry",
+          "exportKey": "./telemetry",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/telemetry/index.mjs",
+            "require": "./dist/telemetry/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/shared/package.json",
+            "selector": "exports[\"./telemetry\"]"
           }
         }
       ],
@@ -1875,7 +2176,7 @@
     },
     {
       "name": "@copilotkit/sqlite-runner",
-      "version": "1.67.1",
+      "version": "1.73.3",
       "sourceDirectory": "packages/sqlite-runner",
       "entrypoints": [
         {
@@ -1906,7 +2207,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=18"
+          "node": ">=20"
         },
         "peerDependencies": {
           "better-sqlite3": "^12.2.0"
@@ -1952,7 +2253,7 @@
     },
     {
       "name": "@copilotkit/voice",
-      "version": "1.67.1",
+      "version": "1.73.3",
       "sourceDirectory": "packages/voice",
       "entrypoints": [
         {
@@ -1983,7 +2284,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=18"
+          "node": ">=20"
         },
         "peerDependencies": {
           "@copilotkit/runtime": "workspace:*"
@@ -2021,7 +2322,7 @@
     },
     {
       "name": "@copilotkit/vue",
-      "version": "1.67.1",
+      "version": "1.73.3",
       "sourceDirectory": "packages/vue",
       "entrypoints": [
         {
@@ -2089,7 +2390,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=18"
+          "node": ">=20"
         },
         "peerDependencies": {
           "vue": ">=3.3.0"
@@ -2127,7 +2428,7 @@
     },
     {
       "name": "@copilotkit/web-components",
-      "version": "1.67.1",
+      "version": "1.73.3",
       "sourceDirectory": "packages/web-components",
       "entrypoints": [
         {
@@ -2184,7 +2485,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=18"
+          "node": ">=20"
         },
         "peerDependencies": {
           "lit": "^3.3.2"
@@ -2222,7 +2523,7 @@
     },
     {
       "name": "@copilotkit/web-inspector",
-      "version": "1.67.1",
+      "version": "1.73.3",
       "sourceDirectory": "packages/web-inspector",
       "entrypoints": [
         {
@@ -2253,7 +2554,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=18"
+          "node": ">=20"
         },
         "provenance": [
           {
@@ -2302,17 +2603,17 @@
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/anthropic/anthropic-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/anthropic/anthropic-adapter.ts",
             "selector": "export class AnthropicAdapter"
           },
           "configurationType": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/anthropic/anthropic-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/anthropic/anthropic-adapter.ts",
             "selector": "constructor parameter AnthropicAdapterParams"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/anthropic/anthropic-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/anthropic/anthropic-adapter.ts",
             "selector": "interface AnthropicAdapterParams public properties"
           }
         }
@@ -2334,17 +2635,17 @@
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/bedrock/bedrock-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/bedrock/bedrock-adapter.ts",
             "selector": "export class BedrockAdapter"
           },
           "configurationType": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/bedrock/bedrock-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/bedrock/bedrock-adapter.ts",
             "selector": "constructor parameter BedrockAdapterParams"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/bedrock/bedrock-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/bedrock/bedrock-adapter.ts",
             "selector": "interface BedrockAdapterParams public properties"
           }
         }
@@ -2361,12 +2662,12 @@
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/empty/empty-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/empty/empty-adapter.ts",
             "selector": "export class EmptyAdapter"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/empty/empty-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/empty/empty-adapter.ts",
             "selector": "class EmptyAdapter has no constructor configuration"
           }
         }
@@ -2383,12 +2684,12 @@
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/empty/empty-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/empty/empty-adapter.ts",
             "selector": "export const ExperimentalEmptyAdapter"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/empty/empty-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/empty/empty-adapter.ts",
             "selector": "class EmptyAdapter has no constructor configuration"
           }
         }
@@ -2398,7 +2699,8 @@
         "symbol": "ExperimentalOllamaAdapter",
         "configurationType": "OllamaAdapterOptions",
         "configurationKeys": [
-          "model"
+          "model",
+          "baseUrl"
         ],
         "provenance": {
           "importPath": {
@@ -2408,17 +2710,17 @@
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/experimental/ollama/ollama-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/experimental/ollama/ollama-adapter.ts",
             "selector": "export class ExperimentalOllamaAdapter"
           },
           "configurationType": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/experimental/ollama/ollama-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/experimental/ollama/ollama-adapter.ts",
             "selector": "constructor parameter OllamaAdapterOptions"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/experimental/ollama/ollama-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/experimental/ollama/ollama-adapter.ts",
             "selector": "interface OllamaAdapterOptions public properties"
           }
         }
@@ -2440,17 +2742,17 @@
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/google/google-genai-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/google/google-genai-adapter.ts",
             "selector": "export class GoogleGenerativeAIAdapter"
           },
           "configurationType": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/google/google-genai-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/google/google-genai-adapter.ts",
             "selector": "constructor parameter GoogleGenerativeAIAdapterOptions"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/google/google-genai-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/google/google-genai-adapter.ts",
             "selector": "interface GoogleGenerativeAIAdapterOptions public properties"
           }
         }
@@ -2472,17 +2774,17 @@
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/groq/groq-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/groq/groq-adapter.ts",
             "selector": "export class GroqAdapter"
           },
           "configurationType": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/groq/groq-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/groq/groq-adapter.ts",
             "selector": "constructor parameter GroqAdapterParams"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/groq/groq-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/groq/groq-adapter.ts",
             "selector": "interface GroqAdapterParams public properties"
           }
         }
@@ -2502,17 +2804,17 @@
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/langchain/langchain-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/langchain/langchain-adapter.ts",
             "selector": "export class LangChainAdapter"
           },
           "configurationType": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/langchain/langchain-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/langchain/langchain-adapter.ts",
             "selector": "constructor parameter LangChainAdapterOptions"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/langchain/langchain-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/langchain/langchain-adapter.ts",
             "selector": "interface LangChainAdapterOptions public properties"
           }
         }
@@ -2536,17 +2838,17 @@
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/openai/openai-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/openai/openai-adapter.ts",
             "selector": "export class OpenAIAdapter"
           },
           "configurationType": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/openai/openai-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/openai/openai-adapter.ts",
             "selector": "constructor parameter OpenAIAdapterParams"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/openai/openai-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/openai/openai-adapter.ts",
             "selector": "interface OpenAIAdapterParams public properties"
           }
         }
@@ -2571,17 +2873,17 @@
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/openai/openai-assistant-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/openai/openai-assistant-adapter.ts",
             "selector": "export class OpenAIAssistantAdapter"
           },
           "configurationType": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/openai/openai-assistant-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/openai/openai-assistant-adapter.ts",
             "selector": "constructor parameter OpenAIAssistantAdapterParams"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/openai/openai-assistant-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/openai/openai-assistant-adapter.ts",
             "selector": "interface OpenAIAssistantAdapterParams public properties"
           }
         }
@@ -2602,17 +2904,17 @@
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/unify/unify-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/unify/unify-adapter.ts",
             "selector": "export class UnifyAdapter"
           },
           "configurationType": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/unify/unify-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/unify/unify-adapter.ts",
             "selector": "constructor parameter UnifyAdapterParams"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/service-adapters/unify/unify-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/unify/unify-adapter.ts",
             "selector": "interface UnifyAdapterParams public properties"
           }
         }
@@ -2786,6 +3088,7 @@
       {
         "type": "aisdk",
         "configurationKeys": [
+          "learnedSkills",
           "type",
           "factory"
         ],
@@ -2805,6 +3108,7 @@
       {
         "type": "tanstack",
         "configurationKeys": [
+          "learnedSkills",
           "type",
           "factory"
         ],
@@ -2824,6 +3128,7 @@
       {
         "type": "custom",
         "configurationKeys": [
+          "learnedSkills",
           "type",
           "factory"
         ],
@@ -2859,17 +3164,17 @@
         },
         "symbol": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/lib/index.ts",
+          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
           "selector": "CustomEventNames @deprecated tag"
         },
         "replacement": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/lib/index.ts",
+          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
           "selector": "CustomEventNames @deprecated tag"
         },
         "sourceMessage": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/lib/index.ts",
+          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
           "selector": "CustomEventNames @deprecated tag"
         }
       }
@@ -2890,17 +3195,17 @@
         },
         "symbol": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/lib/index.ts",
+          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
           "selector": "LangGraphAgent @deprecated tag"
         },
         "replacement": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/lib/index.ts",
+          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
           "selector": "LangGraphAgent @deprecated tag"
         },
         "sourceMessage": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/lib/index.ts",
+          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
           "selector": "LangGraphAgent @deprecated tag"
         }
       }
@@ -2921,17 +3226,17 @@
         },
         "symbol": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/lib/index.ts",
+          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
           "selector": "LangGraphHttpAgent @deprecated tag"
         },
         "replacement": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/lib/index.ts",
+          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
           "selector": "LangGraphHttpAgent @deprecated tag"
         },
         "sourceMessage": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/lib/index.ts",
+          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
           "selector": "LangGraphHttpAgent @deprecated tag"
         }
       }
@@ -2952,17 +3257,17 @@
         },
         "symbol": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/lib/index.ts",
+          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
           "selector": "PredictStateTool @deprecated tag"
         },
         "replacement": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/lib/index.ts",
+          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
           "selector": "PredictStateTool @deprecated tag"
         },
         "sourceMessage": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/lib/index.ts",
+          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
           "selector": "PredictStateTool @deprecated tag"
         }
       }
@@ -2983,17 +3288,17 @@
         },
         "symbol": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/lib/index.ts",
+          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
           "selector": "TextMessageEvents @deprecated tag"
         },
         "replacement": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/lib/index.ts",
+          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
           "selector": "TextMessageEvents @deprecated tag"
         },
         "sourceMessage": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/lib/index.ts",
+          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
           "selector": "TextMessageEvents @deprecated tag"
         }
       }
@@ -3014,17 +3319,17 @@
         },
         "symbol": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/lib/index.ts",
+          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
           "selector": "ToolCallEvents @deprecated tag"
         },
         "replacement": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/lib/index.ts",
+          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
           "selector": "ToolCallEvents @deprecated tag"
         },
         "sourceMessage": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/lib/index.ts",
+          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
           "selector": "ToolCallEvents @deprecated tag"
         }
       }

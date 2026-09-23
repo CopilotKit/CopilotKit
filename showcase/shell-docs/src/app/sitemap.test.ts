@@ -103,14 +103,11 @@ test("publishes every sitemap URL at most once", () => {
   expect(new Set(urls).size).toBe(urls.length);
 });
 
-test("publishes the public AEO policy at its canonical URL", () => {
-  const policy = loadDoc("aeo");
+test("does not publish the retired AG-UI protocol docs", () => {
+  const paths = sitemapPaths();
 
-  expect(policy?.fm).toMatchObject({
-    title: "Public AEO surface contract",
-    description: expect.any(String),
-  });
-  expect(sitemapPaths()).toContain("/aeo");
+  expect(paths).not.toContain("/ag-ui");
+  expect(paths.some((pathname) => pathname.startsWith("/ag-ui/"))).toBe(false);
 });
 
 test("excludes every hidden framework from every sitemap surface", () => {
@@ -217,12 +214,16 @@ test("publishes shared Runtime and Intelligence docs once on the Angular surface
     urls.some((url) => url.endsWith("/angular/backend/copilot-runtime")),
   ).toBe(true);
   expect(
-    urls.some((url) => url.endsWith("/angular/premium/intelligence-platform")),
+    urls.some((url) =>
+      url.endsWith("/angular/intelligence/intelligence-platform"),
+    ),
   ).toBe(true);
   expect(urls.some((url) => url.endsWith("/angular/auth"))).toBe(true);
   expect(
     urls.some((url) =>
-      url.endsWith("/angular/langgraph-python/premium/intelligence-platform"),
+      url.endsWith(
+        "/angular/langgraph-python/intelligence/intelligence-platform",
+      ),
     ),
   ).toBe(false);
 });

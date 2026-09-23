@@ -17,6 +17,7 @@ import type {
   CopilotKitCoreRegisterProxiedAgentParams,
   CopilotKitCoreRegisterProxiedAgentResult,
 } from "./agent-registry";
+import type { CopilotKitMessageFilter } from "./message-filter";
 import { AgentRegistry } from "./agent-registry";
 import type { ScopedContext } from "./context-store";
 import { ContextStore } from "./context-store";
@@ -30,7 +31,10 @@ import type {
   CopilotKitCoreCatalogComponent,
 } from "./run-handler";
 import { RunHandler } from "./run-handler";
-import type { DebugConfig } from "@copilotkit/shared";
+import type {
+  DebugConfig,
+  RuntimeEntitlementResponse,
+} from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import { ThreadStoreRegistry } from "./thread-store-registry";
@@ -63,6 +67,12 @@ export interface CopilotKitCoreConfig {
   headers?: Record<string, string>;
   /** Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies). */
   credentials?: RequestCredentials;
+  /**
+   * Rewrites the message list sent to runtime agents on every run. Use it when
+   * the backend already stores the conversation and re-sending it is waste or
+   * duplication. See `setMessageFilter` and {@link CopilotKitMessageFilter}.
+   */
+  messageFilter?: CopilotKitMessageFilter;
   /** Properties sent as `forwardedProps` to the AG-UI agent. */
   properties?: Record<string, unknown>;
   /** Ordered collection of frontend tools available to the core. */
@@ -72,6 +82,8 @@ export interface CopilotKitCoreConfig {
   /** Enable debug logging for the client-side event pipeline. */
   debug?: DebugConfig;
 }
+
+export type { CopilotKitMessageFilter } from "./message-filter";
 
 export type {
   CopilotKitCoreAddAgentParams,
@@ -344,6 +356,7 @@ export interface CopilotKitCoreFriendsAccess {
   // Getters for internal state
   readonly headers: Readonly<Record<string, string>>;
   readonly credentials: RequestCredentials | undefined;
+  readonly messageFilter: CopilotKitMessageFilter | undefined;
   readonly properties: Readonly<Record<string, unknown>>;
   readonly context: Readonly<Record<string, Context>>;
   readonly debug?: DebugConfig;
@@ -399,6 +412,7 @@ function normalizeHeaders(
 export class CopilotKitCore {
   private _headers: Record<string, string>;
   private _credentials?: RequestCredentials;
+  private _messageFilter?: CopilotKitMessageFilter;
   private _properties: Record<string, unknown>;
   private _defaultThrottleMs?: number;
   private _debug?: DebugConfig;
@@ -433,6 +447,7 @@ export class CopilotKitCore {
     deferInitialConnection = false,
     headers = {},
     credentials,
+    messageFilter,
     properties = {},
     agents__unsafe_dev_only = {},
     tools = [],
@@ -441,6 +456,7 @@ export class CopilotKitCore {
   }: CopilotKitCoreConfig) {
     this._headers = normalizeHeaders(headers);
     this._credentials = credentials;
+    this._messageFilter = messageFilter;
     this._properties = properties;
     this._debug = debug;
 
@@ -664,6 +680,10 @@ export class CopilotKitCore {
     return this._credentials;
   }
 
+  get messageFilter(): CopilotKitMessageFilter | undefined {
+    return this._messageFilter;
+  }
+
   get properties(): Readonly<Record<string, unknown>> {
     return this._properties;
   }
@@ -714,6 +734,10 @@ export class CopilotKitCore {
     return this.agentRegistry.runtimeConnectionStatus;
   }
 
+  get ɵruntimeFetch(): typeof fetch {
+    return this.agentRegistry.createRuntimeFetch();
+  }
+
   get audioFileTranscriptionEnabled(): boolean {
     return this.agentRegistry.audioFileTranscriptionEnabled;
   }
@@ -732,6 +756,11 @@ export class CopilotKitCore {
 
   get suggestions(): boolean | undefined {
     return this.agentRegistry.suggestions;
+  }
+
+  /** Whether the connected Runtime exposes debug-authorized Learning data. */
+  get inspectorLearning(): boolean {
+    return this.agentRegistry.inspectorLearning;
   }
 
   /** Trusted, optional metadata advertised by the connected runtime. */
@@ -762,6 +791,16 @@ export class CopilotKitCore {
 
   get licenseStatus(): RuntimeLicenseStatus | undefined {
     return this.agentRegistry.licenseStatus;
+  }
+
+  /** Structured Runtime entitlement authority advertised by `/info`. */
+  get runtimeEntitlements(): RuntimeEntitlementResponse | undefined {
+    return this.agentRegistry.runtimeEntitlements;
+  }
+
+  /** Whether Core still has a bounded Runtime entitlement retry to settle. */
+  get runtimeEntitlementRetryPending(): boolean {
+    return this.agentRegistry.runtimeEntitlementRetryPending;
   }
 
   get telemetryDisabled(): boolean {
@@ -823,6 +862,20 @@ export class CopilotKitCore {
       this.agentRegistry.agents as Record<string, AbstractAgent>,
     );
     this.agentRegistry.handleCredentialsChanged();
+  }
+
+  /**
+   * Replace the message filter applied to every runtime agent.
+   *
+   * Applies to agents already discovered as well as ones discovered later, so
+   * a filter set before `/info` lands is not lost. Pass `undefined` to go back
+   * to sending the full thread.
+   */
+  setMessageFilter(messageFilter: CopilotKitMessageFilter | undefined): void {
+    this._messageFilter = messageFilter;
+    this.agentRegistry.applyMessageFilterToAgents(
+      this.agentRegistry.agents as Record<string, AbstractAgent>,
+    );
   }
 
   setProperties(properties: Record<string, unknown>): void {
@@ -953,13 +1006,13 @@ export class CopilotKitCore {
   /**
    * Lazily creates, starts, and context-syncs the core-owned memory store on
    * first access, then returns it. Subsequent calls return the existing store.
-   * The store is constructed with a bound `globalThis.fetch` and immediately
-   * has its runtime context synced from the current connection state.
+   * The store uses the Core Runtime fetch so REST and single-route transports
+   * share the same resource behavior. Its Runtime context is synced at once.
    */
   private ensureMemoryStore(): ɵMemoryStore {
     if (!this._memoryStore) {
       this._memoryStore = ɵcreateMemoryStore({
-        fetch: globalThis.fetch.bind(globalThis),
+        fetch: this.ɵruntimeFetch,
       });
       this._memoryStore.start();
       this.syncMemoryContext();
@@ -1312,7 +1365,7 @@ export class CopilotKitCore {
   }
 
   stopAgent(params: CopilotKitCoreStopAgentParams): void {
-    this.runHandler.abortCurrentRun();
+    this.runHandler.abortCurrentRun(params.agent);
     params.agent.abortRun();
   }
 
@@ -1350,6 +1403,18 @@ export class CopilotKitCore {
     messageId: string,
   ): string | undefined {
     return this.stateManager.getRunIdForMessage(agentId, threadId, messageId);
+  }
+
+  getRawEventForMessage(
+    agentId: string,
+    threadId: string,
+    messageId: string,
+  ): unknown {
+    return this.stateManager.getRawEventForMessage(
+      agentId,
+      threadId,
+      messageId,
+    );
   }
 
   getRunIdsForThread(agentId: string, threadId: string): string[] {

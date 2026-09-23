@@ -9,8 +9,9 @@
     {
       "_comment": "interrupt-headless sales-call pill \u2014 first leg: schedule_meeting tool call triggers interrupt(...). Same agent/prompts as gen-ui-interrupt but different frontend (useHeadlessInterrupt renders in app surface pane, not inline).",
       "match": {
-        "userMessage": "introductory sales team call",
+        "userMessage": "intro call with the sales team",
         "toolName": "schedule_meeting",
+        "hasToolResult": false,
         "context": "crewai-crews"
       },
       "response": {
@@ -40,7 +41,7 @@
     {
       "_comment": "interrupt-headless sales-call pill \u2014 second leg: confirmation after user picks a slot.",
       "match": {
-        "userMessage": "introductory sales team call",
+        "userMessage": "intro call with the sales team",
         "toolCallId": "call_d5_schedule_sales_001",
         "context": "crewai-crews"
       },
@@ -51,7 +52,7 @@
     {
       "_comment": "interrupt-headless sales-call pill \u2014 cancelled leg.",
       "match": {
-        "userMessage": "introductory sales team call",
+        "userMessage": "intro call with the sales team",
         "toolCallId": "call_d5_schedule_sales_001__cancelled",
         "context": "crewai-crews"
       },
@@ -62,8 +63,9 @@
     {
       "_comment": "interrupt-headless alice-1on1 pill \u2014 first leg: schedule_meeting tool call.",
       "match": {
-        "userMessage": "one-on-one with Alice",
+        "userMessage": "1:1 with Alice",
         "toolName": "schedule_meeting",
+        "hasToolResult": false,
         "context": "crewai-crews"
       },
       "response": {
@@ -93,7 +95,7 @@
     {
       "_comment": "interrupt-headless alice-1on1 pill \u2014 second leg: confirmation after user picks a slot.",
       "match": {
-        "userMessage": "one-on-one with Alice",
+        "userMessage": "1:1 with Alice",
         "toolCallId": "call_d5_schedule_alice_001",
         "context": "crewai-crews"
       },
@@ -104,7 +106,7 @@
     {
       "_comment": "interrupt-headless alice-1on1 pill \u2014 cancelled leg.",
       "match": {
-        "userMessage": "one-on-one with Alice",
+        "userMessage": "1:1 with Alice",
         "toolCallId": "call_d5_schedule_alice_001__cancelled",
         "context": "crewai-crews"
       },

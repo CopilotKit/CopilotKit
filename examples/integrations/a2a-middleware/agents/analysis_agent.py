@@ -23,6 +23,7 @@ from a2a.types import (
 from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
 from a2a.utils import new_agent_text_message
+from _banner import print_banner
 from google.adk.agents.llm_agent import LlmAgent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
@@ -222,10 +223,17 @@ def main():
         extended_agent_card=public_agent_card,
     )
 
-    print(f"💡 Starting Analysis Agent (ADK + A2A) on http://localhost:{port}")
-    print(f"   Agent: {public_agent_card.name}")
-    print(f"   Description: {public_agent_card.description}")
-    uvicorn.run(server.build(), host="0.0.0.0", port=port)
+    # Wide on purpose: the orchestrator and containers reach this agent. One
+    # variable feeds both the banner and the bind so they cannot drift.
+    host = os.getenv("ANALYSIS_HOST", "0.0.0.0")
+    print_banner(
+        "💡 Starting Analysis Agent (ADK + A2A)",
+        host,
+        port,
+        f"Agent: {public_agent_card.name}",
+        f"Description: {public_agent_card.description}",
+    )
+    uvicorn.run(server.build(), host=host, port=port)
 
 
 if __name__ == "__main__":

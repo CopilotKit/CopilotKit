@@ -26,8 +26,23 @@ import "@copilotkit/react-core/v2/styles.css";
   default header displays a title and a close button.
 </PropertyReference>
 
-<PropertyReference name="defaultOpen" type="boolean" default="false">
-  Whether the sidebar should be open when the component first mounts.
+<PropertyReference name="defaultOpen" type="boolean" default="true">
+  Whether the sidebar is open when the component first mounts. After that the
+  sidebar owns the state. Use `open` instead to keep control.
+</PropertyReference>
+
+<PropertyReference name="open" type="boolean">
+  Controlled open state. When supplied, your component owns whether the sidebar
+  is open: the sidebar renders this value and never changes it on its own. Pair
+  it with `onOpenChange`. When both `open` and `defaultOpen` are passed, `open`
+  wins. See [Open, close, and
+  feedback](/prebuilt-components/chat-controls).
+</PropertyReference>
+
+<PropertyReference name="onOpenChange" type="(open: boolean) => void">
+  Called with the requested state whenever the sidebar asks to open or close
+  (the toggle button, or the thread drawer on mobile). It reports a request, not
+  a change: in controlled mode nothing moves until you update `open`.
 </PropertyReference>
 
 <PropertyReference name="width" type="number | string">
@@ -118,7 +133,7 @@ function App() {
 ## Behavior
 
 - **Toggle button**: Renders a floating toggle button that opens and closes the sidebar. The button uses `CopilotChatToggleButton` internally.
-- **Modal state**: Open/close state is managed via the chat configuration context. The `defaultOpen` prop sets the initial state; after that, state changes come from user interaction (toggle button, close button in the header).
+- **Modal state**: Open/close state is managed via the chat configuration context. The `defaultOpen` prop sets the initial state; after that, state changes come from user interaction (toggle button, close button in the header). Pass `open` and `onOpenChange` to own the state yourself, and to open or close the sidebar from your own UI.
 - **Layout**: The sidebar uses `CopilotSidebarView` internally, which provides a sidebar-specific welcome screen layout with suggestions at the top, the welcome message in the middle, and the input fixed at the bottom.
 - **Fixed positioning**: The sidebar renders as a fixed panel on one side of the viewport, pushing or overlaying content depending on CSS.
 - **Agent connection**: All agent wiring (messages, running state, suggestions) is handled by the parent `CopilotChat` logic.

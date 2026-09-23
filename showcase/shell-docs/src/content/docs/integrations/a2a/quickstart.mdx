@@ -5,13 +5,13 @@ icon: "lucide/Play"
 hideTOC: true
 ---
 
-<OpsPlatformCTA
-  variant="card"
-  title="Ship A2A to production"
-  body="Add persistent threads and the inspector with the Enterprise Intelligence Platform."
-  ctaLabel="Create a free account"
-  surface="docs_a2a_quickstart"
-/>
+import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+
+## Start with your coding agent
+
+Use this prompt to connect your A2A agent to CopilotKit and verify a working conversation. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
+
+<PageAgentPrompt />
 
 ## Prerequisites
 
@@ -26,9 +26,9 @@ Before you begin, you'll need the following:
 
 <Steps>
     <Step>
-        ### Create a free account
+        ### Set up CopilotKit Intelligence
 
-        <SignupLink surface="docs_a2a_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads and the inspector.
+        <SignupLink surface="docs_a2a_quickstart_step1">Sign in to cloud-hosted Intelligence</SignupLink>. Cloud-hosted setup uses a server-side project API key and does not issue `COPILOTKIT_LICENSE_TOKEN`. You will connect the app after you clone it below.
     </Step>
 
     <Step>
@@ -36,7 +36,11 @@ Before you begin, you'll need the following:
 
         ```bash
         git clone https://github.com/copilotkit/with-a2a-a2ui.git
+        cd with-a2a-a2ui
+        npx copilotkit@latest project select
         ```
+
+        `project select` creates or selects an Intelligence project and writes its server-side API key to `.env` as `CPK_INTELLIGENCE_API_KEY`.
     </Step>
     <Step>
         ### Install dependencies
@@ -105,6 +109,11 @@ Before you begin, you'll need the following:
 
     </Step>
 
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+
+
 </Steps>
 
 ## What's next?
@@ -115,7 +124,7 @@ Now that you have your basic agent setup, explore these advanced features:
   <Card
     title="Add some generative UI"
     description="Render declarative UI components with A2UI."
-    href="/a2a/generative-ui/declarative-a2ui"
+    href="/docs/integrations/a2a/generative-ui/declarative-a2ui"
     icon={<PaintbrushIcon />}
   />
 </Cards>

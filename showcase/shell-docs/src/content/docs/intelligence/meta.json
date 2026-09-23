@@ -1,0 +1,20 @@
+{
+  "title": "Intelligence",
+  "frontend": {
+    "kind": "universal"
+  },
+  "pages": [
+    "overview",
+    "quickstart",
+    "intelligence-platform",
+    "memories",
+    "learned-skills",
+    "analytics",
+    "channels",
+    "managed-intelligence-platform",
+    "plans",
+    "self-hosting",
+    "self-hosting-ecs",
+    "threads-explained"
+  ]
+}

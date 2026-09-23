@@ -507,8 +507,7 @@ async function main(): Promise<void> {
     // (`environments`), not a hardcoded prod/staging pair. Each env name
     // resolves to its Railway env-id via the registry. A dual-env service
     // visits prod+staging exactly as before; a single-env service visits
-    // only its env (such services are gateIgnore'd above and never reach
-    // here, but the loop is correct regardless).
+    // only its declared env.
     for (const env of Object.keys(entry.environments)) {
       const envId = ENV_ID_BY_NAME[env];
       // Defense-in-depth: an env name with no registry entry cannot be

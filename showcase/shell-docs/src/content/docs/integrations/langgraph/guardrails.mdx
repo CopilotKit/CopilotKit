@@ -1,0 +1,228 @@
+---
+title: Guardrails & DLP
+description: "Screen agent input and output with LangChain middleware — PII redaction, prompt-injection blocking, and custom policy checks — ordered correctly alongside CopilotKitMiddleware."
+icon: "lucide/ShieldCheck"
+doc_type: how-to
+---
+
+Anything a user types reaches your model, and anything the model produces reaches your user. Screening both is a middleware concern in LangGraph: `AgentMiddleware` gives you hooks around the agent, the model call, and every tool call, and `CopilotKitMiddleware` is itself one of these — so your checks compose with it rather than wrapping around the whole runtime.
+
+This page covers input screening, output and DLP screening, and how to order the two against CopilotKit's own middleware.
+
+## Where the hooks sit
+
+A run passes through these hooks in order:
+
+| Hook | Runs | Use it for |
+| --- | --- | --- |
+| `before_agent` | Once, before the run starts | Rejecting a whole conversation — rate limits, a blocked tenant |
+| `before_model` | Before every model call | Input screening on the latest user message |
+| `wrap_model_call` | Around every model call | Output screening; you see the request going in and the response coming back |
+| `wrap_tool_call` | Around every tool call | Screening tool arguments and tool results |
+| `after_model` | After every model call | Post-hoc inspection that doesn't need to modify the response |
+
+`before_*` hooks return a state-update dict (or `None`). `wrap_*` hooks receive a `handler` they must call to continue the chain — which is what lets them inspect and rewrite the result.
+
+## Start with the built-in PII middleware
+
+Before writing anything custom, check whether `PIIMiddleware` already covers you. It ships with LangChain and handles the common DLP cases in both directions:
+
+```python title="agent.py"
+from langchain.agents import create_agent
+from langchain.agents.middleware import PIIMiddleware
+from copilotkit import CopilotKitMiddleware
+
+agent = create_agent(
+    model="openai:gpt-4o",
+    tools=[...],
+    middleware=[
+        # Redact emails the user sends in.
+        PIIMiddleware("email", strategy="redact"),
+        # Mask card numbers wherever they appear, including in tool results.
+        PIIMiddleware(
+            "credit_card",
+            strategy="mask",
+            apply_to_output=True,
+            apply_to_tool_results=True,
+        ),
+        # Refuse outright if an API key shows up.
+        PIIMiddleware("api_key", detector=r"sk-[a-zA-Z0-9]{32}", strategy="block"),
+        CopilotKitMiddleware(),
+    ],
+)
+```
+
+Built-in types are `email`, `credit_card`, `ip`, `mac_address`, and `url`; any other name becomes a custom type driven by the `detector` you supply (a regex or a callable). Strategies are `block` (raises `PIIDetectionError`), `redact`, `mask`, and `hash`.
+
+<Callout type="info" title="apply_to_output is off by default">
+  `PIIMiddleware` screens **input** unless you say otherwise. Pass `apply_to_output=True` to
+  screen model output and `apply_to_tool_results=True` to screen what tools return — a
+  frequent source of leaked data, since tool results come from your own systems.
+</Callout>
+
+## Input screening
+
+For anything PII detection doesn't express — topic restrictions, prompt-injection heuristics, per-tenant policy — implement `before_model` and end the run when the check fails.
+
+```python title="guardrails.py"
+from typing import Any
+
+from langchain.agents.middleware import AgentMiddleware, AgentState, hook_config
+from langchain_core.messages import AIMessage, HumanMessage
+from langgraph.runtime import Runtime
+
+
+class InputFirewall(AgentMiddleware):
+    """Rejects user input that fails policy before it reaches the model."""
+
+    def __init__(self, *, refusal: str = "I can't help with that request."):
+        super().__init__()
+        self.refusal = refusal
+
+    # can_jump_to declares the edge; without it, "jump_to" is ignored.
+    @hook_config(can_jump_to=["end"])
+    def before_model(
+        self, state: AgentState, runtime: Runtime[Any]
+    ) -> dict[str, Any] | None:
+        messages = state.get("messages", [])
+        latest = next(
+            (m for m in reversed(messages) if isinstance(m, HumanMessage)), None
+        )
+        if latest is None:
+            return None
+
+        verdict = screen_input(str(latest.content))  # your classifier or rules
+        if not verdict.allowed:
+            # Ending with an AIMessage means the user sees the refusal in chat
+            # rather than an error toast.
+            return {
+                "jump_to": "end",
+                "messages": [AIMessage(content=self.refusal)],
+            }
+
+        return None
+```
+
+Two things worth knowing:
+
+- **`@hook_config(can_jump_to=["end"])` is required.** It declares the conditional edge at compile time. Returning `{"jump_to": "end"}` without it silently does nothing.
+- **Returning an `AIMessage` is friendlier than raising.** A raised exception surfaces as a run error; an injected message renders as a normal assistant turn, so the user gets an explanation and the conversation stays usable.
+
+## Output and DLP screening
+
+Output screening belongs in `wrap_model_call`, because that's the only hook that can rewrite what the model produced before anything downstream sees it. Call `handler(request)`, inspect the result, and return either the original response or a replacement.
+
+```python title="guardrails.py"
+from dataclasses import replace
+from typing import Awaitable, Callable
+
+from langchain.agents.middleware import (
+    AgentMiddleware,
+    ModelRequest,
+    ModelResponse,
+)
+from langchain_core.messages import AIMessage
+
+
+class OutputFirewall(AgentMiddleware):
+    """Scrubs or blocks model output before it leaves the agent."""
+
+    def wrap_model_call(
+        self,
+        request: ModelRequest,
+        handler: Callable[[ModelRequest], ModelResponse],
+    ) -> ModelResponse:
+        response = handler(request)
+
+        scrubbed = []
+        for message in response.result:
+            if isinstance(message, AIMessage) and isinstance(message.content, str):
+                clean = redact_sensitive(message.content)  # your DLP pass
+                if clean != message.content:
+                    message = message.model_copy(update={"content": clean})
+            scrubbed.append(message)
+
+        return replace(response, result=scrubbed)
+
+    async def awrap_model_call(
+        self,
+        request: ModelRequest,
+        handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
+    ) -> ModelResponse:
+        response = await handler(request)
+        # ...same scrubbing as above
+        return response
+```
+
+<Callout type="warn" title="Streaming bypasses a naive output filter">
+  `wrap_model_call` sees the completed response. When the model streams, tokens have already
+  reached the browser by then — so a scrub applied here fixes the stored message while the
+  user may have briefly seen the original. `PIIMiddleware` handles this by installing a
+  stream transformer alongside its state-level check. If your custom rule must hold during
+  streaming too, either express it as a `PIIMiddleware` custom detector, or don't stream the
+  screened agent.
+</Callout>
+
+Implement the `a`-prefixed variant (`awrap_model_call`, `abefore_model`) for async agents — the sync method is not used on the async path.
+
+## Screening tool calls
+
+Tools are the other boundary worth guarding: arguments carry user-influenced data outward, results carry system data back.
+
+```python
+from langgraph.types import Command
+from langchain_core.messages import ToolMessage
+from langchain.agents.middleware import ToolCallRequest
+
+
+class ToolFirewall(AgentMiddleware):
+    def wrap_tool_call(
+        self,
+        request: ToolCallRequest,
+        handler: Callable[[ToolCallRequest], ToolMessage | Command],
+    ) -> ToolMessage | Command:
+        if not tool_call_allowed(request):  # your policy
+            return ToolMessage(
+                content="This action is not permitted.",
+                tool_call_id=request.tool_call["id"],
+            )
+        return handler(request)
+```
+
+Returning a `ToolMessage` without calling `handler` blocks execution while keeping the conversation coherent — the model sees a refusal it can respond to.
+
+## Ordering against `CopilotKitMiddleware`
+
+Middleware compose with **the first entry as the outermost layer**. For `wrap_*` hooks that means the first-listed middleware sees the request earliest and the response latest.
+
+`CopilotKitMiddleware` merges frontend tools into the request and intercepts frontend tool calls on the way back. Put your guardrails **before** it in the list:
+
+```python
+middleware=[
+    InputFirewall(),        # outermost: screens before anything else runs
+    OutputFirewall(),       # sees the final response last
+    CopilotKitMiddleware(), # innermost: frontend tools, state exposure
+]
+```
+
+That ordering matters for a specific reason: `CopilotKitMiddleware` adds the browser's frontend tools to the model request. A guardrail placed *after* it would be inspecting a request that already contains tools your policy layer didn't approve, and — more importantly — an output filter placed after it would run before CopilotKit finished assembling the response the frontend actually receives.
+
+<Callout type="info">
+  The list order is the only ordering control. There is no priority field, and a middleware
+  cannot declare that it must run before another.
+</Callout>
+
+## What this doesn't cover
+
+Middleware guards the agent. It does not guard the runtime around it — authenticating the caller, rate-limiting by user, or rejecting a request outright before an agent run starts belongs at the runtime layer instead:
+
+- [Authentication](/auth) — `onRequest` and `onBeforeHandler` hooks on the runtime handler
+- [Thread authorization](/auth#thread-authorization) — stopping one user reaching another's conversation
+
+And for actions that should require a human rather than a policy check, [Human in the loop](/human-in-the-loop) is the better tool: surface the action for approval instead of silently blocking it.
+
+## Related
+
+- [LangGraph agent configuration](/integrations/langgraph/configurable)
+- [Human in the loop](/human-in-the-loop)
+- [Authentication](/auth)
