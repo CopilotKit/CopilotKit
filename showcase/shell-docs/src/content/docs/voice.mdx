@@ -48,9 +48,23 @@ with your configured runtime separately.
 
 ## Try it
 
-Wait until **Try a sample audio** is enabled, select it, then send the inserted
-weather question from the composer. The button’s label is historical: it
-inserts prepared text and does not upload or transcribe audio.
+The demo has two inputs, and they prove different things.
+
+**Prepared sample.** Wait until **Try a sample audio** is enabled, select it,
+then send the inserted weather question from the composer. The button’s label is
+historical: it inserts prepared text and does not upload or transcribe audio. A
+reply about the weather in Tokyo shows that the composer accepted the text and
+the agent answered it. This is the path the Showcase's automated voice check
+drives. It says nothing about the microphone, the `/transcribe` endpoint or the
+transcription provider.
+
+**Microphone.** Select the mic button, allow microphone access, speak, then stop
+recording. The transcript appears in the composer for you to review and send.
+Only this path records audio, uploads it to `/transcribe` and calls the
+transcription provider. It needs an OpenAI API key on the server (see
+[Credentials and local configuration](#credentials-and-local-configuration)).
+No automated Showcase check records from a microphone, so try it yourself
+before relying on it.
 
 ## Backend
 
@@ -82,19 +96,48 @@ route answers `invalid_request`. As JSON, `mimeType` is required alongside the b
 For the Google ADK showcase, agent runs take one more hop: this Next.js route registers the `voice-demo` agent with an `HttpAgent` pointed at `${AGENT_URL}/voice`. The Python `agent_server.py` mounts registered ADK agents with `add_adk_fastapi_endpoint(app, ..., path=f"/{agent_name}")`, so the browser talks to `/api/copilotkit-voice` while the Next.js runtime forwards voice-demo agent runs to the backend `/voice` endpoint.
 </WhenFrameworkHas>
 
+### Credentials and local configuration
+
+The transcription service runs on the server, inside the route above, so its
+credential belongs in the server environment of the app that serves
+`/api/copilotkit-voice`. For `next dev`, that means `.env.local` or the shell
+that starts it. Never put it in a `NEXT_PUBLIC_` variable.
+
+- **`OPENAI_API_KEY` is required.** `TranscriptionServiceOpenAI` sends audio to
+  OpenAI's `whisper-1` model by default, so the key needs access to it. Without
+  a key the mic button still appears, because `/info` advertises transcription
+  whenever a service is configured. Transcription then fails: `/transcribe`
+  answers `401` with `auth_failed` and the chat shows an authentication error
+  instead of a transcript.
+- **Keep transcription off `OPENAI_BASE_URL`.** The OpenAI SDK falls back to
+  `OPENAI_BASE_URL` when you don't pass `baseURL`. If that variable routes chat
+  through a proxy or a mock server, give the transcription client its own
+  `baseURL`, or recorded audio goes to that server too. The Showcase points
+  `OPENAI_BASE_URL` at a fixture server (AIMock) so chat replies are
+  deterministic, and that server answers transcription requests from fixtures
+  without listening to the audio. The Showcase's shared voice service therefore
+  keeps recordings on `https://api.openai.com/v1` and takes an override only
+  from `OPENAI_TRANSCRIPTION_BASE_URL`.
+- **The browser needs microphone permission** and a secure context: `https://`
+  or `http://localhost`.
+
 ### Custom transcription backends
 
 `TranscriptionService` from `@copilotkit/runtime/v2` is an abstract class. Subclass it to plug in any transcription provider — Whisper, AssemblyAI, Deepgram, your own model. The library ships `TranscriptionServiceOpenAI` as the canonical reference implementation.
 
 <Callout type="warn" title="Return a string, and let provider errors through">
-`transcribe` returns the transcript as a string — the handler wraps it into
-`{ transcription }` itself, so returning a richer object is a type error.
+`transcribeFile` returns the transcript as a string. The handler wraps it into
+the `{ text }` response itself, so returning a richer object is a type error.
 
 Let the provider's own errors propagate unchanged. The runtime classifies failures by reading
 the error text for markers like `rate`, `429`, `auth` and `too long`, so a provider message
 such as `OpenAI returned 429 rate limited` maps to the right error code on its own. Replacing
 it with your own wording bypasses that and everything lands as a generic provider error.
 </Callout>
+
+The runtime rejects a request with no `audio` part (`400`, `invalid_request`),
+but it passes a 0-byte file through to your service. Check `audioFile.size`
+before calling a provider that might answer an empty upload.
 
 A useful pattern is wrapping your service in a guard that returns a clean 4xx when credentials aren't configured, instead of an opaque 5xx from the underlying SDK:
 
