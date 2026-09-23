@@ -1,0 +1,19 @@
+# LangGraph thread state of the RED mcp-apps runs (GET :8123/threads/<id>/state), assistant graph mcp_apps. Shows the stored message type the graph returned.
+{"thread": "e4ad9cce", "type": "human", "role": null, "tool_calls": "ABSENT", "additional_kwargs.tool_calls": [], "content": "Open Excalidraw and sketch a system diagram with a client, s"}
+{"thread": "e4ad9cce", "type": "generic", "role": null, "tool_calls": "ABSENT", "additional_kwargs.tool_calls": ["create_view"], "content": "Sketching a client \u2192 server \u2192 database diagram in Excalidraw"}
+{"thread": "79a26e95", "type": "human", "role": null, "tool_calls": "ABSENT", "additional_kwargs.tool_calls": [], "content": "Open Excalidraw and sketch a system diagram with a client, s"}
+{"thread": "79a26e95", "type": "generic", "role": null, "tool_calls": "ABSENT", "additional_kwargs.tool_calls": ["create_view"], "content": "Sketching a client \u2192 server \u2192 database diagram in Excalidraw"}
+{"thread": "bf2b20c6", "type": "human", "role": null, "tool_calls": "ABSENT", "additional_kwargs.tool_calls": [], "content": "Open Excalidraw and sketch a system diagram with a client, s"}
+{"thread": "bf2b20c6", "type": "ai", "role": null, "tool_calls": ["create_view"], "additional_kwargs.tool_calls": ["create_view"], "content": "Sketching a client \u2192 server \u2192 database diagram in Excalidraw"}
+{"thread": "d27d9ec2", "type": "human", "role": null, "tool_calls": "ABSENT", "additional_kwargs.tool_calls": [], "content": "Open Excalidraw and sketch a system diagram with a client, s"}
+{"thread": "d27d9ec2", "type": "generic", "role": null, "tool_calls": "ABSENT", "additional_kwargs.tool_calls": ["create_view"], "content": "Sketching a client \u2192 server \u2192 database diagram in Excalidraw"}
+{"thread": "27b54a79", "type": "human", "role": null, "tool_calls": "ABSENT", "additional_kwargs.tool_calls": [], "content": "Open Excalidraw and sketch a system diagram with a client, s"}
+{"thread": "27b54a79", "type": "generic", "role": null, "tool_calls": "ABSENT", "additional_kwargs.tool_calls": ["create_view"], "content": "Sketching a client \u2192 server \u2192 database diagram in Excalidraw"}
+{"thread": "bdc76237", "type": "human", "role": null, "tool_calls": "ABSENT", "additional_kwargs.tool_calls": [], "content": "Open Excalidraw and sketch a system diagram with a client, s"}
+{"thread": "bdc76237", "type": "generic", "role": null, "tool_calls": "ABSENT", "additional_kwargs.tool_calls": ["create_view"], "content": "Sketching a client \u2192 server \u2192 database diagram in Excalidraw"}
+{"thread": "69ce1b77", "type": "human", "role": null, "tool_calls": "ABSENT", "additional_kwargs.tool_calls": [], "content": "Open Excalidraw and sketch a system diagram with a client, s"}
+{"thread": "69ce1b77", "type": "generic", "role": null, "tool_calls": "ABSENT", "additional_kwargs.tool_calls": ["create_view"], "content": "Sketching a client \u2192 server \u2192 database diagram in Excalidraw"}
+{"thread": "0424ac7b", "type": "human", "role": null, "tool_calls": "ABSENT", "additional_kwargs.tool_calls": [], "content": "Open Excalidraw and sketch a system diagram with a client, s"}
+{"thread": "0424ac7b", "type": "generic", "role": null, "tool_calls": "ABSENT", "additional_kwargs.tool_calls": ["create_view"], "content": "Sketching a client \u2192 server \u2192 database diagram in Excalidraw"}
+# 8 mcp-apps thread(s)
+# Note: src/agent/.langgraph_api persists threads across boots. 79a26e95 (22:32:54Z) and e4ad9cce (22:33:27Z) were created by this RED run, one per attempt; the older threads are run b's (bdc76237 is its direct run; bf2b20c6, the only 'ai' message, is run b's temporary diagnostic patch, not committed).
