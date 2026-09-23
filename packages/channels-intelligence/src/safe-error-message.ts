@@ -19,14 +19,8 @@ const REDACTED = "[redacted]";
 const SECRET_PATTERNS: ReadonlyArray<readonly [RegExp, string]> = [
   // `scheme://user:password@host` — drop the credentials, keep the host.
   [/([a-z][a-z0-9+.-]*:\/\/)[^\s/@:]+:[^\s/@]+@/gi, `$1${REDACTED}@`],
-  // Authorization header values. Case-sensitive "Basic" so the plain word
-  // "basic" in prose is left alone.
-  [/\b([Bb]earer|BEARER|Basic)\s+[^\s,;"']+/g, `$1 ${REDACTED}`],
-  // `token=…`, `api_key: …`, `"password":"…"` and similar key/value pairs.
-  [
-    /\b([\w-]*(?:token|secret|password|passwd|api[_-]?key|apikey|authorization|signature|credential)s?["']?\s*[:=]\s*["']?)[^\s,;&"'}]+/gi,
-    `$1${REDACTED}`,
-  ],
+  // Authorization header values, in any case (`Bearer`, `basic`, `BASIC`).
+  [/\b(bearer|basic)\s+[^\s,;"']+/gi, `$1 ${REDACTED}`],
   // Slack tokens (xoxb-, xoxp-, xoxa-, xoxr-, xoxs-, xoxe-, xapp-).
   [/\bxox[abeoprs]-[A-Za-z0-9-]+/g, REDACTED],
   [/\bxapp-[A-Za-z0-9-]+/g, REDACTED],
@@ -35,6 +29,25 @@ const SECRET_PATTERNS: ReadonlyArray<readonly [RegExp, string]> = [
   // JWTs.
   [/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g, REDACTED],
 ];
+
+// `token=…`, `api_key: …`, `"password": "…"` and similar key/value pairs. A
+// quoted value is redacted through its closing quote (so `"open sesame"` goes
+// whole); an unquoted value runs up to whitespace or a delimiter.
+const SECRET_KEY_VALUE =
+  /\b([\w-]*(?:token|secret|password|passwd|api[_-]?key|apikey|authorization|signature|credential)s?["']?\s*[:=]\s*)(?:"[^"]*"|'[^']*'|(["']?)[^\s,;&"'}]+)/gi;
+
+function redactKeyValue(
+  match: string,
+  prefix: string,
+  unquotedLead: string | undefined,
+): string {
+  const value = match.slice(prefix.length);
+  if (unquotedLead === undefined) {
+    const quote = value[0]!;
+    return `${prefix}${quote}${REDACTED}${quote}`;
+  }
+  return `${prefix}${unquotedLead}${REDACTED}`;
+}
 
 // Any other long opaque run (hex secrets, base64 keys, signed ids). Only runs
 // that mix letters and digits are redacted, so long plain words survive.
@@ -47,6 +60,7 @@ export function redactSecretLikeValues(text: string): string {
   for (const [pattern, replacement] of SECRET_PATTERNS) {
     result = result.replace(pattern, replacement);
   }
+  result = result.replace(SECRET_KEY_VALUE, redactKeyValue);
   return result.replace(LONG_OPAQUE_RUN, (match) =>
     /[A-Za-z]/.test(match) && /[0-9]/.test(match) ? REDACTED : match,
   );

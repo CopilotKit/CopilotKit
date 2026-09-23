@@ -31,6 +31,33 @@ describe("redactSecretLikeValues", () => {
     ).toBe("sent Bearer [redacted] and Basic [redacted]");
   });
 
+  test("redacts authorization schemes in any case", () => {
+    expect(
+      redactSecretLikeValues("sent basic dXNlcjpwYXNz and bearer abc.def"),
+    ).toBe("sent basic [redacted] and bearer [redacted]");
+    expect(redactSecretLikeValues("sent BASIC dXNlcjpwYXNz")).toBe(
+      "sent BASIC [redacted]",
+    );
+  });
+
+  test("redacts a whole double-quoted secret value with spaces", () => {
+    expect(
+      redactSecretLikeValues('body {"password": "open sesame", "user": "a"}'),
+    ).toBe('body {"password": "[redacted]", "user": "a"}');
+  });
+
+  test("redacts a whole single-quoted secret value with spaces", () => {
+    expect(
+      redactSecretLikeValues("config { secret: 'open sesame now' } rejected"),
+    ).toBe("config { secret: '[redacted]' } rejected");
+  });
+
+  test("redacts an unquoted secret value up to whitespace", () => {
+    expect(redactSecretLikeValues("password=open sesame")).toBe(
+      "password=[redacted] sesame",
+    );
+  });
+
   test("redacts values of secret-named keys", () => {
     expect(
       redactSecretLikeValues(
