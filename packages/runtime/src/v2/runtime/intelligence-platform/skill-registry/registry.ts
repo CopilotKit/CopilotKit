@@ -1,3 +1,8 @@
+import type { CopilotKitIntelligence } from "../client";
+import type {
+  GetLearnedSkillsSnapshotRequest,
+  LearnedSkillsSnapshotResult,
+} from "../learned-skills";
 import { createHash } from "node:crypto";
 import { resolveRegistryConfig } from "./config";
 import type { SingleContainerConfig, SkillRegistryOptions } from "./config";
@@ -53,7 +58,12 @@ class SingleContainerRegistry {
   #lastError?: SkillDeliveryError;
   #blocked?: SkillDeliveryError;
 
-  constructor(config: SingleContainerConfig) {
+  constructor(
+    config: SingleContainerConfig,
+    private readonly fetchSnapshot = config.client.getLearnedSkillsSnapshot.bind(
+      config.client,
+    ),
+  ) {
     this.#config = config;
   }
 
@@ -118,7 +128,7 @@ class SingleContainerRegistry {
       }, this.#config.requestTimeoutMs);
     });
     const replacement = async (): Promise<VerifiedSnapshot> => {
-      const response = await this.#config.client.getLearnedSkillsSnapshot({
+      const response = await this.fetchSnapshot({
         containerId: this.#config.containerId,
         ...(this.#config.revision !== undefined
           ? { revision: this.#config.revision }
@@ -196,6 +206,50 @@ class SingleContainerRegistry {
   }
 }
 
+/** Coalesce refreshes from this registry into one request in the next microtask. */
+function batchLoader(client: CopilotKitIntelligence) {
+  let pending: {
+    request: GetLearnedSkillsSnapshotRequest;
+    resolve: (value: LearnedSkillsSnapshotResult) => void;
+    reject: (error: unknown) => void;
+  }[] = [];
+  return (
+    request: GetLearnedSkillsSnapshotRequest,
+  ): Promise<LearnedSkillsSnapshotResult> =>
+    new Promise((resolve, reject) => {
+      pending.push({ request, resolve, reject });
+      if (pending.length !== 1) return;
+      queueMicrotask(async () => {
+        const batch = pending;
+        pending = [];
+        try {
+          const results = await client.getLearnedSkillsSnapshots({
+            containers: batch.map(
+              ({ request: { signal, ...source } }) => source,
+            ),
+            signal: batch[0].request.signal,
+          });
+          if (
+            !Array.isArray(results) ||
+            results.length !== batch.length ||
+            results.some(
+              (result, index) =>
+                result?.containerId !== batch[index].request.containerId,
+            )
+          )
+            throw invalidSnapshot();
+          for (let index = 0; index < batch.length; index++) {
+            const result = results[index];
+            if (result.status === "error") batch[index].reject(result.error);
+            else batch[index].resolve(result);
+          }
+        } catch (error) {
+          for (const item of batch) item.reject(error);
+        }
+      });
+    });
+}
+
 /** Compose independent container caches into one immutable invocation snapshot. */
 export class SkillRegistry {
   readonly #sources: readonly {
@@ -210,6 +264,7 @@ export class SkillRegistry {
   constructor(options: SkillRegistryOptions = {}) {
     const config = resolveRegistryConfig(options);
     this.#multiple = config.containers !== undefined;
+    const fetchBatch = batchLoader(config.client);
     this.#sources =
       config.containers !== undefined
         ? config.containers.map(({ id, revision }) => ({
@@ -223,6 +278,7 @@ export class SkillRegistry {
                 containerId: id,
                 ...(revision !== undefined ? { revision } : {}),
               }),
+              fetchBatch,
             ),
           }))
         : [

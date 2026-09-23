@@ -456,13 +456,18 @@ it.each(["declineToolCall", "declineToolCallGenerate"] as const)(
 it("uses a multi-container registry through a native Mastra agent", async () => {
   const client = new CopilotKitIntelligence({ apiKey: "test" });
   const fixture = fixtures.cases.find((entry) => entry.name === "text-skill")!;
-  const fetch = vi.spyOn(client, "getLearnedSkillsSnapshot").mockResolvedValue({
-    status: "snapshot",
-    bytes: new Uint8Array(Buffer.from(fixture.archiveBase64, "base64")),
-    revision: fixture.revision,
-    etag: fixture.etag,
-    contentType: "application/zip",
-  });
+  const fetch = vi
+    .spyOn(client, "getLearnedSkillsSnapshots")
+    .mockImplementation(async ({ containers }) =>
+      containers.map(({ containerId }) => ({
+        containerId,
+        status: "snapshot",
+        bytes: new Uint8Array(Buffer.from(fixture.archiveBase64, "base64")),
+        revision: fixture.revision,
+        etag: fixture.etag,
+        contentType: "application/zip",
+      })),
+    );
   const registry = new SkillRegistry({
     client,
     containers: [{ id: "support" }, { id: "company" }],
@@ -477,5 +482,5 @@ it("uses a multi-container registry through a native Mastra agent", async () => 
   expect(test.prompts[0]).toContain("support/refund-policy");
   expect(test.prompts[0]).toContain("company/refund-policy");
   expect(test.prompts.at(-1)).toContain("published refund policy");
-  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(fetch).toHaveBeenCalledTimes(1);
 });

@@ -429,8 +429,12 @@ it("one aborted caller does not cancel a shared registry refresh", async () => {
 
 it("uses a multi-container registry through native middleware and skill tools", async () => {
   const client = new CopilotKitIntelligence({ apiKey: "test" });
-  vi.spyOn(client, "getLearnedSkillsSnapshot").mockImplementation(
-    async ({ containerId }) => archive(containerId),
+  vi.spyOn(client, "getLearnedSkillsSnapshots").mockImplementation(
+    async ({ containers }) =>
+      containers.map(({ containerId }) => ({
+        containerId,
+        ...archive(containerId),
+      })),
   );
   const registry = new SkillRegistry({
     client,

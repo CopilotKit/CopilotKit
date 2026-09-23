@@ -389,6 +389,17 @@ describe("BuiltInAgent learned skills", () => {
 
 it("provides both container catalogs and executable tools to BuiltInAgent factories", async () => {
   const { fetch, learnedSkills } = setup();
+  vi.spyOn(
+    learnedSkills.client,
+    "getLearnedSkillsSnapshots",
+  ).mockImplementation(async ({ containers }) =>
+    Promise.all(
+      containers.map(async (source) => ({
+        containerId: source.containerId,
+        ...(await learnedSkills.client.getLearnedSkillsSnapshot(source)),
+      })),
+    ),
+  );
   const contexts: AgentFactoryContext[] = [];
   const agent = new BuiltInAgent({
     type: "custom",

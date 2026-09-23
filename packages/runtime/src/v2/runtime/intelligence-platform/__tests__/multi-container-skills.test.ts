@@ -21,11 +21,32 @@ function response(name = "text-skill"): LearnedSkillsSnapshotResult {
     contentType: "application/zip",
   };
 }
+function mockBatch(client: CopilotKitIntelligence) {
+  const fetch = vi.fn().mockResolvedValue(response());
+  vi.spyOn(client, "getLearnedSkillsSnapshots").mockImplementation(
+    async ({ containers }) =>
+      Promise.all(
+        containers.map(async (request) => {
+          try {
+            return {
+              containerId: request.containerId,
+              ...(await fetch(request)),
+            };
+          } catch (error) {
+            return {
+              containerId: request.containerId,
+              status: "error" as const,
+              error: error as LearnedSkillsError,
+            };
+          }
+        }),
+      ),
+  );
+  return fetch;
+}
 function setup() {
   const client = new CopilotKitIntelligence({ apiKey: "test" });
-  const fetch = vi
-    .spyOn(client, "getLearnedSkillsSnapshot")
-    .mockResolvedValue(response());
+  const fetch = mockBatch(client);
   const registry = new SkillRegistry({
     client,
     containers: [{ id: "support", revision: "r1" }, { id: "company" }],
@@ -35,6 +56,7 @@ function setup() {
 }
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   vi.unstubAllEnvs();
 });
 
@@ -91,6 +113,7 @@ describe("multiple learned skill containers", () => {
   });
   it.each([
     { containers: [] },
+    { containers: Array.from({ length: 51 }, (_, i) => ({ id: String(i) })) },
     { containers: null },
     { containers: "a" },
     { containers: [{ id: "" }] },
@@ -109,9 +132,7 @@ describe("multiple learned skill containers", () => {
   });
   it("copies caller-owned source configuration and encodes separators", async () => {
     const client = new CopilotKitIntelligence({ apiKey: "test" });
-    const fetch = vi
-      .spyOn(client, "getLearnedSkillsSnapshot")
-      .mockResolvedValue(response());
+    const fetch = mockBatch(client);
     const containers = [{ id: "a/b" }];
     const registry = new SkillRegistry({ client, containers });
     containers[0].id = "changed";
@@ -210,3 +231,140 @@ const mixedPin: SkillRegistryOptions = {
   revision: "r1",
 };
 void [valid, mixed, mixedPin];
+
+it.each([1, 2])(
+  "uses one real HTTP batch for %s explicit sources and coalesces callers",
+  async (count) => {
+    const fixture = fixtures.cases.find(
+      (entry) => entry.name === "text-skill",
+    )!;
+    const fetch = vi.fn().mockImplementation(async (_url, init) =>
+      Response.json({
+        containers: JSON.parse(init.body).containers.map(
+          (request: { containerId: string }) => ({
+            containerId: request.containerId,
+            status: "snapshot",
+            revision: fixture.revision,
+            etag: fixture.etag,
+            contentType: "application/zip",
+            bytesBase64: fixture.archiveBase64,
+          }),
+        ),
+      }),
+    );
+    vi.stubGlobal("fetch", fetch);
+    const registry = new SkillRegistry({
+      apiKey: "test",
+      containers: Array.from({ length: count }, (_, i) => ({ id: String(i) })),
+    });
+    await Promise.all([registry.acquireSnapshot(), registry.acquireSnapshot()]);
+    await registry.acquireSnapshot();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch.mock.calls[0][0]).toContain("/api/v1/learning/skills/batch");
+    expect(JSON.parse(fetch.mock.calls[0][1].body).containers).toHaveLength(
+      count,
+    );
+  },
+);
+it("refreshes only stale sources and recovers from revocation without partial catalogs", async () => {
+  const fixture = fixtures.cases.find((entry) => entry.name === "text-skill")!;
+  let phase = "snapshot";
+  const fetch = vi.fn().mockImplementation(async (_url, init) =>
+    Response.json({
+      containers: JSON.parse(init.body).containers.map(
+        (request: { containerId: string }) =>
+          request.containerId === "b" && phase !== "snapshot"
+            ? {
+                containerId: "b",
+                status: "error",
+                error: { code: phase, retryable: phase === "NETWORK_ERROR" },
+              }
+            : phase === "NETWORK_ERROR"
+              ? {
+                  containerId: request.containerId,
+                  status: "unchanged",
+                  revision: fixture.revision,
+                  etag: fixture.etag,
+                }
+              : {
+                  containerId: request.containerId,
+                  status: "snapshot",
+                  revision: fixture.revision,
+                  etag: fixture.etag,
+                  contentType: "application/zip",
+                  bytesBase64: fixture.archiveBase64,
+                },
+      ),
+    }),
+  );
+  vi.stubGlobal("fetch", fetch);
+  const registry = new SkillRegistry({
+    apiKey: "test",
+    containers: [{ id: "a" }, { id: "b" }],
+    freshnessWindowMs: 1000,
+  });
+  const first = await registry.acquireSnapshot();
+  const now = vi.spyOn(Date, "now").mockReturnValue(Date.now() + 1001);
+  try {
+    phase = "NETWORK_ERROR";
+    expect(await registry.acquireSnapshot()).toBe(first);
+    expect(registry.status.containers?.map((source) => source.stale)).toEqual([
+      false,
+      true,
+    ]);
+    phase = "REVISION_REVOKED";
+    await expect(registry.acquireSnapshot()).rejects.toMatchObject({
+      code: "REVISION_REVOKED",
+    });
+    expect(
+      JSON.parse(fetch.mock.calls[2][1].body).containers.map(
+        (source: { containerId: string }) => source.containerId,
+      ),
+    ).toEqual(["b"]);
+    phase = "NETWORK_ERROR";
+    await expect(registry.acquireSnapshot()).rejects.toMatchObject({
+      code: "REVISION_REVOKED",
+    });
+    phase = "snapshot";
+    expect((await registry.acquireSnapshot()).skills).toHaveLength(2);
+    expect(registry.status.containers?.[1].lastError).toBeUndefined();
+  } finally {
+    now.mockRestore();
+  }
+});
+it("times out a batch without installing its late response", async () => {
+  let finish!: (response: Response) => void;
+  const fetch = vi.fn().mockImplementation(
+    () =>
+      new Promise<Response>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  vi.stubGlobal("fetch", fetch);
+  const registry = new SkillRegistry({
+    apiKey: "test",
+    containers: [{ id: "a" }, { id: "b" }],
+    requestTimeoutMs: 10,
+  });
+  await expect(registry.acquireSnapshot()).rejects.toMatchObject({
+    code: "TIMEOUT",
+  });
+  expect(fetch).toHaveBeenCalledTimes(1);
+  const fixture = fixtures.cases.find((entry) => entry.name === "text-skill")!;
+  finish(
+    Response.json({
+      containers: ["a", "b"].map((containerId) => ({
+        containerId,
+        status: "snapshot",
+        revision: fixture.revision,
+        etag: fixture.etag,
+        contentType: "application/zip",
+        bytesBase64: fixture.archiveBase64,
+      })),
+    }),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  expect(
+    registry.status.containers?.every((source) => !source.initialized),
+  ).toBe(true);
+});

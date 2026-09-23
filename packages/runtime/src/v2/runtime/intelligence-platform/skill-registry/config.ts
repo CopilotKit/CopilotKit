@@ -71,7 +71,8 @@ export function resolveRegistryConfig(
     if (multiple) {
       if (
         !Array.isArray(options.containers) ||
-        options.containers.length === 0
+        options.containers.length === 0 ||
+        options.containers.length > 50
       ) {
         throw new SkillDeliveryError("INVALID_CONFIG", false);
       }
@@ -82,6 +83,7 @@ export function resolveRegistryConfig(
             !source ||
             typeof source.id !== "string" ||
             !source.id.trim() ||
+            /[\u0000-\u001f\u007f]/.test(source.id) ||
             seen.has(source.id) ||
             (source.revision !== undefined &&
               (typeof source.revision !== "string" || !source.revision.trim()))
@@ -117,7 +119,12 @@ export function resolveRegistryConfig(
       throw new SkillDeliveryError("INVALID_CONFIG", false);
     let client = options.client;
     if (client !== undefined) {
-      if (!client || typeof client.getLearnedSkillsSnapshot !== "function")
+      if (
+        !client ||
+        typeof (multiple
+          ? client.getLearnedSkillsSnapshots
+          : client.getLearnedSkillsSnapshot) !== "function"
+      )
         throw new SkillDeliveryError("INVALID_CONFIG", false);
     } else {
       const apiKey = options.apiKey ?? environment.CPK_INTELLIGENCE_API_KEY;

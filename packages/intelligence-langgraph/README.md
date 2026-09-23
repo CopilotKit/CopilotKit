@@ -74,3 +74,7 @@ Each container keeps its own cache and revision. Every invocation captures the f
 A cold failure or confirmed denial from any container blocks the invocation.
 Existing transient-error fallback applies separately to each warm container.
 `registry.status.containers` lists per-container status and revision. Aggregate status has no revision pin.
+
+Explicit `containers` accepts 1–50 unique container IDs and sends one batch request for all sources that need a refresh. This also applies to a list with one entry.
+The server must support `POST /api/v1/learning/skills/batch` before you use this configuration. The SDK does not fall back to separate requests.
+Legacy `containerId` configuration keeps its existing single-container request. Both interfaces use the same authentication configuration.

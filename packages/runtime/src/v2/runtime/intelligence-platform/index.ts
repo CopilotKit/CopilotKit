@@ -13,5 +13,7 @@ export {
   LearnedSkillsError,
   type LearnedSkillsErrorCode,
   type GetLearnedSkillsSnapshotRequest,
+  type GetLearnedSkillsSnapshotsRequest,
+  type LearnedSkillsBatchResult,
   type LearnedSkillsSnapshotResult,
 } from "./learned-skills";

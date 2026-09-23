@@ -188,3 +188,7 @@ The new interface ignores legacy container and revision environment variables.
 Each container keeps its own revision and cache. A cold failure or confirmed denial blocks the whole invocation.
 Skill names include the container prefix, such as `support/refund-policy`, when you use `containers`.
 See [Skill delivery](https://docs.copilotkit.ai/intelligence/learned-skills) for all adapters, environment defaults, and factory-mode wiring.
+
+Explicit `containers` accepts 1–50 unique container IDs and sends one batch request for all sources that need a refresh. This also applies to a list with one entry.
+The server must support `POST /api/v1/learning/skills/batch` before you use this configuration. The SDK does not fall back to separate requests.
+Legacy `containerId` configuration keeps its existing single-container request. Both interfaces use the same authentication configuration.
