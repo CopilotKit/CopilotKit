@@ -8,8 +8,7 @@ import {
   untracked,
 } from "@angular/core";
 import { CopilotKit } from "./copilotkit";
-import { InterruptController } from "./interrupt";
-import type { InterruptRunner } from "./interrupt";
+import { InterruptController, type InterruptRunner } from "./interrupt";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { AgentSubscriber, Message, State } from "@ag-ui/client";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";

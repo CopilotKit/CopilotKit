@@ -1,10 +1,10 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  type DestroyRef,
   Input,
   signal,
 } from "@angular/core";
-import type { DestroyRef } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AbstractAgent } from "@ag-ui/client";
