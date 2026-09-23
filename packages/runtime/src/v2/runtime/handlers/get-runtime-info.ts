@@ -114,6 +114,37 @@ async function resolveRuntimeEntitlements(
   }
 }
 
+/** Runtimes already warned by {@link warnIfAgentsHiddenFromWeb}. */
+const warnedHiddenAgents = new WeakSet<CopilotRuntimeLike>();
+
+/**
+ * An Intelligence runtime without a runtime-level `identifyUser` serves only
+ * Channels: `/info` reports no agents and every web route returns 404. When a
+ * web client asks for agents the runtime does have, name the cause once in
+ * the server log, since a Channel's own `identifyUser` is easy to mistake for
+ * the runtime-level one.
+ */
+async function warnIfAgentsHiddenFromWeb(
+  runtime: CopilotRuntimeLike,
+  request: Request,
+): Promise<void> {
+  if (warnedHiddenAgents.has(runtime)) return;
+  let agentIds: string[];
+  try {
+    agentIds = Object.keys(await resolveAgents(runtime.agents, request));
+  } catch {
+    // Diagnostic only; must never turn `/info` into an error.
+    return;
+  }
+  if (agentIds.length === 0) return;
+  warnedHiddenAgents.add(runtime);
+  console.warn(
+    `[CopilotKit] This Intelligence runtime has agents (${agentIds.join(", ")}) but no runtime-level \`identifyUser\`, ` +
+      "so /info exposes none of them to web clients and web routes return 404. " +
+      "Set `identifyUser` on CopilotRuntime to serve a web UI; a Channel's own `identifyUser` covers only chat users.",
+  );
+}
+
 export async function handleGetRuntimeInfo({
   runtime,
   request,
@@ -124,6 +155,7 @@ export async function handleGetRuntimeInfo({
     const runtimeEntitlementsPromise = resolveRuntimeEntitlements(runtime);
     const webEnabled =
       !isIntelligenceRuntime(runtime) || runtime.identifyUser !== undefined;
+    if (!webEnabled) await warnIfAgentsHiddenFromWeb(runtime, request);
     const agents = webEnabled
       ? await resolveAgents(runtime.agents, request)
       : {};

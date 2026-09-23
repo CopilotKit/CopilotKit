@@ -8,6 +8,7 @@ import type {
 import type { AgentRunner } from "../runner/agent-runner";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { CopilotKitIntelligence } from "../intelligence-platform";
+import { createChannel } from "@copilotkit/channels";
 import { TranscriptionService } from "../transcription-service/transcription-service";
 import { describe, it, expect, test, vi, beforeEach, afterEach } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
@@ -946,4 +947,100 @@ test("get-runtime-info omits inspector metadata for an SSE runtime", async () =>
 
   expect(response.status).toBe(200);
   expect(data).not.toHaveProperty("inspectorMetadata");
+});
+
+describe("get-runtime-info names the missing runtime-level identifyUser", () => {
+  const intelligence = () =>
+    new CopilotKitIntelligence({
+      apiUrl: "https://runtime.example",
+      wsUrl: "wss://runtime.example",
+      apiKey: "test-key",
+    });
+  const channel = () =>
+    createChannel({ identifyUser: "platform", name: "support" });
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+  const hiddenAgentWarnings = () =>
+    warnSpy.mock.calls.filter(
+      ([message]) =>
+        typeof message === "string" &&
+        message.includes("no runtime-level `identifyUser`"),
+    );
+
+  beforeEach(() => {
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  it("warns once when a Channels-only runtime hides its agents from web clients", async () => {
+    const runtime = new CopilotRuntime({
+      agents: { default: {} as never, research: {} as never },
+      intelligence: intelligence(),
+      channels: [channel()],
+    });
+
+    for (let poll = 0; poll < 3; poll++) {
+      const response = await handleGetRuntimeInfo({
+        runtime,
+        request: mockRequest,
+      });
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({ agents: {} });
+    }
+
+    expect(hiddenAgentWarnings()).toEqual([
+      [
+        expect.stringContaining(
+          "has agents (default, research) but no runtime-level `identifyUser`",
+        ),
+      ],
+    ]);
+  });
+
+  it.each([
+    [
+      "the runtime has its own identifyUser",
+      () =>
+        new CopilotRuntime({
+          agents: { default: {} as never },
+          intelligence: intelligence(),
+          identifyUser: async () => ({ id: "user-1", name: "User One" }),
+          channels: [channel()],
+        }),
+    ],
+    [
+      "a Channels-only runtime has no agents",
+      () =>
+        new CopilotRuntime({
+          agents: {},
+          intelligence: intelligence(),
+          channels: [channel()],
+        }),
+    ],
+    [
+      "the agent factory of a Channels-only runtime throws",
+      () =>
+        new CopilotRuntime({
+          agents: () => {
+            throw new Error("factory failed");
+          },
+          intelligence: intelligence(),
+          channels: [channel()],
+        }),
+    ],
+    [
+      "the runtime is not in Intelligence mode",
+      () => new CopilotRuntime({ agents: { default: {} as never } }),
+    ],
+  ])("stays quiet when %s", async (_case, createRuntime) => {
+    const response = await handleGetRuntimeInfo({
+      runtime: createRuntime(),
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+    expect(hiddenAgentWarnings()).toEqual([]);
+  });
 });
