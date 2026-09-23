@@ -144,7 +144,7 @@ function DocsOverview() {
               AI agents. Add chat, interactive UI, and human approvals, with
               your choice of any agent backend.
             </p>
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-start">
               <HeroOnboardingPromptButton surface="docs_landing_hero" />
               <HeroQuickstartDropdown options={quickstartOptions} />
             </div>

@@ -90,7 +90,7 @@ export function HeroStartActions({
   quickstart: React.ReactNode;
 }) {
   return (
-    <div className="flex max-w-[820px] flex-col gap-3 sm:flex-row sm:items-center">
+    <div className="flex max-w-[820px] flex-col gap-3 sm:flex-row sm:items-start">
       {prompt}
       {quickstart}
     </div>

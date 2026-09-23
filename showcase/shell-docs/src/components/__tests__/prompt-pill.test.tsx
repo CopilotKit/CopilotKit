@@ -239,3 +239,33 @@ it("reports a completed clipboard write after unmount without updating the UI", 
   resolveWrite();
   await waitFor(() => expect(copied).toHaveBeenCalledExactlyOnceWith("copy"));
 });
+
+it("shows Codex users how to approve commands or allow sandbox network access", () => {
+  vi.spyOn(launcher, "launchPrompt").mockImplementation(() => {});
+  Object.assign(navigator, {
+    clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+  });
+  render(<PromptPill createPrompt={() => ({ text: "Set up" })} />);
+  expect(screen.queryByRole("note", { name: "Codex sandbox" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Open in Codex" }));
+  const note = screen.getByRole("note", { name: "Codex sandbox" });
+  expect(note.textContent).toMatch(/^Approve commands when Codex asks\./);
+  expect(note.textContent).toContain(
+    "set network_access = true under [sandbox_workspace_write] in ~/.codex/config.toml",
+  );
+  expect(
+    screen
+      .getByRole("link", { name: "Codex configuration reference" })
+      .getAttribute("href"),
+  ).toBe("https://learn.chatgpt.com/docs/config-file/config-reference");
+});
+
+it("does not show the Codex sandbox note to Claude Code users", () => {
+  vi.spyOn(launcher, "launchPrompt").mockImplementation(() => {});
+  Object.assign(navigator, {
+    clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+  });
+  render(<PromptPill createPrompt={() => ({ text: "Set up" })} />);
+  fireEvent.click(screen.getByRole("button", { name: "Open in Claude Code" }));
+  expect(screen.queryByRole("note", { name: "Codex sandbox" })).toBeNull();
+});

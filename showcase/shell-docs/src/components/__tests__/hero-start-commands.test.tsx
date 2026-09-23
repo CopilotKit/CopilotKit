@@ -77,14 +77,16 @@ describe("HeroStartActions", () => {
     expect(row?.children.length).toBe(2);
   });
 
-  it("stacks the action row on mobile and lines it up from sm up", () => {
+  it("stacks the action row on mobile and top-aligns it from sm up", () => {
     renderHero();
 
     const row = screen.getByTestId("prompt-slot").parentElement;
 
+    // Top alignment keeps the quickstart button level with the pill when the
+    // pill grows, for example when it shows the Codex sandbox note.
     expect(row?.className).toContain("flex-col");
     expect(row?.className).toContain("sm:flex-row");
-    expect(row?.className).toContain("sm:items-center");
+    expect(row?.className).toContain("sm:items-start");
   });
 });
 

@@ -20,6 +20,25 @@ export interface PromptPayload {
   onAction?: (action: PromptAction) => void;
 }
 
+const CODEX_CONFIG_REFERENCE_URL =
+  "https://learn.chatgpt.com/docs/config-file/config-reference";
+
+/** Tells a Codex user how to get past the default sandbox, keeping approval as the first option. */
+function CodexSandboxNote(): React.JSX.Element {
+  return (
+    <p className="prompt-pill-note" role="note" aria-label="Codex sandbox">
+      Approve commands when Codex asks. To skip most approvals, set{" "}
+      <code>network_access = true</code> under{" "}
+      <code>[sandbox_workspace_write]</code> in{" "}
+      <code>~/.codex/config.toml</code>. See the{" "}
+      <a href={CODEX_CONFIG_REFERENCE_URL} target="_blank" rel="noreferrer">
+        Codex configuration reference
+      </a>
+      .
+    </p>
+  );
+}
+
 /** Compact prompt actions shared by docs hero and page tools. */
 export function PromptPill({
   createPrompt,
@@ -33,6 +52,7 @@ export function PromptPill({
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [codexNoteShown, setCodexNoteShown] = useState(false);
   const [preview, setPreview] = useState<PromptPayload | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const trigger = useRef<HTMLElement | null>(null);
@@ -132,6 +152,7 @@ export function PromptPill({
     const payload = pending.current ?? createPrompt();
     const action = app === "claude" ? "open_claude" : "open_codex";
     recordAction(payload, action);
+    if (app === "codex") setCodexNoteShown(true);
     if (app === "claude" && payload.text.length > 5000) {
       setMessage(
         "This prompt is too long for the Claude app link. Copy it below.",
@@ -209,6 +230,7 @@ export function PromptPill({
           View prompt
         </button>
       </div>
+      {codexNoteShown && <CodexSandboxNote />}
       <span role="status" className="sr-only">
         {message}
       </span>

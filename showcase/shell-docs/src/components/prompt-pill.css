@@ -129,6 +129,26 @@
   width: 13px;
   height: 13px;
 }
+/* Match the dock width so the note never widens a header row. The page
+ * tools row sets nowrap on the pill and `.reference-content p` sets body
+ * type, so the note needs its own wrapping and a more specific selector. */
+.prompt-pill .prompt-pill-note {
+  width: 0;
+  min-width: 100%;
+  margin: 8px 0 0;
+  color: var(--prompt-muted, #555561);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: normal;
+}
+.prompt-pill .prompt-pill-note code {
+  font-family: var(--font-docs-code, monospace);
+  font-size: 11px;
+}
+.prompt-pill .prompt-pill-note a {
+  color: inherit;
+  text-decoration: underline;
+}
 .prompt-pill-dialog {
   position: fixed;
   inset: 0;
