@@ -4,23 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import matter from "gray-matter";
-import { LinkIcon } from "lucide-react";
-import remarkGfm from "remark-gfm";
-import {
-  rehypeCode,
-  rehypeCodeDefaultOptions,
-} from "fumadocs-core/mdx-plugins";
-import { PropertyReference } from "@/components/property-reference";
-import { MdxCodeBlock } from "@/components/mdx-code-block";
-import { transformerMeta } from "@/lib/rehype-code-meta";
-import {
-  Callout,
-  Cards,
-  Card,
-  Accordions,
-  Accordion,
-} from "@/components/mdx-components";
-import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
+import { Callout } from "@/components/mdx-components";
 import { DocsPage, DocsBody } from "fumadocs-ui/page";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { DocsContentHeader } from "@/components/docs-content-header";
@@ -34,7 +18,11 @@ import {
   referenceVersionHref,
   resolveReferencePage,
 } from "@/lib/reference-items";
-import { inlineSnippets } from "@/lib/docs-render";
+import {
+  prepareReferenceSource,
+  referenceMdxComponents,
+  referenceMdxOptions,
+} from "@/lib/reference-mdx";
 import { buildDocMetadata } from "@/lib/seo-metadata";
 import { V1_DEPRECATION_NOTICE_USE_V2_INSTEAD } from "@/lib/v1-deprecation-use-v2-instead";
 
@@ -75,28 +63,6 @@ export async function generateMetadata({
       : `/reference/${slug.join("/")}`,
   });
 }
-
-// next-mdx-remote components map
-const mdxComponents = {
-  PropertyReference,
-  // Render fenced code blocks through the same Shiki + Fumadocs CodeBlock
-  // chrome the main docs use (syntax highlighting + copy button), paired with
-  // the rehypeCode plugin wired into the MDXRemote options below.
-  pre: MdxCodeBlock,
-  Callout,
-  Cards,
-  Card,
-  Accordions,
-  Accordion,
-  OpsPlatformCTA,
-  LinkIcon,
-  Frame: ({ children }: { children: React.ReactNode }) => (
-    <div className="shell-docs-radius-surface my-6 border border-[var(--border)] bg-[var(--bg-surface)] p-4 shadow-[var(--shadow-control)]">
-      {children}
-    </div>
-  ),
-  // Strip unknown imports — MDX import statements become no-ops in next-mdx-remote
-};
 
 function buildGitHubUrl(absFilePath: string): string {
   const marker = "/showcase/";
@@ -142,10 +108,7 @@ export default async function ReferenceSlugPage({
     notFound();
   }
 
-  // Inline `@/snippets/...` imports the way docs pages do, so a reference
-  // page can share one install command with the guides. Also strips the
-  // top-of-file import block, which next-mdx-remote cannot evaluate.
-  const cleanedContent = inlineSnippets(content, "");
+  const cleanedContent = prepareReferenceSource(content, contentSlug);
 
   const title =
     typeof data.title === "string" && data.title.length > 0
@@ -219,24 +182,8 @@ export default async function ReferenceSlugPage({
           <DocsBody className="reference-content">
             <MDXRemote
               source={cleanedContent}
-              components={mdxComponents}
-              options={{
-                mdxOptions: {
-                  remarkPlugins: [remarkGfm],
-                  rehypePlugins: [
-                    [
-                      rehypeCode,
-                      {
-                        fallbackLanguage: "plaintext",
-                        transformers: [
-                          ...(rehypeCodeDefaultOptions.transformers ?? []),
-                          transformerMeta(),
-                        ],
-                      },
-                    ],
-                  ],
-                },
-              }}
+              components={referenceMdxComponents}
+              options={referenceMdxOptions}
             />
           </DocsBody>
         </div>

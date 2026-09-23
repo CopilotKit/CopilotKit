@@ -1,4 +1,4 @@
-const RUN_ID_PLACEHOLDER = "<run-id>";
+export const RUN_ID_PLACEHOLDER = "<run-id>";
 
 export const INTELLIGENCE_ONBOARDING_EVENTS = {
   promptCopied: "docs.intelligence_onboarding_prompt_copied",
@@ -27,7 +27,7 @@ export const ONBOARDING_PROMPT_ORIGIN = "https://copilotkit.ai";
  */
 export const INTELLIGENCE_ONBOARDING_PROMPT = `Read ${ONBOARDING_PROMPT_ORIGIN}/onboarding-prompts/${RUN_ID_PLACEHOLDER} and help me get set up.`;
 
-const RUN_ID_LENGTH = 12;
+export const RUN_ID_LENGTH = 12;
 
 /** Mint the telemetry identifier shared by the docs CTA and CLI run. */
 export function createOnboardingRunId(): string {

@@ -1973,6 +1973,47 @@ function componentNamesFromImportClause(importClause: string): string[] {
   return [...names];
 }
 
+/**
+ * Fill `{{key}}` tokens in a snippet from the JSON file its frontmatter names
+ * as `data: <file>` (resolved beside the snippet, inside SNIPPETS_DIR). This
+ * lets a code fence carry values, such as package versions, that live in one
+ * checked-in file. Snippets without `data` are returned unchanged. A missing
+ * file or an unknown key throws, because a half-filled install command is
+ * worse than a failed build.
+ */
+export function applySnippetData(content: string, snippetPath: string): string {
+  const frontmatter = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  const dataFile = frontmatter?.[1].match(/^data:\s*(\S+)\s*$/m)?.[1];
+  if (!dataFile) return content;
+
+  const dataPath = resolveWithinDir(
+    SNIPPETS_DIR,
+    path.join(path.relative(SNIPPETS_DIR, path.dirname(snippetPath)), dataFile),
+  );
+  if (!dataPath || !fs.existsSync(dataPath)) {
+    throw new Error(
+      `[docs-render] snippet data file not found: ${dataFile} (from ${snippetPath})`,
+    );
+  }
+  const data = JSON.parse(fs.readFileSync(dataPath, "utf-8")) as Record<
+    string,
+    unknown
+  >;
+
+  return content.replace(
+    /\{\{\s*([A-Za-z][A-Za-z0-9_]*)\s*\}\}/g,
+    (_match, key: string) => {
+      const value = data[key];
+      if (typeof value !== "string" && typeof value !== "number") {
+        throw new Error(
+          `[docs-render] snippet data key "${key}" is missing from ${dataFile} (from ${snippetPath})`,
+        );
+      }
+      return String(value);
+    },
+  );
+}
+
 export function inlineSnippets(
   content: string,
   slugPath: string = "",
@@ -2106,6 +2147,7 @@ export function inlineSnippets(
         console.error("[docs-render] failed to read snippet", snippetPath, err);
         return match;
       }
+      snippetContent = applySnippetData(snippetContent, snippetPath);
       snippetContent = snippetContent.replace(/^---[\s\S]*?---\r?\n?/, "");
       const nextSeen = new Set(seen);
       nextSeen.add(snippetPath);

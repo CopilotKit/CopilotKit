@@ -5,6 +5,7 @@ import { CodingAgentSetupPrompt } from "./coding-agent-setup-prompt";
 import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import {
+  CHANNEL_LABELS,
   CHANNELS_ACTIVATION_EVENTS,
   CHANNELS_ACTIVATION_SURFACES,
 } from "@/lib/channels-activation-contracts";
@@ -15,11 +16,6 @@ export interface ChannelsStartPromptProps {
   /** Injected from the page's docs frontend by the MDX component map. */
   frontend?: string;
 }
-
-const CHANNEL_LABELS: Record<ChannelsActivationChannelId, string> = {
-  slack: "Slack",
-  teams: "Microsoft Teams",
-};
 
 export function ChannelsStartPrompt({ frontend }: ChannelsStartPromptProps) {
   const posthog = usePostHog();

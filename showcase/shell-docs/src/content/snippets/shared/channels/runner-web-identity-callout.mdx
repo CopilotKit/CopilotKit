@@ -1,0 +1,7 @@
+<Callout type="warn" title="Also serving a web chat from this runtime?">
+  The Channel's `identifyUser` covers only chat users. A runtime that also
+  serves a web UI must set its own top-level `identifyUser` on
+  `CopilotRuntime`; without it, an Intelligence runtime hides every agent from
+  `/info` and the web chat loses its agents. See the
+  [Intelligence quickstart](/intelligence/quickstart).
+</Callout>

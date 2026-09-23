@@ -1,7 +1,11 @@
+---
+data: sdk-pair.json
+---
+
 ```bash title="Terminal"
-npm install --save-exact @copilotkit/channels@0.11.0 @copilotkit/runtime@1.73.3
+npm install --save-exact @copilotkit/channels@{{channels}} @copilotkit/runtime@{{runtime}}
 ```
 
-The Channels API needs `@copilotkit/runtime` 1.63.0 or later; the two
-versions above are the combination tested together. Mismatched versions can
-install two copies of `@copilotkit/channels-core`, which makes `tsc` fail.
+These two versions are the tested pair. Upgrade them together, never one
+without the other: mismatched versions can install two copies of
+`@copilotkit/channels-core`, which makes `tsc` fail.

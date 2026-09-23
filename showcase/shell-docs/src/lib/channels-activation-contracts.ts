@@ -39,6 +39,16 @@ export const CHANNELS_OPENTAG_HREF = "https://github.com/CopilotKit/OpenTag";
 
 export type ChannelsActivationChannelId = "slack" | "teams";
 
+/**
+ * Display name for each Channel, shared by the start card and its Markdown
+ * rendering. Lives here rather than in the "use client" component so server
+ * code reads the value itself, not a client reference.
+ */
+export const CHANNEL_LABELS: Record<ChannelsActivationChannelId, string> = {
+  slack: "Slack",
+  teams: "Microsoft Teams",
+};
+
 export interface ChannelsActivationBackendOption {
   slug: string;
   label: string;

@@ -6,6 +6,9 @@ doc_type: tutorial
 ---
 
 import ChannelsSdkInstall from "@/snippets/shared/channels/install-sdk-pair.mdx";
+import ChannelRunnerAgentNote from "@/snippets/shared/channels/runner-agent-note.mdx";
+import ChannelRunnerPortNote from "@/snippets/shared/channels/runner-port-note.mdx";
+import ChannelRunnerWebIdentityCallout from "@/snippets/shared/channels/runner-web-identity-callout.mdx";
 
 In this guide, you will connect an AG-UI agent to a managed Slack app,
 start a long-running Channels SDK listener, and verify a real workspace message.
@@ -188,21 +191,11 @@ Use this prompt to connect your agent to Slack, start the Channels SDK listener,
     Channel online. Skip `ready()` and activation failures land in your logs
     instead.
 
-    The Channel answers only through its own `agent` option: it does not fall
-    back to the runtime's `agents` map, so `agents: {}` above is intentional,
-    and a Channel declared without `agent` fails every `runAgent()` call.
+    <ChannelRunnerAgentNote />
 
-    `PORT` is the Channel runner's own lifecycle port, and it defaults to 3001
-    because `next dev`, used by a Next.js agent backend or web app, already
-    listens on 3000.
+    <ChannelRunnerPortNote />
 
-    <Callout type="warn" title="Also serving a web chat from this runtime?">
-      The Channel's `identifyUser` covers only chat users. A runtime that also
-      serves a web UI must set its own top-level `identifyUser` on
-      `CopilotRuntime`; without it, an Intelligence runtime hides every agent
-      from `/info` and the web chat loses its agents. See the
-      [Intelligence quickstart](/intelligence/quickstart).
-    </Callout>
+    <ChannelRunnerWebIdentityCallout />
 
   </Step>
 
@@ -249,18 +242,6 @@ Use this prompt to connect your agent to Slack, start the Channels SDK listener,
     ```bash title="Terminal"
     node --env-file=.env --import tsx channel.ts
     ```
-
-    <Callout type="info" title="If tsx cannot resolve fast-json-patch">
-      `fast-json-patch`, a dependency of `@ag-ui/client`, ships a stray
-      `index.ts` beside its compiled `index.js`. Some tsx installs load that
-      TypeScript file and then fail on its missing `./src/core` import. If
-      startup fails that way, compile the runner and run the output with Node:
-
-      ```bash title="Terminal"
-      npx tsc --noEmit false --outDir dist
-      node --env-file=.env dist/channel.js
-      ```
-    </Callout>
 
     Intelligence should change from **Waiting for runtime** to **Online**.
 

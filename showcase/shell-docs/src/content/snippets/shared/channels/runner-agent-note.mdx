@@ -1,0 +1,4 @@
+`runAgent()` uses only the Channel's own `agent` option: it does not fall back
+to the runtime's `agents` map, so `agents: {}` above is intentional, and a
+Channel declared without `agent` fails every `runAgent()` call. Handlers can
+still reply without the agent through `thread.post()`.

@@ -36,7 +36,12 @@ import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
 import { frameworkOverviews } from "@/data/frameworks";
-import { INTELLIGENCE_ONBOARDING_PROMPT } from "./intelligence-onboarding-prompt";
+import {
+  INTELLIGENCE_ONBOARDING_PROMPT,
+  RUN_ID_LENGTH,
+  RUN_ID_PLACEHOLDER,
+} from "./intelligence-onboarding-prompt";
+import { CHANNEL_LABELS } from "./channels-activation-contracts";
 import { createChannelsOnboardingPrompt } from "./channels-onboarding-prompt";
 import {
   isV1ReferenceUrl,
@@ -758,27 +763,27 @@ function expandRichThreadsSetupPrompts(body: string): string {
 /**
  * Expand the Channels start card for raw Markdown consumers. The live card
  * mints a run id per click, so the Markdown carries the placeholder and says
- * how to fill it, then links both provider guides for the manual path.
+ * how to fill it, then links both provider guides for the manual path, kept
+ * on the page's selected agent backend.
  */
 function expandChannelsStartPrompts(
   body: string,
   frontend: FrontendId | undefined,
+  framework: string | undefined,
 ): string {
   const channelLabel =
-    frontend === "teams"
-      ? "Microsoft Teams"
-      : frontend === "slack"
-        ? "Slack"
-        : "Slack or Microsoft Teams";
+    frontend === "slack" || frontend === "teams"
+      ? CHANNEL_LABELS[frontend]
+      : `${CHANNEL_LABELS.slack} or ${CHANNEL_LABELS.teams}`;
   return body.replace(/<ChannelsStartPrompt\s*\/>/g, () =>
     [
       `### Set up ${channelLabel} with your coding agent`,
       "",
-      "Replace `<run-id>` with a fresh 12-character hexadecimal run ID before your coding agent fetches the URL.",
+      `Replace \`${RUN_ID_PLACEHOLDER}\` with a fresh ${RUN_ID_LENGTH}-character hexadecimal run ID before your coding agent fetches the URL.`,
       "",
-      fenceFor("text", createChannelsOnboardingPrompt("<run-id>")),
+      fenceFor("text", createChannelsOnboardingPrompt(RUN_ID_PLACEHOLDER)),
       "",
-      `To connect and run the agent yourself, follow [Connect and run your agent in Slack](${channelConnectHref("slack", undefined)}) or [Connect and run your agent in Microsoft Teams](${channelConnectHref("teams", undefined)}).`,
+      `To connect and run the agent yourself, follow [Connect and run your agent in ${CHANNEL_LABELS.slack}](${channelConnectHref("slack", framework)}) or [Connect and run your agent in ${CHANNEL_LABELS.teams}](${channelConnectHref("teams", framework)}).`,
     ].join("\n"),
   );
 }
@@ -980,7 +985,7 @@ export function renderPageToLlmText(
     /<PageAgentPrompt\s*\/>/g,
     "Ask your coding agent to follow the setup steps on this page for your selected framework and frontend.",
   );
-  body = expandChannelsStartPrompts(body, frontend);
+  body = expandChannelsStartPrompts(body, frontend, framework);
   body = expandRichThreadsSetupPrompts(body);
   body = expandLearningSetupPrompts(body);
   body = body.replace(

@@ -9,6 +9,8 @@ import {
 } from "../docs-render";
 import type { NavNode } from "../docs-render";
 import { renderPageToLlmText } from "../llm-text";
+import type { SetupContentBundle } from "../setup-content";
+import setupContentData from "@/data/setup-content.json";
 import { filterFrontendScopedBlocks } from "../toc";
 
 const maintainedChannelSlugs = [
@@ -49,10 +51,17 @@ const channelReferenceFiles = {
   index: "../../content/reference/channels/index.mdx",
 } as const;
 
-// The one place the Channels install command lives. Every page that shows the
-// command imports this snippet instead of repeating the versions.
-const channelsInstallSnippet =
-  "../../content/snippets/shared/channels/install-sdk-pair.mdx";
+// The checked-in pair file is the one source for the Channels install. The
+// install snippet fills its versions from this file, and the agent-setup
+// snippets must match its `@ag-ui/client` version. Nothing here reads files
+// outside `showcase/`, so a package release cannot break this suite.
+const channelsSnippetDir = "../../content/snippets/shared/channels/";
+const channelsSdkPair = JSON.parse(
+  readFileSync(
+    new URL(`${channelsSnippetDir}sdk-pair.json`, import.meta.url),
+    "utf8",
+  ),
+) as { channels: string; runtime: string; agUiClient: string };
 const channelsInstallImport =
   'import ChannelsSdkInstall from "@/snippets/shared/channels/install-sdk-pair.mdx";';
 const channelsInstallDocSlugs = [
@@ -61,20 +70,24 @@ const channelsInstallDocSlugs = [
   "channels/deploy-and-operate",
 ] as const;
 const channelsInstallReferenceKeys = ["index", "directAdapters"] as const;
+const runnerSnippets = [
+  ["ChannelRunnerAgentNote", "runner-agent-note.mdx"],
+  ["ChannelRunnerPortNote", "runner-port-note.mdx"],
+  ["ChannelRunnerWebIdentityCallout", "runner-web-identity-callout.mdx"],
+] as const;
 
-/** Version of a monorepo package, read from its own package.json. */
-function repoPackageVersion(packageDir: string): string {
-  const manifest = JSON.parse(
-    readFileSync(
-      new URL(
-        `../../../../../packages/${packageDir}/package.json`,
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-  ) as { version?: unknown };
-  expect(manifest.version, `${packageDir} version`).toBeTypeOf("string");
-  return manifest.version as string;
+function channelsSnippet(file: string): string {
+  return readFileSync(
+    new URL(`${channelsSnippetDir}${file}`, import.meta.url),
+    "utf8",
+  );
+}
+
+/** A provider quickstart as the reader receives it, snippets inlined. */
+function renderedQuickstart(
+  slug: (typeof providerQuickstartSlugs)[number],
+): string {
+  return inlineSnippets(bodyFor(slug), slug);
 }
 
 function bodyFor(slug: (typeof maintainedChannelSlugs)[number]): string {
@@ -224,23 +237,23 @@ describe("Channels documentation journey", () => {
   });
 
   it("installs the current Channels and Runtime releases from one shared snippet", () => {
-    const channelsVersion = repoPackageVersion("channels");
-    const runtimeVersion = repoPackageVersion("runtime");
-    const testedInstall = `npm install --save-exact @copilotkit/channels@${channelsVersion} @copilotkit/runtime@${runtimeVersion}`;
-    const snippet = readFileSync(
-      new URL(channelsInstallSnippet, import.meta.url),
-      "utf8",
-    );
+    for (const value of Object.values(channelsSdkPair)) {
+      expect(value).toMatch(/^\d+\.\d+\.\d+$/);
+    }
+    const testedInstall = `npm install --save-exact @copilotkit/channels@${channelsSdkPair.channels} @copilotkit/runtime@${channelsSdkPair.runtime}`;
+    const snippet = channelsSnippet("install-sdk-pair.mdx");
 
-    // Fails as soon as a release bumps either package without the docs.
-    expect(
-      snippet,
-      "the shared install snippet drifted from packages/channels and packages/runtime",
-    ).toContain(testedInstall);
-    expect(snippet).toMatch(
-      /Channels API needs `@copilotkit\/runtime` 1\.63\.0 or later/,
+    // The snippet carries no versions of its own; it reads the pair file.
+    expect(snippet).toMatch(/^---\ndata: sdk-pair\.json\n---/);
+    expect(snippet).toContain(
+      "npm install --save-exact @copilotkit/channels@{{channels}} @copilotkit/runtime@{{runtime}}",
     );
-    expect(snippet).toMatch(/two copies of `@copilotkit\/channels-core`/);
+    expect(snippet).not.toMatch(/\d+\.\d+\.\d+/);
+    expect(snippet).toContain("These two versions are the tested pair.");
+    expect(snippet).toMatch(/Upgrade them together/);
+    expect(snippet).toMatch(/two copies of\s+`@copilotkit\/channels-core`/);
+    // A minimum runtime version would invite the mismatch the pair prevents.
+    expect(snippet).not.toMatch(/or later/);
 
     const pages = [
       ...channelsInstallDocSlugs.map((slug) => ({
@@ -294,58 +307,102 @@ describe("Channels documentation journey", () => {
     );
   });
 
-  it("names the runner's own requirements next to the provider snippets", () => {
+  it("names the runner's own requirements from shared snippets", () => {
     for (const slug of providerQuickstartSlugs) {
       const source = bodyFor(slug);
+      for (const [component, file] of runnerSnippets) {
+        expect(source, `${slug} imports ${file}`).toContain(
+          `import ${component} from "@/snippets/shared/channels/${file}";`,
+        );
+        expect(source, slug).toContain(`<${component} />`);
+      }
 
-      // A Channel answers only through its own agent.
-      expect(source, slug).toContain("agents: {},");
-      expect(source, slug).toMatch(
-        /does not fall\s+back to the runtime's `agents` map/,
+      const rendered = renderedQuickstart(slug);
+
+      // `runAgent()` uses only the Channel's own agent.
+      expect(rendered, slug).toContain("agents: {},");
+      expect(rendered, slug).toMatch(
+        /`runAgent\(\)` uses only the Channel's own `agent` option: it does not fall\s+back\s+to the runtime's `agents` map/,
       );
-      expect(source, slug).toMatch(
+      expect(rendered, slug).toMatch(
         /declared without `agent` fails every `runAgent\(\)` call/,
+      );
+      expect(rendered, slug).toMatch(
+        /reply without the agent through `thread\.post\(\)`/,
+      );
+      expect(rendered, slug).not.toMatch(
+        /answers only through its own `agent`/,
       );
 
       // The lifecycle port must not collide with `next dev`.
-      expect(source, slug).toContain("Number(process.env.PORT ?? 3001)");
-      expect(source, slug).toContain("PORT=3001");
-      expect(source, slug).not.toContain("PORT ?? 3000");
-      expect(source, slug).not.toContain("PORT=3000");
-      expect(source, slug).toMatch(
+      expect(rendered, slug).toContain("Number(process.env.PORT ?? 3001)");
+      expect(rendered, slug).toContain("PORT=3001");
+      expect(rendered, slug).not.toContain("PORT ?? 3000");
+      expect(rendered, slug).not.toContain("PORT=3000");
+      expect(rendered, slug).toMatch(
         /`PORT` is the Channel runner's own lifecycle port[\s\S]{0,120}`next dev`[\s\S]{0,80}3000/,
       );
 
       // A web UI on the same Intelligence runtime needs its own identity.
-      expect(source, slug).toContain(
+      expect(rendered, slug).toContain(
         'title="Also serving a web chat from this runtime?"',
       );
-      expect(source, slug).toMatch(
+      expect(rendered, slug).toMatch(
         /must set its own top-level `identifyUser` on\s+`CopilotRuntime`/,
       );
-      expect(source, slug).toMatch(
-        /hides every agent\s+from `\/info` and the web chat loses its agents/,
+      expect(rendered, slug).toMatch(
+        /hides every agent from\s+`\/info` and the web chat loses its agents/,
+      );
+      const runtimeIndex = rendered.indexOf(
+        "const runtime = new CopilotRuntime({",
+      );
+      const calloutIndex = rendered.indexOf(
+        "Also serving a web chat from this runtime?",
       );
       expect(
-        source.indexOf("Also serving a web chat from this runtime?"),
+        runtimeIndex,
+        `${slug} constructs the runtime`,
+      ).toBeGreaterThanOrEqual(0);
+      expect(
+        calloutIndex,
+        `${slug} shows the identity callout`,
+      ).toBeGreaterThanOrEqual(0);
+      expect(
+        calloutIndex,
         `${slug} places the identity callout after the runtime`,
-      ).toBeGreaterThan(source.indexOf("const runtime = new CopilotRuntime({"));
+      ).toBeGreaterThan(runtimeIndex);
 
-      // tsx stays the run command, with the compiled fallback beside it.
-      expect(source, slug).toContain(
+      // One run command; aligned `@ag-ui/client` versions need no workaround.
+      expect(rendered, slug).toContain(
         "node --env-file=.env --import tsx channel.ts",
       );
-      expect(source, slug).toContain(
-        'title="If tsx cannot resolve fast-json-patch"',
-      );
-      expect(source, slug).toContain("npx tsc --noEmit false --outDir dist");
-      expect(source, slug).toContain("node --env-file=.env dist/channel.js");
+      expect(rendered, slug).not.toContain("fast-json-patch");
+      expect(rendered, slug).not.toContain("dist/channel.js");
     }
 
     const createChannel = referenceBodyFor("createChannel");
     expect(createChannel).toMatch(
-      /\| `agent` [^\n]*Required for the Channel to answer\. There is no fallback to the runtime's `agents` map/,
+      /\| `agent` [^\n]*Required for `runAgent\(\)`\. There is no fallback to the runtime's `agents` map[^\n]*`thread\.post\(\)`/,
     );
+    expect(createChannel).not.toContain("Required for the Channel to answer");
+  });
+
+  it("installs the runtime's @ag-ui/client version in every agent setup", () => {
+    const setupContent = setupContentData as SetupContentBundle;
+    const channelSetups = Object.values(setupContent.concepts).filter(
+      (entry) => entry.concept === "channels-agent-setup",
+    );
+    const expected = `@ag-ui/client@${channelsSdkPair.agUiClient}`;
+    let installs = 0;
+
+    expect(channelSetups.length).toBeGreaterThan(0);
+    for (const { framework, source } of channelSetups) {
+      for (const pin of source.match(/@ag-ui\/client@[^\s`"']+/g) ?? []) {
+        installs += 1;
+        expect(pin, framework).toBe(expected);
+      }
+    }
+    expect(installs).toBeGreaterThan(0);
   });
 
   it("renders the Channels start prompt and both connect guides in Markdown", () => {
@@ -369,6 +426,24 @@ describe("Channels documentation journey", () => {
     );
     expect(output).toContain(
       "[Connect and run your agent in Microsoft Teams](/teams/connect)",
+    );
+
+    const scoped = renderPageToLlmText(
+      {
+        url: "slack/langgraph-python",
+        title: doc!.fm.title,
+        description: doc!.fm.description,
+        filePath: doc!.filePath,
+        loadSlug: "channels",
+      },
+      { framework: "langgraph-python", frontend: "slack" },
+    );
+    expect(scoped).toContain("### Set up Slack with your coding agent");
+    expect(scoped).toContain(
+      "[Connect and run your agent in Slack](/slack/langgraph-python/connect)",
+    );
+    expect(scoped).toContain(
+      "[Connect and run your agent in Microsoft Teams](/teams/langgraph-python/connect)",
     );
   });
 
