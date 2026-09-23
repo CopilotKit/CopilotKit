@@ -214,12 +214,6 @@ export const CURATED_LLM_PAGES = [
       "Understand thread creation, restoration, switching, and framework persistence boundaries.",
   },
   {
-    url: "threads-self-managed",
-    title: "Self-Managed Thread Persistence",
-    description:
-      "Plan the persistence responsibilities your application owns when it does not use Intelligence.",
-  },
-  {
     url: "intelligence/quickstart",
     title: "Intelligence Quickstart",
     description:

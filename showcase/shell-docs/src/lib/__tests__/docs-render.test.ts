@@ -831,10 +831,6 @@ describe("framework nav", () => {
       { title: "Thread & History Lifecycle", slug: "threads-lifecycle" },
       { title: "Synchronize Thread History", slug: "threads-import" },
       {
-        title: "Self-Managed Persistence",
-        slug: "threads-self-managed",
-      },
-      {
         title: "Threads & Persistence Architecture",
         slug: "intelligence/threads-explained",
       },
