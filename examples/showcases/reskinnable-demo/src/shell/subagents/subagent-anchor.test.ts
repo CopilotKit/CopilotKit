@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findLatestDelegationToolCallId } from "./subagent-activity";
+import { findLatestDelegationToolCallId } from "./subagent-anchor";
 
 const task = (id: string) => ({
   id,
