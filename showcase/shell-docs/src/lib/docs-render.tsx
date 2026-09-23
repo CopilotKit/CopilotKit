@@ -858,6 +858,7 @@ function sidebarTopicGroup(
   title: string,
   slug: string,
   source: NavNode | NavNode[] | null,
+  defaultOpen = false,
 ): Extract<NavNode, { type: "group" }> | null {
   if (!source) return null;
   const children = Array.isArray(source)
@@ -866,7 +867,7 @@ function sidebarTopicGroup(
       ? source.children
       : [source];
   if (children.length === 0) return null;
-  return { type: "group", title, slug, children, defaultOpen: false };
+  return { type: "group", title, slug, children, defaultOpen };
 }
 
 function withoutRouteGroupSlug(slug: string): string {
@@ -1293,6 +1294,7 @@ export function normalizeSidebarNav(
           intelligenceAnalytics,
           intelligenceChannels,
         ].filter((node): node is NavNode => node !== null),
+        true,
       ),
       sidebarTopicGroup(
         "Hosting",
