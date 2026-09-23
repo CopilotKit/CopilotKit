@@ -87,9 +87,10 @@ it("renders the onboarding button when a framework is passed", () => {
   expect(screen.getByRole("button", { name: "Open in Codex" })).toBeTruthy();
 });
 
-it("gives the onboarding button the same .mdx URL as the markdown button", async () => {
-  // The row computes the URL once and hands it to both buttons, so the URL the
-  // prompt names and the URL "Copy Markdown" fetches cannot drift apart.
+it("names the page the markdown button fetches, without its .mdx suffix", async () => {
+  // The row computes the URL once and hands it to both buttons, so the page
+  // the prompt names and the text "Copy Markdown" fetches cannot drift apart.
+  // The prompt names the human page, not the `.mdx` text (PE-309).
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.assign(navigator, { clipboard: { writeText } });
 
@@ -99,7 +100,7 @@ it("gives the onboarding button the same .mdx URL as the markdown button", async
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
 
   expect(writeText.mock.calls[0][0]).toContain(
-    "https://docs.copilotkit.ai/mastra/generative-ui.mdx",
+    "https://docs.copilotkit.ai/mastra/generative-ui.",
   );
 });
 
@@ -121,7 +122,7 @@ describe("docsMarkdownUrl", () => {
   });
 });
 
-it("includes the quickstart goal with its framework, frontend, and source", async () => {
+it("names the quickstart page as the source and claims no stack", async () => {
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.assign(navigator, { clipboard: { writeText } });
   render(
@@ -131,16 +132,14 @@ it("includes the quickstart goal with its framework, frontend, and source", asyn
       githubUrl={GITHUB_URL}
       onboardingFramework={{ slug: "mastra", name: "Mastra" }}
       onboardingFrontend={{ id: "angular", name: "Angular" }}
-      promptTask="Connect an Angular app to Copilot Runtime."
     />,
   );
   fireEvent.click(screen.getByRole("button", { name: /copy prompt/i }));
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
   const prompt = writeText.mock.calls[0][0];
-  expect(prompt).toContain("Mastra");
-  expect(prompt).toContain("Angular");
-  expect(prompt).toContain("/angular/mastra/quickstart.mdx");
+  // The page is the source, not a claim about the reader's stack (PE-309).
   expect(prompt).toContain(
-    "My goal for this quickstart is: Connect an Angular app to Copilot Runtime.",
+    " I started from this CopilotKit docs page: https://docs.copilotkit.ai/angular/mastra/quickstart.",
   );
+  expect(prompt).not.toMatch(/\bI use\b|My goal|\.mdx/);
 });

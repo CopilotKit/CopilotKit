@@ -4,7 +4,7 @@
  * `website#594` versions the hosted document, so every run records which
  * revision of *that* text it fetched. It cannot see this half. The copied text
  * is the URL sentence plus argument prose composed client-side — the wizard
- * appends five sentences, page actions append three, the hero button one — and
+ * appends up to five sentences, page actions and the Channels prompt one — and
  * editing any of it was invisible to every measurement (PE-255).
  *
  * These are the single source of truth for that prose. Each producer fills a
@@ -16,6 +16,8 @@
  * Values stay unbound. Hashing a rendered sentence would make every copy its
  * own cohort and group nothing.
  */
+
+import { PRODUCTION_DOCS_ORIGIN } from "@/lib/production-docs-origin";
 
 /** Fills `<token>` placeholders in an argument template. */
 export function fillArgumentTemplate(
@@ -29,8 +31,12 @@ export function fillArgumentTemplate(
 }
 
 export const ARGUMENT_TEMPLATES = {
-  framework: " I use the <name> agent framework (`<slug>`).",
-  frontend: " I use the <name> frontend (`<slug>`).",
+  // `framework` and `frontend` are the wizard's: there the developer picked
+  // both, so "I use" repeats their answer. A docs page is only what they were
+  // reading, so page prompts state the source and let research find the stack
+  // (PE-309).
+  framework: " I use the <name> agent framework.",
+  frontend: " I use the <name> frontend.",
   wizardChannelsFrontend:
     " I want to connect my agent to <name> using CopilotKit Channels. Follow the channel setup documentation at https://docs.copilotkit.ai/<id>.",
   wizardProjectExisting:
@@ -40,9 +46,7 @@ export const ARGUMENT_TEMPLATES = {
     " I already have a <name> agent. Connect that existing agent without replacing it.",
   wizardAgentNew: " I need a new <name> agent. Create it as part of the setup.",
   wizardFeatures: " I also want these CopilotKit features set up: <titles>.",
-  pageSource: " I copied this prompt from <url>.",
-  pageTask:
-    " My goal for this quickstart is: <task> Follow the linked guide for this framework and frontend.",
+  pageSource: " I started from this CopilotKit docs page: <url>.",
 } as const satisfies Readonly<Record<string, string>>;
 
 /**
@@ -57,7 +61,7 @@ export const ARGUMENT_TEMPLATES = {
  * it disagrees, so editing a sentence without bumping this is a red test rather
  * than a silent measurement gap.
  */
-export const ONBOARDING_ARGUMENT_VERSION = "90b0c15f555f";
+export const ONBOARDING_ARGUMENT_VERSION = "075e7409e3d3";
 
 /**
  * The wording behind that version, emitted beside it.
@@ -78,3 +82,18 @@ export const ONBOARDING_ARGUMENT_TEXT = Object.keys(ARGUMENT_TEMPLATES)
       `${key}:${ARGUMENT_TEMPLATES[key as keyof typeof ARGUMENT_TEMPLATES]}`,
   )
   .join("\n");
+
+/**
+ * The source sentence for a docs page, from the `.mdx` URL the page tools use.
+ *
+ * Names the page a reader saw, not its raw `.mdx` text, and always on the
+ * production origin: a local or preview host in a copied prompt points the
+ * coding agent at a server it cannot reach (PE-309). The graph still reads the
+ * path, because a Slack or Teams page routes the run to Channels.
+ */
+export function pageSourceSentence(markdownUrl: string): string {
+  const path = markdownUrl.replace(/\.mdx$/, "").replace(/\/+$/, "");
+  return fillArgumentTemplate(ARGUMENT_TEMPLATES.pageSource, {
+    url: `${PRODUCTION_DOCS_ORIGIN}${path.startsWith("/") ? path : `/${path}`}`,
+  });
+}

@@ -39,8 +39,6 @@ describe("onboardingFrontendFor", () => {
 
   it("hands the prompt a name and id that compose into the sentence", () => {
     const { id, name } = onboardingFrontendFor("/quickstart");
-    expect(frontendPromptSuffix(id, name)).toBe(
-      " I use the React frontend (`nextjs`).",
-    );
+    expect(frontendPromptSuffix(id, name)).toBe(" I use the Next.js frontend.");
   });
 });

@@ -32,9 +32,8 @@ const analytics = vi.hoisted(() => ({
 }));
 
 /**
- * Spied rather than stubbed: one test asserts the base URL is read only on
- * click, because reading it during render would serialize the SSR placeholder
- * into the server HTML and mismatch on hydration.
+ * Mocked so one test can serve a local base URL and assert that the prompt
+ * still names the production origin (PE-309).
  */
 const runtimeConfig = vi.hoisted(() => ({
   getRuntimeConfig: vi.fn(() => ({ baseUrl: "https://docs.copilotkit.ai" })),
@@ -66,6 +65,9 @@ HTMLDialogElement.prototype.close = function () {
 };
 
 afterEach(() => {
+  runtimeConfig.getRuntimeConfig.mockImplementation(() => ({
+    baseUrl: DOCS_ORIGIN,
+  }));
   cleanup();
   vi.clearAllMocks();
   vi.unstubAllGlobals();
@@ -97,7 +99,7 @@ const REACT = { id: "react", name: "React" };
  */
 const SLACK = { id: "slack", name: "Slack" };
 const PAGE_MARKDOWN_URL = "/mastra/generative-ui.mdx";
-const PAGE_SENTENCE = ` I copied this prompt from ${DOCS_ORIGIN}${PAGE_MARKDOWN_URL}.`;
+const PAGE_SENTENCE = ` I started from this CopilotKit docs page: ${DOCS_ORIGIN}/mastra/generative-ui.`;
 
 /**
  * Render with the props every framework-scoped page supplies, so each test
@@ -154,10 +156,10 @@ function reportedRunId(callIndex = 0): string {
   return properties.onboarding_run_id as string;
 }
 
-it("copies the canonical prompt plus the framework and page sentences", async () => {
+it("copies the canonical prompt plus the page sentence and nothing else", async () => {
   // A LOCAL guard only: the expected prompt comes from the same helper the
   // component calls, so this catches the component altering the canonical text
-  // or appending anything beyond the two sentences below. It does NOT compare
+  // or appending anything beyond the sentence below. It does NOT compare
   // against the Intelligence repo or the Inspector; keeping those three copies
   // byte-identical is not verified here.
   const writeText = stubClipboard();
@@ -167,20 +169,13 @@ it("copies the canonical prompt plus the framework and page sentences", async ()
 
   await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
 
-  // Guard: if mastra ever stopped mapping to a graph node, the concatenation
-  // below would still pass on an empty suffix and quietly assert nothing.
-  const frameworkSentence = frameworkPromptSuffix(MASTRA.slug, MASTRA.name);
-  expect(frameworkSentence).not.toBe("");
-
   expect(writeText).toHaveBeenCalledTimes(1);
   expect(writeText.mock.calls[0][0]).toBe(
-    createIntelligenceOnboardingPrompt(reportedRunId()) +
-      frameworkSentence +
-      PAGE_SENTENCE,
+    createIntelligenceOnboardingPrompt(reportedRunId()) + PAGE_SENTENCE,
   );
 });
 
-it("names the page's absolute .mdx URL as a statement of fact", async () => {
+it("names the page a reader saw, not its .mdx text", async () => {
   const writeText = stubClipboard();
 
   renderButton();
@@ -191,23 +186,44 @@ it("names the page's absolute .mdx URL as a statement of fact", async () => {
   const copied = writeText.mock.calls[0][0] as string;
   // Absolute, not the path-only `markdownUrl` the row passes in: the receiving
   // agent has no origin to resolve a bare path against.
-  expect(copied).toContain(`${DOCS_ORIGIN}${PAGE_MARKDOWN_URL}`);
+  expect(copied).toContain(`${DOCS_ORIGIN}/mastra/generative-ui.`);
+  expect(copied).not.toContain(".mdx");
+});
+
+it("names the production origin on a local or preview deploy", async () => {
+  // The runtime base URL is `localhost` in development and a preview host on a
+  // preview deploy. Neither is a page the coding agent can open (PE-309).
+  runtimeConfig.getRuntimeConfig.mockReturnValue({
+    baseUrl: "http://localhost:3003",
+  });
+  const writeText = stubClipboard();
+
+  renderButton();
+  clickCopy();
+
+  await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+
+  const copied = writeText.mock.calls[0][0] as string;
+  expect(copied).not.toContain("localhost");
   expect(copied.endsWith(PAGE_SENTENCE)).toBe(true);
 });
 
-it("reads the base URL on click and not during render", () => {
-  // `getClientBaseUrl()` returns an SSR placeholder on the server. Reading it
-  // while rendering would bake that placeholder into the server HTML and
-  // produce a different string after hydration.
-  stubClipboard();
+it("claims no stack for the page's framework or frontend", async () => {
+  // The page is what the reader was reading, not their project. Research and
+  // `onboard inspect` decide the stack, and the slugs travel as event
+  // properties instead (PE-309).
+  const writeText = stubClipboard();
 
-  renderButton();
-
-  expect(runtimeConfig.getRuntimeConfig).not.toHaveBeenCalled();
-
+  renderButton({ frontend: REACT });
   clickCopy();
 
-  expect(runtimeConfig.getRuntimeConfig).toHaveBeenCalled();
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  const copied = writeText.mock.calls[0][0] as string;
+  expect(copied).toBe(
+    createIntelligenceOnboardingPrompt(reportedRunId()) + PAGE_SENTENCE,
+  );
+  expect(copied).not.toMatch(/\bI use\b|`|nextjs|My goal/);
 });
 
 it("appends no framework sentence for a framework the graph does not know", async () => {
@@ -302,7 +318,7 @@ it("reports the shared onboarding event with the graph's framework slug", async 
   // property. The distinction this button needs lives in `surface`.
   expect(properties).toEqual({
     action: "copy",
-    argument_version: "90b0c15f555f",
+    argument_version: "075e7409e3d3",
     argument_text: expect.stringContaining("framework:"),
     from_path: "/mastra/generative-ui",
     onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
@@ -355,8 +371,7 @@ it("mints a fresh run id on every click", async () => {
 
   const runIds = [reportedRunId(0), reportedRunId(1)];
   expect(runIds[0]).not.toBe(runIds[1]);
-  const suffix =
-    frameworkPromptSuffix(MASTRA.slug, MASTRA.name) + PAGE_SENTENCE;
+  const suffix = PAGE_SENTENCE;
   // Each clipboard write carries its own id, not a re-used one.
   expect(writeText.mock.calls[0][0]).toBe(
     createIntelligenceOnboardingPrompt(runIds[0]) + suffix,
@@ -536,52 +551,10 @@ it("mints a valid run id on all three createOnboardingRunId code paths", () => {
 });
 
 // ---------------------------------------------------------------------------
-// The frontend sentence (OSS-1071). It sits between the framework sentence and
-// the page sentence, which is the order the CLI's graph works in: it settles
-// the agent framework first, then the frontend. Each of the two selections can
-// be absent independently, so all four combinations are asserted whole —
-// a stray double space or a missing separator has to fail here.
+// The frontend (OSS-1071). The copied text no longer names it (PE-309), but a
+// Slack or Teams frontend still selects the Channels prompt, and every
+// frontend still reaches the event as the graph's slug.
 // ---------------------------------------------------------------------------
-
-it("copies framework, frontend and page sentences in the graph's order", async () => {
-  const writeText = stubClipboard();
-
-  // Guards: if either mapping were lost, the concatenation below would still
-  // pass on an empty suffix and quietly assert nothing.
-  const frameworkSentence = frameworkPromptSuffix(MASTRA.slug, MASTRA.name);
-  const frontendSentence = frontendPromptSuffix(REACT.id, REACT.name);
-  expect(frameworkSentence).not.toBe("");
-  expect(frontendSentence).not.toBe("");
-
-  renderButton({ frontend: REACT });
-  clickCopy();
-
-  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
-
-  expect(writeText.mock.calls[0][0]).toBe(
-    createIntelligenceOnboardingPrompt(reportedRunId()) +
-      frameworkSentence +
-      frontendSentence +
-      PAGE_SENTENCE,
-  );
-});
-
-it("names the React frontend by its docs name and the graph's slug", async () => {
-  // The one pair where the two spellings differ. The docs call this frontend
-  // React; the graph's node is `nextjs`, because its own prompt
-  // (`onboarding-prompts/frontend/nextjs.md`) documents itself with the
-  // unprefixed `https://docs.copilotkit.ai/quickstart.md`.
-  const writeText = stubClipboard();
-
-  renderButton({ frontend: REACT });
-  clickCopy();
-
-  await waitFor(() => expect(writeText).toHaveBeenCalled());
-
-  expect(writeText.mock.calls[0][0]).toContain(
-    " I use the React frontend (`nextjs`).",
-  );
-});
 
 it("copies the generic prompt plus the page source on a Channel page", async () => {
   // Slack is not a graph frontend slug. The copied text is the same small
@@ -601,23 +574,6 @@ it("copies the generic prompt plus the page source on a Channel page", async () 
   // `feature/channels/start` inspects the project for it instead.
   expect(writeText.mock.calls[0][0]).toBe(
     createChannelsOnboardingPrompt(reportedRunId()) + PAGE_SENTENCE,
-  );
-});
-
-it("carries the frontend sentence alone when the graph knows no framework", async () => {
-  // `spring-ai` has no graph node, `react` does. The frontend sentence has to
-  // read correctly with nothing in front of it but the canonical prompt.
-  const writeText = stubClipboard();
-
-  renderButton({ framework: SPRING_AI, frontend: REACT });
-  clickCopy();
-
-  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
-
-  expect(writeText.mock.calls[0][0]).toBe(
-    createIntelligenceOnboardingPrompt(reportedRunId()) +
-      " I use the React frontend (`nextjs`)." +
-      PAGE_SENTENCE,
   );
 });
 
@@ -651,7 +607,7 @@ it("reports the frontend property with the graph's slug", async () => {
   expect(onboardingFrontendSlug(REACT.id)).toBe("nextjs");
   expect(analytics.capture.mock.calls[0][1]).toEqual({
     action: "copy",
-    argument_version: "90b0c15f555f",
+    argument_version: "075e7409e3d3",
     argument_text: expect.stringContaining("framework:"),
     from_path: "/mastra/generative-ui",
     onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
@@ -723,7 +679,7 @@ it("records click intent before a failed copy with framework and frontend contex
   expect(event).toBe("docs.intelligence_onboarding_prompt_action_clicked");
   expect(properties).toEqual({
     action: "copy",
-    argument_version: "90b0c15f555f",
+    argument_version: "075e7409e3d3",
     argument_text: expect.stringContaining("framework:"),
     from_path: "/mastra/generative-ui",
     onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),

@@ -54,9 +54,8 @@ export function onboardingFrontendSlug(docsId: string): string | undefined {
 }
 
 /**
- * The sentence appended to the canonical onboarding prompt so the graph does
- * not have to ask which frontend to configure. Returns "" when the frontend
- * has no graph equivalent.
+ * The wizard's sentence naming the frontend the developer picked. Returns ""
+ * when the frontend has no graph equivalent.
  *
  * Shaped exactly like `frameworkPromptSuffix`, and appended straight after it,
  * because the graph reads the two selections in that order.
@@ -69,8 +68,9 @@ export function frontendPromptSuffix(
   if (graphSlug === undefined) {
     return "";
   }
+  // The docs call this frontend "React", but the graph's `nextjs` node is the
+  // Next.js setup, so "the React frontend" would name a different thing.
   return fillArgumentTemplate(ARGUMENT_TEMPLATES.frontend, {
-    name: displayName,
-    slug: graphSlug,
+    name: graphSlug === "nextjs" ? "Next.js" : displayName,
   });
 }
