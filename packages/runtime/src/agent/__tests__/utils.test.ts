@@ -37,6 +37,29 @@ describe("resolveModel", () => {
     expect((model as { modelId: string }).modelId).toBe("gpt-4o-mini");
   });
 
+  it("should resolve unlisted or future OpenAI models without an allowlist restriction", () => {
+    const modelSlash = resolveModel("openai/gpt-5.4");
+    expect(modelSlash).toBeDefined();
+    expect((modelSlash as { modelId: string }).modelId).toBe("gpt-5.4");
+
+    const modelColon = resolveModel("openai:gpt-5.5-mini");
+    expect(modelColon).toBeDefined();
+    expect((modelColon as { modelId: string }).modelId).toBe("gpt-5.5-mini");
+
+    const customModel = resolveModel("openai:custom-preview-model");
+    expect(customModel).toBeDefined();
+    expect((customModel as { modelId: string }).modelId).toBe("custom-preview-model");
+
+    const fineTunedModel = resolveModel("openai:ft:gpt-4o:my-org:custom-run-1");
+    expect(fineTunedModel).toBeDefined();
+    expect((fineTunedModel as { modelId: string }).modelId).toBe("ft:gpt-4o:my-org:custom-run-1");
+  });
+
+  it("should resolve OpenAI models to provider using Responses API", () => {
+    const model = resolveModel("openai/gpt-5.4");
+    expect((model as { provider: string }).provider).toMatch(/openai(\.responses)?/);
+  });
+
   it("should resolve Anthropic models", () => {
     const model = resolveModel("anthropic/claude-sonnet-4.5");
     expect(model).toBeDefined();

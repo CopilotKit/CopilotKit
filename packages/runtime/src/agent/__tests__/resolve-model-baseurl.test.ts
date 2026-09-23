@@ -53,6 +53,13 @@ describe("resolveModel — custom baseURL via env", () => {
     );
   });
 
+  it("passes arbitrary unlisted OpenAI models through to createOpenAI", () => {
+    resolveModel("openai/custom-unlisted-model");
+    expect(createOpenAI).toHaveBeenCalledWith(
+      expect.objectContaining({ apiKey: "test-openai-key" }),
+    );
+  });
+
   it("passes ANTHROPIC_BASE_URL to the Anthropic provider", () => {
     process.env.ANTHROPIC_BASE_URL = "https://anthropic.internal/v1";
     resolveModel("anthropic/claude-sonnet-4.5");
