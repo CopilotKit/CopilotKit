@@ -4,7 +4,7 @@
 
 - Demo is deployed and accessible at `/demos/headless-complete` on the dashboard host
 - Agent backend is healthy (`/api/health`); `OPENAI_API_KEY` is set on Railway; `LANGGRAPH_DEPLOYMENT_URL` points at a LangGraph deployment exposing the `headless_complete` graph (backend tools: `get_weather`, `get_stock_price`)
-- The demo wires `agent="headless-complete"` at `/api/copilotkit-mcp-apps` (shared with the mcp-apps cell) so the Excalidraw MCP server at `MCP_SERVER_URL || https://mcp.excalidraw.com` is available
+- The demo wires `agent="headless-complete"` at `/api/copilotkit-mcp-apps` (shared with the mcp-apps cell) so the Excalidraw MCP server at `MCP_SERVER_URL || https://mcp.excalidraw.com/mcp` is available
 - Note: the only `data-testid` in the source is `headless-complete-messages` on the scrollable messages container in `message-list.tsx`. Other checks rely on verbatim text, role selectors, and Tailwind utility classes
 
 ## Test Steps

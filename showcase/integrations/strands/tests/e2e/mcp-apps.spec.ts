@@ -4,7 +4,7 @@ import { test, expect } from "@playwright/test";
 // Demo source: src/app/demos/mcp-apps/page.tsx
 // Backend: src/agents/mcp_apps_agent.py
 // Runtime: src/app/api/copilotkit-mcp-apps/route.ts (mcpApps.servers wires
-// the public Excalidraw MCP app at https://mcp.excalidraw.com, pinned
+// the public Excalidraw MCP app at https://mcp.excalidraw.com/mcp, pinned
 // serverId: "excalidraw").
 //
 // Pattern: MCP server-driven UI via ACTIVITY RENDERERS. The runtime

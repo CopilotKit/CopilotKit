@@ -130,7 +130,7 @@ export async function assertIframePresent(
  * `sandbox="allow-scripts allow-same-origin allow-forms"`. So the
  * input MUST be a prompt that drives a real MCP tool call against the
  * configured server (e.g. the public Excalidraw MCP at
- * https://mcp.excalidraw.com).
+ * https://mcp.excalidraw.com/mcp).
  *
  * We send the verbatim pill prompt from
  * `langgraph-python/src/app/demos/mcp-apps/suggestions.ts` so the

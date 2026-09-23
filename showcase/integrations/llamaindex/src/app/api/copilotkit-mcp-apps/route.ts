@@ -47,7 +47,7 @@ const runtime = new CopilotRuntime({
     servers: [
       {
         type: "http",
-        url: process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com",
+        url: process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com/mcp",
         // Always pin a stable `serverId` so URL changes don't silently
         // break restoration of persisted MCP Apps in prior threads.
         serverId: "excalidraw",

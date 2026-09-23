@@ -25,7 +25,7 @@ What's happening technically:
 
 ## Configuration
 
-- `MCP_SERVER_URL` — HTTP MCP server URL. Defaults to `https://mcp.excalidraw.com`.
+- `MCP_SERVER_URL` — HTTP MCP server URL. Defaults to `https://mcp.excalidraw.com/mcp`.
 - `AGENT_URL` — .NET agent base URL. Defaults to `http://localhost:8000`.
 
 ## Building With This

@@ -68,7 +68,7 @@ export const POST = async (req: NextRequest) => {
         servers: [
           {
             type: "http",
-            url: process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com",
+            url: process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com/mcp",
             // Stable serverId so persisted threads keep restoring the same MCP
             // server across URL changes.
             serverId: "beautiful_chat_mcp",
