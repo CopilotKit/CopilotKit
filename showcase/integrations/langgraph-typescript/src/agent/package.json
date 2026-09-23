@@ -3,28 +3,30 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "npx @langchain/langgraph-cli@1.4.6 dev --port 8123 --no-browser",
+    "dev": "npx @langchain/langgraph-cli@1.5.0 dev --port 8123 --no-browser",
     "start": "node --import ./disable-file-persistence.mjs --import tsx liveness.mjs"
   },
   "dependencies": {
-    "@copilotkit/sdk-js": "1.71.1",
-    "@langchain/core": "1.2.11",
-    "@langchain/langgraph": "1.4.15",
-    "@langchain/langgraph-api": "1.4.6",
+    "@copilotkit/sdk-js": "1.73.3",
+    "@langchain/core": "1.2.12",
+    "@langchain/langgraph": "1.4.17",
+    "@langchain/langgraph-api": "1.5.0",
     "@langchain/langgraph-checkpoint": "1.1.5",
-    "@langchain/langgraph-sdk": "1.11.0",
+    "@langchain/langgraph-sdk": "1.11.2",
     "@langchain/openai": "1.5.13",
-    "langchain": "1.5.11",
+    "langchain": "1.5.12",
     "tsx": "^4.19.3",
     "typescript": "^5.6.3",
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@langchain/langgraph-cli": "1.4.6",
+    "@langchain/langgraph-cli": "1.5.0",
     "@types/node": "^22.9.0",
     "ts-node": "10.9.2"
   },
   "overrides": {
+    "@ag-ui/client": "0.0.59",
+    "@ag-ui/core": "0.0.59",
     "@ag-ui/langgraph": "0.0.42"
   }
 }
