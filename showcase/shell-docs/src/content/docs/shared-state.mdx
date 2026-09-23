@@ -129,21 +129,17 @@ state once the agent is ready, then publishes every edit with
 
 <Snippet region="shared-state-read-publish" cell="shared-state-read" title="frontend/src/app/demos/shared-state-read/page.tsx: publish the recipe" />
 
-The Showcase agent for this cell doesn't read `recipe` yet. It runs the
-shared starter graph, whose state has no `recipe` key, so the published
-value never reaches the model. Your graph needs two additions:
+The LangGraph adapter sends a run only the state keys in the graph's input
+schema, and the model sees a key only if you add it to the model request.
+The cell's graph declares `recipe` on its state annotation, and its chat
+node builds a system message from `state.recipe` and puts it ahead of the
+conversation on every model call:
 
-1. Add `recipe` to the graph's state annotation. The LangGraph adapter sends
-   a run only the state keys in the graph's input schema, so an undeclared
-   key is dropped before the graph runs.
-2. In the chat node, build a system message from `state.recipe` and put it
-   ahead of the conversation in the model call. The read + write cell does
-   the same with `preferences`:
+<Snippet region="shared-state-read-agent" cell="shared-state-read" title="src/agent/shared-state-read.ts: read the recipe" />
 
-<Snippet region="preferences-injector" cell="shared-state-read-write" title="src/agent/shared-state-read-write.ts: build a message from UI-written state" />
-
-With both in place, edit a field in the form and ask the agent about it. The
-reply should use your edited value.
+To test it, edit a field in the form, then ask the agent about it. The reply
+should use your edited value, and the form should keep your edit after the
+run.
 
 </WhenFrameworkHas>
 

@@ -26,6 +26,7 @@ const expectedPublicRegions = [
   "interrupt-agent.ts::backend-interrupt-tool",
   "readonly-state.ts::agent-context-setup",
   "recovery-agent.ts::a2ui-recovery-agent",
+  "shared-state-read.ts::shared-state-read-agent",
   "subagents.ts::subagent-setup",
   "subagents.ts::supervisor-delegation-tools",
   "tool-rendering-reasoning-chain.ts::reasoning-chain-model",
@@ -176,6 +177,7 @@ describe("LangGraph TypeScript public code regions", () => {
     "frontend-tools.ts::setup",
     "gen-ui-agent.ts::gen-ui-agent-wiring",
     "readonly-state.ts::agent-context-setup",
+    "shared-state-read.ts::shared-state-read-agent",
     "subagents.ts::subagent-setup",
     "tool-rendering-reasoning-chain.ts::reasoning-chain-model",
   ])("keeps %s copyable with ChatOpenAI", (region) => {
@@ -191,6 +193,7 @@ describe("LangGraph TypeScript public code regions", () => {
       agent_config_agent: "./agent-config.ts:showcaseGraph",
       frontend_tools: "./frontend-tools.ts:showcaseGraph",
       gen_ui_agent: "./gen-ui-agent.ts:showcaseGraph",
+      shared_state_read: "./shared-state-read.ts:showcaseGraph",
       subagents: "./subagents.ts:showcaseGraph",
       "tool-rendering-reasoning-chain":
         "./tool-rendering-reasoning-chain.ts:showcaseGraph",
@@ -210,6 +213,7 @@ describe("LangGraph TypeScript public code regions", () => {
       "frontend-tools.ts",
       "gen-ui-agent.ts",
       "readonly-state.ts",
+      "shared-state-read.ts",
       "subagents.ts",
       "tool-rendering-reasoning-chain.ts",
     ]) {

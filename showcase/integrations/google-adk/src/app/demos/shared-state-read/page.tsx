@@ -4,9 +4,9 @@
 // showcase/scripts/sync-shared-frontends.ts.
 
 // Shared State (Read-only) — the UI publishes a recipe to the agent via
-// `agent.setState`; the agent reads that recipe on every turn but does
-// not mutate it (the wired graph is the neutral default agent with no
-// tools — see manifest entry `shared-state-read`).
+// `agent.setState`; the agent reads that recipe on every turn but has no
+// tool that writes it, so the UI stays its only writer. Each integration's
+// manifest entry `shared-state-read` names the agent source that reads it.
 //
 // Single source of truth: `agent.state.recipe`. The form is a pure
 // controlled component on top of that — every edit flows straight into
