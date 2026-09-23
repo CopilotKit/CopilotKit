@@ -8,6 +8,7 @@ import demoContent from "@/data/demo-content.json";
 import { renderPageToLlmText } from "../llm-text";
 import { getDocsFolder, getIntegration } from "../registry";
 import type { Demo } from "../registry";
+import { noShowcaseDemoMarkdown } from "../showcase-demo-availability";
 import {
   SELECTED_GUIDE_EXCLUSIONS,
   SELECTED_REACT_INTEGRATIONS,
@@ -73,6 +74,7 @@ const OWN_CODE = 'useFrontendTool({\n  name: "change_background",\n});';
 const FOREIGN_CODE = 'useFrontendTool({\n  name: "langgraph_background",\n});';
 const NOTICE =
   "> **Not supported on AWS Strands (Python)**\n> AWS Strands (Python) doesn't support Frontend Tools. See [the framework grid](/) for which integrations support this feature.";
+const NO_DEMO_NOTICE = noShowcaseDemoMarkdown("AWS Strands (Python)");
 
 function carrier(overrides: Partial<GuideCarrier> = {}): GuideCarrier {
   return {
@@ -290,6 +292,76 @@ describe("guard failure modes (synthetic)", () => {
       new Set(["shared-state-streaming"]),
     );
     expect(failures).toEqual([]);
+  });
+
+  test('a "No Showcase demo" notice for a sibling cell is allowed when Markdown matches', () => {
+    const failures = auditRenderedGuide(
+      binding,
+      guide(
+        [fenced(OWN_CODE), NO_DEMO_NOTICE],
+        [
+          carrier(),
+          carrier({
+            kind: "inline-demo",
+            label: '<InlineDemo demo="a2ui-recovery" />',
+            cell: "a2ui-recovery",
+            html: { status: "no-demo" },
+            alternatives: [],
+          }),
+        ],
+      ),
+      new Set(),
+    );
+    expect(failures).toEqual([]);
+  });
+
+  test('a "No Showcase demo" notice for the binding\'s own cell fails', () => {
+    const failures = auditRenderedGuide(
+      binding,
+      guide(
+        [NO_DEMO_NOTICE],
+        [
+          carrier({
+            kind: "inline-demo",
+            label: '<InlineDemo demo="frontend-tools" />',
+            html: { status: "no-demo" },
+            alternatives: [],
+          }),
+        ],
+      ),
+      new Set(),
+    );
+    expect(failures).toEqual([
+      expect.stringContaining(
+        "says there is no Showcase demo for its own cell strands::frontend-tools",
+      ),
+      expect.stringContaining("renders no strands::frontend-tools"),
+    ]);
+  });
+
+  test('an HTML-only "No Showcase demo" notice fails', () => {
+    const failures = auditRenderedGuide(
+      binding,
+      guide(
+        [fenced(OWN_CODE)],
+        [
+          carrier(),
+          carrier({
+            kind: "inline-demo",
+            label: '<InlineDemo demo="a2ui-recovery" />',
+            cell: "a2ui-recovery",
+            html: { status: "no-demo" },
+            alternatives: [],
+          }),
+        ],
+      ),
+      new Set(),
+    );
+    expect(failures).toEqual([
+      expect.stringContaining(
+        'Markdown shows 0 "No Showcase demo" notice(s); HTML shows 1',
+      ),
+    ]);
   });
 
   test("an HTML warning box fails even when Markdown looks fine", () => {

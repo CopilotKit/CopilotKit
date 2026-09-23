@@ -38,6 +38,10 @@
 import React from "react";
 import demoContent from "../data/demo-content.json";
 import catalogData from "../data/catalog.json";
+import {
+  noShowcaseDemoDetail,
+  noShowcaseDemoTitle,
+} from "../lib/showcase-demo-availability";
 import { HighlightedDynamicCodeBlock } from "./highlighted-dynamic-codeblock";
 
 interface Region {
@@ -185,6 +189,29 @@ export function UnsupportedBox({
         </a>{" "}
         for which integrations support this feature.
       </div>
+    </div>
+  );
+}
+
+/**
+ * Neutral placeholder for an `<InlineDemo>` whose integration ships no
+ * Showcase demo for the cell. It says nothing about support: that is the
+ * catalog's `unsupported` status and `UnsupportedBox` above.
+ */
+export function NoShowcaseDemoBox({
+  integrationName,
+}: {
+  integrationName: string;
+}) {
+  return (
+    <div
+      className="shell-docs-radius-surface my-4 border border-[var(--border)] bg-[var(--bg-surface)] p-4 text-sm text-[var(--text-secondary)]"
+      role="note"
+    >
+      <div className="font-semibold mb-1 text-[var(--text)]">
+        {noShowcaseDemoTitle(integrationName)}
+      </div>
+      <div>{noShowcaseDemoDetail(integrationName)}</div>
     </div>
   );
 }
