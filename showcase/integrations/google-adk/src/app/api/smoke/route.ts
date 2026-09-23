@@ -1,9 +1,51 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 
 const INTEGRATION_SLUG = "google-adk";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+
+type RunOutcome =
+  | { status: "finished" }
+  | { status: "error"; message: string }
+  | { status: "incomplete" };
+
+// Read the AG-UI event stream until the run reaches a terminal event. The
+// runtime streams 200 and RUN_STARTED even when the run then fails (for
+// example when the Gemini call is rejected), so the first chunk alone proves
+// nothing: only RUN_FINISHED counts as success.
+async function readRunOutcome(
+  body: ReadableStream<Uint8Array>,
+): Promise<RunOutcome> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (value) buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = done ? "" : (lines.pop() ?? "");
+      for (const line of lines) {
+        if (!line.startsWith("data:")) continue;
+        let event: { type?: string; message?: string };
+        try {
+          event = JSON.parse(line.slice("data:".length));
+        } catch {
+          continue;
+        }
+        if (event.type === "RUN_ERROR") {
+          return { status: "error", message: event.message ?? "RUN_ERROR" };
+        }
+        if (event.type === "RUN_FINISHED") return { status: "finished" };
+      }
+      if (done) return { status: "incomplete" };
+    }
+  } finally {
+    reader.cancel().catch(() => {});
+  }
+}
 
 export async function GET() {
   const start = Date.now();
@@ -20,12 +62,13 @@ export async function GET() {
         method: "agent/run",
         params: { agentId: "agentic_chat" },
         body: {
-          threadId: `smoke-${Date.now()}`,
-          runId: `smoke-run-${Date.now()}`,
+          // Fresh ids per run, as the LangGraph smoke routes send.
+          threadId: randomUUID(),
+          runId: randomUUID(),
           state: {},
           messages: [
             {
-              id: `smoke-msg-${Date.now()}`,
+              id: randomUUID(),
               role: "user",
               content: "Respond with exactly: OK",
             },
@@ -55,9 +98,7 @@ export async function GET() {
       );
     }
 
-    // TTFB: read first chunk only to confirm SSE stream started, then cancel
-    const reader = res.body?.getReader();
-    if (!reader) {
+    if (!res.body) {
       return NextResponse.json(
         {
           status: "error",
@@ -70,16 +111,19 @@ export async function GET() {
         { status: 502 },
       );
     }
-    const { value, done } = await reader.read();
-    reader.cancel();
-    if (done || !value || value.length === 0) {
+
+    const outcome = await readRunOutcome(res.body);
+    if (outcome.status !== "finished") {
       return NextResponse.json(
         {
           status: "error",
           integration: INTEGRATION_SLUG,
-          stage: "response_empty",
-          error: "Runtime returned empty response body",
-          latency_ms: latency,
+          stage: outcome.status === "error" ? "run_error" : "run_incomplete",
+          error:
+            outcome.status === "error"
+              ? `Run failed: ${outcome.message.slice(0, 200)}`
+              : "Stream ended without RUN_FINISHED",
+          latency_ms: Date.now() - start,
           timestamp: new Date().toISOString(),
         },
         { status: 502 },
@@ -89,7 +133,7 @@ export async function GET() {
     return NextResponse.json({
       status: "ok",
       integration: INTEGRATION_SLUG,
-      latency_ms: latency,
+      latency_ms: Date.now() - start,
       timestamp: new Date().toISOString(),
     });
   } catch (e: unknown) {
