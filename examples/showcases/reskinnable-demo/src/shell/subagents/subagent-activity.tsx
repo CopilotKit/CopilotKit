@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
+import { resolveSubagentLineDepth } from "./subagent-depth";
 import {
   useAgent,
   UseAgentUpdate,
@@ -368,9 +369,19 @@ const EMPTY_SNAPSHOT: Snapshot = {
 };
 
 const derive = (acc: Accum): Snapshot => ({
-  lines: Array.from(acc.lines.values()).map((l) =>
-    l.name ? l : { ...l, name: acc.subagents.get(l.subagentRunId)?.name },
-  ),
+  lines: Array.from(acc.lines.values()).map((line) => {
+    const resolved = line.name
+      ? line
+      : { ...line, name: acc.subagents.get(line.subagentRunId)?.name };
+    return {
+      ...resolved,
+      depth: resolveSubagentLineDepth(
+        acc.subagents,
+        line.subagentRunId,
+        line.kind,
+      ),
+    };
+  }),
   subagentMessageIds: new Set(acc.messageIds),
   subagentToolCallIds: new Set(acc.toolCallIds),
   subagents: new Map(acc.subagents),
