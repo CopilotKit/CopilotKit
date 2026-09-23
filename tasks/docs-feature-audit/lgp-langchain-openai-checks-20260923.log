@@ -1,0 +1,11 @@
+# 2026-09-23T23:16:28Z, venv python, strict AIMock from lgp-aimock-20260923.log
+$ python tasks/docs-feature-audit/lgp-langchain-openai-checks.py
+langchain-openai 1.6.4
+raw status 200
+raw first delta keys: ['reasoning_content']
+aggregated type: AIMessageChunk AIMessageChunk
+aggregated tool_calls: ['create_view']
+additional_kwargs keys: []
+gpt-5.4: roles=['system', 'user'] responses_api=False
+gpt-4o-mini: roles=['system', 'user'] responses_api=False
+o3-mini: roles=['developer', 'user'] responses_api=False

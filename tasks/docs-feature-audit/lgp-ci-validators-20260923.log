@@ -1,0 +1,40 @@
+# showcase_validate.yml validators that read the LGP integration, run locally at HEAD 0828d39b45, 2026-09-23T23:30:39Z
+$ pnpm exec tsx validate-parity.ts
+ag2                          [PASS]     35     38   22  21 warn   
+agno                         [PASS]     37     39   26  20 warn   
+built-in-agent               [PASS]     39     33    9  40 warn   
+claude-sdk-python            [PASS]     38     36   31  19 warn   
+claude-sdk-typescript        [PASS]     38     37   29  14 warn   
+crewai-conversational-flows  [PASS]     38     39   36  14 warn   
+crewai-crews                 [PASS]     38     39   36  14 warn   
+google-adk                   [PASS]     38     37   35  8 warn    
+langgraph-fastapi            [PASS]     39     39   11  32 warn   
+langgraph-python             [PASS]     39     39   40  3 warn    
+langgraph-typescript         [PASS]     39     38   11  33 warn   
+langroid                     [PASS]     35     39   27  17 warn   
+[WARN] strands-typescript: qa count 38 < demo count 41
+
+21 package(s) checked, 21 pass, 0 fail, 441 warning(s)
+exit=0
+$ pnpm exec tsx validate-shared-symlinks.ts
+✔ single-source symlinks OK — no NEW erosion (2/2 baselined slot(s) still eroded, expected until symlinks are restored).
+  • [known] showcase/integrations/langgraph-typescript/shared-tools  (real-dir)
+
+✔ single-source symlinks OK — no NEW erosion (2/2 baselined slot(s) still eroded, expected until symlinks are restored).
+exit=0
+$ pnpm exec tsx sync-shared-frontends.ts
+Shared frontend sources are in sync.
+exit=0
+$ pnpm exec tsx validate-fixture-tool-surface.ts
+✓ validate-fixture-tool-surface: 0 fixtures × 749 demos — no drift
+✓ validate-fixture-tool-surface: 0 fixtures × 749 demos — no drift
+exit=0
+$ pnpm exec tsx validate-pins.ts  (ratchet: CI compares the FAIL count/hash with fail-baseline.json)
+[FAIL] langgraph-python: @copilotkit/a2ui-renderer pinned to 1.73.3, canonical is 1.68.2
+[FAIL] langgraph-python: @copilotkit/react-core pinned to 1.73.3, canonical is 1.68.2
+[FAIL] langgraph-python: @copilotkit/runtime pinned to 1.73.3, canonical is 1.68.2
+[FAIL] langgraph-python: @copilotkit/shared pinned to 1.73.3, canonical is 1.68.2
+[FAIL] langgraph-python: @copilotkit/voice pinned to 1.73.3, canonical is 1.68.2
+[FAIL] langgraph-python: openai is not an exact pin (^5.9.0)
+Summary: OK=5 SKIP=0 WARN=3 FAIL=43
+baseline: 26 04b3415fa15e

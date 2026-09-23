@@ -1,0 +1,22 @@
+# LGP /api/smoke at HEAD feb4591dce (route unchanged), stack from lgp-dev-stack-20260923.log, Wed Sep 23 23:11:05 UTC 2026
+## RED 1: GET /api/smoke
+{"status":"ok","integration":"langgraph-python","latency_ms":273,"timestamp":"2026-09-23T23:11:06.326Z"}
+HTTP 200 0.502970s
+## The same request the route sends (threadId smoke-<ms>), stream read to the end:
+data: {"type":"RUN_ERROR","message":"Failed to create thread: HTTP 422: {\"detail\":\"Invalid thread ID: must be a UUID\"}","code":"INCOMPLETE_STREAM"}
+
+
+## AIMock journal entries after both: 0 (the run never reached the model)
+
+## GREEN: route.ts replaced by the LangGraph TypeScript fix from 7e2b368bc5 (randomUUID ids, stream read to the terminal event), slug changed; same stack, Turbopack hot reload. Wed Sep 23 23:20:11 UTC 2026
+## GET /api/smoke
+{"status":"ok","integration":"langgraph-python","latency_ms":1221,"timestamp":"2026-09-23T23:20:12.737Z"}
+HTTP 200 1.481798s
+## AIMock journal: 1 request(s) [('gpt-5.4', 200, {'userMessage': 'Respond with exactly: OK'})]
+
+## Discriminating RED for the fixed route: the old non-UUID threadId temporarily restored inside it (not committed). Wed Sep 23 23:20:24 UTC 2026
+{"status":"error","integration":"langgraph-python","stage":"run_error","error":"Run failed: Failed to create thread: HTTP 422: {\"detail\":\"Invalid thread ID: must be a UUID\"}","latency_ms":254,"timestamp":"2026-09-23T23:20:25.467Z"}
+HTTP 502 0.503517s
+## Restored the fixed route; GET /api/smoke again:
+{"status":"ok","integration":"langgraph-python","latency_ms":1233,"timestamp":"2026-09-23T23:20:28.967Z"}
+HTTP 200 1.478928s

@@ -1,0 +1,62 @@
+# LGP Python static checks, venv /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv (Python 3.12.6), 2026-09-23T23:05:12Z, HEAD c57e587263 + uncommitted dependency files
+$ python -m compileall -q -f src/agents tools _shared   (bytecode to a scratch prefix)
+exit=0
+$ PYTHONPATH=. OPENAI_API_KEY=sk-mock python import_graphs.py   (loads each langgraph.json graph like langgraph-api)
+2026-09-23 16:05:13,412 INFO agents._cvdiag_bootstrap CVDIAG bootstrap component=_shared tier=default pb_enabled=false
+OK   sample_agent                     CompiledStateGraph nodes=7 4.11s
+OK   tool_rendering                   CompiledStateGraph nodes=7 0.01s
+OK   tool_rendering_reasoning_chain   CompiledStateGraph nodes=5 1.07s
+OK   a2ui_dynamic                     CompiledStateGraph nodes=7 0.00s
+OK   a2ui_fixed                       CompiledStateGraph nodes=7 0.03s
+OK   a2ui_recovery                    CompiledStateGraph nodes=7 0.01s
+OK   reasoning_agent                  CompiledStateGraph nodes=5 0.01s
+OK   interrupt_agent                  CompiledStateGraph nodes=7 0.00s
+OK   open_gen_ui                      CompiledStateGraph nodes=7 0.00s
+OK   open_gen_ui_advanced             CompiledStateGraph nodes=7 0.00s
+OK   mcp_apps                         CompiledStateGraph nodes=7 0.00s
+OK   hitl_in_chat                     CompiledStateGraph nodes=7 0.00s
+OK   hitl_in_app                      CompiledStateGraph nodes=7 0.00s
+OK   shared_state_read                CompiledStateGraph nodes=7 0.00s
+OK   shared_state_read_write          CompiledStateGraph nodes=7 0.01s
+OK   readonly_state_agent_context     CompiledStateGraph nodes=7 0.00s
+OK   shared_state_streaming           CompiledStateGraph nodes=7 0.01s
+OK   subagents                        CompiledStateGraph nodes=7 0.01s
+OK   headless_complete                CompiledStateGraph nodes=7 0.00s
+OK   agentic_chat                     CompiledStateGraph nodes=7 0.00s
+OK   frontend_tools                   CompiledStateGraph nodes=7 0.00s
+OK   frontend_tools_async             CompiledStateGraph nodes=7 0.00s
+OK   gen_ui_agent                     CompiledStateGraph nodes=7 0.00s
+OK   gen_ui_tool_based                CompiledStateGraph nodes=7 0.00s
+OK   beautiful_chat                   CompiledStateGraph nodes=7 0.01s
+OK   multimodal                       CompiledStateGraph nodes=7 0.55s
+OK   agent_config_agent               CompiledStateGraph nodes=7 0.00s
+OK   byoc_hashbrown                   CompiledStateGraph nodes=7 0.00s
+OK   byoc_json_render                 CompiledStateGraph nodes=7 0.00s
+graphs: 29 ok, 0 failed, 29 total
+exit=0
+$ uv pip check
+Using Python 3.12.6 environment at: /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/lgp/venv
+Checked 103 packages in 7ms
+All installed packages are compatible
+exit=0
+# informational: LGP's own pytest suite (tests/ is not under tests/python/, so showcase_validate.yml's python-unit-tests job does not collect it)
+$ PYTHONPATH=.:src python -m pytest tests/ src/agents/test_*.py -q -p no:cacheprovider --ignore=tests/e2e
+==================================== ERRORS ====================================
+____________ ERROR collecting src/agents/test_agent_config_agent.py ____________
+ImportError while importing test module '/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-python/src/agents/test_agent_config_agent.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/tylerslaton/.pyenv/versions/3.12.6/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/agents/test_agent_config_agent.py:3: in <module>
+    from src.agents.agent_config_agent import (
+E   ImportError: cannot import name 'DEFAULT_EXPERTISE' from 'src.agents.agent_config_agent' (/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-python/src/agents/agent_config_agent.py)
+=========================== short test summary info ============================
+ERROR src/agents/test_agent_config_agent.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.56s
+# collection error above is pre-existing: test_agent_config_agent.py imports DEFAULT_EXPERTISE, which agent_config_agent.py no longer defines (unrelated to dependencies). Rerun without that module:
+$ PYTHONPATH=.:src python -m pytest tests/ src/agents/test_a2ui_internal_tools.py -q -p no:cacheprovider --ignore=tests/e2e
+..........                                                               [100%]
+10 passed in 0.47s

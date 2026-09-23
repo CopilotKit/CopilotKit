@@ -1,0 +1,218 @@
+{
+  "exclude_newer": "2026-09-22T23:00:00Z",
+  "resolved_at": "2026-09-23T23:01:00Z",
+  "python": "3.12.6 (host; Dockerfile 3.12.13)",
+  "direct": [
+    {
+      "package": "langchain-openai",
+      "requirement": "==1.6.4",
+      "resolved": "1.6.4",
+      "published": "2026-09-22T22:36:54Z",
+      "age_hours_at_resolution": 24.4,
+      "newer_releases_excluded_by_bound": [
+        [
+          "1.6.5",
+          "2026-09-23T15:31:38Z"
+        ]
+      ],
+      "pypi_latest_at_survey": "1.6.5"
+    },
+    {
+      "package": "langchain-anthropic",
+      "requirement": "==1.7.3",
+      "resolved": "1.7.3",
+      "published": "2026-09-22T22:07:58Z",
+      "age_hours_at_resolution": 24.9,
+      "newer_releases_excluded_by_bound": [
+        [
+          "1.7.4",
+          "2026-09-23T17:55:48Z"
+        ]
+      ],
+      "pypi_latest_at_survey": "1.7.4"
+    },
+    {
+      "package": "openai",
+      "requirement": "==3.18.0",
+      "resolved": "3.18.0",
+      "published": "2026-09-22T18:26:29Z",
+      "age_hours_at_resolution": 28.6,
+      "newer_releases_excluded_by_bound": [
+        [
+          "3.19.0",
+          "2026-09-23T00:08:45Z"
+        ],
+        [
+          "3.19.1",
+          "2026-09-23T19:16:36Z"
+        ]
+      ],
+      "pypi_latest_at_survey": "3.19.1"
+    },
+    {
+      "package": "deepagents",
+      "requirement": "==0.7.17",
+      "resolved": "0.7.17",
+      "published": "2026-09-22T04:47:36Z",
+      "age_hours_at_resolution": 42.2,
+      "newer_releases_excluded_by_bound": [
+        [
+          "0.7.18",
+          "2026-09-23T03:06:25Z"
+        ]
+      ],
+      "pypi_latest_at_survey": "0.7.18"
+    },
+    {
+      "package": "langsmith",
+      "requirement": "==0.14.0",
+      "resolved": "0.14.0",
+      "published": "2026-09-21T18:59:36Z",
+      "age_hours_at_resolution": 52.0,
+      "newer_releases_excluded_by_bound": [],
+      "pypi_latest_at_survey": "0.14.0"
+    },
+    {
+      "package": "langgraph",
+      "requirement": "==1.2.12",
+      "resolved": "1.2.12",
+      "published": "2026-09-21T14:43:28Z",
+      "age_hours_at_resolution": 56.3,
+      "newer_releases_excluded_by_bound": [],
+      "pypi_latest_at_survey": "1.2.12"
+    },
+    {
+      "package": "langgraph-api",
+      "requirement": "==0.14.3",
+      "resolved": "0.14.3",
+      "published": "2026-09-18T22:55:41Z",
+      "age_hours_at_resolution": 120.1,
+      "newer_releases_excluded_by_bound": [
+        [
+          "0.12.12",
+          "2026-09-23T02:55:57Z"
+        ],
+        [
+          "0.13.7",
+          "2026-09-23T15:11:34Z"
+        ],
+        [
+          "0.14.4",
+          "2026-09-23T01:49:18Z"
+        ]
+      ],
+      "pypi_latest_at_survey": "0.14.4"
+    },
+    {
+      "package": "langchain",
+      "requirement": "==1.4.2",
+      "resolved": "1.4.2",
+      "published": "2026-09-18T17:31:10Z",
+      "age_hours_at_resolution": 125.5,
+      "newer_releases_excluded_by_bound": [],
+      "pypi_latest_at_survey": "1.4.2"
+    },
+    {
+      "package": "pypdf",
+      "requirement": ">=4.0.0,<7.0.0",
+      "resolved": "6.19.0",
+      "published": "2026-09-16T09:32:04Z",
+      "age_hours_at_resolution": 181.5,
+      "newer_releases_excluded_by_bound": [],
+      "pypi_latest_at_survey": "6.19.0"
+    },
+    {
+      "package": "ag-ui-langgraph",
+      "requirement": "==0.0.45",
+      "resolved": "0.0.45",
+      "published": "2026-09-09T15:22:30Z",
+      "age_hours_at_resolution": 343.6,
+      "newer_releases_excluded_by_bound": [],
+      "pypi_latest_at_survey": "0.0.45"
+    },
+    {
+      "package": "ag-ui-protocol",
+      "requirement": "==0.1.22",
+      "resolved": "0.1.22",
+      "published": "2026-08-31T18:20:03Z",
+      "age_hours_at_resolution": 556.7,
+      "newer_releases_excluded_by_bound": [],
+      "pypi_latest_at_survey": "1.0.0"
+    },
+    {
+      "package": "copilotkit",
+      "requirement": "==0.1.96",
+      "resolved": "0.1.96",
+      "published": "2026-08-26T22:31:59Z",
+      "age_hours_at_resolution": 672.5,
+      "newer_releases_excluded_by_bound": [],
+      "pypi_latest_at_survey": "0.1.96"
+    },
+    {
+      "package": "langgraph-cli",
+      "requirement": "==0.4.31",
+      "resolved": "0.4.31",
+      "published": "2026-07-10T22:57:49Z",
+      "age_hours_at_resolution": 1800.1,
+      "newer_releases_excluded_by_bound": [
+        [
+          "0.4.32",
+          "2026-09-23T18:02:34Z"
+        ]
+      ],
+      "pypi_latest_at_survey": "0.4.32"
+    }
+  ],
+  "transitive_count": 90,
+  "youngest": [
+    [
+      "langchain-openai",
+      "1.6.4",
+      "2026-09-22T22:36:54Z",
+      24.4
+    ],
+    [
+      "langchain-anthropic",
+      "1.7.3",
+      "2026-09-22T22:07:58Z",
+      24.9
+    ],
+    [
+      "openai",
+      "3.18.0",
+      "2026-09-22T18:26:29Z",
+      28.6
+    ],
+    [
+      "google-genai",
+      "2.25.0",
+      "2026-09-22T17:22:59Z",
+      29.6
+    ],
+    [
+      "anthropic",
+      "1.8.0",
+      "2026-09-22T16:25:36Z",
+      30.6
+    ],
+    [
+      "deepagents",
+      "0.7.17",
+      "2026-09-22T04:47:36Z",
+      42.2
+    ],
+    [
+      "langsmith",
+      "0.14.0",
+      "2026-09-21T18:59:36Z",
+      52.0
+    ],
+    [
+      "langchain-core",
+      "1.6.4",
+      "2026-09-21T15:51:06Z",
+      55.2
+    ]
+  ],
+  "violations": []
+}
