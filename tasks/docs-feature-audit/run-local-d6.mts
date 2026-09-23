@@ -15,14 +15,32 @@ const demo = demoIndex >= 0 ? args[demoIndex + 1] : undefined;
 if (demoIndex >= 0 && !demo) {
   throw new Error("--demo requires a demo id");
 }
+// --demos <id,id,...>: run only this subset of the manifest's features, in one
+// driver call (same concurrency as a full run). Used to split a full matrix
+// across fresh stack boots when the stack's memory would exceed the audit cap.
+const demosIndex = args.indexOf("--demos");
+const demoSubset =
+  demosIndex >= 0
+    ? (args[demosIndex + 1] ?? "").split(",").filter(Boolean)
+    : undefined;
+if (demosIndex >= 0 && (!demoSubset || demoSubset.length === 0)) {
+  throw new Error("--demos requires a comma-separated list of demo ids");
+}
+if (demo && demoSubset) {
+  throw new Error("--demo and --demos are mutually exclusive");
+}
 const slugs = args.filter(
   (arg, index) =>
     arg !== "--validate" &&
     arg !== "--demo" &&
-    (demoIndex < 0 || index !== demoIndex + 1),
+    arg !== "--demos" &&
+    (demoIndex < 0 || index !== demoIndex + 1) &&
+    (demosIndex < 0 || index !== demosIndex + 1),
 );
 if (slugs.length === 0) {
-  throw new Error("Usage: run-local-d6.mts <integration-slug> [...] [--demo <id>]");
+  throw new Error(
+    "Usage: run-local-d6.mts <integration-slug> [...] [--demo <id> | --demos <id,id,...>]",
+  );
 }
 
 const logger = createLogger({ component: "docs-feature-audit-local-d6" });
@@ -63,8 +81,20 @@ async function main(): Promise<void> {
   }
   let failed = false;
   for (const slug of slugs) {
+    let inputs = buildFullInputs({ slug, ...(demo ? { demo } : {}) }, config);
+    if (demoSubset) {
+      const known = new Set(inputs.flatMap((input) => input.demos));
+      const unknown = demoSubset.filter((id) => !known.has(id));
+      if (unknown.length > 0) {
+        throw new Error(`--demos: not in ${slug}'s features: ${unknown.join(", ")}`);
+      }
+      inputs = inputs.map((input) => ({
+        ...input,
+        demos: input.demos.filter((id) => demoSubset.includes(id)),
+      }));
+    }
     const results = await runDriverInputs(
-      buildFullInputs({ slug, ...(demo ? { demo } : {}) }, config),
+      inputs,
       driver,
       ctx,
       null,
