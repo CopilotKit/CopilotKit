@@ -1294,9 +1294,11 @@ const AGENT_NOT_CONFIGURED_CODE = "channel_agent_not_configured";
 
 /**
  * Fallback for channels-core versions that threw a plain `Error` without a
- * `code`; matched by substring so a reworded tail still classifies.
+ * `code`. Anchored to channels-core's own message prefix, so a reworded tail
+ * still classifies but another error that merely mentions the phrase (and
+ * whose text would then be logged) does not.
  */
-const AGENT_NOT_CONFIGURED_TEXT = /no agent configured/;
+const AGENT_NOT_CONFIGURED_TEXT = /^createChannel: no agent configured\b/;
 
 type ChannelErrorCategory =
   | "agent_not_configured"
@@ -1360,6 +1362,7 @@ export function safeChannelErrorMetadata(error: unknown): {
           : "";
   const errorCategory = classifyChannelError(
     value?.code,
+    message,
     `${String(value?.name ?? "")} ${String(value?.code ?? "")} ${message}`,
   );
   if (!MESSAGE_LOGGED_CATEGORIES.has(errorCategory)) return { errorCategory };
@@ -1369,13 +1372,16 @@ export function safeChannelErrorMetadata(error: unknown): {
 
 function classifyChannelError(
   code: unknown,
+  message: string,
   text: string,
 ): ChannelErrorCategory {
-  if (code === AGENT_NOT_CONFIGURED_CODE) return "agent_not_configured";
-  const classification = text.toLowerCase();
-  if (AGENT_NOT_CONFIGURED_TEXT.test(classification)) {
+  if (
+    code === AGENT_NOT_CONFIGURED_CODE ||
+    AGENT_NOT_CONFIGURED_TEXT.test(message)
+  ) {
     return "agent_not_configured";
   }
+  const classification = text.toLowerCase();
   if (/timeout|expired|deadline|timed out/.test(classification)) {
     return "timeout";
   }

@@ -114,30 +114,33 @@ async function resolveRuntimeEntitlements(
   }
 }
 
-/** Runtimes already warned by {@link warnIfAgentsHiddenFromWeb}. */
-const warnedHiddenAgents = new WeakSet<CopilotRuntimeLike>();
+/** Runtimes warned, or being checked, by {@link warnIfAgentsHiddenFromWeb}. */
+const hiddenAgentChecks = new WeakSet<CopilotRuntimeLike>();
 
 /**
  * An Intelligence runtime without a runtime-level `identifyUser` serves only
  * Channels: `/info` reports no agents and every web route returns 404. When a
  * web client asks for agents the runtime does have, name the cause once in
  * the server log, since a Channel's own `identifyUser` is easy to mistake for
- * the runtime-level one.
+ * the runtime-level one. The runtime is marked before agent discovery so
+ * concurrent `/info` requests check, and warn, only once.
  */
 async function warnIfAgentsHiddenFromWeb(
   runtime: CopilotRuntimeLike,
   request: Request,
 ): Promise<void> {
-  if (warnedHiddenAgents.has(runtime)) return;
-  let agentIds: string[];
+  if (hiddenAgentChecks.has(runtime)) return;
+  hiddenAgentChecks.add(runtime);
+  let agentIds: string[] = [];
   try {
     agentIds = Object.keys(await resolveAgents(runtime.agents, request));
   } catch {
-    // Diagnostic only; must never turn `/info` into an error.
+    // Diagnostic only; an agent factory error must not surface from here.
+  }
+  if (agentIds.length === 0) {
+    hiddenAgentChecks.delete(runtime);
     return;
   }
-  if (agentIds.length === 0) return;
-  warnedHiddenAgents.add(runtime);
   console.warn(
     `[CopilotKit] This Intelligence runtime has agents (${agentIds.join(", ")}) but no runtime-level \`identifyUser\`, ` +
       "so /info exposes none of them to web clients and web routes return 404. " +
@@ -155,7 +158,8 @@ export async function handleGetRuntimeInfo({
     const runtimeEntitlementsPromise = resolveRuntimeEntitlements(runtime);
     const webEnabled =
       !isIntelligenceRuntime(runtime) || runtime.identifyUser !== undefined;
-    if (!webEnabled) await warnIfAgentsHiddenFromWeb(runtime, request);
+    // Not awaited: a slow agent factory must not delay `/info`.
+    if (!webEnabled) void warnIfAgentsHiddenFromWeb(runtime, request);
     const agents = webEnabled
       ? await resolveAgents(runtime.agents, request)
       : {};

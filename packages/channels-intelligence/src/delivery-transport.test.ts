@@ -1510,6 +1510,10 @@ test("redacts and bounds a logged message", () => {
 
 test.each([
   ["unknown", new Error("agent backend replied 400: user said hello")],
+  [
+    "unknown",
+    new Error("backend: no agent configured for tenant; user said hello"),
+  ],
   ["validation", new Error("invalid schema for user said hello")],
   ["auth", new Error("401 from agent backend: user said hello")],
   ["network", new Error("fetch failed for user said hello")],

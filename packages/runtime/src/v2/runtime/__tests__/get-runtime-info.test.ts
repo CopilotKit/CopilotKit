@@ -949,6 +949,9 @@ test("get-runtime-info omits inspector metadata for an SSE runtime", async () =>
   expect(data).not.toHaveProperty("inspectorMetadata");
 });
 
+/** Let a detached `/info` diagnostic settle before asserting on it. */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
 describe("get-runtime-info names the missing runtime-level identifyUser", () => {
   const intelligence = () =>
     new CopilotKitIntelligence({
@@ -974,21 +977,22 @@ describe("get-runtime-info names the missing runtime-level identifyUser", () => 
     warnSpy.mockRestore();
   });
 
-  it("warns once when a Channels-only runtime hides its agents from web clients", async () => {
+  it("warns once, off the response path, however many /info requests arrive", async () => {
     const runtime = new CopilotRuntime({
       agents: { default: {} as never, research: {} as never },
       intelligence: intelligence(),
       channels: [channel()],
     });
+    const info = () => handleGetRuntimeInfo({ runtime, request: mockRequest });
 
-    for (let poll = 0; poll < 3; poll++) {
-      const response = await handleGetRuntimeInfo({
-        runtime,
-        request: mockRequest,
-      });
+    const concurrent = await Promise.all([info(), info()]);
+    for (const response of concurrent) {
       expect(response.status).toBe(200);
       await expect(response.json()).resolves.toMatchObject({ agents: {} });
     }
+    await vi.waitFor(() => expect(hiddenAgentWarnings()).toHaveLength(1));
+    await info();
+    await settle();
 
     expect(hiddenAgentWarnings()).toEqual([
       [
@@ -997,6 +1001,22 @@ describe("get-runtime-info names the missing runtime-level identifyUser", () => 
         ),
       ],
     ]);
+  });
+
+  it("answers /info without waiting for an agent factory that never settles", async () => {
+    const runtime = new CopilotRuntime({
+      agents: () => new Promise<never>(() => {}),
+      intelligence: intelligence(),
+      channels: [channel()],
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+    expect(hiddenAgentWarnings()).toEqual([]);
   });
 
   it.each([
@@ -1041,6 +1061,7 @@ describe("get-runtime-info names the missing runtime-level identifyUser", () => 
     });
 
     expect(response.status).toBe(200);
+    await settle();
     expect(hiddenAgentWarnings()).toEqual([]);
   });
 });
