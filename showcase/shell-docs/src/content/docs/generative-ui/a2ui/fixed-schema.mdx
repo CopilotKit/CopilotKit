@@ -16,14 +16,17 @@ has to be generated at runtime.
 How the schema is *delivered* to the runtime is the only thing that
 varies between integrations:
 
-- **Schema-loading** (including Strands TypeScript), the schema is saved
-  as a `.json` file next to the agent and loaded once at startup.
+- **Schema-loading** (langgraph-python, langgraph-typescript,
+  langgraph-fastapi, llamaindex, crewai-crews, pydantic-ai,
+  ms-agent-python, google-adk, strands, strands-typescript), the schema is
+  saved as a `.json` file next to the agent and loaded once at startup.
 - **Schema-inline** (built-in-agent, spring-ai, ms-agent-dotnet), the schema is
-  declared inline as a typed literal in source. The host language
-  doesn't ship a `load_schema` JSON loader, so the structure is
-  compiled in directly.
-- **LLM-driven** (Mastra and Strands Python), the agent runs a secondary
-  LLM call to produce the operations container per-request. The catalog
+  declared inline as a typed literal in source rather than loaded from a
+  JSON file. Spring AI and .NET don't ship a `load_schema` JSON loader, and
+  the Built-in Agent inlines it so the schema ships in the Next.js route
+  bundle without runtime file access.
+- **LLM-driven** (mastra), the agent runs a secondary LLM
+  call to produce the operations container per-request. The catalog
   is still fixed; the schema is generated on demand.
 
 Ask about a flight and the agent renders a fully structured card from a pre-defined schema:
@@ -34,10 +37,10 @@ Ask about a flight and the agent renders a fully structured card from a pre-defi
   components are this page's example, not part of the API.
 
   What transfers is the **shape**: a fixed catalog, a tool that returns data
-  against it, and an operations container with `createSurface` +
-  `updateComponents` + `updateDataModel`. Keep your own application's
-  domain and substitute your own components and tool — a page teaching
-  the pattern is not a brief to build a flight booker.
+  against it, and an operations container (`a2ui.render(...)` in the Python
+  SDK) with `createSurface` + `updateComponents` + `updateDataModel`. Keep your own application's domain and substitute your own
+  components and tool — a page teaching the pattern is not a brief to build a
+  flight booker.
 </Callout>
 
 ## How it works
@@ -47,8 +50,9 @@ Ask about a flight and the agent renders a fully structured card from a pre-defi
    depending on the integration.
 2. The agent's `display_flight` tool receives data from the primary LLM
    (origin / destination / airline / price).
-3. The tool returns an operations container with `createSurface` +
-   `updateComponents` + `updateDataModel` operations.
+3. The tool returns an `a2ui_operations` container (built with
+   `a2ui.render(...)` in the Python SDK, or by hand) with
+   `createSurface` + `updateComponents` + `updateDataModel` operations.
 4. The A2UI middleware intercepts the tool result and the frontend
    renders the surface using the matching 5-component client catalog
    (Title, Airport, Arrow, AirlineBadge, PriceTag, plus the built-ins).
@@ -167,8 +171,11 @@ renderers with CopilotKit's built-ins so the schema can reference
 <Step>
 ### Load the schema JSON at startup
 
-The integration parses the pre-authored JSON schema once at startup.
-The agent then reuses that component tree for every tool call:
+`a2ui.load_schema(path)` (or the framework's equivalent thin `json.load`
+or `JSON.parse` wrapper) parses the schema file once at module-import time.
+Where the integration ships a sibling `booked_schema.json`, it is loaded too
+and kept ready for the button-click "booked" optimistic swap (see the note on
+action handlers below):
 
 <Snippet region="backend-schema-json-load" />
 </Step>
@@ -176,10 +183,14 @@ The agent then reuses that component tree for every tool call:
 <Step>
 ### Return render operations from the tool
 
-The agent tool returns an A2UI operations container. The A2UI middleware
-detects it in the tool result and forwards it to the frontend renderer.
-The LLM only supplies the four data fields (`origin`, `destination`,
-`airline`, `price`); the pre-authored schema defines the component tree:
+The agent tool returns the operations container: `a2ui.render(operations=[…])`
+with the CopilotKit Python SDK, or the same `{ "a2ui_operations": [...] }`
+envelope built by hand where the integration has no such helper. Either
+way the operations are *nested* (`{ createSurface: {...} }`). The A2UI
+middleware detects the container in the tool result and forwards it to the
+frontend renderer. The LLM only generates the four
+data fields (`origin`, `destination`, `airline`, `price`); the schema
+does the rest:
 
 <Snippet region="backend-render-operations" />
 
@@ -195,7 +206,7 @@ you already have.
 
 The snippets above stop at the tool. The reference cell builds its agent with
 `langchain.agents.create_agent` plus `CopilotKitMiddleware` — that is what
-those imports are for — but the construction itself is not shown. If you added
+those imports are for — and the setup steps below show that construction. If you added
 A2UI to an agent you already wrote, you probably have a hand-built `StateGraph`
 instead. The tool is unchanged; put it in a `ToolNode` and leave the rest of the
 graph alone:
@@ -245,11 +256,12 @@ does — frontend-tool injection and exposing agent state to the model — so ke
 <Step>
 ### Define the schema inline
 
-Spring AI / .NET don't ship a `load_schema` JSON helper, so the
-component tree is declared inline as a typed literal in source,
+The component tree is declared inline as a typed literal in source,
 equivalent to deserialising a `flight_schema.json` but compiled into
-the agent class. The structure is identical to the JSON form; only
-the surface syntax changes:
+the agent code. Spring AI and .NET don't ship a `load_schema` JSON
+helper, and the Built-in Agent keeps the schema in its route bundle so
+it needs no runtime file access. The structure is identical to the
+JSON form; only the surface syntax changes:
 
 <Snippet region="backend-schema-json-load" />
 </Step>

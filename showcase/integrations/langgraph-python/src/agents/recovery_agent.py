@@ -36,6 +36,7 @@ the frontend via App Context (declarative-gen-ui/sales-context.ts).
 
 from __future__ import annotations
 
+# @region[a2ui-recovery-agent]
 import logging
 import os
 
@@ -99,3 +100,4 @@ graph = create_agent(
     ],
     system_prompt=SYSTEM_PROMPT,
 )
+# @endregion[a2ui-recovery-agent]

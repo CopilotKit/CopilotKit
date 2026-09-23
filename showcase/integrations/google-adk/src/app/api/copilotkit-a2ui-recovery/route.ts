@@ -22,6 +22,7 @@ import {
 import { HttpAgent } from "@ag-ui/client";
 import { extractForwardedHeaders } from "@/lib/header-forwarding";
 
+// @region[a2ui-recovery-runtime]
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 export const POST = async (req: NextRequest) => {
@@ -58,3 +59,4 @@ export const POST = async (req: NextRequest) => {
     );
   }
 };
+// @endregion[a2ui-recovery-runtime]

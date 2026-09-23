@@ -169,8 +169,10 @@ byoc_json_render_app = create_strands_app(byoc_json_render_agui_agent, "/")
 # (`copilotkit://flight-fixed-catalog`). The runtime A2UIMiddleware paints the
 # envelope directly — no generate_a2ui injection. Mounted as a dedicated agent
 # so the demo no longer relies on the generic "/" agent's search_flights tool.
+# @region[a2ui-fixed-schema-app]
 a2ui_fixed_schema_agui_agent = build_a2ui_fixed_schema_agent()
 a2ui_fixed_schema_app = create_strands_app(a2ui_fixed_schema_agui_agent, "/")
+# @endregion[a2ui-fixed-schema-app]
 
 # A2UI dynamic-schema agent (declarative-gen-ui demo): a plain agent with no
 # generate_a2ui tool wired. When the runtime forwards `injectA2UITool: true`,
@@ -187,8 +189,10 @@ a2ui_dynamic_app = create_strands_app(a2ui_dynamic_agui_agent, "/")
 # Strands adapter runs the toolkit validate->retry recovery loop on the
 # auto-inject path. Mounted as a dedicated agent so the Next.js route can proxy
 # to AGENT_URL/a2ui-recovery/.
+# @region[a2ui-recovery-app]
 a2ui_recovery_agui_agent = build_a2ui_recovery_agent()
 a2ui_recovery_app = create_strands_app(a2ui_recovery_agui_agent, "/")
+# @endregion[a2ui-recovery-app]
 
 # Interrupt agent: owns a `schedule_meeting` backend tool that pauses itself via
 # Strands' native `tool_context.interrupt(...)`. Mounted separately because the
@@ -226,13 +230,17 @@ app.mount("/byoc-hashbrown", byoc_hashbrown_app)
 app.mount("/byoc-json-render", byoc_json_render_app)
 # A2UI fixed-schema: the Next.js route proxies to AGENT_URL/a2ui-fixed-schema/
 # (trailing slash) so the sub-application's root route resolves.
+# @region[a2ui-fixed-schema-mount]
 app.mount("/a2ui-fixed-schema", a2ui_fixed_schema_app)
+# @endregion[a2ui-fixed-schema-mount]
 # A2UI dynamic-schema: the Next.js route proxies to AGENT_URL/declarative-gen-ui/
 # (trailing slash) so the sub-application's root route resolves.
 app.mount("/declarative-gen-ui", a2ui_dynamic_app)
 # A2UI error-recovery: the Next.js route proxies to AGENT_URL/a2ui-recovery/
 # (trailing slash) so the sub-application's root route resolves.
+# @region[a2ui-recovery-mount]
 app.mount("/a2ui-recovery", a2ui_recovery_app)
+# @endregion[a2ui-recovery-mount]
 # Interrupts: the Next.js runtime points the gen-ui-interrupt and
 # interrupt-headless agent names at AGENT_URL/interrupt/.
 app.mount("/interrupt", interrupt_app)

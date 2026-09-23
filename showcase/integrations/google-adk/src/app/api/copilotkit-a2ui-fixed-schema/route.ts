@@ -16,6 +16,7 @@ import {
 import { HttpAgent } from "@ag-ui/client";
 import { extractForwardedHeaders } from "@/lib/header-forwarding";
 
+// @region[a2ui-fixed-schema-runtime]
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 // Build per-request so inbound `x-aimock-context` (and other `x-*` headers)
@@ -56,3 +57,4 @@ export const POST = async (req: NextRequest) => {
     );
   }
 };
+// @endregion[a2ui-fixed-schema-runtime]

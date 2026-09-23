@@ -5,16 +5,12 @@ Mirrors the per-demo specialization pattern used by ``gen_ui_agent.py`` and
 error shape, and ``agent.py`` wires it into the shared ``StrandsAgent``
 instance.
 
-It also keeps this integration's slice of the A2UI docs honest. The
-``backend-render-operations`` region below is what
-`/aws-strands/generative-ui/a2ui/fixed-schema` renders, and a region starts at
-the top of its file so the snippet carries its own imports (see the
-marker-hoist sweep in 34b6418). While the tool lived in ``agent.py`` that made
-the published snippet the whole 1688-line module; here the snippet is just the
-tool (OSS-901).
+The tool was split out of ``agent.py`` for OSS-901. The fixed-schema A2UI
+demo no longer uses it: that cell runs the dedicated ``a2ui_fixed.py`` agent,
+whose ``display_flight`` tool returns a pre-authored surface, and the docs
+render that file instead.
 """
 
-# @region[backend-render-operations]
 import json
 import logging
 from typing import TypedDict
@@ -183,6 +179,3 @@ def generate_a2ui(context: str) -> str:
 
     result = build_a2ui_operations_from_tool_call(args)
     return json.dumps(result)
-
-
-# @endregion[backend-render-operations]

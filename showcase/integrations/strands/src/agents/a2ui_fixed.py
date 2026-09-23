@@ -30,6 +30,8 @@ langgraph-python showcase path. We build the dict by hand here because the
 importable from a local ag-ui checkout, not from requirements.txt).
 """
 
+# @region[backend-render-operations]
+# @region[backend-schema-json-load]
 from __future__ import annotations
 
 import json
@@ -50,6 +52,7 @@ _SCHEMAS_DIR = Path(__file__).parent / "a2ui_schemas"
 # Python code.
 with open(_SCHEMAS_DIR / "flight_schema.json") as _f:
     FLIGHT_SCHEMA: list[dict[str, Any]] = json.load(_f)
+# @endregion[backend-schema-json-load]
 
 
 def _create_surface(surface_id: str, catalog_id: str) -> dict[str, Any]:
@@ -121,6 +124,10 @@ def display_flight(origin: str, destination: str, airline: str, price: str) -> s
     )
 
 
+# @endregion[backend-render-operations]
+
+
+# @region[a2ui-fixed-schema-agent]
 SYSTEM_PROMPT = (
     "You help users find flights. When asked about a flight, call "
     "`display_flight` exactly ONCE with origin, destination, airline, and "
@@ -145,3 +152,6 @@ def build_a2ui_fixed_schema_agent() -> StrandsAgent:
         name="a2ui_fixed_schema",
         description="A2UI surface from a fixed, pre-authored schema (direct backend tool)",
     )
+
+
+# @endregion[a2ui-fixed-schema-agent]

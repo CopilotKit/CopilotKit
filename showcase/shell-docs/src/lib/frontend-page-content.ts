@@ -103,6 +103,7 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "generative-ui/a2ui/advanced": "guides/a2ui",
   "generative-ui/a2ui/dynamic-schema": "guides/a2ui",
   "generative-ui/a2ui/fixed-schema": "guides/a2ui",
+  "generative-ui/a2ui/error-recovery": "guides/a2ui",
   "generative-ui/a2ui/styling": "guides/a2ui",
   "generative-ui/mcp-apps": "guides/frontend-tools-generative-ui",
   "frontend-tools": "guides/frontend-tools-generative-ui",

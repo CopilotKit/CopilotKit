@@ -17,6 +17,7 @@ import { withForwardedHeaders } from "@/lib/header-forwarding";
 // attempt cap is hit with only invalid surfaces, returns the
 // `a2ui_recovery_exhausted` envelope the A2UI middleware paints as a graceful
 // failure card. `injectA2UITool: false` — the factory owns the tool.
+// @region[a2ui-recovery-runtime]
 const runtime = new CopilotRuntime({
   agents: { "a2ui-recovery": createA2UIRecoveryAgent() },
   runner: new InMemoryAgentRunner(),
@@ -30,6 +31,7 @@ const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit-a2ui-recovery",
 });
+// @endregion[a2ui-recovery-runtime]
 
 async function withProbeCompat(req: Request): Promise<Response> {
   const res = await handler(req);

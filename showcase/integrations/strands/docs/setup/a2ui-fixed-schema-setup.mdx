@@ -1,0 +1,61 @@
+<Steps>
+  <Step>
+    ### Give the tool its own agent
+
+    The fixed-schema cell runs a dedicated Strands agent whose only tool is
+    `display_flight`. The system prompt tells the model to call it once and
+    stop, because the tool result is the rendered card. `StrandsAgent` wraps
+    the Strands `Agent` for AG-UI.
+
+    <DemoCode file="src/agents/a2ui_fixed.py" region="a2ui-fixed-schema-agent" />
+
+    `display_flight` returns the operations envelope as a JSON string rather
+    than a dict. The Strands adapter forwards a string result as a text block,
+    which is where the A2UI middleware looks for `a2ui_operations`.
+    `_build_model()` is this Showcase's shared OpenAI model factory.
+  </Step>
+
+  <Step>
+    ### Serve it at its own path
+
+    The agent server builds a FastAPI sub-application for the agent with
+    `create_strands_app`:
+
+    <DemoCode file="src/agent_server.py" region="a2ui-fixed-schema-app" />
+
+    and mounts it on the main app at `/a2ui-fixed-schema`:
+
+    <DemoCode file="src/agent_server.py" region="a2ui-fixed-schema-mount" />
+  </Step>
+
+  <Step>
+    ### Point a runtime at it without injecting the A2UI tool
+
+    The cell has its own runtime endpoint, `/api/copilotkit-a2ui-fixed-schema`,
+    which proxies to the mounted agent with an `HttpAgent`. The URL ends in a
+    slash so the sub-application's root route resolves. With
+    `injectA2UITool: false` the A2UI middleware still runs, so it finds the
+    `a2ui_operations` envelope in the `display_flight` result and paints the
+    surface, without adding a `generate_a2ui` tool. `defaultCatalogId` pins
+    the catalog the page registers, so the middleware doesn't fall back to
+    the basic catalog.
+
+    <DemoCode
+      file="src/app/api/copilotkit-a2ui-fixed-schema/route.ts"
+      region="a2ui-fixed-schema-runtime"
+    />
+
+    The demo page points the provider at this endpoint with
+    `runtimeUrl="/api/copilotkit-a2ui-fixed-schema"` and
+    `agent="a2ui-fixed-schema"`, and passes the flight catalog as
+    `a2ui={{ catalog }}`.
+  </Step>
+
+  <Step>
+    ### Try it
+
+    Ask "Find me a flight from SFO to JFK on United for $289." The agent calls
+    `display_flight` once, and the flight card renders in the chat with those
+    four values, followed by a one-sentence confirmation.
+  </Step>
+</Steps>

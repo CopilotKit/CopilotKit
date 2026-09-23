@@ -1,0 +1,64 @@
+<Steps>
+  <Step>
+    ### Wrap the operations in a tool and give it to an `LlmAgent`
+
+    `display_flight` hands the model's four values to the operations builder
+    shown above and returns the container. The agent lists it next to
+    `AGUIToolset()`, which exposes CopilotKit's frontend tools. The
+    instruction tells the model to call the tool once and stop, because the
+    tool result is the rendered card.
+
+    <DemoCode file="src/agents/a2ui_fixed_agent.py" region="a2ui-fixed-schema-agent" />
+
+    `get_model()` and `stop_on_terminal_text` come from this Showcase's
+    `agents/shared_chat.py`. The first returns the Gemini model, routed
+    through the test proxy when one is configured. The second ends the
+    invocation once the model returns final text, and leaves partial
+    responses and pending tool calls alone.
+  </Step>
+
+  <Step>
+    ### Serve the agent at its own path
+
+    The agent server wraps every entry in `AGENT_REGISTRY` in an `ADKAgent`
+    and mounts it with `add_adk_fastapi_endpoint`. The registry maps
+    `a2ui_fixed_schema` to this agent, so it is served at
+    `/a2ui_fixed_schema`.
+
+    <DemoCode file="src/agent_server.py" region="adk-agent-endpoints" />
+
+    Without a registry, call `add_adk_fastapi_endpoint` once for this agent
+    with `path="/a2ui_fixed_schema"`.
+  </Step>
+
+  <Step>
+    ### Point a runtime at it without injecting the A2UI tool
+
+    The cell has its own runtime endpoint, `/api/copilotkit-a2ui-fixed-schema`,
+    which proxies to the ADK server with an `HttpAgent`. With
+    `injectA2UITool: false` the A2UI middleware still runs, so it finds the
+    `a2ui_operations` container in the `display_flight` result and paints the
+    surface. It just doesn't add a `generate_a2ui` tool next to the agent's
+    own. `extractForwardedHeaders` copies the request's `x-*` headers onto
+    the agent call so the Showcase's recorded-response tests can match; your
+    runtime can build the `HttpAgent` without it.
+
+    <DemoCode
+      file="src/app/api/copilotkit-a2ui-fixed-schema/route.ts"
+      region="a2ui-fixed-schema-runtime"
+    />
+
+    The demo page points the provider at this endpoint with
+    `runtimeUrl="/api/copilotkit-a2ui-fixed-schema"` and
+    `agent="a2ui-fixed-schema"`, and passes the flight catalog as
+    `a2ui={{ catalog }}`.
+  </Step>
+
+  <Step>
+    ### Try it
+
+    Ask "Find me a flight from SFO to JFK on United for $289." The agent calls
+    `display_flight` once, and the flight card renders in the chat with those
+    four values, followed by a one-sentence confirmation.
+  </Step>
+</Steps>

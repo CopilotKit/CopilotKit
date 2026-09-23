@@ -308,6 +308,7 @@ async function runA2uiDesignAttempt(
   return { ok: true, ops };
 }
 
+// @region[a2ui-recovery-tool]
 /**
  * Build a per-run `generate_a2ui` tool. Closure-captures `catalogContext` (the
  * registered client catalog schema serialised by the A2UI middleware) and
@@ -404,7 +405,9 @@ function buildGenerateA2uiTool(
     };
   });
 }
+// @endregion[a2ui-recovery-tool]
 
+// @region[a2ui-recovery-agent]
 /**
  * Built-in agent for the Declarative Generative UI (A2UI — Dynamic Schema)
  * demo.
@@ -469,3 +472,4 @@ export function createDeclarativeGenUIAgent() {
 export function createA2UIRecoveryAgent() {
   return createA2uiAgent({ maxAttempts: 3 });
 }
+// @endregion[a2ui-recovery-agent]

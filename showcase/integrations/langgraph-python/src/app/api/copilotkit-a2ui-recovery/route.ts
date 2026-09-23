@@ -20,6 +20,7 @@ import {
 } from "@copilotkit/runtime/v2";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 
+// @region[a2ui-recovery-runtime]
 const LANGGRAPH_URL =
   process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
 
@@ -38,6 +39,7 @@ const runtime = new CopilotRuntime({
     defaultCatalogId: "declarative-gen-ui-catalog",
   },
 });
+// @endregion[a2ui-recovery-runtime]
 
 export const POST = async (req: NextRequest) => {
   try {

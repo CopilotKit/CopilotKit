@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import logging
 
+# @region[a2ui-recovery-agent]
 from google.adk.agents import LlmAgent
 from ag_ui_adk import get_a2ui_tool
 
@@ -83,3 +84,4 @@ recovery_agent = LlmAgent(
     ],
     after_model_callback=stop_on_terminal_text,
 )
+# @endregion[a2ui-recovery-agent]

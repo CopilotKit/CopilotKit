@@ -91,6 +91,7 @@ def _build_flight_operations(
 # @endregion[backend-render-operations]
 
 
+# @region[a2ui-fixed-schema-agent]
 def display_flight(
     tool_context: ToolContext,
     origin: str,
@@ -136,3 +137,4 @@ a2ui_fixed_agent = LlmAgent(
     tools=[display_flight, AGUIToolset()],
     after_model_callback=stop_on_terminal_text,
 )
+# @endregion[a2ui-fixed-schema-agent]

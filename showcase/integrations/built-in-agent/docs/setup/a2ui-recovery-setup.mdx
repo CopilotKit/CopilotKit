@@ -1,0 +1,51 @@
+<Steps>
+  <Step>
+    ### Run the loop inside your own `generate_a2ui` tool
+
+    The Built-in Agent's A2UI tool is hand-written, so it runs the loop
+    itself. Each pass asks a secondary model for a surface and checks it: the
+    component list isn't empty, one component has id `root`, ids are unique,
+    and `data` is a plain object. With `recovery` set, an invalid pass is
+    retried up to `maxAttempts`, and a thrown model call counts as a failed
+    attempt unless the parent run was aborted. When every attempt fails, the
+    tool returns `{ code: "a2ui_recovery_exhausted", error, attempts }`, the
+    shape the A2UI middleware turns into the failure card. Without
+    `recovery`, the tool makes a single pass, which is what the
+    dynamic-schema demo uses.
+
+    <DemoCode file="src/lib/factory/a2ui-factory.ts" region="a2ui-recovery-tool" />
+  </Step>
+
+  <Step>
+    ### Build the recovery agent
+
+    `createA2UIRecoveryAgent()` passes `{ maxAttempts: 3 }` to the shared
+    factory. The agent runs in-process inside the Next.js route, so there is
+    no separate agent server to register. With `recovery` set, the factory
+    also adds a prompt instruction to call `generate_a2ui` exactly once per
+    request, because retrying already happens inside the tool.
+
+    <DemoCode file="src/lib/factory/a2ui-factory.ts" region="a2ui-recovery-agent" />
+
+    `forwardingFetch` copies the request's `x-*` headers onto the OpenAI calls
+    so the Showcase's recorded-response tests can match, and
+    `DEMO_AGENT_LOOP_STRATEGY` raises TanStack AI's default five-iteration
+    loop cap. Neither is needed for recovery.
+  </Step>
+
+  <Step>
+    ### Serve it without a second A2UI tool
+
+    The demo has its own runtime endpoint, `/api/copilotkit-a2ui-recovery`.
+    The page passes a catalog to the provider, which would otherwise turn
+    tool injection on, so `injectA2UITool: false` keeps the runtime from
+    adding a second `generate_a2ui` next to the agent's. `defaultCatalogId`
+    names the catalog the page registers, which this demo shares with the
+    dynamic-schema demo.
+
+    <DemoCode
+      file="src/app/api/copilotkit-a2ui-recovery/[[...slug]]/route.ts"
+      region="a2ui-recovery-runtime"
+    />
+  </Step>
+</Steps>

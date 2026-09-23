@@ -71,7 +71,7 @@ features:
   - tool-rendering-reasoning-chain
   - gen-ui-interrupt
   - interrupt-headless
-a2ui_pattern: llm-driven
+a2ui_pattern: schema-loading
 interrupt_pattern: native
 agent_config_pattern: shared-state
 auth_pattern: runtime-onrequest
@@ -338,11 +338,10 @@ demos:
     route: /demos/a2ui-fixed-schema
     animated_preview_url:
     highlight:
-      - src/agents/a2ui_generate.py
-      # Shared (symlinked) helper the tool above calls to build the
-      # `a2ui_operations` envelope — bundled so the guide shows it too.
-      - tools/generate_a2ui.py
-      - src/agents/agent.py
+      # Dedicated agent mounted at /a2ui-fixed-schema: its `display_flight`
+      # tool returns the pre-authored surface from the JSON schema below.
+      - src/agents/a2ui_fixed.py
+      - src/agents/a2ui_schemas/flight_schema.json
       - src/app/demos/a2ui-fixed-schema/page.tsx
       - src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts

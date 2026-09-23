@@ -93,6 +93,7 @@ app.add_middleware(CvdiagBackendMiddleware)
 
 
 # Mount one ADKAgent per registered agent at /<agent_name>.
+# @region[adk-agent-endpoints]
 for agent_name, spec in AGENT_REGISTRY.items():
     middleware = ADKAgent(
         adk_agent=spec.llm_agent,
@@ -104,6 +105,7 @@ for agent_name, spec in AGENT_REGISTRY.items():
         streaming_function_call_arguments=spec.streaming_function_call_arguments,
     )
     add_adk_fastapi_endpoint(app, middleware, path=f"/{agent_name}")
+# @endregion[adk-agent-endpoints]
 
 
 def main():

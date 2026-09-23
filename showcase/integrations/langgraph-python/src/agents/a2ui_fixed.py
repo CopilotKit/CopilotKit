@@ -86,6 +86,7 @@ def display_flight(origin: str, destination: str, airline: str, price: str) -> s
     # @endregion[backend-render-operations]
 
 
+# @region[a2ui-fixed-schema-agent]
 graph = create_agent(
     model=ChatOpenAI(model="gpt-5.4"),
     tools=[display_flight],
@@ -99,3 +100,4 @@ graph = create_agent(
         "returns, reply with one short confirmation sentence and stop."
     ),
 )
+# @endregion[a2ui-fixed-schema-agent]

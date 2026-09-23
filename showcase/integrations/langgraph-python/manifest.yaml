@@ -416,7 +416,7 @@ demos:
       - src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit-a2ui-fixed-schema/route.ts
   - id: a2ui-recovery
     name: A2UI Error Recovery
     description: Makes the A2UI validate->retry recovery loop visible — an invalid first render heals to a valid one, and an always-invalid render shows a graceful recovery-exhausted fallback. Backend-owned via get_a2ui_tools (injectA2UITool=false); reuses the declarative-gen-ui catalog.

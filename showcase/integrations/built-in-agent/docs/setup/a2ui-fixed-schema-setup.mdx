@@ -1,0 +1,49 @@
+<Steps>
+  <Step>
+    ### Pass the tool to the agent's model call
+
+    The Built-in Agent runs in-process inside the Next.js route, so there is no
+    separate agent server to register. In factory mode (`type: "tanstack"`)
+    the factory owns the `chat()` call, so it passes `displayFlightTool` in
+    `tools` itself. The system prompt tells the model when to call it.
+
+    <DemoCode
+      file="src/lib/factory/a2ui-fixed-schema-factory.ts"
+      region="a2ui-fixed-schema-agent"
+    />
+
+    Two lines are Showcase plumbing. `forwardingFetch` copies the request's
+    `x-*` headers onto the OpenAI call so recorded-response tests can match.
+    `DEMO_AGENT_LOOP_STRATEGY` is `maxIterations(25)`, which raises TanStack
+    AI's default five-iteration loop cap. Neither is needed for the tool to
+    render.
+  </Step>
+
+  <Step>
+    ### Serve it from a runtime that does not inject the A2UI tool
+
+    The cell has its own runtime endpoint, `/api/copilotkit-a2ui-fixed-schema`.
+    With `injectA2UITool: false` the A2UI middleware still runs, so it finds
+    the `a2ui_operations` container in the `display_flight` result and paints
+    the surface. It just doesn't add a `generate_a2ui` tool next to the
+    agent's own.
+
+    <DemoCode
+      file="src/app/api/copilotkit-a2ui-fixed-schema/[[...slug]]/route.ts"
+      region="a2ui-fixed-schema-runtime"
+    />
+
+    The demo page points the provider at this endpoint with
+    `runtimeUrl="/api/copilotkit-a2ui-fixed-schema"` and
+    `agent="a2ui-fixed-schema"`, and passes the flight catalog as
+    `a2ui={{ catalog }}`.
+  </Step>
+
+  <Step>
+    ### Try it
+
+    Ask "Find me a flight from SFO to JFK on United for $289." The agent calls
+    `display_flight`, and the flight card renders in the chat with those four
+    values.
+  </Step>
+</Steps>
