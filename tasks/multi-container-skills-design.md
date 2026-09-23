@@ -23,7 +23,7 @@ Expose per-container status in new mode without changing old status fields or be
 ## Surfaces
 
 TypeScript common registry, BuiltInAgent, Mastra, LangGraph TypeScript, Python common delivery core with LangGraph and ADK adapters, and .NET Agent Framework.
-The CLI accepts repeated existing container flags. One container retains the old flat output. Several containers use `<output>/<container-id>/` and publish the whole destination atomically only after every bundle validates.
+The CLI accepts several positional container IDs. One container retains the old flat output. Several containers use `<output>/<container-id>/` and publish the whole destination atomically only after every bundle validates.
 Update package READMEs, product docs, CLI help and onboarding references where applicable. No server endpoint or database changes.
 
 ## Validation

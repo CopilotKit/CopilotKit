@@ -8,7 +8,7 @@ doc_type: explanation
 
 ## Overview
 
-Skill delivery makes one Learning container's published skills available to an agent without another CLI download or process restart. A framework adapter adds an alphabetical catalog and two tools.
+Skill delivery makes published skills from one or more Learning containers available to an agent without another CLI download or process restart. A framework adapter adds an alphabetical catalog and two tools.
 
 <Image
   src="/images/cloud-hosted/cloud-hosted-skill-delivery.png"
@@ -36,7 +36,7 @@ Complete these steps before you run an example:
 2. Publish a Skill and enable **Skill delivery** in the container's **Skills** tab.
 3. Configure the agent with your project key and Learning container ID.
 
-You can set the container and revision **in code or with environment variables**. The examples below show code parameters. To use environment variables instead, omit the corresponding parameters from the code. You can mix both approaches: an explicit code value overrides its environment variable.
+For one container, you can set the container and revision **in code or with environment variables**. The examples below show code parameters. To use environment variables instead, omit the corresponding parameters from the code. You can mix both approaches: an explicit code value overrides its environment variable.
 
 For example, this environment configuration supplies the project key and container:
 
@@ -363,11 +363,102 @@ var response = await agent.RunAsync("Help with a refund.");
 
 The adapter targets .NET 9 and Agent Framework `>=1.0.0,<2.0.0`. `AddCopilotKitIntelligenceSkills` also registers a keyed provider and native agent through dependency injection. Use this extension or `CreateAgent` for complete invocation checks. Background responses and continuation tokens are unsupported because the framework bypasses context providers for those calls.
 
+## Configure several containers
+
+Use `containers` to combine Skills from several Learning containers in the same project.
+Each entry has an `id` and an optional `revision` pin.
+An entry without a revision follows that container's latest published Skills.
+
+BuiltInAgent accepts the list inside `learnedSkills`:
+
+```typescript
+const agent = new BuiltInAgent({
+  model: "openai/gpt-4o",
+  learnedSkills: {
+    containers: [
+      { id: "support", revision: "revision-123" },
+      { id: "company-wide" },
+    ],
+  },
+});
+```
+
+Mastra and LangGraph TypeScript accept the same list in `SkillRegistry`:
+
+```typescript
+const registry = new SkillRegistry({
+  containers: [
+    { id: "support", revision: "revision-123" },
+    { id: "company-wide" },
+  ],
+});
+await registry.initialize();
+```
+
+LangGraph Python accepts the list in its middleware factory:
+
+```python
+skills = create_skill_registry_middleware(
+    containers=[
+        {"id": "support", "revision": "revision-123"},
+        {"id": "company-wide"},
+    ],
+)
+```
+
+Google ADK accepts the same Python list in `SkillRegistry(containers=[...])`.
+For Microsoft Agent Framework, use typed container entries:
+
+```csharp
+var options = new SkillRegistryOptions
+{
+    Containers = new[]
+    {
+        new SkillContainerSource { Id = "support", Revision = "revision-123" },
+        new SkillContainerSource { Id = "company-wide" },
+    },
+};
+```
+
+The list must contain at least one entry, with unique, nonempty IDs.
+Credentials, timeouts, and the freshness window apply to every entry.
+All selected containers must belong to the project that the client key identifies.
+
+Do not combine `containers` with the old `containerId` or top-level `revision` fields.
+The SDK rejects this combination, including the corresponding Python and .NET fields.
+TypeScript also rejects the combination at compile time.
+
+An explicit `containers` list ignores `CPK_INTELLIGENCE_LEARNING_CONTAINER_ID` and `CPK_INTELLIGENCE_SKILLS_REVISION`.
+Connection environment variables still apply.
+The [single-container interface](#configure-one-container) and its environment defaults remain supported unchanged.
+
+### Skill names and failures
+
+The new interface prefixes every Skill name with its container ID, even for a list with one entry.
+For example, `support/refund-policy` and `company-wide/refund-policy` remain separate Skills.
+The SDK URI-encodes the container ID in this prefix.
+Tool calls use the exact name from the catalog.
+The old interface keeps its original, unprefixed names.
+
+Each container keeps its own revision, cache, and refresh state.
+An invocation captures the complete combined catalog before model work starts.
+It keeps those Skills for all its tool calls, even after a later refresh.
+
+If any container cannot load its first snapshot, the invocation fails.
+A warm container can use its cached Skills after a transient failure.
+A confirmed access denial or revoked revision blocks the whole invocation.
+The SDK never silently supplies only part of the selected catalog.
+
+For the new interface, each entry in `status.containers` reports its container's revision and refresh status.
+.NET exposes the entries through `MultiSkillRegistryStatus.Containers`.
+The aggregate status has no server revision to pin.
+Its mode is `pinned` only when every container has a revision pin.
+
 ## Configure one container
 
-Each registry or middleware instance reads one Learning container. Set `containerId` in TypeScript, `container_id` in Python, or `ContainerId` in .NET, as shown above. BuiltInAgent uses `learnedSkills.containerId`.
+The original interface selects one Learning container. Set `containerId` in TypeScript, `container_id` in Python, or `ContainerId` in .NET, as shown above. BuiltInAgent uses `learnedSkills.containerId`.
 
-These fields accept one stable container ID, not a list. Use separate registries for agents that read different containers. Several agents can share one registry when they use the same container.
+The singular fields accept one stable container ID. To combine containers, use the separate `containers` interface above. Several agents can share a registry.
 
 An injected canonical Intelligence client supplies its existing project key, endpoint, and HTTP lifecycle. Your application retains ownership of that client. The adapter does not construct a second authenticated transport.
 
@@ -421,13 +512,13 @@ For framework adapters, this check requires automatic updates. Remove `revision`
 4. Publish a new revision, wait past the freshness window, and start another invocation.
 5. Make sure that the loaded revision in the adapter's status changed to the newly published revision.
 
-Read `registry.status.revision` in TypeScript, `skills.status.revision` for LangGraph Python, `registry.status.revision` for ADK, or `skills.Status.Revision` in .NET. BuiltInAgent does not expose a public registry status; inspect the loaded Skill's content in the tool result for your published change. A valid empty container can initialize successfully, so initialization alone does not prove that a Skill exists.
+For the original single-container interface, read `registry.status.revision` in TypeScript, `skills.status.revision` for LangGraph Python, `registry.status.revision` for ADK, or `skills.Status.Revision` in .NET. BuiltInAgent does not expose a public registry status; inspect the loaded Skill's content in the tool result for your published change. A valid empty container can initialize successfully, so initialization alone does not prove that a Skill exists.
 
 The model chooses whether to call the skill tools. A run without a skill tool call does not prove that delivery failed. Inspect the catalog and registry status too.
 
 ## Refresh and invocation behavior
 
-Before an invocation, the registry checks whether its last successful check falls within the freshness window. When a check is due, that invocation waits for it. Concurrent invocations share one request, with no internal retry. An unchanged response resets the freshness window without transferring the ZIP again.
+Before an invocation, the registry evaluates the freshness window for each selected container. When a check is due, that invocation waits for it. Concurrent invocations share one request per container, with no internal retry. An unchanged response resets the freshness window without transferring the ZIP again.
 
 Each invocation keeps one complete snapshot for its model and tool calls. A later refresh affects later invocations. Revision identifiers are opaque: pass the exact string without parsing, incrementing, or comparing it numerically.
 
@@ -459,7 +550,18 @@ The read-only status contains `initialized`, `revision`, `mode`, `lastCheckedAt`
 
 Remove the old manual Learning-directory wiring when you enable an adapter for the same container. Keep unrelated static or hand-authored skills as needed. The adapter does not scan, change, or delete downloaded files.
 
-`copilotkit skills download` remains supported for inspection, offline use, and unsupported frameworks. See the [Automatic Learning guide](/learning) for the manual workflow.
+`copilotkit skills download` remains supported for inspection, offline use, and unsupported frameworks.
+Pass several container IDs to download them together:
+
+```bash
+copilotkit skills download support company-wide --output ./skills
+```
+
+The command writes each container under its own directory, such as `./skills/support/refund-policy/SKILL.md`.
+It creates the destination only after every bundle passes validation.
+The destination must not already exist.
+A single container keeps the original flat output, such as `./skills/refund-policy/SKILL.md`.
+See the [Automatic Learning guide](/learning) for the manual workflow.
 
 ## Deployment requirements
 
