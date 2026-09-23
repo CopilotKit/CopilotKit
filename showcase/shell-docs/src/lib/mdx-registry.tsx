@@ -48,7 +48,8 @@ import { WebMCPSetupPrompt } from "@/components/webmcp-setup-prompt";
 import { DemoSource } from "@/components/demo-source";
 import { AngularFeatureCatalog } from "@/components/angular-feature-catalog";
 import { AngularSnippet } from "@/components/angular-snippet";
-import { UnsupportedBox } from "@/components/snippet";
+import { NoShowcaseDemoBox, UnsupportedBox } from "@/components/snippet";
+import { hasShowcaseDemo } from "@/lib/showcase-demo-availability";
 import { getRegistry } from "@/lib/registry";
 import { resolveInlineDemoBackendUrl } from "@/lib/inline-demo-url";
 import { PartialLoader } from "@/lib/mdx-registry-loader";
@@ -406,6 +407,17 @@ export const docsComponents = {
         <UnsupportedBox
           integrationName={catalogEntry.integration_name ?? int.name}
           featureName={catalogEntry.feature_name ?? demo}
+        />
+      );
+    }
+    // No routed demo in the manifest (the catalog's `unshipped` cells, and
+    // command-only ones): there is no /demos/<demo> page to iframe and no
+    // source for the Code tab. Say so neutrally; that is not "unsupported".
+    // Raw Markdown emits the same notice (llm-text.ts `expandInlineDemos`).
+    if (!hasShowcaseDemo(int, demo)) {
+      return (
+        <NoShowcaseDemoBox
+          integrationName={catalogEntry?.integration_name ?? int.name}
         />
       );
     }

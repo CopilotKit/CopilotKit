@@ -24,7 +24,11 @@ import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { HighlightedDynamicCodeBlock } from "@/components/highlighted-dynamic-codeblock";
-import { Snippet, UnsupportedBox } from "@/components/snippet";
+import {
+  NoShowcaseDemoBox,
+  Snippet,
+  UnsupportedBox,
+} from "@/components/snippet";
 import demoContent from "@/data/demo-content.json";
 import setupContentData from "@/data/setup-content.json";
 import { docCandidateOrder, inlineSnippets, loadDoc } from "./docs-render";
@@ -39,6 +43,7 @@ import {
 import type { Integration } from "./registry";
 import { resolveBundledSetupConcept } from "./setup-content";
 import type { SetupContentBundle } from "./setup-content";
+import { NO_SHOWCASE_DEMO_MARKDOWN } from "./showcase-demo-availability";
 import { filterFrameworkScopedBlocks, filterFrontendScopedBlocks } from "./toc";
 
 /** The selected-five React audit scope. This is a scope, not a docs mapping. */
@@ -235,6 +240,12 @@ export type CarrierHtml =
   | { status: "setup"; source: string }
   /** The catalog marks the pair unsupported ("Not supported on ..."). */
   | { status: "unsupported" }
+  /**
+   * `<InlineDemo>` shows the neutral "No Showcase demo for … yet" notice:
+   * the framework ships no routed demo for the cell. Fine for a sibling
+   * cell; never coverage for the binding's own cell.
+   */
+  | { status: "no-demo" }
   /** A warning box, an empty embed, or nothing at all. */
   | { status: "missing"; reason: string };
 
@@ -328,6 +339,7 @@ function htmlInlineDemo(integration: string, demo: string | null): CarrierHtml {
     };
   }
   if (element.type === UnsupportedBox) return { status: "unsupported" };
+  if (element.type === NoShowcaseDemoBox) return { status: "no-demo" };
   // The embed's Code tab is <DemoSource>, which shows "Missing demo source"
   // when the bundle has no record, or no files, for this pair.
   if (!bundledDemos[`${integration}::${demo}`]?.files?.length) {
@@ -570,6 +582,11 @@ export function auditRenderedGuide(
     if (html.status === "missing") {
       failures.push(`HTML ${carrier.label}: ${html.reason}`);
     }
+    if (html.status === "no-demo" && carrier.cell === binding.cell) {
+      failures.push(
+        `HTML ${carrier.label} says there is no Showcase demo for its own cell ${pair}`,
+      );
+    }
     if (
       html.status === "unsupported" &&
       (carrier.cell === null || !declaredUnsupported.has(carrier.cell))
@@ -626,6 +643,16 @@ export function auditRenderedGuide(
   if (markdownNotices !== htmlNotices) {
     failures.push(
       `Markdown shows ${markdownNotices} "Not supported" notice(s); HTML shows ${htmlNotices}`,
+    );
+  }
+  const htmlNoDemo = guide.carriers.filter(
+    (carrier) => carrier.html.status === "no-demo",
+  ).length;
+  const markdownNoDemo = (guide.markdown.match(NO_SHOWCASE_DEMO_MARKDOWN) ?? [])
+    .length;
+  if (markdownNoDemo !== htmlNoDemo) {
+    failures.push(
+      `Markdown shows ${markdownNoDemo} "No Showcase demo" notice(s); HTML shows ${htmlNoDemo}`,
     );
   }
 

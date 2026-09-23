@@ -76,6 +76,10 @@ import {
 import type { FrontendId } from "./frontend-options";
 import { resolveDocsHref } from "./docs-link-rewrite";
 import { resolveBundledSetupConcept } from "./setup-content";
+import {
+  hasShowcaseDemo,
+  noShowcaseDemoMarkdown,
+} from "./showcase-demo-availability";
 import type { SetupContentBundle } from "./setup-content";
 import { RICH_THREADS_SETUP_PROMPT } from "./rich-threads-setup-prompt";
 import { MEMORY_SETUP_PROMPT } from "./memory-setup-prompt";
@@ -836,6 +840,19 @@ function expandInlineDemos(
 
       const unsupported = unsupportedFeatureNotice(demoFramework, demo);
       if (unsupported) return `\n${unsupported}\n`;
+
+      // The framework ships no routed demo for this cell, so the HTML page
+      // shows the neutral "No Showcase demo" notice (mdx-registry.tsx
+      // InlineDemo). Emit the same notice.
+      const integration = getIntegrations().find(
+        (entry) => entry.slug === demoFramework,
+      );
+      if (integration?.deployed && !hasShowcaseDemo(integration, demo)) {
+        const name =
+          catalogByKey.get(`${demoFramework}::${demo}`)?.integration_name ??
+          integration.name;
+        return `\n${noShowcaseDemoMarkdown(name)}\n`;
+      }
 
       // The HTML embed has no source for this pair (its Code tab shows
       // "Missing demo source"). Say so instead of implying a runnable demo.
