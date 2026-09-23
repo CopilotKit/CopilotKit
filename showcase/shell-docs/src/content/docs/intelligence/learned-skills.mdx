@@ -420,7 +420,7 @@ var options = new SkillRegistryOptions
 };
 ```
 
-The list must contain at least one entry, with unique, nonempty IDs.
+The list must contain 1–50 entries, with unique, nonempty IDs.
 Credentials, timeouts, and the freshness window apply to every entry.
 All selected containers must belong to the project that the client key identifies.
 
@@ -431,6 +431,19 @@ TypeScript also rejects the combination at compile time.
 An explicit `containers` list ignores `CPK_INTELLIGENCE_LEARNING_CONTAINER_ID` and `CPK_INTELLIGENCE_SKILLS_REVISION`.
 Connection environment variables still apply.
 The [single-container interface](#configure-one-container) and its environment defaults remain supported unchanged.
+
+### One request for several containers
+
+The SDK sends one batch request for all containers that need a refresh.
+Each entry includes its container ID, optional revision pin, and cached ETag.
+The response carries a snapshot, an unchanged result, or an error for each container.
+Fresh cached containers need no request.
+An explicit `containers` list uses this endpoint even when it contains one entry.
+
+The new interface requires an Intelligence server that supports `POST /api/v1/learning/skills/batch`.
+For self-hosted Intelligence, update the server before you enable `containers`.
+The SDK does not fall back to separate requests on older servers.
+The original single-container interface keeps its existing endpoint.
 
 ### Skill names and failures
 
@@ -518,7 +531,7 @@ The model chooses whether to call the skill tools. A run without a skill tool ca
 
 ## Refresh and invocation behavior
 
-Before an invocation, the registry evaluates the freshness window for each selected container. When a check is due, that invocation waits for it. Concurrent invocations share one request per container, with no internal retry. An unchanged response resets the freshness window without transferring the ZIP again.
+Before an invocation, the registry evaluates the freshness window for each selected container. When a check is due, that invocation waits for it. With `containers`, concurrent invocations share one batch request for the containers due for refresh, with no internal retry. An unchanged response resets the freshness window without transferring the ZIP again.
 
 Each invocation keeps one complete snapshot for its model and tool calls. A later refresh affects later invocations. Revision identifiers are opaque: pass the exact string without parsing, incrementing, or comparing it numerically.
 

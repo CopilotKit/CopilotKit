@@ -12,9 +12,9 @@ Clients strictly validate response IDs, uniqueness, completeness, metadata and b
 
 ## Tasks
 
-- [ ] Server: failing route/auth tests, bounded parallel reads, batch response, errors/docs, focused test/lint/typecheck/build.
-- [ ] TypeScript: failing transport and registry request-count tests, batch client and exports, registry batching, native adapter fixtures, focused tests/build/types.
-- [ ] Python: canonical batch client plus registry, request-count/cache/error tests, native adapters and distribution checks.
-- [ ] .NET: canonical batch client plus registry, request-count/cache/error tests, build and standalone package tests.
-- [ ] CLI: add product batch route and API, preserve single behavior and atomic directory installation, test request count and failures.
-- [ ] Docs and review: document wire behavior and rollout; specification then quality review; final validation; commits and update existing draft PRs.
+- [x] Server: failing route/auth tests, bounded parallel reads, batch response, errors/docs, focused test/lint/typecheck/build.
+- [x] TypeScript: failing transport and registry request-count tests, batch client and exports, registry batching, native adapter fixtures, focused tests/build/types.
+- [x] Python: canonical batch client plus registry, request-count/cache/error tests, native adapters and distribution checks.
+- [x] .NET: canonical batch client plus registry, request-count/cache/error tests, build and standalone package tests.
+- [x] CLI: add product batch route and API, preserve single behavior and atomic directory installation, test request count and failures.
+- [x] Docs and review: document wire behavior and rollout; specification then quality review; final validation; commits and update existing draft PRs.
