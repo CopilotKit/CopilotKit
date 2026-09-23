@@ -141,6 +141,7 @@ test("the MDX registry and page view wire IntelligenceOverview and its chrome", 
 test("the docs home has one onboarding offer without the redundant Intelligence callout", () => {
   const home = read("app/[[...slug]]/page.tsx");
   expect(home.match(/<HeroOnboardingPromptButton\b/g)).toHaveLength(1);
+  expect(home.match(/<PromptFolderHint\b/g)).toHaveLength(1);
   expect(home).not.toContain("IntelligenceOnboardingPrompt");
   expect(home).not.toContain("docs_landing_learning");
 });
