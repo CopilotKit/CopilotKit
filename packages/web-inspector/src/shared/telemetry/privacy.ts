@@ -4,10 +4,22 @@ import {
   isTelemetryOptedOut,
   markTelemetryDisclosureShown,
 } from "../persistence/telemetry.js";
+import type {
+  InspectorLearningCountBucket,
+  InspectorLearningDurationBucket,
+} from "./learning-buckets.js";
 import type { RuntimeUrlType } from "./runtime-url.js";
 import { TELEMETRY_EVENTS, track } from "./transport.js";
 
 export { getRuntimeUrlType } from "./runtime-url.js";
+export {
+  learningCountBucket,
+  learningDurationBucket,
+} from "./learning-buckets.js";
+export type {
+  InspectorLearningCountBucket,
+  InspectorLearningDurationBucket,
+} from "./learning-buckets.js";
 
 const PACKAGE_NAME = "@copilotkit/web-inspector";
 
@@ -76,31 +88,45 @@ export function trackWhatsNewSignalViewed(props: {
 
 export type HudFeature = "threads" | "learning";
 
+/**
+ * What opened the HUD presentation. `intro` is the automatic preview that
+ * plays after every mount, `user` is a pointer or keyboard open. A user who
+ * takes over a playing intro keeps `intro`, because the presentation itself
+ * was not requested.
+ */
+export type HudTrigger = "intro" | "user";
+
 /** One impression per rendered HUD presentation in a visible tab. */
-export function trackHudViewed(): void {
-  track(TELEMETRY_EVENTS.hudViewed);
+export function trackHudViewed(props: { trigger: HudTrigger }): void {
+  track(TELEMETRY_EVENTS.hudViewed, props);
 }
 
 /** The timestamp identifies the served announcement without sending its copy. */
-export function trackHudNotificationViewed(props: { banner_id: string }): void {
+export function trackHudNotificationViewed(props: {
+  banner_id: string;
+  trigger: HudTrigger;
+}): void {
   track(TELEMETRY_EVENTS.hudNotificationViewed, props);
 }
 
 export function trackHudNotificationClicked(props: {
   banner_id: string;
   action: "open" | "dismiss";
+  trigger: HudTrigger;
 }): void {
   track(TELEMETRY_EVENTS.hudNotificationClicked, props);
 }
 
 export function trackHudFeatureToggleViewed(props: {
   feature: HudFeature;
+  trigger: HudTrigger;
 }): void {
   track(TELEMETRY_EVENTS.hudFeatureToggleViewed, props);
 }
 
 export function trackHudFeatureToggleClicked(props: {
   feature: HudFeature;
+  trigger: HudTrigger;
 }): void {
   track(TELEMETRY_EVENTS.hudFeatureToggleClicked, props);
 }
@@ -108,16 +134,17 @@ export function trackHudFeatureToggleClicked(props: {
 export function trackHudFeatureClicked(props: {
   feature: HudFeature;
   control: "row" | "action" | "learn_more";
+  trigger: HudTrigger;
 }): void {
   track(TELEMETRY_EVENTS.hudFeatureClicked, props);
 }
 
-export function trackHudHideViewed(): void {
-  track(TELEMETRY_EVENTS.hudHideViewed);
+export function trackHudHideViewed(props: { trigger: HudTrigger }): void {
+  track(TELEMETRY_EVENTS.hudHideViewed, props);
 }
 
-export function trackHudHideClicked(): void {
-  track(TELEMETRY_EVENTS.hudHideClicked);
+export function trackHudHideClicked(props: { trigger: HudTrigger }): void {
+  track(TELEMETRY_EVENTS.hudHideClicked, props);
 }
 
 /**
@@ -499,37 +526,6 @@ export type InspectorLearningViewState =
   | "empty"
   | "setup"
   | "landing";
-export type InspectorLearningCountBucket =
-  | "zero"
-  | "one"
-  | "two_to_five"
-  | "six_to_twenty"
-  | "twenty_one_plus";
-export type InspectorLearningDurationBucket =
-  | "under_250ms"
-  | "250ms_to_1s"
-  | "1s_to_3s"
-  | "3s_plus";
-
-export function learningCountBucket(
-  value: number,
-): InspectorLearningCountBucket {
-  if (value <= 0) return "zero";
-  if (value === 1) return "one";
-  if (value <= 5) return "two_to_five";
-  if (value <= 20) return "six_to_twenty";
-  return "twenty_one_plus";
-}
-
-export function learningDurationBucket(
-  durationMs: number,
-): InspectorLearningDurationBucket {
-  if (durationMs < 250) return "under_250ms";
-  if (durationMs < 1_000) return "250ms_to_1s";
-  if (durationMs < 3_000) return "1s_to_3s";
-  return "3s_plus";
-}
-
 export function trackLearningPaneViewed(props: {
   state: InspectorLearningViewState;
 }): void {

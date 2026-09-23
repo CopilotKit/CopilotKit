@@ -393,13 +393,23 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(1);
     expect(
       eventsNamed("oss.inspector.hud_notification_viewed")[0]?.properties,
-    ).toMatchObject({ banner_id: timestamp });
+    ).toMatchObject({ banner_id: timestamp, trigger: "user" });
     expect(
       eventsNamed("oss.inspector.hud_feature_toggle_viewed").map(
         (event) => event.properties.feature,
       ),
     ).toEqual(["learning"]);
     expect(eventsNamed("oss.inspector.hud_hide_viewed")).toHaveLength(1);
+    expect(
+      [
+        "hud_viewed",
+        "hud_notification_viewed",
+        "hud_feature_toggle_viewed",
+        "hud_hide_viewed",
+      ].map(
+        (name) => eventsNamed(`oss.inspector.${name}`)[0]?.properties.trigger,
+      ),
+    ).toEqual(["user", "user", "user", "user"]);
     inspector.requestUpdate();
     await inspector.updateComplete;
     expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(1);
@@ -418,6 +428,60 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(2);
   });
 
+  it("labels the automatic page-load preview as an intro, including clicks made during it", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const { inspector } = mount();
+      await inspector.updateComplete;
+      expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(0);
+
+      await vi.advanceTimersByTimeAsync(500);
+      await inspector.updateComplete;
+      expect(
+        eventsNamed("oss.inspector.hud_viewed").map(
+          (event) => event.properties.trigger,
+        ),
+      ).toEqual(["intro"]);
+      expect(
+        eventsNamed("oss.inspector.hud_hide_viewed")[0]?.properties,
+      ).toMatchObject({ trigger: "intro" });
+
+      // Taking over the preview keeps the presentation it started as.
+      await showHud(inspector);
+      inspector.shadowRoot
+        ?.querySelector<HTMLButtonElement>('[data-cpk-hud-toggle="learning"]')
+        ?.click();
+      expect(
+        eventsNamed("oss.inspector.hud_feature_toggle_clicked")[0]?.properties,
+      ).toMatchObject({ feature: "learning", trigger: "intro" });
+      expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("labels a hover after the intro has ended as a user presentation", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const { inspector } = mount();
+      await inspector.updateComplete;
+      await vi.advanceTimersByTimeAsync(500 + 3400);
+      await inspector.updateComplete;
+      expect(
+        inspector.shadowRoot?.querySelector("[data-cpk-launcher-hud]"),
+      ).toBeNull();
+
+      await showHud(inspector);
+      expect(
+        eventsNamed("oss.inspector.hud_viewed").map(
+          (event) => event.properties.trigger,
+        ),
+      ).toEqual(["intro", "user"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("records notification dismissals and feature toggle navigation", async () => {
     const { inspector, internals } = mount();
     await internals.fetchAnnouncement();
@@ -428,14 +492,18 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     await inspector.updateComplete;
     expect(
       eventsNamed("oss.inspector.hud_notification_clicked")[0]?.properties,
-    ).toMatchObject({ banner_id: timestamp, action: "dismiss" });
+    ).toMatchObject({
+      banner_id: timestamp,
+      action: "dismiss",
+      trigger: "user",
+    });
 
     inspector.shadowRoot
       ?.querySelector<HTMLButtonElement>('[data-cpk-hud-toggle="learning"]')
       ?.click();
     expect(
       eventsNamed("oss.inspector.hud_feature_toggle_clicked")[0]?.properties,
-    ).toMatchObject({ feature: "learning" });
+    ).toMatchObject({ feature: "learning", trigger: "user" });
     expect(eventsNamed("oss.inspector.hud_feature_clicked")).toHaveLength(0);
   });
 
@@ -448,7 +516,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
       ?.click();
     expect(
       eventsNamed("oss.inspector.hud_notification_clicked")[0]?.properties,
-    ).toMatchObject({ banner_id: timestamp, action: "open" });
+    ).toMatchObject({ banner_id: timestamp, action: "open", trigger: "user" });
   });
 
   it("records feature row actions", async () => {
@@ -459,7 +527,11 @@ describe("WebInspectorElement open + What's new telemetry", () => {
       ?.click();
     expect(
       eventsNamed("oss.inspector.hud_feature_clicked").at(-1)?.properties,
-    ).toMatchObject({ feature: "learning", control: "learn_more" });
+    ).toMatchObject({
+      feature: "learning",
+      control: "learn_more",
+      trigger: "user",
+    });
   });
 
   it("records the hide action", async () => {
@@ -468,7 +540,11 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     inspector.shadowRoot
       ?.querySelector<HTMLButtonElement>('[data-cpk-dismiss-inspector="day"]')
       ?.click();
-    expect(eventsNamed("oss.inspector.hud_hide_clicked")).toHaveLength(1);
+    expect(
+      eventsNamed("oss.inspector.hud_hide_clicked").map(
+        (event) => event.properties.trigger,
+      ),
+    ).toEqual(["user"]);
   });
 
   it("holds HUD telemetry until the handshake and drops it on runtime opt-out", async () => {

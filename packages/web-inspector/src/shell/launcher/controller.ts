@@ -17,6 +17,7 @@ import {
   trackHudViewed,
 } from "../../shared/telemetry/privacy.js";
 import type {
+  HudTrigger,
   InspectorEventErrorSource,
   InspectorWiringErrorSource,
 } from "../../shared/telemetry/privacy.js";
@@ -80,6 +81,8 @@ export type LauncherControllerHost = Readonly<{
 export class LauncherController {
   readonly state = createLauncherState();
   private viewedHudElement: HTMLElement | null = null;
+  // Set when a presentation starts. Taking over a playing intro keeps "intro".
+  private hudTrigger: HudTrigger = "user";
   private readonly viewedHudParts = new Set<string>();
   // The runtime's telemetry opt-out is known only after /info resolves.
   private pendingHudTelemetry: Array<() => void> = [];
@@ -510,6 +513,7 @@ export class LauncherController {
       this.resolveHudSide();
       this.state.hudIntro = true;
       this.state.hudOpen = true;
+      this.hudTrigger = "intro";
       this.host.requestUpdate();
       this.state.hudIntroEndTimer = setTimeout(() => {
         this.state.hudIntroEndTimer = null;
@@ -577,6 +581,7 @@ export class LauncherController {
     }
     if (this.state.hudOpen) return;
     this.state.hudOpen = true;
+    this.hudTrigger = "user";
     this.host.requestUpdate();
   }
 
@@ -632,22 +637,23 @@ export class LauncherController {
       this.viewedHudParts.add(key);
       this.queueHudTelemetry(send);
     };
-    once("hud", trackHudViewed);
+    const trigger = this.hudTrigger;
+    once("hud", () => trackHudViewed({ trigger }));
     const banner_id = this.host.announcement()?.timestamp;
     if (hud.querySelector("[data-cpk-hud-news]") && banner_id) {
       once(`notification:${banner_id}`, () =>
-        trackHudNotificationViewed({ banner_id }),
+        trackHudNotificationViewed({ banner_id, trigger }),
       );
     }
     for (const feature of ["threads", "learning"] as const) {
       if (hud.querySelector(`[data-cpk-hud-toggle="${feature}"]`)) {
         once(`toggle:${feature}`, () =>
-          trackHudFeatureToggleViewed({ feature }),
+          trackHudFeatureToggleViewed({ feature, trigger }),
         );
       }
     }
     if (hud.querySelector('[data-cpk-dismiss-inspector="day"]')) {
-      once("hide", trackHudHideViewed);
+      once("hide", () => trackHudHideViewed({ trigger }));
     }
   }
 
@@ -718,10 +724,11 @@ export class LauncherController {
   ): void => {
     event.preventDefault();
     event.stopPropagation();
+    const trigger = this.hudTrigger;
     this.queueHudTelemetry(() =>
       control === "toggle"
-        ? trackHudFeatureToggleClicked({ feature: row })
-        : trackHudFeatureClicked({ feature: row, control }),
+        ? trackHudFeatureToggleClicked({ feature: row, trigger })
+        : trackHudFeatureClicked({ feature: row, control, trigger }),
     );
     this.state.hudLandingMenu = row === "threads" ? "threads" : "memories";
     this.closeHud();
@@ -745,8 +752,9 @@ export class LauncherController {
   private trackHudNotificationClick(action: "open" | "dismiss"): void {
     const banner_id = this.host.announcement()?.timestamp;
     if (!banner_id) return;
+    const trigger = this.hudTrigger;
     this.queueHudTelemetry(() =>
-      trackHudNotificationClicked({ banner_id, action }),
+      trackHudNotificationClicked({ banner_id, action, trigger }),
     );
   }
 
@@ -774,7 +782,8 @@ export class LauncherController {
   readonly handleHudDismissDayClick = (event: Event): void => {
     event.preventDefault();
     event.stopPropagation();
-    this.queueHudTelemetry(trackHudHideClicked);
+    const trigger = this.hudTrigger;
+    this.queueHudTelemetry(() => trackHudHideClicked({ trigger }));
     this.host.dismissInspectorForDay();
   };
 
