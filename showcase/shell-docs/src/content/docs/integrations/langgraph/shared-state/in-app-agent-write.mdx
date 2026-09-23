@@ -1,154 +1,72 @@
 ---
 title: Writing agent state
 icon: "lucide/ArrowRight"
-description: Write to agent's state from your application.
+description: Write LangGraph agent state from your UI with agent.setState, and from the agent with a tool that updates state.
+snippet_cell: shared-state-read-write
 ---
-<IframeSwitcher
-  id="shared-state-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state?view=code&sidebar=false&codeLayout=tabs"
-  exampleLabel="Demo"
-  codeLabel="Code"
-  height="700px"
-/>
 
-<Callout type="info">
-  This example demonstrates writing to shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state).
-</Callout>
+<InlineDemo demo="shared-state-read-write" />
 
-## What is this?
+## What you'll build
 
-This guide shows you how to write to your agent's state from your application.
+A two-way shared-state loop between your UI and a LangGraph agent:
 
-## When should I use this?
+- The UI writes a `preferences` object into agent state with `agent.setState`. The agent reads those preferences on every turn and adapts its replies.
+- The agent writes a `notes` list into agent state with its `set_notes` tool. The UI re-renders the notes as soon as they change.
 
-You can use this when you want to provide the user with feedback about what your agent is doing, specifically
-when your agent is calling tools. CopilotKit allows you to fully customize how these tools are rendered in the chat.
+## Prerequisites
+
+- A LangGraph agent served through the CopilotKit runtime. If you don't have one yet, start with the [quickstart](/quickstart).
+- `@copilotkit/react-core` in your frontend. The hooks on this page come from `@copilotkit/react-core/v2`.
+- The CopilotKit SDK for your agent's language: `copilotkit` for Python or `@copilotkit/sdk-js` for TypeScript.
 
 ## Implementation
 
 <Steps>
   <Step>
-    ### Run and connect your agent
-    <RunAndConnect />
+    ### Declare the shared state
+
+    Give the agent state a `preferences` field for the UI to write and a `notes` field for the agent to write. Register the notes tool and the preference reader from the next two steps with your agent. In a custom graph, bind the tool to your model and route its calls through a `ToolNode`.
+
+    <Snippet region="shared-state-setup" />
   </Step>
   <Step>
-    ### Define the Agent State
-    LangGraph is stateful. As you transition between nodes, that state is updated and passed to the next node. For this example,
-    let's assume that our agent state looks something like this.
+    ### Let the agent write notes
 
-    <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
-      <Tab value="Python">
-        ```python title="agent.py"
-        from copilotkit import CopilotKitState
-        from typing import Literal
+    `set_notes` returns a LangGraph `Command`. The command replaces `notes` in agent state and answers the tool call with a `ToolMessage`. The tool replaces the previous value, so the model must pass the full list every time.
 
-        class AgentState(CopilotKitState):
-            language: Literal["english", "spanish"] = "english"
-        ```
-      </Tab>
-      <Tab value="TypeScript">
-        ```ts title="agent-js/src/agent.ts"
-        import { StateSchema } from "@langchain/langgraph";
-        import { CopilotKitStateSchema } from "@copilotkit/sdk-js/langgraph";
-        import { z } from "zod";
-
-        export const AgentStateSchema = new StateSchema({
-            language: z.enum(["english", "spanish"]).default("english"),
-            ...CopilotKitStateSchema.fields,
-        });
-        export type AgentState = typeof AgentStateSchema.State;
-        ```
-      </Tab>
-    </Tabs>
+    <Snippet region="set-notes-tool" />
   </Step>
   <Step>
-    ### Use the `useAgent` hook to read and write state
-    `useAgent` gives you access to the agent, including its state. You can update state by calling `agent.setState`.
+    ### Pass UI-written preferences to the model
 
-    ```tsx title="ui/app/page.tsx"
-    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+    Read `preferences` from agent state before each model call and put a system message that describes them in front of the conversation. A `create_agent` agent does this in middleware. A custom graph does it in its chat node.
 
-    // Example usage in a pseudo React component
-    function YourMainContent() {
-      // [!code highlight:3]
-      const { agent } = useAgent({
-        agentId: "sample_agent",
-      });
-
-      const language = (agent.state.language as string) ?? "english";
-
-      // ...
-
-      const toggleLanguage = () => {
-        agent.setState({ language: language === "english" ? "spanish" : "english" }); // [!code highlight]
-      };
-
-      // ...
-
-      return (
-        // style excluded for brevity
-        <div>
-          <h1>Your main content</h1>
-          {/* [!code highlight:1] */}
-          <p>Language: {language}</p>
-          <button onClick={toggleLanguage}>Toggle Language</button>
-        </div>
-      );
-    }
-    ```
+    <Snippet region="preferences-injector" />
   </Step>
   <Step>
-    ### Give it a try!
-    You can now use the `setState` function to update the agent state and `state` to read it. Try toggling the language button
-    and talking to your agent. You'll see the language change to match the agent's state.
+    ### Subscribe to agent state in the UI
 
-    <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/write-agent-state.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
-    <Callout>
-      This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it!
-    </Callout>
+    Call [useAgent](/reference/hooks/useAgent) with `UseAgentUpdate.OnStateChanged`. The component re-renders whenever the agent changes its state, for example after a `set_notes` call. Read the values from `agent.state`.
+
+    <Snippet region="use-agent-read" />
+  </Step>
+  <Step>
+    ### Write preferences from the UI
+
+    Call `agent.setState` from an event handler. Spread the current state into the new value so that the write keeps the agent's `notes`. The agent reads the new preferences on its next run. To start a run right after the write, call `agent.runAgent()`.
+
+    <Snippet region="use-agent-write" />
+  </Step>
+  <Step>
+    ### Test it
+
+    Set a name and a tone in **Your preferences**. Then pick the **Remember something** suggestion, or ask the agent to remember a detail about you. The reply should use your name and tone, and the new note should appear in the notes card.
   </Step>
 </Steps>
 
-## Advanced Usage
+## Related
 
-### Re-run the agent with updated state
-
-The new agent state will be used next time the agent runs.
-If you want to re-run it manually, use `agent.runAgent` after updating state.
-
-```tsx title="ui/app/page.tsx"
-import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
-
-// ...
-
-function YourMainContent() {
-  const { agent } = useAgent({
-    agentId: "sample_agent",
-  });
-
-  const language = (agent.state.language as string) ?? "english";
-
-  // setup to be called when some event in the app occurs
-  const toggleLanguage = () => {
-    const newLanguage = language === "english" ? "spanish" : "english";
-    agent.setState({ language: newLanguage });
-
-    // [!code highlight:2]
-    // re-run the agent with updated state
-    agent.runAgent();
-  };
-
-  return (
-    // ...
-  );
-}
-```
-
-### Intermediately Stream and Render Agent State
-By default, the LangGraph agent state will only update *between* LangGraph node transitions --
-which means state updates will be discontinuous and delayed.
-
-You likely want to render the agent state as it updates **continuously.**
-
-See **[predictive state updates](/langgraph/shared-state/predictive-state-updates).**
+- [Reading agent state](/shared-state/in-app-agent-read) shows more ways to render agent state in your app.
+- [State streaming](/shared-state/predictive-state-updates) updates state while a tool call is still being generated, instead of only when a node finishes.
+- [Input/Output Schemas](/shared-state/state-inputs-outputs) limits which state fields the agent accepts from the UI and returns to it.

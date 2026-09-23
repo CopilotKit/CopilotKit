@@ -230,10 +230,13 @@ const CODING_AGENTS_RENAMES: RedirectEntry[] = [
 // ---------------------------------------------------------------------------
 
 const DEEP_COAGENTS: RedirectEntry[] = [
+  // The tutorials section is retired: T1×langgraph-python sends every
+  // /langgraph-python/tutorials/* URL to the quickstart, so land there in
+  // one hop instead of chaining through the retired tutorial URL.
   {
     id: "D1",
     source: "/coagents/tutorials/ai-travel-app/overview",
-    destination: "/langgraph-python/tutorials/ai-travel-app",
+    destination: "/langgraph-python/quickstart",
   },
   {
     id: "D2",
@@ -347,10 +350,12 @@ const DEEP_COAGENTS: RedirectEntry[] = [
     source: "/coagents/quickstart/langgraph",
     destination: "/langgraph-python/quickstart",
   },
+  // The LangGraph Input/Output Schemas guide lives at the same slug on the
+  // canonical surface, so the legacy URL keeps its topic.
   {
     id: "D24",
     source: "/coagents/shared-state/state-inputs-outputs",
-    destination: "/langgraph-python/shared-state/workflow-execution",
+    destination: "/langgraph-python/shared-state/state-inputs-outputs",
   },
 ];
 
@@ -359,19 +364,6 @@ const DEEP_COAGENTS: RedirectEntry[] = [
 // ---------------------------------------------------------------------------
 
 const SPECIFIC_FRAMEWORK: RedirectEntry[] = [
-  // The selected LGP shared-state cell now documents the source-backed
-  // state-inputs-outputs guide. Keep both the legacy and canonical slugs
-  // from serving the retired Feature Viewer page.
-  {
-    id: "LGP-state-write-legacy",
-    source: "/langgraph/shared-state/in-app-agent-write",
-    destination: "/langgraph-python/shared-state/state-inputs-outputs",
-  },
-  {
-    id: "LGP-state-write-canonical",
-    source: "/langgraph-python/shared-state/in-app-agent-write",
-    destination: "/langgraph-python/shared-state/state-inputs-outputs",
-  },
   {
     id: "CF-mode-parity",
     source: "/crewai-conversational-flows/feature-parity",
@@ -463,10 +455,13 @@ const SPECIFIC_FRAMEWORK: RedirectEntry[] = [
     source: "/adk/shared-state/state-inputs-outputs",
     destination: "/google-adk/shared-state/workflow-execution",
   },
+  // Unlike ADK and LlamaIndex, LangGraph still serves its Input/Output
+  // Schemas guide at `state-inputs-outputs` (the page its shared-state
+  // meta.json lists), so the legacy URL keeps its slug.
   {
     id: "F15",
     source: "/langgraph/shared-state/state-inputs-outputs",
-    destination: "/langgraph-python/shared-state/workflow-execution",
+    destination: "/langgraph-python/shared-state/state-inputs-outputs",
   },
   {
     id: "F16",
@@ -862,10 +857,11 @@ const LEGACY_CHAINS_EXACT: RedirectEntry[] = [
     source: "/coagents/concepts",
     destination: "/langgraph-python",
   },
+  // Tutorials are retired (T1×langgraph-python); skip the extra hop.
   {
     id: "L10",
     source: "/coagents/tutorials",
-    destination: "/langgraph-python/tutorials",
+    destination: "/langgraph-python/quickstart",
   },
   {
     id: "L11",

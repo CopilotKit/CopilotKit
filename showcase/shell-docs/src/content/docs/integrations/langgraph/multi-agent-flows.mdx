@@ -7,24 +7,55 @@ snippet_cell: subagents
 
 <InlineDemo demo="subagents" />
 
-The selected Showcase uses a LangGraph supervisor with research, writing, and critique agents exposed as tools. Each completed delegation is appended to shared state so the UI can render a live log.
+## What you'll build
 
-## Define the specialists and supervisor tools
+A LangGraph supervisor that delegates to three specialist agents: research, writing, and critique. Each specialist is exposed to the supervisor as a tool. Every completed delegation is added to a `delegations` field in agent state, so the UI can show the delegation in the chat and in a live log.
 
-Each tool calls one specialist and records a delegation result in the `delegations` state field.
+## Prerequisites
 
-<Snippet framework="langgraph-python" cell="subagents" region="subagent-setup" title="src/agents/subagents.py — specialist agents and shared state" />
+- A LangGraph agent served through the CopilotKit runtime. If you don't have one yet, start with the [quickstart](/quickstart).
+- `@copilotkit/react-core` in your frontend. The hooks on this page come from `@copilotkit/react-core/v2`.
+- The CopilotKit SDK for your agent's language: `copilotkit` for Python or `@copilotkit/sdk-js` for TypeScript.
 
-<Snippet framework="langgraph-python" cell="subagents" region="supervisor-delegation-tools" title="src/agents/subagents.py — supervisor delegation tools" />
+## Implementation
 
-## Render delegation activity
+<Steps>
+  <Step>
+    ### Define the specialists and the shared state
 
-The React demo registers renderers for the three tool names and reads the delegation log from agent state. See [useRenderTool](/reference/hooks/useRenderTool) for the renderer contract.
+    Each specialist is its own agent with a narrow system prompt. The specialists don't share memory or tools with the supervisor, which sees only what each one returns. The `delegations` field in agent state holds one entry for each completed delegation.
 
-<Snippet framework="langgraph-python" cell="subagents" region="subagent-tool-renderers" title="src/app/demos/subagents/page.tsx — tool renderers" />
+    <Snippet region="subagent-setup" />
+  </Step>
+  <Step>
+    ### Expose each specialist as a supervisor tool
 
-<Snippet framework="langgraph-python" cell="subagents" region="delegation-log-frontend" title="src/app/demos/subagents/delegation-log.tsx — delegation log" />
+    Each tool runs one specialist on the `task` it receives. It then returns a `Command` that adds a delegation entry to `delegations` and answers the tool call with the specialist's output, which the supervisor reads on its next step.
 
-## Try it
+    <Snippet region="supervisor-delegation-tools" />
+  </Step>
+  <Step>
+    ### Render each delegation in the chat
 
-Ask for a short researched recommendation. The chat should show research, writing, and critique activity, while the delegation log records each completed step.
+    Register a renderer for each specialist tool with [useRenderTool](/reference/hooks/useRenderTool). The renderer receives the tool's streaming `parameters`, its `status`, and its `result`, so the chat can show which specialist is running and what it returned.
+
+    <Snippet region="subagent-tool-renderers" />
+  </Step>
+  <Step>
+    ### Render the delegation log
+
+    Subscribe with [useAgent](/reference/hooks/useAgent) using `UseAgentUpdate.OnStateChanged` and `UseAgentUpdate.OnRunStatusChanged`. Then pass `agent.state.delegations` and `agent.isRunning` to a component that renders one entry for each delegation.
+
+    <Snippet region="delegation-log-frontend" />
+  </Step>
+  <Step>
+    ### Test it
+
+    Pick the **Write a blog post** suggestion, or ask for a short researched paragraph with a critique. The chat should show research, writing, and critique activity. The delegation log should add an entry each time a specialist finishes.
+  </Step>
+</Steps>
+
+## Related
+
+- [Writing agent state](/shared-state/in-app-agent-write) covers the shared-state channel that keeps the delegation log live.
+- [Subgraphs](/subgraphs) nests LangGraph graphs inside a parent graph instead of calling specialists as tools.

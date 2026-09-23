@@ -1,24 +1,194 @@
+import { getPathMatch } from "next/dist/shared/lib/router/utils/path-match";
 import { describe, expect, it } from "vitest";
+
+import nextConfig from "../../../next.config";
+import { CONTENT_DIR } from "../docs-render";
+import { getDocsFolder, getIntegrations } from "../registry";
+import { buildDocsFileIndex } from "../searchable-pages";
 import { matchesSeoRedirectSource, seoRedirects } from "../seo-redirects";
 
-describe("seoRedirects", () => {
-  it("keeps the retired LangGraph shared-state write URL on its source-backed guide", () => {
-    expect(seoRedirects).toEqual(
-      expect.arrayContaining([
-        {
-          id: "LGP-state-write-legacy",
-          source: "/langgraph/shared-state/in-app-agent-write",
-          destination: "/langgraph-python/shared-state/state-inputs-outputs",
-        },
-        {
-          id: "LGP-state-write-canonical",
-          source: "/langgraph-python/shared-state/in-app-agent-write",
-          destination: "/langgraph-python/shared-state/state-inputs-outputs",
-        },
-      ]),
+const LANGGRAPH_SCOPES = [
+  "langgraph-python",
+  "langgraph-typescript",
+  "langgraph-fastapi",
+] as const;
+
+const REGISTRY_FRAMEWORK_SLUGS = new Set(
+  getIntegrations().map((integration) => integration.slug),
+);
+
+function firstSegment(pathname: string): string | undefined {
+  return pathname.split("/").filter(Boolean)[0];
+}
+
+/**
+ * The seo redirect middleware.ts would fire for `pathname`, using the same
+ * rules: an exact source first, then wildcards in declaration order, where a
+ * framework-scoped path only takes a wildcard rooted in its own framework.
+ */
+function resolveSeoRedirect(
+  pathname: string,
+): { id: string; destination: string } | null {
+  const exact = new Map<string, { id: string; destination: string }>();
+  for (const entry of seoRedirects) {
+    if (!entry.source.includes(":path*")) exact.set(entry.source, entry);
+  }
+  const exactHit = exact.get(pathname);
+  if (exactHit && exactHit.destination !== pathname) return exactHit;
+
+  const scope = firstSegment(pathname);
+  const requestFramework =
+    scope && REGISTRY_FRAMEWORK_SLUGS.has(scope) ? scope : undefined;
+  for (const entry of seoRedirects) {
+    const wildcardIndex = entry.source.indexOf(":path*");
+    if (wildcardIndex === -1) continue;
+    const prefix = entry.source.slice(0, wildcardIndex);
+    if (!pathname.startsWith(prefix)) continue;
+    if (requestFramework && firstSegment(prefix) !== requestFramework) {
+      continue;
+    }
+    const destination = entry.destination.replace(
+      ":path*",
+      pathname.slice(prefix.length),
     );
+    if (destination === pathname) continue;
+    return { id: entry.id, destination };
+  }
+  return null;
+}
+
+/** The next.config.ts redirect that would fire for `pathname`, if any. */
+async function resolveNextConfigRedirect(
+  pathname: string,
+): Promise<string | null> {
+  const redirects = await nextConfig.redirects!();
+  const hit = redirects.find(
+    (redirect) =>
+      getPathMatch(redirect.source, {
+        removeUnnamedParams: true,
+        strict: true,
+      })(pathname) !== false,
+  );
+  return hit?.source ?? null;
+}
+
+const docsFileIndex = buildDocsFileIndex(CONTENT_DIR);
+
+/**
+ * True when a LangGraph-scoped URL renders an MDX page. Generated frameworks
+ * resolve the shared root page first and then the framework's own folder.
+ */
+function isLiveLangGraphPage(pathname: string): boolean {
+  const [scope, ...rest] = pathname.split(/[?#]/)[0].split("/").filter(Boolean);
+  if (!(LANGGRAPH_SCOPES as readonly string[]).includes(scope)) return false;
+  const topic = rest.join("/");
+  if (topic === "") return true; // framework landing page
+  return (
+    docsFileIndex.has(topic) ||
+    docsFileIndex.has(`integrations/${getDocsFolder(scope)}/${topic}`)
+  );
+}
+
+function isLangGraphScoped(pathname: string): boolean {
+  return (LANGGRAPH_SCOPES as readonly string[]).includes(
+    firstSegment(pathname) ?? "",
+  );
+}
+
+describe("LangGraph redirects", () => {
+  it("lands legacy shared-state, context, and multi-agent URLs on live guides in one hop", async () => {
+    const cases = [
+      [
+        "/langgraph/shared-state/in-app-agent-write",
+        "/langgraph-python/shared-state/in-app-agent-write",
+      ],
+      [
+        "/coagents/react-ui/in-app-agent-write",
+        "/langgraph-python/shared-state/in-app-agent-write",
+      ],
+      [
+        "/integrations/langgraph/shared-state/in-app-agent-write",
+        "/langgraph-python/shared-state/in-app-agent-write",
+      ],
+      [
+        "/langgraph/shared-state/state-inputs-outputs",
+        "/langgraph-python/shared-state/state-inputs-outputs",
+      ],
+      [
+        "/coagents/shared-state/state-inputs-outputs",
+        "/langgraph-python/shared-state/state-inputs-outputs",
+      ],
+      [
+        "/langgraph/shared-state/predictive-state-updates",
+        "/langgraph-python/shared-state/predictive-state-updates",
+      ],
+      [
+        "/coagents/shared-state/intermediate-state-streaming",
+        "/langgraph-python/shared-state/predictive-state-updates",
+      ],
+      ["/langgraph/agent-app-context", "/langgraph-python/agent-app-context"],
+      ["/langgraph/multi-agent-flows", "/langgraph-python/multi-agent-flows"],
+      ["/coagents/multi-agent-flows", "/langgraph-python/multi-agent-flows"],
+      ["/multi-agent-flows", "/langgraph-python/multi-agent-flows"],
+      ["/coagents/tutorials", "/langgraph-python/quickstart"],
+      [
+        "/coagents/tutorials/ai-travel-app/overview",
+        "/langgraph-python/quickstart",
+      ],
+    ] as const;
+
+    for (const [source, destination] of cases) {
+      expect(await resolveNextConfigRedirect(source), source).toBeNull();
+      expect(resolveSeoRedirect(source)?.destination, source).toBe(destination);
+      expect(resolveSeoRedirect(destination), destination).toBeNull();
+      expect(
+        await resolveNextConfigRedirect(destination),
+        destination,
+      ).toBeNull();
+      expect(isLiveLangGraphPage(destination), destination).toBe(true);
+    }
   });
 
+  it("never redirects a live LangGraph guide away from itself", async () => {
+    const guides = [
+      "shared-state/in-app-agent-read",
+      "shared-state/in-app-agent-write",
+      "shared-state/state-inputs-outputs",
+      "shared-state/predictive-state-updates",
+      "agent-app-context",
+      "multi-agent-flows",
+    ];
+
+    for (const scope of LANGGRAPH_SCOPES) {
+      for (const guide of guides) {
+        const url = `/${scope}/${guide}`;
+        expect(isLiveLangGraphPage(url), url).toBe(true);
+        expect(resolveSeoRedirect(url), url).toBeNull();
+        expect(await resolveNextConfigRedirect(url), url).toBeNull();
+      }
+    }
+  });
+
+  it("sends no exact redirect to a LangGraph URL that redirects again", async () => {
+    const chains: string[] = [];
+    for (const entry of seoRedirects) {
+      if (entry.destination.includes(":path*")) continue;
+      if (!isLangGraphScoped(entry.destination)) continue;
+      const seoHop = resolveSeoRedirect(entry.destination);
+      const nextHop = await resolveNextConfigRedirect(entry.destination);
+      if (seoHop || nextHop) {
+        chains.push(
+          `${entry.id}: ${entry.source} -> ${entry.destination} -> ${
+            seoHop ? `${seoHop.id} ${seoHop.destination}` : nextHop
+          }`,
+        );
+      }
+    }
+    expect(chains).toEqual([]);
+  });
+});
+
+describe("seoRedirects", () => {
   it("consolidates Conversational Flow URLs under CrewAI", () => {
     expect(seoRedirects).toEqual(
       expect.arrayContaining([
