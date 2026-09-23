@@ -69,6 +69,15 @@ export async function resolveWebMemory(
     const grant = await runtime.memory.access({ request, user, consumer });
     // `null` is the policy declining to grant anything, which is the same
     // outcome as an explicit all-none grant — not a distinct third state.
+    //
+    // `undefined` is NOT that. The contract is `MemoryGrant | null`, so a
+    // missing return is a policy that is broken rather than restrictive — a
+    // JavaScript caller who forgot one, or a branch that falls off the end.
+    // Reading it as "grant nothing" would switch Memory off silently for the
+    // exact deployments least able to notice; it fails loudly instead.
+    if (grant === undefined) {
+      return errorResponse("Memory policy returned an invalid grant", 500);
+    }
     const resolved = grant ?? NO_MEMORY;
     if (!ACCESS.has(resolved.user) || !ACCESS.has(resolved.project)) {
       return errorResponse("Memory policy returned an invalid grant", 500);

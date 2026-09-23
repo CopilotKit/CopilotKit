@@ -161,6 +161,28 @@ describe("memory handlers", () => {
     expect(intelligence.listMemories).not.toHaveBeenCalled();
   });
 
+  /**
+   * A policy that returns nothing at all breaks its own contract
+   * (`MemoryGrant | null`), so it is a broken policy rather than a restrictive
+   * one — 500, not the 403 an all-none grant earns. Reading a missing return as
+   * "grant nothing" would make a typo indistinguishable from a decision.
+   */
+  it("fails closed when the configured Memory policy returns undefined", async () => {
+    const intelligence = { listMemories: vi.fn() };
+    const runtime = createIntelligenceRuntime({
+      intelligence,
+      memory: { access: vi.fn().mockReturnValue(undefined) },
+    });
+
+    const response = await handleListMemories({
+      runtime,
+      request: new Request("https://example.com/memories"),
+    });
+
+    expect(response.status).toBe(500);
+    expect(intelligence.listMemories).not.toHaveBeenCalled();
+  });
+
   it("fails closed when the configured Memory policy throws", async () => {
     const intelligence = { listMemories: vi.fn() };
     const runtime = createIntelligenceRuntime({

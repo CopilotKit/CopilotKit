@@ -171,13 +171,18 @@ describe("attachIntelligenceEnterpriseLearning", () => {
    * @copilotkit/channels-core, where both scopes are optional and default to
    * `"none"`, so all-none is what you get by writing nothing.
    */
-  it("runs without Memory tools given a null grant", async () => {
+  it.each([
+    ["a null grant", () => null],
+    ["an explicit all-none grant", () => ({ user: "none", project: "none" })],
+  ])("runs without Memory tools given %s", async (_label, access) => {
     const agent = makeAgent();
     const result = await attachIntelligenceEnterpriseLearning({
       runtime: makeRuntime({
-        intelligence: makeIntelligenceStub(),
+        intelligence: makeIntelligenceStub({
+          ɵisEnterpriseLearningEnabled: () => false,
+        }),
         identifyUser: async () => ({ id: "u1", name: "User" }),
-        memory: { access: () => null },
+        memory: { access } as CopilotRuntimeLike["memory"],
       }),
       request: request(),
       agent,
@@ -187,21 +192,49 @@ describe("attachIntelligenceEnterpriseLearning", () => {
     expect(agent.use).not.toHaveBeenCalled();
   });
 
-  it("runs without Memory tools given an explicit all-none grant", async () => {
-    const agent = makeAgent();
-    const result = await attachIntelligenceEnterpriseLearning({
-      runtime: makeRuntime({
-        intelligence: makeIntelligenceStub(),
-        identifyUser: async () => ({ id: "u1", name: "User" }),
-        memory: { access: () => ({ user: "none", project: "none" }) },
-      }),
-      request: request(),
-      agent,
-    });
+  /**
+   * Enterprise learning and Memory ride the SAME MCP server, so skipping the
+   * attachment to express "no Memory" would take the learning tools with it —
+   * an operator who turned learning on would silently lose it for any tenant
+   * whose Memory policy grants nothing.
+   *
+   * Attaching is safe because the grant travels in the header and Intelligence
+   * registers one Memory tool per granted scope: an all-none grant registers
+   * none, and leaves the knowledge-base tool untouched. The runtime decides
+   * whether to connect; the service decides which tools come back.
+   */
+  it.each([
+    ["a null grant", () => null],
+    ["an explicit all-none grant", () => ({ user: "none", project: "none" })],
+  ])(
+    "still attaches for enterprise learning given %s",
+    async (_label, access) => {
+      const agent = makeAgent();
+      const result = await attachIntelligenceEnterpriseLearning({
+        runtime: makeRuntime({
+          intelligence: makeIntelligenceStub(),
+          identifyUser: async () => ({ id: "u1", name: "User" }),
+          memory: { access } as CopilotRuntimeLike["memory"],
+        }),
+        request: request(),
+        agent,
+      });
 
-    expect(result).toBeUndefined();
-    expect(agent.use).not.toHaveBeenCalled();
-  });
+      expect(result).toBeUndefined();
+      expect(agent.use).toHaveBeenCalledTimes(1);
+      const [servers] = mcpMiddlewareCalls.at(-1) as [
+        Array<{ headers: Record<string, string> }>,
+      ];
+      // The all-none grant is sent, not omitted: omitting it would read as
+      // "this caller configured no Memory policy" and hand back full access.
+      expect(servers[0]?.headers).toMatchObject({
+        [INTELLIGENCE_MEMORY_GRANT_HEADER]: JSON.stringify({
+          user: "none",
+          project: "none",
+        }),
+      });
+    },
+  );
 
   /**
    * The narrowest grant that still asks for something must NOT be swept up by
@@ -284,5 +317,83 @@ describe("attachIntelligenceEnterpriseLearning", () => {
     // The operator opted into the feature, so the no-op must be surfaced.
     expect(warn).toHaveBeenCalledOnce();
     warn.mockRestore();
+  });
+
+  /**
+   * The middleware-capability check has to run AFTER the grant resolves, or it
+   * reinstates the very bug this fix removes on a narrower path: a tenant whose
+   * Memory is switched off would still lose the whole run, just because their
+   * agent framework happens not to take middleware.
+   *
+   * Channels reads it the same way — it raises its unsupported-agent error only
+   * once a grant has resolved to something deliverable.
+   */
+  it("warns rather than failing when a middleware-less agent is granted no Memory", async () => {
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+    const agent = {} as AbstractAgent; // no `use`
+    const result = await attachIntelligenceEnterpriseLearning({
+      runtime: makeRuntime({
+        intelligence: makeIntelligenceStub(),
+        identifyUser: async () => ({ id: "u1", name: "User" }),
+        memory: { access: () => ({ user: "none", project: "none" }) },
+      }),
+      request: request(),
+      agent,
+    });
+
+    expect(result).toBeUndefined();
+    expect(mcpMiddlewareCalls).toHaveLength(0);
+    expect(warn).toHaveBeenCalledOnce();
+    warn.mockRestore();
+  });
+
+  /**
+   * The counterpart: Memory that IS granted and cannot be delivered is a
+   * genuine misconfiguration, and still fails loudly.
+   */
+  it("fails the run when a middleware-less agent is granted Memory", async () => {
+    const agent = {} as AbstractAgent; // no `use`
+    const result = await attachIntelligenceEnterpriseLearning({
+      runtime: makeRuntime({
+        intelligence: makeIntelligenceStub({
+          ɵisEnterpriseLearningEnabled: () => false,
+        }),
+        identifyUser: async () => ({ id: "u1", name: "User" }),
+        memory: { access: () => ({ user: "read", project: "none" }) },
+      }),
+      request: request(),
+      agent,
+    });
+
+    expect(result).toBeInstanceOf(Response);
+    expect((result as Response).status).toBe(500);
+    expect(mcpMiddlewareCalls).toHaveLength(0);
+  });
+
+  /**
+   * `memory.access` is typed `MemoryGrant | null`, so a policy that returns
+   * nothing at all is broken rather than restrictive. Reading a missing return
+   * as "grant nothing" would switch Memory off silently; it fails loudly, the
+   * same as a policy that throws or names an access level that does not exist.
+   */
+  it("fails the run when the policy returns undefined", async () => {
+    const agent = makeAgent();
+    const result = await attachIntelligenceEnterpriseLearning({
+      runtime: makeRuntime({
+        intelligence: makeIntelligenceStub(),
+        identifyUser: async () => ({ id: "u1", name: "User" }),
+        memory: {
+          access: (() => undefined) as unknown as NonNullable<
+            CopilotRuntimeLike["memory"]
+          >["access"],
+        },
+      }),
+      request: request(),
+      agent,
+    });
+
+    expect(result).toBeInstanceOf(Response);
+    expect((result as Response).status).toBe(500);
+    expect(agent.use).not.toHaveBeenCalled();
   });
 });
