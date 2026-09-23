@@ -2,6 +2,9 @@
   "_comment": "Model names, in two tiers. `ship` is what a starter or example may pin: a developer clones that code and is evaluating CopilotKit on whatever it names, so it has to be a model we would choose today. `recognize` is every other real name, which documentation may mention -- a migration note, a comparison, a model a reader already runs. Adding a name to `recognize` is routine. Moving one into `ship` is a decision about what we put in front of a new developer. Reviewed 2026-09-16; a list of current models goes stale by sitting still, so revisit it when a provider ships a tier.",
   "openai": {
     "ship": [
+      "gpt-6-astra",
+      "gpt-6-sol",
+      "gpt-6-luma",
       "gpt-5.5",
       "gpt-5.5-mini",
       "gpt-5.5-nano",
@@ -31,6 +34,10 @@
   },
   "anthropic": {
     "ship": [
+      "claude-5.5-fable",
+      "claude-fable-5.5",
+      "claude-5.1",
+      "claude-5-1",
       "claude-fable-5",
       "claude-opus-4-8",
       "claude-opus-4-6",
@@ -39,23 +46,47 @@
       "claude-haiku-4-5-20251001",
       "claude-code"
     ],
-    "recognize": ["claude-opus-4-5", "claude-sonnet-4-5"]
+    "recognize": [
+      "claude-opus-4-5",
+      "claude-sonnet-4-5"
+    ]
   },
   "google": {
     "ship": [
+      "gemini-3.8-flash-high",
+      "gemini-3.8-flash-medium",
+      "gemini-3.8-flash-low",
+      "gemini-3.8-flash",
+      "gemini-3.7-flash",
+      "gemini-3.1-pro",
       "gemini-3.1-flash-lite",
       "gemini-2.5-pro",
       "gemini-2.5-flash",
       "gemini-2.5-flash-lite"
     ],
-    "recognize": ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"]
+    "recognize": [
+      "gemini-2.0-flash",
+      "gemini-1.5-pro",
+      "gemini-1.5-flash"
+    ]
   },
   "cohere": {
-    "ship": ["command-a", "command-r-plus"],
-    "recognize": ["command-r"]
+    "ship": [
+      "command-a",
+      "command-r-plus"
+    ],
+    "recognize": [
+      "command-r"
+    ]
   },
   "meta": {
-    "ship": ["llama-4-scout", "llama-4-maverick"],
-    "recognize": ["llama-3.3-70b", "llama-3.1-405b"]
+    "ship": [
+      "llama-4-scout",
+      "llama-4-maverick"
+    ],
+    "recognize": [
+      "llama-3.3-70b",
+      "llama-3.1-405b"
+    ]
   }
 }

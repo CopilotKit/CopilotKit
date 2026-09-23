@@ -114,6 +114,9 @@ export type OverridableProperty =
  */
 export type BuiltInAgentModel =
   // OpenAI flagship models
+  | "openai/gpt-6-astra"
+  | "openai/gpt-6-sol"
+  | "openai/gpt-6-luma"
   | "openai/gpt-5.5"
   | "openai/gpt-5.5-mini"
   | "openai/gpt-5.5-nano"
@@ -133,6 +136,10 @@ export type BuiltInAgentModel =
   | "openai/o3-mini"
   | "openai/o4-mini"
   // Anthropic (Claude) models
+  | "anthropic/claude-5.5-fable"
+  | "anthropic/claude-fable-5.5"
+  | "anthropic/claude-5.1"
+  | "anthropic/claude-5-1"
   | "anthropic/claude-fable-5"
   | "anthropic/claude-opus-4-8"
   | "anthropic/claude-opus-4-6"
@@ -141,6 +148,12 @@ export type BuiltInAgentModel =
   | "anthropic/claude-haiku-4-5"
   | "anthropic/claude-code"
   // Google (Gemini) models
+  | "google/gemini-3.8-flash-high"
+  | "google/gemini-3.8-flash-medium"
+  | "google/gemini-3.8-flash-low"
+  | "google/gemini-3.8-flash"
+  | "google/gemini-3.7-flash"
+  | "google/gemini-3.1-pro"
   | "google/gemini-3.1-flash-lite"
   | "google/gemini-2.5-pro"
   | "google/gemini-2.5-flash"

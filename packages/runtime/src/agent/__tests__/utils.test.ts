@@ -38,6 +38,18 @@ describe("resolveModel", () => {
   });
 
   it("should resolve unlisted or future OpenAI models without an allowlist restriction", () => {
+    const astra = resolveModel("openai/gpt-6-astra");
+    expect(astra).toBeDefined();
+    expect((astra as { modelId: string }).modelId).toBe("gpt-6-astra");
+
+    const sol = resolveModel("openai:gpt-6-sol");
+    expect(sol).toBeDefined();
+    expect((sol as { modelId: string }).modelId).toBe("gpt-6-sol");
+
+    const luma = resolveModel("openai:gpt-6-luma");
+    expect(luma).toBeDefined();
+    expect((luma as { modelId: string }).modelId).toBe("gpt-6-luma");
+
     const modelSlash = resolveModel("openai/gpt-5.4");
     expect(modelSlash).toBeDefined();
     expect((modelSlash as { modelId: string }).modelId).toBe("gpt-5.4");
@@ -64,6 +76,14 @@ describe("resolveModel", () => {
     const model = resolveModel("anthropic/claude-sonnet-4.5");
     expect(model).toBeDefined();
     expect((model as { modelId: string }).modelId).toBe("claude-sonnet-4.5");
+
+    const fable55 = resolveModel("anthropic:claude-5.5-fable");
+    expect(fable55).toBeDefined();
+    expect((fable55 as { modelId: string }).modelId).toBe("claude-5.5-fable");
+
+    const claude51 = resolveModel("anthropic:claude-5.1");
+    expect(claude51).toBeDefined();
+    expect((claude51 as { modelId: string }).modelId).toBe("claude-5.1");
   });
 
   it("should pass retired Anthropic model identifiers through unchanged", () => {
@@ -78,6 +98,18 @@ describe("resolveModel", () => {
     const model = resolveModel("google/gemini-2.5-pro");
     expect(model).toBeDefined();
     expect((model as { modelId: string }).modelId).toBe("gemini-2.5-pro");
+
+    const flashHigh = resolveModel("google:gemini-3.8-flash-high");
+    expect(flashHigh).toBeDefined();
+    expect((flashHigh as { modelId: string }).modelId).toBe("gemini-3.8-flash-high");
+
+    const flash37 = resolveModel("google:gemini-3.7-flash");
+    expect(flash37).toBeDefined();
+    expect((flash37 as { modelId: string }).modelId).toBe("gemini-3.7-flash");
+
+    const pro31 = resolveModel("google:gemini-3.1-pro");
+    expect(pro31).toBeDefined();
+    expect((pro31 as { modelId: string }).modelId).toBe("gemini-3.1-pro");
   });
 
   it("should handle gemini provider alias", () => {
