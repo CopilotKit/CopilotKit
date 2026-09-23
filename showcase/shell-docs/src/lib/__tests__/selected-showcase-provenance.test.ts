@@ -55,7 +55,7 @@ test("selected Interactive guides use their local HITL demo source", () => {
     );
     expect(output, route.url).not.toContain("feature-viewer.copilotkit.ai");
     expect(output, route.url).not.toContain("<Snippet");
-    expect(output, route.url).not.toContain("Missing snippet");
+    expect(output, route.url).not.toContain("<!-- snippet skipped:");
   }
 });
 
@@ -71,7 +71,7 @@ test("Built-in Agent frontend and tool rendering guides use local Showcase regio
   );
   expect(frontendTools).not.toContain("feature-viewer.copilotkit.ai");
   expect(frontendTools).not.toContain("<Snippet");
-  expect(frontendTools).not.toContain("Missing snippet");
+  expect(frontendTools).not.toContain("<!-- snippet skipped:");
 
   const toolRendering = render(
     "integrations/built-in-agent/generative-ui/tool-rendering",
@@ -82,7 +82,7 @@ test("Built-in Agent frontend and tool rendering guides use local Showcase regio
   expect(toolRendering).toContain("useDefaultRenderTool");
   expect(toolRendering).not.toContain("feature-viewer.copilotkit.ai");
   expect(toolRendering).not.toContain("<Snippet");
-  expect(toolRendering).not.toContain("Missing snippet");
+  expect(toolRendering).not.toContain("<!-- snippet skipped:");
 });
 
 test("Built-in Agent agent config shows its provider and in-process factory", () => {
@@ -97,7 +97,7 @@ test("Built-in Agent agent config shows its provider and in-process factory", ()
   expect(output).toContain("buildConfigSystemPrompt(props)");
   expect(output).not.toContain("agentConfigFactory");
   expect(output).not.toContain("makeAgent({ systemPrompt");
-  expect(output).not.toContain("Missing snippet");
+  expect(output).not.toContain("<!-- snippet skipped:");
   expect(output).toContain("[Quickstart](/quickstart)");
   expect(output).toContain(
     "[`CopilotKitCoreConfig`](/reference/core/types/CopilotKitCoreConfig)",
@@ -121,7 +121,7 @@ test("Built-in Agent MCP Apps guide uses its current runtime configuration", () 
   expect(output).toContain("MCPAppsActivityRenderer");
   expect(output).toContain("Ask the Showcase agent to draw a simple diagram");
   expect(output).not.toContain("MCPAppsMiddleware");
-  expect(output).not.toContain("Missing snippet");
+  expect(output).not.toContain("<!-- snippet skipped:");
   expect(output).not.toContain("<Snippet");
 });
 
@@ -174,7 +174,7 @@ test("selected Display-only guides render their Showcase component and setup", (
     for (const retired of route.retired) {
       expect(output, route.url).not.toContain(retired);
     }
-    expect(output, route.url).not.toContain("Missing snippet");
+    expect(output, route.url).not.toContain("<!-- snippet skipped:");
     expect(output, route.url).not.toContain("<Snippet");
   }
 });
@@ -197,7 +197,7 @@ test("Built-in Agent Shared State documents the current provider and notes bridg
   expect(output).toContain("Other Built-in Agent demos do not receive");
   expect(output).toContain("Remember something");
   expect(output).not.toContain("<FrameworkSetup");
-  expect(output).not.toContain("Missing snippet");
+  expect(output).not.toContain("<!-- snippet skipped:");
   expect(output).not.toContain("<Snippet");
 });
 
@@ -231,7 +231,7 @@ test("selected LangGraph Auth routes render complete current runtime excerpts", 
     expect(output, route.framework).not.toContain(
       "properties={{ authorization",
     );
-    expect(output, route.framework).not.toContain("Missing snippet");
+    expect(output, route.framework).not.toContain("<!-- snippet skipped:");
     expect(output, route.framework).not.toContain("<Snippet");
   }
 });

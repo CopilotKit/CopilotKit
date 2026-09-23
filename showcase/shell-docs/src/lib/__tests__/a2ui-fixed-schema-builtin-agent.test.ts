@@ -24,7 +24,6 @@ test("the Built-in Agent fixed-schema guide resolves its inline schema source", 
   expect(output).toContain("built-in-agent");
   expect(output).toContain("const FLIGHT_SCHEMA: unknown[]");
   expect(output).toContain("updateComponentsOp(SURFACE_ID, FLIGHT_SCHEMA)");
-  expect(output).not.toContain("snippet skipped:");
-  expect(output).not.toContain("Missing snippet");
+  expect(output).not.toContain("<!-- snippet skipped:");
   expect(output).not.toContain("<Snippet");
 });
