@@ -32,14 +32,24 @@ test("the visual FrameworkSetup path renders Claude TypeScript SDK/MCP wiring", 
   expect(mocks.mdxRemote).toHaveBeenCalledOnce();
 });
 
-test("the visual FrameworkSetup path stays empty for other frameworks", async () => {
+// This used to assert that langgraph-typescript rendered nothing, which only
+// held while it lacked the fragment. What matters is that another framework
+// renders its own wiring and never Claude's.
+test("the visual FrameworkSetup path renders another framework's own wiring", async () => {
   const result = await FrameworkSetup({
     concept: "a2ui-fixed-schema-setup",
     currentFramework: "langgraph-typescript",
   });
+  expect(result).not.toBeNull();
+  if (!result) {
+    throw new Error("Expected LangGraph TypeScript setup content");
+  }
+  const source = (result.props as { children?: unknown }).children;
 
-  expect(result).toBeNull();
-  expect(mocks.mdxRemote).not.toHaveBeenCalled();
+  expect(source).toContain('graphId: "a2ui_fixed"');
+  expect(source).toContain('.addNode("tool_node", new ToolNode(tools))');
+  expect(source).not.toContain("new ClaudeAgentAdapter({");
+  expect(source).not.toContain("createSdkMcpServer({");
 });
 
 test("the visual FrameworkSetup path links the Google ADK termination callback", async () => {

@@ -9,6 +9,7 @@ import {
 } from "@copilotkit/runtime/v2";
 import { HttpAgent } from "@ag-ui/client";
 
+// @region[a2ui-recovery-runtime]
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 function createAgent() {
@@ -51,3 +52,4 @@ export const POST = async (req: NextRequest) => {
     );
   }
 };
+// @endregion[a2ui-recovery-runtime]

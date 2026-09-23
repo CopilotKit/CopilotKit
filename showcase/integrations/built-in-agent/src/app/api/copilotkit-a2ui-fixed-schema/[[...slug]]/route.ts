@@ -17,6 +17,7 @@ import { withForwardedHeaders } from "@/lib/header-forwarding";
 // still runs so it detects the container in tool results and forwards the
 // rendered surface to the frontend renderer; we just don't want it to also
 // inject a runtime `render_a2ui` tool on top of our own.
+// @region[a2ui-fixed-schema-runtime]
 const runtime = new CopilotRuntime({
   agents: { "a2ui-fixed-schema": createA2UIFixedSchemaAgent() },
   runner: new InMemoryAgentRunner(),
@@ -29,6 +30,7 @@ const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit-a2ui-fixed-schema",
 });
+// @endregion[a2ui-fixed-schema-runtime]
 
 async function withProbeCompat(req: Request): Promise<Response> {
   const res = await handler(req);

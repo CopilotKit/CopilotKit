@@ -184,16 +184,119 @@ describe("setup content bundle", () => {
       .map((integration) => integration.slug)
       .filter((framework) => framework !== "claude-sdk-typescript");
     for (const framework of publicFrameworks) {
-      expect(
-        resolveBundledSetupConcept(
-          framework,
-          "a2ui-fixed-schema-setup",
-          setupContent,
-        ),
+      const other = resolveBundledSetupConcept(
         framework,
-      ).toBe(null);
+        "a2ui-fixed-schema-setup",
+        setupContent,
+      );
+      if (other === null) continue;
+      expect(other, framework).not.toContain("new ClaudeAgentAdapter({");
+      expect(other, framework).not.toContain("createSdkMcpServer({");
+      expect(other, framework).not.toContain(
+        "toolSchemas: [DISPLAY_FLIGHT_TOOL_SCHEMA] as Anthropic.Tool[]",
+      );
     }
   });
+
+  it.each([
+    [
+      "langgraph-python",
+      "a2ui-fixed-schema-setup",
+      ["tools=[display_flight]", 'graphId: "a2ui_fixed"'],
+    ],
+    [
+      "langgraph-typescript",
+      "a2ui-fixed-schema-setup",
+      [
+        '.addNode("tool_node", new ToolNode(tools))',
+        "...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? [])",
+        'graphId: "a2ui_fixed"',
+      ],
+    ],
+    [
+      "google-adk",
+      "a2ui-fixed-schema-setup",
+      [
+        "tools=[display_flight, AGUIToolset()]",
+        'add_adk_fastapi_endpoint(app, middleware, path=f"/{agent_name}")',
+        "url: `${AGENT_URL}/a2ui_fixed_schema`",
+      ],
+    ],
+    [
+      "strands",
+      "a2ui-fixed-schema-setup",
+      [
+        "tools=[display_flight]",
+        'app.mount("/a2ui-fixed-schema", a2ui_fixed_schema_app)',
+        'defaultCatalogId: "copilotkit://flight-fixed-catalog"',
+      ],
+    ],
+    [
+      "built-in-agent",
+      "a2ui-fixed-schema-setup",
+      [
+        "tools: [displayFlightTool]",
+        '"a2ui-fixed-schema": createA2UIFixedSchemaAgent()',
+      ],
+    ],
+    [
+      "langgraph-python",
+      "a2ui-recovery-setup",
+      ['"recovery": {"maxAttempts": 3}', 'graphId: "a2ui_recovery"'],
+    ],
+    [
+      "langgraph-typescript",
+      "a2ui-recovery-setup",
+      ["recovery: { maxAttempts: 3 }", 'graphId: "a2ui_recovery"'],
+    ],
+    [
+      "google-adk",
+      "a2ui-recovery-setup",
+      [
+        "get_a2ui_tool(",
+        '"recovery": {"maxAttempts": 3}',
+        "url: `${AGENT_URL}/a2ui_recovery`",
+      ],
+    ],
+    [
+      "strands",
+      "a2ui-recovery-setup",
+      [
+        "config=StrandsAgentConfig(",
+        'app.mount("/a2ui-recovery", a2ui_recovery_app)',
+        "url: `${AGENT_URL}/a2ui-recovery/`",
+      ],
+    ],
+    [
+      "built-in-agent",
+      "a2ui-recovery-setup",
+      [
+        'code: "a2ui_recovery_exhausted"',
+        "return createA2uiAgent({ maxAttempts: 3 });",
+        'defaultCatalogId: "declarative-gen-ui-catalog"',
+      ],
+    ],
+  ])(
+    "bundles %s's own %s wiring",
+    (framework, concept, expectedIdentifiers) => {
+      const setupContent = setupContentData as SetupContentBundle;
+      const source = resolveBundledSetupConcept(
+        framework,
+        concept,
+        setupContent,
+      );
+
+      for (const identifier of expectedIdentifiers) {
+        expect(source, `${framework}: ${identifier}`).toContain(identifier);
+      }
+      if (!(framework === "strands" && concept === "a2ui-recovery-setup")) {
+        // Strands is the exception: its adapter injects the tool itself.
+        expect(source, framework).toContain("injectA2UITool: false");
+      }
+      expect(source, framework).not.toContain("<DemoCode");
+      expect(source, framework).not.toContain("@region[");
+    },
+  );
 
   it("resolves Channels agent setup for all 19 public framework choices", () => {
     const setupContent = setupContentData as SetupContentBundle;

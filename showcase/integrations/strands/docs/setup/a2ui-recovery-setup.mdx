@@ -1,0 +1,49 @@
+<Steps>
+  <Step>
+    ### Let the adapter inject the tool
+
+    On Strands the agent wires no A2UI tool. When the runtime forwards
+    `injectA2UITool: true`, the `ag_ui_strands` adapter injects
+    `generate_a2ui`, drives the `render_a2ui` planner, validates each attempt,
+    and retries an invalid one. When no attempt is valid, it returns the
+    `a2ui_recovery_exhausted` envelope and the renderer shows the failure
+    card. The Showcase leaves the loop at its default cap of three attempts.
+
+    <DemoCode file="src/agents/recovery_agent.py" region="a2ui-recovery-agent" />
+
+    `StrandsAgentConfig(a2ui=...)` sets the catalog id the planner targets
+    and the composition guide it follows. `CATALOG_ID`, `COMPOSITION_GUIDE`,
+    and `SYSTEM_PROMPT` are shared with the dynamic-schema agent in
+    `agents/a2ui_dynamic.py`, and `_build_model()` is this Showcase's shared
+    OpenAI model factory.
+  </Step>
+
+  <Step>
+    ### Serve it at its own path
+
+    The agent server builds a FastAPI sub-application for the agent with
+    `create_strands_app`:
+
+    <DemoCode file="src/agent_server.py" region="a2ui-recovery-app" />
+
+    and mounts it on the main app at `/a2ui-recovery`:
+
+    <DemoCode file="src/agent_server.py" region="a2ui-recovery-mount" />
+  </Step>
+
+  <Step>
+    ### Point a runtime at it
+
+    The demo has its own runtime endpoint, `/api/copilotkit-a2ui-recovery`,
+    which proxies to the mounted agent with an `HttpAgent`. The URL ends in a
+    slash so the sub-application's root route resolves. There is no runtime
+    `a2ui` block: the catalog the page passes to the provider enables A2UI
+    and turns tool injection on, which is what makes the adapter inject
+    `generate_a2ui`.
+
+    <DemoCode
+      file="src/app/api/copilotkit-a2ui-recovery/route.ts"
+      region="a2ui-recovery-runtime"
+    />
+  </Step>
+</Steps>

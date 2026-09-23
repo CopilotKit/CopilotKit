@@ -30,6 +30,7 @@ render planner).
 
 from __future__ import annotations
 
+# @region[a2ui-recovery-agent]
 from strands import Agent
 from ag_ui_strands import StrandsAgent, StrandsAgentConfig
 
@@ -61,3 +62,6 @@ def build_a2ui_recovery_agent() -> StrandsAgent:
             }
         ),
     )
+
+
+# @endregion[a2ui-recovery-agent]

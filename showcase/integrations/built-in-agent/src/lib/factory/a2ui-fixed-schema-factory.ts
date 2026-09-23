@@ -122,6 +122,7 @@ const displayFlightTool = toolDefinition({
 );
 // @endregion[backend-render-operations]
 
+// @region[a2ui-fixed-schema-agent]
 const A2UI_FIXED_SCHEMA_SYSTEM_PROMPT = `\
 You help users find flights. When asked about a flight, call display_flight \
 with origin, destination, airline, and price. Keep any chat reply to one \
@@ -130,9 +131,9 @@ short sentence.`;
 /**
  * Built-in agent for the A2UI Fixed Schema demo.
  *
- * The frontend owns the component tree (a fixed JSON schema is
- * `updateComponents`'d once at render time); the agent only streams *data* into
- * the data model via the `display_flight` tool.
+ * The component tree is the fixed `FLIGHT_SCHEMA` above, sent once per call
+ * with `updateComponents`; the model only supplies the *data* that
+ * `display_flight` writes into the data model.
  */
 export function createA2UIFixedSchemaAgent() {
   return new BuiltInAgent({
@@ -150,3 +151,4 @@ export function createA2UIFixedSchemaAgent() {
     },
   });
 }
+// @endregion[a2ui-fixed-schema-agent]

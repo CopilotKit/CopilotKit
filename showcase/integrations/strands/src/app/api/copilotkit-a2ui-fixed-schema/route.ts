@@ -8,14 +8,15 @@ import {
 } from "@copilotkit/runtime/v2";
 import { HttpAgent } from "@ag-ui/client";
 
+// @region[a2ui-fixed-schema-runtime]
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 function createAgent() {
   // Dedicated backend agent mounted at /a2ui-fixed-schema (see
   // src/agent_server.py). It owns the `display_flight` tool which emits its
-  // own a2ui_operations envelope; the runtime A2UIMiddleware paints it. No
-  // `a2ui: { injectA2UITool }` flag is needed — the envelope mechanism does
-  // not require runtime tool injection.
+  // own a2ui_operations envelope; the runtime A2UIMiddleware paints it. The
+  // envelope needs no runtime tool injection, so the runtime below sets
+  // `injectA2UITool: false`. Trailing slash so the sub-app root resolves.
   return new HttpAgent({ url: `${AGENT_URL}/a2ui-fixed-schema/` });
 }
 
@@ -55,3 +56,4 @@ export const POST = async (req: NextRequest) => {
     );
   }
 };
+// @endregion[a2ui-fixed-schema-runtime]

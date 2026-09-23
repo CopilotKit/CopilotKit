@@ -1,0 +1,97 @@
+---
+title: "A2UI Error Recovery"
+icon: "lucide/LifeBuoy"
+description: "Validate each generated A2UI surface, retry invalid attempts, and show a clean failure card when no attempt is valid."
+snippet_cell: a2ui-recovery
+---
+
+<InlineDemo demo="a2ui-recovery" />
+
+When a secondary LLM designs an A2UI surface, it can return one that doesn't
+render: a root that points at a missing child, duplicate component ids, or
+components sent as JSON strings instead of objects. With recovery on, the A2UI
+tool validates each attempt and asks again, up to a cap. The chat shows the
+surface once an attempt passes, and a short failure card if none does, instead
+of a broken surface.
+
+This page builds on [Dynamic Schema A2UI](./dynamic-schema). The demo reuses
+that page's catalog and sales data; only the backend wiring and the runtime
+endpoint change. Fixed schemas don't need recovery, because the schema is
+authored ahead of time rather than generated.
+
+## What the user sees
+
+The A2UI middleware reports the whole generation on one `a2ui-surface`
+activity, and the renderer swaps its state in place:
+
+| State | What renders |
+|---|---|
+| Building | A skeleton labeled "Building interface". |
+| Retrying | The same skeleton. Once the retry is noticeable, the label changes to "Retrying generation… (N/M attempts)". |
+| Painted | The surface replaces the skeleton. |
+| Failed | A "Couldn't generate the UI" card. Developer details sit in a collapsed expander. |
+
+## Where the loop runs
+
+Recovery runs inside the tool that generates the surface, so where you
+configure it depends on who owns that tool:
+
+- **Your agent owns the tool.** The AG-UI A2UI tool factories
+  (`get_a2ui_tools` for LangGraph Python, `getA2UITools` for LangGraph
+  TypeScript, `get_a2ui_tool` for Google ADK) run the loop and take a
+  `recovery` option with a `maxAttempts` cap, plus a callback for each
+  attempt. The runtime sets `injectA2UITool: false` so it doesn't add a
+  second copy of the tool.
+- **The adapter injects the tool.** The AWS Strands adapter runs the same loop
+  on the `generate_a2ui` tool it injects, so the agent wires nothing.
+- **You wrote the tool yourself.** A hand-written tool, like the Built-in
+  Agent's, runs its own loop and returns the `a2ui_recovery_exhausted`
+  envelope when every attempt fails. The middleware renders that envelope as
+  the failure card.
+
+## Set it up
+
+<FrameworkSetup concept="a2ui-recovery-setup" />
+
+## Tune the recovery UI
+
+The renderer's timing and debug options live on the provider's `a2ui` prop.
+The demo page passes only its catalog, so it runs on the defaults shown here:
+
+```tsx title="page.tsx"
+import { CopilotKit } from "@copilotkit/react-core/v2";
+
+<CopilotKit
+  runtimeUrl="/api/copilotkit-a2ui-recovery"
+  agent="a2ui-recovery"
+  a2ui={{
+    catalog: myCatalog,
+    recovery: {
+      showAfterMs: 2000,
+      showAfterAttempts: 2,
+      debugExposure: "collapsed",
+    },
+  }}
+>
+  {children}
+</CopilotKit>
+```
+
+- `showAfterMs` is how long a retry runs before the "Retrying generation…"
+  label appears, so a fast retry never flashes.
+- `showAfterAttempts` shows the label right away once the attempt number
+  reaches it.
+- `debugExposure` controls how much detail the retry and failure states show:
+  `"hidden"`, `"collapsed"` (an expander), or `"verbose"` (the expander starts
+  open). A value the server stamps on the activity wins over this option.
+
+## Try it
+
+Click **Recover a bad render** in the demo. Against a live model the first
+attempt usually validates, so you'll mostly see the skeleton give way to the
+dashboard. The Showcase's automated tests replay recorded model responses for
+the two suggestions to force both paths: **Recover a bad render** ends with the
+dashboard's metric tiles and no failure card, and **Show an unrecoverable
+failure** ends with the "Couldn't generate the UI" card and no surface.
+
+<IntegrationGrid path="generative-ui/a2ui" />
