@@ -1,0 +1,36 @@
+<Steps>
+  <Step>
+    ### Turn context entries into system prompts
+
+    The Built-in Agent runs in-process, and its factory receives the AG-UI
+    run input directly. The `systemPrompts` that
+    `convertInputToTanStackAI(input)` returns include one prompt for each
+    `useAgentContext` entry, formatted as the entry's `description`, a
+    newline, and its `value`:
+
+    <DemoCode
+      file="src/lib/factory/tanstack-factory.ts"
+      region="agent-context-conversion"
+      title="src/lib/factory/tanstack-factory.ts"
+    />
+
+  </Step>
+  <Step>
+    ### Pass them to the model call
+
+    A factory owns the model call, so the context reaches the model only if
+    you forward those prompts. The Showcase factory appends them after its
+    own per-demo prompts on every run:
+
+    <DemoCode
+      file="src/lib/factory/tanstack-factory.ts"
+      region="agent-context-system-prompts"
+      title="src/lib/factory/tanstack-factory.ts — chat() options"
+    />
+
+    The read-only context demo registers the default factory with no extra
+    options. The context arrives with each run and the agent has no tool to
+    change it.
+
+  </Step>
+</Steps>

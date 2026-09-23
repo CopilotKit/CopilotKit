@@ -1,0 +1,38 @@
+<Steps>
+  <Step>
+    ### Register the agents your HITL pages use
+
+    The Built-in Agent runs in-process inside your CopilotKit runtime route,
+    so there is no agent server to change. Register a `BuiltInAgent` under
+    each id your pages pass to `<CopilotKit agent>`:
+
+    <DemoCode
+      file="src/app/api/copilotkit/[[...slug]]/route.ts"
+      region="hitl-agent-registration"
+      title="src/app/api/copilotkit/[[...slug]]/route.ts"
+    />
+
+  </Step>
+  <Step>
+    ### Let the factory pause on frontend tools
+
+    The Built-in Agent has no native interrupt primitive. Human-in-the-loop
+    runs through frontend tools instead: `useHumanInTheLoop` for a picker in
+    the chat, or `useFrontendTool` with an async handler for approval UI
+    your app owns. The Showcase factory declares every tool the browser
+    registered to the model without an executor, so TanStack AI stops the
+    agent loop when the model calls one. CopilotKit runs the tool in the
+    browser and sends the user's answer back as the tool result, and the
+    agent continues from there.
+
+    <DemoCode
+      file="src/lib/factory/tanstack-factory.ts"
+      region="frontend-tool-forwarding"
+      title="src/lib/factory/tanstack-factory.ts"
+    />
+
+    A server tool with the same name wins, and the frontend tool is
+    dropped. Keep HITL tool names distinct from your server tools.
+
+  </Step>
+</Steps>

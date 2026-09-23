@@ -1,0 +1,49 @@
+<Steps>
+  <Step>
+    ### Serve the Strands agent over AG-UI
+
+    Programmatic control (`agent.addMessage`, `copilotkit.runAgent`,
+    `agent.subscribe`) drives the same agent your chat UI uses, so a
+    headless UI needs no extra backend code. Install the AG-UI Strands
+    adapter, wrap your Strands `Agent` in `StrandsAgent`, and serve it with
+    `create_strands_app`:
+
+    ```bash
+    uv add ag-ui-strands
+    ```
+
+    <DemoCode
+      file="src/agent_server.py"
+      region="strands-app-endpoint"
+      title="src/agent_server.py"
+    />
+
+    Here `agui_agent` is the `StrandsAgent` that `build_showcase_agent()`
+    returns.
+
+  </Step>
+  <Step>
+    ### Register the agent id your component uses
+
+    `useAgent({ agentId })` looks the id up in the CopilotKit runtime. The
+    runtime forwards each id to the Strands server through an `HttpAgent`:
+
+    <DemoCode
+      file="src/app/api/copilotkit/route.ts"
+      region="runtime-http-agent"
+      title="src/app/api/copilotkit/route.ts"
+    />
+
+    The headless chat ids resolve to the shared agent at the server root.
+    `interrupt-headless` resolves to the dedicated `/interrupt/` mount,
+    whose `schedule_meeting` tool pauses natively with
+    `tool_context.interrupt(...)`:
+
+    <DemoCode
+      file="src/app/api/copilotkit/route.ts"
+      region="runtime-agent-registration"
+      title="src/app/api/copilotkit/route.ts"
+    />
+
+  </Step>
+</Steps>

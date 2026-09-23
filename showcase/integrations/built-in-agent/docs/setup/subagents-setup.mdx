@@ -1,0 +1,53 @@
+<Steps>
+  <Step>
+    ### Register a supervisor with a delegation prompt
+
+    The Built-in Agent runs in-process inside your CopilotKit runtime route,
+    so the supervisor is a `BuiltInAgent` registered under the page's agent
+    id. Its system prompt tells the model to delegate to the three sub-agent
+    tools instead of answering itself:
+
+    <DemoCode
+      file="src/app/api/copilotkit/[[...slug]]/route.ts"
+      region="subagents-agent-registration"
+      title="src/app/api/copilotkit/[[...slug]]/route.ts"
+    />
+
+    <DemoCode
+      file="src/lib/factory/demo-prompts.ts"
+      region="subagents-prompt"
+      title="src/lib/factory/demo-prompts.ts"
+    />
+
+  </Step>
+  <Step>
+    ### Build the sub-agent tools for each run
+
+    The factory builds the sub-agent tools on every run and passes them to
+    the model with its other server tools. Each tool shares the run's
+    `AbortController`, so stopping the supervisor also stops any sub-agent
+    call in flight:
+
+    <DemoCode
+      file="src/lib/factory/tanstack-factory.ts"
+      region="subagent-tools-per-run"
+      title="src/lib/factory/tanstack-factory.ts"
+    />
+
+  </Step>
+  <Step>
+    ### Publish each delegation to shared state
+
+    The runtime has no per-agent state schema, so the factory's stream
+    converter writes the delegation log itself. When a sub-agent tool
+    returns, it adds an entry keyed by the tool call id and emits the run's
+    whole `delegations` list as a `STATE_DELTA`:
+
+    <DemoCode
+      file="src/lib/factory/tanstack-factory.ts"
+      region="subagent-delegation-state"
+      title="src/lib/factory/tanstack-factory.ts — convertStream"
+    />
+
+  </Step>
+</Steps>

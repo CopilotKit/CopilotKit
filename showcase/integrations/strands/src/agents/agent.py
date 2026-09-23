@@ -8,8 +8,6 @@ All module-level side effects (agent construction, model init,
 so import failures are localized and testable.
 """
 
-# @region[supervisor-delegation-tools]
-# @region[subagent-setup]
 # @region[weather-tool-backend]
 import json
 import logging
@@ -604,6 +602,7 @@ async def document_state_from_args(context):
     return {"document": document}
 
 
+# @region[subagent-setup]
 # ---- Sub-Agents demo ----------------------------------------------------
 #
 # A supervisor LLM (this top-level Strands Agent) delegates to three
@@ -742,6 +741,7 @@ def _invoke_subagent_llm(system_prompt: str, task: str) -> str:
     return text
 
 
+# @region[supervisor-delegation-tools]
 def _run_subagent(name: str, task: str) -> str:
     """Tool body shared by all three subagent tools.
 
@@ -814,6 +814,7 @@ def critique_agent(task: str) -> str:
 # @endregion[supervisor-delegation-tools]
 
 
+# @region[subagent-delegation-hook]
 def _make_subagent_state_from_result(sub_agent_name: str):
     """Factory for a ``state_from_result`` hook bound to a sub-agent name.
 
@@ -882,6 +883,9 @@ def _make_subagent_state_from_result(sub_agent_name: str):
             return {"delegations": [dict(d) for d in updated]}
 
     return _hook
+
+
+# @endregion[subagent-delegation-hook]
 
 
 def _flatten_tool_result(result_data) -> str:
@@ -1514,6 +1518,7 @@ def build_showcase_agent(
                 state_from_args=steps_state_from_args,
             ),
             # @endregion[gen-ui-agent-wiring]
+            # @region[subagent-tool-behaviors]
             # Sub-Agents — every delegation appends to
             # `state["delegations"]`. Use `state_from_result` rather than
             # `state_from_args` so the entry carries the sub-agent's
@@ -1528,6 +1533,7 @@ def build_showcase_agent(
             "critique_agent": ToolBehavior(
                 state_from_result=_make_subagent_state_from_result("critique_agent"),
             ),
+            # @endregion[subagent-tool-behaviors]
         },
     )
 

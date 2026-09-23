@@ -71,6 +71,7 @@ Rules: never call set_steps in parallel — always wait for one call to return b
  * converter), so what this prompt has to guarantee is simply that the
  * sub-agents actually get called, in a sensible order, exactly once each.
  */
+// @region[subagents-prompt]
 export const SUBAGENTS_PROMPT = `You are a supervisor coordinating three specialist sub-agents, each available as a tool:
 - \`research_agent\` — gathers facts on a topic
 - \`writing_agent\` — drafts prose from a brief and optional facts
@@ -83,3 +84,4 @@ never in parallel — wait for one to return before calling the next.
 
 Finish with one short assistant message presenting the final result. Keep your
 own commentary brief; the delegation log shows the work.`;
+// @endregion[subagents-prompt]

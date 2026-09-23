@@ -1,0 +1,36 @@
+<Steps>
+  <Step>
+    ### Install the AG-UI Strands adapter
+
+    ```bash
+    uv add ag-ui-strands
+    ```
+
+  </Step>
+  <Step>
+    ### Publish each delegation with a `state_from_result` hook
+
+    In Strands each sub-agent is an ordinary `@tool` on the supervisor
+    `Agent`, listed in its `tools=[...]` next to the supervisor's other
+    tools. To make the delegations visible, give each sub-agent tool a
+    `ToolBehavior` in the `StrandsAgentConfig` you pass to `StrandsAgent`.
+    Its `state_from_result` hook runs after the tool returns, and the
+    adapter sends the state it returns to the UI as a state snapshot:
+
+    <DemoCode
+      file="src/agents/agent.py"
+      region="subagent-tool-behaviors"
+      title="src/agents/agent.py — StrandsAgentConfig tool_behaviors"
+    />
+
+    The hook reads the `task` argument and the sub-agent's output, appends
+    one entry with its own `id`, and returns the whole `delegations` list:
+
+    <DemoCode
+      file="src/agents/agent.py"
+      region="subagent-delegation-hook"
+      title="src/agents/agent.py"
+    />
+
+  </Step>
+</Steps>
