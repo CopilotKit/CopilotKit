@@ -40,7 +40,9 @@ test("the tool-rendering runtime frontend remains identical across integrations"
 });
 
 test("the shared default-rendering guidance uses the selected Showcase region", () => {
-  const loadSlug = "integrations/langgraph/generative-ui/tool-rendering";
+  // The generated LangGraph route renders the root guide; its shadowed
+  // framework copy was deleted upstream (98934530fc).
+  const loadSlug = "generative-ui/tool-rendering";
   const doc = loadDoc(loadSlug);
   expect(doc).not.toBeNull();
 

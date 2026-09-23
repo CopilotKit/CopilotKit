@@ -27,7 +27,8 @@ describe("partner showcase links", () => {
             new URL(
               frontend === "angular"
                 ? `/angular/${demo.id}`
-                : source.demo.route,
+                : // partnerShowcaseDemos only returns demos that have a route.
+                  source.demo.route!,
               source.integration.backend_url,
             ).href,
           );
