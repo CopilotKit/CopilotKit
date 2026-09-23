@@ -57,12 +57,20 @@ describe("handleTranscribe", () => {
     });
   };
 
-  const createJsonRequest = (): Request => {
+  const createJsonRequest = (
+    body: Record<string, unknown> = { test: "data" },
+  ): Request => {
     return new Request("https://example.com/transcribe", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ test: "data" }),
+      body: JSON.stringify(body),
     });
+  };
+
+  const audioTooShortBody = {
+    error: "audio_too_short",
+    message: "Audio is too short to transcribe",
+    retryable: false,
   };
 
   it("should successfully transcribe an audio file", async () => {
@@ -294,6 +302,119 @@ describe("handleTranscribe", () => {
       }),
       mimeType: "audio/wav",
       size: 2048,
+    });
+  });
+
+  describe("empty audio", () => {
+    it("should return 400 audio_too_short for a 0-byte multipart upload without calling the service", async () => {
+      const mockService = new MockTranscriptionService();
+      const runtime = createMockRuntime(mockService);
+      const audioFile = createMockAudioFile("empty.webm", "audio/webm", 0);
+      const request = createFormDataRequest(audioFile);
+
+      const response = await handleTranscribe({ runtime, request });
+
+      expect(response.status).toBe(400);
+      expect(response.headers.get("Content-Type")).toBe("application/json");
+      expect(await response.json()).toEqual(audioTooShortBody);
+      expect(mockService.lastOptions).toBeUndefined();
+    });
+
+    it("should return 400 audio_too_short for a 0-byte multipart upload with no MIME type", async () => {
+      const mockService = new MockTranscriptionService();
+      const runtime = createMockRuntime(mockService);
+      const audioFile = createMockAudioFile("recording.webm", "", 0);
+      const request = createFormDataRequest(audioFile);
+
+      const response = await handleTranscribe({ runtime, request });
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual(audioTooShortBody);
+      expect(mockService.lastOptions).toBeUndefined();
+    });
+
+    it("should return 400 audio_too_short for empty base64 audio (what clients send for an empty Blob)", async () => {
+      const mockService = new MockTranscriptionService();
+      const runtime = createMockRuntime(mockService);
+      const request = createJsonRequest({ audio: "", mimeType: "audio/webm" });
+
+      const response = await handleTranscribe({ runtime, request });
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual(audioTooShortBody);
+      expect(mockService.lastOptions).toBeUndefined();
+    });
+
+    it("should return 400 audio_too_short for a data URL with an empty base64 payload", async () => {
+      const mockService = new MockTranscriptionService();
+      const runtime = createMockRuntime(mockService);
+      const request = createJsonRequest({
+        audio: "data:audio/webm;base64,",
+        mimeType: "audio/webm",
+      });
+
+      const response = await handleTranscribe({ runtime, request });
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual(audioTooShortBody);
+      expect(mockService.lastOptions).toBeUndefined();
+    });
+
+    it("should still return 400 invalid_request when the base64 audio field is missing", async () => {
+      const mockService = new MockTranscriptionService();
+      const runtime = createMockRuntime(mockService);
+      const request = createJsonRequest({ mimeType: "audio/webm" });
+
+      const response = await handleTranscribe({ runtime, request });
+
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toBe("invalid_request");
+      expect(mockService.lastOptions).toBeUndefined();
+    });
+
+    it("should pass a 1-byte multipart upload through to the service", async () => {
+      const mockService = new MockTranscriptionService(false, "ok");
+      const runtime = createMockRuntime(mockService);
+      const audioFile = createMockAudioFile("tiny.webm", "audio/webm", 1);
+      const request = createFormDataRequest(audioFile);
+
+      const response = await handleTranscribe({ runtime, request });
+
+      expect(response.status).toBe(200);
+      expect(mockService.lastOptions).toEqual({
+        audioFile: expect.objectContaining({ size: 1, type: "audio/webm" }),
+        mimeType: "audio/webm",
+        size: 1,
+      });
+    });
+
+    it("should pass non-empty base64 audio through to the service", async () => {
+      const mockService = new MockTranscriptionService(false, "ok");
+      const runtime = createMockRuntime(mockService);
+      // "AAEC" decodes to the 3 bytes [0x00, 0x01, 0x02]
+      const request = createJsonRequest({
+        audio: "data:audio/webm;base64,AAEC",
+        mimeType: "audio/webm",
+        filename: "clip.webm",
+      });
+
+      const response = await handleTranscribe({ runtime, request });
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({
+        text: "ok",
+        size: 3,
+        type: "audio/webm",
+      });
+      expect(mockService.lastOptions).toEqual({
+        audioFile: expect.objectContaining({
+          name: "clip.webm",
+          size: 3,
+          type: "audio/webm",
+        }),
+        mimeType: "audio/webm",
+        size: 3,
+      });
     });
   });
 });

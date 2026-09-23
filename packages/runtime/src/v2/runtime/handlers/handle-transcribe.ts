@@ -2,8 +2,8 @@ import type { CopilotRuntimeLike } from "../core/runtime";
 import {
   TranscriptionErrorCode,
   TranscriptionErrors,
-  type TranscriptionErrorResponse,
 } from "@copilotkit/shared";
+import type { TranscriptionErrorResponse } from "@copilotkit/shared";
 
 /**
  * HTTP status codes for transcription error codes
@@ -134,7 +134,10 @@ async function extractAudioFromJson(
     return { error: createErrorResponse(err) };
   }
 
-  if (!body.audio || typeof body.audio !== "string") {
+  // An empty string is present-but-empty audio: the bundled React, Vue and
+  // Angular clients send "" for an empty Blob. Let it decode to a 0-byte file
+  // so it is reported as AUDIO_TOO_SHORT rather than as a malformed request.
+  if (typeof body.audio !== "string") {
     const err = TranscriptionErrors.invalidRequest(
       "Request must include 'audio' field with base64-encoded audio data",
     );
@@ -243,6 +246,13 @@ export async function handleTranscribe({
     }
 
     const audioFile = extractResult.file;
+
+    // An empty recording (e.g. a MediaRecorder stopped before emitting data)
+    // has nothing to transcribe. Reject it here instead of forwarding it to the
+    // provider, whose rejection would otherwise surface as a 500.
+    if (audioFile.size === 0) {
+      return createErrorResponse(TranscriptionErrors.audioTooShort());
+    }
 
     // Transcribe the audio file
     const transcription = await runtime.transcriptionService.transcribeFile({
