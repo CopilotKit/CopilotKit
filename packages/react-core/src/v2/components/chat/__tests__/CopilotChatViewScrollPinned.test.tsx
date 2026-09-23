@@ -2,6 +2,10 @@ import React from "react";
 import { cleanup, screen } from "@testing-library/react";
 import { renderWithCopilotKit } from "../../../__tests__/utils/test-helpers";
 import { CopilotChatView } from "../CopilotChatView";
+import type {
+  CopilotChatMessageView,
+  CopilotChatMessageViewProps,
+} from "../CopilotChatMessageView";
 import { ScrollPinnedContext } from "../scroll-pinned-context";
 
 /**
@@ -51,15 +55,18 @@ vi.mock("use-stick-to-bottom", () => {
 });
 
 /** Stands in for the message view and reports the context it was given. */
-function PinnedProbe() {
+const PinnedProbe: React.FC<CopilotChatMessageViewProps> = () => {
   const isPinned = React.useContext(ScrollPinnedContext);
   return <div data-testid="pinned">{String(isPinned)}</div>;
-}
+};
 
 function renderChatView() {
   renderWithCopilotKit({
     children: (
-      <CopilotChatView messageView={PinnedProbe} welcomeScreen={false} />
+      <CopilotChatView
+        messageView={PinnedProbe as typeof CopilotChatMessageView}
+        welcomeScreen={false}
+      />
     ),
   });
 }
