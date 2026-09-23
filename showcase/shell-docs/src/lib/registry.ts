@@ -123,10 +123,25 @@ export interface Integration {
     clone_command?: string;
   };
   features: string[];
+  /**
+   * Feature ids the manifest explicitly declares unsupported. Source of
+   * truth: `showcase/integrations/<slug>/manifest.yaml`.
+   */
+  not_supported_features?: string[];
   demos: Demo[];
+  /**
+   * Per-feature docs targets from `showcase/integrations/<slug>/docs-links.json`
+   * (normalized by `generate-registry.ts`). A feature id with no entry reads
+   * as `undefined`, which is why the record value admits it.
+   */
   docs_links?: {
-    features?: Record<string, { shell_docs_path?: string | null }>;
+    features?: Record<string, DocsLinkEntry | undefined>;
   };
+}
+
+export interface DocsLinkEntry {
+  og_docs_url?: string | null;
+  shell_docs_path?: string | null;
 }
 
 export interface Registry {

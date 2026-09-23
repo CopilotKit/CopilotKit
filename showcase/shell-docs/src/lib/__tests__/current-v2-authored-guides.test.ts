@@ -1,6 +1,29 @@
+import fs from "node:fs";
+import path from "node:path";
 import { expect, test } from "vitest";
+import demoContent from "@/data/demo-content.json";
 import { loadDoc } from "../docs-render";
 import { renderPageToLlmText } from "../llm-text";
+import { markdownSourceGaps } from "../selected-showcase-guide-bindings";
+
+const bundledDemos = (
+  demoContent as {
+    demos: Record<string, { regions?: Record<string, { code: string }> }>;
+  }
+).demos;
+
+/** The rendered Markdown carries each named region's bundled Showcase code. */
+function expectRegionCode(
+  output: string,
+  demoKey: string,
+  regions: string[],
+): void {
+  for (const region of regions) {
+    const code = bundledDemos[demoKey]?.regions?.[region]?.code;
+    expect(code, `${demoKey} region ${region} is bundled`).toBeTruthy();
+    expect(output, `${demoKey} region ${region}`).toContain(code!);
+  }
+}
 
 function source(slug: string): string {
   const doc = loadDoc(slug);
@@ -130,8 +153,22 @@ test("gives LangGraph TypeScript a source-backed existing-agent path", () => {
     loadSlug: "integrations/langgraph/quickstart",
     framework: "langgraph-typescript",
   });
+  // The guide renders the Showcase's own package.json, so it must carry the
+  // exact CLI pin and port the Showcase agent uses, whatever they are today.
+  const showcaseAgentPackage = JSON.parse(
+    fs.readFileSync(
+      path.resolve(
+        process.cwd(),
+        "../integrations/langgraph-typescript/src/agent/package.json",
+      ),
+      "utf8",
+    ),
+  ) as { scripts: { dev: string } };
+  expect(showcaseAgentPackage.scripts.dev).toMatch(
+    /@langchain\/langgraph-cli@\S+ dev --port 8123\b/,
+  );
   expect(output).toContain(
-    '"dev": "npx @langchain/langgraph-cli@1.2.1 dev --port 8123 --no-browser"',
+    `"dev": ${JSON.stringify(showcaseAgentPackage.scripts.dev)}`,
   );
   expect(output).toContain('"starterAgent": "./graph.ts:graph"');
   expect(output).toContain("export const graph = workflow.compile");
@@ -141,8 +178,7 @@ test("gives LangGraph TypeScript a source-backed existing-agent path", () => {
   );
   expect(output).toContain("cp .env.example .env");
   expect(output).toContain("configuration is a reference only");
-  expect(output).not.toContain("Missing snippet");
-  expect(output).not.toContain("<Snippet");
+  expect(markdownSourceGaps(output)).toEqual([]);
 });
 
 test("limits selected Showcase multimodal claims to images and PDFs", () => {
@@ -169,8 +205,11 @@ test("limits selected Showcase multimodal claims to images and PDFs", () => {
   expect(output).toContain("Try with sample image");
   expect(output).toContain("accept: ACCEPT_MIME");
   expect(output).toContain("No selected Showcase end-to-end claim");
-  expect(output).not.toContain("Missing snippet");
-  expect(output).not.toContain("<Snippet");
+  expectRegionCode(output, "built-in-agent::multimodal", [
+    "multimodal-attachments",
+    "multimodal-upload-adapter",
+  ]);
+  expect(markdownSourceGaps(output)).toEqual([]);
 });
 
 test("separates the Voice sample-text path from microphone transcription", () => {
@@ -197,8 +236,15 @@ test("separates the Voice sample-text path from microphone transcription", () =>
   expect(output).toContain(
     "prepared text and does not upload or transcribe audio",
   );
-  expect(output).not.toContain("Missing snippet");
-  expect(output).not.toContain("<Snippet");
+  // The prose above renders with or without snippets; assert the Showcase
+  // source itself reached the Markdown.
+  expect(output).toContain("<!-- interactive demo: voice -->");
+  expectRegionCode(output, "built-in-agent::voice", [
+    "voice-page",
+    "sample-audio-button",
+    "voice-runtime",
+  ]);
+  expect(markdownSourceGaps(output)).toEqual([]);
 });
 
 test("replaces two LangGraph Python legacy viewer guides with Showcase sources", () => {
@@ -244,8 +290,7 @@ test("replaces two LangGraph Python legacy viewer guides with Showcase sources",
       framework: "langgraph-python",
     });
     for (const term of item.outputTerms) expect(output).toContain(term);
-    expect(output).not.toContain("Missing snippet");
-    expect(output).not.toContain("<Snippet");
+    expect(markdownSourceGaps(output), item.url).toEqual([]);
   }
 });
 

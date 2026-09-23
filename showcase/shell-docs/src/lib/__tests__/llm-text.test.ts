@@ -1,5 +1,9 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { expect, test } from "vitest";
 
+import demoContent from "@/data/demo-content.json";
 import {
   CHANNEL_FRONTENDS,
   CHANNEL_GUIDE_ROUTES,
@@ -1127,4 +1131,88 @@ test("keeps the live demo marker for a supported wired framework cell", () => {
 
   expect(output).toContain("<!-- interactive demo: hitl-in-chat -->");
   expect(output).not.toContain("Not supported on Google ADK");
+});
+
+// A requested framework is authoritative in raw Markdown, exactly as in the
+// HTML <Snippet>: a missing cell yields a marker, never another framework's
+// code. These fixtures run a synthetic MDX file through the real renderer
+// (`__reference__/` pages are read from `filePath`).
+const donor = (() => {
+  const demos = (
+    demoContent as {
+      demos: Record<string, { regions?: Record<string, { code: string }> }>;
+    }
+  ).demos;
+  const [region, entry] =
+    Object.entries(demos["langgraph-python::agentic-chat"]?.regions ?? {}).find(
+      ([, candidate]) => candidate.code.trim().length >= 40,
+    ) ?? [];
+  if (!region || !entry) {
+    throw new Error("langgraph-python::agentic-chat has no bundled region");
+  }
+  return { cell: "agentic-chat", region, code: entry.code };
+})();
+
+function renderSyntheticGuide(body: string, framework?: string): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "llm-text-"));
+  const filePath = path.join(dir, "guide.mdx");
+  fs.writeFileSync(
+    filePath,
+    `---\ntitle: Synthetic guide\nsnippet_cell: ${donor.cell}\n---\n\n${body}\n`,
+  );
+  try {
+    return renderPageToLlmText(
+      {
+        url: framework ? `${framework}/synthetic-guide` : "synthetic-guide",
+        title: "Synthetic guide",
+        filePath,
+        loadSlug: "__reference__/synthetic-guide",
+        framework,
+      },
+      { framework },
+    );
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test("marks a requested framework's missing snippet instead of substituting another framework", () => {
+  const output = renderSyntheticGuide(
+    `<Snippet region="${donor.region}" />`,
+    "synthetic-framework",
+  );
+
+  expect(output).toContain(
+    `<!-- snippet skipped: no demo for synthetic-framework::${donor.cell} -->`,
+  );
+  expect(output).not.toContain(donor.code);
+});
+
+test("marks a requested framework's missing InlineDemo instead of implying a runnable demo", () => {
+  const output = renderSyntheticGuide(
+    `<InlineDemo demo="${donor.cell}" />`,
+    "synthetic-framework",
+  );
+
+  expect(output).toContain(
+    `<!-- interactive demo skipped: no demo for synthetic-framework::${donor.cell} -->`,
+  );
+  expect(output).not.toContain(`<!-- interactive demo: ${donor.cell} -->`);
+});
+
+test("honors an explicit framework attribute, as the HTML Snippet does", () => {
+  const output = renderSyntheticGuide(
+    `<Snippet framework="langgraph-python" region="${donor.region}" />`,
+    "synthetic-framework",
+  );
+
+  expect(output).toContain(donor.code);
+  expect(output).not.toContain("snippet skipped");
+});
+
+test("keeps the preference fallback only for an unscoped render", () => {
+  const output = renderSyntheticGuide(`<Snippet region="${donor.region}" />`);
+
+  expect(output).toContain(donor.code);
+  expect(output).not.toContain("snippet skipped");
 });

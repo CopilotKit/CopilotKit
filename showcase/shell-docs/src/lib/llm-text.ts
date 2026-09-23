@@ -27,10 +27,13 @@
 //
 // Framework resolution for snippets: when a page is requested under a
 // framework URL prefix (`/google-adk/...`), that slug overrides the
-// frontmatter default. For the framework-agnostic `/<slug>.md` and the
-// /llms-full.txt aggregate, we pick the first framework that has a
-// resolvable snippet — preferring `langgraph-python` (the north-star
-// example) when available so output is deterministic across builds.
+// frontmatter default. A requested framework (tag, URL, or frontmatter) is
+// authoritative, exactly as in the HTML <Snippet>: when it has no demo for
+// the cell the output carries a `snippet skipped:` marker, never another
+// framework's code. Only the framework-agnostic `/<slug>.md` and the
+// /llms-full.txt aggregate, which request no framework, pick the first
+// framework that has a resolvable snippet — preferring `langgraph-python`
+// (the north-star example) so output is deterministic across builds.
 
 import fs from "fs";
 import path from "path";
@@ -507,20 +510,23 @@ function parseLineRange(input: string): [number, number] | null {
  *   1. Explicit `framework="..."` on the tag.
  *   2. Caller-supplied `defaultFramework` (URL-scoped framework, or
  *      frontmatter `snippet_framework`).
- *   3. First framework in `SNIPPET_FRAMEWORK_PREFERENCE` that has a
- *      demo record for the cell.
- *   4. First key in `demos` that ends with `::<cell>`.
+ *   3. Only when neither is set: the first framework in
+ *      `SNIPPET_FRAMEWORK_PREFERENCE` that has a demo record for the cell.
+ *   4. Then the first key in `demos` that ends with `::<cell>`.
  *
- * Returns null when no framework has a demo for the cell.
+ * A requested framework (1 or 2) is returned even when it has no demo for
+ * the cell. That matches the HTML <Snippet> (`framework ?? defaultFramework`)
+ * and lets the caller emit a skip marker instead of silently substituting
+ * another framework's code. Returns null when nothing was requested and no
+ * framework has a demo for the cell.
  */
 function pickFramework(
   cell: string,
   explicit: string | undefined,
   defaultFramework: string | undefined,
 ): string | null {
-  if (explicit && demos[`${explicit}::${cell}`]) return explicit;
-  if (defaultFramework && demos[`${defaultFramework}::${cell}`])
-    return defaultFramework;
+  const requested = explicit ?? defaultFramework;
+  if (requested) return requested;
   for (const fw of SNIPPET_FRAMEWORK_PREFERENCE) {
     if (demos[`${fw}::${cell}`]) return fw;
   }
@@ -630,15 +636,9 @@ function resolveSnippet(
   if (!cell) {
     return "<!-- snippet skipped: no cell -->";
   }
-  // Catalog availability is authoritative for an explicitly selected or
-  // URL-default framework. Check it before `pickFramework()` falls back to a
-  // different integration's demo when this framework deliberately has none.
-  const requestedFramework = attrs.framework ?? defaultFramework;
-  const requestedUnsupported = requestedFramework
-    ? unsupportedFeatureNotice(requestedFramework, cell)
-    : null;
-  if (requestedUnsupported) return requestedUnsupported;
-
+  // A requested framework is authoritative (see pickFramework), so the
+  // catalog's `unsupported` notice and the missing-demo marker below are
+  // both about THAT framework, matching the HTML <Snippet> states.
   const framework = pickFramework(cell, attrs.framework, defaultFramework);
   if (!framework) {
     return `<!-- snippet skipped: no demo for cell '${cell}' -->`;
@@ -649,7 +649,7 @@ function resolveSnippet(
 
   const demo = demos[`${framework}::${cell}`];
   if (!demo) {
-    return `<!-- snippet skipped: ${framework}::${cell} not bundled -->`;
+    return `<!-- snippet skipped: no demo for ${framework}::${cell} -->`;
   }
 
   // Region mode wins when both `region` and `file` are passed —
@@ -822,35 +822,37 @@ function expandInlineDemos(
   return body.replace(
     /<InlineDemo\b([\s\S]*?)\/>/g,
     (_match, inner: string) => {
-      const demoAttr = /demo\s*=\s*["']([^"']+)["']/.exec(inner);
-      const note = demoAttr
-        ? `\n<!-- interactive demo: ${demoAttr[1]} -->\n`
-        : "\n<!-- interactive demo -->\n";
+      const demo = /demo\s*=\s*["']([^"']+)["']/.exec(inner)?.[1];
+      if (!demo) return "\n<!-- interactive demo -->\n";
+      const note = `\n<!-- interactive demo: ${demo} -->\n`;
       const explicitFramework = /framework\s*=\s*["']([^"']+)["']/.exec(
         inner,
       )?.[1];
-      const requestedFramework = explicitFramework ?? framework;
-      const requestedUnsupported =
-        demoAttr && requestedFramework
-          ? unsupportedFeatureNotice(requestedFramework, demoAttr[1])
-          : null;
-      if (requestedUnsupported) return `\n${requestedUnsupported}\n`;
 
-      const demoFramework = demoAttr
-        ? pickFramework(demoAttr[1], explicitFramework, framework)
-        : null;
-      const unsupported =
-        demoFramework && demoAttr
-          ? unsupportedFeatureNotice(demoFramework, demoAttr[1])
-          : null;
+      // A requested framework is authoritative (see pickFramework); only an
+      // unscoped render falls back to a framework that has this demo.
+      const demoFramework = pickFramework(demo, explicitFramework, framework);
+      if (!demoFramework) return note;
+
+      const unsupported = unsupportedFeatureNotice(demoFramework, demo);
       if (unsupported) return `\n${unsupported}\n`;
-      const llmRegion = /llmRegion\s*=\s*["']([^"']+)["']/.exec(inner)?.[1];
-      if (!demoAttr || !llmRegion) return note;
 
+      // The HTML embed has no source for this pair (its Code tab shows
+      // "Missing demo source"). Say so instead of implying a runnable demo.
+      if (!demos[`${demoFramework}::${demo}`]) {
+        return `\n<!-- interactive demo skipped: no demo for ${demoFramework}::${demo} -->\n`;
+      }
+
+      const llmRegion = /llmRegion\s*=\s*["']([^"']+)["']/.exec(inner)?.[1];
+      if (!llmRegion) return note;
+
+      // `llmRegion` is an optional Markdown-only excerpt that most
+      // frameworks deliberately do not bundle, so a missing region keeps
+      // just the note. It is never resolved from another framework.
       const snippet = resolveSnippet(
-        { cell: demoAttr[1], region: llmRegion },
-        framework,
-        demoAttr[1],
+        { cell: demo, region: llmRegion },
+        demoFramework,
+        demo,
       );
       return snippet.startsWith("<!-- snippet skipped:")
         ? note
