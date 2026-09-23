@@ -36,6 +36,7 @@ from langgraph.types import Command
 from copilotkit import CopilotKitMiddleware
 
 
+# @region[set-notes-tool]
 class Preferences(TypedDict, total=False):
     name: str
     tone: str  # "formal" | "casual" | "playful"
@@ -75,8 +76,10 @@ def set_notes(notes: list[str], runtime: ToolRuntime) -> Command:
             ],
         }
     )
+    # @endregion[set-notes-tool]
 
 
+# @region[preferences-injector]
 class PreferencesInjectorMiddleware(AgentMiddleware[AgentState, Any]):
     """Injects the UI-supplied `preferences` into the system prompt.
 
@@ -139,6 +142,7 @@ class PreferencesInjectorMiddleware(AgentMiddleware[AgentState, Any]):
         return await handler(
             request.override(messages=[prefs_message, *request.messages])
         )
+        # @endregion[preferences-injector]
 
 
 # @region[shared-state-setup]
