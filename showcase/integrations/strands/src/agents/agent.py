@@ -1532,6 +1532,7 @@ def build_showcase_agent(
     )
 
     # @region[gen-ui-agent-wiring]
+    # @region[tool-rendering-agent-wiring]
     strands_agent = Agent(
         model=resolved_model,
         system_prompt=SYSTEM_PROMPT,
@@ -1560,6 +1561,7 @@ def build_showcase_agent(
         description="A sales assistant that collaborates with you to manage a sales pipeline",
         config=shared_state_config,
     )
+    # @endregion[tool-rendering-agent-wiring]
     # @endregion[gen-ui-agent-wiring]
 
     # Replace the per-thread agent dict with our hook-injecting variant.

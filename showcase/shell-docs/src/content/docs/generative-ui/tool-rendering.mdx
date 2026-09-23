@@ -16,11 +16,37 @@ matching backend definition for `get_weather`: expose a tool named
 `get_weather`, return structured data, and let the frontend renderer with
 the same name paint the card.
 
-<Snippet
-  region="weather-tool-backend"
-  title="backend/agent.py — weather tool"
-/>
+<Snippet region="weather-tool-backend" />
 
 <FrameworkSetup concept="tool-rendering-setup" />
+
+## Tool calls alongside reasoning
+
+<InlineDemo demo="tool-rendering-reasoning-chain" />
+
+When the agent emits reasoning, for example from a reasoning model, that
+reasoning arrives as reasoning messages in the same run as its tool calls.
+In a chained turn, reasoning can appear before each tool card. Your tool
+renderers don't change. This cell registers the same `get_weather`,
+`search_flights`, and catch-all renderers as the per-tool example above,
+and adds a `reasoningMessage` slot so the reasoning between cards uses its
+own component:
+
+<Snippet
+  cell="tool-rendering-reasoning-chain"
+  region="reasoning-chain-message-view"
+/>
+
+Reasoning only appears when the agent's model emits it. This is how the
+cell's agent turns it on. Helpers in it that exist only for the Showcase's
+test setup, such as ones that forward request headers to the mock model
+server, aren't needed in your app:
+
+<Snippet cell="tool-rendering-reasoning-chain" region="reasoning-chain-model" />
+
+To try it, ask the demo to "Find flights from SFO to JFK and show me the
+weather there." Reasoning blocks and the flight and weather cards appear in
+the order the agent produced them. To restyle the reasoning block itself,
+see [Reasoning Messages](/custom-look-and-feel/reasoning-messages).
 
 <IntegrationGrid path="generative-ui/tool-rendering" />

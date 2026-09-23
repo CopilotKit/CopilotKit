@@ -2561,6 +2561,7 @@ app.post(
   },
 );
 
+// @region[reasoning-chain-model]
 // Tool Rendering — Reasoning Chain. Same backend-owned-tools treatment as
 // /tool-rendering, plus extended thinking on a reasoning-capable model so
 // the demo's reasoning-block renders between chained tool calls
@@ -2583,6 +2584,7 @@ app.post(
     });
   },
 );
+// @endregion[reasoning-chain-model]
 
 // ---------------------------------------------------------------------------
 // Health check

@@ -120,6 +120,7 @@ SYSTEM_PROMPT = (
     "fabricate data that a tool could provide."
 )
 
+# @region[reasoning-chain-model]
 REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4")
 
 # No full CopilotKitMiddleware — this demo combines reasoning-token streaming
@@ -147,3 +148,4 @@ graph = create_deep_agent(
     system_prompt=SYSTEM_PROMPT,
     middleware=[HeaderForwardingMiddleware()],
 )
+# @endregion[reasoning-chain-model]

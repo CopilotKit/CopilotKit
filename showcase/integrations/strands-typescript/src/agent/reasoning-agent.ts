@@ -24,6 +24,7 @@ import { z } from "zod";
 import { StrandsAgent } from "@ag-ui/aws-strands";
 import { createModel } from "./model-factory";
 
+// @region[reasoning-chain-model]
 export const REASONING_MODEL = process.env.OPENAI_REASONING_MODEL ?? "gpt-5.4";
 
 /** Responses-API model that streams reasoning summaries on every turn. */
@@ -34,6 +35,7 @@ function reasoningModel() {
     openaiModelId: REASONING_MODEL,
   });
 }
+// @endregion[reasoning-chain-model]
 
 const REASONING_SYSTEM_PROMPT =
   "You are a helpful assistant. For each user question, first think " +
