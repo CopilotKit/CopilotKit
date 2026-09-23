@@ -2146,7 +2146,7 @@
       ],
       "compatibility": {
         "peerDependencies": {
-          "@ag-ui/core": ">=0.0.48"
+          "@ag-ui/core": ">=0.0.48 <0.1.0"
         },
         "provenance": [
           {

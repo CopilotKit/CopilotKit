@@ -3603,8 +3603,8 @@ importers:
         specifier: 0.0.59
         version: 0.0.59
       '@ag-ui/core':
-        specifier: '>=0.0.48'
-        version: 0.0.57
+        specifier: '>=0.0.48 <0.1.0'
+        version: 0.0.59
       '@copilotkit/license-verifier':
         specifier: ~0.5.0
         version: 0.5.0

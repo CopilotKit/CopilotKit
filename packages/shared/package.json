@@ -95,6 +95,6 @@
     "vitest": "^3.2.4"
   },
   "peerDependencies": {
-    "@ag-ui/core": ">=0.0.48"
+    "@ag-ui/core": ">=0.0.48 <0.1.0"
   }
 }
