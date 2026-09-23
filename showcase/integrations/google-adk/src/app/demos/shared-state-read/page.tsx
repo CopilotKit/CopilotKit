@@ -19,11 +19,8 @@ import {
   useCopilotKit,
 } from "@copilotkit/react-core/v2";
 import { RecipeCard } from "./recipe-card";
-import {
-  INITIAL_RECIPE,
-  type RecipeAgentState,
-  type RecipeData,
-} from "./types";
+import { INITIAL_RECIPE } from "./types";
+import type { RecipeAgentState, RecipeData } from "./types";
 
 export default function SharedStateReadDemo() {
   return (
@@ -69,6 +66,7 @@ function Recipe() {
   // Seed the initial recipe into agent state once so the agent has
   // something to read on the first turn. After this, every edit lands
   // via `agent.setState` below.
+  // @region[shared-state-read-publish]
   useEffect(() => {
     if (!(agent.state as RecipeAgentState | undefined)?.recipe) {
       agent.setState({ recipe: INITIAL_RECIPE } satisfies RecipeAgentState);
@@ -82,6 +80,7 @@ function Recipe() {
   const handleChange = (next: RecipeData) => {
     agent.setState({ recipe: next } satisfies RecipeAgentState);
   };
+  // @endregion[shared-state-read-publish]
 
   const handleImprove = () => {
     if (agent.isRunning) return;

@@ -75,6 +75,7 @@ def _build_prefs_block(prefs: dict | None) -> str | None:
     return "\n".join(lines)
 
 
+# @region[preferences-injector]
 def _inject_preferences(
     callback_context: CallbackContext, llm_request: LlmRequest
 ) -> Optional[LlmResponse]:
@@ -133,6 +134,7 @@ def _inject_preferences(
         role="system", parts=[types.Part(text=new_text)]
     )
     return None
+    # @endregion[preferences-injector]
 
 
 _INSTRUCTION = (

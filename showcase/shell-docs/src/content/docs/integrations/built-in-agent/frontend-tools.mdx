@@ -7,3 +7,36 @@ snippet_cell: frontend-tools
 import FrontendToolsShowcase from "@/snippets/shared/app-control/frontend-tools-showcase.mdx";
 
 <FrontendToolsShowcase />
+
+## Await async work in a handler
+
+A handler can return a promise. CopilotKit waits for it to settle, sends the
+resolved value to the agent as the tool result, and then continues the run.
+Use this when the agent needs data that only the browser can reach, such as a
+client-side database, IndexedDB, or an API call made with the user's session.
+
+<InlineDemo demo="frontend-tools-async" />
+
+The `frontend-tools-async` cell registers a `query_notes` tool. Its handler
+awaits a simulated 500 ms query against a local notes database and returns the
+matching notes. The `render` function draws a notes card for the call. Until
+the handler returns, `status` is not `"complete"` and the card shows its
+loading state. After that, `result` holds the returned value as a JSON string,
+which the cell parses before rendering the notes.
+
+<Snippet cell="frontend-tools-async" region="frontend-tool-async-registration" title="frontend/src/app/demos/frontend-tools-async/page.tsx — async useFrontendTool" />
+
+The Built-in Agent needs no tool-specific code for this. Its factory declares
+every forwarded frontend tool to the model without an executor, so the model's
+turn stops at the tool call and the browser runs the handler. CopilotKit then
+starts a follow-up run that carries the returned result.
+
+<Snippet cell="frontend-tools-async" region="frontend-tool-forwarding" title="src/lib/factory/tanstack-factory.ts — forward frontend tools" />
+
+When the agent calls the tool, the handler's second argument carries a
+`signal` that aborts when the run is stopped. Pass it to `fetch`, or check
+`signal.aborted`, so slow work stops with the run.
+
+To test it, ask the agent to find your notes about project planning. The card
+shows its loading state for about half a second, then lists the matching
+notes, and the agent's reply summarizes what the query returned.

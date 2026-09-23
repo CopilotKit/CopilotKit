@@ -2,7 +2,38 @@
 title: "Slots"
 icon: "lucide/Puzzle"
 description: "Customize any part of the chat UI by overriding individual sub-components via slots for Built-in Agent."
+snippet_cell: chat-slots
 ---
 import SharedContent from "@/snippets/shared/basics/slots.mdx";
+
+<InlineDemo demo="chat-slots" />
+
+## Override slots in the Showcase chat
+
+The Built-in Agent `chat-slots` cell renders one `<CopilotChat>` and replaces
+its slots with custom components. Each replacement sits inside a dashed,
+color-coded outline, so you can see where every override renders. Start from
+a Built-in Agent app built with the
+[quickstart](/integrations/built-in-agent/quickstart). Slots are frontend
+props, so the agent needs no changes.
+
+Pass a component to `welcomeScreen` to replace the empty state shown before
+the first message:
+
+<Snippet region="register-welcome-slot" title="src/app/demos/chat-slots/slot-overrides.tsx — welcomeScreen slot" />
+
+Nest `assistantMessage` inside `messageView` to wrap every assistant
+response:
+
+<Snippet region="register-assistant-message-slot" title="src/app/demos/chat-slots/slot-overrides.tsx — assistantMessage slot" />
+
+Nest `disclaimer` inside `input` to replace the text below the composer:
+
+<Snippet region="register-disclaimer-slot" title="src/app/demos/chat-slots/slot-overrides.tsx — disclaimer slot" />
+
+To test it, open the demo. The welcome screen, the composer, and the
+suggestions each render inside an outline, and hovering one shows its slot
+path. Send a message, and the reply renders inside the
+`MessageView.AssistantMessage` outline.
 
 <SharedContent components={props.components} />

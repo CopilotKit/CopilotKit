@@ -74,6 +74,7 @@ function Recipe() {
   // `runAgent` serialises into `input.state`) shipped `state: {}` and the model
   // replied "I don't see a recipe". Re-seeding on every `agent` reference change
   // fixes that; the `!recipe` guard keeps it from clobbering user edits.
+  // @region[shared-state-read-publish]
   useEffect(() => {
     if (!(agent.state as RecipeAgentState | undefined)?.recipe) {
       agent.setState({ recipe: INITIAL_RECIPE } satisfies RecipeAgentState);
@@ -87,6 +88,7 @@ function Recipe() {
   const handleChange = (next: RecipeData) => {
     agent.setState({ recipe: next } satisfies RecipeAgentState);
   };
+  // @endregion[shared-state-read-publish]
 
   const handleImprove = () => {
     if (agent.isRunning) return;
