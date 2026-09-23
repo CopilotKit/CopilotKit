@@ -354,7 +354,8 @@ export function useAgent({
         (knownAgents.length
           ? `Known agents: [${knownAgents.join(", ")}]`
           : "No agents registered.") +
-        " Verify your runtime /info and/or agents__unsafe_dev_only.",
+        " Verify your runtime /info and/or agents__unsafe_dev_only." +
+        " If the runtime runs in intelligence mode (with `intelligence` options), /info only exposes agents when a runtime-level `identifyUser` is configured.",
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [

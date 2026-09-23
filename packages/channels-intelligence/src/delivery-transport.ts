@@ -32,6 +32,7 @@ import type { ChannelDeliveryTranscript } from "./delivery-transcript.js";
 import { ChannelDeliveryChargeClient } from "./delivery-charge.js";
 import type { ChannelFileRef } from "./delivery-files.js";
 import { buildContentParts } from "./content-parts.js";
+import { safeErrorMessage } from "./safe-error-message.js";
 
 const INVITATION_EVENT = "delivery_invitation";
 const CLAIM_EVENT = "claim";
@@ -1285,15 +1286,29 @@ function isSupersession(
   );
 }
 
-/** Map arbitrary failures to fixed-cardinality safe log metadata. */
+/**
+ * Error text thrown by `createChannel` in `@copilotkit/channels-core` when a
+ * Channel has no `agent` and a handler calls `runAgent`. Matched by substring
+ * so the category survives a reworded tail.
+ */
+const AGENT_NOT_CONFIGURED_PATTERN = /no agent configured/;
+
+/**
+ * Map arbitrary failures to safe log metadata: a fixed-cardinality
+ * `errorCategory` plus, for errors that are not structured provider failures,
+ * the error's own message bounded and redacted by {@link safeErrorMessage}.
+ * Never includes stacks, causes, or payloads.
+ */
 export function safeChannelErrorMetadata(error: unknown): {
   errorCategory:
+    | "agent_not_configured"
     | "auth"
     | "network"
     | "timeout"
     | "validation"
     | "conflict"
     | "unknown";
+  errorMessage?: string;
   provider?: "slack" | "teams";
   operation?: string;
   effectKind?: string;
@@ -1320,27 +1335,41 @@ export function safeChannelErrorMetadata(error: unknown): {
       ? error.message
       : typeof value?.message === "string"
         ? value.message
-        : "";
-  const classification =
-    `${String(value?.name ?? "")} ${String(value?.code ?? "")} ${message}`.toLowerCase();
+        : typeof error === "string"
+          ? error
+          : "";
+  const errorCategory = classifyChannelError(
+    `${String(value?.name ?? "")} ${String(value?.code ?? "")} ${message}`,
+  );
+  const errorMessage = safeErrorMessage(message);
+  return errorMessage ? { errorCategory, errorMessage } : { errorCategory };
+}
+
+function classifyChannelError(
+  text: string,
+): ReturnType<typeof safeChannelErrorMetadata>["errorCategory"] {
+  const classification = text.toLowerCase();
+  if (AGENT_NOT_CONFIGURED_PATTERN.test(classification)) {
+    return "agent_not_configured";
+  }
   if (/timeout|expired|deadline|timed out/.test(classification)) {
-    return { errorCategory: "timeout" };
+    return "timeout";
   }
   if (/network|fetch|econn|enotfound|socket|dns|epipe/.test(classification)) {
-    return { errorCategory: "network" };
+    return "network";
   }
   if (
     /auth|unauthorized|forbidden|token|credential|401|403/.test(classification)
   ) {
-    return { errorCategory: "auth" };
+    return "auth";
   }
   if (/conflict|sequence|packet/.test(classification)) {
-    return { errorCategory: "conflict" };
+    return "conflict";
   }
   if (/type|valid|schema|parse/.test(classification)) {
-    return { errorCategory: "validation" };
+    return "validation";
   }
-  return { errorCategory: "unknown" };
+  return "unknown";
 }
 
 function assertClaim(

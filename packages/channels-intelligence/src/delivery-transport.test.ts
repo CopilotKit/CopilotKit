@@ -1451,10 +1451,100 @@ test("classifies timeout/expiry errors from message text", async () => {
     safeChannelErrorMetadata(
       new Error("realtime gateway delivery join timed out"),
     ),
-  ).toEqual({ errorCategory: "timeout" });
+  ).toEqual({
+    errorCategory: "timeout",
+    errorMessage: "realtime gateway delivery join timed out",
+  });
   expect(
     safeChannelErrorMetadata(new Error("Channel delivery ownership expired")),
-  ).toEqual({ errorCategory: "timeout" });
+  ).toEqual({
+    errorCategory: "timeout",
+    errorMessage: "Channel delivery ownership expired",
+  });
+});
+
+const NO_AGENT_MESSAGE =
+  "createChannel: no agent configured (pass `agent` to use runAgent). " +
+  "A Channel does not inherit the runtime's `agents`; give it its own `agent`.";
+
+test("classifies a Channel without an agent as its own category and keeps the message", () => {
+  expect(safeChannelErrorMetadata(new Error(NO_AGENT_MESSAGE))).toEqual({
+    errorCategory: "agent_not_configured",
+    errorMessage: NO_AGENT_MESSAGE,
+  });
+  // The message thrown by older channels-core versions still matches.
+  expect(
+    safeChannelErrorMetadata(
+      new Error(
+        "createChannel: no agent configured (pass `agent` to use runAgent)",
+      ),
+    ).errorCategory,
+  ).toBe("agent_not_configured");
+});
+
+test("carries a redacted, bounded message and never the stack", () => {
+  // Assembled at runtime so no token-shaped literal lives in the source.
+  const slackLike = ["xo", "xb-1234567890-abcdefghij"].join("");
+  const error = new Error(
+    `upstream rejected ${slackLike} with Bearer abc.def.ghi ${"x".repeat(1_000)}`,
+  );
+  const metadata = safeChannelErrorMetadata(error);
+  expect(metadata.errorCategory).toBe("unknown");
+  expect(metadata.errorMessage).toMatch(
+    /^upstream rejected \[redacted\] with Bearer \[redacted\] x+…$/,
+  );
+  expect(metadata.errorMessage!.length).toBeLessThanOrEqual(300);
+  expect(JSON.stringify(metadata)).not.toContain(slackLike);
+  expect(JSON.stringify(metadata)).not.toContain(error.stack!.split("\n")[1]);
+  expect(Object.keys(metadata)).toEqual(["errorCategory", "errorMessage"]);
+});
+
+test("omits errorMessage when the failure has no message", () => {
+  expect(safeChannelErrorMetadata(new Error(""))).toEqual({
+    errorCategory: "unknown",
+  });
+  expect(safeChannelErrorMetadata({ code: 42 })).toEqual({
+    errorCategory: "unknown",
+  });
+  expect(safeChannelErrorMetadata(undefined)).toEqual({
+    errorCategory: "unknown",
+  });
+});
+
+test("logs the cause of a failed delivery handler", async () => {
+  const delivery = preparedDelivery();
+  const deliveryChannel = channel(delivery);
+  const control: RealtimeGatewaySession = {
+    push: vi.fn().mockResolvedValue(claimResult(delivery.deliveryId)),
+    on: vi.fn(),
+    join: vi.fn().mockResolvedValue(deliveryChannel),
+  };
+  const log = vi.fn();
+  const transport = new ChannelDeliveryTransport({
+    session: control,
+    runtimeInstanceId: "rti_runtime_01",
+    log,
+  });
+  transport.start(async () => {
+    throw new Error(NO_AGENT_MESSAGE);
+  });
+
+  const invitationHandler = vi.mocked(control.on).mock.calls[0]![1];
+  invitationHandler(
+    invitation(
+      delivery.deliveryId,
+      delivery.canonicalThreadId,
+      delivery.adapter,
+    ),
+  );
+  await vi.waitFor(() => expect(deliveryChannel.leave).toHaveBeenCalledOnce());
+  await transport.stop();
+
+  expect(log).toHaveBeenCalledWith("channel delivery handler failed", {
+    deliveryId: delivery.deliveryId,
+    errorCategory: "agent_not_configured",
+    errorMessage: NO_AGENT_MESSAGE,
+  });
 });
 
 async function expectPreparedInputRejected(input: unknown) {

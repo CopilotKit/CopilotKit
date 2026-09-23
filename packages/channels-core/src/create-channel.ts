@@ -701,8 +701,11 @@ export function createChannel<
     const a = opts.agent;
     if (!a) {
       return () => {
+        // Keep "no agent configured" stable: @copilotkit/channels-intelligence
+        // classifies delivery failures by that phrase.
         throw new Error(
-          "createChannel: no agent configured (pass `agent` to use runAgent)",
+          "createChannel: no agent configured (pass `agent` to use runAgent). " +
+            "A Channel does not inherit the runtime's `agents`; give it its own `agent`.",
         );
       };
     }
