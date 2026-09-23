@@ -1,0 +1,15 @@
+# langgraph-typescript-doc-regions.test.ts (extended) against the pre-fix agent files (HEAD 6484ca2c01 versions of gen-ui-agent.ts, tool-rendering.ts, tool-rendering-reasoning-chain.ts, langgraph.json, server.mjs), temporary local revert, not committed
+     × uses only public model construction 3ms
+     × keeps gen-ui-agent.ts::gen-ui-agent-wiring copyable with ChatOpenAI 1ms
+     × keeps tool-rendering-reasoning-chain.ts::reasoning-chain-model copyable with ChatOpenAI 0ms
+     × keeps header forwarding on the executable showcase graphs 1ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/lib/__tests__/langgraph-typescript-doc-regions.test.ts > LangGraph TypeScript public code regions > uses only public model construction
+AssertionError: gen-ui-agent.ts::gen-ui-agent-wiring: expected 'const tools = [setSteps];\n\nasync fu…' not to contain 'makeChatOpenAI'
+ FAIL  src/lib/__tests__/langgraph-typescript-doc-regions.test.ts > LangGraph TypeScript public code regions > keeps gen-ui-agent.ts::gen-ui-agent-wiring copyable with ChatOpenAI
+AssertionError: gen-ui-agent.ts::gen-ui-agent-wiring: expected 'const tools = [setSteps];\n\nasync fu…' to contain 'new ChatOpenAI({'
+ FAIL  src/lib/__tests__/langgraph-typescript-doc-regions.test.ts > LangGraph TypeScript public code regions > keeps tool-rendering-reasoning-chain.ts::reasoning-chain-model copyable with ChatOpenAI
+AssertionError: tool-rendering-reasoning-chain.ts::reasoning-chain-model: expected 'async function chatNode(state: AgentS…' to contain 'new ChatOpenAI({'
+ FAIL  src/lib/__tests__/langgraph-typescript-doc-regions.test.ts > LangGraph TypeScript public code regions > keeps header forwarding on the executable showcase graphs
+AssertionError: expected { …(28) } to match object { …(5) }
+      Tests  4 failed | 9 passed (13)

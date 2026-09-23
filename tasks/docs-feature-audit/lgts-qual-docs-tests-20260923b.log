@@ -1,0 +1,30 @@
+# focused docs tests (2 fork workers, heap cap via --execArgv); HEAD 4147a5c04f; Wed Sep 23 22:10:59 UTC 2026
+$ vitest run src/lib/__tests__/langgraph-typescript-doc-regions.test.ts src/lib/__tests__/current-v2-authored-guides.test.ts src/lib/__tests__/llm-text.test.ts src/lib/__tests__/framework-gate.test.ts src/lib/__tests__/setup-content.test.ts src/lib/__tests__/setup-concept.test.ts src/lib/__tests__/setup-concept-rendering.test.tsx src/lib/__tests__/selected-showcase-provenance.test.ts src/lib/__tests__/demo-code.test.ts src/lib/__tests__/intelligence-quickstart-docs.test.ts --pool=forks --maxWorkers=2 --execArgv=--max-old-space-size=4096
+
+ RUN  v4.1.7 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs
+
+ ❯ src/lib/__tests__/intelligence-quickstart-docs.test.ts (5 tests | 1 failed) 175ms
+   × keeps selected quickstart identities local-only and links the full authorization contract 108ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/__tests__/intelligence-quickstart-docs.test.ts > keeps selected quickstart identities local-only and links the full authorization contract
+Error: intelligence/connect-your-runtime is missing
+ ❯ loadRequiredDoc src/lib/__tests__/intelligence-quickstart-docs.test.ts:7:19
+      5| function loadRequiredDoc(slug: string) {
+      6|   const doc = loadDoc(slug);
+      7|   if (!doc) throw new Error(`${slug} is missing`);
+       |                   ^
+      8|   return doc;
+      9| }
+ ❯ src/lib/__tests__/intelligence-quickstart-docs.test.ts:82:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 9 passed (10)
+      Tests  1 failed | 177 passed (178)
+   Start at  15:11:00
+   Duration  82.10s (transform 32.25s, setup 0ms, import 138.92s, tests 8.11s, environment 2ms)
+
+exit=1

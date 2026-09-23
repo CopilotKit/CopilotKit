@@ -1,0 +1,950 @@
+# cd showcase/shell-docs && npm run pretypecheck && npm run typecheck (under lockf shell-docs-gen.lock); HEAD 4147a5c04f; node v22.16.0; Wed Sep 23 22:09:46 UTC 2026
+
+> @copilotkit/showcase-shell-docs@0.1.0 pretypecheck
+> tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/bundle-angular-source-content.ts && tsx ../scripts/bundle-setup-content.ts && tsx ../scripts/generate-search-index.ts
+
+Generating integration registry...
+
+  OK: AG2 (ag2)
+  OK: Agno (agno)
+  OK: CopilotKit's Built-in Agent (built-in-agent)
+  OK: Claude Agent SDK (Python) (claude-sdk-python)
+  OK: Claude Agent SDK (TypeScript) (claude-sdk-typescript)
+  OK: CrewAI Conversational Flows (crewai-conversational-flows)
+  OK: CrewAI Flows (crewai-crews)
+  OK: Google ADK (google-adk)
+  OK: LangGraph (FastAPI) (langgraph-fastapi)
+  OK: LangGraph (Python) (langgraph-python)
+  OK: LangGraph (TypeScript) (langgraph-typescript)
+  OK: Langroid (langroid)
+  OK: LlamaIndex (llamaindex)
+  OK: Mastra (mastra)
+  OK: MS Agent Framework (.NET) (ms-agent-dotnet)
+  OK: MS Agent Harness (.NET) (ms-agent-harness-dotnet)
+  OK: MS Agent Framework (Python) (ms-agent-python)
+  OK: PydanticAI (pydantic-ai)
+  OK: Spring AI (spring-ai)
+  OK: AWS Strands (Python) (strands)
+  OK: AWS Strands (TypeScript) (strands-typescript)
+
+Loaded 21 packages from packages.json
+
+Registry generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell/src/data/registry.json (21 integrations)
+Frontend registry generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell/src/data/frontend-registry.json (7 frontends)
+
+Registry generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs/src/data/registry.json (21 integrations)
+Frontend registry generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs/src/data/frontend-registry.json (7 frontends)
+
+Registry generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-dojo/src/data/registry.json (21 integrations)
+Frontend registry generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-dojo/src/data/frontend-registry.json (7 frontends)
+
+Registry generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-dashboard/src/data/registry.json (21 integrations)
+Frontend registry generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-dashboard/src/data/frontend-registry.json (7 frontends)
+Constraints written: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell/src/data/constraints.json
+Catalog generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell/src/data/catalog.json (1029 cells)
+Frontend catalog generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell/src/data/frontend-catalog.json (1436 runnable cells)
+Catalog generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs/src/data/catalog.json (1029 cells)
+Frontend catalog generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs/src/data/frontend-catalog.json (1436 runnable cells)
+Catalog generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-dojo/src/data/catalog.json (1029 cells)
+Frontend catalog generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-dojo/src/data/frontend-catalog.json (1436 runnable cells)
+Catalog generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-dashboard/src/data/catalog.json (1029 cells)
+Frontend catalog generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-dashboard/src/data/frontend-catalog.json (1436 runnable cells)
+Bundling demo content...
+
+
+Bundled 807 demos to /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell/src/data/demo-content.json
+
+Bundled 807 demos to /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs/src/data/demo-content.json
+
+Bundled 807 demos to /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-dojo/src/data/demo-content.json
+Wrote 107 setup concepts to shell-docs/src/data/setup-content.json
+  Reference: 185 entries
+[emit-searchable-pages] 626 searchable slugs (608 from navigation, 18 from an inbound link, 0 forced in, 0 forced out)
+  Docs: 554 entries (86 dropped as unreachable from any sidebar; 608 slugs in navigation, 18 kept by an inbound prose link, 0 forced in and 0 forced out by frontmatter)
+  Dropped-entry report: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs/src/data/search-index-dropped.json
+  Angular features: 41 entries
+
+Search index: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs/src/data/search-index.json (780 entries)
+
+Search index: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell/src/data/search-index.json (783 entries)
+pretypecheck exit=0
+
+> @copilotkit/showcase-shell-docs@0.1.0 pretypecheck
+> tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/bundle-angular-source-content.ts && tsx ../scripts/bundle-setup-content.ts && tsx ../scripts/generate-search-index.ts
+
+Generating integration registry...
+
+  OK: AG2 (ag2)
+  OK: Agno (agno)
+  OK: CopilotKit's Built-in Agent (built-in-agent)
+  OK: Claude Agent SDK (Python) (claude-sdk-python)
+  OK: Claude Agent SDK (TypeScript) (claude-sdk-typescript)
+  OK: CrewAI Conversational Flows (crewai-conversational-flows)
+  OK: CrewAI Flows (crewai-crews)
+  OK: Google ADK (google-adk)
+  OK: LangGraph (FastAPI) (langgraph-fastapi)
+  OK: LangGraph (Python) (langgraph-python)
+  OK: LangGraph (TypeScript) (langgraph-typescript)
+  OK: Langroid (langroid)
+  OK: LlamaIndex (llamaindex)
+  OK: Mastra (mastra)
+  OK: MS Agent Framework (.NET) (ms-agent-dotnet)
+  OK: MS Agent Harness (.NET) (ms-agent-harness-dotnet)
+  OK: MS Agent Framework (Python) (ms-agent-python)
+  OK: PydanticAI (pydantic-ai)
+  OK: Spring AI (spring-ai)
+  OK: AWS Strands (Python) (strands)
+  OK: AWS Strands (TypeScript) (strands-typescript)
+
+Loaded 21 packages from packages.json
+
+Registry generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell/src/data/registry.json (21 integrations)
+Frontend registry generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell/src/data/frontend-registry.json (7 frontends)
+
+Registry generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs/src/data/registry.json (21 integrations)
+Frontend registry generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs/src/data/frontend-registry.json (7 frontends)
+
+Registry generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-dojo/src/data/registry.json (21 integrations)
+Frontend registry generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-dojo/src/data/frontend-registry.json (7 frontends)
+
+Registry generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-dashboard/src/data/registry.json (21 integrations)
+Frontend registry generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-dashboard/src/data/frontend-registry.json (7 frontends)
+Constraints written: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell/src/data/constraints.json
+Catalog generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell/src/data/catalog.json (1029 cells)
+Frontend catalog generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell/src/data/frontend-catalog.json (1436 runnable cells)
+Catalog generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs/src/data/catalog.json (1029 cells)
+Frontend catalog generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs/src/data/frontend-catalog.json (1436 runnable cells)
+Catalog generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-dojo/src/data/catalog.json (1029 cells)
+Frontend catalog generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-dojo/src/data/frontend-catalog.json (1436 runnable cells)
+Catalog generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-dashboard/src/data/catalog.json (1029 cells)
+Frontend catalog generated: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-dashboard/src/data/frontend-catalog.json (1436 runnable cells)
+Bundling demo content...
+
+  ag2::agentic-chat: 4 files (3 highlighted) + README + 5 regions
+  ag2::hitl-in-chat: 4 files (4 highlighted) + 3 regions
+  ag2::hitl-in-chat-booking: 4 files (4 highlighted) + 3 regions
+  ag2::hitl-in-app: 6 files (4 highlighted) + 7 regions
+  ag2::hitl: 10 files (3 highlighted) + 1 regions
+  ag2::tool-rendering: 13 files (7 highlighted) + README + 4 regions
+  ag2::tool-rendering-default-catchall: 7 files (3 highlighted) + 2 regions
+  ag2::tool-rendering-custom-catchall: 7 files (4 highlighted) + 2 regions
+  ag2::gen-ui-agent: 7 files (4 highlighted) + README + 4 regions
+  ag2::gen-ui-tool-based: 6 files (3 highlighted) + README + 3 regions
+  ag2::shared-state-streaming: 6 files (3 highlighted) + README + 2 regions
+  ag2::prebuilt-sidebar: 6 files (3 highlighted) + 3 regions
+  ag2::prebuilt-popup: 6 files (3 highlighted) + 2 regions
+  ag2::chat-slots: 7 files (3 highlighted) + 4 regions
+  ag2::chat-customization-css: 4 files (4 highlighted) + README + 16 regions
+  ag2::headless-simple: 8 files (3 highlighted) + 3 regions
+  ag2::headless-complete: 25 files (12 highlighted) + 6 regions
+  ag2::readonly-state-agent-context: 11 files (3 highlighted) + 3 regions
+  ag2::frontend-tools: 5 files (3 highlighted) + README + 3 regions
+  ag2::frontend-tools-async: 5 files (4 highlighted) + 4 regions
+  ag2::shared-state-read-write: 11 files (5 highlighted) + README + 6 regions
+  ag2::subagents: 9 files (4 highlighted) + README + 5 regions
+  ag2::gen-ui-interrupt: 8 files (4 highlighted) + 3 regions
+  ag2::interrupt-headless: 3 files (3 highlighted) + 3 regions
+  ag2::declarative-gen-ui: 12 files (6 highlighted) + 4 regions
+  ag2::a2ui-fixed-schema: 13 files (7 highlighted) + 5 regions
+  ag2::mcp-apps: 5 files (3 highlighted) + 2 regions
+  ag2::open-gen-ui: 6 files (3 highlighted) + 4 regions
+  ag2::open-gen-ui-advanced: 5 files (5 highlighted) + 3 regions
+  ag2::tool-rendering-reasoning-chain: 7 files (7 highlighted) + 1 regions
+  ag2::auth: 6 files (5 highlighted) + 3 regions
+  ag2::agent-config: 8 files (6 highlighted) + 1 regions
+  ag2::voice: 5 files (4 highlighted) + 5 regions
+  ag2::multimodal: 7 files (4 highlighted)
+  ag2::beautiful-chat: 32 files (10 highlighted) + 1 regions
+  agno::agentic-chat: 4 files (3 highlighted) + README + 5 regions
+  agno::tool-rendering: 13 files (7 highlighted) + README + 4 regions
+  agno::gen-ui-agent: 7 files (4 highlighted) + README + 5 regions
+  agno::shared-state-streaming: 6 files (3 highlighted) + README + 2 regions
+  agno::shared-state-read-write: 12 files (6 highlighted) + README + 7 regions
+  agno::subagents: 10 files (5 highlighted) + README + 6 regions
+  agno::prebuilt-sidebar: 6 files (3 highlighted) + 3 regions
+  agno::prebuilt-popup: 6 files (3 highlighted) + 2 regions
+  agno::chat-slots: 7 files (4 highlighted) + 4 regions
+  agno::chat-customization-css: 4 files (4 highlighted) + README + 16 regions
+  agno::headless-simple: 8 files (3 highlighted) + 3 regions
+  agno::hitl: 9 files (2 highlighted)
+  agno::hitl-in-chat: 4 files (4 highlighted) + 3 regions
+  agno::hitl-in-app: 6 files (4 highlighted) + 7 regions
+  agno::frontend-tools: 5 files (3 highlighted) + README + 3 regions
+  agno::readonly-state-agent-context: 11 files (3 highlighted) + 3 regions
+  agno::tool-rendering-default-catchall: 7 files (3 highlighted) + 2 regions
+  agno::tool-rendering-custom-catchall: 7 files (4 highlighted) + 2 regions
+  agno::frontend-tools-async: 5 files (4 highlighted) + 4 regions
+  agno::reasoning-custom: 5 files (4 highlighted) + 1 regions
+  agno::reasoning-default: 4 files (3 highlighted) + 1 regions
+  agno::tool-rendering-reasoning-chain: 7 files (7 highlighted) + 1 regions
+  agno::headless-complete: 25 files (12 highlighted) + 6 regions
+  agno::gen-ui-interrupt: 8 files (4 highlighted) + 2 regions
+  agno::interrupt-headless: 3 files (3 highlighted) + 2 regions
+  agno::auth: 6 files (5 highlighted)
+  agno::gen-ui-tool-based: 5 files (2 highlighted) + README + 2 regions
+  agno::hitl-in-chat-booking: 4 files (4 highlighted) + 3 regions
+  agno::mcp-apps: 5 files (3 highlighted) + 2 regions
+  agno::open-gen-ui: 5 files (2 highlighted) + 4 regions
+  agno::open-gen-ui-advanced: 4 files (4 highlighted) + 3 regions
+  agno::agent-config: 8 files (4 highlighted) + 1 regions
+  agno::voice: 4 files (3 highlighted) + 4 regions
+  agno::multimodal: 7 files (4 highlighted)
+  agno::beautiful-chat: 31 files (9 highlighted) + 1 regions
+  agno::declarative-gen-ui: 12 files (6 highlighted) + 4 regions
+  agno::a2ui-fixed-schema: 14 files (8 highlighted) + 5 regions
+  built-in-agent::agentic-chat: 4 files (3 highlighted) + README + 9 regions
+  built-in-agent::chat-customization-css: 4 files (4 highlighted) + README + 29 regions
+  built-in-agent::tool-rendering-default-catchall: 8 files (4 highlighted) + 16 regions
+  built-in-agent::tool-rendering-custom-catchall: 7 files (4 highlighted) + 7 regions
+  built-in-agent::frontend-tools: 5 files (3 highlighted) + README + 16 regions
+  built-in-agent::frontend-tools-async: 5 files (4 highlighted) + 17 regions
+  built-in-agent::hitl-in-chat: 4 files (4 highlighted) + 16 regions
+  built-in-agent::hitl-in-app: 6 files (4 highlighted) + 20 regions
+  built-in-agent::tool-rendering: 9 files (5 highlighted) + README + 9 regions
+  built-in-agent::tool-rendering-reasoning-chain: 7 files (7 highlighted) + 6 regions
+  built-in-agent::gen-ui-tool-based: 6 files (4 highlighted) + README + 16 regions
+  built-in-agent::gen-ui-agent: 8 files (5 highlighted) + README + 17 regions
+  built-in-agent::shared-state-streaming: 6 files (4 highlighted) + README + 15 regions
+  built-in-agent::shared-state-read-write: 12 files (6 highlighted) + README + 22 regions
+  built-in-agent::shared-state-read: 5 files (3 highlighted) + README + 15 regions
+  built-in-agent::subagents: 9 files (4 highlighted) + README + 10 regions
+  built-in-agent::prebuilt-sidebar: 6 files (3 highlighted) + 16 regions
+  built-in-agent::prebuilt-popup: 6 files (3 highlighted) + 15 regions
+  built-in-agent::chat-slots: 7 files (4 highlighted) + 17 regions
+  built-in-agent::headless-simple: 6 files (5 highlighted) + 2 regions
+  built-in-agent::headless-complete: 25 files (12 highlighted) + 6 regions
+  built-in-agent::reasoning-default: 4 files (4 highlighted) + 6 regions
+  built-in-agent::reasoning-custom: 5 files (4 highlighted) + 6 regions
+  built-in-agent::gen-ui-interrupt: 8 files (4 highlighted) + 15 regions
+  built-in-agent::interrupt-headless: 3 files (3 highlighted) + 15 regions
+  built-in-agent::declarative-gen-ui: 13 files (6 highlighted) + 6 regions
+  built-in-agent::a2ui-fixed-schema: 12 files (6 highlighted) + 7 regions
+  built-in-agent::a2ui-recovery: 5 files (4 highlighted) + 3 regions
+  built-in-agent::mcp-apps: 5 files (3 highlighted) + 2 regions
+  built-in-agent::readonly-state-agent-context: 11 files (3 highlighted) + 16 regions
+  built-in-agent::declarative-json-render: 13 files (11 highlighted)
+  built-in-agent::beautiful-chat: 31 files (9 highlighted) + 9 regions
+  built-in-agent::multimodal: 7 files (6 highlighted) + 11 regions
+  built-in-agent::auth: 7 files (7 highlighted) + 12 regions
+  built-in-agent::declarative-hashbrown: 11 files (9 highlighted)
+  built-in-agent::open-gen-ui: 6 files (3 highlighted) + 4 regions
+  built-in-agent::open-gen-ui-advanced: 5 files (5 highlighted) + 3 regions
+  built-in-agent::voice: 6 files (4 highlighted) + 13 regions
+  built-in-agent::agent-config: 6 files (5 highlighted) + 2 regions
+  claude-sdk-python::agentic-chat: 3 files + README + 4 regions
+  claude-sdk-python::tool-rendering: 10 files (3 highlighted) + README + 11 regions
+  claude-sdk-python::gen-ui-agent: 7 files (4 highlighted) + 12 regions
+  claude-sdk-python::shared-state-streaming: 7 files (3 highlighted) + 9 regions
+  claude-sdk-python::shared-state-read-write: 11 files (5 highlighted) + 10 regions
+  claude-sdk-python::shared-state-read: 5 files (4 highlighted) + 7 regions
+  claude-sdk-python::subagents: 9 files (4 highlighted) + 8 regions
+  claude-sdk-python::prebuilt-sidebar: 6 files (3 highlighted) + README + 9 regions
+  claude-sdk-python::prebuilt-popup: 6 files (3 highlighted) + README + 8 regions
+  claude-sdk-python::chat-slots: 7 files (4 highlighted) + 10 regions
+  claude-sdk-python::chat-customization-css: 4 files (4 highlighted) + 22 regions
+  claude-sdk-python::headless-simple: 8 files (3 highlighted) + README + 9 regions
+  claude-sdk-python::headless-complete: 25 files (5 highlighted) + 12 regions
+  claude-sdk-python::frontend-tools: 5 files (3 highlighted) + 2 regions
+  claude-sdk-python::frontend-tools-async: 5 files (4 highlighted) + 3 regions
+  claude-sdk-python::hitl-in-app: 6 files (4 highlighted) + 6 regions
+  claude-sdk-python::readonly-state-agent-context: 11 files (3 highlighted) + 2 regions
+  claude-sdk-python::tool-rendering-default-catchall: 7 files (3 highlighted) + 8 regions
+  claude-sdk-python::tool-rendering-custom-catchall: 7 files (4 highlighted) + 8 regions
+  claude-sdk-python::open-gen-ui: 6 files (3 highlighted) + 4 regions
+  claude-sdk-python::open-gen-ui-advanced: 5 files (5 highlighted) + 3 regions
+  claude-sdk-python::declarative-json-render: 13 files (6 highlighted)
+  claude-sdk-python::declarative-hashbrown: 11 files (4 highlighted)
+  claude-sdk-python::multimodal: 7 files (4 highlighted)
+  claude-sdk-python::voice: 4 files (3 highlighted) + 4 regions
+  claude-sdk-python::agent-config: 8 files (5 highlighted) + 2 regions
+  claude-sdk-python::reasoning-custom: 5 files (4 highlighted) + README + 1 regions
+  claude-sdk-python::reasoning-default: 4 files (3 highlighted) + README + 1 regions
+  claude-sdk-python::tool-rendering-reasoning-chain: 7 files (7 highlighted) + README + 2 regions
+  claude-sdk-python::auth: 6 files (5 highlighted)
+  claude-sdk-python::mcp-apps: 5 files (3 highlighted) + README + 2 regions
+  claude-sdk-python::beautiful-chat: 30 files (2 highlighted) + README
+  claude-sdk-python::gen-ui-tool-based: 6 files (3 highlighted) + README + 9 regions
+  claude-sdk-python::hitl-in-chat: 4 files (4 highlighted) + README + 3 regions
+  claude-sdk-python::gen-ui-interrupt: 8 files (4 highlighted) + README + 3 regions
+  claude-sdk-python::interrupt-headless: 3 files (3 highlighted) + README + 3 regions
+  claude-sdk-python::declarative-gen-ui: 13 files (6 highlighted) + README + 6 regions
+  claude-sdk-python::a2ui-fixed-schema: 13 files (5 highlighted) + README + 5 regions
+  claude-sdk-typescript::agentic-chat: 4 files (3 highlighted) + README + 18 regions
+  claude-sdk-typescript::prebuilt-sidebar: 6 files (3 highlighted) + 16 regions
+  claude-sdk-typescript::prebuilt-popup: 6 files (3 highlighted) + 15 regions
+  claude-sdk-typescript::chat-slots: 7 files (4 highlighted) + 17 regions
+  claude-sdk-typescript::chat-customization-css: 4 files (4 highlighted) + README + 29 regions
+  claude-sdk-typescript::headless-simple: 8 files (3 highlighted) + 16 regions
+  claude-sdk-typescript::frontend-tools: 5 files (3 highlighted) + README + 16 regions
+  claude-sdk-typescript::frontend-tools-async: 5 files (4 highlighted) + 17 regions
+  claude-sdk-typescript::hitl-in-app: 6 files (4 highlighted) + 20 regions
+  claude-sdk-typescript::tool-rendering: 10 files (3 highlighted) + README + 18 regions
+  claude-sdk-typescript::declarative-gen-ui: 13 files (6 highlighted) + 19 regions
+  claude-sdk-typescript::gen-ui-agent: 7 files (4 highlighted) + README + 17 regions
+  claude-sdk-typescript::gen-ui-tool-based: 6 files (4 highlighted) + README + 16 regions
+  claude-sdk-typescript::shared-state-streaming: 7 files (3 highlighted) + README + 16 regions
+  claude-sdk-typescript::shared-state-read-write: 12 files (6 highlighted) + README + 21 regions
+  claude-sdk-typescript::shared-state-read: 5 files (4 highlighted) + README + 14 regions
+  claude-sdk-typescript::subagents: 10 files (5 highlighted) + README + 19 regions
+  claude-sdk-typescript::readonly-state-agent-context: 11 files (3 highlighted) + 16 regions
+  claude-sdk-typescript::open-gen-ui: 6 files (3 highlighted) + 18 regions
+  claude-sdk-typescript::open-gen-ui-advanced: 5 files (5 highlighted) + 17 regions
+  claude-sdk-typescript::declarative-json-render: 14 files (7 highlighted) + 14 regions
+  claude-sdk-typescript::declarative-hashbrown: 12 files (5 highlighted) + 14 regions
+  claude-sdk-typescript::mcp-apps: 4 files (2 highlighted) + 2 regions
+  claude-sdk-typescript::multimodal: 7 files (4 highlighted) + 14 regions
+  claude-sdk-typescript::voice: 5 files (4 highlighted) + 18 regions
+  claude-sdk-typescript::agent-config: 9 files (6 highlighted) + 16 regions
+  claude-sdk-typescript::auth: 6 files (5 highlighted)
+  claude-sdk-typescript::tool-rendering-default-catchall: 6 files (2 highlighted) + 1 regions
+  claude-sdk-typescript::tool-rendering-custom-catchall: 6 files (3 highlighted) + 1 regions
+  claude-sdk-typescript::reasoning-default: 4 files (4 highlighted) + 15 regions
+  claude-sdk-typescript::reasoning-custom: 5 files (5 highlighted) + 15 regions
+  claude-sdk-typescript::tool-rendering-reasoning-chain: 7 files (6 highlighted) + 15 regions
+  claude-sdk-typescript::beautiful-chat: 30 files (2 highlighted)
+  claude-sdk-typescript::hitl-in-chat: 3 files (3 highlighted) + 3 regions
+  claude-sdk-typescript::gen-ui-interrupt: 8 files (4 highlighted) + 15 regions
+  claude-sdk-typescript::interrupt-headless: 3 files (3 highlighted) + 15 regions
+  claude-sdk-typescript::headless-complete: 25 files (5 highlighted) + 5 regions
+  claude-sdk-typescript::a2ui-fixed-schema: 13 files (7 highlighted) + 5 regions
+  crewai-conversational-flows::agentic-chat: 2 files + README + 4 regions
+  crewai-conversational-flows::prebuilt-sidebar: 4 files + 2 regions
+  crewai-conversational-flows::prebuilt-popup: 4 files + 1 regions
+  crewai-conversational-flows::chat-slots: 5 files + 3 regions
+  crewai-conversational-flows::chat-customization-css: 2 files + README + 15 regions
+  crewai-conversational-flows::headless-simple: 6 files + 2 regions
+  crewai-conversational-flows::headless-complete: 23 files + 5 regions
+  crewai-conversational-flows::reasoning-default: 3 files (3 highlighted) + 1 regions
+  crewai-conversational-flows::reasoning-custom: 4 files (3 highlighted) + 1 regions
+  crewai-conversational-flows::hitl-in-chat: 2 files + 2 regions
+  crewai-conversational-flows::hitl-in-chat-booking: 3 files (3 highlighted) + 2 regions
+  crewai-conversational-flows::hitl-in-app: 4 files + 6 regions
+  crewai-conversational-flows::hitl: 8 files
+  crewai-conversational-flows::tool-rendering: 13 files (7 highlighted) + README + 4 regions
+  crewai-conversational-flows::tool-rendering-default-catchall: 6 files (2 highlighted) + 1 regions
+  crewai-conversational-flows::tool-rendering-custom-catchall: 6 files (3 highlighted) + 1 regions
+  crewai-conversational-flows::tool-rendering-reasoning-chain: 5 files + 1 regions
+  crewai-conversational-flows::gen-ui-agent: 4 files + README
+  crewai-conversational-flows::gen-ui-tool-based: 5 files (2 highlighted) + README + 2 regions
+  crewai-conversational-flows::frontend-tools: 3 files + README + 2 regions
+  crewai-conversational-flows::frontend-tools-async: 3 files + 3 regions
+  crewai-conversational-flows::shared-state-streaming: 4 files + README + 1 regions
+  crewai-conversational-flows::shared-state-read-write: 10 files (4 highlighted) + README + 6 regions
+  crewai-conversational-flows::subagents: 8 files (3 highlighted) + README + 5 regions
+  crewai-conversational-flows::readonly-state-agent-context: 9 files + 2 regions
+  crewai-conversational-flows::open-gen-ui: 5 files (2 highlighted) + 4 regions
+  crewai-conversational-flows::open-gen-ui-advanced: 4 files (3 highlighted) + 3 regions
+  crewai-conversational-flows::agent-config: 6 files + 1 regions
+  crewai-conversational-flows::auth: 5 files
+  crewai-conversational-flows::voice: 4 files (3 highlighted) + 4 regions
+  crewai-conversational-flows::multimodal: 5 files
+  crewai-conversational-flows::declarative-gen-ui: 11 files + 4 regions
+  crewai-conversational-flows::a2ui-fixed-schema: 11 files (5 highlighted) + 5 regions
+  crewai-conversational-flows::a2ui-recovery: 5 files (4 highlighted)
+  crewai-conversational-flows::beautiful-chat: 29 files
+  crewai-conversational-flows::mcp-apps: 5 files (3 highlighted) + 2 regions
+  crewai-conversational-flows::gen-ui-interrupt: 8 files (4 highlighted) + 1 regions
+  crewai-conversational-flows::interrupt-headless: 3 files (3 highlighted) + 1 regions
+  crewai-crews::agentic-chat: 2 files + README + 4 regions
+  crewai-crews::prebuilt-sidebar: 4 files + 2 regions
+  crewai-crews::prebuilt-popup: 4 files + 1 regions
+  crewai-crews::chat-slots: 5 files + 3 regions
+  crewai-crews::chat-customization-css: 2 files + README + 15 regions
+  crewai-crews::headless-simple: 6 files + 2 regions
+  crewai-crews::headless-complete: 23 files + 5 regions
+  crewai-crews::reasoning-default: 3 files (3 highlighted) + 1 regions
+  crewai-crews::reasoning-custom: 4 files (3 highlighted) + 1 regions
+  crewai-crews::hitl-in-chat: 3 files (2 highlighted) + 3 regions
+  crewai-crews::hitl-in-chat-booking: 3 files (3 highlighted) + 2 regions
+  crewai-crews::hitl-in-app: 4 files + 6 regions
+  crewai-crews::hitl: 8 files
+  crewai-crews::tool-rendering: 13 files (7 highlighted) + README + 4 regions
+  crewai-crews::tool-rendering-default-catchall: 6 files (2 highlighted) + 1 regions
+  crewai-crews::tool-rendering-custom-catchall: 6 files (3 highlighted) + 1 regions
+  crewai-crews::tool-rendering-reasoning-chain: 5 files + 1 regions
+  crewai-crews::gen-ui-agent: 4 files + README
+  crewai-crews::gen-ui-tool-based: 5 files (2 highlighted) + README + 2 regions
+  crewai-crews::frontend-tools: 3 files + README + 2 regions
+  crewai-crews::frontend-tools-async: 3 files + 3 regions
+  crewai-crews::shared-state-streaming: 5 files (1 highlighted) + README + 2 regions
+  crewai-crews::shared-state-read-write: 10 files (4 highlighted) + README + 6 regions
+  crewai-crews::subagents: 8 files (3 highlighted) + README + 5 regions
+  crewai-crews::readonly-state-agent-context: 9 files + 2 regions
+  crewai-crews::open-gen-ui: 5 files (2 highlighted) + 4 regions
+  crewai-crews::open-gen-ui-advanced: 4 files (3 highlighted) + 3 regions
+  crewai-crews::agent-config: 6 files + 1 regions
+  crewai-crews::auth: 5 files
+  crewai-crews::voice: 4 files (3 highlighted) + 4 regions
+  crewai-crews::multimodal: 5 files
+  crewai-crews::declarative-gen-ui: 11 files + 4 regions
+  crewai-crews::a2ui-fixed-schema: 11 files (5 highlighted) + 5 regions
+  crewai-crews::a2ui-recovery: 5 files (4 highlighted)
+  crewai-crews::beautiful-chat: 29 files
+  crewai-crews::mcp-apps: 5 files (3 highlighted) + 2 regions
+  crewai-crews::gen-ui-interrupt: 8 files (4 highlighted) + 1 regions
+  crewai-crews::interrupt-headless: 3 files (3 highlighted) + 1 regions
+  google-adk::agentic-chat: 4 files (3 highlighted) + README + 5 regions
+  google-adk::chat-customization-css: 4 files (4 highlighted) + README + 16 regions
+  google-adk::tool-rendering-default-catchall: 8 files (4 highlighted) + 2 regions
+  google-adk::tool-rendering-custom-catchall: 8 files (5 highlighted) + 2 regions
+  google-adk::frontend-tools: 5 files (3 highlighted) + README + 3 regions
+  google-adk::frontend-tools-async: 5 files (4 highlighted) + 4 regions
+  google-adk::hitl-in-chat: 4 files (4 highlighted) + README + 2 regions
+  google-adk::mcp-apps: 5 files (3 highlighted) + 2 regions
+  google-adk::hitl-in-app: 6 files (4 highlighted) + 6 regions
+  google-adk::gen-ui-interrupt: 8 files (4 highlighted) + 1 regions
+  google-adk::tool-rendering: 10 files (4 highlighted) + README + 5 regions
+  google-adk::gen-ui-tool-based: 6 files (3 highlighted) + README + 2 regions
+  google-adk::gen-ui-agent: 6 files (3 highlighted) + README + 5 regions
+  google-adk::shared-state-read: 5 files (3 highlighted) + README + 2 regions
+  google-adk::shared-state-read-write: 11 files (5 highlighted) + README + 9 regions
+  google-adk::shared-state-streaming: 7 files (4 highlighted) + README + 2 regions
+  google-adk::subagents: 9 files (4 highlighted) + README + 5 regions
+  google-adk::prebuilt-sidebar: 6 files (3 highlighted) + 3 regions
+  google-adk::prebuilt-popup: 6 files (3 highlighted) + 2 regions
+  google-adk::chat-slots: 7 files (4 highlighted) + 4 regions
+  google-adk::headless-simple: 8 files (3 highlighted) + 3 regions
+  google-adk::headless-complete: 25 files (4 highlighted) + 6 regions
+  google-adk::reasoning-custom: 5 files (4 highlighted) + 2 regions
+  google-adk::reasoning-default: 4 files (3 highlighted) + 2 regions
+  google-adk::declarative-gen-ui: 13 files (6 highlighted) + 4 regions
+  google-adk::a2ui-fixed-schema: 14 files (8 highlighted) + 7 regions
+  google-adk::a2ui-recovery: 5 files (4 highlighted) + 2 regions
+  google-adk::readonly-state-agent-context: 11 files (3 highlighted) + 3 regions
+  google-adk::tool-rendering-reasoning-chain: 8 files (4 highlighted) + 3 regions
+  google-adk::declarative-json-render: 13 files (4 highlighted)
+  google-adk::beautiful-chat: 31 files (3 highlighted)
+  google-adk::multimodal: 7 files (5 highlighted) + 2 regions
+  google-adk::auth: 6 files (4 highlighted) + 3 regions
+  google-adk::declarative-hashbrown: 11 files (3 highlighted)
+  google-adk::open-gen-ui: 6 files (3 highlighted) + 4 regions
+  google-adk::open-gen-ui-advanced: 5 files (3 highlighted) + 3 regions
+  google-adk::voice: 6 files (3 highlighted) + 4 regions
+  google-adk::agent-config: 8 files (3 highlighted) + 2 regions
+  langgraph-fastapi::agentic-chat: 4 files (3 highlighted) + README + 4 regions
+  langgraph-fastapi::chat-customization-css: 4 files (4 highlighted) + README + 15 regions
+  langgraph-fastapi::tool-rendering-default-catchall: 7 files (3 highlighted) + 2 regions
+  langgraph-fastapi::tool-rendering-custom-catchall: 7 files (4 highlighted) + 2 regions
+  langgraph-fastapi::frontend-tools: 5 files (3 highlighted) + README + 2 regions
+  langgraph-fastapi::frontend-tools-async: 5 files (4 highlighted) + 3 regions
+  langgraph-fastapi::hitl-in-chat: 4 files (4 highlighted) + 2 regions
+  langgraph-fastapi::hitl-in-app: 6 files (4 highlighted) + 6 regions
+  langgraph-fastapi::tool-rendering: 9 files (5 highlighted) + README + 4 regions
+  langgraph-fastapi::tool-rendering-reasoning-chain: 7 files (5 highlighted) + 2 regions
+  langgraph-fastapi::gen-ui-tool-based: 5 files (3 highlighted) + README + 2 regions
+  langgraph-fastapi::gen-ui-agent: 6 files (4 highlighted) + README + 5 regions
+  langgraph-fastapi::shared-state-streaming: 5 files (1 highlighted) + README + 2 regions
+  langgraph-fastapi::shared-state-read-write: 11 files (5 highlighted) + README + 9 regions
+  langgraph-fastapi::shared-state-read: 4 files (2 highlighted) + README
+  langgraph-fastapi::subagents: 9 files (4 highlighted) + README + 5 regions
+  langgraph-fastapi::prebuilt-sidebar: 6 files (3 highlighted) + 2 regions
+  langgraph-fastapi::prebuilt-popup: 6 files (3 highlighted) + 1 regions
+  langgraph-fastapi::chat-slots: 7 files (4 highlighted) + 3 regions
+  langgraph-fastapi::headless-simple: 7 files (2 highlighted) + 2 regions
+  langgraph-fastapi::headless-complete: 24 files (11 highlighted) + 5 regions
+  langgraph-fastapi::reasoning-default: 3 files (3 highlighted) + 1 regions
+  langgraph-fastapi::reasoning-custom: 5 files (4 highlighted) + 1 regions
+  langgraph-fastapi::gen-ui-interrupt: 8 files (4 highlighted) + 2 regions
+  langgraph-fastapi::interrupt-headless: 3 files (3 highlighted) + 2 regions
+  langgraph-fastapi::declarative-gen-ui: 13 files (6 highlighted) + 4 regions
+  langgraph-fastapi::a2ui-fixed-schema: 14 files (8 highlighted) + 5 regions
+  langgraph-fastapi::a2ui-recovery: 5 files (4 highlighted)
+  langgraph-fastapi::mcp-apps: 5 files (3 highlighted) + 2 regions
+  langgraph-fastapi::readonly-state-agent-context: 11 files (3 highlighted) + 3 regions
+  langgraph-fastapi::declarative-json-render: 13 files (11 highlighted)
+  langgraph-fastapi::beautiful-chat: 31 files (9 highlighted)
+  langgraph-fastapi::multimodal: 7 files (4 highlighted)
+  langgraph-fastapi::auth: 6 files (5 highlighted)
+  langgraph-fastapi::declarative-hashbrown: 11 files (9 highlighted)
+  langgraph-fastapi::open-gen-ui: 6 files (3 highlighted) + 4 regions
+  langgraph-fastapi::open-gen-ui-advanced: 5 files (5 highlighted) + 3 regions
+  langgraph-fastapi::voice: 5 files (4 highlighted) + 4 regions
+  langgraph-fastapi::agent-config: 8 files (6 highlighted) + 2 regions
+  langgraph-python::agentic-chat: 4 files (3 highlighted) + README + 4 regions
+  langgraph-python::chat-customization-css: 4 files (4 highlighted) + README + 15 regions
+  langgraph-python::tool-rendering-default-catchall: 7 files (3 highlighted) + 3 regions
+  langgraph-python::tool-rendering-custom-catchall: 7 files (4 highlighted) + 3 regions
+  langgraph-python::frontend-tools: 5 files (3 highlighted) + README + 2 regions
+  langgraph-python::frontend-tools-async: 5 files (4 highlighted) + 3 regions
+  langgraph-python::hitl-in-chat: 4 files (4 highlighted) + 2 regions
+  langgraph-python::hitl-in-app: 6 files (4 highlighted) + 6 regions
+  langgraph-python::tool-rendering: 9 files (5 highlighted) + README + 5 regions
+  langgraph-python::tool-rendering-reasoning-chain: 7 files (7 highlighted) + 2 regions
+  langgraph-python::gen-ui-tool-based: 6 files (4 highlighted) + README + 2 regions
+  langgraph-python::gen-ui-agent: 6 files (4 highlighted) + README + 5 regions
+  langgraph-python::shared-state-streaming: 6 files (4 highlighted) + README + 2 regions
+  langgraph-python::shared-state-read-write: 11 files (5 highlighted) + README + 10 regions
+  langgraph-python::shared-state-read: 5 files (3 highlighted) + README + 2 regions
+  langgraph-python::subagents: 9 files (4 highlighted) + README + 5 regions
+  langgraph-python::prebuilt-sidebar: 6 files (3 highlighted) + 2 regions
+  langgraph-python::prebuilt-popup: 6 files (3 highlighted) + 1 regions
+  langgraph-python::chat-slots: 7 files (4 highlighted) + 3 regions
+  langgraph-python::headless-simple: 6 files (5 highlighted) + 2 regions
+  langgraph-python::headless-complete: 23 files (10 highlighted) + 5 regions
+  langgraph-python::reasoning-default: 3 files (3 highlighted) + 1 regions
+  langgraph-python::reasoning-custom: 5 files (4 highlighted) + 1 regions
+  langgraph-python::gen-ui-interrupt: 8 files (4 highlighted) + 2 regions
+  langgraph-python::interrupt-headless: 3 files (3 highlighted) + 2 regions
+  langgraph-python::declarative-gen-ui: 13 files (6 highlighted) + 4 regions
+  langgraph-python::a2ui-fixed-schema: 13 files (7 highlighted) + 7 regions
+  langgraph-python::a2ui-recovery: 5 files (4 highlighted) + 2 regions
+  langgraph-python::mcp-apps: 5 files (3 highlighted) + 2 regions
+  langgraph-python::readonly-state-agent-context: 11 files (3 highlighted) + 3 regions
+  langgraph-python::declarative-json-render: 13 files (11 highlighted)
+  langgraph-python::beautiful-chat: 31 files (9 highlighted)
+  langgraph-python::multimodal: 7 files (6 highlighted) + 2 regions
+  langgraph-python::auth: 6 files (6 highlighted) + 4 regions
+  langgraph-python::declarative-hashbrown: 11 files (9 highlighted)
+  langgraph-python::open-gen-ui: 6 files (3 highlighted) + 4 regions
+  langgraph-python::open-gen-ui-advanced: 5 files (5 highlighted) + 3 regions
+  langgraph-python::voice: 6 files (4 highlighted) + 4 regions
+  langgraph-python::agent-config: 8 files (6 highlighted) + 2 regions
+  langgraph-typescript::cli-start: 4 files (4 highlighted) + 1 regions
+  langgraph-typescript::agentic-chat: 4 files (3 highlighted) + README + 5 regions
+  langgraph-typescript::chat-customization-css: 4 files (4 highlighted) + README + 16 regions
+  langgraph-typescript::tool-rendering-default-catchall: 7 files (3 highlighted) + 4 regions
+  langgraph-typescript::tool-rendering-custom-catchall: 7 files (4 highlighted) + 4 regions
+  langgraph-typescript::frontend-tools: 5 files (3 highlighted) + README + 2 regions
+  langgraph-typescript::frontend-tools-async: 5 files (4 highlighted) + 3 regions
+  langgraph-typescript::hitl-in-chat: 4 files (4 highlighted) + 2 regions
+  langgraph-typescript::hitl-in-app: 6 files (4 highlighted) + 6 regions
+  langgraph-typescript::tool-rendering: 9 files (5 highlighted) + README + 6 regions
+  langgraph-typescript::tool-rendering-reasoning-chain: 7 files (7 highlighted) + 2 regions
+  langgraph-typescript::gen-ui-tool-based: 6 files (4 highlighted) + README + 2 regions
+  langgraph-typescript::gen-ui-agent: 6 files (4 highlighted) + README + 5 regions
+  langgraph-typescript::shared-state-streaming: 6 files (4 highlighted) + README + 2 regions
+  langgraph-typescript::shared-state-read-write: 11 files (5 highlighted) + README + 10 regions
+  langgraph-typescript::shared-state-read: 5 files (3 highlighted) + README + 2 regions
+  langgraph-typescript::subagents: 9 files (4 highlighted) + README + 5 regions
+  langgraph-typescript::prebuilt-sidebar: 6 files (3 highlighted) + 3 regions
+  langgraph-typescript::prebuilt-popup: 6 files (3 highlighted) + 2 regions
+  langgraph-typescript::chat-slots: 7 files (4 highlighted) + 4 regions
+  langgraph-typescript::headless-simple: 6 files (5 highlighted) + 2 regions
+  langgraph-typescript::headless-complete: 23 files (10 highlighted) + 5 regions
+  langgraph-typescript::reasoning-default: 3 files (3 highlighted) + 1 regions
+  langgraph-typescript::reasoning-custom: 5 files (4 highlighted) + 1 regions
+  langgraph-typescript::gen-ui-interrupt: 8 files (4 highlighted) + 2 regions
+  langgraph-typescript::interrupt-headless: 3 files (3 highlighted) + 2 regions
+  langgraph-typescript::declarative-gen-ui: 13 files (6 highlighted) + 4 regions
+  langgraph-typescript::a2ui-fixed-schema: 13 files (7 highlighted) + 9 regions
+  langgraph-typescript::a2ui-recovery: 5 files (4 highlighted) + 2 regions
+  langgraph-typescript::mcp-apps: 5 files (3 highlighted) + 2 regions
+  langgraph-typescript::readonly-state-agent-context: 11 files (3 highlighted) + 3 regions
+  langgraph-typescript::declarative-json-render: 13 files (11 highlighted)
+  langgraph-typescript::beautiful-chat: 31 files (9 highlighted)
+  langgraph-typescript::multimodal: 7 files (6 highlighted) + 2 regions
+  langgraph-typescript::auth: 6 files (6 highlighted) + 4 regions
+  langgraph-typescript::declarative-hashbrown: 11 files (9 highlighted)
+  langgraph-typescript::open-gen-ui: 6 files (3 highlighted) + 4 regions
+  langgraph-typescript::open-gen-ui-advanced: 5 files (5 highlighted) + 3 regions
+  langgraph-typescript::voice: 6 files (4 highlighted) + 5 regions
+  langgraph-typescript::agent-config: 8 files (6 highlighted) + 2 regions
+  langroid::agentic-chat: 4 files (3 highlighted) + README + 7 regions
+  langroid::hitl: 10 files (3 highlighted) + 3 regions
+  langroid::hitl-in-chat: 3 files (3 highlighted) + 2 regions
+  langroid::hitl-in-chat-booking: 3 files (3 highlighted) + 2 regions
+  langroid::hitl-in-app: 5 files (3 highlighted) + 6 regions
+  langroid::tool-rendering: 13 files (7 highlighted) + README + 6 regions
+  langroid::gen-ui-tool-based: 6 files (3 highlighted) + README + 5 regions
+  langroid::gen-ui-agent: 6 files (3 highlighted) + README + 3 regions
+  langroid::shared-state-streaming: 6 files (3 highlighted) + README + 4 regions
+  langroid::shared-state-read-write: 11 files (5 highlighted) + README + 6 regions
+  langroid::subagents: 9 files (4 highlighted) + README + 5 regions
+  langroid::chat-customization-css: 3 files (3 highlighted) + README + 15 regions
+  langroid::prebuilt-sidebar: 5 files (2 highlighted) + 2 regions
+  langroid::prebuilt-popup: 5 files (2 highlighted) + 1 regions
+  langroid::chat-slots: 6 files (3 highlighted) + 3 regions
+  langroid::headless-simple: 7 files (2 highlighted) + 2 regions
+  langroid::frontend-tools: 4 files (2 highlighted) + README + 2 regions
+  langroid::frontend-tools-async: 4 files (3 highlighted) + 3 regions
+  langroid::readonly-state-agent-context: 10 files (2 highlighted) + 2 regions
+  langroid::declarative-gen-ui: 13 files (6 highlighted) + 7 regions
+  langroid::auth: 6 files (5 highlighted)
+  langroid::headless-complete: 24 files (11 highlighted) + 5 regions
+  langroid::agent-config: 7 files (4 highlighted) + 1 regions
+  langroid::tool-rendering-default-catchall: 7 files (3 highlighted) + 4 regions
+  langroid::tool-rendering-custom-catchall: 7 files (4 highlighted) + 4 regions
+  langroid::tool-rendering-reasoning-chain: 7 files (5 highlighted) + 4 regions
+  langroid::open-gen-ui: 6 files (3 highlighted) + 7 regions
+  langroid::open-gen-ui-advanced: 5 files (5 highlighted) + 6 regions
+  langroid::voice: 4 files (3 highlighted) + 4 regions
+  langroid::multimodal: 7 files (4 highlighted)
+  langroid::mcp-apps: 5 files (3 highlighted) + 2 regions
+  langroid::beautiful-chat: 31 files (9 highlighted) + 3 regions
+  langroid::a2ui-fixed-schema: 13 files (7 highlighted) + 3 regions
+  langroid::gen-ui-interrupt: 8 files (4 highlighted) + 4 regions
+  langroid::interrupt-headless: 3 files (3 highlighted) + 4 regions
+  llamaindex::beautiful-chat: 31 files (3 highlighted)
+  llamaindex::gen-ui-tool-based: 6 files (5 highlighted) + README + 2 regions
+  llamaindex::mcp-apps: 5 files (3 highlighted) + 2 regions
+  llamaindex::agentic-chat: 4 files (3 highlighted) + README + 5 regions
+  llamaindex::frontend-tools: 4 files (2 highlighted) + README + 2 regions
+  llamaindex::frontend-tools-async: 4 files (3 highlighted) + 3 regions
+  llamaindex::hitl-in-chat: 3 files (3 highlighted) + 2 regions
+  llamaindex::hitl-in-chat-booking: 3 files (3 highlighted) + 2 regions
+  llamaindex::hitl-in-app: 5 files (3 highlighted) + 6 regions
+  llamaindex::hitl: 9 files (2 highlighted)
+  llamaindex::tool-rendering: 13 files (9 highlighted) + README + 4 regions
+  llamaindex::tool-rendering-default-catchall: 6 files (2 highlighted) + 1 regions
+  llamaindex::tool-rendering-custom-catchall: 6 files (3 highlighted) + 1 regions
+  llamaindex::gen-ui-agent: 5 files (3 highlighted) + README
+  llamaindex::shared-state-streaming: 5 files (3 highlighted) + README + 1 regions
+  llamaindex::shared-state-read-write: 11 files (5 highlighted) + README + 7 regions
+  llamaindex::subagents: 9 files (4 highlighted) + README + 5 regions
+  llamaindex::prebuilt-sidebar: 5 files (2 highlighted) + 2 regions
+  llamaindex::prebuilt-popup: 5 files (2 highlighted) + 1 regions
+  llamaindex::chat-slots: 6 files (3 highlighted) + 3 regions
+  llamaindex::chat-customization-css: 3 files (3 highlighted) + README + 15 regions
+  llamaindex::headless-simple: 7 files (6 highlighted) + 2 regions
+  llamaindex::headless-complete: 24 files (11 highlighted) + 5 regions
+  llamaindex::readonly-state-agent-context: 10 files (2 highlighted) + 2 regions
+  llamaindex::reasoning-custom: 5 files (4 highlighted) + 1 regions
+  llamaindex::reasoning-default: 4 files (3 highlighted) + 1 regions
+  llamaindex::tool-rendering-reasoning-chain: 7 files (7 highlighted) + 1 regions
+  llamaindex::declarative-gen-ui: 12 files (6 highlighted) + 4 regions
+  llamaindex::a2ui-fixed-schema: 14 files (8 highlighted) + 5 regions
+  llamaindex::auth: 6 files (5 highlighted)
+  llamaindex::voice: 5 files (4 highlighted) + 5 regions
+  llamaindex::agent-config: 8 files (6 highlighted) + 1 regions
+  llamaindex::multimodal: 7 files (4 highlighted)
+  llamaindex::open-gen-ui: 6 files (3 highlighted) + 4 regions
+  llamaindex::open-gen-ui-advanced: 5 files (5 highlighted) + 3 regions
+  llamaindex::gen-ui-interrupt: 8 files (4 highlighted) + 3 regions
+  llamaindex::interrupt-headless: 3 files (3 highlighted) + 3 regions
+  mastra::agentic-chat: 5 files (4 highlighted) + README + 25 regions
+  mastra::hitl-in-chat: 4 files (4 highlighted) + 21 regions
+  mastra::hitl-in-app: 6 files (4 highlighted) + 25 regions
+  mastra::tool-rendering: 14 files (8 highlighted) + README + 24 regions
+  mastra::tool-rendering-default-catchall: 7 files (3 highlighted) + 3 regions
+  mastra::tool-rendering-custom-catchall: 7 files (4 highlighted) + 3 regions
+  mastra::gen-ui-agent: 5 files (2 highlighted) + README
+  mastra::shared-state-streaming: 6 files (3 highlighted) + README + 20 regions
+  mastra::readonly-state-agent-context: 10 files (2 highlighted) + 2 regions
+  mastra::prebuilt-sidebar: 5 files (2 highlighted) + 2 regions
+  mastra::prebuilt-popup: 5 files (2 highlighted) + 1 regions
+  mastra::chat-slots: 6 files (3 highlighted) + 3 regions
+  mastra::chat-customization-css: 3 files (3 highlighted) + README + 15 regions
+  mastra::headless-simple: 7 files (2 highlighted) + 2 regions
+  mastra::frontend-tools: 4 files (2 highlighted) + README + 2 regions
+  mastra::frontend-tools-async: 4 files (3 highlighted) + 3 regions
+  mastra::agent-config: 7 files (5 highlighted) + 1 regions
+  mastra::declarative-gen-ui: 12 files (6 highlighted) + 6 regions
+  mastra::a2ui-recovery: 5 files (5 highlighted) + 19 regions
+  mastra::a2ui-fixed-schema: 13 files (7 highlighted) + 6 regions
+  mastra::headless-complete: 25 files (12 highlighted) + 24 regions
+  mastra::auth: 6 files (5 highlighted)
+  mastra::shared-state-read-write: 12 files (6 highlighted) + README + 26 regions
+  mastra::subagents: 10 files (5 highlighted) + README + 24 regions
+  mastra::beautiful-chat: 30 files (2 highlighted)
+  mastra::multimodal: 7 files (3 highlighted) + 19 regions
+  mastra::open-gen-ui: 5 files (2 highlighted) + 4 regions
+  mastra::open-gen-ui-advanced: 4 files (4 highlighted) + 3 regions
+  mastra::voice: 4 files (3 highlighted) + 4 regions
+  mastra::gen-ui-tool-based: 5 files (2 highlighted) + README + 2 regions
+  mastra::hitl: 9 files (2 highlighted)
+  mastra::hitl-in-chat-booking: 3 files (3 highlighted) + 2 regions
+  mastra::mcp-apps: 5 files (3 highlighted) + 21 regions
+  mastra::tool-rendering-reasoning-chain: 6 files (6 highlighted) + 1 regions
+  mastra::reasoning-default: 3 files (3 highlighted) + 20 regions
+  mastra::reasoning-custom: 5 files (4 highlighted) + 20 regions
+  mastra::gen-ui-interrupt: 8 files (4 highlighted) + 20 regions
+  mastra::interrupt-headless: 3 files (3 highlighted) + 20 regions
+  mastra::background-agents: 7 files (5 highlighted) + 20 regions
+  mastra::browser-use: 7 files (6 highlighted) + 20 regions
+  mastra::observational-memory: 6 files (4 highlighted) + 20 regions
+  ms-agent-dotnet::agentic-chat: 4 files (3 highlighted) + README + 7 regions
+  ms-agent-dotnet::chat-customization-css: 4 files (4 highlighted) + README + 18 regions
+  ms-agent-dotnet::tool-rendering-default-catchall: 7 files (3 highlighted) + 4 regions
+  ms-agent-dotnet::tool-rendering-custom-catchall: 7 files (4 highlighted) + 4 regions
+  ms-agent-dotnet::frontend-tools: 5 files (3 highlighted) + README + 5 regions
+  ms-agent-dotnet::frontend-tools-async: 5 files (4 highlighted) + README + 6 regions
+  ms-agent-dotnet::hitl: 2 files + README
+  ms-agent-dotnet::hitl-in-app: 6 files (4 highlighted) + README + 8 regions
+  ms-agent-dotnet::hitl-in-chat: 4 files (4 highlighted) + README + 4 regions
+  ms-agent-dotnet::gen-ui-tool-based: 6 files (3 highlighted) + README + 5 regions
+  ms-agent-dotnet::tool-rendering: 8 files (2 highlighted) + README + 4 regions
+  ms-agent-dotnet::gen-ui-agent: 6 files (3 highlighted) + README + 4 regions
+  ms-agent-dotnet::shared-state-streaming: 5 files (1 highlighted) + README + 3 regions
+  ms-agent-dotnet::shared-state-read-write: 12 files (6 highlighted) + README + 9 regions
+  ms-agent-dotnet::subagents: 10 files (5 highlighted) + README + 8 regions
+  ms-agent-dotnet::prebuilt-sidebar: 6 files (3 highlighted) + README + 5 regions
+  ms-agent-dotnet::prebuilt-popup: 6 files (3 highlighted) + README + 4 regions
+  ms-agent-dotnet::chat-slots: 7 files (4 highlighted) + README + 6 regions
+  ms-agent-dotnet::headless-simple: 8 files (3 highlighted) + README + 5 regions
+  ms-agent-dotnet::headless-complete: 25 files (5 highlighted) + README + 8 regions
+  ms-agent-dotnet::gen-ui-interrupt: 8 files (4 highlighted) + README + 5 regions
+  ms-agent-dotnet::declarative-gen-ui: 14 files (7 highlighted) + 8 regions
+  ms-agent-dotnet::a2ui-fixed-schema: 12 files (6 highlighted) + 7 regions
+  ms-agent-dotnet::a2ui-recovery: 5 files (4 highlighted)
+  ms-agent-dotnet::mcp-apps: 5 files (3 highlighted) + README + 2 regions
+  ms-agent-dotnet::interrupt-headless: 3 files (3 highlighted) + README + 5 regions
+  ms-agent-dotnet::readonly-state-agent-context: 11 files (3 highlighted) + README + 5 regions
+  ms-agent-dotnet::reasoning-default: 4 files (3 highlighted) + 3 regions
+  ms-agent-dotnet::reasoning-custom: 5 files (4 highlighted) + 3 regions
+  ms-agent-dotnet::tool-rendering-reasoning-chain: 7 files (5 highlighted) + 3 regions
+  ms-agent-dotnet::declarative-json-render: 13 files (11 highlighted)
+  ms-agent-dotnet::beautiful-chat: 31 files (9 highlighted)
+  ms-agent-dotnet::multimodal: 7 files (4 highlighted) + README
+  ms-agent-dotnet::auth: 6 files (5 highlighted)
+  ms-agent-dotnet::declarative-hashbrown: 11 files (9 highlighted)
+  ms-agent-dotnet::open-gen-ui: 6 files (3 highlighted) + README + 4 regions
+  ms-agent-dotnet::open-gen-ui-advanced: 5 files (5 highlighted) + README + 3 regions
+  ms-agent-dotnet::voice: 5 files (4 highlighted) + 5 regions
+  ms-agent-dotnet::agent-config: 8 files (6 highlighted) + 1 regions
+  ms-agent-harness-dotnet::agentic-chat: 5 files (3 highlighted) + README + 5 regions
+  ms-agent-harness-dotnet::chat-customization-css: 4 files (4 highlighted) + README + 16 regions
+  ms-agent-harness-dotnet::tool-rendering-default-catchall: 7 files (3 highlighted) + 2 regions
+  ms-agent-harness-dotnet::tool-rendering-custom-catchall: 7 files (4 highlighted) + 2 regions
+  ms-agent-harness-dotnet::frontend-tools: 5 files (3 highlighted) + README + 3 regions
+  ms-agent-harness-dotnet::frontend-tools-async: 5 files (4 highlighted) + README + 4 regions
+  ms-agent-harness-dotnet::hitl: 3 files + README
+  ms-agent-harness-dotnet::hitl-in-app: 6 files (4 highlighted) + README + 7 regions
+  ms-agent-harness-dotnet::hitl-in-chat: 4 files (4 highlighted) + README + 3 regions
+  ms-agent-harness-dotnet::gen-ui-tool-based: 6 files (3 highlighted) + README + 3 regions
+  ms-agent-harness-dotnet::tool-rendering: 9 files (3 highlighted) + README + 6 regions
+  ms-agent-harness-dotnet::gen-ui-agent: 6 files (3 highlighted) + README + 6 regions
+  ms-agent-harness-dotnet::shared-state-streaming: 4 files + README + 1 regions
+  ms-agent-harness-dotnet::shared-state-read-write: 12 files (6 highlighted) + README + 7 regions
+  ms-agent-harness-dotnet::subagents: 10 files (5 highlighted) + README + 6 regions
+  ms-agent-harness-dotnet::prebuilt-sidebar: 6 files (3 highlighted) + README + 3 regions
+  ms-agent-harness-dotnet::prebuilt-popup: 6 files (3 highlighted) + README + 2 regions
+  ms-agent-harness-dotnet::chat-slots: 10 files (4 highlighted) + README + 4 regions
+  ms-agent-harness-dotnet::headless-simple: 8 files (4 highlighted) + README + 2 regions
+  ms-agent-harness-dotnet::headless-complete: 28 files (5 highlighted) + README + 5 regions
+  ms-agent-harness-dotnet::gen-ui-interrupt: 9 files (4 highlighted) + README + 4 regions
+  ms-agent-harness-dotnet::declarative-gen-ui: 12 files (6 highlighted) + 5 regions
+  ms-agent-harness-dotnet::a2ui-fixed-schema: 12 files (6 highlighted) + 6 regions
+  ms-agent-harness-dotnet::mcp-apps: 5 files (3 highlighted) + README + 2 regions
+  ms-agent-harness-dotnet::interrupt-headless: 3 files (3 highlighted) + README + 4 regions
+  ms-agent-harness-dotnet::readonly-state-agent-context: 11 files (3 highlighted) + README + 3 regions
+  ms-agent-harness-dotnet::reasoning-default: 4 files (3 highlighted) + 3 regions
+  ms-agent-harness-dotnet::reasoning-custom: 5 files (4 highlighted) + 2 regions
+  ms-agent-harness-dotnet::tool-rendering-reasoning-chain: 7 files (5 highlighted) + 3 regions
+  ms-agent-harness-dotnet::declarative-json-render: 13 files (11 highlighted)
+  ms-agent-harness-dotnet::beautiful-chat: 32 files (10 highlighted)
+  ms-agent-harness-dotnet::multimodal: 7 files (4 highlighted) + README
+  ms-agent-harness-dotnet::auth: 6 files (5 highlighted)
+  ms-agent-harness-dotnet::declarative-hashbrown: 11 files (9 highlighted)
+  ms-agent-harness-dotnet::open-gen-ui: 6 files (3 highlighted) + README + 4 regions
+  ms-agent-harness-dotnet::open-gen-ui-advanced: 5 files (5 highlighted) + README + 3 regions
+  ms-agent-harness-dotnet::voice: 5 files (4 highlighted) + 4 regions
+  ms-agent-harness-dotnet::agent-config: 8 files (6 highlighted) + 1 regions
+  ms-agent-python::agentic-chat: 4 files (3 highlighted) + README + 6 regions
+  ms-agent-python::chat-customization-css: 4 files (4 highlighted) + README + 17 regions
+  ms-agent-python::tool-rendering-default-catchall: 7 files (3 highlighted) + 3 regions
+  ms-agent-python::tool-rendering-custom-catchall: 7 files (4 highlighted) + 3 regions
+  ms-agent-python::frontend-tools: 5 files (3 highlighted) + README + 4 regions
+  ms-agent-python::frontend-tools-async: 5 files (4 highlighted) + 5 regions
+  ms-agent-python::hitl: 3 files + README
+  ms-agent-python::hitl-in-app: 6 files (4 highlighted) + 7 regions
+  ms-agent-python::hitl-in-chat: 4 files (4 highlighted) + 3 regions
+  ms-agent-python::gen-ui-tool-based: 6 files (5 highlighted) + README + 3 regions
+  ms-agent-python::tool-rendering: 12 files (6 highlighted) + README + 4 regions
+  ms-agent-python::gen-ui-agent: 6 files (3 highlighted) + README + 4 regions
+  ms-agent-python::shared-state-read-write: 11 files (5 highlighted) + README + 7 regions
+  ms-agent-python::subagents: 9 files (4 highlighted) + README + 6 regions
+  ms-agent-python::shared-state-streaming: 5 files (1 highlighted) + README + 2 regions
+  ms-agent-python::prebuilt-sidebar: 6 files (3 highlighted) + 4 regions
+  ms-agent-python::prebuilt-popup: 6 files (3 highlighted) + 3 regions
+  ms-agent-python::chat-slots: 7 files (4 highlighted) + 5 regions
+  ms-agent-python::headless-simple: 8 files (4 highlighted) + 3 regions
+  ms-agent-python::headless-complete: 25 files (8 highlighted) + 2 regions
+  ms-agent-python::reasoning-default: 3 files (3 highlighted) + 1 regions
+  ms-agent-python::reasoning-custom: 5 files (4 highlighted) + 1 regions
+  ms-agent-python::gen-ui-interrupt: 8 files (4 highlighted) + 4 regions
+  ms-agent-python::declarative-gen-ui: 13 files (7 highlighted) + 7 regions
+  ms-agent-python::a2ui-fixed-schema: 14 files (8 highlighted) + 6 regions
+  ms-agent-python::a2ui-recovery: 5 files (4 highlighted)
+  ms-agent-python::mcp-apps: 5 files (3 highlighted) + 2 regions
+  ms-agent-python::interrupt-headless: 3 files (3 highlighted) + README + 4 regions
+  ms-agent-python::readonly-state-agent-context: 11 files (3 highlighted) + 4 regions
+  ms-agent-python::tool-rendering-reasoning-chain: 7 files (5 highlighted) + 2 regions
+  ms-agent-python::declarative-json-render: 13 files (11 highlighted)
+  ms-agent-python::beautiful-chat: 31 files (9 highlighted)
+  ms-agent-python::multimodal: 7 files (4 highlighted)
+  ms-agent-python::auth: 6 files (5 highlighted)
+  ms-agent-python::declarative-hashbrown: 11 files (9 highlighted)
+  ms-agent-python::open-gen-ui: 6 files (3 highlighted) + 4 regions
+  ms-agent-python::open-gen-ui-advanced: 5 files (5 highlighted) + 3 regions
+  ms-agent-python::voice: 5 files (4 highlighted) + 5 regions
+  ms-agent-python::agent-config: 8 files (6 highlighted) + 1 regions
+  pydantic-ai::agentic-chat: 5 files (3 highlighted) + README + 5 regions
+  pydantic-ai::prebuilt-sidebar: 6 files (3 highlighted) + 3 regions
+  pydantic-ai::prebuilt-popup: 6 files (3 highlighted) + 2 regions
+  pydantic-ai::chat-slots: 7 files (4 highlighted) + 4 regions
+  pydantic-ai::chat-customization-css: 4 files (4 highlighted) + README + 16 regions
+  pydantic-ai::headless-simple: 8 files (3 highlighted) + 3 regions
+  pydantic-ai::frontend-tools: 5 files (3 highlighted) + README + 3 regions
+  pydantic-ai::frontend-tools-async: 5 files (4 highlighted) + 4 regions
+  pydantic-ai::hitl: 11 files (3 highlighted) + 1 regions
+  pydantic-ai::hitl-in-app: 6 files (4 highlighted) + 7 regions
+  pydantic-ai::hitl-in-chat: 4 files (4 highlighted) + 2 regions
+  pydantic-ai::hitl-in-chat-booking: 4 files (4 highlighted) + 2 regions
+  pydantic-ai::tool-rendering: 14 files (7 highlighted) + README + 4 regions
+  pydantic-ai::tool-rendering-default-catchall: 7 files (3 highlighted) + 2 regions
+  pydantic-ai::tool-rendering-custom-catchall: 7 files (4 highlighted) + 2 regions
+  pydantic-ai::gen-ui-agent: 7 files (3 highlighted) + README + 1 regions
+  pydantic-ai::gen-ui-tool-based: 7 files (5 highlighted) + README + 2 regions
+  pydantic-ai::shared-state-streaming: 7 files (3 highlighted) + README + 2 regions
+  pydantic-ai::shared-state-read: 5 files (3 highlighted) + README
+  pydantic-ai::shared-state-read-write: 12 files (5 highlighted) + README + 6 regions
+  pydantic-ai::subagents: 10 files (4 highlighted) + README + 5 regions
+  pydantic-ai::readonly-state-agent-context: 11 files (3 highlighted) + 3 regions
+  pydantic-ai::open-gen-ui: 6 files (3 highlighted) + 4 regions
+  pydantic-ai::open-gen-ui-advanced: 5 files (4 highlighted) + 3 regions
+  pydantic-ai::declarative-gen-ui: 12 files (6 highlighted) + 4 regions
+  pydantic-ai::a2ui-fixed-schema: 13 files (7 highlighted) + 5 regions
+  pydantic-ai::headless-complete: 25 files (12 highlighted) + 5 regions
+  pydantic-ai::beautiful-chat: 31 files (9 highlighted)
+  pydantic-ai::declarative-json-render: 13 files (6 highlighted)
+  pydantic-ai::declarative-hashbrown: 11 files (5 highlighted)
+  pydantic-ai::multimodal: 7 files (4 highlighted)
+  pydantic-ai::voice: 4 files (3 highlighted) + 4 regions
+  pydantic-ai::agent-config: 8 files (4 highlighted) + 1 regions
+  pydantic-ai::auth: 6 files (4 highlighted)
+  pydantic-ai::reasoning-default: 4 files (4 highlighted) + 1 regions
+  pydantic-ai::reasoning-custom: 5 files (4 highlighted) + 1 regions
+  pydantic-ai::tool-rendering-reasoning-chain: 7 files (7 highlighted) + 1 regions
+  pydantic-ai::mcp-apps: 5 files (3 highlighted) + 2 regions
+  pydantic-ai::gen-ui-interrupt: 8 files (4 highlighted) + 3 regions
+  pydantic-ai::interrupt-headless: 3 files (3 highlighted) + 3 regions
+  spring-ai::agentic-chat: 5 files (4 highlighted) + README + 4 regions
+  spring-ai::chat-customization-css: 3 files (3 highlighted) + README + 15 regions
+  spring-ai::frontend-tools: 4 files (2 highlighted) + README + 2 regions
+  spring-ai::frontend-tools-async: 4 files (3 highlighted) + 3 regions
+  spring-ai::gen-ui-agent: 5 files (2 highlighted) + README
+  spring-ai::prebuilt-sidebar: 5 files (2 highlighted) + 2 regions
+  spring-ai::prebuilt-popup: 5 files (2 highlighted) + 1 regions
+  spring-ai::chat-slots: 6 files (3 highlighted) + 3 regions
+  spring-ai::headless-simple: 7 files (2 highlighted) + 2 regions
+  spring-ai::readonly-state-agent-context: 10 files (2 highlighted) + 2 regions
+  spring-ai::auth: 6 files (5 highlighted)
+  spring-ai::open-gen-ui: 5 files (2 highlighted) + 4 regions
+  spring-ai::open-gen-ui-advanced: 4 files (4 highlighted) + 3 regions
+  spring-ai::voice: 4 files (3 highlighted) + 4 regions
+  spring-ai::agent-config: 8 files (6 highlighted) + 1 regions
+  spring-ai::a2ui-fixed-schema: 13 files (7 highlighted) + 5 regions
+  spring-ai::headless-complete: 24 files (11 highlighted) + 5 regions
+  spring-ai::beautiful-chat: 30 files (2 highlighted)
+  spring-ai::tool-rendering-reasoning-chain: 6 files (6 highlighted) + 1 regions
+  spring-ai::declarative-gen-ui: 12 files (6 highlighted) + 4 regions
+  spring-ai::shared-state-read-write: 11 files (5 highlighted) + README + 6 regions
+  spring-ai::shared-state-streaming: 6 files (4 highlighted) + README + 2 regions
+  spring-ai::subagents: 9 files (4 highlighted) + README + 5 regions
+  spring-ai::multimodal: 6 files (3 highlighted)
+  spring-ai::hitl-in-chat: 3 files (3 highlighted) + 2 regions
+  spring-ai::hitl-in-app: 5 files (3 highlighted) + 6 regions
+  spring-ai::hitl: 9 files (2 highlighted)
+  spring-ai::tool-rendering: 9 files (3 highlighted) + README + 4 regions
+  spring-ai::gen-ui-tool-based: 5 files (4 highlighted) + README + 2 regions
+  spring-ai::tool-rendering-default-catchall: 7 files (3 highlighted) + 1 regions
+  spring-ai::tool-rendering-custom-catchall: 7 files (4 highlighted) + 1 regions
+  spring-ai::hitl-in-chat-booking: 3 files (3 highlighted) + 2 regions
+  spring-ai::mcp-apps: 4 files (2 highlighted) + 2 regions
+  spring-ai::declarative-hashbrown: 11 files (9 highlighted)
+  spring-ai::declarative-json-render: 13 files (9 highlighted)
+  spring-ai::gen-ui-interrupt: 8 files (4 highlighted) + 2 regions
+  spring-ai::interrupt-headless: 3 files (3 highlighted) + 2 regions
+  strands::agentic-chat: 4 files (3 highlighted) + README + 18 regions
+  strands::chat-customization-css: 4 files (4 highlighted) + README + 29 regions
+  strands::prebuilt-sidebar: 6 files (3 highlighted) + 16 regions
+  strands::prebuilt-popup: 6 files (3 highlighted) + 15 regions
+  strands::chat-slots: 7 files (4 highlighted) + 17 regions
+  strands::headless-simple: 8 files (3 highlighted) + 16 regions
+  strands::headless-complete: 25 files (12 highlighted) + 19 regions
+  strands::frontend-tools: 5 files (3 highlighted) + README + 16 regions
+  strands::frontend-tools-async: 5 files (4 highlighted) + 17 regions
+  strands::hitl-in-chat: 4 files (4 highlighted) + 16 regions
+  strands::hitl-in-chat-booking: 4 files (4 highlighted) + 16 regions
+  strands::hitl-in-app: 6 files (4 highlighted) + 20 regions
+  strands::hitl: 9 files (2 highlighted) + 2 regions
+  strands::tool-rendering: 13 files (7 highlighted) + README + 17 regions
+  strands::tool-rendering-default-catchall: 7 files (3 highlighted) + 15 regions
+  strands::tool-rendering-custom-catchall: 7 files (4 highlighted) + 15 regions
+  strands::tool-rendering-reasoning-chain: 8 files (4 highlighted) + 4 regions
+  strands::gen-ui-agent: 7 files (5 highlighted) + README + 18 regions
+  strands::gen-ui-tool-based: 6 files (3 highlighted) + README + 16 regions
+  strands::declarative-gen-ui: 13 files (4 highlighted) + 16 regions
+  strands::a2ui-fixed-schema: 13 files (7 highlighted) + 7 regions
+  strands::a2ui-recovery: 5 files (4 highlighted) + 2 regions
+  strands::shared-state-read-write: 11 files (5 highlighted) + README + 21 regions
+  strands::shared-state-read: 4 files (2 highlighted) + README + 3 regions
+  strands::subagents: 9 files (4 highlighted) + README + 17 regions
+  strands::shared-state-streaming: 4 files + README + 1 regions
+  strands::readonly-state-agent-context: 11 files (3 highlighted) + 16 regions
+  strands::multimodal: 7 files (6 highlighted) + 14 regions
+  strands::voice: 6 files (4 highlighted) + 16 regions
+  strands::auth: 6 files (5 highlighted) + 3 regions
+  strands::agent-config: 8 files (6 highlighted) + 13 regions
+  strands::declarative-hashbrown: 11 files (9 highlighted)
+  strands::declarative-json-render: 13 files (11 highlighted)
+  strands::open-gen-ui: 6 files (3 highlighted) + 4 regions
+  strands::open-gen-ui-advanced: 5 files (4 highlighted) + 3 regions
+  strands::mcp-apps: 5 files (3 highlighted) + 14 regions
+  strands::beautiful-chat: 31 files (3 highlighted) + 14 regions
+  strands::reasoning-default: 4 files (4 highlighted) + 4 regions
+  strands::reasoning-custom: 5 files (4 highlighted) + 4 regions
+  strands::gen-ui-interrupt: 8 files (4 highlighted) + 4 regions
+  strands::interrupt-headless: 3 files (3 highlighted) + 4 regions
+  strands-typescript::agentic-chat: 4 files (3 highlighted) + README + 7 regions
+  strands-typescript::chat-customization-css: 4 files (4 highlighted) + README + 18 regions
+  strands-typescript::prebuilt-sidebar: 6 files (3 highlighted) + 5 regions
+  strands-typescript::prebuilt-popup: 6 files (3 highlighted) + 4 regions
+  strands-typescript::chat-slots: 7 files (4 highlighted) + 6 regions
+  strands-typescript::headless-simple: 8 files (3 highlighted) + 5 regions
+  strands-typescript::headless-complete: 25 files (12 highlighted) + 8 regions
+  strands-typescript::frontend-tools: 5 files (3 highlighted) + README + 5 regions
+  strands-typescript::frontend-tools-async: 5 files (4 highlighted) + 6 regions
+  strands-typescript::hitl-in-chat: 4 files (4 highlighted) + 5 regions
+  strands-typescript::hitl-in-chat-booking: 4 files (4 highlighted) + 5 regions
+  strands-typescript::hitl-in-app: 6 files (4 highlighted) + 9 regions
+  strands-typescript::hitl: 9 files (2 highlighted)
+  strands-typescript::tool-rendering: 10 files (4 highlighted) + README + 10 regions
+  strands-typescript::tool-rendering-default-catchall: 7 files (3 highlighted) + 4 regions
+  strands-typescript::tool-rendering-custom-catchall: 7 files (4 highlighted) + 4 regions
+  strands-typescript::tool-rendering-reasoning-chain: 7 files (3 highlighted) + 2 regions
+  strands-typescript::gen-ui-agent: 8 files (5 highlighted) + README + 12 regions
+  strands-typescript::gen-ui-tool-based: 6 files (3 highlighted) + README + 5 regions
+  strands-typescript::declarative-gen-ui: 13 files (4 highlighted) + 7 regions
+  strands-typescript::a2ui-fixed-schema: 12 files (6 highlighted) + 6 regions
+  strands-typescript::a2ui-recovery: 5 files (4 highlighted) + 3 regions
+  strands-typescript::shared-state-read-write: 11 files (5 highlighted) + README + 9 regions
+  strands-typescript::shared-state-read: 4 files (2 highlighted) + README
+  strands-typescript::subagents: 11 files (6 highlighted) + README + 13 regions
+  strands-typescript::shared-state-streaming: 4 files + README + 1 regions
+  strands-typescript::readonly-state-agent-context: 11 files (3 highlighted) + 5 regions
+  strands-typescript::multimodal: 7 files (4 highlighted) + 3 regions
+  strands-typescript::voice: 5 files (4 highlighted) + 7 regions
+  strands-typescript::auth: 6 files (5 highlighted)
+  strands-typescript::agent-config: 8 files (6 highlighted) + 4 regions
+  strands-typescript::declarative-hashbrown: 11 files (9 highlighted) + 3 regions
+  strands-typescript::declarative-json-render: 13 files (11 highlighted) + 3 regions
+  strands-typescript::open-gen-ui: 6 files (3 highlighted) + 7 regions
+  strands-typescript::open-gen-ui-advanced: 5 files (4 highlighted) + 6 regions
+  strands-typescript::mcp-apps: 5 files (3 highlighted) + 5 regions
+  strands-typescript::beautiful-chat: 31 files (3 highlighted) + 3 regions
+  strands-typescript::reasoning-default: 4 files (4 highlighted) + 2 regions
+  strands-typescript::reasoning-custom: 5 files (4 highlighted) + 2 regions
+  strands-typescript::gen-ui-interrupt: 8 files (4 highlighted) + 2 regions
+  strands-typescript::interrupt-headless: 3 files (3 highlighted) + 2 regions
+
+Bundled 807 demos to /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell/src/data/demo-content.json
+
+Bundled 807 demos to /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs/src/data/demo-content.json
+
+Bundled 807 demos to /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-dojo/src/data/demo-content.json
+Wrote 107 setup concepts to shell-docs/src/data/setup-content.json
+  Reference: 185 entries
+[emit-searchable-pages] 626 searchable slugs (608 from navigation, 18 from an inbound link, 0 forced in, 0 forced out)
+  Docs: 554 entries (86 dropped as unreachable from any sidebar; 608 slugs in navigation, 18 kept by an inbound prose link, 0 forced in and 0 forced out by frontmatter)
+  Dropped-entry report: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs/src/data/search-index-dropped.json
+  Angular features: 41 entries
+
+Search index: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs/src/data/search-index.json (780 entries)
+
+Search index: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell/src/data/search-index.json (783 entries)
+
+> @copilotkit/showcase-shell-docs@0.1.0 typecheck
+> tsc --noEmit
+
+typecheck exit=0

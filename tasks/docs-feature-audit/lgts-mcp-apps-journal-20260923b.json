@@ -1,0 +1,294 @@
+{
+ "journalEntriesSinceMatrixStart": 138,
+ "strict503": 0,
+ "createViewOrExcalidrawRequests": [
+  {
+   "time": "2026-09-23T21:59:06.806Z",
+   "status": 200,
+   "fixture": {
+    "userMessage": "expenses by category",
+    "hasToolResult": false,
+    "context": "langgraph-typescript"
+   },
+   "toolCount": 13,
+   "hasCreateView": true,
+   "lastUser": "d5 beautiful-chat probe: bar chart of expenses by category",
+   "lastRole": "user"
+  },
+  {
+   "time": "2026-09-23T21:59:06.814Z",
+   "status": 200,
+   "fixture": {
+    "userMessage": "revenue distribution by category",
+    "hasToolResult": false,
+    "context": "langgraph-typescript"
+   },
+   "toolCount": 13,
+   "hasCreateView": true,
+   "lastUser": "d5 beautiful-chat probe: pie chart of revenue distribution by category",
+   "lastRole": "user"
+  },
+  {
+   "time": "2026-09-23T21:59:06.992Z",
+   "status": 200,
+   "fixture": {
+    "userMessage": "d5 beautiful-chat probe: search flights from SFO to JFK",
+    "hasToolResult": false,
+    "context": "langgraph-typescript"
+   },
+   "toolCount": 13,
+   "hasCreateView": true,
+   "lastUser": "d5 beautiful-chat probe: search flights from SFO to JFK",
+   "lastRole": "user"
+  },
+  {
+   "time": "2026-09-23T21:59:07.032Z",
+   "status": 200,
+   "fixture": {
+    "userMessage": "toggle",
+    "hasToolResult": false,
+    "context": "langgraph-typescript"
+   },
+   "toolCount": 13,
+   "hasCreateView": true,
+   "lastUser": "d5 beautiful-chat probe: toggle the theme",
+   "lastRole": "user"
+  },
+  {
+   "time": "2026-09-23T21:59:08.406Z",
+   "status": 200,
+   "fixture": {
+    "toolCallId": "call_fp_toggle_theme_001",
+    "context": "langgraph-typescript"
+   },
+   "toolCount": 13,
+   "hasCreateView": true,
+   "lastUser": "d5 beautiful-chat probe: toggle the theme",
+   "lastRole": "tool"
+  },
+  {
+   "time": "2026-09-23T21:59:09.913Z",
+   "status": 200,
+   "fixture": {
+    "toolCallId": "call_fp_bar_chart_001",
+    "context": "langgraph-typescript"
+   },
+   "toolCount": 13,
+   "hasCreateView": true,
+   "lastUser": "d5 beautiful-chat probe: bar chart of expenses by category",
+   "lastRole": "tool"
+  },
+  {
+   "time": "2026-09-23T21:59:10.082Z",
+   "status": 200,
+   "fixture": {
+    "toolCallId": "call_fp_pie_chart_001",
+    "context": "langgraph-typescript"
+   },
+   "toolCount": 13,
+   "hasCreateView": true,
+   "lastUser": "d5 beautiful-chat probe: pie chart of revenue distribution by category",
+   "lastRole": "tool"
+  },
+  {
+   "time": "2026-09-23T21:59:11.573Z",
+   "status": 200,
+   "fixture": {
+    "userMessage": "d5 beautiful-chat probe: search flights from SFO to JFK",
+    "hasToolResult": true,
+    "context": "langgraph-typescript"
+   },
+   "toolCount": 13,
+   "hasCreateView": true,
+   "lastUser": "d5 beautiful-chat probe: search flights from SFO to JFK",
+   "lastRole": "tool"
+  },
+  {
+   "time": "2026-09-23T21:59:14.072Z",
+   "status": 200,
+   "fixture": {
+    "userMessage": "30-minute meeting to learn about CopilotKit",
+    "hasToolResult": false,
+    "context": "langgraph-typescript"
+   },
+   "toolCount": 13,
+   "hasCreateView": true,
+   "lastUser": "d5 beautiful-chat probe: schedule a 30-minute meeting to learn about C",
+   "lastRole": "user"
+  },
+  {
+   "time": "2026-09-23T21:59:36.756Z",
+   "status": 200,
+   "fixture": {
+    "userMessage": "What's the weather in Tokyo",
+    "context": "langgraph-typescript"
+   },
+   "toolCount": 5,
+   "hasCreateView": true,
+   "lastUser": "What's the weather in Tokyo?",
+   "lastRole": "user"
+  },
+  {
+   "time": "2026-09-23T21:59:37.128Z",
+   "status": 200,
+   "fixture": {
+    "toolCallId": "call_d5_headless_weather_001",
+    "context": "langgraph-typescript"
+   },
+   "toolCount": 5,
+   "hasCreateView": true,
+   "lastUser": "What's the weather in Tokyo?",
+   "lastRole": "tool"
+  },
+  {
+   "time": "2026-09-23T21:59:40.369Z",
+   "status": 200,
+   "fixture": {
+    "userMessage": "price of AAPL right now",
+    "context": "langgraph-typescript"
+   },
+   "toolCount": 5,
+   "hasCreateView": true,
+   "lastUser": "What's the price of AAPL right now?",
+   "lastRole": "user"
+  },
+  {
+   "time": "2026-09-23T21:59:40.740Z",
+   "status": 200,
+   "fixture": {
+    "toolCallId": "call_d5_headless_stock_001",
+    "context": "langgraph-typescript"
+   },
+   "toolCount": 5,
+   "hasCreateView": true,
+   "lastUser": "What's the price of AAPL right now?",
+   "lastRole": "tool"
+  },
+  {
+   "time": "2026-09-23T21:59:43.398Z",
+   "status": 200,
+   "fixture": {
+    "userMessage": "ship the demo on Friday",
+    "context": "langgraph-typescript"
+   },
+   "toolCount": 5,
+   "hasCreateView": true,
+   "lastUser": "Highlight this note for me: 'ship the demo on Friday'.",
+   "lastRole": "user"
+  },
+  {
+   "time": "2026-09-23T21:59:45.229Z",
+   "status": 200,
+   "fixture": {
+    "toolCallId": "call_d5_headless_highlight_001",
+    "context": "langgraph-typescript"
+   },
+   "toolCount": 5,
+   "hasCreateView": true,
+   "lastUser": "Highlight this note for me: 'ship the demo on Friday'.",
+   "lastRole": "tool"
+  },
+  {
+   "time": "2026-09-23T21:59:48.201Z",
+   "status": 200,
+   "fixture": {
+    "userMessage": "chart of revenue over the last six months",
+    "context": "langgraph-typescript"
+   },
+   "toolCount": 5,
+   "hasCreateView": true,
+   "lastUser": "Show me a chart of revenue over the last six months.",
+   "lastRole": "user"
+  },
+  {
+   "time": "2026-09-23T21:59:48.874Z",
+   "status": 200,
+   "fixture": {
+    "toolCallId": "call_d5_headless_revenue_chart_001",
+    "context": "langgraph-typescript"
+   },
+   "toolCount": 5,
+   "hasCreateView": true,
+   "lastUser": "Show me a chart of revenue over the last six months.",
+   "lastRole": "tool"
+  },
+  {
+   "time": "2026-09-23T21:59:57.643Z",
+   "status": 200,
+   "fixture": {
+    "userMessage": "Open Excalidraw and sketch a system diagram",
+    "toolName": "create_view",
+    "context": "langgraph-typescript"
+   },
+   "toolCount": 1,
+   "hasCreateView": true,
+   "lastUser": "Open Excalidraw and sketch a system diagram with a client, server, and",
+   "lastRole": "user"
+  },
+  {
+   "time": "2026-09-23T22:00:28.676Z",
+   "status": 200,
+   "fixture": {
+    "userMessage": "Open Excalidraw and sketch a system diagram",
+    "toolName": "create_view",
+    "context": "langgraph-typescript"
+   },
+   "toolCount": 1,
+   "hasCreateView": true,
+   "lastUser": "Open Excalidraw and sketch a system diagram with a client, server, and",
+   "lastRole": "user"
+  },
+  {
+   "time": "2026-09-23T22:03:41.020Z",
+   "status": 200,
+   "fixture": {
+    "userMessage": "Open Excalidraw and sketch a system diagram",
+    "toolName": "create_view",
+    "context": "langgraph-typescript"
+   },
+   "toolCount": 1,
+   "hasCreateView": true,
+   "lastUser": "Open Excalidraw and sketch a system diagram with a client, server, and",
+   "lastRole": "user"
+  },
+  {
+   "time": "2026-09-23T22:04:29.760Z",
+   "status": 200,
+   "fixture": {
+    "userMessage": "Open Excalidraw and sketch a system diagram",
+    "toolName": "create_view",
+    "context": "langgraph-typescript"
+   },
+   "toolCount": 1,
+   "hasCreateView": true,
+   "lastUser": "Open Excalidraw and sketch a system diagram with a client, server, and",
+   "lastRole": "user"
+  },
+  {
+   "time": "2026-09-23T22:05:02.630Z",
+   "status": 200,
+   "fixture": {
+    "userMessage": "Open Excalidraw and sketch a system diagram",
+    "toolName": "create_view",
+    "context": "langgraph-typescript"
+   },
+   "toolCount": 1,
+   "hasCreateView": true,
+   "lastUser": "Open Excalidraw and sketch a system diagram with a client, server, and",
+   "lastRole": "user"
+  },
+  {
+   "time": "2026-09-23T22:06:21.413Z",
+   "status": 200,
+   "fixture": {
+    "userMessage": "Open Excalidraw and sketch a system diagram",
+    "toolName": "create_view",
+    "context": "langgraph-typescript"
+   },
+   "toolCount": 1,
+   "hasCreateView": true,
+   "lastUser": "Open Excalidraw and sketch a system diagram with a client, server, and",
+   "lastRole": "user"
+  }
+ ]
+}

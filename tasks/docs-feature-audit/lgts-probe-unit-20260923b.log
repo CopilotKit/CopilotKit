@@ -1,0 +1,15 @@
+# Probe unit test (showcase/harness vitest 3.2.4, 1 fork worker, heap cap passed to the worker).
+# RED: updated test (evaluate drops its argument, as the D6 page wrapper does) against the committed probe
+   ✓ d5-shared-state-read script > registers for shared-state-read with its fixture file 1ms
+   ✓ d5-shared-state-read script > edits the recipe title before sending the first prompt 0ms
+   × d5-shared-state-read script > types the edited title into the form and waits for it to stick 5006ms
+     → Test timed out in 5000ms.
+   ✓ d5-shared-state-read script > fails when the controlled input reverts the edit 4ms
+   ✓ shared-state-read fixtures gated on the recipe edit > gate on the probe's edited title wherever they check the system prompt 5ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/probes/scripts/d5-shared-state-read.test.ts > d5-shared-state-read script > types the edited title into the form and waits for it to stick
+Error: Test timed out in 5000ms.
+      Tests  1 failed | 4 passed (5)
+# GREEN: same test against the fixed probe (selector inlined in the closure)
+ ✓ src/probes/scripts/d5-shared-state-read.test.ts (5 tests) 6ms
+      Tests  5 passed (5)

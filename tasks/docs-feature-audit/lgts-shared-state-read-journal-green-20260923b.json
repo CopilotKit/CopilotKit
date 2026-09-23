@@ -1,0 +1,22 @@
+[
+ {
+  "time": "2026-09-23T21:55:25.041Z",
+  "model": "gpt-4o-mini",
+  "roles": "system,system,user",
+  "lastUser": "Create a delicious Italian pasta recipe.",
+  "systemHasEditedTitle": true,
+  "developerHasEditedTitle": false,
+  "status": 200,
+  "fixture": "matched"
+ },
+ {
+  "time": "2026-09-23T21:55:29.664Z",
+  "model": "gpt-4o-mini",
+  "roles": "system,system,user,assistant,user",
+  "lastUser": "Make the recipe healthier with more vegetables.",
+  "systemHasEditedTitle": true,
+  "developerHasEditedTitle": false,
+  "status": 200,
+  "fixture": "matched"
+ }
+]

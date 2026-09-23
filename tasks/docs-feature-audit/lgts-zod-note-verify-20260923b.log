@@ -1,0 +1,63 @@
+# Verify the LangGraph quickstart Zod note against published @copilotkit/sdk-js@1.73.3 (2026-09-23T21:38:52Z, node v24.11.0, npm 11.6.1)
+$ npm view @copilotkit/sdk-js@1.73.3 peerDependencies.zod
+^3.23.3 || ^3.24.0 || ^3.25.0
+$ npm view @copilotkit/sdk-js dist-tags.latest
+1.73.3
+$ npm view zod dist-tags.latest
+4.6.5
+
+# (a) unversioned zod, empty project: npm install --package-lock-only @copilotkit/sdk-js@1.73.3 zod
+
+up to date in 2s
+exit=0
+
+# (b) documented command: npm install --package-lock-only @copilotkit/sdk-js@1.73.3 zod@3
+
+up to date in 499ms
+exit=0
+resolved zod 3.25.76 sdk-js 1.73.3
+
+# (a) detail: package.json saved by (a):
+{"name":"zod-check-a","version":"0.0.0","private":true,"dependencies":{"@copilotkit/sdk-js":"^1.73.3","zod":"^3.25.76"}}
+# => installing both in one command lets npm pick zod 3.25.76 to satisfy the peer; no conflict.
+
+# (c) project already on Zod 4: npm install --package-lock-only zod; then npm install --package-lock-only @copilotkit/sdk-js@1.73.3
+
+up to date in 96ms
+zod after step 1: 4.6.5
+npm error code ERESOLVE
+npm error ERESOLVE unable to resolve dependency tree
+npm error
+npm error While resolving: zod-check-c@0.0.0
+npm error Found: zod@4.6.5
+npm error node_modules/zod
+npm error   zod@"^4.6.5" from the root project
+npm error   zod@"^3.25.76 || ^4" from @langchain/core@1.2.12
+npm error   node_modules/@langchain/core
+npm error     peer @langchain/core@">=0.4.0 <2.0.0" from @copilotkit/sdk-js@1.73.3
+npm error     node_modules/@copilotkit/sdk-js
+npm error       @copilotkit/sdk-js@"1.73.3" from the root project
+npm error     peer @langchain/core@"^1.1.48" from @langchain/langgraph@1.4.17
+npm error     node_modules/@langchain/langgraph
+exit=1
+
+# (d) SDK first, then unversioned zod: npm install --package-lock-only @copilotkit/sdk-js@1.73.3; then npm install --package-lock-only zod
+
+up to date in 488ms
+zod after step 1: 3.25.76
+npm warn ERESOLVE overriding peer dependency
+npm warn While resolving: zod-check-d@0.0.0
+npm warn Found: zod@3.25.76
+npm warn node_modules/zod
+npm warn   zod@"^3.25.76" from @ag-ui/client@1.0.0
+npm warn   node_modules/@ag-ui/client
+npm warn     peer @ag-ui/client@">=0.0.40" from @ag-ui/a2ui-middleware@0.0.10
+npm warn     node_modules/@ag-ui/a2ui-middleware
+npm warn     1 more (@ag-ui/langgraph)
+npm warn   13 more (@ag-ui/core, @ag-ui/proto, @copilotkit/sdk-js, ...)
+npm warn
+npm warn Could not resolve dependency:
+npm warn peer zod@"^3.23.3 || ^3.24.0 || ^3.25.0" from @copilotkit/sdk-js@1.73.3
+npm warn node_modules/@copilotkit/sdk-js
+exit=0
+{"name":"zod-check-d","version":"0.0.0","private":true,"dependencies":{"@copilotkit/sdk-js":"^1.73.3","zod":"^4.6.5"}}zod after step 2: 4.6.5

@@ -1,0 +1,14 @@
+$ cd <scratch copy of src/agent/package.json> && npm install --package-lock-only --no-audit --no-fund --before=2026-09-22T21:49:00Z
+Wed Sep 23 21:28:26 UTC 2026
+node v24.11.0 npm 11.6.1
+
+up to date in 5s
+exit=0
+
+# Diff against the committed lock (4fcee0bb4b): only these entries were added; nothing changed or was removed:
+ADDED node_modules/@types/pdf-parse 1.1.5 (dev), node_modules/node-ensure 0.0.0, node_modules/pdf-parse 1.1.4
+
+# Publish-age audit (npm view <pkg> time), 24h floor at 2026-09-23T21:28:47Z:
+pdf-parse@1.1.4 published 2025-10-29T23:17:38.413Z age 7894.2h tarball https://registry.npmjs.org/pdf-parse/-/pdf-parse-1.1.4.tgz
+node-ensure@0.0.0 published 2015-02-28T12:46:37.532Z age 101408.7h tarball https://registry.npmjs.org/node-ensure/-/node-ensure-0.0.0.tgz
+@types/pdf-parse@1.1.5 published 2025-04-02T02:10:35.460Z age 12955.3h tarball https://registry.npmjs.org/@types/pdf-parse/-/pdf-parse-1.1.5.tgz
