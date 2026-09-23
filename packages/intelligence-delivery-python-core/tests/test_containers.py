@@ -12,7 +12,10 @@ async def test_qualified_union_ignores_legacy_environment_and_copies_sources(mon
     monkeypatch.setenv("CPK_INTELLIGENCE_LEARNING_CONTAINER_ID", "ignored")
     monkeypatch.setenv("CPK_INTELLIGENCE_SKILLS_REVISION", "ignored")
     client = AsyncMock(spec=Intelligence)
-    client.get_learned_skills_snapshot.return_value = response()
+    client.get_learned_skills_snapshots.return_value = {
+        "support/é %": response(),
+        "company": response(),
+    }
     sources = [{"id": "support/é %", "revision": "r1"}, {"id": "company"}]
     registry = Registry(client=client, containers=sources)
     sources[0]["id"] = "changed"
@@ -22,10 +25,11 @@ async def test_qualified_union_ignores_legacy_environment_and_copies_sources(mon
         "company/refund-policy",
         "support%2F%C3%A9%20%25/refund-policy",
     ]
-    calls = client.get_learned_skills_snapshot.call_args_list
-    assert [(call.kwargs["container_id"], call.kwargs["revision"]) for call in calls] == [
-        ("support/é %", "r1"),
-        ("company", None),
+    calls = client.get_learned_skills_snapshots.call_args_list
+    assert len(calls) == 1
+    assert calls[0].kwargs["containers"] == [
+        {"containerId": "support/é %", "revision": "r1"},
+        {"containerId": "company"},
     ]
     assert registry.status.mode == "latest"
     assert [item.id for item in registry.status.containers] == ["support/é %", "company"]
@@ -37,6 +41,7 @@ async def test_qualified_union_ignores_legacy_environment_and_copies_sources(mon
     "options",
     [
         {"containers": []},
+        {"containers": [{"id": str(i)} for i in range(51)]},
         {"containers": [{"id": " "}]},
         {"containers": [{"id": "a"}, {"id": "a"}]},
         {"containers": [{"id": "a", "revision": ""}]},
@@ -55,12 +60,9 @@ async def test_per_container_etags_warm_fallback_and_denial():
     replies = {"a": response(), "b": response()}
 
     async def fetch(**kwargs):
-        reply = replies[kwargs["container_id"]]
-        if isinstance(reply, Exception):
-            raise reply
-        return reply
+        return dict(replies)
 
-    client.get_learned_skills_snapshot.side_effect = fetch
+    client.get_learned_skills_snapshots.side_effect = fetch
     registry = Registry(client=client, containers=[{"id": "a"}, {"id": "b"}], freshness_window=0)
     original = await registry.acquire_snapshot()
     replies["a"] = response("empty-r2")
@@ -70,8 +72,9 @@ async def test_per_container_etags_warm_fallback_and_denial():
     assert len(original.skills) == 2
     assert registry.status.stale
     assert all(
-        call.kwargs["if_none_match"] == response()["etag"]
-        for call in client.get_learned_skills_snapshot.call_args_list[2:]
+        source["ifNoneMatch"] == response()["etag"]
+        for call in client.get_learned_skills_snapshots.call_args_list[1:]
+        for source in call.kwargs["containers"]
     )
     replies["b"] = LearnedSkillsError("AUTHORIZATION_FAILED", False)
     with pytest.raises(LearnedSkillsError):
@@ -84,10 +87,10 @@ async def test_per_container_etags_warm_fallback_and_denial():
 
 async def test_cold_member_failure_never_returns_partial_snapshot():
     client = AsyncMock(spec=Intelligence)
-    client.get_learned_skills_snapshot.side_effect = [
-        response(),
-        LearnedSkillsError("NETWORK_ERROR", True),
-    ]
+    client.get_learned_skills_snapshots.return_value = {
+        "a": response(),
+        "b": LearnedSkillsError("NETWORK_ERROR", True),
+    }
     registry = Registry(client=client, containers=[{"id": "a"}, {"id": "b"}])
     with pytest.raises(LearnedSkillsError):
         await registry.acquire_snapshot()
@@ -101,9 +104,9 @@ async def test_cancelled_waiter_does_not_cancel_shared_children():
     async def fetch(**kwargs):
         entered.set()
         await release.wait()
-        return response()
+        return {"a": response()}
 
-    client.get_learned_skills_snapshot.side_effect = fetch
+    client.get_learned_skills_snapshots.side_effect = fetch
     registry = Registry(client=client, containers=[{"id": "a", "revision": "r1"}])
     first = asyncio.create_task(registry.acquire_snapshot())
     second = asyncio.create_task(registry.acquire_snapshot())
@@ -114,12 +117,12 @@ async def test_cancelled_waiter_does_not_cancel_shared_children():
     release.set()
     assert (await second).skills[0].name == "a/refund-policy"
     assert registry.status.mode == "pinned"
-    assert client.get_learned_skills_snapshot.await_count == 1
+    assert client.get_learned_skills_snapshots.await_count == 1
 
 
 async def test_multi_status_is_flat_and_does_not_expose_composite_as_server_revision():
     client = AsyncMock(spec=Intelligence)
-    client.get_learned_skills_snapshot.return_value = response()
+    client.get_learned_skills_snapshots.return_value = {"one": response()}
     registry = Registry(client=client, containers=[{"id": "one", "revision": "r1"}])
     snapshot = await registry.acquire_snapshot()
     status = registry.status
@@ -141,3 +144,12 @@ def test_multi_rejects_blank_pin_and_malformed_unicode_before_client_creation(so
         Registry(api_key="test", containers=[source])
     assert error.value.code == "INVALID_CONFIG"
     create.assert_not_called()
+
+
+async def test_invalid_injected_batch_value_never_uses_legacy_transport():
+    client = AsyncMock(spec=Intelligence)
+    client.get_learned_skills_snapshots.return_value = {"a": None}
+    registry = Registry(client=client, containers=[{"id": "a"}])
+    with pytest.raises(LearnedSkillsError):
+        await registry.acquire_snapshot()
+    client.get_learned_skills_snapshot.assert_not_awaited()

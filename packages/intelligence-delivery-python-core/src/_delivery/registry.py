@@ -12,7 +12,13 @@ from time import monotonic, time
 from typing import Literal, NotRequired, TypedDict
 from urllib.parse import quote
 
-from copilotkit_intelligence import Intelligence, LearnedSkillsError, LearnedSkillsErrorCode
+from copilotkit_intelligence import (
+    Intelligence,
+    LearnedSkillsContainerRequest,
+    LearnedSkillsError,
+    LearnedSkillsErrorCode,
+    LearnedSkillsSnapshotResult,
+)
 
 from .config import Config, resolve_config
 from .snapshot import SnapshotSkill, VerifiedSnapshot, invalid_snapshot, validate_snapshot
@@ -101,6 +107,14 @@ class _SingleRegistry:
         if self._config.owns_client:
             await self._config.client.aclose()
 
+    def _fresh(self) -> bool:
+        return (
+            self._snapshot is not None
+            and self._blocked is None
+            and self._checked is not None
+            and monotonic() - self._checked < self._config.freshness_window
+        )
+
     async def _load(self, started: float) -> VerifiedSnapshot:
         response = await self._config.client.get_learned_skills_snapshot(
             container_id=self._config.container_id,
@@ -108,6 +122,11 @@ class _SingleRegistry:
             if_none_match=self._snapshot.etag if self._snapshot else None,
             request_timeout=self._config.request_timeout,
         )
+        return await self._validate(response, started)
+
+    async def _validate(
+        self, response: LearnedSkillsSnapshotResult, started: float
+    ) -> VerifiedSnapshot:
         if not isinstance(response, dict):
             raise invalid_snapshot()
         if response.get("status") == "unchanged":
@@ -141,13 +160,23 @@ class _SingleRegistry:
             raise invalid_snapshot()
         return snapshot
 
-    async def _refresh(self) -> VerifiedSnapshot:
-        started = monotonic()
+    async def _refresh(
+        self,
+        response: LearnedSkillsSnapshotResult | LearnedSkillsError | None = None,
+        started: float | None = None,
+    ) -> VerifiedSnapshot:
+        started = monotonic() if started is None else started
         try:
             # The canonical client owns the HTTP deadline. A second timer would
             # race confirmed denial against transport cleanup. Validation uses
             # only the remaining portion of this same invocation budget.
-            snapshot = await self._load(started)
+            if isinstance(response, LearnedSkillsError):
+                raise response
+            snapshot = (
+                await self._load(started)
+                if response is None
+                else await self._validate(response, started)
+            )
             self._snapshot = snapshot
             self._checked = monotonic()
             self._checked_at = (
@@ -235,7 +264,7 @@ class Registry:
                 container_id is not None
                 or revision is not None
                 or not isinstance(containers, (list, tuple))
-                or not containers
+                or not 1 <= len(containers) <= 50
             ):
                 raise LearnedSkillsError("INVALID_CONFIG", False)
             copied: list[tuple[str, str | None]] = []
@@ -293,6 +322,7 @@ class Registry:
             for identifier, pin in sources
         )
         self._snapshot: VerifiedSnapshot | None = None
+        self._inflight: asyncio.Task[VerifiedSnapshot] | None = None
         self._closed = False
 
     @property
@@ -334,8 +364,74 @@ class Registry:
             raise LearnedSkillsError("INVALID_CONFIG", False)
         if not self._multi:
             return await self._children[0][1].acquire_snapshot()
-        # Child registries shield shared refreshes from individual cancellation.
-        snapshots = await asyncio.gather(*(child.acquire_snapshot() for _, child in self._children))
+        if self._inflight is None:
+            self._inflight = asyncio.create_task(self._refresh_batch())
+            self._inflight.add_done_callback(self._finished)
+        return await asyncio.shield(self._inflight)
+
+    def _finished(self, task: asyncio.Task[VerifiedSnapshot]) -> None:
+        if self._inflight is task:
+            self._inflight = None
+        _consume(task)
+
+    async def _refresh_batch(self) -> VerifiedSnapshot:
+        due = [(identifier, child) for identifier, child in self._children if not child._fresh()]
+        started = monotonic()
+        if due:
+            sources: list[LearnedSkillsContainerRequest] = []
+            for identifier, child in due:
+                source: LearnedSkillsContainerRequest = {"containerId": identifier}
+                if child._config.revision is not None:
+                    source["revision"] = child._config.revision
+                if child._snapshot is not None:
+                    source["ifNoneMatch"] = child._snapshot.etag
+                sources.append(source)
+            try:
+                responses = await self._config.client.get_learned_skills_snapshots(
+                    containers=sources,
+                    request_timeout=self._config.request_timeout,
+                )
+                if (
+                    not isinstance(responses, dict)
+                    or set(responses) != {key for key, _ in due}
+                    or any(
+                        not isinstance(value, (dict, LearnedSkillsError))
+                        for value in responses.values()
+                    )
+                ):
+                    raise invalid_snapshot()
+            except asyncio.CancelledError:
+                raise
+            except Exception as cause:
+                error = (
+                    cause
+                    if isinstance(cause, LearnedSkillsError)
+                    else LearnedSkillsError(
+                        "TIMEOUT" if isinstance(cause, TimeoutError) else "NETWORK_ERROR",
+                        True,
+                        cause,
+                    )
+                )
+                responses = {identifier: error for identifier, _ in due}
+            results = await asyncio.gather(
+                *(child._refresh(responses[identifier], started) for identifier, child in due),
+                return_exceptions=True,
+            )
+            errors = [result for result in results if isinstance(result, BaseException)]
+            if errors:
+                raise next(
+                    (
+                        error
+                        for error in errors
+                        if isinstance(error, LearnedSkillsError) and error.code not in _TRANSIENT
+                    ),
+                    errors[0],
+                )
+        snapshots = [child._snapshot for _, child in self._children]
+        assert all(snapshot is not None for snapshot in snapshots)
+        return self._compose([snapshot for snapshot in snapshots if snapshot is not None])
+
+    def _compose(self, snapshots: list[VerifiedSnapshot]) -> VerifiedSnapshot:
         metadata = [
             (identifier, snapshot.revision, snapshot.etag)
             for (identifier, _), snapshot in zip(self._children, snapshots, strict=True)
@@ -366,6 +462,9 @@ class Registry:
         if self._closed:
             return
         self._closed = True
+        if self._inflight is not None:
+            self._inflight.cancel()
+            await asyncio.gather(self._inflight, return_exceptions=True)
         await asyncio.gather(*(child.aclose() for _, child in self._children))
         if self._config.owns_client:
             await self._config.client.aclose()

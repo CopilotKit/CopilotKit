@@ -13,7 +13,10 @@ The JSON files under `conformance` are copied unchanged from the TypeScript adap
 Run `pnpm exec nx run intelligence-delivery-python-core:test`, `:lint`, and `:typecheck` from the repository root. These targets use this project's own uv environment.
 
 `Registry(containers=[{"id": "support", "revision": "r1"}, {"id": "company-wide"}])`
-composes independent single-container registries with one shared client.
+composes independent source caches with one shared client.
+It accepts 1–50 unique sources and sends one POST to `/api/v1/learning/skills/batch` for sources that need refresh.
+An explicit one-entry list also uses batch. Fresh sources need no request.
+The server must support the batch endpoint before this interface is used; no separate-request fallback exists.
 It rejects explicit legacy fields, ignores legacy container/revision environment values, and copies the supplied sources.
 Every child must yield an authorized snapshot before the aggregate catalog is available.
 Names always include the URI-encoded container ID in this mode, including a one-entry list.

@@ -427,22 +427,27 @@ async def test_adapter_debug_logs_exclude_model_and_skill_content(debug, caplog)
 
 async def test_multiple_containers_pin_qualified_tools_and_deny_before_model():
     client = AsyncMock(spec=Intelligence)
-    client.get_learned_skills_snapshot.return_value = response()
+    client.get_learned_skills_snapshots.return_value = {
+        "support": response(),
+        "company": response(),
+    }
     registry = SkillRegistry(
         client=client, containers=[{"id": "support"}, {"id": "company"}], freshness_window=0
     )
     runner, _, model, _ = await make_runner(registry)
     model._skill = "support/refund-policy"
     model._after_model = lambda: setattr(
-        client.get_learned_skills_snapshot, "return_value", response("empty-r2")
+        client.get_learned_skills_snapshots,
+        "return_value",
+        {"support": response("empty-r2"), "company": response("empty-r2")},
     )
     events = await run(runner)
     assert any("# Refund policy" in event.model_dump_json() for event in events)
     assert any("30 days" in event.model_dump_json() for event in events)
     assert "support/refund-policy" in model._seen[0][0]
     assert "company/refund-policy" in model._seen[0][0]
-    assert client.get_learned_skills_snapshot.await_count == 2
-    client.get_learned_skills_snapshot.side_effect = LearnedSkillsError(
+    assert client.get_learned_skills_snapshots.await_count == 1
+    client.get_learned_skills_snapshots.side_effect = LearnedSkillsError(
         "AUTHORIZATION_FAILED", False
     )
     calls = len(model._seen)

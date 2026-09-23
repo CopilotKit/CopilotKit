@@ -378,7 +378,10 @@ async def test_holder_cannot_resolve_against_another_registry():
 
 async def test_multiple_containers_pin_qualified_tools_before_model_work():
     client = AsyncMock(spec=Intelligence)
-    client.get_learned_skills_snapshot.return_value = response()
+    client.get_learned_skills_snapshots.return_value = {
+        "support": response(),
+        "company": response(),
+    }
     middleware = create_skill_registry_middleware(
         client=client, containers=[{"id": "support"}, {"id": "company"}], freshness_window=0
     )
@@ -396,17 +399,19 @@ async def test_multiple_containers_pin_qualified_tools_before_model_work():
         },
     ]
     model._on_call = lambda: setattr(
-        client.get_learned_skills_snapshot, "return_value", response("empty-r2")
+        client.get_learned_skills_snapshots,
+        "return_value",
+        {"support": response("empty-r2"), "company": response("empty-r2")},
     )
     agent = create_agent(model, middleware=[middleware])
     result = await agent.ainvoke({"messages": [{"role": "user", "content": "help"}]})
     messages = [message for message in result["messages"] if isinstance(message, ToolMessage)]
     assert any("# Refund policy" in message.content for message in messages)
     assert any("30 days" in message.content for message in messages)
-    assert client.get_learned_skills_snapshot.await_count == 2
+    assert client.get_learned_skills_snapshots.await_count == 1
     assert "support/refund-policy" in model._calls[0][0].content
     assert "company/refund-policy" in model._calls[0][0].content
-    client.get_learned_skills_snapshot.side_effect = LearnedSkillsError(
+    client.get_learned_skills_snapshots.side_effect = LearnedSkillsError(
         "AUTHORIZATION_FAILED", False
     )
     previous_calls = len(model._calls)

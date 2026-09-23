@@ -52,7 +52,7 @@ skills = SkillRegistry(
 )
 ```
 
-`containers` requires a nonempty list with unique, nonblank IDs. Each optional revision must be a nonblank string.
+`containers` requires a list of 1–50 sources with unique, nonblank IDs. Each optional revision must be a nonblank string.
 Do not combine `containers` with `container_id` or a top-level `revision`.
 An explicit list ignores the container and revision environment variables. All entries share the client, credentials, and timeout configuration.
 
@@ -61,6 +61,9 @@ For example, use `support/refund-policy` with `copilotkit_load_skill`.
 The legacy `container_id` interface keeps its original skill names.
 
 Each container keeps its own cache, revision, and authorization state.
+Sources that need a refresh share one POST to `/api/v1/learning/skills/batch`, including a one-entry list.
+Fresh sources need no request. Each source sends its own revision and ETag.
+Deploy a server with this batch endpoint before using `containers`; there is no fallback to separate requests.
 The adapter acquires every snapshot before model or tool work. A cold failure or confirmed denial in any container fails the invocation.
 A warm transient failure can use that container's previous snapshot. Existing invocations keep their captured snapshots.
 
