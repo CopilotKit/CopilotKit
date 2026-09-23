@@ -1,3 +1,4 @@
+import { CONNECTION_REPLAY_ACCEPT } from "@copilotkit/shared";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type { Message } from "@ag-ui/client";
 import { ProxiedCopilotRuntimeAgent } from "../agent";
@@ -131,7 +132,7 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
         expect(init.method).toBe("POST");
         expect(init.credentials).toBe("include");
         const headers = new Headers(init.headers as HeadersInit);
-        expect(headers.get("accept")).toBe("text/event-stream");
+        expect(headers.get("accept")).toBe(CONNECTION_REPLAY_ACCEPT);
       });
 
       it("sends stop requests with the expected payload", () => {

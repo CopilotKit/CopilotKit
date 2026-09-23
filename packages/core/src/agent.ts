@@ -18,6 +18,7 @@ import type { Observable } from "rxjs";
 import { EMPTY, defer, from } from "rxjs";
 import { catchError, finalize, switchMap } from "rxjs/operators";
 import {
+  CONNECTION_REPLAY_ACCEPT,
   RUNTIME_MODE_SSE,
   RUNTIME_MODE_INTELLIGENCE,
 } from "@copilotkit/shared";
@@ -481,9 +482,9 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       onRunFailed: () => {
         this.isRunning = false;
       },
-      // A replay can contain RUN_ERROR from an older run followed by more
-      // history. Only the connect pipeline's finalization/failure releases
-      // the agent; otherwise queued MCP reads can overlap its remaining replay.
+      // The shared connect pipeline distinguishes historical and live errors
+      // using replay lifecycle controls. A live error finalizes that pipeline;
+      // a historical error must not release queued work during replay.
     });
 
     // Forward the proxy's subscribers to the delegate so that UI hooks
@@ -567,14 +568,19 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
           agentId: routedId,
         },
       );
+      const headers = new Headers(requestInit.headers);
+      headers.set("Accept", CONNECTION_REPLAY_ACCEPT);
       const httpEvents = runHttpRequest(() =>
-        this.fetch(this.singleEndpointUrl!, requestInit),
+        this.fetch(this.singleEndpointUrl!, { ...requestInit, headers }),
       );
       return withAbortErrorHandling(transformHttpEventStream(httpEvents));
     }
 
     const connectUrl = `${this.runtimeUrl}/agent/${routedId}/connect`;
     const connectRequestInit = this.requestInit(input);
+    const headers = new Headers(connectRequestInit.headers);
+    headers.set("Accept", CONNECTION_REPLAY_ACCEPT);
+    connectRequestInit.headers = headers;
     const httpEvents = runHttpRequest(() =>
       this.fetch(connectUrl, connectRequestInit),
     );

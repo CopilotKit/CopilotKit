@@ -26,6 +26,8 @@ import {
   finalize,
   ignoreElements,
   mergeMap,
+  map,
+  startWith,
   share,
   shareReplay,
   switchMap as switchMapOperator,
@@ -33,7 +35,11 @@ import {
   takeUntil,
   tap,
 } from "rxjs/operators";
-import { phoenixExponentialBackoff } from "@copilotkit/shared";
+import {
+  CONNECTION_REPLAY_STARTED,
+  CONNECTION_REPLAY_FINISHED,
+  phoenixExponentialBackoff,
+} from "@copilotkit/shared";
 import { ɵconnectWithoutEventVerification } from "./utils/connect-replay";
 import {
   ɵphoenixChannel$,
@@ -597,35 +603,49 @@ export class IntelligenceAgent extends AbstractAgent {
         }),
         share(),
       );
+      // Controls are scoped to each replay epoch, not cached across rejoin.
       const replayComplete$ = this.observeControlEvent$(
         input.threadId,
         channel$,
         REPLAY_COMPLETE_EVENT,
-      ).pipe(shareReplay({ bufferSize: 1, refCount: true }));
+      ).pipe(share());
       const streamIdle$ = this.observeControlEvent$(
         input.threadId,
         channel$,
         STREAM_IDLE_EVENT,
-      ).pipe(shareReplay({ bufferSize: 1, refCount: true }));
+      ).pipe(share());
+      const replayRestart$ = merge(
+        this.observeControlEvent$(input.threadId, channel$, "phx_error"),
+        ɵobservePhoenixSocketSignals$(socket$).pipe(
+          filter((signal) => signal.type === "error"),
+        ),
+      ).pipe(share());
       const streamIdleCompletion$ =
         options.streamMode === "connect"
-          ? merge(
-              combineLatest([
-                replayComplete$.pipe(take(1)),
-                streamIdle$.pipe(take(1)),
-              ]),
-              streamIdle$.pipe(
-                take(1),
-                filter((payload) =>
-                  this.canFallbackCompleteConnect(
-                    payload,
-                    reconnectCursor,
-                    latestObservedReplayCursor,
+          ? replayRestart$.pipe(
+              startWith(null),
+              switchMap(() =>
+                merge(
+                  combineLatest([
+                    replayComplete$.pipe(take(1)),
+                    streamIdle$.pipe(take(1)),
+                  ]),
+                  streamIdle$.pipe(
+                    take(1),
+                    filter((payload) =>
+                      this.canFallbackCompleteConnect(
+                        payload,
+                        reconnectCursor,
+                        latestObservedReplayCursor,
+                      ),
+                    ),
+                    delay(CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS),
                   ),
                 ),
-                delay(CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS),
               ),
-            ).pipe(take(1))
+              take(1),
+              shareReplay({ bufferSize: 1, refCount: true }),
+            )
           : EMPTY;
       const threadCompleted$ = threadEvents$.pipe(
         ignoreElements(),
@@ -633,8 +653,29 @@ export class IntelligenceAgent extends AbstractAgent {
         take(1),
       );
       const terminal$ = merge(threadCompleted$, streamIdleCompletion$);
+      const replayStarted: BaseEvent = {
+        type: EventType.CUSTOM,
+        name: CONNECTION_REPLAY_STARTED,
+        value: null,
+      };
+      const replayLifecycle$ =
+        options.streamMode === "connect"
+          ? merge(
+              replayComplete$.pipe(
+                map(
+                  (): BaseEvent => ({
+                    type: EventType.CUSTOM,
+                    name: CONNECTION_REPLAY_FINISHED,
+                    value: null,
+                  }),
+                ),
+              ),
+              replayRestart$.pipe(map(() => replayStarted)),
+            ).pipe(startWith(replayStarted), takeUntil(terminal$))
+          : EMPTY;
 
       return merge(
+        replayLifecycle$,
         this.joinThreadChannel$(channel$),
         this.observeSocketHealth$(socket$).pipe(takeUntil(terminal$)),
         threadEvents$.pipe(takeUntil(streamIdleCompletion$)),

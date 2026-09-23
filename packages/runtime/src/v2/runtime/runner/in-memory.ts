@@ -15,7 +15,10 @@ import type {
   StateSnapshotEvent,
 } from "@ag-ui/client";
 import { EventType, compactEvents } from "@ag-ui/client";
-import { finalizeRunEvents } from "@copilotkit/shared";
+import {
+  CONNECTION_REPLAY_FINISHED,
+  finalizeRunEvents,
+} from "@copilotkit/shared";
 
 export interface InMemoryLimits {
   /** LRU cap on distinct threads. */
@@ -859,9 +862,20 @@ export class InMemoryAgentRunner extends AgentRunner {
   connect(request: AgentRunnerConnectRequest): Observable<BaseEvent> {
     const store = sharedStore.get(request.threadId, { touch: true });
     const connectionSubject = new ReplaySubject<BaseEvent>(Infinity);
+    let replayFinished = false;
+    const finishReplay = () => {
+      if (replayFinished || !request.replayLifecycle) return;
+      replayFinished = true;
+      connectionSubject.next({
+        type: EventType.CUSTOM,
+        name: CONNECTION_REPLAY_FINISHED,
+        value: null,
+      });
+    };
 
     if (!store) {
-      // No store means no events
+      // Even an empty thread has an explicit replay boundary.
+      finishReplay();
       connectionSubject.complete();
       return connectionSubject.asObservable();
     }
@@ -898,14 +912,21 @@ export class InMemoryAgentRunner extends AgentRunner {
           }
           connectionSubject.next(event);
         },
-        complete: () => connectionSubject.complete(),
+        complete: () => {
+          finishReplay();
+          connectionSubject.complete();
+        },
         error: (err) => connectionSubject.error(err),
       });
     } else {
-      // No active run, complete after historic events
+      // No active run, complete after historic events.
+      finishReplay();
       connectionSubject.complete();
     }
 
+    // ReplaySubject synchronously delivered the active run's buffered events
+    // during subscribe above. Future source events are live.
+    finishReplay();
     return connectionSubject.asObservable();
   }
 

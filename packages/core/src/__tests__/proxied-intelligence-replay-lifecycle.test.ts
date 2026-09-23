@@ -85,4 +85,115 @@ describe("Intelligence replay lifecycle", () => {
       await connecting;
     }
   });
+  it("finalizes a live connection error after replay without waiting for stream_idle", async () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "http://localhost/runtime",
+      runtimeMode: "intelligence",
+      intelligence: { wsUrl: "ws://localhost/client" },
+      transport: "rest",
+      agentId: "chat",
+    });
+    const onRunErrorEvent = vi.fn();
+    agent.subscribe({ onRunErrorEvent });
+    const connecting = agent.connectAgent();
+    try {
+      await vi.waitFor(() =>
+        expect(sockets[0]?.channels[0]?.joinCount).toBe(1),
+      );
+      const channel = sockets[0]!.channels[0]!;
+      channel.triggerJoin("ok");
+      channel.serverPush("replay_complete", {});
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_ERROR,
+        message: "Live failure",
+      });
+      await vi.waitFor(() => expect(agent.isRunning).toBe(false));
+      await connecting;
+      expect(onRunErrorEvent).toHaveBeenCalledOnce();
+    } finally {
+      await agent.detachActiveRun();
+      await connecting;
+    }
+  });
+
+  it.each(["socket", "channel"])(
+    "resets replay phase on %s reconnect",
+    async (kind) => {
+      const agent = new ProxiedCopilotRuntimeAgent({
+        runtimeUrl: "http://localhost/runtime",
+        runtimeMode: "intelligence",
+        intelligence: { wsUrl: "ws://localhost/client" },
+        transport: "rest",
+        agentId: "chat",
+      });
+      const errors = vi.fn();
+      agent.subscribe({ onRunErrorEvent: errors });
+      const connecting = agent.connectAgent();
+      try {
+        await vi.waitFor(() =>
+          expect(sockets[0]?.channels[0]?.joinCount).toBe(1),
+        );
+        const socket = sockets[0]!;
+        const channel = socket.channels[0]!;
+        channel.triggerJoin("ok");
+        channel.serverPush("replay_complete", {});
+        if (kind === "socket") socket.triggerError(new Error("disconnected"));
+        else channel.serverPush("phx_error", {});
+        channel.serverPush("ag_ui_event", {
+          type: EventType.RUN_ERROR,
+          message: "Old error after rejoin",
+        });
+        await vi.waitFor(() => expect(errors).toHaveBeenCalledOnce());
+        expect(agent.isRunning).toBe(true);
+        channel.serverPush("replay_complete", {});
+        channel.serverPush("ag_ui_event", {
+          type: EventType.RUN_ERROR,
+          message: "Live error after rejoin",
+        });
+        await vi.waitFor(() => expect(agent.isRunning).toBe(false));
+        await connecting;
+        expect(errors).toHaveBeenCalledTimes(2);
+      } finally {
+        await agent.detachActiveRun();
+        await connecting;
+      }
+    },
+  );
+
+  it("does not reuse the previous replay completion when idle arrives early after rejoin", async () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "http://localhost/runtime",
+      runtimeMode: "intelligence",
+      intelligence: { wsUrl: "ws://localhost/client" },
+      transport: "rest",
+      agentId: "chat",
+    });
+    const connecting = agent.connectAgent();
+    try {
+      await vi.waitFor(() =>
+        expect(sockets[0]?.channels[0]?.joinCount).toBe(1),
+      );
+      const channel = sockets[0]!.channels[0]!;
+      channel.triggerJoin("ok");
+      channel.serverPush("replay_complete", {});
+      channel.serverPush("phx_error", {});
+      channel.serverPush("stream_idle", { latestEventId: "not-yet-delivered" });
+      channel.serverPush("ag_ui_event", {
+        type: EventType.MESSAGES_SNAPSHOT,
+        messages: [
+          { id: "after-rejoin", role: "assistant", content: "Still restoring" },
+        ],
+      });
+      await vi.waitFor(() =>
+        expect(agent.messages[0]?.id).toBe("after-rejoin"),
+      );
+      expect(agent.isRunning).toBe(true);
+      channel.serverPush("replay_complete", {});
+      await connecting;
+      expect(agent.isRunning).toBe(false);
+    } finally {
+      await agent.detachActiveRun();
+      await connecting;
+    }
+  });
 });

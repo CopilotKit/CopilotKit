@@ -1,3 +1,7 @@
+import {
+  CONNECTION_REPLAY_STARTED,
+  CONNECTION_REPLAY_FINISHED,
+} from "@copilotkit/shared";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { BaseEvent, RunAgentInput, RunAgentResult } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
@@ -1150,8 +1154,18 @@ describe("IntelligenceAgent", () => {
       expect(result.error).toBeNull();
       expect(result.events).toEqual([
         {
+          type: EventType.CUSTOM,
+          name: CONNECTION_REPLAY_STARTED,
+          value: null,
+        },
+        {
           type: EventType.RUN_ERROR,
           message: "something went wrong",
+        },
+        {
+          type: EventType.CUSTOM,
+          name: CONNECTION_REPLAY_FINISHED,
+          value: null,
         },
       ]);
     });
@@ -1408,6 +1422,16 @@ describe("IntelligenceAgent", () => {
       await flushAsyncWork();
 
       expect(events[0]).toEqual({
+        type: EventType.CUSTOM,
+        name: CONNECTION_REPLAY_STARTED,
+        value: null,
+      });
+      expect(events.at(-1)).toEqual({
+        type: EventType.CUSTOM,
+        name: CONNECTION_REPLAY_FINISHED,
+        value: null,
+      });
+      expect(events[1]).toEqual({
         type: EventType.RUN_STARTED,
         threadId: "thread-1",
         run_id: "backend-run-1",

@@ -17,6 +17,11 @@ export interface AgentRunnerRunRequest {
 
 export interface AgentRunnerConnectRequest {
   threadId: string;
+  /** Opt-in connection-local CUSTOM controls from @copilotkit/shared.
+   * Emit CONNECTION_REPLAY_FINISHED after buffered history, before live events.
+   * Never persist controls; omit them for clients that did not opt in.
+   */
+  replayLifecycle?: boolean;
   agentId?: string;
   headers?: Record<string, string>;
   joinCode?: string;

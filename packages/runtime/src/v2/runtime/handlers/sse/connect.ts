@@ -1,3 +1,4 @@
+import { CONNECTION_REPLAY_ACCEPT } from "@copilotkit/shared";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { CopilotRuntimeLike } from "../../core/runtime";
 import { createSseEventResponse } from "../shared/sse-response";
@@ -49,6 +50,12 @@ export function handleSseConnect({
       runtime.runner.connect({
         threadId,
         agentId,
+        ...(request.headers
+          .get("accept")
+          ?.split(",")
+          .some((value) => value.trim() === CONNECTION_REPLAY_ACCEPT)
+          ? { replayLifecycle: true }
+          : {}),
         // Forward-looking plumbing: we compute the merged header set (server
         // `agent.headers` win on collision, case-insensitively; non-colliding
         // inbound headers still forward — see `mergeForwardableHeaders`, #5712)

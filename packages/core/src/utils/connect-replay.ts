@@ -7,13 +7,25 @@ import type {
 } from "@ag-ui/client";
 import {
   AGUIConnectNotImplementedError,
+  EventType,
   randomUUID,
   structuredClone_,
   transformChunks,
 } from "@ag-ui/client";
 import type { Observable } from "rxjs";
 import { EMPTY, Subject, defer, lastValueFrom } from "rxjs";
-import { catchError, finalize, takeUntil } from "rxjs/operators";
+import {
+  catchError,
+  filter,
+  finalize,
+  takeUntil,
+  takeWhile,
+} from "rxjs/operators";
+
+import {
+  CONNECTION_REPLAY_STARTED,
+  CONNECTION_REPLAY_FINISHED,
+} from "@copilotkit/shared";
 
 /**
  * Runs an agent's `connect()` stream through the AbstractAgent apply pipeline
@@ -32,9 +44,10 @@ import { catchError, finalize, takeUntil } from "rxjs/operators";
  *
  * `transformChunks` is still applied — message reassembly is needed either way.
  *
- * This mirrors the base `AbstractAgent.connectAgent` implementation exactly
- * apart from that omission, so callers keep the same subscriber notifications,
- * detach semantics, and `{ result, newMessages }` return shape.
+ * Connection-local replay controls are consumed before applying events. An
+ * explicitly live RUN_ERROR ends the connection after notifying subscribers;
+ * historical errors remain data. Transports without controls retain the legacy
+ * completion behavior. Subscriber, detach, and result contracts are preserved.
  *
  * TODO: Remove this in favour of the base implementation once AG-UI's
  * AbstractAgent supports opting out of `verifyEvents` for transports whose
@@ -85,9 +98,30 @@ export async function ɵconnectWithoutEventVerification(
       resolveCompletion = resolve;
     });
 
+    // RUN_ERROR is data while restoring history, but terminal once the
+    // transport explicitly switches to live events. Runtime mode is irrelevant.
+    let isReplaying = true;
     const source$ = defer(
       () => self.connect(input) as Observable<BaseEvent>,
     ).pipe(
+      filter((event) => {
+        if (event.type !== EventType.CUSTOM || !("name" in event)) return true;
+        if (event.name === CONNECTION_REPLAY_STARTED) {
+          isReplaying = true;
+          return false;
+        }
+        if (event.name === CONNECTION_REPLAY_FINISHED) {
+          isReplaying = false;
+          return false;
+        }
+        return true;
+      }),
+      // Include the live terminal event so subscribers still see the error,
+      // then finish the pipeline before another operation can own the agent.
+      takeWhile(
+        (event) => isReplaying || event.type !== EventType.RUN_ERROR,
+        true,
+      ),
       // transformChunks reassembles partial/streamed messages — still needed.
       transformChunks(self.debugLogger),
       // NOTE: verifyEvents is intentionally omitted here. See JSDoc above.
