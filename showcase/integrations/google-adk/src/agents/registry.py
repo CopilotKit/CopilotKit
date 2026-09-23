@@ -122,7 +122,7 @@ AGENT_REGISTRY: dict[str, AgentSpec] = {
     "tool-rendering": AgentSpec(tool_rendering_agent),
     "gen-ui-tool-based": AgentSpec(gen_ui_tool_based_agent),
     "gen-ui-agent": AgentSpec(gen_ui_agent),
-    "shared-state-read": AgentSpec(_simple_chat),
+    "shared-state-read": AgentSpec(shared_state_read_agent),
     "shared-state-read-write": AgentSpec(shared_state_read_write_agent),
     "shared-state-streaming": AgentSpec(
         shared_state_streaming_agent,

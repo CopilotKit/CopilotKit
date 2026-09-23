@@ -1,15 +1,18 @@
 "use client";
 
+// Canonical source; materialized into each selected integration by
+// showcase/scripts/sync-shared-frontends.ts.
+
 // Shared State (Read-only) — the UI publishes a recipe to the agent via
 // `agent.setState`; the agent reads that recipe on every turn but does
-// not mutate it (the wired graph is the neutral simple-chat agent with
-// no tools — see registry entry `shared-state-read`).
+// not mutate it (the wired graph is the neutral default agent with no
+// tools — see manifest entry `shared-state-read`).
 //
 // Single source of truth: `agent.state.recipe`. The form is a pure
 // controlled component on top of that — every edit flows straight into
 // `agent.setState({...})` and the next render reflects it.
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   CopilotKit,
   CopilotSidebar,
@@ -29,21 +32,18 @@ export default function SharedStateReadDemo() {
         <div className="mx-auto max-w-2xl px-4 py-8 md:py-12">
           <Recipe />
         </div>
-        <CopilotSidebar
-          defaultOpen
-          labels={{ modalHeaderTitle: "AI Recipe Assistant" }}
-        />
       </div>
     </CopilotKit>
   );
 }
 
 function Recipe() {
-  const { agent } = useAgent({
+  const { agent, isReady } = useAgent({
     agentId: "shared-state-read",
     updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
   });
   const { copilotkit } = useCopilotKit();
+  const [recipeInitialized, setRecipeInitialized] = useState(false);
 
   useConfigureSuggestions({
     suggestions: [
@@ -65,14 +65,20 @@ function Recipe() {
 
   // Seed the initial recipe into agent state once so the agent has
   // something to read on the first turn. After this, every edit lands
-  // via `agent.setState` below.
+  // via `agent.setState` below. Wait for runtime synchronization: before
+  // `isReady`, useAgent exposes a provisional agent whose state is replaced
+  // when the real runtime agent arrives.
   // @region[shared-state-read-publish]
   useEffect(() => {
+    if (!isReady) {
+      setRecipeInitialized(false);
+      return;
+    }
     if (!(agent.state as RecipeAgentState | undefined)?.recipe) {
       agent.setState({ recipe: INITIAL_RECIPE } satisfies RecipeAgentState);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    setRecipeInitialized(true);
+  }, [agent, isReady]);
 
   const recipe =
     (agent.state as RecipeAgentState | undefined)?.recipe ?? INITIAL_RECIPE;
@@ -83,7 +89,7 @@ function Recipe() {
   // @endregion[shared-state-read-publish]
 
   const handleImprove = () => {
-    if (agent.isRunning) return;
+    if (!recipeInitialized || agent.isRunning) return;
     agent.addMessage({
       id: crypto.randomUUID(),
       role: "user",
@@ -97,11 +103,19 @@ function Recipe() {
   };
 
   return (
-    <RecipeCard
-      recipe={recipe}
-      isLoading={agent.isRunning}
-      onChange={handleChange}
-      onImprove={handleImprove}
-    />
+    <>
+      <RecipeCard
+        recipe={recipe}
+        isLoading={agent.isRunning}
+        onChange={handleChange}
+        onImprove={handleImprove}
+      />
+      {recipeInitialized && (
+        <CopilotSidebar
+          defaultOpen
+          labels={{ modalHeaderTitle: "AI Recipe Assistant" }}
+        />
+      )}
+    </>
   );
 }

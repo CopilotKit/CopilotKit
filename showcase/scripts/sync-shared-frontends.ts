@@ -15,11 +15,11 @@ const sharedStateReadIntegrations = [
   "strands",
   "langgraph-python",
   "langgraph-typescript",
+  "google-adk",
 ] as const;
 
 const selectedReactIntegrations = [
   ...sharedStateReadIntegrations,
-  "google-adk",
   "built-in-agent",
 ] as const;
 
