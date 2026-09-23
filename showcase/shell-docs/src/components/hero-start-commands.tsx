@@ -88,7 +88,7 @@ export function QuickstartLinkButton({
 // terminal and the Claude Code and Codex app links both start in the home
 // folder, where the agent would otherwise build the starter app.
 export const PROMPT_FOLDER_HINT =
-  "Open your coding agent in your project's folder, or in a new empty folder for a new app.";
+  "Open your coding agent in your project's folder, or in an empty folder for a new app.";
 
 export function PromptFolderHint() {
   return (

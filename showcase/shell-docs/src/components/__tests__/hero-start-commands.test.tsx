@@ -88,7 +88,7 @@ describe("HeroStartActions", () => {
     const row = screen.getByTestId("prompt-slot").parentElement;
 
     expect(PROMPT_FOLDER_HINT).toBe(
-      "Open your coding agent in your project's folder, or in a new empty folder for a new app.",
+      "Open your coding agent in your project's folder, or in an empty folder for a new app.",
     );
     expect(hint.parentElement).toBe(row?.parentElement);
     expect(
