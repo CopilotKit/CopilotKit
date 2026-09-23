@@ -74,6 +74,15 @@ describe("generated docs search index", () => {
     ).toEqual([]);
   });
 
+  it("keeps the synthesized Vue docs-status entry for its canonical route", () => {
+    const entries = docsEntries.filter(
+      (entry) => entry.href === "/vue/using-these-docs",
+    );
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.title).toBe("Vue: Docs status");
+  });
+
   it("leaves the docs for no showcase-host destination", () => {
     const leaving = docsEntries.filter((entry) =>
       SHOWCASE_HOST_DESTINATIONS.includes(entry.href),

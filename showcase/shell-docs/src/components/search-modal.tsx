@@ -299,17 +299,11 @@ interface RankingContext {
  * Added to the score of a row belonging to a frontend the reader is not
  * using and did not ask for.
  *
- * 40 is the smallest round number that makes the demotion reliable. The
- * widest swing the title bonuses can produce inside one result type is 36
- * — an exact title match (-30) on a framework-scoped docs row (-6) — so
- * anything above that guarantees a foreign-frontend row sits below every
- * same-type row that is agnostic or matches the reader. It is deliberately
- * not larger: the whole type ladder spans 0 to 40, so a demoted row falls
- * by about one ladder height and may mix with the next type down, but the
- * types keep their relative order among demoted rows and nothing is
- * dropped from the list.
+ * 51 keeps an exact-title foreign page below an agnostic reference even
+ * when the reference gets no title bonus. Named frontends skip the penalty,
+ * and foreign rows remain searchable rather than being filtered out.
  */
-const FOREIGN_FRONTEND_PENALTY = 40;
+const FOREIGN_FRONTEND_PENALTY = 51;
 
 /**
  * The V1 reference is deprecated and answers with an API that no longer

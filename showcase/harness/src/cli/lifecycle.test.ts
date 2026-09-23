@@ -59,7 +59,13 @@ vi.mock("node:fs", () => {
   return { default: api, ...api };
 });
 
-import { down, rebuild, stageSharedModules, up } from "./lifecycle.js";
+import {
+  down,
+  rebuild,
+  restoreSymlinks,
+  stageSharedModules,
+  up,
+} from "./lifecycle.js";
 
 /** Pull out the compose argv (after the `-f <file>` prefix) for each call. */
 function composeCalls(): string[][] {
@@ -157,6 +163,74 @@ describe("stageSharedModules() — shared data", () => {
       expect.stringMatching(/showcase\/shared\/python\/data$/),
       expect.stringMatching(/integrations\/crewai-crews\/data$/),
       { recursive: true },
+    );
+  });
+});
+
+describe("stageSharedModules() — Vue browser artifact", () => {
+  it("builds and materializes Vue inside each integration context", () => {
+    let vueArtifactBuilt = false;
+    existsSyncMock.mockImplementation((candidate: unknown) => {
+      const value = String(candidate);
+      return (
+        value.endsWith("/showcase/integrations") ||
+        (value.endsWith("/showcase/vue/dist") && vueArtifactBuilt)
+      );
+    });
+    readdirSyncMock.mockReturnValue([
+      {
+        name: "langgraph-python",
+        isDirectory: () => true,
+      },
+    ]);
+    lstatSyncMock.mockImplementation((candidate: unknown) => ({
+      isSymbolicLink: () => String(candidate).endsWith("/public/vue"),
+    }));
+    execFileSyncMock.mockImplementation((command: unknown, args: unknown) => {
+      if (
+        command === "pnpm" &&
+        Array.isArray(args) &&
+        args.join(" ") === "nx run @copilotkit/showcase-vue-host:build"
+      ) {
+        vueArtifactBuilt = true;
+      }
+      return "";
+    });
+
+    stageSharedModules();
+
+    expect(execFileSyncMock).toHaveBeenCalledWith(
+      "pnpm",
+      ["nx", "run", "@copilotkit/showcase-vue-host:build"],
+      expect.objectContaining({ cwd: expect.any(String) }),
+    );
+    expect(rmSyncMock).toHaveBeenCalledWith(
+      expect.stringMatching(/integrations\/langgraph-python\/public\/vue$/),
+    );
+    expect(cpSyncMock).toHaveBeenCalledWith(
+      expect.stringMatching(/showcase\/vue\/dist$/),
+      expect.stringMatching(/integrations\/langgraph-python\/public\/vue$/),
+      { recursive: true },
+    );
+    expect(writeFileSyncMock).toHaveBeenCalledWith(
+      expect.stringMatching(
+        /integrations\/langgraph-python\/public\/vue\/runtime-config\.js$/,
+      ),
+      'globalThis.__COPILOTKIT_SHOWCASE__ = Object.freeze({"frontendId":"vue","integrationId":"langgraph-python"});\n',
+      "utf-8",
+    );
+  });
+});
+
+describe("restoreSymlinks()", () => {
+  it("restores shared data and both secondary frontend symlinks", () => {
+    restoreSymlinks();
+
+    expect(execSyncMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "integrations/*/data integrations/*/_shared integrations/*/public/angular integrations/*/public/vue",
+      ),
+      expect.objectContaining({ cwd: expect.any(String) }),
     );
   });
 });
