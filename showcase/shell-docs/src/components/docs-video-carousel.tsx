@@ -16,7 +16,7 @@ interface Recording {
   /** Frame at previewStart; regenerate the poster when changing that timestamp. */
   readonly thumbnail: string;
   readonly description: string;
-  readonly href?: string;
+  readonly href: string;
   readonly previewStart: number;
   readonly aspectRatio: number;
 }
@@ -65,11 +65,12 @@ export function DocsVideoCarousel() {
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const track = useHomepageTelemetry();
   function select(index: number) {
-    if (index !== activeIndex)
-      track("walkthrough_selected", {
-        walkthrough: RECORDINGS[index].title,
-        loom_id: RECORDINGS[index].loomId,
-      });
+    track("walkthrough_selected", {
+      walkthrough: RECORDINGS[index].title,
+      loom_id: RECORDINGS[index].loomId,
+      tab_id: RECORDINGS[index].id,
+      tab_label: index === 0 ? "Overview" : RECORDINGS[index].title,
+    });
     setActiveIndex(index);
     tabs.current[index]?.focus();
   }
@@ -82,7 +83,7 @@ export function DocsVideoCarousel() {
     else if (event.key === "End") next = RECORDINGS.length - 1;
     else return;
     event.preventDefault();
-    select(next);
+    if (next !== activeIndex) select(next);
   }
   return (
     <section
@@ -134,6 +135,19 @@ export function DocsVideoCarousel() {
               </p>
               <a
                 href={recording.href}
+                onClick={() =>
+                  track("walkthrough_link_clicked", {
+                    walkthrough: recording.title,
+                    loom_id: recording.loomId,
+                    tab_id: recording.id,
+                    tab_label: index === 0 ? "Overview" : recording.title,
+                    to_path: recording.href,
+                    link_text:
+                      index === 0
+                        ? "Get started"
+                        : `Explore ${recording.title}`,
+                  })
+                }
                 className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-[var(--accent)] hover:underline"
               >
                 {index === 0 ? "Get started" : `Explore ${recording.title}`}
