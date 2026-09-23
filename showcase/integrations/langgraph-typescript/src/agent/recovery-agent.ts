@@ -133,6 +133,7 @@ const headerForwardingMiddleware = createMiddleware({
   },
 });
 
+// @region[a2ui-recovery-agent]
 const a2uiTool = getA2UITools({
   model: new ChatOpenAI({
     model: "gpt-5-mini",
@@ -162,3 +163,4 @@ export const graph = createAgent({
   middleware: [headerForwardingMiddleware, copilotkitMiddleware],
   systemPrompt: SYSTEM_PROMPT,
 });
+// @endregion[a2ui-recovery-agent]

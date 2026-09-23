@@ -1,0 +1,46 @@
+<Steps>
+  <Step>
+    ### Install the CopilotKit LangGraph SDK
+
+    ```bash
+    npm install @copilotkit/sdk-js
+    ```
+
+  </Step>
+  <Step>
+    ### Bind the tools in your chat node
+
+    Bind the backend tools to the model alongside the frontend tools that
+    CopilotKit forwards on `state.copilotkit.actions`.
+    `convertActionsToDynamicStructuredTools` turns those actions into
+    LangChain tools, so the model sees both lists on every turn.
+
+    <DemoCode file="src/agent/tool-rendering.ts" region="tool-rendering-bind-tools" />
+
+    The rest of `chatNode` returns the response as the node's new message.
+    `makeChatOpenAI` is the Showcase's `ChatOpenAI` factory. It copies the
+    request's `x-*` headers, which the Showcase's test fixtures rely on, onto
+    the OpenAI call. In your app, construct `ChatOpenAI` directly.
+
+  </Step>
+  <Step>
+    ### Run backend tool calls in a `ToolNode`
+
+    Route each backend tool call to a `ToolNode` and loop back to the chat
+    node with the result. A call to a frontend action ends the run instead,
+    so the browser can execute it. The tool call, its arguments, and its
+    result stream to the frontend, where CopilotKit hands the call to the
+    renderer registered under the same name.
+
+    <DemoCode file="src/agent/tool-rendering.ts" region="tool-rendering-graph" />
+
+  </Step>
+  <Step>
+    ### Try it
+
+    Ask the demo for the weather in San Francisco. A card for the
+    `get_weather` call appears in the chat, shows its running state, and
+    updates when the tool returns.
+
+  </Step>
+</Steps>

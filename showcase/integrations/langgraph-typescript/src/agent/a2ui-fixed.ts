@@ -121,12 +121,14 @@ const displayFlight = tool(
 );
 // @endregion[backend-render-operations]
 
+// @region[a2ui-fixed-schema-tools]
 const tools = [displayFlight];
 
 const SYSTEM_PROMPT =
   "You help users find flights. When asked about a flight, call " +
   "display_flight with origin, destination, airline, and price. " +
   "Keep any chat reply to one short sentence.";
+// @endregion[a2ui-fixed-schema-tools]
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
   const model = makeChatOpenAI(config, {
@@ -134,10 +136,12 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
     model: "gpt-5-mini",
   });
 
+  // @region[a2ui-fixed-schema-bind-tools]
   const modelWithTools = model.bindTools!([
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),
     ...tools,
   ]);
+  // @endregion[a2ui-fixed-schema-bind-tools]
 
   const systemMessage = new SystemMessage({ content: SYSTEM_PROMPT });
 
@@ -149,6 +153,7 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
   return { messages: response };
 }
 
+// @region[a2ui-fixed-schema-graph]
 function shouldContinue({ messages, copilotkit }: AgentState) {
   const lastMessage = messages[messages.length - 1] as AIMessage;
 
@@ -176,3 +181,4 @@ const memory = new MemorySaver();
 export const graph = workflow.compile({
   checkpointer: memory,
 });
+// @endregion[a2ui-fixed-schema-graph]
