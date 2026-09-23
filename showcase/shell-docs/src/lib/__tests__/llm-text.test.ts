@@ -1057,6 +1057,26 @@ test("raw Markdown keeps only the active framework's <WhenFrameworkHas> branch",
   expect(langgraph).not.toContain("Define the schema inline");
   expect(langgraph).not.toContain("Generate the schema dynamically");
 
+  const strands = renderPageToLlmText(
+    {
+      ...page,
+      url: `strands-typescript/${slug}`,
+      framework: "strands-typescript",
+    },
+    { framework: "strands-typescript" },
+  );
+  expect(strands).toContain("Load the schema JSON at startup");
+  expect(strands).toContain("including Strands TypeScript");
+  expect(strands).toContain("flight_schema.json");
+  expect(strands).toContain("createSurface(A2UI_FIXED_SURFACE_ID");
+  expect(strands).toContain(
+    "updateComponents(A2UI_FIXED_SURFACE_ID, FLIGHT_SCHEMA)",
+  );
+  expect(strands).toContain("updateDataModel(A2UI_FIXED_SURFACE_ID");
+  expect(strands).not.toContain("Generate the schema dynamically");
+  expect(strands).not.toContain("Region backend-render-operations not found");
+  expect(strands).not.toContain("Region backend-schema-json-load not found");
+
   // A framework on a different pattern gets its own branch, not langgraph's.
   const mastra = renderPageToLlmText(
     { ...page, url: `mastra/${slug}`, framework: "mastra" },
