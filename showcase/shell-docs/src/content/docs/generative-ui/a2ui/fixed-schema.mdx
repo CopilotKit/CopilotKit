@@ -25,7 +25,7 @@ varies between integrations:
   JSON file. Spring AI and .NET don't ship a `load_schema` JSON loader, and
   the Built-in Agent inlines it so the schema ships in the Next.js route
   bundle without runtime file access.
-- **LLM-driven** (mastra), the agent runs a secondary LLM
+- **LLM-driven** (mastra, strands-typescript), the agent runs a secondary LLM
   call to produce the operations container per-request. The catalog
   is still fixed; the schema is generated on demand.
 
@@ -283,7 +283,7 @@ fields:
 <Step>
 ### Generate the schema dynamically
 
-Mastra and Strands take a different route: the agent tool runs a
+Mastra and Strands TypeScript take a different route: the agent tool runs a
 *secondary* LLM call with a forced tool choice that produces the
 operations container per-request. The frontend catalog is still fixed
 (same `Title`/`Airport`/`Arrow`/`AirlineBadge`/`PriceTag` primitives),

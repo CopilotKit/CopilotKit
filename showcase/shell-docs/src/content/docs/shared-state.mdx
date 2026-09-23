@@ -188,6 +188,16 @@ run.
 
 </WhenFrameworkHas>
 
+<WhenFrameworkHas flag="slug" noneOf="langgraph-python langgraph-typescript google-adk strands">
+
+Publishing the value is only half of the pattern: the agent also has to put
+it into the model request. Whether run state reaches the model on its own
+depends on your agent framework. If yours doesn't add it, read the key from
+the run's state in your agent and add it to the prompt yourself, for example
+as a system message.
+
+</WhenFrameworkHas>
+
 ## Read-only context
 
 If the model only needs to see a **UI-owned** value, such as the current

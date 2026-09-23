@@ -28,6 +28,7 @@ import { DocsPromptActionsProvider } from "@/components/docs-prompt-actions";
 import { DocsPageTools, docsMarkdownUrl } from "@/components/docs-page-tools";
 import { Snippet } from "@/components/snippet";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
+import type { WhenFrameworkHasProps } from "@/components/when-framework-has";
 import { WhenAngularBackend } from "@/components/when-angular-backend";
 import type { WhenAngularBackendProps } from "@/components/when-angular-backend";
 import { Tabs as DocsTabs } from "@/components/docs-tabs";
@@ -421,18 +422,7 @@ export async function DocsPageView({
                         ),
                         WhenFrameworkHas: (props: Record<string, unknown>) => (
                           <WhenFrameworkHas
-                            {...(props as {
-                              flag:
-                                | "a2ui_pattern"
-                                | "interrupt_pattern"
-                                | "thread_persistence_pattern"
-                                | "agent_config_pattern"
-                                | "auth_pattern";
-                              equals?: string;
-                              absent?: boolean;
-                              framework?: string;
-                              children?: React.ReactNode;
-                            })}
+                            {...(props as unknown as WhenFrameworkHasProps)}
                             defaultFramework={defaultFramework}
                           />
                         ),
