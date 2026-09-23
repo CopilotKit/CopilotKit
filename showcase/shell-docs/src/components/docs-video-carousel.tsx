@@ -15,7 +15,10 @@ interface Recording {
   readonly loomId: string;
   readonly icon: LucideIcon;
   readonly thumbnail: string;
-  readonly previewSrc: string;
+  /** Midpoint of the recording, where the silent preview starts. */
+  readonly previewStart: number;
+  /** Width / height of the recording, used to size the preview player. */
+  readonly aspectRatio: number;
 }
 
 const RECORDINGS: readonly Recording[] = [
@@ -23,8 +26,8 @@ const RECORDINGS: readonly Recording[] = [
     id: "shared-state-harness",
     title: "Overview",
     loomId: "5a04db6a04584b79b98021737d012d53",
-    previewSrc:
-      "https://cdn.loom.com/sessions/thumbnails/5a04db6a04584b79b98021737d012d53-df1797187f8ba377.mp4",
+    previewStart: 278,
+    aspectRatio: 1280 / 802,
     icon: Workflow,
     thumbnail:
       "https://cdn.loom.com/sessions/thumbnails/5a04db6a04584b79b98021737d012d53-df1797187f8ba377.jpg",
@@ -33,8 +36,8 @@ const RECORDINGS: readonly Recording[] = [
     id: "user-memories",
     title: "Automatic Learning",
     loomId: "2978fbfe42324e509057ac5fd46b7a70",
-    previewSrc:
-      "https://cdn.loom.com/sessions/thumbnails/2978fbfe42324e509057ac5fd46b7a70-37108be11ee154e6.mp4",
+    previewStart: 214,
+    aspectRatio: 1280 / 732,
     icon: Brain,
     thumbnail:
       "https://cdn.loom.com/sessions/thumbnails/2978fbfe42324e509057ac5fd46b7a70-37108be11ee154e6.jpg",
@@ -43,8 +46,8 @@ const RECORDINGS: readonly Recording[] = [
     id: "rich-threads",
     title: "Rich Threads",
     loomId: "79817778d29e490c97225127d2f17b3a",
-    previewSrc:
-      "https://cdn.loom.com/sessions/thumbnails/79817778d29e490c97225127d2f17b3a-ca44156ad449b63b.mp4",
+    previewStart: 135,
+    aspectRatio: 1722 / 1080,
     icon: MessagesSquare,
     thumbnail:
       "https://cdn.loom.com/sessions/thumbnails/79817778d29e490c97225127d2f17b3a-250a43d55abed071.jpg",
@@ -105,23 +108,9 @@ export function DocsVideoCarousel() {
       className="overflow-hidden rounded-xl border border-[var(--nav-control-border)] bg-[var(--bg-surface)]"
     >
       <div
-        id={`${PANEL_ID_PREFIX}${active.id}`}
-        role="tabpanel"
-        aria-labelledby={`${TAB_ID_PREFIX}${active.id}`}
-        className="relative"
-      >
-        <DocsVideoPreview
-          key={active.id}
-          title={active.title}
-          loomId={active.loomId}
-          poster={active.thumbnail}
-          previewSrc={active.previewSrc}
-        />
-      </div>
-      <div
         role="tablist"
         aria-label="Product walkthrough recordings"
-        className="grid grid-cols-3 gap-1 border-t border-[var(--nav-control-border)] p-1.5"
+        className="grid grid-cols-3 gap-1 border-b border-[var(--nav-control-border)] p-1.5"
       >
         {RECORDINGS.map((recording, index) => {
           const isActive = index === activeIndex;
@@ -149,6 +138,21 @@ export function DocsVideoCarousel() {
             </button>
           );
         })}
+      </div>
+      <div
+        id={`${PANEL_ID_PREFIX}${active.id}`}
+        role="tabpanel"
+        aria-labelledby={`${TAB_ID_PREFIX}${active.id}`}
+        className="relative"
+      >
+        <DocsVideoPreview
+          key={active.id}
+          title={active.title}
+          loomId={active.loomId}
+          poster={active.thumbnail}
+          previewStart={active.previewStart}
+          aspectRatio={active.aspectRatio}
+        />
       </div>
     </section>
   );
