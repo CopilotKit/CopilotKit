@@ -55,7 +55,7 @@ const runtime = new CopilotRuntime({
     servers: [
       {
         type: "http",
-        url: process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com",
+        url: process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com/mcp",
         // Keep the server id 1:1 with langgraph-python so persisted MCP Apps
         // and fixture-backed resource calls use the same identity.
         serverId: "excalidraw",

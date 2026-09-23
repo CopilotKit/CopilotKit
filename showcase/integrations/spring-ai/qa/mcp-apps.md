@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Spring AI backend is up
-- NextJS runtime can reach `https://mcp.excalidraw.com` (or configured MCP_SERVER_URL)
+- NextJS runtime can reach `https://mcp.excalidraw.com/mcp` (or configured MCP_SERVER_URL)
 
 ## Test Steps
 

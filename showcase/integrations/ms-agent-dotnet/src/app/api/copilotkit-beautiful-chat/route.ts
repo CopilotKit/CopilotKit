@@ -51,7 +51,7 @@ const runtime = new CopilotRuntime({
     servers: [
       {
         type: "http",
-        url: process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com",
+        url: process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com/mcp",
         serverId: "beautiful_chat_mcp",
       },
     ],

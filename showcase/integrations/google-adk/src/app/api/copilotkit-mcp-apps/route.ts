@@ -59,7 +59,7 @@ export const POST = async (req: NextRequest) => {
         servers: [
           {
             type: "http",
-            url: process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com",
+            url: process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com/mcp",
             // Always pin a stable `serverId`. Without it CopilotKit hashes the
             // URL, and a URL change silently breaks restoration of persisted
             // MCP Apps in prior conversation threads.

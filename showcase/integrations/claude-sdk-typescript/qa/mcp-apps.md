@@ -4,7 +4,7 @@
 
 - Demo is deployed and accessible
 - Agent backend is healthy (served via /api/copilotkit-mcp-apps)
-- Excalidraw MCP server is reachable (https://mcp.excalidraw.com)
+- Excalidraw MCP server is reachable (https://mcp.excalidraw.com/mcp)
 
 ## Test Steps
 

@@ -4,7 +4,7 @@
 
 - Demo is deployed and accessible at `/demos/mcp-apps` on the dashboard host
 - Agent backend is healthy; `GOOGLE_API_KEY` is set on Railway; `AGENT_URL` points at the ADK agent server exposing the `mcp_apps` endpoint (registered as agent name `mcp-apps` — see `src/app/api/copilotkit-mcp-apps/route.ts`)
-- MCP server target: the public Excalidraw MCP app at `https://mcp.excalidraw.com` (override via `MCP_SERVER_URL`). Pinned `serverId: "excalidraw"` so URL changes don't silently break persisted activities
+- MCP server target: the public Excalidraw MCP app at `https://mcp.excalidraw.com/mcp` (override via `MCP_SERVER_URL`). Pinned `serverId: "excalidraw"` so URL changes don't silently break persisted activities
 - Note: the demo source contains no `data-testid` attributes and registers no custom activity renderer — CopilotKit's built-in `MCPAppsActivityRenderer` handles the sandboxed iframe automatically. Checks below rely on verbatim visible text, network traffic, and the iframe DOM
 
 ## Test Steps
@@ -22,7 +22,7 @@
 
 #### MCP Server Connection (runtime `mcpApps.servers`)
 
-- [ ] Send the first flow-chart prompt; in DevTools → Network, verify the POST to `/api/copilotkit-mcp-apps` succeeds (status 200) and the server-side runtime resolves tools from `https://mcp.excalidraw.com` (watch the server logs for the MCP Apps middleware attaching the Excalidraw tool set — notably `create_view`)
+- [ ] Send the first flow-chart prompt; in DevTools → Network, verify the POST to `/api/copilotkit-mcp-apps` succeeds (status 200) and the server-side runtime resolves tools from `https://mcp.excalidraw.com/mcp` (watch the server logs for the MCP Apps middleware attaching the Excalidraw tool set — notably `create_view`)
 - [ ] Verify no console errors mentioning the MCP server URL, auth, or tool-schema parse failures
 
 #### MCP Tool Invocation (`create_view`)
@@ -56,7 +56,7 @@
 ## Expected Results
 
 - Chat loads within 3s; plain-text response within 10s; MCP-backed iframe renders within 60s of prompt (bias is "correct-enough diagram fast" per system prompt, one `create_view` call)
-- MCP server connection to `https://mcp.excalidraw.com` succeeds and the Excalidraw tool set (including `create_view`) is advertised to the agent at request time
+- MCP server connection to `https://mcp.excalidraw.com/mcp` succeeds and the Excalidraw tool set (including `create_view`) is advertised to the agent at request time
 - At least one concrete end-to-end MCP interaction completes: user prompt → `create_view` tool call → activity event → sandboxed iframe painting the requested diagram
 - The built-in `MCPAppsActivityRenderer` is used (no app-side `useRenderActivityMessage` / `renderActivityMessages` registration exists in `page.tsx` — per the `@region[no-frontend-renderer-needed]` contract)
 - No UI layout breaks, no uncaught console errors, no duplicate `create_view` invocations within a single prompt turn
