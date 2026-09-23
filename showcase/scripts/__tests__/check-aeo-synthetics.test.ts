@@ -38,9 +38,12 @@ function successfulResponse(rawUrl: string): Response {
       { headers: { "content-type": "text/plain" } },
     );
   }
-  return new Response(`[Home](${origin}/)`, {
-    headers: { "content-type": "text/plain" },
-  });
+  return new Response(
+    `[Home](${origin}/)\n[Onboarding](https://copilotkit.ai/onboarding-prompts)`,
+    {
+      headers: { "content-type": "text/plain" },
+    },
+  );
 }
 
 describe("AEO production synthetics", () => {
@@ -155,4 +158,26 @@ describe("AEO production synthetics", () => {
       "website canonical host must be an HTTPS origin",
     );
   });
+
+  it.each([
+    ["https://www.copilotkit.ai/onboarding-prompts", true],
+    ["https://preview.up.railway.app/onboarding-prompts", false],
+    ["https://copilotkit.ai/quickstart", false],
+  ])(
+    "validates the onboarding exception narrowly: %s",
+    async (url, allowed) => {
+      const failures = await runAeoSyntheticChecks(
+        fixtureConfig(),
+        async (input) => {
+          if (String(input).endsWith("/llms.txt")) {
+            return new Response(`[Onboarding](${url})`, {
+              headers: { "content-type": "text/plain" },
+            });
+          }
+          return successfulResponse(String(input));
+        },
+      );
+      expect(failures).toHaveLength(allowed ? 0 : 8);
+    },
+  );
 });

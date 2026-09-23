@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  isSupportedOnboardingUrl,
   markdownLinkUrls,
   metadataUrl,
   sitemapUrls,
@@ -289,6 +290,7 @@ function responseReasons(
           if (error) break;
           continue;
         }
+        if (isSupportedOnboardingUrl(rawUrl)) continue;
         const isCopilotKitHost =
           parsed.hostname === "copilotkit.ai" ||
           parsed.hostname.endsWith(".copilotkit.ai");
@@ -459,8 +461,12 @@ async function main(): Promise<void> {
     );
     process.exitCode = 1;
   } else {
+    const targetCount = Object.values(REQUIRED_ENDPOINTS).reduce(
+      (count, endpoints) => count + endpoints.size,
+      0,
+    );
     console.log(
-      `AEO synthetic checks passed: 10 website/docs targets × ${CRAWLERS.length} crawler user agents`,
+      `AEO synthetic checks passed: ${targetCount} website/docs targets × ${CRAWLERS.length} crawler user agents`,
     );
   }
 }
