@@ -25,8 +25,11 @@ const D6_FIXTURES_DIR = fileURLToPath(
   new URL("../../../../aimock/d6/", import.meta.url),
 );
 
-/** A page whose title input shows `shownTitle` after any fill. */
-function makePage(shownTitle: (typed: string | null) => string | null): {
+/** A page whose title input shows `shownTitle` after any fill. `evaluate`
+ *  runs the probe's closure against a stub document that only answers
+ *  RECIPE_TITLE_SELECTOR and, like the D6 driver's page wrapper
+ *  (`evaluate: (fn) => page.evaluate(fn)`), drops any second argument. */
+function makePage(shownTitle: (typed: string | null) => string): {
   page: Page;
   fills: Array<{ selector: string; value: string }>;
 } {
@@ -43,8 +46,18 @@ function makePage(shownTitle: (typed: string | null) => string | null): {
     async press() {
       /* no-op */
     },
-    async evaluate() {
-      return shownTitle(typed) as never;
+    async evaluate<R>(fn: () => R) {
+      vi.stubGlobal("document", {
+        querySelector: (selector: string) =>
+          selector === RECIPE_TITLE_SELECTOR
+            ? { value: shownTitle(typed) }
+            : null,
+      });
+      try {
+        return fn();
+      } finally {
+        vi.unstubAllGlobals();
+      }
     },
   };
   return { page, fills };
