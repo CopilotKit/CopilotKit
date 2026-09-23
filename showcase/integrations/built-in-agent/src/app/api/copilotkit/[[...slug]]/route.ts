@@ -73,7 +73,9 @@ const runtime = new CopilotRuntime({
     "hitl-in-app": createBuiltInAgent(),
     // @endregion[hitl-agent-registration]
 
+    // @region[shared-state-read-runtime]
     "shared-state-read": createBuiltInAgent(),
+    // @endregion[shared-state-read-runtime]
     // @region[shared-state-runtime]
     "shared-state-read-write": createBuiltInAgent({
       stateSystemPrompt: formatSharedStatePreferences,

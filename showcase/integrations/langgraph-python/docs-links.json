@@ -15,11 +15,11 @@
     },
     "prebuilt-sidebar": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/prebuilt-components",
-      "shell_docs_path": "/prebuilt-components"
+      "shell_docs_path": "/prebuilt-components/sidebar"
     },
     "prebuilt-popup": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/prebuilt-components",
-      "shell_docs_path": "/prebuilt-components"
+      "shell_docs_path": "/prebuilt-components/popup"
     },
     "chat-slots": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/custom-look-and-feel/slots",
@@ -63,7 +63,7 @@
     },
     "hitl-in-app": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/frontend-tools",
-      "shell_docs_path": "/frontend-tools"
+      "shell_docs_path": "/human-in-the-loop"
     },
     "gen-ui-interrupt": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/your-components/interrupt-based",

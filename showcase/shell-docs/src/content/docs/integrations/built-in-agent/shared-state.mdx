@@ -44,7 +44,7 @@ in the client-side agent state.
 The selected runtime agent opts into a small state-to-prompt bridge. It reads
 only the `preferences` object, formats the known fields, and adds that text to
 the model request for this agent. Other Built-in Agent demos do not receive
-this state automatically.
+this formatted block.
 
 <Snippet region="shared-state-preferences-prompt" title="src/lib/factory/tanstack-factory.ts — format selected preferences for this run" />
 
@@ -53,6 +53,34 @@ this state automatically.
 With the default **casual** tone, **English** language, and no selected
 interests, choose **Remember something**. The new note should appear in the
 agent-written list, and the agent receives those preferences on that run.
+
+## Publish read-only UI state
+
+Some state belongs to the UI, such as a form the user is editing. The agent
+reads its current value on every turn but never changes it. The recipe editor
+in the `shared-state-read` cell seeds `recipe` into agent state, then
+publishes every edit with `agent.setState`:
+
+<Snippet cell="shared-state-read" region="shared-state-read-publish" title="frontend/src/app/demos/shared-state-read/page.tsx — publish the recipe" />
+
+This cell's runtime agent takes no prompt bridge:
+
+<Snippet cell="shared-state-read" region="shared-state-read-runtime" title="app/api/copilotkit/route.ts — read-only recipe agent" />
+
+The factory converts each run's input with `convertInputToTanStackAI`. When
+the run's state isn't empty, the converter adds it to the system prompts as
+an `Application State` JSON block, so the model sees the current recipe on
+every turn.
+
+<Snippet cell="shared-state-read" region="agent-context-conversion" title="src/lib/factory/tanstack-factory.ts — convert the run input" />
+
+The Showcase shares one factory across its demos, and that factory also
+registers the generic `AGUISendStateSnapshot` and `AGUISendStateDelta` state
+tools, which can write any key. For a key that must stay UI-owned, leave
+tools that write it off your agent so the UI stays its only writer.
+
+To test it, change the recipe title, then ask the agent which recipe you're
+editing. The reply should name your new title.
 
 For the general two-way state model and streaming variants, see
 [Shared State](/shared-state).

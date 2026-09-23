@@ -68,6 +68,7 @@ function Recipe() {
   // via `agent.setState` below. Wait for runtime synchronization: before
   // `isReady`, useAgent exposes a provisional agent whose state is replaced
   // when the real runtime agent arrives.
+  // @region[shared-state-read-publish]
   useEffect(() => {
     if (!isReady) {
       setRecipeInitialized(false);
@@ -85,6 +86,7 @@ function Recipe() {
   const handleChange = (next: RecipeData) => {
     agent.setState({ recipe: next } satisfies RecipeAgentState);
   };
+  // @endregion[shared-state-read-publish]
 
   const handleImprove = () => {
     if (!recipeInitialized || agent.isRunning) return;

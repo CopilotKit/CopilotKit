@@ -90,12 +90,93 @@ generated*, so the UI can watch the answer assemble token-by-token.
 See **[State streaming](/shared-state/streaming)** for the full walkthrough,
 including the corresponding `useAgent` subscription on the frontend.
 
+## Publishing UI-owned state
+
+Some state belongs to the UI, such as a form the user is editing. The agent
+reads its current value on every turn but never changes it. Write the value
+only from the UI with `agent.setState`, and give the agent no tool that
+writes that key. The UI then stays its only writer, so the agent can't
+overwrite the user's edits.
+
+<WhenFrameworkHas flag="slug" equals="langgraph-python">
+
+The recipe editor in the `shared-state-read` cell seeds `recipe` into agent
+state once the agent is ready, then publishes every edit with
+`agent.setState`:
+
+<Snippet region="shared-state-read-publish" cell="shared-state-read" title="frontend/src/app/demos/shared-state-read/page.tsx: publish the recipe" />
+
+The LangGraph adapter sends a run only the state keys in the graph's input
+schema, and the model sees a key only if you add it to the model request.
+Declare `recipe` on the state schema you pass to `create_agent`. Then add it
+to each model call with middleware, the way the Showcase injects
+`preferences`:
+
+<Snippet region="preferences-injector" cell="shared-state-read-write" title="src/agents/shared_state_read_write.py: inject UI-written state" />
+
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="slug" equals="langgraph-typescript">
+
+The recipe editor in the `shared-state-read` cell seeds `recipe` into agent
+state once the agent is ready, then publishes every edit with
+`agent.setState`:
+
+<Snippet region="shared-state-read-publish" cell="shared-state-read" title="frontend/src/app/demos/shared-state-read/page.tsx: publish the recipe" />
+
+The LangGraph adapter sends a run only the state keys in the graph's input
+schema, and the model sees a key only if you add it to the model request.
+Add `recipe` to your graph's state annotation. Then build a system message
+from it in your chat node, the way the Showcase builds one from
+`preferences`:
+
+<Snippet region="preferences-injector" cell="shared-state-read-write" title="src/agent/shared-state-read-write.ts: build a message from UI-written state" />
+
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="slug" equals="google-adk">
+
+The recipe editor in the `shared-state-read` cell seeds `recipe` into agent
+state, then publishes every edit with `agent.setState`:
+
+<Snippet region="shared-state-read-publish" cell="shared-state-read" title="frontend/src/app/demos/shared-state-read/page.tsx: publish the recipe" />
+
+The ADK adapter copies that state into the ADK session, but it doesn't add
+session state to the model request. Read `recipe` from
+`callback_context.state` in a `before_model_callback` and add it to the
+system instruction, the way the Showcase injects `preferences`:
+
+<Snippet region="preferences-injector" cell="shared-state-read-write" title="src/agents/shared_state_read_write_agent.py: inject UI-written state" />
+
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="slug" equals="strands">
+
+The recipe editor in the `shared-state-read` cell seeds `recipe` into agent
+state once the agent is ready, then publishes every edit with
+`agent.setState`:
+
+<Snippet region="shared-state-read-publish" cell="shared-state-read" title="frontend/src/app/demos/shared-state-read/page.tsx: publish the recipe" />
+
+The Strands adapter passes that state to the state-context builder from the
+setup step above. The builder formats `recipe` as prompt context for the
+next model call:
+
+<Snippet region="shared-state-recipe-prompt" cell="shared-state-read-write" title="src/agents/agent.py: format the recipe for the prompt" />
+
+</WhenFrameworkHas>
+
+To test it, edit a field in the form, then ask the agent about it. The reply
+should use your edited value, and the form should keep your edit after the
+run.
+
 ## Read-only context
 
-When the value is **UI-owned** and the agent should read it but never write
-it back, such as current user, selected record, or scroll position, reach for
-`useAgentContext` instead of full shared state. It publishes values as a
-one-way UI-to-agent channel that auto-unregisters on unmount.
+If the model only needs to see a **UI-owned** value, such as the current
+user, a selected record, or the scroll position, and no agent code reads it
+from state, reach for `useAgentContext` instead of shared state. It
+publishes values as a one-way UI-to-agent channel that auto-unregisters on
+unmount.
 
 See **[Agent read-only context](/shared-state/agent-readonly)** for the
 full pattern.
