@@ -36,6 +36,7 @@ export const GEN_UI_AGENT_SYSTEM_PROMPT =
   "return before the next. After all three steps are completed you MUST " +
   "send a final assistant message and terminate.";
 
+// @region[gen-ui-agent-state]
 export const SET_STEPS_TOOL_SCHEMA: Anthropic.Tool = {
   name: "set_steps",
   description:
@@ -72,3 +73,4 @@ export const SET_STEPS_TOOL_SCHEMA: Anthropic.Tool = {
     required: ["steps"],
   },
 };
+// @endregion[gen-ui-agent-state]

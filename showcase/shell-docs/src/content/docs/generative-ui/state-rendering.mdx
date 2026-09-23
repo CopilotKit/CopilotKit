@@ -9,10 +9,17 @@ snippet_cell: gen-ui-agent
 
 ## What is this?
 
-State rendering lets you build UI that reflects your agent's state in real-time. As your agent progresses through nodes and emits state updates, your frontend renders those changes, showing progress, drafts, or intermediate results.
+State rendering lets you build UI from your agent's state. In this example the
+agent keeps a `steps` list in its state and updates it through a `set_steps`
+tool as it works through a three-step plan. The frontend subscribes to that
+state and renders a progress card inside the chat transcript.
 
 <Callout type="info">
-  **Free course:** See this pattern built end-to-end in [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/) — a free DeepLearning.AI short course taught by CopilotKit's CEO covering the full Generative UI spectrum (Controlled, Declarative, and Open-Ended).
+  **Free course:** See this pattern built end-to-end in [Build Interactive
+  Agents with Generative
+  UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/)
+  — a free DeepLearning.AI short course taught by CopilotKit's CEO covering the
+  full Generative UI spectrum (Controlled, Declarative, and Open-Ended).
 </Callout>
 
 ## When should I use this?
@@ -24,19 +31,81 @@ Use state rendering when you want to:
 - Build dashboards that reflect agent state
 - Render structured output outside of the chat
 
-## How it works in code
+## What you'll build
 
-On the frontend, subscribe to the agent's `steps` state. Each time the
-backend publishes the current plan, your component re-renders the progress
-card inside the chat transcript.
+You ask the agent to plan a task. A card appears below the conversation with
+three steps, and each step moves from pending to in progress to completed. The
+card's headline follows the step data: `Step 2 of 3` while the agent works,
+`All 3 steps complete` when every step is done, and `Stopped at step N of 3`
+if the run ends before the plan is finished.
 
-<Snippet region="gen-ui-agent-state-rendering" title="frontend/src/app/demos/gen-ui-agent/page.tsx — state subscription and progress card" />
+## Prerequisites
 
-On the backend, `set_steps` publishes the complete step list as agent state.
-The exact bridge differs by integration: the selected source below is the
-implementation that makes the frontend's `agent.state.steps` update.
+- A CopilotKit runtime endpoint that serves your agent under the id
+  `gen-ui-agent`. The frontend passes that id to `useAgent` and `CopilotChat`.
+- `@copilotkit/react-core` v2 in your frontend.
 
-<Snippet region="gen-ui-agent-backend" title="backend — publish the live steps state" />
+## Backend
+
+### 1. Declare the `steps` state
+
+Each step has an `id`, a `title`, and a `status` of `pending`, `in_progress`,
+or `completed`. If your framework has typed agent state, declare `steps` as a
+state field. If it doesn't, the step shape lives on the `set_steps` tool's
+input and the list lives in the agent's session state.
+
+<Snippet region="gen-ui-agent-state" />
+
+### 2. Publish `steps` from `set_steps`
+
+The model calls `set_steps` with the complete list every time a step changes
+status, so each call replaces the list instead of appending to it. This code
+writes the list into agent state. Where the adapter doesn't do it for you, it
+also emits the AG-UI state event that carries the list to the frontend.
+
+<Snippet region="gen-ui-agent-backend" />
+
+### 3. Wire it into the agent
+
+Register `set_steps` on the agent, along with any state bridge the adapter
+needs. The agent's system prompt tells the model to call `set_steps` once with
+all three steps at `pending`, and then again after each transition. Most
+adapters publish state after every `set_steps` call, so the card shows each
+transition as it happens. An adapter that publishes state only when the run
+finishes shows the final list at that point.
+
+<Snippet region="gen-ui-agent-wiring" />
+
+## Frontend
+
+### 4. Subscribe to agent state
+
+`useAgent` returns the live agent. Subscribe to `OnStateChanged` so the
+component re-renders when `steps` changes. Also subscribe to
+`OnRunStatusChanged` so it re-renders when the run starts and finishes.
+Without that second subscription, the last render can still show the run as
+in progress after it has ended. Pass the steps and the run status to the
+chat's `messageView.children` slot.
+
+<Snippet region="gen-ui-agent-state-rendering" />
+
+### 5. Render the card in the transcript
+
+`messageView.children` receives the rendered messages. Render the card after
+them so it sits below the conversation and updates in place, rather than
+adding a new card for every update. `InlineAgentStateCard` is a presentational
+component that shows each step with its status and derives the headline from
+the step data.
+
+<Snippet region="gen-ui-agent-message-list" />
+
+## Try it
+
+Open the demo and click **Plan a product launch**, or send "Plan a product
+launch for a new mobile app." A progress card with three steps appears below
+the conversation. When the run finishes, every step is marked completed, the
+headline reads **All 3 steps complete**, and the agent sends a short summary
+of the plan.
 
 <IntegrationGrid
   path="generative-ui/state-rendering"

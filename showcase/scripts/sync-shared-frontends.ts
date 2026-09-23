@@ -25,6 +25,26 @@ const selectedReactIntegrations = [
 
 const sharedStateReadWriteIntegrations = selectedReactIntegrations;
 
+// Every integration whose state-rendering docs resolve to the root guide
+// (`generative-ui/state-rendering.mdx`), which draws its frontend snippets
+// from these files.
+const genUiAgentIntegrations = [
+  ...selectedReactIntegrations,
+  "langgraph-fastapi",
+  "claude-sdk-python",
+  "claude-sdk-typescript",
+  "strands-typescript",
+  "ms-agent-harness-dotnet",
+  "agno",
+] as const;
+
+const genUiAgentFiles = [
+  "page.tsx",
+  "InlineAgentStateCard.tsx",
+  "message-list-with-state.tsx",
+  "suggestions.ts",
+] as const;
+
 function demoTargets(
   integrations: readonly string[],
   demoPath: string,
@@ -55,10 +75,10 @@ const sharedFrontendEntries = [
       "shared-state-read-write/page.tsx",
     ),
   },
-  {
-    source: path.join(showcaseRoot, "shared/react/demos/gen-ui-agent/page.tsx"),
-    targets: demoTargets(selectedReactIntegrations, "gen-ui-agent/page.tsx"),
-  },
+  ...genUiAgentFiles.map((file) => ({
+    source: path.join(showcaseRoot, "shared/react/demos/gen-ui-agent", file),
+    targets: demoTargets(genUiAgentIntegrations, `gen-ui-agent/${file}`),
+  })),
   {
     source: path.join(showcaseRoot, "shared/react/demos/auth/page.tsx"),
     targets: demoTargets(selectedReactIntegrations, "auth/page.tsx"),
@@ -105,6 +125,17 @@ const sharedFrontendEntries = [
     targets: demoTargets(
       selectedReactIntegrations,
       "voice/sample-audio-button.tsx",
+    ),
+  },
+  {
+    // Server-only: imported by each integration's copilotkit-voice route.
+    source: path.join(
+      showcaseRoot,
+      "shared/react/demos/voice/transcription-service.ts",
+    ),
+    targets: demoTargets(
+      selectedReactIntegrations,
+      "voice/transcription-service.ts",
     ),
   },
 ];

@@ -259,6 +259,7 @@ async def tool_rendering_endpoint(request: Request) -> StreamingResponse:
     )
 
 
+# @region[gen-ui-agent-wiring]
 @app.post("/gen-ui-agent")
 async def gen_ui_agent_endpoint(request: Request) -> StreamingResponse:
     """Agentic Generative UI — backend-owned set_steps state updates."""
@@ -270,6 +271,9 @@ async def gen_ui_agent_endpoint(request: Request) -> StreamingResponse:
         tools_override=GEN_UI_AGENT_TOOLS,
         frontend_tool_names_allowlist=set(),
     )
+
+
+# @endregion[gen-ui-agent-wiring]
 
 
 @app.post("/shared-state-streaming")

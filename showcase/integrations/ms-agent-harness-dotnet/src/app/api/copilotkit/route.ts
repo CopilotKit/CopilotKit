@@ -426,6 +426,7 @@ function createReplaySafeAgent(path: string, replaySafeToolNames: string[]) {
   return agent;
 }
 
+// @region[gen-ui-agent-wiring]
 function createGenUiAgent() {
   const agent = createAgent("/gen-ui-agent");
 
@@ -510,6 +511,7 @@ function createGenUiAgent() {
 
   return agent;
 }
+// @endregion[gen-ui-agent-wiring]
 
 function createReadonlyContextAgent() {
   const agent = createAgent("/readonly-state-agent-context");
@@ -707,7 +709,9 @@ agents["hitl-in-chat"] = createReplaySafeAgent("/hitl-in-chat", ["book_call"]);
 // Generative UI Agent — backend with `set_steps` tool + `steps` state
 // schema mirrored from LGP's gen_ui_agent. The frontend renders a live
 // progress card subscribed to `agent.state.steps`.
+// @region[gen-ui-agent-wiring]
 agents["gen-ui-agent"] = createGenUiAgent();
+// @endregion[gen-ui-agent-wiring]
 
 // Tool-Based Generative UI -- frontend registers `render_bar_chart` and
 // `render_pie_chart` via `useComponent`; backend agent has tools=[] and a

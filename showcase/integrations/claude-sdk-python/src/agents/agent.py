@@ -396,6 +396,7 @@ ROLL_D20_TOOL_SCHEMA: dict[str, Any] = {
     },
 }
 
+# @region[gen-ui-agent-state]
 SET_STEPS_TOOL_SCHEMA: dict[str, Any] = {
     "name": "set_steps",
     "description": (
@@ -424,6 +425,7 @@ SET_STEPS_TOOL_SCHEMA: dict[str, Any] = {
         "required": ["steps"],
     },
 }
+# @endregion[gen-ui-agent-state]
 
 WRITE_DOCUMENT_TOOL_SCHEMA: dict[str, Any] = {
     "name": "write_document",
@@ -524,7 +526,9 @@ TOOL_RENDERING_TOOLS = [
     ROLL_D20_TOOL_SCHEMA,
 ]
 
+# @region[gen-ui-agent-state]
 GEN_UI_AGENT_TOOLS = [SET_STEPS_TOOL_SCHEMA]
+# @endregion[gen-ui-agent-state]
 
 HEADLESS_COMPLETE_SYSTEM_PROMPT = dedent("""
     You are a helpful, concise assistant wired into a headless chat surface.
@@ -626,10 +630,14 @@ BEAUTIFUL_CHAT_SYSTEM_PROMPT = dedent("""
 # ===========
 
 
+# @region[gen-ui-agent-state]
 class AgentState(BaseModel):
     todos: list[dict] = []
     steps: list[dict] = []
     document: str = ""
+
+
+# @endregion[gen-ui-agent-state]
 
 
 def _coerce_beautiful_chat_todos(value: Any) -> list[dict[str, Any]]:
@@ -779,10 +787,12 @@ def _execute_tool(
             }
         ), None
 
+    # @region[gen-ui-agent-backend]
     if name == "set_steps":
         steps = tool_input.get("steps", [])
         state.steps = [dict(step) for step in steps if isinstance(step, dict)]
         return json.dumps({"status": "updated", "count": len(state.steps)}), state
+    # @endregion[gen-ui-agent-backend]
 
     if name == "write_document":
         document = str(tool_input.get("document", ""))
@@ -1365,6 +1375,7 @@ async def run_agent(
                 state,
                 conversation_messages=messages,
             )
+            # @region[gen-ui-agent-backend]
             if new_state is not None:
                 state = new_state
                 yield encoder.encode(
@@ -1373,6 +1384,7 @@ async def run_agent(
                         snapshot=state.model_dump(),
                     )
                 )
+            # @endregion[gen-ui-agent-backend]
             yield encoder.encode(
                 ToolCallResultEvent(
                     type=EventType.TOOL_CALL_RESULT,

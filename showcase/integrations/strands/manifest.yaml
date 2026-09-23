@@ -305,6 +305,7 @@ demos:
       - src/app/demos/gen-ui-agent/page.tsx
       - src/app/demos/gen-ui-agent/InlineAgentStateCard.tsx
       - src/app/api/copilotkit/route.ts
+      - src/agents/agent.py
   - id: gen-ui-tool-based
     name: Tool-Based Generative UI
     description: Agent uses tools to trigger UI generation

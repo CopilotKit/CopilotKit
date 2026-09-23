@@ -1534,6 +1534,7 @@ def build_showcase_agent(
             "write_document": ToolBehavior(
                 state_from_args=document_state_from_args,
             ),
+            # @region[gen-ui-agent-wiring]
             # gen-ui-agent — the planner writes the full step list to
             # `state["steps"]` via `set_steps` on every transition. Emit a
             # snapshot the moment the tool fires so the UI's progress card
@@ -1542,6 +1543,7 @@ def build_showcase_agent(
             "set_steps": ToolBehavior(
                 state_from_args=steps_state_from_args,
             ),
+            # @endregion[gen-ui-agent-wiring]
             # Sub-Agents — every delegation appends to
             # `state["delegations"]`. Use `state_from_result` rather than
             # `state_from_args` so the entry carries the sub-agent's
@@ -1559,6 +1561,7 @@ def build_showcase_agent(
         },
     )
 
+    # @region[gen-ui-agent-wiring]
     strands_agent = Agent(
         model=resolved_model,
         system_prompt=SYSTEM_PROMPT,
@@ -1587,6 +1590,7 @@ def build_showcase_agent(
         description="A sales assistant that collaborates with you to manage a sales pipeline",
         config=shared_state_config,
     )
+    # @endregion[gen-ui-agent-wiring]
 
     # Replace the per-thread agent dict with our hook-injecting variant.
     # Preserve any entries ag_ui_strands created in ``__init__`` by copying

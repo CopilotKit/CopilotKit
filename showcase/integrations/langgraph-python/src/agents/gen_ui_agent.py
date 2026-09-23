@@ -21,6 +21,7 @@ from langgraph.types import Command
 from typing_extensions import NotRequired, TypedDict
 
 
+# @region[gen-ui-agent-state]
 class Step(TypedDict):
     id: str
     title: str
@@ -36,6 +37,9 @@ class GenUiAgentState(AgentState):
     """Extends the base agent state with a typed `steps` field."""
 
     steps: Annotated[NotRequired[list[Step]], _last_steps, OmitFromInput]
+
+
+# @endregion[gen-ui-agent-state]
 
 
 # @region[gen-ui-agent-backend]
@@ -92,6 +96,7 @@ SYSTEM_PROMPT = (
 # drives ~7 set_steps cycles + 1 final model turn, so nominal cost is
 # ~15 supersteps. `recursion_limit=50` gives ~3× headroom for retries
 # inside the LLM loop.
+# @region[gen-ui-agent-wiring]
 graph = create_agent(
     model=init_chat_model("openai:gpt-4o-mini", temperature=0, use_responses_api=False),
     tools=[set_steps],
@@ -99,3 +104,4 @@ graph = create_agent(
     state_schema=GenUiAgentState,
     middleware=[CopilotKitMiddleware()],
 ).with_config({"recursion_limit": 50})
+# @endregion[gen-ui-agent-wiring]

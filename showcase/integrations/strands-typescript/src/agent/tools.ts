@@ -137,6 +137,7 @@ export const setNotes = tool({
   callback: ({ notes }) => `Notes updated. Tracking ${notes.length} note(s).`,
 });
 
+// @region[gen-ui-agent-state]
 export const setSteps = tool({
   name: "set_steps",
   description:
@@ -154,6 +155,7 @@ export const setSteps = tool({
   }),
   callback: ({ steps }) => `Published ${steps.length} step(s).`,
 });
+// @endregion[gen-ui-agent-state]
 
 export const writeDocument = tool({
   name: "write_document",

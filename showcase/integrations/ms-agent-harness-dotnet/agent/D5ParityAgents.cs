@@ -80,6 +80,7 @@ public sealed class D5ParityAgentFactory
         return new ReadonlyContextAgent(inner, _loggerFactory.CreateLogger<ReadonlyContextAgent>());
     }
 
+    // @region[gen-ui-agent-backend]
     public AIAgent CreateGenUiAgent()
     {
         var store = new SnapshotStore<PlanStep[]>(
@@ -131,6 +132,7 @@ public sealed class D5ParityAgentFactory
             _jsonSerializerOptions,
             _loggerFactory.CreateLogger<SnapshotAfterRunAgent<PlanStep[]>>());
     }
+    // @endregion[gen-ui-agent-backend]
 
     public AIAgent CreateSharedStateStreamingAgent()
     {
@@ -374,10 +376,12 @@ public sealed class D5ParityAgentFactory
     }
 }
 
+// @region[gen-ui-agent-state]
 public sealed record PlanStep(
     [property: JsonPropertyName("id")] string Id,
     [property: JsonPropertyName("title")] string Title,
     [property: JsonPropertyName("status")] string Status);
+// @endregion[gen-ui-agent-state]
 
 internal sealed class SnapshotStore<T>
 {

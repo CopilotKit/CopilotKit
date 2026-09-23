@@ -4,6 +4,7 @@ import React from "react";
 import { InlineAgentStateCard } from "./InlineAgentStateCard";
 import type { Step } from "./InlineAgentStateCard";
 
+// @region[gen-ui-agent-message-list]
 export function MessageListWithState({
   messageElements,
   interruptElement,
@@ -25,3 +26,4 @@ export function MessageListWithState({
     </div>
   );
 }
+// @endregion[gen-ui-agent-message-list]

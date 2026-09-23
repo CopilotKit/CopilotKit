@@ -111,7 +111,8 @@ demos:
     route: /demos/gen-ui-agent
     animated_preview_url:
     highlight:
-      - src/agents/main.py
+      - src/agents/gen_ui_agent.py
+      - src/agent_server.py
       - src/app/demos/gen-ui-agent/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: shared-state-streaming

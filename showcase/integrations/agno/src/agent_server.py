@@ -345,6 +345,7 @@ async def _run_agent_with_state_snapshot(
         if run_input.forwarded_props and isinstance(run_input.forwarded_props, dict):
             user_id = run_input.forwarded_props.get("user_id")
 
+        # @region[gen-ui-agent-wiring]
         session_state = validate_agui_state(run_input.state, thread_id) or {}
 
         response_stream = agent.arun(  # type: ignore[attr-defined]
@@ -393,6 +394,7 @@ async def _run_agent_with_state_snapshot(
         yield RunFinishedEvent(
             type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=run_id
         )
+        # @endregion[gen-ui-agent-wiring]
 
     except asyncio.CancelledError:  # noqa: TRY302 — propagate cancellation
         raise
@@ -850,11 +852,13 @@ _attach_reasoning_route(app, reasoning_agent, "/reasoning")
 # CORS with the stock AGUI interfaces above.
 _attach_state_aware_route(app, shared_state_rw_agent, "/shared-state-rw")
 _attach_state_aware_route(app, subagents_supervisor, "/subagents")
+# @region[gen-ui-agent-wiring]
 # gen-ui-agent: planner that walks 3 steps through pending -> in_progress
 # -> completed via the `set_steps` tool. Each set_steps call mutates
 # session_state["steps"], and the state-aware router emits a
 # StateSnapshotEvent after the run so the UI's useAgent picks it up.
 _attach_state_aware_route(app, gen_ui_agent, "/gen-ui-agent")
+# @endregion[gen-ui-agent-wiring]
 
 
 # Agent Config Object cell — builds a per-request Agno Agent whose system

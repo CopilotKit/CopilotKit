@@ -1580,6 +1580,7 @@ async function executeBackendTool(
     };
   }
 
+  // @region[gen-ui-agent-backend]
   if (toolName === "set_steps") {
     // Gen UI (Agent-based): each call REPLACES state.steps wholesale
     // (last-write-wins, mirroring the langgraph-typescript reducer). Keep
@@ -1595,6 +1596,7 @@ async function executeBackendTool(
       state: next,
     };
   }
+  // @endregion[gen-ui-agent-backend]
 
   // @region[shared-state-set-notes-handler]
   if (toolName === "set_notes") {
@@ -2252,10 +2254,12 @@ async function runAgenticLoop(
           forwardedHeaders,
           contextString,
         );
+        // @region[gen-ui-agent-backend]
         if (exec.state) {
           state = exec.state;
           emit({ type: EventType.STATE_SNAPSHOT, snapshot: state });
         }
+        // @endregion[gen-ui-agent-backend]
         emit({
           type: EventType.TOOL_CALL_RESULT,
           toolCallId: tc.id,
@@ -2467,6 +2471,7 @@ app.post("/subagents", async (req: Request, res: Response): Promise<void> => {
 // the model's set_steps call was forwarded to the frontend (which
 // registers no such tool), the tool result never materialized, and the
 // multi-leg loop never completed.
+// @region[gen-ui-agent-wiring]
 app.post(
   "/gen-ui-agent",
   async (req: Request, res: Response): Promise<void> => {
@@ -2481,6 +2486,7 @@ app.post(
     });
   },
 );
+// @endregion[gen-ui-agent-wiring]
 
 // A2UI Fixed Schema — backend ships flight_schema.json and exposes a
 // single `display_flight` tool that emits an `a2ui_operations` container.
