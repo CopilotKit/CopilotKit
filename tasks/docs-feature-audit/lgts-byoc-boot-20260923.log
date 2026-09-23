@@ -1,0 +1,52 @@
+$ bash tasks/docs-feature-audit/reproduce-lgts-byoc-setup-20260923.sh   # node v22.16.0, npm 10.9.2
+Wed Sep 23 20:31:42 UTC 2026
+copied 458 files; node_modules present: no; .langgraph_api present: no
+
+added 251 packages in 2s
+langgraph-typescript-agent@0.0.1 /private/tmp/lgts-byoc-boot.UcvA7T/showcase/integrations/langgraph-typescript/src/agent
++-- @copilotkit/sdk-js@1.73.3
++-- @langchain/core@1.2.12
++-- @langchain/langgraph-api@1.5.0
++-- @langchain/langgraph-cli@1.5.0
++-- @langchain/langgraph-sdk@1.11.2
++-- @langchain/langgraph@1.4.17
+`-- langchain@1.5.12
+
+GET http://localhost:8123/ok -> 000 after 120s
+--- dev log (ANSI stripped, per-graph lines collapsed)
+
+> langgraph-typescript-agent@0.0.1 dev
+> npx @langchain/langgraph-cli@1.5.0 dev --port 8123 --no-browser
+
+
+          Welcome to
+
+╦  ┌─┐┌┐┌┌─┐╔═╗┬─┐┌─┐┌─┐┬ ┬
+║  ├─┤││││ ┬║ ╦├┬┘├─┤├─┘├─┤
+╩═╝┴ ┴┘└┘└─┘╚═╝┴└─┴ ┴┴  ┴ ┴.js
+
+- 🚀 API: http://localhost:8123
+- 🎨 Studio UI: https://smith.langchain.com/studio?baseUrl=http://localhost:8123
+
+This in-memory server is designed for development and testing.
+For production use, please use LangSmith Deployment.
+
+
+info:    ▪ Starting server...
+info:    ▪ Initializing storage...
+info:    ▪ Registering graphs from /private/tmp/lgts-byoc-boot.UcvA7T/showcase/integrations/langgraph-typescript/src/agent
+error:   ▪ Error: Cannot find module 'pdf-parse'
+Require stack:
+- /private/tmp/lgts-byoc-boot.UcvA7T/showcase/integrations/langgraph-typescript/src/agent/multimodal.ts
+    at node:internal/modules/cjs/loader:1401:15
+    at nextResolveSimple (/private/tmp/lgts-byoc-boot.UcvA7T/showcase/integrations/langgraph-typescript/src/agent/node_modules/tsx/dist/register-B1c7OH6V.cjs:23:1010)
+    at /private/tmp/lgts-byoc-boot.UcvA7T/showcase/integrations/langgraph-typescript/src/agent/node_modules/tsx/dist/register-B1c7OH6V.cjs:22:4512
+    at /private/tmp/lgts-byoc-boot.UcvA7T/showcase/integrations/langgraph-typescript/src/agent/node_modules/tsx/dist/register-B1c7OH6V.cjs:22:2830
+    at resolveTsPaths (/private/tmp/lgts-byoc-boot.UcvA7T/showcase/integrations/langgraph-typescript/src/agent/node_modules/tsx/dist/register-B1c7OH6V.cjs:23:762)
+    at /private/tmp/lgts-byoc-boot.UcvA7T/showcase/integrations/langgraph-typescript/src/agent/node_modules/tsx/dist/register-B1c7OH6V.cjs:23:1203
+    at j._resolveFilename (file:///private/tmp/lgts-byoc-boot.UcvA7T/showcase/integrations/langgraph-typescript/src/agent/node_modules/tsx/dist/register-nyXW-TH3.mjs:2:18825)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1057:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1062:22)
+    at Function._load (node:internal/modules/cjs/loader:1211:37)
+registered graphs: 28
+exit=0 duration=127s

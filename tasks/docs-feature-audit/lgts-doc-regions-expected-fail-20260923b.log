@@ -1,0 +1,27 @@
+
+ RUN  v4.1.7 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs
+
+ ❯ src/lib/__tests__/langgraph-typescript-doc-regions.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/__tests__/langgraph-typescript-doc-regions.test.ts [ src/lib/__tests__/langgraph-typescript-doc-regions.test.ts ]
+Error: [demo-code] duplicate region "gen-ui-agent-wiring" appears 2 times — fix the source
+ ❯ extractRegion src/lib/demo-code.ts:157:13
+    155|   if (blocks.length > 1) {
+    156|     if (isDev()) {
+    157|       throw new Error(
+       |             ^
+    158|         `[demo-code] duplicate region "${region}" appears ${blocks.len…
+    159|       );
+ ❯ publicRegions src/lib/__tests__/langgraph-typescript-doc-regions.test.ts:42:20
+ ❯ src/lib/__tests__/langgraph-typescript-doc-regions.test.ts:55:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  13:55:32
+   Duration  7.52s (transform 3.06s, setup 0ms, import 0ms, tests 0ms, environment 0ms)
+

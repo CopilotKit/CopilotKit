@@ -1,0 +1,153 @@
+## langgraph-python:tool-rendering-default-catchall -> generative-ui/tool-rendering (slug generative-ui/tool-rendering)
+   - Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for langgraph-python -->
+   - HTML <FrameworkSetup concept="tool-rendering-setup" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for langgraph-python
+## langgraph-python:tool-rendering-custom-catchall -> generative-ui/tool-rendering (slug generative-ui/tool-rendering)
+   - Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for langgraph-python -->
+   - HTML <FrameworkSetup concept="tool-rendering-setup" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for langgraph-python
+## langgraph-python:frontend-tools-async -> frontend-tools (slug frontend-tools)
+   - renders no langgraph-python::frontend-tools-async Snippet or InlineDemo (page carries: langgraph-python::frontend-tools)
+## langgraph-python:hitl-in-app -> frontend-tools (slug frontend-tools)
+   - renders no langgraph-python::hitl-in-app Snippet or InlineDemo (page carries: langgraph-python::frontend-tools)
+## langgraph-python:tool-rendering -> generative-ui/tool-rendering (slug generative-ui/tool-rendering)
+   - Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for langgraph-python -->
+   - HTML <FrameworkSetup concept="tool-rendering-setup" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for langgraph-python
+## langgraph-python:tool-rendering-reasoning-chain -> generative-ui/tool-rendering (slug generative-ui/tool-rendering)
+   - Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for langgraph-python -->
+   - HTML <FrameworkSetup concept="tool-rendering-setup" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for langgraph-python
+   - renders no langgraph-python::tool-rendering-reasoning-chain Snippet or InlineDemo (page carries: langgraph-python::tool-rendering, langgraph-python::tool-rendering-default-catchall, langgraph-python::tool-rendering-custom-catchall)
+## langgraph-python:shared-state-read -> shared-state (slug shared-state)
+   - renders no langgraph-python::shared-state-read Snippet or InlineDemo (page carries: langgraph-python::shared-state-read-write, langgraph-python::shared-state-streaming)
+## langgraph-python:prebuilt-sidebar -> prebuilt-components (slug prebuilt-components)
+   - renders no langgraph-python::prebuilt-sidebar Snippet or InlineDemo (page carries: langgraph-python::agentic-chat)
+## langgraph-python:prebuilt-popup -> prebuilt-components (slug prebuilt-components)
+   - renders no langgraph-python::prebuilt-popup Snippet or InlineDemo (page carries: langgraph-python::agentic-chat)
+## langgraph-python:a2ui-fixed-schema -> generative-ui/a2ui/fixed-schema (slug generative-ui/a2ui/fixed-schema)
+   - Markdown marker <!-- setup skipped: a2ui-fixed-schema-setup is not bundled for langgraph-python -->
+   - HTML <FrameworkSetup concept="a2ui-fixed-schema-setup" />: FrameworkSetup renders nothing: no a2ui-fixed-schema-setup setup is bundled for langgraph-python
+## langgraph-python:a2ui-recovery -> generative-ui/a2ui/dynamic-schema (slug generative-ui/a2ui/dynamic-schema)
+   - renders no langgraph-python::a2ui-recovery Snippet or InlineDemo (page carries: langgraph-python::declarative-gen-ui)
+## langgraph-python:beautiful-chat -> prebuilt-components (slug prebuilt-components)
+   - renders no langgraph-python::beautiful-chat Snippet or InlineDemo (page carries: langgraph-python::agentic-chat)
+## langgraph-typescript:tool-rendering-default-catchall -> generative-ui/tool-rendering (slug generative-ui/tool-rendering)
+   - Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for langgraph-typescript -->
+   - HTML <FrameworkSetup concept="tool-rendering-setup" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for langgraph-typescript
+## langgraph-typescript:tool-rendering-custom-catchall -> generative-ui/tool-rendering (slug generative-ui/tool-rendering)
+   - Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for langgraph-typescript -->
+   - HTML <FrameworkSetup concept="tool-rendering-setup" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for langgraph-typescript
+## langgraph-typescript:frontend-tools-async -> frontend-tools (slug frontend-tools)
+   - renders no langgraph-typescript::frontend-tools-async Snippet or InlineDemo (page carries: langgraph-typescript::frontend-tools)
+## langgraph-typescript:hitl-in-app -> human-in-the-loop (slug human-in-the-loop)
+   - renders no langgraph-typescript::hitl-in-app Snippet or InlineDemo (page carries: langgraph-typescript::hitl-in-chat, langgraph-typescript::gen-ui-interrupt)
+## langgraph-typescript:tool-rendering -> generative-ui/tool-rendering (slug generative-ui/tool-rendering)
+   - Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for langgraph-typescript -->
+   - HTML <FrameworkSetup concept="tool-rendering-setup" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for langgraph-typescript
+## langgraph-typescript:tool-rendering-reasoning-chain -> generative-ui/tool-rendering (slug generative-ui/tool-rendering)
+   - Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for langgraph-typescript -->
+   - HTML <FrameworkSetup concept="tool-rendering-setup" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for langgraph-typescript
+   - renders no langgraph-typescript::tool-rendering-reasoning-chain Snippet or InlineDemo (page carries: langgraph-typescript::tool-rendering, langgraph-typescript::tool-rendering-default-catchall, langgraph-typescript::tool-rendering-custom-catchall)
+## langgraph-typescript:shared-state-read -> shared-state (slug shared-state)
+   - renders no langgraph-typescript::shared-state-read Snippet or InlineDemo (page carries: langgraph-typescript::shared-state-read-write, langgraph-typescript::shared-state-streaming)
+## langgraph-typescript:a2ui-fixed-schema -> generative-ui/a2ui/fixed-schema (slug generative-ui/a2ui/fixed-schema)
+   - Markdown marker <!-- setup skipped: a2ui-fixed-schema-setup is not bundled for langgraph-typescript -->
+   - HTML <FrameworkSetup concept="a2ui-fixed-schema-setup" />: FrameworkSetup renders nothing: no a2ui-fixed-schema-setup setup is bundled for langgraph-typescript
+## langgraph-typescript:a2ui-recovery -> generative-ui/a2ui/dynamic-schema (slug generative-ui/a2ui/dynamic-schema)
+   - renders no langgraph-typescript::a2ui-recovery Snippet or InlineDemo (page carries: langgraph-typescript::declarative-gen-ui)
+## langgraph-typescript:beautiful-chat -> agentic-chat-ui (slug agentic-chat-ui)
+   - renders no langgraph-typescript::beautiful-chat Snippet or InlineDemo (page carries: langgraph-typescript::agentic-chat)
+## google-adk:tool-rendering-default-catchall -> generative-ui/tool-rendering (slug generative-ui/tool-rendering)
+   - Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for google-adk -->
+   - HTML <FrameworkSetup concept="tool-rendering-setup" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for google-adk
+## google-adk:tool-rendering-custom-catchall -> generative-ui/tool-rendering (slug generative-ui/tool-rendering)
+   - Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for google-adk -->
+   - HTML <FrameworkSetup concept="tool-rendering-setup" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for google-adk
+## google-adk:frontend-tools-async -> frontend-tools (slug frontend-tools)
+   - renders no google-adk::frontend-tools-async Snippet or InlineDemo (page carries: google-adk::frontend-tools)
+## google-adk:hitl-in-app -> human-in-the-loop (slug human-in-the-loop)
+   - renders no google-adk::hitl-in-app Snippet or InlineDemo (page carries: google-adk::hitl-in-chat, google-adk::gen-ui-interrupt)
+## google-adk:tool-rendering -> generative-ui/tool-rendering (slug generative-ui/tool-rendering)
+   - Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for google-adk -->
+   - HTML <FrameworkSetup concept="tool-rendering-setup" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for google-adk
+## google-adk:shared-state-read -> shared-state (slug shared-state)
+   - renders no google-adk::shared-state-read Snippet or InlineDemo (page carries: google-adk::shared-state-read-write, google-adk::shared-state-streaming)
+## google-adk:a2ui-fixed-schema -> generative-ui/a2ui/fixed-schema (slug generative-ui/a2ui/fixed-schema)
+   - Markdown marker <!-- setup skipped: a2ui-fixed-schema-setup is not bundled for google-adk -->
+   - HTML <FrameworkSetup concept="a2ui-fixed-schema-setup" />: FrameworkSetup renders nothing: no a2ui-fixed-schema-setup setup is bundled for google-adk
+## google-adk:a2ui-recovery -> generative-ui/a2ui/dynamic-schema (slug generative-ui/a2ui/dynamic-schema)
+   - renders no google-adk::a2ui-recovery Snippet or InlineDemo (page carries: google-adk::declarative-gen-ui)
+## google-adk:tool-rendering-reasoning-chain -> generative-ui/tool-rendering (slug generative-ui/tool-rendering)
+   - Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for google-adk -->
+   - HTML <FrameworkSetup concept="tool-rendering-setup" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for google-adk
+   - renders no google-adk::tool-rendering-reasoning-chain Snippet or InlineDemo (page carries: google-adk::tool-rendering, google-adk::tool-rendering-default-catchall, google-adk::tool-rendering-custom-catchall)
+## google-adk:beautiful-chat -> agentic-chat-ui (slug agentic-chat-ui)
+   - renders no google-adk::beautiful-chat Snippet or InlineDemo (page carries: google-adk::agentic-chat)
+## strands:headless-simple -> headless (slug headless)
+   - Markdown marker <!-- setup skipped: programmatic-control-setup is not bundled for strands -->
+   - HTML <FrameworkSetup concept="programmatic-control-setup" />: FrameworkSetup renders nothing: no programmatic-control-setup setup is bundled for strands
+## strands:headless-complete -> headless (slug headless)
+   - Markdown marker <!-- setup skipped: programmatic-control-setup is not bundled for strands -->
+   - HTML <FrameworkSetup concept="programmatic-control-setup" />: FrameworkSetup renders nothing: no programmatic-control-setup setup is bundled for strands
+## strands:frontend-tools-async -> frontend-tools (slug frontend-tools)
+   - renders no strands::frontend-tools-async Snippet or InlineDemo (page carries: strands::frontend-tools)
+## strands:hitl-in-chat-booking -> integrations/aws-strands/generative-ui/your-components/interactive (slug generative-ui/your-components/interactive)
+   - renders no strands::hitl-in-chat-booking Snippet or InlineDemo (page carries: strands::hitl-in-chat)
+## strands:hitl-in-app -> human-in-the-loop (slug human-in-the-loop)
+   - renders no strands::hitl-in-app Snippet or InlineDemo (page carries: strands::hitl-in-chat, strands::gen-ui-interrupt)
+## strands:hitl -> integrations/aws-strands/generative-ui/your-components/interactive (slug generative-ui/your-components/interactive)
+   - renders no strands::hitl Snippet or InlineDemo (page carries: strands::hitl-in-chat)
+## strands:tool-rendering -> generative-ui/tool-rendering (slug generative-ui/tool-rendering)
+   - Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for strands -->
+   - HTML <FrameworkSetup concept="tool-rendering-setup" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for strands
+## strands:tool-rendering-default-catchall -> generative-ui/tool-rendering (slug generative-ui/tool-rendering)
+   - Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for strands -->
+   - HTML <FrameworkSetup concept="tool-rendering-setup" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for strands
+## strands:tool-rendering-custom-catchall -> generative-ui/tool-rendering (slug generative-ui/tool-rendering)
+   - Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for strands -->
+   - HTML <FrameworkSetup concept="tool-rendering-setup" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for strands
+## strands:tool-rendering-reasoning-chain -> generative-ui/tool-rendering (slug generative-ui/tool-rendering)
+   - Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for strands -->
+   - HTML <FrameworkSetup concept="tool-rendering-setup" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for strands
+   - renders no strands::tool-rendering-reasoning-chain Snippet or InlineDemo (page carries: strands::tool-rendering, strands::tool-rendering-default-catchall, strands::tool-rendering-custom-catchall)
+## strands:a2ui-fixed-schema -> generative-ui/a2ui/fixed-schema (slug generative-ui/a2ui/fixed-schema)
+   - Markdown marker <!-- setup skipped: a2ui-fixed-schema-setup is not bundled for strands -->
+   - HTML <FrameworkSetup concept="a2ui-fixed-schema-setup" />: FrameworkSetup renders nothing: no a2ui-fixed-schema-setup setup is bundled for strands
+## strands:a2ui-recovery -> generative-ui/a2ui/dynamic-schema (slug generative-ui/a2ui/dynamic-schema)
+   - renders no strands::a2ui-recovery Snippet or InlineDemo (page carries: strands::declarative-gen-ui)
+## strands:shared-state-read -> shared-state (slug shared-state)
+   - renders no strands::shared-state-read Snippet or InlineDemo (page carries: strands::shared-state-read-write, strands::shared-state-streaming)
+## strands:subagents -> multi-agent/subagents (slug multi-agent/subagents)
+   - Markdown marker <!-- setup skipped: subagents-setup is not bundled for strands -->
+   - HTML <FrameworkSetup concept="subagents-setup" />: FrameworkSetup renders nothing: no subagents-setup setup is bundled for strands
+## strands:beautiful-chat -> agentic-chat-ui (slug agentic-chat-ui)
+   - renders no strands::beautiful-chat Snippet or InlineDemo (page carries: strands::agentic-chat)
+## strands:interrupt-headless -> human-in-the-loop/headless (slug human-in-the-loop/headless)
+   - Markdown marker <!-- setup skipped: programmatic-control-setup is not bundled for strands -->
+   - HTML <FrameworkSetup concept="programmatic-control-setup" />: FrameworkSetup renders nothing: no programmatic-control-setup setup is bundled for strands
+## built-in-agent:frontend-tools-async -> integrations/built-in-agent/frontend-tools (slug frontend-tools)
+   - renders no built-in-agent::frontend-tools-async Snippet or InlineDemo (page carries: built-in-agent::frontend-tools)
+## built-in-agent:hitl-in-app -> human-in-the-loop (slug human-in-the-loop)
+   - Markdown marker <!-- setup skipped: human-in-the-loop-setup is not bundled for built-in-agent -->
+   - HTML <FrameworkSetup concept="human-in-the-loop-setup" />: FrameworkSetup renders nothing: no human-in-the-loop-setup setup is bundled for built-in-agent
+   - renders no built-in-agent::hitl-in-app Snippet or InlineDemo (page carries: built-in-agent::hitl-in-chat, built-in-agent::gen-ui-interrupt)
+## built-in-agent:shared-state-read -> integrations/built-in-agent/shared-state (slug shared-state)
+   - renders no built-in-agent::shared-state-read Snippet or InlineDemo (page carries: built-in-agent::shared-state-read-write)
+## built-in-agent:subagents -> multi-agent/subagents (slug multi-agent/subagents)
+   - Markdown marker <!-- setup skipped: subagents-setup is not bundled for built-in-agent -->
+   - HTML <FrameworkSetup concept="subagents-setup" />: FrameworkSetup renders nothing: no subagents-setup setup is bundled for built-in-agent
+## built-in-agent:chat-slots -> integrations/built-in-agent/custom-look-and-feel/slots (slug custom-look-and-feel/slots)
+   - renders no built-in-agent::chat-slots Snippet or InlineDemo (page carries: none)
+## built-in-agent:headless-simple -> headless (slug headless)
+   - Markdown marker <!-- setup skipped: programmatic-control-setup is not bundled for built-in-agent -->
+   - HTML <FrameworkSetup concept="programmatic-control-setup" />: FrameworkSetup renders nothing: no programmatic-control-setup setup is bundled for built-in-agent
+## built-in-agent:headless-complete -> headless (slug headless)
+   - Markdown marker <!-- setup skipped: programmatic-control-setup is not bundled for built-in-agent -->
+   - HTML <FrameworkSetup concept="programmatic-control-setup" />: FrameworkSetup renders nothing: no programmatic-control-setup setup is bundled for built-in-agent
+## built-in-agent:a2ui-fixed-schema -> generative-ui/a2ui/fixed-schema (slug generative-ui/a2ui/fixed-schema)
+   - Markdown marker <!-- setup skipped: a2ui-fixed-schema-setup is not bundled for built-in-agent -->
+   - HTML <FrameworkSetup concept="a2ui-fixed-schema-setup" />: FrameworkSetup renders nothing: no a2ui-fixed-schema-setup setup is bundled for built-in-agent
+## built-in-agent:a2ui-recovery -> generative-ui/a2ui/dynamic-schema (slug generative-ui/a2ui/dynamic-schema)
+   - renders no built-in-agent::a2ui-recovery Snippet or InlineDemo (page carries: built-in-agent::declarative-gen-ui)
+## built-in-agent:readonly-state-agent-context -> shared-state/agent-readonly (slug shared-state/agent-readonly)
+   - Markdown marker <!-- setup skipped: agent-context-setup is not bundled for built-in-agent -->
+   - HTML <FrameworkSetup concept="agent-context-setup" />: FrameworkSetup renders nothing: no agent-context-setup setup is bundled for built-in-agent
+## built-in-agent:beautiful-chat -> agentic-chat-ui (slug agentic-chat-ui)
+   - renders no built-in-agent::beautiful-chat Snippet or InlineDemo (page carries: built-in-agent::agentic-chat)

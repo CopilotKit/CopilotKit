@@ -1,0 +1,201 @@
+# Resolved dependency tree after final npm ci — Wed Sep 23 20:12:51 UTC 2026
+## UI (showcase/integrations/langgraph-typescript)
+$ npm ls @copilotkit/core @langchain/core
+@copilotkit/showcase-langgraph-typescript@0.1.0 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript
++-- @copilotkit/react-core@1.73.3
+| +-- @copilotkit/core@1.73.3
+| `-- @copilotkit/web-inspector@1.73.3
+|   `-- @copilotkit/core@1.73.3 deduped
++-- @copilotkit/runtime@1.73.3
+| +-- @ag-ui/langgraph@0.0.43
+| | `-- @langchain/core@1.2.12 deduped
+| +-- @copilotkit/channels-core@0.11.0
+| | `-- @copilotkit/core@1.73.3 deduped
+| +-- @copilotkit/channels-intelligence@0.11.0
+| | +-- @copilotkit/channels-slack@0.11.0
+| | | `-- @copilotkit/core@1.73.3 deduped
+| | `-- @copilotkit/channels-teams@0.11.0
+| |   `-- @copilotkit/core@1.73.3 deduped
+| +-- @langchain/core@1.2.12 deduped
+| `-- @langchain/langgraph-sdk@1.11.2
+|   `-- @langchain/core@1.2.12 deduped
++-- @copilotkit/sdk-js@1.73.3
+| +-- @ag-ui/langgraph@0.0.42
+| | `-- @langchain/core@1.2.12 deduped
+| `-- @langchain/core@1.2.12 deduped
++-- @langchain/core@1.2.12
++-- @langchain/langgraph-checkpoint@1.1.5
+| `-- @langchain/core@1.2.12 deduped
++-- @langchain/langgraph@1.4.17
+| `-- @langchain/core@1.2.12 deduped
++-- @langchain/openai@1.5.13
+| `-- @langchain/core@1.2.12 deduped
+`-- langchain@1.5.12
+  `-- @langchain/core@1.2.12 deduped
+
+$ npm ls --all @ag-ui/core @ag-ui/client @ag-ui/langgraph @langchain/langgraph @langchain/langgraph-sdk
+@copilotkit/showcase-langgraph-typescript@0.1.0 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript
++-- @copilotkit/react-core@1.73.3
+| +-- @ag-ui/client@0.0.59 overridden
+| | +-- @ag-ui/core@0.0.59 deduped
+| | `-- @ag-ui/proto@0.0.59
+| |   `-- @ag-ui/core@0.0.59 deduped
+| +-- @ag-ui/core@0.0.59 overridden
+| +-- @copilotkit/core@1.73.3
+| | `-- @ag-ui/client@0.0.59 deduped
+| +-- @copilotkit/mcp-apps-renderer@1.73.3
+| | `-- @ag-ui/client@0.0.59 deduped
+| `-- @copilotkit/web-inspector@1.73.3
+|   `-- @ag-ui/client@0.0.59 deduped
++-- @copilotkit/runtime@1.73.3
+| +-- @ag-ui/a2ui-middleware@0.0.10
+| | `-- @ag-ui/client@0.0.59 deduped
+| +-- @ag-ui/client@0.0.59 deduped
+| +-- @ag-ui/core@0.0.59 deduped
+| +-- @ag-ui/encoder@0.0.59
+| | `-- @ag-ui/core@0.0.59 deduped
+| +-- @ag-ui/langgraph@0.0.43
+| | +-- @ag-ui/client@0.0.59 deduped
+| | +-- @ag-ui/core@0.0.59 deduped
+| | `-- @langchain/langgraph-sdk@1.11.2 deduped
+| +-- @ag-ui/mcp-apps-middleware@0.1.1
+| | `-- @ag-ui/client@0.0.59 deduped
+| +-- @ag-ui/mcp-middleware@0.0.2
+| | `-- @ag-ui/client@0.0.59 deduped
+| +-- @copilotkit/channels-core@0.11.0
+| | +-- @ag-ui/client@0.0.59 deduped
+| | `-- @ag-ui/core@0.0.59 deduped
+| +-- @copilotkit/channels-intelligence@0.11.0
+| | +-- @ag-ui/client@0.0.59 deduped
+| | +-- @copilotkit/channels-slack@0.11.0
+| | | +-- @ag-ui/client@0.0.59 deduped
+| | | `-- @ag-ui/core@0.0.59 deduped
+| | `-- @copilotkit/channels-teams@0.11.0
+| |   +-- @ag-ui/client@0.0.59 deduped
+| |   `-- @ag-ui/core@0.0.59 deduped
+| `-- @langchain/langgraph-sdk@1.11.2
++-- @copilotkit/sdk-js@1.73.3
+| +-- @ag-ui/langgraph@0.0.42
+| | +-- @ag-ui/client@0.0.59 deduped
+| | +-- @ag-ui/core@0.0.59 deduped
+| | `-- @langchain/langgraph-sdk@1.11.2 deduped
+| `-- @langchain/langgraph@1.4.17 deduped
++-- @copilotkit/shared@1.73.3
+| +-- @ag-ui/client@0.0.59 deduped
+| `-- @ag-ui/core@0.0.59 deduped
++-- @langchain/langgraph@1.4.17
+| `-- @langchain/langgraph-sdk@1.11.2 deduped
+`-- langchain@1.5.12
+  `-- @langchain/langgraph@1.4.17 deduped
+
+$ npm ls --depth=0
+@copilotkit/showcase-langgraph-typescript@0.1.0 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript
++-- @copilotkit/a2ui-renderer@1.73.3
++-- @copilotkit/react-core@1.73.3
++-- @copilotkit/react-ui@1.73.3
++-- @copilotkit/runtime@1.73.3
++-- @copilotkit/sdk-js@1.73.3
++-- @copilotkit/shared@1.73.3
++-- @copilotkit/voice@1.73.3
++-- @hashbrownai/core@0.5.0-beta.4
++-- @hashbrownai/react@0.5.0-beta.4
++-- @json-render/core@0.18.0
++-- @json-render/react@0.18.0
++-- @langchain/core@1.2.12
++-- @langchain/langgraph-checkpoint@1.1.5
++-- @langchain/langgraph@1.4.17
++-- @langchain/openai@1.5.13
++-- @playwright/test@1.63.0
++-- @radix-ui/react-checkbox@1.3.11
++-- @radix-ui/react-separator@1.1.15
++-- @tailwindcss/postcss@4.3.3
++-- @types/node@22.20.4
++-- @types/pdf-parse@1.1.5
++-- @types/react@19.3.0
++-- class-variance-authority@0.7.1
++-- clsx@2.1.1
++-- concurrently@9.2.4
++-- langchain@1.5.12
++-- lucide-react@0.460.0
++-- next@15.5.26
++-- openai@5.23.2
++-- pdf-parse@1.1.4
++-- postcss@8.5.28
++-- radix-ui@1.6.7
++-- react-dom@19.3.0
++-- react-markdown@10.1.0
++-- react@19.3.0
++-- recharts@2.15.4
++-- remark-gfm@4.0.1
++-- tailwind-merge@2.6.1
++-- tailwindcss@4.3.3
++-- typescript@5.9.3
++-- yaml@2.9.1
+`-- zod@3.25.76
+
+
+## Agent (src/agent)
+$ npm ls @copilotkit/core @langchain/core
+langgraph-typescript-agent@0.0.1 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent
++-- @copilotkit/sdk-js@1.73.3
+| +-- @ag-ui/langgraph@0.0.42 overridden
+| | `-- @langchain/core@1.2.12 deduped
+| `-- @langchain/core@1.2.12 deduped
++-- @langchain/core@1.2.12
++-- @langchain/langgraph-api@1.5.0
+| `-- @langchain/core@1.2.12 deduped
++-- @langchain/langgraph-checkpoint@1.1.5
+| `-- @langchain/core@1.2.12 deduped
++-- @langchain/langgraph-sdk@1.11.2
+| `-- @langchain/core@1.2.12 deduped
++-- @langchain/langgraph@1.4.17
+| `-- @langchain/core@1.2.12 deduped
++-- @langchain/openai@1.5.13
+| `-- @langchain/core@1.2.12 deduped
+`-- langchain@1.5.12
+  `-- @langchain/core@1.2.12 deduped
+
+$ npm ls --all @ag-ui/core @ag-ui/client @ag-ui/langgraph @langchain/langgraph @langchain/langgraph-sdk
+langgraph-typescript-agent@0.0.1 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent
++-- @copilotkit/sdk-js@1.73.3
+| +-- @ag-ui/langgraph@0.0.42 overridden
+| | +-- @ag-ui/client@0.0.59 overridden
+| | | +-- @ag-ui/core@0.0.59 deduped
+| | | +-- @ag-ui/encoder@0.0.59
+| | | | `-- @ag-ui/core@0.0.59 deduped
+| | | `-- @ag-ui/proto@0.0.59
+| | |   `-- @ag-ui/core@0.0.59 deduped
+| | +-- @ag-ui/core@0.0.59 overridden
+| | `-- @langchain/langgraph-sdk@1.11.2 deduped
+| +-- @copilotkit/shared@1.73.3
+| | +-- @ag-ui/a2ui-middleware@0.0.10
+| | | `-- @ag-ui/client@0.0.59 deduped
+| | +-- @ag-ui/client@0.0.59 deduped
+| | `-- @ag-ui/core@0.0.59 deduped
+| `-- @langchain/langgraph@1.4.17 deduped
++-- @langchain/langgraph-api@1.5.0
+| +-- @langchain/langgraph-sdk@1.11.2 deduped
+| `-- @langchain/langgraph@1.4.17 deduped
++-- @langchain/langgraph-sdk@1.11.2
++-- @langchain/langgraph@1.4.17
+| `-- @langchain/langgraph-sdk@1.11.2 deduped
+`-- langchain@1.5.12
+  `-- @langchain/langgraph@1.4.17 deduped
+
+$ npm ls --depth=0
+langgraph-typescript-agent@0.0.1 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent
++-- @copilotkit/sdk-js@1.73.3
++-- @langchain/core@1.2.12
++-- @langchain/langgraph-api@1.5.0
++-- @langchain/langgraph-checkpoint@1.1.5
++-- @langchain/langgraph-cli@1.5.0
++-- @langchain/langgraph-sdk@1.11.2
++-- @langchain/langgraph@1.4.17
++-- @langchain/openai@1.5.13
++-- @types/node@22.20.4
++-- langchain@1.5.12
++-- ts-node@10.9.2
++-- tsx@4.23.15
++-- typescript@5.9.3
+`-- zod@3.25.76
+

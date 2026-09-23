@@ -1,0 +1,2 @@
+$ (showcase/shell-docs) npx tsc --noEmit
+exit=0

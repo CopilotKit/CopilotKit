@@ -1,0 +1,336 @@
+{
+  "integration": "langgraph-typescript",
+  "date": "2026-09-23",
+  "scope": "Local strict AIMock replay (fixture-only, --strict, AIMOCK_STRICT_TURN_INDEX=1) against unpatched published CopilotKit 1.73.3 from the npm registry; LangGraph JS 1.4.17 / API+CLI 1.5.0; default Turbopack dev command. Not a live-provider result.",
+  "raw": {
+    "passed": 39,
+    "failed": 1,
+    "skipped": 0,
+    "incapable": 0,
+    "total": 40,
+    "duration_ms": 165643
+  },
+  "published": {
+    "applicable_units": 40,
+    "passed": 39,
+    "failed": 1,
+    "note": "All 40 execution units map to routed, non-quarantined demos; raw = published."
+  },
+  "policy_excluded_untested": [
+    "gen-ui-interrupt",
+    "interrupt-headless"
+  ],
+  "rerun": {
+    "feature": "mcp-apps",
+    "result": {
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0,
+      "incapable": 0,
+      "total": 1,
+      "duration_ms": 66367
+    }
+  },
+  "logs": {
+    "full": "lgts-d6-full-20260923.log",
+    "rerun": "lgts-d6-rerun-mcp-apps-20260923.log",
+    "stack": "lgts-dev-stack-20260923.log",
+    "aimock": "lgts-aimock-20260923.log"
+  },
+  "checks": [
+    {
+      "feature": "a2ui-recovery",
+      "demo": "a2ui-recovery",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 9500
+    },
+    {
+      "feature": "agent-config",
+      "demo": "agent-config",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 33212
+    },
+    {
+      "feature": "agentic-chat",
+      "demo": "agentic-chat",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 14962
+    },
+    {
+      "feature": "auth",
+      "demo": "auth",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 54590
+    },
+    {
+      "feature": "beautiful-chat-bar-chart",
+      "demo": "beautiful-chat",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 12399
+    },
+    {
+      "feature": "beautiful-chat-pie-chart",
+      "demo": "beautiful-chat",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 12602
+    },
+    {
+      "feature": "beautiful-chat-schedule-meeting",
+      "demo": "beautiful-chat",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 5688
+    },
+    {
+      "feature": "beautiful-chat-search-flights",
+      "demo": "beautiful-chat",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 14050
+    },
+    {
+      "feature": "beautiful-chat-toggle-theme",
+      "demo": "beautiful-chat",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 10042
+    },
+    {
+      "feature": "byoc",
+      "demo": "declarative-hashbrown (declarative-json-render deduplicated, not navigated)",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 10363
+    },
+    {
+      "feature": "chat-css",
+      "demo": "chat-customization-css",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 5953
+    },
+    {
+      "feature": "chat-slots",
+      "demo": "chat-slots",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 6411
+    },
+    {
+      "feature": "frontend-tools",
+      "demo": "frontend-tools",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 17526
+    },
+    {
+      "feature": "frontend-tools-async",
+      "demo": "frontend-tools-async",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 9798
+    },
+    {
+      "feature": "gen-ui-a2ui-fixed",
+      "demo": "a2ui-fixed-schema",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 8685
+    },
+    {
+      "feature": "gen-ui-agent",
+      "demo": "gen-ui-agent",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 17950
+    },
+    {
+      "feature": "gen-ui-custom",
+      "demo": "gen-ui-tool-based",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 8136
+    },
+    {
+      "feature": "gen-ui-declarative",
+      "demo": "declarative-gen-ui",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 13674
+    },
+    {
+      "feature": "gen-ui-headless-complete",
+      "demo": "headless-complete",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 25914
+    },
+    {
+      "feature": "gen-ui-open",
+      "demo": "open-gen-ui",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 18212
+    },
+    {
+      "feature": "gen-ui-open-advanced",
+      "demo": "open-gen-ui-advanced",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 18256
+    },
+    {
+      "feature": "headless-simple",
+      "demo": "headless-simple",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 12918
+    },
+    {
+      "feature": "hitl-approve-deny",
+      "demo": "hitl-in-app",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 10076
+    },
+    {
+      "feature": "hitl-text-input",
+      "demo": "hitl-in-chat",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 9398
+    },
+    {
+      "feature": "mcp-apps",
+      "demo": "mcp-apps",
+      "catalog_disposition": "published",
+      "in_run_retry": {
+        "attempt": 1,
+        "errorClass": "conversation-error"
+      },
+      "pass": false,
+      "duration_ms": 65781,
+      "error": "waitForTurnComplete: turn 1 did not complete within 30000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=true, runStartCount=1)",
+      "rerun": {
+        "in_run_retry": {
+          "attempt": 1,
+          "errorClass": "conversation-error"
+        },
+        "pass": false,
+        "duration_ms": 66024,
+        "error": "waitForTurnComplete: turn 1 did not complete within 30000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=true, runStartCount=1)"
+      }
+    },
+    {
+      "feature": "multimodal",
+      "demo": "multimodal",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 10107
+    },
+    {
+      "feature": "prebuilt-popup",
+      "demo": "prebuilt-popup",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 8531
+    },
+    {
+      "feature": "prebuilt-sidebar",
+      "demo": "prebuilt-sidebar",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 8559
+    },
+    {
+      "feature": "readonly-state-context",
+      "demo": "readonly-state-agent-context",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 8261
+    },
+    {
+      "feature": "reasoning-custom",
+      "demo": "reasoning-custom",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 6204
+    },
+    {
+      "feature": "reasoning-default",
+      "demo": "reasoning-default",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 6534
+    },
+    {
+      "feature": "shared-state-read",
+      "demo": "shared-state-read",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 11295
+    },
+    {
+      "feature": "shared-state-streaming",
+      "demo": "shared-state-streaming",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 14835
+    },
+    {
+      "feature": "shared-state-write",
+      "demo": "shared-state-read-write",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 10545
+    },
+    {
+      "feature": "subagents",
+      "demo": "subagents",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 31241
+    },
+    {
+      "feature": "tool-rendering",
+      "demo": "tool-rendering",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 6619
+    },
+    {
+      "feature": "tool-rendering-custom-catchall",
+      "demo": "tool-rendering-custom-catchall",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 12594
+    },
+    {
+      "feature": "tool-rendering-default-catchall",
+      "demo": "tool-rendering-default-catchall",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 8007
+    },
+    {
+      "feature": "tool-rendering-reasoning-chain",
+      "demo": "tool-rendering-reasoning-chain",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 24512
+    },
+    {
+      "feature": "voice",
+      "demo": "voice",
+      "catalog_disposition": "published",
+      "pass": true,
+      "duration_ms": 4542
+    }
+  ]
+}

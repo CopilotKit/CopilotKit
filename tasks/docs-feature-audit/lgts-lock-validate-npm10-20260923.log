@@ -1,0 +1,18 @@
+# Lock validation with the Docker/CI toolchain major (node v22.16.0, npm 10.9.2); dry runs, no install
+$ cd showcase/integrations/langgraph-typescript && npm ci --dry-run --ignore-scripts --no-audit --no-fund 
+
+added 51 packages in 502ms
+exit=0
+$ cd showcase/integrations/langgraph-typescript && npm ci --dry-run --ignore-scripts --no-audit --no-fund --legacy-peer-deps
+
+added 51 packages in 334ms
+exit=0
+$ cd showcase/integrations/langgraph-typescript/src/agent && npm ci --dry-run --ignore-scripts --no-audit --no-fund 
+
+added 46 packages in 160ms
+exit=0
+$ cd showcase/integrations/langgraph-typescript/src/agent && npm ci --dry-run --ignore-scripts --no-audit --no-fund --legacy-peer-deps
+
+added 46 packages in 146ms
+exit=0
+# npm 10 dry-run 'added N packages' lines list only per-platform optional binaries (@img/sharp-*, @next/swc-*, @tailwindcss/oxide-*, lightningcss-*) that a real install skips on this host; validation (the in-sync check that failed earlier on npm 11) passes.

@@ -1,0 +1,109 @@
+# Single permitted rerun of the one raw failure (same stack, same AIMock process).
+$ AIMOCK_URL_LOCAL=http://127.0.0.1:4410 AIMOCK_URL=http://127.0.0.1:4410 SHOWCASE_LOCAL=1 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true nice -n 10 node_modules/.bin/tsx tasks/docs-feature-audit/run-local-d6.mts langgraph-typescript --demo mcp-apps
+# started Wed Sep 23 20:26:37 UTC 2026
+{"level":"info","msg":"probe.e2e-full.service-start","ts":"2026-09-23T20:26:38.114Z","component":"docs-feature-audit-local-d6","slug":"langgraph-typescript","featureCount":1,"backendUrl":"http://localhost:3101"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=90f57b89-1fa8-4182-b8bd-0f94c6889801 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-90f57b89-1fa8-4182-b8bd-0f94c6889801 error=","ts":"2026-09-23T20:26:38.444Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3101/demos/mcp-apps',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3101/demos/mcp-apps',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-09-23T20:26:38.767Z","component":"docs-feature-audit-local-d6","slug":"langgraph-typescript","featureType":"mcp-apps","hydrated":true,"hydrationMs":26}
+[conversation-runner] starting conversation { totalTurns: 1, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/1 — sending message { inputLength: 80, timeoutMs: 30000 }
+[conversation-runner] turn 1/1 — surface-mount completion armed {
+  testIds: undefined,
+  selectors: [ '[data-testid="mcp-app-iframe"], iframe[sandbox]' ],
+  minNewMounts: 1,
+  baselineSurfaces: { '[data-testid="mcp-app-iframe"], iframe[sandbox]': 0 }
+}
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 80,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/1 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] turn 1/1 — FAILED {
+  errorCategory: 'settle-dom-missing',
+  turnsCompleted: 0,
+  elapsedMs: 32680,
+  bodyTextLength: 139,
+  hasTextarea: true,
+  hasErrorBoundary: false
+}
+{"level":"warn","msg":"probe.e2e-full.runFeature.flap-diagnostics","ts":"2026-09-23T20:27:11.483Z","component":"docs-feature-audit-local-d6","slug":"langgraph-typescript","featureType":"mcp-apps","error":"waitForTurnComplete: turn 1 did not complete within 30000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=true, runStartCount=1)","diagnostics":{"userMsgCount":1,"apiRequestCount":14,"apiRequests":[{"url":"http://localhost:3101/_next/static/chunks/b7fe5_%40copilotkit_shared_dist_1c109430._.js","duration":32,"transferSize":30676,"status":200},{"url":"http://localhost:3101/_next/static/chunks/b7fe5_%40copilotkit_core_dist_index_mjs_ca849080._.js","duration":43,"transferSize":76467,"status":200},{"url":"http://localhost:3101/_next/static/chunks/b7fe5_%40copilotkit_react-core_dist_8439142a._.js","duration":38,"transferSize":2474,"status":200},{"url":"http://localhost:3101/_next/static/chunks/b7fe5_%40copilotkit_react-core_dist_copilotkit-CwVE-0JG_mjs_fcb77189._.js","duration":51,"transferSize":144200,"status":200},{"url":"http://localhost:3101/_next/static/chunks/b7fe5_%40copilotkit_a2ui-renderer_dist_e8b28fce._.js","duration":52,"transferSize":18517,"status":200}],"pageErrors":[],"chatContainerExists":true,"url":"http://localhost:3101/demos/mcp-apps","title":"LangGraph (TypeScript) - MCP Apps","bodyTextSnippet":"Open Excalidraw and sketch a system diagram with a client, server, and database.\nAI can make mistakes. Please verify important information.","assistantMsgCount":0,"consoleLogs":["[warning] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.","[error] Access to fetch at 'https://cdn.copilotkit.ai/announcements.json' from origin 'http://localhost:3101' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: ","[error] Failed to load resource: net::ERR_FAILED","[warning] [CopilotKit Inspector] Failed to load announcement TypeError: Failed to fetch\n    at g.fetch (<anonymous>:88:31)\n    at WebInspectorElement.fetchAnnouncement (http://localhost:3101/_next/static/chunks","[error] Failed to load resource: the server responded with a status of 405 (Method Not Allowed)","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3101' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3101' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED"],"requestFailures":["GET https://cdn.copilotkit.ai/announcements.json => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED"]}}
+{"level":"warn","msg":"CVDIAG component=harness-d6 boundary=fixture-match run_id=90f57b89-1fa8-4182-b8bd-0f94c6889801 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=miss test_id=d6-langgraph-typescript-90f57b89-1fa8-4182-b8bd-0f94c6889801 error=waitForTurnComplete: turn 1 did not complete within 30000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=true, runStartCount=1)","ts":"2026-09-23T20:27:11.484Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.feature-retry","ts":"2026-09-23T20:27:11.491Z","component":"docs-feature-audit-local-d6","slug":"langgraph-typescript","featureType":"mcp-apps","attempt":1,"errorClass":"conversation-error","errorDesc":"waitForTurnComplete: turn 1 did not complete within 30000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=true, runStartCount=1)","attempt1DurationMs":33053}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=90f57b89-1fa8-4182-b8bd-0f94c6889801 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-90f57b89-1fa8-4182-b8bd-0f94c6889801 error=","ts":"2026-09-23T20:27:11.493Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3101/demos/mcp-apps',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3101/demos/mcp-apps',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-09-23T20:27:11.725Z","component":"docs-feature-audit-local-d6","slug":"langgraph-typescript","featureType":"mcp-apps","hydrated":true,"hydrationMs":32}
+[conversation-runner] starting conversation { totalTurns: 1, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/1 — sending message { inputLength: 80, timeoutMs: 30000 }
+[conversation-runner] turn 1/1 — surface-mount completion armed {
+  testIds: undefined,
+  selectors: [ '[data-testid="mcp-app-iframe"], iframe[sandbox]' ],
+  minNewMounts: 1,
+  baselineSurfaces: { '[data-testid="mcp-app-iframe"], iframe[sandbox]': 0 }
+}
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 80,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/1 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] turn 1/1 — FAILED {
+  errorCategory: 'settle-dom-missing',
+  turnsCompleted: 0,
+  elapsedMs: 32717,
+  bodyTextLength: 139,
+  hasTextarea: true,
+  hasErrorBoundary: false
+}
+{"level":"warn","msg":"probe.e2e-full.runFeature.flap-diagnostics","ts":"2026-09-23T20:27:44.457Z","component":"docs-feature-audit-local-d6","slug":"langgraph-typescript","featureType":"mcp-apps","error":"waitForTurnComplete: turn 1 did not complete within 30000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=true, runStartCount=1)","diagnostics":{"userMsgCount":1,"apiRequestCount":14,"apiRequests":[{"url":"http://localhost:3101/_next/static/chunks/b7fe5_%40copilotkit_shared_dist_1c109430._.js","duration":25,"transferSize":30676,"status":200},{"url":"http://localhost:3101/_next/static/chunks/b7fe5_%40copilotkit_react-core_dist_8439142a._.js","duration":26,"transferSize":2474,"status":200},{"url":"http://localhost:3101/_next/static/chunks/b7fe5_%40copilotkit_core_dist_index_mjs_ca849080._.js","duration":31,"transferSize":76467,"status":200},{"url":"http://localhost:3101/_next/static/chunks/b7fe5_%40copilotkit_react-core_dist_copilotkit-CwVE-0JG_mjs_fcb77189._.js","duration":39,"transferSize":144200,"status":200},{"url":"http://localhost:3101/_next/static/chunks/b7fe5_%40copilotkit_a2ui-renderer_dist_e8b28fce._.js","duration":40,"transferSize":18517,"status":200}],"pageErrors":[],"chatContainerExists":true,"url":"http://localhost:3101/demos/mcp-apps","title":"LangGraph (TypeScript) - MCP Apps","bodyTextSnippet":"Open Excalidraw and sketch a system diagram with a client, server, and database.\nAI can make mistakes. Please verify important information.","assistantMsgCount":0,"consoleLogs":["[warning] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.","[error] Access to fetch at 'https://cdn.copilotkit.ai/announcements.json' from origin 'http://localhost:3101' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: ","[error] Failed to load resource: net::ERR_FAILED","[warning] [CopilotKit Inspector] Failed to load announcement TypeError: Failed to fetch\n    at g.fetch (<anonymous>:88:31)\n    at WebInspectorElement.fetchAnnouncement (http://localhost:3101/_next/static/chunks","[error] Failed to load resource: the server responded with a status of 405 (Method Not Allowed)","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3101' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3101' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED"],"requestFailures":["GET https://cdn.copilotkit.ai/announcements.json => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED"]}}
+{"level":"warn","msg":"CVDIAG component=harness-d6 boundary=fixture-match run_id=90f57b89-1fa8-4182-b8bd-0f94c6889801 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=miss test_id=d6-langgraph-typescript-90f57b89-1fa8-4182-b8bd-0f94c6889801 error=waitForTurnComplete: turn 1 did not complete within 30000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=true, runStartCount=1)","ts":"2026-09-23T20:27:44.457Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.feature-retry-result","ts":"2026-09-23T20:27:44.462Z","component":"docs-feature-audit-local-d6","slug":"langgraph-typescript","featureType":"mcp-apps","attempt":2,"ok":false,"errorClass":"conversation-error"}
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-09-23T20:27:44.462Z","component":"docs-feature-audit-local-d6","key":"d6:langgraph-typescript/mcp-apps"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-09-23T20:27:44.463Z","component":"docs-feature-audit-local-d6","slug":"langgraph-typescript","featureType":"mcp-apps","pass":false,"errorDesc":"waitForTurnComplete: turn 1 did not complete within 30000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=true, runStartCount=1)","durationMs":66024}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=90f57b89-1fa8-4182-b8bd-0f94c6889801 slug=langgraph-typescript header_present=true header_value_prefix=langgraph-ty hop=- status=ok test_id=d6-langgraph-typescript-90f57b89-1fa8-4182-b8bd-0f94c6889801 error=","ts":"2026-09-23T20:27:44.481Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.service-complete","ts":"2026-09-23T20:27:44.481Z","component":"docs-feature-audit-local-d6","slug":"langgraph-typescript","passed":0,"failed":1,"skipped":0,"incapable":0,"total":1,"state":"red","durationMs":66367}
+{"level":"warn","msg":"probe.e2e-full.aggregate-writer-missing","ts":"2026-09-23T20:27:44.482Z","component":"docs-feature-audit-local-d6","key":"d6:langgraph-typescript"}
+  [31m✗[0m d6:langgraph-typescript [31mred[0m [2m(66.6s)[0m
+    [31mmcp-apps: waitForTurnComplete: turn 1 did not complete within 30000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=true, runStartCount=1)[0m
+{"slug":"langgraph-typescript","results":[{"key":"d6:langgraph-typescript","state":"red","durationMs":66636,"signal":{"shape":"package","slug":"langgraph-typescript","backendUrl":"http://localhost:3101","total":1,"passed":0,"failed":["mcp-apps"],"skipped":[],"failureSummary":"mcp-apps: waitForTurnComplete: turn 1 did not complete within 30000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=true, runStartCount=1)"},"error":"mcp-apps: waitForTurnComplete: turn 1 did not complete within 30000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=true, runStartCount=1)"}]}
+exit=1 wall=67s

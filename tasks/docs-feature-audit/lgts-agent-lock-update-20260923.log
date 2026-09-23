@@ -1,0 +1,52 @@
+$ cd showcase/integrations/langgraph-typescript/src/agent && npm install --package-lock-only --no-audit --no-fund
+Wed Sep 23 20:02:23 UTC 2026
+
+up to date in 3s
+exit=0
+
+# Attempt 1 above resolved electron-to-chromium@1.5.438 (10h) and node-releases@2.0.57 (11.6h), below the 24h floor;
+# npm 11.6.1 ignores .npmrc minimum-release-age. Restored the original lock and re-resolved with an explicit --before
+# just after the @copilotkit 1.73.3 publish (21:46:29Z) so the exempt first-party pins still resolve.
+$ cp <original>/package-lock.json . && npm install --package-lock-only --no-audit --no-fund --before=2026-09-22T21:47:00Z
+Wed Sep 23 20:03:48 UTC 2026
+npm error code ETARGET
+npm error notarget No matching version found for @copilotkit/shared@1.73.3 with a date before 9/22/2026, 2:47:00 PM.
+npm error notarget In most cases you or one of your dependencies are requesting
+npm error notarget a package version that doesn't exist.
+npm error A complete log of this run can be found in: /Users/tylerslaton/.npm/_logs/2026-09-23T20_03_49_037Z-debug-0.log
+exit=1
+
+# Attempt 2 failed: @copilotkit/shared@1.73.3 was published at 21:47:05Z. Latest first-party 1.73.3 publish is web-inspector 21:48:01Z.
+$ cp <original>/package-lock.json . && npm install --package-lock-only --no-audit --no-fund --before=2026-09-22T21:49:00Z
+Wed Sep 23 20:04:19 UTC 2026
+
+up to date in 5s
+exit=0
+
+# npm ci then failed (see lgts-agent-npm-ci-20260923.log: 'Missing: @emnapi/wasi-threads@1.2.3 from lock file').
+# Cause: --package-lock-only does not load bundled deps, and dropped the inBundle @emnapi/core + @emnapi/runtime entries
+# of @tailwindcss/oxide-wasm32-wasi (via @langchain/langgraph-ui). A real install loads bundles and restores them.
+$ SCARF_ANALYTICS=false npm install --no-audit --no-fund --before=2026-09-22T21:49:00Z
+Wed Sep 23 20:06:44 UTC 2026
+
+added 74 packages, removed 8 packages, and changed 14 packages in 1s
+exit=0
+
+# Final: incremental lock-only updates drop inBundle entries (npm 11.6.1 bug); a fresh lock-only resolution records them.
+# Regenerated from scratch, bounded to --before=2026-09-22T21:49:00Z (just after the last @copilotkit 1.73.3 publish); non-first-party
+# packages are then audited individually against the 24h floor (lgts-lock-age-audit-20260923.json).
+$ rm package-lock.json && npm install --package-lock-only --no-audit --no-fund --before=2026-09-22T21:49:00Z
+Wed Sep 23 20:08:50 UTC 2026
+
+up to date in 2s
+exit=0
+
+# FINAL (supersedes the attempts above). A fresh resolution floated @ag-ui/core (and, in the agent, @ag-ui/client) to 1.0.0 through open peer ranges
+# (@copilotkit/shared peer >=0.0.48; @ag-ui/langgraph peer >=0.0.42) while CopilotKit 1.73.3 pins 0.0.59 exactly. Every lock-only mutation of an
+# existing lock (install/dedupe) drops the oxide-wasm32-wasi inBundle entries, so the lock is generated fresh with overrides
+# @ag-ui/core=@ag-ui/client=0.0.59 and with the stale node_modules removed (node_modules otherwise biases resolution and omits resolved/integrity).
+$ rm -rf node_modules package-lock.json && npm install --package-lock-only --no-audit --no-fund --before=2026-09-22T21:49:00Z
+Wed Sep 23 20:11:38 UTC 2026
+
+up to date in 1s
+exit=0

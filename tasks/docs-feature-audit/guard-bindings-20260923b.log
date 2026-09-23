@@ -1,0 +1,147 @@
+
+ RUN  v4.1.7 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs
+
+stdout | src/lib/__tests__/selected-showcase-guide-bindings.test.ts > selected Showcase guides (real docs) > every selected demo binds to an effective guide or a declared exclusion
+Declared unsupported (manifest not_supported_features):
+  langgraph-python:gen-ui-interrupt
+  langgraph-python:interrupt-headless
+  langgraph-typescript:gen-ui-interrupt
+  langgraph-typescript:interrupt-headless
+  strands:shared-state-streaming
+  built-in-agent:tool-rendering-reasoning-chain
+  built-in-agent:shared-state-streaming
+  built-in-agent:gen-ui-interrupt
+  built-in-agent:interrupt-headless
+Reviewed exclusions (SELECTED_GUIDE_EXCLUSIONS):
+  langgraph-python:beautiful-chat: Flagship multi-feature starter demo (A2UI, open generative UI, canvas, charts, theming, and MCP Apps where configured); each constituent feature has its own guide, and no single feature guide should embed it.
+  langgraph-typescript:beautiful-chat: Flagship multi-feature starter demo (A2UI, open generative UI, canvas, charts, theming, and MCP Apps where configured); each constituent feature has its own guide, and no single feature guide should embed it.
+  google-adk:beautiful-chat: Flagship multi-feature starter demo (A2UI, open generative UI, canvas, charts, theming, and MCP Apps where configured); each constituent feature has its own guide, and no single feature guide should embed it.
+  strands:hitl-in-chat-booking: Deprecated alias of hitl-in-chat: same /demos/hitl-in-chat route and highlight files, already rendered by the Strands interactive guide.
+  strands:hitl: Deprecated original HITL cell routed to the shared root agent, which has no pausing tool; its useHumanInTheLoop pattern is documented by hitl-in-chat. (Strands native interrupts are documented via the /interrupt agent.)
+  strands:beautiful-chat: Flagship multi-feature starter demo (A2UI, open generative UI, canvas, charts, and theming); each constituent feature has its own guide, and no single feature guide should embed it.
+  built-in-agent:agentic-chat: Registry alias: the Built-in Agent agentic-chat docs link targets the framework quickstart, which documents setup rather than this cell's source.
+  built-in-agent:beautiful-chat: Flagship multi-feature starter demo (A2UI, open generative UI, canvas, charts, theming, and MCP Apps where configured); each constituent feature has its own guide, and no single feature guide should embed it.
+
+stderr | src/lib/__tests__/selected-showcase-guide-bindings.test.ts > selected Showcase guides (real docs) > each runnable binding renders its own framework and cell in HTML and Markdown
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="7-24" end (24) exceeds file length (23) for src/app/demos/declarative-json-render/registry.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="42-103" end (103) exceeds file length (101) for src/app/demos/declarative-json-render/json-render-renderer.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+[snippet] lines="10-24" end (24) exceeds file length (22) for src/app/demos/declarative-hashbrown/chat.tsx — clamping.
+
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > guard failure modes (synthetic) > binds a demo whose docs path resolves 1ms
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > guard failure modes (synthetic) > a null docs path fails instead of dropping the cell 0ms
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > guard failure modes (synthetic) > a docs path that resolves to no guide fails 0ms
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > guard failure modes (synthetic) > manifest-unsupported cells and reviewed exclusions are declared, stale exclusions fail 0ms
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > guard failure modes (synthetic) > a guide that renders its own framework and cell passes 0ms
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > guard failure modes (synthetic) > a page that renders a different cell fails 0ms
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > guard failure modes (synthetic) > a snippet pinned to another framework fails 0ms
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > guard failure modes (synthetic) > Markdown that substitutes another framework's code fails 0ms
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > guard failure modes (synthetic) > Markdown skip markers fail 0ms
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > guard failure modes (synthetic) > a "Not supported" notice on a supported binding fails 0ms
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > guard failure modes (synthetic) > a Markdown-only "Not supported" notice fails 0ms
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > guard failure modes (synthetic) > a "Not supported" notice for a declared-unsupported sibling cell is allowed 0ms
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > guard failure modes (synthetic) > a "No Showcase demo" notice for a sibling cell is allowed when Markdown matches 0ms
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > guard failure modes (synthetic) > a "No Showcase demo" notice for the binding's own cell fails 0ms
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > guard failure modes (synthetic) > an HTML-only "No Showcase demo" notice fails 0ms
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > guard failure modes (synthetic) > an HTML warning box fails even when Markdown looks fine 0ms
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > guard failure modes (synthetic) > a command-only cell must resolve to its framework's own quickstart 0ms
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > guard failure modes (synthetic page, real renderers) > HTML carriers come from the real Snippet and InlineDemo components 0ms
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > guard failure modes (synthetic page, real renderers) > Markdown marks the missing cell instead of substituting another framework 0ms
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > guard failure modes (synthetic page, real renderers) > the audit reports the missing cell, the pinned foreign snippet, and nothing else 0ms
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > guard failure modes (synthetic page, real renderers) > the audit rejects an unsupported notice the manifest does not declare 0ms
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > guard failure modes (synthetic page, real renderers) > the audit rejects a binding whose cell the page does not render 0ms
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > selected Showcase guides (real docs) > every selected demo binds to an effective guide or a declared exclusion 12ms
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > selected Showcase guides (real docs) > each runnable binding renders its own framework and cell in HTML and Markdown 238ms
+ ✓ src/lib/__tests__/selected-showcase-guide-bindings.test.ts > selected Showcase guides (real docs) > each command-only binding resolves to its framework's own quickstart 13ms
+
+ Test Files  1 passed (1)
+      Tests  25 passed (25)
+   Start at  14:11:47
+   Duration  9.23s (transform 3.64s, setup 0ms, import 8.88s, tests 267ms, environment 0ms)
+

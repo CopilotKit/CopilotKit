@@ -1,0 +1,54 @@
+tsc exit=0
+
+ RUN  v3.2.4 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/harness
+
+ ✓ src/probes/scripts/d5-shared-state-read.test.ts (5 tests) 6ms
+stdout | src/probes/scripts/d5-shared-state.test.ts > d5-shared-state turn 2 invariant (state retention) > FAILS when the response does not contain 'blue' (regression: state lost)
+[d5-shared-state] turn 2 — reading assistant text
+
+stdout | src/probes/scripts/d5-shared-state.test.ts > d5-shared-state turn 2 invariant (state retention) > FAILS when the response does not contain 'blue' (regression: state lost)
+[d5-shared-state] turn 2 — assistant text { textLength: [33m53[39m, expectedTokenCount: [33m1[39m }
+
+stdout | src/probes/scripts/d5-shared-state.test.ts > d5-shared-state turn 2 invariant (state retention) > PASSES when the response contains 'blue'
+[d5-shared-state] turn 2 — reading assistant text
+
+stdout | src/probes/scripts/d5-shared-state.test.ts > d5-shared-state turn 2 invariant (state retention) > PASSES when the response contains 'blue'
+[d5-shared-state] turn 2 — assistant text { textLength: [33m49[39m, expectedTokenCount: [33m1[39m }
+[d5-shared-state] turn 2 — assertion passed
+
+stdout | src/probes/scripts/d5-shared-state.test.ts > d5-shared-state turn 2 invariant (state retention) > FAILS when no assistant message text is found at all
+[d5-shared-state] turn 2 — reading assistant text
+
+ ✓ src/probes/helpers/d5-registry.test.ts (12 tests) 2ms
+stdout | src/probes/scripts/d5-shared-state.test.ts > d5-shared-state turn 2 invariant (state retention) > FAILS when no assistant message text is found at all
+[d5-shared-state] turn 2 — assistant text { textLength: [33m0[39m, expectedTokenCount: [33m1[39m }
+
+stdout | src/probes/scripts/d5-shared-state.test.ts > d5-shared-state turn 1 relevance check > PASSES when response mentions color or blue
+[d5-shared-state] turn 1 — reading assistant text
+
+stdout | src/probes/scripts/d5-shared-state.test.ts > d5-shared-state turn 1 relevance check > PASSES when response mentions color or blue
+[d5-shared-state] turn 1 — assistant text { textLength: [33m55[39m, expectedTokenCount: [33m2[39m }
+[d5-shared-state] turn 1 — assertion passed
+
+stdout | src/probes/scripts/d5-shared-state.test.ts > d5-shared-state turn 1 relevance check > FAILS when response is unrelated (no color/blue mention)
+[d5-shared-state] turn 1 — reading assistant text
+
+stdout | src/probes/scripts/d5-shared-state.test.ts > d5-shared-state turn 1 relevance check > FAILS when response is unrelated (no color/blue mention)
+[d5-shared-state] turn 1 — assistant text { textLength: [33m40[39m, expectedTokenCount: [33m2[39m }
+
+stdout | src/probes/scripts/d5-shared-state.test.ts > d5-shared-state turn 1 relevance check > FAILS when no assistant message text is found at all
+[d5-shared-state] turn 1 — reading assistant text
+
+stdout | src/probes/scripts/d5-shared-state.test.ts > d5-shared-state turn 1 relevance check > FAILS when no assistant message text is found at all
+[d5-shared-state] turn 1 — assistant text { textLength: [33m0[39m, expectedTokenCount: [33m2[39m }
+
+ ✓ src/probes/scripts/d5-shared-state.test.ts (13 tests) 6037ms
+   ✓ d5-shared-state turn 2 invariant (state retention) > FAILS when no assistant message text is found at all  3017ms
+   ✓ d5-shared-state turn 1 relevance check > FAILS when no assistant message text is found at all  3015ms
+
+ Test Files  3 passed (3)
+      Tests  30 passed (30)
+   Start at  14:13:36
+   Duration  6.20s (transform 52ms, setup 0ms, collect 71ms, tests 6.05s, environment 0ms, prepare 74ms)
+
+vitest exit=0
