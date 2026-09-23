@@ -1,0 +1,13 @@
+# DIAGNOSTIC ONLY (throwaway copy; no repository change): same clone-equivalent copy and documented commands as
+# reproduce-lgts-byoc-setup-20260923.sh, plus 'npm install --no-save pdf-parse@1.1.4' (the UI lock's version) before npm run dev,
+# to test whether the missing agent dependency is the only boot blocker.
+Wed Sep 23 20:34:21 UTC 2026
+added 251 packages in 2s
+$ npm install --no-save --no-audit --no-fund pdf-parse@1.1.4
+added 2 packages in 438ms
+GET /ok -> 200 after 3s
+info:    ▪ Starting 10 workers
+info:    ▪ Server running at ::1:8123
+assistants 28 graph structure 200: 28 non-200: []
+exit=0
+# cleanup note: the inline trap exited early (set -e on an already-exited kill); root removed the throwaway copy afterwards and verified no process or 8123 listener remained.

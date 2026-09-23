@@ -1,0 +1,5 @@
+$ bash tasks/docs-feature-audit/reproduce-lgts-byoc-setup.sh   # unchanged 2026-09-13 script (outside this run's edit scope); node v22.16.0, npm 10.9.2
+Wed Sep 23 20:30:43 UTC 2026
+
+added 251 packages in 2s
+exit=0 duration=21s

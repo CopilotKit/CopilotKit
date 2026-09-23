@@ -1,0 +1,29 @@
+$ cd showcase/integrations/langgraph-typescript && npm install --package-lock-only --no-audit --no-fund
+Wed Sep 23 20:02:36 UTC 2026
+
+up to date in 22s
+exit=0
+
+# Attempt 1 passed the 24h audit. Re-resolved from the original lock with the same explicit --before used for the agent for a uniform, reproducible command.
+$ cp <original>/package-lock.json . && npm install --package-lock-only --no-audit --no-fund --before=2026-09-22T21:49:00Z
+Wed Sep 23 20:04:41 UTC 2026
+
+up to date in 12s
+exit=0
+
+# Final: same fresh regeneration as the agent lock (incremental lock-only update had dropped @emnapi/core+runtime inBundle entries).
+$ rm package-lock.json && npm install --package-lock-only --no-audit --no-fund --before=2026-09-22T21:49:00Z
+Wed Sep 23 20:08:52 UTC 2026
+
+up to date in 9s
+exit=0
+
+# FINAL (supersedes the attempts above). A fresh resolution floated @ag-ui/core (and, in the agent, @ag-ui/client) to 1.0.0 through open peer ranges
+# (@copilotkit/shared peer >=0.0.48; @ag-ui/langgraph peer >=0.0.42) while CopilotKit 1.73.3 pins 0.0.59 exactly. Every lock-only mutation of an
+# existing lock (install/dedupe) drops the oxide-wasm32-wasi inBundle entries, so the lock is generated fresh with overrides
+# @ag-ui/core=@ag-ui/client=0.0.59 and with the stale node_modules removed (node_modules otherwise biases resolution and omits resolved/integrity).
+$ rm -rf node_modules package-lock.json && npm install --package-lock-only --no-audit --no-fund --before=2026-09-22T21:49:00Z
+Wed Sep 23 20:11:41 UTC 2026
+
+up to date in 5s
+exit=0

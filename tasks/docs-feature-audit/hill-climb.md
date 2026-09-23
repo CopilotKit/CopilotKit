@@ -3,7 +3,7 @@
 This is the live progress document for repairing the five selected agent integrations in React:
 LangGraph Python, LangGraph JS, Google ADK, Strands, and Built-in Agent.
 
-**Current position: paused at the user’s request. No integration is fully qualified yet.**
+**Current position: active repair (resumed September 23). No integration is fully qualified yet.**
 
 The [per-defect ledger](repair-status.json) tracks all 37 confirmed findings, fix commits,
 after-evidence, and independent reviews. New failures found during repairs use separate `REPAIR-*`
@@ -131,6 +131,12 @@ The [per-guide reader checklist](selected-reader-sanity.md) tracks all 220 basel
 | 34 | REPAIR-018 LangGraph TypeScript BYO prerequisites | The TypeScript quickstart route resolves to the shared Python/uv-only bring-your-own flow | Actual TS Showcase package, graph mapping, and dev command identified; no source or guide repair landed yet | Scoped prerequisite repair active; no temporary-app or matrix qualification |
 | 35 | REPAIR-019 readonly probe classification | Resource POSTs were counted as agent runs in a local readonly capture | Capture now targets agent/run and ignores resources; 10 unit checks plus a real BIA capture are green (`9a56b9b0e8`) | Test-only correction qualified; runtime behavior remains separate |
 | 36 | REPAIR-020 selected multimodal outcome scope | Shared guide promised audio/video behavior while selected cells accept image/PDF and sample only those types | Effective-guide/source audit recorded the mismatch; canonical frontend fanout and scoped content repair pending | Active guide repair; media backends remain unqualified |
+| 37 | Resume and merge current main | Branch 946 commits behind main; local core URL patch required; published 1.71.1 incompatible | Merge `1938c2c754` + `72e0c2de47`; upstream #7064 replaces the branch core patch; published 1.73.3 contains the fix (dist inspected) | Published-package compatibility testable again; matrices pending |
+| 38 | Independent review of 077c596257 Gen UI/source WIP | Unvalidated state-rendering switch, resolver and guard | Switch correct in principle; 5 blocking defects (missing regions for 6 root-page integrations, incomplete backend regions, card drift, Python hard-coded for LGTS, schemas guide overwritten) plus a guard that could pass missing coverage | Back to implementing |
+| 39 | REPAIR-027 Gen UI sources | Root page skipped snippets for 6 integrations; card files drifted; status could stay in progress | `fb2759e69c`: state/backend/wiring regions for 11 integrations, canonical card files, OnRunStatusChanged subscription; drift clean | Runtime proof deferred to matrices |
+| 40 | REPAIR-028/034 voice policy and AIMock upload | Three transcription policies; no strict upload check | `1e6d0d1c50`: one shared service; 7/7 service tests via real `/transcribe`; strict AIMock test 7/7 with the file-content limitation asserted | Mic capture and real transcription unproven; REPAIR-029 runtime 0-byte 500 open |
+| 41 | REPAIR-030/031 guard and Markdown honesty | Markdown substituted foreign code; guard skipped unresolved bindings and always-pass tests | `6728bd0665`, `7ebd428fae`: explicit skip markers; guard HTML+Markdown per snippet; real run RED 127/186 | 59 failing bindings under repair |
+| 42 | REPAIR-032 LangGraph guides and redirects | Python hard-coded for LGTS; schemas guide overwritten; redirect chains | `471f58eed7`, `d14b9af1fc`: URL-driven snippets; read/write at in-app-agent-write; schemas restored; single-hop redirect tests 16/16 | Schemas guide not source-backed |
 
 Subsequent rows must link the defect IDs, commit, command/result or screenshot, remaining failures,
 and next step. Unresolved checks belong here even when another check turns green.
@@ -198,3 +204,11 @@ The audit-owned BIA UI and AIMock were stopped before starting LangGraph TypeScr
 ## Latest pause checkpoint
 
 Paused on September 13 at the user’s request. Audit servers and workers are stopped. See [the restart checkpoint](checkpoint-20260913.md) for verified commits, unfinished source units, exact remaining failures, and restart order. Final BIA replay is 38/38 published checks, with the unshipped raw failure and local SDK patch kept explicit. REPAIR-027 still has a RED selected-guide setup gate; its final state-rendering edit is unvalidated WIP.
+
+## Resume — September 23
+
+- State verified: worktree clean at `077c596257`, equal to the remote; no audit processes running. The unrelated user app on port 3000 is preserved.
+- Main merged (`1938c2c754`). The published @copilotkit/\* 1.73.3 packages include the relative runtime URL fix, so the local core patch is gone and each matrix must now run on unpatched published packages.
+- Dependency survey (2026-09-23): bump @copilotkit/_ to 1.73.3 and drop web-inspector core overrides; keep @ag-ui/_ at 0.0.59 because CopilotKit pins it exactly and AG-UI 1.0 is not yet supported; keep Next 15; bump Python chains as compatible sets; BIA @tanstack/ai 0.35→0.58 requires its own retest. Only versions at least 24 hours old are used, matching the repository supply-chain rule.
+- Guard (real, regenerated data): 186 runnable bindings, **127 pass, 59 fail**. Fixes in progress by guide family.
+- Focused docs checks: 14 files, 199/199. Typecheck clean. The full docs suite has not been rerun yet.

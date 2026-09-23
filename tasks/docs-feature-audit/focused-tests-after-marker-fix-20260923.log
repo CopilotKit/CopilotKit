@@ -1,0 +1,208 @@
+
+ RUN  v4.1.7 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs
+
+ ✓ src/lib/__tests__/ms-agent-python-stable-api.test.ts > renders the stable Microsoft Agent Python API on generative-ui/tool-rendering 136ms
+ ✓ src/lib/__tests__/llm-text.test.ts > keeps langgraph-python overview discovery links in machine-readable output 165ms
+ ✓ src/lib/__tests__/ms-agent-python-stable-api.test.ts > renders the stable Microsoft Agent Python API on frontend-tools 44ms
+ ✓ src/lib/__tests__/ms-agent-python-stable-api.test.ts > renders the stable Microsoft Agent Python API on auth 39ms
+ ✓ src/lib/__tests__/ms-agent-python-stable-api.test.ts > renders the stable Microsoft Agent Python API on human-in-the-loop/tool-based 40ms
+ ✓ src/lib/__tests__/llm-text.test.ts > keeps google-adk overview discovery links in machine-readable output 80ms
+ ✓ src/lib/__tests__/llm-text.test.ts > publishes canonical Angular URLs instead of source-tree URLs 38ms
+ ✓ src/lib/__tests__/ms-agent-python-stable-api.test.ts > renders the stable Microsoft Agent Python API on quickstart 41ms
+ ✓ src/lib/__tests__/ms-agent-python-stable-api.test.ts > renders the stable Microsoft Agent Python API on shared-state/in-app-agent-read 39ms
+ ✓ src/lib/__tests__/ms-agent-python-stable-api.test.ts > renders the stable Microsoft Agent Python API on shared-state/in-app-agent-write 39ms
+ ✓ src/lib/__tests__/llm-text.test.ts > publishes channel connection guides at canonical URLs with the default agent 40ms
+ ✓ src/lib/__tests__/llm-text.test.ts > front-loads the v1 deprecated; use v2 instead warning in agent-facing reference Markdown 1ms
+ ✓ src/lib/__tests__/llm-text.test.ts > publishes the exact visible framework root set in all mode 38ms
+ ✓ src/lib/__tests__/llm-text.test.ts > publishes the exact visible framework root set in content-unique mode 39ms
+ ✓ src/lib/__tests__/ms-agent-python-stable-api.test.ts > renders the current Microsoft Agent Python state-rendering contract 39ms
+ ✓ src/lib/__tests__/ms-agent-python-stable-api.test.ts > keeps the Microsoft Agent Python HITL overview focused on its two patterns 39ms
+ ✓ src/lib/__tests__/ms-agent-python-stable-api.test.ts > renders request-local app context forwarding for Microsoft Agent Python 37ms
+ ✓ src/lib/__tests__/llm-text.test.ts > publishes the complete canonical channel discovery matrix 49ms
+ ✓ src/lib/__tests__/llm-text.test.ts > keeps only content-unique channel guide bodies in the compact corpus 37ms
+ ✓ src/lib/__tests__/llm-text.test.ts > renders selected channel guide axes and scopes prose links 1ms
+ ✓ src/lib/__tests__/llm-text.test.ts > rewrites scoped prose links without changing backtick or tilde fences 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > expands the selected agent setup in channel Markdown output 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > swaps only frontend-specific Runtime code in LLM output 2ms
+ ✓ src/lib/__tests__/llm-text.test.ts > keeps Angular Markdown links inside the Angular surface 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > keeps cross-backend and root-only Markdown links resolvable 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > keeps only the Angular quickstart branch for the selected backend 1ms
+ ✓ src/lib/__tests__/llm-text.test.ts > expands canonical Angular Showcase regions in LLM output 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > publishes Angular-native voice, multimodal, and A2UI guidance 1ms
+ ✓ src/lib/__tests__/llm-text.test.ts > keeps shared backend guidance while expanding Angular source regions 1ms
+ ✓ src/lib/__tests__/llm-text.test.ts > renders a complete programmatic-control example for langgraph-python 1ms
+ ✓ src/lib/__tests__/llm-text.test.ts > renders a complete programmatic-control example for google-adk 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > renders a complete programmatic-control example for strands 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > renders a complete programmatic-control example for claude-sdk-python 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > renders a complete programmatic-control example for claude-sdk-typescript 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > keeps programmatic control on one client-safe React example 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > renders a lifecycle-safe shared-state initializer for langgraph-python 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > renders a lifecycle-safe shared-state initializer for strands 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > renders a lifecycle-safe shared-state initializer for strands-typescript 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > renders a lifecycle-safe shared-state initializer for google-adk 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > renders supported state initialization on the strands-typescript read route 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > renders supported state initialization on the pydantic-ai read route 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > renders executable Claude SDK shared-state wiring on both public routes 2ms
+ ✓ src/lib/__tests__/llm-text.test.ts > publishes both canonical Strands starter commands in LLM text 1ms
+ ✓ src/lib/__tests__/llm-text.test.ts > keeps the shared Claude setup context-neutral for claude-sdk-python/programmatic-control 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > keeps the shared Claude setup context-neutral for claude-sdk-python/headless 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > keeps the shared Claude setup context-neutral for claude-sdk-python/human-in-the-loop/headless 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > keeps the shared Claude setup context-neutral for claude-sdk-typescript/programmatic-control 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > keeps the shared Claude setup context-neutral for claude-sdk-typescript/headless 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > keeps the shared Claude setup context-neutral for claude-sdk-typescript/human-in-the-loop/headless 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > renders the Claude TypeScript SDK/MCP fixed-schema wiring only for that framework 6ms
+ ✓ src/lib/__tests__/llm-text.test.ts > renders executable Claude SDK tool wiring on both tool-rendering routes 1ms
+ ✓ src/lib/__tests__/llm-text.test.ts > renders the Showcase-owned named tool renderer for google-adk 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > renders the Showcase-owned named tool renderer for langgraph-python 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > renders the Showcase-owned named tool renderer for mastra 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > renders executable Deep Agents state streaming in both languages 1ms
+ ✓ src/lib/__tests__/llm-text.test.ts > renders the Google ADK termination setup on generative-ui/state-rendering without leaking internals 2ms
+ ✓ src/lib/__tests__/llm-text.test.ts > renders the Google ADK termination setup on shared-state/streaming without leaking internals 3ms
+ ✓ src/lib/__tests__/llm-text.test.ts > raw Markdown keeps only the active framework's <WhenFrameworkHas> branch 1ms
+ ✓ src/lib/__tests__/llm-text.test.ts > matches the HTML unsupported state in raw Markdown for 'langgraph-python'/'generative-ui/interactive' 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > matches the HTML unsupported state in raw Markdown for 'strands'/'shared-state/streaming' 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > matches the HTML unsupported state in raw Markdown for 'built-in-agent'/'human-in-the-loop/headless' 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > does not fall back to another demo for a no-demo unsupported framework cell 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > keeps the live demo marker for a supported wired framework cell 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > marks a requested framework's missing snippet instead of substituting another framework 1ms
+ ✓ src/lib/__tests__/llm-text.test.ts > marks a requested framework's missing InlineDemo instead of implying a runnable demo 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > honors an explicit framework attribute, as the HTML Snippet does 0ms
+ ✓ src/lib/__tests__/llm-text.test.ts > keeps the preference fallback only for an unscoped render 0ms
+ ✓ src/lib/__tests__/seo-redirects.test.ts > LangGraph redirects > lands legacy shared-state, context, and multi-agent URLs on live guides in one hop 61ms
+ ✓ src/lib/__tests__/seo-redirects.test.ts > LangGraph redirects > never redirects a live LangGraph guide away from itself 27ms
+ ✓ src/lib/__tests__/seo-redirects.test.ts > LangGraph redirects > sends no exact redirect to a LangGraph URL that redirects again 114ms
+ ✓ src/lib/__tests__/seo-redirects.test.ts > seoRedirects > consolidates Conversational Flow URLs under CrewAI 0ms
+ ✓ src/lib/__tests__/seo-redirects.test.ts > seoRedirects > redirects old DeepAgents integration URLs to the framework root 0ms
+ ✓ src/lib/__tests__/seo-redirects.test.ts > seoRedirects > redirects old migration guide slugs to their new pages 0ms
+ ✓ src/lib/__tests__/seo-redirects.test.ts > seoRedirects > redirects the last old docs URLs to their intended shell locations 0ms
+ ✓ src/lib/__tests__/seo-redirects.test.ts > seoRedirects > redirects retired Intelligence observability URLs to overview pages 0ms
+ ✓ src/lib/__tests__/seo-redirects.test.ts > seoRedirects > redirects the moved Intelligence inspector page instead of 404ing 0ms
+ ✓ src/lib/__tests__/seo-redirects.test.ts > seoRedirects > redirects the deleted /direct-to-llm/guides/premium pages to their current equivalents 0ms
+ ✓ src/lib/__tests__/seo-redirects.test.ts > seoRedirects > matches the new exact sources before the premium rename wildcard 2ms
+ ✓ src/lib/__tests__/seo-redirects.test.ts > seoRedirects > serves the Built-in Agent docs at the root: no redirect may capture a bare BIA page URL 0ms
+ ✓ src/lib/__tests__/seo-redirects.test.ts > seoRedirects > points no destination at the retired /built-in-agent prefix 0ms
+ ✓ src/lib/__tests__/seo-redirects.test.ts > seoRedirects > redirects unselected legacy paths directly to root Built-in Agent URLs 1ms
+ ✓ src/lib/__tests__/seo-redirects.test.ts > seoRedirects > matches exact and wildcard redirect source paths 3ms
+ ✓ src/lib/__tests__/seo-redirects.test.ts > seoRedirects > does not match live non-redirect docs paths with similar roots 1ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > keeps React as the full docs surface and routes other frontends to their guides 1ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > maps picker selections across frontend URL shapes 0ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > keeps an active React selection on its current docs page 0ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > keeps the current frontend option active 0ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > keeps mapped channel guides when switching between Slack and Teams 0ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > drops channel guides at each in-app frontend quickstart 0ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > drops in-app topics when switching to a channel frontend 0ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > keeps channel quickstarts and in-app topic transitions coherent 0ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > routes channel roots to Angular's canonical quickstart 0ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > keeps Angular on its frontend quickstart when switching backends 0ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > preserves an Angular backend overview when switching backends 0ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > parses and builds two-axis frontend/backend routes 0ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > maps every non-React frontend to an MDX guide page 3ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > gives Angular native guides plus shared product documentation 33ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > publishes Angular task guides in unscoped and backend-scoped routes 20ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > keeps Angular backend docs in context without a frontend-backend copy tree 18ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > canonicalizes React-only frontend topics to Angular-native task guides 0ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > does not link breadcrumbs for section-only paths 0ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > omits only the generic Docs root from visible guide breadcrumbs 0ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > keeps the sidebar section in nested guide breadcrumbs 0ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > routes frontend sidebars to the most specific reference docs available 0ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > gives Slack and Teams the maintained Channels journey 0ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > builds the exact channel journey beneath every active prefix 0ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > renders docs-catch-up copy only for frontends that still use it 3ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > publishes the Vue generative UI guide as a reachable sidebar page 0ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > links the Vue quickstart to its guide with an href that survives rewriting 0ms
+ ✓ src/lib/__tests__/frontend-options.test.ts > keeps frontends without guides free of an empty Guides section 0ms
+ ✓ src/lib/__tests__/predictive-state-tool-lifecycle.test.ts > publishes a complete Python predictive-state tool lifecycle on langgraph-python/shared-state/predictive-state-updates 62ms
+ ✓ src/lib/__tests__/predictive-state-tool-lifecycle.test.ts > publishes a complete Python predictive-state tool lifecycle on deepagents/shared-state/predictive-state-updates 37ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > publishes the Channels overview only through provider navigation 10ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > publishes only Slack and Teams setup routes 1ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > installs the exact stable Channels SDK pair in both provider quickstarts 0ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > requires Node.js 22 for the managed launcher in both quickstarts 0ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > matches the Runtime URL and lifecycle contract 1ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > matches the current managed Slack manifest and credentials 1ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > documents managed message routing and welcome events 0ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > offers provider-appropriate setup prompts for coding agents 1ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > names which kind of Microsoft bot identity Teams setup creates 0ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > documents provider-scoped identity and per-run Memory 1ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > treats the Intelligence REST and realtime endpoints as separate bases 0ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > publishes the Channels API under Reference instead of provider guides 0ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > documents current continuation, sanitizer, file, and clone contracts 0ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > keeps managed provider selection out of shared SDK declarations 2ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > filters Intelligence setup and credentials to the selected provider 0ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > distinguishes CopilotKit Intelligence selection from runnable topology 0ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > hands off from Intelligence to the provider runtime guide 0ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > shows the Intelligence Channels area before the setup steps 0ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > keeps required environment reads self-contained in provider snippets 0ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > documents native interaction behavior without changing shared APIs 0ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > documents the current provider-specific rich UI and event boundaries 0ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > documents the current Slack and Teams managed file behavior 0ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > separates managed history, SDK persistence, and runtime health 1ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > resumes approvals even when the interaction message cannot be updated 0ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > bounds managed HITL claims to validated framework behavior 0ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > limits managed message refs to the delivery that stamped them 0ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > keeps shared managed identity and state guidance in both variants 0ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > uses the guide labels selected for Slack and Teams navigation 0ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > uses the managed createChannel API throughout maintained pages 2ms
+ ✓ src/lib/__tests__/channels-docs.test.ts > Channels documentation journey > retains no duplicate authored pages behind retired routes 1ms
+ ✓ src/lib/__tests__/selected-showcase-provenance.test.ts > selected Interactive guides use their local HITL demo source 17ms
+ ✓ src/lib/__tests__/selected-showcase-provenance.test.ts > Built-in Agent frontend and tool rendering guides use local Showcase regions 1ms
+ ✓ src/lib/__tests__/selected-showcase-provenance.test.ts > Built-in Agent agent config shows its provider and in-process factory 1ms
+ ✓ src/lib/__tests__/selected-showcase-provenance.test.ts > Built-in Agent MCP Apps guide uses its current runtime configuration 1ms
+ ✓ src/lib/__tests__/selected-showcase-provenance.test.ts > selected Display-only guides render their Showcase component and setup 2ms
+ ✓ src/lib/__tests__/selected-showcase-provenance.test.ts > Built-in Agent Shared State documents the current provider and notes bridge 0ms
+ ✓ src/lib/__tests__/selected-showcase-provenance.test.ts > selected LangGraph Auth routes render complete current runtime excerpts 2ms
+ ✓ src/lib/__tests__/next-config-redirects.test.ts > next.config redirects > keeps /intelligence/channels on the Intelligence page 3ms
+ ✓ src/lib/__tests__/next-config-redirects.test.ts > next.config redirects > does not redirect authored framework-scoped Generative UI component pages 1ms
+ ✓ src/lib/__tests__/next-config-redirects.test.ts > next.config redirects > preserves the legacy Google ADK component URLs through scoped guide redirects 3ms
+ ✓ src/lib/__tests__/next-config-redirects.test.ts > next.config redirects > strips the retired built-in-agent prefix to root URLs 2ms
+ ✓ src/lib/__tests__/next-config-redirects.test.ts > next.config redirects > hands the retired /ag-ui mirror to docs.ag-ui.com 3ms
+ ✓ src/lib/__tests__/next-config-redirects.test.ts > next.config redirects > orders every /ag-ui exception ahead of the catch-all 2ms
+ ✓ src/lib/__tests__/current-v2-authored-guides.test.ts > keeps AG2, Agno, and Mastra frontend-tool guidance on the v2 reference 13ms
+ ✓ src/lib/__tests__/current-v2-authored-guides.test.ts > uses the Showcase-owned named-renderer example in the AG2 guide 1ms
+ ✓ src/lib/__tests__/current-v2-authored-guides.test.ts > uses the running AG2 state publisher and stream setup 0ms
+ ✓ src/lib/__tests__/current-v2-authored-guides.test.ts > uses the AG2 runtime header and server gate for authentication 0ms
+ ✓ src/lib/__tests__/current-v2-authored-guides.test.ts > keeps audited quickstart install commands on current package-manager defaults 0ms
+ ✓ src/lib/__tests__/current-v2-authored-guides.test.ts > gives LangGraph TypeScript a source-backed existing-agent path 3ms
+ ✓ src/lib/__tests__/current-v2-authored-guides.test.ts > limits selected Showcase multimodal claims to images and PDFs 1ms
+ ✓ src/lib/__tests__/current-v2-authored-guides.test.ts > separates the Voice sample-text path from microphone transcription 1ms
+ ✓ src/lib/__tests__/current-v2-authored-guides.test.ts > replaces two LangGraph Python legacy viewer guides with Showcase sources 1ms
+ ✓ src/lib/__tests__/current-v2-authored-guides.test.ts > uses the CrewAI Showcase flow and browser tool for HITL 1ms
+ ✓ src/lib/__tests__/current-v2-authored-guides.test.ts > selects the active Microsoft Agent Framework interactive example 0ms
+ ✓ src/lib/__tests__/current-v2-authored-guides.test.ts > uses the distinct Microsoft Agent Framework A2UI policies 0ms
+ ✓ src/lib/__tests__/current-v2-authored-guides.test.ts > uses the Microsoft Agent Framework steps publisher and public route key 0ms
+ ✓ src/lib/__tests__/current-v2-authored-guides.test.ts > does not present an unavailable Pydantic state-rendering demo as runnable 0ms
+ ✓ src/lib/__tests__/mastra-agent-id-docs.test.ts > includes an id in every Mastra agent on quickstart.mdx 2ms
+ ✓ src/lib/__tests__/mastra-agent-id-docs.test.ts > includes an id in every Mastra agent on generative-ui/tool-rendering.mdx 4ms
+ ✓ src/lib/__tests__/mastra-agent-id-docs.test.ts > includes an id in every Mastra agent on generative-ui/state-rendering.mdx 0ms
+ ✓ src/lib/__tests__/mastra-agent-id-docs.test.ts > includes an id in every Mastra agent on shared-state/in-app-agent-read.mdx 0ms
+ ✓ src/lib/__tests__/mastra-agent-id-docs.test.ts > includes an id in every Mastra agent on shared-state/in-app-agent-write.mdx 0ms
+ ✓ src/lib/__tests__/mastra-agent-id-docs.test.ts > includes an id in every Mastra agent on shared-state/predictive-state-updates.mdx 0ms
+ ✓ src/lib/__tests__/channel-guide-routes.test.ts > channel guide routes > defines the supported frontends and implicit framework 1ms
+ ✓ src/lib/__tests__/channel-guide-routes.test.ts > channel guide routes > keeps the public guide order and source metadata explicit 0ms
+ ✓ src/lib/__tests__/channel-guide-routes.test.ts > channel guide routes > maps every public slug to its source slug and back 0ms
+ ✓ src/lib/__tests__/channel-guide-routes.test.ts > channel guide routes > does not alias unknown or empty paths 0ms
+ ✓ src/lib/__tests__/channel-guide-routes.test.ts > channel guide routes > maps the shared Channels overview to provider-scoped routes 0ms
+ ✓ src/lib/__tests__/channel-guide-routes.test.ts > channel guide routes > normalizes leading, trailing, and repeated slashes 0ms
+ ✓ src/lib/__tests__/channel-guide-routes.test.ts > channel guide routes > builds implicit and selected-backend guide hrefs 0ms
+ ✓ src/lib/__tests__/channel-guide-routes.test.ts > channel guide routes > treats null and undefined frameworks as implicit 0ms
+ ✓ src/lib/__tests__/channel-guide-routes.test.ts > channel guide routes > returns frontend and framework roots for an empty guide slug 0ms
+ ✓ src/lib/__tests__/channel-guide-routes.test.ts > channel guide routes > keeps provider connection guides on explicit child routes 0ms
+ ✓ src/lib/__tests__/channel-guide-routes.test.ts > channel guide route resolution > resolves an implicit framework to built-in agent 0ms
+ ✓ src/lib/__tests__/channel-guide-routes.test.ts > channel guide route resolution > preserves a selected backend in the resolution and canonical path 0ms
+ ✓ src/lib/__tests__/channel-guide-routes.test.ts > channel guide route resolution > collapses an explicit built-in agent segment from the canonical path 0ms
+ ✓ src/lib/__tests__/channel-guide-routes.test.ts > channel guide route resolution > canonicalizes the overview at the provider root 0ms
+ ✓ src/lib/__tests__/channel-guide-routes.test.ts > channel guide route resolution > rejects guides for hidden backends 0ms
+ ✓ src/lib/__tests__/channel-guide-routes.test.ts > channel guide route resolution > rejects unknown guide slugs 0ms
+ ✓ src/lib/__tests__/channel-guide-routes.test.ts > channel guide route resolution > rejects non-channel frontends 0ms
+ ✓ src/lib/__tests__/onboarding-argument-templates.test.ts > onboarding argument templates > pins a version that matches the templates 1ms
+ ✓ src/lib/__tests__/onboarding-argument-templates.test.ts > onboarding argument templates > is twelve hex characters 0ms
+ ✓ src/lib/__tests__/onboarding-argument-templates.test.ts > onboarding argument templates > leaves every value unbound 0ms
+ ✓ src/lib/__tests__/onboarding-argument-templates.test.ts > onboarding argument templates > fills every placeholder it is given 0ms
+ ✓ src/lib/__tests__/onboarding-argument-templates.test.ts > onboarding argument templates > speaks in the developer's voice, matching the base sentence 0ms
+ ✓ src/lib/__tests__/angular-guide-search.test.ts > indexes every Angular task guide at its canonical URL 1ms
+ ✓ src/lib/__tests__/a2ui-fixed-schema-builtin-agent.test.ts > the Built-in Agent fixed-schema guide resolves its inline schema source 5ms
+
+ Test Files  14 passed (14)
+      Tests  199 passed (199)
+   Start at  12:16:39
+   Duration  26.54s (transform 7.17s, setup 0ms, import 46.70s, tests 1.51s, environment 0ms)
+

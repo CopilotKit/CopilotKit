@@ -1,0 +1,1666 @@
+{
+  "totalBindings": 184,
+  "commandOnly": 5,
+  "declaredUnsupported": [
+    "langgraph-python:gen-ui-interrupt",
+    "langgraph-python:interrupt-headless",
+    "langgraph-typescript:gen-ui-interrupt",
+    "langgraph-typescript:interrupt-headless",
+    "strands:shared-state-streaming",
+    "built-in-agent:tool-rendering-reasoning-chain",
+    "built-in-agent:shared-state-streaming",
+    "built-in-agent:gen-ui-interrupt",
+    "built-in-agent:interrupt-headless"
+  ],
+  "excluded": [
+    {
+      "key": "langgraph-python:beautiful-chat",
+      "reason": "Flagship multi-feature starter demo (A2UI, open generative UI, canvas, charts, theming, and MCP Apps where configured); each constituent feature has its own guide, and no single feature guide should embed it."
+    },
+    {
+      "key": "langgraph-typescript:beautiful-chat",
+      "reason": "Flagship multi-feature starter demo (A2UI, open generative UI, canvas, charts, theming, and MCP Apps where configured); each constituent feature has its own guide, and no single feature guide should embed it."
+    },
+    {
+      "key": "google-adk:beautiful-chat",
+      "reason": "Flagship multi-feature starter demo (A2UI, open generative UI, canvas, charts, theming, and MCP Apps where configured); each constituent feature has its own guide, and no single feature guide should embed it."
+    },
+    {
+      "key": "strands:hitl-in-chat-booking",
+      "reason": "Deprecated alias of hitl-in-chat: same /demos/hitl-in-chat route and highlight files, already rendered by the Strands interactive guide."
+    },
+    {
+      "key": "strands:hitl",
+      "reason": "Deprecated original HITL cell routed to the shared root agent, which has no pausing tool; its useHumanInTheLoop pattern is documented by hitl-in-chat. (Strands native interrupts are documented via the /interrupt agent.)"
+    },
+    {
+      "key": "strands:beautiful-chat",
+      "reason": "Flagship multi-feature starter demo (A2UI, open generative UI, canvas, charts, and theming); each constituent feature has its own guide, and no single feature guide should embed it."
+    },
+    {
+      "key": "built-in-agent:agentic-chat",
+      "reason": "Registry alias: the Built-in Agent agentic-chat docs link targets the framework quickstart, which documents setup rather than this cell's source."
+    },
+    {
+      "key": "built-in-agent:beautiful-chat",
+      "reason": "Flagship multi-feature starter demo (A2UI, open generative UI, canvas, charts, theming, and MCP Apps where configured); each constituent feature has its own guide, and no single feature guide should embed it."
+    }
+  ],
+  "collectionFailures": [],
+  "runnable": 179,
+  "pass": 179,
+  "fail": 0,
+  "results": [
+    {
+      "framework": "langgraph-python",
+      "cell": "agentic-chat",
+      "route": "/demos/agentic-chat",
+      "command": null,
+      "slugPath": "prebuilt-components",
+      "contentSlugPath": "prebuilt-components",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "chat-customization-css",
+      "route": "/demos/chat-customization-css",
+      "command": null,
+      "slugPath": "custom-look-and-feel/css",
+      "contentSlugPath": "custom-look-and-feel/css",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "tool-rendering-default-catchall",
+      "route": "/demos/tool-rendering-default-catchall",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "tool-rendering-custom-catchall",
+      "route": "/demos/tool-rendering-custom-catchall",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "frontend-tools",
+      "route": "/demos/frontend-tools",
+      "command": null,
+      "slugPath": "frontend-tools",
+      "contentSlugPath": "frontend-tools",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "frontend-tools-async",
+      "route": "/demos/frontend-tools-async",
+      "command": null,
+      "slugPath": "frontend-tools",
+      "contentSlugPath": "frontend-tools",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "hitl-in-chat",
+      "route": "/demos/hitl-in-chat",
+      "command": null,
+      "slugPath": "generative-ui/your-components/interactive",
+      "contentSlugPath": "integrations/langgraph/generative-ui/your-components/interactive",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "hitl-in-app",
+      "route": "/demos/hitl-in-app",
+      "command": null,
+      "slugPath": "human-in-the-loop",
+      "contentSlugPath": "human-in-the-loop",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "tool-rendering",
+      "route": "/demos/tool-rendering",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "tool-rendering-reasoning-chain",
+      "route": "/demos/tool-rendering-reasoning-chain",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "gen-ui-tool-based",
+      "route": "/demos/gen-ui-tool-based",
+      "command": null,
+      "slugPath": "generative-ui/your-components/display-only",
+      "contentSlugPath": "integrations/langgraph/generative-ui/your-components/display-only",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "gen-ui-agent",
+      "route": "/demos/gen-ui-agent",
+      "command": null,
+      "slugPath": "generative-ui/state-rendering",
+      "contentSlugPath": "generative-ui/state-rendering",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "shared-state-streaming",
+      "route": "/demos/shared-state-streaming",
+      "command": null,
+      "slugPath": "shared-state/predictive-state-updates",
+      "contentSlugPath": "integrations/langgraph/shared-state/predictive-state-updates",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "shared-state-read-write",
+      "route": "/demos/shared-state-read-write",
+      "command": null,
+      "slugPath": "shared-state/in-app-agent-write",
+      "contentSlugPath": "integrations/langgraph/shared-state/in-app-agent-write",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "shared-state-read",
+      "route": "/demos/shared-state-read",
+      "command": null,
+      "slugPath": "shared-state",
+      "contentSlugPath": "shared-state",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "subagents",
+      "route": "/demos/subagents",
+      "command": null,
+      "slugPath": "multi-agent-flows",
+      "contentSlugPath": "integrations/langgraph/multi-agent-flows",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "prebuilt-sidebar",
+      "route": "/demos/prebuilt-sidebar",
+      "command": null,
+      "slugPath": "prebuilt-components/sidebar",
+      "contentSlugPath": "prebuilt-components/sidebar",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "prebuilt-popup",
+      "route": "/demos/prebuilt-popup",
+      "command": null,
+      "slugPath": "prebuilt-components/popup",
+      "contentSlugPath": "prebuilt-components/popup",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "chat-slots",
+      "route": "/demos/chat-slots",
+      "command": null,
+      "slugPath": "custom-look-and-feel/slots",
+      "contentSlugPath": "custom-look-and-feel/slots",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "headless-simple",
+      "route": "/demos/headless-simple",
+      "command": null,
+      "slugPath": "custom-look-and-feel/headless-ui",
+      "contentSlugPath": "custom-look-and-feel/headless-ui",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "headless-complete",
+      "route": "/demos/headless-complete",
+      "command": null,
+      "slugPath": "custom-look-and-feel/headless-ui",
+      "contentSlugPath": "custom-look-and-feel/headless-ui",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "reasoning-default",
+      "route": "/demos/reasoning-default",
+      "command": null,
+      "slugPath": "custom-look-and-feel/reasoning-messages",
+      "contentSlugPath": "custom-look-and-feel/reasoning-messages",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "reasoning-custom",
+      "route": "/demos/reasoning-custom",
+      "command": null,
+      "slugPath": "custom-look-and-feel/reasoning-messages",
+      "contentSlugPath": "custom-look-and-feel/reasoning-messages",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "declarative-gen-ui",
+      "route": "/demos/declarative-gen-ui",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/dynamic-schema",
+      "contentSlugPath": "generative-ui/a2ui/dynamic-schema",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "a2ui-fixed-schema",
+      "route": "/demos/a2ui-fixed-schema",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/fixed-schema",
+      "contentSlugPath": "generative-ui/a2ui/fixed-schema",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "a2ui-recovery",
+      "route": "/demos/a2ui-recovery",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/error-recovery",
+      "contentSlugPath": "generative-ui/a2ui/error-recovery",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "mcp-apps",
+      "route": "/demos/mcp-apps",
+      "command": null,
+      "slugPath": "generative-ui/mcp-apps",
+      "contentSlugPath": "generative-ui/mcp-apps",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "readonly-state-agent-context",
+      "route": "/demos/readonly-state-agent-context",
+      "command": null,
+      "slugPath": "agent-app-context",
+      "contentSlugPath": "integrations/langgraph/agent-app-context",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "declarative-json-render",
+      "route": "/demos/declarative-json-render",
+      "command": null,
+      "slugPath": "generative-ui/json-render",
+      "contentSlugPath": "generative-ui/json-render",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "multimodal",
+      "route": "/demos/multimodal",
+      "command": null,
+      "slugPath": "multimodal-attachments",
+      "contentSlugPath": "multimodal-attachments",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "auth",
+      "route": "/demos/auth",
+      "command": null,
+      "slugPath": "auth",
+      "contentSlugPath": "auth",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "declarative-hashbrown",
+      "route": "/demos/declarative-hashbrown",
+      "command": null,
+      "slugPath": "generative-ui/hashbrown",
+      "contentSlugPath": "generative-ui/hashbrown",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "open-gen-ui",
+      "route": "/demos/open-gen-ui",
+      "command": null,
+      "slugPath": "generative-ui/open-generative-ui",
+      "contentSlugPath": "generative-ui/open-generative-ui",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "open-gen-ui-advanced",
+      "route": "/demos/open-gen-ui-advanced",
+      "command": null,
+      "slugPath": "generative-ui/open-generative-ui",
+      "contentSlugPath": "generative-ui/open-generative-ui",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "voice",
+      "route": "/demos/voice",
+      "command": null,
+      "slugPath": "voice",
+      "contentSlugPath": "voice",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "agent-config",
+      "route": "/demos/agent-config",
+      "command": null,
+      "slugPath": "agent-config",
+      "contentSlugPath": "agent-config",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "agentic-chat",
+      "route": "/demos/agentic-chat",
+      "command": null,
+      "slugPath": "agentic-chat-ui",
+      "contentSlugPath": "agentic-chat-ui",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "chat-customization-css",
+      "route": "/demos/chat-customization-css",
+      "command": null,
+      "slugPath": "custom-look-and-feel/css",
+      "contentSlugPath": "custom-look-and-feel/css",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "tool-rendering-default-catchall",
+      "route": "/demos/tool-rendering-default-catchall",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "tool-rendering-custom-catchall",
+      "route": "/demos/tool-rendering-custom-catchall",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "frontend-tools",
+      "route": "/demos/frontend-tools",
+      "command": null,
+      "slugPath": "frontend-tools",
+      "contentSlugPath": "frontend-tools",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "frontend-tools-async",
+      "route": "/demos/frontend-tools-async",
+      "command": null,
+      "slugPath": "frontend-tools",
+      "contentSlugPath": "frontend-tools",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "hitl-in-chat",
+      "route": "/demos/hitl-in-chat",
+      "command": null,
+      "slugPath": "generative-ui/your-components/interactive",
+      "contentSlugPath": "integrations/langgraph/generative-ui/your-components/interactive",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "hitl-in-app",
+      "route": "/demos/hitl-in-app",
+      "command": null,
+      "slugPath": "human-in-the-loop",
+      "contentSlugPath": "human-in-the-loop",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "tool-rendering",
+      "route": "/demos/tool-rendering",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "tool-rendering-reasoning-chain",
+      "route": "/demos/tool-rendering-reasoning-chain",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "gen-ui-tool-based",
+      "route": "/demos/gen-ui-tool-based",
+      "command": null,
+      "slugPath": "generative-ui/your-components/display-only",
+      "contentSlugPath": "integrations/langgraph/generative-ui/your-components/display-only",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "gen-ui-agent",
+      "route": "/demos/gen-ui-agent",
+      "command": null,
+      "slugPath": "generative-ui/state-rendering",
+      "contentSlugPath": "generative-ui/state-rendering",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "shared-state-streaming",
+      "route": "/demos/shared-state-streaming",
+      "command": null,
+      "slugPath": "shared-state/streaming",
+      "contentSlugPath": "shared-state/streaming",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "shared-state-read-write",
+      "route": "/demos/shared-state-read-write",
+      "command": null,
+      "slugPath": "shared-state",
+      "contentSlugPath": "shared-state",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "shared-state-read",
+      "route": "/demos/shared-state-read",
+      "command": null,
+      "slugPath": "shared-state",
+      "contentSlugPath": "shared-state",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "subagents",
+      "route": "/demos/subagents",
+      "command": null,
+      "slugPath": "multi-agent/subagents",
+      "contentSlugPath": "multi-agent/subagents",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "prebuilt-sidebar",
+      "route": "/demos/prebuilt-sidebar",
+      "command": null,
+      "slugPath": "prebuilt-components/sidebar",
+      "contentSlugPath": "prebuilt-components/sidebar",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "prebuilt-popup",
+      "route": "/demos/prebuilt-popup",
+      "command": null,
+      "slugPath": "prebuilt-components/popup",
+      "contentSlugPath": "prebuilt-components/popup",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "chat-slots",
+      "route": "/demos/chat-slots",
+      "command": null,
+      "slugPath": "custom-look-and-feel/slots",
+      "contentSlugPath": "custom-look-and-feel/slots",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "headless-simple",
+      "route": "/demos/headless-simple",
+      "command": null,
+      "slugPath": "headless",
+      "contentSlugPath": "headless",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "headless-complete",
+      "route": "/demos/headless-complete",
+      "command": null,
+      "slugPath": "headless",
+      "contentSlugPath": "headless",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "reasoning-default",
+      "route": "/demos/reasoning-default",
+      "command": null,
+      "slugPath": "custom-look-and-feel/reasoning-messages",
+      "contentSlugPath": "custom-look-and-feel/reasoning-messages",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "reasoning-custom",
+      "route": "/demos/reasoning-custom",
+      "command": null,
+      "slugPath": "custom-look-and-feel/reasoning-messages",
+      "contentSlugPath": "custom-look-and-feel/reasoning-messages",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "declarative-gen-ui",
+      "route": "/demos/declarative-gen-ui",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/dynamic-schema",
+      "contentSlugPath": "generative-ui/a2ui/dynamic-schema",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "a2ui-fixed-schema",
+      "route": "/demos/a2ui-fixed-schema",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/fixed-schema",
+      "contentSlugPath": "generative-ui/a2ui/fixed-schema",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "a2ui-recovery",
+      "route": "/demos/a2ui-recovery",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/error-recovery",
+      "contentSlugPath": "generative-ui/a2ui/error-recovery",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "mcp-apps",
+      "route": "/demos/mcp-apps",
+      "command": null,
+      "slugPath": "generative-ui/mcp-apps",
+      "contentSlugPath": "generative-ui/mcp-apps",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "readonly-state-agent-context",
+      "route": "/demos/readonly-state-agent-context",
+      "command": null,
+      "slugPath": "shared-state/agent-readonly",
+      "contentSlugPath": "shared-state/agent-readonly",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "declarative-json-render",
+      "route": "/demos/declarative-json-render",
+      "command": null,
+      "slugPath": "generative-ui/json-render",
+      "contentSlugPath": "generative-ui/json-render",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "multimodal",
+      "route": "/demos/multimodal",
+      "command": null,
+      "slugPath": "multimodal-attachments",
+      "contentSlugPath": "multimodal-attachments",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "auth",
+      "route": "/demos/auth",
+      "command": null,
+      "slugPath": "auth",
+      "contentSlugPath": "auth",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "declarative-hashbrown",
+      "route": "/demos/declarative-hashbrown",
+      "command": null,
+      "slugPath": "generative-ui/hashbrown",
+      "contentSlugPath": "generative-ui/hashbrown",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "open-gen-ui",
+      "route": "/demos/open-gen-ui",
+      "command": null,
+      "slugPath": "generative-ui/open-generative-ui",
+      "contentSlugPath": "generative-ui/open-generative-ui",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "open-gen-ui-advanced",
+      "route": "/demos/open-gen-ui-advanced",
+      "command": null,
+      "slugPath": "generative-ui/open-generative-ui",
+      "contentSlugPath": "generative-ui/open-generative-ui",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "voice",
+      "route": "/demos/voice",
+      "command": null,
+      "slugPath": "voice",
+      "contentSlugPath": "voice",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "agent-config",
+      "route": "/demos/agent-config",
+      "command": null,
+      "slugPath": "agent-config",
+      "contentSlugPath": "agent-config",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "agentic-chat",
+      "route": "/demos/agentic-chat",
+      "command": null,
+      "slugPath": "agentic-chat-ui",
+      "contentSlugPath": "agentic-chat-ui",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "chat-customization-css",
+      "route": "/demos/chat-customization-css",
+      "command": null,
+      "slugPath": "custom-look-and-feel/css",
+      "contentSlugPath": "custom-look-and-feel/css",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "tool-rendering-default-catchall",
+      "route": "/demos/tool-rendering-default-catchall",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "tool-rendering-custom-catchall",
+      "route": "/demos/tool-rendering-custom-catchall",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "frontend-tools",
+      "route": "/demos/frontend-tools",
+      "command": null,
+      "slugPath": "frontend-tools",
+      "contentSlugPath": "frontend-tools",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "frontend-tools-async",
+      "route": "/demos/frontend-tools-async",
+      "command": null,
+      "slugPath": "frontend-tools",
+      "contentSlugPath": "frontend-tools",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "hitl-in-chat",
+      "route": "/demos/hitl-in-chat",
+      "command": null,
+      "slugPath": "human-in-the-loop",
+      "contentSlugPath": "human-in-the-loop",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "mcp-apps",
+      "route": "/demos/mcp-apps",
+      "command": null,
+      "slugPath": "generative-ui/mcp-apps",
+      "contentSlugPath": "generative-ui/mcp-apps",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "hitl-in-app",
+      "route": "/demos/hitl-in-app",
+      "command": null,
+      "slugPath": "human-in-the-loop",
+      "contentSlugPath": "human-in-the-loop",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "gen-ui-interrupt",
+      "route": "/demos/gen-ui-interrupt",
+      "command": null,
+      "slugPath": "human-in-the-loop/useInterrupt",
+      "contentSlugPath": "human-in-the-loop/useInterrupt",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "tool-rendering",
+      "route": "/demos/tool-rendering",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "gen-ui-tool-based",
+      "route": "/demos/gen-ui-tool-based",
+      "command": null,
+      "slugPath": "generative-ui/display",
+      "contentSlugPath": "generative-ui/display",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "gen-ui-agent",
+      "route": "/demos/gen-ui-agent",
+      "command": null,
+      "slugPath": "generative-ui/state-rendering",
+      "contentSlugPath": "generative-ui/state-rendering",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "shared-state-read",
+      "route": "/demos/shared-state-read",
+      "command": null,
+      "slugPath": "shared-state",
+      "contentSlugPath": "shared-state",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "shared-state-read-write",
+      "route": "/demos/shared-state-read-write",
+      "command": null,
+      "slugPath": "shared-state",
+      "contentSlugPath": "shared-state",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "shared-state-streaming",
+      "route": "/demos/shared-state-streaming",
+      "command": null,
+      "slugPath": "shared-state/streaming",
+      "contentSlugPath": "shared-state/streaming",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "subagents",
+      "route": "/demos/subagents",
+      "command": null,
+      "slugPath": "multi-agent/subagents",
+      "contentSlugPath": "multi-agent/subagents",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "prebuilt-sidebar",
+      "route": "/demos/prebuilt-sidebar",
+      "command": null,
+      "slugPath": "prebuilt-components/sidebar",
+      "contentSlugPath": "prebuilt-components/sidebar",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "prebuilt-popup",
+      "route": "/demos/prebuilt-popup",
+      "command": null,
+      "slugPath": "prebuilt-components/popup",
+      "contentSlugPath": "prebuilt-components/popup",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "chat-slots",
+      "route": "/demos/chat-slots",
+      "command": null,
+      "slugPath": "custom-look-and-feel/slots",
+      "contentSlugPath": "custom-look-and-feel/slots",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "headless-simple",
+      "route": "/demos/headless-simple",
+      "command": null,
+      "slugPath": "headless",
+      "contentSlugPath": "headless",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "headless-complete",
+      "route": "/demos/headless-complete",
+      "command": null,
+      "slugPath": "headless",
+      "contentSlugPath": "headless",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "reasoning-custom",
+      "route": "/demos/reasoning-custom",
+      "command": null,
+      "slugPath": "custom-look-and-feel/reasoning-messages",
+      "contentSlugPath": "custom-look-and-feel/reasoning-messages",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "reasoning-default",
+      "route": "/demos/reasoning-default",
+      "command": null,
+      "slugPath": "custom-look-and-feel/reasoning-messages",
+      "contentSlugPath": "custom-look-and-feel/reasoning-messages",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "declarative-gen-ui",
+      "route": "/demos/declarative-gen-ui",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/dynamic-schema",
+      "contentSlugPath": "generative-ui/a2ui/dynamic-schema",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "a2ui-fixed-schema",
+      "route": "/demos/a2ui-fixed-schema",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/fixed-schema",
+      "contentSlugPath": "generative-ui/a2ui/fixed-schema",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "a2ui-recovery",
+      "route": "/demos/a2ui-recovery",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/error-recovery",
+      "contentSlugPath": "generative-ui/a2ui/error-recovery",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "readonly-state-agent-context",
+      "route": "/demos/readonly-state-agent-context",
+      "command": null,
+      "slugPath": "shared-state/agent-readonly",
+      "contentSlugPath": "shared-state/agent-readonly",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "tool-rendering-reasoning-chain",
+      "route": "/demos/tool-rendering-reasoning-chain",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "declarative-json-render",
+      "route": "/demos/declarative-json-render",
+      "command": null,
+      "slugPath": "generative-ui/json-render",
+      "contentSlugPath": "generative-ui/json-render",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "multimodal",
+      "route": "/demos/multimodal",
+      "command": null,
+      "slugPath": "multimodal-attachments",
+      "contentSlugPath": "multimodal-attachments",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "auth",
+      "route": "/demos/auth",
+      "command": null,
+      "slugPath": "auth",
+      "contentSlugPath": "auth",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "declarative-hashbrown",
+      "route": "/demos/declarative-hashbrown",
+      "command": null,
+      "slugPath": "generative-ui/hashbrown",
+      "contentSlugPath": "generative-ui/hashbrown",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "open-gen-ui",
+      "route": "/demos/open-gen-ui",
+      "command": null,
+      "slugPath": "generative-ui/open-generative-ui",
+      "contentSlugPath": "generative-ui/open-generative-ui",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "open-gen-ui-advanced",
+      "route": "/demos/open-gen-ui-advanced",
+      "command": null,
+      "slugPath": "generative-ui/open-generative-ui",
+      "contentSlugPath": "generative-ui/open-generative-ui",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "voice",
+      "route": "/demos/voice",
+      "command": null,
+      "slugPath": "voice",
+      "contentSlugPath": "voice",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "agent-config",
+      "route": "/demos/agent-config",
+      "command": null,
+      "slugPath": "agent-config",
+      "contentSlugPath": "agent-config",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "agentic-chat",
+      "route": "/demos/agentic-chat",
+      "command": null,
+      "slugPath": "prebuilt-components",
+      "contentSlugPath": "prebuilt-components",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "chat-customization-css",
+      "route": "/demos/chat-customization-css",
+      "command": null,
+      "slugPath": "custom-look-and-feel/css",
+      "contentSlugPath": "custom-look-and-feel/css",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "prebuilt-sidebar",
+      "route": "/demos/prebuilt-sidebar",
+      "command": null,
+      "slugPath": "prebuilt-components/sidebar",
+      "contentSlugPath": "prebuilt-components/sidebar",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "prebuilt-popup",
+      "route": "/demos/prebuilt-popup",
+      "command": null,
+      "slugPath": "prebuilt-components/popup",
+      "contentSlugPath": "prebuilt-components/popup",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "chat-slots",
+      "route": "/demos/chat-slots",
+      "command": null,
+      "slugPath": "custom-look-and-feel/slots",
+      "contentSlugPath": "custom-look-and-feel/slots",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "headless-simple",
+      "route": "/demos/headless-simple",
+      "command": null,
+      "slugPath": "headless",
+      "contentSlugPath": "headless",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "headless-complete",
+      "route": "/demos/headless-complete",
+      "command": null,
+      "slugPath": "headless",
+      "contentSlugPath": "headless",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "frontend-tools",
+      "route": "/demos/frontend-tools",
+      "command": null,
+      "slugPath": "frontend-tools",
+      "contentSlugPath": "frontend-tools",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "frontend-tools-async",
+      "route": "/demos/frontend-tools-async",
+      "command": null,
+      "slugPath": "frontend-tools",
+      "contentSlugPath": "frontend-tools",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "hitl-in-chat",
+      "route": "/demos/hitl-in-chat",
+      "command": null,
+      "slugPath": "generative-ui/your-components/interactive",
+      "contentSlugPath": "integrations/aws-strands/generative-ui/your-components/interactive",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "hitl-in-app",
+      "route": "/demos/hitl-in-app",
+      "command": null,
+      "slugPath": "human-in-the-loop",
+      "contentSlugPath": "human-in-the-loop",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "tool-rendering",
+      "route": "/demos/tool-rendering",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "tool-rendering-default-catchall",
+      "route": "/demos/tool-rendering-default-catchall",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "tool-rendering-custom-catchall",
+      "route": "/demos/tool-rendering-custom-catchall",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "tool-rendering-reasoning-chain",
+      "route": "/demos/tool-rendering-reasoning-chain",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "gen-ui-agent",
+      "route": "/demos/gen-ui-agent",
+      "command": null,
+      "slugPath": "generative-ui/state-rendering",
+      "contentSlugPath": "generative-ui/state-rendering",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "gen-ui-tool-based",
+      "route": "/demos/gen-ui-tool-based",
+      "command": null,
+      "slugPath": "generative-ui/your-components/display-only",
+      "contentSlugPath": "integrations/aws-strands/generative-ui/your-components/display-only",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "declarative-gen-ui",
+      "route": "/demos/declarative-gen-ui",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/dynamic-schema",
+      "contentSlugPath": "generative-ui/a2ui/dynamic-schema",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "a2ui-fixed-schema",
+      "route": "/demos/a2ui-fixed-schema",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/fixed-schema",
+      "contentSlugPath": "generative-ui/a2ui/fixed-schema",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "a2ui-recovery",
+      "route": "/demos/a2ui-recovery",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/error-recovery",
+      "contentSlugPath": "generative-ui/a2ui/error-recovery",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "shared-state-read-write",
+      "route": "/demos/shared-state-read-write",
+      "command": null,
+      "slugPath": "shared-state",
+      "contentSlugPath": "shared-state",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "shared-state-read",
+      "route": "/demos/shared-state-read",
+      "command": null,
+      "slugPath": "shared-state",
+      "contentSlugPath": "shared-state",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "subagents",
+      "route": "/demos/subagents",
+      "command": null,
+      "slugPath": "multi-agent/subagents",
+      "contentSlugPath": "multi-agent/subagents",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "readonly-state-agent-context",
+      "route": "/demos/readonly-state-agent-context",
+      "command": null,
+      "slugPath": "shared-state/agent-readonly",
+      "contentSlugPath": "shared-state/agent-readonly",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "multimodal",
+      "route": "/demos/multimodal",
+      "command": null,
+      "slugPath": "multimodal-attachments",
+      "contentSlugPath": "multimodal-attachments",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "voice",
+      "route": "/demos/voice",
+      "command": null,
+      "slugPath": "voice",
+      "contentSlugPath": "voice",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "auth",
+      "route": "/demos/auth",
+      "command": null,
+      "slugPath": "auth",
+      "contentSlugPath": "auth",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "agent-config",
+      "route": "/demos/agent-config",
+      "command": null,
+      "slugPath": "agent-config",
+      "contentSlugPath": "agent-config",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "declarative-hashbrown",
+      "route": "/demos/declarative-hashbrown",
+      "command": null,
+      "slugPath": "generative-ui/hashbrown",
+      "contentSlugPath": "generative-ui/hashbrown",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "declarative-json-render",
+      "route": "/demos/declarative-json-render",
+      "command": null,
+      "slugPath": "generative-ui/json-render",
+      "contentSlugPath": "generative-ui/json-render",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "open-gen-ui",
+      "route": "/demos/open-gen-ui",
+      "command": null,
+      "slugPath": "generative-ui/open-generative-ui",
+      "contentSlugPath": "generative-ui/open-generative-ui",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "open-gen-ui-advanced",
+      "route": "/demos/open-gen-ui-advanced",
+      "command": null,
+      "slugPath": "generative-ui/open-generative-ui",
+      "contentSlugPath": "generative-ui/open-generative-ui",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "mcp-apps",
+      "route": "/demos/mcp-apps",
+      "command": null,
+      "slugPath": "generative-ui/mcp-apps",
+      "contentSlugPath": "generative-ui/mcp-apps",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "reasoning-default",
+      "route": "/demos/reasoning-default",
+      "command": null,
+      "slugPath": "custom-look-and-feel/reasoning-messages",
+      "contentSlugPath": "custom-look-and-feel/reasoning-messages",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "reasoning-custom",
+      "route": "/demos/reasoning-custom",
+      "command": null,
+      "slugPath": "custom-look-and-feel/reasoning-messages",
+      "contentSlugPath": "custom-look-and-feel/reasoning-messages",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "gen-ui-interrupt",
+      "route": "/demos/gen-ui-interrupt",
+      "command": null,
+      "slugPath": "human-in-the-loop/useInterrupt",
+      "contentSlugPath": "human-in-the-loop/useInterrupt",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "interrupt-headless",
+      "route": "/demos/interrupt-headless",
+      "command": null,
+      "slugPath": "human-in-the-loop/headless",
+      "contentSlugPath": "human-in-the-loop/headless",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "chat-customization-css",
+      "route": "/demos/chat-customization-css",
+      "command": null,
+      "slugPath": "custom-look-and-feel/css",
+      "contentSlugPath": "custom-look-and-feel/css",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "tool-rendering-default-catchall",
+      "route": "/demos/tool-rendering-default-catchall",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "integrations/built-in-agent/generative-ui/tool-rendering",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "tool-rendering-custom-catchall",
+      "route": "/demos/tool-rendering-custom-catchall",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "integrations/built-in-agent/generative-ui/tool-rendering",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "frontend-tools",
+      "route": "/demos/frontend-tools",
+      "command": null,
+      "slugPath": "frontend-tools",
+      "contentSlugPath": "integrations/built-in-agent/frontend-tools",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "frontend-tools-async",
+      "route": "/demos/frontend-tools-async",
+      "command": null,
+      "slugPath": "frontend-tools",
+      "contentSlugPath": "integrations/built-in-agent/frontend-tools",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "hitl-in-chat",
+      "route": "/demos/hitl-in-chat",
+      "command": null,
+      "slugPath": "generative-ui/your-components/interactive",
+      "contentSlugPath": "integrations/built-in-agent/generative-ui/your-components/interactive",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "hitl-in-app",
+      "route": "/demos/hitl-in-app",
+      "command": null,
+      "slugPath": "human-in-the-loop",
+      "contentSlugPath": "human-in-the-loop",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "tool-rendering",
+      "route": "/demos/tool-rendering",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "integrations/built-in-agent/generative-ui/tool-rendering",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "gen-ui-tool-based",
+      "route": "/demos/gen-ui-tool-based",
+      "command": null,
+      "slugPath": "generative-ui/your-components/display-only",
+      "contentSlugPath": "integrations/built-in-agent/generative-ui/your-components/display-only",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "gen-ui-agent",
+      "route": "/demos/gen-ui-agent",
+      "command": null,
+      "slugPath": "generative-ui/state-rendering",
+      "contentSlugPath": "generative-ui/state-rendering",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "shared-state-read-write",
+      "route": "/demos/shared-state-read-write",
+      "command": null,
+      "slugPath": "integrations/built-in-agent/shared-state",
+      "contentSlugPath": "integrations/built-in-agent/shared-state",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "shared-state-read",
+      "route": "/demos/shared-state-read",
+      "command": null,
+      "slugPath": "shared-state",
+      "contentSlugPath": "integrations/built-in-agent/shared-state",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "subagents",
+      "route": "/demos/subagents",
+      "command": null,
+      "slugPath": "multi-agent/subagents",
+      "contentSlugPath": "multi-agent/subagents",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "prebuilt-sidebar",
+      "route": "/demos/prebuilt-sidebar",
+      "command": null,
+      "slugPath": "prebuilt-components/sidebar",
+      "contentSlugPath": "prebuilt-components/sidebar",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "prebuilt-popup",
+      "route": "/demos/prebuilt-popup",
+      "command": null,
+      "slugPath": "prebuilt-components/popup",
+      "contentSlugPath": "prebuilt-components/popup",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "chat-slots",
+      "route": "/demos/chat-slots",
+      "command": null,
+      "slugPath": "custom-look-and-feel/slots",
+      "contentSlugPath": "integrations/built-in-agent/custom-look-and-feel/slots",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "headless-simple",
+      "route": "/demos/headless-simple",
+      "command": null,
+      "slugPath": "headless",
+      "contentSlugPath": "headless",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "headless-complete",
+      "route": "/demos/headless-complete",
+      "command": null,
+      "slugPath": "headless",
+      "contentSlugPath": "headless",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "reasoning-default",
+      "route": "/demos/reasoning-default",
+      "command": null,
+      "slugPath": "custom-look-and-feel/reasoning-messages",
+      "contentSlugPath": "custom-look-and-feel/reasoning-messages",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "reasoning-custom",
+      "route": "/demos/reasoning-custom",
+      "command": null,
+      "slugPath": "custom-look-and-feel/reasoning-messages",
+      "contentSlugPath": "custom-look-and-feel/reasoning-messages",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "declarative-gen-ui",
+      "route": "/demos/declarative-gen-ui",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/dynamic-schema",
+      "contentSlugPath": "generative-ui/a2ui/dynamic-schema",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "a2ui-fixed-schema",
+      "route": "/demos/a2ui-fixed-schema",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/fixed-schema",
+      "contentSlugPath": "generative-ui/a2ui/fixed-schema",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "a2ui-recovery",
+      "route": "/demos/a2ui-recovery",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/error-recovery",
+      "contentSlugPath": "generative-ui/a2ui/error-recovery",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "mcp-apps",
+      "route": "/demos/mcp-apps",
+      "command": null,
+      "slugPath": "generative-ui/mcp-apps",
+      "contentSlugPath": "integrations/built-in-agent/generative-ui/mcp-apps",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "readonly-state-agent-context",
+      "route": "/demos/readonly-state-agent-context",
+      "command": null,
+      "slugPath": "shared-state/agent-readonly",
+      "contentSlugPath": "shared-state/agent-readonly",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "declarative-json-render",
+      "route": "/demos/declarative-json-render",
+      "command": null,
+      "slugPath": "generative-ui/json-render",
+      "contentSlugPath": "generative-ui/json-render",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "multimodal",
+      "route": "/demos/multimodal",
+      "command": null,
+      "slugPath": "multimodal-attachments",
+      "contentSlugPath": "multimodal-attachments",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "auth",
+      "route": "/demos/auth",
+      "command": null,
+      "slugPath": "auth",
+      "contentSlugPath": "auth",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "declarative-hashbrown",
+      "route": "/demos/declarative-hashbrown",
+      "command": null,
+      "slugPath": "generative-ui/hashbrown",
+      "contentSlugPath": "generative-ui/hashbrown",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "open-gen-ui",
+      "route": "/demos/open-gen-ui",
+      "command": null,
+      "slugPath": "generative-ui/open-generative-ui",
+      "contentSlugPath": "generative-ui/open-generative-ui",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "open-gen-ui-advanced",
+      "route": "/demos/open-gen-ui-advanced",
+      "command": null,
+      "slugPath": "generative-ui/open-generative-ui",
+      "contentSlugPath": "generative-ui/open-generative-ui",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "voice",
+      "route": "/demos/voice",
+      "command": null,
+      "slugPath": "voice",
+      "contentSlugPath": "voice",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "agent-config",
+      "route": "/demos/agent-config",
+      "command": null,
+      "slugPath": "agent-config",
+      "contentSlugPath": "agent-config",
+      "failures": []
+    }
+  ]
+}

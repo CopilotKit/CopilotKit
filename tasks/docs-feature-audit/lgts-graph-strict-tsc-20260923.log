@@ -1,0 +1,6 @@
+$ cd showcase/integrations/langgraph-typescript/src/agent && NODE_OPTIONS=--max-old-space-size=4096 nice -n 10 ./node_modules/.bin/tsc --noEmit --strict --module nodenext --moduleResolution nodenext --target es2022 --skipLibCheck graph.ts
+# (same command as tasks/docs-feature-audit/reproduce-lgts-byoc-setup.sh and the 2026-09-13 checkpoint)
+Version 5.9.3
+Wed Sep 23 20:13:29 UTC 2026
+exit=0 duration=1s
+# scope: Files 1192 / Check time 0.22s (tsc --extendedDiagnostics); includes graph.ts, openai-headers.ts and shared-tools/*.ts

@@ -324,7 +324,7 @@
       "fix_commits": [],
       "after_evidence": [],
       "sanity_review": null,
-      "remaining": "Repair the guide\u2019s ownership example with an instantiated provider or a constructed component, then run the Angular human-in-the-loop route and verify the registration reaches CopilotKit."
+      "remaining": "Repair the guide’s ownership example with an instantiated provider or a constructed component, then run the Angular human-in-the-loop route and verify the registration reaches CopilotKit."
     },
     {
       "id": "CONTENT-GEN-019",
@@ -751,7 +751,7 @@
       "fix_commits": [],
       "after_evidence": [
         "Published copilotkit@4.9.50 previously accepted the exact Rich Threads intent in isolated state; local Intelligence checkout4.9.39 was older and not representative.",
-        "Refreshed isolated public CLI evidence: copilotkit@4.9.60 exits 0 for `onboard start --coding-agent codex --intent add-rich-threads`, emits \u201cAdd Rich Threads to the existing CopilotKit app\u201d, and stops before project work.",
+        "Refreshed isolated public CLI evidence: copilotkit@4.9.60 exits 0 for `onboard start --coding-agent codex --intent add-rich-threads`, emits “Add Rich Threads to the existing CopilotKit app”, and stops before project work.",
         "The exact generic docs shape with a 12-character run id exits 0: `onboard start --run 4960cli00001 --coding-agent codex` returns the same id as `onboarding_run_id` and its generic onboarding plan."
       ],
       "sanity_review": {
@@ -865,21 +865,22 @@
       "id": "REPAIR-011",
       "area": "relative browser runtime URL for single-route Intelligence resources",
       "severity": "high",
-      "stage": "verifying",
+      "stage": "qualified_locally",
       "before_record": "Published core 1.71.0 produces Invalid URL for browser-relative runtime paths in the Built-in Agent reader flow.",
       "fix_commits": [
         "6e7ad99316"
       ],
       "after_evidence": [
         "Core full suite passed 841 checks; uncached publint and attw passed; three patched-local Built-in Agent D6 probes are green. Independent static review cleared browser-relative, absolute URL, and SSR boundaries.",
-        "A fresh registry-only 1.71.1 install reproduces Invalid URL before AIMock/model traffic. The unreleased core repair is absent from current published artifacts; this is a release-availability limit, not a local source-repair failure."
+        "A fresh registry-only 1.71.1 install reproduces Invalid URL before AIMock/model traffic. The unreleased core repair is absent from current published artifacts; this is a release-availability limit, not a local source-repair failure.",
+        "2026-09-23: upstream main shipped the equivalent fix (2f3443192a, #7064; first tag v1.71.2). Published @copilotkit/core 1.73.3 dist/index.mjs contains `new URL(runtimeUrl, baseUrl)`. The branch duplicate 6e7ad99316 was dropped in merge 1938c2c754; packages/ now equals main. The latest-published compatibility block is lifted in principle; the unpatched 1.73.3 runtime matrix still has to run per integration."
       ],
       "sanity_review": {
         "status": "approved_for_scoped_core_change",
         "reviewer": "intelligence_showcase_support",
         "remaining": "No further source repair is required. Keep latest-published compatibility separately release-blocked; any distribution confirmation should consume a freshly packed local artifact, not an opaque node_modules overlay."
       },
-      "remaining": "Local source repair is verified. Current registry 1.71.1 remains release-blocked until it includes the core change; that published limitation does not reopen the local repair or qualify the full Built-in Agent matrix."
+      "remaining": "Run each selected integration's matrix on published 1.73.3 without local patches; record per-integration results."
     },
     {
       "id": "REPAIR-012",
@@ -1002,8 +1003,8 @@
         "f50d3ad853"
       ],
       "after_evidence": [
-        "Authoritative local route capture (`tasks/docs-feature-audit/route-source-check-20260913/index.json`) fetched all five scoped Auth Markdown URLs: each returned 200, contains \u201cStart with the Showcase auth path\u201d, and contains no snippet error marker. The effective source is root `auth.mdx` for all five.",
-        "The root Auth guide\u2019s `auth_pattern=langgraph` gated branch is the selected LangGraph Python/TypeScript variant; `auth_pattern=runtime-onrequest` is the selected Google ADK, Strands, and Built-in Agent variant. The old `integrations/langgraph/auth.mdx` is not an effective selected route source.",
+        "Authoritative local route capture (`tasks/docs-feature-audit/route-source-check-20260913/index.json`) fetched all five scoped Auth Markdown URLs: each returned 200, contains “Start with the Showcase auth path”, and contains no snippet error marker. The effective source is root `auth.mdx` for all five.",
+        "The root Auth guide’s `auth_pattern=langgraph` gated branch is the selected LangGraph Python/TypeScript variant; `auth_pattern=runtime-onrequest` is the selected Google ADK, Strands, and Built-in Agent variant. The old `integrations/langgraph/auth.mdx` is not an effective selected route source.",
         "Working root-auth changes add request-header, provider transport, and onRequest-gate excerpts. Working multimodal changes add the selected attachment configuration and File-to-AttachmentUploadResult adapter; canonical frontend fanout remains source-only until its render contract.",
         "Auth and multimodal source-marker changes do not establish auth-provider or media-backend behavior.",
         "Focused docs validation after the command-only bundle fix: shell-docs pretypecheck passed; selected Auth/REPAIR-018 contracts passed 2 files / 18 tests in 19.32s. This verifies selected Markdown source resolution, not an auth-provider or complete media-backend matrix.",
@@ -1119,14 +1120,18 @@
       "id": "REPAIR-022",
       "area": "HTML/Markdown effective source resolver diverges for generated threads-import",
       "severity": "high",
-      "stage": "implementing",
+      "stage": "verifying",
       "before_record": "Generated HTML and Markdown used different source candidate ordering.",
-      "fix_commits": [],
+      "fix_commits": [
+        "1938c2c754",
+        "6728bd0665"
+      ],
       "after_evidence": [
-        "Unfinished source is explicitly preserved in the September 13 pause checkpoint; see checkpoint-20260913.md."
+        "Unfinished source is explicitly preserved in the September 13 pause checkpoint; see checkpoint-20260913.md.",
+        "2026-09-23: merge adopted upstream docCandidateOrder for HTML page and Markdown route (metadata fix included). The WIP framework-content-resolution.ts had one caller (the guard) and was deleted in 6728bd0665; the guard now uses main's lookup order and the real Snippet/InlineDemo render path. Typecheck clean; 14 focused files 199/199."
       ],
       "sanity_review": null,
-      "remaining": "Shared resolver and derived output guard are unfinished WIP; validate final route parity."
+      "remaining": "Final rendered HTML/Markdown route review on a running docs preview."
     },
     {
       "id": "REPAIR-023",
@@ -1186,13 +1191,208 @@
       "severity": "high",
       "stage": "implementing",
       "before_record": "Actual rendered selected-guide guard found 20 setup-skipped markers and BIA/Strands state-rendering demo failures; root state-rendering used unsupported streaming-state identity.",
-      "fix_commits": [],
+      "fix_commits": [
+        "fb2759e69c",
+        "6728bd0665",
+        "7ebd428fae"
+      ],
       "after_evidence": [
-        "Unfinished source is explicitly preserved in the September 13 pause checkpoint; see checkpoint-20260913.md."
+        "Unfinished source is explicitly preserved in the September 13 pause checkpoint; see checkpoint-20260913.md.",
+        "2026-09-23 independent review of the 077c596257 WIP: the switch to gen-ui-agent is correct in principle (agent owns `steps`; frontend renders via useAgent OnStateChanged; five page.tsx byte-identical). Blocking defects: root page missing regions for 6 other integrations; backend regions omitted state declaration and wiring; card files not canonical (BIA drifted); status could stay inProgress.",
+        "fb2759e69c: regions gen-ui-agent-state/backend/wiring/message-list across 11 integrations; card files canonicalized in showcase/shared/react/demos/gen-ui-agent and synced; canonical page subscribes to OnRunStatusChanged (confirmed stale-status bug). Drift check clean. Runtime value-test deferred to per-framework matrices.",
+        "Strengthened guard (6728bd0665) on regenerated data: 186 runnable bindings, 127 pass, 59 fail — 30 setup-skipped markers (tool-rendering-setup 16, a2ui-fixed-schema-setup 5, programmatic-control-setup 5, subagents-setup 2, human-in-the-loop-setup 1, agent-context-setup 1) and 34 wrong-cell bindings (frontend-tools-async, hitl-in-app, tool-rendering-reasoning-chain, shared-state-read, a2ui-recovery, beautiful-chat, LGP prebuilt-sidebar/popup, Strands hitl variants, BIA chat-slots). No foreign code, HTML/Markdown mismatch or unresolved binding. Logs: guard-bindings-20260923.log, guard-bindings-by-binding-20260923.log.",
+        "2026-09-23 family fixes (tool-rendering 20, A2UI 10, HITL/headless/subagents/context 12, frontend-tools/shared-state/chat 22 bindings) left 7 bindings failing, all proposed exclusions. Independent review approved all 7 (beautiful-chat x5 flagship starter; strands hitl-in-chat-booking deprecated alias; strands hitl deprecated root-agent cell) with reworded reasons, and found REPAIR-035/038/039 plus smaller accuracy fixes. Commit and rerun pending."
       ],
       "sanity_review": null,
-      "remaining": "Central source/setup repairs are unfinished. Last selected-guide guard is RED. Final Gen UI identity/frontend/backend region edit was not validated; review then rerun before qualification."
+      "remaining": "Fix the 59 failing bindings with truthful Showcase-sourced setup fragments/sections or independently reviewed exclusions; then rerun guard to green."
+    },
+    {
+      "id": "REPAIR-028",
+      "area": "Voice transcription routing diverged across selected backends",
+      "severity": "high",
+      "stage": "verifying",
+      "before_record": "LGP/ADK pinned real OpenAI; Strands/BIA inherited OPENAI_BASE_URL (AIMock in docker, whose proxy corrupts audio); LGTS WIP sent audio to AIMock whenever AIMOCK_URL was set. Three policies violated iron rule 3.",
+      "fix_commits": [
+        "1e6d0d1c50"
+      ],
+      "after_evidence": [
+        "One shared GuardedOpenAITranscriptionService (showcase/shared/react/demos/voice/transcription-service.ts, synced to five). Real OpenAI unless OPENAI_TRANSCRIPTION_BASE_URL is set; missing key -> 401 auth_failed; missing audio -> 400; 0-byte rejected before provider call. LGTS voice-transcription-service test 7/7 through the real runtime /transcribe route (3 fail when policy is broken). voice.mdx separates prepared-text sample from mic path and fixes transcribeFile/{text} API errors."
+      ],
+      "sanity_review": null,
+      "remaining": "13 non-selected integrations still inherit OPENAI_BASE_URL; 3 MS agent integrations keep private copies. Service does not forward x-aimock-context. Real mic capture and real OpenAI transcription unproven."
+    },
+    {
+      "id": "REPAIR-029",
+      "area": "Runtime returns 500 for empty transcription uploads",
+      "severity": "medium",
+      "stage": "implementing",
+      "before_record": "packages/runtime handle-transcribe.ts passes 0-byte files to the transcription service; provider errors map to 500. The existing TranscriptionErrors.audioTooShort() (400, AUDIO_TOO_SHORT, already handled by React/Vue chat) is never used. Present on origin/main and published 1.73.3.",
+      "fix_commits": [],
+      "after_evidence": [],
+      "sanity_review": null,
+      "remaining": "Reject size 0 with audioTooShort() after file extraction, add handler test; published packages keep the 500 until a release includes it."
+    },
+    {
+      "id": "REPAIR-030",
+      "area": "Markdown rendering substituted another framework’s code for missing cells",
+      "severity": "high",
+      "stage": "verifying",
+      "before_record": "llm-text.ts pickFramework silently fell back to another framework when fw::cell had no demo; InlineDemo claimed a runnable demo. HTML showed the requested framework only.",
+      "fix_commits": [
+        "6728bd0665"
+      ],
+      "after_evidence": [
+        "Requested framework always wins; missing demos emit `<!-- snippet skipped: no demo for F::cell -->` / `<!-- interactive demo skipped: ... -->`. 43 renders changed: 42 now show explicit markers (deepagents 30, ag2 4, mastra/crewai-crews/agno/llamaindex 2 each); google-adk HITL headless prose now gated by google-adk flags. llm-text.test.ts updated."
+      ],
+      "sanity_review": null,
+      "remaining": "The 42 newly visible gaps belong to non-selected integrations; tracked as follow-ups. Unscoped renders (llms-full.txt, bare slug) keep the preference fallback by design."
+    },
+    {
+      "id": "REPAIR-031",
+      "area": "Guard and authored-guide tests could not fail on missing coverage",
+      "severity": "high",
+      "stage": "verifying",
+      "before_record": "Guard skipped null/unresolvable docs paths, never asserted binding cell/framework, read only Markdown and ignored Not-supported notices; one test always passed; authored-guide and provenance tests asserted the HTML-only \"Missing snippet\" string against Markdown.",
+      "fix_commits": [
+        "6728bd0665",
+        "7ebd428fae"
+      ],
+      "after_evidence": [
+        "19 synthetic failure-mode tests (null path, wrong cell, foreign snippet, skip marker, unexpected notice, HTML/Markdown mismatch) pass; real guard now RED 59/186 (REPAIR-027). Provenance (8) and a2ui (1) assertions now use the real Markdown marker."
+      ],
+      "sanity_review": null,
+      "remaining": "Reviewed exclusions must stay minimal and printed."
+    },
+    {
+      "id": "REPAIR-032",
+      "area": "LangGraph read/write guide overwrote Input/Output Schemas guide; redirect chains",
+      "severity": "high",
+      "stage": "verifying",
+      "before_record": "077c596257 WIP replaced state-inputs-outputs (schemas) with read/write content, hard-coded framework=\"langgraph-python\" (LGTS readers got Python), docs-links pointed at a redirected URL, D9 became two hops.",
+      "fix_commits": [
+        "471f58eed7",
+        "d14b9af1fc"
+      ],
+      "after_evidence": [
+        "Snippets framework-neutral for LGP/LGTS/fastapi; read/write moved to in-app-agent-write; schemas guide restored (not source-backed: no Showcase example); redirects single-hop with new tests (16/16)."
+      ],
+      "sanity_review": null,
+      "remaining": "state-inputs-outputs remains hand-written (no Showcase source); workflow-execution.mdx is an unlisted duplicate with a TS bug; LangGraph sidebar omits shared-state/* and multi-agent-flows; L7/L11/S14 redirects target non-rendering URLs."
+    },
+    {
+      "id": "REPAIR-033",
+      "area": "@copilotkit/voice bundles openai v5 while Built-in Agent uses v6",
+      "severity": "low",
+      "stage": "investigating",
+      "before_record": "@copilotkit/voice 1.73.3 depends on openai ^5.9.0 (regular dependency); BIA pins openai ^6.49.0, producing a type error now visible in the shared transcription service (builds ignore type errors).",
+      "fix_commits": [],
+      "after_evidence": [],
+      "sanity_review": null,
+      "remaining": "Avoid passing an OpenAI client across the package boundary, or align versions; verify with BIA typecheck."
+    },
+    {
+      "id": "REPAIR-034",
+      "area": "AIMock cannot verify transcription upload content",
+      "severity": "medium",
+      "stage": "verifying",
+      "before_record": "Strict AIMock audio-upload verification was never implemented.",
+      "fix_commits": [
+        "1e6d0d1c50"
+      ],
+      "after_evidence": [
+        "showcase/scripts/__tests__/aimock-voice-transcription.test.ts runs one strict AIMock (8,632 fixtures): valid context -> transcript; missing/wrong context or model -> 503 no_fixture_match (7/7). AIMock 1.37.4 matches only endpoint/model/context header, never file bytes; non-audio/empty/missing file with the right context still returns the transcript, asserted as a known limitation so the test flips if AIMock gains file matching."
+      ],
+      "sanity_review": null,
+      "remaining": "Tooling limitation, not a pass for audio content. Empty/invalid upload handling is proven at the runtime/service layer instead."
+    },
+    {
+      "id": "REPAIR-035",
+      "area": "shared-state-read demo agents never read the UI-published recipe (LGP, LGTS, ADK)",
+      "severity": "high",
+      "stage": "implementing",
+      "before_record": "Independent review 2026-09-23: LGP sample_agent uses CopilotKitMiddleware() with expose_state=False and no recipe key; LGTS starterAgent state holds only proverbs; ADK _simple_chat has no state callback. The D6 fixtures do not depend on the recipe, so the cells stay green while the promised behavior is absent; the new guide test step would fail.",
+      "fix_commits": [],
+      "after_evidence": [],
+      "sanity_review": null,
+      "remaining": "Thin per-framework backend change + discriminating fixture (match only when the edited recipe reaches the model) + D6 red/green on each framework. LGTS deferred until its matrix finishes."
+    },
+    {
+      "id": "REPAIR-036",
+      "area": "Strands beautiful-chat advertises MCP Apps it does not configure",
+      "severity": "low",
+      "stage": "investigating",
+      "before_record": "strands copilotkit-beautiful-chat route has no mcpApps while the shared frontend offers an Excalidraw MCP App suggestion; page comment references a nonexistent src/agents/beautiful_chat.py.",
+      "fix_commits": [],
+      "after_evidence": [],
+      "sanity_review": null,
+      "remaining": "Configure mcpApps or suppress the suggestion for Strands via its fixture/route; fix the stale comment. Cell is excluded from feature guides (flagship starter)."
+    },
+    {
+      "id": "REPAIR-037",
+      "area": "Shared hitl demo and BIA gen-ui-interrupt ship useInterrupt code that never fires",
+      "severity": "low",
+      "stage": "investigating",
+      "before_record": "The shared hitl page (≈17 integrations) includes a useInterrupt block; for Strands the cell routes to the root agent with no pausing tool. BIA gen-ui-interrupt uses useInterrupt but no BIA backend emits interrupts, despite the manifest comment.",
+      "fix_commits": [],
+      "after_evidence": [],
+      "sanity_review": null,
+      "remaining": "Fix in the canonical shared source (or retire the deprecated cell), not per integration; correct the BIA manifest claim."
+    },
+    {
+      "id": "REPAIR-038",
+      "area": "LGTS gen-ui-agent region duplicated and exposes a private helper",
+      "severity": "high",
+      "stage": "implementing",
+      "before_record": "fb2759e69c declared gen-ui-agent-wiring twice in src/agent/gen-ui-agent.ts; the second part publishes makeChatOpenAI(config), which the public-model rule forbids; langgraph-typescript-doc-regions cannot load. tool-rendering-bind-tools has the same leak.",
+      "fix_commits": [],
+      "after_evidence": [],
+      "sanity_review": null,
+      "remaining": "One contiguous public region with new ChatOpenAI and a showcaseGraph outside the region wired in langgraph.json; narrow tool-rendering-bind-tools; extend the public-only test to tool-rendering and A2UI; teach the test multi-part regions. Deferred until the LGTS matrix completes, then rerun gen-ui-agent and tool-rendering cells."
+    },
+    {
+      "id": "REPAIR-039",
+      "area": "InlineDemo embeds nonexistent demos for integrations without a Showcase cell",
+      "severity": "medium",
+      "stage": "implementing",
+      "before_record": "InlineDemo shows the not-supported box only for `unsupported`; `unshipped` embeds a missing /demos/<cell> URL and \"Missing demo source\" on error-recovery, hashbrown, json-render and reasoning pages.",
+      "fix_commits": [],
+      "after_evidence": [],
+      "sanity_review": null,
+      "remaining": "Neutral \"No Showcase demo yet\" notice in HTML and Markdown without declaring the feature unsupported; selected-five bindings must still fail when their own demo is missing."
+    },
+    {
+      "id": "REPAIR-040",
+      "area": "tool-rendering-reasoning-chain page is 21 per-integration copies, not a shared canonical",
+      "severity": "low",
+      "stage": "investigating",
+      "before_record": "Region markers were added identically to 21 copies; iron rule 2 expects one canonical synced source.",
+      "fix_commits": [],
+      "after_evidence": [],
+      "sanity_review": null,
+      "remaining": "Canonicalize into showcase/shared/react/demos/ and register in sync-shared-frontends.ts."
+    },
+    {
+      "id": "REPAIR-041",
+      "area": "BIA subagent delegation log may reset each run (plausible)",
+      "severity": "medium",
+      "stage": "investigating",
+      "before_record": "Reported by the HITL agent: BIA delegation list starts empty per run, so a second turn may wipe earlier delegation entries.",
+      "fix_commits": [],
+      "after_evidence": [],
+      "sanity_review": null,
+      "remaining": "Verify in the BIA matrix with a two-turn check; fix in the factory if confirmed."
+    },
+    {
+      "id": "REPAIR-042",
+      "area": "LangGraph end-of-run snapshot may drop undeclared UI state keys (plausible)",
+      "severity": "medium",
+      "stage": "investigating",
+      "before_record": "Reported by the chat/state agent: the adapter only passes declared state keys and the final snapshot may reset user recipe edits after a run.",
+      "fix_commits": [],
+      "after_evidence": [],
+      "sanity_review": null,
+      "remaining": "Verify with a strict D6 or browser check during the LGP/LGTS matrices before any fix."
     }
   ],
-  "pause_checkpoint": "checkpoint-20260913.md"
+  "pause_checkpoint": "Resumed 2026-09-23; see hill-climb.md \"Resume — September 23\". checkpoint-20260913.md is historical."
 }

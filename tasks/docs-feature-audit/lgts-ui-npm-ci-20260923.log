@@ -1,0 +1,9 @@
+$ cd showcase/integrations/langgraph-typescript && SCARF_ANALYTICS=false nice -n 10 npm ci --no-audit --no-fund
+Wed Sep 23 20:12:35 UTC 2026
+npm warn deprecated hast@1.0.0: Renamed to rehype
+npm warn deprecated lodash.get@4.4.2: This package is deprecated. Use the optional chaining (?.) operator instead.
+npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+npm warn deprecated recharts@2.15.4: 1.x and 2.x branches are no longer active. Bump to Recharts v3 to receive latest features and bugfixes. See https://github.com/recharts/recharts/wiki/3.0-migration-guide
+
+added 930 packages in 7s
+exit=0

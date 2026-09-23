@@ -1,0 +1,1851 @@
+{
+  "totalBindings": 191,
+  "commandOnly": 5,
+  "declaredUnsupported": [
+    "langgraph-python:gen-ui-interrupt",
+    "langgraph-python:interrupt-headless",
+    "langgraph-typescript:gen-ui-interrupt",
+    "langgraph-typescript:interrupt-headless",
+    "strands:shared-state-streaming",
+    "built-in-agent:tool-rendering-reasoning-chain",
+    "built-in-agent:shared-state-streaming",
+    "built-in-agent:gen-ui-interrupt",
+    "built-in-agent:interrupt-headless"
+  ],
+  "excluded": [
+    {
+      "key": "built-in-agent:agentic-chat",
+      "reason": "Registry alias: the Built-in Agent agentic-chat docs link targets the framework quickstart, which documents setup rather than this cell's source."
+    }
+  ],
+  "collectionFailures": [],
+  "results": [
+    {
+      "framework": "langgraph-python",
+      "cell": "agentic-chat",
+      "route": "/demos/agentic-chat",
+      "command": null,
+      "slugPath": "prebuilt-components",
+      "contentSlugPath": "prebuilt-components",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "chat-customization-css",
+      "route": "/demos/chat-customization-css",
+      "command": null,
+      "slugPath": "custom-look-and-feel/css",
+      "contentSlugPath": "custom-look-and-feel/css",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "tool-rendering-default-catchall",
+      "route": "/demos/tool-rendering-default-catchall",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": [
+        "langgraph-python:tool-rendering-default-catchall -> generative-ui/tool-rendering: Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for langgraph-python -->",
+        "langgraph-python:tool-rendering-default-catchall -> generative-ui/tool-rendering: HTML <FrameworkSetup concept=\"tool-rendering-setup\" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for langgraph-python"
+      ]
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "tool-rendering-custom-catchall",
+      "route": "/demos/tool-rendering-custom-catchall",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": [
+        "langgraph-python:tool-rendering-custom-catchall -> generative-ui/tool-rendering: Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for langgraph-python -->",
+        "langgraph-python:tool-rendering-custom-catchall -> generative-ui/tool-rendering: HTML <FrameworkSetup concept=\"tool-rendering-setup\" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for langgraph-python"
+      ]
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "frontend-tools",
+      "route": "/demos/frontend-tools",
+      "command": null,
+      "slugPath": "frontend-tools",
+      "contentSlugPath": "frontend-tools",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "frontend-tools-async",
+      "route": "/demos/frontend-tools-async",
+      "command": null,
+      "slugPath": "frontend-tools",
+      "contentSlugPath": "frontend-tools",
+      "failures": [
+        "langgraph-python:frontend-tools-async -> frontend-tools: renders no langgraph-python::frontend-tools-async Snippet or InlineDemo (page carries: langgraph-python::frontend-tools)"
+      ]
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "hitl-in-chat",
+      "route": "/demos/hitl-in-chat",
+      "command": null,
+      "slugPath": "generative-ui/your-components/interactive",
+      "contentSlugPath": "integrations/langgraph/generative-ui/your-components/interactive",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "hitl-in-app",
+      "route": "/demos/hitl-in-app",
+      "command": null,
+      "slugPath": "frontend-tools",
+      "contentSlugPath": "frontend-tools",
+      "failures": [
+        "langgraph-python:hitl-in-app -> frontend-tools: renders no langgraph-python::hitl-in-app Snippet or InlineDemo (page carries: langgraph-python::frontend-tools)"
+      ]
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "tool-rendering",
+      "route": "/demos/tool-rendering",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": [
+        "langgraph-python:tool-rendering -> generative-ui/tool-rendering: Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for langgraph-python -->",
+        "langgraph-python:tool-rendering -> generative-ui/tool-rendering: HTML <FrameworkSetup concept=\"tool-rendering-setup\" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for langgraph-python"
+      ]
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "tool-rendering-reasoning-chain",
+      "route": "/demos/tool-rendering-reasoning-chain",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": [
+        "langgraph-python:tool-rendering-reasoning-chain -> generative-ui/tool-rendering: Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for langgraph-python -->",
+        "langgraph-python:tool-rendering-reasoning-chain -> generative-ui/tool-rendering: HTML <FrameworkSetup concept=\"tool-rendering-setup\" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for langgraph-python",
+        "langgraph-python:tool-rendering-reasoning-chain -> generative-ui/tool-rendering: renders no langgraph-python::tool-rendering-reasoning-chain Snippet or InlineDemo (page carries: langgraph-python::tool-rendering, langgraph-python::tool-rendering-default-catchall, langgraph-python::tool-rendering-custom-catchall)"
+      ]
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "gen-ui-tool-based",
+      "route": "/demos/gen-ui-tool-based",
+      "command": null,
+      "slugPath": "generative-ui/your-components/display-only",
+      "contentSlugPath": "integrations/langgraph/generative-ui/your-components/display-only",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "gen-ui-agent",
+      "route": "/demos/gen-ui-agent",
+      "command": null,
+      "slugPath": "generative-ui/state-rendering",
+      "contentSlugPath": "generative-ui/state-rendering",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "shared-state-streaming",
+      "route": "/demos/shared-state-streaming",
+      "command": null,
+      "slugPath": "shared-state/predictive-state-updates",
+      "contentSlugPath": "integrations/langgraph/shared-state/predictive-state-updates",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "shared-state-read-write",
+      "route": "/demos/shared-state-read-write",
+      "command": null,
+      "slugPath": "shared-state/in-app-agent-write",
+      "contentSlugPath": "integrations/langgraph/shared-state/in-app-agent-write",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "shared-state-read",
+      "route": "/demos/shared-state-read",
+      "command": null,
+      "slugPath": "shared-state",
+      "contentSlugPath": "shared-state",
+      "failures": [
+        "langgraph-python:shared-state-read -> shared-state: renders no langgraph-python::shared-state-read Snippet or InlineDemo (page carries: langgraph-python::shared-state-read-write, langgraph-python::shared-state-streaming)"
+      ]
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "subagents",
+      "route": "/demos/subagents",
+      "command": null,
+      "slugPath": "multi-agent-flows",
+      "contentSlugPath": "integrations/langgraph/multi-agent-flows",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "prebuilt-sidebar",
+      "route": "/demos/prebuilt-sidebar",
+      "command": null,
+      "slugPath": "prebuilt-components",
+      "contentSlugPath": "prebuilt-components",
+      "failures": [
+        "langgraph-python:prebuilt-sidebar -> prebuilt-components: renders no langgraph-python::prebuilt-sidebar Snippet or InlineDemo (page carries: langgraph-python::agentic-chat)"
+      ]
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "prebuilt-popup",
+      "route": "/demos/prebuilt-popup",
+      "command": null,
+      "slugPath": "prebuilt-components",
+      "contentSlugPath": "prebuilt-components",
+      "failures": [
+        "langgraph-python:prebuilt-popup -> prebuilt-components: renders no langgraph-python::prebuilt-popup Snippet or InlineDemo (page carries: langgraph-python::agentic-chat)"
+      ]
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "chat-slots",
+      "route": "/demos/chat-slots",
+      "command": null,
+      "slugPath": "custom-look-and-feel/slots",
+      "contentSlugPath": "custom-look-and-feel/slots",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "headless-simple",
+      "route": "/demos/headless-simple",
+      "command": null,
+      "slugPath": "custom-look-and-feel/headless-ui",
+      "contentSlugPath": "custom-look-and-feel/headless-ui",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "headless-complete",
+      "route": "/demos/headless-complete",
+      "command": null,
+      "slugPath": "custom-look-and-feel/headless-ui",
+      "contentSlugPath": "custom-look-and-feel/headless-ui",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "reasoning-default",
+      "route": "/demos/reasoning-default",
+      "command": null,
+      "slugPath": "custom-look-and-feel/reasoning-messages",
+      "contentSlugPath": "custom-look-and-feel/reasoning-messages",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "reasoning-custom",
+      "route": "/demos/reasoning-custom",
+      "command": null,
+      "slugPath": "custom-look-and-feel/reasoning-messages",
+      "contentSlugPath": "custom-look-and-feel/reasoning-messages",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "declarative-gen-ui",
+      "route": "/demos/declarative-gen-ui",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/dynamic-schema",
+      "contentSlugPath": "generative-ui/a2ui/dynamic-schema",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "a2ui-fixed-schema",
+      "route": "/demos/a2ui-fixed-schema",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/fixed-schema",
+      "contentSlugPath": "generative-ui/a2ui/fixed-schema",
+      "failures": [
+        "langgraph-python:a2ui-fixed-schema -> generative-ui/a2ui/fixed-schema: Markdown marker <!-- setup skipped: a2ui-fixed-schema-setup is not bundled for langgraph-python -->",
+        "langgraph-python:a2ui-fixed-schema -> generative-ui/a2ui/fixed-schema: HTML <FrameworkSetup concept=\"a2ui-fixed-schema-setup\" />: FrameworkSetup renders nothing: no a2ui-fixed-schema-setup setup is bundled for langgraph-python"
+      ]
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "a2ui-recovery",
+      "route": "/demos/a2ui-recovery",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/dynamic-schema",
+      "contentSlugPath": "generative-ui/a2ui/dynamic-schema",
+      "failures": [
+        "langgraph-python:a2ui-recovery -> generative-ui/a2ui/dynamic-schema: renders no langgraph-python::a2ui-recovery Snippet or InlineDemo (page carries: langgraph-python::declarative-gen-ui)"
+      ]
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "mcp-apps",
+      "route": "/demos/mcp-apps",
+      "command": null,
+      "slugPath": "generative-ui/mcp-apps",
+      "contentSlugPath": "generative-ui/mcp-apps",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "readonly-state-agent-context",
+      "route": "/demos/readonly-state-agent-context",
+      "command": null,
+      "slugPath": "agent-app-context",
+      "contentSlugPath": "integrations/langgraph/agent-app-context",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "declarative-json-render",
+      "route": "/demos/declarative-json-render",
+      "command": null,
+      "slugPath": "generative-ui/json-render",
+      "contentSlugPath": "generative-ui/json-render",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "beautiful-chat",
+      "route": "/demos/beautiful-chat",
+      "command": null,
+      "slugPath": "prebuilt-components",
+      "contentSlugPath": "prebuilt-components",
+      "failures": [
+        "langgraph-python:beautiful-chat -> prebuilt-components: renders no langgraph-python::beautiful-chat Snippet or InlineDemo (page carries: langgraph-python::agentic-chat)"
+      ]
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "multimodal",
+      "route": "/demos/multimodal",
+      "command": null,
+      "slugPath": "multimodal-attachments",
+      "contentSlugPath": "multimodal-attachments",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "auth",
+      "route": "/demos/auth",
+      "command": null,
+      "slugPath": "auth",
+      "contentSlugPath": "auth",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "declarative-hashbrown",
+      "route": "/demos/declarative-hashbrown",
+      "command": null,
+      "slugPath": "generative-ui/hashbrown",
+      "contentSlugPath": "generative-ui/hashbrown",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "open-gen-ui",
+      "route": "/demos/open-gen-ui",
+      "command": null,
+      "slugPath": "generative-ui/open-generative-ui",
+      "contentSlugPath": "generative-ui/open-generative-ui",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "open-gen-ui-advanced",
+      "route": "/demos/open-gen-ui-advanced",
+      "command": null,
+      "slugPath": "generative-ui/open-generative-ui",
+      "contentSlugPath": "generative-ui/open-generative-ui",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "voice",
+      "route": "/demos/voice",
+      "command": null,
+      "slugPath": "voice",
+      "contentSlugPath": "voice",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-python",
+      "cell": "agent-config",
+      "route": "/demos/agent-config",
+      "command": null,
+      "slugPath": "agent-config",
+      "contentSlugPath": "agent-config",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "agentic-chat",
+      "route": "/demos/agentic-chat",
+      "command": null,
+      "slugPath": "agentic-chat-ui",
+      "contentSlugPath": "agentic-chat-ui",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "chat-customization-css",
+      "route": "/demos/chat-customization-css",
+      "command": null,
+      "slugPath": "custom-look-and-feel/css",
+      "contentSlugPath": "custom-look-and-feel/css",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "tool-rendering-default-catchall",
+      "route": "/demos/tool-rendering-default-catchall",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": [
+        "langgraph-typescript:tool-rendering-default-catchall -> generative-ui/tool-rendering: Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for langgraph-typescript -->",
+        "langgraph-typescript:tool-rendering-default-catchall -> generative-ui/tool-rendering: HTML <FrameworkSetup concept=\"tool-rendering-setup\" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for langgraph-typescript"
+      ]
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "tool-rendering-custom-catchall",
+      "route": "/demos/tool-rendering-custom-catchall",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": [
+        "langgraph-typescript:tool-rendering-custom-catchall -> generative-ui/tool-rendering: Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for langgraph-typescript -->",
+        "langgraph-typescript:tool-rendering-custom-catchall -> generative-ui/tool-rendering: HTML <FrameworkSetup concept=\"tool-rendering-setup\" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for langgraph-typescript"
+      ]
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "frontend-tools",
+      "route": "/demos/frontend-tools",
+      "command": null,
+      "slugPath": "frontend-tools",
+      "contentSlugPath": "frontend-tools",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "frontend-tools-async",
+      "route": "/demos/frontend-tools-async",
+      "command": null,
+      "slugPath": "frontend-tools",
+      "contentSlugPath": "frontend-tools",
+      "failures": [
+        "langgraph-typescript:frontend-tools-async -> frontend-tools: renders no langgraph-typescript::frontend-tools-async Snippet or InlineDemo (page carries: langgraph-typescript::frontend-tools)"
+      ]
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "hitl-in-chat",
+      "route": "/demos/hitl-in-chat",
+      "command": null,
+      "slugPath": "generative-ui/your-components/interactive",
+      "contentSlugPath": "integrations/langgraph/generative-ui/your-components/interactive",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "hitl-in-app",
+      "route": "/demos/hitl-in-app",
+      "command": null,
+      "slugPath": "human-in-the-loop",
+      "contentSlugPath": "human-in-the-loop",
+      "failures": [
+        "langgraph-typescript:hitl-in-app -> human-in-the-loop: renders no langgraph-typescript::hitl-in-app Snippet or InlineDemo (page carries: langgraph-typescript::hitl-in-chat, langgraph-typescript::gen-ui-interrupt)"
+      ]
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "tool-rendering",
+      "route": "/demos/tool-rendering",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": [
+        "langgraph-typescript:tool-rendering -> generative-ui/tool-rendering: Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for langgraph-typescript -->",
+        "langgraph-typescript:tool-rendering -> generative-ui/tool-rendering: HTML <FrameworkSetup concept=\"tool-rendering-setup\" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for langgraph-typescript"
+      ]
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "tool-rendering-reasoning-chain",
+      "route": "/demos/tool-rendering-reasoning-chain",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": [
+        "langgraph-typescript:tool-rendering-reasoning-chain -> generative-ui/tool-rendering: Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for langgraph-typescript -->",
+        "langgraph-typescript:tool-rendering-reasoning-chain -> generative-ui/tool-rendering: HTML <FrameworkSetup concept=\"tool-rendering-setup\" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for langgraph-typescript",
+        "langgraph-typescript:tool-rendering-reasoning-chain -> generative-ui/tool-rendering: renders no langgraph-typescript::tool-rendering-reasoning-chain Snippet or InlineDemo (page carries: langgraph-typescript::tool-rendering, langgraph-typescript::tool-rendering-default-catchall, langgraph-typescript::tool-rendering-custom-catchall)"
+      ]
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "gen-ui-tool-based",
+      "route": "/demos/gen-ui-tool-based",
+      "command": null,
+      "slugPath": "generative-ui/your-components/display-only",
+      "contentSlugPath": "integrations/langgraph/generative-ui/your-components/display-only",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "gen-ui-agent",
+      "route": "/demos/gen-ui-agent",
+      "command": null,
+      "slugPath": "generative-ui/state-rendering",
+      "contentSlugPath": "generative-ui/state-rendering",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "shared-state-streaming",
+      "route": "/demos/shared-state-streaming",
+      "command": null,
+      "slugPath": "shared-state/streaming",
+      "contentSlugPath": "shared-state/streaming",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "shared-state-read-write",
+      "route": "/demos/shared-state-read-write",
+      "command": null,
+      "slugPath": "shared-state",
+      "contentSlugPath": "shared-state",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "shared-state-read",
+      "route": "/demos/shared-state-read",
+      "command": null,
+      "slugPath": "shared-state",
+      "contentSlugPath": "shared-state",
+      "failures": [
+        "langgraph-typescript:shared-state-read -> shared-state: renders no langgraph-typescript::shared-state-read Snippet or InlineDemo (page carries: langgraph-typescript::shared-state-read-write, langgraph-typescript::shared-state-streaming)"
+      ]
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "subagents",
+      "route": "/demos/subagents",
+      "command": null,
+      "slugPath": "multi-agent/subagents",
+      "contentSlugPath": "multi-agent/subagents",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "prebuilt-sidebar",
+      "route": "/demos/prebuilt-sidebar",
+      "command": null,
+      "slugPath": "prebuilt-components/sidebar",
+      "contentSlugPath": "prebuilt-components/sidebar",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "prebuilt-popup",
+      "route": "/demos/prebuilt-popup",
+      "command": null,
+      "slugPath": "prebuilt-components/popup",
+      "contentSlugPath": "prebuilt-components/popup",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "chat-slots",
+      "route": "/demos/chat-slots",
+      "command": null,
+      "slugPath": "custom-look-and-feel/slots",
+      "contentSlugPath": "custom-look-and-feel/slots",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "headless-simple",
+      "route": "/demos/headless-simple",
+      "command": null,
+      "slugPath": "headless",
+      "contentSlugPath": "headless",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "headless-complete",
+      "route": "/demos/headless-complete",
+      "command": null,
+      "slugPath": "headless",
+      "contentSlugPath": "headless",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "reasoning-default",
+      "route": "/demos/reasoning-default",
+      "command": null,
+      "slugPath": "custom-look-and-feel/reasoning-messages",
+      "contentSlugPath": "custom-look-and-feel/reasoning-messages",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "reasoning-custom",
+      "route": "/demos/reasoning-custom",
+      "command": null,
+      "slugPath": "custom-look-and-feel/reasoning-messages",
+      "contentSlugPath": "custom-look-and-feel/reasoning-messages",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "declarative-gen-ui",
+      "route": "/demos/declarative-gen-ui",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/dynamic-schema",
+      "contentSlugPath": "generative-ui/a2ui/dynamic-schema",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "a2ui-fixed-schema",
+      "route": "/demos/a2ui-fixed-schema",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/fixed-schema",
+      "contentSlugPath": "generative-ui/a2ui/fixed-schema",
+      "failures": [
+        "langgraph-typescript:a2ui-fixed-schema -> generative-ui/a2ui/fixed-schema: Markdown marker <!-- setup skipped: a2ui-fixed-schema-setup is not bundled for langgraph-typescript -->",
+        "langgraph-typescript:a2ui-fixed-schema -> generative-ui/a2ui/fixed-schema: HTML <FrameworkSetup concept=\"a2ui-fixed-schema-setup\" />: FrameworkSetup renders nothing: no a2ui-fixed-schema-setup setup is bundled for langgraph-typescript"
+      ]
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "a2ui-recovery",
+      "route": "/demos/a2ui-recovery",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/dynamic-schema",
+      "contentSlugPath": "generative-ui/a2ui/dynamic-schema",
+      "failures": [
+        "langgraph-typescript:a2ui-recovery -> generative-ui/a2ui/dynamic-schema: renders no langgraph-typescript::a2ui-recovery Snippet or InlineDemo (page carries: langgraph-typescript::declarative-gen-ui)"
+      ]
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "mcp-apps",
+      "route": "/demos/mcp-apps",
+      "command": null,
+      "slugPath": "generative-ui/mcp-apps",
+      "contentSlugPath": "generative-ui/mcp-apps",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "readonly-state-agent-context",
+      "route": "/demos/readonly-state-agent-context",
+      "command": null,
+      "slugPath": "shared-state/agent-readonly",
+      "contentSlugPath": "shared-state/agent-readonly",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "declarative-json-render",
+      "route": "/demos/declarative-json-render",
+      "command": null,
+      "slugPath": "generative-ui/json-render",
+      "contentSlugPath": "generative-ui/json-render",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "beautiful-chat",
+      "route": "/demos/beautiful-chat",
+      "command": null,
+      "slugPath": "agentic-chat-ui",
+      "contentSlugPath": "agentic-chat-ui",
+      "failures": [
+        "langgraph-typescript:beautiful-chat -> agentic-chat-ui: renders no langgraph-typescript::beautiful-chat Snippet or InlineDemo (page carries: langgraph-typescript::agentic-chat)"
+      ]
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "multimodal",
+      "route": "/demos/multimodal",
+      "command": null,
+      "slugPath": "multimodal-attachments",
+      "contentSlugPath": "multimodal-attachments",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "auth",
+      "route": "/demos/auth",
+      "command": null,
+      "slugPath": "auth",
+      "contentSlugPath": "auth",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "declarative-hashbrown",
+      "route": "/demos/declarative-hashbrown",
+      "command": null,
+      "slugPath": "generative-ui/hashbrown",
+      "contentSlugPath": "generative-ui/hashbrown",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "open-gen-ui",
+      "route": "/demos/open-gen-ui",
+      "command": null,
+      "slugPath": "generative-ui/open-generative-ui",
+      "contentSlugPath": "generative-ui/open-generative-ui",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "open-gen-ui-advanced",
+      "route": "/demos/open-gen-ui-advanced",
+      "command": null,
+      "slugPath": "generative-ui/open-generative-ui",
+      "contentSlugPath": "generative-ui/open-generative-ui",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "voice",
+      "route": "/demos/voice",
+      "command": null,
+      "slugPath": "voice",
+      "contentSlugPath": "voice",
+      "failures": []
+    },
+    {
+      "framework": "langgraph-typescript",
+      "cell": "agent-config",
+      "route": "/demos/agent-config",
+      "command": null,
+      "slugPath": "agent-config",
+      "contentSlugPath": "agent-config",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "agentic-chat",
+      "route": "/demos/agentic-chat",
+      "command": null,
+      "slugPath": "agentic-chat-ui",
+      "contentSlugPath": "agentic-chat-ui",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "chat-customization-css",
+      "route": "/demos/chat-customization-css",
+      "command": null,
+      "slugPath": "custom-look-and-feel/css",
+      "contentSlugPath": "custom-look-and-feel/css",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "tool-rendering-default-catchall",
+      "route": "/demos/tool-rendering-default-catchall",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": [
+        "google-adk:tool-rendering-default-catchall -> generative-ui/tool-rendering: Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for google-adk -->",
+        "google-adk:tool-rendering-default-catchall -> generative-ui/tool-rendering: HTML <FrameworkSetup concept=\"tool-rendering-setup\" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for google-adk"
+      ]
+    },
+    {
+      "framework": "google-adk",
+      "cell": "tool-rendering-custom-catchall",
+      "route": "/demos/tool-rendering-custom-catchall",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": [
+        "google-adk:tool-rendering-custom-catchall -> generative-ui/tool-rendering: Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for google-adk -->",
+        "google-adk:tool-rendering-custom-catchall -> generative-ui/tool-rendering: HTML <FrameworkSetup concept=\"tool-rendering-setup\" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for google-adk"
+      ]
+    },
+    {
+      "framework": "google-adk",
+      "cell": "frontend-tools",
+      "route": "/demos/frontend-tools",
+      "command": null,
+      "slugPath": "frontend-tools",
+      "contentSlugPath": "frontend-tools",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "frontend-tools-async",
+      "route": "/demos/frontend-tools-async",
+      "command": null,
+      "slugPath": "frontend-tools",
+      "contentSlugPath": "frontend-tools",
+      "failures": [
+        "google-adk:frontend-tools-async -> frontend-tools: renders no google-adk::frontend-tools-async Snippet or InlineDemo (page carries: google-adk::frontend-tools)"
+      ]
+    },
+    {
+      "framework": "google-adk",
+      "cell": "hitl-in-chat",
+      "route": "/demos/hitl-in-chat",
+      "command": null,
+      "slugPath": "human-in-the-loop",
+      "contentSlugPath": "human-in-the-loop",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "mcp-apps",
+      "route": "/demos/mcp-apps",
+      "command": null,
+      "slugPath": "generative-ui/mcp-apps",
+      "contentSlugPath": "generative-ui/mcp-apps",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "hitl-in-app",
+      "route": "/demos/hitl-in-app",
+      "command": null,
+      "slugPath": "human-in-the-loop",
+      "contentSlugPath": "human-in-the-loop",
+      "failures": [
+        "google-adk:hitl-in-app -> human-in-the-loop: renders no google-adk::hitl-in-app Snippet or InlineDemo (page carries: google-adk::hitl-in-chat, google-adk::gen-ui-interrupt)"
+      ]
+    },
+    {
+      "framework": "google-adk",
+      "cell": "gen-ui-interrupt",
+      "route": "/demos/gen-ui-interrupt",
+      "command": null,
+      "slugPath": "human-in-the-loop/useInterrupt",
+      "contentSlugPath": "human-in-the-loop/useInterrupt",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "tool-rendering",
+      "route": "/demos/tool-rendering",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": [
+        "google-adk:tool-rendering -> generative-ui/tool-rendering: Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for google-adk -->",
+        "google-adk:tool-rendering -> generative-ui/tool-rendering: HTML <FrameworkSetup concept=\"tool-rendering-setup\" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for google-adk"
+      ]
+    },
+    {
+      "framework": "google-adk",
+      "cell": "gen-ui-tool-based",
+      "route": "/demos/gen-ui-tool-based",
+      "command": null,
+      "slugPath": "generative-ui/display",
+      "contentSlugPath": "generative-ui/display",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "gen-ui-agent",
+      "route": "/demos/gen-ui-agent",
+      "command": null,
+      "slugPath": "generative-ui/state-rendering",
+      "contentSlugPath": "generative-ui/state-rendering",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "shared-state-read",
+      "route": "/demos/shared-state-read",
+      "command": null,
+      "slugPath": "shared-state",
+      "contentSlugPath": "shared-state",
+      "failures": [
+        "google-adk:shared-state-read -> shared-state: renders no google-adk::shared-state-read Snippet or InlineDemo (page carries: google-adk::shared-state-read-write, google-adk::shared-state-streaming)"
+      ]
+    },
+    {
+      "framework": "google-adk",
+      "cell": "shared-state-read-write",
+      "route": "/demos/shared-state-read-write",
+      "command": null,
+      "slugPath": "shared-state",
+      "contentSlugPath": "shared-state",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "shared-state-streaming",
+      "route": "/demos/shared-state-streaming",
+      "command": null,
+      "slugPath": "shared-state/streaming",
+      "contentSlugPath": "shared-state/streaming",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "subagents",
+      "route": "/demos/subagents",
+      "command": null,
+      "slugPath": "multi-agent/subagents",
+      "contentSlugPath": "multi-agent/subagents",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "prebuilt-sidebar",
+      "route": "/demos/prebuilt-sidebar",
+      "command": null,
+      "slugPath": "prebuilt-components/sidebar",
+      "contentSlugPath": "prebuilt-components/sidebar",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "prebuilt-popup",
+      "route": "/demos/prebuilt-popup",
+      "command": null,
+      "slugPath": "prebuilt-components/popup",
+      "contentSlugPath": "prebuilt-components/popup",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "chat-slots",
+      "route": "/demos/chat-slots",
+      "command": null,
+      "slugPath": "custom-look-and-feel/slots",
+      "contentSlugPath": "custom-look-and-feel/slots",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "headless-simple",
+      "route": "/demos/headless-simple",
+      "command": null,
+      "slugPath": "headless",
+      "contentSlugPath": "headless",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "headless-complete",
+      "route": "/demos/headless-complete",
+      "command": null,
+      "slugPath": "headless",
+      "contentSlugPath": "headless",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "reasoning-custom",
+      "route": "/demos/reasoning-custom",
+      "command": null,
+      "slugPath": "custom-look-and-feel/reasoning-messages",
+      "contentSlugPath": "custom-look-and-feel/reasoning-messages",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "reasoning-default",
+      "route": "/demos/reasoning-default",
+      "command": null,
+      "slugPath": "custom-look-and-feel/reasoning-messages",
+      "contentSlugPath": "custom-look-and-feel/reasoning-messages",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "declarative-gen-ui",
+      "route": "/demos/declarative-gen-ui",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/dynamic-schema",
+      "contentSlugPath": "generative-ui/a2ui/dynamic-schema",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "a2ui-fixed-schema",
+      "route": "/demos/a2ui-fixed-schema",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/fixed-schema",
+      "contentSlugPath": "generative-ui/a2ui/fixed-schema",
+      "failures": [
+        "google-adk:a2ui-fixed-schema -> generative-ui/a2ui/fixed-schema: Markdown marker <!-- setup skipped: a2ui-fixed-schema-setup is not bundled for google-adk -->",
+        "google-adk:a2ui-fixed-schema -> generative-ui/a2ui/fixed-schema: HTML <FrameworkSetup concept=\"a2ui-fixed-schema-setup\" />: FrameworkSetup renders nothing: no a2ui-fixed-schema-setup setup is bundled for google-adk"
+      ]
+    },
+    {
+      "framework": "google-adk",
+      "cell": "a2ui-recovery",
+      "route": "/demos/a2ui-recovery",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/dynamic-schema",
+      "contentSlugPath": "generative-ui/a2ui/dynamic-schema",
+      "failures": [
+        "google-adk:a2ui-recovery -> generative-ui/a2ui/dynamic-schema: renders no google-adk::a2ui-recovery Snippet or InlineDemo (page carries: google-adk::declarative-gen-ui)"
+      ]
+    },
+    {
+      "framework": "google-adk",
+      "cell": "readonly-state-agent-context",
+      "route": "/demos/readonly-state-agent-context",
+      "command": null,
+      "slugPath": "shared-state/agent-readonly",
+      "contentSlugPath": "shared-state/agent-readonly",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "tool-rendering-reasoning-chain",
+      "route": "/demos/tool-rendering-reasoning-chain",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": [
+        "google-adk:tool-rendering-reasoning-chain -> generative-ui/tool-rendering: Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for google-adk -->",
+        "google-adk:tool-rendering-reasoning-chain -> generative-ui/tool-rendering: HTML <FrameworkSetup concept=\"tool-rendering-setup\" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for google-adk",
+        "google-adk:tool-rendering-reasoning-chain -> generative-ui/tool-rendering: renders no google-adk::tool-rendering-reasoning-chain Snippet or InlineDemo (page carries: google-adk::tool-rendering, google-adk::tool-rendering-default-catchall, google-adk::tool-rendering-custom-catchall)"
+      ]
+    },
+    {
+      "framework": "google-adk",
+      "cell": "declarative-json-render",
+      "route": "/demos/declarative-json-render",
+      "command": null,
+      "slugPath": "generative-ui/json-render",
+      "contentSlugPath": "generative-ui/json-render",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "beautiful-chat",
+      "route": "/demos/beautiful-chat",
+      "command": null,
+      "slugPath": "agentic-chat-ui",
+      "contentSlugPath": "agentic-chat-ui",
+      "failures": [
+        "google-adk:beautiful-chat -> agentic-chat-ui: renders no google-adk::beautiful-chat Snippet or InlineDemo (page carries: google-adk::agentic-chat)"
+      ]
+    },
+    {
+      "framework": "google-adk",
+      "cell": "multimodal",
+      "route": "/demos/multimodal",
+      "command": null,
+      "slugPath": "multimodal-attachments",
+      "contentSlugPath": "multimodal-attachments",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "auth",
+      "route": "/demos/auth",
+      "command": null,
+      "slugPath": "auth",
+      "contentSlugPath": "auth",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "declarative-hashbrown",
+      "route": "/demos/declarative-hashbrown",
+      "command": null,
+      "slugPath": "generative-ui/hashbrown",
+      "contentSlugPath": "generative-ui/hashbrown",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "open-gen-ui",
+      "route": "/demos/open-gen-ui",
+      "command": null,
+      "slugPath": "generative-ui/open-generative-ui",
+      "contentSlugPath": "generative-ui/open-generative-ui",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "open-gen-ui-advanced",
+      "route": "/demos/open-gen-ui-advanced",
+      "command": null,
+      "slugPath": "generative-ui/open-generative-ui",
+      "contentSlugPath": "generative-ui/open-generative-ui",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "voice",
+      "route": "/demos/voice",
+      "command": null,
+      "slugPath": "voice",
+      "contentSlugPath": "voice",
+      "failures": []
+    },
+    {
+      "framework": "google-adk",
+      "cell": "agent-config",
+      "route": "/demos/agent-config",
+      "command": null,
+      "slugPath": "agent-config",
+      "contentSlugPath": "agent-config",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "agentic-chat",
+      "route": "/demos/agentic-chat",
+      "command": null,
+      "slugPath": "prebuilt-components",
+      "contentSlugPath": "prebuilt-components",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "chat-customization-css",
+      "route": "/demos/chat-customization-css",
+      "command": null,
+      "slugPath": "custom-look-and-feel/css",
+      "contentSlugPath": "custom-look-and-feel/css",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "prebuilt-sidebar",
+      "route": "/demos/prebuilt-sidebar",
+      "command": null,
+      "slugPath": "prebuilt-components/sidebar",
+      "contentSlugPath": "prebuilt-components/sidebar",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "prebuilt-popup",
+      "route": "/demos/prebuilt-popup",
+      "command": null,
+      "slugPath": "prebuilt-components/popup",
+      "contentSlugPath": "prebuilt-components/popup",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "chat-slots",
+      "route": "/demos/chat-slots",
+      "command": null,
+      "slugPath": "custom-look-and-feel/slots",
+      "contentSlugPath": "custom-look-and-feel/slots",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "headless-simple",
+      "route": "/demos/headless-simple",
+      "command": null,
+      "slugPath": "headless",
+      "contentSlugPath": "headless",
+      "failures": [
+        "strands:headless-simple -> headless: Markdown marker <!-- setup skipped: programmatic-control-setup is not bundled for strands -->",
+        "strands:headless-simple -> headless: HTML <FrameworkSetup concept=\"programmatic-control-setup\" />: FrameworkSetup renders nothing: no programmatic-control-setup setup is bundled for strands"
+      ]
+    },
+    {
+      "framework": "strands",
+      "cell": "headless-complete",
+      "route": "/demos/headless-complete",
+      "command": null,
+      "slugPath": "headless",
+      "contentSlugPath": "headless",
+      "failures": [
+        "strands:headless-complete -> headless: Markdown marker <!-- setup skipped: programmatic-control-setup is not bundled for strands -->",
+        "strands:headless-complete -> headless: HTML <FrameworkSetup concept=\"programmatic-control-setup\" />: FrameworkSetup renders nothing: no programmatic-control-setup setup is bundled for strands"
+      ]
+    },
+    {
+      "framework": "strands",
+      "cell": "frontend-tools",
+      "route": "/demos/frontend-tools",
+      "command": null,
+      "slugPath": "frontend-tools",
+      "contentSlugPath": "frontend-tools",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "frontend-tools-async",
+      "route": "/demos/frontend-tools-async",
+      "command": null,
+      "slugPath": "frontend-tools",
+      "contentSlugPath": "frontend-tools",
+      "failures": [
+        "strands:frontend-tools-async -> frontend-tools: renders no strands::frontend-tools-async Snippet or InlineDemo (page carries: strands::frontend-tools)"
+      ]
+    },
+    {
+      "framework": "strands",
+      "cell": "hitl-in-chat",
+      "route": "/demos/hitl-in-chat",
+      "command": null,
+      "slugPath": "generative-ui/your-components/interactive",
+      "contentSlugPath": "integrations/aws-strands/generative-ui/your-components/interactive",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "hitl-in-chat-booking",
+      "route": "/demos/hitl-in-chat",
+      "command": null,
+      "slugPath": "generative-ui/your-components/interactive",
+      "contentSlugPath": "integrations/aws-strands/generative-ui/your-components/interactive",
+      "failures": [
+        "strands:hitl-in-chat-booking -> integrations/aws-strands/generative-ui/your-components/interactive: renders no strands::hitl-in-chat-booking Snippet or InlineDemo (page carries: strands::hitl-in-chat)"
+      ]
+    },
+    {
+      "framework": "strands",
+      "cell": "hitl-in-app",
+      "route": "/demos/hitl-in-app",
+      "command": null,
+      "slugPath": "human-in-the-loop",
+      "contentSlugPath": "human-in-the-loop",
+      "failures": [
+        "strands:hitl-in-app -> human-in-the-loop: renders no strands::hitl-in-app Snippet or InlineDemo (page carries: strands::hitl-in-chat, strands::gen-ui-interrupt)"
+      ]
+    },
+    {
+      "framework": "strands",
+      "cell": "hitl",
+      "route": "/demos/hitl",
+      "command": null,
+      "slugPath": "generative-ui/your-components/interactive",
+      "contentSlugPath": "integrations/aws-strands/generative-ui/your-components/interactive",
+      "failures": [
+        "strands:hitl -> integrations/aws-strands/generative-ui/your-components/interactive: renders no strands::hitl Snippet or InlineDemo (page carries: strands::hitl-in-chat)"
+      ]
+    },
+    {
+      "framework": "strands",
+      "cell": "tool-rendering",
+      "route": "/demos/tool-rendering",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": [
+        "strands:tool-rendering -> generative-ui/tool-rendering: Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for strands -->",
+        "strands:tool-rendering -> generative-ui/tool-rendering: HTML <FrameworkSetup concept=\"tool-rendering-setup\" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for strands"
+      ]
+    },
+    {
+      "framework": "strands",
+      "cell": "tool-rendering-default-catchall",
+      "route": "/demos/tool-rendering-default-catchall",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": [
+        "strands:tool-rendering-default-catchall -> generative-ui/tool-rendering: Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for strands -->",
+        "strands:tool-rendering-default-catchall -> generative-ui/tool-rendering: HTML <FrameworkSetup concept=\"tool-rendering-setup\" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for strands"
+      ]
+    },
+    {
+      "framework": "strands",
+      "cell": "tool-rendering-custom-catchall",
+      "route": "/demos/tool-rendering-custom-catchall",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": [
+        "strands:tool-rendering-custom-catchall -> generative-ui/tool-rendering: Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for strands -->",
+        "strands:tool-rendering-custom-catchall -> generative-ui/tool-rendering: HTML <FrameworkSetup concept=\"tool-rendering-setup\" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for strands"
+      ]
+    },
+    {
+      "framework": "strands",
+      "cell": "tool-rendering-reasoning-chain",
+      "route": "/demos/tool-rendering-reasoning-chain",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "generative-ui/tool-rendering",
+      "failures": [
+        "strands:tool-rendering-reasoning-chain -> generative-ui/tool-rendering: Markdown marker <!-- setup skipped: tool-rendering-setup is not bundled for strands -->",
+        "strands:tool-rendering-reasoning-chain -> generative-ui/tool-rendering: HTML <FrameworkSetup concept=\"tool-rendering-setup\" />: FrameworkSetup renders nothing: no tool-rendering-setup setup is bundled for strands",
+        "strands:tool-rendering-reasoning-chain -> generative-ui/tool-rendering: renders no strands::tool-rendering-reasoning-chain Snippet or InlineDemo (page carries: strands::tool-rendering, strands::tool-rendering-default-catchall, strands::tool-rendering-custom-catchall)"
+      ]
+    },
+    {
+      "framework": "strands",
+      "cell": "gen-ui-agent",
+      "route": "/demos/gen-ui-agent",
+      "command": null,
+      "slugPath": "generative-ui/state-rendering",
+      "contentSlugPath": "generative-ui/state-rendering",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "gen-ui-tool-based",
+      "route": "/demos/gen-ui-tool-based",
+      "command": null,
+      "slugPath": "generative-ui/your-components/display-only",
+      "contentSlugPath": "integrations/aws-strands/generative-ui/your-components/display-only",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "declarative-gen-ui",
+      "route": "/demos/declarative-gen-ui",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/dynamic-schema",
+      "contentSlugPath": "generative-ui/a2ui/dynamic-schema",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "a2ui-fixed-schema",
+      "route": "/demos/a2ui-fixed-schema",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/fixed-schema",
+      "contentSlugPath": "generative-ui/a2ui/fixed-schema",
+      "failures": [
+        "strands:a2ui-fixed-schema -> generative-ui/a2ui/fixed-schema: Markdown marker <!-- setup skipped: a2ui-fixed-schema-setup is not bundled for strands -->",
+        "strands:a2ui-fixed-schema -> generative-ui/a2ui/fixed-schema: HTML <FrameworkSetup concept=\"a2ui-fixed-schema-setup\" />: FrameworkSetup renders nothing: no a2ui-fixed-schema-setup setup is bundled for strands"
+      ]
+    },
+    {
+      "framework": "strands",
+      "cell": "a2ui-recovery",
+      "route": "/demos/a2ui-recovery",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/dynamic-schema",
+      "contentSlugPath": "generative-ui/a2ui/dynamic-schema",
+      "failures": [
+        "strands:a2ui-recovery -> generative-ui/a2ui/dynamic-schema: renders no strands::a2ui-recovery Snippet or InlineDemo (page carries: strands::declarative-gen-ui)"
+      ]
+    },
+    {
+      "framework": "strands",
+      "cell": "shared-state-read-write",
+      "route": "/demos/shared-state-read-write",
+      "command": null,
+      "slugPath": "shared-state",
+      "contentSlugPath": "shared-state",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "shared-state-read",
+      "route": "/demos/shared-state-read",
+      "command": null,
+      "slugPath": "shared-state",
+      "contentSlugPath": "shared-state",
+      "failures": [
+        "strands:shared-state-read -> shared-state: renders no strands::shared-state-read Snippet or InlineDemo (page carries: strands::shared-state-read-write, strands::shared-state-streaming)"
+      ]
+    },
+    {
+      "framework": "strands",
+      "cell": "subagents",
+      "route": "/demos/subagents",
+      "command": null,
+      "slugPath": "multi-agent/subagents",
+      "contentSlugPath": "multi-agent/subagents",
+      "failures": [
+        "strands:subagents -> multi-agent/subagents: Markdown marker <!-- setup skipped: subagents-setup is not bundled for strands -->",
+        "strands:subagents -> multi-agent/subagents: HTML <FrameworkSetup concept=\"subagents-setup\" />: FrameworkSetup renders nothing: no subagents-setup setup is bundled for strands"
+      ]
+    },
+    {
+      "framework": "strands",
+      "cell": "readonly-state-agent-context",
+      "route": "/demos/readonly-state-agent-context",
+      "command": null,
+      "slugPath": "shared-state/agent-readonly",
+      "contentSlugPath": "shared-state/agent-readonly",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "multimodal",
+      "route": "/demos/multimodal",
+      "command": null,
+      "slugPath": "multimodal-attachments",
+      "contentSlugPath": "multimodal-attachments",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "voice",
+      "route": "/demos/voice",
+      "command": null,
+      "slugPath": "voice",
+      "contentSlugPath": "voice",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "auth",
+      "route": "/demos/auth",
+      "command": null,
+      "slugPath": "auth",
+      "contentSlugPath": "auth",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "agent-config",
+      "route": "/demos/agent-config",
+      "command": null,
+      "slugPath": "agent-config",
+      "contentSlugPath": "agent-config",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "declarative-hashbrown",
+      "route": "/demos/declarative-hashbrown",
+      "command": null,
+      "slugPath": "generative-ui/hashbrown",
+      "contentSlugPath": "generative-ui/hashbrown",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "declarative-json-render",
+      "route": "/demos/declarative-json-render",
+      "command": null,
+      "slugPath": "generative-ui/json-render",
+      "contentSlugPath": "generative-ui/json-render",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "open-gen-ui",
+      "route": "/demos/open-gen-ui",
+      "command": null,
+      "slugPath": "generative-ui/open-generative-ui",
+      "contentSlugPath": "generative-ui/open-generative-ui",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "open-gen-ui-advanced",
+      "route": "/demos/open-gen-ui-advanced",
+      "command": null,
+      "slugPath": "generative-ui/open-generative-ui",
+      "contentSlugPath": "generative-ui/open-generative-ui",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "mcp-apps",
+      "route": "/demos/mcp-apps",
+      "command": null,
+      "slugPath": "generative-ui/mcp-apps",
+      "contentSlugPath": "generative-ui/mcp-apps",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "beautiful-chat",
+      "route": "/demos/beautiful-chat",
+      "command": null,
+      "slugPath": "agentic-chat-ui",
+      "contentSlugPath": "agentic-chat-ui",
+      "failures": [
+        "strands:beautiful-chat -> agentic-chat-ui: renders no strands::beautiful-chat Snippet or InlineDemo (page carries: strands::agentic-chat)"
+      ]
+    },
+    {
+      "framework": "strands",
+      "cell": "reasoning-default",
+      "route": "/demos/reasoning-default",
+      "command": null,
+      "slugPath": "custom-look-and-feel/reasoning-messages",
+      "contentSlugPath": "custom-look-and-feel/reasoning-messages",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "reasoning-custom",
+      "route": "/demos/reasoning-custom",
+      "command": null,
+      "slugPath": "custom-look-and-feel/reasoning-messages",
+      "contentSlugPath": "custom-look-and-feel/reasoning-messages",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "gen-ui-interrupt",
+      "route": "/demos/gen-ui-interrupt",
+      "command": null,
+      "slugPath": "human-in-the-loop/useInterrupt",
+      "contentSlugPath": "human-in-the-loop/useInterrupt",
+      "failures": []
+    },
+    {
+      "framework": "strands",
+      "cell": "interrupt-headless",
+      "route": "/demos/interrupt-headless",
+      "command": null,
+      "slugPath": "human-in-the-loop/headless",
+      "contentSlugPath": "human-in-the-loop/headless",
+      "failures": [
+        "strands:interrupt-headless -> human-in-the-loop/headless: Markdown marker <!-- setup skipped: programmatic-control-setup is not bundled for strands -->",
+        "strands:interrupt-headless -> human-in-the-loop/headless: HTML <FrameworkSetup concept=\"programmatic-control-setup\" />: FrameworkSetup renders nothing: no programmatic-control-setup setup is bundled for strands"
+      ]
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "chat-customization-css",
+      "route": "/demos/chat-customization-css",
+      "command": null,
+      "slugPath": "custom-look-and-feel/css",
+      "contentSlugPath": "custom-look-and-feel/css",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "tool-rendering-default-catchall",
+      "route": "/demos/tool-rendering-default-catchall",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "integrations/built-in-agent/generative-ui/tool-rendering",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "tool-rendering-custom-catchall",
+      "route": "/demos/tool-rendering-custom-catchall",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "integrations/built-in-agent/generative-ui/tool-rendering",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "frontend-tools",
+      "route": "/demos/frontend-tools",
+      "command": null,
+      "slugPath": "frontend-tools",
+      "contentSlugPath": "integrations/built-in-agent/frontend-tools",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "frontend-tools-async",
+      "route": "/demos/frontend-tools-async",
+      "command": null,
+      "slugPath": "frontend-tools",
+      "contentSlugPath": "integrations/built-in-agent/frontend-tools",
+      "failures": [
+        "built-in-agent:frontend-tools-async -> integrations/built-in-agent/frontend-tools: renders no built-in-agent::frontend-tools-async Snippet or InlineDemo (page carries: built-in-agent::frontend-tools)"
+      ]
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "hitl-in-chat",
+      "route": "/demos/hitl-in-chat",
+      "command": null,
+      "slugPath": "generative-ui/your-components/interactive",
+      "contentSlugPath": "integrations/built-in-agent/generative-ui/your-components/interactive",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "hitl-in-app",
+      "route": "/demos/hitl-in-app",
+      "command": null,
+      "slugPath": "human-in-the-loop",
+      "contentSlugPath": "human-in-the-loop",
+      "failures": [
+        "built-in-agent:hitl-in-app -> human-in-the-loop: Markdown marker <!-- setup skipped: human-in-the-loop-setup is not bundled for built-in-agent -->",
+        "built-in-agent:hitl-in-app -> human-in-the-loop: HTML <FrameworkSetup concept=\"human-in-the-loop-setup\" />: FrameworkSetup renders nothing: no human-in-the-loop-setup setup is bundled for built-in-agent",
+        "built-in-agent:hitl-in-app -> human-in-the-loop: renders no built-in-agent::hitl-in-app Snippet or InlineDemo (page carries: built-in-agent::hitl-in-chat, built-in-agent::gen-ui-interrupt)"
+      ]
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "tool-rendering",
+      "route": "/demos/tool-rendering",
+      "command": null,
+      "slugPath": "generative-ui/tool-rendering",
+      "contentSlugPath": "integrations/built-in-agent/generative-ui/tool-rendering",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "gen-ui-tool-based",
+      "route": "/demos/gen-ui-tool-based",
+      "command": null,
+      "slugPath": "generative-ui/your-components/display-only",
+      "contentSlugPath": "integrations/built-in-agent/generative-ui/your-components/display-only",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "gen-ui-agent",
+      "route": "/demos/gen-ui-agent",
+      "command": null,
+      "slugPath": "generative-ui/state-rendering",
+      "contentSlugPath": "generative-ui/state-rendering",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "shared-state-read-write",
+      "route": "/demos/shared-state-read-write",
+      "command": null,
+      "slugPath": "integrations/built-in-agent/shared-state",
+      "contentSlugPath": "integrations/built-in-agent/shared-state",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "shared-state-read",
+      "route": "/demos/shared-state-read",
+      "command": null,
+      "slugPath": "shared-state",
+      "contentSlugPath": "integrations/built-in-agent/shared-state",
+      "failures": [
+        "built-in-agent:shared-state-read -> integrations/built-in-agent/shared-state: renders no built-in-agent::shared-state-read Snippet or InlineDemo (page carries: built-in-agent::shared-state-read-write)"
+      ]
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "subagents",
+      "route": "/demos/subagents",
+      "command": null,
+      "slugPath": "multi-agent/subagents",
+      "contentSlugPath": "multi-agent/subagents",
+      "failures": [
+        "built-in-agent:subagents -> multi-agent/subagents: Markdown marker <!-- setup skipped: subagents-setup is not bundled for built-in-agent -->",
+        "built-in-agent:subagents -> multi-agent/subagents: HTML <FrameworkSetup concept=\"subagents-setup\" />: FrameworkSetup renders nothing: no subagents-setup setup is bundled for built-in-agent"
+      ]
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "prebuilt-sidebar",
+      "route": "/demos/prebuilt-sidebar",
+      "command": null,
+      "slugPath": "prebuilt-components/sidebar",
+      "contentSlugPath": "prebuilt-components/sidebar",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "prebuilt-popup",
+      "route": "/demos/prebuilt-popup",
+      "command": null,
+      "slugPath": "prebuilt-components/popup",
+      "contentSlugPath": "prebuilt-components/popup",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "chat-slots",
+      "route": "/demos/chat-slots",
+      "command": null,
+      "slugPath": "custom-look-and-feel/slots",
+      "contentSlugPath": "integrations/built-in-agent/custom-look-and-feel/slots",
+      "failures": [
+        "built-in-agent:chat-slots -> integrations/built-in-agent/custom-look-and-feel/slots: renders no built-in-agent::chat-slots Snippet or InlineDemo (page carries: none)"
+      ]
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "headless-simple",
+      "route": "/demos/headless-simple",
+      "command": null,
+      "slugPath": "headless",
+      "contentSlugPath": "headless",
+      "failures": [
+        "built-in-agent:headless-simple -> headless: Markdown marker <!-- setup skipped: programmatic-control-setup is not bundled for built-in-agent -->",
+        "built-in-agent:headless-simple -> headless: HTML <FrameworkSetup concept=\"programmatic-control-setup\" />: FrameworkSetup renders nothing: no programmatic-control-setup setup is bundled for built-in-agent"
+      ]
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "headless-complete",
+      "route": "/demos/headless-complete",
+      "command": null,
+      "slugPath": "headless",
+      "contentSlugPath": "headless",
+      "failures": [
+        "built-in-agent:headless-complete -> headless: Markdown marker <!-- setup skipped: programmatic-control-setup is not bundled for built-in-agent -->",
+        "built-in-agent:headless-complete -> headless: HTML <FrameworkSetup concept=\"programmatic-control-setup\" />: FrameworkSetup renders nothing: no programmatic-control-setup setup is bundled for built-in-agent"
+      ]
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "reasoning-default",
+      "route": "/demos/reasoning-default",
+      "command": null,
+      "slugPath": "custom-look-and-feel/reasoning-messages",
+      "contentSlugPath": "custom-look-and-feel/reasoning-messages",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "reasoning-custom",
+      "route": "/demos/reasoning-custom",
+      "command": null,
+      "slugPath": "custom-look-and-feel/reasoning-messages",
+      "contentSlugPath": "custom-look-and-feel/reasoning-messages",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "declarative-gen-ui",
+      "route": "/demos/declarative-gen-ui",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/dynamic-schema",
+      "contentSlugPath": "generative-ui/a2ui/dynamic-schema",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "a2ui-fixed-schema",
+      "route": "/demos/a2ui-fixed-schema",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/fixed-schema",
+      "contentSlugPath": "generative-ui/a2ui/fixed-schema",
+      "failures": [
+        "built-in-agent:a2ui-fixed-schema -> generative-ui/a2ui/fixed-schema: Markdown marker <!-- setup skipped: a2ui-fixed-schema-setup is not bundled for built-in-agent -->",
+        "built-in-agent:a2ui-fixed-schema -> generative-ui/a2ui/fixed-schema: HTML <FrameworkSetup concept=\"a2ui-fixed-schema-setup\" />: FrameworkSetup renders nothing: no a2ui-fixed-schema-setup setup is bundled for built-in-agent"
+      ]
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "a2ui-recovery",
+      "route": "/demos/a2ui-recovery",
+      "command": null,
+      "slugPath": "generative-ui/a2ui/dynamic-schema",
+      "contentSlugPath": "generative-ui/a2ui/dynamic-schema",
+      "failures": [
+        "built-in-agent:a2ui-recovery -> generative-ui/a2ui/dynamic-schema: renders no built-in-agent::a2ui-recovery Snippet or InlineDemo (page carries: built-in-agent::declarative-gen-ui)"
+      ]
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "mcp-apps",
+      "route": "/demos/mcp-apps",
+      "command": null,
+      "slugPath": "generative-ui/mcp-apps",
+      "contentSlugPath": "integrations/built-in-agent/generative-ui/mcp-apps",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "readonly-state-agent-context",
+      "route": "/demos/readonly-state-agent-context",
+      "command": null,
+      "slugPath": "shared-state/agent-readonly",
+      "contentSlugPath": "shared-state/agent-readonly",
+      "failures": [
+        "built-in-agent:readonly-state-agent-context -> shared-state/agent-readonly: Markdown marker <!-- setup skipped: agent-context-setup is not bundled for built-in-agent -->",
+        "built-in-agent:readonly-state-agent-context -> shared-state/agent-readonly: HTML <FrameworkSetup concept=\"agent-context-setup\" />: FrameworkSetup renders nothing: no agent-context-setup setup is bundled for built-in-agent"
+      ]
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "declarative-json-render",
+      "route": "/demos/declarative-json-render",
+      "command": null,
+      "slugPath": "generative-ui/json-render",
+      "contentSlugPath": "generative-ui/json-render",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "beautiful-chat",
+      "route": "/demos/beautiful-chat",
+      "command": null,
+      "slugPath": "agentic-chat-ui",
+      "contentSlugPath": "agentic-chat-ui",
+      "failures": [
+        "built-in-agent:beautiful-chat -> agentic-chat-ui: renders no built-in-agent::beautiful-chat Snippet or InlineDemo (page carries: built-in-agent::agentic-chat)"
+      ]
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "multimodal",
+      "route": "/demos/multimodal",
+      "command": null,
+      "slugPath": "multimodal-attachments",
+      "contentSlugPath": "multimodal-attachments",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "auth",
+      "route": "/demos/auth",
+      "command": null,
+      "slugPath": "auth",
+      "contentSlugPath": "auth",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "declarative-hashbrown",
+      "route": "/demos/declarative-hashbrown",
+      "command": null,
+      "slugPath": "generative-ui/hashbrown",
+      "contentSlugPath": "generative-ui/hashbrown",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "open-gen-ui",
+      "route": "/demos/open-gen-ui",
+      "command": null,
+      "slugPath": "generative-ui/open-generative-ui",
+      "contentSlugPath": "generative-ui/open-generative-ui",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "open-gen-ui-advanced",
+      "route": "/demos/open-gen-ui-advanced",
+      "command": null,
+      "slugPath": "generative-ui/open-generative-ui",
+      "contentSlugPath": "generative-ui/open-generative-ui",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "voice",
+      "route": "/demos/voice",
+      "command": null,
+      "slugPath": "voice",
+      "contentSlugPath": "voice",
+      "failures": []
+    },
+    {
+      "framework": "built-in-agent",
+      "cell": "agent-config",
+      "route": "/demos/agent-config",
+      "command": null,
+      "slugPath": "agent-config",
+      "contentSlugPath": "agent-config",
+      "failures": []
+    }
+  ]
+}

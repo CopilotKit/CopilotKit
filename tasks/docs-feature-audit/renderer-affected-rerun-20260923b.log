@@ -1,0 +1,27 @@
+
+ RUN  v4.1.7 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs
+
+ ❯ src/lib/__tests__/intelligence-quickstart-docs.test.ts (5 tests | 1 failed) 19ms
+   × keeps selected quickstart identities local-only and links the full authorization contract 9ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/__tests__/intelligence-quickstart-docs.test.ts > keeps selected quickstart identities local-only and links the full authorization contract
+Error: intelligence/connect-your-runtime is missing
+ ❯ loadRequiredDoc src/lib/__tests__/intelligence-quickstart-docs.test.ts:7:19
+      5| function loadRequiredDoc(slug: string) {
+      6|   const doc = loadDoc(slug);
+      7|   if (!doc) throw new Error(`${slug} is missing`);
+       |                   ^
+      8|   return doc;
+      9| }
+ ❯ src/lib/__tests__/intelligence-quickstart-docs.test.ts:82:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 12 passed (13)
+   Start at  14:03:33
+   Duration  14.91s (transform 3.33s, setup 0ms, import 13.39s, tests 1.40s, environment 0ms)
+

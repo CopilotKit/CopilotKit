@@ -1,0 +1,5 @@
+
+> sync-shared-frontends
+> tsx sync-shared-frontends.ts
+
+Shared frontend sources are in sync.

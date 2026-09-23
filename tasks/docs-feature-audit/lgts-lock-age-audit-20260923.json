@@ -1,0 +1,53 @@
+{
+  "generatedBy": "scratch lockage.mjs: every name@version in the new lock absent from the pre-update lock, checked with npm view <name> time",
+  "agent": {
+    "label": "agent",
+    "checkedAt": "2026-09-23T20:12:09.839Z",
+    "cutoff": "2026-09-22T20:12:08.687Z",
+    "addedOrChanged": 32,
+    "removed": 63,
+    "exemptUnder24h": [
+      "@copilotkit/sdk-js@1.73.3 (22.4h)",
+      "@copilotkit/shared@1.73.3 (22.4h)"
+    ],
+    "violations": [],
+    "youngestNonExempt": [
+      "@typescript/vfs@1.6.5 (24.3h)",
+      "openai@7.22.0 (25.6h)",
+      "ignore@7.0.10 (28.8h)",
+      "electron-to-chromium@1.5.434 (42.1h)",
+      "langchain@1.5.12 (44.2h)"
+    ],
+    "exoticResolved": []
+  },
+  "ui": {
+    "label": "ui",
+    "checkedAt": "2026-09-23T20:12:17.485Z",
+    "cutoff": "2026-09-22T20:12:09.866Z",
+    "addedOrChanged": 258,
+    "removed": 300,
+    "exemptUnder24h": [
+      "@copilotkit/a2ui-renderer@1.73.3 (22.4h)",
+      "@copilotkit/core@1.73.3 (22.5h)",
+      "@copilotkit/mcp-apps-renderer@1.73.3 (22.5h)",
+      "@copilotkit/react-core@1.73.3 (22.4h)",
+      "@copilotkit/react-ui@1.73.3 (22.4h)",
+      "@copilotkit/runtime@1.73.3 (22.4h)",
+      "@copilotkit/runtime-client-gql@1.73.3 (22.4h)",
+      "@copilotkit/sdk-js@1.73.3 (22.4h)",
+      "@copilotkit/shared@1.73.3 (22.4h)",
+      "@copilotkit/voice@1.73.3 (22.4h)",
+      "@copilotkit/web-components@1.73.3 (22.4h)",
+      "@copilotkit/web-inspector@1.73.3 (22.4h)"
+    ],
+    "violations": [],
+    "youngestNonExempt": [
+      "openai@7.22.0 (25.6h)",
+      "@ai-sdk/anthropic@3.0.120 (26.8h)",
+      "ai@6.0.288 (26.8h)",
+      "@ai-sdk/gateway@3.0.198 (26.9h)",
+      "@ai-sdk/google-vertex@3.0.175 (26.9h)"
+    ],
+    "exoticResolved": []
+  }
+}

@@ -1,0 +1,9 @@
+
+ RUN  v4.1.5 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/scripts
+
+
+ Test Files  4 passed (4)
+      Tests  914 passed (914)
+   Start at  14:13:24
+   Duration  8.69s (transform 65ms, setup 0ms, import 286ms, tests 8.69s, environment 0ms)
+

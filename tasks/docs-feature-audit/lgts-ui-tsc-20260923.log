@@ -1,0 +1,33 @@
+# INFORMATIONAL: CI does not typecheck this UI (ignoreBuildErrors). Project tsconfig, strict, excludes src/agent.
+$ NODE_OPTIONS=--max-old-space-size=4096 nice -n 10 ./node_modules/.bin/tsc --noEmit -p tsconfig.json
+Wed Sep 23 20:15:55 UTC 2026
+src/app/demos/declarative-json-render/catalog.ts(10,7): error TS2740: Type 'ZodObject<{ label: ZodString; value: ZodString; trend: ZodNullable<ZodString>; }, "strip", ZodTypeAny, { value: string; label: string; trend: string | null; }, { ...; }>' is missing the following properties from type 'ZodType<unknown, unknown, $ZodTypeInternals<unknown, unknown>>': def, type, toJSONSchema, check, and 20 more.
+src/app/demos/declarative-json-render/catalog.ts(19,7): error TS2740: Type 'ZodObject<{ title: ZodString; description: ZodNullable<ZodString>; data: ZodArray<ZodObject<{ label: ZodString; value: ZodNumber; }, "strip", ZodTypeAny, { ...; }, { ...; }>, "many">; }, "strip", ZodTypeAny, { ...; }, { ...; }>' is missing the following properties from type 'ZodType<unknown, unknown, $ZodTypeInternals<unknown, unknown>>': def, type, toJSONSchema, check, and 20 more.
+src/app/demos/declarative-json-render/catalog.ts(28,7): error TS2740: Type 'ZodObject<{ title: ZodString; description: ZodNullable<ZodString>; data: ZodArray<ZodObject<{ label: ZodString; value: ZodNumber; }, "strip", ZodTypeAny, { ...; }, { ...; }>, "many">; }, "strip", ZodTypeAny, { ...; }, { ...; }>' is missing the following properties from type 'ZodType<unknown, unknown, $ZodTypeInternals<unknown, unknown>>': def, type, toJSONSchema, check, and 20 more.
+src/app/demos/declarative-json-render/registry.tsx(7,53): error TS2345: Argument of type '{ components: { MetricCard: ({ props, children }: ComponentContext<Catalog<{ spec: SchemaType<"object", { root: SchemaType<"string", unknown>; elements: SchemaType<"record", SchemaType<"object", { type: SchemaType<"ref", string>; props: SchemaType<...>; children: SchemaType<...>; visible: SchemaType<...>; }>>; }>; c...' is not assignable to parameter of type 'DefineRegistryOptions<Catalog<{ spec: SchemaType<"object", { root: SchemaType<"string", unknown>; elements: SchemaType<"record", SchemaType<"object", { type: SchemaType<"ref", string>; props: SchemaType<"propsOf", string>; children: SchemaType<...>; visible: SchemaType<...>; }>>; }>; catalog: SchemaType<...>; }, { ....'.
+  Property 'actions' is missing in type '{ components: { MetricCard: ({ props, children }: ComponentContext<Catalog<{ spec: SchemaType<"object", { root: SchemaType<"string", unknown>; elements: SchemaType<"record", SchemaType<"object", { type: SchemaType<"ref", string>; props: SchemaType<...>; children: SchemaType<...>; visible: SchemaType<...>; }>>; }>; c...' but required in type '{ actions: Actions<Catalog<{ spec: SchemaType<"object", { root: SchemaType<"string", unknown>; elements: SchemaType<"record", SchemaType<"object", { type: SchemaType<"ref", string>; props: SchemaType<"propsOf", string>; children: SchemaType<...>; visible: SchemaType<...>; }>>; }>; catalog: SchemaType<...>; }, { ...;...'.
+src/app/demos/headless-complete/chat/message-list.tsx(24,24): error TS2305: Module '"@copilotkit/shared"' has no exported member 'ToolMessage'.
+src/app/demos/hitl-in-app/approval-dialog.tsx(12,30): error TS7016: Could not find a declaration file for module 'react-dom'. '/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/node_modules/react-dom/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/react-dom` if it exists or add a new declaration (.d.ts) file containing `declare module 'react-dom';`
+src/components/ui/carousel.tsx(6,8): error TS2307: Cannot find module 'embla-carousel-react' or its corresponding type declarations.
+src/components/ui/command.tsx(4,45): error TS2307: Cannot find module 'cmdk' or its corresponding type declarations.
+src/cvdiag-backend.test.ts(114,29): error TS2345: Argument of type 'string' is not assignable to parameter of type '"probe.start" | "probe.navigate.complete" | "probe.message.send" | "probe.dom.container.mount" | "probe.dom.firsttoken" | "probe.dom.alternate_content" | "probe.sse.event" | ... 25 more ... | "cvdiag.metadata_dropped"'.
+src/cvdiag/emit.ts(288,28): error TS2737: BigInt literals are not available when targeting lower than ES2020.
+src/cvdiag/emit.ts(288,35): error TS2737: BigInt literals are not available when targeting lower than ES2020.
+src/cvdiag/emit.ts(289,28): error TS2737: BigInt literals are not available when targeting lower than ES2020.
+src/cvdiag/emit.ts(289,35): error TS2737: BigInt literals are not available when targeting lower than ES2020.
+src/cvdiag/emit.ts(290,28): error TS2737: BigInt literals are not available when targeting lower than ES2020.
+src/cvdiag/emit.ts(290,35): error TS2737: BigInt literals are not available when targeting lower than ES2020.
+src/cvdiag/emit.ts(291,28): error TS2737: BigInt literals are not available when targeting lower than ES2020.
+src/cvdiag/emit.ts(291,35): error TS2737: BigInt literals are not available when targeting lower than ES2020.
+src/cvdiag/emit.ts(292,28): error TS2737: BigInt literals are not available when targeting lower than ES2020.
+src/cvdiag/emit.ts(292,34): error TS2737: BigInt literals are not available when targeting lower than ES2020.
+src/cvdiag/emit.ts(293,26): error TS2737: BigInt literals are not available when targeting lower than ES2020.
+src/lib/voice-transcription-service.test.ts(109,13): error TS2322: Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'BlobPart'.
+  Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.
+    Types of property 'buffer' are incompatible.
+      Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+        Type 'SharedArrayBuffer' is missing the following properties from type 'ArrayBuffer': resizable, resize, detached, transfer, transferToFixedLength
+tests/e2e/shared-state-read-write.spec.ts(75,48): error TS1501: This regular expression flag is only available when targeting 'es2018' or later.
+exit=2 duration=3s
+# Classification: @copilotkit/shared 1.71.1 and 1.73.3 both export ToolResult, not ToolMessage (dist/index.d.mts) -> pre-existing, type-only import (erased at runtime); not introduced by this update. The other errors are missing @types/react-dom / unused shadcn deps (cmdk, embla-carousel-react) / ES2017 target limits in CVDIAG and tests.
