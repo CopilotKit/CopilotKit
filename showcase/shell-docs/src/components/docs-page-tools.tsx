@@ -32,13 +32,14 @@ export interface DocsPageToolsProps {
    * under a `/<framework>/…` route, and equally for the root surface and the
    * cookbook, where the framework in play is the Built-in Agent. Absent only
    * where the surface has no registry record to name (`a2a`, `agent-spec`);
-   * the button still renders there, and its events carry no framework.
+   * the button still renders there, and its prompt names no framework.
    */
   onboardingFramework?: { slug: string; name: string };
   /**
    * The frontend the page's URL selects, resolved server-side by
-   * `onboardingFrontendFor`. Sent with the copy events, and a Slack or Teams
-   * frontend selects the Channels prompt.
+   * `onboardingFrontendFor`. Named in the prompt's page-topic sentence and
+   * sent with the copy events. A Slack or Teams frontend selects the Channels
+   * prompt.
    */
   onboardingFrontend?: { id: string; name: string };
   /** Hide the generic onboarding prompt when the page provides its own CTA. */

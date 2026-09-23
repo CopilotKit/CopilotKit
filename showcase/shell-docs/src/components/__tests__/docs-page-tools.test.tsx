@@ -137,9 +137,10 @@ it("names the quickstart page as the source and claims no stack", async () => {
   fireEvent.click(screen.getByRole("button", { name: /copy prompt/i }));
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
   const prompt = writeText.mock.calls[0][0];
-  // The page is the source, not a claim about the reader's stack (PE-309).
+  // The page is the topic and the source, not a claim about the reader's
+  // stack (PE-309).
   expect(prompt).toContain(
-    " I started from this CopilotKit docs page: https://docs.copilotkit.ai/angular/mastra/quickstart.",
+    " The page covers the Mastra agent framework with Angular. I started from this CopilotKit docs page: https://docs.copilotkit.ai/angular/mastra/quickstart.",
   );
   expect(prompt).not.toMatch(/\bI use\b|My goal|\.mdx/);
 });

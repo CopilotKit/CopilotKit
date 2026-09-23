@@ -26,6 +26,7 @@ import { usePathname } from "fumadocs-core/framework";
 import { usePostHog } from "posthog-js/react";
 import { onboardingFrameworkSlug } from "@/lib/intelligence-onboarding-framework";
 import { onboardingFrontendSlug } from "@/lib/intelligence-onboarding-frontend";
+import { pageTopicSentence } from "@/lib/page-topic-sentence";
 import {
   createIntelligenceOnboardingPrompt,
   createOnboardingRunId,
@@ -186,15 +187,14 @@ const ONBOARDING_COPY_SURFACE = "docs_page_tools_onboarding_prompt";
  * straight into their coding agent.
  *
  * The copied string is `createIntelligenceOnboardingPrompt(runId)` followed by
- * one sentence naming the docs page the reader started from. It is a fact for
- * the receiving agent, never an instruction — the prompt itself is the only
+ * what the page covers and which page the reader started from. Both are facts
+ * for the receiving agent, never instructions — the prompt itself is the only
  * thing that tells the agent what to do, and the sibling copies in the
  * Intelligence repo and the Inspector have to keep matching that part byte for
  * byte.
  *
- * The page's framework and frontend go to telemetry, not into the prose. The
- * page is what the reader was reading, not a claim about their project
- * (PE-309).
+ * The page's framework and frontend describe the page, never the reader's
+ * project: "The page covers …", not "I use …" (PE-309).
  *
  * The run id is minted per click (not per page load), matching
  * `components/intelligence-onboarding-prompt.tsx`: one clipboard write is one
@@ -215,16 +215,16 @@ export function OnboardingPromptCopyButton({
    * Optional, because a docs surface can exist without a registry record to
    * name — `a2a` and `agent-spec` are documented like frameworks but are not
    * registered as integrations. Such a page still gets the button, and its
-   * events carry no framework. Frameworks the graph has no node for map to
-   * none by `onboardingFrameworkSlug`.
+   * prompt and events name no framework. Frameworks the graph has no node for
+   * are left out by `pageTopicSentence`.
    */
   framework?: { slug: string; name: string };
   /**
    * The frontend the docs URL selects: `id` is the docs frontend id, `name`
    * its display name. Resolved server-side from the pathname by
    * `onboardingFrontendFor` and passed in — never derived here from
-   * `usePathname()` — so events name what the URL asserts rather than what
-   * this component happens to observe after a navigation.
+   * `usePathname()` — so the prompt and events name what the URL asserts
+   * rather than what this component happens to observe after a navigation.
    *
    * Optional for the same reason `framework` is. A Slack or Teams frontend
    * also selects the Channels prompt.
@@ -265,19 +265,22 @@ export function OnboardingPromptCopyButton({
             : undefined;
         return {
           /**
-           * The base sentence plus where the reader started. Nothing about
-           * the project: the page is what they were reading, not their stack,
-           * so research and `onboard inspect` decide the framework and the
-           * frontend (PE-309). The slugs still travel as event properties.
+           * The base sentence, what the page covers, and where the reader
+           * started. Nothing about the project: the page is what they were
+           * reading, not their stack, so research and `onboard inspect`
+           * decide the framework and the frontend (PE-309). The topic is a
+           * default for a folder with no project yet.
            *
-           * Channel pages keep the source sentence too. Its path is how the
+           * Channel pages name no topic, because the Channels route settles
+           * the framework by inspection. They keep the source sentence. Its path is how the
            * graph sees that a Slack or Teams page chose the surface, and it
            * is the only attribution left when a run id fails to join.
            */
           text:
             (channel
               ? createChannelsOnboardingPrompt(runId)
-              : createIntelligenceOnboardingPrompt(runId)) +
+              : createIntelligenceOnboardingPrompt(runId) +
+                pageTopicSentence(framework, frontend)) +
             pageSourceSentence(markdownUrl),
           onAction: (action) =>
             posthog?.capture(

@@ -100,6 +100,7 @@ const REACT = { id: "react", name: "React" };
 const SLACK = { id: "slack", name: "Slack" };
 const PAGE_MARKDOWN_URL = "/mastra/generative-ui.mdx";
 const PAGE_SENTENCE = ` I started from this CopilotKit docs page: ${DOCS_ORIGIN}/mastra/generative-ui.`;
+const MASTRA_TOPIC = " The page covers the Mastra agent framework.";
 
 /**
  * Render with the props every framework-scoped page supplies, so each test
@@ -156,10 +157,10 @@ function reportedRunId(callIndex = 0): string {
   return properties.onboarding_run_id as string;
 }
 
-it("copies the canonical prompt plus the page sentence and nothing else", async () => {
+it("copies the canonical prompt plus the topic and page sentences", async () => {
   // A LOCAL guard only: the expected prompt comes from the same helper the
   // component calls, so this catches the component altering the canonical text
-  // or appending anything beyond the sentence below. It does NOT compare
+  // or appending anything beyond the two sentences below. It does NOT compare
   // against the Intelligence repo or the Inspector; keeping those three copies
   // byte-identical is not verified here.
   const writeText = stubClipboard();
@@ -171,7 +172,9 @@ it("copies the canonical prompt plus the page sentence and nothing else", async 
 
   expect(writeText).toHaveBeenCalledTimes(1);
   expect(writeText.mock.calls[0][0]).toBe(
-    createIntelligenceOnboardingPrompt(reportedRunId()) + PAGE_SENTENCE,
+    createIntelligenceOnboardingPrompt(reportedRunId()) +
+      MASTRA_TOPIC +
+      PAGE_SENTENCE,
   );
 });
 
@@ -208,10 +211,11 @@ it("names the production origin on a local or preview deploy", async () => {
   expect(copied.endsWith(PAGE_SENTENCE)).toBe(true);
 });
 
-it("claims no stack for the page's framework or frontend", async () => {
-  // The page is what the reader was reading, not their project. Research and
-  // `onboard inspect` decide the stack, and the slugs travel as event
-  // properties instead (PE-309).
+it("describes the page's framework and frontend without claiming a stack", async () => {
+  // The page is what the reader was reading, not their project. The topic
+  // sentence says what the page covers, as a default for an empty folder,
+  // and research and `onboard inspect` decide the real stack (PE-309). The
+  // docs call this frontend React; the graph sets up Next.js.
   const writeText = stubClipboard();
 
   renderButton({ frontend: REACT });
@@ -221,9 +225,11 @@ it("claims no stack for the page's framework or frontend", async () => {
 
   const copied = writeText.mock.calls[0][0] as string;
   expect(copied).toBe(
-    createIntelligenceOnboardingPrompt(reportedRunId()) + PAGE_SENTENCE,
+    createIntelligenceOnboardingPrompt(reportedRunId()) +
+      " The page covers the Mastra agent framework with Next.js." +
+      PAGE_SENTENCE,
   );
-  expect(copied).not.toMatch(/\bI use\b|`|nextjs|My goal/);
+  expect(copied).not.toMatch(/\bI use\b|`|nextjs|React|My goal/);
 });
 
 it("appends no framework sentence for a framework the graph does not know", async () => {
@@ -318,7 +324,7 @@ it("reports the shared onboarding event with the graph's framework slug", async 
   // property. The distinction this button needs lives in `surface`.
   expect(properties).toEqual({
     action: "copy",
-    argument_version: "075e7409e3d3",
+    argument_version: "63f13e3aad0e",
     argument_text: expect.stringContaining("framework:"),
     from_path: "/mastra/generative-ui",
     onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
@@ -371,7 +377,7 @@ it("mints a fresh run id on every click", async () => {
 
   const runIds = [reportedRunId(0), reportedRunId(1)];
   expect(runIds[0]).not.toBe(runIds[1]);
-  const suffix = PAGE_SENTENCE;
+  const suffix = MASTRA_TOPIC + PAGE_SENTENCE;
   // Each clipboard write carries its own id, not a re-used one.
   expect(writeText.mock.calls[0][0]).toBe(
     createIntelligenceOnboardingPrompt(runIds[0]) + suffix,
@@ -607,7 +613,7 @@ it("reports the frontend property with the graph's slug", async () => {
   expect(onboardingFrontendSlug(REACT.id)).toBe("nextjs");
   expect(analytics.capture.mock.calls[0][1]).toEqual({
     action: "copy",
-    argument_version: "075e7409e3d3",
+    argument_version: "63f13e3aad0e",
     argument_text: expect.stringContaining("framework:"),
     from_path: "/mastra/generative-ui",
     onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
@@ -679,7 +685,7 @@ it("records click intent before a failed copy with framework and frontend contex
   expect(event).toBe("docs.intelligence_onboarding_prompt_action_clicked");
   expect(properties).toEqual({
     action: "copy",
-    argument_version: "075e7409e3d3",
+    argument_version: "63f13e3aad0e",
     argument_text: expect.stringContaining("framework:"),
     from_path: "/mastra/generative-ui",
     onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),

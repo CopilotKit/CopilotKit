@@ -68,9 +68,20 @@ export function frontendPromptSuffix(
   if (graphSlug === undefined) {
     return "";
   }
-  // The docs call this frontend "React", but the graph's `nextjs` node is the
-  // Next.js setup, so "the React frontend" would name a different thing.
   return fillArgumentTemplate(ARGUMENT_TEMPLATES.frontend, {
-    name: graphSlug === "nextjs" ? "Next.js" : displayName,
+    name: onboardingFrontendName(graphSlug, displayName),
   });
+}
+
+/**
+ * The name a copied prompt uses for a graph frontend.
+ *
+ * The docs call the default frontend "React", but the graph's `nextjs` node is
+ * the Next.js setup, so "React" would name a different thing (PE-309).
+ */
+export function onboardingFrontendName(
+  graphSlug: string,
+  displayName: string,
+): string {
+  return graphSlug === "nextjs" ? "Next.js" : displayName;
 }

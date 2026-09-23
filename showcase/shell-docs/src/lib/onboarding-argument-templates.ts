@@ -4,7 +4,7 @@
  * `website#594` versions the hosted document, so every run records which
  * revision of *that* text it fetched. It cannot see this half. The copied text
  * is the URL sentence plus argument prose composed client-side — the wizard
- * appends up to five sentences, page actions and the Channels prompt one — and
+ * appends up to five sentences, page actions two, the Channels prompt one — and
  * editing any of it was invisible to every measurement (PE-255).
  *
  * These are the single source of truth for that prose. Each producer fills a
@@ -46,6 +46,12 @@ export const ARGUMENT_TEMPLATES = {
     " I already have a <name> agent. Connect that existing agent without replacing it.",
   wizardAgentNew: " I need a new <name> agent. Create it as part of the setup.",
   wizardFeatures: " I also want these CopilotKit features set up: <titles>.",
+  // What the page is about, as a hint for a folder with no project yet. It
+  // describes the page and claims nothing about the developer's stack.
+  pageTopicFramework: " The page covers the <framework> agent framework.",
+  pageTopicFrameworkFrontend:
+    " The page covers the <framework> agent framework with <frontend>.",
+  pageTopicFrontend: " The page covers the <frontend> frontend.",
   pageSource: " I started from this CopilotKit docs page: <url>.",
 } as const satisfies Readonly<Record<string, string>>;
 
@@ -61,7 +67,7 @@ export const ARGUMENT_TEMPLATES = {
  * it disagrees, so editing a sentence without bumping this is a red test rather
  * than a silent measurement gap.
  */
-export const ONBOARDING_ARGUMENT_VERSION = "075e7409e3d3";
+export const ONBOARDING_ARGUMENT_VERSION = "63f13e3aad0e";
 
 /**
  * The wording behind that version, emitted beside it.
