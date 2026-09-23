@@ -122,14 +122,23 @@ const TITLE_EDIT_SETTLE_MS = 5_000;
 const TITLE_EDIT_POLL_MS = 100;
 
 async function readRecipeTitle(page: Page): Promise<string | null> {
-  return await page.evaluate((selector) => {
+  // The selector is written into the closure instead of being passed as an
+  // `evaluate` argument: the D6 driver's page wrapper forwards only the
+  // function, so an argument arrives `undefined` and the lookup always
+  // misses (the zero-arg convention in conversation-runner's
+  // readSurfaceCounts). It must equal RECIPE_TITLE_SELECTOR; the unit test
+  // runs this closure against a stub document keyed on that constant.
+  return await page.evaluate(() => {
     const win = globalThis as unknown as {
       document: {
         querySelector(sel: string): { value?: string } | null;
       };
     };
-    return win.document.querySelector(selector as string)?.value ?? null;
-  }, RECIPE_TITLE_SELECTOR);
+    return (
+      win.document.querySelector('input[aria-label="Recipe title"]')?.value ??
+      null
+    );
+  });
 }
 
 /** Rename the recipe through the form, the UI's only write path. The title
