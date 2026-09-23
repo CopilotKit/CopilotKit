@@ -6,24 +6,26 @@
   },
   "fixtures": [
     {
-      "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 1. Substring 'Italian pasta recipe' is unique. Text-only — agent has no tools.",
+      "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 1. The shared probe first renames the recipe to 'Lemon Saffron Orzo'; CopilotKitMiddleware(expose_state=[\"recipe\"]) appends the state to the system prompt. Gating on that edited title makes a missing UI-to-agent state bridge fail strict mode. Text-only: the agent has no tools.",
       "match": {
         "userMessage": "Italian pasta recipe",
+        "systemMessage": "Lemon Saffron Orzo",
         "turnIndex": 0,
         "context": "langgraph-python"
       },
       "response": {
-        "content": "Great choice — looking at your current recipe state, I'd build an Italian pasta around the existing ingredients: a quick spaghetti aglio e olio, finishing with parmesan and a squeeze of lemon. Want me to suggest substitutions or adjust the cooking time?"
+        "content": "Looking at your current recipe, Lemon Saffron Orzo: orzo is already a pasta, so I'd keep it Italian with garlic, lemon zest, a pinch of saffron, and parmesan stirred in at the end. Want me to suggest substitutions or adjust the cooking time?"
       }
     },
     {
-      "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 2. Reply mentions recipe-context tokens so the probe's soft assertion lands.",
+      "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 2. Still gated on the edited title, so the UI-owned recipe must survive turn 1 and reach the model again. The reply mentions recipe-context tokens for the shared probe assertion.",
       "match": {
         "userMessage": "healthier with more vegetables",
+        "systemMessage": "Lemon Saffron Orzo",
         "context": "langgraph-python"
       },
       "response": {
-        "content": "Here are a few healthier ingredient additions for the recipe: roasted bell peppers, baby spinach folded in at the end, and cherry tomatoes for brightness. The Italian flavor profile holds up well, and the vegetable swap keeps the dish lighter without losing the comfort of pasta."
+        "content": "Here are a few healthier ingredient additions for your Lemon Saffron Orzo recipe: roasted bell peppers, baby spinach folded in at the end, and cherry tomatoes for brightness. The Italian flavor profile holds up well, and the vegetable swap keeps the dish lighter without losing the comfort of pasta."
       }
     }
   ]

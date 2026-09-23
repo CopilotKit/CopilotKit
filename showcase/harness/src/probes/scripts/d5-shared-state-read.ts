@@ -1,26 +1,31 @@
 /**
  * D5 — shared-state-read script (recipe-editor variant).
  *
- * Drives `/demos/shared-state-read` — the recipe-editor demo that uses
- * the NEUTRAL DEFAULT agent (no backend tools, no state schema). The
- * frontend publishes a `RecipeAgentState` (title / skill_level /
- * cooking_time / special_preferences / ingredients / instructions) to
- * the agent via `agent.setState({recipe: ...})`; the agent reads the
- * recipe context but does NOT mutate it (this is the READ-ONLY half of
- * shared-state, distinct from the bidirectional write demo at
+ * Drives `/demos/shared-state-read` — the recipe-editor demo whose agent
+ * has no backend tool. The frontend publishes a `RecipeAgentState`
+ * (title / skill_level / cooking_time / special_preferences /
+ * ingredients / instructions) to the agent via
+ * `agent.setState({recipe: ...})`; the agent reads the recipe context but
+ * does NOT mutate it (this is the READ-ONLY half of shared-state,
+ * distinct from the bidirectional write demo at
  * `/demos/shared-state-read-write`).
  *
  * Two-turn flow:
- *   1. Send the "Italian recipe" chip prompt. With no backend tool the
- *      agent simply replies in chat referencing what it sees in the
- *      shared recipe state. Asserts the recipe-card mounted on the
- *      left pane (the form is the demo's whole point — if it didn't
- *      render, the page is broken). Asserts the assistant produced
- *      a non-empty response.
+ *   1. Rename the recipe to `EDITED_RECIPE_TITLE` in the form (the UI's
+ *      only write), then send the "Italian recipe" chip prompt. Asserts
+ *      the recipe-card mounted on the left pane (the form is the demo's
+ *      whole point — if it didn't render, the page is broken), that the
+ *      edit stuck in the controlled input (so `agent.setState` accepted
+ *      it), and that the assistant produced a non-empty response.
  *   2. Send the "Make it healthier" chip prompt. The agent's reply
  *      should reference the recipe context (any of: pasta / italian /
- *      healthy / ingredient names) — checks that shared state IS
- *      reaching the agent across turns.
+ *      healthy / ingredient names).
+ *
+ * The probe stays identical for every integration. Whether the edited
+ * value actually reaches the model is decided by each integration's
+ * fixture: a fixture that gates on `EDITED_RECIPE_TITLE` (for example via
+ * `systemMessage`) only matches when the request carries the edit, so a
+ * missing UI-to-agent state bridge fails strict mode.
  *
  * No `set_recipe` tool exists — this probe is intentionally lighter
  * than the bidirectional write probe. What it CATCHES: a regression
@@ -39,8 +44,15 @@ import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 export const TURN_1_INPUT = "Create a delicious Italian pasta recipe.";
 export const TURN_2_INPUT = "Make the recipe healthier with more vegetables.";
 
+/** The title the probe types into the recipe form before turn 1. It must
+ *  not appear in any prompt, instruction, or default recipe, so a fixture
+ *  that requires it matches only a request that carries the UI's edit. */
+export const EDITED_RECIPE_TITLE = "Lemon Saffron Orzo";
+
 const RECIPE_CARD_TESTID = "recipe-card";
 const RECIPE_CARD_TIMEOUT_MS = 15_000;
+/** `aria-label` on the recipe card's title input (shared recipe-card.tsx). */
+export const RECIPE_TITLE_SELECTOR = 'input[aria-label="Recipe title"]';
 
 /**
  * The shared-state-read probe ALWAYS targets the standalone recipe-
@@ -106,11 +118,48 @@ async function assertRecipeCardMounted(page: Page, tag: string): Promise<void> {
   }
 }
 
+const TITLE_EDIT_SETTLE_MS = 5_000;
+const TITLE_EDIT_POLL_MS = 100;
+
+async function readRecipeTitle(page: Page): Promise<string | null> {
+  return await page.evaluate((selector) => {
+    const win = globalThis as unknown as {
+      document: {
+        querySelector(sel: string): { value?: string } | null;
+      };
+    };
+    return win.document.querySelector(selector as string)?.value ?? null;
+  }, RECIPE_TITLE_SELECTOR);
+}
+
+/** Rename the recipe through the form, the UI's only write path. The title
+ *  input is controlled by `agent.state.recipe`, so the new value only sticks
+ *  once `agent.setState` has accepted it. */
+export async function editRecipeTitle(page: Page): Promise<void> {
+  const tag = "shared-state-read turn 1 (edit recipe)";
+  await assertRecipeCardMounted(page, tag);
+  await page.fill(RECIPE_TITLE_SELECTOR, EDITED_RECIPE_TITLE, {
+    timeout: RECIPE_CARD_TIMEOUT_MS,
+  });
+  const deadline = Date.now() + TITLE_EDIT_SETTLE_MS;
+  let value = await readRecipeTitle(page);
+  while (value !== EDITED_RECIPE_TITLE && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, TITLE_EDIT_POLL_MS));
+    value = await readRecipeTitle(page);
+  }
+  if (value !== EDITED_RECIPE_TITLE) {
+    throw new Error(
+      `${tag}: typed "${EDITED_RECIPE_TITLE}" into ${RECIPE_TITLE_SELECTOR} but the input shows ${JSON.stringify(value)} — agent.setState did not accept the edit`,
+    );
+  }
+}
+
 export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
   return [
     {
       input: TURN_1_INPUT,
       responseTimeoutMs: 60_000,
+      preFill: editRecipeTitle,
       assertions: async (page) => {
         const tag = "shared-state-read turn 1";
         // The recipe form must be mounted before the agent can read

@@ -108,11 +108,16 @@ state once the agent is ready, then publishes every edit with
 
 The LangGraph adapter sends a run only the state keys in the graph's input
 schema, and the model sees a key only if you add it to the model request.
-Declare `recipe` on the state schema you pass to `create_agent`. Then add it
-to each model call with middleware, the way the Showcase injects
-`preferences`:
+The cell's graph declares `recipe` on its state schema and passes
+`expose_state=["recipe"]` to `CopilotKitMiddleware`, which appends the
+current value to the system prompt on every model call. `expose_state` is
+off by default:
 
-<Snippet region="preferences-injector" cell="shared-state-read-write" title="src/agents/shared_state_read_write.py: inject UI-written state" />
+<Snippet region="shared-state-read-agent" cell="shared-state-read" title="src/agents/shared_state_read.py: read the recipe" />
+
+To test it, edit a field in the form, then ask the agent about it. The reply
+should use your edited value, and the form should keep your edit after the
+run.
 
 </WhenFrameworkHas>
 
@@ -124,29 +129,42 @@ state once the agent is ready, then publishes every edit with
 
 <Snippet region="shared-state-read-publish" cell="shared-state-read" title="frontend/src/app/demos/shared-state-read/page.tsx: publish the recipe" />
 
-The LangGraph adapter sends a run only the state keys in the graph's input
-schema, and the model sees a key only if you add it to the model request.
-Add `recipe` to your graph's state annotation. Then build a system message
-from it in your chat node, the way the Showcase builds one from
-`preferences`:
+The Showcase agent for this cell doesn't read `recipe` yet. It runs the
+shared starter graph, whose state has no `recipe` key, so the published
+value never reaches the model. Your graph needs two additions:
+
+1. Add `recipe` to the graph's state annotation. The LangGraph adapter sends
+   a run only the state keys in the graph's input schema, so an undeclared
+   key is dropped before the graph runs.
+2. In the chat node, build a system message from `state.recipe` and put it
+   ahead of the conversation in the model call. The read + write cell does
+   the same with `preferences`:
 
 <Snippet region="preferences-injector" cell="shared-state-read-write" title="src/agent/shared-state-read-write.ts: build a message from UI-written state" />
+
+With both in place, edit a field in the form and ask the agent about it. The
+reply should use your edited value.
 
 </WhenFrameworkHas>
 
 <WhenFrameworkHas flag="slug" equals="google-adk">
 
 The recipe editor in the `shared-state-read` cell seeds `recipe` into agent
-state, then publishes every edit with `agent.setState`:
+state once the agent is ready, then publishes every edit with
+`agent.setState`:
 
 <Snippet region="shared-state-read-publish" cell="shared-state-read" title="frontend/src/app/demos/shared-state-read/page.tsx: publish the recipe" />
 
 The ADK adapter copies that state into the ADK session, but it doesn't add
-session state to the model request. Read `recipe` from
-`callback_context.state` in a `before_model_callback` and add it to the
-system instruction, the way the Showcase injects `preferences`:
+session state to the model request. The cell's agent reads `recipe` from
+`callback_context.state` in a `before_model_callback` and appends it to the
+system instruction:
 
-<Snippet region="preferences-injector" cell="shared-state-read-write" title="src/agents/shared_state_read_write_agent.py: inject UI-written state" />
+<Snippet region="shared-state-read-agent" cell="shared-state-read" title="src/agents/shared_state_read_agent.py: read the recipe" />
+
+To test it, edit a field in the form, then ask the agent about it. The reply
+should use your edited value, and the form should keep your edit after the
+run.
 
 </WhenFrameworkHas>
 
@@ -164,11 +182,11 @@ next model call:
 
 <Snippet region="shared-state-recipe-prompt" cell="shared-state-read-write" title="src/agents/agent.py: format the recipe for the prompt" />
 
-</WhenFrameworkHas>
-
 To test it, edit a field in the form, then ask the agent about it. The reply
 should use your edited value, and the form should keep your edit after the
 run.
+
+</WhenFrameworkHas>
 
 ## Read-only context
 
