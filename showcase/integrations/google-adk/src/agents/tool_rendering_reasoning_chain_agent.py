@@ -21,6 +21,7 @@ from agents.tool_rendering_common import (
     search_flights,
 )
 
+# @region[reasoning-chain-model]
 tool_rendering_reasoning_chain_agent = LlmAgent(
     name="ToolRenderingReasoningChainAgent",
     model=get_model(),
@@ -34,3 +35,4 @@ tool_rendering_reasoning_chain_agent = LlmAgent(
     ),
     after_model_callback=stop_on_terminal_text,
 )
+# @endregion[reasoning-chain-model]

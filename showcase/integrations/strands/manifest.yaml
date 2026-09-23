@@ -291,6 +291,7 @@ demos:
     animated_preview_url:
     highlight:
       - src/agents/reasoning_chain_agent.py
+      - src/agents/reasoning_agent.py
       - src/app/demos/tool-rendering-reasoning-chain/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-agent

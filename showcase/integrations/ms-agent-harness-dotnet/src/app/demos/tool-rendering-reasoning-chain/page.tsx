@@ -137,6 +137,7 @@ function Chat() {
     available: "always",
   });
 
+  // @region[reasoning-chain-message-view]
   return (
     <CopilotChat
       agentId="tool-rendering-reasoning-chain"
@@ -146,4 +147,5 @@ function Chat() {
       }}
     />
   );
+  // @endregion[reasoning-chain-message-view]
 }

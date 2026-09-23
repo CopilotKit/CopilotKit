@@ -42,6 +42,7 @@ def reasoning_model_id() -> str:
     return os.environ.get("OPENAI_REASONING_MODEL", DEFAULT_REASONING_MODEL)
 
 
+# @region[reasoning-chain-model]
 def build_reasoning_model():
     """Construct the Responses-API model that streams reasoning summaries.
 
@@ -60,6 +61,9 @@ def build_reasoning_model():
         model_id=reasoning_model_id(),
         params={"reasoning": {"effort": "medium", "summary": "detailed"}},
     )
+
+
+# @endregion[reasoning-chain-model]
 
 
 def build_reasoning_agent() -> StrandsAgent:

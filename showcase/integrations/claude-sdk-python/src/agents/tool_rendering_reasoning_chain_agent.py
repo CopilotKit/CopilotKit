@@ -104,6 +104,7 @@ SYSTEM_PROMPT = dedent("""
 """).strip()
 
 
+# @region[reasoning-chain-model]
 def _build_stream_kwargs(messages: list[dict[str, Any]]) -> dict[str, Any]:
     """Build the Anthropic `messages.stream` kwargs with adaptive thinking
     enabled so Claude streams native `thinking`/`thinking_delta` blocks.
@@ -128,6 +129,9 @@ def _build_stream_kwargs(messages: list[dict[str, Any]]) -> dict[str, Any]:
         "tools": TOOLS,
         "thinking": {"type": "adaptive"},
     }
+
+
+# @endregion[reasoning-chain-model]
 
 
 def _execute_tool(name: str, args: dict[str, Any]) -> dict[str, Any]:

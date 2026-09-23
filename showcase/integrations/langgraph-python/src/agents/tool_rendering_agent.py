@@ -127,6 +127,7 @@ def roll_d20(value: int = 0) -> dict:
     return {"sides": 20, "value": rolled, "result": rolled}
 
 
+# @region[tool-rendering-agent]
 model = ChatOpenAI(model="gpt-5.4")
 
 graph = create_agent(
@@ -135,3 +136,4 @@ graph = create_agent(
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,
 )
+# @endregion[tool-rendering-agent]

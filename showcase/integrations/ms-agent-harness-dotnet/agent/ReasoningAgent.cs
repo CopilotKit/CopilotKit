@@ -275,6 +275,7 @@ internal static class ReasoningAgentFactory
     private const int HarnessMaxContextWindowTokens = 128_000;
     private const int HarnessMaxOutputTokens = 8_192;
 
+    // @region[reasoning-chain-model]
     internal const string SystemPrompt =
         "You are a helpful assistant. For each user question, first think step-by-step " +
         "about the approach, then give a concise final answer.\n\n" +
@@ -306,4 +307,5 @@ internal static class ReasoningAgentFactory
 
         return new ReasoningAgent(inner, loggerFactory.CreateLogger<ReasoningAgent>());
     }
+    // @endregion[reasoning-chain-model]
 }

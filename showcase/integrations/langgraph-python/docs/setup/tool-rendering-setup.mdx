@@ -1,0 +1,33 @@
+<Steps>
+  <Step>
+    ### Install the LangGraph Python SDK
+
+    <InstallPythonSDK />
+
+  </Step>
+  <Step>
+    ### Give the agent its tools
+
+    Pass each backend tool to `create_agent` in `tools=[...]`. The graph runs
+    the tool on the server. The call, its arguments, and its result stream to
+    the frontend, where CopilotKit hands the call to the renderer registered
+    under the same name. A call with no named renderer goes to the `*`
+    wildcard. `CopilotKitMiddleware` forwards frontend tools and app context
+    on the same turn.
+
+    <DemoCode file="src/agents/tool_rendering_agent.py" region="tool-rendering-agent" />
+
+    Tool rendering needs no tool-specific runtime configuration. The runtime
+    reaches this graph through its `graphId` in `langgraph.json`
+    (`tool_rendering` here), as it does any other graph.
+
+  </Step>
+  <Step>
+    ### Try it
+
+    Ask the demo for the weather in San Francisco. A card for the
+    `get_weather` call appears in the chat, shows its running state, and
+    updates when the tool returns.
+
+  </Step>
+</Steps>

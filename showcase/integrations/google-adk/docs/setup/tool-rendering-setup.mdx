@@ -1,0 +1,56 @@
+<Steps>
+  <Step>
+    ### Install the ADK + AG-UI bridge
+
+    ```bash
+    pip install ag-ui-adk
+    ```
+
+  </Step>
+  <Step>
+    ### Pass the tools to your `LlmAgent`
+
+    Each tool is a plain Python function. ADK builds the model-facing schema
+    from its signature and docstring, and injects the `tool_context:
+    ToolContext` parameter at call time rather than exposing it to the model.
+    List the functions in the agent's `tools=[...]`:
+
+    <DemoCode file="src/agents/tool_rendering_agent.py" region="tool-rendering-agent" />
+
+    `get_model()` is the Showcase's model helper. It returns
+    `gemini-3.1-flash-lite`, pointed at the Showcase's mock server during
+    tests. Pass your own ADK model string instead.
+
+  </Step>
+  <Step>
+    ### Stop the loop once Gemini answers
+
+    Gemini 3.1 Flash-Lite does not end its agentic loop on its own after a
+    tool returns. It can keep re-issuing the same call. The Showcase's
+    `after_model_callback` ends the invocation on a final text response with
+    no pending function call, and leaves partial chunks and tool calls
+    alone:
+
+    <DemoCode file="src/agents/shared_chat.py" region="stop-on-terminal-text" />
+
+  </Step>
+  <Step>
+    ### Serve the agent through `ADKAgent`
+
+    Wrap the agent in `ADKAgent` and mount it with
+    `add_adk_fastapi_endpoint`, as for any other ADK agent. `ADKAgent`
+    translates each function call and its response into AG-UI tool-call
+    events. CopilotKit then hands the call to the renderer registered under
+    the same name, or to the `*` wildcard. The Showcase mounts every agent in
+    `src/agents/registry.py` this way in `src/agent_server.py`.
+
+  </Step>
+  <Step>
+    ### Try it
+
+    Ask the demo for the weather in San Francisco. A card for the
+    `get_weather` call appears in the chat, shows its running state, and
+    updates when the tool returns.
+
+  </Step>
+</Steps>

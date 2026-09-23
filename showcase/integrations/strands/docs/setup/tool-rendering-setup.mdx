@@ -1,0 +1,39 @@
+<Steps>
+  <Step>
+    ### Register the tools on the Strands agent
+
+    Decorate each backend tool with `@tool` and list it in the Strands
+    `Agent`'s `tools=[...]`. Wrap that agent in `StrandsAgent` to expose it
+    over AG-UI:
+
+    <DemoCode
+      file="src/agents/agent.py"
+      region="tool-rendering-agent-wiring"
+      title="src/agents/agent.py"
+    />
+
+    This shared agent backs most Showcase demos, so its list holds tools
+    for other features too, and its `config` holds tool behaviors and a
+    prompt builder those demos use. Tool rendering needs no `ToolBehavior`:
+    the adapter streams each backend call's arguments and its result to the
+    frontend by default.
+
+  </Step>
+  <Step>
+    ### Serve the agent
+
+    Serve the `StrandsAgent` with `create_strands_app`, as for any other
+    Strands agent. The Showcase does this in `src/agent_server.py`.
+    CopilotKit hands each streamed call to the renderer registered under
+    the same name, or to the `*` wildcard.
+
+  </Step>
+  <Step>
+    ### Try it
+
+    Ask the demo for the weather in San Francisco. A card for the
+    `get_weather` call appears in the chat, shows its running state, and
+    updates when the tool returns.
+
+  </Step>
+</Steps>
