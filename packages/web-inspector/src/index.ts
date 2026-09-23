@@ -158,6 +158,14 @@ import {
   trackWhatsNewClicked,
   trackWhatsNewSignalViewed,
   trackWhatsNewViewed,
+  trackHudViewed,
+  trackHudNotificationViewed,
+  trackHudNotificationClicked,
+  trackHudFeatureToggleViewed,
+  trackHudFeatureToggleClicked,
+  trackHudFeatureClicked,
+  trackHudHideViewed,
+  trackHudHideClicked,
 } from "./lib/telemetry.js";
 import {
   createFeatureOnboardingPrompt,
@@ -6867,6 +6875,10 @@ export class WebInspectorElement extends LitElement {
   private launcherHudIntroStartTimer: ReturnType<typeof setTimeout> | null =
     null;
   private launcherHudIntroEndTimer: ReturnType<typeof setTimeout> | null = null;
+  private viewedHudElement: HTMLElement | null = null;
+  private readonly viewedHudParts = new Set<string>();
+  // The runtime's telemetry opt-out is known only after /info resolves.
+  private pendingHudTelemetry: Array<() => void> = [];
   /** Host-wide deadline that suppresses both the Inspector and its launcher. */
   private inspectorDismissedUntil: number | null = null;
   private lastReportedInspectorVisibility: boolean | null = null;
@@ -11738,6 +11750,7 @@ export class WebInspectorElement extends LitElement {
     this.syncThreadsExampleOverviewVideo();
     this.maybeTrackInspectorMetadataViews();
     this.maybeTrackNewsSignalViewed();
+    this.maybeTrackHudViews();
     // The pill's full width is only measurable once it has been laid out, and
     // the answer decides both the direction and the telemetry label below, so
     // this runs before the visibility event rather than after it.
@@ -12163,6 +12176,8 @@ export class WebInspectorElement extends LitElement {
     }
     if (!this.launcherHudOpen) return;
     this.launcherHudOpen = false;
+    this.viewedHudElement = null;
+    this.viewedHudParts.clear();
     this.requestUpdate();
   }
 
@@ -12210,12 +12225,82 @@ export class WebInspectorElement extends LitElement {
       ?.focus();
   };
 
+  private queueHudTelemetry(send: () => void): void {
+    if (this.core?.telemetryDisabled) return;
+    if (
+      this.runtimeStatus === CopilotKitCoreRuntimeConnectionStatus.Connected
+    ) {
+      send();
+    } else if (this.pendingHudTelemetry.length < MAX_PENDING_BANNER_VIEWED) {
+      this.pendingHudTelemetry.push(send);
+    }
+  }
+
+  private flushPendingHudTelemetry(): void {
+    if (this.core?.telemetryDisabled) {
+      this.pendingHudTelemetry = [];
+      return;
+    }
+    if (this.runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected)
+      return;
+    const queued = this.pendingHudTelemetry;
+    this.pendingHudTelemetry = [];
+    for (const send of queued) send();
+  }
+
+  private maybeTrackHudViews(): void {
+    const hud = this.activeRoot.querySelector<HTMLElement>(
+      "[data-cpk-launcher-hud]",
+    );
+    if (!hud) {
+      this.viewedHudElement = null;
+      this.viewedHudParts.clear();
+      return;
+    }
+    if (document.visibilityState !== "visible") return;
+    if (hud !== this.viewedHudElement) {
+      this.viewedHudElement = hud;
+      this.viewedHudParts.clear();
+    }
+    const once = (key: string, send: () => void): void => {
+      if (this.viewedHudParts.has(key)) return;
+      this.viewedHudParts.add(key);
+      this.queueHudTelemetry(send);
+    };
+    once("hud", trackHudViewed);
+    if (
+      hud.querySelector("[data-cpk-hud-news]") &&
+      this.announcementTimestamp
+    ) {
+      const banner_id = this.announcementTimestamp;
+      once(`notification:${banner_id}`, () =>
+        trackHudNotificationViewed({ banner_id }),
+      );
+    }
+    for (const feature of ["threads", "learning"] as const) {
+      if (hud.querySelector(`[data-cpk-hud-toggle="${feature}"]`)) {
+        once(`toggle:${feature}`, () =>
+          trackHudFeatureToggleViewed({ feature }),
+        );
+      }
+    }
+    if (hud.querySelector('[data-cpk-dismiss-inspector="day"]')) {
+      once("hide", trackHudHideViewed);
+    }
+  }
+
   private handleHudActionClick = (
     event: Event,
     row: LauncherHudRowId,
+    control: "row" | "action" | "learn_more" | "toggle",
   ): void => {
     event.preventDefault();
     event.stopPropagation();
+    this.queueHudTelemetry(() =>
+      control === "toggle"
+        ? trackHudFeatureToggleClicked({ feature: row })
+        : trackHudFeatureClicked({ feature: row, control }),
+    );
     this.hudLandingMenu =
       row === "threads" ? "threads" : row === "learning" ? "memories" : "home";
     this.closeLauncherHud();
@@ -12230,12 +12315,18 @@ export class WebInspectorElement extends LitElement {
     ) {
       return;
     }
-    this.handleHudActionClick(event, row);
+    this.handleHudActionClick(event, row, "row");
   };
 
   private handleHudNewsClick = (event: Event): void => {
     event.preventDefault();
     event.stopPropagation();
+    const banner_id = this.announcementTimestamp;
+    if (banner_id) {
+      this.queueHudTelemetry(() =>
+        trackHudNotificationClicked({ banner_id, action: "open" }),
+      );
+    }
     this.hudLandingMenu = WHATS_NEW_MENU_KEY;
     this.closeLauncherHud();
     this.openInspector("floating_button");
@@ -12244,6 +12335,12 @@ export class WebInspectorElement extends LitElement {
   private handleHudNewsDismissClick = (event: Event): void => {
     event.preventDefault();
     event.stopPropagation();
+    const banner_id = this.announcementTimestamp;
+    if (banner_id) {
+      this.queueHudTelemetry(() =>
+        trackHudNotificationClicked({ banner_id, action: "dismiss" }),
+      );
+    }
     this.clearNewsSignal();
     this.activeRoot
       .querySelector<HTMLButtonElement>(".console-button")
@@ -12254,6 +12351,7 @@ export class WebInspectorElement extends LitElement {
   private handleHudDismissDayClick = (event: Event): void => {
     event.preventDefault();
     event.stopPropagation();
+    this.queueHudTelemetry(trackHudHideClicked);
     this.dismissInspectorFor("day");
   };
 
@@ -12297,7 +12395,7 @@ export class WebInspectorElement extends LitElement {
             data-cpk-hud-action
             aria-label=${`Open ${args.label} in Inspector`}
             @click=${(event: Event) =>
-              this.handleHudActionClick(event, args.id)}
+              this.handleHudActionClick(event, args.id, "action")}
             @pointerdown=${(event: Event) => event.stopPropagation()}
           >
             <span
@@ -12323,7 +12421,7 @@ export class WebInspectorElement extends LitElement {
             aria-label=${`Learn more about ${args.label}`}
             aria-describedby=${detailId}
             @click=${(event: Event) =>
-              this.handleHudActionClick(event, args.id)}
+              this.handleHudActionClick(event, args.id, "learn_more")}
             @pointerdown=${(event: Event) => event.stopPropagation()}
           >
             ${this.renderIcon("CircleHelp")}
@@ -12340,7 +12438,7 @@ export class WebInspectorElement extends LitElement {
             }
             ?disabled=${args.connected}
             @click=${(event: Event) =>
-              this.handleHudActionClick(event, args.id)}
+              this.handleHudActionClick(event, args.id, "toggle")}
             @pointerdown=${(event: Event) => event.stopPropagation()}
           >
             <span
@@ -21972,6 +22070,7 @@ export class WebInspectorElement extends LitElement {
   // Releases held notification telemetry once /info has answered, or discards
   // it when the runtime reports telemetry disabled.
   private flushPendingWhatsNewTelemetry(): void {
+    this.flushPendingHudTelemetry();
     if (
       this.pendingBannerViewed.length === 0 &&
       !this.pendingNewsSignalViewed
