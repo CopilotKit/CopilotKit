@@ -253,8 +253,8 @@ test("replaces two LangGraph Python legacy viewer guides with Showcase sources",
   // work, so they are not asserted here.
   const cases = [
     {
-      slug: "integrations/langgraph/shared-state/state-inputs-outputs",
-      url: "langgraph-python/shared-state/state-inputs-outputs",
+      slug: "integrations/langgraph/shared-state/in-app-agent-write",
+      url: "langgraph-python/shared-state/in-app-agent-write",
       sourceTerms: [
         "shared-state-read-write",
         "shared-state-setup",
