@@ -3,9 +3,8 @@
 import React from "react";
 
 /**
- * Step shape matches the `Step` TypedDict emitted by the Python deep agent's
- * custom `set_steps` tool (see `src/agents/gen_ui_agent.py`).
- * Status transitions: pending -> in_progress -> completed.
+ * One entry in the agent's `steps` state, as published by the backend's
+ * `set_steps` tool. Status transitions: pending -> in_progress -> completed.
  */
 export type Step = {
   id: string;

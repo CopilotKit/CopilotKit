@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 # ---- Tool ---------------------------------------------------------------
 
 
+# @region[gen-ui-agent-state]
 @tool
 def set_steps(steps: list[dict]) -> str:
     """Publish the current plan and step statuses.
@@ -66,6 +67,9 @@ def set_steps(steps: list[dict]) -> str:
         Confirmation string for the LLM to summarise back to the user.
     """
     return f"Published {len(steps)} step(s)."
+
+
+# @endregion[gen-ui-agent-state]
 
 
 # ---- State hook ---------------------------------------------------------

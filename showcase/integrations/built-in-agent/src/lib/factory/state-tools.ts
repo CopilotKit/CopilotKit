@@ -26,27 +26,28 @@ export const stateDeltaTool = toolDefinition({
   }),
 }).server(async ({ delta }) => ({ success: true, delta }));
 
+// @region[gen-ui-agent-state]
 /**
  * `set_steps` — gen-ui-agent state tool.
  *
  * The gen-ui-agent demo (and its D5/D6 fixtures, shared across every
  * integration) is structured around a custom `set_steps(steps=[...])`
- * tool call. Other backends (LangGraph Python, Mastra, ...) define
- * `set_steps` as part of the agent's own state schema and stream the
- * resulting `steps` array as an AG-UI `STATE_DELTA` after each call.
+ * tool call. Other backends (LangGraph Python, Mastra, ...) declare
+ * `steps` in the agent's own state schema and publish it after each
+ * `set_steps` call.
  *
  * The built-in-agent runtime has no per-agent state schema, so we
- * expose `set_steps` as a generic server tool. The result is detected
- * downstream in the TanStack→AG-UI converter (`tanstack-factory.ts`)
- * and translated into a `STATE_DELTA` with
- * `[{op: "replace", path: "/steps", value: <steps>}]`, mirroring what
- * the demo's frontend (`useAgent` + `StepsPanel`) expects.
+ * expose `set_steps` as a generic server tool whose result carries the
+ * step list. The TanStack→AG-UI converter (`tanstack-factory.ts`)
+ * detects that result and emits a `STATE_DELTA` with
+ * `[{op: "add", path: "/steps", value: <steps>}]`, which is what the
+ * demo's frontend (`useAgent` + `InlineAgentStateCard`) reads as
+ * `agent.state.steps`.
  *
  * Without this tool, the gen-ui-agent fixtures' `set_steps` tool calls
  * pass through as untyped TOOL_CALL events, no STATE_DELTA is ever
  * emitted, and the frontend's `agent.state.steps` never populates —
- * which leaves `<StepsPanel>` in its placeholder state and the D6
- * `agent-state-card` testid never mounts.
+ * so the `agent-state-card` testid never mounts.
  */
 export const setStepsTool = toolDefinition({
   name: "set_steps",
@@ -66,3 +67,4 @@ export const stateTools = [
   stateDeltaTool,
   setStepsTool,
 ] as const;
+// @endregion[gen-ui-agent-state]

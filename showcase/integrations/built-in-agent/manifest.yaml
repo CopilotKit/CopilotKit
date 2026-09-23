@@ -233,6 +233,7 @@ demos:
       - src/app/demos/gen-ui-agent/InlineAgentStateCard.tsx
       - src/lib/factory/tanstack-factory.ts
       - src/app/api/copilotkit/[[...slug]]/route.ts
+      - src/lib/factory/state-tools.ts
   - id: shared-state-streaming
     name: "Shared State: Streaming"
     description: Per-token state delta streaming from agent to UI

@@ -151,6 +151,7 @@ export async function notesStateFromArgs(
   return { notes: notes.map((n) => String(n)) };
 }
 
+// @region[gen-ui-agent-backend]
 /** set_steps → { steps } (gen-ui-agent live progress card) */
 export async function stepsStateFromArgs(
   ctx: ToolCallContext,
@@ -172,6 +173,7 @@ export async function stepsStateFromArgs(
     }));
   return { steps: cleaned };
 }
+// @endregion[gen-ui-agent-backend]
 
 /** write_document → { document } (shared-state-streaming live document).
  *

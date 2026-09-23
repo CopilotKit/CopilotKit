@@ -17,6 +17,15 @@ from google.adk.tools import ToolContext
 from agents.shared_chat import get_model, stop_on_terminal_text
 
 
+# @region[gen-ui-agent-state]
+# ADK session state is schemaless, so there is no state class to extend. The
+# plan lives under this key, and ag_ui_adk streams session-state changes to
+# the frontend as `agent.state`. Each step is
+# {"id": str, "title": str, "status": "pending" | "in_progress" | "completed"}.
+STEPS_STATE_KEY = "steps"
+# @endregion[gen-ui-agent-state]
+
+
 # @region[gen-ui-agent-backend]
 def set_steps(tool_context: ToolContext, steps: list[dict]) -> dict:
     """Publish the current plan + step statuses.
@@ -25,8 +34,11 @@ def set_steps(tool_context: ToolContext, steps: list[dict]) -> dict:
     of all steps). Each step is an object with `id`, `title`, and `status`
     where status is one of "pending", "in_progress", or "completed".
     """
-    tool_context.state["steps"] = steps
+    tool_context.state[STEPS_STATE_KEY] = steps
     return {"status": "ok", "step_count": len(steps)}
+
+
+# @endregion[gen-ui-agent-backend]
 
 
 _INSTRUCTION = (
@@ -53,6 +65,10 @@ _INSTRUCTION = (
     "send a final assistant message and terminate."
 )
 
+# @region[gen-ui-agent-wiring]
+# `stop_on_terminal_text` ends the turn on Gemini's final text-only response
+# so the planner does not re-issue `set_steps` after finishing. See
+# showcase/integrations/google-adk/src/agents/shared_chat.py for the callback.
 gen_ui_agent = LlmAgent(
     name="GenUiAgent",
     model=get_model(),
@@ -60,4 +76,4 @@ gen_ui_agent = LlmAgent(
     tools=[set_steps, AGUIToolset()],
     after_model_callback=stop_on_terminal_text,
 )
-# @endregion[gen-ui-agent-backend]
+# @endregion[gen-ui-agent-wiring]

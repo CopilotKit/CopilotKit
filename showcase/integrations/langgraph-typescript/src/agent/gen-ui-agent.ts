@@ -37,6 +37,7 @@ import {
 // 1. Shared state — `steps` is rendered as a live progress card in the UI.
 // ---------------------------------------------------------------------------
 
+// @region[gen-ui-agent-state]
 const StepSchema = z.object({
   id: z.string().describe("Unique identifier for the step."),
   title: z.string().describe("Short description of the step."),
@@ -57,6 +58,7 @@ const AgentStateAnnotation = Annotation.Root({
 });
 
 export type AgentState = typeof AgentStateAnnotation.State;
+// @endregion[gen-ui-agent-state]
 
 // ---------------------------------------------------------------------------
 // 2. Tool — `set_steps` publishes the current plan + step statuses.
@@ -106,7 +108,9 @@ const setSteps = tool(
 );
 // @endregion[gen-ui-agent-backend]
 
+// @region[gen-ui-agent-wiring]
 const tools = [setSteps];
+// @endregion[gen-ui-agent-wiring]
 
 // ---------------------------------------------------------------------------
 // 3. System prompt — matches the LGP agent's instruction sequence.
@@ -135,6 +139,7 @@ const SYSTEM_PROMPT =
 // 4. Chat node.
 // ---------------------------------------------------------------------------
 
+// @region[gen-ui-agent-wiring]
 async function chatNode(state: AgentState, config: RunnableConfig) {
   const model = makeChatOpenAI(config, {
     temperature: 0,
@@ -195,3 +200,4 @@ export const graph = workflow.compile({
   checkpointer: memory,
   recursionLimit: 50,
 });
+// @endregion[gen-ui-agent-wiring]

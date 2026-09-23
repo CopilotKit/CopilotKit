@@ -216,6 +216,7 @@ demos:
       - src/agent_server.ts
       - src/app/demos/gen-ui-agent/page.tsx
       - src/app/api/copilotkit/route.ts
+      - src/agent/gen-ui-agent-prompt.ts
   - id: gen-ui-tool-based
     name: Tool-Based Generative UI
     description: Agent uses frontend tools to trigger UI generation — useFrontendTool with a render function paints structured haiku output as a styled card alongside the chat

@@ -39,6 +39,14 @@ from agno.run import RunContext
 dotenv.load_dotenv()
 
 
+# @region[gen-ui-agent-state]
+# Agno session state is schemaless, so there is no state class to extend. The
+# plan lives under this key in `session_state`. Each step is
+# {"id": str, "title": str, "status": "pending" | "in_progress" | "completed"}.
+STEPS_STATE_KEY = "steps"
+# @endregion[gen-ui-agent-state]
+
+
 SYSTEM_PROMPT = dedent(
     """
     You are an agentic planner. For each user request, follow this exact
@@ -64,6 +72,7 @@ SYSTEM_PROMPT = dedent(
 ).strip()
 
 
+# @region[gen-ui-agent-backend]
 def set_steps(run_context: RunContext, steps: list[dict]) -> str:
     """Publish the current plan + step statuses to shared state.
 
@@ -82,7 +91,7 @@ def set_steps(run_context: RunContext, steps: list[dict]) -> str:
     for s in steps or []:
         if isinstance(s, dict):
             cleaned.append(s)
-    run_context.session_state["steps"] = cleaned
+    run_context.session_state[STEPS_STATE_KEY] = cleaned
     return f"Published {len(cleaned)} step(s)."
 
 
@@ -98,3 +107,4 @@ agent = Agent(
     # give a small headroom for retries while bounding runaway loops.
     tool_call_limit=12,
 )
+# @endregion[gen-ui-agent-backend]

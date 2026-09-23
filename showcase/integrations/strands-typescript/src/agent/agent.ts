@@ -53,8 +53,10 @@ export async function buildShowcaseAgent(): Promise<StrandsAgent> {
       },
       // Shared State (Read + Write) — notes panel.
       set_notes: { stateFromArgs: notesStateFromArgs },
+      // @region[gen-ui-agent-wiring]
       // gen-ui-agent — live progress card driven by set_steps transitions.
       set_steps: { stateFromArgs: stepsStateFromArgs },
+      // @endregion[gen-ui-agent-wiring]
       // shared-state-streaming — stream the document string into state.
       write_document: { stateFromArgs: documentStateFromArgs },
       // Sub-agents — append a delegation entry carrying the actual output.
@@ -70,6 +72,7 @@ export async function buildShowcaseAgent(): Promise<StrandsAgent> {
     },
   };
 
+  // @region[gen-ui-agent-wiring]
   const strandsAgent = new Agent({
     model: await createModel(),
     systemPrompt: SYSTEM_PROMPT,
@@ -83,6 +86,7 @@ export async function buildShowcaseAgent(): Promise<StrandsAgent> {
       "A polished CopilotKit demo assistant: chat, tools, shared state, HITL, sub-agents.",
     config,
   });
+  // @endregion[gen-ui-agent-wiring]
 }
 
 /** Tool-free agent for the voice demo (transcription + basic chat). */

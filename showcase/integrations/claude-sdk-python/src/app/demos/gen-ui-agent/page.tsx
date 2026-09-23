@@ -14,20 +14,18 @@ import { useSuggestions } from "./suggestions";
 /**
  * Agentic Generative UI — In-Chat State Rendering
  *
- * The deep agent on the backend defines its own state schema
- * (`steps: list[Step]`) and exposes a custom `set_steps` tool that the model
- * calls to mutate that state. Every `set_steps` call streams the updated
- * `steps` to the client.
+ * The backend agent keeps a `steps` list in its state and exposes a
+ * `set_steps` tool that the model calls with the full plan on every status
+ * transition. The integration publishes each update to the client as agent
+ * state.
  *
- * On the client we subscribe to that live state via `useAgent` (v2) and
- * render a single `InlineAgentStateCard` inside the chat transcript via
+ * On the client we subscribe to that state via `useAgent` (v2) and render a
+ * single `InlineAgentStateCard` inside the chat transcript via
  * `messageView.children`. The card re-renders in place as state arrives —
  * no per-message claims, no duplicate cards.
  *
- * This mirrors the pattern used by every other integration's gen-ui-agent
- * demo (mastra, strands, ag2, agno, crewai-crews, langgraph-typescript,
- * pydantic-ai, ...) and replaces the earlier `useCoAgentStateRender`
- * approach which produced one card per state-changing message.
+ * Canonical source; materialized into each consuming integration by
+ * showcase/scripts/sync-shared-frontends.ts.
  */
 export default function GenUiAgentDemo() {
   return (
@@ -41,14 +39,18 @@ export default function GenUiAgentDemo() {
   );
 }
 
+// @region[gen-ui-agent-state-rendering]
 type AgentState = {
   steps?: Step[];
 };
 
 function Chat() {
+  // OnStateChanged re-renders on every `steps` update. OnRunStatusChanged
+  // re-renders when the run starts and ends, so `status` below reflects
+  // `agent.isRunning` after the final state update has already landed.
   const { agent } = useAgent({
     agentId: "gen-ui-agent",
-    updates: [UseAgentUpdate.OnStateChanged],
+    updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
   });
 
   useSuggestions();
@@ -73,3 +75,4 @@ function Chat() {
     />
   );
 }
+// @endregion[gen-ui-agent-state-rendering]

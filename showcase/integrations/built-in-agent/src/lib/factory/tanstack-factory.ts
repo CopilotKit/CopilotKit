@@ -194,7 +194,7 @@ export async function* convertStream(
       // state-tools.ts). The tool's server handler returns `{ steps }`;
       // translate that into a STATE_DELTA that adds `/steps` on the
       // agent state, so the frontend `useAgent` subscriber sees the
-      // plan update and `StepsPanel` mounts `agent-state-card`.
+      // plan update and `InlineAgentStateCard` mounts `agent-state-card`.
       //
       // Use RFC-6902 `add` (not `replace`): the agent's initial state is
       // `{}` (no STATE_SNAPSHOT precedes the first STATE_DELTA), and
@@ -466,7 +466,9 @@ export function createBuiltInAgent(options: BuiltInAgentOptions = {}) {
       // abort with the parent.
       const subagentTools = buildSubagentTools(abortController);
 
+      // @region[gen-ui-agent-wiring]
       const serverTools = [...stateTools, ...baseServerTools, ...subagentTools];
+      // @endregion[gen-ui-agent-wiring]
 
       // Collect server-side tool names so we can skip frontend tools
       // that shadow them (e.g. get_weather has both a server executor
@@ -488,6 +490,7 @@ export function createBuiltInAgent(options: BuiltInAgentOptions = {}) {
           }),
         );
 
+      // @region[gen-ui-agent-wiring]
       const stream = chat({
         // Inject forwardingFetch so the OpenAI client picks up inbound
         // x-* headers (e.g. x-aimock-context) bound into ALS by the
@@ -506,6 +509,7 @@ export function createBuiltInAgent(options: BuiltInAgentOptions = {}) {
       });
 
       return convertStream(stream, abortController.signal);
+      // @endregion[gen-ui-agent-wiring]
     },
   });
 }
