@@ -14,6 +14,26 @@ import {
 } from "../llm-text";
 import { getDocsMode, getIntegrations, ROOT_FRAMEWORK } from "../registry";
 
+test("expands Intelligence capability cards into readable Markdown links", () => {
+  const page = getAllLlmPages().find(
+    (entry) => entry.url === "intelligence/overview",
+  );
+  expect(page).toBeDefined();
+  const output = renderPageToLlmText(page!);
+
+  for (const href of [
+    "/threads",
+    "/intelligence/memories",
+    "/learning",
+    "/intelligence/analytics",
+    "/intelligence/channels",
+    "/inspector",
+  ]) {
+    expect(output).toContain(`](${href})`);
+  }
+  expect(output).not.toContain("<IntelligenceFeatureCards");
+});
+
 test.each([
   ["langgraph-python", "LangGraph", "/langgraph-python/threads-import"],
   ["google-adk", "Google ADK", "/google-adk/threads-import"],
