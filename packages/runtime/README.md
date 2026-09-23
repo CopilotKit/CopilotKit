@@ -164,3 +164,27 @@ the existing 60-second durability window.
 
 No Intelligence upgrade is required. The runtime uses the existing terminal
 events and supports both single-event and batched gateway acknowledgments.
+
+## BuiltInAgent skill delivery from multiple containers
+
+```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const agent = new BuiltInAgent({
+  model: "openai/gpt-4o",
+  learnedSkills: {
+    containers: [
+      { id: "support", revision: "revision-123" },
+      { id: "company-wide" },
+    ],
+  },
+});
+```
+
+Set `CPK_INTELLIGENCE_API_KEY` or supply an Intelligence client in `learnedSkills.client`.
+The existing `containerId` and top-level `revision` interface remains supported.
+The SDK rejects a combination of the old fields and `containers`.
+The new interface ignores legacy container and revision environment variables.
+Each container keeps its own revision and cache. A cold failure or confirmed denial blocks the whole invocation.
+Skill names include the container prefix, such as `support/refund-policy`, when you use `containers`.
+See [Skill delivery](https://docs.copilotkit.ai/intelligence/learned-skills) for all adapters, environment defaults, and factory-mode wiring.

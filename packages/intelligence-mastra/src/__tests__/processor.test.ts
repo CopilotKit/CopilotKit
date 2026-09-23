@@ -1,3 +1,5 @@
+import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import fixtures from "../../../intelligence-delivery-core/conformance/snapshots.v1.json";
 import { randomUUID } from "node:crypto";
 import { Agent } from "@mastra/core/agent";
 import { Mastra } from "@mastra/core/mastra";
@@ -6,10 +8,8 @@ import { RequestContext } from "@mastra/core/request-context";
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod/v4";
 import { describe, expect, it, vi } from "vitest";
-import type {
-  SkillRegistry,
-  VerifiedSnapshot,
-} from "@copilotkit/intelligence-delivery-core";
+import { SkillRegistry } from "@copilotkit/intelligence-delivery-core";
+import type { VerifiedSnapshot } from "@copilotkit/intelligence-delivery-core";
 import { createSkillRegistryProcessor } from "../index.js";
 
 function snapshot(revision: string): VerifiedSnapshot {
@@ -41,6 +41,7 @@ function snapshot(revision: string): VerifiedSnapshot {
 
 function setup(
   options: {
+    registry?: SkillRegistry;
     toolName?: string;
     toolInput?: string;
     hostTools?: Record<string, ReturnType<typeof createTool>>;
@@ -50,7 +51,9 @@ function setup(
   let revision = "A";
   const acquire = vi.fn(async () => snapshot(revision));
   const skills = createSkillRegistryProcessor({
-    registry: { acquireSnapshot: acquire } as unknown as SkillRegistry,
+    registry:
+      options.registry ??
+      ({ acquireSnapshot: acquire } as unknown as SkillRegistry),
   });
   expect(skills).toBeDefined();
   const prompts: string[] = [];
@@ -449,3 +452,30 @@ it.each(["declineToolCall", "declineToolCallGenerate"] as const)(
     );
   },
 );
+
+it("uses a multi-container registry through a native Mastra agent", async () => {
+  const client = new CopilotKitIntelligence({ apiKey: "test" });
+  const fixture = fixtures.cases.find((entry) => entry.name === "text-skill")!;
+  const fetch = vi.spyOn(client, "getLearnedSkillsSnapshot").mockResolvedValue({
+    status: "snapshot",
+    bytes: new Uint8Array(Buffer.from(fixture.archiveBase64, "base64")),
+    revision: fixture.revision,
+    etag: fixture.etag,
+    contentType: "application/zip",
+  });
+  const registry = new SkillRegistry({
+    client,
+    containers: [{ id: "support" }, { id: "company" }],
+  });
+  const test = setup({
+    registry,
+    toolInput: '{"skill_name":"company/refund-policy"}',
+  });
+  const agent = test.skills.wrapAgent(test.native);
+  const result = await agent.generate("Help with a refund.");
+  expect(result.text).toBe("done");
+  expect(test.prompts[0]).toContain("support/refund-policy");
+  expect(test.prompts[0]).toContain("company/refund-policy");
+  expect(test.prompts.at(-1)).toContain("published refund policy");
+  expect(fetch).toHaveBeenCalledTimes(2);
+});

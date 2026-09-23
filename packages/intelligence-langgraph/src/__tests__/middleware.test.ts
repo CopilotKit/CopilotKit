@@ -426,3 +426,44 @@ it("one aborted caller does not cancel a shared registry refresh", async () => {
   expect(s.fetch).toHaveBeenCalledTimes(1);
   expect(s.fetch.mock.calls[0][0].signal?.aborted).toBe(false);
 });
+
+it("uses a multi-container registry through native middleware and skill tools", async () => {
+  const client = new CopilotKitIntelligence({ apiKey: "test" });
+  vi.spyOn(client, "getLearnedSkillsSnapshot").mockImplementation(
+    async ({ containerId }) => archive(containerId),
+  );
+  const registry = new SkillRegistry({
+    client,
+    containers: [{ id: "support" }, { id: "company" }],
+  });
+  const model = new Model(async (messages) => {
+    if (!messages.some((message) => message instanceof ToolMessage)) {
+      return new AIMessage({
+        content: "",
+        tool_calls: [
+          {
+            id: "load-support",
+            name: "copilotkit_load_skill",
+            args: { skill_name: "support/refund" },
+          },
+          {
+            id: "load-company",
+            name: "copilotkit_load_skill",
+            args: { skill_name: "company/refund" },
+          },
+        ],
+      });
+    }
+    return new AIMessage("done");
+  });
+  const skills = api.createSkillRegistryMiddleware({ registry });
+  const agent = skills.wrapAgent(createAgent({ model, middleware: [skills] }));
+  const result = await agent.invoke(input);
+  expect(JSON.stringify(model.calls[0])).toContain("support/refund");
+  expect(JSON.stringify(model.calls[0])).toContain("company/refund");
+  const toolMessages = result.messages.filter(
+    (message) => message instanceof ToolMessage,
+  );
+  expect(JSON.stringify(toolMessages)).toContain("Secret skill body support");
+  expect(JSON.stringify(toolMessages)).toContain("Secret skill body company");
+});
