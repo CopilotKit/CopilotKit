@@ -55,6 +55,9 @@ export const SELECTED_REACT_INTEGRATIONS = [
   "built-in-agent",
 ] as const;
 
+const BEAUTIFUL_CHAT_REASON =
+  "Flagship multi-feature starter demo (A2UI, open generative UI, canvas, charts, theming, and MCP Apps where configured); each constituent feature has its own guide, and no single feature guide should embed it.";
+
 /**
  * Reviewed bindings that are NOT required to render their own cell's
  * Showcase source, keyed `framework:cell`. Every entry needs a reason. The
@@ -66,6 +69,17 @@ export const SELECTED_REACT_INTEGRATIONS = [
 export const SELECTED_GUIDE_EXCLUSIONS: Readonly<Record<string, string>> = {
   "built-in-agent:agentic-chat":
     "Registry alias: the Built-in Agent agentic-chat docs link targets the framework quickstart, which documents setup rather than this cell's source.",
+  "langgraph-python:beautiful-chat": BEAUTIFUL_CHAT_REASON,
+  "langgraph-typescript:beautiful-chat": BEAUTIFUL_CHAT_REASON,
+  "google-adk:beautiful-chat": BEAUTIFUL_CHAT_REASON,
+  "built-in-agent:beautiful-chat": BEAUTIFUL_CHAT_REASON,
+  // The Strands beautiful-chat runtime configures no mcpApps.
+  "strands:beautiful-chat":
+    "Flagship multi-feature starter demo (A2UI, open generative UI, canvas, charts, and theming); each constituent feature has its own guide, and no single feature guide should embed it.",
+  "strands:hitl-in-chat-booking":
+    "Deprecated alias of hitl-in-chat: same /demos/hitl-in-chat route and highlight files, already rendered by the Strands interactive guide.",
+  "strands:hitl":
+    "Deprecated original HITL cell routed to the shared root agent, which has no pausing tool; its useHumanInTheLoop pattern is documented by hitl-in-chat. (Strands native interrupts are documented via the /interrupt agent.)",
 };
 
 export interface SelectedShowcaseGuideBinding {
