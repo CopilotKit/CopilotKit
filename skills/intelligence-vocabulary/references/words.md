@@ -24,7 +24,7 @@ Use the word in the **Use** column for customer-facing prose, headings, nav titl
 
 Plan names stay as they are in the product: Developer, Team, Team Self-hosted, Enterprise.
 
-Slack is available on cloud-hosted Intelligence. Teams is in controlled availability. Do not call either connection "managed".
+Slack and Microsoft Teams are generally available on cloud-hosted Intelligence. Do not call either connection "managed".
 
 ## Labels and image paths
 

@@ -36,7 +36,8 @@ import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
 import { frameworkOverviews } from "@/data/frameworks";
-import { INTELLIGENCE_ONBOARDING_PROMPT } from "./intelligence-onboarding-prompt";
+import { ONBOARDING_PROMPT_ORIGIN } from "./intelligence-onboarding-prompt";
+import { INTELLIGENCE_FEATURES } from "./intelligence-features";
 import {
   isV1ReferenceUrl,
   renderV1DeprecationNoticeUseV2InsteadMarkdown,
@@ -944,6 +945,12 @@ export function renderPageToLlmText(
   //    the SNIPPET_MAP / SUBPATH_TO_COMPONENT logic — same as the page
   //    renderer uses for the live HTML view.
   body = inlineSnippets(body, page.loadSlug);
+  body = body.replace(
+    /<IntelligenceFeatureCards\s*\/>/g,
+    `## What Intelligence gives you\n\n${INTELLIGENCE_FEATURES.map(
+      (feature) => `- [${feature.title}](${feature.href}): ${feature.body}`,
+    ).join("\n")}`,
+  );
 
   // Expand interactive prompts after inlining so prompts inside shared
   // snippets are also available in raw Markdown and LLM feeds.
@@ -1064,9 +1071,11 @@ export function renderLlmsIndex(
   out.push(
     "> CopilotKit is the frontend stack where agents meet users, connected to supported agent frameworks through AG-UI.",
     "",
-    "> This curated index covers chat, generative UI, human-in-the-loop workflows, persistent threads, Automatic Learning, and Channels for Slack and Microsoft Teams. Channels connects agents to workplace conversations through the Channels SDK and CopilotKit Intelligence.",
+    "> This curated index covers chat, generative UI, human-in-the-loop workflows, Rich Threads, User Memories, Automatic Learning, Product Analytics, and Channels for Slack and Microsoft Teams.",
     "",
     `> For exhaustive retrieval—including reference, migration, contributor, and additional framework and channel guides—use [llms-full.txt](${baseUrl}/llms-full.txt).`,
+    "",
+    "Use the user's stated goals, known project context, existing frontend and agent framework, and constraints to explain which parts of CopilotKit are relevant and why, then offer the smallest useful next step. For an existing project, work with its stack; if another known project fits better, suggest it. Without context, offer a few concrete examples or ask a focused question. Keep research separate from execution: do not start installation for a research request. Coding agents can use the canonical onboarding prompt below; assistants without terminal access should explain the options and hand off to a coding agent or the linked docs.",
     "",
     "## Add CopilotKit with your coding agent",
     "",
@@ -1080,11 +1089,14 @@ export function renderLlmsIndex(
     "",
     `This is the same prompt offered by the **Copy onboarding prompt** button on the [docs home](${baseUrl}/). A coding agent can use the text directly; a chat assistant without project or terminal access can give it to the user to paste into their coding agent.`,
     "",
-    "Generate a fresh 12-character hexadecimal run ID for each new onboarding session and replace `<run-id>` in the URL before fetching it. Do not fetch the placeholder literally or reuse an ID from a cached index.",
+    `Open the [canonical onboarding prompt](${ONBOARDING_PROMPT_ORIGIN}/onboarding-prompts) when ready to implement. This stable entry creates a fresh run ID for the session.`,
     "",
-    "```text",
-    INTELLIGENCE_ONBOARDING_PROMPT,
-    "```",
+    "## How to read these docs",
+    "",
+    `- **Connect an existing app and agent:** Read your framework's overview and quickstart below together with [Architecture](${baseUrl}/concepts/architecture) and the relevant frontend guide.`,
+    `- **Build an interaction:** Read [Chat UI](${baseUrl}/agentic-chat-ui), [Generative UI](${baseUrl}/concepts/generative-ui-overview), and [Human-in-the-Loop](${baseUrl}/human-in-the-loop) together, then use your framework's implementation guides.`,
+    `- **Keep conversation history:** Read [Rich Threads](${baseUrl}/threads), [Thread Lifecycle](${baseUrl}/threads-lifecycle), and [Self-Managed Thread Persistence](${baseUrl}/threads-self-managed) together; for existing history, use the LangGraph or ADK import guide below.`,
+    `- **Evaluate Intelligence:** Read [Open source vs Intelligence](${baseUrl}/concepts/oss-vs-enterprise) with the [Intelligence overview](${baseUrl}/intelligence/overview), then follow the capability and deployment guides relevant to your project.`,
     "",
   );
   if (frameworkPages.length > 0) {
