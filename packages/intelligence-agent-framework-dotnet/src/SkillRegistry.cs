@@ -23,7 +23,19 @@ internal sealed class SingleSkillRegistry : IDisposable
 
     internal SkillRegistryStatus Status { get { lock (gate) return status; } }
 
-    internal Task<SkillSnapshot> AcquireAsync(CancellationToken cancellationToken = default)
+    internal SkillSnapshot CachedSnapshot { get { lock (gate) return snapshot ?? throw SkillSnapshot.Invalid(); } }
+
+    internal void Deny(LearnedSkillsException error)
+    {
+        lock (gate) {
+            blocked = error;
+            status = status with { Stale = false, LastError = new(error.Code, error.Message, error.Retryable) };
+        }
+    }
+
+    internal LearnedSkillsBatchRequest? PendingRequest { get { lock (gate) return snapshot is not null && blocked is null && clock.GetElapsedTime(lastSuccess) < configuration.FreshnessWindow ? null : new(configuration.ContainerId, configuration.Revision, snapshot?.ETag); } }
+
+    internal Task<SkillSnapshot> AcquireAsync(CancellationToken cancellationToken = default, Func<CancellationToken, Task<LearnedSkillsResult>>? fetch = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         TaskCompletionSource<SkillSnapshot>? start = null;
@@ -42,18 +54,18 @@ internal sealed class SingleSkillRegistry : IDisposable
             }
             pending = flight;
         }
-        if (start is not null) _ = RefreshAsync(start, previous);
+        if (start is not null) _ = RefreshAsync(start, previous, fetch);
         // Cancelling one caller never cancels the shared refresh.
         return pending.WaitAsync(cancellationToken);
     }
 
-    private async Task RefreshAsync(TaskCompletionSource<SkillSnapshot> completion, SkillSnapshot? previous)
+    private async Task RefreshAsync(TaskCompletionSource<SkillSnapshot> completion, SkillSnapshot? previous, Func<CancellationToken, Task<LearnedSkillsResult>>? fetch)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(shutdown.Token);
         deadline.CancelAfter(configuration.RequestTimeout);
         try
         {
-            var response = await configuration.Client.GetLearnedSkillsSnapshotAsync(configuration.ContainerId,
+            var response = fetch is not null ? await fetch(deadline.Token).ConfigureAwait(false) : await configuration.Client.GetLearnedSkillsSnapshotAsync(configuration.ContainerId,
                 configuration.Revision, previous?.ETag, deadline.Token).ConfigureAwait(false);
             SkillSnapshot next;
             if (response is LearnedSkillsUnchanged unchanged)

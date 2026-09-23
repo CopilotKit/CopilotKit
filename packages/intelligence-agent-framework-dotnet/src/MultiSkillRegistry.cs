@@ -13,6 +13,8 @@ internal sealed class SkillRegistry : IDisposable
     private readonly bool multiple;
     private SkillSnapshot? snapshot;
     private bool disposed;
+    private readonly CancellationTokenSource shutdown = new();
+    private Task<SkillSnapshot>? flight;
 
     internal SkillRegistry(SkillRegistryOptions options, TimeProvider? clock = null)
     {
@@ -24,7 +26,7 @@ internal sealed class SkillRegistry : IDisposable
             children = [(configuration.ContainerId, new SingleSkillRegistry(configuration with { OwnsClient = false }, clock))];
             return;
         }
-        if (options.ContainerId is not null || options.Revision is not null || options.Containers!.Count == 0)
+        if (options.ContainerId is not null || options.Revision is not null || options.Containers!.Count is < 1 or > 50)
             throw new LearnedSkillsException("INVALID_CONFIG", false);
         var sources = options.Containers.ToImmutableArray();
         var ids = new HashSet<string>(StringComparer.Ordinal);
@@ -72,9 +74,33 @@ internal sealed class SkillRegistry : IDisposable
         cancellationToken.ThrowIfCancellationRequested();
         lock (gate) ObjectDisposedException.ThrowIf(disposed, this);
         if (!multiple) return await children[0].Registry.AcquireAsync(cancellationToken).ConfigureAwait(false);
-        // Each child shields its own shared refresh from cancellation by an invocation.
-        var snapshots = await Task.WhenAll(children.Select(child => child.Registry.AcquireAsync(cancellationToken))).ConfigureAwait(false);
-        cancellationToken.ThrowIfCancellationRequested();
+        Task<SkillSnapshot> pending;
+        lock (gate)
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            if (flight is null || flight.IsCompleted) flight = RefreshAsync();
+            pending = flight;
+        }
+        return await pending.WaitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<SkillSnapshot> RefreshAsync()
+    {
+        // Yield so the shared flight is installed before a synchronous transport can finish.
+        await Task.Yield();
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(shutdown.Token);
+        deadline.CancelAfter(configuration.RequestTimeout);
+        var requests = children.Select(child => child.Registry.PendingRequest).OfType<LearnedSkillsBatchRequest>().ToArray();
+        var batch = requests.Length > 0 ? FetchBatchAsync(requests, deadline.Token) : null;
+        var requested = requests.Select(source => source.ContainerId).ToHashSet(StringComparer.Ordinal);
+        var snapshots = await Task.WhenAll(children.Select(child => !requested.Contains(child.Id) ? Task.FromResult(child.Registry.CachedSnapshot) : child.Registry.AcquireAsync(shutdown.Token,
+            async token => {
+                var outcomes = await batch!.WaitAsync(token).ConfigureAwait(false);
+                var outcome = outcomes[child.Id];
+                if (outcome.Error is not null) throw outcome.Error;
+                return outcome.Result!;
+            }))).ConfigureAwait(false);
+        shutdown.Token.ThrowIfCancellationRequested();
         var metadata = children.Select((child, index) => new[] { child.Id, snapshots[index].Revision, snapshots[index].ETag });
         var identity = "composite:" + SkillSnapshot.Hash(JsonSerializer.SerializeToUtf8Bytes(metadata));
         var skills = children.SelectMany((child, index) => snapshots[index].Skills.Select(skill =>
@@ -85,6 +111,16 @@ internal sealed class SkillRegistry : IDisposable
             ObjectDisposedException.ThrowIf(disposed, this);
             if (snapshot?.Revision != identity) snapshot = new SkillSnapshot(identity, identity, skills);
             return snapshot;
+        }
+    }
+
+    private async Task<IReadOnlyDictionary<string, LearnedSkillsBatchResult>> FetchBatchAsync(LearnedSkillsBatchRequest[] requests, CancellationToken token)
+    {
+        try { return await configuration.Client.GetLearnedSkillsSnapshotsAsync(requests, token).ConfigureAwait(false); }
+        catch (LearnedSkillsException error) when (error.Code is not ("NETWORK_ERROR" or "TIMEOUT" or "INVALID_SNAPSHOT" or "UNSUPPORTED_SERVER"))
+        {
+            foreach (var child in children) child.Registry.Deny(error);
+            throw;
         }
     }
 
@@ -109,6 +145,7 @@ internal sealed class SkillRegistry : IDisposable
             if (disposed) return;
             disposed = true;
         }
+        shutdown.Cancel();
         foreach (var child in children) child.Registry.Dispose();
         if (configuration.OwnsClient) configuration.Client.Dispose();
     }

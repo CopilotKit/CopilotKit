@@ -11,11 +11,20 @@ internal static class MultiContainerTests
         var calls = new ConcurrentQueue<(string Path, string Query, string? ETag)>();
         var phase = 0;
         using var http = new HttpClient(new Handler(request => {
-            calls.Enqueue((request.RequestUri!.AbsolutePath, request.RequestUri.Query, request.Headers.IfNoneMatch.FirstOrDefault()?.ToString()));
-            var second = request.RequestUri.AbsolutePath.Contains("company");
-            if (second && phase == 2) return new(HttpStatusCode.Forbidden);
-            if (second && phase >= 1) throw new HttpRequestException("offline");
-            return Reply(phase == 0 ? "text-skill" : "empty-r2");
+            if (request.Method == HttpMethod.Get) return Reply("text-skill");
+            Equal(request.Method, HttpMethod.Post);
+            Equal(request.RequestUri!.AbsolutePath, "/api/v1/learning/skills/batch");
+            var body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            using var posted = JsonDocument.Parse(body);
+            calls.Enqueue((request.RequestUri.AbsolutePath, body, null));
+            if (phase == 5) throw new HttpRequestException("offline");
+            if (phase == 4) return new(HttpStatusCode.Forbidden);
+            return Batch(posted.RootElement.GetProperty("containers").EnumerateArray().Select(source => {
+                var id = source.GetProperty("containerId").GetString()!;
+                if (id == "company" && phase is > 0 and < 4) return (object)new { containerId = id, status = "error", error = new { code = phase == 2 ? "AUTHORIZATION_FAILED" : "NETWORK_ERROR", retryable = phase != 2 } };
+                if (phase == 6) return (object)new { containerId = id, status = "unchanged", revision = "r1", etag = source.GetProperty("ifNoneMatch").GetString() };
+                return Entry(id, phase == 0 ? "text-skill" : "empty-r2");
+            }));
         }));
         using var client = new IntelligenceClient(new IntelligenceOptions { ApiKey = "test" }, http);
         var sources = new List<SkillContainerSource> { new() { Id = "support/é %" }, new() { Id = "company" } };
@@ -29,20 +38,27 @@ internal static class MultiContainerTests
             sources.Clear();
             var original = await registry.AcquireAsync();
             Equal(string.Join(",", original.Skills.Select(x => x.Name)), "company/refund-policy,support%2F%C3%A9%20%25/refund-policy");
-            Equal(calls.All(call => call.Query == ""), true);
+            Equal(calls.Count, 1);
             Equal(registry.Status.Revision, null);
             var status = (MultiSkillRegistryStatus)registry.Status;
             Equal(status.Containers.Length, 2);
             Equal(status.Containers[0].Id, "support/é %");
+            phase = 6;
+            Equal(ReferenceEquals(original, await registry.AcquireAsync()), true);
             phase = 1;
             var updated = await registry.AcquireAsync();
             Equal(updated.Skills.Single().Name, "company/refund-policy");
             Equal(original.Skills.Length, 2);
             Equal(registry.Status.Stale, true);
-            Equal(calls.Skip(2).All(call => call.ETag is not null), true);
+            Equal(calls.Count, 3);
+            Equal(calls.Last().Query.Contains("ifNoneMatch"), true);
             phase = 2;
             await Denied(registry);
             phase = 3;
+            await Denied(registry);
+            phase = 4;
+            await Denied(registry);
+            phase = 5;
             await Denied(registry);
             registry.Dispose();
             phase = 0;
@@ -53,10 +69,11 @@ internal static class MultiContainerTests
             });
             Equal((await pinned.AcquireAsync()).Skills.Single().Name, "one/refund-policy");
             Equal(pinned.Status.Mode, "pinned");
-            Equal(calls.Last().Query, "?revision=r1");
+            Equal(calls.Last().Query.Contains("r1"), true);
 
             foreach (var options in new[] {
                 new SkillRegistryOptions { Client = client, Containers = [] },
+                new SkillRegistryOptions { Client = client, Containers = Enumerable.Range(0, 51).Select(i => new SkillContainerSource { Id = i.ToString() }).ToArray() },
                 new SkillRegistryOptions { Client = client, Containers = [new() { Id = " " }] },
                 new SkillRegistryOptions { Client = client, Containers = [new() { Id = "bad\ud800" }] },
                 new SkillRegistryOptions { Client = client, Containers = [new() { Id = "a" }, new() { Id = "a" }] },
@@ -73,6 +90,11 @@ internal static class MultiContainerTests
             try { await cold.AcquireAsync(); throw new Exception("partial cold catalog"); }
             catch (LearnedSkillsException error) when (error.Code == "NETWORK_ERROR") { }
             Equal(cold.Status.Initialized, false);
+            phase = 0;
+            await cold.AcquireAsync();
+            using var selective = JsonDocument.Parse(calls.Last().Query);
+            Equal(selective.RootElement.GetProperty("containers").GetArrayLength(), 1);
+            Equal(selective.RootElement.GetProperty("containers")[0].GetProperty("containerId").GetString(), "company");
         }
         finally
         {
@@ -88,9 +110,9 @@ internal static class MultiContainerTests
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var requests = 0;
         using var http = new HttpClient(new AsyncHandler(async token => {
-            if (Interlocked.Increment(ref requests) == 2) entered.TrySetResult();
+            if (Interlocked.Increment(ref requests) == 1) entered.TrySetResult();
             await release.Task.WaitAsync(token);
-            return Reply("text-skill");
+            return Batch(new[] { Entry("a", "text-skill"), Entry("b", "text-skill") });
         }));
         using var client = new IntelligenceClient(new IntelligenceOptions { ApiKey = "test" }, http);
         using var registry = new SkillRegistry(new SkillRegistryOptions {
@@ -106,7 +128,7 @@ internal static class MultiContainerTests
         release.SetResult();
         var snapshot = await second;
         Equal(snapshot.Skills.Length, 2);
-        Equal(requests, 2);
+        Equal(requests, 1);
         Equal(ReferenceEquals(snapshot, await registry.AcquireAsync()), true);
 
         using var blockedHttp = new HttpClient(new AsyncHandler(async token => {
@@ -138,6 +160,16 @@ internal static class MultiContainerTests
     {
         if (!EqualityComparer<T>.Default.Equals(actual, expected)) throw new Exception($"Expected {expected}, got {actual}");
     }
+    internal static object Entry(string id, string name)
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "snapshots.v1.json")));
+        var item = document.RootElement.GetProperty("cases").EnumerateArray().Single(x => x.GetProperty("name").GetString() == name);
+        return new { containerId = id, status = "snapshot", revision = item.GetProperty("revision").GetString(), etag = item.GetProperty("etag").GetString(), contentType = "application/zip", bytesBase64 = item.GetProperty("archiveBase64").GetString() };
+    }
+    internal static HttpResponseMessage Batch(IEnumerable<object> entries) => new(HttpStatusCode.OK) {
+        Content = new StringContent(JsonSerializer.Serialize(new { containers = entries }), System.Text.Encoding.UTF8, "application/json")
+    };
+
     private static HttpResponseMessage Reply(string name)
     {
         using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "snapshots.v1.json")));

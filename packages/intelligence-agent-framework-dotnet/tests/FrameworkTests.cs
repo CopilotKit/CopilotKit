@@ -85,7 +85,7 @@ internal static class FrameworkTests
             var requests = 0;
             using var http = new HttpClient(new Handler(() => {
                 requests++;
-                return denied ? new HttpResponseMessage(HttpStatusCode.Forbidden) : Reply(current);
+                return denied ? new HttpResponseMessage(HttpStatusCode.Forbidden) : MultiContainerTests.Batch(new[] { MultiContainerTests.Entry("support", current), MultiContainerTests.Entry("company", current) });
             }));
             using var client = new IntelligenceClient(new IntelligenceOptions { ApiKey = "test" }, http);
             using var provider = new SkillRegistryContextProvider(new SkillRegistryOptions {
@@ -99,7 +99,7 @@ internal static class FrameworkTests
                     throw new Exception("qualified catalog missing");
                 if (turns == 1)
                 {
-                    if (requests != 2) throw new Exception("model reached before all containers loaded");
+                    if (requests != 1) throw new Exception("model reached before batch loaded");
                     current = "empty-r2";
                     await provider.InitializeAsync(token);
                     return Tool("load", "copilotkit_load_skill", new() { ["skill_name"] = "support/refund-policy" });

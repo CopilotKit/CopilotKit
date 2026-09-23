@@ -118,3 +118,5 @@ In this mode, `Status` is a `MultiSkillRegistryStatus`.
 Its immutable `Containers` array contains a `SkillContainerStatus` for each source, with `Id` and the standard diagnostic fields.
 The aggregate `Revision` is null. Each container reports its own server revision.
 Aggregate `Mode` is `pinned` only when every source has an exact revision.
+
+The `Containers` configuration accepts 1–50 unique container IDs. It sends one POST to `/api/v1/learning/skills/batch` for all sources due for refresh, including an explicit list with one source. Each source keeps its own revision, ETag, cache, and delivery status. Deploy a server with this endpoint before using `Containers`; the SDK does not fall back to separate requests. Legacy single-container configuration keeps its existing GET request. The canonical client exposes `GetLearnedSkillsSnapshotsAsync` for batch delivery.
