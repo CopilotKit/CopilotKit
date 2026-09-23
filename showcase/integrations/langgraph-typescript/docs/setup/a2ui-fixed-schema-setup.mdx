@@ -1,0 +1,62 @@
+<Steps>
+  <Step>
+    ### Bind the tool in the chat node
+
+    The reference agent is a hand-built `StateGraph`. Its tool list holds
+    `display_flight`, and the system prompt tells the model when to call it:
+
+    <DemoCode file="src/agent/a2ui-fixed.ts" region="a2ui-fixed-schema-tools" />
+
+    The chat node binds that list together with the frontend tools CopilotKit
+    forwards in `state.copilotkit.actions`:
+
+    <DemoCode file="src/agent/a2ui-fixed.ts" region="a2ui-fixed-schema-bind-tools" />
+
+    `model` is a `ChatOpenAI` instance. The Showcase builds it with a helper
+    that also forwards the request's `x-*` headers so its recorded-response
+    tests can match. In your graph,
+    `new ChatOpenAI({ temperature: 0, model: "gpt-5-mini" })` is enough.
+  </Step>
+
+  <Step>
+    ### Route backend tool calls to a `ToolNode`
+
+    `shouldContinue` sends a `display_flight` call to the `ToolNode` and ends
+    the run on a frontend tool call, which the browser executes. The
+    `ToolNode` result is the operations container the A2UI middleware renders.
+
+    <DemoCode file="src/agent/a2ui-fixed.ts" region="a2ui-fixed-schema-graph" />
+
+    Register the compiled `graph` under the `a2ui_fixed` key in
+    `langgraph.json`. The runtime in the next step asks for it by that
+    `graphId`.
+  </Step>
+
+  <Step>
+    ### Serve it from a runtime that does not inject the A2UI tool
+
+    The cell has its own runtime endpoint, `/api/copilotkit-a2ui-fixed-schema`.
+    With `injectA2UITool: false` the A2UI middleware still runs, so it finds
+    the `a2ui_operations` container in the `display_flight` result and paints
+    the surface. It just doesn't add a `generate_a2ui` tool next to the
+    agent's own.
+
+    <DemoCode
+      file="src/app/api/copilotkit-a2ui-fixed-schema/route.ts"
+      region="a2ui-fixed-schema-runtime"
+    />
+
+    The demo page points the provider at this endpoint with
+    `runtimeUrl="/api/copilotkit-a2ui-fixed-schema"` and
+    `agent="a2ui-fixed-schema"`, and passes the flight catalog as
+    `a2ui={{ catalog }}`.
+  </Step>
+
+  <Step>
+    ### Try it
+
+    Ask "Find me a flight from SFO to JFK on United for $289." The agent calls
+    `display_flight`, and the flight card renders in the chat with those four
+    values.
+  </Step>
+</Steps>

@@ -180,6 +180,7 @@ const rollD20 = tool(
   },
 );
 
+// @region[tool-rendering-bind-tools]
 const tools = [getWeather, searchFlights, getStockPrice, rollD20];
 
 // ---------------------------------------------------------------------------
@@ -200,6 +201,7 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
     [systemMessage, ...state.messages],
     config,
   );
+  // @endregion[tool-rendering-bind-tools]
 
   // Normalize tool calls that streamed in as `additional_kwargs.tool_calls`
   // but failed to promote to the parsed top-level `tool_calls`.
@@ -272,6 +274,7 @@ function normalizeAssistantMessage(response: AIMessage): AIMessage {
   });
 }
 
+// @region[tool-rendering-graph]
 // ---------------------------------------------------------------------------
 // 5. Routing -- send tool calls to tool_node unless they're CopilotKit
 //    frontend actions.
@@ -308,3 +311,4 @@ const memory = new MemorySaver();
 export const graph = workflow.compile({
   checkpointer: memory,
 });
+// @endregion[tool-rendering-graph]

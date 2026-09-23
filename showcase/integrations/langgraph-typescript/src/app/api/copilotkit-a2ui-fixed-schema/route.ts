@@ -10,6 +10,7 @@ import {
 } from "@copilotkit/runtime/v2";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 
+// @region[a2ui-fixed-schema-runtime]
 const LANGGRAPH_URL =
   process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
 
@@ -30,6 +31,7 @@ const runtime = new CopilotRuntime({
     injectA2UITool: false,
   },
 });
+// @endregion[a2ui-fixed-schema-runtime]
 
 export const POST = async (req: NextRequest) => {
   try {
