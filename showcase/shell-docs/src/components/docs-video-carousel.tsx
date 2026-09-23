@@ -14,12 +14,11 @@ interface Recording {
   readonly icon: LucideIcon;
   readonly title: string;
   readonly loomId: string;
-  /** Frame at previewStart; regenerate the poster when changing that timestamp. */
+  /** Poster and silent clip share the same first frame. */
   readonly thumbnail: string;
   readonly description: string;
   readonly href: string;
-  readonly previewStart: number;
-  readonly aspectRatio: number;
+  readonly previewSrc: string;
 }
 
 const RECORDINGS: readonly Recording[] = [
@@ -30,8 +29,7 @@ const RECORDINGS: readonly Recording[] = [
     description:
       "Connect your agent to your app with interactive UI, shared state, and human approvals.",
     href: "/quickstart",
-    previewStart: 278,
-    aspectRatio: 1280 / 802,
+    previewSrc: "/videos/product-tour/overview.mp4",
     loomId: "5a04db6a04584b79b98021737d012d53",
     thumbnail: "/images/product-tour/overview.jpg",
   },
@@ -42,8 +40,7 @@ const RECORDINGS: readonly Recording[] = [
     description:
       "Persist and resume rich conversations with generative UI, messages, tool activity, and app state. Import existing thread history so users can pick up where they left off.",
     href: "/threads",
-    previewStart: 135,
-    aspectRatio: 1722 / 1080,
+    previewSrc: "/videos/product-tour/rich-threads.mp4",
     loomId: "79817778d29e490c97225127d2f17b3a",
     thumbnail: "/images/product-tour/rich-threads.jpg",
   },
@@ -54,8 +51,7 @@ const RECORDINGS: readonly Recording[] = [
     description:
       "Turn patterns from real agent conversations into skills you can review and publish. See the learning loop in an expense-review workflow.",
     href: "/learning",
-    previewStart: 214,
-    aspectRatio: 1280 / 732,
+    previewSrc: "/videos/product-tour/automatic-learning.mp4",
     loomId: "2978fbfe42324e509057ac5fd46b7a70",
     thumbnail: "/images/product-tour/automatic-learning.jpg",
   },
@@ -89,7 +85,7 @@ export function DocsVideoCarousel() {
   return (
     <section
       aria-label="Product tour"
-      className="overflow-hidden rounded-2xl border border-[var(--nav-control-border)] bg-[var(--bg-surface)]"
+      className="min-w-0 max-w-full overflow-hidden rounded-2xl border border-[var(--nav-control-border)] bg-[var(--bg-surface)]"
     >
       <div
         role="tablist"
@@ -110,7 +106,7 @@ export function DocsVideoCarousel() {
             tabIndex={index === activeIndex ? 0 : -1}
             onClick={() => select(index)}
             onKeyDown={onKeyDown}
-            className={`flex items-center justify-center gap-2 min-h-12 px-2 py-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-[var(--accent)] ${index === activeIndex ? "bg-[var(--accent-dim)] text-[var(--accent)]" : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"}`}
+            className={`flex items-center justify-center gap-2 min-h-10 px-2 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-[var(--accent)] ${index === activeIndex ? "bg-[var(--accent-dim)] text-[var(--accent)]" : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"}`}
           >
             <recording.icon aria-hidden="true" className="h-5 w-5 shrink-0" />
             {index === 0 ? "Overview" : recording.title}
@@ -128,7 +124,7 @@ export function DocsVideoCarousel() {
             aria-labelledby={`tour-tab-${recording.id}`}
             className={`[grid-area:1/1] ${index === activeIndex ? "" : "invisible"}`}
           >
-            <div className="grid h-full content-start gap-6 p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] lg:content-center lg:items-center">
+            <div className="grid min-w-0 h-full content-start gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:content-center lg:items-center">
               <div>
                 <h2 className="text-xl font-semibold tracking-tight text-[var(--text)]">
                   {recording.title}
@@ -158,14 +154,13 @@ export function DocsVideoCarousel() {
                 </a>
               </div>
               {index === activeIndex && (
-                <div className="overflow-hidden rounded-xl border border-[var(--nav-control-border)]">
+                <div className="min-w-0 overflow-hidden rounded-xl border border-[var(--nav-control-border)]">
                   <DocsVideoPreview
                     key={recording.id}
                     title={recording.title}
                     loomId={recording.loomId}
                     poster={recording.thumbnail}
-                    previewStart={recording.previewStart}
-                    aspectRatio={recording.aspectRatio}
+                    previewSrc={recording.previewSrc}
                   />
                 </div>
               )}

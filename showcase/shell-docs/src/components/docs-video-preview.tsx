@@ -8,47 +8,18 @@ interface Props {
   title: string;
   loomId: string;
   poster: string;
-  /** Seconds into the recording where the silent preview starts. */
-  previewStart: number;
-  /** Width / height of the recording. */
-  aspectRatio: number;
+  /** Short, silent local clip; the full recording still plays through Loom. */
+  previewSrc: string;
 }
 
 const LOOM_ORIGIN = "https://www.loom.com";
-// Loom always shows its control bar on a muted embed, pinned to the bottom of
-// the player, and letterboxes the video in the middle. The preview player is
-// sized so the video spans the frame's full width with its bottom edge on the
-// frame's bottom edge: the bar falls below the frame, and recordings taller
-// than 16:9 lose a strip off the top (the browser chrome in screen captures).
-const CONTROL_BAR_PX = 72;
-const PREVIEW_PARAMS =
-  "autoplay=1&muted=1&hideEmbedTopBar=true&hide_owner=true&hide_share=true&hide_title=true&hide_speed=true";
-
-/** Sends a player.js (https://github.com/embedly/player.js) command to Loom. */
-function sendPlayerCommand(
-  iframe: HTMLIFrameElement | null,
-  command: Record<string, unknown>,
-) {
-  iframe?.contentWindow?.postMessage(
-    JSON.stringify({ context: "player.js", version: "0.0.11", ...command }),
-    LOOM_ORIGIN,
-  );
-}
-
 /** Adapted from the silent, viewport-aware preview in Atai's docs prototype. */
-export function DocsVideoPreview({
-  title,
-  loomId,
-  poster,
-  previewStart,
-  aspectRatio,
-}: Props) {
+export function DocsVideoPreview({ title, loomId, poster, previewSrc }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
   const [previewing, setPreviewing] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [ready, setReady] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const [fullPlayback, setFullPlayback] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -84,53 +55,16 @@ export function DocsVideoPreview({
     };
   }, []);
 
-  // Loom starts every embed at 0:00 and fades in before seeking to `t`, so the
-  // player stays transparent over the poster until it reaches the preview
-  // start. At the end of the recording, the preview loops back to its start.
   useEffect(() => {
-    if (!loaded) return;
-    const onMessage = (event: MessageEvent) => {
-      const iframe = iframeRef.current;
-      if (!iframe || event.source !== iframe.contentWindow) return;
-      let message;
-      try {
-        message =
-          typeof event.data === "string" ? JSON.parse(event.data) : event.data;
-      } catch {
-        return;
-      }
-      if (message?.context !== "player.js") return;
-      if (message.event === "ready") {
-        for (const name of ["timeupdate", "ended"])
-          sendPlayerCommand(iframe, {
-            method: "addEventListener",
-            value: name,
-            listener: name,
-          });
-        setReady(true);
-      } else if (
-        message.event === "timeupdate" &&
-        message.value?.seconds >= previewStart
-      ) {
-        setRevealed(true);
-      } else if (message.event === "ended") {
-        sendPlayerCommand(iframe, {
-          method: "setCurrentTime",
-          value: previewStart,
-        });
-        sendPlayerCommand(iframe, { method: "play" });
-      }
-    };
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, [loaded, previewStart]);
-
-  useEffect(() => {
-    if (ready)
-      sendPlayerCommand(iframeRef.current, {
-        method: previewing ? "play" : "pause",
-      });
-  }, [ready, previewing]);
+    const video = videoRef.current;
+    if (!video) return;
+    if (previewing && !fullPlayback) {
+      // Autoplay can be blocked; keep the poster and full-playback button usable.
+      void video.play().catch(() => {});
+    } else {
+      video.pause();
+    }
+  }, [loaded, previewing, fullPlayback]);
 
   // Loom hides its own fullscreen control at this player size, so full
   // playback gets a button that expands the player over the whole window and
@@ -159,9 +93,7 @@ export function DocsVideoPreview({
   return (
     <div
       ref={containerRef}
-      // Container queries make this a containing block for fixed-position
-      // descendants, which would trap the expanded player inside the card.
-      className={`${fullPlayback ? "" : "@container"} relative aspect-video overflow-hidden bg-[var(--bg-elevated)] bg-cover bg-bottom`}
+      className="relative aspect-video overflow-hidden bg-[var(--bg-elevated)] bg-cover bg-bottom"
       style={{
         backgroundImage: fullPlayback ? undefined : `url(${poster})`,
       }}
@@ -203,19 +135,17 @@ export function DocsVideoPreview({
       ) : (
         <>
           {loaded && (
-            <iframe
-              ref={iframeRef}
-              src={`${LOOM_ORIGIN}/embed/${loomId}?${PREVIEW_PARAMS}&t=${previewStart}s`}
-              title={`${title}: silent preview`}
+            <video
+              ref={videoRef}
+              src={previewSrc}
+              poster={poster}
+              muted
+              loop
+              playsInline
+              preload="auto"
               aria-hidden="true"
-              tabIndex={-1}
-              className={`pointer-events-none absolute inset-x-0 w-full transition-opacity duration-300 ${revealed ? "opacity-100" : "opacity-0"}`}
-              style={{
-                bottom: -CONTROL_BAR_PX,
-                height: `calc(100cqw / ${aspectRatio} + ${2 * CONTROL_BAR_PX}px)`,
-              }}
-              allow="autoplay"
-              sandbox="allow-scripts allow-same-origin"
+              onPlaying={() => setRevealed(true)}
+              className={`pointer-events-none absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${revealed ? "opacity-100" : "opacity-0"}`}
             />
           )}
           <button
@@ -230,7 +160,7 @@ export function DocsVideoPreview({
               });
             }}
           >
-            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--accent-fill)] text-white shadow-lg transition-transform group-hover:scale-105 group-focus-visible:ring-2 group-focus-visible:ring-[var(--accent)] group-focus-visible:ring-offset-2">
+            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--accent-fill)_55%,white)] text-white shadow-md transition-[background-color,transform] group-hover:bg-[var(--accent-fill)] group-hover:scale-105 group-focus-visible:ring-2 group-focus-visible:ring-[var(--accent)] group-focus-visible:ring-offset-2">
               <Play aria-hidden="true" className="ml-1 h-7 w-7 fill-current" />
             </span>
           </button>
