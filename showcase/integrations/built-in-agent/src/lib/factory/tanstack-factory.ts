@@ -273,6 +273,7 @@ export async function* convertStream(
       // would leave the panel in its placeholder — exactly the bug being
       // fixed. `add` creates the array on the first result and overwrites it
       // with the grown list on each subsequent one.
+      // @region[subagent-delegation-state]
       if (toolName && SUBAGENT_TOOL_NAMES.has(toolName)) {
         delegations.push({
           id: toolCallId,
@@ -286,6 +287,7 @@ export async function* convertStream(
           delta: [{ op: "add", path: "/delegations", value: [...delegations] }],
         };
       }
+      // @endregion[subagent-delegation-state]
 
       let serializedContent: string;
       if (typeof rawPayload === "string") {
@@ -455,21 +457,26 @@ export function createBuiltInAgent(options: BuiltInAgentOptions = {}) {
     // for server-tool execution (tool-rendering, shared-state).
     type: "custom",
     factory: async ({ input, abortController }) => {
+      // @region[agent-context-conversion]
       const { messages: convertedMessages, systemPrompts } =
         convertInputToTanStackAI(input);
+      // @endregion[agent-context-conversion]
       // Opt-in message rewrite (multimodal PDF flatten). Default: pass-through.
       const messages = options.preprocessMessages
         ? await options.preprocessMessages(convertedMessages)
         : convertedMessages;
       const stateSystemPrompt = options.stateSystemPrompt?.(input);
+      // @region[subagent-tools-per-run]
       // Subagent tools are built per-run so their nested chat() calls
       // abort with the parent.
       const subagentTools = buildSubagentTools(abortController);
+      // @endregion[subagent-tools-per-run]
 
       // @region[gen-ui-agent-wiring]
       const serverTools = [...stateTools, ...baseServerTools, ...subagentTools];
       // @endregion[gen-ui-agent-wiring]
 
+      // @region[frontend-tool-forwarding]
       // Collect server-side tool names so we can skip frontend tools
       // that shadow them (e.g. get_weather has both a server executor
       // and a useRenderTool on the frontend).
@@ -489,6 +496,7 @@ export function createBuiltInAgent(options: BuiltInAgentOptions = {}) {
             inputSchema: jsonSchemaToZod(t.parameters),
           }),
         );
+      // @endregion[frontend-tool-forwarding]
 
       // @region[gen-ui-agent-wiring]
       const stream = chat({
@@ -498,11 +506,13 @@ export function createBuiltInAgent(options: BuiltInAgentOptions = {}) {
         // miss every fixture (404) and the D6 subset goes 0/6.
         adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
         messages,
+        // @region[agent-context-system-prompts]
         systemPrompts: [
           ...(options.systemPrompt ? [options.systemPrompt] : []),
           ...(stateSystemPrompt ? [stateSystemPrompt] : []),
           ...systemPrompts,
         ],
+        // @endregion[agent-context-system-prompts]
         tools: [...serverTools, ...frontendTools],
         abortController,
         agentLoopStrategy: DEMO_AGENT_LOOP_STRATEGY,

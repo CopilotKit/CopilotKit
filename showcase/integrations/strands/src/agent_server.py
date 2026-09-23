@@ -213,9 +213,11 @@ reasoning_app = create_strands_app(reasoning_agui_agent, "/")
 reasoning_chain_agui_agent = build_reasoning_chain_agent()
 reasoning_chain_app = create_strands_app(reasoning_chain_agui_agent, "/")
 
+# @region[strands-app-endpoint]
 # Create the FastAPI app from the AG-UI Strands integration
 agent_path = os.getenv("AGENT_PATH", "/")
 app = create_strands_app(agui_agent, agent_path)
+# @endregion[strands-app-endpoint]
 
 # Mount the voice agent as a sub-application at /voice so the Next.js
 # voice runtime can point HttpAgent at AGENT_URL/voice/ for tool-free chat.

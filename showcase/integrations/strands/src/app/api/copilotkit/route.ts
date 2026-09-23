@@ -22,9 +22,11 @@ const ROUTE_DEBUG =
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
 
+// @region[runtime-http-agent]
 function createAgent(path = "/") {
   return new HttpAgent({ url: `${AGENT_URL}${path}` });
 }
+// @endregion[runtime-http-agent]
 
 // Register the same agent under all names used by demo pages.
 // Strands runs a single shared backend agent; per-demo differentiation
@@ -87,6 +89,7 @@ const agentNames = [
   "interrupt-headless",
 ];
 
+// @region[runtime-agent-registration]
 // Agent names whose backend is a dedicated sub-application rather than the
 // shared agent at the root. The interrupt demos need a `schedule_meeting` that
 // pauses natively; the reasoning demos need the Responses API with reasoning
@@ -104,6 +107,7 @@ for (const name of agentNames) {
   agents[name] = createAgent(dedicatedAgentPaths[name] ?? "/");
 }
 agents["default"] = createAgent();
+// @endregion[runtime-agent-registration]
 
 console.log(
   `[copilotkit/route] Registered ${Object.keys(agents).length} agent names: ${Object.keys(agents).join(", ")}`,

@@ -49,7 +49,9 @@ const runtime = new CopilotRuntime({
     "chat-slots": createBuiltInAgent(),
     "prebuilt-popup": createBuiltInAgent(),
     "prebuilt-sidebar": createBuiltInAgent(),
+    // @region[headless-agent-registration]
     "headless-simple": createBuiltInAgent(),
+    // @endregion[headless-agent-registration]
 
     frontend_tools: createBuiltInAgent(),
     "frontend-tools-async": createBuiltInAgent(),
@@ -65,9 +67,11 @@ const runtime = new CopilotRuntime({
     "gen-ui-interrupt": createBuiltInAgent(),
     "interrupt-headless": createBuiltInAgent(),
 
+    // @region[hitl-agent-registration]
     human_in_the_loop: createBuiltInAgent(),
     "hitl-in-chat": createBuiltInAgent(),
     "hitl-in-app": createBuiltInAgent(),
+    // @endregion[hitl-agent-registration]
 
     "shared-state-read": createBuiltInAgent(),
     // @region[shared-state-runtime]
@@ -78,7 +82,9 @@ const runtime = new CopilotRuntime({
     "shared-state-streaming": createBuiltInAgent(),
     "readonly-state-agent-context": createBuiltInAgent(),
 
+    // @region[subagents-agent-registration]
     subagents: createBuiltInAgent({ systemPrompt: SUBAGENTS_PROMPT }),
+    // @endregion[subagents-agent-registration]
     "threadid-frontend-tool-roundtrip": createBuiltInAgent(),
 
     // Reasoning demos — visible chain-of-thought via the reasoning adapter.

@@ -1,0 +1,42 @@
+<Steps>
+  <Step>
+    ### Register an agent under the id your component uses
+
+    The Built-in Agent runs in-process inside your CopilotKit runtime route,
+    so there is no agent server to start. `useAgent({ agentId })` and
+    `copilotkit.runAgent({ agent })` send the run to that route, and the
+    runtime runs the agent registered under the same id:
+
+    <DemoCode
+      file="src/app/api/copilotkit/[[...slug]]/route.ts"
+      region="headless-agent-registration"
+      title="src/app/api/copilotkit/[[...slug]]/route.ts"
+    />
+
+    `createBuiltInAgent()` is the Showcase's TanStack AI factory. It turns the
+    tools your components register (`useComponent`, `useFrontendTool`,
+    `useHumanInTheLoop`) into client-executed tool declarations, so a
+    headless UI's tools reach the model with no backend changes:
+
+    <DemoCode
+      file="src/lib/factory/tanstack-factory.ts"
+      region="frontend-tool-forwarding"
+      title="src/lib/factory/tanstack-factory.ts"
+    />
+
+  </Step>
+  <Step>
+    ### Add MCP Apps for the complete example
+
+    The complete example also renders MCP Apps activity messages, so the
+    Showcase serves it from a runtime with `mcpApps` configured. Skip this
+    step if your headless UI doesn't render MCP Apps.
+
+    <DemoCode
+      file="src/app/api/copilotkit-mcp-apps/[[...slug]]/route.ts"
+      region="runtime-mcpapps-config"
+      title="src/app/api/copilotkit-mcp-apps/[[...slug]]/route.ts"
+    />
+
+  </Step>
+</Steps>

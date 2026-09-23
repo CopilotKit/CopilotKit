@@ -61,10 +61,37 @@ calendar API, or anything else:
 
 <Snippet region="time-slots" title="frontend/src/app/page.tsx — candidate slots" />
 
+## Approval outside the chat — async `useFrontendTool`
+
+<InlineDemo demo="hitl-in-app" />
+
+Some decisions belong in your app rather than in the transcript: a modal, a
+side panel, or a review queue. Register the tool with
+[`useFrontendTool`](/reference/hooks/useFrontendTool) and give it an async
+handler. The handler returns a Promise and stores that Promise's `resolve`
+function in React state, which opens the app's approval dialog. The agent's
+tool call stays pending until your UI calls `resolve`; the value you pass
+becomes the tool result.
+
+<Snippet cell="hitl-in-app" region="frontend-tool-registration" title="frontend/src/app/page.tsx — useFrontendTool with an async handler" />
+
+The dialog is ordinary app UI rendered outside `<CopilotPopup>`. Its Approve
+and Reject buttons call the page's `handleResolve`, which passes
+`{ approved, reason }` to the stored `resolve` and closes the dialog.
+
+The agent needs no wiring beyond the tool-based setup above. The tool's
+`description` tells the model when to ask for approval. For actions that must
+never skip the gate, also require the tool in the agent's system prompt.
+
+Try it: pick the **Approve refund for #12345** suggestion. The approval dialog
+opens over the ticket list; approve or reject it, and the agent replies with
+the outcome.
+
 ## Native graph interrupts are a different capability
 
-LangGraph can enforce a graph checkpoint with `interrupt(...)` and render that
-AG-UI interrupt through `useInterrupt`. Google ADK has no equivalent native
+LangGraph can enforce a graph checkpoint with `interrupt(...)`, and AWS Strands
+can pause a tool with `tool_context.interrupt(...)`; both render that AG-UI
+interrupt through `useInterrupt`. Google ADK has no equivalent native
 interrupt primitive, so `useInterrupt` and the [headless interrupts
 guide](/human-in-the-loop/headless) do not apply to the ADK route. Use the
 tool-based approval above for the same in-chat decision experience.

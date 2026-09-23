@@ -1,5 +1,17 @@
 <Steps>
   <Step>
+    ### Choose where the pause lives
+
+    Strands supports two human-in-the-loop shapes. A frontend tool
+    (`useHumanInTheLoop`, or `useFrontendTool` with an async handler) needs
+    no agent code: on every run the AG-UI Strands adapter adds a proxy tool
+    for each tool the browser registered, the model calls it by name, and
+    the user's answer returns as the tool result. A native interrupt pauses
+    inside a backend tool and renders through `useInterrupt`. The steps
+    below set up the native interrupt.
+
+  </Step>
+  <Step>
     ### Pause a tool with Strands' native interrupt
 
     AWS Strands ships a first-class
@@ -29,6 +41,12 @@
     dedicated interrupt agent and points the interrupt demos' agent names at
     it, leaving `schedule_meeting` on the shared agent free for the
     frontend-tool flow.
+
+    <DemoCode
+      file="src/app/api/copilotkit/route.ts"
+      region="runtime-agent-registration"
+      title="src/app/api/copilotkit/route.ts"
+    />
 
   </Step>
   <Step>
