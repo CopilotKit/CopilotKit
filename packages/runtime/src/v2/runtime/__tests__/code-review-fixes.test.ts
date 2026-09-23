@@ -98,12 +98,14 @@ describe("Item 1: methodCall preserved when hooks replace request", () => {
 /* ------------------------------------------------------------------------------------------------
  * Item 2: credentials: true + wildcard origin silently produces invalid CORS
  *
- * When credentials is true and origin resolves to "*", we must auto-resolve
- * to the request origin to comply with the Fetch spec.
+ * This block originally asserted that a wildcard origin auto-resolves to the
+ * request origin, which complies with the Fetch spec but allows *every* site
+ * to send credentials. The configuration is now refused when the handler is
+ * built, and the request path fails closed if one reaches it anyway.
  * --------------------------------------------------------------------------------------------- */
 
 describe("Item 2: credentials + wildcard CORS", () => {
-  it("auto-resolves wildcard to request origin when credentials enabled (preflight)", () => {
+  it("does not reflect the request origin when credentials enabled (preflight)", () => {
     const request = new Request("http://localhost/api", {
       method: "OPTIONS",
       headers: { Origin: "https://app.example.com" },
@@ -111,23 +113,17 @@ describe("Item 2: credentials + wildcard CORS", () => {
     const config: CopilotCorsConfig = { credentials: true };
     const response = handleCors(request, config)!;
 
-    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
-      "https://app.example.com",
-    );
-    expect(response.headers.get("Access-Control-Allow-Credentials")).toBe(
-      "true",
-    );
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
+    expect(response.headers.get("Access-Control-Allow-Credentials")).toBeNull();
   });
 
-  it("auto-resolves wildcard to request origin in addCorsHeaders", () => {
+  it("does not reflect the request origin in addCorsHeaders", () => {
     const response = new Response("ok", { status: 200 });
     const config: CopilotCorsConfig = { credentials: true };
     const result = addCorsHeaders(response, config, "https://mysite.com");
 
-    expect(result.headers.get("Access-Control-Allow-Origin")).toBe(
-      "https://mysite.com",
-    );
-    expect(result.headers.get("Access-Control-Allow-Credentials")).toBe("true");
+    expect(result.headers.get("Access-Control-Allow-Origin")).toBeNull();
+    expect(result.headers.get("Access-Control-Allow-Credentials")).toBeNull();
   });
 
   it("skips CORS entirely when credentials enabled, wildcard origin, and no request origin", () => {
@@ -158,11 +154,21 @@ describe("Item 2: credentials + wildcard CORS", () => {
     );
   });
 
+  it("end-to-end: the handler refuses credentials with no explicit origin", () => {
+    expect(() =>
+      createCopilotRuntimeHandler({
+        runtime: createRuntime(),
+        basePath: "/api",
+        cors: { credentials: true },
+      }),
+    ).toThrow(/requires an explicit `origin`/);
+  });
+
   it("end-to-end: handler CORS with credentials does not produce wildcard + credentials", async () => {
     const handler = createCopilotRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
-      cors: { credentials: true },
+      cors: { origin: "https://app.example.com", credentials: true },
     });
 
     const response = await handler(
