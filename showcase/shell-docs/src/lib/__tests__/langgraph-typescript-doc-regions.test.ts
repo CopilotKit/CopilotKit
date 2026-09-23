@@ -253,8 +253,10 @@ test("renders public-only LangGraph TypeScript model setup", () => {
 });
 
 test("keeps the rendered tool-rendering guide free of showcase internals", () => {
+  // The graph constructs SystemMessage at runtime; tsx strips a type-only
+  // import without typechecking, so a type import would fail only at run time.
   expect(agentSource("tool-rendering.ts")).toContain(
-    'import { AIMessage, SystemMessage } from "@langchain/core/messages";',
+    'import { SystemMessage } from "@langchain/core/messages";',
   );
 
   const doc = loadDoc("generative-ui/tool-rendering");
