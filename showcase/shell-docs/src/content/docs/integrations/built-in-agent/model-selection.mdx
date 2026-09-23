@@ -20,15 +20,15 @@ passes through directly.
 
 BuiltInAgent resolves OpenAI string specifiers via the Vercel AI SDK OpenAI provider,
 which communicates directly with OpenAI's modern **Responses API** (`POST /v1/responses`).
-Any model ID supported by your OpenAI account or project can be used.
+Any OpenAI model ID available to your account or project and supported for generation by the Responses API can be used.
 
 | Model        | Specifier             |
 | ------------ | --------------------- |
 | GPT-6 Astra  | `openai:gpt-6-astra`  |
 | GPT-6 Sol    | `openai:gpt-6-sol`    |
-| GPT-6 Luma   | `openai:gpt-6-luma`   |
+| GPT-6 Luna   | `openai:gpt-6-luna`   |
 | GPT-5.5      | `openai:gpt-5.5`      |
-| GPT-5.5 Mini | `openai:gpt-5.5-mini` |
+| GPT-5.5 Pro | `openai:gpt-5.5-pro` |
 | GPT-5.4      | `openai:gpt-5.4`      |
 | GPT-5.4 Mini | `openai:gpt-5.4-mini` |
 | GPT-5.2      | `openai:gpt-5.2`      |
@@ -53,10 +53,8 @@ const agent = new BuiltInAgent({
 
 | Model             | Specifier                     |
 | ----------------- | ----------------------------- |
-| Claude 5.5 Fable  | `anthropic:claude-5.5-fable`  |
-| Claude 5.1        | `anthropic:claude-5.1`        |
+| Claude Fable 5.1  | `anthropic:claude-fable-5-1`  |
 | Claude Fable 5    | `anthropic:claude-fable-5`    |
-| Claude Code       | `anthropic:claude-code`       |
 | Claude Opus 4.8   | `anthropic:claude-opus-4-8`   |
 | Claude Sonnet 4.6 | `anthropic:claude-sonnet-4-6` |
 | Claude Haiku 4.5  | `anthropic:claude-haiku-4-5`  |
@@ -72,10 +70,9 @@ const agent = new BuiltInAgent({
 
 | Model                 | Specifier                      |
 | --------------------- | ------------------------------ |
-| Gemini 3.8 Flash (High)   | `google:gemini-3.8-flash-high`   |
-| Gemini 3.8 Flash (Medium) | `google:gemini-3.8-flash-medium` |
-| Gemini 3.8 Flash (Low)    | `google:gemini-3.8-flash-low`    |
+| Gemini 3.8 Flash          | `google:gemini-3.8-flash`        |
 | Gemini 3.7 Flash          | `google:gemini-3.7-flash`        |
+| Gemini 3.1 Pro Preview    | `google:gemini-3.1-pro-preview`  |
 | Gemini 3.1 Pro            | `google:gemini-3.1-pro`          |
 | Gemini 3.1 Flash Lite     | `google:gemini-3.1-flash-lite`   |
 | Gemini 2.5 Pro            | `google:gemini-2.5-pro`          |

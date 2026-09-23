@@ -54,10 +54,11 @@ describe("resolveModel — custom baseURL via env", () => {
   });
 
   it("passes arbitrary unlisted OpenAI models through to createOpenAI", () => {
-    resolveModel("openai/custom-unlisted-model");
+    const model = resolveModel("openai/custom-unlisted-model");
     expect(createOpenAI).toHaveBeenCalledWith(
       expect.objectContaining({ apiKey: "test-openai-key" }),
     );
+    expect((model as { modelId: string }).modelId).toBe("custom-unlisted-model");
   });
 
   it("passes ANTHROPIC_BASE_URL to the Anthropic provider", () => {
