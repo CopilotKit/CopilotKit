@@ -102,7 +102,7 @@ function DocsOverview() {
       : buildFrameworkNav(docsFolder, integrationName, HOME_DEFAULT_FRAMEWORK);
   const pageTree = navTreeToPageTree(navTree, "");
 
-  // The home setup section has no framework context, so its quickstart CTA is the
+  // The home hero has no framework context, so its quickstart CTA is the
   // framework picker dropdown (same accent treatment as the framework pages'
   // direct quickstart link). The default framework sorts first; its
   // quickstart lives at the root.
@@ -127,18 +127,29 @@ function DocsOverview() {
     <ShellDocsLayout tree={pageTree} banner={<SidebarFrameworkSelector />}>
       <div className="docs-inner-content mx-auto pb-12">
         <div className="mx-auto max-w-[900px]">
-          <header className="mb-7 pt-2">
-            <h1
-              id="docs-intro-heading"
-              className="max-w-[24ch] text-3xl font-semibold leading-tight tracking-[-0.035em] text-[var(--text)] sm:text-4xl"
-            >
-              Bring your agent into any app
-            </h1>
-            <p className="mt-3 max-w-[65ch] text-base leading-relaxed text-[var(--text-secondary)]">
-              An open-source framework for agent-powered apps, with Intelligence
-              to remember conversations and learn from experience.
+          <section
+            id="copilotkit-intro"
+            className="scroll-mt-24 xl:scroll-mt-8 pb-8 pt-2 sm:pb-10"
+          >
+            <p className="mb-5 text-sm font-semibold text-[var(--accent)]">
+              CopilotKit
             </p>
-          </header>
+            <h1 className="max-w-[16ch] text-[2.75rem] font-semibold leading-[1.08] tracking-[-0.045em] text-[var(--text)] sm:text-[3.75rem]">
+              Bring your agent
+              <br />
+              <span className="text-[var(--accent)]">into any app</span>
+            </h1>
+            <p className="mt-6 max-w-[54ch] text-base leading-relaxed text-[var(--text-secondary)] sm:text-lg">
+              CopilotKit is an open-source framework that connects your app to
+              AI agents. Add chat, interactive UI, and human approvals, with
+              your choice of any agent backend.
+            </p>
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <HeroOnboardingPromptButton surface="docs_landing_hero" />
+              <HeroQuickstartDropdown options={quickstartOptions} />
+            </div>
+          </section>
+
           <DocsVideoCarousel />
 
           <section
@@ -159,22 +170,9 @@ function DocsOverview() {
               </p>
             </div>
             <DocsSetupWizard />
-            <div className="mt-6 flex flex-wrap items-center gap-3 text-sm">
-              <span className="text-[var(--text-secondary)]">
-                Already know what you need?
-              </span>
-              <HeroOnboardingPromptButton surface="docs_landing_hero" />
-              <HeroQuickstartDropdown options={quickstartOptions} />
-            </div>
-            <details className="mt-6 rounded-xl border border-[var(--nav-control-border)] p-5">
-              <summary className="cursor-pointer text-sm font-medium text-[var(--text)]">
-                Browse framework and integration docs
-              </summary>
-              <div className="pt-6">
-                <DocsLandingNext />
-              </div>
-            </details>
           </section>
+
+          <DocsLandingNext />
 
           <footer className="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--border)] pt-6 text-sm sm:mt-16">
             <a

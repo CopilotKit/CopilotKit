@@ -1,8 +1,9 @@
 "use client";
 
 import { DocsVideoPreview } from "./docs-video-preview";
+import { ACCENT_BUTTON_CLASS } from "./wizard-stepper-parts";
 
-import { ArrowUpRight, Brain, MessagesSquare, Workflow } from "lucide-react";
+import { ArrowRight, Brain, MessagesSquare, Workflow } from "lucide-react";
 import { useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import type { KeyboardEvent } from "react";
@@ -87,7 +88,6 @@ export function DocsVideoCarousel() {
   }
   return (
     <section
-      id="copilotkit-intro"
       aria-label="Product tour"
       className="overflow-hidden rounded-2xl border border-[var(--nav-control-border)] bg-[var(--bg-surface)]"
     >
@@ -117,58 +117,62 @@ export function DocsVideoCarousel() {
           </button>
         ))}
       </div>
-      {RECORDINGS.map((recording, index) => (
-        <div
-          key={recording.id}
-          role="tabpanel"
-          id={`tour-panel-${recording.id}`}
-          aria-labelledby={`tour-tab-${recording.id}`}
-          hidden={index !== activeIndex}
-        >
-          <div className="grid gap-6 p-5 sm:p-7 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.4fr)] lg:items-center">
-            <div>
-              <h2 className="text-xl font-semibold tracking-tight text-[var(--text)]">
-                {recording.title}
-              </h2>
-              <p className="mt-3 text-base leading-relaxed text-[var(--text-secondary)]">
-                {recording.description}
-              </p>
-              <a
-                href={recording.href}
-                onClick={() =>
-                  track("walkthrough_link_clicked", {
-                    walkthrough: recording.title,
-                    loom_id: recording.loomId,
-                    tab_id: recording.id,
-                    tab_label: index === 0 ? "Overview" : recording.title,
-                    to_path: recording.href,
-                    link_text:
-                      index === 0
-                        ? "Get started"
-                        : `Explore ${recording.title}`,
-                  })
-                }
-                className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-[var(--accent)] hover:underline"
-              >
-                {index === 0 ? "Get started" : `Explore ${recording.title}`}
-                <ArrowUpRight aria-hidden="true" className="h-4 w-4" />
-              </a>
-            </div>
-            {index === activeIndex && (
-              <div className="overflow-hidden rounded-xl border border-[var(--nav-control-border)]">
-                <DocsVideoPreview
-                  key={recording.id}
-                  title={recording.title}
-                  loomId={recording.loomId}
-                  poster={recording.thumbnail}
-                  previewStart={recording.previewStart}
-                  aspectRatio={recording.aspectRatio}
-                />
+      {/* Every panel shares one grid cell, so the card is as tall as its
+          longest description and keeps its height when switching tabs. */}
+      <div className="grid">
+        {RECORDINGS.map((recording, index) => (
+          <div
+            key={recording.id}
+            role="tabpanel"
+            id={`tour-panel-${recording.id}`}
+            aria-labelledby={`tour-tab-${recording.id}`}
+            className={`[grid-area:1/1] ${index === activeIndex ? "" : "invisible"}`}
+          >
+            <div className="grid h-full content-start gap-6 p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] lg:content-center lg:items-center">
+              <div>
+                <h2 className="text-xl font-semibold tracking-tight text-[var(--text)]">
+                  {recording.title}
+                </h2>
+                <p className="mt-3 text-[15px] leading-relaxed text-[var(--text-secondary)]">
+                  {recording.description}
+                </p>
+                <a
+                  href={recording.href}
+                  onClick={() =>
+                    track("walkthrough_link_clicked", {
+                      walkthrough: recording.title,
+                      loom_id: recording.loomId,
+                      tab_id: recording.id,
+                      tab_label: index === 0 ? "Overview" : recording.title,
+                      to_path: recording.href,
+                      link_text:
+                        index === 0
+                          ? "Get started"
+                          : `Explore ${recording.title}`,
+                    })
+                  }
+                  className={`mt-5 ${ACCENT_BUTTON_CLASS}`}
+                >
+                  {index === 0 ? "Get started" : `Explore ${recording.title}`}
+                  <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                </a>
               </div>
-            )}
+              {index === activeIndex && (
+                <div className="overflow-hidden rounded-xl border border-[var(--nav-control-border)]">
+                  <DocsVideoPreview
+                    key={recording.id}
+                    title={recording.title}
+                    loomId={recording.loomId}
+                    poster={recording.thumbnail}
+                    previewStart={recording.previewStart}
+                    aspectRatio={recording.aspectRatio}
+                  />
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </section>
   );
 }

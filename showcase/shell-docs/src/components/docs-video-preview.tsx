@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Play } from "lucide-react";
+import { Maximize2, Minimize2, Play } from "lucide-react";
 import { useHomepageTelemetry } from "@/lib/use-homepage-telemetry";
 
 interface Props {
@@ -45,11 +45,13 @@ export function DocsVideoPreview({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const playerRef = useRef<HTMLDivElement>(null);
   const [previewing, setPreviewing] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [ready, setReady] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const [fullPlayback, setFullPlayback] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const track = useHomepageTelemetry();
 
   // Play a muted preview from the middle of the recording while it is on
@@ -130,23 +132,74 @@ export function DocsVideoPreview({
       });
   }, [ready, previewing]);
 
+  // Loom hides its own fullscreen control at this player size, so full
+  // playback gets a button that expands the player over the whole window and
+  // also requests real fullscreen. Browsers and webviews that refuse or never
+  // settle that request (iOS Safari, embedded app browsers) keep the
+  // window-sized player. Leaving real fullscreen collapses the player too.
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!expanded || !player) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(false);
+    };
+    const onFullscreenChange = () => {
+      if (!document.fullscreenElement) setExpanded(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+      if (document.fullscreenElement === player)
+        document.exitFullscreen().catch(() => {});
+    };
+  }, [expanded]);
+
   return (
     <div
       ref={containerRef}
-      className="@container relative aspect-video overflow-hidden bg-[var(--bg-elevated)] bg-cover bg-bottom"
+      // Container queries make this a containing block for fixed-position
+      // descendants, which would trap the expanded player inside the card.
+      className={`${fullPlayback ? "" : "@container"} relative aspect-video overflow-hidden bg-[var(--bg-elevated)] bg-cover bg-bottom`}
       style={{
         backgroundImage: fullPlayback ? undefined : `url(${poster})`,
       }}
     >
       {fullPlayback ? (
-        <iframe
-          src={`${LOOM_ORIGIN}/embed/${loomId}?autoplay=1`}
-          title={`${title}: full walkthrough`}
-          className="h-full w-full"
-          allow="autoplay; fullscreen"
-          allowFullScreen
-          sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
-        />
+        <div
+          ref={playerRef}
+          className={
+            expanded ? "fixed inset-0 z-[100] bg-black" : "absolute inset-0"
+          }
+        >
+          <iframe
+            src={`${LOOM_ORIGIN}/embed/${loomId}?autoplay=1&hide_owner=true&hide_title=true`}
+            title={`${title}: full walkthrough`}
+            className="h-full w-full"
+            allow="autoplay; fullscreen"
+            allowFullScreen
+            sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
+          />
+          <button
+            type="button"
+            aria-label={expanded ? "Exit full screen" : "Full screen"}
+            title={expanded ? "Exit full screen" : "Full screen"}
+            className="absolute left-3 top-3 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-black/60 text-white shadow-lg transition-colors hover:bg-black/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+            onClick={() => {
+              setExpanded(!expanded);
+              // Safari only grants fullscreen inside the click handler itself.
+              if (!expanded)
+                playerRef.current?.requestFullscreen?.().catch(() => {});
+            }}
+          >
+            {expanded ? (
+              <Minimize2 aria-hidden="true" className="h-4 w-4" />
+            ) : (
+              <Maximize2 aria-hidden="true" className="h-4 w-4" />
+            )}
+          </button>
+        </div>
       ) : (
         <>
           {loaded && (
