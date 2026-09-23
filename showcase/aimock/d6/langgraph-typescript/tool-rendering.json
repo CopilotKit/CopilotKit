@@ -248,6 +248,7 @@
       }
     },
     {
+      "_comment": "No `reasoning` channel: the langgraph-typescript graph streams this turn over OpenAI Chat Completions, which never sends reasoning for gpt-5 models. aimock 1.37.4 also streams fixture reasoning ahead of the `role` delta, and langchain-js turns that role-less first delta into a generic message that drops the tool call (see showcase/GOTCHAS.md, langgraph-typescript).",
       "match": {
         "userMessage": "weather in Tokyo",
         "toolName": "get_weather",
@@ -261,12 +262,11 @@
             "arguments": "{\"location\":\"Tokyo\"}"
           }
         ],
-        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions.",
         "content": "Looking up the weather in Tokyo for you."
       }
     },
     {
-      "_comment": "Mastra registers the weather tool as get-weather (hyphen); duplicate for compat",
+      "_comment": "Mastra registers the weather tool as get-weather (hyphen); duplicate for compat. No `reasoning` channel: the langgraph-typescript graph streams this turn over OpenAI Chat Completions, which never sends reasoning for gpt-5 models. aimock 1.37.4 also streams fixture reasoning ahead of the `role` delta, and langchain-js turns that role-less first delta into a generic message that drops the tool call (see showcase/GOTCHAS.md, langgraph-typescript).",
       "match": {
         "userMessage": "weather in Tokyo",
         "toolName": "get-weather",
@@ -280,7 +280,6 @@
             "arguments": "{\"location\":\"Tokyo\"}"
           }
         ],
-        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions.",
         "content": "Looking up the weather in Tokyo for you."
       }
     },
