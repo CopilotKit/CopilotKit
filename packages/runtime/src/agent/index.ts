@@ -118,7 +118,6 @@ export type BuiltInAgentModel =
   | "openai/gpt-6-sol"
   | "openai/gpt-6-luna"
   | "openai/gpt-5.5"
-  | "openai/gpt-5.5-pro"
   | "openai/gpt-5.4"
   | "openai/gpt-5.4-mini"
   | "openai/gpt-5.4-nano"

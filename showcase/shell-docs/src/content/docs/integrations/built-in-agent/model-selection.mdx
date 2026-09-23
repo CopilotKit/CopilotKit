@@ -20,7 +20,7 @@ passes through directly.
 
 BuiltInAgent resolves OpenAI string specifiers via the Vercel AI SDK OpenAI provider,
 which communicates directly with OpenAI's modern **Responses API** (`POST /v1/responses`).
-Any OpenAI model ID available to your account or project and supported for generation by the Responses API can be used.
+Any OpenAI model ID available to your account or project that supports generation and streaming through the Responses API can be used with the classic BuiltInAgent path.
 
 | Model        | Specifier             |
 | ------------ | --------------------- |
@@ -28,7 +28,6 @@ Any OpenAI model ID available to your account or project and supported for gener
 | GPT-6 Sol    | `openai:gpt-6-sol`    |
 | GPT-6 Luna   | `openai:gpt-6-luna`   |
 | GPT-5.5      | `openai:gpt-5.5`      |
-| GPT-5.5 Pro | `openai:gpt-5.5-pro` |
 | GPT-5.4      | `openai:gpt-5.4`      |
 | GPT-5.4 Mini | `openai:gpt-5.4-mini` |
 | GPT-5.2      | `openai:gpt-5.2`      |

@@ -46,17 +46,17 @@ describe("resolveModel", () => {
     expect(sol).toBeDefined();
     expect((sol as { modelId: string }).modelId).toBe("gpt-6-sol");
 
-    const luma = resolveModel("openai:gpt-6-luma");
-    expect(luma).toBeDefined();
-    expect((luma as { modelId: string }).modelId).toBe("gpt-6-luma");
+    const luna = resolveModel("openai:gpt-6-luna");
+    expect(luna).toBeDefined();
+    expect((luna as { modelId: string }).modelId).toBe("gpt-6-luna");
 
     const modelSlash = resolveModel("openai/gpt-5.4");
     expect(modelSlash).toBeDefined();
     expect((modelSlash as { modelId: string }).modelId).toBe("gpt-5.4");
 
-    const modelColon = resolveModel("openai:gpt-5.5-mini");
+    const modelColon = resolveModel("openai:gpt-5.5");
     expect(modelColon).toBeDefined();
-    expect((modelColon as { modelId: string }).modelId).toBe("gpt-5.5-mini");
+    expect((modelColon as { modelId: string }).modelId).toBe("gpt-5.5");
 
     const customModel = resolveModel("openai:custom-preview-model");
     expect(customModel).toBeDefined();
