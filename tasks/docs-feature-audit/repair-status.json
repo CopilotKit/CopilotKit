@@ -1225,12 +1225,16 @@
       "id": "REPAIR-029",
       "area": "Runtime returns 500 for empty transcription uploads",
       "severity": "medium",
-      "stage": "implementing",
+      "stage": "verifying",
       "before_record": "packages/runtime handle-transcribe.ts passes 0-byte files to the transcription service; provider errors map to 500. The existing TranscriptionErrors.audioTooShort() (400, AUDIO_TOO_SHORT, already handled by React/Vue chat) is never used. Present on origin/main and published 1.73.3.",
-      "fix_commits": [],
-      "after_evidence": [],
+      "fix_commits": [
+        "d9a155995f"
+      ],
+      "after_evidence": [
+        "d9a155995f: 0-byte multipart and empty base64/data-URL audio now return 400 AUDIO_TOO_SHORT before any service call; 7 new handler tests; @copilotkit/runtime 2570/2570 + check-types."
+      ],
       "sanity_review": null,
-      "remaining": "Reject size 0 with audioTooShort() after file extraction, add handler test; published packages keep the 500 until a release includes it."
+      "remaining": "Unreleased: published 1.73.3 still returns 500 (multipart) / invalid_request (empty base64) until the next runtime release."
     },
     {
       "id": "REPAIR-030",
@@ -1309,12 +1313,18 @@
       "id": "REPAIR-035",
       "area": "shared-state-read demo agents never read the UI-published recipe (LGP, LGTS, ADK)",
       "severity": "high",
-      "stage": "implementing",
+      "stage": "verifying",
       "before_record": "Independent review 2026-09-23: LGP sample_agent uses CopilotKitMiddleware() with expose_state=False and no recipe key; LGTS starterAgent state holds only proverbs; ADK _simple_chat has no state callback. The D6 fixtures do not depend on the recipe, so the cells stay green while the promised behavior is absent; the new guide test step would fail.",
-      "fix_commits": [],
-      "after_evidence": [],
+      "fix_commits": [
+        "d9467aa407",
+        "71f6525af9",
+        "0c7796721b"
+      ],
+      "after_evidence": [
+        "LGTS: 0c7796721b adds a dedicated shared_state_read graph; probe bug that silently dropped the edit argument fixed for every integration in 71f6525af9 (unit test red on old probe). Strict D6 red (14 requests 503, no edited title) → green (\"Lemon Saffron Orzo\" in both turns). Uses gpt-4o-mini because AIMock systemMessage matching ignores OpenAI `developer` messages sent for gpt-5 models."
+      ],
       "sanity_review": null,
-      "remaining": "Thin per-framework backend change + discriminating fixture (match only when the edited recipe reaches the model) + D6 red/green on each framework. LGTS deferred until its matrix finishes."
+      "remaining": "LGP, ADK and Strands shared-state-read need D6 reruns with the fixed probe; AIMock developer-role matching is an upstream tooling gap."
     },
     {
       "id": "REPAIR-036",
@@ -1342,12 +1352,16 @@
       "id": "REPAIR-038",
       "area": "LGTS gen-ui-agent region duplicated and exposes a private helper",
       "severity": "high",
-      "stage": "implementing",
+      "stage": "qualified_locally",
       "before_record": "fb2759e69c declared gen-ui-agent-wiring twice in src/agent/gen-ui-agent.ts; the second part publishes makeChatOpenAI(config), which the public-model rule forbids; langgraph-typescript-doc-regions cannot load. tool-rendering-bind-tools has the same leak.",
-      "fix_commits": [],
-      "after_evidence": [],
+      "fix_commits": [
+        "5fee65149d"
+      ],
+      "after_evidence": [
+        "5fee65149d: public graph regions with showcaseGraph wiring for gen-ui-agent, tool-rendering and reasoning-chain; production server.mjs forwarding graphs corrected; public-only region test extended; multi-part region test fixed. Guard 25/25; docs typecheck clean."
+      ],
       "sanity_review": null,
-      "remaining": "One contiguous public region with new ChatOpenAI and a showcaseGraph outside the region wired in langgraph.json; narrow tool-rendering-bind-tools; extend the public-only test to tool-rendering and A2UI; teach the test multi-part regions. Deferred until the LGTS matrix completes, then rerun gen-ui-agent and tool-rendering cells."
+      "remaining": "None beyond reader review."
     },
     {
       "id": "REPAIR-039",
@@ -1392,6 +1406,38 @@
       "after_evidence": [],
       "sanity_review": null,
       "remaining": "Verify with a strict D6 or browser check during the LGP/LGTS matrices before any fix."
+    },
+    {
+      "id": "REPAIR-043",
+      "area": "MCP Apps discovery broken on runtime 1.73.3 (Excalidraw redirect) and LGTS tool call lost under AIMock reasoning chunks",
+      "severity": "high",
+      "stage": "qualified_locally",
+      "before_record": "LGTS strict matrix on published 1.73.3: 39/40; mcp-apps failed. @ag-ui/mcp-apps-middleware 0.1.1 refuses redirects and https://mcp.excalidraw.com 308s to /mcp. After fixing the URL, the LGTS mcp_apps reply became a generic message with tool calls only in additional_kwargs.",
+      "fix_commits": [
+        "8cec916e5e",
+        "f7a1cb4b8e",
+        "4d5a8802c6"
+      ],
+      "after_evidence": [
+        "8cec916e5e: canonical /mcp endpoint in 32 routes (URL-only). Root cause of the second failure: bb70c1fd01 moved mcp-apps to gpt-5-mini; strict AIMock 1.37.4 streams fixture reasoning before the assistant-role chunk for gpt-5*, and @langchain/openai 1.5.13 types a role-less first chunk as generic. f7a1cb4b8e drops reasoning from four LGTS Chat Completions fixtures; 4d5a8802c6 removes the misdiagnosed normalizeAssistantMessage workaround. mcp-apps RED→GREEN; tool-rendering RED without workaround on old fixtures, GREEN after; full LGTS matrix 40/40, 0 strict 503s, 0 retries. Evidence: lgts-mcp-apps-20260923.md."
+      ],
+      "sanity_review": null,
+      "remaining": "Upstream: AIMock text-only/tool-only builders still emit reasoning first (issue text drafted, not posted); langchainjs role-less chunk default differs from Python; showcase/scripts AIMock pin 1.37.4 is stale. MCP Apps depends on a live external server."
+    },
+    {
+      "id": "REPAIR-044",
+      "area": "@copilotkit/shared open @ag-ui/core peer range pulls AG-UI 1.0 into fresh installs",
+      "severity": "medium",
+      "stage": "verifying",
+      "before_record": "packages/shared peer \"@ag-ui/core\": \">=0.0.48\"; fresh LGTS install resolved @ag-ui/core 1.0.0 next to the pinned 0.0.59.",
+      "fix_commits": [
+        "a4e9126d08"
+      ],
+      "after_evidence": [
+        "Peer bounded to >=0.0.48 <0.1.0; shared build/test (495)/check-types/publint/attw/compat pass. LGTS pins @ag-ui/core and client via overrides meanwhile."
+      ],
+      "sanity_review": null,
+      "remaining": "Unreleased; published 1.73.3 still admits 1.0.0. Hook test step skipped for .NET/Ruby/Go projects lacking local toolchains."
     }
   ],
   "pause_checkpoint": "Resumed 2026-09-23; see hill-climb.md \"Resume — September 23\". checkpoint-20260913.md is historical."
