@@ -24,7 +24,7 @@ import { defineChannelTool } from "@copilotkit/channels";
 const schema = z.object({
   title: z
     .string()
-    .optional()
+    .nullish()
     .describe("Optional heading shown above the table."),
   columns: z
     .array(
@@ -32,7 +32,7 @@ const schema = z.object({
         header: z.string().describe("Column header text."),
         align: z
           .enum(["left", "center", "right"])
-          .optional()
+          .nullish()
           .describe(
             "Alignment for this column's cells. Default left; right for numbers.",
           ),
@@ -52,6 +52,9 @@ const schema = z.object({
 
 type Column = z.infer<typeof schema>["columns"][number];
 
+/** Column as the renderer wants it: `align` absent rather than null. */
+type RenderColumn = { header: string; align?: "left" | "center" | "right" };
+
 // Cap the native Table block at 100 rows (header included) and 20 cols.
 const MAX_COLUMNS = 20;
 const MAX_DATA_ROWS = 99;
@@ -60,8 +63,12 @@ const MAX_DATA_ROWS = 99;
 export function clamp(
   columns: Column[],
   rows: string[][],
-): { cols: Column[]; dataRows: string[][]; notes: string[] } {
-  const cols = columns.slice(0, MAX_COLUMNS);
+): { cols: RenderColumn[]; dataRows: string[][]; notes: string[] } {
+  // Models emit `align: null` for "no preference"; the renderer wants it absent.
+  const cols = columns.slice(0, MAX_COLUMNS).map(({ header, align }) => ({
+    header,
+    ...(align ? { align } : {}),
+  }));
   const dataRows = rows.slice(0, MAX_DATA_ROWS);
   const notes: string[] = [];
   if (columns.length > MAX_COLUMNS) {
