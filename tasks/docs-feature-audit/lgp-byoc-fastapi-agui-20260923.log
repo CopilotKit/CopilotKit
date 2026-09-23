@@ -1,0 +1,44 @@
+# 2026-09-23T23:28:24Z HEAD 0828d39b45; node v22.16.0; runtime packages from showcase/integrations/langgraph-python/node_modules (@copilotkit/runtime 1.73.3, @ag-ui/client 0.0.59)
+$ nice -n 10 tasks/docs-feature-audit/check-lgp-byoc-fastapi-agui.sh as-written "ag-ui-protocol==0.1.22"
+scratch AIMock on 4411: [aimock] Loaded 1 fixture(s) from /private/tmp/lgp-byoc-agui.qKgU9r/fixtures
+=============== variant: as-written (2026-09-23T23:28:27Z)
+resolved: ag-ui-langgraph 0.0.45, ag-ui-protocol 1.0.0, copilotkit 0.1.96, langchain-openai 1.6.4, langgraph 1.2.12, 
+GET /health -> 200 after 10s
+runtime HTTP 200
+event types: RUN_STARTED RAW STEP_STARTED RAW RAW RAW RAW TEXT_MESSAGE_START TEXT_MESSAGE_CONTENT RAW TEXT_MESSAGE_CONTENT RAW TEXT_MESSAGE_CONTENT RAW TEXT_MESSAGE_CONTENT RAW RAW RAW TEXT_MESSAGE_END RAW STATE_SNAPSHOT RAW RAW RAW STEP_FINISHED STATE_SNAPSHOT MESSAGES_SNAPSHOT RUN_FINISHED
+assistant text: "Why do programmers prefer dark mode? Because light attracts bugs."
+RESULT: RUN_FINISHED
+--- agent server log (tail)
+INFO:     Will watch for changes in these directories: ['/private/tmp/lgp-byoc-agui.qKgU9r/as_written/my-agent']
+INFO:     Uvicorn running on http://0.0.0.0:8123 (Press CTRL+C to quit)
+INFO:     Started reloader process [31957] using StatReload
+INFO:     Started server process [32055]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:61529 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61532 - "POST / HTTP/1.1" 200 OK
+VARIANT as-written: PASS
+=============== variant: ag-ui-protocol==0.1.22 (2026-09-23T23:28:55Z)
+$ uv add ag-ui-protocol==0.1.22
+ - ag-ui-protocol==1.0.0
+ + ag-ui-protocol==0.1.22
+resolved: ag-ui-langgraph 0.0.45, ag-ui-protocol 0.1.22, copilotkit 0.1.96, langchain-openai 1.6.4, langgraph 1.2.12, 
+GET /health -> 200 after 9s
+runtime HTTP 200
+event types: RUN_STARTED RAW STEP_STARTED RAW RAW RAW RAW TEXT_MESSAGE_START TEXT_MESSAGE_CONTENT RAW TEXT_MESSAGE_CONTENT RAW TEXT_MESSAGE_CONTENT RAW TEXT_MESSAGE_CONTENT RAW RAW RAW TEXT_MESSAGE_END RAW STATE_SNAPSHOT RAW RAW RAW STEP_FINISHED STATE_SNAPSHOT MESSAGES_SNAPSHOT RUN_FINISHED
+assistant text: "Why do programmers prefer dark mode? Because light attracts bugs."
+RESULT: RUN_FINISHED
+--- agent server log (tail)
+INFO:     Will watch for changes in these directories: ['/private/tmp/lgp-byoc-agui.qKgU9r/ag_ui_protocol__0.1.22/my-agent']
+INFO:     Uvicorn running on http://0.0.0.0:8123 (Press CTRL+C to quit)
+INFO:     Started reloader process [32522] using StatReload
+INFO:     Started server process [32628]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:61558 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61561 - "POST / HTTP/1.1" 200 OK
+VARIANT ag-ui-protocol==0.1.22: PASS
+--- scratch AIMock journal
+/v1/chat/completions gpt-4.1-mini ['system', 'user'] 200
+/v1/chat/completions gpt-4.1-mini ['system', 'user'] 200
+exit=0

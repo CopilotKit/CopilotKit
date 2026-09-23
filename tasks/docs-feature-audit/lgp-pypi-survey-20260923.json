@@ -1,0 +1,349 @@
+{
+  "langgraph": {
+    "latest_eligible": "1.2.12",
+    "published": "2026-09-21T14:43:28Z",
+    "age_h_at_T": 32.3,
+    "newer_than_T": [],
+    "overall_latest": "1.2.12",
+    "requires_python": ">=3.10",
+    "requires_dist": [
+      "langchain-core<2,>=1.4.7",
+      "langgraph-checkpoint<5.0.0,>=4.1.0",
+      "langgraph-prebuilt<1.2.0,>=1.1.0",
+      "langgraph-sdk<0.5.0,>=0.4.2",
+      "pydantic>=2.7.4",
+      "xxhash>=3.5.0"
+    ]
+  },
+  "langchain": {
+    "latest_eligible": "1.4.2",
+    "published": "2026-09-18T17:31:10Z",
+    "age_h_at_T": 101.5,
+    "newer_than_T": [],
+    "overall_latest": "1.4.2",
+    "requires_python": "<4.0.0,>=3.10.0",
+    "requires_dist": [
+      "langchain-core<2.0.0,>=1.6.3",
+      "langgraph<1.3.0,>=1.2.11",
+      "pydantic<3.0.0,>=2.7.4"
+    ]
+  },
+  "langchain-core": {
+    "latest_eligible": "1.6.4",
+    "published": "2026-09-21T15:51:06Z",
+    "age_h_at_T": 31.1,
+    "newer_than_T": [],
+    "overall_latest": "1.6.4",
+    "requires_python": "<4.0.0,>=3.10.0",
+    "requires_dist": [
+      "httpx<1.0.0,>=0.23.0",
+      "jsonpatch<2.0.0,>=1.33.0",
+      "langchain-protocol>=0.0.17",
+      "langsmith<1.0.0,>=0.3.45",
+      "packaging>=23.2.0",
+      "pydantic<3.0.0,>=2.7.4",
+      "pyyaml<7.0.0,>=5.3.0",
+      "tenacity!=8.4.0,<10.0.0,>=8.1.0",
+      "typing-extensions<5.0.0,>=4.7.0",
+      "uuid-utils<1.0,>=0.12.0"
+    ]
+  },
+  "langchain-openai": {
+    "latest_eligible": "1.6.4",
+    "published": "2026-09-22T22:36:54Z",
+    "age_h_at_T": 0.4,
+    "newer_than_T": [
+      [
+        "1.6.5",
+        "2026-09-23T15:31:38Z"
+      ]
+    ],
+    "overall_latest": "1.6.5",
+    "requires_python": "<4.0.0,>=3.10.0",
+    "requires_dist": [
+      "certifi>=2024.6.2",
+      "langchain-core<2.0.0,>=1.6.4",
+      "openai<4.0.0,>=2.45.0",
+      "tiktoken<1.0.0,>=0.7.0"
+    ]
+  },
+  "langchain-anthropic": {
+    "latest_eligible": "1.7.3",
+    "published": "2026-09-22T22:07:58Z",
+    "age_h_at_T": 0.9,
+    "newer_than_T": [
+      [
+        "1.7.4",
+        "2026-09-23T17:55:48Z"
+      ]
+    ],
+    "overall_latest": "1.7.4",
+    "requires_python": "<4.0.0,>=3.10.0",
+    "requires_dist": [
+      "anthropic<2.0.0,>=0.120.0",
+      "langchain-core<2.0.0,>=1.6.4",
+      "pydantic<3.0.0,>=2.7.4"
+    ]
+  },
+  "langsmith": {
+    "latest_eligible": "0.14.0",
+    "published": "2026-09-21T18:59:36Z",
+    "age_h_at_T": 28.0,
+    "newer_than_T": [],
+    "overall_latest": "0.14.0",
+    "requires_python": ">=3.10",
+    "requires_dist": [
+      "anyio>=3.5.0",
+      "distro>=1.7.0",
+      "httpx2<3,>=2",
+      "orjson>=3.9.14; platform_python_implementation != \"PyPy\"",
+      "packaging>=23.2",
+      "pydantic<3,>=2",
+      "requests-toolbelt>=1.0.0",
+      "requests>=2.0.0",
+      "sniffio>=1.1",
+      "typing-extensions>=4.0.0",
+      "uuid-utils<1.0,>=0.12.0",
+      "websockets>=15.0",
+      "xxhash>=3.0.0",
+      "zstandard>=0.23.0"
+    ]
+  },
+  "deepagents": {
+    "latest_eligible": "0.7.17",
+    "published": "2026-09-22T04:47:36Z",
+    "age_h_at_T": 18.2,
+    "newer_than_T": [
+      [
+        "0.7.18",
+        "2026-09-23T03:06:25Z"
+      ]
+    ],
+    "overall_latest": "0.7.18",
+    "requires_python": "<4.0,>=3.11",
+    "requires_dist": [
+      "langchain<2.0.0,>=1.4.2",
+      "langchain-core<2.0.0,>=1.6.4",
+      "langchain-anthropic<2.0.0,>=1.7.2",
+      "langchain-google-genai<5.0.0,>=4.4.0",
+      "langsmith>=0.14.0",
+      "packaging>=23.2",
+      "wcmatch>=11.0"
+    ]
+  },
+  "langgraph-api": {
+    "latest_eligible": "0.14.3",
+    "published": "2026-09-18T22:55:41Z",
+    "age_h_at_T": 96.1,
+    "newer_than_T": [
+      [
+        "0.12.12",
+        "2026-09-23T02:55:57Z"
+      ],
+      [
+        "0.13.7",
+        "2026-09-23T15:11:34Z"
+      ],
+      [
+        "0.14.4",
+        "2026-09-23T01:49:18Z"
+      ]
+    ],
+    "overall_latest": "0.14.4",
+    "requires_python": ">=3.11",
+    "requires_dist": [
+      "cloudpickle>=3.0.0",
+      "cryptography>=50.0.0",
+      "grpcio-health-checking<1.82.0,>=1.81.0",
+      "grpcio-tools==1.81.1",
+      "grpcio<1.82.0,>=1.81.0",
+      "httptools>=0.5.0; platform_system != \"Windows\"",
+      "httpx>=0.25.0",
+      "jsonschema-rs<0.45,>=0.20.0",
+      "langchain-core>=0.3.64",
+      "langchain-protocol<0.1,>=0.0.18",
+      "langgraph-checkpoint<5,>=3.0.1",
+      "langgraph-runtime-inmem<0.35.0.dev0,>=0.34.0.dev0",
+      "langgraph-sdk>=0.4.4",
+      "langgraph<2,>=0.4.10",
+      "langsmith[otel]>=0.6.3",
+      "opentelemetry-api>=0.0.1",
+      "opentelemetry-exporter-otlp-proto-http>=0.0.1",
+      "opentelemetry-exporter-prometheus<0.64,>=0.63b1",
+      "opentelemetry-sdk>=0.0.1",
+      "orjson>=3.9.7",
+      "prometheus-client>=0.0.1",
+      "protobuf<7.0.0,>=6.32.1",
+      "pyjwt>=2.13.0",
+      "sse-starlette<3.4.0,>=2.1.3",
+      "starlette>=1.3.1",
+      "structlog<26,>=24.1.0",
+      "tenacity>=8.0.0",
+      "truststore>=0.1",
+      "uuid-utils>=0.16.2",
+      "uvicorn>=0.26.0",
+      "uvloop>=0.18.0; platform_system != \"Windows\"",
+      "watchfiles>=0.13",
+      "websockets>=13.0",
+      "zstandard>=0.23.0"
+    ]
+  },
+  "langgraph-cli": {
+    "latest_eligible": "0.4.31",
+    "published": "2026-07-10T22:57:49Z",
+    "age_h_at_T": 1776.0,
+    "newer_than_T": [
+      [
+        "0.4.32",
+        "2026-09-23T18:02:34Z"
+      ]
+    ],
+    "overall_latest": "0.4.32",
+    "requires_python": ">=3.10",
+    "requires_dist": [
+      "click>=8.1.7",
+      "httpx>=0.24.0",
+      "langgraph-sdk>=0.1.0; python_version >= \"3.11\"",
+      "pathspec>=0.11.0",
+      "python-dotenv>=0.8.0",
+      "tomli>=2.0.1; python_version < \"3.11\""
+    ]
+  },
+  "langgraph-runtime-inmem": {
+    "latest_eligible": "0.34.1",
+    "published": "2026-09-14T20:40:22Z",
+    "age_h_at_T": 194.3,
+    "newer_than_T": [],
+    "overall_latest": "0.34.1",
+    "requires_python": ">=3.11.0",
+    "requires_dist": [
+      "blockbuster<2.0.0,>=1.5.24",
+      "croniter>=1.0.1",
+      "langgraph-checkpoint<5,>=3",
+      "langgraph<2,>=0.4.10",
+      "sse-starlette>=2",
+      "starlette>=1.3.1",
+      "structlog>23"
+    ]
+  },
+  "copilotkit": {
+    "latest_eligible": "0.1.96",
+    "published": "2026-08-26T22:31:59Z",
+    "age_h_at_T": 648.5,
+    "newer_than_T": [],
+    "overall_latest": "0.1.96",
+    "requires_python": "<3.15,>=3.10",
+    "requires_dist": [
+      "ag-ui-langgraph[fastapi]>=0.0.42",
+      "ag-ui-protocol>=0.1.15",
+      "fastapi<1.0.0,>=0.115.0",
+      "langchain>=0.3.0",
+      "langgraph<2,>=0.3.25",
+      "partialjson<2.0.0,>=0.0.8",
+      "pydantic-core>=2.35.0",
+      "toml<0.11.0,>=0.10.2"
+    ]
+  },
+  "ag-ui-langgraph": {
+    "latest_eligible": "0.0.45",
+    "published": "2026-09-09T15:22:30Z",
+    "age_h_at_T": 319.6,
+    "newer_than_T": [],
+    "overall_latest": "0.0.45",
+    "requires_python": "<3.15,>=3.10",
+    "requires_dist": [
+      "ag-ui-a2ui-toolkit>=0.0.4",
+      "ag-ui-protocol>=0.1.22",
+      "langchain-core>=0.3.0",
+      "langchain>=1.2.0",
+      "langgraph<2,>=0.6.0",
+      "pydantic>=2.0.0"
+    ]
+  },
+  "ag-ui-protocol": {
+    "latest_eligible": "1.0.0",
+    "published": "2026-09-17T18:31:18Z",
+    "age_h_at_T": 124.5,
+    "newer_than_T": [],
+    "overall_latest": "1.0.0",
+    "requires_python": ">=3.9",
+    "requires_dist": [
+      "pydantic>=2.11.2"
+    ]
+  },
+  "openai": {
+    "latest_eligible": "3.18.0",
+    "published": "2026-09-22T18:26:29Z",
+    "age_h_at_T": 4.6,
+    "newer_than_T": [
+      [
+        "3.19.0",
+        "2026-09-23T00:08:45Z"
+      ],
+      [
+        "3.19.1",
+        "2026-09-23T19:16:36Z"
+      ]
+    ],
+    "overall_latest": "3.19.1",
+    "requires_python": ">=3.10",
+    "requires_dist": [
+      "anyio<5,>=4.10.0",
+      "httpx2<3,>=2.12.0",
+      "jiter<1,>=0.16.0",
+      "pydantic!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,<3,>=1.10.13",
+      "sniffio",
+      "typing-extensions<5,>=4.14"
+    ]
+  },
+  "pypdf": {
+    "latest_eligible": "6.19.0",
+    "published": "2026-09-16T09:32:04Z",
+    "age_h_at_T": 157.5,
+    "newer_than_T": [],
+    "overall_latest": "6.19.0",
+    "requires_python": ">=3.9",
+    "requires_dist": [
+      "typing_extensions>=4.0; python_version < \"3.11\""
+    ]
+  },
+  "langgraph-sdk": {
+    "latest_eligible": "0.4.5",
+    "published": "2026-09-21T14:42:54Z",
+    "age_h_at_T": 32.3,
+    "newer_than_T": [],
+    "overall_latest": "0.4.5",
+    "requires_python": ">=3.10",
+    "requires_dist": [
+      "httpx>=0.25.2",
+      "langchain-core<2,>=1.4.0",
+      "langchain-protocol>=0.0.15",
+      "orjson>=3.11.5",
+      "websockets<17,>=14"
+    ]
+  },
+  "langgraph-checkpoint": {
+    "latest_eligible": "4.2.0",
+    "published": "2026-08-07T20:05:02Z",
+    "age_h_at_T": 1106.9,
+    "newer_than_T": [],
+    "overall_latest": "4.2.0",
+    "requires_python": ">=3.10",
+    "requires_dist": [
+      "langchain-core>=0.2.38",
+      "ormsgpack>=1.12.0"
+    ]
+  },
+  "langgraph-prebuilt": {
+    "latest_eligible": "1.1.0",
+    "published": "2026-05-12T03:37:48Z",
+    "age_h_at_T": 3211.4,
+    "newer_than_T": [],
+    "overall_latest": "1.1.0",
+    "requires_python": ">=3.10",
+    "requires_dist": [
+      "langchain-core>=1.3.1",
+      "langgraph-checkpoint<5.0.0,>=2.1.0"
+    ]
+  }
+}

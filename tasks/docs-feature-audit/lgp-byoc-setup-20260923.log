@@ -1,0 +1,241 @@
+# 2026-09-23T23:25:40Z HEAD 0828d39b45; node v22.16.0, uv uv 0.11.7 (9d177269e 2026-04-15 aarch64-apple-darwin), python3 Python 3.12.6
+$ nice -n 10 tasks/docs-feature-audit/reproduce-lgp-byoc-setup.sh
+=============== LangSmith tab (2026-09-23T23:25:41Z)
+--- Initialize your agent project
+$ uv init my-agent
+$ cd my-agent
+Initialized project `my-agent` at `/private/tmp/lgp-byoc-setup.1yD1G9/LangSmith/my-agent`
+--- Install LangGraph
+$ uv add langgraph langchain-openai langchain-core python-dotenv
+Using CPython 3.12.6 interpreter at: /Users/tylerslaton/.pyenv/versions/3.12.6/bin/python3.12
+Creating virtual environment at: .venv
+Resolved 46 packages in 372ms
+Downloading openai (2.0MiB)
+ Downloaded openai
+Prepared 7 packages in 286ms
+Installed 44 packages in 71ms
+ + annotated-types==0.8.0
+ + anyio==4.15.1
+ + certifi==2026.7.22
+ + charset-normalizer==3.5.1
+ + distro==1.9.0
+ + h11==0.16.0
+ + httpcore==1.0.9
+ + httpcore2==2.13.0
+ + httpx==0.28.1
+ + httpx2==2.13.0
+ + idna==3.20
+ + jiter==0.17.0
+ + jsonpatch==1.33
+ + jsonpointer==3.1.1
+ + langchain-core==1.6.4
+ + langchain-openai==1.6.4
+ + langchain-protocol==0.0.19
+ + langgraph==1.2.12
+ + langgraph-checkpoint==4.2.0
+ + langgraph-prebuilt==1.1.0
+ + langgraph-sdk==0.4.5
+ + langsmith==0.14.0
+ + openai==3.18.0
+ + orjson==3.12.0
+ + ormsgpack==1.12.2
+ + packaging==26.3
+ + pydantic==2.13.5
+ + pydantic-core==2.46.5
+ + python-dotenv==1.2.3
+ + pyyaml==6.0.3
+ + regex==2026.9.10
+ + requests==2.34.2
+ + requests-toolbelt==1.0.0
+ + sniffio==1.3.1
+ + tenacity==9.1.4
+ + tiktoken==0.14.0
+ + truststore==0.10.4
+ + typing-extensions==4.16.0
+ + typing-inspection==0.4.4
+ + urllib3==2.8.0
+ + uuid-utils==0.17.1
+ + websockets==16.1.1
+ + xxhash==4.0.1
+ + zstandard==0.25.0
+--- Expose your agent via AG-UI (LangSmith)
+$ touch langgraph.json
+wrote main.py (22 lines) and langgraph.json from the guide
+--- Configure your environment (placeholder key)
+OPENAI_API_KEY=sk-placeholder-not-used
+--- resolved project dependencies (uv tree --depth 1)
+my-agent v0.1.0
+├── langchain-core v1.6.4
+├── langchain-openai v1.6.4
+├── langgraph v1.2.12
+└── python-dotenv v1.2.3
+--- Start your agent
+# guide: cd ..
+# guide: npx @langchain/langgraph-cli dev --port 8123 --no-browser
+$ npx @langchain/langgraph-cli dev --port 8123 --no-browser   (in /private/tmp/lgp-byoc-setup.1yD1G9/LangSmith/my-agent)
+GET http://localhost:8123/ok -> 200 after 16s
+GET http://127.0.0.1:8123/ok -> 200
+listeners: python3.1/127.0.0.1:8123 
+--- server log (ANSI stripped, first 60 lines)
+npm warn exec The following package was not found and will be installed: @langchain/langgraph-cli@1.5.0
+info:    ▪ Updating .gitignore to prevent `.langgraph_api` from being committed.
+warn:    ▪ Launching Python server from @langchain/langgraph-cli is experimental. Please use the `langgraph-cli` package from PyPi instead.
+info:    ▪ Downloading uv 0.9.11 for darwin...
+Downloading pydantic-core (1.8MiB)
+Downloading cryptography (3.8MiB)
+Downloading grpcio-tools (5.5MiB)
+Downloading grpcio (11.5MiB)
+ Downloaded pydantic-core
+ Downloaded grpcio-tools
+ Downloaded cryptography
+ Downloaded grpcio
+Installed 76 packages in 137ms
+INFO:langgraph_api.cli:
+
+        Welcome to
+
+╦  ┌─┐┌┐┌┌─┐╔═╗┬─┐┌─┐┌─┐┬ ┬
+║  ├─┤││││ ┬║ ╦├┬┘├─┤├─┘├─┤
+╩═╝┴ ┴┘└┘└─┘╚═╝┴└─┴ ┴┴  ┴ ┴
+
+- 🚀 API: http://localhost:8123
+- 🎨 Studio UI: https://smith.langchain.com/studio/?baseUrl=http://localhost:8123
+- 📚 API Docs: http://localhost:8123/docs
+
+This in-memory server is designed for development and testing.
+For production use, please use LangSmith Deployment.
+
+
+[version] A newer version of langgraph-api is available: 0.14.3 → 0.14.4  (pip install -U langgraph-api)
+2026-09-23T23:25:59.263758Z [info     ] [version] A newer version of langgraph-api is available: 0.14.3 → 0.14.4  (pip install -U langgraph-api) [version_check] api_variant=local_dev langgraph_api_version=0.14.3 message='[version] A newer version of langgraph-api is available: 0.14.3 → 0.14.4  (pip install -U langgraph-api)' thread_name='Thread-1 (_check_newer_version)'
+2026-09-23T23:26:02.187363Z [info     ] Starting dev persistence flush loop [langgraph_runtime_inmem._persistence] api_variant=local_dev langgraph_api_version=0.14.3 thread_name=MainThread
+2026-09-23T23:26:02.293513Z [info     ] 1 change detected              [watchfiles.main] api_variant=local_dev langgraph_api_version=0.14.3 thread_name=MainThread
+2026-09-23T23:26:02.312832Z [info     ] Using langgraph_runtime_inmem  [langgraph_runtime] api_variant=local_dev langgraph_api_version=0.14.3 thread_name=MainThread
+2026-09-23T23:26:02.558697Z [info     ] Using auth of type=noop        [langgraph_api.auth.middleware] api_variant=local_dev langgraph_api_version=0.14.3 thread_name=MainThread
+2026-09-23T23:26:02.568723Z [info     ] Starting In-Memory runtime with langgraph-api=0.14.3 and in-memory runtime=0.34.1 [langgraph_runtime_inmem.lifespan] api_variant=local_dev langgraph_api_version=0.14.3 langgraph_runtime_inmem_version=0.34.1 thread_name=ThreadPoolExecutor-1_0 version=0.14.3
+2026-09-23T23:26:02.682773Z [info     ] OTel metrics reporter initialized [langgraph_api.metrics_otlp] api_variant=local_dev backends=['prometheus'] langgraph_api_version=0.14.3 max_emitting_tier=2 metric_prefix=lg_api_ thread_name=MainThread
+2026-09-23T23:26:02.685360Z [info     ] No license key or control plane API key set, skipping metadata loop [langgraph_api.metadata] api_variant=local_dev langgraph_api_version=0.14.3 thread_name=MainThread
+2026-09-23T23:26:02.685750Z [info     ] Starting OTLP metrics collector loop [langgraph_api.metrics_collector] api_variant=local_dev interval_secs=60 langgraph_api_version=0.14.3 thread_name=ThreadPoolExecutor-1_1
+2026-09-23T23:26:02.688475Z [info     ] Worker stats                   [langgraph_api.metrics_collector] active=0 api_variant=local_dev available=10 langgraph_api_version=0.14.3 max=10 thread_name=ThreadPoolExecutor-1_1
+2026-09-23T23:26:03.665719Z [info     ] 1180 changes detected          [watchfiles.main] api_variant=local_dev langgraph_api_version=0.14.3 thread_name=MainThread
+2026-09-23T23:26:03.835073Z [info     ] Importing graph profiling      [langgraph_api.timing.timer] api_variant=local_dev elapsed_seconds=1.1498408330080565 graph_id=sample_agent langgraph_api_version=0.14.3 module=None name=_graph_from_spec path=./main.py thread_name=ThreadPoolExecutor-1_0
+2026-09-23T23:26:03.880360Z [info     ] Application started up in 3.649s [langgraph_api.timing.timer] api_variant=local_dev elapsed=3.649086959005217 langgraph_api_version=0.14.3 thread_name=MainThread
+2026-09-23T23:26:03.922094Z [info     ] Starting cron scheduler        [langgraph_api.cron_scheduler] api_variant=local_dev langgraph_api_version=0.14.3 thread_name=MainThread
+2026-09-23T23:26:03.922359Z [info     ] Starting queue with shared loop [langgraph_runtime_inmem.queue] api_variant=local_dev langgraph_api_version=0.14.3 thread_name=ThreadPoolExecutor-1_1
+2026-09-23T23:26:03.926417Z [info     ] Starting 10 background workers [langgraph_runtime_inmem.queue] api_variant=local_dev langgraph_api_version=0.14.3 thread_name=ThreadPoolExecutor-1_0
+2026-09-23T23:26:03.926737Z [info     ] Worker stats                   [langgraph_runtime_inmem.queue] active=0 api_variant=local_dev available=10 langgraph_api_version=0.14.3 max=10 thread_name=ThreadPoolExecutor-1_0
+2026-09-23T23:26:04.038084Z [info     ] 33 changes detected            [watchfiles.main] api_variant=local_dev langgraph_api_version=0.14.3 thread_name=MainThread
+2026-09-23T23:26:04.434722Z [info     ] Queue stats                    [langgraph_runtime_inmem.queue] api_variant=local_dev langgraph_api_version=0.14.3 n_pending=0 n_running=0 pending_runs_wait_time_max_secs=None pending_runs_wait_time_med_secs=None pending_unblocked_runs_wait_time_max_secs=None thread_name=ThreadPoolExecutor-1_1
+2026-09-23T23:26:04.663673Z [info     ] 13 changes detected            [watchfiles.main] api_variant=local_dev langgraph_api_version=0.14.3 thread_name=MainThread
+--- GET /info
+{"version":"0.14.3","langgraph_py_version":"1.2.12","flags":{"assistants":true,"crons":true,"langsmith":false,"langsmith_tracing_replicas":true,"langsmith_tracing_session_on_runs":true},"host":{"kind":"self-hosted","project_id":null,"host_revision_id":null,"revision_id":null,"tenant_id":null}}
+--- registered graphs and their structure (GET /assistants/<id>/graph)
+sample_agent 200 nodes=__start__,mock_llm,__end__
+port 8123 after stop: free
+RESULT LangSmith: PASS
+=============== FastAPI tab (2026-09-23T23:26:07Z)
+--- Initialize your agent project
+$ uv init my-agent
+$ cd my-agent
+Initialized project `my-agent` at `/private/tmp/lgp-byoc-setup.1yD1G9/FastAPI/my-agent`
+--- Install LangGraph
+$ uv add langgraph langchain-openai langchain-core python-dotenv
+Using CPython 3.12.6 interpreter at: /Users/tylerslaton/.pyenv/versions/3.12.6/bin/python3.12
+Creating virtual environment at: .venv
+Resolved 46 packages in 33ms
+Installed 44 packages in 250ms
+ + annotated-types==0.8.0
+ + anyio==4.15.1
+ + certifi==2026.7.22
+ + charset-normalizer==3.5.1
+ + distro==1.9.0
+ + h11==0.16.0
+ + httpcore==1.0.9
+ + httpcore2==2.13.0
+ + httpx==0.28.1
+ + httpx2==2.13.0
+ + idna==3.20
+ + jiter==0.17.0
+ + jsonpatch==1.33
+ + jsonpointer==3.1.1
+ + langchain-core==1.6.4
+ + langchain-openai==1.6.4
+ + langchain-protocol==0.0.19
+ + langgraph==1.2.12
+ + langgraph-checkpoint==4.2.0
+ + langgraph-prebuilt==1.1.0
+ + langgraph-sdk==0.4.5
+ + langsmith==0.14.0
+ + openai==3.18.0
+ + orjson==3.12.0
+ + ormsgpack==1.12.2
+ + packaging==26.3
+ + pydantic==2.13.5
+ + pydantic-core==2.46.5
+ + python-dotenv==1.2.3
+ + pyyaml==6.0.3
+ + regex==2026.9.10
+ + requests==2.34.2
+ + requests-toolbelt==1.0.0
+ + sniffio==1.3.1
+ + tenacity==9.1.4
+ + tiktoken==0.14.0
+ + truststore==0.10.4
+ + typing-extensions==4.16.0
+ + typing-inspection==0.4.4
+ + urllib3==2.8.0
+ + uuid-utils==0.17.1
+ + websockets==16.1.1
+ + xxhash==4.0.1
+ + zstandard==0.25.0
+--- Expose your agent via AG-UI (FastAPI)
+$ uv add ag-ui-langgraph fastapi uvicorn copilotkit
+Resolved 58 packages in 297ms
+Prepared 4 packages in 129ms
+Installed 12 packages in 14ms
+ + ag-ui-a2ui-toolkit==0.0.4
+ + ag-ui-langgraph==0.0.45
+ + ag-ui-protocol==1.0.0
+ + annotated-doc==0.0.5
+ + click==8.5.0
+ + copilotkit==0.1.96
+ + fastapi==0.141.1
+ + langchain==1.4.2
+ + partialjson==1.2.0
+ + starlette==1.6.0
+ + toml==0.10.2
+ + uvicorn==0.53.0
+wrote main.py (56 lines) from the guide
+--- Configure your environment (placeholder key)
+OPENAI_API_KEY=sk-placeholder-not-used
+--- resolved project dependencies (uv tree --depth 1)
+my-agent v0.1.0
+├── ag-ui-langgraph v0.0.45
+├── copilotkit v0.1.96
+├── fastapi v0.141.1
+├── langchain-core v1.6.4
+├── langchain-openai v1.6.4
+├── langgraph v1.2.12
+├── python-dotenv v1.2.3
+└── uvicorn v0.53.0
+--- Start your agent
+# guide: cd ..
+# guide: uv run main.py
+$ uv run main.py   (in /private/tmp/lgp-byoc-setup.1yD1G9/FastAPI/my-agent)
+GET http://localhost:8123/health -> 200 after 6s
+GET http://127.0.0.1:8123/health -> 200
+listeners: python3.1/*:8123 
+--- server log (ANSI stripped, first 60 lines)
+INFO:     Will watch for changes in these directories: ['/private/tmp/lgp-byoc-setup.1yD1G9/FastAPI/my-agent']
+INFO:     Uvicorn running on http://0.0.0.0:8123 (Press CTRL+C to quit)
+INFO:     Started reloader process [29726] using StatReload
+INFO:     Started server process [29762]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:61387 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61388 - "GET /health HTTP/1.1" 200 OK
+--- GET /health body
+{"status":"ok","agent":{"name":"sample_agent"}}
+port 8123 after stop: free
+RESULT FastAPI: PASS
+exit=0

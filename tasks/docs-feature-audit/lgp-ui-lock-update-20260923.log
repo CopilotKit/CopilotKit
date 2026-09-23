@@ -1,0 +1,31 @@
+# LGP UI lock, generated fresh (as LGTS): rm -rf node_modules package-lock.json && npm install --package-lock-only --before=2026-09-22T23:00:00Z
+# node v24.11.0, npm 11.6.1, started 2026-09-23T23:02:34Z; package.json: @copilotkit/* 1.73.3, web-inspector override removed, no @ag-ui overrides yet
+$ npm install --package-lock-only --before=2026-09-22T23:00:00Z --no-audit --no-fund
+npm error code ERESOLVE
+npm error ERESOLVE unable to resolve dependency tree
+npm error
+npm error While resolving: @copilotkit/showcase-langgraph-python@0.1.0
+npm error Found: react@19.3.0
+npm error node_modules/react
+npm error   react@"^19.0.0" from the root project
+npm error
+npm error Could not resolve dependency:
+npm error peer react@"^18.0.0" from cmdk@0.2.1
+npm error node_modules/cmdk
+npm error   cmdk@"^0.2.1" from the root project
+npm error
+npm error Fix the upstream dependency conflict, or retry
+npm error this command with --force or --legacy-peer-deps
+npm error to accept an incorrect (and potentially broken) dependency resolution.
+npm error
+npm error
+npm error For a full report see:
+npm error /Users/tylerslaton/.npm/_logs/2026-09-23T23_02_47_582Z-eresolve-report.txt
+npm error A complete log of this run can be found in: /Users/tylerslaton/.npm/_logs/2026-09-23T23_02_47_582Z-debug-0.log
+exit=1
+
+# Attempt 2: the strict peer resolution fails on the pre-existing cmdk@0.2.1 peer react@^18 (react 19 is the root dep). The Dockerfile installs with 'npm ci --legacy-peer-deps', and the committed lock is a legacy-peer-deps lock (0 peer-flagged entries), so the lock is generated in that mode.
+$ npm install --package-lock-only --legacy-peer-deps --before=2026-09-22T23:00:00Z --no-audit --no-fund
+
+up to date in 10s
+exit=

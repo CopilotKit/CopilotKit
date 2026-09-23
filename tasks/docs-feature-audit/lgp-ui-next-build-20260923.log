@@ -1,0 +1,169 @@
+# Host equivalent of the Dockerfile frontend stage (npm ci --legacy-peer-deps; npm run build). node v22.16.0, 2026-09-23T23:05:49Z, HEAD c57e587263 + uncommitted dependency files; .next removed first
+$ NEXT_TELEMETRY_DISABLED=1 /usr/bin/time -l nice -n 10 npm run build
+
+> @copilotkit/showcase-langgraph-python@0.1.0 build
+> next build
+
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/pnpm-lock.yaml as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-python/package-lock.json
+
+   ▲ Next.js 15.5.26
+
+   Creating an optimized production build ...
+ ⚠ Compiled with warnings in 12.2s
+
+./node_modules/@hashbrownai/core/emscripten-module.browser-NBYT6WWV.esm.js
+Critical dependency: require function is used in a way in which dependencies cannot be statically extracted
+
+Import trace for requested module:
+./node_modules/@hashbrownai/core/emscripten-module.browser-NBYT6WWV.esm.js
+./node_modules/@hashbrownai/core/index.esm2.js
+./node_modules/@hashbrownai/core/index.esm.js
+./src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx
+./src/app/demos/declarative-hashbrown/page.tsx
+
+./node_modules/@copilotkit/runtime/dist/v2/runtime/core/channel-manager.mjs
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@copilotkit/runtime/dist/v2/runtime/core/channel-manager.mjs
+./node_modules/@copilotkit/runtime/dist/v2/runtime/core/fetch-handler.mjs
+./node_modules/@copilotkit/runtime/dist/v2/index.mjs
+./src/app/api/copilotkit-declarative-gen-ui/route.ts
+
+ ⚠ Compiled with warnings in 9.4s
+
+./node_modules/@hashbrownai/core/emscripten-module.browser-NBYT6WWV.esm.js
+Critical dependency: require function is used in a way in which dependencies cannot be statically extracted
+
+Import trace for requested module:
+./node_modules/@hashbrownai/core/emscripten-module.browser-NBYT6WWV.esm.js
+./node_modules/@hashbrownai/core/index.esm2.js
+./node_modules/@hashbrownai/core/index.esm.js
+./src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx
+./src/app/demos/declarative-hashbrown/page.tsx
+
+ ✓ Compiled successfully in 22.0s
+   Skipping validation of types
+   Linting ...
+   Collecting page data ...
+[copilotkit/route] Initializing CopilotKit runtime
+[copilotkit/route] LANGGRAPH_URL: http://localhost:8123
+[copilotkit/route] LANGSMITH_API_KEY: not set
+[CopilotKit Runtime] telemetry enabled — see https://docs.copilotkit.ai/telemetry to opt out (set COPILOTKIT_TELEMETRY_DISABLED=true).
+[copilotkit/route] Registered 31 agent names: human_in_the_loop, shared-state-write, prebuilt-sidebar, prebuilt-popup, chat-slots, chat-customization-css, headless-simple, tool-rendering, tool-rendering-default-catchall, tool-rendering-custom-catchall, tool-rendering-reasoning-chain, declarative-gen-ui, a2ui-fixed-schema, shared-state-streaming, subagents, agentic_chat, frontend_tools, threadid-frontend-tool-roundtrip, frontend-tools-async, gen-ui-agent, gen-ui-tool-based, reasoning-custom, reasoning-default, gen-ui-interrupt, interrupt-headless, hitl-in-chat, hitl-in-app, shared-state-read, shared-state-read-write, readonly-state-agent-context, default
+[CopilotKit Runtime] telemetry enabled — see https://docs.copilotkit.ai/telemetry to opt out (set COPILOTKIT_TELEMETRY_DISABLED=true).
+[CopilotKit Runtime] telemetry enabled — see https://docs.copilotkit.ai/telemetry to opt out (set COPILOTKIT_TELEMETRY_DISABLED=true).
+[CopilotKit Runtime] telemetry enabled — see https://docs.copilotkit.ai/telemetry to opt out (set COPILOTKIT_TELEMETRY_DISABLED=true).
+[CopilotKit Runtime] telemetry enabled — see https://docs.copilotkit.ai/telemetry to opt out (set COPILOTKIT_TELEMETRY_DISABLED=true).
+[CopilotKit Runtime] telemetry enabled — see https://docs.copilotkit.ai/telemetry to opt out (set COPILOTKIT_TELEMETRY_DISABLED=true).
+[CopilotKit Runtime] telemetry enabled — see https://docs.copilotkit.ai/telemetry to opt out (set COPILOTKIT_TELEMETRY_DISABLED=true).
+[CopilotKit Runtime] telemetry enabled — see https://docs.copilotkit.ai/telemetry to opt out (set COPILOTKIT_TELEMETRY_DISABLED=true).
+[CopilotKit Runtime] telemetry enabled — see https://docs.copilotkit.ai/telemetry to opt out (set COPILOTKIT_TELEMETRY_DISABLED=true).
+   Generating static pages (0/57) ...
+[copilotkit/route] Initializing CopilotKit runtime
+[copilotkit/route] LANGGRAPH_URL: http://localhost:8123
+[copilotkit/route] LANGSMITH_API_KEY: not set
+[copilotkit/route] Registered 31 agent names: human_in_the_loop, shared-state-write, prebuilt-sidebar, prebuilt-popup, chat-slots, chat-customization-css, headless-simple, tool-rendering, tool-rendering-default-catchall, tool-rendering-custom-catchall, tool-rendering-reasoning-chain, declarative-gen-ui, a2ui-fixed-schema, shared-state-streaming, subagents, agentic_chat, frontend_tools, threadid-frontend-tool-roundtrip, frontend-tools-async, gen-ui-agent, gen-ui-tool-based, reasoning-custom, reasoning-default, gen-ui-interrupt, interrupt-headless, hitl-in-chat, hitl-in-app, shared-state-read, shared-state-read-write, readonly-state-agent-context, default
+   Generating static pages (14/57) 
+   Generating static pages (28/57) 
+   Generating static pages (42/57) 
+[CopilotKit Runtime] telemetry enabled — see https://docs.copilotkit.ai/telemetry to opt out (set COPILOTKIT_TELEMETRY_DISABLED=true).
+ ✓ Generating static pages (57/57)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                     Size  First Load JS
+┌ ○ /                                          179 B         108 kB
+├ ○ /_not-found                                 1 kB         109 kB
+├ ƒ /api/copilotkit                            179 B         108 kB
+├ ƒ /api/copilotkit-a2ui-fixed-schema          179 B         108 kB
+├ ƒ /api/copilotkit-a2ui-recovery              179 B         108 kB
+├ ƒ /api/copilotkit-agent-config               179 B         108 kB
+├ ƒ /api/copilotkit-auth/[[...slug]]           179 B         108 kB
+├ ƒ /api/copilotkit-beautiful-chat             179 B         108 kB
+├ ƒ /api/copilotkit-declarative-gen-ui         179 B         108 kB
+├ ƒ /api/copilotkit-declarative-hashbrown      179 B         108 kB
+├ ƒ /api/copilotkit-declarative-json-render    179 B         108 kB
+├ ƒ /api/copilotkit-mcp-apps/[[...slug]]       179 B         108 kB
+├ ƒ /api/copilotkit-multimodal                 179 B         108 kB
+├ ƒ /api/copilotkit-ogui                       179 B         108 kB
+├ ƒ /api/copilotkit-voice/[[...slug]]          179 B         108 kB
+├ ƒ /api/debug                                 179 B         108 kB
+├ ƒ /api/health                                179 B         108 kB
+├ ƒ /api/smoke                                 179 B         108 kB
+├ ƒ /demos/a2ui-fixed-schema                 2.23 kB         594 kB
+├ ƒ /demos/a2ui-recovery                       641 B         707 kB
+├ ƒ /demos/agent-config                      1.11 kB         592 kB
+├ ƒ /demos/agentic-chat                        462 B         592 kB
+├ ƒ /demos/auth                              2.78 kB         594 kB
+├ ƒ /demos/beautiful-chat                    12.5 kB         714 kB
+├ ƒ /demos/chat-customization-css              457 B         592 kB
+├ ƒ /demos/chat-slots                         2.3 kB         594 kB
+├ ƒ /demos/declarative-gen-ui                  671 B         708 kB
+├ ƒ /demos/declarative-hashbrown             36.6 kB         728 kB
+├ ƒ /demos/declarative-json-render           48.2 kB         740 kB
+├ ƒ /demos/frontend-tools                      798 B         592 kB
+├ ƒ /demos/frontend-tools-async              2.15 kB         594 kB
+├ ƒ /demos/gen-ui-agent                       1.7 kB         593 kB
+├ ƒ /demos/gen-ui-interrupt                  2.06 kB         593 kB
+├ ƒ /demos/gen-ui-tool-based                 4.42 kB         696 kB
+├ ƒ /demos/headless-complete                 11.1 kB         709 kB
+├ ƒ /demos/headless-simple                   3.81 kB         602 kB
+├ ƒ /demos/hitl                              2.19 kB         594 kB
+├ ƒ /demos/hitl-in-app                       2.29 kB         594 kB
+├ ƒ /demos/hitl-in-chat                      1.53 kB         593 kB
+├ ƒ /demos/interrupt-headless                2.22 kB         594 kB
+├ ƒ /demos/mcp-apps                            556 B         592 kB
+├ ƒ /demos/multimodal                        3.19 kB         595 kB
+├ ƒ /demos/open-gen-ui                       2.59 kB         594 kB
+├ ƒ /demos/open-gen-ui-advanced               1.1 kB         592 kB
+├ ƒ /demos/prebuilt-popup                    2.41 kB         594 kB
+├ ƒ /demos/prebuilt-sidebar                  2.33 kB         594 kB
+├ ƒ /demos/readonly-state-agent-context      2.99 kB         594 kB
+├ ƒ /demos/reasoning-custom                    869 B         592 kB
+├ ƒ /demos/reasoning-default                   513 B         592 kB
+├ ƒ /demos/shared-state-read                 13.4 kB         605 kB
+├ ƒ /demos/shared-state-read-write           2.87 kB         594 kB
+├ ƒ /demos/shared-state-streaming            1.28 kB         593 kB
+├ ƒ /demos/subagents                         3.19 kB         595 kB
+├ ƒ /demos/threadid-frontend-tool-roundtrip  1.09 kB         592 kB
+├ ƒ /demos/tool-rendering                    3.12 kB         594 kB
+├ ƒ /demos/tool-rendering-custom-catchall    1.72 kB         593 kB
+├ ƒ /demos/tool-rendering-default-catchall     613 B         592 kB
+├ ƒ /demos/tool-rendering-reasoning-chain    2.74 kB         594 kB
+└ ƒ /demos/voice                             1.13 kB         593 kB
++ First Load JS shared by all                 108 kB
+  ├ chunks/1255-18a268f327388595.js          45.9 kB
+  ├ chunks/4bd1b696-182b6b13bdad92e3.js      54.2 kB
+  └ other shared chunks (total)              8.11 kB
+
+
+ƒ Middleware                                 32.2 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+       33.46 real        55.25 user         7.23 sys
+          3098050560  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+              672914  page reclaims
+                  10  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                1444  messages sent
+                1339  messages received
+                  39  signals received
+               19597  voluntary context switches
+              570250  involuntary context switches
+           893917319  instructions retired
+           367270776  cycles elapsed
+            26102664  peak memory footprint
+# build exit: 0 (.next/BUILD_ID TsPl-EBbQmNRJuQYvKnok written; route table printed)

@@ -1,0 +1,212 @@
+{
+ "run": "lgp-d6-full-20260923.log",
+ "head": "feb4591dce",
+ "aimock": "@copilotkit/aimock 1.37.4 --strict --validate-on-load, AIMOCK_STRICT_TURN_INDEX=1, 8632 fixtures",
+ "stack": "npm run dev (next dev --turbopack on :3100 + python -u -m langgraph_cli dev on :8123), node v22.16.0, python 3.12.6 venv",
+ "raw": {
+  "checks": 40,
+  "pass": 40,
+  "fail": 0,
+  "skipped": 0
+ },
+ "published": {
+  "checks": 40,
+  "pass": 40,
+  "fail": 0
+ },
+ "final": "same as the first run: the only later tree change is src/app/api/smoke/route.ts (0828d39b45), which no D6 probe calls",
+ "featureRetries": 0,
+ "policyExcludedUntested": [
+  "gen-ui-interrupt",
+  "interrupt-headless"
+ ],
+ "journal": {
+  "requests": 133,
+  "status": {
+   "200": 133
+  },
+  "paths": {
+   "/v1/chat/completions": 121,
+   "/v1/responses": 12
+  },
+  "developerRoleRequests": 0,
+  "strictHeader": {
+   "true": 133
+  }
+ },
+ "redGreen": {
+  "shared-state-read": {
+   "red": "lgp-d6-shared-state-read-red-20260923.log",
+   "green": "lgp-d6-shared-state-read-green-20260923.log"
+  },
+  "smoke-route": "lgp-smoke-route-20260923.log"
+ },
+ "regressionCells": {
+  "agentic-chat": "lgp-d6-regression-agentic-chat-20260923.log",
+  "shared-state-read-write": "lgp-d6-regression-shared-state-read-write-20260923.log",
+  "readonly-state-agent-context": "lgp-d6-regression-readonly-state-agent-context-20260923.log",
+  "shared-state-streaming": "lgp-d6-regression-shared-state-streaming-20260923.log"
+ },
+ "features": {
+  "a2ui-recovery": {
+   "pass": true,
+   "durationMs": 12513
+  },
+  "agent-config": {
+   "pass": true,
+   "durationMs": 32221
+  },
+  "agentic-chat": {
+   "pass": true,
+   "durationMs": 15088
+  },
+  "auth": {
+   "pass": true,
+   "durationMs": 57926
+  },
+  "beautiful-chat-bar-chart": {
+   "pass": true,
+   "durationMs": 18416
+  },
+  "beautiful-chat-pie-chart": {
+   "pass": true,
+   "durationMs": 17166
+  },
+  "beautiful-chat-schedule-meeting": {
+   "pass": true,
+   "durationMs": 6671
+  },
+  "beautiful-chat-search-flights": {
+   "pass": true,
+   "durationMs": 14079
+  },
+  "beautiful-chat-toggle-theme": {
+   "pass": true,
+   "durationMs": 17489
+  },
+  "byoc": {
+   "pass": true,
+   "durationMs": 9532
+  },
+  "chat-css": {
+   "pass": true,
+   "durationMs": 5540
+  },
+  "chat-slots": {
+   "pass": true,
+   "durationMs": 6815
+  },
+  "frontend-tools": {
+   "pass": true,
+   "durationMs": 19617
+  },
+  "frontend-tools-async": {
+   "pass": true,
+   "durationMs": 9012
+  },
+  "gen-ui-a2ui-fixed": {
+   "pass": true,
+   "durationMs": 6458
+  },
+  "gen-ui-agent": {
+   "pass": true,
+   "durationMs": 19968
+  },
+  "gen-ui-custom": {
+   "pass": true,
+   "durationMs": 8564
+  },
+  "gen-ui-declarative": {
+   "pass": true,
+   "durationMs": 15538
+  },
+  "gen-ui-headless-complete": {
+   "pass": true,
+   "durationMs": 32325
+  },
+  "gen-ui-open": {
+   "pass": true,
+   "durationMs": 28677
+  },
+  "gen-ui-open-advanced": {
+   "pass": true,
+   "durationMs": 27110
+  },
+  "headless-simple": {
+   "pass": true,
+   "durationMs": 19129
+  },
+  "hitl-approve-deny": {
+   "pass": true,
+   "durationMs": 9696
+  },
+  "hitl-text-input": {
+   "pass": true,
+   "durationMs": 9075
+  },
+  "mcp-apps": {
+   "pass": true,
+   "durationMs": 7138
+  },
+  "multimodal": {
+   "pass": true,
+   "durationMs": 30765
+  },
+  "prebuilt-popup": {
+   "pass": true,
+   "durationMs": 7572
+  },
+  "prebuilt-sidebar": {
+   "pass": true,
+   "durationMs": 7145
+  },
+  "readonly-state-context": {
+   "pass": true,
+   "durationMs": 8563
+  },
+  "reasoning-custom": {
+   "pass": true,
+   "durationMs": 9748
+  },
+  "reasoning-default": {
+   "pass": true,
+   "durationMs": 12191
+  },
+  "shared-state-read": {
+   "pass": true,
+   "durationMs": 17612
+  },
+  "shared-state-streaming": {
+   "pass": true,
+   "durationMs": 41192
+  },
+  "shared-state-write": {
+   "pass": true,
+   "durationMs": 17142
+  },
+  "subagents": {
+   "pass": true,
+   "durationMs": 31549
+  },
+  "tool-rendering": {
+   "pass": true,
+   "durationMs": 9200
+  },
+  "tool-rendering-custom-catchall": {
+   "pass": true,
+   "durationMs": 16920
+  },
+  "tool-rendering-default-catchall": {
+   "pass": true,
+   "durationMs": 5765
+  },
+  "tool-rendering-reasoning-chain": {
+   "pass": true,
+   "durationMs": 31685
+  },
+  "voice": {
+   "pass": true,
+   "durationMs": 19668
+  }
+ }
+}
