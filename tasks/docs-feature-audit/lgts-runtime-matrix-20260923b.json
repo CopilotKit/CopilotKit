@@ -1,0 +1,189 @@
+{
+ "run": "lgts-d6-full-20260923b.log",
+ "head": "0c7796721b",
+ "aimock": "@copilotkit/aimock 1.37.4 --strict, AIMOCK_STRICT_TURN_INDEX=1",
+ "raw": {
+  "checks": 40,
+  "pass": 39,
+  "fail": 1,
+  "skipped": 0
+ },
+ "published": {
+  "checks": 40,
+  "pass": 39,
+  "fail": 1
+ },
+ "policyExcludedUntested": [
+  "gen-ui-interrupt",
+  "interrupt-headless"
+ ],
+ "reruns": {
+  "mcp-apps": {
+   "log": "lgts-d6-rerun-mcp-apps-20260923b.log",
+   "pass": false
+  }
+ },
+ "features": {
+  "a2ui-recovery": {
+   "pass": true,
+   "durationMs": 9375
+  },
+  "agent-config": {
+   "pass": true,
+   "durationMs": 32960
+  },
+  "agentic-chat": {
+   "pass": true,
+   "durationMs": 12512
+  },
+  "auth": {
+   "pass": true,
+   "durationMs": 54466
+  },
+  "beautiful-chat-bar-chart": {
+   "pass": true,
+   "durationMs": 12340
+  },
+  "beautiful-chat-pie-chart": {
+   "pass": true,
+   "durationMs": 12468
+  },
+  "beautiful-chat-schedule-meeting": {
+   "pass": true,
+   "durationMs": 6168
+  },
+  "beautiful-chat-search-flights": {
+   "pass": true,
+   "durationMs": 13898
+  },
+  "beautiful-chat-toggle-theme": {
+   "pass": true,
+   "durationMs": 10153
+  },
+  "byoc": {
+   "pass": true,
+   "durationMs": 10361
+  },
+  "chat-css": {
+   "pass": true,
+   "durationMs": 6260
+  },
+  "chat-slots": {
+   "pass": true,
+   "durationMs": 6329
+  },
+  "frontend-tools": {
+   "pass": true,
+   "durationMs": 18268
+  },
+  "frontend-tools-async": {
+   "pass": true,
+   "durationMs": 10349
+  },
+  "gen-ui-a2ui-fixed": {
+   "pass": true,
+   "durationMs": 8961
+  },
+  "gen-ui-agent": {
+   "pass": true,
+   "durationMs": 18277
+  },
+  "gen-ui-custom": {
+   "pass": true,
+   "durationMs": 8378
+  },
+  "gen-ui-declarative": {
+   "pass": true,
+   "durationMs": 13830
+  },
+  "gen-ui-headless-complete": {
+   "pass": true,
+   "durationMs": 28017
+  },
+  "gen-ui-open": {
+   "pass": true,
+   "durationMs": 17811
+  },
+  "gen-ui-open-advanced": {
+   "pass": true,
+   "durationMs": 17909
+  },
+  "headless-simple": {
+   "pass": true,
+   "durationMs": 13034
+  },
+  "hitl-approve-deny": {
+   "pass": true,
+   "durationMs": 10143
+  },
+  "hitl-text-input": {
+   "pass": true,
+   "durationMs": 9427
+  },
+  "mcp-apps": {
+   "pass": false,
+   "durationMs": 65813,
+   "error": "waitForTurnComplete: turn 1 did not complete within 30000ms (reason=surface-missing, runsFinished=1, count=1, attrPresent=true, runningNow=false, runStartCount=1)"
+  },
+  "multimodal": {
+   "pass": true,
+   "durationMs": 10283
+  },
+  "prebuilt-popup": {
+   "pass": true,
+   "durationMs": 6081
+  },
+  "prebuilt-sidebar": {
+   "pass": true,
+   "durationMs": 6151
+  },
+  "readonly-state-context": {
+   "pass": true,
+   "durationMs": 8122
+  },
+  "reasoning-custom": {
+   "pass": true,
+   "durationMs": 6587
+  },
+  "reasoning-default": {
+   "pass": true,
+   "durationMs": 6558
+  },
+  "shared-state-read": {
+   "pass": true,
+   "durationMs": 13601
+  },
+  "shared-state-streaming": {
+   "pass": true,
+   "durationMs": 14766
+  },
+  "shared-state-write": {
+   "pass": true,
+   "durationMs": 10619
+  },
+  "subagents": {
+   "pass": true,
+   "durationMs": 31032
+  },
+  "tool-rendering": {
+   "pass": true,
+   "durationMs": 6624
+  },
+  "tool-rendering-custom-catchall": {
+   "pass": true,
+   "durationMs": 10190
+  },
+  "tool-rendering-default-catchall": {
+   "pass": true,
+   "durationMs": 8714
+  },
+  "tool-rendering-reasoning-chain": {
+   "pass": true,
+   "durationMs": 24792
+  },
+  "voice": {
+   "pass": true,
+   "durationMs": 4439
+  }
+ }
+}

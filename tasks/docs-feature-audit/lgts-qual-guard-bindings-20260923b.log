@@ -1,0 +1,11 @@
+# guard: vitest run src/lib/__tests__/selected-showcase-guide-bindings.test.ts --pool=forks --maxWorkers=1 --execArgv=--max-old-space-size=4096 (vitest 4.1.7: --poolOptions was removed; --execArgv is the worker flag); HEAD 4147a5c04f; Wed Sep 23 22:10:09 UTC 2026
+
+ RUN  v4.1.7 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs
+
+
+ Test Files  1 passed (1)
+      Tests  25 passed (25)
+   Start at  15:10:10
+   Duration  33.59s (transform 16.36s, setup 0ms, import 32.03s, tests 1.27s, environment 0ms)
+
+exit=0

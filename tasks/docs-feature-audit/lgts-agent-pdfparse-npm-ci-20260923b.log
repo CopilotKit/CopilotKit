@@ -1,0 +1,19 @@
+$ cd showcase/integrations/langgraph-typescript/src/agent && SCARF_ANALYTICS=false npm ci --no-audit --no-fund
+Wed Sep 23 21:29:00 UTC 2026
+node v24.11.0 npm 11.6.1
+
+added 300 packages in 4s
+exit=0
+langgraph-typescript-agent@0.0.1 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent
++-- @copilotkit/sdk-js@1.73.3
++-- @langchain/core@1.2.12
++-- @langchain/langgraph-api@1.5.0
++-- @langchain/langgraph@1.4.17
++-- @types/pdf-parse@1.1.5
+`-- pdf-parse@1.1.4
+
+
+# npm 10 validation (Node v22.16.0)
+node v22.16.0 npm 10.9.2
+npm ci --dry-run exit=0
+npm ci --dry-run --legacy-peer-deps exit=0

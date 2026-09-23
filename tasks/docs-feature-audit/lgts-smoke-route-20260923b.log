@@ -1,0 +1,16 @@
+# /api/smoke red/green on the running stack (Wed Sep 23 21:43:29 UTC 2026)
+# 1. Old behaviour, reproduced directly: POST /api/copilotkit agent/run with the old non-UUID thread id
+"type":"RUN_ERROR","message":"Failed to create thread: HTTP 400: {\"success\":false,\"error\":{\"issues\":[{\"validation\":\"uuid\",\"code\":\"invalid_string\",\"message\":\"Inva
+
+# 2. Fixed route (randomUUID ids, reads to the terminal event): GET /api/smoke
+{"status":"ok","integration":"langgraph-typescript","latency_ms":1016,"timestamp":"2026-09-23T21:43:31.067Z"}
+HTTP 200
+
+# 3. Negative control: the fixed route with the thread id temporarily reverted to smoke-${Date.now()} (not committed)
+65:          threadId: `smoke-${Date.now()}`,
+{"status":"error","integration":"langgraph-typescript","stage":"run_error","error":"Run failed: Failed to create thread: HTTP 400: {\"success\":false,\"error\":{\"issues\":[{\"validation\":\"uuid\",\"code\":\"invalid_string\",\"message\":\"Invalid uuid\",\"path\":[\"thread_id\"]}],\"name\":\"ZodError\"}}","latency_ms":262,"timestamp":"2026-09-23T21:43:34.853Z"}
+HTTP 502
+# restored fixed route
+65:          threadId: randomUUID(),
+{"status":"ok","integration":"langgraph-typescript","latency_ms":983,"timestamp":"2026-09-23T21:43:39.114Z"}
+HTTP 200

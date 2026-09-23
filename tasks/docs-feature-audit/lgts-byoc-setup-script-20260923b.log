@@ -1,0 +1,75 @@
+# Replacement canonical script (boot variant + the 2026-09-13 strict graph.ts check): bash tasks/docs-feature-audit/reproduce-lgts-byoc-setup.sh
+# HEAD 0c7796721b; node v22.16.0; npm 10.9.2; Wed Sep 23 22:08:42 UTC 2026
+copied 459 files; node_modules present: no; .langgraph_api present: no
+
+added 254 packages in 1s
+langgraph-typescript-agent@0.0.1 /private/tmp/lgts-byoc-boot.ZF7Opa/showcase/integrations/langgraph-typescript/src/agent
++-- @copilotkit/sdk-js@1.73.3
++-- @langchain/core@1.2.12
++-- @langchain/langgraph-api@1.5.0
++-- @langchain/langgraph-cli@1.5.0
++-- @langchain/langgraph-sdk@1.11.2
++-- @langchain/langgraph@1.4.17
+`-- langchain@1.5.12
+
+strict graph.ts typecheck: pass
+GET http://localhost:8123/ok -> 200 after 3s
+--- dev log (ANSI stripped, per-graph lines collapsed)
+
+> langgraph-typescript-agent@0.0.1 dev
+> npx @langchain/langgraph-cli@1.5.0 dev --port 8123 --no-browser
+
+
+          Welcome to
+
+╦  ┌─┐┌┐┌┌─┐╔═╗┬─┐┌─┐┌─┐┬ ┬
+║  ├─┤││││ ┬║ ╦├┬┘├─┤├─┘├─┤
+╩═╝┴ ┴┘└┘└─┘╚═╝┴└─┴ ┴┴  ┴ ┴.js
+
+- 🚀 API: http://localhost:8123
+- 🎨 Studio UI: https://smith.langchain.com/studio?baseUrl=http://localhost:8123
+
+This in-memory server is designed for development and testing.
+For production use, please use LangSmith Deployment.
+
+
+info:    ▪ Starting server...
+info:    ▪ Initializing storage...
+info:    ▪ Registering graphs from /private/tmp/lgts-byoc-boot.ZF7Opa/showcase/integrations/langgraph-typescript/src/agent
+info:    ▪ Starting 10 workers
+info:    ▪ Server running at ::1:8123
+info:    ▪ <-- GET /ok
+info:    ▪ --> GET /ok 200 1ms
+registered graphs: 29
+--- per-graph structure (GET /assistants/<id>/graph)
+interrupt_agent	200	
+agent_config_agent	200	
+a2ui_dynamic	200	
+a2ui_fixed	200	
+a2ui_recovery	200	
+mcp_apps	200	
+frontend_tools	200	
+frontend_tools_async	200	
+hitl_in_app	200	
+hitl_in_chat	200	
+readonly_state_agent_context	200	
+byoc_hashbrown	200	
+byoc_json_render	200	
+open_gen_ui	200	
+open_gen_ui_advanced	200	
+shared_state_read	200	
+shared_state_read_write	200	
+shared_state_streaming	200	
+subagents	200	
+gen_ui_agent	200	
+gen_ui_tool_based	200	
+beautiful_chat	200	
+headless_complete	200	
+multimodal	200	
+agentic-chat-reasoning	200	
+tool_rendering	200	
+tool-rendering-reasoning-chain	200	
+sample_agent	200	
+starterAgent	200	
+--- dev log lines after graph requests
+exit=0

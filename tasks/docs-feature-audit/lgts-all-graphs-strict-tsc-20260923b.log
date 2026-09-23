@@ -1,0 +1,12 @@
+# INFORMATIONAL: same strict flags over every graph module registered in langgraph.json (as lgts-all-graphs-strict-tsc-20260923.log)
+$ nice -n 10 ./node_modules/.bin/tsc --noEmit --strict --module nodenext --moduleResolution nodenext --target es2022 --skipLibCheck graph.ts beautiful-chat.ts headless-complete.ts multimodal.ts agent-config.ts reasoning-agent.ts tool-rendering.ts tool-rendering-reasoning-chain.ts interrupt-agent.ts a2ui-dynamic.ts a2ui-fixed.ts recovery-agent.ts mcp-apps.ts frontend-tools.ts frontend-tools-async.ts hitl-in-app.ts hitl-in-chat.ts readonly-state.ts byoc-hashbrown.ts byoc-json-render.ts open-gen-ui.ts open-gen-ui-advanced.ts shared-state-read.ts shared-state-read-write.ts shared-state-streaming.ts subagents.ts gen-ui-agent.ts gen-ui-tool-based.ts
+a2ui-fixed.ts(43,34): error TS1470: The 'import.meta' meta-property is not allowed in files which will build into CommonJS output.
+agent-config.ts(71,38): error TS2550: Property 'toReversed' does not exist on type 'any[]'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2023' or later.
+beautiful-chat.ts(75,34): error TS1470: The 'import.meta' meta-property is not allowed in files which will build into CommonJS output.
+beautiful-chat.ts(103,3): error TS2322: Type 'unknown[] | null' is not assignable to type 'unknown[]'.
+  Type 'null' is not assignable to type 'unknown[]'.
+gen-ui-tool-based.ts(20,3): error TS2305: Module '"@langchain/langgraph"' has no exported member 'BaseMessage'.
+readonly-state.ts(48,51): error TS2339: Property 'trim' does not exist on type 'never'.
+reasoning-agent.ts(34,3): error TS2305: Module '"@langchain/langgraph"' has no exported member 'BaseMessage'.
+tool-rendering-reasoning-chain.ts(15,15): error TS2305: Module '"@langchain/langgraph"' has no exported member 'BaseMessage'.
+exit=2
