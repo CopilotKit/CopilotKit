@@ -1,0 +1,137 @@
+# Fixture schema + routing tests for the edited fixtures, via Nx. node v22.16.0. Wed Sep 23 22:39:43 UTC 2026
+$ NX_DAEMON=false nice -n 10 npx nx run @copilotkit/showcase-scripts:test --skip-nx-cache -- __tests__/aimock-fixtures.test.ts __tests__/mcp-apps-suggestion-routing.test.ts __tests__/aimock-strict-turn-index.test.ts --maxWorkers=2
+
+> nx run @copilotkit/showcase-scripts:test __tests__/aimock-fixtures.test.ts __tests__/mcp-apps-suggestion-routing.test.ts __tests__/aimock-strict-turn-index.test.ts --maxWorkers=2
+
+> @copilotkit/showcase-scripts@ test /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/scripts
+> vitest run __tests__/aimock-fixtures.test.ts __tests__/mcp-apps-suggestion-routing.test.ts __tests__/aimock-strict-turn-index.test.ts --maxWorkers=2
+ RUN  v4.1.5 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/scripts
+ Test Files  3 passed (3)
+      Tests  898 passed (898)
+   Start at  15:39:44
+   Duration  367ms (transform 48ms, setup 0ms, import 263ms, tests 146ms, environment 0ms)
+
+
+
+ NX   Successfully ran target test for project @copilotkit/showcase-scripts
+
+
+exit=0
+
+# Full showcase-scripts suite (covers demo-region-guard and every fixture routing test). Wed Sep 23 22:42:06 UTC 2026
+$ NX_DAEMON=false nice -n 10 npx nx run @copilotkit/showcase-scripts:test --skip-nx-cache -- --maxWorkers=2
+
+> nx run @copilotkit/showcase-scripts:test --maxWorkers=2
+
+> @copilotkit/showcase-scripts@ test /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/scripts
+> vitest run --maxWorkers=2
+ RUN  v4.1.5 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/scripts
+  harness-workers                      N/A — not probe-eligible for env staging (probe.staging=false in SSOT), skipped
+verify-deploy --env=staging targets=2
+  docs                                 docs.staging.copilotkit.ai 
+FAIL: DOM string missing
+  shell                                showcase.staging.copilotkit.ai OK
+verify-deploy --env=staging targets=1
+  docs                                 docs.staging.copilotkit.ai OK
+  harness-workers                      N/A — not probe-eligible for env staging (probe.staging=false in SSOT), skipped
+verify-deploy --env=staging targets=1
+  docs                                 docs.staging.copilotkit.ai OK
+  harness-workers                      N/A — not probe-eligible for env prod (probe.prod=false in SSOT), skipped
+verify-deploy --env=prod targets=0 — nothing to probe (all requested services are not probe-eligible for env prod, skipped)
+verify-deploy --env=staging targets=0 (FAIL)
+  no probe-required services resolved for env "staging" — check --services and SSOT probe flags
+ ❯ __tests__/starter-validation-schema.test.ts (0 test)
+  showcase-ag2                         
+FAIL: boom
+  showcase-mastra                      OK
+  showcase-mastra                      
+OK
+  showcase-ag2                         
+FAIL: boom
+  showcase-mastra                      
+FAIL: boom
+  showcase-mastra                      
+FAIL: boom
+  showcase-mastra                      
+FAIL (threw): kaboom
+ ❯ __tests__/extract-starter.test.ts (2 tests | 1 failed) 34519ms
+     × adds .copilotkit/ to generated starter .gitignore 33900ms
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  __tests__/starter-validation-schema.test.ts [ __tests__/starter-validation-schema.test.ts ]
+Error: ENOENT: no such file or directory, open '/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/.ruff_cache/manifest.yaml'
+ ❯ __tests__/starter-validation-schema.test.ts:51:10
+     49|   .map((slug) => {
+     50|     const doc = yaml.parse(
+     51|       fs.readFileSync(
+       |          ^
+     52|         path.join(SHOWCASE, "integrations", slug, "manifest.yaml"),
+     53|         "utf8",
+ ❯ __tests__/starter-validation-schema.test.ts:49:4
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  __tests__/extract-starter.test.ts > extract-starter > adds .copilotkit/ to generated starter .gitignore
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ __tests__/extract-starter.test.ts:10:3
+      8|
+      9| describe("extract-starter", () => {
+     10|   it("adds .copilotkit/ to generated starter .gitignore", () => {
+       |   ^
+     11|     const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "starter-"));
+     12|
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+ Test Files  2 failed | 87 passed (89)
+      Tests  1 failed | 2601 passed (2602)
+   Start at  15:42:08
+   Duration  73.19s (transform 757ms, setup 0ms, import 2.03s, tests 105.90s, environment 3ms)
+[41m[30m ELIFECYCLE [39m[49m [31mTest failed. See above for more details.[39m
+
+
+
+ NX   Running target test for project @copilotkit/showcase-scripts failed
+
+Failed tasks:
+
+- @copilotkit/showcase-scripts:test
+
+Hint: run the command with --verbose for more details.
+
+exit=1
+
+# The two failures above do not touch the changed files: starter-validation-schema reads showcase/integrations/.ruff_cache (a stray ruff cache dir created 2026-09-23 11:54 local, before this session; its own .gitignore hides it from git status; left in place, not ours), and extract-starter extracts langgraph-python. Rerun of those two files alone: Wed Sep 23 22:43:43 UTC 2026
+
+> nx run @copilotkit/showcase-scripts:test __tests__/extract-starter.test.ts __tests__/starter-validation-schema.test.ts --maxWorkers=1
+
+> @copilotkit/showcase-scripts@ test /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/scripts
+> vitest run __tests__/extract-starter.test.ts __tests__/starter-validation-schema.test.ts --maxWorkers=1
+ RUN  v4.1.5 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/scripts
+ ❯ __tests__/starter-validation-schema.test.ts (0 test)
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  __tests__/starter-validation-schema.test.ts [ __tests__/starter-validation-schema.test.ts ]
+Error: ENOENT: no such file or directory, open '/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/.ruff_cache/manifest.yaml'
+ ❯ __tests__/starter-validation-schema.test.ts:51:10
+     49|   .map((slug) => {
+     50|     const doc = yaml.parse(
+     51|       fs.readFileSync(
+       |          ^
+     52|         path.join(SHOWCASE, "integrations", slug, "manifest.yaml"),
+     53|         "utf8",
+ ❯ __tests__/starter-validation-schema.test.ts:49:4
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+ Test Files  1 failed | 1 passed (2)
+      Tests  2 passed (2)
+   Start at  15:43:45
+   Duration  22.18s (transform 35ms, setup 0ms, import 30ms, tests 21.95s, environment 0ms)
+[41m[30m ELIFECYCLE [39m[49m [31mTest failed. See above for more details.[39m
+
+
+
+ NX   Running target test for project @copilotkit/showcase-scripts failed
+
+Failed tasks:
+
+- @copilotkit/showcase-scripts:test
+
+Hint: run the command with --verbose for more details.
+
+exit=1

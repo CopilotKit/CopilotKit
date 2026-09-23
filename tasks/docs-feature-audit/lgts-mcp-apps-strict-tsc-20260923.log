@@ -1,0 +1,5 @@
+# Strict typecheck of the edited graph plus the matrix's graph.ts gate, same flags as lgts-graph-strict-tsc-20260923b.log. node v22.16.0. Wed Sep 23 22:39:23 UTC 2026
+$ cd showcase/integrations/langgraph-typescript/src/agent && nice -n 10 npx tsc --noEmit --strict --module nodenext --moduleResolution nodenext --target es2022 --skipLibCheck tool-rendering.ts
+exit=0
+$ ... --skipLibCheck graph.ts
+exit=0

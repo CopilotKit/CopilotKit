@@ -1,0 +1,13 @@
+# Standalone repro (no stack). Scripts: lgts-mcp-apps-repro-20260923/. node v22.16.0, HEAD d9c5ff4176, Wed Sep 23 22:30:32 UTC 2026
+# 1. Chat Completions streams built by aimock 1.37.4's own exported builders, served from a local HTTP server, consumed by the LGTS agent's @langchain/openai + @langchain/core via streamEvents (the aggregation path an invoke inside a LangGraph node takes).
+$ node lgts-mcp-apps-repro-20260923/repro-generic-message.mjs <worktree>
+@copilotkit/aimock 1.37.4; @langchain/openai 1.5.13
+{"variant":"aimock-1.37.4 content+tool+reasoning (gpt-5-mini)","firstDeltaKeys":["reasoning_content"],"firstStreamChunkType":"generic","endType":"generic","tool_calls":null,"additional_kwargs_tool_calls":["create_view"]}
+{"variant":"no reasoning channel","firstDeltaKeys":["role","content"],"firstStreamChunkType":"ai","endType":"ai","tool_calls":["create_view"],"additional_kwargs_tool_calls":["create_view"]}
+{"variant":"role on first delta (aimock 1.43.0 shape)","firstDeltaKeys":["role","reasoning_content"],"firstStreamChunkType":"ai","endType":"ai","tool_calls":["create_view"],"additional_kwargs_tool_calls":["create_view"]}
+{"variant":"aimock tool-only+reasoning (unfixed in 1.43.0)","firstDeltaKeys":["reasoning_content"],"firstStreamChunkType":"generic","endType":"generic","tool_calls":null,"additional_kwargs_tool_calls":["create_view"]}
+
+# 2. The real aimock 1.37.4 server in strict mode, loaded with the LGTS mcp-apps + tool-rendering-reasoning-chain fixture files, answering the D6 mcp-apps prompt for gpt-5-mini (the model since bb70c1fd01) vs gpt-4o-mini (before it).
+$ node lgts-mcp-apps-repro-20260923/repro-aimock-model-gate.mjs <worktree>
+{"model":"gpt-5-mini","status":200,"firstDelta":{"reasoning_content":"The user wants a sketch of a client/server/database architecture. I'll call create_view once with three labelled rectangles connected by arrows and a title, framed by a cameraUpdate."},"reasoningDeltasBeforeRole":1,"toolCallNames":["create_view"]}
+{"model":"gpt-4o-mini","status":200,"firstDelta":{"role":"assistant","content":""},"reasoningDeltasBeforeRole":0,"toolCallNames":["create_view"]}

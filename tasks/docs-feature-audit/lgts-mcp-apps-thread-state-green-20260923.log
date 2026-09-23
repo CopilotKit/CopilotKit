@@ -1,0 +1,3 @@
+# LangGraph thread state of the GREEN mcp-apps run (newest thread).
+{"thread": "fa5017c6", "updated_at": "2026-09-23T22:37:17.990Z", "type": "human", "tool_calls": "ABSENT", "additional_kwargs.tool_calls": [], "content": "Open Excalidraw and sketch a system diagram with a client, s"}
+{"thread": "fa5017c6", "updated_at": "2026-09-23T22:37:17.990Z", "type": "ai", "tool_calls": ["create_view"], "additional_kwargs.tool_calls": ["create_view"], "content": "Sketching a client → server → database diagram in Excalidraw"}
