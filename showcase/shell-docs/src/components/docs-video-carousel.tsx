@@ -1,158 +1,177 @@
 "use client";
 
 import { DocsVideoPreview } from "./docs-video-preview";
+import { ACCENT_BUTTON_CLASS } from "./wizard-stepper-parts";
 
-import { useHomepageTelemetry } from "@/lib/use-homepage-telemetry";
-
+import { ArrowRight, Brain, MessagesSquare, Workflow } from "lucide-react";
 import { useRef, useState } from "react";
-import type { KeyboardEvent } from "react";
-import { Brain, MessagesSquare, Workflow } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { KeyboardEvent } from "react";
+import { useHomepageTelemetry } from "@/lib/use-homepage-telemetry";
 
 interface Recording {
   readonly id: string;
+  readonly icon: LucideIcon;
   readonly title: string;
   readonly loomId: string;
-  readonly icon: LucideIcon;
+  /** Frame at previewStart; regenerate the poster when changing that timestamp. */
   readonly thumbnail: string;
-  /** Midpoint of the recording, where the silent preview starts. */
+  readonly description: string;
+  readonly href: string;
   readonly previewStart: number;
-  /** Width / height of the recording, used to size the preview player. */
   readonly aspectRatio: number;
 }
 
 const RECORDINGS: readonly Recording[] = [
   {
     id: "shared-state-harness",
-    title: "Overview",
-    loomId: "5a04db6a04584b79b98021737d012d53",
+    icon: Workflow,
+    title: "Build agent-powered apps",
+    description:
+      "Connect your agent to your app with interactive UI, shared state, and human approvals.",
+    href: "/quickstart",
     previewStart: 278,
     aspectRatio: 1280 / 802,
-    icon: Workflow,
-    thumbnail:
-      "https://cdn.loom.com/sessions/thumbnails/5a04db6a04584b79b98021737d012d53-df1797187f8ba377.jpg",
-  },
-  {
-    id: "user-memories",
-    title: "Automatic Learning",
-    loomId: "2978fbfe42324e509057ac5fd46b7a70",
-    previewStart: 214,
-    aspectRatio: 1280 / 732,
-    icon: Brain,
-    thumbnail:
-      "https://cdn.loom.com/sessions/thumbnails/2978fbfe42324e509057ac5fd46b7a70-37108be11ee154e6.jpg",
+    loomId: "5a04db6a04584b79b98021737d012d53",
+    thumbnail: "/images/product-tour/overview.jpg",
   },
   {
     id: "rich-threads",
+    icon: MessagesSquare,
     title: "Rich Threads",
-    loomId: "79817778d29e490c97225127d2f17b3a",
+    description:
+      "Persist and resume rich conversations with generative UI, messages, tool activity, and app state. Import existing thread history so users can pick up where they left off.",
+    href: "/threads",
     previewStart: 135,
     aspectRatio: 1722 / 1080,
-    icon: MessagesSquare,
-    thumbnail:
-      "https://cdn.loom.com/sessions/thumbnails/79817778d29e490c97225127d2f17b3a-250a43d55abed071.jpg",
+    loomId: "79817778d29e490c97225127d2f17b3a",
+    thumbnail: "/images/product-tour/rich-threads.jpg",
+  },
+  {
+    id: "user-memories",
+    icon: Brain,
+    title: "Automatic Learning",
+    description:
+      "Turn patterns from real agent conversations into skills you can review and publish. See the learning loop in an expense-review workflow.",
+    href: "/learning",
+    previewStart: 214,
+    aspectRatio: 1280 / 732,
+    loomId: "2978fbfe42324e509057ac5fd46b7a70",
+    thumbnail: "/images/product-tour/automatic-learning.jpg",
   },
 ] as const;
 
-const TAB_ID_PREFIX = "docs-video-tab-";
-const PANEL_ID_PREFIX = "docs-video-panel-";
-
 export function DocsVideoCarousel() {
   const [activeIndex, setActiveIndex] = useState(0);
+  const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const track = useHomepageTelemetry();
-  // Roving-tabindex focus management (WAI-ARIA tab pattern): moving the
-  // selection with the keyboard also moves DOM focus to the newly active
-  // tab, so Tab/Shift+Tab always lands on exactly one control.
-  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
-
-  const active = RECORDINGS[activeIndex];
-
-  function selectAndFocus(index: number) {
-    if (index !== activeIndex)
-      track("walkthrough_selected", {
-        walkthrough: RECORDINGS[index].title,
-        loom_id: RECORDINGS[index].loomId,
-      });
+  function select(index: number) {
+    track("walkthrough_selected", {
+      walkthrough: RECORDINGS[index].title,
+      loom_id: RECORDINGS[index].loomId,
+      tab_id: RECORDINGS[index].id,
+      tab_label: index === 0 ? "Overview" : RECORDINGS[index].title,
+    });
     setActiveIndex(index);
-    tabRefs.current[index]?.focus();
+    tabs.current[index]?.focus();
   }
-
-  function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
-    switch (event.key) {
-      case "ArrowRight":
-        event.preventDefault();
-        selectAndFocus((activeIndex + 1) % RECORDINGS.length);
-        break;
-      case "ArrowLeft":
-        event.preventDefault();
-        selectAndFocus(
-          (activeIndex - 1 + RECORDINGS.length) % RECORDINGS.length,
-        );
-        break;
-      case "Home":
-        event.preventDefault();
-        selectAndFocus(0);
-        break;
-      case "End":
-        event.preventDefault();
-        selectAndFocus(RECORDINGS.length - 1);
-        break;
-      default:
-        break;
-    }
+  function onKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    let next = activeIndex;
+    if (event.key === "ArrowRight") next = (next + 1) % RECORDINGS.length;
+    else if (event.key === "ArrowLeft")
+      next = (next + RECORDINGS.length - 1) % RECORDINGS.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = RECORDINGS.length - 1;
+    else return;
+    event.preventDefault();
+    if (next !== activeIndex) select(next);
   }
-
   return (
     <section
-      aria-label="Product walkthroughs"
-      className="overflow-hidden rounded-xl border border-[var(--nav-control-border)] bg-[var(--bg-surface)]"
+      aria-label="Product tour"
+      className="overflow-hidden rounded-2xl border border-[var(--nav-control-border)] bg-[var(--bg-surface)]"
     >
       <div
         role="tablist"
-        aria-label="Product walkthrough recordings"
-        className="grid grid-cols-3 gap-1 border-b border-[var(--nav-control-border)] p-1.5"
+        aria-label="Product tour"
+        className="grid grid-cols-3 divide-x divide-[var(--nav-control-border)] border-b border-[var(--nav-control-border)]"
       >
-        {RECORDINGS.map((recording, index) => {
-          const isActive = index === activeIndex;
-          const Icon = recording.icon;
-          return (
-            <button
-              key={recording.id}
-              ref={(el) => {
-                tabRefs.current[index] = el;
-              }}
-              type="button"
-              role="tab"
-              id={`${TAB_ID_PREFIX}${recording.id}`}
-              aria-selected={isActive}
-              aria-controls={`${PANEL_ID_PREFIX}${recording.id}`}
-              tabIndex={isActive ? 0 : -1}
-              onClick={() => selectAndFocus(index)}
-              onKeyDown={handleKeyDown}
-              className={`shell-docs-radius-control inline-flex min-h-11 min-w-0 cursor-pointer flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-medium leading-tight sm:flex-row sm:gap-2 sm:px-2 sm:text-xs transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)] focus-visible:outline-none ${isActive ? "bg-[var(--accent-dim)] text-[var(--accent)]" : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"}`}
-            >
-              <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
-              <span data-testid="tab-title" className="whitespace-nowrap">
-                {recording.title}
-              </span>
-            </button>
-          );
-        })}
+        {RECORDINGS.map((recording, index) => (
+          <button
+            key={recording.id}
+            ref={(el) => {
+              tabs.current[index] = el;
+            }}
+            type="button"
+            role="tab"
+            id={`tour-tab-${recording.id}`}
+            aria-controls={`tour-panel-${recording.id}`}
+            aria-selected={index === activeIndex}
+            tabIndex={index === activeIndex ? 0 : -1}
+            onClick={() => select(index)}
+            onKeyDown={onKeyDown}
+            className={`flex items-center justify-center gap-2 min-h-12 px-2 py-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-[var(--accent)] ${index === activeIndex ? "bg-[var(--accent-dim)] text-[var(--accent)]" : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"}`}
+          >
+            <recording.icon aria-hidden="true" className="h-5 w-5 shrink-0" />
+            {index === 0 ? "Overview" : recording.title}
+          </button>
+        ))}
       </div>
-      <div
-        id={`${PANEL_ID_PREFIX}${active.id}`}
-        role="tabpanel"
-        aria-labelledby={`${TAB_ID_PREFIX}${active.id}`}
-        className="relative"
-      >
-        <DocsVideoPreview
-          key={active.id}
-          title={active.title}
-          loomId={active.loomId}
-          poster={active.thumbnail}
-          previewStart={active.previewStart}
-          aspectRatio={active.aspectRatio}
-        />
+      {/* Every panel shares one grid cell, so the card is as tall as its
+          longest description and keeps its height when switching tabs. */}
+      <div className="grid">
+        {RECORDINGS.map((recording, index) => (
+          <div
+            key={recording.id}
+            role="tabpanel"
+            id={`tour-panel-${recording.id}`}
+            aria-labelledby={`tour-tab-${recording.id}`}
+            className={`[grid-area:1/1] ${index === activeIndex ? "" : "invisible"}`}
+          >
+            <div className="grid h-full content-start gap-6 p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] lg:content-center lg:items-center">
+              <div>
+                <h2 className="text-xl font-semibold tracking-tight text-[var(--text)]">
+                  {recording.title}
+                </h2>
+                <p className="mt-3 text-[15px] leading-relaxed text-[var(--text-secondary)]">
+                  {recording.description}
+                </p>
+                <a
+                  href={recording.href}
+                  onClick={() =>
+                    track("walkthrough_link_clicked", {
+                      walkthrough: recording.title,
+                      loom_id: recording.loomId,
+                      tab_id: recording.id,
+                      tab_label: index === 0 ? "Overview" : recording.title,
+                      to_path: recording.href,
+                      link_text:
+                        index === 0
+                          ? "Get started"
+                          : `Explore ${recording.title}`,
+                    })
+                  }
+                  className={`mt-5 ${ACCENT_BUTTON_CLASS}`}
+                >
+                  {index === 0 ? "Get started" : `Explore ${recording.title}`}
+                  <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                </a>
+              </div>
+              {index === activeIndex && (
+                <div className="overflow-hidden rounded-xl border border-[var(--nav-control-border)]">
+                  <DocsVideoPreview
+                    key={recording.id}
+                    title={recording.title}
+                    loomId={recording.loomId}
+                    poster={recording.thumbnail}
+                    previewStart={recording.previewStart}
+                    aspectRatio={recording.aspectRatio}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
     </section>
   );

@@ -6,6 +6,7 @@ type HomepageAction =
   | "wizard_step_changed"
   | "manual_setup_clicked"
   | "walkthrough_selected"
+  | "walkthrough_link_clicked"
   | "video_play_clicked"
   | "integration_selected"
   | "frontend_selected"
