@@ -726,8 +726,15 @@ export function CopilotChatMessageView({
   // on the virtualizer's total-size div — same as the flat path. Adding
   // deduplicatedMessages.length here would forcibly yank the user to the bottom
   // on every streaming chunk even if they've scrolled up to read history.
+  const lastEndAlignedFirstMessageRef = React.useRef<string | undefined>(
+    undefined,
+  );
   useLayoutEffect(() => {
     if (!shouldVirtualize || !deduplicatedMessages.length) return;
+    // Resizing a hidden host can temporarily disable virtualization. Do not
+    // align again when the same message list becomes measurable once more.
+    if (lastEndAlignedFirstMessageRef.current === firstMessageId) return;
+    lastEndAlignedFirstMessageRef.current = firstMessageId;
     virtualizer.scrollToIndex(deduplicatedMessages.length - 1, {
       align: "end",
     });
