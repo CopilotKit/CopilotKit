@@ -38,6 +38,21 @@ afterEach(() => {
 });
 
 describe("registry lifecycle", () => {
+  it("uses the current client method for each refresh", async () => {
+    const { registry, fetch, client } = setup({ freshnessWindowMs: 0 });
+    fetch.mockResolvedValue(response());
+    await registry.initialize();
+    const denial = new LearnedSkillsError("REVISION_REVOKED", false);
+    client.getLearnedSkillsSnapshot = vi.fn(async () => {
+      throw denial;
+    });
+
+    await expect(registry.acquireSnapshot()).rejects.toBe(denial);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(client.getLearnedSkillsSnapshot).toHaveBeenCalledTimes(1);
+    expect(registry.status.lastError?.code).toBe("REVISION_REVOKED");
+  });
+
   it("shares one cold request among initialization and invocation callers", async () => {
     const { registry, fetch } = setup();
     let resolve!: (value: LearnedSkillsSnapshotResult) => void;

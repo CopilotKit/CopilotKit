@@ -19,3 +19,19 @@ function immutableTools(context: BuiltInAgentLearnedSkills) {
   return combined;
 }
 void immutableTools;
+
+// Canonical batch transport types are available through the public v2 entry.
+import type {
+  GetLearnedSkillsSnapshotsRequest,
+  LearnedSkillsBatchResult,
+} from "../../v2";
+const batchRequest: GetLearnedSkillsSnapshotsRequest = {
+  containers: [{ containerId: "support" }],
+};
+const batchResult: LearnedSkillsBatchResult = {
+  containerId: "support",
+  status: "unchanged",
+  revision: "r1",
+  etag: '"etag"',
+};
+void [batchRequest, batchResult];

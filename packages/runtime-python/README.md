@@ -388,3 +388,13 @@ Run the shared integration cases:
 ```sh
 NX_DAEMON=false pnpm nx run runtime-conformance:conformance -- -- uv run --project packages/runtime-python python packages/runtime-python/examples/conformance.py
 ```
+
+### Batch learned skills
+
+`await client.get_learned_skills_snapshots(containers=[{"containerId": "support"}, {"containerId": "company", "revision": "42"}])`
+sends one POST to `/api/v1/learning/skills/batch`. It accepts 1–50 unique sources.
+Each source can include `revision` and `ifNoneMatch`. The result maps each container ID to a snapshot, an unchanged result, or a `LearnedSkillsError`.
+The client rejects malformed IDs, duplicate or missing results, invalid metadata, and invalid base64 before it returns data.
+A recognized denial in a malformed response remains a denial. The deadline covers headers and body, and cancellation closes the response.
+The server must support the batch endpoint. This operation does not fall back to individual requests.
+The existing `get_learned_skills_snapshot` operation keeps its single-container GET endpoint.
