@@ -1,19 +1,19 @@
-/**
- * Transport-level connection lifecycle events, carried as AG-UI CUSTOM events.
- * These are connection-local controls: never persist them in a run's history.
- *
- * A connect stream starts in replay mode. Emit STARTED again before replaying
- * on a reconnect, and FINISHED after all buffered history (including any active
- * run's buffered events), before delivering live events. Empty history still
- * requires FINISHED. Custom runners can emit the same controls over SSE.
- *
- * Clients that do not receive these controls retain legacy behavior: wait for
- * the connect stream to close rather than treating historical errors as live.
- */
+/** Connection-local hooks; never part of AG-UI events or persisted history. */
+export interface ConnectionReplayLifecycle {
+  /** Called before delivering history, including each reconnect replay. */
+  onReplayStarted?: () => void;
+  /** Called after ALL buffered events (including an active run), before live events.
+   * Empty history must finish too. Call synchronously at the delivery boundary,
+   * not when history is fetched or queued. Stop invoking hooks after unsubscribe.
+   * Runners without these hooks retain the legacy wait-for-close behavior.
+   */
+  onReplayFinished?: () => void;
+}
+
+/** Named SSE transport controls, consumed before AG-UI decoding. */
 export const CONNECTION_REPLAY_STARTED = "copilotkit.connection.replay.started";
 export const CONNECTION_REPLAY_FINISHED =
   "copilotkit.connection.replay.finished";
-
-/** Opt in on /connect only; older clients cannot consume lifecycle controls. */
+/** Opt in on /connect only; older clients cannot consume transport controls. */
 export const CONNECTION_REPLAY_ACCEPT =
-  "text/event-stream; copilotkit-replay=1";
+  "text/event-stream; copilotkit-replay=2";

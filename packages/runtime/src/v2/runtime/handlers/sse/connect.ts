@@ -46,7 +46,7 @@ export function handleSseConnect({
     agentId,
     telemetry: runtime.telemetry,
     keepAliveIntervalSeconds: runtime.sseKeepAliveIntervalSeconds,
-    observableFactory: () =>
+    observableFactory: (lifecycle) =>
       runtime.runner.connect({
         threadId,
         agentId,
@@ -54,7 +54,7 @@ export function handleSseConnect({
           .get("accept")
           ?.split(",")
           .some((value) => value.trim() === CONNECTION_REPLAY_ACCEPT)
-          ? { replayLifecycle: true }
+          ? lifecycle
           : {}),
         // Forward-looking plumbing: we compute the merged header set (server
         // `agent.headers` win on collision, case-insensitively; non-colliding

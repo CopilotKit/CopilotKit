@@ -1,3 +1,4 @@
+import type { ConnectionReplayLifecycle } from "@copilotkit/shared";
 import type {
   RunAgentInput,
   RunAgentParameters,
@@ -26,7 +27,6 @@ import {
   finalize,
   ignoreElements,
   mergeMap,
-  map,
   startWith,
   share,
   shareReplay,
@@ -35,11 +35,7 @@ import {
   takeUntil,
   tap,
 } from "rxjs/operators";
-import {
-  CONNECTION_REPLAY_STARTED,
-  CONNECTION_REPLAY_FINISHED,
-  phoenixExponentialBackoff,
-} from "@copilotkit/shared";
+import { phoenixExponentialBackoff } from "@copilotkit/shared";
 import { ɵconnectWithoutEventVerification } from "./utils/connect-replay";
 import {
   ɵphoenixChannel$,
@@ -245,6 +241,7 @@ export class IntelligenceAgent extends AbstractAgent {
       this,
       effectiveParameters,
       subscriber,
+      (input, lifecycle) => this.connect(input, lifecycle),
     );
   }
 
@@ -322,7 +319,10 @@ export class IntelligenceAgent extends AbstractAgent {
    * gateway only streams events past it instead of replaying the
    * entire history every time the chat re-opens a socket.
    */
-  protected connect(input: RunAgentInput): Observable<BaseEvent> {
+  protected connect(
+    input: RunAgentInput,
+    lifecycle?: ConnectionReplayLifecycle,
+  ): Observable<BaseEvent> {
     this.threadId = input.threadId;
     this.canonicalRunId = null;
     const replayCursor = this.getReconnectCursor(input);
@@ -332,6 +332,8 @@ export class IntelligenceAgent extends AbstractAgent {
     ).pipe(
       switchMap((credentials) => {
         if (credentials === null) {
+          lifecycle?.onReplayStarted?.();
+          lifecycle?.onReplayFinished?.();
           return EMPTY;
         }
 
@@ -345,6 +347,7 @@ export class IntelligenceAgent extends AbstractAgent {
           completeOnRunError: false,
           streamMode: "connect",
           replayCursor,
+          lifecycle,
         });
       }),
     );
@@ -498,6 +501,7 @@ export class IntelligenceAgent extends AbstractAgent {
     options: {
       completeOnRunError: boolean;
       streamMode: "run" | "connect";
+      lifecycle?: ConnectionReplayLifecycle;
       channelMode?: "run" | "connect";
       replayCursor?: string | null;
     },
@@ -540,11 +544,13 @@ export class IntelligenceAgent extends AbstractAgent {
     options: {
       completeOnRunError: boolean;
       streamMode: "run" | "connect";
+      lifecycle?: ConnectionReplayLifecycle;
       channelMode?: "run" | "connect";
       replayCursor?: string | null;
     },
   ): Observable<BaseEvent> {
     return defer(() => {
+      options.lifecycle?.onReplayStarted?.();
       // Capture references to the socket and channel created by THIS pipeline
       // so the finalize closure only tears down its own resources.  Without
       // this, a fire-and-forget detachActiveRun() from run-handler can race:
@@ -608,7 +614,11 @@ export class IntelligenceAgent extends AbstractAgent {
         input.threadId,
         channel$,
         REPLAY_COMPLETE_EVENT,
-      ).pipe(share());
+      ).pipe(
+        // Notify before idle completion can unsubscribe other observers.
+        tap(() => options.lifecycle?.onReplayFinished?.()),
+        share(),
+      );
       const streamIdle$ = this.observeControlEvent$(
         input.threadId,
         channel$,
@@ -619,7 +629,10 @@ export class IntelligenceAgent extends AbstractAgent {
         ɵobservePhoenixSocketSignals$(socket$).pipe(
           filter((signal) => signal.type === "error"),
         ),
-      ).pipe(share());
+      ).pipe(
+        tap(() => options.lifecycle?.onReplayStarted?.()),
+        share(),
+      );
       const streamIdleCompletion$ =
         options.streamMode === "connect"
           ? replayRestart$.pipe(
@@ -653,33 +666,13 @@ export class IntelligenceAgent extends AbstractAgent {
         take(1),
       );
       const terminal$ = merge(threadCompleted$, streamIdleCompletion$);
-      const replayStarted: BaseEvent = {
-        type: EventType.CUSTOM,
-        name: CONNECTION_REPLAY_STARTED,
-        value: null,
-      };
-      const replayLifecycle$ =
-        options.streamMode === "connect"
-          ? merge(
-              replayComplete$.pipe(
-                map(
-                  (): BaseEvent => ({
-                    type: EventType.CUSTOM,
-                    name: CONNECTION_REPLAY_FINISHED,
-                    value: null,
-                  }),
-                ),
-              ),
-              replayRestart$.pipe(map(() => replayStarted)),
-            ).pipe(startWith(replayStarted), takeUntil(terminal$))
-          : EMPTY;
 
       return merge(
-        replayLifecycle$,
+        // Install replay/idle observers before joining the channel.
+        replayComplete$.pipe(ignoreElements(), takeUntil(terminal$)),
         this.joinThreadChannel$(channel$),
         this.observeSocketHealth$(socket$).pipe(takeUntil(terminal$)),
         threadEvents$.pipe(takeUntil(streamIdleCompletion$)),
-        replayComplete$.pipe(ignoreElements(), takeUntil(terminal$)),
         streamIdleCompletion$.pipe(
           ignoreElements(),
           takeUntil(threadCompleted$),

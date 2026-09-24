@@ -1,6 +1,10 @@
-import { CONNECTION_REPLAY_ACCEPT } from "@copilotkit/shared";
+import {
+  CONNECTION_REPLAY_ACCEPT,
+  CONNECTION_REPLAY_STARTED,
+  CONNECTION_REPLAY_FINISHED,
+} from "@copilotkit/shared";
 import { describe, it, expect, vi } from "vitest";
-import { of } from "rxjs";
+import { Observable, of } from "rxjs";
 import { EventType } from "@ag-ui/client";
 import type { BaseEvent } from "@ag-ui/client";
 
@@ -95,7 +99,15 @@ describe("handleSseConnect → agentId in runner.connect call", () => {
         runId: "r-1",
       } as BaseEvent;
 
-      const connectSpy = vi.fn((_req: AgentRunnerConnectRequest) => of(event));
+      const connectSpy = vi.fn(
+        (req: AgentRunnerConnectRequest) =>
+          new Observable<BaseEvent>((subscriber) => {
+            req.onReplayStarted?.();
+            subscriber.next(event);
+            req.onReplayFinished?.();
+            subscriber.complete();
+          }),
+      );
       const fakeRuntime = {
         debugEventBus: new DebugEventBus(),
         forwardHeadersPolicy: defaultPolicy,
@@ -112,16 +124,20 @@ describe("handleSseConnect → agentId in runner.connect call", () => {
         threadId: "t-1",
       });
 
-      const reader = response.body!.getReader();
-      while (true) {
-        const { done } = await reader.read();
-        if (done) break;
-      }
+      const body = await response.text();
+      expect(body).toBe(
+        (accept ? `event: ${CONNECTION_REPLAY_STARTED}\ndata: {}\n\n` : "") +
+          `data: ${JSON.stringify(event)}\n\n` +
+          (accept ? `event: ${CONNECTION_REPLAY_FINISHED}\ndata: {}\n\n` : ""),
+      );
 
       expect(connectSpy).toHaveBeenCalledTimes(1);
       expect(connectSpy.mock.calls[0][0].agentId).toBe("weather-agent");
-      expect(connectSpy.mock.calls[0][0].replayLifecycle).toBe(
-        accept ? true : undefined,
+      expect(connectSpy.mock.calls[0][0].onReplayStarted).toEqual(
+        accept ? expect.any(Function) : undefined,
+      );
+      expect(connectSpy.mock.calls[0][0].onReplayFinished).toEqual(
+        accept ? expect.any(Function) : undefined,
       );
     },
   );

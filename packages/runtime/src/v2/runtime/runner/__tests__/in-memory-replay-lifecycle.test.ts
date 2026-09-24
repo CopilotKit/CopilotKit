@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
-import { CONNECTION_REPLAY_FINISHED } from "@copilotkit/shared";
-import { from, lastValueFrom, Subject, toArray } from "rxjs";
+import { from, lastValueFrom, Subject, tap, toArray } from "rxjs";
 import type { Observable } from "rxjs";
 import { InMemoryAgentRunner } from "../in-memory";
 
@@ -23,14 +22,9 @@ const inputFor = (threadId: string, runId: string): RunAgentInput => ({
   context: [],
   forwardedProps: {},
 });
-const boundary = {
-  type: EventType.CUSTOM,
-  name: CONNECTION_REPLAY_FINISHED,
-  value: null,
-};
 
 describe("memory runner replay lifecycle contract", () => {
-  it("emits an opted-in boundary after historical errors, without persisting it or changing legacy output", async () => {
+  it("calls hooks around history without adding or persisting AG-UI events", async () => {
     const runner = new InMemoryAgentRunner();
     const threadId = crypto.randomUUID();
     const input = inputFor(threadId, "failed");
@@ -44,12 +38,26 @@ describe("memory runner replay lifecycle contract", () => {
     const legacy = await lastValueFrom(
       runner.connect({ threadId }).pipe(toArray()),
     );
-    const replay = await lastValueFrom(
-      runner.connect({ threadId, replayLifecycle: true }).pipe(toArray()),
-    );
+    const order: unknown[] = [];
+    const replay$ = runner.connect({
+      threadId,
+      onReplayStarted: () => order.push("started"),
+      onReplayFinished: () => order.push("finished"),
+    });
+    expect(order).toEqual([]);
+    const replay: BaseEvent[] = [];
+    replay$.subscribe((event) => {
+      replay.push(event);
+      order.push(event);
+    });
     expect(legacy.at(-1)?.type).toBe(EventType.RUN_ERROR);
-    expect(replay).toEqual([...legacy, boundary]);
-    expect(runner.getThreadEvents(threadId)).not.toContainEqual(boundary);
+    expect(replay).toEqual(legacy);
+    expect(order).toEqual(["started", ...legacy, "finished"]);
+    expect(
+      runner
+        .getThreadEvents(threadId)
+        .some((event) => event.type === EventType.CUSTOM),
+    ).toBe(false);
   });
 
   it("places the boundary after buffered active-run events and before a live error", async () => {
@@ -57,10 +65,12 @@ describe("memory runner replay lifecycle contract", () => {
     const threadId = crypto.randomUUID();
     const input = inputFor(threadId, "active");
     const source = new Subject<BaseEvent>();
+    const delivered: BaseEvent[] = [];
     const running = lastValueFrom(
-      runner
-        .run({ threadId, agent: new SourceAgent(source), input })
-        .pipe(toArray()),
+      runner.run({ threadId, agent: new SourceAgent(source), input }).pipe(
+        tap((event) => delivered.push(event)),
+        toArray(),
+      ),
     );
     await vi.waitFor(() => expect(source.observed).toBe(true));
     const started = {
@@ -69,20 +79,25 @@ describe("memory runner replay lifecycle contract", () => {
       runId: input.runId,
     };
     source.next(started);
-    const connected: BaseEvent[] = [];
+    await vi.waitFor(() => expect(delivered).toHaveLength(1));
+    const connected: (BaseEvent | string)[] = [];
     const subscription = runner
-      .connect({ threadId, replayLifecycle: true })
+      .connect({
+        threadId,
+        onReplayStarted: () => connected.push("started"),
+        onReplayFinished: () => connected.push("finished"),
+      })
       .subscribe((event) => connected.push(event));
     try {
-      expect(connected.at(-1)).toEqual(boundary);
+      expect(connected).toEqual(["started", ...delivered, "finished"]);
       const error = { type: EventType.RUN_ERROR, message: "Live failure" };
       source.next(error);
       source.complete();
       await running;
       expect(connected.at(-1)).toEqual(error);
-      expect(
-        connected.filter((event) => event.type === EventType.CUSTOM),
-      ).toEqual([boundary]);
+      expect(connected.filter((event) => event === "finished")).toEqual([
+        "finished",
+      ]);
     } finally {
       source.complete();
       subscription.unsubscribe();
@@ -90,16 +105,19 @@ describe("memory runner replay lifecycle contract", () => {
     }
   });
 
-  it("marks empty history complete only for clients that opt in", async () => {
+  it("calls both hooks for empty history without emitting events", async () => {
     const runner = new InMemoryAgentRunner();
-    const threadId = crypto.randomUUID();
-    expect(
-      await lastValueFrom(runner.connect({ threadId }).pipe(toArray())),
-    ).toEqual([]);
-    expect(
-      await lastValueFrom(
-        runner.connect({ threadId, replayLifecycle: true }).pipe(toArray()),
-      ),
-    ).toEqual([boundary]);
+    const order: string[] = [];
+    const events = await lastValueFrom(
+      runner
+        .connect({
+          threadId: crypto.randomUUID(),
+          onReplayStarted: () => order.push("started"),
+          onReplayFinished: () => order.push("finished"),
+        })
+        .pipe(toArray()),
+    );
+    expect(events).toEqual([]);
+    expect(order).toEqual(["started", "finished"]);
   });
 });

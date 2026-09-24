@@ -2,6 +2,7 @@ import type {
   AbstractAgent,
   AgentSubscriber,
   BaseEvent,
+  RunAgentInput,
   RunAgentParameters,
   RunAgentResult,
 } from "@ag-ui/client";
@@ -14,18 +15,9 @@ import {
 } from "@ag-ui/client";
 import type { Observable } from "rxjs";
 import { EMPTY, Subject, defer, lastValueFrom } from "rxjs";
-import {
-  catchError,
-  filter,
-  finalize,
-  takeUntil,
-  takeWhile,
-} from "rxjs/operators";
+import { catchError, finalize, takeUntil, takeWhile } from "rxjs/operators";
 
-import {
-  CONNECTION_REPLAY_STARTED,
-  CONNECTION_REPLAY_FINISHED,
-} from "@copilotkit/shared";
+import type { ConnectionReplayLifecycle } from "@copilotkit/shared";
 
 /**
  * Runs an agent's `connect()` stream through the AbstractAgent apply pipeline
@@ -44,7 +36,7 @@ import {
  *
  * `transformChunks` is still applied — message reassembly is needed either way.
  *
- * Connection-local replay controls are consumed before applying events. An
+ * Connection-local replay hooks track the phase before applying events. An
  * explicitly live RUN_ERROR ends the connection after notifying subscribers;
  * historical errors remain data. Transports without controls retain the legacy
  * completion behavior. Subscriber, detach, and result contracts are preserved.
@@ -62,6 +54,10 @@ export async function ɵconnectWithoutEventVerification(
   agent: AbstractAgent,
   parameters?: RunAgentParameters,
   subscriber?: AgentSubscriber,
+  connect?: (
+    input: RunAgentInput,
+    lifecycle: ConnectionReplayLifecycle,
+  ) => Observable<BaseEvent>,
 ): Promise<RunAgentResult> {
   // Access protected/private members through a type escape hatch — they are
   // set and read by the base class and must be managed identically to the
@@ -101,21 +97,19 @@ export async function ɵconnectWithoutEventVerification(
     // RUN_ERROR is data while restoring history, but terminal once the
     // transport explicitly switches to live events. Runtime mode is irrelevant.
     let isReplaying = true;
-    const source$ = defer(
-      () => self.connect(input) as Observable<BaseEvent>,
+    const lifecycle: ConnectionReplayLifecycle = {
+      onReplayStarted: () => {
+        isReplaying = true;
+      },
+      onReplayFinished: () => {
+        isReplaying = false;
+      },
+    };
+    const source$ = defer(() =>
+      connect
+        ? connect(input, lifecycle)
+        : (self.connect(input) as Observable<BaseEvent>),
     ).pipe(
-      filter((event) => {
-        if (event.type !== EventType.CUSTOM || !("name" in event)) return true;
-        if (event.name === CONNECTION_REPLAY_STARTED) {
-          isReplaying = true;
-          return false;
-        }
-        if (event.name === CONNECTION_REPLAY_FINISHED) {
-          isReplaying = false;
-          return false;
-        }
-        return true;
-      }),
       // Include the live terminal event so subscribers still see the error,
       // then finish the pipeline before another operation can own the agent.
       takeWhile(

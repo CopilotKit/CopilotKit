@@ -1,3 +1,4 @@
+import type { ConnectionReplayLifecycle } from "@copilotkit/shared";
 import type {
   AbstractAgent,
   BaseEvent,
@@ -15,13 +16,8 @@ export interface AgentRunnerRunRequest {
   authToken?: string;
 }
 
-export interface AgentRunnerConnectRequest {
+export interface AgentRunnerConnectRequest extends ConnectionReplayLifecycle {
   threadId: string;
-  /** Opt-in connection-local CUSTOM controls from @copilotkit/shared.
-   * Emit CONNECTION_REPLAY_FINISHED after buffered history, before live events.
-   * Never persist controls; omit them for clients that did not opt in.
-   */
-  replayLifecycle?: boolean;
   agentId?: string;
   headers?: Record<string, string>;
   joinCode?: string;
