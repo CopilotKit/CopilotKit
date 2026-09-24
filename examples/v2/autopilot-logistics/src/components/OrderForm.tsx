@@ -28,21 +28,49 @@ export function OrderForm({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = event.currentTarget;
     setPending(true);
     setError("");
-    const data = new FormData(event.currentTarget);
+    const data = new FormData(form);
+    let serverRejected = false;
     try {
       const response = await fetch(
         order ? `/api/orders/${order.id}` : "/api/orders",
         { method: "POST", body: data },
       );
-      const result = (await response.json()) as { id?: string; error?: string };
-      if (!response.ok)
+      const result = (await response.json()) as {
+        id?: string;
+        version?: number;
+        error?: string;
+      };
+      if (!response.ok) {
+        serverRejected = true;
         throw new Error(result.error ?? "Order could not be saved");
+      }
+      form.dispatchEvent(
+        new CustomEvent("copilotkit:autopilot-form-outcome", {
+          detail: {
+            status: "completed",
+            recordId: result.id ?? order?.id,
+            version: result.version ?? (order ? order.version + 1 : 1),
+          },
+        }),
+      );
       setKey(crypto.randomUUID());
       if (!order) router.push(`/orders/${result.id}`);
       else router.refresh();
     } catch (cause) {
+      form.dispatchEvent(
+        new CustomEvent("copilotkit:autopilot-form-outcome", {
+          detail: {
+            status: serverRejected ? "failed" : "uncertain",
+            reason:
+              cause instanceof Error
+                ? cause.message
+                : "Order could not be saved",
+          },
+        }),
+      );
       setError(
         cause instanceof Error ? cause.message : "Order could not be saved",
       );

@@ -13,6 +13,7 @@ import { useEffect, useMemo } from "react";
 import { z } from "zod";
 import type { SessionUser } from "@/lib/db";
 import { orderApprovalGate } from "@/lib/autopilot-approval";
+import { AutopilotFormTool } from "./AutopilotFormTool";
 
 function hasUnsavedOrderForm(): boolean {
   return [
@@ -244,7 +245,7 @@ function BrowserProbe({ user }: { user: SessionUser }) {
       }
     },
   });
-  return null;
+  return <AutopilotFormTool pageMap={pageMap} user={user} />;
 }
 
 export function AssistantShell({

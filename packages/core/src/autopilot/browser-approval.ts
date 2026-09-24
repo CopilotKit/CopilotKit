@@ -21,7 +21,13 @@ export interface AutopilotApprovalBinding {
 
 export type AutopilotApprovalResult = {
   operationId: string;
-  status: "completed" | "denied" | "cancelled" | "failed" | "uncertain";
+  status:
+    | "completed"
+    | "denied"
+    | "cancelled"
+    | "failed"
+    | "partial"
+    | "uncertain";
   reason?: string;
   receipt?: { recordId: string; version: number; status: string };
 };

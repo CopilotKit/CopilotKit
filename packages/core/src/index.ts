@@ -13,3 +13,4 @@ export * from "./inspector-thread-bridge";
 export * from "./autopilot/browser-page-map";
 export * from "./autopilot/browser-navigation";
 export * from "./autopilot/browser-approval";
+export * from "./autopilot/browser-form-batch";
