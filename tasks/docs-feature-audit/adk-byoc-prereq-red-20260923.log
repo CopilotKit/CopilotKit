@@ -1,0 +1,37 @@
+# RED: reproduce-adk-byoc-setup.sh prerequisite check against the pre-fix guide (GUIDE = git show HEAD:.../adk/quickstart.mdx at 4671e32887, which says 'Python 3.9+'), 2026-09-24T00:20:57Z
+scratch AIMock on 4411: [aimock] Loaded 1 fixture(s) from /private/tmp/adk-byoc-setup.TyIsTr/fixtures
+bound: UV_EXCLUDE_NEWER=npm --before=2026-09-22T23:00:00Z
+=============== prerequisites: the guide says "- Python 3.9+" (2026-09-24T00:20:58Z)
+requires-python set to the stated minimum: requires-python = ">=3.9"
+$ uv add ag-ui-adk google-adk uvicorn fastapi
+does NOT resolve for Python >=3.9 (exit 1):
+Using CPython 3.12.6 interpreter at: /Users/tylerslaton/.pyenv/versions/3.12.6/bin/python3.12
+Creating virtual environment at: .venv
+  × No solution found when resolving dependencies for split (markers:
+  │ python_full_version == '3.9.*'):
+  ╰─▶ Because the requested Python version (>=3.9) does not satisfy
+      Python>=3.10 and ag-ui-adk<=0.3.1 depends on Python>=3.12, we can
+RESULT prerequisites: FAIL (exit 1)
+exit=1
+
+# The same failure with a real Python 3.9 interpreter, as a reader on the stated minimum would hit it (uv init --python /usr/bin/python3, Python 3.9.6; UV_EXCLUDE_NEWER as above), 2026-09-24T00:16Z:
+$ uv init --python /usr/bin/python3 my-agent   (Python 3.9.6, the guide's stated minimum 'Python 3.9+')
+Initialized project `my-agent` at `/private/tmp/adk-py39-check/my-agent`
+requires-python = ">=3.9"
+$ uv add ag-ui-adk google-adk uvicorn fastapi
+      hint: The `requires-python` value (>=3.9) includes Python versions that
+      are not supported by your dependencies (e.g., ag-ui-adk<=0.3.1 only
+      supports >=3.12). Consider using a more restrictive `requires-python`
+      value (like >=3.12).
+
+      hint: Pre-releases are available for `google-adk` in the requested
+      range (e.g., 2.0.0b1), but pre-releases weren't enabled (try:
+      `--prerelease=allow`)
+
+      hint: `opentelemetry-resourcedetector-gcp`
+      was requested with a pre-release marker (e.g.,
+      opentelemetry-resourcedetector-gcp>=1.9.0a0,<1.13.0), but pre-releases
+      weren't enabled (try: `--prerelease=allow`)
+  help: If you want to add the package regardless of the failed resolution,
+        provide the `--frozen` flag to skip locking and syncing.
+exit=1

@@ -1,0 +1,43 @@
+# cd showcase/shell-docs && npm run pretypecheck && npm run typecheck (under lockf -t 3600 /private/tmp/claude-501/shell-docs-gen.lock, stack stopped); HEAD 5a6670620e; node v22.16.0; Thu Sep 24 00:21:48 UTC 2026
+  strands-typescript::declarative-json-render: 13 files (11 highlighted) + 3 regions
+  strands-typescript::open-gen-ui: 6 files (3 highlighted) + 7 regions
+  strands-typescript::open-gen-ui-advanced: 5 files (4 highlighted) + 6 regions
+  strands-typescript::mcp-apps: 5 files (3 highlighted) + 5 regions
+  strands-typescript::beautiful-chat: 31 files (3 highlighted) + 3 regions
+  strands-typescript::reasoning-default: 4 files (4 highlighted) + 2 regions
+  strands-typescript::reasoning-custom: 5 files (4 highlighted) + 2 regions
+  strands-typescript::gen-ui-interrupt: 8 files (4 highlighted) + 2 regions
+  strands-typescript::interrupt-headless: 3 files (3 highlighted) + 2 regions
+
+Bundled 807 demos to /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell/src/data/demo-content.json
+
+Bundled 807 demos to /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs/src/data/demo-content.json
+
+Bundled 807 demos to /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-dojo/src/data/demo-content.json
+Wrote 107 setup concepts to shell-docs/src/data/setup-content.json
+  Reference: 185 entries
+[emit-searchable-pages] 626 searchable slugs (608 from navigation, 18 from an inbound link, 0 forced in, 0 forced out)
+  Docs: 554 entries (86 dropped as unreachable from any sidebar; 608 slugs in navigation, 18 kept by an inbound prose link, 0 forced in and 0 forced out by frontmatter)
+  Dropped-entry report: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs/src/data/search-index-dropped.json
+  Angular features: 41 entries
+
+Search index: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs/src/data/search-index.json (780 entries)
+
+Search index: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell/src/data/search-index.json (783 entries)
+pretypecheck exit=0
+Bundled 807 demos to /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-dojo/src/data/demo-content.json
+Wrote 107 setup concepts to shell-docs/src/data/setup-content.json
+  Reference: 185 entries
+[emit-searchable-pages] 626 searchable slugs (608 from navigation, 18 from an inbound link, 0 forced in, 0 forced out)
+  Docs: 554 entries (86 dropped as unreachable from any sidebar; 608 slugs in navigation, 18 kept by an inbound prose link, 0 forced in and 0 forced out by frontmatter)
+  Dropped-entry report: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs/src/data/search-index-dropped.json
+  Angular features: 41 entries
+
+Search index: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs/src/data/search-index.json (780 entries)
+
+Search index: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell/src/data/search-index.json (783 entries)
+
+> @copilotkit/showcase-shell-docs@0.1.0 typecheck
+> tsc --noEmit
+
+typecheck exit=0

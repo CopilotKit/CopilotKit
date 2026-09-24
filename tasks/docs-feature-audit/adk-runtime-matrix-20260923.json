@@ -1,0 +1,297 @@
+{
+ "run": [
+  "adk-d6-full-A-20260923.log",
+  "adk-d6-full-B1-20260923.log",
+  "adk-d6-full-B2-20260923.log"
+ ],
+ "head": "4671e32887 (dependency update 470d4f597f + smoke fix b2323ec714 + runner --demos 4671e32887)",
+ "aimock": "@copilotkit/aimock 1.37.4 --strict --validate-on-load, AIMOCK_STRICT_TURN_INDEX=1, 8632 fixtures",
+ "stack": "npm run dev (next dev --turbopack on :3103 + uvicorn agent_server:app --reload on :8000), node v22.16.0, python 3.12.6 venv",
+ "split": {
+  "reason": "one boot's next-server alone reached 7.8 GB after a pre-warm; with Chromium at FEATURE_CONCURRENCY_D6=4 a single-boot run would pass the 11 GB audit RSS cap",
+  "batches": {
+   "A": {
+    "checks": 22,
+    "pass": 22,
+    "driverS": 48.2
+   },
+   "B1": {
+    "checks": 10,
+    "pass": 10,
+    "driverS": 27.3
+   },
+   "B2": {
+    "checks": 8,
+    "pass": 8,
+    "driverS": 54.4
+   }
+  },
+  "concurrency": 4
+ },
+ "raw": {
+  "checks": 40,
+  "pass": 40,
+  "fail": 0,
+  "skipped": 0
+ },
+ "published": {
+  "checks": 40,
+  "pass": 40,
+  "fail": 0
+ },
+ "final": "same as the first run (no failures; no product change after the matrix except the quickstart prerequisite text, which no D6 probe reads)",
+ "featureRetries": 0,
+ "secondFillEnter": 35,
+ "notInD6Input": {
+  "tool-rendering-reasoning-chain": "routed manifest demo, absent from the manifest's features list",
+  "declarative-json-render": "folds into byoc, which navigates to declarative-hashbrown only",
+  "interrupt-headless": "not_supported_features (no demo)"
+ },
+ "journal": {
+  "requests": 134,
+  "status": {
+   "200": 134
+  },
+  "endpoints": {
+   "streamGenerateContent": 131,
+   "generateContent": 3
+  },
+  "models": {
+   "gemini-3.1-flash-lite": 134
+  },
+  "strictHeader": {
+   "true": 134
+  },
+  "context": {
+   "google-adk": 134
+  },
+  "modelSource": "request path (/v1beta/models/<model>:...)"
+ },
+ "redGreen": {
+  "shared-state-read": {
+   "red": "adk-d6-shared-state-read-red-20260923.log",
+   "redRevert": "adk-shared-state-read-red-revert-20260923.diff",
+   "green": "adk-d6-shared-state-read-green-20260923.log"
+  },
+  "smoke-route": "adk-smoke-route-20260923.log",
+  "quickstart-python-prerequisite": {
+   "red": "adk-byoc-prereq-red-20260923.log",
+   "green": "adk-byoc-setup-20260923.log"
+  }
+ },
+ "regressionCells": {
+  "agentic-chat": "adk-d6-regression-agentic-chat-20260923.log",
+  "shared-state-read-write": "adk-d6-regression-shared-state-read-write-20260923.log",
+  "shared-state-streaming": "adk-d6-regression-shared-state-streaming-20260923.log",
+  "readonly-state-agent-context": "adk-d6-regression-readonly-state-agent-context-20260923.log"
+ },
+ "peakRssKiB": {
+  "boot1": 8566768,
+  "A": 10141504,
+  "B1": 8166032,
+  "B2": 6984800,
+  "redGreen": 5349376
+ },
+ "features": {
+  "a2ui-recovery": {
+   "pass": true,
+   "durationS": 6.7,
+   "batch": "A"
+  },
+  "agent-config": {
+   "pass": true,
+   "durationS": 27.0,
+   "batch": "B2"
+  },
+  "agentic-chat": {
+   "pass": true,
+   "durationS": 10.9,
+   "batch": "A"
+  },
+  "auth": {
+   "pass": true,
+   "durationS": 54.0,
+   "batch": "B2"
+  },
+  "beautiful-chat-bar-chart": {
+   "pass": true,
+   "durationS": 7.2,
+   "batch": "A"
+  },
+  "beautiful-chat-pie-chart": {
+   "pass": true,
+   "durationS": 7.0,
+   "batch": "A"
+  },
+  "beautiful-chat-schedule-meeting": {
+   "pass": true,
+   "durationS": 5.2,
+   "batch": "A"
+  },
+  "beautiful-chat-search-flights": {
+   "pass": true,
+   "durationS": 6.3,
+   "batch": "A"
+  },
+  "beautiful-chat-toggle-theme": {
+   "pass": true,
+   "durationS": 6.4,
+   "batch": "A"
+  },
+  "byoc": {
+   "pass": true,
+   "durationS": 8.5,
+   "batch": "B2"
+  },
+  "chat-css": {
+   "pass": true,
+   "durationS": 5.7,
+   "batch": "A"
+  },
+  "chat-slots": {
+   "pass": true,
+   "durationS": 5.7,
+   "batch": "A"
+  },
+  "frontend-tools": {
+   "pass": true,
+   "durationS": 9.7,
+   "batch": "A"
+  },
+  "frontend-tools-async": {
+   "pass": true,
+   "durationS": 6.7,
+   "batch": "A"
+  },
+  "gen-ui-a2ui-fixed": {
+   "pass": true,
+   "durationS": 5.0,
+   "batch": "A"
+  },
+  "gen-ui-agent": {
+   "pass": true,
+   "durationS": 12.1,
+   "batch": "B1"
+  },
+  "gen-ui-custom": {
+   "pass": true,
+   "durationS": 6.0,
+   "batch": "A"
+  },
+  "gen-ui-declarative": {
+   "pass": true,
+   "durationS": 10.7,
+   "batch": "A"
+  },
+  "gen-ui-headless-complete": {
+   "pass": true,
+   "durationS": 23.7,
+   "batch": "A"
+  },
+  "gen-ui-interrupt": {
+   "pass": true,
+   "durationS": 9.0,
+   "batch": "B2"
+  },
+  "gen-ui-open": {
+   "pass": true,
+   "durationS": 6.3,
+   "batch": "B2"
+  },
+  "gen-ui-open-advanced": {
+   "pass": true,
+   "durationS": 5.9,
+   "batch": "B2"
+  },
+  "headless-simple": {
+   "pass": true,
+   "durationS": 12.8,
+   "batch": "A"
+  },
+  "hitl-approve-deny": {
+   "pass": true,
+   "durationS": 7.8,
+   "batch": "A"
+  },
+  "hitl-text-input": {
+   "pass": true,
+   "durationS": 7.8,
+   "batch": "A"
+  },
+  "mcp-apps": {
+   "pass": true,
+   "durationS": 5.9,
+   "batch": "B2"
+  },
+  "multimodal": {
+   "pass": true,
+   "durationS": 6.8,
+   "batch": "B1"
+  },
+  "prebuilt-popup": {
+   "pass": true,
+   "durationS": 6.2,
+   "batch": "A"
+  },
+  "prebuilt-sidebar": {
+   "pass": true,
+   "durationS": 6.2,
+   "batch": "A"
+  },
+  "readonly-state-context": {
+   "pass": true,
+   "durationS": 5.8,
+   "batch": "B1"
+  },
+  "reasoning-custom": {
+   "pass": true,
+   "durationS": 8.0,
+   "batch": "A"
+  },
+  "reasoning-default": {
+   "pass": true,
+   "durationS": 8.1,
+   "batch": "A"
+  },
+  "shared-state-read": {
+   "pass": true,
+   "durationS": 10.6,
+   "batch": "B1"
+  },
+  "shared-state-streaming": {
+   "pass": true,
+   "durationS": 10.2,
+   "batch": "B1"
+  },
+  "shared-state-write": {
+   "pass": true,
+   "durationS": 7.3,
+   "batch": "B1"
+  },
+  "subagents": {
+   "pass": true,
+   "durationS": 11.3,
+   "batch": "B1"
+  },
+  "tool-rendering": {
+   "pass": true,
+   "durationS": 8.1,
+   "batch": "B1"
+  },
+  "tool-rendering-custom-catchall": {
+   "pass": true,
+   "durationS": 9.8,
+   "batch": "B1"
+  },
+  "tool-rendering-default-catchall": {
+   "pass": true,
+   "durationS": 7.4,
+   "batch": "B1"
+  },
+  "voice": {
+   "pass": true,
+   "durationS": 3.1,
+   "batch": "B2"
+  }
+ }
+}

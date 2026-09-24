@@ -1,0 +1,71 @@
+# ADK /api/smoke at HEAD 470d4f597f (route unchanged), stack from adk-dev-stack-20260923.log, Wed Sep 23 23:54:23 UTC 2026
+## BEFORE 1: GET /api/smoke
+{"status":"ok","integration":"google-adk","latency_ms":1902,"timestamp":"2026-09-23T23:54:25.201Z"}
+HTTP 200 2.181684s
+## AIMock journal after it:
+0 request(s)
+## The same request the route sends (threadId smoke-<ms>, agentId agentic_chat), POSTed to /api/copilotkit and read to the end:
+data: {"type":"RUN_STARTED","threadId":"smoke-1790207672887","runId":"smoke-run-1790207672887","input":{"threadId":"smoke-1790207672887","runId":"smoke-run-1790207672887","state":{},"messages":[{"id":"smoke-msg-1790207672887","role":"user","content":"Respond with exactly: OK"}],"tools":[],"context":[],"forwardedProps":{}}}
+
+data: {"type":"TEXT_MESSAGE_START","messageId":"618353fe-6aa9-4495-8743-05dd86fc2a27","role":"assistant"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"618353fe-6aa9-4495-8743-05dd86fc2a27","delta":"OK"}
+
+data: {"type":"TEXT_MESSAGE_END","messageId":"618353fe-6aa9-4495-8743-05dd86fc2a27"}
+
+data: {"type":"STATE_SNAPSHOT","snapshot":{"_ag_ui_thread_id":"smoke-1790207672887","_ag_ui_app_name":"SimpleChatAgent","_ag_ui_user_id":"demo_user"}}
+
+data: {"type":"RUN_FINISHED","threadId":"smoke-1790207672887","runId":"smoke-run-1790207672887"}
+
+
+## AIMock journal after both:
+2 request(s)
+  POST /v1beta/models/gemini-3.1-flash-lite:streamGenerateContent?alt=sse 200
+  POST /v1beta/models/gemini-3.1-flash-lite:streamGenerateContent?alt=sse 200
+
+## Reading of BEFORE 1: ADK accepts the smoke-<ms> thread id (in-memory ADK sessions do not validate it), so the LangGraph thread-id failure does not apply here. The run finishes with 'OK' when read to the end (above), and the two journal entries are the backgrounded smoke run plus this replay. The route still returned 200 'ok' at the first chunk (RUN_STARTED), before the model had been called (journal empty at that moment).
+## BEFORE 2 (discriminating): make the model call fail, then GET /api/smoke. AIMock's control endpoint queues one 400 for the next provider request (non-retryable, so Gemini's client does not retry it into the fixture).
+$ curl -X POST http://127.0.0.1:4410/__aimock/error -d '{"status":400,"body":{"message":"injected provider failure (smoke check)","type":"invalid_request_error"}}'
+{"queued":true}
+$ GET /api/smoke
+{"status":"ok","integration":"google-adk","latency_ms":253,"timestamp":"2026-09-23T23:55:06.422Z"}
+HTTP 200 0.483450s
+## AIMock journal:
+1 request(s)
+  POST /v1beta/models/gemini-3.1-flash-lite:streamGenerateContent?alt=sse 400
+## The same failing run replayed directly (error queued again), stream read to the end:
+  RUN_STARTED 
+  RUN_ERROR 400 invalid_request_error. {'error': {'code': 400, 'message': 'injected provider failure (smoke check)', 'status': 'invalid_request_error'}}
+
+## AFTER: route.ts replaced by the LangGraph fix from 0828d39b45 / 7e2b368bc5 (randomUUID ids, stream read to the terminal event; 502 run_error / run_incomplete unless RUN_FINISHED). Only the slug and two comments differ. Same stack, Turbopack hot reload. Wed Sep 23 23:55:48 UTC 2026
+## GREEN: GET /api/smoke
+{"status":"ok","integration":"google-adk","latency_ms":312,"timestamp":"2026-09-23T23:55:49.284Z"}
+HTTP 200 0.573041s
+## AIMock journal:
+1 request(s)
+  POST /v1beta/models/gemini-3.1-flash-lite:streamGenerateContent?alt=sse 200 {"userMessage": "Respond with exactly: OK"}
+## RED (discriminating, same fixed route): one 400 queued for the next provider request, as in BEFORE 2
+{"queued":true}
+{"status":"error","integration":"google-adk","stage":"run_error","error":"Run failed: 400 invalid_request_error. {'error': {'code': 400, 'message': 'injected provider failure (smoke check)', 'status': 'invalid_request_error'}}","latency_ms":253,"timestamp":"2026-09-23T23:55:49.933Z"}
+HTTP 502 0.476580s
+## AIMock journal:
+1 request(s)
+  POST /v1beta/models/gemini-3.1-flash-lite:streamGenerateContent?alt=sse 400 {}
+## GREEN again (nothing queued):
+{"status":"ok","integration":"google-adk","latency_ms":316,"timestamp":"2026-09-23T23:55:50.641Z"}
+HTTP 200 0.540845s
+## AIMock journal:
+1 request(s)
+  POST /v1beta/models/gemini-3.1-flash-lite:streamGenerateContent?alt=sse 200 {"userMessage": "Respond with exactly: OK"}
+
+## At the committed fix (HEAD 4671e32887, route identical to b2323ec714), fresh boot adk-dev-stack-redgreen-20260923.log, Thu Sep 24 00:10:05 UTC 2026
+## GET /api/smoke
+{"status":"ok","integration":"google-adk","latency_ms":310,"timestamp":"2026-09-24T00:10:05.943Z"}
+HTTP 200 0.590538s
+## GET /api/smoke with one 400 queued
+{"status":"error","integration":"google-adk","stage":"run_error","error":"Run failed: 400 invalid_request_error. {'error': {'code': 400, 'message': 'injected provider failure (smoke check)', 'status': 'invalid_request_error'}}","latency_ms":254,"timestamp":"2026-09-24T00:10:06.442Z"}
+HTTP 502 0.479847s
+## AIMock journal:
+2 request(s)
+  /v1beta/models/gemini-3.1-flash-lite:streamGenerateContent 200 {"userMessage": "Respond with exactly: OK"}
+  /v1beta/models/gemini-3.1-flash-lite:streamGenerateContent 400 {}

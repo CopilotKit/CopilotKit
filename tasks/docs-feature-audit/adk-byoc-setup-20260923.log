@@ -1,0 +1,261 @@
+# reproduce-adk-byoc-setup.sh on the fixed guide (working tree: quickstart.mdx 'Python 3.10+'), HEAD 4671e32887, node v22.16.0, npm 10.9.2, uv 0.11.7, host python 3.12.6, 2026-09-24T00:19:25Z
+$ tasks/docs-feature-audit/reproduce-adk-byoc-setup.sh as-written "py:ag-ui-protocol==0.1.22" "npm:@ag-ui/client@1.0.0"
+scratch AIMock on 4411: [aimock] Loaded 1 fixture(s) from /private/tmp/adk-byoc-setup.Eqyv9H/fixtures
+bound: UV_EXCLUDE_NEWER=npm --before=2026-09-22T23:00:00Z
+=============== prerequisites: the guide says "- Python 3.10+ (`google-adk` and `ag-ui-adk` require it)" (2026-09-24T00:19:26Z)
+requires-python set to the stated minimum: requires-python = ">=3.10"
+$ uv add ag-ui-adk google-adk uvicorn fastapi
+resolves for Python >=3.10: ag-ui-adk 0.7.0, ag-ui-protocol 1.0.0, google-adk 2.9.2, google-genai 2.25.0
+RESULT prerequisites: PASS
+=============== variant: as-written (2026-09-24T00:19:27Z)
+--- Initialize your agent project
+$ uv init my-agent
+$ cd my-agent
+--- Install ADK with AG-UI
+$ uv add ag-ui-adk google-adk uvicorn fastapi
+ + a2ui-agent-sdk==0.2.4
+ + ag-ui-a2ui-toolkit==0.0.4
+ + ag-ui-adk==0.7.0
+ + ag-ui-protocol==1.0.0
+ + fastapi==0.141.1
+ + google-adk==2.9.2
+ + google-genai==2.25.0
+ + starlette==1.6.0
+ + uvicorn==0.53.0
+resolved: a2ui-agent-sdk 0.2.4, ag-ui-adk 0.7.0, ag-ui-protocol 1.0.0, fastapi 0.141.1, google-adk 2.9.2, google-genai 2.25.0, uvicorn 0.53.0, 
+--- Configure your environment
+$ export GOOGLE_API_KEY=your_google_api_key
+--- Expose your agent via AG-UI
+wrote main.py (24 lines) from the guide
+--- Start your agent
+$ uv run main.py
+GET http://localhost:8000/openapi.json -> 200 after 4s
+listeners: python3.1/127.0.0.1:8000 python3.1/[::1]:8000 
+routes: POST /, POST /agents/state, GET /capabilities
+--- Create your frontend (scaffold not reproduced: npm init -y stands in for create-next-app)
+# guide: npx create-next-app@latest my-copilot-app
+# guide: cd my-copilot-app
+--- Install CopilotKit packages
+$ npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client
+added 1143 packages in 26s
+package.json dependencies: {"@ag-ui/client":"^0.0.59","@copilotkit/react-core":"^1.73.3","@copilotkit/runtime":"^1.73.3"}
+installed @ag-ui/client copies:  15 @ag-ui/client@0.0.59;
+installed @ag-ui/core copies:    10 @ag-ui/core@0.0.59;
+top-level: @copilotkit/runtime 1.73.3, @ag-ui/client 0.0.59
+--- Setup Copilot Runtime (the guide's route.ts, with the no-Intelligence callout applied)
+@@ -1,5 +1,4 @@
+ import {
+-  CopilotKitIntelligence,
+   CopilotRuntime,
+   createCopilotRuntimeHandler,
+ } from "@copilotkit/runtime/v2";
+@@ -9,14 +8,6 @@
+   agents: {
+     my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
+   },
+-  intelligence: new CopilotKitIntelligence({
+-    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+-  }),
+-  // Local single-user setup. Replace this before deploying to multiple users.
+-  identifyUser: () => ({
+-    id: "local-demo-user",
+-    name: "Local demo user",
+-  }),
+ });
+ 
+ const handler = createCopilotRuntimeHandler({
+--- Start chatting: one run through the route
+GET /api/copilotkit/info -> 200 agents: my_agent
+POST /api/copilotkit/agent/my_agent/run -> 200
+event types: RUN_STARTED TEXT_MESSAGE_START TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_END STATE_SNAPSHOT RUN_FINISHED
+assistant text: "Why do programmers prefer dark mode? Because light attracts bugs."
+RESULT: RUN_FINISHED
+--- scratch AIMock journal for this run
+  /v1beta/models/gemini-2.5-flash:streamGenerateContent {'userMessage': 'tell me a joke'} 200
+--- agent server log (tail, ANSI stripped)
+/private/tmp/adk-byoc-setup.Eqyv9H/as_written/my-agent/.venv/lib/python3.12/site-packages/ag_ui_adk/adk_agent.py:330: UserWarning: [EXPERIMENTAL] InMemoryCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+  self._credential_service = credential_service or InMemoryCredentialService()
+/private/tmp/adk-byoc-setup.Eqyv9H/as_written/my-agent/.venv/lib/python3.12/site-packages/google/adk/auth/credential_service/in_memory_credential_service.py:33: UserWarning: [EXPERIMENTAL] BaseCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+  super().__init__()
+INFO:     Started server process [17445]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://localhost:8000 (Press CTRL+C to quit)
+INFO:     ::1:49318 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     ::1:49319 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     ::1:49352 - "POST / HTTP/1.1" 200 OK
+Direct use of automatic function calling (AFC) in AsyncModels.generate_content_stream is not recommended. Instead, we recommend to use AFC in AsyncChat.send_message_stream. Similarly, direct use of AFC in AsyncModels.generate_content is not recommended. Instead, we recommend to use AFC in AsyncChat.send_message.
+/private/tmp/adk-byoc-setup.Eqyv9H/as_written/my-agent/.venv/lib/python3.12/site-packages/google/adk/models/google_llm.py:333: UserWarning: [EXPERIMENTAL] feature FeatureName.PROGRESSIVE_SSE_STREAMING is enabled.
+  async for llm_response in aggregator_gen:
+port 8000 after stop: free
+RESULT as-written: PASS
+=============== variant: py:ag-ui-protocol==0.1.22 (2026-09-24T00:20:03Z)
+--- Initialize your agent project
+$ uv init my-agent
+$ cd my-agent
+--- Install ADK with AG-UI
+$ uv add ag-ui-adk google-adk uvicorn fastapi
+ + a2ui-agent-sdk==0.2.4
+ + ag-ui-a2ui-toolkit==0.0.4
+ + ag-ui-adk==0.7.0
+ + ag-ui-protocol==1.0.0
+ + fastapi==0.141.1
+ + google-adk==2.9.2
+ + google-genai==2.25.0
+ + starlette==1.6.0
+ + uvicorn==0.53.0
+$ uv add ag-ui-protocol==0.1.22   (variant)
+ - ag-ui-protocol==1.0.0
+ + ag-ui-protocol==0.1.22
+resolved: a2ui-agent-sdk 0.2.4, ag-ui-adk 0.7.0, ag-ui-protocol 0.1.22, fastapi 0.141.1, google-adk 2.9.2, google-genai 2.25.0, uvicorn 0.53.0, 
+--- Configure your environment
+$ export GOOGLE_API_KEY=your_google_api_key
+--- Expose your agent via AG-UI
+wrote main.py (24 lines) from the guide
+--- Start your agent
+$ uv run main.py
+GET http://localhost:8000/openapi.json -> 200 after 4s
+listeners: python3.1/127.0.0.1:8000 python3.1/[::1]:8000 
+routes: POST /, POST /agents/state, GET /capabilities
+--- Create your frontend (scaffold not reproduced: npm init -y stands in for create-next-app)
+# guide: npx create-next-app@latest my-copilot-app
+# guide: cd my-copilot-app
+--- Install CopilotKit packages
+$ npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client
+added 1143 packages in 8s
+package.json dependencies: {"@ag-ui/client":"^0.0.59","@copilotkit/react-core":"^1.73.3","@copilotkit/runtime":"^1.73.3"}
+installed @ag-ui/client copies:  15 @ag-ui/client@0.0.59;
+installed @ag-ui/core copies:    10 @ag-ui/core@0.0.59;
+top-level: @copilotkit/runtime 1.73.3, @ag-ui/client 0.0.59
+--- Setup Copilot Runtime (the guide's route.ts, with the no-Intelligence callout applied)
+@@ -1,5 +1,4 @@
+ import {
+-  CopilotKitIntelligence,
+   CopilotRuntime,
+   createCopilotRuntimeHandler,
+ } from "@copilotkit/runtime/v2";
+@@ -9,14 +8,6 @@
+   agents: {
+     my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
+   },
+-  intelligence: new CopilotKitIntelligence({
+-    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+-  }),
+-  // Local single-user setup. Replace this before deploying to multiple users.
+-  identifyUser: () => ({
+-    id: "local-demo-user",
+-    name: "Local demo user",
+-  }),
+ });
+ 
+ const handler = createCopilotRuntimeHandler({
+--- Start chatting: one run through the route
+GET /api/copilotkit/info -> 200 agents: my_agent
+POST /api/copilotkit/agent/my_agent/run -> 200
+event types: RUN_STARTED TEXT_MESSAGE_START TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_END STATE_SNAPSHOT RUN_FINISHED
+assistant text: "Why do programmers prefer dark mode? Because light attracts bugs."
+RESULT: RUN_FINISHED
+--- scratch AIMock journal for this run
+  /v1beta/models/gemini-2.5-flash:streamGenerateContent {'userMessage': 'tell me a joke'} 200
+--- agent server log (tail, ANSI stripped)
+/private/tmp/adk-byoc-setup.Eqyv9H/py_ag_ui_protocol__0.1.22/my-agent/.venv/lib/python3.12/site-packages/ag_ui_adk/adk_agent.py:330: UserWarning: [EXPERIMENTAL] InMemoryCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+  self._credential_service = credential_service or InMemoryCredentialService()
+/private/tmp/adk-byoc-setup.Eqyv9H/py_ag_ui_protocol__0.1.22/my-agent/.venv/lib/python3.12/site-packages/google/adk/auth/credential_service/in_memory_credential_service.py:33: UserWarning: [EXPERIMENTAL] BaseCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+  super().__init__()
+INFO:     Started server process [18397]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://localhost:8000 (Press CTRL+C to quit)
+INFO:     ::1:49363 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     ::1:49364 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     ::1:49371 - "POST / HTTP/1.1" 200 OK
+Direct use of automatic function calling (AFC) in AsyncModels.generate_content_stream is not recommended. Instead, we recommend to use AFC in AsyncChat.send_message_stream. Similarly, direct use of AFC in AsyncModels.generate_content is not recommended. Instead, we recommend to use AFC in AsyncChat.send_message.
+/private/tmp/adk-byoc-setup.Eqyv9H/py_ag_ui_protocol__0.1.22/my-agent/.venv/lib/python3.12/site-packages/google/adk/models/google_llm.py:333: UserWarning: [EXPERIMENTAL] feature FeatureName.PROGRESSIVE_SSE_STREAMING is enabled.
+  async for llm_response in aggregator_gen:
+port 8000 after stop: free
+RESULT py:ag-ui-protocol==0.1.22: PASS
+=============== variant: npm:@ag-ui/client@1.0.0 (2026-09-24T00:20:20Z)
+--- Initialize your agent project
+$ uv init my-agent
+$ cd my-agent
+--- Install ADK with AG-UI
+$ uv add ag-ui-adk google-adk uvicorn fastapi
+ + a2ui-agent-sdk==0.2.4
+ + ag-ui-a2ui-toolkit==0.0.4
+ + ag-ui-adk==0.7.0
+ + ag-ui-protocol==1.0.0
+ + fastapi==0.141.1
+ + google-adk==2.9.2
+ + google-genai==2.25.0
+ + starlette==1.6.0
+ + uvicorn==0.53.0
+resolved: a2ui-agent-sdk 0.2.4, ag-ui-adk 0.7.0, ag-ui-protocol 1.0.0, fastapi 0.141.1, google-adk 2.9.2, google-genai 2.25.0, uvicorn 0.53.0, 
+--- Configure your environment
+$ export GOOGLE_API_KEY=your_google_api_key
+--- Expose your agent via AG-UI
+wrote main.py (24 lines) from the guide
+--- Start your agent
+$ uv run main.py
+GET http://localhost:8000/openapi.json -> 200 after 4s
+listeners: python3.1/127.0.0.1:8000 python3.1/[::1]:8000 
+routes: POST /, POST /agents/state, GET /capabilities
+--- Create your frontend (scaffold not reproduced: npm init -y stands in for create-next-app)
+# guide: npx create-next-app@latest my-copilot-app
+# guide: cd my-copilot-app
+--- Install CopilotKit packages
+$ npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client
+added 1143 packages in 8s
+$ npm install @ag-ui/client@1.0.0   (variant)
+added 20 packages, removed 1 package, and changed 1 package in 715ms
+package.json dependencies: {"@ag-ui/client":"^1.0.0","@copilotkit/react-core":"^1.73.3","@copilotkit/runtime":"^1.73.3"}
+installed @ag-ui/client copies:  10 @ag-ui/client@0.0.59; 5 @ag-ui/client@1.0.0;
+installed @ag-ui/core copies:    18 @ag-ui/core@0.0.59; 3 @ag-ui/core@1.0.0;
+top-level: @copilotkit/runtime 1.73.3, @ag-ui/client 1.0.0
+--- Setup Copilot Runtime (the guide's route.ts, with the no-Intelligence callout applied)
+@@ -1,5 +1,4 @@
+ import {
+-  CopilotKitIntelligence,
+   CopilotRuntime,
+   createCopilotRuntimeHandler,
+ } from "@copilotkit/runtime/v2";
+@@ -9,14 +8,6 @@
+   agents: {
+     my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
+   },
+-  intelligence: new CopilotKitIntelligence({
+-    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+-  }),
+-  // Local single-user setup. Replace this before deploying to multiple users.
+-  identifyUser: () => ({
+-    id: "local-demo-user",
+-    name: "Local demo user",
+-  }),
+ });
+ 
+ const handler = createCopilotRuntimeHandler({
+--- Start chatting: one run through the route
+GET /api/copilotkit/info -> 200 agents: my_agent
+POST /api/copilotkit/agent/my_agent/run -> 200
+event types: RUN_STARTED TEXT_MESSAGE_START TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_CONTENT TEXT_MESSAGE_END STATE_SNAPSHOT RUN_FINISHED
+assistant text: "Why do programmers prefer dark mode? Because light attracts bugs."
+RESULT: RUN_FINISHED
+--- scratch AIMock journal for this run
+  /v1beta/models/gemini-2.5-flash:streamGenerateContent {'userMessage': 'tell me a joke'} 200
+--- agent server log (tail, ANSI stripped)
+/private/tmp/adk-byoc-setup.Eqyv9H/npm__ag_ui_client_1.0.0/my-agent/.venv/lib/python3.12/site-packages/ag_ui_adk/adk_agent.py:330: UserWarning: [EXPERIMENTAL] InMemoryCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+  self._credential_service = credential_service or InMemoryCredentialService()
+/private/tmp/adk-byoc-setup.Eqyv9H/npm__ag_ui_client_1.0.0/my-agent/.venv/lib/python3.12/site-packages/google/adk/auth/credential_service/in_memory_credential_service.py:33: UserWarning: [EXPERIMENTAL] BaseCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+  super().__init__()
+INFO:     Started server process [19180]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://localhost:8000 (Press CTRL+C to quit)
+INFO:     ::1:49383 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     ::1:49384 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     ::1:49390 - "POST / HTTP/1.1" 200 OK
+Direct use of automatic function calling (AFC) in AsyncModels.generate_content_stream is not recommended. Instead, we recommend to use AFC in AsyncChat.send_message_stream. Similarly, direct use of AFC in AsyncModels.generate_content is not recommended. Instead, we recommend to use AFC in AsyncChat.send_message.
+/private/tmp/adk-byoc-setup.Eqyv9H/npm__ag_ui_client_1.0.0/my-agent/.venv/lib/python3.12/site-packages/google/adk/models/google_llm.py:333: UserWarning: [EXPERIMENTAL] feature FeatureName.PROGRESSIVE_SSE_STREAMING is enabled.
+  async for llm_response in aggregator_gen:
+port 8000 after stop: free
+RESULT npm:@ag-ui/client@1.0.0: PASS
+exit=0

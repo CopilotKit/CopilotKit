@@ -1,0 +1,1140 @@
+# ADK stack via the integration's documented default dev command (package.json scripts.dev = concurrently "next dev --turbopack" "cd src && PYTHONPATH=.. python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload"). python = the uv venv from adk-python-install-20260923.log, first on PATH. Boot 1. Ignored local state removed first: .next (the next build output).
+$ cd showcase/integrations/google-adk && PATH=<venv>/bin:<node 22.16.0>/bin:$PATH PORT=3103 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true DO_NOT_TRACK=1 GOOGLE_API_KEY=fake-gemini-key GOOGLE_GEMINI_BASE_URL=http://127.0.0.1:4410 OPENAI_API_KEY=sk-mock OPENAI_BASE_URL=http://127.0.0.1:4410/v1 AIMOCK_URL=http://127.0.0.1:4410 AGENT_URL=http://localhost:8000 nice -n 10 npm run dev
+# node v22.16.0, npm 10.9.2, Python 3.12.6, HEAD 470d4f597f, tree vs HEAD outside tasks/: , started Wed Sep 23 23:50:55 UTC 2026
+
+> @copilotkit/showcase-google-adk@0.1.0 dev
+> concurrently "next dev --turbopack" "cd src && PYTHONPATH=.. python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload"
+
+[1] INFO:     Will watch for changes in these directories: ['/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/src']
+[1] INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+[1] INFO:     Started reloader process [60357] using WatchFiles
+[0]  ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+[0]  We detected multiple lockfiles and selected the directory of /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/pnpm-lock.yaml as the root directory.
+[0]  To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+[0]    See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+[0]  Detected additional lockfiles: 
+[0]    * /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/package-lock.json
+[0] 
+[0]    ▲ Next.js 15.5.26 (Turbopack)
+[0]    - Local:        http://localhost:3103
+[0]    - Network:      http://192.168.4.30:3103
+[0] 
+[0]  ✓ Starting...
+[1] 2026-09-23 16:50:56,217 INFO agents._cvdiag_bootstrap CVDIAG bootstrap component=_shared tier=default pb_enabled=false
+[0]  ✓ Ready in 722ms
+[1] 2026-09-23 16:50:57,171 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/src/agents/shared_chat.py:144: UserWarning: install_httpx_hook: client of type Gemini has no recognized event_hooks attribute; x-* headers will not be forwarded
+[1]   install_httpx_hook(gemini)
+[1] 2026-09-23 16:50:57,175 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,176 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,176 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,176 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,177 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,186 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,186 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,186 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,186 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,186 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,186 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,186 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,187 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,187 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,187 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,187 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,187 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,188 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,188 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,188 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,188 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,188 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,188 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] No flight schema file found, using inline minimal schema
+[1] 2026-09-23 16:50:57,191 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,191 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,192 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,192 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,192 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] 2026-09-23 16:50:57,192 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/ag_ui_adk/adk_agent.py:330: UserWarning: [EXPERIMENTAL] InMemoryCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+[1]   self._credential_service = credential_service or InMemoryCredentialService()
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/auth/credential_service/in_memory_credential_service.py:33: UserWarning: [EXPERIMENTAL] BaseCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+[1]   super().__init__()
+[1] INFO:     Started server process [60359]
+[1] INFO:     Waiting for application startup.
+[1] INFO:     Application startup complete.
+[1] 2026-09-23 16:50:58,176 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:62901 - "GET /health HTTP/1.1" 200 OK
+[0]  ○ Compiling /api/health ...
+[0]  ✓ Compiled /api/health in 521ms
+[0]  GET /api/health 200 in 806ms
+[1] 2026-09-23 16:51:05,620 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/fastapi/openapi/utils.py:303: UserWarning: Duplicate Operation ID agents_state_endpoint_agents_state_post for function agents_state_endpoint at /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/ag_ui_adk/endpoint.py
+[1]   warnings.warn(message, stacklevel=1)
+[1] INFO:     127.0.0.1:62909 - "GET /openapi.json HTTP/1.1" 200 OK
+[0]  ○ Compiling /api/copilotkit ...
+[0]  ✓ Compiled /api/copilotkit in 632ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=
+[0]  POST /api/copilotkit 200 in 1047ms
+[0]  ○ Compiling /_not-found/page ...
+[0]  ✓ Compiled /_not-found/page in 816ms
+[0]  GET /demos/_shared 404 in 953ms
+[0]  ○ Compiling /demos/a2ui-fixed-schema ...
+[0]  ✓ Compiled /demos/a2ui-fixed-schema in 3.7s
+[0] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+[0]  GET /demos/a2ui-fixed-schema 200 in 3954ms
+[0]  ○ Compiling /demos/a2ui-recovery ...
+[0]  ✓ Compiled /demos/a2ui-recovery in 1323ms
+[0]  GET /demos/a2ui-recovery 200 in 1438ms
+[0]  ○ Compiling /demos/agent-config ...
+[0]  ✓ Compiled /demos/agent-config in 880ms
+[0]  GET /demos/agent-config 200 in 935ms
+[0]  ○ Compiling /demos/agentic-chat ...
+[0]  ✓ Compiled /demos/agentic-chat in 879ms
+[0]  GET /demos/agentic-chat 200 in 925ms
+[0]  ○ Compiling /demos/auth ...
+[0]  ✓ Compiled /demos/auth in 829ms
+[0]  GET /demos/auth 200 in 878ms
+[0]  ○ Compiling /demos/beautiful-chat ...
+[0]  ✓ Compiled /demos/beautiful-chat in 1003ms
+[0]  GET /demos/beautiful-chat 200 in 1106ms
+[0]  ○ Compiling /demos/chat-customization-css ...
+[0]  ✓ Compiled /demos/chat-customization-css in 789ms
+[0]  GET /demos/chat-customization-css 200 in 836ms
+[0]  ○ Compiling /demos/chat-slots ...
+[0]  ✓ Compiled /demos/chat-slots in 887ms
+[0]  GET /demos/chat-slots 200 in 950ms
+[0]  ○ Compiling /demos/declarative-gen-ui ...
+[0]  ✓ Compiled /demos/declarative-gen-ui in 985ms
+[0]  GET /demos/declarative-gen-ui 200 in 1040ms
+[0]  ○ Compiling /demos/declarative-hashbrown ...
+[0]  ✓ Compiled /demos/declarative-hashbrown in 1114ms
+[0]  GET /demos/declarative-hashbrown 200 in 1211ms
+[0]  ○ Compiling /demos/declarative-json-render ...
+[0]  ✓ Compiled /demos/declarative-json-render in 1033ms
+[0]  GET /demos/declarative-json-render 200 in 1144ms
+[0]  ○ Compiling /demos/frontend-tools ...
+[0]  ✓ Compiled /demos/frontend-tools in 843ms
+[0]  GET /demos/frontend-tools 200 in 901ms
+[0]  ○ Compiling /demos/frontend-tools-async ...
+[0]  ✓ Compiled /demos/frontend-tools-async in 886ms
+[0]  GET /demos/frontend-tools-async 200 in 935ms
+[0]  ○ Compiling /demos/gen-ui-agent ...
+[0]  ✓ Compiled /demos/gen-ui-agent in 991ms
+[0]  GET /demos/gen-ui-agent 200 in 1044ms
+[0]  ○ Compiling /demos/gen-ui-interrupt ...
+[0]  ✓ Compiled /demos/gen-ui-interrupt in 1150ms
+[0]  GET /demos/gen-ui-interrupt 200 in 1201ms
+[0]  ○ Compiling /demos/gen-ui-tool-based ...
+[0]  ✓ Compiled /demos/gen-ui-tool-based in 1103ms
+[0]  GET /demos/gen-ui-tool-based 200 in 1154ms
+[0]  ○ Compiling /demos/headless-complete ...
+[0]  ✓ Compiled /demos/headless-complete in 978ms
+[0]  GET /demos/headless-complete 200 in 1079ms
+[0]  ○ Compiling /demos/headless-simple ...
+[0]  ✓ Compiled /demos/headless-simple in 923ms
+[0]  GET /demos/headless-simple 200 in 993ms
+[0]  ○ Compiling /demos/hitl ...
+[0]  ✓ Compiled /demos/hitl in 894ms
+[0]  GET /demos/hitl 200 in 944ms
+[0]  ○ Compiling /demos/hitl-in-app ...
+[0]  ✓ Compiled /demos/hitl-in-app in 1033ms
+[0]  GET /demos/hitl-in-app 200 in 1089ms
+[0]  ○ Compiling /demos/hitl-in-chat ...
+[0]  ✓ Compiled /demos/hitl-in-chat in 953ms
+[0]  GET /demos/hitl-in-chat 200 in 996ms
+[0]  ○ Compiling /demos/mcp-apps ...
+[0]  ✓ Compiled /demos/mcp-apps in 939ms
+[0]  GET /demos/mcp-apps 200 in 982ms
+[0]  ○ Compiling /demos/multimodal ...
+[0]  ✓ Compiled /demos/multimodal in 1028ms
+[0]  GET /demos/multimodal 200 in 1081ms
+[0]  ○ Compiling /demos/open-gen-ui ...
+[0]  ✓ Compiled /demos/open-gen-ui in 1099ms
+[0]  GET /demos/open-gen-ui 200 in 1145ms
+[0]  ○ Compiling /demos/open-gen-ui-advanced ...
+[0]  ✓ Compiled /demos/open-gen-ui-advanced in 999ms
+[0]  GET /demos/open-gen-ui-advanced 200 in 1042ms
+[0]  ○ Compiling /demos/prebuilt-popup ...
+[0]  ✓ Compiled /demos/prebuilt-popup in 1022ms
+[0]  GET /demos/prebuilt-popup 200 in 1077ms
+[0]  ○ Compiling /demos/prebuilt-sidebar ...
+[0]  ✓ Compiled /demos/prebuilt-sidebar in 1204ms
+[0]  GET /demos/prebuilt-sidebar 200 in 1281ms
+[0]  ○ Compiling /demos/readonly-state-agent-context ...
+[0]  ✓ Compiled /demos/readonly-state-agent-context in 1078ms
+[0]  GET /demos/readonly-state-agent-context 200 in 1189ms
+[0]  ○ Compiling /demos/reasoning-custom ...
+[0]  ✓ Compiled /demos/reasoning-custom in 1253ms
+[0]  GET /demos/reasoning-custom 200 in 1300ms
+[0]  ○ Compiling /demos/reasoning-default ...
+[0]  ✓ Compiled /demos/reasoning-default in 1125ms
+[0]  GET /demos/reasoning-default 200 in 1173ms
+[0]  ○ Compiling /demos/shared-state-read ...
+[0]  ✓ Compiled /demos/shared-state-read in 1173ms
+[0]  GET /demos/shared-state-read 200 in 1267ms
+[0]  ○ Compiling /demos/shared-state-read-write ...
+[0]  ✓ Compiled /demos/shared-state-read-write in 1213ms
+[0]  GET /demos/shared-state-read-write 200 in 1283ms
+[0]  ○ Compiling /demos/shared-state-streaming ...
+[0]  ✓ Compiled /demos/shared-state-streaming in 1395ms
+[0]  GET /demos/shared-state-streaming 200 in 1447ms
+[0]  ○ Compiling /demos/subagents ...
+[0]  ✓ Compiled /demos/subagents in 1157ms
+[0]  GET /demos/subagents 200 in 1214ms
+[0]  ○ Compiling /demos/threadid-frontend-tool-roundtrip ...
+[0]  ✓ Compiled /demos/threadid-frontend-tool-roundtrip in 1093ms
+[0]  GET /demos/threadid-frontend-tool-roundtrip 200 in 1149ms
+[0]  ○ Compiling /demos/tool-rendering ...
+[0]  ✓ Compiled /demos/tool-rendering in 1146ms
+[0]  GET /demos/tool-rendering 200 in 1201ms
+[0]  ○ Compiling /demos/tool-rendering-custom-catchall ...
+[0]  ✓ Compiled /demos/tool-rendering-custom-catchall in 1248ms
+[0]  GET /demos/tool-rendering-custom-catchall 200 in 1303ms
+[0]  ○ Compiling /demos/tool-rendering-default-catchall ...
+[0]  ✓ Compiled /demos/tool-rendering-default-catchall in 1226ms
+[0]  GET /demos/tool-rendering-default-catchall 200 in 1281ms
+[0]  ○ Compiling /demos/tool-rendering-reasoning-chain ...
+[0]  ✓ Compiled /demos/tool-rendering-reasoning-chain in 1249ms
+[0]  GET /demos/tool-rendering-reasoning-chain 200 in 1306ms
+[0]  ○ Compiling /demos/voice ...
+[0]  ✓ Compiled /demos/voice in 1410ms
+[0]  GET /demos/voice 200 in 1467ms
+[1] 2026-09-23 16:52:11,984 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=none error=
+[1] INFO:     127.0.0.1:63008 - "GET /health HTTP/1.1" 200 OK
+[0]  GET /api/copilotkit 200 in 232ms
+[0]  ✓ Compiled /api/copilotkit-a2ui-fixed-schema in 202ms
+[0]  GET /api/copilotkit-a2ui-fixed-schema 405 in 433ms
+[0]  ✓ Compiled /api/copilotkit-a2ui-recovery in 183ms
+[0]  GET /api/copilotkit-a2ui-recovery 405 in 414ms
+[0]  ✓ Compiled /api/copilotkit-agent-config in 172ms
+[0]  GET /api/copilotkit-agent-config 405 in 413ms
+[0]  ✓ Compiled /api/copilotkit-auth/[[...slug]] in 142ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=
+[0]  GET /api/copilotkit-auth 401 in 915ms
+[0]  ✓ Compiled /api/copilotkit-beautiful-chat in 148ms
+[0]  GET /api/copilotkit-beautiful-chat 405 in 379ms
+[0]  ✓ Compiled /api/copilotkit-declarative-gen-ui in 145ms
+[0]  GET /api/copilotkit-declarative-gen-ui 405 in 372ms
+[0]  ✓ Compiled /api/copilotkit-declarative-hashbrown in 154ms
+[0]  GET /api/copilotkit-declarative-hashbrown 405 in 385ms
+[0]  ✓ Compiled /api/copilotkit-declarative-json-render in 128ms
+[0]  GET /api/copilotkit-declarative-json-render 405 in 356ms
+[0]  ✓ Compiled /api/copilotkit-mcp-apps in 135ms
+[0]  GET /api/copilotkit-mcp-apps 405 in 362ms
+[0]  ✓ Compiled /api/copilotkit-multimodal in 145ms
+[0]  GET /api/copilotkit-multimodal 405 in 381ms
+[0]  ✓ Compiled /api/copilotkit-ogui in 195ms
+[0]  GET /api/copilotkit-ogui 405 in 423ms
+[0]  ✓ Compiled /api/copilotkit-voice/[[...slug]] in 195ms
+[0]  GET /api/copilotkit-voice 404 in 997ms
+[0]  ✓ Compiled /api/debug in 51ms
+[0]  GET /api/debug 403 in 279ms
+[0]  GET /api/health 200 in 226ms
+[0]  ✓ Compiled /api/smoke in 49ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=
+[1] 2026-09-23 16:54:23,545 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=
+[1] INFO:     ::1:0 - "POST /agentic_chat HTTP/1.1" 200 OK
+[0]  GET /api/smoke 200 in 2181ms
+[0]  POST /api/copilotkit 200 in 1902ms
+[1] Direct use of automatic function calling (AFC) in AsyncModels.generate_content_stream is not recommended. Instead, we recommend to use AFC in AsyncChat.send_message_stream. Similarly, direct use of AFC in AsyncModels.generate_content is not recommended. Instead, we recommend to use AFC in AsyncChat.send_message.
+[1] 2026-09-23 16:54:25,270 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=transport=aiohttp
+[1] /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py:333: UserWarning: [EXPERIMENTAL] feature FeatureName.PROGRESSIVE_SSE_STREAMING is enabled.
+[1]   async for llm_response in aggregator_gen:
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=
+[1] 2026-09-23 16:54:33,123 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=
+[1] INFO:     ::1:0 - "POST /agentic_chat HTTP/1.1" 200 OK
+[1] 2026-09-23 16:54:33,127 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=transport=aiohttp
+[0]  POST /api/copilotkit 200 in 300ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=
+[1] 2026-09-23 16:55:06,417 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=
+[1] INFO:     ::1:0 - "POST /agentic_chat HTTP/1.1" 200 OK
+[1] 2026-09-23 16:55:06,421 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=transport=aiohttp
+[0]  GET /api/smoke 200 in 482ms
+[0]  POST /api/copilotkit 200 in 247ms
+[1] Node execution failed with exception
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 137, in run
+[1]     await self._execute_node(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 285, in _execute_node
+[1]     await self._run_node_loop(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 299, in _run_node_loop
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_base_node.py", line 175, in run
+[1]     async for item in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 671, in _run_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 484, in run_llm_agent_as_node
+[1]     async for event in run_iter:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 364, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 102, in _with_caller_context
+[1]     async for item in a:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 351, in _run
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 620, in _run_async_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 641, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 719, in _run_one_step_async
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1109, in _call_llm_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1087, in _call_llm_with_tracing
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1170, in _run_and_handle_error
+[1]     async for response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 431, in _run_and_handle_error
+[1]     raise model_error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 408, in _run_and_handle_error
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py", line 375, in generate_content_async
+[1]     raise ce
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py", line 306, in generate_content_async
+[1]     async for response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/models.py", line 8699, in stream_generator
+[1]     response = await self._generate_content_stream(
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/models.py", line 7005, in _generate_content_stream
+[1]     response_stream = await self._api_client.async_request_streamed(
+[1]                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1813, in async_request_streamed
+[1]     response = await self._async_request(
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1729, in _async_request
+[1]     return await self._async_retry(  # type: ignore[no-any-return]
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 112, in __call__
+[1]     do = await self.iter(retry_state=retry_state)
+[1]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 157, in iter
+[1]     result = await action(retry_state)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/_utils.py", line 111, in inner
+[1]     return call(*args, **kwargs)
+[1]            ^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/__init__.py", line 413, in exc_check
+[1]     raise retry_exc.reraise()
+[1]           ^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/__init__.py", line 184, in reraise
+[1]     raise self.last_attempt.result()
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.pyenv/versions/3.12.6/lib/python3.12/concurrent/futures/_base.py", line 449, in result
+[1]     return self.__get_result()
+[1]            ^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.pyenv/versions/3.12.6/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+[1]     raise self._exception
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 116, in __call__
+[1]     result = await fn(*args, **kwargs)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1611, in _async_request_once
+[1]     await errors.APIError.raise_for_async_response(response)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/errors.py", line 265, in raise_for_async_response
+[1]     await cls.raise_error_async(status_code, response_json, response)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/errors.py", line 287, in raise_error_async
+[1]     raise ClientError(status_code, response_json, response)
+[1] google.genai.errors.ClientError: 400 invalid_request_error. {'error': {'code': 400, 'message': 'injected provider failure (smoke check)', 'status': 'invalid_request_error'}}
+[1] Root node SimpleChatAgent failed.
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 237, in _drive_root_node
+[1]     await root_ctx._run_node_internal(  # pylint: disable=protected-access
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/context.py", line 604, in _run_node_internal
+[1]     raise DynamicNodeFailError(
+[1] google.adk.workflow._errors.DynamicNodeFailError: Dynamic node SimpleChatAgent failed
+[1] 
+[1] During handling of the above exception, another exception occurred:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/runners.py", line 824, in _cleanup_root_task
+[1]     await task
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 246, in _drive_root_node
+[1]     raise e.error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 137, in run
+[1]     await self._execute_node(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 285, in _execute_node
+[1]     await self._run_node_loop(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 299, in _run_node_loop
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_base_node.py", line 175, in run
+[1]     async for item in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 671, in _run_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 484, in run_llm_agent_as_node
+[1]     async for event in run_iter:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 364, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 102, in _with_caller_context
+[1]     async for item in a:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 351, in _run
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 620, in _run_async_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 641, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 719, in _run_one_step_async
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1109, in _call_llm_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1087, in _call_llm_with_tracing
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1170, in _run_and_handle_error
+[1]     async for response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 431, in _run_and_handle_error
+[1]     raise model_error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 408, in _run_and_handle_error
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py", line 375, in generate_content_async
+[1]     raise ce
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py", line 306, in generate_content_async
+[1]     async for response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/models.py", line 8699, in stream_generator
+[1]     response = await self._generate_content_stream(
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/models.py", line 7005, in _generate_content_stream
+[1]     response_stream = await self._api_client.async_request_streamed(
+[1]                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1813, in async_request_streamed
+[1]     response = await self._async_request(
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1729, in _async_request
+[1]     return await self._async_retry(  # type: ignore[no-any-return]
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 112, in __call__
+[1]     do = await self.iter(retry_state=retry_state)
+[1]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 157, in iter
+[1]     result = await action(retry_state)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/_utils.py", line 111, in inner
+[1]     return call(*args, **kwargs)
+[1]            ^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/__init__.py", line 413, in exc_check
+[1]     raise retry_exc.reraise()
+[1]           ^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/__init__.py", line 184, in reraise
+[1]     raise self.last_attempt.result()
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.pyenv/versions/3.12.6/lib/python3.12/concurrent/futures/_base.py", line 449, in result
+[1]     return self.__get_result()
+[1]            ^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.pyenv/versions/3.12.6/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+[1]     raise self._exception
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 116, in __call__
+[1]     result = await fn(*args, **kwargs)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1611, in _async_request_once
+[1]     await errors.APIError.raise_for_async_response(response)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/errors.py", line 265, in raise_for_async_response
+[1]     await cls.raise_error_async(status_code, response_json, response)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/errors.py", line 287, in raise_error_async
+[1]     raise ClientError(status_code, response_json, response)
+[1] google.genai.errors.ClientError: 400 invalid_request_error. {'error': {'code': 400, 'message': 'injected provider failure (smoke check)', 'status': 'invalid_request_error'}}
+[1] Background execution error: 400 invalid_request_error. {'error': {'code': 400, 'message': 'injected provider failure (smoke check)', 'status': 'invalid_request_error'}}
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 237, in _drive_root_node
+[1]     await root_ctx._run_node_internal(  # pylint: disable=protected-access
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/context.py", line 604, in _run_node_internal
+[1]     raise DynamicNodeFailError(
+[1] google.adk.workflow._errors.DynamicNodeFailError: Dynamic node SimpleChatAgent failed
+[1] 
+[1] During handling of the above exception, another exception occurred:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/ag_ui_adk/adk_agent.py", line 3075, in _run_adk_in_background
+[1]     async for adk_event in runner.run_async(**run_kwargs):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/runners.py", line 1149, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/runners.py", line 579, in _run_node_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 294, in run_node_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+[1]     async for item in a:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 264, in _run
+[1]     await runner._cleanup_root_task(task, runner.agent.name)  # pylint: disable=protected-access
+[1]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/runners.py", line 824, in _cleanup_root_task
+[1]     await task
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 246, in _drive_root_node
+[1]     raise e.error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 137, in run
+[1]     await self._execute_node(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 285, in _execute_node
+[1]     await self._run_node_loop(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 299, in _run_node_loop
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_base_node.py", line 175, in run
+[1]     async for item in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 671, in _run_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 484, in run_llm_agent_as_node
+[1]     async for event in run_iter:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 364, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 102, in _with_caller_context
+[1]     async for item in a:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 351, in _run
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 620, in _run_async_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 641, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 719, in _run_one_step_async
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1109, in _call_llm_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1087, in _call_llm_with_tracing
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1170, in _run_and_handle_error
+[1]     async for response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 431, in _run_and_handle_error
+[1]     raise model_error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 408, in _run_and_handle_error
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py", line 375, in generate_content_async
+[1]     raise ce
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py", line 306, in generate_content_async
+[1]     async for response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/models.py", line 8699, in stream_generator
+[1]     response = await self._generate_content_stream(
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/models.py", line 7005, in _generate_content_stream
+[1]     response_stream = await self._api_client.async_request_streamed(
+[1]                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1813, in async_request_streamed
+[1]     response = await self._async_request(
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1729, in _async_request
+[1]     return await self._async_retry(  # type: ignore[no-any-return]
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 112, in __call__
+[1]     do = await self.iter(retry_state=retry_state)
+[1]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 157, in iter
+[1]     result = await action(retry_state)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/_utils.py", line 111, in inner
+[1]     return call(*args, **kwargs)
+[1]            ^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/__init__.py", line 413, in exc_check
+[1]     raise retry_exc.reraise()
+[1]           ^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/__init__.py", line 184, in reraise
+[1]     raise self.last_attempt.result()
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.pyenv/versions/3.12.6/lib/python3.12/concurrent/futures/_base.py", line 449, in result
+[1]     return self.__get_result()
+[1]            ^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.pyenv/versions/3.12.6/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+[1]     raise self._exception
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 116, in __call__
+[1]     result = await fn(*args, **kwargs)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1611, in _async_request_once
+[1]     await errors.APIError.raise_for_async_response(response)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/errors.py", line 265, in raise_for_async_response
+[1]     await cls.raise_error_async(status_code, response_json, response)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/errors.py", line 287, in raise_error_async
+[1]     raise ClientError(status_code, response_json, response)
+[1] google.genai.errors.ClientError: 400 invalid_request_error. {'error': {'code': 400, 'message': 'injected provider failure (smoke check)', 'status': 'invalid_request_error'}}
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=
+[1] 2026-09-23 16:55:11,008 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=
+[1] INFO:     ::1:0 - "POST /agentic_chat HTTP/1.1" 200 OK
+[1] 2026-09-23 16:55:11,012 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=transport=aiohttp
+[1] Node execution failed with exception
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 137, in run
+[1]     await self._execute_node(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 285, in _execute_node
+[1]     await self._run_node_loop(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 299, in _run_node_loop
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_base_node.py", line 175, in run
+[1]     async for item in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 671, in _run_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 484, in run_llm_agent_as_node
+[1]     async for event in run_iter:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 364, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 102, in _with_caller_context
+[1]     async for item in a:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 351, in _run
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 620, in _run_async_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 641, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 719, in _run_one_step_async
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1109, in _call_llm_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1087, in _call_llm_with_tracing
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1170, in _run_and_handle_error
+[1]     async for response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 431, in _run_and_handle_error
+[1]     raise model_error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 408, in _run_and_handle_error
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py", line 375, in generate_content_async
+[1]     raise ce
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py", line 306, in generate_content_async
+[1]     async for response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/models.py", line 8699, in stream_generator
+[1]     response = await self._generate_content_stream(
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/models.py", line 7005, in _generate_content_stream
+[1]     response_stream = await self._api_client.async_request_streamed(
+[1]                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1813, in async_request_streamed
+[1]     response = await self._async_request(
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1729, in _async_request
+[1]     return await self._async_retry(  # type: ignore[no-any-return]
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 112, in __call__
+[1]     do = await self.iter(retry_state=retry_state)
+[1]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 157, in iter
+[1]     result = await action(retry_state)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/_utils.py", line 111, in inner
+[1]     return call(*args, **kwargs)
+[1]            ^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/__init__.py", line 413, in exc_check
+[1]     raise retry_exc.reraise()
+[1]           ^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/__init__.py", line 184, in reraise
+[1]     raise self.last_attempt.result()
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.pyenv/versions/3.12.6/lib/python3.12/concurrent/futures/_base.py", line 449, in result
+[1]     return self.__get_result()
+[1]            ^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.pyenv/versions/3.12.6/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+[1]     raise self._exception
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 116, in __call__
+[1]     result = await fn(*args, **kwargs)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1611, in _async_request_once
+[1]     await errors.APIError.raise_for_async_response(response)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/errors.py", line 265, in raise_for_async_response
+[1]     await cls.raise_error_async(status_code, response_json, response)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/errors.py", line 287, in raise_error_async
+[1]     raise ClientError(status_code, response_json, response)
+[1] google.genai.errors.ClientError: 400 invalid_request_error. {'error': {'code': 400, 'message': 'injected provider failure (smoke check)', 'status': 'invalid_request_error'}}
+[1] Root node SimpleChatAgent failed.
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 237, in _drive_root_node
+[1]     await root_ctx._run_node_internal(  # pylint: disable=protected-access
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/context.py", line 604, in _run_node_internal
+[1]     raise DynamicNodeFailError(
+[1] google.adk.workflow._errors.DynamicNodeFailError: Dynamic node SimpleChatAgent failed
+[1] 
+[1] During handling of the above exception, another exception occurred:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/runners.py", line 824, in _cleanup_root_task
+[1]     await task
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 246, in _drive_root_node
+[1]     raise e.error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 137, in run
+[1]     await self._execute_node(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 285, in _execute_node
+[1]     await self._run_node_loop(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 299, in _run_node_loop
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_base_node.py", line 175, in run
+[1]     async for item in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 671, in _run_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 484, in run_llm_agent_as_node
+[1]     async for event in run_iter:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 364, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 102, in _with_caller_context
+[1]     async for item in a:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 351, in _run
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 620, in _run_async_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 641, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 719, in _run_one_step_async
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1109, in _call_llm_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1087, in _call_llm_with_tracing
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1170, in _run_and_handle_error
+[1]     async for response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 431, in _run_and_handle_error
+[1]     raise model_error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 408, in _run_and_handle_error
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py", line 375, in generate_content_async
+[1]     raise ce
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py", line 306, in generate_content_async
+[1]     async for response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/models.py", line 8699, in stream_generator
+[1]     response = await self._generate_content_stream(
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/models.py", line 7005, in _generate_content_stream
+[1]     response_stream = await self._api_client.async_request_streamed(
+[1]                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1813, in async_request_streamed
+[1]     response = await self._async_request(
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1729, in _async_request
+[1]     return await self._async_retry(  # type: ignore[no-any-return]
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 112, in __call__
+[1]     do = await self.iter(retry_state=retry_state)
+[1]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 157, in iter
+[1]     result = await action(retry_state)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/_utils.py", line 111, in inner
+[1]     return call(*args, **kwargs)
+[1]            ^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/__init__.py", line 413, in exc_check
+[1]     raise retry_exc.reraise()
+[1]           ^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/__init__.py", line 184, in reraise
+[1]     raise self.last_attempt.result()
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.pyenv/versions/3.12.6/lib/python3.12/concurrent/futures/_base.py", line 449, in result
+[1]     return self.__get_result()
+[1]            ^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.pyenv/versions/3.12.6/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+[1]     raise self._exception
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 116, in __call__
+[1]     result = await fn(*args, **kwargs)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1611, in _async_request_once
+[1]     await errors.APIError.raise_for_async_response(response)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/errors.py", line 265, in raise_for_async_response
+[1]     await cls.raise_error_async(status_code, response_json, response)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/errors.py", line 287, in raise_error_async
+[1]     raise ClientError(status_code, response_json, response)
+[1] google.genai.errors.ClientError: 400 invalid_request_error. {'error': {'code': 400, 'message': 'injected provider failure (smoke check)', 'status': 'invalid_request_error'}}
+[1] Background execution error: 400 invalid_request_error. {'error': {'code': 400, 'message': 'injected provider failure (smoke check)', 'status': 'invalid_request_error'}}
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 237, in _drive_root_node
+[1]     await root_ctx._run_node_internal(  # pylint: disable=protected-access
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/context.py", line 604, in _run_node_internal
+[1]     raise DynamicNodeFailError(
+[1] google.adk.workflow._errors.DynamicNodeFailError: Dynamic node SimpleChatAgent failed
+[1] 
+[1] During handling of the above exception, another exception occurred:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/ag_ui_adk/adk_agent.py", line 3075, in _run_adk_in_background
+[1]     async for adk_event in runner.run_async(**run_kwargs):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/runners.py", line 1149, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/runners.py", line 579, in _run_node_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 294, in run_node_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+[1]     async for item in a:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 264, in _run
+[1]     await runner._cleanup_root_task(task, runner.agent.name)  # pylint: disable=protected-access
+[1]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/runners.py", line 824, in _cleanup_root_task
+[1]     await task
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 246, in _drive_root_node
+[1]     raise e.error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 137, in run
+[1]     await self._execute_node(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 285, in _execute_node
+[1]     await self._run_node_loop(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 299, in _run_node_loop
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_base_node.py", line 175, in run
+[1]     async for item in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 671, in _run_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 484, in run_llm_agent_as_node
+[1]     async for event in run_iter:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 364, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 102, in _with_caller_context
+[1]     async for item in a:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 351, in _run
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 620, in _run_async_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 641, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 719, in _run_one_step_async
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1109, in _call_llm_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1087, in _call_llm_with_tracing
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1170, in _run_and_handle_error
+[1]     async for response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 431, in _run_and_handle_error
+[1]     raise model_error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 408, in _run_and_handle_error
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py", line 375, in generate_content_async
+[1]     raise ce
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py", line 306, in generate_content_async
+[1]     async for response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/models.py", line 8699, in stream_generator
+[1]     response = await self._generate_content_stream(
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/models.py", line 7005, in _generate_content_stream
+[1]     response_stream = await self._api_client.async_request_streamed(
+[1]                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1813, in async_request_streamed
+[1]     response = await self._async_request(
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1729, in _async_request
+[1]     return await self._async_retry(  # type: ignore[no-any-return]
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 112, in __call__
+[1]     do = await self.iter(retry_state=retry_state)
+[1]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 157, in iter
+[1]     result = await action(retry_state)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/_utils.py", line 111, in inner
+[1]     return call(*args, **kwargs)
+[1]            ^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/__init__.py", line 413, in exc_check
+[1]     raise retry_exc.reraise()
+[1]           ^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/__init__.py", line 184, in reraise
+[1]     raise self.last_attempt.result()
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.pyenv/versions/3.12.6/lib/python3.12/concurrent/futures/_base.py", line 449, in result
+[1]     return self.__get_result()
+[1]            ^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.pyenv/versions/3.12.6/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+[1]     raise self._exception
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 116, in __call__
+[1]     result = await fn(*args, **kwargs)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1611, in _async_request_once
+[1]     await errors.APIError.raise_for_async_response(response)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/errors.py", line 265, in raise_for_async_response
+[1]     await cls.raise_error_async(status_code, response_json, response)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/errors.py", line 287, in raise_error_async
+[1]     raise ClientError(status_code, response_json, response)
+[1] google.genai.errors.ClientError: 400 invalid_request_error. {'error': {'code': 400, 'message': 'injected provider failure (smoke check)', 'status': 'invalid_request_error'}}
+[0]  POST /api/copilotkit 200 in 242ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=
+[1] 2026-09-23 16:55:49,212 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=
+[1] INFO:     ::1:0 - "POST /agentic_chat HTTP/1.1" 200 OK
+[1] 2026-09-23 16:55:49,216 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=transport=aiohttp
+[0]  POST /api/copilotkit 200 in 309ms
+[0]  GET /api/smoke 200 in 572ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=
+[1] 2026-09-23 16:55:49,920 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=
+[1] INFO:     ::1:0 - "POST /agentic_chat HTTP/1.1" 200 OK
+[1] 2026-09-23 16:55:49,925 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=transport=aiohttp
+[1] Node execution failed with exception
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 137, in run
+[1]     await self._execute_node(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 285, in _execute_node
+[1]     await self._run_node_loop(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 299, in _run_node_loop
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_base_node.py", line 175, in run
+[1]     async for item in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 671, in _run_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 484, in run_llm_agent_as_node
+[1]     async for event in run_iter:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 364, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 102, in _with_caller_context
+[1]     async for item in a:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 351, in _run
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 620, in _run_async_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 641, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 719, in _run_one_step_async
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1109, in _call_llm_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1087, in _call_llm_with_tracing
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1170, in _run_and_handle_error
+[1]     async for response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 431, in _run_and_handle_error
+[1]     raise model_error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 408, in _run_and_handle_error
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py", line 375, in generate_content_async
+[1]     raise ce
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py", line 306, in generate_content_async
+[1]     async for response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/models.py", line 8699, in stream_generator
+[1]     response = await self._generate_content_stream(
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/models.py", line 7005, in _generate_content_stream
+[1]     response_stream = await self._api_client.async_request_streamed(
+[1]                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1813, in async_request_streamed
+[1]     response = await self._async_request(
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1729, in _async_request
+[1]     return await self._async_retry(  # type: ignore[no-any-return]
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 112, in __call__
+[1]     do = await self.iter(retry_state=retry_state)
+[1]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 157, in iter
+[1]     result = await action(retry_state)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/_utils.py", line 111, in inner
+[1]     return call(*args, **kwargs)
+[1]            ^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/__init__.py", line 413, in exc_check
+[1]     raise retry_exc.reraise()
+[1]           ^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/__init__.py", line 184, in reraise
+[1]     raise self.last_attempt.result()
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.pyenv/versions/3.12.6/lib/python3.12/concurrent/futures/_base.py", line 449, in result
+[1]     return self.__get_result()
+[1]            ^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.pyenv/versions/3.12.6/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+[1]     raise self._exception
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 116, in __call__
+[1]     result = await fn(*args, **kwargs)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1611, in _async_request_once
+[1]     await errors.APIError.raise_for_async_response(response)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/errors.py", line 265, in raise_for_async_response
+[1]     await cls.raise_error_async(status_code, response_json, response)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/errors.py", line 287, in raise_error_async
+[1]     raise ClientError(status_code, response_json, response)
+[1] google.genai.errors.ClientError: 400 invalid_request_error. {'error': {'code': 400, 'message': 'injected provider failure (smoke check)', 'status': 'invalid_request_error'}}
+[1] Root node SimpleChatAgent failed.
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 237, in _drive_root_node
+[1]     await root_ctx._run_node_internal(  # pylint: disable=protected-access
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/context.py", line 604, in _run_node_internal
+[1]     raise DynamicNodeFailError(
+[1] google.adk.workflow._errors.DynamicNodeFailError: Dynamic node SimpleChatAgent failed
+[1] 
+[1] During handling of the above exception, another exception occurred:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/runners.py", line 824, in _cleanup_root_task
+[1]     await task
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 246, in _drive_root_node
+[1]     raise e.error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 137, in run
+[1]     await self._execute_node(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 285, in _execute_node
+[1]     await self._run_node_loop(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 299, in _run_node_loop
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_base_node.py", line 175, in run
+[1]     async for item in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 671, in _run_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 484, in run_llm_agent_as_node
+[1]     async for event in run_iter:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 364, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 102, in _with_caller_context
+[1]     async for item in a:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 351, in _run
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 620, in _run_async_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 641, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 719, in _run_one_step_async
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1109, in _call_llm_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1087, in _call_llm_with_tracing
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1170, in _run_and_handle_error
+[1]     async for response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 431, in _run_and_handle_error
+[1]     raise model_error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 408, in _run_and_handle_error
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py", line 375, in generate_content_async
+[1]     raise ce
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py", line 306, in generate_content_async
+[1]     async for response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/models.py", line 8699, in stream_generator
+[1]     response = await self._generate_content_stream(
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/models.py", line 7005, in _generate_content_stream
+[1]     response_stream = await self._api_client.async_request_streamed(
+[1]                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1813, in async_request_streamed
+[1]     response = await self._async_request(
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1729, in _async_request
+[1]     return await self._async_retry(  # type: ignore[no-any-return]
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 112, in __call__
+[1]     do = await self.iter(retry_state=retry_state)
+[1]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 157, in iter
+[1]     result = await action(retry_state)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/_utils.py", line 111, in inner
+[1]     return call(*args, **kwargs)
+[1]            ^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/__init__.py", line 413, in exc_check
+[1]     raise retry_exc.reraise()
+[1]           ^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/__init__.py", line 184, in reraise
+[1]     raise self.last_attempt.result()
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.pyenv/versions/3.12.6/lib/python3.12/concurrent/futures/_base.py", line 449, in result
+[1]     return self.__get_result()
+[1]            ^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.pyenv/versions/3.12.6/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+[1]     raise self._exception
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 116, in __call__
+[1]     result = await fn(*args, **kwargs)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1611, in _async_request_once
+[1]     await errors.APIError.raise_for_async_response(response)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/errors.py", line 265, in raise_for_async_response
+[1]     await cls.raise_error_async(status_code, response_json, response)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/errors.py", line 287, in raise_error_async
+[1]     raise ClientError(status_code, response_json, response)
+[1] google.genai.errors.ClientError: 400 invalid_request_error. {'error': {'code': 400, 'message': 'injected provider failure (smoke check)', 'status': 'invalid_request_error'}}
+[1] Background execution error: 400 invalid_request_error. {'error': {'code': 400, 'message': 'injected provider failure (smoke check)', 'status': 'invalid_request_error'}}
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 237, in _drive_root_node
+[1]     await root_ctx._run_node_internal(  # pylint: disable=protected-access
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/context.py", line 604, in _run_node_internal
+[1]     raise DynamicNodeFailError(
+[1] google.adk.workflow._errors.DynamicNodeFailError: Dynamic node SimpleChatAgent failed
+[1] 
+[1] During handling of the above exception, another exception occurred:
+[1] 
+[1] Traceback (most recent call last):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/ag_ui_adk/adk_agent.py", line 3075, in _run_adk_in_background
+[1]     async for adk_event in runner.run_async(**run_kwargs):
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/runners.py", line 1149, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/runners.py", line 579, in _run_node_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 294, in run_node_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+[1]     async for item in a:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 264, in _run
+[1]     await runner._cleanup_root_task(task, runner.agent.name)  # pylint: disable=protected-access
+[1]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/runners.py", line 824, in _cleanup_root_task
+[1]     await task
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner_utils.py", line 246, in _drive_root_node
+[1]     raise e.error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 137, in run
+[1]     await self._execute_node(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 285, in _execute_node
+[1]     await self._run_node_loop(ctx, node_input)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_node_runner.py", line 299, in _run_node_loop
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_base_node.py", line 175, in run
+[1]     async for item in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 671, in _run_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 484, in run_llm_agent_as_node
+[1]     async for event in run_iter:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 364, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 102, in _with_caller_context
+[1]     async for item in a:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/base_agent.py", line 351, in _run
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/agents/llm_agent.py", line 620, in _run_async_impl
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 641, in run_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 719, in _run_one_step_async
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1109, in _call_llm_async
+[1]     async for event in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1087, in _call_llm_with_tracing
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 1170, in _run_and_handle_error
+[1]     async for response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 431, in _run_and_handle_error
+[1]     raise model_error
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 408, in _run_and_handle_error
+[1]     async for llm_response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py", line 375, in generate_content_async
+[1]     raise ce
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/models/google_llm.py", line 306, in generate_content_async
+[1]     async for response in agen:
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/models.py", line 8699, in stream_generator
+[1]     response = await self._generate_content_stream(
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/models.py", line 7005, in _generate_content_stream
+[1]     response_stream = await self._api_client.async_request_streamed(
+[1]                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1813, in async_request_streamed
+[1]     response = await self._async_request(
+[1]                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1729, in _async_request
+[1]     return await self._async_retry(  # type: ignore[no-any-return]
+[1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 112, in __call__
+[1]     do = await self.iter(retry_state=retry_state)
+[1]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 157, in iter
+[1]     result = await action(retry_state)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/_utils.py", line 111, in inner
+[1]     return call(*args, **kwargs)
+[1]            ^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/__init__.py", line 413, in exc_check
+[1]     raise retry_exc.reraise()
+[1]           ^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/__init__.py", line 184, in reraise
+[1]     raise self.last_attempt.result()
+[1]           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.pyenv/versions/3.12.6/lib/python3.12/concurrent/futures/_base.py", line 449, in result
+[1]     return self.__get_result()
+[1]            ^^^^^^^^^^^^^^^^^^^
+[1]   File "/Users/tylerslaton/.pyenv/versions/3.12.6/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+[1]     raise self._exception
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/tenacity/asyncio/__init__.py", line 116, in __call__
+[1]     result = await fn(*args, **kwargs)
+[1]              ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/_api_client.py", line 1611, in _async_request_once
+[1]     await errors.APIError.raise_for_async_response(response)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/errors.py", line 265, in raise_for_async_response
+[1]     await cls.raise_error_async(status_code, response_json, response)
+[1]   File "/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/genai/errors.py", line 287, in raise_error_async
+[1]     raise ClientError(status_code, response_json, response)
+[1] google.genai.errors.ClientError: 400 invalid_request_error. {'error': {'code': 400, 'message': 'injected provider failure (smoke check)', 'status': 'invalid_request_error'}}
+[0]  POST /api/copilotkit 200 in 251ms
+[0]  GET /api/smoke 502 in 476ms
+[0] CVDIAG component=route-google-adk boundary=inbound run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=
+[1] 2026-09-23 16:55:50,567 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=contextvar-capture run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=
+[1] INFO:     ::1:0 - "POST /agentic_chat HTTP/1.1" 200 OK
+[1] 2026-09-23 16:55:50,571 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=none error=transport=aiohttp
+[0]  POST /api/copilotkit 200 in 315ms
+[0]  GET /api/smoke 200 in 540ms
+[1] INFO:     Shutting down
+[0] [?25h
+[0] next dev --turbopack exited with code 0
+[1] INFO:     Waiting for application shutdown.
+[1] INFO:     Application shutdown complete.
+[1] INFO:     Finished server process [60359]
+[1] INFO:     Stopping reloader process [60357]
+[1] cd src && PYTHONPATH=.. python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload exited with code SIGTERM
+# stack boot 1 stopped (SIGTERM to pgid 60276) 2026-09-23T23:57:14Z

@@ -1,0 +1,39 @@
+# ADK UI lock, generated fresh (as LGP/LGTS): rm -rf node_modules package-lock.json && npm install --package-lock-only --legacy-peer-deps --before=2026-09-22T23:00:00Z
+# node v24.11.0, npm 11.6.1, started 2026-09-23T23:43:32Z; package.json: @copilotkit/* 1.73.3, @ag-ui/client 0.0.59 (CopilotKit 1.73.3 pins it exactly); no overrides existed
+# Attempt 1: strict peer resolution
+$ npm install --package-lock-only --before=2026-09-22T23:00:00Z --no-audit --no-fund
+
+up to date in 27s
+exit=0
+# Attempt 1 result: strict peer resolution succeeds, but it installs peers through open ranges: 27 peer-flagged entries, and the root @ag-ui/core resolves to 1.0.0 (via @copilotkit/shared's open '@ag-ui/core >=0.0.48' peer) beside nested 0.0.59 copies. The Dockerfile installs with 'npm ci --legacy-peer-deps' and the committed lock was a legacy-peer lock (0 peer-flagged entries), so the lock is generated in that mode, as LGP did.
+# Attempt 2:
+$ rm -f package-lock.json && npm install --package-lock-only --legacy-peer-deps --before=2026-09-22T23:00:00Z --no-audit --no-fund
+
+up to date in 3s
+exit=0
+# lock summary: entries 894 peer-flagged 0 non-registry 0
+#   node_modules/@ag-ui/a2ui-middleware 0.0.10
+#   node_modules/@ag-ui/a2ui-toolkit 0.0.4
+#   node_modules/@ag-ui/client 0.0.59
+#   node_modules/@ag-ui/core 0.0.59
+#   node_modules/@ag-ui/encoder 0.0.59
+#   node_modules/@ag-ui/langgraph 0.0.43
+#   node_modules/@ag-ui/mcp-apps-middleware 0.1.1
+#   node_modules/@ag-ui/mcp-middleware 0.0.2
+#   node_modules/@ag-ui/proto 0.0.59
+#   node_modules/@copilotkit/a2ui-renderer 1.73.3
+#   node_modules/@copilotkit/channels-core 0.11.0
+#   node_modules/@copilotkit/channels-intelligence 0.11.0
+#   node_modules/@copilotkit/channels-slack 0.11.0
+#   node_modules/@copilotkit/channels-teams 0.11.0
+#   node_modules/@copilotkit/channels-ui 0.11.0
+#   node_modules/@copilotkit/core 1.73.3
+#   node_modules/@copilotkit/license-verifier 0.5.0
+#   node_modules/@copilotkit/mcp-apps-renderer 1.73.3
+#   node_modules/@copilotkit/react-core 1.73.3
+#   node_modules/@copilotkit/runtime 1.73.3
+#   node_modules/@copilotkit/runtime-client-gql 1.73.3
+#   node_modules/@copilotkit/shared 1.73.3
+#   node_modules/@copilotkit/voice 1.73.3
+#   node_modules/@copilotkit/web-components 1.73.3
+#   node_modules/@copilotkit/web-inspector 1.73.3

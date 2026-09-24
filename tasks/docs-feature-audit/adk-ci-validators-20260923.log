@@ -1,0 +1,72 @@
+# showcase_validate.yml validators that read the ADK integration, run locally at HEAD 1508fbb266 + uncommitted ADK dependency update, 2026-09-23T23:47:46Z. Other integrations' [WARN] lines are filtered out; google-adk's are kept.
+$ pnpm exec tsx validate-parity.ts
+
+package                      status  demos  specs   qa  notes     
+------------------------------------------------------------------
+ag2                          [PASS]     35     38   22  21 warn   
+agno                         [PASS]     37     39   26  20 warn   
+built-in-agent               [PASS]     39     33    9  40 warn   
+claude-sdk-python            [PASS]     38     36   31  19 warn   
+claude-sdk-typescript        [PASS]     38     37   29  14 warn   
+crewai-conversational-flows  [PASS]     38     39   36  14 warn   
+crewai-crews                 [PASS]     38     39   36  14 warn   
+google-adk                   [PASS]     38     37   35  8 warn    
+langgraph-fastapi            [PASS]     39     39   11  32 warn   
+langgraph-python             [PASS]     39     39   40  3 warn    
+langgraph-typescript         [PASS]     39     38   11  33 warn   
+langroid                     [PASS]     35     39   27  17 warn   
+llamaindex                   [PASS]     37     39   37  7 warn    
+mastra                       [PASS]     41     44   36  10 warn   
+ms-agent-dotnet              [PASS]     39     39   10  34 warn   
+ms-agent-harness-dotnet      [PASS]     38     10    0  78 warn   
+ms-agent-python              [PASS]     39     38   10  36 warn   
+pydantic-ai                  [PASS]     40     37   33  14 warn   
+spring-ai                    [PASS]     37     39   35  11 warn   
+strands                      [PASS]     41     41   38  8 warn    
+strands-typescript           [PASS]     41     41   38  8 warn    
+
+21 package(s) checked, 21 pass, 0 fail, 441 warning(s)
+exit=0
+$ pnpm exec tsx validate-parity.ts | grep 'WARN] google-adk'
+[WARN] google-adk: demo 'gen-ui-interrupt' has no tests/e2e/gen-ui-interrupt.spec.ts
+[WARN] google-adk: demo 'chat-customization-css' has no qa/chat-customization-css.md
+[WARN] google-adk: demo 'gen-ui-interrupt' has no qa/gen-ui-interrupt.md
+[WARN] google-adk: demo 'prebuilt-sidebar' has no qa/prebuilt-sidebar.md
+[WARN] google-adk: demo 'reasoning-custom' has no qa/reasoning-custom.md
+[WARN] google-adk: demo count 38 deviates from baseline 9
+[WARN] google-adk: spec count 37 < demo count 38
+[WARN] google-adk: qa count 35 < demo count 38
+$ pnpm exec tsx validate-shared-symlinks.ts
+ℹ 2 single-source slot(s) are ERODED (should be symlinks into showcase/shared/...):
+  • [known] showcase/integrations/claude-sdk-typescript/shared-tools  (real-dir)
+  • [known] showcase/integrations/langgraph-typescript/shared-tools  (real-dir)
+
+✔ single-source symlinks OK — no NEW erosion (2/2 baselined slot(s) still eroded, expected until symlinks are restored).
+exit=0
+$ pnpm exec tsx sync-shared-frontends.ts
+Shared frontend sources are in sync.
+exit=0
+$ pnpm exec tsx validate-fixture-tool-surface.ts
+✓ validate-fixture-tool-surface: 0 fixtures × 749 demos — no drift
+exit=0
+$ pnpm exec tsx validate-pins.ts  (ratchet: CI compares the FAIL count/hash with fail-baseline.json)
+[WARN] google-adk: skipped python-dotenv in showcase/integrations/google-adk/requirements.txt: name-only requirement (no version)
+[WARN] google-adk: skipped pydantic in showcase/integrations/google-adk/requirements.txt: name-only requirement (no version)
+[FAIL] google-adk: @copilotkit/a2ui-renderer pinned to 1.73.3, canonical is 1.68.2
+[FAIL] google-adk: @copilotkit/react-core pinned to 1.73.3, canonical is 1.68.2
+[FAIL] google-adk: @copilotkit/runtime pinned to 1.73.3, canonical is 1.68.2
+[FAIL] google-adk: @copilotkit/shared pinned to 1.73.3, canonical is 1.68.2
+[FAIL] google-adk: @copilotkit/voice pinned to 1.73.3, canonical is 1.68.2
+[FAIL] google-adk: openai is not an exact pin (^5.9.0)
+Summary: OK=5 SKIP=0 WARN=2 FAIL=47
+exit=1
+
+# validate-pins delta, same validator against the pre-update tree:
+# validate-pins at HEAD 1508fbb266 (git archive of showcase/integrations, before the ADK update), VALIDATE_PINS_REPO_ROOT=<archive>
+[WARN] google-adk: skipped python-dotenv in showcase/integrations/google-adk/requirements.txt: name-only requirement (no version)
+[WARN] google-adk: skipped pydantic in showcase/integrations/google-adk/requirements.txt: name-only requirement (no version)
+[WARN] google-adk: skipped google-adk in showcase/integrations/google-adk/requirements.txt: name-only requirement (no version)
+[FAIL] google-adk: google-genai is not an exact pin (>=0.8.0)
+[FAIL] google-adk: openai is not an exact pin (^5.9.0)
+Summary: OK=5 SKIP=0 WARN=3 FAIL=43
+# => FAIL 43 -> 47: +5 (@copilotkit/* 1.73.3 vs canonical 1.68.2), -1 (google-genai now ==2.25.0). WARN 3 -> 2 (google-adk now ==2.9.2). The openai ^5.9.0 FAIL is pre-existing. baseline (fail-baseline.json): 26.

@@ -1,0 +1,181 @@
+{
+  "google-adk": {
+    "latest_eligible": "2.9.2",
+    "published": "2026-09-18T18:10:43Z",
+    "age_h_at_T": 100.8,
+    "newer_than_T": [],
+    "overall_latest": "2.9.2",
+    "requires_python": ">=3.10",
+    "requires_dist": [
+      "aiosqlite>=0.21",
+      "authlib<2,>=1.6.6",
+      "click<9,>=8.1.8",
+      "fastapi<1,>=0.133",
+      "google-auth[pyopenssl]>=2.47",
+      "google-genai<3,>=2.19",
+      "graphviz<1,>=0.20.2",
+      "httpx<1,>=0.27",
+      "jsonschema<5,>=4.23",
+      "opentelemetry-api<=1.42.1,>=1.39",
+      "opentelemetry-sdk<=1.42.1,>=1.39",
+      "packaging>=21",
+      "pydantic<3,>=2.12",
+      "python-dotenv<2,>=1",
+      "python-multipart<1,>=0.0.9",
+      "pyyaml<7,>=6.0.2",
+      "requests<3,>=2.32.4",
+      "starlette<2,>=1.3.1",
+      "tenacity<10,>=9",
+      "typing-extensions<5,>=4.5",
+      "uvicorn<1,>=0.34",
+      "watchdog<7,>=6",
+      "websockets<16,>=15.0.1"
+    ]
+  },
+  "google-genai": {
+    "latest_eligible": "2.25.0",
+    "published": "2026-09-22T17:22:59Z",
+    "age_h_at_T": 5.6,
+    "newer_than_T": [],
+    "overall_latest": "2.25.0",
+    "requires_python": ">=3.10",
+    "requires_dist": [
+      "anyio<5.0.0,>=4.8.0",
+      "google-auth[requests]<3.0.0,>=2.56.0",
+      "httpx<1.0.0,>=0.28.1",
+      "pydantic<3.0.0,>=2.12.5",
+      "requests<3.0.0,>=2.28.1",
+      "tenacity<9.2.0,>=8.2.3",
+      "websockets<17.0,>=13.0.0",
+      "typing-extensions<5.0.0,>=4.14.0",
+      "distro<2,>=1.7.0",
+      "sniffio"
+    ]
+  },
+  "ag-ui-adk": {
+    "latest_eligible": "0.7.0",
+    "published": "2026-06-23T05:58:51Z",
+    "age_h_at_T": 2201.0,
+    "newer_than_T": [],
+    "overall_latest": "0.7.0",
+    "requires_python": "<3.15,>=3.10",
+    "requires_dist": [
+      "ag-ui-protocol>=0.1.15",
+      "ag-ui-a2ui-toolkit>=0.0.3",
+      "a2ui-agent-sdk<0.3.0,>=0.2.4",
+      "aiohttp>=3.14.1",
+      "asyncio>=3.4.3",
+      "fastapi>=0.115.2",
+      "google-adk<3.0.0,>=1.28.1",
+      "pydantic>=2.11.7",
+      "sse-starlette>=2.1.0",
+      "uvicorn>=0.35.0"
+    ]
+  },
+  "ag-ui-protocol": {
+    "latest_eligible": "1.0.0",
+    "published": "2026-09-17T18:31:18Z",
+    "age_h_at_T": 124.5,
+    "newer_than_T": [],
+    "overall_latest": "1.0.0",
+    "requires_python": ">=3.9",
+    "requires_dist": [
+      "pydantic>=2.11.2"
+    ]
+  },
+  "a2ui-agent-sdk": {
+    "latest_eligible": "0.6.0",
+    "published": "2026-09-11T02:14:25Z",
+    "age_h_at_T": 284.8,
+    "newer_than_T": [],
+    "overall_latest": "0.6.0",
+    "requires_python": ">=3.10",
+    "requires_dist": [
+      "a2a-sdk<0.4.0,>=0.3.0",
+      "a2ui-core<0.2.0,>=0.1.1",
+      "antlr4-python3-runtime<4.14.0,>=4.13.0",
+      "google-adk>=1.28.1",
+      "google-genai>=1.27.0",
+      "httpx>=0.27.0",
+      "jsonschema>=4.0.0"
+    ]
+  },
+  "ag-ui-a2ui-toolkit": {
+    "latest_eligible": "0.0.4",
+    "published": "2026-06-17T13:34:28Z",
+    "age_h_at_T": 2337.4,
+    "newer_than_T": [],
+    "overall_latest": "0.0.4",
+    "requires_python": "<3.15,>=3.10",
+    "requires_dist": []
+  },
+  "fastapi": {
+    "latest_eligible": "0.141.1",
+    "published": "2026-07-29T17:18:04Z",
+    "age_h_at_T": 1325.7,
+    "newer_than_T": [],
+    "overall_latest": "0.141.1",
+    "requires_python": ">=3.10",
+    "requires_dist": [
+      "starlette>=0.46.0",
+      "pydantic>=2.9.0",
+      "typing-extensions>=4.8.0",
+      "typing-inspection>=0.4.2",
+      "annotated-doc>=0.0.2"
+    ]
+  },
+  "uvicorn": {
+    "latest_eligible": "0.53.0",
+    "published": "2026-09-14T07:44:22Z",
+    "age_h_at_T": 207.3,
+    "newer_than_T": [],
+    "overall_latest": "0.53.0",
+    "requires_python": ">=3.10",
+    "requires_dist": [
+      "click>=7.0",
+      "h11>=0.8",
+      "typing-extensions>=4.0; python_version < \"3.11\""
+    ]
+  },
+  "python-dotenv": {
+    "latest_eligible": "1.2.3",
+    "published": "2026-08-16T16:54:52Z",
+    "age_h_at_T": 894.1,
+    "newer_than_T": [],
+    "overall_latest": "1.2.3",
+    "requires_python": ">=3.10",
+    "requires_dist": []
+  },
+  "pydantic": {
+    "latest_eligible": "2.13.5",
+    "published": "2026-08-28T14:03:59Z",
+    "age_h_at_T": 608.9,
+    "newer_than_T": [],
+    "overall_latest": "2.13.5",
+    "requires_python": ">=3.9",
+    "requires_dist": [
+      "annotated-types>=0.6.0",
+      "pydantic-core==2.46.5",
+      "typing-extensions>=4.14.1",
+      "typing-inspection>=0.4.2"
+    ]
+  },
+  "a2a-sdk": {
+    "latest_eligible": "1.1.5",
+    "published": "2026-09-21T09:52:24Z",
+    "age_h_at_T": 37.1,
+    "newer_than_T": [],
+    "overall_latest": "1.1.5",
+    "requires_python": ">=3.10",
+    "requires_dist": [
+      "culsans>=0.11.0; python_full_version < \"3.13\"",
+      "google-api-core>=1.26.0",
+      "googleapis-common-protos>=1.70.0",
+      "httpx>=0.28.1",
+      "json-rpc>=1.15.0",
+      "packaging>=24.0",
+      "protobuf>=5.29.5",
+      "pydantic>=2.11.3"
+    ]
+  }
+}

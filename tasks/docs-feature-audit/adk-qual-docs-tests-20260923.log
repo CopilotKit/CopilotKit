@@ -1,0 +1,11 @@
+# vitest run src/lib/__tests__/current-v2-authored-guides.test.ts src/lib/__tests__/llm-text.test.ts --pool=forks --maxWorkers=1 --execArgv=--max-old-space-size=4096 (under the same lock); HEAD 5a6670620e; node v22.16.0; Thu Sep 24 00:22:03 UTC 2026
+
+ RUN  v4.1.7 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs
+
+
+ Test Files  2 passed (2)
+      Tests  71 passed (71)
+   Start at  17:22:04
+   Duration  14.09s (transform 4.42s, setup 0ms, import 13.56s, tests 418ms, environment 0ms)
+
+exit=0

@@ -1,0 +1,93 @@
+# Strict local D6 (regression shared-state-streaming), same runner, AIMock mode and command as lgp-d6-full-20260923.log (run-local-d6.mts -> buildFullInputs + createE2eFullDriver, FEATURE_CONCURRENCY_D6=4). One runner process. Neighbouring cell after the shared-state-read red/green and the smoke fix (b2323ec714), same stack and runner.
+$ AIMOCK_URL_LOCAL=http://127.0.0.1:4410 AIMOCK_URL=http://127.0.0.1:4410 SHOWCASE_LOCAL=1 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true nice -n 10 node_modules/.bin/tsx tasks/docs-feature-audit/run-local-d6.mts google-adk --demo shared-state-streaming
+# AIMock 127.0.0.1:4410 --strict, AIMOCK_STRICT_TURN_INDEX=1. UI http://localhost:3103, agent http://localhost:8000. node v22.16.0. HEAD 4671e32887. Working tree vs HEAD (outside tasks/): 
+# started Thu Sep 24 00:09:37 UTC 2026
+{"level":"info","msg":"probe.e2e-full.service-start","ts":"2026-09-24T00:09:37.863Z","component":"docs-feature-audit-local-d6","slug":"google-adk","featureCount":1,"backendUrl":"http://localhost:3103"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=31617fcd-cd08-41e9-87c6-0d841657f420 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-31617fcd-cd08-41e9-87c6-0d841657f420 error=","ts":"2026-09-24T00:09:38.063Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3103/demos/shared-state-streaming',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3103/demos/shared-state-streaming',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-09-24T00:09:38.301Z","component":"docs-feature-audit-local-d6","slug":"google-adk","featureType":"shared-state-streaming","hydrated":true,"hydrationMs":45}
+[conversation-runner] starting conversation { totalTurns: 3, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/3 — sending message { inputLength: 39, timeoutMs: 60000 }
+[conversation-runner] turn 1/3 — running preFill hook
+[conversation-runner] turn 1/3 — preFill hook completed
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 39,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/3 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 60000
+}
+[conversation-runner] turn 1/3 — assistant settled { bubbleIndex: 2, textLength: 64, hasAssertions: true }
+[conversation-runner] turn 1/3 — settled metadata { turnNum: 1, bubbleIndex: 2, textLength: 64 }
+[conversation-runner] turn 1/3 — running assertions { bubbleIndex: 2, textLength: 64 }
+[conversation-runner] turn 1/3 — assertions passed
+[conversation-runner] turn 2/3 — sending message { inputLength: 64, timeoutMs: 60000 }
+[conversation-runner] turn 2/3 — running preFill hook
+[conversation-runner] turn 2/3 — preFill hook completed
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 64,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 1,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 1 { userMessageCount: 2, baseline: 1 }
+[conversation-runner] turn 2/3 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 2,
+  settleMs: 1500,
+  timeoutMs: 60000
+}
+[conversation-runner] turn 2/3 — assistant settled { bubbleIndex: 5, textLength: 79, hasAssertions: true }
+[conversation-runner] turn 2/3 — settled metadata { turnNum: 2, bubbleIndex: 5, textLength: 79 }
+[conversation-runner] turn 2/3 — running assertions { bubbleIndex: 5, textLength: 79 }
+[conversation-runner] turn 2/3 — assertions passed
+[conversation-runner] turn 3/3 — sending message { inputLength: 76, timeoutMs: 60000 }
+[conversation-runner] turn 3/3 — running preFill hook
+[conversation-runner] turn 3/3 — preFill hook completed
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 76,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 2,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 1 { userMessageCount: 3, baseline: 2 }
+[conversation-runner] turn 3/3 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 3,
+  settleMs: 1500,
+  timeoutMs: 60000
+}
+[conversation-runner] turn 3/3 — assistant settled { bubbleIndex: 8, textLength: 87, hasAssertions: true }
+[conversation-runner] turn 3/3 — settled metadata { turnNum: 3, bubbleIndex: 8, textLength: 87 }
+[conversation-runner] turn 3/3 — running assertions { bubbleIndex: 8, textLength: 87 }
+[conversation-runner] turn 3/3 — assertions passed
+[conversation-runner] conversation completed successfully { turnsCompleted: 3, totalDurationMs: 9919 }
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-09-24T00:09:48.262Z","component":"docs-feature-audit-local-d6","key":"d6:google-adk/shared-state-streaming"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-09-24T00:09:48.262Z","component":"docs-feature-audit-local-d6","slug":"google-adk","featureType":"shared-state-streaming","pass":true,"durationMs":10203}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=31617fcd-cd08-41e9-87c6-0d841657f420 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-31617fcd-cd08-41e9-87c6-0d841657f420 error=","ts":"2026-09-24T00:09:48.269Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.service-complete","ts":"2026-09-24T00:09:48.269Z","component":"docs-feature-audit-local-d6","slug":"google-adk","passed":1,"failed":0,"skipped":0,"incapable":0,"total":1,"state":"green","durationMs":10406}
+{"level":"warn","msg":"probe.e2e-full.aggregate-writer-missing","ts":"2026-09-24T00:09:48.269Z","component":"docs-feature-audit-local-d6","key":"d6:google-adk"}
+  [32m✓[0m d6:google-adk [32mgreen[0m [2m(10.7s)[0m
+{"slug":"google-adk","results":[{"key":"d6:google-adk","state":"green","durationMs":10668,"signal":{"shape":"package","slug":"google-adk","backendUrl":"http://localhost:3103","total":1,"passed":1,"failed":[],"skipped":[]}}]}
+exit=0 finished Thu Sep 24 00:09:48 UTC 2026

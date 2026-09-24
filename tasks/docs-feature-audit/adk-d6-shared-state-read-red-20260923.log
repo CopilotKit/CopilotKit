@@ -1,0 +1,116 @@
+# Strict local D6 (shared-state-read RED), same runner, AIMock mode and command as lgp-d6-full-20260923.log (run-local-d6.mts -> buildFullInputs + createE2eFullDriver, FEATURE_CONCURRENCY_D6=4). One runner process. RED: registry.py temporarily reverse-applied from d9467aa407 (adk-shared-state-read-red-revert-20260923.diff; byte-identical to the pre-d9467aa407 blob), uvicorn --reload picked it up. Probe, fixture and shared_state_read_agent unchanged at HEAD.
+$ AIMOCK_URL_LOCAL=http://127.0.0.1:4410 AIMOCK_URL=http://127.0.0.1:4410 SHOWCASE_LOCAL=1 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true nice -n 10 node_modules/.bin/tsx tasks/docs-feature-audit/run-local-d6.mts google-adk --demo shared-state-read
+# AIMock 127.0.0.1:4410 --strict, AIMOCK_STRICT_TURN_INDEX=1. UI http://localhost:3103, agent http://localhost:8000. node v22.16.0. HEAD 4671e32887. Working tree vs HEAD (outside tasks/):  M showcase/integrations/google-adk/src/agents/registry.py 
+# started Thu Sep 24 00:06:24 UTC 2026
+{"level":"info","msg":"probe.e2e-full.service-start","ts":"2026-09-24T00:06:24.868Z","component":"docs-feature-audit-local-d6","slug":"google-adk","featureCount":1,"backendUrl":"http://localhost:3103"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=2a032c24-13e0-41b9-b6e1-47d11e98f7c8 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-2a032c24-13e0-41b9-b6e1-47d11e98f7c8 error=","ts":"2026-09-24T00:06:25.217Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3103/demos/shared-state-read',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3103/demos/shared-state-read',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-09-24T00:06:25.615Z","component":"docs-feature-audit-local-d6","slug":"google-adk","featureType":"shared-state-read","hydrated":true,"hydrationMs":61}
+[conversation-runner] starting conversation { totalTurns: 2, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/2 — sending message { inputLength: 40, timeoutMs: 60000 }
+[conversation-runner] turn 1/2 — running preFill hook
+[conversation-runner] turn 1/2 — preFill hook completed
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 40,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 1 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/2 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 60000
+}
+[conversation-runner] turn 1/2 — cold-start banner fast-fail; reloading + re-sending ONCE before fast-fail { errorCategory: 'assertion-failed' }
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 40,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 1,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 1 { userMessageCount: 2, baseline: 1 }
+[conversation-runner] turn 1/2 — FAILED {
+  errorCategory: 'settle-dom-missing',
+  turnsCompleted: 0,
+  elapsedMs: 60025,
+  bodyTextLength: 529,
+  hasTextarea: true,
+  hasErrorBoundary: false
+}
+{"level":"warn","msg":"probe.e2e-full.runFeature.flap-diagnostics","ts":"2026-09-24T00:07:26.462Z","component":"docs-feature-audit-local-d6","slug":"google-adk","featureType":"shared-state-read","error":"waitForTurnComplete: turn 1 did not complete within 57335ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)","diagnostics":{"userMsgCount":2,"apiRequestCount":53,"apiRequests":[{"url":"http://localhost:3103/_next/static/chunks/1bd64_%40copilotkit_shared_dist_ebeaf487._.js","duration":34,"transferSize":30661,"status":200},{"url":"http://localhost:3103/_next/static/chunks/1bd64_%40copilotkit_core_dist_index_mjs_801549c5._.js","duration":41,"transferSize":76436,"status":200},{"url":"http://localhost:3103/_next/static/chunks/1bd64_%40copilotkit_react-core_dist_ff442496._.js","duration":37,"transferSize":2518,"status":200},{"url":"http://localhost:3103/_next/static/chunks/1bd64_%40copilotkit_react-core_dist_copilotkit-CwVE-0JG_mjs_8e4e812f._.js","duration":52,"transferSize":143652,"status":200},{"url":"http://localhost:3103/_next/static/chunks/1bd64_%40copilotkit_a2ui-renderer_dist_78a65142._.js","duration":53,"transferSize":18406,"status":200}],"pageErrors":[],"chatContainerExists":true,"url":"http://localhost:3103/demos/shared-state-read","title":"CopilotKit Showcase","bodyTextSnippet":"Strict mode: no fixture matched\nShow Details\nx\n🕒\n45 min\n5 min\n15 min\n30 min\n45 min\n60+ min\n🏆\nIntermediate\nBeginner\nIntermediate\nAdvanced\nDietary Preferences\nHigh Protein\nLow Carb\nSpicy\nBudget-Friendly\nOne-Pot Meal\nVegetarian\nVegan\nIngredients\n+ Add Ingredient\n🥕\n🌾\nInstructions\n+ Add Step\n1\nImprov","assistantMsgCount":0,"consoleLogs":["[warning] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.","[error] Access to fetch at 'https://cdn.copilotkit.ai/announcements.json' from origin 'http://localhost:3103' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: ","[error] Failed to load resource: net::ERR_FAILED","[warning] [CopilotKit Inspector] Failed to load announcement TypeError: Failed to fetch\n    at g.fetch (<anonymous>:88:31)\n    at WebInspectorElement.fetchAnnouncement (http://localhost:3103/_next/static/chunks","[error] Failed to load resource: the server responded with a status of 404 (Not Found)","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3103' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3103' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[error] [CopilotKit] Agent error: 503 UNAVAILABLE. {'error': {'message': 'Strict mode: no fixture matched', 'code': 503, 'status': 'UNAVAILABLE'}} \n  Code: agent_run_error_event \n  Context: {source: onRunErro","[error] [CopilotKit] Error (agent_run_error_event): Error: 503 UNAVAILABLE. {'error': {'message': 'Strict mode: no fixture matched', 'code': 503, 'status': 'UNAVAILABLE'}}\n    at Object.onRunErrorEvent (http:","[warning] Element cpk-web-inspector scheduled an update (generally because a property was set) after an update completed, causing a new update to be scheduled. This is inefficient and should be avoided unless t","[error] [CopilotKit] Agent error: 503 UNAVAILABLE. {'error': {'message': 'Strict mode: no fixture matched', 'code': 503, 'status': 'UNAVAILABLE'}} \n  Code: agent_run_error_event \n  Context: {source: onRunErro","[error] [CopilotKit] Error (agent_run_error_event): Error: 503 UNAVAILABLE. {'error': {'message': 'Strict mode: no fixture matched', 'code': 503, 'status': 'UNAVAILABLE'}}\n    at Object.onRunErrorEvent (http:"],"requestFailures":["GET https://cdn.copilotkit.ai/announcements.json => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED"]}}
+{"level":"warn","msg":"CVDIAG component=harness-d6 boundary=fixture-match run_id=2a032c24-13e0-41b9-b6e1-47d11e98f7c8 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=miss test_id=d6-google-adk-2a032c24-13e0-41b9-b6e1-47d11e98f7c8 error=waitForTurnComplete: turn 1 did not complete within 57335ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)","ts":"2026-09-24T00:07:26.462Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.feature-retry","ts":"2026-09-24T00:07:26.468Z","component":"docs-feature-audit-local-d6","slug":"google-adk","featureType":"shared-state-read","attempt":1,"errorClass":"conversation-error","errorDesc":"waitForTurnComplete: turn 1 did not complete within 57335ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)","attempt1DurationMs":61257}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=2a032c24-13e0-41b9-b6e1-47d11e98f7c8 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-2a032c24-13e0-41b9-b6e1-47d11e98f7c8 error=","ts":"2026-09-24T00:07:26.470Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3103/demos/shared-state-read',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3103/demos/shared-state-read',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-09-24T00:07:26.761Z","component":"docs-feature-audit-local-d6","slug":"google-adk","featureType":"shared-state-read","hydrated":true,"hydrationMs":73}
+[conversation-runner] starting conversation { totalTurns: 2, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/2 — sending message { inputLength: 40, timeoutMs: 60000 }
+[conversation-runner] turn 1/2 — running preFill hook
+[conversation-runner] turn 1/2 — preFill hook completed
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 40,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 1 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/2 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 60000
+}
+[conversation-runner] turn 1/2 — cold-start banner fast-fail; reloading + re-sending ONCE before fast-fail { errorCategory: 'assertion-failed' }
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 40,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 1,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 1 { userMessageCount: 2, baseline: 1 }
+[conversation-runner] turn 1/2 — FAILED {
+  errorCategory: 'settle-dom-missing',
+  turnsCompleted: 0,
+  elapsedMs: 60087,
+  bodyTextLength: 529,
+  hasTextarea: true,
+  hasErrorBoundary: false
+}
+{"level":"warn","msg":"probe.e2e-full.runFeature.flap-diagnostics","ts":"2026-09-24T00:08:27.151Z","component":"docs-feature-audit-local-d6","slug":"google-adk","featureType":"shared-state-read","error":"waitForTurnComplete: turn 1 did not complete within 57434ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)","diagnostics":{"userMsgCount":2,"apiRequestCount":53,"apiRequests":[{"url":"http://localhost:3103/_next/static/chunks/1bd64_%40copilotkit_shared_dist_ebeaf487._.js","duration":28,"transferSize":30661,"status":200},{"url":"http://localhost:3103/_next/static/chunks/1bd64_%40copilotkit_core_dist_index_mjs_801549c5._.js","duration":35,"transferSize":76436,"status":200},{"url":"http://localhost:3103/_next/static/chunks/1bd64_%40copilotkit_react-core_dist_copilotkit-CwVE-0JG_mjs_8e4e812f._.js","duration":44,"transferSize":143652,"status":200},{"url":"http://localhost:3103/_next/static/chunks/1bd64_%40copilotkit_react-core_dist_ff442496._.js","duration":31,"transferSize":2518,"status":200},{"url":"http://localhost:3103/_next/static/chunks/1bd64_%40copilotkit_a2ui-renderer_dist_78a65142._.js","duration":45,"transferSize":18406,"status":200}],"pageErrors":[],"chatContainerExists":true,"url":"http://localhost:3103/demos/shared-state-read","title":"CopilotKit Showcase","bodyTextSnippet":"Strict mode: no fixture matched\nShow Details\nx\n🕒\n45 min\n5 min\n15 min\n30 min\n45 min\n60+ min\n🏆\nIntermediate\nBeginner\nIntermediate\nAdvanced\nDietary Preferences\nHigh Protein\nLow Carb\nSpicy\nBudget-Friendly\nOne-Pot Meal\nVegetarian\nVegan\nIngredients\n+ Add Ingredient\n🥕\n🌾\nInstructions\n+ Add Step\n1\nImprov","assistantMsgCount":0,"consoleLogs":["[warning] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.","[error] Failed to load resource: the server responded with a status of 404 (Not Found)","[error] Access to fetch at 'https://cdn.copilotkit.ai/announcements.json' from origin 'http://localhost:3103' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: ","[error] Failed to load resource: net::ERR_FAILED","[warning] [CopilotKit Inspector] Failed to load announcement TypeError: Failed to fetch\n    at g.fetch (<anonymous>:88:31)\n    at WebInspectorElement.fetchAnnouncement (http://localhost:3103/_next/static/chunks","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3103' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3103' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[error] [CopilotKit] Agent error: 503 UNAVAILABLE. {'error': {'message': 'Strict mode: no fixture matched', 'code': 503, 'status': 'UNAVAILABLE'}} \n  Code: agent_run_error_event \n  Context: {source: onRunErro","[error] [CopilotKit] Error (agent_run_error_event): Error: 503 UNAVAILABLE. {'error': {'message': 'Strict mode: no fixture matched', 'code': 503, 'status': 'UNAVAILABLE'}}\n    at Object.onRunErrorEvent (http:","[warning] Element cpk-web-inspector scheduled an update (generally because a property was set) after an update completed, causing a new update to be scheduled. This is inefficient and should be avoided unless t","[error] [CopilotKit] Agent error: 503 UNAVAILABLE. {'error': {'message': 'Strict mode: no fixture matched', 'code': 503, 'status': 'UNAVAILABLE'}} \n  Code: agent_run_error_event \n  Context: {source: onRunErro","[error] [CopilotKit] Error (agent_run_error_event): Error: 503 UNAVAILABLE. {'error': {'message': 'Strict mode: no fixture matched', 'code': 503, 'status': 'UNAVAILABLE'}}\n    at Object.onRunErrorEvent (http:"],"requestFailures":["GET https://cdn.copilotkit.ai/announcements.json => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED"]}}
+{"level":"warn","msg":"CVDIAG component=harness-d6 boundary=fixture-match run_id=2a032c24-13e0-41b9-b6e1-47d11e98f7c8 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=miss test_id=d6-google-adk-2a032c24-13e0-41b9-b6e1-47d11e98f7c8 error=waitForTurnComplete: turn 1 did not complete within 57434ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)","ts":"2026-09-24T00:08:27.152Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.feature-retry-result","ts":"2026-09-24T00:08:27.157Z","component":"docs-feature-audit-local-d6","slug":"google-adk","featureType":"shared-state-read","attempt":2,"ok":false,"errorClass":"conversation-error"}
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-09-24T00:08:27.157Z","component":"docs-feature-audit-local-d6","key":"d6:google-adk/shared-state-read"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-09-24T00:08:27.157Z","component":"docs-feature-audit-local-d6","slug":"google-adk","featureType":"shared-state-read","pass":false,"errorDesc":"waitForTurnComplete: turn 1 did not complete within 57434ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)","durationMs":121946}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=2a032c24-13e0-41b9-b6e1-47d11e98f7c8 slug=google-adk header_present=true header_value_prefix=google-adk hop=- status=ok test_id=d6-google-adk-2a032c24-13e0-41b9-b6e1-47d11e98f7c8 error=","ts":"2026-09-24T00:08:27.166Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.service-complete","ts":"2026-09-24T00:08:27.166Z","component":"docs-feature-audit-local-d6","slug":"google-adk","passed":0,"failed":1,"skipped":0,"incapable":0,"total":1,"state":"red","durationMs":122298}
+{"level":"warn","msg":"probe.e2e-full.aggregate-writer-missing","ts":"2026-09-24T00:08:27.166Z","component":"docs-feature-audit-local-d6","key":"d6:google-adk"}
+  [31m✗[0m d6:google-adk [31mred[0m [2m(123.4s)[0m
+    [31mshared-state-read: waitForTurnComplete: turn 1 did not complete within 57434ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)[0m
+{"slug":"google-adk","results":[{"key":"d6:google-adk","state":"red","durationMs":123444,"signal":{"shape":"package","slug":"google-adk","backendUrl":"http://localhost:3103","total":1,"passed":0,"failed":["shared-state-read"],"skipped":[],"failureSummary":"shared-state-read: waitForTurnComplete: turn 1 did not complete within 57434ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)"},"error":"shared-state-read: waitForTurnComplete: turn 1 did not complete within 57434ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)"}]}
+exit=1 finished Thu Sep 24 00:08:28 UTC 2026
