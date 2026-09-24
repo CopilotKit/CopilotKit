@@ -112,7 +112,7 @@ function identity(element: Element): string {
     name: element.getAttribute("name"),
     accessibleName: accessibleName(element),
     href: element.getAttribute("href"),
-    form: form?.getAttribute("aria-label") ?? form?.id ?? "",
+    form: form?.getAttribute("aria-label") ?? form?.getAttribute("id") ?? "",
     record,
     draft,
     version,
@@ -266,12 +266,10 @@ export class BrowserPageMap {
     )
       control.required = element.required;
     if (element instanceof HTMLSelectElement)
-      control.options = [...element.options]
-        .slice(0, 40)
-        .map((option) => ({
-          value: option.value,
-          label: option.label.slice(0, 120),
-        }));
+      control.options = [...element.options].slice(0, 40).map((option) => ({
+        value: option.value,
+        label: option.label.slice(0, 120),
+      }));
     return control;
   }
 }
