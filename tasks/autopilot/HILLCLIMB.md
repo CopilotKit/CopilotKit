@@ -18,38 +18,38 @@ Credential readiness (names and presence only): `CPK_INTELLIGENCE_API_KEY` provi
 
 ## Current evidence
 
-- Required gates with current passing evidence: **2 / 18**.
+- Required gates with current passing evidence: **3 / 18**.
 - Unresolved critical failures: **none observed in the tested path; discovered-form and recovery trust controls remain unimplemented**.
-- Live trials passed / attempted: **28 / 42** (T001 app failure; T002/T006/T013 harness failures; T011–T012 invalid tool names; T014 false positive; T016–T018 navigation failures; T023 invalid navigation arguments; T025 duplicate chat approval; T028–T029 narrow test oracle; all other listed trials passed). Manual browser trials are recorded separately.
+- Live trials passed / attempted: **34 / 48** (T001 app failure; T002/T006/T013 harness failures; T011–T012 invalid tool names; T014 false positive; T016–T018 navigation failures; T023 invalid navigation arguments; T025 duplicate chat approval; T028–T029 narrow test oracle; all other listed trials passed). Manual browser trials are recorded separately.
 - Last known working checkpoint: **real declared cancel action through one existing human confirmation, SQL version change or decline, and durable Intelligence tool result**.
 - Current highest-risk unknown: **discovered form fill/submit before approval**, plus recovery and full negative approval races. The earlier client-navigation stall remains unexplained.
 - Next experiment: **build an approved bounded form batch through discovered controls**.
-- Overall state: **A01/A03 proven on committed source; live read/navigation and declared cancellation now work on uncommitted source, with post-commit verification outstanding**.
+- Overall state: **A01/A03/A07 proven on committed source `3ce1a874ff`; live read/navigation are partial A04 evidence; discovered form effects remain**.
 
 Allowed gate states: not run, failing, passing, stale, externally blocked. Partial work belongs in the notes, not in the passing count. Passing needs evidence on the current relevant code. Do not change the denominator or delete failures to improve the score.
 
 ## Scoreboard
 
-| Gate | Requirement                                                            | State   | Tested commit | Evidence / failure / next check                                                                                                                                                     |
-| ---- | ---------------------------------------------------------------------- | ------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A01  | Real packages, BuiltInAgent, model and Intelligence                    | passing | `4975ac8c7b`  | Nx app/package build, public workspace imports, `/info` Intelligence; T010 repeated browser tool call and assistant continuation with four messages after reload.                   |
-| A02  | Runtime activation and UI agent selection                              | not run | —             | Runtime `/info` advertises local activation; Core unit tests cover default/selected agents. Full off/on live execution checks remain.                                               |
-| A03  | Manual SaaS and persistent SQL                                         | passing | `4975ac8c7b`  | Post-commit 3/3 browser suite: manual create/edit/cancel and users with SQL assertions, role/replay/stale checks, restart persistence. Client navigation stall remains A04/F11.     |
-| A04  | Page explanation and navigation                                        | not run | —             | T015 live page read; T019 agent navigated Dashboard→Users→back with stored results; manual guard refusal passed. Specific-order list/detail and live refusal remain.                |
-| A05  | Create through discovered controls                                     | not run | —             | —                                                                                                                                                                                   |
-| A06  | Edit details and status through discovered controls                    | not run | —             | —                                                                                                                                                                                   |
-| A07  | Cancel through declared action, reused approval                        | not run | —             | Four fresh approved cancellations used one existing confirmation and changed one SQL row; three declines and three dispatched cases left SQL unchanged. Post-commit repeat remains. |
-| A08  | User management and server-enforced roles                              | not run | —             | —                                                                                                                                                                                   |
-| A09  | Bound approval, stale identity and replay rejection                    | not run | —             | —                                                                                                                                                                                   |
-| A10  | Alternate tool entry points cannot bypass checks                       | not run | —             | Core named/wildcard/runTool disabled tests and WebMCP exclusion; an unbound synthetic cancel click had zero SQL effect. Live alternate-call order checks remain.                    |
-| A11  | Manual takeover and cancellation                                       | not run | —             | —                                                                                                                                                                                   |
-| A12  | Request budget and concurrent agents/tabs                              | not run | —             | —                                                                                                                                                                                   |
-| A13  | Private data, prompt injection and tenant isolation                    | not run | —             | T015 stored browser result excludes synthetic private regions and a nested private label; model-input, Inspector, prompt injection, tenant checks remain.                           |
-| A14  | Reload and uncertain-effect recovery                                   | not run | —             | —                                                                                                                                                                                   |
-| A15  | Failure handling and manual fallback                                   | not run | —             | —                                                                                                                                                                                   |
-| A16  | Themed controls, generated card and Inspector                          | not run | —             | —                                                                                                                                                                                   |
-| A17  | Minimal integration, second form, and isolated packed-package consumer | not run | —             | —                                                                                                                                                                                   |
-| A18  | Reproducible live handoff                                              | not run | —             | —                                                                                                                                                                                   |
+| Gate | Requirement                                                            | State   | Tested commit | Evidence / failure / next check                                                                                                                                                                    |
+| ---- | ---------------------------------------------------------------------- | ------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A01  | Real packages, BuiltInAgent, model and Intelligence                    | passing | `3ce1a874ff`  | Post-commit production build and 11/11 browser suite; T048 live frontend tool call, continuation, durable thread.                                                                                  |
+| A02  | Runtime activation and UI agent selection                              | not run | —             | Runtime `/info` advertises local activation; Core unit tests cover default/selected agents. Full off/on live execution checks remain.                                                              |
+| A03  | Manual SaaS and persistent SQL                                         | passing | `3ce1a874ff`  | Post-commit manual order/user create/edit/cancel with SQL/replay/role checks, plus separate restart test in 11/11 browser suite.                                                                   |
+| A04  | Page explanation and navigation                                        | not run | —             | T015 live page read; T019 agent navigated Dashboard→Users→back with stored results; manual guard refusal passed. Specific-order list/detail and live refusal remain.                               |
+| A05  | Create through discovered controls                                     | not run | —             | —                                                                                                                                                                                                  |
+| A06  | Edit details and status through discovered controls                    | not run | —             | —                                                                                                                                                                                                  |
+| A07  | Cancel through declared action, reused approval                        | passing | `3ce1a874ff`  | T043 approved through one app confirmation, SQL booked v1→cancelled v2 and stored result; T044 declined; T045 dispatched order had no control/effect. Earlier fresh approvals T024/T026/T031/T037. |
+| A08  | User management and server-enforced roles                              | not run | —             | —                                                                                                                                                                                                  |
+| A09  | Bound approval, stale identity and replay rejection                    | not run | —             | —                                                                                                                                                                                                  |
+| A10  | Alternate tool entry points cannot bypass checks                       | not run | —             | Core named/wildcard/runTool disabled tests and WebMCP exclusion; an unbound synthetic cancel click had zero SQL effect. Live alternate-call order checks remain.                                   |
+| A11  | Manual takeover and cancellation                                       | not run | —             | —                                                                                                                                                                                                  |
+| A12  | Request budget and concurrent agents/tabs                              | not run | —             | —                                                                                                                                                                                                  |
+| A13  | Private data, prompt injection and tenant isolation                    | not run | —             | T015 stored browser result excludes synthetic private regions and a nested private label; model-input, Inspector, prompt injection, tenant checks remain.                                          |
+| A14  | Reload and uncertain-effect recovery                                   | not run | —             | —                                                                                                                                                                                                  |
+| A15  | Failure handling and manual fallback                                   | not run | —             | —                                                                                                                                                                                                  |
+| A16  | Themed controls, generated card and Inspector                          | not run | —             | —                                                                                                                                                                                                  |
+| A17  | Minimal integration, second form, and isolated packed-package consumer | not run | —             | —                                                                                                                                                                                                  |
+| A18  | Reproducible live handoff                                              | not run | —             | —                                                                                                                                                                                                  |
 
 ## Per-iteration routine
 
@@ -236,6 +236,23 @@ Append an entry for every meaningful iteration. Do not overwrite old results.
 - Friction created or resolved: F19–F22. Stop-race fallback was identified in review and closed in code plus unit and browser tests before commit.
 - Next step and why: commit this reviewable vertical path, verify it after commit, then implement a bounded discovered form batch with approval before the first input event.
 
+### Iteration 011 — committed cancellation checkpoint
+
+- Date, branch, commit, environment: 2026-09-24, `product-eng-sync-action-items`, `3ce1a874ff`, production Next app rebuilt after commit.
+- Gate and current failure: A01/A03/A07 needed evidence tied to committed source after formatting and package-hook checks.
+- Hypothesis: committed Core approval and the normal app confirmation still produce one SQL cancellation only after the human accepts, while decline and dispatched cases remain unchanged; other app flows remain intact.
+- Disproof condition: any live thread loses its result, the app emits more than one confirmation, an unbound synthetic click mutates SQL, or the manual/restart checks regress.
+- Smallest experiment: Nx production build, start, and complete browser suite against the committed app.
+- Change made: no source change; recorded the durable checkpoint.
+- Exact commands and exit codes: `git commit`/`git push` (0; package hook 24 projects/30 dependent tasks passed), Nx production build (0), Nx browser suite (0: 11/11 in 49.4 s).
+- Actual browser behavior and SQL delta: T043 approved one booked v1 order into cancelled v2; T044 declined and stayed booked v1; T045 in-transit order stayed unchanged. Unbound synthetic click left its booked order unchanged even after native dialog acceptance; subsequent trusted manual click cancelled it. Manual CRUD/roles/replay/restart and navigation/read/connection checks passed.
+- Live model/Intelligence used? Yes, T043–T048 each had a fresh thread. No mock substituted for the browser action.
+- Evidence paths / sanitized thread and run IDs: `.context/autopilot-evidence/approval-postcommit-{build,browser}.log`; timestamped T043–T048 JSON paths in the ledger.
+- Result: A01/A03/A07 passing on `3ce1a874ff`; 3/18 total. A04 and A09/A10 still have partial evidence only.
+- Regressions or invalidated gates: none observed in this suite.
+- Friction created or resolved: F19–F22 remain resolved on committed source.
+- Next step and why: implement discovered form creation with approval before any input event, the highest-risk remaining product path.
+
 ## Live trial ledger
 
 One row per attempt, including failures and retries. Distinguish a new independently seeded trial from an automatic continuation of one request.
@@ -287,6 +304,13 @@ One row per attempt, including failures and retries. Distinguish a new independe
 | T040 | A04: post-guard Users/back | uncommitted on `f25514b412` / gpt-5.2 / Chromium | `7b40bf10-9f70-49d6-b017-49b4d09872de` | none | none | passed | `.context/autopilot-evidence/iteration-009/1790292815553/navigation.json` |
 | T041 | A04/A13: post-guard filtered read | uncommitted on `f25514b412` / gpt-5.2 / Chromium | `2041de5c-60f4-46e5-aca2-7338f51e0a16` | none | none | passed | `.context/autopilot-evidence/iteration-008/1790292820683/page-read.json` |
 | T042 | A01: post-guard connection | uncommitted on `f25514b412` / gpt-5.2 / Chromium | `e260c3d4-449f-48cb-aac5-750ee8f5603c` | none | none | passed, with manual/restart tests | `.context/autopilot-evidence/iteration-002/1790292824856/connection.json` |
+
+| T043 | A07: committed approval repeat | `3ce1a874ff` / gpt-5.2 / Chromium | `5dbc9795-1959-4357-8cf4-a5073b9d9dad` | one cancellation | booked v1 → cancelled v2 | passed in 7.7 s, one app dialog and stored completed result | `.context/autopilot-evidence/iteration-010/1790293007220/cancel.json` |
+| T044 | A07: committed decline repeat | `3ce1a874ff` / gpt-5.2 / Chromium | `3e065cb0-425d-469d-b5bf-7fbdc15ceae2` | none | booked v1 unchanged | passed in 7.7 s, stored denied result | `.context/autopilot-evidence/iteration-010/1790293014947/decline.json` |
+| T045 | A07: committed dispatched refusal | `3ce1a874ff` / gpt-5.2 / Chromium | `abfd90b3-ee8f-4d6f-a55e-7c8ef894d08c` | none | in_transit v1 unchanged | passed in 11.9 s, no cancel control/dialog | `.context/autopilot-evidence/iteration-010/1790293022682/dispatched.json` |
+| T046 | A04: committed Users/back regression | `3ce1a874ff` / gpt-5.2 / Chromium | `1f7b2ba0-456e-45dd-9012-12fa8da04aff` | none | none | passed | `.context/autopilot-evidence/iteration-009/1790293034624/navigation.json` |
+| T047 | A04/A13: committed filtered page read | `3ce1a874ff` / gpt-5.2 / Chromium | `d4469b9c-64ff-45b8-a26b-260dc95f699b` | none | none | passed | `.context/autopilot-evidence/iteration-008/1790293042215/page-read.json` |
+| T048 | A01: committed connection regression | `3ce1a874ff` / gpt-5.2 / Chromium | `5c7a97e2-fb7f-4db2-a91b-b433053479c3` | none | none | passed with manual and restart tests | `.context/autopilot-evidence/iteration-002/1790293048498/connection.json` |
 
 Final sample: three fresh-thread trials each for A04, A05, A06, and A07; both A06 edit variants must be covered. Record every attempt. Add browser smoke and negative enforcement cases separately. Never report the small sample as a production reliability percentage.
 
