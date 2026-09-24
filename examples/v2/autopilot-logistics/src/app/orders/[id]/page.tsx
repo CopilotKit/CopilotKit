@@ -42,6 +42,8 @@ export default async function OrderPage({
         key={`cancel-${order.version}`}
         order={{ ...order }}
         role={user.role}
+        userId={user.id}
+        organizationId={user.organizationId}
       />
     </>
   );

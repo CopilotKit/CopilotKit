@@ -3,6 +3,7 @@
 import {
   CopilotChat,
   CopilotKitProvider,
+  useCopilotKit,
   useFrontendTool,
 } from "@copilotkit/react-core/v2";
 import { BrowserNavigator, BrowserPageMap } from "@copilotkit/core";
@@ -11,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo } from "react";
 import { z } from "zod";
 import type { SessionUser } from "@/lib/db";
+import { orderApprovalGate } from "@/lib/autopilot-approval";
 
 function hasUnsavedOrderForm(): boolean {
   return [
@@ -41,8 +43,9 @@ function mayLeave(): boolean {
   );
 }
 
-function BrowserProbe() {
+function BrowserProbe({ user }: { user: SessionUser }) {
   const router = useRouter();
+  const { copilotkit } = useCopilotKit();
   const pageMap = useMemo(() => new BrowserPageMap(), []);
   const navigator = useMemo(
     () =>
@@ -77,6 +80,10 @@ function BrowserProbe() {
     document.addEventListener("click", onLinkClick, true);
     return () => document.removeEventListener("click", onLinkClick, true);
   }, []);
+  useEffect(
+    () => () => orderApprovalGate.cancelAwaiting("Assistant closed"),
+    [],
+  );
   useFrontendTool({
     name: "describeVisiblePage",
     description:
@@ -108,25 +115,33 @@ function BrowserProbe() {
     name: "autopilot_navigate",
     autopilot: true,
     description:
-      "Navigate to a discovered link reference or a Northstar section. Unsaved form changes require the user's permission. A refused or uncertain result is not arrival.",
-    parameters: z.object({
-      ref: z.string().optional(),
-      section: z.enum(["dashboard", "orders", "users"]).optional(),
-    }),
-    handler: async ({ ref, section }) => {
+      "Navigate to one target: dashboard, orders, users, or a discovered link reference such as c3 from autopilot_readPage. Pass only {target: string}. Unsaved changes require the user's permission. Refused or uncertain is not arrival.",
+    parameters: z.object({ target: z.string().min(1).max(40) }),
+    handler: async ({ target }) => {
       const path =
-        section === "dashboard"
+        target === "dashboard"
           ? "/"
-          : section === "orders"
+          : target === "orders"
             ? "/orders"
-            : section === "users"
+            : target === "users"
               ? "/users"
               : undefined;
-      const result = await navigator.to({ ref, path });
-      return {
-        ...result,
-        page: result.status === "arrived" ? pageMap.read() : undefined,
-      };
+      try {
+        const result = await navigator.to({
+          ref: path ? undefined : target,
+          path,
+        });
+        return {
+          ...result,
+          page: result.status === "arrived" ? pageMap.read() : undefined,
+        };
+      } catch (error) {
+        return {
+          status: "refused",
+          path: window.location.pathname,
+          reason: error instanceof Error ? error.message : "Navigation failed",
+        };
+      }
     },
   });
   useFrontendTool({
@@ -143,6 +158,92 @@ function BrowserProbe() {
       };
     },
   });
+  useFrontendTool({
+    name: "autopilot_cancelOrder",
+    autopilot: true,
+    description:
+      "Cancel the order shown on its detail page through the existing Cancel order button. Requires the human to accept the app's confirmation. Use a button ref from autopilot_readPage; report the returned outcome, not an assumed success.",
+    parameters: z.object({ ref: z.string().min(1).max(30) }),
+    handler: async ({ ref }, context) => {
+      try {
+        if (!context.agent?.agentId || !context.agent.threadId)
+          throw new Error("An active agent thread is required");
+        const element = pageMap.resolve(ref);
+        if (
+          !(element instanceof HTMLButtonElement) ||
+          element.disabled ||
+          element.textContent?.trim() !== "Cancel order"
+        )
+          throw new Error("Select the current Cancel order button");
+        const container = element.closest("[data-autopilot-record-id]");
+        const recordId =
+          container?.getAttribute("data-autopilot-record-id") ?? "";
+        const version = Number(
+          container?.getAttribute("data-autopilot-record-version"),
+        );
+        if (!recordId || !Number.isInteger(version))
+          throw new Error("Order identity is unavailable");
+        const target = {
+          userId: user.id,
+          organizationId: user.organizationId,
+          recordId,
+          version,
+          action: "cancel",
+          path: window.location.pathname,
+        };
+        const userMessage = [...context.agent.messages]
+          .toReversed()
+          .find((message) => message.role === "user");
+        const operation = orderApprovalGate.begin(
+          {
+            target,
+            tool: "autopilot_cancelOrder",
+            handlerVersion: "1",
+            normalizedArguments: JSON.stringify({ ref }),
+            agentId: context.agent.agentId,
+            threadId: context.agent.threadId,
+            requestId: userMessage?.id ?? context.toolCall.id,
+            toolCallId: context.toolCall.id,
+            controlRef: ref,
+          },
+          async () => {
+            if (
+              context.signal?.aborted ||
+              !copilotkit.isAutopilotEnabledForAgent(context.agent!.agentId!)
+            )
+              return false;
+            if (
+              pageMap.resolve(ref) !== element ||
+              window.location.pathname !== target.path
+            )
+              return false;
+            const session = await fetch("/api/session", { cache: "no-store" });
+            if (!session.ok) return false;
+            const current = (await session.json()) as {
+              userId: string;
+              organizationId: string;
+              role: string;
+            };
+            return (
+              current.userId === user.id &&
+              current.organizationId === user.organizationId &&
+              current.role !== "viewer"
+            );
+          },
+          context.signal,
+        );
+        element.click();
+        return await operation.result;
+      } catch (error) {
+        orderApprovalGate.cancelAwaiting("Action could not start");
+        return {
+          status: "failed",
+          reason:
+            error instanceof Error ? error.message : "Cancellation failed",
+        };
+      }
+    },
+  });
   return null;
 }
 
@@ -155,6 +256,7 @@ export function AssistantShell({
 }) {
   const router = useRouter();
   async function signOut() {
+    orderApprovalGate.cancelAwaiting("Signed out");
     const response = await fetch("/api/session", { method: "DELETE" });
     if (response.ok) {
       router.push("/sign-in");
@@ -169,7 +271,7 @@ export function AssistantShell({
       autopilot={{ agents: ["logistics"] }}
       enableInspector
     >
-      <BrowserProbe />
+      <BrowserProbe user={user} />
       <div className="app-shell">
         <aside className="navigation" data-copilot-private>
           <div className="brand">

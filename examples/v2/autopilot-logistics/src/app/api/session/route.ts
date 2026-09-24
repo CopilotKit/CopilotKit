@@ -1,8 +1,19 @@
 import { NextResponse } from "next/server";
 import { assertSameOrigin, SESSION_COOKIE, tokenFromRequest } from "@/lib/auth";
-import { createSession, deleteSession } from "@/lib/db";
+import { createSession, deleteSession, sessionUser } from "@/lib/db";
 
 export const runtime = "nodejs";
+
+export async function GET(request: Request) {
+  const user = sessionUser(tokenFromRequest(request));
+  if (!user)
+    return NextResponse.json({ error: "Session required" }, { status: 401 });
+  return NextResponse.json({
+    userId: user.id,
+    organizationId: user.organizationId,
+    role: user.role,
+  });
+}
 
 export async function POST(request: Request) {
   try {

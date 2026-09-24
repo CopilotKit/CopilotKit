@@ -2,8 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, MouseEvent } from "react";
 import type { Order, Role } from "@/lib/db";
+import { orderApprovalGate } from "@/lib/autopilot-approval";
 
 type Operator = { id: string; display_name: string; active: number };
 
@@ -170,7 +171,17 @@ export function OrderForm({
   );
 }
 
-export function CancelOrder({ order, role }: { order: Order; role: Role }) {
+export function CancelOrder({
+  order,
+  role,
+  userId,
+  organizationId,
+}: {
+  order: Order;
+  role: Role;
+  userId: string;
+  organizationId: string;
+}) {
   const router = useRouter();
   const [key, setKey] = useState(() => crypto.randomUUID());
   const [error, setError] = useState("");
@@ -178,25 +189,65 @@ export function CancelOrder({ order, role }: { order: Order; role: Role }) {
   if (role === "viewer" || !["draft", "booked"].includes(order.status))
     return null;
 
-  async function cancel() {
-    if (!window.confirm(`Cancel ${order.reference} for ${order.customer}?`))
+  async function cancel(event: MouseEvent<HTMLButtonElement>) {
+    const trustedManualEvent = event.nativeEvent.isTrusted;
+    const approved = window.confirm(
+      `Cancel ${order.reference} for ${order.customer}?`,
+    );
+    const decision = await orderApprovalGate.decideFromApp(
+      {
+        userId,
+        organizationId,
+        recordId: order.id,
+        version: order.version,
+        action: "cancel",
+        path: window.location.pathname,
+      },
+      approved,
+      trustedManualEvent,
+    );
+    if (!approved || (decision.mode === "autopilot" && !decision.accepted))
       return;
+    const operationId =
+      decision.mode === "autopilot" ? decision.operationId : undefined;
     setPending(true);
     setError("");
     const data = new FormData();
     data.set("action", "cancel");
     data.set("version", String(order.version));
     data.set("operationKey", key);
+    let serverRejected = false;
     try {
       const response = await fetch(`/api/orders/${order.id}`, {
         method: "POST",
         body: data,
       });
-      const result = (await response.json()) as { error?: string };
-      if (!response.ok) throw new Error(result.error ?? "Cancellation failed");
+      const result = (await response.json()) as {
+        error?: string;
+        version?: number;
+      };
+      if (!response.ok) {
+        serverRejected = true;
+        throw new Error(result.error ?? "Cancellation failed");
+      }
+      if (operationId)
+        orderApprovalGate.finish(operationId, {
+          status: "completed",
+          receipt: {
+            recordId: order.id,
+            version: result.version ?? order.version + 1,
+            status: "cancelled",
+          },
+        });
       setKey(crypto.randomUUID());
       router.refresh();
     } catch (cause) {
+      if (operationId)
+        orderApprovalGate.finish(operationId, {
+          status: serverRejected ? "failed" : "uncertain",
+          reason:
+            cause instanceof Error ? cause.message : "Cancellation failed",
+        });
       setError(cause instanceof Error ? cause.message : "Cancellation failed");
     } finally {
       setPending(false);
@@ -204,7 +255,11 @@ export function CancelOrder({ order, role }: { order: Order; role: Role }) {
   }
 
   return (
-    <div className="danger-action">
+    <div
+      className="danger-action"
+      data-autopilot-record-id={order.id}
+      data-autopilot-record-version={order.version}
+    >
       <button
         className="button danger"
         type="button"
