@@ -1,12 +1,15 @@
 "use client";
 
 import {
+  createContext,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
   useState,
   useSyncExternalStore,
 } from "react";
+import type { ReactNode } from "react";
 import {
   defineToolCallRenderer,
   ToolCallStatus,
@@ -15,6 +18,10 @@ import type { ReactToolCallRenderer } from "@copilotkit/react-core/v2";
 import { Check, ChevronRight, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSkin } from "@/shell/skin-provider";
+import {
+  createToolActivityRecencyStore,
+  type ToolActivityRecencyStore,
+} from "./tool-activity-recency";
 
 /**
  * Tool calls that are plumbing, not activity. The AG-UI state-delta tool in
@@ -78,100 +85,52 @@ function resolveToolLabel(
 const VISIBLE_TOOL_ACTIVITY = 2;
 
 /**
- * Ordered ids of the tool activity currently mounted, oldest first.
+ * Recency belongs to one durable thread, not to component mount order.
  *
- * ## Why a shared registry and not something simpler
- *
- * CopilotKit renders ONE component per tool call and owns the container, so
- * there is no parent here that can see the list and slice it. Two simpler
- * options are both dead ends, measured on a real run:
- *
- *   - CSS (`:nth-last-child`) needs the lines to be siblings. They are not —
- *     ten lines sat under ten different parents, one wrapper each.
- *   - Mount-order counters drift, because a `MESSAGES_SNAPSHOT` at the end of a
- *     run remounts every line at once.
- *
- * So each line registers its AG-UI `toolCallId` — stable, unique per call, and
- * assigned in emission order — and reads back whether it is still among the
- * last few. `useSyncExternalStore` is what makes the OLDER lines re-render (and
- * so disappear) when a NEW one arrives; a plain module variable would leave
- * them on screen until something else happened to re-render them.
+ * The provider is keyed by thread at the layout boundary. Within that thread,
+ * each toolCallId keeps the position established by its first render. A row may
+ * unmount/remount under virtualization without becoming "new" again.
  */
-const activityOrder: string[] = [];
-const activityListeners = new Set<() => void>();
+const ToolActivityRecencyContext =
+  createContext<ToolActivityRecencyStore | null>(null);
 
-const subscribeActivity = (onChange: () => void) => {
-  activityListeners.add(onChange);
-  return () => {
-    activityListeners.delete(onChange);
-  };
-};
+export function ToolActivityProvider({ children }: { children: ReactNode }) {
+  const store = useMemo(
+    () => createToolActivityRecencyStore(VISIBLE_TOOL_ACTIVITY),
+    [],
+  );
 
-const notifyActivityChanged = () => {
-  for (const listener of activityListeners) listener();
-};
-
-/**
- * Whether this line is recent enough to still be shown.
- *
- * An id that is not registered YET counts as visible: registration happens in
- * an effect, so a line is not in the list during its own first render, and
- * treating that as hidden would make every new line appear one frame late.
- *
- * Unregistered-means-visible is only safe because registration is a LAYOUT
- * effect. Read this together with `useIsRecentToolActivity` — the two halves
- * are one mechanism, and splitting them is what caused the flash.
- */
-const isRecentActivity = (toolCallId: string): boolean => {
-  const index = activityOrder.indexOf(toolCallId);
-  return index === -1 || index >= activityOrder.length - VISIBLE_TOOL_ACTIVITY;
-};
+  return (
+    <ToolActivityRecencyContext.Provider value={store}>
+      {children}
+    </ToolActivityRecencyContext.Provider>
+  );
+}
 
 /**
  * `useLayoutEffect`, except on the server where React warns that it does
- * nothing. Registration MUST be a layout effect (see below), and this component
- * is server-rendered as part of the chat, so the plain hook would log a warning
- * on every render pass in dev.
+ * nothing. Registration remains a layout effect so adding a genuinely new tool
+ * can evict the old row before the browser paints an intermediate 3-row frame.
  */
 const useIsomorphicLayoutEffect =
   typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 function useIsRecentToolActivity(toolCallId: string, track: boolean): boolean {
-  /**
-   * LAYOUT effect, not a passive one, and this is load-bearing.
-   *
-   * A new line renders visible before it is registered (it cannot know its own
-   * position yet), and registering is what evicts the oldest line. With a
-   * passive `useEffect` those two things land in different frames, so the
-   * browser paints the in-between state: the list grows to three rows and then
-   * snaps back to two. That is the flash — one extra row for one frame on every
-   * single tool call, and again when the end-of-run `MESSAGES_SNAPSHOT`
-   * remounts every line at once.
-   *
-   * React flushes state updates scheduled inside a layout effect before the
-   * browser paints, so the eviction happens in the SAME frame as the insertion:
-   * the painted row count goes 2 → 2 and never through 3.
-   */
+  const store = useContext(ToolActivityRecencyContext);
+  if (!store) {
+    throw new Error("Tool activity renderers require ToolActivityProvider");
+  }
+
   useIsomorphicLayoutEffect(() => {
-    // Internal tools must not take a slot: two filtered `agui` calls would
-    // otherwise fill the window and blank out the real activity behind them.
-    if (!track) return;
-    if (!activityOrder.includes(toolCallId)) {
-      activityOrder.push(toolCallId);
-      notifyActivityChanged();
-    }
-    return () => {
-      const index = activityOrder.indexOf(toolCallId);
-      if (index === -1) return;
-      activityOrder.splice(index, 1);
-      notifyActivityChanged();
-    };
-  }, [toolCallId, track]);
+    // Internal tools must not take a slot: two filtered protocol calls would
+    // otherwise evict the real activity behind them.
+    if (track) store.register(toolCallId);
+  }, [store, toolCallId, track]);
 
   return useSyncExternalStore(
-    subscribeActivity,
-    () => isRecentActivity(toolCallId),
-    // Server render: nothing has registered, so every line is "newest".
+    store.subscribe,
+    () => !track || store.isRecent(toolCallId),
+    // Server render: registration has not run yet, so the row starts visible.
     () => true,
   );
 }
