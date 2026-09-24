@@ -1,0 +1,243 @@
+---
+title: Monitor self-hosted Intelligence with OpenTelemetry
+nav_title: Monitor with OpenTelemetry
+description: Send traces, metrics, product events, and logs from a self-hosted CopilotKit Intelligence deployment to your own OpenTelemetry collector, and read installation health from them.
+icon: "lucide/Activity"
+doc_type: how-to
+---
+
+## Overview
+
+A self-hosted CopilotKit Intelligence deployment can send its telemetry to an OpenTelemetry collector that you run. From there, you forward it to the tracing and logging tools that your team already uses. This page lists each stream, what it contains, how to turn it on, and which signals show that the installation is healthy.
+
+Intelligence does not install a collector. The streams on this page go only to the endpoints that you configure, and each stream is off until you configure one.
+
+## When should I use this?
+
+- You self-host Intelligence with the [Helm chart](/intelligence/self-hosting) or the [ECS bundle](/intelligence/self-hosting-ecs).
+- You want request traces, errors, and logs from Intelligence in your own observability tools.
+- You want to see whether a new installation or an upgrade is healthy.
+
+Cloud-hosted Intelligence does not export these streams to customers.
+
+## Prerequisites
+
+- A running self-hosted Intelligence deployment.
+- An OpenTelemetry Collector (the `otel/opentelemetry-collector-contrib` distribution) that the Intelligence services can reach over HTTP. Intelligence sends OTLP over HTTP only. It does not use gRPC.
+- For pod logs on Kubernetes: a collector that runs as a DaemonSet and can read `/var/log/pods` on each node.
+
+## The streams
+
+| Stream | Signal | Sent by | Turned on by | Status |
+| --- | --- | --- | --- | --- |
+| Backend traces | OTLP traces | app API, realtime gateway, Automatic Learning scheduler | `observability.tracing` (Helm) or `otlpEndpoint` (ECS) | Stable |
+| Scheduler metrics | OTLP metrics | Automatic Learning scheduler | `observability.tracing` (Helm) | Stable |
+| Product events | OTLP logs | app API, Automatic Learning scheduler and reconciler | `appApi.channelTelemetry` (Helm) | Preview |
+| Application logs | JSON lines on stdout | every service | `config.logLevel` (Helm) | Stable |
+
+Application logs are not sent over OTLP. Your collector or log agent reads them from the container output.
+
+<Callout type="info" title="Product events are a preview">
+  The names and attributes of the `eip.*` product events can change between releases. Build dashboards on traces and logs if you need a stable contract.
+</Callout>
+
+## Send traces and metrics
+
+### Helm
+
+Set a full OTLP/HTTP traces endpoint. The path must end in `/v1/traces`.
+
+```yaml
+observability:
+  tracing:
+    enabled: true
+    endpoint: http://otel-collector.observability.svc:4318/v1/traces
+    environment: production
+```
+
+- `environment` is required when tracing is on. Use 1 to 64 letters, numbers, dots, underscores, slashes, or hyphens.
+- The chart sends traces from the app API, the realtime gateway, and the Automatic Learning scheduler to this endpoint.
+- The scheduler also sends its metrics to the same collector, at the same base URL with `/v1/metrics`.
+- `helm install` and `helm upgrade` fail if the endpoint does not end in `/v1/traces`.
+
+### ECS
+
+Set `otlpEndpoint` to the base URL of your collector, without a path.
+
+```json
+{
+  "otlpEndpoint": "https://otel-collector.example.internal:4318"
+}
+```
+
+- The release stack sends traces from the app API and the realtime gateway to `<otlpEndpoint>/v1/traces`.
+- `cpki-ecs deploy` removes a trailing `/` or `/v1/traces`, so a value in that form also works.
+- The ECS bundle sets `deployment.environment.name` to `ecs`. You cannot change it.
+- The collector must be reachable from the private subnets of the deployment.
+
+### What every span carries
+
+Each span has these resource attributes:
+
+| Attribute | Value |
+| --- | --- |
+| `service.name` | `app-api`, `realtime-gateway`, or `learning-scheduler` |
+| `service.version` | The image tag of the release |
+| `deployment.environment.name` | `observability.tracing.environment` on Helm, `ecs` on ECS |
+
+The services trace inbound HTTP and WebSocket upgrades, outbound HTTP, PostgreSQL, and Redis commands that run inside a request. Useful span attributes include:
+
+- `http.request.method`, `http.route`, and `http.response.status_code`
+- `db.operation.name` on PostgreSQL spans
+- `cpki.organization.id` and `cpki.project.id` on requests from a known project
+- `provider.effect` spans on the realtime gateway for Slack and Microsoft Teams calls, with `cpki.provider.adapter` and `cpki.provider.outcome`
+- `replay.restore` spans on the realtime gateway, with `thread_id`, `organization_id`, and `project_id`
+
+The services remove these attributes before a span leaves the process:
+
+- `db.statement` and `db.query.text` (SQL text)
+- `http.url`, `url.full`, `url.path`, and `url.query` (full URLs, paths, and query strings)
+- every `http.request.header.*` and `http.response.header.*` attribute
+
+Health probe requests do not create spans.
+
+<Callout type="warn" title="Spans still identify clients">
+  Server spans keep `client.address` (the client IP address) and `user_agent.original`. If your policy does not allow IP addresses in your tracing tool, delete them in the collector.
+</Callout>
+
+## Send product events
+
+Product events are OTLP log records that describe product actions, for example a thread that was created or a skill that was approved. Use them to build your own usage reports.
+
+```yaml
+appApi:
+  channelTelemetry:
+    endpoint: http://otel-collector.observability.svc:4318/v1/logs
+    tokenSecret:
+      name: otel-collector-token
+      key: token
+```
+
+- The endpoint must end in `/v1/logs`.
+- Set `tokenSecret` or `headers`. The chart fails if you set neither.
+- The app API sends the token as `Authorization: Bearer <token>`.
+- To send other headers, set `headers` to a literal `key=value,key=value` string. If both are set, the token wins for `Authorization`.
+- This stream has no ECS equivalent.
+
+| Event | Sent when |
+| --- | --- |
+| `eip.thread.created` | A thread is created |
+| `eip.thread.run_requested` | An agent run is requested on a thread |
+| `eip.channel.created` | A Channel is created |
+| `eip.channel.attached` | A Channel is connected to Slack or Microsoft Teams |
+| `eip.channel.inbound` | A Channel receives a new message event |
+| `eip.learning.run_started` | An Automatic Learning run starts |
+| `eip.learning.run_completed` | An Automatic Learning run ends |
+| `eip.learning.skill_approved` | A reviewer approves a skill |
+| `eip.learning.skill_pulled` | A runtime pulls a skill |
+
+Every attribute name starts with `copilotkit.`. Each event has an `event_id` in the form `<event>:<organization>:<project>:<resource>`, so you can remove duplicates after a retry.
+
+Product events never contain message content, raw provider payloads, credentials, Channel names, thread names, skill text, or insight text. They do contain identifiers: organization, project, thread, run, and API key IDs, and the ID of the signed-in user. `eip.channel.created` and `eip.channel.attached` can also carry `copilotkit.principal_email`, the email address of the user who made the change.
+
+## Collect application logs
+
+Every service writes one JSON object per line to stdout.
+
+- **Level:** set it with `config.logLevel` on Helm.
+- **Request lines:** each HTTP request ends with an `http.server.request.completed` line that has `duration_ms`, `http.method`, `http.route`, `http.status_code`, and `outcome`.
+- **Trace links:** app API lines carry `trace_id` and `span_id` when tracing is on. Realtime gateway lines carry `dd.trace_id` and `dd.span_id` in the Datadog decimal format.
+- **Redaction:** app API logs replace authorization headers, cookies, API keys, and fields named like `password`, `token`, or `secret` with `[REDACTED]`.
+
+On Kubernetes, read the logs with the collector's `filelog` receiver on `/var/log/pods`. On ECS, the logs are in the CloudWatch log groups `/ecs/<deploymentName>/...`.
+
+## Configure the collector
+
+This configuration receives all OTLP streams, reads pod logs, and forwards everything to your backend. Replace the exporter with the one for your tool.
+
+```yaml
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+  filelog:
+    # Replace intelligence with the namespace of your release.
+    include: [/var/log/pods/intelligence_*/*/*.log]
+    include_file_path: true
+    operators:
+      - type: container
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 25
+  # A second layer. The services already remove these attributes.
+  transform/redact:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          - delete_key(attributes, "db.statement")
+          - delete_key(attributes, "db.query.text")
+          - delete_key(attributes, "url.full")
+          - delete_key(attributes, "url.query")
+  batch: {}
+
+exporters:
+  otlphttp:
+    endpoint: https://otlp.your-backend.example.com
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, transform/redact, batch]
+      exporters: [otlphttp]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp]
+    logs:
+      receivers: [otlp, filelog]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp]
+```
+
+- Point `observability.tracing.endpoint` at `http://<collector-service>.<namespace>.svc:4318/v1/traces`.
+- Point `appApi.channelTelemetry.endpoint` at the same host with `/v1/logs`.
+- To check the setup, add `debug` to a pipeline's `exporters` and read the collector output.
+
+## Check installation health
+
+### Probes
+
+| Service | Liveness | Readiness | What readiness checks |
+| --- | --- | --- | --- |
+| app API | `/api/health` | `/api/health` | A PostgreSQL query. Returns `503` if the database fails. Returns `200` with `"degraded"` if Channels is on but its encryption key is missing. |
+| realtime gateway | `/health/live` | `/health/ready` | Drain state and the license gate only |
+| app frontend | `/healthz` | `/healthz` | The web server only |
+
+With the marketplace build, the app API uses `/api/health/live` and `/api/health/ready`.
+
+### Signals to watch
+
+- **Error rate:** error spans, and `http.server.request.completed` lines with `http.status_code` 500 or higher.
+- **Database:** app API `app-api health check failed` log lines, and failed `postgresql.*` spans.
+- **Realtime gateway memory:** `gateway_memory` lines every 5 seconds, and `gateway_memory_pressure` warnings when a container uses 80% or more of its memory limit.
+- **Product Analytics pipeline:** `realtime_gateway.analytics.projector.health` lines, when Product Analytics is on. The line logs at warning level when events wait in the queue, fail, or go to quarantine, and at error level when the gateway cannot read the queue. Watch `analytics_projector.queue_depth`, `analytics_projector.quarantine_depth`, and `analytics_projector.oldest_queue_age_ms`.
+- **Configuration:** a `telemetry.config_rejected` warning at startup. It means that an endpoint was set but rejected, and that stream is off.
+
+### What is not checked
+
+- No probe checks Redis, object storage, or the connection between the app API and the realtime gateway. A Redis failure shows up only as request errors and error spans.
+- No service exports health metrics or connection counts. Use the signals above in your own tools.
+
+## Next steps
+
+- [Self-host on Kubernetes](/intelligence/self-hosting) has the full Helm configuration reference.
+- [Self-host on ECS](/intelligence/self-hosting-ecs) has the full ECS configuration.
+- [Product Analytics](/intelligence/analytics) shows usage inside Intelligence.
