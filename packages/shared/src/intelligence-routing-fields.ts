@@ -1,11 +1,12 @@
 import type { BaseEvent } from "@ag-ui/client";
-import { EventType } from "@ag-ui/client";
 
-/** The only AG-UI 1.0 events whose schema declares `threadId` and `runId`. */
-const RUN_IDENTITY_EVENTS = new Set<string>([
-  EventType.RUN_STARTED,
-  EventType.RUN_FINISHED,
-]);
+/**
+ * The only AG-UI 1.0 events whose schema declares `threadId` and `runId`.
+ * Plain literals, not `EventType`: a value import of `@ag-ui/client` here put
+ * the client and its zod validators into the initial chunk of every app that
+ * imports `@copilotkit/shared`.
+ */
+const RUN_IDENTITY_EVENTS = new Set<string>(["RUN_STARTED", "RUN_FINISHED"]);
 
 /**
  * Removes the routing fields that the Intelligence runner stamps on every
