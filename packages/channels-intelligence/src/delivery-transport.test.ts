@@ -7,7 +7,10 @@ import {
   ChannelDeliveryTransport,
   safeChannelErrorMetadata,
 } from "./delivery-transport.js";
-import type { PreparedChannelDelivery } from "./delivery-transport.js";
+import type {
+  ChannelDeliveryTransportOptions,
+  PreparedChannelDelivery,
+} from "./delivery-transport.js";
 import type {
   RealtimeGatewayDeliveryChannel,
   RealtimeGatewaySession,
@@ -181,6 +184,7 @@ async function runTranscriptFailure(input: {
 async function runHandlerFailure(
   delivery: PreparedChannelDelivery,
   handler: (claimed: ClaimedChannelDelivery) => Promise<void>,
+  log?: ChannelDeliveryTransportOptions["log"],
 ) {
   const deliveryChannel = channel(delivery);
   const control: RealtimeGatewaySession = {
@@ -191,6 +195,7 @@ async function runHandlerFailure(
   const transport = new ChannelDeliveryTransport({
     session: control,
     runtimeInstanceId: "rti_runtime_01",
+    log,
   });
   transport.start(handler);
   const invitationHandler = vi.mocked(control.on).mock.calls[0]![1];
@@ -1444,6 +1449,54 @@ test("does not count stream.stop alone as provider output", async () => {
     providerReference: "pref_v1_message_01",
   });
   expect(session.hasProviderOutput()).toBe(false);
+});
+
+test("logs a fixed missing-agent hint without copying error messages or causes", async () => {
+  const log = vi.fn();
+  const secret = "private-message-and-api-key";
+  const error = Object.assign(new Error(secret, { cause: new Error(secret) }), {
+    code: "channel_agent_not_configured",
+  });
+
+  await runHandlerFailure(
+    preparedDelivery(),
+    async () => {
+      throw error;
+    },
+    log,
+  );
+
+  expect(log).toHaveBeenCalledWith("channel delivery handler failed", {
+    deliveryId: preparedDelivery().deliveryId,
+    errorCategory: "configuration",
+    errorCode: "channel_agent_not_configured",
+    errorMessage:
+      "Configure agent in createChannel(...) before calling thread.runAgent(). Channels do not inherit runtime.agents.",
+  });
+  expect(JSON.stringify(log.mock.calls)).not.toContain(secret);
+});
+
+test.each([
+  ["unknown", "private-message"],
+  ["auth", "private-token"],
+  ["network", "private-network-request"],
+] as const)(
+  "keeps %s failure messages and causes out of logs",
+  (category, message) => {
+    expect(
+      safeChannelErrorMetadata(
+        new Error(message, { cause: new Error(message) }),
+      ),
+    ).toEqual({ errorCategory: category });
+  },
+);
+
+test("does not infer missing-agent configuration from arbitrary message text", () => {
+  expect(
+    safeChannelErrorMetadata(
+      new Error("channel_agent_not_configured private-message"),
+    ),
+  ).toEqual({ errorCategory: "unknown" });
 });
 
 test("classifies timeout/expiry errors from message text", async () => {

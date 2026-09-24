@@ -701,8 +701,11 @@ export function createChannel<
     const a = opts.agent;
     if (!a) {
       return () => {
-        throw new Error(
-          "createChannel: no agent configured (pass `agent` to use runAgent)",
+        throw Object.assign(
+          new Error(
+            "createChannel: no agent configured (pass `agent` to use runAgent)",
+          ),
+          { code: "channel_agent_not_configured" },
         );
       };
     }
