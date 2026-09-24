@@ -68,6 +68,9 @@ const REPLAY_COMPLETE_EVENT = "replay_complete";
 const STREAM_IDLE_EVENT = "stream_idle";
 const STOP_RUN_EVENT = "stop_run";
 const CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS = 100;
+// Credential refreshes allowed in a row for sockets that never opened. Past this,
+// the run fails instead of waiting on a realtime endpoint that is not answering.
+const MAX_UNOPENED_CREDENTIAL_REFRESHES = 2;
 
 interface IntelligenceAgentSharedState {
   lastSeenEventIds: Map<string, string>;
@@ -494,12 +497,36 @@ export class IntelligenceAgent extends AbstractAgent {
       streamMode: "run" | "connect";
       channelMode?: "run" | "connect";
       replayCursor?: string | null;
+      unopenedRefreshes?: number;
     },
   ): Observable<BaseEvent> {
-    return this.observeThreadSession$(input, credentials, options).pipe(
+    const { unopenedRefreshes: previousUnopened = 0, ...sessionOptions } =
+      options;
+    let socketOpened = false;
+    return this.observeThreadSession$(input, credentials, {
+      ...sessionOptions,
+      onSocketOpen: () => {
+        socketOpened = true;
+      },
+    }).pipe(
       catchError((error) => {
         if (!this.isSocketReconnectExhaustedError(error)) {
           return throwError(() => error);
+        }
+
+        // A session whose socket opened was a real connection that dropped, so
+        // it restarts the count. Sessions that never open mean the realtime
+        // endpoint is unavailable, and fresh credentials will not fix that.
+        const unopenedRefreshes = socketOpened ? 0 : previousUnopened + 1;
+        if (unopenedRefreshes > MAX_UNOPENED_CREDENTIAL_REFRESHES) {
+          return throwError(
+            () =>
+              new Error(
+                `Realtime connection to ${credentials.realtime.clientUrl} never opened ` +
+                  `after ${unopenedRefreshes} attempts with fresh credentials. ` +
+                  `The realtime endpoint is unavailable.`,
+              ),
+          );
         }
 
         const replayCursor = this.getReconnectCursor(input);
@@ -517,9 +544,10 @@ export class IntelligenceAgent extends AbstractAgent {
                   }),
                   refreshedCredentials,
                   {
-                    ...options,
+                    ...sessionOptions,
                     channelMode: "connect",
                     replayCursor,
+                    unopenedRefreshes,
                   },
                 ),
           ),
@@ -536,6 +564,7 @@ export class IntelligenceAgent extends AbstractAgent {
       streamMode: "run" | "connect";
       channelMode?: "run" | "connect";
       replayCursor?: string | null;
+      onSocketOpen?: () => void;
     },
   ): Observable<BaseEvent> {
     return defer(() => {
@@ -636,7 +665,9 @@ export class IntelligenceAgent extends AbstractAgent {
 
       return merge(
         this.joinThreadChannel$(channel$),
-        this.observeSocketHealth$(socket$).pipe(takeUntil(terminal$)),
+        this.observeSocketHealth$(socket$, options.onSocketOpen).pipe(
+          takeUntil(terminal$),
+        ),
         threadEvents$.pipe(takeUntil(streamIdleCompletion$)),
         replayComplete$.pipe(ignoreElements(), takeUntil(terminal$)),
         streamIdleCompletion$.pipe(
@@ -655,9 +686,14 @@ export class IntelligenceAgent extends AbstractAgent {
 
   private observeSocketHealth$(
     socket$: Observable<ɵPhoenixSocketSession>,
+    onSocketOpen?: () => void,
   ): Observable<never> {
     return ɵobservePhoenixSocketHealth$(
-      ɵobservePhoenixSocketSignals$(socket$),
+      ɵobservePhoenixSocketSignals$(socket$).pipe(
+        tap((signal) => {
+          if (signal.type === "open") onSocketOpen?.();
+        }),
+      ),
       5,
     );
   }
