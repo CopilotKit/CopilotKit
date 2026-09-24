@@ -7,6 +7,10 @@ import { logger } from "@copilotkit/shared";
 import { errorResponse, isHandlerResponse } from "../shared/json-response";
 import { isValidIdentifier } from "../shared/intelligence-utils";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
+import {
+  isThreadNotFound,
+  platformErrorResponse,
+} from "../shared/platform-error";
 import { supportsLocalThreadEndpoints } from "../../runner/agent-runner";
 
 interface ThreadsHandlerParams {
@@ -284,8 +288,14 @@ export async function handleGetThreadMessages({
       });
       return Response.json(data);
     } catch (error) {
+      // Same reasoning as the events read above: no thread yet means no
+      // messages yet, which is the opening state of every conversation.
+      if (isThreadNotFound(error)) {
+        logger.debug({ threadId }, "No stored messages for thread yet");
+        return Response.json({ messages: [] });
+      }
       logger.error({ err: error, threadId }, "Error fetching thread messages");
-      return errorResponse("Failed to fetch thread messages", 500);
+      return platformErrorResponse(error, "Failed to fetch thread messages");
     }
   }
 
@@ -361,8 +371,15 @@ export async function handleGetThreadEvents({
       // `{ events }`, matching the in-memory branch below.
       return Response.json({ events: data.events });
     } catch (error) {
+      // A thread nobody has spoken in yet has no events. That is the state of
+      // EVERY freshly mounted chat, so answering it with a server error put a
+      // 500 in the console on every new conversation.
+      if (isThreadNotFound(error)) {
+        logger.debug({ threadId }, "No stored events for thread yet");
+        return Response.json({ events: [] });
+      }
       logger.error({ err: error, threadId }, "Error fetching thread events");
-      return errorResponse("Failed to fetch thread events", 500);
+      return platformErrorResponse(error, "Failed to fetch thread events");
     }
   }
 
@@ -405,8 +422,15 @@ export async function handleGetThreadState({
       const state = data.kind === "snapshot" ? data.state : null;
       return Response.json({ state });
     } catch (error) {
+      // `null` is already this route's "nothing to show" value — the inspector
+      // renders an empty branch for it — so a thread that does not exist yet
+      // has an honest answer that is not an error.
+      if (isThreadNotFound(error)) {
+        logger.debug({ threadId }, "No stored state for thread yet");
+        return Response.json({ state: null });
+      }
       logger.error({ err: error, threadId }, "Error fetching thread state");
-      return errorResponse("Failed to fetch thread state", 500);
+      return platformErrorResponse(error, "Failed to fetch thread state");
     }
   }
 

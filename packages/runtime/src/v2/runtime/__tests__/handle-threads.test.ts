@@ -13,6 +13,7 @@ import {
 } from "../handlers/handle-threads";
 import { CopilotRuntime } from "../core/runtime";
 import { InMemoryAgentRunner } from "../runner/in-memory";
+import { PlatformRequestError } from "../intelligence-platform/client";
 
 describe("thread handlers", () => {
   const createIdentifyUser = () =>
@@ -923,6 +924,118 @@ describe("thread handlers", () => {
         runtime,
         request: new Request("https://example.com/threads/thread-1/state"),
         threadId: "thread-1",
+      });
+
+      expect(response.status).toBe(500);
+    });
+  });
+  /**
+   * A thread nobody has spoken in yet has no events, no messages and no state,
+   * and a freshly mounted chat asks for all three. The in-memory branch already
+   * answered that with an empty result (see "returns empty events for an unknown
+   * threadId via the in-memory runner"); the Intelligence branch turned the
+   * platform's typed 404 into a flat 500, so the same route behaved differently
+   * depending on which half served it.
+   *
+   * That cost more than noise: with a 500 on every new conversation, a genuinely
+   * failing run looked exactly like the normal case.
+   */
+  describe("a thread that does not exist yet, on the Intelligence path", () => {
+    const notFound = () =>
+      vi
+        .fn()
+        .mockRejectedValue(new PlatformRequestError("Thread not found.", 404));
+
+    it("returns empty events rather than a server error", async () => {
+      const intelligence = { getThreadEvents: notFound() };
+      const runtime = createIntelligenceRuntime({
+        intelligence,
+        identifyUser: createIdentifyUser(),
+      });
+
+      const response = await handleGetThreadEvents({
+        runtime,
+        request: new Request("https://example.com/threads/t1/events"),
+        threadId: "t1",
+      });
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ events: [] });
+    });
+
+    it("returns empty messages rather than a server error", async () => {
+      const intelligence = { getThreadMessages: notFound() };
+      const runtime = createIntelligenceRuntime({
+        intelligence,
+        identifyUser: createIdentifyUser(),
+      });
+
+      const response = await handleGetThreadMessages({
+        runtime,
+        request: new Request("https://example.com/threads/t1/messages"),
+        threadId: "t1",
+      });
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ messages: [] });
+    });
+
+    it("returns null state rather than a server error", async () => {
+      const intelligence = { getThreadState: notFound() };
+      const runtime = createIntelligenceRuntime({
+        intelligence,
+        identifyUser: createIdentifyUser(),
+      });
+
+      const response = await handleGetThreadState({
+        runtime,
+        request: new Request("https://example.com/threads/t1/state"),
+        threadId: "t1",
+      });
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ state: null });
+    });
+
+    /**
+     * The empty-result branch must stay narrow. A platform that is DOWN is not a
+     * thread that does not exist, and swallowing that into `{ events: [] }` would
+     * render an empty console over a broken dependency — the same class of
+     * mistake this change is fixing, pointed the other way.
+     */
+    it("still reports a platform outage, as 502", async () => {
+      const intelligence = {
+        getThreadEvents: vi
+          .fn()
+          .mockRejectedValue(new PlatformRequestError("boom", 500)),
+      };
+      const runtime = createIntelligenceRuntime({
+        intelligence,
+        identifyUser: createIdentifyUser(),
+      });
+
+      const response = await handleGetThreadEvents({
+        runtime,
+        request: new Request("https://example.com/threads/t1/events"),
+        threadId: "t1",
+      });
+
+      expect(response.status).toBe(502);
+    });
+
+    it("still reports a non-platform failure, as 500", async () => {
+      const intelligence = {
+        getThreadEvents: vi.fn().mockRejectedValue(new Error("unexpected")),
+      };
+      const runtime = createIntelligenceRuntime({
+        intelligence,
+        identifyUser: createIdentifyUser(),
+      });
+
+      const response = await handleGetThreadEvents({
+        runtime,
+        request: new Request("https://example.com/threads/t1/events"),
+        threadId: "t1",
       });
 
       expect(response.status).toBe(500);
