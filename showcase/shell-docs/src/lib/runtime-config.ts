@@ -15,6 +15,7 @@
 // window.__SHOWCASE_CONFIG__ which the root layout injects.
 
 import { unstable_noStore as noStore } from "next/cache";
+import { PRODUCTION_DOCS_ORIGIN } from "./production-docs-origin";
 
 export interface RuntimeConfig {
   /** Canonical docs base URL — sitemap, robots, canonical links. */
@@ -34,7 +35,7 @@ export interface RuntimeConfig {
   clerkPublishableKey: string;
 }
 
-export const PRODUCTION_DOCS_ORIGIN = "https://docs.copilotkit.ai";
+export { PRODUCTION_DOCS_ORIGIN };
 const PROD_INVALID_SHELL_URL = "about:blank#shell-url-missing";
 const PROD_DEFAULT_SIGNUP_URL = "https://dashboard.operations.copilotkit.ai/";
 const PROD_DEFAULT_POSTHOG_HOST = "https://eu.i.posthog.com";

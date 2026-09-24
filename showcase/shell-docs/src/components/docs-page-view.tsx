@@ -363,7 +363,6 @@ export async function DocsPageView({
                               slugPath={slugPath}
                               slugHrefPrefix={slugHrefPrefix}
                               githubUrl={buildGitHubUrl(doc.filePath)}
-                              promptTask={doc.fm.description ?? doc.fm.title}
                               onboardingFramework={onboardingFramework}
                               onboardingFrontend={onboardingFrontend}
                             />
