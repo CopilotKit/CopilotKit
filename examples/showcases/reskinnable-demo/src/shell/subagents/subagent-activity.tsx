@@ -223,7 +223,7 @@ const resultLine = (raw: string): { text: string; failed: boolean } => {
  * kept in an insertion-ordered map, so folding an event twice replaces a line
  * rather than appending a duplicate.
  */
-interface Accum {
+export interface Accum {
   lines: Map<string, SubagentLine>;
   subagents: Map<string, SubagentInfo>;
   messageIds: Set<string>;
@@ -233,7 +233,7 @@ interface Accum {
   toolNames: Map<string, string>;
 }
 
-const emptyAccum = (): Accum => ({
+export const emptyAccum = (): Accum => ({
   lines: new Map(),
   subagents: new Map(),
   messageIds: new Set(),
@@ -242,7 +242,31 @@ const emptyAccum = (): Accum => ({
   toolNames: new Map(),
 });
 
-const foldEvent = (acc: Accum, event: unknown): Accum => {
+/**
+ * Number of delegation edges between this subagent and a top-level delegate.
+ *
+ * Derived from the registry rather than frozen when an event arrives, so a
+ * replay can learn parentage after an earlier line was already folded. The
+ * seen-set keeps malformed cyclic lineage from hanging the UI.
+ */
+export const subagentLineageDepth = (
+  subagents: ReadonlyMap<string, SubagentInfo>,
+  subagentRunId: string,
+): number => {
+  let depth = 0;
+  let current = subagentRunId;
+  const seen = new Set<string>([current]);
+
+  for (;;) {
+    const parent = subagents.get(current)?.parentSubagentRunId;
+    if (!parent || seen.has(parent)) return depth;
+    seen.add(parent);
+    depth += 1;
+    current = parent;
+  }
+};
+
+export const foldEvent = (acc: Accum, event: unknown): Accum => {
   const e = event as Record<string, unknown>;
   const type = str(e.type);
   const tag = str(e.subagentRunId);
@@ -268,7 +292,7 @@ const foldEvent = (acc: Accum, event: unknown): Accum => {
         kind: "started",
         subagentRunId: tag,
         name: str(e.name) || "subagent",
-        depth: parent ? 1 : 0,
+        depth: 0,
         text: str(e.name) || "subagent",
       });
       return acc;
@@ -367,10 +391,18 @@ const EMPTY_SNAPSHOT: Snapshot = {
   subagents: new Map(),
 };
 
-const derive = (acc: Accum): Snapshot => ({
-  lines: Array.from(acc.lines.values()).map((l) =>
-    l.name ? l : { ...l, name: acc.subagents.get(l.subagentRunId)?.name },
-  ),
+export const derive = (acc: Accum): Snapshot => ({
+  lines: Array.from(acc.lines.values()).map((line) => ({
+    ...line,
+    // `line.depth` is the local offset within one subagent (started=0,
+    // narration/tool=1, result=2). Add the current ancestry at projection
+    // time so restored/late parent metadata can still repair the hierarchy.
+    depth:
+      line.depth + subagentLineageDepth(acc.subagents, line.subagentRunId),
+    ...(line.name
+      ? {}
+      : { name: acc.subagents.get(line.subagentRunId)?.name }),
+  })),
   subagentMessageIds: new Set(acc.messageIds),
   subagentToolCallIds: new Set(acc.toolCallIds),
   subagents: new Map(acc.subagents),
