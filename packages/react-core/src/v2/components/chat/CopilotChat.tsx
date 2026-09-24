@@ -22,6 +22,7 @@ import {
   CopilotKitCoreRuntimeConnectionStatus,
   isRunCompletionAware,
   ɵcreateThreadStore,
+  ɵisHttpAgent,
 } from "@copilotkit/core";
 import type { ɵThreadRuntimeContext, ɵThreadStore } from "@copilotkit/core";
 import React, {
@@ -38,7 +39,6 @@ import {
 } from "../../context";
 import { InlineFeatureWarning } from "../../components/license-warning-banner";
 import type { AbstractAgent } from "@ag-ui/client";
-import { HttpAgent } from "@ag-ui/client";
 import type { SlotValue } from "../../lib/slots";
 import { renderSlot, useShallowStableRef } from "../../lib/slots";
 import {
@@ -442,7 +442,7 @@ export function CopilotChat({
     // in its fetch config. Unlike runAgent(), connectAgent() does NOT create a new
     // AbortController automatically, so we must set one before connecting.
     const connectAbortController = new AbortController();
-    if (agent instanceof HttpAgent) {
+    if (ɵisHttpAgent(agent)) {
       agent.abortController = connectAbortController;
     }
 

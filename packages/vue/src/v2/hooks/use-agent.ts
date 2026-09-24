@@ -1,11 +1,11 @@
 import { computed, shallowRef, toValue, triggerRef, watch } from "vue";
 import type { MaybeRefOrGetter } from "vue";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
-import { HttpAgent } from "@ag-ui/client";
 import type { AbstractAgent } from "@ag-ui/client";
 import {
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
+  ɵisHttpAgent,
 } from "@copilotkit/core";
 import type {
   CopilotRuntimeTransport,
@@ -392,7 +392,7 @@ export function useAgent(props: UseAgentProps = {}) {
         ),
     ],
     ([currentAgent]) => {
-      if (currentAgent instanceof HttpAgent) {
+      if (ɵisHttpAgent(currentAgent)) {
         currentAgent.headers = { ...copilotkit.value.headers };
       }
     },

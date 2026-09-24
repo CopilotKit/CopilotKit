@@ -2,10 +2,10 @@ import { useCopilotKit, useDefaultAgentId } from "../context";
 import { useMemo, useEffect, useReducer, useRef, useState } from "react";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import type { AbstractAgent } from "@ag-ui/client";
-import { HttpAgent } from "@ag-ui/client";
 import {
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
+  ɵisHttpAgent,
 } from "@copilotkit/core";
 import type { SubscribeToAgentSubscriber } from "@copilotkit/core";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
@@ -429,7 +429,7 @@ export function useAgent({
   // which is unsafe in concurrent mode (React may invoke useMemo multiple
   // times and discard intermediate results, but mutations always land).
   useEffect(() => {
-    if (agent instanceof HttpAgent) {
+    if (ɵisHttpAgent(agent)) {
       // Merge core headers on top of the agent's own headers rather than
       // replacing them, so per-agent headers (e.g. an Authorization for a
       // self-hosted backend) are preserved (see #5635).

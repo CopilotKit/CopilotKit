@@ -59,6 +59,7 @@ export {
   ɵcreateThreadSelectors,
   ɵcreateThreadStore,
   ɵisCopilotKitFeature,
+  ɵisHttpAgent,
   ɵisRetryableMemoryStatus,
   ɵjoinPhoenixChannel$,
   ɵmapMemoryMetadataEvent,
