@@ -1173,6 +1173,9 @@ importers:
 
   examples/v2/angular/demo-server:
     dependencies:
+      '@ag-ui/client':
+        specifier: 0.0.59
+        version: 0.0.59
       '@ag-ui/langgraph':
         specifier: ^0.0.11
         version: 0.0.11(@opentelemetry/api@1.9.0)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.29)(undici@7.25.0)(ws@8.21.3)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(ws@8.21.3)
@@ -1191,6 +1194,9 @@ importers:
       hono:
         specifier: '>=4.11.7'
         version: 4.12.15
+      rxjs:
+        specifier: ^7.8.1
+        version: 7.8.1
       zod:
         specifier: '>=3.22.3'
         version: 3.25.76
@@ -2108,6 +2114,9 @@ importers:
 
   packages/angular:
     dependencies:
+      '@a2ui/web_core':
+        specifier: 0.10.4
+        version: 0.10.4
       '@ag-ui/client':
         specifier: 0.0.59
         version: 0.0.59

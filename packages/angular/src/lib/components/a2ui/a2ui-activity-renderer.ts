@@ -1,8 +1,5 @@
 import {
-  CUSTOM_ELEMENTS_SCHEMA,
-  ChangeDetectionStrategy,
   Component,
-  ElementRef,
   NgZone,
   PLATFORM_ID,
   computed,
@@ -10,30 +7,24 @@ import {
   inject,
   input,
   signal,
-  viewChild,
 } from "@angular/core";
 import { isPlatformBrowser } from "@angular/common";
 import type { AbstractAgent, ActivityMessage } from "@ag-ui/client";
 import type { ActivityRenderer } from "../../activity-renderer";
-import { CopilotKit } from "../../copilotkit";
 import { injectCopilotKitConfig } from "../../config";
 import {
-  bridgeA2UIAction,
-  connectA2UISurface,
   getA2UIOperations,
-  logA2UIRenderError,
-  type A2UISurfaceElement,
+  surfaceHasRenderableContent,
 } from "./a2ui-surface-host";
 import { CopilotA2UIRecovery } from "./a2ui-recovery";
+import { CopilotA2UISurfaceOutlet } from "./surface-outlet";
 
 @Component({
   selector: "copilot-a2ui-activity-renderer",
-  imports: [CopilotA2UIRecovery],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  imports: [CopilotA2UIRecovery, CopilotA2UISurfaceOutlet],
   host: {
     class: "copilot-a2ui-surface-renderer-layout",
   },
-  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (hasOperations()) {
       <div class="handoff">
@@ -47,12 +38,11 @@ import { CopilotA2UIRecovery } from "./a2ui-recovery";
             class="copilot-a2ui-surface-scroll"
             data-testid="a2ui-activity-surface-scroll"
           >
-            <cpk-a2ui-surface
-              #surface
-              class="copilot-a2ui-surface-scroll-surface"
-              (a2ui-action)="handleAction($event)"
-              (a2ui-error)="handleError($event)"
-            ></cpk-a2ui-surface>
+            <copilot-a2ui-surface-outlet
+              [operations]="operations()"
+              [agent]="agent()"
+              (rendered)="handleRendered()"
+            />
           </div>
         </div>
         @if (!surfaceReady()) {
@@ -87,12 +77,6 @@ export class CopilotA2UIActivityRenderer implements ActivityRenderer<unknown> {
   readonly message = input.required<ActivityMessage>();
   readonly agent = input<AbstractAgent | undefined>();
 
-  private readonly surfaceRef = viewChild<
-    unknown,
-    ElementRef<A2UISurfaceElement>
-  >("surface", { read: ElementRef });
-
-  private readonly copilotKit = inject(CopilotKit);
   protected readonly config = injectCopilotKitConfig();
   private readonly platformId = inject(PLATFORM_ID);
   private readonly zone = inject(NgZone);
@@ -105,26 +89,7 @@ export class CopilotA2UIActivityRenderer implements ActivityRenderer<unknown> {
   protected readonly surfaceReady = signal(false);
   protected readonly loaderContent = signal<unknown>({ status: "building" });
 
-  private readonly markSurfaceReady = (): void => {
-    if (this.surfaceReady()) return;
-    const reveal = () => this.zone.run(() => this.surfaceReady.set(true));
-    if (
-      isPlatformBrowser(this.platformId) &&
-      typeof globalThis.requestAnimationFrame === "function"
-    ) {
-      globalThis.requestAnimationFrame(reveal);
-    } else {
-      reveal();
-    }
-  };
-
   constructor() {
-    connectA2UISurface({
-      surfaceRef: this.surfaceRef,
-      operations: this.operations,
-      config: this.config,
-      onReady: this.markSurfaceReady,
-    });
     effect(() => {
       const content = this.content();
       if (getA2UIOperations(content).length === 0) {
@@ -149,15 +114,17 @@ export class CopilotA2UIActivityRenderer implements ActivityRenderer<unknown> {
     });
   }
 
-  protected async handleAction(event: Event): Promise<void> {
-    await bridgeA2UIAction(
-      this.copilotKit,
-      this.agent(),
-      (event as CustomEvent).detail,
-    );
-  }
-
-  protected handleError(event: Event): void {
-    logA2UIRenderError(event);
+  protected handleRendered(): void {
+    if (this.surfaceReady()) return;
+    if (!surfaceHasRenderableContent(this.operations())) return;
+    const reveal = () => this.zone.run(() => this.surfaceReady.set(true));
+    if (
+      isPlatformBrowser(this.platformId) &&
+      typeof globalThis.requestAnimationFrame === "function"
+    ) {
+      globalThis.requestAnimationFrame(reveal);
+    } else {
+      reveal();
+    }
   }
 }

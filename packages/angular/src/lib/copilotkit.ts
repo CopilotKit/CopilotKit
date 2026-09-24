@@ -46,6 +46,7 @@ import { injectCopilotKitConfig } from "./config";
 import { HumanInTheLoop } from "./human-in-the-loop";
 import { ensureLicenseWatermark } from "./license-watermark";
 import { CopilotA2UIActivityRenderer } from "./components/a2ui/a2ui-activity-renderer";
+import { CopilotA2UIRenderToolCall } from "./components/a2ui/a2ui-render-tool-call";
 import { CopilotA2UIToolRenderer } from "./components/a2ui/a2ui-tool-renderer";
 import {
   AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
@@ -408,8 +409,7 @@ export class CopilotKit {
       {
         name: RENDER_A2UI_TOOL_NAME,
         args: RenderA2UIArgsSchema,
-        component: CopilotA2UIToolRenderer,
-        passAgent: true,
+        component: CopilotA2UIRenderToolCall,
       },
       {
         name: AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,

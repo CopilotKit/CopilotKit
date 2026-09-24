@@ -16,6 +16,30 @@ export const routes: Routes = [
       ),
   },
   {
+    path: "a2ui-angular",
+    title: "Angular A2UI",
+    loadComponent: () =>
+      import("./routes/a2ui-angular/a2ui-angular-demo.component").then(
+        (m) => m.A2UIAngularDemoComponent,
+      ),
+  },
+  {
+    path: "a2ui-recovery",
+    title: "A2UI Recovery",
+    loadComponent: () =>
+      import("./routes/a2ui-recovery/a2ui-recovery-demo.component").then(
+        (m) => m.A2UIRecoveryDemoComponent,
+      ),
+  },
+  {
+    path: "a2ui-interop",
+    title: "A2UI: Angular + Lit",
+    loadComponent: () =>
+      import("./routes/a2ui-interop/a2ui-interop-demo.component").then(
+        (m) => m.A2UIInteropDemoComponent,
+      ),
+  },
+  {
     path: "headless",
     title: "Headless Chat",
     loadComponent: () =>

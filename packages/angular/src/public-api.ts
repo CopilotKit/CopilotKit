@@ -82,6 +82,10 @@ export * from "./lib/components/a2ui/a2ui-progress";
 export * from "./lib/components/a2ui/a2ui-recovery";
 export * from "./lib/components/a2ui/a2ui-tool-renderer";
 export * from "./lib/components/a2ui/a2ui-tool-types";
+export type {
+  A2UISurfaceError,
+  NativeA2UICatalog,
+} from "./lib/components/a2ui/native-catalog";
 export * from "./lib/components/open-generative-ui/open-generative-ui-activity-renderer";
 export * from "./lib/components/open-generative-ui/open-generative-ui-tool-renderer";
 export type {
