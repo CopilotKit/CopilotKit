@@ -48,7 +48,7 @@ describe("RunHandler WebMCP registration", () => {
   it("never exposes Autopilot handlers through the agentless WebMCP path", () => {
     const modelContext = stubWebMCP();
     const runHandler = createRunHandler();
-    runHandler.addTool({ name: "autopilot.read", webmcp: true });
+    runHandler.addTool({ name: "autopilot_read", webmcp: true });
     runHandler.addTool({ name: "cancelOrder", autopilot: true, webmcp: true });
     expect(modelContext.registerTool).not.toHaveBeenCalled();
   });

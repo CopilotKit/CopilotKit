@@ -141,6 +141,10 @@ const MAX_FOLLOW_UP_DEPTH = 100;
  */
 const WILDCARD_TOOL_NAME = "*";
 
+function isAutopilotToolName(name: string): boolean {
+  return name.startsWith("autopilot_") || name.startsWith("autopilot.");
+}
+
 /**
  * Handles agent execution, tool calling, and agent connectivity for CopilotKitCore.
  * Manages the complete lifecycle of agent runs including tool execution and follow-ups.
@@ -1111,7 +1115,7 @@ export class RunHandler {
     if (!errorMessage) {
       try {
         if (
-          (tool.autopilot || toolCall.function.name.startsWith("autopilot.")) &&
+          (tool.autopilot || isAutopilotToolName(toolCall.function.name)) &&
           !this.core.isAutopilotEnabledForAgent(agentId)
         ) {
           throw new Error("Autopilot is disabled for this agent");
@@ -1326,7 +1330,7 @@ export class RunHandler {
         try {
           if (
             (wildcardTool.autopilot ||
-              toolCall.function.name.startsWith("autopilot.")) &&
+              isAutopilotToolName(toolCall.function.name)) &&
             !this.core.isAutopilotEnabledForAgent(agentId)
           ) {
             throw new Error("Autopilot is disabled for this agent");
@@ -1589,7 +1593,7 @@ export class RunHandler {
           tool.available !== false &&
           (tool.available as boolean | string | undefined) !== "disabled" &&
           (!tool.agentId || tool.agentId === agentId) &&
-          (!(tool.autopilot || tool.name.startsWith("autopilot.")) ||
+          (!(tool.autopilot || isAutopilotToolName(tool.name)) ||
             (!!agentId && this.core.isAutopilotEnabledForAgent(agentId))) &&
           this.isToolEnabled(tool.name, tool.agentId),
       )
@@ -1619,7 +1623,7 @@ export class RunHandler {
       }
       // WebMCP invokes handlers outside Core's agent execution path and has no
       // agent identity to evaluate. Autopilot tools must stay on the guarded path.
-      if (tool.autopilot || tool.name.startsWith("autopilot.")) {
+      if (tool.autopilot || isAutopilotToolName(tool.name)) {
         continue;
       }
       if (

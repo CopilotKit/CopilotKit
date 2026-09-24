@@ -55,6 +55,9 @@ export function OrderForm({
 
   return (
     <form
+      data-autopilot-record-id={order?.id}
+      data-autopilot-record-version={order?.version}
+      data-autopilot-draft-id={order ? undefined : key}
       className="editor card"
       onSubmit={submit}
       aria-label={order ? `Edit order ${order.reference}` : "Create order"}

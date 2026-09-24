@@ -57,7 +57,7 @@ describe("Autopilot execution gate", () => {
     const ordinary = vi.fn(async () => "read");
     core.addTool(
       createTool({
-        name: "autopilot.change",
+        name: "autopilot_change",
         autopilot: true,
         handler: blocked,
         followUp: false,
@@ -71,7 +71,7 @@ describe("Autopilot execution gate", () => {
     ).toEqual(["ordinary"]);
     const agent = new MockAgent({
       agentId: "logistics",
-      newMessages: [createToolCallMessage("autopilot.change")],
+      newMessages: [createToolCallMessage("autopilot_change")],
     });
     core.addAgent__unsafe_dev_only({ id: "logistics", agent: agent as any });
     await core.runAgent({ agent: agent as any });
@@ -96,7 +96,7 @@ describe("Autopilot execution gate", () => {
     const wildcard = vi.fn(async () => "changed");
     core.addTool(
       createTool({
-        name: "autopilot.change",
+        name: "autopilot_change",
         autopilot: true,
         handler: named,
         followUp: false,
@@ -105,11 +105,11 @@ describe("Autopilot execution gate", () => {
     core.addTool(createTool({ name: "*", handler: wildcard, followUp: false }));
     const agent = new MockAgent({
       agentId: "logistics",
-      newMessages: [createToolCallMessage("autopilot.unregistered")],
+      newMessages: [createToolCallMessage("autopilot_unregistered")],
     });
     core.addAgent__unsafe_dev_only({ id: "logistics", agent: agent as any });
     const direct = await core.runTool({
-      name: "autopilot.change",
+      name: "autopilot_change",
       agentId: "logistics",
     });
     expect(direct.error).toContain("Autopilot is disabled");
@@ -119,9 +119,9 @@ describe("Autopilot execution gate", () => {
     enabled.mockReturnValue(true);
     expect(
       core.buildFrontendTools("logistics").map((tool) => tool.name),
-    ).toContain("autopilot.change");
+    ).toContain("autopilot_change");
     const allowed = await core.runTool({
-      name: "autopilot.change",
+      name: "autopilot_change",
       agentId: "logistics",
     });
     expect(allowed.error).toBeUndefined();
