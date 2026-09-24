@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { sessionUser } from "./db";
+import { DomainError } from "./domain";
 import type { SessionUser } from "./db";
 
 export const SESSION_COOKIE = "northstar_session";
@@ -38,5 +39,5 @@ export function assertSameOrigin(request: Request): void {
   const origin = request.headers.get("origin");
   const host = request.headers.get("host");
   if (!origin || !host || new URL(origin).host !== host)
-    throw new Error("Cross-origin mutation refused");
+    throw new DomainError("Cross-origin mutation refused", 403);
 }

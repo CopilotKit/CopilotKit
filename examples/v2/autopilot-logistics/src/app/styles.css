@@ -296,6 +296,120 @@ tr:last-child td {
   color: #798b90;
   font-size: 12px;
 }
+.editor {
+  max-width: 840px;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 19px;
+}
+.form-grid label,
+.user-form label {
+  display: grid;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 650;
+  color: #40555b;
+}
+.form-grid .wide {
+  grid-column: 1 / -1;
+}
+.form-grid input,
+.form-grid select,
+.form-grid textarea,
+.user-form input,
+.user-form select,
+.search-form input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #cad8da;
+  border-radius: 6px;
+  background: white;
+  padding: 10px;
+  color: #202d36;
+}
+.form-grid input:focus-visible,
+.form-grid select:focus-visible,
+.form-grid textarea:focus-visible,
+.user-form input:focus-visible,
+.user-form select:focus-visible,
+.search-form input:focus-visible {
+  outline: 2px solid #0d646b;
+  outline-offset: 2px;
+}
+.form-actions {
+  margin-top: 21px;
+}
+button.button {
+  border: 0;
+}
+.button.danger {
+  color: #9a3c3b;
+  border: 1px solid #e6c6c5;
+  background: #fff;
+}
+.danger-action {
+  margin-top: 22px;
+}
+.form-error {
+  color: #a32230;
+  font-size: 13px;
+  font-weight: 650;
+}
+.search-form {
+  margin-bottom: 20px;
+}
+.search-form label {
+  display: block;
+  font-size: 13px;
+  font-weight: 650;
+  margin-bottom: 7px;
+}
+.search-form div {
+  display: flex;
+  gap: 8px;
+}
+.search-form input {
+  max-width: 380px;
+}
+.search-form button {
+  border: 1px solid #cad8da;
+  background: white;
+}
+.user-card {
+  margin-bottom: 18px;
+}
+.user-card h2 {
+  font-size: 17px;
+  margin: 0 0 18px;
+}
+.user-form {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.user-form label {
+  min-width: 140px;
+  flex: 1;
+}
+.user-row {
+  padding: 16px 0;
+  border-top: 1px solid #eaf0f1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+.user-row > div:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 140px;
+}
+.user-row small {
+  color: #73858b;
+}
 @media (max-width: 1100px) {
   .app-shell {
     grid-template-columns: 170px minmax(350px, 1fr);

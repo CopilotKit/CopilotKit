@@ -32,7 +32,6 @@ export interface Order {
   assigned_user_id: string | null;
   status: OrderStatus;
   notes: string;
-  private_note: string;
   version: number;
   created_at: string;
   updated_at: string;
@@ -76,10 +75,19 @@ export function db(): DatabaseSync {
     CREATE TABLE IF NOT EXISTS operations (
       operation_key TEXT PRIMARY KEY, organization_id TEXT NOT NULL,
       actor_user_id TEXT NOT NULL, entity_type TEXT NOT NULL, entity_id TEXT NOT NULL,
-      action TEXT NOT NULL, outcome TEXT NOT NULL, created_at TEXT NOT NULL
+      action TEXT NOT NULL, payload_hash TEXT NOT NULL DEFAULT '',
+      outcome TEXT NOT NULL, created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS orders_by_org ON orders(organization_id, updated_at DESC);
   `);
+  const columns = singleton
+    .prepare("PRAGMA table_info(operations)")
+    .all() as Array<{ name: string }>;
+  if (!columns.some((column) => column.name === "payload_hash")) {
+    singleton.exec(
+      "ALTER TABLE operations ADD COLUMN payload_hash TEXT NOT NULL DEFAULT ''",
+    );
+  }
   return singleton;
 }
 
@@ -126,7 +134,9 @@ export function sessionUser(token: string | undefined): SessionUser | null {
 export function listOrders(user: SessionUser, query = ""): Order[] {
   const search = `%${query.trim()}%`;
   return db()
-    .prepare(`SELECT * FROM orders WHERE organization_id = ?
+    .prepare(`SELECT id, organization_id, reference, customer, origin, destination,
+    ship_date, service_level, assigned_user_id, status, notes, version, created_at, updated_at
+    FROM orders WHERE organization_id = ?
     AND (reference LIKE ? OR customer LIKE ? OR destination LIKE ?)
     ORDER BY updated_at DESC, reference DESC`)
     .all(user.organizationId, search, search, search) as unknown as Order[];
@@ -135,7 +145,9 @@ export function listOrders(user: SessionUser, query = ""): Order[] {
 export function getOrder(user: SessionUser, id: string): Order | null {
   return (
     (db()
-      .prepare("SELECT * FROM orders WHERE id = ? AND organization_id = ?")
+      .prepare(`SELECT id, organization_id, reference, customer, origin, destination,
+      ship_date, service_level, assigned_user_id, status, notes, version, created_at, updated_at
+      FROM orders WHERE id = ? AND organization_id = ?`)
       .get(id, user.organizationId) as unknown as Order | undefined) ?? null
   );
 }
