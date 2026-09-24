@@ -84,8 +84,8 @@ export function QuickstartLinkButton({
   );
 }
 
-// The hero shows the line under its button row, so its pill leaves it out of
-// the shelf. The words live in `@/lib/prompt-guidance`.
+// Shown under every prompt pill row, the hero and the page tools alike, so
+// the line reads the same everywhere. The words live in `@/lib/prompt-guidance`.
 export function PromptFolderHint() {
   return (
     <PromptGuidance className="text-sm leading-snug text-[var(--text-muted)]" />

@@ -42,8 +42,6 @@ export function HeroOnboardingPromptButton({
   return (
     <PromptPill
       surface={surface}
-      // The hero row shows `PromptFolderHint` under it already.
-      hint={false}
       createPrompt={() => {
         const runId = createOnboardingRunId();
         const graphFramework = framework

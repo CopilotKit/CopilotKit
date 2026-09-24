@@ -100,7 +100,7 @@
 .prompt-pill-shelf {
   position: absolute;
   top: 100%;
-  /* Centered on the pill: the line on top, View prompt centered under it. */
+  /* Centered on the pill: the note on top, View prompt centered under it. */
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -120,8 +120,7 @@
   visibility: visible;
 }
 /* Scoped under the pill so page prose rules (`.reference-content p`) and the
- * page-tools row's `nowrap` cannot resize or unwrap it. */
-.prompt-pill .prompt-pill-hint,
+ * page-tools row's `nowrap` cannot resize or unwrap the note. */
 .prompt-pill .prompt-pill-note {
   margin: 0;
   text-align: center;

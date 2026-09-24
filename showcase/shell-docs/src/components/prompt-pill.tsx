@@ -47,14 +47,11 @@ export function PromptGuidance({
 export function PromptPill({
   createPrompt,
   surface,
-  hint = true,
   children,
   ...props
 }: {
   createPrompt: () => PromptPayload;
   surface?: string;
-  /** False where the placement already shows `PromptGuidance` beside it. */
-  hint?: boolean;
 } & React.ComponentProps<"button">): React.JSX.Element {
   const [copied, setCopied] = useState(false);
   const [launched, setLaunched] = useState(false);
@@ -256,7 +253,6 @@ export function PromptPill({
       </div>
       <div className="prompt-pill-shelf">
         {launched && <p className="prompt-pill-note">{PROMPT_LAUNCH_NOTE}</p>}
-        {hint && <PromptGuidance className="prompt-pill-hint" />}
         <button type="button" onClick={viewPrompt}>
           <Eye aria-hidden="true" />
           View prompt

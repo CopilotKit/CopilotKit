@@ -19,6 +19,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DocsPageTools, docsMarkdownUrl } from "../docs-page-tools";
+import { PROMPT_DESTINATION_HINT } from "@/lib/prompt-guidance";
 
 const analytics = vi.hoisted(() => ({ capture: vi.fn() }));
 
@@ -143,4 +144,22 @@ it("names the quickstart page as the source and claims no stack", async () => {
     " The page covers the Mastra agent framework with Angular. I started from this CopilotKit docs page: https://docs.copilotkit.ai/angular/mastra/quickstart.",
   );
   expect(prompt).not.toMatch(/\bI use\b|My goal|\.mdx/);
+});
+
+// Every prompt row carries the hero's line under it, and the rows without a
+// prompt leave it out (PE-340).
+it("shows the destination line under the row only when it offers the prompt", () => {
+  renderRow();
+  expect(screen.getByText(PROMPT_DESTINATION_HINT)).toBeTruthy();
+  cleanup();
+
+  render(
+    <DocsPageTools
+      slugPath="generative-ui"
+      slugHrefPrefix="/mastra"
+      githubUrl={GITHUB_URL}
+      hideOnboardingPrompt
+    />,
+  );
+  expect(screen.queryByText(PROMPT_DESTINATION_HINT)).toBeNull();
 });

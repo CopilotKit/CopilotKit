@@ -15,7 +15,6 @@ import {
   PROMPT_DESTINATION_HINT,
   PROMPT_LAUNCH_NOTE,
   PROMPT_LAUNCH_NOTE_MS,
-  PROMPT_PHONE_HINT,
 } from "../../lib/prompt-guidance";
 
 beforeEach(() => {
@@ -247,19 +246,10 @@ it("reports a completed clipboard write after unmount without updating the UI", 
   await waitFor(() => expect(copied).toHaveBeenCalledExactlyOnceWith("copy"));
 });
 
-// Most copies are never pasted anywhere, and nothing near the button said where
-// the prompt goes (PE-340). The pill carries the line itself, so every
-// placement says it in the same words.
-it("says where the prompt goes, with a phone variant for CSS to pick", () => {
+// The line lives under each pill row, in the same place as under the docs
+// hero, not in the hover shelf (PE-340).
+it("keeps the destination line out of the pill itself", () => {
   render(<PromptPill createPrompt={() => ({ text: "Run" })} />);
-
-  expect(screen.getByText(PROMPT_DESTINATION_HINT)).toBeTruthy();
-  expect(screen.getByText(PROMPT_PHONE_HINT)).toBeTruthy();
-});
-
-// The hero already shows the line under its button row.
-it("leaves the line out when the placement shows it already", () => {
-  render(<PromptPill hint={false} createPrompt={() => ({ text: "Run" })} />);
 
   expect(screen.queryByText(PROMPT_DESTINATION_HINT)).toBeNull();
 });
