@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { convertMessagesToVercelAISDKMessages } from "../index";
 import type { Message, ContentPart } from "@ag-ui/client";
 import type { ToolModelMessage, ToolResultPart, UserModelMessage } from "ai";
@@ -226,5 +226,37 @@ describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
       const part = convertToolResult([]);
       expect(part.output).toEqual({ type: "text", value: "" });
     });
+
+    it("drops a provider file handle with a warning, never sending it as bytes or a URL", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const part = convertToolResult([
+        { type: "text", text: "see " },
+        { type: "document", source: { type: "file", value: "file-abc123" } },
+        { type: "text", text: "attached" },
+      ]);
+      expect(part.output).toEqual({ type: "text", value: "see attached" });
+      expect(warn).toHaveBeenCalledTimes(1);
+      warn.mockRestore();
+    });
+
+    it("answers with the empty string when every part was a dropped file handle", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const part = convertToolResult([
+        { type: "image", source: { type: "file", value: "file-abc123" } },
+      ]);
+      expect(part.output).toEqual({ type: "text", value: "" });
+      warn.mockRestore();
+    });
+  });
+
+  it("drops a user image that references a provider file handle, with a warning", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = convertUserContent([
+      { type: "text", text: "look" },
+      { type: "image", source: { type: "file", value: "file-abc123" } },
+    ]);
+    expect(result.content).toEqual([{ type: "text", text: "look" }]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
   });
 });

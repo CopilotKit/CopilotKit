@@ -144,6 +144,11 @@ function convertUserContent(
               mimeType: source.mimeType,
             },
           });
+        } else if (source.type === "file") {
+          // AG-UI 1.0 provider file handle: not a URL or inline data.
+          console.warn(
+            `[CopilotKit] Dropping a ${partType} part that references a provider file handle: it is not a URL or inline data, so it cannot be sent to the model here.`,
+          );
         } else if (source.type === "url") {
           parts.push({
             type: partType,

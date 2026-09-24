@@ -447,6 +447,18 @@ describe("CopilotChat tool-result content", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
+  it("treats a part with a provider file handle as a part, without a warning", () => {
+    // AG-UI 1.0 adds the `file` source: a handle the model provider issued.
+    // It is a real part; it adds nothing to the string, like other media.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderWithResult([
+      { type: "text", text: "see file" },
+      { type: "document", source: { type: "file", value: "file-abc123" } },
+    ]);
+    expect(screen.getByTestId("result").textContent).toBe("complete|see file");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   it("serialises an ARRAY that is not parts instead of collapsing it to an empty result", () => {
     // The silent-failure regression: array content that is not a parts list
     // was coerced to "", which a renderer cannot distinguish from a tool that

@@ -3,6 +3,7 @@ import {
   formatFileSize,
   exceedsMaxSize,
   matchesAcceptFilter,
+  getSourceUrl,
 } from "../utils";
 
 // ---------------------------------------------------------------------------
@@ -194,5 +195,20 @@ describe("matchesAcceptFilter", () => {
 
   it("returns false for empty file type against a specific filter", () => {
     expect(matchesAcceptFilter(mockFileWithType(""), "image/*")).toBe(false);
+  });
+});
+
+describe("getSourceUrl", () => {
+  it("returns a URL source as is and builds a data URL for inline data", () => {
+    expect(getSourceUrl({ type: "url", value: "https://x.test/a.png" })).toBe(
+      "https://x.test/a.png",
+    );
+    expect(
+      getSourceUrl({ type: "data", value: "aGk=", mimeType: "image/png" }),
+    ).toBe("data:image/png;base64,aGk=");
+  });
+
+  it("returns no address for a provider file handle", () => {
+    expect(getSourceUrl({ type: "file", value: "file-abc123" })).toBe("");
   });
 });

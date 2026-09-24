@@ -206,7 +206,17 @@ export interface MCPClientProvider {
  * any, then each media part with its bytes and media type. A media-only result
  * is media alone: a placeholder text would be content the tool never returned.
  * Which adapters can place media inside a tool response is theirs to decide.
+ * A provider file handle (`file` source) is neither bytes nor a URL, and this
+ * path cannot hand it to the provider, so the part is dropped with a warning.
+ * A result whose parts were all dropped is the empty string, as AG-UI 1.0
+ * requires: the call must still be answered.
  */
+function warnDroppedFileSource(what: string): void {
+  console.warn(
+    `[CopilotKit] Dropping a ${what} that references a provider file handle: it is not a URL or inline data, so it cannot be sent to the model here.`,
+  );
+}
+
 function toolResultOutput(
   content: ToolMessage["content"],
 ): ToolResultPart["output"] {
@@ -219,6 +229,8 @@ function toolResultOutput(
       if (open) segments[segments.length - 1] += part.text;
       else segments.push(part.text);
       open = true;
+    } else if (part.source.type === "file") {
+      warnDroppedFileSource(`${part.type} part in a tool result`);
     } else if (part.source.type === "url") {
       segments.push(part.source.value);
       open = false;
@@ -503,6 +515,8 @@ function convertUserMessageContent(
             image: source.value,
             mediaType: source.mimeType,
           });
+        } else if (source.type === "file") {
+          warnDroppedFileSource("image part");
         } else if (source.type === "url") {
           try {
             parts.push({
@@ -530,6 +544,8 @@ function convertUserMessageContent(
             data: source.value,
             mediaType: source.mimeType,
           });
+        } else if (source.type === "file") {
+          warnDroppedFileSource(`${part.type} part`);
         } else if (source.type === "url") {
           try {
             parts.push({

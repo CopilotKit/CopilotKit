@@ -208,10 +208,11 @@ function isContentPart(part: unknown): boolean {
     | undefined;
   if (typeof source !== "object" || source === null) return false;
   if (typeof source.value !== "string") return false;
-  // Inline bytes need their type; a URL may leave it to the response.
+  // Inline bytes need their type; a URL or a provider file handle (AG-UI 1.0
+  // `file` source) may leave it out.
   if (source.type === "data") return typeof source.mimeType === "string";
   return (
-    source.type === "url" &&
+    (source.type === "url" || source.type === "file") &&
     (source.mimeType === undefined || typeof source.mimeType === "string")
   );
 }
