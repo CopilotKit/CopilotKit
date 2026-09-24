@@ -186,10 +186,21 @@ export function CopilotChatView({
   // result is the last messages scrolling underneath the absolute-positioned
   // input pill. Subscribing to element state lets the observer attach (and
   // detach) reactively as the overlay mounts/unmounts.
-  // Use the provider's thread identity when available. The first message can
-  // change as older history loads without switching conversations.
-  const scrollThreadId =
-    useCopilotChatConfiguration()?.threadId ?? messages[0]?.id;
+  // Use the provider's thread identity when available. A standalone view
+  // changes identity only when its new history has no messages in common with
+  // the previous nonempty list. Prepending or trimming history is not a switch.
+  const configuredThreadId = useCopilotChatConfiguration()?.threadId;
+  const [fallbackThreadId, setFallbackThreadId] = useState(messages[0]?.id);
+  const previousMessageIds = useRef(new Set<string>());
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const overlaps = messages.some((message) =>
+      previousMessageIds.current.has(message.id),
+    );
+    previousMessageIds.current = new Set(messages.map((message) => message.id));
+    if (!overlaps) setFallbackThreadId(messages[0].id);
+  }, [messages]);
+  const scrollThreadId = configuredThreadId ?? fallbackThreadId;
   const [inputContainerEl, setInputContainerEl] =
     useState<HTMLDivElement | null>(null);
   const [inputContainerHeight, setInputContainerHeight] = useState(0);

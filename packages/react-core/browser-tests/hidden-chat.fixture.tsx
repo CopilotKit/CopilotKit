@@ -11,20 +11,39 @@ const params = new URLSearchParams(window.location.search);
 const count = Number(params.get("count") ?? "80");
 const nextCount = Number(params.get("nextCount") ?? String(count));
 const mode = params.get("mode") === "none" ? "none" : "pin-to-bottom";
+const standalone = params.get("standalone") === "true";
 
 function App() {
   const [hidden, setHidden] = useState(false);
   const [thread, setThread] = useState("one");
   const [tick, setTick] = useState(0);
+  const [prepended, setPrepended] = useState(false);
+  const [trimmed, setTrimmed] = useState(false);
   // A fresh array makes CopilotChatMessageView re-render through its memoized
   // slot wrapper while hidden and after the host becomes measurable again.
-  const messages = Array.from(
-    { length: thread === "one" ? count : nextCount },
-    (_, i) => ({
+  const messages = [
+    ...(prepended
+      ? [
+          {
+            id: "older",
+            role: "user" as const,
+            content: "Older message " + "sample text ".repeat(20),
+          },
+        ]
+      : []),
+    ...Array.from({ length: thread === "one" ? count : nextCount }, (_, i) => ({
       id: `${thread}-${i}`,
       role: i % 2 ? ("assistant" as const) : ("user" as const),
       content: `Message ${i} ${"sample text ".repeat(20)}`,
-    }),
+    })).slice(trimmed ? 1 : 0),
+  ];
+  const chat = (
+    <CopilotChatView
+      welcomeScreen={false}
+      autoScroll={mode}
+      messages={messages}
+      input={() => <div style={{ height: 40 }} />}
+    />
   );
 
   return (
@@ -44,20 +63,25 @@ function App() {
       >
         Switch thread
       </button>
+      <button id="prepend" onClick={() => setPrepended(true)}>
+        Load older
+      </button>
+      <button id="trim-oldest" onClick={() => setTrimmed(true)}>
+        Trim oldest
+      </button>
       <span id="tick">{tick}</span>
       <div
         id="host"
         style={{ display: hidden ? "none" : "block", height: 500, width: 700 }}
       >
         <CopilotKitProvider>
-          <CopilotChatConfigurationProvider threadId={thread}>
-            <CopilotChatView
-              welcomeScreen={false}
-              autoScroll={mode}
-              messages={messages}
-              input={() => <div style={{ height: 40 }} />}
-            />
-          </CopilotChatConfigurationProvider>
+          {standalone ? (
+            chat
+          ) : (
+            <CopilotChatConfigurationProvider threadId={thread}>
+              {chat}
+            </CopilotChatConfigurationProvider>
+          )}
         </CopilotKitProvider>
       </div>
     </main>
