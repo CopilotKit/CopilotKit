@@ -16,6 +16,7 @@ import asyncio
 import inspect
 import json
 import sys
+from types import SimpleNamespace
 from typing import Any
 
 from ag_ui.core import EventType, Tool, UserMessage
@@ -438,3 +439,69 @@ def test_upstream_adapter_cannot_resume_parallel_interrupts():
     )
 
     assert len(script["seen"]) == 2
+
+
+# --- LangGraphAGUIAgent._build_command_from_agui_resume ----------------------
+
+_ID_A = "a" * 32
+_ID_B = "b" * 32
+
+
+def _open(*ids):
+    return [SimpleNamespace(id=i) for i in ids]
+
+
+def _resume_value(agent_cls, entries, open_ids):
+    graph, _ = _build(responses=[AIMessage(content="unused")])
+    agent = agent_cls(name="test", graph=graph)
+    command = agent._build_command_from_agui_resume(
+        entries, open_interrupts=_open(*open_ids)
+    )
+    return command.resume
+
+
+@requires_standard_resume
+def test_several_open_interrupts_resume_keyed_by_id():
+    value = _resume_value(
+        LangGraphAGUIAgent,
+        [_answer(_ID_A, {"page": "/x"}), _answer(_ID_B, status="cancelled")],
+        [_ID_A, _ID_B],
+    )
+
+    assert value == {
+        _ID_A: {"page": "/x"},
+        _ID_B: {"__agui_cancelled__": True, "interrupt_id": _ID_B},
+    }
+
+
+@requires_standard_resume
+@pytest.mark.parametrize(
+    ("entries", "open_ids"),
+    [
+        pytest.param([_answer(_ID_A, "x")], [_ID_A], id="one-open-interrupt"),
+        pytest.param(
+            [_answer(_ID_A, "x"), _answer("c" * 32, "y")],
+            [_ID_A, _ID_B],
+            id="entry-for-an-interrupt-that-is-not-open",
+        ),
+    ],
+)
+def test_other_resumes_are_left_to_upstream(entries, open_ids):
+    assert _resume_value(LangGraphAGUIAgent, entries, open_ids) == _resume_value(
+        LangGraphAgent, entries, open_ids
+    )
+
+
+@requires_standard_resume
+def test_custom_interrupt_mapping_is_left_to_upstream():
+    """A subclass that maps interrupts itself may use ids LangGraph never issued."""
+
+    class _SplitsInterrupts(LangGraphAGUIAgent):
+        def _interrupts_to_agui(self, lg_interrupts):
+            return super()._interrupts_to_agui(lg_interrupts)
+
+    entries = [_answer(_ID_A, "x"), _answer(_ID_B, "y")]
+
+    assert _resume_value(_SplitsInterrupts, entries, [_ID_A, _ID_B]) == (
+        _resume_value(LangGraphAgent, entries, [_ID_A, _ID_B])
+    )

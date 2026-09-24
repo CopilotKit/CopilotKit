@@ -1,7 +1,6 @@
 import inspect
 import json
 import logging
-import re
 from enum import Enum
 from typing import Any, AsyncGenerator, Dict, List, Optional, Union
 
@@ -24,10 +23,6 @@ from langgraph.types import Command
 from .exc import CopilotKitMisuseError
 
 logger = logging.getLogger(__name__)
-
-# LangGraph interrupt ids are xxh3-128 hex digests; LangGraph only treats a
-# resume dict as an id-keyed map when every key has this shape.
-_LANGGRAPH_INTERRUPT_ID = re.compile(r"[0-9a-f]{32}")
 
 # ag-ui-langgraph's sentinel for a cancelled resume entry.
 _AGUI_CANCELLED_KEY = "__agui_cancelled__"
@@ -498,7 +493,7 @@ class LangGraphAGUIAgent(LangGraphAgent):
         *,
         open_interrupts: Optional[list] = None,
     ) -> Command:
-        """Resume with LangGraph's own id-keyed map, so parallel interrupts work.
+        """Resume parallel interrupts with LangGraph's own id-keyed map.
 
         Upstream (ag-ui-langgraph >= 0.0.43) sends one entry as a bare value and
         several as one ``{"__agui_resume_map__": ...}`` value. Both only work
@@ -506,22 +501,29 @@ class LangGraphAGUIAgent(LangGraphAgent):
         as one per frontend tool call, LangGraph rejects any resume that is not
         keyed by interrupt id — even a partial answer to just one of them.
 
-        The AG-UI id *is* the LangGraph id unless ``_interrupts_to_agui`` was
-        overridden, so pass the ids through and let each task read its own
-        entry. With one interrupt pending, each task receives exactly what
-        upstream would have sent it.
+        So when several interrupts are open, key the answers by id and let each
+        task read its own. That needs the AG-UI ids to be the LangGraph ids,
+        which holds unless ``_interrupts_to_agui`` is overridden. Anything else
+        — one open interrupt, an id that is not open — goes to upstream as is.
         """
-        if entries and all(
-            _LANGGRAPH_INTERRUPT_ID.fullmatch(str(e.interrupt_id)) for e in entries
+        open_ids = {interrupt.id for interrupt in open_interrupts or []}
+        if (
+            len(open_ids) > 1
+            and entries
+            and all(entry.interrupt_id in open_ids for entry in entries)
+            and type(self)._interrupts_to_agui is LangGraphAgent._interrupts_to_agui
         ):
             return Command(
                 resume={
-                    e.interrupt_id: (
-                        e.payload
-                        if e.status == "resolved"
-                        else {_AGUI_CANCELLED_KEY: True, "interrupt_id": e.interrupt_id}
+                    entry.interrupt_id: (
+                        entry.payload
+                        if entry.status == "resolved"
+                        else {
+                            _AGUI_CANCELLED_KEY: True,
+                            "interrupt_id": entry.interrupt_id,
+                        }
                     )
-                    for e in entries
+                    for entry in entries
                 }
             )
         return super()._build_command_from_agui_resume(

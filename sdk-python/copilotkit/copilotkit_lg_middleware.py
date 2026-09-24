@@ -1120,7 +1120,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         cls,
         state: StateSchema,
         runtime: Runtime[Any],
-    ) -> set:
+    ) -> set[str]:
         """Names of the frontend tools the client forwarded for this run."""
         frontend_tools = cls._get_copilotkit_context(
             state,
