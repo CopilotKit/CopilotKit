@@ -1,7 +1,12 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { buildRootSurfaceNav, loadDoc, readTitle } from "../docs-render";
+import {
+  buildRootSurfaceNav,
+  inlineSnippets,
+  loadDoc,
+  readTitle,
+} from "../docs-render";
 import type { NavNode } from "../docs-render";
 import { filterFrontendScopedBlocks } from "../toc";
 
@@ -46,7 +51,7 @@ const channelReferenceFiles = {
 function bodyFor(slug: (typeof maintainedChannelSlugs)[number]): string {
   const doc = loadDoc(slug);
   expect(doc, `missing maintained doc: ${slug}`).not.toBeNull();
-  return doc!.source.replace(/^---[\s\S]*?---\n?/, "");
+  return inlineSnippets(doc!.source.replace(/^---[\s\S]*?---\n?/, ""));
 }
 
 function navTitleFor(slug: (typeof maintainedChannelSlugs)[number]): string {
@@ -164,8 +169,8 @@ describe("Channels documentation journey", () => {
       expect(doc?.source).not.toContain(
         'title="Run a persistent realtime listener"',
       );
-      expect(doc?.source).toContain(
-        "The install command below uses an exact, tested SDK pair",
+      expect(inlineSnippets(doc!.source)).toContain(
+        "Use this tested package combination",
       );
       expect(doc?.source).toContain("`CHANNEL_CODE`");
       expect(doc?.source).toContain("`CPK_INTELLIGENCE_API_KEY`");
@@ -191,9 +196,9 @@ describe("Channels documentation journey", () => {
 
   it("installs the exact stable Channels SDK pair in both provider quickstarts", () => {
     const testedInstall =
-      "npm install --save-exact @copilotkit/channels@0.9.2 @copilotkit/runtime@1.70.2";
+      "npm install --save-exact @copilotkit/channels@0.11.0 @copilotkit/runtime@1.73.3";
     const nonExactInstall =
-      "npm install @copilotkit/channels@0.9.2 @copilotkit/runtime@1.70.2";
+      "npm install @copilotkit/channels@0.11.0 @copilotkit/runtime@1.73.3";
 
     for (const slug of providerQuickstartSlugs) {
       const source = bodyFor(slug);
