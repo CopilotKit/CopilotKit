@@ -17,15 +17,15 @@ import type {
   InterruptRenderProps,
 } from "@copilotkit/react-core/v2";
 
-// --- The bridge: frontend-tools.mdx version + one fix (see README) ------------
+// --- The bridge: naive version + one fix (see README) -------------------------
 
-// The docs version only re-checks on OnMessagesChanged, but core records a
+// The naive version only re-checks on OnMessagesChanged, but core records a
 // tool result with `agent.messages.splice(...)`, which fires no notification.
 // So a result recorded AFTER the interrupt arrives (any HITL answer) is never
-// forwarded and the run hangs. Visit /?docs to run the docs version verbatim.
+// forwarded and the run hangs. Visit /?naive to run the naive version.
 const RECHECK_ON_TOOL_END =
   typeof window === "undefined" ||
-  !new URLSearchParams(window.location.search).has("docs");
+  !new URLSearchParams(window.location.search).has("naive");
 
 function ForwardToolResults({
   agentId,
