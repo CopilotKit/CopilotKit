@@ -16,7 +16,10 @@ import { ShellFrame } from "@/shell/layout/shell-frame";
 import { LayoutPreferencesProvider } from "@/shell/layout/layout-preferences";
 import { ChatPanel } from "@/shell/chat/chat-panel";
 import { ChatInboxProvider } from "@/shell/chat/chat-inbox-context";
-import { TOOL_CALL_RENDERERS } from "@/shell/chat/tool-activity";
+import {
+  TOOL_CALL_RENDERERS,
+  ToolActivityProvider,
+} from "@/shell/chat/tool-activity";
 import {
   CanvasProvider,
   classifyA2uiSurface,
@@ -291,23 +294,25 @@ function SkinCopilotRuntime({
                 Remounting is deliberate — it is React's answer to "reset state
                 when an input changes" and keeps a `setState` out of an effect.
               */}
-              <SubagentActivityProvider key={threadId}>
-                <Providers>
-                  <SkinSuggestions skin={skin} />
-                  <Tools />
-                  <LayoutPreferencesProvider>
-                    <ShellFrame
-                      activeSkinId={skin.id}
-                      chat={<ChatPanel threadId={threadId} />}
-                      app={
-                        <Layout>
-                          <CanvasRegion>{children}</CanvasRegion>
-                        </Layout>
-                      }
-                    />
-                  </LayoutPreferencesProvider>
-                </Providers>
-              </SubagentActivityProvider>
+              <ToolActivityProvider key={threadId}>
+                <SubagentActivityProvider>
+                  <Providers>
+                    <SkinSuggestions skin={skin} />
+                    <Tools />
+                    <LayoutPreferencesProvider>
+                      <ShellFrame
+                        activeSkinId={skin.id}
+                        chat={<ChatPanel threadId={threadId} />}
+                        app={
+                          <Layout>
+                            <CanvasRegion>{children}</CanvasRegion>
+                          </Layout>
+                        }
+                      />
+                    </LayoutPreferencesProvider>
+                  </Providers>
+                </SubagentActivityProvider>
+              </ToolActivityProvider>
             </CanvasProvider>
           </ChatInboxProvider>
         </SkinProvider>
