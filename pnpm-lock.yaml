@@ -3195,6 +3195,9 @@ importers:
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
+      jsdom:
+        specifier: ^26.1.0
+        version: 26.1.0
       postcss:
         specifier: ^8.4.20
         version: 8.5.6

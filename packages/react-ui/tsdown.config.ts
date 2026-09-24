@@ -64,6 +64,32 @@ export default defineConfig([
       "@copilotkit/shared",
       "@copilotkit/runtime-client-gql",
     ],
+    plugins: [
+      {
+        name: "umd-lazy-syntax-highlighter",
+        renderChunk(code) {
+          // Native import() exceeds the ES2018 UMD target. Resolve the same
+          // external only when a code block mounts, from CommonJS or its global.
+          const highlighterImport =
+            /import\(["']react-syntax-highlighter["']\)/g;
+          if (code.match(highlighterImport)?.length !== 1) {
+            throw new Error(
+              "Expected one lazy syntax highlighter import in the UMD bundle",
+            );
+          }
+          const output = code.replace(
+            highlighterImport,
+            'Promise.resolve().then(() => typeof require === "function" ? require("react-syntax-highlighter") : globalThis.ReactSyntaxHighlighter)',
+          );
+          if (/\bimport\s*\(/.test(output)) {
+            throw new Error(
+              "UMD output still contains an unsupported dynamic import",
+            );
+          }
+          return output;
+        },
+      },
+    ],
     outputOptions(options) {
       options.codeSplitting = false;
       options.entryFileNames = "[name].umd.js";

@@ -1,5 +1,6 @@
-import { FC, memo, useEffect, useState } from "react";
-import { Prism, Light } from "react-syntax-highlighter";
+import type { FC } from "react";
+import { memo, useEffect, useState } from "react";
+import type { Prism, Light } from "react-syntax-highlighter";
 import { useCopyToClipboard } from "../../hooks/use-copy-to-clipboard";
 import { CheckIcon, CopyIcon, DownloadIcon } from "./Icons";
 
@@ -56,16 +57,39 @@ export const generateRandomString = (length: number, lowercase = false) => {
 const CodeBlock: FC<Props> = memo(({ language, value }) => {
   const { isCopied, copyToClipboard } = useCopyToClipboard({ timeout: 2000 });
   const [SyntaxHighlighter, setSyntaxHighlighter] = useState<
-    typeof Light | typeof Prism
-  >(() => Light);
+    typeof Light | typeof Prism | null
+  >(null);
 
   useEffect(() => {
+    let highlighter: "Prism" | "Light" = "Prism";
     try {
       new RegExp("(?<=#)\\w+");
-      setSyntaxHighlighter(() => Prism);
     } catch {
-      setSyntaxHighlighter(() => Light);
+      highlighter = "Light";
     }
+
+    // UMD consumers can still provide the highlighter through its existing global.
+    const globalHighlighter = (
+      globalThis as typeof globalThis & {
+        ReactSyntaxHighlighter?: { Prism: typeof Prism; Light: typeof Light };
+      }
+    ).ReactSyntaxHighlighter;
+    if (globalHighlighter) {
+      setSyntaxHighlighter(() => globalHighlighter[highlighter]);
+      return;
+    }
+
+    let active = true;
+    import("react-syntax-highlighter")
+      .then((module) => {
+        if (active) setSyntaxHighlighter(() => module[highlighter]);
+      })
+      .catch(() => {
+        // Keep the readable plain-code view if the optional grammar chunk fails.
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const downloadAsFile = () => {
@@ -114,18 +138,36 @@ const CodeBlock: FC<Props> = memo(({ language, value }) => {
           </button>
         </div>
       </div>
-      <SyntaxHighlighter
-        language={language}
-        style={highlightStyle}
-        PreTag="div"
-        customStyle={{
-          margin: 0,
-          borderBottomLeftRadius: "0.375rem",
-          borderBottomRightRadius: "0.375rem",
-        }}
-      >
-        {value}
-      </SyntaxHighlighter>
+      {SyntaxHighlighter ? (
+        <SyntaxHighlighter
+          language={language}
+          style={highlightStyle}
+          PreTag="div"
+          customStyle={{
+            margin: 0,
+            borderBottomLeftRadius: "0.375rem",
+            borderBottomRightRadius: "0.375rem",
+          }}
+        >
+          {value}
+        </SyntaxHighlighter>
+      ) : (
+        <div
+          style={{
+            ...highlightStyle['pre[class*="language-"]'],
+            margin: 0,
+            borderBottomLeftRadius: "0.375rem",
+            borderBottomRightRadius: "0.375rem",
+          }}
+        >
+          <code
+            className={`language-${language}`}
+            style={highlightStyle['code[class*="language-"]']}
+          >
+            {value}
+          </code>
+        </div>
+      )}
     </div>
   );
 });
