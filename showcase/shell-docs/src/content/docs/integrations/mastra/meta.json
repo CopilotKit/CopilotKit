@@ -17,8 +17,7 @@
         "prebuilt-components/copilot-threads-drawer",
         "headless-threads",
         "threads-lifecycle",
-        "threads-import",
-        "threads-self-managed"
+        "threads-import"
       ]
     },
     "custom-look-and-feel",
@@ -27,7 +26,9 @@
     "---Generative UI---",
     "...generative-ui",
     "---App Control---",
-    "frontend-tools", "shared-state", "agent-app-context",
+    "frontend-tools",
+    "shared-state",
+    "agent-app-context",
     "---Mastra---",
     "...human-in-the-loop",
     "background-tasks",

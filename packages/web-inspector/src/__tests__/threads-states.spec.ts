@@ -1249,7 +1249,7 @@ test("locked Threads copy the feature setup prompt", async () => {
 
     await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
     const prompt = writeText.mock.calls[0]?.[0] ?? "";
-    expect(prompt).toContain("--intent add-rich-threads");
+    expect(prompt).toContain("?intent=add-rich-threads");
     expect(prompt).not.toContain("This task is specifically to enable Threads");
     expect(prompt).not.toContain("https://docs.copilotkit.ai/threads");
     expect(prompt).not.toContain("Preserve the project's framework");

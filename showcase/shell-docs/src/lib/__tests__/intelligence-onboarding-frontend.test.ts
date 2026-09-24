@@ -52,7 +52,7 @@ describe("onboardingFrontendSlug", () => {
 describe("frontendPromptSuffix", () => {
   it("appends the exact sentence the CLI graph reads", () => {
     expect(frontendPromptSuffix("vue", "Vue")).toBe(
-      " The developer selected the Vue frontend (`vue`).",
+      " I use the Vue frontend (`vue`).",
     );
   });
 
@@ -61,25 +61,17 @@ describe("frontendPromptSuffix", () => {
     // React and the graph calls it `nextjs`; the sentence says both, exactly
     // as the framework sentence pairs a display name with a graph slug.
     expect(frontendPromptSuffix("react", "React")).toBe(
-      " The developer selected the React frontend (`nextjs`).",
+      " I use the React frontend (`nextjs`).",
     );
   });
 
   it.each([
-    [
-      "react-spa",
-      "React SPA",
-      " The developer selected the React SPA frontend (`react-spa`).",
-    ],
-    [
-      "angular",
-      "Angular",
-      " The developer selected the Angular frontend (`angular`).",
-    ],
+    ["react-spa", "React SPA", " I use the React SPA frontend (`react-spa`)."],
+    ["angular", "Angular", " I use the Angular frontend (`angular`)."],
     [
       "react-native",
       "React Native",
-      " The developer selected the React Native frontend (`react-native`).",
+      " I use the React Native frontend (`react-native`).",
     ],
   ])("renders the whole sentence for %s", (docsId, name, sentence) => {
     expect(frontendPromptSuffix(docsId, name)).toBe(sentence);

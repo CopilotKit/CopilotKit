@@ -54,6 +54,11 @@ describe("docs prompt controls", () => {
         properties_seen: [
           "action",
           "agent_framework",
+          // The revision of the argument prose appended to the copied link,
+          // and the prose itself. The hosted document versions its own text;
+          // these are the other half of what the developer copied (PE-255).
+          "argument_text",
+          "argument_version",
           "channel",
           "from_path",
           "frontend",

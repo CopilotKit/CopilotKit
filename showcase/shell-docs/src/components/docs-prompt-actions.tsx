@@ -49,7 +49,7 @@ export function DocsPromptActions({
           };
           return {
             text: includePageSource
-              ? `${payload.text} The developer copied this prompt from ${getRuntimeConfig().baseUrl.replace(/\/+$/, "")}${page?.markdownUrl ?? `${pathname?.replace(/\/$/, "") || ""}.mdx`}.`
+              ? `${payload.text} I copied this prompt from ${getRuntimeConfig().baseUrl.replace(/\/+$/, "")}${page?.markdownUrl ?? `${pathname?.replace(/\/$/, "") || ""}.mdx`}.`
               : payload.text,
             onAction: (action) =>
               posthog?.capture(

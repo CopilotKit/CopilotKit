@@ -6,6 +6,8 @@ icon: "lucide/Server"
 doc_type: how-to
 ---
 
+## Overview
+
 Deploy CopilotKit Intelligence in your AWS account with the versioned ECS/Fargate bundle and its `cpki-ecs` command. You start with your own network, databases, secrets, and OIDC provider. You finish with the Intelligence dashboard behind HTTPS, an authenticated session, and a runtime connected to your deployment.
 
 <Callout type="info" title="Choose your deployment path">
@@ -233,7 +235,7 @@ Run the following commands in Bash. Keep the same shell open so the paths set in
 
     Open the UI host in a browser and sign in through your OIDC provider with a user who matches your bootstrap access mapping. Select the organization, select or create a project, and create a project API key in that deployment.
 
-    Follow [Connect your runtime](/intelligence/connect-your-runtime#self-hosted-deployments), using both of your deployment's base URLs:
+    Follow [Connect your runtime](/intelligence/quickstart#self-hosted-deployments), using both of your deployment's base URLs:
 
     ```ts title="Intelligence client in your server-side runtime"
     import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";

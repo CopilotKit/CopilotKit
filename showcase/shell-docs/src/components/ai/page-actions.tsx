@@ -1,4 +1,10 @@
 "use client";
+import {
+  ARGUMENT_TEMPLATES,
+  ONBOARDING_ARGUMENT_TEXT,
+  ONBOARDING_ARGUMENT_VERSION,
+  fillArgumentTemplate,
+} from "@/lib/onboarding-argument-templates";
 import { useMemo, useState } from "react";
 import type { ComponentProps } from "react";
 import {
@@ -273,9 +279,11 @@ export function OnboardingPromptCopyButton({
             ? { id: frontend.id, name: frontend.name }
             : undefined;
         const source =
-          ` The developer copied this prompt from ${getClientBaseUrl().replace(/\/+$/, "")}${markdownUrl}.` +
+          fillArgumentTemplate(ARGUMENT_TEMPLATES.pageSource, {
+            url: `${getClientBaseUrl().replace(/\/+$/, "")}${markdownUrl}`,
+          }) +
           (task
-            ? ` Their goal for this quickstart is: ${task} Follow the linked guide for this framework and frontend.`
+            ? fillArgumentTemplate(ARGUMENT_TEMPLATES.pageTask, { task })
             : "");
         return {
           /**
@@ -308,6 +316,8 @@ export function OnboardingPromptCopyButton({
                 agent_framework: graphFramework,
                 frontend: graphFrontend,
                 channel: channel?.id,
+                argument_version: ONBOARDING_ARGUMENT_VERSION,
+                argument_text: ONBOARDING_ARGUMENT_TEXT,
               },
             ),
           onCopied: (action) =>
@@ -319,6 +329,11 @@ export function OnboardingPromptCopyButton({
               agent_framework: graphFramework,
               frontend: graphFrontend,
               channel: channel?.id,
+              // Which revision of the argument prose was appended. The hosted
+              // document versions its own text; this is the other half of what
+              // the developer copied (PE-255).
+              argument_version: ONBOARDING_ARGUMENT_VERSION,
+              argument_text: ONBOARDING_ARGUMENT_TEXT,
             }),
         };
       }}

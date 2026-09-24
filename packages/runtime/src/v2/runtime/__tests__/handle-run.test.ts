@@ -5,6 +5,7 @@ import { AbstractAgent, EventType, HttpAgent } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { handleRunAgent } from "../handlers/handle-run";
 import { CopilotRuntime } from "../core/runtime";
+import type { CopilotRuntimeMemoryConfig } from "../core/runtime";
 import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import { InMemoryAgentRunner } from "../runner/in-memory";
@@ -620,6 +621,7 @@ describe("handleRunAgent", () => {
                 userId: string;
               }) => string | null | Promise<string | null>);
         };
+        memory?: CopilotRuntimeMemoryConfig;
       },
     ) => {
       const runner = Object.create(IntelligenceAgentRunner.prototype);
@@ -649,6 +651,7 @@ describe("handleRunAgent", () => {
           options?.identifyUser ??
           vi.fn().mockResolvedValue({ id: "user-1", name: "User One" }),
         learning: options?.learning,
+        memory: options?.memory,
       } as unknown as CopilotRuntime;
     };
 
@@ -728,6 +731,61 @@ describe("handleRunAgent", () => {
         userId: "user-1",
       });
     });
+
+    /**
+     * The run-level regression for a Memory policy that grants nothing.
+     *
+     * `attachIntelligenceEnterpriseLearning` is covered directly in
+     * handlers/shared/__tests__, but the bug was only ever visible from here:
+     * the 403 that policy produced was returned as the response to
+     * `POST /agent/:id/run`, so a tenant with Memory switched off could not
+     * hold a conversation at all. Asserting on the handler keeps that whole
+     * path honest — the thread lock is taken, the runner starts, and the
+     * caller gets its join credentials, exactly as it would with no Memory
+     * policy configured.
+     *
+     * Both spellings of "nothing" are one outcome, so both run.
+     */
+    it.each([
+      ["a null grant", () => null],
+      ["an explicit all-none grant", () => ({ user: "none", project: "none" })],
+    ])(
+      "starts the run when the Memory policy returns %s",
+      async (_label, access) => {
+        const agent = createAgentForIntelligence();
+        const platform = {
+          getOrCreateThread: vi.fn().mockResolvedValue({
+            thread: { id: "thread-1", name: null },
+            created: false,
+          }),
+          getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+          ɵacquireThreadLock: vi.fn().mockResolvedValue({
+            threadId: "thread-1",
+            runId: "run-1",
+            joinToken: "jt-123",
+          }),
+          ɵcleanupThreadLock: vi.fn().mockResolvedValue(undefined),
+        };
+        const runtime = createIntelligenceRuntime(agent, platform, {
+          memory: { access } as CopilotRuntimeMemoryConfig,
+        });
+
+        const response = await handleRunAgent({
+          runtime,
+          request: createRunRequest(),
+          agentId: "my-agent",
+        });
+
+        expect(response.status).toBe(200);
+        const body = await response.json();
+        expect(body).toMatchObject({
+          threadId: "thread-1",
+          runId: "run-1",
+          joinToken: "jt-123",
+        });
+        expect(runtime.runner.run).toHaveBeenCalledTimes(1);
+      },
+    );
 
     it("resolves one Learning Container ID and uses it for create and lock", async () => {
       const agent = createAgentForIntelligence();

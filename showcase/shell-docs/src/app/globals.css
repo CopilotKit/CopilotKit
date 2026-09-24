@@ -2642,3 +2642,11 @@ samp {
   max-width: none;
   margin-inline: 0;
 }
+
+/* Intelligence overview cards: solid accent icon badge with a white glyph. */
+.intelligence-accent-cards [data-card] > div:first-child {
+  border-color: transparent;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: none;
+}
