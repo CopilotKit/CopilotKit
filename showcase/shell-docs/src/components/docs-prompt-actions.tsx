@@ -5,7 +5,7 @@ import { usePostHog } from "posthog-js/react";
 import { usePathname } from "next/navigation";
 import { PromptPill } from "./prompt-pill";
 import { ViewOptionsPopover } from "./ai/page-actions";
-import { getRuntimeConfig } from "@/lib/runtime-config.client";
+import { pageSourceSentence } from "@/lib/onboarding-argument-templates";
 
 /** Preserve the canonical page and source links when actions move into MDX. */
 const PageContext = React.createContext<{
@@ -49,7 +49,11 @@ export function DocsPromptActions({
           };
           return {
             text: includePageSource
-              ? `${payload.text} The developer copied this prompt from ${getRuntimeConfig().baseUrl.replace(/\/+$/, "")}${page?.markdownUrl ?? `${pathname?.replace(/\/$/, "") || ""}.mdx`}.`
+              ? payload.text +
+                pageSourceSentence(
+                  page?.markdownUrl ??
+                    `${pathname?.replace(/\/$/, "") || ""}.mdx`,
+                )
               : payload.text,
             onAction: (action) =>
               posthog?.capture(

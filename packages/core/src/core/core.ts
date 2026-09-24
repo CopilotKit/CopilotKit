@@ -1365,7 +1365,7 @@ export class CopilotKitCore {
   }
 
   stopAgent(params: CopilotKitCoreStopAgentParams): void {
-    this.runHandler.abortCurrentRun();
+    this.runHandler.abortCurrentRun(params.agent);
     params.agent.abortRun();
   }
 

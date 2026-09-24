@@ -54,15 +54,6 @@ export const myDefinitions = {
     }),
   },
 
-  DataTable: {
-    description:
-      "A data table with column headers and rows. Ideal for rankings and rep performance vs quota. Each column key selects the corresponding value from every row.",
-    props: z.object({
-      columns: z.array(z.object({ key: z.string(), label: z.string() })),
-      rows: z.array(z.record(z.union([z.string(), z.number()]))),
-    }),
-  },
-
   PrimaryButton: {
     description:
       "A styled primary call-to-action button. Attach an optional `action` that will be dispatched back to the agent when the user clicks it.",

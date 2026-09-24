@@ -114,10 +114,10 @@ describe("Channels activation impressions", () => {
       fireEvent.click(screen.getByRole("button", { name: /Copy prompt/i }));
       await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
       const prompt = writeText.mock.calls[0][0];
-      expect(prompt).toContain("onboard start");
+      expect(prompt).toContain("/onboarding-prompts/");
       expect(prompt).not.toContain("add-channels");
       expect(prompt).toContain(
-        `The developer copied this prompt from https://docs.copilotkit.ai/${frontend}.mdx.`,
+        `I started from this CopilotKit docs page: https://docs.copilotkit.ai/${frontend}.`,
       );
     },
   );

@@ -32,7 +32,7 @@
 import type { Page as PlaywrightPage } from "playwright";
 
 import { findAssistantBubbleAt } from "../helpers/assistant-message-count.js";
-import { type Page } from "../helpers/conversation-runner.js";
+import type { Page } from "../helpers/conversation-runner.js";
 
 /**
  * Turn-scoped replacement for `readLastAssistantText`. Resolves the

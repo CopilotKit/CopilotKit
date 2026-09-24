@@ -17,7 +17,7 @@
 #     skips tag push + GH Release + Slack notification.
 name: release / publish
 
-# This workflow handles two independent release lanes:
+# This workflow handles three independent release lanes:
 #
 # 1. npm (TypeScript) — fires on merged release/publish/* PRs or manual dispatch.
 #    Build with `nx run-many -t build` → `pnpm pack` each package →
@@ -30,8 +30,18 @@ name: release / publish
 # 2. PyPI (Python SDK) — fires on any merged PR that bumps sdk-python/pyproject.toml.
 #    Detects version change vs PyPI registry, builds with poetry, publishes with uv.
 #    Ported from ag-ui's publish-release.yml Python lane.
+# 3. Intelligence Python — fires on relevant pushes to main or manual dispatch.
+#    Builds once and publishes the runtime and adapters through PyPI.
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/runtime-python/**"
+      - "packages/intelligence-langgraph-python/**"
+      - "packages/intelligence-adk-python/**"
+      - "scripts/release/intelligence_python_plan.py"
+      - ".github/workflows/publish-release.yml"
   pull_request:
     types: [closed]
     branches: [main]
@@ -75,19 +85,19 @@ on:
         required: false
         default: false
         type: boolean
+      intelligence_python_publish:
+        description: "Publish missing Intelligence Python runtime, LangGraph, and ADK releases to PyPI. Runs only this lane."
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
 
 concurrency:
-  # Scope the lock to the package being released so a `monorepo` publish and an
-  # `angular` publish run in independent lanes instead of queuing behind each
-  # other. On the manual path `inputs.scope` carries the target; on the merged
-  # release-PR path inputs are empty, but the PR branch is
-  # `release/publish/<scope>/v<version>`, so `github.head_ref` already encodes
-  # the scope. Same-scope runs still serialize (cancel-in-progress: false),
-  # which is what protects the tag push / npm publish.
-  group: publish-release-${{ inputs.scope || github.head_ref || github.ref }}
+  # Serialize automatic and manual Intelligence Python releases against each
+  # other. Other lanes continue to use the selected scope or PR branch.
+  group: publish-release-${{ (github.event_name == 'push' || inputs.intelligence_python_publish == true) && 'intelligence-python' || inputs.scope || github.head_ref || github.ref }}
   cancel-in-progress: false
 
 env:
@@ -100,7 +110,7 @@ jobs:
     # selected branch. Canary publishes are intentionally branch-scoped so
     # maintainers can push a button on feature work without merging first.
     if: >
-      (github.event_name == 'workflow_dispatch' &&
+      (github.event_name == 'workflow_dispatch' && inputs.intelligence_python_publish != true &&
         (inputs.mode == 'prerelease' || github.ref == 'refs/heads/main')) ||
       (github.event.pull_request.merged == true &&
         startsWith(github.event.pull_request.head.ref, 'release/publish/'))
@@ -610,7 +620,7 @@ jobs:
     # 1. A PR merging to main touched sdk-python/pyproject.toml (version bump), OR
     # 2. Manual dispatch with python_publish=true
     if: >
-      (github.event_name == 'workflow_dispatch' && inputs.python_publish == true) ||
+      (github.event_name == 'workflow_dispatch' && inputs.python_publish == true && inputs.intelligence_python_publish != true) ||
       (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -837,6 +847,191 @@ jobs:
             echo "- https://pypi.org/project/copilotkit/${PY_VERSION}/"
           } >> "$GITHUB_STEP_SUMMARY"
 
+  # The existing Python lane above publishes only sdk-python. Publish these
+  # packages from main so the PyPI environments accept the deployment.
+  build-intelligence-python:
+    if: >
+      (github.event_name == 'workflow_dispatch' && inputs.intelligence_python_publish == true) ||
+      github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      should_publish: ${{ steps.plan.outputs.should_publish }}
+      source_sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Record source revision
+        id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.9.7"
+          enable-cache: false
+
+      - name: Plan missing PyPI releases
+        id: plan
+        run: |
+          set -euo pipefail
+          python scripts/release/intelligence_python_plan.py plan > release-plan.json
+          cat release-plan.json
+          python -c 'import json; print("should_publish=" + str(any(package["publish"] for package in json.load(open("release-plan.json")))).lower())' >> "$GITHUB_OUTPUT"
+
+      - name: Build missing distributions
+        if: steps.plan.outputs.should_publish == 'true'
+        run: python scripts/release/intelligence_python_plan.py build
+
+      - name: Upload distributions and release plan
+        if: steps.plan.outputs.should_publish == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: intelligence-python-release-artifacts
+          path: |
+            release-plan.json
+            intelligence-python-dist/
+          if-no-files-found: error
+          retention-days: 1
+
+  publish-intelligence-runtime:
+    needs: build-intelligence-python
+    if: ${{ !cancelled() && needs.build-intelligence-python.result == 'success' && needs.build-intelligence-python.outputs.should_publish == 'true' && inputs.dry-run != true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout merged main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.build-intelligence-python.outputs.source_sha }}
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.9.7"
+          enable-cache: false
+
+      - name: Download distributions and release plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: intelligence-python-release-artifacts
+
+      - name: Publish and verify runtime
+        run: python3 scripts/release/intelligence_python_plan.py publish --package copilotkit-intelligence-runtime
+
+  publish-intelligence-langgraph:
+    needs: [build-intelligence-python, publish-intelligence-runtime]
+    if: ${{ !cancelled() && needs.build-intelligence-python.result == 'success' && needs.build-intelligence-python.outputs.should_publish == 'true' && needs.publish-intelligence-runtime.result == 'success' && inputs.dry-run != true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: pypi-intelligence-langgraph
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout merged main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.build-intelligence-python.outputs.source_sha }}
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.9.7"
+          enable-cache: false
+
+      - name: Download distributions and release plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: intelligence-python-release-artifacts
+
+      - name: Publish and verify LangGraph
+        run: python3 scripts/release/intelligence_python_plan.py publish --package copilotkit-intelligence-langgraph
+
+  publish-intelligence-adk:
+    needs: [build-intelligence-python, publish-intelligence-langgraph]
+    if: ${{ !cancelled() && needs.build-intelligence-python.result == 'success' && needs.build-intelligence-python.outputs.should_publish == 'true' && needs.publish-intelligence-langgraph.result == 'success' && inputs.dry-run != true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: pypi-intelligence-adk
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout merged main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.build-intelligence-python.outputs.source_sha }}
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.9.7"
+          enable-cache: false
+
+      - name: Download distributions and release plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: intelligence-python-release-artifacts
+
+      - name: Publish and verify ADK
+        run: python3 scripts/release/intelligence_python_plan.py publish --package copilotkit-intelligence-adk
+
+  notify-intelligence-python-failure:
+    needs:
+      [
+        build-intelligence-python,
+        publish-intelligence-runtime,
+        publish-intelligence-langgraph,
+        publish-intelligence-adk,
+      ]
+    if: >
+      always() && !cancelled() && inputs.dry-run != true &&
+      (needs.build-intelligence-python.result == 'failure' ||
+       needs.publish-intelligence-runtime.result == 'failure' ||
+       needs.publish-intelligence-langgraph.result == 'failure' ||
+       needs.publish-intelligence-adk.result == 'failure')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_ENGR }}
+    steps:
+      - name: Alert #engr
+        if: env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_ENGR }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ${{ toJSON(format('🔴 *Intelligence Python PyPI release failed* · <{0}/{1}/actions/runs/{2}|View run>', github.server_url, github.repository, github.run_id)) }}
+            }
+
+      - name: Log missing webhook
+        if: env.SLACK_WEBHOOK == ''
+        run: echo "::warning::Intelligence Python release failed but SLACK_WEBHOOK_ENGR is not set; no Slack alert sent."
+
   # ===========================================================================
   # Slack #engr notification
   #
@@ -868,7 +1063,8 @@ jobs:
       always() &&
       (github.event_name == 'workflow_dispatch' ||
         github.event.pull_request.merged == true) &&
-      (inputs.mode != 'prerelease' || inputs.python_publish == true)
+      (inputs.mode != 'prerelease' || inputs.python_publish == true) &&
+      inputs.intelligence_python_publish != true
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

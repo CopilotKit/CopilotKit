@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  isSupportedOnboardingUrl,
   markdownLinkUrls,
   metadataUrl,
   sitemapUrls,
@@ -33,7 +34,6 @@ const REQUIRED_ENDPOINTS = {
     ["/robots.txt", "text/plain"],
     ["/sitemap.xml", "application/xml"],
     ["/llms.txt", "text/plain"],
-    ["/llms-full.txt", "text/plain"],
   ]),
   docs: new Map([
     ["/", "text/html"],
@@ -240,6 +240,14 @@ function responseReasons(
     );
   }
   if (body.trim().length === 0) reasons.push("response body is empty");
+  // A fallback page can be mislabeled as plain text by a proxy or route.
+  // Check only the document prefix so HTML examples inside Markdown stay valid.
+  if (
+    target.contentType !== "text/html" &&
+    /^\s*(?:<!doctype\s+html\b|<html\b)/i.test(body)
+  ) {
+    reasons.push("machine endpoint returned an HTML document");
+  }
   const soft404 = soft404Reason(body, contentType);
   if (soft404) reasons.push(soft404);
 
@@ -282,6 +290,7 @@ function responseReasons(
           if (error) break;
           continue;
         }
+        if (isSupportedOnboardingUrl(rawUrl)) continue;
         const isCopilotKitHost =
           parsed.hostname === "copilotkit.ai" ||
           parsed.hostname.endsWith(".copilotkit.ai");
@@ -452,8 +461,12 @@ async function main(): Promise<void> {
     );
     process.exitCode = 1;
   } else {
+    const targetCount = Object.values(REQUIRED_ENDPOINTS).reduce(
+      (count, endpoints) => count + endpoints.size,
+      0,
+    );
     console.log(
-      `AEO synthetic checks passed: 10 website/docs targets × ${CRAWLERS.length} crawler user agents`,
+      `AEO synthetic checks passed: ${targetCount} website/docs targets × ${CRAWLERS.length} crawler user agents`,
     );
   }
 }

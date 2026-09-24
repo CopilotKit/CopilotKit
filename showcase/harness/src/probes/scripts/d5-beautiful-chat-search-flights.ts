@@ -7,10 +7,8 @@
  * context.
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-} from "../helpers/d5-registry.js";
+import { registerD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { ConversationTurn } from "../helpers/conversation-runner.js";
 import {
   assertSearchFlights,

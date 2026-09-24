@@ -40,8 +40,8 @@ describe("IntelligenceOverview", () => {
     ).toBeNull();
     expect(screen.getByRole("button", { name: /^copy prompt$/i })).toBeTruthy();
 
-    const connect = screen.getByRole("link", { name: /connect an app/i });
-    expect(connect.getAttribute("href")).toBe("/intelligence/quickstart");
+    const quickstart = screen.getByRole("link", { name: /^quickstart$/i });
+    expect(quickstart.getAttribute("href")).toBe("/intelligence/quickstart");
   });
 
   it("swallows autoplay rejection so the page still renders", async () => {
@@ -102,51 +102,18 @@ describe("IntelligenceOverview", () => {
   it("links each feature card to its guide", () => {
     render(<IntelligenceFeatureCards />);
 
-    expect(
-      screen
-        .getByRole("link", { name: "Open the Rich Threads guide" })
-        .getAttribute("href"),
-    ).toBe("/threads");
-    expect(
-      screen
-        .getByRole("link", { name: "Open the Channels guide" })
-        .getAttribute("href"),
-    ).toBe("/slack");
-    expect(
-      screen
-        .getByRole("link", { name: "Open the Memory guide" })
-        .getAttribute("href"),
-    ).toBe("/intelligence/memories");
-    expect(
-      screen
-        .getByRole("link", { name: "See Analytics on the product page" })
-        .getAttribute("href"),
-    ).toBe(
-      "https://www.copilotkit.ai/copilotkit-intelligence#analytics-insights",
-    );
-    expect(
-      screen
-        .getByRole("link", { name: "Open the Learning guide" })
-        .getAttribute("href"),
-    ).toBe("/learning");
-    expect(
-      screen
-        .getByRole("link", { name: "Open the self-hosting guide" })
-        .getAttribute("href"),
-    ).toBe("/intelligence/self-hosting");
-
-    for (const title of [
-      "Rich Threads",
-      "Channels",
-      "Memory",
-      "Analytics",
-      "Automatic Learning",
-      "Self-hosting",
-    ]) {
-      const card = screen
-        .getByRole("heading", { name: title })
-        .closest("article");
-      expect(card?.querySelector("svg")).toBeTruthy();
+    const expected: Array<[string, string]> = [
+      ["Rich Threads", "/threads"],
+      ["Channels", "/intelligence/channels"],
+      ["User Memories", "/intelligence/memories"],
+      ["Product Analytics", "/intelligence/analytics"],
+      ["Automatic Learning", "/learning"],
+      ["Inspector", "/inspector"],
+    ];
+    for (const [title, href] of expected) {
+      const card = screen.getByRole("link", { name: new RegExp(title) });
+      expect(card.getAttribute("href")).toBe(href);
+      expect(card.querySelector("svg")).toBeTruthy();
     }
   });
 });

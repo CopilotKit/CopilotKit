@@ -1,7 +1,12 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { buildRootSurfaceNav, loadDoc, readTitle } from "../docs-render";
+import {
+  buildRootSurfaceNav,
+  inlineSnippets,
+  loadDoc,
+  readTitle,
+} from "../docs-render";
 import type { NavNode } from "../docs-render";
 import { filterFrontendScopedBlocks } from "../toc";
 
@@ -46,7 +51,7 @@ const channelReferenceFiles = {
 function bodyFor(slug: (typeof maintainedChannelSlugs)[number]): string {
   const doc = loadDoc(slug);
   expect(doc, `missing maintained doc: ${slug}`).not.toBeNull();
-  return doc!.source.replace(/^---[\s\S]*?---\n?/, "");
+  return inlineSnippets(doc!.source.replace(/^---[\s\S]*?---\n?/, ""));
 }
 
 function navTitleFor(slug: (typeof maintainedChannelSlugs)[number]): string {
@@ -115,6 +120,11 @@ describe("Channels documentation journey", () => {
     );
     expect(overview?.source).toContain('title="More channels are on the way"');
     expect(overview?.source).toContain(
+      "Slack and Microsoft Teams are generally available on cloud-hosted Intelligence.",
+    );
+    expect(overview?.source).not.toContain("Managed Slack");
+    expect(overview?.source).not.toContain("Managed Teams");
+    expect(overview?.source).toContain(
       'surface="docs_channels_more_channels_contact"',
     );
     expect(overview?.source).toContain('ctaLabel="Book time with an engineer"');
@@ -152,15 +162,15 @@ describe("Channels documentation journey", () => {
     expect(teams?.fm.earlyAccess).toBeUndefined();
     for (const doc of [slack, teams]) {
       expect(doc?.source).not.toContain(
-        "Managed Intelligence support for Discord and WhatsApp is coming soon.",
+        "Cloud-hosted Intelligence support for Discord and WhatsApp is coming soon.",
       );
       expect(doc?.source).not.toContain("production-ready");
       expect(doc?.source).not.toContain("<OpsPlatformCTA");
       expect(doc?.source).not.toContain(
         'title="Run a persistent realtime listener"',
       );
-      expect(doc?.source).toContain(
-        "The install command below uses an exact, tested SDK pair",
+      expect(inlineSnippets(doc!.source)).toContain(
+        "Use this tested package combination",
       );
       expect(doc?.source).toContain("`CHANNEL_CODE`");
       expect(doc?.source).toContain("`CPK_INTELLIGENCE_API_KEY`");
@@ -186,9 +196,9 @@ describe("Channels documentation journey", () => {
 
   it("installs the exact stable Channels SDK pair in both provider quickstarts", () => {
     const testedInstall =
-      "npm install --save-exact @copilotkit/channels@0.9.2 @copilotkit/runtime@1.70.2";
+      "npm install --save-exact @copilotkit/channels@0.11.0 @copilotkit/runtime@1.73.3";
     const nonExactInstall =
-      "npm install @copilotkit/channels@0.9.2 @copilotkit/runtime@1.70.2";
+      "npm install @copilotkit/channels@0.11.0 @copilotkit/runtime@1.73.3";
 
     for (const slug of providerQuickstartSlugs) {
       const source = bodyFor(slug);
@@ -244,7 +254,7 @@ describe("Channels documentation journey", () => {
         "wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL",
       );
       expect(source, slug).toMatch(
-        /hosted Intelligence supplies both managed base URLs by default/i,
+        /Cloud-hosted Intelligence supplies both default base URLs/i,
       );
       expect(source, slug).not.toContain('required("INTELLIGENCE_API_URL")');
       expect(source, slug).not.toContain(
@@ -471,7 +481,7 @@ describe("Channels documentation journey", () => {
     }
     expect(directAdapters).toMatch(/Direct does not mean standalone/i);
     expect(directAdapters).toMatch(
-      /Managed Intelligence support for Discord and WhatsApp is coming soon/i,
+      /Cloud-hosted Intelligence support for Discord and WhatsApp is coming soon/i,
     );
     expect(directAdapters).toMatch(/does not traverse the managed Realtime/i);
     expect(directAdapters).toContain("ESM-only");

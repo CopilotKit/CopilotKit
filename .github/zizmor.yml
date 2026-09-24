@@ -44,6 +44,11 @@ rules:
       # "publish / release" workflow. Listens to release completions; no
       # fork-controlled refs reach this workflow.
       - test_smoke-starter.yml
+      # docs_open_release_pr.yml: workflow_run triggered by the in-repo
+      # "Showcase: Verify Deploy" workflow, filtered to main. The job
+      # re-checks head_branch == 'main' and checks out `ref: main` with
+      # persist-credentials: false, so no fork-controlled ref is fetched.
+      - docs_open_release_pr.yml
 
   # `unpinned-uses` is satisfied because every `uses:` is SHA-pinned and
   # Renovate keeps them current (see renovate.json → local>CopilotKit/renovate).

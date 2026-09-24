@@ -1,27 +1,31 @@
 "use client";
+import {
+  ONBOARDING_ARGUMENT_TEXT,
+  ONBOARDING_ARGUMENT_VERSION,
+} from "@/lib/onboarding-argument-templates";
 
 import { useHomepageTelemetry } from "@/lib/use-homepage-telemetry";
 
 // <SetupWizard> — the client component that owns the homepage setup wizard's
-// state and drives the presentational parts in `./docs-map-parts`,
-// `./wizard-stepper-parts` and `./wizard-review`.
+// state and drives `./wizard-rail`, `./wizard-stepper-parts`,
+// `./docs-map-parts`, and `./wizard-review`.
 //
-// Classic one-card-at-a-time stepper: whether the reader already has a
-// project, frontend, agent backend, features, copy prompt. This component
+// One-card-at-a-time setup flow: whether the reader already has a project,
+// frontend, agent backend, features, copy prompt. This component
 // owns exactly three pieces of bookkeeping: the four selections, the
 // currently displayed step (`current`), and the furthest step the reader
-// has reached (`furthest`, 1-based, never decreases). The progress rail's
-// disabled treatment for steps beyond `furthest` is `wizard-stepper-parts`'
+// has reached (`furthest`, never decreases). The progress rail's
+// disabled treatment for steps beyond `furthest` is `wizard-rail`'s
 // job; this file only ever hands it the number. On mount, `furthest` is
 // seeded from the first unanswered required step. Later saved answers stay
 // available without letting the reader bypass a missing prerequisite.
 //
-// `handleBack` and `handleJump` read `current`/`furthest` through
+// `handleJump` reads `current`/`furthest` through
 // `currentRef`/`furthestRef` rather than closing over the state values —
 // see the comment on those refs for why.
 //
 // Single-choice steps advance on selection. Features remain multi-select,
-// with an explicit Continue/Skip action. Back preserves every answer.
+// with an explicit Continue/Skip action. Returning preserves every answer.
 //
 // Changing an earlier answer must never clear a later one: going back to
 // step 2 and picking a different frontend leaves the backend and the
@@ -42,11 +46,13 @@ import { useHomepageTelemetry } from "@/lib/use-homepage-telemetry";
 import React from "react";
 import Link from "next/link";
 import { WizardBackendPicker } from "./wizard-backend-picker";
-import { Bot, Copy } from "lucide-react";
+import { Copy } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import { CapabilityGrid, PickGrid } from "@/components/docs-map-parts";
 import { frontendPathForBackend, isFrontendId } from "@/lib/frontend-options";
 import { WizardReview } from "@/components/wizard-review";
+import { WizardRail } from "@/components/wizard-rail";
+import type { WizardStep } from "@/components/wizard-rail";
 import type { MapCapability, MapPick } from "@/lib/homepage-map";
 import {
   parseWizardUrlState,
@@ -58,12 +64,9 @@ import type {
 } from "@/lib/wizard-url-state";
 import { prefersReducedMotion } from "@/lib/wizard-scroll";
 import { useIsomorphicLayoutEffect } from "@/lib/isomorphic-layout-effect";
-import { planStepSwap } from "@/lib/wizard-step-transition";
-import type {
-  StepDirection,
-  StepSwapAnimation,
-} from "@/lib/wizard-step-transition";
+import { onboardingFrameworkSlug } from "@/lib/intelligence-onboarding-framework";
 import { composeWizardOnboardingPrompt } from "@/lib/wizard-onboarding-prompt";
+
 import {
   createOnboardingRunId,
   INTELLIGENCE_ONBOARDING_EVENTS,
@@ -74,12 +77,8 @@ import {
   QUIET_BUTTON_CLASS,
   WizardCard,
   WizardNav,
-  WizardProgress,
 } from "@/components/wizard-stepper-parts";
-import type {
-  ChoiceOption,
-  StepperStep,
-} from "@/components/wizard-stepper-parts";
+import type { ChoiceOption } from "@/components/wizard-stepper-parts";
 
 export interface SetupWizardProps {
   frontends: readonly MapPick[];
@@ -92,7 +91,13 @@ export interface SetupWizardProps {
 
 type CopyState = "idle" | "copied" | "error";
 
-const STEPPER_STEPS: readonly StepperStep[] = [
+// Names this control in `docs.intelligence_onboarding_prompt_copied`, the event
+// <PromptPill> also emits from the docs hero and page tools. Every other
+// emitter sets `surface`, so a wizard copy without one is the only row in that
+// stream that cannot be attributed to a control.
+const WIZARD_COPY_SURFACE = "docs_setup_wizard";
+
+const STEPPER_STEPS: readonly WizardStep[] = [
   { n: 1, label: "Project" },
   { n: 2, label: "Frontend" },
   { n: 3, label: "Backend" },
@@ -106,20 +111,12 @@ const COPY_LABEL: Record<CopyState, string> = {
   error: "Copy blocked",
 };
 
-/** The two answers to step 1's "Where are you starting?" — also the
+/** The two answers to step 1's "What are you building?" — also the
  *  allow-list `parseWizardUrlState` validates a restored `project` query
  *  value against, so the ids a reader can pick and the ids a URL is allowed
  *  to carry can never drift apart. */
 const PROJECT_ANSWER_IDS = ["yes", "no"] as const;
 
-// The checkmark/cross pair itself — shared with the review's project row —
-// lives in `wizard-stepper-parts.tsx`'s `PROJECT_ANSWER_ICONS`, which is
-// boundary-neutral, rather than here: this module is `"use client"`, and a
-// client module's named exports are replaced by throwing client references
-// in the server layer, which would break a server-rendered consumer of the
-// same record. See that export's own doc comment for why the pair is a
-// checkmark and a cross rather than the two meaningful-but-arbitrary icons
-// this used to be.
 const PROJECT_OPTIONS: readonly ChoiceOption[] = [
   {
     id: "yes",
@@ -151,48 +148,8 @@ function landingStep(restored: WizardUrlState): number {
   return 5;
 }
 
-/**
- * What `goTo` records before handing control back to React: the direction
- * of travel and the wrapper's height right before the swap, so the layout
- * effect below can tween from it once the incoming card has committed.
- */
-type PendingTransition = {
-  readonly direction: StepDirection;
-  readonly fromHeight: number;
-};
-
-/**
- * Applies one planned step swap to the DOM: the (already-committed)
- * incoming card fades/slides in, and the wrapper's height tweens between the
- * two measured heights. Isolated in its own function so the component's
- * effect only has to wire up refs, and so a test can assert *that* a swap
- * was applied — via the `Element.prototype.animate` stub — without reaching
- * into WAAPI internals jsdom does not implement.
- *
- * Only the current card is ever rendered — there is no outgoing card to
- * animate, and therefore no clone to append and no cleanup to schedule. An
- * earlier version cloned the outgoing card into the wrapper and removed the
- * clone in the animation's `onfinish`, but `onfinish` never fires while the
- * tab is hidden or for a cancelled/replaced animation, so those clones piled
- * up in the DOM. Sets no inline style on the wrapper and passes no `fill`
- * (the WAAPI default, `"none"`), so a swap that never finishes — same hidden
- * tab, cancelled, or replaced cases — leaves the wrapper at its natural
- * height instead of pinned to a stale pixel value. A `null` plan (reduced
- * motion, or nothing to animate) means the DOM swap React already made is
- * the whole story: there is nothing left to do.
- */
-function runStepSwapAnimation(
-  wrapper: HTMLDivElement,
-  plan: StepSwapAnimation | null,
-): void {
-  if (!plan) return;
-
-  if (plan.wrapper) {
-    wrapper.animate(plan.wrapper, { ...plan.options, fill: "none" });
-  }
-
-  wrapper.animate(plan.incoming, plan.options);
-}
+/** Direction of the incoming card's animation. */
+type StepDirection = "forward" | "back";
 
 export function SetupWizard({
   frontends,
@@ -240,7 +197,6 @@ export function SetupWizard({
    *  `goTo`, so the heading is never focused then regardless (see
    *  `pendingTransitionRef` below). */
   const [showHeadingFocusRing, setShowHeadingFocusRing] = React.useState(true);
-
   const [copyState, setCopyState] = React.useState<CopyState>("idle");
   const resetTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -252,8 +208,7 @@ export function SetupWizard({
    *  passes. */
   const runIdRef = React.useRef<string | null>(null);
 
-  /** The card wrapper: measured for the height tween, and the node the
-   *  transition animates directly (see `runStepSwapAnimation`). */
+  /** The stable rail wrapper, used to find the incoming card for animation. */
   const wrapperRef = React.useRef<HTMLDivElement | null>(null);
   /** Focus target on every step change — the current step's `<h2>`. */
   const headingRef = React.useRef<HTMLHeadingElement | null>(null);
@@ -263,11 +218,11 @@ export function SetupWizard({
    *  effect's URL restore changes `current` too, but never through `goTo`,
    *  so it lands on the right step without stealing focus or animating a
    *  transition nobody asked for. */
-  const pendingTransitionRef = React.useRef<PendingTransition | null>(null);
+  const pendingTransitionRef = React.useRef<StepDirection | null>(null);
   const isFirstRenderRef = React.useRef(true);
 
   /** Mirrors of `current`/`furthest`, kept in sync below on every render.
-   *  `handleBack` and `handleJump` read these instead of closing over
+   *  `handleJump` reads these instead of closing over
    *  `current`/`furthest` directly, because each is created fresh on every
    *  render and a reader clicking fast enough during the 240ms step-swap
    *  transition can invoke a handler from a superseded render after a newer
@@ -275,7 +230,7 @@ export function SetupWizard({
    *  `furthest` would then be one or more steps behind the step number that
    *  is actually true. Reading through a ref instead always sees the latest
    *  committed value regardless of which render created the handler. Do NOT
-   *  "simplify" `handleBack`/`handleJump` back to reading `current`/
+   *  "simplify" `handleJump` back to reading `current`/
    *  `furthest` from the closure — that reintroduces the staleness this
    *  exists to prevent. */
   const currentRef = React.useRef(current);
@@ -383,46 +338,41 @@ export function SetupWizard({
     partnerBackend,
   ]);
 
-  // Runs the step-swap animation and moves focus to the new card's heading
-  // — on every `goTo`-driven step change, and only then: not on the first
-  // render, and not on the mount effect's URL restore (see
-  // `pendingTransitionRef`). `useLayoutEffect` so the measurement inside
-  // `runStepSwapAnimation` happens after the new card has committed but
-  // before the browser paints an un-animated jump.
+  // Animate the incoming card and focus its heading after a step change.
+  // URL restoration never sets a pending transition, so it does neither.
   React.useLayoutEffect(() => {
     if (isFirstRenderRef.current) {
       isFirstRenderRef.current = false;
       return;
     }
 
-    const pending = pendingTransitionRef.current;
+    const direction = pendingTransitionRef.current;
     pendingTransitionRef.current = null;
-    if (!pending) return;
+    if (!direction) return;
 
-    headingRef.current?.focus();
+    headingRef.current?.focus({ preventScroll: true });
+    if (prefersReducedMotion()) return;
 
-    const wrapper = wrapperRef.current;
-    if (!wrapper) return;
-
-    const toHeight = wrapper.getBoundingClientRect().height;
-    const plan = planStepSwap({
-      direction: pending.direction,
-      fromHeight: pending.fromHeight,
-      toHeight,
-      reducedMotion: prefersReducedMotion(),
-    });
-
-    runStepSwapAnimation(wrapper, plan);
+    const distance = direction === "forward" ? 10 : -10;
+    wrapperRef.current
+      ?.querySelector<HTMLElement>(
+        "[data-wizard-current-step] .wizard-step-card",
+      )
+      ?.animate(
+        [
+          { opacity: 0.35, transform: `translateX(${distance}px)` },
+          { opacity: 1, transform: "translateX(0)" },
+        ],
+        { duration: 220, easing: "cubic-bezier(0.16, 1, 0.3, 1)" },
+      );
   }, [current]);
 
-  /** The only place `current`/`furthest` ever change once mounted. Always
-   *  records a pending transition first — measuring the wrapper's height
-   *  synchronously, before React swaps its children — so the layout effect
-   *  above has a `fromHeight` to tween from once the new card lands.
-   *  Selected answers are preserved when moving backward.
+  /** The only place `current`/`furthest` ever change once mounted. Records
+   *  a direction for the incoming card's animation. Selected answers are
+   *  preserved when moving backward.
    *
    *  `pointerActivated` is `event.detail > 0` on the click that asked for
-   *  this navigation — see `WizardNav`/`WizardProgress`'s doc comments. It
+   *  this navigation — see `WizardNav`/`WizardRail`'s doc comments. It
    *  decides `showHeadingFocusRing` for the step that is about to render:
    *  the heading still receives focus unconditionally (the layout effect
    *  above), but a pointer-driven change renders it without the ring, since
@@ -447,18 +397,14 @@ export function SetupWizard({
       features: [...featureIds],
       ...selection,
     });
-    const wrapper = wrapperRef.current;
-    pendingTransitionRef.current = {
-      direction,
-      fromHeight: wrapper ? wrapper.getBoundingClientRect().height : 0,
-    };
+    pendingTransitionRef.current = direction;
     setCurrent(step);
     setFurthest((prev) => Math.max(prev, step));
     setShowHeadingFocusRing(!pointerActivated);
   }
 
   /** Guards the progress rail against ever landing past `furthest` —
-   *  `wizard-stepper-parts` already disables that button's real `disabled`
+   *  `wizard-rail` already disables that button's real `disabled`
    *  attribute, but this is the second, independent check: nothing here
    *  trusts the child component alone to enforce it. Reads `furthestRef`/
    *  `currentRef` rather than the closed-over `furthest`/`current` — see
@@ -476,12 +422,6 @@ export function SetupWizard({
       step > currentRef.current ? "forward" : "back",
       pointerActivated,
     );
-  }
-
-  /** Reads `currentRef`, not the closed-over `current` — see the comment on
-   *  that ref above for why. */
-  function handleBack(pointerActivated: boolean) {
-    goTo(currentRef.current - 1, "back", pointerActivated);
   }
 
   function capture(event: string, properties: Record<string, unknown>) {
@@ -549,11 +489,41 @@ export function SetupWizard({
     if (!mountedRef.current) return;
     setCopyState("copied");
     capture(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied, {
+      // The wizard has one copy control and never hands the prompt to an app,
+      // so every write here is a deliberate copy. <PromptPill> emits this same
+      // event for its `open_claude`/`open_codex` deep links; without `action`
+      // the two are indistinguishable downstream. See PE-218.
+      action: "copy",
+      surface: WIZARD_COPY_SURFACE,
+      // Read at click time rather than through `usePathname`, matching how the
+      // rest of this component reads the URL it rewrites as the user answers.
+      from_path: window.location.pathname,
       onboarding_run_id: runId,
       project: projectAnswer,
       frontend: frontendId,
+      // The wizard's fifth argument. It reaches the copied prompt through
+      // `composeWizardOnboardingPrompt` and was the only one telemetry could
+      // not see, so a run seeded with "I already have an agent" was
+      // indistinguishable from one seeded with "I need a new agent" (PE-255).
+      // `undefined` for a backend with no partner question, matching the
+      // composer, and PostHog drops the key rather than recording a null.
+      agent: partnerBackend ? (agentAnswer ?? undefined) : undefined,
       backend: backendId,
+      // `backend` is the docs registry slug this picker works in; the hero
+      // button and page actions emit `agent_framework` already mapped to the
+      // onboarding graph's vocabulary. Grouping the two together on `backend`
+      // would split `strands` from `strands-python` without saying so, and
+      // `built-in-agent` maps to nothing at all. Both are emitted rather than
+      // renaming `backend`, because dashboards already read it (PE-255).
+      agent_framework: backendId
+        ? onboardingFrameworkSlug(backendId)
+        : undefined,
       features: [...featureIds],
+      // Which revision of the argument prose the wizard appended. The
+      // hosted document versions its own text; this is the other half
+      // of what the developer copied (PE-255).
+      argument_version: ONBOARDING_ARGUMENT_VERSION,
+      argument_text: ONBOARDING_ARGUMENT_TEXT,
     });
     resetTimerRef.current = setTimeout(() => {
       if (mountedRef.current) setCopyState("idle");
@@ -578,7 +548,7 @@ export function SetupWizard({
   let footer: React.ReactNode;
 
   if (current === 0 && partnerBackend) {
-    stepName = "Where are you starting?";
+    stepName = "What are you building?";
     stepDescription = "Tell us what you already have. We’ll tailor your setup.";
     body = (
       <ChoiceGrid
@@ -592,7 +562,6 @@ export function SetupWizard({
             ...PROJECT_OPTIONS[0],
             id: "existing-agent",
             label: "Existing agent",
-            icon: Bot,
             description: `Connect your ${partnerName} agent to your app`,
           },
           {
@@ -610,7 +579,6 @@ export function SetupWizard({
                 : "existing"
               : undefined
         }
-        disabled={false}
         onSelect={(id, pointerActivated) => {
           const project = id === "new" ? "no" : "yes";
           const agent = id === "existing-agent" ? "yes" : "no";
@@ -622,7 +590,7 @@ export function SetupWizard({
     );
     footer = null;
   } else if (current === 1) {
-    stepName = "Where are you starting?";
+    stepName = "What are you building?";
     stepDescription =
       "Choose an option to continue. We will tailor the setup to your starting point.";
     body = (
@@ -630,7 +598,7 @@ export function SetupWizard({
         <ChoiceGrid
           options={PROJECT_OPTIONS}
           selectedId={projectAnswer ?? undefined}
-          disabled={false}
+          illustrated
           onSelect={(id, pointerActivated) => {
             setProjectAnswer(id);
             goTo(2, "forward", pointerActivated, { project: id });
@@ -638,7 +606,7 @@ export function SetupWizard({
         />
       </div>
     );
-    footer = partnerBackend ? <WizardNav onBack={handleBack} /> : null;
+    footer = null;
   } else if (current === 2) {
     stepName = "Your frontend";
     stepDescription = "Choose the frontend your app uses to continue.";
@@ -647,16 +615,14 @@ export function SetupWizard({
         <PickGrid
           picks={frontends}
           selectedId={frontendId ?? undefined}
-          disabled={false}
           onSelect={(id, pointerActivated) => {
             setFrontendId(id);
             goTo(3, "forward", pointerActivated, { frontend: id });
           }}
-          size="compact"
         />
       </div>
     );
-    footer = <WizardNav onBack={handleBack} />;
+    footer = null;
   } else if (current === 3) {
     stepName = "Your agent backend";
     stepDescription =
@@ -673,17 +639,15 @@ export function SetupWizard({
         />
       </div>
     );
-    footer = <WizardNav onBack={handleBack} />;
+    footer = null;
   } else if (current === 4) {
     stepName = "What you want to build";
     stepDescription =
       "Pick as many as you like, or skip. This guides your coding agent, it does not restrict it.";
     body = (
       <CapabilityGrid
-        compact
         capabilities={capabilities}
         selectedIds={selectedFeatureIds}
-        disabled={false}
         onToggle={(id) =>
           setFeatureIds((prev) => {
             const next = new Set(prev);
@@ -696,7 +660,6 @@ export function SetupWizard({
     );
     footer = (
       <WizardNav
-        onBack={handleBack}
         onContinue={(pointerActivated) => goTo(5, "forward", pointerActivated)}
         continueLabel={featureIds.size > 0 ? "Continue" : "Skip"}
       />
@@ -737,7 +700,6 @@ export function SetupWizard({
     );
     footer = (
       <WizardNav
-        onBack={handleBack}
         onContinue={handleCopy}
         continueLabel={COPY_LABEL[copyState]}
         continueIcon={<Copy aria-hidden="true" className="h-4 w-4" />}
@@ -764,26 +726,47 @@ export function SetupWizard({
     );
   }
 
+  const summaries: Readonly<Record<number, string>> = {
+    0:
+      projectAnswer === "no"
+        ? "New project"
+        : agentAnswer === "yes"
+          ? "Existing agent"
+          : "Existing project",
+    1: projectAnswer === "yes" ? "Existing project" : "New project",
+    2: frontends.find((pick) => pick.id === frontendId)?.name ?? "",
+    3: backends.find((pick) => pick.id === backendId)?.name ?? "",
+    4: featureIds.size ? `${featureIds.size} selected` : "Skipped",
+  };
+
+  const selectedSteps = new Set<number>();
+  if (projectAnswer && agentAnswer) selectedSteps.add(0);
+  if (projectAnswer) selectedSteps.add(1);
+  if (frontendId) selectedSteps.add(2);
+  if (backendId) selectedSteps.add(3);
+  if (featureIds.size) selectedSteps.add(4);
+
   return (
     <div className="not-prose flex flex-col gap-5">
-      <div ref={wrapperRef} className="relative">
-        <WizardCard
-          progress={
-            <WizardProgress
-              steps={steps}
-              current={current}
-              furthest={furthest}
-              onJump={handleJump}
-            />
-          }
-          name={stepName}
-          description={stepDescription}
-          headingRef={headingRef}
-          footer={footer}
-          showFocusRing={showHeadingFocusRing}
+      <div ref={wrapperRef} className="wizard-layout-root relative">
+        <WizardRail
+          steps={steps}
+          current={current}
+          furthest={furthest}
+          summaries={summaries}
+          selectedSteps={selectedSteps}
+          onJump={handleJump}
         >
-          {body}
-        </WizardCard>
+          <WizardCard
+            name={stepName}
+            description={stepDescription}
+            headingRef={headingRef}
+            footer={footer}
+            showFocusRing={showHeadingFocusRing}
+          >
+            {body}
+          </WizardCard>
+        </WizardRail>
       </div>
       {/* The persistent "Prefer to set it up yourself?" link that used to sit
        *  here is gone. It existed for the no-JavaScript reader, stuck on

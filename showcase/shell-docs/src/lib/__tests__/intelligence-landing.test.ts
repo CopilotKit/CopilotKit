@@ -21,7 +21,7 @@ test("the Intelligence overview uses landing-page chrome", () => {
   expect(page.data.title).toBe("CopilotKit Intelligence");
   expect(page.data.nav_title).toBe("Overview");
   expect(page.data.description).toBe(
-    "CopilotKit Intelligence adds persistent Rich Threads, messaging Channels, memory, analytics, and automatic learning. Import supported LangGraph and Google ADK history, then synchronize future CopilotKit runs.",
+    "CopilotKit Intelligence adds Rich Threads, User Memories, Automatic Learning, Channels, and Product Analytics to the CopilotKit app you already run.",
   );
   expect(page.data.hideHeader).toBeUndefined();
   expect(page.data.full).toBe(true);
@@ -55,14 +55,17 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
   expect(snippet.indexOf("<IntelligenceOverview")).toBeLessThan(
     snippet.indexOf("## What is CopilotKit Intelligence?"),
   );
-  expect(snippet).toContain("## What the platform adds");
-  expect(snippet).toContain("| Analytics |");
-  expect(snippet).toContain("| Automatic learning |");
-  expect(snippet).toContain("| Memory |");
-  expect(snippet).toContain("[Memories & Recall](/intelligence/memories)");
-  expect(snippet).toContain("[Learning](/learning)");
+  expect(snippet).toContain("## What is CopilotKit Intelligence?");
+  expect(snippet).not.toContain("| Product Analytics |");
+  expect(snippet).not.toContain("| Automatic Learning |");
+  // The hosting choice is two cards; the architecture comparison lives on
+  // the Cloud-hosted and Self-hosted pages, not on the landing.
   expect(snippet).toContain(
-    "[Automatic skill delivery](/intelligence/learned-skills)",
+    'href: "/intelligence/managed-intelligence-platform"',
+  );
+  expect(snippet).toContain('href: "/intelligence/self-hosting"');
+  expect(snippet).not.toContain(
+    "https://www.copilotkit.ai/copilotkit-intelligence",
   );
   expect(
     existsSync(
@@ -70,9 +73,6 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
     ),
   ).toBe(true);
   expect(snippet).toContain("<IntelligenceFeatureCards");
-  expect(snippet).toContain(
-    "Follow the Intelligence quickstart to connect your runtime and confirm threads work.",
-  );
   expect(snippet).toContain("](/intelligence/quickstart)");
   expect(
     existsSync(resolve(here, "../../content/docs/intelligence/quickstart.mdx")),
@@ -83,28 +83,32 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
   expect(
     existsSync(resolve(here, "../../content/docs/intelligence/memories.mdx")),
   ).toBe(true);
-  expect(snippet.indexOf("## What the platform adds")).toBeLessThan(
+  expect(snippet.indexOf("## What is CopilotKit Intelligence?")).toBeLessThan(
     snippet.indexOf("<IntelligenceFeatureCards"),
   );
   expect(snippet.indexOf("<IntelligenceFeatureCards")).toBeLessThan(
-    snippet.indexOf(
-      "Follow the Intelligence quickstart to connect your runtime and confirm threads work.",
-    ),
+    snippet.indexOf("## Choose where Intelligence runs"),
   );
+  expect(snippet).toContain("## Choose where Intelligence runs");
   expect(
-    snippet.indexOf(
-      "Follow the Intelligence quickstart to connect your runtime and confirm threads work.",
+    existsSync(resolve(here, "../../content/docs/intelligence/analytics.mdx")),
+  ).toBe(true);
+  expect(
+    existsSync(resolve(here, "../../content/docs/intelligence/channels.mdx")),
+  ).toBe(true);
+  expect(
+    existsSync(
+      resolve(here, "../../content/docs/intelligence/self-hosting-ecs.mdx"),
     ),
-  ).toBeLessThan(snippet.indexOf("## Hosting options"));
-  expect(snippet).toContain("## Hosting options");
+  ).toBe(true);
 });
 
-test("the Learning guide stays focused on the reviewed Learning workflow", () => {
+test("the Automatic Learning guide stays focused on the reviewed workflow", () => {
   const guide = read("content/docs/learning.mdx");
 
   expect(guide).toContain("## Overview");
-  expect(guide).toContain("## How Learning works");
-  expect(guide).toContain("## Set up Learning manually");
+  expect(guide).toContain("## How Automatic Learning works");
+  expect(guide).toContain("## Set up Automatic Learning manually");
   expect(guide).toContain("## Start with your coding agent");
   expect(guide).toContain("<LearningSetupPrompt />");
   expect(guide).toContain("### Connect CopilotKit Intelligence");
@@ -137,6 +141,7 @@ test("the MDX registry and page view wire IntelligenceOverview and its chrome", 
 test("the docs home has one onboarding offer without the redundant Intelligence callout", () => {
   const home = read("app/[[...slug]]/page.tsx");
   expect(home.match(/<HeroOnboardingPromptButton\b/g)).toHaveLength(1);
+  expect(home.match(/<PromptFolderHint\b/g)).toHaveLength(1);
   expect(home).not.toContain("IntelligenceOnboardingPrompt");
   expect(home).not.toContain("docs_landing_learning");
 });

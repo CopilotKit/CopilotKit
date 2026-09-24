@@ -1,9 +1,8 @@
 # Spring AI Showcase — Parity Notes
 
 This document tracks demos from the canonical `langgraph-python` showcase
-manifest that are **not ported** or retained with unsupported capabilities
-in the Spring AI showcase, along with the specific Spring AI /
-`ag-ui:spring-ai` primitive that is missing.
+manifest that are **not ported** to the Spring AI showcase, along with the
+specific Spring AI / `ag-ui:spring-ai` primitive that is missing.
 
 Spring AI is a Java framework with a narrower primitive set than LangGraph
 for a handful of specific use-cases — especially streaming structured
@@ -26,6 +25,14 @@ below are the ones where those primitives are genuinely unavailable.
 
 ### `ag-ui:spring-ai` adapter gaps
 
+- **shared-state-streaming** — Spring AI's `ChatClient.stream()` emits
+  token deltas, but the `ag-ui:spring-ai` adapter does not expose a
+  mid-stream state-delta emission API comparable to LangGraph's
+  `copilotkit_emit_state`. Per-token state patches cannot be forwarded
+  through the AG-UI channel with the current integration. The demo cell
+  is shipped as a stub frontend (`src/app/demos/shared-state-streaming/`)
+  so the UI lights up when the adapter exposes mid-stream emission.
+
 - **byoc-json-render** — Relies on a streaming structured-output primitive
   (LangGraph's `with_structured_output` + incremental JSON streaming that
   yields partial objects matching a Zod schema across the stream). Spring
@@ -35,22 +42,6 @@ below are the ones where those primitives are genuinely unavailable.
   needs per-token JSON to progressively paint the UI. Additionally,
   `@json-render/core` and `@json-render/react` are not currently
   dependencies of the Spring AI showcase package.
-
-## Retained but unsupported — installed Spring AI 1.0.1
-
-- **shared-state-streaming** — Genuine within-turn document progression is
-  unsupported through the installed Spring AI 1.0.1 public APIs.
-  `OpenAiApi.chatCompletionStream(...)` merges tool-call argument deltas
-  before `ChatModel` receives them, with no supported configuration to
-  expose the raw deltas.
-  The retained demo includes a dedicated Java controller and frontend
-  wiring for document state.
-  Local parser and snapshot experiments produced final document values
-  of 274, 298, and 664 characters across three turns.
-  Each turn still emitted one complete `TOOL_CALL_ARGS` and duplicate
-  final-document snapshots, while the UI jumped once to the final value.
-  These partial repairs are not shipped and do not establish genuine
-  within-turn progression.
 
 ## Ported with caveats
 
