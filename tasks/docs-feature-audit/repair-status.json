@@ -1321,10 +1321,11 @@
         "0c7796721b"
       ],
       "after_evidence": [
-        "LGTS: 0c7796721b adds a dedicated shared_state_read graph; probe bug that silently dropped the edit argument fixed for every integration in 71f6525af9 (unit test red on old probe). Strict D6 red (14 requests 503, no edited title) → green (\"Lemon Saffron Orzo\" in both turns). Uses gpt-4o-mini because AIMock systemMessage matching ignores OpenAI `developer` messages sent for gpt-5 models."
+        "LGTS: 0c7796721b adds a dedicated shared_state_read graph; probe bug that silently dropped the edit argument fixed for every integration in 71f6525af9 (unit test red on old probe). Strict D6 red (14 requests 503, no edited title) → green (\"Lemon Saffron Orzo\" in both turns). Uses gpt-4o-mini because AIMock systemMessage matching ignores OpenAI `developer` messages sent for gpt-5 models.",
+        "LGP: RED against pre-d9467aa407 routing (12 strict 503s, turn timeout) → GREEN 11.8 s. ADK: RED (4 strict 503s, no recipe) → GREEN 10.5 s with \"Lemon Saffron Orzo\" in both requests. Strands and BIA fixtures not yet gated."
       ],
       "sanity_review": null,
-      "remaining": "LGP, ADK and Strands shared-state-read need D6 reruns with the fixed probe; AIMock developer-role matching is an upstream tooling gap."
+      "remaining": "Strands and BIA: gate fixtures and red/green during their matrices."
     },
     {
       "id": "REPAIR-036",
@@ -1438,7 +1439,24 @@
       ],
       "sanity_review": null,
       "remaining": "Unreleased; published 1.73.3 still admits 1.0.0. Hook test step skipped for .NET/Ruby/Go projects lacking local toolchains."
+    },
+    {
+      "id": "REPAIR-045",
+      "area": "Showcase /api/smoke routes report ok without a successful run",
+      "severity": "medium",
+      "stage": "verifying",
+      "before_record": "LGTS/LGP sent a non-UUID thread id that LangGraph rejects yet returned 200 ok; ADK declared success on the first chunk even when the run ended in a provider error.",
+      "fix_commits": [
+        "7e2b368bc5",
+        "0828d39b45",
+        "b2323ec714"
+      ],
+      "after_evidence": [
+        "LGTS, LGP and ADK smoke routes now complete a real run and return 502 run_error on failure; before/after proven per integration in the matrix records."
+      ],
+      "sanity_review": null,
+      "remaining": "18 other integrations and the create-integration scaffold keep the false positive."
     }
   ],
-  "pause_checkpoint": "Resumed 2026-09-23; see hill-climb.md \"Resume — September 23\". checkpoint-20260913.md is historical."
+  "pause_checkpoint": "checkpoint-20260923.md"
 }
