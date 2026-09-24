@@ -12,6 +12,15 @@ A mini chat to exercise the Python side of this PR end to end:
 The agent loads this branch's `sdk-python` as an editable install. The frontend
 uses the published `@copilotkit/*` packages. This PR changes no React code.
 
+## Files
+
+| File                               | Role                                                                         |
+| ---------------------------------- | ---------------------------------------------------------------------------- |
+| `agent/main.py`                    | the agent; the two lines marked "new setup" are all the server needs         |
+| `app/frontend-tool-interrupts.tsx` | the reusable bridge — copy it as is, call `useFrontendToolInterrupts()` once |
+| `app/tools.tsx`                    | app-specific tools, registered as usual plus `followUp: false`               |
+| `app/page.tsx`                     | wires the bridge, the tools and the chat                                     |
+
 | Tool             | Where    | What it checks                                                |
 | ---------------- | -------- | ------------------------------------------------------------- |
 | `get_time`       | backend  | ordinary server tools still run next to paused frontend calls |

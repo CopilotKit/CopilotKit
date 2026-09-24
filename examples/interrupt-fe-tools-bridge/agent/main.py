@@ -28,6 +28,7 @@ def get_time() -> str:
 graph = create_agent(
     model=ChatAnthropic(model=os.getenv("MODEL", "claude-sonnet-5")),
     tools=[get_time],
+    # The new setup, part 1: pause each frontend tool call on its own interrupt.
     middleware=[CopilotKitMiddleware(interrupt_frontend_tools=True)],
     checkpointer=InMemorySaver(),
     system_prompt=(
@@ -43,6 +44,7 @@ add_langgraph_fastapi_endpoint(
     agent=LangGraphAGUIAgent(
         name="default",
         graph=graph,
+        # Part 2: standard AG-UI interrupts, so parallel calls resume by id.
         emit_interrupt_outcome=True,
     ),
     path="/",
