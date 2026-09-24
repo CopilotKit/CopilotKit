@@ -1,50 +1,69 @@
-import { describe, expect, it, vi } from "vitest";
-import { createToolActivityRecencyStore } from "./tool-activity-recency";
+import { describe, expect, it } from "vitest";
+import { isInternalTool, selectRecentToolActivity } from "./tool-activity-recency";
 
-describe("tool activity recency", () => {
-  it("does not make an old tool recent again when it remounts", () => {
-    const store = createToolActivityRecencyStore(2);
+const wildcard = [{ name: "*" }];
+const message = (id: string, name = `tool_${id}`) => ({
+  role: "assistant",
+  toolCalls: [{ id, function: { name } }],
+});
 
-    store.register("a");
-    store.register("b");
-    store.register("c");
-
-    expect(store.isRecent("a")).toBe(false);
-    expect(store.isRecent("b")).toBe(true);
-    expect(store.isRecent("c")).toBe(true);
-
-    // Virtualization can unmount and remount A. Re-registering the same
-    // durable tool-call id must not mutate the original emission order.
-    store.register("a");
-
-    expect(store.isRecent("a")).toBe(false);
-    expect(store.isRecent("b")).toBe(true);
-    expect(store.isRecent("c")).toBe(true);
+describe("conversation-owned tool activity recency", () => {
+  it("selects B/C even when a restored viewport encounters B, C, then A", () => {
+    const history = [message("a"), message("b"), message("c")];
+    const visits = ["b", "c", "a"];
+    expect(visits.filter((id) => selectRecentToolActivity(history, wildcard, 2).includes(id)))
+      .toEqual(["b", "c"]);
+    expect(selectRecentToolActivity(history, wildcard, 2)).toEqual(["b", "c"]);
   });
 
-  it("notifies only when a genuinely new tool enters the thread order", () => {
-    const store = createToolActivityRecencyStore(2);
-    const listener = vi.fn();
-    store.subscribe(listener);
-
-    store.register("a");
-    store.register("a");
-    store.register("b");
-
-    expect(listener).toHaveBeenCalledTimes(2);
+  it("still lets genuinely new work retire the oldest activity", () => {
+    const history = [message("a"), message("b"), message("c")];
+    expect(selectRecentToolActivity(history, wildcard, 2)).toEqual(["b", "c"]);
+    history.push(message("d"));
+    expect(selectRecentToolActivity(history, wildcard, 2)).toEqual(["c", "d"]);
   });
 
-  it("keeps different thread stores independent", () => {
-    const first = createToolActivityRecencyStore(2);
-    const second = createToolActivityRecencyStore(2);
+  it("does not reserve slots for protocol tools or exact custom renderers", () => {
+    const history = [
+      message("a"), message("b"), message("state", "AGUISendStateDelta"),
+      message("report", "report"), message("decision", "approve"),
+    ];
+    expect(selectRecentToolActivity(history,
+      [...wildcard, { name: "report" }, { name: "approve" }], 2)).toEqual(["a", "b"]);
+  });
 
-    first.register("a");
-    first.register("b");
-    first.register("c");
+  it("recomputes eligibility when a custom renderer is added or removed", () => {
+    const history = [message("a"), message("b"), message("c")];
+    expect(selectRecentToolActivity(history, [...wildcard, { name: "tool_c" }], 2))
+      .toEqual(["a", "b"]);
+    expect(selectRecentToolActivity(history, wildcard, 2)).toEqual(["b", "c"]);
+  });
 
-    second.register("a");
+  it("reads replacement history rather than retaining deleted calls", () => {
+    expect(selectRecentToolActivity([message("a"), message("b"), message("c")], wildcard, 2))
+      .toEqual(["b", "c"]);
+    expect(selectRecentToolActivity([message("a")], wildcard, 2)).toEqual(["a"]);
+    expect(selectRecentToolActivity([], wildcard, 2)).toEqual([]);
+  });
 
-    expect(first.isRecent("a")).toBe(false);
-    expect(second.isRecent("a")).toBe(true);
+  it("preserves order within parallel calls and counts an ID once", () => {
+    const history = [{ role: "assistant", toolCalls: [
+      ...message("a").toolCalls, ...message("b").toolCalls, ...message("c").toolCalls,
+    ] }, message("c")];
+    expect(selectRecentToolActivity(history, wildcard, 2)).toEqual(["b", "c"]);
+  });
+
+  it("ignores non-assistant records and does not invent unknown activity", () => {
+    const history = [message("a"), { ...message("b"), role: "tool" }];
+    expect(selectRecentToolActivity(history, wildcard, 2)).toEqual(["a"]);
+    expect(selectRecentToolActivity(history, [], 2)).toEqual([]);
+    expect(selectRecentToolActivity(history, wildcard, 0)).toEqual([]);
+  });
+
+  it("keeps the existing internal-tool filter", () => {
+    for (const name of ["agui", "AGUISendStateDelta", "a2ui_render", "copilotkit_internal"]) {
+      expect(isInternalTool(name)).toBe(true);
+    }
+    expect(isInternalTool("search")).toBe(false);
   });
 });

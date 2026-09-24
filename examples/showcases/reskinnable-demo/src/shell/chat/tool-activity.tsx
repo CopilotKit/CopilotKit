@@ -2,9 +2,8 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
-  useEffect,
-  useLayoutEffect,
   useMemo,
   useState,
   useSyncExternalStore,
@@ -13,36 +12,14 @@ import type { ReactNode } from "react";
 import {
   defineToolCallRenderer,
   ToolCallStatus,
+  useAgent,
+  useCopilotKit,
 } from "@copilotkit/react-core/v2";
 import type { ReactToolCallRenderer } from "@copilotkit/react-core/v2";
 import { Check, ChevronRight, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSkin } from "@/shell/skin-provider";
-import {
-  createToolActivityRecencyStore,
-  type ToolActivityRecencyStore,
-} from "./tool-activity-recency";
-
-/**
- * Tool calls that are plumbing, not activity. The AG-UI state-delta tool in
- * particular gets emitted with a `{op:"add", path:"/scratch", value:"noop"}`
- * payload as a keep-alive; surfacing it put raw protocol JSON in the middle of
- * the conversation. The wildcard renderer catches EVERY unhandled tool, so
- * anything internal has to be filtered here or it shows up on stage.
- *
- * These are PROTOCOL-LEVEL, so they live in the shell (not on a skin). A skin's
- * human-readable labels for its OWN tools come from `skin.toolLabels`.
- */
-const HIDDEN_TOOL_PATTERNS = [
-  /^agui/i,
-  /sendstatedelta/i,
-  /^a2ui/i,
-  /^copilotkit_/i,
-];
-
-function isInternalTool(name: string): boolean {
-  return HIDDEN_TOOL_PATTERNS.some((re) => re.test(name));
-}
+import { isInternalTool, selectRecentToolActivity } from "./tool-activity-recency";
 
 function prettifyToolName(name: string): string {
   const spaced = name
@@ -84,55 +61,47 @@ function resolveToolLabel(
  */
 const VISIBLE_TOOL_ACTIVITY = 2;
 
-/**
- * Recency belongs to one durable thread, not to component mount order.
- *
- * The provider is keyed by thread at the layout boundary. Within that thread,
- * each toolCallId keeps the position established by its first render. A row may
- * unmount/remount under virtualization without becoming "new" again.
- */
-const ToolActivityRecencyContext =
-  createContext<ToolActivityRecencyStore | null>(null);
+/** One conversation-owned window, shared by all mounted wildcard rows. */
+const ToolActivityRecencyContext = createContext<ReadonlySet<string> | null>(null);
 
 export function ToolActivityProvider({ children }: { children: ReactNode }) {
-  const store = useMemo(
-    () => createToolActivityRecencyStore(VISIBLE_TOOL_ACTIVITY),
-    [],
+  const { agent } = useAgent({ updates: [] });
+  const { copilotkit } = useCopilotKit();
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      const messages = agent.subscribe({ onMessagesChanged: onChange });
+      const renderers = copilotkit.subscribe({ onRenderToolCallsChanged: onChange });
+      return () => {
+        messages.unsubscribe();
+        renderers.unsubscribe();
+      };
+    },
+    [agent, copilotkit],
   );
+  // A small value snapshot stays Object.is-equal while args/text stream. Read
+  // the complete conversation, including rows the virtualizer never mounted.
+  const getSnapshot = useCallback(
+    () => JSON.stringify(selectRecentToolActivity(
+      agent.messages, copilotkit.renderToolCalls, VISIBLE_TOOL_ACTIVITY,
+    )),
+    [agent, copilotkit],
+  );
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, () => "[]");
+  const recent = useMemo(() => new Set<string>(JSON.parse(snapshot)), [snapshot]);
 
   return (
-    <ToolActivityRecencyContext.Provider value={store}>
+    <ToolActivityRecencyContext.Provider value={recent}>
       {children}
     </ToolActivityRecencyContext.Provider>
   );
 }
 
-/**
- * `useLayoutEffect`, except on the server where React warns that it does
- * nothing. Registration remains a layout effect so adding a genuinely new tool
- * can evict the old row before the browser paints an intermediate 3-row frame.
- */
-const useIsomorphicLayoutEffect =
-  typeof window === "undefined" ? useEffect : useLayoutEffect;
-
-function useIsRecentToolActivity(toolCallId: string, track: boolean): boolean {
-  const store = useContext(ToolActivityRecencyContext);
-  if (!store) {
+function useIsRecentToolActivity(toolCallId: string): boolean {
+  const recent = useContext(ToolActivityRecencyContext);
+  if (!recent) {
     throw new Error("Tool activity renderers require ToolActivityProvider");
   }
-
-  useIsomorphicLayoutEffect(() => {
-    // Internal tools must not take a slot: two filtered protocol calls would
-    // otherwise evict the real activity behind them.
-    if (track) store.register(toolCallId);
-  }, [store, toolCallId, track]);
-
-  return useSyncExternalStore(
-    store.subscribe,
-    () => !track || store.isRecent(toolCallId),
-    // Server render: registration has not run yet, so the row starts visible.
-    () => true,
-  );
+  return recent.has(toolCallId);
 }
 
 /**
@@ -166,7 +135,7 @@ function ToolCallChip({
   const label = resolveToolLabel(name, skin.toolLabels);
   const done = status === ToolCallStatus.Complete;
   const hidden = isInternalTool(name);
-  const recent = useIsRecentToolActivity(toolCallId, !hidden);
+  const recent = useIsRecentToolActivity(toolCallId);
 
   const detail = useMemo(() => {
     const lines: string[] = [`tool: ${name}`];
