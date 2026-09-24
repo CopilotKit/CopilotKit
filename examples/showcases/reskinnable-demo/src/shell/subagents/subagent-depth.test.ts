@@ -23,6 +23,17 @@ describe("subagent activity hierarchy", () => {
     expect(resolveSubagentLineDepth(tree, "researcher", "result")).toBe(3);
   });
 
+  it("repairs line depth when parent lineage becomes known later", () => {
+    const late = new Map<string, { parentSubagentRunId?: string }>();
+
+    expect(resolveSubagentLineDepth(late, "researcher", "text")).toBe(1);
+
+    late.set("analyst", {});
+    late.set("researcher", { parentSubagentRunId: "analyst" });
+
+    expect(resolveSubagentLineDepth(late, "researcher", "text")).toBe(2);
+  });
+
   it("bounds malformed parent cycles instead of hanging the projection", () => {
     const cycle = new Map([
       ["a", { parentSubagentRunId: "b" }],
