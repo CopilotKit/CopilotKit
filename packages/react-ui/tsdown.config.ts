@@ -77,10 +77,15 @@ export default defineConfig([
               "Expected one lazy syntax highlighter import in the UMD bundle",
             );
           }
-          const output = code.replace(
-            highlighterImport,
-            'Promise.resolve().then(() => typeof require === "function" ? require("react-syntax-highlighter") : globalThis.ReactSyntaxHighlighter)',
-          );
+          const deferredHighlighter = [
+            "Promise.resolve().then(() =>",
+            'typeof define === "function" && define.amd && typeof require === "function"',
+            '? new Promise((resolve, reject) => require(["react-syntax-highlighter"], resolve, reject))',
+            ': typeof require === "function" ? require("react-syntax-highlighter")',
+            ': typeof globalThis !== "undefined" ? globalThis.ReactSyntaxHighlighter',
+            ': typeof window !== "undefined" ? window.ReactSyntaxHighlighter : undefined)',
+          ].join(" ");
+          const output = code.replace(highlighterImport, deferredHighlighter);
           if (/\bimport\s*\(/.test(output)) {
             throw new Error(
               "UMD output still contains an unsupported dynamic import",
