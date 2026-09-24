@@ -667,7 +667,7 @@ export function SetupWizard({
   } else {
     stepName = "Ready to set up";
     stepDescription =
-      "Below is what you chose at each step. Copy the prompt and paste it into a coding agent running in your project folder. It takes care of the setup.";
+      "Below is what you chose at each step. Copy the prompt and hand it to your coding agent, and it takes care of the setup.";
 
     const frontendPick =
       frontends.find((pick) => pick.id === frontendId) ?? null;

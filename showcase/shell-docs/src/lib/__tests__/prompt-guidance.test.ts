@@ -10,7 +10,7 @@ import {
 // a change to it a deliberate edit that the other two copies must follow.
 it("pins the line shown beside every prompt Copy button", () => {
   expect(PROMPT_DESTINATION_HINT).toBe(
-    "Paste into a coding agent running in your project folder.",
+    "Open your coding agent in your project's folder, or in an empty folder for a new app.",
   );
   expect(PROMPT_PHONE_HINT).toBe(
     "This runs in a coding agent on your computer.",
