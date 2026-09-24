@@ -540,6 +540,83 @@ describe("IntelligenceAgent", () => {
       });
     });
 
+    // A realtime endpoint that answers 503 never opens the socket. Each exhausted
+    // session fetched fresh credentials and started over with no limit, so one chat
+    // turn waited about 96 s before anything reached the developer (PE-84).
+    it("fails the run with a realtime error when refreshed sockets never open", async () => {
+      mockFetch.mockImplementation(() =>
+        jsonResponse(
+          runtimeCredentials({ clientUrl: "wss://rt.example/client" }),
+        ),
+      );
+      const agent = createAgent();
+      const promise = collectEvents(agent);
+
+      for (let round = 0; round < 10; round += 1) {
+        await waitForConnection(agent);
+        const socket = getSocket(agent);
+        if (!socket) break;
+        for (let i = 0; i < 5; i++) {
+          socket.triggerError(new Error("503"));
+        }
+      }
+
+      const result = await promise;
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+      expect(result.completed).toBe(false);
+      expect(result.error?.message).toContain("wss://rt.example/client");
+      expect(result.error?.message).toContain("never opened");
+    });
+
+    it("keeps reconnecting a connect whose sockets never open", async () => {
+      mockFetch.mockImplementation(() => jsonResponse(runtimeCredentials()));
+      const agent = createAgent();
+      let error: Error | null = null;
+      connectWithTestAccess(agent).subscribe({
+        next: () => {},
+        error: (err) => {
+          error = err;
+        },
+      });
+
+      for (let round = 0; round < 5; round += 1) {
+        await waitForConnection(agent);
+        const socket = getSocket(agent)!;
+        for (let i = 0; i < 5; i++) {
+          socket.triggerError(new Error("503"));
+        }
+      }
+      await waitForConnection(agent);
+
+      expect(mockFetch).toHaveBeenCalledTimes(6);
+      expect(error).toBeNull();
+    });
+
+    it("keeps refreshing credentials when the refreshed socket opened before failing", async () => {
+      mockFetch.mockImplementation(() => jsonResponse(runtimeCredentials()));
+      const agent = createAgent();
+      let error: Error | null = null;
+      agent.run(defaultInput).subscribe({
+        next: () => {},
+        error: (err) => {
+          error = err;
+        },
+      });
+
+      for (let round = 0; round < 5; round += 1) {
+        await waitForConnection(agent);
+        const socket = getSocket(agent)!;
+        socket.triggerOpen();
+        for (let i = 0; i < 5; i++) {
+          socket.triggerError(new Error("network failure"));
+        }
+      }
+      await waitForConnection(agent);
+
+      expect(mockFetch).toHaveBeenCalledTimes(6);
+      expect(error).toBeNull();
+    });
+
     it("cleans up stale socket and channel before joining with refreshed credentials", async () => {
       mockFetch
         .mockResolvedValueOnce(
