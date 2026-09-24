@@ -1,4 +1,8 @@
 "use client";
+import {
+  ONBOARDING_ARGUMENT_TEXT,
+  ONBOARDING_ARGUMENT_VERSION,
+} from "@/lib/onboarding-argument-templates";
 
 import { useHomepageTelemetry } from "@/lib/use-homepage-telemetry";
 
@@ -42,7 +46,7 @@ import { useHomepageTelemetry } from "@/lib/use-homepage-telemetry";
 import React from "react";
 import Link from "next/link";
 import { WizardBackendPicker } from "./wizard-backend-picker";
-import { Copy } from "lucide-react";
+import { Bot, Copy } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import { CapabilityGrid, PickGrid } from "@/components/docs-map-parts";
 import { frontendPathForBackend, isFrontendId } from "@/lib/frontend-options";
@@ -63,7 +67,9 @@ import type {
   StepDirection,
   StepSwapAnimation,
 } from "@/lib/wizard-step-transition";
+import { onboardingFrameworkSlug } from "@/lib/intelligence-onboarding-framework";
 import { composeWizardOnboardingPrompt } from "@/lib/wizard-onboarding-prompt";
+
 import {
   createOnboardingRunId,
   INTELLIGENCE_ONBOARDING_EVENTS,
@@ -85,9 +91,18 @@ export interface SetupWizardProps {
   frontends: readonly MapPick[];
   capabilities: readonly MapCapability[];
   backends: readonly MapPick[];
+  /** Partner routes fix this backend and omit its selection step. */
+  fixedBackend?: string;
+  defaultFrontend?: string;
 }
 
 type CopyState = "idle" | "copied" | "error";
+
+// Names this control in `docs.intelligence_onboarding_prompt_copied`, the event
+// <PromptPill> also emits from the docs hero and page tools. Every other
+// emitter sets `surface`, so a wizard copy without one is the only row in that
+// stream that cannot be attributed to a control.
+const WIZARD_COPY_SURFACE = "docs_setup_wizard";
 
 const STEPPER_STEPS: readonly StepperStep[] = [
   { n: 1, label: "Project" },
@@ -195,22 +210,37 @@ export function SetupWizard({
   frontends,
   capabilities,
   backends,
+  fixedBackend,
+  defaultFrontend,
 }: SetupWizardProps): React.JSX.Element {
+  const partnerBackend = backends.some((pick) => pick.id === fixedBackend)
+    ? fixedBackend
+    : undefined;
+  const steps = partnerBackend
+    ? [
+        { n: 0, label: "Setup" },
+        ...STEPPER_STEPS.filter((step) => step.n !== 3 && step.n !== 1),
+      ]
+    : STEPPER_STEPS;
   const posthog = usePostHog();
   const track = useHomepageTelemetry();
 
+  const partnerName = backends.find((pick) => pick.id === partnerBackend)?.name;
+  const [agentAnswer, setAgentAnswer] = React.useState<"yes" | "no" | null>(
+    null,
+  );
   const [projectAnswer, setProjectAnswer] = React.useState<string | null>(null);
   const [frontendId, setFrontendId] = React.useState<string | null>(null);
   const [backendId, setBackendId] = React.useState<string | null>(null);
   const [featureIds, setFeatureIds] = React.useState<ReadonlySet<string>>(
     () => new Set(),
   );
-  /** 1-based, the card currently on screen. */
-  const [current, setCurrent] = React.useState(1);
-  /** 1-based, the furthest step reached so far. Never decreases — `goTo`
+  /** Stable step id; partner-only agent context uses 0. */
+  const [current, setCurrent] = React.useState(partnerBackend ? 0 : 1);
+  /** The furthest step reached so far. Never decreases — `goTo`
    *  only ever folds a new step number in via `Math.max`, so there is
    *  nowhere a jump-back could accidentally lower it. */
-  const [furthest, setFurthest] = React.useState(1);
+  const [furthest, setFurthest] = React.useState(partnerBackend ? 0 : 1);
   /** Gates the URL-sync effect below so it cannot race the restore effect's
    *  own read-then-write with a premature empty write. */
   const [hydrated, setHydrated] = React.useState(false);
@@ -289,7 +319,7 @@ export function SetupWizard({
   // `pendingTransitionRef` above.
   //
   // A *layout* effect, not a passive one: the server-rendered HTML (and the
-  // very first client render, before this runs) is always step 1, which is
+  // very first client render, before this runs) is the first question, which is
   // correct for a no-JS reader and must stay that way. But a JS-enabled
   // reader reloading with selections in the query string needs the restored
   // step in the first frame that reaches the screen — a passive effect runs
@@ -300,8 +330,22 @@ export function SetupWizard({
   // (see that module) falls back to a passive effect during server
   // rendering, where `useLayoutEffect` would otherwise warn.
   useIsomorphicLayoutEffect(() => {
-    const restored = parseWizardUrlState(window.location.search, allowlists);
-    const landing = landingStep(restored);
+    const restored = {
+      ...parseWizardUrlState(window.location.search, allowlists),
+    };
+    // The partner route fixes the backend; saved frontend answers still win.
+    if (partnerBackend) restored.backend = partnerBackend;
+    // A new project cannot also contain an existing agent. Normalize this
+    // contradictory shareable URL to the same starting point the picker emits.
+    if (partnerBackend && restored.project === "no") restored.agent = "no";
+    restored.frontend ??= allowlists.frontends.includes(defaultFrontend ?? "")
+      ? defaultFrontend
+      : undefined;
+    const landing =
+      partnerBackend && (!restored.agent || !restored.project)
+        ? 0
+        : landingStep(restored);
+    setAgentAnswer(restored.agent ?? null);
 
     setProjectAnswer(restored.project ?? null);
     setFrontendId(restored.frontend ?? null);
@@ -323,6 +367,7 @@ export function SetupWizard({
   React.useEffect(() => {
     if (!hydrated) return;
     const search = serializeWizardUrlState({
+      agent: partnerBackend ? (agentAnswer ?? undefined) : undefined,
       project: projectAnswer ?? undefined,
       frontend: frontendId ?? undefined,
       features: [...featureIds],
@@ -330,7 +375,7 @@ export function SetupWizard({
     });
     const url = new URL(window.location.href);
     const answers = new URLSearchParams(search);
-    for (const key of ["project", "frontend", "features", "backend"]) {
+    for (const key of ["agent", "project", "frontend", "features", "backend"]) {
       url.searchParams.delete(key);
       const value = answers.get(key);
       if (value !== null) url.searchParams.set(key, value);
@@ -340,7 +385,15 @@ export function SetupWizard({
       "",
       `${url.pathname}${url.search}${url.hash}`,
     );
-  }, [projectAnswer, frontendId, featureIds, backendId, hydrated]);
+  }, [
+    agentAnswer,
+    projectAnswer,
+    frontendId,
+    featureIds,
+    backendId,
+    hydrated,
+    partnerBackend,
+  ]);
 
   // Runs the step-swap animation and moves focus to the new card's heading
   // — on every `goTo`-driven step change, and only then: not on the first
@@ -393,6 +446,8 @@ export function SetupWizard({
     pointerActivated: boolean,
     selection: Record<string, unknown> = {},
   ) {
+    if (partnerBackend && step === 1) step = 0;
+    if (partnerBackend && step === 3) step = direction === "back" ? 2 : 4;
     runIdRef.current ??= createOnboardingRunId();
     track("wizard_step_changed", {
       onboarding_run_id: runIdRef.current,
@@ -425,6 +480,7 @@ export function SetupWizard({
    *  default here is only a defensive fallback for a caller that cannot
    *  derive one, not something either caller actually relies on. */
   function handleJump(step: number, pointerActivated = false) {
+    if (partnerBackend && step === 3) return;
     if (step > furthestRef.current) return;
     if (step === currentRef.current) return;
     goTo(
@@ -467,6 +523,7 @@ export function SetupWizard({
     // clipboard, which is exactly what the prototype shipped before this was
     // caught.
     const prompt = composeWizardOnboardingPrompt(runId, {
+      agent: partnerBackend ? agentAnswer : undefined,
       frontend: frontendPick
         ? { id: frontendPick.id, name: frontendPick.name }
         : null,
@@ -504,11 +561,41 @@ export function SetupWizard({
     if (!mountedRef.current) return;
     setCopyState("copied");
     capture(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied, {
+      // The wizard has one copy control and never hands the prompt to an app,
+      // so every write here is a deliberate copy. <PromptPill> emits this same
+      // event for its `open_claude`/`open_codex` deep links; without `action`
+      // the two are indistinguishable downstream. See PE-218.
+      action: "copy",
+      surface: WIZARD_COPY_SURFACE,
+      // Read at click time rather than through `usePathname`, matching how the
+      // rest of this component reads the URL it rewrites as the user answers.
+      from_path: window.location.pathname,
       onboarding_run_id: runId,
       project: projectAnswer,
       frontend: frontendId,
+      // The wizard's fifth argument. It reaches the copied prompt through
+      // `composeWizardOnboardingPrompt` and was the only one telemetry could
+      // not see, so a run seeded with "I already have an agent" was
+      // indistinguishable from one seeded with "I need a new agent" (PE-255).
+      // `undefined` for a backend with no partner question, matching the
+      // composer, and PostHog drops the key rather than recording a null.
+      agent: partnerBackend ? (agentAnswer ?? undefined) : undefined,
       backend: backendId,
+      // `backend` is the docs registry slug this picker works in; the hero
+      // button and page actions emit `agent_framework` already mapped to the
+      // onboarding graph's vocabulary. Grouping the two together on `backend`
+      // would split `strands` from `strands-python` without saying so, and
+      // `built-in-agent` maps to nothing at all. Both are emitted rather than
+      // renaming `backend`, because dashboards already read it (PE-255).
+      agent_framework: backendId
+        ? onboardingFrameworkSlug(backendId)
+        : undefined,
       features: [...featureIds],
+      // Which revision of the argument prose the wizard appended. The
+      // hosted document versions its own text; this is the other half
+      // of what the developer copied (PE-255).
+      argument_version: ONBOARDING_ARGUMENT_VERSION,
+      argument_text: ONBOARDING_ARGUMENT_TEXT,
     });
     resetTimerRef.current = setTimeout(() => {
       if (mountedRef.current) setCopyState("idle");
@@ -532,7 +619,51 @@ export function SetupWizard({
   let body: React.ReactNode;
   let footer: React.ReactNode;
 
-  if (current === 1) {
+  if (current === 0 && partnerBackend) {
+    stepName = "Where are you starting?";
+    stepDescription = "Tell us what you already have. We’ll tailor your setup.";
+    body = (
+      <ChoiceGrid
+        options={[
+          {
+            ...PROJECT_OPTIONS[0],
+            id: "existing",
+            description: `Add a ${partnerName} agent to your app`,
+          },
+          {
+            ...PROJECT_OPTIONS[0],
+            id: "existing-agent",
+            label: "Existing agent",
+            icon: Bot,
+            description: `Connect your ${partnerName} agent to your app`,
+          },
+          {
+            ...PROJECT_OPTIONS[1],
+            id: "new",
+            description: "Build an app and agent from scratch",
+          },
+        ]}
+        selectedId={
+          projectAnswer === "no"
+            ? "new"
+            : projectAnswer === "yes" && agentAnswer
+              ? agentAnswer === "yes"
+                ? "existing-agent"
+                : "existing"
+              : undefined
+        }
+        disabled={false}
+        onSelect={(id, pointerActivated) => {
+          const project = id === "new" ? "no" : "yes";
+          const agent = id === "existing-agent" ? "yes" : "no";
+          setProjectAnswer(project);
+          setAgentAnswer(agent);
+          goTo(2, "forward", pointerActivated, { project, agent });
+        }}
+      />
+    );
+    footer = null;
+  } else if (current === 1) {
     stepName = "Where are you starting?";
     stepDescription =
       "Choose an option to continue. We will tailor the setup to your starting point.";
@@ -549,7 +680,7 @@ export function SetupWizard({
         />
       </div>
     );
-    footer = null;
+    footer = partnerBackend ? <WizardNav onBack={handleBack} /> : null;
   } else if (current === 2) {
     stepName = "Your frontend";
     stepDescription = "Choose the frontend your app uses to continue.";
@@ -640,6 +771,8 @@ export function SetupWizard({
         }
         frontend={frontendPick}
         backend={backendPick}
+        backendFixed={Boolean(partnerBackend)}
+        agent={partnerBackend ? agentAnswer : undefined}
         features={selectedCapabilities}
         onNavigate={handleJump}
       />
@@ -679,7 +812,7 @@ export function SetupWizard({
         <WizardCard
           progress={
             <WizardProgress
-              steps={STEPPER_STEPS}
+              steps={steps}
               current={current}
               furthest={furthest}
               onJump={handleJump}

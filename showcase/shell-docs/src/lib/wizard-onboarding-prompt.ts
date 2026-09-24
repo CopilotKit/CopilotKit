@@ -1,6 +1,10 @@
 import { frameworkPromptSuffix } from "@/lib/intelligence-onboarding-framework";
 import { frontendPromptSuffix } from "@/lib/intelligence-onboarding-frontend";
 import { createIntelligenceOnboardingPrompt } from "@/lib/intelligence-onboarding-prompt";
+import {
+  ARGUMENT_TEMPLATES,
+  fillArgumentTemplate,
+} from "@/lib/onboarding-argument-templates";
 
 /** The wizard's picks, translated into the coding-agent prompt. */
 export interface WizardPromptSelection {
@@ -13,6 +17,7 @@ export interface WizardPromptSelection {
    *  two, this has no CLI graph slug to translate -- see the sentence it
    *  drives, below. */
   project: "yes" | "no" | null;
+  agent?: "yes" | "no" | null;
 }
 
 /**
@@ -49,7 +54,10 @@ export function composeWizardOnboardingPrompt(
     : "";
   const frontendSentence =
     selection.frontend?.id === "slack" || selection.frontend?.id === "teams"
-      ? ` They want to connect their agent to ${selection.frontend.name} using CopilotKit Channels. Follow the channel setup documentation at https://docs.copilotkit.ai/${selection.frontend.id}.`
+      ? fillArgumentTemplate(ARGUMENT_TEMPLATES.wizardChannelsFrontend, {
+          name: selection.frontend.name,
+          id: selection.frontend.id,
+        })
       : selection.frontend
         ? frontendPromptSuffix(selection.frontend.id, selection.frontend.name)
         : "";
@@ -59,9 +67,9 @@ export function composeWizardOnboardingPrompt(
   // recognize.
   const projectSentence =
     selection.project === "yes"
-      ? " They already have an existing project and want CopilotKit added to it."
+      ? ARGUMENT_TEMPLATES.wizardProjectExisting
       : selection.project === "no"
-        ? " They are starting a brand new project."
+        ? ARGUMENT_TEMPLATES.wizardProjectNew
         : "";
   // Omitted entirely for an empty list rather than rendered as an empty
   // clause — there is nothing to append, and it wasn't the previous
@@ -69,7 +77,9 @@ export function composeWizardOnboardingPrompt(
   // doesn't recognize.
   const featuresSentence =
     selection.featureTitles.length > 0
-      ? ` They also want these CopilotKit features set up: ${selection.featureTitles.join(", ")}.`
+      ? fillArgumentTemplate(ARGUMENT_TEMPLATES.wizardFeatures, {
+          titles: selection.featureTitles.join(", "),
+        })
       : "";
 
   return (
@@ -77,6 +87,15 @@ export function composeWizardOnboardingPrompt(
     frameworkSentence +
     frontendSentence +
     projectSentence +
+    (selection.agent === "yes"
+      ? fillArgumentTemplate(ARGUMENT_TEMPLATES.wizardAgentExisting, {
+          name: selection.backend?.name ?? "working",
+        })
+      : selection.agent === "no"
+        ? fillArgumentTemplate(ARGUMENT_TEMPLATES.wizardAgentNew, {
+            name: selection.backend?.name ?? "AI",
+          })
+        : "") +
     featuresSentence
   );
 }

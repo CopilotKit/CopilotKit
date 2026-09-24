@@ -7,7 +7,7 @@ description: "React hook for accessing AG-UI agent instances"
 
 `useAgent` is a React hook that returns an [AG-UI AbstractAgent](https://docs.ag-ui.com/sdk/js/client/abstract-agent) instance. The hook subscribes to agent state changes and triggers re-renders when the agent's state, messages, or execution status changes.
 
-**Throws error** if no agent is configured with the specified `agentId`.
+**Throws an error** if no agent is configured with the specified `agentId`, or if only part of the thread-scoped option set is provided.
 
 ## Signature
 
@@ -18,6 +18,12 @@ function useAgent(options?: UseAgentProps): {
   agent: AbstractAgent;
   isReady: boolean;
 };
+```
+
+For fully headless UI that does not import the built-in chat rendering stack, import the hook from the headless entry:
+
+```tsx
+import { useAgent } from "@copilotkit/react-core/v2/headless";
 ```
 
 ## Two valid shapes
@@ -61,8 +67,9 @@ hook gets its own instance instead of a shared one.
   Configuration object for the hook.
 
 <PropertyReference name="agentId" type="string" default='"default"'>
-  ID of the agent to retrieve. Must match an agent configured in
-  `CopilotKit`.
+  ID of the shared agent to retrieve. Resolution order is: explicit `agentId`,
+  the surrounding chat configuration's `agentId`, the provider's `agentId`,
+  then `"default"`. The resolved ID must match a registered agent.
 
   In the thread-scoped shape this is the **local** id to register the private
   agent under, and it must not already be taken. The usual fallbacks — the chat
@@ -95,7 +102,8 @@ hook gets its own instance instead of a shared one.
     always fire immediately regardless.
 
     When unset it inherits the provider's `defaultThrottleMs`; if that is also
-    unset the effective value is `0`, meaning no throttle.
+    unset the effective value is `0`, meaning no throttle. Pass `0` to disable
+    provider throttling for this hook.
 
   </PropertyReference>
 
@@ -298,6 +306,25 @@ function MultiAgentView() {
       <div>Support: {support.messages.length} messages</div>
     </div>
   );
+}
+```
+
+### Thread-scoped Agent
+
+Use the thread-scoped form when one runtime agent needs multiple independent frontend instances, for example one per open conversation. The local `agentId` must be unique in the current provider.
+
+```tsx
+function ThreadPreview({ threadId }: { threadId: string }) {
+  const { agent, isReady } = useAgent({
+    agentId: `preview-${threadId}`,
+    runtimeAgentId: "support",
+    threadId,
+    throttleMs: 100,
+  });
+
+  if (!isReady) return <div>Loading...</div>;
+
+  return <div>{agent.messages.length} messages</div>;
 }
 ```
 

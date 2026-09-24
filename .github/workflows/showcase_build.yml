@@ -426,7 +426,7 @@ jobs:
     name: Build canonical Angular browser artifact
     needs: [detect-changes]
     if: needs.detect-changes.outputs.has_changes == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
       contents: read

@@ -5,6 +5,7 @@ import {
   CopilotKitCoreRuntimeConnectionStatus,
   CopilotRuntimeTransport,
   type CopilotKitCoreGetSuggestionsResult,
+  type CopilotKitMessageFilter,
   type IntelligenceRuntimeInfo,
   type RuntimeLicenseStatus,
   type SuggestionsConfig,
@@ -161,6 +162,7 @@ export class CopilotKit {
     runtimeUrl: this.#config.runtimeUrl,
     headers: this.#config.headers,
     credentials: this.#config.credentials,
+    messageFilter: this.#config.messageFilter,
     agents__unsafe_dev_only: {
       ...this.#config.agents,
       ...this.#config.selfManagedAgents,
@@ -565,8 +567,13 @@ export class CopilotKit {
   ): FrontendTool {
     return {
       ...humanInTheLoopTool,
-      handler: (args, { toolCall }) => {
-        return this.#hitl.onResult(toolCall.id, humanInTheLoopTool.name);
+      type: "human-in-the-loop",
+      handler: (args, { toolCall, signal: abortSignal }) => {
+        return this.#hitl.onResult(
+          toolCall.id,
+          humanInTheLoopTool.name,
+          abortSignal,
+        );
       },
     };
   }
@@ -638,6 +645,7 @@ export class CopilotKit {
     runtimeTransport?: CopilotRuntimeTransport;
     headers?: Record<string, string>;
     credentials?: RequestCredentials;
+    messageFilter?: CopilotKitMessageFilter;
     properties?: Record<string, unknown>;
     agents?: Record<string, AbstractAgent>;
     selfManagedAgents?: Record<string, AbstractAgent>;
@@ -657,6 +665,11 @@ export class CopilotKit {
     if ("credentials" in options) {
       this.core.setCredentials(options.credentials);
       this.#credentials.set(options.credentials);
+    }
+    // `in`, not `!== undefined`: clearing the filter is a real instruction, and
+    // `undefined` is the value that expresses it.
+    if ("messageFilter" in options) {
+      this.core.setMessageFilter(options.messageFilter);
     }
     if (options.properties !== undefined) {
       this.core.setProperties(

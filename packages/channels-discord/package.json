@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/channels-discord",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "Discord PlatformAdapter for @copilotkit/channels.",
   "license": "MIT",
   "repository": {
@@ -44,8 +44,7 @@
     "@ag-ui/client": "1.0.0",
     "@copilotkit/channels-core": "workspace:^",
     "@copilotkit/channels-ui": "workspace:^",
-    "discord.js": "^14.16.0",
-    "zod": "^3.25.76"
+    "discord.js": "^14.16.0"
   },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:^",

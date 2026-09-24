@@ -5,7 +5,6 @@ import {
   CURATED_LLM_PAGES,
 } from "@/lib/curated-llm-pages";
 import { getAllLlmPages } from "@/lib/llm-text";
-import { INTELLIGENCE_ONBOARDING_PROMPT } from "@/lib/intelligence-onboarding-prompt";
 import { getDocsMode, getIntegrations } from "@/lib/registry";
 import { getBaseUrl } from "@/lib/sitemap-helpers";
 import { GET } from "./route";
@@ -27,8 +26,8 @@ beforeEach(() => {
 test("exposes the shared onboarding prompt before the research links", async () => {
   const first = await GET().text();
   const second = await GET().text();
-  expect(first).toContain(INTELLIGENCE_ONBOARDING_PROMPT);
-  expect(first).toContain("fresh 12-character hexadecimal run ID");
+  expect(first).toContain("](https://copilotkit.ai/onboarding-prompts)");
+  expect(first).not.toContain("<run-id>");
   expect(
     first.indexOf("## Add CopilotKit with your coding agent"),
   ).toBeLessThan(first.indexOf("## Use your existing agent framework"));

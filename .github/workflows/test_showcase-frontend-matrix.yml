@@ -52,7 +52,7 @@ env:
 jobs:
   baseline:
     name: React baseline / ${{ matrix.integration }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -235,7 +235,7 @@ jobs:
     name: Freeze complete React baseline
     if: ${{ always() && inputs.integration == 'all' }}
     needs: baseline
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - name: Check out probe contract

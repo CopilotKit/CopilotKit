@@ -8,6 +8,7 @@
     "runtime-endpoints",
     "custom-agent",
     "agent-runner",
+    "message-history",
     "self-managed-agents",
     "ag-ui"
   ]

@@ -157,7 +157,7 @@ When you register multiple agents, the runtime handles discovery and routing aut
 
 [Threads](/threads), the [inspector](/inspector), and other CopilotKit Intelligence capabilities are provided through the runtime. These give you conversation persistence and debugging without extra setup.
 
-The examples below take `intelligence` and `identifyUser` as given. `intelligence` is a `CopilotKitIntelligence` instance — see [Connect your runtime to Intelligence](/intelligence/connect-your-runtime) for the constructor and where the project API key comes from.
+The examples below take `intelligence` and `identifyUser` as given. `intelligence` is a `CopilotKitIntelligence` instance — see [Connect your runtime to Intelligence](/intelligence/quickstart) for the constructor and where the project API key comes from.
 
 #### Assign Threads to Learning Containers
 
@@ -323,6 +323,10 @@ forwardHeaders: { allow: ["authorization", "x-tenant-id"] }
 <Callout type="warn" title="Allowlist mode bypasses the default denylist">
 In allowlist mode the built-in denylist does **not** apply — only your `allow` set (minus your own `deny`) forwards. Don't allow-list protected headers such as `x-copilotcloud-public-api-key` or `x-forwarded-*` unless you truly intend to forward them, since the default protection isn't there to catch them.
 </Callout>
+
+## Keeping quiet streams alive
+
+A run can be silent for a long time while the agent reasons or waits on a slow tool. The runtime writes a `: keep-alive` SSE comment after 15 seconds without output so proxies and browsers with idle timeouts keep the connection open. Comments are transport frames: they never become AG-UI events. Tune or disable this with `sseKeepAliveIntervalSeconds` (`0` disables it).
 
 ## Connecting to an AG-UI agent directly
 

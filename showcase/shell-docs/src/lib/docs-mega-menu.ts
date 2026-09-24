@@ -18,6 +18,7 @@ export type MegaMenuIconName =
   | "box"
   | "radio"
   | "brain"
+  | "lightbulb"
   | "chart"
   | "kite";
 
@@ -73,22 +74,23 @@ export const DOCS_MEGA_MENU_COLUMNS: readonly MegaMenuColumn[] = [
         icon: "kite",
         featured: true,
       },
-      { href: "/threads", label: "Threads", icon: "layers" },
+      { href: "/threads", label: "Rich Threads", icon: "layers" },
       {
-        href: "/backend/copilot-runtime",
-        label: "Learning",
-        icon: "brain",
+        href: "/learning",
+        label: "Automatic Learning",
+        icon: "lightbulb",
       },
       {
-        href: "/intelligence/managed-intelligence-platform",
-        label: "Analytics",
+        href: "/intelligence/analytics",
+        label: "Product Analytics",
         icon: "chart",
       },
+      { href: "/intelligence/memories", label: "User Memories", icon: "brain" },
       { href: "/inspector", label: "Inspector", icon: "search" },
       { href: "/deploy/agentcore", label: "Deploy", icon: "cloud" },
       {
         href: "/intelligence/self-hosting",
-        label: "Self-hosting",
+        label: "Self-Hosting",
         icon: "server",
       },
     ],

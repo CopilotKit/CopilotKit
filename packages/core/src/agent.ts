@@ -11,11 +11,12 @@ import type {
 import {
   HttpAgent,
   runHttpRequest,
+  structuredClone_,
   transformHttpEventStream,
 } from "@ag-ui/client";
 import type { Observable } from "rxjs";
 import { EMPTY, defer, from } from "rxjs";
-import { catchError, switchMap } from "rxjs/operators";
+import { catchError, finalize, switchMap } from "rxjs/operators";
 import {
   RUNTIME_MODE_SSE,
   RUNTIME_MODE_INTELLIGENCE,
@@ -30,6 +31,8 @@ import { IntelligenceAgent } from "./intelligence-agent";
 import type { CopilotRuntimeTransport } from "./types";
 import { runtimeInfoError } from "./utils/runtime-info-error";
 import { ɵconnectWithoutEventVerification } from "./utils/connect-replay";
+import type { CopilotKitMessageFilter } from "./core/message-filter";
+import { ɵrepairToolCallPairs } from "./core/message-filter";
 
 type ResolvedRuntimeMode = RuntimeMode | "pending";
 
@@ -97,6 +100,11 @@ export interface ProxiedCopilotRuntimeAgentConfig extends Omit<
    * bookkeeping; only outbound routing is overridden.
    */
   runtimeAgentId?: string;
+  /**
+   * Rewrites the outbound message list on every run. See
+   * {@link CopilotKitMessageFilter}. Not applied in Intelligence mode.
+   */
+  messageFilter?: CopilotKitMessageFilter;
 }
 
 export class ProxiedCopilotRuntimeAgent extends HttpAgent {
@@ -121,6 +129,18 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   private _capabilities?: AgentCapabilities;
   private delegate?: AbstractAgent;
   private runtimeInfoPromise?: Promise<void>;
+  private _messageFilter?: CopilotKitMessageFilter;
+  /**
+   * The HTTP `run` this agent started and has not yet seen finish, as the
+   * exact `{ threadId, runId }` it POSTed. `abortRun` narrows `/stop` to this
+   * run only while `threadId` still matches: `threadId` is a public field the
+   * host may reassign under a live run, and a runId from another thread must
+   * not be sent as if it were this thread's. Released when the run stream
+   * finalizes, cleared on `connect` (a reconnected thread may run under a
+   * runId this client never saw) and never copied by `clone`. Without a
+   * provable active run the stop stays thread-wide.
+   */
+  private activeRun?: { threadId: string; runId: string };
 
   constructor(config: ProxiedCopilotRuntimeAgentConfig) {
     const normalizedRuntimeUrl = config.runtimeUrl
@@ -154,11 +174,63 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     this.runtimeMode = config.runtimeMode ?? RUNTIME_MODE_SSE;
     this.intelligence = config.intelligence;
     this._capabilities = config.capabilities;
+    this._messageFilter = config.messageFilter;
     if (config.debug) {
       this.debug = config.debug;
     }
     if (this.transport === "single") {
       this.singleEndpointUrl = this.runtimeEndpointUrl;
+    }
+  }
+
+  /**
+   * Adopt the runtime mode a fresh `/info` just reported.
+   *
+   * A live proxy outlives the runtime configuration that minted it: a
+   * redeploy, an env-var change or a rollback can flip `intelligence` → `sse`
+   * under a page that is already open. The registry preserves the proxy across
+   * that re-sync on purpose — it is backing an open conversation — so the new
+   * mode is pushed onto the instance here instead of replacing it.
+   *
+   * Without this the mode was decided once, at construction, and `run()` kept
+   * taking the delegate path against a runtime serving plain SSE, where
+   * `response.json()` on a `text/event-stream` body throws for the rest of the
+   * page's life. See #7130.
+   *
+   * A delegate built for the old mode is torn down: it speaks a protocol the
+   * runtime no longer serves, and it may be holding a websocket open. The
+   * memoized `/info` promise goes with it — it answered for the old
+   * configuration, so a later `ensureRuntimeConfiguration()` must re-ask
+   * rather than treat that answer as current.
+   *
+   * Only `wsUrl` is compared on the Intelligence metadata, because that is the
+   * one field the delegate bakes in at construction.
+   */
+  adoptRuntimeMode(
+    runtimeMode: ResolvedRuntimeMode,
+    intelligence: IntelligenceRuntimeInfo | undefined,
+  ): void {
+    const unchanged =
+      this.runtimeMode === runtimeMode &&
+      this.intelligence?.wsUrl === intelligence?.wsUrl;
+
+    this.runtimeMode = runtimeMode;
+    this.intelligence = intelligence;
+
+    if (unchanged) {
+      return;
+    }
+    this.runtimeInfoPromise = undefined;
+    const staleDelegate = this.delegate;
+    this.delegate = undefined;
+    if (staleDelegate) {
+      staleDelegate.abortRun();
+      // A re-sync can land mid-run, so the proxy's own pipeline has to be
+      // detached as well: aborting only the delegate would leave `isRunning`
+      // true and `onRunFinalized` unfired, and the UI would spin forever.
+      // This mirrors what `abortRun()` does for its delegate branch, minus
+      // the delegate detach that clearing the field above already skips.
+      void this.detachActiveRun();
     }
   }
 
@@ -184,6 +256,80 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
 
   get capabilities(): AgentCapabilities | undefined {
     return this._capabilities;
+  }
+
+  /**
+   * The filter applied to the outbound message list on every run.
+   *
+   * Registry-owned. `AgentRegistry` writes it whenever the core-level filter
+   * changes, so an agent discovered before the app configured one still picks
+   * it up — and so a value written here by hand is replaced on the registry's
+   * next sweep. Configure it through `CopilotKitCore` instead.
+   */
+  get messageFilter(): CopilotKitMessageFilter | undefined {
+    return this._messageFilter;
+  }
+
+  set messageFilter(filter: CopilotKitMessageFilter | undefined) {
+    this._messageFilter = filter;
+  }
+
+  /**
+   * Narrow the outbound payload with the configured message filter.
+   *
+   * **Called from the HTTP paths only, and that placement is the Intelligence
+   * exemption.** An earlier revision applied the filter in
+   * `prepareRunAgentInput`, which runs before the runtime mode is resolved:
+   * with the default `"auto"` transport, or on a proxy still `"pending"` its
+   * first `/info`, `run()` prepared the input, *then* resolved the mode, then
+   * handed that already-filtered input to `#runViaDelegate` — so a managed
+   * runtime received a truncated thread despite the exemption. Filtering here
+   * makes that unreachable by construction: `#runViaHttp` and
+   * `#connectViaHttp` are only entered once the mode is known not to be
+   * Intelligence. Do not move this back up the call chain.
+   *
+   * The managed runtime is the store of record for the thread — the threads
+   * drawer and the Slack transcript read from it — so a client-side truncation
+   * there has a blast radius nobody asked for. Every reporter on #1482 is
+   * self-hosted.
+   *
+   * `prepareRunAgentInput` has already deep-cloned the thread and stripped
+   * `activity` messages by the time the input reaches here, so the filter
+   * cannot reach the messages the UI renders no matter what it does with the
+   * array it is handed. The filter gets a *second* deep clone on top of that,
+   * because `input.messages` is also the repair baseline and the untrimmed
+   * fallback: sharing the message objects let a filter that mutates a kept
+   * message's `toolCallId` corrupt the baseline, and an orphaned tool result
+   * then went out on the wire — a payload the provider rejects, which is
+   * exactly the failure this whole mechanism exists to prevent.
+   */
+  #applyMessageFilter(input: RunAgentInput): RunAgentInput {
+    const filter = this._messageFilter;
+    if (!filter) return input;
+
+    // A filter that throws, returns the wrong shape, or hands back entries the
+    // repair cannot read falls back to the untrimmed thread rather than
+    // failing the run. Trimming is an optimization, and taking the user's
+    // message down with it would be the worse outcome; the warning is what
+    // surfaces the bug.
+    try {
+      const kept = filter(structuredClone_(input.messages), {
+        agentId: this.agentId ?? "",
+      });
+      if (!Array.isArray(kept)) {
+        console.warn(
+          "ProxiedCopilotRuntimeAgent: messageFilter returned a non-array value; sending the full message history instead.",
+        );
+        return input;
+      }
+      return { ...input, messages: ɵrepairToolCallPairs(kept, input.messages) };
+    } catch (error) {
+      console.warn(
+        "ProxiedCopilotRuntimeAgent: messageFilter failed; sending the full message history instead.",
+        error,
+      );
+      return input;
+    }
   }
 
   override requestInit(input: RunAgentInput): RequestInit {
@@ -225,6 +371,10 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     }
 
     const routedId = this.routedAgentId();
+    const runId =
+      this.activeRun?.threadId === this.threadId
+        ? this.activeRun.runId
+        : undefined;
 
     if (this.transport === "single") {
       if (!this.singleEndpointUrl) {
@@ -244,6 +394,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
             agentId: routedId,
             threadId: this.threadId,
           },
+          ...(runId === undefined ? {} : { body: { runId } }),
         }),
         ...(this.credentials ? { credentials: this.credentials } : {}),
       }).catch((error) => {
@@ -270,6 +421,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         "Content-Type": "application/json",
         ...this.headers,
       },
+      ...(runId === undefined ? {} : { body: JSON.stringify({ runId }) }),
       ...(this.credentials ? { credentials: this.credentials } : {}),
     }).catch((error) => {
       console.error("ProxiedCopilotRuntimeAgent: stop request failed", error);
@@ -400,7 +552,9 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     );
   }
 
-  #connectViaHttp(input: RunAgentInput): Observable<BaseEvent> {
+  #connectViaHttp(unfiltered: RunAgentInput): Observable<BaseEvent> {
+    const input = this.#applyMessageFilter(unfiltered);
+    this.activeRun = undefined;
     const routedId = this.routedAgentId();
     if (this.transport === "single") {
       if (!this.singleEndpointUrl) {
@@ -434,7 +588,19 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     );
   }
 
-  #runViaHttp(input: RunAgentInput): Observable<BaseEvent> {
+  #runViaHttp(unfiltered: RunAgentInput): Observable<BaseEvent> {
+    const input = this.#applyMessageFilter(unfiltered);
+    const activeRun = { threadId: input.threadId, runId: input.runId };
+    // Hold this run's identity for as long as its stream lives. The identity
+    // check keeps a late-finalizing stream from releasing a newer run.
+    const trackActiveRun = (source: Observable<BaseEvent>) => {
+      this.activeRun = activeRun;
+      return source.pipe(
+        finalize(() => {
+          if (this.activeRun === activeRun) this.activeRun = undefined;
+        }),
+      );
+    };
     if (this.transport === "single") {
       if (!this.singleEndpointUrl) {
         throw new Error("Single endpoint transport requires a runtimeUrl");
@@ -450,10 +616,12 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       const httpEvents = runHttpRequest(() =>
         this.fetch(this.singleEndpointUrl!, requestInit),
       );
-      return withAbortErrorHandling(transformHttpEventStream(httpEvents));
+      return trackActiveRun(
+        withAbortErrorHandling(transformHttpEventStream(httpEvents)),
+      );
     }
 
-    return withAbortErrorHandling(super.run(input));
+    return trackActiveRun(withAbortErrorHandling(super.run(input)));
   }
 
   public override clone(): ProxiedCopilotRuntimeAgent {
@@ -470,6 +638,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       capabilities: this._capabilities,
       debug: this.debug,
       fetch: this.fetch,
+      messageFilter: this._messageFilter,
     });
     cloned.threadId = this.threadId;
     cloned.setState(this.state);
@@ -682,9 +851,18 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       );
     }
 
+    const single = this.transport === "single";
+
     return new IntelligenceAgent({
       url: this.intelligence.wsUrl,
-      runtimeUrl: this.runtimeUrl,
+      // Single-route posts to the endpoint itself, so it needs the caller's URL
+      // verbatim: a trailing slash can select a different proxy location
+      // (issue #7028). REST needs the slash-stripped form, because it joins
+      // `/agent/:id/:mode` onto it.
+      runtimeUrl: single
+        ? (this.runtimeEndpointUrl ?? this.runtimeUrl)
+        : this.runtimeUrl,
+      transport: single ? "single" : "rest",
       agentId: routedId,
       headers: { ...this.headers },
       credentials: this.credentials,
