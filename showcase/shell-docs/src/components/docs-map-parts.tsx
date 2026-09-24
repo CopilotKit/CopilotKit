@@ -1,44 +1,5 @@
-// docs-map-parts.tsx — the presentational pieces of the homepage setup
-// wizard's intro and option grids.
-//
-// These components hold no data and no wizard state. All copy, options and
-// icon choices live in `@/lib/homepage-map` or in the wizard component that
-// drives them (`./setup-wizard`); the wizard also owns the "which step is
-// current", "what is selected so far" bookkeeping and simply hands each of
-// these components the slice it needs. Everything here is layout, treatment
-// and DOM semantics.
-//
-// The wizard shows one step at a time: the card shell, its progress rail and
-// its Back/Continue footer live in `./wizard-stepper-parts`, which reuses
-// `CORE_TREATMENT_CLASS` exported below — solid border, elevated surface,
-// no panel shadow — rather than keeping a second copy of the same class string.
-// There is no locked or done treatment here any more: a step the reader
-// cannot yet reach is simply not rendered, so it has nothing left to
-// express, unlike the earlier scrolling variant that kept every step on
-// screen at once.
-//
-// The option grids are buttons, not links: there are no destinations left on
-// this page, only choices that feed a prompt assembled in the last step.
-// `PickGrid` is single-choice (frontend, agent backend) and expresses its
-// selection purely through the accent border and fill — a radio-like control
-// doesn't need to also announce itself with a checkmark. `CapabilityGrid` is
-// multi-choice (features) and does render a checkmark on each selected
-// option, because a toggle needs to show its own state independently of the
-// accent treatment. Both grids express selection through `aria-pressed`
-// (deliberately the same attribute for single- and multiple-choice, so
-// there is one thing to assert instead of two) and never through an
-// `aria-label` that would shadow the option's own visible text.
-//
-// `CapabilityGrid` also carries each capability's one-line `body` beneath its
-// title — the six feature names are bare phrases ("Shared state", "Frontend
-// tools") that nobody could choose between without their explanation, and an
-// earlier draft that hid the body from assistive technology to keep the
-// accessible name equal to the title only made things worse: adjacent labels
-// ran together for screen-reader users. So the body stays visible and
-// un-hidden, and the button's accessible name is simply its full text content
-// — title followed by body — same as any ordinary toggle button carrying a
-// heading and a description. `PickGrid` has no second line, so its
-// accessible name is exactly `pick.name`.
+// Shared logo marks and compact option grids for the setup wizard.
+// Selection state and click handlers come from setup-wizard.tsx.
 
 import React from "react";
 import {
@@ -95,65 +56,6 @@ export function CapabilityIconMark({
   return <Icon className={className ?? "h-3.5 w-3.5"} />;
 }
 
-/**
- * Shared by the wizard's feature grid. It lives in this boundary-neutral
- * module on purpose: a `"use client"` module's named exports are replaced by
- * client references in the server layer, so exporting it from a client
- * child would hand the server a throwing function instead of a class
- * string.
- */
-export const MAP_TILE_GRID_CLASS =
-  "grid content-start grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3";
-
-/** The grid the whole wizard lives in — a single full-width column on every
- *  step, four columns wide on `md` so `MAP_SLOT.full` below has something to
- *  span. */
-export const MAP_GRID_CLASS = "grid grid-cols-1 md:grid-cols-4";
-
-/** Every step and the intro spans the whole width. There used to be a
- *  second slot (`inset`) for a side branch that no longer exists on this
- *  page — see this file's header comment. */
-const MAP_SLOT = {
-  full: "md:col-start-1 md:col-span-4",
-} as const;
-
-/** Solid border and elevated surface — the one step treatment
- *  this variant needs. Exported so `WizardCard` in `./wizard-stepper-parts`
- *  applies the same class string instead of keeping a second copy. */
-export const CORE_TREATMENT_CLASS =
-  "border border-[var(--border)] bg-[var(--bg-surface)]";
-
-/** The heading and paragraph that frame the wizard. One step up from a
- *  step's own heading, so it reads as their parent rather than a fifth
- *  step.
- *
- *  Centred like every other section title on the homepage (the video
- *  heading, the backend grid heading) — this component stops at the
- *  frame. The wizard card itself, and the option tiles `PickGrid` and
- *  `CapabilityGrid` render inside it, are a different register (content
- *  read top to bottom, not a section banner) and stay left-aligned;
- *  resist the urge to carry `text-center` down into them too. */
-export function MapIntro({
-  heading,
-  body,
-}: {
-  heading: string;
-  body: string;
-}): React.JSX.Element {
-  return (
-    <div
-      className={`not-prose mb-7 flex flex-col items-center text-center md:mb-9 ${MAP_SLOT.full}`}
-    >
-      <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text)] sm:text-[1.625rem]">
-        {heading}
-      </h2>
-      <p className="mt-2 max-w-[70ch] text-sm leading-relaxed text-[var(--text-secondary)]">
-        {body}
-      </p>
-    </div>
-  );
-}
-
 /** Draws whichever logo the pick's data asked for. The switch is the whole of
  *  this component's knowledge: which logo belongs to which pick is decided in
  *  `@/lib/homepage-map`. Exported so the wizard's review step can render the
@@ -191,81 +93,32 @@ function optionToneClass(selected: boolean): string {
     : "border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)]";
 }
 
-/** `"compact"` is a single row per option — small logo, truncated name, no
- *  summary — used where density is the point (the nineteen agent backends).
- *  `"card"` is a larger tile — bigger logo, the name at `text-sm`, and the
- *  pick's `summary` beneath it — used where five options would otherwise
- *  leave most of the step's frame empty (the frontends). */
-export type PickGridSize = "compact" | "card";
-
-function pickGridClass(size: PickGridSize): string {
-  return size === "card"
-    ? "grid content-start grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3"
-    : "grid content-start grid-cols-1 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(min(100%,11rem),1fr))]";
-}
-
-function pickButtonClass(size: PickGridSize, selected: boolean): string {
-  const base =
-    "shell-docs-radius-control cursor-pointer border text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40";
-  // "card" mirrors `CapabilityGrid`'s own button shell: a block box holding
-  // a logo+name row, the summary below it — rather than the flex-col stack
-  // the compact row still uses, which has nothing to stack a summary under.
-  const layout =
-    size === "card"
-      ? "block w-full p-3.5"
-      : "flex min-h-11 items-center gap-2 px-3 py-2.5";
-  return `${base} ${layout} ${optionToneClass(selected)}`;
-}
-
 export function PickGrid({
   picks,
   selectedId,
-  disabled,
   onSelect,
-  size = "compact",
 }: {
   picks: readonly MapPick[];
   selectedId?: string;
-  disabled: boolean;
   onSelect: (id: string, pointerActivated: boolean) => void;
-  size?: PickGridSize;
 }): React.JSX.Element {
   return (
-    <div className={pickGridClass(size)}>
+    <div className="wizard-pick-grid grid content-start grid-cols-1 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(min(100%,11rem),1fr))]">
       {picks.map((pick) => {
         const selected = pick.id === selectedId;
         return (
           <button
             key={pick.id}
-            title={size === "compact" ? pick.summary : undefined}
+            title={pick.summary}
             type="button"
-            disabled={disabled}
             aria-pressed={selected}
             onClick={(event) => onSelect(pick.id, event.detail > 0)}
-            className={pickButtonClass(size, selected)}
+            className={`shell-docs-radius-control flex min-h-11 cursor-pointer items-center gap-2 border px-3 py-2.5 text-left transition-colors ${optionToneClass(selected)}`}
           >
-            {size === "card" ? (
-              <>
-                <span className="flex min-w-0 items-center gap-2">
-                  <PickLogoMark logo={pick.logo} size={22} />
-                  <span className="truncate text-sm font-semibold text-[var(--text)]">
-                    {pick.name}
-                  </span>
-                </span>
-                {pick.summary ? (
-                  <span className="mt-2.5 block text-xs leading-relaxed text-[var(--text-muted)]">
-                    {pick.summary}
-                  </span>
-                ) : null}
-              </>
-            ) : (
-              <>
-                <PickLogoMark logo={pick.logo} />
-                <span className="text-xs font-medium leading-relaxed text-[var(--text-secondary)]">
-                  {pick.name}
-                </span>
-              </>
-            )}
+            <PickLogoMark logo={pick.logo} />
+            <span className="text-xs font-medium leading-relaxed text-[var(--text-secondary)]">
+              {pick.name}
+            </span>
           </button>
         );
       })}
@@ -274,35 +127,26 @@ export function PickGrid({
 }
 
 export function CapabilityGrid({
-  compact = false,
   capabilities,
   selectedIds,
-  disabled,
   onToggle,
 }: {
-  compact?: boolean;
   capabilities: readonly MapCapability[];
   selectedIds: readonly string[];
-  disabled: boolean;
   onToggle: (id: string) => void;
 }): React.JSX.Element {
   return (
-    <div
-      className={
-        compact ? "grid grid-cols-1 gap-2 sm:grid-cols-2" : MAP_TILE_GRID_CLASS
-      }
-    >
+    <div className="wizard-capability-grid grid grid-cols-1 gap-2 sm:grid-cols-2">
       {capabilities.map((capability) => {
         const selected = selectedIds.includes(capability.id);
         return (
           <button
             key={capability.id}
-            title={compact ? capability.body : undefined}
+            title={capability.body}
             type="button"
-            disabled={disabled}
             aria-pressed={selected}
             onClick={() => onToggle(capability.id)}
-            className={`shell-docs-radius-surface block w-full cursor-pointer border p-3.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${optionToneClass(
+            className={`shell-docs-radius-surface block w-full cursor-pointer border p-3.5 text-left transition-colors ${optionToneClass(
               selected,
             )}`}
           >
@@ -325,11 +169,6 @@ export function CapabilityGrid({
                 />
               ) : null}
             </span>
-            {!compact && (
-              <span className="mt-2.5 block text-xs leading-relaxed text-[var(--text-muted)]">
-                {capability.body}
-              </span>
-            )}
           </button>
         );
       })}
