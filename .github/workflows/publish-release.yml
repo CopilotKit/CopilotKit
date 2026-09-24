@@ -17,7 +17,7 @@
 #     skips tag push + GH Release + Slack notification.
 name: release / publish
 
-# This workflow handles two independent release lanes:
+# This workflow handles three independent release lanes:
 #
 # 1. npm (TypeScript) — fires on merged release/publish/* PRs or manual dispatch.
 #    Build with `nx run-many -t build` → `pnpm pack` each package →
@@ -30,8 +30,18 @@ name: release / publish
 # 2. PyPI (Python SDK) — fires on any merged PR that bumps sdk-python/pyproject.toml.
 #    Detects version change vs PyPI registry, builds with poetry, publishes with uv.
 #    Ported from ag-ui's publish-release.yml Python lane.
+# 3. Intelligence Python — fires on relevant pushes to main or manual dispatch.
+#    Builds once and publishes the runtime and adapters through PyPI.
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/runtime-python/**"
+      - "packages/intelligence-langgraph-python/**"
+      - "packages/intelligence-adk-python/**"
+      - "scripts/release/intelligence_python_plan.py"
+      - ".github/workflows/publish-release.yml"
   pull_request:
     types: [closed]
     branches: [main]
@@ -85,14 +95,9 @@ permissions:
   contents: read
 
 concurrency:
-  # Scope the lock to the package being released so a `monorepo` publish and an
-  # `angular` publish run in independent lanes instead of queuing behind each
-  # other. On the manual path `inputs.scope` carries the target; on the merged
-  # release-PR path inputs are empty, but the PR branch is
-  # `release/publish/<scope>/v<version>`, so `github.head_ref` already encodes
-  # the scope. Same-scope runs still serialize (cancel-in-progress: false),
-  # which is what protects the tag push / npm publish.
-  group: publish-release-${{ inputs.scope || github.head_ref || github.ref }}
+  # Serialize automatic and manual Intelligence Python releases against each
+  # other. Other lanes continue to use the selected scope or PR branch.
+  group: publish-release-${{ (github.event_name == 'push' || inputs.intelligence_python_publish == true) && 'intelligence-python' || inputs.scope || github.head_ref || github.ref }}
   cancel-in-progress: false
 
 env:
@@ -842,12 +847,12 @@ jobs:
             echo "- https://pypi.org/project/copilotkit/${PY_VERSION}/"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # The existing Python lane above publishes only sdk-python. Each new PyPI
-  # project needs a distinct environment for its pending trusted publisher.
+  # The existing Python lane above publishes only sdk-python. Publish these
+  # packages from main so the PyPI environments accept the deployment.
   build-intelligence-python:
     if: >
       (github.event_name == 'workflow_dispatch' && inputs.intelligence_python_publish == true) ||
-      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+      github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -856,49 +861,29 @@ jobs:
       should_publish: ${{ steps.plan.outputs.should_publish }}
       source_sha: ${{ steps.source.outputs.sha }}
     steps:
-      - name: Checkout merged main
+      - name: Checkout release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
-          ref: main
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Record source revision
         id: source
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Detect relevant merged changes
-        if: github.event_name == 'pull_request'
-        id: changed
-        env:
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD_SHA: ${{ github.event.pull_request.merge_commit_sha }}
-        run: |
-          set -euo pipefail
-          if [ -z "$PR_BASE_SHA" ] || [ -z "$PR_HEAD_SHA" ]; then
-            echo "::error::Cannot determine merged PR changes"
-            exit 1
-          fi
-          CHANGED="$(git diff --name-only "$PR_BASE_SHA" "$PR_HEAD_SHA")"
-          if printf '%s\n' "$CHANGED" | grep -Eq '^(packages/(runtime-python|intelligence-langgraph-python|intelligence-adk-python)/|scripts/release/intelligence_python_plan\.py$|\.github/workflows/publish-release\.yml$)'; then
-            echo "relevant=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Set up Python
-        if: github.event_name == 'workflow_dispatch' || steps.changed.outputs.relevant == 'true'
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
 
       - name: Install uv
-        if: github.event_name == 'workflow_dispatch' || steps.changed.outputs.relevant == 'true'
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           version: "0.9.7"
           enable-cache: false
 
       - name: Plan missing PyPI releases
-        if: github.event_name == 'workflow_dispatch' || steps.changed.outputs.relevant == 'true'
         id: plan
         run: |
           set -euo pipefail
