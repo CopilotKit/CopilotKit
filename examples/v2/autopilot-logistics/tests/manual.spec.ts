@@ -145,13 +145,35 @@ test("manual order and user workflows persist and enforce roles", async ({
       .get(orderRow.id),
   ).toMatchObject({ status: "in_transit", version: 2 });
 
-  await page.getByRole("link", { name: "Orders", exact: true }).click();
-  const cancelCandidate = database
-    .prepare(
-      "SELECT reference, version FROM orders WHERE organization_id = 'northstar' AND status = 'booked' ORDER BY reference LIMIT 1",
+  const cancelCustomer = `Cancel Test ${Date.now()}`;
+  await page.goto("/orders/new");
+  const cancelDraft = page.getByRole("form", { name: "Create order" });
+  await cancelDraft
+    .getByRole("textbox", { name: "Customer" })
+    .fill(cancelCustomer);
+  await cancelDraft
+    .getByRole("textbox", { name: "Origin" })
+    .fill("5 Fiction Street, Portland, OR");
+  await cancelDraft
+    .getByRole("textbox", { name: "Destination" })
+    .fill("6 Fiction Street, Seattle, WA");
+  await cancelDraft.getByLabel("Requested ship date").fill("2026-11-19");
+  await cancelDraft.getByLabel("Status").selectOption("booked");
+  await cancelDraft.getByRole("button", { name: "Create order" }).click();
+  await expect
+    .poll(
+      () =>
+        !!database
+          .prepare("SELECT id FROM orders WHERE customer = ?")
+          .get(cancelCustomer),
     )
-    .get() as { reference: string; version: number };
-  await page.getByRole("link", { name: cancelCandidate.reference }).click();
+    .toBe(true);
+  const cancelCandidate = database
+    .prepare("SELECT reference, version FROM orders WHERE customer = ?")
+    .get(cancelCustomer) as { reference: string; version: number };
+  await expect(
+    page.getByRole("heading", { name: cancelCandidate.reference }),
+  ).toBeVisible();
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Cancel order" }).click();
   await expect(
