@@ -7,6 +7,7 @@ import type {
 } from "@ag-ui/client";
 import {
   AGUIConnectNotImplementedError,
+  CompatibilityBoundary,
   randomUUID,
   structuredClone_,
   transformChunks,
@@ -30,15 +31,20 @@ import { catchError, finalize, takeUntil } from "rxjs/operators";
  *   Cannot send event type 'RUN_STARTED': The run has already errored with
  *   'RUN_ERROR'. No further events can be sent.
  *
- * `transformChunks` is still applied — message reassembly is needed either way.
+ * The AG-UI 1.0 compatibility boundary still runs first, so stored 0.x history
+ * is translated (THINKING_* events, `binary` parts, legacy nulls) exactly as in
+ * the base pipeline. `enforceEvents` is omitted too: a replay is stored
+ * history, and one event that the 1.0 schema rejects (the Intelligence gateway
+ * replays RUN_STARTED without `runId`, for example) must not stop the whole
+ * thread from hydrating. That keeps the leniency this path had before 1.0.
  *
- * This mirrors the base `AbstractAgent.connectAgent` implementation exactly
- * apart from that omission, so callers keep the same subscriber notifications,
+ * This mirrors the base `AbstractAgent.connectAgent` implementation apart from
+ * those two omissions, so callers keep the same subscriber notifications,
  * detach semantics, and `{ result, newMessages }` return shape.
  *
  * TODO: Remove this in favour of the base implementation once AG-UI's
  * AbstractAgent supports opting out of `verifyEvents` for transports whose
- * connection life-cycle isn't a single run. As of `@ag-ui/client@0.0.57`
+ * connection life-cycle isn't a single run. As of `@ag-ui/client@1.0.0`
  * `connectAgent(parameters?, subscriber?)` takes no such option.
  *
  * @param agent - The agent whose `connect()` stream should be consumed.
@@ -85,9 +91,14 @@ export async function ɵconnectWithoutEventVerification(
       resolveCompletion = resolve;
     });
 
-    const source$ = defer(
-      () => self.connect(input) as Observable<BaseEvent>,
+    const source$ = defer(() =>
+      // The boundary is a middleware; hand it a stand-in agent whose run() is
+      // this connect stream, as AG-UI's own connect operator does internally.
+      new CompatibilityBoundary().run(input, {
+        run: () => self.connect(input) as Observable<BaseEvent>,
+      } as unknown as AbstractAgent),
     ).pipe(
+      // NOTE: enforceEvents is intentionally omitted here. See JSDoc above.
       // transformChunks reassembles partial/streamed messages — still needed.
       transformChunks(self.debugLogger),
       // NOTE: verifyEvents is intentionally omitted here. See JSDoc above.
