@@ -100,15 +100,14 @@
 .prompt-pill-shelf {
   position: absolute;
   top: 100%;
-  left: 0;
+  /* Centered on the pill: the line on top, View prompt centered under it. */
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: 6px;
-  /* At least as wide as the pill, and wide enough that the line fits on one
-   * row where the viewport allows. */
   width: max-content;
-  min-width: 100%;
   max-width: min(360px, calc(100vw - 32px));
   padding-top: 6px;
   opacity: 0;
@@ -125,6 +124,7 @@
 .prompt-pill .prompt-pill-hint,
 .prompt-pill .prompt-pill-note {
   margin: 0;
+  text-align: center;
   white-space: normal;
   padding: 8px 10px;
   border: 1px solid var(--prompt-border, #dddde7);
@@ -227,7 +227,9 @@
    * page menu beside it off the screen, so it takes the pill's width. */
   .prompt-pill-shelf {
     position: static;
+    transform: none;
     width: auto;
+    max-width: none;
     contain: inline-size;
     opacity: 1;
     visibility: visible;
