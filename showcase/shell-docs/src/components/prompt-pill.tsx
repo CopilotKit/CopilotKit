@@ -8,6 +8,7 @@ import { launchPrompt } from "@/lib/launch-prompt";
 import {
   PROMPT_DESTINATION_HINT,
   PROMPT_LAUNCH_NOTE,
+  PROMPT_LAUNCH_NOTE_MS,
   PROMPT_PHONE_HINT,
 } from "@/lib/prompt-guidance";
 import "./prompt-pill.css";
@@ -63,6 +64,7 @@ export function PromptPill({
   const dialog = useRef<HTMLDialogElement>(null);
   const trigger = useRef<HTMLElement | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const launchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const generation = useRef(0);
   const pending = useRef<PromptPayload | null>(null);
   const mounted = useRef(true);
@@ -74,8 +76,20 @@ export function PromptPill({
       mounted.current = false;
       generation.current += 1;
       if (timer.current) clearTimeout(timer.current);
+      if (launchTimer.current) clearTimeout(launchTimer.current);
     };
   }, []);
+
+  /** Shows or hides the app-click note; it hides itself after a while. */
+  function showLaunchNote(show: boolean): void {
+    if (launchTimer.current) clearTimeout(launchTimer.current);
+    launchTimer.current = null;
+    setLaunched(show);
+    if (!show) return;
+    launchTimer.current = setTimeout(() => {
+      if (mounted.current) setLaunched(false);
+    }, PROMPT_LAUNCH_NOTE_MS);
+  }
 
   useEffect(() => {
     if (preview) dialog.current?.showModal();
@@ -144,7 +158,7 @@ export function PromptPill({
     payload: PromptPayload,
     action: "copy" | "copy_preview",
   ): void {
-    setLaunched(false);
+    showLaunchNote(false);
     recordAction(payload, action);
     copy(payload, action);
   }
@@ -152,6 +166,7 @@ export function PromptPill({
   /** Show exactly the payload associated with this preview action. */
   function viewPrompt(): void {
     const payload = createPrompt();
+    showLaunchNote(false);
     recordAction(payload, "view_prompt");
     showPrompt(payload);
   }
@@ -179,7 +194,7 @@ export function PromptPill({
     }
     // The note says the prompt is copied, so it waits for the copy.
     void copy(payload, action).then((ok) => {
-      if (ok && mounted.current) setLaunched(true);
+      if (ok && mounted.current) showLaunchNote(true);
     });
   }
 

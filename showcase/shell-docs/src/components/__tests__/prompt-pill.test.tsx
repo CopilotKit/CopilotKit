@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import React from "react";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -13,6 +14,7 @@ import * as launcher from "../../lib/launch-prompt";
 import {
   PROMPT_DESTINATION_HINT,
   PROMPT_LAUNCH_NOTE,
+  PROMPT_LAUNCH_NOTE_MS,
   PROMPT_PHONE_HINT,
 } from "../../lib/prompt-guidance";
 
@@ -292,6 +294,48 @@ it("shows no fallback note after a plain copy", async () => {
   await waitFor(() =>
     expect(screen.getByRole("status").textContent).toBe("Prompt copied"),
   );
+
+  expect(screen.queryByText(PROMPT_LAUNCH_NOTE)).toBeNull();
+});
+
+// The note holds the hover shelf open, and the shelf covers the content under
+// the pill. A developer whose app did open comes back to the page later, and
+// the page must not still be covered.
+it("clears the fallback note and releases the shelf after a while", async () => {
+  vi.useFakeTimers();
+  try {
+    vi.spyOn(launcher, "launchPrompt").mockImplementation(() => {});
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
+    const { container } = render(
+      <PromptPill createPrompt={() => ({ text: "Run" })} />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open in Codex" }));
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    expect(screen.getByText(PROMPT_LAUNCH_NOTE)).toBeTruthy();
+
+    await act(() => vi.advanceTimersByTimeAsync(PROMPT_LAUNCH_NOTE_MS));
+    expect(screen.queryByText(PROMPT_LAUNCH_NOTE)).toBeNull();
+    expect(
+      container.querySelector(".prompt-pill")?.hasAttribute("data-launched"),
+    ).toBe(false);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("clears the fallback note when the prompt is viewed", async () => {
+  vi.spyOn(launcher, "launchPrompt").mockImplementation(() => {});
+  Object.assign(navigator, {
+    clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+  });
+  render(<PromptPill createPrompt={() => ({ text: "Run" })} />);
+
+  fireEvent.click(screen.getByRole("button", { name: "Open in Codex" }));
+  await screen.findByText(PROMPT_LAUNCH_NOTE);
+  fireEvent.click(screen.getByRole("button", { name: "View prompt" }));
 
   expect(screen.queryByText(PROMPT_LAUNCH_NOTE)).toBeNull();
 });

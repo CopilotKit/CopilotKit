@@ -23,3 +23,8 @@ export const PROMPT_PHONE_HINT =
 // click also copies the prompt, so the note can say it is on the clipboard.
 export const PROMPT_LAUNCH_NOTE =
   "Nothing opened? The prompt is copied. Paste it into your coding agent.";
+
+// How long the note stays. On the docs and the site it also holds the hover
+// shelf open, and the shelf covers the content under the pill. When the app
+// did open, the developer comes back to a page that must not still be covered.
+export const PROMPT_LAUNCH_NOTE_MS = 15_000;
