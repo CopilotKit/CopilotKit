@@ -1293,7 +1293,10 @@ export function safeChannelErrorMetadata(error: unknown): {
     | "timeout"
     | "validation"
     | "conflict"
+    | "configuration"
     | "unknown";
+  errorCode?: "channel_agent_not_configured";
+  errorMessage?: string;
   provider?: "slack" | "teams";
   operation?: string;
   effectKind?: string;
@@ -1315,6 +1318,15 @@ export function safeChannelErrorMetadata(error: unknown): {
     code?: unknown;
     message?: unknown;
   } | null;
+  if (value?.code === "channel_agent_not_configured") {
+    // Never copy message/cause, even when an arbitrary error uses this code.
+    return {
+      errorCategory: "configuration",
+      errorCode: "channel_agent_not_configured",
+      errorMessage:
+        "Configure agent in createChannel(...) before calling thread.runAgent(). Channels do not inherit runtime.agents.",
+    };
+  }
   const message =
     error instanceof Error
       ? error.message

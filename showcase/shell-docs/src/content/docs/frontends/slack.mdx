@@ -5,6 +5,8 @@ icon: "lucide/Slack"
 doc_type: tutorial
 ---
 
+import ChannelsInstall from "@/snippets/shared/channels/install.mdx";
+
 In this guide, you will connect an AG-UI agent to a managed Slack app,
 start a long-running Channels SDK listener, and verify a real workspace message.
 CopilotKit Intelligence holds the Slack credentials; your process holds the
@@ -35,15 +37,16 @@ Use this prompt to connect your agent to Slack, start the Channels SDK listener,
   <Step>
     ### Create the runner
 
-    The install command below uses an exact, tested SDK pair; upgrade
-    `@copilotkit/channels` and `@copilotkit/runtime` together.
-
     ```bash title="Terminal"
     mkdir my-slack-channel
     cd my-slack-channel
     npm init -y
     npm pkg set type=module
-    npm install --save-exact @copilotkit/channels@0.9.2 @copilotkit/runtime@1.70.2
+    ```
+
+    <ChannelsInstall />
+
+    ```bash title="Terminal"
     npm install -D tsx typescript @types/node
     ```
 
@@ -83,6 +86,10 @@ Use this prompt to connect your agent to Slack, start the Channels SDK listener,
 
     Create the listener below. Replace `support-slack` with the exact Code shown
     in Intelligence.
+
+    Set `agent: makeAgent` on the Channel because this handler calls
+    `thread.runAgent()`. Channels do not inherit `runtime.agents`. A Channel
+    whose handlers reply directly without `runAgent()` can omit `agent`.
 
     ```ts title="channel.ts"
     import { createServer } from "node:http";
@@ -166,7 +173,7 @@ Use this prompt to connect your agent to Slack, start the Channels SDK listener,
       throw new Error(`Slack Channel is not online: ${JSON.stringify(status)}`);
     }
 
-    const port = Number(process.env.PORT ?? 3000);
+    const port = Number(process.env.PORT ?? 3001);
     server.listen(port, () => {
       console.log(`Slack Channel online; lifecycle server listening on :${port}`);
     });
@@ -189,12 +196,15 @@ Use this prompt to connect your agent to Slack, start the Channels SDK listener,
     CPK_INTELLIGENCE_API_KEY=<project-api-key>
     CHANNEL_CODE=support-slack
     # Add the agent variables shown for your selected backend.
-    PORT=3000
+    PORT=3001
 
     # Optional paired overrides for self-hosted or non-production Intelligence:
     # INTELLIGENCE_API_URL=https://intelligence.example.com
     # INTELLIGENCE_GATEWAY_WS_URL=wss://realtime.intelligence.example.com
     ```
+
+    The lifecycle server uses port `3001` so it can run alongside a web app
+    on port `3000`. If `3001` is already in use, set `PORT` to another free port.
 
     #### Where these values come from
 
