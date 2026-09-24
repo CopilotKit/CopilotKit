@@ -294,8 +294,9 @@ export async function attachIntelligenceEnterpriseLearning(params: {
 }
 
 // Intentional local exception: HTTP request parsing runs before AG-UI's event
-// compatibility boundary. Mirror only its historically accepted optional-null
-// rules here, without depending on a new public AG-UI helper. Keep these aligned
+// compatibility boundary. Mirror its historically accepted optional-null rules
+// and its legacy binary-part upgrade here, without depending on a new public
+// AG-UI helper (AG-UI does not export one). Keep these aligned
 // with client/src/middleware/compatibility-boundary.ts and AG-UI's migration guide.
 // Required nulls and nulls within application data must remain untouched.
 function warnCompatibility(what: string, replacement: string) {
@@ -338,8 +339,84 @@ function mapProtocolArray(
     : value;
 }
 
-function normalizeLegacyMessageNulls(message: unknown): unknown {
-  return mapProtocolArray(message, "content", (part) => {
+function mediaTypeFor(
+  mimeType: string,
+): "image" | "audio" | "video" | "document" {
+  if (mimeType.startsWith("image/")) return "image";
+  if (mimeType.startsWith("audio/")) return "audio";
+  if (mimeType.startsWith("video/")) return "video";
+  return "document";
+}
+
+function sameSource(part: unknown, converted: Record<string, unknown>) {
+  if (!isRecord(part) || part.type !== converted.type) return false;
+  const a = part.source;
+  const b = converted.source as Record<string, unknown>;
+  return (
+    isRecord(a) &&
+    a.type === b.type &&
+    a.value === b.value &&
+    a.mimeType === b.mimeType
+  );
+}
+
+/**
+ * The 0.x `{ type: "binary" }` part, which 1.0 retired and main accepted.
+ * Mirrors AG-UI's outgoing upgrade (client/src/middleware/legacy-content.ts):
+ * data or url becomes the media part its mime type names, and a binary part
+ * that only mirrors a modern part already in the message is dropped. A part
+ * with only an `id` has no 1.0 form; it is dropped with a warning instead of
+ * failing the whole request, which is what BuiltInAgent already did with it.
+ */
+function upgradeLegacyBinaryParts(content: unknown[]): unknown[] {
+  return content.flatMap((part) => {
+    if (
+      !isRecord(part) ||
+      part.type !== "binary" ||
+      typeof part.mimeType !== "string"
+    )
+      return [part];
+    const kind =
+      typeof part.data === "string"
+        ? "data"
+        : typeof part.url === "string"
+          ? "url"
+          : null;
+    if (kind === null) {
+      console.warn(
+        "[CopilotKit] Dropping a legacy binary content part that has no data or url; AG-UI 1.0 has no equivalent for it.",
+      );
+      return [];
+    }
+    warnCompatibility("binary input content", "the modern media content part");
+    const converted: Record<string, unknown> = {
+      type: mediaTypeFor(part.mimeType),
+      source: {
+        type: kind,
+        value: kind === "data" ? part.data : part.url,
+        mimeType: part.mimeType,
+      },
+      ...(typeof part.filename === "string"
+        ? { metadata: { filename: part.filename } }
+        : {}),
+    };
+    return content.some((other) => sameSource(other, converted))
+      ? []
+      : [converted];
+  });
+}
+
+function normalizeLegacyMessageContent(message: unknown): unknown {
+  const upgraded =
+    isRecord(message) &&
+    Array.isArray(message.content) &&
+    message.content.some((part) => isRecord(part) && part.type === "binary")
+      ? {
+          ...message,
+          content: upgradeLegacyBinaryParts(message.content),
+        }
+      : message;
+  return mapProtocolArray(upgraded, "content", (part) => {
     if (!isRecord(part)) return part;
     switch (part.type) {
       case "image":
@@ -361,7 +438,11 @@ function normalizeLegacyRunAgentInput(input: unknown): unknown {
   normalized = mapProtocolArray(normalized, "resume", (entry) =>
     omitLegacyNull(entry, "payload", "ResumeEntry"),
   );
-  return mapProtocolArray(normalized, "messages", normalizeLegacyMessageNulls);
+  return mapProtocolArray(
+    normalized,
+    "messages",
+    normalizeLegacyMessageContent,
+  );
 }
 
 function parseRunAgentInput(value: unknown): RunAgentInput {

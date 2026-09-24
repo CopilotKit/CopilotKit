@@ -188,6 +188,79 @@ describe.each(parsers)("$name request parsing", ({ parse }) => {
     },
   );
 
+  it("upgrades legacy binary parts to media parts before strict validation", async () => {
+    const body = inputBody({
+      messages: [
+        {
+          id: "user-1",
+          role: "user",
+          content: [
+            { type: "text", text: "look" },
+            {
+              type: "binary",
+              mimeType: "image/png",
+              data: "aGk=",
+              filename: "a.png",
+            },
+            {
+              type: "binary",
+              mimeType: "application/pdf",
+              url: "https://x.test/a.pdf",
+            },
+          ],
+        },
+      ],
+    });
+    expect(RunAgentInputSchema.safeParse(body).success).toBe(false);
+
+    const result = await parse(requestFor(body));
+
+    expect(result).not.toBeInstanceOf(Response);
+    expect((result as RunAgentInput).messages[0].content).toEqual([
+      { type: "text", text: "look" },
+      {
+        type: "image",
+        source: { type: "data", value: "aGk=", mimeType: "image/png" },
+        metadata: { filename: "a.png" },
+      },
+      {
+        type: "document",
+        source: {
+          type: "url",
+          value: "https://x.test/a.pdf",
+          mimeType: "application/pdf",
+        },
+      },
+    ]);
+  });
+
+  it("drops a binary mirror of a modern part and an id-only binary part", async () => {
+    const image = {
+      type: "image",
+      source: { type: "data", value: "aGk=", mimeType: "image/png" },
+    };
+    const result = await parse(
+      requestFor(
+        inputBody({
+          messages: [
+            {
+              id: "user-1",
+              role: "user",
+              content: [
+                image,
+                { type: "binary", mimeType: "image/png", data: "aGk=" },
+                { type: "binary", mimeType: "image/png", id: "file-1" },
+              ],
+            },
+          ],
+        }),
+      ),
+    );
+
+    expect(result).not.toBeInstanceOf(Response);
+    expect((result as RunAgentInput).messages[0].content).toEqual([image]);
+  });
+
   it("retains the existing null-state compatibility", async () => {
     const result = await parse(requestFor(inputBody({ state: null })));
 
