@@ -502,58 +502,70 @@ export class IntelligenceAgent extends AbstractAgent {
   ): Observable<BaseEvent> {
     const { unopenedRefreshes: previousUnopened = 0, ...sessionOptions } =
       options;
-    let socketOpened = false;
-    return this.observeThreadSession$(input, credentials, {
-      ...sessionOptions,
-      onSocketOpen: () => {
-        socketOpened = true;
-      },
-    }).pipe(
-      catchError((error) => {
-        if (!this.isSocketReconnectExhaustedError(error)) {
-          return throwError(() => error);
-        }
+    return defer(() => {
+      let socketOpened = false;
+      return this.observeThreadSession$(input, credentials, {
+        ...sessionOptions,
+        onSocketOpen: () => {
+          socketOpened = true;
+        },
+      }).pipe(
+        catchError((error) => {
+          if (!this.isSocketReconnectExhaustedError(error)) {
+            return throwError(() => error);
+          }
 
-        // A session whose socket opened was a real connection that dropped, so
-        // it restarts the count. Sessions that never open mean the realtime
-        // endpoint is unavailable, and fresh credentials will not fix that.
-        const unopenedRefreshes = socketOpened ? 0 : previousUnopened + 1;
-        if (unopenedRefreshes > MAX_UNOPENED_CREDENTIAL_REFRESHES) {
-          return throwError(
-            () =>
-              new Error(
-                `Realtime connection to ${credentials.realtime.clientUrl} never opened ` +
-                  `after ${unopenedRefreshes} attempts with fresh credentials. ` +
-                  `The realtime endpoint is unavailable.`,
-              ),
-          );
-        }
-
-        const replayCursor = this.getReconnectCursor(input);
-        return this.requestJoinCredentials$(
-          "connect",
-          input,
-          replayCursor,
-        ).pipe(
-          switchMap((refreshedCredentials) =>
-            refreshedCredentials === null
-              ? EMPTY
-              : this.observeThread$(
-                  this.applyCanonicalRunIdentity(input, refreshedCredentials, {
-                    fallbackToInputRunId: options.streamMode === "run",
-                  }),
-                  refreshedCredentials,
-                  {
-                    ...sessionOptions,
-                    channelMode: "connect",
-                    replayCursor,
-                    unopenedRefreshes,
-                  },
+          // A session whose socket opened was a real connection that dropped, so
+          // it restarts the count. Sessions that never open mean the realtime
+          // endpoint is unavailable, and fresh credentials will not fix that.
+          // Only a run is capped: a developer is waiting on its turn. A connect
+          // restores history in the background, and nothing retries it after it
+          // fails, so it keeps reconnecting until the endpoint recovers.
+          const unopenedRefreshes = socketOpened ? 0 : previousUnopened + 1;
+          if (
+            options.streamMode === "run" &&
+            unopenedRefreshes > MAX_UNOPENED_CREDENTIAL_REFRESHES
+          ) {
+            return throwError(
+              () =>
+                new Error(
+                  `Realtime connection to ${credentials.realtime.clientUrl} never opened ` +
+                    `in ${unopenedRefreshes} connection attempts. ` +
+                    `The realtime endpoint is unavailable.`,
                 ),
-          ),
-        );
-      }),
-    );
+            );
+          }
+
+          const replayCursor = this.getReconnectCursor(input);
+          return this.requestJoinCredentials$(
+            "connect",
+            input,
+            replayCursor,
+          ).pipe(
+            switchMap((refreshedCredentials) =>
+              refreshedCredentials === null
+                ? EMPTY
+                : this.observeThread$(
+                    this.applyCanonicalRunIdentity(
+                      input,
+                      refreshedCredentials,
+                      {
+                        fallbackToInputRunId: options.streamMode === "run",
+                      },
+                    ),
+                    refreshedCredentials,
+                    {
+                      ...sessionOptions,
+                      channelMode: "connect",
+                      replayCursor,
+                      unopenedRefreshes,
+                    },
+                  ),
+            ),
+          );
+        }),
+      );
+    });
   }
 
   private observeThreadSession$(

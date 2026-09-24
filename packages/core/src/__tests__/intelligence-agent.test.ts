@@ -568,6 +568,30 @@ describe("IntelligenceAgent", () => {
       expect(result.error?.message).toContain("never opened");
     });
 
+    it("keeps reconnecting a connect whose sockets never open", async () => {
+      mockFetch.mockImplementation(() => jsonResponse(runtimeCredentials()));
+      const agent = createAgent();
+      let error: Error | null = null;
+      connectWithTestAccess(agent).subscribe({
+        next: () => {},
+        error: (err) => {
+          error = err;
+        },
+      });
+
+      for (let round = 0; round < 5; round += 1) {
+        await waitForConnection(agent);
+        const socket = getSocket(agent)!;
+        for (let i = 0; i < 5; i++) {
+          socket.triggerError(new Error("503"));
+        }
+      }
+      await waitForConnection(agent);
+
+      expect(mockFetch).toHaveBeenCalledTimes(6);
+      expect(error).toBeNull();
+    });
+
     it("keeps refreshing credentials when the refreshed socket opened before failing", async () => {
       mockFetch.mockImplementation(() => jsonResponse(runtimeCredentials()));
       const agent = createAgent();
