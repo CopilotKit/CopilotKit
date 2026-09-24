@@ -10,6 +10,7 @@
     "lint": "oxlint .",
     "pretest": "npm run pretypecheck",
     "test": "vitest run",
+    "test:channels-sdk": "node scripts/check-channels-sdk.mjs",
     "test:ci": "vitest run --config vitest.ci.config.ts",
     "test:quarantine-ratchet": "tsx scripts/quarantine-ratchet.ts",
     "test:watch": "vitest",

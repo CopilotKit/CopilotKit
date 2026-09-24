@@ -41,6 +41,15 @@ For repo-level CI parity, prefer Nx when a shell-docs target is available in the
 checkout and root dependencies are installed. For normal shell-docs local development, the
 npm commands above are the canonical path.
 
+### Channels package compatibility
+
+After changing the shared Channels install recommendation, run
+`npm run test:channels-sdk` with Node.js 22 or later. This installs the published
+packages in a temporary directory, typechecks the complete Slack and Teams
+runner examples, and loads them with the documented `tsx` command. It needs npm
+registry access but no credentials; it does not start a connection or send a
+Slack message. Verify a real provider reply separately before a release.
+
 ## Authoring Recipes
 
 ### Showcase-Driven Framework Docs
