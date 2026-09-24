@@ -1,5 +1,5 @@
 {
   "title": "Migrate",
   "icon": "lucide/RefreshCw",
-  "pages": ["v2", "1.10.X", "1.8.2"]
+  "pages": ["ag-ui-1.0", "v2", "1.10.X", "1.8.2"]
 }
