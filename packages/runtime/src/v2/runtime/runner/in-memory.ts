@@ -711,6 +711,7 @@ export class InMemoryAgentRunner extends AgentRunner {
         // RUN_ERROR.
         const appendedEvents = finalizeRunEvents(currentRunEvents, {
           stopRequested: finalizeControl.stopRequested,
+          protocolVersion: request.input.protocolVersion,
           ...(isError ? { interruptionMessage: opts.interruptionMessage } : {}),
         });
         for (const event of appendedEvents) {

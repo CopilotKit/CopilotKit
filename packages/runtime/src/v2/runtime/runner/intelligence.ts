@@ -670,6 +670,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
       ensureRunStarted();
       const appended = finalizeRunEvents(currentEvents, {
         stopRequested: state.stopRequested,
+        protocolVersion: request.input.protocolVersion,
       });
       for (const event of appended) {
         pushCanonicalEvent(event);

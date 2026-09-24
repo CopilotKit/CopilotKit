@@ -1346,6 +1346,38 @@ describe("BasicAgent", () => {
       expect(eventTypes[eventTypes.length - 1]).toBe(EventType.RUN_FINISHED);
     });
 
+    it("declares its protocol version and finishes an aborted run as cancelled for a 1.0 client", async () => {
+      const agent = new BasicAgent({ model: "openai/gpt-4o" });
+      const runWith = async (protocolVersion?: string) => {
+        vi.mocked(streamText).mockReturnValue(
+          mockStreamTextResponse([abort()]),
+        );
+        const events = await collectEvents(
+          agent["run"]({
+            threadId: "thread1",
+            runId: "run1",
+            messages: [],
+            tools: [],
+            context: [],
+            state: {},
+            ...(protocolVersion ? { protocolVersion } : {}),
+          }),
+        );
+        return {
+          started: events.find((e) => e.type === EventType.RUN_STARTED),
+          finished: events.find((e) => e.type === EventType.RUN_FINISHED),
+        };
+      };
+
+      const modern = await runWith("1.0");
+      expect(modern.started).toMatchObject({ protocolVersion: "1.0" });
+      expect(modern.finished).toMatchObject({ outcome: { type: "cancelled" } });
+
+      // A 0.x client declares no version and cannot parse the cancelled outcome.
+      const legacy = await runWith(undefined);
+      expect(legacy.finished).not.toHaveProperty("outcome");
+    });
+
     it("should auto-close reasoning when stream errors mid-reasoning", async () => {
       const agent = new BasicAgent({
         model: "openai/gpt-4o",

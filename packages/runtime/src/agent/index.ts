@@ -21,7 +21,7 @@ import type {
   ResumeEntry,
   ToolMessage,
 } from "@ag-ui/client";
-import { AbstractAgent, EventType } from "@ag-ui/client";
+import { AbstractAgent, EventType, PROTOCOL_VERSION } from "@ag-ui/client";
 import { Validator } from "@cfworker/json-schema";
 import type { AgentCapabilities } from "@ag-ui/core";
 import type {
@@ -1208,6 +1208,8 @@ export class BuiltInAgent extends AbstractAgent {
         type: EventType.RUN_STARTED,
         threadId: input.threadId,
         runId: input.runId,
+        // AG-UI 1.0: a producer states its own protocol version.
+        protocolVersion: PROTOCOL_VERSION,
       };
       subscriber.next(startEvent);
 
@@ -1705,6 +1707,12 @@ export class BuiltInAgent extends AbstractAgent {
                   type: EventType.RUN_FINISHED,
                   threadId: input.threadId,
                   runId: input.runId,
+                  // A stopped run is cancelled, not a success. A client that
+                  // declares no protocolVersion predates 1.0 and cannot parse
+                  // the cancelled outcome, so it keeps the plain event.
+                  ...(input.protocolVersion !== undefined
+                    ? { outcome: { type: "cancelled" as const } }
+                    : {}),
                 };
                 subscriber.next(abortEndEvent);
                 terminalEventEmitted = true;
@@ -2115,6 +2123,8 @@ export class BuiltInAgent extends AbstractAgent {
         type: EventType.RUN_STARTED,
         threadId: input.threadId,
         runId: input.runId,
+        // AG-UI 1.0: a producer states its own protocol version.
+        protocolVersion: PROTOCOL_VERSION,
       };
       subscriber.next(startEvent);
 
