@@ -291,8 +291,17 @@ test("clearing the core removes runtime-targeted notices and reconnecting restor
 test.each(["cookie", "localStorage"])(
   "preserves legacy read state from %s before selecting a notification",
   async (storage) => {
-    const notice = feed.notifications[0];
-    if (!notice) throw new Error("Missing test notification");
+    const original = feed.notifications[0];
+    if (!original) throw new Error("Missing test notification");
+    const notice = {
+      ...original,
+      id: "16f7d877-49e3-41c3-9ca6-f951d3d8ba80",
+      publishedAt: "2026-08-13T13:00:00.000Z",
+    };
+    vi.mocked(loadNotificationFeed).mockResolvedValueOnce({
+      ...feed,
+      notifications: [notice, ...feed.notifications.slice(1)],
+    });
     const payload = JSON.stringify({ timestamp: notice.publishedAt });
     if (storage === "cookie")
       document.cookie = `cpk_inspector_announcements=${encodeURIComponent(payload)}; Path=/`;

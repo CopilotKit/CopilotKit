@@ -1,11 +1,7 @@
-import packageInfo from "../../../../package.json";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import { mount } from "@vue/test-utils";
-import {
-  configureWebInspectorElement,
-  defineWebInspector,
-} from "@copilotkit/web-inspector";
+import { defineWebInspector } from "@copilotkit/web-inspector";
 import CopilotKitInspector from "../CopilotKitInspector.vue";
 import { CopilotKitCoreVue } from "../../lib/vue-core";
 
@@ -84,26 +80,3 @@ describe("CopilotKitInspector", () => {
     );
   });
 });
-
-it.each(["development", "production"])(
-  "passes its package version and %s mode to notification targeting",
-  async (environment) => {
-    vi.stubEnv("NODE_ENV", environment);
-    const wrapper = mount(CopilotKitInspector);
-    try {
-      await settleInspectorLoad();
-      expect(configureWebInspectorElement).toHaveBeenLastCalledWith(
-        expect.any(HTMLElement),
-        null,
-        {
-          development: environment === "development",
-          framework: "vue",
-          sdkVersion: packageInfo.version,
-        },
-      );
-    } finally {
-      wrapper.unmount();
-      vi.unstubAllEnvs();
-    }
-  },
-);

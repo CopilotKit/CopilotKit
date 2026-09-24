@@ -421,6 +421,7 @@ function generateUuidV4(): string {
 
 const NOTIFICATION_COOKIE = "cpk_inspector_notifications_v1";
 const NOTIFICATION_STORAGE = "cpk:inspector:notifications:v1";
+const LEGACY_ANNOUNCEMENT_ID = "16f7d877-49e3-41c3-9ca6-f951d3d8ba80";
 
 /** Load host-scoped delivery state, with per-origin fallback when cookies are blocked. */
 export function loadNotificationState(): NotificationState {
@@ -439,7 +440,7 @@ export function loadNotificationState(): NotificationState {
   return emptyNotificationState();
 }
 
-/** Preserve a legacy acknowledgement when the same announcement enters the new feed. */
+/** Preserve a legacy acknowledgement only for the known announcement entering the new feed. */
 export function migrateAnnouncementReadState(
   state: NotificationState,
   feed: NotificationFeed,
@@ -453,14 +454,16 @@ export function migrateAnnouncementReadState(
       const value: unknown = JSON.parse(raw);
       if (!value || typeof value !== "object" || !("timestamp" in value))
         continue;
-      const ids = feed.notifications
-        .filter((notice) => notice.publishedAt === value.timestamp)
-        .map((notice) => notice.id);
-      if (!ids.length) continue;
+      const legacyNotice = feed.notifications.find(
+        (notice) =>
+          notice.id === LEGACY_ANNOUNCEMENT_ID &&
+          notice.publishedAt === value.timestamp,
+      );
+      if (!legacyNotice) continue;
       const migrated = {
         ...state,
-        readIds: [...new Set([...state.readIds, ...ids])],
-        suppressedIds: [...new Set([...state.suppressedIds, ...ids])],
+        readIds: [...new Set([...state.readIds, legacyNotice.id])],
+        suppressedIds: [...new Set([...state.suppressedIds, legacyNotice.id])],
       };
       saveNotificationState(migrated);
       writeCookie("cpk_inspector_announcements", "", "Max-Age=0");

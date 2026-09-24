@@ -106,3 +106,44 @@ test.each(["invalid JSON", "null", '{"timestamp":"unmatched"}'])(
     ).toEqual(state);
   },
 );
+
+test.each(["cookie", "localStorage"])(
+  "migrates only the legacy announcement when another notice shares its timestamp in %s",
+  (storage) => {
+    const legacyId = "16f7d877-49e3-41c3-9ca6-f951d3d8ba80";
+    const otherId = "e0897224-968b-5a24-b46c-6744c2b2b254";
+    const publishedAt = "2026-08-13T13:00:00.000Z";
+    const payload = JSON.stringify({ timestamp: publishedAt });
+    if (storage === "cookie") {
+      document.cookie = `cpk_inspector_announcements=${encodeURIComponent(payload)}; Path=/`;
+    } else {
+      localStorage.setItem("cpk:inspector:announcement_read", payload);
+    }
+
+    const state = migrateAnnouncementReadState(emptyNotificationState(), {
+      schemaVersion: 1,
+      notifications: [
+        {
+          id: otherId,
+          publishedAt,
+          title: "New update",
+          body: "",
+          audiences: [{}],
+          priority: "Low",
+        },
+        {
+          id: legacyId,
+          publishedAt,
+          title: "Legacy update",
+          body: "",
+          audiences: [{}],
+          priority: "Low",
+        },
+      ],
+    });
+
+    expect(state.readIds).toEqual([legacyId]);
+    expect(state.suppressedIds).toEqual([legacyId]);
+    expect(state.readIds).not.toContain(otherId);
+  },
+);
