@@ -1,0 +1,46 @@
+{
+  "name": "@copilotkit/autopilot-logistics",
+  "version": "0.0.0",
+  "private": true,
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev --hostname 127.0.0.1 --port 3000",
+    "start": "next start --hostname 127.0.0.1 --port 3000",
+    "check-types": "tsc --noEmit",
+    "seed": "tsx scripts/seed.ts",
+    "reset": "tsx scripts/seed.ts --reset",
+    "test:browser": "playwright test"
+  },
+  "dependencies": {
+    "@copilotkit/core": "workspace:*",
+    "@copilotkit/react-core": "workspace:*",
+    "@copilotkit/runtime": "workspace:*",
+    "@copilotkit/web-inspector": "workspace:*",
+    "@tanstack/ai": "0.14.0",
+    "@tanstack/ai-openai": "0.8.2",
+    "next": "15.5.24",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.59.1",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.2"
+  },
+  "nx": {
+    "targets": {
+      "build": { "dependsOn": ["^build"] },
+      "check-types": { "dependsOn": ["^build"] },
+      "dev": { "dependsOn": ["^build"], "cache": false },
+      "start": { "cache": false },
+      "seed": { "cache": false },
+      "reset": { "cache": false },
+      "test:browser": { "cache": false }
+    }
+  }
+}

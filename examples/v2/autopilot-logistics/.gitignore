@@ -1,0 +1,8 @@
+# Added by CopilotKit CLI: credential files, which must never be committed.
+.env
+.env.*
+!.env.example
+data/
+test-results/
+playwright-report/
+tsconfig.tsbuildinfo
