@@ -68,10 +68,15 @@ afterAll(async () => {
   if (outdir) await rm(outdir, { recursive: true, force: true });
 });
 
-async function openChat({ count, mode, nextCount = count }) {
+async function openChat({
+  count,
+  mode,
+  nextCount = count,
+  standalone = false,
+}) {
   const page = await browser.newPage({ viewport: { width: 900, height: 800 } });
   await page.goto(
-    `${baseURL}/?count=${count}&mode=${mode}&nextCount=${nextCount}`,
+    `${baseURL}/?count=${count}&mode=${mode}&nextCount=${nextCount}&standalone=${standalone}`,
   );
   await page.locator('[data-testid="copilot-message-list"]').waitFor();
   await page.waitForFunction(() => {
@@ -158,6 +163,79 @@ async function hideAndRestore(page) {
   await page.locator("#rerender").click();
   await page.waitForTimeout(1100);
 }
+
+test("standalone non-virtual history prepend does not pin the reader to the bottom", async () => {
+  const page = await openChat({
+    count: 20,
+    mode: "pin-to-bottom",
+    standalone: true,
+  });
+  try {
+    const before = await scrollAway(page);
+    assert.equal(
+      before.firstRow,
+      null,
+      "this regression requires the non-virtual list",
+    );
+    await page.locator("#prepend").click();
+    await page.waitForTimeout(900);
+    const after = await metrics(page);
+    assert.ok(
+      after.fromBottom > 500,
+      `prepend pinned a standalone reader to bottom: ${JSON.stringify({ before, after })}`,
+    );
+  } finally {
+    await page.close();
+  }
+});
+
+test("standalone overlapping history trim does not pin the reader to the bottom", async () => {
+  const page = await openChat({
+    count: 20,
+    mode: "pin-to-bottom",
+    standalone: true,
+  });
+  try {
+    const before = await scrollAway(page);
+    assert.equal(before.firstRow, null);
+    await page.locator("#trim-oldest").click();
+    await page.waitForTimeout(900);
+    const after = await metrics(page);
+    assert.ok(
+      after.fromBottom > 500,
+      `overlapping trim pinned a standalone reader to bottom: ${JSON.stringify({ before, after })}`,
+    );
+  } finally {
+    await page.close();
+  }
+});
+
+test("standalone disjoint history still opens at the bottom", async () => {
+  const page = await openChat({
+    count: 20,
+    nextCount: 30,
+    mode: "pin-to-bottom",
+    standalone: true,
+  });
+  try {
+    await scrollAway(page);
+    await page.locator("#hide").click();
+    await page.waitForFunction(
+      () => document.querySelector("#host").clientHeight === 0,
+    );
+    await page.locator("#switch-thread").click();
+    await page.locator("#show").click();
+    await page.locator("#rerender").click();
+    await page.waitForTimeout(1100);
+    const after = await metrics(page);
+    assert.ok(
+      after.fromBottom < 100,
+      `new standalone thread did not open at end: ${JSON.stringify(after)}`,
+    );
+  } finally {
+    await page.close();
+  }
+});
 
 test("pin-to-bottom preserves a scrolled-up reader across host hiding without virtualization", async () => {
   const page = await openChat({ count: 20, mode: "pin-to-bottom" });
