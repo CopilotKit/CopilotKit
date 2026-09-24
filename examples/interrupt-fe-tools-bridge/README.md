@@ -48,14 +48,14 @@ turn. The counter stays at 1.
 
 Neither is fixed in this PR. The example works around the first.
 
-1. **The docs bridge hangs after an HITL answer.** Core records a frontend tool
+1. **A naive bridge hangs after an HITL answer.** Core records a frontend tool
    result with `agent.messages.splice(...)` (`packages/core/src/core/run-handler.ts`),
    which fires no messages-changed notification. A bridge that re-checks only on
    `OnMessagesChanged` therefore never sees a result that lands after the
    interrupt arrives, and every HITL answer lands after. `show_graph` only works
    because its result already exists when the bridge mounts. The example also
-   re-checks one tick after `onToolExecutionEnd`. Open `/?docs` to run the docs
-   version unchanged and watch it hang.
+   re-checks one tick after `onToolExecutionEnd`. Open `/?naive` to run it without
+   the re-check and watch it hang.
 2. **Tool results are duplicated on the client.** When the resume goes out,
    `useInterrupt` adds its own `role: "tool"` message for every `tool_call`
    interrupt, even when the client already recorded that call's result.
