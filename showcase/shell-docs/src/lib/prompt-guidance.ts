@@ -9,20 +9,20 @@
 // The Intelligence app and copilotkit.ai show the same words and cannot import
 // this module. Change all three together.
 export const PROMPT_DESTINATION_HINT =
-  "Paste it into a coding agent such as Claude Code, Codex or Cursor. Open the agent in your project's folder, or in an empty folder for a new app.";
+  "Paste into a coding agent running in your project folder.";
 
 // On a phone the prompt has nowhere to go: it runs in a coding agent on the
 // computer that holds the project. 46 phone run ids copied in two days led to
 // 1 run (PE-339).
 export const PROMPT_PHONE_HINT =
-  "This prompt runs in a coding agent on the computer with your project.";
+  "This runs in a coding agent on your computer.";
 
 // Shown after an "Open in Claude Code" or "Open in Codex" click. When no app
 // handles the link, the click does nothing visible, and a lab check found no
 // signal that tells that case apart from an app that opened (PE-337). The app
 // click also copies the prompt, so the note can say it is on the clipboard.
 export const PROMPT_LAUNCH_NOTE =
-  "Nothing opened? The prompt is copied. Paste it into your coding agent.";
+  "Nothing opened? Paste the copied prompt into your coding agent.";
 
 // How long the note stays. On the docs and the site it also holds the hover
 // shelf open, and the shelf covers the content under the pill. When the app

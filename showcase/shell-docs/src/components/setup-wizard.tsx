@@ -47,7 +47,6 @@ import React from "react";
 import Link from "next/link";
 import { WizardBackendPicker } from "./wizard-backend-picker";
 import { Copy } from "lucide-react";
-import { PROMPT_DESTINATION_HINT } from "@/lib/prompt-guidance";
 import { usePostHog } from "posthog-js/react";
 import { CapabilityGrid, PickGrid } from "@/components/docs-map-parts";
 import { frontendPathForBackend, isFrontendId } from "@/lib/frontend-options";
@@ -667,7 +666,8 @@ export function SetupWizard({
     );
   } else {
     stepName = "Ready to set up";
-    stepDescription = `Below is what you chose at each step. Copy the prompt, and your coding agent takes care of the setup. ${PROMPT_DESTINATION_HINT}`;
+    stepDescription =
+      "Below is what you chose at each step. Copy the prompt and paste it into a coding agent running in your project folder. It takes care of the setup.";
 
     const frontendPick =
       frontends.find((pick) => pick.id === frontendId) ?? null;

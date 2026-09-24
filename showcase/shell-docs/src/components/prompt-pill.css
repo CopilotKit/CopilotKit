@@ -105,8 +105,11 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 6px;
-  /* Wider than the pill, so the line wraps to two or three short lines. */
-  width: max(100%, min(300px, calc(100vw - 32px)));
+  /* At least as wide as the pill, and wide enough that the line fits on one
+   * row where the viewport allows. */
+  width: max-content;
+  min-width: 100%;
+  max-width: min(360px, calc(100vw - 32px));
   padding-top: 6px;
   opacity: 0;
   visibility: hidden;
@@ -178,6 +181,11 @@
 .prompt-pill-dialog-heading h2 {
   font-size: 18px;
   font-weight: 600;
+}
+/* The dialog renders inside the page content, where `.reference-content h2`
+ * adds a 3rem top margin above the heading. */
+.prompt-pill .prompt-pill-dialog-heading h2 {
+  margin: 0;
 }
 .prompt-pill-dialog-heading button {
   display: grid;

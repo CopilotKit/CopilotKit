@@ -10,12 +10,12 @@ import {
 // a change to it a deliberate edit that the other two copies must follow.
 it("pins the line shown beside every prompt Copy button", () => {
   expect(PROMPT_DESTINATION_HINT).toBe(
-    "Paste it into a coding agent such as Claude Code, Codex or Cursor. Open the agent in your project's folder, or in an empty folder for a new app.",
+    "Paste into a coding agent running in your project folder.",
   );
   expect(PROMPT_PHONE_HINT).toBe(
-    "This prompt runs in a coding agent on the computer with your project.",
+    "This runs in a coding agent on your computer.",
   );
   expect(PROMPT_LAUNCH_NOTE).toBe(
-    "Nothing opened? The prompt is copied. Paste it into your coding agent.",
+    "Nothing opened? Paste the copied prompt into your coding agent.",
   );
 });
