@@ -15,7 +15,10 @@ export const dynamic = "force-dynamic";
 function makeHandler() {
   const apiKey = process.env.CPK_INTELLIGENCE_API_KEY;
   if (!apiKey) return null;
-  const intelligence = new CopilotKitIntelligence({ apiKey });
+  const intelligence = new CopilotKitIntelligence({
+    apiKey,
+    autopilot: { enabled: true },
+  });
   const copilotRuntime = new CopilotRuntime({
     agents: () => ({
       logistics: new BuiltInAgent({

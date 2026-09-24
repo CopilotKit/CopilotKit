@@ -274,6 +274,12 @@ export interface ThreadDeletedPayload {
 
 export interface CopilotKitIntelligenceConfig {
   /**
+   * Enable browser Autopilot for this Intelligence runtime. This is a local
+   * SDK setting, not a remote Intelligence entitlement. Omit or set
+   * `enabled: false` to keep Autopilot disabled while chat still works.
+   */
+  autopilot?: { enabled: boolean; agents?: string[] };
+  /**
    * Base URL of the CopilotKit Intelligence API.
    *
    * Defaults to CopilotKit's managed platform,
@@ -684,6 +690,7 @@ interface ThreadEnvelope {
  * ```
  */
 export class CopilotKitIntelligence {
+  #autopilot?: { enabled: boolean; agents?: string[] };
   #apiUrl: string;
   #runnerWsUrl: string;
   #clientWsUrl: string;
@@ -699,6 +706,12 @@ export class CopilotKitIntelligence {
   #threadDeletedListeners = new Set<(params: ThreadDeletedPayload) => void>();
 
   constructor(config: CopilotKitIntelligenceConfig) {
+    this.#autopilot = config.autopilot
+      ? {
+          enabled: config.autopilot.enabled,
+          agents: config.autopilot.agents?.slice(),
+        }
+      : undefined;
     if (
       config.getLearningContainerId !== undefined &&
       typeof config.getLearningContainerId !== "function"
@@ -736,6 +749,11 @@ export class CopilotKitIntelligence {
     if (config.onThreadDeleted) {
       this.onThreadDeleted(config.onThreadDeleted);
     }
+  }
+
+  /** @internal Local SDK capability advertised by Runtime `/info`. */
+  ɵgetAutopilotConfig(): { enabled: boolean; agents?: string[] } | undefined {
+    return this.#autopilot;
   }
 
   /**

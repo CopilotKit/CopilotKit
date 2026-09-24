@@ -45,6 +45,7 @@ export function AssistantShell({
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
       agentId="logistics"
+      autopilot={{ agents: ["logistics"] }}
       enableInspector
     >
       <BrowserProbe />

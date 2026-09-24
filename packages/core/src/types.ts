@@ -77,6 +77,8 @@ export type FrontendTool<
    * This field is not sent to the agent as part of the tool schema.
    */
   type?: "frontend" | "human-in-the-loop";
+  /** Marks a browser tool as Autopilot-controlled for execution-time policy. */
+  autopilot?: boolean;
   name: string;
   description?: string;
   parameters?: StandardSchemaV1<any, T>;

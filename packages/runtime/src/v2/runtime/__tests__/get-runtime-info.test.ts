@@ -63,6 +63,35 @@ function createIntelligenceRuntimeLike(
   };
 }
 
+test("advertises local Autopilot activation only when Intelligence enables it", async () => {
+  for (const autopilot of [
+    undefined,
+    { enabled: false },
+    { enabled: true, agents: ["logistics"] },
+  ]) {
+    const runtime = createIntelligenceRuntimeLike({
+      intelligence: new CopilotKitIntelligence({
+        apiUrl: "https://runtime.example",
+        wsUrl: "wss://runtime.example",
+        apiKey: "test-key",
+        autopilot,
+      }),
+    });
+    installRuntimeEntitlementsLookup(
+      runtime,
+      async () => READY_RUNTIME_ENTITLEMENTS,
+    );
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+    expect(response.status).toBe(200);
+    const info: RuntimeInfo = await response.json();
+    expect(info.autopilot).toEqual(autopilot?.enabled ? autopilot : undefined);
+    expect(info.mode).toBe("intelligence");
+  }
+});
+
 /** Install the wished entitlement lookup API on the real Intelligence client. */
 function installRuntimeEntitlementsLookup(
   runtime: CopilotIntelligenceRuntimeLike,

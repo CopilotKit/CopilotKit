@@ -127,6 +127,8 @@ const GENERATE_SANDBOXED_UI_DESCRIPTION =
 // Provider props interface
 export interface CopilotKitProviderProps {
   children: ReactNode;
+  /** Browser Autopilot scope. Runtime activation is required; this can only narrow it. */
+  autopilot?: { enabled?: boolean; agents?: string[] };
   runtimeUrl?: string;
   headers?: Record<string, string> | (() => Record<string, string>);
   /**
@@ -348,6 +350,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   useSingleEndpoint,
   onError,
   a2ui,
+  autopilot,
   defaultThrottleMs,
   debug,
 }) => {
@@ -768,6 +771,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       renderActivityMessages: allActivityRenderers,
       renderCustomMessages: renderCustomMessagesList,
       debug,
+      autopilot,
     });
     // Set initial defaultThrottleMs synchronously so child hooks see the
     // correct value on their first render (before useEffect fires).
@@ -776,6 +780,14 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
   }
   const copilotkit = copilotkitRef.current;
+
+  useLayoutEffect(() => {
+    // Older Core instances (and lightweight host mocks) lack this optional
+    // capability; Runtime still decides whether any Autopilot tool may run.
+    if (typeof copilotkit.setAutopilotScope === "function") {
+      copilotkit.setAutopilotScope(autopilot);
+    }
+  }, [copilotkit, autopilot]);
 
   // Register the full A2UI catalog component list onto core so the inspector can
   // read `core.catalogComponents`, and re-derive the filtered catalog whenever

@@ -1110,6 +1110,15 @@ export class RunHandler {
 
     if (!errorMessage) {
       try {
+        if (
+          (tool.autopilot || toolCall.function.name.startsWith("autopilot.")) &&
+          !this.core.isAutopilotEnabledForAgent(agentId)
+        ) {
+          throw new Error("Autopilot is disabled for this agent");
+        }
+        if (signal?.aborted) {
+          throw new Error("Tool execution was stopped");
+        }
         const result = await tool.handler!(parsedArgs as any, {
           toolCall: toolCall as any,
           agent,
@@ -1315,6 +1324,16 @@ export class RunHandler {
 
       if (!errorMessage) {
         try {
+          if (
+            (wildcardTool.autopilot ||
+              toolCall.function.name.startsWith("autopilot.")) &&
+            !this.core.isAutopilotEnabledForAgent(agentId)
+          ) {
+            throw new Error("Autopilot is disabled for this agent");
+          }
+          if (signal?.aborted) {
+            throw new Error("Tool execution was stopped");
+          }
           const result = await wildcardTool.handler(wildcardArgs as any, {
             toolCall,
             agent,
@@ -1570,6 +1589,8 @@ export class RunHandler {
           tool.available !== false &&
           (tool.available as boolean | string | undefined) !== "disabled" &&
           (!tool.agentId || tool.agentId === agentId) &&
+          (!(tool.autopilot || tool.name.startsWith("autopilot.")) ||
+            (!!agentId && this.core.isAutopilotEnabledForAgent(agentId))) &&
           this.isToolEnabled(tool.name, tool.agentId),
       )
       .map((tool) => ({
@@ -1594,6 +1615,11 @@ export class RunHandler {
         continue;
       }
       if (tool.name === WILDCARD_TOOL_NAME) {
+        continue;
+      }
+      // WebMCP invokes handlers outside Core's agent execution path and has no
+      // agent identity to evaluate. Autopilot tools must stay on the guarded path.
+      if (tool.autopilot || tool.name.startsWith("autopilot.")) {
         continue;
       }
       if (

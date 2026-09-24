@@ -107,6 +107,13 @@ export interface A2UIRuntimeInfo {
   agents?: string[];
 }
 
+/** Local SDK activation of browser Autopilot on an Intelligence runtime. */
+export interface AutopilotRuntimeInfo {
+  enabled: boolean;
+  /** Omitted means every agent on this runtime is eligible. */
+  agents?: string[];
+}
+
 /** Intelligence resource support available through a single runtime route. */
 export interface SingleRouteRuntimeInfo {
   /** Whether the runtime accepts resource requests through the single route. */
@@ -140,6 +147,7 @@ export interface RuntimeInfo {
    */
   a2uiEnabled?: boolean;
   a2ui?: A2UIRuntimeInfo;
+  autopilot?: AutopilotRuntimeInfo;
   openGenerativeUIEnabled?: boolean;
   /** Structured Runtime-level entitlement authority, when advertised. */
   runtimeEntitlements?: RuntimeEntitlementResponse;

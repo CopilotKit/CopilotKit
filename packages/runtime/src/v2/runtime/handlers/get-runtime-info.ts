@@ -159,6 +159,9 @@ export async function handleGetRuntimeInfo({
     const agentsDict: Record<string, AgentDescription> =
       Object.fromEntries(agentEntries);
     const runtimeEntitlements = await runtimeEntitlementsPromise;
+    const autopilotConfig = isIntelligenceRuntime(runtime)
+      ? runtime.intelligence.ɵgetAutopilotConfig?.()
+      : undefined;
 
     const runtimeInfo: RuntimeInfo = {
       version: VERSION,
@@ -192,6 +195,7 @@ export async function handleGetRuntimeInfo({
             ...(hasLearningContainerConfiguration(runtime)
               ? { inspectorLearning: true }
               : {}),
+            ...(autopilotConfig?.enabled ? { autopilot: autopilotConfig } : {}),
           }
         : {}),
       // Legacy flat flag, kept for older clients. The `a2ui` object below is

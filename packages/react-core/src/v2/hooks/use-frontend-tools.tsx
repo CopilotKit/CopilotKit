@@ -78,6 +78,7 @@ export function useFrontendTools(
       tool.description ?? null,
       tool.agentId ?? null,
       tool.available ?? null,
+      tool.autopilot ?? null,
       tool.webmcp ?? null,
     ]),
   );

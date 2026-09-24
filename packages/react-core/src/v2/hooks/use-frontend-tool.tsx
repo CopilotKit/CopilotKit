@@ -47,6 +47,7 @@ export function useFrontendTool<
   }, [
     tool.name,
     tool.available,
+    tool.autopilot,
     copilotkit,
     JSON.stringify(extraDeps),
     JSON.stringify(tool.webmcp ?? null),

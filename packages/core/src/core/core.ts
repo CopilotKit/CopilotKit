@@ -44,6 +44,8 @@ import type { ɵMemoryStore } from "../memory";
 
 /** Configuration options for `CopilotKitCore`. */
 export interface CopilotKitCoreConfig {
+  /** Client-side Autopilot scope. It can only narrow Runtime activation. */
+  autopilot?: { enabled?: boolean; agents?: string[] };
   /** The endpoint of the CopilotRuntime. */
   runtimeUrl?: string;
   /** Transport style for CopilotRuntime endpoints. Defaults to REST. */
@@ -410,6 +412,7 @@ function normalizeHeaders(
 }
 
 export class CopilotKitCore {
+  private _autopilotScope?: { enabled?: boolean; agents?: string[] };
   private _headers: Record<string, string>;
   private _credentials?: RequestCredentials;
   private _messageFilter?: CopilotKitMessageFilter;
@@ -453,7 +456,9 @@ export class CopilotKitCore {
     tools = [],
     suggestionsConfig = [],
     debug,
+    autopilot,
   }: CopilotKitCoreConfig) {
+    this._autopilotScope = autopilot;
     this._headers = normalizeHeaders(headers);
     this._credentials = credentials;
     this._messageFilter = messageFilter;
@@ -775,6 +780,23 @@ export class CopilotKitCore {
 
   get a2uiEnabled(): boolean {
     return this.agentRegistry.a2uiEnabled;
+  }
+
+  /** Runtime activation and UI scope must both allow this agent. */
+  isAutopilotEnabledForAgent(agentId: string): boolean {
+    const runtime = this.agentRegistry.autopilot;
+    return (
+      runtime?.enabled === true &&
+      this._autopilotScope?.enabled !== false &&
+      (!runtime.agents || runtime.agents.includes(agentId)) &&
+      (!this._autopilotScope?.agents ||
+        this._autopilotScope.agents.includes(agentId))
+    );
+  }
+
+  /** Narrow or disable Autopilot in a mounted UI; never overrides Runtime. */
+  setAutopilotScope(scope?: { enabled?: boolean; agents?: string[] }): void {
+    this._autopilotScope = scope;
   }
 
   /**

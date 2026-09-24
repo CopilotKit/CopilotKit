@@ -28,6 +28,7 @@ test("live Intelligence agent calls a frontend tool", async ({ page }) => {
   const info = await infoResponse.json();
   expect(info.mode).toBe("intelligence");
   expect(info.agents.logistics).toBeTruthy();
+  expect(info.autopilot).toEqual({ enabled: true });
 
   const input = page.locator(".assistant-panel textarea").last();
   await expect(input).toBeVisible();
@@ -50,18 +51,33 @@ test("live Intelligence agent calls a frontend tool", async ({ page }) => {
   const threads = await threadsResponse.json();
   const threadId: string = threads.threads[0]?.id;
   expect(threadId).toBeTruthy();
-  const messagesResponse = await page.request.get(
-    `/api/copilotkit/threads/${threadId}/messages?agentId=logistics`,
-  );
-  expect(messagesResponse.ok()).toBeTruthy();
-  const { messages } = await messagesResponse.json();
+  let messages: Array<{
+    role: string;
+    content: string;
+    toolCalls?: Array<{ name: string }>;
+  }> = [];
+  await expect
+    .poll(
+      async () => {
+        const messagesResponse = await page.request.get(
+          `/api/copilotkit/threads/${threadId}/messages?agentId=logistics`,
+        );
+        if (!messagesResponse.ok()) return false;
+        messages = (await messagesResponse.json()).messages;
+        return (
+          messages.length === 4 && messages[3]?.content.includes("Dashboard")
+        );
+      },
+      { timeout: 60_000 },
+    )
+    .toBe(true);
   expect(messages.map((message: { role: string }) => message.role)).toEqual([
     "user",
     "assistant",
     "tool",
     "assistant",
   ]);
-  expect(messages[1].toolCalls[0].name).toBe("describeVisiblePage");
+  expect(messages[1].toolCalls?.[0]?.name).toBe("describeVisiblePage");
   expect(messages[2].content).toContain('"title":"Dashboard"');
   expect(messages[3].content).toContain("Dashboard");
   await page.reload();
@@ -78,7 +94,7 @@ test("live Intelligence agent calls a frontend tool", async ({ page }) => {
         agents: Object.keys(info.agents),
         threadId,
         roles: messages.map((message: { role: string }) => message.role),
-        toolName: messages[1].toolCalls[0].name,
+        toolName: messages[1].toolCalls?.[0]?.name,
         toolResult: messages[2].content,
         restoredMessageCount: 4,
         assistantText: messages[3].content,
