@@ -69,11 +69,22 @@ const CodeBlock: FC<Props> = memo(({ language, value }) => {
     }
 
     // UMD consumers can still provide the highlighter through its existing global.
+    const globalObject =
+      typeof globalThis !== "undefined"
+        ? globalThis
+        : typeof window !== "undefined"
+          ? window
+          : undefined;
     const globalHighlighter = (
-      globalThis as typeof globalThis & {
-        ReactSyntaxHighlighter?: { Prism: typeof Prism; Light: typeof Light };
-      }
-    ).ReactSyntaxHighlighter;
+      globalObject as
+        | (typeof globalThis & {
+            ReactSyntaxHighlighter?: {
+              Prism: typeof Prism;
+              Light: typeof Light;
+            };
+          })
+        | undefined
+    )?.ReactSyntaxHighlighter;
     if (globalHighlighter) {
       setSyntaxHighlighter(() => globalHighlighter[highlighter]);
       return;

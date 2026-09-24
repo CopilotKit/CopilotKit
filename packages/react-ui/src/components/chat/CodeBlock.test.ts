@@ -31,6 +31,20 @@ async function render(element: React.ReactElement) {
   return container;
 }
 
+async function withoutGlobalThis<T>(run: () => Promise<T>): Promise<T> {
+  const scope = globalThis;
+  const descriptor = Object.getOwnPropertyDescriptor(scope, "globalThis");
+  Object.defineProperty(scope, "globalThis", {
+    configurable: true,
+    value: undefined,
+  });
+  try {
+    return await run();
+  } finally {
+    if (descriptor) Object.defineProperty(scope, "globalThis", descriptor);
+  }
+}
+
 afterEach(async () => {
   await act(async () => {
     roots.splice(0).forEach((root) => root.unmount());
@@ -113,5 +127,51 @@ describe("CodeBlock highlighting", () => {
     expect(
       container.querySelector('[data-highlighter="global-prism"]')?.textContent,
     ).toBe("const x = 1");
+  });
+
+  it("uses the window highlighter when globalThis is unavailable", async () => {
+    const windowWithHighlighter = window as typeof window & {
+      ReactSyntaxHighlighter?: {
+        Prism: React.FC<{ children: React.ReactNode }>;
+      };
+    };
+    windowWithHighlighter.ReactSyntaxHighlighter = {
+      Prism: ({ children }) =>
+        React.createElement(
+          "pre",
+          { "data-highlighter": "window-prism" },
+          children,
+        ),
+    };
+    try {
+      const { CodeBlock } = await import("./CodeBlock");
+      const container = await withoutGlobalThis(() =>
+        render(
+          React.createElement(CodeBlock, {
+            language: "js",
+            value: "const x = 1",
+          }),
+        ),
+      );
+      expect(
+        container.querySelector('[data-highlighter="window-prism"]')
+          ?.textContent,
+      ).toBe("const x = 1");
+    } finally {
+      delete windowWithHighlighter.ReactSyntaxHighlighter;
+    }
+  });
+
+  it("keeps code readable when neither global is available", async () => {
+    const { CodeBlock } = await import("./CodeBlock");
+    const container = await withoutGlobalThis(() =>
+      render(
+        React.createElement(CodeBlock, {
+          language: "js",
+          value: "const y = 2",
+        }),
+      ),
+    );
+    expect(container.querySelector("code")?.textContent).toBe("const y = 2");
   });
 });
