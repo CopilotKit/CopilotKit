@@ -3,6 +3,7 @@ import { isInternalTool, selectRecentToolActivity } from "./tool-activity-recenc
 
 const wildcard = [{ name: "*" }];
 const message = (id: string, name = `tool_${id}`) => ({
+  id: `message_${id}`,
   role: "assistant",
   toolCalls: [{ id, function: { name } }],
 });
@@ -47,7 +48,7 @@ describe("conversation-owned tool activity recency", () => {
   });
 
   it("preserves order within parallel calls and counts an ID once", () => {
-    const history = [{ role: "assistant", toolCalls: [
+    const history = [{ id: "parallel", role: "assistant", toolCalls: [
       ...message("a").toolCalls, ...message("b").toolCalls, ...message("c").toolCalls,
     ] }, message("c")];
     expect(selectRecentToolActivity(history, wildcard, 2)).toEqual(["b", "c"]);
@@ -58,6 +59,45 @@ describe("conversation-owned tool activity recency", () => {
     expect(selectRecentToolActivity(history, wildcard, 2)).toEqual(["a"]);
     expect(selectRecentToolActivity(history, [], 2)).toEqual([]);
     expect(selectRecentToolActivity(history, wildcard, 0)).toEqual([]);
+  });
+
+  it("does not promote a replayed call appended to an earlier parallel batch", () => {
+    const history = [{ id: "parallel", role: "assistant", toolCalls: [
+      ...message("a").toolCalls, ...message("b").toolCalls,
+      ...message("c").toolCalls, ...message("a").toolCalls,
+    ] }];
+    expect(selectRecentToolActivity(history, wildcard, 2)).toEqual(["b", "c"]);
+  });
+
+  it("keeps an updated message at its first position in the transcript", () => {
+    const history = [message("a"), message("b"), message("c"), message("a")];
+    expect(selectRecentToolActivity(history, wildcard, 2)).toEqual(["b", "c"]);
+  });
+
+  it("recovers omitted calls but honors an explicitly empty replacement", () => {
+    const history = [message("a"), message("b"), message("c")];
+    expect(selectRecentToolActivity([
+      ...history, { id: "message_c", role: "assistant" },
+    ], wildcard, 2)).toEqual(["b", "c"]);
+    expect(selectRecentToolActivity([
+      ...history, { id: "message_c", role: "assistant", toolCalls: [] },
+    ], wildcard, 2)).toEqual(["a", "b"]);
+  });
+
+  it("does not keep calls when their message is replaced by another role", () => {
+    const history = [message("a"), message("b"), message("c"),
+      { id: "message_c", role: "tool" }];
+    expect(selectRecentToolActivity(history, wildcard, 2)).toEqual(["a", "b"]);
+  });
+
+  it("uses the populated call before deciding wildcard eligibility", () => {
+    const history = [{ id: "parallel", role: "assistant", toolCalls: [
+      ...message("a").toolCalls, ...message("b").toolCalls,
+      { id: "c", function: { name: "report", arguments: "" } },
+      { id: "c", function: { name: "search", arguments: "{}" } },
+    ] }];
+    expect(selectRecentToolActivity(history, [...wildcard, { name: "report" }], 2))
+      .toEqual(["b", "c"]);
   });
 
   it("keeps the existing internal-tool filter", () => {

@@ -14,6 +14,7 @@ const source = vi.hoisted(() => {
     rendererListeners,
     agent: {
       messages: [] as {
+        id: string;
         role: string;
         toolCalls: { id: string; function: { name: string } }[];
       }[],
@@ -43,6 +44,7 @@ vi.mock("@/shell/skin-provider", () => ({
 }));
 
 const message = (id: string) => ({
+  id: `message_${id}`,
   role: "assistant",
   toolCalls: [{ id, function: { name: `tool_${id}` } }],
 });
@@ -111,6 +113,24 @@ describe("rolling activity projection", () => {
       source.rendererListeners.forEach((notify) => notify());
     });
     expect(visible()).toEqual(["Tool b", "Tool c"]);
+  });
+
+  it("does not promote an older message replayed at the transcript tail", () => {
+    render(<Window ids={["a", "b", "c"]} />);
+    act(() => {
+      source.agent.messages.push(message("a"));
+      source.messageListeners.forEach((notify) => notify());
+    });
+    expect(visible()).toEqual(["Tool b", "Tool c"]);
+  });
+
+  it("retires calls cleared by a later occurrence of the same message", () => {
+    render(<Window ids={["a", "b", "c"]} />);
+    act(() => {
+      source.agent.messages.push({ ...message("c"), toolCalls: [] });
+      source.messageListeners.forEach((notify) => notify());
+    });
+    expect(visible()).toEqual(["Tool a", "Tool b"]);
   });
 
   it("does not retain recency from a previous thread or removed history", () => {

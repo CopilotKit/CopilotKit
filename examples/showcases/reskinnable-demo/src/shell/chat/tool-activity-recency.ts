@@ -1,9 +1,12 @@
+type ToolActivityCall = {
+  id: string;
+  function: { name: string; arguments?: string };
+};
+
 type ToolActivityMessage = {
+  id: string;
   role: string;
-  toolCalls?: readonly {
-    id: string;
-    function: { name: string };
-  }[];
+  toolCalls?: readonly ToolActivityCall[];
 };
 
 const HIDDEN_TOOL_PATTERNS = [
@@ -15,6 +18,25 @@ const HIDDEN_TOOL_PATTERNS = [
 
 export function isInternalTool(name: string): boolean {
   return HIDDEN_TOOL_PATTERNS.some((pattern) => pattern.test(name));
+}
+
+/**
+ * Project only the message fields used for recency. Match the chat view's
+ * duplicate handling: first message position, latest tool-call array, missing
+ * array falls back to the previous one, and an explicit [] clears it.
+ */
+function activityMessages(messages: readonly ToolActivityMessage[]) {
+  const byId = new Map<string, ToolActivityMessage>();
+  for (const message of messages) {
+    const previous = byId.get(message.id);
+    byId.set(
+      message.id,
+      message.role === "assistant" && previous?.role === "assistant"
+        ? { ...message, toolCalls: message.toolCalls ?? previous.toolCalls }
+        : message,
+    );
+  }
+  return byId.values();
 }
 
 /**
@@ -32,26 +54,31 @@ export function selectRecentToolActivity(
     return [];
   }
   const exactNames = new Set(
-    renderers.filter((renderer) => renderer.name !== "*").map((renderer) => renderer.name),
+    renderers
+      .filter((renderer) => renderer.name !== "*")
+      .map((renderer) => renderer.name),
   );
-  const seen = new Set<string>();
-  const recent: string[] = [];
+  const calls = new Map<string, ToolActivityCall>();
 
-  // Stop once the small visible window is full. Streamed args/results do not
-  // change recency, and neither does an off-screen row's first mount.
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i];
+  for (const message of activityMessages(messages)) {
     if (message.role !== "assistant") continue;
-    const calls = message.toolCalls ?? [];
-    for (let j = calls.length - 1; j >= 0; j--) {
-      const call = calls[j];
-      if (!call.id || seen.has(call.id)) continue;
-      seen.add(call.id);
-      const name = call.function.name;
-      if (!name || isInternalTool(name) || exactNames.has(name)) continue;
-      recent.push(call.id);
-      if (recent.length === visibleCount) return recent.reverse();
+    // Replayed START events may append an empty duplicate. Preserve the first
+    // position, preferring the populated call as the chat view does. Do this
+    // before filtering: a replay must not change which renderer owns the slot.
+    for (const call of message.toolCalls ?? []) {
+      if (!call.id) continue;
+      const previous = calls.get(call.id);
+      if (!previous || (!previous.function.arguments && call.function.arguments)) {
+        calls.set(call.id, call);
+      }
     }
   }
-  return recent.reverse();
+
+  return Array.from(calls.values())
+    .filter((call) => {
+      const name = call.function.name;
+      return name && !isInternalTool(name) && !exactNames.has(name);
+    })
+    .slice(-visibleCount)
+    .map((call) => call.id);
 }
