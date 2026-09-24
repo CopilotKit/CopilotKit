@@ -1,0 +1,19 @@
+[project]
+name = "interrupt-fe-tools-agent"
+version = "0.0.0"
+requires-python = ">=3.12"
+dependencies = [
+  "copilotkit",
+  "ag-ui-langgraph[fastapi]>=0.0.43",
+  "langchain>=1.4",
+  "langchain-anthropic",
+  "langgraph>=1.2",
+  "uvicorn",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+# The PR under test.
+copilotkit = { path = "../../../sdk-python", editable = true }

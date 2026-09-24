@@ -1,0 +1,23 @@
+{
+  "name": "interrupt-fe-tools-bridge",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n ui,agent \"next dev\" \"cd agent && uv run main.py\""
+  },
+  "dependencies": {
+    "@copilotkit/react-core": "1.73.3",
+    "@copilotkit/runtime": "1.73.3",
+    "hono": "^4.12.10",
+    "next": "16.1.6",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "concurrently": "^9.1.2",
+    "typescript": "^5"
+  }
+}
