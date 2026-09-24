@@ -115,7 +115,7 @@ describe("Channels documentation journey", () => {
     );
     expect(overview?.source).toContain('title="More channels are on the way"');
     expect(overview?.source).toContain(
-      "Slack is available now on cloud-hosted Intelligence. Teams is in controlled availability.",
+      "Slack and Microsoft Teams are generally available on cloud-hosted Intelligence.",
     );
     expect(overview?.source).not.toContain("Managed Slack");
     expect(overview?.source).not.toContain("Managed Teams");

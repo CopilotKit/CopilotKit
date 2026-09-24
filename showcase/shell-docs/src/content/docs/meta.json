@@ -20,7 +20,6 @@
         "headless-threads",
         "threads-lifecycle",
         "threads-import",
-        "threads-self-managed",
         "intelligence/threads-explained"
       ]
     },

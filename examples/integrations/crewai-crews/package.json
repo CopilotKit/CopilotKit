@@ -8,7 +8,6 @@
     "dev:ui": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
     "install:agent": "./scripts/setup-agent.sh || scripts\\setup-agent.bat",
     "postinstall": "npm run install:agent"
   },

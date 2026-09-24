@@ -167,6 +167,7 @@ import {
   trackHudHideViewed,
   trackHudHideClicked,
 } from "./lib/telemetry.js";
+import type { HudTrigger } from "./lib/telemetry.js";
 import {
   createFeatureOnboardingPrompt,
   createOnboardingPrompt,
@@ -6876,6 +6877,8 @@ export class WebInspectorElement extends LitElement {
     null;
   private launcherHudIntroEndTimer: ReturnType<typeof setTimeout> | null = null;
   private viewedHudElement: HTMLElement | null = null;
+  // Set when a presentation starts. Taking over a playing intro keeps "intro".
+  private launcherHudTrigger: HudTrigger = "user";
   private readonly viewedHudParts = new Set<string>();
   // The runtime's telemetry opt-out is known only after /info resolves.
   private pendingHudTelemetry: Array<() => void> = [];
@@ -12109,6 +12112,7 @@ export class WebInspectorElement extends LitElement {
       this.resolveLauncherHudSide();
       this.launcherHudIntro = true;
       this.launcherHudOpen = true;
+      this.launcherHudTrigger = "intro";
       void this.refreshLearningSnapshot({ preserve: true });
       this.requestUpdate();
       this.launcherHudIntroEndTimer = setTimeout(() => {
@@ -12164,6 +12168,7 @@ export class WebInspectorElement extends LitElement {
     }
     if (this.launcherHudOpen) return;
     this.launcherHudOpen = true;
+    this.launcherHudTrigger = "user";
     void this.refreshLearningSnapshot({ preserve: true });
     this.requestUpdate();
   }
@@ -12267,25 +12272,26 @@ export class WebInspectorElement extends LitElement {
       this.viewedHudParts.add(key);
       this.queueHudTelemetry(send);
     };
-    once("hud", trackHudViewed);
+    const trigger = this.launcherHudTrigger;
+    once("hud", () => trackHudViewed({ trigger }));
     if (
       hud.querySelector("[data-cpk-hud-news]") &&
       this.announcementTimestamp
     ) {
       const banner_id = this.announcementTimestamp;
       once(`notification:${banner_id}`, () =>
-        trackHudNotificationViewed({ banner_id }),
+        trackHudNotificationViewed({ banner_id, trigger }),
       );
     }
     for (const feature of ["threads", "learning"] as const) {
       if (hud.querySelector(`[data-cpk-hud-toggle="${feature}"]`)) {
         once(`toggle:${feature}`, () =>
-          trackHudFeatureToggleViewed({ feature }),
+          trackHudFeatureToggleViewed({ feature, trigger }),
         );
       }
     }
     if (hud.querySelector('[data-cpk-dismiss-inspector="day"]')) {
-      once("hide", trackHudHideViewed);
+      once("hide", () => trackHudHideViewed({ trigger }));
     }
   }
 
@@ -12296,10 +12302,11 @@ export class WebInspectorElement extends LitElement {
   ): void => {
     event.preventDefault();
     event.stopPropagation();
+    const trigger = this.launcherHudTrigger;
     this.queueHudTelemetry(() =>
       control === "toggle"
-        ? trackHudFeatureToggleClicked({ feature: row })
-        : trackHudFeatureClicked({ feature: row, control }),
+        ? trackHudFeatureToggleClicked({ feature: row, trigger })
+        : trackHudFeatureClicked({ feature: row, control, trigger }),
     );
     this.hudLandingMenu =
       row === "threads" ? "threads" : row === "learning" ? "memories" : "home";
@@ -12323,8 +12330,9 @@ export class WebInspectorElement extends LitElement {
     event.stopPropagation();
     const banner_id = this.announcementTimestamp;
     if (banner_id) {
+      const trigger = this.launcherHudTrigger;
       this.queueHudTelemetry(() =>
-        trackHudNotificationClicked({ banner_id, action: "open" }),
+        trackHudNotificationClicked({ banner_id, action: "open", trigger }),
       );
     }
     this.hudLandingMenu = WHATS_NEW_MENU_KEY;
@@ -12337,8 +12345,9 @@ export class WebInspectorElement extends LitElement {
     event.stopPropagation();
     const banner_id = this.announcementTimestamp;
     if (banner_id) {
+      const trigger = this.launcherHudTrigger;
       this.queueHudTelemetry(() =>
-        trackHudNotificationClicked({ banner_id, action: "dismiss" }),
+        trackHudNotificationClicked({ banner_id, action: "dismiss", trigger }),
       );
     }
     this.clearNewsSignal();
@@ -12351,7 +12360,8 @@ export class WebInspectorElement extends LitElement {
   private handleHudDismissDayClick = (event: Event): void => {
     event.preventDefault();
     event.stopPropagation();
-    this.queueHudTelemetry(trackHudHideClicked);
+    const trigger = this.launcherHudTrigger;
+    this.queueHudTelemetry(() => trackHudHideClicked({ trigger }));
     this.dismissInspectorFor("day");
   };
 

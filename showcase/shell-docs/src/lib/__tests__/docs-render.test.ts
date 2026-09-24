@@ -655,6 +655,11 @@ describe("framework nav", () => {
       { title: "Architecture", slug: "intelligence/intelligence-platform" },
       { title: "Plans", slug: "intelligence/plans" },
     ]);
+    expect(
+      navTree.find(
+        (node) => node.type === "group" && node.title === "Features",
+      ),
+    ).toMatchObject({ defaultOpen: true });
     expect(groupEntries(navTree, "Features")).toEqual([
       { title: "Rich Threads", slug: "threads" },
       {
@@ -825,10 +830,6 @@ describe("framework nav", () => {
       { title: "Headless Threads", slug: "headless-threads" },
       { title: "Thread & History Lifecycle", slug: "threads-lifecycle" },
       { title: "Synchronize Thread History", slug: "threads-import" },
-      {
-        title: "Self-Managed Persistence",
-        slug: "threads-self-managed",
-      },
       {
         title: "Threads & Persistence Architecture",
         slug: "intelligence/threads-explained",

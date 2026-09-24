@@ -9,7 +9,6 @@
     "dev:agent": "./scripts/run-agent.sh || scripts\\run-agent.bat",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
     "install:agent": "cd agent && npm install",
     "postinstall": "npm run install:agent",
     "channel": "tsx --tsconfig tsconfig.channel.json channel-host.mts",

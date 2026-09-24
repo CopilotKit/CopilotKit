@@ -75,7 +75,7 @@ features:
   - tool-rendering-reasoning-chain
   - gen-ui-interrupt
   - interrupt-headless
-a2ui_pattern: llm-driven
+a2ui_pattern: schema-loading
 interrupt_pattern: native
 agent_config_pattern: shared-state
 auth_pattern: runtime-onrequest

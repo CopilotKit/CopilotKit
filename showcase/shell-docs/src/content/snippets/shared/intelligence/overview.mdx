@@ -1,4 +1,3 @@
-
 <IntelligenceOverview />
 
 ## What is CopilotKit Intelligence?
@@ -10,6 +9,15 @@ Open the page for the one thing you want to add. Each page below owns that topic
 Connect an existing app in the [quickstart](/intelligence/quickstart).
 
 <IntelligenceFeatureCards />
+
+## Already have LangGraph threads or ADK sessions?
+
+Import existing history once, then add Rich Threads around your current agent:
+
+- [Import LangGraph threads](/langgraph-python/threads-import) from LangGraph Server, LangGraph Platform, or LangSmith Deployments that expose the LangGraph SDK thread and run APIs. Arbitrary LangChain message stores, LangSmith traces, and embedded checkpointers are not supported sources.
+- [Import Google ADK sessions](/google-adk/threads-import) from supported ADK database session stores or Vertex/Agent Engine session history.
+
+Import copies history; it does not establish ongoing database replication. Future CopilotKit-mediated runs persist to Intelligence and continue through native persistence when your agent remains connected to a durable LangGraph checkpointer or deployment, or an ADK session service with appropriate retention. Keep that native persistence in place.
 
 ## Choose where Intelligence runs
 
