@@ -136,16 +136,25 @@ appApi:
 | `eip.learning.skill_approved` | A reviewer approves a skill |
 | `eip.learning.skill_pulled` | A runtime pulls a skill |
 
-Every attribute name starts with `copilotkit.`. Each event has an `event_id` in the form `<event>:<organization>:<project>:<resource>`, so you can remove duplicates after a retry.
+Every attribute name starts with `copilotkit.`. The key that you use to remove duplicates after a retry is different for each event family:
+
+- **Thread and Learning events:** `copilotkit.event_id`, in the form `<event>:<organization>:<project>:<resource>`. On `eip.learning.skill_pulled`, the resource part is a new random ID for each pull. Two pulls of the same skill are two events.
+- **`eip.channel.inbound`:** `copilotkit.channel_event_id`, the ID of the inbound message event.
+- **`eip.channel.created` and `eip.channel.attached`:** no event ID. Do not remove duplicates of these events by an ID.
 
 Product events never contain message content, raw provider payloads, credentials, Channel names, thread names, skill text, or insight text. They do contain identifiers: organization, project, thread, run, and API key IDs, and the ID of the signed-in user. `eip.channel.created` and `eip.channel.attached` can also carry `copilotkit.principal_email`, the email address of the user who made the change.
 
 ## Collect application logs
 
-Every service writes one JSON object per line to stdout.
+The app API, the realtime gateway, the thread compaction worker, the connector outbox, and the thread culler write one JSON object per line to stdout. Two services write plain text:
+
+- **App frontend:** Nginx access and error logs in the default Nginx text format.
+- **Embeddings:** the text-embeddings-inference server log.
+
+For the JSON services:
 
 - **Level:** set it with `config.logLevel` on Helm.
-- **Request lines:** each HTTP request ends with an `http.server.request.completed` line that has `duration_ms`, `http.method`, `http.route`, `http.status_code`, and `outcome`.
+- **Request lines:** the app API and the realtime gateway end each HTTP request with an `http.server.request.completed` line that has `duration_ms`, `http.method`, `http.route`, `http.status_code`, and `outcome`. In the app API line, `method`, `route`, and `status_code` are nested under an `http` object. The frontend writes no such line. To see frontend errors, read the status code in its Nginx access log.
 - **Trace links:** app API lines carry `trace_id` and `span_id` when tracing is on. Realtime gateway lines carry `dd.trace_id` and `dd.span_id` in the Datadog decimal format.
 - **Redaction:** app API logs replace authorization headers, cookies, API keys, and fields named like `password`, `token`, or `secret` with `[REDACTED]`.
 
@@ -167,6 +176,16 @@ receivers:
     include_file_path: true
     operators:
       - type: container
+      # Parse the JSON services. Nginx and embeddings lines stay as text.
+      - type: json_parser
+        if: 'body matches "^\\s*\\{"'
+      # Link app API lines to their traces.
+      - type: trace_parser
+        if: 'attributes.trace_id != nil'
+        trace_id:
+          parse_from: attributes.trace_id
+        span_id:
+          parse_from: attributes.span_id
 
 processors:
   memory_limiter:
@@ -209,6 +228,8 @@ service:
 
 - Point `observability.tracing.endpoint` at `http://<collector-service>.<namespace>.svc:4318/v1/traces`.
 - Point `appApi.channelTelemetry.endpoint` at the same host with `/v1/logs`.
+- The `filelog` operators parse the JSON lines into attributes, so you can query fields such as `http.status_code`. Lines that are not JSON keep their text in the body.
+- The `trace_parser` maps the app API `trace_id` and `span_id` onto the log record. The realtime gateway `dd.trace_id` is a decimal number, so it does not map to an OpenTelemetry trace ID.
 - To check the setup, add `debug` to a pipeline's `exporters` and read the collector output.
 
 ## Check installation health
@@ -225,7 +246,7 @@ With the marketplace build, the app API uses `/api/health/live` and `/api/health
 
 ### Signals to watch
 
-- **Error rate:** error spans, and `http.server.request.completed` lines with `http.status_code` 500 or higher.
+- **Error rate:** error spans, `http.server.request.completed` lines with `http.status_code` 500 or higher, and frontend Nginx access lines with a 5xx status.
 - **Database:** app API `app-api health check failed` log lines, and failed `postgresql.*` spans.
 - **Realtime gateway memory:** `gateway_memory` lines every 5 seconds, and `gateway_memory_pressure` warnings when a container uses 80% or more of its memory limit.
 - **Product Analytics pipeline:** `realtime_gateway.analytics.projector.health` lines, when Product Analytics is on. The line logs at warning level when events wait in the queue, fail, or go to quarantine, and at error level when the gateway cannot read the queue. Watch `analytics_projector.queue_depth`, `analytics_projector.quarantine_depth`, and `analytics_projector.oldest_queue_age_ms`.
