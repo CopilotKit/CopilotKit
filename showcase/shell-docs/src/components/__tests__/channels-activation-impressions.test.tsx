@@ -117,7 +117,7 @@ describe("Channels activation impressions", () => {
       expect(prompt).toContain("/onboarding-prompts/");
       expect(prompt).not.toContain("add-channels");
       expect(prompt).toContain(
-        `I copied this prompt from https://docs.copilotkit.ai/${frontend}.mdx.`,
+        `I started from this CopilotKit docs page: https://docs.copilotkit.ai/${frontend}.`,
       );
     },
   );

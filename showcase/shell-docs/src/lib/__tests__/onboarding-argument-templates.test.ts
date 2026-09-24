@@ -4,6 +4,7 @@ import {
   ARGUMENT_TEMPLATES,
   fillArgumentTemplate,
   ONBOARDING_ARGUMENT_VERSION,
+  pageSourceSentence,
 } from "@/lib/onboarding-argument-templates";
 
 /** Recomputes the pinned version the way the doc comment describes it. */
@@ -43,11 +44,26 @@ describe("onboarding argument templates", () => {
   it("fills every placeholder it is given", () => {
     const filled = fillArgumentTemplate(ARGUMENT_TEMPLATES.framework, {
       name: "Mastra",
-      slug: "mastra",
     });
 
-    expect(filled).toBe(" I use the Mastra agent framework (`mastra`).");
+    expect(filled).toBe(" I use the Mastra agent framework.");
     expect(filled).not.toContain("<");
+  });
+
+  // Slugs are graph vocabulary, not the developer's words (PE-309).
+  it("names no slug and no time promise", () => {
+    for (const template of Object.values(ARGUMENT_TEMPLATES)) {
+      expect(template).not.toMatch(/`|\bminutes?\b/);
+    }
+  });
+
+  it("names the page a reader saw, on the production origin", () => {
+    expect(pageSourceSentence("/langgraph-python/quickstart.mdx")).toBe(
+      " I started from this CopilotKit docs page: https://docs.copilotkit.ai/langgraph-python/quickstart.",
+    );
+    expect(pageSourceSentence(".mdx")).toBe(
+      " I started from this CopilotKit docs page: https://docs.copilotkit.ai/.",
+    );
   });
 
   it("speaks in the developer's voice, matching the base sentence", () => {
