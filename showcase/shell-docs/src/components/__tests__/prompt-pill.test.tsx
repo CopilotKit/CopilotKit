@@ -10,6 +10,11 @@ import {
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { PromptPill } from "../prompt-pill";
 import * as launcher from "../../lib/launch-prompt";
+import {
+  PROMPT_DESTINATION_HINT,
+  PROMPT_LAUNCH_NOTE,
+  PROMPT_PHONE_HINT,
+} from "../../lib/prompt-guidance";
 
 beforeEach(() => {
   HTMLDialogElement.prototype.showModal = function () {
@@ -238,4 +243,55 @@ it("reports a completed clipboard write after unmount without updating the UI", 
   unmount();
   resolveWrite();
   await waitFor(() => expect(copied).toHaveBeenCalledExactlyOnceWith("copy"));
+});
+
+// Most copies are never pasted anywhere, and nothing near the button said where
+// the prompt goes (PE-340). The pill carries the line itself, so every
+// placement says it in the same words.
+it("says where the prompt goes, with a phone variant for CSS to pick", () => {
+  render(<PromptPill createPrompt={() => ({ text: "Run" })} />);
+
+  expect(screen.getByText(PROMPT_DESTINATION_HINT)).toBeTruthy();
+  expect(screen.getByText(PROMPT_PHONE_HINT)).toBeTruthy();
+});
+
+// The hero already shows the line under its button row.
+it("leaves the line out when the placement shows it already", () => {
+  render(<PromptPill hint={false} createPrompt={() => ({ text: "Run" })} />);
+
+  expect(screen.queryByText(PROMPT_DESTINATION_HINT)).toBeNull();
+});
+
+// When no app handles `codex://` or `claude-cli://`, the click does nothing
+// visible and the page keeps focus. Detecting that is not possible (PE-337
+// lab check), so the note shows after every app click. When the app opens,
+// the developer is no longer looking at the page.
+it("shows a visible fallback note after an app click", async () => {
+  vi.spyOn(launcher, "launchPrompt").mockImplementation(() => {});
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.assign(navigator, { clipboard: { writeText } });
+  const { container } = render(
+    <PromptPill createPrompt={() => ({ text: "Run" })} />,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Open in Codex" }));
+
+  const note = await screen.findByText(PROMPT_LAUNCH_NOTE);
+  expect(note.closest(".sr-only")).toBeNull();
+  expect(
+    container.querySelector(".prompt-pill")?.hasAttribute("data-launched"),
+  ).toBe(true);
+});
+
+it("shows no fallback note after a plain copy", async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.assign(navigator, { clipboard: { writeText } });
+  render(<PromptPill createPrompt={() => ({ text: "Run" })} />);
+
+  fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
+  await waitFor(() =>
+    expect(screen.getByRole("status").textContent).toBe("Prompt copied"),
+  );
+
+  expect(screen.queryByText(PROMPT_LAUNCH_NOTE)).toBeNull();
 });

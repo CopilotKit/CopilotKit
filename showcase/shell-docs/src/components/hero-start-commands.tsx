@@ -17,6 +17,7 @@ import React from "react";
 import Link from "next/link";
 import { usePostHog } from "posthog-js/react";
 import { ArrowRight } from "lucide-react";
+import { PromptGuidance } from "./prompt-pill";
 
 type QuickstartVariant = "primary" | "secondary";
 
@@ -83,18 +84,11 @@ export function QuickstartLinkButton({
   );
 }
 
-// Shown beside the onboarding prompt, never inside it: the copied prompt must
-// stay byte-identical to the Intelligence app and Inspector copies. A new
-// terminal and the Claude Code and Codex app links both start in the home
-// folder, where the agent would otherwise build the starter app.
-export const PROMPT_FOLDER_HINT =
-  "Open your coding agent in your project's folder, or in an empty folder for a new app.";
-
+// The hero shows the line under its button row, so its pill leaves it out of
+// the shelf. The words live in `@/lib/prompt-guidance`.
 export function PromptFolderHint() {
   return (
-    <p className="text-sm leading-snug text-[var(--text-muted)]">
-      {PROMPT_FOLDER_HINT}
-    </p>
+    <PromptGuidance className="text-sm leading-snug text-[var(--text-muted)]" />
   );
 }
 

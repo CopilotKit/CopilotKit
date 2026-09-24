@@ -5,6 +5,11 @@ import React, { useEffect, useId, useRef, useState } from "react";
 import { Check, Copy, Eye, X } from "lucide-react";
 import type { PromptApp } from "@/lib/launch-prompt";
 import { launchPrompt } from "@/lib/launch-prompt";
+import {
+  PROMPT_DESTINATION_HINT,
+  PROMPT_LAUNCH_NOTE,
+  PROMPT_PHONE_HINT,
+} from "@/lib/prompt-guidance";
 import "./prompt-pill.css";
 
 export type PromptAction =
@@ -20,17 +25,38 @@ export interface PromptPayload {
   onAction?: (action: PromptAction) => void;
 }
 
+/**
+ * Where the prompt goes. Both variants render, and CSS shows the phone one on a
+ * small touch screen, so the server and the first client render agree.
+ */
+export function PromptGuidance({
+  className = "",
+}: {
+  className?: string;
+}): React.JSX.Element {
+  return (
+    <p className={`prompt-guidance ${className}`.trim()}>
+      <span className="prompt-guidance-desktop">{PROMPT_DESTINATION_HINT}</span>
+      <span className="prompt-guidance-phone">{PROMPT_PHONE_HINT}</span>
+    </p>
+  );
+}
+
 /** Compact prompt actions shared by docs hero and page tools. */
 export function PromptPill({
   createPrompt,
   surface,
+  hint = true,
   children,
   ...props
 }: {
   createPrompt: () => PromptPayload;
   surface?: string;
+  /** False where the placement already shows `PromptGuidance` beside it. */
+  hint?: boolean;
 } & React.ComponentProps<"button">): React.JSX.Element {
   const [copied, setCopied] = useState(false);
+  const [launched, setLaunched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [preview, setPreview] = useState<PromptPayload | null>(null);
@@ -72,8 +98,8 @@ export function PromptPill({
   async function copy(
     payload: PromptPayload,
     action: PromptAction,
-  ): Promise<void> {
-    if (pending.current) return;
+  ): Promise<boolean> {
+    if (pending.current) return false;
     pending.current = payload;
     setBusy(true);
     const current = ++generation.current;
@@ -86,16 +112,18 @@ export function PromptPill({
       } catch {
         /* Analytics cannot break copy. */
       }
-      if (!mounted.current || current !== generation.current) return;
+      if (!mounted.current || current !== generation.current) return false;
       setCopied(true);
       setMessage("Prompt copied");
       timer.current = setTimeout(() => {
         if (mounted.current && current === generation.current) setCopied(false);
       }, 1600);
+      return true;
     } catch {
-      if (!mounted.current || current !== generation.current) return;
+      if (!mounted.current || current !== generation.current) return false;
       setMessage("Copy blocked. Select and copy the prompt below.");
       showPrompt(payload);
+      return false;
     } finally {
       pending.current = null;
       if (mounted.current) setBusy(false);
@@ -116,6 +144,7 @@ export function PromptPill({
     payload: PromptPayload,
     action: "copy" | "copy_preview",
   ): void {
+    setLaunched(false);
     recordAction(payload, action);
     copy(payload, action);
   }
@@ -148,11 +177,18 @@ export function PromptPill({
       setMessage("The app link could not open. Copy the prompt below.");
       showPrompt(payload);
     }
-    copy(payload, action);
+    // The note says the prompt is copied, so it waits for the copy.
+    void copy(payload, action).then((ok) => {
+      if (ok && mounted.current) setLaunched(true);
+    });
   }
 
   return (
-    <div className="prompt-pill not-prose" data-docs-copy-surface={surface}>
+    <div
+      className="prompt-pill not-prose"
+      data-docs-copy-surface={surface}
+      data-launched={launched ? "" : undefined}
+    >
       <div className="prompt-pill-dock" role="group" aria-label="Agent prompt">
         <button
           {...props}
@@ -204,6 +240,8 @@ export function PromptPill({
         </button>
       </div>
       <div className="prompt-pill-shelf">
+        {launched && <p className="prompt-pill-note">{PROMPT_LAUNCH_NOTE}</p>}
+        {hint && <PromptGuidance className="prompt-pill-hint" />}
         <button type="button" onClick={viewPrompt}>
           <Eye aria-hidden="true" />
           View prompt
