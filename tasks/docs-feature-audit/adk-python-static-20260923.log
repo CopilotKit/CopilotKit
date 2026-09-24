@@ -1,0 +1,123 @@
+# ADK Python static checks, 2026-09-23T23:46:19Z, HEAD 1508fbb266 + uncommitted dependency update; Python 3.12.6 venv (google-adk 2.9.2, ag-ui-adk 0.7.0, ag-ui-protocol 0.1.22)
+$ python -m compileall -f -q src tools/ _shared/  (the Dockerfile copies src/agent_server.py, src/agents/, tools/ and _shared/)
+exit=0
+$ cd src && PYTHONPATH=.. GOOGLE_API_KEY=fake-gemini-key GOOGLE_GEMINI_BASE_URL=http://127.0.0.1:4410 python ../../../../tasks/docs-feature-audit/adk-import-agents.py
+2026-09-23 16:46:20,500 INFO agents._cvdiag_bootstrap CVDIAG bootstrap component=_shared tier=default pb_enabled=false
+2026-09-23 16:46:22,787 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/src/agents/shared_chat.py:144: UserWarning: install_httpx_hook: client of type Gemini has no recognized event_hooks attribute; x-* headers will not be forwarded
+  install_httpx_hook(gemini)
+2026-09-23 16:46:22,792 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+No flight schema file found, using inline minimal schema
+2026-09-23 16:46:22,800 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,800 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,800 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,807 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,807 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,807 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,807 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,807 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,808 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,808 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,808 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,808 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,808 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,808 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,808 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,809 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,809 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,809 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,809 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,809 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,809 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,809 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,809 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,810 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,810 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,810 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,810 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+2026-09-23 16:46:22,810 INFO agents._header_forwarding CVDIAG component=backend-google-adk boundary=outbound-llm run_id=none slug=MISSING header_present=false header_value_prefix= hop=- status=error test_id=none error=no-event-hooks-target client_type=Gemini max_depth=5
+/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/ag_ui_adk/adk_agent.py:330: UserWarning: [EXPERIMENTAL] InMemoryCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+  self._credential_service = credential_service or InMemoryCredentialService()
+/private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/google/adk/auth/credential_service/in_memory_credential_service.py:33: UserWarning: [EXPERIMENTAL] BaseCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+  super().__init__()
+OK   agents._cvdiag_backend                           0.70s
+OK   agents._header_forwarding                        0.00s
+OK   agents.a2ui_fixed_agent                          2.29s
+OK   agents.agent_config_agent                        0.00s
+OK   agents.beautiful_chat_agent                      0.01s
+OK   agents.byoc_agents                               0.01s
+OK   agents.declarative_gen_ui_agent                  0.00s
+OK   agents.gen_ui_agent                              0.00s
+OK   agents.gen_ui_tool_based_agent                   0.00s
+OK   agents.headless_complete_agent                   0.00s
+OK   agents.hitl_in_app_agent                         0.00s
+OK   agents.hitl_in_chat_agent                        0.00s
+OK   agents.hitl_in_chat_book_call_agent              0.00s
+OK   agents.interrupt_agent                           0.00s
+OK   agents.main                                      0.00s
+OK   agents.mcp_apps_agent                            0.00s
+OK   agents.multimodal_agent                          0.00s
+OK   agents.open_gen_ui_agents                        0.00s
+OK   agents.readonly_state_agent_context_agent        0.00s
+OK   agents.recovery_agent                            0.00s
+OK   agents.registry                                  0.00s
+OK   agents.shared_chat                               0.00s
+OK   agents.shared_state_read_agent                   0.00s
+OK   agents.shared_state_read_write_agent             0.00s
+OK   agents.shared_state_streaming_agent              0.00s
+OK   agents.subagents_agent                           0.00s
+OK   agents.tool_rendering_agent                      0.00s
+OK   agents.tool_rendering_common                     0.00s
+OK   agents.tool_rendering_custom_catchall_agent      0.00s
+OK   agents.tool_rendering_default_catchall_agent     0.00s
+OK   agents.tool_rendering_reasoning_chain_agent      0.00s
+agent modules: 31 ok, 0 failed
+agent_server imported in 0.08s
+  agentic_chat                             LlmAgent  SimpleChatAgent                      tools=1 sub_agents=0 mounted=True
+  tool-rendering                           LlmAgent  ToolRenderingAgent                   tools=4 sub_agents=0 mounted=True
+  gen-ui-tool-based                        LlmAgent  GenUiToolBasedAgent                  tools=1 sub_agents=0 mounted=True
+  gen-ui-agent                             LlmAgent  GenUiAgent                           tools=2 sub_agents=0 mounted=True
+  shared-state-read                        LlmAgent  SharedStateReadAgent                 tools=1 sub_agents=0 mounted=True
+  shared-state-read-write                  LlmAgent  SharedStateReadWriteAgent            tools=2 sub_agents=0 mounted=True
+  shared-state-streaming                   LlmAgent  SharedStateStreamingAgent            tools=2 sub_agents=0 mounted=True
+  subagents                                LlmAgent  SubagentsSupervisor                  tools=3 sub_agents=0 mounted=True
+  frontend_tools                           LlmAgent  SimpleChatAgent                      tools=1 sub_agents=0 mounted=True
+  threadid-frontend-tool-roundtrip         LlmAgent  SimpleChatAgent                      tools=1 sub_agents=0 mounted=True
+  frontend-tools-async                     LlmAgent  SimpleChatAgent                      tools=1 sub_agents=0 mounted=True
+  prebuilt-sidebar                         LlmAgent  SimpleChatAgent                      tools=1 sub_agents=0 mounted=True
+  prebuilt-popup                           LlmAgent  SimpleChatAgent                      tools=1 sub_agents=0 mounted=True
+  chat-slots                               LlmAgent  SimpleChatAgent                      tools=1 sub_agents=0 mounted=True
+  chat-customization-css                   LlmAgent  SimpleChatAgent                      tools=1 sub_agents=0 mounted=True
+  headless-simple                          LlmAgent  SimpleChatAgent                      tools=1 sub_agents=0 mounted=True
+  headless_complete                        LlmAgent  HeadlessCompleteAgent                tools=4 sub_agents=0 mounted=True
+  voice                                    LlmAgent  SimpleChatAgent                      tools=1 sub_agents=0 mounted=True
+  reasoning-custom                         LlmAgent  ThinkingChatAgent                    tools=1 sub_agents=0 mounted=True
+  reasoning-default                        LlmAgent  ThinkingChatAgent                    tools=1 sub_agents=0 mounted=True
+  tool-rendering-default-catchall          LlmAgent  ToolRenderingDefaultCatchallAgent    tools=4 sub_agents=0 mounted=True
+  tool-rendering-custom-catchall           LlmAgent  ToolRenderingCustomCatchallAgent     tools=4 sub_agents=0 mounted=True
+  tool-rendering-reasoning-chain           LlmAgent  ToolRenderingReasoningChainAgent     tools=4 sub_agents=0 mounted=True
+  hitl-in-chat                             LlmAgent  HitlInChatBookCallAgent              tools=1 sub_agents=0 mounted=True
+  hitl-in-app                              LlmAgent  HitlInAppAgent                       tools=1 sub_agents=0 mounted=True
+  human_in_the_loop                        LlmAgent  HitlInChatAgent                      tools=1 sub_agents=0 mounted=True
+  gen-ui-interrupt                         LlmAgent  InterruptAgent                       tools=1 sub_agents=0 mounted=True
+  mcp-apps                                 LlmAgent  McpAppsAgent                         tools=1 sub_agents=0 mounted=True
+  multimodal                               LlmAgent  MultimodalAgent                      tools=1 sub_agents=0 mounted=True
+  readonly-state-agent-context             LlmAgent  ReadonlyStateAgentContextAgent       tools=1 sub_agents=0 mounted=True
+  agent_config                             LlmAgent  AgentConfigAgent                     tools=1 sub_agents=0 mounted=True
+  declarative_gen_ui                       LlmAgent  DeclarativeGenUiAgent                tools=0 sub_agents=0 mounted=True
+  a2ui_recovery                            LlmAgent  A2uiRecoveryAgent                    tools=1 sub_agents=0 mounted=True
+  a2ui_fixed_schema                        LlmAgent  A2uiFixedAgent                       tools=2 sub_agents=0 mounted=True
+  declarative-hashbrown                    LlmAgent  ByocAgent                            tools=0 sub_agents=0 mounted=True
+  byoc_json_render                         LlmAgent  ByocAgent                            tools=0 sub_agents=0 mounted=True
+  open_gen_ui                              LlmAgent  OpenGenUiAgent                       tools=1 sub_agents=0 mounted=True
+  open_gen_ui_advanced                     LlmAgent  OpenGenUiAdvancedAgent               tools=1 sub_agents=0 mounted=True
+  beautiful_chat                           LlmAgent  BeautifulChatAgent                   tools=6 sub_agents=0 mounted=True
+  auth                                     LlmAgent  SimpleChatAgent                      tools=1 sub_agents=0 mounted=True
+  default                                  LlmAgent  SimpleChatAgent                      tools=1 sub_agents=0 mounted=True
+registry: 41 agents, 41 mounted as POST /<name>
+exit=0
+$ uv pip check
+Using Python 3.12.6 environment at: /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv
+Checked 73 packages in 1ms
+All installed packages are compatible
+exit=0

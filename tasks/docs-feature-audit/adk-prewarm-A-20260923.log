@@ -1,0 +1,35 @@
+# Batch A pre-warm (one GET at a time): the batch's demo pages and every API route except /api/smoke. Wed Sep 23 23:59:21 UTC 2026
+/demos/beautiful-chat 200 4.683089s
+/demos/agentic-chat 200 1.289546s
+/demos/prebuilt-sidebar 200 0.997101s
+/demos/prebuilt-popup 200 0.983661s
+/demos/chat-slots 200 0.932618s
+/demos/chat-customization-css 200 0.913695s
+/demos/headless-simple 200 1.006318s
+/demos/headless-complete 200 1.238575s
+/demos/reasoning-custom 200 0.986329s
+/demos/reasoning-default 200 0.947503s
+/demos/frontend-tools 200 0.984858s
+/demos/frontend-tools-async 200 1.081621s
+/demos/gen-ui-tool-based 200 1.087042s
+/demos/hitl-in-app 200 1.078875s
+/demos/hitl-in-chat 200 1.057911s
+/demos/declarative-gen-ui 200 1.540273s
+/demos/a2ui-fixed-schema 200 0.968392s
+/demos/a2ui-recovery 200 0.998382s
+/api/copilotkit 200 1.023134s
+/api/copilotkit-a2ui-fixed-schema 405 0.413460s
+/api/copilotkit-a2ui-recovery 405 0.480309s
+/api/copilotkit-agent-config 405 0.395050s
+/api/copilotkit-auth 401 1.002471s
+/api/copilotkit-beautiful-chat 405 0.377289s
+/api/copilotkit-declarative-gen-ui 405 0.387659s
+/api/copilotkit-declarative-hashbrown 405 0.375773s
+/api/copilotkit-declarative-json-render 405 0.362670s
+/api/copilotkit-mcp-apps 405 0.376613s
+/api/copilotkit-multimodal 405 0.370502s
+/api/copilotkit-ogui 405 0.362534s
+/api/copilotkit-voice 404 0.972169s
+/api/debug 403 0.271427s
+/api/health 200 0.231313s
+# done Wed Sep 23 23:59:51 UTC 2026

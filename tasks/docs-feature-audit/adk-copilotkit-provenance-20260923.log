@@ -1,0 +1,33 @@
+# Provenance of the CopilotKit packages the ADK stack runs on, 2026-09-23T23:45:17Z. JS: lock integrity vs the registry's dist.integrity (npm ci verified the tarballs against the lock). Python: uv installed from https://pypi.org/simple (hash-checked).
+@ag-ui/a2ui-middleware             lock=0.0.10 installed=0.0.10 resolved=registry.npmjs.org integrity_match=True
+@ag-ui/a2ui-toolkit                lock=0.0.4 installed=0.0.4 resolved=registry.npmjs.org integrity_match=True
+@ag-ui/client                      lock=0.0.59 installed=0.0.59 resolved=registry.npmjs.org integrity_match=True
+@ag-ui/core                        lock=0.0.59 installed=0.0.59 resolved=registry.npmjs.org integrity_match=True
+@ag-ui/encoder                     lock=0.0.59 installed=0.0.59 resolved=registry.npmjs.org integrity_match=True
+@ag-ui/langgraph                   lock=0.0.43 installed=0.0.43 resolved=registry.npmjs.org integrity_match=True
+@ag-ui/mcp-apps-middleware         lock=0.1.1 installed=0.1.1 resolved=registry.npmjs.org integrity_match=True
+@ag-ui/mcp-middleware              lock=0.0.2 installed=0.0.2 resolved=registry.npmjs.org integrity_match=True
+@ag-ui/proto                       lock=0.0.59 installed=0.0.59 resolved=registry.npmjs.org integrity_match=True
+@copilotkit/a2ui-renderer          lock=1.73.3 installed=1.73.3 resolved=registry.npmjs.org integrity_match=True
+@copilotkit/channels-core          lock=0.11.0 installed=0.11.0 resolved=registry.npmjs.org integrity_match=True
+@copilotkit/channels-intelligence  lock=0.11.0 installed=0.11.0 resolved=registry.npmjs.org integrity_match=True
+@copilotkit/channels-slack         lock=0.11.0 installed=0.11.0 resolved=registry.npmjs.org integrity_match=True
+@copilotkit/channels-teams         lock=0.11.0 installed=0.11.0 resolved=registry.npmjs.org integrity_match=True
+@copilotkit/channels-ui            lock=0.11.0 installed=0.11.0 resolved=registry.npmjs.org integrity_match=True
+@copilotkit/core                   lock=1.73.3 installed=1.73.3 resolved=registry.npmjs.org integrity_match=True
+@copilotkit/license-verifier       lock=0.5.0 installed=0.5.0 resolved=registry.npmjs.org integrity_match=True
+@copilotkit/mcp-apps-renderer      lock=1.73.3 installed=1.73.3 resolved=registry.npmjs.org integrity_match=True
+@copilotkit/react-core             lock=1.73.3 installed=1.73.3 resolved=registry.npmjs.org integrity_match=True
+@copilotkit/runtime                lock=1.73.3 installed=1.73.3 resolved=registry.npmjs.org integrity_match=True
+@copilotkit/runtime-client-gql     lock=1.73.3 installed=1.73.3 resolved=registry.npmjs.org integrity_match=True
+@copilotkit/shared                 lock=1.73.3 installed=1.73.3 resolved=registry.npmjs.org integrity_match=True
+@copilotkit/voice                  lock=1.73.3 installed=1.73.3 resolved=registry.npmjs.org integrity_match=True
+@copilotkit/web-components         lock=1.73.3 installed=1.73.3 resolved=registry.npmjs.org integrity_match=True
+@copilotkit/web-inspector          lock=1.73.3 installed=1.73.3 resolved=registry.npmjs.org integrity_match=True
+# links, file: or git sources in the lock: 0
+ag_ui_adk-0.7.0.dist-info installer=uv direct_url=none
+ag_ui_protocol-0.1.22.dist-info installer=uv direct_url=none
+google_adk-2.9.2.dist-info installer=uv direct_url=none
+google_genai-2.25.0.dist-info installer=uv direct_url=none
+a2ui_agent_sdk-0.2.4.dist-info installer=uv direct_url=none
+ag_ui_a2ui_toolkit-0.0.4.dist-info installer=uv direct_url=none

@@ -1,0 +1,148 @@
+# ADK next build (host equivalent of the Dockerfile frontend stage 'npm run build'), node v22.16.0, 2026-09-23T23:46:56Z, HEAD 1508fbb266 + uncommitted dependency update
+$ NEXT_TELEMETRY_DISABLED=1 /usr/bin/time -l nice -n 10 npm run build
+
+> @copilotkit/showcase-google-adk@0.1.0 build
+> next build
+
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/pnpm-lock.yaml as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/package-lock.json
+
+   ▲ Next.js 15.5.26
+
+   Creating an optimized production build ...
+ ⚠ Compiled with warnings in 11.0s
+
+./node_modules/@hashbrownai/core/emscripten-module.browser-NBYT6WWV.esm.js
+Critical dependency: require function is used in a way in which dependencies cannot be statically extracted
+
+Import trace for requested module:
+./node_modules/@hashbrownai/core/emscripten-module.browser-NBYT6WWV.esm.js
+./node_modules/@hashbrownai/core/index.esm2.js
+./node_modules/@hashbrownai/core/index.esm.js
+./src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx
+./src/app/demos/declarative-hashbrown/page.tsx
+
+./node_modules/@copilotkit/runtime/dist/v2/runtime/core/channel-manager.mjs
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@copilotkit/runtime/dist/v2/runtime/core/channel-manager.mjs
+./node_modules/@copilotkit/runtime/dist/v2/runtime/core/fetch-handler.mjs
+./node_modules/@copilotkit/runtime/dist/v2/index.mjs
+./src/app/api/copilotkit-declarative-hashbrown/route.ts
+
+ ⚠ Compiled with warnings in 8.8s
+
+./node_modules/@hashbrownai/core/emscripten-module.browser-NBYT6WWV.esm.js
+Critical dependency: require function is used in a way in which dependencies cannot be statically extracted
+
+Import trace for requested module:
+./node_modules/@hashbrownai/core/emscripten-module.browser-NBYT6WWV.esm.js
+./node_modules/@hashbrownai/core/index.esm2.js
+./node_modules/@hashbrownai/core/index.esm.js
+./src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx
+./src/app/demos/declarative-hashbrown/page.tsx
+
+ ✓ Compiled successfully in 19.8s
+   Skipping validation of types
+   Linting ...
+   Collecting page data ...
+   Generating static pages (0/57) ...
+   Generating static pages (14/57) 
+   Generating static pages (28/57) 
+   Generating static pages (42/57) 
+ ✓ Generating static pages (57/57)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                     Size  First Load JS
+┌ ○ /                                          174 B         108 kB
+├ ○ /_not-found                                 1 kB         109 kB
+├ ƒ /api/copilotkit                            174 B         108 kB
+├ ƒ /api/copilotkit-a2ui-fixed-schema          174 B         108 kB
+├ ƒ /api/copilotkit-a2ui-recovery              174 B         108 kB
+├ ƒ /api/copilotkit-agent-config               174 B         108 kB
+├ ƒ /api/copilotkit-auth/[[...slug]]           174 B         108 kB
+├ ƒ /api/copilotkit-beautiful-chat             174 B         108 kB
+├ ƒ /api/copilotkit-declarative-gen-ui         174 B         108 kB
+├ ƒ /api/copilotkit-declarative-hashbrown      174 B         108 kB
+├ ƒ /api/copilotkit-declarative-json-render    174 B         108 kB
+├ ƒ /api/copilotkit-mcp-apps                   174 B         108 kB
+├ ƒ /api/copilotkit-multimodal                 174 B         108 kB
+├ ƒ /api/copilotkit-ogui                       174 B         108 kB
+├ ƒ /api/copilotkit-voice/[[...slug]]          174 B         108 kB
+├ ƒ /api/debug                                 174 B         108 kB
+├ ƒ /api/health                                174 B         108 kB
+├ ƒ /api/smoke                                 174 B         108 kB
+├ ○ /demos/a2ui-fixed-schema                 2.23 kB         594 kB
+├ ○ /demos/a2ui-recovery                       630 B         707 kB
+├ ○ /demos/agent-config                      1.11 kB         592 kB
+├ ○ /demos/agentic-chat                        462 B         592 kB
+├ ○ /demos/auth                              1.94 kB         593 kB
+├ ○ /demos/beautiful-chat                    12.5 kB         714 kB
+├ ○ /demos/chat-customization-css              456 B         592 kB
+├ ○ /demos/chat-slots                         2.3 kB         594 kB
+├ ○ /demos/declarative-gen-ui                  672 B         708 kB
+├ ○ /demos/declarative-hashbrown             36.6 kB         728 kB
+├ ○ /demos/declarative-json-render           48.2 kB         740 kB
+├ ○ /demos/frontend-tools                      797 B         592 kB
+├ ○ /demos/frontend-tools-async              2.15 kB         594 kB
+├ ○ /demos/gen-ui-agent                       1.7 kB         593 kB
+├ ○ /demos/gen-ui-interrupt                  2.14 kB         594 kB
+├ ○ /demos/gen-ui-tool-based                 4.42 kB         696 kB
+├ ○ /demos/headless-complete                 11.1 kB         709 kB
+├ ○ /demos/headless-simple                   3.77 kB         602 kB
+├ ○ /demos/hitl                              2.19 kB         594 kB
+├ ○ /demos/hitl-in-app                       2.29 kB         594 kB
+├ ○ /demos/hitl-in-chat                      1.53 kB         593 kB
+├ ○ /demos/mcp-apps                            556 B         592 kB
+├ ○ /demos/multimodal                        3.19 kB         595 kB
+├ ○ /demos/open-gen-ui                       2.59 kB         594 kB
+├ ○ /demos/open-gen-ui-advanced               1.1 kB         592 kB
+├ ○ /demos/prebuilt-popup                      786 B         592 kB
+├ ○ /demos/prebuilt-sidebar                  2.33 kB         594 kB
+├ ○ /demos/readonly-state-agent-context      2.99 kB         594 kB
+├ ○ /demos/reasoning-custom                    869 B         592 kB
+├ ○ /demos/reasoning-default                   513 B         592 kB
+├ ○ /demos/shared-state-read                 13.4 kB         605 kB
+├ ○ /demos/shared-state-read-write           2.87 kB         594 kB
+├ ○ /demos/shared-state-streaming            1.28 kB         593 kB
+├ ○ /demos/subagents                         3.19 kB         595 kB
+├ ○ /demos/threadid-frontend-tool-roundtrip  1.09 kB         592 kB
+├ ○ /demos/tool-rendering                    3.12 kB         594 kB
+├ ○ /demos/tool-rendering-custom-catchall    1.72 kB         593 kB
+├ ○ /demos/tool-rendering-default-catchall     613 B         592 kB
+├ ○ /demos/tool-rendering-reasoning-chain    2.74 kB         594 kB
+└ ○ /demos/voice                             1.14 kB         593 kB
++ First Load JS shared by all                 108 kB
+  ├ chunks/1255-18a268f327388595.js          45.9 kB
+  ├ chunks/4bd1b696-182b6b13bdad92e3.js      54.2 kB
+  └ other shared chunks (total)              8.11 kB
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+       30.30 real        50.29 user         6.68 sys
+          3024830464  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+              668422  page reclaims
+                  18  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                1341  messages sent
+                1231  messages received
+                  39  signals received
+               18652  voluntary context switches
+              531686  involuntary context switches
+           887133091  instructions retired
+           359620170  cycles elapsed
+            25938824  peak memory footprint
+exit=0

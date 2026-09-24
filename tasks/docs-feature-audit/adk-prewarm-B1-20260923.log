@@ -1,0 +1,27 @@
+# Batch B1 pre-warm (one GET at a time): the batch's demo pages and every API route except /api/smoke. Thu Sep 24 00:01:28 UTC 2026
+/demos/gen-ui-agent 200 4.601638s
+/demos/tool-rendering-default-catchall 200 1.138985s
+/demos/tool-rendering-custom-catchall 200 0.923799s
+/demos/tool-rendering 200 0.978755s
+/demos/shared-state-read 200 0.996725s
+/demos/shared-state-read-write 200 0.921693s
+/demos/shared-state-streaming 200 0.996444s
+/demos/readonly-state-agent-context 200 1.012195s
+/demos/subagents 200 0.956253s
+/demos/multimodal 200 0.975921s
+/api/copilotkit 200 1.066895s
+/api/copilotkit-a2ui-fixed-schema 405 0.390984s
+/api/copilotkit-a2ui-recovery 405 0.404096s
+/api/copilotkit-agent-config 405 0.385893s
+/api/copilotkit-auth 401 0.883628s
+/api/copilotkit-beautiful-chat 405 0.378795s
+/api/copilotkit-declarative-gen-ui 405 0.380350s
+/api/copilotkit-declarative-hashbrown 405 0.353066s
+/api/copilotkit-declarative-json-render 405 0.361558s
+/api/copilotkit-mcp-apps 405 0.371237s
+/api/copilotkit-multimodal 405 0.363519s
+/api/copilotkit-ogui 405 0.364940s
+/api/copilotkit-voice 404 1.124010s
+/api/debug 403 0.277143s
+/api/health 200 0.230236s
+# done Thu Sep 24 00:01:49 UTC 2026

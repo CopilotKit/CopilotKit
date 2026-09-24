@@ -1,0 +1,449 @@
+# RSS samples (KiB), every 5 s: all descendants of the roots in /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/roots.txt. Other agents' processes are excluded by ancestry. WARN >= 9.5 GB, ABORT (runner SIGTERM) >= 10.5 GB, hard cap 11 GB.
+23:50:55 total_kb=156064 root60038_kb=91584 root60276_kb=64480 top=node:91584 load=3.80
+23:51:00 total_kb=1222640 root60038_kb=91584 root60276_kb=1131056 top=next-server (v15.5.26):627504 load=3.59
+23:51:05 total_kb=1191808 root60038_kb=73712 root60276_kb=1118096 top=next-server (v15.5.26):627504 load=3.62
+23:51:10 total_kb=1160656 root60038_kb=73712 root60276_kb=1086944 top=next-server (v15.5.26):595152 load=3.98
+23:51:15 total_kb=1576432 root60038_kb=73712 root60276_kb=1502720 top=next-server (v15.5.26):1029536 load=4.14
+23:51:20 total_kb=1544960 root60038_kb=73712 root60276_kb=1471248 top=next-server (v15.5.26):998064 load=3.97
+23:51:25 total_kb=3693136 root60038_kb=73712 root60276_kb=3619424 top=next-server (v15.5.26):2922304 load=4.37
+23:51:30 total_kb=4298784 root60038_kb=73712 root60276_kb=4225072 top=next-server (v15.5.26):3527888 load=4.82
+23:51:35 total_kb=5035440 root60038_kb=73712 root60276_kb=4961728 top=next-server (v15.5.26):4275968 load=4.51
+23:51:40 total_kb=5558688 root60038_kb=73712 root60276_kb=5484976 top=next-server (v15.5.26):4839504 load=5.11
+23:51:45 total_kb=6076992 root60038_kb=73712 root60276_kb=6003280 top=next-server (v15.5.26):5357744 load=5.02
+23:51:50 total_kb=6477184 root60038_kb=73712 root60276_kb=6403472 top=next-server (v15.5.26):5757856 load=5.10
+23:51:56 total_kb=6809280 root60038_kb=73712 root60276_kb=6735568 top=next-server (v15.5.26):6089888 load=5.09
+23:52:01 total_kb=7224832 root60038_kb=73712 root60276_kb=7151120 top=next-server (v15.5.26):6505392 load=5.81
+23:52:06 total_kb=8038160 root60038_kb=73712 root60276_kb=7964448 top=next-server (v15.5.26):7318656 load=6.86
+23:52:11 total_kb=8351136 root60038_kb=73712 root60276_kb=8277424 top=next-server (v15.5.26):7631568 load=7.03
+23:52:16 total_kb=8462912 root60038_kb=73712 root60276_kb=8389200 top=next-server (v15.5.26):7743216 load=6.79
+23:52:21 total_kb=8528192 root60038_kb=73712 root60276_kb=8454480 top=next-server (v15.5.26):7808384 load=6.65
+23:52:26 total_kb=8528192 root60038_kb=73712 root60276_kb=8454480 top=next-server (v15.5.26):7808384 load=6.27
+23:52:31 total_kb=8519440 root60038_kb=73712 root60276_kb=8445728 top=next-server (v15.5.26):7799632 load=5.85
+23:52:36 total_kb=8519440 root60038_kb=73712 root60276_kb=8445728 top=next-server (v15.5.26):7799632 load=6.02
+23:52:41 total_kb=8519440 root60038_kb=73712 root60276_kb=8445728 top=next-server (v15.5.26):7799632 load=5.62
+23:52:46 total_kb=8519440 root60038_kb=73712 root60276_kb=8445728 top=next-server (v15.5.26):7799632 load=5.25
+23:52:51 total_kb=8519440 root60038_kb=73712 root60276_kb=8445728 top=next-server (v15.5.26):7799632 load=5.07
+23:52:56 total_kb=8519440 root60038_kb=73712 root60276_kb=8445728 top=next-server (v15.5.26):7799632 load=5.30
+23:53:01 total_kb=8519440 root60038_kb=73712 root60276_kb=8445728 top=next-server (v15.5.26):7799632 load=5.28
+23:53:06 total_kb=8519440 root60038_kb=73712 root60276_kb=8445728 top=next-server (v15.5.26):7799632 load=5.58
+23:53:11 total_kb=8519440 root60038_kb=73712 root60276_kb=8445728 top=next-server (v15.5.26):7799632 load=5.45
+23:53:17 total_kb=8519440 root60038_kb=73712 root60276_kb=8445728 top=next-server (v15.5.26):7799632 load=5.17
+23:53:22 total_kb=8519440 root60038_kb=73712 root60276_kb=8445728 top=next-server (v15.5.26):7799632 load=4.92
+23:53:27 total_kb=8519440 root60038_kb=73712 root60276_kb=8445728 top=next-server (v15.5.26):7799632 load=5.01
+23:53:32 total_kb=8519440 root60038_kb=73712 root60276_kb=8445728 top=next-server (v15.5.26):7799632 load=4.69
+23:53:37 total_kb=8519440 root60038_kb=73712 root60276_kb=8445728 top=next-server (v15.5.26):7799632 load=4.71
+23:53:42 total_kb=8519440 root60038_kb=73712 root60276_kb=8445728 top=next-server (v15.5.26):7799632 load=4.33
+23:53:47 total_kb=8519440 root60038_kb=73712 root60276_kb=8445728 top=next-server (v15.5.26):7799632 load=4.23
+23:53:52 total_kb=8519440 root60038_kb=73712 root60276_kb=8445728 top=next-server (v15.5.26):7799632 load=4.21
+23:53:57 total_kb=8519440 root60038_kb=73712 root60276_kb=8445728 top=next-server (v15.5.26):7799632 load=4.43
+23:54:02 total_kb=8519440 root60038_kb=73712 root60276_kb=8445728 top=next-server (v15.5.26):7799632 load=4.16
+23:54:07 total_kb=8519360 root60038_kb=73712 root60276_kb=8445648 top=next-server (v15.5.26):7799616 load=4.14
+23:54:12 total_kb=8519424 root60038_kb=73776 root60276_kb=8445648 top=next-server (v15.5.26):7799616 load=4.37
+23:54:17 total_kb=8519424 root60038_kb=73776 root60276_kb=8445648 top=next-server (v15.5.26):7799616 load=4.18
+23:54:22 total_kb=8519424 root60038_kb=73776 root60276_kb=8445648 top=next-server (v15.5.26):7799616 load=4.01
+23:54:27 total_kb=8557344 root60038_kb=74912 root60276_kb=8482432 top=next-server (v15.5.26):7803696 load=3.85
+23:54:33 total_kb=8557760 root60038_kb=74912 root60276_kb=8482848 top=next-server (v15.5.26):7804128 load=3.62
+23:54:38 total_kb=8558608 root60038_kb=75696 root60276_kb=8482912 top=next-server (v15.5.26):7804096 load=3.33
+23:54:43 total_kb=8558608 root60038_kb=75696 root60276_kb=8482912 top=next-server (v15.5.26):7804096 load=3.46
+23:54:48 total_kb=8558608 root60038_kb=75696 root60276_kb=8482912 top=next-server (v15.5.26):7804096 load=3.26
+23:54:53 total_kb=8558608 root60038_kb=75696 root60276_kb=8482912 top=next-server (v15.5.26):7804096 load=3.24
+23:54:58 total_kb=8558608 root60038_kb=75696 root60276_kb=8482912 top=next-server (v15.5.26):7804096 load=3.14
+23:55:03 total_kb=8558608 root60038_kb=75696 root60276_kb=8482912 top=next-server (v15.5.26):7804096 load=3.21
+23:55:08 total_kb=8558464 root60038_kb=75968 root60276_kb=8482496 top=next-server (v15.5.26):7801824 load=3.11
+23:55:13 total_kb=8559664 root60038_kb=76176 root60276_kb=8483488 top=next-server (v15.5.26):7802624 load=2.94
+23:55:18 total_kb=8504944 root60038_kb=76176 root60276_kb=8428768 top=next-server (v15.5.26):7747904 load=3.03
+23:55:23 total_kb=8504944 root60038_kb=76176 root60276_kb=8428768 top=next-server (v15.5.26):7747904 load=2.95
+23:55:28 total_kb=8504944 root60038_kb=76176 root60276_kb=8428768 top=next-server (v15.5.26):7747904 load=2.71
+23:55:33 total_kb=8504944 root60038_kb=76176 root60276_kb=8428768 top=next-server (v15.5.26):7747904 load=2.65
+23:55:38 total_kb=8529904 root60038_kb=76176 root60276_kb=8453728 top=next-server (v15.5.26):7750288 load=2.76
+23:55:43 total_kb=8529904 root60038_kb=76176 root60276_kb=8453728 top=next-server (v15.5.26):7750288 load=2.70
+23:55:49 total_kb=8534528 root60038_kb=76192 root60276_kb=8458336 top=next-server (v15.5.26):7754896 load=2.72
+23:55:54 total_kb=8566640 root60038_kb=76416 root60276_kb=8490224 top=next-server (v15.5.26):7786352 load=2.67
+23:55:59 total_kb=8566592 root60038_kb=76416 root60276_kb=8490176 top=next-server (v15.5.26):7786304 load=2.77
+23:56:04 total_kb=8566592 root60038_kb=76416 root60276_kb=8490176 top=next-server (v15.5.26):7786304 load=2.95
+23:56:09 total_kb=8566592 root60038_kb=76416 root60276_kb=8490176 top=next-server (v15.5.26):7786304 load=3.11
+23:56:14 total_kb=8566592 root60038_kb=76416 root60276_kb=8490176 top=next-server (v15.5.26):7786304 load=4.71
+23:56:19 total_kb=8566592 root60038_kb=76416 root60276_kb=8490176 top=next-server (v15.5.26):7786304 load=4.65
+23:56:24 total_kb=8566592 root60038_kb=76416 root60276_kb=8490176 top=next-server (v15.5.26):7786304 load=4.68
+23:56:29 total_kb=8566592 root60038_kb=76416 root60276_kb=8490176 top=next-server (v15.5.26):7786304 load=4.54
+23:56:34 total_kb=8566592 root60038_kb=76416 root60276_kb=8490176 top=next-server (v15.5.26):7786304 load=4.90
+23:56:39 total_kb=8566592 root60038_kb=76416 root60276_kb=8490176 top=next-server (v15.5.26):7786304 load=5.31
+23:56:44 total_kb=8566624 root60038_kb=76416 root60276_kb=8490208 top=next-server (v15.5.26):7786336 load=5.12
+23:56:49 total_kb=8566704 root60038_kb=76416 root60276_kb=8490288 top=next-server (v15.5.26):7786416 load=4.79
+23:56:54 total_kb=8566704 root60038_kb=76416 root60276_kb=8490288 top=next-server (v15.5.26):7786416 load=4.49
+23:56:59 total_kb=8566768 root60038_kb=76416 root60276_kb=8490352 top=next-server (v15.5.26):7786480 load=4.29
+23:57:04 total_kb=8566768 root60038_kb=76416 root60276_kb=8490352 top=next-server (v15.5.26):7786480 load=4.35
+23:57:10 total_kb=8566768 root60038_kb=76416 root60276_kb=8490352 top=next-server (v15.5.26):7786480 load=4.16
+23:57:15 total_kb=76416 root60038_kb=76416 root60276_kb=0 top=node:76416 load=3.82
+23:57:20 total_kb=76416 root60038_kb=76416 root60276_kb=0 top=node:76416 load=3.76
+23:57:25 total_kb=76416 root60038_kb=76416 root60276_kb=0 top=node:76416 load=3.62
+23:57:30 total_kb=76416 root60038_kb=76416 root60276_kb=0 top=node:76416 load=3.41
+23:57:35 total_kb=76416 root60038_kb=76416 root60276_kb=0 top=node:76416 load=3.29
+23:57:40 total_kb=76416 root60038_kb=76416 root60276_kb=0 top=node:76416 load=3.11
+23:57:45 total_kb=76416 root60038_kb=76416 root60276_kb=0 top=node:76416 load=2.86
+23:57:50 total_kb=76416 root60038_kb=76416 root60276_kb=0 top=node:76416 load=2.71
+23:57:55 total_kb=76416 root60038_kb=76416 root60276_kb=0 top=node:76416 load=2.81
+23:58:00 total_kb=76416 root60038_kb=76416 root60276_kb=0 top=node:76416 load=3.08
+23:58:05 total_kb=76416 root60038_kb=76416 root60276_kb=0 top=node:76416 load=2.91
+23:58:10 total_kb=76416 root60038_kb=76416 root60276_kb=0 top=node:76416 load=2.84
+23:58:15 total_kb=76416 root60038_kb=76416 root60276_kb=0 top=node:76416 load=2.93
+23:58:21 total_kb=76416 root60038_kb=76416 root60276_kb=0 top=node:76416 load=2.77
+23:58:26 total_kb=76416 root60038_kb=76416 root60276_kb=0 top=node:76416 load=3.03
+23:58:31 total_kb=76416 root60038_kb=76416 root60276_kb=0 top=node:76416 load=3.19
+# sampler stopped 2026-09-23T23:58:36Z
+# --- matrix sampling (2 s): roots = AIMock 60038 + each batch's fresh stack boot + each batch's runner, added as they start; 2026-09-23T23:58:40Z
+# RSS samples (KiB), every 2 s: all descendants of the roots in /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/roots.txt. Other agents' processes are excluded by ancestry. WARN >= 9.5 GB, ABORT (runner SIGTERM) >= 10.5 GB, hard cap 11 GB.
+23:58:40 total_kb=76416 root60038_kb=76416 top=node:76416 load=3.61
+23:58:42 total_kb=76416 root60038_kb=76416 top=node:76416 load=3.61
+23:58:44 total_kb=76416 root60038_kb=76416 top=node:76416 load=3.61
+23:58:46 total_kb=76416 root60038_kb=76416 top=node:76416 load=3.32
+23:58:49 total_kb=76416 root60038_kb=76416 top=node:76416 load=3.32
+23:58:51 total_kb=76416 root60038_kb=76416 top=node:76416 load=3.61
+23:58:53 total_kb=76416 root60038_kb=76416 top=node:76416 load=3.61
+23:58:55 total_kb=76416 root60038_kb=76416 top=node:76416 load=3.61
+23:58:57 total_kb=76416 root60038_kb=76416 top=node:76416 load=3.40
+23:58:59 total_kb=76416 root60038_kb=76416 top=node:76416 load=3.40
+23:59:01 total_kb=76416 root60038_kb=76416 top=node:76416 load=4.97
+23:59:03 total_kb=76416 root60038_kb=76416 top=node:76416 load=4.97
+23:59:05 total_kb=76416 root60038_kb=76416 top=node:76416 load=4.97
+23:59:07 total_kb=76416 root60038_kb=76416 top=node:76416 load=4.89
+23:59:09 total_kb=76416 root60038_kb=76416 top=node:76416 load=4.89
+23:59:11 total_kb=76416 root60038_kb=76416 top=node:76416 load=4.66
+23:59:13 total_kb=76416 root60038_kb=76416 top=node:76416 load=4.66
+23:59:15 total_kb=76416 root60038_kb=76416 top=node:76416 load=4.69
+23:59:17 total_kb=76416 root60038_kb=76416 top=node:76416 load=4.69
+23:59:19 total_kb=640256 root60038_kb=76416 root71552_kb=563840 top=node:177184 load=4.69
+23:59:21 total_kb=1509568 root60038_kb=76416 root71552_kb=1433152 top=next-server (v15.5.26):746288 load=4.39
+23:59:24 total_kb=3381072 root60038_kb=76416 root71552_kb=3304656 top=next-server (v15.5.26):2617760 load=4.39
+23:59:26 total_kb=3699216 root60038_kb=76416 root71552_kb=3622800 top=next-server (v15.5.26):2935920 load=4.20
+23:59:28 total_kb=3876464 root60038_kb=76416 root71552_kb=3800048 top=next-server (v15.5.26):3125200 load=4.20
+23:59:30 total_kb=4064448 root60038_kb=76416 root71552_kb=3988032 top=next-server (v15.5.26):3324560 load=4.20
+23:59:32 total_kb=4279536 root60038_kb=76416 root71552_kb=4203120 top=next-server (v15.5.26):3540576 load=4.35
+23:59:34 total_kb=4480704 root60038_kb=76416 root71552_kb=4404288 top=next-server (v15.5.26):3741728 load=4.35
+23:59:36 total_kb=4837712 root60038_kb=76416 root71552_kb=4761296 top=next-server (v15.5.26):4117280 load=4.32
+23:59:38 total_kb=4983248 root60038_kb=76416 root71552_kb=4906832 top=next-server (v15.5.26):4262784 load=4.32
+23:59:40 total_kb=5186016 root60038_kb=76416 root71552_kb=5109600 top=next-server (v15.5.26):4465520 load=4.32
+23:59:42 total_kb=5342944 root60038_kb=76416 root71552_kb=5266528 top=next-server (v15.5.26):4622432 load=5.33
+23:59:44 total_kb=5812816 root60038_kb=76416 root71552_kb=5736400 top=next-server (v15.5.26):5092272 load=5.33
+23:59:46 total_kb=5896784 root60038_kb=76432 root71552_kb=5820352 top=next-server (v15.5.26):5216784 load=5.39
+23:59:48 total_kb=5916144 root60038_kb=76432 root71552_kb=5839712 top=next-server (v15.5.26):5236096 load=5.39
+23:59:50 total_kb=6033312 root60038_kb=76432 root71552_kb=5956880 top=next-server (v15.5.26):5301120 load=5.39
+23:59:52 total_kb=6219184 root60038_kb=76432 root71552_kb=5917632 root72159_kb=225120 top=next-server (v15.5.26):5313952 load=5.19
+23:59:54 total_kb=7709568 root60038_kb=76432 root71552_kb=6060320 root72159_kb=1572816 top=next-server (v15.5.26):5456464 load=5.19
+23:59:56 total_kb=7813296 root60038_kb=76784 root71552_kb=6118736 root72159_kb=1617776 top=next-server (v15.5.26):5480912 load=5.10
+23:59:59 total_kb=8008336 root60038_kb=77568 root71552_kb=6182336 root72159_kb=1748432 top=next-server (v15.5.26):5542512 load=5.10
+00:00:01 total_kb=7914656 root60038_kb=78160 root71552_kb=6299184 root72159_kb=1537312 top=next-server (v15.5.26):5659056 load=5.17
+00:00:03 total_kb=8184480 root60038_kb=77584 root71552_kb=6501520 root72159_kb=1605376 top=next-server (v15.5.26):5858784 load=5.17
+00:00:05 total_kb=8186096 root60038_kb=77888 root71552_kb=6518992 root72159_kb=1589216 top=next-server (v15.5.26):5876240 load=5.17
+00:00:07 total_kb=8304256 root60038_kb=78160 root71552_kb=6661232 root72159_kb=1564864 top=next-server (v15.5.26):6018272 load=5.16
+00:00:09 total_kb=8645968 root60038_kb=77712 root71552_kb=6959328 root72159_kb=1608928 top=next-server (v15.5.26):6316128 load=5.16
+00:00:11 total_kb=8717232 root60038_kb=78192 root71552_kb=7070448 root72159_kb=1568592 top=next-server (v15.5.26):6427248 load=5.14
+00:00:13 total_kb=8887200 root60038_kb=77728 root71552_kb=7270896 root72159_kb=1538576 top=next-server (v15.5.26):6625600 load=5.14
+00:00:15 total_kb=9008864 root60038_kb=77728 root71552_kb=7363216 root72159_kb=1567920 top=next-server (v15.5.26):6717872 load=5.14
+00:00:17 total_kb=9039776 root60038_kb=77728 root71552_kb=7375200 root72159_kb=1586848 top=next-server (v15.5.26):6729856 load=5.05
+00:00:19 total_kb=9104256 root60038_kb=78208 root71552_kb=7501216 root72159_kb=1524832 top=next-server (v15.5.26):6855792 load=5.05
+00:00:21 total_kb=9530864 root60038_kb=77808 root71552_kb=7857056 root72159_kb=1596000 top=next-server (v15.5.26):7209456 load=4.97 WARN>=9.5GB
+00:00:23 total_kb=9778752 root60038_kb=77920 root71552_kb=8047280 root72159_kb=1653552 top=next-server (v15.5.26):7397584 load=4.97 WARN>=9.5GB
+00:00:25 total_kb=9834752 root60038_kb=77920 root71552_kb=8075888 root72159_kb=1680944 top=next-server (v15.5.26):7425920 load=4.97 WARN>=9.5GB
+00:00:27 total_kb=10005136 root60038_kb=77936 root71552_kb=8034464 root72159_kb=1892736 top=next-server (v15.5.26):7384480 load=5.29 WARN>=9.5GB
+00:00:29 total_kb=10019168 root60038_kb=78048 root71552_kb=8085888 root72159_kb=1855232 top=next-server (v15.5.26):7434464 load=5.29 WARN>=9.5GB
+00:00:31 total_kb=10141504 root60038_kb=78304 root71552_kb=8101696 root72159_kb=1961504 top=next-server (v15.5.26):7443248 load=6.47 WARN>=9.5GB
+00:00:34 total_kb=9299024 root60038_kb=79312 root71552_kb=8105664 root72159_kb=1114048 top=next-server (v15.5.26):7446592 load=6.47 WARN>=9.5GB
+00:00:36 total_kb=9604784 root60038_kb=80864 root71552_kb=8118000 root72159_kb=1405920 top=next-server (v15.5.26):7458576 load=6.35 WARN>=9.5GB
+00:00:38 total_kb=9716688 root60038_kb=80896 root71552_kb=8130656 root72159_kb=1505136 top=next-server (v15.5.26):7464112 load=6.35 WARN>=9.5GB
+00:00:40 total_kb=9065024 root60038_kb=81536 root71552_kb=8132480 root72159_kb=851008 top=next-server (v15.5.26):7465344 load=6.35
+00:00:42 total_kb=82160 root60038_kb=82160 root71552_kb=0 root72159_kb=0 top=node:82160 load=6.08
+00:00:44 total_kb=82160 root60038_kb=82160 root71552_kb=0 root72159_kb=0 top=node:82160 load=6.08
+00:00:46 total_kb=82160 root60038_kb=82160 root71552_kb=0 root72159_kb=0 top=node:82160 load=5.92
+00:00:48 total_kb=82160 root60038_kb=82160 root71552_kb=0 root72159_kb=0 top=node:82160 load=5.92
+00:00:50 total_kb=82160 root60038_kb=82160 root71552_kb=0 root72159_kb=0 top=node:82160 load=5.92
+00:00:52 total_kb=82160 root60038_kb=82160 root71552_kb=0 root72159_kb=0 top=node:82160 load=5.52
+00:00:54 total_kb=82160 root60038_kb=82160 root71552_kb=0 root72159_kb=0 top=node:82160 load=5.52
+00:00:56 total_kb=82160 root60038_kb=82160 root71552_kb=0 root72159_kb=0 top=node:82160 load=5.64
+00:00:58 total_kb=82160 root60038_kb=82160 root71552_kb=0 root72159_kb=0 top=node:82160 load=5.64
+00:01:00 total_kb=82160 root60038_kb=82160 root71552_kb=0 root72159_kb=0 top=node:82160 load=5.67
+00:01:02 total_kb=82160 root60038_kb=82160 root71552_kb=0 root72159_kb=0 top=node:82160 load=5.67
+00:01:05 total_kb=82160 root60038_kb=82160 root71552_kb=0 root72159_kb=0 top=node:82160 load=5.67
+00:01:07 total_kb=82160 root60038_kb=82160 root71552_kb=0 root72159_kb=0 top=node:82160 load=5.77
+00:01:09 total_kb=82160 root60038_kb=82160 root71552_kb=0 root72159_kb=0 top=node:82160 load=5.77
+00:01:11 total_kb=82160 root60038_kb=82160 root71552_kb=0 root72159_kb=0 top=node:82160 load=5.95
+00:01:13 total_kb=82160 root60038_kb=82160 root71552_kb=0 root72159_kb=0 top=node:82160 load=5.95
+00:01:15 total_kb=82160 root60038_kb=82160 root71552_kb=0 root72159_kb=0 top=node:82160 load=5.95
+00:01:17 total_kb=82160 root60038_kb=82160 root71552_kb=0 root72159_kb=0 top=node:82160 load=5.96
+00:01:19 total_kb=82160 root60038_kb=82160 root71552_kb=0 root72159_kb=0 top=node:82160 load=5.96
+00:01:21 total_kb=82160 root60038_kb=82160 root71552_kb=0 root72159_kb=0 top=node:82160 load=5.96
+00:01:23 total_kb=82160 root60038_kb=82160 root71552_kb=0 root72159_kb=0 top=node:82160 load=5.96
+00:01:25 total_kb=82160 root60038_kb=82160 root71552_kb=0 root72159_kb=0 top=node:82160 load=5.96
+00:01:27 total_kb=968448 root60038_kb=82160 root71552_kb=0 root72159_kb=0 root74507_kb=886288 top=next-server (v15.5.26):426256 load=6.04
+00:01:29 total_kb=2332880 root60038_kb=82160 root71552_kb=0 root72159_kb=0 root74507_kb=2250720 top=next-server (v15.5.26):1648624 load=6.04
+00:01:31 total_kb=3365504 root60038_kb=82160 root71552_kb=0 root72159_kb=0 root74507_kb=3283344 top=next-server (v15.5.26):2681264 load=7.32
+00:01:34 total_kb=3537216 root60038_kb=82160 root71552_kb=0 root72159_kb=0 root74507_kb=3455056 top=next-server (v15.5.26):2852976 load=7.32
+00:01:36 total_kb=3691552 root60038_kb=82160 root71552_kb=0 root72159_kb=0 root74507_kb=3609392 top=next-server (v15.5.26):3038816 load=8.50
+00:01:38 total_kb=3896448 root60038_kb=82160 root71552_kb=0 root72159_kb=0 root74507_kb=3814288 top=next-server (v15.5.26):3276768 load=8.50
+00:01:40 total_kb=4089712 root60038_kb=82160 root71552_kb=0 root72159_kb=0 root74507_kb=4007552 top=next-server (v15.5.26):3469968 load=8.50
+00:01:42 total_kb=4462320 root60038_kb=82160 root71552_kb=0 root72159_kb=0 root74507_kb=4380160 top=next-server (v15.5.26):3842512 load=7.97
+00:01:44 total_kb=4914160 root60038_kb=82160 root71552_kb=0 root72159_kb=0 root74507_kb=4832000 top=next-server (v15.5.26):4294304 load=7.97
+00:01:46 total_kb=4938960 root60038_kb=82160 root71552_kb=0 root72159_kb=0 root74507_kb=4856800 top=next-server (v15.5.26):4319056 load=7.66
+00:01:48 total_kb=5045440 root60038_kb=82160 root71552_kb=0 root72159_kb=0 root74507_kb=4963280 top=next-server (v15.5.26):4369056 load=7.66
+00:01:50 total_kb=5715488 root60038_kb=82160 root71552_kb=0 root72159_kb=0 root74507_kb=4928080 root74888_kb=705248 top=next-server (v15.5.26):4390272 load=7.66
+00:01:52 total_kb=6782336 root60038_kb=82160 root71552_kb=0 root72159_kb=0 root74507_kb=5210032 root74888_kb=1490144 top=next-server (v15.5.26):4671536 load=7.76
+00:01:54 total_kb=7222928 root60038_kb=82160 root71552_kb=0 root72159_kb=0 root74507_kb=5627520 root74888_kb=1513248 top=next-server (v15.5.26):5088256 load=7.76
+00:01:56 total_kb=7373632 root60038_kb=81648 root71552_kb=0 root72159_kb=0 root74507_kb=5702928 root74888_kb=1589056 top=next-server (v15.5.26):5123440 load=7.30
+00:01:58 total_kb=7536400 root60038_kb=81952 root71552_kb=0 root72159_kb=0 root74507_kb=5827968 root74888_kb=1626480 top=next-server (v15.5.26):5248128 load=7.30
+00:02:00 total_kb=7841504 root60038_kb=81744 root71552_kb=0 root72159_kb=0 root74507_kb=6109456 root74888_kb=1650304 top=next-server (v15.5.26):5526880 load=7.30
+00:02:02 total_kb=8037792 root60038_kb=82256 root71552_kb=0 root72159_kb=0 root74507_kb=6312608 root74888_kb=1642928 top=next-server (v15.5.26):5727760 load=7.36
+00:02:04 total_kb=8157232 root60038_kb=81776 root71552_kb=0 root72159_kb=0 root74507_kb=6377488 root74888_kb=1697968 top=next-server (v15.5.26):5790560 load=7.36
+00:02:06 total_kb=8166032 root60038_kb=82624 root71552_kb=0 root72159_kb=0 root74507_kb=6399840 root74888_kb=1683568 top=next-server (v15.5.26):5810640 load=7.17
+00:02:09 total_kb=7851968 root60038_kb=83712 root71552_kb=0 root72159_kb=0 root74507_kb=6427584 root74888_kb=1340672 top=next-server (v15.5.26):5834096 load=7.17
+00:02:11 total_kb=7600112 root60038_kb=84336 root71552_kb=0 root72159_kb=0 root74507_kb=6431584 root74888_kb=1084192 top=next-server (v15.5.26):5835872 load=6.99
+00:02:13 total_kb=7620368 root60038_kb=83712 root71552_kb=0 root72159_kb=0 root74507_kb=6432368 root74888_kb=1104288 top=next-server (v15.5.26):5836576 load=6.99
+00:02:15 total_kb=7327088 root60038_kb=84352 root71552_kb=0 root72159_kb=0 root74507_kb=6447104 root74888_kb=795632 top=next-server (v15.5.26):5851312 load=6.99
+00:02:17 total_kb=5976960 root60038_kb=84400 root71552_kb=0 root72159_kb=0 root74507_kb=5660496 root74888_kb=232064 top=next-server (v15.5.26):5064704 load=6.59
+00:02:19 total_kb=84400 root60038_kb=84400 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 top=node:84400 load=6.59
+00:02:21 total_kb=84400 root60038_kb=84400 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 top=node:84400 load=6.71
+00:02:23 total_kb=84400 root60038_kb=84400 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 top=node:84400 load=6.71
+00:02:25 total_kb=84400 root60038_kb=84400 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 top=node:84400 load=6.71
+00:02:27 total_kb=1177264 root60038_kb=84400 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=1092864 top=next-server (v15.5.26):632352 load=6.49
+00:02:29 total_kb=2785504 root60038_kb=84400 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=2701104 top=next-server (v15.5.26):2096320 load=6.49
+00:02:31 total_kb=3382384 root60038_kb=84400 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=3297984 top=next-server (v15.5.26):2693216 load=7.09
+00:02:33 total_kb=3736368 root60038_kb=84400 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=3651968 top=next-server (v15.5.26):3049504 load=7.09
+00:02:35 total_kb=3911376 root60038_kb=84400 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=3826976 top=next-server (v15.5.26):3254304 load=7.09
+00:02:37 total_kb=4049760 root60038_kb=84400 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=3965360 top=next-server (v15.5.26):3425840 load=6.76
+00:02:39 total_kb=4233792 root60038_kb=84400 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=4149392 top=next-server (v15.5.26):3609840 load=6.76
+00:02:41 total_kb=4794496 root60038_kb=84400 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=4710096 top=next-server (v15.5.26):4170528 load=6.94
+00:02:43 total_kb=5054880 root60038_kb=84400 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=4970480 top=next-server (v15.5.26):4430848 load=6.94
+00:02:46 total_kb=5081584 root60038_kb=84400 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=4997184 top=next-server (v15.5.26):4457504 load=6.87
+00:02:48 total_kb=5113216 root60038_kb=84400 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5028816 top=next-server (v15.5.26):4489104 load=6.87
+00:02:50 total_kb=6142032 root60038_kb=84400 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5099888 root76494_kb=957744 top=next-server (v15.5.26):4560128 load=6.87
+00:02:52 total_kb=6681056 root60038_kb=84400 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5179056 root76494_kb=1417600 top=next-server (v15.5.26):4639200 load=7.04
+00:02:54 total_kb=6864752 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5265040 root76494_kb=1515904 top=next-server (v15.5.26):4686208 load=7.04
+00:02:56 total_kb=6840896 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5353936 root76494_kb=1403152 top=next-server (v15.5.26):4710704 load=7.27
+00:02:58 total_kb=6588544 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5297184 root76494_kb=1207552 top=next-server (v15.5.26):4716848 load=7.27
+00:03:00 total_kb=6893136 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5354752 root76494_kb=1454544 top=next-server (v15.5.26):4771856 load=7.27
+00:03:02 total_kb=6984800 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5383664 root76494_kb=1517296 top=next-server (v15.5.26):4796048 load=7.25
+00:03:04 total_kb=6748608 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5413104 root76494_kb=1251664 top=next-server (v15.5.26):4825424 load=7.25
+00:03:06 total_kb=6770784 root60038_kb=83856 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5430592 root76494_kb=1256336 top=next-server (v15.5.26):4842736 load=6.75
+00:03:08 total_kb=6503152 root60038_kb=83856 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5442608 root76494_kb=976688 top=next-server (v15.5.26):4854672 load=6.75
+00:03:10 total_kb=6348096 root60038_kb=83856 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5283728 root76494_kb=980512 top=next-server (v15.5.26):4695776 load=6.75
+00:03:12 total_kb=6355968 root60038_kb=83856 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5288080 root76494_kb=984032 top=next-server (v15.5.26):4700112 load=6.53
+00:03:14 total_kb=6369520 root60038_kb=83856 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5298080 root76494_kb=987584 top=next-server (v15.5.26):4709984 load=6.53
+00:03:16 total_kb=6371776 root60038_kb=83856 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5299712 root76494_kb=988208 top=next-server (v15.5.26):4711600 load=6.33
+00:03:19 total_kb=6377040 root60038_kb=83856 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5300800 root76494_kb=992384 top=next-server (v15.5.26):4712640 load=6.33
+00:03:21 total_kb=6393424 root60038_kb=83856 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5301984 root76494_kb=1007584 top=next-server (v15.5.26):4713712 load=5.82
+00:03:23 total_kb=6037104 root60038_kb=84016 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5307728 root76494_kb=645360 top=next-server (v15.5.26):4719440 load=5.82
+00:03:25 total_kb=6037040 root60038_kb=84016 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5307728 root76494_kb=645296 top=next-server (v15.5.26):4719440 load=5.82
+00:03:27 total_kb=6037104 root60038_kb=84016 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5307728 root76494_kb=645360 top=next-server (v15.5.26):4719440 load=5.67
+00:03:29 total_kb=6037120 root60038_kb=84016 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5307728 root76494_kb=645376 top=next-server (v15.5.26):4719440 load=5.67
+00:03:31 total_kb=6026976 root60038_kb=84016 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5307728 root76494_kb=635232 top=next-server (v15.5.26):4719440 load=5.62
+00:03:33 total_kb=6027552 root60038_kb=84016 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5307728 root76494_kb=635808 top=next-server (v15.5.26):4719440 load=5.62
+00:03:35 total_kb=6070560 root60038_kb=84016 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5313424 root76494_kb=673120 top=next-server (v15.5.26):4725136 load=5.62
+00:03:37 total_kb=6095152 root60038_kb=84016 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5317792 root76494_kb=693344 top=next-server (v15.5.26):4729504 load=5.41
+00:03:39 total_kb=6107424 root60038_kb=83856 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5320128 root76494_kb=703440 top=next-server (v15.5.26):4731840 load=5.41
+00:03:41 total_kb=6136752 root60038_kb=83856 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5334608 root76494_kb=718288 top=next-server (v15.5.26):4746320 load=5.30
+00:03:43 total_kb=6136960 root60038_kb=83856 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=5334608 root76494_kb=718496 top=next-server (v15.5.26):4746320 load=5.30
+00:03:45 total_kb=84176 root60038_kb=84176 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84176 load=5.30
+00:03:47 total_kb=84176 root60038_kb=84176 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84176 load=4.95
+00:03:50 total_kb=84176 root60038_kb=84176 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84176 load=4.95
+00:03:52 total_kb=84176 root60038_kb=84176 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84176 load=4.72
+00:03:54 total_kb=84176 root60038_kb=84176 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84176 load=4.72
+00:03:56 total_kb=84176 root60038_kb=84176 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84176 load=4.74
+00:03:58 total_kb=84176 root60038_kb=84176 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84176 load=4.74
+00:04:00 total_kb=84176 root60038_kb=84176 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84176 load=4.74
+00:04:02 total_kb=84176 root60038_kb=84176 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84176 load=4.76
+00:04:04 total_kb=84176 root60038_kb=84176 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84176 load=4.76
+00:04:06 total_kb=84176 root60038_kb=84176 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84176 load=4.54
+00:04:08 total_kb=84176 root60038_kb=84176 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84176 load=4.54
+00:04:10 total_kb=84176 root60038_kb=84176 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84176 load=4.54
+00:04:12 total_kb=84176 root60038_kb=84176 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84176 load=4.81
+00:04:14 total_kb=84176 root60038_kb=84176 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84176 load=4.81
+00:04:16 total_kb=84176 root60038_kb=84176 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84176 load=4.51
+00:04:18 total_kb=84176 root60038_kb=84176 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84176 load=4.51
+00:04:20 total_kb=84080 root60038_kb=84080 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84080 load=4.51
+00:04:22 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.39
+00:04:25 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.39
+00:04:27 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.68
+00:04:29 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.68
+00:04:31 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.46
+00:04:33 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.46
+00:04:35 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.46
+00:04:37 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.67
+00:04:39 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.67
+00:04:41 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.45
+00:04:43 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.45
+00:04:45 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.45
+00:04:47 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.25
+00:04:49 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.25
+00:04:51 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.63
+00:04:54 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.63
+00:04:56 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.26
+00:04:58 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.26
+00:05:00 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.26
+00:05:02 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.32
+00:05:04 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.32
+00:05:06 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.06
+00:05:08 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.06
+00:05:10 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.06
+00:05:12 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.13
+00:05:14 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=4.13
+00:05:16 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=3.96
+00:05:18 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=3.96
+00:05:20 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=3.96
+00:05:23 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=3.88
+00:05:25 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=3.88
+00:05:27 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=3.65
+00:05:29 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=3.65
+00:05:31 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=3.68
+00:05:33 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=3.68
+00:05:35 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=3.68
+00:05:37 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=3.46
+00:05:39 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=3.46
+00:05:41 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=3.75
+00:05:43 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=3.75
+00:05:45 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=3.75
+00:05:47 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=3.53
+00:05:49 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=3.53
+00:05:51 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=3.48
+00:05:53 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=3.48
+00:05:56 total_kb=84048 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 top=node:84048 load=3.61
+00:05:58 total_kb=656016 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=571968 top=node:178560 load=3.61
+00:06:00 total_kb=1264512 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=1180464 top=next-server (v15.5.26):717760 load=3.61
+00:06:02 total_kb=2860352 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=2776304 top=next-server (v15.5.26):2088640 load=4.92
+00:06:04 total_kb=3568176 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3484128 top=next-server (v15.5.26):2796464 load=4.92
+00:06:06 total_kb=3995216 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3911168 top=next-server (v15.5.26):3255424 load=4.76
+00:06:08 total_kb=3995216 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3911168 top=next-server (v15.5.26):3255424 load=4.76
+00:06:10 total_kb=3983392 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3899344 top=next-server (v15.5.26):3255440 load=4.76
+00:06:12 total_kb=3951936 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3867888 top=next-server (v15.5.26):3255984 load=5.02
+00:06:14 total_kb=3956656 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3872608 top=next-server (v15.5.26):3224448 load=5.02
+00:06:16 total_kb=3948912 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3864864 top=next-server (v15.5.26):3216704 load=5.18
+00:06:18 total_kb=3948912 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3864864 top=next-server (v15.5.26):3216704 load=5.18
+00:06:20 total_kb=3906944 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3822896 top=next-server (v15.5.26):3216816 load=5.18
+00:06:22 total_kb=3905504 root60038_kb=84048 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3821456 top=next-server (v15.5.26):3216736 load=4.77
+00:06:25 total_kb=4102752 root60038_kb=84064 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3821456 root90276_kb=197232 top=next-server (v15.5.26):3216736 load=4.77
+00:06:27 total_kb=4756464 root60038_kb=84064 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3940064 root90276_kb=732336 top=next-server (v15.5.26):3335136 load=4.46
+00:06:29 total_kb=4868160 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4030416 root90276_kb=753952 top=next-server (v15.5.26):3391536 load=4.46
+00:06:31 total_kb=4868288 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4030416 root90276_kb=754080 top=next-server (v15.5.26):3391536 load=4.51
+00:06:33 total_kb=4846240 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4030416 root90276_kb=732032 top=next-server (v15.5.26):3391536 load=4.51
+00:06:35 total_kb=4804544 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4030400 root90276_kb=690352 top=next-server (v15.5.26):3391536 load=4.51
+00:06:37 total_kb=4684192 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3910464 root90276_kb=689936 top=next-server (v15.5.26):3271600 load=4.23
+00:06:39 total_kb=4683920 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3910464 root90276_kb=689664 top=next-server (v15.5.26):3271600 load=4.23
+00:06:41 total_kb=4684016 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3910464 root90276_kb=689760 top=next-server (v15.5.26):3271600 load=4.21
+00:06:43 total_kb=4685584 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3910464 root90276_kb=691328 top=next-server (v15.5.26):3271600 load=4.21
+00:06:45 total_kb=4685712 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3910464 root90276_kb=691456 top=next-server (v15.5.26):3271600 load=4.21
+00:06:47 total_kb=4685952 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3910464 root90276_kb=691696 top=next-server (v15.5.26):3271600 load=4.11
+00:06:49 total_kb=4686000 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3910464 root90276_kb=691744 top=next-server (v15.5.26):3271600 load=4.11
+00:06:51 total_kb=4686032 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3910464 root90276_kb=691776 top=next-server (v15.5.26):3271600 load=4.18
+00:06:53 total_kb=4686128 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3910464 root90276_kb=691872 top=next-server (v15.5.26):3271600 load=4.18
+00:06:55 total_kb=4664544 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3910528 root90276_kb=670224 top=next-server (v15.5.26):3271664 load=4.18
+00:06:58 total_kb=4663024 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3910528 root90276_kb=668704 top=next-server (v15.5.26):3271664 load=4.01
+00:07:00 total_kb=4663408 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3910528 root90276_kb=669088 top=next-server (v15.5.26):3271664 load=4.01
+00:07:02 total_kb=4663824 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3910528 root90276_kb=669504 top=next-server (v15.5.26):3271664 load=3.77
+00:07:04 total_kb=4664128 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3910528 root90276_kb=669808 top=next-server (v15.5.26):3271664 load=3.77
+00:07:06 total_kb=4664448 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3910528 root90276_kb=670128 top=next-server (v15.5.26):3271664 load=3.70
+00:07:08 total_kb=4664640 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3910528 root90276_kb=670320 top=next-server (v15.5.26):3271664 load=3.70
+00:07:10 total_kb=4664688 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3910528 root90276_kb=670368 top=next-server (v15.5.26):3271664 load=3.70
+00:07:12 total_kb=4668128 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3910560 root90276_kb=673776 top=next-server (v15.5.26):3271696 load=3.81
+00:07:14 total_kb=4668224 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3910560 root90276_kb=673872 top=next-server (v15.5.26):3271696 load=3.81
+00:07:16 total_kb=4668336 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3910592 root90276_kb=673952 top=next-server (v15.5.26):3271728 load=3.66
+00:07:18 total_kb=4668432 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3910592 root90276_kb=674048 top=next-server (v15.5.26):3271728 load=3.66
+00:07:20 total_kb=4668464 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3910592 root90276_kb=674080 top=next-server (v15.5.26):3271728 load=3.66
+00:07:22 total_kb=4668608 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3910592 root90276_kb=674224 top=next-server (v15.5.26):3271728 load=3.69
+00:07:24 total_kb=4668448 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3910592 root90276_kb=674064 top=next-server (v15.5.26):3271728 load=3.69
+00:07:26 total_kb=4676720 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3944080 root90276_kb=648848 top=next-server (v15.5.26):3305216 load=3.47
+00:07:28 total_kb=4827376 root60038_kb=83792 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4040640 root90276_kb=702944 top=next-server (v15.5.26):3401440 load=3.47
+00:07:31 total_kb=4856576 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4050480 root90276_kb=722288 top=next-server (v15.5.26):3410864 load=3.47
+00:07:33 total_kb=4849952 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4050480 root90276_kb=715664 top=next-server (v15.5.26):3410864 load=3.36
+00:07:35 total_kb=4840640 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4050480 root90276_kb=706352 top=next-server (v15.5.26):3410864 load=3.36
+00:07:37 total_kb=4730064 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939728 root90276_kb=706528 top=next-server (v15.5.26):3300112 load=3.65
+00:07:39 total_kb=4729424 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939728 root90276_kb=705888 top=next-server (v15.5.26):3300112 load=3.65
+00:07:41 total_kb=4729568 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939728 root90276_kb=706032 top=next-server (v15.5.26):3300112 load=3.59
+00:07:43 total_kb=4732464 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939728 root90276_kb=708928 top=next-server (v15.5.26):3300112 load=3.59
+00:07:45 total_kb=4736368 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939728 root90276_kb=712832 top=next-server (v15.5.26):3300112 load=3.59
+00:07:47 total_kb=4736480 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939728 root90276_kb=712944 top=next-server (v15.5.26):3300112 load=3.39
+00:07:49 total_kb=4736736 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939728 root90276_kb=713200 top=next-server (v15.5.26):3300112 load=3.39
+00:07:51 total_kb=4737088 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939728 root90276_kb=713552 top=next-server (v15.5.26):3300112 load=3.20
+00:07:53 total_kb=4737472 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939728 root90276_kb=713936 top=next-server (v15.5.26):3300112 load=3.20
+00:07:55 total_kb=4738016 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939776 root90276_kb=714432 top=next-server (v15.5.26):3300160 load=3.20
+00:07:57 total_kb=4710864 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939776 root90276_kb=687280 top=next-server (v15.5.26):3300160 load=3.18
+00:07:59 total_kb=4711200 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939776 root90276_kb=687616 top=next-server (v15.5.26):3300160 load=3.18
+00:08:01 total_kb=4711536 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939776 root90276_kb=687952 top=next-server (v15.5.26):3300160 load=3.08
+00:08:03 total_kb=4711920 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939776 root90276_kb=688336 top=next-server (v15.5.26):3300160 load=3.08
+00:08:06 total_kb=4712256 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939776 root90276_kb=688672 top=next-server (v15.5.26):3300160 load=3.08
+00:08:08 total_kb=4712608 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939776 root90276_kb=689024 top=next-server (v15.5.26):3300160 load=3.00
+00:08:10 total_kb=4712784 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939776 root90276_kb=689200 top=next-server (v15.5.26):3300160 load=3.00
+00:08:12 total_kb=4712832 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939776 root90276_kb=689248 top=next-server (v15.5.26):3300160 load=2.84
+00:08:14 total_kb=4712896 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939776 root90276_kb=689312 top=next-server (v15.5.26):3300160 load=2.84
+00:08:16 total_kb=4712944 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939776 root90276_kb=689360 top=next-server (v15.5.26):3300160 load=2.61
+00:08:18 total_kb=4713008 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939776 root90276_kb=689424 top=next-server (v15.5.26):3300160 load=2.61
+00:08:20 total_kb=4713104 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939776 root90276_kb=689520 top=next-server (v15.5.26):3300160 load=2.61
+00:08:22 total_kb=4713328 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939776 root90276_kb=689744 top=next-server (v15.5.26):3300160 load=2.72
+00:08:24 total_kb=4713376 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939776 root90276_kb=689792 top=next-server (v15.5.26):3300160 load=2.72
+00:08:26 total_kb=4713600 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3939776 root90276_kb=690016 top=next-server (v15.5.26):3300160 load=2.66
+00:08:28 total_kb=4046048 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3962240 root90276_kb=0 top=next-server (v15.5.26):3322624 load=2.66
+00:08:30 total_kb=4046048 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3962240 root90276_kb=0 top=next-server (v15.5.26):3322624 load=2.66
+00:08:32 total_kb=4046048 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3962240 root90276_kb=0 top=next-server (v15.5.26):3322624 load=2.69
+00:08:34 total_kb=4046048 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3962240 root90276_kb=0 top=next-server (v15.5.26):3322624 load=2.69
+00:08:37 total_kb=4046048 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3962240 root90276_kb=0 top=next-server (v15.5.26):3322624 load=2.63
+00:08:39 total_kb=4045296 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3961488 root90276_kb=0 top=next-server (v15.5.26):3321872 load=2.63
+00:08:41 total_kb=4045296 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3961488 root90276_kb=0 top=next-server (v15.5.26):3321872 load=2.98
+00:08:43 total_kb=4045296 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3961488 root90276_kb=0 top=next-server (v15.5.26):3321872 load=2.98
+00:08:45 total_kb=4045296 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3961488 root90276_kb=0 top=next-server (v15.5.26):3321872 load=2.98
+00:08:47 total_kb=3990640 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3906832 root90276_kb=0 top=next-server (v15.5.26):3322432 load=2.90
+00:08:49 total_kb=4033648 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3949840 root90276_kb=0 top=next-server (v15.5.26):3322432 load=2.90
+00:08:51 total_kb=4033648 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3949840 root90276_kb=0 top=next-server (v15.5.26):3322432 load=3.79
+00:08:53 total_kb=4662544 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3956128 root90276_kb=0 root93832_kb=622608 top=next-server (v15.5.26):3328720 load=3.79
+00:08:55 total_kb=4891520 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4059984 root90276_kb=0 root93832_kb=747728 top=next-server (v15.5.26):3432576 load=3.79
+00:08:57 total_kb=4946752 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4098000 root90276_kb=0 root93832_kb=764944 top=next-server (v15.5.26):3438352 load=3.89
+00:08:59 total_kb=4949264 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4106448 root90276_kb=0 root93832_kb=759008 top=next-server (v15.5.26):3446736 load=3.89
+00:09:01 total_kb=4922912 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4107440 root90276_kb=0 root93832_kb=731664 top=next-server (v15.5.26):3447504 load=3.90
+00:09:03 total_kb=4361248 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4098272 root90276_kb=0 root93832_kb=179168 top=next-server (v15.5.26):3438320 load=3.90
+00:09:05 total_kb=4182096 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4098288 root90276_kb=0 root93832_kb=0 top=next-server (v15.5.26):3438336 load=3.90
+00:09:07 total_kb=4182096 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4098288 root90276_kb=0 root93832_kb=0 top=next-server (v15.5.26):3438336 load=3.75
+00:09:10 total_kb=4182096 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4098288 root90276_kb=0 root93832_kb=0 top=next-server (v15.5.26):3438336 load=3.75
+00:09:12 total_kb=4059648 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3975840 root90276_kb=0 root93832_kb=0 top=next-server (v15.5.26):3315888 load=3.85
+00:09:14 total_kb=4059648 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=3975840 root90276_kb=0 root93832_kb=0 top=next-server (v15.5.26):3315888 load=3.85
+00:09:16 total_kb=4495632 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4071408 root90276_kb=0 root93832_kb=0 root94374_kb=340416 top=next-server (v15.5.26):3411456 load=4.34
+00:09:18 total_kb=4965776 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4195712 root90276_kb=0 root93832_kb=0 root94374_kb=686256 top=next-server (v15.5.26):3535568 load=4.34
+00:09:20 total_kb=4999488 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4204896 root90276_kb=0 root93832_kb=0 root94374_kb=710784 top=next-server (v15.5.26):3542560 load=4.34
+00:09:22 total_kb=5004240 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4207200 root90276_kb=0 root93832_kb=0 root94374_kb=713232 top=next-server (v15.5.26):3544848 load=4.31
+00:09:24 total_kb=4999968 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4208624 root90276_kb=0 root93832_kb=0 root94374_kb=707536 top=next-server (v15.5.26):3546272 load=4.31
+00:09:26 total_kb=4881392 root60038_kb=83808 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4091008 root90276_kb=0 root93832_kb=0 root94374_kb=706576 top=next-server (v15.5.26):3428640 load=4.13
+00:09:28 total_kb=4293520 root60038_kb=83824 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4158976 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=50720 top=next-server (v15.5.26):3496608 load=4.13
+00:09:30 total_kb=5035248 root60038_kb=83824 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4234192 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=717232 top=next-server (v15.5.26):3571792 load=4.13
+00:09:32 total_kb=5081344 root60038_kb=83824 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4262752 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=734768 top=next-server (v15.5.26):3597344 load=4.84
+00:09:34 total_kb=5086928 root60038_kb=83824 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4263552 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=739552 top=next-server (v15.5.26):3598064 load=4.84
+00:09:36 total_kb=4370736 root60038_kb=83824 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4286912 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 top=next-server (v15.5.26):3621424 load=4.53
+00:09:38 total_kb=5130736 root60038_kb=83824 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4346848 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=700064 top=next-server (v15.5.26):3681296 load=4.53
+00:09:40 total_kb=5226688 root60038_kb=83824 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4418976 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=723888 top=next-server (v15.5.26):3751296 load=4.53
+00:09:43 total_kb=5247376 root60038_kb=83824 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4428768 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=734784 top=next-server (v15.5.26):3761088 load=4.73
+00:09:45 total_kb=5237712 root60038_kb=83824 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4414128 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=739760 top=next-server (v15.5.26):3746304 load=4.73
+00:09:47 total_kb=5194144 root60038_kb=83824 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4415744 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=694576 top=next-server (v15.5.26):3747712 load=4.83
+00:09:49 total_kb=4537936 root60038_kb=83824 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4454112 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 top=next-server (v15.5.26):3786080 load=4.83
+00:09:51 total_kb=5303232 root60038_kb=83824 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4502144 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=717264 top=next-server (v15.5.26):3834112 load=5.48
+00:09:53 total_kb=5339232 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4519456 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=735936 top=next-server (v15.5.26):3849264 load=5.48
+00:09:55 total_kb=5349376 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4519824 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=745712 top=next-server (v15.5.26):3849632 load=5.48
+00:09:57 total_kb=4604064 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4520224 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=next-server (v15.5.26):3850032 load=5.12
+00:09:59 total_kb=4604064 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4520224 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=next-server (v15.5.26):3850032 load=5.12
+00:10:01 total_kb=4456960 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4373120 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=next-server (v15.5.26):3702928 load=4.87
+00:10:03 total_kb=4456960 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4373120 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=next-server (v15.5.26):3702928 load=4.87
+00:10:05 total_kb=4467408 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4383568 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=next-server (v15.5.26):3713376 load=4.87
+00:10:07 total_kb=4476864 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4393024 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=next-server (v15.5.26):3721008 load=4.56
+00:10:09 total_kb=4476864 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4393024 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=next-server (v15.5.26):3721008 load=4.56
+00:10:11 total_kb=4476864 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4393024 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=next-server (v15.5.26):3721008 load=4.28
+00:10:13 total_kb=4476864 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4393024 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=next-server (v15.5.26):3721008 load=4.28
+00:10:16 total_kb=4476448 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4392608 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=next-server (v15.5.26):3720592 load=4.28
+00:10:18 total_kb=4476448 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4392608 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=next-server (v15.5.26):3720592 load=4.09
+00:10:20 total_kb=4476448 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4392608 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=next-server (v15.5.26):3720592 load=4.09
+00:10:22 total_kb=4476448 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4392608 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=next-server (v15.5.26):3720592 load=4.17
+00:10:24 total_kb=4476448 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4392608 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=next-server (v15.5.26):3720592 load=4.17
+00:10:26 total_kb=4476448 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4392608 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=next-server (v15.5.26):3720592 load=3.99
+00:10:28 total_kb=4476448 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4392608 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=next-server (v15.5.26):3720592 load=3.99
+00:10:30 total_kb=4476448 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4392608 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=next-server (v15.5.26):3720592 load=3.99
+00:10:32 total_kb=4476448 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4392608 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=next-server (v15.5.26):3720592 load=3.99
+00:10:34 total_kb=4476448 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4392608 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=next-server (v15.5.26):3720592 load=3.99
+00:10:36 total_kb=4476448 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4392608 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=next-server (v15.5.26):3720592 load=4.39
+00:10:38 total_kb=4476448 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4392608 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=next-server (v15.5.26):3720592 load=4.39
+00:10:40 total_kb=4476448 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4392608 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=next-server (v15.5.26):3720592 load=4.39
+00:10:42 total_kb=4476448 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4392608 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=next-server (v15.5.26):3720592 load=4.04
+00:10:44 total_kb=4476448 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4392608 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=next-server (v15.5.26):3720592 load=4.04
+00:10:47 total_kb=4476448 root60038_kb=83840 root71552_kb=0 root72159_kb=0 root74507_kb=0 root74888_kb=0 root75806_kb=0 root76494_kb=0 root89410_kb=4392608 root90276_kb=0 root93832_kb=0 root94374_kb=0 root94913_kb=0 root95306_kb=0 root95790_kb=0 top=(node):3720592 load=4.28
+# sampler stopped 2026-09-24T00:10:49Z

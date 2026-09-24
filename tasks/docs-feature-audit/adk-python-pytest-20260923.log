@@ -1,0 +1,27 @@
+# ADK tests/python (the showcase_validate.yml python-unit-tests job collects this directory), 2026-09-23T23:46:34Z; CI's minimal test deps installed into the audit venv, bounded like the runtime deps
+$ uv pip install pytest pytest-asyncio pytest-mock typing_extensions --exclude-newer 2026-09-22T23:00:00Z
+Installed 6 packages in 16ms
+ + iniconfig==2.3.0
+ + pluggy==1.6.0
+ + pygments==2.21.0
+ + pytest==9.1.1
+ + pytest-asyncio==1.4.0
+ + pytest-mock==3.15.1
+$ PYTHONPATH=.:src python -m pytest tests/python/ -q  (CI: -v)
+........................................................................ [ 90%]
+........                                                                 [100%]
+=============================== warnings summary ===============================
+<frozen abc>:106
+  <frozen abc>:106: DeprecationWarning: BaseAgentConfig is deprecated and will be removed in future versions. Config is now loaded via reflection so the separate config class is no longer needed.
+
+tests/python/test_cvdiag_boundaries.py:34
+  /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/google-adk/tests/python/test_cvdiag_boundaries.py:34: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient
+
+../../../../../../../../../private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/starlette/testclient.py:53
+  /private/tmp/claude-501/-Users-tylerslaton-Code-CopilotKit/46e242f6-1b34-4976-b132-d4b1ececf87d/scratchpad/adk/venv/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+80 passed, 3 warnings in 6.90s
+exit=0
