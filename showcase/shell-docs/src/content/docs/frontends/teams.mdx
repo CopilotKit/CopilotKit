@@ -1,6 +1,6 @@
 ---
 title: Connect and run your agent in Microsoft Teams
-description: Run any supported agent framework in Teams through a managed CopilotKit Intelligence connection.
+description: Run any supported agent framework in Teams through a cloud-hosted Intelligence connection.
 icon: "lucide/MessagesSquare"
 doc_type: tutorial
 ---
@@ -148,7 +148,7 @@ re-installing.
 
     const intelligence = new CopilotKitIntelligence({
       apiKey: required("CPK_INTELLIGENCE_API_KEY"),
-      // Managed deployments use the hosted defaults. Override both URLs
+      // Cloud-hosted deployments use the default URLs. Override both URLs
       // together only for self-hosted or non-production Intelligence.
       apiUrl: process.env.INTELLIGENCE_API_URL,
       wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL,
@@ -239,7 +239,7 @@ re-installing.
     [configure the runtime handoff](/channels/intelligence#configure-the-runtime-handoff)
     for where each value appears in Intelligence.
 
-    Hosted Intelligence supplies both managed base URLs by default. For a
+    Cloud-hosted Intelligence supplies both default base URLs. For a
     self-hosted or non-production deployment, override both together. The REST
     and realtime planes use separate hosts, so do not derive the WebSocket URL
     from the API URL. Pass each as a bare base URL without `/api`, `/socket`,

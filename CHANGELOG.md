@@ -16,6 +16,16 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.73.3 - 2026-09-22
+
+### Features
+
+- feat(onboarding): copy a hosted prompt link instead of the CLI command (refs PE-217) (#7348) (6f8d0ae)
+
+### Fixes
+
+- fix(inspector): keep conversation results and failures accurate (#7361) (9b3ccbb)
+
 ## 1.73.2 - 2026-09-22
 
 No changes since last release.

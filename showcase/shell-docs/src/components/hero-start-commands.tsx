@@ -10,7 +10,8 @@
 // Both entry points arrive as slots, so each surface can supply its own wiring
 // (prompt text, quickstart href, analytics dimensions) while the layout, order
 // and spacing stay identical everywhere. The row stacks vertically on narrow
-// viewports and sits side by side from `sm` up.
+// viewports and sits side by side from `sm` up. One muted line under the row
+// says which folder to open the coding agent in (PE-301).
 
 import React from "react";
 import Link from "next/link";
@@ -82,6 +83,21 @@ export function QuickstartLinkButton({
   );
 }
 
+// Shown beside the onboarding prompt, never inside it: the copied prompt must
+// stay byte-identical to the Intelligence app and Inspector copies. A new
+// terminal and the Claude Code and Codex app links both start in the home
+// folder, where the agent would otherwise build the starter app.
+export const PROMPT_FOLDER_HINT =
+  "Open your coding agent in your project's folder, or in an empty folder for a new app.";
+
+export function PromptFolderHint() {
+  return (
+    <p className="text-sm leading-snug text-[var(--text-muted)]">
+      {PROMPT_FOLDER_HINT}
+    </p>
+  );
+}
+
 export function HeroStartActions({
   prompt,
   quickstart,
@@ -90,9 +106,12 @@ export function HeroStartActions({
   quickstart: React.ReactNode;
 }) {
   return (
-    <div className="flex max-w-[820px] flex-col gap-3 sm:flex-row sm:items-center">
-      {prompt}
-      {quickstart}
+    <div className="flex max-w-[820px] flex-col gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        {prompt}
+        {quickstart}
+      </div>
+      <PromptFolderHint />
     </div>
   );
 }

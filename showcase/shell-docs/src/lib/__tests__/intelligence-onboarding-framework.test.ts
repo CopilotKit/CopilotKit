@@ -59,7 +59,7 @@ describe("onboardingFrameworkSlug", () => {
 describe("frameworkPromptSuffix", () => {
   it("appends the exact sentence the CLI graph reads", () => {
     expect(frameworkPromptSuffix("mastra", "Mastra")).toBe(
-      " The developer selected the Mastra agent framework (`mastra`).",
+      " I use the Mastra agent framework (`mastra`).",
     );
   });
 
@@ -70,7 +70,7 @@ describe("frameworkPromptSuffix", () => {
     // whole sentence so a regression in either half is caught here. The name
     // stops at "Built-in" because the template already supplies "agent".
     expect(frameworkPromptSuffix("built-in-agent", "Built-in")).toBe(
-      " The developer selected the Built-in agent framework (`built-in`).",
+      " I use the Built-in agent framework (`built-in`).",
     );
   });
 });

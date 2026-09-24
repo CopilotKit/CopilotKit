@@ -858,6 +858,7 @@ function sidebarTopicGroup(
   title: string,
   slug: string,
   source: NavNode | NavNode[] | null,
+  defaultOpen = false,
 ): Extract<NavNode, { type: "group" }> | null {
   if (!source) return null;
   const children = Array.isArray(source)
@@ -866,7 +867,7 @@ function sidebarTopicGroup(
       ? source.children
       : [source];
   if (children.length === 0) return null;
-  return { type: "group", title, slug, children, defaultOpen: false };
+  return { type: "group", title, slug, children, defaultOpen };
 }
 
 function withoutRouteGroupSlug(slug: string): string {
@@ -1054,7 +1055,7 @@ export function normalizeSidebarNav(
     uniqueSidebarNodes(chatSource),
   );
   const richThreadsTopic = sidebarTopicGroup(
-    "Rich threads",
+    "Rich Threads",
     "sidebar#rich-threads",
     richThreads,
   );
@@ -1127,7 +1128,6 @@ export function normalizeSidebarNav(
           );
   const subagents = findPage("multi-agent/subagents");
   const webMcp = findPage("webmcp");
-  const learning = findPage("learning");
 
   const intelligencePage = (slug: string, title: string): NavNode | null => {
     const page = findPage(slug);
@@ -1145,15 +1145,13 @@ export function normalizeSidebarNav(
     "intelligence/intelligence-platform",
     "Architecture",
   );
-  const intelligenceRuntime = intelligencePage(
-    "intelligence/connect-your-runtime",
-    "Connect your runtime",
-  );
-  const intelligenceThreads = intelligencePage("threads", "Rich threads");
+
+  const intelligenceThreads = intelligencePage("threads", "Rich Threads");
   const intelligenceCloud = intelligencePage(
     "intelligence/managed-intelligence-platform",
-    "Cloud",
+    "Cloud-hosted",
   );
+  const intelligencePlans = intelligencePage("intelligence/plans", "Plans");
   const intelligenceSelfHosted = intelligencePage(
     "intelligence/self-hosting",
     "Self-hosted",
@@ -1162,13 +1160,35 @@ export function normalizeSidebarNav(
     "intelligence/self-hosting-ecs",
     "AWS ECS/Fargate",
   );
-  const intelligenceAutomaticLearning = intelligencePage(
+  const intelligenceLearning = intelligencePage(
     "learning",
     "Automatic Learning",
   );
   const intelligenceMemory = intelligencePage(
     "intelligence/memories",
     "User Memories",
+  );
+  const intelligenceSkillDelivery = intelligencePage(
+    "intelligence/learned-skills",
+    "Skill delivery",
+  );
+  // Skill delivery is a step inside Automatic Learning, so it nests under
+  // that page. The group shares the page's slug, and page-tree-bridge lifts
+  // the matching child onto the folder so the folder title links to /learning.
+  const intelligenceLearningGroup = sidebarTopicGroup(
+    "Automatic Learning",
+    "learning",
+    [intelligenceLearning, intelligenceSkillDelivery].filter(
+      (node): node is NavNode => node !== null,
+    ),
+  );
+  const intelligenceAnalytics = intelligencePage(
+    "intelligence/analytics",
+    "Product Analytics",
+  );
+  const intelligenceChannels = intelligencePage(
+    "intelligence/channels",
+    "Channels",
   );
 
   const existingBackend = sidebarSectionChildren(input, "Backend");
@@ -1249,10 +1269,6 @@ export function normalizeSidebarNav(
     ]),
     ...sidebarSection("Agent capabilities", [
       ...frameworkGroups,
-      learning?.type === "page"
-        ? { ...learning, title: "Automatic Learning", icon: undefined }
-        : null,
-      intelligenceMemory,
       subagents?.type === "page"
         ? { ...subagents, title: "Sub-agents", icon: undefined }
         : null,
@@ -1265,14 +1281,21 @@ export function normalizeSidebarNav(
         [
           intelligenceQuickstart,
           intelligenceArchitecture,
-          intelligenceRuntime,
+          intelligencePlans,
         ].filter((node): node is NavNode => node !== null),
       ),
-      intelligenceThreads?.type === "page"
-        ? { ...intelligenceThreads, title: "Rich Threads" }
-        : null,
-      intelligenceAutomaticLearning,
-      intelligenceMemory,
+      sidebarTopicGroup(
+        "Features",
+        "sidebar#intelligence-features",
+        [
+          intelligenceThreads,
+          intelligenceLearningGroup,
+          intelligenceMemory,
+          intelligenceAnalytics,
+          intelligenceChannels,
+        ].filter((node): node is NavNode => node !== null),
+        true,
+      ),
       sidebarTopicGroup(
         "Hosting",
         "sidebar#intelligence-hosting",
@@ -2561,7 +2584,7 @@ export function navAncestorBreadcrumbsForSlug(
       ? [currentSection, ...groupTrail]
       : groupTrail;
     return labels.map((label) => ({
-      label: label === "Rich threads" ? "Rich Threads" : label,
+      label,
       href: null,
     }));
   }
