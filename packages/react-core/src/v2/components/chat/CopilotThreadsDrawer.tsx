@@ -251,10 +251,15 @@ export function CopilotThreadsDrawer({
   // We therefore also require a positive license-present signal from the
   // runtime-reported status. Only a "valid" or "expiring" license is treated
   // as present; a resolved "none"/"expired"/"invalid" status gates the drawer
-  // to the locked view.
+  // to the locked view. "unknown" is unresolved, not negative (see below).
   const licensePresent = status === "valid" || status === "expiring";
   const featureLicensed = checkFeature("threads");
-  const licensed = licensePresent && featureLicensed;
+  // `unknown` means the retryable entitlement lookup did not recover within
+  // the bounded retry. That is not a settled negative, so never lock on it:
+  // fetch the list and let the threads endpoint decide, surfacing a failure
+  // through the drawer's retryable error state rather than the upgrade CTA.
+  const entitlementUnresolved = status === "unknown";
+  const licensed = entitlementUnresolved || (licensePresent && featureLicensed);
 
   // The runtime reports license status asynchronously: `status` is null until
   // the first /info response lands and while a retryable entitlement lookup is
