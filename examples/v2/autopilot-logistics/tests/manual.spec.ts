@@ -1,3 +1,4 @@
+import { evidencePath } from "./evidence";
 import { expect, test } from "@playwright/test";
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -6,11 +7,7 @@ import { resolve } from "node:path";
 test("manual order and user workflows persist and enforce roles", async ({
   page,
 }) => {
-  const evidenceDir = resolve(
-    process.cwd(),
-    "../../../.context/autopilot-evidence/iteration-004",
-    String(Date.now()),
-  );
+  const evidenceDir = evidencePath("iteration-004", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
   const database = new DatabaseSync(
     resolve(process.cwd(), "data/northstar.sqlite"),

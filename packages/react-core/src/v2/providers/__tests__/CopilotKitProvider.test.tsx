@@ -120,7 +120,7 @@ describe("CopilotKitProvider", () => {
       expect(defineWebInspector).not.toHaveBeenCalled();
     });
 
-    it("never renders or loads in production, even when explicitly enabled", async () => {
+    it("loads in a local production preview when explicitly enabled", async () => {
       vi.stubEnv("NODE_ENV", "production");
       render(
         <CopilotKitProvider runtimeUrl="/api/copilotkit" enableInspector={true}>
@@ -128,8 +128,8 @@ describe("CopilotKitProvider", () => {
         </CopilotKitProvider>,
       );
       await settleInspectorLoad();
-      expect(document.querySelector("cpk-web-inspector")).toBeNull();
-      expect(defineWebInspector).not.toHaveBeenCalled();
+      expect(document.querySelector("cpk-web-inspector")).not.toBeNull();
+      expect(defineWebInspector).toHaveBeenCalled();
     });
 
     it("does not let legacy showDevConsole disable the development Inspector", async () => {

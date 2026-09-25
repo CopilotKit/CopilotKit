@@ -7,6 +7,7 @@ import { useMemo } from "react";
 import { z } from "zod";
 import { orderApprovalGate } from "@/lib/autopilot-approval";
 import type { SessionUser } from "@/lib/db";
+import { consumeAutopilotBudget } from "@/lib/autopilot-budget";
 
 type FormOutcome = {
   status: "completed" | "failed" | "uncertain";
@@ -72,6 +73,17 @@ export function AutopilotFormTool({
       let operationId: string | undefined;
       let dispatched = false;
       try {
+        const budgetDecision = await consumeAutopilotBudget(
+          user,
+          context,
+          "action",
+        );
+        if (!budgetDecision.allowed)
+          return {
+            status: "denied",
+            reason: budgetDecision.reason,
+            remainingActionBudget: 0,
+          };
         if (!context.agent?.agentId || !context.agent.threadId)
           throw new Error("An active agent thread is required");
         const plan = batch.prepare(changes, submitRef);

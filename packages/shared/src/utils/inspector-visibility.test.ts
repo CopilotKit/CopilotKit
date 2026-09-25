@@ -21,13 +21,19 @@ describe("shouldEnableInspector", () => {
     ).toBe(false);
   });
 
-  it("never shows in production, even when explicitly enabled", () => {
+  it("allows an explicit production browser opt-in", () => {
     expect(
       shouldEnableInspector({
         enableInspector: true,
         isBrowser: true,
         isDevelopment: false,
       }),
+    ).toBe(true);
+  });
+
+  it("stays hidden by default in production", () => {
+    expect(
+      shouldEnableInspector({ isBrowser: true, isDevelopment: false }),
     ).toBe(false);
   });
 

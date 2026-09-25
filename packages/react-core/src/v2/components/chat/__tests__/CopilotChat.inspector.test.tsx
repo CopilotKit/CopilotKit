@@ -105,20 +105,28 @@ describe("CopilotChat inspectorTools", () => {
   });
 
   it.each([
-    ["production", "http://localhost:3000"],
-    ["development", "https://preview.example.com"],
-  ])("cannot enable shortcuts in %s at %s", async (environment, url) => {
-    vi.stubEnv("NODE_ENV", environment);
-    const restore = stubWindowLocation(url);
-    try {
-      render(<TestChat providerPreference={true} chatPreference={true} />);
-      await act(async () => {});
-      expect(screen.queryByTestId("copilot-inspector-button")).toBeNull();
-      expect(document.querySelector("cpk-web-inspector")).toBeNull();
-    } finally {
-      restore();
-    }
-  });
+    ["production", "http://localhost:3000", true],
+    ["development", "https://preview.example.com", false],
+  ])(
+    "applies local Inspector policy in %s at %s",
+    async (environment, url, expectedVisible) => {
+      vi.stubEnv("NODE_ENV", environment);
+      const restore = stubWindowLocation(url);
+      try {
+        render(<TestChat providerPreference={true} chatPreference={true} />);
+        await act(async () => {});
+        if (expectedVisible) {
+          expect(screen.getByTestId("copilot-inspector-button")).toBeDefined();
+          expect(document.querySelector("cpk-web-inspector")).not.toBeNull();
+        } else {
+          expect(screen.queryByTestId("copilot-inspector-button")).toBeNull();
+          expect(document.querySelector("cpk-web-inspector")).toBeNull();
+        }
+      } finally {
+        restore();
+      }
+    },
+  );
 
   it("respects Inspector dismissal and restoration even when both props are true", async () => {
     vi.stubEnv("NODE_ENV", "development");

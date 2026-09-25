@@ -1,14 +1,11 @@
+import { evidencePath } from "./evidence";
 import { expect, test } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 test("live Intelligence agent calls a frontend tool", async ({ page }) => {
   const evidenceRoot =
-    process.env.AUTOPILOT_EVIDENCE_DIR ||
-    resolve(
-      process.cwd(),
-      "../../../.context/autopilot-evidence/iteration-002",
-    );
+    process.env.AUTOPILOT_EVIDENCE_DIR || evidencePath("iteration-002");
   const evidenceDir = resolve(
     evidenceRoot,
     process.env.AUTOPILOT_TRIAL_ID || String(Date.now()),

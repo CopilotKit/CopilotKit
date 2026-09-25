@@ -1,3 +1,4 @@
+import { evidencePath } from "./evidence";
 import { expect, test } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -5,11 +6,7 @@ import { resolve } from "node:path";
 test("live Autopilot page read filters private regions and derived labels", async ({
   page,
 }) => {
-  const evidenceDir = resolve(
-    process.cwd(),
-    "../../../.context/autopilot-evidence/iteration-008",
-    String(Date.now()),
-  );
+  const evidenceDir = evidencePath("iteration-008", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
   await page.goto("/sign-in");
   await page.getByRole("button", { name: /Avery Morgan/ }).click();

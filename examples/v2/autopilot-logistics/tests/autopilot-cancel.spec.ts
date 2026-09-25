@@ -1,3 +1,4 @@
+import { evidencePath } from "./evidence";
 import { expect, test } from "@playwright/test";
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -7,11 +8,7 @@ test("live agent cancels only after the existing human confirmation", async ({
   page,
 }) => {
   test.setTimeout(120_000);
-  const evidenceDir = resolve(
-    process.cwd(),
-    "../../../.context/autopilot-evidence/iteration-010",
-    String(Date.now()),
-  );
+  const evidenceDir = evidencePath("iteration-010", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
   const database = new DatabaseSync(
     resolve(process.cwd(), "data/northstar.sqlite"),
@@ -124,11 +121,7 @@ test("declining the existing confirmation leaves the order unchanged", async ({
   page,
 }) => {
   test.setTimeout(120_000);
-  const evidenceDir = resolve(
-    process.cwd(),
-    "../../../.context/autopilot-evidence/iteration-010",
-    String(Date.now()),
-  );
+  const evidenceDir = evidencePath("iteration-010", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
   const database = new DatabaseSync(
     resolve(process.cwd(), "data/northstar.sqlite"),
@@ -227,11 +220,7 @@ test("a dispatched order cannot be cancelled by the agent", async ({
   page,
 }) => {
   test.setTimeout(120_000);
-  const evidenceDir = resolve(
-    process.cwd(),
-    "../../../.context/autopilot-evidence/iteration-010",
-    String(Date.now()),
-  );
+  const evidenceDir = evidencePath("iteration-010", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
   const database = new DatabaseSync(
     resolve(process.cwd(), "data/northstar.sqlite"),

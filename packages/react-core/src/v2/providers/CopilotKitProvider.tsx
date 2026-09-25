@@ -228,11 +228,11 @@ export interface CopilotKitProviderProps {
    */
   showDevConsole?: boolean | "auto";
   /**
-   * Disable the CopilotKit Inspector in development.
-   * The Inspector is enabled by default in development browser builds on
-   * localhost/loopback. It is always disabled on remote hosts, in production,
-   * and during server rendering. Temporary Inspector hides also hide its
-   * message shortcuts.
+   * Control the CopilotKit Inspector on localhost/loopback.
+   * It is enabled by default in development browser builds. Pass `true` to
+   * show it in a local production preview or `false` to disable it.
+   * It remains disabled on remote hosts and during server rendering.
+   * Temporary Inspector hides also hide its message shortcuts.
    * An explicit value takes priority over CopilotChat's inspectorTools prop.
    */
   enableInspector?: boolean;
@@ -355,7 +355,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   debug,
 }) => {
   // Keep the server render and the first client render identical. The
-  // Inspector only runs in local development. Resolve its host and build
+  // Inspector runs on local development or explicit local previews. Resolve its host and build
   // policy after hydration instead of branching on `window` during render.
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
   const [inspectorVisible, setInspectorVisible] = useState(false);

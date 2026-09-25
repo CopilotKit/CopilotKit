@@ -1,3 +1,4 @@
+import { evidencePath } from "./evidence";
 import { expect, test } from "@playwright/test";
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -7,11 +8,7 @@ test("live agent creates an order through discovered form controls after review"
   page,
 }) => {
   test.setTimeout(120_000);
-  const evidenceDir = resolve(
-    process.cwd(),
-    "../../../.context/autopilot-evidence/iteration-012",
-    String(Date.now()),
-  );
+  const evidenceDir = evidencePath("iteration-012", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
   const database = new DatabaseSync(
     resolve(process.cwd(), "data/northstar.sqlite"),
@@ -173,11 +170,7 @@ test("declining discovered form review leaves inputs and SQL untouched", async (
   page,
 }) => {
   test.setTimeout(120_000);
-  const evidenceDir = resolve(
-    process.cwd(),
-    "../../../.context/autopilot-evidence/iteration-012",
-    String(Date.now()),
-  );
+  const evidenceDir = evidencePath("iteration-012", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
   const database = new DatabaseSync(
     resolve(process.cwd(), "data/northstar.sqlite"),

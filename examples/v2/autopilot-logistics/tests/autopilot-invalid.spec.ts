@@ -1,3 +1,4 @@
+import { evidencePath } from "./evidence";
 import { expect, test } from "@playwright/test";
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -7,11 +8,7 @@ test("invalid status transition through discovered form leaves SQL unchanged", a
   page,
 }) => {
   test.setTimeout(120_000);
-  const evidenceDir = resolve(
-    process.cwd(),
-    "../../../.context/autopilot-evidence/iteration-013",
-    `invalid-${Date.now()}`,
-  );
+  const evidenceDir = evidencePath("iteration-013", `invalid-${Date.now()}`);
   mkdirSync(evidenceDir, { recursive: true });
   const database = new DatabaseSync(
     resolve(process.cwd(), "data/northstar.sqlite"),

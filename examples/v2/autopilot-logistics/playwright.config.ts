@@ -5,6 +5,9 @@ export default defineConfig({
   timeout: 90_000,
   // Browser tests inspect and mutate one local SQLite file.
   workers: 1,
-  use: { baseURL: "http://127.0.0.1:3000", headless: true },
+  use: {
+    baseURL: process.env.AUTOPILOT_BASE_URL ?? "http://127.0.0.1:3000",
+    headless: true,
+  },
   reporter: "list",
 });

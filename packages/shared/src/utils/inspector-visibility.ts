@@ -5,13 +5,17 @@ export interface InspectorVisibilityOptions {
 }
 
 /**
- * The Inspector is a development-only browser tool. Consumers may disable it,
- * but an explicit `true` never overrides a production or server environment.
+ * The Inspector is on by default in development. A consumer may explicitly
+ * enable it for a local production preview; the provider also checks localhost.
  */
 export function shouldEnableInspector({
   enableInspector,
   isBrowser,
   isDevelopment,
 }: InspectorVisibilityOptions): boolean {
-  return isBrowser && isDevelopment && enableInspector !== false;
+  return (
+    isBrowser &&
+    enableInspector !== false &&
+    (isDevelopment || enableInspector === true)
+  );
 }

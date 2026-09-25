@@ -97,15 +97,15 @@ describe("CopilotKitProvider development Inspector action", () => {
     expect(screen.getByTestId("copilot-inspector-button")).toBeDefined();
   });
 
-  it("does not render in production, even when explicitly enabled", async () => {
+  it("renders in a local production preview when explicitly enabled", async () => {
     vi.stubEnv("NODE_ENV", "production");
 
     renderAssistantMessage(true);
     await act(async () => {});
 
     expect(
-      screen.queryByRole("button", { name: /copilotkit inspector/i }),
-    ).toBeNull();
+      screen.getByRole("button", { name: /copilotkit inspector/i }),
+    ).toBeDefined();
   });
 
   it("does not render when the Inspector is disabled", async () => {

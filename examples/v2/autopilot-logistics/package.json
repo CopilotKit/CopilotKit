@@ -10,7 +10,8 @@
     "check-types": "tsc --noEmit",
     "seed": "tsx scripts/seed.ts",
     "reset": "tsx scripts/seed.ts --reset",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "portability": "node scripts/portability.mjs"
   },
   "dependencies": {
     "@copilotkit/core": "workspace:*",
@@ -40,7 +41,8 @@
       "start": { "cache": false },
       "seed": { "cache": false },
       "reset": { "cache": false },
-      "test:browser": { "cache": false }
+      "test:browser": { "cache": false },
+      "portability": { "dependsOn": ["build"], "cache": false }
     }
   }
 }

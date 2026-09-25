@@ -1,3 +1,4 @@
+import { evidencePath } from "./evidence";
 import { expect, test } from "@playwright/test";
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -36,9 +37,8 @@ for (const scenario of [
     page,
   }) => {
     test.setTimeout(120_000);
-    const evidenceDir = resolve(
-      process.cwd(),
-      "../../../.context/autopilot-evidence/iteration-013",
+    const evidenceDir = evidencePath(
+      "iteration-013",
       `${scenario.name}-${Date.now()}`,
     );
     mkdirSync(evidenceDir, { recursive: true });
