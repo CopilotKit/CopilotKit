@@ -952,11 +952,22 @@ test("conversation preserves long replies, tool details, and generative UI while
     ).toContain("End of reply.");
     root.querySelector<HTMLElement>(".cpk-td__tool-header")!.click();
     await flushDetail(detail);
+    expect(
+      root.querySelector(".cpk-td__tool-header .cpk-td__tool-name")
+        ?.textContent,
+    ).toBe("Check calendars");
+    expect(
+      root.querySelector(".cpk-td__tool-header .cpk-td__tool-identifier")
+        ?.textContent,
+    ).toBe("(check_calendars)");
     expect(root.querySelector(".cpk-td__tool-body")?.textContent).toContain(
       "Thursday",
     );
     expect(root.querySelector(".cpk-td__tool-body")?.textContent).toContain(
       "available",
+    );
+    expect(root.querySelector(".cpk-td__tool-body")?.textContent).not.toContain(
+      "check_calendars",
     );
     const timelineToggle = requireButton(root, "Show event timeline");
     expect(timelineToggle.closest(".cpk-td__thread-header")).not.toBeNull();
@@ -1252,9 +1263,18 @@ test("tool disclosures distinguish missing, null, and unreadable results", async
     if (!disclosure) throw new Error("Missing tool disclosure button");
     expect(disclosure.getAttribute("aria-expanded")).toBe("false");
     expect(disclosure.textContent).toContain("No result recorded");
+    expect(disclosure.querySelector(".cpk-td__tool-name")?.textContent).toBe(
+      "Lookup",
+    );
+    expect(
+      disclosure.querySelector(".cpk-td__tool-identifier")?.textContent,
+    ).toBe("(lookup)");
     disclosure.click();
     await flushDetail(detail);
     expect(disclosure.getAttribute("aria-expanded")).toBe("true");
+    expect(
+      disclosure.querySelector(".cpk-td__tool-identifier")?.textContent,
+    ).toBe("(lookup)");
     expect(root.querySelector(".cpk-td__tool-body")?.textContent).toContain(
       "test",
     );

@@ -2987,8 +2987,12 @@ export class CpkThreadInspector extends PortableLitElement {
     /* Tool activity stays compact in the conversation; raw data is opt-in. */
     .cpk-td__tool-block {
       min-width: 0;
+    }
+    .cpk-td__tool-block:has(> .cpk-td__tool-header[aria-expanded="true"]) {
       border-radius: 10px;
       overflow: hidden;
+      background: #ffffff;
+      box-shadow: 0 0 0 1px oklch(0 0 0 / 0.08);
     }
     .cpk-td__tool-header {
       display: flex;
@@ -3011,16 +3015,25 @@ export class CpkThreadInspector extends PortableLitElement {
       outline: 2px solid var(--cpk-primary-color, #7076b3);
       outline-offset: -2px;
     }
-    .cpk-td__tool-header:hover,
-    .cpk-td__tool-header[aria-expanded="true"] {
+    .cpk-td__tool-header:hover {
       background: #f7f7f9;
+      border-radius: 8px;
+    }
+    .cpk-td__tool-block:has(> .cpk-td__tool-header[aria-expanded="true"])
+      .cpk-td__tool-header:hover {
+      border-radius: 0;
     }
     .cpk-td__tool-copy {
       flex: 1;
       min-width: 0;
     }
+    .cpk-td__tool-title {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      min-width: 0;
+    }
     .cpk-td__tool-name {
-      display: block;
       font-size: 13px;
       font-weight: 500;
       line-height: 1.6;
@@ -3071,46 +3084,37 @@ export class CpkThreadInspector extends PortableLitElement {
       }
     }
     .cpk-td__tool-body {
-      margin: 0 12px 12px 36px;
-      padding: 12px;
-      border: 1px solid #e9e9ef;
-      border-radius: 8px;
-      background: #ffffff;
       min-width: 0;
+      padding-top: 4px;
+      border-top: 1px solid #e9e9ef;
     }
     .cpk-td__tool-identifier {
-      display: block;
+      margin-left: 0.35em;
       color: #68686e;
       font:
         11px/1.6 "Spline Sans Mono",
         monospace;
       overflow-wrap: anywhere;
-      margin-bottom: 12px;
     }
     .cpk-td__tool-data {
       display: grid;
-      gap: 16px;
+      gap: 0;
     }
     .cpk-td__tool-section-label {
       font-family: "Plus Jakarta Sans", sans-serif;
       font-size: 12px;
       font-weight: 600;
-      color: #68686e;
-      margin-bottom: 6px;
-    }
-    .cpk-td__tool-pre {
-      margin: 0;
-      font-family: "Spline Sans Mono", monospace;
-      font-size: 12px;
-      background: #f7f7f9;
-      padding: 10px 12px;
-      border-radius: 6px;
-      overflow-x: auto;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      word-break: normal;
-      color: #010507;
       line-height: 1.65;
+      color: #68686e;
+      margin: 0;
+      padding: 8px 12px;
+    }
+    .cpk-td__tool-body .cpk-json-block {
+      font-size: 12px;
+      line-height: 1.65;
+    }
+    .cpk-td__tool-result {
+      border-top: 1px solid #e9e9ef;
     }
     .cpk-td__tool-group {
       min-width: 0;
@@ -3407,7 +3411,16 @@ export class CpkThreadInspector extends PortableLitElement {
     }
 
     :host([data-color-scheme="dark"]) .cpk-td__tool-header {
+      background: transparent;
+    }
+    :host([data-color-scheme="dark"])
+      .cpk-td__tool-block:has(> .cpk-td__tool-header[aria-expanded="true"]) {
       background: #191c24;
+      box-shadow: 0 0 0 1px oklch(1 0 0 / 0.12);
+    }
+    :host([data-color-scheme="dark"]) .cpk-td__tool-body,
+    :host([data-color-scheme="dark"]) .cpk-td__tool-result {
+      border-top-color: #343742;
     }
     :host([data-color-scheme="dark"]) .cpk-td__tool-name {
       color: #f4f4f5;
@@ -3638,9 +3651,6 @@ export class CpkThreadInspector extends PortableLitElement {
     :host([data-color-scheme="dark"]) .cpk-td__metadata-strip,
     :host([data-color-scheme="dark"]) .cpk-td__metadata-pill,
     :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
-    :host([data-color-scheme="dark"]) .cpk-td__tool-block,
-    :host([data-color-scheme="dark"]) .cpk-td__tool-header,
-    :host([data-color-scheme="dark"]) .cpk-td__tool-body,
     :host([data-color-scheme="dark"]) .cpk-td__event,
     :host([data-color-scheme="dark"]) .cpk-td__event-payload,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-item,
@@ -3656,7 +3666,6 @@ export class CpkThreadInspector extends PortableLitElement {
 
     :host([data-color-scheme="dark"]) .cpk-td__metadata-pill,
     :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
-    :host([data-color-scheme="dark"]) .cpk-td__tool-block,
     :host([data-color-scheme="dark"]) .cpk-td__event,
     :host([data-color-scheme="dark"]) .cpk-td__genui-card,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-item,
@@ -3666,14 +3675,8 @@ export class CpkThreadInspector extends PortableLitElement {
       background: #191c24;
     }
 
-    :host([data-color-scheme="dark"]) .cpk-td__timeline-header,
-    :host([data-color-scheme="dark"]) .cpk-td__tool-body {
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-header {
       background: #171a22;
-    }
-
-    :host([data-color-scheme="dark"]) .cpk-td__tool-pre {
-      background: #111319;
-      color: #f3f4f8;
     }
 
     :host([data-color-scheme="dark"]) .cpk-td__panel-toggle:hover,
@@ -3809,7 +3812,6 @@ export class CpkThreadInspector extends PortableLitElement {
     :host([data-color-scheme="dark"]) .cpk-td__tab--active,
     :host([data-color-scheme="dark"]) .cpk-td__metadata-value,
     :host([data-color-scheme="dark"]) .cpk-td__tool-name,
-    :host([data-color-scheme="dark"]) .cpk-td__tool-pre,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-title,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-bulk-toggle,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-details-toggle,
@@ -5559,7 +5561,9 @@ export class CpkThreadInspector extends PortableLitElement {
             />
           </svg>
           <span class="cpk-td__tool-copy">
-            <span class="cpk-td__tool-name ${streaming ? "cpk-td__tool-name--streaming" : ""}">${readableName}</span>
+            <span class="cpk-td__tool-title">
+              <span class="cpk-td__tool-name ${streaming ? "cpk-td__tool-name--streaming" : ""}">${readableName}</span><code class="cpk-td__tool-identifier">(${item.toolName})</code>
+            </span>
             <span class="cpk-td__tool-status ${item.resultUnreadable || (!item.hasResult && !streaming) ? "cpk-td__tool-status--pending" : ""}">${
               streaming
                 ? "Receiving arguments"
@@ -5578,7 +5582,6 @@ export class CpkThreadInspector extends PortableLitElement {
           expanded
             ? html`
               <div class="cpk-td__tool-body">
-                <code class="cpk-td__tool-identifier">${item.toolName}</code>
                 <div class="cpk-td__tool-data">
                   <section>
                     <div class="cpk-td__tool-section-label">Arguments</div>
@@ -5587,7 +5590,7 @@ export class CpkThreadInspector extends PortableLitElement {
                   ${
                     item.hasResult
                       ? html`
-                    <section>
+                    <section class="cpk-td__tool-result">
                       <div class="cpk-td__tool-section-label">Result</div>
                       ${renderHighlightedJsonBlock(item.result)}
                     </section>`
