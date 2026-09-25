@@ -19,7 +19,15 @@ import sys
 from types import SimpleNamespace
 from typing import Any
 
-from ag_ui.core import EventType, Tool, UserMessage
+from ag_ui.core import (
+    AssistantMessage,
+    EventType,
+    FunctionCall,
+    Tool,
+    ToolCall,
+    UserMessage,
+)
+from ag_ui.core import ToolMessage as AGUIToolMessage
 from ag_ui.core.types import ResumeEntry, RunAgentInput
 from ag_ui_langgraph import LangGraphAgent
 from langchain.agents import create_agent
@@ -31,6 +39,8 @@ from langgraph.checkpoint.memory import InMemorySaver
 import pytest
 
 from copilotkit import CopilotKitMiddleware
+from copilotkit.copilotkit_lg_middleware import _AGUI_CANCELLED_KEY
+from copilotkit.exc import CopilotKitMisuseError
 from copilotkit.langgraph_agui_agent import LangGraphAGUIAgent
 
 FE_TOOL_NAME = "navigate"
@@ -116,7 +126,7 @@ def _run(
     run_id="r1",
     forwarded_props=None,
     resume=None,
-    message_id="u1",
+    messages=None,
     agent_cls=LangGraphAGUIAgent,
     **agent_kwargs,
 ):
@@ -125,7 +135,9 @@ def _run(
         threadId=thread_id,
         runId=run_id,
         state={},
-        messages=[UserMessage(id=message_id, content="hi")],
+        # Clients resend the history every run. A resume ignores it and feeds
+        # the graph only Command(resume=...), so the first message is enough.
+        messages=messages or [UserMessage(id="u1", content="hi")],
         tools=[_fe_tool(), _fe_tool(HITL_TOOL_NAME)],
         context=[],
         forwardedProps=forwarded_props or {},
@@ -255,6 +267,83 @@ def test_two_frontend_turns_on_one_thread():
     }
 
 
+@requires_async_interrupt
+def test_resume_ignores_the_result_the_client_spliced_into_history():
+    """Today's React client also runs the handler itself and resends the
+    history with its own ToolMessage. The resume value must be the only result."""
+    graph, script = _build(
+        responses=[_ai([_fe_call()]), AIMessage(content="done", id="ai-2")],
+        tools=[],
+    )
+    _run(graph)
+
+    client_history = [
+        UserMessage(id="u1", content="hi"),
+        AssistantMessage(
+            id="ai-1",
+            content="",
+            tool_calls=[
+                ToolCall(
+                    id="fe-1",
+                    type="function",
+                    function=FunctionCall(
+                        name=FE_TOOL_NAME, arguments='{"path": "/x"}'
+                    ),
+                )
+            ],
+        ),
+        AGUIToolMessage(id="tm-1", content="from-the-client", tool_call_id="fe-1"),
+    ]
+    _run(
+        graph,
+        run_id="r2",
+        messages=client_history,
+        forwarded_props=_legacy_resume("from-the-resume"),
+    )
+
+    assert len(script["seen"]) == 2
+    results = _tool_messages(script["seen"][1])
+    assert [(m.tool_call_id, m.content) for m in results] == [
+        ("fe-1", "from-the-resume")
+    ]
+
+
+@requires_async_interrupt
+def test_legacy_resume_of_parallel_calls_names_the_fix():
+    """The legacy resume has no interrupt id, so LangGraph cannot pick a call."""
+    graph, script = _build(
+        responses=[
+            _ai([_fe_call("fe-1"), _fe_call("fe-2", name=HITL_TOOL_NAME)]),
+            AIMessage(content="done", id="ai-2"),
+        ],
+        tools=[],
+    )
+    # 0.0.42 only emits the first task's interrupt; later versions emit both.
+    assert _interrupt_payloads(_run(graph))[0]["toolCallId"] == "fe-1"
+
+    with pytest.raises(CopilotKitMisuseError, match=r"RunAgentInput\.resume\[\]"):
+        _run(graph, run_id="r2", forwarded_props=_legacy_resume("x"))
+
+    assert len(script["seen"]) == 1
+
+    # LangGraph's own id-keyed map is still accepted on the legacy channel.
+    state = graph.get_state({"configurable": {"thread_id": "t1"}})
+    by_call = {
+        i.value["toolCallId"]: i.id for task in state.tasks for i in task.interrupts
+    }
+    _run(
+        graph,
+        run_id="r3",
+        forwarded_props=_legacy_resume(
+            {by_call["fe-1"]: "navigated", by_call["fe-2"]: "approved"}
+        ),
+    )
+
+    assert len(script["seen"]) == 2
+    results = {m.tool_call_id: m.content for m in _tool_messages(script["seen"][1])}
+    assert results == {"fe-1": "navigated", "fe-2": "approved"}
+
+
 def test_flag_off_never_interrupts():
     """Guards the default path against anything the opt-in branch changed."""
     graph, script = _build(
@@ -371,6 +460,52 @@ def test_unanswered_call_stays_pending_instead_of_getting_a_placeholder():
 
 @requires_async_interrupt
 @requires_standard_resume
+def test_run_without_resume_re_emits_only_the_open_call():
+    """What a client's follow-up run does on a paused thread: the model must not
+    run, and the call answered earlier must not be asked for again."""
+    graph, script = _build(
+        responses=[
+            _ai([_fe_call("fe-1"), _fe_call("fe-2", name=HITL_TOOL_NAME)]),
+            AIMessage(content="done", id="ai-2"),
+        ],
+        tools=[],
+    )
+    by_call = {call: iid for iid, call in _open_interrupts(_run_standard(graph))}
+    _run_standard(graph, run_id="r2", resume=[_answer(by_call["fe-1"], "navigated")])
+
+    follow_up = _run_standard(graph, run_id="r3")
+
+    assert _open_interrupts(follow_up) == [(by_call["fe-2"], "fe-2")]
+    assert len(script["seen"]) == 1
+
+    _run_standard(graph, run_id="r4", resume=[_answer(by_call["fe-2"], "approved")])
+
+    assert len(script["seen"]) == 2
+    results = {m.tool_call_id: m.content for m in _tool_messages(script["seen"][1])}
+    assert results == {"fe-1": "navigated", "fe-2": "approved"}
+
+
+@requires_async_interrupt
+@requires_standard_resume
+def test_tool_that_returns_nothing_still_resumes():
+    """A fire-and-forget handler resolves with no payload. Sent bare, that is
+    Command(resume=None), which LangGraph does not treat as a resume."""
+    graph, script = _build(
+        responses=[_ai([_fe_call()]), AIMessage(content="done", id="ai-2")],
+        tools=[],
+    )
+    [(interrupt_id, _)] = _open_interrupts(_run_standard(graph))
+
+    after = _run_standard(graph, run_id="r2", resume=[_answer(interrupt_id)])
+
+    assert _open_interrupts(after) == []
+    assert len(script["seen"]) == 2
+    results = _tool_messages(script["seen"][1])
+    assert [(m.tool_call_id, m.content) for m in results] == [("fe-1", "null")]
+
+
+@requires_async_interrupt
+@requires_standard_resume
 def test_mixed_turn_runs_the_backend_call_once_and_pauses_the_frontend_one():
     backend_runs = []
 
@@ -470,7 +605,7 @@ def test_several_open_interrupts_resume_keyed_by_id():
 
     assert value == {
         _ID_A: {"page": "/x"},
-        _ID_B: {"__agui_cancelled__": True, "interrupt_id": _ID_B},
+        _ID_B: {_AGUI_CANCELLED_KEY: True, "interrupt_id": _ID_B},
     }
 
 
