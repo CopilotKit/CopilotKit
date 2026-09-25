@@ -14,6 +14,65 @@ function customSelect(element: Element): element is HTMLElement {
   );
 }
 
+function formValue(element: Element): string {
+  if (
+    element instanceof HTMLInputElement &&
+    ["checkbox", "radio"].includes(element.type)
+  )
+    return JSON.stringify([element.value, element.checked]);
+  if (element instanceof HTMLSelectElement && element.multiple)
+    return JSON.stringify(
+      [...element.selectedOptions].map((option) => option.value),
+    );
+  return fieldValue(element);
+}
+
+function submissionState(element: Element): string {
+  const field = element as
+    | HTMLInputElement
+    | HTMLSelectElement
+    | HTMLTextAreaElement;
+  return JSON.stringify({
+    value: formValue(element),
+    name: field.name,
+    type: field.type,
+    disabled: field.disabled,
+    readOnly: "readOnly" in field ? field.readOnly : false,
+  });
+}
+function formFields(form: HTMLFormElement): Element[] {
+  return [...form.elements].filter(
+    (element) =>
+      element instanceof HTMLInputElement ||
+      element instanceof HTMLSelectElement ||
+      element instanceof HTMLTextAreaElement,
+  );
+}
+function matchesBaseline(
+  form: HTMLFormElement,
+  baseline: Map<Element, string>,
+): boolean {
+  const fields = formFields(form);
+  return (
+    fields.length === baseline.size &&
+    fields.every(
+      (element) => baseline.get(element) === submissionState(element),
+    )
+  );
+}
+function advanceValue(baseline: Map<Element, string>, element: Element): void {
+  const previous = baseline.get(element);
+  if (!previous) return;
+  // Only this operation's value change is expected; name/disabled/type changes are not.
+  const state = JSON.parse(previous);
+  state.value = formValue(element);
+  baseline.set(element, JSON.stringify(state));
+}
+
+function interactable(element: Element): boolean {
+  return !element.matches(":disabled, [readonly], [aria-disabled='true']");
+}
+
 function fieldValue(element: Fillable): string {
   return customSelect(element)
     ? (element.getAttribute("data-autopilot-selected") ?? "")
@@ -34,6 +93,7 @@ export interface AutopilotFormPlan {
   submit: HTMLButtonElement;
   submitRef: string;
   fields: PreparedField[];
+  baseline: Map<Element, string>;
   path: string;
   identity: string;
   recordId: string;
@@ -149,6 +209,9 @@ export class BrowserFormBatch {
       submit,
       submitRef,
       fields,
+      baseline: new Map(
+        formFields(form).map((element) => [element, submissionState(element)]),
+      ),
       path: window.location.pathname,
       identity,
       recordId: recordId || draftId,
@@ -166,13 +229,31 @@ export class BrowserFormBatch {
     };
   }
 
+  isCurrent(plan: AutopilotFormPlan): boolean {
+    try {
+      const fresh = this.prepare(
+        plan.fields.map((field) => ({ ref: field.ref, value: field.after })),
+        plan.submitRef,
+      );
+      return (
+        fresh.identity === plan.identity &&
+        fresh.form === plan.form &&
+        matchesBaseline(plan.form, plan.baseline)
+      );
+    } catch {
+      return false;
+    }
+  }
+
   async dispatch(
     plan: AutopilotFormPlan,
     recheck: () => Promise<boolean>,
+    beforeSubmit: () => void = () => {},
   ): Promise<AutopilotFormDispatch> {
     const expected = new Map(
       plan.fields.map((field) => [field.element, field.before]),
     );
+    const baseline = new Map(plan.baseline);
     let applied = 0;
     const guard = async (): Promise<boolean> => {
       if (
@@ -195,12 +276,15 @@ export class BrowserFormBatch {
       });
       if (
         currentIdentity !== plan.identity ||
-        this.pageMap.resolve(plan.submitRef) !== plan.submit
+        this.pageMap.resolve(plan.submitRef) !== plan.submit ||
+        !interactable(plan.submit) ||
+        !matchesBaseline(plan.form, baseline)
       )
         return false;
       return plan.fields.every(
         (field) =>
           this.pageMap.resolve(field.ref) === field.element &&
+          interactable(field.element) &&
           fieldValue(field.element) === expected.get(field.element),
       );
     };
@@ -220,6 +304,15 @@ export class BrowserFormBatch {
             reason: `Browser rejected ${field.label}`,
           };
         expected.set(field.element, field.after);
+        if (baseline.has(field.element)) advanceValue(baseline, field.element);
+        // A supported custom select writes its own hidden value as part of this fill.
+        if (customSelect(field.element)) {
+          for (const hidden of field.element.querySelectorAll(
+            'input[type="hidden"]',
+          )) {
+            if (baseline.has(hidden)) advanceValue(baseline, hidden);
+          }
+        }
         applied++;
       }
       if (!(await guard()))
@@ -234,6 +327,7 @@ export class BrowserFormBatch {
           applied,
           reason: "Form validation rejected the reviewed values",
         };
+      beforeSubmit();
       plan.form.requestSubmit(plan.submit);
       return { status: "dispatched", applied };
     } catch (error) {

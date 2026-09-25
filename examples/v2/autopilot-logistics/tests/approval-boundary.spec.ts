@@ -6,7 +6,7 @@ test("an unbound programmatic cancel click cannot become a manual approval", asy
   page,
 }) => {
   const database = new DatabaseSync(
-    resolve(process.cwd(), "data/northstar.sqlite"),
+    resolve(process.env.NORTHSTAR_DB_PATH || "data/northstar.sqlite"),
   );
   const id = crypto.randomUUID();
   const reference = `NS-BOUNDARY-${Date.now()}`;

@@ -11,7 +11,7 @@ test("invalid status transition through discovered form leaves SQL unchanged", a
   const evidenceDir = evidencePath("iteration-013", `invalid-${Date.now()}`);
   mkdirSync(evidenceDir, { recursive: true });
   const database = new DatabaseSync(
-    resolve(process.cwd(), "data/northstar.sqlite"),
+    resolve(process.env.NORTHSTAR_DB_PATH || "data/northstar.sqlite"),
   );
   const id = crypto.randomUUID();
   const reference = `NS-INVALID-${Date.now()}`;

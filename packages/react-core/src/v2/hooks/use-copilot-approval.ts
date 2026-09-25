@@ -150,6 +150,11 @@ const emptySubscribe = () => () => {};
 const emptySnapshot = () => undefined;
 
 /** Headless state for rendering approvals outside the default chat surface. */
+/**
+ * @example
+ * const state = useCopilotApproval(controller);
+ * // Render state in your review surface; the hook cleans up its subscription.
+ */
 export function useCopilotApproval(
   controller?: CopilotApprovalStore,
 ): CopilotApprovalResponse | undefined {
@@ -166,6 +171,11 @@ export function useCopilotApproval(
 }
 
 /** Pending or already accepted work, for Stop controls that stay available until settlement. */
+/**
+ * @example
+ * const state = useCopilotApprovalWork(controller);
+ * // Render state in your review surface; the hook cleans up its subscription.
+ */
 export function useCopilotApprovalWork(
   controller?: CopilotApprovalStore,
 ): CopilotApprovalRequest | undefined {

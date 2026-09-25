@@ -25,3 +25,10 @@ The durable scoreboard, evidence log, friction report, and per-iteration record 
 - [ ] Pass all A01–A18 live and negative checks.
 - [ ] Pack packages and pass the same live flow in an isolated external consumer.
 - [ ] Commit, push, and leave a verified running app with handoff evidence.
+
+## Autopilot integration cleanup (approved September 25)
+
+- [x] Centralize generic tools, guidance, approval/execution, budgets, takeover and recovery in packages.
+- [x] Install tools from provider configuration; reduce demo to session/router adapter and typed write receipts.
+- [x] Close form takeover/interactability and cross-tab coordination gaps; remove unbudgeted reader.
+- [ ] Verify public integration, regression tests, live browser flows, and packed consumer; update honest handoff.

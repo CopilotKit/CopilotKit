@@ -55,7 +55,7 @@ for (const trial of [
     );
     const input = page.locator(".assistant-panel textarea").last();
     await input.fill(
-      "Use autopilot_readPage to read this Dashboard from my browser and tell me its heading. If that tool is unavailable, use describeVisiblePage instead.",
+      "Use autopilot_readPage to read this Dashboard from my browser and tell me its heading. If browsing is unavailable, tell me that in chat.",
     );
     await input.press("Enter");
 
@@ -78,8 +78,7 @@ for (const trial of [
           messages = (await stored.json()).messages;
           return messages.some(
             (message) =>
-              message.role === "assistant" &&
-              message.content?.includes("Dashboard"),
+              message.role === "assistant" && !!message.content?.trim(),
           );
         },
         { timeout: 60_000 },
@@ -90,7 +89,7 @@ for (const trial of [
       (message) => message.toolCalls?.map((call) => call.name) ?? [],
     );
     expect(calls.includes("autopilot_readPage")).toBe(trial.expectAutopilot);
-    if (!trial.expectAutopilot) expect(calls).toContain("describeVisiblePage");
+    if (!trial.expectAutopilot) expect(calls).toHaveLength(0);
     await page.screenshot({
       path: resolve(evidenceDir, "scope.png"),
       fullPage: true,

@@ -6,6 +6,7 @@ import {
   readFileSync,
   readdirSync,
   realpathSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { createHash } from "node:crypto";
@@ -150,6 +151,7 @@ try {
     throw new Error("Live credential names are missing");
   const isolatedEnv = {
     ...process.env,
+    NORTHSTAR_DB_PATH: join(consumer, "data/northstar.sqlite"),
     AUTOPILOT_BASE_URL: "http://127.0.0.1:3001",
     AUTOPILOT_EVIDENCE_ROOT: join(evidence, "live"),
   };
@@ -174,6 +176,7 @@ try {
   const server = spawn("pnpm", ["run", "start"], {
     cwd: consumer,
     env: isolatedEnv,
+    detached: true,
     stdio: ["ignore", "pipe", "pipe"],
   });
   let serverOutput = "";
@@ -217,7 +220,13 @@ try {
     );
     report.checks.push("isolated live browser/SQL sequence passed");
   } finally {
-    server.kill("SIGTERM");
+    if (server.pid) {
+      try {
+        process.kill(-server.pid, "SIGTERM");
+      } catch (error) {
+        if (error.code !== "ESRCH") throw error;
+      }
+    }
     log.push(`Isolated server output:\n${serverOutput}`);
   }
   report.status = "passed";
@@ -225,6 +234,10 @@ try {
   report.status = "failed";
   report.error = error instanceof Error ? error.message : String(error);
 } finally {
+  if (report.status === "passed") {
+    rmSync(consumer, { recursive: true, force: true });
+    report.consumerRemoved = true;
+  }
   save();
 }
 if (report.status !== "passed") process.exitCode = 1;

@@ -231,6 +231,7 @@ function CopilotPopupViewInternal({
 
   const popupContent = isRendered ? (
     <div
+      data-copilot-private
       data-copilotkit
       className={cn(
         "cpk:fixed cpk:inset-0 cpk:z-[1200] cpk:flex cpk:max-w-full cpk:flex-col cpk:items-stretch",
@@ -303,7 +304,11 @@ export namespace CopilotPopupView {
 
     if (children) {
       return (
-        <div data-copilotkit style={{ display: "contents" }}>
+        <div
+          data-copilot-private
+          data-copilotkit
+          style={{ display: "contents" }}
+        >
           {children({
             welcomeMessage: BoundWelcomeMessage,
             input,

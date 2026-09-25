@@ -457,6 +457,7 @@ export function CopilotChatView({
 
     return (
       <div
+        data-copilot-private
         data-copilotkit
         data-testid="copilot-chat"
         data-copilot-running={isRunning ? "true" : "false"}
@@ -484,7 +485,7 @@ export function CopilotChatView({
 
   if (children) {
     return (
-      <div data-copilotkit style={{ display: "contents" }}>
+      <div data-copilot-private data-copilotkit style={{ display: "contents" }}>
         {children({
           messageView: BoundMessageView,
           input: BoundInput,
@@ -501,6 +502,7 @@ export function CopilotChatView({
 
   return (
     <div
+      data-copilot-private
       data-copilotkit
       data-testid="copilot-chat"
       data-copilot-running={isRunning ? "true" : "false"}
@@ -998,7 +1000,11 @@ export namespace CopilotChatView {
 
     if (children) {
       return (
-        <div data-copilotkit style={{ display: "contents" }}>
+        <div
+          data-copilot-private
+          data-copilotkit
+          style={{ display: "contents" }}
+        >
           {children({
             welcomeMessage: BoundWelcomeMessage,
             input,

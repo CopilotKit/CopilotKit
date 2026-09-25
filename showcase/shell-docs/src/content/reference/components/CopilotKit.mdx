@@ -253,3 +253,73 @@ This is a CopilotKit Intelligence feature.
   Pass `true` for event and lifecycle summaries, or a config object with
   `verbose: true` to include full event payloads.
 </PropertyReference>
+
+## Browser Autopilot (prototype)
+
+The `autopilot` option on `CopilotKitProvider` can install CopilotKit's browser tools.
+Runtime-side Autopilot activation is also required. Scope configuration alone narrows
+execution; supply an `adapter` to install the browser integration.
+
+```tsx
+<CopilotKitProvider
+  runtimeUrl="/api/copilotkit"
+  autopilot={{
+    agents: ["assistant"],
+    adapter: {
+      identity: { userId: user.id, organizationId: user.organizationId },
+      canWrite: validateCurrentSession,
+      navigation: {
+        push: (path) => router.push(path),
+        allowedPath: isAllowedAppPath,
+        mayLeave: confirmLeavingUnsavedChanges,
+      },
+    },
+  }}
+>
+  <Application />
+  <CopilotSidebar />
+</CopilotKitProvider>
+```
+
+Keep the adapter stable with `useMemo`. `canWrite` must revalidate the current
+server session; this browser check never replaces server authorization.
+CopilotKit registers discovery, navigation, search, clarification, form submission,
+and control activation. Do not register those tools manually or add generic model
+instructions in your application. All reads share a request budget. Reviewed writes
+hold a browser record lock until completion or an uncertain outcome.
+
+The adapter contains application policy, not agent actions. Write targets still
+need stable record/draft identity and version annotations. Normal application
+handlers report their server result through `performBrowserAction`:
+
+```tsx
+import { performBrowserAction } from "@copilotkit/react-core/v2";
+
+async function onSubmit(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  await performBrowserAction(form, event.nativeEvent, async () => {
+    const result = await saveUsingExistingAppHandler(new FormData(form));
+    return { status: "completed", recordId: result.id, version: result.version };
+  });
+}
+```
+
+Return `failed` only after a definitive server rejection, and `uncertain` when the
+write may have reached the server. A DOM click alone is not proof of completion.
+An optional fourth argument supplies normal manual confirmation; an approved
+Autopilot dispatch reuses its review rather than asking twice.
+
+Forms expose `data-autopilot-record-id`, `data-autopilot-record-version`, and
+`data-autopilot-handler-version`; new forms use `data-autopilot-draft-id` instead
+of record identity. Buttons additionally declare `data-copilot-action` and can
+provide `data-copilot-confirm` as their review text. Use `data-copilot-private` on
+excluded regions and `data-copilot-page` on the readable app root. GET search forms
+must explicitly declare `data-copilot-readonly-form`. These are supported prototype
+contracts, not automatic support for arbitrary widgets or business applications.
+
+Built-in chat uses the provider's approval and clarification controllers by default.
+For a custom/headless surface, pass stable `approvalController` and
+`clarificationController` instances in `autopilot`, then consume them through
+`useCopilotApproval`, `useCopilotApprovalWork`, and `useCopilotClarification` from
+`@copilotkit/react-core/v2/headless`. A real trusted user event is required to respond.

@@ -1,5 +1,9 @@
 "use client";
 
+import { AutopilotProvider } from "../autopilot/AutopilotProvider";
+import type { CopilotAutopilotConfig } from "../autopilot/AutopilotProvider";
+export type { CopilotAutopilotConfig } from "../autopilot/AutopilotProvider";
+
 import type { AbstractAgent } from "@ag-ui/client";
 import type { CopilotKitMessageFilter, FrontendTool } from "@copilotkit/core";
 import { ToolCallStatus } from "@copilotkit/core";
@@ -128,7 +132,7 @@ const GENERATE_SANDBOXED_UI_DESCRIPTION =
 export interface CopilotKitProviderProps {
   children: ReactNode;
   /** Browser Autopilot scope. Runtime activation is required; this can only narrow it. */
-  autopilot?: { enabled?: boolean; agents?: string[] };
+  autopilot?: CopilotAutopilotConfig;
   runtimeUrl?: string;
   headers?: Record<string, string> | (() => Record<string, string>);
   /**
@@ -361,13 +365,17 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const [inspectorVisible, setInspectorVisible] = useState(false);
 
   useEffect(() => {
+    const local = ["localhost", "127.0.0.1", "[::1]"].includes(
+      window.location?.hostname ?? "",
+    );
     setShouldRenderInspector(
-      shouldEnableInspector({
-        enableInspector,
-        isBrowser: true,
-        isDevelopment: process.env.NODE_ENV === "development",
-      }) &&
-        ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname),
+      local &&
+        shouldEnableInspector({
+          enableInspector,
+          isBrowser: true,
+          isDevelopment: process.env.NODE_ENV === "development",
+          allowLocalProductionPreview: local,
+        }),
     );
   }, [enableInspector]);
 
@@ -1128,7 +1136,13 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
               `CopilotKitAgentIdContext` comment in `../context`.
             */}
             <CopilotKitAgentIdContext.Provider value={agentId}>
-              {children}
+              {autopilot?.adapter ? (
+                <AutopilotProvider config={autopilot} agentId={agentId}>
+                  {children}
+                </AutopilotProvider>
+              ) : (
+                children
+              )}
             </CopilotKitAgentIdContext.Provider>
             {shouldRenderInspector ? (
               <CopilotKitInspector

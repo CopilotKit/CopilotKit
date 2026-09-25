@@ -12,7 +12,6 @@ export * from "./interrupt-state";
 export * from "./inspector-thread-bridge";
 export * from "./autopilot/browser-page-map";
 export * from "./autopilot/browser-navigation";
-export * from "./autopilot/browser-approval";
 export * from "./autopilot/browser-form-batch";
 export * from "./autopilot/browser-control-activation";
 export * from "./autopilot/browser-request-budget";
@@ -20,3 +19,7 @@ export * from "./autopilot/trace";
 export * from "./autopilot/browser-target-highlighter";
 export * from "./autopilot/browser-read-only-form";
 export * from "./autopilot/clarification-policy";
+
+export * from "./autopilot/browser-autopilot";
+export { performBrowserAction } from "./autopilot/browser-action";
+export type { BrowserActionOutcome } from "./autopilot/browser-action";

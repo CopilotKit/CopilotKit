@@ -86,6 +86,11 @@ const emptySubscribe = () => () => {};
 const emptySnapshot = () => undefined;
 
 /** Headless clarification state for a custom chat or external consumer. */
+/**
+ * @example
+ * const state = useCopilotClarification(controller);
+ * // Render state in your review surface; the hook cleans up its subscription.
+ */
 export function useCopilotClarification(
   controller?: CopilotClarificationStore,
 ) {

@@ -20544,8 +20544,8 @@ export class WebInspectorElement extends LitElement {
           this.selectedContext === "all-agents" ||
           record.agentId === this.selectedContext,
       )
-      .slice(-12)
-      .toReversed();
+      .slice(-12);
+    traces.reverse();
 
     if (allTools.length === 0 && traces.length === 0) {
       return html`

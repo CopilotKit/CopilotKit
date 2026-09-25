@@ -6,7 +6,7 @@ test("committed SQL data remains visible after a separate app start", async ({
   page,
 }) => {
   const database = new DatabaseSync(
-    resolve(process.cwd(), "data/northstar.sqlite"),
+    resolve(process.env.NORTHSTAR_DB_PATH || "data/northstar.sqlite"),
     { readOnly: true },
   );
   const order = database

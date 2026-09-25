@@ -1,0 +1,26 @@
+---
+title: "useCopilotApprovalWork"
+description: "Observe pending or accepted work for a custom Stop control"
+---
+
+`useCopilotApprovalWork(controller?)` subscribes to a stable CopilotKit controller. It returns
+`undefined` when no matching work exists or no controller is supplied. It removes
+its subscription on unmount and resubscribes when the controller changes.
+
+```tsx
+import { useCopilotApprovalWork } from "@copilotkit/react-core/v2/headless";
+
+const work = useCopilotApprovalWork(controller);
+return work ? <button onClick={stopAgent}>Stop</button> : null;
+```
+
+Use `CopilotApprovalController` for approval/work and
+`CopilotClarificationController` for questions. Pass the same controller into the
+provider's `autopilot` configuration when replacing its default review surface.
+Controllers belong to a provider/application instance; do not share mutable
+controllers between server requests.
+
+Only trusted user events can approve or answer. Clarification never grants write
+permission. Stop should stop the agent as well as cancel the controller; approved
+writes already dispatched to the server can still complete. The application must
+retain server-side permissions, validation, version checks, and idempotency.

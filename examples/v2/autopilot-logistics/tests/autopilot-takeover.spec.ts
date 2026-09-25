@@ -8,7 +8,7 @@ for (const takeover of ["edit", "navigate", "sign out", "Stop"] as const) {
   }) => {
     test.setTimeout(120_000);
     const database = new DatabaseSync(
-      resolve(process.cwd(), "data/northstar.sqlite"),
+      resolve(process.env.NORTHSTAR_DB_PATH || "data/northstar.sqlite"),
     );
     const id = crypto.randomUUID();
     const reference = `NS-TAKE-${Date.now()}`;
@@ -69,7 +69,7 @@ test("a manual cancel takes over a pending agent approval", async ({
 }) => {
   test.setTimeout(120_000);
   const database = new DatabaseSync(
-    resolve(process.cwd(), "data/northstar.sqlite"),
+    resolve(process.env.NORTHSTAR_DB_PATH || "data/northstar.sqlite"),
   );
   const id = crypto.randomUUID();
   const reference = `NS-MANUAL-TAKE-${Date.now()}`;

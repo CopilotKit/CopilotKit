@@ -16,6 +16,7 @@ export function CopilotChatApproval({
 }: CopilotChatApprovalProps) {
   return (
     <section
+      data-copilot-private
       aria-label="Approval required"
       data-testid="copilot-approval"
       className="cpk:mx-4 cpk:mb-2 cpk:rounded-xl cpk:border cpk:border-border cpk:bg-background cpk:p-4 cpk:shadow-md"

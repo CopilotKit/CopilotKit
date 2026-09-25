@@ -11,7 +11,7 @@ test("live stale cancel approval cannot change a newer order version", async ({
   const evidenceDir = evidencePath("iteration-023", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
   const database = new DatabaseSync(
-    resolve(process.cwd(), "data/northstar.sqlite"),
+    resolve(process.env.NORTHSTAR_DB_PATH || "data/northstar.sqlite"),
   );
   const id = crypto.randomUUID();
   const reference = `NS-STALE-${Date.now()}`;

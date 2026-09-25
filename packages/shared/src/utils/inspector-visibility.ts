@@ -1,4 +1,6 @@
 export interface InspectorVisibilityOptions {
+  /** Explicit local-preview exception; callers must verify the browser hostname. */
+  allowLocalProductionPreview?: boolean;
   enableInspector?: boolean;
   isBrowser: boolean;
   isDevelopment: boolean;
@@ -12,10 +14,11 @@ export function shouldEnableInspector({
   enableInspector,
   isBrowser,
   isDevelopment,
+  allowLocalProductionPreview = false,
 }: InspectorVisibilityOptions): boolean {
   return (
     isBrowser &&
     enableInspector !== false &&
-    (isDevelopment || enableInspector === true)
+    (isDevelopment || (enableInspector === true && allowLocalProductionPreview))
   );
 }

@@ -21,12 +21,23 @@ describe("shouldEnableInspector", () => {
     ).toBe(false);
   });
 
-  it("allows an explicit production browser opt-in", () => {
+  it("does not enable production globally through an explicit opt-in", () => {
     expect(
       shouldEnableInspector({
         enableInspector: true,
         isBrowser: true,
         isDevelopment: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("allows the host's verified local preview exception", () => {
+    expect(
+      shouldEnableInspector({
+        enableInspector: true,
+        isBrowser: true,
+        isDevelopment: false,
+        allowLocalProductionPreview: true,
       }),
     ).toBe(true);
   });

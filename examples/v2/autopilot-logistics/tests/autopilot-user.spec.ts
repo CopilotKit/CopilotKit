@@ -11,7 +11,7 @@ test("live admin agent updates a user through the discovered form", async ({
   const evidenceDir = evidencePath("iteration-016", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
   const database = new DatabaseSync(
-    resolve(process.cwd(), "data/northstar.sqlite"),
+    resolve(process.env.NORTHSTAR_DB_PATH || "data/northstar.sqlite"),
   );
   const id = crypto.randomUUID();
   const name = `Morgan Agent ${Date.now()}`;

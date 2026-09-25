@@ -9,7 +9,7 @@ test("reload while approval is pending restores the thread without replaying a w
 }) => {
   test.setTimeout(120_000);
   const database = new DatabaseSync(
-    resolve(process.cwd(), "data/northstar.sqlite"),
+    resolve(process.env.NORTHSTAR_DB_PATH || "data/northstar.sqlite"),
   );
   const id = crypto.randomUUID();
   const reference = `NS-RELOAD-${Date.now()}`;
@@ -53,7 +53,7 @@ test("reload after SQL commit but before receipt does not replay cancellation", 
   const evidenceDir = evidencePath("iteration-034", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
   const database = new DatabaseSync(
-    resolve(process.cwd(), "data/northstar.sqlite"),
+    resolve(process.env.NORTHSTAR_DB_PATH || "data/northstar.sqlite"),
   );
   const id = crypto.randomUUID();
   const reference = `NS-COMMIT-RELOAD-${Date.now()}`;
@@ -137,7 +137,7 @@ test("reload after dispatch but before server receipt reports an interrupted eff
   const evidenceDir = evidencePath("iteration-035", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
   const database = new DatabaseSync(
-    resolve(process.cwd(), "data/northstar.sqlite"),
+    resolve(process.env.NORTHSTAR_DB_PATH || "data/northstar.sqlite"),
   );
   const id = crypto.randomUUID();
   const reference = `NS-DISPATCH-RELOAD-${Date.now()}`;

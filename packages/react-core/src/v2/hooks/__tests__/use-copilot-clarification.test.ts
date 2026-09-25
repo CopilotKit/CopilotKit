@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import {
   CopilotClarificationController,
@@ -41,4 +41,37 @@ describe("CopilotClarificationController", () => {
     expect(await pending).toEqual({ status: "cancelled" });
     expect(result.current).toBeUndefined();
   });
+});
+
+it("switches clarification stores and unsubscribes on unmount", () => {
+  const first = new CopilotClarificationController();
+  const second = new CopilotClarificationController();
+  const unsubscribers: ReturnType<typeof vi.fn>[] = [];
+  for (const controller of [first, second]) {
+    const subscribe = controller.subscribe;
+    vi.spyOn(controller, "subscribe").mockImplementation((listener) => {
+      const unsubscribe = vi.fn(subscribe(listener));
+      unsubscribers.push(unsubscribe);
+      return unsubscribe;
+    });
+  }
+  const view = renderHook(
+    ({ controller }) => useCopilotClarification(controller),
+    { initialProps: { controller: first } },
+  );
+  act(() => {
+    void first.request(request);
+  });
+  expect(view.result.current?.request).toEqual(request);
+  view.rerender({ controller: second });
+  expect(view.result.current).toBeUndefined();
+  expect(unsubscribers[0]).toHaveBeenCalledOnce();
+  act(() => {
+    void second.request(request);
+  });
+  expect(view.result.current?.request).toEqual(request);
+  view.unmount();
+  expect(unsubscribers[1]).toHaveBeenCalledOnce();
+  first.cancel();
+  second.cancel();
 });

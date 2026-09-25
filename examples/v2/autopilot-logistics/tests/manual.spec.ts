@@ -10,7 +10,7 @@ test("manual order and user workflows persist and enforce roles", async ({
   const evidenceDir = evidencePath("iteration-004", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
   const database = new DatabaseSync(
-    resolve(process.cwd(), "data/northstar.sqlite"),
+    resolve(process.env.NORTHSTAR_DB_PATH || "data/northstar.sqlite"),
     { readOnly: true },
   );
   const customer = `Cobalt Test ${Date.now()}`;

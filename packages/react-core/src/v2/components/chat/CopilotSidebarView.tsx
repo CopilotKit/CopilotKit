@@ -192,6 +192,7 @@ function CopilotSidebarViewInternal({
       {toggleButtonElement}
       <aside
         ref={sidebarRef}
+        data-copilot-private
         data-copilotkit
         data-testid="copilot-sidebar"
         data-copilot-sidebar
@@ -264,7 +265,11 @@ export namespace CopilotSidebarView {
 
     if (children) {
       return (
-        <div data-copilotkit style={{ display: "contents" }}>
+        <div
+          data-copilot-private
+          data-copilotkit
+          style={{ display: "contents" }}
+        >
           {children({
             welcomeMessage: BoundWelcomeMessage,
             input,

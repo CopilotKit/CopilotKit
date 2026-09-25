@@ -17,6 +17,7 @@ export function CopilotChatClarification({
   const [answer, setAnswer] = useState("");
   return (
     <form
+      data-copilot-private
       aria-label="Clarification needed"
       data-testid="copilot-clarification"
       className="cpk:mx-4 cpk:mb-2 cpk:rounded-xl cpk:border cpk:border-border cpk:bg-background cpk:p-4 cpk:shadow-md"

@@ -9,7 +9,7 @@ test("live discovery cannot reach another tenant's order", async ({ page }) => {
   const evidenceDir = evidencePath("iteration-041", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
   const database = new DatabaseSync(
-    resolve(process.cwd(), "data/northstar.sqlite"),
+    resolve(process.env.NORTHSTAR_DB_PATH || "data/northstar.sqlite"),
     { readOnly: true },
   );
   const other = database

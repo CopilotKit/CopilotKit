@@ -1,3 +1,4 @@
+import { AutopilotContext } from "../../autopilot/context";
 import { useAgent } from "../../hooks/use-agent";
 import { useAttachments } from "../../hooks/use-attachments";
 import { useSuggestions } from "../../hooks/use-suggestions";
@@ -25,6 +26,7 @@ import {
 } from "@copilotkit/core";
 import type { ɵThreadRuntimeContext, ɵThreadStore } from "@copilotkit/core";
 import React, {
+  useContext,
   useCallback,
   useEffect,
   useMemo,
@@ -121,8 +123,15 @@ export function CopilotChat({
   attachments: attachmentsConfig,
   onError,
   throttleMs,
-  ...props
+  ...providedProps
 }: CopilotChatProps) {
+  const autopilot = useContext(AutopilotContext);
+  const props = {
+    approvalController: autopilot?.approvalController,
+    clarificationController: autopilot?.clarificationController,
+    statusNotice: autopilot?.statusNotice,
+    ...providedProps,
+  };
   // Check for existing configuration provider
   const existingConfig = useCopilotChatConfiguration();
   const inspector = useCopilotKitInspector();

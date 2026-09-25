@@ -7,7 +7,7 @@ test("deactivating a user invalidates their existing session and stale form vers
   browser,
 }) => {
   const database = new DatabaseSync(
-    resolve(process.cwd(), "data/northstar.sqlite"),
+    resolve(process.env.NORTHSTAR_DB_PATH || "data/northstar.sqlite"),
   );
   await page.goto("/sign-in");
   const id = crypto.randomUUID();

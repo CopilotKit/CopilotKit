@@ -4,11 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { FormEvent, MouseEvent } from "react";
 import type { Order, Role } from "@/lib/db";
-import {
-  approvalController,
-  orderApprovalGate,
-  rememberUnsettledEffect,
-} from "@/lib/autopilot-approval";
+import { performBrowserAction } from "@copilotkit/react-core/v2";
+import type { BrowserActionOutcome } from "@copilotkit/react-core/v2";
 
 type Operator = { id: string; display_name: string; active: number };
 
@@ -36,54 +33,52 @@ export function OrderForm({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
-    setPending(true);
-    setError("");
-    const data = new FormData(form);
-    let serverRejected = false;
-    try {
-      const response = await fetch(
-        order ? `/api/orders/${order.id}` : "/api/orders",
-        { method: "POST", body: data },
-      );
-      const result = (await response.json()) as {
-        id?: string;
-        version?: number;
-        error?: string;
-      };
-      if (!response.ok) {
-        serverRejected = true;
-        throw new Error(result.error ?? "Order could not be saved");
-      }
-      form.dispatchEvent(
-        new CustomEvent("copilotkit:autopilot-form-outcome", {
-          detail: {
+    return performBrowserAction(
+      form,
+      event.nativeEvent,
+      async (): Promise<BrowserActionOutcome> => {
+        setPending(true);
+        setError("");
+        const data = new FormData(form);
+        let serverRejected = false;
+        try {
+          const response = await fetch(
+            order ? `/api/orders/${order.id}` : "/api/orders",
+            { method: "POST", body: data },
+          );
+          const result = (await response.json()) as {
+            id?: string;
+            version?: number;
+            error?: string;
+          };
+          if (!response.ok) {
+            serverRejected = true;
+            throw new Error(result.error ?? "Order could not be saved");
+          }
+          setKey(crypto.randomUUID());
+          if (!order) router.push(`/orders/${result.id}`);
+          else router.refresh();
+          return {
             status: "completed",
             recordId: result.id ?? order?.id,
             version: result.version ?? (order ? order.version + 1 : 1),
-          },
-        }),
-      );
-      setKey(crypto.randomUUID());
-      if (!order) router.push(`/orders/${result.id}`);
-      else router.refresh();
-    } catch (cause) {
-      form.dispatchEvent(
-        new CustomEvent("copilotkit:autopilot-form-outcome", {
-          detail: {
+          };
+        } catch (cause) {
+          setError(
+            cause instanceof Error ? cause.message : "Order could not be saved",
+          );
+          return {
             status: serverRejected ? "failed" : "uncertain",
             reason:
               cause instanceof Error
                 ? cause.message
                 : "Order could not be saved",
-          },
-        }),
-      );
-      setError(
-        cause instanceof Error ? cause.message : "Order could not be saved",
-      );
-    } finally {
-      setPending(false);
-    }
+          };
+        } finally {
+          setPending(false);
+        }
+      },
+    );
   }
 
   if (!editable)
@@ -149,6 +144,7 @@ export function OrderForm({
           aria-label="Service level"
           data-autopilot-custom-select
           data-autopilot-selected={serviceLevel}
+          data-copilot-initial-value={order?.service_level ?? "standard"}
         >
           <span>Service level</span>
           <input type="hidden" name="serviceLevel" value={serviceLevel} />
@@ -224,17 +220,7 @@ export function OrderForm({
   );
 }
 
-export function CancelOrder({
-  order,
-  role,
-  userId,
-  organizationId,
-}: {
-  order: Order;
-  role: Role;
-  userId: string;
-  organizationId: string;
-}) {
+export function CancelOrder({ order, role }: { order: Order; role: Role }) {
   const router = useRouter();
   const [key, setKey] = useState(() => crypto.randomUUID());
   const [error, setError] = useState("");
@@ -243,101 +229,52 @@ export function CancelOrder({
     return null;
 
   async function cancel(event: MouseEvent<HTMLButtonElement>) {
-    const trustedManualEvent = event.nativeEvent.isTrusted;
-    const review = `Cancel ${order.reference} for ${order.customer}?`;
-    const binding = trustedManualEvent
-      ? undefined
-      : orderApprovalGate.getPendingBinding();
-    if (!trustedManualEvent && !binding) return;
-    if (trustedManualEvent) {
-      orderApprovalGate.cancelAwaiting("User took over manually");
-      approvalController.cancel();
-    }
-    const approval = trustedManualEvent
-      ? window.confirm(review)
-        ? "approved"
-        : "declined"
-      : await approvalController.request({
-          description: review,
-          agentId: binding!.agentId,
-          threadId: binding!.threadId,
-          target: {
-            id: order.id,
-            version: order.version,
-            path: window.location.pathname,
-          },
-        });
-    if (approval === "cancelled") {
-      orderApprovalGate.cancelAwaiting("Human stopped the action");
-      return;
-    }
-    const approved = approval === "approved";
-    const decision = await orderApprovalGate.decideFromApp(
-      {
-        userId,
-        organizationId,
-        recordId: order.id,
-        version: order.version,
-        action: "cancel",
-        path: window.location.pathname,
-      },
-      approved,
-      trustedManualEvent,
-    );
-    if (!approved || (decision.mode === "autopilot" && !decision.accepted))
-      return;
-    const operationId =
-      decision.mode === "autopilot" ? decision.operationId : undefined;
-    if (operationId && binding)
-      rememberUnsettledEffect({
-        operationId,
-        userId,
-        organizationId,
-        agentId: binding.agentId,
-        threadId: binding.threadId,
-      });
-    setPending(true);
-    setError("");
-    const data = new FormData();
-    data.set("action", "cancel");
-    data.set("version", String(order.version));
-    data.set("operationKey", key);
-    let serverRejected = false;
-    try {
-      const response = await fetch(`/api/orders/${order.id}`, {
-        method: "POST",
-        body: data,
-      });
-      const result = (await response.json()) as {
-        error?: string;
-        version?: number;
-      };
-      if (!response.ok) {
-        serverRejected = true;
-        throw new Error(result.error ?? "Cancellation failed");
-      }
-      if (operationId)
-        orderApprovalGate.finish(operationId, {
-          status: "completed",
-          receipt: {
+    return performBrowserAction(
+      event.currentTarget,
+      event.nativeEvent,
+      async (): Promise<BrowserActionOutcome> => {
+        setPending(true);
+        setError("");
+        const data = new FormData();
+        data.set("action", "cancel");
+        data.set("version", String(order.version));
+        data.set("operationKey", key);
+        let serverRejected = false;
+        try {
+          const response = await fetch(`/api/orders/${order.id}`, {
+            method: "POST",
+            body: data,
+          });
+          const result = (await response.json()) as {
+            error?: string;
+            version?: number;
+          };
+          if (!response.ok) {
+            serverRejected = true;
+            throw new Error(result.error ?? "Cancellation failed");
+          }
+          setKey(crypto.randomUUID());
+          router.refresh();
+          return {
+            status: "completed",
             recordId: order.id,
             version: result.version ?? order.version + 1,
-            status: "cancelled",
-          },
-        });
-      setKey(crypto.randomUUID());
-      router.refresh();
-    } catch (cause) {
-      if (operationId)
-        orderApprovalGate.finish(operationId, {
-          status: serverRejected ? "failed" : "uncertain",
-          reason:
+          };
+        } catch (cause) {
+          setError(
             cause instanceof Error ? cause.message : "Cancellation failed",
-        });
-      setError(cause instanceof Error ? cause.message : "Cancellation failed");
-    } finally {
-      setPending(false);
-    }
+          );
+          return {
+            status: serverRejected ? "failed" : "uncertain",
+            reason:
+              cause instanceof Error ? cause.message : "Cancellation failed",
+          };
+        } finally {
+          setPending(false);
+        }
+      },
+      () => window.confirm(`Cancel ${order.reference} for ${order.customer}?`),
+    );
   }
 
   return (
@@ -349,6 +286,7 @@ export function CancelOrder({
       <button
         className="button danger"
         data-copilot-action="cancel"
+        data-copilot-confirm={`Cancel ${order.reference} for ${order.customer}`}
         data-autopilot-handler-version="1"
         type="button"
         onClick={cancel}

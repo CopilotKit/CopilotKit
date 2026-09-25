@@ -11,7 +11,7 @@ test("an intervening form change reports a partial fill without submitting", asy
   const evidenceDir = evidencePath("iteration-044", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
   const database = new DatabaseSync(
-    resolve(process.cwd(), "data/northstar.sqlite"),
+    resolve(process.env.NORTHSTAR_DB_PATH || "data/northstar.sqlite"),
   );
   const id = crypto.randomUUID();
   const reference = `NS-PARTIAL-${Date.now()}`;
@@ -157,7 +157,7 @@ test("unsupported visible field is refused before review or input", async ({
   const evidenceDir = evidencePath("iteration-045", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
   const database = new DatabaseSync(
-    resolve(process.cwd(), "data/northstar.sqlite"),
+    resolve(process.env.NORTHSTAR_DB_PATH || "data/northstar.sqlite"),
   );
   const id = crypto.randomUUID();
   const reference = `NS-UNSUPPORTED-${Date.now()}`;

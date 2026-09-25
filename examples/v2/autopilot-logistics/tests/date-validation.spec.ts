@@ -6,7 +6,7 @@ test("invalid shipment date is rejected without changing the order", async ({
   page,
 }) => {
   const database = new DatabaseSync(
-    resolve(process.cwd(), "data/northstar.sqlite"),
+    resolve(process.env.NORTHSTAR_DB_PATH || "data/northstar.sqlite"),
   );
   const id = crypto.randomUUID();
   const reference = `NS-DATE-${Date.now()}`;

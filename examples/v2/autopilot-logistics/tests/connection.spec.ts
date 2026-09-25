@@ -30,7 +30,7 @@ test("live Intelligence agent calls a frontend tool", async ({ page }) => {
   const input = page.locator(".assistant-panel textarea").last();
   await expect(input).toBeVisible();
   await input.fill(
-    "Use describeVisiblePage to read this screen in my browser, then tell me its title and path.",
+    "Read this screen in my browser, then tell me its heading and path.",
   );
   await input.press("Enter");
   await expect(page.locator(".assistant-panel")).toContainText("Dashboard", {
@@ -74,8 +74,8 @@ test("live Intelligence agent calls a frontend tool", async ({ page }) => {
     "tool",
     "assistant",
   ]);
-  expect(messages[1].toolCalls?.[0]?.name).toBe("describeVisiblePage");
-  expect(messages[2].content).toContain('"title":"Dashboard"');
+  expect(messages[1].toolCalls?.[0]?.name).toBe("autopilot_readPage");
+  expect(JSON.parse(messages[2].content).headings).toContain("Dashboard");
   expect(messages[3].content).toContain("Dashboard");
   await page.reload();
   const restoredResponse = await page.request.get(

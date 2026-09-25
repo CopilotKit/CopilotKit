@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { performBrowserAction } from "@copilotkit/react-core/v2";
+import type { BrowserActionOutcome } from "@copilotkit/react-core/v2";
 import type { Role } from "@/lib/db";
 
 type Person = {
@@ -20,54 +22,55 @@ export function UserForm({ person }: { person?: Person }) {
 
   async function submit(
     form: HTMLFormElement,
+    event: Event,
     action: "create" | "update" | "deactivate",
   ) {
-    setPending(true);
-    setError("");
-    const data = new FormData(form);
-    data.set("action", action);
-    data.set("operationKey", key);
-    let serverRejected = false;
-    try {
-      const response = await fetch("/api/users", {
-        method: "POST",
-        body: data,
-      });
-      const result = (await response.json()) as {
-        id?: string;
-        version?: number;
-        error?: string;
-      };
-      if (!response.ok) {
-        serverRejected = true;
-        throw new Error(result.error ?? "User change failed");
-      }
-      form.dispatchEvent(
-        new CustomEvent("copilotkit:autopilot-form-outcome", {
-          detail: {
+    return performBrowserAction(
+      form,
+      event,
+      async (): Promise<BrowserActionOutcome> => {
+        setPending(true);
+        setError("");
+        const data = new FormData(form);
+        data.set("action", action);
+        data.set("operationKey", key);
+        let serverRejected = false;
+        try {
+          const response = await fetch("/api/users", {
+            method: "POST",
+            body: data,
+          });
+          const result = (await response.json()) as {
+            id?: string;
+            version?: number;
+            error?: string;
+          };
+          if (!response.ok) {
+            serverRejected = true;
+            throw new Error(result.error ?? "User change failed");
+          }
+          setKey(crypto.randomUUID());
+          if (!person) form.reset();
+          router.refresh();
+          return {
             status: "completed",
             recordId: result.id,
             version: result.version,
-          },
-        }),
-      );
-      setKey(crypto.randomUUID());
-      if (!person) form.reset();
-      router.refresh();
-    } catch (cause) {
-      form.dispatchEvent(
-        new CustomEvent("copilotkit:autopilot-form-outcome", {
-          detail: {
+          };
+        } catch (cause) {
+          setError(
+            cause instanceof Error ? cause.message : "User change failed",
+          );
+          return {
             status: serverRejected ? "failed" : "uncertain",
             reason:
               cause instanceof Error ? cause.message : "User change failed",
-          },
-        }),
-      );
-      setError(cause instanceof Error ? cause.message : "User change failed");
-    } finally {
-      setPending(false);
-    }
+          };
+        } finally {
+          setPending(false);
+        }
+      },
+    );
   }
 
   return (
@@ -80,7 +83,11 @@ export function UserForm({ person }: { person?: Person }) {
       className="user-form"
       onSubmit={(event) => {
         event.preventDefault();
-        void submit(event.currentTarget, person ? "update" : "create");
+        void submit(
+          event.currentTarget,
+          event.nativeEvent,
+          person ? "update" : "create",
+        );
       }}
     >
       {person && <input type="hidden" name="id" value={person.id} />}
@@ -112,7 +119,11 @@ export function UserForm({ person }: { person?: Person }) {
           disabled={pending}
           onClick={(event) => {
             if (window.confirm(`Deactivate ${person.display_name}?`))
-              void submit(event.currentTarget.form!, "deactivate");
+              void submit(
+                event.currentTarget.form!,
+                event.nativeEvent,
+                "deactivate",
+              );
           }}
         >
           Deactivate

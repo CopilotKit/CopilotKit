@@ -137,6 +137,14 @@ export class BrowserPageMap {
       document.querySelector("main"),
   ): AutopilotPageMap {
     if (!root || !permitted(root)) throw new Error("No readable page content");
+    // Do not retain detached page trees throughout an SPA session.
+    for (const [ref, target] of this.targets) {
+      if (
+        !target.element.isConnected ||
+        target.path !== window.location.pathname
+      )
+        this.targets.delete(ref);
+    }
     const path = window.location.pathname;
     const headings = [...root.querySelectorAll("h1, h2, h3")]
       .filter(permitted)

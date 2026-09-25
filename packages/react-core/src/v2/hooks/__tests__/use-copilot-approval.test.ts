@@ -62,3 +62,40 @@ describe("CopilotApprovalController", () => {
     expect(await decision).toBe("cancelled");
   });
 });
+
+describe.each([useCopilotApproval, useCopilotApprovalWork])(
+  "approval hook subscriptions",
+  (hook) => {
+    it("switches stores on rerender and unsubscribes on unmount", () => {
+      const first = new CopilotApprovalController();
+      const second = new CopilotApprovalController();
+      const unsubscribers: ReturnType<typeof vi.fn>[] = [];
+      for (const controller of [first, second]) {
+        const subscribe = controller.subscribe;
+        vi.spyOn(controller, "subscribe").mockImplementation((listener) => {
+          const unsubscribe = vi.fn(subscribe(listener));
+          unsubscribers.push(unsubscribe);
+          return unsubscribe;
+        });
+      }
+      const view = renderHook(({ controller }) => hook(controller), {
+        initialProps: { controller: first },
+      });
+      act(() => {
+        void first.request(request);
+      });
+      expect(view.result.current).toBeDefined();
+      view.rerender({ controller: second });
+      expect(view.result.current).toBeUndefined();
+      expect(unsubscribers[0]).toHaveBeenCalledOnce();
+      act(() => {
+        void second.request(request);
+      });
+      expect(view.result.current).toBeDefined();
+      view.unmount();
+      expect(unsubscribers[1]).toHaveBeenCalledOnce();
+      first.cancel();
+      second.cancel();
+    });
+  },
+);

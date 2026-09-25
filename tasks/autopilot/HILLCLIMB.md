@@ -2,6 +2,14 @@
 
 This is the durable implementation record. Every failed trial remains visible; a passing gate requires current evidence.
 
+## September 25 cleanup checkpoint — supersedes earlier completion claims
+
+The earlier acceptance scoreboard describes the previous implementation and must not be read as evidence for this refactor. Review found app-owned generic tool wiring, duplicated operation state, incomplete form revalidation, and absent cross-tab record coordination. Those were real integration gaps despite the earlier passing flows.
+
+The current implementation installs the generic catalog from `CopilotKitProvider`. Core owns one reviewed-effect lifecycle for forms and buttons, with record locks, full form submission-state checks, cancellation, and session-scoped recovery. The demo has no manual frontend-tool registrations and supplies a small session/router policy adapter plus typed receipts from normal write handlers. The obsolete app gate, budget, clarification glue, form-tool component, and duplicate Core approval gate are removed. Package chat surfaces mark themselves private so approval and clarification do not cancel themselves.
+
+Verification so far: Core 997 tests; React 1,747 tests plus 54 script tests; production app build. Angular/Vue regressions passed after restricting the local Inspector production-preview exception to the React consumer that needs it. Final browser and packed-consumer verification is in progress; results below will be updated with actual outcomes. This prototype still requires explicit app annotations and handler receipts; arbitrary apps are not supported automatically.
+
 ## Goal and constraints
 
 Deliver the playable Next.js/SQLite logistics SaaS app described in `AGENT_PLAN.md`, using real CopilotKit packages, live BuiltInAgent, existing Intelligence, and runtime-side SDK changes. Create, edit, and cancel orders through discovered UI controls with reusable capabilities and the app's own human confirmation; discovery and execution stay in the browser. Complete every acceptance gate. Do not change the Intelligence service or replace the live path with fakes.

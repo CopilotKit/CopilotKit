@@ -4,14 +4,14 @@ import { DatabaseSync } from "node:sqlite";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-test("two agents in separate tabs cannot reuse a stale order approval", async ({
+test("two same-origin tabs serialize conflicting actions before approval", async ({
   browser,
 }) => {
   test.setTimeout(180_000);
   const evidenceDir = evidencePath("iteration-028", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
   const database = new DatabaseSync(
-    resolve(process.cwd(), "data/northstar.sqlite"),
+    resolve(process.env.NORTHSTAR_DB_PATH || "data/northstar.sqlite"),
   );
   const id = crypto.randomUUID();
   const reference = `NS-RACE-${Date.now()}`;
@@ -26,17 +26,20 @@ test("two agents in separate tabs cannot reuse a stale order approval", async ({
       .prepare("SELECT status, version FROM orders WHERE id = ?")
       .get(id) as { status: string; version: number };
   const firstContext = await browser.newContext();
-  const secondContext = await browser.newContext();
+  const secondContext = firstContext;
   const first = await firstContext.newPage();
   const second = await secondContext.newPage();
   try {
-    for (const page of [first, second]) {
-      await page.goto("/sign-in");
-      await page.getByRole("button", { name: /Avery Morgan/ }).click();
-      await expect(
-        page.getByRole("heading", { name: "Dashboard" }),
-      ).toBeVisible();
-    }
+    await first.goto("/sign-in");
+    await first.getByRole("button", { name: /Avery Morgan/ }).click();
+    await expect(
+      first.getByRole("heading", { name: "Dashboard" }),
+    ).toBeVisible();
+    // The tabs share one signed-in session; a second login would rotate it.
+    await second.goto("/");
+    await expect(
+      second.getByRole("heading", { name: "Dashboard" }),
+    ).toBeVisible();
     await second
       .getByRole("combobox", { name: "Autopilot scope" })
       .selectOption("all");
@@ -58,29 +61,48 @@ test("two agents in separate tabs cannot reuse a stale order approval", async ({
         );
       }),
     );
-    await Promise.all(
-      pages.map(async (page) => {
-        await page
-          .locator(".assistant-panel textarea")
-          .last()
-          .fill(
-            `Cancel order ${reference} in the app. Find its detail page and use the visible cancellation control; I will review the approval.`,
-          );
-        await page.locator(".assistant-panel button").last().click();
-      }),
-    );
-    const cards = pages.map((page) => page.getByTestId("copilot-approval"));
-    await Promise.all(
-      cards.map((card) => expect(card).toBeVisible({ timeout: 100_000 })),
-    );
-    expect(await cards[0].textContent()).toContain(reference);
-    expect(await cards[1].textContent()).toContain(reference);
-    expect(state()).toEqual({ status: "booked", version: 1 });
-    await cards[0].getByRole("button", { name: "Approve" }).click();
+    const requestCancel = async (page: typeof first) => {
+      await page
+        .locator(".assistant-panel textarea")
+        .last()
+        .fill(
+          `Cancel order ${reference} in the app. Discover its visible cancellation control; I will review the approval.`,
+        );
+      await page.locator(".assistant-panel textarea").last().press("Enter");
+    };
+    await requestCancel(first);
+    const firstCard = first.getByTestId("copilot-approval");
+    await expect(firstCard).toBeVisible({ timeout: 100_000 });
+    expect(await firstCard.textContent()).toContain(reference);
+    await requestCancel(second);
+    // Keep the first review open while the second tab attempts the same record.
     await expect
-      .poll(() => state())
-      .toEqual({ status: "cancelled", version: 2 });
-    await cards[1].getByRole("button", { name: "Approve" }).click();
+      .poll(
+        async () => {
+          const response = await second.request.get(
+            "/api/copilotkit/threads?agentId=operations",
+          );
+          const thread = (await response.json()).threads.find(
+            (thread: { id: string }) => !prior[1].has(thread.id),
+          );
+          if (!thread) return false;
+          const responseMessages = await second.request.get(
+            `/api/copilotkit/threads/${thread.id}/messages?agentId=operations`,
+          );
+          if (!responseMessages.ok()) return false;
+          return (await responseMessages.json()).messages.some(
+            (message: { role: string; content?: string }) =>
+              message.role === "tool" &&
+              message.content?.includes("Another tab or agent"),
+          );
+        },
+        { timeout: 50_000 },
+      )
+      .toBe(true);
+    await expect(second.getByTestId("copilot-approval")).toHaveCount(0);
+    expect(state()).toEqual({ status: "booked", version: 1 });
+    await firstCard.getByRole("button", { name: "Approve" }).click();
+    await expect.poll(state).toEqual({ status: "cancelled", version: 2 });
     const threads: string[] = [];
     const results: string[] = [];
     for (let index = 0; index < pages.length; index++) {
@@ -110,7 +132,11 @@ test("two agents in separate tabs cannot reuse a stale order approval", async ({
             const activation = messages
               .filter((message) => message.role === "tool")
               .map((message) => message.content ?? "")
-              .find((content) => content.includes('"operationId"'));
+              .find(
+                (content) =>
+                  content.includes('"status":"completed"') ||
+                  content.includes("Another tab or agent"),
+              );
             if (!activation) return false;
             expect(
               messages
@@ -125,6 +151,7 @@ test("two agents in separate tabs cannot reuse a stale order approval", async ({
         .toBe(true);
     }
     expect(results[0]).toContain('"status":"completed"');
+    expect(results[1]).toContain("Another tab or agent");
     expect(results[1]).not.toContain('"status":"completed"');
     expect(state()).toEqual({ status: "cancelled", version: 2 });
     writeFileSync(
@@ -134,7 +161,7 @@ test("two agents in separate tabs cannot reuse a stale order approval", async ({
           threads,
           agents,
           reference,
-          bothDialogsBeforeAnyWrite: true,
+          secondTabRefusedWhileFirstReviewOpen: true,
           firstResult: JSON.parse(results[0]),
           secondResult: JSON.parse(results[1]),
           finalState: state(),
@@ -145,7 +172,6 @@ test("two agents in separate tabs cannot reuse a stale order approval", async ({
     );
   } finally {
     await firstContext.close();
-    await secondContext.close();
     database.close();
   }
 });

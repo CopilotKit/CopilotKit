@@ -11,7 +11,7 @@ test("live agent creates an order through discovered form controls after review"
   const evidenceDir = evidencePath("iteration-012", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
   const database = new DatabaseSync(
-    resolve(process.cwd(), "data/northstar.sqlite"),
+    resolve(process.env.NORTHSTAR_DB_PATH || "data/northstar.sqlite"),
     { readOnly: true },
   );
   const customer = `Cobalt Launch ${Date.now()}`;
@@ -195,7 +195,7 @@ test("declining discovered form review leaves inputs and SQL untouched", async (
   const evidenceDir = evidencePath("iteration-012", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
   const database = new DatabaseSync(
-    resolve(process.cwd(), "data/northstar.sqlite"),
+    resolve(process.env.NORTHSTAR_DB_PATH || "data/northstar.sqlite"),
     { readOnly: true },
   );
   const customer = `Declined Launch ${Date.now()}`;
