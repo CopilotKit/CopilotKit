@@ -223,6 +223,17 @@ const ICONS: Record<string, React.ReactNode> = {
       className="h-4 w-4 shrink-0 object-contain"
     />
   ),
+  "custom/manufact": (
+    <Image
+      src="/logos/manufact.svg"
+      alt=""
+      aria-hidden="true"
+      width={16}
+      height={16}
+      unoptimized
+      className="h-4 w-4 shrink-0 object-contain dark:invert"
+    />
+  ),
   "custom/google-adk": (
     <Image
       src="/logos/google-adk.png"
