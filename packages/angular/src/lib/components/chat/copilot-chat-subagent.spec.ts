@@ -320,9 +320,10 @@ describe("CopilotChat subagent groups", () => {
       } as BaseEvent,
     );
 
-    expect(root.querySelector('[data-testid="tool-call-1"]')?.textContent).toBe(
-      "complete:3 sources",
-    );
+    // The card template may be reformatted across lines; compare the text only.
+    expect(
+      root.querySelector('[data-testid="tool-call-1"]')?.textContent?.trim(),
+    ).toBe("complete:3 sources");
   });
 
   it("renders a custom subagent slot with the group's messages inside", async () => {
