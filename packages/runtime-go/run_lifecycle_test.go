@@ -104,7 +104,7 @@ func TestSuccessorWaitsForPredecessorCompletion(t *testing.T) {
 				close(successorStopped)
 				return ctx.Err()
 			})
-			rt, err := New(Config{APIKey: "secret", APIURL: platform.URL, RunnerURL: url, TelemetryDisabled: true, HeartbeatInterval: 20 * time.Millisecond, LockTTL: time.Second, IdentifyUser: func(*http.Request) (User, error) { return User{ID: "user"}, nil }, Agents: map[string]Agent{"default": agent}})
+			rt, err := New(Config{APIKey: "secret", APIURL: platform.URL, RunnerURL: url, TelemetryDisabled: true, HeartbeatInterval: 20 * time.Millisecond, LockTTL: time.Second, IdentifyUser: func(*http.Request) (User, error) { return User{ID: "user", Name: "User"}, nil }, Agents: map[string]Agent{"default": agent}})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -115,7 +115,7 @@ func TestSuccessorWaitsForPredecessorCompletion(t *testing.T) {
 				return response
 			}
 			if response := start(context.Background(), "old"); response.Code != 200 {
-				t.Fatalf("old start: %d", response.Code)
+				t.Fatalf("old start: %d %s", response.Code, response.Body.String())
 			}
 			select {
 			case <-terminal:

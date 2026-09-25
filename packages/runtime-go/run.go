@@ -291,7 +291,7 @@ func (r *Runtime) run(w http.ResponseWriter, req *http.Request, u User, agentID 
 		return
 	}
 	r.mu.Lock()
-	if r.closed || ctx.Err() != nil {
+	if r.closed || (ctx.Err() != nil && !errors.Is(context.Cause(ctx), errUserStopped)) {
 		r.mu.Unlock()
 		pub.close()
 		cancel()
