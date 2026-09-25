@@ -370,6 +370,25 @@ describe("InMemoryAgentRunner", () => {
       expect(events).toEqual([]);
     });
 
+    it("detaches the upstream connect when the client unsubscribes", () => {
+      const agent = new HttpAgent({
+        url: "https://upstream.example.com/agent",
+        threadId: "disconnecting-client",
+      });
+      vi.spyOn(agent, "connectAgent").mockReturnValue(new Promise(() => {}));
+      const detach = vi
+        .spyOn(agent, "detachActiveRun")
+        .mockResolvedValue(undefined);
+
+      const subscription = runner
+        .connect({ threadId: "disconnecting-client", agent })
+        .subscribe();
+      expect(detach).not.toHaveBeenCalled();
+
+      subscription.unsubscribe();
+      expect(detach).toHaveBeenCalledTimes(1);
+    });
+
     it("prefers in-memory store over agent fallback when store exists", async () => {
       const threadId = "in-memory-preferred";
 
