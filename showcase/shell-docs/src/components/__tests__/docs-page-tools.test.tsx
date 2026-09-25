@@ -163,3 +163,29 @@ it("shows the destination line under the row only when it offers the prompt", ()
   );
   expect(screen.queryByText(PROMPT_DESTINATION_HINT)).toBeNull();
 });
+
+// A page with its own `agentPrompt` hands the agent that task instead of the
+// generic onboarding prompt, and still names the page it came from.
+it("copies the page's own prompt when the page supplies one", async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.assign(navigator, { clipboard: { writeText } });
+  render(
+    <DocsPageTools
+      slugPath="manufact"
+      slugHrefPrefix="/cookbook"
+      githubUrl={GITHUB_URL}
+      onboardingFramework={{ slug: "built-in-agent", name: "Built-in" }}
+      pagePrompt="Add an mcp-use MCP App to my CopilotKit app."
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: /copy prompt/i }));
+  await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+  expect(writeText.mock.calls[0][0]).toBe(
+    "Add an mcp-use MCP App to my CopilotKit app. I started from this CopilotKit docs page: https://docs.copilotkit.ai/cookbook/manufact.",
+  );
+  expect(analytics.capture).toHaveBeenCalledWith(
+    "docs.page_prompt_copied",
+    expect.objectContaining({ surface: "docs_page_tools_page_prompt" }),
+  );
+  expect(screen.getByText(PROMPT_DESTINATION_HINT)).toBeTruthy();
+});

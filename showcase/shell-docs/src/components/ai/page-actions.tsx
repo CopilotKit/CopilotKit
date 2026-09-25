@@ -318,6 +318,49 @@ export function OnboardingPromptCopyButton({
   );
 }
 
+const PAGE_PROMPT_COPY_SURFACE = "docs_page_tools_page_prompt";
+
+/**
+ * Copies a page's own prompt (its `agentPrompt` frontmatter) in place of the
+ * generic onboarding prompt. Recipes like the cookbook's know exactly what the
+ * reader wants built, so they hand the agent that task directly, followed by
+ * the page it came from so the agent can read the full walkthrough.
+ */
+export function PagePromptCopyButton({
+  prompt,
+  markdownUrl,
+  ...props
+}: ComponentProps<"button"> & {
+  /** The page's prompt text. */
+  prompt: string;
+  /** The page's `.mdx` URL, named as the prompt's source. */
+  markdownUrl: string;
+}) {
+  const pathname = usePathname();
+  const posthog = usePostHog();
+  return (
+    <PromptPill
+      {...props}
+      surface={PAGE_PROMPT_COPY_SURFACE}
+      createPrompt={() => ({
+        text: prompt + pageSourceSentence(markdownUrl),
+        onAction: (action) =>
+          posthog?.capture("docs.page_prompt_action_clicked", {
+            action,
+            from_path: pathname,
+            surface: PAGE_PROMPT_COPY_SURFACE,
+          }),
+        onCopied: (action) =>
+          posthog?.capture("docs.page_prompt_copied", {
+            action,
+            from_path: pathname,
+            surface: PAGE_PROMPT_COPY_SURFACE,
+          }),
+      })}
+    />
+  );
+}
+
 /**
  * see https://fumadocs.dev/docs/integrations/llms#page-actions to customize.
  */
