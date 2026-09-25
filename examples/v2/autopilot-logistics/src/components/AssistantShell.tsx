@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  CopilotPopup,
+  CopilotSidebar,
   CopilotKitProvider,
   useAgent,
   useCopilotKit,
@@ -574,22 +574,21 @@ export function AssistantShell({
                 agentId={selectedAgent}
                 storageKey={activeThreadKey}
               />
-              <CopilotPopup
+              <CopilotSidebar
                 key={selectedAgent}
                 agentId={selectedAgent}
                 threadId={restoredThread.id ?? undefined}
                 className="assistant-chat"
                 defaultOpen
                 width={480}
-                height="min(600px, calc(100dvh - 12rem))"
                 header={{
                   title: "Assistant",
                   children: ({ titleContent, closeButton, drawerLauncher }) => (
                     <header
-                      className="assistant-popup-header"
+                      className="assistant-sidebar-header"
                       data-testid="copilot-modal-header"
                     >
-                      <div className="assistant-popup-title">
+                      <div className="assistant-sidebar-title">
                         {drawerLauncher}
                         {titleContent}
                         {closeButton}

@@ -18,6 +18,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotSidebar } from "../CopilotSidebar";
+import type { CopilotSidebarProps } from "../CopilotSidebar";
 import { CopilotPopup } from "../CopilotPopup";
 import { MockStepwiseAgent } from "../../../__tests__/utils/test-helpers";
 import type CopilotChatInput from "../CopilotChatInput";
@@ -47,6 +48,7 @@ type SidebarHarnessProps = {
   onOpenChange?: (open: boolean) => void;
   defaultOpen?: boolean;
   input?: React.ComponentType<CopilotChatInputProps>;
+  header?: CopilotSidebarProps["header"];
 };
 
 function SidebarHarness({
@@ -54,6 +56,7 @@ function SidebarHarness({
   onOpenChange,
   defaultOpen,
   input,
+  header,
 }: SidebarHarnessProps) {
   const agent = React.useMemo(() => new MockStepwiseAgent(), []);
   return (
@@ -63,6 +66,7 @@ function SidebarHarness({
         onOpenChange={onOpenChange}
         defaultOpen={defaultOpen}
         input={input as unknown as typeof CopilotChatInput}
+        header={header}
       />
     </CopilotKitProvider>
   );
@@ -216,6 +220,28 @@ describe("CopilotSidebar open changes do not remount the chat subtree", () => {
 
     // Threading `open` through the memoized chatView override would mint a new
     // element type per flip and remount the subtree, resetting scroll state.
+    expect(inputMountCount).toBe(1);
+  });
+
+  it("keeps the chat subtree mounted when header props change", async () => {
+    const { rerender } = render(
+      <SidebarHarness
+        input={MountCountingInput}
+        header={{ title: "Assistant" }}
+      />,
+    );
+
+    expect(await screen.findByTestId("mount-probe")).toBeTruthy();
+    expect(inputMountCount).toBe(1);
+
+    rerender(
+      <SidebarHarness
+        input={MountCountingInput}
+        header={{ title: "Updated assistant" }}
+      />,
+    );
+
+    expect(screen.getByText("Updated assistant")).toBeTruthy();
     expect(inputMountCount).toBe(1);
   });
 });

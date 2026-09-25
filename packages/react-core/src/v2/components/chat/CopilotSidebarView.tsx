@@ -144,26 +144,37 @@ function CopilotSidebarViewInternal({
       typeof window.matchMedia !== "function"
     )
       return;
-    if (!window.matchMedia("(min-width: 768px)").matches) return;
+    const desktop = window.matchMedia("(min-width: 768px)");
 
     const marginStyleProp =
       position === "left" ? "marginInlineStart" : "marginInlineEnd";
     const transitionCssProp =
       position === "left" ? "margin-inline-start" : "margin-inline-end";
 
-    if (isSidebarOpen) {
-      if (hasMounted.current) {
-        document.body.style.transition = `${transitionCssProp} ${SIDEBAR_TRANSITION_MS}ms ease`;
+    const updateDocking = () => {
+      if (!desktop.matches) {
+        document.body.style[marginStyleProp] = "";
+        document.body.style.transition = "";
+        return;
       }
-      document.body.style[marginStyleProp] = widthToMargin(sidebarWidth);
-    } else if (hasMounted.current) {
-      document.body.style.transition = `${transitionCssProp} ${SIDEBAR_TRANSITION_MS}ms ease`;
-      document.body.style[marginStyleProp] = "";
-    }
 
-    hasMounted.current = true;
+      if (isSidebarOpen) {
+        if (hasMounted.current) {
+          document.body.style.transition = `${transitionCssProp} ${SIDEBAR_TRANSITION_MS}ms ease`;
+        }
+        document.body.style[marginStyleProp] = widthToMargin(sidebarWidth);
+      } else if (hasMounted.current) {
+        document.body.style.transition = `${transitionCssProp} ${SIDEBAR_TRANSITION_MS}ms ease`;
+        document.body.style[marginStyleProp] = "";
+      }
+      hasMounted.current = true;
+    };
+
+    updateDocking();
+    desktop.addEventListener("change", updateDocking);
 
     return () => {
+      desktop.removeEventListener("change", updateDocking);
       document.body.style[marginStyleProp] = "";
       document.body.style.transition = "";
     };

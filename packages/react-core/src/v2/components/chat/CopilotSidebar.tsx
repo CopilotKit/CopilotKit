@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useContext, useEffect, useMemo } from "react";
 import { useLicenseContext } from "../../providers/CopilotKitProvider";
 import {
   InlineFeatureWarning,
@@ -34,6 +34,44 @@ export type CopilotSidebarProps = Omit<CopilotChatProps, "chatView"> & {
   position?: CopilotSidebarViewProps["position"];
 };
 
+type SidebarShellProps = Pick<
+  CopilotSidebarProps,
+  "header" | "toggleButton" | "defaultOpen" | "width" | "position"
+>;
+
+const SidebarShellPropsContext = React.createContext<SidebarShellProps>({});
+
+// Keep the chat view's component identity stable when shell props change.
+// Otherwise a parent rerender (including one after approval settlement)
+// unmounts the view while an agent run may still be active.
+const SidebarViewOverride: React.FC<CopilotChatViewProps> = (viewProps) => {
+  const {
+    header: viewHeader,
+    toggleButton: viewToggleButton,
+    width: viewWidth,
+    defaultOpen: viewDefaultOpen,
+    position: viewPosition,
+    ...restProps
+  } = viewProps as CopilotSidebarViewProps;
+  const shell = useContext(SidebarShellPropsContext);
+
+  return (
+    <CopilotSidebarView
+      {...(restProps as CopilotSidebarViewProps)}
+      header={shell.header ?? viewHeader}
+      toggleButton={shell.toggleButton ?? viewToggleButton}
+      width={shell.width ?? viewWidth}
+      defaultOpen={shell.defaultOpen ?? viewDefaultOpen}
+      position={shell.position ?? viewPosition}
+    />
+  );
+};
+
+const SidebarViewOverrideWithStatics = Object.assign(
+  SidebarViewOverride,
+  CopilotChatView,
+) as typeof CopilotChatView;
+
 export function CopilotSidebar({
   header,
   toggleButton,
@@ -59,31 +97,10 @@ export function CopilotSidebar({
     }
   }, [showLicenseWarning]);
 
-  const SidebarViewOverride = useMemo(() => {
-    const Component: React.FC<CopilotChatViewProps> = (viewProps) => {
-      const {
-        header: viewHeader,
-        toggleButton: viewToggleButton,
-        width: viewWidth,
-        defaultOpen: viewDefaultOpen,
-        position: viewPosition,
-        ...restProps
-      } = viewProps as CopilotSidebarViewProps;
-
-      return (
-        <CopilotSidebarView
-          {...(restProps as CopilotSidebarViewProps)}
-          header={header ?? viewHeader}
-          toggleButton={toggleButton ?? viewToggleButton}
-          width={width ?? viewWidth}
-          defaultOpen={defaultOpen ?? viewDefaultOpen}
-          position={position ?? viewPosition}
-        />
-      );
-    };
-
-    return Object.assign(Component, CopilotChatView);
-  }, [header, toggleButton, width, defaultOpen, position]);
+  const shellProps = useMemo<SidebarShellProps>(
+    () => ({ header, toggleButton, defaultOpen, width, position }),
+    [header, toggleButton, defaultOpen, width, position],
+  );
 
   return (
     <>
@@ -94,14 +111,16 @@ export function CopilotSidebar({
         changing `open` would mint a new component identity on every toggle and
         remount the whole chat subtree.
       */}
-      <ModalOpenControlProvider open={open} onOpenChange={onOpenChange}>
-        <CopilotChat
-          welcomeScreen={CopilotSidebarView.WelcomeScreen}
-          {...chatProps}
-          isModalDefaultOpen={defaultOpen}
-          chatView={SidebarViewOverride}
-        />
-      </ModalOpenControlProvider>
+      <SidebarShellPropsContext.Provider value={shellProps}>
+        <ModalOpenControlProvider open={open} onOpenChange={onOpenChange}>
+          <CopilotChat
+            welcomeScreen={CopilotSidebarView.WelcomeScreen}
+            {...chatProps}
+            isModalDefaultOpen={defaultOpen}
+            chatView={SidebarViewOverrideWithStatics}
+          />
+        </ModalOpenControlProvider>
+      </SidebarShellPropsContext.Provider>
     </>
   );
 }

@@ -1,5 +1,5 @@
 import React from "react";
-import { render } from "@testing-library/react";
+import { act, render } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { CopilotSidebarView } from "../CopilotSidebarView";
 import { CopilotSidebar } from "../CopilotSidebar";
@@ -130,6 +130,53 @@ describe("CopilotSidebarView position prop", () => {
       if (!toggle) throw new Error("toggle button not found");
       expect(toggle.classList.contains("cpk:right-6")).toBe(true);
       expect(toggle.classList.contains("cpk:left-6")).toBe(false);
+    });
+
+    it("clears desktop body docking when the viewport becomes mobile", () => {
+      let isDesktop = true;
+      const listeners = new Set<() => void>();
+      const desktopQuery = {
+        get matches() {
+          return isDesktop;
+        },
+        addEventListener: (_type: string, listener: () => void) =>
+          listeners.add(listener),
+        removeEventListener: (_type: string, listener: () => void) =>
+          listeners.delete(listener),
+      } as unknown as MediaQueryList;
+      const originalMatchMedia = window.matchMedia;
+      Object.defineProperty(window, "matchMedia", {
+        configurable: true,
+        value: () => desktopQuery,
+      });
+
+      try {
+        const { unmount } = render(
+          <TestWrapper>
+            <CopilotSidebarView messages={sampleMessages} width={480} />
+          </TestWrapper>,
+        );
+        expect(document.body.style.marginInlineEnd).toBe("480px");
+
+        act(() => {
+          isDesktop = false;
+          listeners.forEach((listener) => listener());
+        });
+        expect(document.body.style.marginInlineEnd).toBe("");
+
+        act(() => {
+          isDesktop = true;
+          listeners.forEach((listener) => listener());
+        });
+        expect(document.body.style.marginInlineEnd).toBe("480px");
+        unmount();
+        expect(document.body.style.marginInlineEnd).toBe("");
+      } finally {
+        Object.defineProperty(window, "matchMedia", {
+          configurable: true,
+          value: originalMatchMedia,
+        });
+      }
     });
   });
 

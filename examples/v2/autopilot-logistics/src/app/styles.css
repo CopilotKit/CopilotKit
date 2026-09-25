@@ -225,26 +225,21 @@ tr:last-child td {
 .assistant-panel {
   display: contents;
 }
-.assistant-popup-header {
+.assistant-sidebar-header {
   background: #fff;
   border-bottom: 1px solid #edf1f1;
   flex: none;
 }
-.assistant-popup-title {
+.assistant-sidebar-title {
   display: flex;
   align-items: center;
   justify-content: space-between;
   min-height: 56px;
-  padding: 10px 16px 0;
+  padding: 10px 76px 0 16px;
   font-weight: 750;
 }
-.assistant-popup-title [data-testid="copilot-header-title"] {
+.assistant-sidebar-title [data-testid="copilot-header-title"] {
   text-align: center;
-}
-@media (max-width: 767px) {
-  .assistant-popup-title {
-    padding-right: 76px;
-  }
 }
 .assistant-settings {
   display: flex;
