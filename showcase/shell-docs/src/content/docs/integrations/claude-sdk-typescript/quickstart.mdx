@@ -43,9 +43,17 @@ Before you begin, you'll need the following:
 
           ```bash
           npx copilotkit@latest init --framework claude-sdk-typescript
-          ```
+           ```
 
-          The starter contains three pieces:
+           If you are running the CLI over SSH, do not paste the long Clerk token into the terminal. Keep the CLI's loopback callback reachable from your browser by forwarding the callback port from your local machine:
+
+           ```bash
+           ssh -L <callback-port>:localhost:<callback-port> <user>@<remote-host>
+           ```
+
+           Replace `<callback-port>` with the port in the `callback=http://127.0.0.1:<callback-port>/callback` value printed by the CLI, then open the sign-in URL in your local browser. The browser redirect will return to the CLI on the remote host without sending the JWT through the SSH terminal input.
+
+           The starter contains three pieces:
 
           - `src/agent_server.ts` - the Claude Agent SDK backend process
           - `src/app/api/copilotkit/route.ts` - the CopilotKit runtime route that proxies to the agent
