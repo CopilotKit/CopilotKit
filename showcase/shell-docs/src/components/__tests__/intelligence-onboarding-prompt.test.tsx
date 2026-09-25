@@ -11,6 +11,7 @@ import {
 import { afterEach, expect, it, vi } from "vitest";
 import { IntelligenceOnboardingPrompt } from "../intelligence-onboarding-prompt";
 import { INTELLIGENCE_ONBOARDING_EVENTS } from "@/lib/intelligence-onboarding-prompt";
+import { PROMPT_DESTINATION_HINT } from "@/lib/prompt-guidance";
 
 const analytics = vi.hoisted(() => ({ capture: vi.fn() }));
 
@@ -69,3 +70,14 @@ vi.mock("fumadocs-core/framework", () => ({
 vi.mock("@/lib/runtime-config.client", () => ({
   getRuntimeConfig: () => ({ baseUrl: "https://docs.copilotkit.ai" }),
 }));
+
+// In-content prompt rows carry the same line as the docs hero (PE-340).
+it("shows the destination line under the prompt row", () => {
+  render(
+    <IntelligenceOnboardingPrompt
+      feature="threads"
+      surface="docs-quickstart"
+    />,
+  );
+  expect(screen.getByText(PROMPT_DESTINATION_HINT)).toBeTruthy();
+});

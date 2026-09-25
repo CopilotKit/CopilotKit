@@ -386,3 +386,40 @@ describe("BuiltInAgent learned skills", () => {
     expect(streamText).not.toHaveBeenCalled();
   });
 });
+
+it("provides both container catalogs and executable tools to BuiltInAgent factories", async () => {
+  const { fetch, learnedSkills } = setup();
+  vi.spyOn(
+    learnedSkills.client,
+    "getLearnedSkillsSnapshots",
+  ).mockImplementation(async ({ containers }) =>
+    Promise.all(
+      containers.map(async (source) => ({
+        containerId: source.containerId,
+        ...(await learnedSkills.client.getLearnedSkillsSnapshot(source)),
+      })),
+    ),
+  );
+  const contexts: AgentFactoryContext[] = [];
+  const agent = new BuiltInAgent({
+    type: "custom",
+    learnedSkills: {
+      client: learnedSkills.client,
+      containers: [{ id: "support" }, { id: "company" }],
+    },
+    factory: async function* (context) {
+      contexts.push(context);
+      yield* [];
+    },
+  });
+  await collectEvents(agent.run(createDefaultInput()));
+  const skills = contexts[0].learnedSkills;
+  expect(skills.catalog).toContain("support/refund-policy");
+  expect(skills.catalog).toContain("company/refund-policy");
+  expect(
+    await execute(skills.tools, "copilotkit_load_skill", {
+      skill_name: "company/refund-policy",
+    }),
+  ).toContain("published refund policy");
+  expect(fetch).toHaveBeenCalledTimes(2);
+});

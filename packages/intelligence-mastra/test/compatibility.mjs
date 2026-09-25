@@ -189,6 +189,12 @@ for (const [lane, peers] of Object.entries(
     join(cwd, "delivery-core/conformance"),
     { recursive: true },
   );
+  // The native processor suite imports fixtures through the sibling package path.
+  cpSync(
+    join(coreRoot, "conformance"),
+    join(work, "intelligence-delivery-core/conformance"),
+    { recursive: true },
+  );
   writeFileSync(
     join(cwd, "vitest.config.mts"),
     'import { defineConfig } from "vitest/config"; import { fileURLToPath } from "node:url"; export default defineConfig({resolve:{alias:{"@copilotkit/intelligence-delivery-core":fileURLToPath(new URL("./delivery-core/src/index.ts",import.meta.url))}},test:{environment:"node",include:["src/**/__tests__/**/*.test.ts","delivery-core/src/**/__tests__/**/*.test.ts"],maxWorkers:2,env:{COPILOTKIT_TELEMETRY_DISABLED:"true"}}});',

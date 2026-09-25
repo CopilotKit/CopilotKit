@@ -14,6 +14,7 @@
 // arrived through.
 
 import React from "react";
+import { PromptFolderHint } from "./hero-start-commands";
 import {
   MarkdownCopyButton,
   OnboardingPromptCopyButton,
@@ -72,7 +73,7 @@ export function DocsPageTools({
   hideOnboardingPrompt = false,
 }: DocsPageToolsProps): React.JSX.Element {
   const markdownUrl = docsMarkdownUrl(slugHrefPrefix, slugPath);
-  return (
+  const row = (
     <div
       className={`docs-page-tools flex min-w-0 flex-row items-center${hideOnboardingPrompt ? "" : " docs-page-tools-prompt"}`}
       role="group"
@@ -102,6 +103,14 @@ export function DocsPageTools({
         condensed
         includeCopyPage={!hideOnboardingPrompt}
       />
+    </div>
+  );
+  if (hideOnboardingPrompt) return row;
+  // The same line, in the same place, as under the docs hero (PE-340).
+  return (
+    <div className="flex min-w-0 flex-col gap-3">
+      {row}
+      <PromptFolderHint />
     </div>
   );
 }

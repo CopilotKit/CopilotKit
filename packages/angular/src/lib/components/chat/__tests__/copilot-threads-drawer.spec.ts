@@ -859,6 +859,16 @@ test("an expired status gates the element to the locked view", async () => {
   expect((el as LicensedEl).licensed).toBe(false);
 });
 
+test("an unresolved status (unknown) keeps the element out of the locked view", async () => {
+  const { fixture, el } = setup();
+
+  licenseStatusSignal.set("unknown");
+  fixture.detectChanges();
+  await fixture.whenStable();
+
+  expect((el as LicensedEl).licensed).toBe(true);
+});
+
 test("a valid license keeps the element in the licensed (list) state", async () => {
   const { fixture, el } = setup();
 

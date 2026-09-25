@@ -297,3 +297,23 @@ describe("what is deliberately not counted", () => {
     expect(events).toEqual([]);
   });
 });
+
+describe("a retired page's raw Markdown URL", () => {
+  // Agents fetch `<path>.md`, not the HTML path. An exact redirect matches only
+  // the path it names, so a retired page that redirects only its HTML path
+  // leaves the `.md` URL an agent was told to read answering 404.
+  it.each([
+    ["/intelligence/connect-your-runtime", "/intelligence/quickstart"],
+    ["/intelligence/connect-your-runtime.md", "/intelligence/quickstart.md"],
+    ["/intelligence/connect-your-runtime.mdx", "/intelligence/quickstart.mdx"],
+  ])("redirects %s to %s", async (source, destination) => {
+    const { response } = await runMiddleware(source, {
+      userAgent: CLAUDE_CODE,
+    });
+
+    expect(response.status).toBe(301);
+    expect(new URL(response.headers.get("location") ?? "").pathname).toBe(
+      destination,
+    );
+  });
+});
