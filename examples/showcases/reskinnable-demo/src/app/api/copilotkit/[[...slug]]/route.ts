@@ -7,6 +7,14 @@ import {
 import type { IdentifyUserCallback } from "@copilotkit/runtime/v2";
 import { handle } from "hono/vercel";
 import { agentRegistry, agentIds } from "@/shell/agent-registry";
+import {
+  MEMORY_GRANT_COOKIE,
+  TENANT_COOKIE,
+  isDemoTenant,
+  postureById,
+  readRequestCookie,
+} from "@/shell/governance";
+import type { MemoryGrant } from "@/shell/governance";
 import { createSpreadsheetBridge } from "@/shell/attach/spreadsheet-model-format";
 import { defaultSkinId } from "@/shell/skins-config";
 
@@ -209,6 +217,40 @@ function genericIdentity(): { id: string; name: string } {
   return { id: "reskin-demo-user", name: "Reskinnable Demo User" };
 }
 
+/**
+ * ── THE DEMO'S STAND-IN FOR YOUR AUTH ───────────────────────────────────────
+ *
+ * Both callbacks below read a cookie off the raw `Request`. A real deployment
+ * reads a verified JWT or session in exactly these two places instead; the
+ * mechanism being demonstrated is unchanged — `identifyUser` and `memory.access`
+ * each receive the whole `Request`, so identity and policy come from something
+ * the SERVER can verify rather than from anything the client forwards.
+ *
+ * The tenant roster and the posture list live in `src/shell/governance.ts` so
+ * the popover that sets these cookies and the policy that reads them cannot
+ * drift apart.
+ */
+
+/** Resolved tenant for this request, or undefined when the demo is unscoped. */
+function demoTenant(request: Request): string | undefined {
+  const raw = readRequestCookie(request, TENANT_COOKIE);
+  return isDemoTenant(raw) ? raw : undefined;
+}
+
+/**
+ * Resolve this request's grant. `consumer` is threaded through so a posture can
+ * later close the browser's view while leaving the agent's recall intact; today
+ * every posture answers both callers the same, and the parameter documents that
+ * the runtime asks SEPARATELY rather than implying one answer covers both.
+ */
+function memoryGrant(
+  request: Request,
+  consumer: "agent" | "client",
+): MemoryGrant {
+  void consumer;
+  return postureById(readRequestCookie(request, MEMORY_GRANT_COOKIE)).grant;
+}
+
 const identifyUser: IdentifyUserCallback = async (request: Request) => {
   const agentId = agentIdFromUrl(request.url);
   // Skin-scoped routes resolve through their target skin; agentId-less
@@ -216,9 +258,16 @@ const identifyUser: IdentifyUserCallback = async (request: Request) => {
   const resolve = agentId
     ? agentRegistry[agentId]?.identifyUser
     : agentRegistry[defaultSkinId]?.identifyUser;
-  if (!resolve) return genericIdentity();
-  const properties = await readForwardedProperties(request);
-  return resolve(properties);
+  const base = resolve
+    ? resolve(await readForwardedProperties(request))
+    : genericIdentity();
+
+  // Namespace the resolved id under the tenant. Two people with the SAME
+  // per-skin persona id in different tenants now land in different memory
+  // buckets, which is the property the whole isolation story rests on.
+  const tenant = demoTenant(request);
+  if (!tenant) return base;
+  return { id: `${tenant}:${base.id}`, name: `${base.name} (${tenant})` };
 };
 
 function createRuntime(): CopilotRuntime {
@@ -248,6 +297,23 @@ function createRuntime(): CopilotRuntime {
       agents: buildAgents(),
       intelligence,
       identifyUser,
+      // ── THE CONTROL THE TENANT-ISOLATION STORY ACTUALLY RESTS ON ──────────
+      //
+      // Resolved per request, for each caller separately ("agent" = the memory
+      // MCP tools attached to a run, "client" = the browser-facing /memories
+      // routes), and IMMUTABLE once returned. The runtime serialises it onto
+      // the wire as `x-cpki-memory-grant` BEFORE the agent is handed its memory
+      // tools, so `project: "none"` is not an instruction the model may ignore
+      // — the write is not a capability it has.
+      //
+      // OMITTING THIS WHOLE OPTION IS NOT NEUTRAL. With no `memory` config the
+      // runtime falls back to `{ user: "read-write", project: "read-write" }`
+      // (packages/runtime/.../handlers/shared/memory-policy.ts) — both scopes
+      // open. Isolation is something you switch ON, which is the single most
+      // useful sentence to say out loud when someone asks how it is enforced.
+      memory: {
+        access: ({ request, consumer }) => memoryGrant(request, consumer),
+      },
       // Opt in to the client-facing /memories/* proxy routes (default off) so the
       // product web-inspector's Memory tab can list + recall memories in this
       // demo. Only meaningful in Intelligence mode; does not affect the agent's
