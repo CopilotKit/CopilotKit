@@ -5,7 +5,7 @@ This is a starter template for building AI agents using [LlamaIndex](https://lla
 ## Prerequisites
 
 - Node.js 18+
-- Python 3.9+
+- Python 3.10+
 - OpenAI API Key (for the LlamaIndex agent)
 - [uv](https://docs.astral.sh/uv/getting-started/installation/)
 - Any of the following package managers:

@@ -1,10 +1,25 @@
 import os
 from typing import Annotated
 
-from llama_index.core.workflow import Context
 from llama_index.llms.openai import OpenAI
-from llama_index.protocols.ag_ui.events import StateSnapshotWorkflowEvent
 from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
+
+
+class StarterOpenAI(OpenAI):
+    async def astream_chat_with_tools(self, *args, chat_history=None, **kwargs):
+        # AG-UI represents tool results as user messages, but OpenAI only
+        # accepts tool_call_id on messages with the tool role.
+        request_history = list(chat_history or [])
+        for index, message in enumerate(request_history):
+            if (
+                message.role.value != "tool"
+                and "tool_call_id" in message.additional_kwargs
+            ):
+                request_history[index] = message.model_copy(deep=True)
+                request_history[index].additional_kwargs.pop("tool_call_id")
+        return await super().astream_chat_with_tools(
+            *args, chat_history=request_history, **kwargs
+        )
 
 
 # This tool has a client-side version that is actually called to change the background
@@ -43,7 +58,7 @@ if os.environ.get("OPENAI_BASE_URL"):
     _openai_kwargs["api_base"] = os.environ["OPENAI_BASE_URL"]
 
 agentic_chat_router = get_ag_ui_workflow_router(
-    llm=OpenAI(model="gpt-5-mini", **_openai_kwargs),
+    llm=StarterOpenAI(model="gpt-5-mini", **_openai_kwargs),
     # Tools that are executed in the frontend client
     frontend_tools=[change_theme_color, add_proverb],
     # Tools that are executed in the backend server

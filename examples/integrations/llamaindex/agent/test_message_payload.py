@@ -1,12 +1,24 @@
 """Check the starter's AG-UI messages at the OpenAI request boundary."""
 
 import json
+import os
 import unittest
 
 import httpx
-from ag_ui.core import AssistantMessage, UserMessage
+from ag_ui.core import (
+    AssistantMessage,
+    FunctionCall,
+    RunAgentInput,
+    ToolCall,
+    ToolMessage,
+    UserMessage,
+)
 from llama_index.llms.openai import OpenAI
+from llama_index.protocols.ag_ui.agent import AGUIChatWorkflow
 from llama_index.protocols.ag_ui.utils import ag_ui_message_to_llama_index_message
+
+os.environ.setdefault("OPENAI_API_KEY", "test")
+from src.agent import StarterOpenAI, change_theme_color
 
 
 class MessagePayloadTest(unittest.TestCase):
@@ -18,7 +30,9 @@ class MessagePayloadTest(unittest.TestCase):
             requests.append(body)
             for message in body["messages"]:
                 if set(message) != {"role", "content"}:
-                    return httpx.Response(400, json={"error": {"message": "Unknown message field"}})
+                    return httpx.Response(
+                        400, json={"error": {"message": "Unknown message field"}}
+                    )
             return httpx.Response(
                 200,
                 json={
@@ -33,7 +47,11 @@ class MessagePayloadTest(unittest.TestCase):
                             "finish_reason": "stop",
                         }
                     ],
-                    "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+                    "usage": {
+                        "prompt_tokens": 1,
+                        "completion_tokens": 1,
+                        "total_tokens": 2,
+                    },
                 },
             )
 
@@ -49,12 +67,98 @@ class MessagePayloadTest(unittest.TestCase):
             if turn == 0:
                 history.extend(
                     [
-                        AssistantMessage(id="assistant-1", content="Hello back", role="assistant"),
+                        AssistantMessage(
+                            id="assistant-1", content="Hello back", role="assistant"
+                        ),
                         UserMessage(id="user-2", content="Hello again", role="user"),
                     ]
                 )
 
         self.assertEqual([len(body["messages"]) for body in requests], [1, 3])
+
+
+class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
+    async def test_frontend_tool_result_has_no_user_role_tool_call_id(self):
+        requests = []
+
+        def respond(request):
+            body = json.loads(request.content)
+            requests.append(body)
+            for index, message in enumerate(body["messages"]):
+                if message["role"] != "tool" and "tool_call_id" in message:
+                    return httpx.Response(
+                        400,
+                        json={
+                            "error": {
+                                "message": f"Unknown parameter: messages[{index}].tool_call_id"
+                            }
+                        },
+                    )
+            chunk = {
+                "id": "chatcmpl-test",
+                "object": "chat.completion.chunk",
+                "created": 0,
+                "model": "gpt-5-mini",
+                "choices": [
+                    {"index": 0, "delta": {"content": "Done"}, "finish_reason": "stop"}
+                ],
+            }
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/event-stream"},
+                text=f"data: {json.dumps(chunk)}\n\ndata: [DONE]\n\n",
+            )
+
+        messages = [
+            UserMessage(id="user-1", content="Set the theme to orange", role="user"),
+            AssistantMessage(
+                id="assistant-1",
+                content=None,
+                role="assistant",
+                tool_calls=[
+                    ToolCall(
+                        id="call-1",
+                        function=FunctionCall(
+                            name="change_theme_color",
+                            arguments='{"theme_color":"#f97316"}',
+                        ),
+                    )
+                ],
+            ),
+            ToolMessage(
+                id="tool-1",
+                content="Changing background to #f97316",
+                role="tool",
+                tool_call_id="call-1",
+            ),
+        ]
+        client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
+        llm = StarterOpenAI(
+            model="gpt-5-mini", api_key="test", async_http_client=client
+        )
+        workflow = AGUIChatWorkflow(
+            llm=llm,
+            frontend_tools=[change_theme_color],
+            system_prompt="You can change the background color.",
+            initial_state={"proverbs": []},
+        )
+        handler = workflow.run(
+            input_data=RunAgentInput(
+                thread_id="thread-1",
+                run_id="run-2",
+                messages=messages,
+                state={"proverbs": []},
+            )
+        )
+        async for _ in handler.stream_events():
+            pass
+        await handler
+
+        self.assertEqual(
+            [message["role"] for message in requests[0]["messages"]],
+            ["developer", "user", "assistant", "user"],
+        )
+        self.assertNotIn("tool_call_id", requests[0]["messages"][-1])
 
 
 if __name__ == "__main__":

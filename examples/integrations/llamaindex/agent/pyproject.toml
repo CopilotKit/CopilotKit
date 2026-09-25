@@ -19,6 +19,9 @@ dependencies = [
 ]
 authors = [{ name = "Logan Markewich", email = "logan@runllama.ai" }]
 
+[dependency-groups]
+dev = ["httpx>=0.27,<1"]
+
 [tool.hatch.build.targets.sdist]
 include = ["main.py", "src/"]
 
