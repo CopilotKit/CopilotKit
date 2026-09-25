@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "service": "docs",
-  "image": "ghcr.io/copilotkit/showcase-shell-docs@sha256:35c95ff707f0397ba9338b393269cb486adcfc9b739f9e4ff791b1f7a1024515",
-  "digest": "sha256:35c95ff707f0397ba9338b393269cb486adcfc9b739f9e4ff791b1f7a1024515",
-  "git_sha": "f3b5c80a1b837b3db0f8a341a91f60592d3e12d7",
+  "image": "ghcr.io/copilotkit/showcase-shell-docs@sha256:877f12e5a30348a638ef0430ae4df150044f805fbfe3fd4d1b4a55d5a7b7a9c0",
+  "digest": "sha256:877f12e5a30348a638ef0430ae4df150044f805fbfe3fd4d1b4a55d5a7b7a9c0",
+  "git_sha": "3872f091b49f218afe28a8f7135968c01c2684ca",
   "staging_url": "https://docs.staging.copilotkit.ai",
-  "verified_at": "2026-09-24T23:13:46.214Z"
+  "verified_at": "2026-09-25T12:54:26.464Z"
 }
