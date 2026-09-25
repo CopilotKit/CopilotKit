@@ -16,6 +16,8 @@ export { useSuggestions } from "./use-suggestions";
 export { useConfigureSuggestions } from "./use-configure-suggestions";
 export { useInterrupt } from "./use-interrupt";
 export type { UseInterruptConfig } from "./use-interrupt";
+export { useSubagents } from "./use-subagents";
+export type { UseSubagentsOptions } from "./use-subagents";
 export { useThreads } from "./use-threads";
 export type { Thread, UseThreadsInput, UseThreadsResult } from "./use-threads";
 export { useMemories } from "./use-memories";
