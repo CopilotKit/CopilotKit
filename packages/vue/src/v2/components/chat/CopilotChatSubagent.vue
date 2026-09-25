@@ -4,9 +4,9 @@ import type { Message } from "@ag-ui/core";
 import type { Subagent, SubagentStatus } from "@copilotkit/core";
 
 /**
- * The default group for one subagent's work in the chat. It is open while the
- * subagent runs, fails or waits, and collapses to its header when it is done.
- * A click on the header opens or closes it until the status changes again.
+ * The default group for one subagent's work in the chat. It starts collapsed
+ * to its header, which shows the name and the status, so a streaming subagent
+ * does not push the chat around. A click on the header opens or closes it.
  *
  * Replace it with the `#subagent` slot on `CopilotChatMessageView`.
  */
@@ -42,21 +42,11 @@ const statusClass: Record<SubagentStatus, string> = {
 };
 
 const status = computed(() => props.subagent?.status);
-// The user's choice holds only for the status it was made in, so a group the
-// user opened still collapses when that subagent later finishes.
-const choice = ref<{
-  status: SubagentStatus | undefined;
-  open: boolean;
-} | null>(null);
-const isOpen = computed(() => {
-  const current = choice.value;
-  if (current !== null && current.status === status.value) return current.open;
-  return status.value !== "done";
-});
+const isOpen = ref(false);
 const bodyId = `cpk-subagent-${props.subagentRunId}`;
 
 function toggle() {
-  choice.value = { status: status.value, open: !isOpen.value };
+  isOpen.value = !isOpen.value;
 }
 </script>
 

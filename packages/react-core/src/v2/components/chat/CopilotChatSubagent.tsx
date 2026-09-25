@@ -54,9 +54,9 @@ const statusClassName: Record<SubagentStatus, string> = {
 };
 
 /**
- * The default group for one subagent's work in the chat. It is open while the
- * subagent runs, fails or waits, and collapses to its header when it is done.
- * A click on the header opens or closes it until the status changes again.
+ * The default group for one subagent's work in the chat. It starts collapsed
+ * to its header, which shows the name and the status, so a streaming subagent
+ * does not push the chat around. A click on the header opens or closes it.
  *
  * Replace it with the `subagent` slot on `CopilotChatMessageView`:
  * `<CopilotChat messageView={{ subagent: MyGroup }} />`.
@@ -70,14 +70,7 @@ export function CopilotChatSubagent({
   ...props
 }: CopilotChatSubagentProps) {
   const status = subagent?.status;
-  // The user's choice holds only for the status it was made in, so a group
-  // the user opened still collapses when that subagent later finishes.
-  const [choice, setChoice] = useState<{
-    status: SubagentStatus | undefined;
-    open: boolean;
-  } | null>(null);
-  const hasChoiceForStatus = choice !== null && choice.status === status;
-  const isOpen = hasChoiceForStatus ? choice.open : status !== "done";
+  const [isOpen, setIsOpen] = useState(false);
   const bodyId = useId();
 
   return (
@@ -95,7 +88,7 @@ export function CopilotChatSubagent({
         type="button"
         aria-expanded={isOpen}
         aria-controls={bodyId}
-        onClick={() => setChoice({ status, open: !isOpen })}
+        onClick={() => setIsOpen((open) => !open)}
         className="cpk:flex cpk:w-full cpk:cursor-pointer cpk:select-none cpk:items-center cpk:gap-2 cpk:border-none cpk:bg-transparent cpk:p-0 cpk:text-left cpk:text-sm"
       >
         <ChevronRight

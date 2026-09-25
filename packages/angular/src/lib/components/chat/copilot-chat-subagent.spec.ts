@@ -247,7 +247,7 @@ describe("CopilotChat subagent groups", () => {
     expect(textIn(group(root, "research"), "researcher")).toBe(true);
   });
 
-  it("collapses a finished group, keeps failed and waiting groups open, and lets the user toggle", async () => {
+  it("starts every group collapsed, whatever its status, and keeps a group the user opened open", async () => {
     const { emit, root } = await startChat();
     await emit(
       ...say("supervisor", "Delegating now"),
@@ -259,7 +259,13 @@ describe("CopilotChat subagent groups", () => {
       subagentStarted("waiting", { parentToolCallId: "call-3" }),
       ...say("d1", "Done text", "done"),
     );
+    expect(header(root, "done").getAttribute("aria-expanded")).toBe("false");
+    expect(isHidden(elementWithText(root, "Done text"))).toBe(true);
+
+    header(root, "done").click();
+    await emit();
     expect(header(root, "done").getAttribute("aria-expanded")).toBe("true");
+    expect(isHidden(elementWithText(root, "Done text"))).toBe(false);
 
     await emit(
       { type: EventType.SUBAGENT_FINISHED, subagentRunId: "done" } as BaseEvent,
@@ -275,16 +281,12 @@ describe("CopilotChat subagent groups", () => {
       } as BaseEvent,
     );
 
-    expect(header(root, "done").getAttribute("aria-expanded")).toBe("false");
-    expect(isHidden(elementWithText(root, "Done text"))).toBe(true);
-    expect(header(root, "failed").getAttribute("aria-expanded")).toBe("true");
-    expect(textIn(group(root, "failed"), "Search timed out")).toBe(true);
-    expect(header(root, "waiting").getAttribute("aria-expanded")).toBe("true");
-
-    header(root, "done").click();
-    await emit();
+    expect(group(root, "done").dataset["status"]).toBe("done");
     expect(header(root, "done").getAttribute("aria-expanded")).toBe("true");
-    expect(isHidden(elementWithText(root, "Done text"))).toBe(false);
+    expect(header(root, "failed").getAttribute("aria-expanded")).toBe("false");
+    expect(header(root, "waiting").getAttribute("aria-expanded")).toBe("false");
+    expect(textIn(header(root, "failed"), "Failed")).toBe(true);
+    expect(textIn(group(root, "failed"), "Search timed out")).toBe(true);
   });
 
   it("nests a child under its parent group, and groups unannounced output at its position", async () => {

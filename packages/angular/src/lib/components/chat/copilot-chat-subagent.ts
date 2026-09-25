@@ -49,9 +49,9 @@ const statusClass: Record<SubagentStatus, string> = {
 };
 
 /**
- * The default group for one subagent's work in the chat. It is open while the
- * subagent runs, fails or waits, and collapses to its header when it is done.
- * A click on the header opens or closes it until the status changes again.
+ * The default group for one subagent's work in the chat. It starts collapsed
+ * to its header, which shows the name and the status, so a streaming subagent
+ * does not push the chat around. A click on the header opens or closes it.
  *
  * Replace it with the `subagentComponent` or `subagentTemplate` input on
  * `CopilotChat`, `CopilotChatView` or `CopilotChatMessageView`.
@@ -115,17 +115,7 @@ export class CopilotChatSubagent {
   readonly messages = input<Message[]>([]);
 
   protected readonly status = computed(() => this.subagent()?.status);
-  // The user's choice holds only for the status it was made in, so a group the
-  // user opened still collapses when that subagent later finishes.
-  readonly #choice = signal<{
-    status: SubagentStatus | undefined;
-    open: boolean;
-  } | null>(null);
-  protected readonly isOpen = computed(() => {
-    const choice = this.#choice();
-    if (choice !== null && choice.status === this.status()) return choice.open;
-    return this.status() !== "done";
-  });
+  protected readonly isOpen = signal(false);
   protected readonly chevronClass = computed(
     () =>
       `cpk:size-3.5 cpk:shrink-0 cpk:text-muted-foreground cpk:transition-transform cpk:duration-200${this.isOpen() ? " cpk:rotate-90" : ""}`,
@@ -135,7 +125,7 @@ export class CopilotChatSubagent {
   );
 
   protected toggle() {
-    this.#choice.set({ status: this.status(), open: !this.isOpen() });
+    this.isOpen.update((open) => !open);
   }
 
   protected label(status: SubagentStatus) {

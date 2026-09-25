@@ -39,17 +39,18 @@ Your frontend code does not change.
 
 ## What a group shows
 
-The header shows the name of the subagent and its status.
-The body holds the messages and the tool calls of the subagent.
+Each group starts collapsed to its header, so a streaming subagent does not move the rest of the chat.
+The header shows the name of the subagent and its status:
 
-| Status | Label | The group is |
+| Status | Label | Meaning |
 | --- | --- | --- |
-| `running` | Running | open |
-| `done` | Done | collapsed to its header |
-| `suspended` | Waiting | open, because the subagent waits for input, for example an approval |
-| `error` | Failed | open, with the error message |
+| `running` | Running | The subagent is working. |
+| `done` | Done | The subagent finished. |
+| `suspended` | Waiting | The subagent waits for input, for example an approval. |
+| `error` | Failed | The subagent failed. The body shows the error message. |
 
-A click on the header opens or closes the group.
+A click on the header opens the group, with the messages and the tool calls of the subagent.
+The group stays open until the user closes it.
 
 Where a group shows:
 

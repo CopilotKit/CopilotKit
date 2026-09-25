@@ -144,8 +144,8 @@ Each slot below is named. Use a `<template #slot-name="slotProps">` block to ove
   Replaces the group that shows the work of one subagent. `subagent` is
   undefined when the agent did not announce the subagent. Render
   `<component :is="body" />` to show the messages of the group. When the slot
-  is omitted, the default group shows the name and status of the subagent and
-  collapses when the subagent is done. See
+  is omitted, the default group starts collapsed to a header with the name and
+  status of the subagent, and opens on a click. See
   [Subagent Activity](/multi-agent/subagent-activity).
 </PropertyReference>
 

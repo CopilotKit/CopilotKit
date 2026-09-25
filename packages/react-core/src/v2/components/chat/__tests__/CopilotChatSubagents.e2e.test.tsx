@@ -144,7 +144,7 @@ describe("CopilotChat subagent groups", () => {
     expect(within(group("research")).getByText("researcher")).toBeTruthy();
   });
 
-  it("collapses a finished group, keeps failed and waiting groups open, and lets the user toggle", async () => {
+  it("starts every group collapsed, whatever its status, and keeps a group the user opened open", async () => {
     const emit = await startChat();
     emit(
       ...say("supervisor", "Delegating now"),
@@ -157,8 +157,13 @@ describe("CopilotChat subagent groups", () => {
       ...say("d1", "Done text", "done"),
     );
     await waitFor(() =>
-      expect(header("done").getAttribute("aria-expanded")).toBe("true"),
+      expect(screen.getByText("Done text").closest("[hidden]")).not.toBeNull(),
     );
+    expect(header("done").getAttribute("aria-expanded")).toBe("false");
+
+    fireEvent.click(header("done"));
+    expect(header("done").getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByText("Done text").closest("[hidden]")).toBeNull();
 
     emit(
       subagentFinishedEvent("done"),
@@ -171,15 +176,11 @@ describe("CopilotChat subagent groups", () => {
       expect(group("failed").dataset.status).toBe("error");
       expect(group("waiting").dataset.status).toBe("suspended");
     });
-    expect(header("done").getAttribute("aria-expanded")).toBe("false");
-    expect(screen.getByText("Done text").closest("[hidden]")).not.toBeNull();
-    expect(header("failed").getAttribute("aria-expanded")).toBe("true");
-    expect(within(group("failed")).getByText("Search timed out")).toBeTruthy();
-    expect(header("waiting").getAttribute("aria-expanded")).toBe("true");
-
-    fireEvent.click(header("done"));
     expect(header("done").getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByText("Done text").closest("[hidden]")).toBeNull();
+    expect(header("failed").getAttribute("aria-expanded")).toBe("false");
+    expect(header("waiting").getAttribute("aria-expanded")).toBe("false");
+    expect(within(header("failed")).getByText("Failed")).toBeTruthy();
+    expect(within(group("failed")).getByText("Search timed out")).toBeTruthy();
   });
 
   it("nests a child under its parent group, and groups unannounced output at its position", async () => {
