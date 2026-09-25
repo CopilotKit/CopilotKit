@@ -131,7 +131,8 @@ export class BrowserPageMap {
   private elementRefs = new WeakMap<Element, string>();
 
   read(
-    root: Element | null = document.querySelector("main"),
+    root: Element | null = document.querySelector("[data-copilot-page]") ??
+      document.querySelector("main"),
   ): AutopilotPageMap {
     if (!root || !permitted(root)) throw new Error("No readable page content");
     const path = window.location.pathname;
@@ -183,7 +184,8 @@ export class BrowserPageMap {
 
   findControls(
     query: string,
-    root: Element | null = document.querySelector("main"),
+    root: Element | null = document.querySelector("[data-copilot-page]") ??
+      document.querySelector("main"),
   ): AutopilotControl[] {
     const needle = query.trim().toLocaleLowerCase();
     if (!needle || needle.length > 120)

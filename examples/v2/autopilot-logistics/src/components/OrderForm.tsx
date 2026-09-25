@@ -311,6 +311,7 @@ export function CancelOrder({
     >
       <button
         className="button danger"
+        data-copilot-action="cancel"
         data-autopilot-handler-version="1"
         type="button"
         onClick={cancel}

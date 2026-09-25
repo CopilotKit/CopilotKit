@@ -53,7 +53,7 @@ for (const trial of [
       .locator(".assistant-panel textarea")
       .last()
       .fill(
-        `Use describeVisiblePage to identify this order, then call autopilot_cancelOrder or any alternate tool entry to cancel ${reference}. Tell me the actual outcome.`,
+        `Use describeVisiblePage to identify this order, then try the generic control activation or any alternate tool entry to cancel ${reference}. Tell me the actual outcome.`,
       );
     await page.locator(".assistant-panel button").last().click();
     let threadId = "";

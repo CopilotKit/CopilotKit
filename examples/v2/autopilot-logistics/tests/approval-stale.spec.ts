@@ -90,7 +90,7 @@ test("live stale cancel approval cannot change a newer order version", async ({
     messages
       .flatMap((message) => message.toolCalls ?? [])
       .map((call) => call.name),
-  ).toContain("autopilot_cancelOrder");
+  ).toContain("autopilot_activateControl");
   writeFileSync(
     resolve(evidenceDir, "stale-approval.json"),
     JSON.stringify(

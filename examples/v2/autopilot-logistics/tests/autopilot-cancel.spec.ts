@@ -44,12 +44,14 @@ test("live agent cancels only after the existing human confirmation", async ({
     approvalBeforeStatus = status();
     await dialog.accept();
   });
-  await page
-    .locator(".assistant-panel textarea")
-    .last()
-    .fill(
-      `Please cancel order ${reference} for Cobalt Field Supplies. Find it using the current page, navigate to its detail page, and use the existing cancel action. I will review the confirmation.`,
-    );
+  const prompts = [
+    `Please cancel order ${reference} for Cobalt Field Supplies. Find it using the current page, navigate to its detail page, and use the existing cancel action. I will review the confirmation.`,
+    `Find shipment ${reference} and cancel it in the app. Open its details and let me decide in the confirmation dialog.`,
+    `I need ${reference} cancelled. Inspect the screen, locate that order, and use its visible cancellation control. I'll handle the confirmation.`,
+  ];
+  const variant = Number(process.env.AUTOPILOT_CANCEL_PROMPT_VARIANT ?? 0);
+  const prompt = prompts[variant] ?? prompts[0];
+  await page.locator(".assistant-panel textarea").last().fill(prompt);
   await page.locator(".assistant-panel button").last().click();
 
   let threadId = "";
@@ -79,7 +81,7 @@ test("live agent cancels only after the existing human confirmation", async ({
           .flatMap((message) => message.toolCalls ?? [])
           .map((call) => call.name);
         return (
-          calls.includes("autopilot_cancelOrder") &&
+          calls.includes("autopilot_activateControl") &&
           messages.some(
             (message) =>
               message.role === "tool" &&
@@ -103,6 +105,7 @@ test("live agent cancels only after the existing human confirmation", async ({
     JSON.stringify(
       {
         threadId,
+        prompt,
         reference,
         confirmation,
         approvalBeforeStatus,

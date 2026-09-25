@@ -14,4 +14,5 @@ export * from "./autopilot/browser-page-map";
 export * from "./autopilot/browser-navigation";
 export * from "./autopilot/browser-approval";
 export * from "./autopilot/browser-form-batch";
+export * from "./autopilot/browser-control-activation";
 export * from "./autopilot/browser-request-budget";

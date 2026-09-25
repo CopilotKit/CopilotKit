@@ -35,7 +35,7 @@ test("live agent navigates to Users and back with app router", async ({
     .locator(".assistant-panel textarea")
     .last()
     .fill(
-      "Use autopilot_navigate to visit the Users section, then autopilot_goBack to return to Dashboard. Report the pages you actually visited.",
+      "Visit the Users section using the app's navigation, then return to Dashboard. Report the pages you actually visited.",
     );
   await page.locator(".assistant-panel button").last().click();
   let threadId = "";
@@ -70,7 +70,6 @@ test("live agent navigates to Users and back with app router", async ({
             .map((message) => message.content ?? "");
           return (
             calls.includes("autopilot_navigate") &&
-            calls.includes("autopilot_goBack") &&
             results.some(
               (result) =>
                 result.includes('"path":"/users"') &&
@@ -279,7 +278,7 @@ test("live agent respects the app's unsaved-change navigation refusal", async ({
     .locator(".assistant-panel textarea")
     .last()
     .fill(
-      "Use autopilot_navigate to visit the Users section now. If the app refuses because of unsaved changes, report that refusal and do not force navigation.",
+      "Visit the Users section now. If the app refuses because of unsaved changes, report that refusal and do not force navigation.",
     );
   await page.locator(".assistant-panel button").last().click();
   let threadId = "";
