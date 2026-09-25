@@ -145,7 +145,7 @@ function ApprovalInterrupt() {
 ## Behavior
 
 - Standard interrupts are detected from `RUN_FINISHED` (`outcome.type === "interrupt"`); legacy interrupts from `on_interrupt` custom events. Standard takes precedence if both appear in the same run.
-- `resolve`/`cancel` accumulate one response per open interrupt; the resume run starts once every open interrupt is addressed.
+- `resolve`/`cancel` accumulate one response per open interrupt; the resume run starts once every open interrupt is addressed. Standard resumes use a fresh `runId` on the same thread and identify the pending interrupts through `resume[].interruptId`.
 - Expired interrupts (past `expiresAt`) are not resumed — the hook logs an error and clears pending state.
 - Interrupt UI is surfaced when the run finalizes.
 - Starting a new run clears pending interrupt state.
