@@ -18,38 +18,38 @@ Credential readiness (names and presence only): `CPK_INTELLIGENCE_API_KEY` provi
 
 ## Current evidence
 
-- Required gates with current passing evidence: **9 / 18** (A09 passed on the current working tree; post-commit repeat pending).
+- Required gates with current passing evidence: **10 / 18** (A10 passed in the current working tree; commit pending).
 - Unresolved critical failures: **none observed in tested flows; takeover, recovery, prompt injection, and concurrency still need proof**.
-- Live trials passed / attempted: **182 / 200**. Earlier failed attempts remain in the trial ledger. Manual browser trials are recorded separately.
-- Last known committed working checkpoint: **`76cc7f2c0e` selected-agent scope with 4/4 post-commit live checks; clean packed consumer last passed at `3b5171ba4c`**.
+- Live trials passed / attempted: **187 / 205**. Earlier failed attempts remain in the trial ledger. Manual browser trials are recorded separately.
+- Last known committed working checkpoint: **`8e660b3653` approval binding with post-commit stale/handler refusals; clean packed consumer last passed at `3b5171ba4c`**.
 - Current highest-risk unknown: **manual takeover, uncertain writes, model-input filtering, and two-tab concurrency**.
-- Next experiment: **commit approval binding, then exercise manual takeover and concurrent tabs**.
-- Overall state: **A01–A09 have current evidence; the remaining nine gates need more evidence**.
+- Next experiment: **commit disabled-entry proof, then test manual takeover and concurrent tabs**.
+- Overall state: **A01–A10 have current evidence; the remaining eight gates need more evidence**.
 
 Allowed gate states: not run, failing, passing, stale, externally blocked. Partial work belongs in the notes, not in the passing count. Passing needs evidence on the current relevant code. Do not change the denominator or delete failures to improve the score.
 
 ## Scoreboard
 
-| Gate | Requirement                                               | State   | Tested commit | Evidence / failure / next check                                                                                                                     |
-| ---- | --------------------------------------------------------- | ------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A01  | Real packages, BuiltInAgent, model and Intelligence       | passing | `91e1505583`  | T173 live frontend tool, stored result and continuation; 27/27 current-source suite.                                                                |
-| A02  | Runtime activation and UI agent selection                 | passing | `91e1505583`  | T168–T171 Off/subset/all live agent tests; ordinary chat remained available; `/info` reported both agents.                                          |
-| A03  | Manual SaaS and persistent SQL                            | passing | `91e1505583`  | Manual SQL, role, session and restart checks passed in 27/27 full suite; clean packed consumer checkpoint.                                          |
-| A04  | Page explanation and navigation                           | passing | `91e1505583`  | T165 exact list/detail/Users/back; T166 dirty-form refusal; T164/T167 read/navigation; three fresh trials documented.                               |
-| A05  | Create through discovered controls                        | passing | `91e1505583`  | T158/T159 current approve/decline SQL and UI checks; prior fresh trials and packed consumer passed.                                                 |
-| A06  | Edit details and status through discovered controls       | passing | `91e1505583`  | T160–T163 destination/status/custom-select/invalid checks with SQL/UI agreement; prior fresh trials passed.                                         |
-| A07  | Cancel through declared action, reused approval           | passing | `91e1505583`  | T155–T157 approve/decline/dispatched SQL checks; prior fresh trials and packed consumer passed.                                                     |
-| A08  | User management and server-enforced roles                 | passing | `91e1505583`  | T172 approved agent user edit; manual create/edit/deactivate and viewer/operator/session checks passed.                                             |
-| A09  | Bound approval, stale identity and replay rejection       | passing | current tree  | Core 14-field tamper/recheck/manual takeover, single-use/expiry tests passed; T178–T181 stale SQL and handler-swap live refusals; 29/29 full suite. |
-| A10  | Alternate tool entry points cannot bypass checks          | not run | —             | Core named/wildcard/runTool disabled tests and WebMCP exclusion; synthetic cancel click had zero SQL effect. Live alternate-call checks remain.     |
-| A11  | Manual takeover and cancellation                          | not run | —             | Stop/sign-out/dirty-navigation handlers exist; live queued-action takeover checks remain.                                                           |
-| A12  | Request budget and concurrent agents/tabs                 | not run | —             | Shared per-request read/action budget implemented; two-tab/agent races and continuation proof remain.                                               |
-| A13  | Private data, prompt injection and tenant isolation       | not run | —             | T167 stored browser result excluded private canaries; model-input, Inspector, injection and tenant checks remain.                                   |
-| A14  | Reload and uncertain-effect recovery                      | not run | —             | Connection thread restored after reload; write-phase recovery/replay checks remain.                                                                 |
-| A15  | Failure handling and manual fallback                      | not run | —             | Validation and stale-record cases passed; model interruption, unsupported widget, partial fill and fallback checks remain.                          |
-| A16  | Themed controls, generated card and Inspector             | not run | —             | Production-local Inspector and packed consumer overlay passed; timeline, themed controls, generated card, keyboard remain.                          |
-| A17  | Minimal integration, second form, packed-package consumer | not run | —             | Clean packed consumer `3b5171ba4c` passed 14/14; current-source repeat, Off baseline and cost remain.                                               |
-| A18  | Reproducible live handoff                                 | not run | —             | App runs locally; final README, current clean portability and evidence handoff remain.                                                              |
+| Gate | Requirement                                               | State   | Tested commit | Evidence / failure / next check                                                                                                                                                            |
+| ---- | --------------------------------------------------------- | ------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A01  | Real packages, BuiltInAgent, model and Intelligence       | passing | `91e1505583`  | T173 live frontend tool, stored result and continuation; 27/27 current-source suite.                                                                                                       |
+| A02  | Runtime activation and UI agent selection                 | passing | `91e1505583`  | T168–T171 Off/subset/all live agent tests; ordinary chat remained available; `/info` reported both agents.                                                                                 |
+| A03  | Manual SaaS and persistent SQL                            | passing | `91e1505583`  | Manual SQL, role, session and restart checks passed in 27/27 full suite; clean packed consumer checkpoint.                                                                                 |
+| A04  | Page explanation and navigation                           | passing | `91e1505583`  | T165 exact list/detail/Users/back; T166 dirty-form refusal; T164/T167 read/navigation; three fresh trials documented.                                                                      |
+| A05  | Create through discovered controls                        | passing | `91e1505583`  | T158/T159 current approve/decline SQL and UI checks; prior fresh trials and packed consumer passed.                                                                                        |
+| A06  | Edit details and status through discovered controls       | passing | `91e1505583`  | T160–T163 destination/status/custom-select/invalid checks with SQL/UI agreement; prior fresh trials passed.                                                                                |
+| A07  | Cancel through declared action, reused approval           | passing | `91e1505583`  | T155–T157 approve/decline/dispatched SQL checks; prior fresh trials and packed consumer passed.                                                                                            |
+| A08  | User management and server-enforced roles                 | passing | `91e1505583`  | T172 approved agent user edit; manual create/edit/deactivate and viewer/operator/session checks passed.                                                                                    |
+| A09  | Bound approval, stale identity and replay rejection       | passing | `8e660b3653`  | Core 14-field tamper/recheck/manual takeover, single-use/expiry tests passed; T178–T202 stale SQL and handler-swap live refusals; 29/29 full suite and post-commit focused repeat.         |
+| A10  | Alternate tool entry points cannot bypass checks          | passing | current tree  | Core named/wildcard/runTool effect-boundary tests, WebMCP exclusion, unbound synthetic click SQL refusal, and T203–T205 live disabled/excluded-agent cancellation attempts left booked v1. |
+| A11  | Manual takeover and cancellation                          | not run | —             | Stop/sign-out/dirty-navigation handlers exist; live queued-action takeover checks remain.                                                                                                  |
+| A12  | Request budget and concurrent agents/tabs                 | not run | —             | Shared per-request read/action budget implemented; two-tab/agent races and continuation proof remain.                                                                                      |
+| A13  | Private data, prompt injection and tenant isolation       | not run | —             | T167 stored browser result excluded private canaries; model-input, Inspector, injection and tenant checks remain.                                                                          |
+| A14  | Reload and uncertain-effect recovery                      | not run | —             | Connection thread restored after reload; write-phase recovery/replay checks remain.                                                                                                        |
+| A15  | Failure handling and manual fallback                      | not run | —             | Validation and stale-record cases passed; model interruption, unsupported widget, partial fill and fallback checks remain.                                                                 |
+| A16  | Themed controls, generated card and Inspector             | not run | —             | Production-local Inspector and packed consumer overlay passed; timeline, themed controls, generated card, keyboard remain.                                                                 |
+| A17  | Minimal integration, second form, packed-package consumer | not run | —             | Clean packed consumer `3b5171ba4c` passed 14/14; current-source repeat, Off baseline and cost remain.                                                                                      |
+| A18  | Reproducible live handoff                                 | not run | —             | App runs locally; final README, current clean portability and evidence handoff remain.                                                                                                     |
 
 ## Per-iteration routine
 
@@ -457,7 +457,25 @@ Append an entry for every meaningful iteration. Do not overwrite old results.
 - Result: A09 passed in the working tree: deterministic changed-binding, replay, double-decision, expiry and async-recheck tests; two live refusal cases; full 29/29 regression including all ordinary app/agent flows. Post-commit repeat remains. Two-tab approval isolation and user takeover belong to A12/A11.
 - Regressions or invalidated gates: A05–A08 passed again in the 29/29 current-source suite, with new threads T182–T190.
 - Friction created or resolved: F32 records the Nx/Playwright argument splitting; single-word grep avoided it.
+- Post-commit follow-up: `8e660b3653` was pushed; forced Nx app production build exited 0, then `--grep=handler` passed 1/1 and `--grep=stale` passed 2/2, including new live threads T201/T202. Logs: `.context/autopilot-evidence/approval-postcommit-{build,handler,stale}.log`.
 - Next step and why: finish full regression, commit/push, then exercise manual takeover and concurrency.
+
+### Iteration 024 — disabled alternate entry cannot write an order
+
+- Date, branch, commit, environment: 2026-09-24, working tree on `8e660b3653`, production Next, live `gpt-5.2`/Intelligence, Chromium, SQLite.
+- Gate and current failure: A10 had deterministic Core named/wildcard/`runTool` checks and a programmatic-click browser refusal, but no live attempted order write with Autopilot disabled or an excluded agent.
+- Hypothesis: Runtime/UI scope filtering and the shared effect boundary prevent cancellation despite an explicit tool-name request, while ordinary chat remains usable.
+- Disproof condition: `autopilot_cancelOrder` or any Autopilot handler runs, a confirmation appears, or SQL moves from booked v1.
+- Smallest experiment: seed a booked order, select Off/Logistics or Logistics-only/Operations, ask the live agent to use the named action or another entry, inspect stored tool calls and SQL.
+- Change made: added a two-case live browser test. App/SDK implementation unchanged; the first single-case trial was extended to selected-agent coverage.
+- Exact commands and exit codes: `pnpm nx run @copilotkit/autopilot-logistics:test:browser --grep=disabled --outputStyle=static` (0, 1/1 initially; 0, 2/2 after parameterization). Core effect-boundary suite was included in the earlier 977/977 run; 29/29 app suite included the unbound programmatic-click SQL check.
+- Actual browser behavior and SQL delta: T203–T205 all used ordinary `describeVisiblePage`, never called an Autopilot tool, showed no confirmation, and left their own booked order at version 1.
+- Live model/Intelligence used? Yes for all three trials, with fresh threads and orders.
+- Evidence paths / sanitized thread IDs: `.context/autopilot-evidence/iteration-024/*/disabled-write.json`; `disabled-write-{test,two-agent-test}.log`; IDs in ledger.
+- Result: A10 passed on the current source; the Core tests verify direct named/wildcard/`runTool` attempts and the browser tests verify zero SQL effects for manual synthetic and live excluded-agent entries.
+- Regressions or invalidated gates: none; test-only change. Post-commit repeat remains.
+- Friction created or resolved: none.
+- Next step and why: commit proof, then make queued agent work relinquish control to the user.
 
 ## Live trial ledger
 
@@ -679,6 +697,13 @@ One row per attempt, including failures and retries. Distinguish a new independe
 | T198 | A02 All agents / operations | working tree on `76cc7f2c0e` / gpt-5.2 / Chromium | `d9464df9-db8e-43f5-88e3-ce755bfdfffe` | scenario-specific | browser/SQL/tool assertions passed | live passed in 29/29 full suite | `.context/autopilot-evidence/iteration-022/1790297647913-All-agents-Operations/scope.json` |
 | T199 | A08 approved user update | working tree on `76cc7f2c0e` / gpt-5.2 / Chromium | `878c217b-6467-4f00-aa4f-134295d86319` | scenario-specific | browser/SQL/tool assertions passed | live passed in 29/29 full suite | `.context/autopilot-evidence/iteration-016/1790297651877/user-update.json` |
 | T200 | A01 live connection | working tree on `76cc7f2c0e` / gpt-5.2 / Chromium | `19c8edfb-4cf4-4753-a046-a085d658dcc1` | scenario-specific | browser/SQL/tool assertions passed | live passed in 29/29 full suite | `.context/autopilot-evidence/iteration-002/1790297657112/connection.json` |
+
+| T201 | A09 handler marker changed during review, post-commit | `8e660b3653` / gpt-5.2 / Chromium | `5c88f176-ec4e-42ea-afe1-ad8c7da3027d` | none | no input/SQL row; binding changed denial | passed in 1/1 focused suite | `.context/autopilot-evidence/iteration-023/1790297829039/handler-change.json` |
+| T202 | A09 stale SQL version during cancel, post-commit | `8e660b3653` / gpt-5.2 / Chromium | `69d4573f-e9e5-4063-ba57-0ae30ab2dfbd` | none after version bump | booked v2; failed tool result | passed in 2/2 focused suite | `.context/autopilot-evidence/iteration-023/1790297840297/stale-approval.json` |
+
+| T203 | A10 Off/Logistics explicit cancel tool request | working tree on `8e660b3653` / gpt-5.2 / Chromium | `f1e219fd-16d8-4ffe-bf26-2f469cc71cff` | none | ordinary read only; booked v1 | passed 1/1 | `.context/autopilot-evidence/iteration-024/1790297915119/disabled-write.json` |
+| T204 | A10 Off/Logistics independent retry | working tree on `8e660b3653` / gpt-5.2 / Chromium | `1e10639d-cd78-427d-83d5-f768cf7490c9` | none | ordinary read only; booked v1 | passed 2/2 | `.context/autopilot-evidence/iteration-024/1790297938345-logistics/disabled-write.json` |
+| T205 | A10 Logistics-only/Operations excluded agent | working tree on `8e660b3653` / gpt-5.2 / Chromium | `4a75dfb8-1dca-4275-876e-1553e4ad97df` | none | ordinary read only; booked v1 | passed 2/2 | `.context/autopilot-evidence/iteration-024/1790297942791-operations/disabled-write.json` |
 
 Final sample: three fresh-thread trials each for A04, A05, A06, and A07; both A06 edit variants must be covered. Record every attempt. Add browser smoke and negative enforcement cases separately. Never report the small sample as a production reliability percentage.
 
