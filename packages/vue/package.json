@@ -81,6 +81,7 @@
     "@ag-ui/client": "0.0.59",
     "@ag-ui/core": "0.0.59",
     "@copilotkit/core": "workspace:*",
+    "@copilotkit/mcp-apps-renderer": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@copilotkit/web-components": "workspace:*",
     "@copilotkit/web-inspector": "workspace:*",
