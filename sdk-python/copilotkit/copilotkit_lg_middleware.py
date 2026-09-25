@@ -69,7 +69,14 @@ _FRONTEND_TOOL_RESULT_CONTENT = json.dumps({"status": "forwarded_to_frontend"})
 _FE_TOOL_INTERRUPT_REASON = "tool_call"
 
 # What the AG-UI adapter hands ``interrupt()`` for a cancelled resume entry.
-_AGUI_CANCELLED_KEY = "__agui_cancelled__"
+# Only ag-ui-langgraph >= 0.0.43 has ``resume[]`` entries (and this sentinel);
+# older versions never send a cancelled entry, so there is nothing to match.
+try:
+    from ag_ui_langgraph.interrupts import (
+        DEFAULT_RESUME_SENTINEL_CANCELLED as _AGUI_CANCELLED_KEY,
+    )
+except ImportError:  # ag-ui-langgraph < 0.0.43
+    _AGUI_CANCELLED_KEY = None
 
 
 def _current_thread_id() -> "str | None":

@@ -20,12 +20,10 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 
+from .copilotkit_lg_middleware import _AGUI_CANCELLED_KEY
 from .exc import CopilotKitMisuseError
 
 logger = logging.getLogger(__name__)
-
-# ag-ui-langgraph's sentinel for a cancelled resume entry.
-_AGUI_CANCELLED_KEY = "__agui_cancelled__"
 
 try:
     from langchain.schema import BaseMessage
