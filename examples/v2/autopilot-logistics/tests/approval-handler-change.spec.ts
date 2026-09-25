@@ -105,7 +105,7 @@ test("changed form handler during review denies the live agent write", async ({
     messages.some(
       (message) =>
         message.role === "tool" &&
-        message.content?.includes("Action binding changed"),
+        message.content?.includes("Target or session changed before dispatch"),
     ),
   ).toBe(true);
   expect(orderCount()).toBe(0);

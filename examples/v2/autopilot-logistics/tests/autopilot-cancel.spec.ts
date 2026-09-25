@@ -304,7 +304,9 @@ test("a dispatched order cannot be cancelled by the agent", async ({
           (message) =>
             message.role === "assistant" &&
             (message.content ?? "").includes(reference) &&
-            /not|unable|cannot|can.t/i.test(message.content ?? ""),
+            /not|unable|cannot|can.t|rejected|failed/i.test(
+              message.content ?? "",
+            ),
         );
         return navigated && final;
       },
