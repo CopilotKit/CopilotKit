@@ -11,7 +11,9 @@ import type {
   ToolMessage,
 } from "@ag-ui/client";
 import { randomUUID, structuredClone_ } from "@ag-ui/client";
-import type { CopilotKitCore } from "./core";
+import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
+import { ɵSubagentState } from "./subagent-state";
+import type { Subagent } from "./subagent-state";
 import { isForwardedToClientPlaceholder } from "./tool-result-content";
 
 const isContinuation = (input: RunAgentInput): boolean =>
@@ -25,6 +27,9 @@ export interface CopilotKitCoreContinuationHandoff {
   cancel(): void;
   bind(input: object): void;
 }
+
+// One shared empty list, so a thread with no subagents keeps a stable reference.
+const noSubagents: readonly Subagent[] = [];
 
 interface PendingContinuation extends CopilotKitCoreContinuationHandoff {
   expectedInput?: object;
@@ -52,6 +57,10 @@ export class StateManager {
 
   // Direct text-start metadata: agentId -> threadId -> messageId -> rawEvent
   private rawEventByMessage: Map<string, Map<string, Map<string, unknown>>> =
+    new Map();
+
+  // Subagent tracking: agentId -> threadId -> invocations
+  private subagentsByThread: Map<string, Map<string, ɵSubagentState>> =
     new Map();
 
   // Active run tracking: `agentId:threadId` -> runId (used when messages arrive without input)
@@ -296,9 +305,12 @@ export class StateManager {
         return mutation;
       },
       // A run error terminates the run — treat identically to finished for cleanup
-      onRunErrorEvent: ({ input, state, messages }) => {
+      onRunErrorEvent: ({ event, input, state, messages }) => {
         if (revoked) return;
         runFinished = true;
+        this.updateSubagents(agentId, input.threadId, (subagents) =>
+          subagents.runError(event.message),
+        );
         const effective = effectiveInput(input);
         const mutation = reconcilePendingResults(messages, input);
         this.handleRunFinished(agent, effective, state);
@@ -311,6 +323,27 @@ export class StateManager {
       onRunFinalized: ({ input }) => {
         if (revoked) return;
         clearPendingResults(input);
+        this.updateSubagents(agentId, input.threadId, (subagents) =>
+          subagents.runEnded(),
+        );
+      },
+      onSubagentStartedEvent: ({ event, input }) => {
+        if (revoked) return;
+        this.updateSubagents(agentId, input.threadId, (subagents) =>
+          subagents.started(event),
+        );
+      },
+      onSubagentFinishedEvent: ({ event, input }) => {
+        if (revoked) return;
+        this.updateSubagents(agentId, input.threadId, (subagents) =>
+          subagents.finished(event),
+        );
+      },
+      onSubagentErrorEvent: ({ event, input }) => {
+        if (revoked) return;
+        this.updateSubagents(agentId, input.threadId, (subagents) =>
+          subagents.error(event),
+        );
       },
       onToolCallResultEvent: ({ event, input }) => {
         if (revoked) return;
@@ -425,6 +458,51 @@ export class StateManager {
       ?.get(threadId)
       ?.get(messageId);
     return rawEvent === undefined ? undefined : structuredClone_(rawEvent);
+  }
+
+  /**
+   * Get the subagent invocations seen on a thread, in start order.
+   */
+  getSubagents(agentId: string, threadId: string) {
+    return (
+      this.subagentsByThread.get(agentId)?.get(threadId)?.list ?? noSubagents
+    );
+  }
+
+  /**
+   * Apply one change to a thread's subagents and notify subscribers when the
+   * list actually changed.
+   */
+  private updateSubagents(
+    agentId: string,
+    threadId: string,
+    update: (subagents: ɵSubagentState) => boolean,
+  ): void {
+    let byThread = this.subagentsByThread.get(agentId);
+    if (!byThread) {
+      byThread = new Map();
+      this.subagentsByThread.set(agentId, byThread);
+    }
+    let subagents = byThread.get(threadId);
+    if (!subagents) {
+      subagents = new ɵSubagentState();
+      byThread.set(threadId, subagents);
+    }
+    if (!update(subagents)) return;
+
+    const list = subagents.list;
+    void (
+      this.core as unknown as CopilotKitCoreFriendsAccess
+    ).notifySubscribers(
+      (subscriber) =>
+        subscriber.onSubagentsChanged?.({
+          copilotkit: this.core,
+          agentId,
+          threadId,
+          subagents: list,
+        }),
+      "Subscriber onSubagentsChanged error:",
+    );
   }
 
   /**
@@ -686,6 +764,11 @@ export class StateManager {
     this.stateByRun.delete(agentId);
     this.messageToRun.delete(agentId);
     this.rawEventByMessage.delete(agentId);
+    const threadIds = [...(this.subagentsByThread.get(agentId)?.keys() ?? [])];
+    for (const threadId of threadIds) {
+      this.updateSubagents(agentId, threadId, (subagents) => subagents.clear());
+    }
+    this.subagentsByThread.delete(agentId);
   }
 
   /**
@@ -695,5 +778,9 @@ export class StateManager {
     this.stateByRun.get(agentId)?.delete(threadId);
     this.messageToRun.get(agentId)?.delete(threadId);
     this.rawEventByMessage.get(agentId)?.delete(threadId);
+    if (this.subagentsByThread.get(agentId)?.has(threadId)) {
+      this.updateSubagents(agentId, threadId, (subagents) => subagents.clear());
+      this.subagentsByThread.get(agentId)?.delete(threadId);
+    }
   }
 }

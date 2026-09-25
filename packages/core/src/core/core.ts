@@ -37,6 +37,7 @@ import type {
 } from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
+import type { Subagent } from "./subagent-state";
 import { ThreadStoreRegistry } from "./thread-store-registry";
 import type { ɵThreadStore } from "../threads";
 import { ɵcreateMemoryStore } from "../memory";
@@ -177,6 +178,17 @@ export interface CopilotKitCoreSubscriber {
   onAgentRunStarted?: (event: {
     copilotkit: CopilotKitCore;
     agent: AbstractAgent;
+  }) => void | Promise<void>;
+  /**
+   * The subagent invocations on one agent thread changed: one started,
+   * finished, failed, or the thread was cleared. `subagents` is the whole
+   * list for that thread, in start order.
+   */
+  onSubagentsChanged?: (event: {
+    copilotkit: CopilotKitCore;
+    agentId: string;
+    threadId: string;
+    subagents: readonly Subagent[];
   }) => void | Promise<void>;
   onContextChanged?: (event: {
     copilotkit: CopilotKitCore;
@@ -1419,6 +1431,24 @@ export class CopilotKitCore {
 
   getRunIdsForThread(agentId: string, threadId: string): string[] {
     return this.stateManager.getRunIdsForThread(agentId, threadId);
+  }
+
+  /**
+   * Get the AG-UI subagent invocations seen on an agent thread, in start
+   * order. The list keeps its reference until it changes; subscribe with
+   * `onSubagentsChanged` to hear about changes.
+   *
+   * @param agentId - The agent whose run produced the subagents.
+   * @param threadId - The thread to read.
+   *
+   * @example
+   * ```ts
+   * const subagents = copilotkit.getSubagents("supervisor", threadId);
+   * const running = subagents.filter((s) => s.status === "running");
+   * ```
+   */
+  getSubagents(agentId: string, threadId: string) {
+    return this.stateManager.getSubagents(agentId, threadId);
   }
 
   /**
