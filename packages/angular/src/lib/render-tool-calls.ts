@@ -1,4 +1,4 @@
-import { NgComponentOutlet } from "@angular/common";
+import { NgComponentOutlet, NgTemplateOutlet } from "@angular/common";
 import {
   Component,
   inject,
@@ -24,6 +24,7 @@ import type {
 import { partialJSONParse } from "@copilotkit/shared";
 import { HumanInTheLoop } from "./human-in-the-loop";
 import { CopilotDefaultToolRenderer } from "./components/tools/default-tool-renderer";
+import { COPILOT_CHAT_SUBAGENT_LAYOUT } from "./components/chat/copilot-chat-subagent";
 
 type RendererToolCallHandler = {
   type: "renderer";
@@ -141,7 +142,7 @@ export function pickToolCallHandler(
 
 @Component({
   selector: "copilot-render-tool-calls",
-  imports: [NgComponentOutlet],
+  imports: [NgComponentOutlet, NgTemplateOutlet],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @for (toolCall of message().toolCalls ?? []; track toolCall.id) {
@@ -170,16 +171,33 @@ export function pickToolCallHandler(
           "
         />
       }
+      <!-- The subagents this call started, even when no renderer is registered for it. -->
+      @for (group of subagentGroupsFor(toolCall.id); track group.subagentRunId) {
+        <ng-container
+          *ngTemplateOutlet="
+            subagentLayout?.state()?.groupTemplate ?? null;
+            context: { $implicit: group }
+          "
+        />
+      }
     }
   `,
 })
 export class RenderToolCalls {
   readonly #copilotKit = inject(CopilotKit);
   readonly #hitl = inject(HumanInTheLoop);
+  protected readonly subagentLayout = inject(COPILOT_CHAT_SUBAGENT_LAYOUT, {
+    optional: true,
+  });
   readonly message = input.required<AssistantMessage>();
   readonly messages = input.required<Message[]>();
   readonly isLoading = input<boolean>(false);
   readonly agentId = input<string | undefined>();
+
+  protected subagentGroupsFor(toolCallId: string) {
+    const layout = this.subagentLayout?.state()?.layout;
+    return layout?.byToolCallId.get(toolCallId) ?? [];
+  }
 
   protected pickRenderer(name: string): ToolCallHandler | undefined {
     type AssistantMessageWithAgent = AssistantMessage & {
