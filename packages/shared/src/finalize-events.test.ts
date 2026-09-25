@@ -145,6 +145,101 @@ describe("createRunEventFinalizer", () => {
     ]);
   });
 
+  it("closes open subagents on a stop, children first, after their messages and before the terminal", () => {
+    const finalizer = createRunEventFinalizer();
+    for (const value of [
+      event({
+        type: EventType.SUBAGENT_STARTED,
+        subagentRunId: "parent",
+        name: "researcher",
+      }),
+      event({
+        type: EventType.SUBAGENT_STARTED,
+        subagentRunId: "child",
+        name: "searcher",
+        parentSubagentRunId: "parent",
+      }),
+      event({
+        type: EventType.TEXT_MESSAGE_START,
+        messageId: "message-1",
+        subagentRunId: "child",
+      }),
+    ]) {
+      finalizer.observe(value);
+    }
+
+    expect(
+      finalizer.finalize({
+        stopRequested: true,
+        interruptionMessage: "Stopped from the toolbar",
+      }),
+    ).toEqual([
+      { type: EventType.TEXT_MESSAGE_END, messageId: "message-1" },
+      {
+        type: EventType.SUBAGENT_ERROR,
+        subagentRunId: "child",
+        message: "Stopped from the toolbar",
+        code: "CANCELLED",
+      },
+      {
+        type: EventType.SUBAGENT_ERROR,
+        subagentRunId: "parent",
+        message: "Stopped from the toolbar",
+        code: "CANCELLED",
+      },
+      { type: EventType.RUN_FINISHED },
+    ]);
+  });
+
+  it.each([EventType.SUBAGENT_FINISHED, EventType.SUBAGENT_ERROR])(
+    "does not close a subagent again after %s",
+    (closer) => {
+      const finalizer = createRunEventFinalizer();
+      finalizer.observe(
+        event({
+          type: EventType.SUBAGENT_STARTED,
+          subagentRunId: "done",
+          name: "writer",
+        }),
+      );
+      finalizer.observe(
+        event({ type: closer, subagentRunId: "done", message: "boom" }),
+      );
+      finalizer.observe(
+        event({
+          type: EventType.SUBAGENT_STARTED,
+          subagentRunId: "open",
+          name: "critic",
+        }),
+      );
+
+      expect(finalizer.finalize({ stopRequested: true })).toEqual([
+        {
+          type: EventType.SUBAGENT_ERROR,
+          subagentRunId: "open",
+          message: "Run stopped by user",
+          code: "CANCELLED",
+        },
+        { type: EventType.RUN_FINISHED },
+      ]);
+    },
+  );
+
+  it("leaves open subagents unclosed when the stream ends abruptly, because RUN_ERROR abandons them", () => {
+    const finalizer = createRunEventFinalizer();
+    finalizer.observe(
+      event({
+        type: EventType.SUBAGENT_STARTED,
+        subagentRunId: "open",
+        name: "critic",
+      }),
+    );
+
+    expect(finalizer.finalize().map(({ type }) => type)).toEqual([
+      EventType.RUN_ERROR,
+    ]);
+  });
+
   it("ignores start events without an id so finalize never emits an empty id", () => {
     const finalizer = createRunEventFinalizer();
     finalizer.observe(

@@ -33,7 +33,9 @@ interface OpenToolCall {
  * `observe`; when the stream ends without a terminal event, `finalize` returns
  * the closers for reasoning, text messages and tool calls still open plus a
  * terminal event. AG-UI 1.0 fails a run that ends with reasoning still open,
- * so reasoning is closed too. Closed lifecycles are forgotten at once and payloads are never kept,
+ * so reasoning is closed too. It also fails a RUN_FINISHED while a subagent
+ * is still open, so a stop closes open subagents as well; a RUN_ERROR
+ * abandons them, which the protocol allows. Closed lifecycles are forgotten at once and payloads are never kept,
  * so a caller does not have to retain the event array for this purpose.
  */
 export function createRunEventFinalizer(): RunEventFinalizer {
@@ -41,6 +43,8 @@ export function createRunEventFinalizer(): RunEventFinalizer {
   const openReasoningMessageIds = new Set<string>();
   const openReasoningSpanIds = new Set<string>();
   const openToolCalls = new Map<string, OpenToolCall>();
+  // Insertion order is start order, so closing in reverse closes children first.
+  const openSubagentRunIds = new Set<string>();
   let runIdentity: { threadId?: string; runId?: string } = {};
   let terminalEventObserved = false;
 
@@ -49,6 +53,7 @@ export function createRunEventFinalizer(): RunEventFinalizer {
     openReasoningMessageIds.clear();
     openReasoningSpanIds.clear();
     openToolCalls.clear();
+    openSubagentRunIds.clear();
   };
 
   const observe = (event: BaseEvent) => {
@@ -111,6 +116,19 @@ export function createRunEventFinalizer(): RunEventFinalizer {
         if (event.type === EventType.TOOL_CALL_END) info.hasEnd = true;
         else info.hasResult = true;
         if (info.hasEnd && info.hasResult) openToolCalls.delete(toolCallId);
+        break;
+      }
+      case EventType.SUBAGENT_STARTED:
+      case EventType.SUBAGENT_FINISHED:
+      case EventType.SUBAGENT_ERROR: {
+        const subagentRunId = (event as { subagentRunId?: string })
+          .subagentRunId;
+        if (!subagentRunId) break;
+        if (event.type === EventType.SUBAGENT_STARTED) {
+          openSubagentRunIds.add(subagentRunId);
+        } else {
+          openSubagentRunIds.delete(subagentRunId);
+        }
         break;
       }
       case EventType.RUN_FINISHED:
@@ -184,6 +202,14 @@ export function createRunEventFinalizer(): RunEventFinalizer {
     }
 
     if (stopRequested) {
+      for (const subagentRunId of [...openSubagentRunIds].toReversed()) {
+        appended.push({
+          type: EventType.SUBAGENT_ERROR,
+          subagentRunId,
+          message: resolvedStopMessage,
+          code: "CANCELLED",
+        } as BaseEvent);
+      }
       appended.push({
         type: EventType.RUN_FINISHED,
         ...(runIdentity.threadId !== undefined
