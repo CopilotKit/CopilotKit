@@ -54,6 +54,20 @@ export {
 export { CopilotChat, type CopilotChatProps } from "./CopilotChat";
 
 export {
+  CopilotChatApproval,
+  type CopilotChatApprovalProps,
+} from "./CopilotChatApproval";
+export {
+  CopilotApprovalController,
+  useCopilotApproval,
+  useCopilotApprovalWork,
+  type CopilotApprovalRequest,
+  type CopilotApprovalDecision,
+  type CopilotApprovalResponse,
+  type CopilotApprovalStore,
+} from "../../hooks/use-copilot-approval";
+
+export {
   CopilotChatToggleButton,
   type CopilotChatToggleButtonProps,
   CopilotChatToggleButtonOpenIcon,

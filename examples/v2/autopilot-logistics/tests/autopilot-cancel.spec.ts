@@ -4,7 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-test("live agent cancels only after the existing human confirmation", async ({
+test("live agent cancels only after CopilotKit chat approval", async ({
   page,
 }) => {
   test.setTimeout(120_000);
@@ -39,11 +39,14 @@ test("live agent cancels only after the existing human confirmation", async ({
   );
   let approvalBeforeStatus: { status: string; version: number } | undefined;
   let confirmation = "";
-  page.once("dialog", async (dialog) => {
-    confirmation = dialog.message();
+  const approval = (async () => {
+    const card = page.getByTestId("copilot-approval");
+    await expect(card).toBeVisible({ timeout: 100_000 });
+    confirmation = (await card.textContent()) ?? "";
     approvalBeforeStatus = status();
-    await dialog.accept();
-  });
+    await page.screenshot({ path: resolve(evidenceDir, "approval-chat.png") });
+    await card.getByRole("button", { name: "Approve" }).click();
+  })();
   const prompts = [
     `Please cancel order ${reference} for Cobalt Field Supplies. Find it using the current page, navigate to its detail page, and use the existing cancel action. I will review the confirmation.`,
     `Find shipment ${reference} and cancel it in the app. Open its details and let me decide in the confirmation dialog.`,
@@ -53,6 +56,7 @@ test("live agent cancels only after the existing human confirmation", async ({
   const prompt = prompts[variant] ?? prompts[0];
   await page.locator(".assistant-panel textarea").last().fill(prompt);
   await page.locator(".assistant-panel button").last().click();
+  await approval;
 
   let threadId = "";
   let messages: Array<{
@@ -120,7 +124,7 @@ test("live agent cancels only after the existing human confirmation", async ({
   );
 });
 
-test("declining the existing confirmation leaves the order unchanged", async ({
+test("declining CopilotKit chat approval leaves the order unchanged", async ({
   page,
 }) => {
   test.setTimeout(120_000);
@@ -153,11 +157,13 @@ test("declining the existing confirmation leaves the order unchanged", async ({
   );
   let approvalBeforeStatus: { status: string; version: number } | undefined;
   let confirmation = "";
-  page.once("dialog", async (dialog) => {
-    confirmation = dialog.message();
+  const approval = (async () => {
+    const card = page.getByTestId("copilot-approval");
+    await expect(card).toBeVisible({ timeout: 100_000 });
+    confirmation = (await card.textContent()) ?? "";
     approvalBeforeStatus = status();
-    await dialog.dismiss();
-  });
+    await card.getByRole("button", { name: "Decline" }).click();
+  })();
   await page
     .locator(".assistant-panel textarea")
     .last()
@@ -165,6 +171,7 @@ test("declining the existing confirmation leaves the order unchanged", async ({
       `Please cancel order ${reference} for Harbor Demo Client using its detail page. I will decide at the confirmation.`,
     );
   await page.locator(".assistant-panel button").last().click();
+  await approval;
   let threadId = "";
   let messages: Array<{
     role: string;

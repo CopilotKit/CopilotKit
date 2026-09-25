@@ -27,12 +27,19 @@ test("live admin agent updates a user through the discovered form", async ({
       version: number;
     };
   await page.addInitScript(() => {
-    const original = window.confirm.bind(window);
     (window as any).__formSequence = [] as string[];
-    window.confirm = (message) => {
-      (window as any).__formSequence.push("decision");
-      return original(message);
-    };
+    document.addEventListener(
+      "click",
+      (event) => {
+        if (
+          (event.target as Element | null)?.closest(
+            "[data-testid=copilot-approval] button",
+          )
+        )
+          (window as any).__formSequence.push("decision");
+      },
+      true,
+    );
     document.addEventListener(
       "input",
       (event) => {
@@ -59,11 +66,13 @@ test("live admin agent updates a user through the discovered form", async ({
   );
   let review = "";
   let beforeApproval: ReturnType<typeof state> | undefined;
-  page.once("dialog", async (dialog) => {
-    review = dialog.message();
+  const approval = (async () => {
+    const card = page.getByTestId("copilot-approval");
+    await expect(card).toBeVisible({ timeout: 100_000 });
+    review = (await card.textContent()) ?? "";
     beforeApproval = state();
-    await dialog.accept();
-  });
+    await card.getByRole("button", { name: "Approve" }).click();
+  })();
   await page
     .locator(".assistant-panel textarea")
     .last()
@@ -71,6 +80,7 @@ test("live admin agent updates a user through the discovered form", async ({
       `On this Users page, change ${name}'s role from operator to viewer. Use the discovered edit form and submit it after I review the exact change. Do not change anyone else.`,
     );
   await page.locator(".assistant-panel button").last().click();
+  await approval;
   let threadId = "";
   let messages: Array<{
     role: string;

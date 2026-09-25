@@ -35,9 +35,11 @@ test("an unbound programmatic cancel click cannot become a manual approval", asy
     );
     button?.click();
   });
-  await expect.poll(() => dialogs).toBe(1);
+  await expect(page.getByTestId("copilot-approval")).toHaveCount(0);
+  expect(dialogs).toBe(0);
   expect(status()).toEqual({ status: "booked", version: 1 });
   await page.getByRole("button", { name: "Cancel order" }).click();
+  await expect.poll(() => dialogs).toBe(1);
   await expect.poll(() => status().status).toBe("cancelled");
   expect(status()).toEqual({ status: "cancelled", version: 2 });
 });

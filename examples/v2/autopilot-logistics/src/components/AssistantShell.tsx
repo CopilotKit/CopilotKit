@@ -16,7 +16,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import type { SessionUser } from "@/lib/db";
-import { orderApprovalGate } from "@/lib/autopilot-approval";
+import {
+  approvalController,
+  orderApprovalGate,
+} from "@/lib/autopilot-approval";
 import { AutopilotFormTool } from "./AutopilotFormTool";
 import { consumeAutopilotBudget } from "@/lib/autopilot-budget";
 
@@ -85,10 +88,30 @@ function BrowserProbe({ user }: { user: SessionUser }) {
       ) {
         event.preventDefault();
         event.stopImmediatePropagation();
+      } else if (
+        event.isTrusted &&
+        new URL(anchor.href).pathname !== window.location.pathname
+      ) {
+        orderApprovalGate.cancelAwaiting("User navigated");
       }
     };
     document.addEventListener("click", onLinkClick, true);
     return () => document.removeEventListener("click", onLinkClick, true);
+  }, []);
+  useEffect(() => {
+    const onInput = (event: Event) => {
+      if (event.isTrusted && (event.target as Element | null)?.closest("main"))
+        orderApprovalGate.cancelAwaiting("User edited the page");
+    };
+    const onHistory = () => orderApprovalGate.cancelAwaiting("User navigated");
+    document.addEventListener("input", onInput, true);
+    document.addEventListener("change", onInput, true);
+    window.addEventListener("popstate", onHistory);
+    return () => {
+      document.removeEventListener("input", onInput, true);
+      document.removeEventListener("change", onInput, true);
+      window.removeEventListener("popstate", onHistory);
+    };
   }, []);
   useEffect(
     () => () => orderApprovalGate.cancelAwaiting("Assistant closed"),
@@ -407,6 +430,7 @@ export function AssistantShell({
             key={selectedAgent}
             agentId={selectedAgent}
             className="assistant-chat"
+            approvalController={approvalController}
             labels={{
               chatInputPlaceholder: "Ask about orders, shipments, or users…",
             }}

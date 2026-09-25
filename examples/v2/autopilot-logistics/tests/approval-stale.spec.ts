@@ -37,14 +37,16 @@ test("live stale cancel approval cannot change a newer order version", async ({
     ),
   );
   let approvalBefore: { status: string; version: number } | undefined;
-  page.once("dialog", async (dialog) => {
-    expect(dialog.message()).toContain(reference);
+  const approval = (async () => {
+    const card = page.getByTestId("copilot-approval");
+    await expect(card).toBeVisible({ timeout: 100_000 });
+    expect(await card.textContent()).toContain(reference);
     approvalBefore = state();
     database
       .prepare("UPDATE orders SET version = 2, updated_at = ? WHERE id = ?")
       .run(new Date().toISOString(), id);
-    await dialog.accept();
-  });
+    await card.getByRole("button", { name: "Approve" }).click();
+  })();
   await page
     .locator(".assistant-panel textarea")
     .last()
@@ -52,6 +54,7 @@ test("live stale cancel approval cannot change a newer order version", async ({
       `Find ${reference} for Stale Approval Client, open its detail page, and cancel it through the declared browser action. I will review the confirmation. Report the actual result.`,
     );
   await page.locator(".assistant-panel button").last().click();
+  await approval;
 
   let threadId = "";
   let messages: Array<{

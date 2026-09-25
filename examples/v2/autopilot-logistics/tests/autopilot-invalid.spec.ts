@@ -36,11 +36,13 @@ test("invalid status transition through discovered form leaves SQL unchanged", a
   );
   let review = "";
   let beforeApproval: { status: string; version: number } | undefined;
-  page.once("dialog", async (dialog) => {
-    review = dialog.message();
+  const approval = (async () => {
+    const card = page.getByTestId("copilot-approval");
+    await expect(card).toBeVisible({ timeout: 100_000 });
+    review = (await card.textContent()) ?? "";
     beforeApproval = state();
-    await dialog.accept();
-  });
+    await card.getByRole("button", { name: "Approve" }).click();
+  })();
   await page
     .locator(".assistant-panel textarea")
     .last()
@@ -48,6 +50,7 @@ test("invalid status transition through discovered form leaves SQL unchanged", a
       `For order ${reference} (Transition Demo Client), try changing its status directly from Booked to Delivered using the app's edit form. I will review the exact change. Report the actual validation outcome.`,
     );
   await page.locator(".assistant-panel button").last().click();
+  await approval;
   let threadId = "";
   let messages: Array<{
     role: string;

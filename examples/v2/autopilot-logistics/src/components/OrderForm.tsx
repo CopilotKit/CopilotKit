@@ -4,7 +4,10 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { FormEvent, MouseEvent } from "react";
 import type { Order, Role } from "@/lib/db";
-import { orderApprovalGate } from "@/lib/autopilot-approval";
+import {
+  approvalController,
+  orderApprovalGate,
+} from "@/lib/autopilot-approval";
 
 type Operator = { id: string; display_name: string; active: number };
 
@@ -240,9 +243,29 @@ export function CancelOrder({
 
   async function cancel(event: MouseEvent<HTMLButtonElement>) {
     const trustedManualEvent = event.nativeEvent.isTrusted;
-    const approved = window.confirm(
-      `Cancel ${order.reference} for ${order.customer}?`,
-    );
+    const review = `Cancel ${order.reference} for ${order.customer}?`;
+    const binding = trustedManualEvent
+      ? undefined
+      : orderApprovalGate.getPendingBinding();
+    if (!trustedManualEvent && !binding) return;
+    if (trustedManualEvent) {
+      orderApprovalGate.cancelAwaiting("User took over manually");
+      approvalController.cancel();
+    }
+    const approval = trustedManualEvent
+      ? window.confirm(review)
+        ? "approved"
+        : "declined"
+      : await approvalController.request({
+          description: review,
+          agentId: binding!.agentId,
+          threadId: binding!.threadId,
+        });
+    if (approval === "cancelled") {
+      orderApprovalGate.cancelAwaiting("Human stopped the action");
+      return;
+    }
+    const approved = approval === "approved";
     const decision = await orderApprovalGate.decideFromApp(
       {
         userId,

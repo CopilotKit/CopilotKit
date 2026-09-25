@@ -5,11 +5,7 @@ export interface AutopilotFieldChange {
   value: string;
 }
 
-type Fillable =
-  | HTMLInputElement
-  | HTMLSelectElement
-  | HTMLTextAreaElement
-  | HTMLElement;
+type Fillable = Element;
 
 function customSelect(element: Element): element is HTMLElement {
   return (
@@ -112,7 +108,11 @@ export class BrowserFormBatch {
           ? element.readOnly
           : false;
       if (
-        element.disabled ||
+        (element instanceof HTMLInputElement ||
+        element instanceof HTMLSelectElement ||
+        element instanceof HTMLTextAreaElement
+          ? element.disabled
+          : element.getAttribute("aria-disabled") === "true") ||
         readOnly ||
         (element instanceof HTMLInputElement &&
           !["text", "date", "email", "number", "tel", "url", "search"].includes(
@@ -261,6 +261,14 @@ export class BrowserFormBatch {
       );
       return;
     }
+    if (
+      !(
+        element instanceof HTMLInputElement ||
+        element instanceof HTMLSelectElement ||
+        element instanceof HTMLTextAreaElement
+      )
+    )
+      throw new Error("Field is no longer fillable");
     const prototype =
       element instanceof HTMLSelectElement
         ? HTMLSelectElement.prototype

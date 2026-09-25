@@ -67,7 +67,13 @@ describe("Autopilot execution gate", () => {
       createTool({ name: "ordinary", handler: ordinary, followUp: false }),
     );
     expect(
-      core.buildFrontendTools("logistics").map((tool) => tool.name),
+      (
+        core as unknown as {
+          buildFrontendTools(agentId: string): Array<{ name: string }>;
+        }
+      )
+        .buildFrontendTools("logistics")
+        .map((tool) => tool.name),
     ).toEqual(["ordinary"]);
     const agent = new MockAgent({
       agentId: "logistics",
@@ -118,7 +124,13 @@ describe("Autopilot execution gate", () => {
     expect(wildcard).not.toHaveBeenCalled();
     enabled.mockReturnValue(true);
     expect(
-      core.buildFrontendTools("logistics").map((tool) => tool.name),
+      (
+        core as unknown as {
+          buildFrontendTools(agentId: string): Array<{ name: string }>;
+        }
+      )
+        .buildFrontendTools("logistics")
+        .map((tool) => tool.name),
     ).toContain("autopilot_change");
     const allowed = await core.runTool({
       name: "autopilot_change",

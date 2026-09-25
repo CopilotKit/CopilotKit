@@ -65,20 +65,25 @@ for (const scenario of [
         version: number;
       };
     await page.addInitScript(() => {
-      const originalConfirm = window.confirm.bind(window);
       (window as any).__autopilotSequence = [] as Array<{
         kind: string;
         name?: string;
         accepted?: boolean;
       }>;
-      window.confirm = (message) => {
-        const accepted = originalConfirm(message);
-        (window as any).__autopilotSequence.push({
-          kind: "decision",
-          accepted,
-        });
-        return accepted;
-      };
+      document.addEventListener(
+        "click",
+        (event) => {
+          const button = (event.target as Element | null)?.closest(
+            "[data-testid=copilot-approval] button",
+          );
+          if (button)
+            (window as any).__autopilotSequence.push({
+              kind: "decision",
+              accepted: button.textContent?.trim() === "Approve",
+            });
+        },
+        true,
+      );
       document.addEventListener(
         "input",
         (event) => {
@@ -119,11 +124,13 @@ for (const scenario of [
           version: number;
         }
       | undefined;
-    page.once("dialog", async (dialog) => {
-      review = dialog.message();
+    const approval = (async () => {
+      const card = page.getByTestId("copilot-approval");
+      await expect(card).toBeVisible({ timeout: 100_000 });
+      review = (await card.textContent()) ?? "";
       beforeApproval = state();
-      await dialog.accept();
-    });
+      await card.getByRole("button", { name: "Approve" }).click();
+    })();
     await page
       .locator(".assistant-panel textarea")
       .last()
@@ -131,6 +138,7 @@ for (const scenario of [
         `For order ${reference} (Edit Demo Client), ${scenario.request}. Leave its other shipment details unchanged. Use the app's edit form and submit after I review the exact changes.`,
       );
     await page.locator(".assistant-panel button").last().click();
+    await approval;
     let threadId = "";
     let messages: Array<{
       role: string;

@@ -23,13 +23,6 @@ test("changed form handler during review denies the live agent write", async ({
     ).count;
   await page.addInitScript(() => {
     (window as any).__reviewMutations = [] as string[];
-    window.confirm = (message) => {
-      if (!message.includes("Then press")) return false;
-      const form = document.querySelector("form[data-autopilot-draft-id]");
-      form?.setAttribute("data-autopilot-handler-version", "2");
-      (window as any).__reviewMutations.push("handler changed before decision");
-      return true;
-    };
     document.addEventListener(
       "input",
       (event) => {
@@ -58,6 +51,13 @@ test("changed form handler during review denies the live agent write", async ({
       `Create a booked express order for ${customer} from 10 Fiction Way, Portland, OR to 20 Example Street, Seattle, WA on 2026-11-18, assigned to Jordan Lee, using the app's create form. I will review the exact values.`,
     );
   await page.locator(".assistant-panel button").last().click();
+  const card = page.getByTestId("copilot-approval");
+  await expect(card).toBeVisible({ timeout: 100_000 });
+  await page.locator("form[data-autopilot-draft-id]").evaluate((form) => {
+    form.setAttribute("data-autopilot-handler-version", "2");
+    (window as any).__reviewMutations.push("handler changed before decision");
+  });
+  await card.getByRole("button", { name: "Approve" }).click();
   let threadId = "";
   let messages: Array<{ role: string; content?: string }> = [];
   await expect
@@ -79,12 +79,35 @@ test("changed form handler during review denies the live agent write", async ({
         return messages.some(
           (message) =>
             message.role === "tool" &&
-            message.content?.includes("Action binding changed"),
+            message.content?.includes('"operationId"'),
         );
       },
-      { timeout: 100_000 },
+      { timeout: 30_000 },
     )
     .toBe(true);
+  writeFileSync(
+    resolve(evidenceDir, "handler-change-diagnostic.json"),
+    JSON.stringify(
+      {
+        threadId,
+        actionResult: messages.find(
+          (message) =>
+            message.role === "tool" &&
+            message.content?.includes('"operationId"'),
+        )?.content,
+        orderCount: orderCount(),
+      },
+      null,
+      2,
+    ),
+  );
+  expect(
+    messages.some(
+      (message) =>
+        message.role === "tool" &&
+        message.content?.includes("Action binding changed"),
+    ),
+  ).toBe(true);
   expect(orderCount()).toBe(0);
   const mutations = await page.evaluate(
     () => (window as any).__reviewMutations as string[],

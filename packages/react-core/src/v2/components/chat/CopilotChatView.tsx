@@ -40,6 +40,9 @@ import { ScrollPinnedContext } from "./scroll-pinned-context";
 import { normalizeAutoScroll } from "./normalize-auto-scroll";
 import type { AutoScrollMode } from "./normalize-auto-scroll";
 import { usePinToSend } from "../../hooks/use-pin-to-send";
+import { CopilotChatApproval } from "./CopilotChatApproval";
+import { useCopilotApproval } from "../../hooks/use-copilot-approval";
+import type { CopilotApprovalStore } from "../../hooks/use-copilot-approval";
 
 // Vertical gap between the scroll-to-bottom button and the input container.
 const SCROLL_BUTTON_OFFSET = 16;
@@ -61,12 +64,19 @@ export type CopilotChatViewProps = WithSlots<
     scrollView: typeof CopilotChatView.ScrollView;
     input: typeof CopilotChatInput;
     suggestionView: typeof CopilotChatSuggestionView;
+    approval: typeof CopilotChatApproval;
   },
   {
     messages?: Message[];
     autoScroll?: AutoScrollMode | boolean;
     isRunning?: boolean;
     suggestions?: Suggestion[];
+    /** Controller for a pending application effect. Also usable with useCopilotApproval. */
+    approvalController?: CopilotApprovalStore;
+    /** Restrict the approval card to this agent. */
+    approvalAgentId?: string;
+    /** Restrict the approval card to this thread. */
+    approvalThreadId?: string;
     suggestionLoadingIndexes?: ReadonlyArray<number>;
     onSelectSuggestion?: (suggestion: Suggestion, index: number) => void;
     welcomeScreen?: SlotValue<React.FC<WelcomeScreenProps>> | boolean;
@@ -142,6 +152,10 @@ export function CopilotChatView({
   input,
   scrollView,
   suggestionView,
+  approval,
+  approvalController,
+  approvalAgentId,
+  approvalThreadId,
   welcomeScreen,
   messages = [],
   autoScroll = true,
@@ -177,6 +191,7 @@ export function CopilotChatView({
   className,
   ...props
 }: CopilotChatViewProps) {
+  const pendingApproval = useCopilotApproval(approvalController);
   // Element-as-state via callback ref. The overlay wrapper only renders on the
   // chat-view branch (the welcome-screen branch omits it), so a plain
   // useRef + `[]` useEffect would observe `null` on mount whenever the chat
@@ -274,6 +289,18 @@ export function CopilotChatView({
     bottomAnchored: true,
     ...(disclaimer !== undefined ? { disclaimer } : {}),
   } as CopilotChatInputProps);
+  const BoundApproval =
+    pendingApproval &&
+    (!approvalAgentId || pendingApproval.request.agentId === approvalAgentId) &&
+    (!approvalThreadId || pendingApproval.request.threadId === approvalThreadId)
+      ? renderSlot(approval, CopilotChatApproval, {
+          request: pendingApproval.request,
+          onApprove: (event: React.MouseEvent<HTMLButtonElement>) =>
+            pendingApproval.respond(event, true),
+          onReject: (event: React.MouseEvent<HTMLButtonElement>) =>
+            pendingApproval.respond(event, false),
+        })
+      : null;
 
   // Hide suggestions while a thread is connecting or a run is in flight.
   // Otherwise, mid-replay (bootstrap stream from /connect) or mid-run, the
@@ -390,6 +417,11 @@ export function CopilotChatView({
       >
         {dragOver && <DropOverlay />}
         {BoundWelcomeScreen}
+        {BoundApproval && (
+          <div className="cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20">
+            {BoundApproval}
+          </div>
+        )}
       </div>
     );
   }
@@ -402,6 +434,7 @@ export function CopilotChatView({
           input: BoundInput,
           scrollView: BoundScrollView,
           suggestionView: BoundSuggestionView ?? <></>,
+          approval: BoundApproval ?? <></>,
         })}
       </div>
     );
@@ -429,6 +462,11 @@ export function CopilotChatView({
         data-testid="copilot-input-overlay"
         className="cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20 cpk:pointer-events-none"
       >
+        {BoundApproval && (
+          <div className="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:pointer-events-auto">
+            {BoundApproval}
+          </div>
+        )}
         {attachments && attachments.length > 0 && (
           <div className="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:pointer-events-auto">
             <CopilotChatAttachmentQueue

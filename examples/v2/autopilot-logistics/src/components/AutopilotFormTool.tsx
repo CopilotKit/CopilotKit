@@ -5,7 +5,10 @@ import { BrowserFormBatch } from "@copilotkit/core";
 import { useCopilotKit, useFrontendTool } from "@copilotkit/react-core/v2";
 import { useMemo } from "react";
 import { z } from "zod";
-import { orderApprovalGate } from "@/lib/autopilot-approval";
+import {
+  approvalController,
+  orderApprovalGate,
+} from "@/lib/autopilot-approval";
 import type { SessionUser } from "@/lib/db";
 import { consumeAutopilotBudget } from "@/lib/autopilot-budget";
 
@@ -173,10 +176,21 @@ export function AutopilotFormTool({
           ),
           `Then press ${plan.review.submit}.`,
         ].join("\n");
-        const approved = window.confirm(review);
+        const approval = await approvalController.request(
+          {
+            description: review,
+            agentId: context.agent.agentId,
+            threadId: context.agent.threadId,
+          },
+          context.signal,
+        );
+        if (approval === "cancelled") {
+          orderApprovalGate.cancelAwaiting("Human stopped the action");
+          return await operation.result;
+        }
         const decision = await orderApprovalGate.decideFromApp(
           target,
-          approved,
+          approval === "approved",
         );
         if (decision.mode !== "autopilot" || !decision.accepted)
           return await operation.result;

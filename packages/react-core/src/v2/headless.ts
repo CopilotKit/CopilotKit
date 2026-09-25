@@ -45,6 +45,15 @@ export { useFrontendTools } from "./hooks/use-frontend-tools";
 export { useComponent } from "./hooks/use-component";
 export { useHumanInTheLoop } from "./hooks/use-human-in-the-loop";
 export {
+  CopilotApprovalController,
+  useCopilotApproval,
+  useCopilotApprovalWork,
+  type CopilotApprovalRequest,
+  type CopilotApprovalDecision,
+  type CopilotApprovalResponse,
+  type CopilotApprovalStore,
+} from "./hooks/use-copilot-approval";
+export {
   useInterrupt,
   type UseInterruptConfig,
   type InterruptEvent,

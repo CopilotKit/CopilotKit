@@ -46,6 +46,7 @@ import {
   TranscriptionError,
 } from "../../lib/transcription-client";
 import { LastUserMessageContext } from "./last-user-message-context";
+import { useCopilotApprovalWork } from "../../hooks/use-copilot-approval";
 import type { LastUserMessageState } from "./last-user-message-context";
 import { useInspectorThreadOverride } from "../../providers/use-inspector-thread-override";
 import {
@@ -1057,9 +1058,18 @@ export function CopilotChat({
     mergedProps.messageView = stableMessageView;
 
   const hasMessages = agent.messages.length > 0;
-  const shouldAllowStop = agent.isRunning && hasMessages;
+  const activeApproval = useCopilotApprovalWork(props.approvalController);
+  const approvalForThisChat =
+    !!activeApproval &&
+    activeApproval.agentId === resolvedAgentId &&
+    (!agent.threadId || activeApproval.threadId === agent.threadId);
+  const shouldAllowStop =
+    (agent.isRunning || approvalForThisChat) && hasMessages;
   const effectiveStopHandler = shouldAllowStop
-    ? (providedStopHandler ?? stopCurrentRun)
+    ? () => {
+        (providedStopHandler ?? stopCurrentRun)();
+        if (approvalForThisChat) props.approvalController?.cancel();
+      }
     : providedStopHandler;
 
   // Determine if transcription feature should be available
@@ -1141,6 +1151,9 @@ export function CopilotChat({
 
   const finalProps: CopilotChatViewProps = {
     ...mergedProps,
+    approvalAgentId: resolvedAgentId,
+    approvalThreadId: agent.threadId || resolvedThreadId,
+    isRunning: agent.isRunning || approvalForThisChat,
     messages,
     // Input behavior props
     // Gate submission on runtime readiness. While `isReady` is false the

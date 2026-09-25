@@ -23,17 +23,25 @@ test("live agent creates an order through discovered form controls after review"
       .get(customer) as Record<string, unknown> | undefined;
   expect(order()).toBeUndefined();
   await page.addInitScript(() => {
-    const originalConfirm = window.confirm.bind(window);
     (window as any).__autopilotSequence = [] as Array<{
       kind: string;
       name?: string;
       accepted?: boolean;
     }>;
-    window.confirm = (message) => {
-      const accepted = originalConfirm(message);
-      (window as any).__autopilotSequence.push({ kind: "decision", accepted });
-      return accepted;
-    };
+    document.addEventListener(
+      "click",
+      (event) => {
+        const button = (event.target as Element | null)?.closest(
+          "[data-testid=copilot-approval] button",
+        );
+        if (button)
+          (window as any).__autopilotSequence.push({
+            kind: "decision",
+            accepted: button.textContent?.trim() === "Approve",
+          });
+      },
+      true,
+    );
     document.addEventListener(
       "input",
       (event) => {
@@ -63,14 +71,17 @@ test("live agent creates an order through discovered form controls after review"
   );
   let review = "";
   let beforeApproval: Record<string, unknown> | undefined;
-  page.once("dialog", async (dialog) => {
-    review = dialog.message();
+  const approval = (async () => {
+    const card = page.getByTestId("copilot-approval");
+    await expect(card).toBeVisible({ timeout: 100_000 });
+    review = (await card.textContent()) ?? "";
     beforeApproval = order();
-    await dialog.accept();
-  });
+    await card.getByRole("button", { name: "Approve" }).click();
+  })();
   const prompt = `Create a booked express order for ${customer} from 10 Fiction Way, Portland, OR to 20 Example Street, Seattle, WA, requested ship date 2026-11-18, assigned to Jordan Lee, with notes "Dock 2". Use the app's create form and submit after I review the exact values in its confirmation.`;
   await page.locator(".assistant-panel textarea").last().fill(prompt);
   await page.locator(".assistant-panel button").last().click();
+  await approval;
   let threadId = "";
   let messages: Array<{
     role: string;
@@ -184,17 +195,25 @@ test("declining discovered form review leaves inputs and SQL untouched", async (
         .get(customer) as { count: number }
     ).count;
   await page.addInitScript(() => {
-    const originalConfirm = window.confirm.bind(window);
     (window as any).__autopilotSequence = [] as Array<{
       kind: string;
       name?: string;
       accepted?: boolean;
     }>;
-    window.confirm = (message) => {
-      const accepted = originalConfirm(message);
-      (window as any).__autopilotSequence.push({ kind: "decision", accepted });
-      return accepted;
-    };
+    document.addEventListener(
+      "click",
+      (event) => {
+        const button = (event.target as Element | null)?.closest(
+          "[data-testid=copilot-approval] button",
+        );
+        if (button)
+          (window as any).__autopilotSequence.push({
+            kind: "decision",
+            accepted: button.textContent?.trim() === "Approve",
+          });
+      },
+      true,
+    );
     document.addEventListener(
       "input",
       (event) => {
@@ -223,11 +242,13 @@ test("declining discovered form review leaves inputs and SQL untouched", async (
   );
   let review = "";
   let beforeApproval = -1;
-  page.once("dialog", async (dialog) => {
-    review = dialog.message();
+  const approval = (async () => {
+    const card = page.getByTestId("copilot-approval");
+    await expect(card).toBeVisible({ timeout: 100_000 });
+    review = (await card.textContent()) ?? "";
     beforeApproval = count();
-    await dialog.dismiss();
-  });
+    await card.getByRole("button", { name: "Decline" }).click();
+  })();
   await page
     .locator(".assistant-panel textarea")
     .last()
@@ -235,6 +256,7 @@ test("declining discovered form review leaves inputs and SQL untouched", async (
       `Create a booked express order for ${customer} from 10 Fiction Way, Portland, OR to 20 Example Street, Seattle, WA, shipping 2026-11-18. Use the create form; I will review the exact values.`,
     );
   await page.locator(".assistant-panel button").last().click();
+  await approval;
   let threadId = "";
   let messages: Array<{
     role: string;

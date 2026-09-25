@@ -50,9 +50,21 @@ export type AutopilotAppDecision =
   | { mode: "autopilot"; accepted: false }
   | { mode: "autopilot"; accepted: true; operationId: string };
 
-/** Local, single-use approval for an app-owned effect and its existing UI confirmation. */
+/** Local, single-use approval for an app-owned effect and a human decision. */
 export class BrowserApprovalGate {
   private pending?: Pending;
+  private settledListeners = new Set<() => void>();
+
+  onSettled(listener: () => void): () => void {
+    this.settledListeners.add(listener);
+    return () => this.settledListeners.delete(listener);
+  }
+
+  getPendingBinding(): AutopilotApprovalBinding | undefined {
+    return this.pending?.state === "awaiting"
+      ? structuredClone(this.pending.binding)
+      : undefined;
+  }
 
   begin(
     binding: AutopilotApprovalBinding,
@@ -198,5 +210,6 @@ export class BrowserApprovalGate {
     pending.signal?.removeEventListener("abort", pending.onAbort);
     this.pending = undefined;
     pending.resolve({ operationId, status, reason, receipt });
+    for (const listener of this.settledListeners) listener();
   }
 }
