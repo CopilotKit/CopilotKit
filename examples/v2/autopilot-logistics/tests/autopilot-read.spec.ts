@@ -95,6 +95,23 @@ test("live Autopilot page read filters private regions and derived labels", asyn
     controls: Array<{ name: string }>;
   };
   expect(snapshot.coverage.maxCharacters).toBe(12_000);
+  await page.getByRole("button", { name: "Web Inspector" }).click();
+  const inspectorText = await page
+    .locator("cpk-web-inspector")
+    .evaluate((host) => {
+      const collect = (root: DocumentFragment | Element): string => {
+        const own = root.textContent ?? "";
+        const nested = [...root.querySelectorAll("*")]
+          .map((element) => element.shadowRoot)
+          .filter((shadow): shadow is ShadowRoot => shadow !== null)
+          .map(collect)
+          .join(" ");
+        return `${own} ${nested}`;
+      };
+      return collect(host);
+    });
+  expect(inspectorText).not.toContain("CANARY-BROWSER-PRIVATE-8H2P");
+  expect(inspectorText).not.toContain("CANARY-LABEL-PRIVATE-3N6V");
   await page.screenshot({
     path: resolve(evidenceDir, "page-read.png"),
     fullPage: true,
@@ -110,6 +127,7 @@ test("live Autopilot page read filters private regions and derived labels", asyn
         coverage: snapshot.coverage,
         privateCanaryInResult: false,
         derivedPrivateLabelInResult: false,
+        privateCanariesInInspector: false,
         assistantContinuation: messages
           .filter((message) => message.role === "assistant")
           .at(-1)?.content,

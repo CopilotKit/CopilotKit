@@ -163,7 +163,8 @@ test("declining CopilotKit chat approval leaves the order unchanged", async ({
     await expect(card).toBeVisible({ timeout: 100_000 });
     confirmation = (await card.textContent()) ?? "";
     approvalBeforeStatus = status();
-    await card.getByRole("button", { name: "Decline" }).click();
+    await card.getByRole("button", { name: "Decline" }).focus();
+    await page.keyboard.press("Enter");
   })();
   await page
     .locator(".assistant-panel textarea")
