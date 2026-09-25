@@ -12,6 +12,32 @@ export function evidencePath(iteration: string, ...parts: string[]): string {
 /** Keep protocol failures separate from browser/SQL assertions. No prompts or credentials. */
 export function captureRuntimeErrors(page: Page, directory: string): void {
   const errors: unknown[] = [];
+  // Inspector also observes transport/client errors that never arrive as SSE.
+  void page
+    .waitForFunction(
+      () => {
+        const inspector = document.querySelector("cpk-web-inspector") as
+          | (Element & {
+              eventErrorDetails?: {
+                run?: { message: string; agentId?: string };
+              };
+            })
+          | null;
+        return inspector?.eventErrorDetails?.run;
+      },
+      undefined,
+      { timeout: 0 },
+    )
+    .then(async (handle) => {
+      writeFileSync(
+        resolve(directory, "runtime-client-error.json"),
+        JSON.stringify(await handle.jsonValue(), null, 2),
+      );
+    })
+    .catch(() => {
+      /* The page normally closes without a run error. */
+    });
+
   page.on("response", async (response) => {
     if (
       !response.url().includes("/api/copilotkit/") ||
