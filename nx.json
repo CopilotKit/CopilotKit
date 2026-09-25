@@ -104,6 +104,10 @@
         "{workspaceRoot}/scripts/validate-optional-peer-entries.ts"
       ],
       "cache": true
+    },
+    "test:browser-scroll": {
+      "dependsOn": ["build"],
+      "cache": false
     }
   },
   "parallel": 14,
