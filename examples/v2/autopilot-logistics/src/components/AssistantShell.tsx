@@ -9,7 +9,7 @@ import {
 import { BrowserNavigator, BrowserPageMap } from "@copilotkit/core";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import type { SessionUser } from "@/lib/db";
 import { orderApprovalGate } from "@/lib/autopilot-approval";
@@ -302,6 +302,21 @@ export function AssistantShell({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const [selectedAgent, setSelectedAgent] = useState<
+    "logistics" | "operations"
+  >("logistics");
+  const [autopilotMode, setAutopilotMode] = useState<
+    "off" | "logistics" | "all"
+  >("logistics");
+  const autopilot = useMemo(
+    () =>
+      autopilotMode === "off"
+        ? { enabled: false }
+        : autopilotMode === "all"
+          ? {}
+          : { agents: ["logistics"] },
+    [autopilotMode],
+  );
   async function signOut() {
     orderApprovalGate.cancelAwaiting("Signed out");
     const response = await fetch("/api/session", { method: "DELETE" });
@@ -314,8 +329,8 @@ export function AssistantShell({
   return (
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
-      agentId="logistics"
-      autopilot={{ agents: ["logistics"] }}
+      agentId={selectedAgent}
+      autopilot={autopilot}
       enableInspector
     >
       <BrowserProbe user={user} />
@@ -350,8 +365,42 @@ export function AssistantShell({
             <span>Assistant</span>
             <small>Northstar workspace</small>
           </div>
+          <div className="assistant-settings">
+            <label>
+              Agent
+              <select
+                aria-label="Assistant agent"
+                value={selectedAgent}
+                onChange={(event) =>
+                  setSelectedAgent(
+                    event.target.value as "logistics" | "operations",
+                  )
+                }
+              >
+                <option value="logistics">Logistics</option>
+                <option value="operations">Operations</option>
+              </select>
+            </label>
+            <label>
+              Autopilot
+              <select
+                aria-label="Autopilot scope"
+                value={autopilotMode}
+                onChange={(event) =>
+                  setAutopilotMode(
+                    event.target.value as "off" | "logistics" | "all",
+                  )
+                }
+              >
+                <option value="off">Off</option>
+                <option value="logistics">Logistics only</option>
+                <option value="all">All agents</option>
+              </select>
+            </label>
+          </div>
           <CopilotChat
-            agentId="logistics"
+            key={selectedAgent}
+            agentId={selectedAgent}
             className="assistant-chat"
             labels={{
               chatInputPlaceholder: "Ask about orders, shipments, or users…",

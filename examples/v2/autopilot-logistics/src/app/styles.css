@@ -242,6 +242,31 @@ tr:last-child td {
   color: #8b9ca0;
   font-weight: 500;
 }
+.assistant-settings {
+  display: flex;
+  gap: 10px;
+  padding: 10px 22px;
+  border-bottom: 1px solid #edf1f1;
+}
+.assistant-settings label {
+  display: grid;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  color: #607379;
+  font-size: 11px;
+  font-weight: 600;
+}
+.assistant-settings select {
+  width: 100%;
+  border: 1px solid #dce7e6;
+  border-radius: 6px;
+  padding: 6px 8px;
+  background: #fff;
+  color: #173d42;
+  font: inherit;
+  font-size: 12px;
+}
 .assistant-chat {
   flex: 1;
   min-height: 0;
