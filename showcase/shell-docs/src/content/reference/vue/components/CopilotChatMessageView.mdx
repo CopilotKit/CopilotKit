@@ -140,6 +140,15 @@ Each slot below is named. Use a `<template #slot-name="slotProps">` block to ove
   the matching `activityType` is used.
 </PropertyReference>
 
+<PropertyReference name="subagent" type="{ subagentRunId: string; subagent: Subagent | undefined; messages: Message[]; body: Component }">
+  Replaces the group that shows the work of one subagent. `subagent` is
+  undefined when the agent did not announce the subagent. Render
+  `<component :is="body" />` to show the messages of the group. When the slot
+  is omitted, the default group starts collapsed to a header with the name and
+  status of the subagent, and opens on a click. See
+  [Subagent Activity](/multi-agent/subagent-activity).
+</PropertyReference>
+
 <PropertyReference name="tool-call" type="{ name: string; args: unknown; status: string; result: string | undefined; toolCall: unknown; toolMessage: ToolMessage | undefined }">
   Forwarded to the assistant message child to render tool calls. A specific
   `tool-call-<name>` slot can target a single tool by name; the generic

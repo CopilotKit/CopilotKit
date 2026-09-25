@@ -175,6 +175,8 @@ import { injectChatLabels } from "../../chat-config";
           [reasoningMessageComponent]="reasoningMessageComponent()"
           [reasoningMessageTemplate]="reasoningMessageTemplate()"
           [reasoningMessageClass]="reasoningMessageClass()"
+          [subagentComponent]="subagentComponent()"
+          [subagentTemplate]="subagentTemplate()"
           [messageViewChildrenComponent]="messageViewChildrenComponent()"
           [messageViewChildrenTemplate]="messageViewChildrenTemplate()"
           [messageViewChildrenClass]="messageViewChildrenClass()"
@@ -236,6 +238,10 @@ export class CopilotChatView implements OnInit, OnChanges {
   reasoningMessageComponent = input<Type<any> | undefined>(undefined);
   reasoningMessageTemplate = input<TemplateRef<any> | undefined>(undefined);
   reasoningMessageClass = input<string | undefined>(undefined);
+  /** Component used to render each subagent group in the chat. */
+  subagentComponent = input<Type<any> | undefined>(undefined);
+  /** Template used to render each subagent group in the chat. */
+  subagentTemplate = input<TemplateRef<any> | undefined>(undefined);
 
   // Content rendered after the default message collection.
   messageViewChildrenComponent = input<Type<any> | undefined>(undefined);
@@ -389,6 +395,8 @@ export class CopilotChatView implements OnInit, OnChanges {
     reasoningMessageComponent: this.reasoningMessageComponent(),
     reasoningMessageTemplate: this.reasoningMessageTemplate(),
     reasoningMessageClass: this.reasoningMessageClass(),
+    subagentComponent: this.subagentComponent(),
+    subagentTemplate: this.subagentTemplate(),
     messageViewChildrenComponent: this.messageViewChildrenComponent(),
     messageViewChildrenTemplate: this.messageViewChildrenTemplate(),
     messageViewChildrenClass: this.messageViewChildrenClass(),
