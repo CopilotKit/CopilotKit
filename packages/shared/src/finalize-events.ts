@@ -202,10 +202,13 @@ export function createRunEventFinalizer(): RunEventFinalizer {
     }
 
     if (stopRequested) {
-      for (const subagentRunId of [...openSubagentRunIds].toReversed()) {
+      // Newest first, so a nested subagent closes before its parent. An index
+      // loop, because `toReversed` is ES2023 and this package targets older.
+      const openIds = [...openSubagentRunIds];
+      for (let index = openIds.length - 1; index >= 0; index -= 1) {
         appended.push({
           type: EventType.SUBAGENT_ERROR,
-          subagentRunId,
+          subagentRunId: openIds[index],
           message: resolvedStopMessage,
           code: "CANCELLED",
         } as BaseEvent);
