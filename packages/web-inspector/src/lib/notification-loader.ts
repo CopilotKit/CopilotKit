@@ -25,10 +25,21 @@ export function loadNotificationFeed(
     cache: "no-cache",
     credentials: "omit",
   })
-    .then(async (response) =>
-      response.ok ? parseNotificationFeed(await response.json()) : null,
-    )
-    .catch(() => null);
+    .then(async (response) => {
+      if (!response.ok)
+        throw new Error(`Feed request failed (${response.status})`);
+      const feed = parseNotificationFeed(await response.json());
+      if (!feed) throw new Error("Feed failed validation");
+      return feed;
+    })
+    .catch((error: unknown) => {
+      // Keep the host running, but make an empty What's New debuggable.
+      console.warn(
+        "[CopilotKit Inspector] Failed to load notifications",
+        error,
+      );
+      return null;
+    });
   requests.set(key, request);
   return request;
 }

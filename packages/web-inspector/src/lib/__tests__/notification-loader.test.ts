@@ -69,9 +69,10 @@ test("uses the unfiltered URL when framework or version is unknown", async () =>
 });
 
 test.each(["malformed", "network", "status"])(
-  "quietly caches a %s failure",
+  "caches a %s failure and warns once",
   async (failure) => {
     vi.resetModules();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const request = vi.fn(async (_input: unknown) => {
       if (failure === "network") throw new Error("offline");
       return new Response("{}", { status: failure === "status" ? 500 : 200 });
@@ -93,12 +94,14 @@ test.each(["malformed", "network", "status"])(
         }),
       ).toBeNull();
       expect(request).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledTimes(1);
       expect(
         request.mock.calls.every(
           (call) => !String(call[0]).includes("announcements.json"),
         ),
       ).toBe(true);
     } finally {
+      warn.mockRestore();
       vi.unstubAllGlobals();
     }
   },
