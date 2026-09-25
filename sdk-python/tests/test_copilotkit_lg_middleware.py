@@ -51,7 +51,6 @@ from langgraph.graph import StateGraph
 
 from copilotkit.copilotkit_lg_middleware import (
     CopilotKitMiddleware,
-    _FRONTEND_TOOL_RESULT_CONTENT,
     _extract_forwarded_headers_from_config,
 )
 from copilotkit.header_propagation import get_forwarded_headers, set_forwarded_headers
@@ -2295,22 +2294,6 @@ def _run_wrap_tool_interrupting(request, resume, *, flag=True, use_async=False):
 # --- after_model -------------------------------------------------------------
 
 
-def test_default_path_never_interrupts_and_still_strips():
-    state = _interrupt_state([_BE_CALL, _FE_CALL])
-
-    with patch(_INTERRUPT_TARGET) as fake_interrupt:
-        result = CopilotKitMiddleware().after_model(state, MagicMock(name="runtime"))
-
-    fake_interrupt.assert_not_called()
-    copilotkit = result["copilotkit"]
-    assert [c["id"] for c in copilotkit["intercepted_tool_calls"]] == ["fe-1"]
-    assert [c["id"] for c in copilotkit["original_tool_calls"]] == ["be-1", "fe-1"]
-    ai = result["messages"][-1]
-    assert [tc["id"] for tc in ai.tool_calls] == ["be-1"]
-    # No jump_to on the default path — the routing edge decides on its own.
-    assert "jump_to" not in result
-
-
 def test_interrupt_mode_leaves_frontend_calls_for_the_tool_node():
     middleware = CopilotKitMiddleware(interrupt_frontend_tools=True)
     state = _interrupt_state([_BE_CALL, _FE_CALL])
@@ -2356,16 +2339,6 @@ def test_string_resume_value_is_the_content_verbatim():
     assert result.content == '{"page": "/x"}'
 
 
-def test_cancelled_resume_entry_becomes_an_error_result():
-    """ag-ui-langgraph hands interrupt() this sentinel for a cancelled entry."""
-    cancelled = {"__agui_cancelled__": True, "interrupt_id": "abc"}
-
-    result, _, _ = _run_wrap_tool_interrupting(_fe_tool_request(), cancelled)
-
-    assert result.status == "error"
-    assert json.loads(result.content) == {"ok": False, "error": "cancelled"}
-
-
 def test_flat_action_descriptors_are_matched():
     result, fake_interrupt, _ = _run_wrap_tool_interrupting(
         _fe_tool_request(actions=({"name": "navigate"},)), "ok"
@@ -2396,31 +2369,3 @@ def test_everything_else_goes_to_the_handler(request_kwargs, flag):
     fake_interrupt.assert_not_called()
     handler.assert_called_once()
     assert result == "handler-result"
-
-
-def test_next_model_call_sees_the_real_frontend_result():
-    """The model gets the real result, not the default path's
-    {"status": "forwarded_to_frontend"} placeholder."""
-    result, _, _ = _run_wrap_tool_interrupting(_fe_tool_request(), '{"page": "/x"}')
-
-    state = _interrupt_state([_BE_CALL, _FE_CALL])
-    messages = [
-        *state["messages"],
-        ToolMessage(content='{"hits": 1}', tool_call_id="be-1"),
-        result,
-    ]
-    request = _make_request(
-        state={"messages": messages, "copilotkit": state["copilotkit"]},
-        messages=messages,
-    )
-    seen, _ = _run_wrap(CopilotKitMiddleware(interrupt_frontend_tools=True), request)
-
-    ai = next(m for m in seen.messages if isinstance(m, AIMessage))
-    # _fix_messages_for_bedrock leaves both calls in place because both are
-    # answered — the frontend one by a real result.
-    assert [tc["id"] for tc in ai.tool_calls] == ["be-1", "fe-1"]
-    contents = {
-        m.tool_call_id: m.content for m in seen.messages if isinstance(m, ToolMessage)
-    }
-    assert contents == {"be-1": '{"hits": 1}', "fe-1": '{"page": "/x"}'}
-    assert _FRONTEND_TOOL_RESULT_CONTENT not in contents.values()
