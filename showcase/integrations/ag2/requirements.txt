@@ -1,3 +1,4 @@
+# Exact, validated dependency lock for the AG2 showcase.
 # Upper bound pins us below ag2 1.0.0 (published 2026-07-27), which renames the
 # top-level module `autogen` -> `ag2` and drops `autogen/` entirely, so every
 # `from autogen... import` under src/agents/ raises ModuleNotFoundError.
@@ -10,13 +11,13 @@
 #     (plus new prompt/dependencies/config/tools/middleware/observers/hitl_hook)
 # `src/agents/_multimodal_normalize.py` calls `super().dispatch(..., context=...)`,
 # so migrating the import path alone would trade an import error for a runtime
-# TypeError. Lift this bound only as part of a real 1.0 migration that ports the
-# ~20 `autogen` import sites and re-verifies every ag2 demo cell.
-ag2[openai,ag-ui]>=0.9.0,<1.0.0
-ag-ui-protocol>=0.1.10
-fastapi>=0.115.0
-uvicorn>=0.34.0
-httpx>=0.27.0
+# TypeError. 0.14.0 is the final pre-1.0 release providing the autogen module
+# and stable AG-UI adapter.
+ag2[openai,ag-ui]==0.14.0
+ag-ui-protocol==0.1.22
+fastapi==0.141.1
+uvicorn==0.53.0
+httpx==0.28.1
 python-dotenv==1.0.1
-pypdf>=4.0.0
-openai>=1.50.0
+pypdf==6.19.0
+openai==2.54.0
