@@ -23,7 +23,7 @@ import {
   HttpAgent,
   verifyEvents,
 } from "@ag-ui/client";
-import { EMPTY, Observable, firstValueFrom, from } from "rxjs";
+import { EMPTY, Observable, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
 
 const stripTerminalEvents = (events: BaseEvent[]) =>

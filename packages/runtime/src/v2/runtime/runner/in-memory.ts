@@ -862,6 +862,11 @@ export class InMemoryAgentRunner extends AgentRunner {
 
     if (!store) {
       // Fall back to the agent's public connect entry point when available.
+      // `connectAgent()` resolves empty for agents without a `connect()`
+      // override (today: every @ag-ui/client agent, incl. HttpAgent — see
+      // ag-ui-protocol/ag-ui#2105). Upstream errors error the stream.
+      // Fallback events are intentionally not written back to `sharedStore`:
+      // a later connect re-fetches upstream and a later run starts cold.
       if (request.agent) {
         void request.agent
           .connectAgent(

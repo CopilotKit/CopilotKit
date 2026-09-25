@@ -71,7 +71,6 @@ export function handleSseConnect({
           runtime.forwardHeadersPolicy ??
             resolveForwardHeadersPolicy(undefined),
         ),
-        agent,
       }),
   });
 }
