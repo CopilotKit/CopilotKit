@@ -1,7 +1,7 @@
 // Presentational pieces for the current setup question and its actions.
 
 import React from "react";
-import { AppWindow, SquarePlus } from "lucide-react";
+import { AppWindow, ArrowRight, Check, SquarePlus } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { CopilotKitMark } from "@/components/copilotkit-mark";
 
@@ -206,6 +206,15 @@ export function ChoiceGrid({
                   </span>
                 ) : null}
               </span>
+              {illustrated ? (
+                <span
+                  className="wizard-project-choice-action"
+                  aria-hidden="true"
+                >
+                  {selected ? "Selected" : "Choose"}
+                  {selected ? <Check size={16} /> : <ArrowRight size={16} />}
+                </span>
+              ) : null}
             </span>
           </button>
         );

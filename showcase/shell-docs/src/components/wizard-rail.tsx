@@ -21,18 +21,31 @@ function ProgressControls({
   furthest,
   onJump,
   mobile = false,
+  placement = "bottom",
 }: Pick<ProgressProps, "steps" | "furthest" | "onJump"> & {
   activeIndex: number;
   mobile?: boolean;
+  placement?: "top" | "bottom";
 }): React.JSX.Element {
   return (
     <div
-      className={`wizard-rail-progress-footer wizard-rail-progress-footer--${mobile ? "mobile" : "desktop"}`}
+      className={`wizard-rail-progress-footer wizard-rail-progress-footer--${mobile ? `mobile wizard-rail-progress-footer--${placement}` : "desktop"}`}
       role={mobile ? "navigation" : undefined}
-      aria-label={mobile ? "Step navigation" : undefined}
+      aria-label={
+        mobile
+          ? `${steps[activeIndex].label}, step ${activeIndex + 1} of ${steps.length}`
+          : undefined
+      }
     >
       <span>
-        Step {activeIndex + 1} of {steps.length}
+        <span className="wizard-rail-progress-count">
+          Step {activeIndex + 1} of {steps.length}
+        </span>
+        {mobile ? (
+          <span className="wizard-rail-progress-title">
+            {steps[activeIndex].label}
+          </span>
+        ) : null}
       </span>
       <span className="wizard-rail-progress-track" aria-hidden="true">
         <span
@@ -208,6 +221,14 @@ export function WizardRail({
           onJump={onJump}
         />
       </nav>
+      <ProgressControls
+        activeIndex={activeIndex}
+        steps={steps}
+        furthest={furthest}
+        onJump={onJump}
+        mobile
+        placement="top"
+      />
       <div
         className="wizard-rail-stage"
         data-wizard-current-step=""
@@ -215,6 +236,14 @@ export function WizardRail({
       >
         {children}
       </div>
+      <span
+        className="wizard-rail-progress-track wizard-rail-progress-track--mobile-edge"
+        aria-hidden="true"
+      >
+        <span
+          style={{ transform: `scaleX(${(activeIndex + 1) / steps.length})` }}
+        />
+      </span>
       <ProgressControls
         activeIndex={activeIndex}
         steps={steps}
