@@ -12,6 +12,8 @@ export type CopilotApprovalRequest = {
   presentation?: "chat" | "tool";
   /** Tool call that owns a tool-presented decision. */
   toolCallId?: string;
+  /** Stable app identity for local Inspector review; the app still validates it. */
+  target?: { id: string; version?: number; path?: string };
 };
 
 export type CopilotApprovalDecision = "approved" | "declined" | "cancelled";
@@ -71,6 +73,7 @@ export class CopilotApprovalController implements CopilotApprovalStore {
       threadId: request.threadId,
       toolName: "CopilotKit approval",
       phase: "started",
+      target: request.target,
     });
     this.signal = signal;
     signal?.addEventListener("abort", this.onAbort, { once: true });
@@ -133,6 +136,7 @@ export class CopilotApprovalController implements CopilotApprovalStore {
       toolName: "CopilotKit approval",
       phase: "finished",
       result: JSON.stringify({ status: decision }),
+      target: request.target,
     });
     this.traceId = undefined;
   }

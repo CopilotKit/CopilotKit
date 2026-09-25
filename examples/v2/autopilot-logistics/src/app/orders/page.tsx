@@ -24,7 +24,12 @@ export default async function OrdersPage({
           </Link>
         )}
       </div>
-      <form className="search-form" action="/orders">
+      <form
+        className="search-form"
+        action="/orders"
+        method="get"
+        data-copilot-readonly-form
+      >
         <label htmlFor="order-search">Search orders</label>
         <div>
           <input

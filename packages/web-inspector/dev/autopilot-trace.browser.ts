@@ -13,6 +13,8 @@ test("Frontend Tools shows a bounded filtered Autopilot trace", async ({
   const trace = inspector.getByRole("region", { name: "Autopilot activity" });
   await expect(trace).toContainText("readVisiblePage");
   await expect(trace).toContainText("19 reads left");
+  await expect(trace).toContainText("Autopilot scope allowed");
+  await expect(trace).toContainText("Record fixture-order · version 2");
   await trace.getByText("Filtered result").click();
   await expect(trace).toContainText("New order");
   await page.screenshot({

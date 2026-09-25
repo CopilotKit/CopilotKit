@@ -261,6 +261,11 @@ export function CancelOrder({
           description: review,
           agentId: binding!.agentId,
           threadId: binding!.threadId,
+          target: {
+            id: order.id,
+            version: order.version,
+            path: window.location.pathname,
+          },
         });
     if (approval === "cancelled") {
       orderApprovalGate.cancelAwaiting("Human stopped the action");

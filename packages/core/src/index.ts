@@ -18,3 +18,5 @@ export * from "./autopilot/browser-control-activation";
 export * from "./autopilot/browser-request-budget";
 export * from "./autopilot/trace";
 export * from "./autopilot/browser-target-highlighter";
+export * from "./autopilot/browser-read-only-form";
+export * from "./autopilot/clarification-policy";

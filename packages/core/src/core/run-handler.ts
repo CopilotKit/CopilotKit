@@ -1132,6 +1132,9 @@ export class RunHandler {
 
     const isAutopilot =
       tool.autopilot || isAutopilotToolName(toolCall.function.name);
+    const scopeDecision = this.core.isAutopilotEnabledForAgent(agentId)
+      ? "allowed"
+      : "denied";
     if (isAutopilot)
       recordAutopilotToolTrace({
         id: toolCall.id,
@@ -1140,6 +1143,7 @@ export class RunHandler {
         toolName: toolCall.function.name,
         phase: "started",
         args: parsedArgs,
+        scopeDecision,
       });
 
     if (!errorMessage) {
@@ -1208,6 +1212,7 @@ export class RunHandler {
         result: errorMessage ? undefined : toolCallResult,
         error: errorMessage,
         elapsedMs: Date.now() - startedAt,
+        scopeDecision,
       });
 
     await this._internal.notifySubscribers(

@@ -19,6 +19,8 @@ describe("Autopilot trace", () => {
       args: { ref: "control-1", secret: "private-canary" },
       result: JSON.stringify({ status: "completed", remainingActionBudget: 7 }),
       elapsedMs: 11,
+      target: { id: "record-1", version: 2, path: "/records/record-1" },
+      scopeDecision: "allowed",
     });
     unsubscribe();
     const record = getAutopilotTrace().find(
@@ -29,6 +31,9 @@ describe("Autopilot trace", () => {
       status: "completed",
       remainingActionBudget: 7,
       elapsedMs: 11,
+      targetId: "record-1",
+      targetVersion: 2,
+      scopeDecision: "allowed",
     });
     expect(JSON.stringify(record)).not.toContain("private-canary");
     expect(updates).toBe(1);

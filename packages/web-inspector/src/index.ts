@@ -20595,6 +20595,8 @@ export class WebInspectorElement extends LitElement {
                       </div>
                       <div class="mt-1 text-gray-600">Agent ${record.agentId} · Thread ${record.threadId}</div>
                       ${record.targetRef ? html`<div class="mt-1">Target ${record.targetRef}</div>` : nothing}
+                      ${record.targetId ? html`<div class="mt-1">Record ${record.targetId}${record.targetVersion === undefined ? "" : ` · version ${record.targetVersion}`}${record.targetPath ? ` · ${record.targetPath}` : ""}</div>` : nothing}
+                      <div class="mt-1 text-gray-600">Autopilot scope ${record.scopeDecision ?? "unknown"} · Tool outcome ${record.status ?? (record.error ? "error" : "unknown")}</div>
                       <div class="mt-1 text-gray-600">
                         ${record.resultBytes === undefined ? "Read size unknown" : `${record.resultBytes} result bytes`}
                         · ${record.elapsedMs === undefined ? "Elapsed unknown" : `${record.elapsedMs} ms`}

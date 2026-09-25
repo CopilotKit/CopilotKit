@@ -54,6 +54,13 @@ export {
   type CopilotApprovalStore,
 } from "./hooks/use-copilot-approval";
 export {
+  CopilotClarificationController,
+  useCopilotClarification,
+  type CopilotClarificationRequest,
+  type CopilotClarificationResult,
+  type CopilotClarificationStore,
+} from "./hooks/use-copilot-clarification";
+export {
   useInterrupt,
   type UseInterruptConfig,
   type InterruptEvent,

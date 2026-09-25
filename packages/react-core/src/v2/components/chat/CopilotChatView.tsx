@@ -45,6 +45,9 @@ import { CopilotChatNotice } from "./CopilotChatNotice";
 import { useCopilotApproval } from "../../hooks/use-copilot-approval";
 import type { CopilotApprovalStore } from "../../hooks/use-copilot-approval";
 import { CopilotChatAutopilotActivity } from "./CopilotChatAutopilotActivity";
+import { CopilotChatClarification } from "./CopilotChatClarification";
+import { useCopilotClarification } from "../../hooks/use-copilot-clarification";
+import type { CopilotClarificationStore } from "../../hooks/use-copilot-clarification";
 
 // Vertical gap between the scroll-to-bottom button and the input container.
 const SCROLL_BUTTON_OFFSET = 16;
@@ -69,6 +72,7 @@ export type CopilotChatViewProps = WithSlots<
     approval: typeof CopilotChatApproval;
     notice: typeof CopilotChatNotice;
     autopilotActivity: typeof CopilotChatAutopilotActivity;
+    clarification: typeof CopilotChatClarification;
   },
   {
     messages?: Message[];
@@ -85,6 +89,10 @@ export type CopilotChatViewProps = WithSlots<
     statusNotice?: { message: string; onDismiss?: () => void };
     /** Show the bounded local Autopilot action timeline in the chat. */
     showAutopilotActivity?: boolean;
+    /** Human answer state for agent clarification; usable headlessly too. */
+    clarificationController?: CopilotClarificationStore;
+    clarificationAgentId?: string;
+    clarificationThreadId?: string;
     suggestionLoadingIndexes?: ReadonlyArray<number>;
     onSelectSuggestion?: (suggestion: Suggestion, index: number) => void;
     welcomeScreen?: SlotValue<React.FC<WelcomeScreenProps>> | boolean;
@@ -163,11 +171,15 @@ export function CopilotChatView({
   approval,
   notice,
   autopilotActivity,
+  clarification,
   approvalController,
   approvalAgentId,
   approvalThreadId,
   statusNotice,
   showAutopilotActivity = false,
+  clarificationController,
+  clarificationAgentId,
+  clarificationThreadId,
   welcomeScreen,
   messages = [],
   autoScroll = true,
@@ -204,6 +216,7 @@ export function CopilotChatView({
   ...props
 }: CopilotChatViewProps) {
   const pendingApproval = useCopilotApproval(approvalController);
+  const pendingClarification = useCopilotClarification(clarificationController);
   // Element-as-state via callback ref. The overlay wrapper only renders on the
   // chat-view branch (the welcome-screen branch omits it), so a plain
   // useRef + `[]` useEffect would observe `null` on mount whenever the chat
@@ -328,6 +341,19 @@ export function CopilotChatView({
         threadId: approvalThreadId,
       })
     : null;
+  const BoundClarification =
+    pendingClarification &&
+    (!clarificationAgentId ||
+      pendingClarification.request.agentId === clarificationAgentId) &&
+    (!clarificationThreadId ||
+      pendingClarification.request.threadId === clarificationThreadId)
+      ? renderSlot(clarification, CopilotChatClarification, {
+          request: pendingClarification.request,
+          onAnswer: (event: React.FormEvent<HTMLFormElement>, answer: string) =>
+            pendingClarification.respond(event, answer),
+          onCancel: () => pendingClarification.cancel(),
+        })
+      : null;
 
   // Hide suggestions while a thread is connecting or a run is in flight.
   // Otherwise, mid-replay (bootstrap stream from /connect) or mid-run, the
@@ -445,9 +471,10 @@ export function CopilotChatView({
       >
         {dragOver && <DropOverlay />}
         {BoundWelcomeScreen}
-        {(BoundApproval || BoundNotice) && (
+        {(BoundApproval || BoundNotice || BoundClarification) && (
           <div className="cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20">
             {BoundNotice}
+            {BoundClarification}
             {BoundApproval}
           </div>
         )}
@@ -466,6 +493,7 @@ export function CopilotChatView({
           approval: BoundApproval ?? <></>,
           notice: BoundNotice ?? <></>,
           autopilotActivity: BoundAutopilotActivity ?? <></>,
+          clarification: BoundClarification ?? <></>,
         })}
       </div>
     );
@@ -502,6 +530,11 @@ export function CopilotChatView({
         {BoundNotice && (
           <div className="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:pointer-events-auto">
             {BoundNotice}
+          </div>
+        )}
+        {BoundClarification && (
+          <div className="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:pointer-events-auto">
+            {BoundClarification}
           </div>
         )}
         {BoundApproval && (

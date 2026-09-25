@@ -686,6 +686,12 @@ async function boot(): Promise<void> {
       threadId: "workbench-thread",
       toolName: "readVisiblePage",
       phase: "finished",
+      target: {
+        id: "fixture-order",
+        version: 2,
+        path: "/orders/fixture-order",
+      },
+      scopeDecision: "allowed",
       result: JSON.stringify({
         status: "completed",
         headings: ["Orders"],

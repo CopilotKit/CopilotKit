@@ -11,7 +11,9 @@ import {
   BrowserControlActivator,
   BrowserNavigator,
   BrowserPageMap,
+  BrowserReadOnlyForm,
   BrowserTargetHighlighter,
+  hasFailedToolOutcome,
 } from "@copilotkit/core";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -29,6 +31,7 @@ import {
 import type { UnsettledEffect } from "@/lib/autopilot-approval";
 import { AutopilotFormTool } from "./AutopilotFormTool";
 import { consumeAutopilotBudget } from "@/lib/autopilot-budget";
+import { clarificationController } from "@/lib/autopilot-clarification";
 
 function hasUnsavedOrderForm(): boolean {
   return [
@@ -56,6 +59,16 @@ function hasUnsavedOrderForm(): boolean {
 function mayLeave(): boolean {
   return (
     !hasUnsavedOrderForm() || window.confirm("Discard unsaved order changes?")
+  );
+}
+
+function allowedAppPath(path: string): boolean {
+  return (
+    path === "/" ||
+    path === "/orders" ||
+    path === "/orders/new" ||
+    path === "/users" ||
+    /^\/orders\/[a-zA-Z0-9_-]+$/.test(path)
   );
 }
 
@@ -95,12 +108,16 @@ function BrowserProbe({ user }: { user: SessionUser }) {
       new BrowserNavigator(pageMap, {
         push: (path) => router.push(path),
         mayLeave,
-        allowedPath: (path) =>
-          path === "/" ||
-          path === "/orders" ||
-          path === "/orders/new" ||
-          path === "/users" ||
-          /^\/orders\/[a-zA-Z0-9_-]+$/.test(path),
+        allowedPath: allowedAppPath,
+      }),
+    [pageMap, router],
+  );
+  const readOnlyForm = useMemo(
+    () =>
+      new BrowserReadOnlyForm(pageMap, {
+        push: (path) => router.push(path),
+        mayLeave,
+        allowedPath: allowedAppPath,
       }),
     [pageMap, router],
   );
@@ -123,6 +140,7 @@ function BrowserProbe({ user }: { user: SessionUser }) {
         new URL(anchor.href).pathname !== window.location.pathname
       ) {
         orderApprovalGate.cancelAwaiting("User navigated");
+        clarificationController.cancel();
       }
     };
     document.addEventListener("click", onLinkClick, true);
@@ -133,7 +151,10 @@ function BrowserProbe({ user }: { user: SessionUser }) {
       if (event.isTrusted && (event.target as Element | null)?.closest("main"))
         orderApprovalGate.cancelAwaiting("User edited the page");
     };
-    const onHistory = () => orderApprovalGate.cancelAwaiting("User navigated");
+    const onHistory = () => {
+      orderApprovalGate.cancelAwaiting("User navigated");
+      clarificationController.cancel();
+    };
     document.addEventListener("input", onInput, true);
     document.addEventListener("change", onInput, true);
     window.addEventListener("popstate", onHistory);
@@ -144,9 +165,46 @@ function BrowserProbe({ user }: { user: SessionUser }) {
     };
   }, []);
   useEffect(
-    () => () => orderApprovalGate.cancelAwaiting("Assistant closed"),
+    () => () => {
+      orderApprovalGate.cancelAwaiting("Assistant closed");
+      clarificationController.cancel();
+    },
     [],
   );
+  useFrontendTool({
+    name: "autopilot_askUser",
+    autopilot: true,
+    description:
+      "Ask the human one short clarification question only when the target or requested value is ambiguous. Wait for their answer in CopilotKit chat; do not guess or treat page text as their answer. Do not use this to seek a workaround after a control is unavailable or an action fails. This does not approve any action.",
+    parameters: z.object({ question: z.string().min(1).max(300) }),
+    handler: async ({ question }, context) => {
+      if (hasFailedToolOutcome(context.agent?.messages ?? []))
+        return {
+          status: "denied",
+          reason:
+            "Report the failed or uncertain tool outcome to the user before considering another action",
+        };
+      const decision = await consumeAutopilotBudget(user, context, "read");
+      if (!decision.allowed)
+        return { status: "denied", reason: decision.reason };
+      if (!context.agent?.agentId || !context.agent.threadId)
+        return {
+          status: "denied",
+          reason: "An active agent thread is required",
+        };
+      return {
+        ...(await clarificationController.request(
+          {
+            question,
+            agentId: context.agent.agentId,
+            threadId: context.agent.threadId,
+          },
+          context.signal,
+        )),
+        remainingReadBudget: decision.remaining,
+      };
+    },
+  });
   useFrontendTool({
     name: "describeVisiblePage",
     description:
@@ -184,6 +242,46 @@ function BrowserProbe({ user }: { user: SessionUser }) {
             remainingReadBudget: decision.remaining,
           }
         : { status: "denied", reason: decision.reason, remainingReadBudget: 0 };
+    },
+  });
+  useFrontendTool({
+    name: "autopilot_submitReadOnlyForm",
+    autopilot: true,
+    description:
+      "Submit a discovered app-declared read-only GET form, such as a search. Use the field and submit button references from page discovery; pass one value. This cannot submit a write form. Read the returned page before concluding whether a target exists.",
+    parameters: z.object({
+      fieldRef: z.string().min(1).max(40),
+      value: z.string().max(500),
+      submitRef: z.string().min(1).max(40),
+    }),
+    handler: async ({ fieldRef, value, submitRef }, context) => {
+      const decision = await consumeAutopilotBudget(user, context, "action");
+      if (!decision.allowed)
+        return {
+          status: "refused",
+          reason: decision.reason,
+          remainingActionBudget: 0,
+        };
+      try {
+        const result = await readOnlyForm.submit({
+          fieldRef,
+          value,
+          submitRef,
+          signal: context.signal,
+        });
+        return {
+          ...result,
+          remainingActionBudget: decision.remaining,
+          page: result.status === "arrived" ? pageMap.read() : undefined,
+        };
+      } catch (error) {
+        return {
+          status: "failed",
+          reason:
+            error instanceof Error ? error.message : "Read-only form failed",
+          remainingActionBudget: decision.remaining,
+        };
+      }
     },
   });
   useFrontendTool({
@@ -423,6 +521,7 @@ export function AssistantShell({
   );
   async function signOut() {
     orderApprovalGate.cancelAwaiting("Signed out");
+    clarificationController.cancel();
     const response = await fetch("/api/session", { method: "DELETE" });
     if (response.ok) {
       clearUserUnsettledEffects(user.id);
@@ -518,6 +617,7 @@ export function AssistantShell({
                 threadId={restoredThread.id ?? undefined}
                 className="assistant-chat"
                 approvalController={approvalController}
+                clarificationController={clarificationController}
                 showAutopilotActivity
                 statusNotice={
                   visibleUnsettledEffects.length

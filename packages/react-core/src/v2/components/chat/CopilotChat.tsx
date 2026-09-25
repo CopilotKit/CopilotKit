@@ -47,6 +47,7 @@ import {
 } from "../../lib/transcription-client";
 import { LastUserMessageContext } from "./last-user-message-context";
 import { useCopilotApprovalWork } from "../../hooks/use-copilot-approval";
+import { useCopilotClarification } from "../../hooks/use-copilot-clarification";
 import type { LastUserMessageState } from "./last-user-message-context";
 import { useInspectorThreadOverride } from "../../providers/use-inspector-thread-override";
 import {
@@ -1059,16 +1060,26 @@ export function CopilotChat({
 
   const hasMessages = agent.messages.length > 0;
   const activeApproval = useCopilotApprovalWork(props.approvalController);
+  const activeClarification = useCopilotClarification(
+    props.clarificationController,
+  );
   const approvalForThisChat =
     !!activeApproval &&
     activeApproval.agentId === resolvedAgentId &&
     (!agent.threadId || activeApproval.threadId === agent.threadId);
+  const clarificationForThisChat =
+    !!activeClarification &&
+    activeClarification.request.agentId === resolvedAgentId &&
+    (!agent.threadId ||
+      activeClarification.request.threadId === agent.threadId);
   const shouldAllowStop =
-    (agent.isRunning || approvalForThisChat) && hasMessages;
+    (agent.isRunning || approvalForThisChat || clarificationForThisChat) &&
+    hasMessages;
   const effectiveStopHandler = shouldAllowStop
     ? () => {
         (providedStopHandler ?? stopCurrentRun)();
         if (approvalForThisChat) props.approvalController?.cancel();
+        if (clarificationForThisChat) props.clarificationController?.cancel();
       }
     : providedStopHandler;
 
@@ -1153,7 +1164,10 @@ export function CopilotChat({
     ...mergedProps,
     approvalAgentId: resolvedAgentId,
     approvalThreadId: agent.threadId || resolvedThreadId,
-    isRunning: agent.isRunning || approvalForThisChat,
+    clarificationAgentId: resolvedAgentId,
+    clarificationThreadId: agent.threadId || resolvedThreadId,
+    isRunning:
+      agent.isRunning || approvalForThisChat || clarificationForThisChat,
     messages,
     // Input behavior props
     // Gate submission on runtime readiness. While `isReady` is false the

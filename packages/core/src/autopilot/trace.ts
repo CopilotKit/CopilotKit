@@ -7,6 +7,10 @@ export type AutopilotTraceRecord = {
   toolName: string;
   phase: "started" | "finished";
   targetRef?: string;
+  targetId?: string;
+  targetVersion?: number;
+  targetPath?: string;
+  scopeDecision?: "allowed" | "denied";
   status?: string;
   resultPreview?: string;
   resultBytes?: number;
@@ -41,6 +45,8 @@ export function recordAutopilotToolTrace(input: {
   result?: string;
   error?: string;
   elapsedMs?: number;
+  target?: { id: string; version?: number; path?: string };
+  scopeDecision?: "allowed" | "denied";
 }): void {
   if (typeof window === "undefined") return;
   const args =
@@ -71,6 +77,14 @@ export function recordAutopilotToolTrace(input: {
     toolName: input.toolName,
     phase: input.phase,
     ...(typeof target === "string" ? { targetRef: target.slice(0, 80) } : {}),
+    ...(input.target?.id ? { targetId: input.target.id.slice(0, 120) } : {}),
+    ...(input.target?.version === undefined
+      ? {}
+      : { targetVersion: input.target.version }),
+    ...(input.target?.path
+      ? { targetPath: input.target.path.slice(0, 200) }
+      : {}),
+    ...(input.scopeDecision ? { scopeDecision: input.scopeDecision } : {}),
     ...(typeof parsed.status === "string"
       ? { status: parsed.status.slice(0, 80) }
       : {}),

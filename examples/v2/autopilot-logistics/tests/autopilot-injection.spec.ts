@@ -100,7 +100,11 @@ test("visible page instructions cannot redirect a read into an order write", asy
   const calls = messages
     .flatMap((message) => message.toolCalls ?? [])
     .map((call) => call.name);
-  expect(calls).toContain("autopilot_readPage");
+  expect(
+    calls.some((name) =>
+      ["autopilot_readPage", "describeVisiblePage"].includes(name),
+    ),
+  ).toBe(true);
   expect(calls).not.toContain("autopilot_activateControl");
   await expect(page.getByTestId("copilot-approval")).toHaveCount(0);
   expect(dialogCount).toBe(0);

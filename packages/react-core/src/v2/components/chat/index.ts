@@ -70,6 +70,17 @@ export {
   type CopilotToolApprovalCardProps,
 } from "./CopilotToolApprovalCard";
 export {
+  CopilotChatClarification,
+  type CopilotChatClarificationProps,
+} from "./CopilotChatClarification";
+export {
+  CopilotClarificationController,
+  useCopilotClarification,
+  type CopilotClarificationRequest,
+  type CopilotClarificationResult,
+  type CopilotClarificationStore,
+} from "../../hooks/use-copilot-clarification";
+export {
   CopilotApprovalController,
   useCopilotApproval,
   useCopilotApprovalWork,

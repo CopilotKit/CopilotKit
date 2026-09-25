@@ -65,7 +65,7 @@ export function AutopilotFormTool({
     name: "autopilot_submitForm",
     autopilot: true,
     description:
-      "Request one reviewed form operation using up to 12 discovered native fields or supported custom selects. Pass field refs, exact values, and the submit button ref. Calling this tool opens the app's review UI and waits for the human decision before any input event; do not ask for a separate chat confirmation. Do not claim success unless the receipt says completed.",
+      "Request one reviewed write-form operation using up to 12 discovered native fields or supported custom selects. Pass field refs, exact values, and the submit button ref. Use autopilot_submitReadOnlyForm instead for an app-declared GET/search form. This tool opens the app's review UI and waits for the human decision before any input event; do not ask for a separate chat confirmation. Do not claim success unless the receipt says completed.",
     parameters: z.object({
       changes: z
         .array(
@@ -199,6 +199,11 @@ export function AutopilotFormTool({
             threadId: context.agent.threadId,
             presentation: "tool",
             toolCallId: context.toolCall.id,
+            target: {
+              id: plan.recordId,
+              version: plan.version,
+              path: plan.path,
+            },
           },
           context.signal,
         );
