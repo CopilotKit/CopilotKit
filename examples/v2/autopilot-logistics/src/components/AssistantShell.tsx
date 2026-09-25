@@ -5,6 +5,7 @@ import {
   CopilotKitProvider,
   useAgent,
 } from "@copilotkit/react-core/v2";
+import { useCopilotKit } from "@copilotkit/react-core/v2/context";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -33,6 +34,40 @@ function RememberThread({
   return null;
 }
 
+function NewThreadButton({ onNewThread }: { onNewThread(): void }) {
+  const { agent } = useAgent({ agentId: "logistics" });
+  const { copilotkit } = useCopilotKit();
+  return (
+    <button
+      type="button"
+      className="assistant-new-thread"
+      aria-label="New thread"
+      title="New thread"
+      onClick={() => {
+        copilotkit.stopAgent({ agent });
+        agent.setMessages([]);
+        agent.setState({});
+        onNewThread();
+      }}
+    >
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+        <path d="m16 3 5 5M10 14l4-1L22 5a2.12 2.12 0 0 0-3-3l-8 8-1 4Z" />
+      </svg>
+    </button>
+  );
+}
+
 export function AssistantShell({
   user,
   children,
@@ -41,13 +76,8 @@ export function AssistantShell({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const [selectedAgent, setSelectedAgent] = useState<
-    "logistics" | "operations"
-  >("logistics");
-  const [autopilotMode, setAutopilotMode] = useState<
-    "off" | "logistics" | "all"
-  >("logistics");
-  const activeThreadKey = threadStorageKey(user, selectedAgent);
+  const [threadGeneration, setThreadGeneration] = useState(0);
+  const activeThreadKey = threadStorageKey(user, "logistics");
   const [restoredThread, setRestoredThread] = useState<{
     key: string;
     id: string | null;
@@ -82,10 +112,10 @@ export function AssistantShell({
   const autopilot = useMemo(
     () => ({
       adapter,
-      enabled: autopilotMode !== "off",
-      agents: autopilotMode === "all" ? undefined : ["logistics"],
+      enabled: true,
+      agents: ["logistics"],
     }),
-    [adapter, autopilotMode],
+    [adapter],
   );
   async function signOut() {
     const response = await fetch("/api/session", { method: "DELETE" });
@@ -101,7 +131,7 @@ export function AssistantShell({
   return (
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
-      agentId={selectedAgent}
+      agentId="logistics"
       autopilot={autopilot}
       enableInspector
     >
@@ -135,67 +165,25 @@ export function AssistantShell({
           {restoredThread?.key === activeThreadKey && (
             <>
               <RememberThread
-                agentId={selectedAgent}
+                agentId="logistics"
                 storageKey={activeThreadKey}
               />
               <CopilotSidebar
-                key={selectedAgent}
-                agentId={selectedAgent}
+                key={threadGeneration}
+                agentId="logistics"
                 threadId={restoredThread.id ?? undefined}
                 className="assistant-chat"
                 defaultOpen
                 width={480}
                 header={{
-                  title: "Assistant",
-                  children: ({ titleContent, closeButton, drawerLauncher }) => (
-                    <header
-                      className="assistant-sidebar-header"
-                      data-testid="copilot-modal-header"
-                    >
-                      <div className="assistant-sidebar-title">
-                        {drawerLauncher}
-                        {titleContent}
-                        {closeButton}
-                      </div>
-                      <div className="assistant-settings">
-                        <label>
-                          Agent
-                          <select
-                            aria-label="Assistant agent"
-                            value={selectedAgent}
-                            onChange={(event) =>
-                              setSelectedAgent(
-                                event.target.value as
-                                  | "logistics"
-                                  | "operations",
-                              )
-                            }
-                          >
-                            <option value="logistics">Logistics</option>
-                            <option value="operations">Operations</option>
-                          </select>
-                        </label>
-                        <label>
-                          Autopilot
-                          <select
-                            aria-label="Autopilot scope"
-                            value={autopilotMode}
-                            onChange={(event) =>
-                              setAutopilotMode(
-                                event.target.value as
-                                  | "off"
-                                  | "logistics"
-                                  | "all",
-                              )
-                            }
-                          >
-                            <option value="off">Off</option>
-                            <option value="logistics">Logistics only</option>
-                            <option value="all">All agents</option>
-                          </select>
-                        </label>
-                      </div>
-                    </header>
+                  children: () => (
+                    <NewThreadButton
+                      onNewThread={() => {
+                        sessionStorage.removeItem(activeThreadKey);
+                        setRestoredThread({ key: activeThreadKey, id: null });
+                        setThreadGeneration((generation) => generation + 1);
+                      }}
+                    />
                   ),
                 }}
                 showAutopilotActivity

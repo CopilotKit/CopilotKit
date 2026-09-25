@@ -225,45 +225,27 @@ tr:last-child td {
 .assistant-panel {
   display: contents;
 }
-.assistant-sidebar-header {
-  background: #fff;
-  border-bottom: 1px solid #edf1f1;
+.assistant-new-thread {
+  align-self: flex-start;
   flex: none;
-}
-.assistant-sidebar-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 56px;
-  padding: 10px 76px 0 16px;
-  font-weight: 750;
-}
-.assistant-sidebar-title [data-testid="copilot-header-title"] {
-  text-align: center;
-}
-.assistant-settings {
-  display: flex;
-  gap: 10px;
-  padding: 10px 16px 14px;
-}
-.assistant-settings label {
   display: grid;
-  gap: 4px;
-  flex: 1;
-  min-width: 0;
-  color: #607379;
-  font-size: 11px;
-  font-weight: 600;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin: 10px 12px 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #52646a;
 }
-.assistant-settings select {
-  width: 100%;
-  border: 1px solid #dce7e6;
-  border-radius: 6px;
-  padding: 6px 8px;
-  background: #fff;
-  color: #173d42;
-  font: inherit;
-  font-size: 12px;
+.assistant-new-thread:hover {
+  background: #f0f5f4;
+  color: #0d6870;
+}
+.assistant-new-thread:focus-visible {
+  outline: 2px solid #0d6870;
+  outline-offset: 2px;
 }
 .assistant-chat {
   min-height: 0;

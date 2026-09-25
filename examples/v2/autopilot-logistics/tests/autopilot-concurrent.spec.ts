@@ -40,27 +40,14 @@ test("two same-origin tabs serialize conflicting actions before approval", async
     await expect(
       second.getByRole("heading", { name: "Dashboard" }),
     ).toBeVisible();
-    await second
-      .getByRole("combobox", { name: "Autopilot scope" })
-      .selectOption("all");
-    await second
-      .getByRole("combobox", { name: "Assistant agent" })
-      .selectOption("operations");
-    const agents = ["logistics", "operations"] as const;
+    const agents = ["logistics", "logistics"] as const;
     const pages = [first, second] as const;
-    const prior = await Promise.all(
-      pages.map(async (page, index) => {
-        const response = await page.request.get(
-          `/api/copilotkit/threads?agentId=${agents[index]}`,
-        );
-        expect(response.ok()).toBeTruthy();
-        return new Set<string>(
-          (await response.json()).threads.map(
-            (thread: { id: string }) => thread.id,
-          ),
-        );
-      }),
-    );
+    const currentThread = (page: typeof first) =>
+      page.evaluate(() =>
+        sessionStorage.getItem(
+          "northstar:copilotkit:thread:northstar:admin:logistics",
+        ),
+      );
     const requestCancel = async (page: typeof first) => {
       await page
         .locator(".assistant-panel textarea")
@@ -79,15 +66,10 @@ test("two same-origin tabs serialize conflicting actions before approval", async
     await expect
       .poll(
         async () => {
-          const response = await second.request.get(
-            "/api/copilotkit/threads?agentId=operations",
-          );
-          const thread = (await response.json()).threads.find(
-            (thread: { id: string }) => !prior[1].has(thread.id),
-          );
-          if (!thread) return false;
+          const threadId = await currentThread(second);
+          if (!threadId) return false;
           const responseMessages = await second.request.get(
-            `/api/copilotkit/threads/${thread.id}/messages?agentId=operations`,
+            `/api/copilotkit/threads/${threadId}/messages?agentId=logistics`,
           );
           if (!responseMessages.ok()) return false;
           return (await responseMessages.json()).messages.some(
@@ -111,13 +93,7 @@ test("two same-origin tabs serialize conflicting actions before approval", async
       await expect
         .poll(
           async () => {
-            const response = await page.request.get(
-              `/api/copilotkit/threads?agentId=${agent}`,
-            );
-            const threadId =
-              (await response.json()).threads.find(
-                (thread: { id: string }) => !prior[index].has(thread.id),
-              )?.id ?? "";
+            const threadId = await currentThread(page);
             if (!threadId) return false;
             threads[index] = threadId;
             const messagesResponse = await page.request.get(

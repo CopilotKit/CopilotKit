@@ -21,12 +21,6 @@ test("manual order and user workflows persist and enforce roles", async ({
 
   await page.goto("/sign-in");
   await page.getByRole("button", { name: /Avery Morgan/ }).click();
-  await page
-    .getByRole("combobox", { name: "Autopilot scope" })
-    .selectOption("off");
-  await expect(
-    page.getByRole("combobox", { name: "Autopilot scope" }),
-  ).toHaveValue("off");
   await page.getByRole("link", { name: "Orders", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Orders" })).toBeVisible();
   await page.getByRole("link", { name: "Create order" }).click();

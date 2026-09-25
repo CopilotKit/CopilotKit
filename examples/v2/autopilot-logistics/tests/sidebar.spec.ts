@@ -3,59 +3,91 @@ import { evidencePath } from "./evidence";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
-test("CopilotSidebar keeps the assistant controls and chat available", async ({
+test("new thread clears the conversation and survives reload", async ({
   page,
 }) => {
+  // Exercise the sidebar lifecycle without depending on the cloud model service.
+  await page.route("**/api/copilotkit/info", (route) =>
+    route.fulfill({
+      json: {
+        version: "1.0.0",
+        agents: { logistics: { description: "Logistics", capabilities: {} } },
+      },
+    }),
+  );
+  const requests: Array<{
+    threadId: string;
+    messages: Array<{ content?: string }>;
+  }> = [];
+  await page.route(/\/api\/copilotkit\/agent\/[^/]+\/run$/, async (route) => {
+    const request = route.request().postDataJSON();
+    requests.push(request);
+    const messageId = crypto.randomUUID();
+    const events = [
+      { type: "RUN_STARTED", threadId: request.threadId, runId: request.runId },
+      { type: "TEXT_MESSAGE_START", messageId, role: "assistant" },
+      { type: "TEXT_MESSAGE_CONTENT", messageId, delta: "A fresh reply." },
+      { type: "TEXT_MESSAGE_END", messageId },
+      {
+        type: "RUN_FINISHED",
+        threadId: request.threadId,
+        runId: request.runId,
+      },
+    ];
+    await route.fulfill({
+      contentType: "text/event-stream",
+      body: events
+        .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+        .join(""),
+    });
+  });
   await page.goto("/sign-in");
   await page.getByRole("button", { name: /Avery Morgan/ }).click();
-
   const sidebar = page.getByTestId("copilot-sidebar");
-  await expect(sidebar).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-  await expect(
-    sidebar.getByRole("combobox", { name: "Assistant agent" }),
-  ).toHaveValue("logistics");
-  await expect(
-    sidebar.getByRole("combobox", { name: "Autopilot scope" }),
-  ).toHaveValue("logistics");
+  const storageKey = "northstar:copilotkit:thread:northstar:admin:logistics";
+  await expect(sidebar.getByRole("combobox")).toHaveCount(0);
+  await sidebar.getByRole("textbox").fill("First conversation");
+  await page.getByTestId("copilot-send-button").click();
+  await expect(sidebar).toContainText("A fresh reply.");
+  await expect
+    .poll(() => page.evaluate((key) => sessionStorage.getItem(key), storageKey))
+    .toBe(requests[0].threadId);
+  await sidebar
+    .getByRole("button", { name: "New thread", exact: true })
+    .click();
+  await expect(sidebar).not.toContainText("First conversation");
+  await expect(sidebar).not.toContainText("A fresh reply.");
+  expect(
+    await page.evaluate((key) => sessionStorage.getItem(key), storageKey),
+  ).toBeNull();
+  await sidebar.getByRole("textbox").fill("Second conversation");
+  await page.getByTestId("copilot-send-button").click();
+  await expect(sidebar).toContainText("A fresh reply.");
+  expect(requests).toHaveLength(2);
+  expect(requests[1].threadId).not.toBe(requests[0].threadId);
+  expect(
+    requests[1].messages.some(
+      (message) => message.content === "First conversation",
+    ),
+  ).toBe(false);
+  await sidebar
+    .getByRole("button", { name: "New thread", exact: true })
+    .click();
+  await page.reload();
   await expect(sidebar.getByRole("textbox")).toBeVisible();
-
-  const screenshot = evidencePath("sidebar", "copilot-sidebar.png");
+  await expect(sidebar).not.toContainText("Second conversation");
+  await expect(sidebar).not.toContainText("A fresh reply.");
+  const screenshot = evidencePath("sidebar", "new-thread.png");
   mkdirSync(dirname(screenshot), { recursive: true });
   await page.screenshot({ path: screenshot, fullPage: true });
-
-  await sidebar.getByRole("button", { name: "Close" }).click();
-  await expect(sidebar).toHaveAttribute("aria-hidden", "true");
-  await page.getByRole("link", { name: "Create order" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Create order" }),
-  ).toBeVisible();
-  await page.getByTestId("copilot-chat-toggle").click();
-  await expect(sidebar).toHaveAttribute("aria-hidden", "false");
-  await sidebar
-    .getByRole("combobox", { name: "Assistant agent" })
-    .selectOption("operations");
-  await expect(
-    sidebar.getByRole("combobox", { name: "Assistant agent" }),
-  ).toHaveValue("operations");
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(sidebar).toBeVisible();
-  const agentLabel = sidebar
-    .getByRole("combobox", { name: "Assistant agent" })
-    .locator("..");
-  expect((await agentLabel.boundingBox())?.x).toBeGreaterThanOrEqual(0);
-  await expect(page.locator("body")).toHaveCSS("margin-inline-end", "0px");
-  const hideInspector = page.getByRole("button", {
-    name: "Hide Inspector for a day",
+  await expect(
+    sidebar.getByRole("button", { name: "New thread", exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: evidencePath("sidebar", "new-thread-mobile.png"),
+    fullPage: true,
   });
-  if (await hideInspector.isVisible()) await hideInspector.click();
-  const mobileScreenshot = evidencePath(
-    "sidebar",
-    "copilot-sidebar-mobile.png",
-  );
-  await page.screenshot({ path: mobileScreenshot, fullPage: true });
-  await sidebar.getByRole("button", { name: "Close" }).click();
-  await expect(sidebar).toHaveAttribute("aria-hidden", "true");
 });
 
 test("an unknown entitlement does not obscure a live sidebar reply", async ({
