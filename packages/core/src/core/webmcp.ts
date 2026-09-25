@@ -157,10 +157,36 @@ export class WebMCPRegistry {
             arguments: JSON.stringify(args ?? {}),
           },
         };
-        return await tool.handler(args as any, {
+        const context = {
           toolCall,
           signal: options?.signal,
-        });
+        };
+        try {
+          const result = await tool.handler(args as any, context);
+          if (!tool.filterResult) return result;
+          try {
+            return await tool.filterResult(result, context);
+          } catch {
+            throw new Error("Tool result filter failed");
+          }
+        } catch (error) {
+          if (!tool.filterError) throw error;
+          let message: string;
+          try {
+            message = await tool.filterError(
+              error instanceof Error ? error.message : String(error),
+              context,
+            );
+          } catch {
+            throw new Error("Tool error filter failed");
+          }
+          throw new Error(
+            typeof message === "string" && message.trim()
+              ? message
+              : "Tool error filter failed",
+            { cause: error },
+          );
+        }
       },
       ...(annotations ? { annotations } : {}),
     };

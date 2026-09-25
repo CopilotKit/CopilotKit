@@ -396,6 +396,72 @@ describe("CopilotKitCore.runTool", () => {
     expect(result.result).toBe('{"data":[1,2,3]}');
   });
 
+  it("filters a result before storing or returning it", async () => {
+    copilotKitCore.addTool(
+      createTool({
+        name: "FilteredResult",
+        handler: async () => ({ public: "visible", private: "CANARY" }),
+        filterResult: (result) => ({
+          public: (result as { public: string }).public,
+        }),
+        followUp: false,
+      }),
+    );
+    const agent = new MockAgent({ agentId: "default" });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "default",
+      agent: agent as any,
+    });
+
+    const result = await copilotKitCore.runTool({ name: "FilteredResult" });
+    expect(result.result).toBe('{"public":"visible"}');
+    expect(JSON.stringify(agent.messages)).not.toContain("CANARY");
+  });
+
+  it("fails closed when result filtering throws", async () => {
+    copilotKitCore.addTool(
+      createTool({
+        name: "RejectedResult",
+        handler: async () => ({ private: "CANARY" }),
+        filterResult: () => {
+          throw new Error("CANARY filter error");
+        },
+        followUp: false,
+      }),
+    );
+    const agent = new MockAgent({ agentId: "default" });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "default",
+      agent: agent as any,
+    });
+
+    const result = await copilotKitCore.runTool({ name: "RejectedResult" });
+    expect(result.result).toBe("Error: Tool result filter failed");
+    expect(JSON.stringify(agent.messages)).not.toContain("CANARY");
+  });
+
+  it("filters handler errors before storing them", async () => {
+    copilotKitCore.addTool(
+      createTool({
+        name: "FilteredError",
+        handler: async () => {
+          throw new Error("CANARY private error");
+        },
+        filterError: () => "Action unavailable",
+        followUp: false,
+      }),
+    );
+    const agent = new MockAgent({ agentId: "default" });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "default",
+      agent: agent as any,
+    });
+
+    const result = await copilotKitCore.runTool({ name: "FilteredError" });
+    expect(result.result).toBe("Error: Action unavailable");
+    expect(JSON.stringify(agent.messages)).not.toContain("CANARY");
+  });
+
   it("should handle null/undefined results as empty string", async () => {
     const tool = createTool({
       name: "NullResult",

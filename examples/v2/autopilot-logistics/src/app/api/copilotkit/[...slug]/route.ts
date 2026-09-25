@@ -7,6 +7,7 @@ import {
 } from "@copilotkit/runtime/v2";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
+import { appendFileSync } from "node:fs";
 import { assertSameOrigin, userFromRequest } from "@/lib/auth";
 
 export const runtime = "nodejs";
@@ -25,6 +26,26 @@ function makeHandler() {
       factory: ({ input, abortController }) => {
         const { messages, systemPrompts, tools } =
           convertInputToTanStackAI(input);
+        const auditFile = process.env.AUTOPILOT_MODEL_INPUT_AUDIT_FILE;
+        const auditCanaries = process.env.AUTOPILOT_MODEL_INPUT_AUDIT_CANARIES;
+        if (auditFile && auditCanaries) {
+          try {
+            const modelInput = JSON.stringify({
+              messages,
+              systemPrompts,
+              tools,
+            });
+            const canaryMatches = auditCanaries
+              .split(",")
+              .map((canary) => modelInput.includes(canary));
+            appendFileSync(
+              auditFile,
+              `${JSON.stringify({ threadId: input.threadId, canaryMatches, messageCount: messages.length })}\n`,
+            );
+          } catch {
+            // Optional local audit must not prevent the live agent from running.
+          }
+        }
         return chat({
           adapter: openaiText(
             (process.env.AUTOPILOT_MODEL || "gpt-5.2") as Parameters<

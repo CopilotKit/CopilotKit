@@ -1,6 +1,6 @@
 import { evidencePath } from "./evidence";
 import { expect, test } from "@playwright/test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 test("live Autopilot page read filters private regions and derived labels", async ({
@@ -112,6 +112,34 @@ test("live Autopilot page read filters private regions and derived labels", asyn
     });
   expect(inspectorText).not.toContain("CANARY-BROWSER-PRIVATE-8H2P");
   expect(inspectorText).not.toContain("CANARY-LABEL-PRIVATE-3N6V");
+  let modelInputAuditRunCount: number | undefined;
+  const auditFile = process.env.AUTOPILOT_MODEL_INPUT_AUDIT_FILE;
+  if (auditFile) {
+    const auditRows = () =>
+      existsSync(auditFile)
+        ? readFileSync(auditFile, "utf8")
+            .trim()
+            .split("\n")
+            .filter(Boolean)
+            .map(
+              (line) =>
+                JSON.parse(line) as {
+                  threadId: string;
+                  canaryMatches: boolean[];
+                },
+            )
+            .filter((row) => row.threadId === threadId)
+        : [];
+    await expect
+      .poll(() => auditRows().length, { timeout: 15_000 })
+      .toBeGreaterThan(1);
+    const rows = auditRows();
+    expect(rows.every((row) => row.canaryMatches.length === 2)).toBe(true);
+    expect(
+      rows.every((row) => row.canaryMatches.every((match) => !match)),
+    ).toBe(true);
+    modelInputAuditRunCount = rows.length;
+  }
   await page.screenshot({
     path: resolve(evidenceDir, "page-read.png"),
     fullPage: true,
@@ -128,6 +156,7 @@ test("live Autopilot page read filters private regions and derived labels", asyn
         privateCanaryInResult: false,
         derivedPrivateLabelInResult: false,
         privateCanariesInInspector: false,
+        modelInputAuditRunCount,
         assistantContinuation: messages
           .filter((message) => message.role === "assistant")
           .at(-1)?.content,

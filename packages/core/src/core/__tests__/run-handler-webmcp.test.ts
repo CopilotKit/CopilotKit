@@ -74,6 +74,43 @@ describe("RunHandler WebMCP registration", () => {
     });
   });
 
+  it("filters WebMCP results before returning them to a browser agent", async () => {
+    const modelContext = stubWebMCP();
+    const runHandler = createRunHandler();
+    runHandler.addTool({
+      name: "filteredRead",
+      description: "Read visible data",
+      webmcp: true,
+      handler: async () => ({ public: "visible", private: "CANARY" }),
+      filterResult: (result) => ({
+        public: (result as { public: string }).public,
+      }),
+    });
+
+    const result = await modelContext.registered
+      .get("filteredRead")!
+      .tool.execute({}, {});
+    expect(result).toEqual({ public: "visible" });
+  });
+
+  it("filters WebMCP handler errors", async () => {
+    const modelContext = stubWebMCP();
+    const runHandler = createRunHandler();
+    runHandler.addTool({
+      name: "filteredFailure",
+      description: "Read a value",
+      webmcp: true,
+      handler: async () => {
+        throw new Error("CANARY private error");
+      },
+      filterError: () => "Action unavailable",
+    });
+
+    await expect(
+      modelContext.registered.get("filteredFailure")!.tool.execute({}, {}),
+    ).rejects.toThrow("Action unavailable");
+  });
+
   it("does not register tools without webmcp set", () => {
     const modelContext = stubWebMCP();
     const runHandler = createRunHandler();

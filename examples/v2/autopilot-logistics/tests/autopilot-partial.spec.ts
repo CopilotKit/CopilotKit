@@ -130,7 +130,7 @@ test("an intervening form change reports a partial fill without submitting", asy
           `/api/copilotkit/threads/${threadId}/messages?agentId=logistics`,
         );
         messages = (await response.json()).messages;
-        return /not submitted|not saved|didn't save|couldn't save|failed to save|not persisted|no server write/i.test(
+        return /not submitted|did not submit|not saved|didn't save|couldn't save|failed to save|not persisted|no server write/i.test(
           messages.at(-1)?.content ?? "",
         );
       },

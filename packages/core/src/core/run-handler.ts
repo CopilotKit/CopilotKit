@@ -1077,6 +1077,22 @@ export class RunHandler {
     let toolCallResult = "";
     let errorMessage: string | undefined;
     let isArgumentError = false;
+    const handlerContext = {
+      toolCall: toolCall as any,
+      agent,
+      signal,
+    };
+    const filterError = async (message: string): Promise<string> => {
+      if (!tool.filterError) return message;
+      try {
+        const filtered = await tool.filterError(message, handlerContext);
+        return typeof filtered === "string" && filtered.trim()
+          ? filtered
+          : "Tool error filter failed";
+      } catch {
+        return "Tool error filter failed";
+      }
+    };
 
     let parsedArgs: unknown;
     try {
@@ -1084,16 +1100,16 @@ export class RunHandler {
     } catch (error) {
       const parseError =
         error instanceof Error ? error : new Error(String(error));
-      errorMessage = parseError.message;
+      errorMessage = await filterError(parseError.message);
       isArgumentError = true;
       await this._internal.emitError({
-        error: parseError,
+        error: new Error(errorMessage),
         code: CopilotKitCoreErrorCode.TOOL_ARGUMENT_PARSE_FAILED,
         context: {
           agentId,
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
-          rawArguments: handlerArgs,
+          ...(tool.filterError ? {} : { rawArguments: handlerArgs }),
           toolType,
           ...(messageId ? { messageId } : {}),
         },
@@ -1123,11 +1139,18 @@ export class RunHandler {
         if (signal?.aborted) {
           throw new Error("Tool execution was stopped");
         }
-        const result = await tool.handler!(parsedArgs as any, {
-          toolCall: toolCall as any,
-          agent,
-          signal,
-        });
+        const rawResult = await tool.handler!(
+          parsedArgs as any,
+          handlerContext,
+        );
+        let result = rawResult;
+        if (tool.filterResult) {
+          try {
+            result = await tool.filterResult(rawResult, handlerContext);
+          } catch {
+            throw new Error("Tool result filter failed");
+          }
+        }
         if (result === undefined || result === null) {
           toolCallResult = "";
         } else if (typeof result === "string") {
@@ -1138,16 +1161,16 @@ export class RunHandler {
       } catch (error) {
         const handlerError =
           error instanceof Error ? error : new Error(String(error));
-        errorMessage = handlerError.message;
+        errorMessage = await filterError(handlerError.message);
         if (!discardAbortedResult(signal, discardOnAbort, errorMessage)) {
           await this._internal.emitError({
-            error: handlerError,
+            error: new Error(errorMessage),
             code: CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED,
             context: {
               agentId,
               toolCallId: toolCall.id,
               toolName: toolCall.function.name,
-              parsedArgs,
+              ...(tool.filterError ? {} : { parsedArgs }),
               toolType,
               ...(messageId ? { messageId } : {}),
             },

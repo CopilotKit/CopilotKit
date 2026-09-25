@@ -83,6 +83,24 @@ export type FrontendTool<
   description?: string;
   parameters?: StandardSchemaV1<any, T>;
   handler?: (args: T, context: FrontendToolHandlerContext) => Promise<unknown>;
+  /**
+   * Filter a handler's result before it reaches subscribers, agent messages,
+   * or a WebMCP caller. This does not filter tool arguments, which may already
+   * have streamed before the handler runs. A rejection fails closed with a
+   * generic error instead of forwarding the unfiltered result.
+   */
+  filterResult?: (
+    result: unknown,
+    context: FrontendToolHandlerContext,
+  ) => unknown | Promise<unknown>;
+  /**
+   * Filter handler or argument error text before it is reported to an agent.
+   * This cannot erase tool arguments already streamed to subscribers.
+   */
+  filterError?: (
+    message: string,
+    context: FrontendToolHandlerContext,
+  ) => string | Promise<string>;
   followUp?: boolean;
   /**
    * Optional agent ID to constrain this tool to a specific agent.
