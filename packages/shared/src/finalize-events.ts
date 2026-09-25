@@ -150,15 +150,49 @@ export function createRunEventFinalizer(): RunEventFinalizer {
  * Array form of {@link createRunEventFinalizer} for callers that already keep
  * the run's events (runners persist them). Appends the closers to `events` in
  * place and returns them.
+ *
+ * If the terminal event (`RUN_FINISHED` or `RUN_ERROR`) is already present in
+ * the array (e.g. the run was aborted while a tool call was still open), the
+ * lifecycle closers are spliced in BEFORE it so that `compactEvents` sees a
+ * well-ordered stream and does not carry the open tool call past the terminal.
  */
 export function finalizeRunEvents(
   events: BaseEvent[],
   options: FinalizeRunOptions = {},
 ): BaseEvent[] {
   const finalizer = createRunEventFinalizer();
-  for (const event of events) finalizer.observe(event);
 
-  const appended = finalizer.finalize(options);
-  events.push(...appended);
-  return appended;
+  // Observe events one at a time and stop at the first terminal event so the
+  // finalizer knows which lifecycles are still open at that point.
+  let terminalIdx = -1;
+  for (let i = 0; i < events.length; i++) {
+    const evt = events[i];
+    if (evt.type === EventType.RUN_FINISHED || evt.type === EventType.RUN_ERROR) {
+      terminalIdx = i;
+      break;
+    }
+    finalizer.observe(evt);
+  }
+
+  if (terminalIdx === -1) {
+    // No terminal in the stream yet — original path: append closers + terminal.
+    const appended = finalizer.finalize(options);
+    events.push(...appended);
+    return appended;
+  }
+
+  // Terminal already present. Ask the finalizer what is still open before it.
+  // finalize() will produce lifecycle closers + a synthetic terminal; we keep
+  // only the closers because the real terminal is already in the array.
+  const all = finalizer.finalize(options);
+  const lifecycleClosers = all.filter(
+    (e) => e.type !== EventType.RUN_FINISHED && e.type !== EventType.RUN_ERROR,
+  );
+
+  if (lifecycleClosers.length === 0) return [];
+
+  // Splice the closers immediately before the existing terminal event so the
+  // stored sequence is valid and compactEvents does not reorder across it.
+  events.splice(terminalIdx, 0, ...lifecycleClosers);
+  return lifecycleClosers;
 }
