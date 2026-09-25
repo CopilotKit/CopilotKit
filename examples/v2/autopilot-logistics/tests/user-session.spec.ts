@@ -25,7 +25,11 @@ test("deactivating a user invalidates their existing session and stale form vers
     .run(token, id, new Date(Date.now() + 3_600_000).toISOString());
   const target = await browser.newContext();
   await target.addCookies([
-    { name: "northstar_session", value: token, url: "http://127.0.0.1:3000" },
+    {
+      name: "northstar_session",
+      value: token,
+      url: new URL(page.url()).origin,
+    },
   ]);
   const targetPage = await target.newPage();
   await targetPage.goto("/orders");
@@ -66,7 +70,7 @@ test("deactivating a user invalidates their existing session and stale form vers
       version: "1",
       operationKey: crypto.randomUUID(),
     },
-    headers: { Origin: "http://127.0.0.1:3000" },
+    headers: { Origin: new URL(page.url()).origin },
   });
   expect(stale.status()).toBe(409);
   await target.close();

@@ -86,13 +86,13 @@ test("manual order and user workflows persist and enforce roles", async ({
   };
   const replay = await page.request.post("/api/orders", {
     form: originalPayload,
-    headers: { Origin: "http://127.0.0.1:3000" },
+    headers: { Origin: new URL(page.url()).origin },
   });
   expect(replay.status()).toBe(200);
   expect((await replay.json()).id).toBe(orderRow.id);
   const changedReplay = await page.request.post("/api/orders", {
     form: { ...originalPayload, customer: "Changed identity" },
-    headers: { Origin: "http://127.0.0.1:3000" },
+    headers: { Origin: new URL(page.url()).origin },
   });
   expect(changedReplay.status()).toBe(409);
   expect(
@@ -131,7 +131,7 @@ test("manual order and user workflows persist and enforce roles", async ({
       action: "update",
       version: "1",
     },
-    headers: { Origin: "http://127.0.0.1:3000" },
+    headers: { Origin: new URL(page.url()).origin },
   });
   expect(stale.status()).toBe(409);
   await page.screenshot({
@@ -142,7 +142,7 @@ test("manual order and user workflows persist and enforce roles", async ({
   // A dispatched shipment cannot be cancelled, including by a direct endpoint call.
   const forbidden = await page.request.post(`/api/orders/${orderRow.id}`, {
     form: { action: "cancel", version: "2", operationKey: crypto.randomUUID() },
-    headers: { Origin: "http://127.0.0.1:3000" },
+    headers: { Origin: new URL(page.url()).origin },
   });
   expect(forbidden.status()).toBe(409);
   expect(
@@ -244,7 +244,7 @@ test("manual order and user workflows persist and enforce roles", async ({
   await expect(page.getByText("read-only for your account")).toBeVisible();
   const denied = await page.request.post(`/api/orders/${orderRow.id}`, {
     form: { action: "cancel", version: "2", operationKey: crypto.randomUUID() },
-    headers: { Origin: "http://127.0.0.1:3000" },
+    headers: { Origin: new URL(page.url()).origin },
   });
   expect(denied.status()).toBe(403);
   const deniedUser = await page.request.post("/api/users", {
@@ -254,7 +254,7 @@ test("manual order and user workflows persist and enforce roles", async ({
       role: "viewer",
       operationKey: crypto.randomUUID(),
     },
-    headers: { Origin: "http://127.0.0.1:3000" },
+    headers: { Origin: new URL(page.url()).origin },
   });
   expect(deniedUser.status()).toBe(403);
   const otherOrder = database
@@ -273,7 +273,7 @@ test("manual order and user workflows persist and enforce roles", async ({
       role: "viewer",
       operationKey: crypto.randomUUID(),
     },
-    headers: { Origin: "http://127.0.0.1:3000" },
+    headers: { Origin: new URL(page.url()).origin },
   });
   expect(operatorUserWrite.status()).toBe(403);
   const crossOrigin = await page.request.post("/api/orders", {

@@ -32,7 +32,7 @@ test("invalid shipment date is rejected without changing the order", async ({
       status: "booked",
       notes: "",
     },
-    headers: { Origin: "http://127.0.0.1:3000" },
+    headers: { Origin: new URL(page.url()).origin },
   });
   expect(response.status()).toBe(400);
   expect((await response.json()).error).toMatch(/valid ship date/i);
