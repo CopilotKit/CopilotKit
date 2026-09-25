@@ -194,6 +194,7 @@ export class CopilotA2UISurface implements OnDestroy {
     null;
   private processorCatalog: CopilotA2UICatalog | null = null;
   private lastOperationsHash = "";
+  private appliedOperationsCount = 0;
 
   constructor() {
     effect(() => {
@@ -214,6 +215,7 @@ export class CopilotA2UISurface implements OnDestroy {
     this.processor = null;
     this.processorCatalog = null;
     this.lastOperationsHash = "";
+    this.appliedOperationsCount = 0;
     this.surfaces.set([]);
   }
 
@@ -242,24 +244,35 @@ export class CopilotA2UISurface implements OnDestroy {
       return;
     }
 
-    const processor = this.getProcessor(catalog);
-
-    const hash = JSON.stringify({ operations, theme });
-    if (hash === this.lastOperationsHash) return;
-    this.lastOperationsHash = hash;
-
     try {
-      const surfaces = applyA2UIOperations(
+      if (this.processorCatalog !== catalog) this.reset();
+
+      const hash = JSON.stringify({ operations, theme });
+      if (hash === this.lastOperationsHash) return;
+
+      // Only retain the model when the previously applied history is unchanged.
+      const prefixHash = JSON.stringify({
+        operations: operations.slice(0, this.appliedOperationsCount),
+        theme,
+      });
+      if (prefixHash !== this.lastOperationsHash) this.reset();
+
+      const processor = this.getProcessor(catalog);
+      applyA2UIOperations(
         processor,
-        operations,
+        operations.slice(this.appliedOperationsCount),
         catalog.id,
         theme,
       );
+      this.lastOperationsHash = hash;
+      this.appliedOperationsCount = operations.length;
       this.revision.update((value) => value + 1);
-      this.surfaces.set(surfaces);
+      this.surfaces.set([...processor.model.surfacesMap.values()]);
       this.errorMessage.set(null);
       this.rendered.emit();
     } catch (error) {
+      // A failed batch may have partially mutated the model; replay on recovery.
+      this.reset();
       const message = error instanceof Error ? error.message : String(error);
       this.errorMessage.set(message);
       this.error.emit({ error, message });

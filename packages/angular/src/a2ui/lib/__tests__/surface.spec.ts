@@ -290,16 +290,17 @@ describe("CopilotA2UISurface", () => {
     });
   });
 
-  it("writes two-way bindings back into the data model", async () => {
+  it("preserves two-way edits when operations are appended", async () => {
     const fixture = setup();
-    const element = await render(fixture, [
-      updateDataModel("default", { query: "" }),
+    const operations = [
+      updateDataModel("default", "", "/query"),
       updateComponents("default", [
         { id: "root", component: "Column", children: ["field", "echo"] },
         { id: "field", component: "Input", value: { path: "/query" } },
         { id: "echo", component: "Text", text: { path: "/query" } },
       ]),
-    ]);
+    ];
+    const element = await render(fixture, operations);
 
     const field = element.querySelector(
       '[data-testid="input"]',
@@ -313,7 +314,92 @@ describe("CopilotA2UISurface", () => {
     expect(element.querySelector('[data-testid="text"]')?.textContent).toBe(
       "typed",
     );
+
+    // Equivalent deserialized history must also count as an unchanged prefix.
+    await render(fixture, [
+      ...JSON.parse(JSON.stringify(operations)),
+      updateDataModel("default", "Fresh", "/title"),
+      updateComponents("other", [
+        { id: "root", component: "Text", text: "Other" },
+      ]),
+    ]);
+    expect(element.querySelector('[data-testid="input"]')).toBe(field);
+    expect(field.value).toBe("typed");
+    expect(
+      element.querySelector('[data-surface-id="default"] [data-testid="text"]')
+        ?.textContent,
+    ).toBe("typed");
+    expect(fixture.componentInstance.errors).toEqual([]);
   });
+
+  it("retains, updates, deletes, and recreates surfaces in appended batches", async () => {
+    const fixture = setup();
+    const operations = ["one", "two", "three"].map((id) =>
+      updateComponents(id, [{ id: "root", component: "Text", text: id }]),
+    );
+    const element = await render(fixture, operations);
+    const untouched = element.querySelector('[data-surface-id="one"]');
+    const appended = [
+      ...operations,
+      updateComponents("two", [
+        { id: "root", component: "Text", text: "Updated" },
+      ]),
+      { deleteSurface: { surfaceId: "three" } },
+    ];
+    await render(fixture, appended);
+    expect(element.querySelector('[data-surface-id="one"]')).toBe(untouched);
+    expect(
+      [...element.querySelectorAll('[data-testid="text"]')].map(
+        (node) => node.textContent,
+      ),
+    ).toEqual(["one", "Updated"]);
+    expect(element.querySelector('[data-surface-id="three"]')).toBeNull();
+
+    await render(fixture, [
+      ...appended,
+      { deleteSurface: { surfaceId: "two" } },
+      updateComponents("two", [
+        { id: "root", component: "Text", text: "Recreated" },
+      ]),
+    ]);
+    expect(
+      [...element.querySelectorAll('[data-testid="text"]')].map(
+        (node) => node.textContent,
+      ),
+    ).toEqual(["one", "Recreated"]);
+    expect(fixture.componentInstance.errors).toEqual([]);
+  });
+
+  it.each([1, 3, 4])(
+    "replays a replacement snapshot of length %i without stale state",
+    async (length) => {
+      const fixture = setup();
+      await render(fixture, [
+        updateDataModel("default", { title: "Stale" }),
+        updateComponents("default", [
+          { id: "root", component: "Column", children: ["old"] },
+          { id: "old", component: "Text", text: "Stale child" },
+        ]),
+        updateComponents("other", [
+          { id: "root", component: "Text", text: "Other" },
+        ]),
+      ]);
+
+      const element = await render(fixture, [
+        updateComponents("default", [
+          { id: "root", component: "Column", children: ["old", "new"] },
+          { id: "new", component: "Text", text: { path: "/title" } },
+        ]),
+        ...Array(length - 1).fill(null),
+      ]);
+      expect(element.querySelector('[data-surface-id="other"]')).toBeNull();
+      expect(element.textContent).not.toContain("Stale");
+      expect(
+        element.querySelector('[data-testid="a2ui-node-placeholder"]'),
+      ).not.toBeNull();
+      expect(fixture.componentInstance.errors).toEqual([]);
+    },
+  );
 
   it("shows loading UI until a surface renders and reports unknown components", async () => {
     const fixture = setup();
@@ -391,16 +477,18 @@ describe("CopilotA2UISurface", () => {
   it("keeps per-input components when a streamed prop arrives", async () => {
     const fixture = setup();
     MetricComponent.created = 0;
-    let element = await render(fixture, [
+    const operations = [
       updateComponents("default", [
         { id: "root", component: "Metric", label: "Revenue" },
       ]),
-    ]);
+    ];
+    let element = await render(fixture, operations);
     expect(element.querySelector('[data-testid="metric"]')?.textContent).toBe(
       "Revenue=",
     );
 
     element = await render(fixture, [
+      ...operations,
       updateComponents("default", [
         { id: "root", component: "Metric", label: "Revenue", value: "$1" },
       ]),

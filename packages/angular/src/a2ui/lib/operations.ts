@@ -146,9 +146,8 @@ export function normalizeA2UIOperations(
 
 /**
  * Applies operations in order and returns the surfaces they address that
- * still exist. Operations arrive as a growing list that is replayed, so a
- * `createSurface` for an existing surface is skipped, and a surface addressed
- * before it is created gets one with `catalogId` and `theme`.
+ * still exist. A `createSurface` for an existing surface is skipped, and a
+ * surface addressed before it is created gets one with `catalogId` and `theme`.
  */
 export function applyA2UIOperations<T extends ComponentApi>(
   processor: MessageProcessor<T>,
