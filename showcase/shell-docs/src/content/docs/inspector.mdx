@@ -100,9 +100,17 @@ Read it or close its preview to quiet the updates already available to you. They
 in What's New for later reading. Reading a different update does not dismiss the highlight.
 
 New updates can show a preview later. Copy edits to an update you already read stay quiet.
-The Inspector remembers your choices on the current host; if cookies are blocked, it
-falls back to storage for the current origin. Updates load once per page and do not poll.
+The Inspector shares recent read and dismissed updates across ports on the current host.
+It keeps the selected update and full history in storage for each origin. Updates load
+once per page and do not poll. If cookies are blocked, read and dismissed updates
+stay on the current origin.
 Production, server rendering, and disabled Inspectors do not fetch notifications.
+
+React, Vue, and Angular set the notification context when they mount Inspector.
+If you mount `<cpk-web-inspector>` yourself, set its `notificationContext`
+property before connecting it to the page. Include `development: true`, your
+`framework`, and the version of that frontend SDK package as `sdkVersion`.
+Without that context, the element leaves notifications off.
 
 The cohort-capable Inspector reads only the versioned notification feed. Older SDK
 releases continue reading the separate legacy `announcements.json` feed. A legacy

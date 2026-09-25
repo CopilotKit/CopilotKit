@@ -14,7 +14,7 @@ afterEach(() => {
   document.cookie = "cpk_inspector_notifications_v1=; Max-Age=0; Path=/";
   document.cookie = "cpk_inspector_announcements=; Max-Age=0; Path=/";
 });
-test("keeps selection, read and suppression separate across reloads", () => {
+test("keeps selection per origin and acknowledgements across ports", () => {
   const state = {
     ...emptyNotificationState(),
     activeId: "d9c32a88-51ae-5b9b-8613-1dc3d413eebd",
@@ -26,8 +26,63 @@ test("keeps selection, read and suppression separate across reloads", () => {
     suppressedIds: ["7288f45f-956f-5e34-ba13-5a375a2f4d78"],
   };
   saveNotificationState(state);
-  localStorage.clear();
   expect(loadNotificationState()).toEqual(state);
+  localStorage.clear();
+  expect(loadNotificationState()).toEqual({
+    ...emptyNotificationState(),
+    readIds: state.readIds,
+    suppressedIds: state.suppressedIds,
+  });
+  const cookie = decodeURIComponent(document.cookie.split("=")[1] ?? "");
+  expect(cookie).not.toContain("eligibleIds");
+  expect(cookie).not.toContain("activeId");
+});
+test("merges host acknowledgements with origin state", () => {
+  const originRead = "2f13d1be-51d0-5b3d-b9a1-3fcc6b088122";
+  const hostRead = "7288f45f-956f-5e34-ba13-5a375a2f4d78";
+  const selected = "d9c32a88-51ae-5b9b-8613-1dc3d413eebd";
+  localStorage.setItem(
+    "cpk:inspector:notifications:v1",
+    JSON.stringify({
+      ...emptyNotificationState(),
+      eligibleIds: [selected],
+      activeId: selected,
+      readIds: [originRead],
+    }),
+  );
+  document.cookie = `cpk_inspector_notifications_v1=${encodeURIComponent(
+    JSON.stringify({
+      schemaVersion: 1,
+      readIds: [hostRead],
+      suppressedIds: [hostRead],
+    }),
+  )}; Path=/`;
+  expect(loadNotificationState()).toEqual({
+    ...emptyNotificationState(),
+    eligibleIds: [selected],
+    activeId: selected,
+    readIds: [originRead, hostRead],
+    suppressedIds: [hostRead],
+  });
+});
+test("reads acknowledgements from an older full-state cookie", () => {
+  const readId = "2f13d1be-51d0-5b3d-b9a1-3fcc6b088122";
+  const foreignSelection = "d9c32a88-51ae-5b9b-8613-1dc3d413eebd";
+  document.cookie = `cpk_inspector_notifications_v1=${encodeURIComponent(
+    JSON.stringify({
+      ...emptyNotificationState(),
+      activeId: foreignSelection,
+      eligibleIds: [foreignSelection],
+      readIds: [readId],
+    }),
+  )}; Path=/`;
+  expect(loadNotificationState()).toEqual({
+    ...emptyNotificationState(),
+    readIds: [readId],
+  });
+  saveNotificationState(emptyNotificationState());
+  expect(loadNotificationState().readIds).toEqual([readId]);
+  expect(decodeURIComponent(document.cookie)).not.toContain("eligibleIds");
 });
 test("uses localStorage when cookies are unavailable, and tolerates both failing", () => {
   vi.spyOn(document, "cookie", "get").mockImplementation(() => {
@@ -51,7 +106,7 @@ test("uses localStorage when cookies are unavailable, and tolerates both failing
   expect(() => saveNotificationState(state)).not.toThrow();
   expect(loadNotificationState()).toEqual(emptyNotificationState());
 });
-test("oversized history falls back without leaving a stale cookie", () => {
+test("oversized history keeps a bounded host cookie and full origin history", () => {
   saveNotificationState(emptyNotificationState());
   const state = {
     ...emptyNotificationState(),
@@ -62,7 +117,10 @@ test("oversized history falls back without leaving a stale cookie", () => {
   };
   saveNotificationState(state);
   expect(loadNotificationState()).toEqual(state);
-  expect(document.cookie).not.toContain("cpk_inspector_notifications_v1=");
+  const cookie = decodeURIComponent(document.cookie.split("=")[1] ?? "");
+  expect(cookie).toContain(state.readIds.at(-1));
+  expect(cookie).not.toContain(state.readIds[0]);
+  expect(encodeURIComponent(cookie).length).toBeLessThan(1024);
 });
 
 test("migrates legacy pulse timestamps once without conflating new IDs with equal dates", () => {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import packageInfo from "../../../package.json";
+import { version as sdkVersion } from "../../../package.json";
 defineOptions({
   inheritAttrs: false,
 });
@@ -47,7 +47,7 @@ onMounted(() => {
         mod.configureWebInspectorElement(element, core, {
           development: process.env.NODE_ENV === "development",
           framework: "vue",
-          sdkVersion: packageInfo.version,
+          sdkVersion,
         });
       inspectorTag.value = mod.WEB_INSPECTOR_TAG;
     })

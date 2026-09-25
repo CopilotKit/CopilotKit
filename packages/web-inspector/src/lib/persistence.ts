@@ -421,23 +421,52 @@ function generateUuidV4(): string {
 
 const NOTIFICATION_COOKIE = "cpk_inspector_notifications_v1";
 const NOTIFICATION_STORAGE = "cpk:inspector:notifications:v1";
+const NOTIFICATION_COOKIE_MAX_LENGTH = 1024;
 const LEGACY_ANNOUNCEMENT_ID = "16f7d877-49e3-41c3-9ca6-f951d3d8ba80";
 
-/** Load host-scoped delivery state, with per-origin fallback when cookies are blocked. */
+/** Read host-wide acknowledgements from either the new compact cookie or an old full-state cookie. */
+function readNotificationAcknowledgements(): Pick<
+  NotificationState,
+  "readIds" | "suppressedIds"
+> {
+  try {
+    const raw = readCookie(NOTIFICATION_COOKIE);
+    if (raw) {
+      const value: unknown = JSON.parse(raw);
+      if (value && typeof value === "object") {
+        const state = parseNotificationState({
+          ...emptyNotificationState(),
+          ...value,
+        });
+        if (state)
+          return { readIds: state.readIds, suppressedIds: state.suppressedIds };
+      }
+    }
+  } catch {
+    // A blocked or malformed cookie must not disrupt the Inspector.
+  }
+  return { readIds: [], suppressedIds: [] };
+}
+
+/** Load per-origin selection and merge host-wide read and suppressed notices. */
 export function loadNotificationState(): NotificationState {
-  for (const raw of [
-    readCookie(NOTIFICATION_COOKIE),
-    readLocalStorageItem(NOTIFICATION_STORAGE),
-  ]) {
-    if (!raw) continue;
+  const raw = readLocalStorageItem(NOTIFICATION_STORAGE);
+  let localState = emptyNotificationState();
+  if (raw) {
     try {
-      const state = parseNotificationState(JSON.parse(raw));
-      if (state) return state;
+      localState = parseNotificationState(JSON.parse(raw)) ?? localState;
     } catch {
-      /* Try the mirror. */
+      // Keep the host acknowledgements when local storage is malformed.
     }
   }
-  return emptyNotificationState();
+  const host = readNotificationAcknowledgements();
+  return {
+    ...localState,
+    readIds: [...new Set([...localState.readIds, ...host.readIds])],
+    suppressedIds: [
+      ...new Set([...localState.suppressedIds, ...host.suppressedIds]),
+    ],
+  };
 }
 
 /** Preserve a legacy acknowledgement only for the known announcement entering the new feed. */
@@ -476,15 +505,30 @@ export function migrateAnnouncementReadState(
   return state;
 }
 
-/** Save without dropping acknowledgement history or letting storage errors escape. */
+/** Save full state per origin and a bounded host-wide acknowledgement cookie. */
 export function saveNotificationState(state: NotificationState): void {
-  const raw = JSON.stringify(state);
-  writeLocalStorageItem(NOTIFICATION_STORAGE, raw);
-  // Leave room for cookie attributes. Oversized history degrades to localStorage,
-  // rather than keeping a stale host cookie that would re-arm read notices.
-  if (encodeURIComponent(raw).length < 3500)
-    writeCookie(NOTIFICATION_COOKIE, raw, "Max-Age=31536000");
-  else writeCookie(NOTIFICATION_COOKIE, "", "Max-Age=0");
+  const host = readNotificationAcknowledgements();
+  const merged = {
+    ...state,
+    readIds: [...new Set([...state.readIds, ...host.readIds])],
+    suppressedIds: [...new Set([...state.suppressedIds, ...host.suppressedIds])],
+  };
+  writeLocalStorageItem(NOTIFICATION_STORAGE, JSON.stringify(merged));
+  const cookieState = {
+    schemaVersion: 1,
+    readIds: [...merged.readIds],
+    suppressedIds: [...merged.suppressedIds],
+  };
+  let raw = JSON.stringify(cookieState);
+  // Limit bytes sent with every localhost request. Full history stays per
+  // origin when the host cookie keeps only the newest acknowledgements.
+  while (encodeURIComponent(raw).length >= NOTIFICATION_COOKIE_MAX_LENGTH) {
+    if (cookieState.readIds.length >= cookieState.suppressedIds.length)
+      cookieState.readIds.shift();
+    else cookieState.suppressedIds.shift();
+    raw = JSON.stringify(cookieState);
+  }
+  writeCookie(NOTIFICATION_COOKIE, raw, "Max-Age=31536000");
 }
 
 /** ID-based pulse state is separate from the legacy announcement timestamp. */
