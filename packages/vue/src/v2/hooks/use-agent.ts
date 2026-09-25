@@ -393,7 +393,7 @@ export function useAgent(props: UseAgentProps = {}) {
     ],
     ([currentAgent]) => {
       if (ɵisHttpAgent(currentAgent)) {
-        currentAgent.headers = { ...copilotkit.value.headers };
+        copilotkit.value.applyHeadersToAgent(currentAgent);
       }
     },
     { immediate: true },
