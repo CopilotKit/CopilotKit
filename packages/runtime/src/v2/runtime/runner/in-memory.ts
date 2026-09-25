@@ -5,8 +5,7 @@ import type {
 } from "./agent-runner";
 import { AgentRunner } from "./agent-runner";
 import type { AgentRunnerStopRequest } from "./agent-runner";
-import type { Observable } from "rxjs";
-import { ReplaySubject } from "rxjs";
+import { Observable, ReplaySubject } from "rxjs";
 import type {
   AbstractAgent,
   BaseEvent,
@@ -861,7 +860,33 @@ export class InMemoryAgentRunner extends AgentRunner {
     const connectionSubject = new ReplaySubject<BaseEvent>(Infinity);
 
     if (!store) {
-      // No store means no events
+      // Fall back to the agent's public connect entry point when available.
+      // `connectAgent()` resolves empty for agents without a `connect()`
+      // override (today: every @ag-ui/client agent, incl. HttpAgent — see
+      // ag-ui-protocol/ag-ui#2105). Upstream errors error the stream.
+      // Fallback events are intentionally not written back to `sharedStore`:
+      // a later connect re-fetches upstream and a later run starts cold.
+      // Emit straight to the subscriber (no replay buffer) and detach on
+      // teardown, so a client disconnect stops the upstream connect.
+      const agent = request.agent;
+      if (agent) {
+        return new Observable<BaseEvent>((subscriber) => {
+          void agent
+            .connectAgent(
+              {},
+              { onEvent: ({ event }) => subscriber.next(event) },
+            )
+            .then(
+              () => subscriber.complete(),
+              (error) => subscriber.error(error),
+            );
+          return () => {
+            void agent.detachActiveRun();
+          };
+        });
+      }
+
+      // No store and no agent — return empty
       connectionSubject.complete();
       return connectionSubject.asObservable();
     }
