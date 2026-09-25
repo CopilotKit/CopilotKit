@@ -1,5 +1,13 @@
 import React, { useEffect } from "react";
 
+/** A failed entitlement lookup is not evidence that a feature lacks a license. */
+export function shouldShowFeatureLicenseWarning(
+  licensed: boolean,
+  status: string | null,
+): boolean {
+  return !licensed && status !== "unknown";
+}
+
 // Total reserved vertical space for the fixed license banner: banner height
 // (~36px) + bottom offset (8px) + visual gap above the chat input (~8px).
 const LICENSE_BANNER_OFFSET_PX = 52;

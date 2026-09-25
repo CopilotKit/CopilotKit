@@ -1,6 +1,9 @@
 import React, { useContext, useEffect, useMemo } from "react";
 import { useLicenseContext } from "../../providers/CopilotKitProvider";
-import { InlineFeatureWarning } from "../license-warning-banner";
+import {
+  InlineFeatureWarning,
+  shouldShowFeatureLicenseWarning,
+} from "../license-warning-banner";
 
 import type { CopilotChatProps } from "./CopilotChat";
 import { CopilotChat } from "./CopilotChat";
@@ -104,16 +107,20 @@ export function CopilotPopup({
   clickOutsideToClose,
   ...chatProps
 }: CopilotPopupProps) {
-  const { checkFeature } = useLicenseContext();
+  const { checkFeature, status } = useLicenseContext();
   const isPopupLicensed = checkFeature("popup");
+  const showLicenseWarning = shouldShowFeatureLicenseWarning(
+    isPopupLicensed,
+    status,
+  );
 
   useEffect(() => {
-    if (!isPopupLicensed) {
+    if (showLicenseWarning) {
       console.warn(
         '[CopilotKit] Warning: "popup" feature is not licensed. Visit copilotkit.ai/pricing',
       );
     }
-  }, [isPopupLicensed]);
+  }, [showLicenseWarning]);
 
   const shellProps = useMemo<PopupShellProps>(
     () => ({
@@ -129,7 +136,7 @@ export function CopilotPopup({
 
   return (
     <>
-      {!isPopupLicensed && <InlineFeatureWarning featureName="Popup" />}
+      {showLicenseWarning && <InlineFeatureWarning featureName="Popup" />}
       <PopupShellPropsContext.Provider value={shellProps}>
         <ModalOpenControlProvider open={open} onOpenChange={onOpenChange}>
           <CopilotChat

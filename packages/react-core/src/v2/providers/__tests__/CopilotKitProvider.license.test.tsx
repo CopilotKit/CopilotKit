@@ -3,6 +3,7 @@ import { render, screen, act, waitFor } from "@testing-library/react";
 import React from "react";
 import { CopilotKitProvider } from "../CopilotKitProvider";
 import { useLicenseContext } from "../../context";
+import { CopilotPopup } from "../../components/chat/CopilotPopup";
 
 /**
  * These tests verify that the license banner is driven by the server-reported
@@ -15,7 +16,7 @@ function mockFetchWithLicenseStatus(licenseStatus?: string) {
     status: 200,
     json: async () => ({
       version: "1.0.0",
-      agents: {},
+      agents: { default: { description: "Default agent" } },
       audioFileTranscriptionEnabled: false,
       mode: "intelligence",
       licenseStatus,
@@ -153,6 +154,74 @@ describe("CopilotKitProvider license context (server-driven)", () => {
     const probe = await probeWithStatus(undefined);
     await waitFor(() => {
       expect(probe.textContent).toBe("status:null chat:true");
+    });
+  });
+});
+
+describe("chat license warnings", () => {
+  function LicenseProbe() {
+    const { status, checkFeature } = useLicenseContext();
+    return (
+      <div data-testid="license-probe">
+        {`${status ?? "null"}:${checkFeature("chat")}`}
+      </div>
+    );
+  }
+
+  it("does not call an unavailable entitlement lookup an unlicensed popup", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        version: "1.0.0",
+        agents: { default: { description: "Default agent" } },
+        mode: "intelligence",
+        licenseStatus: "unknown",
+        runtimeEntitlements: {
+          status: "unavailable",
+          error: {
+            code: "runtime_entitlements_unavailable",
+            message: "Runtime entitlement lookup failed",
+            retryable: false,
+          },
+        },
+      }),
+    }) as any;
+
+    render(
+      <CopilotKitProvider runtimeUrl="/api">
+        <LicenseProbe />
+        <CopilotPopup agentId="default" defaultOpen />
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("license-probe").textContent).toBe(
+        "unknown:false",
+      );
+      expect(screen.getByTestId("copilot-popup")).toBeTruthy();
+    });
+    expect(
+      screen.queryByText(/feature requires a CopilotKit license/),
+    ).toBeNull();
+  });
+
+  it("still warns when the runtime reports a definitive invalid license", async () => {
+    globalThis.fetch = mockFetchWithLicenseStatus("invalid") as any;
+    render(
+      <CopilotKitProvider runtimeUrl="/api">
+        <LicenseProbe />
+        <CopilotPopup agentId="default" defaultOpen />
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("license-probe").textContent).toBe(
+        "invalid:false",
+      );
+      expect(
+        screen.getAllByText(/feature requires a CopilotKit license/),
+      ).toHaveLength(2);
     });
   });
 });

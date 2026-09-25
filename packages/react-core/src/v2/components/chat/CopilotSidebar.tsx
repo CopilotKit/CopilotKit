@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo } from "react";
 import { useLicenseContext } from "../../providers/CopilotKitProvider";
-import { InlineFeatureWarning } from "../license-warning-banner";
+import {
+  InlineFeatureWarning,
+  shouldShowFeatureLicenseWarning,
+} from "../license-warning-banner";
 
 import type { CopilotChatProps } from "./CopilotChat";
 import { CopilotChat } from "./CopilotChat";
@@ -41,16 +44,20 @@ export function CopilotSidebar({
   position,
   ...chatProps
 }: CopilotSidebarProps) {
-  const { checkFeature } = useLicenseContext();
+  const { checkFeature, status } = useLicenseContext();
   const isSidebarLicensed = checkFeature("sidebar");
+  const showLicenseWarning = shouldShowFeatureLicenseWarning(
+    isSidebarLicensed,
+    status,
+  );
 
   useEffect(() => {
-    if (!isSidebarLicensed) {
+    if (showLicenseWarning) {
       console.warn(
         '[CopilotKit] Warning: "sidebar" feature is not licensed. Visit copilotkit.ai/pricing',
       );
     }
-  }, [isSidebarLicensed]);
+  }, [showLicenseWarning]);
 
   const SidebarViewOverride = useMemo(() => {
     const Component: React.FC<CopilotChatViewProps> = (viewProps) => {
@@ -80,7 +87,7 @@ export function CopilotSidebar({
 
   return (
     <>
-      {!isSidebarLicensed && <InlineFeatureWarning featureName="Sidebar" />}
+      {showLicenseWarning && <InlineFeatureWarning featureName="Sidebar" />}
       {/*
         `open` / `onOpenChange` travel by context, not through
         SidebarViewOverride. The override is memoized on its own props, so a
