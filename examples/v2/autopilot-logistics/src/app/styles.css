@@ -34,7 +34,7 @@ a:hover {
 }
 .app-shell {
   display: grid;
-  grid-template-columns: 220px minmax(500px, 1fr) 390px;
+  grid-template-columns: 220px minmax(0, 1fr);
   min-height: 100vh;
 }
 .navigation {
@@ -114,6 +114,7 @@ a:hover {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 30px;
+  padding-right: 72px;
 }
 .page-heading small {
   color: #549298;
@@ -222,31 +223,33 @@ tr:last-child td {
   color: #4e66a1;
 }
 .assistant-panel {
-  border-left: 1px solid #e1e9eb;
-  background: #fff;
-  height: 100vh;
-  position: sticky;
-  top: 0;
-  display: flex;
-  flex-direction: column;
+  display: contents;
 }
-.assistant-heading {
-  padding: 22px 22px 15px;
+.assistant-popup-header {
+  background: #fff;
   border-bottom: 1px solid #edf1f1;
-  display: grid;
-  gap: 2px;
+  flex: none;
+}
+.assistant-popup-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 56px;
+  padding: 10px 16px 0;
   font-weight: 750;
 }
-.assistant-heading small {
-  font-size: 11px;
-  color: #8b9ca0;
-  font-weight: 500;
+.assistant-popup-title [data-testid="copilot-header-title"] {
+  text-align: center;
+}
+@media (max-width: 767px) {
+  .assistant-popup-title {
+    padding-right: 76px;
+  }
 }
 .assistant-settings {
   display: flex;
   gap: 10px;
-  padding: 10px 22px;
-  border-bottom: 1px solid #edf1f1;
+  padding: 10px 16px 14px;
 }
 .assistant-settings label {
   display: grid;
@@ -268,7 +271,6 @@ tr:last-child td {
   font-size: 12px;
 }
 .assistant-chat {
-  flex: 1;
   min-height: 0;
 }
 .sign-in {
@@ -466,12 +468,7 @@ button.button {
 }
 @media (max-width: 1100px) {
   .app-shell {
-    grid-template-columns: 170px minmax(350px, 1fr);
-  }
-  .assistant-panel {
-    grid-column: 2;
-    height: 600px;
-    position: static;
+    grid-template-columns: 170px minmax(0, 1fr);
   }
   .workspace {
     padding: 30px;
@@ -494,11 +491,9 @@ button.button {
   .stats {
     grid-template-columns: 1fr;
   }
-  .assistant-panel {
-    height: 600px;
-  }
   .page-heading {
     align-items: start;
     gap: 15px;
+    padding-right: 0;
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  CopilotChat,
+  CopilotPopup,
   CopilotKitProvider,
   useAgent,
   useCopilotKit,
@@ -567,55 +567,74 @@ export function AssistantShell({
         <div className="workspace">
           <main>{children}</main>
         </div>
-        <aside className="assistant-panel" data-copilot-private>
-          <div className="assistant-heading">
-            <span>Assistant</span>
-            <small>Northstar workspace</small>
-          </div>
-          <div className="assistant-settings">
-            <label>
-              Agent
-              <select
-                aria-label="Assistant agent"
-                value={selectedAgent}
-                onChange={(event) =>
-                  setSelectedAgent(
-                    event.target.value as "logistics" | "operations",
-                  )
-                }
-              >
-                <option value="logistics">Logistics</option>
-                <option value="operations">Operations</option>
-              </select>
-            </label>
-            <label>
-              Autopilot
-              <select
-                aria-label="Autopilot scope"
-                value={autopilotMode}
-                onChange={(event) =>
-                  setAutopilotMode(
-                    event.target.value as "off" | "logistics" | "all",
-                  )
-                }
-              >
-                <option value="off">Off</option>
-                <option value="logistics">Logistics only</option>
-                <option value="all">All agents</option>
-              </select>
-            </label>
-          </div>
+        <div className="assistant-panel" data-copilot-private>
           {restoredThread?.key === activeThreadKey && (
             <>
               <RememberThread
                 agentId={selectedAgent}
                 storageKey={activeThreadKey}
               />
-              <CopilotChat
+              <CopilotPopup
                 key={selectedAgent}
                 agentId={selectedAgent}
                 threadId={restoredThread.id ?? undefined}
                 className="assistant-chat"
+                defaultOpen
+                width={480}
+                height="min(600px, calc(100dvh - 12rem))"
+                header={{
+                  title: "Assistant",
+                  children: ({ titleContent, closeButton, drawerLauncher }) => (
+                    <header
+                      className="assistant-popup-header"
+                      data-testid="copilot-modal-header"
+                    >
+                      <div className="assistant-popup-title">
+                        {drawerLauncher}
+                        {titleContent}
+                        {closeButton}
+                      </div>
+                      <div className="assistant-settings">
+                        <label>
+                          Agent
+                          <select
+                            aria-label="Assistant agent"
+                            value={selectedAgent}
+                            onChange={(event) =>
+                              setSelectedAgent(
+                                event.target.value as
+                                  | "logistics"
+                                  | "operations",
+                              )
+                            }
+                          >
+                            <option value="logistics">Logistics</option>
+                            <option value="operations">Operations</option>
+                          </select>
+                        </label>
+                        <label>
+                          Autopilot
+                          <select
+                            aria-label="Autopilot scope"
+                            value={autopilotMode}
+                            onChange={(event) =>
+                              setAutopilotMode(
+                                event.target.value as
+                                  | "off"
+                                  | "logistics"
+                                  | "all",
+                              )
+                            }
+                          >
+                            <option value="off">Off</option>
+                            <option value="logistics">Logistics only</option>
+                            <option value="all">All agents</option>
+                          </select>
+                        </label>
+                      </div>
+                    </header>
+                  ),
+                }}
                 approvalController={approvalController}
                 clarificationController={clarificationController}
                 showAutopilotActivity
@@ -645,7 +664,7 @@ export function AssistantShell({
               />
             </>
           )}
-        </aside>
+        </div>
       </div>
     </CopilotKitProvider>
   );
