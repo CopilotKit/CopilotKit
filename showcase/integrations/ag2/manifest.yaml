@@ -71,7 +71,7 @@ features:
 agent_config_pattern: shared-state
 
 a2ui_pattern: schema-loading
-auth_pattern: ag2-context-variables
+auth_pattern: ag2-dependencies
 demos:
   - id: cli-start
     name: CLI Start Command
