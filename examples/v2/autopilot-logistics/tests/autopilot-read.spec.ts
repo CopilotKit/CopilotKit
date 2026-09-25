@@ -95,7 +95,18 @@ test("live Autopilot page read filters private regions and derived labels", asyn
     controls: Array<{ name: string }>;
   };
   expect(snapshot.coverage.maxCharacters).toBe(12_000);
+  await expect(page.getByTestId("copilot-autopilot-activity")).toContainText(
+    "autopilot_readPage",
+  );
   await page.getByRole("button", { name: "Web Inspector" }).click();
+  await page.getByRole("button", { name: "Frontend Tools" }).click();
+  const trace = page
+    .locator("cpk-web-inspector")
+    .getByRole("region", { name: "Autopilot activity" });
+  await expect(trace).toContainText("autopilot_readPage");
+  await expect(trace).toContainText("reads left");
+  await trace.getByText("Filtered result").first().click();
+  await expect(trace).toContainText("Dashboard");
   const inspectorText = await page
     .locator("cpk-web-inspector")
     .evaluate((host) => {

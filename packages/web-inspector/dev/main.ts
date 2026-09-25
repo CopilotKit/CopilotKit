@@ -1,6 +1,7 @@
 import {
   CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
+  recordAutopilotToolTrace,
 } from "@copilotkit/core";
 import { WEB_INSPECTOR_TAG } from "@copilotkit/web-inspector";
 import type { WebInspectorElement } from "@copilotkit/web-inspector";
@@ -677,6 +678,22 @@ async function boot(): Promise<void> {
     actionStatus.textContent = "";
   } else {
     actionStatus.textContent = "";
+  }
+  if (query.get("autopilot-trace") === "1") {
+    recordAutopilotToolTrace({
+      id: "workbench-read",
+      agentId: "Logistics",
+      threadId: "workbench-thread",
+      toolName: "readVisiblePage",
+      phase: "finished",
+      result: JSON.stringify({
+        status: "completed",
+        headings: ["Orders"],
+        links: [{ ref: "link-1", label: "New order" }],
+        remainingReadBudget: 19,
+      }),
+      elapsedMs: 12,
+    });
   }
   document.body.dataset.labReady = "true";
   document.documentElement.dataset.ready = "true";

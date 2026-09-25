@@ -1,8 +1,12 @@
 "use client";
 
 import type { BrowserPageMap } from "@copilotkit/core";
-import { BrowserFormBatch } from "@copilotkit/core";
-import { useCopilotKit, useFrontendTool } from "@copilotkit/react-core/v2";
+import { BrowserFormBatch, BrowserTargetHighlighter } from "@copilotkit/core";
+import {
+  CopilotToolApprovalCard,
+  useCopilotKit,
+  useFrontendTool,
+} from "@copilotkit/react-core/v2";
 import { useMemo } from "react";
 import { z } from "zod";
 import {
@@ -56,6 +60,7 @@ export function AutopilotFormTool({
 }) {
   const { copilotkit } = useCopilotKit();
   const batch = useMemo(() => new BrowserFormBatch(pageMap), [pageMap]);
+  const highlighter = useMemo(() => new BrowserTargetHighlighter(), []);
   useFrontendTool({
     name: "autopilot_submitForm",
     autopilot: true,
@@ -73,7 +78,16 @@ export function AutopilotFormTool({
         .max(12),
       submitRef: z.string().min(1).max(30),
     }),
+    render: ({ toolCallId, status, result }) => (
+      <CopilotToolApprovalCard
+        toolCallId={toolCallId}
+        status={status}
+        result={result}
+        controller={approvalController}
+      />
+    ),
     handler: async ({ changes, submitRef }, context) => {
+      let clearHighlight = () => {};
       let operationId: string | undefined;
       let dispatched = false;
       try {
@@ -91,6 +105,7 @@ export function AutopilotFormTool({
         if (!context.agent?.agentId || !context.agent.threadId)
           throw new Error("An active agent thread is required");
         const plan = batch.prepare(changes, submitRef);
+        clearHighlight = highlighter.highlight(plan.form);
         const target = {
           userId: user.id,
           organizationId: user.organizationId,
@@ -182,6 +197,8 @@ export function AutopilotFormTool({
             description: review,
             agentId: context.agent.agentId,
             threadId: context.agent.threadId,
+            presentation: "tool",
+            toolCallId: context.toolCall.id,
           },
           context.signal,
         );
@@ -255,6 +272,8 @@ export function AutopilotFormTool({
           status: "failed",
           reason: error instanceof Error ? error.message : "Form action failed",
         };
+      } finally {
+        clearHighlight();
       }
     },
   });

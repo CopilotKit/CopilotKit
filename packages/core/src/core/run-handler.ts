@@ -17,6 +17,7 @@ import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import { isForwardedToClientPlaceholder } from "./tool-result-content";
 import { createToolSchema } from "./tool-schema";
 import { WebMCPRegistry } from "./webmcp";
+import { recordAutopilotToolTrace } from "../autopilot/trace";
 
 /**
  * Live approvals cancelled by stopping their own run, keyed by the handler's
@@ -1074,6 +1075,7 @@ export class RunHandler {
     signal?: AbortSignal;
     discardOnAbort?: boolean;
   }): Promise<ExecuteToolHandlerResult> {
+    const startedAt = Date.now();
     let toolCallResult = "";
     let errorMessage: string | undefined;
     let isArgumentError = false;
@@ -1127,6 +1129,18 @@ export class RunHandler {
         }),
       "Subscriber onToolExecutionStart error:",
     );
+
+    const isAutopilot =
+      tool.autopilot || isAutopilotToolName(toolCall.function.name);
+    if (isAutopilot)
+      recordAutopilotToolTrace({
+        id: toolCall.id,
+        agentId,
+        threadId: agent.threadId,
+        toolName: toolCall.function.name,
+        phase: "started",
+        args: parsedArgs,
+      });
 
     if (!errorMessage) {
       try {
@@ -1182,6 +1196,19 @@ export class RunHandler {
     if (errorMessage) {
       toolCallResult = `Error: ${errorMessage}`;
     }
+
+    if (isAutopilot)
+      recordAutopilotToolTrace({
+        id: toolCall.id,
+        agentId,
+        threadId: agent.threadId,
+        toolName: toolCall.function.name,
+        phase: "finished",
+        args: parsedArgs,
+        result: errorMessage ? undefined : toolCallResult,
+        error: errorMessage,
+        elapsedMs: Date.now() - startedAt,
+      });
 
     await this._internal.notifySubscribers(
       (subscriber) =>

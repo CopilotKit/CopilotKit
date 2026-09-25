@@ -44,6 +44,7 @@ import { CopilotChatApproval } from "./CopilotChatApproval";
 import { CopilotChatNotice } from "./CopilotChatNotice";
 import { useCopilotApproval } from "../../hooks/use-copilot-approval";
 import type { CopilotApprovalStore } from "../../hooks/use-copilot-approval";
+import { CopilotChatAutopilotActivity } from "./CopilotChatAutopilotActivity";
 
 // Vertical gap between the scroll-to-bottom button and the input container.
 const SCROLL_BUTTON_OFFSET = 16;
@@ -67,6 +68,7 @@ export type CopilotChatViewProps = WithSlots<
     suggestionView: typeof CopilotChatSuggestionView;
     approval: typeof CopilotChatApproval;
     notice: typeof CopilotChatNotice;
+    autopilotActivity: typeof CopilotChatAutopilotActivity;
   },
   {
     messages?: Message[];
@@ -81,6 +83,8 @@ export type CopilotChatViewProps = WithSlots<
     approvalThreadId?: string;
     /** Application status shown above the chat input, independent of approval. */
     statusNotice?: { message: string; onDismiss?: () => void };
+    /** Show the bounded local Autopilot action timeline in the chat. */
+    showAutopilotActivity?: boolean;
     suggestionLoadingIndexes?: ReadonlyArray<number>;
     onSelectSuggestion?: (suggestion: Suggestion, index: number) => void;
     welcomeScreen?: SlotValue<React.FC<WelcomeScreenProps>> | boolean;
@@ -158,10 +162,12 @@ export function CopilotChatView({
   suggestionView,
   approval,
   notice,
+  autopilotActivity,
   approvalController,
   approvalAgentId,
   approvalThreadId,
   statusNotice,
+  showAutopilotActivity = false,
   welcomeScreen,
   messages = [],
   autoScroll = true,
@@ -297,13 +303,14 @@ export function CopilotChatView({
   } as CopilotChatInputProps);
   const BoundApproval =
     pendingApproval &&
+    pendingApproval.request.presentation !== "tool" &&
     (!approvalAgentId || pendingApproval.request.agentId === approvalAgentId) &&
     (!approvalThreadId || pendingApproval.request.threadId === approvalThreadId)
       ? renderSlot(approval, CopilotChatApproval, {
           request: pendingApproval.request,
-          onApprove: (event: React.MouseEvent<HTMLButtonElement>) =>
+          onApprove: (event: React.SyntheticEvent<HTMLElement>) =>
             pendingApproval.respond(event, true),
-          onReject: (event: React.MouseEvent<HTMLButtonElement>) =>
+          onReject: (event: React.SyntheticEvent<HTMLElement>) =>
             pendingApproval.respond(event, false),
         })
       : null;
@@ -313,6 +320,12 @@ export function CopilotChatView({
         onDismiss: statusNotice.onDismiss
           ? () => statusNotice.onDismiss?.()
           : undefined,
+      })
+    : null;
+  const BoundAutopilotActivity = showAutopilotActivity
+    ? renderSlot(autopilotActivity, CopilotChatAutopilotActivity, {
+        agentId: approvalAgentId,
+        threadId: approvalThreadId,
       })
     : null;
 
@@ -347,6 +360,7 @@ export function CopilotChatView({
       >
         <div className="cpk:max-w-3xl cpk:mx-auto">
           {BoundMessageView}
+          {BoundAutopilotActivity}
           {hasSuggestions ? (
             <div className="cpk:pl-0 cpk:pr-4 cpk:@3xl:px-0 cpk:mt-4">
               {BoundSuggestionView}
@@ -451,6 +465,7 @@ export function CopilotChatView({
           suggestionView: BoundSuggestionView ?? <></>,
           approval: BoundApproval ?? <></>,
           notice: BoundNotice ?? <></>,
+          autopilotActivity: BoundAutopilotActivity ?? <></>,
         })}
       </div>
     );
@@ -478,6 +493,12 @@ export function CopilotChatView({
         data-testid="copilot-input-overlay"
         className="cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20 cpk:pointer-events-none"
       >
+        <div
+          data-copilot-tool-approval-host
+          data-agent-id={approvalAgentId}
+          data-thread-id={approvalThreadId}
+          className="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:pointer-events-auto"
+        />
         {BoundNotice && (
           <div className="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:pointer-events-auto">
             {BoundNotice}

@@ -11,6 +11,7 @@ import {
   BrowserControlActivator,
   BrowserNavigator,
   BrowserPageMap,
+  BrowserTargetHighlighter,
 } from "@copilotkit/core";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -84,6 +85,7 @@ function BrowserProbe({ user }: { user: SessionUser }) {
   const router = useRouter();
   const { copilotkit } = useCopilotKit();
   const pageMap = useMemo(() => new BrowserPageMap(), []);
+  const highlighter = useMemo(() => new BrowserTargetHighlighter(), []);
   const activator = useMemo(
     () => new BrowserControlActivator(pageMap),
     [pageMap],
@@ -245,6 +247,7 @@ function BrowserProbe({ user }: { user: SessionUser }) {
       "Activate a discovered app button using its current reference. Calling this tool opens the app's review UI when approval is needed; do not ask for a separate chat confirmation. The app owns the effect, and only the human decides in that UI. Do not claim success unless the returned result confirms it.",
     parameters: z.object({ ref: z.string().min(1).max(30) }),
     handler: async ({ ref }, context) => {
+      let clearHighlight = () => {};
       try {
         const budgetDecision = await consumeAutopilotBudget(
           user,
@@ -260,6 +263,7 @@ function BrowserProbe({ user }: { user: SessionUser }) {
         if (!context.agent?.agentId || !context.agent.threadId)
           throw new Error("An active agent thread is required");
         const plan = activator.prepare(ref);
+        clearHighlight = highlighter.highlight(plan.element);
         const target = {
           userId: user.id,
           organizationId: user.organizationId,
@@ -344,6 +348,8 @@ function BrowserProbe({ user }: { user: SessionUser }) {
               ? error.message
               : "Control activation failed",
         };
+      } finally {
+        clearHighlight();
       }
     },
   });
@@ -512,6 +518,7 @@ export function AssistantShell({
                 threadId={restoredThread.id ?? undefined}
                 className="assistant-chat"
                 approvalController={approvalController}
+                showAutopilotActivity
                 statusNotice={
                   visibleUnsettledEffects.length
                     ? {

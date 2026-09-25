@@ -42,6 +42,7 @@ test("live agent cancels only after CopilotKit chat approval", async ({
   const approval = (async () => {
     const card = page.getByTestId("copilot-approval");
     await expect(card).toBeVisible({ timeout: 100_000 });
+    await expect(page.locator("button[data-copilot-highlight]")).toHaveCount(1);
     confirmation = (await card.textContent()) ?? "";
     approvalBeforeStatus = status();
     await page.screenshot({ path: resolve(evidenceDir, "approval-chat.png") });
@@ -100,6 +101,7 @@ test("live agent cancels only after CopilotKit chat approval", async ({
   expect(confirmation).toContain(reference);
   expect(approvalBeforeStatus).toEqual({ status: "booked", version: 1 });
   expect(status()).toEqual({ status: "cancelled", version: 2 });
+  await expect(page.locator("[data-copilot-highlight]")).toHaveCount(0);
   await expect(page.getByTestId("copilot-status-notice")).toHaveCount(0);
   await page.screenshot({
     path: resolve(evidenceDir, "cancelled-order.png"),

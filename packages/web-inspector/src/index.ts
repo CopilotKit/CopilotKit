@@ -26,6 +26,8 @@ import {
   ɵselectMemoriesError,
   ɵselectMemoriesAvailable,
   ɵselectMemoriesRealtimeStatus,
+  getAutopilotTrace,
+  subscribeAutopilotTrace,
 } from "@copilotkit/core";
 import type {
   CopilotKitCoreSubscriber,
@@ -6568,6 +6570,7 @@ export class WebInspectorElement extends LitElement {
   private _core: CopilotKitCore | null = null;
   private coreSubscriber: CopilotKitCoreSubscriber | null = null;
   private coreUnsubscribe: (() => void) | null = null;
+  private autopilotTraceUnsubscribe: (() => void) | null = null;
   private _memories: Memory[] = [];
   private _memoriesLoading = false;
   private _memoriesError: Error | null = null;
@@ -7021,7 +7024,8 @@ export class WebInspectorElement extends LitElement {
   };
 
   private get menuItems(): MenuItem[] {
-    const hasFrontendTools = (this._core?.tools?.length ?? 0) > 0;
+    const hasFrontendTools =
+      (this._core?.tools?.length ?? 0) > 0 || getAutopilotTrace().length > 0;
     const hasCatalog = (this._core?.catalogComponents?.length ?? 0) > 0;
     // Capabilities is the A2UI catalog + tool toggle surface. If the only
     // live data is frontend tools, Frontend Tools already lists them, so
@@ -11571,6 +11575,9 @@ export class WebInspectorElement extends LitElement {
         this.ensureAnnouncementLoading();
       }
       this.subscribeToInspectorThreadBridge();
+      this.autopilotTraceUnsubscribe = subscribeAutopilotTrace(() =>
+        this.requestUpdate(),
+      );
     }
     this.requestUpdate();
   }
@@ -11629,6 +11636,8 @@ export class WebInspectorElement extends LitElement {
     }
     this.clearIconRailContextCloseTimer();
     this.unsubscribeFromInspectorThreadBridge();
+    this.autopilotTraceUnsubscribe?.();
+    this.autopilotTraceUnsubscribe = null;
     this.learningSetupUnsubscribe?.();
     this.learningSetupUnsubscribe = null;
     this.clearLearningSnapshot();
@@ -20529,8 +20538,16 @@ export class WebInspectorElement extends LitElement {
 
     this.refreshToolsSnapshot();
     const allTools = this.cachedTools;
+    const traces = getAutopilotTrace()
+      .filter(
+        (record) =>
+          this.selectedContext === "all-agents" ||
+          record.agentId === this.selectedContext,
+      )
+      .slice(-12)
+      .toReversed();
 
-    if (allTools.length === 0) {
+    if (allTools.length === 0 && traces.length === 0) {
       return html`
         <div
           class="flex h-full items-center justify-center px-4 py-8 text-center"
@@ -20562,6 +20579,36 @@ export class WebInspectorElement extends LitElement {
     return html`
       <div class="flex h-full flex-col overflow-hidden">
         <div class="overflow-auto p-4">
+          ${
+            traces.length
+              ? html`<section aria-label="Autopilot activity" class="mb-5 rounded-lg border border-gray-200 bg-white p-4">
+                <h3 class="mb-1 text-sm font-semibold text-gray-900">Autopilot activity</h3>
+                <p class="mb-3 text-xs text-gray-500">Local, bounded trace of filtered tool results. Usage and cost are unknown when the agent does not supply them.</p>
+                <ol class="space-y-2">
+                  ${traces.map(
+                    (
+                      record,
+                    ) => html`<li class="rounded-md border border-gray-200 p-3 text-xs" data-autopilot-trace-id=${record.id}>
+                      <div class="flex flex-wrap items-center justify-between gap-2">
+                        <strong class="font-mono">${record.toolName}</strong>
+                        <span>${record.phase === "started" ? "Working" : record.error ? "Failed" : (record.status ?? "Done")}</span>
+                      </div>
+                      <div class="mt-1 text-gray-600">Agent ${record.agentId} · Thread ${record.threadId}</div>
+                      ${record.targetRef ? html`<div class="mt-1">Target ${record.targetRef}</div>` : nothing}
+                      <div class="mt-1 text-gray-600">
+                        ${record.resultBytes === undefined ? "Read size unknown" : `${record.resultBytes} result bytes`}
+                        · ${record.elapsedMs === undefined ? "Elapsed unknown" : `${record.elapsedMs} ms`}
+                        · ${record.remainingActionBudget === undefined ? "Action budget unknown" : `${record.remainingActionBudget} actions left`}
+                        · ${record.remainingReadBudget === undefined ? "Read budget unknown" : `${record.remainingReadBudget} reads left`}
+                      </div>
+                      ${record.resultPreview ? html`<details class="mt-2"><summary class="cursor-pointer">Filtered result</summary><pre class="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-all text-[11px]">${record.resultPreview}</pre></details>` : nothing}
+                      ${record.error ? html`<div class="mt-2 text-red-700">${record.error}</div>` : nothing}
+                    </li>`,
+                  )}
+                </ol>
+              </section>`
+              : nothing
+          }
           <div class="space-y-3">
             ${filteredTools.map((tool) => this.renderToolCard(tool))}
           </div>

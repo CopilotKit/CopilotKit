@@ -62,6 +62,14 @@ export {
   type CopilotChatNoticeProps,
 } from "./CopilotChatNotice";
 export {
+  CopilotChatAutopilotActivity,
+  type CopilotChatAutopilotActivityProps,
+} from "./CopilotChatAutopilotActivity";
+export {
+  CopilotToolApprovalCard,
+  type CopilotToolApprovalCardProps,
+} from "./CopilotToolApprovalCard";
+export {
   CopilotApprovalController,
   useCopilotApproval,
   useCopilotApprovalWork,

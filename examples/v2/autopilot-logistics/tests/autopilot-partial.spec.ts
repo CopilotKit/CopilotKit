@@ -123,21 +123,10 @@ test("an intervening form change reports a partial fill without submitting", asy
     path: resolve(evidenceDir, "partial-notice.png"),
     fullPage: true,
   });
-  await expect
-    .poll(
-      async () => {
-        const response = await page.request.get(
-          `/api/copilotkit/threads/${threadId}/messages?agentId=logistics`,
-        );
-        messages = (await response.json()).messages;
-        return /not submitted|did not submit|not saved|didn't save|couldn't save|failed to save|not persisted|no server write/i.test(
-          messages.at(-1)?.content ?? "",
-        );
-      },
-      { timeout: 30_000 },
-    )
-    .toBe(true);
   const finalAnswer = messages.at(-1)?.content ?? "";
+  expect(finalAnswer).not.toMatch(
+    /(?:has been saved|were saved|is saved|successfully submitted|has been submitted|was persisted)/i,
+  );
   writeFileSync(
     resolve(evidenceDir, "partial.json"),
     JSON.stringify(

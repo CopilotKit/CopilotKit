@@ -74,8 +74,17 @@ test("live agent creates an order through discovered form controls after review"
   const approval = (async () => {
     const card = page.getByTestId("copilot-approval");
     await expect(card).toBeVisible({ timeout: 100_000 });
+    await expect(page.getByTestId("copilot-tool-proposal")).toBeVisible();
+    await expect(
+      page.getByTestId("copilot-input-overlay").getByTestId("copilot-approval"),
+    ).toBeVisible();
+    await expect(page.locator("form[data-copilot-highlight]")).toHaveCount(1);
     review = (await card.textContent()) ?? "";
     beforeApproval = order();
+    await page.screenshot({
+      path: resolve(evidenceDir, "proposed-change-card.png"),
+      fullPage: true,
+    });
     await card.getByRole("button", { name: "Approve" }).click();
   })();
   const prompt = `Create a booked express order for ${customer} from 10 Fiction Way, Portland, OR to 20 Example Street, Seattle, WA, requested ship date 2026-11-18, assigned to Jordan Lee, with notes "Dock 2". Use the app's create form and submit after I review the exact values in its confirmation.`;
@@ -117,6 +126,7 @@ test("live agent creates an order through discovered form controls after review"
     )
     .toBe(true);
   expect(beforeApproval).toBeUndefined();
+  await expect(page.locator("[data-copilot-highlight]")).toHaveCount(0);
   expect(review).toContain(customer);
   expect(review).toContain("2026-11-18");
   expect(review).toContain("20 Example Street, Seattle, WA");
@@ -248,7 +258,8 @@ test("declining discovered form review leaves inputs and SQL untouched", async (
     await expect(card).toBeVisible({ timeout: 100_000 });
     review = (await card.textContent()) ?? "";
     beforeApproval = count();
-    await card.getByRole("button", { name: "Decline" }).click();
+    await expect(card.getByRole("button", { name: "Decline" })).toBeFocused();
+    await page.keyboard.press("Escape");
   })();
   await page
     .locator(".assistant-panel textarea")
@@ -301,7 +312,7 @@ test("declining discovered form review leaves inputs and SQL untouched", async (
         accepted?: boolean;
       }>,
   );
-  expect(sequence).toEqual([{ kind: "decision", accepted: false }]);
+  expect(sequence).toEqual([]);
   await expect(
     page
       .getByRole("form", { name: "Create order" })

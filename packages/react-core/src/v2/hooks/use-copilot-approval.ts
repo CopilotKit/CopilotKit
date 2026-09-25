@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { recordAutopilotToolTrace } from "@copilotkit/core";
 
 export type CopilotApprovalRequest = {
   /** Human-readable summary of the effect the application proposes. */
@@ -7,6 +8,10 @@ export type CopilotApprovalRequest = {
   agentId: string;
   /** The thread that requested the effect. */
   threadId: string;
+  /** Render in a tool's generative UI card instead of the chat's default card. */
+  presentation?: "chat" | "tool";
+  /** Tool call that owns a tool-presented decision. */
+  toolCallId?: string;
 };
 
 export type CopilotApprovalDecision = "approved" | "declined" | "cancelled";
@@ -33,6 +38,8 @@ export interface CopilotApprovalStore {
  * and retain responsibility for validation and execution after approval.
  */
 export class CopilotApprovalController implements CopilotApprovalStore {
+  private approvalSequence = 0;
+  private traceId?: string;
   private pending?: CopilotApprovalRequest;
   private accepted?: CopilotApprovalRequest;
   private resolve?: (decision: CopilotApprovalDecision) => void;
@@ -57,6 +64,14 @@ export class CopilotApprovalController implements CopilotApprovalStore {
       throw new Error("Another approval is pending");
     if (signal?.aborted) return Promise.resolve("cancelled");
     this.pending = { ...request };
+    this.traceId = `approval:${request.threadId}:${++this.approvalSequence}`;
+    recordAutopilotToolTrace({
+      id: this.traceId,
+      agentId: request.agentId,
+      threadId: request.threadId,
+      toolName: "CopilotKit approval",
+      phase: "started",
+    });
     this.signal = signal;
     signal?.addEventListener("abort", this.onAbort, { once: true });
     const result = new Promise<CopilotApprovalDecision>((resolve) => {
@@ -78,6 +93,7 @@ export class CopilotApprovalController implements CopilotApprovalStore {
     )
       return false;
     if (approved) {
+      this.traceApproval("approved");
       this.accepted = this.pending;
       this.pending = undefined;
       const resolve = this.resolve;
@@ -96,6 +112,7 @@ export class CopilotApprovalController implements CopilotApprovalStore {
   }
 
   private finish(decision: CopilotApprovalDecision): void {
+    this.traceApproval(decision);
     this.signal?.removeEventListener("abort", this.onAbort);
     this.signal = undefined;
     this.pending = undefined;
@@ -104,6 +121,20 @@ export class CopilotApprovalController implements CopilotApprovalStore {
     this.resolve = undefined;
     this.emit();
     resolve?.(decision);
+  }
+
+  private traceApproval(decision: CopilotApprovalDecision): void {
+    const request = this.pending ?? this.accepted;
+    if (!request || !this.traceId) return;
+    recordAutopilotToolTrace({
+      id: this.traceId,
+      agentId: request.agentId,
+      threadId: request.threadId,
+      toolName: "CopilotKit approval",
+      phase: "finished",
+      result: JSON.stringify({ status: decision }),
+    });
+    this.traceId = undefined;
   }
 
   private emit(): void {
