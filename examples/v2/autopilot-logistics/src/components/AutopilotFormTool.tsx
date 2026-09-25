@@ -8,6 +8,7 @@ import { z } from "zod";
 import {
   approvalController,
   orderApprovalGate,
+  rememberUnsettledEffect,
 } from "@/lib/autopilot-approval";
 import type { SessionUser } from "@/lib/db";
 import { consumeAutopilotBudget } from "@/lib/autopilot-budget";
@@ -59,7 +60,7 @@ export function AutopilotFormTool({
     name: "autopilot_submitForm",
     autopilot: true,
     description:
-      "Fill up to 12 discovered native fields or supported custom selects and submit their form as one reviewed operation. Pass field refs and exact values from autopilot_readPage plus the form's submit button ref. The user sees all changes and the submit action before any input event. Do not claim success unless the receipt says completed.",
+      "Request one reviewed form operation using up to 12 discovered native fields or supported custom selects. Pass field refs, exact values, and the submit button ref. Calling this tool opens the app's review UI and waits for the human decision before any input event; do not ask for a separate chat confirmation. Do not claim success unless the receipt says completed.",
     parameters: z.object({
       changes: z
         .array(
@@ -194,6 +195,13 @@ export function AutopilotFormTool({
         );
         if (decision.mode !== "autopilot" || !decision.accepted)
           return await operation.result;
+        rememberUnsettledEffect({
+          operationId: decision.operationId,
+          userId: user.id,
+          organizationId: user.organizationId,
+          agentId: context.agent.agentId,
+          threadId: context.agent.threadId,
+        });
         dispatched = true;
         const observer = observeOutcome(plan.form);
         try {

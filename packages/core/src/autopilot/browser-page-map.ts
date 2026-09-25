@@ -16,6 +16,7 @@ export interface AutopilotControl {
   ref: string;
   kind: "link" | "button" | "input" | "select" | "textarea";
   name: string;
+  form?: string;
   value?: string;
   disabled?: boolean;
   required?: boolean;
@@ -31,6 +32,7 @@ const CONTROL_SELECTOR =
   'a[href], button, input:not([type="hidden"]), select, textarea, [data-autopilot-custom-select]';
 const MAX_TEXT_NODES = 350;
 const MAX_CONTROLS = 65;
+const MAX_SEARCH_CONTROLS = 5_000;
 const MAX_CHARACTERS = 12_000;
 
 function permitted(element: Element): boolean {
@@ -190,11 +192,24 @@ export class BrowserPageMap {
     const needle = query.trim().toLocaleLowerCase();
     if (!needle || needle.length > 120)
       throw new Error("Provide a short control name");
-    return this.read(root)
-      .controls.filter((control) =>
-        control.name.toLocaleLowerCase().includes(needle),
+    if (!root || !permitted(root)) throw new Error("No readable page content");
+    const candidates = root.querySelectorAll(CONTROL_SELECTOR);
+    if (candidates.length > MAX_SEARCH_CONTROLS)
+      throw new Error("Too many controls to search; narrow the page first");
+    const matches: AutopilotControl[] = [];
+    for (const element of candidates) {
+      if (!permitted(element)) continue;
+      const form = element.closest("form");
+      const formName = form && permitted(form) ? accessibleName(form) : "";
+      if (
+        !accessibleName(element).toLocaleLowerCase().includes(needle) &&
+        !formName.toLocaleLowerCase().includes(needle)
       )
-      .slice(0, 15);
+        continue;
+      matches.push(this.describeControl(element));
+      if (matches.length === 15) break;
+    }
+    return matches;
   }
 
   resolve(ref: string): Element {
@@ -243,6 +258,8 @@ export class BrowserPageMap {
       kind,
       name: accessibleName(element),
     };
+    const form = element.closest("form");
+    if (form && permitted(form)) control.form = accessibleName(form);
     if (element instanceof HTMLAnchorElement) {
       const href = element.getAttribute("href");
       if (href) {

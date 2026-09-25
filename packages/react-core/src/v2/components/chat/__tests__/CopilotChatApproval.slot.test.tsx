@@ -60,4 +60,23 @@ describe("CopilotChat approval slot", () => {
     expect(screen.queryByTestId("copilot-approval")).toBeNull();
     act(() => controller.cancel());
   });
+
+  it("renders a replaceable nonmodal status notice without an approval action", () => {
+    render(
+      <CopilotKitProvider>
+        <CopilotChatView
+          messages={[]}
+          welcomeScreen={false}
+          statusNotice={{ message: "Outcome unconfirmed" }}
+          notice={({ message }) => (
+            <div data-testid="custom-notice">{message}</div>
+          )}
+        />
+      </CopilotKitProvider>,
+    );
+    expect(screen.getByTestId("custom-notice").textContent).toBe(
+      "Outcome unconfirmed",
+    );
+    expect(screen.queryByTestId("copilot-approval")).toBeNull();
+  });
 });

@@ -7,6 +7,7 @@ import type { Order, Role } from "@/lib/db";
 import {
   approvalController,
   orderApprovalGate,
+  rememberUnsettledEffect,
 } from "@/lib/autopilot-approval";
 
 type Operator = { id: string; display_name: string; active: number };
@@ -282,6 +283,14 @@ export function CancelOrder({
       return;
     const operationId =
       decision.mode === "autopilot" ? decision.operationId : undefined;
+    if (operationId && binding)
+      rememberUnsettledEffect({
+        operationId,
+        userId,
+        organizationId,
+        agentId: binding.agentId,
+        threadId: binding.threadId,
+      });
     setPending(true);
     setError("");
     const data = new FormData();

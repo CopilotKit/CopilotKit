@@ -100,6 +100,7 @@ test("live agent cancels only after CopilotKit chat approval", async ({
   expect(confirmation).toContain(reference);
   expect(approvalBeforeStatus).toEqual({ status: "booked", version: 1 });
   expect(status()).toEqual({ status: "cancelled", version: 2 });
+  await expect(page.getByTestId("copilot-status-notice")).toHaveCount(0);
   await page.screenshot({
     path: resolve(evidenceDir, "cancelled-order.png"),
     fullPage: true,

@@ -41,6 +41,7 @@ import { normalizeAutoScroll } from "./normalize-auto-scroll";
 import type { AutoScrollMode } from "./normalize-auto-scroll";
 import { usePinToSend } from "../../hooks/use-pin-to-send";
 import { CopilotChatApproval } from "./CopilotChatApproval";
+import { CopilotChatNotice } from "./CopilotChatNotice";
 import { useCopilotApproval } from "../../hooks/use-copilot-approval";
 import type { CopilotApprovalStore } from "../../hooks/use-copilot-approval";
 
@@ -65,6 +66,7 @@ export type CopilotChatViewProps = WithSlots<
     input: typeof CopilotChatInput;
     suggestionView: typeof CopilotChatSuggestionView;
     approval: typeof CopilotChatApproval;
+    notice: typeof CopilotChatNotice;
   },
   {
     messages?: Message[];
@@ -77,6 +79,8 @@ export type CopilotChatViewProps = WithSlots<
     approvalAgentId?: string;
     /** Restrict the approval card to this thread. */
     approvalThreadId?: string;
+    /** Application status shown above the chat input, independent of approval. */
+    statusNotice?: { message: string; onDismiss?: () => void };
     suggestionLoadingIndexes?: ReadonlyArray<number>;
     onSelectSuggestion?: (suggestion: Suggestion, index: number) => void;
     welcomeScreen?: SlotValue<React.FC<WelcomeScreenProps>> | boolean;
@@ -153,9 +157,11 @@ export function CopilotChatView({
   scrollView,
   suggestionView,
   approval,
+  notice,
   approvalController,
   approvalAgentId,
   approvalThreadId,
+  statusNotice,
   welcomeScreen,
   messages = [],
   autoScroll = true,
@@ -301,6 +307,14 @@ export function CopilotChatView({
             pendingApproval.respond(event, false),
         })
       : null;
+  const BoundNotice = statusNotice
+    ? renderSlot(notice, CopilotChatNotice, {
+        message: statusNotice.message,
+        onDismiss: statusNotice.onDismiss
+          ? () => statusNotice.onDismiss?.()
+          : undefined,
+      })
+    : null;
 
   // Hide suggestions while a thread is connecting or a run is in flight.
   // Otherwise, mid-replay (bootstrap stream from /connect) or mid-run, the
@@ -417,8 +431,9 @@ export function CopilotChatView({
       >
         {dragOver && <DropOverlay />}
         {BoundWelcomeScreen}
-        {BoundApproval && (
+        {(BoundApproval || BoundNotice) && (
           <div className="cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20">
+            {BoundNotice}
             {BoundApproval}
           </div>
         )}
@@ -435,6 +450,7 @@ export function CopilotChatView({
           scrollView: BoundScrollView,
           suggestionView: BoundSuggestionView ?? <></>,
           approval: BoundApproval ?? <></>,
+          notice: BoundNotice ?? <></>,
         })}
       </div>
     );
@@ -462,6 +478,11 @@ export function CopilotChatView({
         data-testid="copilot-input-overlay"
         className="cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20 cpk:pointer-events-none"
       >
+        {BoundNotice && (
+          <div className="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:pointer-events-auto">
+            {BoundNotice}
+          </div>
+        )}
         {BoundApproval && (
           <div className="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:pointer-events-auto">
             {BoundApproval}

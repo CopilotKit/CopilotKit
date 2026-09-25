@@ -53,9 +53,11 @@ export type AutopilotAppDecision =
 /** Local, single-use approval for an app-owned effect and a human decision. */
 export class BrowserApprovalGate {
   private pending?: Pending;
-  private settledListeners = new Set<() => void>();
+  private settledListeners = new Set<
+    (result: AutopilotApprovalResult) => void
+  >();
 
-  onSettled(listener: () => void): () => void {
+  onSettled(listener: (result: AutopilotApprovalResult) => void): () => void {
     this.settledListeners.add(listener);
     return () => this.settledListeners.delete(listener);
   }
@@ -209,7 +211,8 @@ export class BrowserApprovalGate {
     clearTimeout(pending.timer);
     pending.signal?.removeEventListener("abort", pending.onAbort);
     this.pending = undefined;
-    pending.resolve({ operationId, status, reason, receipt });
-    for (const listener of this.settledListeners) listener();
+    const result = { operationId, status, reason, receipt };
+    pending.resolve(result);
+    for (const listener of this.settledListeners) listener(result);
   }
 }

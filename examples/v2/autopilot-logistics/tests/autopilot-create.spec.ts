@@ -155,6 +155,7 @@ test("live agent creates an order through discovered form controls after review"
     .flatMap((message) => message.toolCalls ?? [])
     .map((call) => call.name);
   expect(calls).toContain("autopilot_submitForm");
+  await expect(page.getByTestId("copilot-status-notice")).toHaveCount(0);
   await page.screenshot({
     path: resolve(evidenceDir, "created-order.png"),
     fullPage: true,

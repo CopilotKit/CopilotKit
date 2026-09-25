@@ -11,7 +11,7 @@ const binding: AutopilotApprovalBinding = {
     action: "cancel",
     path: "/orders/order-1",
   },
-  tool: "autopilot_cancelOrder",
+  tool: "autopilot_activateControl",
   handlerVersion: "1",
   normalizedArguments: '{"ref":"c1"}',
   agentId: "logistics",

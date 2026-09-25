@@ -58,6 +58,10 @@ export {
   type CopilotChatApprovalProps,
 } from "./CopilotChatApproval";
 export {
+  CopilotChatNotice,
+  type CopilotChatNoticeProps,
+} from "./CopilotChatNotice";
+export {
   CopilotApprovalController,
   useCopilotApproval,
   useCopilotApprovalWork,
