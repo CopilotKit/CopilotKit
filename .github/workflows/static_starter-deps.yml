@@ -3,7 +3,8 @@ name: static / starter deps
 # The static half of PE-140. Reads the dependency manifests of every starter
 # under examples/integrations/ and fails on a declaration that cannot be
 # trusted: a floating npm tag, a Python dependency with no version constraint,
-# or a peer dependency that only exists because npm auto-installed it.
+# a peer dependency that only exists because npm auto-installed it, or a
+# LangGraph starter lock outside its Intelligence adapter's range (PE-369).
 #
 # No network and ~0.1s of work, so it runs on every pull request rather than on
 # a schedule. It is the half that would have PREVENTED PE-129 and PE-38 rather
@@ -15,11 +16,14 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-    # Only a change to a starter manifest or to the validator itself can
-    # introduce a violation. The unconditional `push: main` run above is the
+    # Only a change to a starter manifest, an Intelligence adapter manifest
+    # (adapter-floor reads its ranges), or the validator itself can introduce a
+    # violation. The unconditional `push: main` run above is the
     # backstop for anything that lands another way.
     paths:
       - "examples/integrations/**"
+      - "packages/intelligence-langgraph/package.json"
+      - "packages/intelligence-langgraph-python/pyproject.toml"
       - "scripts/validate-starter-deps.mjs"
       - "scripts/__tests__/validate-starter-deps.test.mjs"
       - "scripts/project.json"

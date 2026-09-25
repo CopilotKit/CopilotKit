@@ -61,10 +61,10 @@ RUN uv pip install --system "ag-ui-langgraph[fastapi]==0.0.44" && \
     uv pip install --system --no-deps "copilotkit==0.1.96" && \
     uv pip install --system "partialjson>=0.0.8,<0.0.9" "toml>=0.10.2,<0.11.0" && \
     uv pip install --system \
-    "langchain==1.2.15" \
+    "langchain==1.4.0" \
     "langchain-openai==1.1.9" \
     "langchain-anthropic==1.4.1" \
-    "langgraph==1.1.6" \
+    "langgraph==1.2.11" \
     "langsmith==0.7.33" \
     "openai==1.109.1" \
     "python-dotenv>=1.0.0,<2.0.0" \
