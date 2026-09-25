@@ -5,11 +5,8 @@ import path from "node:path";
 import React from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  HeroStartActions,
-  PROMPT_FOLDER_HINT,
-  QuickstartLinkButton,
-} from "../hero-start-commands";
+import { HeroStartActions, QuickstartLinkButton } from "../hero-start-commands";
+import { PROMPT_DESTINATION_HINT } from "../../lib/prompt-guidance";
 
 const analytics = vi.hoisted(() => ({ capture: vi.fn() }));
 
@@ -83,13 +80,11 @@ describe("HeroStartActions", () => {
     renderHero();
 
     // The button label already says what gets copied (OSS-1072), so the only
-    // line under the row is the one fact the label cannot carry (PE-301).
-    const hint = screen.getByText(PROMPT_FOLDER_HINT);
+    // line under the row is what the label cannot carry: where the prompt
+    // goes (PE-340) and which folder to open (PE-301).
+    const hint = screen.getByText(PROMPT_DESTINATION_HINT).closest("p")!;
     const row = screen.getByTestId("prompt-slot").parentElement;
 
-    expect(PROMPT_FOLDER_HINT).toBe(
-      "Open your coding agent in your project's folder, or in an empty folder for a new app.",
-    );
     expect(hint.parentElement).toBe(row?.parentElement);
     expect(
       row!.compareDocumentPosition(hint) & Node.DOCUMENT_POSITION_FOLLOWING,
