@@ -451,7 +451,13 @@ class LangGraphAGUIAgent(LangGraphAgent):
         """Override to add CopilotKit actions to the state"""
         merged_state = super().langgraph_default_merge_state(state, messages, input)
         # Extract tools from the merged state and add them as CopilotKit actions
-        agui_properties = merged_state.get("ag-ui", {}) or merged_state
+        # LangGraph may normalize the hyphenated "ag-ui" key to "ag_ui"
+        # (see #5463) — accept either.
+        agui_properties = (
+            merged_state.get("ag-ui", {})
+            or merged_state.get("ag_ui", {})
+            or merged_state
+        )
 
         return {
             **merged_state,
