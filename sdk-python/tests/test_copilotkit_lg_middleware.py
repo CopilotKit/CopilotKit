@@ -28,7 +28,7 @@ from __future__ import annotations
 import asyncio
 import json
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from ag_ui.core import RunAgentInput, UserMessage
@@ -2236,3 +2236,143 @@ class TestAutoA2UI:
         names = [getattr(t, "name", None) or t.get("name") for t in seen.tools]
         # Only the agent's own tool — no second generate_a2ui appended.
         assert names.count("generate_a2ui") == 1
+
+
+# ---------------------------------------------------------------------------
+# interrupt_frontend_tools — opt-in: await frontend tool results in-run via
+# LangGraph's interrupt() instead of the default strip-and-restore
+# ---------------------------------------------------------------------------
+#
+# Contract: after_model leaves frontend calls on the AIMessage; the tool node
+# runs each call as its own task, and wrap_tool_call pauses that call on its own
+# interrupt(). The resume value becomes the call's ToolMessage. Flag off changes
+# nothing.
+
+_FE_ACTION = {"function": {"name": "navigate"}}
+_FE_CALL = {"id": "fe-1", "name": "navigate", "args": {"path": "/x"}}
+_BE_CALL = {"id": "be-1", "name": "backend_search", "args": {"q": "hi"}}
+_INTERRUPT_TARGET = "copilotkit.copilotkit_lg_middleware.interrupt"
+
+
+def _interrupt_state(tool_calls, *, actions=(_FE_ACTION,)):
+    """State whose last AIMessage carries ``tool_calls``."""
+    return {
+        "messages": [
+            HumanMessage("hi"),
+            AIMessage(content="", tool_calls=list(tool_calls), id="ai-1"),
+        ],
+        "copilotkit": {"actions": list(actions)},
+    }
+
+
+def _fe_tool_request(call=_FE_CALL, *, tool=None, actions=(_FE_ACTION,)):
+    return ToolCallRequest(
+        tool_call=dict(call),
+        tool=tool,
+        state=_interrupt_state([call], actions=actions),
+        runtime=MagicMock(name="runtime"),
+    )
+
+
+def _run_wrap_tool_interrupting(request, resume, *, flag=True, use_async=False):
+    """Run wrap_tool_call with a stubbed interrupt(); return (result, interrupt, handler)."""
+    middleware = CopilotKitMiddleware(interrupt_frontend_tools=flag)
+    handler = MagicMock(name="handler", return_value="handler-result")
+
+    async def async_handler(req):
+        return handler(req)
+
+    with patch(_INTERRUPT_TARGET) as fake_interrupt:
+        fake_interrupt.return_value = resume
+        if use_async:
+            result = asyncio.run(middleware.awrap_tool_call(request, async_handler))
+        else:
+            result = middleware.wrap_tool_call(request, handler)
+    return result, fake_interrupt, handler
+
+
+# --- after_model -------------------------------------------------------------
+
+
+def test_interrupt_mode_leaves_frontend_calls_for_the_tool_node():
+    middleware = CopilotKitMiddleware(interrupt_frontend_tools=True)
+    state = _interrupt_state([_BE_CALL, _FE_CALL])
+
+    with patch(_INTERRUPT_TARGET) as fake_interrupt:
+        assert middleware.after_model(state, MagicMock(name="runtime")) is None
+
+    fake_interrupt.assert_not_called()
+    # Nothing was intercepted, so there is nothing to restore either.
+    assert middleware.after_agent(state, MagicMock(name="runtime")) is None
+
+
+# --- wrap_tool_call ----------------------------------------------------------
+
+
+@pytest.mark.parametrize("use_async", [False, True])
+def test_frontend_call_pauses_on_its_own_interrupt(use_async):
+    result, fake_interrupt, handler = _run_wrap_tool_interrupting(
+        _fe_tool_request(), {"page": "/x"}, use_async=use_async
+    )
+
+    fake_interrupt.assert_called_once_with(
+        {
+            "reason": "tool_call",
+            "toolCallId": "fe-1",
+            "name": "navigate",
+            "args": {"path": "/x"},
+        }
+    )
+    handler.assert_not_called()
+    assert isinstance(result, ToolMessage)
+    assert (result.tool_call_id, result.name, result.status) == (
+        "fe-1",
+        "navigate",
+        "success",
+    )
+    assert json.loads(result.content) == {"page": "/x"}
+
+
+def test_string_resume_value_is_the_content_verbatim():
+    result, _, _ = _run_wrap_tool_interrupting(_fe_tool_request(), '{"page": "/x"}')
+
+    assert result.content == '{"page": "/x"}'
+
+
+@pytest.mark.parametrize(
+    "action",
+    [
+        pytest.param({"name": "navigate"}, id="no-function-key"),
+        pytest.param({"function": None, "name": "navigate"}, id="function-is-none"),
+    ],
+)
+def test_flat_action_descriptors_are_matched(action):
+    result, fake_interrupt, _ = _run_wrap_tool_interrupting(
+        _fe_tool_request(actions=(action,)), "ok"
+    )
+
+    fake_interrupt.assert_called_once()
+    assert result.content == "ok"
+
+
+@pytest.mark.parametrize(
+    "request_kwargs,flag",
+    [
+        pytest.param({"call": _BE_CALL}, True, id="not-a-frontend-tool"),
+        pytest.param({"actions": ()}, True, id="no-frontend-actions"),
+        pytest.param(
+            {"tool": MagicMock(name="registered_navigate")},
+            True,
+            id="registered-backend-tool-wins",
+        ),
+        pytest.param({}, False, id="flag-off"),
+    ],
+)
+def test_everything_else_goes_to_the_handler(request_kwargs, flag):
+    result, fake_interrupt, handler = _run_wrap_tool_interrupting(
+        _fe_tool_request(**request_kwargs), "unused", flag=flag
+    )
+
+    fake_interrupt.assert_not_called()
+    handler.assert_called_once()
+    assert result == "handler-result"

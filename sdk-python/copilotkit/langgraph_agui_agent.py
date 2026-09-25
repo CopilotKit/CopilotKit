@@ -18,7 +18,9 @@ from ag_ui.core import (
 from ag_ui_langgraph import LangGraphAgent
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
+from langgraph.types import Command
 
+from .copilotkit_lg_middleware import _AGUI_CANCELLED_KEY
 from .exc import CopilotKitMisuseError
 
 logger = logging.getLogger(__name__)
@@ -466,6 +468,115 @@ class LangGraphAGUIAgent(LangGraphAgent):
                 ],
             },
         }
+
+    async def prepare_stream(
+        self, input: Any, agent_state: Any, config: RunnableConfig
+    ):
+        """Reject a legacy resume while several interrupts are open.
+
+        ``forwardedProps.command.resume`` carries one value and no interrupt id,
+        and LangGraph refuses it once more than one interrupt is pending — for
+        example one per parallel frontend tool call. Its ``RuntimeError`` would
+        escape the run on every retry, so name the fix instead. A value already
+        keyed by interrupt id is LangGraph's own format and goes through.
+        """
+        command = (getattr(input, "forwarded_props", None) or {}).get("command")
+        value = command.get("resume") if isinstance(command, dict) else None
+        open_ids = {
+            interrupt.id
+            for interrupt in self._collect_interrupts(
+                getattr(agent_state, "tasks", None)
+            )
+        }
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except ValueError:
+                pass
+        keyed_by_id = isinstance(value, dict) and value and set(value) <= open_ids
+        if (
+            value is not None
+            and not getattr(input, "resume", None)
+            and len(open_ids) > 1
+            and not keyed_by_id
+        ):
+            raise CopilotKitMisuseError(
+                "Several interrupts are pending, and forwardedProps.command.resume "
+                "cannot say which one it answers. Resume them by id with "
+                "RunAgentInput.resume[]: create LangGraphAGUIAgent with "
+                "emit_interrupt_outcome=True (ag-ui-langgraph >= 0.0.43)."
+            )
+        return await super().prepare_stream(
+            input=input, agent_state=agent_state, config=config
+        )
+
+    @staticmethod
+    def _collect_interrupts(tasks) -> list:
+        """Open interrupts only: skip those on tasks that already finished.
+
+        After a partial resume of parallel interrupts, LangGraph still lists the
+        answered task's interrupt in ``get_state().tasks`` next to that task's
+        result. Re-emitting it would ask the client to answer it again; the
+        step stays uncommitted, so that task will not run a second time anyway.
+
+        Replaces upstream's implementation rather than filtering its output, so
+        a later upstream change here is not picked up.
+        """
+        return [
+            item
+            for task in tasks or []
+            if getattr(task, "result", None) is None
+            for item in (getattr(task, "interrupts", None) or [])
+        ]
+
+    def _build_command_from_agui_resume(
+        self,
+        entries: list,
+        *,
+        open_interrupts: Optional[list] = None,
+    ) -> Command:
+        """Resume parallel interrupts with LangGraph's own id-keyed map.
+
+        Upstream (ag-ui-langgraph >= 0.0.43) sends one entry as a bare value and
+        several as one ``{"__agui_resume_map__": ...}`` value. Both only work
+        while a single LangGraph interrupt is pending: with parallel ones, such
+        as one per frontend tool call, LangGraph rejects any resume that is not
+        keyed by interrupt id — even a partial answer to just one of them.
+
+        So when several interrupts are open, key the answers by id and let each
+        task read its own. That needs the AG-UI ids to be the LangGraph ids,
+        which holds unless ``_interrupts_to_agui`` is overridden. A ``None``
+        payload is keyed too, even for a single interrupt: upstream would send
+        it bare, and LangGraph reads ``Command(resume=None)`` as no resume at
+        all. Anything else — one open interrupt, an id that is not open — goes
+        to upstream as is.
+        """
+        open_ids = {interrupt.id for interrupt in open_interrupts or []}
+        has_none_payload = any(
+            entry.status == "resolved" and entry.payload is None for entry in entries
+        )
+        if (
+            (len(open_ids) > 1 or has_none_payload)
+            and entries
+            and all(entry.interrupt_id in open_ids for entry in entries)
+            and type(self)._interrupts_to_agui is LangGraphAgent._interrupts_to_agui
+        ):
+            return Command(
+                resume={
+                    entry.interrupt_id: (
+                        entry.payload
+                        if entry.status == "resolved"
+                        else {
+                            _AGUI_CANCELLED_KEY: True,
+                            "interrupt_id": entry.interrupt_id,
+                        }
+                    )
+                    for entry in entries
+                }
+            )
+        return super()._build_command_from_agui_resume(
+            entries, open_interrupts=open_interrupts
+        )
 
     def dict_repr(self):
         """Return dictionary representation of the agent"""
