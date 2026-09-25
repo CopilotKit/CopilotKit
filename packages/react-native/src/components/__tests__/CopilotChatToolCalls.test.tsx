@@ -428,17 +428,73 @@ describe("CopilotChat tool-result content", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it("serialises ARRAY tool content instead of collapsing it to an empty result", () => {
-    // The silent-failure regression: array content (structured / attachment
-    // parts) was coerced to "", which a renderer cannot distinguish from a tool
-    // that genuinely returned nothing.
+  it("renders PARTS tool content as its text, without a warning", () => {
+    // AG-UI 1.0: a tool result may be a list of content parts. That is
+    // legitimate content, not a malformed message: the renderer gets the text
+    // parts concatenated and the media part contributes nothing to the string.
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    renderWithResult([{ type: "text", text: "hello" }]);
+    renderWithResult([
+      { type: "text", text: "hello " },
+      {
+        type: "image",
+        source: { type: "url", value: "https://example.com/x.png" },
+      },
+      { type: "text", text: "world" },
+    ]);
     expect(screen.getByTestId("result").textContent).toBe(
-      'complete|[{"type":"text","text":"hello"}]',
+      "complete|hello world",
+    );
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("treats a part with a provider file handle as a part, without a warning", () => {
+    // AG-UI 1.0 adds the `file` source: a handle the model provider issued.
+    // It is a real part; it adds nothing to the string, like other media.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderWithResult([
+      { type: "text", text: "see file" },
+      { type: "document", source: { type: "file", value: "file-abc123" } },
+    ]);
+    expect(screen.getByTestId("result").textContent).toBe("complete|see file");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("serialises an ARRAY that is not parts instead of collapsing it to an empty result", () => {
+    // The silent-failure regression: array content that is not a parts list
+    // was coerced to "", which a renderer cannot distinguish from a tool that
+    // genuinely returned nothing.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderWithResult(["hello", 42]);
+    expect(screen.getByTestId("result").textContent).toBe(
+      'complete|["hello",42]',
     );
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0]?.[0])).toContain("tc1");
+  });
+
+  it("serialises a media part whose inline source lacks its mime type, and warns", () => {
+    // Inline bytes without a mimeType is a malformed part, not a part: the
+    // schema rejects it, so it keeps the serialise-and-warn path.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderWithResult([
+      { type: "image", source: { type: "data", value: "abc" } },
+    ]);
+    expect(screen.getByTestId("result").textContent).toBe(
+      'complete|[{"type":"image","source":{"type":"data","value":"abc"}}]',
+    );
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("serialises an ARRAY of typed records that are not content parts, and warns", () => {
+    // A `type` field alone does not make a part. Restored or unvalidated
+    // content like this used to be serialised and warned about, and must not
+    // silently become an empty result now that parts are accepted.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderWithResult([{ type: "record", answer: 42 }]);
+    expect(screen.getByTestId("result").textContent).toBe(
+      'complete|[{"type":"record","answer":42}]',
+    );
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 
   it("serialises OBJECT tool content instead of collapsing it to an empty result", () => {

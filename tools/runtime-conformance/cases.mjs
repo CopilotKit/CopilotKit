@@ -112,6 +112,57 @@ export const cases = [
     },
   },
   {
+    id: "connect.active-run-identity",
+    async run({ request, platform }) {
+      platform.seedThread("active-thread");
+      platform.locks.set("active-thread", {
+        runId: "canonical-active-run",
+        userId: "test-user",
+        agentId: "default",
+      });
+      const result = await request(
+        "POST",
+        "/agent/default/connect",
+        runInput({ threadId: "active-thread", runId: "synthetic-client-run" }),
+      );
+      assert.equal(result.status, 200);
+      assert.equal(
+        result.body.runId,
+        "canonical-active-run",
+        "Connect must preserve the active platform run ID",
+      );
+      assert.equal(platform.agentInputs.length, 0);
+      platform.locks.set("active-thread", {
+        runId: "replacement-run",
+        userId: "test-user",
+        agentId: "default",
+      });
+      const replacement = await request(
+        "POST",
+        "/agent/default/connect",
+        runInput({ threadId: "active-thread", runId: "canonical-active-run" }),
+      );
+      assert.equal(replacement.status, 200);
+      assert.equal(
+        replacement.body.runId,
+        "replacement-run",
+        "Connect must use the current lock instead of an earlier run",
+      );
+      platform.locks.delete("active-thread");
+      const idle = await request(
+        "POST",
+        "/agent/default/connect",
+        runInput({ threadId: "active-thread" }),
+      );
+      assert.equal(idle.status, 200);
+      assert.equal(
+        Object.hasOwn(idle.body, "runId"),
+        false,
+        "Idle connect must not invent an active run ID",
+      );
+    },
+  },
+  {
     id: "connect.upstream-unavailable",
     async run({ request, platform }) {
       platform.faults.http.set("POST /api/threads/broken/connect", {

@@ -422,6 +422,42 @@ describe("IntelligenceAgent", () => {
       expect(result.events).toContainEqual(finishedEvent);
     });
 
+    it("removes the runner's routing fields from run stream events", async () => {
+      const agent = createAgent();
+      const promise = collectEvents(agent);
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+
+      const routing = {
+        threadId: "thread-1",
+        runId: "run-1",
+        thread_id: "thread-1",
+        run_id: "run-1",
+      };
+      channel.serverPush("ag_ui_event", {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId: "msg-1",
+        delta: "hello",
+        ...routing,
+      } as BaseEvent);
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_FINISHED,
+        ...routing,
+      } as BaseEvent);
+
+      const result = await promise;
+      expect(result.events).toEqual([
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "msg-1",
+          delta: "hello",
+        },
+        { type: EventType.RUN_FINISHED, threadId: "thread-1", runId: "run-1" },
+      ]);
+    });
+
     it("errors the observable on RUN_ERROR", async () => {
       const agent = createAgent();
       const promise = collectEvents(agent);

@@ -25,6 +25,7 @@ import {
   filter,
   finalize,
   ignoreElements,
+  map,
   mergeMap,
   share,
   shareReplay,
@@ -33,7 +34,10 @@ import {
   takeUntil,
   tap,
 } from "rxjs/operators";
-import { phoenixExponentialBackoff } from "@copilotkit/shared";
+import {
+  phoenixExponentialBackoff,
+  stripIntelligenceRoutingFields,
+} from "@copilotkit/shared";
 import { ɵconnectWithoutEventVerification } from "./utils/connect-replay";
 import {
   ɵphoenixChannel$,
@@ -722,6 +726,13 @@ export class IntelligenceAgent extends AbstractAgent {
       tap((payload) => {
         this.updateLastSeenEventId(threadId, payload);
       }),
+      // Only the run stream goes through AG-UI 1.0 enforcement, which would
+      // strip these fields with a warning each. Replays stay as sent.
+      map((payload) =>
+        options.streamMode === "run"
+          ? stripIntelligenceRoutingFields(payload)
+          : payload,
+      ),
       mergeMap(
         (payload) =>
           this.createThreadNotifications(payload, {

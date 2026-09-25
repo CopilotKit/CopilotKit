@@ -1,3 +1,4 @@
+import type { TemplateRef, Type } from "@angular/core";
 import {
   Component,
   input,
@@ -7,8 +8,6 @@ import {
   effect,
   ChangeDetectorRef,
   Injector,
-  TemplateRef,
-  Type,
   computed,
   inject,
   viewChild,
@@ -19,19 +18,12 @@ import {
 import { CopilotChatView } from "./copilot-chat-view";
 import { CopilotChatAttachmentsDirective } from "./copilot-chat-attachments.directive";
 
-import {
-  DEFAULT_AGENT_ID,
-  randomUUID,
-  type AttachmentsConfig,
-} from "@copilotkit/shared";
-import {
-  AGUIConnectNotImplementedError,
-  HttpAgent,
-  type AbstractAgent,
-  type Message,
-  type RunAgentInput,
-} from "@ag-ui/client";
-import { isRunCompletionAware, type Suggestion } from "@copilotkit/core";
+import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
+import type { AttachmentsConfig } from "@copilotkit/shared";
+import { AGUIConnectNotImplementedError } from "@ag-ui/client";
+import type { AbstractAgent, Message, RunAgentInput } from "@ag-ui/client";
+import { isRunCompletionAware, ɵisHttpAgent } from "@copilotkit/core";
+import type { Suggestion } from "@copilotkit/core";
 import { injectAgentStore } from "../../agent";
 import { CopilotKit } from "../../copilotkit";
 import { ChatState } from "../../chat-state";
@@ -255,7 +247,7 @@ export class CopilotChat extends ChatState {
     let replaced = false;
     let completion: Promise<void> | undefined;
     const controller = new AbortController();
-    if (agent instanceof HttpAgent) agent.abortController = controller;
+    if (ɵisHttpAgent(agent)) agent.abortController = controller;
 
     const ownsPipeline = () => {
       if (!initialized || replaced) return false;
@@ -300,8 +292,7 @@ export class CopilotChat extends ChatState {
         if (
           !replaced &&
           (current ||
-            (agent instanceof HttpAgent &&
-              agent.abortController !== controller))
+            (ɵisHttpAgent(agent) && agent.abortController !== controller))
         ) {
           controller.abort();
         }

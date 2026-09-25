@@ -25,7 +25,7 @@ function control(channel) {
  * legacy event-journal replay path, not projection restore, Redis, or licensing.
  * Browser tokens authenticate one thread; runner API keys never authenticate it.
  */
-export function createClientGateway({ events, locks, stopRun }) {
+export function createClientGateway({ events, locks, stopRun, faults = {} }) {
   const tokens = new Map();
   const sessions = new Map();
   const frames = [];
@@ -68,6 +68,10 @@ export function createClientGateway({ events, locks, stopRun }) {
     channel.replaying = false;
     clearTimeout(channel.baselineTimer);
     push(socket, channel, "replay_complete", control(channel));
+    if (faults.clientDisconnectAfterReplay > 0) {
+      faults.clientDisconnectAfterReplay--;
+      socket.close(1012, "Fixture network interruption");
+    }
     if (channel.mode === "connect" && !locks.has(channel.threadId))
       push(socket, channel, "stream_idle", control(channel));
   }
@@ -184,6 +188,11 @@ export function createClientGateway({ events, locks, stopRun }) {
       const url = new URL(request.url, "http://fixture.invalid");
       if (url.pathname !== "/client/websocket") return false;
       const token = url.searchParams.get("join_token");
+      faults.clientTokenAttempts?.push(token);
+      if (tokens.has(token) && faults.clientRejectUnusedTokens > 0) {
+        faults.clientRejectUnusedTokens--;
+        tokens.delete(token);
+      }
       const scope = tokens.get(token);
       if (!scope) {
         socket.end("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");

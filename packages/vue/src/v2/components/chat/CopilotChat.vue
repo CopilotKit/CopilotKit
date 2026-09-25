@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import {
-  AGUIConnectNotImplementedError,
-  AbstractAgent,
-  HttpAgent,
-} from "@ag-ui/client";
+import { AGUIConnectNotImplementedError, AbstractAgent } from "@ag-ui/client";
 import {
   createAttachmentContent,
   DEFAULT_AGENT_ID,
@@ -21,7 +17,7 @@ import {
   useSlots,
   watch,
 } from "vue";
-import { CopilotKitCoreErrorCode } from "@copilotkit/core";
+import { CopilotKitCoreErrorCode, ɵisHttpAgent } from "@copilotkit/core";
 import type { Suggestion } from "@copilotkit/core";
 import CopilotChatConfigurationProvider from "../../providers/CopilotChatConfigurationProvider.vue";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
@@ -421,7 +417,7 @@ watch(
       cycle = existingCycle;
     } else {
       const connectAbortController = new AbortController();
-      if (currentAgent instanceof HttpAgent) {
+      if (ɵisHttpAgent(currentAgent)) {
         currentAgent.abortController = connectAbortController;
       }
 

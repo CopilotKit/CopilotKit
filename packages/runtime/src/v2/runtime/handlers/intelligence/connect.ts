@@ -61,6 +61,7 @@ export async function handleIntelligenceConnect({
       {
         threadId: result.threadId,
         joinToken: result.joinToken,
+        runId: result.runId,
         realtime: buildRealtimeConnectionInfo({
           clientUrl: runtime.intelligence.ɵgetClientWsUrl(),
           threadId: result.threadId,

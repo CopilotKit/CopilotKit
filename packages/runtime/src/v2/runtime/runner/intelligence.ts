@@ -10,6 +10,7 @@ import type { AbstractAgent, BaseEvent, RunStartedEvent } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
 import {
   finalizeRunEvents,
+  stripIntelligenceRoutingFields,
   AG_UI_CHANNEL_EVENT,
   phoenixExponentialBackoff,
   logger,
@@ -382,7 +383,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
           state.hasJoined = true;
           startupBoundary?.resolveStartup();
           void this.executeAgentRun(request, state, threadId, (event) => {
-            observer.next(event);
+            observer.next(stripIntelligenceRoutingFields(event));
           });
         })
         .receive("error", (resp) => {
@@ -669,6 +670,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
       ensureRunStarted();
       const appended = finalizeRunEvents(currentEvents, {
         stopRequested: state.stopRequested,
+        protocolVersion: request.input.protocolVersion,
       });
       for (const event of appended) {
         pushCanonicalEvent(event);

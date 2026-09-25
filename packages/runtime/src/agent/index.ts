@@ -3,6 +3,7 @@ import type {
   BaseEvent,
   RunAgentInput,
   Message,
+  ContentPart,
   ReasoningEndEvent,
   ReasoningMessageContentEvent,
   ReasoningMessageEndEvent,
@@ -18,8 +19,9 @@ import type {
   RunErrorEvent,
   Interrupt,
   ResumeEntry,
+  ToolMessage,
 } from "@ag-ui/client";
-import { AbstractAgent, EventType } from "@ag-ui/client";
+import { AbstractAgent, EventType, PROTOCOL_VERSION } from "@ag-ui/client";
 import { Validator } from "@cfworker/json-schema";
 import type { AgentCapabilities } from "@ag-ui/core";
 import type {
@@ -190,6 +192,68 @@ export interface MCPClientProvider {
  * @param apiKey - Optional API key to use instead of environment variables
  * @returns LanguageModel instance
  */
+
+/**
+ * An AG-UI tool result as the AI SDK's tool result output.
+ *
+ * Providers hold one response per tool call, and the Google adapter emits one
+ * functionResponse per text entry of a content list, so all of a result's text
+ * is collected into a single entry: text parts run together, and a
+ * URL-referenced part contributes the URL it carries on a line of its own —
+ * the bytes are not here to hand over, and the reference is the content the
+ * tool actually returned. A result with no inline media is that text alone.
+ * One with inline media is a content list: the text entry first, when there is
+ * any, then each media part with its bytes and media type. A media-only result
+ * is media alone: a placeholder text would be content the tool never returned.
+ * Which adapters can place media inside a tool response is theirs to decide.
+ * A provider file handle (`file` source) is neither bytes nor a URL, and this
+ * path cannot hand it to the provider, so the part is dropped with a warning.
+ * A result whose parts were all dropped is the empty string, as AG-UI 1.0
+ * requires: the call must still be answered.
+ */
+function warnDroppedFileSource(what: string): void {
+  console.warn(
+    `[CopilotKit] Dropping a ${what} that references a provider file handle: it is not a URL or inline data, so it cannot be sent to the model here.`,
+  );
+}
+
+function toolResultOutput(
+  content: ToolMessage["content"],
+): ToolResultPart["output"] {
+  if (typeof content === "string") return { type: "text", value: content };
+  const segments: string[] = [];
+  const media: Array<{ type: "media"; data: string; mediaType: string }> = [];
+  let open = false; // whether the last segment is text still being appended to
+  for (const part of content) {
+    if (part.type === "text") {
+      if (open) segments[segments.length - 1] += part.text;
+      else segments.push(part.text);
+      open = true;
+    } else if (part.source.type === "file") {
+      warnDroppedFileSource(`${part.type} part in a tool result`);
+    } else if (part.source.type === "url") {
+      segments.push(part.source.value);
+      open = false;
+    } else {
+      media.push({
+        type: "media",
+        data: part.source.value,
+        mediaType: part.source.mimeType,
+      });
+      open = false;
+    }
+  }
+  const text = segments.join("\n");
+  if (media.length === 0) return { type: "text", value: text };
+  return {
+    type: "content",
+    value: [
+      ...(text.length > 0 ? [{ type: "text" as const, text }] : []),
+      ...media,
+    ],
+  };
+}
+
 export function resolveModel(
   spec: ModelSpecifier,
   apiKey?: string,
@@ -403,7 +467,12 @@ export function defineTool<TParameters extends StandardSchemaV1>(config: {
   };
 }
 
-type AGUIUserMessage = Extract<Message, { role: "user" }>;
+type LegacyBinaryInputContent = {
+  type: "binary";
+  mimeType?: string;
+  data?: string;
+  url?: string;
+};
 
 /**
  * Converts AG-UI user message content to Vercel AI SDK UserContent format.
@@ -411,7 +480,7 @@ type AGUIUserMessage = Extract<Message, { role: "user" }>;
  * and legacy BinaryInputContent for backward compatibility.
  */
 function convertUserMessageContent(
-  content: AGUIUserMessage["content"],
+  content: string | Array<ContentPart | LegacyBinaryInputContent>,
 ): string | Array<TextPart | ImagePart | FilePart> {
   if (!content) {
     return "";
@@ -446,6 +515,8 @@ function convertUserMessageContent(
             image: source.value,
             mediaType: source.mimeType,
           });
+        } else if (source.type === "file") {
+          warnDroppedFileSource("image part");
         } else if (source.type === "url") {
           try {
             parts.push({
@@ -473,6 +544,8 @@ function convertUserMessageContent(
             data: source.value,
             mediaType: source.mimeType,
           });
+        } else if (source.type === "file") {
+          warnDroppedFileSource(`${part.type} part`);
         } else if (source.type === "url") {
           try {
             parts.push({
@@ -491,11 +564,7 @@ function convertUserMessageContent(
 
       // Legacy BinaryInputContent backward compatibility
       case "binary": {
-        const legacy = part as {
-          mimeType?: string;
-          data?: string;
-          url?: string;
-        };
+        const legacy = part;
         const mimeType = legacy.mimeType ?? "application/octet-stream";
         const isImage = mimeType.startsWith("image/");
 
@@ -619,10 +688,7 @@ export function convertMessagesToVercelAISDKMessages(
         type: "tool-result",
         toolCallId: message.toolCallId,
         toolName: toolName,
-        output: {
-          type: "text",
-          value: message.content,
-        },
+        output: toolResultOutput(message.content),
       };
 
       const toolMsg: ToolModelMessage = {
@@ -1158,6 +1224,8 @@ export class BuiltInAgent extends AbstractAgent {
         type: EventType.RUN_STARTED,
         threadId: input.threadId,
         runId: input.runId,
+        // AG-UI 1.0: a producer states its own protocol version.
+        protocolVersion: PROTOCOL_VERSION,
       };
       subscriber.next(startEvent);
 
@@ -1655,6 +1723,12 @@ export class BuiltInAgent extends AbstractAgent {
                   type: EventType.RUN_FINISHED,
                   threadId: input.threadId,
                   runId: input.runId,
+                  // A stopped run is cancelled, not a success. A client that
+                  // declares no protocolVersion predates 1.0 and cannot parse
+                  // the cancelled outcome, so it keeps the plain event.
+                  ...(input.protocolVersion !== undefined
+                    ? { outcome: { type: "cancelled" as const } }
+                    : {}),
                 };
                 subscriber.next(abortEndEvent);
                 terminalEventEmitted = true;
@@ -2065,6 +2139,8 @@ export class BuiltInAgent extends AbstractAgent {
         type: EventType.RUN_STARTED,
         threadId: input.threadId,
         runId: input.runId,
+        // AG-UI 1.0: a producer states its own protocol version.
+        protocolVersion: PROTOCOL_VERSION,
       };
       subscriber.next(startEvent);
 

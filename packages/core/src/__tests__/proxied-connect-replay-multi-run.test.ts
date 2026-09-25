@@ -108,6 +108,59 @@ describe("self-hosted /connect replay across multiple past runs (#4943)", () => 
     expect(agent.messages.map((m) => m.id)).toEqual(["msg-1", "msg-2"]);
   });
 
+  it("translates 0.x shapes in replayed history, like the base connect pipeline", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const legacyEvents = [
+      { type: "RUN_STARTED", threadId: "existing-thread", runId: "run-0" },
+      {
+        type: "MESSAGES_SNAPSHOT",
+        messages: [
+          {
+            id: "user-0",
+            role: "user",
+            content: [{ type: "binary", mimeType: "image/png", data: "aGk=" }],
+          },
+        ],
+      },
+      { type: "THINKING_START" },
+      { type: "THINKING_TEXT_MESSAGE_START" },
+      { type: "THINKING_TEXT_MESSAGE_CONTENT", delta: "pondering" },
+      { type: "THINKING_TEXT_MESSAGE_END" },
+      { type: "THINKING_END" },
+      { type: "RUN_FINISHED", threadId: "existing-thread", runId: "run-0" },
+    ];
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        new Response(
+          legacyEvents.map((e) => `data: ${JSON.stringify(e)}\n\n`).join(""),
+          { status: 200, headers: { "content-type": "text/event-stream" } },
+        ),
+      ),
+    );
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "https://runtime.example/hono",
+      agentId: "legacy-history-agent",
+      transport: "rest",
+    });
+    agent.threadId = "existing-thread";
+
+    await agent.connectAgent();
+
+    expect(agent.messages[0]).toMatchObject({
+      id: "user-0",
+      content: [
+        {
+          type: "image",
+          source: { type: "data", value: "aGk=", mimeType: "image/png" },
+        },
+      ],
+    });
+    expect(agent.messages[1]).toMatchObject({
+      role: "reasoning",
+      content: "pondering",
+    });
+  });
+
   /**
    * The verifyEvents-free pipeline must keep the base implementation's special
    * case for agents that don't implement `connect()`: swallow the error rather

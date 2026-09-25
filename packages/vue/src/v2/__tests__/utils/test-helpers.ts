@@ -7,6 +7,8 @@ import type {
   RunAgentInput,
   RunAgentParameters,
   RunAgentResult,
+  RunStartedEvent,
+  RunFinishedEvent,
 } from "@ag-ui/client";
 import { Observable, Subject, from, delay } from "rxjs";
 import { defineComponent, nextTick } from "vue";
@@ -485,12 +487,30 @@ export function renderWithCopilotKit({
   return render(Host);
 }
 
-export function runStartedEvent(): BaseEvent {
-  return { type: EventType.RUN_STARTED } as BaseEvent;
+export function runStartedEvent(
+  input: Pick<RunAgentInput, "threadId" | "runId"> = {
+    threadId: "test-thread",
+    runId: "test-run",
+  },
+): RunStartedEvent {
+  return {
+    type: EventType.RUN_STARTED,
+    threadId: input.threadId,
+    runId: input.runId,
+  };
 }
 
-export function runFinishedEvent(): BaseEvent {
-  return { type: EventType.RUN_FINISHED } as BaseEvent;
+export function runFinishedEvent(
+  input: Pick<RunAgentInput, "threadId" | "runId"> = {
+    threadId: "test-thread",
+    runId: "test-run",
+  },
+): RunFinishedEvent {
+  return {
+    type: EventType.RUN_FINISHED,
+    threadId: input.threadId,
+    runId: input.runId,
+  };
 }
 
 export function stateSnapshotEvent(snapshot: unknown): BaseEvent {
@@ -684,7 +704,7 @@ export class SuggestionsProviderAgent extends MockStepwiseAgent {
     setTimeout(() => {
       void (async () => {
         const messageId = testId("suggest-msg");
-        await this.emit({ type: EventType.RUN_STARTED } as BaseEvent);
+        await this.emit(runStartedEvent(_input));
 
         await emitSuggestionToolCall(this, {
           toolCallId: testId("tc"),
@@ -692,7 +712,7 @@ export class SuggestionsProviderAgent extends MockStepwiseAgent {
           suggestions: this._suggestions,
         });
 
-        await this.emit({ type: EventType.RUN_FINISHED } as BaseEvent);
+        await this.emit(runFinishedEvent(_input));
         await this.complete();
       })();
     }, 0);

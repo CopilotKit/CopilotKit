@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CopilotKitCore } from "../core";
 import { ProxiedCopilotRuntimeAgent } from "../agent";
-import { HttpAgent } from "@ag-ui/client";
+import { AbstractAgent, HttpAgent } from "@ag-ui/client";
 import { waitForCondition } from "./test-utils";
 
 describe("CopilotKitCore headers", () => {
@@ -129,6 +129,33 @@ describe("CopilotKitCore headers", () => {
         "X-Team": "angular",
       });
     }
+  });
+
+  it("applies headers to an HttpAgent from another @ag-ui/client copy", () => {
+    // Stands in for an app's own 0.x HttpAgent: same public fields, but a
+    // different class, so `instanceof HttpAgent` is false.
+    class ForeignHttpAgent extends AbstractAgent {
+      url = "https://runtime.example";
+      headers: Record<string, string> = { Authorization: "Bearer agent-token" };
+      abortController = new AbortController();
+      run(): never {
+        throw new Error("not used");
+      }
+    }
+    const agent = new ForeignHttpAgent();
+    expect(agent instanceof HttpAgent).toBe(false);
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const core = new CopilotKitCore({
+      runtimeUrl: undefined,
+      headers: { "X-Core": "core" },
+      agents__unsafe_dev_only: { default: agent },
+    });
+
+    expect(agent.headers).toEqual({
+      Authorization: "Bearer agent-token",
+      "X-Core": "core",
+    });
   });
 
   it("preserves agent-level headers not overridden by core headers (#5635)", () => {
