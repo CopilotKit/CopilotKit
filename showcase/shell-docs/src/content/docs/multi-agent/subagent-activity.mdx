@@ -1,0 +1,213 @@
+---
+title: Subagent Activity
+description: Show the work of each subagent in the chat, grouped under the tool call that started it.
+icon: "lucide/Users"
+---
+
+Your supervisor agent sends work to subagents, and all of their output arrives in one stream.
+Without help, three parallel researchers look like one long answer in the chat.
+
+CopilotChat groups that output by subagent.
+Each group shows under the tool call that started it, with the name and the status of the subagent.
+
+## Show subagent groups
+
+1. Install `ag-ui-langgraph` 0.0.44 or later.
+2. Set `subagent_visibility="attributed"` on your agent:
+
+```python title="agent.py"
+from copilotkit import LangGraphAGUIAgent
+
+agent = LangGraphAGUIAgent(
+    name="supervisor",
+    graph=graph,
+    subagent_visibility="attributed",
+)
+```
+
+3. Send a message that makes the agent delegate work.
+
+Each subagent now shows as its own group under its tool call.
+Your frontend code does not change.
+
+<Callout type="info">
+  Any AG-UI 1.0 agent can do this. It must send `SUBAGENT_STARTED`,
+  `SUBAGENT_FINISHED` and `SUBAGENT_ERROR`, and put `subagentRunId` on the
+  events of each subagent. See [Subagents](https://docs.ag-ui.com/concepts/subagents)
+  in the AG-UI docs.
+</Callout>
+
+## What a group shows
+
+The header shows the name of the subagent and its status.
+The body holds the messages and the tool calls of the subagent.
+
+| Status | Label | The group is |
+| --- | --- | --- |
+| `running` | Running | open |
+| `done` | Done | collapsed to its header |
+| `suspended` | Waiting | open, because the subagent waits for input, for example an approval |
+| `error` | Failed | open, with the error message |
+
+A click on the header opens or closes the group.
+
+Where a group shows:
+
+- **Under a tool call:** when the agent names the tool call that started the subagent.
+- **Inside its parent group:** when another subagent started it.
+- **Where its first message was:** when the chat cannot find either of these.
+
+If the agent attributes messages but does not announce the subagent, the group has the label "Subagent" and no status.
+
+## Customize the group
+
+<FrontendOnly frontend="react">
+Pass your own component to the `subagent` slot of the message view.
+`children` holds the rendered messages of the group:
+
+```tsx title="chat.tsx"
+import {
+  CopilotChat,
+  type CopilotChatSubagentProps,
+} from "@copilotkit/react-core/v2";
+
+function SubagentCard({ subagent, children }: CopilotChatSubagentProps) {
+  return (
+    <section className="my-2 rounded-lg border p-3">
+      <h3>
+        {subagent?.name ?? "Subagent"}: {subagent?.status}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
+export function Chat() {
+  return <CopilotChat messageView={{ subagent: SubagentCard }} />;
+}
+```
+</FrontendOnly>
+
+<FrontendOnly frontend="vue">
+Use the `#subagent` slot.
+Render `body` to show the messages of the group:
+
+```vue title="Chat.vue"
+<script setup lang="ts">
+import { CopilotChat } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotChat>
+    <template #subagent="{ subagent, body }">
+      <section class="my-2 rounded-lg border p-3">
+        <h3>{{ subagent?.name ?? "Subagent" }}: {{ subagent?.status }}</h3>
+        <component :is="body" />
+      </section>
+    </template>
+  </CopilotChat>
+</template>
+```
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+Pass a template to `subagentTemplate`.
+Render `body` with `bodyContext` to show the messages of the group:
+
+```ts title="chat.component.ts"
+import { Component } from "@angular/core";
+import { NgTemplateOutlet } from "@angular/common";
+import { CopilotChat } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-chat",
+  imports: [CopilotChat, NgTemplateOutlet],
+  template: `
+    <copilot-chat [subagentTemplate]="card" />
+    <ng-template
+      #card
+      let-subagent
+      let-body="body"
+      let-bodyContext="bodyContext"
+    >
+      <section class="my-2 rounded-lg border p-3">
+        <h3>{{ subagent?.name ?? "Subagent" }}: {{ subagent?.status }}</h3>
+        <ng-container *ngTemplateOutlet="body; context: bodyContext" />
+      </section>
+    </ng-template>
+  `,
+})
+export class ChatComponent {}
+```
+</FrontendOnly>
+
+## Show progress outside the chat
+
+Read the subagents of the current thread and render them where you want.
+Each entry has `name`, `status` and `subagentRunId`, in the order the subagents started.
+
+<FrontendOnly frontend="react">
+```tsx title="subagent-progress.tsx"
+import { useSubagents } from "@copilotkit/react-core/v2";
+
+export function SubagentProgress() {
+  const subagents = useSubagents();
+  return (
+    <ul>
+      {subagents.map((subagent) => (
+        <li key={subagent.subagentRunId}>
+          {subagent.name}: {subagent.status}
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+See [`useSubagents`](/reference/hooks/useSubagents).
+</FrontendOnly>
+
+<FrontendOnly frontend="vue">
+```vue title="SubagentProgress.vue"
+<script setup lang="ts">
+import { useSubagents } from "@copilotkit/vue/v2";
+
+const subagents = useSubagents();
+</script>
+
+<template>
+  <ul>
+    <li v-for="subagent in subagents" :key="subagent.subagentRunId">
+      {{ subagent.name }}: {{ subagent.status }}
+    </li>
+  </ul>
+</template>
+```
+
+See [`useSubagents`](/reference/vue/hooks/useSubagents).
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+```ts title="subagent-progress.component.ts"
+import { Component } from "@angular/core";
+import { injectSubagents } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-subagent-progress",
+  template: `
+    <ul>
+      @for (subagent of subagents(); track subagent.subagentRunId) {
+        <li>{{ subagent.name }}: {{ subagent.status }}</li>
+      }
+    </ul>
+  `,
+})
+export class SubagentProgressComponent {
+  readonly subagents = injectSubagents();
+}
+```
+
+See [`injectSubagents`](/reference/angular/functions/injectSubagents).
+</FrontendOnly>
+
+Now the chat shows each subagent as its own group, and your own view follows the same list live.

@@ -1,0 +1,106 @@
+---
+title: "useSubagents"
+description: "Vue 3 composable that reads the AG-UI subagent invocations of an agent thread, live"
+---
+
+## Overview
+
+`useSubagents` returns a readonly ref with the subagents of the current chat thread, in the order they started.
+Each entry updates when the subagent starts, finishes, fails or waits for input.
+
+The agent must send AG-UI 1.0 subagent events.
+An agent that sends none gives an empty list.
+
+`<CopilotChat>` already shows each subagent as a group.
+Use this composable for your own view, for example a progress panel outside the chat.
+See [Subagent Activity](/multi-agent/subagent-activity).
+
+## Signature
+
+```ts
+import { useSubagents } from "@copilotkit/vue/v2";
+
+function useSubagents(
+  options?: UseSubagentsOptions,
+): Readonly<ShallowRef<readonly Subagent[]>>;
+```
+
+## Parameters
+
+<PropertyReference name="options" type="UseSubagentsOptions">
+  Optional. Both fields accept a plain value, a ref or a getter, and default to the surrounding chat configuration.
+
+  <PropertyReference name="agentId" type="MaybeRefOrGetter<string | undefined>">
+    The agent to read. Defaults to the agent of the chat.
+  </PropertyReference>
+
+  <PropertyReference name="threadId" type="MaybeRefOrGetter<string | undefined>">
+    The thread to read. Defaults to the thread of the chat.
+  </PropertyReference>
+</PropertyReference>
+
+## Return value
+
+A readonly shallow ref of `readonly Subagent[]`, in start order.
+The array keeps the same reference until one of its entries changes.
+Each entry has these fields:
+
+<PropertyReference name="subagentRunId" type="string" required>
+  The id of this invocation. Messages of the subagent carry the same `subagentRunId`.
+</PropertyReference>
+
+<PropertyReference name="name" type="string" required>
+  The name of the subagent, for display.
+</PropertyReference>
+
+<PropertyReference name="status" type='"running" | "done" | "suspended" | "error"' required>
+  `suspended` means that the subagent waits for input, for example an approval.
+</PropertyReference>
+
+<PropertyReference name="description" type="string">
+  A description of the subagent, when the agent sends one.
+</PropertyReference>
+
+<PropertyReference name="parentToolCallId" type="string">
+  The tool call that started the subagent.
+</PropertyReference>
+
+<PropertyReference name="parentSubagentRunId" type="string">
+  The subagent that started this one, when subagents nest.
+</PropertyReference>
+
+<PropertyReference name="result" type="unknown">
+  The result of the subagent, when its status is `done`.
+</PropertyReference>
+
+<PropertyReference name="interruptIds" type="string[]">
+  The interrupts the subagent raised, when its status is `suspended`.
+</PropertyReference>
+
+<PropertyReference name="error" type="{ message: string; code?: string }">
+  The error, when its status is `error`.
+  A stopped run gives the code `CANCELLED`.
+</PropertyReference>
+
+## Usage
+
+```vue
+<script setup lang="ts">
+import { useSubagents } from "@copilotkit/vue/v2";
+
+const subagents = useSubagents();
+</script>
+
+<template>
+  <ul>
+    <li v-for="subagent in subagents" :key="subagent.subagentRunId">
+      {{ subagent.name }}: {{ subagent.status }}
+    </li>
+  </ul>
+</template>
+```
+
+## Related
+
+- [Subagent Activity](/multi-agent/subagent-activity)
+- [`CopilotChatMessageView`](/reference/vue/components/CopilotChatMessageView), for the `#subagent` slot
