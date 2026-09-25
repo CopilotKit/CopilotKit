@@ -34,6 +34,7 @@ export type AutopilotApprovalResult = {
 
 type Pending = {
   binding: AutopilotApprovalBinding;
+  currentBinding: () => AutopilotApprovalBinding;
   id: string;
   state: "awaiting" | "rechecking" | "dispatched";
   expiresAt: number;
@@ -58,6 +59,7 @@ export class BrowserApprovalGate {
     recheck: () => Promise<boolean>,
     signal?: AbortSignal,
     ttlMs = 60_000,
+    currentBinding: () => AutopilotApprovalBinding = () => binding,
   ): { operationId: string; result: Promise<AutopilotApprovalResult> } {
     if (this.pending)
       throw new Error("Another Autopilot action is awaiting a decision");
@@ -69,6 +71,7 @@ export class BrowserApprovalGate {
     });
     const pending: Pending = {
       binding: structuredClone(binding),
+      currentBinding,
       id: operationId,
       state: "awaiting",
       expiresAt: Date.now() + ttlMs,
@@ -100,10 +103,13 @@ export class BrowserApprovalGate {
     trustedManualEvent = false,
   ): Promise<AutopilotAppDecision> {
     const pending = this.pending;
-    if (!pending)
-      return trustedManualEvent
-        ? { mode: "manual" }
-        : { mode: "autopilot", accepted: false };
+    if (trustedManualEvent) {
+      if (pending?.state === "dispatched")
+        return { mode: "autopilot", accepted: false };
+      if (pending) this.cancelAwaiting("Manual takeover");
+      return { mode: "manual" };
+    }
+    if (!pending) return { mode: "autopilot", accepted: false };
     if (pending.state !== "awaiting")
       return { mode: "autopilot", accepted: false };
     pending.state = "rechecking";
@@ -123,11 +129,16 @@ export class BrowserApprovalGate {
       );
       return { mode: "autopilot", accepted: false };
     }
+    if (!this.bindingMatches(pending)) {
+      this.settle(pending.id, "denied", "Action binding changed");
+      return { mode: "autopilot", accepted: false };
+    }
     try {
       if (
         !(await pending.recheck()) ||
         this.pending !== pending ||
-        pending.signal?.aborted
+        pending.signal?.aborted ||
+        !this.bindingMatches(pending)
       ) {
         this.settle(pending.id, "denied", "Action changed before dispatch");
         return { mode: "autopilot", accepted: false };
@@ -161,6 +172,17 @@ export class BrowserApprovalGate {
       this.pending?.state === "rechecking"
     ) {
       this.settle(this.pending.id, "cancelled", reason);
+    }
+  }
+
+  private bindingMatches(pending: Pending): boolean {
+    try {
+      return (
+        JSON.stringify(pending.currentBinding()) ===
+        JSON.stringify(pending.binding)
+      );
+    } catch {
+      return false;
     }
   }
 

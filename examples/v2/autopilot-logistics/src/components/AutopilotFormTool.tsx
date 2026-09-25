@@ -118,20 +118,51 @@ export function AutopilotFormTool({
             current.role !== "viewer"
           );
         };
+        const binding = {
+          target,
+          tool: "autopilot_submitForm",
+          handlerVersion: "1",
+          normalizedArguments: JSON.stringify({ changes, submitRef }),
+          agentId: context.agent.agentId,
+          threadId: context.agent.threadId,
+          requestId: userMessage?.id ?? context.toolCall.id,
+          toolCallId: context.toolCall.id,
+          controlRef: submitRef,
+        };
         const operation = orderApprovalGate.begin(
-          {
-            target,
-            tool: "autopilot_submitForm",
-            handlerVersion: "1",
-            normalizedArguments: JSON.stringify({ changes, submitRef }),
-            agentId: context.agent.agentId,
-            threadId: context.agent.threadId,
-            requestId: userMessage?.id ?? context.toolCall.id,
-            toolCallId: context.toolCall.id,
-            controlRef: submitRef,
-          },
+          binding,
           recheck,
           context.signal,
+          60_000,
+          () => ({
+            ...binding,
+            target: {
+              ...target,
+              recordId:
+                plan.form.getAttribute("data-autopilot-record-id") ||
+                plan.form.getAttribute("data-autopilot-draft-id") ||
+                "",
+              version: plan.form.hasAttribute("data-autopilot-record-id")
+                ? Number(
+                    plan.form.getAttribute("data-autopilot-record-version"),
+                  )
+                : 0,
+              action: plan.form.hasAttribute("data-autopilot-record-id")
+                ? "edit_form"
+                : "create_form",
+              path: window.location.pathname,
+            },
+            handlerVersion:
+              plan.form.getAttribute("data-autopilot-handler-version") ?? "",
+            agentId: context.agent?.agentId ?? "",
+            threadId: context.agent?.threadId ?? "",
+            requestId:
+              [...(context.agent?.messages ?? [])]
+                .toReversed()
+                .find((message) => message.role === "user")?.id ??
+              context.toolCall.id,
+            toolCallId: context.toolCall.id,
+          }),
         );
         operationId = operation.operationId;
         const review = [

@@ -87,6 +87,7 @@ export function OrderForm({
 
   return (
     <form
+      data-autopilot-handler-version="1"
       data-autopilot-record-id={order?.id}
       data-autopilot-record-version={order?.version}
       data-autopilot-draft-id={order ? undefined : key}
@@ -310,6 +311,7 @@ export function CancelOrder({
     >
       <button
         className="button danger"
+        data-autopilot-handler-version="1"
         type="button"
         onClick={cancel}
         disabled={pending}

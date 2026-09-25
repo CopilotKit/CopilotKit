@@ -238,27 +238,35 @@ function BrowserProbe({ user }: { user: SessionUser }) {
         const userMessage = [...context.agent.messages]
           .toReversed()
           .find((message) => message.role === "user");
+        const binding = {
+          target,
+          tool: "autopilot_cancelOrder",
+          handlerVersion: "1",
+          normalizedArguments: JSON.stringify({ ref }),
+          agentId: context.agent.agentId,
+          threadId: context.agent.threadId,
+          requestId: userMessage?.id ?? context.toolCall.id,
+          toolCallId: context.toolCall.id,
+          controlRef: ref,
+        };
         const operation = orderApprovalGate.begin(
-          {
-            target,
-            tool: "autopilot_cancelOrder",
-            handlerVersion: "1",
-            normalizedArguments: JSON.stringify({ ref }),
-            agentId: context.agent.agentId,
-            threadId: context.agent.threadId,
-            requestId: userMessage?.id ?? context.toolCall.id,
-            toolCallId: context.toolCall.id,
-            controlRef: ref,
-          },
+          binding,
           async () => {
             if (
               context.signal?.aborted ||
-              !copilotkit.isAutopilotEnabledForAgent(context.agent!.agentId!)
+              !copilotkit.isAutopilotEnabledForAgent(context.agent!.agentId!) ||
+              element.disabled ||
+              element.textContent?.trim() !== "Cancel order"
             )
               return false;
             if (
               pageMap.resolve(ref) !== element ||
-              window.location.pathname !== target.path
+              window.location.pathname !== target.path ||
+              container?.getAttribute("data-autopilot-record-id") !==
+                target.recordId ||
+              Number(
+                container?.getAttribute("data-autopilot-record-version"),
+              ) !== target.version
             )
               return false;
             const session = await fetch("/api/session", { cache: "no-store" });
@@ -275,6 +283,29 @@ function BrowserProbe({ user }: { user: SessionUser }) {
             );
           },
           context.signal,
+          60_000,
+          () => ({
+            ...binding,
+            target: {
+              ...target,
+              recordId:
+                container?.getAttribute("data-autopilot-record-id") ?? "",
+              version: Number(
+                container?.getAttribute("data-autopilot-record-version"),
+              ),
+              path: window.location.pathname,
+            },
+            handlerVersion:
+              element.getAttribute("data-autopilot-handler-version") ?? "",
+            agentId: context.agent?.agentId ?? "",
+            threadId: context.agent?.threadId ?? "",
+            requestId:
+              [...(context.agent?.messages ?? [])]
+                .toReversed()
+                .find((message) => message.role === "user")?.id ??
+              context.toolCall.id,
+            toolCallId: context.toolCall.id,
+          }),
         );
         element.click();
         return {

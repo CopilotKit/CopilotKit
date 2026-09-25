@@ -140,6 +140,7 @@ export class BrowserFormBatch {
       recordId,
       draftId,
       version,
+      handlerVersion: form.getAttribute("data-autopilot-handler-version"),
       form: form.getAttribute("aria-label"),
       path: window.location.pathname,
     });
@@ -186,6 +187,9 @@ export class BrowserFormBatch {
         version: plan.form.hasAttribute("data-autopilot-record-id")
           ? Number(plan.form.getAttribute("data-autopilot-record-version"))
           : 0,
+        handlerVersion: plan.form.getAttribute(
+          "data-autopilot-handler-version",
+        ),
         form: plan.form.getAttribute("aria-label"),
         path: window.location.pathname,
       });

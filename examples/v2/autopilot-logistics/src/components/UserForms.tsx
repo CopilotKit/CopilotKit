@@ -72,6 +72,7 @@ export function UserForm({ person }: { person?: Person }) {
 
   return (
     <form
+      data-autopilot-handler-version="1"
       aria-label={person ? `Edit user ${person.display_name}` : "Add a user"}
       data-autopilot-record-id={person?.id}
       data-autopilot-record-version={person?.version}

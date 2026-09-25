@@ -22,6 +22,106 @@ const binding: AutopilotApprovalBinding = {
 };
 
 describe("BrowserApprovalGate", () => {
+  it.each([
+    [
+      "user",
+      (value: AutopilotApprovalBinding) => (value.target.userId = "other"),
+    ],
+    [
+      "tenant",
+      (value: AutopilotApprovalBinding) =>
+        (value.target.organizationId = "other"),
+    ],
+    [
+      "record",
+      (value: AutopilotApprovalBinding) => (value.target.recordId = "order-2"),
+    ],
+    [
+      "version",
+      (value: AutopilotApprovalBinding) => (value.target.version = 4),
+    ],
+    [
+      "action",
+      (value: AutopilotApprovalBinding) => (value.target.action = "edit"),
+    ],
+    [
+      "path",
+      (value: AutopilotApprovalBinding) =>
+        (value.target.path = "/orders/order-2"),
+    ],
+    ["tool", (value: AutopilotApprovalBinding) => (value.tool = "other")],
+    [
+      "handler",
+      (value: AutopilotApprovalBinding) => (value.handlerVersion = "2"),
+    ],
+    [
+      "values",
+      (value: AutopilotApprovalBinding) =>
+        (value.normalizedArguments = '{"ref":"c2"}'),
+    ],
+    [
+      "agent",
+      (value: AutopilotApprovalBinding) => (value.agentId = "operations"),
+    ],
+    [
+      "thread",
+      (value: AutopilotApprovalBinding) => (value.threadId = "thread-2"),
+    ],
+    [
+      "request",
+      (value: AutopilotApprovalBinding) => (value.requestId = "user-2"),
+    ],
+    [
+      "call",
+      (value: AutopilotApprovalBinding) => (value.toolCallId = "call-2"),
+    ],
+    ["control", (value: AutopilotApprovalBinding) => (value.controlRef = "c2")],
+  ])("rejects a changed %s binding before dispatch", async (_name, change) => {
+    const gate = new BrowserApprovalGate();
+    const current = structuredClone(binding);
+    const recheck = vi.fn(async () => true);
+    const operation = gate.begin(current, recheck);
+    change(current);
+    expect(await gate.decideFromApp(binding.target, true)).toEqual({
+      mode: "autopilot",
+      accepted: false,
+    });
+    expect(await operation.result).toMatchObject({
+      status: "denied",
+      reason: "Action binding changed",
+    });
+    expect(recheck).not.toHaveBeenCalled();
+  });
+
+  it("rechecks binding after an asynchronous identity check", async () => {
+    const gate = new BrowserApprovalGate();
+    const current = structuredClone(binding);
+    let finishRecheck!: (value: boolean) => void;
+    const operation = gate.begin(
+      current,
+      () => new Promise<boolean>((resolve) => (finishRecheck = resolve)),
+    );
+    const decision = gate.decideFromApp(binding.target, true);
+    current.agentId = "operations";
+    finishRecheck(true);
+    expect(await decision).toEqual({ mode: "autopilot", accepted: false });
+    expect(await operation.result).toMatchObject({ status: "denied" });
+  });
+
+  it("lets a trusted manual click take over a waiting action", async () => {
+    const gate = new BrowserApprovalGate();
+    const recheck = vi.fn(async () => true);
+    const operation = gate.begin(binding, recheck);
+    expect(await gate.decideFromApp(binding.target, true, true)).toEqual({
+      mode: "manual",
+    });
+    expect(await operation.result).toMatchObject({
+      status: "cancelled",
+      reason: "Manual takeover",
+    });
+    expect(recheck).not.toHaveBeenCalled();
+  });
+
   it("requires matching target and a single app decision before dispatch", async () => {
     const gate = new BrowserApprovalGate();
     const recheck = vi.fn(async () => true);
