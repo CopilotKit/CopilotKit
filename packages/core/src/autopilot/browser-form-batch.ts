@@ -5,7 +5,25 @@ export interface AutopilotFieldChange {
   value: string;
 }
 
-type Fillable = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+type Fillable =
+  | HTMLInputElement
+  | HTMLSelectElement
+  | HTMLTextAreaElement
+  | HTMLElement;
+
+function customSelect(element: Element): element is HTMLElement {
+  return (
+    element instanceof HTMLElement &&
+    element.hasAttribute("data-autopilot-custom-select")
+  );
+}
+
+function fieldValue(element: Fillable): string {
+  return customSelect(element)
+    ? (element.getAttribute("data-autopilot-selected") ?? "")
+    : (element as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement)
+        .value;
+}
 
 type PreparedField = {
   ref: string;
@@ -82,7 +100,8 @@ export class BrowserFormBatch {
         !(
           element instanceof HTMLInputElement ||
           element instanceof HTMLSelectElement ||
-          element instanceof HTMLTextAreaElement
+          element instanceof HTMLTextAreaElement ||
+          customSelect(element)
         ) ||
         element.closest("form") !== form
       )
@@ -106,9 +125,16 @@ export class BrowserFormBatch {
         ![...element.options].some((option) => option.value === value)
       )
         throw new Error("Choose one of the select's available options");
+      if (
+        customSelect(element) &&
+        ![...element.querySelectorAll("[data-autopilot-option]")].some(
+          (option) => option.getAttribute("data-autopilot-option") === value,
+        )
+      )
+        throw new Error("Choose one of the custom select's available options");
       const label =
         controls.get(ref)?.name || element.getAttribute("name") || ref;
-      return { ref, element, label, before: element.value, after: value };
+      return { ref, element, label, before: fieldValue(element), after: value };
     });
     const identity = JSON.stringify({
       recordId,
@@ -171,7 +197,7 @@ export class BrowserFormBatch {
       return plan.fields.every(
         (field) =>
           this.pageMap.resolve(field.ref) === field.element &&
-          field.element.value === expected.get(field.element),
+          fieldValue(field.element) === expected.get(field.element),
       );
     };
     try {
@@ -182,8 +208,8 @@ export class BrowserFormBatch {
             applied,
             reason: "Form changed before fill",
           };
-        this.setValue(field.element, field.after);
-        if (field.element.value !== field.after)
+        await this.setValue(field.element, field.after);
+        if (fieldValue(field.element) !== field.after)
           return {
             status: "partial",
             applied,
@@ -215,7 +241,22 @@ export class BrowserFormBatch {
     }
   }
 
-  private setValue(element: Fillable, value: string): void {
+  private async setValue(element: Fillable, value: string): Promise<void> {
+    if (customSelect(element)) {
+      const option = [
+        ...element.querySelectorAll("[data-autopilot-option]"),
+      ].find(
+        (candidate) =>
+          candidate.getAttribute("data-autopilot-option") === value,
+      );
+      if (!(option instanceof HTMLButtonElement) || option.disabled)
+        throw new Error("Custom select option is no longer available");
+      option.click();
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
+      return;
+    }
     const prototype =
       element instanceof HTMLSelectElement
         ? HTMLSelectElement.prototype

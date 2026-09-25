@@ -285,13 +285,14 @@ export function manageUser(
   displayName: string,
   role: Role,
   key: string,
-): { id: string } {
+  expectedVersion: number,
+): { id: string; version: number } {
   requireRole(actor, ["admin"]);
   return operation(
     actor,
     key,
     `${action}_user`,
-    { id, displayName, role },
+    { id, displayName, role, expectedVersion },
     "user",
     () => {
       if (!["admin", "operator", "viewer"].includes(role))
@@ -307,30 +308,42 @@ export function manageUser(
       } else {
         const target = db()
           .prepare(
-            "SELECT id, role, active FROM users WHERE id = ? AND organization_id = ?",
+            "SELECT id, role, active, version FROM users WHERE id = ? AND organization_id = ?",
           )
           .get(id, actor.organizationId) as
-          | { id: string; role: Role; active: number }
+          | { id: string; role: Role; active: number; version: number }
           | undefined;
         if (!target) throw new DomainError("User not found", 404);
+        if (target.version !== expectedVersion || !target.active)
+          throw new DomainError("User changed; reload before saving", 409);
         if (id === actor.id && (action === "deactivate" || role !== "admin"))
           throw new DomainError("You cannot remove your own admin access", 409);
         if (action === "deactivate") {
-          db()
+          const changed = db()
             .prepare(
-              "UPDATE users SET active = 0 WHERE id = ? AND organization_id = ?",
+              "UPDATE users SET active = 0, version = version + 1 WHERE id = ? AND organization_id = ? AND version = ?",
             )
-            .run(id, actor.organizationId);
+            .run(id, actor.organizationId, expectedVersion);
+          if (changed.changes !== 1)
+            throw new DomainError("User changed; reload before saving", 409);
           db().prepare("DELETE FROM sessions WHERE user_id = ?").run(id);
         } else {
-          db()
+          const changed = db()
             .prepare(
-              "UPDATE users SET display_name = ?, role = ? WHERE id = ? AND organization_id = ?",
+              "UPDATE users SET display_name = ?, role = ?, version = version + 1 WHERE id = ? AND organization_id = ? AND version = ?",
             )
-            .run(name, role, id, actor.organizationId);
+            .run(name, role, id, actor.organizationId, expectedVersion);
+          if (changed.changes !== 1)
+            throw new DomainError("User changed; reload before saving", 409);
         }
       }
-      return { id: userId, result: { id: userId } };
+      return {
+        id: userId,
+        result: {
+          id: userId,
+          version: action === "create" ? 1 : expectedVersion + 1,
+        },
+      };
     },
   );
 }

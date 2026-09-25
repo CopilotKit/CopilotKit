@@ -56,7 +56,7 @@ export function db(): DatabaseSync {
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES organizations(id),
       display_name TEXT NOT NULL, role TEXT NOT NULL CHECK (role IN ('admin','operator','viewer')),
-      active INTEGER NOT NULL DEFAULT 1
+      active INTEGER NOT NULL DEFAULT 1, version INTEGER NOT NULL DEFAULT 1
     );
     CREATE TABLE IF NOT EXISTS sessions (
       token TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id),
@@ -86,6 +86,14 @@ export function db(): DatabaseSync {
   if (!columns.some((column) => column.name === "payload_hash")) {
     singleton.exec(
       "ALTER TABLE operations ADD COLUMN payload_hash TEXT NOT NULL DEFAULT ''",
+    );
+  }
+  const userColumns = singleton
+    .prepare("PRAGMA table_info(users)")
+    .all() as Array<{ name: string }>;
+  if (!userColumns.some((column) => column.name === "version")) {
+    singleton.exec(
+      "ALTER TABLE users ADD COLUMN version INTEGER NOT NULL DEFAULT 1",
     );
   }
   return singleton;
@@ -155,12 +163,13 @@ export function getOrder(user: SessionUser, id: string): Order | null {
 export function listUsers(user: SessionUser) {
   return db()
     .prepare(
-      "SELECT id, display_name, role, active FROM users WHERE organization_id = ? ORDER BY display_name",
+      "SELECT id, display_name, role, active, version FROM users WHERE organization_id = ? ORDER BY display_name",
     )
     .all(user.organizationId) as Array<{
     id: string;
     display_name: string;
     role: Role;
     active: number;
+    version: number;
   }>;
 }

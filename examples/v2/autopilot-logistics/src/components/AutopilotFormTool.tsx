@@ -55,7 +55,7 @@ export function AutopilotFormTool({
     name: "autopilot_submitForm",
     autopilot: true,
     description:
-      "Fill up to 12 discovered native fields and submit their form as one reviewed operation. Pass field refs and exact values from autopilot_readPage plus the form's submit button ref. The user sees all changes and the submit action before any input event. Do not claim success unless the receipt says completed.",
+      "Fill up to 12 discovered native fields or supported custom selects and submit their form as one reviewed operation. Pass field refs and exact values from autopilot_readPage plus the form's submit button ref. The user sees all changes and the submit action before any input event. Do not claim success unless the receipt says completed.",
     parameters: z.object({
       changes: z
         .array(
@@ -123,7 +123,7 @@ export function AutopilotFormTool({
         );
         operationId = operation.operationId;
         const review = [
-          `${plan.action === "create_form" ? "Create" : "Edit"} order?`,
+          `${plan.review.form}?`,
           ...plan.review.fields.map(
             (field) =>
               `${field.label}: ${field.before || "(empty)"} → ${field.after || "(empty)"}`,

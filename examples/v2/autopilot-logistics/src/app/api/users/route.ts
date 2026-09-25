@@ -22,6 +22,7 @@ export async function POST(request: Request) {
       field(data, "displayName"),
       field(data, "role") as Role,
       field(data, "operationKey"),
+      Number(field(data, "version")),
     );
     return Response.json(result);
   } catch (error) {

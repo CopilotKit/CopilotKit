@@ -28,7 +28,7 @@ type StoredTarget = { element: Element; fingerprint: string; path: string };
 const PRIVATE_SELECTOR =
   '[data-copilot-private], [hidden], [inert], [aria-hidden="true"]';
 const CONTROL_SELECTOR =
-  'a[href], button, input:not([type="hidden"]), select, textarea';
+  'a[href], button, input:not([type="hidden"]), select, textarea, [data-autopilot-custom-select]';
 const MAX_TEXT_NODES = 350;
 const MAX_CONTROLS = 65;
 const MAX_CHARACTERS = 12_000;
@@ -223,8 +223,11 @@ export class BrowserPageMap {
       fingerprint,
       path: window.location.pathname,
     });
-    const kind: AutopilotControl["kind"] =
-      element instanceof HTMLAnchorElement
+    const kind: AutopilotControl["kind"] = element.hasAttribute(
+      "data-autopilot-custom-select",
+    )
+      ? "select"
+      : element instanceof HTMLAnchorElement
         ? "link"
         : element instanceof HTMLButtonElement
           ? "button"
@@ -252,6 +255,16 @@ export class BrowserPageMap {
       element instanceof HTMLSelectElement
     )
       control.value = element.value;
+    if (element.hasAttribute("data-autopilot-custom-select")) {
+      control.value = element.getAttribute("data-autopilot-selected") ?? "";
+      control.options = [...element.querySelectorAll("[data-autopilot-option]")]
+        .filter(permitted)
+        .slice(0, 40)
+        .map((option) => ({
+          value: option.getAttribute("data-autopilot-option") ?? "",
+          label: safeText(option),
+        }));
+    }
     if (
       element instanceof HTMLInputElement ||
       element instanceof HTMLTextAreaElement ||

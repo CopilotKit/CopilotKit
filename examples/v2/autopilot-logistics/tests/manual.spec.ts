@@ -38,7 +38,10 @@ test("manual order and user workflows persist and enforce roles", async ({
     .getByRole("textbox", { name: "Destination" })
     .fill("20 Sample Street, Seattle, WA");
   await form.getByLabel("Requested ship date").fill("2026-11-18");
-  await form.getByLabel("Service level").selectOption("express");
+  await form
+    .getByRole("group", { name: "Service level" })
+    .getByRole("button", { name: "Express" })
+    .click();
   await form.getByLabel("Assigned operator").selectOption("operator");
   await form.getByLabel("Status").selectOption("booked");
   await form

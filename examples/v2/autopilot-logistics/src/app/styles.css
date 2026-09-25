@@ -315,6 +315,35 @@ tr:last-child td {
 .form-grid .wide {
   grid-column: 1 / -1;
 }
+.service-picker {
+  display: grid;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 650;
+  color: #40555b;
+}
+.service-picker-options {
+  display: flex;
+  gap: 5px;
+}
+.service-picker-options button {
+  flex: 1;
+  border: 1px solid #cad8da;
+  border-radius: 6px;
+  background: white;
+  padding: 10px 4px;
+  color: #40555b;
+  cursor: pointer;
+}
+.service-picker-options button[aria-pressed="true"] {
+  border-color: #0d646b;
+  background: #e8f5f3;
+  color: #0d646b;
+}
+.service-picker-options button:focus-visible {
+  outline: 2px solid #0d646b;
+  outline-offset: 2px;
+}
 .form-grid input,
 .form-grid select,
 .form-grid textarea,

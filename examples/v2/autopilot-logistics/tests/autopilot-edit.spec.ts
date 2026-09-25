@@ -10,6 +10,7 @@ for (const scenario of [
     expected: {
       destination: "30 Revised Avenue, Seattle, WA",
       status: "booked",
+      serviceLevel: "standard",
     },
   },
   {
@@ -18,6 +19,16 @@ for (const scenario of [
     expected: {
       destination: "2 Example Road, Seattle, WA",
       status: "in_transit",
+      serviceLevel: "standard",
+    },
+  },
+  {
+    name: "service level custom select",
+    request: "change its service level to Priority",
+    expected: {
+      destination: "2 Example Road, Seattle, WA",
+      status: "booked",
+      serviceLevel: "priority",
     },
   },
 ] as const) {
@@ -44,8 +55,15 @@ for (const scenario of [
       .run(id, reference, now, now);
     const state = () =>
       database
-        .prepare("SELECT destination, status, version FROM orders WHERE id = ?")
-        .get(id) as { destination: string; status: string; version: number };
+        .prepare(
+          "SELECT destination, status, service_level AS serviceLevel, version FROM orders WHERE id = ?",
+        )
+        .get(id) as {
+        destination: string;
+        status: string;
+        serviceLevel: string;
+        version: number;
+      };
     await page.addInitScript(() => {
       const originalConfirm = window.confirm.bind(window);
       (window as any).__autopilotSequence = [] as Array<{
@@ -94,7 +112,12 @@ for (const scenario of [
     );
     let review = "";
     let beforeApproval:
-      | { destination: string; status: string; version: number }
+      | {
+          destination: string;
+          status: string;
+          serviceLevel: string;
+          version: number;
+        }
       | undefined;
     page.once("dialog", async (dialog) => {
       review = dialog.message();
@@ -145,6 +168,7 @@ for (const scenario of [
     expect(beforeApproval).toEqual({
       destination: "2 Example Road, Seattle, WA",
       status: "booked",
+      serviceLevel: "standard",
       version: 1,
     });
     expect(review).toContain(reference);
@@ -160,6 +184,15 @@ for (const scenario of [
         .getByRole("form", { name: `Edit order ${reference}` })
         .getByLabel("Status"),
     ).toHaveValue(scenario.expected.status);
+    await expect(
+      page
+        .getByRole("form", { name: `Edit order ${reference}` })
+        .getByRole("group", { name: "Service level" })
+        .locator('button[aria-pressed="true"]'),
+    ).toHaveText(
+      scenario.expected.serviceLevel[0].toUpperCase() +
+        scenario.expected.serviceLevel.slice(1),
+    );
     const sequence = await page.evaluate(
       () =>
         (window as any).__autopilotSequence as Array<{

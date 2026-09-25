@@ -21,6 +21,9 @@ export function OrderForm({
   const [key, setKey] = useState(() => crypto.randomUUID());
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [serviceLevel, setServiceLevel] = useState(
+    order?.service_level ?? "standard",
+  );
   const editable =
     role !== "viewer" &&
     order?.status !== "cancelled" &&
@@ -135,17 +138,34 @@ export function OrderForm({
             defaultValue={order?.destination}
           />
         </label>
-        <label>
-          Service level{" "}
-          <select
-            name="serviceLevel"
-            defaultValue={order?.service_level ?? "standard"}
-          >
-            <option value="standard">Standard</option>
-            <option value="express">Express</option>
-            <option value="priority">Priority</option>
-          </select>
-        </label>
+        <div
+          className="service-picker"
+          role="group"
+          aria-label="Service level"
+          data-autopilot-custom-select
+          data-autopilot-selected={serviceLevel}
+        >
+          <span>Service level</span>
+          <input type="hidden" name="serviceLevel" value={serviceLevel} />
+          <div className="service-picker-options">
+            {(["standard", "express", "priority"] as const).map((level) => (
+              <button
+                key={level}
+                type="button"
+                data-autopilot-option={level}
+                aria-pressed={serviceLevel === level}
+                onClick={(event) => {
+                  setServiceLevel(level);
+                  event.currentTarget.dispatchEvent(
+                    new Event("input", { bubbles: true }),
+                  );
+                }}
+              >
+                {level[0].toUpperCase() + level.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
         <label>
           Assigned operator{" "}
           <select

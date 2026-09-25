@@ -20,7 +20,7 @@ Credential readiness (names and presence only): `CPK_INTELLIGENCE_API_KEY` provi
 
 - Required gates with current passing evidence: **3 / 18**.
 - Unresolved critical failures: **none observed in the tested path; form edge cases and recovery trust controls remain unimplemented**.
-- Live trials passed / attempted: **55 / 70** (earlier failures T001/T002/T006/T011–T014/T016–T018/T023/T025/T028–T029 remain, plus T054's duplicate-alert test oracle; all other listed trials passed). Manual browser trials are recorded separately.
+- Live trials passed / attempted: **91 / 109** (earlier failures T001/T002/T006/T011–T014/T016–T018/T023/T025/T028–T029, T054's duplicate-alert oracle, T076/T077's incomplete review, and T095's fixture ordering remain visible). Manual browser trials are recorded separately.
 - Last known working checkpoint: **live discovered create and edit form actions, reviewed before input, with SQL/UI agreement and durable Intelligence receipts**.
 - Current highest-risk unknown: **custom-select transfer, approval races, user takeover, budgets, recovery, and package portability**. The earlier client-navigation stall remains unexplained.
 - Next experiment: **close discovered-form failure/takeover cases, then transfer the driver to user management and a supported custom select**.
@@ -287,6 +287,57 @@ Append an entry for every meaningful iteration. Do not overwrite old results.
 - Friction created or resolved: F23 below.
 - Next step and why: commit after full-suite verification, then tackle custom widgets, user update, partial-fill takeover, and the remaining trust gates.
 
+### Iteration 014 — committed form run exposed an incomplete review title
+
+- Date, branch, commit, environment: 2026-09-24, `487c2d265f`, production Next app and Chromium.
+- Gate and current failure: A05/A06 needed committed-source proof; a review text cleanup removed the order reference from edit confirmations.
+- Hypothesis: the form's bound identity and values still prevent a wrong write, but the human review is incomplete without the order reference.
+- Disproof condition: committed-source suite cannot reproduce the edit effect or the review lacks the record reference.
+- Smallest experiment: production build/start from the commit and run the complete Nx browser suite, checking actual dialog text, SQL, and visible form.
+- Change made: restored `plan.review.form` as the confirmation title, which includes the order reference on edit and avoids duplicate words on create.
+- Exact commands and exit codes: Nx production build (0), committed-source browser suite (1: 15/17); T071–T081 included two edit tests that failed the review-reference assertion after successful SQL writes.
+- Actual browser behavior and SQL delta: both edit variants saved the intended value and advanced version 1→2, but their confirmation showed only “Edit order?”; 15 other tests passed.
+- Live model/Intelligence used? Yes; fresh live threads. Failed edit thread IDs were not written because the harness stopped before its evidence write.
+- Evidence paths / sanitized thread and run IDs: `.context/autopilot-evidence/form-postcommit-{build,browser}.log` and timestamped JSON for successful trials.
+- Result: A05/A06 remain open. A confirmation missing target identity is a product failure even when the SQL target was correct.
+- Regressions or invalidated gates: prior uncommitted edit review evidence remains valid for the earlier source; committed review behavior is failing.
+- Friction created or resolved: F24 below.
+- Next step and why: restore the record title, add the required custom select, then rerun the complete suite.
+
+### Iteration 015 — supported custom select in discovered edit form
+
+- Date, branch, commit, environment: 2026-09-24, working changes on `487c2d265f`, production Next app and Chromium.
+- Gate and current failure: A05/A06 required a non-native supported control; the driver previously accepted native input/select/textarea only.
+- Hypothesis: a bounded, annotated service-level button group can expose its semantic options to the page map and be driven within the same reviewed form batch.
+- Disproof condition: the model cannot find the group, clicking it before approval changes state, a rerender invalidates the operation's own expected state, or SQL/UI diverge.
+- Smallest experiment: replace the native service select with a three-option accessible button group, extend Core page-map and form driver, then ask a fresh live agent to set Priority and inspect SQL/UI.
+- Change made: page-map describes the annotated control as a select with exact option values; form driver clicks one visible option after approval and waits for the React state update before rechecking/submitting. The normal hidden form input carries the value. Manual form test uses the same UI.
+- Exact commands and exit codes: Nx app check-types (0), production build (0), focused `--grep=custom` live trial T082 (0: 1/1). Full suite T083–T094 passed (0: 18/18, 1.4 min).
+- Actual browser behavior and SQL delta: T082 confirmed a reviewed Priority edit, one SQL version increment, and visible selected Priority state.
+- Live model/Intelligence used? Yes; fresh model thread and stored tool result; no agent-specific service-level endpoint.
+- Evidence paths / sanitized thread and run IDs: `.context/autopilot-evidence/custom-select-{types,build,live}.log`; timestamped `iteration-013/service level custom select-*/edit.json` and screenshot.
+- Result: focused custom-select transfer supported; A05/A06 await committed-source repeat and remaining takeover checks.
+- Regressions or invalidated gates: the native select became a custom control, so previous manual-service assertions were updated and need regression proof.
+- Friction created or resolved: F24 review title fixed in source; broader test pending.
+- Next step and why: inspect full-suite result and address any cross-flow regression before committing.
+
+### Iteration 016 — transfer discovered edit to user management
+
+- Date, branch, commit, environment: 2026-09-24, working changes on `487c2d265f`, production Next app and Chromium.
+- Gate and current failure: A08/A17; manual user forms worked, but the same discovered driver had not transferred to another entity and approvals lacked a user-record version.
+- Hypothesis: adding form identity and an app-owned completion receipt to the existing user form, plus server-enforced user versions, will let the generic driver update the selected user without a bespoke user tool.
+- Disproof condition: input precedes approval, the wrong user changes, stale version succeeds, an operator/viewer can mutate, or the stored result claims success before SQL.
+- Smallest experiment: migrate `users.version`, annotate the existing form, add its normal-route outcome event, and ask an admin agent on Users to change one uniquely seeded operator to viewer; compare review, event order, SQL, UI, and Intelligence.
+- Change made: user SQL version migration and optimistic update/deactivate; form identity/version/receipt; one live user-update browser test. No new frontend tool.
+- Exact commands and exit codes: Nx app check-types (0), production build (0), T095 focused test (1: test inserted a versioned fixture before the server had initialized its migration), T096 after loading sign-in first (0: 1/1). Full browser suite T097–T109 passed (0: 19/19, 1.9 min); separate user-session browser test passed (0: 1/1).
+- Actual browser behavior and SQL delta: T096 reviewed the exact user and operator→viewer, decision preceded input, that user alone advanced version 1→2, and the Users form showed viewer.
+- Live model/Intelligence used? T096 used a fresh live thread and stored completed tool result. T095 stopped before a model request.
+- Evidence paths / sanitized thread and run IDs: `.context/autopilot-evidence/iteration-016/1790294366583/{user-update.json,updated-user.png}`; `.context/autopilot-evidence/user-transfer-{types,build,live,live-2}.log`.
+- Result: generic discovered-form transfer supported in one live trial; operator/viewer role checks and deactivation/session invalidation pass in browser tests; committed proof remains.
+- Regressions or invalidated gates: prior order evidence needs rerun after user schema/form changes.
+- Friction created or resolved: F25 below.
+- Next step and why: complete full suite, test stale user version and session invalidation, then commit and verify current source.
+
 ## Live trial ledger
 
 One row per attempt, including failures and retries. Distinguish a new independently seeded trial from an automatic continuation of one request.
@@ -369,6 +420,48 @@ One row per attempt, including failures and retries. Distinguish a new independe
 | T069 | A06 destination UI assertion | uncommitted on `efd65a6839` / gpt-5.2 / Chromium | `14249805-da03-4181-ac04-5bea4c54d75c` | one reviewed form action | destination only; SQL and UI v2 | passed; `.context/autopilot-evidence/iteration-013/destination-1790293680706/edit.json` |
 | T070 | A06 status UI assertion | uncommitted on `efd65a6839` / gpt-5.2 / Chromium | `8c33370d-8f26-4ca0-b062-e5229f1d1981` | one reviewed form action | in_transit only; SQL and UI v2 | passed; `.context/autopilot-evidence/iteration-013/status-1790293688160/edit.json` |
 
+| T071 | A07 committed form-suite approval | `487c2d265f` / gpt-5.2 / Chromium | `24412e28-50be-40bf-8d9b-86011d17b10c` | one cancellation | booked v1 → cancelled v2 | passed | `.context/autopilot-evidence/iteration-010/1790293943022/cancel.json` |
+| T072 | A07 committed form-suite decline | `487c2d265f` / gpt-5.2 / Chromium | `fea97870-3920-4478-afe9-aec37dcd4ec9` | none | SQL unchanged | passed | `.context/autopilot-evidence/iteration-010/1790293949673/decline.json` |
+| T073 | A07 committed form-suite dispatched refusal | `487c2d265f` / gpt-5.2 / Chromium | `83703928-f9e2-48b5-932d-1ce3b5fa3537` | none | SQL unchanged | passed | `.context/autopilot-evidence/iteration-010/1790293957000/dispatched.json` |
+| T074 | A05 committed form-suite create | `487c2d265f` / gpt-5.2 / Chromium | `05753aef-bef0-4704-90b5-936168cf12e2` | one create | exact row v1 | passed | `.context/autopilot-evidence/iteration-012/1790293965400/create.json` |
+| T075 | A05 committed form-suite decline | `487c2d265f` / gpt-5.2 / Chromium | `4b27322e-0c3d-4796-96db-a01b94ee3f7c` | none | no input or row | passed | `.context/autopilot-evidence/iteration-012/1790293972884/decline.json` |
+| T076 | A06 committed destination edit | `487c2d265f` / gpt-5.2 / Chromium | not captured after failed assertion | one edit | destination saved, v2 | failed: confirmation omitted order reference; F24 | `.context/autopilot-evidence/form-postcommit-browser.log` |
+| T077 | A06 committed status edit | `487c2d265f` / gpt-5.2 / Chromium | not captured after failed assertion | one edit | status saved, v2 | failed: confirmation omitted order reference; F24 | `.context/autopilot-evidence/form-postcommit-browser.log` |
+| T078 | A06 committed invalid transition | `487c2d265f` / gpt-5.2 / Chromium | `b55941ab-b95f-45ea-9ea3-7f0ebe8b02cb` | none | SQL unchanged | passed | `.context/autopilot-evidence/iteration-013/invalid-1790293994538/invalid-transition.json` |
+| T079 | A04 committed navigation | `487c2d265f` / gpt-5.2 / Chromium | `16ec298b-e24a-4d3b-80a0-1d4c3a17cfe2` | none | Users/back arrived | passed | `.context/autopilot-evidence/iteration-009/1790294003108/navigation.json` |
+| T080 | A04 committed filtered read | `487c2d265f` / gpt-5.2 / Chromium | `eb3c2d87-0b8e-444b-bb75-45fc791f3eb4` | none | private labels omitted | passed | `.context/autopilot-evidence/iteration-008/1790294008101/page-read.json` |
+| T081 | A01 committed connection | `487c2d265f` / gpt-5.2 / Chromium | `0852a5c0-784e-4b03-981f-4b4d74c4839a` | none | durable tool round trip | passed | `.context/autopilot-evidence/iteration-002/1790294012236/connection.json` |
+| T082 | A06 custom-select service edit | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `e1a0a5af-91ba-4194-aff9-1aeb835591e7` | one edit | priority v2, visible selected option | passed in 9.6 s | `.context/autopilot-evidence/iteration-013/service level custom select-1790294136383/edit.json` |
+
+| T083 | A07 approval full suite | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `beb85ec2-3848-45a1-92b8-466485c64422` | see scenario | browser and SQL assertions passed | passed in 18/18 suite | `.context/autopilot-evidence/iteration-010/1790294153859/cancel.json` |
+| T084 | A07 decline full suite | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `465650f2-ab6e-4fc0-a6b1-53f6c6fbd276` | see scenario | browser and SQL assertions passed | passed in 18/18 suite | `.context/autopilot-evidence/iteration-010/1790294160391/decline.json` |
+| T085 | A07 dispatched refusal full suite | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `c8cd8986-9255-4169-9a7b-8339faf3ebbc` | see scenario | browser and SQL assertions passed | passed in 18/18 suite | `.context/autopilot-evidence/iteration-010/1790294168831/dispatched.json` |
+| T086 | A05 create full suite | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `d7fa13e3-ff8d-4d52-a3b8-cca5cb7255ec` | see scenario | browser and SQL assertions passed | passed in 18/18 suite | `.context/autopilot-evidence/iteration-012/1790294178212/create.json` |
+| T087 | A05 decline full suite | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `fa3e6cd6-5f2c-4a2c-904d-2f763a657802` | see scenario | browser and SQL assertions passed | passed in 18/18 suite | `.context/autopilot-evidence/iteration-012/1790294185885/decline.json` |
+| T088 | A06 destination full suite | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `7f98ca60-3b9d-4830-997a-2fefbdac756b` | see scenario | browser and SQL assertions passed | passed in 18/18 suite | `.context/autopilot-evidence/iteration-013/destination-1790294195499/edit.json` |
+| T089 | A06 status full suite | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `e8543215-a4c7-46f0-982b-1a3b1bbb1769` | see scenario | browser and SQL assertions passed | passed in 18/18 suite | `.context/autopilot-evidence/iteration-013/status-1790294202965/edit.json` |
+| T090 | A06 custom select full suite | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `01306615-f2d6-42d1-8e3b-bf41e5fe6ecd` | see scenario | browser and SQL assertions passed | passed in 18/18 suite | `.context/autopilot-evidence/iteration-013/service level custom select-1790294210740/edit.json` |
+| T091 | A06 invalid transition full suite | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `a8bd3ff4-adcf-4993-bb84-9e6a671c81cc` | see scenario | browser and SQL assertions passed | passed in 18/18 suite | `.context/autopilot-evidence/iteration-013/invalid-1790294218061/invalid-transition.json` |
+| T092 | A04 navigation full suite | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `f2b427e5-af78-4e7b-bc35-932cb0f9ba3a` | see scenario | browser and SQL assertions passed | passed in 18/18 suite | `.context/autopilot-evidence/iteration-009/1790294225356/navigation.json` |
+| T093 | A04 filtered read full suite | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `9c825c95-f586-4e9d-8f4e-64b688c864b5` | see scenario | browser and SQL assertions passed | passed in 18/18 suite | `.context/autopilot-evidence/iteration-008/1790294229257/page-read.json` |
+| T094 | A01 connection full suite | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `40a40774-62f1-40d0-9682-03abd863b943` | see scenario | browser and SQL assertions passed | passed in 18/18 suite | `.context/autopilot-evidence/iteration-002/1790294233155/connection.json` |
+| T095 | A08 user transfer initial fixture | uncommitted on `487c2d265f` / Chromium | none; failed before model | none | none | failed: fixture insertion preceded SQL migration; F25 | `.context/autopilot-evidence/user-transfer-live.log` |
+| T096 | A08 approved user role update | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `dcdc4d64-8edb-4ac8-98c0-dd166a0807f1` | one user update | operator v1 → viewer v2 | passed; review and decision-before-input verified | `.context/autopilot-evidence/iteration-016/1790294366583/user-update.json` |
+
+| T097 | A07 approval user-transfer regression | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `2476c1c7-ed0e-41a1-989c-b245128558a4` | see scenario | browser and SQL assertions passed | passed in 19/19 suite | `.context/autopilot-evidence/iteration-010/1790294382795/cancel.json` |
+| T098 | A07 decline user-transfer regression | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `55c3136b-5856-4b54-a065-63aec69e121f` | see scenario | browser and SQL assertions passed | passed in 19/19 suite | `.context/autopilot-evidence/iteration-010/1790294389315/decline.json` |
+| T099 | A07 refusal user-transfer regression | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `73859235-388a-4972-b64b-50ec966cb633` | see scenario | browser and SQL assertions passed | passed in 19/19 suite | `.context/autopilot-evidence/iteration-010/1790294395433/dispatched.json` |
+| T100 | A05 create user-transfer regression | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `77283d5d-3151-4229-801a-9f0111ac4d96` | see scenario | browser and SQL assertions passed | passed in 19/19 suite | `.context/autopilot-evidence/iteration-012/1790294403947/create.json` |
+| T101 | A05 decline user-transfer regression | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `d24d89a7-e771-4e88-acb2-3c69b055f44f` | see scenario | browser and SQL assertions passed | passed in 19/19 suite | `.context/autopilot-evidence/iteration-012/1790294413456/decline.json` |
+| T102 | A06 destination user-transfer regression | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `83c190e1-60a1-47c7-918a-2d2ef1dde293` | see scenario | browser and SQL assertions passed | passed in 19/19 suite | `.context/autopilot-evidence/iteration-013/destination-1790294420778/edit.json` |
+| T103 | A06 status user-transfer regression | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `33b0a90a-14c6-4fae-9b53-17fb8fd6fff6` | see scenario | browser and SQL assertions passed | passed in 19/19 suite | `.context/autopilot-evidence/iteration-013/status-1790294428243/edit.json` |
+| T104 | A06 custom select user-transfer regression | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `39ec24e2-b0f1-41f4-967c-c6bc3b61efe9` | see scenario | browser and SQL assertions passed | passed in 19/19 suite | `.context/autopilot-evidence/iteration-013/service level custom select-1790294436684/edit.json` |
+| T105 | A06 invalid transition user-transfer regression | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `8bfb6a58-937a-429b-9664-220dcbded682` | see scenario | browser and SQL assertions passed | passed in 19/19 suite | `.context/autopilot-evidence/iteration-013/invalid-1790294443951/invalid-transition.json` |
+| T106 | A04 navigation user-transfer regression | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `bbcb44d1-7a87-48d6-92e4-30209a467d23` | see scenario | browser and SQL assertions passed | passed in 19/19 suite | `.context/autopilot-evidence/iteration-009/1790294473989/navigation.json` |
+| T107 | A04 filtered read user-transfer regression | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `1430858f-dc47-42d6-8ff3-1db2297ba04e` | see scenario | browser and SQL assertions passed | passed in 19/19 suite | `.context/autopilot-evidence/iteration-008/1790294479791/page-read.json` |
+| T108 | A08 user update user-transfer regression | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `a18d784c-6a7c-4ed4-9417-234a99f78a1e` | see scenario | browser and SQL assertions passed | passed in 19/19 suite | `.context/autopilot-evidence/iteration-016/1790294483662/user-update.json` |
+| T109 | A01 connection user-transfer regression | uncommitted on `487c2d265f` / gpt-5.2 / Chromium | `5ec46dd2-1509-4c65-aa68-122f43cccb7c` | see scenario | browser and SQL assertions passed | passed in 19/19 suite | `.context/autopilot-evidence/iteration-002/1790294488639/connection.json` |
+
 Final sample: three fresh-thread trials each for A04, A05, A06, and A07; both A06 edit variants must be covered. Record every attempt. Add browser smoke and negative enforcement cases separately. Never report the small sample as a production reliability percentage.
 
 ## Friction log
@@ -400,6 +493,8 @@ Final sample: three fresh-thread trials each for A04, A05, A06, and A07; both A0
 | F21 | browser / low | T028/T029 agent correctly refused dispatched cancellation, but test waited for narrow English phrasing. | Assistant paraphrased the refusal. | False negative and wasted trial time. | Assert target reference, a broad refusal, no dialog, and unchanged SQL; T030 passed. | Text is corroborative, not effect evidence. | resolved |
 | F22 | design / high | Review found that an aborted pending agent action could fall back to manual mode on a later synthetic click. | Approval gate treated “no pending record” as manual without checking click provenance. | Could convert Stop into a write if a synthetic click and human confirmation raced. | Require a trusted user click for manual mode; pre-aborted begin throws. Core stop test and browser synthetic-click test pass, followed by 11/11 full suite. | Cross-tab and reload races remain A09/A11/A14 work. | resolved |
 | F23 | browser / low | T054 invalid-transition flow reached the expected visible server error and unchanged SQL, but the test failed because `getByRole('alert')` matched Next's route announcer too. | The assertion assumed the application error was the only alert. | False negative, not an unauthorized write. | Scoped the assertion to the form error; T055 and T063 passed. | The initial failed attempt remains in the ledger. | resolved |
+| F24 | UX / high | Committed form run T076/T077 showed “Edit order?” in the human confirmation, omitting the order reference, while SQL correctly edited that order. | A wording cleanup replaced the record-specific form label with a generic title. | A human could approve the wrong record without enough context. | Restored the record-specific form label; the live custom-select edit review contains its reference. | Full-suite and committed-source repeat pending. | open |
+| F25 | browser / low | T095 user-update fixture failed immediately: existing SQLite `users` table had no `version` column. | Test wrote directly to SQLite before the app opened it and ran the additive migration. | False negative before any model request. | Load sign-in first so the normal app initializes/migrates SQL; T096 passed. | Verify a clean seed and an existing database on restart. | resolved |
 
 Categories: setup, package/API, model, browser, Intelligence, design, UX. Critical means wrong/unauthorized/duplicate effects, a private-data leak, or failure of a required architectural boundary. Such failures block completion. Distinguish discovered friction from confirmed root causes.
 
