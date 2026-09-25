@@ -58,8 +58,8 @@ The driver mounts the library without reimplementing routes, middleware, telemet
 
 ## Coverage
 
-The suite has 126 cases. These include 16 initial cases, 31 UI cases, and 18 additional analytics cases.
-Thirteen runner cases, 18 access cases, and one frontend-client case cover the remaining requirements.
+The suite has 131 cases. These include 17 initial cases, 31 UI cases, and 18 additional analytics cases.
+Thirteen runner cases, 18 access cases, and five frontend-client cases cover the remaining requirements.
 Six Inspector metadata cases cover discovery, independent module validation, action URLs, private responses, server credentials, and the five-second deadline.
 Twenty-three entitlement cases cover current and legacy responses, schema validation, safe errors, server credentials, concurrent requests, and request deadlines.
 Separate deadline cases delay response headers and response bodies. Both must produce a retryable unavailable result, not a configuration error.
@@ -71,8 +71,11 @@ Seven cases cover legacy license identity, environment fallback, whitespace rule
 Runner cases cover batches, draining joins, planned restarts, final acknowledgments, and stop boundaries.
 They also require input persistence before early stop or error and reject incomplete streams as successful runs.
 Agent input retains AG-UI tool calls when stored history uses the platform's projection format.
-The frontend-client case uses the public core package and real Phoenix sockets to run an agent and replay its history.
-It runs in Node, not an actual browser. It does not prove browser layout or every recovery path.
+The frontend-client cases use the public core package and real Phoenix sockets to run an agent and replay its history.
+They cover active replay without duplicate text, Stop after reconnect, agent disconnection, a terminal event, lock release, and a new run on the same thread.
+Network loss consumes the old token and requires fresh credentials. Recovery must deliver text produced during the outage exactly once before Stop. It preserves the replay cursor and active run identity.
+A stale credential case requires Stop to retain its issued run ID and leave a replacement run active.
+These cases run in Node. They do not prove browser layout or every recovery path.
 Native tests cover additional cancellation, shutdown, and lease failures beyond the shared cases.
 Access cases require current ownership, canonical stop IDs, valid stop input, agent scope, and memory denial before upstream access.
 They distinguish omitted memory policy from explicit denial and check read-only writes and trusted identity headers.
