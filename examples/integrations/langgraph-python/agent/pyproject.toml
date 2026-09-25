@@ -4,8 +4,8 @@ version = "0.1.0"
 description = "A LangGraph agent"
 requires-python = ">=3.12"
 dependencies = [
-  "langchain==1.2.15",
-  "langgraph==1.1.6",
+  "langchain==1.4.0",
+  "langgraph==1.2.11",
   "langsmith==0.7.33",
   "openai==1.109.1",
   "fastapi>=0.115.5,<1.0.0",
