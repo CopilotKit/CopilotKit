@@ -1,6 +1,6 @@
 import { expect, test, vi } from "vitest";
 
-test("fetches once per page and shares the validated result", async () => {
+test("adds framework and SDK version and shares one request for that pair", async () => {
   vi.resetModules();
   const feed = { schemaVersion: 1, notifications: [] };
   const request = vi.fn(async () => new Response(JSON.stringify(feed)));
@@ -8,8 +8,56 @@ test("fetches once per page and shares the validated result", async () => {
   try {
     const { loadNotificationFeed } = await import("../notification-loader.js");
     expect(
-      await Promise.all([loadNotificationFeed(), loadNotificationFeed()]),
+      await Promise.all([
+        loadNotificationFeed({ framework: "react", sdkVersion: "1.73.3" }),
+        loadNotificationFeed({ framework: "react", sdkVersion: "1.73.3" }),
+      ]),
     ).toEqual([feed, feed]);
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request).toHaveBeenCalledWith(
+      "https://cdn.copilotkit.ai/notifications/v1.json?framework=react&sdkVersion=1.73.3",
+      expect.any(Object),
+    );
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+test("separates requests for different framework versions", async () => {
+  vi.resetModules();
+  const feed = { schemaVersion: 1, notifications: [] };
+  const request = vi.fn(
+    async (_url: string) => new Response(JSON.stringify(feed)),
+  );
+  vi.stubGlobal("fetch", request);
+  try {
+    const { loadNotificationFeed } = await import("../notification-loader.js");
+
+    await loadNotificationFeed({ framework: "react", sdkVersion: "1.73.3" });
+    await loadNotificationFeed({ framework: "angular", sdkVersion: "0.5.2" });
+    await loadNotificationFeed({ framework: "react", sdkVersion: "1.73.3" });
+
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(request.mock.calls.map(([url]) => url)).toEqual([
+      "https://cdn.copilotkit.ai/notifications/v1.json?framework=react&sdkVersion=1.73.3",
+      "https://cdn.copilotkit.ai/notifications/v1.json?framework=angular&sdkVersion=0.5.2",
+    ]);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+test("uses the unfiltered URL when framework or version is unknown", async () => {
+  vi.resetModules();
+  const feed = { schemaVersion: 1, notifications: [] };
+  const request = vi.fn(async () => new Response(JSON.stringify(feed)));
+  vi.stubGlobal("fetch", request);
+  try {
+    const { loadNotificationFeed } = await import("../notification-loader.js");
+
+    await loadNotificationFeed({ framework: "react" });
+    await loadNotificationFeed({ sdkVersion: "1.73.3" });
+
     expect(request).toHaveBeenCalledTimes(1);
     expect(request).toHaveBeenCalledWith(
       "https://cdn.copilotkit.ai/notifications/v1.json",
@@ -32,8 +80,18 @@ test.each(["malformed", "network", "status"])(
     try {
       const { loadNotificationFeed } =
         await import("../notification-loader.js");
-      expect(await loadNotificationFeed()).toBeNull();
-      expect(await loadNotificationFeed()).toBeNull();
+      expect(
+        await loadNotificationFeed({
+          framework: "react",
+          sdkVersion: "1.73.3",
+        }),
+      ).toBeNull();
+      expect(
+        await loadNotificationFeed({
+          framework: "react",
+          sdkVersion: "1.73.3",
+        }),
+      ).toBeNull();
       expect(request).toHaveBeenCalledTimes(1);
       expect(
         request.mock.calls.every(

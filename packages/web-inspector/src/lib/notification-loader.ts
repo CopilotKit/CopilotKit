@@ -1,16 +1,27 @@
 import { parseNotificationFeed } from "./notifications.js";
-import type { NotificationFeed } from "./notifications.js";
+import type { NotificationContext, NotificationFeed } from "./notifications.js";
 
 export const NOTIFICATION_FEED_URL =
   "https://cdn.copilotkit.ai/notifications/v1.json";
-let request: Promise<NotificationFeed | null> | undefined;
+const requests = new Map<string, Promise<NotificationFeed | null>>();
 /** New SDKs read only cohorts; announcements.json remains the older SDK channel.
- * Share one request per page; failures stay quiet rather than falling back to legacy.
+ * Share one request per framework/version per page. Missing context gets the full
+ * feed so future servers cannot exclude notices the client may still match.
  */
-export function loadNotificationFeed(): Promise<NotificationFeed | null> {
+export function loadNotificationFeed(
+  context: Pick<NotificationContext, "framework" | "sdkVersion">,
+): Promise<NotificationFeed | null> {
   if (typeof window === "undefined" || typeof fetch === "undefined")
     return Promise.resolve(null);
-  request ??= fetch(NOTIFICATION_FEED_URL, {
+  const url = new URL(NOTIFICATION_FEED_URL);
+  if (context.framework && context.sdkVersion) {
+    url.searchParams.set("framework", context.framework);
+    url.searchParams.set("sdkVersion", context.sdkVersion);
+  }
+  const key = url.toString();
+  const existing = requests.get(key);
+  if (existing) return existing;
+  const request = fetch(key, {
     cache: "no-cache",
     credentials: "omit",
   })
@@ -18,5 +29,6 @@ export function loadNotificationFeed(): Promise<NotificationFeed | null> {
       response.ok ? parseNotificationFeed(await response.json()) : null,
     )
     .catch(() => null);
+  requests.set(key, request);
   return request;
 }

@@ -88,7 +88,6 @@ test.each([
   {
     plan: "pro",
     deployment: "managed" as const,
-    runtimeVersion: "^1.70.0",
   },
 ])("required metadata must be confirmed: %j", (conditions) => {
   const f = scoped([conditions]);
@@ -97,7 +96,6 @@ test.each([
     matchNotification(f.notifications[0]!, {
       ...context,
       ...conditions,
-      runtimeVersion: "1.70.1",
     }).matches,
   ).toBe(true);
 });
@@ -109,6 +107,9 @@ test("rejects invalid envelopes, IDs and audiences", () => {
     { ...feed, notifications: [...feed.notifications, ...feed.notifications] },
     scoped([]),
     scoped([{ sdkVersion: "latest" }]),
+    scoped([
+      { runtimeVersion: "^1.73.0" } as unknown as NotificationConditions,
+    ]),
     scoped([{ surprise: true } as unknown as NotificationConditions]),
     { ...feed, notifications: [{ ...feed.notifications[0], id: "slug-id" }] },
   ])

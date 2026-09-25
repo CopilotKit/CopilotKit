@@ -6,7 +6,6 @@ export type NotificationPriority = "Low" | "Normal" | "High" | "Urgent";
 export interface NotificationConditions {
   framework?: NotificationFramework;
   sdkVersion?: string;
-  runtimeVersion?: string;
   intelligence?: "enabled" | "disabled";
   deployment?: "managed" | "self-hosted";
   plan?: string;
@@ -26,11 +25,10 @@ export interface NotificationFeed {
 }
 export interface NotificationContext extends Omit<
   NotificationConditions,
-  "sdkVersion" | "runtimeVersion"
+  "sdkVersion"
 > {
   development: boolean;
   sdkVersion?: string;
-  runtimeVersion?: string;
 }
 export interface NotificationState {
   schemaVersion: 1;
@@ -94,8 +92,7 @@ export function validNotificationConditions(
     return false;
   return Object.entries(value).every(([key, expected]) => {
     if (!text(expected)) return false;
-    if (key === "sdkVersion" || key === "runtimeVersion")
-      return validRange(expected) !== null;
+    if (key === "sdkVersion") return validRange(expected) !== null;
     if (key === "plan") return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(expected);
     return (
       Object.prototype.hasOwnProperty.call(conditionValues, key) &&
@@ -302,7 +299,7 @@ export function matchNotification(
     return Object.entries(conditions).every(([field, expected]) => {
       const actual = context[field as keyof NotificationConditions];
       const matches =
-        field === "sdkVersion" || field === "runtimeVersion"
+        field === "sdkVersion"
           ? actual !== undefined &&
             valid(actual) !== null &&
             prerelease(actual) === null &&

@@ -22066,7 +22066,7 @@ export class WebInspectorElement extends LitElement {
 
   private async fetchAnnouncement(): Promise<void> {
     try {
-      const feed = await loadNotificationFeed();
+      const feed = await loadNotificationFeed(this.notificationContext);
       if (feed) {
         const documents = await Promise.all(
           feed.notifications.map(
@@ -22104,7 +22104,6 @@ export class WebInspectorElement extends LitElement {
         : undefined;
     return {
       ...base,
-      runtimeVersion: core.runtimeVersion,
       intelligence:
         mode === "intelligence"
           ? "enabled"
