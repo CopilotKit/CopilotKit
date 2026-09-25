@@ -2339,9 +2339,16 @@ def test_string_resume_value_is_the_content_verbatim():
     assert result.content == '{"page": "/x"}'
 
 
-def test_flat_action_descriptors_are_matched():
+@pytest.mark.parametrize(
+    "action",
+    [
+        pytest.param({"name": "navigate"}, id="no-function-key"),
+        pytest.param({"function": None, "name": "navigate"}, id="function-is-none"),
+    ],
+)
+def test_flat_action_descriptors_are_matched(action):
     result, fake_interrupt, _ = _run_wrap_tool_interrupting(
-        _fe_tool_request(actions=({"name": "navigate"},)), "ok"
+        _fe_tool_request(actions=(action,)), "ok"
     )
 
     fake_interrupt.assert_called_once()
