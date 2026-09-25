@@ -511,7 +511,9 @@ export function saveNotificationState(state: NotificationState): void {
   const merged = {
     ...state,
     readIds: [...new Set([...state.readIds, ...host.readIds])],
-    suppressedIds: [...new Set([...state.suppressedIds, ...host.suppressedIds])],
+    suppressedIds: [
+      ...new Set([...state.suppressedIds, ...host.suppressedIds]),
+    ],
   };
   writeLocalStorageItem(NOTIFICATION_STORAGE, JSON.stringify(merged));
   const cookieState = {
