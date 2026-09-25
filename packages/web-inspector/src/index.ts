@@ -1,8 +1,25 @@
+import { loadNotificationFeed } from "./lib/notification-loader.js";
+import {
+  emptyNotificationState,
+  reconcileNotifications,
+  acknowledgeNotification,
+  compareNotifications,
+} from "./lib/notifications.js";
+import type {
+  NotificationContext,
+  NotificationFeed,
+} from "./lib/notifications.js";
+import {
+  loadNotificationState,
+  migrateAnnouncementReadState,
+  saveNotificationState,
+} from "./lib/persistence.js";
 import { LitElement, css, html, nothing, render, unsafeCSS } from "lit";
 import type { TemplateResult } from "lit";
 import { marked } from "marked";
 import { styleMap } from "lit/directives/style-map.js";
 import tailwindStyles from "./styles/generated.css";
+import { notificationArticleStyles } from "./styles/notification-article.js";
 import inspectorLogoUrl from "./assets/inspector-logo.svg";
 import inspectorLogoKiteUrl from "./assets/inspector-logo-kite.svg";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
@@ -60,11 +77,9 @@ import {
   clearLegacyAnnouncementReadState,
   INSPECTOR_DISMISSAL_MAX_DURATION_MS,
   loadInspectorDismissedUntil,
-  loadAnnouncementPulsedTimestamp,
-  loadAnnouncementReadTimestamp,
   loadInspectorState,
-  saveAnnouncementPulsedTimestamp,
-  saveAnnouncementReadTimestamp,
+  hasNotificationPulsed,
+  saveNotificationPulsedId,
   saveInspectorDismissedUntil,
   saveInspectorState,
   isValidAnchor,
@@ -648,7 +663,6 @@ const MIN_WINDOW_WIDTH = 880;
 const MIN_WINDOW_WIDTH_DOCKED_LEFT = 640;
 const MIN_WINDOW_HEIGHT = 480;
 const INSPECTOR_STORAGE_KEY = "cpk:inspector:state";
-const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
 // The launcher keeps its current touch target on compact screens and grows to
 // an exactly 20% larger desktop cap. `box-sizing` makes these OUTER sizes.
 const LAUNCHER_MIN_SIZE = 51.84;
@@ -6561,6 +6575,7 @@ function defineElementOnce(
 export class WebInspectorElement extends LitElement {
   static properties = {
     core: { attribute: false },
+    notificationContext: { attribute: false },
     autoAttachCore: { type: Boolean, attribute: "auto-attach-core" },
     _capabilitiesVersion: { state: true },
   } as const;
@@ -6791,17 +6806,14 @@ export class WebInspectorElement extends LitElement {
     startW: number;
   } | null = null;
 
+  /** Host package identity and development gate, set before connecting the element. */
+  notificationContext: NotificationContext = { development: false };
+  private notificationFeed: NotificationFeed | null = null;
+  private notificationState = emptyNotificationState();
+  private notificationDocuments = new Map<string, string>();
+  private selectedNotificationId: string | null = null;
   private announcementHtml: string | null = null;
-  private announcementMarkdown: string | null = null;
-  private announcementTimestamp: string | null = null;
-  private announcementPreviewText: string | null = null;
-  // Forward-compat for an optional `cta_label` field on the announcement
-  // CDN payload (e.g. "Try threads", "New feature"). The current schema
-  // ({timestamp, previewText, announcement}) doesn't carry it, so this is
-  // null in production today; we read it defensively in fetchAnnouncement
-  // so a future CDN-side schema bump lights up `cta_label` on
-  // whats_new_clicked without an inspector release.
-  private announcementCtaLabel: string | null = null;
+  private announcementId: string | null = null;
   private announcementLoaded = false;
   private announcementPromise: Promise<void> | null = null;
   private newsSignalArmed = false;
@@ -6900,6 +6912,7 @@ export class WebInspectorElement extends LitElement {
   private viewedNewsSignalIds: Set<string> = new Set();
   private pendingNewsSignalViewed: {
     banner_id: string;
+    notification_id?: string;
     surface: "launcher";
     presentation: WhatsNewSignalPresentation;
     cta_label?: string;
@@ -6921,6 +6934,7 @@ export class WebInspectorElement extends LitElement {
   // before the first impression has flushed.
   private pendingBannerViewed: Array<{
     banner_id: string;
+    notification_id?: string;
     surface: WhatsNewSurface;
     cta_label?: string;
   }> = [];
@@ -7674,6 +7688,7 @@ export class WebInspectorElement extends LitElement {
       value,
       runtimeLicense,
     );
+    this.refreshNotifications();
   }
 
   private attachToCore(core: CopilotKitCore): void {
@@ -9843,158 +9858,7 @@ export class WebInspectorElement extends LitElement {
         font-weight: 600 !important;
       }
 
-      .announcement-content {
-        color: #1f2230;
-        font-size: 13px;
-        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
-        line-height: 1.55;
-      }
-
-      .announcement-content h1,
-      .announcement-content h2,
-      .announcement-content h3 {
-        color: #010507;
-        font-weight: 700;
-        line-height: 1.3;
-        margin: 0.9rem 0 0.4rem;
-      }
-      .announcement-content > h1:first-child,
-      .announcement-content > h2:first-child,
-      .announcement-content > h3:first-child {
-        margin-top: 0;
-      }
-
-      .announcement-content h1 {
-        font-size: 1.15rem;
-        letter-spacing: -0.01em;
-      }
-      .announcement-content h2 {
-        font-size: 1rem;
-      }
-      .announcement-content h3 {
-        font-size: 0.9rem;
-        text-transform: none;
-      }
-
-      .announcement-content p {
-        margin: 0.45rem 0;
-      }
-
-      .announcement-content strong {
-        color: #010507;
-        font-weight: 700;
-      }
-
-      .announcement-content ul {
-        list-style: disc;
-        padding-left: 1.25rem;
-        margin: 0.45rem 0;
-      }
-
-      .announcement-content ol {
-        list-style: decimal;
-        padding-left: 1.25rem;
-        margin: 0.45rem 0;
-      }
-
-      .announcement-content li + li {
-        margin-top: 0.15rem;
-      }
-
-      .announcement-content a {
-        color: #5558b2;
-        text-decoration: underline;
-      }
-
-      .announcement-content :not(pre) > code {
-        background: #f3f3f7;
-        border: 1px solid #e4e4ec;
-        border-radius: 5px;
-        padding: 1px 5px;
-        font-size: 0.85em;
-        color: #4a3a8a;
-      }
-
-      .announcement-code {
-        position: relative;
-        margin: 0.6rem 0;
-      }
-
-      .announcement-code pre {
-        background: #0f1117;
-        color: #e6e8f2;
-        border-radius: 10px;
-        padding: 10px 12px;
-        overflow-x: auto;
-        font-size: 12px;
-        line-height: 1.5;
-        white-space: pre;
-      }
-
-      .announcement-code pre code::after {
-        content: "";
-        display: inline-block;
-        width: 80px;
-      }
-
-      .announcement-code__copy-shield {
-        position: absolute;
-        top: 4px;
-        right: 4px;
-        padding: 4px 4px 4px 24px;
-        border-top-right-radius: 10px;
-        background: linear-gradient(
-          to right,
-          rgba(15, 17, 23, 0) 0%,
-          rgba(15, 17, 23, 0.95) 40%,
-          #0f1117 100%
-        );
-        pointer-events: none;
-      }
-
-      .announcement-code pre code {
-        background: transparent;
-        border: none;
-        padding: 0;
-        color: inherit;
-        font-size: inherit;
-      }
-
-      .announcement-code pre::-webkit-scrollbar {
-        height: 6px;
-      }
-      .announcement-code pre::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      .announcement-code pre::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 4px;
-      }
-
-      .announcement-code__copy {
-        position: relative;
-        pointer-events: auto;
-        padding: 3px 8px;
-        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
-        font-size: 11px;
-        font-weight: 600;
-        color: #e6e8f2;
-        background: #1f222d;
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: 6px;
-        cursor: pointer;
-        transition:
-          background 0.12s ease,
-          color 0.12s ease;
-      }
-      .announcement-code__copy:hover {
-        background: #2a2e3c;
-      }
-      .announcement-code__copy[data-copied="true"] {
-        background: #eee6fe;
-        color: #6430ab;
-        border-color: transparent;
-      }
+      ${notificationArticleStyles}
 
       /* ── What's new ──────────────────────────────────────────────── */
       .whats-new {
@@ -11523,6 +11387,7 @@ export class WebInspectorElement extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
+    this.notificationState = loadNotificationState();
     if (typeof window !== "undefined") {
       this.accountCtaMotionPaused = document.visibilityState !== "visible";
       this.threadsExampleOverviewVideoReducedMotion =
@@ -11561,10 +11426,7 @@ export class WebInspectorElement extends LitElement {
       this.refreshInspectorDismissalState();
       this.subscribeToSystemColorScheme();
       this.exampleTourDismissed = this.readThreadsExampleTourDismissed();
-      // The superseded, origin-scoped read state is discarded rather than
-      // migrated: every existing user is re-armed exactly once so they
-      // discover the surface that replaced the announcement bubble. Deleting
-      // the key rather than leaving it means nothing can fall back to it.
+      // The pre-cookie key is obsolete; migrate the cookie and mirror after loading the feed.
       clearLegacyAnnouncementReadState();
       this.tryAutoAttachCore();
       if (!this.isInspectorDismissed) {
@@ -11737,9 +11599,12 @@ export class WebInspectorElement extends LitElement {
     }
   }
 
-  protected updated(): void {
-    // Host message shortcuts follow the actual Inspector, including persisted
-    // dismissals and their expiry. Closing the panel still leaves it available.
+  protected updated(changed: Map<string, unknown>): void {
+    if (changed.has("notificationContext") || changed.has("core")) {
+      this.ensureAnnouncementLoading();
+      this.refreshNotifications();
+    }
+    // Host shortcuts follow actual Inspector visibility, including dismissals.
     const visible = !this.isInspectorDismissed;
     if (visible !== this.lastReportedInspectorVisibility) {
       this.lastReportedInspectorVisibility = visible;
@@ -12274,13 +12139,14 @@ export class WebInspectorElement extends LitElement {
     };
     const trigger = this.launcherHudTrigger;
     once("hud", () => trackHudViewed({ trigger }));
-    if (
-      hud.querySelector("[data-cpk-hud-news]") &&
-      this.announcementTimestamp
-    ) {
-      const banner_id = this.announcementTimestamp;
+    if (hud.querySelector("[data-cpk-hud-news]") && this.announcementId) {
+      const banner_id = this.announcementId;
       once(`notification:${banner_id}`, () =>
-        trackHudNotificationViewed({ banner_id, trigger }),
+        trackHudNotificationViewed({
+          banner_id,
+          notification_id: banner_id,
+          trigger,
+        }),
       );
     }
     for (const feature of ["threads", "learning"] as const) {
@@ -12328,14 +12194,21 @@ export class WebInspectorElement extends LitElement {
   private handleHudNewsClick = (event: Event): void => {
     event.preventDefault();
     event.stopPropagation();
-    const banner_id = this.announcementTimestamp;
+    const banner_id = this.announcementId;
     if (banner_id) {
       const trigger = this.launcherHudTrigger;
       this.queueHudTelemetry(() =>
-        trackHudNotificationClicked({ banner_id, action: "open", trigger }),
+        trackHudNotificationClicked({
+          banner_id,
+          notification_id: banner_id,
+          action: "open",
+          trigger,
+        }),
       );
     }
     this.hudLandingMenu = WHATS_NEW_MENU_KEY;
+    if (this.notificationState.activeId)
+      this.readNotification(this.notificationState.activeId);
     this.closeLauncherHud();
     this.openInspector("floating_button");
   };
@@ -12343,11 +12216,16 @@ export class WebInspectorElement extends LitElement {
   private handleHudNewsDismissClick = (event: Event): void => {
     event.preventDefault();
     event.stopPropagation();
-    const banner_id = this.announcementTimestamp;
+    const banner_id = this.announcementId;
     if (banner_id) {
       const trigger = this.launcherHudTrigger;
       this.queueHudTelemetry(() =>
-        trackHudNotificationClicked({ banner_id, action: "dismiss", trigger }),
+        trackHudNotificationClicked({
+          banner_id,
+          notification_id: banner_id,
+          action: "dismiss",
+          trigger,
+        }),
       );
     }
     this.clearNewsSignal();
@@ -12367,7 +12245,10 @@ export class WebInspectorElement extends LitElement {
 
   private getUnreadAnnouncementTitle(): string | null {
     if (!this.newsSignalArmed || !this.announcementLoaded) return null;
-    const title = this.announcementPreviewText?.trim() || "New in CopilotKit";
+    const title =
+      this.notificationFeed?.notifications
+        .find((notice) => notice.id === this.notificationState.activeId)
+        ?.title.trim() || "New in CopilotKit";
     const titleCharacters = Array.from(title);
     return titleCharacters.length > HUD_ANNOUNCEMENT_TITLE_LIMIT
       ? `${titleCharacters
@@ -12935,6 +12816,9 @@ export class WebInspectorElement extends LitElement {
 
   private getHomeModel(): HomeModel {
     const lastRuntimeEvent = this.flattenedEvents[0];
+    const activeNotice = this.notificationFeed?.notifications.find(
+      (notice) => notice.id === this.notificationState.activeId,
+    );
     return buildHomeModel({
       intelligenceConnected: Boolean(this._core?.intelligence),
       threadsAvailable: this.areThreadEndpointsAvailable(),
@@ -12960,9 +12844,11 @@ export class WebInspectorElement extends LitElement {
       suggestionsOn: this._core?.suggestions === true,
       audioOn: this._core?.audioFileTranscriptionEnabled === true,
       websocketUrl: this._core?.intelligence?.wsUrl,
-      announcementPreviewText: this.announcementPreviewText ?? undefined,
-      announcementMarkdown: this.announcementMarkdown ?? undefined,
-      announcementHtml: this.announcementHtml ?? undefined,
+      announcementPreviewText: activeNotice?.title,
+      announcementMarkdown: activeNotice?.body,
+      announcementHtml: activeNotice
+        ? this.notificationDocuments.get(activeNotice.id)
+        : undefined,
       intelligenceSignupUrl: this.getIntelligenceSignupUrl(),
     });
   }
@@ -13004,7 +12890,7 @@ export class WebInspectorElement extends LitElement {
           data-inspector-whats-new-preview
           aria-label="Open What's New"
           style=${INTERACTIVE_FOCUS_BASE_STYLE}
-          @click=${() => this.handleMenuSelect(WHATS_NEW_MENU_KEY)}
+          @click=${() => (this.notificationState.activeId ? this.readNotification(this.notificationState.activeId) : this.handleMenuSelect(WHATS_NEW_MENU_KEY))}
         >
           <span class="inspector-whats-new-preview-copy">
             <span class="inspector-whats-new-preview-title">
@@ -13022,59 +12908,113 @@ export class WebInspectorElement extends LitElement {
   }
 
   private renderWhatsNewView() {
-    const state = this.getWhatsNewState();
-    const news = this.getHomeModel().news;
-    const updatedAt = this.announcementTimestamp
-      ? new Date(this.announcementTimestamp)
-      : null;
-    const updatedLabel =
-      updatedAt && !Number.isNaN(updatedAt.getTime())
-        ? new Intl.DateTimeFormat(undefined, {
-            month: "long",
-            day: "numeric",
-            year: "numeric",
-          }).format(updatedAt)
-        : null;
+    const notices =
+      this.notificationFeed?.notifications
+        .filter((n) => this.notificationState.eligibleIds.includes(n.id))
+        .sort(compareNotifications) ?? [];
+    const selected = notices.find((n) => n.id === this.selectedNotificationId);
+    const formatDate = (date: string) =>
+      new Date(date).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
     return html`
       <div
         class="inspector-home inspector-whats-new"
         data-inspector-whats-new
         data-cpk-whats-new
-        data-cpk-whats-new-state=${state}
+        data-cpk-whats-new-state=${this.getWhatsNewState()}
       >
-        <header class="inspector-whats-new-header">
-          <h1 class="inspector-home-title">What's New</h1>
-          ${
-            updatedLabel
-              ? html`
-                <p class="inspector-whats-new-updated">
-                  Updated
-                  <time datetime=${updatedAt?.toISOString()}
-                    >${updatedLabel}</time
-                  >
-                </p>
-              `
-              : nothing
-          }
-        </header>
         <section class="inspector-home-news" aria-label="CopilotKit updates">
           ${
-            news.empty || !news.documentHtml
+            selected
               ? html`
-                <article class="inspector-whats-new-empty">
-                  <h2 class="inspector-home-card-title">${news.title}</h2>
-                  <p class="inspector-home-card-copy">${news.previewText}</p>
-                </article>
-              `
-              : html`
+                <button
+                  type="button"
+                  class="inspector-whats-new-back"
+                  @click=${() => {
+                    this.selectedNotificationId = null;
+                    this.requestUpdate();
+                  }}
+                >
+                  <span aria-hidden="true"
+                    >${this.renderIcon("ArrowLeft")}</span
+                  >
+                  All updates
+                </button>
                 <article class="inspector-whats-new-document">
+                  <header class="inspector-whats-new-document-header">
+                    <h1>${selected.title}</h1>
+                    <time datetime=${selected.publishedAt}>
+                      ${formatDate(selected.publishedAt)}
+                    </time>
+                  </header>
                   <div
                     class="announcement-content"
                     @click=${this.handleAnnouncementContentClick}
                   >
-                    ${unsafeHTML(news.documentHtml)}
+                    ${unsafeHTML(
+                      this.notificationDocuments.get(selected.id) ?? "",
+                    )}
                   </div>
                 </article>
+              `
+              : html`
+                <header class="inspector-whats-new-header">
+                  <h1 class="inspector-home-title">What's New</h1>
+                </header>
+                ${
+                  notices.length
+                    ? html`
+                      <ul class="inspector-whats-new-list">
+                        ${notices.map((notice) => {
+                          const read = this.notificationState.readIds.includes(
+                            notice.id,
+                          );
+                          return html`
+                            <li>
+                              <button
+                                type="button"
+                                class="cpk-notification-row"
+                                data-notification-id=${notice.id}
+                                @click=${() => this.readNotification(notice.id)}
+                              >
+                                <span class="cpk-notification-copy">
+                                  <strong>${notice.title}</strong>
+                                  <span class="cpk-notification-meta">
+                                    <time datetime=${notice.publishedAt}
+                                      >${formatDate(notice.publishedAt)}</time
+                                    >
+                                    ${
+                                      read
+                                        ? nothing
+                                        : html`
+                                            <span class="cpk-notification-unread">Unread</span>
+                                          `
+                                    }
+                                  </span>
+                                </span>
+                                <span
+                                  class="cpk-notification-chevron"
+                                  aria-hidden="true"
+                                  >${this.renderIcon("ChevronRight")}</span
+                                >
+                              </button>
+                            </li>
+                          `;
+                        })}
+                      </ul>
+                    `
+                    : html`<p class="inspector-whats-new-empty" role="status">
+                      ${
+                        this.announcementLoaded ||
+                        !this.notificationContext.development
+                          ? "You're all caught up."
+                          : "Loading updates…"
+                      }
+                    </p>`
+                }
               `
           }
         </section>
@@ -17533,15 +17473,15 @@ export class WebInspectorElement extends LitElement {
     ) {
       return;
     }
-    const id = this.announcementTimestamp;
+    const id = this.announcementId;
     if (!id) return;
     const key = `${id}:${opts.cta}`;
     if (this.clickedBannerIds.has(key)) return;
     this.clickedBannerIds.add(key);
     trackWhatsNewClicked({
       banner_id: id,
+      notification_id: id,
       cta: opts.cta,
-      cta_label: this.announcementCtaLabel ?? undefined,
     });
   }
 
@@ -21510,13 +21450,12 @@ export class WebInspectorElement extends LitElement {
   }
 
   private clearNewsSignal(): void {
-    if (!this.newsSignalArmed) return;
-    this.newsSignalArmed = false;
-    if (this.announcementTimestamp) {
-      saveAnnouncementReadTimestamp(this.announcementTimestamp);
-    }
-    this.retireSignal(NEWS_SIGNAL_ID);
-    this.requestUpdate();
+    if (!this.notificationState.activeId) return;
+    this.notificationState = acknowledgeNotification(
+      this.notificationState,
+      this.notificationState.activeId,
+    );
+    this.refreshNotifications();
   }
 
   // ── The beat ────────────────────────────────────────────────────────────
@@ -21581,8 +21520,8 @@ export class WebInspectorElement extends LitElement {
     // deferred beat unfired.
     if (isWiringErrorKey(key)) {
       this.errorBeatSpent = true;
-    } else if (this.announcementTimestamp && key === NEWS_SIGNAL_ID) {
-      saveAnnouncementPulsedTimestamp(this.announcementTimestamp);
+    } else if (this.notificationState.activeId && key === NEWS_SIGNAL_ID) {
+      saveNotificationPulsedId(this.notificationState.activeId);
     }
     this.beginGestureTail(key);
     this.requestUpdate();
@@ -21996,18 +21935,21 @@ export class WebInspectorElement extends LitElement {
     ) {
       return;
     }
-    const id = this.announcementTimestamp;
+    const notice = this.notificationFeed?.notifications.find(
+      (n) => n.id === this.notificationState.activeId,
+    );
+    const id = notice?.id;
     if (!id || this.viewedNewsSignalIds.has(id)) return;
     this.viewedNewsSignalIds.add(id);
     this.pendingNewsSignalViewed = {
       banner_id: id,
+      notification_id: id,
       surface: "launcher",
       presentation:
         typeof window !== "undefined" &&
         window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
           ? "reduced_motion"
           : "animated",
-      cta_label: this.announcementCtaLabel ?? undefined,
     };
     this.flushPendingWhatsNewTelemetry();
   }
@@ -22033,7 +21975,9 @@ export class WebInspectorElement extends LitElement {
   private getVisibleBannerSurface(): WhatsNewSurface | null {
     if (!this.isOpen || this.settingsOpen) return null;
     if (this.selectedMenu !== WHATS_NEW_MENU_KEY) return null;
-    return this.announcementHtml ? "whats_new" : null;
+    return this.selectedNotificationId && this.announcementHtml
+      ? "whats_new"
+      : null;
   }
 
   /**
@@ -22053,7 +21997,6 @@ export class WebInspectorElement extends LitElement {
   private maybeCompleteWhatsNewView(): void {
     if (!this.getVisibleBannerSurface()) return;
     this.maybeTrackWhatsNewViewed();
-    this.clearNewsSignal();
   }
 
   /**
@@ -22061,7 +22004,7 @@ export class WebInspectorElement extends LitElement {
    * currently visible, once per announcement per surface.
    */
   private maybeTrackWhatsNewViewed(): void {
-    const id = this.announcementTimestamp;
+    const id = this.announcementId;
     if (!id) return;
     const surface = this.getVisibleBannerSurface();
     if (!surface) return;
@@ -22071,8 +22014,8 @@ export class WebInspectorElement extends LitElement {
     this.viewedBannerSurfaces.add(key);
     this.pendingBannerViewed.push({
       banner_id: id,
+      notification_id: id,
       surface,
-      cta_label: this.announcementCtaLabel ?? undefined,
     });
     this.flushPendingWhatsNewTelemetry();
   }
@@ -22109,6 +22052,9 @@ export class WebInspectorElement extends LitElement {
 
   private ensureAnnouncementLoading(): void {
     if (
+      this.isInspectorDismissed ||
+      !this.notificationContext.development ||
+      !this.isConnected ||
       this.announcementPromise ||
       typeof window === "undefined" ||
       typeof fetch === "undefined"
@@ -22120,63 +22066,126 @@ export class WebInspectorElement extends LitElement {
 
   private async fetchAnnouncement(): Promise<void> {
     try {
-      const response = await fetch(ANNOUNCEMENT_URL, { cache: "no-cache" });
-      if (!response.ok) {
-        throw new Error(`Failed to load announcement (${response.status})`);
+      const feed = await loadNotificationFeed(this.notificationContext);
+      if (feed) {
+        const documents = await Promise.all(
+          feed.notifications.map(
+            async (notice) =>
+              [
+                notice.id,
+                (await this.convertMarkdownToHtml(notice.body)) ?? "",
+              ] as const,
+          ),
+        );
+        this.notificationDocuments = new Map(documents);
+        this.notificationFeed = feed;
       }
-
-      const data = (await response.json()) as {
-        timestamp?: unknown;
-        previewText?: unknown;
-        announcement?: unknown;
-        cta_label?: unknown;
-      };
-
-      const timestamp =
-        typeof data?.timestamp === "string" ? data.timestamp : null;
-      const previewText =
-        typeof data?.previewText === "string" ? data.previewText : null;
-      const markdown =
-        typeof data?.announcement === "string" ? data.announcement : null;
-      const ctaLabel =
-        typeof data?.cta_label === "string" ? data.cta_label : null;
-
-      if (!timestamp || !markdown) {
-        throw new Error("Malformed announcement payload");
-      }
-
-      this.announcementTimestamp = timestamp;
-      this.announcementPreviewText = previewText ?? "";
-      this.announcementMarkdown = markdown;
-      this.announcementCtaLabel = ctaLabel;
-      this.announcementHtml = await this.convertMarkdownToHtml(markdown);
-      this.announcementLoaded = true;
-
-      // The signal arms on a timestamp plus a body that actually renders —
-      // anything else would produce a dot that What's new can never clear,
-      // because clearing requires content. `previewText` does NOT gate it:
-      // that was defensible while the text was the bubble's headline, but it
-      // is now just the heading, and gating on it would mean an announcement
-      // without preview text produced no dot at all.
-      if (
-        this.announcementHtml &&
-        loadAnnouncementReadTimestamp() !== timestamp
-      ) {
-        this.armNewsSignal({
-          pulse: loadAnnouncementPulsedTimestamp() !== timestamp,
-        });
-      }
-
-      this.requestUpdate();
-    } catch (error) {
-      // Swallowing here would hide non-network failures (malformed JSON, the
-      // explicit "Malformed announcement payload" throw above, exceptions
-      // from `convertMarkdownToHtml`). At minimum, surface in the console so
-      // a stale announcement is debuggable.
-      console.warn("[CopilotKit Inspector] Failed to load announcement", error);
-      this.announcementLoaded = true;
-      this.requestUpdate();
+    } catch {
+      /* Notification failures cannot disrupt the host. */
     }
+    this.announcementLoaded = true;
+    this.refreshNotifications();
+    this.requestUpdate();
+  }
+
+  /** Resolve only confirmed runtime metadata; missing fields stay unknown. */
+  private getNotificationContext(): NotificationContext {
+    const base = this.notificationContext;
+    const core = this.core;
+    if (
+      !core ||
+      this.runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected
+    )
+      return base;
+    const mode = core.runtimeMode;
+    const entitlement =
+      core.runtimeEntitlements?.status === "ready"
+        ? core.runtimeEntitlements.entitlement
+        : undefined;
+    return {
+      ...base,
+      intelligence:
+        mode === "intelligence"
+          ? "enabled"
+          : mode === "sse"
+            ? "disabled"
+            : undefined,
+      plan:
+        this.inspectorMetadataProjection.plan?.code ?? entitlement?.planCode,
+      deployment:
+        entitlement?.source === "managedOrgSubscription"
+          ? "managed"
+          : entitlement
+            ? "self-hosted"
+            : undefined,
+    };
+  }
+
+  private refreshNotifications(): void {
+    if (!this.notificationFeed) return;
+    this.notificationState = migrateAnnouncementReadState(
+      this.notificationState,
+      this.notificationFeed,
+    );
+    const previousActiveId = this.notificationState.activeId;
+    this.notificationState = reconcileNotifications(
+      this.notificationState,
+      this.notificationFeed,
+      this.getNotificationContext(),
+    );
+    saveNotificationState(this.notificationState);
+    if (
+      !this.notificationState.eligibleIds.includes(
+        this.selectedNotificationId ?? "",
+      )
+    )
+      this.selectedNotificationId = null;
+    const notice =
+      this.notificationFeed.notifications.find(
+        (n) =>
+          this.notificationState.eligibleIds.includes(n.id) &&
+          n.id ===
+            (this.selectedNotificationId ?? this.notificationState.activeId),
+      ) ??
+      this.notificationFeed.notifications
+        .filter((n) => this.notificationState.eligibleIds.includes(n.id))
+        .sort(compareNotifications)[0];
+    this.announcementId = notice?.id ?? null;
+    this.announcementHtml = notice
+      ? (this.notificationDocuments.get(notice.id) ?? null)
+      : null;
+    if (
+      this.notificationState.activeId &&
+      this.notificationState.eligibleIds.includes(
+        this.notificationState.activeId,
+      )
+    )
+      this.armNewsSignal({
+        pulse:
+          (previousActiveId !== this.notificationState.activeId ||
+            !this.newsSignalArmed) &&
+          !hasNotificationPulsed(
+            this.notificationState.activeId,
+            this.notificationFeed.notifications.find(
+              (n) => n.id === this.notificationState.activeId,
+            )!.publishedAt,
+          ),
+      });
+    else {
+      this.newsSignalArmed = false;
+      this.retireSignal(NEWS_SIGNAL_ID);
+    }
+    this.requestUpdate();
+  }
+
+  private readNotification(id: string): void {
+    this.selectedNotificationId = id;
+    this.notificationState = acknowledgeNotification(
+      this.notificationState,
+      id,
+    );
+    this.refreshNotifications();
+    this.handleMenuSelect(WHATS_NEW_MENU_KEY);
   }
 
   private async convertMarkdownToHtml(
@@ -22373,8 +22382,10 @@ export function defineWebInspector(
 export function configureWebInspectorElement(
   inspector: WebInspectorElement,
   core: CopilotKitCore | null,
+  notificationContext: NotificationContext = { development: false },
 ): WebInspectorElement {
   inspector.autoAttachCore = false;
+  inspector.notificationContext = notificationContext;
   inspector.core = core;
   return inspector;
 }
