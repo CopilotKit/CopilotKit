@@ -436,6 +436,23 @@ describe("installStreamingFetch", () => {
       expect(xhr.abort).toHaveBeenCalled();
     });
 
+    it("removes abort listener when stream is cancelled mid-stream", async () => {
+      const controller = new AbortController();
+      const removeSpy = vi.spyOn(controller.signal, "removeEventListener");
+
+      const { fetchPromise, xhr } = await fetchAndCapture("https://api.test", {
+        signal: controller.signal,
+      });
+      await simulateHeaders(xhr, 200);
+      const resp = await fetchPromise;
+      const reader = resp.body!.getReader();
+
+      // Cancel mid-stream (after headers, settled = true)
+      await reader.cancel();
+
+      expect(removeSpy).toHaveBeenCalledWith("abort", expect.any(Function));
+    });
+
     it("removes abort listener after terminal XHR event (onload)", async () => {
       const controller = new AbortController();
       const removeSpy = vi.spyOn(controller.signal, "removeEventListener");
@@ -497,6 +514,23 @@ describe("installStreamingFetch", () => {
       );
       await simulateError(xhr);
       await textRejection;
+    });
+
+    it("closes the stream body immediately for non-2xx responses", async () => {
+      for (const status of [400, 401, 403, 404, 500, 503]) {
+        const { fetchPromise, xhr } = await fetchAndCapture();
+        await simulateHeaders(xhr, status);
+        const resp = await fetchPromise;
+
+        expect(resp.ok).toBe(false);
+        expect(resp.status).toBe(status);
+
+        // Body stream must be closed (done: true) — no error body should flow
+        // through as AG-UI events.
+        const reader = resp.body!.getReader();
+        const result = await reader.read();
+        expect(result.done).toBe(true);
+      }
     });
 
     it("does not double-reject (settled guard)", async () => {

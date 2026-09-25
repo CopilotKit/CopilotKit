@@ -201,6 +201,7 @@ export function installStreamingFetch(): void {
           streamController = controller;
         },
         cancel() {
+          cleanupAbortListener();
           xhr.abort();
           rejectFullText(createAbortError());
         },
@@ -354,6 +355,12 @@ export function installStreamingFetch(): void {
             // wired to xhr.abort() for mid-stream cancellation. Cleanup happens
             // in terminal handlers (onload, onerror, ontimeout) or onAbort itself.
             resolve(resp as unknown as Response);
+            // For non-2xx responses, close the stream body immediately so
+            // the SSE consumer does not receive the error response payload
+            // (HTML error pages, JSON error objects) as AG-UI events.
+            if (xhrStatus < 200 || xhrStatus >= 300) {
+              closeStream();
+            }
           }
         }, 0);
       };
