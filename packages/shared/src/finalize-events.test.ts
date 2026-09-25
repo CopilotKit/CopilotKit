@@ -134,12 +134,10 @@ describe("finalizeRunEvents", () => {
 
     const spliced = finalizeRunEvents(events, { stopRequested: true });
 
-    // Only lifecycle closers returned (not the terminal itself)
-    expect(spliced.map(({ type }) => type)).toEqual([
-      EventType.TEXT_MESSAGE_END,
-      EventType.TOOL_CALL_END,
-      EventType.TOOL_CALL_RESULT,
-    ]);
+    // Returns [] — the terminal was already emitted live; returning closers
+    // would cause runners to re-emit them after the terminal (wrong order).
+    // History is fixed by the in-place splice below.
+    expect(spliced).toEqual([]);
 
     // Closers land before RUN_FINISHED in the mutated array
     expect(events.map(({ type }) => type)).toEqual([

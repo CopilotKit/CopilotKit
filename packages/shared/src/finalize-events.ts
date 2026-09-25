@@ -194,5 +194,12 @@ export function finalizeRunEvents(
   // Splice the closers immediately before the existing terminal event so the
   // stored sequence is valid and compactEvents does not reorder across it.
   events.splice(terminalIdx, 0, ...lifecycleClosers);
-  return lifecycleClosers;
+
+  // Return an empty array: the terminal has already been emitted to live
+  // subscribers by the runner before finalizeRunEvents was called.  Returning
+  // the closers would cause the runner to emit them AFTER the terminal, which
+  // is the same invalid order we are fixing for replay. History is correct
+  // from the splice above; live-stream closer ordering requires buffering the
+  // terminal at the runner level, which is a separate concern.
+  return [];
 }
