@@ -7,7 +7,7 @@ import type {
   UserMessage,
 } from "@ag-ui/core";
 import type { CopilotKitCoreErrorCode, ToolCallStatus } from "@copilotkit/core";
-import type { Suggestion } from "@copilotkit/core";
+import type { Subagent, Suggestion } from "@copilotkit/core";
 import type {
   Attachment,
   AttachmentsConfig,
@@ -16,6 +16,7 @@ import type {
 import type { CopilotChatLabels } from "../../providers/types";
 import type { InterruptEvent } from "../../types";
 import type { AutoScrollMode } from "./normalize-auto-scroll";
+import type { Component } from "vue";
 
 export type CopilotChatInputMode = "input" | "transcribe" | "processing";
 export type { Attachment, AttachmentsConfig, AttachmentModality };
@@ -150,6 +151,18 @@ export interface CopilotChatViewOverrideSlotProps extends CopilotChatViewProps {
 export interface CopilotChatMessageViewSlotProps {
   messages: Message[];
   isRunning: boolean;
+}
+
+/** Props of the `#subagent` slot on `CopilotChatMessageView`. */
+export interface CopilotChatSubagentSlotProps {
+  /** The invocation this group shows. */
+  subagentRunId: string;
+  /** What the agent announced; undefined when it only attributed messages. */
+  subagent: Subagent | undefined;
+  /** The subagent's own messages, in order. */
+  messages: Message[];
+  /** Renders the group's messages and nested groups: `<component :is="body" />`. */
+  body: Component;
 }
 
 export interface CopilotChatScrollToBottomButtonSlotProps {
