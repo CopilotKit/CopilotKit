@@ -1137,7 +1137,8 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             getattr(runtime, "context", None),
         ).get("actions", [])
         return {
-            t.get("function", {}).get("name") or t.get("name") for t in frontend_tools
+            (t.get("function") or {}).get("name") or t.get("name")
+            for t in frontend_tools
         }
 
     def after_model(
