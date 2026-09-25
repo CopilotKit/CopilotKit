@@ -16,9 +16,8 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import type { AbstractAgent } from "@ag-ui/client";
 import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
 
@@ -38,12 +37,12 @@ const runtime = new CopilotRuntime({
 
 export const POST = async (req: NextRequest) => {
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-subagents",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime,
+      basePath: "/api/copilotkit-subagents",
+      mode: "single-route",
     });
-    return await handleRequest(req);
+    return await copilotHandler(req);
   } catch (error: unknown) {
     // Log full stack server-side, return only an opaque error id to the
     // client. Returning `error.message` / `error.stack` over the wire leaks

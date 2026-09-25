@@ -1,0 +1,53 @@
+{
+  "name": "repo-scripts",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "scripts",
+  "projectType": "library",
+  "targets": {
+    "validate-starter-deps": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "commands": [
+          "node --test scripts/__tests__/validate-starter-deps.test.mjs",
+          "node scripts/validate-starter-deps.mjs"
+        ],
+        "parallel": false
+      }
+    },
+    "validate-channels-zod": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "commands": [
+          "node --test scripts/__tests__/validate-channels-zod.test.mjs",
+          "node scripts/validate-channels-zod.mjs"
+        ],
+        "parallel": false
+      }
+    },
+    "validate-retired-anthropic-models": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "commands": [
+          "node --test scripts/__tests__/validate-retired-anthropic-models.test.mjs",
+          "node scripts/validate-retired-anthropic-models.mjs"
+        ],
+        "parallel": false
+      }
+    },
+    "validate-docs-deprecated-imports": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "commands": [
+          "node --test scripts/__tests__/validate-docs-deprecated-imports.test.mjs",
+          "node scripts/validate-docs-deprecated-imports.mjs"
+        ],
+        "parallel": false
+      }
+    }
+  },
+  "tags": []
+}

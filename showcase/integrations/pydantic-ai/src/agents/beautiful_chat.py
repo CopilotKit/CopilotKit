@@ -1,8 +1,8 @@
 """PydanticAI agent for the Beautiful Chat flagship demo.
 
 Ports the behaviour of showcase/integrations/langgraph-python/src/agents/beautiful_chat.py
-to PydanticAI while staying within what `agent.to_ag_ui()` currently
-supports. The frontend cell exercises:
+to PydanticAI while staying within what PydanticAI's AG-UI adapter
+currently supports. The frontend cell exercises:
 
 - shared todo state (managed via a `manage_todos` tool that emits a
   StateSnapshotEvent — PydanticAI does not emit per-token state-streaming
@@ -29,7 +29,7 @@ from typing import Any, Literal, TypedDict
 
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
-from pydantic_ai.ag_ui import StateDeps
+from pydantic_ai.ui import StateDeps
 from pydantic_ai.models.openai import OpenAIResponsesModel
 from ag_ui.core import EventType, StateSnapshotEvent
 
@@ -94,7 +94,7 @@ SYSTEM_PROMPT = dedent(
 
 
 agent = Agent(
-    model=OpenAIResponsesModel("gpt-4.1"),
+    model=OpenAIResponsesModel("gpt-5-mini"),
     deps_type=StateDeps[BeautifulChatState],
     system_prompt=SYSTEM_PROMPT,
 )
@@ -274,7 +274,7 @@ def generate_a2ui(ctx: RunContext[StateDeps[BeautifulChatState]]) -> str:
     llm_messages.extend(conversation_messages)
 
     response = client.chat.completions.create(
-        model="gpt-4.1",
+        model="gpt-5-mini",
         messages=llm_messages,
         tools=[tool_schema],
         tool_choice={"type": "function", "function": {"name": "render_a2ui"}},

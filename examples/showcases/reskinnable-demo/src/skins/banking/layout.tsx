@@ -25,7 +25,7 @@ import {
 import type { Member } from "@/skins/banking/data/data";
 import { MemberRole } from "@/skins/banking/data/data";
 import { useAuthContext } from "@/skins/banking/components/auth-context";
-import { useRecording } from "@/skins/banking/components/recording-context";
+import { useRecording } from "@/shell/teach";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useAgentContext } from "@copilotkit/react-core/v2";
 import { usePathname, useSearchParams } from "next/navigation";

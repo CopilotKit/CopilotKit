@@ -104,7 +104,16 @@ export function debugEventsSuite(
       init?: RequestInit,
     ) => Promise<Response>;
 
+    let originalNodeEnv: string | undefined;
+
     beforeAll(async () => {
+      // The feed is served under an explicit development NODE_ENV (or an
+      // explicit `debug` opt-in). Vitest runs with NODE_ENV=test, which the
+      // gate treats as closed, so the whole suite runs as development. The
+      // runtime reads the variable when it builds the bus AND when it serves
+      // the route, so it has to stay set for the suite's lifetime.
+      originalNodeEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = "development";
       handle = await factory();
       doFetch = handle.handler
         ? (input, init) =>
@@ -121,6 +130,11 @@ export function debugEventsSuite(
 
     afterAll(async () => {
       await handle?.close();
+      if (originalNodeEnv === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = originalNodeEnv;
+      }
     });
 
     const url = (path: string) => `${handle.baseUrl}${handle.basePath}${path}`;
@@ -226,9 +240,9 @@ export function debugEventsSuite(
 }
 
 /**
- * Production guard test -- only needs the fetch-direct handler since
- * it doesn't require a real server. Tests that NODE_ENV=production
- * returns 404 for the debug-events endpoint.
+ * Feed guard tests -- only need the fetch-direct handler since they do not
+ * require a real server. The feed is an authorization decision, so it stays
+ * closed everywhere it was not explicitly asked for.
  */
 export function debugEventsProductionGuardSuite(
   createHandler: () => { handler: (r: Request) => Promise<Response> },
@@ -236,18 +250,36 @@ export function debugEventsProductionGuardSuite(
   basePath: string,
 ) {
   describe("[Fetch] Debug Events – production guard", () => {
-    it("returns 404 when NODE_ENV=production", async () => {
+    async function statusWithNodeEnv(nodeEnv: string | undefined) {
       const originalEnv = process.env.NODE_ENV;
       try {
-        process.env.NODE_ENV = "production";
+        if (nodeEnv === undefined) {
+          delete process.env.NODE_ENV;
+        } else {
+          process.env.NODE_ENV = nodeEnv;
+        }
         const { handler } = createHandler();
         const res = await handler(
           new Request(`${baseUrl}${basePath}/cpk-debug-events`),
         );
-        expect(res.status).toBe(404);
+        return res.status;
       } finally {
-        process.env.NODE_ENV = originalEnv;
+        if (originalEnv === undefined) {
+          delete process.env.NODE_ENV;
+        } else {
+          process.env.NODE_ENV = originalEnv;
+        }
       }
+    }
+
+    it("returns 404 when NODE_ENV=production", async () => {
+      expect(await statusWithNodeEnv("production")).toBe(404);
+    });
+
+    it("returns 404 when NODE_ENV is unset", async () => {
+      // A plain `node server.js` sets no NODE_ENV. The runtime must not build
+      // the bus or serve the feed on that shape.
+      expect(await statusWithNodeEnv(undefined)).toBe(404);
     });
   });
 }

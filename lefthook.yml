@@ -103,9 +103,20 @@ pre-commit:
           fi
         fi
 
+    check-intelligence-env-names:
+      tags: intelligence-env-names
+      # No glob: a retired name or a dead host can reappear in any doc, README,
+      # example, or skill, so this runs on every commit rather than a path subset.
+      run: pnpm check:intelligence-env-names
+      fail_text: |
+        A non-canonical Intelligence env var name or hostname was found.
+        The canonical name is CPK_INTELLIGENCE_API_KEY; the canonical hosts are
+        api.intelligence.copilotkit.ai and realtime.intelligence.copilotkit.ai.
+        See scripts/validate-intelligence-env-names.ts for the allowlists.
+
     check-plugin-skills:
       tags: plugin-skills
-      glob: "{packages/*/skills/**,skills/runtime/**,skills/react-core/**,skills/a2ui-renderer/**,scripts/sync-plugin-skills.ts,.claude-plugin/**,packages/runtime/package.json}"
+      glob: "{packages/*/skills/**,skills/**,scripts/sync-plugin-skills.ts,.claude-plugin/**,packages/runtime/package.json}"
       run: pnpm check:plugin-skills
       fail_text: |
         Plugin skill mirror is out of sync with the Intent source.

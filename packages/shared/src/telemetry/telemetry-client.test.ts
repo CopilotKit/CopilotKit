@@ -16,6 +16,76 @@ vi.mock("@segment/analytics-node", () => ({
   },
 }));
 
+function jwtWith(payload: {
+  telemetry_id?: string;
+  license_id?: string;
+}): string {
+  const b64 = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  return `header.${b64}.sig`;
+}
+
+/** Builds a token whose payload contains an illegal base64url character. */
+function malformedJwtWithTelemetryId(telemetryId: string): string {
+  const payload = Buffer.from(JSON.stringify({ telemetry_id: telemetryId }))
+    .toString("base64url")
+    .concat("$");
+  return `header.${payload}.sig`;
+}
+
+type TelemetryIdentityMode =
+  | { label: "standalone"; telemetryId: string }
+  | { label: "legacy license"; licenseToken: string }
+  | { label: "anonymous" };
+
+/** Applies the identity path under test without conflating legacy and standalone APIs. */
+function applyTelemetryIdentity(
+  client: TelemetryClient,
+  identity: TelemetryIdentityMode,
+) {
+  if ("telemetryId" in identity) {
+    client.setTelemetryIdentity({ telemetryId: identity.telemetryId });
+    return;
+  }
+
+  if ("licenseToken" in identity) {
+    client.setLicenseToken(identity.licenseToken);
+  }
+}
+
+const telemetryIdentityModes = [
+  {
+    label: "standalone",
+    telemetryId: "standalone-telemetry-id",
+  },
+  {
+    label: "legacy license",
+    licenseToken: jwtWith({ telemetry_id: "legacy-telemetry-id" }),
+  },
+  { label: "anonymous" },
+] satisfies readonly TelemetryIdentityMode[];
+
+const telemetryOptOuts = [
+  { environmentVariable: "COPILOTKIT_TELEMETRY_DISABLED", value: "true" },
+  { environmentVariable: "DO_NOT_TRACK", value: "1" },
+] as const;
+
+const telemetryOptOutCases = telemetryOptOuts.flatMap((optOut) =>
+  telemetryIdentityModes.map((identity) => ({ identity, optOut })),
+);
+const callerSampleRate = process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
+
+beforeEach(() => {
+  delete process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
+});
+
+afterEach(() => {
+  if (callerSampleRate === undefined) {
+    delete process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
+  } else {
+    process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE = callerSampleRate;
+  }
+});
+
 describe("v1 TelemetryClient", () => {
   let lambdaSpy: MockInstance<typeof lambdaClient.send>;
 
@@ -26,6 +96,7 @@ describe("v1 TelemetryClient", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
   });
 
   function makeClient(
@@ -39,19 +110,98 @@ describe("v1 TelemetryClient", () => {
     });
   }
 
-  function jwtWith(payload: Record<string, unknown>): string {
-    const b64 = Buffer.from(JSON.stringify(payload)).toString("base64url");
-    return `header.${b64}.sig`;
-  }
-
   const baseInstanceEvent = {
     actionsAmount: 0,
     endpointsAmount: 0,
     endpointTypes: [],
     "cloud.api_key_provided": false,
   } as const;
+  const flattenedBaseInstanceEvent = {
+    actionsAmount: 0,
+    endpointsAmount: 0,
+    "cloud.api_key_provided": false,
+  } as const;
 
-  test("capture sends to both sinks when sampled in (anonymous, one decision gates both)", async () => {
+  /** The block every unsampled wire carries, whatever the configured rate. */
+  const unsampledMeta = {
+    sampleRate: 1,
+    sampleRateAdjustmentFactor: 0,
+    sampleWeight: 1,
+  } as const;
+
+  /**
+   * Verifies the shared event shape and per-wire sampling metadata.
+   *
+   * The two wires are gated separately, so they carry different sampling
+   * blocks for the same capture: the lambda copy is never sampled, while the
+   * Segment copy reports the rate its own gate used.
+   *
+   * @param expectedIdentity - Identity fields expected only on the Lambda send.
+   * @param segmentSamplingMeta - Sampling metadata expected on the Segment copy.
+   * @param telemetryIdentified - Whether a license-derived identity was present.
+   * @param identityValues - Raw identity values that must not leak into payloads.
+   */
+  function expectBothSinksReceivedEvent(
+    expectedIdentity: Pick<
+      Parameters<typeof lambdaClient.send>[0],
+      "licenseToken" | "telemetryId"
+    >,
+    segmentSamplingMeta: {
+      sampleRate: number;
+      sampleRateAdjustmentFactor: number;
+      sampleWeight: number;
+    },
+    telemetryIdentified: boolean,
+    identityValues: readonly string[],
+  ): void {
+    expect(lambdaSpy).toHaveBeenCalledTimes(1);
+    const lambdaEvent = lambdaSpy.mock.calls[0][0];
+    expect(lambdaEvent).toMatchObject({
+      ...expectedIdentity,
+      globalProperties: unsampledMeta,
+    });
+    expect(lambdaEvent.properties).toEqual(flattenedBaseInstanceEvent);
+    expect(lambdaEvent.globalProperties).toEqual({
+      "copilotkit.package.name": "@copilotkit/shared",
+      "copilotkit.package.version": "1.0.0",
+      ...unsampledMeta,
+      telemetry_emitter: "v1-shared",
+      telemetry_surface: "v1",
+      telemetry_event_id: expect.any(String),
+      telemetry_identified: telemetryIdentified,
+      telemetry_transport: "lambda",
+    });
+
+    expect(segmentTrackMock).toHaveBeenCalledTimes(1);
+    const segmentEvent = segmentTrackMock.mock.calls[0][0];
+    expect(segmentEvent).toEqual({
+      anonymousId: expect.stringMatching(/^anon_/),
+      event: "oss.runtime.instance_created",
+      properties: {
+        ...flattenedBaseInstanceEvent,
+        "copilotkit.package.name": "@copilotkit/shared",
+        "copilotkit.package.version": "1.0.0",
+        ...segmentSamplingMeta,
+        telemetry_emitter: "v1-shared",
+        telemetry_surface: "v1",
+        telemetry_event_id: expect.any(String),
+        telemetry_identified: telemetryIdentified,
+        telemetry_transport: "segment",
+      },
+    });
+    expect(segmentEvent).not.toHaveProperty("userId");
+
+    const transportPayload = JSON.stringify({
+      lambdaGlobalProperties: lambdaEvent.globalProperties,
+      lambdaProperties: lambdaEvent.properties,
+      segmentEvent,
+    });
+    for (const identityValue of identityValues) {
+      expect(transportPayload).not.toContain(identityValue);
+    }
+  }
+
+  test("capture sends to both sinks when the anonymous Segment gate opens", async () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const client = makeClient({ sampleRate: 0.05 });
 
@@ -64,19 +214,242 @@ describe("v1 TelemetryClient", () => {
     });
   });
 
-  test("capture skips both sinks when anonymous and sampled out", async () => {
-    // Math.random=0.99 vs sampleRate=0.05 — anonymous caller is gated out;
-    // neither sink should fire under the new one-decision-both-sinks model.
+  test("an anonymous event sampled out of Segment still reaches the lambda sink", async () => {
+    // Math.random=0.99 vs sampleRate=0.05. The gate is Segment's alone now:
+    // the lambda sink is ours and takes every event, so a rate that drops
+    // 95% of the Segment copies must drop none of the lambda copies. This is
+    // the whole point of the change — if it ever reverts, this fails first.
     vi.spyOn(Math, "random").mockReturnValue(0.99);
     const client = makeClient({ sampleRate: 0.05 });
 
     await client.capture("oss.runtime.instance_created", baseInstanceEvent);
 
-    expect(lambdaSpy).not.toHaveBeenCalled();
+    expect(lambdaSpy).toHaveBeenCalledTimes(1);
     expect(segmentTrackMock).not.toHaveBeenCalled();
   });
 
-  test("identified callers bypass the sample gate (lambda + segment fire even when Math.random would fail)", async () => {
+  test("the lambda copy reports rate 1 while the Segment copy of the same capture reports the gated rate", async () => {
+    // One capture, two wires, two different weights. A shared block would
+    // make the unsampled lambda copy claim it stands for 20 events.
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const client = makeClient({ sampleRate: 0.05 });
+
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    expect(lambdaSpy.mock.calls[0][0].globalProperties).toMatchObject({
+      sampleRate: 1,
+      sampleRateAdjustmentFactor: 0,
+      sampleWeight: 1,
+    });
+    expect(segmentTrackMock.mock.calls[0][0]).toMatchObject({
+      properties: expect.objectContaining({
+        sampleRate: 0.05,
+        sampleRateAdjustmentFactor: 0.95,
+        sampleWeight: 20,
+      }),
+    });
+  });
+
+  test("COPILOTKIT_TELEMETRY_SAMPLE_RATE=0 silences Segment without silencing the lambda sink", async () => {
+    // The env var survives as a Segment-only lever. Setting it to 0 is the
+    // strongest form of that lever and still must not be mistaken for an
+    // opt-out: COPILOTKIT_TELEMETRY_DISABLED is the opt-out.
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE = "0";
+    const client = makeClient();
+
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    expect(lambdaSpy).toHaveBeenCalledTimes(1);
+    expect(segmentTrackMock).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    { label: "configured directly", priorLicenseToken: undefined },
+    {
+      label: "replacing a legacy license identity",
+      priorLicenseToken: jwtWith({ telemetry_id: "legacy-telemetry-id" }),
+    },
+  ])(
+    "standalone identity stays behind the Segment gate when $label",
+    async ({ priorLicenseToken }) => {
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.99);
+      const client = makeClient({ sampleRate: 0.05 });
+      if (priorLicenseToken !== undefined) {
+        client.setLicenseToken(priorLicenseToken);
+      }
+      client.setTelemetryIdentity({
+        telemetryId: "standalone-telemetry-id",
+      });
+
+      await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+      expect(randomSpy).toHaveBeenCalledTimes(1);
+      expect(lambdaSpy).toHaveBeenCalledTimes(1);
+      expect(segmentTrackMock).not.toHaveBeenCalled();
+    },
+  );
+
+  test("standalone identity remains a transport claim with anonymous Segment sampling metadata", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    const client = makeClient({ sampleRate: 0.05 });
+    client.setTelemetryIdentity({
+      telemetryId: "standalone-telemetry-id",
+    });
+
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    expect(randomSpy).toHaveBeenCalledTimes(1);
+    expectBothSinksReceivedEvent(
+      { telemetryId: "standalone-telemetry-id" },
+      {
+        sampleRate: 0.05,
+        sampleRateAdjustmentFactor: 0.95,
+        sampleWeight: 20,
+      },
+      false,
+      ["standalone-telemetry-id"],
+    );
+  });
+
+  test("standalone identity is stored without surrounding HTTP whitespace", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    const client = makeClient({ sampleRate: 0.05 });
+    client.setTelemetryIdentity({
+      telemetryId: "\t standalone-telemetry-id \t",
+    });
+
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    expect(randomSpy).toHaveBeenCalledTimes(1);
+    expect(lambdaSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        telemetryId: "standalone-telemetry-id",
+      }),
+    );
+    expect(segmentTrackMock).toHaveBeenCalledTimes(1);
+  });
+
+  test.each(["bad\nid", "bad\u0000id", "tenant-🚀"])(
+    "header-invalid standalone identity %j stays anonymously sampled",
+    async (invalidTelemetryId) => {
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+      const client = makeClient({ sampleRate: 0.05 });
+      client.setTelemetryIdentity({
+        telemetryId: invalidTelemetryId,
+      });
+
+      await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+      expect(randomSpy).toHaveBeenCalledTimes(1);
+      expect(lambdaSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          licenseToken: undefined,
+          telemetryId: undefined,
+        }),
+      );
+      expect(segmentTrackMock).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test("legacy license identity bypasses the Segment gate and weighs 1 on both wires", async () => {
+    const telemetryId = "legacy-telemetry-id";
+    const licenseToken = jwtWith({ telemetry_id: telemetryId });
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const client = makeClient({ sampleRate: 0.05 });
+    client.setTelemetryIdentity({ licenseToken });
+
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    expect(randomSpy).not.toHaveBeenCalled();
+    expectBothSinksReceivedEvent(
+      { licenseToken },
+      {
+        sampleRate: 1,
+        sampleRateAdjustmentFactor: 0,
+        sampleWeight: 1,
+      },
+      true,
+      [telemetryId, licenseToken],
+    );
+  });
+
+  test("clearing telemetry identity restores the anonymous Segment decision", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    const client = makeClient({ sampleRate: 0.05 });
+    client.setTelemetryIdentity({ telemetryId: "standalone-telemetry-id" });
+    client.setTelemetryIdentity({});
+
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    expect(randomSpy).toHaveBeenCalledTimes(1);
+    expect(lambdaSpy).toHaveBeenCalledTimes(1);
+    expect(lambdaSpy.mock.calls[0][0]).toMatchObject({
+      licenseToken: undefined,
+      telemetryId: undefined,
+      globalProperties: unsampledMeta,
+    });
+    expect(segmentTrackMock).toHaveBeenCalledTimes(1);
+    expect(segmentTrackMock.mock.calls[0][0]).toMatchObject({
+      properties: expect.objectContaining({
+        sampleRate: 0.05,
+        sampleRateAdjustmentFactor: 0.95,
+        sampleWeight: 20,
+      }),
+    });
+  });
+
+  test.each(["", " \t "])(
+    "blank standalone identity %j falls through to a supplied legacy identity",
+    async (blankTelemetryId) => {
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.99);
+      const licenseToken = jwtWith({ telemetry_id: "legacy-telemetry-id" });
+      const client = makeClient({ sampleRate: 0.05 });
+      client.setTelemetryIdentity({
+        telemetryId: blankTelemetryId,
+        licenseToken,
+      });
+
+      await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+      expect(randomSpy).not.toHaveBeenCalled();
+      expect(lambdaSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          licenseToken,
+          telemetryId: undefined,
+          globalProperties: expect.objectContaining({ sampleRate: 1 }),
+        }),
+      );
+    },
+  );
+
+  test.each(["", " \t "])(
+    "blank standalone identity %j without a legacy identity stays anonymous",
+    async (blankTelemetryId) => {
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+      const client = makeClient({ sampleRate: 0.05 });
+      client.setTelemetryIdentity({ telemetryId: blankTelemetryId });
+
+      await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+      expect(randomSpy).toHaveBeenCalledTimes(1);
+      expect(lambdaSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          licenseToken: undefined,
+          telemetryId: undefined,
+          globalProperties: expect.objectContaining({
+            sampleRate: 1,
+            telemetry_identified: false,
+          }),
+        }),
+      );
+      expect(segmentTrackMock.mock.calls[0][0]).toMatchObject({
+        properties: expect.objectContaining({ sampleRate: 0.05 }),
+      });
+    },
+  );
+
+  test("identified callers bypass the Segment gate (both wires fire even when Math.random would fail)", async () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99);
     const client = makeClient({ sampleRate: 0.05 });
     client.setLicenseToken(jwtWith({ telemetry_id: "abc-123" }));
@@ -106,6 +479,20 @@ describe("v1 TelemetryClient", () => {
     expect(lambdaSpy).not.toHaveBeenCalled();
     expect(segmentTrackMock).not.toHaveBeenCalled();
   });
+
+  test.each(telemetryOptOutCases)(
+    "$optOut.environmentVariable disables both sinks for $identity.label telemetry",
+    async ({ identity, optOut }) => {
+      vi.stubEnv(optOut.environmentVariable, optOut.value);
+      const client = makeClient();
+      applyTelemetryIdentity(client, identity);
+
+      await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+      expect(lambdaSpy).not.toHaveBeenCalled();
+      expect(segmentTrackMock).not.toHaveBeenCalled();
+    },
+  );
 
   test("setLicenseToken forwards the token in subsequent capture", async () => {
     const token = jwtWith({ telemetry_id: "abc-123" });
@@ -146,17 +533,16 @@ describe("v1 TelemetryClient", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
-  test("identified events carry sampleWeight=1 (anonymous events carry 1/sampleRate)", async () => {
-    // Anonymous: sampleWeight should be 1 / sampleRate so downstream
-    // weight-based extrapolation reconstructs true volume.
-    // Identified: bypassing the gate means each event represents itself,
-    // so sampleWeight must be 1 — not the population's 1/sampleRate.
+  test("Segment keeps sampleWeight=1/sampleRate for anonymous events and 1 for identified ones", async () => {
+    // On the Segment wire the weight still has work to do: anonymous events
+    // stand for 1 / sampleRate of them, identified events stand for
+    // themselves. The lambda wire is unsampled, so its weight is always 1.
     vi.spyOn(Math, "random").mockReturnValue(0);
     const anonClient = makeClient({ sampleRate: 0.05 });
     await anonClient.capture("oss.runtime.instance_created", baseInstanceEvent);
     expect(lambdaSpy.mock.calls[0][0].globalProperties).toMatchObject({
-      sampleRate: 0.05,
-      sampleWeight: 20,
+      sampleRate: 1,
+      sampleWeight: 1,
     });
     expect(segmentTrackMock.mock.calls[0][0]).toMatchObject({
       properties: expect.objectContaining({
@@ -180,7 +566,7 @@ describe("v1 TelemetryClient", () => {
     });
   });
 
-  test("malformed license token stays anonymous and remains sample-gated", async () => {
+  test("malformed license token stays anonymous and stays behind the Segment gate", async () => {
     // parseTelemetryIdFromLicense returns null for any of: empty token,
     // wrong-shape (not three dot-separated segments), base64/JSON parse
     // failure. A misconfigured customer must not flip to identified-bypass.
@@ -191,8 +577,27 @@ describe("v1 TelemetryClient", () => {
     client.setLicenseToken("not-a-jwt");
     await client.capture("oss.runtime.instance_created", baseInstanceEvent);
 
-    expect(lambdaSpy).not.toHaveBeenCalled();
     expect(segmentTrackMock).not.toHaveBeenCalled();
+    expect(lambdaSpy.mock.calls[0][0].globalProperties).toMatchObject({
+      telemetry_identified: false,
+    });
+  });
+
+  test("illegal base64url license payload cannot bypass Segment sampleRate 0", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const client = makeClient({ sampleRate: 0 });
+
+    client.setLicenseToken(malformedJwtWithTelemetryId("legacy-telemetry-id"));
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    expect(randomSpy).toHaveBeenCalledTimes(1);
+    expect(segmentTrackMock).not.toHaveBeenCalled();
+    // The lambda copy still goes, and still says it is anonymous: an
+    // unparseable token must not buy identified status on either wire.
+    expect(lambdaSpy.mock.calls[0][0].globalProperties).toMatchObject({
+      telemetry_identified: false,
+    });
   });
 
   test("setLicenseToken cache is overwritable (good token replaced by bad → back to anonymous gate)", async () => {
@@ -207,8 +612,10 @@ describe("v1 TelemetryClient", () => {
     client.setLicenseToken(jwtWith({ license_id: "no-telemetry-id" }));
     await client.capture("oss.runtime.instance_created", baseInstanceEvent);
 
-    expect(lambdaSpy).not.toHaveBeenCalled();
     expect(segmentTrackMock).not.toHaveBeenCalled();
+    expect(lambdaSpy.mock.calls[0][0].globalProperties).toMatchObject({
+      telemetry_identified: false,
+    });
   });
 
   test("setCloudConfiguration writes cloud keys into globalProperties for both sinks", async () => {
@@ -250,17 +657,101 @@ describe("v1 TelemetryClient", () => {
     // parseFloat('nonsense') = NaN; without the explicit guard, NaN slips
     // past the range check (all NaN comparisons are false) and produces a
     // silent always-drop. Guard the validator with Number.isNaN.
-    const original = process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
     process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE = "not-a-number";
-    try {
-      expect(() => makeClient()).toThrow("Sample rate must be between 0 and 1");
-    } finally {
-      if (original === undefined) {
-        delete process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
-      } else {
-        process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE = original;
-      }
-    }
+
+    expect(() => makeClient()).toThrow("Sample rate must be between 0 and 1");
+  });
+
+  test("both copies of one capture share a telemetry_event_id and differ only by transport", async () => {
+    // The dual-write is the whole of OSS-1019: one request, two rows, and
+    // before this nothing on either row said they were the same event.
+    // Consumers had to infer it from $lib, which is incidental.
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const client = makeClient({ sampleRate: 0.05 });
+
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    const lambdaGlobals = lambdaSpy.mock.calls[0][0].globalProperties as Record<
+      string,
+      unknown
+    >;
+    const segmentProps = segmentTrackMock.mock.calls[0][0].properties as Record<
+      string,
+      unknown
+    >;
+
+    expect(lambdaGlobals.telemetry_event_id).toEqual(expect.any(String));
+    expect(segmentProps.telemetry_event_id).toBe(
+      lambdaGlobals.telemetry_event_id,
+    );
+    expect(lambdaGlobals.telemetry_transport).toBe("lambda");
+    expect(segmentProps.telemetry_transport).toBe("segment");
+  });
+
+  test("each capture gets its own telemetry_event_id", async () => {
+    // A per-client id would collapse every event from one process into a
+    // single row under a dedupe-by-id rule.
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const client = makeClient({ sampleRate: 0.05 });
+
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    const first = (
+      lambdaSpy.mock.calls[0][0].globalProperties as Record<string, unknown>
+    ).telemetry_event_id;
+    const second = (
+      lambdaSpy.mock.calls[1][0].globalProperties as Record<string, unknown>
+    ).telemetry_event_id;
+
+    expect(first).not.toBe(second);
+  });
+
+  test("both copies are stamped as emitted by the v1 client, on the v1 surface", async () => {
+    // telemetry_emitter names the client library; telemetry_surface names
+    // the API the developer built against. They are separate because six
+    // emitters across four languages report only two surfaces, and the
+    // question anyone asks of this data is how much traffic is still v1.
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const client = makeClient({ sampleRate: 0.05 });
+
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    expect(lambdaSpy.mock.calls[0][0].globalProperties).toMatchObject({
+      telemetry_emitter: "v1-shared",
+      telemetry_surface: "v1",
+    });
+    expect(segmentTrackMock.mock.calls[0][0]).toMatchObject({
+      properties: expect.objectContaining({
+        telemetry_emitter: "v1-shared",
+        telemetry_surface: "v1",
+      }),
+    });
+  });
+
+  test("telemetry_identified rides on both copies and tracks the gate branch", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const anonClient = makeClient({ sampleRate: 0.05 });
+    await anonClient.capture("oss.runtime.instance_created", baseInstanceEvent);
+    expect(lambdaSpy.mock.calls[0][0].globalProperties).toMatchObject({
+      telemetry_identified: false,
+    });
+    expect(segmentTrackMock.mock.calls[0][0]).toMatchObject({
+      properties: expect.objectContaining({ telemetry_identified: false }),
+    });
+
+    lambdaSpy.mockClear();
+    segmentTrackMock.mockReset();
+
+    const idClient = makeClient({ sampleRate: 0.05 });
+    idClient.setLicenseToken(jwtWith({ telemetry_id: "abc-123" }));
+    await idClient.capture("oss.runtime.instance_created", baseInstanceEvent);
+    expect(lambdaSpy.mock.calls[0][0].globalProperties).toMatchObject({
+      telemetry_identified: true,
+    });
+    expect(segmentTrackMock.mock.calls[0][0]).toMatchObject({
+      properties: expect.objectContaining({ telemetry_identified: true }),
+    });
   });
 });
 

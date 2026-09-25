@@ -209,6 +209,17 @@ describe("useInterrupt", () => {
     expect(unsubscribeMock).toHaveBeenCalledTimes(1);
   });
 
+  it("opts out of agent re-render updates", () => {
+    render(<Harness renderInChat={false} />);
+
+    // Interrupt events arrive via a direct agent.subscribe() in the hook,
+    // so the useAgent() handle must not force re-renders on every
+    // message/state/run-status change (see #6934).
+    expect(mockUseAgent).toHaveBeenCalledWith(
+      expect.objectContaining({ updates: [] }),
+    );
+  });
+
   it("ignores non-interrupt custom events", () => {
     render(<Harness renderInChat={false} />);
 
@@ -898,7 +909,7 @@ describe("useInterrupt", () => {
       runAgentMock.mockResolvedValue({ result: undefined, newMessages: [] });
       const TOOL_INT: Interrupt = {
         id: "int-1",
-        reason: "tool_approval",
+        reason: "tool_call",
         toolCallId: "tc-1",
       };
       const calls: any[] = [];
@@ -939,6 +950,25 @@ describe("useInterrupt", () => {
       });
     });
 
+    it("does not persist a tool-result message for backend-owned interrupts", async () => {
+      runAgentMock.mockResolvedValue({ result: undefined, newMessages: [] });
+      const renderSpy = vi.fn();
+      render(<StandardHarness renderSpy={renderSpy} />);
+      fireStandardInterrupt([
+        {
+          id: "mastra-run::int-1",
+          reason: "human_approval",
+          toolCallId: "int-1",
+        },
+      ]);
+
+      await act(async () => {
+        screen.getByTestId("resolve").click();
+      });
+
+      expect(mockAgent.addMessage).not.toHaveBeenCalled();
+    });
+
     it("forwards the interrupting runId and suppresses duplicate resolves", async () => {
       const events: string[] = [];
       runAgentMock.mockImplementation(async () => {
@@ -947,7 +977,7 @@ describe("useInterrupt", () => {
       });
       const TOOL_INT: Interrupt = {
         id: "int-run-id",
-        reason: "tool_approval",
+        reason: "tool_call",
         toolCallId: "tc-run-id",
       };
       const resolves: Array<

@@ -2,6 +2,12 @@ import { isNativeNode } from "@copilotkit/channels-ui";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import type { ContextActionsBlock, KnownBlock } from "@slack/types";
 import { markdownToMrkdwn } from "../markdown-to-mrkdwn.js";
+import {
+  markdownToRichTextRuns,
+  needsRichText,
+  truncateRuns,
+} from "../markdown-to-rich-text.js";
+import type { RichTextRun } from "../markdown-to-rich-text.js";
 import { SLACK_LIMITS, clampArray, truncateText } from "./budget.js";
 import { serializeSlackNativeNode } from "../native-codec.js";
 import { validateSlackBlockKit } from "../block-kit-validation.js";
@@ -68,8 +74,9 @@ export function buildFeedbackBlocks(opts?: {
 export function renderBlockKit(ir: ChannelNode[]): KnownBlock[] {
   const blocks: KnownBlock[] = [];
   const native = containsNativeNode(ir);
+  const fields = newFieldIdContext();
   for (const node of ir) {
-    renderNode(node, blocks);
+    renderNode(node, blocks, fields);
   }
 
   const dataVisualizations = blocks.filter(
@@ -146,8 +153,72 @@ function overflowSignal(count: number): KnownBlock {
   } as KnownBlock;
 }
 
+/**
+ * Per-message allocator for the `block_id`s that become a handler's
+ * `ctx.values` keys (OSS-848).
+ *
+ * Slack only reports a field under its BLOCK id, so a block rendered without
+ * one gets a fresh random id on every render and the value it carries is
+ * unreadable by name. Teams already keys a field by `props.name`
+ * (`channels-teams/src/render/adaptive-card.ts`), so a cross-platform
+ * `<Input name="root_cause">` has to arrive as `ctx.values.root_cause` here
+ * too. This mirrors that allocator arm-for-arm — same precedence, same
+ * reserved names, same `_1` de-duplication — so the two platforms mint the
+ * SAME key for the same tree.
+ */
+interface FieldIdContext {
+  nextFieldIndex: number;
+  used: Set<string>;
+}
+
+function newFieldIdContext(): FieldIdContext {
+  // Reserved on the Teams side; excluded here purely to keep the two in step.
+  return { nextFieldIndex: 0, used: new Set(["ckActionId", "value"]) };
+}
+
+/** The author's explicit `name`, if usable as a field key. */
+function explicitFieldName(props: Record<string, unknown>): string | undefined {
+  const raw = typeof props.name === "string" ? props.name.trim() : "";
+  if (!raw || raw === "ckActionId" || raw === "value") return undefined;
+  return raw;
+}
+
+/**
+ * Allocate the `block_id` for one stateful field: the author's `name`, else the
+ * registry-minted handler id (unique per render, and what a handler already
+ * addresses), else a positional `input_1` / `select_1`. Collisions get a `_N`
+ * suffix so a message can never carry two identical block ids, which Slack
+ * rejects outright.
+ */
+function fieldBlockId(
+  node: ChannelNode,
+  handlerProp: "onSelect" | "onSubmit",
+  fallback: "select" | "input",
+  ctx: FieldIdContext,
+): string {
+  const props = node.props ?? {};
+  const index = ++ctx.nextFieldIndex;
+  const base = truncateText(
+    explicitFieldName(props) ??
+      idFromHandler(props[handlerProp]) ??
+      `${fallback}_${index}`,
+    SLACK_LIMITS.blockId,
+  );
+  let candidate = base;
+  let suffix = 1;
+  while (ctx.used.has(candidate)) {
+    candidate = `${base}_${suffix++}`;
+  }
+  ctx.used.add(candidate);
+  return candidate;
+}
+
 /** Render a single IR node, pushing zero or more blocks onto `out`. */
-function renderNode(node: ChannelNode, out: KnownBlock[]): void {
+function renderNode(
+  node: ChannelNode,
+  out: KnownBlock[],
+  fields: FieldIdContext,
+): void {
   if (isNativeNode(node)) {
     if (node.props.nativeKind !== "block" && node.props.nativeKind !== "raw") {
       throw new Error(
@@ -162,7 +233,7 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
   switch (node.type) {
     case "message": {
       // The message container is not a block; flatten its children.
-      for (const child of childNodes(node)) renderNode(child, out);
+      for (const child of childNodes(node)) renderNode(child, out, fields);
       return;
     }
     case "header": {
@@ -251,7 +322,35 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
       for (const child of items) {
         if (child.type === "select" && child.props.multi) {
           flush();
-          out.push(multiSelectInput(child));
+          out.push(
+            multiSelectInput(
+              child,
+              fieldBlockId(child, "onSelect", "select", fields),
+            ),
+          );
+          continue;
+        }
+        if (child.type === "select") {
+          // Allocate unconditionally so the field index advances in step with
+          // the Teams renderer, whether or not the id is used as a block id.
+          const blockId = fieldBlockId(child, "onSelect", "select", fields);
+          const el = renderActionElement(child);
+          if (el === null) continue;
+          // A named select gets an `actions` block to itself, because a block
+          // carries ONE block_id and that is the only half Slack reports a
+          // field under. Grouping it with siblings would make the author's name
+          // unrepresentable; unnamed selects stay grouped as before and are
+          // delivered by action id (see `flattenStateValues`).
+          if (explicitFieldName(child.props ?? {})) {
+            flush();
+            out.push({
+              type: "actions",
+              block_id: blockId,
+              elements: [el],
+            } as KnownBlock);
+            continue;
+          }
+          elements.push(el);
           continue;
         }
         const el = renderActionElement(child);
@@ -276,6 +375,10 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
     case "input": {
       out.push({
         type: "input",
+        // Slack reports this field's value under the BLOCK id, so without one
+        // the handler's `ctx.values` key is a fresh random string per render
+        // (OSS-848). Derived from `props.name` to match Teams.
+        block_id: fieldBlockId(node, "onSubmit", "input", fields),
         dispatch_action: true,
         element: {
           type: "plain_text_input",
@@ -305,14 +408,9 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
       return;
     }
     case "table": {
-      // Native Slack Table block: rows of `{ type: "raw_text", text }` cells.
-      // Header row from `columns`, data rows from `row`/`cell` children.
-      // Not yet in `@slack/types`, so the block is built plain and cast.
-      const cellOf = (text: string): { type: "raw_text"; text: string } => ({
-        type: "raw_text",
-        text: truncateText(text, SLACK_LIMITS.cellText),
-      });
-
+      // Native Slack Table block. Header row from `columns`, data rows from
+      // `row`/`cell` children. Not yet in `@slack/types`, so the block is
+      // built plain and cast.
       const columnsProp = props.columns as
         | { header: string; align?: "left" | "center" | "right" }[]
         | undefined;
@@ -320,16 +418,18 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
         ? clampArray(columnsProp, SLACK_LIMITS.tableColumns).items
         : undefined;
 
-      const rows: { type: "raw_text"; text: string }[][] = [];
+      const rows: TableCell[][] = [];
       if (columns && columns.length > 0) {
-        rows.push(columns.map((c) => cellOf(c.header)));
+        // Header cells stay `raw_text`: Slack already renders them bold, and
+        // `rich_text` is not allowed in a `data_table` header cell.
+        rows.push(columns.map((c) => rawTextCell(c.header)));
       }
 
       const rowNodes = childNodes(node).filter((c) => c.type === "row");
       const { items: dataRows } = clampArray(rowNodes, SLACK_LIMITS.tableRows);
       for (const rowNode of dataRows) {
         const cells = childNodes(rowNode).filter((c) => c.type === "cell");
-        rows.push(cells.map((cell) => cellOf(collectText(cell))));
+        rows.push(cells.map((cell) => bodyCell(collectText(cell))));
       }
 
       const block: Record<string, unknown> = { type: "table", rows };
@@ -424,8 +524,9 @@ function renderActionElement(node: ChannelNode): object | null {
  * Render a `<Select multi>` as a dispatching input block holding a
  * `multi_static_select` (which Slack forbids inside an `actions` block). The
  * block_actions payload carries `selected_options`, decoded to a `string[]`.
+ * `blockId` is the author-facing `ctx.values` key (OSS-848).
  */
-function multiSelectInput(node: ChannelNode): KnownBlock {
+function multiSelectInput(node: ChannelNode, blockId: string): KnownBlock {
   const props = node.props ?? {};
   const action_id = truncateText(
     idFromHandler(props.onSelect) ?? "select",
@@ -436,6 +537,7 @@ function multiSelectInput(node: ChannelNode): KnownBlock {
   const { items } = clampArray(options, SLACK_LIMITS.selectOptions);
   return {
     type: "input",
+    block_id: blockId,
     dispatch_action: true,
     element: {
       type: "multi_static_select",
@@ -496,6 +598,47 @@ function fieldMrkdwn(node: ChannelNode): string {
 }
 
 /** Concatenate the `value` of all descendant `text` nodes (depth-first). */
+/**
+ * A cell of a Slack `table` block. `raw_text` is literal — Markdown, Slack
+ * link syntax and bare URLs all render as plain characters — so cell content
+ * that carries inline markup is promoted to `rich_text` instead.
+ *
+ * Only the portable `<Table>` vocabulary funnels through here; a `data_table`
+ * only ever reaches Slack via the native passthrough (`Slack.Block.DataTable`
+ * → `native-codec.ts`), which is untouched. `rich_text` body cells were
+ * verified to render in both block types.
+ */
+type TableCell =
+  | { type: "raw_text"; text: string }
+  | {
+      type: "rich_text";
+      elements: [{ type: "rich_text_section"; elements: RichTextRun[] }];
+    };
+
+function rawTextCell(text: string): TableCell {
+  return { type: "raw_text", text: truncateText(text, SLACK_LIMITS.cellText) };
+}
+
+/**
+ * Render a body cell: `rich_text` when the content actually needs it (link,
+ * bold, italic, strikethrough or inline code), otherwise the byte-identical
+ * `raw_text` payload it has always produced — plain content, emoji glyphs
+ * included, passes through untouched.
+ */
+function bodyCell(text: string): TableCell {
+  const runs = markdownToRichTextRuns(text);
+  if (!needsRichText(runs)) return rawTextCell(text);
+  return {
+    type: "rich_text",
+    elements: [
+      {
+        type: "rich_text_section",
+        elements: truncateRuns(runs, SLACK_LIMITS.cellText),
+      },
+    ],
+  };
+}
+
 function collectText(node: ChannelNode): string {
   if (typeof node.type === "string" && node.type === "text") {
     return String(node.props?.value ?? "");

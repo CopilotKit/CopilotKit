@@ -1,43 +1,44 @@
 /**
- * BEAT 3d — stage the offer letter into the chat composer's built-in hidden
- * file input, so CopilotKit's standard attachment flow picks it up: the letter
- * appears as a real attachment chip and rides the next message to the model.
+ * BEAT 3d for people — Dana Whitfield's signed offer letter.
  *
- * Shared by the chat header's paperclip AND the suggestion pill, so both take
- * the identical blessed path (the one that correctly consumes attachments on
- * submit). The pill needs it because the framework's suggestion path DROPS
- * attachments — a pill that must carry a file has to be intercepted in
- * `onSuggestionSelect` and driven through the real composer instead.
+ * Everything that makes this beat honest lives in `@/shell/attach`: locating the
+ * composer before staging, checking the fetched bytes really are a PDF, waiting
+ * on CONDITIONS (chip queued, chip printing its filename, send button in SEND
+ * state, attachment consumed) with bounded budgets, aborting the send on any
+ * failure, and reporting every failure through `console.error` AND
+ * `window.alert`. Only three values are people's: the document's URL, its
+ * filename, and the message the pill sends.
  *
- * The paperclip exists as a manual fallback: if the pill path misbehaves on
- * stage, the presenter can still attach the file by hand and carry on.
+ * This file used to hold a `stageOfferLetterAttachment` that dispatched a
+ * `change` event and returned `true`, with the send half sitting in `skin.tsx`
+ * behind a fixed 500 ms sleep that was NOT gated on staging — so a failed stage
+ * still sent the prompt, the model invented the letter's terms, and the
+ * onboarding packet was filed anyway and read perfectly plausibly. Do not
+ * reintroduce any of it; `sendMessageWithAttachment` aborts instead.
  */
 
-export const OFFER_LETTER_URL = "/api/people/v1/offer-letter";
-export const OFFER_LETTER_FILENAME = "offer-letter-dana-whitfield.pdf";
+import { attachByHand, sendMessageWithAttachment } from "@/shell/attach";
+import type { AttachmentDocument } from "@/shell/attach";
+// The pill's message stays in `suggestions.ts` next to the pill that carries it,
+// so the catalog entry and this send are literally the same value and cannot
+// drift into a prompt that goes out without the file.
+import { PACKET_MESSAGE } from "./suggestions";
 
-export async function stageOfferLetterAttachment(): Promise<boolean> {
-  try {
-    const res = await fetch(OFFER_LETTER_URL);
-    if (!res.ok) return false;
-    const blob = await res.blob();
-    const file = new File([blob], OFFER_LETTER_FILENAME, {
-      type: "application/pdf",
-    });
-    const input = document.querySelector<HTMLInputElement>(
-      'input[type="file"][accept*="pdf"]',
-    );
-    if (!input) return false;
-    const dt = new DataTransfer();
-    dt.items.add(file);
-    input.files = dt.files;
-    // A native, BUBBLING change event, so CopilotChat's own onChange handler
-    // runs and enqueues the attachment exactly as a manual pick would. A
-    // React-synthetic dispatch would not reach it.
-    input.dispatchEvent(new Event("change", { bubbles: true }));
-    return true;
-  } catch (err) {
-    console.error("Could not attach the offer letter", err);
-    return false;
-  }
-}
+/** The only per-skin values. */
+const OFFER_LETTER: AttachmentDocument = {
+  url: "/api/people/v1/offer-letter",
+  filename: "offer-letter-dana-whitfield.pdf",
+};
+
+/**
+ * The chat header's paperclip — stage only, no send. The presenter's manual
+ * fallback if the pill path misbehaves on stage, so it is also the loudest link
+ * in the chain: every failure has already been reported when this resolves
+ * `false`.
+ */
+export const attachOfferLetterByHand = (): Promise<boolean> =>
+  attachByHand(OFFER_LETTER);
+
+/** The pill path — stage, then drive the real composer. */
+export const sendPacketRequestWithOfferLetter = (): Promise<boolean> =>
+  sendMessageWithAttachment(OFFER_LETTER, PACKET_MESSAGE);

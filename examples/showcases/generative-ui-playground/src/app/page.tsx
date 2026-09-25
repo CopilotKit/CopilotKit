@@ -329,7 +329,7 @@ export default function Home() {
     <CopilotKitProvider
       key="default-provider"
       runtimeUrl="/api/copilotkit"
-      showDevConsole={false}
+      enableInspector={false}
     >
       <CopilotContextProvider>
         {isDesktop ? (

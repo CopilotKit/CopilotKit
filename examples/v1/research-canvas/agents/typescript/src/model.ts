@@ -1,8 +1,8 @@
 /**
  * This module provides a function to get a model based on the configuration.
  */
-import { BaseChatModel } from "@langchain/core/language_models/chat_models";
-import { AgentState } from "./state";
+import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
+import type { AgentState } from "./state";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
@@ -17,18 +17,17 @@ function getModel(state: AgentState): BaseChatModel {
   console.log(`Using model: ${model}`);
 
   if (model === "openai") {
-    return new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
+    return new ChatOpenAI({ temperature: 0, model: "gpt-5-mini" });
   }
   if (model === "anthropic") {
     return new ChatAnthropic({
-      temperature: 0,
-      modelName: "claude-3-5-sonnet-20240620",
+      modelName: "claude-opus-4-8",
     });
   }
   if (model === "google_genai") {
     return new ChatGoogleGenerativeAI({
       temperature: 0,
-      model: "gemini-1.5-pro",
+      model: "gemini-2.5-flash",
       apiKey: process.env.GOOGLE_API_KEY || undefined,
     });
   }

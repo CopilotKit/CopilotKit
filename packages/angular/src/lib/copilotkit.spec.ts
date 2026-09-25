@@ -33,6 +33,9 @@ const mockSetRuntimeUrl = vi.fn();
 const mockSetRuntimeTransport = vi.fn();
 const mockSetHeaders = vi.fn();
 const mockSetProperties = vi.fn();
+const mockSetMessageFilter = vi.fn();
+/** Keeps the final turn only — the shape #1482 asks for (see below). */
+const keepLastTurn = (messages: any[]) => messages.slice(-1);
 const mockSetAgents = vi.fn();
 const mockGetAgent = vi.fn();
 const mockGetTool = vi.fn();
@@ -44,7 +47,16 @@ const licenseKey = "ck_pub_" + "a".repeat(32);
 let lastCoreInstance: any;
 let lastCoreConfig: any;
 
-vi.mock("@copilotkit/core", () => {
+// Spread the real module and override only what these tests drive. The factory
+// used to replace `@copilotkit/core` wholesale, which broke as soon as the
+// Inspector mounted here: it is enabled by default in browser frameworks now,
+// and its connectedCallback reaches for `isInspectorThreadBridgeEnabled` — one
+// of seventeen value exports it needs. A missing one throws an uncaught
+// exception that fails the run while all 49 test files still pass, which is a
+// confusing way to learn about it. Listing the seventeen would only postpone
+// the next occurrence.
+vi.mock("@copilotkit/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@copilotkit/core")>();
   const CopilotKitCoreRuntimeConnectionStatus = {
     Disconnected: "disconnected",
     Connected: "connected",
@@ -60,6 +72,7 @@ vi.mock("@copilotkit/core", () => {
     readonly setRuntimeTransport = mockSetRuntimeTransport;
     readonly setHeaders = mockSetHeaders;
     readonly setProperties = mockSetProperties;
+    readonly setMessageFilter = mockSetMessageFilter;
     readonly setAgents__unsafe_dev_only = mockSetAgents;
     readonly getAgent = mockGetAgent;
     readonly getTool = mockGetTool;
@@ -89,8 +102,10 @@ vi.mock("@copilotkit/core", () => {
   }
 
   return {
+    ...actual,
     CopilotKitCore: MockCopilotKitCore,
     CopilotKitCoreRuntimeConnectionStatus,
+    isInspectorThreadBridgeEnabled: () => false,
   } as any;
 });
 
@@ -209,6 +224,34 @@ describe("CopilotKit", () => {
     expect(handlerSpy).toHaveBeenCalledWith({ value: "ok" }, mockContext);
   });
 
+  it("adds a display-only client tool with no handler at all", () => {
+    TestBed.configureTestingModule({
+      providers: [provideCopilotKit({ licenseKey })],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+    const injector = TestBed.inject(Injector);
+
+    copilotKit.addFrontendTool({
+      name: "display-only",
+      description: "Renders a card",
+      args: z.object({ value: z.string() }),
+      component: class {
+        toolCall = signal({} as any);
+      },
+      injector,
+    } as never);
+
+    // Core inserts an empty tool result for a tool that declares no handler, so a
+    // display-only registration must reach it with `handler` still absent. Binding
+    // a wrapper around `undefined` here would throw on the first tool call, and
+    // supplying a stub would write a fabricated result into the thread.
+    const tool = mockAddTool.mock.calls.at(-1)![0];
+    expect(tool.name).toBe("display-only");
+    expect(tool.handler).toBeUndefined();
+    expect(copilotKit.clientToolCallRenderConfigs()).toHaveLength(1);
+  });
+
   it("registers human-in-the-loop tools and delegates responses", async () => {
     const onResultSpy = vi
       .spyOn(HumanInTheLoop.prototype, "onResult")
@@ -224,7 +267,7 @@ describe("CopilotKit", () => {
       name: "approval",
       args: z.object({ summary: z.string() }),
       component: class {
-        toolCall = signal({} as any);
+        toolCall = signal({});
       },
       toolCall: vi.fn(),
       agentId: "agent-1",
@@ -234,19 +277,25 @@ describe("CopilotKit", () => {
 
     expect(copilotKit.humanInTheLoopToolRenderConfigs()).toEqual([toolConfig]);
     expect(mockAddTool).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "approval" }),
+      expect.objectContaining({ name: "approval", type: "human-in-the-loop" }),
     );
 
     const tool = mockAddTool.mock.calls.at(-1)![0];
+    const controller = new AbortController();
     const mockAgent = { agentId: "agent-1" };
     await tool.handler(
       {},
       {
         toolCall: { id: "call-1", function: { name: "approval" } },
         agent: mockAgent,
+        signal: controller.signal,
       },
     );
-    expect(onResultSpy).toHaveBeenCalledWith("call-1", "approval");
+    expect(onResultSpy).toHaveBeenCalledWith(
+      "call-1",
+      "approval",
+      controller.signal,
+    );
 
     onResultSpy.mockRestore();
   });
@@ -491,6 +540,80 @@ describe("CopilotKit", () => {
     expect(mockSetHeaders).toHaveBeenCalledWith({ Authorization: "different" });
     expect(mockSetProperties).toHaveBeenCalledWith({ locale: "en" });
     expect(mockSetAgents).toHaveBeenCalledWith({ a: {} });
+  });
+
+  // #1482: the message filter is the Angular half of the `messageFilter`
+  // React and Vue take as a prop. The filter's own behaviour is covered in
+  // packages/core; what is Angular-specific is that the configuration reaches
+  // the core, and that clearing it is expressible.
+  it("passes the configured message filter to core", () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({ licenseKey, messageFilter: keepLastTurn }),
+      ],
+    });
+
+    TestBed.inject(CopilotKit);
+
+    expect(lastCoreConfig.messageFilter).toBe(keepLastTurn);
+  });
+
+  it("leaves core unfiltered when no message filter is configured", () => {
+    TestBed.configureTestingModule({
+      providers: [provideCopilotKit({ licenseKey })],
+    });
+
+    TestBed.inject(CopilotKit);
+
+    expect(lastCoreConfig.messageFilter).toBeUndefined();
+  });
+
+  it("updates the message filter through updateRuntime", () => {
+    TestBed.configureTestingModule({
+      providers: [provideCopilotKit({ licenseKey })],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+
+    copilotKit.updateRuntime({ messageFilter: keepLastTurn });
+
+    expect(mockSetMessageFilter).toHaveBeenCalledWith(keepLastTurn);
+  });
+
+  it("clears the message filter when updateRuntime passes undefined", () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({
+          licenseKey,
+          messageFilter: keepLastTurn,
+        }),
+      ],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+
+    // Passing the key explicitly is how an app turns trimming off. An
+    // `options.messageFilter !== undefined` guard would silently ignore it.
+    copilotKit.updateRuntime({ messageFilter: undefined });
+
+    expect(mockSetMessageFilter).toHaveBeenCalledWith(undefined);
+  });
+
+  it("leaves the message filter alone when updateRuntime does not mention it", () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({
+          licenseKey,
+          messageFilter: keepLastTurn,
+        }),
+      ],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+
+    copilotKit.updateRuntime({ runtimeUrl: "https://other" });
+
+    expect(mockSetMessageFilter).not.toHaveBeenCalled();
   });
 
   it("reflects agent updates from core subscriptions", () => {

@@ -28,7 +28,6 @@ import {
 } from "./providers";
 import {
   attachPriceSheetByHand,
-  reportPriceSheetFailure,
   sendRestockRequestWithPriceSheet,
 } from "./attach-price-sheet";
 
@@ -103,26 +102,18 @@ const TOOL_LABELS: Record<string, string> = {
 // the price sheet cannot take it. Instead it is intercepted below and pushed
 // through the actual composer — stage the file into the hidden input, set the
 // textarea, click send — which is the path that correctly consumes an attachment
-// on submit. All of that (and its fail-loud contract) lives in
-// `./attach-price-sheet`; this module only routes the two entry points to it.
-
-/**
- * Launch one of beat 3d's async actions from a DOM event handler.
- *
- * Event handlers cannot await, so the promise is not returned to the framework —
- * but it is not DROPPED either. Both actions already report every expected
- * failure and resolve `false`; this wrapper covers the remaining hole, an
- * unexpected rejection, so no path through beat 3d can end in silence. A bare
- * `void action()` here is what made the paperclip fail with nothing in the
- * console, so do not reintroduce one.
- */
-function launchBeat3d(action: () => Promise<boolean>): void {
-  action().catch((err: unknown) => {
-    reportPriceSheetFailure(
-      `Unexpected error: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  });
-}
+// on submit. All of that (and its fail-loud contract) lives in `@/shell/attach`,
+// reached through `./attach-price-sheet`; this module only routes the two entry
+// points to it.
+//
+// This file used to wrap both entry points in a `launchBeat3d` that `.catch`ed
+// an unexpected rejection, because a bare `void` here is what once made the
+// paperclip fail with nothing in the console. That wrapper is now redundant, not
+// merely unfashionable: `attachByHand` and `sendMessageWithAttachment` are each
+// wholly inside their own `try`, whose `catch` reports cause `"unexpected"`
+// before resolving `false`. Neither can reject, so the `void`s below drop
+// nothing — and re-adding a per-skin catch would be the third copy of a rule the
+// shell already owns.
 
 // NOTE: no `agent` field, and this module must NEVER import ./agent.ts. Agents
 // pull in @copilotkit/runtime, which must not reach the browser bundle; the
@@ -161,7 +152,7 @@ const commerce: Skin = {
       // A manual fallback for the presenter if the pill path misbehaves live.
       // It is the fallback, so it must be the LOUDEST link in the chain: if this
       // one fails quietly too, the presenter has nothing left to try.
-      onClick: () => launchBeat3d(attachPriceSheetByHand),
+      onClick: () => void attachPriceSheetByHand(),
     },
   ],
 
@@ -176,7 +167,7 @@ const commerce: Skin = {
     // `sendRestockRequestWithPriceSheet` guarantees the only two outcomes are
     // "sent with the sheet" or "aborted and the presenter was told why" — never
     // the old third outcome of returning `true` and then doing nothing at all.
-    launchBeat3d(sendRestockRequestWithPriceSheet);
+    void sendRestockRequestWithPriceSheet();
     return true;
   },
 };

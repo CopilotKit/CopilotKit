@@ -14,7 +14,7 @@ import { BasicAgent } from "@copilotkit/runtime/v2";
 const runtime = new CopilotRuntime({
   agents: {
     default: new BasicAgent({
-      model: "openai/gpt-4o",
+      model: "openai/gpt-5-mini",
       prompt: "You are a helpful assistant.",
     }),
   },
@@ -272,7 +272,7 @@ async function bootstrap() {
   const runtime = new CopilotRuntime({
     agents: {
       default: new BasicAgent({
-        model: "openai/gpt-4o",
+        model: "openai/gpt-5-mini",
         prompt: "You are helpful.",
       }),
     },

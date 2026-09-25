@@ -33,7 +33,10 @@ import "@copilotkit/react-core/v2/styles.css";
 
 <PropertyReference name="onThumbsUp" type="(message: AssistantMessage) => void">
   Callback invoked when the user clicks the thumbs-up button. When not provided,
-  the thumbs-up button is hidden from the toolbar.
+  the thumbs-up button is hidden from the toolbar. When this component is used
+  as the assistant slot of `CopilotChatMessageView`, the callback can receive a
+  callback-only `rawEvent` value for a live direct AG-UI `TEXT_MESSAGE_START`.
+  Direct use of this component receives the canonical assistant message.
 </PropertyReference>
 
 <PropertyReference
@@ -41,7 +44,9 @@ import "@copilotkit/react-core/v2/styles.css";
   type="(message: AssistantMessage) => void"
 >
   Callback invoked when the user clicks the thumbs-down button. When not
-  provided, the thumbs-down button is hidden from the toolbar.
+  provided, the thumbs-down button is hidden from the toolbar. The
+  `CopilotChatMessageView` callback-only `rawEvent` behavior applies only when
+  this component is used through that parent path.
 </PropertyReference>
 
 <PropertyReference

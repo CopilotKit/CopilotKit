@@ -3,10 +3,7 @@
 import { useEffect, useMemo } from "react";
 import type { ReactNode } from "react";
 import { PeopleLedgerProvider, usePeopleLedger } from "./data/ledger-context";
-import {
-  RecordingProvider,
-  RecordingVignette,
-} from "./components/recording-context";
+import { RecordingProvider, RecordingVignette } from "@/shell/teach";
 import { setSandboxSnapshot } from "./sandbox-functions";
 
 /**
@@ -21,7 +18,10 @@ import { setSandboxSnapshot } from "./sandbox-functions";
  * one ledger fetch.
  *
  * `Providers` mounts BELOW it, for anything that consumes CopilotKit context —
- * here, the teach-mode recording context and its canvas-edge vignette.
+ * here, the teach-mode recording context and its canvas-edge vignette. Both come
+ * from the shell's `@/shell/teach`, the ONE implementation; the vignette styles
+ * itself from this skin's `--brand-violet` / `--brand-indigo` tokens, so there is
+ * no per-skin copy of either the state machine or the keyframes.
  */
 
 /** Above CopilotKitProvider. */

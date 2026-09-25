@@ -132,7 +132,7 @@ export class CopilotThreadsDrawerRow {
  * internally by {@link defineCopilotKitThreadsDrawer}) and projects it into the DOM
  * via the `CUSTOM_ELEMENTS_SCHEMA`-enabled template.
  *
- * Thread list state is fetched from the Intelligence platform via
+ * Thread list state is fetched from CopilotKit Intelligence via
  * {@link injectThreads} and pushed onto the element's JS properties via an
  * `effect`, following the imperative property-assignment pattern used elsewhere
  * in this package (see `CopilotA2UIActivityRenderer`).
@@ -306,12 +306,43 @@ export class CopilotThreadsDrawer {
   );
 
   /**
-   * Normalized license context derived from the core's runtime-reported status,
-   * via the same `@copilotkit/shared` helper the React provider uses.
+   * Normalized license context derived from Core's structured and legacy
+   * Runtime authority, with the same precedence as the React provider.
    */
-  private readonly licenseContext = computed(() =>
-    createLicenseContextValue(this.copilotkit.licenseStatus()),
-  );
+  private readonly licenseContext = computed(() => {
+    const runtimeLicenseStatus = this.copilotkit.licenseStatus();
+    const runtimeEntitlements = this.copilotkit.runtimeEntitlements?.();
+    const retryableRuntimeEntitlementFailure =
+      runtimeEntitlements?.status !== "ready" &&
+      runtimeEntitlements?.error.retryable === true;
+    const hasNonReadyRuntimeEntitlement =
+      runtimeEntitlements !== undefined &&
+      runtimeEntitlements.status !== "ready";
+    const hasLegacyRuntimeEntitlementFallback =
+      runtimeLicenseStatus === "valid" || runtimeLicenseStatus === "expiring";
+    const runtimeEntitlementRetryInProgress =
+      retryableRuntimeEntitlementFailure &&
+      (this.copilotkit.runtimeEntitlementRetryPending?.() ?? false) &&
+      !hasLegacyRuntimeEntitlementFallback;
+    const runtimeEntitlementFailureSettled =
+      hasNonReadyRuntimeEntitlement &&
+      !runtimeEntitlementRetryInProgress &&
+      !hasLegacyRuntimeEntitlementFallback;
+    const runtimeLicenseContext = createLicenseContextValue(
+      runtimeEntitlementRetryInProgress ? undefined : runtimeLicenseStatus,
+      runtimeEntitlements,
+    );
+
+    if (!runtimeEntitlementFailureSettled) {
+      return runtimeLicenseContext;
+    }
+
+    return {
+      ...runtimeLicenseContext,
+      checkFeature: () => false,
+      getLimit: () => null,
+    };
+  });
 
   /**
    * Two-pronged license gate, mirroring the React wrapper. `checkFeature` fails
@@ -337,7 +368,7 @@ export class CopilotThreadsDrawer {
     () => this.licenseContext().status === null,
   );
 
-  /** Live thread list from the Intelligence platform for the resolved agent. */
+  /** Live thread list from CopilotKit Intelligence for the resolved agent. */
   protected readonly threads = injectThreads({
     agentId: this.resolvedAgentId,
     includeArchived: true,

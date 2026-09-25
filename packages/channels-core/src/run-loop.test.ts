@@ -212,4 +212,76 @@ describe("runAgentLoop", () => {
     expect(result.interrupted).toBe(false);
     expect(result.iterations).toBeGreaterThanOrEqual(1);
   });
+  describe("forwarded identity", () => {
+    const finishOnce = () => [
+      (sub: AgentSubscriber) => {
+        sub.onRunFinishedEvent?.({ event: {} } as never);
+      },
+    ];
+
+    const baseArgs = (agent: FakeAgent) => ({
+      agent,
+      renderer: makeFakeRunRenderer(),
+      tools: new Map<string, ChannelTool>(),
+      toolDescriptors,
+      context,
+      makeToolCtx: () => ({
+        thread: {} as never,
+        user: null,
+        actor: { id: "actor", kind: "unknown" as const },
+        platform: "fake",
+      }),
+    });
+
+    const identity = {
+      id: "29:1a2b3c",
+      kind: "human" as const,
+      platform: "teams",
+      name: "Ada",
+    };
+
+    it("forwards the actor to the agent on a normal run", async () => {
+      const agent = new FakeAgent(finishOnce());
+
+      await runAgentLoop({ ...baseArgs(agent), identity });
+
+      expect(agent.runAgentParameters[0]?.forwardedProps).toEqual({
+        channelActor: identity,
+      });
+    });
+
+    it("keeps a provider id verbatim, including characters a model provider would reject", async () => {
+      const agent = new FakeAgent(finishOnce());
+
+      await runAgentLoop({ ...baseArgs(agent), identity });
+
+      const forwarded = agent.runAgentParameters[0]?.forwardedProps as {
+        channelActor: { id: string };
+      };
+      expect(forwarded.channelActor.id).toBe("29:1a2b3c");
+    });
+
+    it("forwards the actor alongside the resume command", async () => {
+      const agent = new FakeAgent(finishOnce());
+
+      await runAgentLoop({
+        ...baseArgs(agent),
+        identity,
+        initialResume: { resume: { decision: "approve" } },
+      });
+
+      expect(agent.runAgentParameters[0]?.forwardedProps).toEqual({
+        channelActor: identity,
+        command: { resume: { decision: "approve" } },
+      });
+    });
+
+    it("carries no actor key at all when the turn named nobody", async () => {
+      const agent = new FakeAgent(finishOnce());
+
+      await runAgentLoop(baseArgs(agent));
+
+      expect(agent.runAgentParameters[0]?.forwardedProps).toEqual({});
+    });
+  });
 });

@@ -7,18 +7,20 @@ import { dirname, join, relative } from "node:path";
 const toPosix = (p: string) => p.split("\\").join("/");
 
 export const RESERVED_LIFECYCLE_SLUGS: ReadonlySet<string> = new Set([
-  // Standalone skills — not generated from packages/*/skills, exempt from orphan detection
-  "copilotkit-setup",
+  // Standalone skills — not generated from packages/*/skills, exempt from
+  // orphan detection. The two entry points replaced the nine knowledge skills
+  // that used to sit here; the rest are procedure or internal-maintenance
+  // skills, which describe a sequence across systems rather than an API and so
+  // have nothing in the docs to defer to.
+  "copilotkit",
+  "copilotkit-cli",
   "copilotkit-channels",
-  "copilotkit-develop",
-  "copilotkit-agui",
-  "copilotkit-integrations",
-  "copilotkit-debug",
-  "copilotkit-upgrade",
-  "copilotkit-contribute",
-  "copilotkit-self-update",
   "setup-slack-channel",
   "channels-setup",
+  "inspector-docs",
+  "inspector-workbench",
+  "intelligence-docs",
+  "intelligence-vocabulary",
 ]);
 
 // Version sync — plugin version tracks this package's version.
@@ -44,6 +46,7 @@ export interface SyncResult {
 
 interface PackageSkill {
   slug: string; // e.g. "runtime"
+  packageDir: string; // absolute path to packages/<pkg>
   sourceDir: string; // absolute path of packages/<pkg>/skills/<slug>
   mirrorDir: string; // absolute path of skills/<slug>
 }
@@ -66,6 +69,7 @@ async function findPackageSkills(cwd: string): Promise<PackageSkill[]> {
       if (!existsSync(join(sourceDir, "SKILL.md"))) continue;
       out.push({
         slug: slug.name,
+        packageDir: join(packagesDir, pkg.name),
         sourceDir,
         mirrorDir: join(cwd, "skills", slug.name),
       });
@@ -106,6 +110,7 @@ export async function syncPluginSkills(opts: SyncOptions): Promise<SyncResult> {
   const orphans: string[] = [];
 
   for (const s of skills) {
+    await syncPackageSkillVersion(opts, s, changed);
     const files = await listFilesRec(s.sourceDir);
     for (const relPath of files) {
       const srcPath = join(s.sourceDir, relPath);
@@ -198,6 +203,32 @@ export async function syncPluginSkills(opts: SyncOptions): Promise<SyncResult> {
 }
 
 // ─── Version sync helper ─────────────────────────────────────────────────────
+
+async function syncPackageSkillVersion(
+  opts: SyncOptions,
+  skill: PackageSkill,
+  changed: string[],
+): Promise<void> {
+  const packageJsonPath = join(skill.packageDir, "package.json");
+  const skillPath = join(skill.sourceDir, "SKILL.md");
+  if (!existsSync(packageJsonPath) || !existsSync(skillPath)) return;
+
+  const packageVersion: string = JSON.parse(
+    await readFile(packageJsonPath, "utf8"),
+  ).version;
+  const source = await readFile(skillPath, "utf8");
+  const expected = source.replace(
+    /^library_version:\s*["']?[^"'\n]+["']?$/m,
+    `library_version: "${packageVersion}"`,
+  );
+  if (source === expected) return;
+
+  if (opts.mode === "check") {
+    changed.push(toPosix(relative(opts.cwd, skillPath)));
+  } else {
+    await writeFile(skillPath, expected);
+  }
+}
 
 // Returns a drift description string (for check mode), or empty string if in sync.
 // In write mode, mutates the files and always returns empty string.

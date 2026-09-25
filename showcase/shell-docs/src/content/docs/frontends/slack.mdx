@@ -1,9 +1,11 @@
 ---
 title: Connect and run your agent in Slack
-description: Run any supported agent framework in Slack through a managed CopilotKit Intelligence connection.
+description: Run any supported agent framework in Slack through a cloud-hosted Intelligence connection.
 icon: "lucide/Slack"
 doc_type: tutorial
 ---
+
+import ChannelsInstall from "@/snippets/shared/channels/install.mdx";
 
 In this guide, you will connect an AG-UI agent to a managed Slack app,
 start a long-running Channels SDK listener, and verify a real workspace message.
@@ -14,7 +16,13 @@ New to the product? Start with the [Channels overview](/channels) to understand
 how the SDK, Runtime, Intelligence, and provider connection fit together.
 
 Before you continue, [configure the Channel in Intelligence](/channels/intelligence).
-You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
+You should have `CHANNEL_CODE` and `CPK_INTELLIGENCE_API_KEY`.
+
+## Start with your coding agent
+
+Use this prompt to connect your agent to Slack, start the Channels SDK listener, and verify a real workspace message. You can also follow the manual steps below.
+
+<PageAgentPrompt />
 
 ## Before you start
 
@@ -29,15 +37,16 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
   <Step>
     ### Create the runner
 
-    The install command below uses an exact, tested SDK pair; upgrade
-    `@copilotkit/channels` and `@copilotkit/runtime` together.
-
     ```bash title="Terminal"
     mkdir my-slack-channel
     cd my-slack-channel
     npm init -y
     npm pkg set type=module
-    npm install --save-exact @copilotkit/channels@0.6.1 @copilotkit/runtime@1.65.0
+    ```
+
+    <ChannelsInstall />
+
+    ```bash title="Terminal"
     npm install -D tsx typescript @types/node
     ```
 
@@ -77,6 +86,10 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
 
     Create the listener below. Replace `support-slack` with the exact Code shown
     in Intelligence.
+
+    Set `agent: makeAgent` on the Channel because this handler calls
+    `thread.runAgent()`. Channels do not inherit `runtime.agents`. A Channel
+    whose handlers reply directly without `runAgent()` can omit `agent`.
 
     ```ts title="channel.ts"
     import { createServer } from "node:http";
@@ -118,8 +131,8 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
     });
 
     const intelligence = new CopilotKitIntelligence({
-      apiKey: required("INTELLIGENCE_API_KEY"),
-      // Managed deployments use the hosted defaults. Override both URLs
+      apiKey: required("CPK_INTELLIGENCE_API_KEY"),
+      // Cloud-hosted deployments use the default URLs. Override both URLs
       // together only for self-hosted or non-production Intelligence.
       apiUrl: process.env.INTELLIGENCE_API_URL,
       wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL,
@@ -160,7 +173,7 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
       throw new Error(`Slack Channel is not online: ${JSON.stringify(status)}`);
     }
 
-    const port = Number(process.env.PORT ?? 3000);
+    const port = Number(process.env.PORT ?? 3001);
     server.listen(port, () => {
       console.log(`Slack Channel online; lifecycle server listening on :${port}`);
     });
@@ -180,17 +193,36 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
     ### Configure secrets and start
 
     ```dotenv title=".env"
-    INTELLIGENCE_API_KEY=<project-api-key>
+    CPK_INTELLIGENCE_API_KEY=<project-api-key>
     CHANNEL_CODE=support-slack
     # Add the agent variables shown for your selected backend.
-    PORT=3000
+    PORT=3001
 
     # Optional paired overrides for self-hosted or non-production Intelligence:
     # INTELLIGENCE_API_URL=https://intelligence.example.com
     # INTELLIGENCE_GATEWAY_WS_URL=wss://realtime.intelligence.example.com
     ```
 
-    Hosted Intelligence supplies both managed base URLs by default. For a
+    The lifecycle server uses port `3001` so it can run alongside a web app
+    on port `3000`. If `3001` is already in use, set `PORT` to another free port.
+
+    #### Where these values come from
+
+    Three variables matter here, and you supply only one:
+
+    - `OPENAI_API_KEY`, or the key for whichever model provider your agent uses.
+      This one is yours to create and paste.
+    - `CPK_INTELLIGENCE_API_KEY` is written for you by
+      `copilotkit project select`, which provisions the project and its key.
+    - `CHANNEL_CODE` is written for you by the onboarding run once it has
+      declared the Channel; the run knows the Code it just created.
+
+    So both Intelligence values land in the environment file your app loads and
+    you never copy either one by hand. Setting them yourself still works: see
+    [configure the runtime handoff](/channels/intelligence#configure-the-runtime-handoff)
+    for where each value appears in Intelligence.
+
+    Cloud-hosted Intelligence supplies both default base URLs. For a
     self-hosted or non-production deployment, override both together. The REST
     and realtime planes use separate hosts, so do not derive the WebSocket URL
     from the API URL. Pass each as a bare base URL without `/api`, `/socket`,
@@ -264,7 +296,7 @@ const channel = createChannel({
 <Accordions>
   <Accordion title="The Channel stays at Waiting for runtime">
     Confirm `CHANNEL_CODE` exactly matches the Intelligence Code and the
-    project-scoped `INTELLIGENCE_API_KEY` belongs to the same project. Provider
+    project-scoped `CPK_INTELLIGENCE_API_KEY` belongs to the same project. Provider
     routing comes from the Slack connection attached in Intelligence, not from a
     `createChannel` option.
   </Accordion>

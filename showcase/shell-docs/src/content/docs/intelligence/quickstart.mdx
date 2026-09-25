@@ -1,0 +1,292 @@
+---
+title: Connect Intelligence in 5 minutes
+nav_title: Quickstart
+description: Connect an existing CopilotKit app to Intelligence and store persistent threads in a cloud-hosted project.
+icon: "lucide/Play"
+doc_type: how-to
+---
+
+## Overview
+
+You want Rich Threads, User Memory, Automatic Learning, Channels, and Product Analytics on the app you already have. Intelligence adds that layer. Your frontend and your agent stay where they are.
+
+You are done when Inspector shows that Intelligence is connected and shows your first saved thread. A React Native app has no Inspector. Confirm the thread in the cloud-hosted project instead.
+
+## Start with your coding agent
+
+If your app already has a working CopilotKit agent and frontend, use this prompt to configure the remaining Intelligence pieces.
+
+<RichThreadsSetupPrompt />
+
+## Set it up manually
+
+Before you start, make sure that you have a CopilotKit app with a working agent, runtime, and frontend.
+
+<Steps>
+  <Step>
+    ### Select an Intelligence project
+
+    Sign in from your app directory. Then select the project that will store your threads.
+
+    ```bash title="Terminal"
+    npx copilotkit@latest login
+    npx copilotkit@latest project select
+    ```
+
+    `project select` creates a project API key and writes it to `.env` as `CPK_INTELLIGENCE_API_KEY`. Put that key in the environment of the process that runs your CopilotKit runtime. The command output does not print the key. Read it from `.env`.
+
+    ```bash title=".env"
+    CPK_INTELLIGENCE_API_KEY=cpk-...
+    ```
+
+    The CLI writes `.env` in the directory where you run the command. If your runtime process loads a different file, copy the key into that file. A value that the host already sets stays as it is.
+
+    Keep the key on the server. Do not put it in a variable that the frontend build sends to the browser.
+  </Step>
+
+  <Step>
+    ### Connect your runtime
+
+    Add an Intelligence client to the CopilotKit runtime you already run. Keep the agents you already configured. The client is the same for every agent framework.
+
+    ```ts title="Your CopilotKit runtime"
+    import {
+      CopilotKitIntelligence,
+      CopilotRuntime,
+    } from "@copilotkit/runtime/v2";
+
+    // Create the Intelligence client with your project API key. Keep this key on the server.
+    const intelligence = new CopilotKitIntelligence({
+      apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+    });
+
+    const runtime = new CopilotRuntime({
+      agents,
+      // Pass the Intelligence client to the runtime
+      intelligence,
+      // Identify the user from a verified session or token
+      identifyUser: async (request) => {
+        const user = await authenticateApplicationUser(request);
+        if (!user) throw new Error("Unauthorized");
+        return { id: user.id, name: user.name };
+      },
+    });
+    ```
+
+    <Callout type="info" title="Use your existing authentication">
+      `authenticateApplicationUser` represents your server-side authentication function. It must return the user from a verified session or token. The Runtime requires `identifyUser` to associate web threads with that user.
+    </Callout>
+
+    If no trusted user identity exists, add authentication before you continue. A fixed identity is suitable only for a local, single-user demo.
+
+    <Callout type="warn" title="Protect every Runtime route before production">
+      `identifyUser` names the caller, but it is not an authentication gate. Use the handler's `onRequest` hook to reject unauthenticated requests. You must also enforce thread ownership for `threads/events`, `threads/state`, and `agent/stop`. Follow the [thread authorization guide](/auth#thread-authorization) for the complete pattern.
+    </Callout>
+
+    A web runtime requires `identifyUser`. A Channels-only runtime has no web surface. Pass a non-empty `channels` array instead.
+
+    The runtime reads the key from the client you pass. It does not read the key from the environment on its own. `apiKey` is the only required field. You do not pass an organization id or a project id.
+
+    ### An existing runtime that already has a runner
+
+    An open-source runtime often passes `runner`. That option chooses where runs are stored. Intelligence stores the runs itself. Remove `runner` when you add `intelligence`.
+
+    ```ts
+    const runtime = new CopilotRuntime({
+      agents,
+      runner: new InMemoryAgentRunner(), // [!code --]
+      intelligence, // [!code ++]
+      identifyUser,
+    });
+    ```
+
+    TypeScript rejects both options together. A JavaScript runtime throws this error:
+
+    ```text
+    Intelligence Runtime auto-wires its own `runner`; passing `runner` alongside
+    `intelligence` is not supported.
+    ```
+
+    You can keep `runner` and omit `intelligence`. The runtime then stays in SSE mode, and Threads in Inspector stay locked. See [AgentRunner and persistence](/backend/agent-runner).
+  </Step>
+
+  <Step>
+    ### Expose one Runtime route
+
+    Create one handler and mount it on a single POST route in the server you already use.
+
+    ```ts title="Your runtime server"
+    import { createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
+
+    const handler = createCopilotRuntimeHandler({
+      runtime,
+      basePath: "/api/copilotkit",
+      mode: "single-route",
+    });
+    ```
+
+    Pass `handler` to that server as the POST handler for `basePath`. The handler accepts a Web `Request` and returns a Web `Response`. The file name and the export depend on your server. Mount the handler with the [runtime adapter guide](/runtime-server-adapter).
+
+    The client and server negotiate resource support before the client sends Intelligence requests through this route. Multi-route remains supported.
+  </Step>
+
+  <Step>
+    ### Use the single-route frontend transport
+
+    Point your frontend provider at the runtime base path.
+
+    <FrontendOnly frontend="react">
+      Add `runtimeUrl` and `useSingleEndpoint` to your `CopilotKitProvider`.
+
+      ```tsx title="Your CopilotKit provider"
+      import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+
+      export function App() {
+        return (
+          <CopilotKitProvider runtimeUrl="/api/copilotkit" useSingleEndpoint>
+            <YourApp />
+          </CopilotKitProvider>
+        );
+      }
+      ```
+    </FrontendOnly>
+
+    <FrontendOnly frontend="angular">
+      Point `provideCopilotKit` at the runtime base path.
+
+      ```ts title="src/app/app.config.ts"
+      import { ApplicationConfig } from "@angular/core";
+      import { provideCopilotKit } from "@copilotkit/angular";
+
+      export const appConfig: ApplicationConfig = {
+        providers: [
+          provideCopilotKit({
+            runtimeUrl: "http://localhost:8200/api/copilotkit",
+          }),
+        ],
+      };
+      ```
+    </FrontendOnly>
+
+    <FrontendOnly frontend="vue">
+      Point `CopilotKitProvider` at the runtime base path and wrap your existing app.
+
+      ```vue title="src/App.vue"
+      <script setup lang="ts">
+      import { CopilotKitProvider } from "@copilotkit/vue/v2";
+      import YourApp from "./YourApp.vue";
+      </script>
+
+      <template>
+        <CopilotKitProvider runtime-url="http://localhost:8200/api/copilotkit">
+          <YourApp />
+        </CopilotKitProvider>
+      </template>
+      ```
+    </FrontendOnly>
+
+    <FrontendOnly frontend="react-native">
+      Point `CopilotKitProvider` at a runtime URL that the simulator or device can reach.
+
+      ```tsx title="App.tsx"
+      import { CopilotKitProvider } from "@copilotkit/react-native/headless";
+      import { Platform } from "react-native";
+      import { AppContent } from "./src/AppContent";
+
+      const runtimeUrl =
+        Platform.OS === "android"
+          ? "http://10.0.2.2:8200/api/copilotkit"
+          : "http://localhost:8200/api/copilotkit";
+
+      export default function App() {
+        return (
+          <CopilotKitProvider runtimeUrl={runtimeUrl}>
+            <AppContent />
+          </CopilotKitProvider>
+        );
+      }
+      ```
+
+      On a physical device, replace the host with your development machine's LAN IP address.
+    </FrontendOnly>
+  </Step>
+
+  <Step>
+    ### Confirm the connection
+
+    <FrontendOnly frontend="react">
+      Start your app and open it on localhost. Click the Inspector button (Kite icon) in the corner of the app.
+
+      1. Open **Home**. Make sure that **Intelligence connected** appears beside **What's going on**.
+      2. Return to your app and send one message to create a thread.
+      3. Open **Rich Threads** in Inspector. Your new thread must appear in the list.
+      4. Open the thread. Make sure that **Messages** contains the message that you sent.
+
+      If Home does not show **Intelligence connected**, or Threads is locked, the setup is incomplete. Follow the action shown in Inspector or review the [Inspector setup states](/inspector#project-context-and-usage).
+    </FrontendOnly>
+
+    <FrontendOnly frontend="vue">
+      Start your app and open it on localhost. Click the Inspector button (Kite icon) in the corner of the app.
+
+      1. Open **Home**. Make sure that **Intelligence connected** appears beside **What's going on**.
+      2. Return to your app and send one message to create a thread.
+      3. Open **Rich Threads** in Inspector. Your new thread must appear in the list.
+      4. Open the thread. Make sure that **Messages** contains the message that you sent.
+
+      If Home does not show **Intelligence connected**, or Threads is locked, the setup is incomplete. Follow the action shown in Inspector or review the [Inspector setup states](/inspector#project-context-and-usage).
+    </FrontendOnly>
+
+    <FrontendOnly frontend="angular">
+      Start your app and open it on localhost. Click the Inspector button (Kite icon) in the corner of the app.
+
+      1. Open **Home**. Make sure that **Intelligence connected** appears beside **What's going on**.
+      2. Return to your app and send one message to create a thread.
+      3. Open **Rich Threads** in Inspector. Your new thread must appear in the list.
+      4. Open the thread. Make sure that **Messages** contains the message that you sent.
+
+      If Home does not show **Intelligence connected**, or Threads is locked, the setup is incomplete. Follow the action shown in Inspector or review the [Inspector setup states](/inspector#project-context-and-usage).
+    </FrontendOnly>
+
+    <FrontendOnly frontend="react-native">
+      React Native does not include the browser Inspector. Start your app and send one message to create a thread. Then open the selected project in [CopilotKit Intelligence](https://dashboard.operations.copilotkit.ai/), open the new thread, and confirm that its message history contains your message.
+    </FrontendOnly>
+  </Step>
+</Steps>
+
+A chat reply does not prove that the key is in use. An SSE runtime replies with the key unread. Use the Inspector check above, or open the thread in the [cloud-hosted project](/intelligence/managed-intelligence-platform).
+
+## Self-hosted deployments
+
+`apiUrl` and `wsUrl` default to the cloud-hosted service. Set both, or set neither. The API and the realtime service use different hosts. The client cannot derive the websocket URL from the API URL. One URL alone leaves the other host on the cloud-hosted service.
+
+```ts
+const intelligence = new CopilotKitIntelligence({
+  apiUrl: "https://api.intelligence.internal",
+  wsUrl: "wss://realtime.intelligence.internal",
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+});
+```
+
+Pass the bare websocket base. The client appends `/runner` and `/client`. It also prepends `/api` to every REST call. An `apiUrl` that already ends in `/api` produces `/api/api/threads`.
+
+Install steps are on [Self-host on Kubernetes](/intelligence/self-hosting) and [Self-host on ECS](/intelligence/self-hosting-ecs).
+
+## Troubleshooting
+
+<Accordions>
+  <Accordion title="Chat works, and the project has no thread">
+    `intelligence` was not passed to `CopilotRuntime`. The runtime is in SSE mode.
+  </Accordion>
+  <Accordion title="An auth error on the first request">
+    `CPK_INTELLIGENCE_API_KEY` is empty, or it belongs to another project.
+  </Accordion>
+  <Accordion title="The socket stays on connecting, then reports that it did not settle in time">
+    `wsUrl` was set alone, or it points at the API host.
+  </Accordion>
+  <Accordion title="Request logs show /api/api/...">
+    `apiUrl` included an `/api` suffix.
+  </Accordion>
+  <Accordion title="A type error or a throw that names runner">
+    `runner` and `intelligence` are both set. Intelligence wires its own runner.
+  </Accordion>
+</Accordions>

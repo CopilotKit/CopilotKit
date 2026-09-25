@@ -42,7 +42,9 @@ import {
 
 export async function buildShowcaseAgent(): Promise<StrandsAgent> {
   const config: StrandsAgentConfig = {
+    // @region[agent-config-context-registration]
     stateContextBuilder: buildStatePrompt,
+    // @endregion[agent-config-context-registration]
     toolBehaviors: {
       // Sales pipeline lives in shared state; emit the snapshot from args.
       manage_sales_todos: {
@@ -145,6 +147,7 @@ export async function buildByocJsonRenderAgent(): Promise<StrandsAgent> {
 // catalog}.ts — catalog id `copilotkit://flight-fixed-catalog`. This mirrors
 // the canonical langgraph-python demo (src/agents/a2ui_fixed.py).
 
+// @region[backend-schema-json-load]
 const _A2UI_DIR = dirname(fileURLToPath(import.meta.url));
 
 const A2UI_FIXED_CATALOG_ID = "copilotkit://flight-fixed-catalog";
@@ -155,6 +158,7 @@ const A2UI_FIXED_SURFACE_ID = "flight-fixed-schema";
 const FLIGHT_SCHEMA: Array<Record<string, unknown>> = JSON.parse(
   readFileSync(join(_A2UI_DIR, "a2ui_schemas", "flight_schema.json"), "utf-8"),
 );
+// @endregion[backend-schema-json-load]
 
 const A2UI_FIXED_SYSTEM_PROMPT =
   "You help users find flights. When asked about a flight, call " +
@@ -175,6 +179,7 @@ const A2UI_FIXED_SYSTEM_PROMPT =
  * result comes through empty — unlike the Python SDK, which wraps strings.)
  */
 export async function buildA2uiFixedSchemaAgent(): Promise<StrandsAgent> {
+  // @region[backend-render-operations]
   const displayFlight = tool({
     name: "display_flight",
     description:
@@ -202,6 +207,7 @@ export async function buildA2uiFixedSchemaAgent(): Promise<StrandsAgent> {
       ],
     }),
   });
+  // @endregion[backend-render-operations]
 
   const strandsAgent = new Agent({
     // Chat Completions API: the Responses adapter buffers tool-call argument

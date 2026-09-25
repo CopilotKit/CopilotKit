@@ -40,12 +40,11 @@ vi.mock("@ag-ui/mastra", () => {
 
 // Stub @copilotkit/runtime so the route module can import without pulling
 // the real runtime into the test env.
-vi.mock("@copilotkit/runtime", () => ({
+vi.mock("@copilotkit/runtime/v2", () => ({
   CopilotRuntime: vi.fn().mockImplementation(({ agents }) => ({ agents })),
-  ExperimentalEmptyAdapter: vi.fn(),
-  copilotRuntimeNextJSAppRouterEndpoint: vi.fn(() => ({
-    handleRequest: vi.fn(async () => new Response("ok")),
-  })),
+  createCopilotRuntimeHandler: vi.fn(() =>
+    vi.fn(async () => new Response("ok")),
+  ),
 }));
 
 // next/server has no special behavior we need here, but route.ts imports types.
@@ -63,13 +62,13 @@ vi.mock("next/server", () => ({
 import { MastraAgent, getLocalAgent } from "@ag-ui/mastra";
 import {
   CopilotRuntime,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 
 const mockedGetLocalAgents = vi.mocked(MastraAgent.getLocalAgents);
 const mockedGetLocalAgent = vi.mocked(getLocalAgent);
 const mockedCopilotRuntime = vi.mocked(CopilotRuntime);
-const mockedEndpointFactory = vi.mocked(copilotRuntimeNextJSAppRouterEndpoint);
+const mockedHandlerFactory = vi.mocked(createCopilotRuntimeHandler);
 
 // Dynamic import AFTER vi.mock calls so the module sees the mocks.
 async function importRoute() {
@@ -530,9 +529,11 @@ describe("POST error handling", () => {
       },
     });
 
-    mockedEndpointFactory.mockReturnValueOnce({
-      handleRequest: vi.fn(async () => malformed),
-    } as unknown as ReturnType<typeof copilotRuntimeNextJSAppRouterEndpoint>);
+    mockedHandlerFactory.mockReturnValueOnce(
+      vi.fn(async () => malformed) as unknown as ReturnType<
+        typeof createCopilotRuntimeHandler
+      >,
+    );
 
     const consoleErrorSpy = vi
       .spyOn(console, "error")
@@ -560,13 +561,13 @@ describe("POST error handling", () => {
     consoleErrorSpy.mockRestore();
   });
 
-  // Regression guard: when handleRequest returns a streaming Response that
+  // Regression guard: when copilotHandler returns a streaming Response that
   // errors AFTER headers flush (typical SSE / AG-UI failure mode), the error
   // must be logged server-side with an errorId even though we can no longer
   // turn the response into a 500. Without the streaming wrapper this test
   // fails silently: the error is swallowed by the ReadableStream and never
   // reaches console.error.
-  it("logs mid-stream handleRequest errors with an errorId (SSE/AG-UI failure path)", async () => {
+  it("logs mid-stream copilotHandler errors with an errorId (SSE/AG-UI failure path)", async () => {
     mockedGetLocalAgents.mockReturnValue({
       weatherAgent: makeAgent("weather", "mastra-weatherAgent"),
       headlessCompleteAgent: makeAgent(
@@ -605,9 +606,11 @@ describe("POST error handling", () => {
       status: 200,
       headers: { "content-type": "text/event-stream" },
     });
-    mockedEndpointFactory.mockReturnValueOnce({
-      handleRequest: vi.fn(async () => erroringResponse),
-    } as unknown as ReturnType<typeof copilotRuntimeNextJSAppRouterEndpoint>);
+    mockedHandlerFactory.mockReturnValueOnce(
+      vi.fn(async () => erroringResponse) as unknown as ReturnType<
+        typeof createCopilotRuntimeHandler
+      >,
+    );
 
     const consoleErrorSpy = vi
       .spyOn(console, "error")

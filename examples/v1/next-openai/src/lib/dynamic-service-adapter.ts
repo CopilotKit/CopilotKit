@@ -41,7 +41,7 @@ async function getOpenAIAdapter() {
 
 async function getAnthropicAdapter() {
   const { AnthropicAdapter } = await import("@copilotkit/runtime");
-  return new AnthropicAdapter({ model: "claude-3-7-sonnet-20250219" });
+  return new AnthropicAdapter({ model: "claude-opus-4-8" });
 }
 
 async function getGeminiAdapter() {
@@ -72,7 +72,7 @@ async function getGroqAdapter() {
 //   const { ChatAnthropic } = await import("@langchain/anthropic");
 //   return new LangChainAdapter({
 //     chainFn: async ({ messages, tools, threadId }) => {
-//       const model = new ChatAnthropic({ modelName: "claude-3-haiku-20240307" }) as any;
+//       const model = new ChatAnthropic({ modelName: "claude-haiku-4-5-20251001" }) as any;
 //       return model.stream(messages, { tools, metadata: { conversation_id: threadId } });
 //     },
 //   });

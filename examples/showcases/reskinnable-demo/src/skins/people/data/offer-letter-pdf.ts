@@ -9,89 +9,20 @@
  * does with the document is read the start date out of it — so the one detail
  * that would visibly disagree is the one detail the beat turns on.
  *
- * The PDF is written by hand rather than with a library. It is a single page of
- * Helvetica text with no images, no compression and no embedded fonts, which
- * makes it about eighty lines of string building and saves a dependency whose
- * only job would be this file. Anything more elaborate should use a real
- * library instead of growing this.
+ * The bytes come from the shell's document primitive (`@/shell/documents`), so
+ * this file is only the letter's CONTENT: a flat `Line[]` handed to `buildPdf`.
+ * It used to carry its own copy of the byte layout, and the copy had drifted —
+ * it had no ASCII fold at all while computing `/Length` and its xref offsets
+ * from JS string length and emitting UTF-8. The seed carries `Inés Vidal`,
+ * `Sasha Bergström` and `Montréal`, all three reachable through
+ * `GET /api/people/v1/offer-letter?employeeId=…`, so the letter rendered
+ * mojibake AND a structurally wrong document. Both are gone by construction now
+ * that the fold arrives with the primitive; `offer-letter-pdf.test.ts` pins it.
  *
  * Server-safe: plain TS, no React, no "use client".
  */
 
-/** Escape the three characters that are special inside a PDF literal string. */
-function pdfEscape(text: string): string {
-  return text
-    .replace(/\\/g, "\\\\")
-    .replace(/\(/g, "\\(")
-    .replace(/\)/g, "\\)");
-}
-
-interface Line {
-  text: string;
-  /** Point size. */
-  size?: number;
-  bold?: boolean;
-  /** Extra leading before this line, in points. */
-  gap?: number;
-}
-
-const PAGE_HEIGHT = 792;
-const MARGIN = 64;
-
-function contentStream(lines: Line[]): string {
-  let y = PAGE_HEIGHT - MARGIN;
-  const parts: string[] = ["BT"];
-  for (const line of lines) {
-    y -= (line.gap ?? 0) + (line.size ?? 11) + 4;
-    // The font name is built as a whole token rather than interpolated after a
-    // literal slash. A PDF resource name genuinely starts with "/", but the
-    // repo's LOCK_SKIN lint guard reads `/${…}` in a template as a hardcoded
-    // skin route prefix — a false positive here, and this phrasing sidesteps it
-    // without weakening the rule for the links it exists to catch.
-    const font = line.bold ? "/F2" : "/F1";
-    parts.push(
-      `${font} ${line.size ?? 11} Tf`,
-      `1 0 0 1 ${MARGIN} ${y} Tm`,
-      `(${pdfEscape(line.text)}) Tj`,
-    );
-  }
-  parts.push("ET");
-  return parts.join("\n");
-}
-
-/** Assemble a minimal, valid one-page PDF with a correct xref table. */
-function buildPdf(lines: Line[]): Uint8Array {
-  const stream = contentStream(lines);
-  const objects = [
-    "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] " +
-      "/Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>",
-    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>",
-  ];
-
-  let body = "%PDF-1.4\n";
-  // Byte offsets have to be recorded as the body is assembled — the xref table
-  // is the one part of a PDF a reader genuinely refuses to guess at.
-  const offsets: number[] = [];
-  objects.forEach((object, index) => {
-    offsets.push(body.length);
-    body += `${index + 1} 0 obj\n${object}\nendobj\n`;
-  });
-
-  const xrefOffset = body.length;
-  let xref = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-  for (const offset of offsets) {
-    xref += `${String(offset).padStart(10, "0")} 00000 n \n`;
-  }
-  const trailer =
-    `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\n` +
-    `startxref\n${xrefOffset}\n%%EOF\n`;
-
-  return new TextEncoder().encode(body + xref + trailer);
-}
+import { buildPdf } from "@/shell/documents";
 
 const LONG_DATE = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",

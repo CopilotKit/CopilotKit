@@ -15,7 +15,7 @@ import type {
 } from "@/skins/banking/data/data";
 import { Button } from "@/components/ui/button";
 import { PolicyExceptionInline } from "@/skins/banking/components/policy-exception-inline";
-import { useRecording } from "@/skins/banking/components/recording-context";
+import { useRecording } from "@/shell/teach";
 import { cn, formatCurrency } from "@/lib/utils";
 
 // Same locally-declared result shape every exception-filing surface uses

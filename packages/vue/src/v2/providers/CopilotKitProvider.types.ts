@@ -1,5 +1,8 @@
 import type { AbstractAgent } from "@ag-ui/client";
-import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
+import type {
+  CopilotKitCoreErrorCode,
+  CopilotKitMessageFilter,
+} from "@copilotkit/core";
 import type { DebugConfig } from "@copilotkit/shared";
 import type {
   A2UITheme,
@@ -16,11 +19,35 @@ export interface CopilotKitProviderProps {
   runtimeUrl?: string;
   headers?: Record<string, string> | (() => Record<string, string>);
   credentials?: RequestCredentials;
+  /**
+   * Rewrites the message list sent to runtime agents on every run.
+   *
+   * CopilotKit sends the whole thread each time. When your agent already
+   * stores the conversation, most of that payload is waste, and an agent that
+   * merges the inbound list with its own store can show the model every turn
+   * twice. Return the messages to send:
+   *
+   * ```vue
+   * <CopilotKitProvider
+   *   runtime-url="/api/copilotkit"
+   *   :message-filter="(messages) => messages.slice(-1)"
+   * />
+   * ```
+   *
+   * The filter changes the request body only. The transcript the UI renders is
+   * untouched. Broken tool-call pairs are repaired before the request is sent,
+   * so a filter this blunt cannot strand a tool result mid-HITL.
+   *
+   * Agents reached through your CopilotRuntime honor this. An agent your app
+   * passes in directly does not, and neither Intelligence runs nor suggestion
+   * runs are ever filtered.
+   */
+  messageFilter?: CopilotKitMessageFilter;
   defaultThrottleMs?: number;
   publicApiKey?: string;
   publicLicenseKey?: string;
   /**
-   * Signed license token for offline verification of Enterprise Intelligence Platform features.
+   * Signed license token for offline verification of CopilotKit Intelligence features.
    * Obtain from https://dashboard.operations.copilotkit.ai.
    */
   licenseToken?: string;
@@ -37,7 +64,17 @@ export interface CopilotKitProviderProps {
     sandboxFunctions?: SandboxFunction[];
     designSkill?: string;
   };
+  /**
+   * @deprecated This prop no longer controls the Inspector. Use
+   * `enableInspector` instead.
+   */
   showDevConsole?: boolean | "auto";
+  /**
+   * Disable the CopilotKit Inspector in development.
+   * The Inspector is enabled by default in development browser builds and is
+   * always disabled in production and during server rendering.
+   */
+  enableInspector?: boolean;
   onError?: (event: {
     error: Error;
     code: CopilotKitCoreErrorCode;
@@ -48,15 +85,6 @@ export interface CopilotKitProviderProps {
     catalog?: any;
     loadingComponent?: Component;
     includeSchema?: boolean;
-  };
-  /**
-   * Default anchor corner for the inspector button and window.
-   * Only used on first load before the user drags to a custom position.
-   * Defaults to `{ horizontal: "right", vertical: "top" }`.
-   */
-  inspectorDefaultAnchor?: {
-    horizontal: "left" | "right";
-    vertical: "top" | "bottom";
   };
   /**
    * Enable debug logging for the client-side event pipeline.

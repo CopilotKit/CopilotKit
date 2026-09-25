@@ -23,13 +23,12 @@ def get_model(state: AgentState) -> BaseChatModel:
     if model == "openai":
         from langchain_openai import ChatOpenAI
 
-        return ChatOpenAI(temperature=0, model="gpt-4o-mini")
+        return ChatOpenAI(temperature=0, model="gpt-5-mini")
     if model == "anthropic":
         from langchain_anthropic import ChatAnthropic
 
         return ChatAnthropic(
-            temperature=0,
-            model_name="claude-3-5-sonnet-20240620",
+            model_name="claude-opus-4-8",
             timeout=None,
             stop=None,
         )
@@ -38,7 +37,7 @@ def get_model(state: AgentState) -> BaseChatModel:
 
         return ChatGoogleGenerativeAI(
             temperature=0,
-            model="gemini-1.5-pro",
+            model="gemini-2.5-flash",
             api_key=cast(Any, os.getenv("GOOGLE_API_KEY")) or None,
         )
 

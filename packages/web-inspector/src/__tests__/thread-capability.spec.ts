@@ -499,7 +499,7 @@ async function setup(options: SetupOptions): Promise<CapabilityHarness> {
     async openThreads() {
       await flushInspector(inspector);
       const openButton = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-        'button[aria-label="Web Inspector"]',
+        'button[aria-label^="Web Inspector"]',
       );
       if (!openButton) throw new Error("Web Inspector open button not found");
       openButton.click();
@@ -507,7 +507,7 @@ async function setup(options: SetupOptions): Promise<CapabilityHarness> {
       const threadsButton = Array.from(
         inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ??
           [],
-      ).find((button) => button.textContent?.trim() === "Threads");
+      ).find((button) => button.textContent?.trim() === "Rich Threads");
       if (!threadsButton) throw new Error("Threads menu button not found");
       threadsButton.click();
       await flushInspector(inspector);
@@ -735,6 +735,10 @@ test("inspect true loads events, empty-events messages fallback, and state witho
     directInspector.threadInspectionAvailable = true;
     document.body.append(directInspector);
     await directInspector.updateComplete;
+    Array.from(directInspector.shadowRoot!.querySelectorAll("button"))
+      .find((button) => button.textContent?.trim() === "Show event timeline")!
+      .click();
+    await directInspector.updateComplete;
     await vi.waitFor(() => {
       expect(providerSignals).toHaveLength(1);
       expect(directInspector.shadowRoot?.textContent).toContain("Run started");
@@ -935,6 +939,7 @@ test("enabled zero keeps all three local examples and their providers off real r
     initialEndpoints: LIST_AND_INSPECT,
     listHasRow: false,
   });
+  vi.spyOn(harness.core, "intelligence", "get").mockReturnValue({ wsUrl: "" });
   try {
     await vi.waitFor(() => expect(harness.requests().list).toBe(1));
     await harness.openThreads();
@@ -945,7 +950,9 @@ test("enabled zero keeps all three local examples and their providers off real r
 
     await harness.selectThread("Realtime thread sync");
     await vi.waitFor(() =>
-      expect(harness.detailsText()).toContain("Run started"),
+      expect(
+        harness.details()?.shadowRoot?.querySelector(".cpk-td__bubble"),
+      ).not.toBeNull(),
     );
     const detail = harness.details();
     if (!detail?.provider?.getMessages) {

@@ -53,6 +53,20 @@ class MockMCPProxyAgent extends AbstractAgent {
     await flushVueUpdates();
   }
 
+  // Records what the renderer sent. This instrumentation also exists in the
+  // `clone()` override below, which is where it used to live exclusively — back
+  // when `useAgent` handed components a per-thread clone. Thread cloning is gone,
+  // so the class records for itself; `clone()` is left intact because
+  // `CopilotKitCore`'s SuggestionEngine still clones agents.
+  addMessage(message: Parameters<AbstractAgent["addMessage"]>[0]) {
+    this.addMessageCalls.push({
+      id: message.id,
+      role: message.role,
+      content: message.content,
+    });
+    return super.addMessage(message);
+  }
+
   clone(): MockMCPProxyAgent {
     const cloned = new MockMCPProxyAgent();
     cloned.agentId = this.agentId;

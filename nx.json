@@ -92,6 +92,18 @@
       "dependsOn": ["build"],
       "inputs": ["{projectRoot}/package.json", "{projectRoot}/dist/**"],
       "cache": true
+    },
+    "check-dts": {
+      "dependsOn": ["build"],
+      "inputs": [
+        "{projectRoot}/package.json",
+        "{projectRoot}/dist/**",
+        "{projectRoot}/type-fixtures/**",
+        "{workspaceRoot}/scripts/validate-dts-ambient.ts",
+        "{workspaceRoot}/scripts/validate-dts-imports.ts",
+        "{workspaceRoot}/scripts/validate-optional-peer-entries.ts"
+      ],
+      "cache": true
     }
   },
   "parallel": 14,

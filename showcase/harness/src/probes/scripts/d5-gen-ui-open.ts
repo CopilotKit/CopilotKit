@@ -16,11 +16,11 @@
  * in the spec).
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-  type D5FeatureType,
-  type D5RouteContext,
+import { registerD5Script } from "../helpers/d5-registry.js";
+import type {
+  D5BuildContext,
+  D5FeatureType,
+  D5RouteContext,
 } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 import { FIRST_SIGNAL_TIMEOUT_MS } from "./_genuine-shared.js";

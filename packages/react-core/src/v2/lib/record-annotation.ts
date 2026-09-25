@@ -21,6 +21,8 @@ export interface RecordAnnotationResult {
  * auth server-side and the browser must never send it.
  */
 export interface RecordAnnotationArgs {
+  /** Runtime-aware fetch implementation. Defaults to the global fetch. */
+  fetch?: typeof globalThis.fetch;
   /**
    * Base URL of the customer's CopilotKit runtime
    * (e.g. `https://bff.example.com/api/copilotkit`).
@@ -33,8 +35,8 @@ export interface RecordAnnotationArgs {
    */
   headers: Record<string, string>;
   /**
-   * The annotation discriminant understood by the Intelligence platform.
-   * Known values: `"user_action"`, `"set_learning_containers"`.
+   * The annotation discriminant understood by CopilotKit Intelligence.
+   * `"user_action"` records a UI interaction for the self-learning loop.
    */
   type: string;
   /**
@@ -63,8 +65,8 @@ export interface RecordAnnotationArgs {
  * Low-level function that posts an arbitrary annotation to the CopilotKit
  * runtime's general annotation endpoint (`POST /annotate`).
  *
- * This is the single transport entry point for all annotation types. Higher-
- * level hooks (e.g. `useLearnFromUserAction`) build the `type`/`payload` pair
+ * This is the single transport entry point for annotations. Higher-level
+ * hooks such as `useLearnFromUserAction` build the `type`/`payload` pair
  * for their specific annotation shape and delegate the HTTP call here.
  *
  * The function uses the same transport as `useLearnFromUserAction`:
@@ -84,7 +86,15 @@ export interface RecordAnnotationArgs {
 export async function recordAnnotation(
   args: RecordAnnotationArgs,
 ): Promise<RecordAnnotationResult> {
-  const { runtimeUrl, headers, type, payload, threadId, occurredAt } = args;
+  const {
+    runtimeUrl,
+    headers,
+    type,
+    payload,
+    threadId,
+    occurredAt,
+    fetch: fetchImplementation = globalThis.fetch,
+  } = args;
 
   const clientEventId = args.clientEventId ?? randomUUID();
 
@@ -96,7 +106,7 @@ export async function recordAnnotation(
     ...(occurredAt !== undefined ? { occurredAt } : {}),
   };
 
-  const response = await fetch(`${runtimeUrl}/annotate`, {
+  const response = await fetchImplementation(`${runtimeUrl}/annotate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

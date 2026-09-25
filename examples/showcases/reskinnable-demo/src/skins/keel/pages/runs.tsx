@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useSkinData } from "@/shell/skin-provider";
+import { useKeelDesk } from "@/skins/keel/desk-data";
 import { StatusPill } from "@/skins/keel/components/status-pill";
 import { formatDate } from "@/skins/keel/pages/format-date";
-import type { KeelData, Run, RunStep } from "@/skins/keel/data/types";
+import type { Run, RunStep } from "@/skins/keel/data/types";
 import { useKeelHref } from "@/skins/keel/href";
 
 /** The step a run is "on": the active/gated one, else the next pending, else the last. */
@@ -20,7 +20,7 @@ function currentStep(run: Run): RunStep | undefined {
 
 export function RunsPage() {
   const keelHref = useKeelHref();
-  const { runs } = useSkinData<KeelData>();
+  const { runs } = useKeelDesk();
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-5">

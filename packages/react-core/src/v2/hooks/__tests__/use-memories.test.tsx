@@ -1,15 +1,7 @@
 import * as React from "react";
 import { renderToString } from "react-dom/server";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import {
-  afterAll,
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Mock } from "vitest";
 import { useCopilotKit } from "../../context";
 import { ɵcreateMemoryStore } from "@copilotkit/core";
@@ -98,11 +90,7 @@ function makeFetchMock(
   });
 }
 
-// Stub the global fetch once for the entire module — RxJS's fromFetch always
-// calls globalThis.fetch, so injected fetch in ɵcreateMemoryStore is a
-// pass-through. vi.stubGlobal restores the original automatically on afterAll.
 const fetchMock = vi.fn();
-vi.stubGlobal("fetch", fetchMock);
 
 let store: ɵMemoryStore;
 
@@ -145,10 +133,6 @@ describe("useMemories", () => {
     // pending fetches don't leak across tests.
     store?.stop();
     vi.clearAllMocks();
-  });
-
-  afterAll(() => {
-    vi.unstubAllGlobals();
   });
 
   it("exposes empty memories and isAvailable true on initial render", () => {

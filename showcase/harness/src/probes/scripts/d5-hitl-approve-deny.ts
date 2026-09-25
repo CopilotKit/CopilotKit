@@ -58,12 +58,15 @@ const script: D5Script = {
   buildTurns: () => [
     {
       input: "Issue a $50 refund to customer #12345",
-      // Generous timeout: the first leg waits for the agent to
-      // tool-call AND the modal to render. The conversation-runner's
-      // settle window measures assistant-message stability — the modal
-      // appears as a side effect of the tool call landing in the
-      // conversation, so settle fires once the assistant message
-      // (which carries the toolCall) has streamed in.
+      // The first fixture leg is intentionally tool-call-only: its meaningful
+      // output is the app-level approval modal, not assistant prose. Unhandled
+      // tool calls also intentionally render no default chat card, so a text-
+      // stability gate cannot converge. Complete on the modal mount instead;
+      // the shared runner still requires a finished run and a new assistant
+      // bubble before it executes the approval assertions below.
+      completeOnMount: {
+        testIds: ["approval-dialog-overlay"],
+      },
       responseTimeoutMs: 60_000,
       assertions: async (page: ConversationPage) => {
         // Runtime guard: HitlPage extends ConversationPage with `click`,

@@ -3,13 +3,14 @@
 import { useEffect } from "react";
 import { z } from "zod";
 import type { SandboxFunction } from "@copilotkit/react-core/v2";
-import { useSkinData } from "@/shell/skin-provider";
-import type { KeelData, Run } from "@/skins/keel/data/types";
+import { useKeelDesk } from "@/skins/keel/desk-data";
+import type { KeelDeskView } from "@/skins/keel/desk-data";
+import type { Run } from "@/skins/keel/data/types";
 
 /**
  * OGUI sandbox functions for the Keel skin, plus the sync that keeps their data
  * live. The handlers read a mutable module-scope `snapshot`; <KeelSandboxDataSync/>
- * mirrors the app's live KeelData into it on every meaningful change, so the
+ * mirrors the app's live desk data into it on every meaningful change, so the
  * iframe's LLM-authored JS returns the exact data the user sees. Mirrors banking's
  * sandbox-functions.ts + sandbox-data-sync.tsx, inlined into one file because keel
  * omits the `Providers` slot banking used to mount its sync — KeelTools (Task 10)
@@ -90,8 +91,8 @@ function currentStepTitle(run: Run): string | null {
   );
 }
 
-/** Project the live KeelData into the boundary DTO snapshot. */
-function projectSnapshot(data: KeelData): Snapshot {
+/** Project the live desk read-model into the boundary DTO snapshot. */
+function projectSnapshot(data: KeelDeskView): Snapshot {
   return {
     runs: data.runs.map((r) => ({
       id: r.id,
@@ -173,12 +174,12 @@ export const sandboxFunctions: SandboxFunction[] = [
 ];
 
 /**
- * Mirrors the app's live KeelData into the OGUI sandbox snapshot so the iframe's
+ * Mirrors the app's live desk data into the OGUI sandbox snapshot so the iframe's
  * callbacks return exactly what the user sees. Renders nothing. Mount it once
- * inside KeelTools (Task 10). No JSX, so this stays a valid `.ts` module.
+ * inside KeelTools. No JSX, so this stays a valid `.ts` module.
  */
 export function KeelSandboxDataSync() {
-  const data = useSkinData<KeelData>();
+  const data = useKeelDesk();
   useEffect(() => {
     setKeelSandboxSnapshot(projectSnapshot(data));
   }, [data]);

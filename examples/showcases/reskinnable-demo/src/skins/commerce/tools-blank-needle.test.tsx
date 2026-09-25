@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render } from "@testing-library/react";
 import type { CommerceStoreState, Operator } from "./data/types";
 import { CommerceTools } from "./tools";
-import { RecordingProvider } from "./components/recording-context";
+import { RecordingProvider } from "@/shell/teach";
 
 /**
  * The write tools must REFUSE a blank record reference rather than mutate the

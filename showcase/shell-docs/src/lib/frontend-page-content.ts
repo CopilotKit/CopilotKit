@@ -39,6 +39,27 @@ export const ANGULAR_GUIDE_PAGES = [
   },
 ] as const;
 
+export const VUE_GUIDE_PAGES = [
+  { title: "Generative UI in Vue", slug: "guides/generative-ui" },
+] as const;
+
+interface FrontendGuidePage {
+  title: string;
+  slug: string;
+}
+
+/**
+ * Frontend-owned task guides, keyed by frontend. A frontend absent from this
+ * map has no guides yet and shows only its quickstart, docs status, and
+ * reference in the sidebar.
+ */
+const FRONTEND_GUIDE_PAGES: Partial<
+  Record<FrontendPageId, readonly FrontendGuidePage[]>
+> = {
+  angular: ANGULAR_GUIDE_PAGES,
+  vue: VUE_GUIDE_PAGES,
+};
+
 /**
  * React's root IA names frontend-specific capabilities more granularly than
  * the Angular task guides. Keep selector changes useful without copying the
@@ -55,6 +76,7 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "prebuilt-components/chat-controls": "guides/chat-ui",
   "custom-look-and-feel/css": "guides/chat-ui",
   "custom-look-and-feel/slots": "guides/chat-ui",
+  "custom-look-and-feel/markdown": "guides/chat-ui",
   "custom-look-and-feel/reasoning-messages": "guides/chat-ui",
   "multimodal-attachments": "guides/voice-multimodal",
   voice: "guides/voice-multimodal",
@@ -67,7 +89,6 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "generative-ui/backend-tools": "guides/frontend-tools-generative-ui",
   "generative-ui/state-rendering": "guides/frontend-tools-generative-ui",
   "generative-ui/open-generative-ui": "guides/frontend-tools-generative-ui",
-  "generative-ui/open-json-ui": "guides/frontend-tools-generative-ui",
   "generative-ui/json-render": "guides/a2ui",
   "generative-ui/hashbrown": "guides/a2ui",
   "generative-ui/declarative-json-render": "guides/a2ui",
@@ -91,6 +112,9 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "human-in-the-loop/tool-based": "guides/human-in-the-loop",
   "human-in-the-loop/useInterrupt": "guides/human-in-the-loop",
   "human-in-the-loop/headless": "guides/human-in-the-loop",
+  // Added 2026-08-01 with the governed-action page; the redirect was missed,
+  // so the React nav had a destination Angular could not reach.
+  "human-in-the-loop/governed-actions": "guides/human-in-the-loop",
   "shared-state": "guides/shared-state",
   "shared-state/in-app-agent-read": "guides/shared-state",
   "shared-state/in-app-agent-write": "guides/shared-state",
@@ -109,7 +133,7 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "headless-threads": "guides/threads-memory-attachments-headless",
   "threads-lifecycle": "guides/threads-memory-attachments-headless",
   "threads-import": "guides/threads-memory-attachments-headless",
-  "premium/headless-ui": "guides/threads-memory-attachments-headless",
+  "intelligence/headless-ui": "guides/threads-memory-attachments-headless",
   "custom-look-and-feel/headless-ui":
     "guides/threads-memory-attachments-headless",
   "programmatic-control": "guides/threads-memory-attachments-headless",
@@ -125,7 +149,6 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "migrate/1.10.X": "using-these-docs",
   "migrate/v2": "using-these-docs",
   "whats-new/v1-50": "using-these-docs",
-  inspector: "guides/troubleshooting",
   "multi-agent-flows": "multi-agent/subagents",
   "ag-ui-protocol": "agentic-protocols/ag-ui",
   "a2a-protocol": "agentic-protocols/a2a",
@@ -173,6 +196,8 @@ export function getFrontendCanonicalSlug(
 }
 
 const FRONTEND_REFERENCE_SLUGS = {
+  // A React SPA uses the root React reference unchanged.
+  "react-spa": "reference",
   vue: "reference",
   "react-native": "reference/react-native",
   angular: "reference/angular",
@@ -224,20 +249,26 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
   const frontendName =
     FRONTEND_OPTIONS.find((option) => option.id === id)?.name ?? id;
 
-  const authoredGuides: NavNode[] =
-    id === "angular"
-      ? [
+  const guidePages: NavNode[] = (FRONTEND_GUIDE_PAGES[id] ?? []).map(
+    (guide): NavNode => ({
+      type: "page",
+      title: guide.title,
+      slug: guide.slug,
+    }),
+  );
+  const authoredGuides: NavNode[] = [
+    ...(id === "angular"
+      ? ([
           { type: "page", title: "Feature examples", slug: "features" },
+        ] satisfies NavNode[])
+      : []),
+    ...(guidePages.length > 0
+      ? ([
           { type: "section", title: "Guides", icon: "lucide/BookOpen" },
-          ...ANGULAR_GUIDE_PAGES.map(
-            (guide): NavNode => ({
-              type: "page",
-              title: guide.title,
-              slug: guide.slug,
-            }),
-          ),
-        ]
-      : [];
+        ] satisfies NavNode[])
+      : []),
+    ...guidePages,
+  ];
   const upcomingGuides: NavNode[] =
     id === "angular"
       ? []

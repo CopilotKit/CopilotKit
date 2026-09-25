@@ -17,7 +17,6 @@
       "@copilotkit/angular/*": ["../../../../packages/angular/src/*"],
       "@copilotkit/core": ["node_modules/@copilotkit/core"],
       "@copilotkit/shared": ["node_modules/@copilotkit/shared"],
-      "@copilotkit/web-inspector": ["node_modules/@copilotkit/web-inspector"],
       "@copilotkit/a2ui-renderer": ["node_modules/@copilotkit/a2ui-renderer"],
       "@copilotkit/a2ui-renderer/web-components": [
         "node_modules/@copilotkit/a2ui-renderer/web-components"

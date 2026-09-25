@@ -49,9 +49,19 @@ The following demos introduced on main via PR #4271 are now ported:
 
 ## Skipped demos
 
+> [!WARNING]
+> **This section is known stale and is being rewritten — see OSS-777.**
+> Several demos listed below as "skipped" have since shipped (`mcp-apps`,
+> `hitl-in-chat`, `hitl-in-chat-booking`), and the stated reasons for the
+> reasoning and interrupt families do not match `manifest.yaml`'s
+> `not_supported_features:`, which is the authority. Trust the manifest,
+> not this list. The v2 API references below were corrected in the
+> Pydantic AI v2 port; the surrounding claims were not.
+
 - `mcp-apps` — Requires CopilotKit MCP Apps middleware wired to a remote
   MCP server (Excalidraw). The PydanticAI integration exposes tools via
-  `agent.to_ag_ui()` and does not yet have a documented MCP-apps path
+  its AG-UI adapter (`mount_agent()` in `src/agent_server.py`) and does
+  not yet have a documented MCP-apps path
   through the Python SDK's A2UI middleware as of this writing. Can be
   revisited when `copilotkit-sdk-python` grows first-class MCP client
   support across AG-UI integrations. The `beautiful-chat` and
@@ -62,10 +72,12 @@ The following demos introduced on main via PR #4271 are now ported:
   `tool-rendering-reasoning-chain` — These three demos depend on
   `deepagents.create_deep_agent` to emit reasoning/thinking tokens
   alongside regular tool calls. PydanticAI has its own reasoning model
-  support (`OpenAIResponsesModel` with reasoning enabled) but does not
-  currently stream reasoning content as AG-UI `THINKING_*` events
-  through `agent.to_ag_ui()`. Skipped until that bridge exists; a faked
-  version would not reflect the real integration.
+  support (`OpenAIResponsesModel` with reasoning enabled). This bullet's
+  premise no longer holds: on v2 the AG-UI bridge surfaces reasoning
+  summaries as `THINKING_*` / `REASONING_*` events (see
+  `src/agents/reasoning_agent.py`), and the demos are wired. Their
+  supported/not-supported status is governed by `manifest.yaml`, not by
+  this note.
 
 - `gen-ui-interrupt`, `interrupt-headless`, `hitl-in-chat`,
   `hitl-in-chat-booking` — All four demos are built on LangGraph's

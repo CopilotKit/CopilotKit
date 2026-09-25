@@ -1,0 +1,698 @@
+// @vitest-environment jsdom
+
+import React from "react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, expect, it, vi } from "vitest";
+import { OnboardingPromptCopyButton } from "../ai/page-actions";
+import {
+  frameworkPromptSuffix,
+  onboardingFrameworkSlug,
+} from "@/lib/intelligence-onboarding-framework";
+import {
+  frontendPromptSuffix,
+  onboardingFrontendSlug,
+} from "@/lib/intelligence-onboarding-frontend";
+import {
+  createIntelligenceOnboardingPrompt,
+  createOnboardingRunId,
+  INTELLIGENCE_ONBOARDING_EVENTS,
+} from "@/lib/intelligence-onboarding-prompt";
+import { createChannelsOnboardingPrompt } from "@/lib/channels-onboarding-prompt";
+
+const analytics = vi.hoisted(() => ({
+  capture: vi.fn(),
+  actionCapture: vi.fn(),
+}));
+
+/**
+ * Mocked so one test can serve a local base URL and assert that the prompt
+ * still names the production origin (PE-309).
+ */
+const runtimeConfig = vi.hoisted(() => ({
+  getRuntimeConfig: vi.fn(() => ({ baseUrl: "https://docs.copilotkit.ai" })),
+}));
+
+const DOCS_ORIGIN = "https://docs.copilotkit.ai";
+
+vi.mock("fumadocs-core/framework", () => ({
+  usePathname: () => "/mastra/generative-ui",
+}));
+
+vi.mock("posthog-js/react", () => ({
+  usePostHog: () => ({
+    capture: (...args: unknown[]) => {
+      if (args[0] === "docs.intelligence_onboarding_prompt_action_clicked")
+        return analytics.actionCapture(...args);
+      return analytics.capture(...args);
+    },
+  }),
+}));
+
+vi.mock("@/lib/runtime-config.client", () => runtimeConfig);
+
+HTMLDialogElement.prototype.showModal = function () {
+  this.open = true;
+};
+HTMLDialogElement.prototype.close = function () {
+  this.open = false;
+};
+
+afterEach(() => {
+  runtimeConfig.getRuntimeConfig.mockImplementation(() => ({
+    baseUrl: DOCS_ORIGIN,
+  }));
+  cleanup();
+  vi.clearAllMocks();
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
+
+/**
+ * A framework the CLI's onboarding graph does have a node for, so the
+ * framework sentence is non-empty and `agent_framework` is reportable.
+ */
+const MASTRA = { slug: "mastra", name: "Mastra" };
+
+/**
+ * A registered framework the graph has NO node for, so the framework sentence
+ * is "" and `agent_framework` is left off the event entirely.
+ */
+const SPRING_AI = { slug: "spring-ai", name: "Spring AI" };
+
+/**
+ * The docs' default frontend, which the graph spells `nextjs` — the one pair
+ * where the docs display name and the graph slug differ.
+ */
+const REACT = { id: "react", name: "React" };
+
+/**
+ * A docs frontend the graph has NO node for: Slack is a chat channel, not an
+ * application frontend. The frontend sentence is "" and `frontend` is left off
+ * the event entirely.
+ */
+const SLACK = { id: "slack", name: "Slack" };
+const PAGE_MARKDOWN_URL = "/mastra/generative-ui.mdx";
+const PAGE_SENTENCE = ` I started from this CopilotKit docs page: ${DOCS_ORIGIN}/mastra/generative-ui.`;
+const MASTRA_TOPIC = " The page covers the Mastra agent framework.";
+
+/**
+ * Render with the props every framework-scoped page supplies, so each test
+ * only names the ones it actually cares about.
+ */
+function renderButton(
+  props: Partial<React.ComponentProps<typeof OnboardingPromptCopyButton>> = {},
+) {
+  return render(
+    <OnboardingPromptCopyButton
+      framework={MASTRA}
+      markdownUrl={PAGE_MARKDOWN_URL}
+      {...props}
+    />,
+  );
+}
+
+/** Install a resolving clipboard stub and hand back its spy. */
+function stubClipboard() {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.assign(navigator, { clipboard: { writeText } });
+  return writeText;
+}
+
+/**
+ * Install a clipboard stub whose write stays pending until the returned
+ * `resolveWrite` is called, so a test can act while a copy is in flight.
+ */
+function stubPendingClipboard() {
+  let resolve: (() => void) | undefined;
+  const writeText = vi.fn(
+    () =>
+      new Promise<void>((resolveWrite) => {
+        resolve = resolveWrite;
+      }),
+  );
+  Object.assign(navigator, { clipboard: { writeText } });
+  return { writeText, resolveWrite: () => resolve?.() };
+}
+
+/**
+ * Click the button by role alone, so the query does not depend on the label.
+ */
+function clickCopy() {
+  fireEvent.click(screen.getByRole("button", { name: /^copy prompt$/i }));
+}
+
+/** The run id the component reported for the copy it just made. */
+function reportedRunId(callIndex = 0): string {
+  const [, properties] = analytics.capture.mock.calls[callIndex] as [
+    string,
+    Record<string, unknown>,
+  ];
+  return properties.onboarding_run_id as string;
+}
+
+it("copies the canonical prompt plus the topic and page sentences", async () => {
+  // A LOCAL guard only: the expected prompt comes from the same helper the
+  // component calls, so this catches the component altering the canonical text
+  // or appending anything beyond the two sentences below. It does NOT compare
+  // against the Intelligence repo or the Inspector; keeping those three copies
+  // byte-identical is not verified here.
+  const writeText = stubClipboard();
+
+  renderButton();
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  expect(writeText).toHaveBeenCalledTimes(1);
+  expect(writeText.mock.calls[0][0]).toBe(
+    createIntelligenceOnboardingPrompt(reportedRunId()) +
+      MASTRA_TOPIC +
+      PAGE_SENTENCE,
+  );
+});
+
+it("names the page a reader saw, not its .mdx text", async () => {
+  const writeText = stubClipboard();
+
+  renderButton();
+  clickCopy();
+
+  await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+
+  const copied = writeText.mock.calls[0][0] as string;
+  // Absolute, not the path-only `markdownUrl` the row passes in: the receiving
+  // agent has no origin to resolve a bare path against.
+  expect(copied).toContain(`${DOCS_ORIGIN}/mastra/generative-ui.`);
+  expect(copied).not.toContain(".mdx");
+});
+
+it("names the production origin on a local or preview deploy", async () => {
+  // The runtime base URL is `localhost` in development and a preview host on a
+  // preview deploy. Neither is a page the coding agent can open (PE-309).
+  runtimeConfig.getRuntimeConfig.mockReturnValue({
+    baseUrl: "http://localhost:3003",
+  });
+  const writeText = stubClipboard();
+
+  renderButton();
+  clickCopy();
+
+  await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+
+  const copied = writeText.mock.calls[0][0] as string;
+  expect(copied).not.toContain("localhost");
+  expect(copied.endsWith(PAGE_SENTENCE)).toBe(true);
+});
+
+it("describes the page's framework and frontend without claiming a stack", async () => {
+  // The page is what the reader was reading, not their project. The topic
+  // sentence says what the page covers, as a default for an empty folder,
+  // and research and `onboard inspect` decide the real stack (PE-309). The
+  // docs call this frontend React; the graph sets up Next.js.
+  const writeText = stubClipboard();
+
+  renderButton({ frontend: REACT });
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  const copied = writeText.mock.calls[0][0] as string;
+  expect(copied).toBe(
+    createIntelligenceOnboardingPrompt(reportedRunId()) +
+      " The page covers the Mastra agent framework with Next.js." +
+      PAGE_SENTENCE,
+  );
+  expect(copied).not.toMatch(/\bI use\b|`|nextjs|React|My goal/);
+});
+
+it("appends no framework sentence for a framework the graph does not know", async () => {
+  // `spring-ai` is one of the docs slugs the CLI's onboarding graph has no
+  // node for. Naming it would promise a path the CLI cannot walk, so the
+  // prompt stays silent about the framework and the page sentence — which has
+  // to read correctly on its own — carries the whole of the added context.
+  const writeText = stubClipboard();
+
+  expect(frameworkPromptSuffix(SPRING_AI.slug, SPRING_AI.name)).toBe("");
+
+  renderButton({ framework: SPRING_AI });
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  expect(writeText.mock.calls[0][0]).toBe(
+    createIntelligenceOnboardingPrompt(reportedRunId()) + PAGE_SENTENCE,
+  );
+});
+
+it("copies the page sentence alone when the caller names no framework", async () => {
+  // `a2a` and `agent-spec` are documented like frameworks but have no registry
+  // record, so there is no display name to substitute. The page still gets the
+  // button: the prompt names the page and stays silent about the framework,
+  // which the CLI's graph determines from the repository in any case.
+  const writeText = stubClipboard();
+
+  renderButton({ framework: undefined });
+  clickCopy();
+
+  await waitFor(() => expect(writeText).toHaveBeenCalled());
+
+  const copied = writeText.mock.calls[0][0] as string;
+  const runId = (copied.match(/onboarding-prompts\/([A-Za-z0-9_-]+)/) ??
+    [])[1] as string;
+  expect(copied).toBe(
+    createIntelligenceOnboardingPrompt(runId) + PAGE_SENTENCE,
+  );
+  expect(copied).not.toContain("agent framework");
+});
+
+it("omits the framework property when the caller names no framework", async () => {
+  stubClipboard();
+
+  renderButton({ framework: undefined });
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  const properties = analytics.capture.mock.calls[0][1] as Record<
+    string,
+    unknown
+  >;
+  expect(properties.agent_framework).toBeUndefined();
+});
+
+it("mints a run id in the shape the CLI validates", async () => {
+  // `copilotkit onboard start --run <id>` rejects anything outside this
+  // pattern, and it rejects silently as far as the docs reader is concerned:
+  // the copy looks fine, the run never lands, the funnel loses the row.
+  stubClipboard();
+
+  renderButton();
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  expect(reportedRunId()).toMatch(/^[A-Za-z0-9_-]{12}$/);
+});
+
+it("reports the shared onboarding event with the graph's framework slug", async () => {
+  stubClipboard();
+
+  renderButton();
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  const [event, properties] = analytics.capture.mock.calls[0] as [
+    string,
+    Record<string, unknown>,
+  ];
+  expect(event).toBe(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied);
+  // `agent_framework` carries the GRAPH slug, which is what the CLI reports
+  // for the same run — not the docs registry slug the prop supplies. They
+  // happen to agree for mastra; `crewai-crews` and `strands` do not.
+  expect(onboardingFrameworkSlug(MASTRA.slug)).toBe("mastra");
+  // No `feature` key. Every other emitter of this event sends a value of the
+  // `IntelligenceOnboardingFeature` union ("learning" | "threads"); a fourth
+  // value that is not a feature would muddy existing breakdowns of that
+  // property. The distinction this button needs lives in `surface`.
+  expect(properties).toEqual({
+    action: "copy",
+    argument_version: "63f13e3aad0e",
+    argument_text: expect.stringContaining("framework:"),
+    from_path: "/mastra/generative-ui",
+    onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
+    surface: "docs_page_tools_onboarding_prompt",
+    agent_framework: "mastra",
+  });
+});
+
+it("omits the framework property entirely when the graph has no slug", async () => {
+  // Absence of the key, not an `undefined` value: a key present with no value
+  // still shows up as a row in a PostHog breakdown.
+  stubClipboard();
+
+  renderButton({ framework: SPRING_AI });
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  const properties = analytics.capture.mock.calls[0][1] as Record<
+    string,
+    unknown
+  >;
+  expect(properties.agent_framework).toBeUndefined();
+  expect(
+    Object.keys(properties)
+      .filter((key) => properties[key] !== undefined)
+      .sort(),
+  ).toEqual([
+    "action",
+    "argument_text",
+    "argument_version",
+    "from_path",
+    "onboarding_run_id",
+    "surface",
+  ]);
+});
+
+it("mints a fresh run id on every click", async () => {
+  // Documents the per-click decision. A run id hoisted to page load would let
+  // one reader's two attempts collide onto a single funnel row, and the second
+  // CLI run would report against a row the first already closed.
+  const writeText = stubClipboard();
+
+  renderButton();
+
+  clickCopy();
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalledTimes(1));
+  clickCopy();
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalledTimes(2));
+
+  const runIds = [reportedRunId(0), reportedRunId(1)];
+  expect(runIds[0]).not.toBe(runIds[1]);
+  const suffix = MASTRA_TOPIC + PAGE_SENTENCE;
+  // Each clipboard write carries its own id, not a re-used one.
+  expect(writeText.mock.calls[0][0]).toBe(
+    createIntelligenceOnboardingPrompt(runIds[0]) + suffix,
+  );
+  expect(writeText.mock.calls[1][0]).toBe(
+    createIntelligenceOnboardingPrompt(runIds[1]) + suffix,
+  );
+});
+
+it("writes and reports once for two clicks while the first write is pending", async () => {
+  // The in-flight guard. Without it a double-click mints two run ids and
+  // reports two copies, while only the second write survives on the clipboard
+  // — so the CLI can close out at most one of them and the other is a
+  // permanently open funnel row.
+  const { writeText, resolveWrite } = stubPendingClipboard();
+
+  renderButton();
+  const button = screen.getByRole("button", { name: /^copy prompt$/i });
+
+  // Native `.click()` inside one `act` scope, so React has not re-rendered
+  // (and applied `disabled`) between the two events. This exercises the ref
+  // guard inside the handler, not the disabled attribute.
+  await act(async () => {
+    button.click();
+    button.click();
+  });
+  expect(writeText).toHaveBeenCalledTimes(1);
+
+  await act(async () => {
+    resolveWrite();
+  });
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalledTimes(1));
+  expect(writeText).toHaveBeenCalledTimes(1);
+});
+
+it("re-enables the button after a clipboard write rejects", async () => {
+  // The disabled window must not get stuck on the failure path, or one blocked
+  // copy would take the button out of service for the rest of the page view.
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  const writeText = vi.fn().mockRejectedValue(new Error("denied"));
+  Object.assign(navigator, { clipboard: { writeText } });
+
+  renderButton();
+  clickCopy();
+
+  await waitFor(() =>
+    expect(screen.getByRole("status").textContent).toContain("Copy blocked"),
+  );
+  expect(
+    (
+      screen.getByRole("button", {
+        name: /^copy prompt$/i,
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(false);
+});
+
+it("keeps the label and swaps the icon on a successful copy", async () => {
+  // "Copied" is ~45px narrower than the idle label, so swapping it would slide
+  // "Copy Markdown" and "Open" leftward under the reader's cursor for 1800ms
+  // and back. `MarkdownCopyButton` next to it avoids that the same way.
+  stubClipboard();
+
+  const { container } = renderButton();
+  const before = container.querySelectorAll("svg").length;
+  clickCopy();
+
+  await waitFor(() => expect(screen.getByText("Prompt copied")).toBeTruthy());
+  expect(screen.getByRole("button", { name: /^copy prompt$/i })).toBeTruthy();
+  expect(container.querySelectorAll("svg").length).toBe(before);
+});
+
+it("uses a caller-supplied child as the idle label", () => {
+  stubClipboard();
+
+  renderButton({ children: "Set up with an agent" });
+
+  expect(
+    screen.getByRole("button", { name: /set up with an agent/i }),
+  ).toBeTruthy();
+});
+
+it("does not report ITS OWN event when the clipboard rejects", async () => {
+  // Scoped deliberately to this component's `docs.intelligence_onboarding_prompt_copied`
+  // call: a run id that never reached a clipboard is an onboarding attempt
+  // that cannot happen, so it must not enter the funnel as one.
+  //
+  // Other events may well have fired by then. The global tracker in
+  // `lib/providers/copy-tracker.tsx` wraps `navigator.clipboard.writeText` and
+  // captures `cli_command_copied` and `docs_conversion_copied` BEFORE it
+  // delegates to the real `writeText` — so on a blocked copy those two have
+  // already been reported. That tracker is not installed in this test.
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+  const writeText = vi.fn().mockRejectedValue(new Error("denied"));
+  Object.assign(navigator, { clipboard: { writeText } });
+
+  renderButton();
+  clickCopy();
+
+  await waitFor(() =>
+    expect(screen.getByRole("status").textContent).toContain("Copy blocked"),
+  );
+  expect(analytics.capture).not.toHaveBeenCalled();
+  // The fallback prompt opens after the rejected write has committed. Wait
+  // for it rather than assuming it renders in the same React commit as the
+  // status message.
+  await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
+  expect(screen.getByRole("textbox")).toBeTruthy();
+  expect(consoleError).not.toHaveBeenCalled();
+});
+
+it("carries the conversion-surface attribute the global tracker looks for", () => {
+  // Asserts the attribute is present on the button and spelled the same as the
+  // `surface` event property. It does NOT exercise
+  // `lib/providers/copy-tracker.tsx` — that the tracker resolves the value is
+  // that module's own concern. The attribute is on the button rather than a
+  // wrapper because this button is the only element of the page-tools row that
+  // should count as this surface; `closest()` would find a wrapper just fine.
+  stubClipboard();
+
+  renderButton();
+
+  expect(
+    screen
+      .getByRole("button", { name: /^copy prompt$/i })
+      .getAttribute("data-docs-copy-surface"),
+  ).toBe("docs_page_tools_onboarding_prompt");
+});
+
+it("survives unmounting while the clipboard write is still pending", async () => {
+  // The mounted/generation guards exist for exactly this: no state update and
+  // no reset timer may run against a component that is gone. The analytics
+  // call is deliberately still made — that write did reach the clipboard.
+  //
+  // React 19 no longer logs a "state update on an unmounted component"
+  // warning, so the console assertion alone would pass even with every guard
+  // deleted. The `setTimeout` assertion is the one with teeth: reaching
+  // `scheduleReset` after unmount means the generation check was skipped.
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+  const { resolveWrite } = stubPendingClipboard();
+
+  const { unmount } = renderButton();
+  await act(async () => {
+    screen.getByRole("button", { name: /^copy prompt$/i }).click();
+  });
+
+  unmount();
+  const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+
+  await act(async () => {
+    resolveWrite();
+  });
+
+  expect(setTimeoutSpy).not.toHaveBeenCalled();
+  expect(consoleError).not.toHaveBeenCalled();
+});
+
+it("mints a valid run id on all three createOnboardingRunId code paths", () => {
+  const shape = /^[A-Za-z0-9_-]{12}$/;
+
+  // 1. `crypto.randomUUID` — what jsdom and every current browser provide.
+  expect(createOnboardingRunId()).toMatch(shape);
+
+  // 2. `crypto.getRandomValues` only — older Safari, and any non-secure
+  //    context where `randomUUID` is withheld.
+  vi.stubGlobal("crypto", {
+    getRandomValues: (array: Uint8Array) => {
+      for (let i = 0; i < array.length; i += 1) array[i] = (i * 37) % 256;
+      return array;
+    },
+  });
+  expect(createOnboardingRunId()).toMatch(shape);
+
+  // 3. No web crypto at all — the `Math.random` last resort.
+  vi.stubGlobal("crypto", undefined);
+  expect(createOnboardingRunId()).toMatch(shape);
+});
+
+// ---------------------------------------------------------------------------
+// The frontend (OSS-1071). The copied text no longer names it (PE-309), but a
+// Slack or Teams frontend still selects the Channels prompt, and every
+// frontend still reaches the event as the graph's slug.
+// ---------------------------------------------------------------------------
+
+it("copies the generic prompt plus the page source on a Channel page", async () => {
+  // Slack is not a graph frontend slug. The copied text is the same small
+  // command as the website CTA, plus the standard page source sentence. The
+  // graph uses that source URL to see Slack or Teams.
+  const writeText = stubClipboard();
+
+  expect(frontendPromptSuffix(SLACK.id, SLACK.name)).toBe("");
+
+  renderButton({ frontend: SLACK });
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  // No framework sentence either, even though the page names one: on a channel
+  // page the framework is the route default rather than a reader's choice, and
+  // `feature/channels/start` inspects the project for it instead.
+  expect(writeText.mock.calls[0][0]).toBe(
+    createChannelsOnboardingPrompt(reportedRunId()) + PAGE_SENTENCE,
+  );
+});
+
+it("ignores the page's framework entirely on a channel page", async () => {
+  // Whether the route names a framework the graph knows (`mastra`, above) or
+  // one it does not (`spring-ai`), a channel page copies the same command. The
+  // route settles the framework by inspection, so neither case may leak into
+  // the text.
+  const writeText = stubClipboard();
+
+  renderButton({ framework: SPRING_AI, frontend: SLACK });
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  expect(writeText.mock.calls[0][0]).toBe(
+    createChannelsOnboardingPrompt(reportedRunId()) + PAGE_SENTENCE,
+  );
+});
+
+it("reports the frontend property with the graph's slug", async () => {
+  stubClipboard();
+
+  renderButton({ frontend: REACT });
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  // The GRAPH slug, so this property joins the value the CLI records for the
+  // same run — `nextjs`, not the docs id `react`.
+  expect(onboardingFrontendSlug(REACT.id)).toBe("nextjs");
+  expect(analytics.capture.mock.calls[0][1]).toEqual({
+    action: "copy",
+    argument_version: "63f13e3aad0e",
+    argument_text: expect.stringContaining("framework:"),
+    from_path: "/mastra/generative-ui",
+    onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
+    surface: "docs_page_tools_onboarding_prompt",
+    agent_framework: "mastra",
+    frontend: "nextjs",
+  });
+});
+
+it("reports a channel page on the channel axis, never the frontend one", async () => {
+  // Absence of the key, not an `undefined` value: a key present with no value
+  // still shows up as a row in a PostHog breakdown. Same rule as
+  // `agent_framework`.
+  //
+  // `frontend` stays absent on a channel page even though the page names one.
+  // The value it would carry is the graph slug, and the graph has none for a
+  // channel — reporting the docs id instead would put a value in the breakdown
+  // that no CLI run can ever match.
+  stubClipboard();
+
+  renderButton({ frontend: SLACK });
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  const properties = analytics.capture.mock.calls[0][1] as Record<
+    string,
+    unknown
+  >;
+  expect(properties.frontend).toBeUndefined();
+  expect(properties.channel).toBe("slack");
+  expect(
+    Object.keys(properties)
+      .filter((key) => properties[key] !== undefined)
+      .sort(),
+  ).toEqual([
+    "action",
+    "agent_framework",
+    "argument_text",
+    "argument_version",
+    "channel",
+    "from_path",
+    "onboarding_run_id",
+    "surface",
+  ]);
+});
+
+it("omits the frontend property when the caller names no frontend", async () => {
+  // A surface that passes no frontend at all — the prompt names none, and the
+  // event reports none.
+  stubClipboard();
+
+  renderButton({ frontend: undefined });
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  expect(analytics.capture.mock.calls[0][1].frontend).toBeUndefined();
+});
+
+it("records click intent before a failed copy with framework and frontend context", async () => {
+  Object.assign(navigator, {
+    clipboard: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
+  });
+  renderButton({ frontend: REACT });
+  clickCopy();
+  expect(analytics.actionCapture).toHaveBeenCalledTimes(1);
+  const [event, properties] = analytics.actionCapture.mock.calls[0];
+  expect(event).toBe("docs.intelligence_onboarding_prompt_action_clicked");
+  expect(properties).toEqual({
+    action: "copy",
+    argument_version: "63f13e3aad0e",
+    argument_text: expect.stringContaining("framework:"),
+    from_path: "/mastra/generative-ui",
+    onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
+    surface: "docs_page_tools_onboarding_prompt",
+    agent_framework: "mastra",
+    frontend: "nextjs",
+  });
+  await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
+  expect(analytics.capture).not.toHaveBeenCalled();
+});

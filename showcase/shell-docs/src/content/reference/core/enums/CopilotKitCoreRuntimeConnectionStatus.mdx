@@ -7,6 +7,8 @@ description: "Connection states between CopilotKitCore and the CopilotRuntime."
 
 `CopilotKitCoreRuntimeConnectionStatus` represents the state of the connection between `CopilotKitCore` and its runtime. You encounter it via `copilotkit.runtimeConnectionStatus` and the `onRuntimeConnectionStatusChanged` subscriber callback.
 
+**The status reports the outcome of the last actual contact with the runtime.** It is not a claim about the present moment. A failed runtime request moves it to `Error`, a successful one moves it back — and nothing else moves it. There is no polling and no heartbeat, so an outage that begins while your application is idle is not noticed until something is sent.
+
 ## Import
 
 ```ts
@@ -39,7 +41,12 @@ enum CopilotKitCoreRuntimeConnectionStatus {
 </PropertyReference>
 
 <PropertyReference name="Error" type="error">
-  The connection attempt failed.
+  The last contact with the runtime did not succeed. This covers two situations:
+
+  - **The first contact never succeeded.** There are no runtime agents, because none were ever obtained.
+  - **Contact was lost during the session.** The runtime answered at load and stopped answering later — you stopped your dev server, a container restarted, a deploy switched over, a tunnel dropped. Your runtime agents are still there, with their messages and threads intact, and sending stays possible. That is deliberate: sending is what restores the status, so an error state that disabled it would be one you could never leave.
+
+  So `Error` with agents present is a working state, not a bug. The next successful runtime request returns the status to `Connected` and re-syncs what the runtime reports.
 </PropertyReference>
 
 ## Usage
@@ -49,8 +56,14 @@ copilotkit.subscribe({
   onRuntimeConnectionStatusChanged: ({ status }) => {
     if (status === CopilotKitCoreRuntimeConnectionStatus.Connected) {
       enableChat();
-    } else if (status === CopilotKitCoreRuntimeConnectionStatus.Error) {
+      return;
+    }
+
+    if (status === CopilotKitCoreRuntimeConnectionStatus.Error) {
       showConnectionError();
+      if (Object.keys(copilotkit.agents).length === 0) {
+        disableChat();
+      }
     }
   },
 });

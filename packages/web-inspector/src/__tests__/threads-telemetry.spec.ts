@@ -39,6 +39,7 @@ const LOCKED_ENDPOINTS = {
 
 type InspectorLeafKey =
   | "threads"
+  | "whats-new"
   | "ag-ui-events"
   | "agents"
   | "frontend-tools"
@@ -152,6 +153,7 @@ function runtimeInfo(
     agents,
     audioFileTranscriptionEnabled: false,
     mode: "sse",
+    intelligence: { wsUrl: "" },
     threadEndpoints: endpoints,
     inspectorMetadata: metadata !== undefined,
     licenseStatus: metadata?.license?.state ?? "valid",
@@ -311,7 +313,7 @@ function threadCommon(
     has_threads: false,
     usage_bucket: "absent",
     expiry_bucket: "unavailable",
-    group_key: "threads",
+    group_key: "workbench",
     leaf_key: "threads",
     ...overrides,
   };
@@ -324,12 +326,13 @@ async function setup(options: SetupOptions = {}): Promise<TelemetryHarness> {
   if (!options.telemetryDisabled) {
     window.localStorage.setItem(TELEMETRY_DISCLOSURE_KEY, "true");
   }
-  if (options.initialMenu !== undefined) {
-    window.localStorage.setItem(
-      INSPECTOR_STATE_KEY,
-      JSON.stringify({ selectedMenu: options.initialMenu }),
-    );
-  }
+  window.localStorage.setItem(
+    INSPECTOR_STATE_KEY,
+    JSON.stringify({
+      selectedMenu: options.initialMenu ?? "threads",
+      hasOpenedInspector: true,
+    }),
+  );
   stubReducedMotion();
 
   const endpoints = options.endpoints ?? ENABLED_ENDPOINTS;
@@ -517,7 +520,7 @@ async function setup(options: SetupOptions = {}): Promise<TelemetryHarness> {
     flush: () => flushInspector(inspector),
     open: () =>
       clickSelector(
-        'button[aria-label="Web Inspector"]',
+        'button[aria-label^="Web Inspector"]',
         "Web Inspector opener was not rendered",
       ),
     selectGroup: (key) =>
@@ -706,7 +709,10 @@ test("a retained row hidden by a list error reports has_threads false", async ()
   });
   try {
     await harness.open();
-    await harness.selectGroup("threads");
+    // Launcher may already land on Threads for a list error. Move away
+    // first so the Threads click is a real tab change and emits telemetry.
+    await harness.selectLeaf("ag-ui-events");
+    await harness.selectLeaf("threads");
 
     const tab = harness.telemetryFor(TELEMETRY_EVENTS.threadsTabClicked);
     expect(tab).toHaveLength(1);
@@ -819,7 +825,7 @@ test.each(usageCases)(
           license_bucket: "valid",
           usage_bucket: case_.usageBucket,
           expiry_bucket: case_.expiryBucket,
-          group_key: "agents",
+          group_key: "inspect",
           leaf_key: "ag-ui-events",
         },
       );
@@ -840,14 +846,6 @@ const placementCases = [
     licenseState: "valid",
     renderedPlacement: "threads-footer",
     telemetryPlacement: "threads_footer",
-  },
-  {
-    name: "locked body",
-    endpoints: LOCKED_ENDPOINTS,
-    actionKind: "renew",
-    licenseState: "expired",
-    renderedPlacement: "locked",
-    telemetryPlacement: "threads_locked",
   },
 ] satisfies readonly PlacementCase[];
 
@@ -884,7 +882,7 @@ test.each(placementCases)(
           license_bucket: case_.licenseState,
           usage_bucket: "within_limit",
           expiry_bucket: "positive",
-          group_key: "threads",
+          group_key: "workbench",
           leaf_key: "threads",
           action_placement: case_.telemetryPlacement,
         },
@@ -905,7 +903,7 @@ test.each(placementCases)(
           license_bucket: case_.licenseState,
           usage_bucket: "within_limit",
           expiry_bucket: "positive",
-          group_key: "threads",
+          group_key: "workbench",
           leaf_key: "threads",
           action_placement: case_.telemetryPlacement,
         },
@@ -918,6 +916,59 @@ test.each(placementCases)(
     }
   },
 );
+
+test("the locked feature engineer CTA serializes its coarse placement", async () => {
+  const lockedCase = {
+    name: "locked body",
+    endpoints: LOCKED_ENDPOINTS,
+    actionKind: "renew",
+    licenseState: "expired",
+    renderedPlacement: "locked",
+    telemetryPlacement: "threads_locked",
+  } as const;
+  const harness = await setup({
+    endpoints: lockedCase.endpoints,
+    metadataResponses: [metadataWithAction(lockedCase)],
+    threadsByAgent: { alpha: [] },
+  });
+  try {
+    await harness.open();
+
+    const root = requireElement(
+      harness.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    const action = requireElement(
+      root.querySelector<HTMLAnchorElement>(
+        '[data-inspector-locked-feature-talk="threads"]',
+      ),
+      "Locked feature engineer action was not rendered",
+    );
+
+    action.dispatchEvent(new Event("click"));
+    await harness.flush();
+
+    const clicked = harness.telemetryFor(
+      TELEMETRY_EVENTS.threadsTalkToEngineerClicked,
+    );
+    expect(clicked).toHaveLength(1);
+    expectExactProperties(
+      requireElement(clicked[0], "Engineer click was not captured"),
+      threadCommon({
+        intelligence_status: "intelligence_not_enabled",
+        thread_service_status: "unavailable",
+        license_status: "expired",
+        usage_bucket: "within_limit",
+        expiry_bucket: "positive",
+        cta: "talk_to_engineer",
+        cta_surface: "threads_locked",
+        posthog_distinct_id: expect.any(String),
+      }),
+    );
+  } finally {
+    await harness.teardown();
+  }
+});
 
 test("all examples and the complete tour serialize only closed kinds and step pairs", async () => {
   const harness = await setup();
@@ -1086,7 +1137,7 @@ test("has_threads follows only real rows visible in the active Agent context", a
   try {
     await harness.open();
     await harness.selectContext("alpha");
-    await harness.selectGroup("threads");
+    await harness.selectLeaf("threads");
 
     const hiddenRowTab = requireElement(
       harness.telemetryFor(TELEMETRY_EVENTS.threadsTabClicked)[0],
@@ -1112,8 +1163,8 @@ test("has_threads follows only real rows visible in the active Agent context", a
       "Real row beta",
     );
 
-    await harness.selectGroup("agents");
-    await harness.selectGroup("threads");
+    await harness.selectLeaf("agents");
+    await harness.selectLeaf("threads");
 
     const tabBodies = harness.telemetryFor(TELEMETRY_EVENTS.threadsTabClicked);
     expect(tabBodies).toHaveLength(2);
@@ -1142,23 +1193,24 @@ test("metadata telemetry uses every stable legacy leaf key", async () => {
 
     const pairs: ReadonlyArray<
       Readonly<{
-        group: "threads" | "agents" | "learning";
+        group: "home" | "workbench" | "inspect";
         leaf: InspectorLeafKey;
       }>
     > = [
-      { group: "threads", leaf: "threads" },
-      { group: "agents", leaf: "ag-ui-events" },
-      { group: "agents", leaf: "agents" },
-      { group: "agents", leaf: "frontend-tools" },
-      { group: "agents", leaf: "capabilities" },
-      { group: "agents", leaf: "agent-context" },
-      { group: "learning", leaf: "memories" },
+      { group: "home", leaf: "whats-new" },
+      { group: "workbench", leaf: "threads" },
+      { group: "inspect", leaf: "ag-ui-events" },
+      { group: "inspect", leaf: "agents" },
+      { group: "inspect", leaf: "frontend-tools" },
+      { group: "inspect", leaf: "capabilities" },
+      { group: "inspect", leaf: "agent-context" },
+      { group: "workbench", leaf: "memories" },
     ];
 
     for (const [index, pair] of pairs.entries()) {
+      await harness.selectGroup(pair.group);
+      await harness.selectLeaf(pair.leaf);
       if (index > 0) {
-        await harness.selectGroup(pair.group);
-        await harness.selectLeaf(pair.leaf);
         await harness.core.refreshInspectorMetadata();
         await waitFor(
           () => harness.core.inspectorMetadata?.plan?.label === `Plan ${index}`,
@@ -1220,7 +1272,7 @@ test("Settings overlay keeps Learning memories keys for changed metadata", async
         license_bucket: "valid",
         usage_bucket: "absent",
         expiry_bucket: "unavailable",
-        group_key: "learning",
+        group_key: "workbench",
         leaf_key: "memories",
       },
     );
@@ -1236,16 +1288,14 @@ test("Settings overlay keeps Learning memories keys for changed metadata", async
 test("runtime telemetry opt-out stops every rendered Thread telemetry side effect", async () => {
   const disclosureLog = vi.spyOn(console, "info").mockImplementation(() => {});
   const harness = await setup({
-    endpoints: LOCKED_ENDPOINTS,
+    endpoints: ENABLED_ENDPOINTS,
     initialMenu: "ag-ui-events",
     telemetryDisabled: true,
-    threadsByAgent: {
-      alpha: [realThread("alpha", "opted-out-seeded-row")],
-    },
+    threadsByAgent: { alpha: [] },
   });
   try {
     await harness.open();
-    await harness.selectGroup("threads");
+    await harness.selectLeaf("threads");
     await harness.selectThread("Realtime thread sync");
     await harness.clickControl("Next");
 
@@ -1313,8 +1363,8 @@ test("telemetry rejection cannot break actions, example selection, tour state, o
     action.dispatchEvent(new Event("click"));
     await harness.selectThread("Realtime thread sync");
     await harness.clickControl("Next");
-    await harness.selectGroup("agents");
-    await harness.selectGroup("threads");
+    await harness.selectLeaf("agents");
+    await harness.selectLeaf("threads");
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
 
     const currentAction = requireElement(
@@ -1330,7 +1380,7 @@ test("telemetry rejection cannot break actions, example selection, tour state, o
     );
     expect(
       root.querySelector(
-        'button[data-inspector-group="threads"][aria-current="page"]',
+        'button[data-inspector-menu-key="threads"][aria-current="page"]',
       ),
     ).not.toBeNull();
     expect(harness.telemetryBodies.length).toBeGreaterThan(0);

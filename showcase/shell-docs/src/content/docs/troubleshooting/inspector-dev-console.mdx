@@ -1,84 +1,72 @@
 ---
 title: "Inspector and dev console"
 icon: "lucide/PanelTop"
-description: "Choose the right inspector and dev console prop for v1 and v2."
+description: "Configure the CopilotKit Inspector in React, Vue, and Angular."
 ---
 
-There are two related `<CopilotKit>` props that control on-screen debugging UI, and
-which one you want depends on whether you're on **v1** or **v2**. They are easy to
-confuse because the names overlap.
+`enableInspector` controls the built-in Inspector in browser applications:
 
-## v1 inspector behavior
+- `true` or omitted: show it in development builds.
+- `false`: hide it in development builds.
 
-On the v1 `<CopilotKit>` provider:
+The Inspector is never loaded or rendered in production builds or during
+server-side rendering. This safety guard cannot be overridden by an explicit
+`true`, and development hostnames are unrestricted.
 
-- **`enableInspector?: boolean`** controls the CopilotKit Inspector (inspect
-  AG-UI events, agent messages, agent state, and context). **Defaults to a
-  localhost-gated mode**: when you don't pass the prop, the inspector shows on
-  `localhost` / `127.0.0.1` / `0.0.0.0` and stays hidden in production. This is
-  close to the v2 `showDevConsole="auto"` mode, but not identical. v2
-  `"auto"` matches only `localhost` / `127.0.0.1` and does **not** treat
-  `0.0.0.0` as local. Pass `enableInspector={true}`
-  to always show it (including in production) or `enableInspector={false}` to
-  always hide it.
-- **`showDevConsole?: boolean`** is deprecated. It only ever controlled the
-  error toasts/banners, *not* the inspector button. Defaults to `false` for
-  production safety.
+## React v2
 
 ```tsx
-// v1: control the inspector with enableInspector
+import { CopilotKit } from "@copilotkit/react-core/v2";
+
 <CopilotKit runtimeUrl="/api/copilotkit" enableInspector={false}>
   {children}
-</CopilotKit>
+</CopilotKit>;
 ```
 
-If you're on v1 and still passing `showDevConsole` expecting it to surface the
-inspector, switch to `enableInspector`. `showDevConsole` won't show the inspector
-button.
+Legacy `showDevConsole` values no longer control the Inspector. Use
+`enableInspector` for Inspector visibility.
 
-## v2 dev console behavior
+## Vue
 
-The v2 provider `<CopilotKitProvider>` (from `@copilotkit/react-core/v2`)
-consolidates this into a single prop. There is **no `enableInspector` prop in
-v2**. Use `showDevConsole`:
-
-- **`showDevConsole?: boolean | "auto"`** controls whether the inspector renders.
-  - `true`: always show.
-  - `false` (default): never show.
-  - `"auto"`: show only on `localhost` / `127.0.0.1`, so it appears in local dev
-    and stays hidden in production automatically.
-
-```tsx
-// v2: "auto" shows the inspector on localhost only
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
-
-<CopilotKitProvider runtimeUrl="/api/copilotkit" showDevConsole="auto">
-  {children}
-</CopilotKitProvider>;
+```vue
+<CopilotKitProvider runtime-url="/api/copilotkit" :enable-inspector="false">
+  <App />
+</CopilotKitProvider>
 ```
 
-<Callout type="info">
-`"auto"` is the recommended setting for most apps: you get the inspector while
-developing locally and nothing leaks into production builds.
-</Callout>
+Vue's deprecated `showDevConsole` prop no longer controls the Inspector.
 
-## Migrating from v1
+## Angular
 
-| You had (v1) | Use instead (v2) |
-|---|---|
-| `enableInspector` unset (localhost-gated default) | `showDevConsole="auto"` |
-| `enableInspector={true}` (always show) | `showDevConsole={true}` |
-| `enableInspector={false}` | `showDevConsole={false}` (the v2 default) |
-| `showDevConsole={true}` (deprecated) | `showDevConsole={true}` |
+```ts
+provideCopilotKit({
+  runtimeUrl: "/api/copilotkit",
+  enableInspector: false,
+});
+```
+
+Angular has no `showDevConsole` alias. Configure the Inspector through
+`enableInspector` on `CopilotKitConfig`.
+
+## React v1
+
+The v1 compatibility component follows the same development-only
+`enableInspector` behavior. Its deprecated `showDevConsole?: boolean` prop
+controls error toasts and banners, not the Inspector.
 
 <Callout type="warn">
-Don't ship `showDevConsole={true}` to production. It exposes internal error and
-event details to end users. Prefer `"auto"` (v2) so it's automatically off in
-production.
+  The Inspector cannot be enabled in a production build. Use a development build
+  when debugging a deployed or remote environment.
 </Callout>
+
+## React Native
+
+Native iOS and Android applications do not have a built-in Inspector yet. The
+current Inspector is a DOM web component and is not included in the React
+Native dependency graph.
 
 ## Related
 
-- [Inspector](/inspector): what the inspector shows and how to use it.
+- [Inspector](/inspector): what the Inspector shows and how to use it.
 - [Error Debugging](/troubleshooting/error-debugging): the error console and the programmatic `onError` callback.
-- [Migrate to v2](/migrate/v2): the full v1 to v2 migration guide.
+- [Migrate to v2](/migrate/v2): the full React v1 to v2 migration guide.

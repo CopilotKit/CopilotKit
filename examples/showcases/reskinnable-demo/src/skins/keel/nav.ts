@@ -7,7 +7,12 @@ import type { NavRoute } from "@/shell/skin-contract";
  */
 export const keelNav: NavRoute[] = [
   { segment: "", label: "Desk" },
-  { segment: "knowledge", label: "Knowledge" },
+  // The SEGMENT stays `knowledge` while the label reads "Register". The page it
+  // resolves to is the policy register — the lifecycle board over the same nine
+  // corpus documents — and it is the parent of `knowledge/<docId>`, the route an
+  // agent citation deep-links into. Renaming the segment would have moved that
+  // landing route, `navigateTo`'s page enum and every citation href for a label.
+  { segment: "knowledge", label: "Register" },
   { segment: "playbooks", label: "Playbooks" },
   { segment: "runs", label: "Runs" },
 ];

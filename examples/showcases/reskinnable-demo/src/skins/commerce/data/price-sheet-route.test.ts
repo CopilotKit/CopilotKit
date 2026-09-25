@@ -11,11 +11,11 @@ import * as store from "./store";
  * `GET /api/commerce/v1/price-sheet` used to be the one commerce route with no
  * `try`/`catch`, so a throw from `buildPriceSheetPdf` left no record of its own
  * and produced whatever Next emits for an uncaught handler error. Downstream,
- * `stagePriceSheetAttachment` maps any non-2xx to `staged === false`, and
- * `sendRestockRequestWithPriceSheet` sends the pill's prompt regardless — so the
- * model is told "here's the autumn price sheet, read it" with nothing attached
- * and answers from the catalog it can already see. On stage that reads as a
- * working demo; it proves the opposite of what the beat exists to prove.
+ * `stageAttachment` (`@/shell/attach`) maps any non-2xx to `staged === false`,
+ * which aborts the pill — the presenter gets an alert saying "HTTP 500 — see the
+ * server logs", and this route is the only thing that can put anything there. So
+ * a silent throw here does not just break the beat; it makes the break
+ * undiagnosable in the one place the alert sends you.
  *
  * So the contract under test is narrow and behavioural: a throwing PDF writer
  * must produce a non-2xx the consumer can distinguish from a PDF, AND a server
@@ -106,9 +106,11 @@ describe("GET /api/commerce/v1/price-sheet", () => {
     );
   });
 
-  // A non-2xx is the only thing `stagePriceSheetAttachment` checks, so this is
-  // the assertion that the consumer can tell failure from success at all. A 2xx
-  // carrying an error envelope would be handed to the model as a "PDF".
+  // The status is the first thing `stageAttachment` checks, so this is the
+  // assertion that the consumer can tell failure from success at all. A 2xx
+  // carrying an error envelope would get past it — and be caught one step later
+  // by the `%PDF` byte check, but with a cause that blames the body rather than
+  // this route.
   it("never answers a 2xx when the PDF writer throws", async () => {
     pdfSpy.mockImplementation(() => {
       throw new Error("pdf writer exploded");
@@ -344,9 +346,9 @@ describe("GET /api/commerce/v1/price-sheet", () => {
    *
    * `?vendor=` used to read as the empty string, which is not nullish, so the
    * `??` default never applied: the filter matched no seeded product and the
-   * route 404'd on a vendor nobody named. Downstream that is beat 3d's silent
-   * failure again — `stagePriceSheetAttachment` sees a non-2xx, returns `false`,
-   * and the prompt is sent with no document attached.
+   * route 404'd on a vendor nobody named. Downstream that kills beat 3d —
+   * `stageAttachment` sees a non-2xx, returns `staged: false`, and the pill
+   * aborts on a vendor nobody had named.
    *
    * The rule under test is the orders page's lever rule (`parseTopLever` in
    * `pages/orders.tsx`): trim, then IGNORE a value that cannot be used rather

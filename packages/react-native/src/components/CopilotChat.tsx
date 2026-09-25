@@ -9,15 +9,17 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  type ListRenderItemInfo,
-  type ViewStyle,
 } from "react-native";
-import { useAgent } from "@copilotkit/react-core/v2/headless";
+import type { ListRenderItemInfo, ViewStyle } from "react-native";
+import {
+  useAgent,
+  useRenderToolCall,
+} from "@copilotkit/react-core/v2/headless";
 import { useCopilotKit } from "@copilotkit/react-core/v2/context";
 import { AssistantMessage } from "./messages/AssistantMessage";
 import { UserMessage } from "./messages/UserMessage";
-import { useRenderToolRegistry } from "../hooks/RenderToolContext";
 import type { Message } from "@copilotkit/shared";
+import type { ToolMessage } from "@ag-ui/client";
 
 /** Shape of an assistant message with optional tool calls. */
 interface AssistantMessageShape {
@@ -72,6 +74,148 @@ interface ChatListItem {
 }
 
 /**
+ * Lightweight content fingerprint for an agent's message list.
+ *
+ * The identity of `agent.messages` is NOT a reliable change signal, and it fails
+ * in BOTH directions:
+ *
+ * - It changes on paths that have nothing to do with what is read below.
+ *   `@ag-ui/client`'s apply pipeline REASSIGNS the array
+ *   (`AbstractAgent.processApplyEvents` does `this.messages = applied.messages`),
+ *   so a streaming run hands down a fresh array — and fresh message, `toolCall`
+ *   and `function` objects — on every applied delta.
+ * - It does NOT change on the paths these memos exist to serve. Core inserts
+ *   tool results by mutating in place —
+ *   `agent.messages.splice(insertAt, 0, toolMessage)`
+ *   (packages/core/src/core/run-handler.ts:931, :1080) —
+ *   `AbstractAgent.addMessage` is a `this.messages.push(...)`, and `useAgent`
+ *   re-renders with a bare `forceUpdate()` rather than a new array.
+ *
+ * (Grepping `packages/core/src` for a `.messages` assignment finds test files
+ * only, but that proves nothing about identity: the reassignment lives in
+ * `@ag-ui/client`, outside that tree.)
+ *
+ * So anything derived from messages must depend on their CONTENT, not on the
+ * array reference.
+ *
+ * Captures exactly what the derivations below read — id, role, content size,
+ * `toolCallId` (so an inserted tool result is visible), and each tool call's id
+ * plus argument length (so streaming args advance).
+ *
+ * String and array content contribute their LENGTH rather than their value, so
+ * large text and base64 attachment payloads are never re-serialized on every
+ * render. Object content is the deliberate exception and IS serialized: a
+ * length-based key is a constant 0 for every object, so an in-place content
+ * replacement that keeps the same message id would otherwise be invisible to
+ * every memo below.
+ *
+ * That object branch is convergence, not a fix for a reachable stale render: the
+ * producer of same-id object content is an ACTIVITY_SNAPSHOT replace, and
+ * `role: "activity"` never reaches `listItems`, which builds rows for `user` and
+ * `assistant` only. It follows the SHAPE of react-core's `messagesMemoKey`
+ * (react-core #6325). The two are independent implementations of the same idea —
+ * a change to that key does not propagate here on its own, so treat this as a
+ * documented parallel rather than a mirror.
+ */
+function messagesFingerprint(messages: readonly unknown[]): string {
+  return messages
+    .map((msg) => {
+      const m = msg as {
+        id?: string;
+        role?: string;
+        content?: unknown;
+        toolCallId?: string;
+        toolCalls?: Array<{ id: string; function?: { arguments?: string } }>;
+      };
+      const content = m.content;
+      const contentKey =
+        typeof content === "string" || Array.isArray(content)
+          ? content.length
+          : content && typeof content === "object"
+            ? objectContentKey(content)
+            : 0;
+      const toolCallsKey = Array.isArray(m.toolCalls)
+        ? m.toolCalls
+            .map((tc) => `${tc.id}:${tc.function?.arguments?.length ?? 0}`)
+            .join(";")
+        : "";
+      return `${m.id}:${m.role}:${contentKey}:${m.toolCallId ?? ""}:${toolCallsKey}`;
+    })
+    .join(",");
+}
+
+/**
+ * Serializes object content for the fingerprint above.
+ *
+ * Guarded because `JSON.stringify` THROWS on a circular structure and
+ * `messagesFingerprint` runs on EVERY render, so a bare call would take the whole
+ * chat down on content this component is explicitly required to tolerate —
+ * `toolResultContent` below documents why non-string content reaches RN at all,
+ * and "does not throw on tool content that cannot be JSON-serialised" pins that a
+ * circular tool result must still render.
+ *
+ * The fallback is a constant, which means a circular object is invisible to the
+ * memo exactly as every object used to be. That is the correct trade: it confines
+ * the old always-equal behaviour to the pathological case instead of letting it
+ * decide the common one. NOTE: this guard is a deliberate divergence from
+ * react-core's `messagesMemoKey`, which stringifies unguarded.
+ */
+function objectContentKey(content: object): string {
+  try {
+    return JSON.stringify(content) ?? "";
+  } catch {
+    return "[unserializable]";
+  }
+}
+
+/**
+ * Coerces a tool message's `content` to the `string` the renderer contract
+ * requires (`ReactToolCallRenderer`'s Complete branch declares `result: string`)
+ * WITHOUT inventing an empty result.
+ *
+ * Tool content is a string by construction across the stack: `ToolMessageSchema`
+ * declares `content: z.string()`, the SSE transport zod-parses every
+ * TOOL_CALL_RESULT before it reaches `agent.messages`, and core stringifies
+ * non-string handler results itself (`JSON.stringify(result)` in run-handler)
+ * before inserting the tool message. Non-string content is only reachable from a
+ * producer that skipped that validation — restored thread history, a non-SSE
+ * transport, or app code casting on `addMessage`. Core hedges against exactly
+ * that case too (core accepts `unknown` content and handles arrays of text
+ * parts), so this must not answer it with `""`:
+ * an empty string is a LEGITIMATE tool result, which makes a dropped result
+ * indistinguishable from an empty one. Serialise faithfully — the same
+ * representation core uses for non-string results — and warn in dev.
+ */
+function toolResultContent(content: unknown, toolCallId: string): string {
+  if (typeof content === "string") return content;
+
+  // null/undefined carry no payload, so "" loses nothing — but the message is
+  // still malformed, so it warns below rather than passing silently.
+  let serialized = "";
+  if (content !== null && content !== undefined) {
+    try {
+      serialized =
+        JSON.stringify(content) ?? Object.prototype.toString.call(content);
+    } catch {
+      // Circular or otherwise non-serialisable: keep SOMETHING over dropping
+      // the result, and never throw from a render path.
+      serialized = Object.prototype.toString.call(content);
+    }
+  }
+
+  if (typeof __DEV__ === "undefined" || __DEV__) {
+    console.warn(
+      `[CopilotChat] Tool message for tool call "${toolCallId}" had non-string ` +
+        `content (${content === null ? "null" : typeof content}), but renderers ` +
+        `receive \`result: string\`. Rendering a serialized form instead of ` +
+        `dropping it: ${serialized === "" ? "<empty>" : serialized}`,
+    );
+  }
+
+  return serialized;
+}
+
+/**
  * Full-screen chat UI component for React Native.
  *
  * Connects to a CopilotKit agent via `useAgent` and renders messages
@@ -102,19 +246,43 @@ export function CopilotChat({
   const flatListRef = useRef<FlatList>(null);
   const messageIdCounter = useRef(0);
 
-  const { copilotkit, executingToolCallIds } = useCopilotKit();
+  const { copilotkit } = useCopilotKit();
   const { agent } = useAgent({ agentId: agentName });
 
   const messages = agent.messages ?? [];
   const isRunning = agent.isRunning;
 
-  const toolRenderers = useRenderToolRegistry();
+  const renderToolCall = useRenderToolCall();
 
-  // Stable extraData for FlatList to avoid re-creating the object every render
-  const extraData = useMemo(
-    () => ({ isRunning, executingToolCallIds, toolRenderers }),
-    [isRunning, executingToolCallIds, toolRenderers],
-  );
+  // Recomputed every render — cheap, and the only honest dependency for the
+  // message-derived memos below. See `messagesFingerprint` for why the array
+  // reference cannot be trusted as one.
+  const messagesKey = messagesFingerprint(messages);
+
+  // toolCallId -> tool result message. react-core's renderer reports
+  // status "complete" with `result` when a tool message exists; RN's chat
+  // previously never correlated these, so `result` was always undefined.
+  const toolMessages = useMemo(() => {
+    const byId = new Map<string, ToolMessage>();
+    for (const msg of messages) {
+      const m = msg as {
+        role?: string;
+        id?: string;
+        toolCallId?: string;
+        content?: unknown;
+      };
+      if (m.role === "tool" && m.toolCallId) {
+        byId.set(m.toolCallId, {
+          id: m.id ?? m.toolCallId,
+          role: "tool",
+          toolCallId: m.toolCallId,
+          content: toolResultContent(m.content, m.toolCallId),
+        });
+      }
+    }
+    return byId;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messagesKey]);
 
   // Build flat list items from messages
   const listItems: ChatListItem[] = useMemo(() => {
@@ -160,7 +328,33 @@ export function CopilotChat({
     }
 
     return items;
-  }, [messages, isRunning]);
+    // Same reasoning as `toolMessages`: keyed on message CONTENT, because the
+    // array reference does not track content in either direction — core's
+    // in-place `splice` and `addMessage`'s push leave it untouched, while the
+    // AG-UI apply pipeline replaces it on every delta. Without this, an
+    // assistant message or tool call appended mid-run never reaches the list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messagesKey, isRunning]);
+
+  // Id of the trailing row. renderItem needs "is this the last row?" to place
+  // the streaming indicator; deriving it here keeps that a named scalar instead
+  // of renderItem closing over `listItems` and index-reading its tail.
+  const lastItemId = useMemo(
+    () => listItems[listItems.length - 1]?.id,
+    [listItems],
+  );
+
+  // extraData defeats FlatList's PureComponent shallow-compare for the values
+  // renderItem CLOSES OVER, as opposed to the ones it receives per row. Those
+  // are exactly the four below, and they mirror renderItem's dependency array —
+  // keep the two in sync. `listItems` is deliberately absent: renderItem's only
+  // read of it is the tail id, now passed as `lastItemId`, and the array itself
+  // is already the `data` prop, which invalidates cells on its own (every
+  // rebuild allocates fresh item objects, so each cell's `item` prop differs).
+  const extraData = useMemo(
+    () => ({ isRunning, lastItemId, renderToolCall, toolMessages }),
+    [isRunning, lastItemId, renderToolCall, toolMessages],
+  );
 
   // Shared logic for sending a message to the agent
   const sendMessage = useCallback(
@@ -221,31 +415,23 @@ export function CopilotChat({
         return (
           <AssistantMessage
             content={item.content ?? ""}
-            isLoading={
-              isRunning && item.id === listItems[listItems.length - 1]?.id
-            }
+            isLoading={isRunning && item.id === lastItemId}
           />
         );
       }
 
       if (item.type === "tool-call" && item.toolCalls) {
         const tc = item.toolCalls[0];
-        const renderer = toolRenderers.get(tc.function.name);
-        if (renderer) {
-          let args: Record<string, unknown> = {};
-          try {
-            args = JSON.parse(tc.function.arguments || "{}");
-          } catch (e) {
-            console.warn(
-              `[CopilotChat] Failed to parse tool call arguments for ${tc.function.name}:`,
-              e,
-            );
-          }
-          const status = executingToolCallIds.has(tc.id)
-            ? "executing"
-            : "complete";
-          return renderer({ args, status });
-        }
+        // Partial-parses streaming args, resolves the renderer (exact name ->
+        // agent-scoped -> wildcard "*") and derives status — all in react-core,
+        // shared with web. Returns ReactElement | null, which is what
+        // renderItem requires.
+        const rendered = renderToolCall({
+          toolCall: tc,
+          toolMessage: toolMessages.get(tc.id),
+        });
+        if (rendered) return <>{rendered}</>;
+
         // Subtle indicator for unregistered tool calls
         return (
           <View style={styles.toolCallIndicator}>
@@ -260,7 +446,7 @@ export function CopilotChat({
 
       return null;
     },
-    [isRunning, listItems, toolRenderers, executingToolCallIds],
+    [isRunning, lastItemId, renderToolCall, toolMessages],
   );
 
   const keyExtractor = useCallback((item: ChatListItem) => item.id, []);

@@ -1,6 +1,7 @@
-import { inject, InjectionToken, Provider } from "@angular/core";
-import { AbstractAgent } from "@ag-ui/client";
-import {
+import type { Provider } from "@angular/core";
+import { inject, InjectionToken } from "@angular/core";
+import type { AbstractAgent } from "@ag-ui/client";
+import type {
   ClientTool,
   FrontendToolConfig,
   HumanInTheLoopConfig,
@@ -8,7 +9,10 @@ import {
 } from "./tools";
 import { LICENSE_WATERMARK_ENABLED } from "./license-watermark";
 import type { RenderActivityMessageConfig } from "./activity-renderer";
-import type { SuggestionsConfig } from "@copilotkit/core";
+import type {
+  CopilotKitMessageFilter,
+  SuggestionsConfig,
+} from "@copilotkit/core";
 import type { OpenGenerativeUIConfig } from "./open-generative-ui";
 import type {
   Catalog,
@@ -37,6 +41,32 @@ export interface A2UIRecoveryOptions {
 export interface CopilotKitConfig {
   runtimeUrl?: string;
   headers?: Record<string, string>;
+  /** Fetch credentials mode used for CopilotKit runtime requests. */
+  credentials?: RequestCredentials;
+  /**
+   * Rewrites the message list sent to runtime agents on every run.
+   *
+   * CopilotKit sends the whole thread each time. When your agent already
+   * stores the conversation, most of that payload is waste, and an agent that
+   * merges the inbound list with its own store can show the model every turn
+   * twice. Return the messages to send:
+   *
+   * ```ts
+   * provideCopilotKit({
+   *   runtimeUrl: "/api/copilotkit",
+   *   messageFilter: (messages) => messages.slice(-1),
+   * });
+   * ```
+   *
+   * The filter changes the request body only. The transcript the UI renders is
+   * untouched. Broken tool-call pairs are repaired before the request is sent,
+   * so a filter this blunt cannot strand a tool result mid-HITL.
+   *
+   * Agents reached through your CopilotRuntime honor this. An agent your app
+   * passes in directly does not, and neither Intelligence runs nor suggestion
+   * runs are ever filtered.
+   */
+  messageFilter?: CopilotKitMessageFilter;
   licenseKey?: string;
   properties?: Record<string, unknown>;
   agents?: Record<string, AbstractAgent>;
@@ -51,6 +81,12 @@ export interface CopilotKitConfig {
   defaultToolRendering?: boolean;
   a2ui?: A2UIConfig;
   openGenerativeUI?: OpenGenerativeUIConfig;
+  /**
+   * Disable the CopilotKit Inspector in development.
+   * The Inspector is enabled by default in development browser builds and is
+   * always disabled in production and during server rendering.
+   */
+  enableInspector?: boolean;
 }
 
 const COPILOT_CLOUD_PUBLIC_API_KEY_HEADER = "X-CopilotCloud-Public-Api-Key";
@@ -115,7 +151,7 @@ export function injectCopilotKitConfig(): CopilotKitConfig {
   return inject(COPILOT_KIT_CONFIG);
 }
 
-export function provideCopilotKit(config: CopilotKitConfig): Provider {
+export function provideCopilotKit(config: CopilotKitConfig = {}): Provider {
   const resolvedLicense = resolveLicense(config);
   const headers = config.headers ?? {};
   if (

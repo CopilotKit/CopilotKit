@@ -105,7 +105,7 @@ def _generate_a2ui(
         ]
     )
     response = client.messages.create(
-        model=normalize_claude_model(os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4.6")),
+        model=normalize_claude_model(os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8")),
         max_tokens=4096,
         system=context or "Generate a useful dashboard UI.",
         messages=llm_messages,
@@ -176,7 +176,7 @@ async def run_a2ui_dynamic_agent(input_data: RunAgentInput) -> AsyncIterator[str
         try:
             async with client.messages.stream(
                 model=normalize_claude_model(
-                    os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4.6")
+                    os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8")
                 ),
                 max_tokens=2048,
                 system=SYSTEM_PROMPT,

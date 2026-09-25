@@ -14,6 +14,12 @@ Importing the package auto-installs the [polyfills](/reference/react-native#poly
   supported on React Native. Point `runtimeUrl` at a self-hosted runtime.
 </Callout>
 
+<Callout type="info">
+  Native iOS and Android applications do not have a built-in Inspector yet. The
+  browser Inspector requires a DOM and is intentionally excluded from the React
+  Native dependency graph, so this provider does not expose an inspector prop.
+</Callout>
+
 ## Import
 
 ```tsx
@@ -40,6 +46,37 @@ import { CopilotKitProvider } from "@copilotkit/react-native";
 <PropertyReference name="credentials" type="RequestCredentials">
   Credentials mode for fetch requests (e.g. `"include"` for HTTP-only cookies
   in cross-origin requests).
+</PropertyReference>
+
+<PropertyReference name="messageFilter" type="(messages: Message[], context: { agentId: string }) => Message[]">
+  Rewrites the message list sent to the agent on every run.
+
+CopilotKit sends the whole thread with each request. When your agent already
+stores the conversation — a LangGraph checkpointer, a Mastra memory store, a
+Strands `SessionManager` — most of that payload is waste, and an agent that
+merges the inbound list with its own store can show the model every turn twice.
+On a mobile connection the payload cost is felt sooner.
+
+Return the messages to send:
+
+```tsx
+<CopilotKitProvider
+  runtimeUrl="https://your-server/api/copilotkit"
+  messageFilter={(messages) => messages.slice(-1)}
+>
+  <App />
+</CopilotKitProvider>
+```
+
+The filter changes the request body only. The transcript the UI renders is
+untouched, so the chat still shows the full conversation. Broken tool-call pairs
+are repaired before the request goes out, so a filter this blunt cannot strand a
+tool result mid-approval.
+
+Agents reached through your CopilotRuntime honor this. An agent your app
+constructs itself and passes in directly does not. CopilotKit Intelligence runs
+and suggestion runs are never filtered.
+
 </PropertyReference>
 
 <PropertyReference name="useSingleEndpoint" type="boolean">
@@ -101,7 +138,7 @@ export default function App() {
 ## Behavior
 
 - **Auto-polyfills**: importing the package installs the Web API polyfills CopilotKit relies on (`ReadableStream`, `TextEncoder`, `crypto.getRandomValues`, `DOMException`, `location`) before any CopilotKit code runs.
-- **Render-tool registry**: the provider wraps children in a [`RenderToolProvider`](/reference/react-native/hooks/useRenderTool), so [`useRenderTool`](/reference/react-native/hooks/useRenderTool) works anywhere below it.
+- **Shared render-tool registry**: the provider instantiates the CopilotKit client whose renderer registry is shared with the rest of CopilotKit. Render functions registered by [`useRenderTool`](/reference/react-native/hooks/useRenderTool), [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool) or [`useComponent`](/reference/react-native/hooks/useComponent) write into that one registry, so they and [`useRenderToolCall`](/reference/react-native/hooks/useRenderTool#rendering-a-tool-call-outside-the-chat) work anywhere below the provider. There is no second registry and no extra provider to mount for rendering.
 - **Stable references**: header functions and `properties` are memoized internally to avoid effect churn on re-render.
 
 ## Related

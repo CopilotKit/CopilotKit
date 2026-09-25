@@ -3,47 +3,46 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import commerce from "@/skins/commerce/skin";
 import { RESTOCK_PLAN_MESSAGE } from "@/skins/commerce/suggestions";
-import type { Beat3dTimings } from "@/skins/commerce/attach-price-sheet";
+// The composer selectors are NOT on the `@/shell/attach` barrel — it exports the
+// three entry points and their types, deliberately, because no skin CALL SITE
+// needs a selector. A test driving the real DOM does, so it reaches one level in.
 import {
   ATTACHMENT_CHIP_SELECTOR,
   ATTACHMENT_QUEUE_SELECTOR,
   CHAT_TEXTAREA_SELECTOR,
-  PRICE_SHEET_FILENAME,
-  PRICE_SHEET_FILE_INPUT_SELECTOR,
-  PRICE_SHEET_URL,
+} from "@/shell/attach/stage-attachment";
+import {
   attachPriceSheetByHand,
   sendRestockRequestWithPriceSheet,
-  stagePriceSheetAttachment,
 } from "@/skins/commerce/attach-price-sheet";
 
 /**
- * BEAT 3d's failure contract.
+ * What is left to test in commerce once the chain is shell-owned.
  *
- * The beat claims a REAL vendor price sheet was ingested into a durable restock
- * plan. The catastrophic failure is not "the beat did not run" — it is "the
- * prompt was sent with NO attachment", because the model then invents a cost
- * sheet, the plan is still filed, and the artifact reads plausibly. The demo
- * looks perfect while proving the opposite of its point.
+ * The fifteen detection causes, the bounded condition waits, the abort rule and
+ * the dual reporting are verified ONCE, in
+ * `src/shell/attach/stage-attachment.test.ts`. Re-driving them here would assert
+ * the same module three times over — the duplication this extraction removed.
  *
- * The defect CLASS these tests exist to make unrepresentable is broader than any
- * one bug: **an async DOM-driving step that resolves `true` without confirming
- * its effect.** Fetching, staging, encoding and clicking are all REQUESTS made of
- * code we do not own; each one has to be observed. So the file asserts:
+ * Three things remain genuinely commerce's, and all three are silent when wrong:
  *
- *   1. the prompt is not sent unless the sheet is queued AND finished encoding —
- *      for every way each of those can fail;
- *   2. the send is not claimed unless the click actually consumed the attachment;
- *   3. every failure surfaces something a presenter can see (`console.error` for
- *      the log AND `window.alert` for the stage) and names ITSELF, because "retry
- *      the pill", "press send by hand" and "restart the dev server" are different
- *      instructions;
- *   4. a missing composer does not leave `onSuggestionSelect` having returned
- *      `true` — "handled" — with nothing whatsoever having happened.
+ *   1. **The three parameters.** `attach-price-sheet.ts` is now nothing BUT a
+ *      URL, a filename and a message. A wrong URL 404s and the pill aborts (loud,
+ *      recoverable); a wrong MESSAGE is the dangerous one — the pill still sends,
+ *      just not the prompt the beat needs. So these are asserted against
+ *      hardcoded literals, never against the module's own constants: a test that
+ *      imports the value it checks cannot notice the value changing.
+ *   2. **`onSuggestionSelect` claims the right pill.** Returning `true` means the
+ *      shell will NOT run its default send, so a mismatch here is a dead pill.
+ *   3. **`true` is never returned into silence.** The historical bug: the handler
+ *      claimed the click and then did nothing observable at all.
  *
- * Written against the DOM rather than a render because the whole mechanism IS
- * DOM manipulation: it reaches for framework-owned elements by test id. What the
- * fake composer below reproduces is not React, it is the framework's observable
- * ATTACHMENT STATE MACHINE, which is the thing being verified.
+ * Driven against the real chain and a fake composer rather than a mocked
+ * `@/shell/attach`, because a mock would prove commerce passes three values to a
+ * function and nothing about whether those values work. The fixture below
+ * reproduces the framework's observable ATTACHMENT STATE MACHINE, trimmed to the
+ * states these assertions need (the per-cause knobs moved to the shell's fixture
+ * along with the causes they drive).
  */
 
 /**
@@ -75,69 +74,33 @@ beforeEach(() => {
 });
 
 /**
- * Fast budgets. Production waits seconds because a real encode can take them;
- * a test that spent the real budget on each expiry branch would add half a
- * minute to the suite. `0` forces the expiry branch deterministically —
- * `waitUntil` still evaluates its predicate, so a condition that is already true
- * still passes with a `0` budget.
+ * No `Beat3dTimings` are injected here, on purpose. The shell chain accepts them
+ * so its own tests can force a budget to EXPIRE deterministically — and a skin's
+ * thin wrapper exposes no such parameter, because a skin has no reason to retune
+ * the framework's encode. Nothing below waits out a budget: the happy paths
+ * satisfy each condition within a poll or two, and the failure paths fail on the
+ * fetch, before the first wait. The whole file runs in well under a second.
  */
-const FAST: Beat3dTimings = {
-  acceptMs: 200,
-  readyMs: 200,
-  sendableMs: 200,
-  consumedMs: 200,
-  pollMs: 5,
-};
-const fast = (over: Partial<Beat3dTimings> = {}): Beat3dTimings => ({
-  ...FAST,
-  ...over,
-});
 
 // ── the composer, as CopilotChat actually behaves ───────────────────────────
 
 interface ComposerOptions {
-  fileInput?: boolean;
   textarea?: boolean;
   sendButton?: boolean;
   /**
-   * `processFiles` drops a file that fails `accept`/`maxSize` and calls an
-   * `onUploadFailed` this app does not wire — so a rejection means NO chip ever
-   * appears (use-attachments.tsx:76-99). That silence is the whole point.
-   */
-  rejectFile?: boolean;
-  /**
    * How long base64 encoding takes before the chip flips `uploading` → `ready`
-   * and the queue starts printing the filename. `"never"` is a stuck encode:
-   * `consumeAttachments` would hand over nothing and `onSubmitInput` would refuse
-   * to send at all.
+   * and the queue starts printing the filename. A chip in the queue is not yet a
+   * sendable attachment (use-attachments.tsx:103-144, 245-253).
    */
-  encodeMs?: number | "never";
-  /**
-   * Which role the ONE send/stop button is playing. `"stop"` mirrors a run in
-   * flight: enabled, carrying the square mark, and a click cancels the run.
-   * `"unrecognized"` mirrors a lucide rename.
-   */
-  sendRole?: "send" | "stop" | "unrecognized";
-  /** Simulates React never registering the typed prompt: `canSend` stays false. */
-  neverEnableSend?: boolean;
-  /**
-   * Whether the click runs `consumeAttachments` — the only thing that removes a
-   * ready chip, and only as part of dispatching the message.
-   */
-  consumeOnSend?: boolean;
+  encodeMs?: number;
 }
 
 const sendClicks = vi.fn();
 
 function mountComposer({
-  fileInput = true,
   textarea = true,
   sendButton = true,
-  rejectFile = false,
   encodeMs = 0,
-  sendRole = "send",
-  neverEnableSend = false,
-  consumeOnSend = true,
 }: ComposerOptions = {}) {
   document.body.innerHTML = "";
 
@@ -164,50 +127,47 @@ function mountComposer({
     }
   };
 
-  if (fileInput) {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.setAttribute("accept", "application/pdf,image/*");
-    // jsdom's `files` setter runs a webidl conversion that only accepts a real
-    // jsdom FileList wrapper, which no stub can produce — it rejects even a
-    // correctly shaped object with a TypeError. Replace the accessor with a plain
-    // data property so the production `input.files = dt.files` is an ordinary
-    // write. (Verified the hard way: without this the assignment throws, the
-    // production catch turns it into a reported failure, and every fail-loud
-    // assertion in this file would pass for the wrong reason.)
-    Object.defineProperty(input, "files", {
-      writable: true,
-      configurable: true,
-      value: null,
-    });
-    input.addEventListener("change", () => {
-      const picked = input.files?.[0];
-      if (!picked || rejectFile) return; // dropped, silently, exactly as the framework does
+  const input = document.createElement("input");
+  input.type = "file";
+  input.setAttribute("accept", "application/pdf,image/*");
+  // jsdom's `files` setter runs a webidl conversion that only accepts a real
+  // jsdom FileList wrapper, which no stub can produce — it rejects even a
+  // correctly shaped object with a TypeError. Replace the accessor with a plain
+  // data property so the production `input.files = dt.files` is an ordinary
+  // write. (Verified the hard way: without this the assignment throws, the
+  // production catch turns it into a reported failure, and every fail-loud
+  // assertion in this file would pass for the wrong reason.)
+  Object.defineProperty(input, "files", {
+    writable: true,
+    configurable: true,
+    value: null,
+  });
+  input.addEventListener("change", () => {
+    const picked = input.files?.[0];
+    if (!picked) return;
 
-      // A chip appears on the next tick, as a React re-render would.
+    // A chip appears on the next tick, as a React re-render would.
+    setTimeout(() => {
+      const chip = document.createElement("div");
+      // The chip renders an EMPTY body while uploading
+      // (CopilotChatAttachmentQueue.tsx:43,75-77) — no filename yet.
+      const remove = document.createElement("button");
+      remove.setAttribute("aria-label", "Remove attachment");
+      chip.appendChild(remove);
+      chip.dataset.ready = "false";
+      ensureQueue().appendChild(chip);
+
       setTimeout(() => {
-        const chip = document.createElement("div");
-        // The chip renders an EMPTY body while uploading
-        // (CopilotChatAttachmentQueue.tsx:43,75-77) — no filename yet.
-        const remove = document.createElement("button");
-        remove.setAttribute("aria-label", "Remove attachment");
-        chip.appendChild(remove);
-        chip.dataset.ready = "false";
-        ensureQueue().appendChild(chip);
-
-        if (encodeMs === "never") return;
-        setTimeout(() => {
-          // `ready`: DocumentPreview prints the filename
-          // (CopilotChatAttachmentQueue.tsx:357-359).
-          const name = document.createElement("span");
-          name.textContent = picked.name;
-          chip.insertBefore(name, remove);
-          chip.dataset.ready = "true";
-        }, encodeMs);
-      }, 0);
-    });
-    document.body.appendChild(input);
-  }
+        // `ready`: DocumentPreview prints the filename
+        // (CopilotChatAttachmentQueue.tsx:357-359).
+        const name = document.createElement("span");
+        name.textContent = picked.name;
+        chip.insertBefore(name, remove);
+        chip.dataset.ready = "true";
+      }, encodeMs);
+    }, 0);
+  });
+  document.body.appendChild(input);
 
   let btn: HTMLButtonElement | undefined;
   if (sendButton) {
@@ -216,16 +176,13 @@ function mountComposer({
     const mark = document.createElement("span");
     // lucide-react stamps `lucide-<kebab-name>`; the production code reads that
     // mark to tell SEND from STOP (CopilotChatInput.tsx:540-547, 1158).
-    if (sendRole === "stop") mark.className = "lucide-square";
-    else if (sendRole === "send") mark.className = "lucide-arrow-up";
+    mark.className = "lucide-arrow-up";
     btn.appendChild(mark);
-    // disabled = isProcessing ? !canStop : !canSend. A stop button is ENABLED.
-    btn.disabled = sendRole !== "stop";
+    // disabled = isProcessing ? !canStop : !canSend.
+    btn.disabled = true;
     btn.addEventListener("click", () => {
       sendClicks();
       if (btn?.disabled) return; // a real disabled button dispatches nothing
-      if (sendRole === "stop") return; // a click here cancels the run; nothing is sent
-      if (!consumeOnSend) return;
       // consumeAttachments(): every READY chip leaves the queue
       // (use-attachments.tsx:245-253), as part of building the message.
       document
@@ -242,9 +199,9 @@ function mountComposer({
     const el = document.createElement("textarea");
     el.setAttribute("data-testid", "copilot-chat-textarea");
     el.addEventListener("input", () => {
-      if (!btn || sendRole === "stop") return; // isProcessing: canSend is irrelevant
+      if (!btn) return;
       // canSend = value.trim().length > 0 (CopilotChatInput.tsx:517)
-      btn.disabled = neverEnableSend || el.value.trim().length === 0;
+      btn.disabled = el.value.trim().length === 0;
     });
     document.body.appendChild(el);
   }
@@ -256,7 +213,7 @@ function queuedChipCount() {
   ).length;
 }
 
-/** A real PDF body — checked on the BYTES by the production code. */
+/** A real PDF body — checked on the BYTES by the shell chain. */
 const pdfBytes = () => new TextEncoder().encode("%PDF-1.4\nprice sheet\n%%EOF");
 
 /**
@@ -265,15 +222,13 @@ const pdfBytes = () => new TextEncoder().encode("%PDF-1.4\nprice sheet\n%%EOF");
  * "the route is broken" when it is really "the test lied about the Response
  * shape", and that contaminates exactly the failure messages this file asserts on.
  */
-const bodyResponse = (body: Uint8Array) =>
+const okResponse = () =>
   ({
     ok: true,
     status: 200,
-    arrayBuffer: async () => body.slice().buffer,
-    blob: async () => new Blob([body.slice()]),
+    arrayBuffer: async () => pdfBytes().slice().buffer,
+    blob: async () => new Blob([pdfBytes().slice()]),
   }) as unknown as Response;
-
-const okResponse = () => bodyResponse(pdfBytes());
 
 // The two halves of "say something": the log line, and the thing a presenter on
 // stage will actually notice.
@@ -298,377 +253,101 @@ function surfacedText() {
   return calls.map((args) => args.map(String).join(" ")).join("\n");
 }
 
-function detailOf(
-  result: Awaited<ReturnType<typeof stagePriceSheetAttachment>>,
-) {
-  return result.staged ? "" : result.detail;
-}
+// The three values that are commerce's, written out rather than imported: a test
+// that imports the constant it checks cannot notice the constant changing.
+const EXPECTED_URL = "/api/commerce/v1/price-sheet";
+const EXPECTED_FILENAME = "price-sheet-kestrel-mills.pdf";
 
-describe("stagePriceSheetAttachment: every failure names itself", () => {
-  it("names the route's status when it answers non-2xx", async () => {
+describe("sendRestockRequestWithPriceSheet", () => {
+  it("fetches the price-sheet route, attaches it under its own filename, and sends the restock prompt", async () => {
+    mountComposer({ encodeMs: 10 });
+    const fetchSpy = vi.fn(okResponse);
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const sent = await sendRestockRequestWithPriceSheet();
+
+    expect(sent).toBe(true);
+    // 1 — the URL commerce passes.
+    expect(fetchSpy).toHaveBeenCalledWith(EXPECTED_URL);
+    // 2 — the filename, read off the File the composer was actually handed. It
+    // cannot be read off the chip here: a confirmed send has CONSUMED the chip
+    // by this point, which is the third assertion below. The paperclip case,
+    // which never sends, is where the chip is checked for printing it.
+    expect(
+      document.querySelector<HTMLInputElement>(
+        'input[type="file"][accept*="pdf"]',
+      )?.files?.[0]?.name,
+    ).toBe(EXPECTED_FILENAME);
+    // 3 — the message, which is the parameter that fails SILENTLY when wrong:
+    // the pill still sends, just not the prompt the beat needs.
+    expect(
+      document.querySelector<HTMLTextAreaElement>(CHAT_TEXTAREA_SELECTOR)
+        ?.value,
+    ).toBe(RESTOCK_PLAN_MESSAGE);
+    expect(sendClicks).toHaveBeenCalledTimes(1);
+    // Consumed: the attachment rode the message out.
+    expect(queuedChipCount()).toBe(0);
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  it("aborts the send, loudly, when the price-sheet route fails", async () => {
+    // One representative failure, not the taxonomy — the fifteen causes are
+    // driven in src/shell/attach/stage-attachment.test.ts. What is asserted here
+    // is that commerce is wired to a chain that ABORTS: without the sheet the
+    // model invents the costs and the plan is filed anyway.
     mountComposer();
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => ({ ok: false, status: 500 }) as unknown as Response),
     );
 
-    const result = await stagePriceSheetAttachment(fast());
-
-    expect(result.staged).toBe(false);
-    expect(result.staged === false && result.cause).toBe("http-error");
-    expect(detailOf(result)).toContain("HTTP 500");
-    expect(detailOf(result)).toContain(PRICE_SHEET_URL);
-  });
-
-  it("names the thrown error when the fetch itself dies", async () => {
-    mountComposer();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
-        throw new Error("network down");
-      }),
-    );
-
-    const result = await stagePriceSheetAttachment(fast());
-
-    expect(result.staged).toBe(false);
-    expect(result.staged === false && result.cause).toBe("fetch-failed");
-    expect(detailOf(result)).toContain("network down");
-  });
-
-  it("rejects a 200 whose body is not a PDF, rather than smuggling it past the accept filter", async () => {
-    // The File is built with `type:"application/pdf"` so the composer's accept
-    // filter takes it — which means an HTML error page served with 200 would sail
-    // straight through and the model would be told to read costs off a web page.
-    mountComposer();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        bodyResponse(
-          new TextEncoder().encode("<!doctype html><h1>500 — route threw</h1>"),
-        ),
-      ),
-    );
-
-    const result = await stagePriceSheetAttachment(fast());
-
-    expect(result.staged).toBe(false);
-    expect(result.staged === false && result.cause).toBe("not-a-pdf");
-    expect(detailOf(result)).toContain("not a PDF");
-    // Nothing was pushed at the composer at all.
-    expect(queuedChipCount()).toBe(0);
-  });
-
-  it("rejects a 200 with an empty body", async () => {
-    mountComposer();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => bodyResponse(new Uint8Array())),
-    );
-
-    const result = await stagePriceSheetAttachment(fast());
-
-    expect(result.staged).toBe(false);
-    expect(result.staged === false && result.cause).toBe("empty-body");
-    expect(detailOf(result)).toContain("EMPTY");
-  });
-
-  it("names the missing composer file input — the formerly silent path", async () => {
-    mountComposer({ fileInput: false });
-    vi.stubGlobal("fetch", vi.fn(okResponse));
-
-    const result = await stagePriceSheetAttachment(fast());
-
-    expect(result.staged).toBe(false);
-    expect(result.staged === false && result.cause).toBe("no-file-input");
-    expect(detailOf(result)).toContain(PRICE_SHEET_FILE_INPUT_SELECTOR);
-  });
-
-  it("does NOT claim staged when the composer silently REJECTED the file", async () => {
-    // `processFiles` drops a file failing accept/maxSize and calls an
-    // `onUploadFailed` this app never wires, so the only trace is a chip that
-    // never appears. Dispatching `change` is a request, not an outcome.
-    mountComposer({ rejectFile: true });
-    vi.stubGlobal("fetch", vi.fn(okResponse));
-
-    const result = await stagePriceSheetAttachment(fast());
-
-    expect(result.staged).toBe(false);
-    expect(result.staged === false && result.cause).toBe("rejected");
-    expect(detailOf(result)).toContain("rejected");
-  });
-
-  it("does NOT claim staged while the file is still ENCODING", async () => {
-    // `consumeAttachments` hands over only `ready` files and `onSubmitInput`
-    // refuses to send while anything is `uploading`. A chip in the queue is not
-    // a sendable attachment.
-    mountComposer({ encodeMs: "never" });
-    vi.stubGlobal("fetch", vi.fn(okResponse));
-
-    const result = await stagePriceSheetAttachment(fast({ readyMs: 0 }));
-
-    expect(result.staged).toBe(false);
-    expect(result.staged === false && result.cause).toBe("encode-timeout");
-    // The file WAS accepted — the queue holds it — it just is not ready.
-    expect(queuedChipCount()).toBe(1);
-  });
-
-  it("stages only once the chip is queued AND finished encoding", async () => {
-    mountComposer({ encodeMs: 10 });
-    vi.stubGlobal("fetch", vi.fn(okResponse));
-    const changes = vi.fn();
-    document.body.addEventListener("change", changes);
-
-    const result = await stagePriceSheetAttachment(fast());
-
-    expect(result.staged).toBe(true);
-    const input = document.querySelector<HTMLInputElement>(
-      PRICE_SHEET_FILE_INPUT_SELECTOR,
-    );
-    expect(input?.files?.[0]?.name).toBe(PRICE_SHEET_FILENAME);
-    expect(changes).toHaveBeenCalled();
-    expect(
-      document.querySelector(ATTACHMENT_QUEUE_SELECTOR)?.textContent,
-    ).toContain(PRICE_SHEET_FILENAME);
-  });
-});
-
-describe("sendRestockRequestWithPriceSheet: never sends an unattached prompt", () => {
-  it.each([
-    [
-      "the route answers 500",
-      () =>
-        vi.fn(async () => ({ ok: false, status: 500 }) as unknown as Response),
-      {},
-      {},
-      "HTTP 500",
-    ],
-    [
-      "the fetch throws",
-      () =>
-        vi.fn(async () => {
-          throw new Error("network down");
-        }),
-      {},
-      {},
-      "network down",
-    ],
-    [
-      "the body is an HTML error page, not a PDF",
-      () =>
-        vi.fn(async () =>
-          bodyResponse(new TextEncoder().encode("<!doctype html>nope")),
-        ),
-      {},
-      {},
-      "not a PDF",
-    ],
-    [
-      "the composer's file input is gone",
-      () => vi.fn(okResponse),
-      { fileInput: false },
-      {},
-      PRICE_SHEET_FILE_INPUT_SELECTOR,
-    ],
-    [
-      "the composer REJECTED the file",
-      () => vi.fn(okResponse),
-      { rejectFile: true },
-      {},
-      "rejected by the attachment filter",
-    ],
-    [
-      "the file is still encoding",
-      () => vi.fn(okResponse),
-      { encodeMs: "never" as const },
-      { readyMs: 0 },
-      "never finished encoding",
-    ],
-  ])(
-    "aborts, and says so, when %s",
-    async (_label, makeFetch, dom: ComposerOptions, budget, expectedText) => {
-      mountComposer(dom);
-      vi.stubGlobal("fetch", makeFetch());
-
-      const sent = await sendRestockRequestWithPriceSheet(fast(budget));
-
-      expect(sent).toBe(false);
-      // THE assertion. Without the sheet the model invents the costs, so the
-      // prompt must not reach the composer at all.
-      expect(sendClicks).not.toHaveBeenCalled();
-      expect(
-        document.querySelector<HTMLTextAreaElement>(CHAT_TEXTAREA_SELECTOR)
-          ?.value,
-      ).toBe("");
-      // Every failure surfaces, in the log AND on the screen.
-      expect(errorSpy).toHaveBeenCalled();
-      expect(alertSpy).toHaveBeenCalled();
-      expect(surfacedText()).toContain(expectedText);
-    },
-  );
-
-  it("aborts BEFORE staging when the composer cannot be driven", async () => {
-    // A framework test-id rename. This used to return early AFTER staging and
-    // AFTER onSuggestionSelect had claimed the click, making the pill a total
-    // no-op. It must now bail before touching the network, so no attachment is
-    // left stranded in a composer we cannot submit.
-    mountComposer({ textarea: false });
-    const fetchSpy = vi.fn(okResponse);
-    vi.stubGlobal("fetch", fetchSpy);
-
-    const sent = await sendRestockRequestWithPriceSheet(fast());
-
-    expect(sent).toBe(false);
-    expect(fetchSpy).not.toHaveBeenCalled();
-    expect(alertSpy).toHaveBeenCalled();
-    expect(surfacedText()).toContain(CHAT_TEXTAREA_SELECTOR);
-  });
-
-  it("does NOT click a STOP button — that would cancel the run, not send", async () => {
-    // One button plays both roles (CopilotChatInput.tsx:520-530, 540-547). Mid-run
-    // it is a Stop button and a click aborts the run: the beat would then have
-    // killed the presenter's demo AND reported success.
-    mountComposer({ sendRole: "stop" });
-    vi.stubGlobal("fetch", vi.fn(okResponse));
-
-    const sent = await sendRestockRequestWithPriceSheet(fast());
+    const sent = await sendRestockRequestWithPriceSheet();
 
     expect(sent).toBe(false);
     expect(sendClicks).not.toHaveBeenCalled();
-    expect(surfacedText()).toContain("STOP button");
-    expect(surfacedText()).toContain("CANCEL");
-  });
-
-  it("does NOT click a DISABLED send button", async () => {
-    // `canSend` never flips — React did not register the prompt. The old code
-    // clicked anyway, which dispatches nothing, and resolved `true`.
-    mountComposer({ neverEnableSend: true });
-    vi.stubGlobal("fetch", vi.fn(okResponse));
-
-    const sent = await sendRestockRequestWithPriceSheet(
-      fast({ sendableMs: 0 }),
-    );
-
-    expect(sent).toBe(false);
-    expect(sendClicks).not.toHaveBeenCalled();
-    expect(surfacedText()).toContain("stayed disabled");
-  });
-
-  it("does NOT click a button whose role it cannot identify", async () => {
-    // A lucide rename. Failing CLOSED matters: the unknown button might be Stop.
-    mountComposer({ sendRole: "unrecognized" });
-    vi.stubGlobal("fetch", vi.fn(okResponse));
-
-    const sent = await sendRestockRequestWithPriceSheet(
-      fast({ sendableMs: 0 }),
-    );
-
-    expect(sent).toBe(false);
-    expect(sendClicks).not.toHaveBeenCalled();
-    expect(surfacedText()).toContain("role cannot be identified");
-  });
-
-  it("does NOT claim success when React's textarea value setter is gone", async () => {
-    // The setter used to be invoked as `setter?.call(...)`, optional-chaining away
-    // the only failure available and then dispatching an `input` event carrying
-    // the STALE value.
-    const proto = window.HTMLTextAreaElement.prototype;
-    const original = Object.getOwnPropertyDescriptor(proto, "value");
-    expect(original?.set).toBeTypeOf("function");
-    // `set: undefined` is REQUIRED, not decorative: defineProperty leaves omitted
-    // attributes of an EXISTING property unchanged, so omitting it silently keeps
-    // jsdom's real setter and this test would pass against the broken code.
-    Object.defineProperty(proto, "value", {
-      configurable: true,
-      enumerable: original?.enumerable,
-      get: original?.get,
-      set: undefined,
-    });
-    try {
-      mountComposer();
-      vi.stubGlobal("fetch", vi.fn(okResponse));
-
-      const sent = await sendRestockRequestWithPriceSheet(fast());
-
-      expect(sent).toBe(false);
-      expect(sendClicks).not.toHaveBeenCalled();
-      expect(surfacedText()).toContain(
-        "could not be written into the composer",
-      );
-    } finally {
-      Object.defineProperty(proto, "value", original!);
-    }
-  });
-
-  it("does NOT claim the send when the click never consumed the attachment", async () => {
-    // The click is a request too. If `consumeAttachments` never runs, the sheet is
-    // still sitting in the queue and nothing carrying it went out.
-    mountComposer({ consumeOnSend: false });
-    vi.stubGlobal("fetch", vi.fn(okResponse));
-
-    const sent = await sendRestockRequestWithPriceSheet(
-      fast({ consumedMs: 0 }),
-    );
-
-    expect(sent).toBe(false);
-    expect(sendClicks).toHaveBeenCalledTimes(1);
-    expect(surfacedText()).toContain("unconfirmed");
-    // The ONE case where "nothing was sent" would be a lie — a message may be in
-    // flight, and telling the presenter otherwise invites a double send.
-    expect(surfacedText()).not.toContain("nothing was sent");
-    expect(surfacedText()).toContain("Could not confirm");
-  });
-
-  it("sends the prompt with the sheet on the happy path", async () => {
-    mountComposer({ encodeMs: 10 });
-    vi.stubGlobal("fetch", vi.fn(okResponse));
-
-    const sent = await sendRestockRequestWithPriceSheet(fast());
-
-    expect(sent).toBe(true);
-    expect(sendClicks).toHaveBeenCalledTimes(1);
     expect(
       document.querySelector<HTMLTextAreaElement>(CHAT_TEXTAREA_SELECTOR)
         ?.value,
-    ).toBe(RESTOCK_PLAN_MESSAGE);
-    // Consumed: the attachment rode the message out.
-    expect(queuedChipCount()).toBe(0);
-    expect(alertSpy).not.toHaveBeenCalled();
+    ).toBe("");
+    expect(errorSpy).toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalled();
+    expect(surfacedText()).toContain(EXPECTED_URL);
   });
 });
 
-describe("attachPriceSheetByHand: the paperclip fallback is the loudest link", () => {
+describe("attachPriceSheetByHand: the paperclip fallback", () => {
+  it("attaches the sheet and sends nothing", async () => {
+    mountComposer({ encodeMs: 10 });
+    const fetchSpy = vi.fn(okResponse);
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await expect(attachPriceSheetByHand()).resolves.toBe(true);
+
+    expect(fetchSpy).toHaveBeenCalledWith(EXPECTED_URL);
+    // The chip PRINTS the filename — which is the signal the chain waits on to
+    // know base64 encoding finished, and the one thing a presenter can see.
+    expect(
+      document.querySelector(ATTACHMENT_QUEUE_SELECTOR)?.textContent,
+    ).toContain(EXPECTED_FILENAME);
+    expect(sendClicks).not.toHaveBeenCalled();
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
   it("reports rather than resolving quietly when staging fails", async () => {
-    mountComposer({ fileInput: false });
-    vi.stubGlobal("fetch", vi.fn(okResponse));
+    // It is the fallback for a misbehaving pill, so it must be the loudest link:
+    // if this one fails quietly too, the presenter has nothing left to try.
+    mountComposer();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false, status: 500 }) as unknown as Response),
+    );
 
-    const attached = await attachPriceSheetByHand(fast());
+    await expect(attachPriceSheetByHand()).resolves.toBe(false);
 
-    expect(attached).toBe(false);
     expect(errorSpy).toHaveBeenCalled();
     expect(alertSpy).toHaveBeenCalled();
-  });
-
-  it("does not claim the sheet is attached while it is still encoding", async () => {
-    // The paperclip's contract is "the sheet is now attached", and an attachment
-    // stuck in `uploading` is one the composer would refuse to send.
-    mountComposer({ encodeMs: "never" });
-    vi.stubGlobal("fetch", vi.fn(okResponse));
-
-    const attached = await attachPriceSheetByHand(fast({ readyMs: 0 }));
-
-    expect(attached).toBe(false);
-    expect(surfacedText()).toContain("never finished encoding");
-    // It never claims a send it did not attempt.
+    // It never intended to send, so it must not claim a send failed.
     expect(surfacedText()).not.toContain("nothing was sent");
-  });
-
-  it("resolves true and stays quiet when it works", async () => {
-    mountComposer({ encodeMs: 10 });
-    vi.stubGlobal("fetch", vi.fn(okResponse));
-
-    await expect(attachPriceSheetByHand(fast())).resolves.toBe(true);
-    expect(alertSpy).not.toHaveBeenCalled();
   });
 });
 
@@ -693,8 +372,8 @@ describe("commerce.onSuggestionSelect", () => {
     // is unconditionally right here — the default path drops attachments. What
     // must never happen again is `true` plus total silence, so a missing
     // composer has to have surfaced something by the time this returns. The
-    // report is synchronous (the guard runs before the first await), which is
-    // exactly why the composer lookup moved ahead of staging.
+    // report is synchronous (the shell chain locates the composer before the
+    // first await), which is exactly why that lookup comes ahead of staging.
     mountComposer({ textarea: false, sendButton: false });
     vi.stubGlobal("fetch", vi.fn(okResponse));
 

@@ -5,6 +5,8 @@ import { probeBaseline } from "./verify-deploy.drivers.baseline";
 import { domainFor } from "./railway-envs";
 
 const PRODUCTION_DOCS_ORIGIN = `https://${domainFor("docs", "prod")}`;
+const PRODUCTION_OPS_ORIGIN = "https://dashboard.operations.copilotkit.ai";
+const STAGING_OPS_ORIGIN = "https://dashboard.staging.operations.copilotkit.ai";
 const SURFACE_TIMEOUT_MS = 30_000;
 
 interface SurfaceResponse {
@@ -21,7 +23,7 @@ function attributes(tag: string): Map<string, string> {
   return out;
 }
 
-function metadataUrl(
+export function metadataUrl(
   html: string,
   attribute: "rel" | "property",
   value: "canonical" | "og:url",
@@ -65,24 +67,89 @@ function absoluteUrls(text: string): string[] {
   return text.match(/https?:\/\/[^\s<>)"']+/g) ?? [];
 }
 
-function markdownLinkUrls(text: string): string[] {
+export function markdownLinkUrls(text: string): string[] {
   return [...text.matchAll(/\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/g)].map(
     (match) => match[1],
   );
 }
 
-function sourceUrls(text: string): string[] {
+export function sourceUrls(text: string): string[] {
   return [...text.matchAll(/^## Source:\s+(https?:\/\/\S+)\s*$/gm)].map(
     (match) => match[1],
   );
 }
 
-function validateUrls(urls: string[], label: string): string | undefined {
+export function sitemapUrls(text: string): string[] {
+  return [...text.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/gi)].map(
+    (match) => match[1],
+  );
+}
+
+// The curated index intentionally sends agents to the website's stable entry.
+// Keep this exception exact: it does not authorize other website/preview URLs.
+export function isSupportedOnboardingUrl(url: string): boolean {
+  return (
+    url === "https://copilotkit.ai/onboarding-prompts" ||
+    url === "https://www.copilotkit.ai/onboarding-prompts"
+  );
+}
+
+function validateUrls(
+  urls: string[],
+  label: string,
+  allowOnboarding = false,
+): string | undefined {
   if (urls.length === 0) return `${label} contains no generated URLs`;
   for (const url of urls) {
+    if (allowOnboarding && isSupportedOnboardingUrl(url)) continue;
     const error = assertCanonicalUrl(url, label);
     if (error) return error;
   }
+  return undefined;
+}
+
+export function validateDocsAuthRuntimeConfig(
+  html: string,
+  expectedOpsOrigin: string,
+  expectedKeyPrefix: "pk_live_" | "pk_test_",
+): string | undefined {
+  const match = html.match(/window\.__SHOWCASE_CONFIG__=(\{[^<]*\});/);
+  if (!match) return "runtime config injection is missing";
+
+  let rawConfig: unknown;
+  try {
+    rawConfig = JSON.parse(match[1]);
+  } catch {
+    return "runtime config injection is not valid JSON";
+  }
+  if (!rawConfig || typeof rawConfig !== "object") {
+    return "runtime config injection is not an object";
+  }
+
+  const config = rawConfig as Record<string, unknown>;
+  const publishableKey = config.clerkPublishableKey;
+  if (
+    typeof publishableKey !== "string" ||
+    !publishableKey.startsWith(expectedKeyPrefix) ||
+    publishableKey.length <= expectedKeyPrefix.length
+  ) {
+    return `clerkPublishableKey must use the matching ${expectedKeyPrefix} Clerk key`;
+  }
+
+  const opsUrl = config.intelligenceSignupUrl;
+  if (typeof opsUrl !== "string" || opsUrl.length === 0) {
+    return "intelligenceSignupUrl is missing";
+  }
+  let parsedOpsUrl: URL;
+  try {
+    parsedOpsUrl = new URL(opsUrl);
+  } catch {
+    return `intelligenceSignupUrl is not an absolute URL: "${opsUrl}"`;
+  }
+  if (parsedOpsUrl.origin !== expectedOpsOrigin) {
+    return `intelligenceSignupUrl uses ${parsedOpsUrl.origin}; expected ${expectedOpsOrigin}`;
+  }
+
   return undefined;
 }
 
@@ -139,6 +206,13 @@ export async function checkProductionDocsCanonicalHost(
   const byPath = new Map(
     surfaces.map((surface) => [surface.path, surface.body]),
   );
+  const authConfigError = validateDocsAuthRuntimeConfig(
+    byPath.get("/") ?? "",
+    PRODUCTION_OPS_ORIGIN,
+    "pk_live_",
+  );
+  if (authConfigError) return `docs: ${authConfigError}`;
+
   for (const path of ["/", "/quickstart"] as const) {
     const html = byPath.get(path) ?? "";
     const expectedUrl = `${PRODUCTION_DOCS_ORIGIN}${path}`;
@@ -164,9 +238,7 @@ export async function checkProductionDocsCanonicalHost(
   }
 
   const sitemapError = validateUrls(
-    [
-      ...(byPath.get("/sitemap.xml") ?? "").matchAll(/<loc>([^<]+)<\/loc>/g),
-    ].map((match) => match[1]),
+    sitemapUrls(byPath.get("/sitemap.xml") ?? ""),
     "sitemap.xml <loc>",
   );
   if (sitemapError) return `docs: ${sitemapError}`;
@@ -174,6 +246,7 @@ export async function checkProductionDocsCanonicalHost(
   const llmsError = validateUrls(
     markdownLinkUrls(byPath.get("/llms.txt") ?? ""),
     "llms.txt link",
+    true,
   );
   if (llmsError) return `docs: ${llmsError}`;
 
@@ -188,9 +261,9 @@ export async function checkProductionDocsCanonicalHost(
 
 /**
  * Production docs verifier: Railway deployment-SUCCESS + HTTP 200 baseline,
- * followed by a deployed-output smoke test for every machine-facing URL
- * surface. Staging retains the shared baseline; the production promotion
- * gate runs the canonical smoke against docs.copilotkit.ai.
+ * followed by a deployed-output auth-config smoke in every environment.
+ * The production promotion gate additionally validates every machine-facing
+ * URL surface against docs.copilotkit.ai.
  */
 export async function probeDocs(target: ProbeTarget): Promise<ProbeOutcome> {
   const baseline = await probeBaseline(target, {
@@ -199,7 +272,22 @@ export async function probeDocs(target: ProbeTarget): Promise<ProbeOutcome> {
   });
   if (!baseline.ok) return baseline;
 
-  if (target.host !== domainFor("docs", "prod")) return baseline;
-  const error = await checkProductionDocsCanonicalHost(target.host);
+  let error: string | undefined;
+  if (target.host === domainFor("docs", "prod")) {
+    error = await checkProductionDocsCanonicalHost(target.host);
+  } else {
+    try {
+      const home = await fetchSurface(target.host, "/", globalThis.fetch);
+      const configError = validateDocsAuthRuntimeConfig(
+        home.body,
+        STAGING_OPS_ORIGIN,
+        "pk_test_",
+      );
+      error = configError ? `docs: ${configError}` : undefined;
+    } catch (caught: unknown) {
+      const message = caught instanceof Error ? caught.message : String(caught);
+      error = `docs: auth-config smoke fetch failed: ${message}`;
+    }
+  }
   return error ? { ok: false, error } : baseline;
 }

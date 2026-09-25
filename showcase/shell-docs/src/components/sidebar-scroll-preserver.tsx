@@ -14,6 +14,8 @@
 //   2. Applies it to the sidebar's `[data-radix-scroll-area-viewport]`.
 //   3. Registers a passive scroll listener that writes the latest
 //      scrollTop back to sessionStorage on every frame.
+//   4. Marks the scroll frame when more content exists above or below,
+//      allowing CSS to render subtle edge shadows as scroll affordances.
 //
 // Why sessionStorage: persists for the tab session (long enough that
 // reload preserves position) but isolates per-tab so two tabs don't
@@ -34,6 +36,25 @@ export function SidebarScrollPreserver() {
       "aside.shell-docs-sidebar [data-radix-scroll-area-viewport]",
     );
     if (!viewport) return;
+    const scrollFrame = viewport.parentElement;
+    if (scrollFrame) {
+      scrollFrame.dataset.shellDocsScrollFrame = "";
+    }
+
+    const updateScrollEdges = () => {
+      if (!scrollFrame) return;
+      const hasContentAbove = viewport.scrollTop > 1;
+      const hasContentBelow =
+        viewport.scrollTop + viewport.clientHeight < viewport.scrollHeight - 1;
+      scrollFrame.toggleAttribute(
+        "data-shell-docs-scroll-shadow-top",
+        hasContentAbove,
+      );
+      scrollFrame.toggleAttribute(
+        "data-shell-docs-scroll-shadow-bottom",
+        hasContentBelow,
+      );
+    };
 
     // Restore saved scroll position. Doing this in useLayoutEffect
     // means the assignment happens BEFORE the browser paints, so the
@@ -45,6 +66,7 @@ export function SidebarScrollPreserver() {
         viewport.scrollTop = top;
       }
     }
+    updateScrollEdges();
 
     // Persist scroll on every change. `requestAnimationFrame`-coalesce
     // so a continuous drag/scroll-wheel doesn't pound sessionStorage.
@@ -53,13 +75,24 @@ export function SidebarScrollPreserver() {
       if (rafId !== null) return;
       rafId = requestAnimationFrame(() => {
         sessionStorage.setItem(STORAGE_KEY, String(viewport.scrollTop));
+        updateScrollEdges();
         rafId = null;
       });
     };
+    const content = viewport.firstElementChild;
+    const resizeObserver = new ResizeObserver(updateScrollEdges);
+    resizeObserver.observe(viewport);
+    if (content) resizeObserver.observe(content);
     viewport.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       viewport.removeEventListener("scroll", onScroll);
+      resizeObserver.disconnect();
       if (rafId !== null) cancelAnimationFrame(rafId);
+      if (scrollFrame) {
+        delete scrollFrame.dataset.shellDocsScrollFrame;
+        scrollFrame.removeAttribute("data-shell-docs-scroll-shadow-top");
+        scrollFrame.removeAttribute("data-shell-docs-scroll-shadow-bottom");
+      }
     };
   }, []);
 

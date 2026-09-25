@@ -23,7 +23,10 @@ import {
 } from "@/skins/banking/suggestions";
 import { NORTHWIND_DESIGN_SKILL } from "@/skins/banking/design-skill";
 import { sandboxFunctions } from "@/skins/banking/sandbox-functions";
-import { stageInvoiceAttachment } from "@/skins/banking/attach-invoice";
+import {
+  attachInvoiceByHand,
+  sendQ2WithInvoice,
+} from "@/skins/banking/attach-invoice";
 import CardsPage from "@/skins/banking/pages/cards";
 import DashboardPage from "@/skins/banking/pages/dashboard";
 import ChargesPage from "@/skins/banking/pages/charges";
@@ -35,17 +38,24 @@ import TeamPage from "@/skins/banking/pages/team";
 // the roster. `""` and the explicit `"cards"` alias both resolve to the cards
 // face; the old `/cards` → dashboard re-export is dropped (dashboard is reached
 // via its own segment). Anything else → null → 404.
-const PAGES: Record<string, ComponentType> = {
-  "": CardsPage,
-  cards: CardsPage,
-  dashboard: DashboardPage,
-  charges: ChargesPage,
-  team: TeamPage,
-};
+// A Map, NOT an object literal: an object inherits Object.prototype, so
+// PAGES["constructor"] returns a truthy Function and `?? null` never fires.
+// /banking/constructor would then sail past the shell's `if (!Page) notFound()`
+// and try to render a non-component -- a 500 where a 404 belongs. Same for
+// toString, valueOf, hasOwnProperty, __proto__ and the rest of the prototype.
+// A Map has no prototype keys, so the ?? is the only gate needed.
+// `src/shell/resolve-page-prototype.test.ts` walks every registered skin.
+const PAGES = new Map<string, ComponentType>([
+  ["", CardsPage],
+  ["cards", CardsPage],
+  ["dashboard", DashboardPage],
+  ["charges", ChargesPage],
+  ["team", TeamPage],
+]);
 
 function resolvePage(segments: string[]): ComponentType | null {
   const key = segments.length === 0 ? "" : segments.join("/");
-  return PAGES[key] ?? null;
+  return PAGES.get(key) ?? null;
 }
 
 // Human-readable labels for the tool-activity chips (banking-domain; moved off
@@ -62,47 +72,19 @@ const TOOL_LABELS: Record<string, string> = {
   showPendingApprovals: "Loading the approvals queue",
 };
 
-/**
- * The Q2 report pill is the multimodal beat: it must ride a real PDF attachment
- * so the model reads the invoice. The framework's suggestion path drops
- * attachments, so this pill instead drives the REAL composer — stage the bundled
- * invoice into the attachment queue, type the request, and click send — routing
- * through the composer's onSubmitInput (which consumes the attachment and
- * handles the frontend-tool + Intelligence run lifecycle correctly). Matched by
- * string equality against the suggestion message, so it stays correct
- * regardless of pill order.
- */
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-/** Set a React-controlled textarea's value so its onChange fires. */
-function setTextareaValue(el: HTMLTextAreaElement, value: string) {
-  const setter = Object.getOwnPropertyDescriptor(
-    window.HTMLTextAreaElement.prototype,
-    "value",
-  )?.set;
-  setter?.call(el, value);
-  el.dispatchEvent(new Event("input", { bubbles: true }));
-}
-
-/** Stage the invoice, type the Q2 request, click send — via the real composer. */
-async function sendQ2WithInvoice() {
-  const staged = await stageInvoiceAttachment();
-  // Let the built-in attachment handler finish base64-encoding the file so the
-  // composer's send is not blocked by an "uploading" attachment.
-  if (staged) await wait(500);
-
-  const textarea = document.querySelector<HTMLTextAreaElement>(
-    'textarea[data-testid="copilot-chat-textarea"]',
-  );
-  if (!textarea) return;
-  setTextareaValue(textarea, Q2_REPORT_MESSAGE);
-  await wait(60);
-
-  const sendButton = document.querySelector<HTMLButtonElement>(
-    'button[data-testid="copilot-send-button"]',
-  );
-  sendButton?.click();
-}
+// ── BEAT 3d: driving the real composer ──────────────────────────────────────
+// The Q2 report pill is the multimodal beat: it must ride a real PDF attachment
+// so the model reads the invoice. The framework's suggestion path DROPS
+// attachments, so this pill is intercepted below and pushed through the actual
+// composer — the only path that consumes an attachment on submit. Matched by
+// string equality against the shared message constant, so it stays correct
+// regardless of pill order.
+//
+// The chain itself is `@/shell/attach`, reached through `./attach-invoice`. It
+// replaced a hand-rolled send that lived HERE and sent the prompt whether or not
+// staging succeeded, behind a fixed 500 ms sleep that raced the framework's
+// base64 encode. Both entry points now abort on any failure and report it to the
+// presenter, so neither can be launched into silence — a plain `void` is enough.
 
 // NOTE: no `agent` field — agents are server-only, registered in
 // src/shell/agent-registry.ts keyed by this same id ("banking"). This module
@@ -135,17 +117,27 @@ const banking: Skin = {
     {
       icon: Paperclip,
       label: "Attach Q2 invoice",
-      onClick: () => void stageInvoiceAttachment(),
+      // The fallback, so it must be the loudest link: if this one fails quietly
+      // too, the presenter has nothing left to try. `attachInvoiceByHand` has
+      // already reported before it resolves `false`, and its own catch covers
+      // the unexpected, so it cannot reject and the `void` drops nothing.
+      onClick: () => void attachInvoiceByHand(),
     },
   ],
   // Intercept the Q2 pill to ride the invoice attachment; every other pill takes
   // the shell's default "send the message" path.
   onSuggestionSelect: (suggestion: Suggestion) => {
-    if (suggestion.message === Q2_REPORT_MESSAGE) {
-      void sendQ2WithInvoice();
-      return true;
+    if (suggestion.message !== Q2_REPORT_MESSAGE) {
+      return false; // every other pill takes the default "send the message" path
     }
-    return false;
+    // `true` means "the shell must not run its default send", and that is
+    // unconditionally correct for this pill: the default path would send "prepare
+    // the Q2 report" with the invoice DROPPED, which is the exact failure beat 3d
+    // cannot survive. Claiming the click is only honest because
+    // `sendQ2WithInvoice` guarantees two outcomes — sent WITH the invoice, or
+    // aborted and the presenter told why — never `true` plus silence.
+    void sendQ2WithInvoice();
+    return true;
   },
 };
 

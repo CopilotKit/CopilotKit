@@ -112,7 +112,7 @@ function threadButtonStyle(threadId: typeof selectedThreadId.value) {
 </script>
 
 <template>
-  <CopilotKitProvider runtime-url="/api/copilotkit" show-dev-console="auto">
+  <CopilotKitProvider runtime-url="/api/copilotkit">
     <div style="height: 100vh; margin: 0; padding: 0; overflow: hidden">
       <div
         style="

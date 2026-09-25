@@ -5,21 +5,21 @@ description: Run a production Channels listener, expose truthful health checks, 
 doc_type: how-to
 ---
 
+import ChannelsInstall from "@/snippets/shared/channels/install.mdx";
+
 A managed Channel is a long-running worker with an outbound realtime
 connection. It is not a serverless request handler. Deploy it like a queue
 consumer or WebSocket worker.
 
 ## Use the tested runtime pair
 
-```bash title="Terminal"
-npm install --save-exact @copilotkit/channels@0.6.1 @copilotkit/runtime@1.65.0
-```
+<ChannelsInstall />
 
 Run Node.js 22 or later. The managed launcher relies on the global `WebSocket`
 available in Node.js 22+.
 
-Upgrade Channels and Runtime together, then run the same real-provider smoke
-test used for the initial quickstart.
+After changing either package, run the same real-provider smoke test used for
+the initial quickstart.
 
 ## Settle before reporting ready
 
@@ -113,7 +113,7 @@ shutdown is possible.
 Keep these server-side:
 
 ```dotenv title=".env"
-INTELLIGENCE_API_KEY=<project-runtime-key>
+CPK_INTELLIGENCE_API_KEY=<project-runtime-key>
 CHANNEL_CODE=<exact-intelligence-code>
 
 # Optional paired overrides for self-hosted or non-production Intelligence:
@@ -121,7 +121,7 @@ CHANNEL_CODE=<exact-intelligence-code>
 # INTELLIGENCE_GATEWAY_WS_URL=wss://realtime.intelligence.example.com
 ```
 
-Hosted Intelligence supplies the managed endpoints by default. For a
+Cloud-hosted Intelligence supplies the default endpoints. For a
 self-hosted or non-production deployment, override both bases together. Do not
 derive one from the other or append `/api`, `/socket`, `/runner`, `/client`, or
 `/channels`.

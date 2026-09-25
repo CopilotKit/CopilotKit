@@ -7,7 +7,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { DemonstrationCard, RefundCard } from "./tools";
-import { RecordingProvider } from "./components/recording-context";
+import { RecordingProvider } from "@/shell/teach";
 import type { ReturnRequest } from "./data/types";
 
 /**

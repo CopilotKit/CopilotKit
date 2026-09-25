@@ -269,6 +269,41 @@ describe("IntelligenceAgent", () => {
       });
     });
 
+    it("carries the AG-UI resume array in the run body", async () => {
+      const resume = [
+        {
+          interruptId: "int-1",
+          status: "resolved" as const,
+          payload: { ok: true },
+        },
+      ];
+      const agent = createAgent();
+      agent
+        .run({ ...defaultInput, resume })
+        .subscribe({ next: () => {}, error: () => {} });
+      await flushAsyncWork();
+
+      const [, options] = mockFetch.mock.calls[0]!;
+      expect(JSON.parse(options.body).resume).toEqual(resume);
+    });
+
+    it("posts every RunAgentInput field, so no protocol field is dropped", async () => {
+      const input: RunAgentInput = {
+        ...defaultInput,
+        forwardedProps: { command: { resume: "yes" } },
+        resume: [{ interruptId: "int-1", status: "cancelled" }],
+        state: { step: 2 },
+      };
+      const agent = createAgent();
+      agent.run(input).subscribe({ next: () => {}, error: () => {} });
+      await flushAsyncWork();
+
+      const body = JSON.parse(mockFetch.mock.calls[0]![1].body);
+      for (const key of Object.keys(input) as (keyof RunAgentInput)[]) {
+        expect(body[key]).toEqual(input[key]);
+      }
+    });
+
     it("does not push any events to the channel during join", async () => {
       const agent = createAgent();
       agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
@@ -503,6 +538,83 @@ describe("IntelligenceAgent", () => {
         stream_mode: "connect",
         last_seen_event_id: "event-2",
       });
+    });
+
+    // A realtime endpoint that answers 503 never opens the socket. Each exhausted
+    // session fetched fresh credentials and started over with no limit, so one chat
+    // turn waited about 96 s before anything reached the developer (PE-84).
+    it("fails the run with a realtime error when refreshed sockets never open", async () => {
+      mockFetch.mockImplementation(() =>
+        jsonResponse(
+          runtimeCredentials({ clientUrl: "wss://rt.example/client" }),
+        ),
+      );
+      const agent = createAgent();
+      const promise = collectEvents(agent);
+
+      for (let round = 0; round < 10; round += 1) {
+        await waitForConnection(agent);
+        const socket = getSocket(agent);
+        if (!socket) break;
+        for (let i = 0; i < 5; i++) {
+          socket.triggerError(new Error("503"));
+        }
+      }
+
+      const result = await promise;
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+      expect(result.completed).toBe(false);
+      expect(result.error?.message).toContain("wss://rt.example/client");
+      expect(result.error?.message).toContain("never opened");
+    });
+
+    it("keeps reconnecting a connect whose sockets never open", async () => {
+      mockFetch.mockImplementation(() => jsonResponse(runtimeCredentials()));
+      const agent = createAgent();
+      let error: Error | null = null;
+      connectWithTestAccess(agent).subscribe({
+        next: () => {},
+        error: (err) => {
+          error = err;
+        },
+      });
+
+      for (let round = 0; round < 5; round += 1) {
+        await waitForConnection(agent);
+        const socket = getSocket(agent)!;
+        for (let i = 0; i < 5; i++) {
+          socket.triggerError(new Error("503"));
+        }
+      }
+      await waitForConnection(agent);
+
+      expect(mockFetch).toHaveBeenCalledTimes(6);
+      expect(error).toBeNull();
+    });
+
+    it("keeps refreshing credentials when the refreshed socket opened before failing", async () => {
+      mockFetch.mockImplementation(() => jsonResponse(runtimeCredentials()));
+      const agent = createAgent();
+      let error: Error | null = null;
+      agent.run(defaultInput).subscribe({
+        next: () => {},
+        error: (err) => {
+          error = err;
+        },
+      });
+
+      for (let round = 0; round < 5; round += 1) {
+        await waitForConnection(agent);
+        const socket = getSocket(agent)!;
+        socket.triggerOpen();
+        for (let i = 0; i < 5; i++) {
+          socket.triggerError(new Error("network failure"));
+        }
+      }
+      await waitForConnection(agent);
+
+      expect(mockFetch).toHaveBeenCalledTimes(6);
+      expect(error).toBeNull();
     });
 
     it("cleans up stale socket and channel before joining with refreshed credentials", async () => {
@@ -1907,5 +2019,158 @@ describe("ProxiedCopilotRuntimeAgent (intelligence mode)", () => {
     await promise;
 
     expect(agent.state).toEqual(finalSnapshot);
+  });
+
+  // The delegate is created once and cached for the lifetime of the proxy, so
+  // anything it copied out of the proxy at construction time goes stale the
+  // moment the proxy is updated. `CopilotKitCore.setHeaders` /
+  // `applyHeadersToAgent` write the proxy's `headers`; the Intelligence join
+  // request must read that live value, not the construction-time copy.
+  describe("delegate reads live proxy headers", () => {
+    /** Drive one full connect cycle to resolution. */
+    async function completeConnect(
+      agent: InstanceType<typeof ProxiedCopilotRuntimeAgent>,
+      runId: string,
+      eventId: string,
+    ) {
+      const promise = agent.connectAgent({ runId });
+      await flushAsyncWork();
+      const delegate = (
+        agent as unknown as { delegate: IntelligenceAgentInstance }
+      ).delegate;
+      await waitForConnection(delegate);
+      const channel = getChannel(delegate)!;
+      channel.triggerJoin("ok");
+      channel.serverPush("replay_complete", { latestEventId: eventId });
+      channel.serverPush("stream_idle", { latestEventId: eventId });
+      await promise;
+    }
+
+    function joinHeaders(callIndex: number) {
+      return mockFetch.mock.calls[callIndex]![1].headers as Record<
+        string,
+        string
+      >;
+    }
+
+    it("sends a header changed after the delegate was created", async () => {
+      const agent = new ProxiedCopilotRuntimeAgent({
+        runtimeUrl: "http://localhost:4000/api/copilotkit",
+        agentId: "default",
+        runtimeMode: RUNTIME_MODE_INTELLIGENCE,
+        intelligence: { wsUrl: "ws://localhost:4401/client" },
+        headers: { "X-Tenant": "tenant-a" },
+      });
+      agent.threadId = "thread-1";
+
+      // First connect: builds and caches the delegate under tenant A.
+      await completeConnect(agent, "run-1", "event-1");
+      expect(joinHeaders(0)).toMatchObject({ "X-Tenant": "tenant-a" });
+
+      // Tenant switch — this is exactly what applyHeadersToAgent does to the
+      // proxy when the `headers` prop changes.
+      agent.headers = { "X-Tenant": "tenant-b" };
+
+      await completeConnect(agent, "run-2", "event-2");
+
+      expect(joinHeaders(1)).toMatchObject({ "X-Tenant": "tenant-b" });
+    });
+
+    // The report names both endpoints. `/run` reaches the delegate through
+    // `#runViaDelegate`, which shares `resolveDelegate` with the connect path —
+    // pin that rather than infer it from the shared call site.
+    it("sends a changed header on the run path too", async () => {
+      const agent = new ProxiedCopilotRuntimeAgent({
+        runtimeUrl: "http://localhost:4000/api/copilotkit",
+        agentId: "default",
+        runtimeMode: RUNTIME_MODE_INTELLIGENCE,
+        intelligence: { wsUrl: "ws://localhost:4401/client" },
+        headers: { "X-Tenant": "tenant-a" },
+      });
+      agent.threadId = "thread-1";
+
+      // First connect builds and caches the delegate under tenant A.
+      await completeConnect(agent, "run-1", "event-1");
+
+      agent.headers = { "X-Tenant": "tenant-b" };
+
+      // `run` is protected on AbstractAgent; concrete agents expose it.
+      (agent as unknown as { run(input: RunAgentInput): Observable<BaseEvent> })
+        .run({ ...defaultInput, runId: "run-2" })
+        .subscribe({ next: () => {}, error: () => {} });
+      await flushAsyncWork();
+
+      const runCall = mockFetch.mock.calls.find((call) =>
+        String(call[0]).includes("/run"),
+      );
+      expect(runCall).toBeDefined();
+      expect(runCall![1].headers).toMatchObject({ "X-Tenant": "tenant-b" });
+    });
+
+    it("sends credentials changed after the delegate was created", async () => {
+      const agent = new ProxiedCopilotRuntimeAgent({
+        runtimeUrl: "http://localhost:4000/api/copilotkit",
+        agentId: "default",
+        runtimeMode: RUNTIME_MODE_INTELLIGENCE,
+        intelligence: { wsUrl: "ws://localhost:4401/client" },
+      });
+      agent.threadId = "thread-1";
+
+      await completeConnect(agent, "run-1", "event-1");
+      expect(mockFetch.mock.calls[0]![1].credentials).toBeUndefined();
+
+      agent.credentials = "include";
+
+      await completeConnect(agent, "run-2", "event-2");
+
+      expect(mockFetch.mock.calls[1]![1].credentials).toBe("include");
+    });
+
+    // `IntelligenceAgent.clone()` hands the copy the same config object, so the
+    // headers setter must replace that object rather than write through it.
+    // The join path alone would mask an in-place write (syncDelegate rewrites
+    // headers just before every join), but the credential re-acquisition inside
+    // a running pipeline does not re-sync — so a clone's tenant could ride out
+    // on the original's refresh. This pins the invariant directly.
+    it("does not let a clone's header update reach the original", () => {
+      const original = new IntelligenceAgent({
+        url: "ws://localhost:4401/client",
+        runtimeUrl: "http://localhost:4000",
+        agentId: "default",
+        headers: { "X-Tenant": "tenant-a" },
+      });
+
+      const copy = original.clone();
+      copy.headers = { "X-Tenant": "tenant-b" };
+
+      expect(copy.headers).toEqual({ "X-Tenant": "tenant-b" });
+      expect(original.headers).toEqual({ "X-Tenant": "tenant-a" });
+    });
+
+    it("keeps a per-thread clone's headers independent of the original", async () => {
+      const agent = new ProxiedCopilotRuntimeAgent({
+        runtimeUrl: "http://localhost:4000/api/copilotkit",
+        agentId: "default",
+        runtimeMode: RUNTIME_MODE_INTELLIGENCE,
+        intelligence: { wsUrl: "ws://localhost:4401/client" },
+        headers: { "X-Tenant": "tenant-a" },
+      });
+      agent.threadId = "thread-1";
+
+      await completeConnect(agent, "run-1", "event-1");
+
+      // End-to-end companion to the invariant test above: each proxy's joins
+      // carry its own tenant. This does NOT guard the copy-on-write setter —
+      // syncDelegate rewrites headers before every join, so it passes even with
+      // an in-place write. The test above is what pins that.
+      const clone = agent.clone();
+      clone.headers = { "X-Tenant": "tenant-b" };
+      await completeConnect(clone, "run-2", "event-2");
+
+      await completeConnect(agent, "run-3", "event-3");
+
+      expect(joinHeaders(1)).toMatchObject({ "X-Tenant": "tenant-b" });
+      expect(joinHeaders(2)).toMatchObject({ "X-Tenant": "tenant-a" });
+    });
   });
 });

@@ -11,6 +11,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChannelsActivationStrip } from "../channels-activation-strip";
 import { ChannelsStartPrompt } from "../channels-start-prompt";
+import { DocsPromptActionsProvider } from "../docs-prompt-actions";
 import {
   CHANNELS_ACTIVATION_EVENTS,
   CHANNELS_ACTIVATION_SURFACES,
@@ -87,6 +88,40 @@ afterEach(() => {
 // copilotkit.ai/channels, which sends its own event name with the same
 // property) separable inside one funnel.
 describe("Channels activation impressions", () => {
+  it.each(["slack", "teams"])(
+    "copies generic onboarding with the %s page context",
+    async (frontend) => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText },
+      });
+      HTMLDialogElement.prototype.showModal = function () {
+        this.open = true;
+      };
+      render(
+        <DocsPromptActionsProvider
+          value={{ markdownUrl: `/${frontend}.mdx`, githubUrl: "", frontend }}
+        >
+          <ChannelsStartPrompt frontend={frontend} />
+        </DocsPromptActionsProvider>,
+      );
+      expect(
+        screen.getByRole("region", {
+          name: /Set up .* with your coding agent/,
+        }),
+      ).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: /Copy prompt/i }));
+      await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+      const prompt = writeText.mock.calls[0][0];
+      expect(prompt).toContain("/onboarding-prompts/");
+      expect(prompt).not.toContain("add-channels");
+      expect(prompt).toContain(
+        `I started from this CopilotKit docs page: https://docs.copilotkit.ai/${frontend}.`,
+      );
+    },
+  );
+
   it("reports the landing strip the first time it is seen", () => {
     render(
       <ChannelsActivationStrip
@@ -157,11 +192,14 @@ describe("Channels activation impressions", () => {
       throw new Error("posthog unavailable");
     });
 
+    HTMLDialogElement.prototype.showModal = function () {
+      this.open = true;
+    };
     render(<ChannelsStartPrompt />);
     fireEvent.click(screen.getByRole("button", { name: /Copy prompt/i }));
 
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
-    expect(await screen.findByText("Copied")).toBeTruthy();
+    expect(await screen.findByText("Prompt copied")).toBeTruthy();
     expect(screen.queryByText("Copy blocked")).toBeNull();
   });
 
@@ -171,10 +209,15 @@ describe("Channels activation impressions", () => {
       value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
     });
 
+    HTMLDialogElement.prototype.showModal = function () {
+      this.open = true;
+    };
     render(<ChannelsStartPrompt />);
     fireEvent.click(screen.getByRole("button", { name: /Copy prompt/i }));
 
-    expect(await screen.findByText("Copy blocked")).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getByRole("status").textContent).toContain("Copy blocked"),
+    );
     expect(
       analytics.capture.mock.calls.filter(
         ([event]) => event === CHANNELS_ACTIVATION_EVENTS.promptCopied,
@@ -191,3 +234,11 @@ describe("Channels activation impressions", () => {
     expect(analytics.capture).not.toHaveBeenCalled();
   });
 });
+
+vi.mock("fumadocs-core/framework", () => ({
+  usePathname: () => "/quickstart",
+}));
+
+vi.mock("@/lib/runtime-config.client", () => ({
+  getRuntimeConfig: () => ({ baseUrl: "https://docs.copilotkit.ai" }),
+}));
