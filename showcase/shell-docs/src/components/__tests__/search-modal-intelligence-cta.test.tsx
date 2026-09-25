@@ -17,7 +17,15 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 const pushed: string[] = [];
 const captured: Array<{ event: string; props: Record<string, unknown> }> = [];
@@ -52,7 +60,15 @@ vi.mock("../framework-provider", () => ({
 
 import * as ctaMatching from "../../lib/intelligence-search-ctas";
 
-import { SearchModal } from "../search-modal";
+import { SearchModal, loadRegistry } from "../search-modal";
+
+// The modal fetches registry.json with a dynamic import on mount. Under
+// vitest each such import is a round trip to the main process, which stalls
+// for seconds when the full suite runs in parallel. Pay for the one real load
+// here, with room to spare, so no test's 1000ms waitFor races it.
+beforeAll(async () => {
+  await loadRegistry();
+}, 60_000);
 
 function resultRows(): HTMLElement[] {
   if (!screen.queryByRole("listbox", { name: "Search results" })) return [];
