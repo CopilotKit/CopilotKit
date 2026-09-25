@@ -350,10 +350,12 @@ export class CopilotThreadsDrawer {
    * detect the no-license case; we therefore also require a positive
    * license-present signal. Only a resolved `valid`/`expiring` status counts as
    * present — a resolved `none`/`expired`/`invalid` gates the drawer to the
-   * locked view.
+   * locked view. `unknown` is an unrecovered retryable entitlement lookup, not
+   * a settled negative: fetch the list and let the threads endpoint decide.
    */
   protected readonly licensed = computed(() => {
     const ctx = this.licenseContext();
+    if (ctx.status === "unknown") return true;
     const licensePresent = ctx.status === "valid" || ctx.status === "expiring";
     return licensePresent && ctx.checkFeature("threads");
   });
