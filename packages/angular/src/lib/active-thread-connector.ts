@@ -1,4 +1,5 @@
-import { effect, untracked, type Signal } from "@angular/core";
+import { effect, untracked } from "@angular/core";
+import type { Signal } from "@angular/core";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { AgentStore } from "./agent";
 import type { CopilotChatConfiguration } from "./chat-configuration";

@@ -8,7 +8,7 @@ import { expectTypeOf } from "vitest";
 import type React from "react";
 import type { CopilotChatProps } from "../CopilotChat";
 import type { CopilotChatViewProps } from "../CopilotChatView";
-import { CopilotChatView } from "../CopilotChatView";
+import type { CopilotChatView } from "../CopilotChatView";
 
 type ChatViewSlot = NonNullable<CopilotChatProps["chatView"]>;
 

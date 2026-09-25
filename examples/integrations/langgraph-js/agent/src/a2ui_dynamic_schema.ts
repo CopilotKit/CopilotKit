@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { tool, type ToolRuntime } from "@langchain/core/tools";
+import { tool } from "@langchain/core/tools";
+import type { ToolRuntime } from "@langchain/core/tools";
 import { SystemMessage } from "@langchain/core/messages";
 import { ChatOpenAI } from "@langchain/openai";
 import {

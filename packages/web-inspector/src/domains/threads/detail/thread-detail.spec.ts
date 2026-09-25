@@ -1,0 +1,1553 @@
+import {
+  CopilotKitCore,
+  CopilotKitCoreRuntimeConnectionStatus,
+  ɵcreateThreadStore,
+  ɵselectThreadsIsLoading,
+} from "@copilotkit/core";
+import type { ɵThreadStore } from "@copilotkit/core";
+import type { ThreadEndpointRuntimeInfo } from "@copilotkit/shared";
+import { expect, test, vi } from "vitest";
+
+import { CpkThreadInspector, WebInspectorElement } from "../../../index.js";
+import type {
+  ThreadDebuggerMessage,
+  ThreadDebuggerMetadata,
+  ThreadDebuggerProvider,
+} from "../../../index.js";
+import { textContentIncludingJson } from "../../../testing/inspector-elements.js";
+
+const RUNTIME_URL = "https://runtime.example.test";
+const AGENT_ID = "thread-detail-agent";
+const TOUR_STORAGE_KEY = "cpk:inspector:threads-example-tour:v1";
+
+const ENABLED_ENDPOINTS = {
+  list: true,
+  inspect: true,
+  mutations: false,
+  realtimeMetadata: false,
+} satisfies ThreadEndpointRuntimeInfo;
+
+const THREAD_ROUTES = [
+  "list",
+  "subscribe",
+  "inspect",
+  "messages",
+  "events",
+  "state",
+] as const;
+
+type ThreadRoute = (typeof THREAD_ROUTES)[number];
+type ThreadRoutes = Readonly<Record<ThreadRoute, number>>;
+
+const ZERO_ROUTES = {
+  list: 0,
+  subscribe: 0,
+  inspect: 0,
+  messages: 0,
+  events: 0,
+  state: 0,
+} as const satisfies ThreadRoutes;
+
+type MetadataFact = Readonly<{ label: string; value: string }>;
+
+type ExampleHarness = Readonly<{
+  inspector: WebInspectorElement;
+  core: ExampleTestCore;
+  store: ɵThreadStore;
+  routes: () => ThreadRoutes;
+  flush: () => Promise<void>;
+  rows: () => HTMLButtonElement[];
+  details: () => CpkThreadInspector;
+  selectExample: (name: string) => Promise<CpkThreadInspector>;
+  teardown: () => Promise<void>;
+}>;
+
+class ExampleTestCore extends CopilotKitCore {
+  override get intelligence() {
+    return { wsUrl: "" };
+  }
+  constructor() {
+    super({
+      runtimeUrl: RUNTIME_URL,
+      runtimeTransport: "rest",
+      deferInitialConnection: true,
+    });
+  }
+
+  override get threadEndpoints(): ThreadEndpointRuntimeInfo {
+    return ENABLED_ENDPOINTS;
+  }
+
+  override get telemetryDisabled(): boolean {
+    return true;
+  }
+
+  async emitConnected(): Promise<void> {
+    await this.notifySubscribers(
+      (subscriber) =>
+        subscriber.onRuntimeConnectionStatusChanged?.({
+          copilotkit: this,
+          status: CopilotKitCoreRuntimeConnectionStatus.Connected,
+        }),
+      "Thread detail test runtime subscriber failed",
+    );
+  }
+}
+
+function installImmediateAnimationFrame(): void {
+  vi.stubGlobal(
+    "requestAnimationFrame",
+    vi.fn((callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    }),
+  );
+  vi.stubGlobal("cancelAnimationFrame", vi.fn());
+}
+
+function prepareDom(): void {
+  document.body.replaceChildren();
+  document.getElementById("cpk-inspector-brand-fonts")?.remove();
+  window.localStorage.clear();
+  window.sessionStorage.clear();
+  installImmediateAnimationFrame();
+}
+
+async function flushDetail(detail: CpkThreadInspector): Promise<void> {
+  for (let turn = 0; turn < 6; turn += 1) {
+    await Promise.resolve();
+    await detail.updateComplete;
+  }
+}
+
+async function flushInspector(inspector: WebInspectorElement): Promise<void> {
+  for (let turn = 0; turn < 7; turn += 1) {
+    await Promise.resolve();
+    await inspector.updateComplete;
+    const detail =
+      inspector.shadowRoot?.querySelector<CpkThreadInspector>(
+        "cpk-thread-details",
+      );
+    if (detail) await detail.updateComplete;
+  }
+}
+
+const RUN_EVENTS_WITHOUT_USER = [
+  {
+    type: "RUN_STARTED",
+    timestamp: "2026-06-25T10:00:00.000Z",
+    payload: { runId: "run-1" },
+  },
+  {
+    type: "TEXT_MESSAGE_START",
+    timestamp: "2026-06-25T10:00:01.000Z",
+    payload: { messageId: "assistant-1", role: "assistant" },
+  },
+  {
+    type: "TEXT_MESSAGE_CONTENT",
+    timestamp: "2026-06-25T10:00:02.000Z",
+    payload: { messageId: "assistant-1", delta: "Hello back" },
+  },
+  {
+    type: "RUN_FINISHED",
+    timestamp: "2026-06-25T10:00:03.000Z",
+    payload: { runId: "run-1" },
+  },
+] as const;
+
+function appendDetail(options: {
+  threadId: string;
+  provider?: ThreadDebuggerProvider;
+  thread?: ThreadDebuggerMetadata;
+  agentMessagesInput?: CpkThreadInspector["agentMessagesInput"];
+}): CpkThreadInspector {
+  const detail = new CpkThreadInspector();
+  detail.threadId = options.threadId;
+  detail.provider = options.provider ?? null;
+  detail.thread = options.thread ?? null;
+  if (options.agentMessagesInput) {
+    detail.agentMessagesInput = options.agentMessagesInput;
+  }
+  document.body.append(detail);
+  return detail;
+}
+
+async function expectUserMessageBeforeRun(
+  detail: CpkThreadInspector,
+  userText: string,
+  assistantText: string,
+): Promise<void> {
+  await flushDetail(detail);
+  requireButton(detail.shadowRoot!, "Show event timeline").click();
+  await flushDetail(detail);
+  await vi.waitFor(() => {
+    const text = detail.shadowRoot?.textContent ?? "";
+    expect(text).toContain(userText);
+    expect(text).toContain(assistantText);
+    expect(text).toContain("User message");
+  });
+  const titles = Array.from(
+    detail.shadowRoot?.querySelectorAll(".cpk-td__timeline-title") ?? [],
+  ).map((node) => node.textContent?.trim());
+  expect(titles[0]).toBe("User message");
+  expect(titles).toContain("Run started");
+  expect(titles).toContain("Assistant message");
+  const items = Array.from(
+    detail.shadowRoot?.querySelectorAll(".cpk-td__timeline-item") ?? [],
+  );
+  expect(
+    items.some((node) =>
+      node.classList.contains("cpk-td__timeline-item--user"),
+    ),
+  ).toBe(true);
+  expect(
+    items.some((node) =>
+      node.classList.contains("cpk-td__timeline-item--assistant"),
+    ),
+  ).toBe(true);
+  expect(
+    items.some((node) => node.classList.contains("cpk-td__timeline-item--run")),
+  ).toBe(true);
+}
+
+function detailTabs(detail: CpkThreadInspector): HTMLButtonElement[] {
+  return Array.from(
+    detail.shadowRoot?.querySelectorAll<HTMLButtonElement>('[role="tab"]') ??
+      [],
+  );
+}
+
+function requireTab(
+  detail: CpkThreadInspector,
+  label: string,
+): HTMLButtonElement {
+  const tab = detailTabs(detail).find(
+    (candidate) => candidate.textContent?.trim() === label,
+  );
+  expect(tab, `${label} tab`).not.toBeUndefined();
+  if (!tab) throw new Error(`${label} tab was not rendered`);
+  return tab;
+}
+
+async function selectTab(
+  detail: CpkThreadInspector,
+  label: string,
+): Promise<HTMLButtonElement> {
+  requireTab(detail, label).click();
+  await flushDetail(detail);
+  return requireTab(detail, label);
+}
+
+function metadataFacts(detail: CpkThreadInspector): MetadataFact[] {
+  const facts = Array.from(
+    detail.shadowRoot?.querySelectorAll(".cpk-tdp__row") ?? [],
+  ).map((row) => ({
+    label: row.querySelector(".cpk-tdp__label")?.textContent?.trim() ?? "",
+    value: row.querySelector(".cpk-tdp__value")?.textContent?.trim() ?? "",
+  }));
+  return ["Name", "ID", "Agent", "Created", "Updated"].flatMap((label) => {
+    const fact = facts.find((item) => item.label === label);
+    return fact && fact.value !== "—" ? [fact] : [];
+  });
+}
+
+function expectedTime(value: string): string {
+  return new Date(value).toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
+function selectedTab(detail: CpkThreadInspector): HTMLButtonElement {
+  const selected = detailTabs(detail).find(
+    (tab) => tab.getAttribute("aria-selected") === "true",
+  );
+  expect(selected, "selected Thread detail tab").not.toBeUndefined();
+  if (!selected) throw new Error("No Thread detail tab was selected");
+  return selected;
+}
+
+function mountedPanels(detail: CpkThreadInspector): HTMLElement[] {
+  return Array.from(
+    detail.shadowRoot?.querySelectorAll<HTMLElement>('[role="tabpanel"]') ?? [],
+  );
+}
+
+function dispatchNavigationKey(
+  tab: HTMLButtonElement,
+  key: string,
+): KeyboardEvent {
+  const event = new KeyboardEvent("keydown", {
+    key,
+    bubbles: true,
+    cancelable: true,
+  });
+  tab.dispatchEvent(event);
+  return event;
+}
+
+function requestUrl(input: RequestInfo | URL): URL {
+  return new URL(
+    input instanceof Request ? input.url : String(input),
+    window.location.href,
+  );
+}
+
+function classifyThreadRoute(url: URL): ThreadRoute | null {
+  if (url.pathname.endsWith("/threads/subscribe")) return "subscribe";
+  if (/\/threads\/[^/]+\/messages$/.test(url.pathname)) return "messages";
+  if (/\/threads\/[^/]+\/events$/.test(url.pathname)) return "events";
+  if (/\/threads\/[^/]+\/state$/.test(url.pathname)) return "state";
+  if (/\/threads\/[^/]+$/.test(url.pathname)) return "inspect";
+  if (url.pathname.endsWith("/threads")) return "list";
+  return null;
+}
+
+function jsonResponse(value: unknown): Response {
+  return new Response(JSON.stringify(value), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+function responseForRoute(route: ThreadRoute): Response {
+  if (route === "list") return jsonResponse({ threads: [], joinCode: null });
+  if (route === "messages") return jsonResponse({ messages: [] });
+  if (route === "events") return jsonResponse({ events: [] });
+  if (route === "state") return jsonResponse({ state: {} });
+  if (route === "inspect") return jsonResponse({ thread: null });
+  return new Response(null, { status: 404 });
+}
+
+async function setupExampleHarness(): Promise<ExampleHarness> {
+  prepareDom();
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn(
+      (query: string): MediaQueryList => ({
+        matches: query === "(prefers-reduced-motion: reduce)",
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(() => true),
+      }),
+    ),
+  );
+  vi.stubGlobal(
+    "requestIdleCallback",
+    vi.fn(() => 700),
+  );
+  vi.stubGlobal("cancelIdleCallback", vi.fn());
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(
+    () => undefined,
+  );
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(
+    () => undefined,
+  );
+
+  const routeCounts: Record<ThreadRoute, number> = { ...ZERO_ROUTES };
+  const currentFetch = globalThis.fetch;
+  const fetchMock = Object.assign(
+    vi.fn(async (input: RequestInfo | URL): Promise<Response> => {
+      const url = requestUrl(input);
+      if (url.href === "https://cdn.copilotkit.ai/announcements.json") {
+        return new Response(null, { status: 404 });
+      }
+      const route = classifyThreadRoute(url);
+      if (!route) {
+        throw new Error(`Unexpected Thread detail request: ${url.href}`);
+      }
+      routeCounts[route] += 1;
+      return responseForRoute(route);
+    }),
+    currentFetch,
+  );
+  vi.stubGlobal("fetch", fetchMock);
+
+  const store = ɵcreateThreadStore({ fetch: fetchMock });
+  store.start();
+  store.setContext({
+    runtimeUrl: RUNTIME_URL,
+    headers: {},
+    agentId: AGENT_ID,
+  });
+  await vi.waitFor(() => {
+    expect(ɵselectThreadsIsLoading(store.getState())).toBe(false);
+  });
+
+  const core = new ExampleTestCore();
+  core.registerThreadStore(AGENT_ID, store);
+  const inspector = new WebInspectorElement();
+  document.body.append(inspector);
+  inspector.core = core;
+  await core.emitConnected();
+  await flushInspector(inspector);
+
+  const opener = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
+    'button[aria-label^="Web Inspector"]',
+  );
+  if (!opener) throw new Error("Web Inspector opener was not rendered");
+  opener.click();
+  await flushInspector(inspector);
+  const threads = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
+    'button[data-inspector-menu-key="threads"]',
+  );
+  if (!threads) throw new Error("Threads group was not rendered");
+  threads.click();
+  await flushInspector(inspector);
+
+  const rows = (): HTMLButtonElement[] => {
+    const list = inspector.shadowRoot?.querySelector("cpk-thread-list");
+    return Array.from(
+      list?.shadowRoot?.querySelectorAll<HTMLButtonElement>(".cpk-tl__item") ??
+        [],
+    );
+  };
+  await vi.waitFor(() => expect(rows()).toHaveLength(3));
+
+  const details = (): CpkThreadInspector => {
+    const detail =
+      inspector.shadowRoot?.querySelector<CpkThreadInspector>(
+        "cpk-thread-details",
+      );
+    if (!detail) throw new Error("Thread details were not rendered");
+    return detail;
+  };
+
+  return {
+    inspector,
+    core,
+    store,
+    routes: () => ({ ...routeCounts }),
+    flush: () => flushInspector(inspector),
+    rows,
+    details,
+    async selectExample(name) {
+      const row = rows().find((candidate) =>
+        candidate.textContent?.includes(name),
+      );
+      if (!row) throw new Error(`Example row was not rendered: ${name}`);
+      row.click();
+      await flushInspector(inspector);
+      const detail = details();
+      await vi.waitFor(() => {
+        expect(metadataFacts(detail).map((fact) => fact.label)).toContain(
+          "Created",
+        );
+      });
+      return detail;
+    },
+    async teardown() {
+      inspector.remove();
+      core.unregisterThreadStore(AGENT_ID);
+      store.stop();
+      await Promise.resolve();
+      document.body.replaceChildren();
+      document.getElementById("cpk-inspector-brand-fonts")?.remove();
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+    },
+  };
+}
+
+function requireButton(root: ShadowRoot, label: string): HTMLButtonElement {
+  const button = Array.from(
+    root.querySelectorAll<HTMLButtonElement>("button"),
+  ).find((candidate) => candidate.textContent?.trim() === label);
+  expect(button, `${label} button`).not.toBeUndefined();
+  if (!button) throw new Error(`${label} button was not rendered`);
+  return button;
+}
+
+function expectNoMutationControls(
+  inspector: WebInspectorElement | undefined,
+  detail: CpkThreadInspector,
+): void {
+  const labels = [
+    ...Array.from(
+      inspector?.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ??
+        [],
+    ),
+    ...Array.from(
+      detail.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
+    ),
+  ].map((button) => button.textContent?.trim() ?? "");
+  for (const mutation of ["Rename", "Archive", "Delete", "Restore"]) {
+    expect(labels).not.toContain(mutation);
+  }
+}
+
+test("thread title uses provider metadata and full identity remains in the details drawer", async () => {
+  prepareDom();
+  const threadId = "thread-real-1234567890-abcdefghijklmnopqrstuvwxyz";
+  const createdAt = "2026-06-25T10:00:00.000Z";
+  const updatedAt = "2026-06-25T10:05:06.000Z";
+  const provider: ThreadDebuggerProvider = {
+    getThreadMetadata: vi.fn().mockResolvedValue({
+      id: threadId,
+      name: "Provider name",
+      agentId: "agent-real",
+      endUserId: "account-user-must-not-be-in-header",
+      createdById: "creator-must-not-be-in-header",
+      status: "active-must-not-be-in-header",
+      createdAt,
+      updatedAt,
+    }),
+    getEvents: vi.fn().mockResolvedValue([]),
+  };
+  const detail = appendDetail({
+    threadId,
+    provider,
+    thread: { id: threadId, name: "Row name" },
+  });
+  try {
+    await vi.waitFor(() => {
+      expect(metadataFacts(detail)).toEqual([
+        { label: "Name", value: "Provider name" },
+        { label: "ID", value: threadId },
+        { label: "Agent", value: "agent-real" },
+        { label: "Created", value: expectedTime(createdAt) },
+        { label: "Updated", value: expectedTime(updatedAt) },
+      ]);
+    });
+
+    const header = detail.shadowRoot?.querySelector(".cpk-td__thread-header");
+    expect(header?.textContent).toContain("Provider name");
+    expect(header?.textContent).not.toContain(threadId);
+    expect(header?.textContent).not.toContain(
+      "account-user-must-not-be-in-header",
+    );
+    expect(
+      detail.shadowRoot?.querySelector(".cpk-td__empty-hint")?.textContent,
+    ).toContain("Timeline rows are normalized");
+
+    detail.shadowRoot
+      ?.querySelector<HTMLButtonElement>(".cpk-td__panel-toggle")
+      ?.click();
+    await flushDetail(detail);
+    const idRow = Array.from(
+      detail.shadowRoot?.querySelectorAll<HTMLElement>(".cpk-tdp__row") ?? [],
+    ).find(
+      (row) =>
+        row.querySelector(".cpk-tdp__label")?.textContent?.trim() === "ID",
+    );
+    expect(idRow?.querySelector(".cpk-tdp__value")?.textContent?.trim()).toBe(
+      threadId,
+    );
+    expectNoMutationControls(undefined, detail);
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("embedding hosts can hide the title without losing conversation controls", async () => {
+  prepareDom();
+  const detail = appendDetail({
+    threadId: "embedded-thread",
+    thread: { id: "embedded-thread", name: "Host owns this title" },
+    provider: {
+      getMessages: async () => [{ id: "m1", role: "user", content: "Hello" }],
+      getEvents: async () => [],
+    },
+  });
+  try {
+    await flushDetail(detail);
+    expect(
+      detail.shadowRoot?.querySelector(".cpk-td__thread-title")?.textContent,
+    ).toContain("Host owns this title");
+    Object.assign(detail, { showThreadTitle: false });
+    await flushDetail(detail);
+    expect(
+      detail.shadowRoot?.querySelector(".cpk-td__thread-title"),
+    ).toBeNull();
+    expect(
+      requireButton(detail.shadowRoot!, "Show event timeline"),
+    ).toBeDefined();
+    expect(
+      detail.shadowRoot?.querySelector(
+        '[role="group"][aria-label="User message"]',
+      )?.textContent,
+    ).toContain("Hello");
+    Object.assign(detail, { showThreadTitle: true });
+    await flushDetail(detail);
+    expect(
+      detail.shadowRoot?.querySelector(".cpk-td__thread-title")?.textContent,
+    ).toContain("Host owns this title");
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("a message focus request scrolls and pulses once per request", async () => {
+  prepareDom();
+  const scrollIntoView = vi.fn();
+  const originalScrollIntoView = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    "scrollIntoView",
+  );
+  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+    configurable: true,
+    value: scrollIntoView,
+  });
+  const detail = new CpkThreadInspector();
+  detail.threadId = "thread-focused-message";
+  detail.focusMessageId = "assistant-message-1";
+  detail.focusRequestId = 1;
+  detail.provider = {
+    getEvents: vi.fn().mockResolvedValue([
+      {
+        type: "TEXT_MESSAGE_START",
+        timestamp: "2026-06-25T10:00:00.000Z",
+        payload: {
+          messageId: "assistant-message-1",
+          role: "assistant",
+        },
+      },
+      {
+        type: "TEXT_MESSAGE_CONTENT",
+        timestamp: "2026-06-25T10:00:01.000Z",
+        payload: {
+          messageId: "assistant-message-1",
+          delta: "Focused response",
+        },
+      },
+    ]),
+  };
+  document.body.append(detail);
+
+  try {
+    await vi.waitFor(() => {
+      const focusedMessage = detail.shadowRoot?.querySelector<HTMLElement>(
+        '[data-message-id="assistant-message-1"]',
+      );
+      expect(focusedMessage).not.toBeNull();
+      expect(focusedMessage?.classList.contains("cpk-td__focus-pulse")).toBe(
+        true,
+      );
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "center" });
+    });
+
+    const focusedMessage = detail.shadowRoot?.querySelector<HTMLElement>(
+      '[data-message-id="assistant-message-1"]',
+    );
+    focusedMessage?.dispatchEvent(new Event("animationend"));
+    expect(focusedMessage?.classList.contains("cpk-td__focus-pulse")).toBe(
+      false,
+    );
+
+    scrollIntoView.mockClear();
+    detail.agentEventsInput = [...detail.agentEventsInput];
+    await detail.updateComplete;
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "center" });
+    expect(focusedMessage?.classList.contains("cpk-td__focus-pulse")).toBe(
+      false,
+    );
+
+    detail.focusRequestId = 2;
+    await detail.updateComplete;
+    await vi.waitFor(() => {
+      expect(focusedMessage?.classList.contains("cpk-td__focus-pulse")).toBe(
+        true,
+      );
+    });
+  } finally {
+    detail.remove();
+    if (originalScrollIntoView) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        "scrollIntoView",
+        originalScrollIntoView,
+      );
+    } else {
+      Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
+    }
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("missing metadata keeps the full thread ID in the drawer and a fallback title", async () => {
+  prepareDom();
+  const threadId = "thread-fallback-full-0987654321-zyxwvutsrqponmlkjihgfedcba";
+  const provider: ThreadDebuggerProvider = {
+    getThreadMetadata: vi.fn().mockResolvedValue(null),
+    getEvents: vi.fn().mockResolvedValue([]),
+  };
+  const detail = appendDetail({ threadId, provider });
+  try {
+    await flushDetail(detail);
+    expect(metadataFacts(detail)).toEqual([{ label: "ID", value: threadId }]);
+    const headerText =
+      detail.shadowRoot?.querySelector(".cpk-td__thread-title")?.textContent ??
+      "";
+    expect(headerText).toContain("Rich Thread");
+    for (const absent of [
+      "Agent",
+      "Created",
+      "Updated",
+      "End user",
+      "Created by",
+      "Status",
+    ]) {
+      expect(headerText).not.toContain(absent);
+    }
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("click selection keeps stable unique tab and panel ARIA links across rerenders", async () => {
+  prepareDom();
+  const provider: ThreadDebuggerProvider = {
+    getEvents: vi.fn().mockResolvedValue([
+      {
+        type: "RUN_STARTED",
+        timestamp: "2026-06-25T10:00:00.000Z",
+        payload: { runId: "run-aria" },
+      },
+    ]),
+    getState: vi.fn().mockResolvedValue({ step: "aria" }),
+  };
+  const first = appendDetail({
+    threadId: "thread-aria-first",
+    provider,
+    thread: { id: "thread-aria-first", name: "First" },
+  });
+  const second = appendDetail({
+    threadId: "thread-aria-second",
+    provider,
+    thread: { id: "thread-aria-second", name: "Second" },
+  });
+  try {
+    await flushDetail(first);
+    await flushDetail(second);
+    const firstInitialIds = detailTabs(first).map((tab) => tab.id);
+    const secondIds = detailTabs(second).map((tab) => tab.id);
+    expect(firstInitialIds).toHaveLength(3);
+    expect(new Set(firstInitialIds).size).toBe(3);
+    expect(firstInitialIds.every((id) => id.length > 0)).toBe(true);
+    expect(secondIds.every((id) => !firstInitialIds.includes(id))).toBe(true);
+
+    await selectTab(first, "AG-UI Events");
+    await selectTab(first, "State");
+    const selected = await selectTab(first, "AG-UI Events");
+    const tabs = detailTabs(first);
+    expect(tabs.map((tab) => tab.textContent?.trim())).toEqual([
+      "Conversation",
+      "AG-UI Events",
+      "State",
+    ]);
+    expect(tabs.map((tab) => tab.type)).toEqual(["button", "button", "button"]);
+    expect(tabs.map((tab) => tab.getAttribute("aria-selected"))).toEqual([
+      "false",
+      "true",
+      "false",
+    ]);
+    expect(tabs.map((tab) => tab.getAttribute("tabindex"))).toEqual([
+      "-1",
+      "0",
+      "-1",
+    ]);
+    expect(selected.id).toMatch(/-tab-raw-events$/);
+
+    const panels = mountedPanels(first);
+    expect(panels).toHaveLength(3);
+    expect(panels.filter((panel) => !panel.hidden)).toHaveLength(1);
+    for (const tab of tabs) {
+      const controls = tab.getAttribute("aria-controls");
+      expect(controls).toBeTruthy();
+      const panel = panels.find((candidate) => candidate.id === controls);
+      expect(panel).toBeDefined();
+      expect(panel?.getAttribute("aria-labelledby")).toBe(tab.id);
+      expect(panel?.hidden).toBe(tab !== selected);
+    }
+
+    first.thread = { id: "thread-aria-first", name: "First rerendered" };
+    await first.updateComplete;
+    expect(selectedTab(first).textContent?.trim()).toBe("AG-UI Events");
+    expect(detailTabs(first).map((tab) => tab.id)).toEqual(firstInitialIds);
+  } finally {
+    first.remove();
+    second.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("Arrow keys wrap and Home and End select and focus their exact tabs", async () => {
+  prepareDom();
+  const detail = appendDetail({
+    threadId: "thread-keyboard",
+    provider: {
+      getEvents: vi.fn().mockResolvedValue([]),
+      getState: vi.fn().mockResolvedValue({ keyboard: true }),
+    },
+  });
+  try {
+    await flushDetail(detail);
+    const messages = requireTab(detail, "Conversation");
+    messages.focus();
+    expect(detail.shadowRoot?.activeElement).toBe(messages);
+
+    const right = dispatchNavigationKey(messages, "ArrowRight");
+    await flushDetail(detail);
+    expect(right.defaultPrevented).toBe(true);
+    expect(selectedTab(detail).textContent?.trim()).toBe("AG-UI Events");
+    expect(detail.shadowRoot?.activeElement).toBe(
+      requireTab(detail, "AG-UI Events"),
+    );
+
+    const left = dispatchNavigationKey(
+      requireTab(detail, "AG-UI Events"),
+      "ArrowLeft",
+    );
+    await flushDetail(detail);
+    expect(left.defaultPrevented).toBe(true);
+    expect(selectedTab(detail).textContent?.trim()).toBe("Conversation");
+
+    dispatchNavigationKey(requireTab(detail, "Conversation"), "ArrowLeft");
+    await flushDetail(detail);
+    expect(selectedTab(detail).textContent?.trim()).toBe("State");
+    dispatchNavigationKey(requireTab(detail, "State"), "ArrowRight");
+    await flushDetail(detail);
+    expect(selectedTab(detail).textContent?.trim()).toBe("Conversation");
+
+    dispatchNavigationKey(requireTab(detail, "Conversation"), "End");
+    await flushDetail(detail);
+    expect(selectedTab(detail).textContent?.trim()).toBe("State");
+    expect(detail.shadowRoot?.activeElement).toBe(requireTab(detail, "State"));
+    dispatchNavigationKey(requireTab(detail, "State"), "Home");
+    await flushDetail(detail);
+    expect(selectedTab(detail).textContent?.trim()).toBe("Conversation");
+    expect(detail.shadowRoot?.activeElement).toBe(
+      requireTab(detail, "Conversation"),
+    );
+
+    const tabKey = dispatchNavigationKey(
+      requireTab(detail, "Conversation"),
+      "Tab",
+    );
+    await flushDetail(detail);
+    expect(tabKey.defaultPrevented).toBe(false);
+    expect(selectedTab(detail).textContent?.trim()).toBe("Conversation");
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("real provider navigation shares events, loads messages with events, lazily loads state once, and adds no request", async () => {
+  prepareDom();
+  const currentFetch = globalThis.fetch;
+  const fetchMock = Object.assign(
+    vi.fn(async (): Promise<Response> => jsonResponse({})),
+    currentFetch,
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  const getThreadMetadata = vi.fn().mockResolvedValue({
+    id: "thread-provider-routing",
+    name: "Provider routing",
+  });
+  const getMessages = vi.fn().mockResolvedValue([]);
+  const getEvents = vi.fn().mockResolvedValue([
+    {
+      type: "RUN_STARTED",
+      timestamp: "2026-06-25T10:00:00.000Z",
+      payload: { runId: "one-shared-response" },
+    },
+  ]);
+  const getState = vi.fn().mockResolvedValue({ loaded: "once" });
+  const detail = appendDetail({
+    threadId: "thread-provider-routing",
+    provider: { getThreadMetadata, getMessages, getEvents, getState },
+  });
+  try {
+    await vi.waitFor(() => {
+      expect(getEvents).toHaveBeenCalledTimes(1);
+      expect(getMessages).toHaveBeenCalledTimes(1);
+    });
+    expect(getThreadMetadata).toHaveBeenCalledTimes(1);
+    expect(getState).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await selectTab(detail, "AG-UI Events");
+    await selectTab(detail, "Conversation");
+    await selectTab(detail, "AG-UI Events");
+    expect(getEvents).toHaveBeenCalledTimes(1);
+    expect(getMessages).toHaveBeenCalledTimes(1);
+
+    await selectTab(detail, "State");
+    await vi.waitFor(() => expect(getState).toHaveBeenCalledTimes(1));
+    await selectTab(detail, "Conversation");
+    await selectTab(detail, "State");
+    expect(getState).toHaveBeenCalledTimes(1);
+    expect(getEvents).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("conversation preserves long replies, tool details, and generative UI while view controls reuse fetched data", async () => {
+  prepareDom();
+  const reply = "A detailed reply. ".repeat(200) + "End of reply.";
+  const getMessages = vi.fn().mockResolvedValue([
+    { id: "user", role: "user", content: "Find a meeting time" },
+    {
+      id: "tool-message",
+      role: "assistant",
+      toolCalls: [
+        { id: "calendar", name: "check_calendars", args: { day: "Thursday" } },
+      ],
+    },
+    {
+      id: "result",
+      role: "tool",
+      toolCallId: "calendar",
+      content: '{"available":true}',
+    },
+    { id: "picker", role: "activity", activityType: "meeting_time_picker" },
+    { id: "reply", role: "assistant", content: reply },
+  ]);
+  const getEvents = vi.fn().mockResolvedValue([...RUN_EVENTS_WITHOUT_USER]);
+  const detail = appendDetail({
+    threadId: "mixed-conversation",
+    provider: { getMessages, getEvents },
+  });
+  try {
+    await flushDetail(detail);
+    const root = detail.shadowRoot!;
+    expect(
+      root.querySelector('[aria-label="User message"]')?.textContent,
+    ).toContain("Find a meeting time");
+    expect(root.querySelector(".cpk-td__genui")?.textContent).toContain(
+      "Generative UI",
+    );
+    expect(root.querySelector(".cpk-td__genui-component")?.textContent).toBe(
+      "meeting_time_picker",
+    );
+    expect(
+      root.querySelector('[aria-label="Assistant message"]')?.textContent,
+    ).not.toContain("End of reply.");
+    root.querySelector<HTMLElement>(".cpk-td__show-more")!.click();
+    await flushDetail(detail);
+    expect(
+      root.querySelector('[aria-label="Assistant message"]')?.textContent,
+    ).toContain("End of reply.");
+    root.querySelector<HTMLElement>(".cpk-td__tool-header")!.click();
+    await flushDetail(detail);
+    expect(
+      textContentIncludingJson(root.querySelector(".cpk-td__tool-body")!),
+    ).toContain("Thursday");
+    expect(
+      textContentIncludingJson(root.querySelector(".cpk-td__tool-body")!),
+    ).toContain("available");
+    const timelineToggle = requireButton(root, "Show event timeline");
+    expect(timelineToggle.closest(".cpk-td__thread-header")).not.toBeNull();
+    expect(timelineToggle.closest(".cpk-td__content")).toBeNull();
+    timelineToggle.click();
+    await flushDetail(detail);
+    requireButton(root, "Show conversation").click();
+    await flushDetail(detail);
+    expect(
+      root.querySelector('[aria-label="Assistant message"]')?.textContent,
+    ).toContain("End of reply.");
+    await selectTab(detail, "AG-UI Events");
+    requireButton(root, "Expand all").click();
+    await flushDetail(detail);
+    requireButton(root, "Collapse all").click();
+    await flushDetail(detail);
+    expect(requireButton(root, "Expand all")).toBeDefined();
+    expect(getMessages).toHaveBeenCalledTimes(1);
+    expect(getEvents).toHaveBeenCalledTimes(1);
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("a source-event link selects AG-UI Events and reveals the indexed event", async () => {
+  prepareDom();
+  const detail = appendDetail({
+    threadId: "thread-source-link",
+    provider: {
+      getEvents: vi.fn().mockResolvedValue([
+        {
+          type: "RUN_STARTED",
+          timestamp: "2026-06-25T10:00:00.000Z",
+          payload: { runId: "source-link-run" },
+        },
+      ]),
+    },
+  });
+  try {
+    await vi.waitFor(() => {
+      expect(
+        detail.shadowRoot?.querySelector<HTMLButtonElement>(
+          ".cpk-td__source-link",
+        ),
+      ).not.toBeNull();
+    });
+    detail.shadowRoot
+      ?.querySelector<HTMLButtonElement>(".cpk-td__source-link")
+      ?.click();
+    await flushDetail(detail);
+
+    const selected = selectedTab(detail);
+    expect(selected.textContent?.trim()).toBe("AG-UI Events");
+    expect(selected.id).toMatch(/-tab-raw-events$/);
+    const event = detail.shadowRoot?.querySelector<HTMLElement>(
+      '.cpk-td__event[data-source-index="1"]',
+    );
+    expect(event).not.toBeNull();
+    expect(event?.closest<HTMLElement>('[role="tabpanel"]')?.hidden).toBe(
+      false,
+    );
+    expect(event?.textContent).toContain("Run started");
+    expect(event?.classList.contains("cpk-td__event--run")).toBe(true);
+    expect(
+      event?.querySelector(".cpk-td__event-type")?.getAttribute("style"),
+    ).toBeNull();
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("Messages timeline shows user messages that events omit", async () => {
+  prepareDom();
+  const detail = appendDetail({
+    threadId: "thread-user-message",
+    provider: {
+      getEvents: vi.fn().mockResolvedValue([...RUN_EVENTS_WITHOUT_USER]),
+      getMessages: vi.fn().mockResolvedValue([
+        { id: "user-1", role: "user", content: "Hello from the user" },
+        { id: "assistant-1", role: "assistant", content: "Hello back" },
+      ]),
+    },
+  });
+  try {
+    await expectUserMessageBeforeRun(
+      detail,
+      "Hello from the user",
+      "Hello back",
+    );
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("Messages timeline shows live agent user messages when the runtime omits them", async () => {
+  prepareDom();
+  const detail = appendDetail({
+    threadId: "thread-live-user-message",
+    provider: {
+      getEvents: vi.fn().mockResolvedValue([...RUN_EVENTS_WITHOUT_USER]),
+      getMessages: vi.fn().mockResolvedValue([]),
+    },
+    agentMessagesInput: [
+      {
+        id: "user-live-1",
+        role: "user",
+        contentText: "Hello from the live agent",
+      },
+    ],
+  });
+  try {
+    await expectUserMessageBeforeRun(
+      detail,
+      "Hello from the live agent",
+      "Hello back",
+    );
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("all three local examples use the shared labels, created fact, local panels, and zero routes", async () => {
+  const harness = await setupExampleHarness();
+  const examples = [
+    {
+      id: "example-realtime-sync",
+      name: "Realtime thread sync",
+      event: "Run started",
+      state: "cart_demo_42",
+    },
+    {
+      id: "example-manage-history",
+      name: "Manage saved conversations",
+      event: "Custom event",
+      state: "Billing escalation handoff",
+    },
+    {
+      id: "example-inspect-runs",
+      name: "Inspect durable run history",
+      event: "Tool call start",
+      state: "auditLogsRequired",
+    },
+  ] as const;
+  try {
+    const routesBeforeExamples = harness.routes();
+    for (const example of examples) {
+      const detail = await harness.selectExample(example.name);
+      const facts = metadataFacts(detail);
+      expect(facts.map((fact) => fact.label)).toEqual([
+        "Name",
+        "ID",
+        "Agent",
+        "Created",
+        "Updated",
+      ]);
+      expect(facts.find((fact) => fact.label === "Name")?.value).toBe(
+        example.name,
+      );
+      expect(facts.find((fact) => fact.label === "ID")?.value).toBe(example.id);
+      expect(facts.find((fact) => fact.label === "Created")?.value).not.toBe(
+        "—",
+      );
+      expect(detailTabs(detail).map((tab) => tab.textContent?.trim())).toEqual([
+        "Conversation",
+        "AG-UI Events",
+        "State",
+      ]);
+
+      const skip = Array.from(
+        harness.inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+          "button",
+        ) ?? [],
+      ).find((button) => button.textContent?.trim() === "Skip");
+      skip?.click();
+      await harness.flush();
+
+      await selectTab(detail, "Conversation");
+      if (detail.shadowRoot?.textContent?.includes("Show event timeline")) {
+        requireButton(detail.shadowRoot!, "Show event timeline").click();
+        await flushDetail(detail);
+      }
+      expect(detail.shadowRoot?.textContent).toContain("Run started");
+      await selectTab(detail, "AG-UI Events");
+      expect(detail.shadowRoot?.textContent).toContain(example.event);
+      await selectTab(detail, "State");
+      expect(textContentIncludingJson(detail.shadowRoot!)).toContain(
+        example.state,
+      );
+      expectNoMutationControls(harness.inspector, detail);
+      expect(harness.routes()).toEqual(routesBeforeExamples);
+    }
+  } finally {
+    await harness.teardown();
+  }
+});
+
+test("Sam's tour uses the new labels while preserving step bodies, storage, navigation, and local routing", async () => {
+  const harness = await setupExampleHarness();
+  try {
+    const routesBeforeTour = harness.routes();
+    const detail = await harness.selectExample("Realtime thread sync");
+    const root = harness.inspector.shadowRoot!;
+    const expectedSteps = [
+      {
+        label: "Conversation",
+        tabSuffix: "-tab-timeline",
+        body: "Read messages and tool calls as a conversation. Switch to the event timeline to inspect state changes and run markers.",
+      },
+      {
+        label: "AG-UI Events",
+        tabSuffix: "-tab-raw-events",
+        body: "Raw events show the exact AG-UI stream behind the timeline when you need to verify ordering or payload shape.",
+      },
+      {
+        label: "State",
+        tabSuffix: "-tab-state",
+        body: "The state tab shows the saved values that make a thread resumable across sessions.",
+      },
+    ] as const;
+
+    for (const [index, step] of expectedSteps.entries()) {
+      await vi.waitFor(() => {
+        const dialog = root.querySelector<HTMLElement>(
+          '[role="dialog"][aria-label="Example thread tour"]',
+        );
+        expect(dialog?.textContent).toContain(`${index + 1}/3`);
+        expect(dialog?.textContent).toContain(step.label);
+        expect(dialog?.textContent).toContain(step.body);
+        expect(selectedTab(detail).id).toMatch(
+          new RegExp(`${step.tabSuffix}$`),
+        );
+      });
+      if (index < expectedSteps.length - 1) {
+        requireButton(root, "Next").click();
+        await harness.flush();
+      }
+    }
+
+    requireButton(root, "Back").click();
+    await harness.flush();
+    expect(selectedTab(detail).textContent?.trim()).toBe("AG-UI Events");
+    requireButton(root, "Next").click();
+    await harness.flush();
+    requireButton(root, "Done").click();
+    await harness.flush();
+
+    expect(
+      JSON.parse(window.localStorage.getItem(TOUR_STORAGE_KEY) ?? "null"),
+    ).toEqual({ dismissed: true });
+    expect(root.querySelector('[role="dialog"]')).toBeNull();
+    requireButton(root, "Show tour").click();
+    await harness.flush();
+    const reopenedTourText =
+      root.querySelector('[role="dialog"]')?.textContent ?? "";
+    expect(reopenedTourText).toContain("1/3");
+    expect(reopenedTourText).toContain("Conversation");
+    expect(selectedTab(detail).id).toMatch(/-tab-timeline$/);
+    expectNoMutationControls(harness.inspector, detail);
+    expect(harness.routes()).toEqual(routesBeforeTour);
+  } finally {
+    await harness.teardown();
+  }
+});
+
+test("tool disclosures distinguish missing, null, and unreadable results", async () => {
+  prepareDom();
+  const getMessages = vi
+    .fn<NonNullable<ThreadDebuggerProvider["getMessages"]>>()
+    .mockResolvedValue([
+      {
+        id: "call",
+        role: "assistant",
+        toolCalls: [{ id: "lookup", name: "lookup", args: { query: "test" } }],
+      },
+    ]);
+  const detail = appendDetail({
+    threadId: "tool-results",
+    provider: { getMessages },
+  });
+  try {
+    await flushDetail(detail);
+    const root = detail.shadowRoot;
+    if (!root) throw new Error("Missing thread detail root");
+    const disclosure = root.querySelector<HTMLButtonElement>(
+      "button.cpk-td__tool-header",
+    );
+    if (!disclosure) throw new Error("Missing tool disclosure button");
+    expect(disclosure.getAttribute("aria-expanded")).toBe("false");
+    expect(disclosure.textContent).toContain("No result recorded");
+    disclosure.click();
+    await flushDetail(detail);
+    expect(disclosure.getAttribute("aria-expanded")).toBe("true");
+    expect(
+      textContentIncludingJson(root.querySelector(".cpk-td__tool-body")!),
+    ).toContain("test");
+
+    getMessages.mockResolvedValue([
+      {
+        id: "call",
+        role: "assistant",
+        toolCalls: [{ id: "lookup", name: "lookup", args: { query: "test" } }],
+      },
+      { id: "result", role: "tool", toolCallId: "lookup", content: "null" },
+    ]);
+    detail.liveMessageVersion += 1;
+    await flushDetail(detail);
+    expect(root.querySelector(".cpk-td__tool-header")?.textContent).toContain(
+      "Result received",
+    );
+    expect(
+      textContentIncludingJson(root.querySelector(".cpk-td__tool-body")!),
+    ).toContain("null");
+    const parseError = vi.spyOn(console, "error").mockImplementation(() => {});
+    getMessages.mockResolvedValue([
+      {
+        id: "call",
+        role: "assistant",
+        toolCalls: [{ id: "lookup", name: "lookup", args: {} }],
+      },
+      { id: "result", role: "tool", toolCallId: "lookup", content: "{broken" },
+    ]);
+    detail.liveMessageVersion += 1;
+    await flushDetail(detail);
+    expect(root.querySelector(".cpk-td__tool-header")?.textContent).toContain(
+      "Result unreadable",
+    );
+    expect(
+      root.querySelector(".cpk-td__tool-header")?.textContent,
+    ).not.toContain("Result received");
+    expect(
+      textContentIncludingJson(root.querySelector(".cpk-td__tool-body")!),
+    ).toContain("{broken");
+    expect(parseError).toHaveBeenCalledOnce();
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("conversation shows run errors and keeps last-good messages when refresh fails", async () => {
+  prepareDom();
+  const getMessages = vi
+    .fn<NonNullable<ThreadDebuggerProvider["getMessages"]>>()
+    .mockResolvedValueOnce([
+      { id: "reply", role: "assistant", content: "Partial answer" },
+    ])
+    .mockRejectedValueOnce(new Error("Network unavailable"))
+    .mockResolvedValue([
+      { id: "reply", role: "assistant", content: "Recovered answer" },
+    ]);
+  const detail = appendDetail({
+    threadId: "failed-run",
+    provider: {
+      getMessages,
+      getEvents: async () => [
+        {
+          type: "RUN_ERROR",
+          timestamp: "2026-09-22T12:00:00Z",
+          payload: { message: "Calendar service unavailable" },
+        },
+      ],
+    },
+  });
+  try {
+    await flushDetail(detail);
+    const root = detail.shadowRoot;
+    if (!root) throw new Error("Missing thread detail root");
+    expect(
+      root.querySelector('[role="tabpanel"]:not([hidden])')?.textContent,
+    ).toContain("Calendar service unavailable");
+    detail.liveMessageVersion += 1;
+    await flushDetail(detail);
+    expect(root.textContent).toContain("Partial answer");
+    expect(root.textContent).toContain(
+      "Could not refresh messages. Showing the last loaded conversation.",
+    );
+    requireButton(root, "Show event timeline").click();
+    await flushDetail(detail);
+    expect(root.querySelector('[role="status"]')?.textContent).toContain(
+      "Could not refresh messages",
+    );
+    requireButton(root, "Show conversation").click();
+    await flushDetail(detail);
+    getMessages.mockImplementationOnce(
+      () => new Promise<ThreadDebuggerMessage[]>(() => {}),
+    );
+    // Exercise a non-silent retry while the prior refresh warning is visible.
+    void detail["fetchMessages"]("failed-run");
+    await flushDetail(detail);
+    expect(root.textContent).toContain("Loading messages…");
+    expect(root.textContent).not.toContain("Could not refresh messages");
+    detail.liveMessageVersion += 1;
+    await flushDetail(detail);
+    expect(root.textContent).toContain("Recovered answer");
+    expect(root.textContent).not.toContain("Could not refresh messages");
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test.each([false, true])(
+  "live refresh replacing the first message request clears loading (failure=%s)",
+  async (fails) => {
+    prepareDom();
+    const getMessages = vi
+      .fn<NonNullable<ThreadDebuggerProvider["getMessages"]>>()
+      .mockImplementationOnce(
+        () => new Promise<ThreadDebuggerMessage[]>(() => {}),
+      );
+    if (fails) getMessages.mockRejectedValue(new Error("Messages unavailable"));
+    else
+      getMessages.mockResolvedValue([
+        { id: "reply", role: "assistant", content: "Latest answer" },
+      ]);
+    const detail = appendDetail({
+      threadId: "loading-refresh",
+      provider: { getMessages },
+    });
+    try {
+      await flushDetail(detail);
+      expect(detail.shadowRoot?.textContent).toContain("Loading messages…");
+      detail.liveMessageVersion += 1;
+      await flushDetail(detail);
+      expect(detail.shadowRoot?.textContent).not.toContain("Loading messages…");
+      expect(detail.shadowRoot?.textContent).toContain(
+        fails ? "Messages unavailable" : "Latest answer",
+      );
+    } finally {
+      detail.remove();
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+    }
+  },
+);
+
+test("late errors from a replaced provider cannot erase the new thread data", async () => {
+  prepareDom();
+  const rejectOldRequests: Array<(reason: Error) => void> = [];
+  const pendingRequest = () =>
+    new Promise<never>((_resolve, reject) => {
+      rejectOldRequests.push(reject);
+    });
+  const detail = appendDetail({
+    threadId: "same-thread",
+    provider: {
+      getThreadMetadata: pendingRequest,
+      getMessages: pendingRequest,
+      getEvents: pendingRequest,
+      getState: pendingRequest,
+    },
+  });
+  try {
+    await flushDetail(detail);
+    await selectTab(detail, "State");
+    expect(rejectOldRequests).toHaveLength(4);
+    detail.provider = {
+      getThreadMetadata: async () => ({
+        id: "same-thread",
+        name: "New provider title",
+      }),
+      getMessages: async () => [
+        { id: "reply", role: "assistant", content: "New provider answer" },
+      ],
+      getEvents: async () => [
+        {
+          type: "RUN_ERROR",
+          timestamp: "2026-09-22T12:00:00Z",
+          payload: { message: "New provider run error" },
+        },
+      ],
+      getState: async () => ({ source: "new provider state" }),
+    };
+    await flushDetail(detail);
+    await selectTab(detail, "State");
+    for (const reject of rejectOldRequests)
+      reject(new Error("Old provider failed"));
+    await flushDetail(detail);
+    expect(textContentIncludingJson(detail.shadowRoot!)).toContain(
+      "new provider state",
+    );
+    await selectTab(detail, "Conversation");
+    expect(detail.shadowRoot?.textContent).toContain("New provider title");
+    expect(detail.shadowRoot?.textContent).toContain("New provider answer");
+    expect(detail.shadowRoot?.textContent).toContain("New provider run error");
+    expect(detail.shadowRoot?.textContent).not.toContain("Old provider failed");
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("long conversations place run errors in context without rebuilding on unrelated events", async () => {
+  prepareDom();
+  const messages: ThreadDebuggerMessage[] = Array.from(
+    { length: 200 },
+    (_, index) => ({
+      id: `reply-${index}`,
+      role: "assistant",
+      content: `Answer ${index}`,
+    }),
+  );
+  messages.push({
+    id: "later",
+    role: "assistant",
+    content: "A later run recovered",
+  });
+  const detail = appendDetail({
+    threadId: "long-active-run",
+    provider: { getMessages: async () => messages },
+  });
+  detail.agentEventsInput = [
+    {
+      type: "TEXT_MESSAGE_START",
+      timestamp: 1,
+      payload: { messageId: "reply-199", role: "assistant" },
+    },
+    {
+      type: "RUN_ERROR",
+      timestamp: 2,
+      payload: { message: "Run interrupted" },
+    },
+    {
+      type: "TEXT_MESSAGE_START",
+      timestamp: 3,
+      payload: { messageId: "later", role: "assistant" },
+    },
+  ];
+  try {
+    await flushDetail(detail);
+    const root = detail.shadowRoot;
+    if (!root) throw new Error("Missing thread detail root");
+    const rows = () =>
+      Array.from(
+        root.querySelectorAll(
+          ".cpk-td__bubble, .cpk-td__timeline-item--warning",
+        ),
+        (row) => row.textContent?.trim(),
+      );
+    expect(rows().slice(-3)).toEqual([
+      "Answer 199",
+      expect.stringContaining("Run interrupted"),
+      "A later run recovered",
+    ]);
+    // Compare the cached template to detect rebuilds, not just DOM reuse.
+    const conversationTemplate = () =>
+      detail["_panelTplCache"].get("timeline-fallback")?.tpl;
+    const initialTemplate = conversationTemplate();
+    expect(initialTemplate).toBeDefined();
+    for (let index = 0; index < 20; index++) {
+      detail.agentEventsInput = [
+        ...detail.agentEventsInput.map((event) => ({
+          ...event,
+          payload: { ...event.payload },
+        })),
+        { type: "STATE_DELTA", timestamp: index + 4, payload: { delta: [] } },
+      ];
+      await flushDetail(detail);
+    }
+    expect(conversationTemplate()).toBe(initialTemplate);
+    detail.agentEventsInput = [
+      ...detail.agentEventsInput,
+      {
+        type: "RUN_ERROR",
+        timestamp: 30,
+        payload: { message: "Second run interrupted" },
+      },
+    ];
+    await flushDetail(detail);
+    expect(rows().slice(-2)).toEqual([
+      "A later run recovered",
+      expect.stringContaining("Second run interrupted"),
+    ]);
+    requireButton(root, "Show details").click();
+    await flushDetail(detail);
+    expect(requireButton(root, "Hide details")).toBeDefined();
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});

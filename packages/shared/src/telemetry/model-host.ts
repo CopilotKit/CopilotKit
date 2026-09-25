@@ -90,9 +90,9 @@ function isPrivateAddress(host: string): boolean {
     return true;
   }
   // 127.0.0.0/8 is entirely loopback.
-  if (/^127\./.test(host)) return true;
+  if (host.startsWith("127.")) return true;
   // 10.0.0.0/8 and 192.168.0.0/16.
-  if (/^10\./.test(host) || /^192\.168\./.test(host)) return true;
+  if (host.startsWith("10.") || host.startsWith("192.168.")) return true;
   // 172.16.0.0/12 is 172.16 through 172.31 only. 172.32 is public, so the
   // second octet is range-checked rather than prefix-matched.
   const privateClassB = /^172\.(\d{1,3})\./.exec(host);

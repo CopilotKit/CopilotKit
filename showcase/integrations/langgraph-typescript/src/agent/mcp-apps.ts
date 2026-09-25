@@ -16,8 +16,9 @@
  * need bespoke MCP client wiring.
  */
 
-import { RunnableConfig } from "@langchain/core/runnables";
-import { AIMessage, SystemMessage } from "@langchain/core/messages";
+import type { RunnableConfig } from "@langchain/core/runnables";
+import type { AIMessage } from "@langchain/core/messages";
+import { SystemMessage } from "@langchain/core/messages";
 import {
   MemorySaver,
   START,

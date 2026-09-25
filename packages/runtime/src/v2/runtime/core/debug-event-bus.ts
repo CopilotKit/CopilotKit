@@ -1,5 +1,8 @@
-import { BaseEvent } from "@ag-ui/client";
-import { DebugEventEnvelope, ResolvedDebugConfig } from "@copilotkit/shared";
+import type { BaseEvent } from "@ag-ui/client";
+import type {
+  DebugEventEnvelope,
+  ResolvedDebugConfig,
+} from "@copilotkit/shared";
 
 export type DebugEventListener = (envelope: DebugEventEnvelope) => void;
 
