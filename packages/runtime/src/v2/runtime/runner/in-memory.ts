@@ -705,6 +705,29 @@ export class InMemoryAgentRunner extends AgentRunner {
         // the "skip an immediate throw that emitted nothing" check is dead.
         const preFinalizeEventCount = currentRunEvents.length;
 
+        // Stop can arrive before the agent sends its first event.
+        if (
+          finalizeControl.stopRequested &&
+          !currentRunEvents.some(
+            (event) => event.type === EventType.RUN_STARTED,
+          )
+        ) {
+          const started: RunStartedEvent = {
+            type: EventType.RUN_STARTED,
+            threadId: request.threadId,
+            runId: request.input.runId,
+            input: {
+              ...request.input,
+              messages: request.input.messages.filter(
+                (message) => !historicMessageIds.has(message.id),
+              ),
+            },
+          };
+          currentRunEvents.unshift(started);
+          runSubject.next(started);
+          nextSubject.next(started);
+        }
+
         // Finalize against THIS run's own captured stop-intent — never the
         // shared `store.stopRequested`, which a superseding run resets. An
         // aborted run is thus finalized as a clean RUN_FINISHED, not a synthetic
@@ -725,12 +748,15 @@ export class InMemoryAgentRunner extends AgentRunner {
 
         // Store this run's events. Guard on the per-run id (not the shared
         // `store.currentRunId`): a superseded run no longer owns the store, so
-        // it must not push history — and never under a newer run's id, which
-        // would corrupt the thread's history. On the error path also require at
-        // least one real (pre-finalize) event, so an immediate throw with
-        // nothing emitted does not create a phantom historic run holding only
-        // the synthetic terminal.
-        if (ownsThread && (!isError || preFinalizeEventCount > 0)) {
+        // it must not push history under a newer run's id.
+        // Keep explicit stops even when abort rejects before the first event.
+        // Other immediate errors with no real events must not create history.
+        if (
+          ownsThread &&
+          (!isError ||
+            preFinalizeEventCount > 0 ||
+            finalizeControl.stopRequested)
+        ) {
           // Compact the events before storing (like SQLite does)
           const compactedEvents = compactEvents(currentRunEvents);
           sharedStore.appendRun(request.threadId, {

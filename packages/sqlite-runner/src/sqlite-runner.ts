@@ -276,6 +276,30 @@ export class SqliteAgentRunner extends AgentRunner {
       // Get parent run ID for chaining
       const parentRunId = this.getLatestRunId(request.threadId);
 
+      const ensureStoppedRunStarted = (stopRequested: boolean) => {
+        if (
+          !stopRequested ||
+          currentRunEvents.some((event) => event.type === EventType.RUN_STARTED)
+        ) {
+          return;
+        }
+        // Stop can arrive before the agent sends its first event.
+        const started: RunStartedEvent = {
+          type: EventType.RUN_STARTED,
+          threadId: request.threadId,
+          runId: request.input.runId,
+          input: {
+            ...request.input,
+            messages: request.input.messages.filter(
+              (message) => !historicMessageIds.has(message.id),
+            ),
+          },
+        };
+        currentRunEvents.unshift(started);
+        runSubject.next(started);
+        nextSubject.next(started);
+      };
+
       try {
         await request.agent.runAgent(request.input, {
           onEvent: ({ event }) => {
@@ -324,6 +348,7 @@ export class SqliteAgentRunner extends AgentRunner {
         });
 
         const connection = ACTIVE_CONNECTIONS.get(request.threadId);
+        ensureStoppedRunStarted(connection?.stopRequested ?? false);
         const appendedEvents = finalizeRunEvents(currentRunEvents, {
           stopRequested: connection?.stopRequested ?? false,
           protocolVersion: request.input.protocolVersion,
@@ -359,6 +384,7 @@ export class SqliteAgentRunner extends AgentRunner {
         ACTIVE_CONNECTIONS.delete(request.threadId);
       } catch {
         const connection = ACTIVE_CONNECTIONS.get(request.threadId);
+        ensureStoppedRunStarted(connection?.stopRequested ?? false);
         const appendedEvents = finalizeRunEvents(currentRunEvents, {
           stopRequested: connection?.stopRequested ?? false,
           protocolVersion: request.input.protocolVersion,
