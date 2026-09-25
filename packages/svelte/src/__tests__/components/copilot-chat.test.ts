@@ -46,6 +46,8 @@ describe("CopilotChatInput", () => {
     await waitFor(() => expect(textarea.value).toBe(" second "));
     await fireEvent.keyDown(textarea, { key: "Enter", shiftKey: false });
     expect(onSubmit).toHaveBeenCalledWith("second");
+    expect(onInputChange).toHaveBeenLastCalledWith("");
+    expect(textarea.value).toBe("");
   });
 
   it("reports edits, ignores Shift+Enter, and invokes stop while running", async () => {

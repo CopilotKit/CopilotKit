@@ -46,18 +46,56 @@ describe("registerHumanInTheLoop", () => {
     const renderer = addHookRenderToolCall.mock.calls[0]?.[0];
     expect(registeredTool).toBeDefined();
     expect(renderer).toBeDefined();
-    const pending = registeredTool.handler({ action: "delete" });
-    renderer!.render({ status: "executing", args: { action: "delete" } });
-    const renderProps = onRender.mock.calls.at(0)![0];
-    expect(renderProps).toEqual(
+    const firstPending = registeredTool.handler(
+      { action: "delete" },
+      { toolCall: { id: "call-1" } },
+    );
+    const secondPending = registeredTool.handler(
+      { action: "archive" },
+      { toolCall: { id: "call-2" } },
+    );
+    renderer!.render({
+      toolCallId: "call-1",
+      status: "executing",
+      args: { action: "delete" },
+    });
+    renderer!.render({
+      toolCallId: "call-2",
+      status: "executing",
+      args: { action: "archive" },
+    });
+    const firstRenderProps = onRender.mock.calls.at(0)![0];
+    const secondRenderProps = onRender.mock.calls.at(1)![0];
+    expect(firstRenderProps).toEqual(
       expect.objectContaining({
         name: "approve-action",
         description: "Approve the action",
         respond: expect.any(Function),
       }),
     );
-    await renderProps.respond("approved");
-    await expect(pending).resolves.toBe("approved");
+    expect(secondRenderProps).toEqual(
+      expect.objectContaining({
+        name: "approve-action",
+        description: "Approve the action",
+        respond: expect.any(Function),
+      }),
+    );
+
+    let firstResult: unknown;
+    let secondResult: unknown;
+    void firstPending.then((result: unknown) => {
+      firstResult = result;
+    });
+    void secondPending.then((result: unknown) => {
+      secondResult = result;
+    });
+
+    await firstRenderProps.respond("first-approved");
+    await waitFor(() => expect(firstResult).toBe("first-approved"));
+    expect(secondResult).toBeUndefined();
+
+    await secondRenderProps.respond("second-approved");
+    await waitFor(() => expect(secondResult).toBe("second-approved"));
 
     view.unmount();
     expect(removeHookFrontendTool).toHaveBeenCalledWith(

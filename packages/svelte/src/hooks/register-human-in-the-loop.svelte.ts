@@ -1,4 +1,5 @@
 import { getContext } from "svelte";
+import type { FrontendToolHandlerContext } from "@copilotkit/core";
 import { COPILOT_KIT_KEY } from "../providers/context";
 import type { CopilotKitContextValue } from "../providers/context";
 import type {
@@ -18,18 +19,49 @@ export function registerHumanInTheLoop<T extends Record<string, unknown>>(
     );
   }
 
-  let resolvePromise: ((result: unknown) => void) | null = null;
-
-  const respond = async (result: unknown) => {
-    if (resolvePromise) {
-      resolvePromise(result);
-      resolvePromise = null;
+  const pendingResponses = new Map<
+    string,
+    {
+      resolve: (result: unknown) => void;
+      reject: (error: Error) => void;
+      cleanupAbort?: () => void;
     }
+  >();
+
+  const respond = async (toolCallId: string, result: unknown) => {
+    const pending = pendingResponses.get(toolCallId);
+    if (!pending) return;
+    pending.cleanupAbort?.();
+    pendingResponses.delete(toolCallId);
+    pending.resolve(result);
   };
 
-  const handler = async () => {
-    return new Promise((resolve) => {
-      resolvePromise = resolve;
+  const handler = async (
+    _args: T,
+    { toolCall, signal }: FrontendToolHandlerContext,
+  ) => {
+    return new Promise((resolve, reject) => {
+      if (signal?.aborted) {
+        reject(new Error("Human-in-the-loop interaction aborted"));
+        return;
+      }
+
+      const pending = {
+        resolve,
+        reject,
+        cleanupAbort: undefined as (() => void) | undefined,
+      };
+      pendingResponses.set(toolCall.id, pending);
+
+      if (signal) {
+        const onAbort = () => {
+          pendingResponses.delete(toolCall.id);
+          reject(new Error("Human-in-the-loop interaction aborted"));
+        };
+        signal.addEventListener("abort", onAbort, { once: true });
+        pending.cleanupAbort = () =>
+          signal.removeEventListener("abort", onAbort);
+      }
     });
   };
 
@@ -41,7 +73,10 @@ export function registerHumanInTheLoop<T extends Record<string, unknown>>(
       ...props,
       name: tool.name,
       description: tool.description || "",
-      respond: props.status === "executing" ? respond : undefined,
+      respond:
+        props.status === "executing"
+          ? (result: unknown) => respond(props.toolCallId, result)
+          : undefined,
     };
     return ToolComponent(
       extendedProps as Parameters<SvelteHumanInTheLoop<T>["render"]>[0],
@@ -50,6 +85,7 @@ export function registerHumanInTheLoop<T extends Record<string, unknown>>(
 
   const frontendTool: SvelteFrontendTool<T> = {
     ...tool,
+    type: "human-in-the-loop",
     handler,
     render: RenderComponent,
   };
@@ -65,6 +101,11 @@ export function registerHumanInTheLoop<T extends Record<string, unknown>>(
       render: RenderComponent,
     } as SvelteToolCallRenderer<unknown>);
     return () => {
+      for (const pending of pendingResponses.values()) {
+        pending.cleanupAbort?.();
+        pending.reject(new Error("Human-in-the-loop interaction aborted"));
+      }
+      pendingResponses.clear();
       core.removeHookFrontendTool(name, tool.agentId);
       core.removeHookRenderToolCall(name, tool.agentId);
     };

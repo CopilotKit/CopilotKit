@@ -32,6 +32,8 @@
     const trimmed = localValue.trim();
     if (!trimmed || isRunning) return;
     onSubmit(trimmed);
+    localValue = "";
+    onInputChange("");
   }
 
   function handleInput() {
