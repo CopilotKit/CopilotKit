@@ -1,5 +1,7 @@
 import { z } from "zod";
-import { Parameter } from "../types";
+import type { Parameter } from "../types";
+import { schemaToJsonSchema } from "../standard-schema";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
 export type JSONSchemaString = {
   type: "string";
@@ -191,6 +193,33 @@ function convertJsonSchemaToParameter(
 }
 
 function convertAttribute(attribute: Parameter): JSONSchema {
+  const rawSchema = (attribute as any).schema;
+  let parsedSchema: any = null;
+
+  if (rawSchema) {
+    if (
+      typeof rawSchema === "object" &&
+      ("type" in rawSchema || "properties" in rawSchema)
+    ) {
+      parsedSchema = rawSchema;
+    } else {
+      try {
+        parsedSchema = schemaToJsonSchema(rawSchema, {
+          zodToJsonSchema: (s, opts) =>
+            zodToJsonSchema(s as any, opts) as Record<string, unknown>,
+        });
+      } catch {
+        try {
+          parsedSchema = zodToJsonSchema(rawSchema as any, {
+            $refStrategy: "none",
+          });
+        } catch {
+          // Fall back if schema parsing is unavailable
+        }
+      }
+    }
+  }
+
   switch (attribute.type) {
     case "string":
       return {
@@ -205,36 +234,60 @@ function convertAttribute(attribute: Parameter): JSONSchema {
         description: attribute.description,
       };
     case "object":
-    case "object[]":
-      const properties = attribute.attributes?.reduce(
+    case "object[]": {
+      let properties = attribute.attributes?.reduce(
         (acc, attr) => {
           acc[attr.name] = convertAttribute(attr);
           return acc;
         },
         {} as Record<string, any>,
       );
-      const required = attribute.attributes
+
+      let required = attribute.attributes
         ?.filter((attr) => attr.required !== false)
         .map((attr) => attr.name);
+
+      const hasProperties =
+        properties !== undefined && Object.keys(properties).length > 0;
+
+      // If no attributes were provided (or attributes: []), extract from schema
+      if (!hasProperties && parsedSchema) {
+        if (parsedSchema.type === "array" && parsedSchema.items?.properties) {
+          properties = parsedSchema.items.properties;
+          required = parsedSchema.items.required;
+        } else if (parsedSchema.properties) {
+          properties = parsedSchema.properties;
+          required = parsedSchema.required;
+        }
+      }
+
       if (attribute.type === "object[]") {
+        const itemSchema: Record<string, any> = {
+          type: "object",
+          properties: properties ?? {},
+        };
+        if (required && required.length > 0) {
+          itemSchema.required = required;
+        }
+
         return {
           type: "array",
-          items: {
-            type: "object",
-            ...(properties && { properties }),
-            ...(required && required.length > 0 && { required }),
-          },
+          items: itemSchema as JSONSchema,
           description: attribute.description,
         };
       }
-      return {
+
+      const objSchema: Record<string, any> = {
         type: "object",
         description: attribute.description,
-        ...(properties && { properties }),
-        ...(required && required.length > 0 && { required }),
+        properties: properties ?? {},
       };
+      if (required && required.length > 0) {
+        objSchema.required = required;
+      }
+      return objSchema as JSONSchema;
+    }
     default:
-      // Handle arrays of primitive types and undefined attribute.type
       if (attribute.type?.endsWith("[]")) {
         const itemType = attribute.type.slice(0, -2);
         return {
@@ -243,7 +296,6 @@ function convertAttribute(attribute: Parameter): JSONSchema {
           description: attribute.description,
         };
       }
-      // Fallback for undefined type or any other unexpected type
       return {
         type: "string",
         description: attribute.description,
