@@ -108,7 +108,7 @@ function toolsFor(browser: BrowserAutopilot): FrontendTool[] {
     tool({
       name: "autopilot_askUser",
       description:
-        "Ask one short clarification when the target or value is ambiguous. This never approves a write. Do not seek a workaround after a failed action.",
+        "Ask one short clarification about an ambiguous target or missing required value. This never approves a write. Unavailable actions and failed actions must be reported, not turned into questions about workarounds.",
       parameters: z.object({ question: z.string().min(1).max(300) }),
       handler: ({ question }, context) => browser.ask(question, context),
     }),

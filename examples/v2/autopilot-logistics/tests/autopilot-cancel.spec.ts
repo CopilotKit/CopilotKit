@@ -1,4 +1,4 @@
-import { evidencePath } from "./evidence";
+import { evidencePath, captureRuntimeErrors } from "./evidence";
 import { expect, test } from "@playwright/test";
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -10,6 +10,7 @@ test("live agent cancels only after CopilotKit chat approval", async ({
   test.setTimeout(120_000);
   const evidenceDir = evidencePath("iteration-010", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
+  captureRuntimeErrors(page, evidenceDir);
   const database = new DatabaseSync(
     resolve(process.env.NORTHSTAR_DB_PATH || "data/northstar.sqlite"),
   );
@@ -133,6 +134,7 @@ test("declining CopilotKit chat approval leaves the order unchanged", async ({
   test.setTimeout(120_000);
   const evidenceDir = evidencePath("iteration-010", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
+  captureRuntimeErrors(page, evidenceDir);
   const database = new DatabaseSync(
     resolve(process.env.NORTHSTAR_DB_PATH || "data/northstar.sqlite"),
   );
@@ -236,6 +238,7 @@ test("a dispatched order cannot be cancelled by the agent", async ({
   test.setTimeout(120_000);
   const evidenceDir = evidencePath("iteration-010", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
+  captureRuntimeErrors(page, evidenceDir);
   const database = new DatabaseSync(
     resolve(process.env.NORTHSTAR_DB_PATH || "data/northstar.sqlite"),
   );

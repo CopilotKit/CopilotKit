@@ -1,4 +1,4 @@
-import { evidencePath } from "./evidence";
+import { evidencePath, captureRuntimeErrors } from "./evidence";
 import { expect, test } from "@playwright/test";
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -10,6 +10,7 @@ test("changed form handler during review denies the live agent write", async ({
   test.setTimeout(120_000);
   const evidenceDir = evidencePath("iteration-023", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
+  captureRuntimeErrors(page, evidenceDir);
   const database = new DatabaseSync(
     resolve(process.env.NORTHSTAR_DB_PATH || "data/northstar.sqlite"),
     { readOnly: true },

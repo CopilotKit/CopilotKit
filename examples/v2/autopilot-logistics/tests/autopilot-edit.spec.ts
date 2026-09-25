@@ -1,4 +1,4 @@
-import { evidencePath } from "./evidence";
+import { evidencePath, captureRuntimeErrors } from "./evidence";
 import { expect, test } from "@playwright/test";
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -42,6 +42,7 @@ for (const scenario of [
       `${scenario.name}-${Date.now()}`,
     );
     mkdirSync(evidenceDir, { recursive: true });
+    captureRuntimeErrors(page, evidenceDir);
     const database = new DatabaseSync(
       resolve(process.env.NORTHSTAR_DB_PATH || "data/northstar.sqlite"),
     );

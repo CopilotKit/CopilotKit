@@ -1,4 +1,4 @@
-import { evidencePath } from "./evidence";
+import { evidencePath, captureRuntimeErrors } from "./evidence";
 import { expect, test } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -21,6 +21,7 @@ test("live agent navigates to Users and back with app router", async ({
   });
   const evidenceDir = evidencePath("iteration-009", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
+  captureRuntimeErrors(page, evidenceDir);
   await page.goto("/sign-in");
   await page.getByRole("button", { name: /Avery Morgan/ }).click();
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
@@ -230,6 +231,7 @@ test("live agent finds one order, visits its detail and Users, then returns", as
   expect(calls).toContain("autopilot_goBack");
   const evidenceDir = evidencePath("iteration-017", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
+  captureRuntimeErrors(page, evidenceDir);
   await page.screenshot({
     path: resolve(evidenceDir, "order-navigation.png"),
     fullPage: true,
@@ -309,13 +311,14 @@ test("live agent respects the app's unsaved-change navigation refusal", async ({
       { timeout: 65_000 },
     )
     .toBe(true);
-  expect(review).toContain("Discard unsaved order changes?");
+  expect(review).toContain("Discard unsaved changes?");
   await expect(page).toHaveURL(/\/orders\/new$/);
   await expect(form.getByRole("textbox", { name: "Customer" })).toHaveValue(
     "Unsaved Browser Draft",
   );
   const evidenceDir = evidencePath("iteration-018", String(Date.now()));
   mkdirSync(evidenceDir, { recursive: true });
+  captureRuntimeErrors(page, evidenceDir);
   await page.screenshot({
     path: resolve(evidenceDir, "refused-navigation.png"),
     fullPage: true,
