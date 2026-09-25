@@ -274,7 +274,10 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             value. The resume value for that interrupt becomes the call's
             ``ToolMessage``. Parallel calls pause in parallel, so resuming more
             than one needs ids — send ``RunAgentInput.resume[]`` through
-            ``LangGraphAGUIAgent`` with ``emit_interrupt_outcome=True``.
+            ``LangGraphAGUIAgent`` with ``emit_interrupt_outcome=True``
+            (ag-ui-langgraph >= 0.0.43). The legacy
+            ``forwardedProps.command.resume`` carries no id, so it can only
+            answer a lone pending call.
     """
 
     state_schema = StateSchema
