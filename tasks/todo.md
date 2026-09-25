@@ -31,4 +31,5 @@ The durable scoreboard, evidence log, friction report, and per-iteration record 
 - [x] Centralize generic tools, guidance, approval/execution, budgets, takeover and recovery in packages.
 - [x] Install tools from provider configuration; reduce demo to session/router adapter and typed write receipts.
 - [x] Close form takeover/interactability and cross-tab coordination gaps; remove unbudgeted reader.
-- [ ] Verify public integration, regression tests, live browser flows, and packed consumer; update honest handoff.
+- [x] Verify package integration, regression tests, all 49 workspace browser scenarios, and isolated install/typecheck/build; update honest handoff.
+- [ ] Complete packed live signoff: 12/14 passed; remaining runs hit Intelligence thread initialization 502s (see HILLCLIMB cleanup checkpoint).
