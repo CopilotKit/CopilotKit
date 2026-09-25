@@ -67,6 +67,15 @@ export async function detectSingleRouteEnvelope(
 export async function parseMethodCall(request: Request): Promise<MethodCall> {
   const contentType = request.headers.get("content-type") || "";
 
+  if (contentType.includes("multipart/form-data")) {
+    // The JSON envelope can't carry a multipart body. `transcribe` is the
+    // only single-route method that ever sends audio this way, so a
+    // multipart POST here can only mean it; recognize it directly instead
+    // of 415ing before the transcribe handler (which already accepts
+    // multipart/form-data) gets a chance to run.
+    return { method: "transcribe" };
+  }
+
   if (!contentType.includes("application/json")) {
     throw createResponseError(
       "Single-route endpoint expects JSON payloads",

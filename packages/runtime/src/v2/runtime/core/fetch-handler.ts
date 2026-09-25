@@ -401,12 +401,20 @@ export function createCopilotRuntimeHandler(
           route,
         });
         // 6. Wrap body for methods that need it, then dispatch
+        const isMultipartTranscribe =
+          route.method === "transcribe" &&
+          (request.headers.get("content-type") || "").includes(
+            "multipart/form-data",
+          );
         if (
           route.method === "agent/run" ||
           route.method === "agent/suggest" ||
           route.method === "agent/connect" ||
-          route.method === "transcribe"
+          (route.method === "transcribe" && !isMultipartTranscribe)
         ) {
+          // A multipart `transcribe` POST is recognized directly in
+          // `parseMethodCall` with no JSON envelope; it must reach the
+          // handler as the original multipart request, not JSON-wrapped.
           request = createJsonRequest(request, methodCall.body);
         } else if (route.method === "agent/stop") {
           request = createJsonRequest(
