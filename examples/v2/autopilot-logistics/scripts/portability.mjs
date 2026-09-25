@@ -9,12 +9,25 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { createServer } from "node:net";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 
+// Allocate a separate loopback port so an existing demo cannot masquerade as
+// the packed consumer. A bind failure below is fatal, never a passing probe.
+const reservation = createServer();
+await new Promise((resolve, reject) => {
+  reservation.once("error", reject);
+  reservation.listen(0, "127.0.0.1", resolve);
+});
+const port = reservation.address().port;
+await new Promise((resolve, reject) =>
+  reservation.close((error) => (error ? reject(error) : resolve())),
+);
+const baseUrl = `http://127.0.0.1:${port}`;
 const app = process.cwd();
 const root = resolve(app, "../../..");
 const packagesDir = join(root, "packages");
@@ -26,6 +39,7 @@ mkdirSync(packs);
 const report = {
   commit: "",
   consumer,
+  baseUrl,
   packages: [],
   checks: [],
   status: "running",
@@ -139,7 +153,7 @@ try {
       [...artifacts].map(([name, file]) => [name, `file:./packs/${file}`]),
     ),
   };
-  manifest.scripts.start = "next start --hostname 127.0.0.1 --port 3001";
+  manifest.scripts.start = `next start --hostname 127.0.0.1 --port ${port}`;
   writeFileSync(
     join(consumer, "package.json"),
     JSON.stringify(manifest, null, 2),
@@ -152,7 +166,7 @@ try {
   const isolatedEnv = {
     ...process.env,
     NORTHSTAR_DB_PATH: join(consumer, "data/northstar.sqlite"),
-    AUTOPILOT_BASE_URL: "http://127.0.0.1:3001",
+    AUTOPILOT_BASE_URL: baseUrl,
     AUTOPILOT_EVIDENCE_ROOT: join(evidence, "live"),
   };
   command("pnpm", ["install", "--no-frozen-lockfile"], consumer, isolatedEnv);
@@ -189,8 +203,10 @@ try {
   try {
     let ready = false;
     for (let index = 0; index < 100; index++) {
+      if (server.exitCode !== null)
+        throw new Error(`Isolated server exited (${server.exitCode})`);
       try {
-        if ((await fetch("http://127.0.0.1:3001/sign-in")).ok) {
+        if ((await fetch(`${baseUrl}/sign-in`)).ok) {
           ready = true;
           break;
         }
