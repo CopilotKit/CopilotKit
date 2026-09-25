@@ -1,9 +1,11 @@
 ---
 title: Connect and run your agent in Microsoft Teams
-description: Run any supported agent framework in Teams through a managed CopilotKit Intelligence connection.
+description: Run any supported agent framework in Teams through a cloud-hosted Intelligence connection.
 icon: "lucide/MessagesSquare"
 doc_type: tutorial
 ---
+
+import ChannelsInstall from "@/snippets/shared/channels/install.mdx";
 
 In this guide, you will connect an AG-UI agent to a managed Microsoft Teams
 bot, start a long-running Channels SDK listener, and verify a real Microsoft
@@ -63,15 +65,16 @@ re-installing.
   <Step>
     ### Create the runner
 
-    The install command below uses an exact, tested SDK pair; upgrade
-    `@copilotkit/channels` and `@copilotkit/runtime` together.
-
     ```bash title="Terminal"
     mkdir my-teams-channel
     cd my-teams-channel
     npm init -y
     npm pkg set type=module
-    npm install --save-exact @copilotkit/channels@0.9.2 @copilotkit/runtime@1.70.2
+    ```
+
+    <ChannelsInstall />
+
+    ```bash title="Terminal"
     npm install -D tsx typescript @types/node
     ```
 
@@ -107,6 +110,10 @@ re-installing.
 
     Create the listener below. Replace `support-teams` with the exact Code shown
     in Intelligence.
+
+    Set `agent: makeAgent` on the Channel because this handler calls
+    `thread.runAgent()`. Channels do not inherit `runtime.agents`. A Channel
+    whose handlers reply directly without `runAgent()` can omit `agent`.
 
     ```ts title="channel.ts"
     import { createServer } from "node:http";
@@ -148,7 +155,7 @@ re-installing.
 
     const intelligence = new CopilotKitIntelligence({
       apiKey: required("CPK_INTELLIGENCE_API_KEY"),
-      // Managed deployments use the hosted defaults. Override both URLs
+      // Cloud-hosted deployments use the default URLs. Override both URLs
       // together only for self-hosted or non-production Intelligence.
       apiUrl: process.env.INTELLIGENCE_API_URL,
       wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL,
@@ -189,7 +196,7 @@ re-installing.
       throw new Error(`Teams Channel is not online: ${JSON.stringify(status)}`);
     }
 
-    const port = Number(process.env.PORT ?? 3000);
+    const port = Number(process.env.PORT ?? 3001);
     server.listen(port, () => {
       console.log(`Teams Channel online; lifecycle server listening on :${port}`);
     });
@@ -216,14 +223,33 @@ re-installing.
     CPK_INTELLIGENCE_API_KEY=<project-api-key>
     CHANNEL_CODE=support-teams
     # Add the agent variables shown for your selected backend.
-    PORT=3000
+    PORT=3001
 
     # Optional paired overrides for self-hosted or non-production Intelligence:
     # INTELLIGENCE_API_URL=https://intelligence.example.com
     # INTELLIGENCE_GATEWAY_WS_URL=wss://realtime.intelligence.example.com
     ```
 
-    Hosted Intelligence supplies both managed base URLs by default. For a
+    The lifecycle server uses port `3001` so it can run alongside a web app
+    on port `3000`. If `3001` is already in use, set `PORT` to another free port.
+
+    #### Where these values come from
+
+    Three variables matter here, and you supply only one:
+
+    - `OPENAI_API_KEY`, or the key for whichever model provider your agent uses.
+      This one is yours to create and paste.
+    - `CPK_INTELLIGENCE_API_KEY` is written for you by
+      `copilotkit project select`, which provisions the project and its key.
+    - `CHANNEL_CODE` is written for you by the onboarding run once it has
+      declared the Channel; the run knows the Code it just created.
+
+    So both Intelligence values land in the environment file your app loads and
+    you never copy either one by hand. Setting them yourself still works: see
+    [configure the runtime handoff](/channels/intelligence#configure-the-runtime-handoff)
+    for where each value appears in Intelligence.
+
+    Cloud-hosted Intelligence supplies both default base URLs. For a
     self-hosted or non-production deployment, override both together. The REST
     and realtime planes use separate hosts, so do not derive the WebSocket URL
     from the API URL. Pass each as a bare base URL without `/api`, `/socket`,

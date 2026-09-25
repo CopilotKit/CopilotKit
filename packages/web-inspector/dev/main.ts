@@ -467,7 +467,8 @@ async function openInspectorSurface(
   );
   launcher.click();
   if (initialMenu !== "home") {
-    const menuLabel = initialMenu === "memories" ? "Learning" : "Threads";
+    const menuLabel =
+      initialMenu === "memories" ? "Automatic Learning" : "Rich Threads";
     const menuButton = await waitForButton(
       (button) => button.textContent?.trim() === menuLabel,
       `the ${menuLabel} navigation button`,

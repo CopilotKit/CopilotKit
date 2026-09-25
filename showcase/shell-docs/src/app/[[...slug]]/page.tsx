@@ -11,6 +11,7 @@ import { DocsSetupWizard } from "@/components/docs-setup-wizard";
 import { DocsVideoCarousel } from "@/components/docs-video-carousel";
 import { HeroOnboardingPromptButton } from "@/components/hero-onboarding-prompt-button";
 import { HeroQuickstartDropdown } from "@/components/hero-quickstart-dropdown";
+import { PromptFolderHint } from "@/components/hero-start-commands";
 import { ArrowRight } from "lucide-react";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
@@ -147,6 +148,9 @@ function DocsOverview() {
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
               <HeroOnboardingPromptButton surface="docs_landing_hero" />
               <HeroQuickstartDropdown options={quickstartOptions} />
+            </div>
+            <div className="mt-3">
+              <PromptFolderHint />
             </div>
           </section>
 

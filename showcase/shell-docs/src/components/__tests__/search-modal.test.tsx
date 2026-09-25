@@ -15,7 +15,15 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 const pushed: string[] = [];
 // The surface the reader is on. Mutable so a test can put the reader on a
@@ -39,7 +47,15 @@ vi.mock("../framework-provider", () => ({
   }),
 }));
 
-import { SearchModal } from "../search-modal";
+import { SearchModal, loadRegistry } from "../search-modal";
+
+// The modal fetches registry.json with a dynamic import on mount. Under
+// vitest each such import is a round trip to the main process, which stalls
+// for seconds when the full suite runs in parallel. Pay for the one real load
+// here, with room to spare, so no test's 1000ms waitFor races it.
+beforeAll(async () => {
+  await loadRegistry();
+}, 60_000);
 
 const SHELL_HOST = "https://showcase.copilotkit.test";
 
@@ -151,7 +167,7 @@ describe("docs search results stay on the docs host", () => {
 });
 
 describe("docs search ordering", () => {
-  it("ranks the canonical Threads guide above the threads drawer page", async () => {
+  it("ranks the canonical Rich Threads guide above the threads drawer page", async () => {
     await search("threads");
 
     const titles = resultTitles();

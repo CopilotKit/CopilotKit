@@ -13,7 +13,7 @@ CopilotKit has a variety of ways to customize colors and structures of the Copil
 If you want to customize the style as well as the functionality of the Copilot UI, you can also try the following:
 
 - [Custom Sub-Components](/custom-look-and-feel/bring-your-own-components)
-- [Fully Headless UI](/custom-look-and-feel/headless-ui)
+- [Headless UI](/custom-look-and-feel/headless-ui)
 
 ## CSS Variables (Easiest)
 
@@ -30,7 +30,7 @@ The easiest way to change the colors using in the Copilot UI components is to ov
 Once you've found the right variable, you can import `CopilotKitCSSProperties` and simply wrap CopilotKit in a div and override the CSS variables.
 
 ```tsx
-import { CopilotKitCSSProperties } from "@copilotkit/react-core/v2";
+import { CopilotKitCSSProperties } from "@copilotkit/react-ui";
 
 <div
   // [!code highlight:5]

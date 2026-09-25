@@ -1004,7 +1004,7 @@ describe("CpkThreadInspector provider contract", () => {
     expect(internals._fetchedEvents).toHaveLength(6);
 
     const text = el.shadowRoot?.textContent ?? "";
-    expect(text).toContain("Messages");
+    expect(text).toContain("Conversation");
     expect(text).toContain("AG-UI Events");
     expect(text).toContain("State");
     expect(text).toContain("Run started");
@@ -1358,7 +1358,7 @@ describe("CpkThreadInspector provider contract", () => {
       ?.click();
     await flushProviderWork(el);
 
-    expect(el.shadowRoot?.textContent ?? "").toContain("Messages");
+    expect(el.shadowRoot?.textContent ?? "").toContain("Conversation");
     expect(el.shadowRoot?.textContent ?? "").toContain("2");
   });
 
@@ -1620,6 +1620,198 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     if (!link) throw new Error("Expected announcement link");
     return link;
   };
+  const showHud = async (inspector: WebInspectorElement) => {
+    await inspector.updateComplete;
+    inspector.shadowRoot
+      ?.querySelector(".console-button-wrapper")
+      ?.dispatchEvent(new PointerEvent("pointerenter", { bubbles: true }));
+    await inspector.updateComplete;
+  };
+
+  it("records rendered HUD parts once per presentation and identifies the notification", async () => {
+    const { inspector, internals } = mount();
+    await internals.fetchAnnouncement();
+    await showHud(inspector);
+
+    expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(1);
+    expect(
+      eventsNamed("oss.inspector.hud_notification_viewed")[0]?.properties,
+    ).toMatchObject({ banner_id: timestamp, trigger: "user" });
+    expect(
+      eventsNamed("oss.inspector.hud_feature_toggle_viewed").map(
+        (event) => event.properties.feature,
+      ),
+    ).toEqual(["learning"]);
+    expect(eventsNamed("oss.inspector.hud_hide_viewed")).toHaveLength(1);
+    expect(
+      [
+        "hud_viewed",
+        "hud_notification_viewed",
+        "hud_feature_toggle_viewed",
+        "hud_hide_viewed",
+      ].map(
+        (name) => eventsNamed(`oss.inspector.${name}`)[0]?.properties.trigger,
+      ),
+    ).toEqual(["user", "user", "user", "user"]);
+    inspector.requestUpdate();
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(1);
+
+    inspector.shadowRoot
+      ?.querySelector<HTMLElement>(".console-button-wrapper")
+      ?.dispatchEvent(new PointerEvent("pointerleave", { bubbles: true }));
+    // Close through the same Escape path a keyboard user has.
+    inspector.shadowRoot
+      ?.querySelector<HTMLElement>(".console-button-wrapper")
+      ?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
+    await inspector.updateComplete;
+    await showHud(inspector);
+    expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(2);
+  });
+
+  it("labels the automatic page-load preview as an intro, including clicks made during it", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const { inspector } = mount();
+      await inspector.updateComplete;
+      expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(0);
+
+      await vi.advanceTimersByTimeAsync(500);
+      await inspector.updateComplete;
+      expect(
+        eventsNamed("oss.inspector.hud_viewed").map(
+          (event) => event.properties.trigger,
+        ),
+      ).toEqual(["intro"]);
+      expect(
+        eventsNamed("oss.inspector.hud_hide_viewed")[0]?.properties,
+      ).toMatchObject({ trigger: "intro" });
+
+      // Taking over the preview keeps the presentation it started as.
+      await showHud(inspector);
+      inspector.shadowRoot
+        ?.querySelector<HTMLButtonElement>('[data-cpk-hud-toggle="learning"]')
+        ?.click();
+      expect(
+        eventsNamed("oss.inspector.hud_feature_toggle_clicked")[0]?.properties,
+      ).toMatchObject({ feature: "learning", trigger: "intro" });
+      expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("labels a hover after the intro has ended as a user presentation", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const { inspector } = mount();
+      await inspector.updateComplete;
+      await vi.advanceTimersByTimeAsync(500 + 3400);
+      await inspector.updateComplete;
+      expect(
+        inspector.shadowRoot?.querySelector("[data-cpk-launcher-hud]"),
+      ).toBeNull();
+
+      await showHud(inspector);
+      expect(
+        eventsNamed("oss.inspector.hud_viewed").map(
+          (event) => event.properties.trigger,
+        ),
+      ).toEqual(["intro", "user"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("records notification dismissals and feature toggle navigation", async () => {
+    const { inspector, internals } = mount();
+    await internals.fetchAnnouncement();
+    await showHud(inspector);
+    inspector.shadowRoot
+      ?.querySelector<HTMLButtonElement>("[data-cpk-hud-news-dismiss]")
+      ?.click();
+    await inspector.updateComplete;
+    expect(
+      eventsNamed("oss.inspector.hud_notification_clicked")[0]?.properties,
+    ).toMatchObject({
+      banner_id: timestamp,
+      action: "dismiss",
+      trigger: "user",
+    });
+
+    inspector.shadowRoot
+      ?.querySelector<HTMLButtonElement>('[data-cpk-hud-toggle="learning"]')
+      ?.click();
+    expect(
+      eventsNamed("oss.inspector.hud_feature_toggle_clicked")[0]?.properties,
+    ).toMatchObject({ feature: "learning", trigger: "user" });
+    expect(eventsNamed("oss.inspector.hud_feature_clicked")).toHaveLength(0);
+  });
+
+  it("records notification opens", async () => {
+    const { inspector, internals } = mount();
+    await internals.fetchAnnouncement();
+    await showHud(inspector);
+    inspector.shadowRoot
+      ?.querySelector<HTMLButtonElement>("[data-cpk-hud-news]")
+      ?.click();
+    expect(
+      eventsNamed("oss.inspector.hud_notification_clicked")[0]?.properties,
+    ).toMatchObject({ banner_id: timestamp, action: "open", trigger: "user" });
+  });
+
+  it("records feature row actions", async () => {
+    const { inspector } = mount();
+    await showHud(inspector);
+    inspector.shadowRoot
+      ?.querySelector<HTMLButtonElement>('[data-cpk-hud-learn-more="learning"]')
+      ?.click();
+    expect(
+      eventsNamed("oss.inspector.hud_feature_clicked").at(-1)?.properties,
+    ).toMatchObject({
+      feature: "learning",
+      control: "learn_more",
+      trigger: "user",
+    });
+  });
+
+  it("records the hide action", async () => {
+    const { inspector } = mount();
+    await showHud(inspector);
+    inspector.shadowRoot
+      ?.querySelector<HTMLButtonElement>('[data-cpk-dismiss-inspector="day"]')
+      ?.click();
+    expect(
+      eventsNamed("oss.inspector.hud_hide_clicked").map(
+        (event) => event.properties.trigger,
+      ),
+    ).toEqual(["user"]);
+  });
+
+  it("holds HUD telemetry until the handshake and drops it on runtime opt-out", async () => {
+    const { inspector, internals, harness } = mount(false, false);
+    await internals.fetchAnnouncement();
+    await showHud(inspector);
+    expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(0);
+    harness.completeHandshake({ telemetryDisabled: true });
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(0);
+  });
+
+  it("flushes a pending HUD impression after an allowed handshake", async () => {
+    const { inspector, internals, harness } = mount(false, false);
+    await internals.fetchAnnouncement();
+    await showHud(inspector);
+    expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(0);
+    harness.completeHandshake({ telemetryDisabled: false });
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(1);
+    expect(
+      eventsNamed("oss.inspector.hud_notification_viewed")[0]?.properties,
+    ).toMatchObject({ banner_id: timestamp });
+  });
 
   it("records one launcher signal presentation when the pulse is rendered", async () => {
     const { inspector, internals } = mount();
@@ -2226,7 +2418,7 @@ function setupRuntimeDiagnostics() {
 
     const threadsButton = Array.from(
       inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
-    ).find((button) => button.textContent?.trim() === "Threads");
+    ).find((button) => button.textContent?.trim() === "Rich Threads");
     expect(threadsButton).toBeDefined();
     threadsButton?.click();
     await inspector.updateComplete;
@@ -2406,7 +2598,7 @@ test.each([
       const threadsButton = Array.from(
         inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ??
           [],
-      ).find((button) => button.textContent?.trim() === "Threads");
+      ).find((button) => button.textContent?.trim() === "Rich Threads");
       expect(threadsButton).toBeDefined();
       await vi.waitFor(() => {
         expect(
@@ -2466,7 +2658,7 @@ test.each([
       const threadsButton = Array.from(
         inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ??
           [],
-      ).find((button) => button.textContent?.trim() === "Threads");
+      ).find((button) => button.textContent?.trim() === "Rich Threads");
       expect(threadsButton).toBeDefined();
       expect(inspector.shadowRoot?.textContent ?? "").toContain(lockedHeading);
       expect(threadListText(inspector)).not.toContain(
@@ -2823,7 +3015,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     const threadsButton = Array.from(
       inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
-    ).find((button) => button.textContent?.trim() === "Threads");
+    ).find((button) => button.textContent?.trim() === "Rich Threads");
     expect(threadsButton, "Threads menu button should render").toBeDefined();
 
     threadsButton!.click();
@@ -3616,7 +3808,7 @@ describe("WebInspectorElement memories — view states", () => {
     // through `feature/stop` when a prerequisite is missing, which is why the
     // route beats this pane guessing at one.
     expect(String(writeText.mock.calls[0]?.[0])).toContain(
-      "--intent add-learning",
+      "?intent=add-learning",
     );
     expect(copy?.getAttribute("aria-label")).toContain("Learning");
     expect(internals.selectedMenu).toBe("memories");
@@ -3628,10 +3820,12 @@ describe("WebInspectorElement memories — view states", () => {
       view?.shadowRoot?.querySelector('[data-learning-state="setup"]'),
     ).not.toBeNull();
     expect(view?.shadowRoot?.textContent).toContain(
-      "Waiting for Learning setup",
+      "Waiting for Automatic Learning setup",
     );
     expect(view?.shadowRoot?.textContent).toContain("Copy the setup prompt");
-    expect(view?.shadowRoot?.textContent).toContain("Set up Learning");
+    expect(view?.shadowRoot?.textContent).toContain(
+      "Set up Automatic Learning",
+    );
     expect(
       view?.shadowRoot?.querySelector(".step")?.classList.contains("complete"),
     ).toBe(true);

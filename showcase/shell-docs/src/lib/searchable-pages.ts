@@ -18,8 +18,8 @@
  *   (b) A navigable page links to it, counting the snippets that page
  *       inlines as part of it — most CopilotKit pages are thin wrappers
  *       around shared snippets, and that is where the prose links live
- *       (`intelligence/overview.mdx` is nothing but `<Overview />`, whose
- *       snippet links to `intelligence/headless-ui`). One hop only, no
+ *       (`threads-lifecycle.mdx` is nothing but a snippet import, and that
+ *       snippet links to `tutorials/multi-conversation-chat`). One hop only, no
  *       transitive closure. A page kept out of the sidebar but linked from
  *       prose is intentional content, not a leftover.
  *
@@ -52,6 +52,7 @@ import {
 import type { NavNode } from "./docs-render";
 import { getDocsFolder, getDocsMode, getIntegrations } from "./registry";
 import { isRouteGroupSegment } from "./route-groups";
+import { FRONTEND_PAGE_IDS } from "./frontend-page-content";
 
 /**
  * One sidebar the docs app can actually render. `integrationFolder` is set
@@ -107,8 +108,19 @@ const NON_DOCS_ROOT_SEGMENTS = new Set([
   "_next",
 ]);
 
-/** Frontend surfaces are routed at `/<frontend>/<topic>`, like frameworks. */
-const FRONTEND_SEGMENTS = ["vue", "react-native", "angular", "slack", "teams"];
+/**
+ * Frontend surfaces are routed at `/<frontend>/<topic>`, like frameworks.
+ *
+ * Derived from the registry rather than listed, because the list had already
+ * drifted: it omitted `react-spa`. `react` is excluded because it is the
+ * unprefixed default surface.
+ *
+ * Regenerating the index over this change moves nothing — 772 entries before
+ * and after, no slug added or removed — because the frontend landing pages
+ * reach the index through the builder rather than through rule (b). The fix
+ * is to stop the drift, not to recover a missing page.
+ */
+const FRONTEND_SEGMENTS: string[] = FRONTEND_PAGE_IDS;
 
 /**
  * Sidebar titles that identify nothing once the surrounding group is gone.
@@ -329,7 +341,7 @@ export function docsSlugCandidatesFromLinkTarget(
 }
 
 // Stops at whitespace as well as `)` so a link that carries a title —
-// `](/threads "Rich threads")` — still yields `/threads`.
+// `](/threads "guide")` — still yields `/threads`.
 const MARKDOWN_LINK = /\]\(\s*(\/[^)\s]*)/g;
 const JSX_HREF = /href=["'](\/[^"']*)["']/g;
 

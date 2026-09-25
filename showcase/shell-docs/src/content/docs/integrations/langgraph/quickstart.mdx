@@ -36,9 +36,9 @@ An unversioned `zod` install selects Zod 4, which does not satisfy this SDK rele
 
 <Steps>
     <Step>
-        ### Create a free account
+        ### Set up CopilotKit Intelligence
 
-        <SignupLink surface="docs_langgraph_quickstart_step1">Sign up for a free developer account</SignupLink> for CopilotKit Intelligence to get a license key. You'll use it later to enable persistent threads and the inspector.
+        <SignupLink surface="docs_langgraph_quickstart_step1">Sign in to cloud-hosted Intelligence</SignupLink>. Cloud-hosted setup uses a server-side project API key and does not issue `COPILOTKIT_LICENSE_TOKEN`. You will connect the app after you create it below.
     </Step>
 
     <Step>
@@ -354,7 +354,7 @@ An unversioned `zod` install selects Zod 4, which does not satisfy this SDK rele
               ```
 
               <Callout type="info" title="One route supports the full Intelligence experience">
-                A current client and Runtime can carry chat, Threads, Memory,
+                A current client and Runtime can carry chat, Rich Threads, User Memory,
                 annotations, and Inspector requests through one `POST`
                 endpoint. They negotiate this support before sending resource
                 requests. The example below uses that mode.
@@ -439,10 +439,15 @@ An unversioned `zod` install selects Zod 4, which does not satisfy this SDK rele
               </Tab>
             </Tabs>
 
-              The runtime reads the project API key from step 1. Add it to the app that serves
-              this route:
+              From this frontend app directory, connect the runtime to an Intelligence project:
 
-              ```plaintext title=".env.local"
+              ```bash title="Terminal"
+              npx copilotkit@latest project select
+              ```
+
+              The command writes the server-side project API key to `.env`. The runtime reads it here:
+
+              ```plaintext title=".env"
               CPK_INTELLIGENCE_API_KEY=cpk-...
               ```
 
@@ -450,7 +455,7 @@ An unversioned `zod` install selects Zod 4, which does not satisfy this SDK rele
                 Drop the `intelligence` and `identifyUser` options and the runtime falls back
                 to SSE mode with an in-memory runner. Chat still works, but Threads and the
                 Inspector stay locked and the key is never read. See
-                [Connect your runtime to Intelligence](/intelligence/connect-your-runtime) for the
+                [Connect your runtime to Intelligence](/intelligence/quickstart) for the
                 full constructor and how to confirm the key is in use.
               </Callout>
           </Step>

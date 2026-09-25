@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import weakref
+from collections.abc import Sequence
 from typing import Any
 
 from copilotkit_intelligence import Intelligence, LearnedSkillsError, LearnedSkillsErrorCode
@@ -15,7 +16,7 @@ from google.adk.tools.base_toolset import BaseToolset
 from google.adk.tools.tool_context import ToolContext
 from google.genai import types
 
-from ._delivery.registry import Registry, Status
+from ._delivery.registry import ContainerSource, Registry, Status
 from ._delivery.snapshot import VerifiedSnapshot
 
 
@@ -51,6 +52,7 @@ class SkillRegistry:
         api_url: str | None = None,
         container_id: str | None = None,
         revision: str | None = None,
+        containers: Sequence[ContainerSource] | None = None,
         freshness_window: float = 5,
         request_timeout: float = 5,
         debug: bool = False,
@@ -61,6 +63,7 @@ class SkillRegistry:
             api_url=api_url,
             container_id=container_id,
             revision=revision,
+            containers=containers,
             freshness_window=freshness_window,
             request_timeout=request_timeout,
             debug=debug,

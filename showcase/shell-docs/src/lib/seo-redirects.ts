@@ -673,7 +673,7 @@ const MOVED_ROOT_REDIRECTS: RedirectEntry[] = [
   {
     id: "MV-gs-open-json-ui",
     source: "/generative-ui/specs/open-json-ui",
-    destination: "/generative-ui/open-json-ui",
+    destination: "/generative-ui/a2ui",
   },
   {
     id: "MV-gs-root",
@@ -1024,6 +1024,15 @@ const PREMIUM_URL_FRAMEWORKS: string[] = [
 // ---------------------------------------------------------------------------
 
 const RETIRED_INTELLIGENCE_REDIRECTS: RedirectEntry[] = [
+  // Agents fetch the `.md`/`.mdx` variant, and released CLI onboarding
+  // prompts (4.14.0 and older) cite `connect-your-runtime.md`. An exact
+  // entry matches only the path it names, so each variant needs its own
+  // entry or it 404s (PE-328).
+  ...["", ".md", ".mdx"].map((suffix) => ({
+    id: `INTEL-connect-runtime${suffix}`,
+    source: `/intelligence/connect-your-runtime${suffix}`,
+    destination: `/intelligence/quickstart${suffix}`,
+  })),
   // Sources keep the legacy `premium` segment (that is the URL the SEO
   // surface saw); destinations follow the `premium/` → `intelligence/`
   // folder rename (OSS-1078). These are EXACT entries, so middleware
@@ -1075,9 +1084,10 @@ const RETIRED_INTELLIGENCE_REDIRECTS: RedirectEntry[] = [
 // `premium/` → `intelligence/` content-folder rename (OSS-1078).
 //
 // Only the parent segment changed — every page slug under the folder
-// (`overview`, `managed-intelligence-platform`, `connect-your-runtime`,
-// `self-hosting`, `intelligence-platform`, `threads-explained`,
-// `headless-ui`) is unchanged. So this is expressed as WILDCARDS rather
+// (`overview`, `managed-intelligence-platform`, `self-hosting`,
+// `intelligence-platform`, `threads-explained`, `headless-ui`) is unchanged.
+// `connect-your-runtime` is not a live page. `/intelligence/connect-your-runtime`
+// redirects to the quickstart. So this is expressed as WILDCARDS rather
 // than one SUBPATH_RENAMES entry per page: `/premium/:path*` →
 // `/intelligence/:path*` covers today's pages, their `.md`/`.mdx` LLM
 // variants, and any page added under `intelligence/` later without

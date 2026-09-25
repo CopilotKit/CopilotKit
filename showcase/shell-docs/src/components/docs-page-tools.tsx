@@ -14,6 +14,7 @@
 // arrived through.
 
 import React from "react";
+import { PromptFolderHint } from "./hero-start-commands";
 import {
   MarkdownCopyButton,
   OnboardingPromptCopyButton,
@@ -32,19 +33,18 @@ export interface DocsPageToolsProps {
    * under a `/<framework>/…` route, and equally for the root surface and the
    * cookbook, where the framework in play is the Built-in Agent. Absent only
    * where the surface has no registry record to name (`a2a`, `agent-spec`);
-   * the button still renders there, its prompt simply names no framework.
+   * the button still renders there, and its prompt names no framework.
    */
   onboardingFramework?: { slug: string; name: string };
   /**
    * The frontend the page's URL selects, resolved server-side by
-   * `onboardingFrontendFor`. Named in the copied prompt right after the
-   * framework, so the CLI's graph has to ask for neither selection.
+   * `onboardingFrontendFor`. Named in the prompt's page-topic sentence and
+   * sent with the copy events. A Slack or Teams frontend selects the Channels
+   * prompt.
    */
   onboardingFrontend?: { id: string; name: string };
   /** Hide the generic onboarding prompt when the page provides its own CTA. */
   hideOnboardingPrompt?: boolean;
-  /** Page-specific setup goal for an in-content quickstart prompt. */
-  promptTask?: string;
 }
 
 /**
@@ -71,10 +71,9 @@ export function DocsPageTools({
   onboardingFramework,
   onboardingFrontend,
   hideOnboardingPrompt = false,
-  promptTask,
 }: DocsPageToolsProps): React.JSX.Element {
   const markdownUrl = docsMarkdownUrl(slugHrefPrefix, slugPath);
-  return (
+  const row = (
     <div
       className={`docs-page-tools flex min-w-0 flex-row items-center${hideOnboardingPrompt ? "" : " docs-page-tools-prompt"}`}
       role="group"
@@ -90,7 +89,6 @@ export function DocsPageTools({
         </MarkdownCopyButton>
       ) : (
         <OnboardingPromptCopyButton
-          task={promptTask}
           framework={onboardingFramework}
           frontend={onboardingFrontend}
           markdownUrl={markdownUrl}
@@ -105,6 +103,14 @@ export function DocsPageTools({
         condensed
         includeCopyPage={!hideOnboardingPrompt}
       />
+    </div>
+  );
+  if (hideOnboardingPrompt) return row;
+  // The same line, in the same place, as under the docs hero (PE-340).
+  return (
+    <div className="flex min-w-0 flex-col gap-3">
+      {row}
+      <PromptFolderHint />
     </div>
   );
 }

@@ -47,9 +47,9 @@ Before you begin, you'll need the following:
 
 <Steps>
     <Step>
-        ### Create a free account
+        ### Set up CopilotKit Intelligence
 
-        <SignupLink surface="docs_mastra_quickstart_step1">Sign up for a free developer account</SignupLink> for CopilotKit Intelligence to get a license key. You'll use it later to enable persistent threads and the inspector.
+        <SignupLink surface="docs_mastra_quickstart_step1">Sign in to cloud-hosted Intelligence</SignupLink>. Cloud-hosted setup uses a server-side project API key and does not issue `COPILOTKIT_LICENSE_TOKEN`. You will connect the app after you create it below.
     </Step>
 
     <Step>
@@ -178,6 +178,7 @@ Before you begin, you'll need the following:
                 import { Agent } from "@mastra/core/agent";
 
                 export const myAgent = new Agent({
+                  id: "my-agent",
                   name: "My Agent",
                   instructions: "You are a helpful assistant!",
                   model: openai("gpt-5.4"),
@@ -194,6 +195,19 @@ Before you begin, you'll need the following:
                   agents: { myAgent },
                 });
                 ```
+
+                <Callout type="warn" title="The record key is the agent's name, not its `id`">
+                  Mastra advertises each agent under the **key you register it with** — `myAgent`
+                  here — and that key is what the runtime map, and so the provider's `agent` prop,
+                  is keyed by. The `name` above (`"My Agent"`) is display text, and an `id`, if you
+                  set one, is not used for routing either. `listAgents()` returns `myAgent` even
+                  when the agent declares `id: "my-agent"`.
+
+                  The same rule applies to tools: `tools: { weatherTool }` advertises
+                  `weatherTool`, so a `createTool({ id: "get-weather" })` registered under that key
+                  is still called `weatherTool` on the wire. Match your `useFrontendTool` name to
+                  the record key, not the `id`.
+                </Callout>
 
                 <Callout type="info" title="Running this agent on Anthropic instead">
                   This example uses OpenAI's `gpt-5.4`. For Claude, install
@@ -328,11 +342,17 @@ Before you begin, you'll need the following:
                 export const DELETE = handler;
                 ```
 
-                This route needs two values from *this* app's environment — the license
-                key from step 1, and the address of the agent server you started earlier.
-                It reads them here, not in the Mastra project:
+                From this frontend app directory, connect the runtime to an Intelligence project:
 
-                ```plaintext title=".env.local"
+                ```bash title="Terminal"
+                npx copilotkit@latest project select
+                ```
+
+                The command writes the server-side project API key to `.env`. Add the address of
+                the agent server to the same file; the frontend runtime reads both values here,
+                not in the Mastra project:
+
+                ```plaintext title=".env"
                 CPK_INTELLIGENCE_API_KEY=cpk-...
                 MASTRA_BASE_URL=http://127.0.0.1:4111
                 ```
@@ -353,7 +373,7 @@ Before you begin, you'll need the following:
                   Drop the `intelligence` and `identifyUser` options and the runtime falls back
                   to SSE mode with an in-memory runner. Chat still works, but Threads and the
                   Inspector stay locked and the key is never read. See
-                  [Connect your runtime to Intelligence](/intelligence/connect-your-runtime) for the
+                  [Connect your runtime to Intelligence](/intelligence/quickstart) for the
                   full constructor and how to confirm the key is in use.
                 </Callout>
             </Step>

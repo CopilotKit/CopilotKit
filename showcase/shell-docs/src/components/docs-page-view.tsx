@@ -363,7 +363,6 @@ export async function DocsPageView({
                               slugPath={slugPath}
                               slugHrefPrefix={slugHrefPrefix}
                               githubUrl={buildGitHubUrl(doc.filePath)}
-                              promptTask={doc.fm.description ?? doc.fm.title}
                               onboardingFramework={onboardingFramework}
                               onboardingFrontend={onboardingFrontend}
                             />
@@ -513,6 +512,7 @@ export async function DocsPageView({
                               frameworkOverride ?? props.currentFramework
                             }
                             hrefPrefix={slugHrefPrefix}
+                            frontendOverride={frontendOverride}
                           />
                         ),
                         // Same closure pattern: thread the URL framework

@@ -1,6 +1,6 @@
 # CopilotKit.Intelligence.AgentFramework
 
-Learned-skill delivery for native Microsoft Agent Framework `ChatClientAgent` agents. Version `0.1.0` targets .NET 9 and supports Agent Framework `>=1.0.0,<2.0.0`.
+Learned-skill delivery for native Microsoft Agent Framework `ChatClientAgent` agents. Version `0.1.0-rc.1` targets .NET 9 and supports Agent Framework `>=1.0.0,<2.0.0`.
 
 Publication requires a deployed learned-skill delivery API and a published canonical `CopilotKit.Intelligence` client with `GetLearnedSkillsSnapshotAsync`. This source checkout uses the canonical client project in the same repository.
 
@@ -86,3 +86,37 @@ pnpm nx run intelligence-agent-framework-dotnet:pack
 ```
 
 Tests use shared snapshot and lifecycle fixtures plus the real `ChatClientAgent` with a deterministic model client. The native tests cover streaming tool loops, refresh during a run, denial during a pinned run, keyed DI, and continuation guards. Package publication is a separate release step after the canonical client and server prerequisites.
+
+## Multiple containers
+
+```csharp
+using var skills = new SkillRegistryContextProvider(new SkillRegistryOptions
+{
+    Client = intelligence,
+    Containers =
+    [
+        new SkillContainerSource { Id = "support", Revision = "published-revision" },
+        new SkillContainerSource { Id = "company-wide" }
+    ]
+});
+```
+
+`Containers` requires a nonempty list of unique, nonblank IDs. Each optional revision must be nonempty.
+Do not combine `Containers` with `ContainerId` or the top-level `Revision`.
+An explicit list ignores the container and revision environment variables. The registry copies the list and shares one client across all entries.
+
+The catalog and tool arguments use `encodeURIComponent(containerId) + "/" + skillName`, even for a list with one entry.
+For example, `copilotkit_load_skill` accepts `support/refund-policy`.
+The legacy `ContainerId` interface keeps its original skill names.
+
+Each container keeps independent revisions, caches, and authorization state.
+Every container must supply an authorized snapshot before model or tool work starts.
+A cold failure or confirmed denial in any container fails the whole invocation.
+A warm transient failure can reuse that container's previous snapshot. Existing invocations retain their captured snapshots.
+
+In this mode, `Status` is a `MultiSkillRegistryStatus`.
+Its immutable `Containers` array contains a `SkillContainerStatus` for each source, with `Id` and the standard diagnostic fields.
+The aggregate `Revision` is null. Each container reports its own server revision.
+Aggregate `Mode` is `pinned` only when every source has an exact revision.
+
+The `Containers` configuration accepts 1–50 unique container IDs. It sends one POST to `/api/v1/learning/skills/batch` for all sources due for refresh, including an explicit list with one source. Each source keeps its own revision, ETag, cache, and delivery status. Deploy a server with this endpoint before using `Containers`; the SDK does not fall back to separate requests. Legacy single-container configuration keeps its existing GET request. The canonical client exposes `GetLearnedSkillsSnapshotsAsync` for batch delivery.

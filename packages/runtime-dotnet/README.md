@@ -23,7 +23,7 @@ The package requires the .NET 8 SDK and an ASP.NET Core host.
 2. From your application directory, install the package from that local feed:
 
    ```sh
-   dotnet add package CopilotKit.Intelligence.Runtime --version 0.1.0-preview.1 --source /absolute/path/to/CopilotKit/packages/runtime-dotnet/src/bin/packages
+   dotnet add package CopilotKit.Intelligence.Runtime --version 0.1.0-rc.1 --source /absolute/path/to/CopilotKit/packages/runtime-dotnet/src/bin/packages
    ```
 
 The local feed path must point to your checkout.
@@ -341,3 +341,5 @@ The SDK and runtime target .NET 8. The SDK uses System.Text.Json 9.0.20, which s
 The runtime test target also hosts a real Microsoft Agent Framework AG-UI endpoint
 and consumes its event stream through `HttpAgent`. The model response is deterministic;
 this is a local framework integration test, not a hosted-model test.
+
+The `Containers` configuration accepts 1–50 unique container IDs. It sends one POST to `/api/v1/learning/skills/batch` for all sources due for refresh, including an explicit list with one source. Each source keeps its own revision, ETag, cache, and delivery status. Deploy a server with this endpoint before using `Containers`; the SDK does not fall back to separate requests. Legacy single-container configuration keeps its existing GET request. The canonical client exposes `GetLearnedSkillsSnapshotsAsync` for batch delivery.

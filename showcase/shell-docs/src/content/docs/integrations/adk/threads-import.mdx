@@ -16,7 +16,7 @@ Import existing sessions once, then keep ADK session storage and analytics in pl
 
 CLI-created starters already include the Threads Drawer for opening and switching Rich Threads. Use [Headless Threads](/headless-threads) only when you need a custom thread UI.
 
-CopilotKit Intelligence adds rich conversation history, continuity across devices, reconnection to active runs, and thread controls around your existing agent. Your ADK persistence continues to retain the agent's native conversation and execution state. See [how Rich Threads complement framework persistence](/intelligence/threads-explained#how-rich-threads-complement-framework-persistence).
+CopilotKit Intelligence adds rich conversation history, continuity across devices, reconnection to active runs, and thread controls around your existing agent. Your ADK persistence continues to retain the agent's native conversation and execution state. See [how threads work with framework storage](/intelligence/threads-explained#how-threads-work-with-framework-storage).
 
 ## Prerequisites
 
@@ -163,6 +163,6 @@ Your CLI-created app sends future CopilotKit conversations to CopilotKit Intelli
 - **Threads Drawer:** already included in CLI-created starters. Use the [Threads Drawer guide](/prebuilt-components/copilot-threads-drawer) to customize its ready-made thread UI.
 - **Headless Threads:** use the [Headless Threads guide](/headless-threads) only when you need a custom UI. Select a thread with `useThreads`, store its `thread.id`, and pass that value to your chat component as `threadId`.
 
-Keep the mapping between CopilotKit thread IDs and ADK session IDs stable so a resumed Rich Thread reaches the expected ADK session.
+Keep the mapping between CopilotKit thread IDs and ADK session IDs stable so a resumed thread reaches the expected ADK session.
 
 Create one new conversation through CopilotKit, then confirm that it appears in CopilotKit Intelligence and in the ADK session store that remains connected to your agent.

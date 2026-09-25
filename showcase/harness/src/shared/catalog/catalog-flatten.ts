@@ -238,7 +238,6 @@ export interface CatalogMetadata {
   unsupported: number;
   /** Cells for docs-only features — excluded from wired/stub/unshipped/unsupported. */
   docs_only: number;
-  generated_at: string;
 }
 
 export interface Catalog {
@@ -424,7 +423,6 @@ export function generateCatalog(
           unshipped: 0,
           unsupported: 0,
           docs_only: 0,
-          generated_at: new Date().toISOString(),
         },
         cells: [],
       };
@@ -575,7 +573,6 @@ export function generateCatalog(
     unshipped: unshippedCount,
     unsupported: unsupportedCount,
     docs_only: docsOnlyCount,
-    generated_at: new Date().toISOString(),
   };
 
   return {

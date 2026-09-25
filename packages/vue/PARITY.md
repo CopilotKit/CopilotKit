@@ -119,12 +119,26 @@ For render bridges, the mirror strategy is deterministic slot translation at cha
 5. Keep slot payloads stable and parity-tested against React behavior, not component internals.
 6. Keep public Vue interaction APIs idiomatic: use emits for component-level UI interactions such as `@submit-message`, `@input-change`, `@select-suggestion`, `@edit-message`, `@switch-to-branch`, `@thumbs-up`, `@thumbs-down`, `@read-aloud`, and `@regenerate`.
 7. Keep slot payload actions imperative: use slot payload callbacks such as `onCopy`, `onEdit`, `goPrev`, `goNext`, and `onSubmitMessage` for slotted control surfaces.
-8. Only keep public callback props for true command-style flows that must be awaited by the child. Current exception: `CopilotChatView.onFinishTranscribeWithAudio`.
+8. Only keep public callback props for true command-style flows that must be awaited by the child. Current command exception: `CopilotChatView.onFinishTranscribeWithAudio`. Event-shaped `onX` props may also mirror an existing `defineEmits` event when a component must reactively gate its default controls; scoped-slot commands remain always-available local handlers and never infer listener presence through Vue instance internals.
 9. If a programmatic renderer registration path is used, prefer Vue SFC/components over handwritten `h(...)` render functions when either can express the same behavior.
 10. Keep slots as the primary public customization mechanism. Component-based registered renderers are acceptable for programmatic registration, but they do not replace the slot-first model.
 11. `renderCustomMessages` is an approved secondary provider API in Vue because ordered multi-renderer registration and agent-scoped precedence cannot be expressed honestly through a single slot function alone.
 
 This is a constraint for future parity work: new React render-hook behavior should be mirrored by extending slot contracts, not by re-introducing provider render props in Vue.
+
+### Interaction callback and capability map
+
+Vue components expose optional callback props when the component must reactively decide whether a built-in control is available. Scoped slots receive stable command functions plus explicit capability flags, so slot consumers never need to infer availability from function presence.
+
+| Vue surface                                                 | Callback and capability contract                                                                                                                                           | Intentional Vue shape                                                                            |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `CopilotChatView`                                           | Optional `onStop`, `onAddFile`, and transcription callbacks determine `canStop`, `canAddFile`, and `canTranscribe` for `#input` and `#welcome-screen`.                     | Event-shaped callback props mirror emitted interactions only to support reactive control gating. |
+| `CopilotChatInput`                                          | Optional action callbacks gate the corresponding default controls.                                                                                                         | The component emits interactions while callback presence describes availability.                 |
+| `CopilotPopupView` / `CopilotSidebarView`                   | Optional callbacks are forwarded only when the corresponding action is available.                                                                                          | Wrapper layers must not turn an absent callback into a truthy no-op capability.                  |
+| `CopilotChatUserMessage`                                    | Optional edit and branch-switch callbacks gate controls; branch slot commands expose `canGoPrev` and `canGoNext`.                                                          | `#branch-navigation` receives stable commands even when navigation is unavailable.               |
+| `CopilotChatAssistantMessage`                               | Optional feedback, read-aloud, and regenerate callbacks gate toolbar actions.                                                                                              | Toolbar slots stay slot-first while callback props provide reactive availability.                |
+| `CopilotSidebarWelcomeScreen` / `CopilotPopupWelcomeScreen` | `#input` receives stable commands plus `canStop`, `canAddFile`, and `canTranscribe`, forwarded from the parent view or derived from optional callbacks when used directly. | Wrapper commands may be stable no-ops, so capability flags are the source of truth.              |
+| `LicenseWarningBanner`                                      | Optional `onDismiss` controls whether the dismiss button is rendered.                                                                                                      | A callback prop is used because listener introspection is not reactive or public Vue API.        |
 
 ## Architectural decision: Render hooks -> Composable state + slots
 

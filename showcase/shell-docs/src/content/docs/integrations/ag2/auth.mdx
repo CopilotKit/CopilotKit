@@ -8,7 +8,7 @@ description: "Secure your AG2 backend with user authentication on /chat"
 
 CopilotKit supports user authentication for AG2 backends in two deployment modes:
 
-- **LangGraph Platform equivalent**: managed runtime forwarding to your AG2 `/chat` endpoint
+- **LangGraph Platform equivalent**: cloud-hosted runtime forwarding to your AG2 `/chat` endpoint
 - **Self-hosted runtime**: your own CopilotKit runtime forwarding to your AG2 `/chat` endpoint
 
 Both approaches let your AG2 backend access authenticated user context and enforce authorization.
@@ -58,7 +58,7 @@ Pass your authentication token via the `properties` prop:
 
 ## LangGraph Platform Deployment
 
-**For managed deployments**, protect your AG2 `/chat` endpoint with token-header validation.
+**For cloud-hosted deployments**, protect your AG2 `/chat` endpoint with token-header validation.
 
 ### Setup Authentication Handler
 
@@ -168,7 +168,7 @@ After token validation, persist user identity in request-scoped context and enfo
 
 ## Universal Authentication Pattern
 
-For backends that run in both managed and self-hosted modes, use this pattern:
+For backends that run in both cloud-hosted and self-hosted modes, use this pattern:
 
 ```python
 def extract_user_from_auth_header(authorization: str | None) -> dict | None:

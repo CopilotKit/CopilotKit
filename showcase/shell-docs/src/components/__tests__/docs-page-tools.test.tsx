@@ -19,6 +19,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DocsPageTools, docsMarkdownUrl } from "../docs-page-tools";
+import { PROMPT_DESTINATION_HINT } from "@/lib/prompt-guidance";
 
 const analytics = vi.hoisted(() => ({ capture: vi.fn() }));
 
@@ -87,9 +88,10 @@ it("renders the onboarding button when a framework is passed", () => {
   expect(screen.getByRole("button", { name: "Open in Codex" })).toBeTruthy();
 });
 
-it("gives the onboarding button the same .mdx URL as the markdown button", async () => {
-  // The row computes the URL once and hands it to both buttons, so the URL the
-  // prompt names and the URL "Copy Markdown" fetches cannot drift apart.
+it("names the page the markdown button fetches, without its .mdx suffix", async () => {
+  // The row computes the URL once and hands it to both buttons, so the page
+  // the prompt names and the text "Copy Markdown" fetches cannot drift apart.
+  // The prompt names the human page, not the `.mdx` text (PE-309).
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.assign(navigator, { clipboard: { writeText } });
 
@@ -99,7 +101,7 @@ it("gives the onboarding button the same .mdx URL as the markdown button", async
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
 
   expect(writeText.mock.calls[0][0]).toContain(
-    "https://docs.copilotkit.ai/mastra/generative-ui.mdx",
+    "https://docs.copilotkit.ai/mastra/generative-ui.",
   );
 });
 
@@ -121,7 +123,7 @@ describe("docsMarkdownUrl", () => {
   });
 });
 
-it("includes the quickstart goal with its framework, frontend, and source", async () => {
+it("names the quickstart page as the source and claims no stack", async () => {
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.assign(navigator, { clipboard: { writeText } });
   render(
@@ -131,16 +133,33 @@ it("includes the quickstart goal with its framework, frontend, and source", asyn
       githubUrl={GITHUB_URL}
       onboardingFramework={{ slug: "mastra", name: "Mastra" }}
       onboardingFrontend={{ id: "angular", name: "Angular" }}
-      promptTask="Connect an Angular app to Copilot Runtime."
     />,
   );
   fireEvent.click(screen.getByRole("button", { name: /copy prompt/i }));
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
   const prompt = writeText.mock.calls[0][0];
-  expect(prompt).toContain("Mastra");
-  expect(prompt).toContain("Angular");
-  expect(prompt).toContain("/angular/mastra/quickstart.mdx");
+  // The page is the topic and the source, not a claim about the reader's
+  // stack (PE-309).
   expect(prompt).toContain(
-    "Their goal for this quickstart is: Connect an Angular app to Copilot Runtime.",
+    " The page covers the Mastra agent framework with Angular. I started from this CopilotKit docs page: https://docs.copilotkit.ai/angular/mastra/quickstart.",
   );
+  expect(prompt).not.toMatch(/\bI use\b|My goal|\.mdx/);
+});
+
+// Every prompt row carries the hero's line under it, and the rows without a
+// prompt leave it out (PE-340).
+it("shows the destination line under the row only when it offers the prompt", () => {
+  renderRow();
+  expect(screen.getByText(PROMPT_DESTINATION_HINT)).toBeTruthy();
+  cleanup();
+
+  render(
+    <DocsPageTools
+      slugPath="generative-ui"
+      slugHrefPrefix="/mastra"
+      githubUrl={GITHUB_URL}
+      hideOnboardingPrompt
+    />,
+  );
+  expect(screen.queryByText(PROMPT_DESTINATION_HINT)).toBeNull();
 });

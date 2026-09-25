@@ -652,6 +652,31 @@ describe("CopilotThreadsDrawer", () => {
     wrapper.unmount();
   });
 
+  it("an unresolved status ('unknown') fetches the list instead of locking", async () => {
+    // The provider denies feature-only consumers after the bounded retry, but
+    // `unknown` is not a settled negative: the threads endpoint decides.
+    licenseContextMock.value = {
+      status: "unknown",
+      license: null,
+      checkFeature: () => false,
+      getLimit: () => null,
+    };
+
+    const wrapper = await mountDrawer();
+
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
+      .element as unknown as CopilotKitThreadsDrawerElement;
+
+    expect(el.licensed).toBe(true);
+    expect(
+      toValue(
+        useThreadsMocks.useThreadsInput?.enabled as MaybeRefOrGetter<boolean>,
+      ),
+    ).toBe(true);
+
+    wrapper.unmount();
+  });
+
   it("surfaces a genuine listError to the element's error string", async () => {
     const listError = new Error("boom");
     useThreadsMocks.listError.value = listError;

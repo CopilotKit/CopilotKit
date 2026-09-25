@@ -5,6 +5,7 @@ import { AbstractAgent, EventType, HttpAgent } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { handleRunAgent } from "../handlers/handle-run";
 import { CopilotRuntime } from "../core/runtime";
+import type { CopilotRuntimeMemoryConfig } from "../core/runtime";
 import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import { InMemoryAgentRunner } from "../runner/in-memory";
@@ -620,6 +621,7 @@ describe("handleRunAgent", () => {
                 userId: string;
               }) => string | null | Promise<string | null>);
         };
+        memory?: CopilotRuntimeMemoryConfig;
       },
     ) => {
       const runner = Object.create(IntelligenceAgentRunner.prototype);
@@ -649,6 +651,7 @@ describe("handleRunAgent", () => {
           options?.identifyUser ??
           vi.fn().mockResolvedValue({ id: "user-1", name: "User One" }),
         learning: options?.learning,
+        memory: options?.memory,
       } as unknown as CopilotRuntime;
     };
 
@@ -728,6 +731,61 @@ describe("handleRunAgent", () => {
         userId: "user-1",
       });
     });
+
+    /**
+     * The run-level regression for a Memory policy that grants nothing.
+     *
+     * `attachIntelligenceEnterpriseLearning` is covered directly in
+     * handlers/shared/__tests__, but the bug was only ever visible from here:
+     * the 403 that policy produced was returned as the response to
+     * `POST /agent/:id/run`, so a tenant with Memory switched off could not
+     * hold a conversation at all. Asserting on the handler keeps that whole
+     * path honest — the thread lock is taken, the runner starts, and the
+     * caller gets its join credentials, exactly as it would with no Memory
+     * policy configured.
+     *
+     * Both spellings of "nothing" are one outcome, so both run.
+     */
+    it.each([
+      ["a null grant", () => null],
+      ["an explicit all-none grant", () => ({ user: "none", project: "none" })],
+    ])(
+      "starts the run when the Memory policy returns %s",
+      async (_label, access) => {
+        const agent = createAgentForIntelligence();
+        const platform = {
+          getOrCreateThread: vi.fn().mockResolvedValue({
+            thread: { id: "thread-1", name: null },
+            created: false,
+          }),
+          getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+          ɵacquireThreadLock: vi.fn().mockResolvedValue({
+            threadId: "thread-1",
+            runId: "run-1",
+            joinToken: "jt-123",
+          }),
+          ɵcleanupThreadLock: vi.fn().mockResolvedValue(undefined),
+        };
+        const runtime = createIntelligenceRuntime(agent, platform, {
+          memory: { access } as CopilotRuntimeMemoryConfig,
+        });
+
+        const response = await handleRunAgent({
+          runtime,
+          request: createRunRequest(),
+          agentId: "my-agent",
+        });
+
+        expect(response.status).toBe(200);
+        const body = await response.json();
+        expect(body).toMatchObject({
+          threadId: "thread-1",
+          runId: "run-1",
+          joinToken: "jt-123",
+        });
+        expect(runtime.runner.run).toHaveBeenCalledTimes(1);
+      },
+    );
 
     it("resolves one Learning Container ID and uses it for create and lock", async () => {
       const agent = createAgentForIntelligence();
@@ -1497,95 +1555,127 @@ describe("handleRunAgent", () => {
       expect(platform.updateThread).not.toHaveBeenCalled();
     });
 
-    it("retries thread naming three times and falls back to Untitled", async () => {
-      const namingAgent = {
-        clone: vi.fn(),
-        setMessages: vi.fn(),
-        setState: vi.fn(),
-        threadId: undefined,
-        headers: {},
-        runAgent: vi.fn().mockRejectedValue(new Error("naming failed")),
-      } as unknown as AbstractAgent;
-      const baseAgent = {
-        clone: vi
-          .fn()
-          .mockReturnValueOnce({
-            clone: vi.fn(),
-            setMessages: vi.fn(),
-            setState: vi.fn(),
-            threadId: undefined,
-            headers: {},
-            runAgent: vi.fn().mockResolvedValue(undefined),
-          })
-          .mockReturnValueOnce(namingAgent)
-          .mockReturnValueOnce(namingAgent)
-          .mockReturnValueOnce(namingAgent),
-        setMessages: vi.fn(),
-        setState: vi.fn(),
-        threadId: undefined,
-        headers: {},
-        runAgent: vi.fn().mockResolvedValue(undefined),
-      } as unknown as AbstractAgent;
-      const platform = {
-        getOrCreateThread: vi.fn().mockResolvedValue({
-          thread: { id: "thread-1", name: null },
-          created: true,
-        }),
-        updateThread: vi.fn(),
-        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
-        ɵacquireThreadLock: vi.fn().mockResolvedValue({
-          threadId: "thread-1",
-          runId: "run-1",
-          joinToken: "jt-created",
-        }),
-      };
-      const runtime = createIntelligenceRuntime(baseAgent, platform, {
-        generateThreadNames: true,
-      });
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-      try {
-        const response = await handleRunAgent({
-          runtime,
-          request: new Request("https://example.com/agent/my-agent/run", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              threadId: "thread-1",
-              runId: "run-1",
-              state: {},
-              messages: [
-                {
-                  id: "user-1",
-                  role: "user",
-                  content: "Please help me name this failed thread.",
-                },
-              ],
-              tools: [],
-              context: [],
-              forwardedProps: {},
-            }),
+    it.each([
+      {
+        scenario: "uses the first usable user message",
+        contents: [
+          "Please help me name this failed thread from the first user message.",
+        ],
+        expectedTitle: "Please help me name this failed thread from",
+      },
+      {
+        scenario: "skips user messages that clean to empty",
+        contents: ["***", "   ", "Help debug this deployment", "A later topic"],
+        expectedTitle: "Help debug this deployment",
+      },
+      {
+        scenario: "uses Untitled when no user message has usable text",
+        contents: ["***", "   ", "__"],
+        expectedTitle: "Untitled",
+      },
+    ])(
+      "falls back after three invalid generated titles: $scenario",
+      async ({ contents, expectedTitle }) => {
+        const namingAgent = {
+          clone: vi.fn(),
+          setMessages: vi.fn(),
+          setState: vi.fn(),
+          threadId: undefined,
+          headers: {},
+          runAgent: vi.fn().mockResolvedValue({
+            newMessages: [
+              {
+                id: "assistant-1",
+                role: "assistant",
+                content:
+                  "Incident triage result: sev3. File a ticket for the next working day.",
+              },
+            ],
           }),
-          agentId: "my-agent",
-        });
-
-        expect(response.status).toBe(200);
-        await vi.waitFor(() =>
-          expect(platform.updateThread).toHaveBeenCalledWith({
+        } as unknown as AbstractAgent;
+        const baseAgent = {
+          clone: vi
+            .fn()
+            .mockReturnValueOnce({
+              clone: vi.fn(),
+              setMessages: vi.fn(),
+              setState: vi.fn(),
+              threadId: undefined,
+              headers: {},
+              runAgent: vi.fn().mockResolvedValue(undefined),
+            })
+            .mockReturnValueOnce(namingAgent)
+            .mockReturnValueOnce(namingAgent)
+            .mockReturnValueOnce(namingAgent),
+          setMessages: vi.fn(),
+          setState: vi.fn(),
+          threadId: undefined,
+          headers: {},
+          runAgent: vi.fn().mockResolvedValue(undefined),
+        } as unknown as AbstractAgent;
+        const platform = {
+          getOrCreateThread: vi.fn().mockResolvedValue({
+            thread: { id: "thread-1", name: null },
+            created: true,
+          }),
+          updateThread: vi.fn(),
+          getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+          ɵacquireThreadLock: vi.fn().mockResolvedValue({
             threadId: "thread-1",
-            userId: "user-1",
-            agentId: "my-agent",
-            updates: { name: "Untitled" },
+            runId: "run-1",
+            joinToken: "jt-created",
           }),
-        );
-        expect(namingAgent.runAgent).toHaveBeenCalledTimes(3);
-        expect(runtime.runner.run).toHaveBeenCalledTimes(1);
-      } finally {
-        errorSpy.mockRestore();
-      }
-    });
+        };
+        const runtime = createIntelligenceRuntime(baseAgent, platform, {
+          generateThreadNames: true,
+        });
+        const errorSpy = vi
+          .spyOn(console, "error")
+          .mockImplementation(() => {});
+
+        try {
+          const response = await handleRunAgent({
+            runtime,
+            request: new Request("https://example.com/agent/my-agent/run", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                threadId: "thread-1",
+                runId: "run-1",
+                state: {},
+                messages: contents.map((content, index) => ({
+                  id: `user-${index + 1}`,
+                  role: "user",
+                  content,
+                })),
+                tools: [],
+                context: [],
+                forwardedProps: {},
+              }),
+            }),
+            agentId: "my-agent",
+          });
+
+          expect(response.status).toBe(200);
+          await vi.waitFor(() =>
+            expect(platform.updateThread).toHaveBeenCalledWith({
+              threadId: "thread-1",
+              userId: "user-1",
+              agentId: "my-agent",
+              updates: {
+                name: expectedTitle,
+              },
+            }),
+          );
+          expect(namingAgent.runAgent).toHaveBeenCalledTimes(3);
+          expect(runtime.runner.run).toHaveBeenCalledTimes(1);
+        } finally {
+          errorSpy.mockRestore();
+        }
+      },
+    );
 
     it("returns 400 when identifyUser returns an invalid id", async () => {
       const agent = createAgentForIntelligence();
