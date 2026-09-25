@@ -64,6 +64,5 @@ export function clearUserUnsettledEffects(userId: string): void {
 
 orderApprovalGate.onSettled((result) => {
   approvalController.cancel();
-  if (result.status !== "uncertain" && result.status !== "partial")
-    clearUnsettledEffect(result.operationId);
+  if (result.status !== "uncertain") clearUnsettledEffect(result.operationId);
 });

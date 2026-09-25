@@ -372,6 +372,7 @@ export function AssistantShell({
   const [unsettledEffects, setUnsettledEffects] = useState<UnsettledEffect[]>(
     [],
   );
+  const [outcomeNotice, setOutcomeNotice] = useState<string | null>(null);
   useEffect(() => {
     setRestoredThread({
       key: activeThreadKey,
@@ -384,6 +385,21 @@ export function AssistantShell({
     window.addEventListener(unsettledEffectEvent, refresh);
     return () => window.removeEventListener(unsettledEffectEvent, refresh);
   }, []);
+  useEffect(
+    () =>
+      orderApprovalGate.onSettled((result) => {
+        if (result.status === "partial")
+          setOutcomeNotice(
+            "The form was not submitted. Some on-screen fields may have changed; review the form manually before saving.",
+          );
+        else if (result.status === "failed")
+          setOutcomeNotice(
+            "The action failed. No completed write was confirmed; check the current record before trying again.",
+          );
+        else if (result.status === "completed") setOutcomeNotice(null);
+      }),
+    [],
+  );
   const visibleUnsettledEffects = unsettledEffects.filter(
     (effect) =>
       effect.userId === user.id &&
@@ -508,7 +524,12 @@ export function AssistantShell({
                             clearUnsettledEffect(effect.operationId);
                         },
                       }
-                    : undefined
+                    : outcomeNotice
+                      ? {
+                          message: outcomeNotice,
+                          onDismiss: () => setOutcomeNotice(null),
+                        }
+                      : undefined
                 }
                 labels={{
                   chatInputPlaceholder:

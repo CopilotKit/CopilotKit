@@ -209,7 +209,7 @@ export function AutopilotFormTool({
           if (execution.status !== "dispatched") {
             orderApprovalGate.finish(operationId, {
               status: execution.status,
-              reason: `${execution.reason}; ${execution.applied} fields filled`,
+              reason: `${execution.reason}; ${execution.applied} browser fields may have changed. The form was not submitted, and no server write was confirmed. Ask the user to review the form manually.`,
             });
             return await operation.result;
           }
