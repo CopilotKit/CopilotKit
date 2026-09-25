@@ -85,9 +85,16 @@ Worth knowing so a search has somewhere to land:
 
 ## Before you debug anything
 
-Run the CLI's wiring check first — `npx copilotkit@latest verify --json`. It settles up to
-eleven things in one command and is almost always faster than reading the project. See the
-`copilotkit-cli` skill.
+Run the CLI's wiring check first. It settles up to eleven things in one command and is almost
+always faster than reading the project. Pick the form that matches the app:
+
+- **No Intelligence** (nothing constructs `CopilotKitIntelligence` where the runtime is built,
+  and there is no `.copilotkit/project.json`):
+  `npx copilotkit@latest verify --expect-runtime oss --round-trip --agent <id> --json`
+- **Otherwise:** `npx copilotkit@latest verify --json`
+
+Do not run `login` or `project select` only to make `verify` pass. Those commands set up
+hosted Intelligence and do not fix an open-source app. See the `copilotkit-cli` skill.
 
 ## Two versions exist
 
