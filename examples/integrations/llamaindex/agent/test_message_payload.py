@@ -78,22 +78,32 @@ class MessagePayloadTest(unittest.TestCase):
 
 
 class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
-    async def test_frontend_tool_result_has_no_user_role_tool_call_id(self):
+    async def test_frontend_tool_result_preserves_openai_tool_exchange(self):
         requests = []
 
         def respond(request):
             body = json.loads(request.content)
             requests.append(body)
-            for index, message in enumerate(body["messages"]):
-                if message["role"] != "tool" and "tool_call_id" in message:
-                    return httpx.Response(
-                        400,
-                        json={
-                            "error": {
-                                "message": f"Unknown parameter: messages[{index}].tool_call_id"
-                            }
-                        },
-                    )
+            messages = body["messages"]
+            if [message["role"] for message in messages] != [
+                "developer",
+                "user",
+                "assistant",
+                "tool",
+            ]:
+                return httpx.Response(400, json={"error": "Invalid role sequence"})
+            if messages[2].get("tool_calls", [{}])[0].get("id") != "call-1":
+                return httpx.Response(
+                    400, json={"error": "Missing assistant tool call"}
+                )
+            if "<tool_call>" in (messages[2]["content"] or ""):
+                return httpx.Response(400, json={"error": "Duplicated tool call"})
+            if messages[3].get("tool_call_id") != "call-1":
+                return httpx.Response(400, json={"error": "Unlinked tool result"})
+            if "<state>" in messages[3]["content"]:
+                return httpx.Response(
+                    400, json={"error": "State attached to tool result"}
+                )
             chunk = {
                 "id": "chatcmpl-test",
                 "object": "chat.completion.chunk",
@@ -156,9 +166,19 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(
             [message["role"] for message in requests[0]["messages"]],
-            ["developer", "user", "assistant", "user"],
+            ["developer", "user", "assistant", "tool"],
         )
-        self.assertNotIn("tool_call_id", requests[0]["messages"][-1])
+        self.assertIn("<state>", requests[0]["messages"][1]["content"])
+        self.assertIn("Set the theme to orange", requests[0]["messages"][1]["content"])
+        self.assertEqual(requests[0]["messages"][2]["tool_calls"][0]["id"], "call-1")
+        self.assertEqual(
+            requests[0]["messages"][2]["tool_calls"][0]["function"],
+            {"name": "change_theme_color", "arguments": '{"theme_color":"#f97316"}'},
+        )
+        self.assertEqual(requests[0]["messages"][3]["tool_call_id"], "call-1")
+        self.assertEqual(
+            requests[0]["messages"][3]["content"], "Changing background to #f97316"
+        )
 
 
 if __name__ == "__main__":
