@@ -37,10 +37,53 @@ describe("resolveModel", () => {
     expect((model as { modelId: string }).modelId).toBe("gpt-4o-mini");
   });
 
+  it("should resolve unlisted or future OpenAI models without an allowlist restriction", () => {
+    const astra = resolveModel("openai/gpt-6-astra");
+    expect(astra).toBeDefined();
+    expect((astra as { modelId: string }).modelId).toBe("gpt-6-astra");
+
+    const sol = resolveModel("openai:gpt-6-sol");
+    expect(sol).toBeDefined();
+    expect((sol as { modelId: string }).modelId).toBe("gpt-6-sol");
+
+    const luna = resolveModel("openai:gpt-6-luna");
+    expect(luna).toBeDefined();
+    expect((luna as { modelId: string }).modelId).toBe("gpt-6-luna");
+
+    const modelSlash = resolveModel("openai/gpt-5.4");
+    expect(modelSlash).toBeDefined();
+    expect((modelSlash as { modelId: string }).modelId).toBe("gpt-5.4");
+
+    const modelColon = resolveModel("openai:gpt-5.5");
+    expect(modelColon).toBeDefined();
+    expect((modelColon as { modelId: string }).modelId).toBe("gpt-5.5");
+
+    const customModel = resolveModel("openai:custom-preview-model");
+    expect(customModel).toBeDefined();
+    expect((customModel as { modelId: string }).modelId).toBe("custom-preview-model");
+
+    const fineTunedModel = resolveModel("openai:ft:gpt-4o:my-org:custom-run-1");
+    expect(fineTunedModel).toBeDefined();
+    expect((fineTunedModel as { modelId: string }).modelId).toBe("ft:gpt-4o:my-org:custom-run-1");
+  });
+
+  it("should resolve OpenAI models to provider using Responses API", () => {
+    const model = resolveModel("openai/gpt-5.4");
+    expect((model as { provider: string }).provider).toBe("openai.responses");
+  });
+
   it("should resolve Anthropic models", () => {
     const model = resolveModel("anthropic/claude-sonnet-4.5");
     expect(model).toBeDefined();
     expect((model as { modelId: string }).modelId).toBe("claude-sonnet-4.5");
+
+    const fable51 = resolveModel("anthropic:claude-fable-5-1");
+    expect(fable51).toBeDefined();
+    expect((fable51 as { modelId: string }).modelId).toBe("claude-fable-5-1");
+
+    const fable5 = resolveModel("anthropic:claude-fable-5");
+    expect(fable5).toBeDefined();
+    expect((fable5 as { modelId: string }).modelId).toBe("claude-fable-5");
   });
 
   it("should pass retired Anthropic model identifiers through unchanged", () => {
@@ -55,6 +98,18 @@ describe("resolveModel", () => {
     const model = resolveModel("google/gemini-2.5-pro");
     expect(model).toBeDefined();
     expect((model as { modelId: string }).modelId).toBe("gemini-2.5-pro");
+
+    const flash38 = resolveModel("google:gemini-3.8-flash");
+    expect(flash38).toBeDefined();
+    expect((flash38 as { modelId: string }).modelId).toBe("gemini-3.8-flash");
+
+    const flash37 = resolveModel("google:gemini-3.7-flash");
+    expect(flash37).toBeDefined();
+    expect((flash37 as { modelId: string }).modelId).toBe("gemini-3.7-flash");
+
+    const proPreview = resolveModel("google:gemini-3.1-pro-preview");
+    expect(proPreview).toBeDefined();
+    expect((proPreview as { modelId: string }).modelId).toBe("gemini-3.1-pro-preview");
   });
 
   it("should handle gemini provider alias", () => {
