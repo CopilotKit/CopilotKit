@@ -134,6 +134,37 @@ export function isRunCompletionAware(
   );
 }
 
+function agentIsRunning(agent: unknown): boolean {
+  return (
+    typeof agent === "object" &&
+    agent !== null &&
+    "isRunning" in agent &&
+    Boolean((agent as { isRunning?: boolean }).isRunning)
+  );
+}
+
+/**
+ * Wait out an in-flight run before starting another one.
+ *
+ * `AbstractAgent.runAgent` / `connectAgent` set `isRunning` before
+ * `activeRunCompletionPromise` exists (the handle is assigned after
+ * `await onInitialize`). Callers that only await the promise when it is
+ * already set fail open and pre-empt the run. This waits until the handle
+ * appears, or until `isRunning` clears, then awaits the promise if present.
+ */
+export async function waitForActiveRunToSettle(agent: unknown): Promise<void> {
+  while (agentIsRunning(agent)) {
+    const promise = isRunCompletionAware(agent)
+      ? agent.activeRunCompletionPromise
+      : undefined;
+    if (promise) {
+      await promise;
+      return;
+    }
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  }
+}
+
 export interface IntelligenceAgentConfig {
   /** Phoenix websocket URL, e.g. "ws://localhost:4000/socket" */
   url: string;

@@ -77,13 +77,25 @@ export async function ɵconnectWithoutEventVerification(
       subscriber ?? {},
     ];
 
-    await self.onInitialize(input, subscribers);
-
+    // Install detach / completion handles before onInitialize. The previous
+    // order left isRunning true with no handle, so a second send's
+    // detachActiveRun and wait-for-completion both failed open and pre-empted
+    // the in-flight connect.
     self.activeRunDetach$ = new Subject<void>();
     let resolveCompletion: (() => void) | undefined;
     self.activeRunCompletionPromise = new Promise<void>((resolve) => {
       resolveCompletion = resolve;
     });
+
+    try {
+      await self.onInitialize(input, subscribers);
+    } catch (error) {
+      resolveCompletion?.();
+      resolveCompletion = undefined;
+      self.activeRunCompletionPromise = undefined;
+      self.activeRunDetach$ = undefined;
+      throw error;
+    }
 
     const source$ = defer(
       () => self.connect(input) as Observable<BaseEvent>,
