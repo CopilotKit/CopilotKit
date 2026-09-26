@@ -5,6 +5,11 @@
 </script>
 
 <button data-testid="update-chat-input" onclick={() => (inputValue = "updated draft")}>update</button>
+<output data-testid="chat-input-value">{inputValue}</output>
 <CopilotKitProvider runtimeUrl="https://runtime.test">
-  <CopilotChat {inputValue} welcomeScreen={false} />
+  <CopilotChat
+    {inputValue}
+    onInputChange={(value) => (inputValue = value)}
+    welcomeScreen={false}
+  />
 </CopilotKitProvider>

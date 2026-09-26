@@ -19,20 +19,21 @@ export function registerHumanInTheLoop<T extends Record<string, unknown>>(
     );
   }
 
-  const pendingResponses = new Map<
+  const pendingResponses: Record<
     string,
-    {
-      resolve: (result: unknown) => void;
-      reject: (error: Error) => void;
-      cleanupAbort?: () => void;
-    }
-  >();
+    | {
+        resolve: (result: unknown) => void;
+        reject: (error: Error) => void;
+        cleanupAbort?: () => void;
+      }
+    | undefined
+  > = {};
 
   const respond = async (toolCallId: string, result: unknown) => {
-    const pending = pendingResponses.get(toolCallId);
+    const pending = pendingResponses[toolCallId];
     if (!pending) return;
     pending.cleanupAbort?.();
-    pendingResponses.delete(toolCallId);
+    delete pendingResponses[toolCallId];
     pending.resolve(result);
   };
 
@@ -51,11 +52,11 @@ export function registerHumanInTheLoop<T extends Record<string, unknown>>(
         reject,
         cleanupAbort: undefined as (() => void) | undefined,
       };
-      pendingResponses.set(toolCall.id, pending);
+      pendingResponses[toolCall.id] = pending;
 
       if (signal) {
         const onAbort = () => {
-          pendingResponses.delete(toolCall.id);
+          delete pendingResponses[toolCall.id];
           reject(new Error("Human-in-the-loop interaction aborted"));
         };
         signal.addEventListener("abort", onAbort, { once: true });
@@ -101,11 +102,14 @@ export function registerHumanInTheLoop<T extends Record<string, unknown>>(
       render: RenderComponent,
     } as SvelteToolCallRenderer<unknown>);
     return () => {
-      for (const pending of pendingResponses.values()) {
+      for (const pending of Object.values(pendingResponses)) {
+        if (!pending) continue;
         pending.cleanupAbort?.();
         pending.reject(new Error("Human-in-the-loop interaction aborted"));
       }
-      pendingResponses.clear();
+      for (const toolCallId of Object.keys(pendingResponses)) {
+        delete pendingResponses[toolCallId];
+      }
       core.removeHookFrontendTool(name, tool.agentId);
       core.removeHookRenderToolCall(name, tool.agentId);
     };

@@ -55,16 +55,6 @@
           {onSelectSuggestion}
         />
       {/if}
-      <CopilotChatInput
-        value={inputValue}
-        {isRunning}
-        {inputMode}
-        toolsMenu={inputToolsMenu}
-        onSubmit={onSubmitMessage}
-        {onStop}
-        onInputChange={onInputChange}
-        placeholder="Type your message..."
-      />
     </div>
   {:else}
     <CopilotChatMessageView {messages} {isRunning} {autoScroll} />
@@ -74,23 +64,27 @@
         {onSelectSuggestion}
       />
     {/if}
-    <CopilotChatInput
-      value={inputValue}
-      {isRunning}
-      {inputMode}
-      toolsMenu={inputToolsMenu}
-      onSubmit={onSubmitMessage}
-      {onStop}
-      onInputChange={onInputChange}
-    />
   {/if}
+  <CopilotChatInput
+    value={inputValue}
+    {isRunning}
+    {inputMode}
+    toolsMenu={inputToolsMenu}
+    onSubmit={onSubmitMessage}
+    {onStop}
+    onInputChange={onInputChange}
+    placeholder={welcomeScreen && messages.length === 0
+      ? "Type your message..."
+      : "Type a message..."}
+  />
 </div>
 
 <style>
   .copilotkit-chat-view {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
   }
 
@@ -99,7 +93,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     padding: 24px;
     gap: 16px;
   }

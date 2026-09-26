@@ -2,6 +2,19 @@ import { resolve } from "node:path";
 import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import dts from "vite-plugin-dts";
+import packageJson from "./package.json";
+
+const runtimeDependencies = Object.keys(packageJson.dependencies);
+
+function isExternal(id: string) {
+  return (
+    id === "svelte" ||
+    id.startsWith("svelte/") ||
+    runtimeDependencies.some(
+      (dependency) => id === dependency || id.startsWith(`${dependency}/`),
+    )
+  );
+}
 
 export default defineConfig({
   plugins: [
@@ -27,21 +40,7 @@ export default defineConfig({
       fileName: (format) => (format === "es" ? "index.mjs" : "index.cjs"),
     },
     rollupOptions: {
-      external: [
-        "svelte",
-        "svelte/store",
-        "svelte/reactivity",
-        "@ag-ui/client",
-        "@ag-ui/core",
-        "@copilotkit/core",
-        "@copilotkit/shared",
-        "@copilotkit/web-inspector",
-        /^@copilotkit\/web-components(\/.*)?$/,
-        "@jetbrains/websandbox",
-        "katex",
-        "zod",
-        "zod-to-json-schema",
-      ],
+      external: isExternal,
       output: {
         globals: { svelte: "Svelte" },
       },

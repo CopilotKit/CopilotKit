@@ -15,6 +15,7 @@
     autoScroll = true,
     welcomeScreen = true,
     inputValue: controlledInputValue,
+    onInputChange,
     inputMode = "input" as CopilotChatInputMode,
     inputToolsMenu = [] as (ToolsMenuItem | "-")[],
     className = "",
@@ -60,7 +61,7 @@
   function handleSubmitMessage(value: string) {
     if (!agent) return;
     agent.addMessage({ id: randomUUID(), role: "user", content: value } as UserMessage);
-    copilotkit.runAgent({ agent });
+    void copilotkit.runAgent({ agent });
   }
 
   function handleStop() {
@@ -69,14 +70,14 @@
     }
   }
 
-  function handleInputChange() {
-    // parent controlling input
+  function handleInputChange(value: string) {
+    onInputChange?.(value);
   }
 
   function handleSelectSuggestion(suggestion: Suggestion) {
     if (!agent) return;
     agent.addMessage({ id: randomUUID(), role: "user", content: suggestion.message } as UserMessage);
-    copilotkit.runAgent({ agent });
+    void copilotkit.runAgent({ agent });
   }
 </script>
 

@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/svelte",
-  "version": "1.62.2",
+  "version": "1.73.3",
   "private": false,
   "description": "Svelte 5 components and runes for CopilotKit",
   "keywords": [
@@ -47,7 +47,7 @@
   },
   "scripts": {
     "build": "vite build && node scripts/fix-dts-paths.mjs && pnpm build:css && node -e \"\nconst fs=require('fs');\nconst path=require('path');\n// Copy root types for CJS/ESM\nfs.cpSync('./dist/index.d.ts','./dist/index.d.cts');\nfs.cpSync('./dist/index.d.ts','./dist/index.d.mts');\n// Rename .svelte.d.ts -> .d.svelte.ts for Svelte component types\nconst dir='./dist/components/chat';\nif(fs.existsSync(dir)){\n  fs.readdirSync(dir).filter(f=>f.endsWith('.svelte.d.ts')).forEach(f=>{\n    const old=path.join(dir,f);\n    const New=path.join(dir,f.replace('.svelte.d.ts','.d.svelte.ts'));\n    fs.cpSync(old,New);\n  });\n}\n\"",
-    "build:css": "tailwindcss -i ./src/styles/globals.css -o ./dist/styles.css -m && node scripts/scope-preflight.mjs ./dist/styles.css",
+    "build:css": "tailwindcss -i ./src/styles/globals.css -o ./dist/styles.css -m && node scripts/scope-preflight.mjs ./dist/styles.css && node scripts/merge-styles.mjs ./dist/styles.css ./dist/svelte.css",
     "dev": "vite build --watch",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -55,13 +55,14 @@
     "test:ui": "vitest --ui",
     "lint": "eslint .",
     "check-types": "svelte-check --tsconfig ./tsconfig.json",
+    "compat-check": "es-check es2022 --module 'dist/**/*.{mjs,cjs,js}'",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16 --exclude-entrypoints ./styles.css --ignore-rules internal-resolution-error",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.57",
-    "@ag-ui/core": "0.0.57",
+    "@ag-ui/client": "0.0.59",
+    "@ag-ui/core": "0.0.59",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@copilotkit/web-components": "workspace:*",
@@ -101,6 +102,6 @@
     "svelte": "^5.0.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   }
 }

@@ -44,6 +44,7 @@ export interface CopilotChatProps {
   autoScroll?: AutoScrollMode | boolean;
   welcomeScreen?: boolean;
   inputValue?: string;
+  onInputChange?: (value: string) => void;
   inputMode?: CopilotChatInputMode;
   inputToolsMenu?: (ToolsMenuItem | "-")[];
   attachments?: boolean | { accept?: string };

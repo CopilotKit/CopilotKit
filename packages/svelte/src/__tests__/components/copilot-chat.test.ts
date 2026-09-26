@@ -84,6 +84,13 @@ describe("CopilotChat", () => {
     await waitFor(() => expect(textarea.value).toBe("first draft"));
     await fireEvent.click(view.getByTestId("update-chat-input"));
     await waitFor(() => expect(textarea.value).toBe("updated draft"));
+
+    await fireEvent.input(textarea, { target: { value: "user edit" } });
+    await waitFor(() =>
+      expect(view.getByTestId("chat-input-value").textContent).toBe(
+        "user edit",
+      ),
+    );
   });
 
   it("switches the rendered agent when agentId changes after mount", async () => {

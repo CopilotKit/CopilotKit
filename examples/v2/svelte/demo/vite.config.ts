@@ -11,10 +11,6 @@ export default ({ mode }: { mode: string }) => {
     resolve: {
       alias: [
         {
-          find: "@segment/analytics-node",
-          replacement: path.resolve("src/lib/segment-stub.js"),
-        },
-        {
           // Keep the SDK source hot-reloadable without intercepting public
           // subpath exports such as @copilotkit/svelte/styles.css.
           find: /^@copilotkit\/svelte$/,
