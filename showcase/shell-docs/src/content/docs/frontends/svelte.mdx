@@ -1,0 +1,306 @@
+---
+title: Svelte
+description: Connect a Svelte 5 app to Copilot Runtime with the initial CopilotKit Svelte SDK.
+icon: "lucide/Component"
+hideTOC: true
+---
+
+`@copilotkit/svelte` is the initial Svelte 5 frontend for CopilotKit. It provides
+a context provider, rune-based state factories, lifecycle-managed tool
+registrations, and chat components backed by [Copilot Runtime](/backend/copilot-runtime).
+
+<Callout type="warn" title="Initial compatibility release">
+  The package covers the basic chat and agent interaction path. Check the
+  compatibility table below before replacing a React, Angular, or Vue frontend
+  that depends on advanced renderers or developer tooling.
+</Callout>
+
+## Requirements
+
+- Svelte 5
+- Node.js 20 or later
+- A Copilot Runtime endpoint
+
+## Install
+
+<Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
+  <Tab value="npm">
+    ```bash
+    npm install @copilotkit/svelte
+    ```
+  </Tab>
+  <Tab value="pnpm">
+    ```bash
+    pnpm add @copilotkit/svelte
+    ```
+  </Tab>
+  <Tab value="yarn">
+    ```bash
+    yarn add @copilotkit/svelte
+    ```
+  </Tab>
+</Tabs>
+
+Add `zod` when you register typed frontend tools.
+
+## Add the provider and styles
+
+Place the provider above every component that uses a CopilotKit factory or
+registration. Import the public stylesheet once at the application root.
+
+```svelte title="src/routes/+layout.svelte"
+<script lang="ts">
+  import "@copilotkit/svelte/styles.css";
+  import { CopilotKitProvider } from "@copilotkit/svelte";
+
+  let { children } = $props();
+</script>
+
+<CopilotKitProvider runtimeUrl="/api/copilotkit">
+  {@render children()}
+</CopilotKitProvider>
+```
+
+## Render chat
+
+```svelte title="src/routes/+page.svelte"
+<script lang="ts">
+  import { CopilotChat } from "@copilotkit/svelte";
+</script>
+
+<div class="chat-shell">
+  <CopilotChat agentId="default" />
+</div>
+
+<style>
+  .chat-shell {
+    height: 700px;
+  }
+</style>
+```
+
+The runtime must expose the selected agent ID. If `agentId` is omitted, the
+chat uses the runtime's `default` agent.
+
+## Compatibility
+
+| Area | Initial Svelte support | Notes |
+| --- | --- | --- |
+| Runtime connection and AG-UI streaming | Supported | Includes message updates, run state, and agent state invalidation. |
+| Inline chat | Supported | Use `CopilotChat`; lower-level chat and message components are also exported. |
+| Popup and sidebar chat | Supported | `CopilotPopup` and `CopilotSidebar` keep the chat mounted while closed, so generated thread state persists across open/close. Pass an explicit `threadId` to share state across surfaces. |
+| Frontend tools | Supported | Register with `registerFrontendTool`; registrations clean up with their component. |
+| Agent context | Supported | Connect reactive application data with `connectAgentContext`. |
+| Suggestions | Observation only | `createSuggestions` observes suggestions already present in core; Svelte does not yet register suggestion-generation configuration. |
+| Threads | Supported headless API | `createThreads` lists pages, fetches more, and renames/archives/unarchives/deletes threads over the core runtime transport, with reactive `agentId`/`enabled`/`limit`/`includeArchived` inputs and store cleanup on unmount. A prebuilt threads drawer is not included. |
+| Interrupts | Headless | Observe and resolve AG-UI interrupts with `createInterrupt`. |
+| Attachments | Supported | `createAttachments` validates/uploads files (drag-drop, picker, scoped paste) and `CopilotChat` wires it into the composer with `attachments={{ enabled: true }}`. See the attachments example below. |
+| Tool-call rendering | Supported in prebuilt chat | Renderers from `registerRenderToolCall` (including the `"*"` wildcard fallback) mount inside `CopilotChat`; a `toolCall` slot override still wins when provided. Unmatched calls fall back to generic status. |
+| Human approval | Supported with custom UI | `registerHumanInTheLoop` mounts its renderer in the prebuilt chat and matches concurrent calls by tool-call ID. The provider-level `humanInTheLoop` prop is unsupported and throws; use the registration instead. |
+| A2UI and Open Generative UI | Not yet supported | Built-in catalogs, renderers, and sandbox helpers are planned. |
+| CoAgent/LangGraph state renderers | Not yet supported | Use the lower-level agent binding for state today. |
+| Memories and learning APIs | Not yet supported | No Svelte-specific bindings are included in this release. |
+| Modal, threads drawer, audio input | Not yet supported | Build these surfaces from the exported state factories where possible. |
+| Inspector and developer console | Not yet supported | Use Runtime and browser diagnostics while developing. |
+
+## Reactive agent state
+
+Stateful APIs use `create*` names because they create rune-backed state and
+subscriptions. Keep the returned object intact and read its live getters in
+markup; plain destructuring snapshots a getter and loses reactivity.
+
+```svelte
+<script lang="ts">
+  import { createAgent, useCopilotKit } from "@copilotkit/svelte";
+
+  const agentHandle = createAgent({ agentId: "default" });
+  const { copilotkit } = useCopilotKit();
+
+  async function send(content: string) {
+    const agent = agentHandle.agent;
+    if (!agent) return;
+
+    agent.addMessage({
+      id: crypto.randomUUID(),
+      role: "user",
+      content,
+    });
+    await copilotkit.runAgent({ agent });
+  }
+</script>
+
+{#if agentHandle.isRunning}
+  <p>Agent is thinking…</p>
+{/if}
+```
+
+Use `$derived` only when you want a local alias or computed value:
+
+```svelte
+<script lang="ts">
+  const { messages, isRunning } = $derived(agentHandle);
+</script>
+```
+
+## Register a frontend tool
+
+Registration APIs use `register*` names. They register during component setup
+and unregister when the component is destroyed.
+
+```svelte
+<script lang="ts">
+  import { registerFrontendTool } from "@copilotkit/svelte";
+  import { z } from "zod";
+
+  registerFrontendTool({
+    name: "showToast",
+    description: "Show a notification in the browser",
+    parameters: z.object({ message: z.string() }),
+    handler: async ({ message }) => {
+      alert(message);
+      return "Notification shown";
+    },
+  });
+</script>
+```
+
+Set `agentId` to scope a registration to one agent. Omit it to make the tool
+available to every agent connected through the provider.
+
+## Render tool calls in chat
+
+Registered renderers mount inside `CopilotChat`. Return a string for simple
+status output, or a Svelte snippet for rich UI. A `"*"` registration acts as
+the fallback when no named renderer matches.
+
+```svelte
+<script lang="ts">
+  import { registerRenderToolCall } from "@copilotkit/svelte";
+  import { z } from "zod";
+
+  registerRenderToolCall({
+    name: "lookupWeather",
+    parameters: z.object({ city: z.string().optional() }),
+    render: ({ status, toolCallId, parameters, result }) =>
+      `weather:${toolCallId}:${status}:${String(parameters["city"] ?? "")}:${result ?? ""}`,
+  });
+
+  registerRenderToolCall({
+    name: "*",
+    render: ({ name, status }) => `${name}:${status}`,
+  });
+</script>
+```
+
+Scope with `agentId` to render only calls for one agent. For interactive
+approval UI, use `registerHumanInTheLoop` instead: its `render` receives
+`respond` while `status === "executing"` — render a snippet with an approve
+button that calls `respond(result)` to resolve that tool call ID.
+
+## Attach files
+
+Pass `attachments` to `CopilotChat` to wire `createAttachments` into the
+composer (file picker, drag-drop overlay, scoped paste, upload queue).
+`attachments={true}` enables defaults; pass a config object to customize.
+
+```svelte
+<script lang="ts">
+  import { CopilotChat } from "@copilotkit/svelte";
+</script>
+
+<CopilotChat
+  agentId="default"
+  attachments={{ enabled: true, accept: "image/*,.pdf", maxSize: 10 * 1024 * 1024 }}
+/>
+```
+
+Use `createAttachments` directly only when building a custom composer. It
+exposes `fileInputAction`/`containerAction` Svelte actions for DOM refs,
+plus `processFiles`, `handleFileUpload`, drag handlers, and
+`consumeAttachments()`.
+
+## Work with threads headlessly
+
+`createThreads` exposes the thread store without a prebuilt drawer. Inputs
+are reactive getters, so updates to `agentId`, `enabled`, `limit`, or
+`includeArchived` refetch automatically.
+
+```svelte
+<script lang="ts">
+  import { createThreads } from "@copilotkit/svelte";
+
+  const threads = createThreads({ agentId: "default", limit: 20 });
+
+  function rename(id: string) {
+    void threads.renameThread(id, "Trip plan");
+  }
+</script>
+
+{#if threads.isLoading}
+  <p>Loading threads…</p>
+{:else if threads.error}
+  <p>{threads.error.message}</p>
+{:else}
+  <ul>
+    {#each threads.threads as thread (thread.id)}
+      <li>
+        {thread.name ?? thread.id}
+        <button onclick={() => rename(thread.id)}>Rename</button>
+        <button onclick={() => void threads.archiveThread(thread.id)}>Archive</button>
+        <button onclick={() => void threads.deleteThread(thread.id)}>Delete</button>
+      </li>
+    {/each}
+  </ul>
+  {#if threads.hasMoreThreads}
+    <button onclick={() => threads.fetchMoreThreads()}>Load more</button>
+  {/if}
+  <button onclick={() => threads.startNewThread()}>New thread</button>
+{/if}
+```
+
+## API naming
+
+| React concept | Svelte 5 API |
+| --- | --- |
+| `useAgent` | `createAgent` |
+| `useFrontendTool` | `registerFrontendTool` |
+| `useAgentContext` | `connectAgentContext` |
+| `useRenderToolCall` (`useRenderTool` in V1) | `registerRenderToolCall` |
+| `useHumanInTheLoop` | `registerHumanInTheLoop` |
+| `useInterrupt` | `createInterrupt` |
+| `useThreads` | `createThreads` |
+| `useAttachments` | `createAttachments` |
+| `useSuggestions` | `createSuggestions` (observation only; no suggestion-configuration registration — React's `useConfigureSuggestions` has no Svelte equivalent) |
+| `useCapabilities` | `createCapabilities` |
+| `useKatexStyles` | `loadKatexStyles` |
+| Provider accessor (`useCopilotKit`) | `useCopilotKit` |
+
+React V1 names such as `useCopilotAction`, `useCopilotReadable`, and
+`useCopilotChat` are not part of the Svelte API. Prefer the Svelte `create*`,
+`register*`, and `connect*` functions.
+
+## Remaining limitations
+
+This release does not claim full React parity. Still missing:
+
+- Suggestion-generation configuration (Svelte observes suggestions only).
+- Prebuilt thread drawer, modal chat surface, and audio input.
+- Provider-level `humanInTheLoop` prop (throws; use `registerHumanInTheLoop`).
+- A2UI and Open Generative UI renderers/sandbox helpers.
+- CoAgent/LangGraph state renderers.
+- Memories and learning APIs.
+- Inspector and developer console.
+
+## Try it
+
+The Svelte demo (`examples/v2/svelte/demo`) renders chat, sidebar, and popup
+tabs with attachments enabled.
+
+## Next compatibility milestones
+
+1. Suggestion-generation configuration registration.
+2. Prebuilt thread drawer, modal surface, and audio input.
+3. A2UI/Open Generative UI renderers and sandbox helpers.
+4. CoAgent state renderers.
+5. Memories/learning bindings and Inspector tooling.
+6. Public API reference pages and lifecycle examples for every exported factory.
