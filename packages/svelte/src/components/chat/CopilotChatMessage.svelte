@@ -15,7 +15,7 @@
   } = $props();
 
   function isAssistant(msg: Message): msg is AssistantMessage {
-    return msg.role === "assistant" && (msg as AssistantMessage).content !== undefined;
+    return msg.role === "assistant";
   }
 
   function isUser(msg: Message): msg is UserMessage {

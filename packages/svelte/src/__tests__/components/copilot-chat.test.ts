@@ -6,6 +6,7 @@ import CopilotChatInput from "../../components/chat/CopilotChatInput.svelte";
 import AssistantToolbarHarness from "./assistant-toolbar-harness.svelte";
 import ChatHarness from "./copilot-chat-harness.svelte";
 import ChatAgentSwitchHarness from "./chat-agent-switch-harness.svelte";
+import ToolOnlyMessageHarness from "./tool-only-message-harness.svelte";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -108,6 +109,14 @@ describe("CopilotChat", () => {
 });
 
 describe("CopilotChatMessageView", () => {
+  it("renders assistant messages that contain only tool calls", async () => {
+    const view = render(ToolOnlyMessageHarness);
+
+    await waitFor(() =>
+      expect(view.getByText("lookupWeather")).toBeTruthy(),
+    );
+  });
+
   it("pins to the bottom when a streaming message changes without changing message count", async () => {
     const initialMessages = [
       { id: "user-1", role: "user", content: "partial" },
