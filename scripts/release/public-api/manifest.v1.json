@@ -2253,7 +2253,7 @@
     },
     {
       "name": "@copilotkit/svelte",
-      "version": "1.73.3",
+      "version": "1.74.0",
       "sourceDirectory": "packages/svelte",
       "entrypoints": [
         {
