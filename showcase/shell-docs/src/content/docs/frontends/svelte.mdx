@@ -88,15 +88,15 @@ chat uses the runtime's `default` agent.
 | --- | --- | --- |
 | Runtime connection and AG-UI streaming | Supported | Includes message updates, run state, and agent state invalidation. |
 | Inline chat | Supported | Use `CopilotChat`; lower-level chat and message components are also exported. |
-| Popup and sidebar chat | Supported | Use `CopilotPopup` and `CopilotSidebar`. |
+| Popup and sidebar chat | Partial | The surfaces render, but closing an instance without an explicit `threadId` currently resets its generated chat state. |
 | Frontend tools | Supported | Register with `registerFrontendTool`; registrations clean up with their component. |
 | Agent context | Supported | Connect reactive application data with `connectAgentContext`. |
-| Suggestions | Supported | Use `createSuggestions`. |
-| Threads | Headless | `createThreads` is available; a prebuilt threads drawer is not yet included. |
+| Suggestions | Observation only | `createSuggestions` observes suggestions already present in core; Svelte does not yet register suggestion-generation configuration. |
+| Threads | Experimental headless API | `createThreads` is available, but runtime-transport and store-lifecycle parity still need follow-up work; a prebuilt threads drawer is not included. |
 | Interrupts | Headless | Observe and resolve AG-UI interrupts with `createInterrupt`. |
-| Attachments | Headless | Validation and upload state are available through `createAttachments`; chat composer wiring is not automatic. |
-| Tool-call rendering | Partial | Renderer registration is available, while the built-in chat currently falls back to generic tool status for some renderer types. |
-| Human approval | Supported by registration | Use `registerHumanInTheLoop`; concurrent tool calls are matched by tool-call ID. |
+| Attachments | Experimental headless API | Direct validation/upload helpers exist, but DOM refs and chat-composer wiring are not production-ready. |
+| Tool-call rendering | Registration only | Renderer registration exists, but the prebuilt chat currently shows generic tool status unless the host supplies a custom tool-call slot. |
+| Human approval | Custom UI required | `registerHumanInTheLoop` matches concurrent calls by tool-call ID, but the prebuilt chat does not yet mount its renderer; the provider-level `humanInTheLoop` prop is not ready. |
 | A2UI and Open Generative UI | Not yet supported | Built-in catalogs, renderers, and sandbox helpers are planned. |
 | CoAgent/LangGraph state renderers | Not yet supported | Use the lower-level agent binding for state today. |
 | Memories and learning APIs | Not yet supported | No Svelte-specific bindings are included in this release. |
@@ -180,3 +180,11 @@ available to every agent connected through the provider.
 React V1 names such as `useCopilotAction`, `useCopilotReadable`, and
 `useCopilotChat` are not part of the Svelte API. Prefer the Svelte `create*`,
 `register*`, and `connect*` functions.
+
+## Next compatibility milestones
+
+1. Connect registered tool renderers and human approval UI to the prebuilt chat.
+2. Make agent, thread, popup, and sidebar lifecycle behavior fully reactive and persistent.
+3. Finish attachment DOM bindings and suggestion configuration registration.
+4. Remove or implement provider and chat props that are currently placeholders.
+5. Add public API reference pages and lifecycle examples for every exported hook.
