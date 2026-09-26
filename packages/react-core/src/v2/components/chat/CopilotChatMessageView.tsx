@@ -139,13 +139,21 @@ const MemoizedAssistantMessage = React.memo(
       }
     }
 
-    // Only care about isRunning if this message is CURRENTLY the latest
-    // (we don't need to re-render just because a message stopped being the latest)
-    const nextIsLatest =
-      nextProps.messages[nextProps.messages.length - 1]?.id ===
-      nextProps.message.id;
-    if (nextIsLatest && prevProps.isRunning !== nextProps.isRunning)
-      return false;
+    // Always re-render on an isRunning change, not just for the message
+    // that is currently last in `messages`. A message can stop being last
+    // while `isRunning` is still true if a later, out-of-order message
+    // (e.g. a tool result event delivered after the assistant's own
+    // subsequent text reply — a real ordering this component has to
+    // tolerate, not just a hypothetical) gets appended after it. That
+    // message's component is then memoized out of ever re-rendering once
+    // `isRunning` flips back to false, permanently freezing it with the
+    // stale mid-streaming render — which incorrectly keeps its toolbar
+    // (copy/thumbs-up/down/regenerate) hidden forever, since
+    // `CopilotChatAssistantMessage` derives `shouldShowToolbar` from the
+    // same `isRunning` prop. `isRunning` only flips twice per run
+    // (start/end), so re-rendering every assistant message on that change
+    // is cheap regardless of conversation length.
+    if (prevProps.isRunning !== nextProps.isRunning) return false;
 
     // Check if component reference changed
     if (
