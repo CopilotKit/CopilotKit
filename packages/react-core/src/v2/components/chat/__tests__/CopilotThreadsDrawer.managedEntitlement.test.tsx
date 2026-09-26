@@ -678,7 +678,7 @@ test("a retryable managed outage preserves a valid legacy fallback through the b
   }
 });
 
-test("a persistent retryable outage becomes terminal after the bounded retry", async () => {
+test("a persistent retryable outage falls back to the threads endpoint, never the locked view", async () => {
   vi.useFakeTimers();
   const { dispose, fetchMock } = setupDrawerTest(
     retryableRuntimeInfo(),
@@ -713,15 +713,17 @@ test("a persistent retryable outage becomes terminal after the bounded retry", a
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    // `unknown` is unresolved, not negative: the list is fetched and the
+    // threads endpoint decides. Feature-only consumers stay denied.
     expect(useThreadsMock).toHaveBeenLastCalledWith(
-      expect.objectContaining({ enabled: false }),
+      expect.objectContaining({ enabled: true }),
     );
     const terminalDrawer =
       document.querySelector<CopilotKitThreadsDrawerElement>(
         COPILOTKIT_THREADS_DRAWER_TAG,
       );
     expect(terminalDrawer?.loading).toBe(false);
-    expect(terminalDrawer?.licensed).toBe(false);
+    expect(terminalDrawer?.licensed).toBe(true);
     expect(screen.getByTestId("threads-feature-authority").textContent).toBe(
       "status:unknown threads:false",
     );
@@ -736,7 +738,7 @@ test("a persistent retryable outage becomes terminal after the bounded retry", a
   }
 });
 
-test("a failed retry request becomes terminal after the bounded retry", async () => {
+test("a failed retry request falls back to the threads endpoint, never the locked view", async () => {
   vi.useFakeTimers();
   const { dispose, fetchMock } = setupDrawerTest(retryableRuntimeInfo());
 
@@ -765,18 +767,56 @@ test("a failed retry request becomes terminal after the bounded retry", async ()
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    // `unknown` is unresolved, not negative: the list is fetched and the
+    // threads endpoint decides. Feature-only consumers stay denied.
     expect(useThreadsMock).toHaveBeenLastCalledWith(
-      expect.objectContaining({ enabled: false }),
+      expect.objectContaining({ enabled: true }),
     );
     const terminalDrawer =
       document.querySelector<CopilotKitThreadsDrawerElement>(
         COPILOTKIT_THREADS_DRAWER_TAG,
       );
     expect(terminalDrawer?.loading).toBe(false);
-    expect(terminalDrawer?.licensed).toBe(false);
+    expect(terminalDrawer?.licensed).toBe(true);
     expect(screen.getByTestId("threads-feature-authority").textContent).toBe(
       "status:unknown threads:false",
     );
+  } finally {
+    dispose();
+    vi.useRealTimers();
+  }
+});
+
+test("a persistent retryable outage shows a failing list as an error, never the locked view", async () => {
+  vi.useFakeTimers();
+  const { dispose } = setupDrawerTest(
+    retryableRuntimeInfo(),
+    retryableRuntimeInfo(),
+  );
+  const listError = new Error("Could not load threads");
+  const inert = useThreadsMock({ agentId: "default" } as UseThreadsInput);
+  useThreadsMock.mockReset();
+  useThreadsMock.mockReturnValue({ ...inert, listError, error: listError });
+
+  try {
+    render(
+      <CopilotKitProvider runtimeUrl="/api">
+        <CopilotChatConfigurationProvider>
+          <CopilotThreadsDrawer />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await flushPromiseUpdates();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+
+    const drawer = document.querySelector<CopilotKitThreadsDrawerElement>(
+      COPILOTKIT_THREADS_DRAWER_TAG,
+    );
+    expect(drawer?.licensed).toBe(true);
+    expect(drawer?.error).toBe("Could not load threads");
   } finally {
     dispose();
     vi.useRealTimers();

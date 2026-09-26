@@ -142,12 +142,7 @@ The chart passes the TimescaleDB URL to the app API and the realtime gateway and
 
 Product Analytics is a view inside Intelligence. The charts themselves are not exported.
 
-A self-hosted deployment can send two OTLP streams to a collector you run:
-
-- **Traces** from the app API and the realtime gateway, through the `observability.tracing` Helm values.
-- **Product events** as OTLP logs, such as a thread created or a run requested, through the `appApi.channelTelemetry.endpoint` value. These events carry IDs and attributes only. Message content is never sent.
-
-Leave an endpoint unset to keep that stream off.
+A self-hosted deployment can send traces and product events, such as a thread created or a run requested, to an OpenTelemetry collector you run. Product events never contain message content. [Monitor with OpenTelemetry](/intelligence/self-hosting-observability) lists each stream, what it contains, and how to turn it on.
 
 ## Next steps
 

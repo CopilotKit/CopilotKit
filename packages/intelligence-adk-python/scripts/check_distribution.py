@@ -35,7 +35,7 @@ with tempfile.TemporaryDirectory(prefix="copilotkit-adk-distribution-") as direc
         [
             sys.executable,
             "-c",
-            "from pathlib import Path; import copilotkit_intelligence_adk as p; from copilotkit_intelligence_adk._delivery import registry; assert '_delivery' in registry.__name__; assert 'installed' in str(Path(p.__file__)); assert callable(p.SkillRegistry); assert callable(p.SkillToolset)",
+            "from pathlib import Path; import copilotkit_intelligence_adk as p; from copilotkit_intelligence_adk._delivery import registry; assert '_delivery' in registry.__name__; assert 'installed' in str(Path(p.__file__)); assert callable(p.SkillRegistry); import asyncio; multi = p.SkillRegistry(api_key='test', containers=[p.ContainerSource(id='one')]); assert isinstance(multi.status, p.MultiStatus); assert multi.status.containers[0].id == 'one'; asyncio.run(multi.aclose()); assert callable(p.SkillToolset)",
         ],
         cwd=temporary,
         env=env,
