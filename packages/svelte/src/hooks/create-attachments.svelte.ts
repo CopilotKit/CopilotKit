@@ -13,8 +13,21 @@ import type {
   AttachmentsConfig,
 } from "@copilotkit/shared";
 
+export type AttachmentsConfigInput =
+  | AttachmentsConfig
+  | (() => AttachmentsConfig | undefined);
+
 export interface CreateAttachmentsProps {
-  config?: AttachmentsConfig;
+  config?: AttachmentsConfigInput;
+}
+
+function resolveInput(
+  input: AttachmentsConfigInput | undefined,
+): AttachmentsConfig | undefined {
+  if (typeof input === "function") {
+    return (input as () => AttachmentsConfig | undefined)();
+  }
+  return input;
 }
 
 export interface CreateAttachmentsReturn {
@@ -23,6 +36,14 @@ export interface CreateAttachmentsReturn {
   dragOver: boolean;
   fileInputRef: HTMLInputElement | null;
   containerRef: HTMLElement | null;
+  /** Assign the hidden file input (for `bind:this`-style callbacks). */
+  setFileInputRef: (el: HTMLInputElement | null) => void;
+  /** Assign the paste-scope container (for `bind:this`-style callbacks). */
+  setContainerRef: (el: HTMLElement | null) => void;
+  /** Svelte action for the hidden file input (`use:attachments.fileInputAction`). */
+  fileInputAction: (node: HTMLInputElement) => { destroy: () => void };
+  /** Svelte action for the paste-scope container (`use:attachments.containerAction`). */
+  containerAction: (node: HTMLElement) => { destroy: () => void };
   processFiles: (files: File[]) => Promise<void>;
   handleFileUpload: (event: Event) => Promise<void>;
   handleDragOver: (event: DragEvent) => void;
@@ -37,11 +58,38 @@ export function createAttachments(
 ): CreateAttachmentsReturn {
   let attachments = $state<Attachment[]>([]);
   let dragOver = $state(false);
-  const fileInputRef: HTMLInputElement | null = $state(null)!;
-  const containerRef: HTMLElement | null = $state(null)!;
+  let fileInputEl = $state<HTMLInputElement | null>(null);
+  let containerEl = $state<HTMLElement | null>(null);
   let attachmentsRef: Attachment[] = [];
 
-  const enabled = $derived(props.config?.enabled ?? false);
+  const resolvedConfig = $derived(resolveInput(props.config));
+  const enabled = $derived(resolvedConfig?.enabled ?? false);
+
+  function setFileInputRef(el: HTMLInputElement | null) {
+    fileInputEl = el;
+  }
+
+  function setContainerRef(el: HTMLElement | null) {
+    containerEl = el;
+  }
+
+  function fileInputAction(node: HTMLInputElement) {
+    fileInputEl = node;
+    return {
+      destroy() {
+        if (fileInputEl === node) fileInputEl = null;
+      },
+    };
+  }
+
+  function containerAction(node: HTMLElement) {
+    containerEl = node;
+    return {
+      destroy() {
+        if (containerEl === node) containerEl = null;
+      },
+    };
+  }
 
   const setAttachments = (next: Attachment[]) => {
     attachments = next;
@@ -55,7 +103,9 @@ export function createAttachments(
   };
 
   async function processFiles(files: File[]) {
-    const config = props.config;
+    // Read the live config on every call so reactive getter updates apply
+    // to in-flight UI without re-creating the hook.
+    const config = resolveInput(props.config);
     const accept = config?.accept ?? "*/*";
     const maxSize = config?.maxSize ?? 20 * 1024 * 1024;
 
@@ -191,17 +241,21 @@ export function createAttachments(
     updateAttachments((previous) =>
       previous.filter((attachment) => attachment.status !== "ready"),
     );
-    if (fileInputRef) {
-      fileInputRef.value = "";
+    if (fileInputEl) {
+      fileInputEl.value = "";
     }
     return ready;
   }
 
   async function handlePaste(event: ClipboardEvent) {
-    if (!enabled) return;
+    const liveConfig = resolveInput(props.config);
+    if (!(liveConfig?.enabled ?? false)) return;
     const target = event.target as HTMLElement | null;
-    if (!target || !containerRef?.contains(target)) return;
-    const accept = props.config?.accept ?? "*/*";
+    const scope = containerEl;
+    // Paste is scoped to the composer/container: ignore pastes outside it so
+    // unrelated page pastes never enqueue uploads.
+    if (!target || !scope?.contains(target)) return;
+    const accept = liveConfig?.accept ?? "*/*";
     const items = Array.from(event.clipboardData?.items ?? []);
     const fileItems = items.filter((item) => {
       if (item.kind !== "file") return false;
@@ -218,6 +272,8 @@ export function createAttachments(
 
   $effect(() => {
     if (typeof document === "undefined") return;
+    // Always attached; enabled + container scoping is checked at event time
+    // so reactive config updates apply without re-subscribing.
     document.addEventListener("paste", handlePaste);
     return () => {
       document.removeEventListener("paste", handlePaste);
@@ -235,11 +291,15 @@ export function createAttachments(
       return dragOver;
     },
     get fileInputRef() {
-      return fileInputRef;
+      return fileInputEl;
     },
     get containerRef() {
-      return containerRef;
+      return containerEl;
     },
+    setFileInputRef,
+    setContainerRef,
+    fileInputAction,
+    containerAction,
     processFiles,
     handleFileUpload,
     handleDragOver,

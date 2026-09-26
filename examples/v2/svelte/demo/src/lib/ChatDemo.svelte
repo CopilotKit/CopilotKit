@@ -55,12 +55,20 @@
     {#key activeTab}
       {#if activeTab === "chat"}
         <div class="chat-panel">
-          <CopilotChat welcomeScreen={true} />
+          <CopilotChat welcomeScreen={true} attachments={{ enabled: true }} />
         </div>
       {:else if activeTab === "sidebar"}
-        <CopilotSidebar defaultOpen={true} welcomeScreen={true} />
+        <CopilotSidebar
+          defaultOpen={true}
+          welcomeScreen={true}
+          attachments={{ enabled: true }}
+        />
       {:else if activeTab === "popup"}
-        <CopilotPopup defaultOpen={true} welcomeScreen={true} />
+        <CopilotPopup
+          defaultOpen={true}
+          welcomeScreen={true}
+          attachments={{ enabled: true }}
+        />
       {/if}
     {/key}
   </div>

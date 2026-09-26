@@ -10,6 +10,7 @@ export { default as CopilotChatReasoningMessage } from "./chat/CopilotChatReason
 export { default as CopilotChatToolCallsView } from "./chat/CopilotChatToolCallsView.svelte";
 export { default as CopilotChatSuggestionView } from "./chat/CopilotChatSuggestionView.svelte";
 export { default as CopilotChatSuggestionPill } from "./chat/CopilotChatSuggestionPill.svelte";
+export { default as CopilotChatAttachmentQueue } from "./chat/CopilotChatAttachmentQueue.svelte";
 export { default as CopilotChatToggleButton } from "./chat/CopilotChatToggleButton.svelte";
 export { default as CopilotSidebar } from "./chat/CopilotSidebar.svelte";
 export { default as CopilotPopup } from "./chat/CopilotPopup.svelte";

@@ -38,6 +38,7 @@ export { createAttachments } from "./create-attachments.svelte";
 export type {
   CreateAttachmentsProps,
   CreateAttachmentsReturn,
+  AttachmentsConfigInput,
 } from "./create-attachments.svelte";
 export { loadKatexStyles } from "./load-katex-styles.svelte";
 export { createCapabilities } from "./create-capabilities.svelte";

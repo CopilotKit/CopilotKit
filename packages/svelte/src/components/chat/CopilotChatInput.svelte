@@ -1,5 +1,7 @@
 <script lang="ts">
   import type { CopilotChatInputMode, ToolsMenuItem } from "./types";
+  import type { Attachment } from "@copilotkit/shared";
+  import CopilotChatAttachmentQueue from "./CopilotChatAttachmentQueue.svelte";
 
   let {
     value: initialValue = "",
@@ -8,6 +10,10 @@
     onStop,
     onInputChange,
     placeholder = "Type a message...",
+    attachments = [] as Attachment[],
+    canAddFile = false,
+    onAddFile,
+    onRemoveAttachment,
   }: {
     value?: string;
     isRunning?: boolean;
@@ -17,9 +23,17 @@
     onStop?: () => void;
     onInputChange: (value: string) => void;
     placeholder?: string;
+    attachments?: Attachment[];
+    canAddFile?: boolean;
+    onAddFile?: () => void;
+    onRemoveAttachment?: (id: string) => void;
   } = $props();
 
   let localValue = $derived(initialValue);
+  let hasUploading = $derived(attachments.some((a) => a.status === "uploading"));
+  let canSend = $derived(
+    isRunning ? true : hasUploading ? false : localValue.trim().length > 0 || attachments.length > 0,
+  );
 
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -29,8 +43,11 @@
   }
 
   function send() {
+    // Mirror React/Vue: block sends while uploads are in flight. Attachments
+    // alone (no text) are a valid send.
+    if (hasUploading || isRunning) return;
     const trimmed = localValue.trim();
-    if (!trimmed || isRunning) return;
+    if (!trimmed && attachments.length === 0) return;
     onSubmit(trimmed);
     localValue = "";
     onInputChange("");
@@ -42,7 +59,25 @@
 </script>
 
 <div class="copilotkit-input">
+  {#if attachments.length > 0}
+    <CopilotChatAttachmentQueue {attachments} {onRemoveAttachment} />
+  {/if}
+  {#if hasUploading}
+    <div class="copilotkit-upload-hint" role="status">
+      Uploading attachments…
+    </div>
+  {/if}
   <div class="copilotkit-input-row">
+    {#if canAddFile}
+      <button
+        type="button"
+        class="copilotkit-attach-btn"
+        aria-label="Add file"
+        onclick={onAddFile}
+      >
+        +
+      </button>
+    {/if}
     <textarea
       class="copilotkit-textarea"
       value={localValue}
@@ -55,7 +90,7 @@
     <button
       class="copilotkit-send-btn"
       onclick={isRunning && onStop ? onStop : send}
-      disabled={!isRunning && !localValue.trim()}
+      disabled={!isRunning && !canSend}
     >
       {#if isRunning}
         ■
@@ -125,5 +160,31 @@
 
   .copilotkit-send-btn:hover:not(:disabled) {
     background: #2563eb;
+  }
+
+  .copilotkit-attach-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    background: #f9fafb;
+    color: #374151;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .copilotkit-attach-btn:hover {
+    background: #f3f4f6;
+  }
+
+  .copilotkit-upload-hint {
+    font-size: 12px;
+    color: #6b7280;
+    padding: 0 2px 8px;
   }
 </style>

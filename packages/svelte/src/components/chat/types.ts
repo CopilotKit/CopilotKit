@@ -10,11 +10,12 @@ import type { Suggestion } from "@copilotkit/core";
 import type {
   Attachment,
   AttachmentModality,
+  AttachmentsConfig,
   InputContent,
 } from "@copilotkit/shared";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 
-export type { Attachment, AttachmentModality, InputContent };
+export type { Attachment, AttachmentModality, AttachmentsConfig, InputContent };
 
 export type AutoScrollMode = "pin-to-bottom" | "pin-to-send" | "none";
 
@@ -47,7 +48,7 @@ export interface CopilotChatProps {
   onInputChange?: (value: string) => void;
   inputMode?: CopilotChatInputMode;
   inputToolsMenu?: (ToolsMenuItem | "-")[];
-  attachments?: boolean | { accept?: string };
+  attachments?: boolean | AttachmentsConfig;
   onError?: (event: {
     error: Error;
     code: CopilotKitCoreErrorCode;
