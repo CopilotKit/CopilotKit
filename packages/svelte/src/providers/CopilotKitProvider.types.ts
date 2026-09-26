@@ -27,6 +27,10 @@ export interface CopilotKitProviderProps {
   renderActivityMessages?: SvelteActivityMessageRenderer<unknown>[];
   renderCustomMessages?: SvelteCustomMessageRenderer[];
   frontendTools?: SvelteFrontendTool[];
+  /**
+   * Unsupported. A non-empty list throws.
+   * Use `registerHumanInTheLoop`, which resolves each invocation by tool call id.
+   */
   humanInTheLoop?: SvelteHumanInTheLoop[];
   openGenerativeUI?: {
     sandboxFunctions?: SandboxFunction[];

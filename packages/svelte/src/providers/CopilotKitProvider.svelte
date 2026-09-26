@@ -49,11 +49,11 @@
   //    single calls to the core, updating reactive $state in lockstep.
   //    See Angular's CopilotKit.updateRuntime().
   //
-  // 6. addFrontendTool / addRenderToolCall / addRenderActivityMessage / addHumanInTheLoop
+  // 6. addFrontendTool / addRenderToolCall / addRenderActivityMessage
   //    Provider-level methods that register a tool on the core AND track
-  //    the render config in local $state arrays. HITL tools need a
-  //    promise-based handler wired to the render component's respond().
-  //    See Angular's CopilotKit.addFrontendTool / addHumanInTheLoop / etc.
+  //    the render config in local $state arrays.
+  //    `humanInTheLoop` is rejected: use registerHumanInTheLoop, which
+  //    resolves each pending invocation by tool call id.
   //
   // 7. Tool-to-renderer auto-bridge
   //    When a frontend tool has .render and .parameters, automatically
@@ -120,44 +120,16 @@
       : properties,
   );
 
-  const processedHumanInTheLoop = $derived.by(() => {
-    const tools: FrontendTool[] = [];
-    const renderToolCallsArr: SvelteToolCallRenderer<unknown>[] = [];
+  function rejectHumanInTheLoop(
+    tools: CopilotKitProviderProps["humanInTheLoop"],
+  ): never {
+    const names = (tools ?? []).map((tool) => tool.name).join(", ");
+    throw new Error(
+      `CopilotKitProvider humanInTheLoop (${names}) cannot be registered. Use registerHumanInTheLoop so each invocation is resolved by tool call id.`,
+    );
+  }
 
-    for (const tool of humanInTheLoop) {
-      tools.push({
-        name: tool.name,
-        description: tool.description,
-        parameters: tool.parameters,
-        followUp: tool.followUp,
-        ...(tool.agentId && { agentId: tool.agentId }),
-        handler: async () => {
-          console.warn(
-            `Human-in-the-loop tool '${tool.name}' called but no interactive handler is set up.`,
-          );
-          return undefined;
-        },
-      });
-      if (tool.render) {
-        renderToolCallsArr.push({
-          name: tool.name,
-          args: tool.parameters ?? z.any(),
-           // TODO: Fix type incompatibility between SvelteHumanInTheLoopRenderFn and SvelteToolCallRendererRenderFn.
-    // Human-in-the-loop renderers expect 'description' and 'respond' parameters.
-    // Tracked in Provider Task #6 / #7.
-          render: tool.render,
-          ...(tool.agentId && { agentId: tool.agentId }),
-        } as unknown as SvelteToolCallRenderer<unknown>);
-      }
-    }
-    return { tools, renderToolCalls: renderToolCallsArr };
-  });
-
-  const allTools = $derived.by(() => {
-    const tools: FrontendTool[] = [...frontendTools];
-    tools.push(...processedHumanInTheLoop.tools);
-    return tools;
-  });
+  const allTools = $derived<FrontendTool[]>([...frontendTools]);
 
   const allRenderToolCalls = $derived.by(() => {
     const combined: SvelteToolCallRenderer<unknown>[] = [...renderToolCalls];
@@ -174,7 +146,6 @@
         }
       }
     }
-    combined.push(...processedHumanInTheLoop.renderToolCalls);
     return combined;
   });
 
@@ -314,6 +285,8 @@
 
 </script>
 
-{#if children}
+{#if humanInTheLoop.length > 0}
+  {rejectHumanInTheLoop(humanInTheLoop)}
+{:else if children}
   {@render children()}
 {/if}

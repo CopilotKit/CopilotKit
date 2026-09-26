@@ -4,6 +4,7 @@ export type SvelteHumanInTheLoopRenderProps<T> =
   | {
       name: string;
       description: string;
+      toolCallId: string;
       args: Partial<T>;
       status: ToolCallStatus.InProgress;
       result: undefined;
@@ -12,6 +13,7 @@ export type SvelteHumanInTheLoopRenderProps<T> =
   | {
       name: string;
       description: string;
+      toolCallId: string;
       args: T;
       status: ToolCallStatus.Executing;
       result: undefined;
@@ -20,6 +22,7 @@ export type SvelteHumanInTheLoopRenderProps<T> =
   | {
       name: string;
       description: string;
+      toolCallId: string;
       args: T;
       status: ToolCallStatus.Complete;
       result: string;
