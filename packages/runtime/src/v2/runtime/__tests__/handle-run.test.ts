@@ -2,6 +2,7 @@ import { EMPTY, Observable } from "rxjs";
 import { describe, it, expect, vi } from "vitest";
 import type { BaseEvent, RunAgentInput, RunAgentResult } from "@ag-ui/client";
 import { AbstractAgent, EventType, HttpAgent } from "@ag-ui/client";
+import { BuiltInAgent } from "../../../agent";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { handleRunAgent } from "../handlers/handle-run";
 import { CopilotRuntime } from "../core/runtime";
@@ -28,6 +29,57 @@ describe("handleRunAgent", () => {
       method: "POST",
     });
   };
+
+  it("preserves BuiltInAgent subclass behavior across two requests", async () => {
+    let runCalls = 0;
+    const requestAgents: BuiltInAgent[] = [];
+
+    class CustomAgent extends BuiltInAgent {
+      override run(_input: RunAgentInput) {
+        runCalls += 1;
+        requestAgents.push(this);
+        return EMPTY;
+      }
+    }
+
+    const registeredAgent = new CustomAgent({
+      type: "custom",
+      factory: async function* () {},
+    });
+    const runtime = new CopilotRuntime({
+      agents: { default: registeredAgent },
+      runner: new InMemoryAgentRunner(),
+    });
+    const threadId = `thread-clone-${Date.now()}-${Math.random()}`;
+
+    for (const runId of ["first", "second"]) {
+      const response = await handleRunAgent({
+        runtime,
+        agentId: "default",
+        request: new Request("https://example.com/agent/default/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            threadId,
+            runId,
+            state: {},
+            messages: [],
+            tools: [],
+            context: [],
+            forwardedProps: {},
+          }),
+        }),
+      });
+
+      expect(response.status).toBe(200);
+      await response.text();
+    }
+
+    expect(runCalls).toBe(2);
+    expect(requestAgents[0]).not.toBe(registeredAgent);
+    expect(requestAgents[1]).not.toBe(registeredAgent);
+    expect(requestAgents[1]).not.toBe(requestAgents[0]);
+  });
 
   it("should return 404 when agent does not exist", async () => {
     const runtime = createMockRuntime({}); // Empty agents

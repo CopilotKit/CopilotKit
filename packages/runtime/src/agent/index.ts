@@ -2250,7 +2250,7 @@ export class BuiltInAgent extends AbstractAgent {
 
   clone() {
     // Reuse resolved delivery configuration; cloning must not re-read environment.
-    const cloned = new BuiltInAgent({
+    const cloned = new (this.constructor as typeof BuiltInAgent)({
       ...this.config,
       learnedSkills: undefined,
     });
