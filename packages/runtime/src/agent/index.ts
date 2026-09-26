@@ -64,6 +64,7 @@ import {
 } from "./converters/usage";
 import type { AgentRunFinishedDetails } from "./converters/usage";
 import { createStateEventNormalizer } from "./state-delta";
+import { filterUnansweredToolCalls } from "./converters/message-history";
 import type { StreamableHTTPClientTransportOptions } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { randomUUID } from "@copilotkit/shared";
@@ -548,6 +549,8 @@ function convertUserMessageContent(
 export interface MessageConversionOptions {
   forwardSystemMessages?: boolean;
   forwardDeveloperMessages?: boolean;
+  /** Tool calls answered by runtime-injected resume results. */
+  additionalAnsweredToolCallIds?: ReadonlySet<string>;
 }
 
 /**
@@ -558,8 +561,13 @@ export function convertMessagesToVercelAISDKMessages(
   options: MessageConversionOptions = {},
 ): ModelMessage[] {
   const result: ModelMessage[] = [];
+  const sanitizedMessages = filterUnansweredToolCalls(
+    messages,
+    options.additionalAnsweredToolCallIds,
+    { dropOrphanedToolResults: true },
+  );
 
-  for (const message of messages) {
+  for (const message of sanitizedMessages) {
     if (message.role === "system" && options.forwardSystemMessages) {
       const systemMsg: SystemModelMessage = {
         role: "system",
@@ -604,7 +612,7 @@ export function convertMessagesToVercelAISDKMessages(
     } else if (message.role === "tool") {
       let toolName = "unknown";
       // Find the tool name from the corresponding tool call
-      for (const msg of messages) {
+      for (const msg of sanitizedMessages) {
         if (msg.role === "assistant") {
           for (const toolCall of msg.toolCalls ?? []) {
             if (toolCall.id === message.toolCallId) {
@@ -1209,22 +1217,12 @@ export class BuiltInAgent extends AbstractAgent {
         systemPrompt = parts.join("");
       }
 
-      // Convert messages and prepend system message if we have a prompt
-      const messages = convertMessagesToVercelAISDKMessages(input.messages, {
-        forwardSystemMessages: config.forwardSystemMessages,
-        forwardDeveloperMessages: config.forwardDeveloperMessages,
-      });
-      if (systemPrompt) {
-        messages.unshift({
-          role: "system",
-          content: systemPrompt,
-        });
-      }
-
       // Resume injection: each ResumeEntry maps to the interrupt tool call it
-      // addresses (interruptId === toolCallId) and is appended as that call's
+      // addresses (interruptId === toolCallId) and is inserted as that call's
       // tool-role result so the model can continue the agentic loop.
       const resumeEntries: ResumeEntry[] = input.resume ?? [];
+      const resumeToolMessages = new Map<string, ToolModelMessage>();
+      const resumeToolCallIds = new Set<string>();
       if (resumeEntries.length > 0) {
         // Recover the originating tool name for each interrupt tool call so the
         // injected tool-result carries the real name. Providers like Anthropic
@@ -1242,22 +1240,23 @@ export class BuiltInAgent extends AbstractAgent {
         // Idempotent: a client (useInterrupt) may already have appended the
         // resolution as a tool message — converted into a tool-result above.
         // Skip those so we don't answer the same tool call twice.
-        const alreadyAnswered = new Set<string>();
-        for (const m of messages) {
-          if (m.role !== "tool" || !Array.isArray(m.content)) continue;
-          for (const part of m.content) {
-            if (part && typeof part === "object" && "toolCallId" in part) {
-              alreadyAnswered.add((part as { toolCallId: string }).toolCallId);
-            }
-          }
-        }
+        const alreadyAnswered = new Set(
+          input.messages
+            .filter((message) => message.role === "tool")
+            .map((message) => message.toolCallId)
+            .filter(
+              (toolCallId): toolCallId is string =>
+                typeof toolCallId === "string",
+            ),
+        );
         for (const entry of resumeEntries) {
           if (alreadyAnswered.has(entry.interruptId)) continue;
           const value =
             entry.status === "cancelled"
               ? { status: "cancelled" }
               : (entry.payload ?? { status: "resolved" });
-          const toolResultMessage: ToolModelMessage = {
+          resumeToolCallIds.add(entry.interruptId);
+          resumeToolMessages.set(entry.interruptId, {
             role: "tool",
             content: [
               {
@@ -1267,9 +1266,37 @@ export class BuiltInAgent extends AbstractAgent {
                 output: { type: "json", value },
               },
             ],
-          };
-          messages.push(toolResultMessage);
+          });
         }
+      }
+
+      const messages = convertMessagesToVercelAISDKMessages(input.messages, {
+        forwardSystemMessages: config.forwardSystemMessages,
+        forwardDeveloperMessages: config.forwardDeveloperMessages,
+        additionalAnsweredToolCallIds: resumeToolCallIds,
+      });
+      if (systemPrompt) {
+        messages.unshift({
+          role: "system",
+          content: systemPrompt,
+        });
+      }
+      for (const [toolCallId, toolMessage] of resumeToolMessages) {
+        const assistantIndex = messages.findIndex(
+          (message) =>
+            message.role === "assistant" &&
+            Array.isArray(message.content) &&
+            message.content.some(
+              (part) =>
+                part.type === "tool-call" && part.toolCallId === toolCallId,
+            ),
+        );
+        // Answer the interrupted call before any later turn is replayed.
+        messages.splice(
+          assistantIndex === -1 ? messages.length : assistantIndex + 1,
+          0,
+          toolMessage,
+        );
       }
 
       // Merge tools from input and config
