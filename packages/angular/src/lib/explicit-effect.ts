@@ -35,7 +35,7 @@ import {
  * @example
  * ```ts
  * explicitEffect(
- *   () => threadId(),
+ *   threadId,
  *   (threadId) => {
  *     console.log(threadId);
  *   },

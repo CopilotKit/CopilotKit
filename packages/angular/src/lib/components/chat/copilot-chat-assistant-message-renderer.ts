@@ -239,18 +239,15 @@ export class CopilotChatAssistantMessageRenderer implements AfterViewInit {
   });
 
   constructor() {
-    explicitEffect(
-      () => this.content(),
-      () => {
-        // Reset copy states when content changes
-        this.copyStates.clear();
-        // If view is ready, update DOM
-        if (this.markdownContainer) {
-          this.updateContent();
-          this.renderMathEquations();
-        }
-      },
-    );
+    explicitEffect(this.content, () => {
+      // Reset copy states when content changes
+      this.copyStates.clear();
+      // If view is ready, update DOM
+      if (this.markdownContainer) {
+        this.updateContent();
+        this.renderMathEquations();
+      }
+    });
   }
 
   ngAfterViewInit(): void {

@@ -13,7 +13,7 @@ test("re-runs when a signal read in the deps function changes", () => {
   const run = vi.fn();
 
   TestBed.runInInjectionContext(() => {
-    explicitEffect(() => threadId(), run);
+    explicitEffect(threadId, run);
   });
   TestBed.flushEffects();
 
@@ -33,12 +33,9 @@ test("does not re-run when a signal read only in the body changes", () => {
   const seen: string[] = [];
 
   TestBed.runInInjectionContext(() => {
-    explicitEffect(
-      () => tracked(),
-      (value) => {
-        seen.push(`${value}:${untrackedSignal()}`);
-      },
-    );
+    explicitEffect(tracked, (value) => {
+      seen.push(`${value}:${untrackedSignal()}`);
+    });
   });
   TestBed.flushEffects();
 
@@ -78,12 +75,9 @@ test("runs the registered cleanup before the next run", () => {
   const cleanup = vi.fn();
 
   TestBed.runInInjectionContext(() => {
-    explicitEffect(
-      () => threadId(),
-      (_value, onCleanup) => {
-        onCleanup(cleanup);
-      },
-    );
+    explicitEffect(threadId, (_value, onCleanup) => {
+      onCleanup(cleanup);
+    });
   });
   TestBed.flushEffects();
 
@@ -101,12 +95,9 @@ test("runs the registered cleanup on destroy", () => {
   const injector = createEnvironmentInjector([], parent);
 
   runInInjectionContext(injector, () => {
-    explicitEffect(
-      () => signal("t1")(),
-      (_value, onCleanup) => {
-        onCleanup(cleanup);
-      },
-    );
+    explicitEffect(signal("t1"), (_value, onCleanup) => {
+      onCleanup(cleanup);
+    });
   });
   TestBed.flushEffects();
 
@@ -122,7 +113,7 @@ test("destroying the returned ref stops further runs", () => {
   const run = vi.fn();
 
   const ref = TestBed.runInInjectionContext(() =>
-    explicitEffect(() => threadId(), run),
+    explicitEffect(threadId, run),
   );
   TestBed.flushEffects();
 
@@ -141,7 +132,7 @@ test("accepts an injector so it can be created outside an injection context", ()
   const parent = TestBed.inject(EnvironmentInjector);
   const injector = createEnvironmentInjector([], parent);
 
-  explicitEffect(() => threadId(), run, { injector });
+  explicitEffect(threadId, run, { injector });
   TestBed.flushEffects();
 
   expect(run).toHaveBeenCalledTimes(1);
@@ -160,7 +151,7 @@ test("a signal written in the body does not make the effect re-trigger itself", 
   });
 
   TestBed.runInInjectionContext(() => {
-    explicitEffect(() => source(), run);
+    explicitEffect(source, run);
   });
   TestBed.flushEffects();
 

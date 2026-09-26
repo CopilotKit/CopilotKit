@@ -125,32 +125,26 @@ export class CopilotA2UIActivityRenderer implements ActivityRenderer<unknown> {
       config: this.config,
       onReady: this.markSurfaceReady,
     });
-    explicitEffect(
-      () => this.content(),
-      (content) => {
-        if (getA2UIOperations(content).length === 0) {
-          this.loaderContent.set(content);
-        }
-      },
-    );
-    explicitEffect(
-      () => this.hasOperations(),
-      (hasOperations, onCleanup) => {
-        if (!hasOperations) {
-          this.surfaceReady.set(false);
-          return;
-        }
+    explicitEffect(this.content, (content) => {
+      if (getA2UIOperations(content).length === 0) {
+        this.loaderContent.set(content);
+      }
+    });
+    explicitEffect(this.hasOperations, (hasOperations, onCleanup) => {
+      if (!hasOperations) {
         this.surfaceReady.set(false);
-        if (!isPlatformBrowser(this.platformId)) return;
-        const timeout = this.zone.runOutsideAngular(() =>
-          globalThis.setTimeout(
-            () => this.zone.run(() => this.surfaceReady.set(true)),
-            8000,
-          ),
-        );
-        onCleanup(() => globalThis.clearTimeout(timeout));
-      },
-    );
+        return;
+      }
+      this.surfaceReady.set(false);
+      if (!isPlatformBrowser(this.platformId)) return;
+      const timeout = this.zone.runOutsideAngular(() =>
+        globalThis.setTimeout(
+          () => this.zone.run(() => this.surfaceReady.set(true)),
+          8000,
+        ),
+      );
+      onCleanup(() => globalThis.clearTimeout(timeout));
+    });
   }
 
   protected async handleAction(event: Event): Promise<void> {

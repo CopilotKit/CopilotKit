@@ -2,9 +2,11 @@ import type { Signal } from "@angular/core";
 import {
   computed,
   DestroyRef,
+  effect,
   inject,
   Injectable,
   signal,
+  untracked,
 } from "@angular/core";
 import type { Subscription } from "rxjs";
 import {
@@ -361,33 +363,22 @@ export class ThreadsStore implements InjectThreadsResult {
     // an unchanged context. This collapses the benign URL→Connected transition
     // to a single dispatch and matches react-core's dependency-gated effect.
     let lastDispatchedContext: string | null = null;
-    explicitEffect(
-      // Every reactive input the dispatched context depends on, so the effect
-      // re-runs when any of them changes — including `wsUrl`, which arrives
-      // with `/info` and (via the dedup signature below) triggers a single
-      // re-dispatch carrying the realtime URL.
-      () => ({
-        active: isEnabled(),
-        url: runtimeUrl(),
-        status: runtimeStatus(),
-        headers: this.#copilotkit.headers(),
-        id: agentId(),
-        archived: includeArchived(),
-        pageLimit: limit(),
-        listSupported: threadListSupported(),
-        wsUrl: this.#copilotkit.intelligence()?.wsUrl,
-      }),
-      ({
-        active,
-        url,
-        status,
-        headers,
-        id,
-        archived,
-        pageLimit,
-        listSupported,
-        wsUrl,
-      }) => {
+    effect(() => {
+      // Track every reactive input the dispatched context depends on, so the
+      // effect re-runs when any of them changes — including `wsUrl`, which
+      // arrives with `/info` and (via the dedup signature below) triggers a
+      // single re-dispatch carrying the realtime URL.
+      const active = isEnabled();
+      const url = runtimeUrl();
+      const status = runtimeStatus();
+      const headers = this.#copilotkit.headers();
+      const id = agentId();
+      const archived = includeArchived();
+      const pageLimit = limit();
+      const listSupported = threadListSupported();
+      const wsUrl = this.#copilotkit.intelligence()?.wsUrl;
+
+      untracked(() => {
         const clearContext = (): void => {
           if (this.#hasDispatchedContext()) {
             this.#store.setContext(null);
@@ -444,8 +435,8 @@ export class ThreadsStore implements InjectThreadsResult {
         lastDispatchedContext = signature;
         this.#store.setContext(context);
         this.#hasDispatchedContext.set(true);
-      },
-    );
+      });
+    });
 
     this.renameThread = this.#guardMutation(mutationsError, (threadId, name) =>
       this.#store.renameThread(threadId, name),

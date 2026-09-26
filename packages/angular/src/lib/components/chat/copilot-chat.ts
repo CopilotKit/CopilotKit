@@ -207,13 +207,10 @@ export class CopilotChat extends ChatState {
 
     this.destroyRef.onDestroy(() => suggestionsSubscription.unsubscribe());
 
-    explicitEffect(
-      () => this.resolvedAgentId(),
-      (agentId) => {
-        this.syncSuggestionsFromCore(agentId);
-        this.copilotKit.reloadSuggestions(agentId);
-      },
-    );
+    explicitEffect(this.resolvedAgentId, (agentId) => {
+      this.syncSuggestionsFromCore(agentId);
+      this.copilotKit.reloadSuggestions(agentId);
+    });
 
     if (this.config) {
       // A set `[threadId]` input seeds the ambient config so the input
@@ -222,14 +219,11 @@ export class CopilotChat extends ChatState {
       // `setActiveThreadId` no-ops — so a controlled config wins over the
       // input, matching React's prop-precedence. When `[threadId]` is unset,
       // the effect does nothing and the config drives as before.
-      explicitEffect(
-        () => this.threadId(),
-        (inputThreadId) => {
-          if (inputThreadId) {
-            this.config!.setActiveThreadId(inputThreadId, { explicit: true });
-          }
-        },
-      );
+      explicitEffect(this.threadId, (inputThreadId) => {
+        if (inputThreadId) {
+          this.config!.setActiveThreadId(inputThreadId, { explicit: true });
+        }
+      });
 
       // Both ambient and standalone threads use the same connection cleanup.
       connectActiveThread(this.config, this.agentStore, (agent) =>

@@ -24,10 +24,10 @@ export function connectAgentContext(
 
     explicitEffect(
       () => (typeof context === "function" ? context() : context),
-      (contextValue, teardown) => {
+      (contextValue, onCleanup) => {
         const id = copilotkit.core.addContext(contextValue);
 
-        teardown(() => {
+        onCleanup(() => {
           copilotkit.core.removeContext(id);
         });
       },
