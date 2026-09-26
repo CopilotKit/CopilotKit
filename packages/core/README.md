@@ -59,3 +59,22 @@ See the
 and
 [`CopilotKitCoreSubscriber` reference](https://docs.copilotkit.ai/reference/core/types/CopilotKitCoreSubscriber)
 for the full API.
+
+## Opt-in bounded Intelligence replay
+
+`IntelligenceAgent` accepts `replayProtocol: "bounded_v1"` for connect streams.
+The gateway must enable `REALTIME_GATEWAY_BOUNDED_REPLAY_ENABLED` and support the matching protocol.
+An unavailable protocol fails explicitly. The client does not silently switch to legacy replay.
+Run streams retain their existing protocol.
+
+The gateway validates history on disk before delivery and sends one acknowledged event at a time.
+The SDK waits for event application and asynchronous state/message listeners before acknowledging.
+History commits at an explicit checkpoint. Applied live events then advance the reconnect cursor.
+
+If delivery fails before that checkpoint, the SDK restores its prior messages, state, and cursor.
+After the checkpoint, failure rolls back only an unfinished live frame.
+Detaching waits for pending replay callbacks before the final rollback.
+A channel error cancels the old restore and starts a fresh session on rejoin.
+The replacement session waits for the old callbacks and rollback, then resumes from the last committed cursor.
+Subscriber effects outside agent messages and state must tolerate retries.
+This option bounds gateway delivery queues; it does not paginate or bound the client's full thread state.

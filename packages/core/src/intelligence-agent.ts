@@ -3,21 +3,31 @@ import type {
   RunAgentParameters,
   RunAgentResult,
   AgentSubscriber,
+  AgentStateMutation,
   BaseEvent,
 } from "@ag-ui/client";
-import { AbstractAgent, EventType } from "@ag-ui/client";
+import {
+  AbstractAgent,
+  EventType,
+  structuredClone_,
+  transformChunks,
+} from "@ag-ui/client";
 
 import {
   EMPTY,
+  Observable,
   Notification,
+  Subject,
   combineLatest,
+  from,
+  lastValueFrom,
   defer,
   dematerialize,
   merge,
   switchMap,
   throwError,
 } from "rxjs";
-import type { ObservableNotification, Observable } from "rxjs";
+import type { ObservableNotification } from "rxjs";
 import {
   catchError,
   delay,
@@ -145,6 +155,8 @@ export interface IntelligenceAgentConfig {
   agentId: string;
   /** Optional params sent on socket connect (e.g. auth token) */
   socketParams?: Record<string, string>;
+  /** Opt in only when the gateway enables acknowledged, disk-staged replay. */
+  replayProtocol?: "bounded_v1";
   /** Optional headers sent with REST requests */
   headers?: Record<string, string>;
   /** Optional credentials mode for fetch requests */
@@ -154,6 +166,11 @@ export interface IntelligenceAgentConfig {
 
 export class IntelligenceAgent extends AbstractAgent {
   private config: IntelligenceAgentConfig;
+  private replayApplications = new WeakMap<
+    BaseEvent,
+    (input: RunAgentInput, subscribers: AgentSubscriber[]) => Promise<void>
+  >();
+  private replaySettled: Promise<void> = Promise.resolve();
   private socket: Socket | null = null;
   private activeChannel: Channel | null = null;
   private canonicalRunId: string | null = null;
@@ -228,6 +245,7 @@ export class IntelligenceAgent extends AbstractAgent {
     parameters?: RunAgentParameters,
     subscriber?: AgentSubscriber,
   ): Promise<RunAgentResult> {
+    await this.replaySettled;
     // A run already in flight owns the canonical run id; reuse it so the
     // replay is attributed to that run rather than minting a new one.
     const effectiveParameters =
@@ -238,11 +256,88 @@ export class IntelligenceAgent extends AbstractAgent {
             runId: this.canonicalRunId,
           };
 
-    return ɵconnectWithoutEventVerification(
-      this,
-      effectiveParameters,
-      subscriber,
+    try {
+      return await ɵconnectWithoutEventVerification(
+        this,
+        effectiveParameters,
+        subscriber,
+      );
+    } finally {
+      await this.replaySettled;
+    }
+  }
+
+  /** Detach completes only after cancelled replay callbacks settle and rollback finishes. */
+  override async detachActiveRun(): Promise<void> {
+    await super.detachActiveRun();
+    await this.replaySettled;
+  }
+
+  /** Private frame events isolate each acknowledged application from cancelled sessions. */
+  protected override apply(
+    input: RunAgentInput,
+    events$: Observable<BaseEvent>,
+    subscribers: AgentSubscriber[],
+  ): Observable<AgentStateMutation> {
+    if (this.config.replayProtocol !== "bounded_v1") {
+      return super.apply(input, events$, subscribers);
+    }
+    return super.apply(input, events$, [
+      {
+        onEvent: async ({ event }) => {
+          const apply = this.replayApplications.get(event);
+          if (apply) {
+            this.replayApplications.delete(event);
+            await apply(input, subscribers);
+            return { stopPropagation: true };
+          }
+        },
+      },
+      ...subscribers,
+    ]);
+  }
+
+  /** Apply one frame from current committed state, awaiting notification callbacks as well. */
+  private async applyReplayFrame(
+    input: RunAgentInput,
+    events: BaseEvent[],
+    subscribers: AgentSubscriber[],
+    active: () => boolean,
+  ): Promise<void> {
+    const callbacks: Promise<{ error: unknown } | undefined>[] = [];
+    const track = (result: unknown) => {
+      callbacks.push(
+        Promise.resolve(result).then(
+          () => undefined,
+          (error: unknown) => ({ error }),
+        ),
+      );
+    };
+    const currentInput = { ...input, state: structuredClone_(this.state) };
+    const applied$ = super
+      .apply(currentInput, from(events), subscribers)
+      .pipe(filter(active));
+    const application = await lastValueFrom(
+      super.processApplyEvents(
+        currentInput,
+        applied$,
+        subscribers.map((subscriber) => ({
+          ...subscriber,
+          onMessagesChanged: (parameters) =>
+            track(subscriber.onMessagesChanged?.(parameters)),
+          onStateChanged: (parameters) =>
+            track(subscriber.onStateChanged?.(parameters)),
+        })),
+      ),
+      { defaultValue: undefined },
+    ).then(
+      () => undefined,
+      (error: unknown) => ({ error }),
     );
+    const results = await Promise.all(callbacks);
+    const failed =
+      application ?? results.find((result) => result !== undefined);
+    if (failed) throw failed.error;
   }
 
   abortRun(): void {
@@ -612,9 +707,14 @@ export class IntelligenceAgent extends AbstractAgent {
         options.channelMode ?? options.streamMode,
         options.replayCursor,
       );
+      const bounded =
+        options.streamMode === "connect" &&
+        this.config.replayProtocol === "bounded_v1";
       const channel$ = ɵphoenixChannel$({
         socket$,
-        topic: credentials.realtime.topic,
+        topic: bounded
+          ? credentials.realtime.topic.replace(/^thread:/, "bounded_thread:")
+          : credentials.realtime.topic,
         params,
       }).pipe(
         tap(({ channel }) => {
@@ -627,10 +727,14 @@ export class IntelligenceAgent extends AbstractAgent {
         options.replayCursor ?? this.getReconnectCursor(input),
       );
       let latestObservedReplayCursor: string | null = null;
-      const threadEvents$ = this.observeThreadEvents$(
-        input.threadId,
-        channel$,
-        options,
+      const threadEvents$ = (
+        bounded
+          ? this.observeBoundedThreadEvents$(input.threadId, channel$, () => {
+              params.last_seen_event_id = this.getLastSeenEventId(
+                input.threadId,
+              );
+            })
+          : this.observeThreadEvents$(input.threadId, channel$, options)
       ).pipe(
         tap((payload) => {
           latestObservedReplayCursor =
@@ -642,11 +746,13 @@ export class IntelligenceAgent extends AbstractAgent {
         input.threadId,
         channel$,
         REPLAY_COMPLETE_EVENT,
+        !bounded,
       ).pipe(shareReplay({ bufferSize: 1, refCount: true }));
       const streamIdle$ = this.observeControlEvent$(
         input.threadId,
         channel$,
         STREAM_IDLE_EVENT,
+        !bounded,
       ).pipe(shareReplay({ bufferSize: 1, refCount: true }));
       const streamIdleCompletion$ =
         options.streamMode === "connect"
@@ -655,17 +761,19 @@ export class IntelligenceAgent extends AbstractAgent {
                 replayComplete$.pipe(take(1)),
                 streamIdle$.pipe(take(1)),
               ]),
-              streamIdle$.pipe(
-                take(1),
-                filter((payload) =>
-                  this.canFallbackCompleteConnect(
-                    payload,
-                    reconnectCursor,
-                    latestObservedReplayCursor,
+              bounded
+                ? EMPTY
+                : streamIdle$.pipe(
+                    take(1),
+                    filter((payload) =>
+                      this.canFallbackCompleteConnect(
+                        payload,
+                        reconnectCursor,
+                        latestObservedReplayCursor,
+                      ),
+                    ),
+                    delay(CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS),
                   ),
-                ),
-                delay(CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS),
-              ),
             ).pipe(take(1))
           : EMPTY;
       const threadCompleted$ = threadEvents$.pipe(
@@ -734,18 +842,250 @@ export class IntelligenceAgent extends AbstractAgent {
     );
   }
 
+  /** Each channel restart gets a new replay session after the old application settles. */
+  private observeBoundedThreadEvents$(
+    threadId: string,
+    channel$: Observable<ɵPhoenixChannelSession>,
+    updateJoinCursor: () => void,
+  ): Observable<BaseEvent> {
+    return channel$.pipe(
+      switchMapOperator(
+        ({ channel }) =>
+          new Observable<BaseEvent>((subscriber) => {
+            const push = channel.push?.bind(channel);
+            if (!push) {
+              subscriber.error(
+                new Error("Bounded replay requires channel acknowledgements"),
+              );
+              return;
+            }
+            const checkpoint = () => ({
+              messages: structuredClone_(this.messages),
+              state: structuredClone_(this.state),
+              cursor: this.getLastSeenEventId(threadId),
+            });
+            const createSession = (ready: Promise<void>) => {
+              const chunks = new Subject<BaseEvent>();
+              const transformed = {
+                events: [] as BaseEvent[],
+                error: undefined as unknown,
+              };
+              const chunkSubscription = chunks
+                .pipe(transformChunks(this.debugLogger))
+                .subscribe({
+                  next: (event) => transformed.events.push(event),
+                  error: (error: unknown) => {
+                    transformed.error = error;
+                  },
+                });
+              return {
+                chunks,
+                transformed,
+                chunkSubscription,
+                active: true,
+                ready,
+                pending: null as Promise<void> | null,
+                previous: null as ReturnType<typeof checkpoint> | null,
+                restoreId: null as string | null,
+                sequence: 0,
+                committed: false,
+                applying: false,
+              };
+            };
+            let session = createSession(this.replaySettled);
+            let retiredRestoreId: string | null = null;
+            const cancel = (current: typeof session) => {
+              current.active = false;
+              current.chunkSubscription.unsubscribe();
+              const rollback = () => {
+                if (!current.previous) return;
+                const previous = current.previous;
+                current.previous = null;
+                this.setMessages(previous.messages);
+                this.setState(previous.state);
+                if (previous.cursor === null)
+                  this.sharedState.lastSeenEventIds.delete(threadId);
+                else
+                  this.sharedState.lastSeenEventIds.set(
+                    threadId,
+                    previous.cursor,
+                  );
+                updateJoinCursor();
+              };
+              if (!current.pending) rollback();
+              const settled = (current.pending ?? current.ready).then(
+                rollback,
+                rollback,
+              );
+              this.replaySettled = settled;
+              return settled;
+            };
+            const fail = (reason: string) => {
+              cancel(session);
+              subscriber.error(new Error(`Bounded replay failed: ${reason}`));
+            };
+            const enqueue = (events: BaseEvent[], finish: () => void) => {
+              const current = session;
+              const frame: BaseEvent = { type: EventType.CUSTOM };
+              this.replayApplications.set(frame, (input, subscribers) => {
+                const pending = (async () => {
+                  await current.ready;
+                  if (!current.active) return;
+                  current.previous ??= checkpoint();
+                  try {
+                    for (const event of events) current.chunks.next(event);
+                    if (current.transformed.error !== undefined)
+                      throw current.transformed.error;
+                    const transformed = current.transformed.events.splice(0);
+                    await this.applyReplayFrame(
+                      input,
+                      transformed,
+                      subscribers,
+                      () => current.active,
+                    );
+                    if (current.active) finish();
+                  } catch (error) {
+                    if (current.active) throw error;
+                  }
+                })();
+                current.pending = pending;
+                return pending.finally(() => {
+                  current.pending = null;
+                });
+              });
+              subscriber.next(frame);
+            };
+            const envelope = (
+              value: unknown,
+            ): Record<string, unknown> | null => {
+              if (!value || typeof value !== "object") return null;
+              const row = value as Record<string, unknown>;
+              if (
+                typeof row.restore_id !== "string" ||
+                typeof row.token !== "string" ||
+                row.restore_id.length > 128 ||
+                row.token.length > 128 ||
+                (session.restoreId !== null &&
+                  session.restoreId !== row.restore_id)
+              )
+                return null;
+              session.restoreId = row.restore_id;
+              return row;
+            };
+            const stale = (value: unknown) =>
+              retiredRestoreId !== null &&
+              !!value &&
+              typeof value === "object" &&
+              "restore_id" in value &&
+              value.restore_id === retiredRestoreId;
+            const isEvent = (value: unknown): value is BaseEvent =>
+              !!value &&
+              typeof value === "object" &&
+              "type" in value &&
+              typeof value.type === "string" &&
+              new Set<string>(Object.values(EventType)).has(value.type);
+            const batchRef = channel.on(
+              "bounded_replay_batch",
+              (value: unknown) => {
+                if (stale(value)) return;
+                const row = envelope(value);
+                if (
+                  !row ||
+                  session.applying ||
+                  row.sequence !== session.sequence + 1 ||
+                  !Array.isArray(row.events) ||
+                  row.events.length !== 1 ||
+                  !row.events.every(isEvent) ||
+                  row.phase !== (session.committed ? "live" : "history")
+                ) {
+                  fail("invalid batch");
+                  return;
+                }
+                const current = session;
+                const events: BaseEvent[] = row.events;
+                current.applying = true;
+                current.sequence += 1;
+                enqueue(events, () => {
+                  if (current.committed) {
+                    for (const event of events)
+                      this.updateLastSeenEventId(threadId, event);
+                    current.previous = null;
+                    updateJoinCursor();
+                  }
+                  current.applying = false;
+                  push("bounded_replay_ack", {
+                    restore_id: current.restoreId,
+                    sequence: current.sequence,
+                    token: row.token,
+                  });
+                });
+              },
+            );
+            const commitRef = channel.on(
+              "bounded_replay_commit",
+              (value: unknown) => {
+                if (stale(value)) return;
+                const row = envelope(value);
+                if (
+                  !row ||
+                  session.committed ||
+                  session.applying ||
+                  (row.latestEventId !== null &&
+                    typeof row.latestEventId !== "string")
+                ) {
+                  fail("invalid commit");
+                  return;
+                }
+                const current = session;
+                current.applying = true;
+                enqueue([], () => {
+                  this.updateLastSeenEventIdFromControl(threadId, row);
+                  current.previous = null;
+                  current.committed = true;
+                  current.applying = false;
+                  updateJoinCursor();
+                  push("bounded_replay_commit_ack", {
+                    restore_id: current.restoreId,
+                    token: row.token,
+                  });
+                });
+              },
+            );
+            const errorRef = channel.onError?.(() => {
+              if (subscriber.closed) return;
+              retiredRestoreId = session.restoreId ?? retiredRestoreId;
+              session = createSession(cancel(session));
+            });
+            const failureRef = channel.on("replay_failed", (value: unknown) => {
+              if (!stale(value)) fail("server rejected restore or delivery");
+            });
+            return () => {
+              channel.off("bounded_replay_batch", batchRef);
+              channel.off("bounded_replay_commit", commitRef);
+              channel.off("replay_failed", failureRef);
+              if (typeof errorRef === "number")
+                channel.off("phx_error", errorRef);
+              cancel(session);
+            };
+          }),
+      ),
+    );
+  }
+
   private observeControlEvent$(
     threadId: string,
     channel$: Observable<ɵPhoenixChannelSession>,
     eventName: string,
+    updateCursor = true,
   ): Observable<unknown> {
     return channel$.pipe(
       switchMapOperator(({ channel }) =>
         this.observeChannelEvent$<unknown>(channel, eventName),
       ),
-      tap((payload) =>
-        this.updateLastSeenEventIdFromControl(threadId, payload),
-      ),
+      tap((payload) => {
+        if (updateCursor)
+          this.updateLastSeenEventIdFromControl(threadId, payload);
+      }),
     );
   }
 
@@ -809,6 +1149,9 @@ export class IntelligenceAgent extends AbstractAgent {
         }
       : {
           stream_mode: "connect",
+          ...(this.config.replayProtocol
+            ? { replay_protocol: this.config.replayProtocol }
+            : {}),
           last_seen_event_id:
             replayCursor === undefined
               ? this.getReconnectCursor(input)
