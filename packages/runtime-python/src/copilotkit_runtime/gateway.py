@@ -3,8 +3,11 @@
 import asyncio
 import base64
 import json
+import logging
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from uuid import uuid4
+
+_log = logging.getLogger(__name__)
 
 from websockets.asyncio.client import ClientConnection, connect
 from websockets.exceptions import WebSocketException
@@ -52,7 +55,13 @@ class Gateway:
             except DeliveryRejected:
                 await self._disconnect()
                 raise
-            except (ConnectionError, TimeoutError, OSError, WebSocketException):
+            except (ConnectionError, TimeoutError, OSError, WebSocketException) as exc:
+                _log.warning(
+                    "Gateway join attempt %d/%d failed: %s",
+                    attempt + 1,
+                    self.config.max_delivery_attempts,
+                    exc,
+                )
                 await self._disconnect()
                 if attempt + 1 == self.config.max_delivery_attempts:
                     raise
@@ -110,8 +119,8 @@ class Gateway:
                             future.set_result(payload)
                 elif event in ("phx_close", "phx_error") and topic == self.topic:
                     raise ConnectionError("Phoenix channel closed")
-        except (ValueError, ConnectionError, OSError, WebSocketException):
-            pass
+        except (ValueError, ConnectionError, OSError, WebSocketException) as exc:
+            _log.debug("Gateway receiver stopped: %s", exc)
         finally:
             if self.socket is socket:
                 self._disconnected.set()
