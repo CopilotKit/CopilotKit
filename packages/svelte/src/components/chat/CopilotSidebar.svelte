@@ -20,23 +20,43 @@
   function close() {
     isOpen = false;
   }
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (isOpen && e.key === "Escape") close();
+  }
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 <div class="copilotkit-sidebar-wrapper">
   <CopilotChatToggleButton isOpen={isOpen} onclick={toggle} />
 
-  {#if isOpen}
-    <div class="copilotkit-sidebar-overlay" role="presentation" onclick={close} onkeydown={(e) => e.key === 'Escape' && close()}></div>
-    <div class="copilotkit-sidebar" style="width: {sidebarWidth}">
-      <div class="copilotkit-sidebar-header">
-        <h3 class="copilotkit-sidebar-title">Copilot</h3>
-        <button class="copilotkit-sidebar-close" onclick={close}>✕</button>
-      </div>
-      <div class="copilotkit-sidebar-body">
-        <CopilotChat {...chatProps} />
-      </div>
+  <div
+    class="copilotkit-sidebar-overlay"
+    class:is-closed={!isOpen}
+    role="presentation"
+    aria-hidden={isOpen ? undefined : true}
+    inert={!isOpen}
+    hidden={!isOpen}
+    onclick={close}
+    onkeydown={(e) => e.key === "Escape" && close()}
+  ></div>
+  <div
+    class="copilotkit-sidebar"
+    class:is-closed={!isOpen}
+    style="width: {sidebarWidth}"
+    aria-hidden={isOpen ? undefined : true}
+    inert={!isOpen}
+    hidden={!isOpen}
+  >
+    <div class="copilotkit-sidebar-header">
+      <h3 class="copilotkit-sidebar-title">Copilot</h3>
+      <button class="copilotkit-sidebar-close" onclick={close}>✕</button>
     </div>
-  {/if}
+    <div class="copilotkit-sidebar-body">
+      <CopilotChat {...chatProps} />
+    </div>
+  </div>
 </div>
 
 <style>
@@ -49,6 +69,15 @@
     inset: 0;
     background: rgba(0, 0, 0, 0.3);
     z-index: 99;
+  }
+
+  .copilotkit-sidebar-overlay.is-closed,
+  .copilotkit-sidebar-overlay[hidden],
+  .copilotkit-sidebar.is-closed,
+  .copilotkit-sidebar[hidden] {
+    display: none !important;
+    visibility: hidden;
+    pointer-events: none;
   }
 
   .copilotkit-sidebar {

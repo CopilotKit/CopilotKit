@@ -55,8 +55,15 @@ export function createThreads(input: CreateThreadsInput): CreateThreadsResult {
     throw new Error("createThreads must be used within CopilotKitProvider");
   }
 
+  // The core object is kept for operations (register/unregister) and the
+  // instrumented transport. All reactive runtime state below is read through
+  // the provider getters (context.runtimeUrl, context.headers, ...), never
+  // through the non-reactive fields on the core object — mirroring
+  // react-core's useThreads, which reads useCopilotKit() state.
+  const core = context.copilotkit;
+
   const store = ɵcreateThreadStore({
-    fetch: globalThis.fetch,
+    fetch: core.ɵruntimeFetch,
   });
 
   let threads = $state<Thread[]>([]);
@@ -124,17 +131,27 @@ export function createThreads(input: CreateThreadsInput): CreateThreadsResult {
     };
   });
 
-  store.start();
+  $effect(() => {
+    store.start();
+    return () => {
+      store.setContext(null);
+      store.stop();
+    };
+  });
+
+  // Reactive input getters (agentId/enabled/includeArchived/limit) and
+  // provider getters are read inside $derived/$effect so updates rerun them.
+  const resolvedEnabled = $derived(input.enabled ?? true);
 
   const threadListEndpointSupported = $derived(
-    context.copilotkit.threadEndpoints?.list !== false,
+    context.threadEndpoints?.list !== false,
   );
   const threadMutationsSupported = $derived(
-    context.copilotkit.threadEndpoints?.mutations !== false,
+    context.threadEndpoints?.mutations !== false,
   );
   const threadEndpointsUnavailable = $derived(
-    !!context.copilotkit.runtimeUrl &&
-      context.copilotkit.runtimeConnectionStatus ===
+    !!context.runtimeUrl &&
+      context.runtimeConnectionStatus ===
         CopilotKitCoreRuntimeConnectionStatus.Connected &&
       !threadListEndpointSupported,
   );
@@ -153,56 +170,93 @@ export function createThreads(input: CreateThreadsInput): CreateThreadsResult {
       : null,
   );
 
-  const resolvedEnabled = $derived(input.enabled ?? true);
-
   $effect(() => {
-    const core = context.copilotkit;
-    const runtimeUrl = core.runtimeUrl;
-    const runtimeStatus = core.runtimeConnectionStatus;
-    const wsUrl = core.intelligence?.wsUrl;
+    const enabled = input.enabled ?? true;
+    const runtimeUrl = context.runtimeUrl;
+    const runtimeStatus = context.runtimeConnectionStatus;
+    const headers = context.headers;
+    const endpoints = context.threadEndpoints;
+    const intelligence = context.intelligence;
     const agentId = input.agentId;
     const includeArchived = input.includeArchived;
     const limit = input.limit;
-    const enabled = resolvedEnabled;
-    const listSupported = threadListEndpointSupported;
+    const listSupported = endpoints?.list !== false;
 
-    if (!runtimeUrl || !enabled || !listSupported) {
-      store.setContext(null);
+    const clearContext = () => {
+      if (hasDispatchedContext) {
+        store.setContext(null);
+      }
       hasDispatchedContext = false;
+    };
+
+    // Disabled: stay inert and tear down any previously-dispatched context
+    // so an in-flight subscription is closed and no further fetch is issued.
+    if (!enabled) {
+      clearContext();
       return;
     }
 
+    if (!runtimeUrl) {
+      clearContext();
+      return;
+    }
+
+    // Defer setting the context until the runtime reports Connected. Before
+    // `/info` resolves we don't know `intelligence.wsUrl`, so dispatching
+    // early would issue a list fetch without it, then a second one once it
+    // lands. For transient states (Disconnected/Connecting/Error with a URL
+    // still set) the previously-dispatched context stays in place.
     if (runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected) {
+      return;
+    }
+
+    if (!listSupported) {
+      clearContext();
       return;
     }
 
     const threadContext: ɵThreadRuntimeContext = {
       runtimeUrl,
-      headers: { ...core.headers },
-      wsUrl,
+      headers: { ...headers },
+      wsUrl: intelligence?.wsUrl,
       agentId,
       includeArchived,
       limit,
     };
     store.setContext(threadContext);
     hasDispatchedContext = true;
-
-    return () => store.setContext(null);
   });
 
   $effect(() => {
-    context.copilotkit.registerThreadStore(input.agentId, store);
-    return () => context.copilotkit.unregisterThreadStore(input.agentId);
+    const enabled = input.enabled ?? true;
+    const nextAgentId = input.agentId;
+    // A disabled (e.g. unlicensed) surface must not claim the agentId slot.
+    // The registry is single-slot/last-writer-wins, so registering an inert
+    // store would evict — and on unmount tear down — a co-mounted live store
+    // for the same agent. Staying unregistered while disabled leaves the live
+    // store's registration intact. Mirrors react-core's use-threads gate.
+    //
+    // The cleanup unregisters exactly the id this run registered: on an
+    // agentId change it releases the previous id before the next run
+    // registers the new one; on an enabled true→false flip it releases the
+    // active id and the re-run registers nothing; on unmount it releases the
+    // active id only (an initially-disabled hook never registers, so its
+    // unmount unregisters nothing).
+    if (!enabled) {
+      return;
+    }
+    core.registerThreadStore(nextAgentId, store);
+    return () => {
+      core.unregisterThreadStore(nextAgentId);
+    };
   });
 
   const runtimeError = $derived(
-    context.copilotkit.runtimeUrl
-      ? null
-      : new Error("Runtime URL is not configured"),
+    context.runtimeUrl ? null : new Error("Runtime URL is not configured"),
   );
 
   const preConnectLoading = $derived(
-    !!context.copilotkit.runtimeUrl &&
+    !!context.runtimeUrl &&
       resolvedEnabled &&
       !threadEndpointsUnavailable &&
       !hasDispatchedContext,

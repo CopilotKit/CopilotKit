@@ -33,7 +33,7 @@
   }
 
   function handleKeydown(e: KeyboardEvent) {
-    if (e.key === "Escape") close();
+    if (isOpen && e.key === "Escape") close();
   }
 </script>
 
@@ -42,23 +42,30 @@
 <div class="copilotkit-popup-wrapper">
   <CopilotChatToggleButton isOpen={isOpen} onclick={toggle} />
 
-  {#if isOpen}
-    <div class="copilotkit-popup-overlay" role="presentation" onclick={handleOverlayClick} onkeydown={(e) => e.key === 'Escape' && close()}>
-      <div
-        class="copilotkit-popup"
-        style="width: {popupWidth}; height: {popupHeight}"
-        bind:this={popupRef}
-      >
-        <div class="copilotkit-popup-header">
-          <h3 class="copilotkit-popup-title">Copilot</h3>
-          <button class="copilotkit-popup-close" onclick={close}>✕</button>
-        </div>
-        <div class="copilotkit-popup-body">
-          <CopilotChat {...chatProps} />
-        </div>
+  <div
+    class="copilotkit-popup-overlay"
+    class:is-closed={!isOpen}
+    role="presentation"
+    aria-hidden={isOpen ? undefined : true}
+    inert={!isOpen}
+    hidden={!isOpen}
+    onclick={handleOverlayClick}
+    onkeydown={(e) => e.key === "Escape" && close()}
+  >
+    <div
+      class="copilotkit-popup"
+      style="width: {popupWidth}; height: {popupHeight}"
+      bind:this={popupRef}
+    >
+      <div class="copilotkit-popup-header">
+        <h3 class="copilotkit-popup-title">Copilot</h3>
+        <button class="copilotkit-popup-close" onclick={close}>✕</button>
+      </div>
+      <div class="copilotkit-popup-body">
+        <CopilotChat {...chatProps} />
       </div>
     </div>
-  {/if}
+  </div>
 </div>
 
 <style>
@@ -75,6 +82,13 @@
     justify-content: center;
     z-index: 99;
     padding: 16px;
+  }
+
+  .copilotkit-popup-overlay.is-closed,
+  .copilotkit-popup-overlay[hidden] {
+    display: none !important;
+    visibility: hidden;
+    pointer-events: none;
   }
 
   .copilotkit-popup {
