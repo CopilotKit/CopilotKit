@@ -1,3 +1,4 @@
+import type { ConnectionReplayLifecycle } from "@copilotkit/shared";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { BaseEvent, RunAgentInput, RunAgentResult } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
@@ -117,7 +118,10 @@ interface IntelligenceAgentTestAccess {
   activeChannel: MockChannel | null;
   canonicalRunId: string | null;
   config: unknown;
-  connect(input: RunAgentInput): Observable<BaseEvent>;
+  connect(
+    input: RunAgentInput,
+    lifecycle?: ConnectionReplayLifecycle,
+  ): Observable<BaseEvent>;
   messages: RunAgentInput["messages"];
   socket: MockSocket | null;
   threadId: string | undefined;
@@ -179,8 +183,9 @@ function getChannel(agent: IntelligenceAgentInstance): MockChannel | null {
 function connectWithTestAccess(
   agent: IntelligenceAgentInstance,
   input = defaultInput,
+  lifecycle?: ConnectionReplayLifecycle,
 ) {
-  return getAgentTestAccess(agent).connect(input);
+  return getAgentTestAccess(agent).connect(input, lifecycle);
 }
 
 function setThreadIdForTest(
@@ -1203,6 +1208,27 @@ describe("IntelligenceAgent", () => {
       expect(result.channel).toBeNull();
     });
 
+    it("brackets empty history with replay hooks before completing a 204 connect", async () => {
+      mockFetch.mockResolvedValueOnce(await emptyResponse());
+      const agent = createAgent();
+      const order: string[] = [];
+      await new Promise<void>((resolve, reject) => {
+        connectWithTestAccess(agent, defaultInput, {
+          onReplayStarted: () => order.push("started"),
+          onReplayFinished: () => order.push("finished"),
+        }).subscribe({
+          complete: () => {
+            order.push("completed");
+            resolve();
+          },
+          error: reject,
+        });
+      });
+      expect(order).toEqual(["started", "finished", "completed"]);
+      expect(getSocket(agent)).toBeNull();
+      expect(getChannel(agent)).toBeNull();
+    });
+
     it("completes on RUN_ERROR from server", async () => {
       mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
 
@@ -1446,6 +1472,31 @@ describe("IntelligenceAgent", () => {
       expect(agent.state).toEqual(finalSnapshot);
     });
 
+    it.each([true, false])(
+      "finishes replay before completion with idleFirst=%s",
+      async (idleFirst) => {
+        mockFetch.mockResolvedValueOnce(
+          await jsonResponse(runtimeCredentials()),
+        );
+        const agent = createAgent();
+        const order: string[] = [];
+        connectWithTestAccess(agent, defaultInput, {
+          onReplayStarted: () => order.push("started"),
+          onReplayFinished: () => order.push("finished"),
+        }).subscribe({ complete: () => order.push("completed") });
+        await waitForConnection(agent);
+        const channel = getChannel(agent)!;
+        channel.triggerJoin("ok");
+        const controls = idleFirst
+          ? ["stream_idle", "replay_complete"]
+          : ["replay_complete", "stream_idle"];
+        for (const control of controls)
+          channel.serverPush(control, { latestEventId: "event-1" });
+        await flushAsyncWork();
+        expect(order).toEqual(["started", "finished", "completed"]);
+      },
+    );
+
     it("completes connect streams on stream_idle after replay_complete", async () => {
       mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
 
@@ -1484,6 +1535,7 @@ describe("IntelligenceAgent", () => {
       channel.serverPush("stream_idle", { latestEventId: "event-2" });
       await flushAsyncWork();
 
+      expect(events).toHaveLength(1);
       expect(events[0]).toEqual({
         type: EventType.RUN_STARTED,
         threadId: "thread-1",

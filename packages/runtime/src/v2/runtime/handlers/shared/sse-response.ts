@@ -1,3 +1,8 @@
+import {
+  CONNECTION_REPLAY_STARTED,
+  CONNECTION_REPLAY_FINISHED,
+} from "@copilotkit/shared";
+import type { ConnectionReplayLifecycle } from "@copilotkit/shared";
 import type { BaseEvent } from "@ag-ui/client";
 import { EventEncoder } from "@ag-ui/encoder";
 import type { Observable, Subscription } from "rxjs";
@@ -19,9 +24,9 @@ import type {
 
 interface CreateSseEventResponseParams {
   request: Request;
-  observableFactory: () =>
-    | Promise<Observable<BaseEvent>>
-    | Observable<BaseEvent>;
+  observableFactory: (
+    lifecycle: ConnectionReplayLifecycle,
+  ) => Promise<Observable<BaseEvent>> | Observable<BaseEvent>;
   debugEventBus?: DebugEventBus;
   agentId?: string;
   debug?: ResolvedDebugConfig;
@@ -125,8 +130,23 @@ export function createSseEventResponse({
     });
   };
 
+  // These are SSE transport frames, not AG-UI events. Enqueue synchronously
+  // alongside event writes to preserve replay/error ordering within a chunk.
+  const writeReplayControl = (name: string) => {
+    if (request.signal.aborted || streamClosed) return;
+    void writer
+      .write(new TextEncoder().encode(`event: ${name}\ndata: {}\n\n`))
+      .catch((error: unknown) => {
+        if (!request.signal.aborted && !streamClosed) logError(error);
+        streamClosed = true;
+      });
+  };
+
   (async () => {
-    const observable = await observableFactory();
+    const observable = await observableFactory({
+      onReplayStarted: () => writeReplayControl(CONNECTION_REPLAY_STARTED),
+      onReplayFinished: () => writeReplayControl(CONNECTION_REPLAY_FINISHED),
+    });
 
     if (captureTelemetry) {
       telemetry.capture("oss.runtime.agent_execution_stream_started", {});

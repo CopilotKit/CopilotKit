@@ -1,5 +1,10 @@
+import {
+  CONNECTION_REPLAY_ACCEPT,
+  CONNECTION_REPLAY_STARTED,
+  CONNECTION_REPLAY_FINISHED,
+} from "@copilotkit/shared";
 import { describe, it, expect, vi } from "vitest";
-import { of } from "rxjs";
+import { Observable, of } from "rxjs";
 import { EventType } from "@ag-ui/client";
 import type { BaseEvent } from "@ag-ui/client";
 
@@ -85,38 +90,57 @@ describe("handleSseConnect → debug envelope agentId", () => {
  * hydrate messages from it when the cache is empty.
  */
 describe("handleSseConnect → agentId in runner.connect call", () => {
-  it("forwards agentId into the runner.connect request", async () => {
-    const event: BaseEvent = {
-      type: EventType.RUN_STARTED,
-      threadId: "t-1",
-      runId: "r-1",
-    } as BaseEvent;
+  it.each([undefined, CONNECTION_REPLAY_ACCEPT])(
+    "forwards agentId and negotiates replay controls with Accept=%s",
+    async (accept) => {
+      const event: BaseEvent = {
+        type: EventType.RUN_STARTED,
+        threadId: "t-1",
+        runId: "r-1",
+      } as BaseEvent;
 
-    const connectSpy = vi.fn((_req: AgentRunnerConnectRequest) => of(event));
-    const fakeRuntime = {
-      debugEventBus: new DebugEventBus(),
-      forwardHeadersPolicy: defaultPolicy,
-      runner: { connect: connectSpy },
-    } as any;
+      const connectSpy = vi.fn(
+        (req: AgentRunnerConnectRequest) =>
+          new Observable<BaseEvent>((subscriber) => {
+            req.onReplayStarted?.();
+            subscriber.next(event);
+            req.onReplayFinished?.();
+            subscriber.complete();
+          }),
+      );
+      const fakeRuntime = {
+        debugEventBus: new DebugEventBus(),
+        forwardHeadersPolicy: defaultPolicy,
+        runner: { connect: connectSpy },
+      } as any;
 
-    const response = handleSseConnect({
-      runtime: fakeRuntime,
-      request: new Request("http://localhost/agent/weather-agent/connect", {
-        method: "POST",
-      }),
-      agentId: "weather-agent",
-      threadId: "t-1",
-    });
+      const response = handleSseConnect({
+        runtime: fakeRuntime,
+        request: new Request("http://localhost/agent/weather-agent/connect", {
+          method: "POST",
+          ...(accept ? { headers: { Accept: accept } } : {}),
+        }),
+        agentId: "weather-agent",
+        threadId: "t-1",
+      });
 
-    const reader = response.body!.getReader();
-    while (true) {
-      const { done } = await reader.read();
-      if (done) break;
-    }
+      const body = await response.text();
+      expect(body).toBe(
+        (accept ? `event: ${CONNECTION_REPLAY_STARTED}\ndata: {}\n\n` : "") +
+          `data: ${JSON.stringify(event)}\n\n` +
+          (accept ? `event: ${CONNECTION_REPLAY_FINISHED}\ndata: {}\n\n` : ""),
+      );
 
-    expect(connectSpy).toHaveBeenCalledTimes(1);
-    expect(connectSpy.mock.calls[0][0].agentId).toBe("weather-agent");
-  });
+      expect(connectSpy).toHaveBeenCalledTimes(1);
+      expect(connectSpy.mock.calls[0][0].agentId).toBe("weather-agent");
+      expect(connectSpy.mock.calls[0][0].onReplayStarted).toEqual(
+        accept ? expect.any(Function) : undefined,
+      );
+      expect(connectSpy.mock.calls[0][0].onReplayFinished).toEqual(
+        accept ? expect.any(Function) : undefined,
+      );
+    },
+  );
 });
 
 /**

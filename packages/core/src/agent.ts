@@ -18,10 +18,12 @@ import type { Observable } from "rxjs";
 import { EMPTY, defer, from } from "rxjs";
 import { catchError, finalize, switchMap } from "rxjs/operators";
 import {
+  CONNECTION_REPLAY_ACCEPT,
   RUNTIME_MODE_SSE,
   RUNTIME_MODE_INTELLIGENCE,
 } from "@copilotkit/shared";
 import type {
+  ConnectionReplayLifecycle,
   IntelligenceRuntimeInfo,
   RuntimeInfo,
   RuntimeMode,
@@ -30,6 +32,7 @@ import type {
 import { IntelligenceAgent } from "./intelligence-agent";
 import type { CopilotRuntimeTransport } from "./types";
 import { runtimeInfoError } from "./utils/runtime-info-error";
+import { ɵtransformConnectStream } from "./utils/connect-replay-sse";
 import { ɵconnectWithoutEventVerification } from "./utils/connect-replay";
 import type { CopilotKitMessageFilter } from "./core/message-filter";
 import { ɵrepairToolCallPairs } from "./core/message-filter";
@@ -37,7 +40,10 @@ import { ɵrepairToolCallPairs } from "./core/message-filter";
 type ResolvedRuntimeMode = RuntimeMode | "pending";
 
 interface RunnableAgent {
-  connect(input: RunAgentInput): Observable<BaseEvent>;
+  connect(
+    input: RunAgentInput,
+    lifecycle?: ConnectionReplayLifecycle,
+  ): Observable<BaseEvent>;
   run(input: RunAgentInput): Observable<BaseEvent>;
 }
 
@@ -438,7 +444,12 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       // followed by a later RUN_STARTED. The base pipeline's `verifyEvents`
       // step enforces single-run lifecycle rules and rejects that stream
       // outright, so an existing thread never hydrates (#4943).
-      return ɵconnectWithoutEventVerification(this, parameters, subscriber);
+      return ɵconnectWithoutEventVerification(
+        this,
+        parameters,
+        subscriber,
+        (input, lifecycle) => this.connect(input, lifecycle),
+      );
     }
 
     // If the delegate already has an active run (e.g. from a previous
@@ -481,10 +492,9 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       onRunFailed: () => {
         this.isRunning = false;
       },
-      // Protocol-level RUN_ERROR event from the backend
-      onRunErrorEvent: () => {
-        this.isRunning = false;
-      },
+      // The shared connect pipeline distinguishes historical and live errors
+      // using replay lifecycle controls. A live error finalizes that pipeline;
+      // a historical error must not release queued work during replay.
     });
 
     // Forward the proxy's subscribers to the delegate so that UI hooks
@@ -514,20 +524,23 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     }
   }
 
-  connect(input: RunAgentInput): Observable<BaseEvent> {
+  connect(
+    input: RunAgentInput,
+    lifecycle?: ConnectionReplayLifecycle,
+  ): Observable<BaseEvent> {
     if (
       this.runtimeMode === "pending" ||
       (this.transport === "auto" &&
         this.runtimeMode !== RUNTIME_MODE_INTELLIGENCE)
     ) {
       return defer(() => from(this.ensureRuntimeConfiguration())).pipe(
-        switchMap(() => this.connect(input)),
+        switchMap(() => this.connect(input, lifecycle)),
       );
     }
     if (this.runtimeMode === RUNTIME_MODE_INTELLIGENCE) {
-      return this.#connectViaDelegate(input);
+      return this.#connectViaDelegate(input, lifecycle);
     }
-    return this.#connectViaHttp(input);
+    return this.#connectViaHttp(input, lifecycle);
   }
 
   public run(input: RunAgentInput): Observable<BaseEvent> {
@@ -546,13 +559,21 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     return this.#runViaHttp(input);
   }
 
-  #connectViaDelegate(input: RunAgentInput): Observable<BaseEvent> {
+  #connectViaDelegate(
+    input: RunAgentInput,
+    lifecycle?: ConnectionReplayLifecycle,
+  ): Observable<BaseEvent> {
     return defer(() => from(this.resolveDelegate())).pipe(
-      switchMap((delegate) => withAbortErrorHandling(delegate.connect(input))),
+      switchMap((delegate) =>
+        withAbortErrorHandling(delegate.connect(input, lifecycle)),
+      ),
     );
   }
 
-  #connectViaHttp(unfiltered: RunAgentInput): Observable<BaseEvent> {
+  #connectViaHttp(
+    unfiltered: RunAgentInput,
+    lifecycle?: ConnectionReplayLifecycle,
+  ): Observable<BaseEvent> {
     const input = this.#applyMessageFilter(unfiltered);
     this.activeRun = undefined;
     const routedId = this.routedAgentId();
@@ -568,18 +589,27 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
           agentId: routedId,
         },
       );
+      const headers = new Headers(requestInit.headers);
+      headers.set("Accept", CONNECTION_REPLAY_ACCEPT);
       const httpEvents = runHttpRequest(() =>
-        this.fetch(this.singleEndpointUrl!, requestInit),
+        this.fetch(this.singleEndpointUrl!, { ...requestInit, headers }),
       );
-      return withAbortErrorHandling(transformHttpEventStream(httpEvents));
+      return withAbortErrorHandling(
+        ɵtransformConnectStream(httpEvents, lifecycle),
+      );
     }
 
     const connectUrl = `${this.runtimeUrl}/agent/${routedId}/connect`;
     const connectRequestInit = this.requestInit(input);
+    const headers = new Headers(connectRequestInit.headers);
+    headers.set("Accept", CONNECTION_REPLAY_ACCEPT);
+    connectRequestInit.headers = headers;
     const httpEvents = runHttpRequest(() =>
       this.fetch(connectUrl, connectRequestInit),
     );
-    return withAbortErrorHandling(transformHttpEventStream(httpEvents));
+    return withAbortErrorHandling(
+      ɵtransformConnectStream(httpEvents, lifecycle),
+    );
   }
 
   #runViaDelegate(input: RunAgentInput): Observable<BaseEvent> {

@@ -176,3 +176,11 @@ export {
 } from "./a2ui-prompts";
 
 export type { DebugEventEnvelope } from "./debug-event-envelope";
+
+export {
+  CONNECTION_REPLAY_ACCEPT,
+  CONNECTION_REPLAY_STARTED,
+  CONNECTION_REPLAY_FINISHED,
+} from "./connection-replay";
+
+export type { ConnectionReplayLifecycle } from "./connection-replay";
