@@ -1,41 +1,25 @@
 "use client";
 
 import {
-  useEffect,
-  useLayoutEffect,
+  createContext,
+  useCallback,
+  useContext,
   useMemo,
   useState,
   useSyncExternalStore,
 } from "react";
+import type { ReactNode } from "react";
 import {
   defineToolCallRenderer,
   ToolCallStatus,
+  useAgent,
+  useCopilotKit,
 } from "@copilotkit/react-core/v2";
 import type { ReactToolCallRenderer } from "@copilotkit/react-core/v2";
 import { Check, ChevronRight, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSkin } from "@/shell/skin-provider";
-
-/**
- * Tool calls that are plumbing, not activity. The AG-UI state-delta tool in
- * particular gets emitted with a `{op:"add", path:"/scratch", value:"noop"}`
- * payload as a keep-alive; surfacing it put raw protocol JSON in the middle of
- * the conversation. The wildcard renderer catches EVERY unhandled tool, so
- * anything internal has to be filtered here or it shows up on stage.
- *
- * These are PROTOCOL-LEVEL, so they live in the shell (not on a skin). A skin's
- * human-readable labels for its OWN tools come from `skin.toolLabels`.
- */
-const HIDDEN_TOOL_PATTERNS = [
-  /^agui/i,
-  /sendstatedelta/i,
-  /^a2ui/i,
-  /^copilotkit_/i,
-];
-
-function isInternalTool(name: string): boolean {
-  return HIDDEN_TOOL_PATTERNS.some((re) => re.test(name));
-}
+import { isInternalTool, selectRecentToolActivity } from "./tool-activity-recency";
 
 function prettifyToolName(name: string): string {
   const spaced = name
@@ -77,103 +61,47 @@ function resolveToolLabel(
  */
 const VISIBLE_TOOL_ACTIVITY = 2;
 
-/**
- * Ordered ids of the tool activity currently mounted, oldest first.
- *
- * ## Why a shared registry and not something simpler
- *
- * CopilotKit renders ONE component per tool call and owns the container, so
- * there is no parent here that can see the list and slice it. Two simpler
- * options are both dead ends, measured on a real run:
- *
- *   - CSS (`:nth-last-child`) needs the lines to be siblings. They are not —
- *     ten lines sat under ten different parents, one wrapper each.
- *   - Mount-order counters drift, because a `MESSAGES_SNAPSHOT` at the end of a
- *     run remounts every line at once.
- *
- * So each line registers its AG-UI `toolCallId` — stable, unique per call, and
- * assigned in emission order — and reads back whether it is still among the
- * last few. `useSyncExternalStore` is what makes the OLDER lines re-render (and
- * so disappear) when a NEW one arrives; a plain module variable would leave
- * them on screen until something else happened to re-render them.
- */
-const activityOrder: string[] = [];
-const activityListeners = new Set<() => void>();
+/** One conversation-owned window, shared by all mounted wildcard rows. */
+const ToolActivityRecencyContext = createContext<ReadonlySet<string> | null>(null);
 
-const subscribeActivity = (onChange: () => void) => {
-  activityListeners.add(onChange);
-  return () => {
-    activityListeners.delete(onChange);
-  };
-};
-
-const notifyActivityChanged = () => {
-  for (const listener of activityListeners) listener();
-};
-
-/**
- * Whether this line is recent enough to still be shown.
- *
- * An id that is not registered YET counts as visible: registration happens in
- * an effect, so a line is not in the list during its own first render, and
- * treating that as hidden would make every new line appear one frame late.
- *
- * Unregistered-means-visible is only safe because registration is a LAYOUT
- * effect. Read this together with `useIsRecentToolActivity` — the two halves
- * are one mechanism, and splitting them is what caused the flash.
- */
-const isRecentActivity = (toolCallId: string): boolean => {
-  const index = activityOrder.indexOf(toolCallId);
-  return index === -1 || index >= activityOrder.length - VISIBLE_TOOL_ACTIVITY;
-};
-
-/**
- * `useLayoutEffect`, except on the server where React warns that it does
- * nothing. Registration MUST be a layout effect (see below), and this component
- * is server-rendered as part of the chat, so the plain hook would log a warning
- * on every render pass in dev.
- */
-const useIsomorphicLayoutEffect =
-  typeof window === "undefined" ? useEffect : useLayoutEffect;
-
-function useIsRecentToolActivity(toolCallId: string, track: boolean): boolean {
-  /**
-   * LAYOUT effect, not a passive one, and this is load-bearing.
-   *
-   * A new line renders visible before it is registered (it cannot know its own
-   * position yet), and registering is what evicts the oldest line. With a
-   * passive `useEffect` those two things land in different frames, so the
-   * browser paints the in-between state: the list grows to three rows and then
-   * snaps back to two. That is the flash — one extra row for one frame on every
-   * single tool call, and again when the end-of-run `MESSAGES_SNAPSHOT`
-   * remounts every line at once.
-   *
-   * React flushes state updates scheduled inside a layout effect before the
-   * browser paints, so the eviction happens in the SAME frame as the insertion:
-   * the painted row count goes 2 → 2 and never through 3.
-   */
-  useIsomorphicLayoutEffect(() => {
-    // Internal tools must not take a slot: two filtered `agui` calls would
-    // otherwise fill the window and blank out the real activity behind them.
-    if (!track) return;
-    if (!activityOrder.includes(toolCallId)) {
-      activityOrder.push(toolCallId);
-      notifyActivityChanged();
-    }
-    return () => {
-      const index = activityOrder.indexOf(toolCallId);
-      if (index === -1) return;
-      activityOrder.splice(index, 1);
-      notifyActivityChanged();
-    };
-  }, [toolCallId, track]);
-
-  return useSyncExternalStore(
-    subscribeActivity,
-    () => isRecentActivity(toolCallId),
-    // Server render: nothing has registered, so every line is "newest".
-    () => true,
+export function ToolActivityProvider({ children }: { children: ReactNode }) {
+  const { agent } = useAgent({ updates: [] });
+  const { copilotkit } = useCopilotKit();
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      const messages = agent.subscribe({ onMessagesChanged: onChange });
+      const renderers = copilotkit.subscribe({ onRenderToolCallsChanged: onChange });
+      return () => {
+        messages.unsubscribe();
+        renderers.unsubscribe();
+      };
+    },
+    [agent, copilotkit],
   );
+  // A small value snapshot stays Object.is-equal while args/text stream. Read
+  // the complete conversation, including rows the virtualizer never mounted.
+  const getSnapshot = useCallback(
+    () => JSON.stringify(selectRecentToolActivity(
+      agent.messages, copilotkit.renderToolCalls, VISIBLE_TOOL_ACTIVITY,
+    )),
+    [agent, copilotkit],
+  );
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, () => "[]");
+  const recent = useMemo(() => new Set<string>(JSON.parse(snapshot)), [snapshot]);
+
+  return (
+    <ToolActivityRecencyContext.Provider value={recent}>
+      {children}
+    </ToolActivityRecencyContext.Provider>
+  );
+}
+
+function useIsRecentToolActivity(toolCallId: string): boolean {
+  const recent = useContext(ToolActivityRecencyContext);
+  if (!recent) {
+    throw new Error("Tool activity renderers require ToolActivityProvider");
+  }
+  return recent.has(toolCallId);
 }
 
 /**
@@ -207,7 +135,7 @@ function ToolCallChip({
   const label = resolveToolLabel(name, skin.toolLabels);
   const done = status === ToolCallStatus.Complete;
   const hidden = isInternalTool(name);
-  const recent = useIsRecentToolActivity(toolCallId, !hidden);
+  const recent = useIsRecentToolActivity(toolCallId);
 
   const detail = useMemo(() => {
     const lines: string[] = [`tool: ${name}`];
