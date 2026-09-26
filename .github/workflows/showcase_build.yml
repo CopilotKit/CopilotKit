@@ -893,7 +893,12 @@ jobs:
   aggregate-build-results:
     name: Aggregate build results
     needs: [detect-changes, build]
-    if: ${{ !cancelled() && needs.detect-changes.outputs.has_changes == 'true' }}
+    # Failed preflight skips the matrix entirely, leaving no artifacts to collect.
+    # Still collect partial results when individual build slots fail or cancel.
+    if: >-
+      ${{ !cancelled()
+          && needs.detect-changes.outputs.has_changes == 'true'
+          && needs.build.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 3
     permissions:
