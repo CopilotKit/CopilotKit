@@ -119,6 +119,52 @@ describe("createRunEventFinalizer", () => {
 });
 
 describe("finalizeRunEvents", () => {
+  it("splices lifecycle closers before an already-present terminal event", () => {
+    // Simulates a run aborted mid tool call: the agent emitted TOOL_CALL_START
+    // but the abort path pushed RUN_FINISHED before the tool call closed.
+    // finalizeRunEvents must insert TOOL_CALL_END + TOOL_CALL_RESULT before
+    // RUN_FINISHED so compactEvents sees a well-ordered stream and does not
+    // carry the open tool call past the terminal on replay.
+    const events = [
+      event({ type: EventType.TEXT_MESSAGE_START, messageId: "msg-1" }),
+      event({ type: EventType.TOOL_CALL_START, toolCallId: "tc-1" }),
+      // RUN_FINISHED arrived before the tool call closed (abort path)
+      event({ type: EventType.RUN_FINISHED }),
+    ];
+
+    const spliced = finalizeRunEvents(events, { stopRequested: true });
+
+    // Returns [] — the terminal was already emitted live; returning closers
+    // would cause runners to re-emit them after the terminal (wrong order).
+    // History is fixed by the in-place splice below.
+    expect(spliced).toEqual([]);
+
+    // Closers land before RUN_FINISHED in the mutated array
+    expect(events.map(({ type }) => type)).toEqual([
+      EventType.TEXT_MESSAGE_START,
+      EventType.TOOL_CALL_START,
+      EventType.TEXT_MESSAGE_END,
+      EventType.TOOL_CALL_END,
+      EventType.TOOL_CALL_RESULT,
+      EventType.RUN_FINISHED,
+    ]);
+  });
+
+  it("no-ops when the terminal is already present with no open lifecycles", () => {
+    const events = [
+      event({ type: EventType.TOOL_CALL_START, toolCallId: "tc-1" }),
+      event({ type: EventType.TOOL_CALL_END, toolCallId: "tc-1" }),
+      event({ type: EventType.TOOL_CALL_RESULT, toolCallId: "tc-1", messageId: "r", role: "tool", content: "" }),
+      event({ type: EventType.RUN_FINISHED }),
+    ];
+    const original = [...events];
+
+    const spliced = finalizeRunEvents(events, { stopRequested: true });
+
+    expect(spliced).toEqual([]);
+    expect(events).toEqual(original);
+  });
+
   it("appends the closers in place and keeps the interruption message", () => {
     const events = [
       event({ type: EventType.TOOL_CALL_START, toolCallId: "tool-1" }),
