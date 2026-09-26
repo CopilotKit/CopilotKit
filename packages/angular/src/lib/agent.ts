@@ -11,7 +11,7 @@ import { CopilotKit } from "./copilotkit";
 import { InterruptController, type InterruptRunner } from "./interrupt";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { AgentSubscriber, Message, State } from "@ag-ui/client";
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
 import type { CopilotKitCore } from "@copilotkit/core";
 import {
   ProxiedCopilotRuntimeAgent,
@@ -22,6 +22,10 @@ import {
  *  CopilotKitCore so the types stay in sync automatically. Injected
  *  by the factory so that AgentStore stays decoupled from the concrete class. */
 type SubscribeToAgentFn = CopilotKitCore["subscribeToAgentWithOptions"];
+/** Content accepted by `AgentStore.sendMessage` — a plain string or the
+ *  multimodal content-part array carried by a user message. */
+export type SendMessageContent = Extract<Message, { role: "user" }>["content"];
+
 type AgentWithHeaders = AbstractAgent & { headers?: Record<string, string> };
 type AgentWithCredentials = AbstractAgent & {
   credentials?: RequestCredentials;
@@ -47,6 +51,7 @@ export class AgentStore {
   readonly #subscription?: {
     unsubscribe: () => void;
   };
+  readonly #runAgent: InterruptRunner;
   readonly #isRunning: WritableSignal<boolean>;
   readonly #messages: WritableSignal<Message[]>;
   readonly #state: WritableSignal<unknown>;
@@ -67,6 +72,7 @@ export class AgentStore {
     interruptRunner: InterruptRunner = missingInterruptRunner,
   ) {
     this.agent = abstractAgent;
+    this.#runAgent = interruptRunner;
     this.interruptController = new InterruptController(interruptRunner);
     // A connected agent can already carry restored thread data before this
     // store subscribes. Seed the signals synchronously so the first render is
@@ -108,6 +114,30 @@ export class AgentStore {
 
     this.#unregisterDestroy = destroyRef.onDestroy(() => {
       this.teardown();
+    });
+  }
+
+  /**
+   * Append a user message to the agent and start a run.
+   *
+   * Sending is two steps — `agent.addMessage(...)` followed by a run — and
+   * omitting the second silently does nothing, so both are done here. The
+   * message id is generated for the caller.
+   *
+   * @param content Message text, or multimodal content parts.
+   * @param options `forwardedProps` are passed through to the run.
+   */
+  async sendMessage(
+    content: SendMessageContent,
+    options: { forwardedProps?: Record<string, unknown> } = {},
+  ): Promise<void> {
+    this.agent.addMessage({
+      id: randomUUID(),
+      role: "user",
+      content,
+    });
+    await this.#runAgent(this.agent, {
+      forwardedProps: options.forwardedProps,
     });
   }
 
