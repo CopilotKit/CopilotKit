@@ -1,0 +1,182 @@
+---
+title: Svelte
+description: Connect a Svelte 5 app to Copilot Runtime with the initial CopilotKit Svelte SDK.
+icon: "lucide/Component"
+hideTOC: true
+---
+
+`@copilotkit/svelte` is the initial Svelte 5 frontend for CopilotKit. It provides
+a context provider, rune-based state factories, lifecycle-managed tool
+registrations, and chat components backed by [Copilot Runtime](/backend/copilot-runtime).
+
+<Callout type="warn" title="Initial compatibility release">
+  The package covers the basic chat and agent interaction path. Check the
+  compatibility table below before replacing a React, Angular, or Vue frontend
+  that depends on advanced renderers or developer tooling.
+</Callout>
+
+## Requirements
+
+- Svelte 5
+- Node.js 20 or later
+- A Copilot Runtime endpoint
+
+## Install
+
+<Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
+  <Tab value="npm">
+    ```bash
+    npm install @copilotkit/svelte
+    ```
+  </Tab>
+  <Tab value="pnpm">
+    ```bash
+    pnpm add @copilotkit/svelte
+    ```
+  </Tab>
+  <Tab value="yarn">
+    ```bash
+    yarn add @copilotkit/svelte
+    ```
+  </Tab>
+</Tabs>
+
+Add `zod` when you register typed frontend tools.
+
+## Add the provider and styles
+
+Place the provider above every component that uses a CopilotKit factory or
+registration. Import the public stylesheet once at the application root.
+
+```svelte title="src/routes/+layout.svelte"
+<script lang="ts">
+  import "@copilotkit/svelte/styles.css";
+  import { CopilotKitProvider } from "@copilotkit/svelte";
+
+  let { children } = $props();
+</script>
+
+<CopilotKitProvider runtimeUrl="/api/copilotkit">
+  {@render children()}
+</CopilotKitProvider>
+```
+
+## Render chat
+
+```svelte title="src/routes/+page.svelte"
+<script lang="ts">
+  import { CopilotChat } from "@copilotkit/svelte";
+</script>
+
+<div class="chat-shell">
+  <CopilotChat agentId="default" />
+</div>
+
+<style>
+  .chat-shell {
+    height: 700px;
+  }
+</style>
+```
+
+The runtime must expose the selected agent ID. If `agentId` is omitted, the
+chat uses the runtime's `default` agent.
+
+## Compatibility
+
+| Area | Initial Svelte support | Notes |
+| --- | --- | --- |
+| Runtime connection and AG-UI streaming | Supported | Includes message updates, run state, and agent state invalidation. |
+| Inline chat | Supported | Use `CopilotChat`; lower-level chat and message components are also exported. |
+| Popup and sidebar chat | Supported | Use `CopilotPopup` and `CopilotSidebar`. |
+| Frontend tools | Supported | Register with `registerFrontendTool`; registrations clean up with their component. |
+| Agent context | Supported | Connect reactive application data with `connectAgentContext`. |
+| Suggestions | Supported | Use `createSuggestions`. |
+| Threads | Headless | `createThreads` is available; a prebuilt threads drawer is not yet included. |
+| Interrupts | Headless | Observe and resolve AG-UI interrupts with `createInterrupt`. |
+| Attachments | Headless | Validation and upload state are available through `createAttachments`; chat composer wiring is not automatic. |
+| Tool-call rendering | Partial | Renderer registration is available, while the built-in chat currently falls back to generic tool status for some renderer types. |
+| Human approval | Supported by registration | Use `registerHumanInTheLoop`; concurrent tool calls are matched by tool-call ID. |
+| A2UI and Open Generative UI | Not yet supported | Built-in catalogs, renderers, and sandbox helpers are planned. |
+| CoAgent/LangGraph state renderers | Not yet supported | Use the lower-level agent binding for state today. |
+| Memories and learning APIs | Not yet supported | No Svelte-specific bindings are included in this release. |
+| Modal, threads drawer, audio input | Not yet supported | Build these surfaces from the exported state factories where possible. |
+| Inspector and developer console | Not yet supported | Use Runtime and browser diagnostics while developing. |
+
+## Reactive agent state
+
+Stateful APIs use `create*` names because they create rune-backed state and
+subscriptions. Keep the returned object intact and read its live getters in
+markup; plain destructuring snapshots a getter and loses reactivity.
+
+```svelte
+<script lang="ts">
+  import { createAgent, useCopilotKit } from "@copilotkit/svelte";
+
+  const agentHandle = createAgent({ agentId: "default" });
+  const { copilotkit } = useCopilotKit();
+
+  async function send(content: string) {
+    const agent = agentHandle.agent;
+    if (!agent) return;
+
+    agent.addMessage({
+      id: crypto.randomUUID(),
+      role: "user",
+      content,
+    });
+    await copilotkit.runAgent({ agent });
+  }
+</script>
+
+{#if agentHandle.isRunning}
+  <p>Agent is thinking…</p>
+{/if}
+```
+
+Use `$derived` only when you want a local alias or computed value:
+
+```svelte
+<script lang="ts">
+  const { messages, isRunning } = $derived(agentHandle);
+</script>
+```
+
+## Register a frontend tool
+
+Registration APIs use `register*` names. They register during component setup
+and unregister when the component is destroyed.
+
+```svelte
+<script lang="ts">
+  import { registerFrontendTool } from "@copilotkit/svelte";
+  import { z } from "zod";
+
+  registerFrontendTool({
+    name: "showToast",
+    description: "Show a notification in the browser",
+    parameters: z.object({ message: z.string() }),
+    handler: async ({ message }) => {
+      alert(message);
+      return "Notification shown";
+    },
+  });
+</script>
+```
+
+Set `agentId` to scope a registration to one agent. Omit it to make the tool
+available to every agent connected through the provider.
+
+## API naming
+
+| React concept | Svelte 5 API |
+| --- | --- |
+| `useAgent` | `createAgent` |
+| `useFrontendTool` | `registerFrontendTool` |
+| `useAgentContext` | `connectAgentContext` |
+| `useRenderTool` | `registerRenderToolCall` |
+| Provider accessor | `useCopilotKit` |
+
+React V1 names such as `useCopilotAction`, `useCopilotReadable`, and
+`useCopilotChat` are not part of the Svelte API. Prefer the Svelte `create*`,
+`register*`, and `connect*` functions.
