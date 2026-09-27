@@ -43,6 +43,12 @@ const DERIVATION: Record<GeneratedDrawerTokenKey, string> = {
   border: "border",
   ring: "ring",
   radius: "radius",
+  sidebar: "sidebar",
+  "sidebar-fg": "sidebar-foreground",
+  "sidebar-accent": "sidebar-accent",
+  "sidebar-accent-fg": "sidebar-accent-foreground",
+  "sidebar-border": "sidebar-border",
+  "sidebar-ring": "sidebar-ring",
 };
 
 function readCanonicalLightTokens(): Map<string, string> {
@@ -69,6 +75,12 @@ test("generated defaults expose every token the drawer CSS references", () => {
     "border",
     "ring",
     "radius",
+    "sidebar",
+    "sidebar-fg",
+    "sidebar-accent",
+    "sidebar-accent-fg",
+    "sidebar-border",
+    "sidebar-ring",
   ];
 
   for (const key of expectedKeys) {
