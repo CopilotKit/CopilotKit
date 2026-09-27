@@ -7,6 +7,7 @@ import { hasLearningContainerConfiguration } from "../core/learning";
 import { isIntelligenceRuntime } from "../core/runtime";
 import { PlatformRequestError } from "../intelligence-platform/client";
 import { resolveIntelligenceUser } from "./shared/resolve-intelligence-user";
+import { resolveIntelligenceGrant } from "./shared/resolve-intelligence-grant";
 
 const headers = {
   "Cache-Control": "no-store, private",
@@ -50,6 +51,13 @@ export async function handleInspectorLearning({
   });
   if (!parsedRequest)
     return errorResponse(400, "Invalid Inspector Learning request");
+  const grant = await resolveIntelligenceGrant({
+    runtime,
+    request,
+    user,
+    surface: "inspector",
+  });
+  if (grant instanceof Response) return grant;
 
   try {
     const snapshot = parseInspectorLearningSnapshotV1(
@@ -58,6 +66,8 @@ export async function handleInspectorLearning({
         ...(typeof runtime.learning?.containerId === "string"
           ? { runtimeContainerId: runtime.learning.containerId }
           : {}),
+        userId: user.id,
+        ...(grant !== undefined ? { grant } : {}),
       }),
     );
     if (!snapshot)

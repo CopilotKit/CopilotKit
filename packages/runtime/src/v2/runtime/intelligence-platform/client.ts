@@ -167,6 +167,18 @@ function normalizeRuntimeEntitlementTransport(
 export const INTELLIGENCE_USER_ID_HEADER = "x-cpki-user-id";
 /** Immutable user/project Memory grant forwarded to Intelligence. */
 export const INTELLIGENCE_MEMORY_GRANT_HEADER = "x-cpki-memory-grant";
+/**
+ * Immutable Intelligence data grant (`IntelligenceAccessGrant`, JSON) resolved
+ * by the runtime's `access` policy for one request. Absent means the runtime
+ * has no policy, and Intelligence denies grant-gated reads.
+ */
+export const INTELLIGENCE_GRANT_HEADER = "x-cpki-grant";
+
+interface RuntimeIntelligenceGrant {
+  readonly permissions: Readonly<
+    Record<string, { readonly agents: "*" | readonly string[] }>
+  >;
+}
 
 interface RuntimeMemoryGrant {
   readonly user: "none" | "read" | "read-write";
@@ -1169,6 +1181,10 @@ export class CopilotKitIntelligence {
   async getInspectorLearning(
     request: InspectorLearningRequestV1 & {
       readonly runtimeContainerId?: string;
+      /** Runtime-resolved request user, sent as `x-cpki-user-id`. */
+      readonly userId?: string;
+      /** Runtime-resolved access grant, sent as `x-cpki-grant`. */
+      readonly grant?: RuntimeIntelligenceGrant;
     },
   ): Promise<InspectorLearningSnapshotV1> {
     const path = "/api/inspector/learning";
@@ -1193,7 +1209,15 @@ export class CopilotKitIntelligence {
     try {
       const response = await fetch(url, {
         method: "GET",
-        headers: { Authorization: `Bearer ${this.#apiKey}` },
+        headers: {
+          Authorization: `Bearer ${this.#apiKey}`,
+          ...(request.userId !== undefined
+            ? { [INTELLIGENCE_USER_ID_HEADER]: request.userId }
+            : {}),
+          ...(request.grant !== undefined
+            ? { [INTELLIGENCE_GRANT_HEADER]: JSON.stringify(request.grant) }
+            : {}),
+        },
         signal: controller.signal,
       });
       if (!response.ok) {

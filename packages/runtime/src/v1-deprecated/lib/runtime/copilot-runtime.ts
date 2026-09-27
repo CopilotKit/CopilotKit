@@ -424,6 +424,7 @@ interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
   intelligence?: CopilotIntelligenceRuntimeOptions["intelligence"];
   identifyUser?: CopilotIntelligenceRuntimeOptions["identifyUser"];
   memory?: CopilotIntelligenceRuntimeOptions["memory"];
+  access?: CopilotIntelligenceRuntimeOptions["access"];
   channels?: CopilotIntelligenceRuntimeOptions["channels"];
   ɵlearning?: CopilotIntelligenceRuntimeOptions["ɵlearning"];
   generateThreadNames?: CopilotIntelligenceRuntimeOptions["generateThreadNames"];
@@ -556,6 +557,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         intelligence: params.intelligence,
         identifyUser: params.identifyUser,
         memory: params.memory,
+        access: params.access,
         channels: params.channels,
         ɵlearning: params.ɵlearning,
         generateThreadNames: params.generateThreadNames,

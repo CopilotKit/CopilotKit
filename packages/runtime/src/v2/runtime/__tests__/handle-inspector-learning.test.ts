@@ -60,6 +60,7 @@ describe("handleInspectorLearning", () => {
       agentId: "support",
       skillsPage: 2,
       runtimeContainerId: "container-static",
+      userId: "user-1",
     });
     expect(response.headers.get("Cache-Control")).toBe("no-store, private");
   });
@@ -95,6 +96,69 @@ describe("handleInspectorLearning", () => {
 
     expect(response.status).toBe(400);
     expect(identifyUser).toHaveBeenCalledOnce();
+    expect(fixture.intelligence?.getInspectorLearning).not.toHaveBeenCalled();
+  });
+
+  it("sends no grant when no access policy is configured", async () => {
+    const fixture = runtime();
+    await handleInspectorLearning({
+      runtime: fixture,
+      request: new Request("https://runtime.example/inspector-learning"),
+    });
+    const call = vi.mocked(fixture.intelligence!.getInspectorLearning).mock
+      .calls[0]![0];
+    expect(call).toMatchObject({ userId: "user-1" });
+    expect(call).not.toHaveProperty("grant");
+  });
+
+  it("forwards the resolved access grant for the request user", async () => {
+    const access = vi.fn().mockResolvedValue({
+      permissions: { "learning.insights_skills": { agents: ["support"] } },
+    });
+    const fixture = runtime({ access });
+    const request = new Request("https://runtime.example/inspector-learning");
+
+    const response = await handleInspectorLearning({
+      runtime: fixture,
+      request,
+    });
+
+    expect(response.status).toBe(200);
+    expect(access).toHaveBeenCalledWith({
+      request,
+      user: { id: "user-1", name: "Ada" },
+      surface: "inspector",
+    });
+    expect(fixture.intelligence?.getInspectorLearning).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        grant: {
+          permissions: { "learning.insights_skills": { agents: ["support"] } },
+        },
+      }),
+    );
+  });
+
+  it("sends an explicit empty grant when the policy returns null", async () => {
+    const fixture = runtime({ access: vi.fn().mockResolvedValue(null) });
+    await handleInspectorLearning({
+      runtime: fixture,
+      request: new Request("https://runtime.example/inspector-learning"),
+    });
+    expect(fixture.intelligence?.getInspectorLearning).toHaveBeenCalledWith(
+      expect.objectContaining({ grant: { permissions: {} } }),
+    );
+  });
+
+  it("fails with 500 and does not proxy when the policy is malformed", async () => {
+    const fixture = runtime({
+      access: vi.fn().mockResolvedValue({ permissions: { "*": {} } }),
+    });
+    const response = await handleInspectorLearning({
+      runtime: fixture,
+      request: new Request("https://runtime.example/inspector-learning"),
+    });
+    expect(response.status).toBe(500);
     expect(fixture.intelligence?.getInspectorLearning).not.toHaveBeenCalled();
   });
 });
