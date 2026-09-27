@@ -13,11 +13,14 @@ import { formatTimestamp } from "./utils";
 export interface AssistantMessageProps {
   /** Markdown content to render */
   content: string;
-  /**
-   * True while the reply is being written: a cursor rides the end of the text,
-   * or pulses on its own until the first words arrive.
-   */
+  /** True while the reply is being written: shows the typing indicator. */
   isLoading?: boolean;
+  /**
+   * While loading, ride the cursor at the end of the text instead of showing
+   * the typing indicator below it (the indicator still shows until the first
+   * words arrive). Defaults to `false`; `CopilotChat` turns it on.
+   */
+  inlineCursor?: boolean;
   /** Optional timestamp displayed below the message */
   timestamp?: Date;
   /** Optional style override for the outer container */
@@ -31,14 +34,17 @@ export interface AssistantMessageProps {
 export function AssistantMessage({
   content,
   isLoading = false,
+  inlineCursor = false,
   timestamp,
   style,
 }: AssistantMessageProps) {
   const theme = useCopilotTheme();
-  // The cursor sits below instead when there's no text yet, or when the last
-  // block has no text to follow (a code block).
+  // Even inline, the cursor sits below when there's no text yet, or when the
+  // last block has no text to follow (a code block).
   const withCursor =
-    isLoading && content ? appendStreamingCursor(content) : undefined;
+    inlineCursor && isLoading && content
+      ? appendStreamingCursor(content)
+      : undefined;
   const cursorBelow = isLoading && !withCursor;
 
   return (

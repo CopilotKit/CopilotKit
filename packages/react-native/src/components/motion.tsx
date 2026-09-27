@@ -5,12 +5,14 @@ import type { StyleProp, ViewStyle } from "react-native";
 /**
  * Whether the user asked the OS to reduce motion. `undefined` until the first
  * answer arrives (the query is async), so an entrance can wait instead of
- * flashing its content first.
+ * flashing its content first. Only asks while `enabled`, i.e. while an
+ * animation could play.
  */
-export function useReducedMotion(): boolean | undefined {
+export function useReducedMotion(enabled = true): boolean | undefined {
   const [reduced, setReduced] = useState<boolean | undefined>(undefined);
 
   useEffect(() => {
+    if (!enabled) return;
     let active = true;
     const settle = (value: boolean) => {
       if (active) setReduced(value);
@@ -24,12 +26,13 @@ export function useReducedMotion(): boolean | undefined {
       active = false;
       subscription.remove();
     };
-  }, []);
+  }, [enabled]);
 
   return reduced;
 }
 
-const PULSE_EASING = Easing.bezier(0.4, 0, 0.2, 1);
+// Easing curves are made when an animation starts rather than at import, so
+// this module loads under react-native mocks that don't provide `Easing`.
 
 /**
  * A value that eases 0 → 1 → 0 once per `cycleMs` while `active`, and rests at
@@ -37,7 +40,7 @@ const PULSE_EASING = Easing.bezier(0.4, 0, 0.2, 1);
  */
 export function usePulse(cycleMs: number, active = true): Animated.Value {
   const value = useRef(new Animated.Value(0)).current;
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = useReducedMotion(active);
   const run = active && reducedMotion === false;
 
   useEffect(() => {
@@ -47,7 +50,7 @@ export function usePulse(cycleMs: number, active = true): Animated.Value {
     }
     const half = {
       duration: cycleMs / 2,
-      easing: PULSE_EASING,
+      easing: Easing.bezier(0.4, 0, 0.2, 1),
       useNativeDriver: true,
     };
     const loop = Animated.loop(
@@ -71,7 +74,6 @@ export function usePulse(cycleMs: number, active = true): Animated.Value {
 export type IntroMode = "play" | "pending" | "off";
 
 const INTRO_DURATION_MS = 480;
-const INTRO_EASING = Easing.bezier(0.22, 1, 0.36, 1);
 const INTRO_RISE = 6;
 
 /** Intro delays: greeting first, suggestion cards staggered, input last. */
@@ -95,17 +97,13 @@ export function IntroRise({
   const progress = useRef(new Animated.Value(mode === "off" ? 1 : 0)).current;
 
   useEffect(() => {
-    if (mode === "off") {
-      progress.setValue(1);
-      return;
-    }
-    if (mode === "pending") return;
-    progress.setValue(0);
+    progress.setValue(mode === "off" ? 1 : 0);
+    if (mode !== "play") return;
     const animation = Animated.timing(progress, {
       toValue: 1,
       duration: INTRO_DURATION_MS,
       delay,
-      easing: INTRO_EASING,
+      easing: Easing.bezier(0.22, 1, 0.36, 1),
       useNativeDriver: true,
     });
     animation.start();

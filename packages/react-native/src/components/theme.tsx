@@ -1,3 +1,5 @@
+import React, { createContext, useContext } from "react";
+import type { ReactNode } from "react";
 import { Platform, useColorScheme } from "react-native";
 
 /**
@@ -51,9 +53,48 @@ const darkTheme: CopilotTheme = {
 
 export const copilotThemes = { light: lightTheme, dark: darkTheme } as const;
 
-/** The theme for the device's color scheme (light unless it's dark). */
-export function useCopilotTheme(): CopilotTheme {
-  return useColorScheme() === "dark" ? darkTheme : lightTheme;
+/**
+ * The palette CopilotKit's components use: `"light"` (the default), `"dark"`,
+ * or `"system"` to follow the device's setting.
+ */
+export type CopilotColorScheme = "light" | "dark" | "system";
+
+const ColorSchemeContext = createContext<CopilotColorScheme>("light");
+
+/**
+ * Sets the color scheme of the CopilotKit components inside it, such as a
+ * standalone `AssistantMessage` or `CopilotMarkdown`. The chat components'
+ * `colorScheme` prop sets it for everything they render. Leaving `colorScheme`
+ * unset keeps the surrounding setting.
+ */
+export function CopilotColorSchemeProvider({
+  colorScheme,
+  children,
+}: {
+  colorScheme?: CopilotColorScheme;
+  children: ReactNode;
+}) {
+  const inherited = useContext(ColorSchemeContext);
+  return (
+    <ColorSchemeContext.Provider value={colorScheme ?? inherited}>
+      {children}
+    </ColorSchemeContext.Provider>
+  );
+}
+
+/**
+ * The theme for `colorScheme` or, when it's unset, for the nearest
+ * `CopilotColorSchemeProvider` (light without one).
+ */
+export function useCopilotTheme(
+  colorScheme?: CopilotColorScheme,
+): CopilotTheme {
+  const inherited = useContext(ColorSchemeContext);
+  const device = useColorScheme();
+  const setting = colorScheme ?? inherited;
+  const dark =
+    setting === "dark" || (setting === "system" && device === "dark");
+  return dark ? darkTheme : lightTheme;
 }
 
 /**

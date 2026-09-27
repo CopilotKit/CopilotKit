@@ -235,6 +235,7 @@ vi.mock("react-native", async () => {
 // Import after mocks
 import { CopilotKitProvider } from "../CopilotKitProvider";
 import { CopilotPopup } from "../CopilotPopup";
+import { useCopilotTheme } from "../components/theme";
 import type { CopilotPopupHandle } from "../CopilotPopup";
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -456,6 +457,30 @@ describe("CopilotPopup", () => {
       );
 
       expect(capturedAgentId).toBe("default");
+    });
+  });
+
+  describe("colorScheme", () => {
+    function ThemeProbe() {
+      return <span data-testid="probe">{useCopilotTheme().background}</span>;
+    }
+    const renderWith = (colorScheme?: "light" | "dark" | "system") =>
+      render(
+        <CopilotKitProvider runtimeUrl="https://api.test">
+          <CopilotPopup defaultOpen={true} colorScheme={colorScheme}>
+            <ThemeProbe />
+          </CopilotPopup>
+        </CopilotKitProvider>,
+      );
+
+    it("is light by default", () => {
+      expect(renderWith().getByTestId("probe").textContent).toBe("#ffffff");
+    });
+
+    it("applies to CopilotKit components inside the popup", () => {
+      expect(renderWith("dark").getByTestId("probe").textContent).toBe(
+        "#0a0a0a",
+      );
     });
   });
 
