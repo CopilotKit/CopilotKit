@@ -9,6 +9,7 @@ import CopilotChatView from "./CopilotChatView";
 import type { CopilotSidebarViewProps } from "./CopilotSidebarView";
 import { CopilotSidebarView } from "./CopilotSidebarView";
 import { ModalOpenControlProvider } from "./modal-open-control";
+import { ModalThreadsScope } from "./modal-threads-drawer";
 
 /**
  * Carries `threadsDrawer` to the sidebar's chatView override by context rather
@@ -107,16 +108,18 @@ export function CopilotSidebar({
         changing `open` would mint a new component identity on every toggle and
         remount the whole chat subtree.
       */}
-      <ModalOpenControlProvider open={open} onOpenChange={onOpenChange}>
-        <SidebarThreadsDrawerContext.Provider value={threadsDrawer}>
-          <CopilotChat
-            welcomeScreen={CopilotSidebarView.WelcomeScreen}
-            {...chatProps}
-            isModalDefaultOpen={defaultOpen}
-            chatView={SidebarViewOverride}
-          />
-        </SidebarThreadsDrawerContext.Provider>
-      </ModalOpenControlProvider>
+      <ModalThreadsScope enabled={Boolean(threadsDrawer)}>
+        <ModalOpenControlProvider open={open} onOpenChange={onOpenChange}>
+          <SidebarThreadsDrawerContext.Provider value={threadsDrawer}>
+            <CopilotChat
+              welcomeScreen={CopilotSidebarView.WelcomeScreen}
+              {...chatProps}
+              isModalDefaultOpen={defaultOpen}
+              chatView={SidebarViewOverride}
+            />
+          </SidebarThreadsDrawerContext.Provider>
+        </ModalOpenControlProvider>
+      </ModalThreadsScope>
     </>
   );
 }

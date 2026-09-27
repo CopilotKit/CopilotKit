@@ -303,3 +303,44 @@ describe("page-level drawer without threadsDrawer (unchanged)", () => {
     expect(modalDrawer()).toBeNull();
   });
 });
+
+describe.each([
+  { name: "CopilotPopup", Surface: CopilotPopup },
+  { name: "CopilotSidebar", Surface: CopilotSidebar },
+])("<$name threadsDrawer> switching threads", ({ Surface }) => {
+  const pick = (threadId: string) =>
+    act(() => {
+      modalDrawer()!.dispatchEvent(
+        new CustomEvent("thread-selected", {
+          detail: { threadId },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+    });
+
+  it.each([
+    { setup: "inside an app-level chat configuration", withProvider: true },
+    { setup: "with no chat configuration around it", withProvider: false },
+  ])("switches the chat on every pick, $setup", async ({ withProvider }) => {
+    const agent = new MockStepwiseAgent();
+    const surface = <Surface defaultOpen threadsDrawer />;
+    render(
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+        {withProvider ? (
+          <CopilotChatConfigurationProvider>
+            {surface}
+          </CopilotChatConfigurationProvider>
+        ) : (
+          surface
+        )}
+      </CopilotKitProvider>,
+    );
+    await findModalDrawer();
+
+    pick("t2");
+    await waitFor(() => expect(agent.threadId).toBe("t2"));
+    pick("t3");
+    await waitFor(() => expect(agent.threadId).toBe("t3"));
+  });
+});
