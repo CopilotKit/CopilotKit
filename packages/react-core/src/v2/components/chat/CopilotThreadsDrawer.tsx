@@ -96,7 +96,7 @@ export interface CopilotThreadsDrawerProps {
    * Accessible + default-header label for the drawer region. Sets the custom
    * element's `aria-label` and the default header text (shown when no
    * `slot="header"` content is projected). Defaults to the element's built-in
-   * `"Threads"` when omitted.
+   * `"Conversations"` when omitted.
    */
   label?: string;
   /**
@@ -151,6 +151,10 @@ function toDrawerThread(thread: Thread): DrawerThread {
 const CHAT_INPUT_TESTID = "copilot-chat-textarea";
 /** The chat view container's documented `data-testid`. */
 const CHAT_CONTAINER_TESTID = "copilot-chat";
+/** The chat modals (popup / sidebar) that can host the drawer as an overlay. */
+const CHAT_MODAL_SELECTOR = "[data-copilot-popup], [data-copilot-sidebar]";
+/** The modal header's thread-list launcher `data-testid` (focus-return target). */
+const DRAWER_LAUNCHER_TESTID = "copilot-threads-drawer-launcher";
 
 /**
  * Returns the chat input element for focus-return after a thread is selected.
@@ -187,11 +191,41 @@ function findChatInput(origin: Element | null): HTMLElement | null {
     if (scoped) return scoped;
   }
 
+  // A drawer hosted inside a chat modal sits beside (not inside) the modal's
+  // chat view: scope the lookup to that modal.
+  const modal = origin?.closest?.(CHAT_MODAL_SELECTOR);
+  if (modal) {
+    const scoped = modal.querySelector<HTMLElement>(
+      `[data-testid="${CHAT_INPUT_TESTID}"]`,
+    );
+    if (scoped) return scoped;
+  }
+
   // No scoping container found (drawer and chat share no common container, or
   // headless usage): fall back to a document-global lookup.
   return document.querySelector<HTMLElement>(
     `[data-testid="${CHAT_INPUT_TESTID}"]`,
   );
+}
+
+/**
+ * When an overlay drawer closes while focus is still inside it (Escape, the
+ * scrim, its close button), hands focus back to the launcher in the header of
+ * the modal hosting it, so keyboard users land where they started. A close
+ * that follows a thread pick has already moved focus to the chat input, so it
+ * is left alone.
+ *
+ * @param drawer - The drawer element that just closed.
+ */
+function returnFocusToLauncher(drawer: HTMLElement | null): void {
+  if (!drawer || typeof document === "undefined") return;
+  const active = document.activeElement;
+  // Focus inside the shadow root reports the host as `activeElement`.
+  if (active !== drawer && !drawer.contains(active)) return;
+  drawer
+    .closest(CHAT_MODAL_SELECTOR)
+    ?.querySelector<HTMLElement>(`[data-testid="${DRAWER_LAUNCHER_TESTID}"]`)
+    ?.focus({ preventScroll: true });
 }
 
 /**
@@ -274,6 +308,9 @@ export function CopilotThreadsDrawer({
   const resolvedAgentId =
     agentId ?? configuration?.agentId ?? providerAgentId ?? DEFAULT_AGENT_ID;
   const activeThreadId = configuration?.threadId ?? null;
+  // Hosted inside a chat modal (`threadsDrawer` on the popup/sidebar): render
+  // as an overlay panel over the modal instead of an in-flow sidebar.
+  const overlay = configuration?.ɵdrawerOverlay === true;
 
   // While unlicensed, skip the thread fetch entirely: the element shows only
   // its locked view and no `/threads` request is issued.
@@ -373,7 +410,13 @@ export function CopilotThreadsDrawer({
       // non-explicit thread so the welcome screen shows with no host wiring.
       startNewThreadConfig?.();
     }
-  }, [startNewThread, onNewThread, startNewThreadConfig]);
+    if (overlay) {
+      // The overlay closes itself on "New Conversation"; land in the composer.
+      // Deferred a tick because the reset swaps the chat to its welcome screen,
+      // which mounts a fresh input.
+      setTimeout(() => findChatInput(elementRef.current)?.focus(), 0);
+    }
+  }, [startNewThread, onNewThread, startNewThreadConfig, overlay]);
 
   const handleArchive = useCallback(
     (threadId: string) => {
@@ -446,8 +489,9 @@ export function CopilotThreadsDrawer({
   const handleOpenChange = useCallback(
     (open: boolean) => {
       setDrawerOpen(open);
+      if (!open && overlay) returnFocusToLauncher(elementRef.current);
     },
-    [setDrawerOpen],
+    [setDrawerOpen, overlay],
   );
 
   const handleLicensed = useCallback(() => {
@@ -619,7 +663,7 @@ export function CopilotThreadsDrawer({
   }, [drawerOpen, mounted]);
 
   // Mirror the optional `label` onto the element (its accessible + default
-  // header text). Leave the element's built-in default ("Threads") in place
+  // header text). Leave the element's built-in default ("Conversations") in place
   // when the prop is omitted, rather than clobbering it with undefined.
   useEffect(() => {
     const el = elementRef.current;
@@ -683,6 +727,10 @@ export function CopilotThreadsDrawer({
       // unset so the element keeps its built-in default rather than receiving
       // an `undefined` that would clobber it.
       ...(recentLabel !== undefined ? { "recent-label": recentLabel } : {}),
+      // Set at creation (not in an effect) so the element never paints a frame
+      // as an in-flow sidebar inside the modal. React 19 assigns the property;
+      // React 18 sets the attribute, which the element reads as a boolean.
+      ...(overlay ? { overlay: true } : {}),
     },
     rowChildren,
   );

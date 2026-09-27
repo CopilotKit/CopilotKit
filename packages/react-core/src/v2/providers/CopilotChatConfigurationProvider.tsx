@@ -120,6 +120,14 @@ export interface CopilotChatConfigurationValue {
    * @returns A cleanup callback that de-registers the closer.
    */
   ɵregisterModalCloser: (closeModal: (open: boolean) => void) => () => void;
+  /**
+   * Internal: `true` inside a {@link ModalThreadsDrawerScope}, i.e. when the
+   * drawer fields above belong to a threads drawer hosted as an overlay INSIDE
+   * a chat modal (`<CopilotPopup threadsDrawer>` / `<CopilotSidebar
+   * threadsDrawer>`). The modal header then shows its launcher at every
+   * viewport width, and the drawer wrapper renders as an overlay panel.
+   */
+  ɵdrawerOverlay?: boolean;
   // True when the current threadId was chosen by the caller rather than
   // silently minted inside the provider chain. Consumers that only make
   // sense against a real backend thread (e.g. /connect, suppressing the
@@ -495,6 +503,9 @@ export const CopilotChatConfigurationProvider: React.FC<
       drawerRegistered: resolvedDrawerRegistered,
       registerDrawer: resolvedRegisterDrawer,
       ɵregisterModalCloser: resolvedRegisterModalCloser,
+      // Nested providers proxy the parent's drawer state, so they carry its
+      // in-modal overlay flag along with it.
+      ...(parentConfig?.ɵdrawerOverlay ? { ɵdrawerOverlay: true } : {}),
       setActiveThreadId: resolvedSetActiveThreadId,
       startNewThread: resolvedStartNewThread,
     }),
@@ -510,6 +521,7 @@ export const CopilotChatConfigurationProvider: React.FC<
       resolvedDrawerRegistered,
       resolvedRegisterDrawer,
       resolvedRegisterModalCloser,
+      parentConfig?.ɵdrawerOverlay,
       resolvedSetActiveThreadId,
       resolvedStartNewThread,
     ],
@@ -621,3 +633,79 @@ export const ControlledModalOpenScope: React.FC<
 };
 
 ControlledModalOpenScope.displayName = "ControlledModalOpenScope";
+
+/**
+ * Props for {@link ModalThreadsDrawerScope}.
+ */
+export interface ModalThreadsDrawerScopeProps {
+  children: ReactNode;
+}
+
+/**
+ * Gives a chat modal (`<CopilotPopup>` / `<CopilotSidebar>` with
+ * `threadsDrawer`) its own threads drawer, hosted as an overlay inside the
+ * modal.
+ *
+ * Like {@link ControlledModalOpenScope}, this overrides the configuration for
+ * the subtree instead of adding another mode to
+ * {@link CopilotChatConfigurationProvider}. Inside the scope the drawer fields
+ * (`drawerOpen`, `setDrawerOpen`, `drawerRegistered`, `registerDrawer`) are
+ * local to the modal, so the existing drawer wrapper and header launcher work
+ * unchanged while:
+ *
+ * - a page-level `<CopilotThreadsDrawer>` elsewhere keeps its own, separate
+ *   open state and registration, and
+ * - opening the in-modal drawer never runs the provider's mobile modal/drawer
+ *   mutual exclusion, which would close the very modal the drawer lives in.
+ *
+ * It also sets `ɵdrawerOverlay`, and closes the drawer whenever the modal
+ * closes so it never reopens already expanded.
+ *
+ * Renders `children` unchanged when no chat configuration is in scope.
+ */
+export const ModalThreadsDrawerScope: React.FC<
+  ModalThreadsDrawerScopeProps
+> = ({ children }) => {
+  const parentConfig = useContext(CopilotChatConfiguration);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerCount, setDrawerCount] = useState(0);
+
+  const registerDrawer = useCallback(() => {
+    setDrawerCount((count) => count + 1);
+    return () => {
+      setDrawerCount((count) => Math.max(0, count - 1));
+    };
+  }, []);
+
+  const isModalOpen = parentConfig?.isModalOpen ?? false;
+  useEffect(() => {
+    if (!isModalOpen) setDrawerOpen(false);
+  }, [isModalOpen]);
+
+  const configurationValue = useMemo(
+    () =>
+      parentConfig
+        ? {
+            ...parentConfig,
+            drawerOpen,
+            setDrawerOpen,
+            drawerRegistered: drawerCount > 0,
+            registerDrawer,
+            ɵdrawerOverlay: true,
+          }
+        : null,
+    [parentConfig, drawerOpen, drawerCount, registerDrawer],
+  );
+
+  if (!configurationValue) {
+    return <>{children}</>;
+  }
+
+  return (
+    <CopilotChatConfiguration.Provider value={configurationValue}>
+      {children}
+    </CopilotChatConfiguration.Provider>
+  );
+};
+
+ModalThreadsDrawerScope.displayName = "ModalThreadsDrawerScope";

@@ -7,7 +7,7 @@ import {
 } from "../../providers/CopilotChatConfigurationProvider";
 import type { WithSlots } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
-import { PanelLeftOpen, X } from "lucide-react";
+import { History, X } from "lucide-react";
 
 type HeaderSlots = {
   titleContent: typeof CopilotModalHeader.Title;
@@ -80,14 +80,16 @@ export function CopilotModalHeader({
   const resolvedTitle = title ?? fallbackTitle;
 
   // The thread-list launcher renders ONLY when a <CopilotThreadsDrawer> wrapper has
-  // registered with the chat configuration AND the viewport is mobile. On
-  // desktop the drawer is an in-flow, persistent panel (it ignores `open`), so
-  // an "open the drawer" launcher there is a dead no-op — it only does anything
-  // for the mobile off-canvas drawer. Chats with no drawer get no launcher and
-  // no behavior change.
+  // registered with the chat configuration AND the drawer is an overlay: either
+  // the mobile off-canvas drawer, or a drawer hosted inside this modal
+  // (`threadsDrawer` on the popup/sidebar), which is an overlay at every width.
+  // On desktop a standalone drawer is an in-flow, persistent panel (it ignores
+  // `open`), so an "open the drawer" launcher there would be a dead no-op.
+  // Chats with no drawer get no launcher and no behavior change.
   const isMobile = useIsMobileViewport();
+  const drawerOverlay = configuration?.ɵdrawerOverlay === true;
   const drawerRegistered =
-    (configuration?.drawerRegistered ?? false) && isMobile;
+    (configuration?.drawerRegistered ?? false) && (isMobile || drawerOverlay);
 
   const handleClose = useCallback(() => {
     configuration?.setModalOpen?.(false);
@@ -130,11 +132,12 @@ export function CopilotModalHeader({
 
   return (
     <header
+      data-copilotkit
       data-testid="copilot-modal-header"
       data-slot="copilot-modal-header"
       className={cn(
         "copilotKitHeader",
-        "cpk:flex cpk:items-center cpk:justify-between cpk:border-b cpk:border-border cpk:px-4 cpk:py-4",
+        "cpk:flex cpk:h-14 cpk:shrink-0 cpk:items-center cpk:justify-between cpk:border-b cpk:border-border cpk:px-3",
         "cpk:bg-background/95 cpk:backdrop-blur cpk:supports-[backdrop-filter]:bg-background/80",
         className,
       )}
@@ -166,7 +169,7 @@ export namespace CopilotModalHeader {
     <div
       data-testid="copilot-header-title"
       className={cn(
-        "cpk:w-full cpk:text-base cpk:font-medium cpk:leading-none cpk:tracking-tight cpk:text-foreground",
+        "cpk:w-full cpk:truncate cpk:text-sm cpk:font-semibold cpk:leading-none cpk:text-foreground",
         className,
       )}
       {...props}
@@ -177,25 +180,26 @@ export namespace CopilotModalHeader {
 
   export const CloseButton: React.FC<
     React.ButtonHTMLAttributes<HTMLButtonElement>
-  > = ({ className, ...props }) => (
+  > = ({ className, children, ...props }) => (
     <button
       type="button"
       data-testid="copilot-close-button"
       className={cn(
-        "cpk:inline-flex cpk:size-8 cpk:items-center cpk:justify-center cpk:rounded-full cpk:text-muted-foreground cpk:transition cpk:cursor-pointer",
-        "cpk:hover:bg-muted cpk:hover:text-foreground cpk:focus-visible:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-ring",
+        "cpk:inline-flex cpk:size-8 cpk:items-center cpk:justify-center cpk:rounded-lg cpk:text-muted-foreground cpk:transition-colors cpk:cursor-pointer",
+        "cpk:hover:bg-accent cpk:hover:text-foreground cpk:focus-visible:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-ring/50",
         className,
       )}
       aria-label="Close"
       {...props}
     >
-      <X className="cpk:h-4 cpk:w-4" aria-hidden="true" />
+      {children ?? <X className="cpk:size-4" aria-hidden="true" />}
     </button>
   );
 
   /**
    * The thread-list launcher button. Rendered in the header ONLY when a
-   * `<CopilotThreadsDrawer>` wrapper has registered with the chat configuration; it
+   * `<CopilotThreadsDrawer>` wrapper has registered with the chat configuration
+   * and the drawer is an overlay (mobile, or hosted inside the modal); it
    * toggles the drawer open state. The stable `data-testid` is the focus-return
    * target for the drawer wrapper on cancel/back/backdrop/Escape.
    */
@@ -206,14 +210,14 @@ export namespace CopilotModalHeader {
       type="button"
       data-testid="copilot-threads-drawer-launcher"
       className={cn(
-        "cpk:inline-flex cpk:size-8 cpk:items-center cpk:justify-center cpk:rounded-full cpk:text-muted-foreground cpk:transition cpk:cursor-pointer",
-        "cpk:hover:bg-muted cpk:hover:text-foreground cpk:focus-visible:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-ring",
+        "cpk:inline-flex cpk:size-8 cpk:items-center cpk:justify-center cpk:rounded-lg cpk:text-muted-foreground cpk:transition-colors cpk:cursor-pointer",
+        "cpk:hover:bg-accent cpk:hover:text-foreground cpk:focus-visible:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-ring/50",
         className,
       )}
       aria-label="Open threads"
       {...props}
     >
-      <PanelLeftOpen className="cpk:h-4 cpk:w-4" aria-hidden="true" />
+      <History className="cpk:size-4" aria-hidden="true" />
     </button>
   );
 }
