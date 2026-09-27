@@ -1,7 +1,8 @@
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
-import type { Message } from "@ag-ui/core";
+import type { AssistantMessage, Message } from "@ag-ui/core";
 import { CopilotChatMessageView } from "../CopilotChatMessageView";
+import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 
@@ -65,6 +66,67 @@ describe("inline cursor", () => {
       </CopilotKitProvider>,
     );
     expect(streamingReply()).toBeNull();
+  });
+
+  it.each([
+    { name: "a custom cursor slot", props: { cursor: "custom-cursor" } },
+    {
+      name: "a custom assistant message component",
+      props: {
+        assistantMessage: ({ message }: { message: Message }) => (
+          <div>{String(message.content)}</div>
+        ),
+      },
+    },
+    {
+      name: "an assistant message children render prop",
+      props: {
+        assistantMessage: {
+          children: ({
+            markdownRenderer,
+          }: {
+            markdownRenderer: React.ReactNode;
+          }) => <div>{markdownRenderer}</div>,
+        },
+      },
+    },
+  ])("stays below the list with $name", async ({ props }) => {
+    renderView(
+      [question, reply("First step.")],
+      props as Partial<React.ComponentProps<typeof CopilotChatMessageView>>,
+    );
+    await waitFor(() =>
+      expect(screen.getByText("First step.", { exact: false })).toBeDefined(),
+    );
+    expect(streamingReply()).toBeNull();
+    expect(screen.getByTestId("copilot-loading-cursor")).toBeDefined();
+  });
+
+  it("applies a custom cursor slot to the list-level cursor", () => {
+    renderView([question, reply("First step.")], { cursor: "custom-cursor" });
+    expect(screen.getByTestId("copilot-loading-cursor").className).toContain(
+      "custom-cursor",
+    );
+  });
+
+  it("passes showCursor to the assistant message children render prop", () => {
+    const seen: Array<boolean | undefined> = [];
+    render(
+      <CopilotKitProvider>
+        <CopilotChatConfigurationProvider threadId="inline-cursor">
+          <CopilotChatAssistantMessage
+            message={reply("Writing…") as AssistantMessage}
+            showCursor
+          >
+            {({ showCursor }) => {
+              seen.push(showCursor);
+              return <div />;
+            }}
+          </CopilotChatAssistantMessage>
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+    expect(seen.at(-1)).toBe(true);
   });
 
   it("marks the end of the deepest block that holds text", async () => {

@@ -108,7 +108,10 @@ export function CopilotSidebar({
         changing `open` would mint a new component identity on every toggle and
         remount the whole chat subtree.
       */}
-      <ModalThreadsScope enabled={Boolean(threadsDrawer)}>
+      <ModalThreadsScope
+        enabled={Boolean(threadsDrawer)}
+        threadId={chatProps.threadId}
+      >
         <ModalOpenControlProvider open={open} onOpenChange={onOpenChange}>
           <SidebarThreadsDrawerContext.Provider value={threadsDrawer}>
             <CopilotChat

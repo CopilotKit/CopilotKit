@@ -152,7 +152,10 @@ export function CopilotPopup({
     <>
       {!isPopupLicensed && <InlineFeatureWarning featureName="Popup" />}
       <PopupShellPropsContext.Provider value={shellProps}>
-        <ModalThreadsScope enabled={Boolean(threadsDrawer)}>
+        <ModalThreadsScope
+          enabled={Boolean(threadsDrawer)}
+          threadId={chatProps.threadId}
+        >
           <ModalOpenControlProvider open={open} onOpenChange={onOpenChange}>
             <CopilotChat
               welcomeScreen={CopilotPopupView.WelcomeScreen}

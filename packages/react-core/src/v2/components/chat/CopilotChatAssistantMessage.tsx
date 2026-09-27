@@ -279,6 +279,7 @@ export function CopilotChatAssistantMessage({
           onRegenerate,
           additionalToolbarItems,
           toolbarVisible: shouldShowToolbar,
+          showCursor,
         })}
       </div>
     );

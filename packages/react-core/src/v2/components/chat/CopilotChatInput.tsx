@@ -91,7 +91,8 @@ type CopilotChatInputRestProps = {
    * - `"stacked"`: always text on top, actions underneath.
    *
    * In either layout, very narrow inputs (under ~320px, e.g. a small popup)
-   * fold voice input into the "+" menu so the actions fit.
+   * fold voice input into the "+" menu so the actions fit (a custom
+   * `startTranscribeButton` stays in the toolbar).
    */
   layout?: "auto" | "stacked";
   /** Keyboard height in pixels for mobile keyboard handling */
@@ -606,17 +607,19 @@ export function CopilotChatInput({
     },
   );
 
-  // Narrow inputs move voice input from the toolbar into the "+" menu.
-  const foldTranscribe = isNarrow && !!onStartTranscribe;
+  // Narrow inputs move voice input from the toolbar into the "+" menu, unless
+  // the app customized the button (it stays in the toolbar).
+  const foldTranscribe =
+    isNarrow && !!onStartTranscribe && startTranscribeButton === undefined;
   const addMenuTools = useMemo<(ToolsMenuItem | "-")[] | undefined>(() => {
-    if (!isNarrow || !onStartTranscribe) return toolsMenu;
+    if (!foldTranscribe || !onStartTranscribe) return toolsMenu;
     const transcribe: ToolsMenuItem = {
       label: labels.chatInputToolbarStartTranscribeButtonLabel,
       action: onStartTranscribe,
     };
     return toolsMenu?.length ? [transcribe, "-", ...toolsMenu] : [transcribe];
   }, [
-    isNarrow,
+    foldTranscribe,
     labels.chatInputToolbarStartTranscribeButtonLabel,
     onStartTranscribe,
     toolsMenu,
@@ -1406,6 +1409,28 @@ export namespace CopilotChatInput {
   const textAreaTypography =
     "cpk:antialiased cpk:font-regular cpk:leading-relaxed cpk:text-[16px]";
 
+  // The computed styles that place glyphs, mirrored from the textarea onto the
+  // preview so host CSS that restyles the textarea can't misalign the layers.
+  const previewMetrics = [
+    "fontFamily",
+    "fontSize",
+    "fontWeight",
+    "fontStyle",
+    "fontStretch",
+    "fontVariant",
+    "fontFeatureSettings",
+    "fontVariationSettings",
+    "letterSpacing",
+    "wordSpacing",
+    "lineHeight",
+    "paddingTop",
+    "paddingRight",
+    "paddingBottom",
+    "paddingLeft",
+    "textIndent",
+    "tabSize",
+  ] as const;
+
   export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(
     function TextArea(
       {
@@ -1442,6 +1467,25 @@ export namespace CopilotChatInput {
         [showPreview, text],
       );
 
+      useLayoutEffect(() => {
+        const textarea = internalTextareaRef.current;
+        const previewElement = previewRef.current;
+        if (!showPreview || !textarea || !previewElement) return;
+        const syncMetrics = () => {
+          const computed = getComputedStyle(textarea);
+          for (const property of previewMetrics) {
+            previewElement.style[property] = computed[property];
+          }
+        };
+        syncMetrics();
+        // Restyles from outside (a breakpoint, a late stylesheet) resize the
+        // textarea, so a resize is the cue to sync again.
+        if (typeof ResizeObserver === "undefined") return;
+        const observer = new ResizeObserver(syncMetrics);
+        observer.observe(textarea);
+        return () => observer.disconnect();
+      }, [showPreview, className, style]);
+
       return (
         <>
           {showPreview && (
@@ -1453,9 +1497,11 @@ export namespace CopilotChatInput {
               data-testid="copilot-chat-textarea-preview"
               className={twMerge(
                 textAreaTypography,
+                "cpk:text-foreground",
                 className,
-                "cpk-md-preview cpk:pointer-events-none cpk:absolute cpk:inset-0 cpk:overflow-hidden cpk:whitespace-pre-wrap cpk:break-words cpk:text-foreground",
+                "cpk-md-preview cpk:pointer-events-none cpk:absolute cpk:inset-0 cpk:overflow-hidden cpk:whitespace-pre-wrap cpk:break-words",
               )}
+              style={{ color: style?.color }}
             >
               {preview}
             </div>
@@ -1468,13 +1514,17 @@ export namespace CopilotChatInput {
               "cpk:bg-transparent cpk:outline-none cpk:text-foreground cpk:placeholder:text-muted-foreground cpk:placeholder:truncate",
               textAreaTypography,
               showPreview &&
-                "cpk:relative cpk:text-transparent cpk:caret-foreground cpk:[scrollbar-width:none] cpk:[&::-webkit-scrollbar]:hidden",
+                "cpk:relative cpk:caret-foreground cpk:[scrollbar-width:none] cpk:[&::-webkit-scrollbar]:hidden",
               className,
+              // With the preview on, it paints the text (in the app's color
+              // and background); the textarea only paints caret and selection.
+              showPreview && "cpk:bg-transparent cpk:text-transparent",
             )}
             style={{
               overflow: "auto",
               resize: "none",
               ...style,
+              ...(showPreview && { color: "transparent" }),
             }}
             rows={1}
             onScroll={(event) => {
