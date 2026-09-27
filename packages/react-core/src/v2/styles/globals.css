@@ -873,27 +873,35 @@
   }
 }
 
-/* Thin, token-colored scrollbars inside CopilotKit surfaces. */
-[data-copilotkit] ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-[data-copilotkit] ::-webkit-scrollbar-track {
-  background: transparent;
-}
-[data-copilotkit] ::-webkit-scrollbar-thumb {
-  background: color-mix(in oklab, var(--muted-foreground) 35%, transparent);
-  border-radius: 9999px;
-}
-[data-copilotkit] ::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in oklab, var(--muted-foreground) 60%, transparent);
-}
+/* Thin, token-colored scrollbars inside CopilotKit surfaces. In the base layer
+   so utilities win: the composer textarea hides its scrollbar to stay aligned
+   with the markdown preview drawn underneath it. */
+@layer base {
+  [data-copilotkit] ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  [data-copilotkit] ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  [data-copilotkit] ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--muted-foreground) 35%, transparent);
+    border-radius: 9999px;
+  }
+  [data-copilotkit] ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--muted-foreground) 60%, transparent);
+  }
 
-/* Firefox */
-[data-copilotkit] * {
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in oklab, var(--muted-foreground) 35%, transparent)
-    transparent;
+  /* Standard properties (Firefox, and Chromium when set) */
+  [data-copilotkit] * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(
+        in oklab,
+        var(--muted-foreground) 35%,
+        transparent
+      )
+      transparent;
+  }
 }
 
 /*
