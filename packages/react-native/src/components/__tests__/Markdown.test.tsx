@@ -35,7 +35,12 @@ vi.mock("react-native-streamdown", () => ({
 }));
 
 // Import after mocks
-import { CopilotMarkdown, defaultMarkdownStyles } from "../Markdown";
+import {
+  CopilotMarkdown,
+  darkMarkdownStyles,
+  defaultMarkdownStyles,
+} from "../Markdown";
+import { CopilotColorSchemeProvider } from "../theme";
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -90,14 +95,51 @@ describe("CopilotMarkdown", () => {
     expect(lastStreamdownProps.streamingAnimation).toBe(true);
   });
 
-  it("uses the dark tokens when the device is in dark mode", () => {
+  it("stays light when the device is in dark mode", () => {
     hoisted.colorScheme = "dark";
     render(<CopilotMarkdown content="test" />);
 
+    expect(lastStreamdownProps.markdownStyle).toBe(defaultMarkdownStyles);
+  });
+
+  it("uses the dark styles inside a dark color scheme", () => {
+    render(
+      <CopilotColorSchemeProvider colorScheme="dark">
+        <CopilotMarkdown content="test" />
+      </CopilotColorSchemeProvider>,
+    );
+
     const styles = lastStreamdownProps.markdownStyle;
-    expect(styles).not.toBe(defaultMarkdownStyles);
+    expect(styles).toBe(darkMarkdownStyles);
     expect(styles.paragraph.color).toBe("#fafafa");
     expect(styles.codeBlock.backgroundColor).toBe("#171717");
+  });
+
+  it("follows the device with the system color scheme", () => {
+    const tree = () => (
+      <CopilotColorSchemeProvider colorScheme="system">
+        <CopilotMarkdown content="test" />
+      </CopilotColorSchemeProvider>
+    );
+    const { rerender } = render(tree());
+    expect(lastStreamdownProps.markdownStyle).toBe(defaultMarkdownStyles);
+
+    hoisted.colorScheme = "dark";
+    rerender(tree());
+    expect(lastStreamdownProps.markdownStyle).toBe(darkMarkdownStyles);
+  });
+
+  it("merges custom styles over the dark styles", () => {
+    const style = { h1: { fontSize: 30 } };
+    render(
+      <CopilotColorSchemeProvider colorScheme="dark">
+        <CopilotMarkdown content="test" style={style} />
+      </CopilotColorSchemeProvider>,
+    );
+
+    const styles = lastStreamdownProps.markdownStyle;
+    expect(styles.h1).toEqual({ fontSize: 30 });
+    expect(styles.paragraph).toBe(darkMarkdownStyles.paragraph);
   });
 
   it("allows disabling streamingAnimation", () => {

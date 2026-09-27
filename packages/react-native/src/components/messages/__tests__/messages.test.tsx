@@ -94,9 +94,21 @@ describe("AssistantMessage", () => {
     expect(queryByTestId("copilot-markdown")).toBeNull();
   });
 
-  it("rides the cursor at the end of the text while it streams", () => {
+  it("shows the text with the typing indicator below while it streams", () => {
+    const { getByTestId, getByLabelText } = render(
+      <AssistantMessage content="Hello" isLoading />,
+    );
+    expect(getByTestId("copilot-markdown").textContent).toBe("Hello");
+    expect(getByLabelText("Typing indicator")).toBeTruthy();
+  });
+
+  it("rides the cursor at the end of the text with inlineCursor", () => {
     const { getByTestId, queryByLabelText } = render(
-      <AssistantMessage content={"Hello\n\n- first\n- sec"} isLoading />,
+      <AssistantMessage
+        content={"Hello\n\n- first\n- sec"}
+        isLoading
+        inlineCursor
+      />,
     );
     expect(getByTestId("copilot-markdown").textContent).toBe(
       "Hello\n\n- first\n- sec\u00A0●",
@@ -107,14 +119,16 @@ describe("AssistantMessage", () => {
   it("keeps the cursor below a reply that ends in a code block", () => {
     const content = "Here:\n\n```ts\nconst a = 1;";
     const { getByTestId, getByLabelText } = render(
-      <AssistantMessage content={content} isLoading />,
+      <AssistantMessage content={content} isLoading inlineCursor />,
     );
     expect(getByTestId("copilot-markdown").textContent).toBe(content);
     expect(getByLabelText("Typing indicator")).toBeTruthy();
   });
 
   it("drops the cursor once the reply is complete", () => {
-    const { getByTestId } = render(<AssistantMessage content="Done." />);
+    const { getByTestId } = render(
+      <AssistantMessage content="Done." inlineCursor />,
+    );
     expect(getByTestId("copilot-markdown").textContent).toBe("Done.");
   });
 
