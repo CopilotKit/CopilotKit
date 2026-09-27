@@ -1,0 +1,90 @@
+---
+title: Product trajectories
+nav_title: Product trajectories
+description: Capture meaningful actions in your React app and use them as evidence for Automatic Learning.
+icon: "lucide/MousePointerClick"
+doc_type: how-to
+frontend: hide
+earlyAccess: product-trajectories
+---
+
+Product trajectories are in early access. They add meaningful actions from your application to the evidence that CopilotKit Intelligence uses for Automatic Learning, including actions taken before a user starts a conversation.
+
+## Add capture to your app
+
+Start with a React app connected to Intelligence and an existing Learning container. The [Automatic Learning guide](/learning#create-a-learning-container) covers creating a container and reviewing the Skills it proposes.
+
+Your existing `CopilotKitProvider` handles capture and delivery. Add one `learning` prop to choose the container; individual event handlers and a separate capture provider are unnecessary.
+
+```tsx title="Your existing app provider"
+"use client";
+
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+
+export function AppProviders({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      learning={{ learningContainerId: "expense-review" }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
+```
+
+Replace `expense-review` with your container ID and keep your existing Runtime URL. Capture starts automatically when the Runtime reports that Intelligence is connected. The `CopilotKit` compatibility provider accepts the same `learning` prop.
+
+Capture uses a product-only session by default. To associate actions with a particular chat thread, add that thread's ID as `learning.threadId`. Keep the container assignment stable for the session.
+
+## Check what is captured
+
+Click a button, change a control, or submit a form in your app. In your browser's Network panel, look for requests to your Runtime's `/annotate` endpoint with `type: "user_action"`. These actions can become evidence in the container you selected, without starting an agent run.
+
+| Signal                     | Captured information                                                                         |
+| -------------------------- | -------------------------------------------------------------------------------------------- |
+| User action                | Click, committed change, or submission; timestamp; element role and filtered explicit label. |
+| Associated service request | `fetch` or XHR method, configured API prefix, status, duration, and outcome.                 |
+| Immediate DOM change       | Bounded counts of added or removed elements and changed accessibility attributes.            |
+
+Requests default to your app's same-origin `/api` routes. To focus on a specific service, add `apiUrlPrefixes: ["/api/expenses"]` inside `learning`. Use an absolute prefix for a service on another origin. Recorded URLs contain only the matching configured prefix; dynamic path segments, query strings, and fragments are omitted. Keep personal data out of configured prefixes.
+
+Capture requires browser-trusted actions. Synthetic DOM events and background polling outside an action do not produce trajectories. Browser automation that generates trusted events can still be captured. Request correlation covers the immediate interaction scope; delayed or debounced requests can be missed, and correlation is a heuristic rather than proof of causation.
+
+## Exclude private areas
+
+Mark a control or its surrounding section with `data-private` to exclude it and its descendants:
+
+```html
+<section data-private>
+  <label>Billing email <input type="email" /></label>
+</section>
+```
+
+Capture never reads keystrokes, field values, DOM text, or request and response bodies. Password, email, telephone, hidden, and sensitive autocomplete fields are excluded automatically. Explicit `aria-label` or `title` values pass basic filtering before capture; set `captureAccessibleNames: false` inside `learning` to omit them. Filtered control `name` and `data-learning-id` identifiers can still be recorded, so keep personal data out of those attributes. Mark application-specific sensitive areas yourself: this filtering does not guarantee anonymization.
+
+The default cap is 120 events per minute and five requests per action. Set `learning={false}` on your provider to stop automatic capture. To receive delivery errors, add an `onError` callback inside `learning`.
+
+## Preview capture without delivery
+
+For a local evaluation, the standalone package can send events to your own callback. This example starts capture when the component mounts and cleans up when it unmounts:
+
+```tsx title="Standalone capture preview"
+"use client";
+
+import { useEffect } from "react";
+import { startProductInteractionCapture } from "@copilotkit/learning";
+
+export function CapturePreview() {
+  useEffect(() => {
+    return startProductInteractionCapture({
+      onEvent: (event) => console.log(event),
+    });
+  }, []);
+
+  return null;
+}
+```
+
+Mount this component in an app without automatic capture, or set `learning={false}` on its existing provider while evaluating. The callback receives filtered events; the standalone package does not send them to Intelligence.

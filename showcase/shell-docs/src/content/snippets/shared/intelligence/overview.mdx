@@ -10,7 +10,11 @@ Connect an existing app in the [quickstart](/intelligence/quickstart).
 
 <IntelligenceFeatureCards />
 
-Automatic Learning can also use product trajectories: meaningful user interactions and associated service requests, captured alongside agent activity. Configure capture and its Learning container in the Automatic Learning guide above.
+<FrontendOnly frontend="react">
+  [Product trajectories](/intelligence/product-trajectories) bring meaningful user
+  interactions and associated service requests into Automatic Learning alongside
+  agent activity. Apply for early access from the setup page.
+</FrontendOnly>
 
 ## Already have LangGraph threads or ADK sessions?
 
@@ -28,23 +32,23 @@ Import copies history; it does not establish ongoing database replication. Futur
 Cloud-hosted and self-hosted use the same app APIs, so you can start on one and move later.
 
 <div className="intelligence-accent-cards">
-<CTACards
-  columns={2}
-  cards={[
-    {
-      iconKey: "cloud",
-      title: "Cloud-hosted",
-      description:
-        "CopilotKit runs Intelligence for you. Create a project, get a key, and manage your plan in the web app.",
-      href: "/intelligence/managed-intelligence-platform",
-    },
-    {
-      iconKey: "server",
-      title: "Self-hosted",
-      description:
-        "Run Intelligence in your own Kubernetes cluster or AWS account with the Helm chart or the ECS bundle.",
-      href: "/intelligence/self-hosting",
-    },
-  ]}
-/>
+  <CTACards
+    columns={2}
+    cards={[
+      {
+        iconKey: "cloud",
+        title: "Cloud-hosted",
+        description:
+          "CopilotKit runs Intelligence for you. Create a project, get a key, and manage your plan in the web app.",
+        href: "/intelligence/managed-intelligence-platform",
+      },
+      {
+        iconKey: "server",
+        title: "Self-hosted",
+        description:
+          "Run Intelligence in your own Kubernetes cluster or AWS account with the Helm chart or the ECS bundle.",
+        href: "/intelligence/self-hosting",
+      },
+    ]}
+  />
 </div>

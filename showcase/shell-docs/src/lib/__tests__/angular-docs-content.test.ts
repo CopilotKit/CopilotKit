@@ -13,6 +13,7 @@ import {
 } from "../docs-render";
 import type { NavNode } from "../docs-render";
 import { getFrontendCanonicalSlug } from "../frontend-page-content";
+import { getFrontendDocPolicy } from "../frontend-doc-policy";
 import { renderPageToLlmText } from "../llm-text";
 import {
   getDocsFolder,
@@ -231,7 +232,7 @@ function findAngularLinkLeaks(
   return [...new Set(leaks)];
 }
 
-test("maps every React navigation destination to a published Angular destination", () => {
+test("maps applicable React navigation destinations to Angular and excludes hidden pages", () => {
   const backends = [
     null,
     ...getIntegrations()
@@ -251,6 +252,13 @@ test("maps every React navigation destination to a published Angular destination
 
     for (const reactSlug of pageSlugs(getReactNavTree(backendFramework))) {
       const angularSlug = getCanonicalAngularSlug(backendFramework, reactSlug);
+      if (getFrontendDocPolicy(reactSlug)?.kind === "hide") {
+        expect(
+          angularSlugs.has(angularSlug),
+          `${backendFramework ?? "root"}: hidden page ${reactSlug}`,
+        ).toBe(false);
+        continue;
+      }
       expect(
         angularSlugs.has(angularSlug),
         `${backendFramework ?? "root"}: ${reactSlug} -> ${angularSlug}`,

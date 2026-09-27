@@ -116,6 +116,22 @@ non-React frontend docs:
 Do not use "showcase-driven" as a proxy for frontend availability. Showcase derivation is an
 authoring/source detail; frontend applicability controls routing and sidebar inclusion.
 
+### Early-access pages
+
+Set `earlyAccess: <id>` in page frontmatter and register its copy, access code,
+and application URL in `src/lib/early-access.ts`. The existing gate displays an
+application button immediately and remembers a valid code in localStorage.
+
+This is a visual gate, not organization authorization: page bodies, raw Markdown,
+search, and LLM exports remain public, and the shared code ships in the client.
+Use it only for preview content that can be public. Confidential pages need server
+authorization across those surfaces.
+
+Product trajectories uses `earlyAccess: product-trajectories`. Its application
+URL, `https://go.copilotkit.ai/product-trajectories-early-access`, is provisional;
+register its destination before launch. Removing the frontmatter flag makes the
+guide public without changing its content.
+
 ## Top-Level Docs Symlink
 
 The repository's top-level `docs/` path is a symlink to `showcase/shell-docs/` for

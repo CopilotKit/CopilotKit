@@ -115,15 +115,25 @@ describe("generated Channels search index", () => {
     );
   });
 
-  it("removes early-access guidance at the generator source and output", () => {
+  it("removes early-access guidance from released Channels search records", () => {
     const generatorSource = fs.readFileSync(generatorPath, "utf8");
-    const serializedIndexes = [
-      fs.readFileSync(docsIndexPath, "utf8"),
-      fs.readFileSync(shellIndexPath, "utf8"),
-    ].join("\n");
+    const channelEntries = [docsIndexPath, shellIndexPath].flatMap(
+      (indexPath) => {
+        const index: typeof searchIndex = JSON.parse(
+          fs.readFileSync(indexPath, "utf8"),
+        );
+        return index.filter(
+          (entry) =>
+            /^\/(?:slack|teams)(?:\/|$)/.test(entry.href) ||
+            /^\/docs\/(?:intelligence\/)?channels(?:\/|$)/.test(entry.href) ||
+            entry.section === "Channels",
+        );
+      },
+    );
 
     expect(generatorSource).not.toMatch(/about early access/i);
-    expect(serializedIndexes).not.toMatch(/early access/i);
+    expect(channelEntries.length).toBeGreaterThan(0);
+    expect(JSON.stringify(channelEntries)).not.toMatch(/early access/i);
     expect(generatorSource).toContain('{ id: "slack", name: "Slack" }');
     expect(generatorSource).toContain(
       '{ id: "teams", name: "Microsoft Teams" }',
