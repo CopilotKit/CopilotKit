@@ -1205,7 +1205,7 @@ export function CopilotChat({
               bottom: "100px",
               left: "50%",
               transform: "translateX(-50%)",
-              backgroundColor: "#ef4444",
+              backgroundColor: "var(--destructive, #ef4444)",
               color: "white",
               padding: "8px 16px",
               borderRadius: "8px",

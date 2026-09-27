@@ -18,7 +18,7 @@ export function CopilotChatToolCallsView({
   }
 
   return (
-    <>
+    <div data-copilotkit style={{ display: "contents" }}>
       {message.toolCalls.map((toolCall) => {
         const toolMessage = messages.find(
           (m) => m.role === "tool" && m.toolCallId === toolCall.id,
@@ -33,7 +33,7 @@ export function CopilotChatToolCallsView({
           </React.Fragment>
         );
       })}
-    </>
+    </div>
   );
 }
 

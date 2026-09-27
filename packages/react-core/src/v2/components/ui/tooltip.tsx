@@ -52,7 +52,7 @@ function TooltipContent({
         data-slot="tooltip-content"
         sideOffset={sideOffset}
         className={cn(
-          "cpk:bg-primary cpk:text-primary-foreground cpk:animate-in cpk:fade-in-0 cpk:zoom-in-95 cpk:data-[state=closed]:animate-out cpk:data-[state=closed]:fade-out-0 cpk:data-[state=closed]:zoom-out-95 cpk:data-[side=bottom]:slide-in-from-top-2 cpk:data-[side=left]:slide-in-from-right-2 cpk:data-[side=right]:slide-in-from-left-2 cpk:data-[side=top]:slide-in-from-bottom-2 cpk:z-50 cpk:w-fit cpk:origin-(--radix-tooltip-content-transform-origin) cpk:rounded-md cpk:px-3 cpk:py-1.5 cpk:text-xs cpk:text-balance",
+          "cpk:bg-primary cpk:text-primary-foreground cpk:animate-in cpk:fade-in-0 cpk:zoom-in-95 cpk:data-[state=closed]:animate-out cpk:data-[state=closed]:fade-out-0 cpk:data-[state=closed]:zoom-out-95 cpk:data-[side=bottom]:slide-in-from-top-2 cpk:data-[side=left]:slide-in-from-right-2 cpk:data-[side=right]:slide-in-from-left-2 cpk:data-[side=top]:slide-in-from-bottom-2 cpk:z-50 cpk:w-fit cpk:origin-(--radix-tooltip-content-transform-origin) cpk:rounded-lg cpk:px-2.5 cpk:py-1 cpk:text-xs cpk:font-medium cpk:text-balance",
           className,
         )}
         {...props}
