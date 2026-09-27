@@ -35,6 +35,7 @@ import {
 } from "../../components/ui/dropdown-menu";
 
 import { CopilotChatAudioRecorder } from "./CopilotChatAudioRecorder";
+import { highlightMarkdownInput } from "./markdown-input-highlight";
 import type { WithSlots } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
 import { cn } from "../../lib/utils";
@@ -81,6 +82,18 @@ type CopilotChatInputRestProps = {
   onChange?: (value: string) => void;
   /** Positioning mode for the input container. Default: 'static' */
   positioning?: "static" | "absolute";
+  /**
+   * How the text and the action buttons are arranged.
+   *
+   * - `"auto"` (default): a single row while the text fits on one line, so
+   *   the input stays short. Once the text wraps it moves onto its own
+   *   full-width row above the actions.
+   * - `"stacked"`: always text on top, actions underneath.
+   *
+   * In either layout, very narrow inputs (under ~320px, e.g. a small popup)
+   * fold voice input into the "+" menu so the actions fit.
+   */
+  layout?: "auto" | "stacked";
   /** Keyboard height in pixels for mobile keyboard handling */
   keyboardHeight?: number;
   /** Ref for the outer positioning container */
@@ -124,6 +137,10 @@ export type CopilotChatInputProps = Omit<
 
 const SLASH_MENU_MAX_VISIBLE_ITEMS = 5;
 const SLASH_MENU_ITEM_HEIGHT_PX = 40;
+/** Inputs narrower than this (px) fold voice input into the "+" menu. */
+const NARROW_INPUT_WIDTH = 320;
+/** The input grows to this many lines of text, then scrolls. */
+const MAX_VISIBLE_LINES = 8;
 
 export function CopilotChatInput({
   mode = "input",
@@ -140,6 +157,7 @@ export function CopilotChatInput({
   toolsMenu,
   autoFocus = false,
   positioning = "static",
+  layout: layoutPreference = "auto",
   keyboardHeight = 0,
   containerRef,
   showDisclaimer,
@@ -168,6 +186,7 @@ export function CopilotChatInput({
   const resolvedValue = isControlled ? (value ?? "") : internalValue;
 
   const [layout, setLayout] = useState<"compact" | "expanded">("compact");
+  const [isNarrow, setIsNarrow] = useState(false);
   const ignoreResizeRef = useRef(false);
   const resizeEvaluationRafRef = useRef<number | null>(null);
   const isExpanded = mode === "input" && layout === "expanded";
@@ -508,8 +527,8 @@ export function CopilotChatInput({
     },
     autoFocus: autoFocus,
     className: twMerge(
-      "cpk:w-full cpk:py-3",
-      isExpanded ? "cpk:px-5" : "cpk:pr-5",
+      "cpk:w-full",
+      isExpanded ? "cpk:px-3 cpk:pt-1.5 cpk:pb-1" : "cpk:pr-3 cpk:py-2",
     ),
   });
 
@@ -542,7 +561,7 @@ export function CopilotChatInput({
     disabled: isProcessing ? !canStop : !canSend,
     children:
       isProcessing && canStop ? (
-        <Square className="cpk:size-[18px] cpk:fill-current" />
+        <Square className="cpk:size-3.5 cpk:fill-current" />
       ) : undefined,
   });
 
@@ -587,13 +606,29 @@ export function CopilotChatInput({
     },
   );
 
+  // Narrow inputs move voice input from the toolbar into the "+" menu.
+  const foldTranscribe = isNarrow && !!onStartTranscribe;
+  const addMenuTools = useMemo<(ToolsMenuItem | "-")[] | undefined>(() => {
+    if (!isNarrow || !onStartTranscribe) return toolsMenu;
+    const transcribe: ToolsMenuItem = {
+      label: labels.chatInputToolbarStartTranscribeButtonLabel,
+      action: onStartTranscribe,
+    };
+    return toolsMenu?.length ? [transcribe, "-", ...toolsMenu] : [transcribe];
+  }, [
+    isNarrow,
+    labels.chatInputToolbarStartTranscribeButtonLabel,
+    onStartTranscribe,
+    toolsMenu,
+  ]);
+
   const BoundAddMenuButton = renderSlot(
     addMenuButton,
     CopilotChatInput.AddMenuButton,
     {
       disabled: mode === "transcribe",
       onAddFile,
-      toolsMenu,
+      toolsMenu: addMenuTools,
     },
   );
 
@@ -663,7 +698,6 @@ export function CopilotChatInput({
       return;
     }
 
-    const previousValue = textarea.value;
     const previousHeight = textarea.style.height;
 
     textarea.style.height = "auto";
@@ -674,12 +708,18 @@ export function CopilotChatInput({
     const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
     const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
 
+    // An empty textarea's scroll height is exactly one line.
+    const previousValue = textarea.value;
+    const previousPlaceholder = textarea.placeholder;
     textarea.value = "";
+    textarea.placeholder = "";
     const singleLineHeight = textarea.scrollHeight;
     textarea.value = previousValue;
+    textarea.placeholder = previousPlaceholder;
 
     const contentHeight = singleLineHeight - paddingTop - paddingBottom;
-    const maxHeight = contentHeight * 5 + paddingTop + paddingBottom;
+    const maxHeight =
+      contentHeight * MAX_VISIBLE_LINES + paddingTop + paddingBottom;
 
     measurementsRef.current = {
       singleLineHeight,
@@ -764,24 +804,22 @@ export function CopilotChatInput({
       return;
     }
 
-    if (
-      typeof window !== "undefined" &&
-      typeof window.matchMedia === "function"
-    ) {
-      const isMobileViewport = window.matchMedia("(max-width: 767px)").matches;
-      if (isMobileViewport) {
-        adjustTextareaHeight();
-        updateLayout("expanded");
-        return;
-      }
-    }
-
     const textarea = inputRef.current;
     const grid = gridRef.current;
     const addContainer = addButtonContainerRef.current;
     const actionsContainer = actionsContainerRef.current;
 
     if (!textarea || !grid || !addContainer || !actionsContainer) {
+      return;
+    }
+
+    // Sized by the input's own width (not the viewport), so a narrow popup
+    // or sidebar on a wide screen adapts the same way a phone does.
+    setIsNarrow(grid.clientWidth > 0 && grid.clientWidth < NARROW_INPUT_WIDTH);
+
+    if (layoutPreference === "stacked") {
+      adjustTextareaHeight();
+      updateLayout("expanded");
       return;
     }
 
@@ -872,6 +910,7 @@ export function CopilotChatInput({
   }, [
     adjustTextareaHeight,
     ensureMeasurements,
+    layoutPreference,
     mode,
     resolvedValue,
     updateContainerCache,
@@ -881,6 +920,12 @@ export function CopilotChatInput({
   useLayoutEffect(() => {
     evaluateLayout();
   }, [evaluateLayout]);
+
+  // Switching layouts changes the textarea's width, so its line count (and
+  // height) can change too.
+  useLayoutEffect(() => {
+    adjustTextareaHeight();
+  }, [layout, adjustTextareaHeight]);
 
   useEffect(() => {
     if (typeof ResizeObserver === "undefined") {
@@ -980,7 +1025,7 @@ export function CopilotChatInput({
       role="listbox"
       aria-label="Slash commands"
       ref={slashMenuRef}
-      className="cpk:absolute cpk:bottom-full cpk:left-0 cpk:right-0 cpk:z-30 cpk:mb-2 cpk:max-h-64 cpk:overflow-y-auto cpk:rounded-lg cpk:border cpk:border-border cpk:bg-white cpk:shadow-lg cpk:dark:border-[#3a3a3a] cpk:dark:bg-[#1f1f1f]"
+      className="cpk:absolute cpk:bottom-full cpk:left-0 cpk:right-0 cpk:z-30 cpk:mb-2 cpk:max-h-64 cpk:overflow-y-auto cpk:rounded-2xl cpk:border cpk:border-border cpk:bg-popover cpk:p-1 cpk:text-popover-foreground cpk:shadow-lg"
       style={{
         maxHeight: `${SLASH_MENU_MAX_VISIBLE_ITEMS * SLASH_MENU_ITEM_HEIGHT_PX}px`,
       }}
@@ -1001,11 +1046,9 @@ export function CopilotChatInput({
               data-active={isActive ? "true" : undefined}
               data-slash-index={index}
               className={twMerge(
-                "cpk:w-full cpk:px-3 cpk:py-2 cpk:text-left cpk:text-sm cpk:transition-colors",
-                "cpk:hover:bg-muted cpk:dark:hover:bg-[#2f2f2f]",
-                isActive
-                  ? "cpk:bg-muted cpk:dark:bg-[#2f2f2f]"
-                  : "cpk:bg-transparent",
+                "cpk:w-full cpk:rounded-xl cpk:px-3 cpk:py-2.5 cpk:text-left cpk:text-sm cpk:transition-colors",
+                "cpk:hover:bg-accent",
+                isActive ? "cpk:bg-accent" : "cpk:bg-transparent",
               )}
               onMouseEnter={() => setSlashHighlightIndex(index)}
               onMouseDown={(event) => {
@@ -1034,10 +1077,12 @@ export function CopilotChatInput({
         "cpk:cursor-text",
         // Overflow and clipping
         "cpk:overflow-visible cpk:bg-clip-padding cpk:contain-inline-size",
-        // Background
-        "cpk:bg-white cpk:dark:bg-[#303030]",
-        // Visual effects
-        "cpk:shadow-[0_4px_4px_0_#0000000a,0_0_1px_0_#0000009e] cpk:rounded-[28px]",
+        // Surface
+        "cpk:rounded-3xl cpk:border cpk:border-input cpk:bg-card",
+        "cpk:shadow-[0_1px_2px_0_rgb(0_0_0/0.04),0_6px_20px_-8px_rgb(0_0_0/0.10)]",
+        // Focus: the border firms up rather than drawing a ring around the pill
+        "cpk:transition-[border-color,box-shadow] cpk:duration-200",
+        "cpk:focus-within:border-foreground/20",
       )}
       onClick={handleContainerClick}
       data-layout={isExpanded ? "expanded" : "compact"}
@@ -1045,7 +1090,8 @@ export function CopilotChatInput({
       <div
         ref={gridRef}
         className={twMerge(
-          "cpk:grid cpk:w-full cpk:gap-x-3 cpk:gap-y-3 cpk:px-3 cpk:py-2",
+          "cpk:grid cpk:w-full cpk:gap-x-2 cpk:px-2.5",
+          isExpanded ? "cpk:py-1.5" : "cpk:py-2",
           isExpanded
             ? "cpk:grid-cols-[auto_minmax(0,1fr)_auto] cpk:grid-rows-[auto_auto]"
             : "cpk:grid-cols-[auto_minmax(0,1fr)_auto] cpk:items-center",
@@ -1056,7 +1102,11 @@ export function CopilotChatInput({
           ref={addButtonContainerRef}
           className={twMerge(
             "cpk:flex cpk:items-center",
-            isExpanded ? "cpk:row-start-2" : "cpk:row-start-1",
+            // Stacked, the action row uses slightly smaller buttons to keep
+            // the input short.
+            isExpanded
+              ? "cpk:row-start-2 cpk:[&_button]:size-8"
+              : "cpk:row-start-1",
             "cpk:col-start-1",
           )}
         >
@@ -1064,17 +1114,17 @@ export function CopilotChatInput({
         </div>
         <div
           className={twMerge(
-            "cpk:relative cpk:flex cpk:min-w-0 cpk:flex-col cpk:min-h-[50px] cpk:justify-center",
+            "cpk:relative cpk:flex cpk:min-w-0 cpk:flex-col cpk:min-h-10 cpk:justify-center",
             isExpanded
-              ? "cpk:col-span-3 cpk:row-start-1"
+              ? "cpk:col-span-3 cpk:row-start-1 cpk:min-h-0"
               : "cpk:col-start-2 cpk:row-start-1",
           )}
         >
           {mode === "transcribe" ? (
             BoundAudioRecorder
           ) : mode === "processing" ? (
-            <div className="cpk:flex cpk:w-full cpk:items-center cpk:justify-center cpk:py-3 cpk:px-5">
-              <Loader2 className="cpk:size-[26px] cpk:animate-spin cpk:text-muted-foreground" />
+            <div className="cpk:flex cpk:w-full cpk:items-center cpk:justify-center cpk:py-2 cpk:px-3">
+              <Loader2 className="cpk:size-5 cpk:animate-spin cpk:text-muted-foreground" />
             </div>
           ) : (
             <>
@@ -1086,9 +1136,9 @@ export function CopilotChatInput({
         <div
           ref={actionsContainerRef}
           className={twMerge(
-            "cpk:flex cpk:items-center cpk:justify-end cpk:gap-2",
+            "cpk:flex cpk:items-center cpk:justify-end cpk:gap-1",
             isExpanded
-              ? "cpk:col-start-3 cpk:row-start-2"
+              ? "cpk:col-start-3 cpk:row-start-2 cpk:[&_button]:size-8"
               : "cpk:col-start-3 cpk:row-start-1",
           )}
         >
@@ -1099,7 +1149,9 @@ export function CopilotChatInput({
             </>
           ) : (
             <>
-              {onStartTranscribe && BoundStartTranscribeButton}
+              {onStartTranscribe &&
+                !foldTranscribe &&
+                BoundStartTranscribeButton}
               {BoundSendButton}
             </>
           )}
@@ -1146,7 +1198,7 @@ export namespace CopilotChatInput {
   export const SendButton: React.FC<
     React.ButtonHTMLAttributes<HTMLButtonElement>
   > = ({ className, children, ...props }) => (
-    <div className="cpk:mr-[10px]">
+    <div>
       <Button
         type="button"
         data-testid="copilot-send-button"
@@ -1155,7 +1207,7 @@ export namespace CopilotChatInput {
         className={className}
         {...props}
       >
-        {children ?? <ArrowUp className="cpk:size-[18px]" />}
+        {children ?? <ArrowUp className="cpk:size-[18px]" strokeWidth={2.25} />}
       </Button>
     </div>
   );
@@ -1196,7 +1248,6 @@ export namespace CopilotChatInput {
       data-testid="copilot-start-transcribe-button"
       icon={<Mic className="cpk:size-[18px]" />}
       labelKey="chatInputToolbarStartTranscribeButtonLabel"
-      defaultClassName="cpk:mr-2"
       {...props}
     />
   );
@@ -1208,7 +1259,6 @@ export namespace CopilotChatInput {
       data-testid="copilot-cancel-transcribe-button"
       icon={<X className="cpk:size-[18px]" />}
       labelKey="chatInputToolbarCancelTranscribeButtonLabel"
-      defaultClassName="cpk:mr-2"
       {...props}
     />
   );
@@ -1220,7 +1270,6 @@ export namespace CopilotChatInput {
       data-testid="copilot-finish-transcribe-button"
       icon={<Check className="cpk:size-[18px]" />}
       labelKey="chatInputToolbarFinishTranscribeButtonLabel"
-      defaultClassName="cpk:mr-[10px]"
       {...props}
     />
   );
@@ -1308,7 +1357,7 @@ export namespace CopilotChatInput {
         data-testid="copilot-add-menu-button"
         variant="chatInputToolbarSecondary"
         size="chatInputToolbarIcon"
-        className={twMerge("cpk:ml-1", className)}
+        className={className}
         disabled={isDisabled}
         {...props}
       >
@@ -1328,9 +1377,9 @@ export namespace CopilotChatInput {
           <TooltipContent side="bottom">
             <p className="cpk:flex cpk:items-center cpk:gap-1 cpk:text-xs cpk:font-medium">
               <span>{labels.chatInputToolbarAddButtonLabel}</span>
-              <code className="cpk:rounded cpk:bg-[#4a4a4a] cpk:px-1 cpk:py-[1px] cpk:font-mono cpk:text-[11px] cpk:text-white cpk:dark:bg-[#e0e0e0] cpk:dark:text-black">
+              <kbd className="cpk:rounded cpk:bg-primary-foreground/15 cpk:px-1 cpk:py-px cpk:font-mono cpk:text-[11px]">
                 /
-              </code>
+              </kbd>
             </p>
           </TooltipContent>
         </Tooltip>
@@ -1343,14 +1392,35 @@ export namespace CopilotChatInput {
     );
   };
 
-  export type TextAreaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement>;
+  export type TextAreaProps =
+    React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
+      /**
+       * Style list markers and links as the user types. Defaults to `true`;
+       * set `false` for plain text.
+       */
+      highlightMarkdown?: boolean;
+    };
+
+  // Shared by the textarea and its markdown preview layer so both lay out the
+  // text identically.
+  const textAreaTypography =
+    "cpk:antialiased cpk:font-regular cpk:leading-relaxed cpk:text-[16px]";
 
   export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(
     function TextArea(
-      { style, className, autoFocus, placeholder, ...props },
+      {
+        style,
+        className,
+        autoFocus,
+        placeholder,
+        highlightMarkdown = true,
+        onScroll,
+        ...props
+      },
       ref,
     ) {
       const internalTextareaRef = useRef<HTMLTextAreaElement>(null);
+      const previewRef = useRef<HTMLDivElement>(null);
       const config = useCopilotChatConfiguration();
       const labels = config?.labels ?? CopilotChatDefaultLabels;
 
@@ -1365,23 +1435,57 @@ export namespace CopilotChatInput {
         }
       }, [autoFocus]);
 
+      const text = typeof props.value === "string" ? props.value : undefined;
+      const showPreview = highlightMarkdown && text !== undefined;
+      const preview = useMemo(
+        () => (showPreview && text ? highlightMarkdownInput(text) : null),
+        [showPreview, text],
+      );
+
       return (
-        <textarea
-          ref={internalTextareaRef}
-          data-testid="copilot-chat-textarea"
-          placeholder={placeholder ?? labels.chatInputPlaceholder}
-          className={twMerge(
-            "cpk:bg-transparent cpk:outline-none cpk:antialiased cpk:font-regular cpk:leading-relaxed cpk:text-[16px] cpk:placeholder:text-[#00000077] cpk:dark:placeholder:text-[#fffc]",
-            className,
+        <>
+          {showPreview && (
+            // The textarea's own text is transparent; this layer underneath
+            // draws the same characters with markdown styling.
+            <div
+              ref={previewRef}
+              aria-hidden="true"
+              data-testid="copilot-chat-textarea-preview"
+              className={twMerge(
+                textAreaTypography,
+                className,
+                "cpk-md-preview cpk:pointer-events-none cpk:absolute cpk:inset-0 cpk:overflow-hidden cpk:whitespace-pre-wrap cpk:break-words cpk:text-foreground",
+              )}
+            >
+              {preview}
+            </div>
           )}
-          style={{
-            overflow: "auto",
-            resize: "none",
-            ...style,
-          }}
-          rows={1}
-          {...props}
-        />
+          <textarea
+            ref={internalTextareaRef}
+            data-testid="copilot-chat-textarea"
+            placeholder={placeholder ?? labels.chatInputPlaceholder}
+            className={twMerge(
+              "cpk:bg-transparent cpk:outline-none cpk:text-foreground cpk:placeholder:text-muted-foreground cpk:placeholder:truncate",
+              textAreaTypography,
+              showPreview &&
+                "cpk:relative cpk:text-transparent cpk:caret-foreground cpk:[scrollbar-width:none] cpk:[&::-webkit-scrollbar]:hidden",
+              className,
+            )}
+            style={{
+              overflow: "auto",
+              resize: "none",
+              ...style,
+            }}
+            rows={1}
+            onScroll={(event) => {
+              if (previewRef.current) {
+                previewRef.current.scrollTop = event.currentTarget.scrollTop;
+              }
+              onScroll?.(event);
+            }}
+            {...props}
+          />
+        </>
       );
     },
   );

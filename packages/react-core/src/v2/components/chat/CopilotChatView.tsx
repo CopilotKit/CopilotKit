@@ -116,6 +116,12 @@ export type CopilotChatViewProps = WithSlots<
      * className string, a props object, or a replacement component.
      */
     intelligenceIndicator?: SlotValue<typeof IntelligenceIndicatorView>;
+    /**
+     * Ease the welcome screen in: the greeting, suggestion cards and input
+     * rise into place in sequence. Defaults to `true`; set `false` to show
+     * them immediately. Always off when the user prefers reduced motion.
+     */
+    introAnimation?: boolean;
   } & Omit<React.HTMLAttributes<HTMLDivElement>, "inputMode">
 >;
 
@@ -173,6 +179,7 @@ export function CopilotChatView({
   disclaimer,
   // Pass-through to CopilotChatMessageView's intelligenceIndicator slot
   intelligenceIndicator,
+  introAnimation = true,
   children,
   className,
   ...props
@@ -284,13 +291,14 @@ export function CopilotChatView({
     !isRunning &&
     Array.isArray(suggestions) &&
     suggestions.length > 0;
+  const suggestionViewProps = {
+    suggestions,
+    loadingIndexes: suggestionLoadingIndexes,
+    onSelectSuggestion,
+  };
+  // In a conversation, suggestions sit in a scrollable bar docked above the input.
   const BoundSuggestionView = hasSuggestions
-    ? renderSlot(suggestionView, CopilotChatSuggestionView, {
-        suggestions,
-        loadingIndexes: suggestionLoadingIndexes,
-        onSelectSuggestion,
-        className: "cpk:mb-3 cpk:lg:ml-4 cpk:lg:mr-4 cpk:ml-0 cpk:mr-0",
-      })
+    ? renderSlot(suggestionView, CopilotChatSuggestionView, suggestionViewProps)
     : null;
 
   const BoundScrollView = renderSlot(scrollView, CopilotChatView.ScrollView, {
@@ -301,17 +309,10 @@ export function CopilotChatView({
       <div
         data-testid="copilot-scroll-content"
         style={{
-          paddingBottom: `${inputContainerHeight + (hasSuggestions ? 4 : 32)}px`,
+          paddingBottom: `${inputContainerHeight + 32}px`,
         }}
       >
-        <div className="cpk:max-w-3xl cpk:mx-auto">
-          {BoundMessageView}
-          {hasSuggestions ? (
-            <div className="cpk:pl-0 cpk:pr-4 cpk:@3xl:px-0 cpk:mt-4">
-              {BoundSuggestionView}
-            </div>
-          ) : null}
-        </div>
+        <div className="cpk:max-w-3xl cpk:mx-auto">{BoundMessageView}</div>
       </div>
     ),
   });
@@ -365,12 +366,22 @@ export function CopilotChatView({
       </div>
     );
 
+    // On the welcome screen, suggestions are cards under the greeting.
+    const BoundWelcomeSuggestionView = hasSuggestions ? (
+      renderSlot(suggestionView, CopilotChatSuggestionView, {
+        ...suggestionViewProps,
+        appearance: "cards",
+      })
+    ) : (
+      <></>
+    );
+
     const BoundWelcomeScreen = renderSlot(
       welcomeScreenSlot,
       CopilotChatView.WelcomeScreen,
       {
         input: inputWithAttachments,
-        suggestionView: BoundSuggestionView ?? <></>,
+        suggestionView: BoundWelcomeSuggestionView,
       },
     );
 
@@ -379,6 +390,7 @@ export function CopilotChatView({
         data-copilotkit
         data-testid="copilot-chat"
         data-copilot-running={isRunning ? "true" : "false"}
+        data-intro={introAnimation ? "" : undefined}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
         onDrop={onDrop}
@@ -412,6 +424,7 @@ export function CopilotChatView({
       data-copilotkit
       data-testid="copilot-chat"
       data-copilot-running={isRunning ? "true" : "false"}
+      data-intro={introAnimation ? "" : undefined}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
@@ -429,6 +442,17 @@ export function CopilotChatView({
         data-testid="copilot-input-overlay"
         className="cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20 cpk:pointer-events-none"
       >
+        {/* Messages fade out above the input and are fully hidden by the
+            time they reach it, including the disclaimer area below. */}
+        <div
+          aria-hidden="true"
+          className="cpk:pointer-events-none cpk:absolute cpk:inset-x-0 cpk:-top-6 cpk:bottom-0 cpk:-z-10 cpk:bg-[linear-gradient(to_bottom,transparent,var(--background)_1.5rem)]"
+        />
+        {BoundSuggestionView && (
+          <div className="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:mb-1.5 cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-4 cpk:pointer-events-auto">
+            {BoundSuggestionView}
+          </div>
+        )}
         {attachments && attachments.length > 0 && (
           <div className="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:pointer-events-auto">
             <CopilotChatAttachmentQueue
@@ -827,16 +851,16 @@ export namespace CopilotChatView {
       variant="outline"
       size="sm"
       className={twMerge(
-        "cpk:rounded-full cpk:w-10 cpk:h-10 cpk:p-0 cpk:pointer-events-auto",
-        "cpk:bg-white cpk:dark:bg-gray-900",
-        "cpk:shadow-lg cpk:border cpk:border-gray-200 cpk:dark:border-gray-700",
-        "cpk:hover:bg-gray-50 cpk:dark:hover:bg-gray-800",
+        "cpk:rounded-full cpk:size-9 cpk:p-0 cpk:pointer-events-auto",
+        "cpk:border cpk:border-border cpk:bg-background cpk:text-foreground",
+        "cpk:shadow-[0_2px_8px_-2px_rgb(0_0_0/0.12)]",
+        "cpk:hover:bg-accent cpk:dark:bg-card cpk:dark:hover:bg-accent",
         "cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer",
         className,
       )}
       {...props}
     >
-      <ChevronDown className="cpk:w-4 cpk:h-4 cpk:text-gray-600 cpk:dark:text-white" />
+      <ChevronDown className="cpk:size-4" />
     </Button>
   );
 
@@ -858,7 +882,7 @@ export namespace CopilotChatView {
     return (
       <h1
         className={cn(
-          "cpk:text-xl cpk:sm:text-2xl cpk:font-medium cpk:text-foreground cpk:text-center",
+          "cpk:text-2xl cpk:@2xl:text-[1.75rem] cpk:font-semibold cpk:tracking-tight cpk:text-foreground cpk:text-center cpk:text-balance",
           className,
         )}
         {...props}
@@ -908,14 +932,19 @@ export namespace CopilotChatView {
       >
         <div className="cpk:w-full cpk:max-w-3xl cpk:flex cpk:flex-col cpk:items-center">
           {/* Welcome message */}
-          <div className="cpk:mb-6">{BoundWelcomeMessage}</div>
+          <div className="cpk-intro cpk:mb-5">{BoundWelcomeMessage}</div>
+
+          {/* Suggestions, centered under the greeting */}
+          <div className="cpk-intro-stagger cpk:mb-5 cpk:flex cpk:w-full cpk:justify-center cpk:empty:hidden">
+            {suggestionView}
+          </div>
 
           {/* Input */}
-          <div className="cpk:w-full">{input}</div>
-
-          {/* Suggestions */}
-          <div className="cpk:mt-4 cpk:flex cpk:justify-center">
-            {suggestionView}
+          <div
+            className="cpk-intro cpk:w-full"
+            style={{ "--cpk-intro-delay": "180ms" } as React.CSSProperties}
+          >
+            {input}
           </div>
         </div>
       </div>
