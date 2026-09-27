@@ -20,7 +20,6 @@
         "headless-threads",
         "threads-lifecycle",
         "threads-import",
-        "threads-self-managed",
         "intelligence/threads-explained"
       ]
     },
@@ -67,6 +66,7 @@
     "intelligence/plans",
     "intelligence/self-hosting",
     "intelligence/self-hosting-ecs",
+    "intelligence/self-hosting-observability",
     "---Deploy---",
     "...deploy",
     "---Other---",

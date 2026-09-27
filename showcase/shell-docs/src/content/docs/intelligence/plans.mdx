@@ -4,11 +4,12 @@ nav_title: Plans
 description: Start free on Developer and move up when your team or your traffic needs it.
 icon: "lucide/CreditCard"
 doc_type: how-to
+hidePageActions: true
 ---
 
 ## Overview
 
-Every organization starts on **Developer**, which is free and includes Rich Threads, User Memory, Automatic Learning, and Product Analytics. Move up when your team or your traffic needs it.
+Every organization starts on **Developer**, which is free and includes Rich Threads, User Memory, and Automatic Learning, plus a limited trial of Product Analytics. Full Product Analytics is part of Enterprise. Move up when your team or your traffic needs it.
 
 <Image
   src="/images/cloud-hosted/cloud-hosted-plans.png"
@@ -18,16 +19,32 @@ Every organization starts on **Developer**, which is free and includes Rich Thre
   className="my-8 w-full rounded-xl border border-[var(--border)]"
 />
 
-Developer is one seat. Move to **Pro** when you are building it out, **Team** when the whole team is in, and **Enterprise** when your agents run at scale or must run in your own infrastructure.
+<Cards>
+  <Card
+    title="Start on Developer"
+    href="https://intelligence.copilotkit.ai/"
+    description="Sign in, create a project, and connect your app. No card required."
+    icon={<Rocket aria-hidden="true" />}
+  />
+  <Card
+    title="View pricing"
+    href="https://dashboard.operations.copilotkit.ai/pricing"
+    description="Compare plans and see current prices and usage limits."
+    icon={<CircleDollarSign aria-hidden="true" />}
+  />
+</Cards>
 
-<OpsPlatformCTA
-  variant="inline"
-  title="Start on Developer"
-  body="Sign in, create a project, and connect your app in about five minutes. No card, no trial clock."
-  ctaLabel="Start cloud-hosted setup"
-  surface="docs_intelligence_plans"
-/>
-
-Prices and the full comparison are on the <DocsTrackedLink href="https://dashboard.operations.copilotkit.ai/pricing" surface="docs_intelligence_plans_pricing">pricing page</DocsTrackedLink>.
-
-Some capabilities appear as **early access** on the plan page. Those follow the early-access program and can change before general availability. Compare cloud-hosted and self-hosted deployments on the [architecture page](/intelligence/intelligence-platform).
+<Accordions>
+  <Accordion title="What is included in the Developer plan?">
+    Developer includes one seat, Rich Threads, User Memory, and Automatic Learning. It also includes a limited trial of Product Analytics. Usage limits apply on the free plan.
+  </Accordion>
+  <Accordion title="When should I move to a paid plan?">
+    Move to **Pro** as you build out your app, **Team** when the whole team needs access, and **Enterprise** when your agents run at scale or must run in your own infrastructure. See [pricing](https://dashboard.operations.copilotkit.ai/pricing) for current plan details.
+  </Accordion>
+  <Accordion title="Is Product Analytics included in Developer?">
+    Developer includes a limited trial of Product Analytics. Full Product Analytics is part of Enterprise.
+  </Accordion>
+  <Accordion title="What does early access mean?">
+    Early access capabilities follow the early-access program and can change before general availability. Compare cloud-hosted and self-hosted deployments on the [architecture page](/intelligence/intelligence-platform).
+  </Accordion>
+</Accordions>

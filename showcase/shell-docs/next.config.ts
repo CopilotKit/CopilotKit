@@ -102,6 +102,46 @@ const OPEN_JSON_UI_RETIREMENT_REDIRECTS: PermanentRedirect[] = [
   ),
 ];
 
+// The self-managed thread persistence page is retired. Send every previously
+// published HTML and raw-doc URL to the Rich Threads overview in one hop
+// (Angular to its native threads guide, matching ANGULAR_DOC_REDIRECTS).
+const ANGULAR_THREADS_GUIDE = "guides/threads-memory-attachments-headless";
+
+const THREADS_SELF_MANAGED_RETIREMENT_REDIRECTS: PermanentRedirect[] = [
+  ...permanentRedirectsWithSuffixes("/threads-self-managed", "/threads"),
+  ...permanentRedirectsWithSuffixes(
+    "/built-in-agent/threads-self-managed",
+    "/threads",
+  ),
+  ...permanentRedirectsWithSuffixes("/react/threads-self-managed", "/threads"),
+  ...permanentRedirectsWithSuffixes(
+    "/react/:framework/threads-self-managed",
+    "/:framework/threads",
+  ),
+  ...permanentRedirectsWithSuffixes(
+    "/angular/threads-self-managed",
+    `/angular/${ANGULAR_THREADS_GUIDE}`,
+  ),
+  ...permanentRedirectsWithSuffixes(
+    "/angular/:framework/threads-self-managed",
+    `/angular/:framework/${ANGULAR_THREADS_GUIDE}`,
+  ),
+  ...NON_REACT_DOCS_FRONTENDS.flatMap((frontend) => [
+    ...permanentRedirectsWithSuffixes(
+      `/${frontend}/threads-self-managed`,
+      `/${frontend}/threads`,
+    ),
+    ...permanentRedirectsWithSuffixes(
+      `/${frontend}/:framework/threads-self-managed`,
+      `/${frontend}/:framework/threads`,
+    ),
+  ]),
+  ...permanentRedirectsWithSuffixes(
+    "/:framework/threads-self-managed",
+    "/:framework/threads",
+  ),
+];
+
 function channelChildRedirects(
   legacySlug: string,
   canonicalSlug: string,
@@ -519,6 +559,9 @@ const nextConfig: NextConfig = {
       // Open-JSON-UI is retired. Keep every previously published HTML and
       // raw-doc URL on a one-hop path to the matching A2UI landing page.
       ...OPEN_JSON_UI_RETIREMENT_REDIRECTS,
+      // Self-managed thread persistence is retired; its URLs land on the
+      // Rich Threads overview.
+      ...THREADS_SELF_MANAGED_RETIREMENT_REDIRECTS,
       // OSS-615: legacy global, scoped, generated-reference, and Bots URLs
       // resolve directly to the canonical Slack/Teams guide trees.
       ...CHANNEL_REDIRECTS,

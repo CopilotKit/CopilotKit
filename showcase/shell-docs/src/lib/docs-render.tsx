@@ -858,6 +858,7 @@ function sidebarTopicGroup(
   title: string,
   slug: string,
   source: NavNode | NavNode[] | null,
+  defaultOpen = false,
 ): Extract<NavNode, { type: "group" }> | null {
   if (!source) return null;
   const children = Array.isArray(source)
@@ -866,7 +867,7 @@ function sidebarTopicGroup(
       ? source.children
       : [source];
   if (children.length === 0) return null;
-  return { type: "group", title, slug, children, defaultOpen: false };
+  return { type: "group", title, slug, children, defaultOpen };
 }
 
 function withoutRouteGroupSlug(slug: string): string {
@@ -1293,6 +1294,7 @@ export function normalizeSidebarNav(
           intelligenceAnalytics,
           intelligenceChannels,
         ].filter((node): node is NavNode => node !== null),
+        true,
       ),
       sidebarTopicGroup(
         "Hosting",
@@ -2300,6 +2302,11 @@ export interface DocFrontmatter {
   hideTOC?: boolean;
   hideHeader?: boolean;
   hidePageActions?: boolean;
+  /**
+   * Page-specific prompt for the page-tools "Copy prompt" action. When set,
+   * the action copies this text instead of the generic onboarding prompt.
+   */
+  agentPrompt?: string;
   frontend?: unknown;
   /**
    * Early-access gate id (see `src/lib/early-access.ts`). When set,
@@ -2499,6 +2506,10 @@ export function loadDoc(
   const hideTOC = data.hideTOC === true;
   const hideHeader = data.hideHeader === true;
   const hidePageActions = data.hidePageActions === true;
+  const agentPrompt =
+    typeof data.agentPrompt === "string" && data.agentPrompt.trim()
+      ? data.agentPrompt.trim()
+      : undefined;
   const frontend = data.frontend;
   const earlyAccess =
     typeof data.earlyAccess === "string" ? data.earlyAccess : undefined;
@@ -2516,6 +2527,7 @@ export function loadDoc(
       hideTOC,
       hideHeader,
       hidePageActions,
+      agentPrompt,
       frontend,
       earlyAccess,
     },

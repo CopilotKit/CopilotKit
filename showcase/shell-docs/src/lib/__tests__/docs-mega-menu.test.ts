@@ -39,7 +39,7 @@ describe("docs mega menu data", () => {
       ["User Memories", "/intelligence/memories"],
       ["Inspector", "/inspector"],
       ["Deploy", "/deploy/agentcore"],
-      ["Self-hosting", "/intelligence/self-hosting"],
+      ["Self-Hosting", "/intelligence/self-hosting"],
     ]);
   });
 });

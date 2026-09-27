@@ -37,5 +37,8 @@ export function shouldAdjustMessageScroll(
   // scrollTop by its entire size delta makes the visible text jump.
   // Wholly hidden rows shift every following message, including while
   // scrolling backward into newly measured overscan rows.
-  return item.end <= (instance.scrollOffset ?? 0);
+  const scrollAdjustments =
+    (instance as unknown as { scrollAdjustments?: number }).scrollAdjustments ??
+    0;
+  return item.end <= (instance.scrollOffset ?? 0) + scrollAdjustments;
 }
