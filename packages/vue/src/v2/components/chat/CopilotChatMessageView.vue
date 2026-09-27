@@ -56,10 +56,17 @@ const props = withDefaults(
   defineProps<{
     messages?: Message[];
     isRunning?: boolean;
+    /**
+     * While a reply streams, show the cursor at the end of its text, as if it
+     * were being typed. Defaults to `true`; set `false` to keep the cursor
+     * below the messages.
+     */
+    inlineCursor?: boolean;
   }>(),
   {
     messages: () => [],
     isRunning: false,
+    inlineCursor: true,
   },
 );
 
@@ -71,6 +78,8 @@ defineSlots<{
     message: AssistantMessage;
     messages: Message[];
     isRunning: boolean;
+    /** True on the streaming reply that carries the inline cursor. */
+    showCursor: boolean;
   }) => unknown;
   "user-message"?: (props: { message: UserMessage }) => unknown;
   "reasoning-message"?: (props: {
@@ -209,8 +218,22 @@ watch(
   { flush: "post" },
 );
 const lastMessage = computed(() => props.messages[props.messages.length - 1]);
+// A streaming reply with text carries the cursor at the end of that text;
+// otherwise (waiting for the reply, running a tool) it sits below the list.
+const cursorMessageId = computed(() => {
+  const last = lastMessage.value;
+  return props.inlineCursor &&
+    props.isRunning &&
+    last?.role === "assistant" &&
+    last.content
+    ? last.id
+    : undefined;
+});
 const showCursor = computed(
-  () => props.isRunning && lastMessage.value?.role !== "reasoning",
+  () =>
+    props.isRunning &&
+    lastMessage.value?.role !== "reasoning" &&
+    !cursorMessageId.value,
 );
 
 watch(
@@ -394,11 +417,13 @@ function resolveToolMessage(
         :message="message"
         :messages="messages"
         :is-running="isRunning"
+        :show-cursor="message.id === cursorMessageId"
       >
         <CopilotChatAssistantMessage
           :message="message"
           :messages="messages"
           :is-running="isRunning"
+          :show-cursor="message.id === cursorMessageId"
         >
           <template
             v-for="slotName in forwardedSlotNames"
@@ -495,7 +520,7 @@ function resolveToolMessage(
 
     <slot v-if="showCursor" name="cursor">
       <div
-        class="cpk:w-[11px] cpk:h-[11px] cpk:rounded-full cpk:bg-foreground cpk:animate-pulse cpk:ml-1"
+        class="cpk:w-[11px] cpk:h-[11px] cpk:rounded-full cpk:bg-foreground cpk:animate-pulse-cursor cpk:ml-1"
         data-testid="copilot-loading-cursor"
       />
     </slot>

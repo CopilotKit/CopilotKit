@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/vue";
 import type { Attachment } from "@copilotkit/shared";
 import CopilotChatAttachmentQueue from "../CopilotChatAttachmentQueue.vue";
@@ -273,5 +273,92 @@ describe("CopilotChatAttachmentQueue", () => {
       getByTestId("copilot-chat-attachment-uploading-overlay"),
     ).not.toBeNull();
     expect(getAllByTestId("copilot-chat-attachment-item").length).toBe(2);
+  });
+
+  it("audio card renders a play chip with filename and size instead of a native player", async () => {
+    const play = vi
+      .spyOn(HTMLMediaElement.prototype, "play")
+      .mockImplementation(function (this: HTMLMediaElement) {
+        this.dispatchEvent(new Event("play"));
+        return Promise.resolve();
+      });
+    const pause = vi
+      .spyOn(HTMLMediaElement.prototype, "pause")
+      .mockImplementation(function (this: HTMLMediaElement) {
+        this.dispatchEvent(new Event("pause"));
+      });
+    const pausedDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLMediaElement.prototype,
+      "paused",
+    );
+    Object.defineProperty(HTMLMediaElement.prototype, "paused", {
+      configurable: true,
+      get() {
+        return !(this as HTMLMediaElement & { __playing?: boolean }).__playing;
+      },
+    });
+
+    try {
+      const { getByTestId, getByLabelText, container } = render(
+        CopilotChatAttachmentQueue,
+        {
+          props: {
+            attachments: [
+              createAttachment({
+                id: "audio-1",
+                type: "audio",
+                filename: "voice-memo.wav",
+                size: 2048,
+                status: "ready",
+                source: {
+                  type: "url",
+                  value: "https://example.com/voice-memo.wav",
+                  mimeType: "audio/wav",
+                },
+              }),
+            ],
+          },
+        },
+      );
+
+      expect(container.querySelector("audio[controls]")).toBeNull();
+      expect(
+        getByTestId("copilot-chat-attachment-audio-filename").textContent,
+      ).toContain("voice-memo.wav");
+      expect(
+        getByTestId("copilot-chat-attachment-audio-meta").textContent,
+      ).toContain("2");
+
+      const audio = getByTestId(
+        "copilot-chat-attachment-audio-element",
+      ) as HTMLAudioElement & { __playing?: boolean };
+      Object.defineProperty(audio, "duration", {
+        configurable: true,
+        value: 65,
+      });
+      await fireEvent(audio, new Event("loadedmetadata"));
+      expect(
+        getByTestId("copilot-chat-attachment-audio-meta").textContent,
+      ).toContain("1:05");
+
+      await fireEvent.click(getByLabelText("Play audio"));
+      expect(play).toHaveBeenCalledTimes(1);
+      audio.__playing = true;
+      expect(getByLabelText("Pause audio")).not.toBeNull();
+
+      await fireEvent.click(getByLabelText("Pause audio"));
+      expect(pause).toHaveBeenCalledTimes(1);
+      expect(getByLabelText("Play audio")).not.toBeNull();
+    } finally {
+      play.mockRestore();
+      pause.mockRestore();
+      if (pausedDescriptor) {
+        Object.defineProperty(
+          HTMLMediaElement.prototype,
+          "paused",
+          pausedDescriptor,
+        );
+      }
+    }
   });
 });

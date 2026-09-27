@@ -21,6 +21,7 @@ import {
   IconX,
 } from "../icons";
 import CopilotChatAudioRecorder from "./CopilotChatAudioRecorder.vue";
+import { highlightMarkdownInput } from "./markdown-input-highlight";
 import type { CopilotChatAudioRecorderRef } from "./audioRecorder";
 import type { CopilotChatInputMode, ToolsMenuItem } from "./types";
 
@@ -51,7 +52,20 @@ const props = withDefaults(
     positioning?: "static" | "absolute";
     keyboardHeight?: number;
     showDisclaimer?: boolean;
+    /** The input grows to this many lines of text, then scrolls. */
     maxRows?: number;
+    /**
+     * How the text and the action buttons are arranged.
+     *
+     * - `"auto"` (default): a single row while the text fits on one line, so
+     *   the input stays short. Once the text wraps it moves onto its own
+     *   full-width row above the actions.
+     * - `"stacked"`: always text on top, actions underneath.
+     *
+     * In either layout, very narrow inputs (under ~320px, e.g. a small popup)
+     * fold voice input into the "+" menu so the actions fit.
+     */
+    layout?: "auto" | "stacked";
     /**
      * Set to `true` when the input sits at the bottom of its container as a
      * flex-last-child (visible position is driven by layout, not CSS
@@ -66,6 +80,11 @@ const props = withDefaults(
      * push the input off-center.
      */
     bottomAnchored?: boolean;
+    /**
+     * Show lightweight markdown styling (lists, links, code, emphasis) as the
+     * user types. Defaults to `true`; set `false` for plain text.
+     */
+    highlightMarkdown?: boolean;
     onSubmitMessage?: (value: string) => void;
     onStop?: () => void;
     onAddFile?: () => void;
@@ -84,8 +103,10 @@ const props = withDefaults(
     positioning: "static",
     keyboardHeight: 0,
     showDisclaimer: undefined,
-    maxRows: 5,
+    maxRows: 8,
+    layout: "auto",
     bottomAnchored: false,
+    highlightMarkdown: true,
   },
 );
 
@@ -104,6 +125,19 @@ const attrs = useAttrs();
 const config = useCopilotChatConfiguration();
 const shellRef = ref<HTMLElement | null>(null);
 const textareaRef = ref<HTMLTextAreaElement | null>(null);
+const previewRef = ref<HTMLElement | null>(null);
+
+/** Renders the composer text with markdown styling for the preview layer. */
+const MarkdownInputPreview = (previewProps: { text: string }) =>
+  previewProps.text ? highlightMarkdownInput(previewProps.text) : null;
+
+function syncPreviewScroll(event: Event) {
+  if (previewRef.value) {
+    previewRef.value.scrollTop = (
+      event.target as HTMLTextAreaElement
+    ).scrollTop;
+  }
+}
 const gridRef = ref<HTMLElement | null>(null);
 const addButtonContainerRef = ref<HTMLElement | null>(null);
 const actionsContainerRef = ref<HTMLElement | null>(null);
@@ -112,7 +146,21 @@ const addMenuRef = ref<HTMLElement | null>(null);
 const audioRecorderRef = ref<CopilotChatAudioRecorderRef | null>(null);
 const localValue = ref(props.modelValue ?? "");
 const isComposing = ref(false);
-const layout = ref<"compact" | "expanded">("compact");
+// Shared by the textarea and its markdown preview layer so both lay out the
+// text identically.
+const textAreaClass = computed(() => [
+  "cpk:w-full cpk:text-[16px] cpk:font-normal cpk:leading-6 cpk:antialiased",
+  isExpanded.value ? "cpk:px-3 cpk:pt-1.5 cpk:pb-1" : "cpk:pr-3 cpk:py-2",
+]);
+
+// Secondary toolbar buttons ("+", voice input and its cancel/finish).
+const toolbarSecondaryClass =
+  "cpk:inline-flex cpk:size-9 cpk:shrink-0 cpk:items-center cpk:justify-center cpk:rounded-full cpk:cursor-pointer cpk:bg-transparent cpk:text-muted-foreground cpk:transition-colors cpk:hover:bg-accent cpk:hover:text-foreground cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50 cpk:disabled:hover:bg-transparent";
+
+/** Inputs narrower than this (px) fold voice input into the "+" menu. */
+const NARROW_INPUT_WIDTH = 320;
+const resolvedLayout = ref<"compact" | "expanded">("compact");
+const isNarrow = ref(false);
 const commandQuery = ref<string | null>(null);
 const slashHighlightIndex = ref(0);
 const previousCommandQuery = ref<string | null>(null);
@@ -143,7 +191,7 @@ const resolvedPlaceholder = computed(
   () => props.placeholder ?? labels.value.chatInputPlaceholder,
 );
 const isExpanded = computed(
-  () => props.mode === "input" && layout.value === "expanded",
+  () => props.mode === "input" && resolvedLayout.value === "expanded",
 );
 const isProcessing = computed(
   () => props.mode !== "transcribe" && props.isRunning,
@@ -206,19 +254,19 @@ function createDefaultAddItem(): ToolsMenuItem | null {
   };
 }
 
-function normalizeMenuItems() {
+function normalizeMenuItems(tools: MenuEntry[]) {
   const items: MenuEntry[] = [];
   const addItem = createDefaultAddItem();
   if (addItem) {
     items.push(addItem);
   }
 
-  if (props.toolsMenu.length > 0) {
+  if (tools.length > 0) {
     if (items.length > 0) {
       items.push("-");
     }
 
-    for (const menuEntry of props.toolsMenu) {
+    for (const menuEntry of tools) {
       if (menuEntry === "-") {
         if (items.length === 0 || items[items.length - 1] === "-") {
           continue;
@@ -238,8 +286,25 @@ function normalizeMenuItems() {
   return items;
 }
 
-const menuItems = computed(() => normalizeMenuItems());
-const hasMenuItems = computed(() => menuItems.value.length > 0);
+const menuItems = computed(() => normalizeMenuItems(props.toolsMenu));
+
+// Narrow inputs move voice input from the toolbar into the "+" menu.
+const foldTranscribe = computed(
+  () => isNarrow.value && hasStartTranscribeAction.value,
+);
+const addMenuItems = computed(() => {
+  if (!foldTranscribe.value) return menuItems.value;
+  const transcribe: ToolsMenuItem = {
+    label: labels.value.chatInputToolbarStartTranscribeButtonLabel,
+    action: () => emit("start-transcribe"),
+  };
+  return normalizeMenuItems(
+    props.toolsMenu.length > 0
+      ? [transcribe, "-", ...props.toolsMenu]
+      : [transcribe],
+  );
+});
+const hasMenuItems = computed(() => addMenuItems.value.length > 0);
 
 function flattenMenuForCommands(items: MenuEntry[]) {
   const seen = new Set<string>();
@@ -302,7 +367,7 @@ function flattenMenuDisplay(items: MenuEntry[], depth = 0, prefix = "root") {
   return entries;
 }
 
-const menuDisplayItems = computed(() => flattenMenuDisplay(menuItems.value));
+const menuDisplayItems = computed(() => flattenMenuDisplay(addMenuItems.value));
 
 const filteredCommands = computed(() => {
   if (commandQuery.value === null || commandItems.value.length === 0) {
@@ -534,9 +599,13 @@ function ensureMeasurements() {
   const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
   const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
 
+  // An empty textarea's scroll height is exactly one line.
+  const previousPlaceholder = textarea.placeholder;
   textarea.value = "";
+  textarea.placeholder = "";
   const singleLineHeight = textarea.scrollHeight;
   textarea.value = previousValue;
+  textarea.placeholder = previousPlaceholder;
 
   const contentHeight = singleLineHeight - paddingTop - paddingBottom;
   const maxHeight = contentHeight * props.maxRows + paddingTop + paddingBottom;
@@ -574,11 +643,11 @@ function adjustTextareaHeight() {
 }
 
 function updateLayout(nextLayout: "compact" | "expanded") {
-  if (layout.value === nextLayout) {
+  if (resolvedLayout.value === nextLayout) {
     return;
   }
   ignoreResizeRef.value = true;
-  layout.value = nextLayout;
+  resolvedLayout.value = nextLayout;
 }
 
 function resolveTextareaFont(textarea: HTMLTextAreaElement): string | null {
@@ -648,23 +717,25 @@ function evaluateLayout() {
     return;
   }
 
-  if (
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(max-width: 767px)").matches
-  ) {
-    ensureMeasurements();
-    adjustTextareaHeight();
-    updateLayout("expanded");
-    return;
-  }
-
   const textarea = textareaRef.value;
+  const grid = gridRef.value;
   if (
     !textarea ||
-    !gridRef.value ||
+    !grid ||
     !addButtonContainerRef.value ||
     !actionsContainerRef.value
   ) {
+    return;
+  }
+
+  // Sized by the input's own width (not the viewport), so a narrow popup or
+  // sidebar on a wide screen adapts the same way a phone does.
+  isNarrow.value =
+    grid.clientWidth > 0 && grid.clientWidth < NARROW_INPUT_WIDTH;
+
+  if (props.layout === "stacked") {
+    adjustTextareaHeight();
+    updateLayout("expanded");
     return;
   }
 
@@ -766,6 +837,18 @@ watch(inputValue, (value) => {
   evaluateLayout();
 });
 
+// Switching layouts changes the textarea's width, so its line count (and
+// height) can change too.
+watch(resolvedLayout, async () => {
+  await nextTick();
+  adjustTextareaHeight();
+});
+
+watch(
+  () => props.layout,
+  () => evaluateLayout(),
+);
+
 watch(commandItems, () => {
   if (commandItems.value.length === 0) {
     commandQuery.value = null;
@@ -813,7 +896,7 @@ watch(
   () => props.mode,
   async (mode) => {
     if (mode !== "input") {
-      layout.value = "compact";
+      resolvedLayout.value = "compact";
       commandQuery.value = null;
       closeAddMenu();
     }
@@ -986,14 +1069,24 @@ onBeforeUnmount(() => {
         <div
           ref="shellRef"
           data-testid="copilot-chat-input-shell"
-          class="cpk:flex cpk:w-full cpk:cursor-text cpk:flex-col cpk:items-center cpk:justify-center cpk:overflow-visible cpk:rounded-[28px] cpk:bg-white cpk:bg-clip-padding cpk:shadow-[0_4px_4px_0_#0000000a,0_0_1px_0_#0000009e] cpk:contain-inline-size cpk:dark:bg-[#303030]"
+          :class="[
+            'cpk:flex cpk:w-full cpk:cursor-text cpk:flex-col cpk:items-center cpk:justify-center',
+            'cpk:overflow-visible cpk:bg-clip-padding cpk:contain-inline-size',
+            // Surface
+            'cpk:rounded-3xl cpk:border cpk:border-input cpk:bg-card',
+            'cpk:shadow-[0_1px_2px_0_rgb(0_0_0/0.04),0_6px_20px_-8px_rgb(0_0_0/0.10)]',
+            // Focus: the border firms up rather than drawing a ring around the pill
+            'cpk:transition-[border-color,box-shadow] cpk:duration-200',
+            'cpk:focus-within:border-foreground/20',
+          ]"
           :data-layout="isExpanded ? 'expanded' : 'compact'"
           @click="handleContainerClick"
         >
           <div
             ref="gridRef"
             :class="[
-              'cpk:grid cpk:w-full cpk:gap-x-3 cpk:gap-y-3 cpk:px-3 cpk:py-2',
+              'cpk:grid cpk:w-full cpk:gap-x-2 cpk:px-2.5',
+              isExpanded ? 'cpk:py-1.5' : 'cpk:py-2',
               isExpanded
                 ? 'cpk:grid-cols-[auto_minmax(0,1fr)_auto] cpk:grid-rows-[auto_auto]'
                 : 'cpk:grid-cols-[auto_minmax(0,1fr)_auto] cpk:items-center',
@@ -1004,7 +1097,11 @@ onBeforeUnmount(() => {
               ref="addButtonContainerRef"
               :class="[
                 'cpk:relative cpk:flex cpk:items-center cpk:col-start-1',
-                isExpanded ? 'cpk:row-start-2' : 'cpk:row-start-1',
+                // Stacked, the action row uses slightly smaller buttons to
+                // keep the input short.
+                isExpanded
+                  ? 'cpk:row-start-2 cpk:[&_button]:size-8'
+                  : 'cpk:row-start-1',
               ]"
             >
               <slot
@@ -1019,7 +1116,7 @@ onBeforeUnmount(() => {
                   data-testid="copilot-chat-input-add"
                   :aria-label="labels.chatInputToolbarAddButtonLabel"
                   :disabled="disabled || mode === 'transcribe' || !hasMenuItems"
-                  class="cpk:ml-1 cpk:inline-flex cpk:h-9 cpk:w-9 cpk:shrink-0 cpk:items-center cpk:justify-center cpk:rounded-full cpk:bg-transparent cpk:text-[#444444] cpk:transition-colors cpk:hover:bg-[#f8f8f8] cpk:hover:text-[#333333] cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50 cpk:disabled:hover:bg-transparent cpk:disabled:hover:text-[#444444] cpk:dark:text-white cpk:dark:hover:bg-[#404040] cpk:dark:hover:text-[#FFFFFF] cpk:dark:disabled:hover:bg-transparent cpk:dark:disabled:hover:text-[#CCCCCC]"
+                  :class="toolbarSecondaryClass"
                   @click.stop="toggleAddMenu"
                 >
                   <IconPlus class="cpk:size-[20px]" />
@@ -1029,18 +1126,18 @@ onBeforeUnmount(() => {
               <div
                 v-if="addMenuOpen && hasMenuItems"
                 ref="addMenuRef"
-                class="cpk:absolute cpk:bottom-full cpk:left-0 cpk:z-30 cpk:mb-2 cpk:min-w-[220px] cpk:overflow-hidden cpk:rounded-lg cpk:border cpk:border-border cpk:bg-white cpk:shadow-lg cpk:dark:border-[#3a3a3a] cpk:dark:bg-[#1f1f1f]"
+                class="cpk:absolute cpk:bottom-full cpk:left-0 cpk:z-30 cpk:mb-2 cpk:min-w-[220px] cpk:overflow-hidden cpk:rounded-xl cpk:border cpk:border-border cpk:bg-popover cpk:p-1 cpk:text-popover-foreground cpk:shadow-lg"
                 data-testid="copilot-chat-input-add-menu"
               >
                 <template v-for="entry in menuDisplayItems" :key="entry.key">
                   <div
                     v-if="entry.type === 'separator'"
-                    class="cpk:my-1 cpk:h-px cpk:bg-border cpk:dark:bg-[#333333]"
+                    class="cpk:-mx-1 cpk:my-1 cpk:h-px cpk:bg-border"
                   />
                   <div
                     v-else-if="entry.type === 'label'"
-                    class="cpk:flex cpk:items-center cpk:gap-1 cpk:px-3 cpk:py-1.5 cpk:text-xs cpk:font-semibold cpk:text-muted-foreground"
-                    :style="{ paddingLeft: `${12 + entry.depth * 12}px` }"
+                    class="cpk:flex cpk:items-center cpk:gap-1 cpk:px-2.5 cpk:py-1.5 cpk:text-xs cpk:font-semibold cpk:text-muted-foreground"
+                    :style="{ paddingLeft: `${10 + entry.depth * 12}px` }"
                   >
                     <span>{{ entry.label }}</span>
                     <IconChevronRight class="cpk:size-3" />
@@ -1049,8 +1146,8 @@ onBeforeUnmount(() => {
                     v-else
                     type="button"
                     role="menuitem"
-                    class="cpk:w-full cpk:px-3 cpk:py-2 cpk:text-left cpk:text-sm cpk:transition-colors cpk:hover:bg-muted cpk:dark:hover:bg-[#2f2f2f]"
-                    :style="{ paddingLeft: `${12 + entry.depth * 12}px` }"
+                    class="cpk:w-full cpk:cursor-pointer cpk:rounded-lg cpk:px-2.5 cpk:py-1.5 cpk:text-left cpk:text-sm cpk:transition-colors cpk:hover:bg-accent"
+                    :style="{ paddingLeft: `${10 + entry.depth * 12}px` }"
                     @click="handleMenuAction(entry.action)"
                   >
                     {{ entry.label }}
@@ -1061,9 +1158,9 @@ onBeforeUnmount(() => {
 
             <div
               :class="[
-                'cpk:relative cpk:flex cpk:min-h-[50px] cpk:min-w-0 cpk:flex-col cpk:justify-center',
+                'cpk:relative cpk:flex cpk:min-h-10 cpk:min-w-0 cpk:flex-col cpk:justify-center',
                 isExpanded
-                  ? 'cpk:col-span-3 cpk:row-start-1'
+                  ? 'cpk:col-span-3 cpk:row-start-1 cpk:min-h-0'
                   : 'cpk:col-start-2 cpk:row-start-1',
               ]"
             >
@@ -1074,10 +1171,10 @@ onBeforeUnmount(() => {
               </template>
               <template v-else-if="mode === 'processing'">
                 <div
-                  class="cpk:flex cpk:w-full cpk:items-center cpk:justify-center cpk:px-5 cpk:py-3"
+                  class="cpk:flex cpk:w-full cpk:items-center cpk:justify-center cpk:px-3 cpk:py-2"
                 >
                   <IconLoader2
-                    class="cpk:size-[26px] cpk:animate-spin cpk:text-muted-foreground"
+                    class="cpk:size-5 cpk:animate-spin cpk:text-muted-foreground"
                   />
                 </div>
               </template>
@@ -1094,6 +1191,23 @@ onBeforeUnmount(() => {
                   :rows="1"
                   :labels="labels"
                 >
+                  <!--
+                    The textarea's own text is transparent; this layer
+                    underneath draws the same characters with markdown styling.
+                    Same typography and padding as the textarea so they align.
+                  -->
+                  <div
+                    v-if="highlightMarkdown"
+                    ref="previewRef"
+                    aria-hidden="true"
+                    data-testid="copilot-chat-input-textarea-preview"
+                    :class="[
+                      textAreaClass,
+                      'cpk-md-preview cpk:pointer-events-none cpk:absolute cpk:inset-0 cpk:overflow-hidden cpk:whitespace-pre-wrap cpk:break-words cpk:text-foreground',
+                    ]"
+                  >
+                    <MarkdownInputPreview :text="inputValue" />
+                  </div>
                   <textarea
                     ref="textareaRef"
                     data-testid="copilot-chat-input-textarea"
@@ -1102,10 +1216,16 @@ onBeforeUnmount(() => {
                     :disabled="disabled"
                     rows="1"
                     :class="[
-                      'cpk:w-full cpk:bg-transparent cpk:py-3 cpk:text-[16px] cpk:font-normal cpk:leading-relaxed cpk:text-foreground cpk:antialiased cpk:outline-none cpk:placeholder:text-[#00000077] cpk:dark:placeholder:text-[#fffc]',
-                      isExpanded ? 'cpk:px-5' : 'cpk:pr-5',
+                      textAreaClass,
+                      'cpk:bg-transparent cpk:outline-none cpk:placeholder:text-muted-foreground cpk:placeholder:truncate',
+                      // With the preview, the textarea only draws the caret,
+                      // selection and placeholder; its glyphs are transparent.
+                      highlightMarkdown
+                        ? 'cpk:relative cpk:text-transparent cpk:caret-foreground cpk:[scrollbar-width:none] cpk:[&::-webkit-scrollbar]:hidden'
+                        : 'cpk:text-foreground',
                     ]"
                     style="overflow: auto; resize: none"
+                    @scroll="syncPreviewScroll"
                     @input="handleInput"
                     @keydown="handleKeydown"
                     @compositionstart="isComposing = true"
@@ -1119,7 +1239,7 @@ onBeforeUnmount(() => {
                   data-testid="copilot-slash-menu"
                   role="listbox"
                   aria-label="Slash commands"
-                  class="cpk:absolute cpk:bottom-full cpk:left-0 cpk:right-0 cpk:z-30 cpk:mb-2 cpk:max-h-64 cpk:overflow-y-auto cpk:rounded-lg cpk:border cpk:border-border cpk:bg-white cpk:shadow-lg cpk:dark:border-[#3a3a3a] cpk:dark:bg-[#1f1f1f]"
+                  class="cpk:absolute cpk:bottom-full cpk:left-0 cpk:right-0 cpk:z-30 cpk:mb-2 cpk:max-h-64 cpk:overflow-y-auto cpk:rounded-2xl cpk:border cpk:border-border cpk:bg-popover cpk:p-1 cpk:text-popover-foreground cpk:shadow-lg"
                   :style="{ maxHeight: `${5 * 40}px` }"
                 >
                   <div
@@ -1140,9 +1260,9 @@ onBeforeUnmount(() => {
                       index === slashHighlightIndex ? 'true' : undefined
                     "
                     :class="[
-                      'cpk:w-full cpk:px-3 cpk:py-2 cpk:text-left cpk:text-sm cpk:transition-colors cpk:hover:bg-muted cpk:dark:hover:bg-[#2f2f2f]',
+                      'cpk:w-full cpk:rounded-xl cpk:px-3 cpk:py-2.5 cpk:text-left cpk:text-sm cpk:transition-colors cpk:hover:bg-accent',
                       index === slashHighlightIndex
-                        ? 'cpk:bg-muted cpk:dark:bg-[#2f2f2f]'
+                        ? 'cpk:bg-accent'
                         : 'cpk:bg-transparent',
                     ]"
                     @mouseenter="slashHighlightIndex = index"
@@ -1157,9 +1277,9 @@ onBeforeUnmount(() => {
             <div
               ref="actionsContainerRef"
               :class="[
-                'cpk:flex cpk:items-center cpk:justify-end cpk:gap-2',
+                'cpk:flex cpk:items-center cpk:justify-end cpk:gap-1',
                 isExpanded
-                  ? 'cpk:col-start-3 cpk:row-start-2'
+                  ? 'cpk:col-start-3 cpk:row-start-2 cpk:[&_button]:size-8'
                   : 'cpk:col-start-3 cpk:row-start-1',
               ]"
             >
@@ -1181,7 +1301,7 @@ onBeforeUnmount(() => {
                       labels.chatInputToolbarCancelTranscribeButtonLabel
                     "
                     :disabled="disabled"
-                    class="cpk:mr-2 cpk:inline-flex cpk:h-9 cpk:w-9 cpk:shrink-0 cpk:items-center cpk:justify-center cpk:rounded-full cpk:bg-transparent cpk:text-[#444444] cpk:transition-colors cpk:hover:bg-[#f8f8f8] cpk:hover:text-[#333333] cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50 cpk:dark:text-white cpk:dark:hover:bg-[#404040] cpk:dark:hover:text-[#FFFFFF]"
+                    :class="toolbarSecondaryClass"
                     @click="emit('cancel-transcribe')"
                   >
                     <IconX class="cpk:size-[18px]" />
@@ -1204,7 +1324,7 @@ onBeforeUnmount(() => {
                       labels.chatInputToolbarFinishTranscribeButtonLabel
                     "
                     :disabled="disabled"
-                    class="cpk:mr-[10px] cpk:inline-flex cpk:h-9 cpk:w-9 cpk:shrink-0 cpk:items-center cpk:justify-center cpk:rounded-full cpk:bg-transparent cpk:text-[#444444] cpk:transition-colors cpk:hover:bg-[#f8f8f8] cpk:hover:text-[#333333] cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50 cpk:dark:text-white cpk:dark:hover:bg-[#404040] cpk:dark:hover:text-[#FFFFFF]"
+                    :class="toolbarSecondaryClass"
                     @click="handleFinishTranscribe"
                   >
                     <IconCheck class="cpk:size-[18px]" />
@@ -1214,7 +1334,7 @@ onBeforeUnmount(() => {
               <template v-else>
                 <slot
                   v-if="
-                    hasStartTranscribeAction ||
+                    (hasStartTranscribeAction && !foldTranscribe) ||
                     $slots['start-transcribe-button']
                   "
                   name="start-transcribe-button"
@@ -1229,7 +1349,7 @@ onBeforeUnmount(() => {
                       labels.chatInputToolbarStartTranscribeButtonLabel
                     "
                     :disabled="disabled"
-                    class="cpk:mr-2 cpk:inline-flex cpk:h-9 cpk:w-9 cpk:shrink-0 cpk:items-center cpk:justify-center cpk:rounded-full cpk:bg-transparent cpk:text-[#444444] cpk:transition-colors cpk:hover:bg-[#f8f8f8] cpk:hover:text-[#333333] cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50 cpk:disabled:hover:bg-transparent cpk:disabled:hover:text-[#444444] cpk:dark:text-white cpk:dark:hover:bg-[#404040] cpk:dark:hover:text-[#FFFFFF] cpk:dark:disabled:hover:bg-transparent cpk:dark:disabled:hover:text-[#CCCCCC]"
+                    :class="toolbarSecondaryClass"
                     @click="emit('start-transcribe')"
                   >
                     <IconMic class="cpk:size-[18px]" />
@@ -1241,20 +1361,24 @@ onBeforeUnmount(() => {
                   :is-processing="isProcessing"
                   :on-click="handleSendButtonClick"
                 >
-                  <div class="cpk:mr-[10px]">
+                  <div>
                     <button
                       type="button"
                       data-testid="copilot-chat-input-send"
                       aria-label="Send message"
                       :disabled="sendDisabled"
-                      class="cpk:inline-flex cpk:h-9 cpk:w-9 cpk:shrink-0 cpk:items-center cpk:justify-center cpk:rounded-full cpk:bg-black cpk:text-white cpk:transition-colors cpk:hover:opacity-70 cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50 cpk:disabled:bg-[#00000014] cpk:disabled:text-[rgb(13,13,13)] cpk:disabled:hover:opacity-100 cpk:dark:bg-white cpk:dark:text-black cpk:dark:disabled:bg-[#454545] cpk:dark:disabled:text-white"
+                      class="cpk:inline-flex cpk:size-9 cpk:shrink-0 cpk:items-center cpk:justify-center cpk:rounded-full cpk:cursor-pointer cpk:bg-primary cpk:text-primary-foreground cpk:transition-[background-color,transform] cpk:hover:bg-primary/85 cpk:active:scale-95 cpk:disabled:cursor-not-allowed cpk:disabled:bg-foreground/10 cpk:disabled:text-foreground/40"
                       @click="handleSendButtonClick"
                     >
                       <IconSquare
                         v-if="isProcessing && hasStopAction"
-                        class="cpk:size-[18px] cpk:fill-current"
+                        class="cpk:size-3.5 cpk:fill-current"
                       />
-                      <IconArrowUp v-else class="cpk:size-[18px]" />
+                      <IconArrowUp
+                        v-else
+                        class="cpk:size-[18px]"
+                        :stroke-width="2.25"
+                      />
                     </button>
                   </div>
                 </slot>

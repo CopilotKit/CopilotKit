@@ -4,15 +4,45 @@ import CopilotChatAttachmentRenderer from "../CopilotChatAttachmentRenderer.vue"
 
 describe("CopilotChatAttachmentRenderer", () => {
   it("renders image attachments from source", () => {
+    const { getByTestId, queryByTestId } = render(
+      CopilotChatAttachmentRenderer,
+      {
+        props: {
+          type: "image",
+          source: { type: "url", value: "https://example.com/image.png" },
+        },
+      },
+    );
+
+    const image = getByTestId("copilot-chat-attachment-renderer-image");
+    expect(image.getAttribute("src")).toBe("https://example.com/image.png");
+    expect(
+      queryByTestId("copilot-chat-attachment-renderer-image-fallback"),
+    ).toBeNull();
+  });
+
+  it("opens an image thumbnail full size and closes on Escape", async () => {
     const { getByTestId } = render(CopilotChatAttachmentRenderer, {
       props: {
         type: "image",
         source: { type: "url", value: "https://example.com/image.png" },
       },
     });
+    const lightbox = () =>
+      document.querySelector(
+        "[data-testid='copilot-chat-attachment-renderer-lightbox']",
+      );
+    expect(lightbox()).toBeNull();
 
-    const image = getByTestId("copilot-chat-attachment-renderer-image");
-    expect(image.getAttribute("src")).toBe("https://example.com/image.png");
+    await fireEvent.click(
+      getByTestId("copilot-chat-attachment-renderer-image"),
+    );
+    expect(lightbox()?.querySelector("img")?.getAttribute("src")).toBe(
+      "https://example.com/image.png",
+    );
+
+    await fireEvent.keyDown(document, { key: "Escape" });
+    expect(lightbox()).toBeNull();
   });
 
   it("shows image fallback on load error", async () => {

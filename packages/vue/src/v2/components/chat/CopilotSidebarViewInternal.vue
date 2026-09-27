@@ -13,6 +13,7 @@ import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfi
 import CopilotChatToggleButton from "./CopilotChatToggleButton.vue";
 import CopilotChatView from "./CopilotChatView.vue";
 import CopilotModalHeader from "./CopilotModalHeader.vue";
+import CopilotThreadsDrawer from "./CopilotThreadsDrawer.vue";
 import type {
   CopilotChatFeatherSlotProps,
   CopilotChatMessageViewSlotProps,
@@ -23,6 +24,7 @@ import type {
   CopilotSidebarWelcomeScreenSuggestionViewSlotProps,
   CopilotSidebarViewHeaderSlotProps,
   CopilotSidebarViewProps,
+  CopilotThreadsDrawerProps,
   CopilotSidebarViewToggleButtonSlotProps,
 } from "./types";
 
@@ -32,7 +34,12 @@ const DEFAULT_SIDEBAR_WIDTH = 480;
 const SIDEBAR_TRANSITION_MS = 260;
 
 const props = withDefaults(
-  defineProps<Omit<CopilotSidebarViewProps, "defaultOpen">>(),
+  defineProps<
+    Omit<CopilotSidebarViewProps, "defaultOpen" | "threadsDrawer"> & {
+      /** Resolved `threadsDrawer` props, or `null` when the drawer is off. */
+      drawerProps?: CopilotThreadsDrawerProps | null;
+    }
+  >(),
   {
     messages: () => [],
     autoScroll: true,
@@ -40,11 +47,13 @@ const props = withDefaults(
     suggestions: () => [],
     suggestionLoadingIndexes: () => [],
     welcomeScreen: true,
+    introAnimation: true,
     inputValue: undefined,
     inputMode: "input",
     inputToolsMenu: () => [],
     width: undefined,
     onFinishTranscribeWithAudio: undefined,
+    drawerProps: null,
   },
 );
 
@@ -89,6 +98,27 @@ const measuredSidebarWidth = ref<number | string>(
 let resizeObserver: ResizeObserver | null = null;
 
 const isSidebarOpen = computed(() => config.value?.isModalOpen ?? false);
+// The sidebar stays mounted while closed, so the welcome screen's intro plays
+// each time it opens.
+const playIntro = computed(
+  () => isSidebarOpen.value && props.introAnimation !== false,
+);
+
+// Escape closes an open in-sidebar drawer even when focus sits outside it
+// (the drawer handles Escape itself while it holds focus).
+const drawerOverlayOpen = computed(
+  () => props.drawerProps !== null && (config.value?.drawerOpen ?? false),
+);
+watch(drawerOverlayOpen, (open, _previous, onCleanup) => {
+  if (!open || typeof window === "undefined") return;
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    config.value?.setDrawerOpen(false);
+  };
+  window.addEventListener("keydown", handleKeyDown);
+  onCleanup(() => window.removeEventListener("keydown", handleKeyDown));
+});
 const resolvedSidebarWidth = computed(
   () => props.width ?? measuredSidebarWidth.value,
 );
@@ -99,7 +129,7 @@ const headerTitle = computed(
 );
 const asideClass = computed(() => [
   "cpk:fixed cpk:right-0 cpk:top-0 cpk:z-[1200] cpk:flex cpk:h-[100vh] cpk:h-[100dvh] cpk:max-h-screen cpk:w-full",
-  "cpk:border-l cpk:border-border cpk:bg-background cpk:text-foreground cpk:shadow-xl",
+  "cpk:border-l cpk:border-border cpk:bg-background cpk:text-foreground cpk:shadow-[0_0_48px_-16px_rgb(0_0_0/0.20)]",
   "cpk:transition-transform cpk:duration-300 cpk:ease-out",
   isSidebarOpen.value
     ? "cpk:translate-x-0"
@@ -118,11 +148,13 @@ const asideStyle = computed(
       paddingBottom: "env(safe-area-inset-bottom)",
     }) as Record<string, string>,
 );
+// Docks the sidebar by pushing the page aside. `!important` because this is a
+// stylesheet rule: a host reset such as `body { margin: 0 }` would otherwise win.
 const bodyMarginStyle = computed(
   () => `
 @media (min-width: 768px) {
   body {
-    margin-inline-end: ${widthToMargin(resolvedSidebarWidth.value)};
+    margin-inline-end: ${widthToMargin(resolvedSidebarWidth.value)} !important;
     transition: margin-inline-end ${SIDEBAR_TRANSITION_MS}ms ease;
   }
 }
@@ -302,6 +334,7 @@ onBeforeUnmount(() => {
           :suggestions="suggestions"
           :suggestion-loading-indexes="suggestionLoadingIndexes"
           :welcome-screen="welcomeScreen"
+          :intro-animation="playIntro"
           :input-value="inputValue"
           :input-mode="inputMode"
           :input-tools-menu="inputToolsMenu"
@@ -348,5 +381,6 @@ onBeforeUnmount(() => {
         </CopilotChatView>
       </div>
     </div>
+    <CopilotThreadsDrawer v-if="drawerProps" v-bind="drawerProps" />
   </aside>
 </template>

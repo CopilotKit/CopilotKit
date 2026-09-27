@@ -351,6 +351,84 @@ describe("CopilotChatConfiguration active-thread setters", () => {
   });
 });
 
+/** A provider nested in another; returns the inner configuration. */
+function nestedHarness(
+  outerProps: Record<string, unknown>,
+  innerProps: Record<string, unknown>,
+) {
+  let cfg!: ReturnType<typeof useCopilotChatConfiguration>;
+  const Probe = defineComponent({
+    setup() {
+      cfg = useCopilotChatConfiguration();
+      return () => h("div", cfg.value?.threadId ?? "none");
+    },
+  });
+  mount(CopilotChatConfigurationProvider, {
+    props: outerProps,
+    slots: {
+      default: () =>
+        h(CopilotChatConfigurationProvider, innerProps, {
+          default: () => h(Probe),
+        }),
+    },
+  });
+  return () => cfg.value!;
+}
+
+describe("CopilotChatConfiguration active-thread setters in a nested chain", () => {
+  it("a set from an uncontrolled child under a non-explicit seed parent switches the thread", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const cfg = nestedHarness(
+      { threadId: "auto-minted-seed", hasExplicitThreadId: false },
+      {},
+    );
+    expect(cfg().threadId).toBe("auto-minted-seed");
+
+    cfg().setActiveThreadId("picked-thread");
+    await nextTick();
+
+    expect(cfg().threadId).toBe("picked-thread");
+    expect(cfg().hasExplicitThreadId).toBe(true);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("a set from a non-explicit seed child reaches the owner above it", async () => {
+    // CopilotChat's own provider: a derived, non-explicit threadId under the
+    // provider that owns the thread.
+    const cfg = nestedHarness(
+      {},
+      { threadId: "derived", hasExplicitThreadId: false },
+    );
+
+    cfg().setActiveThreadId("picked-thread");
+    await nextTick();
+    expect(cfg().threadId).toBe("picked-thread");
+
+    cfg().setActiveThreadId("picked-again");
+    await nextTick();
+    expect(cfg().threadId).toBe("picked-again");
+
+    cfg().startNewThread();
+    await nextTick();
+    expect(cfg().threadId).not.toBe("picked-again");
+    expect(cfg().hasExplicitThreadId).toBe(false);
+  });
+
+  it("a set from inside a controlled nested provider no-ops + warns", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const cfg = nestedHarness({}, { threadId: "pinned-inner" });
+
+    cfg().setActiveThreadId("ignored");
+    cfg().startNewThread();
+    await nextTick();
+
+    expect(cfg().threadId).toBe("pinned-inner");
+    expect(warn).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+});
+
 describe("CopilotChatConfiguration drawer-awareness", () => {
   it("registerDrawer flips drawerRegistered and cleans up", async () => {
     const cfg = harness({ isModalDefaultOpen: true });

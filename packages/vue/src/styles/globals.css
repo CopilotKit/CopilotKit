@@ -23,7 +23,7 @@
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
@@ -43,15 +43,18 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+/* Dark surfaces step up in lightness (background → card/popover → muted) so
+   raised elements read without heavy borders; borders and inputs are
+   translucent so they sit well on any of those surfaces. */
 .dark [data-copilotkit],
 [data-copilotkit].dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
+  --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
+  --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
   --primary-foreground: oklch(0.205 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
@@ -59,10 +62,10 @@
   --muted-foreground: oklch(0.708 0 0);
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
@@ -75,8 +78,8 @@
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
 }
 
 @theme inline {
@@ -108,6 +111,10 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  /* Large surfaces scale with --radius so one token themes every corner:
+     2xl for cards, bubbles and windows, 3xl for the composer. */
+  --radius-2xl: calc(var(--radius) * 2);
+  --radius-3xl: calc(var(--radius) * 2.8);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -142,6 +149,13 @@
   [data-copilotkit] {
     color: var(--foreground);
     background-color: var(--background);
+    color-scheme: light;
+  }
+
+  /* Native controls (audio players, scrollbars, form fields) follow the theme. */
+  .dark [data-copilotkit],
+  [data-copilotkit].dark {
+    color-scheme: dark;
   }
 
   /* Mobile viewport support */
@@ -176,139 +190,685 @@
   }
 }
 
-[data-copilotkit] div[data-streamdown="code-block"] > pre {
-  @apply cpk:mt-0 cpk:mb-0;
+/*
+ * Markdown (streamdown-vue) styles.
+ *
+ * Assistant and user messages render through `cpk:prose`
+ * (@tailwindcss/typography), which is emitted in the utilities layer. These
+ * rules live in the same layer and use higher-specificity selectors, so they
+ * win over prose without `!important`, while unlayered host CSS can still
+ * override them.
+ *
+ * streamdown-vue styles its elements with raw Tailwind utilities that the
+ * cpk-prefixed build never emits, so every element it renders is styled here
+ * against CopilotKit's tokens.
+ */
+@layer utilities {
+  /* Map typography colors onto tokens so prose follows theming (and
+     `prose-invert` becomes a no-op instead of a second palette). The
+     assistant message is its own CopilotKit root, hence the first form. */
+  :is([data-copilotkit].cpk\:prose, [data-copilotkit] .cpk\:prose) {
+    --tw-prose-body: var(--foreground);
+    --tw-prose-headings: var(--foreground);
+    --tw-prose-lead: var(--muted-foreground);
+    --tw-prose-links: var(--foreground);
+    --tw-prose-bold: var(--foreground);
+    --tw-prose-counters: var(--muted-foreground);
+    --tw-prose-bullets: var(--muted-foreground);
+    --tw-prose-hr: var(--border);
+    --tw-prose-quotes: var(--muted-foreground);
+    --tw-prose-quote-borders: var(--border);
+    --tw-prose-captions: var(--muted-foreground);
+    --tw-prose-kbd: var(--foreground);
+    --tw-prose-code: var(--foreground);
+    --tw-prose-pre-code: var(--foreground);
+    --tw-prose-pre-bg: var(--muted);
+    --tw-prose-th-borders: var(--border);
+    --tw-prose-td-borders: var(--border);
+    --tw-prose-invert-body: var(--foreground);
+    --tw-prose-invert-headings: var(--foreground);
+    --tw-prose-invert-lead: var(--muted-foreground);
+    --tw-prose-invert-links: var(--foreground);
+    --tw-prose-invert-bold: var(--foreground);
+    --tw-prose-invert-counters: var(--muted-foreground);
+    --tw-prose-invert-bullets: var(--muted-foreground);
+    --tw-prose-invert-hr: var(--border);
+    --tw-prose-invert-quotes: var(--muted-foreground);
+    --tw-prose-invert-quote-borders: var(--border);
+    --tw-prose-invert-captions: var(--muted-foreground);
+    --tw-prose-invert-kbd: var(--foreground);
+    --tw-prose-invert-code: var(--foreground);
+    --tw-prose-invert-pre-code: var(--foreground);
+    --tw-prose-invert-pre-bg: var(--muted);
+    --tw-prose-invert-th-borders: var(--border);
+    --tw-prose-invert-td-borders: var(--border);
+    line-height: 1.65;
+  }
+
+  :is([data-copilotkit].cpk\:prose, [data-copilotkit] .cpk\:prose) :where(p) {
+    margin-top: 0.75em;
+    margin-bottom: 0.75em;
+  }
+
+  /* Trim outer margins (streamdown-vue wraps its output in one `.streamdown-vue`
+     div). */
+  [data-copilotkit] .streamdown-vue > :first-child {
+    margin-top: 0;
+  }
+
+  [data-copilotkit] .streamdown-vue > :last-child {
+    margin-bottom: 0;
+  }
+
+  /* Headings — sized for a chat column rather than an article. */
+  [data-copilotkit]
+    :is(
+      [data-streamdown="h1"],
+      [data-streamdown="h2"],
+      [data-streamdown="h3"],
+      [data-streamdown="h4"],
+      [data-streamdown="h5"],
+      [data-streamdown="h6"]
+    ) {
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+    color: var(--foreground);
+  }
+
+  [data-copilotkit] [data-streamdown="h1"] {
+    font-size: 1.375em;
+  }
+
+  [data-copilotkit] [data-streamdown="h2"] {
+    font-size: 1.2em;
+  }
+
+  [data-copilotkit] [data-streamdown="h3"] {
+    font-size: 1.05em;
+  }
+
+  [data-copilotkit] [data-streamdown="h4"],
+  [data-copilotkit] [data-streamdown="h5"] {
+    font-size: 1em;
+  }
+
+  [data-copilotkit] [data-streamdown="h6"] {
+    font-size: 0.875em;
+    color: var(--muted-foreground);
+  }
+
+  [data-copilotkit] [data-streamdown="strong"] {
+    font-weight: 600;
+    color: var(--foreground);
+  }
+
+  [data-copilotkit] [data-streamdown="a"] {
+    font-weight: 500;
+    color: var(--foreground);
+    text-decoration-line: underline;
+    text-decoration-color: color-mix(
+      in oklab,
+      var(--foreground) 30%,
+      transparent
+    );
+    text-underline-offset: 3px;
+    overflow-wrap: anywhere;
+    transition: text-decoration-color 150ms;
+  }
+
+  [data-copilotkit] [data-streamdown="a"]:hover {
+    text-decoration-color: var(--foreground);
+  }
+
+  /* Lists */
+  [data-copilotkit] [data-streamdown="ol"],
+  [data-copilotkit] [data-streamdown="ul"] {
+    margin-top: 0.5em;
+    margin-bottom: 0.75em;
+    padding-left: 1.4em;
+    list-style-position: outside;
+    white-space: normal;
+  }
+
+  [data-copilotkit] [data-streamdown="ol"] {
+    list-style-type: decimal;
+  }
+
+  [data-copilotkit] [data-streamdown="ul"] {
+    list-style-type: disc;
+  }
+
+  [data-copilotkit] [data-streamdown="li"] {
+    margin-top: 0.3em;
+    margin-bottom: 0.3em;
+    padding-left: 0.2em;
+  }
+
+  [data-copilotkit] [data-streamdown="li"]::marker {
+    color: var(--muted-foreground);
+  }
+
+  [data-copilotkit] [data-streamdown="li"] > p {
+    display: inline;
+    margin: 0;
+  }
+
+  [data-copilotkit]
+    [data-streamdown="li"]
+    > :is([data-streamdown="ol"], [data-streamdown="ul"]) {
+    margin-top: 0.3em;
+    margin-bottom: 0.3em;
+  }
+
+  [data-copilotkit] [data-streamdown="hr"] {
+    margin-top: 1.75em;
+    margin-bottom: 1.75em;
+    border-color: var(--border);
+  }
+
+  [data-copilotkit] [data-streamdown="blockquote"] {
+    margin-top: 1em;
+    margin-bottom: 1em;
+    border-left: 2px solid var(--border);
+    padding-left: 1em;
+    font-style: normal;
+    font-weight: inherit;
+    color: var(--muted-foreground);
+  }
+
+  /* typography wraps blockquote paragraphs in curly quotes; markdown quotes
+     are already visually marked by the rule. */
+  [data-copilotkit] [data-streamdown="blockquote"] p::before,
+  [data-copilotkit] [data-streamdown="blockquote"] p::after {
+    content: none;
+  }
+
+  /* Inline code: a translucent tint (not --muted) so it stays visible on any
+     surface, including the muted user-message bubble. */
+  [data-copilotkit] [data-streamdown="inline-code"] {
+    border-radius: calc(var(--radius) - 4px);
+    background-color: color-mix(in oklab, var(--foreground) 9%, transparent);
+    padding: 0.15em 0.4em;
+    @apply cpk:font-mono;
+    font-size: 0.875em;
+    font-weight: 500;
+    color: var(--foreground);
+  }
+
+  /* typography adds literal backticks around every <code>; the tint already
+     marks it as code. */
+  [data-copilotkit] [data-streamdown="inline-code"]::before,
+  [data-copilotkit] [data-streamdown="inline-code"]::after {
+    content: none;
+  }
+
+  [data-copilotkit] [data-streamdown="image-wrapper"] {
+    position: relative;
+    margin-top: 1em;
+    margin-bottom: 1em;
+    display: inline-block;
+  }
+
+  [data-copilotkit] :is([data-streamdown="image"], [data-streamdown="img"]) {
+    max-width: 100%;
+    margin: 0;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+
+  /* Code blocks */
+  [data-copilotkit] [data-streamdown="code-block"] {
+    margin-top: 1em;
+    margin-bottom: 1em;
+    width: 100%;
+    overflow: hidden;
+    border-radius: calc(var(--radius) + 4px);
+    border: 1px solid var(--border);
+    background-color: color-mix(in oklab, var(--muted) 50%, var(--background));
+  }
+
+  .dark [data-copilotkit] [data-streamdown="code-block"],
+  [data-copilotkit].dark [data-streamdown="code-block"] {
+    background-color: var(--card);
+  }
+
+  [data-copilotkit] [data-streamdown="code-block-header"] {
+    display: flex;
+    height: 2.25rem;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    padding-inline: 0.75rem;
+    @apply cpk:font-mono;
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+  }
+
+  [data-copilotkit] [data-streamdown="code-actions"] {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+  }
+
+  /* The body holds shiki's <pre>, which paints the light theme's background
+     inline; the container owns the surface so light and dark both follow
+     tokens. */
+  [data-copilotkit] [data-streamdown="code-body"] > pre {
+    margin: 0;
+    overflow-x: auto;
+    border-radius: 0;
+    background-color: transparent !important;
+    padding: 0.875rem 1rem;
+    @apply cpk:font-mono;
+    font-size: 0.8125rem;
+    line-height: 1.6;
+  }
+
+  /* shiki separates its per-line <span class="line"> elements with newline
+     text nodes, and the <pre> preserves them. Keep the spans inline: making
+     them blocks as well double-spaces every line. */
+  [data-copilotkit] [data-streamdown="code"] .line {
+    display: inline;
+  }
+
+  /* Code actions: CopilotChatAssistantMessage's copy / download buttons and
+     streamdown-vue's built-in ones (reasoning messages). */
+  [data-copilotkit]
+    :is(
+      [data-streamdown="code-block-copy-button"],
+      [data-streamdown="code-block-download-button"],
+      [data-streamdown="copy-button"],
+      [data-streamdown="download-button"]
+    ) {
+    display: inline-flex;
+    height: 1.625rem;
+    width: 1.625rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: calc(var(--radius) - 4px);
+    cursor: pointer;
+    color: var(--muted-foreground);
+    transition:
+      color 150ms,
+      background-color 150ms;
+  }
+
+  [data-copilotkit]
+    :is(
+      [data-streamdown="code-block-copy-button"],
+      [data-streamdown="code-block-download-button"],
+      [data-streamdown="copy-button"],
+      [data-streamdown="download-button"]
+    ):hover {
+    background-color: var(--accent);
+    color: var(--foreground);
+  }
+
+  [data-copilotkit]
+    :is(
+      [data-streamdown="code-block-copy-button"],
+      [data-streamdown="code-block-download-button"],
+      [data-streamdown="copy-button"],
+      [data-streamdown="download-button"]
+    ):disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  [data-copilotkit]
+    :is(
+      [data-streamdown="code-block-copy-button"],
+      [data-streamdown="code-block-download-button"],
+      [data-streamdown="copy-button"],
+      [data-streamdown="download-button"]
+    )
+    svg {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+
+  /* streamdown-vue labels its built-in buttons with an unprefixed `sr-only`
+     span, which the cpk build doesn't emit. */
+  [data-copilotkit] [data-streamdown] .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  [data-copilotkit] [data-streamdown="mermaid"] {
+    position: relative;
+    margin-top: 1em;
+    margin-bottom: 1em;
+    height: auto;
+    border-radius: calc(var(--radius) + 4px);
+    border: 1px solid var(--border);
+    padding: 1rem;
+  }
+
+  /* Tables. The assistant's table (CopilotChatAssistantMessage) puts its
+     copy / download controls above a scroll container; streamdown-vue's own
+     wrapper (user and reasoning messages) holds the table directly. */
+  [data-copilotkit] div[data-streamdown="table-wrapper"] {
+    margin-top: 1em;
+    margin-bottom: 1em;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  [data-copilotkit] div[data-streamdown="table-wrapper"] > div:last-child,
+  [data-copilotkit] div[data-streamdown="table-wrapper"]:has(> table) {
+    overflow-x: auto;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+
+  [data-copilotkit] [data-streamdown="table"] {
+    margin: 0;
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875em;
+  }
+
+  [data-copilotkit] [data-streamdown="thead"] {
+    background-color: color-mix(in oklab, var(--muted) 60%, transparent);
+  }
+
+  [data-copilotkit] [data-streamdown="tr"] {
+    border-bottom: 1px solid var(--border);
+  }
+
+  [data-copilotkit]
+    [data-streamdown="tbody"]
+    [data-streamdown="tr"]:last-child {
+    border-bottom: 0;
+  }
+
+  [data-copilotkit] [data-streamdown="th"] {
+    white-space: nowrap;
+    border: 0;
+    padding: 0.5rem 0.875rem;
+    text-align: left;
+    font-weight: 500;
+    color: var(--foreground);
+  }
+
+  [data-copilotkit] [data-streamdown="td"] {
+    border: 0;
+    padding: 0.5rem 0.875rem;
+    vertical-align: top;
+  }
+
+  /* Task-list checkboxes */
+  :is([data-copilotkit].cpk\:prose, [data-copilotkit] .cpk\:prose)
+    input[type="checkbox"] {
+    appearance: none;
+    display: inline-block;
+    flex-shrink: 0;
+    width: 0.95rem;
+    height: 0.95rem;
+    margin: 0 0.4em 0 0;
+    padding: 0;
+    vertical-align: -0.15em;
+    border: 1px solid color-mix(in oklab, var(--foreground) 30%, transparent);
+    border-radius: 4px;
+    background-color: var(--background);
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    user-select: none;
+    print-color-adjust: exact;
+  }
+
+  :is([data-copilotkit].cpk\:prose, [data-copilotkit] .cpk\:prose)
+    input[type="checkbox"]:checked {
+    border-color: var(--primary);
+    background-color: var(--primary);
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg viewBox='0 0 16 16' fill='%23fff' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12.207 4.793a1 1 0 0 1 0 1.414l-5 5a1 1 0 0 1-1.414 0l-2-2a1 1 0 0 1 1.414-1.414L6.5 9.086l4.293-4.293a1 1 0 0 1 1.414 0z'/%3E%3C/svg%3E");
+  }
+
+  .dark
+    :is([data-copilotkit].cpk\:prose, [data-copilotkit] .cpk\:prose)
+    input[type="checkbox"]:checked,
+  [data-copilotkit].dark .cpk\:prose input[type="checkbox"]:checked {
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg viewBox='0 0 16 16' fill='%23171717' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12.207 4.793a1 1 0 0 1 0 1.414l-5 5a1 1 0 0 1-1.414 0l-2-2a1 1 0 0 1 1.414-1.414L6.5 9.086l4.293-4.293a1 1 0 0 1 1.414 0z'/%3E%3C/svg%3E");
+  }
 }
 
-[data-copilotkit] .prose input[type="checkbox"] {
-  appearance: none;
-  background-color: #fff;
-  background-origin: border-box;
-  border-color: #9b9b9b;
-  border-width: 1px;
-  color: #004f99;
+/* shiki emits dual-theme tokens: the light color inline, the dark color as
+   `--shiki-dark`. streamdown-vue only switches on `html.dark` or the OS
+   preference, so follow CopilotKit's own theme scope instead: dark colors
+   inside a `.dark` scope (including `[data-copilotkit].dark`)... */
+.dark [data-copilotkit] .shiki-themes,
+.dark [data-copilotkit] .shiki-themes span,
+[data-copilotkit].dark .shiki-themes,
+[data-copilotkit].dark .shiki-themes span {
+  color: var(--shiki-dark) !important;
+  font-style: var(--shiki-dark-font-style) !important;
+  font-weight: var(--shiki-dark-font-weight) !important;
+  text-decoration: var(--shiki-dark-text-decoration) !important;
+}
+
+/* ...and never the dark palette in a light scope. streamdown-vue's
+   `prefers-color-scheme: dark` rule would paint near-white tokens on a light
+   code block; invalidating `--shiki-dark` makes that rule fall back to the
+   inherited foreground color so code stays legible. */
+[data-copilotkit]:not(.dark, .dark *) .shiki-themes,
+[data-copilotkit]:not(.dark, .dark *) .shiki-themes span {
+  --shiki-dark: initial !important;
+}
+
+/* Intro: the welcome screen's content rises into place in sequence (greeting,
+   suggestion cards, input). Enabled by the `introAnimation` prop, which sets
+   [data-intro] on the chat root. */
+@keyframes cpk-intro {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+[data-copilotkit][data-intro] .cpk-intro,
+[data-copilotkit][data-intro]
+  .cpk-intro-stagger
+  [data-testid="copilot-chat-suggestion-view"]
+  > * {
+  animation: cpk-intro 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--cpk-intro-delay, 0ms);
+}
+
+[data-copilotkit][data-intro]
+  .cpk-intro-stagger
+  [data-testid="copilot-chat-suggestion-view"]
+  > :nth-child(1) {
+  --cpk-intro-delay: 70ms;
+}
+[data-copilotkit][data-intro]
+  .cpk-intro-stagger
+  [data-testid="copilot-chat-suggestion-view"]
+  > :nth-child(2) {
+  --cpk-intro-delay: 100ms;
+}
+[data-copilotkit][data-intro]
+  .cpk-intro-stagger
+  [data-testid="copilot-chat-suggestion-view"]
+  > :nth-child(3) {
+  --cpk-intro-delay: 130ms;
+}
+[data-copilotkit][data-intro]
+  .cpk-intro-stagger
+  [data-testid="copilot-chat-suggestion-view"]
+  > :nth-child(n + 4) {
+  --cpk-intro-delay: 160ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-copilotkit][data-intro] .cpk-intro,
+  [data-copilotkit][data-intro]
+    .cpk-intro-stagger
+    [data-testid="copilot-chat-suggestion-view"]
+    > * {
+    animation: none;
+  }
+}
+
+/* Streaming cursor: CopilotChatMessageView.Cursor's pulsing dot, riding at
+   the end of a reply's text while it's written. streaming-cursor.ts marks
+   candidate spots with [data-cursor-anchor]; the one in the reply's last block
+   shows the dot while [data-streaming-cursor] is set. When that block has no
+   text to follow (a code block, say), the dot waits just below it. */
+@keyframes cpk-cursor {
+  50% {
+    transform: scale(1.5);
+    opacity: 0.8;
+  }
+}
+
+[data-copilotkit]
+  [data-streaming-cursor]
+  > *
+  > :last-child[data-cursor-anchor]::after,
+[data-copilotkit]
+  [data-streaming-cursor]
+  > *
+  > :last-child
+  [data-cursor-anchor]::after,
+[data-copilotkit]
+  [data-streaming-cursor]:not(
+    :has(
+      > * > :last-child[data-cursor-anchor],
+      > * > :last-child [data-cursor-anchor]
+    )
+  )::after {
+  content: "";
   display: inline-block;
-  flex-shrink: 0;
-  height: 1rem;
-  padding: 0;
-  -webkit-print-color-adjust: exact;
-  print-color-adjust: exact;
-  -webkit-user-select: none;
-  user-select: none;
+  width: 11px;
+  height: 11px;
+  margin-inline-start: 0.4em;
+  border-radius: 9999px;
+  background-color: var(--foreground);
   vertical-align: middle;
-  width: 1rem;
-  border-radius: 2px;
+  animation: cpk-cursor 0.9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
-[data-copilotkit] .prose input[type="checkbox"]:checked {
-  background-color: #004f99;
-  border-color: #004f99;
-  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg viewBox='0 0 16 16' fill='%23fff' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12.207 4.793a1 1 0 0 1 0 1.414l-5 5a1 1 0 0 1-1.414 0l-2-2a1 1 0 0 1 1.414-1.414L6.5 9.086l4.293-4.293a1 1 0 0 1 1.414 0z'/%3E%3C/svg%3E");
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: 100% 100%;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="code-block"] {
-  @apply cpk:my-4 cpk:w-full cpk:overflow-hidden cpk:rounded-xl cpk:border cpk:border-border cpk:bg-transparent;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="code-block-header"] {
-  @apply cpk:flex cpk:items-center cpk:justify-between cpk:p-3 cpk:text-xs cpk:text-muted-foreground;
-  background-color: transparent !important;
-  border-bottom: 0 !important;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="code-lang"] {
-  @apply cpk:ml-1 cpk:font-mono cpk:lowercase;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="h2"] {
-  margin-bottom: 0.5rem;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="inline-code"] {
-  border-radius: 4px;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-}
-
-.copilot-chat-assistant-markdown .sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="code-actions"] {
-  @apply cpk:flex cpk:items-center cpk:gap-2;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="code-actions"] button span {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="download-button"],
-.copilot-chat-assistant-markdown [data-streamdown="copy-button"] {
-  @apply cpk:cursor-pointer cpk:p-1 cpk:text-muted-foreground cpk:transition-all cpk:hover:text-foreground cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50;
-  background: transparent !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  opacity: 1 !important;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="code-body"] {
-  @apply cpk:overflow-x-auto cpk:p-0;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="code-body"] pre {
-  @apply cpk:overflow-x-auto cpk:border-t cpk:border-border cpk:p-4 cpk:text-sm;
-  background-color: transparent !important;
-  margin: 0 !important;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="code-body"] pre.shiki {
-  --shiki-light-bg: transparent !important;
-  background-color: transparent !important;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="code"] .line {
+[data-copilotkit]
+  [data-streaming-cursor]:not(
+    :has(
+      > * > :last-child[data-cursor-anchor],
+      > * > :last-child [data-cursor-anchor]
+    )
+  )::after {
   display: block;
+  margin: 0.5rem 0 0 0.25rem;
 }
 
-.copilot-chat-assistant-markdown [data-streamdown="code-line-number"] {
-  @apply cpk:mr-4 cpk:inline-block cpk:w-4 cpk:select-none cpk:text-right cpk:font-mono cpk:text-[13px] cpk:text-muted-foreground/50;
-  opacity: 1 !important;
-  padding-right: 0 !important;
+@media (prefers-reduced-motion: reduce) {
+  [data-copilotkit] [data-streaming-cursor] [data-cursor-anchor]::after,
+  [data-copilotkit] [data-streaming-cursor]::after {
+    animation: none;
+  }
 }
 
-.copilot-chat-assistant-markdown [data-streamdown="table-header"],
-.copilot-chat-assistant-markdown [data-streamdown="thead"] {
-  @apply cpk:bg-muted/80;
+/* Composer markdown preview (markdown-input-highlight.ts): list markers and
+   links. The preview sits under a transparent textarea with identical metrics,
+   so nothing here may change glyph widths: color and underline only. */
+[data-copilotkit] .cpk-md-preview .cpk-md-syntax,
+[data-copilotkit] .cpk-md-preview .cpk-md-list-marker {
+  color: var(--muted-foreground);
 }
 
-.copilot-chat-assistant-markdown [data-streamdown="table-body"],
-.copilot-chat-assistant-markdown [data-streamdown="tbody"] {
-  @apply cpk:divide-y cpk:divide-border cpk:bg-muted/40;
+[data-copilotkit] .cpk-md-preview .cpk-md-link {
+  text-decoration-line: underline;
+  text-decoration-color: color-mix(
+    in oklab,
+    var(--foreground) 35%,
+    transparent
+  );
+  text-underline-offset: 3px;
 }
 
-.copilot-chat-assistant-markdown [data-streamdown="th"] {
-  @apply cpk:whitespace-nowrap cpk:px-4 cpk:py-2 cpk:text-left cpk:font-semibold cpk:text-sm;
+/* Text shimmer for in-progress labels: the reasoning "Thinking" header and
+   running tool calls. */
+[data-copilotkit] .cpk-shimmer {
+  /* The base is pulled toward the background so the sweep reads clearly on
+     light surfaces as well as dark ones. */
+  --cpk-shimmer-base: color-mix(
+    in oklab,
+    var(--foreground) 38%,
+    var(--background)
+  );
+  background-image: linear-gradient(
+    90deg,
+    var(--cpk-shimmer-base) 0%,
+    var(--cpk-shimmer-base) 32%,
+    var(--foreground) 50%,
+    var(--cpk-shimmer-base) 68%,
+    var(--cpk-shimmer-base) 100%
+  );
+  background-size: 250% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: cpk-shimmer 1.8s linear infinite;
 }
 
-.copilot-chat-assistant-markdown [data-streamdown="td"] {
-  @apply cpk:px-4 cpk:py-2 cpk:text-sm;
+@keyframes cpk-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-copilotkit] .cpk-shimmer {
+    animation: none;
+    color: var(--muted-foreground);
+    background: none;
+  }
+}
+
+/* Thin, token-colored scrollbars inside CopilotKit surfaces. In the base layer
+   so utilities win: the composer textarea hides its scrollbar to stay aligned
+   with the markdown preview drawn underneath it. */
+@layer base {
+  [data-copilotkit] ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  [data-copilotkit] ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  [data-copilotkit] ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--muted-foreground) 35%, transparent);
+    border-radius: 9999px;
+  }
+  [data-copilotkit] ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--muted-foreground) 60%, transparent);
+  }
+
+  /* Standard properties (Firefox, and Chromium when set) */
+  [data-copilotkit] * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(
+        in oklab,
+        var(--muted-foreground) 35%,
+        transparent
+      )
+      transparent;
+  }
 }

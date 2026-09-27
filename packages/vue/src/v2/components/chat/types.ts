@@ -52,6 +52,13 @@ export interface CopilotChatViewProps {
   suggestions?: Suggestion[];
   suggestionLoadingIndexes?: ReadonlyArray<number>;
   welcomeScreen?: boolean;
+  /**
+   * Ease the chat's content in when it mounts: the greeting, suggestion cards
+   * and input rise into place in sequence. Defaults to `true`; set `false` to
+   * show everything immediately. Always off when the user prefers reduced
+   * motion.
+   */
+  introAnimation?: boolean;
   attachments?: Attachment[];
   dragOver?: boolean;
   inputValue?: string;
@@ -203,6 +210,10 @@ export interface CopilotChatSuggestionViewSuggestionSlotProps {
   suggestion: Suggestion;
   index: number;
   isLoading: boolean;
+  /** How the default suggestion renders: `"pill"` in a row, `"card"` in a grid. */
+  appearance: "pill" | "card";
+  /** The card body (the suggestion's message), when `appearance` is `"card"`. */
+  description: string | undefined;
   onSelect: () => void;
 }
 
@@ -214,6 +225,9 @@ export interface CopilotChatSuggestionViewContainerSlotProps extends CopilotChat
 export interface CopilotChatSuggestionViewLayoutSlotProps extends CopilotChatSuggestionViewContainerSlotProps {}
 
 export interface CopilotChatWelcomeScreenSlotProps extends CopilotChatSuggestionViewSlotProps {
+  /** Attachments queued for the next message, shown above the input. */
+  attachments: Attachment[];
+  onRemoveAttachment?: (id: string) => void;
   modelValue: string;
   isRunning: boolean;
   inputMode: CopilotChatInputMode;
@@ -480,6 +494,12 @@ export type CopilotSidebarWelcomeScreenProps = Omit<
       CopilotSidebarWelcomeScreenLayoutSlotProps,
       WelcomeScreenCommandProps | WelcomeScreenDerivedCapabilityProps
     >
+  > &
+  Partial<
+    Pick<
+      CopilotChatWelcomeScreenSlotProps,
+      "attachments" | "onRemoveAttachment"
+    >
   >;
 
 export interface CopilotSidebarViewHeaderSlotProps {
@@ -495,9 +515,37 @@ export interface CopilotSidebarViewToggleButtonSlotProps {
   close: () => void;
 }
 
+/** Props of `<CopilotThreadsDrawer>`, for the modal `threadsDrawer` option. */
+export interface CopilotThreadsDrawerProps {
+  agentId?: string;
+  onThreadSelect?: (threadId: string) => void;
+  onNewThread?: () => void;
+  onLicensed?: () => void;
+  licenseUrl?: string;
+  label?: string;
+  recentLabel?: string;
+  collapsible?: boolean;
+  limit?: number;
+  dataTestId?: string;
+}
+
+/**
+ * The `threadsDrawer` prop of `<CopilotPopup>` / `<CopilotSidebar>` (and their
+ * views): `true` for the default drawer, an object to configure it, or
+ * `false` / omitted for none.
+ */
+export type ModalThreadsDrawerProp = boolean | CopilotThreadsDrawerProps;
+
 export interface CopilotSidebarViewProps extends CopilotChatViewProps {
   width?: number | string;
   defaultOpen?: boolean;
+  /**
+   * Adds a threads drawer to the sidebar. The header gets a thread-list
+   * launcher (top-left) that slides the drawer in from the sidebar's left edge,
+   * over the chat. `true` for the default drawer or an object of
+   * `CopilotThreadsDrawer` props to configure it. Defaults to off.
+   */
+  threadsDrawer?: ModalThreadsDrawerProp;
 }
 
 export type CopilotPopupViewHeaderSlotProps = CopilotSidebarViewHeaderSlotProps;
@@ -521,6 +569,13 @@ export interface CopilotPopupViewProps extends CopilotChatViewProps {
   height?: number | string;
   clickOutsideToClose?: boolean;
   defaultOpen?: boolean;
+  /**
+   * Adds a threads drawer to the popup. The header gets a thread-list launcher
+   * (top-left) that slides the drawer in from the popup's left edge, over the
+   * chat. `true` for the default drawer or an object of `CopilotThreadsDrawer`
+   * props to configure it. Defaults to off.
+   */
+  threadsDrawer?: ModalThreadsDrawerProp;
 }
 
 export interface CopilotPopupProps extends CopilotChatProps {
@@ -528,9 +583,13 @@ export interface CopilotPopupProps extends CopilotChatProps {
   height?: number | string;
   clickOutsideToClose?: boolean;
   defaultOpen?: boolean;
+  /** See `CopilotPopupViewProps["threadsDrawer"]`. */
+  threadsDrawer?: ModalThreadsDrawerProp;
 }
 
 export interface CopilotSidebarProps extends CopilotChatProps {
   width?: number | string;
   defaultOpen?: boolean;
+  /** See `CopilotSidebarViewProps["threadsDrawer"]`. */
+  threadsDrawer?: ModalThreadsDrawerProp;
 }

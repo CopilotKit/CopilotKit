@@ -1102,7 +1102,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       await agent.complete();
     });
 
-    it("should show cursor after reasoning when text message follows", async () => {
+    it("should show the cursor in the reply's text once text follows reasoning", async () => {
       const agent = new MockStepwiseAgent();
       renderWithCopilotKit({ agent });
 
@@ -1120,10 +1120,13 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
         expect(screen.getByText(/Starting answer/)).toBeDefined();
       });
 
+      // The streaming text carries the cursor; the chat-level one steps aside.
       await waitFor(() => {
-        const chatLevelCursor = screen.queryByTestId("copilot-loading-cursor");
-        expect(chatLevelCursor).not.toBeNull();
+        expect(
+          document.querySelector("[data-streaming-cursor]"),
+        ).not.toBeNull();
       });
+      expect(screen.queryByTestId("copilot-loading-cursor")).toBeNull();
 
       await agent.emit(runFinishedEvent());
       await agent.complete();

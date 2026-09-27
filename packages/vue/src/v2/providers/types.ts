@@ -22,7 +22,11 @@ export const CopilotChatDefaultLabels = {
   welcomeMessageText: "How can I help you today?",
 } as const;
 
-export type CopilotChatLabels = typeof CopilotChatDefaultLabels;
+// Label values are free-form strings; the defaults above are only literals
+// because of `as const`.
+export type CopilotChatLabels = {
+  [K in keyof typeof CopilotChatDefaultLabels]: string;
+};
 
 export interface CopilotChatConfigurationValue {
   labels: CopilotChatLabels;
@@ -62,4 +66,12 @@ export interface CopilotChatConfigurationValue {
   drawerRegistered: boolean;
   /** Announces drawer presence; returns a cleanup that de-registers it. */
   registerDrawer: () => () => void;
+  /**
+   * Internal: `true` inside a `ModalThreadsDrawerScope`, i.e. when the drawer
+   * fields above belong to a threads drawer hosted as an overlay INSIDE a chat
+   * modal (`<CopilotPopup threads-drawer>` / `<CopilotSidebar threads-drawer>`).
+   * The modal header then shows its launcher at every viewport width, and the
+   * drawer wrapper renders as an overlay panel.
+   */
+  ɵdrawerOverlay?: boolean;
 }

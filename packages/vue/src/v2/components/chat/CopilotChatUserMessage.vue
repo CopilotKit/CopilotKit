@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from "vue";
+import { computed, defineComponent, h, onBeforeUnmount, ref } from "vue";
 import type { UserMessage } from "@ag-ui/core";
+import { StreamMarkdown } from "streamdown-vue";
+import { prepareUserMarkdown } from "./user-markdown";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import { CopilotChatDefaultLabels } from "../../providers/types";
 import {
@@ -20,6 +22,24 @@ import type {
   CopilotChatUserMessageOnSwitchToBranchProps,
   CopilotChatUserMessageToolbarSlotProps,
 } from "./types";
+
+// Headings that slip past prepareUserMarkdown (e.g. setext underlines) render
+// as plain paragraphs: a user message never grows article-sized headings.
+const PlainParagraph = defineComponent({
+  name: "CopilotUserMarkdownParagraph",
+  inheritAttrs: false,
+  setup(_, { slots }) {
+    return () => h("p", slots.default?.());
+  },
+});
+const userMarkdownComponents = {
+  h1: PlainParagraph,
+  h2: PlainParagraph,
+  h3: PlainParagraph,
+  h4: PlainParagraph,
+  h5: PlainParagraph,
+  h6: PlainParagraph,
+};
 
 const props = withDefaults(
   defineProps<{
@@ -61,12 +81,14 @@ const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
 const copied = ref(false);
 let copiedResetTimeout: ReturnType<typeof setTimeout> | null = null;
 
-const toolbarButtonClass = [
-  "cpk:inline-flex cpk:h-8 cpk:w-8 cpk:items-center cpk:justify-center cpk:rounded-md cpk:p-0",
-  "cpk:cursor-pointer cpk:text-[rgb(93,93,93)] cpk:transition-colors cpk:hover:bg-[#E8E8E8]",
-  "cpk:hover:text-[rgb(93,93,93)] cpk:dark:text-[rgb(243,243,243)] cpk:dark:hover:bg-[#303030]",
-  "cpk:dark:hover:text-[rgb(243,243,243)] cpk:disabled:pointer-events-none cpk:disabled:opacity-50",
+const buttonBaseClass = [
+  "cpk:inline-flex cpk:items-center cpk:justify-center cpk:rounded-md cpk:p-0",
+  "cpk:cursor-pointer cpk:text-muted-foreground cpk:transition-colors cpk:hover:bg-accent cpk:hover:text-foreground",
+  "cpk:disabled:pointer-events-none cpk:disabled:opacity-50",
 ].join(" ");
+// 28×36, matching React's toolbar buttons.
+const toolbarButtonClass = `${buttonBaseClass} cpk:h-9 cpk:w-7`;
+const branchButtonClass = `${buttonBaseClass} cpk:size-6`;
 
 function flattenUserMessageContent(content?: UserMessage["content"]): string {
   if (!content) {
@@ -98,6 +120,9 @@ const flattenedContent = computed(() =>
   flattenUserMessageContent(props.message.content),
 );
 const isMultiline = computed(() => flattenedContent.value.includes("\n"));
+const userMarkdown = computed(() =>
+  prepareUserMarkdown(flattenedContent.value),
+);
 const hasEditAction = computed(() => typeof props.onEditMessage === "function");
 const showBranchNavigation = computed(
   () =>
@@ -204,7 +229,7 @@ onBeforeUnmount(() => {
     <div
       data-copilotkit
       data-testid="copilot-user-message"
-      class="cpk:flex cpk:flex-col cpk:items-end cpk:group cpk:pt-10"
+      class="cpk:flex cpk:flex-col cpk:items-end cpk:group cpk:pt-8"
       :data-message-id="message.id"
       v-bind="$attrs"
     >
@@ -215,11 +240,18 @@ onBeforeUnmount(() => {
         :is-multiline="isMultiline"
       >
         <div
-          class="cpk:prose cpk:dark:prose-invert cpk:bg-muted cpk:relative cpk:max-w-[80%] cpk:rounded-[18px] cpk:px-4 cpk:py-1.5 cpk:inline-block cpk:whitespace-pre-wrap"
-          :data-multiline="isMultiline ? 'true' : undefined"
-          :class="{ 'cpk:py-3': isMultiline }"
+          class="cpk:prose cpk:dark:prose-invert cpk:bg-muted cpk:text-foreground cpk:relative cpk:max-w-[80%] cpk:min-w-0 cpk:rounded-2xl cpk:px-4 cpk:py-2 cpk:inline-block cpk:break-words"
         >
-          {{ flattenedContent }}
+          <StreamMarkdown
+            class="copilot-chat-user-markdown"
+            :content="userMarkdown"
+            :components="userMarkdownComponents"
+            :parse-incomplete-markdown="false"
+            :code-block-hide-copy="true"
+            :code-block-hide-download="true"
+            :code-block-show-line-numbers="false"
+            :shiki-theme="{ light: 'github-light', dark: 'github-dark' }"
+          />
         </div>
       </slot>
 
@@ -230,9 +262,10 @@ onBeforeUnmount(() => {
         :has-edit-action="hasEditAction"
       >
         <div
-          class="cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:justify-end cpk:-mr-[5px] cpk:mt-[4px] cpk:invisible cpk:group-hover:visible"
+          data-testid="copilot-user-toolbar"
+          class="cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:justify-end cpk:-mr-1 cpk:mt-1 cpk:opacity-0 cpk:transition-opacity cpk:duration-150 cpk:group-hover:opacity-100 cpk:focus-within:opacity-100"
         >
-          <div class="cpk:flex cpk:items-center cpk:gap-1 cpk:justify-end">
+          <div class="cpk:flex cpk:items-center cpk:gap-0.5 cpk:justify-end">
             <slot name="toolbar-items" />
 
             <slot
@@ -249,8 +282,8 @@ onBeforeUnmount(() => {
                 :title="labels.userMessageToolbarCopyMessageLabel"
                 @click="handleCopyMessage"
               >
-                <IconCheck v-if="copied" class="cpk:size-[18px]" />
-                <IconCopy v-else class="cpk:size-[18px]" />
+                <IconCheck v-if="copied" class="cpk:size-4" />
+                <IconCopy v-else class="cpk:size-4" />
               </button>
             </slot>
 
@@ -267,7 +300,7 @@ onBeforeUnmount(() => {
                 :title="labels.userMessageToolbarEditMessageLabel"
                 @click="handleEditMessage"
               >
-                <IconEdit class="cpk:size-[18px]" />
+                <IconEdit class="cpk:size-4" />
               </button>
             </slot>
 
@@ -284,33 +317,31 @@ onBeforeUnmount(() => {
               :go-prev="goPrev"
               :go-next="goNext"
             >
-              <div class="cpk:flex cpk:items-center cpk:gap-1">
+              <div class="cpk:flex cpk:items-center cpk:gap-0.5">
                 <button
                   type="button"
-                  :class="toolbarButtonClass"
-                  class="cpk:h-6 cpk:w-6 cpk:p-0"
+                  :class="branchButtonClass"
                   :disabled="!canGoPrev"
                   aria-label="Previous branch"
                   title="Previous branch"
                   @click="goPrev"
                 >
-                  <IconChevronLeft class="cpk:size-[20px]" />
+                  <IconChevronLeft class="cpk:size-4" />
                 </button>
                 <span
-                  class="cpk:text-sm cpk:text-muted-foreground cpk:px-0 cpk:font-medium"
+                  class="cpk:min-w-7 cpk:text-center cpk:text-xs cpk:tabular-nums cpk:text-muted-foreground cpk:font-medium"
                 >
                   {{ branchIndex + 1 }}/{{ numberOfBranches }}
                 </span>
                 <button
                   type="button"
-                  :class="toolbarButtonClass"
-                  class="cpk:h-6 cpk:w-6 cpk:p-0"
+                  :class="branchButtonClass"
                   :disabled="!canGoNext"
                   aria-label="Next branch"
                   title="Next branch"
                   @click="goNext"
                 >
-                  <IconChevronRight class="cpk:size-[20px]" />
+                  <IconChevronRight class="cpk:size-4" />
                 </button>
               </div>
             </slot>
