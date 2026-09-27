@@ -46,6 +46,11 @@ test("publishes the curated decision index and exhaustive retrieval link", async
       `- [${page.title}](${baseUrl}/${page.url}): ${page.description}`,
     );
   }
+  expect(body).toContain("LangChain/LangGraph, Google ADK, or Mastra");
+  expect(body).toContain("keep your existing thread provider");
+  expect(body).toContain("CopilotKit's built-in thread store");
+  expect(body).toContain("does not establish ongoing database replication");
+  expect(body).not.toContain("LangGraph or ADK import guide below");
   expect(body).not.toContain("/slack/mastra/tools)");
   expect(body).not.toContain("/teams/langgraph-fastapi/interactive)");
 });
@@ -59,7 +64,7 @@ test("keeps the curated policy ordered, unique, and on canonical routes", () => 
     ),
   );
 
-  expect(urls.slice(0, 11)).toEqual([
+  expect(urls.slice(0, 10)).toEqual([
     "",
     "agentic-chat-ui",
     "concepts/generative-ui-overview",
@@ -69,13 +74,12 @@ test("keeps the curated policy ordered, unique, and on canonical routes", () => 
     "intelligence/overview",
     "slack",
     "teams",
-    "langgraph-python/threads-import",
-    "google-adk/threads-import",
+    "threads-import",
   ]);
   expect(new Set(urls).size).toBe(urls.length);
   expect(new Set(titles).size).toBe(titles.length);
-  expect(urls.filter((url) => url.startsWith("langgraph-"))).toEqual([
-    "langgraph-python/threads-import",
+  expect(urls.filter((url) => url.endsWith("threads-import"))).toEqual([
+    "threads-import",
   ]);
   expect(
     urls.some((url) =>
