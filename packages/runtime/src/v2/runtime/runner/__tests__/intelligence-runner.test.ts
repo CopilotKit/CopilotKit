@@ -2488,3 +2488,144 @@ describe("IntelligenceAgentRunner human-in-the-loop responses", () => {
     warn.mockRestore();
   });
 });
+
+describe("IntelligenceAgentRunner event timestamps", () => {
+  let runner: InstanceType<typeof IntelligenceAgentRunner>;
+
+  beforeEach(() => {
+    mockChannels = [];
+    mockSockets = [];
+    autoAcknowledgePushes = true;
+    runner = new IntelligenceAgentRunner({ url: "ws://localhost:4000/runner" });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("stamps a receive time on every event the agent left unstamped", async () => {
+    const threadId = "t-ts";
+    const agent = new MockAgent([
+      { type: EventType.RUN_STARTED, threadId, runId: "r-ts" } as BaseEvent,
+      {
+        type: EventType.TEXT_MESSAGE_START,
+        messageId: "m-1",
+        role: "assistant",
+      } as BaseEvent,
+      {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId: "m-1",
+        delta: "hi",
+      } as BaseEvent,
+      // The agent never ends the message or the run, so the runner appends
+      // terminal events of its own.
+    ]);
+    const before = Date.now();
+
+    const done = collectEvents(
+      runner.run({
+        threadId,
+        agent,
+        input: createRunInput({
+          threadId,
+          runId: "r-ts",
+          resume: [{ interruptId: "int-1", status: "cancelled" }],
+        }),
+        userId: "user-1",
+      }),
+    );
+    mockChannels[0]!.triggerJoin("ok");
+    await done;
+    const after = Date.now();
+
+    const payloads = mockChannels[0]!.pushLog.map((push) => push.payload);
+    expect(payloads.map((payload) => payload.name ?? payload.type)).toEqual([
+      EventType.RUN_STARTED,
+      "copilotkit.hitl_response",
+      EventType.TEXT_MESSAGE_START,
+      EventType.TEXT_MESSAGE_CONTENT,
+      EventType.TEXT_MESSAGE_END,
+      EventType.RUN_ERROR,
+    ]);
+    const timestamps = payloads.map((payload) => payload.timestamp);
+    for (const timestamp of timestamps) {
+      expect(typeof timestamp).toBe("number");
+      expect(timestamp).toBeGreaterThanOrEqual(before);
+      expect(timestamp).toBeLessThanOrEqual(after);
+    }
+  });
+
+  it("keeps runner timestamps non-decreasing when the clock steps back", async () => {
+    const threadId = "t-ts-clock";
+    const clock = [5_000, 4_000, 6_000, 3_000];
+    let tick = 0;
+    vi.spyOn(Date, "now").mockImplementation(
+      () => clock[Math.min(tick++, clock.length - 1)]!,
+    );
+    const agent = new MockAgent([
+      {
+        type: EventType.RUN_STARTED,
+        threadId,
+        runId: "r-ts-clock",
+      } as BaseEvent,
+      { type: EventType.CUSTOM, name: "app.a", value: 1 } as BaseEvent,
+      { type: EventType.CUSTOM, name: "app.b", value: 2 } as BaseEvent,
+      {
+        type: EventType.RUN_FINISHED,
+        threadId,
+        runId: "r-ts-clock",
+      } as BaseEvent,
+    ]);
+
+    const done = collectEvents(
+      runner.run({
+        threadId,
+        agent,
+        input: createRunInput({ threadId, runId: "r-ts-clock" }),
+      }),
+    );
+    mockChannels[0]!.triggerJoin("ok");
+    await done;
+
+    const timestamps = mockChannels[0]!.pushLog.map(
+      (push) => push.payload.timestamp as number,
+    );
+    expect(timestamps).toHaveLength(4);
+    for (let index = 1; index < timestamps.length; index += 1) {
+      expect(timestamps[index]).toBeGreaterThanOrEqual(timestamps[index - 1]!);
+    }
+  });
+
+  it("preserves a timestamp the agent provided", async () => {
+    const threadId = "t-ts-agent";
+    const agentTimestamp = 1_700_000_000_123;
+    const agent = new MockAgent([
+      {
+        type: EventType.RUN_STARTED,
+        threadId,
+        runId: "r-ts-agent",
+        timestamp: agentTimestamp,
+      } as BaseEvent,
+      {
+        type: EventType.RUN_FINISHED,
+        threadId,
+        runId: "r-ts-agent",
+      } as BaseEvent,
+    ]);
+
+    const done = collectEvents(
+      runner.run({
+        threadId,
+        agent,
+        input: createRunInput({ threadId, runId: "r-ts-agent" }),
+      }),
+    );
+    mockChannels[0]!.triggerJoin("ok");
+    await done;
+
+    const payloads = mockChannels[0]!.pushLog.map((push) => push.payload);
+    expect(payloads[0]!.timestamp).toBe(agentTimestamp);
+    expect(typeof payloads[1]!.timestamp).toBe("number");
+    expect(payloads[1]!.timestamp).not.toBe(agentTimestamp);
+  });
+});

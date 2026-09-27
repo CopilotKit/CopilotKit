@@ -33,6 +33,11 @@ export interface IntelligenceAgentRunnerOptions {
   maxRejoinMs?: number;
 }
 
+/** AG-UI `BaseEvent.timestamp` is a millisecond epoch number. */
+function isValidEventTimestamp(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
 export interface RunnerStartupBoundary {
   events: Observable<BaseEvent>;
   startup: Promise<void>;
@@ -569,6 +574,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
     onRunError: (event: BaseEvent) => void,
   ): Promise<void> {
     const { currentEvents } = state;
+    // Floor for runner-assigned timestamps so a wall-clock step backwards
+    // cannot reorder events within the run.
+    let lastRunnerTimestamp = 0;
     const pushCanonicalEvent = (event: BaseEvent): void => {
       if (!this.isCurrentThreadState(threadId, state)) {
         return;
@@ -580,6 +588,13 @@ export class IntelligenceAgentRunner extends AgentRunner {
         ),
         state,
       );
+      // Record when the runner received the event, so downstream durations
+      // reflect the run rather than the batch acceptance time. An agent's
+      // own timestamp wins.
+      if (!isValidEventTimestamp(canonicalEvent.timestamp)) {
+        lastRunnerTimestamp = Math.max(lastRunnerTimestamp, Date.now());
+        canonicalEvent.timestamp = lastRunnerTimestamp;
+      }
       currentEvents.push(canonicalEvent);
 
       if (canonicalEvent.type === EventType.RUN_STARTED) {
