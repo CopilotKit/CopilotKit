@@ -19,6 +19,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { describe, it, expect, afterEach, vi } from "vitest";
+import { randomUUID } from "@copilotkit/shared";
 import type { CopilotKitThreadsDrawer as CopilotKitThreadsDrawerElement } from "@copilotkit/web-components/threads-drawer";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
@@ -342,5 +343,31 @@ describe.each([
     await waitFor(() => expect(agent.threadId).toBe("t2"));
     pick("t3");
     await waitFor(() => expect(agent.threadId).toBe("t3"));
+  });
+
+  it("starts a fresh thread when its threadId prop is cleared", async () => {
+    let minted = 0;
+    vi.mocked(randomUUID).mockImplementation(() => `minted-${++minted}`);
+    try {
+      const agent = new MockStepwiseAgent();
+      const renderSurface = (threadId?: string) => (
+        <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+          <Surface defaultOpen threadsDrawer threadId={threadId} />
+        </CopilotKitProvider>
+      );
+      const { rerender } = render(renderSurface());
+      await findModalDrawer();
+      await waitFor(() => expect(agent.threadId).toMatch(/^minted-/));
+      const initialThreadId = agent.threadId;
+
+      rerender(renderSurface("t1"));
+      await waitFor(() => expect(agent.threadId).toBe("t1"));
+
+      rerender(renderSurface(undefined));
+      await waitFor(() => expect(agent.threadId).toMatch(/^minted-/));
+      expect(agent.threadId).not.toBe(initialThreadId);
+    } finally {
+      vi.mocked(randomUUID).mockImplementation(() => "mock-thread-id");
+    }
   });
 });

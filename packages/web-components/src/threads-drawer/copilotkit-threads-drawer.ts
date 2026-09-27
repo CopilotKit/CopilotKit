@@ -37,6 +37,24 @@ function rowSlotName(id: string): string | null {
   return `row:${id}`;
 }
 
+/** Elements that handle Enter / Space themselves. */
+const INTERACTIVE_SELECTOR =
+  'a[href], button, input, select, textarea, summary, [contenteditable]:not([contenteditable="false"]), [role="button"], [role="link"]';
+
+/**
+ * Whether `event` started on an interactive element inside its current target
+ * (in the shadow tree, like a row's actions button, or slotted in).
+ */
+function startedOnInteractiveDescendant(event: Event): boolean {
+  const path = event.composedPath();
+  const end = path.indexOf(event.currentTarget as EventTarget);
+  return path
+    .slice(0, end)
+    .some(
+      (node) => node instanceof Element && node.matches(INTERACTIVE_SELECTOR),
+    );
+}
+
 /**
  * Inline row-action icons. The element is framework-agnostic Lit, so it cannot
  * depend on a React icon library — these are the lucide `archive`,
@@ -1242,15 +1260,14 @@ export class CopilotKitThreadsDrawer extends LitElement {
           this._closeOverlayAfterChoice();
         }}
         @keydown=${(e: KeyboardEvent) => {
-          // Only the row itself selects: Enter/Space on the nested actions
-          // button must not also pick the thread.
-          if (e.target !== e.currentTarget) return;
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            this._openMenuId = null;
-            this._emit("thread-selected", { threadId: thread.id });
-            this._closeOverlayAfterChoice();
-          }
+          if (e.key !== "Enter" && e.key !== " ") return;
+          // Enter/Space on the row's actions button, or on a link or button in
+          // slotted row content, activates that instead of picking the thread.
+          if (startedOnInteractiveDescendant(e)) return;
+          e.preventDefault();
+          this._openMenuId = null;
+          this._emit("thread-selected", { threadId: thread.id });
+          this._closeOverlayAfterChoice();
         }}
       >
         ${

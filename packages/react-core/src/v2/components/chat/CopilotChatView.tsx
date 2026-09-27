@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { ScrollElementContext } from "./scroll-element-context";
 import type { WithSlots, SlotValue } from "../../lib/slots";
-import { renderSlot } from "../../lib/slots";
+import { renderSlot, isReactComponentType } from "../../lib/slots";
 import CopilotChatMessageView from "./CopilotChatMessageView";
 import type { IntelligenceIndicatorView } from "../intelligence-indicator";
 import type {
@@ -296,10 +296,14 @@ export function CopilotChatView({
     loadingIndexes: suggestionLoadingIndexes,
     onSelectSuggestion,
   };
-  // In a conversation, suggestions sit in a scrollable bar docked above the input.
   const BoundSuggestionView = hasSuggestions
     ? renderSlot(suggestionView, CopilotChatSuggestionView, suggestionViewProps)
     : null;
+  // In a conversation, suggestions sit in a bar docked above the input. Custom
+  // layouts (the `children` render prop, or a custom `scrollView` component)
+  // get them after the messages inside the scroll view instead.
+  const suggestionsInScrollView =
+    !!children || isReactComponentType(scrollView);
 
   const BoundScrollView = renderSlot(scrollView, CopilotChatView.ScrollView, {
     autoScroll,
@@ -312,7 +316,14 @@ export function CopilotChatView({
           paddingBottom: `${inputContainerHeight + 32}px`,
         }}
       >
-        <div className="cpk:max-w-3xl cpk:mx-auto">{BoundMessageView}</div>
+        <div className="cpk:max-w-3xl cpk:mx-auto">
+          {BoundMessageView}
+          {suggestionsInScrollView && BoundSuggestionView ? (
+            <div className="cpk:pl-0 cpk:pr-4 cpk:@3xl:px-0 cpk:mt-4">
+              {BoundSuggestionView}
+            </div>
+          ) : null}
+        </div>
       </div>
     ),
   });
@@ -448,7 +459,7 @@ export function CopilotChatView({
           aria-hidden="true"
           className="cpk:pointer-events-none cpk:absolute cpk:inset-x-0 cpk:-top-6 cpk:bottom-0 cpk:-z-10 cpk:bg-[linear-gradient(to_bottom,transparent,var(--background)_1.5rem)]"
         />
-        {BoundSuggestionView && (
+        {BoundSuggestionView && !suggestionsInScrollView && (
           <div className="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:mb-1.5 cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-4 cpk:pointer-events-auto">
             {BoundSuggestionView}
           </div>

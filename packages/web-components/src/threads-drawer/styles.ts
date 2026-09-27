@@ -101,6 +101,12 @@ export const drawerStyles = css`
     );
     /* Filter-applied dot. Neutral by default so it reads in either theme. */
     --_indicator: var(--cpk-drawer-indicator, var(--_primary));
+    /* Hover fill: --cpk-drawer-muted when the host sets it, else the accent. */
+    --_hover: var(--cpk-drawer-muted, var(--_accent));
+    /* Text sizes derive from --cpk-drawer-font-size (14px by default). */
+    --_text: var(--cpk-drawer-font-size, 14px);
+    --_text-sm: calc(var(--_text) * 13 / 14);
+    --_text-xs: calc(var(--_text) * 12 / 14);
     /* Rows and controls use the theme radius (rounded-lg), capped so a host
        with a very large --radius never turns rows into pills. */
     --_radius: min(
@@ -307,8 +313,8 @@ export const drawerStyles = css`
     padding: 4px;
     border-radius: calc(var(--_radius) + 4px);
     border: 1px solid var(--_border);
-    background: var(--_bg);
-    color: var(--_fg);
+    background: var(--cpk-drawer-surface, var(--_bg));
+    color: var(--cpk-drawer-surface-fg, var(--_fg));
     box-shadow: var(--_shadow-menu);
   }
 
@@ -322,7 +328,7 @@ export const drawerStyles = css`
     border: 0;
     border-radius: var(--_radius);
     background: transparent;
-    color: var(--_muted-fg);
+    color: var(--cpk-drawer-surface-fg, var(--_muted-fg));
     cursor: pointer;
     font: inherit;
     transition:
@@ -331,7 +337,7 @@ export const drawerStyles = css`
   }
 
   .launcher:hover {
-    background: var(--_accent);
+    background: var(--_hover);
     color: var(--_accent-fg);
   }
 
@@ -349,7 +355,7 @@ export const drawerStyles = css`
     flex: none;
     align-items: center;
     gap: 4px;
-    height: 56px;
+    min-height: 56px;
     padding: 0 12px;
   }
 
@@ -369,9 +375,9 @@ export const drawerStyles = css`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 14px;
+    font-size: var(--_text);
     font-weight: 600;
-    line-height: 20px;
+    line-height: var(--cpk-drawer-line-height, 20px);
     color: var(--_fg);
   }
 
@@ -398,7 +404,7 @@ export const drawerStyles = css`
 
   .icon-btn:hover,
   .icon-btn[aria-expanded="true"] {
-    background: var(--_accent);
+    background: var(--_hover);
     color: var(--_accent-fg);
   }
 
@@ -419,7 +425,7 @@ export const drawerStyles = css`
     flex: none;
     align-items: center;
     gap: 10px;
-    height: 36px;
+    min-height: 36px;
     /* Rows inset 8px from the panel edge; with the 1px border and 9px inner
        padding the icon and every row's text share the same 18px left edge. */
     margin: 0 8px;
@@ -430,8 +436,8 @@ export const drawerStyles = css`
     color: var(--_fg);
     cursor: pointer;
     font: inherit;
-    font-size: 14px;
-    line-height: 20px;
+    font-size: var(--_text);
+    line-height: var(--cpk-drawer-line-height, 20px);
     text-align: left;
     transition:
       background-color 0.15s ease,
@@ -440,7 +446,7 @@ export const drawerStyles = css`
 
   .new-conversation:hover {
     border-color: color-mix(in oklab, var(--_fg) 25%, transparent);
-    background: var(--_accent);
+    background: var(--_hover);
     color: var(--_accent-fg);
   }
 
@@ -451,7 +457,7 @@ export const drawerStyles = css`
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    height: 28px;
+    min-height: 28px;
     margin: 10px 8px 2px;
     padding: 0 4px 0 10px;
   }
@@ -461,9 +467,9 @@ export const drawerStyles = css`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 12px;
+    font-size: var(--_text-xs);
     font-weight: 500;
-    line-height: 16px;
+    line-height: var(--cpk-drawer-line-height, 16px);
     color: var(--_muted-fg);
   }
 
@@ -529,7 +535,7 @@ export const drawerStyles = css`
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    height: 32px;
+    min-height: 32px;
     padding: 0 8px;
     border: 0;
     border-radius: var(--_radius-sm);
@@ -537,12 +543,12 @@ export const drawerStyles = css`
     color: inherit;
     cursor: pointer;
     font: inherit;
-    font-size: 14px;
+    font-size: var(--_text);
     text-align: left;
   }
 
   .filter-opt:hover {
-    background: var(--_accent);
+    background: var(--_hover);
     color: var(--_accent-fg);
   }
 
@@ -582,14 +588,14 @@ export const drawerStyles = css`
     flex: none;
     align-items: center;
     gap: 4px;
-    height: 36px;
+    min-height: 36px;
     padding: 0 4px 0 10px;
     border-radius: var(--_radius);
     cursor: pointer;
     background: transparent;
     color: var(--_fg);
-    font-size: 14px;
-    line-height: 20px;
+    font-size: var(--_text);
+    line-height: var(--cpk-drawer-line-height, 20px);
     user-select: none;
     -webkit-user-select: none;
     opacity: 0;
@@ -602,7 +608,7 @@ export const drawerStyles = css`
 
   .row:hover,
   .row.menu-open {
-    background: var(--_accent);
+    background: var(--_hover);
     color: var(--_accent-fg);
   }
 
@@ -697,7 +703,7 @@ export const drawerStyles = css`
   }
 
   .row-action:hover {
-    background: var(--_accent);
+    background: var(--_hover);
     color: var(--_accent-fg);
   }
 
@@ -784,20 +790,20 @@ export const drawerStyles = css`
     display: flex;
     align-items: center;
     gap: 10px;
-    height: 32px;
+    min-height: 32px;
     border: 0;
     background: transparent;
     color: inherit;
     cursor: pointer;
     font: inherit;
-    font-size: 14px;
+    font-size: var(--_text);
     text-align: left;
     padding: 0 8px;
     border-radius: var(--_radius-sm);
   }
 
   .row-menu-item:hover {
-    background: var(--_accent);
+    background: var(--_hover);
     color: var(--_accent-fg);
   }
 
@@ -824,7 +830,7 @@ export const drawerStyles = css`
     border-radius: var(--_radius);
     cursor: pointer;
     font: inherit;
-    font-size: 13px;
+    font-size: var(--_text-sm);
     font-weight: 500;
     transition: opacity 0.15s ease;
   }
@@ -850,13 +856,13 @@ export const drawerStyles = css`
     color: var(--_fg);
     cursor: pointer;
     font: inherit;
-    font-size: 13px;
+    font-size: var(--_text-sm);
     font-weight: 500;
     transition: background-color 0.15s ease;
   }
 
   .quiet-btn:hover {
-    background: var(--_accent);
+    background: var(--_hover);
     color: var(--_accent-fg);
   }
 
@@ -869,8 +875,8 @@ export const drawerStyles = css`
     margin: 4px 8px 0;
     padding: 8px 10px;
     color: var(--_muted-fg);
-    font-size: 13px;
-    line-height: 18px;
+    font-size: var(--_text-sm);
+    line-height: var(--cpk-drawer-line-height, 18px);
   }
 
   .state p {
@@ -945,7 +951,7 @@ export const drawerStyles = css`
     margin: 4px 8px 12px;
     padding: 6px 10px;
     color: var(--_muted-fg);
-    font-size: 13px;
+    font-size: var(--_text-sm);
   }
 
   .fetch-more-error .row-action {
@@ -964,7 +970,7 @@ export const drawerStyles = css`
     display: block;
     flex: none;
     width: calc(100% - 16px);
-    height: 32px;
+    min-height: 32px;
     margin: 0 8px 12px;
     padding: 0 10px;
     background: none;
@@ -972,7 +978,7 @@ export const drawerStyles = css`
     border-radius: var(--_radius);
     color: var(--_muted-fg);
     font: inherit;
-    font-size: 13px;
+    font-size: var(--_text-sm);
     text-align: left;
     cursor: pointer;
     transition: background-color 0.15s ease;
@@ -980,7 +986,7 @@ export const drawerStyles = css`
 
   .load-more:hover {
     color: var(--_accent-fg);
-    background: var(--_accent);
+    background: var(--_hover);
   }
 
   /* Locked (unlicensed): a compact upsell card, not a full-panel block. */
@@ -1019,15 +1025,15 @@ export const drawerStyles = css`
 
   .upsell-title {
     margin: 0;
-    font-size: 13px;
+    font-size: var(--_text-sm);
     font-weight: 600;
-    line-height: 18px;
+    line-height: var(--cpk-drawer-line-height, 18px);
   }
 
   .upsell-text {
     margin: 0;
-    font-size: 12px;
-    line-height: 17px;
+    font-size: var(--_text-xs);
+    line-height: var(--cpk-drawer-line-height, 17px);
     color: var(--_muted-fg);
   }
 
@@ -1069,8 +1075,8 @@ export const drawerStyles = css`
     color: var(--_surface-fg);
     border-radius: calc(var(--_radius) + 4px);
     box-shadow: var(--_shadow);
-    font-size: 14px;
-    line-height: 20px;
+    font-size: var(--_text);
+    line-height: var(--cpk-drawer-line-height, 20px);
   }
 
   /* Only lay out the card contents when open. A closed <dialog> is display:none
@@ -1101,7 +1107,7 @@ export const drawerStyles = css`
     padding: 0 12px;
     border-radius: var(--_radius);
     color: var(--_fg);
-    font-size: 13px;
+    font-size: var(--_text-sm);
     font-weight: 500;
   }
 

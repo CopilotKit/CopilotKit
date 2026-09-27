@@ -40,9 +40,12 @@ const TEXT_BLOCKS = new Set([
 ]);
 
 function lastContentChild(node: HastNode): HastNode | undefined {
-  return node.children?.findLast(
-    (child) => child.type === "element" || child.value?.trim(),
-  );
+  const children = node.children ?? [];
+  for (let i = children.length - 1; i >= 0; i--) {
+    const child = children[i]!;
+    if (child.type === "element" || child.value?.trim()) return child;
+  }
+  return undefined;
 }
 
 /** Marks the cursor position with `data-cursor-anchor`. */
