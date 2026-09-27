@@ -7,20 +7,14 @@ import type {
   ProductInteractionEvent,
 } from "@copilotkit/learning";
 import { LearningProvider } from "@copilotkit/learning/react";
-import { randomUUID } from "@copilotkit/shared";
 import { useCopilotKit } from "../context";
 import { useLearnFromUserAction } from "../hooks/use-learn-from-user-action";
 import { createProductEventRecorder } from "../lib/product-event-recorder";
-import { useCopilotChatConfiguration } from "./CopilotChatConfigurationProvider";
 
 export interface CopilotKitLearningConfig extends Omit<
   ProductInteractionCaptureOptions,
   "onEvent"
 > {
-  /** Attach actions to this thread; otherwise use the enclosing chat or a product-only session. */
-  threadId?: string;
-  /** Assign a product-only session to this Learning container without an agent run. */
-  learningContainerId?: string;
   /** Called for transport errors or dropped events when the delivery queue is full. */
   onError?: (error: Error) => void;
 }
@@ -32,22 +26,20 @@ export interface CopilotKitLearningProviderProps extends CopilotKitLearningConfi
 /**
  * Connect generic browser capture to the existing user-action annotation API.
  * CopilotKitProvider includes this automatically when Intelligence is available.
- * To scope capture to a chat thread, disable that default with `learning={false}`
- * and mount this provider inside the chat configuration instead.
+ * Actions follow the selected chat thread. With multiple chats, pointer or
+ * keyboard focus selects the destination; ambiguous/no-thread actions are omitted.
+ * Learning eligibility and container membership are controlled by the backend.
  */
 export function CopilotKitLearningProvider({
   children,
-  threadId,
-  learningContainerId,
   enabled,
   onError,
   excludedUrlPrefixes,
   ...captureOptions
 }: CopilotKitLearningProviderProps) {
   const { copilotkit } = useCopilotKit();
-  const chat = useCopilotChatConfiguration();
   const record = useLearnFromUserAction();
-  const [sessionId] = useState(randomUUID);
+  const threads = copilotkit.ɵlearningThreads;
   const [intelligenceAvailable, setIntelligenceAvailable] = useState(
     () => !!copilotkit.intelligence,
   );
@@ -62,7 +54,6 @@ export function CopilotKitLearningProvider({
 
   const runtimeUrl = copilotkit.runtimeUrl;
   const captureEnabled = !!runtimeUrl && (enabled ?? intelligenceAvailable);
-  const effectiveThreadId = threadId ?? chat?.threadId ?? sessionId;
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
   const recorderRef = useRef<ReturnType<
@@ -73,8 +64,7 @@ export function CopilotKitLearningProvider({
     if (!captureEnabled) return;
     const recorder = createProductEventRecorder({
       record,
-      threadId: effectiveThreadId,
-      learningContainerId,
+      getThreadId: threads.getThreadId,
       onError: (error) => {
         if (onErrorRef.current) return onErrorRef.current(error);
         else console.warn("[CopilotKit learning]", error);
@@ -85,13 +75,7 @@ export function CopilotKitLearningProvider({
       recorderRef.current = null;
       recorder.stop();
     };
-  }, [
-    captureEnabled,
-    effectiveThreadId,
-    learningContainerId,
-    record,
-    runtimeUrl,
-  ]);
+  }, [captureEnabled, threads, record, runtimeUrl]);
 
   const onEvent = useCallback((event: ProductInteractionEvent) => {
     recorderRef.current?.onEvent(event);
@@ -104,17 +88,12 @@ export function CopilotKitLearningProvider({
   return (
     <>
       <LearningProvider
-        key={JSON.stringify([
-          effectiveThreadId,
-          learningContainerId,
-          runtimeUrl,
-        ])}
+        key={runtimeUrl}
         {...captureOptions}
         enabled={captureEnabled}
         excludedUrlPrefixes={excludedUrls}
         onEvent={onEvent}
       />
-      {/* Retire in-flight captures on scope changes without remounting the app. */}
       {children}
     </>
   );

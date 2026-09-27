@@ -97,29 +97,8 @@ it("resolves userId server-side (not from the request body)", async () => {
   );
 });
 
-it("forwards a product-only session's container without trusting a browser userId", async () => {
-  const annotate = vi
-    .fn()
-    .mockResolvedValue({ id: "event-1", duplicate: false });
-  const response = await handleAnnotate({
-    runtime: createIntelligenceRuntime({ intelligence: { annotate } }),
-    request: buildRequest({
-      ...validBody(),
-      learningContainerId: "expense-review",
-      userId: "spoofed",
-    }),
-  });
-  expect(response.status).toBe(200);
-  expect(annotate).toHaveBeenCalledWith(
-    expect.objectContaining({
-      userId: "user-1",
-      learningContainerId: "expense-review",
-    }),
-  );
-});
-
-it.each(["", null, 42, {}, []])(
-  "rejects an invalid product container %j",
+it.each(["expense-review", "", null, 42, {}, []])(
+  "rejects frontend Learning container assignment %j",
   async (learningContainerId) => {
     const annotate = vi.fn();
     const response = await handleAnnotate({

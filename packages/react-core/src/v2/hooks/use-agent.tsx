@@ -9,6 +9,7 @@ import {
 } from "@copilotkit/core";
 import type { SubscribeToAgentSubscriber } from "@copilotkit/core";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
+import { useLearningThread } from "./use-learning-thread";
 
 export enum UseAgentUpdate {
   OnMessagesChanged = "OnMessagesChanged",
@@ -463,6 +464,16 @@ export function useAgent({
     if (!resolvedThreadId) return;
     agent.threadId = resolvedThreadId;
   }, [agent, resolvedThreadId]);
+
+  useLearningThread(
+    copilotkit.ɵlearningThreads,
+    isReady
+      ? {
+          kind: "agent",
+          getThreadId: () => resolvedThreadId ?? agent.threadId,
+        }
+      : undefined,
+  );
 
   return {
     agent,

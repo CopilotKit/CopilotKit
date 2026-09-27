@@ -1,68 +1,87 @@
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
-import { StrictMode, useEffect, useState } from "react";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LearningProviderProps } from "@copilotkit/learning/react";
 import type { ProductInteractionEvent } from "@copilotkit/learning";
 import { CopilotKitLearningProvider } from "../CopilotKitLearningProvider";
+import { useLearningThread } from "../../hooks/use-learning-thread";
+import { useCopilotKit } from "../../context";
+import type * as ContextModule from "../../context";
+import { createLearningThreadRegistry } from "../../lib/learning-thread-registry";
 
 const mocks = vi.hoisted(() => ({
-  capture: vi.fn(),
+  capture: vi.fn<(props: LearningProviderProps) => void>(),
   context: vi.fn(),
-  chat: vi.fn(),
-  subscription:
-    vi.fn<(complete: (event: ProductInteractionEvent) => void) => void>(),
 }));
 vi.mock("@copilotkit/learning/react", () => ({
   LearningProvider: (props: LearningProviderProps) => {
     mocks.capture(props);
-    const { onEvent } = props;
-    useEffect(() => {
-      let active = true;
-      mocks.subscription((event) => {
-        if (active) void onEvent(event);
-      });
-      return () => {
-        active = false;
-      };
-    }, [onEvent]);
     return props.children;
   },
 }));
-vi.mock("../../context", () => ({ useCopilotKit: mocks.context }));
-vi.mock("../CopilotChatConfigurationProvider", () => ({
-  useCopilotChatConfiguration: mocks.chat,
+vi.mock("../../context", async (importOriginal) => ({
+  ...(await importOriginal<typeof ContextModule>()),
+  useCopilotKit: mocks.context,
 }));
 
-const event: ProductInteractionEvent = {
-  id: "client-event-1",
-  actionId: "action-1",
+function Thread({
+  id,
+  kind = "chat",
+}: {
+  id: string;
+  kind?: "chat" | "agent";
+}) {
+  const { copilotkit } = useCopilotKit();
+  const activate = useLearningThread(copilotkit.ɵlearningThreads, {
+    kind,
+    getThreadId: () => id,
+  });
+  return (
+    <button onPointerDownCapture={activate} onFocusCapture={activate}>
+      {id}
+    </button>
+  );
+}
+const interaction = (id: string): ProductInteractionEvent => ({
+  id,
+  actionId: id,
   timestamp: 1_700_000_000_000,
   type: "interaction",
   action: "click",
   target: { tagName: "button" },
+});
+const capture = () => mocks.capture.mock.lastCall![0];
+const emit = async (event: ProductInteractionEvent) => {
+  await act(async () => {
+    capture().onEvent(event);
+  });
 };
-const capture = () => mocks.capture.mock.lastCall![0] as LearningProviderProps;
 
 describe("CopilotKitLearningProvider", () => {
   let notify: () => void;
   let core: {
     runtimeUrl: string;
     intelligence: object | undefined;
-    headers: Record<string, string>;
-    ɵruntimeFetch: ReturnType<typeof vi.fn>;
+    headers: { Authorization: string };
+    ɵruntimeFetch: ReturnType<typeof vi.fn<typeof fetch>>;
     subscribe: ReturnType<typeof vi.fn>;
+    ɵlearningThreads: ReturnType<typeof createLearningThreadRegistry>;
   };
+  const bodies = () =>
+    core.ɵruntimeFetch.mock.calls.map(([, init]) =>
+      JSON.parse(String(init?.body)),
+    );
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.chat.mockReturnValue(null);
     core = {
       runtimeUrl: "/api/copilotkit",
-      intelligence: undefined,
+      intelligence: {},
+      ɵlearningThreads: createLearningThreadRegistry(),
       headers: { Authorization: "Bearer customer-auth" },
       ɵruntimeFetch: vi
-        .fn()
-        .mockResolvedValue(
-          new Response(JSON.stringify({ id: "stored", duplicate: false })),
+        .fn<typeof fetch>()
+        .mockImplementation(
+          async () => new Response('{"id":"stored","duplicate":false}'),
         ),
       subscribe: vi.fn((subscriber) => {
         notify = subscriber.onRuntimeConnectionStatusChanged;
@@ -74,10 +93,11 @@ describe("CopilotKitLearningProvider", () => {
   afterEach(cleanup);
 
   it("waits for Intelligence discovery, supports opt-out, and excludes its transport", () => {
+    core.intelligence = undefined;
     const { rerender } = render(<CopilotKitLearningProvider />);
     expect(capture().enabled).toBe(false);
     act(() => {
-      core.intelligence = { wsUrl: "wss://intelligence.test" };
+      core.intelligence = {};
       notify();
     });
     expect(capture().enabled).toBe(true);
@@ -86,134 +106,153 @@ describe("CopilotKitLearningProvider", () => {
     expect(capture().enabled).toBe(false);
   });
 
-  it("posts captured actions through the actual manual annotation transport", async () => {
-    core.intelligence = {};
+  it("automatically posts to the mounted thread without selecting a container", async () => {
     render(
-      <CopilotKitLearningProvider
-        threadId="thread-1"
-        learningContainerId="expense-review"
-      />,
+      <StrictMode>
+        <CopilotKitLearningProvider>
+          <Thread id="thread-a" />
+        </CopilotKitLearningProvider>
+      </StrictMode>,
     );
-    await act(async () => {
-      await capture().onEvent(event);
-    });
+    const event = interaction("event-1");
+    await emit(event);
     expect(core.ɵruntimeFetch).toHaveBeenCalledTimes(1);
-    const [url, init] = core.ɵruntimeFetch.mock.calls[0]!;
-    expect(url).toBe("/api/copilotkit/annotate");
-    expect(init.headers.Authorization).toBe("Bearer customer-auth");
-    expect(JSON.parse(init.body)).toEqual({
+    expect(core.ɵruntimeFetch.mock.calls[0]?.[0]).toBe(
+      "/api/copilotkit/annotate",
+    );
+    expect(bodies()[0]).toEqual({
       type: "user_action",
-      threadId: "thread-1",
+      threadId: "thread-a",
       clientEventId: event.id,
-      learningContainerId: "expense-review",
       occurredAt: "2023-11-14T22:13:20.000Z",
       payload: {
         title: "User click",
         data: { source: "copilotkit.learning", ...event },
       },
     });
-    expect(init.body).not.toContain("userId");
   });
 
-  it("uses the current chat thread and survives StrictMode effect remounting", async () => {
-    core.intelligence = {};
-    mocks.chat.mockReturnValue({ threadId: "chat-thread" });
-    render(
-      <StrictMode>
-        <CopilotKitLearningProvider />
-      </StrictMode>,
-    );
-    await act(async () => {
-      capture().onEvent(event);
-    });
-    expect(core.ɵruntimeFetch).toHaveBeenCalledTimes(1);
-    expect(JSON.parse(core.ɵruntimeFetch.mock.calls[0]![1].body).threadId).toBe(
-      "chat-thread",
-    );
-  });
-
-  it("uses a stable product-only session without requiring an agent run", async () => {
-    core.intelligence = {};
-    core.ɵruntimeFetch.mockImplementation(
-      async () => new Response('{"id":"stored","duplicate":false}'),
-    );
+  it("does not invent a thread before mount or after the last chat unmounts", async () => {
     const { rerender } = render(<CopilotKitLearningProvider />);
-    await act(async () => {
-      capture().onEvent(event);
-    });
-    rerender(<CopilotKitLearningProvider />);
-    await act(async () => {
-      capture().onEvent({ ...event, id: "event-2" });
-    });
-    const bodies = core.ɵruntimeFetch.mock.calls.map(([, init]) =>
-      JSON.parse(init.body),
+    await emit(interaction("before"));
+    rerender(
+      <CopilotKitLearningProvider>
+        <Thread id="thread-a" />
+      </CopilotKitLearningProvider>,
     );
-    expect(bodies[0].threadId).toBeTruthy();
-    expect(bodies[1].threadId).toBe(bodies[0].threadId);
+    await emit(interaction("during"));
+    rerender(<CopilotKitLearningProvider />);
+    await emit(interaction("after"));
+    expect(bodies().map((body) => body.clientEventId)).toEqual(["during"]);
   });
 
-  it("stops queued delivery on unmount and routes failures to onError", async () => {
-    core.intelligence = {};
+  it("follows A → B → A while retaining the original thread of an in-flight request", async () => {
+    const { rerender } = render(
+      <CopilotKitLearningProvider>
+        <Thread id="thread-a" />
+      </CopilotKitLearningProvider>,
+    );
+    await emit(interaction("action-a"));
+    rerender(
+      <CopilotKitLearningProvider>
+        <Thread id="thread-b" />
+      </CopilotKitLearningProvider>,
+    );
+    await emit(interaction("action-b"));
+    await emit({
+      id: "request-a",
+      actionId: "action-a",
+      timestamp: 1_700_000_000_050,
+      type: "request",
+      request: {
+        method: "GET",
+        url: "/api/expenses",
+        durationMs: 50,
+        status: 200,
+        outcome: "success",
+      },
+    });
+    rerender(
+      <CopilotKitLearningProvider>
+        <Thread id="thread-a" />
+      </CopilotKitLearningProvider>,
+    );
+    await emit(interaction("return-a"));
+    expect(bodies().map((body) => [body.clientEventId, body.threadId])).toEqual(
+      [
+        ["action-a", "thread-a"],
+        ["action-b", "thread-b"],
+        ["request-a", "thread-a"],
+        ["return-a", "thread-a"],
+      ],
+    );
+  });
+
+  it("requires selection among simultaneous chats and keeps background agents from stealing it", async () => {
+    const { getByRole, rerender } = render(
+      <CopilotKitLearningProvider>
+        <Thread id="thread-a" />
+        <Thread id="thread-b" />
+      </CopilotKitLearningProvider>,
+    );
+    await emit(interaction("ambiguous"));
+    fireEvent.pointerDown(getByRole("button", { name: "thread-a" }));
+    await emit(interaction("a"));
+    rerender(
+      <CopilotKitLearningProvider>
+        <Thread id="thread-a" />
+        <Thread id="thread-b" />
+        <Thread id="background" kind="agent" />
+      </CopilotKitLearningProvider>,
+    );
+    await emit(interaction("still-a"));
+    fireEvent.focus(getByRole("button", { name: "thread-b" }));
+    await emit(interaction("b"));
+    expect(bodies().map((body) => [body.clientEventId, body.threadId])).toEqual(
+      [
+        ["a", "thread-a"],
+        ["still-a", "thread-a"],
+        ["b", "thread-b"],
+      ],
+    );
+  });
+
+  it("supports a unique headless agent and does not guess between different headless threads", async () => {
+    const { rerender } = render(
+      <CopilotKitLearningProvider>
+        <Thread id="headless-a" kind="agent" />
+      </CopilotKitLearningProvider>,
+    );
+    await emit(interaction("unique"));
+    rerender(
+      <CopilotKitLearningProvider>
+        <Thread id="headless-a" kind="agent" />
+        <Thread id="headless-b" kind="agent" />
+      </CopilotKitLearningProvider>,
+    );
+    await emit(interaction("ambiguous"));
+    expect(bodies().map((body) => body.threadId)).toEqual(["headless-a"]);
+  });
+
+  it("stops delivery on opt-out and unmount, and reports transport failures", async () => {
     const onError = vi.fn();
     core.ɵruntimeFetch.mockRejectedValue(new Error("offline"));
-    const { unmount } = render(
-      <CopilotKitLearningProvider onError={onError} />,
+    const { rerender, unmount } = render(
+      <CopilotKitLearningProvider onError={onError}>
+        <Thread id="thread-a" />
+      </CopilotKitLearningProvider>,
     );
-    await act(async () => {
-      capture().onEvent(event);
-    });
+    await emit(interaction("failure"));
     expect(onError).toHaveBeenCalledWith(new Error("offline"));
+    rerender(
+      <CopilotKitLearningProvider enabled={false}>
+        <Thread id="thread-a" />
+      </CopilotKitLearningProvider>,
+    );
+    await emit(interaction("disabled"));
     const onEvent = capture().onEvent;
     unmount();
-    await onEvent(event);
+    onEvent(interaction("unmounted"));
     expect(core.ɵruntimeFetch).toHaveBeenCalledTimes(1);
-  });
-
-  it("retires pending captures when changing thread or container without remounting children", async () => {
-    core.intelligence = {};
-    function StatefulChild() {
-      const [count, setCount] = useState(0);
-      return <button onClick={() => setCount(count + 1)}>{count}</button>;
-    }
-    const { rerender, getByRole } = render(
-      <CopilotKitLearningProvider
-        threadId="thread-a"
-        learningContainerId="first"
-      >
-        <StatefulChild />
-      </CopilotKitLearningProvider>,
-    );
-    const finishOldRequest = mocks.subscription.mock.lastCall![0];
-    fireEvent.click(getByRole("button"));
-    expect(getByRole("button").textContent).toBe("1");
-    rerender(
-      <CopilotKitLearningProvider
-        threadId="thread-b"
-        learningContainerId="second"
-      >
-        <StatefulChild />
-      </CopilotKitLearningProvider>,
-    );
-    await act(async () => {
-      finishOldRequest({
-        ...event,
-        type: "request",
-        request: {
-          method: "GET",
-          url: "/api/orders",
-          durationMs: 30,
-          status: 200,
-          outcome: "success",
-        },
-      });
-    });
-    expect(core.ɵruntimeFetch).not.toHaveBeenCalled();
-    expect(getByRole("button").textContent).toBe("1");
-    await act(async () => {
-      mocks.subscription.mock.lastCall![0](event);
-    });
-    expect(JSON.parse(core.ɵruntimeFetch.mock.lastCall![1].body)).toMatchObject(
-      { threadId: "thread-b", learningContainerId: "second" },
-    );
   });
 });

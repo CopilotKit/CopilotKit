@@ -8,13 +8,13 @@ frontend: hide
 earlyAccess: product-trajectories
 ---
 
-Product trajectories are in early access. They add meaningful actions from your application to the evidence that CopilotKit Intelligence uses for Automatic Learning, including actions taken before a user starts a conversation.
+Product trajectories are in early access. They attach meaningful application actions to the current agent thread alongside agent activity. Your backend decides which threads CopilotKit Intelligence uses for Automatic Learning.
 
 ## Add capture to your app
 
-Start with a React app connected to Intelligence and an existing Learning container. The [Automatic Learning guide](/learning#create-a-learning-container) covers creating a container and reviewing the Skills it proposes.
+Start with a React app [connected to Intelligence](/intelligence/quickstart). Your existing `CopilotKitProvider` handles capture and delivery automatically. There is no frontend Learning container assignment and no tracking code to add to individual event handlers.
 
-Your existing `CopilotKitProvider` handles capture and delivery. Add one `learning` prop to choose the container; individual event handlers and a separate capture provider are unnecessary.
+Keep your existing provider and chat setup:
 
 ```tsx title="Your existing app provider"
 "use client";
@@ -24,23 +24,26 @@ import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
-    <CopilotKitProvider
-      runtimeUrl="/api/copilotkit"
-      learning={{ learningContainerId: "expense-review" }}
-    >
+    <CopilotKitProvider runtimeUrl="/api/copilotkit">
       {children}
     </CopilotKitProvider>
   );
 }
 ```
 
-Replace `expense-review` with your container ID and keep your existing Runtime URL. Capture starts automatically when the Runtime reports that Intelligence is connected. The `CopilotKit` compatibility provider accepts the same `learning` prop.
+Capture starts when the Runtime reports that Intelligence is connected. Set `learning={false}` to opt out. The `CopilotKit` compatibility provider accepts the same option.
 
-Capture uses a product-only session by default. To associate actions with a particular chat thread, add that thread's ID as `learning.threadId`. Keep the container assignment stable for the session.
+## Follow the current thread
+
+With one mounted chat, actions belong to that chat's current thread. Switching threads changes the destination for subsequent actions. If two chats are mounted, clicking or focusing one selects its thread for application-wide actions; background agent activity does not change that selection. Actions are omitted when there is no mounted thread or the destination is ambiguous.
+
+An associated request keeps the thread of the action that started it, even if its response arrives after a thread switch. The adapter retains the last 256 action associations; an older outcome is omitted rather than assigned to a different thread. Headless UI using `useAgent` supports a single unambiguous mounted thread; multiple headless threads without a selected chat are not automatically attributed.
+
+Configure which threads contribute to Automatic Learning on the backend, using the [Automatic Learning guide](/learning). Capturing an action does not assign a Learning container or enable Automatic Learning.
 
 ## Check what is captured
 
-Click a button, change a control, or submit a form in your app. In your browser's Network panel, look for requests to your Runtime's `/annotate` endpoint with `type: "user_action"`. These actions can become evidence in the container you selected, without starting an agent run.
+With a chat mounted, click a button, change a control, or submit a form in your app. In your browser's Network panel, look for requests to your Runtime's `/annotate` endpoint with `type: "user_action"` and the current chat's `threadId`. Switch to another thread and repeat: new actions should carry its ID. Annotation delivery does not start an agent run.
 
 | Signal                     | Captured information                                                                         |
 | -------------------------- | -------------------------------------------------------------------------------------------- |

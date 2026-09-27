@@ -7,16 +7,15 @@ import type {
 /** Uses the same annotation transport as manually recorded user actions. */
 export function createProductEventRecorder({
   record,
-  threadId,
-  learningContainerId,
+  getThreadId,
   onError,
 }: {
   record: UseLearnFromUserActionRecorder;
-  threadId: string;
-  learningContainerId?: string;
+  getThreadId: () => string | undefined;
   onError: (error: Error) => void;
 }) {
   const pending: LearnFromUserActionInput[] = [];
+  const actionThreads = new Map<string, string>();
   let active = false;
   let stopped = false;
   let overflowReported = false;
@@ -58,6 +57,18 @@ export function createProductEventRecorder({
   return {
     onEvent(event: ProductInteractionEvent) {
       if (stopped) return;
+      if (event.type === "interaction") {
+        const threadId = getThreadId();
+        if (!threadId) return;
+        actionThreads.set(event.actionId, threadId);
+        // Bound attribution history too. Very late outcomes can be omitted,
+        // but must never be reassigned to whichever thread is now selected.
+        if (actionThreads.size > 256) {
+          actionThreads.delete(actionThreads.keys().next().value!);
+        }
+      }
+      const threadId = actionThreads.get(event.actionId);
+      if (!threadId) return;
       // One request in flight and at most 50 waiting. No automatic retries:
       // an unavailable runtime must not create an unbounded browser backlog.
       if (pending.length >= 50) {
@@ -73,7 +84,6 @@ export function createProductEventRecorder({
       }
       pending.push({
         threadId,
-        ...(learningContainerId !== undefined ? { learningContainerId } : {}),
         clientEventId: event.id,
         occurredAt: new Date(event.timestamp).toISOString(),
         title:
@@ -91,6 +101,7 @@ export function createProductEventRecorder({
     stop() {
       stopped = true;
       pending.length = 0;
+      actionThreads.clear();
     },
   };
 }

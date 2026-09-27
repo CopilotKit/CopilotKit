@@ -16,11 +16,11 @@ const settle = async () => {
 };
 
 describe("product event annotation adapter", () => {
-  it("preserves event identity, correlation, timestamp and session thread", async () => {
+  it("preserves event identity, correlation, timestamp and active thread", async () => {
     const record = vi.fn().mockResolvedValue(result);
     const recorder = createProductEventRecorder({
       record,
-      threadId: "session-1",
+      getThreadId: () => "session-1",
       onError: vi.fn(),
     });
     recorder.onEvent(event);
@@ -46,7 +46,7 @@ describe("product event annotation adapter", () => {
     const onError = vi.fn();
     const recorder = createProductEventRecorder({
       record,
-      threadId: "session-1",
+      getThreadId: () => "session-1",
       onError,
     });
     for (let i = 0; i < 100; i++)
@@ -69,7 +69,7 @@ describe("product event annotation adapter", () => {
     });
     const recorder = createProductEventRecorder({
       record,
-      threadId: "session-1",
+      getThreadId: () => "session-1",
       onError,
     });
     recorder.onEvent(event);
@@ -89,7 +89,7 @@ describe("product event annotation adapter", () => {
     );
     const recorder = createProductEventRecorder({
       record,
-      threadId: "session-1",
+      getThreadId: () => "session-1",
       onError: vi.fn(),
     });
     recorder.onEvent(event);
@@ -107,11 +107,67 @@ describe("product event annotation adapter", () => {
     });
     const recorder = createProductEventRecorder({
       record: vi.fn().mockRejectedValue(new Error("offline")),
-      threadId: "session-1",
+      getThreadId: () => "session-1",
       onError,
     });
     recorder.onEvent(event);
     await settle();
     expect(onError).toHaveBeenCalledExactlyOnceWith(new Error("offline"));
+  });
+
+  it("keeps queued actions on their original threads across switches", async () => {
+    let thread = "thread-a";
+    let finish!: (value: typeof result) => void;
+    const record = vi.fn().mockResolvedValue(result);
+    record.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const recorder = createProductEventRecorder({
+      record,
+      getThreadId: () => thread,
+      onError: vi.fn(),
+    });
+    recorder.onEvent(event);
+    thread = "thread-b";
+    recorder.onEvent({ ...event, id: "b", actionId: "b" });
+    thread = "thread-c";
+    finish(result);
+    await settle();
+    expect(record.mock.calls.map(([input]) => input.threadId)).toEqual([
+      "thread-a",
+      "thread-b",
+    ]);
+  });
+
+  it("omits unbound and evicted outcomes instead of assigning the current thread", async () => {
+    const record = vi.fn().mockResolvedValue(result);
+    const recorder = createProductEventRecorder({
+      record,
+      getThreadId: () => "thread-b",
+      onError: vi.fn(),
+    });
+    const outcome: ProductInteractionEvent = {
+      id: "late",
+      actionId: "action-0",
+      timestamp: event.timestamp + 1,
+      type: "dom-change",
+      changes: { added: 1, removed: 0, attributes: 0 },
+    };
+    recorder.onEvent(outcome);
+    expect(record).not.toHaveBeenCalled();
+    for (let i = 0; i <= 256; i++) {
+      recorder.onEvent({
+        ...event,
+        id: `action-${i}`,
+        actionId: `action-${i}`,
+      });
+      await settle();
+    }
+    recorder.onEvent(outcome);
+    await settle();
+    expect(record).toHaveBeenCalledTimes(257);
   });
 });

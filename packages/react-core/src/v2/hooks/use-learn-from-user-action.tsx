@@ -11,8 +11,6 @@ import { recordAnnotation } from "../lib/record-annotation";
 export interface LearnFromUserActionInput {
   /** Thread the action is associated with. May be unknown to the platform. */
   threadId: string;
-  /** Optional Learning container for product-only sessions. Assignment stays fixed for the thread. */
-  learningContainerId?: string;
   /** Short, agent-readable summary of what the user did. Optional. */
   title?: string | null;
   /** Optional longer explanation. */
@@ -107,7 +105,6 @@ export function useLearnFromUserAction(): UseLearnFromUserActionRecorder {
         type: "user_action",
         payload: Object.keys(payload).length > 0 ? payload : undefined,
         threadId: input.threadId,
-        learningContainerId: input.learningContainerId,
         clientEventId: input.clientEventId,
         occurredAt: input.occurredAt,
       });

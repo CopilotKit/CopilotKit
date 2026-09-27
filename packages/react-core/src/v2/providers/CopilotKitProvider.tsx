@@ -132,7 +132,7 @@ export interface CopilotKitProviderProps {
   runtimeUrl?: string;
   /**
    * Automatically learn from meaningful product interactions when Intelligence
-   * is configured. Set false to disable, or configure capture and a threadId.
+   * is configured. Follows the active chat thread; set false to disable.
    * Input values, keystrokes, request bodies, and headers are never captured.
    */
   learning?: false | CopilotKitLearningConfig;

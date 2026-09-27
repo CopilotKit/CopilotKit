@@ -46,8 +46,6 @@ export interface RecordAnnotationArgs {
   payload?: unknown;
   /** Thread the annotation is associated with. */
   threadId: string;
-  /** Optional Learning container for product-only sessions. */
-  learningContainerId?: string;
   /**
    * Caller-supplied idempotency key. When omitted, a UUID is generated so
    * every call is naturally safe against platform-level duplicate processing.
@@ -95,7 +93,6 @@ export async function recordAnnotation(
     payload,
     threadId,
     occurredAt,
-    learningContainerId,
     fetch: fetchImplementation = globalThis.fetch,
   } = args;
 
@@ -107,7 +104,6 @@ export async function recordAnnotation(
     clientEventId,
     ...(payload !== undefined ? { payload } : {}),
     ...(occurredAt !== undefined ? { occurredAt } : {}),
-    ...(learningContainerId !== undefined ? { learningContainerId } : {}),
   };
 
   const requestInit: RequestInit & {
