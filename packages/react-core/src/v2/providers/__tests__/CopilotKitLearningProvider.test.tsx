@@ -132,6 +132,42 @@ describe("CopilotKitLearningProvider", () => {
     });
   });
 
+  it.each(["captureContext", "captureAccessibleNames"] as const)(
+    "does not restore old textual context after %s is disabled",
+    async (option) => {
+      const { rerender } = render(
+        <CopilotKitLearningProvider>
+          <Thread id="thread-a" />
+        </CopilotKitLearningProvider>,
+      );
+      await emit({
+        ...interaction("with-context"),
+        type: "interaction",
+        action: "click",
+        target: { tagName: "button" },
+        context: {
+          items: [
+            {
+              kind: "heading",
+              tagName: "h1",
+              accessibleName: "Account review",
+            },
+          ],
+        },
+      });
+      rerender(
+        <CopilotKitLearningProvider {...{ [option]: false }}>
+          <Thread id="thread-b" />
+        </CopilotKitLearningProvider>,
+      );
+      await emit(interaction("without-context"));
+      expect(bodies()).toHaveLength(2);
+      expect(bodies()[0].payload.data.context).toBeDefined();
+      expect(bodies()[1].threadId).toBe("thread-b");
+      expect(bodies()[1].payload.data).not.toHaveProperty("context");
+    },
+  );
+
   it("does not invent a thread before mount or after the last chat unmounts", async () => {
     const { rerender } = render(<CopilotKitLearningProvider />);
     await emit(interaction("before"));

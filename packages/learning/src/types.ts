@@ -1,13 +1,34 @@
+export interface ProductControlState {
+  checked?: boolean | "mixed";
+  expanded?: boolean;
+  pressed?: boolean | "mixed";
+  selected?: boolean;
+  disabled?: boolean;
+  /** Filtered visible labels of at most four selected options, never their values. */
+  selectedOptions?: string[];
+}
+
 export interface ProductInteractionTarget {
   tagName: string;
   /** An explicit or inferred accessibility role, never the element's text. */
   role?: string;
-  /** Filtered explicit aria-label or title; disabled by captureAccessibleNames: false. */
+  /** Filtered accessible markup/text; disabled by captureAccessibleNames: false. */
   accessibleName?: string;
   /** Filtered control name, never its value. */
   name?: string;
   /** Filtered application-authored data-learning-id. */
   learningId?: string;
+  /** State observed at this timestamp, not an inferred previous value. */
+  state?: ProductControlState;
+}
+
+export interface ProductInteractionContext {
+  /** At most eight semantic elements, with a 2 KiB serialized context budget. */
+  items: (ProductInteractionTarget & {
+    kind: "heading" | "region" | "group" | "status" | "content" | "control";
+  })[];
+  /** The node, item or byte budget prevented a complete semantic observation. */
+  truncated?: true;
 }
 
 interface ProductEventBase {
@@ -24,6 +45,7 @@ export type ProductInteractionEvent = ProductEventBase &
         type: "interaction";
         action: "click" | "change" | "submit";
         target: ProductInteractionTarget;
+        context?: ProductInteractionContext;
       }
     | {
         type: "request";
@@ -39,6 +61,17 @@ export type ProductInteractionEvent = ProductEventBase &
     | {
         type: "dom-change";
         changes: { added: number; removed: number; attributes: number };
+        /** Updated target state/name observed at the end of the immediate action. */
+        target?: ProductInteractionTarget;
+        /** Updated semantic snapshot, present only when its contents changed. */
+        context?: ProductInteractionContext;
+      }
+    | {
+        /** A later observation, not a claim that the request caused the UI state. */
+        type: "context";
+        trigger: "request-completed";
+        requestId: string;
+        context: ProductInteractionContext;
       }
   );
 
@@ -51,9 +84,11 @@ export interface ProductInteractionCaptureOptions {
   apiUrlPrefixes?: readonly string[];
   /** Exclusions win over inclusions. Include your event ingestion/runtime URLs. */
   excludedUrlPrefixes?: readonly string[];
-  /** Defaults to true. Captures bounded counts, never DOM snapshots or text. */
+  /** Defaults to true. Captures immediate structural counts and semantic outcomes. */
   captureDomChanges?: boolean;
-  /** Defaults to true. Reads filtered explicit aria-label/title, never text content. */
+  /** Defaults to true. Includes bounded semantic context with trusted actions. */
+  captureContext?: boolean;
+  /** Defaults to true. False omits all textual labels/context, retaining finite state. */
   captureAccessibleNames?: boolean;
   /** Defaults to 120, capped at 1,000; covers all emitted event types. */
   maxEventsPerMinute?: number;

@@ -8,6 +8,8 @@ export interface RecordAnnotationResult {
   id: string;
   /** `true` when the platform recognized this `clientEventId` as a retry. */
   duplicate: boolean;
+  /** True when ingress intentionally discarded the event without persisting it. */
+  dropped?: boolean;
 }
 
 /**

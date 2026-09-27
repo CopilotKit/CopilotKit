@@ -34,6 +34,8 @@ export interface LearnFromUserActionResult {
   id: string;
   /** True when the platform recognized this `clientEventId` as a retry. */
   duplicate: boolean;
+  /** True when ingress intentionally discarded the event without persisting it. */
+  dropped?: boolean;
 }
 
 /** Recorder function returned by {@link useLearnFromUserAction}. */

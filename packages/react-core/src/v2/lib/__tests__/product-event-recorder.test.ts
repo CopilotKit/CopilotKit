@@ -59,6 +59,232 @@ describe("product event annotation adapter", () => {
     expect(record.mock.calls.at(-1)?.[0].clientEventId).toBe("event-50");
   });
 
+  it("preserves semantic observations on the action's thread after a switch", async () => {
+    let thread = "thread-a";
+    const record = vi.fn().mockResolvedValue(result);
+    const recorder = createProductEventRecorder({
+      record,
+      getThreadId: () => thread,
+      onError: vi.fn(),
+    });
+    const interaction: ProductInteractionEvent = {
+      ...event,
+      type: "interaction",
+      action: "click",
+      target: {
+        tagName: "input",
+        role: "checkbox",
+        accessibleName: "Receipt attached",
+        state: { checked: true },
+      },
+      context: {
+        items: [
+          { kind: "heading", tagName: "h1", accessibleName: "Expense review" },
+        ],
+      },
+    };
+    recorder.onEvent(interaction);
+    thread = "thread-b";
+    const outcome: ProductInteractionEvent = {
+      id: "outcome-1",
+      actionId: event.actionId,
+      timestamp: event.timestamp + 1,
+      type: "dom-change",
+      changes: { added: 0, removed: 0, attributes: 1 },
+      target: { tagName: "button", state: { disabled: true } },
+      context: {
+        items: [
+          {
+            kind: "status",
+            tagName: "output",
+            accessibleName: "Ready to review",
+          },
+        ],
+        truncated: true,
+      },
+    };
+    recorder.onEvent(outcome);
+    await settle();
+    expect(record.mock.calls.map(([input]) => input.threadId)).toEqual([
+      "thread-a",
+      "thread-a",
+    ]);
+    expect(record.mock.calls.map(([input]) => input.data)).toEqual([
+      { source: "copilotkit.learning", ...interaction },
+      { source: "copilotkit.learning", ...outcome },
+    ]);
+  });
+
+  it("restores delta context for each new thread without repeating it on every action", async () => {
+    let thread = "thread-a";
+    const record = vi.fn().mockResolvedValue(result);
+    const recorder = createProductEventRecorder({
+      record,
+      getThreadId: () => thread,
+      onError: vi.fn(),
+    });
+    const context = {
+      items: [
+        { kind: "heading" as const, tagName: "h1", accessibleName: "Review" },
+      ],
+    };
+    recorder.onEvent({ ...event, context });
+    await settle();
+    recorder.onEvent({ ...event, id: "a2", actionId: "a2" });
+    await settle();
+    thread = "thread-b";
+    recorder.onEvent({ ...event, id: "b1", actionId: "b1" });
+    await settle();
+    recorder.onEvent({ ...event, id: "b2", actionId: "b2" });
+    await settle();
+    expect(record.mock.calls.map(([input]) => input.data.context)).toEqual([
+      context,
+      undefined,
+      context,
+      undefined,
+    ]);
+    expect(record.mock.calls.map(([input]) => input.threadId)).toEqual([
+      "thread-a",
+      "thread-a",
+      "thread-b",
+      "thread-b",
+    ]);
+  });
+
+  it("restores context after a failed delivery and clears it when the screen disappears", async () => {
+    const record = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue(result);
+    const recorder = createProductEventRecorder({
+      record,
+      getThreadId: () => "thread-a",
+      onError: vi.fn(),
+    });
+    const context = {
+      items: [
+        { kind: "heading" as const, tagName: "h1", accessibleName: "Review" },
+      ],
+    };
+    recorder.onEvent({ ...event, context });
+    await settle();
+    recorder.onEvent({ ...event, id: "next", actionId: "next" });
+    await settle();
+    expect(record.mock.calls[1][0].data.context).toEqual(context);
+    recorder.onEvent({
+      id: "removed",
+      actionId: "next",
+      timestamp: event.timestamp + 1,
+      type: "dom-change",
+      changes: { added: 0, removed: 1, attributes: 0 },
+      context: { items: [] },
+    });
+    await settle();
+    recorder.onEvent({ ...event, id: "later", actionId: "later" });
+    await settle();
+    expect(record.mock.calls[2][0].data.context).toEqual({ items: [] });
+    expect(record.mock.calls[3][0].data).not.toHaveProperty("context");
+  });
+
+  it("restores context after the ingress kill switch stops dropping annotations", async () => {
+    const record = vi
+      .fn()
+      .mockResolvedValueOnce(result)
+      .mockResolvedValueOnce({ ...result, dropped: true })
+      .mockResolvedValue(result);
+    const recorder = createProductEventRecorder({
+      record,
+      getThreadId: () => "thread-a",
+      onError: vi.fn(),
+    });
+    recorder.onEvent({
+      ...event,
+      context: {
+        items: [
+          { kind: "status", tagName: "output", accessibleName: "Pending" },
+        ],
+      },
+    });
+    await settle();
+    const context = {
+      items: [
+        {
+          kind: "status" as const,
+          tagName: "output",
+          accessibleName: "Approved",
+        },
+      ],
+    };
+    recorder.onEvent({ ...event, id: "dropped", actionId: "dropped", context });
+    await settle();
+    recorder.onEvent({ ...event, id: "restored", actionId: "restored" });
+    await settle();
+    expect(record.mock.calls[2][0].data.context).toEqual(context);
+  });
+
+  it("omits a delayed screen observation after a thread switch but keeps the request outcome", async () => {
+    let thread = "thread-a";
+    const record = vi.fn().mockResolvedValue(result);
+    const recorder = createProductEventRecorder({
+      record,
+      getThreadId: () => thread,
+      onError: vi.fn(),
+    });
+    recorder.onEvent(event);
+    thread = "thread-b";
+    recorder.onEvent({
+      id: "request",
+      actionId: event.actionId,
+      timestamp: event.timestamp + 1,
+      type: "request",
+      request: {
+        method: "POST",
+        url: "https://example.test/api",
+        durationMs: 1,
+        status: 200,
+        outcome: "success",
+      },
+    });
+    recorder.onEvent({
+      id: "observation",
+      actionId: event.actionId,
+      timestamp: event.timestamp + 51,
+      type: "context",
+      trigger: "request-completed",
+      requestId: "request",
+      context: {
+        items: [{ kind: "status", tagName: "output", accessibleName: "Saved" }],
+      },
+    });
+    await settle();
+    expect(record.mock.calls.map(([input]) => input.clientEventId)).toEqual([
+      event.id,
+      "request",
+    ]);
+    expect(record.mock.calls.map(([input]) => input.threadId)).toEqual([
+      "thread-a",
+      "thread-a",
+    ]);
+    recorder.onEvent({ ...event, id: "b", actionId: "b" });
+    recorder.onEvent({
+      id: "b-context",
+      actionId: "b",
+      timestamp: event.timestamp + 52,
+      type: "context",
+      trigger: "request-completed",
+      requestId: "b-request",
+      context: {
+        items: [{ kind: "status", tagName: "output", accessibleName: "Ready" }],
+      },
+    });
+    await settle();
+    expect(record.mock.calls.at(-1)?.[0]).toMatchObject({
+      threadId: "thread-b",
+      title: "Screen context after request",
+      data: { type: "context", requestId: "b-request" },
+    });
+  });
+
   it("reports failures and continues delivery even if the error callback throws", async () => {
     const record = vi
       .fn()

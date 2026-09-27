@@ -59,6 +59,7 @@ export function CopilotKitLearningProvider({
     !!runtimeUrl && intelligenceAvailable && enabled !== false;
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
+  const { captureContext, captureAccessibleNames } = captureOptions;
   const recorderRef = useRef<ReturnType<
     typeof createProductEventRecorder
   > | null>(null);
@@ -83,7 +84,14 @@ export function CopilotKitLearningProvider({
       recorder.stop();
       changeThreads.stop();
     };
-  }, [captureEnabled, threads, record, runtimeUrl]);
+  }, [
+    captureEnabled,
+    threads,
+    record,
+    runtimeUrl,
+    captureContext,
+    captureAccessibleNames,
+  ]);
 
   const onEvent = useCallback((event: ProductInteractionEvent) => {
     recorderRef.current?.onEvent(event);

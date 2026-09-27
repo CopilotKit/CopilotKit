@@ -39,19 +39,43 @@ import { LearningProvider } from "@copilotkit/learning/react";
 
 Every event has a UUID `id`, a shared `actionId`, and a Unix millisecond `timestamp`:
 
-- `interaction`: a trusted `click`, `change`, or `submit`, with the element's tag, accessibility role, filtered explicit label, control name, and application-authored `data-learning-id` when available.
+- `interaction`: a trusted `click`, `change`, or `submit`, with the element's tag, role, filtered accessible name, control name, optional `data-learning-id`, observed finite control state, and bounded semantic screen context.
 - `request`: fetch/XHR method, matched API prefix, response status, duration, and success/error/aborted outcome.
-- `dom-change`: bounded counts of added/removed elements and relevant accessibility/state attribute changes.
+- `dom-change`: bounded structural counts, plus updated target/context snapshots when the immediate action changes them. Text-only changes and property-only control updates are observable even when no element is added or removed.
+- `context`: a changed semantic observation sampled once, 50 ms after an eligible request completes. It includes `trigger: "request-completed"`, `requestId`, and the original `actionId`; it does not claim the request caused the observed UI state.
 
 Capture observes user actions, including committed field changes; it does not record keystrokes. Synthetic DOM events are ignored. Request correlation is deliberately conservative: only requests started during the immediate trusted interaction scope are eligible. The scope closes on the next timer task. Delayed/debounced requests and later work after an asynchronous operation are generally omitted. This is a causal heuristic, not an asynchronous execution tracer.
 
-DOM outcomes are counts collected in that same short scope. The observer watches child lists and `aria-expanded`, `aria-checked`, `aria-selected`, `disabled`, and `hidden`; counts saturate at 100, and each observer delivery inspects at most 100 records. Neither automatic background updates nor requests outside an interaction scope produce events. Each action can emit at most one DOM summary. Request completions may arrive after the action scope closes.
+DOM outcomes are collected in that same short scope. The observer watches child lists, text nodes and selected accessibility/state attributes; counts saturate at 100, and each observer delivery inspects at most 100 records. Neither automatic background updates nor requests outside an interaction scope produce events. Each action can emit at most one DOM summary. Request completions may arrive after the action scope closes. A successful HTTP response does not establish a successful business outcome. Immediate outcomes are compared once at task close, including finite control properties that do not generate MutationObserver records.
+
+When context capture is enabled, an eligible request completion schedules one additional semantic observation after 50 ms. It is canceled after an intervening trusted action (including an excluded private action or later field input), capture cleanup, or removal of the original screen scope. Unchanged observations are omitted. This bounded observation can miss later UI updates and does not establish request causality; it does not open a longer window for request capture or watch ongoing background activity.
+
+## Semantic context
+
+Capture uses normal accessibility markup: button/link text, native labels, `aria-label`, `aria-labelledby`, fieldset legends, headings, named regions/forms, and `role="status"`, `role="alert"`, or `output` elements. Private, hidden, and editable descendants are excluded during text traversal. Names and semantic text must pass the same basic filters as explicit labels. These are bounded observations, not a complete accessibility-tree implementation.
+
+State includes observed checked, expanded, pressed, selected and disabled values, plus at most four filtered selected option labels. Option values and freeform input values are never read. State is the value observed at the event timestamp: for example, native checkbox activation may happen before the click listener, so it is not labeled as the previous value.
+
+Each interaction can include `context.items`: semantic status text, relevant headings, the nearest group and named region, finite-state controls, and explicitly designated domain text. Status/headings/groups take priority within the item budget; duplicate region/heading labels and unselected radio alternatives are omitted. The scope is the nearest main/dialog, otherwise a nearby named section/form, otherwise the document body. Context visits at most 256 nodes (including name-text traversal), includes at most eight items and fits within 2 KiB of UTF-8 JSON. `truncated: true` records when those bounds prevent a complete observation. Context is emitted initially and when it changes, deduplicated against the last emitted observation. Omitted context means unchanged; an explicit `{ items: [] }` clears prior context. Consumers should retain the latest snapshot while reading the ordered callback stream. Per-thread delivery adapters must restore a current snapshot when a new thread starts receiving this stream; global deduplication alone is not a substitute for per-thread context.
+
+Arbitrary page prose is excluded. To designate additional application-specific context, mark a short domain summary explicitly:
+
+```html
+<p data-learning-context>Order total: $48</p>
+<p role="status">Awaiting approval</p>
+```
+
+The marker permits filtered text capture; it does not override privacy exclusions or make the text safe. Do not mark a whole application or private document. Unmarked domain facts may remain unavailable to a trajectory consumer.
+
+Explicit context text permits common currency-prefixed amounts with up to six integer digits, optional comma grouping and an optional two-digit decimal fraction (for example, `$84.50` or `$1,234.56`). Only complete bounded currency tokens bypass the numeric heuristic. Long account/card/phone sequences, emails, credentials and private descendants remain excluded. This exception does not change ordinary button, input, or other control-label filtering.
+
+Set `captureContext: false` to omit screen context while retaining target names/state. Set `captureAccessibleNames: false` to omit names, selected option labels, and semantic context together; filtered control identifiers and finite boolean states remain available.
 
 ## Privacy and limits
 
 The default API allowlist is same-origin `/api`. Set explicit path prefixes for other endpoints or absolute prefixes for other origins. Prefixes match path segment boundaries. The event URL contains **only the origin and longest matched configured prefix**: `/api/orders/customer-123?token=secret` becomes `https://your-app.example/api/orders` when `/api/orders` is configured. Do not put personal data in configured prefixes.
 
-Capture never reads input values, request/response bodies, headers, query strings, fragments, DOM text, or snapshots. By default it includes an explicit `aria-label` (or `title`) of at most 80 characters, omitting common email, long-number, URL, and sensitive-token patterns. Set `captureAccessibleNames: false` to omit labels. Control `name` and explicit `data-learning-id` values pass the same filtering and are restricted to short identifier characters; DOM IDs are never emitted. These application-authored values can still contain personal information: this basic filter is not anonymization.
+Capture never reads freeform input values, request/response bodies, headers, query strings, fragments, arbitrary page text, or full DOM snapshots. Accessible names and designated semantic text are limited to 80 characters, omitting common email, long-number, URL, and sensitive-token patterns. Overlong names are omitted rather than truncated. Name extraction visits at most 64 nodes outside the shared context budget and resolves at most four labels/references. Control `name` and explicit `data-learning-id` values pass the same filtering and are restricted to short identifier characters; DOM IDs are never emitted. These application-authored values can still contain personal information: this basic filter is not anonymization.
 
 The following markers exclude an element and its descendants, including descendants of an open shadow host:
 
@@ -64,7 +88,7 @@ The following markers exclude an element and its descendants, including descenda
 
 The first three markers exclude by presence, even if their value is `false`. `.ph-no-capture` and `.ph-sensitive` also exclude. Hidden elements, `aria-hidden="true"`, password/hidden/email/telephone inputs, sensitive autocomplete tokens, and common sensitive names/IDs are excluded. These are basic safeguards; mark application-specific private areas explicitly.
 
-`captureRequests` and `captureDomChanges` default to `true`. `maxEventsPerMinute` defaults to 120 (maximum 1,000) across all event types; `maxRequestsPerAction` defaults to 5 (maximum 20). Set either limit to zero to disable the corresponding output. At most 100 observed requests remain in flight across a window's active capture subscriptions. Excess events/requests are dropped without buffering.
+`captureRequests`, `captureDomChanges`, and `captureContext` default to `true` after capture is explicitly enabled. Each emitted event is capped at 8 KiB of UTF-8 JSON; oversized events are omitted. `maxEventsPerMinute` defaults to 120 (maximum 1,000) across all event types; `maxRequestsPerAction` defaults to 5 (maximum 20). Set either limit to zero to disable the corresponding output. At most 100 observed requests remain in flight across a window's active capture subscriptions. Excess events/requests are dropped without buffering.
 
 Always exclude runtime and telemetry ingestion endpoints with `excludedUrlPrefixes`. Exclusions override inclusion. Synchronous requests initiated by a callback are suppressed for that capture subscription; asynchronous sinks need an explicit URL exclusion. Callback failures are contained. Fetch promises/responses and XHR behavior are preserved, and cleanup does not overwrite another library's later instrumentation.
 

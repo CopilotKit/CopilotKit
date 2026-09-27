@@ -68,12 +68,14 @@ describe("LearningProvider", () => {
         <LearningProvider
           onEvent={onEvent}
           enabled={false}
+          captureContext={false}
           excludedUrlPrefixes={["/api/runtime"]}
         />,
       ),
     );
     expect(cleanup).toHaveBeenCalledOnce();
     expect(capture.mock.calls[1][0].enabled).toBe(false);
+    expect(capture.mock.calls[1][0].captureContext).toBe(false);
     expect(capture.mock.calls[1][0].excludedUrlPrefixes).toEqual([
       "/api/runtime",
     ]);

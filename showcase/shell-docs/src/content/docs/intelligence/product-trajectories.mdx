@@ -47,13 +47,28 @@ With a chat mounted, click a button, change a control, or submit a form in your 
 
 | Signal                     | Captured information                                                                         |
 | -------------------------- | -------------------------------------------------------------------------------------------- |
-| User action                | Click, committed change, or submission; timestamp; element role and filtered explicit label. |
+| User action                | Click, committed change, or submission; timestamp; filtered accessible name, role, and observed control state. |
 | Associated service request | `fetch` or XHR method, configured API prefix, status, duration, and outcome.                 |
-| Immediate DOM change       | Bounded counts of added or removed elements and changed accessibility attributes.            |
+| Screen context             | Initial and changed headings, group labels, selected controls, and status text from the action's surrounding region. |
+| Immediate DOM change       | Bounded structural counts and changed target or semantic context, including status text changes. |
+| Post-request observation   | One changed semantic snapshot observed 50 ms after an associated request completes. |
+
+Capture reads ordinary accessible markup, including button text, native control labels, `aria-labelledby`, headings, and status regions. Checkbox and radio state, expanded state, and selected option labels help distinguish what a user selected from which control they clicked. These are observations at the event timestamp; they do not invent a previous value.
+
+Screen context is limited to eight semantic items and 2 KiB of JSON per observation. Statuses, headings, and groups take priority; unchanged context is omitted from later events. The delivery adapter restores the latest snapshot when a new thread needs it. A `truncated` marker indicates incomplete context. Arbitrary page prose is excluded, so application-specific facts can remain missing. To include an additional short, non-private domain summary, mark it explicitly:
+
+```html
+<p data-learning-context>Order total: $48</p>
+<p role="status">Awaiting approval</p>
+```
+
+The marker does not override privacy filtering. Set `captureContext: false` inside `learning` to omit screen context while retaining target labels and control state.
 
 Requests default to your app's same-origin `/api` routes. To focus on a specific service, add `apiUrlPrefixes: ["/api/expenses"]` inside `learning`. Use an absolute prefix for a service on another origin. Recorded URLs contain only the matching configured prefix; dynamic path segments, query strings, and fragments are omitted. Keep personal data out of configured prefixes.
 
-Capture requires browser-trusted actions. Synthetic DOM events and background polling outside an action do not produce trajectories. Browser automation that generates trusted events can still be captured. Request correlation covers the immediate interaction scope; delayed or debounced requests can be missed, and correlation is a heuristic rather than proof of causation.
+Capture requires browser-trusted actions. Synthetic DOM events and background polling outside an action do not produce trajectories. Browser automation that generates trusted events can still be captured. Request and immediate DOM correlation cover the current interaction task; delayed or debounced requests can be missed. Correlation is a heuristic rather than proof of causation.
+
+A separate `context` event can observe changed screen state 50 ms after an associated request completes. It carries the original `actionId` and a `requestId`, but does not claim the request caused every observed change. Another user action, field input, a thread switch, or removal of the original screen can cancel that observation. Later UI updates can still be missed. A successful HTTP response alone does not establish that the intended business operation completed.
 
 ## Exclude private areas
 
@@ -65,7 +80,7 @@ Mark a control or its surrounding section with `data-private` to exclude it and 
 </section>
 ```
 
-Capture never reads keystrokes, field values, DOM text, or request and response bodies. Password, email, telephone, hidden, and sensitive autocomplete fields are excluded automatically. Explicit `aria-label` or `title` values pass basic filtering before capture; set `captureAccessibleNames: false` inside `learning` to omit them. Filtered control `name` and `data-learning-id` identifiers can still be recorded, so keep personal data out of those attributes. Mark application-specific sensitive areas yourself: this filtering does not guarantee anonymization.
+Capture never reads keystrokes, freeform input values, full DOM snapshots, or request and response bodies. Password, email, telephone, hidden, and sensitive autocomplete fields are excluded automatically. Accessible names, selected option labels, and semantic context pass basic filtering before capture; set `captureAccessibleNames: false` inside `learning` to omit all three. Finite control states and filtered `name` and `data-learning-id` identifiers can still be recorded, so keep personal data out of those attributes. Mark application-specific sensitive areas yourself: this filtering does not guarantee anonymization.
 
 The default cap is 120 events per minute and five requests per action. Set `learning={false}` on your provider to stop automatic capture. To receive delivery errors, add an `onError` callback inside `learning`.
 

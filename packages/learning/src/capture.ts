@@ -1,19 +1,28 @@
 import { subscribeToRequests } from "./network";
+import { contextScope, describeContext } from "./context";
 import {
   describeTarget,
   isSensitive,
   parsePrefixes,
   safeRequestUrl,
+  visibleElement,
 } from "./privacy";
 import type {
   ProductInteractionCaptureOptions,
   ProductInteractionEvent,
+  ProductInteractionTarget,
+  ProductInteractionContext,
 } from "./types";
 
 interface Action {
   id: string;
   requests: number;
   changes: { added: number; removed: number; attributes: number };
+  element: Element;
+  target: ProductInteractionTarget;
+  context?: ProductInteractionContext;
+  scope?: Element;
+  activity: number;
 }
 
 function id(): string {
@@ -68,15 +77,27 @@ export function startProductInteractionCapture(
   );
   const maxEvents = bounded(options.maxEventsPerMinute, 120, 1000);
   const maxRequests = bounded(options.maxRequestsPerAction, 5, 20);
+  const captureNames = options.captureAccessibleNames !== false;
+  const captureContext = captureNames && options.captureContext !== false;
   const timers = new Set<ReturnType<typeof setTimeout>>();
   let stopped = false;
   let notifying = false;
   let action: Action | undefined;
   let windowStart = Date.now();
   let eventCount = 0;
+  let activity = 0;
+  let lastContext: string | undefined;
+
+  function changedContext(context: ProductInteractionContext | undefined) {
+    const observed = context ?? { items: [] };
+    const encoded = JSON.stringify(observed);
+    return encoded === (lastContext ?? '{"items":[]}') ? undefined : observed;
+  }
 
   function emit(event: ProductInteractionEvent): boolean {
     if (stopped || notifying) return false;
+    if (new TextEncoder().encode(JSON.stringify(event)).byteLength > 8192)
+      return false;
     if (Date.now() - windowStart >= 60_000) {
       windowStart = Date.now();
       eventCount = 0;
@@ -94,17 +115,36 @@ export function startProductInteractionCapture(
     } finally {
       notifying = false;
     }
+    if ("context" in event && event.context)
+      lastContext = JSON.stringify(event.context);
     return true;
   }
 
   function flushChanges(current: Action) {
-    if (Object.values(current.changes).some((count) => count > 0)) {
+    if (options.captureDomChanges === false || activity !== current.activity)
+      return;
+    const target =
+      current.element.isConnected && visibleElement(current.element)
+        ? describeTarget(current.element, captureNames)
+        : undefined;
+    const context = captureContext
+      ? changedContext(describeContext(current.element))
+      : undefined;
+    const targetChanged =
+      target && JSON.stringify(target) !== JSON.stringify(current.target);
+    if (
+      targetChanged ||
+      context ||
+      Object.values(current.changes).some((count) => count > 0)
+    ) {
       emit({
         id: id(),
         actionId: current.id,
         timestamp: Date.now(),
         type: "dom-change",
         changes: { ...current.changes },
+        ...(targetChanged && { target }),
+        ...(context && { context }),
       });
     }
   }
@@ -113,20 +153,28 @@ export function startProductInteractionCapture(
     // No test/developer switch can relax this: synthetic agent events are not
     // user interventions, and must not become training evidence.
     if (!event.isTrusted || notifying || stopped) return;
+    activity++;
     const element = event
       .composedPath()
       .find((node): node is Element => node instanceof Element);
-    if (!element || isSensitive(element)) {
+    if (!element || !visibleElement(element)) {
       action = undefined;
       return;
     }
     const target =
       element.closest("button,a,input,select,textarea,form,[role]") ?? element;
-    if (isSensitive(target)) return;
+    if (!visibleElement(target)) return;
     const current: Action = {
       id: id(),
       requests: 0,
       changes: { added: 0, removed: 0, attributes: 0 },
+      element: target,
+      target: describeTarget(target, captureNames),
+      ...(captureContext && {
+        context: changedContext(describeContext(target)),
+      }),
+      scope: contextScope(target),
+      activity,
     };
     action = current;
     if (
@@ -136,10 +184,8 @@ export function startProductInteractionCapture(
         timestamp: Date.now(),
         type: "interaction",
         action: event.type as "click" | "change" | "submit",
-        target: describeTarget(
-          target,
-          options.captureAccessibleNames !== false,
-        ),
+        target: current.target,
+        ...(current.context && { context: current.context }),
       })
     ) {
       action = undefined;
@@ -157,6 +203,19 @@ export function startProductInteractionCapture(
 
   for (const name of ["click", "change", "submit"])
     doc.addEventListener(name, onAction, true);
+  // Editing is an intervention even when its value is deliberately omitted.
+  // A native checkbox/radio input accompanies its click. Other input cancels a
+  // pending observation without becoming a keystroke event, even if the browser
+  // has not serviced the earlier action's closing timer yet.
+  function onInput(event: Event) {
+    if (!event.isTrusted || stopped || notifying) return;
+    const sameActivation =
+      action?.element === event.target &&
+      event.target instanceof HTMLInputElement &&
+      ["checkbox", "radio"].includes(event.target.type);
+    if (!sameActivation) activity++;
+  }
+  doc.addEventListener("input", onInput, true);
 
   const observer =
     options.captureDomChanges !== false &&
@@ -169,7 +228,8 @@ export function startProductInteractionCapture(
               record.target instanceof Element
                 ? record.target
                 : record.target.parentElement;
-            if (!target || isSensitive(target)) continue;
+            if (!target) continue;
+            if (isSensitive(target)) continue;
             if (record.type === "attributes")
               action.changes.attributes = Math.min(
                 100,
@@ -203,11 +263,17 @@ export function startProductInteractionCapture(
   observer?.observe(doc, {
     subtree: true,
     childList: true,
+    characterData: true,
     attributes: true,
     attributeFilter: [
       "aria-expanded",
       "aria-checked",
       "aria-selected",
+      "aria-pressed",
+      "aria-disabled",
+      "aria-label",
+      "checked",
+      "selected",
       "disabled",
       "hidden",
     ],
@@ -216,7 +282,13 @@ export function startProductInteractionCapture(
   const unsubscribe =
     options.captureRequests !== false
       ? subscribeToRequests(win, (rawUrl, rawMethod) => {
-          if (!action || stopped || notifying || action.requests >= maxRequests)
+          if (
+            !action ||
+            action.activity !== activity ||
+            stopped ||
+            notifying ||
+            action.requests >= maxRequests
+          )
             return;
           const url = safeRequestUrl(
             rawUrl,
@@ -231,9 +303,10 @@ export function startProductInteractionCapture(
           const method = /^[a-z]{1,20}$/i.test(rawMethod)
             ? rawMethod.toUpperCase()
             : "OTHER";
-          return (completion) =>
-            emit({
-              id: id(),
+          return (completion) => {
+            const requestId = id();
+            const emitted = emit({
+              id: requestId,
               actionId: current.id,
               timestamp: Date.now(),
               type: "request",
@@ -244,6 +317,37 @@ export function startProductInteractionCapture(
                 ...completion,
               },
             });
+            if (
+              !emitted ||
+              !captureContext ||
+              activity !== current.activity ||
+              !current.scope?.isConnected
+            )
+              return;
+            const timer = setTimeout(() => {
+              timers.delete(timer);
+              if (
+                stopped ||
+                activity !== current.activity ||
+                !current.scope?.isConnected
+              )
+                return;
+              const context = changedContext(
+                describeContext(current.element, current.scope),
+              );
+              if (context)
+                emit({
+                  id: id(),
+                  actionId: current.id,
+                  timestamp: Date.now(),
+                  type: "context",
+                  trigger: "request-completed",
+                  requestId,
+                  context,
+                });
+            }, 50);
+            timers.add(timer);
+          };
         })
       : () => {};
 
@@ -254,6 +358,7 @@ export function startProductInteractionCapture(
     timers.clear();
     for (const name of ["click", "change", "submit"])
       doc.removeEventListener(name, onAction, true);
+    doc.removeEventListener("input", onInput, true);
     observer?.disconnect();
     unsubscribe();
   };
