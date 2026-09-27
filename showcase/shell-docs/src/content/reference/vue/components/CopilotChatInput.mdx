@@ -5,9 +5,9 @@ description: "Primary text input and control surface for chat interactions in Vu
 
 ## Overview
 
-`CopilotChatInput` is the Vue 3 primary text input and control surface for chat interactions. It provides a multi-line textarea that auto-grows up to a configurable maximum number of rows (default 5), action buttons for sending messages and voice transcription, and an optional tools menu for declarative command surfaces (which also surfaces a file-attachment item when you bind `@add-file`, and is reachable via inline `/` slash commands).
+`CopilotChatInput` is the Vue 3 primary text input and control surface for chat interactions. It provides a multi-line textarea that auto-grows up to a configurable maximum number of rows (default 8), action buttons for sending messages and voice transcription, and an optional tools menu for declarative command surfaces (which also surfaces a file-attachment item when you bind `@add-file`, and is reachable via inline `/` slash commands).
 
-The component operates in three modes: `"input"` (default text entry), `"transcribe"` (replaces the textarea with an audio recorder), and `"processing"` (shows a spinner while background processing is underway). When text spans multiple rows, the layout stacks the textarea above the control row.
+The component operates in three modes: `"input"` (default text entry), `"transcribe"` (replaces the textarea with an audio recorder), and `"processing"` (shows a spinner while background processing is underway). By default the text and the buttons share one row until the text wraps, then the textarea moves above the control row. The `layout` prop controls this.
 
 It supports both `v-model` (via `modelValue` / `update:modelValue`) and uncontrolled usage. When uncontrolled, the component manages its own text state internally and clears on submit (configurable via `clearOnSubmit`).
 
@@ -107,9 +107,19 @@ function handleSubmit(text: string) {
   the textarea.
 </PropertyReference>
 
-<PropertyReference name="maxRows" type="number" default="5">
+<PropertyReference name="maxRows" type="number" default="8">
   The maximum number of rows the auto-growing textarea expands to before it
   becomes scrollable.
+</PropertyReference>
+
+<PropertyReference name="layout" type='"auto" | "stacked"' default='"auto"'>
+  How the text and the action buttons are arranged.
+
+  - `"auto"`: a single row while the text fits on one line, so the input stays short. Once the text wraps, it moves onto its own full-width row above the actions.
+  - `"stacked"`: always text on top, actions underneath.
+
+  In either layout, inputs narrower than about 320px (a small popup, for
+  example) move voice input into the "+" menu so the actions fit.
 </PropertyReference>
 
 <PropertyReference name="positioning" type='"static" | "absolute"' default='"static"'>
@@ -132,6 +142,12 @@ function handleSubmit(text: string) {
   last child. Reserves bottom space for the fixed CopilotKit license banner so
   the two do not overlap. Not needed when `positioning === "absolute"`, which
   already reserves the space.
+</PropertyReference>
+
+<PropertyReference name="highlightMarkdown" type="boolean" default="true">
+  Styles list markers and links as the user types. The text stays a plain
+  `<textarea>`, so caret, selection, and undo are unaffected. Set `false` for
+  plain text.
 </PropertyReference>
 
 ## Events
@@ -483,8 +499,8 @@ import { CopilotChatInput } from "@copilotkit/vue/v2";
 
 ## Behavior
 
-- **Auto-Growing Textarea**: The default textarea automatically expands as the user types, up to `maxRows` rows (default 5). After reaching the maximum, the textarea becomes scrollable.
-- **Layout Stacking**: When the input text spans multiple rows, the layout switches from inline (textarea and buttons side by side) to stacked (textarea above the control row containing the action buttons). On narrow viewports the stacked layout is used unconditionally.
+- **Auto-Growing Textarea**: The default textarea automatically expands as the user types, up to `maxRows` rows (default 8). After reaching the maximum, the textarea becomes scrollable.
+- **Layout Stacking**: With `layout="auto"`, the input switches from inline (textarea and buttons side by side) to stacked (textarea above the control row) once the text wraps or contains a line break. `layout="stacked"` always uses the stacked arrangement. Inputs narrower than about 320px move voice input into the "+" menu.
 - **Mode Switching**: Setting `mode` to `"transcribe"` replaces the textarea with the `audio-recorder` slot and automatically starts the recorder. The cancel and finish buttons replace the standard send button. Setting `mode` to `"processing"` shows a spinner in place of the textarea.
 - **Controlled and Uncontrolled**: The component supports controlled mode (via `v-model` / `modelValue`) and uncontrolled mode (internal state). With `clearOnSubmit` enabled (the default), the input clears after each submission.
 - **Tools Menu and Slash Commands**: A non-empty `toolsMenu` renders a menu button and also exposes the leaf actions as `/` slash commands typed inline. Use arrow keys to navigate the slash menu and Enter to run the highlighted command.

@@ -83,6 +83,10 @@ function handleError(event: {
   Whether to show the welcome screen when there are no messages and no explicit thread is selected. Pass `false` to disable it. Override the `welcome-screen` slot to fully customize it.
 </PropertyReference>
 
+<PropertyReference name="introAnimation" type="boolean" default="true">
+  Eases the welcome screen in: the greeting, suggestion cards, and input rise into place in sequence. Set `false` to show them immediately. The animation is always off when the user prefers reduced motion.
+</PropertyReference>
+
 <PropertyReference name="inputValue" type="string">
   Controlled value for the chat input. When provided, the chat treats the input as controlled and mirrors changes back through the `input-change` event.
 </PropertyReference>
@@ -131,7 +135,7 @@ Vue uses named slots in place of React's render props and sub-component props. P
 </PropertyReference>
 
 <PropertyReference name="suggestion-view" type="CopilotChatSuggestionViewSlotProps">
-  Replaces the default suggestion pills. Receives `suggestions`, `loadingIndexes`, and `onSelectSuggestion`.
+  Replaces the default suggestions, which show as cards on the welcome screen and as a row of pills docked above the input once the conversation starts. The slot is used in both places. Receives `suggestions`, `loadingIndexes`, and `onSelectSuggestion`.
 </PropertyReference>
 
 <PropertyReference name="welcome-screen" type="CopilotChatWelcomeScreenSlotProps">

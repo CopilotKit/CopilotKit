@@ -46,6 +46,10 @@ import { CopilotPopup } from "@copilotkit/vue/v2";
   Whether clicking outside the popup panel closes it.
 </PropertyReference>
 
+<PropertyReference name="threadsDrawer" type="boolean | CopilotThreadsDrawerProps" default="false">
+  Adds a threads drawer to the popup. The header gets a history button (top-left) that slides the drawer in from the popup's left edge, over the chat. Picking a thread or "New Conversation" switches the chat. Pass `true` for the default drawer, or an object of `CopilotThreadsDrawer` props (`label`, `recentLabel`, `limit`, `collapsible`, ...) to configure it. The popup creates its own chat configuration when none surrounds it, so no `CopilotChatConfigurationProvider` is required. Threads need CopilotKit Intelligence; without it the drawer shows its locked state. See [Threads and the threads drawer](/frontends/vue/guides/threads-and-drawer).
+</PropertyReference>
+
 ### Inherited CopilotChat props
 
 `CopilotPopup` extends [`CopilotChatProps`](/reference/vue/components/CopilotChat), so it accepts the same agent-wiring and chat-view props. The most common ones:
@@ -68,6 +72,10 @@ import { CopilotPopup } from "@copilotkit/vue/v2";
 
 <PropertyReference name="welcomeScreen" type="boolean" default="true">
   Whether to show the welcome screen when no messages exist.
+</PropertyReference>
+
+<PropertyReference name="introAnimation" type="boolean" default="true">
+  Eases the welcome screen in: the greeting, suggestion cards, and input rise into place in sequence. Set `false` to show them immediately. The animation is always off when the user prefers reduced motion.
 </PropertyReference>
 
 <PropertyReference name="inputValue" type="string">
@@ -188,6 +196,21 @@ import { CopilotPopup } from "@copilotkit/vue/v2";
       </div>
     </template>
   </CopilotPopup>
+</template>
+```
+
+### With a threads drawer
+
+```vue
+<script setup lang="ts">
+import { CopilotPopup } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotPopup
+    agent-id="my-agent"
+    :threads-drawer="{ recentLabel: 'Your conversations', limit: 20 }"
+  />
 </template>
 ```
 
