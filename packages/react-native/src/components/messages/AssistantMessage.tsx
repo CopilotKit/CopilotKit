@@ -1,33 +1,32 @@
 import React from "react";
-import { View, Text, StyleSheet, type ViewStyle } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
+import type { ViewStyle } from "react-native";
 import { CopilotMarkdown } from "../Markdown";
+import { useCopilotTheme } from "../theme";
+import { appendStreamingCursor } from "./streaming-cursor";
 import { TypingIndicator } from "./TypingIndicator";
 import { formatTimestamp } from "./utils";
-
-// ─── Colors ──────────────────────────────────────────────────────────────────
-const ASSISTANT_BUBBLE_BG = "#F0F0F0";
-const ASSISTANT_TEXT_COLOR = "#1A1A1A";
-const TIMESTAMP_COLOR = "#999999";
 
 /**
  * Props for the AssistantMessage component.
  */
 export interface AssistantMessageProps {
-  /** Markdown content to render inside the bubble */
+  /** Markdown content to render */
   content: string;
-  /** When true, shows a typing indicator instead of content */
+  /**
+   * True while the reply is being written: a cursor rides the end of the text,
+   * or pulses on its own until the first words arrive.
+   */
   isLoading?: boolean;
-  /** Optional timestamp displayed below the bubble */
+  /** Optional timestamp displayed below the message */
   timestamp?: Date;
   /** Optional style override for the outer container */
   style?: ViewStyle;
 }
 
 /**
- * Left-aligned chat bubble for AI assistant responses.
- *
- * Renders markdown content via `CopilotMarkdown` and shows an animated
- * typing indicator when `isLoading` is true.
+ * An AI assistant reply: full-width markdown on the chat surface, like the
+ * web chat (no bubble).
  */
 export function AssistantMessage({
   content,
@@ -35,14 +34,21 @@ export function AssistantMessage({
   timestamp,
   style,
 }: AssistantMessageProps) {
+  const theme = useCopilotTheme();
+  // The cursor sits below instead when there's no text yet, or when the last
+  // block has no text to follow (a code block).
+  const withCursor =
+    isLoading && content ? appendStreamingCursor(content) : undefined;
+  const cursorBelow = isLoading && !withCursor;
+
   return (
     <View style={[styles.container, style]}>
-      <View style={styles.bubble}>
-        {content ? <CopilotMarkdown content={content} /> : null}
-        {isLoading ? <TypingIndicator /> : null}
-      </View>
+      {content ? <CopilotMarkdown content={withCursor ?? content} /> : null}
+      {cursorBelow ? <TypingIndicator /> : null}
       {timestamp && (
-        <Text style={styles.timestamp}>{formatTimestamp(timestamp)}</Text>
+        <Text style={[styles.timestamp, { color: theme.mutedForeground }]}>
+          {formatTimestamp(timestamp)}
+        </Text>
       )}
     </View>
   );
@@ -50,24 +56,11 @@ export function AssistantMessage({
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: "flex-start",
-    marginVertical: 4,
-    paddingHorizontal: 12,
-  },
-  bubble: {
-    backgroundColor: ASSISTANT_BUBBLE_BG,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    borderBottomRightRadius: 16,
-    borderBottomLeftRadius: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    maxWidth: "80%",
+    alignSelf: "stretch",
+    marginVertical: 6,
   },
   timestamp: {
-    color: TIMESTAMP_COLOR,
     fontSize: 11,
-    marginTop: 2,
-    marginLeft: 4,
+    marginTop: 4,
   },
 });

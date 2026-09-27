@@ -144,8 +144,10 @@ vi.mock("expo-file-system", () => ({
   EncodingType: { Base64: "base64" },
 }));
 
-// Mock react-native since tests run in jsdom
-vi.mock("react-native", () => {
+// Mock react-native since tests run in jsdom, on top of the shared stub
+// (theme and animation primitives).
+vi.mock("react-native", async () => {
+  const actual = await vi.importActual<any>("../__mocks__/react-native");
   const _React = require("react");
 
   // Minimal Animated.Value mock
@@ -160,6 +162,7 @@ vi.mock("react-native", () => {
   }
 
   return {
+    ...actual,
     Animated: {
       View: _React.forwardRef((props: any, ref: any) => {
         const { testID, ...rest } = props;

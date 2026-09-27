@@ -4,14 +4,20 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
+const hoisted = vi.hoisted(() => ({
+  colorScheme: "light" as "light" | "dark",
+}));
+
 // Mock react-native since we're in jsdom
-vi.mock("react-native", () => ({
+vi.mock("react-native", async () => ({
+  ...(await vi.importActual<any>("../../__mocks__/react-native")),
   StyleSheet: {
     create: <T extends Record<string, any>>(styles: T): T => styles,
     flatten: (style: any) => style,
   },
   View: "View",
   Text: "Text",
+  useColorScheme: () => hoisted.colorScheme,
 }));
 
 // Capture the props passed to StreamdownText
@@ -36,6 +42,7 @@ import { CopilotMarkdown, defaultMarkdownStyles } from "../Markdown";
 describe("CopilotMarkdown", () => {
   beforeEach(() => {
     lastStreamdownProps = null;
+    hoisted.colorScheme = "light";
   });
 
   it("renders without crashing", () => {
@@ -83,6 +90,16 @@ describe("CopilotMarkdown", () => {
     expect(lastStreamdownProps.streamingAnimation).toBe(true);
   });
 
+  it("uses the dark tokens when the device is in dark mode", () => {
+    hoisted.colorScheme = "dark";
+    render(<CopilotMarkdown content="test" />);
+
+    const styles = lastStreamdownProps.markdownStyle;
+    expect(styles).not.toBe(defaultMarkdownStyles);
+    expect(styles.paragraph.color).toBe("#fafafa");
+    expect(styles.codeBlock.backgroundColor).toBe("#171717");
+  });
+
   it("allows disabling streamingAnimation", () => {
     render(<CopilotMarkdown content="test" streamingAnimation={false} />);
     expect(lastStreamdownProps.streamingAnimation).toBe(false);
@@ -102,5 +119,12 @@ describe("defaultMarkdownStyles", () => {
     expect(defaultMarkdownStyles.code).toBeDefined();
     expect(defaultMarkdownStyles.codeBlock).toBeDefined();
     expect(defaultMarkdownStyles.list).toBeDefined();
+  });
+
+  it("styles inline code as a translucent foreground tint", () => {
+    expect(defaultMarkdownStyles.code.backgroundColor).toBe(
+      "rgba(10, 10, 10, 0.09)",
+    );
+    expect(defaultMarkdownStyles.code.color).toBe("#0a0a0a");
   });
 });

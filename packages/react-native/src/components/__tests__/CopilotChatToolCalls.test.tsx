@@ -202,7 +202,8 @@ describe("CopilotChat tool-call rendering", () => {
       </TestCopilotKit>,
     );
     expect(screen.getByTestId("places")).toBeTruthy();
-    expect(screen.queryByText("Called: showPlaces")).toBeNull();
+    // ...and not the placeholder card, which would show the tool's name.
+    expect(screen.queryByText("showPlaces")).toBeNull();
   });
 
   it("reports executing status when the call id is in executingToolCallIds and has no result", () => {
@@ -248,7 +249,7 @@ describe("CopilotChat tool-call rendering", () => {
         <CopilotChat />
       </TestCopilotKit>,
     );
-    expect(screen.getByText("Called: notRegistered")).toBeTruthy();
+    expect(screen.getByText("notRegistered")).toBeTruthy();
   });
 });
 

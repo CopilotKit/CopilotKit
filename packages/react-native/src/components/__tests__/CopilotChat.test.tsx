@@ -12,6 +12,10 @@ const hoisted = vi.hoisted(() => {
       addMessage: vi.fn(),
     },
     mockRunAgent: vi.fn().mockResolvedValue(undefined),
+    mockSuggestions: [] as any[],
+    reduceMotion: false,
+    // Spied so tests can see which entrance animations start.
+    timing: vi.fn(() => ({ start: vi.fn(), stop: vi.fn() })),
   };
 });
 
@@ -24,6 +28,7 @@ const hoisted = vi.hoisted(() => {
 vi.mock("@copilotkit/react-core/v2/headless", () => ({
   useAgent: vi.fn(() => ({ agent: hoisted.mockAgent })),
   useRenderToolCall: vi.fn(() => () => null),
+  useSuggestions: vi.fn(() => ({ suggestions: hoisted.mockSuggestions })),
 }));
 
 vi.mock("@copilotkit/react-core/v2/context", () => ({
@@ -56,10 +61,18 @@ vi.mock("../messages/UserMessage", () => ({
   },
 }));
 
-// Mock react-native components with testable DOM elements
-vi.mock("react-native", () => {
+// Mock react-native components with testable DOM elements, on top of the
+// shared stub (animation, theme and accessibility primitives).
+vi.mock("react-native", async () => {
+  const actual = await vi.importActual<any>("../../__mocks__/react-native");
   const React = require("react");
   return {
+    ...actual,
+    Animated: { ...actual.Animated, timing: hoisted.timing },
+    AccessibilityInfo: {
+      isReduceMotionEnabled: () => Promise.resolve(hoisted.reduceMotion),
+      addEventListener: () => ({ remove: () => {} }),
+    },
     FlatList: ({ data, renderItem, ListEmptyComponent, keyExtractor }: any) => {
       if (!data || data.length === 0) {
         return React.createElement(
@@ -139,6 +152,8 @@ describe("CopilotChat", () => {
     hoisted.mockAgent.isRunning = false;
     hoisted.mockAgent.addMessage = vi.fn();
     hoisted.mockRunAgent.mockResolvedValue(undefined);
+    hoisted.mockSuggestions = [];
+    hoisted.reduceMotion = false;
   });
 
   it("renders empty state when there are no messages", () => {
@@ -280,7 +295,7 @@ describe("CopilotChat", () => {
     expect(onSend).toHaveBeenCalledWith("Callback test");
   });
 
-  it("renders tool call indicator for unregistered tools", () => {
+  it("renders a compact tool card for unregistered tools", () => {
     hoisted.mockAgent.messages = [
       {
         id: "1",
@@ -298,7 +313,36 @@ describe("CopilotChat", () => {
 
     const { getByText } = render(<CopilotChat />);
 
-    expect(getByText("Called: myTool")).toBeTruthy();
+    expect(getByText("myTool")).toBeTruthy();
+    expect(getByText("Done")).toBeTruthy();
+  });
+
+  it("marks an unregistered tool call as running until its result arrives", () => {
+    hoisted.mockAgent.isRunning = true;
+    hoisted.mockAgent.messages = [
+      {
+        id: "1",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "tc-1",
+            type: "function" as const,
+            function: { name: "myTool", arguments: "{}" },
+          },
+        ],
+      },
+    ];
+
+    const { getByText, rerender } = render(<CopilotChat />);
+    expect(getByText("Running")).toBeTruthy();
+
+    hoisted.mockAgent.messages = [
+      ...hoisted.mockAgent.messages,
+      { id: "2", role: "tool", toolCallId: "tc-1", content: "ok" },
+    ];
+    rerender(<CopilotChat />);
+    expect(getByText("Done")).toBeTruthy();
   });
 
   it("shows error message when runAgent fails", async () => {
@@ -342,5 +386,178 @@ describe("CopilotChat", () => {
     const calls = hoisted.mockAgent.addMessage.mock.calls;
     expect(calls[0][0].id).toBe("user-1");
     expect(calls[1][0].id).toBe("user-2");
+  });
+});
+
+describe("CopilotChat welcome screen", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    hoisted.mockAgent.messages = [];
+    hoisted.mockAgent.isRunning = false;
+    hoisted.mockSuggestions = [];
+    hoisted.reduceMotion = false;
+  });
+
+  // The entrance animations that started, as [delay] per animated element.
+  const introDelays = () =>
+    hoisted.timing.mock.calls
+      .map(([, config]: any) => config)
+      .filter((config: any) => config.duration === 480)
+      .map((config: any) => config.delay);
+
+  it("shows the agent's suggestions as cards, with the message as body", () => {
+    hoisted.mockSuggestions = [
+      {
+        title: "Plan a launch",
+        message: "Turn the Q3 goals into a plan",
+        isLoading: false,
+      },
+      { title: "Say hi", message: "Say hi", isLoading: false },
+    ];
+
+    const { getByText, getAllByText } = render(<CopilotChat />);
+
+    expect(getByText("Plan a launch")).toBeTruthy();
+    expect(getByText("Turn the Q3 goals into a plan")).toBeTruthy();
+    // A message that repeats the title isn't shown twice.
+    expect(getAllByText("Say hi")).toHaveLength(1);
+  });
+
+  it("sends a card's message, not its title", async () => {
+    hoisted.mockSuggestions = [
+      {
+        title: "Plan a launch",
+        message: "Turn the Q3 goals into a plan",
+        isLoading: false,
+      },
+    ];
+
+    const { getByText } = render(<CopilotChat />);
+    await act(async () => {
+      fireEvent.click(getByText("Plan a launch"));
+    });
+
+    expect(hoisted.mockAgent.addMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ content: "Turn the Q3 goals into a plan" }),
+    );
+  });
+
+  it("eases the greeting, then the cards, then the input in", async () => {
+    render(<CopilotChat initialMessages={["One", "Two", "Three"]} />);
+    // Held until the reduced-motion setting is known.
+    expect(introDelays()).toEqual([]);
+
+    await act(async () => {});
+
+    expect(introDelays()).toEqual([0, 70, 100, 130, 180]);
+  });
+
+  it("skips the intro when introAnimation is false", async () => {
+    render(<CopilotChat initialMessages={["One"]} introAnimation={false} />);
+    await act(async () => {});
+
+    expect(introDelays()).toEqual([]);
+  });
+
+  it("skips the intro when the user prefers reduced motion", async () => {
+    hoisted.reduceMotion = true;
+    render(<CopilotChat initialMessages={["One"]} />);
+    await act(async () => {});
+
+    expect(introDelays()).toEqual([]);
+  });
+
+  it("has no intro once there is a conversation", async () => {
+    hoisted.mockAgent.messages = [{ id: "1", role: "user", content: "Hi" }];
+    render(<CopilotChat />);
+    await act(async () => {});
+
+    expect(introDelays()).toEqual([]);
+  });
+
+  it("keeps the same input through the first send", async () => {
+    const { getByTestId, queryByText, rerender } = render(
+      <CopilotChat initialMessages={["One"]} />,
+    );
+    const input = getByTestId("text-input");
+
+    hoisted.mockAgent.messages = [{ id: "1", role: "user", content: "One" }];
+    rerender(<CopilotChat initialMessages={["One"]} />);
+
+    // The welcome screen is gone, but the input was never remounted.
+    expect(queryByText("How can I help?")).toBeNull();
+    expect(getByTestId("text-input")).toBe(input);
+  });
+});
+
+describe("CopilotChat conversation suggestions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    hoisted.mockAgent.messages = [
+      { id: "1", role: "user", content: "Hi" },
+      { id: "2", role: "assistant", content: "Hello!" },
+    ];
+    hoisted.mockAgent.isRunning = false;
+    hoisted.mockSuggestions = [
+      {
+        title: "Tell me more",
+        message: "Tell me more about it",
+        isLoading: false,
+      },
+    ];
+  });
+
+  it("shows the agent's suggestions as pills above the input", async () => {
+    const { getByText } = render(<CopilotChat />);
+
+    await act(async () => {
+      fireEvent.click(getByText("Tell me more"));
+    });
+    expect(hoisted.mockAgent.addMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ content: "Tell me more about it" }),
+    );
+  });
+
+  it("hides them while the agent runs", () => {
+    hoisted.mockAgent.isRunning = true;
+    const { queryByText } = render(<CopilotChat />);
+
+    expect(queryByText("Tell me more")).toBeNull();
+  });
+
+  it("leaves initialMessages on the welcome screen", () => {
+    const { queryByText } = render(<CopilotChat initialMessages={["Hello"]} />);
+
+    expect(queryByText("Hello")).toBeNull();
+  });
+});
+
+describe("CopilotChat streaming cursor", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    hoisted.mockAgent.messages = [
+      { id: "1", role: "user", content: "Hi" },
+      { id: "2", role: "assistant", content: "Hello" },
+    ];
+    hoisted.mockAgent.isRunning = true;
+    hoisted.mockSuggestions = [];
+  });
+
+  it("puts the cursor on the streaming reply by default", () => {
+    const { getAllByTestId } = render(<CopilotChat />);
+
+    const assistantMessages = getAllByTestId("assistant-message");
+    expect(assistantMessages).toHaveLength(1);
+    expect(assistantMessages[0].textContent).toBe("Loading...");
+  });
+
+  it("keeps the cursor below the messages when inlineCursor is false", () => {
+    const { getAllByTestId } = render(<CopilotChat inlineCursor={false} />);
+
+    const assistantMessages = getAllByTestId("assistant-message");
+    expect(assistantMessages.map((m) => m.textContent)).toEqual([
+      "Hello",
+      "Loading...",
+    ]);
   });
 });

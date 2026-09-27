@@ -3,7 +3,6 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -14,11 +13,18 @@ import type { ListRenderItemInfo, ViewStyle } from "react-native";
 import {
   useAgent,
   useRenderToolCall,
+  useSuggestions,
 } from "@copilotkit/react-core/v2/headless";
 import { useCopilotKit } from "@copilotkit/react-core/v2/context";
 import { AssistantMessage } from "./messages/AssistantMessage";
+import { ToolCallCard } from "./messages/ToolCallCard";
 import { UserMessage } from "./messages/UserMessage";
+import { IntroRise, introDelay, useReducedMotion } from "./motion";
+import type { IntroMode } from "./motion";
+import { SuggestionBar, SuggestionGrid } from "./Suggestions";
+import { radius, useCopilotTheme, withOpacity } from "./theme";
 import type { Message } from "@copilotkit/shared";
+import type { Suggestion } from "@copilotkit/core";
 import type { ToolMessage } from "@ag-ui/client";
 
 /** Shape of an assistant message with optional tool calls. */
@@ -38,7 +44,11 @@ export interface CopilotChatProps {
   agentName?: string;
   /** Placeholder text for the input field. */
   placeholder?: string;
-  /** Suggestion pills shown in the empty state. */
+  /**
+   * Suggestions shown as cards on the welcome screen, before the first
+   * message. The agent's own suggestions (`useConfigureSuggestions`) join them
+   * there, and appear as pills above the input during the conversation.
+   */
   initialMessages?: string[];
   /** Title shown when there are no messages. */
   emptyStateTitle?: string;
@@ -60,6 +70,18 @@ export interface CopilotChatProps {
   FlatListComponent?: React.ComponentType<any>;
   /** When true, skip the KeyboardAvoidingView wrapper (useful when a parent already handles keyboard). */
   disableKeyboardAvoiding?: boolean;
+  /**
+   * Ease the welcome screen in: the greeting, suggestion cards and input rise
+   * into place in sequence. Defaults to `true`; set `false` to show them
+   * immediately. Always off when the user prefers reduced motion.
+   */
+  introAnimation?: boolean;
+  /**
+   * While a reply streams, show the cursor at the end of its text, as if it
+   * were being typed. Defaults to `true`; set `false` to keep the cursor below
+   * the messages.
+   */
+  inlineCursor?: boolean;
 }
 
 interface ChatListItem {
@@ -240,14 +262,22 @@ export function CopilotChat({
   onSendMessage,
   FlatListComponent = FlatList,
   disableKeyboardAvoiding = false,
+  introAnimation = true,
+  inlineCursor = true,
 }: CopilotChatProps) {
   const [inputText, setInputText] = useState("");
+  const [inputFocused, setInputFocused] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const messageIdCounter = useRef(0);
 
+  const theme = useCopilotTheme();
+  const reducedMotion = useReducedMotion();
   const { copilotkit } = useCopilotKit();
   const { agent } = useAgent({ agentId: agentName });
+  const { suggestions: agentSuggestions } = useSuggestions({
+    agentId: agentName,
+  });
 
   const messages = agent.messages ?? [];
   const isRunning = agent.isRunning;
@@ -318,11 +348,12 @@ export function CopilotChat({
       }
     }
 
-    // Show loading indicator when agent is running and the last message
-    // is not already the assistant streaming
+    // While the agent runs, a streaming reply carries the cursor at the end
+    // of its text. Otherwise (waiting for the reply, running a tool, or with
+    // `inlineCursor` off) it gets its own row below the messages.
     if (isRunning) {
       const lastItem = items[items.length - 1];
-      if (!lastItem || lastItem.type !== "assistant") {
+      if (!inlineCursor || lastItem?.type !== "assistant") {
         items.push({ id: "__loading__", type: "loading" });
       }
     }
@@ -334,7 +365,7 @@ export function CopilotChat({
     // AG-UI apply pipeline replaces it on every delta. Without this, an
     // assistant message or tool call appended mid-run never reaches the list.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messagesKey, isRunning]);
+  }, [messagesKey, isRunning, inlineCursor]);
 
   // Id of the trailing row. renderItem needs "is this the last row?" to place
   // the streaming indicator; deriving it here keeps that a named scalar instead
@@ -346,14 +377,20 @@ export function CopilotChat({
 
   // extraData defeats FlatList's PureComponent shallow-compare for the values
   // renderItem CLOSES OVER, as opposed to the ones it receives per row. Those
-  // are exactly the four below, and they mirror renderItem's dependency array —
+  // are exactly the five below, and they mirror renderItem's dependency array —
   // keep the two in sync. `listItems` is deliberately absent: renderItem's only
   // read of it is the tail id, now passed as `lastItemId`, and the array itself
   // is already the `data` prop, which invalidates cells on its own (every
   // rebuild allocates fresh item objects, so each cell's `item` prop differs).
   const extraData = useMemo(
-    () => ({ isRunning, lastItemId, renderToolCall, toolMessages }),
-    [isRunning, lastItemId, renderToolCall, toolMessages],
+    () => ({
+      inlineCursor,
+      isRunning,
+      lastItemId,
+      renderToolCall,
+      toolMessages,
+    }),
+    [inlineCursor, isRunning, lastItemId, renderToolCall, toolMessages],
   );
 
   // Shared logic for sending a message to the agent
@@ -391,10 +428,10 @@ export function CopilotChat({
     await sendMessage(text);
   }, [inputText, sendMessage]);
 
-  // Handle suggestion pill press
+  // Handle suggestion card / pill press
   const handleSuggestion = useCallback(
-    (text: string) => {
-      void sendMessage(text);
+    (suggestion: Suggestion) => {
+      void sendMessage(suggestion.message);
     },
     [sendMessage],
   );
@@ -415,7 +452,7 @@ export function CopilotChat({
         return (
           <AssistantMessage
             content={item.content ?? ""}
-            isLoading={isRunning && item.id === lastItemId}
+            isLoading={inlineCursor && isRunning && item.id === lastItemId}
           />
         );
       }
@@ -432,11 +469,12 @@ export function CopilotChat({
         });
         if (rendered) return <>{rendered}</>;
 
-        // Subtle indicator for unregistered tool calls
+        // Compact card for unregistered tool calls
         return (
-          <View style={styles.toolCallIndicator}>
-            <Text style={styles.toolCallText}>Called: {tc.function.name}</Text>
-          </View>
+          <ToolCallCard
+            name={tc.function.name}
+            running={isRunning && !toolMessages.has(tc.id)}
+          />
         );
       }
 
@@ -446,89 +484,197 @@ export function CopilotChat({
 
       return null;
     },
-    [isRunning, lastItemId, renderToolCall, toolMessages],
+    [inlineCursor, isRunning, lastItemId, renderToolCall, toolMessages],
   );
 
   const keyExtractor = useCallback((item: ChatListItem) => item.id, []);
 
-  // Empty state component
-  const emptyComponent = useMemo(
-    () => (
-      <View style={styles.emptyState}>
-        <Text style={styles.emptyTitle}>{emptyStateTitle}</Text>
-        <Text style={styles.emptySubtitle}>{emptyStateSubtitle}</Text>
-        {initialMessages.map((suggestion, i) => (
-          <Pressable
-            key={`suggestion-${i}`}
-            style={styles.suggestionPill}
-            onPress={() => handleSuggestion(suggestion)}
-          >
-            <Text style={styles.suggestionText}>{suggestion}</Text>
-          </Pressable>
-        ))}
-      </View>
-    ),
-    [emptyStateTitle, emptyStateSubtitle, initialMessages, handleSuggestion],
-  );
+  // With no messages yet, the welcome screen centers the greeting, the
+  // suggestion cards (the `initialMessages` prompts plus the agent's own) and
+  // the input. In a conversation the agent's suggestions become pills above
+  // the input, hidden while it runs.
+  const isWelcome = listItems.length === 0;
+  const welcomeSuggestions: Suggestion[] = [
+    ...initialMessages.map((text) => ({
+      title: text,
+      message: text,
+      isLoading: false,
+    })),
+    ...agentSuggestions,
+  ];
+  const conversationSuggestions = isRunning ? [] : agentSuggestions;
+
+  // Only the welcome screen eases in; it waits (hidden) for the reduced-motion
+  // setting before choosing whether to.
+  const introMode: IntroMode =
+    !introAnimation || !isWelcome
+      ? "off"
+      : reducedMotion === undefined
+        ? "pending"
+        : reducedMotion
+          ? "off"
+          : "play";
 
   const sendDisabled = !inputText.trim() || isRunning;
 
+  // The body keeps the input at the same position on the welcome screen and in
+  // the conversation, so it stays mounted (and focused) through the first send.
   const content = (
     <>
       {showHeader && (
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>{headerTitle}</Text>
-        </View>
-      )}
-
-      <FlatListComponent
-        ref={flatListRef}
-        data={listItems}
-        renderItem={renderItem}
-        keyExtractor={keyExtractor}
-        extraData={extraData}
-        contentContainerStyle={[styles.messageList, messageContainerStyle]}
-        onContentSizeChange={handleContentSizeChange}
-        ListEmptyComponent={emptyComponent}
-      />
-
-      {error && (
-        <View style={styles.errorContainer} testID="error-message">
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
-
-      <View style={[styles.inputContainer, inputContainerStyle]}>
-        <TextInput
-          style={styles.input}
-          value={inputText}
-          onChangeText={setInputText}
-          placeholder={placeholder}
-          placeholderTextColor="#999"
-          multiline
-          numberOfLines={4}
-          returnKeyType="send"
-          onSubmitEditing={handleSend}
-        />
-        <TouchableOpacity
-          style={[styles.sendButton, sendDisabled && styles.sendButtonDisabled]}
-          onPress={handleSend}
-          disabled={sendDisabled}
-          testID="send-button"
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: theme.background,
+              borderBottomColor: theme.border,
+            },
+          ]}
         >
-          <Text style={styles.sendButtonIcon}>{"↑"}</Text>
-        </TouchableOpacity>
+          <Text
+            numberOfLines={1}
+            style={[styles.headerTitle, { color: theme.foreground }]}
+          >
+            {headerTitle}
+          </Text>
+        </View>
+      )}
+
+      <View style={[styles.body, isWelcome && styles.welcomeBody]}>
+        {isWelcome ? (
+          <View style={styles.welcome}>
+            <IntroRise mode={introMode} delay={introDelay.greeting}>
+              <Text style={[styles.welcomeTitle, { color: theme.foreground }]}>
+                {emptyStateTitle}
+              </Text>
+              {emptyStateSubtitle ? (
+                <Text
+                  style={[
+                    styles.welcomeSubtitle,
+                    { color: theme.mutedForeground },
+                  ]}
+                >
+                  {emptyStateSubtitle}
+                </Text>
+              ) : null}
+            </IntroRise>
+            {welcomeSuggestions.length > 0 && (
+              <SuggestionGrid
+                suggestions={welcomeSuggestions}
+                onSelect={handleSuggestion}
+                introMode={introMode}
+              />
+            )}
+          </View>
+        ) : (
+          <FlatListComponent
+            ref={flatListRef}
+            data={listItems}
+            renderItem={renderItem}
+            keyExtractor={keyExtractor}
+            extraData={extraData}
+            contentContainerStyle={[styles.messageList, messageContainerStyle]}
+            onContentSizeChange={handleContentSizeChange}
+          />
+        )}
+
+        {error && (
+          <View
+            style={[
+              styles.errorContainer,
+              { backgroundColor: withOpacity(theme.destructive, 0.1) },
+            ]}
+            testID="error-message"
+          >
+            <Text style={[styles.errorText, { color: theme.destructive }]}>
+              {error}
+            </Text>
+          </View>
+        )}
+
+        {!isWelcome && conversationSuggestions.length > 0 && (
+          <SuggestionBar
+            suggestions={conversationSuggestions}
+            onSelect={handleSuggestion}
+          />
+        )}
+
+        <IntroRise
+          mode={introMode}
+          delay={introDelay.input}
+          style={[styles.inputContainer, inputContainerStyle]}
+        >
+          <View
+            style={[
+              styles.composer,
+              {
+                backgroundColor: theme.card,
+                borderColor: inputFocused
+                  ? withOpacity(theme.foreground, 0.2)
+                  : theme.input,
+              },
+            ]}
+          >
+            <TextInput
+              style={[styles.input, { color: theme.foreground }]}
+              value={inputText}
+              onChangeText={setInputText}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
+              placeholder={placeholder}
+              placeholderTextColor={theme.mutedForeground}
+              multiline
+              returnKeyType="send"
+              onSubmitEditing={handleSend}
+            />
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                {
+                  backgroundColor: sendDisabled
+                    ? withOpacity(theme.foreground, 0.1)
+                    : theme.primary,
+                },
+              ]}
+              onPress={handleSend}
+              disabled={sendDisabled}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Send message"
+              testID="send-button"
+            >
+              <Text
+                style={[
+                  styles.sendButtonIcon,
+                  {
+                    color: sendDisabled
+                      ? withOpacity(theme.foreground, 0.4)
+                      : theme.primaryForeground,
+                  },
+                ]}
+              >
+                {"↑"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </IntroRise>
       </View>
     </>
   );
 
+  const containerStyle = [
+    styles.container,
+    { backgroundColor: theme.background },
+    style,
+  ];
+
   if (disableKeyboardAvoiding) {
-    return <View style={[styles.container, style]}>{content}</View>;
+    return <View style={containerStyle}>{content}</View>;
   }
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, style]}
+      style={containerStyle}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={0}
     >
@@ -537,115 +683,114 @@ export function CopilotChat({
   );
 }
 
+/** Messages, welcome content and the input stay readable on tablets. */
+const MAX_CONTENT_WIDTH = 768;
+/** The input grows to this many lines of text, then scrolls. */
+const MAX_VISIBLE_LINES = 8;
+const INPUT_LINE_HEIGHT = 24;
+const INPUT_PADDING_VERTICAL = 6;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
   },
   header: {
     height: 56,
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#E0E0E0",
-    backgroundColor: "#FFFFFF",
   },
   headerTitle: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: "600",
-    color: "#1A1A1A",
+  },
+  body: {
+    flex: 1,
+  },
+  welcomeBody: {
+    justifyContent: "center",
   },
   messageList: {
-    paddingHorizontal: 16,
     flexGrow: 1,
+    width: "100%",
+    maxWidth: MAX_CONTENT_WIDTH,
+    alignSelf: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  welcome: {
+    width: "100%",
+    maxWidth: MAX_CONTENT_WIDTH,
+    alignSelf: "center",
+    gap: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+  },
+  welcomeTitle: {
+    fontSize: 24,
+    fontWeight: "600",
+    letterSpacing: -0.4,
+    textAlign: "center",
+  },
+  welcomeSubtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: "center",
+    marginTop: 6,
   },
   inputContainer: {
+    width: "100%",
+    maxWidth: MAX_CONTENT_WIDTH,
+    alignSelf: "center",
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 12,
+  },
+  composer: {
     flexDirection: "row",
     alignItems: "flex-end",
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#E0E0E0",
-    backgroundColor: "#FFFFFF",
+    minHeight: 56,
+    borderWidth: 1,
+    borderRadius: radius["3xl"],
+    paddingLeft: 18,
+    paddingRight: 9,
+    paddingVertical: 9,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 2,
   },
   input: {
     flex: 1,
-    backgroundColor: "#F5F5F5",
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 15,
-    maxHeight: 100,
-    color: "#1A1A1A",
+    fontSize: 16,
+    lineHeight: INPUT_LINE_HEIGHT,
+    paddingHorizontal: 0,
+    paddingVertical: INPUT_PADDING_VERTICAL,
+    maxHeight:
+      INPUT_LINE_HEIGHT * MAX_VISIBLE_LINES + INPUT_PADDING_VERTICAL * 2,
   },
   sendButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#0066CC",
     justifyContent: "center",
     alignItems: "center",
     marginLeft: 8,
   },
-  sendButtonDisabled: {
-    opacity: 0.4,
-  },
   sendButtonIcon: {
-    color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "700",
   },
-  emptyState: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingTop: 100,
-    gap: 12,
-  },
-  emptyTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#1A1A1A",
-    marginBottom: 4,
-  },
-  emptySubtitle: {
-    fontSize: 15,
-    color: "#666666",
-    marginBottom: 16,
-  },
-  suggestionPill: {
-    backgroundColor: "#E8F0FE",
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  suggestionText: {
-    color: "#0066CC",
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  toolCallIndicator: {
-    alignSelf: "flex-start",
-    backgroundColor: "#F0F0F0",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginBottom: 8,
-  },
-  toolCallText: {
-    fontSize: 12,
-    color: "#999999",
-    fontStyle: "italic",
-  },
   errorContainer: {
-    backgroundColor: "#FEE2E2",
+    marginHorizontal: 16,
+    marginBottom: 6,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    marginHorizontal: 8,
-    borderRadius: 8,
+    borderRadius: radius.lg,
   },
   errorText: {
-    color: "#DC2626",
     fontSize: 13,
   },
 });

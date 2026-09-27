@@ -144,8 +144,10 @@ vi.mock("expo-file-system", () => ({
   EncodingType: { Base64: "base64" },
 }));
 
-// Mock React Native components for jsdom environment
-vi.mock("react-native", () => {
+// Mock React Native components for jsdom environment, on top of the shared
+// stub (theme and animation primitives).
+vi.mock("react-native", async () => {
+  const actual = await vi.importActual<any>("../__mocks__/react-native");
   const _React = require("react");
 
   // Simple mock components that render as divs with testIDs
@@ -217,6 +219,7 @@ vi.mock("react-native", () => {
   const useWindowDimensions = () => ({ width: 375, height: 812 });
 
   return {
+    ...actual,
     Modal,
     View,
     Text,
