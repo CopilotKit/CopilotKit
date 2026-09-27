@@ -2410,7 +2410,7 @@ describe("IntelligenceAgentRunner human-in-the-loop responses", () => {
     });
     expect(payloads[2]).toMatchObject({
       name: "copilotkit.hitl_response",
-      value: { interruptId: "int-1", userId: "user-1", outcome: "rejected" },
+      value: { interruptId: "int-1", userId: "user-1", outcome: "cancelled" },
     });
   });
 

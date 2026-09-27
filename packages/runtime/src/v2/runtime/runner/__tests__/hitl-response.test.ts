@@ -109,13 +109,48 @@ describe("buildHitlResponseEvents", () => {
     ).toEqual([]);
   });
 
-  it("maps interrupt resumes to approved and rejected outcomes", () => {
+  it("records a resolved interrupt as responded when the payload has no approval flag", () => {
     const events = buildHitlResponseEvents({
       input: input({
         messages: [],
         resume: [
           { interruptId: "int-1", status: "resolved", payload: { ok: true } },
-          { interruptId: "int-2", status: "cancelled" },
+          { interruptId: "int-2", status: "resolved" },
+          { interruptId: "int-3", status: "resolved", payload: "yes" },
+          {
+            interruptId: "int-4",
+            status: "resolved",
+            payload: { approved: "false" },
+          },
+          { interruptId: "int-5", status: "resolved", payload: [true] },
+        ],
+      }),
+      userId: "user-1",
+    });
+    expect(events.map((event) => event.value.outcome)).toEqual([
+      "responded",
+      "responded",
+      "responded",
+      "responded",
+      "responded",
+    ]);
+  });
+
+  it("reads a boolean approved field on a resolved payload as approved or rejected", () => {
+    const events = buildHitlResponseEvents({
+      input: input({
+        messages: [],
+        resume: [
+          {
+            interruptId: "int-1",
+            status: "resolved",
+            payload: { approved: true, note: "ok" },
+          },
+          {
+            interruptId: "int-2",
+            status: "resolved",
+            payload: { approved: false },
+          },
         ],
       }),
       userId: "user-1",
@@ -124,6 +159,28 @@ describe("buildHitlResponseEvents", () => {
       { interruptId: "int-1", userId: "user-1", outcome: "approved" },
       { interruptId: "int-2", userId: "user-1", outcome: "rejected" },
     ]);
+  });
+
+  it("records a cancelled interrupt as cancelled, not rejected", () => {
+    const events = buildHitlResponseEvents({
+      input: input({
+        messages: [],
+        resume: [{ interruptId: "int-1", status: "cancelled" }],
+      }),
+      userId: "user-1",
+    });
+    expect(events.map((event) => event.value)).toEqual([
+      { interruptId: "int-1", userId: "user-1", outcome: "cancelled" },
+    ]);
+  });
+
+  it("keeps a human-in-the-loop tool result as responded even when it carries approved", () => {
+    const [event] = buildHitlResponseEvents({
+      input: input({
+        messages: [assistant, { ...hitlResult, content: '{"approved":false}' }],
+      }),
+    });
+    expect(event!.value.outcome).toBe("responded");
   });
 
   it("omits userId when the run has no resolved user", () => {

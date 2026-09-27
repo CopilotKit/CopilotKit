@@ -2,6 +2,7 @@ import type {
   BaseEvent,
   CustomEvent,
   Message,
+  ResumeEntry,
   RunAgentInput,
 } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
@@ -16,8 +17,24 @@ export const RESERVED_CUSTOM_EVENT_PREFIX = "copilotkit.";
 /** Runtime-owned record of a user's answer to a human-in-the-loop step. */
 export const HITL_RESPONSE_EVENT_NAME = "copilotkit.hitl_response";
 
-/** How the user answered a human-in-the-loop step. */
-export type HitlResponseOutcome = "approved" | "rejected" | "responded";
+/**
+ * How the user answered a human-in-the-loop step.
+ *
+ * - `responded`: the user answered. The answer's meaning belongs to the app,
+ *   so the runtime does not guess whether it was a yes or a no. Every
+ *   human-in-the-loop tool result is recorded this way.
+ * - `approved` / `rejected`: the user resolved an interrupt with an object
+ *   payload whose `approved` field is a boolean (`resolve({ approved: true })`
+ *   or `resolve({ approved: false })`). This is the one approval convention
+ *   the runtime recognises; any other payload is recorded as `responded`.
+ * - `cancelled`: the interrupt was dismissed with `cancel()` rather than
+ *   answered. A dismissal is not necessarily a rejection.
+ */
+export type HitlResponseOutcome =
+  | "approved"
+  | "rejected"
+  | "responded"
+  | "cancelled";
 
 export interface HitlResponseValue {
   readonly toolCallId?: string;
@@ -53,16 +70,27 @@ function isHitlTool(tool: RunAgentInput["tools"][number]): boolean {
   );
 }
 
-const RESUME_OUTCOMES: Record<string, HitlResponseOutcome> = {
-  resolved: "approved",
-  cancelled: "rejected",
-};
+/**
+ * Maps one `resume[]` entry to its outcome. `resolved` only says the user
+ * answered, so it becomes `approved` or `rejected` only when the payload
+ * states approval as a boolean `approved` field; otherwise `responded`.
+ */
+function resumeOutcome(resume: ResumeEntry): HitlResponseOutcome | undefined {
+  if (resume.status === "cancelled") return "cancelled";
+  if (resume.status !== "resolved") return undefined;
+  const payload: unknown = resume.payload;
+  if (isRecord(payload) && typeof payload.approved === "boolean") {
+    return payload.approved ? "approved" : "rejected";
+  }
+  return "responded";
+}
 
 /**
  * Builds one runtime-owned response event per human-in-the-loop answer this
  * run carries: each new `tool` message answering a tool call whose tool is
- * flagged `metadata.copilotkit.interaction: "human-in-the-loop"`, and each
- * `resume[]` entry answering an interrupt.
+ * flagged `metadata.copilotkit.interaction: "human-in-the-loop"` (outcome
+ * `responded`), and each `resume[]` entry answering an interrupt (see
+ * {@link HitlResponseOutcome} for how a resume maps to an outcome).
  *
  * Only `persistedInputMessages` (the messages new to this run) are scanned,
  * so an answer already recorded by an earlier run is not recorded again. The
@@ -112,7 +140,7 @@ export function buildHitlResponseEvents(params: {
   }
 
   for (const resume of input.resume ?? []) {
-    const outcome = RESUME_OUTCOMES[resume.status];
+    const outcome = resumeOutcome(resume);
     if (outcome === undefined) continue;
     events.push(
       event({ interruptId: resume.interruptId, ...identity, outcome }),
