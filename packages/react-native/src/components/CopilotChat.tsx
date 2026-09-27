@@ -3,6 +3,7 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -22,7 +23,13 @@ import { UserMessage } from "./messages/UserMessage";
 import { IntroRise, introDelay, useReducedMotion } from "./motion";
 import type { IntroMode } from "./motion";
 import { SuggestionBar, SuggestionGrid } from "./Suggestions";
-import { radius, useCopilotTheme, withOpacity } from "./theme";
+import {
+  CopilotColorSchemeProvider,
+  radius,
+  useCopilotTheme,
+  withOpacity,
+} from "./theme";
+import type { CopilotColorScheme } from "./theme";
 import type { Message } from "@copilotkit/shared";
 import type { Suggestion } from "@copilotkit/core";
 import type { ToolMessage } from "@ag-ui/client";
@@ -50,6 +57,12 @@ export interface CopilotChatProps {
    * there, and appear as pills above the input during the conversation.
    */
   initialMessages?: string[];
+  /**
+   * Show the agent's suggestions (`useConfigureSuggestions`). Defaults to
+   * `true`; set `false` when your app renders them itself. `initialMessages`
+   * are shown either way.
+   */
+  showSuggestions?: boolean;
   /** Title shown when there are no messages. */
   emptyStateTitle?: string;
   /** Subtitle shown when there are no messages. */
@@ -60,14 +73,22 @@ export interface CopilotChatProps {
   showHeader?: boolean;
   /** Style override for the outermost container. */
   style?: ViewStyle;
-  /** Style override for the message list container. */
+  /**
+   * Style override for the content container of the message list, and of the
+   * welcome screen before the first message.
+   */
   messageContainerStyle?: ViewStyle;
-  /** Style override for the input bar container. */
+  /** Style override for the input bar (the text field and send button). */
   inputContainerStyle?: ViewStyle;
   /** Callback fired when the user sends a message. */
   onSendMessage?: (text: string) => void;
   /** Custom FlatList component (e.g. BottomSheetFlatList for use inside a bottom sheet). */
   FlatListComponent?: React.ComponentType<any>;
+  /**
+   * Custom ScrollView component for the welcome screen (e.g.
+   * BottomSheetScrollView for use inside a bottom sheet).
+   */
+  ScrollViewComponent?: React.ComponentType<any>;
   /** When true, skip the KeyboardAvoidingView wrapper (useful when a parent already handles keyboard). */
   disableKeyboardAvoiding?: boolean;
   /**
@@ -82,11 +103,18 @@ export interface CopilotChatProps {
    * the messages.
    */
   inlineCursor?: boolean;
+  /**
+   * `"light"` (the default), `"dark"`, or `"system"` to follow the device's
+   * setting. Applies to everything the chat renders.
+   */
+  colorScheme?: CopilotColorScheme;
 }
 
 interface ChatListItem {
   id: string;
   type: "user" | "assistant" | "tool-call" | "loading";
+  /** For a tool call: the assistant message that made it. */
+  messageId?: string;
   content?: string;
   toolCalls?: Array<{
     id: string;
@@ -252,6 +280,7 @@ export function CopilotChat({
   agentName = "default",
   placeholder = "Type a message...",
   initialMessages = [],
+  showSuggestions = true,
   emptyStateTitle = "How can I help?",
   emptyStateSubtitle = "Ask me anything or try a suggestion below.",
   headerTitle = "Chat",
@@ -261,9 +290,11 @@ export function CopilotChat({
   inputContainerStyle,
   onSendMessage,
   FlatListComponent = FlatList,
+  ScrollViewComponent = ScrollView,
   disableKeyboardAvoiding = false,
   introAnimation = true,
   inlineCursor = true,
+  colorScheme,
 }: CopilotChatProps) {
   const [inputText, setInputText] = useState("");
   const [inputFocused, setInputFocused] = useState(false);
@@ -271,8 +302,7 @@ export function CopilotChat({
   const flatListRef = useRef<FlatList>(null);
   const messageIdCounter = useRef(0);
 
-  const theme = useCopilotTheme();
-  const reducedMotion = useReducedMotion();
+  const theme = useCopilotTheme(colorScheme);
   const { copilotkit } = useCopilotKit();
   const { agent } = useAgent({ agentId: agentName });
   const { suggestions: agentSuggestions } = useSuggestions({
@@ -341,6 +371,7 @@ export function CopilotChat({
             items.push({
               id: `${msg.id}-tc-${tc.id}`,
               type: "tool-call",
+              messageId: msg.id,
               toolCalls: [tc],
             });
           }
@@ -375,22 +406,43 @@ export function CopilotChat({
     [listItems],
   );
 
+  // The current turn's latest assistant message: the only one whose tool
+  // calls can still be running. An earlier call left without a result (an
+  // interrupted run, say) must not spin again during later runs.
+  const activeAssistantId = useMemo(() => {
+    let id: string | undefined;
+    for (const msg of messages) {
+      if (msg.role === "assistant") id = msg.id;
+      else if (msg.role === "user") id = undefined;
+    }
+    return id;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messagesKey]);
+
   // extraData defeats FlatList's PureComponent shallow-compare for the values
   // renderItem CLOSES OVER, as opposed to the ones it receives per row. Those
-  // are exactly the five below, and they mirror renderItem's dependency array —
+  // are exactly the six below, and they mirror renderItem's dependency array —
   // keep the two in sync. `listItems` is deliberately absent: renderItem's only
   // read of it is the tail id, now passed as `lastItemId`, and the array itself
   // is already the `data` prop, which invalidates cells on its own (every
   // rebuild allocates fresh item objects, so each cell's `item` prop differs).
   const extraData = useMemo(
     () => ({
+      activeAssistantId,
       inlineCursor,
       isRunning,
       lastItemId,
       renderToolCall,
       toolMessages,
     }),
-    [inlineCursor, isRunning, lastItemId, renderToolCall, toolMessages],
+    [
+      activeAssistantId,
+      inlineCursor,
+      isRunning,
+      lastItemId,
+      renderToolCall,
+      toolMessages,
+    ],
   );
 
   // Shared logic for sending a message to the agent
@@ -453,6 +505,7 @@ export function CopilotChat({
           <AssistantMessage
             content={item.content ?? ""}
             isLoading={inlineCursor && isRunning && item.id === lastItemId}
+            inlineCursor={inlineCursor}
           />
         );
       }
@@ -473,7 +526,11 @@ export function CopilotChat({
         return (
           <ToolCallCard
             name={tc.function.name}
-            running={isRunning && !toolMessages.has(tc.id)}
+            running={
+              isRunning &&
+              item.messageId === activeAssistantId &&
+              !toolMessages.has(tc.id)
+            }
           />
         );
       }
@@ -484,7 +541,14 @@ export function CopilotChat({
 
       return null;
     },
-    [inlineCursor, isRunning, lastItemId, renderToolCall, toolMessages],
+    [
+      activeAssistantId,
+      inlineCursor,
+      isRunning,
+      lastItemId,
+      renderToolCall,
+      toolMessages,
+    ],
   );
 
   const keyExtractor = useCallback((item: ChatListItem) => item.id, []);
@@ -494,26 +558,29 @@ export function CopilotChat({
   // the input. In a conversation the agent's suggestions become pills above
   // the input, hidden while it runs.
   const isWelcome = listItems.length === 0;
+  const shownAgentSuggestions = showSuggestions ? agentSuggestions : [];
   const welcomeSuggestions: Suggestion[] = [
     ...initialMessages.map((text) => ({
       title: text,
       message: text,
       isLoading: false,
     })),
-    ...agentSuggestions,
+    ...shownAgentSuggestions,
   ];
-  const conversationSuggestions = isRunning ? [] : agentSuggestions;
+  const conversationSuggestions = isRunning ? [] : shownAgentSuggestions;
 
   // Only the welcome screen eases in; it waits (hidden) for the reduced-motion
-  // setting before choosing whether to.
-  const introMode: IntroMode =
-    !introAnimation || !isWelcome
-      ? "off"
-      : reducedMotion === undefined
-        ? "pending"
-        : reducedMotion
-          ? "off"
-          : "play";
+  // setting before choosing whether to. Without an intro to play, the setting
+  // isn't read and nothing starts hidden.
+  const introEnabled = introAnimation && isWelcome;
+  const reducedMotion = useReducedMotion(introEnabled);
+  const introMode: IntroMode = !introEnabled
+    ? "off"
+    : reducedMotion === undefined
+      ? "pending"
+      : reducedMotion
+        ? "off"
+        : "play";
 
   const sendDisabled = !inputText.trim() || isRunning;
 
@@ -542,7 +609,13 @@ export function CopilotChat({
 
       <View style={[styles.body, isWelcome && styles.welcomeBody]}>
         {isWelcome ? (
-          <View style={styles.welcome}>
+          // Scrolls when the greeting and cards don't fit above the input (a
+          // small screen, or the keyboard open).
+          <ScrollViewComponent
+            style={styles.welcomeScroll}
+            contentContainerStyle={[styles.welcome, messageContainerStyle]}
+            keyboardShouldPersistTaps="handled"
+          >
             <IntroRise mode={introMode} delay={introDelay.greeting}>
               <Text style={[styles.welcomeTitle, { color: theme.foreground }]}>
                 {emptyStateTitle}
@@ -565,7 +638,7 @@ export function CopilotChat({
                 introMode={introMode}
               />
             )}
-          </View>
+          </ScrollViewComponent>
         ) : (
           <FlatListComponent
             ref={flatListRef}
@@ -602,7 +675,7 @@ export function CopilotChat({
         <IntroRise
           mode={introMode}
           delay={introDelay.input}
-          style={[styles.inputContainer, inputContainerStyle]}
+          style={styles.inputContainer}
         >
           <View
             style={[
@@ -613,6 +686,7 @@ export function CopilotChat({
                   ? withOpacity(theme.foreground, 0.2)
                   : theme.input,
               },
+              inputContainerStyle,
             ]}
           >
             <TextInput
@@ -668,18 +742,20 @@ export function CopilotChat({
     style,
   ];
 
-  if (disableKeyboardAvoiding) {
-    return <View style={containerStyle}>{content}</View>;
-  }
-
   return (
-    <KeyboardAvoidingView
-      style={containerStyle}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={0}
-    >
-      {content}
-    </KeyboardAvoidingView>
+    <CopilotColorSchemeProvider colorScheme={colorScheme}>
+      {disableKeyboardAvoiding ? (
+        <View style={containerStyle}>{content}</View>
+      ) : (
+        <KeyboardAvoidingView
+          style={containerStyle}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={0}
+        >
+          {content}
+        </KeyboardAvoidingView>
+      )}
+    </CopilotColorSchemeProvider>
   );
 }
 
@@ -710,6 +786,10 @@ const styles = StyleSheet.create({
   },
   welcomeBody: {
     justifyContent: "center",
+  },
+  welcomeScroll: {
+    // Content height, shrinking to scroll when space runs out.
+    flexGrow: 0,
   },
   messageList: {
     flexGrow: 1,

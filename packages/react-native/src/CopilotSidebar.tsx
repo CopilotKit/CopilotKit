@@ -19,7 +19,11 @@ import {
 import type { ViewStyle } from "react-native";
 import { CopilotChat } from "./CopilotChat";
 import type { CopilotChatBaseProps } from "./CopilotChat";
-import { useCopilotTheme } from "./components/theme";
+import {
+  CopilotColorSchemeProvider,
+  useCopilotTheme,
+} from "./components/theme";
+import type { CopilotColorScheme } from "./components/theme";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -70,6 +74,12 @@ export interface CopilotSidebarProps extends Omit<
 
   /** Custom style applied to the drawer container. */
   style?: ViewStyle;
+
+  /**
+   * `"light"` (the default), `"dark"`, or `"system"` to follow the device's
+   * setting. Applies to the drawer and to CopilotKit components inside it.
+   */
+  colorScheme?: CopilotColorScheme;
 
   /** Content rendered inside the drawer below the chat area. */
   children?: ReactNode;
@@ -122,13 +132,14 @@ export const CopilotSidebar = forwardRef<
     onOpen,
     onClose,
     style,
+    colorScheme,
     children,
     ...rest
   },
   ref,
 ) {
   const { width: screenWidth } = useWindowDimensions();
-  const theme = useCopilotTheme();
+  const theme = useCopilotTheme(colorScheme);
 
   // Resolve drawer width ---------------------------------------------------
   const drawerWidth = resolveWidth(widthProp, screenWidth);
@@ -199,7 +210,7 @@ export const CopilotSidebar = forwardRef<
   // Render
   // -----------------------------------------------------------------------
   return (
-    <>
+    <CopilotColorSchemeProvider colorScheme={colorScheme}>
       {/* Backdrop */}
       {isOpen && (
         <Pressable
@@ -278,7 +289,7 @@ export const CopilotSidebar = forwardRef<
           <Text style={styles.fabIcon}>{"💬"}</Text>
         </Pressable>
       )}
-    </>
+    </CopilotColorSchemeProvider>
   );
 });
 

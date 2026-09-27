@@ -22,7 +22,12 @@ import {
 } from "react-native";
 import type { ViewStyle } from "react-native";
 import { CopilotChat } from "./CopilotChat";
-import { radius, useCopilotTheme } from "./components/theme";
+import {
+  CopilotColorSchemeProvider,
+  radius,
+  useCopilotTheme,
+} from "./components/theme";
+import type { CopilotColorScheme } from "./components/theme";
 import type { NativeAttachmentsConfig } from "./hooks/use-attachments";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 
@@ -111,6 +116,12 @@ export interface CopilotPopupProps {
    * Custom styles applied to the popup card container.
    */
   style?: ViewStyle;
+
+  /**
+   * `"light"` (the default), `"dark"`, or `"system"` to follow the device's
+   * setting. Applies to the popup and to CopilotKit components inside it.
+   */
+  colorScheme?: CopilotColorScheme;
 }
 
 /**
@@ -160,12 +171,13 @@ export const CopilotPopup = forwardRef<CopilotPopupHandle, CopilotPopupProps>(
       dismissOnBackdropPress = true,
       showToggleButton = true,
       style,
+      colorScheme,
     }: CopilotPopupProps,
     ref: React.Ref<CopilotPopupHandle>,
   ) {
     const [visible, setVisible] = useState(defaultOpen);
     const { height: screenHeight } = useWindowDimensions();
-    const theme = useCopilotTheme();
+    const theme = useCopilotTheme(colorScheme);
 
     // Stable refs for callbacks to avoid effect churn
     const onOpenRef = useRef(onOpen);
@@ -228,7 +240,7 @@ export const CopilotPopup = forwardRef<CopilotPopupHandle, CopilotPopupProps>(
       : undefined;
 
     return (
-      <>
+      <CopilotColorSchemeProvider colorScheme={colorScheme}>
         {/* Floating Action Button */}
         {showToggleButton && !visible && (
           <TouchableOpacity
@@ -312,7 +324,7 @@ export const CopilotPopup = forwardRef<CopilotPopupHandle, CopilotPopupProps>(
             </Pressable>
           </Pressable>
         </Modal>
-      </>
+      </CopilotColorSchemeProvider>
     );
   },
 );

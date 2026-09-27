@@ -72,9 +72,9 @@ function cardBody(suggestion: Suggestion): string | undefined {
 
 /**
  * The welcome screen's suggestions: two columns of cards, each a title over two
- * lines of body. Every card is the same height — when any card has a body, all
- * of them reserve room for two lines of it. Cards rise in one after another as
- * part of the welcome intro.
+ * lines of body, or a title of up to three lines when there's no body. Every
+ * card is the same height — when any card has a body, all of them reserve room
+ * for it. Cards rise in one after another as part of the welcome intro.
  */
 export function SuggestionGrid({
   suggestions,
@@ -121,24 +121,27 @@ export function SuggestionGrid({
                       />
                     )}
                     <Text
-                      numberOfLines={1}
-                      style={[styles.cardTitle, { color: theme.foreground }]}
+                      numberOfLines={body ? 1 : 3}
+                      style={[
+                        styles.cardTitle,
+                        !body && reserveBody && styles.cardTitleReserved,
+                        { color: theme.foreground },
+                      ]}
                     >
                       {suggestion.title}
                     </Text>
                   </View>
-                  {(body || reserveBody) && (
+                  {body ? (
                     <Text
                       numberOfLines={2}
                       style={[
                         styles.cardBody,
-                        reserveBody && styles.cardBodyReserved,
                         { color: theme.mutedForeground },
                       ]}
                     >
                       {body}
                     </Text>
-                  )}
+                  ) : null}
                 </TouchableOpacity>
               </IntroRise>
             );
@@ -151,6 +154,8 @@ export function SuggestionGrid({
   );
 }
 
+const CARD_GAP = 4;
+const CARD_TITLE_LINE_HEIGHT = 20;
 const CARD_BODY_LINE_HEIGHT = 18;
 
 const styles = StyleSheet.create({
@@ -187,7 +192,7 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    gap: 4,
+    gap: CARD_GAP,
     borderWidth: 1,
     borderRadius: radius["2xl"],
     paddingHorizontal: 14,
@@ -202,13 +207,15 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 14,
     fontWeight: "500",
-    lineHeight: 20,
+    lineHeight: CARD_TITLE_LINE_HEIGHT,
+  },
+  /** A title without a body, as tall as a card with one. */
+  cardTitleReserved: {
+    minHeight: CARD_TITLE_LINE_HEIGHT + CARD_GAP + CARD_BODY_LINE_HEIGHT * 2,
   },
   cardBody: {
     fontSize: 13,
     lineHeight: CARD_BODY_LINE_HEIGHT,
-  },
-  cardBodyReserved: {
     minHeight: CARD_BODY_LINE_HEIGHT * 2,
   },
 });

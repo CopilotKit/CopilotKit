@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 // ─── Hoisted state ─────────────────────────────────────────────────────────────
 
 const hoisted = vi.hoisted(() => {
-  return {
+  const hoisted = {
     mockAgent: {
       messages: [] as any[],
       isRunning: false,
@@ -14,9 +14,15 @@ const hoisted = vi.hoisted(() => {
     mockRunAgent: vi.fn().mockResolvedValue(undefined),
     mockSuggestions: [] as any[],
     reduceMotion: false,
+    deviceScheme: "light" as "light" | "dark",
     // Spied so tests can see which entrance animations start.
     timing: vi.fn(() => ({ start: vi.fn(), stop: vi.fn() })),
+    // Spied so tests can see when the reduced-motion setting is read.
+    isReduceMotionEnabled: vi.fn(
+      (): Promise<boolean> => Promise.resolve(hoisted.reduceMotion),
+    ),
   };
+  return hoisted;
 });
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
@@ -40,11 +46,14 @@ vi.mock("@copilotkit/react-core/v2/context", () => ({
 
 // Mock sub-components that B2 builds
 vi.mock("../messages/AssistantMessage", () => ({
-  AssistantMessage: ({ content, isLoading }: any) => {
+  AssistantMessage: ({ content, isLoading, inlineCursor }: any) => {
     const React = require("react");
     return React.createElement(
       "div",
-      { "data-testid": "assistant-message" },
+      {
+        "data-testid": "assistant-message",
+        "data-inline-cursor": String(inlineCursor),
+      },
       isLoading ? "Loading..." : content,
     );
   },
@@ -66,13 +75,31 @@ vi.mock("../messages/UserMessage", () => ({
 vi.mock("react-native", async () => {
   const actual = await vi.importActual<any>("../../__mocks__/react-native");
   const React = require("react");
+  // Keeps the style prop readable in the DOM, as JSON.
+  const styled =
+    (tag: string) =>
+    ({ children, style, testID, ...props }: any) =>
+      React.createElement(
+        tag,
+        {
+          ...props,
+          "data-testid": testID,
+          "data-style": style && JSON.stringify(style),
+        },
+        children,
+      );
   return {
     ...actual,
-    Animated: { ...actual.Animated, timing: hoisted.timing },
+    Animated: {
+      ...actual.Animated,
+      View: styled("div"),
+      timing: hoisted.timing,
+    },
     AccessibilityInfo: {
-      isReduceMotionEnabled: () => Promise.resolve(hoisted.reduceMotion),
+      isReduceMotionEnabled: hoisted.isReduceMotionEnabled,
       addEventListener: () => ({ remove: () => {} }),
     },
+    useColorScheme: () => hoisted.deviceScheme,
     FlatList: ({ data, renderItem, ListEmptyComponent, keyExtractor }: any) => {
       if (!data || data.length === 0) {
         return React.createElement(
@@ -135,13 +162,35 @@ vi.mock("react-native", async () => {
         },
         children,
       ),
-    View: ({ children, ...props }: any) =>
-      React.createElement("div", props, children),
+    View: styled("div"),
   };
 });
 
 // Import component under test AFTER mocks
 import { CopilotChat } from "../CopilotChat";
+
+/** An element's style, flattened from the JSON the mocks keep it in. */
+function styleOf(element: Element | null): Record<string, unknown> {
+  const flatten = (style: unknown): Record<string, unknown> =>
+    Array.isArray(style)
+      ? Object.assign({}, ...style.map(flatten))
+      : style && typeof style === "object"
+        ? (style as Record<string, unknown>)
+        : {};
+  const json = element?.getAttribute("data-style");
+  return json ? flatten(JSON.parse(json)) : {};
+}
+
+// Stands in for the welcome screen's ScrollView, keeping its props.
+let scrollViewProps: Record<string, any> | null = null;
+function RecordingScrollView(props: any) {
+  scrollViewProps = props;
+  return React.createElement(
+    "div",
+    { "data-testid": "welcome-scroll" },
+    props.children,
+  );
+}
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -154,6 +203,8 @@ describe("CopilotChat", () => {
     hoisted.mockRunAgent.mockResolvedValue(undefined);
     hoisted.mockSuggestions = [];
     hoisted.reduceMotion = false;
+    hoisted.deviceScheme = "light";
+    scrollViewProps = null;
   });
 
   it("renders empty state when there are no messages", () => {
@@ -345,6 +396,60 @@ describe("CopilotChat", () => {
     expect(getByText("Done")).toBeTruthy();
   });
 
+  it("only spins tool calls of the current reply", () => {
+    const toolCall = (id: string, name: string) => ({
+      id,
+      type: "function" as const,
+      function: { name, arguments: "{}" },
+    });
+    const cardText = (getByText: (text: string) => HTMLElement, name: string) =>
+      getByText(name).closest('[data-testid="copilot-tool-call"]')?.textContent;
+
+    // An earlier reply's call never got a result (an interrupted run, say).
+    hoisted.mockAgent.isRunning = true;
+    hoisted.mockAgent.messages = [
+      {
+        id: "1",
+        role: "assistant",
+        content: "",
+        toolCalls: [toolCall("tc-old", "oldTool")],
+      },
+      { id: "2", role: "user", content: "Try again" },
+    ];
+    const { getByText, rerender } = render(<CopilotChat />);
+    expect(cardText(getByText, "oldTool")).toContain("Done");
+
+    hoisted.mockAgent.messages = [
+      ...hoisted.mockAgent.messages,
+      {
+        id: "3",
+        role: "assistant",
+        content: "",
+        toolCalls: [toolCall("tc-new", "newTool")],
+      },
+    ];
+    rerender(<CopilotChat />);
+    expect(cardText(getByText, "oldTool")).toContain("Done");
+    expect(cardText(getByText, "newTool")).toContain("Running");
+  });
+
+  it("styles the input bar with inputContainerStyle", () => {
+    const { getByTestId } = render(
+      <CopilotChat
+        inputContainerStyle={{ backgroundColor: "#123456", opacity: 0.5 }}
+      />,
+    );
+
+    const bar = getByTestId("text-input").parentElement;
+    expect(styleOf(bar)).toMatchObject({
+      backgroundColor: "#123456",
+      opacity: 0.5,
+    });
+    // The intro's animated wrapper keeps its own opacity.
+    expect(styleOf(bar?.parentElement ?? null).backgroundColor).toBeUndefined();
+    expect(styleOf(bar?.parentElement ?? null).opacity).not.toBe(0.5);
+  });
+
   it("shows error message when runAgent fails", async () => {
     hoisted.mockRunAgent.mockRejectedValueOnce(new Error("Network timeout"));
 
@@ -396,6 +501,8 @@ describe("CopilotChat welcome screen", () => {
     hoisted.mockAgent.isRunning = false;
     hoisted.mockSuggestions = [];
     hoisted.reduceMotion = false;
+    hoisted.deviceScheme = "light";
+    scrollViewProps = null;
   });
 
   // The entrance animations that started, as [delay] per animated element.
@@ -453,10 +560,17 @@ describe("CopilotChat welcome screen", () => {
   });
 
   it("skips the intro when introAnimation is false", async () => {
-    render(<CopilotChat initialMessages={["One"]} introAnimation={false} />);
+    const { getByText } = render(
+      <CopilotChat initialMessages={["One"]} introAnimation={false} />,
+    );
     await act(async () => {});
 
     expect(introDelays()).toEqual([]);
+    // Nothing to wait for: the setting isn't read, and nothing starts hidden.
+    expect(hoisted.isReduceMotionEnabled).not.toHaveBeenCalled();
+    expect(styleOf(getByText("How can I help?").parentElement).opacity).toEqual(
+      { value: 1 },
+    );
   });
 
   it("skips the intro when the user prefers reduced motion", async () => {
@@ -473,6 +587,62 @@ describe("CopilotChat welcome screen", () => {
     await act(async () => {});
 
     expect(introDelays()).toEqual([]);
+    expect(hoisted.isReduceMotionEnabled).not.toHaveBeenCalled();
+  });
+
+  it("scrolls the greeting and cards, keeping the input below them", () => {
+    const { getByTestId } = render(
+      <CopilotChat
+        initialMessages={["One"]}
+        ScrollViewComponent={RecordingScrollView}
+      />,
+    );
+
+    const scroll = getByTestId("welcome-scroll");
+    expect(scroll.textContent).toContain("How can I help?");
+    expect(scroll.textContent).toContain("One");
+    expect(scroll.contains(getByTestId("text-input"))).toBe(false);
+    // A card responds to the first tap while the keyboard is open.
+    expect(scrollViewProps?.keyboardShouldPersistTaps).toBe("handled");
+  });
+
+  it("applies messageContainerStyle to the welcome screen", () => {
+    render(
+      <CopilotChat
+        messageContainerStyle={{ paddingHorizontal: 32 }}
+        ScrollViewComponent={RecordingScrollView}
+      />,
+    );
+
+    expect(
+      Object.assign({}, ...scrollViewProps?.contentContainerStyle),
+    ).toMatchObject({ paddingHorizontal: 32 });
+  });
+
+  it("lets a card's title wrap when it has no body", () => {
+    hoisted.mockSuggestions = [
+      { title: "Plan a launch", message: "Turn goals into a plan" },
+    ];
+    const { getByText } = render(
+      <CopilotChat initialMessages={["A long prompt that needs room"]} />,
+    );
+
+    expect(
+      getByText("A long prompt that needs room").getAttribute("numberOfLines"),
+    ).toBe("3");
+    expect(getByText("Plan a launch").getAttribute("numberOfLines")).toBe("1");
+  });
+
+  it("hides the agent's suggestions with showSuggestions={false}", () => {
+    hoisted.mockSuggestions = [
+      { title: "Agent idea", message: "Agent idea", isLoading: false },
+    ];
+    const { getByText, queryByText } = render(
+      <CopilotChat initialMessages={["Mine"]} showSuggestions={false} />,
+    );
+
+    expect(queryByText("Agent idea")).toBeNull();
+    expect(getByText("Mine")).toBeTruthy();
   });
 
   it("keeps the same input through the first send", async () => {
@@ -525,6 +695,12 @@ describe("CopilotChat conversation suggestions", () => {
     expect(queryByText("Tell me more")).toBeNull();
   });
 
+  it("hides them with showSuggestions={false}", () => {
+    const { queryByText } = render(<CopilotChat showSuggestions={false} />);
+
+    expect(queryByText("Tell me more")).toBeNull();
+  });
+
   it("leaves initialMessages on the welcome screen", () => {
     const { queryByText } = render(<CopilotChat initialMessages={["Hello"]} />);
 
@@ -549,6 +725,9 @@ describe("CopilotChat streaming cursor", () => {
     const assistantMessages = getAllByTestId("assistant-message");
     expect(assistantMessages).toHaveLength(1);
     expect(assistantMessages[0].textContent).toBe("Loading...");
+    expect(assistantMessages[0].getAttribute("data-inline-cursor")).toBe(
+      "true",
+    );
   });
 
   it("keeps the cursor below the messages when inlineCursor is false", () => {
@@ -559,5 +738,64 @@ describe("CopilotChat streaming cursor", () => {
       "Hello",
       "Loading...",
     ]);
+    expect(assistantMessages[0].getAttribute("data-inline-cursor")).toBe(
+      "false",
+    );
+  });
+});
+
+describe("CopilotChat color scheme", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    hoisted.mockAgent.messages = [
+      {
+        id: "1",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "tc-1",
+            type: "function" as const,
+            function: { name: "myTool", arguments: "{}" },
+          },
+        ],
+      },
+    ];
+    hoisted.mockAgent.isRunning = false;
+    hoisted.mockSuggestions = [];
+    hoisted.deviceScheme = "dark";
+  });
+
+  const rootBackground = (container: HTMLElement) =>
+    styleOf(container.firstElementChild).backgroundColor;
+
+  it("is light by default, even when the device is dark", () => {
+    const { container, getByTestId } = render(
+      <CopilotChat disableKeyboardAvoiding />,
+    );
+
+    expect(rootBackground(container)).toBe("#ffffff");
+    expect(styleOf(getByTestId("copilot-tool-call")).backgroundColor).toBe(
+      "#ffffff",
+    );
+  });
+
+  it("applies colorScheme to the chat and everything it renders", () => {
+    const { container, getByTestId } = render(
+      <CopilotChat disableKeyboardAvoiding colorScheme="dark" />,
+    );
+
+    expect(rootBackground(container)).toBe("#0a0a0a");
+    expect(styleOf(getByTestId("copilot-tool-call")).backgroundColor).toBe(
+      "#171717",
+    );
+  });
+
+  it("follows the device with the system color scheme", () => {
+    const { container } = render(
+      <CopilotChat disableKeyboardAvoiding colorScheme="system" />,
+    );
+
+    expect(rootBackground(container)).toBe("#0a0a0a");
   });
 });

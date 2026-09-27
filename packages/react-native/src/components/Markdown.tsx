@@ -125,8 +125,7 @@ function markdownStylesFor(theme: CopilotTheme): MarkdownStyle {
 }
 
 /**
- * Default (light) markdown styles tuned for chat display. Dark mode uses the
- * same styles on the dark tokens.
+ * Default (light) markdown styles tuned for chat display.
  *
  * Exported so consumers can spread and extend:
  * ```ts
@@ -138,7 +137,13 @@ export const defaultMarkdownStyles: MarkdownStyle = markdownStylesFor(
   copilotThemes.light,
 );
 
-const darkMarkdownStyles = markdownStylesFor(copilotThemes.dark);
+/**
+ * The same styles on the dark tokens, used with the `"dark"` color scheme.
+ * Spread and extend them like `defaultMarkdownStyles`.
+ */
+export const darkMarkdownStyles: MarkdownStyle = markdownStylesFor(
+  copilotThemes.dark,
+);
 
 /**
  * Renders markdown content using `react-native-streamdown` with
@@ -148,7 +153,8 @@ const darkMarkdownStyles = markdownStylesFor(copilotThemes.dark);
  * background, rendering incrementally without visual glitches — ideal for
  * displaying LLM output as it arrives.
  *
- * Follows the device's light/dark color scheme. Custom styles are merged on
+ * Light by default; a `CopilotColorSchemeProvider` (or the enclosing chat's
+ * `colorScheme`) switches it to the dark styles. Custom styles are merged on
  * top of the defaults so callers only need to override what they want to
  * change.
  */

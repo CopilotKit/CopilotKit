@@ -77,10 +77,19 @@ describe("AssistantMessage edge cases", () => {
     expect(container).toBeTruthy();
   });
 
-  it("puts the cursor at the end of the text when both content and isLoading are provided", () => {
+  it("shows both markdown content AND typing indicator when both content and isLoading are provided", () => {
+    const { queryByTestId, queryByLabelText } = render(
+      <AssistantMessage content="Thinking..." isLoading />,
+    );
+
+    expect(queryByTestId("copilot-markdown")).toBeTruthy();
+    expect(queryByLabelText("Typing indicator")).toBeTruthy();
+  });
+
+  it("puts the cursor at the end of the text with inlineCursor", () => {
     // Once text arrives the cursor rides it instead of sitting below.
     const { getByTestId, queryByLabelText } = render(
-      <AssistantMessage content="Thinking..." isLoading />,
+      <AssistantMessage content="Thinking..." isLoading inlineCursor />,
     );
 
     expect(getByTestId("copilot-markdown").textContent).toBe(
