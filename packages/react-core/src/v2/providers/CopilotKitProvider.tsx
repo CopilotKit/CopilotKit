@@ -67,6 +67,8 @@ import type { SandboxFunction } from "../types/sandbox-function";
 import { SandboxFunctionsContext } from "./SandboxFunctionsContext";
 import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import { CopilotKitLearningProvider } from "./CopilotKitLearningProvider";
+import type { CopilotKitLearningConfig } from "./CopilotKitLearningProvider";
 
 // Adapts zod-to-json-schema's zod-specific signature to the injectable
 // `zodToJsonSchema` contract of `schemaToJsonSchema`, which only invokes it
@@ -128,6 +130,12 @@ const GENERATE_SANDBOXED_UI_DESCRIPTION =
 export interface CopilotKitProviderProps {
   children: ReactNode;
   runtimeUrl?: string;
+  /**
+   * Automatically learn from meaningful product interactions when Intelligence
+   * is configured. Set false to disable, or configure capture and a threadId.
+   * Input values, keystrokes, request bodies, and headers are never captured.
+   */
+  learning?: false | CopilotKitLearningConfig;
   headers?: Record<string, string> | (() => Record<string, string>);
   /**
    * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
@@ -328,6 +336,7 @@ function useStableArrayProp<T>(
 export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   children,
   runtimeUrl,
+  learning,
   headers: headersProp = EMPTY_HEADERS,
   credentials,
   messageFilter,
@@ -1099,6 +1108,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   return (
     <SandboxFunctionsContext.Provider value={sandboxFunctionsList}>
       <CopilotKitContext.Provider value={contextValue}>
+        {learning !== false && <CopilotKitLearningProvider {...learning} />}
         <LicenseContext.Provider value={licenseContextValue}>
           {a2uiActive && <A2UIBuiltInToolCallRenderer />}
           {a2uiActive && (

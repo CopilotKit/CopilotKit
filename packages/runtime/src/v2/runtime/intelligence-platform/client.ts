@@ -515,6 +515,8 @@ export interface AnnotateParams {
   userId: string;
   /** The thread the annotation is associated with. May be unknown to the platform. */
   threadId: string;
+  /** Optional fixed Learning container assignment for product-only sessions. */
+  learningContainerId?: string;
   /**
    * Discriminator identifying the annotation type.
    * Must match a type known to CopilotKit Intelligence
@@ -1897,6 +1899,9 @@ export class CopilotKitIntelligence {
     };
     if (params.payload !== undefined) {
       body.payload = params.payload;
+    }
+    if (params.learningContainerId !== undefined) {
+      body.learningContainerId = params.learningContainerId;
     }
     if (params.occurredAt !== undefined) {
       body.occurredAt = params.occurredAt;

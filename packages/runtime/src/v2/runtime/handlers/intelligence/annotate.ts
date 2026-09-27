@@ -20,6 +20,8 @@ interface AnnotateBody {
   payload?: unknown;
   /** The thread the annotation is associated with. */
   threadId: string;
+  /** Optional fixed Learning container assignment for product-only sessions. */
+  learningContainerId?: string;
   /** Caller-supplied idempotency key. Optional — platform auto-generates one when absent. */
   clientEventId?: string;
   /** ISO-8601 client-asserted timestamp. Defaults to server NOW() when absent. */
@@ -90,6 +92,7 @@ export async function handleAnnotate({
     const result = await intelligenceRuntime.intelligence.annotate({
       userId: user.id,
       threadId: parsed.threadId,
+      learningContainerId: parsed.learningContainerId,
       type: parsed.type,
       payload: parsed.payload,
       clientEventId: parsed.clientEventId,
@@ -125,10 +128,20 @@ function parseAnnotateBody(
   if (!isNonEmptyString(body.type)) {
     return errorResponse("Valid type is required", 400);
   }
+  if (
+    body.learningContainerId !== undefined &&
+    !isNonEmptyString(body.learningContainerId)
+  ) {
+    return errorResponse(
+      "Valid learningContainerId is required when provided",
+      400,
+    );
+  }
   return {
     type: body.type,
     payload: body.payload,
     threadId: body.threadId,
+    learningContainerId: body.learningContainerId as string | undefined,
     clientEventId: isNonEmptyString(body.clientEventId)
       ? body.clientEventId
       : undefined,

@@ -46,6 +46,8 @@ export interface RecordAnnotationArgs {
   payload?: unknown;
   /** Thread the annotation is associated with. */
   threadId: string;
+  /** Optional Learning container for product-only sessions. */
+  learningContainerId?: string;
   /**
    * Caller-supplied idempotency key. When omitted, a UUID is generated so
    * every call is naturally safe against platform-level duplicate processing.
@@ -93,6 +95,7 @@ export async function recordAnnotation(
     payload,
     threadId,
     occurredAt,
+    learningContainerId,
     fetch: fetchImplementation = globalThis.fetch,
   } = args;
 
@@ -104,16 +107,27 @@ export async function recordAnnotation(
     clientEventId,
     ...(payload !== undefined ? { payload } : {}),
     ...(occurredAt !== undefined ? { occurredAt } : {}),
+    ...(learningContainerId !== undefined ? { learningContainerId } : {}),
   };
 
-  const response = await fetchImplementation(`${runtimeUrl}/annotate`, {
+  const requestInit: RequestInit & {
+    ɵruntimeRequest: { nonCritical: true };
+  } = {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...headers,
     },
     body: JSON.stringify(body),
-  });
+    // Annotation delivery is observable through the returned promise, but an
+    // unavailable telemetry endpoint must not mark the agent runtime unhealthy.
+    // This is the optional-request metadata understood by core.ɵruntimeFetch.
+    ɵruntimeRequest: { nonCritical: true },
+  };
+  const response = await fetchImplementation(
+    `${runtimeUrl}/annotate`,
+    requestInit,
+  );
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");

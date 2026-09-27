@@ -102,6 +102,26 @@ it("uses the caller-supplied clientEventId verbatim when provided", async () => 
   expect(calls[0]!.body).not.toHaveProperty("userId");
 });
 
+it("keeps annotation failures observable without marking the agent runtime unhealthy", async () => {
+  const { calls, fetch } = mockFetch([
+    { status: 503, body: { error: "temporarily unavailable" } },
+  ]);
+
+  await expect(
+    recordAnnotation({
+      fetch,
+      runtimeUrl: "https://bff.example.com/api/copilotkit",
+      headers: {},
+      type: "user_action",
+      threadId: "thread-1",
+    }),
+  ).rejects.toThrow("request failed (503)");
+  expect(calls[0]!.init).toHaveProperty("ɵruntimeRequest", {
+    nonCritical: true,
+  });
+  expect(calls[0]!.body).not.toHaveProperty("ɵruntimeRequest");
+});
+
 it("auto-generates a distinct clientEventId per call when not supplied", async () => {
   const { calls, fetch } = mockFetch([
     { status: 200, body: { id: "1", duplicate: false } },

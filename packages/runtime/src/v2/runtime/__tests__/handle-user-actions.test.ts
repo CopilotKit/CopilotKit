@@ -97,6 +97,40 @@ it("resolves userId server-side (not from the request body)", async () => {
   );
 });
 
+it("forwards a product-only session's container without trusting a browser userId", async () => {
+  const annotate = vi
+    .fn()
+    .mockResolvedValue({ id: "event-1", duplicate: false });
+  const response = await handleAnnotate({
+    runtime: createIntelligenceRuntime({ intelligence: { annotate } }),
+    request: buildRequest({
+      ...validBody(),
+      learningContainerId: "expense-review",
+      userId: "spoofed",
+    }),
+  });
+  expect(response.status).toBe(200);
+  expect(annotate).toHaveBeenCalledWith(
+    expect.objectContaining({
+      userId: "user-1",
+      learningContainerId: "expense-review",
+    }),
+  );
+});
+
+it.each(["", null, 42, {}, []])(
+  "rejects an invalid product container %j",
+  async (learningContainerId) => {
+    const annotate = vi.fn();
+    const response = await handleAnnotate({
+      runtime: createIntelligenceRuntime({ intelligence: { annotate } }),
+      request: buildRequest({ ...validBody(), learningContainerId }),
+    });
+    expect(response.status).toBe(400);
+    expect(annotate).not.toHaveBeenCalled();
+  },
+);
+
 it("returns 400 when threadId is missing", async () => {
   const annotate = vi.fn();
   const runtime = createIntelligenceRuntime({ intelligence: { annotate } });
