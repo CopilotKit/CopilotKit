@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { createServer } from "node:http";
 import type { Server } from "node:http";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import type { AddressInfo } from "node:net";
 import type {
@@ -19,6 +19,8 @@ declare global {
     originalOpen: typeof XMLHttpRequest.prototype.open;
     startProductInteractionCapture: typeof startProductInteractionCapture;
     stopSecond: () => void;
+    pageTimeline: { timestamp: number; pathname: string; reason: string }[];
+    pageFixtureEpoch: number;
   }
 }
 
@@ -879,4 +881,317 @@ test("approved currency context survives without relaxing control labels or priv
   expect(JSON.stringify(captured)).not.toMatch(
     /4242424242424242|123,456,789,012/,
   );
+});
+
+async function navigate(page: Page, pathname: string, replace = false) {
+  await page.evaluate(
+    ({ path, replaceHistory }) => {
+      history[replaceHistory ? "replaceState" : "pushState"]({}, "", path);
+      window.pageTimeline.push({
+        timestamp: Date.now(),
+        pathname: location.pathname,
+        reason: "test fixture navigation",
+      });
+      document.querySelector("#pathname")!.textContent = location.pathname;
+    },
+    { path: pathname, replaceHistory: replace },
+  );
+}
+
+test.describe("page metadata", () => {
+  test.afterEach(async ({ page }, info) => {
+    const receipt = await page.evaluate(() => ({
+      observedAt: new Date().toISOString(),
+      scope:
+        "Actual trusted Chromium interactions in a test fixture; the delayed-navigation case gates its HTTP response explicitly. Pathname/clock/timeline are test instrumentation; events are unchanged SDK output.",
+      fixtureStartedAt: window.pageFixtureEpoch,
+      recordingClock:
+        "Visible elapsed clock starts at fixtureStartedAt; video-zero alignment must be derived from trace/frame observations, not assumed from test start.",
+      timeline: window.pageTimeline ?? [],
+      events: window.events ?? [],
+      finalPathname: window.location.pathname,
+    }));
+    await writeFile(
+      info.outputPath("page-events.json"),
+      JSON.stringify(receipt, null, 2),
+    );
+    await page.screenshot({
+      path: info.outputPath("page-events.png"),
+      fullPage: true,
+    });
+  });
+
+  async function pageFixture(
+    page: Page,
+    options: Omit<ProductInteractionCaptureOptions, "onEvent"> = {},
+  ) {
+    await start(page, options);
+    await page.evaluate((settings) => {
+      window.stop();
+      history.replaceState(
+        {},
+        "",
+        "/reviews/inbox?QUERY_CANARY=secret#HASH_CANARY",
+      );
+      document.body.innerHTML = `<main><h1>Review workspace</h1>
+        <p role="status">Pending</p><button id="go">Open draft and save</button>
+        <label for="review-note">Review note</label><textarea id="review-note"></textarea>
+        <form id="form"><button id="submit">Submit review</button></form>
+        <button id="back">Back</button><button id="plain">Inspect current page</button>
+        </main><aside data-learning-ignore><h2>SDK events</h2>
+        <p>Review instrumentation · <span id="pathname"></span> · <span id="clock"></span></p><ul id="pages"></ul><pre id="observed"></pre><div id="pointer" style="position:fixed;width:18px;height:18px;border:2px solid #c76a25;border-radius:50%;pointer-events:none"></div></aside>`;
+      document.body.style.cssText =
+        "font:16px system-ui;display:grid;grid-template-columns:1fr 1fr;gap:28px;padding:24px";
+      document.querySelector("pre")!.style.cssText =
+        "font:11px monospace;white-space:pre-wrap;max-height:320px;overflow:auto";
+      document.querySelector<HTMLElement>("#pathname")!.style.overflowWrap =
+        "anywhere";
+      const pathLabel = document.querySelector("#pathname")!;
+      const observePath = (reason: string) => {
+        window.pageTimeline.push({
+          timestamp: Date.now(),
+          pathname: location.pathname,
+          reason,
+        });
+        pathLabel.textContent = location.pathname;
+      };
+      window.pageTimeline = [];
+      window.pageFixtureEpoch = Date.now();
+      const clock = document.querySelector("#clock")!;
+      const updateClock = () => {
+        clock.textContent =
+          ((Date.now() - window.pageFixtureEpoch) / 1000).toFixed(2) + " s";
+      };
+      updateClock();
+      setInterval(updateClock, 50);
+      observePath("initial location");
+      document.addEventListener("pointermove", (event) => {
+        const pointer = document.querySelector<HTMLElement>("#pointer")!;
+        pointer.style.left = `${event.clientX - 9}px`;
+        pointer.style.top = `${event.clientY - 9}px`;
+      });
+      document.addEventListener("pointerdown", (event) => {
+        const pointer = document.querySelector<HTMLElement>("#pointer")!;
+        pointer.style.background = "#ed963b99";
+        setTimeout(() => {
+          pointer.style.background = "transparent";
+        }, 160);
+        const target =
+          event.target instanceof Element ? event.target.id : "unknown";
+        observePath("trusted pointerdown: " + target);
+      });
+      document.querySelector("#go")!.addEventListener("click", () => {
+        history.pushState(
+          {},
+          "",
+          "/reviews/draft?OTHER_QUERY_CANARY#OTHER_HASH_CANARY",
+        );
+        observePath("click handler navigates before initiating fetch");
+        document.querySelector('[role="status"]')!.textContent = "Saving";
+        void fetch("/api/slow").then(() => {
+          document.querySelector('[role="status"]')!.textContent = "Saved";
+          window.requestCount++;
+        });
+      });
+      document
+        .querySelector("#form")!
+        .addEventListener("submit", (event) => event.preventDefault());
+      document
+        .querySelector("#back")!
+        .addEventListener("click", () => history.back());
+      window.addEventListener("popstate", () => observePath("browser back"));
+      window.events = [];
+      window.stop = window.startProductInteractionCapture({
+        ...settings,
+        onEvent: (event) => {
+          window.events.push(event);
+          const rows = document.querySelector("#pages")!;
+          const row = document.createElement("li");
+          const pageValue = event.page;
+          const summary = !pageValue
+            ? "page not captured"
+            : "pathname" in pageValue
+              ? pageValue.pathname
+              : "page omitted: " + pageValue.omitted;
+          row.textContent = `${((event.timestamp - window.pageFixtureEpoch) / 1000).toFixed(2)} s · ${event.type} · ${summary}`;
+          rows.append(row);
+          if (rows.children.length > 6) rows.firstElementChild!.remove();
+          const log = document.querySelector("#observed")!;
+          log.textContent = JSON.stringify(window.events, null, 2);
+          log.scrollTop = log.scrollHeight;
+        },
+      });
+    }, options);
+    await page.waitForTimeout(600);
+  }
+
+  test("captures action and outcome pages while retaining the request-initiation page", async ({
+    page,
+  }) => {
+    await pageFixture(page);
+    let releaseResponse!: () => void;
+    let requestStarted = false;
+    const responseGate = new Promise<void>((resolve) => {
+      releaseResponse = resolve;
+    });
+    await page.route("**/api/slow", async (route) => {
+      requestStarted = true;
+      await responseGate;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: '{"saved":true}',
+      });
+    });
+    await page.click("#go");
+    try {
+      await expect.poll(() => requestStarted).toBe(true);
+      await expect
+        .poll(async () =>
+          (await events(page)).some((event) => event.type === "dom-change"),
+        )
+        .toBe(true);
+      expect(
+        (await events(page)).some((event) => event.type === "request"),
+      ).toBe(false);
+      await page.waitForTimeout(900);
+      await page.evaluate(() => {
+        history.pushState(
+          {},
+          "",
+          "/reviews/elsewhere?BACKGROUND_QUERY_CANARY#BACKGROUND_HASH_CANARY",
+        );
+        window.pageTimeline.push({
+          timestamp: Date.now(),
+          pathname: location.pathname,
+          reason: "background navigation while fixture response remains gated",
+        });
+        document.querySelector("#pathname")!.textContent = location.pathname;
+      });
+      await page.waitForTimeout(900);
+    } finally {
+      releaseResponse();
+    }
+    await expect
+      .poll(async () =>
+        (await events(page)).some((event) => event.type === "context"),
+      )
+      .toBe(true);
+    await page.waitForTimeout(900);
+    const captured = await events(page);
+    expect(
+      captured.find((event) => event.type === "interaction"),
+    ).toMatchObject({ page: { pathname: "/reviews/inbox" } });
+    expect(captured.find((event) => event.type === "dom-change")).toMatchObject(
+      { page: { pathname: "/reviews/draft" } },
+    );
+    expect(captured.find((event) => event.type === "request")).toMatchObject({
+      page: { pathname: "/reviews/draft" },
+      request: { status: 200 },
+    });
+    expect(captured.find((event) => event.type === "context")).toMatchObject({
+      page: { pathname: "/reviews/elsewhere" },
+    });
+    expect(JSON.stringify(captured)).not.toMatch(/QUERY_CANARY|HASH_CANARY/);
+    const beforeNavigation = captured.length;
+    await navigate(page, "/reviews/background-only");
+    await page.waitForTimeout(800);
+    expect(await events(page)).toHaveLength(beforeNavigation);
+  });
+
+  test("observes native change and submit pages after SPA navigation and back", async ({
+    page,
+  }) => {
+    await pageFixture(page);
+    await navigate(page, "/reviews/edit");
+    await page
+      .locator("#review-note")
+      .pressSequentially("Move lunch to Friday", { delay: 70 });
+    await page.waitForTimeout(500);
+    await page.click("#submit");
+    await page.waitForTimeout(900);
+    const captured = await events(page);
+    expect(
+      captured.find(
+        (event) => event.type === "interaction" && event.action === "change",
+      ),
+    ).toMatchObject({
+      page: { pathname: "/reviews/edit" },
+      text: { value: "Move lunch to Friday" },
+    });
+    expect(
+      captured.find(
+        (event) => event.type === "interaction" && event.action === "submit",
+      ),
+    ).toMatchObject({ page: { pathname: "/reviews/edit" } });
+    await page.click("#back");
+    await expect
+      .poll(() => page.evaluate(() => location.pathname))
+      .toBe("/reviews/inbox");
+    await page.waitForTimeout(600);
+    await page.click("#plain");
+    await page.waitForTimeout(900);
+    expect(
+      (await events(page))
+        .filter((event) => event.type === "interaction")
+        .at(-1),
+    ).toMatchObject({ page: { pathname: "/reviews/inbox" } });
+  });
+
+  test("redacts sensitive segments without losing the action and excludes query/hash", async ({
+    page,
+  }) => {
+    await pageFixture(page);
+    const pathname =
+      "/people/alice%2540example.test/123456/token/short-value/x%255Cy/x%E2%80%8By";
+    await navigate(page, pathname + "?QUERY_CANARY#HASH_CANARY", true);
+    await page.click("#plain");
+    await page.waitForTimeout(900);
+    expect(
+      (await events(page)).find((event) => event.type === "interaction"),
+    ).toMatchObject({
+      page: {
+        pathname:
+          "/people/:redacted/:redacted/:redacted/:redacted/:redacted/:redacted",
+        redacted: true,
+      },
+    });
+    expect(JSON.stringify(await events(page))).not.toMatch(
+      /alice|123456|short-value|QUERY_CANARY|HASH_CANARY/,
+    );
+    await navigate(page, "/reviews/%2e%2e/settings", true);
+    await page.click("#plain");
+    await page.waitForTimeout(900);
+    expect(
+      (await events(page))
+        .filter((event) => event.type === "interaction")
+        .at(-1),
+    ).toMatchObject({ page: { pathname: "/settings" } });
+    await navigate(page, "/" + "x".repeat(1024), true);
+    await page.click("#plain");
+    await page.waitForTimeout(900);
+    expect(
+      (await events(page))
+        .filter((event) => event.type === "interaction")
+        .at(-1),
+    ).toMatchObject({ page: { omitted: "size-limit" } });
+  });
+
+  test("capturePage false keeps events while omitting every page field", async ({
+    page,
+  }) => {
+    await pageFixture(page, { capturePage: false });
+    await page.click("#go");
+    await expect
+      .poll(async () =>
+        (await events(page)).some((event) => event.type === "context"),
+      )
+      .toBe(true);
+    await page.waitForTimeout(1200);
+    const captured = await events(page);
+    expect(new Set(captured.map((event) => event.type))).toEqual(
+      new Set(["interaction", "dom-change", "request", "context"]),
+    );
+    for (const event of captured) expect(event).not.toHaveProperty("page");
+  });
 });

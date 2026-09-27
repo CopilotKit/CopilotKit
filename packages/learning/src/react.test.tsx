@@ -70,6 +70,7 @@ describe("LearningProvider", () => {
           enabled={false}
           captureContext={false}
           captureTextValues={false}
+          capturePage={false}
           excludedUrlPrefixes={["/api/runtime"]}
         />,
       ),
@@ -78,9 +79,24 @@ describe("LearningProvider", () => {
     expect(capture.mock.calls[1][0].enabled).toBe(false);
     expect(capture.mock.calls[1][0].captureContext).toBe(false);
     expect(capture.mock.calls[1][0].captureTextValues).toBe(false);
+    expect(capture.mock.calls[1][0].capturePage).toBe(false);
     expect(capture.mock.calls[1][0].excludedUrlPrefixes).toEqual([
       "/api/runtime",
     ]);
+    await act(async () => root.unmount());
+  });
+
+  it("restarts capture when only page capture is disabled", async () => {
+    const root = createRoot(document.createElement("div"));
+    const onEvent = vi.fn();
+    await act(async () => root.render(<LearningProvider onEvent={onEvent} />));
+    const cleanup = capture.mock.results[0].value;
+    await act(async () =>
+      root.render(<LearningProvider onEvent={onEvent} capturePage={false} />),
+    );
+    expect(cleanup).toHaveBeenCalledOnce();
+    expect(capture).toHaveBeenCalledTimes(2);
+    expect(capture.mock.calls[1][0].capturePage).toBe(false);
     await act(async () => root.unmount());
   });
 });

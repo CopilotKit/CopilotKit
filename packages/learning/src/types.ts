@@ -31,10 +31,17 @@ export interface ProductInteractionContext {
   truncated?: true;
 }
 
+/** Observed page pathname only; no origin, query, fragment or title. */
+export type ProductPageContext =
+  | { pathname: string; redacted?: true }
+  | { omitted: "size-limit" | "unsupported-location" };
+
 interface ProductEventBase {
   id: string;
   /** Shared by the user action and its immediate requests/DOM outcomes. */
   actionId: string;
+  /** Optional for older/manual events. Requests retain the page at initiation. */
+  page?: ProductPageContext;
   /** Unix epoch milliseconds. */
   timestamp: number;
 }
@@ -95,6 +102,8 @@ export interface ProductInteractionCaptureOptions {
   captureDomChanges?: boolean;
   /** Defaults to true. Includes bounded semantic context with trusted actions. */
   captureContext?: boolean;
+  /** Defaults to true. Adds a bounded, filtered pathname; false omits page metadata. */
+  capturePage?: boolean;
   /** Defaults to true. Includes filtered text at native text/search/textarea changes. */
   captureTextValues?: boolean;
   /** Defaults to true. False omits labels, context and changed text, retaining finite state. */

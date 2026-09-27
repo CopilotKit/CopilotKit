@@ -59,8 +59,12 @@ export function CopilotKitLearningProvider({
     !!runtimeUrl && intelligenceAvailable && enabled !== false;
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
-  const { captureContext, captureAccessibleNames, captureTextValues } =
-    captureOptions;
+  const {
+    captureContext,
+    captureAccessibleNames,
+    captureTextValues,
+    capturePage,
+  } = captureOptions;
   const recorderRef = useRef<ReturnType<
     typeof createProductEventRecorder
   > | null>(null);
@@ -93,6 +97,7 @@ export function CopilotKitLearningProvider({
     captureContext,
     captureAccessibleNames,
     captureTextValues,
+    capturePage,
   ]);
 
   const onEvent = useCallback((event: ProductInteractionEvent) => {

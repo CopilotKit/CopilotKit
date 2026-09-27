@@ -37,7 +37,7 @@ import { LearningProvider } from "@copilotkit/learning/react";
 
 ## Events and correlation
 
-Every event has a UUID `id`, a shared `actionId`, and a Unix millisecond `timestamp`:
+Every event has a UUID `id`, a shared `actionId`, and a Unix millisecond `timestamp`. New capture also includes a bounded `page` observation unless `capturePage: false` is set:
 
 - `interaction`: a trusted `click`, `change`, or `submit`, with the element's tag, role, filtered accessible name, control name, optional `data-learning-id`, observed finite control state, and bounded semantic screen context.
 - `request`: fetch/XHR method, matched API prefix, response status, duration, and success/error/aborted outcome.
@@ -49,6 +49,14 @@ Capture observes user actions, including committed field changes; it does not re
 DOM outcomes are collected in that same short scope. The observer watches child lists, text nodes and selected accessibility/state attributes; counts saturate at 100, and each observer delivery inspects at most 100 records. Neither automatic background updates nor requests outside an interaction scope produce events. Each action can emit at most one DOM summary. Request completions may arrive after the action scope closes. A successful HTTP response does not establish a successful business outcome. Immediate outcomes are compared once at task close, including finite control properties that do not generate MutationObserver records.
 
 When context capture is enabled, an eligible request completion schedules one additional semantic observation after 50 ms. It is canceled after an intervening trusted action (including an excluded private action or later field input), capture cleanup, or removal of the original screen scope. Unchanged observations are omitted. This bounded observation can miss later UI updates and does not establish request causality; it does not open a longer window for request capture or watch ongoing background activity.
+
+## Page context
+
+`page: { pathname: "/reviews/inbox" }` identifies where an observation occurred. Interaction, DOM and post-request context events sample the current pathname at their own observation. Requests retain the pathname from request initiation, even if the response arrives after navigation. If a click handler navigates before starting a request, that request can have a different page from its initiating click. Page metadata does not change the existing conservative request-correlation window.
+
+Only HTTP(S) pathnames are included: never the origin, full URL, query, fragment, title, referrer or user agent. Basic segment filtering replaces numeric IDs, opaque-looking tokens, email/credential patterns, malformed escapes, encoded separators and control characters with `:redacted`, retaining slash structure and adding `redacted: true`. Credential keys also redact the following value. At most two percent-decodes are inspected; residual escapes are redacted. Both the original and filtered path are capped at 1,024 UTF-8 bytes. Oversized paths produce `page: { omitted: "size-limit" }`; unsupported or unreadable locations produce `page: { omitted: "unsupported-location" }`. The user event is still recorded.
+
+This is a heuristic, not anonymization: arbitrary personal names and meaningful slugs can still pass, while some legitimate long routes can be redacted. Use `capturePage: false` for sensitive routes. This option is independent of `captureAccessibleNames`, `captureTextValues` and `captureContext`. Navigation alone emits no event, and page metadata remains optional in the event type for older or manually authored events.
 
 ## Semantic context
 
@@ -92,7 +100,7 @@ The following markers exclude an element and its descendants, including descenda
 
 The first three markers exclude by presence, even if their value is `false`. `.ph-no-capture` and `.ph-sensitive` also exclude. Hidden elements, `aria-hidden="true"`, password/hidden/email/telephone inputs, sensitive autocomplete tokens, and common sensitive names/IDs are excluded. These are basic safeguards; mark application-specific private areas explicitly.
 
-`captureRequests`, `captureDomChanges`, `captureContext`, and `captureTextValues` default to `true` after capture is explicitly enabled. Each emitted event is capped at 8 KiB of UTF-8 JSON; oversized events are omitted. `maxEventsPerMinute` defaults to 120 (maximum 1,000) across all event types; `maxRequestsPerAction` defaults to 5 (maximum 20). Set either limit to zero to disable the corresponding output. At most 100 observed requests remain in flight across a window's active capture subscriptions. Excess events/requests are dropped without buffering.
+`captureRequests`, `captureDomChanges`, `captureContext`, `captureTextValues`, and `capturePage` default to `true` after capture is explicitly enabled. Each emitted event is capped at 8 KiB of UTF-8 JSON; oversized events are omitted. `maxEventsPerMinute` defaults to 120 (maximum 1,000) across all event types; `maxRequestsPerAction` defaults to 5 (maximum 20). Set either limit to zero to disable the corresponding output. At most 100 observed requests remain in flight across a window's active capture subscriptions. Excess events/requests are dropped without buffering.
 
 Always exclude runtime and telemetry ingestion endpoints with `excludedUrlPrefixes`. Exclusions override inclusion. Synchronous requests initiated by a callback are suppressed for that capture subscription; asynchronous sinks need an explicit URL exclusion. Callback failures are contained. Fetch promises/responses and XHR behavior are preserved, and cleanup does not overwrite another library's later instrumentation.
 

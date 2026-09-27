@@ -6,4 +6,5 @@ export type {
   ProductInteractionContext,
   ProductInteractionText,
   ProductControlState,
+  ProductPageContext,
 } from "./types";

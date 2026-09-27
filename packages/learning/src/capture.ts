@@ -1,6 +1,7 @@
 import { subscribeToRequests } from "./network";
 import { contextScope, describeContext } from "./context";
 import { readChangedText } from "./text";
+import { describePage } from "./page";
 import {
   describeTarget,
   isSensitive,
@@ -89,6 +90,9 @@ export function startProductInteractionCapture(
   let activity = 0;
   let lastContext: string | undefined;
 
+  const pageSnapshot = () =>
+    options.capturePage === false ? {} : { page: describePage(win.location) };
+
   function changedContext(context: ProductInteractionContext | undefined) {
     const observed = context ?? { items: [] };
     const encoded = JSON.stringify(observed);
@@ -143,6 +147,7 @@ export function startProductInteractionCapture(
         actionId: current.id,
         timestamp: Date.now(),
         type: "dom-change",
+        ...pageSnapshot(),
         changes: { ...current.changes },
         ...(targetChanged && { target }),
         ...(context && { context }),
@@ -190,6 +195,7 @@ export function startProductInteractionCapture(
         actionId: current.id,
         timestamp: Date.now(),
         type: "interaction",
+        ...pageSnapshot(),
         action: event.type as "click" | "change" | "submit",
         target: current.target,
         ...(text && { text }),
@@ -308,6 +314,7 @@ export function startProductInteractionCapture(
           const current = action;
           current.requests += 1;
           const started = Date.now();
+          const requestPage = pageSnapshot();
           const method = /^[a-z]{1,20}$/i.test(rawMethod)
             ? rawMethod.toUpperCase()
             : "OTHER";
@@ -318,6 +325,7 @@ export function startProductInteractionCapture(
               actionId: current.id,
               timestamp: Date.now(),
               type: "request",
+              ...requestPage,
               request: {
                 method,
                 url,
@@ -349,6 +357,7 @@ export function startProductInteractionCapture(
                   actionId: current.id,
                   timestamp: Date.now(),
                   type: "context",
+                  ...pageSnapshot(),
                   trigger: "request-completed",
                   requestId,
                   context,

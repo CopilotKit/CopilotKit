@@ -52,6 +52,7 @@ With a chat mounted, click a button, change a control, or submit a form in your 
 | Screen context             | Initial and changed headings, group labels, selected controls, and status text from the action's surrounding region. |
 | Immediate DOM change       | Bounded structural counts and changed target or semantic context, including status text changes. |
 | Post-request observation   | One changed semantic snapshot observed 50 ms after an associated request completes. |
+| Page location              | Filtered URL pathname on every event; query strings, fragments, and the origin are excluded. |
 
 Capture reads ordinary accessible markup, including button text, native control labels, `aria-labelledby`, headings, and status regions. Checkbox and radio state, expanded state, and selected option labels help distinguish what a user selected from which control they clicked. These are observations at the event timestamp; they do not invent a previous value.
 
@@ -63,6 +64,10 @@ Screen context is limited to eight semantic items and 2 KiB of JSON per observat
 ```
 
 The marker does not override privacy filtering. Set `captureContext: false` inside `learning` to omit screen context while retaining target labels and control state.
+
+Each event also carries `page`, for example `{ pathname: "/expenses/review" }`. Actions and screen observations use the pathname at observation time. Requests retain the pathname where they started, even if their response arrives after navigation. Changing the URL alone does not emit an event. Hash-based routes are not distinguished because fragments are excluded.
+
+Common sensitive path segments, such as email addresses, numeric identifiers, and credentials, are replaced with `:redacted` and `page.redacted: true`. For example, `/expenses/12345?token=private` becomes `{ pathname: "/expenses/:redacted", redacted: true }`. Pathnames are limited to 1 KiB of UTF-8 before and after filtering. An oversized or unsupported location produces a `page.omitted` reason instead of a partial path. These filters cannot identify every name or private slug. For apps with sensitive routes, set `capturePage: false` inside `learning`; actions and other enabled signals remain available. Page capture is independent of the text and accessible-name options.
 
 Requests default to your app's same-origin `/api` routes. To focus on a specific service, add `apiUrlPrefixes: ["/api/expenses"]` inside `learning`. Use an absolute prefix for a service on another origin. Recorded URLs contain only the matching configured prefix; dynamic path segments, query strings, and fragments are omitted. Keep personal data out of configured prefixes.
 

@@ -114,7 +114,10 @@ describe("CopilotKitLearningProvider", () => {
         </CopilotKitLearningProvider>
       </StrictMode>,
     );
-    const event = interaction("event-1");
+    const event: ProductInteractionEvent = {
+      ...interaction("event-1"),
+      page: { pathname: "/expenses/review" },
+    };
     await emit(event);
     expect(core.ɵruntimeFetch).toHaveBeenCalledTimes(1);
     expect(core.ɵruntimeFetch.mock.calls[0]?.[0]).toBe(
@@ -171,6 +174,39 @@ describe("CopilotKitLearningProvider", () => {
       expect(bodies()[1].payload.data).not.toHaveProperty("context");
     },
   );
+
+  it("discards queued page metadata when page capture is disabled", async () => {
+    let finishRequest!: () => void;
+    const pending = new Promise<Response>((resolve) => {
+      finishRequest = () =>
+        resolve(new Response('{"id":"stored","duplicate":false}'));
+    });
+    core.ɵruntimeFetch.mockImplementationOnce(() => pending);
+    const { rerender } = render(
+      <CopilotKitLearningProvider>
+        <Thread id="thread-a" />
+      </CopilotKitLearningProvider>,
+    );
+    await emit({
+      ...interaction("in-flight"),
+      page: { pathname: "/expenses" },
+    });
+    await emit({ ...interaction("queued"), page: { pathname: "/expenses" } });
+    expect(core.ɵruntimeFetch).toHaveBeenCalledTimes(1);
+    rerender(
+      <CopilotKitLearningProvider capturePage={false}>
+        <Thread id="thread-a" />
+      </CopilotKitLearningProvider>,
+    );
+    expect(capture().capturePage).toBe(false);
+    await emit(interaction("without-page"));
+    await act(async () => finishRequest());
+    expect(bodies().map((body) => body.clientEventId)).toEqual([
+      "in-flight",
+      "without-page",
+    ]);
+    expect(bodies()[1].payload.data).not.toHaveProperty("page");
+  });
 
   it("does not invent a thread before mount or after the last chat unmounts", async () => {
     const { rerender } = render(<CopilotKitLearningProvider />);
