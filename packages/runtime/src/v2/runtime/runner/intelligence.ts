@@ -17,6 +17,10 @@ import {
 import type { Channel } from "phoenix";
 import { Socket } from "phoenix";
 import { randomUUID } from "node:crypto";
+import {
+  buildHitlResponseEvents,
+  isReservedCustomEvent,
+} from "./hitl-response";
 
 export interface IntelligenceAgentRunnerOptions {
   /** Phoenix runner websocket URL, e.g. "ws://localhost:4000/runner" */
@@ -621,12 +625,30 @@ export class IntelligenceAgentRunner extends AgentRunner {
       return event;
     };
 
+    // Runtime-owned records of human-in-the-loop answers follow the first
+    // RUN_STARTED, so they sit inside the run that consumed them.
+    let hitlResponsesPushed = false;
+    const pushRunStarted = (event: RunStartedEvent): void => {
+      pushCanonicalEvent(event);
+      if (hitlResponsesPushed) return;
+      hitlResponsesPushed = true;
+      for (const response of buildHitlResponseEvents({
+        input: request.input,
+        persistedInputMessages: request.persistedInputMessages,
+        userId: request.userId,
+      })) {
+        pushCanonicalEvent(response);
+      }
+    };
+
     const ensureRunStarted = (): void => {
       if (!state.hasRunStarted) {
         state.hasRunStarted = true;
-        pushCanonicalEvent(buildRunStartedEvent());
+        pushRunStarted(buildRunStartedEvent());
       }
     };
+
+    let reservedCustomEventWarned = false;
 
     try {
       if (state.stopRequested) return;
@@ -634,10 +656,24 @@ export class IntelligenceAgentRunner extends AgentRunner {
         request.agent.runAgent(request.input, {
           onEvent: ({ event }: { event: BaseEvent }) => {
             if (state.stopRequested || state.producerFinished) return;
+            // The `copilotkit.` CUSTOM namespace is runtime-owned; an agent
+            // must not be able to forge a record such as a HITL answer.
+            if (isReservedCustomEvent(event)) {
+              if (!reservedCustomEventWarned) {
+                reservedCustomEventWarned = true;
+                logger.warn(
+                  {
+                    threadId,
+                    runId: request.input.runId,
+                    name: (event as BaseEvent & { name?: string }).name,
+                  },
+                  "Dropped agent CUSTOM event in the reserved copilotkit. namespace",
+                );
+              }
+              return;
+            }
             if (event.type === EventType.RUN_STARTED) {
-              pushCanonicalEvent(
-                buildRunStartedEvent(event as RunStartedEvent),
-              );
+              pushRunStarted(buildRunStartedEvent(event as RunStartedEvent));
               return;
             }
 

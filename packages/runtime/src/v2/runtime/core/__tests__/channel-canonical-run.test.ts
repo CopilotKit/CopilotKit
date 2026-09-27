@@ -587,3 +587,16 @@ test("runCanonical rejects an outer agent error completed by the standard runner
     code: "OUTER_FAILED",
   });
 });
+
+test("runCanonical passes the Channel run's app user to the runner", async () => {
+  const requests: AgentRunnerRunRequest[] = [];
+  const runner = new TestRunner((request) => {
+    requests.push(request);
+    return EMPTY;
+  });
+  const runCanonical = await captureRunCanonical(runner);
+
+  await runCanonical(runArgs()).catch(() => undefined);
+
+  expect(requests[0]).toMatchObject({ userId: "app-user-1" });
+});

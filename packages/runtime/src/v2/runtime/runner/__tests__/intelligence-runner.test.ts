@@ -12,6 +12,7 @@ import type {
 } from "@ag-ui/client";
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import { EMPTY, firstValueFrom } from "rxjs";
+import { logger } from "@copilotkit/shared";
 import { toArray } from "rxjs/operators";
 import type { MockPush } from "../../../../../../core/src/__tests__/test-utils";
 import {
@@ -2314,5 +2315,176 @@ describe("IntelligenceAgentRunner", () => {
 
       sub.unsubscribe();
     });
+  });
+});
+
+describe("IntelligenceAgentRunner human-in-the-loop responses", () => {
+  let runner: InstanceType<typeof IntelligenceAgentRunner>;
+
+  beforeEach(() => {
+    mockChannels = [];
+    mockSockets = [];
+    autoAcknowledgePushes = true;
+    runner = new IntelligenceAgentRunner({ url: "ws://localhost:4000/runner" });
+  });
+
+  const hitlInput = (threadId: string, runId: string) =>
+    createRunInput({
+      threadId,
+      runId,
+      tools: [
+        {
+          name: "approve_refund",
+          description: "Ask the user to approve a refund",
+          parameters: { type: "object", properties: {} },
+          metadata: { copilotkit: { interaction: "human-in-the-loop" } },
+        },
+      ],
+      messages: [
+        {
+          id: "a-1",
+          role: "assistant",
+          content: "",
+          toolCalls: [
+            {
+              id: "tc-1",
+              type: "function",
+              function: { name: "approve_refund", arguments: "{}" },
+            },
+          ],
+        },
+        {
+          id: "t-1",
+          role: "tool",
+          toolCallId: "tc-1",
+          content: '{"approved":true}',
+        },
+      ],
+      resume: [{ interruptId: "int-1", status: "cancelled" }],
+    });
+
+  it("pushes runtime-owned hitl_response events right after RUN_STARTED", async () => {
+    const threadId = "t-hitl";
+    const agent = new MockAgent([
+      { type: EventType.RUN_STARTED, threadId, runId: "r-hitl" } as BaseEvent,
+      { type: EventType.RUN_FINISHED, threadId, runId: "r-hitl" } as BaseEvent,
+    ]);
+
+    const done = collectEvents(
+      runner.run({
+        threadId,
+        agent,
+        input: hitlInput(threadId, "r-hitl"),
+        persistedInputMessages: [
+          {
+            id: "t-1",
+            role: "tool",
+            toolCallId: "tc-1",
+            content: '{"approved":true}',
+          },
+        ],
+        userId: "user-1",
+      }),
+    );
+    mockChannels[0]!.triggerJoin("ok");
+    await done;
+
+    const payloads = mockChannels[0]!.pushLog.map((push) => push.payload);
+    expect(payloads.map((payload) => payload.type)).toEqual([
+      EventType.RUN_STARTED,
+      EventType.CUSTOM,
+      EventType.CUSTOM,
+      EventType.RUN_FINISHED,
+    ]);
+    expect(payloads[1]).toMatchObject({
+      name: "copilotkit.hitl_response",
+      value: {
+        toolCallId: "tc-1",
+        toolName: "approve_refund",
+        userId: "user-1",
+        outcome: "responded",
+      },
+      threadId,
+      runId: "r-hitl",
+      metadata: { cpki_event_seq: 2 },
+    });
+    expect(payloads[2]).toMatchObject({
+      name: "copilotkit.hitl_response",
+      value: { interruptId: "int-1", userId: "user-1", outcome: "rejected" },
+    });
+  });
+
+  it("records answers once when the agent never emits RUN_STARTED", async () => {
+    const threadId = "t-hitl-synth";
+    const agent = new MockAgent([
+      {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId: "m-1",
+        delta: "ok",
+      } as BaseEvent,
+    ]);
+
+    const done = collectEvents(
+      runner.run({
+        threadId,
+        agent,
+        input: hitlInput(threadId, "r-hitl-synth"),
+        userId: "user-1",
+      }),
+    );
+    mockChannels[0]!.triggerJoin("ok");
+    await done;
+
+    const payloads = mockChannels[0]!.pushLog.map((push) => push.payload);
+    expect(payloads[0].type).toBe(EventType.RUN_STARTED);
+    expect(
+      payloads.filter((payload) => payload.name === "copilotkit.hitl_response"),
+    ).toHaveLength(2);
+    expect(payloads[1].name).toBe("copilotkit.hitl_response");
+  });
+
+  it("drops agent-emitted CUSTOM events in the reserved copilotkit. namespace", async () => {
+    const threadId = "t-forge";
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+    const forged = {
+      type: EventType.CUSTOM,
+      name: "copilotkit.hitl_response",
+      value: {
+        toolCallId: "tc-x",
+        userId: "someone-else",
+        outcome: "approved",
+      },
+    } as BaseEvent;
+    const agent = new MockAgent([
+      { type: EventType.RUN_STARTED, threadId, runId: "r-forge" } as BaseEvent,
+      forged,
+      { ...forged },
+      {
+        type: EventType.CUSTOM,
+        name: "app.progress",
+        value: 1,
+      } as BaseEvent,
+      { type: EventType.RUN_FINISHED, threadId, runId: "r-forge" } as BaseEvent,
+    ]);
+
+    const done = collectEvents(
+      runner.run({
+        threadId,
+        agent,
+        input: createRunInput({ threadId, runId: "r-forge" }),
+        userId: "user-1",
+      }),
+    );
+    mockChannels[0]!.triggerJoin("ok");
+    await done;
+
+    const payloads = mockChannels[0]!.pushLog.map((push) => push.payload);
+    expect(payloads.map((payload) => payload.name ?? payload.type)).toEqual([
+      EventType.RUN_STARTED,
+      "app.progress",
+      EventType.RUN_FINISHED,
+    ]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
   });
 });

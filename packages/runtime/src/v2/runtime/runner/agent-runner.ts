@@ -13,6 +13,11 @@ export interface AgentRunnerRunRequest {
   persistedInputMessages?: Message[];
   /** Short-lived token scoped to this runner invocation. */
   authToken?: string;
+  /**
+   * Runtime-resolved user this run acts for. Runners may stamp it on
+   * runtime-owned events (for example `copilotkit.hitl_response`).
+   */
+  userId?: string;
 }
 
 export interface AgentRunnerConnectRequest {

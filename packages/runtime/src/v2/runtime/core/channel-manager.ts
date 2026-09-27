@@ -786,6 +786,7 @@ async function runCanonicalChannelAgent(
           runId: canonicalRunId,
         },
         persistedInputMessages: args.persistedInputMessages,
+        userId: args.userId,
       });
       stream.subscribe({
         next: (event: BaseEvent) => {

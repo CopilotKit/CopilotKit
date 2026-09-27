@@ -1315,6 +1315,7 @@ describe("handleRunAgent", () => {
       expect(response.status).toBe(200);
       expect(runtime.runner.run).toHaveBeenCalledWith(
         expect.objectContaining({
+          userId: "user-1",
           persistedInputMessages: [
             {
               id: "msg-new",

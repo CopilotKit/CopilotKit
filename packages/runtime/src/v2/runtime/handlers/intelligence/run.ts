@@ -292,6 +292,7 @@ export async function handleIntelligenceRun({
     agent,
     input: canonicalInput,
     ...(persistedInputMessages !== undefined ? { persistedInputMessages } : {}),
+    userId,
   };
 
   const runtimeErrorReporter = getRuntimeErrorReporter(runtime);
