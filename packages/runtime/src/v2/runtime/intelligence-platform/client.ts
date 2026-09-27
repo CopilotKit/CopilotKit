@@ -238,10 +238,35 @@ export class PlatformRequestError extends Error {
     public readonly status: number,
     /** Whether retrying may succeed without changing client configuration. */
     public readonly retryable?: boolean,
+    /** The platform's stable error code (e.g. `GOVERNANCE_PERMISSION_DENIED`), when it sent one. */
+    public readonly code?: string,
   ) {
     super(message);
     this.name = "PlatformRequestError";
   }
+}
+
+const PLATFORM_ERROR_CODE = /^[A-Z][A-Z0-9_]{0,63}$/;
+
+/**
+ * Read the stable `error.code` from a platform error body, if present.
+ * Only an upper-snake identifier is returned, so the code is safe to echo.
+ */
+async function readPlatformErrorCode(
+  response: Response,
+): Promise<string | undefined> {
+  const body: unknown = await response.json().catch(() => undefined);
+  if (typeof body !== "object" || body === null || !("error" in body)) {
+    return undefined;
+  }
+  const error: unknown = body.error;
+  if (typeof error !== "object" || error === null || !("code" in error)) {
+    return undefined;
+  }
+  const code: unknown = error.code;
+  return typeof code === "string" && PLATFORM_ERROR_CODE.test(code)
+    ? code
+    : undefined;
 }
 
 /** Copy a public Runtime entitlement so callers cannot mutate cached authority. */
@@ -1225,6 +1250,7 @@ export class CopilotKitIntelligence {
           `Intelligence platform error ${response.status}`,
           response.status,
           response.status === 429 || response.status >= 500,
+          await readPlatformErrorCode(response),
         );
       }
       const snapshot = parseInspectorLearningSnapshotV1(await response.json());

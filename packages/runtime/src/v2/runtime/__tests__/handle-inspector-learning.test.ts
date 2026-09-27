@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { CopilotRuntimeLike } from "../core/runtime";
 import { handleInspectorLearning } from "../handlers/handle-inspector-learning";
+import { PlatformRequestError } from "../intelligence-platform/client";
 
 const snapshot = {
   schemaVersion: 1,
@@ -160,5 +161,79 @@ describe("handleInspectorLearning", () => {
     });
     expect(response.status).toBe(500);
     expect(fixture.intelligence?.getInspectorLearning).not.toHaveBeenCalled();
+  });
+  describe("upstream failures", () => {
+    const failWith = async (error: unknown) => {
+      const fixture = runtime({
+        intelligence: {
+          getInspectorLearning: vi.fn().mockRejectedValue(error),
+        },
+      });
+      const response = await handleInspectorLearning({
+        runtime: fixture,
+        request: new Request("https://runtime.example/inspector-learning"),
+      });
+      return { status: response.status, body: await response.json() };
+    };
+
+    it("passes a governance permission denial through as 403", async () => {
+      const result = await failWith(
+        new PlatformRequestError(
+          "Intelligence platform error 403",
+          403,
+          false,
+          "GOVERNANCE_PERMISSION_DENIED",
+        ),
+      );
+      expect(result).toEqual({
+        status: 403,
+        body: {
+          error: "You do not have permission to view Inspector Learning",
+          code: "GOVERNANCE_PERMISSION_DENIED",
+        },
+      });
+    });
+
+    it("passes an invalid access grant through as 400", async () => {
+      const result = await failWith(
+        new PlatformRequestError(
+          "Intelligence platform error 400",
+          400,
+          false,
+          "GOVERNANCE_GRANT_INVALID",
+        ),
+      );
+      expect(result).toEqual({
+        status: 400,
+        body: {
+          error: "The Inspector Learning access grant is invalid",
+          code: "GOVERNANCE_GRANT_INVALID",
+        },
+      });
+    });
+
+    it.each([
+      ["a 5xx outage", new PlatformRequestError("down", 503, true)],
+      ["a network failure", new TypeError("fetch failed")],
+      [
+        "a 403 without a governance code",
+        new PlatformRequestError("forbidden", 403, false),
+      ],
+      [
+        "a mismatched status and code",
+        new PlatformRequestError(
+          "oops",
+          500,
+          true,
+          "GOVERNANCE_PERMISSION_DENIED",
+        ),
+      ],
+    ])("keeps %s as 503", async (_label, error) => {
+      const result = await failWith(error);
+      expect(result).toEqual({
+        status: 503,
+        body: { error: "Inspector Learning is temporarily unavailable" },
+      });
+    });
   });
 });

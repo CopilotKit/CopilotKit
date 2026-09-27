@@ -14,8 +14,30 @@ const headers = {
   "Content-Type": "application/json",
 } as const;
 
-const errorResponse = (status: number, message: string) =>
-  new Response(JSON.stringify({ error: message }), { status, headers });
+const errorResponse = (status: number, message: string, code?: string) =>
+  new Response(
+    JSON.stringify(
+      code === undefined ? { error: message } : { error: message, code },
+    ),
+    { status, headers },
+  );
+
+/**
+ * Intelligence access denials the runtime passes through unchanged in status
+ * and code, so the Inspector can tell "not allowed" apart from an outage.
+ */
+const GOVERNANCE_DENIALS: Readonly<
+  Record<string, { readonly status: number; readonly message: string }>
+> = {
+  GOVERNANCE_PERMISSION_DENIED: {
+    status: 403,
+    message: "You do not have permission to view Inspector Learning",
+  },
+  GOVERNANCE_GRANT_INVALID: {
+    status: 400,
+    message: "The Inspector Learning access grant is invalid",
+  },
+};
 
 const queryPage = (value: string | null): number | undefined =>
   value === null ? undefined : Number(value);
@@ -76,6 +98,14 @@ export async function handleInspectorLearning({
   } catch (error) {
     if (error instanceof PlatformRequestError && error.status === 404) {
       return errorResponse(404, "Not found");
+    }
+    if (error instanceof PlatformRequestError && error.code !== undefined) {
+      const denial = Object.hasOwn(GOVERNANCE_DENIALS, error.code)
+        ? GOVERNANCE_DENIALS[error.code]
+        : undefined;
+      if (denial?.status === error.status) {
+        return errorResponse(denial.status, denial.message, error.code);
+      }
     }
     return errorResponse(503, "Inspector Learning is temporarily unavailable");
   }

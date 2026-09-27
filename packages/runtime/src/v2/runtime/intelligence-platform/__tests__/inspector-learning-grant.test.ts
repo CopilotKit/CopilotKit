@@ -3,6 +3,7 @@ import {
   CopilotKitIntelligence,
   INTELLIGENCE_GRANT_HEADER,
   INTELLIGENCE_USER_ID_HEADER,
+  PlatformRequestError,
 } from "../client";
 
 const snapshot = {
@@ -77,6 +78,78 @@ describe("getInspectorLearning identity and grant headers", () => {
     await client().getInspectorLearning({});
     expect(fetchMock.mock.calls[0]![1].headers).toEqual({
       Authorization: "Bearer cpk-project-key",
+    });
+  });
+  describe("error responses", () => {
+    const rejectWith = async (response: Response) => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response));
+      return client()
+        .getInspectorLearning({})
+        .then(
+          () => {
+            throw new Error("expected getInspectorLearning to reject");
+          },
+          (error: unknown) => error,
+        );
+    };
+
+    it("carries the Intelligence error code on a governance denial", async () => {
+      const error = await rejectWith(
+        Response.json(
+          {
+            error: {
+              code: "GOVERNANCE_PERMISSION_DENIED",
+              message: "denied",
+              category: "permission",
+              retryable: false,
+            },
+          },
+          { status: 403 },
+        ),
+      );
+      expect(error).toBeInstanceOf(PlatformRequestError);
+      expect(error).toMatchObject({
+        status: 403,
+        retryable: false,
+        code: "GOVERNANCE_PERMISSION_DENIED",
+      });
+    });
+
+    it("carries the Intelligence error code on an invalid grant", async () => {
+      const error = await rejectWith(
+        Response.json(
+          { error: { code: "GOVERNANCE_GRANT_INVALID" } },
+          { status: 400 },
+        ),
+      );
+      expect(error).toMatchObject({
+        status: 400,
+        code: "GOVERNANCE_GRANT_INVALID",
+      });
+    });
+
+    it.each([
+      [
+        "a non-JSON body",
+        new Response("<html>bad gateway</html>", { status: 502 }),
+      ],
+      ["an empty body", new Response(null, { status: 503 })],
+      [
+        "a malformed code",
+        Response.json(
+          { error: { code: "not a code; <script>" } },
+          { status: 403 },
+        ),
+      ],
+      [
+        "a non-string code",
+        Response.json({ error: { code: 42 } }, { status: 403 }),
+      ],
+    ])("omits the code for %s", async (_label, response) => {
+      const error = await rejectWith(response);
+      expect(error).toBeInstanceOf(PlatformRequestError);
+      expect((error as PlatformRequestError).code).toBeUndefined();
+      expect((error as PlatformRequestError).status).toBe(response.status);
     });
   });
 });
