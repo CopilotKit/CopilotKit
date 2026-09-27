@@ -59,7 +59,8 @@ export function loadSkillResult(
 /**
  * {@link loadSkillResult} as JSON text, for adapters whose tool results must
  * be strings. Adapters that serialize tool results themselves (the
- * BuiltInAgent) take the object instead, so the result is encoded once.
+ * BuiltInAgent, Mastra through @ag-ui/mastra) take the object instead, so the
+ * result is encoded once.
  */
 export function loadSkill(snapshot: VerifiedSnapshot, name: string): string {
   return JSON.stringify(loadSkillResult(snapshot, name));
