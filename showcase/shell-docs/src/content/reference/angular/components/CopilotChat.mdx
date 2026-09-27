@@ -64,6 +64,14 @@ Remember to import the stylesheet once in your global styles:
   CSS classes forwarded to the assistant-message slot.
 </PropertyReference>
 
+<PropertyReference name="assistantMessageToolbarScope" type='"turn" | "message"' default='"turn"'>
+  Where assistant toolbars appear: `"turn"` shows one toolbar per reply, `"message"` one per assistant message. Forwarded to each assistant message as `toolbarScope`.
+</PropertyReference>
+
+<PropertyReference name="introAnimation" type="boolean" default="true">
+  Eases the welcome screen in: the greeting, suggestion cards, and input rise into place in sequence. Set `false` to show them immediately. The animation is always off when the user prefers reduced motion.
+</PropertyReference>
+
 <PropertyReference name="reasoningMessageComponent" type="Type<any>">
   Component class used for reasoning messages.
 </PropertyReference>

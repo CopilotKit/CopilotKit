@@ -23,7 +23,8 @@ import "@copilotkit/react-core/v2/styles.css";
 
 <PropertyReference name="messages" type="Message[]">
   The full array of conversation messages. Passed through to the `toolCallsView`
-  slot for context-aware tool call rendering.
+  slot for context-aware tool call rendering, and used to find the reply this
+  message belongs to when `toolbarScope` is `"turn"`.
 </PropertyReference>
 
 <PropertyReference name="isRunning" type="boolean" default="false">
@@ -73,6 +74,21 @@ import "@copilotkit/react-core/v2/styles.css";
 <PropertyReference name="toolbarVisible" type="boolean">
   Controls whether the action toolbar is visible. When set to `false`, the
   toolbar is hidden entirely regardless of which callback props are provided.
+</PropertyReference>
+
+<PropertyReference name="toolbarScope" type='"turn" | "message"' default='"turn"'>
+  Where the toolbar (copy, feedback, regenerate, ...) appears.
+
+  - `"turn"`: one toolbar per reply. When a single user message produces several assistant messages (text, tool calls, more text), only the last one shows the toolbar. Copy and read aloud cover the whole reply; thumbs and regenerate receive that last message.
+  - `"message"`: every assistant message gets its own toolbar.
+
+  Turn scope needs `messages` to find the reply. Without it, every message is its own turn.
+</PropertyReference>
+
+<PropertyReference name="showCursor" type="boolean" default="false">
+  Shows a pulsing cursor at the end of the message text while it is being
+  written. `CopilotChatMessageView` sets this on the reply that is streaming;
+  set it yourself only when rendering the component standalone.
 </PropertyReference>
 
 ## Slots
@@ -231,6 +247,16 @@ function MinimalMessage({ message }) {
 }
 ```
 
+### A Toolbar on Every Message
+
+Inside `CopilotChat`, set the scope through the `messageView` slot:
+
+```tsx
+<CopilotChat
+  messageView={{ assistantMessage: { toolbarScope: "message" } }}
+/>
+```
+
 ### Custom Markdown Renderer
 
 ```tsx
@@ -262,6 +288,7 @@ function ToolCallsList({ message, allMessages }) {
 
 - **Markdown Support**: The default Markdown renderer supports GitHub Flavored Markdown (tables, strikethrough, task lists), math expressions rendered with KaTeX, and syntax-highlighted code blocks via `rehype-pretty-code`.
 - **Toolbar Visibility**: The toolbar appears on hover or focus by default. Individual buttons are only rendered when their corresponding callback prop (`onThumbsUp`, `onThumbsDown`, `onReadAloud`, `onRegenerate`) is provided. The copy button is always visible when the toolbar is shown.
+- **One Toolbar per Reply**: With the default `toolbarScope="turn"`, a reply made of several assistant messages shows a single toolbar under its last message. The toolbar stays hidden while that reply is still streaming, and on replies with no text (tool calls only).
 - **Localized Labels**: All toolbar button tooltips are sourced from the nearest `CopilotChatConfigurationProvider`. See [`useCopilotChatConfiguration`](/reference/hooks/useCopilotChatConfiguration) for the full list of label keys.
 - **Tool Call Rendering**: Tool calls embedded in the assistant message are rendered by the `toolCallsView` slot. Each tool call is resolved using the `useRenderToolCall` hook, which looks up registered renderers by tool name.
 - **Slot System**: Each slot prop accepts three forms -- a replacement component, a className string merged into the default, or a partial props object that extends the default component's props.

@@ -192,7 +192,7 @@ These are the root-level slot props available on all chat components:
 | `messageView`    | The message list container.                               |
 | `scrollView`     | The scroll container with auto-scroll behavior.           |
 | `input`          | The text input area with send/transcribe controls.        |
-| `suggestionView` | The suggestion pills shown below messages.                |
+| `suggestionView` | The suggestions: cards on the welcome screen, then a row of pills docked above the input. |
 | `welcomeScreen`  | The initial empty-state screen (pass `false` to disable). |
 
 `CopilotSidebar` and `CopilotPopup` also have:
@@ -211,7 +211,7 @@ Available via `messageView={{ ... }}`:
 | `assistantMessage` | Renders assistant responses. Has its own sub-slots (see below).            |
 | `userMessage`      | Renders user messages. Has its own sub-slots (see below).                  |
 | `reasoningMessage` | Renders model reasoning/thinking steps. Has its own sub-slots (see below). |
-| `cursor`           | The streaming cursor indicator shown while the agent is responding.        |
+| `cursor`           | The indicator shown below the messages while the agent works. Once a reply has text, the cursor sits at the end of that text instead (`inlineCursor`). |
 
 ### `assistantMessage` sub-slots
 
@@ -220,7 +220,7 @@ Available via `messageView={{ assistantMessage: { ... } }}`:
 | Slot               | Description                        |
 | ------------------ | ---------------------------------- |
 | `markdownRenderer` | The markdown rendering component. See [Markdown Rendering](/custom-look-and-feel/markdown). |
-| `toolbar`          | The action toolbar below messages. |
+| `toolbar`          | The action toolbar. One per reply by default; set `toolbarScope: "message"` for one per message. |
 | `copyButton`       | Copy message button.               |
 | `thumbsUpButton`   | Thumbs up feedback button.         |
 | `thumbsDownButton` | Thumbs down feedback button.       |
@@ -280,8 +280,8 @@ Available via `suggestionView={{ ... }}`:
 
 | Slot         | Description                                  |
 | ------------ | -------------------------------------------- |
-| `suggestion` | Individual suggestion pill/button.           |
-| `container`  | The container wrapping all suggestion pills. |
+| `suggestion` | Individual suggestion pill or card.          |
+| `container`  | The container wrapping all suggestions.      |
 
 ### `welcomeScreen` sub-slots
 
@@ -297,8 +297,9 @@ Available via `header={{ ... }}`:
 
 | Slot           | Description                   |
 | -------------- | ----------------------------- |
-| `titleContent` | The title text in the header. |
-| `closeButton`  | The close/minimize button.    |
+| `titleContent`   | The title text in the header. |
+| `closeButton`    | The close/minimize button.    |
+| `drawerLauncher` | The history button that opens the threads drawer (shown with `threadsDrawer`, or on mobile with a page-level drawer). |
 
 ### `toggleButton` sub-slots (Sidebar/Popup only)
 

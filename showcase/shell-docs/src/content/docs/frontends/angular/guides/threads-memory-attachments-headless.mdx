@@ -89,6 +89,18 @@ import {
 export class ConversationsComponent {}
 ```
 
+To keep the drawer inside the chat window instead, set `threadsDrawer` on
+`copilot-popup` or `copilot-sidebar`. A history button in the header slides the
+thread list in over the chat, and the drawer's open state stays local to that
+popup or sidebar. Picking a thread switches the chat without a
+`provideCopilotChatConfiguration` provider; the popup or sidebar reuses yours when
+one is in scope. Pass `true`, or an object with `agentId`, `label`,
+`recentLabel`, `limit`, and `licenseUrl`:
+
+```html
+<copilot-popup [threadsDrawer]="{ agentId: 'support', limit: 20 }" />
+```
+
 ## Read and manage memory
 
 `injectMemories` exposes the current runtime-authenticated user's memory list.

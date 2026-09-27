@@ -56,6 +56,15 @@ export class ChatComponent extends ChatState {
   Controlled input mode. When omitted, the component starts in `"input"` mode and manages later transitions itself.
 </PropertyReference>
 
+<PropertyReference name="layout" type='"auto" | "stacked"' default='"auto"'>
+  How the text and the action buttons are arranged.
+
+  - `"auto"`: a single row while the text fits on one line, so the input stays short. Once the text wraps, it moves onto its own full-width row above the actions.
+  - `"stacked"`: always text on top, actions underneath.
+
+  In either layout, inputs narrower than about 320px (a small popup, for example) move voice input into the "+" menu so the actions fit.
+</PropertyReference>
+
 <PropertyReference name="toolsMenu" type='(ToolsMenuItem | "-")[]'>
   Items for the input's tools menu. Each `ToolsMenuItem` has a `label` and either an `action` callback or nested `items`. Use the string `"-"` for a separator. When empty, the tools menu is hidden unless the add-file action is available.
 </PropertyReference>
@@ -82,8 +91,12 @@ export class ChatComponent extends ChatState {
   Class applied to the default textarea.
 </PropertyReference>
 
-<PropertyReference name="textAreaMaxRows" type="number">
+<PropertyReference name="textAreaMaxRows" type="number" default="8">
   Maximum number of rows the textarea grows to before scrolling.
+</PropertyReference>
+
+<PropertyReference name="highlightMarkdown" type="boolean" default="true">
+  Styles list markers and links as the user types. The text stays a plain `<textarea>`, so caret, selection, and undo are unaffected. Set `false` for plain text.
 </PropertyReference>
 
 <PropertyReference name="textAreaPlaceholder" type="string">

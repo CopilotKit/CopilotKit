@@ -96,8 +96,12 @@ Passing a `children` render-prop gives you access to all composed slot elements 
   name="suggestionView"
   type="SlotValue<typeof CopilotChatSuggestionView>"
 >
-  The component that renders suggestion pills. Replace it to change how
-  suggestions are displayed or animated.
+  The component that renders suggestions. During a conversation it renders them
+  as a single scrollable row of pills docked above the input. On the welcome
+  screen it renders them as cards under the greeting. The chat sets
+  `appearance: "cards"` there, and a props object you pass here overrides it, so
+  `suggestionView={{ appearance: "pills" }}` keeps pills on the welcome screen
+  too. See [`CopilotChatSuggestionView`](#copilotchatsuggestionview).
 </PropertyReference>
 
 ## Data Props
@@ -124,14 +128,16 @@ Passing a `children` render-prop gives you access to all composed slot elements 
 
 <PropertyReference name="isRunning" type="boolean">
   Whether the agent is currently processing. When `true`, the input shows a stop
-  button and the message view displays a typing cursor on the latest assistant
-  message.
+  button and the message view shows a streaming cursor: at the end of the reply's
+  text while it streams, or below the messages while the agent is still working
+  on a reply that has no text yet.
 </PropertyReference>
 
 <PropertyReference name="suggestions" type="Suggestion[]">
-  Array of suggestion objects to display as clickable pills below (or above) the
-  input area. Each suggestion has a `title`, `message`, and optional `isLoading`
-  flag.
+  Array of suggestion objects to display. During a conversation they appear as
+  pills docked above the input; on the welcome screen they appear as cards. Each
+  suggestion has a `title`, `message`, and optional `isLoading` flag. On a card,
+  `title` is the header and `message` is the body.
 </PropertyReference>
 
 <PropertyReference name="suggestionLoadingIndexes" type="ReadonlyArray<number>">
@@ -159,6 +165,12 @@ The welcome screen component receives `input` and `suggestionView` as React elem
 
 </PropertyReference>
 
+<PropertyReference name="introAnimation" type="boolean" default="true">
+  Eases the welcome screen in: the greeting, suggestion cards, and input rise
+  into place in sequence. Set `false` to show them immediately. The animation is
+  always off when the user prefers reduced motion.
+</PropertyReference>
+
 ## Static Sub-Components
 
 `CopilotChatView` exposes its default slot implementations as static properties for use in custom compositions:
@@ -170,6 +182,77 @@ The welcome screen component receives `input` and `suggestionView` as React elem
 - `CopilotChatView.Disclaimer` -- default disclaimer text
 - `CopilotChatView.WelcomeMessage` -- default welcome message
 - `CopilotChatView.WelcomeScreen` -- default welcome screen layout
+
+## CopilotChatSuggestionView
+
+The default `suggestionView` slot. It renders a list of suggestions as pills or
+cards and reports which one the user picked.
+
+### Import
+
+```tsx
+import {
+  CopilotChatSuggestionView,
+  CopilotChatSuggestionPill,
+} from "@copilotkit/react-core/v2";
+```
+
+### Props
+
+<PropertyReference name="suggestions" type="Suggestion[]" required>
+  The suggestions to render.
+</PropertyReference>
+
+<PropertyReference
+  name="onSelectSuggestion"
+  type="(suggestion: Suggestion, index: number) => void"
+>
+  Called when the user clicks a suggestion.
+</PropertyReference>
+
+<PropertyReference name="loadingIndexes" type="ReadonlyArray<number>">
+  Indexes of suggestions to show in a loading state.
+</PropertyReference>
+
+<PropertyReference name="appearance" type='"pills" | "cards"' default='"pills"'>
+  How the suggestions are laid out:
+
+  - `"pills"`: compact chips in a single row that scrolls horizontally when the pills overflow.
+  - `"cards"`: a two-column grid of cards. Each card shows the suggestion's `title` as its header and its `message` as its body. The body is omitted when the message matches the title.
+</PropertyReference>
+
+<PropertyReference name="container" type="SlotValue">
+  Slot for the element that wraps the suggestions.
+</PropertyReference>
+
+<PropertyReference name="suggestion" type="SlotValue<typeof CopilotChatSuggestionPill>">
+  Slot for each suggestion. Defaults to `CopilotChatSuggestionPill`, which
+  receives `appearance: "card"` and a `description` when the view renders
+  cards.
+</PropertyReference>
+
+### CopilotChatSuggestionPill props
+
+`CopilotChatSuggestionPill` renders one suggestion as a `<button>`. Its
+`children` are the label. It also accepts standard button attributes.
+
+<PropertyReference name="appearance" type='"pill" | "card"' default='"pill"'>
+  `"pill"` is a compact chip. `"card"` is a larger tile with the label as its
+  header and `description` as its body.
+</PropertyReference>
+
+<PropertyReference name="description" type="React.ReactNode">
+  Body text shown under the label when `appearance` is `"card"`. Ignored for
+  pills.
+</PropertyReference>
+
+<PropertyReference name="icon" type="React.ReactNode">
+  Icon shown before the label while the suggestion is not loading.
+</PropertyReference>
+
+<PropertyReference name="isLoading" type="boolean">
+  Shows a spinner in place of the icon and disables the button.
+</PropertyReference>
 
 ## Usage
 
@@ -251,7 +334,8 @@ function Chat({ messages, isRunning }) {
 ## Behavior
 
 - **Auto-scroll**: When `autoScroll` is `true`, the view uses a stick-to-bottom strategy that keeps the latest message visible. A scroll-to-bottom button appears when the user scrolls up.
-- **Welcome screen**: When `messages` is empty and `welcomeScreen` is not `false`, a welcome screen is rendered in place of the transcript. The welcome screen receives the `input` and `suggestionView` elements so they can be placed within the welcome layout.
+- **Welcome screen**: When `messages` is empty and `welcomeScreen` is not `false`, a welcome screen is rendered in place of the transcript. The welcome screen receives the `input` and `suggestionView` elements so they can be placed within the welcome layout. The default shows the greeting, then the suggestions as cards, then the input, and eases them in unless `introAnimation` is `false`.
+- **Suggestions**: Once the conversation starts, suggestions move to a scrollable row of pills docked above the input. They are hidden while the agent is running.
 - **Input container positioning**: The input container is absolutely positioned at the bottom of the chat, and the scroll area pads its content to avoid overlap.
 - **Resize handling**: The scroll view monitors input container height changes to keep padding in sync and hides the scroll-to-bottom button during resize transitions.
 

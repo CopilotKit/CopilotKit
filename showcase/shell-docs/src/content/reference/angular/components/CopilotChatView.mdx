@@ -5,7 +5,7 @@ description: "Angular standalone component that renders the chat layout without 
 
 ## Overview
 
-`CopilotChatView` is the layout-only chat view. It renders the message feed, the input container, the feather effect, the disclaimer, the suggestion pills, and a welcome screen when there are no messages. It does not wire an agent on its own. You pass it `messages` and read interaction handlers from the surrounding `ChatState`.
+`CopilotChatView` is the layout-only chat view. It renders the message feed, the input container, the feather effect, the disclaimer, the suggestions, and a welcome screen when there are no messages. Suggestions show as cards on the welcome screen and as a scrollable row of pills docked above the input once the conversation starts. It does not wire an agent on its own. You pass it `messages` and read interaction handlers from the surrounding `ChatState`.
 
 [`CopilotChat`](/reference/angular/components/CopilotChat) wires the agent, messages, running state, suggestions, and submission, then renders `CopilotChatView`. Use `CopilotChatView` directly when you manage those values and handlers, or when you need full control over the layout and its slots.
 
@@ -69,11 +69,23 @@ export class ChatComponent extends ChatState {
 </PropertyReference>
 
 <PropertyReference name="showCursor" type="boolean" default="false">
-  Whether to show a streaming cursor at the end of the feed while the agent is responding.
+  Whether to show a streaming cursor at the end of the feed while the agent is responding. While a reply's text streams (`isRunning`), the cursor sits at the end of that text instead.
+</PropertyReference>
+
+<PropertyReference name="isRunning" type="boolean" default="false">
+  Whether the agent is running. While `true`, suggestions and the latest reply's toolbar are hidden, and a streaming reply carries the inline cursor.
 </PropertyReference>
 
 <PropertyReference name="hasExplicitThreadId" type="boolean" default="false">
   Whether an explicit thread id was provided. When true, the welcome screen is suppressed even with no messages (the conversation is being resumed).
+</PropertyReference>
+
+<PropertyReference name="introAnimation" type="boolean" default="true">
+  Eases the welcome screen in: the greeting, suggestion cards, and input rise into place in sequence. Set `false` to show them immediately. The animation is always off when the user prefers reduced motion.
+</PropertyReference>
+
+<PropertyReference name="assistantMessageToolbarScope" type='"turn" | "message"' default='"turn"'>
+  Where assistant toolbars appear: `"turn"` shows one toolbar per reply, `"message"` one per assistant message. Forwarded to each assistant message as `toolbarScope`.
 </PropertyReference>
 
 ### Slot inputs
@@ -273,6 +285,37 @@ export class ChatComponent extends ChatState {
     this.inputValue.set(value);
   }
 }
+```
+
+## Suggestion components
+
+The view renders suggestions with `CopilotChatSuggestionView` (selector `copilot-chat-suggestion-view`), which you can also use on its own. It takes `suggestions`, an optional `inputClass`, and:
+
+<PropertyReference name="appearance" type='"pills" | "cards"' default='"pills"'>
+  How the suggestions are laid out:
+
+  - `"pills"`: compact chips in a single row that scrolls horizontally when the pills overflow.
+  - `"cards"`: a two-column grid of cards. Each card shows the suggestion's `title` as its header and its `message` as its body. The body is omitted when the message matches the title.
+</PropertyReference>
+
+It emits `selectSuggestion` with `{ suggestion, index }`.
+
+Each suggestion is a `CopilotChatSuggestionPill` (selector `copilot-chat-suggestion-pill`). It takes `title`, `disabled`, `isLoading`, and `inputClass`, emits `clicked`, and adds:
+
+<PropertyReference name="appearance" type='"pill" | "card"' default='"pill"'>
+  `"pill"` is a compact chip. `"card"` is a larger tile with the title as its header and `description` as its body.
+</PropertyReference>
+
+<PropertyReference name="description" type="string">
+  Body text shown under the title when `appearance` is `"card"`.
+</PropertyReference>
+
+```html
+<copilot-chat-suggestion-view
+  appearance="cards"
+  [suggestions]="suggestions()"
+  (selectSuggestion)="onPick($event.suggestion)"
+/>
 ```
 
 ## Related

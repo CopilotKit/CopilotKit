@@ -44,7 +44,7 @@ export class AssistantComponent {
 </PropertyReference>
 
 <PropertyReference name="messages" type="Message[]" default="[]">
-  The surrounding message list. Forwarded to the tool calls view so a tool render can read prior context.
+  The surrounding message list. Forwarded to the tool calls view so a tool render can read prior context, and used to find the reply this message belongs to when `toolbarScope` is `"turn"`.
 </PropertyReference>
 
 <PropertyReference name="agentId" type="string">
@@ -57,6 +57,19 @@ export class AssistantComponent {
 
 <PropertyReference name="toolbarVisible" type="boolean" default="true">
   Whether the toolbar may be shown. Even when `true`, the toolbar only renders if the message has non-empty text content.
+</PropertyReference>
+
+<PropertyReference name="toolbarScope" type='"turn" | "message"' default='"turn"'>
+  Where the toolbar (copy, feedback, regenerate, ...) appears.
+
+  - `"turn"`: one toolbar per reply. When a single user message produces several assistant messages, only the last one shows the toolbar, and copy and read aloud cover the whole reply.
+  - `"message"`: every assistant message gets its own toolbar.
+
+  Turn scope needs `messages` to find the reply. Without it, every message is its own turn.
+</PropertyReference>
+
+<PropertyReference name="showCursor" type="boolean" default="false">
+  Shows a pulsing cursor at the end of the message text while it is being written. `CopilotChatMessageView` sets this on the reply that is streaming; set it yourself only when rendering the component standalone.
 </PropertyReference>
 
 <PropertyReference name="additionalToolbarItems" type="TemplateRef<any>">

@@ -45,11 +45,19 @@ export class MessagesComponent {
 </PropertyReference>
 
 <PropertyReference name="showCursor" type="boolean" default="false">
-  Whether to show the typing cursor at the end of the list. The cursor is suppressed when the last message is a reasoning message.
+  Whether to show the typing cursor at the end of the list. The cursor is suppressed when the last message is a reasoning message, and while the inline cursor is showing (see `inlineCursor`).
 </PropertyReference>
 
 <PropertyReference name="isLoading" type="boolean" default="false">
   Whether the agent is currently streaming. Forwarded to assistant and reasoning renderers.
+</PropertyReference>
+
+<PropertyReference name="inlineCursor" type="boolean" default="true">
+  While `isLoading` is `true` and the last message is an assistant reply with text, show the cursor at the end of that text, as if it were being typed (the assistant message's `showCursor`). Set `false` to always use the cursor at the end of the list.
+</PropertyReference>
+
+<PropertyReference name="assistantMessageToolbarScope" type='"turn" | "message"' default='"turn"'>
+  Forwarded to each assistant message as `toolbarScope`: one toolbar per reply, or one per assistant message.
 </PropertyReference>
 
 <PropertyReference name="state" type="unknown" default="{}">

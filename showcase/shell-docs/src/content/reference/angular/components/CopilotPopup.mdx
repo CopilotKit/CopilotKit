@@ -32,12 +32,28 @@ export class SupportAssistant {
 | Name                  | Type                         | Default       | Behavior                                       |
 | --------------------- | ---------------------------- | ------------- | ---------------------------------------------- |
 | `open`                | `ModelSignal<boolean>`       | `true`        | Two-way bindable open state                    |
-| `title`               | `string`                     | `"Copilot"`   | Accessible dialog name and default header text |
+| `title`               | `string`                     | `"CopilotKit Chat"` | Accessible dialog name and default header text |
 | `width`               | `number \| string`           | `420`         | Pixel number or CSS dimension                  |
 | `height`              | `number \| string`           | `560`         | Pixel number or CSS dimension                  |
 | `clickOutsideToClose` | `boolean`                    | `false`       | Opts into backdrop-click closing               |
 | `chatComponent`       | `Type<unknown>`              | `CopilotChat` | Replacement chat body component                |
 | `headerComponent`     | `Type<unknown> \| undefined` | `undefined`   | Replacement header component                   |
+| `threadsDrawer`       | `CopilotModalThreadsDrawer`  | `false`       | Adds a threads drawer inside the popup         |
+| `introAnimation`      | `boolean`                    | `true`        | Eases the welcome screen in each time the chat opens; forwarded to the chat component when it declares the input |
+
+`threadsDrawer` accepts `true` for the default drawer or an object with
+`agentId`, `label`, `recentLabel`, `limit`, and `licenseUrl`. A history button at
+the start of the header then slides the thread list in over the chat. Picking a
+thread or starting a new one switches the chat. The popup shares one chat
+configuration between its chat and its drawer, reusing the app's
+`provideCopilotChatConfiguration` when one is in scope, so no provider is
+required. The drawer's open state is local to the popup, and Escape closes an
+open drawer before the popup. Threads need
+CopilotKit Intelligence; without it the drawer shows its locked view.
+
+```html
+<copilot-popup [threadsDrawer]="{ recentLabel: 'Your conversations', limit: 20 }" />
+```
 
 The dialog traps focus, moves initial focus to its close control, closes on
 Escape, and restores focus to the launcher. It becomes full-screen on compact
