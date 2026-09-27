@@ -10,7 +10,7 @@ import InspectorPaneLearning from "@/snippets/shared/inspector/open-inspector-pa
 
 ## Overview
 
-Automatic Learning turns patterns from real agent runs into skills you can publish. It reads completed conversations in [Rich Threads](/threads), writes insights, and proposes instructions you review before you publish them.
+Automatic Learning turns patterns from agent runs and product interactions into skills you can publish. It reads completed conversations in [Rich Threads](/threads) and product trajectories, writes insights, and proposes instructions you review before you publish them.
 
 <div className="not-prose shell-docs-radius-surface aspect-[7/4] w-full overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]">
   <iframe
@@ -37,6 +37,72 @@ Learning starts with a container, which groups Threads from the same kind of wor
 When a pattern can be reused, Learning proposes a Skill. You review the supporting Threads and decide whether to publish it. A published Skill is a versioned set of instructions that you load into your agent; Learning does not change the model itself.
 
 Automatic Learning checks eligible containers on a daily schedule. After you approve a skill, [skill delivery](/intelligence/learned-skills) makes it available to connected agents. A scheduled run does not approve skills. Turning on delivery does not connect your agent for you.
+
+## Capture product trajectories
+
+A product trajectory records what a user does in your application alongside agent activity. In React apps, `CopilotKitProvider` automatically includes browser capture once its Runtime reports that Intelligence is configured. The `CopilotKit` compatibility provider supports the same `learning` option.
+
+Configure a Learning container once to include product-only sessions in analysis, even when the user has not sent an agent message:
+
+```tsx title="Your React application"
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+
+export function App() {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      learning={{
+        learningContainerId: "expense-review",
+        apiUrlPrefixes: ["/api/expenses"],
+      }}
+    >
+      <ExpenseReview />
+    </CopilotKitProvider>
+  );
+}
+```
+
+Create the container using the setup below. Without a `learningContainerId`, captured events are still stored, but product-only sessions do not automatically join a Learning container. Keep the assignment stable for the session.
+
+By default, capture uses a product-only session ID for the provider's lifetime. Set `learning.threadId` to associate events with a specific chat thread. For a component inside a chat configuration, disable the outer capture with `learning={false}` and mount `CopilotKitLearningProvider` there to use the current chat's thread ID.
+
+### What capture records
+
+| Signal | Captured information |
+| --- | --- |
+| User click, committed field change, or form submission | Action, timestamp, element tag, accessibility role, and filtered explicit labels. |
+| Associated `fetch` or `XMLHttpRequest` | Method, configured API route prefix, status, duration, and outcome. |
+| Immediate DOM changes | Bounded counts of added elements, removed elements, and changed accessibility attributes. |
+
+Capture requires browser-trusted interaction events. Synthetic clicks and autonomous DOM updates do not create trajectories. Request correlation covers requests started during the interaction's immediate event turn; requests started later by timers or debounced work can be missed. It is a conservative heuristic, not proof that every correlated update was caused by the user. Browser automation that produces trusted events cannot be distinguished from a person by this mechanism.
+
+Requests default to same-origin `/api`. Set `apiUrlPrefixes` for your application's service routes, including explicit absolute prefixes for another origin. Only the matching configured prefix is recorded; dynamic path segments, query strings, and fragments are omitted. The CopilotKit adapter excludes its own Runtime endpoint automatically. `excludedUrlPrefixes` adds other routes to ignore.
+
+### Privacy and volume controls
+
+Capture never reads keystrokes, field values, request or response bodies, cookies, or headers. Password, email, telephone, hidden, and sensitive autocomplete fields are excluded. Mark any private control or surrounding section with `data-sensitive`, `data-private`, `data-learning-ignore`, or `data-copilotkit-learning="ignore"` to exclude it and its descendants.
+
+Short explicit `aria-label` or `title` values are included after basic filtering so Learning can distinguish actions. Arbitrary DOM text is never read. Set `captureAccessibleNames: false` to omit these labels. Review your application's labels and mark sensitive sections: filtering is not a guarantee of anonymization.
+
+The default limit is 120 events per minute and five requests per action, including DOM and request events. Configure `maxEventsPerMinute`, `maxRequestsPerAction`, `captureRequests`, and `captureDomChanges` in `learning` to narrow capture. Delivery keeps one request in flight and at most 50 waiting; excess events are dropped. Provide `learning.onError` to observe transport failures and delivery queue overflow. Set `learning={false}` to disable automatic capture.
+
+### Use capture independently
+
+The `@copilotkit/learning` package has no Intelligence connection of its own. Its callback receives the filtered events, so you can inspect capture before attaching a destination:
+
+```ts
+import { startProductInteractionCapture } from "@copilotkit/learning";
+
+const stop = startProductInteractionCapture({
+  apiUrlPrefixes: ["/api/expenses"],
+  onEvent: (event) => console.log(event),
+});
+
+// Remove listeners and request observers when your application unmounts.
+stop();
+```
+
+React applications can use `LearningProvider` from `@copilotkit/learning/react` with the same options and an `onEvent` callback. The CopilotKit adapter composes that provider with the existing `useLearnFromUserAction` annotation transport. Manual calls remain available for richer, application-specific context and actions that automatic capture cannot correlate.
 
 ## Collect runs and deliver Skills
 
