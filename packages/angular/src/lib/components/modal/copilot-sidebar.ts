@@ -1,5 +1,8 @@
-import { CdkTrapFocus } from "@angular/cdk/a11y";
-import { DOCUMENT, NgComponentOutlet, NgTemplateOutlet } from "@angular/common";
+import {
+  DOCUMENT,
+  NgComponentOutlet,
+  isPlatformBrowser,
+} from "@angular/common";
 import {
   ChangeDetectionStrategy,
   Component,
@@ -15,201 +18,114 @@ import {
   signal,
   viewChild,
 } from "@angular/core";
-import { isPlatformBrowser } from "@angular/common";
 import { randomUUID } from "@copilotkit/shared";
 
 import { CopilotChat } from "../chat/copilot-chat";
 import { explicitEffect } from "../../explicit-effect";
+import { CopilotThreadsDrawer } from "../chat/copilot-threads-drawer";
+import { CopilotChatToggleButton } from "./copilot-chat-toggle-button";
+import { CopilotModalHeader } from "./copilot-modal-header";
 import { DockedSidebarRegistry } from "./docked-sidebar-registry";
-import { dimensionToCss } from "./modal-utils";
+import {
+  chatComponentInputs,
+  dimensionToCss,
+  provideModalChatConfiguration,
+  resolveModalThreadsDrawer,
+  type CopilotModalThreadsDrawer,
+} from "./modal-utils";
 
 export type CopilotSidebarMode = "docked" | "overlay";
 export type CopilotSidebarPosition = "left" | "right";
 
-/** Responsive chat sidebar with independent overlay and single-owner docked modes. */
+/**
+ * Full-height chat panel matching React's `CopilotSidebar`. `docked` (the
+ * default) pushes the page aside with a body margin on desktop; `overlay`
+ * floats over the page. Below 768px it always overlays at full width. There
+ * is no backdrop: an outside click closes it only with `clickOutsideToClose`.
+ */
 @Component({
   selector: "copilot-sidebar",
-  imports: [CdkTrapFocus, NgComponentOutlet, NgTemplateOutlet],
+  imports: [
+    NgComponentOutlet,
+    CopilotChatToggleButton,
+    CopilotModalHeader,
+    CopilotThreadsDrawer,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: "copilot-sidebar-host", "data-copilotkit": "" },
+  providers: [provideModalChatConfiguration()],
+  host: {
+    class: "copilot-sidebar-host",
+    "data-copilotkit": "",
+    "(document:keydown.escape)": "onEscape($event)",
+    "(document:pointerdown)": "onDocumentPointerDown($event)",
+  },
   template: `
     <button
       #launcher
-      type="button"
-      class="copilot-sidebar-toggle"
+      copilotChatToggleButton
       data-copilot-sidebar-toggle
-      [class.position-left]="position() === 'left'"
+      [open]="open()"
+      [position]="position()"
       [attr.aria-controls]="sidebarId"
-      [attr.aria-expanded]="open()"
-      [attr.aria-label]="open() ? 'Close Copilot sidebar' : 'Open Copilot sidebar'"
-      [tabIndex]="open() ? -1 : 0"
+      [attr.tabindex]="open() ? -1 : null"
       (click)="toggle()"
-    >
-      <span aria-hidden="true">{{ open() ? "×" : "✦" }}</span>
-    </button>
+    ></button>
 
-    @if (open() && isModal()) {
-      <div
-        class="copilot-sidebar-backdrop"
-        data-copilot-sidebar-backdrop
-        aria-hidden="true"
-        (click)="closeFromBackdrop()"
-      ></div>
-      <section
-        cdkTrapFocus
-        [cdkTrapFocusAutoCapture]="true"
-        class="copilot-sidebar-window copilotKitSidebar modal"
-        data-copilot-sidebar
-        role="dialog"
-        aria-modal="true"
-        [attr.id]="sidebarId"
-        [attr.data-position]="position()"
-        [attr.aria-labelledby]="headerComponent() ? null : titleId"
-        [attr.aria-label]="headerComponent() ? title() : null"
-        [style.--copilot-sidebar-width]="resolvedWidth()"
-        (keydown.escape)="close()"
-      >
-        <ng-container [ngTemplateOutlet]="sidebarContents" />
-      </section>
-    } @else if (open() && dockAccepted()) {
+    @if (open() && (isOverlay() || dockAccepted())) {
       <aside
-        class="copilot-sidebar-window copilotKitSidebar docked"
-        data-copilot-sidebar
+        #panel
+        tabindex="-1"
         role="complementary"
+        class="copilotKitSidebar copilotKitWindow cpk:fixed cpk:top-0 cpk:z-[1200] cpk:flex cpk:h-[100dvh] cpk:max-h-screen cpk:w-full cpk:md:w-[min(var(--copilot-sidebar-width),100vw)] cpk:border-border cpk:bg-background cpk:text-foreground cpk:shadow-[0_0_48px_-16px_rgb(0_0_0/0.20)] cpk:focus:outline-none cpk:pt-[env(safe-area-inset-top)] cpk:pb-[env(safe-area-inset-bottom)] cpk:data-[position=right]:right-0 cpk:data-[position=right]:border-l cpk:data-[position=left]:left-0 cpk:data-[position=left]:border-r"
+        [class.modal]="isOverlay()"
+        [class.docked]="!isOverlay()"
+        animate.enter="cpk-sidebar-enter"
+        animate.leave="cpk-sidebar-leave"
+        data-copilot-sidebar
+        data-testid="copilot-sidebar"
         [attr.id]="sidebarId"
         [attr.data-position]="position()"
         [attr.aria-labelledby]="headerComponent() ? null : titleId"
         [attr.aria-label]="headerComponent() ? title() : null"
         [style.--copilot-sidebar-width]="resolvedWidth()"
       >
-        <ng-container [ngTemplateOutlet]="sidebarContents" />
+        <div
+          class="cpk:flex cpk:h-full cpk:w-full cpk:flex-col cpk:overflow-hidden"
+        >
+          <header
+            copilotModalHeader
+            [title]="title()"
+            [titleId]="titleId"
+            [headerComponent]="headerComponent()"
+            [showDrawerLauncher]="!!drawer()"
+            [drawerOpen]="drawerOpen()"
+            (closeClick)="close()"
+            (drawerToggle)="drawerOpen.set(!drawerOpen())"
+          ></header>
+          <div class="cpk:min-h-0 cpk:flex-1 cpk:overflow-hidden" data-sidebar-chat>
+            <ng-container
+              [ngComponentOutlet]="chatComponent()"
+              [ngComponentOutletInputs]="chatInputs()"
+            />
+          </div>
+        </div>
+        @if (drawer(); as drawerConfig) {
+          <copilot-threads-drawer
+            [overlay]="true"
+            [(open)]="drawerOpen"
+            [agentId]="drawerConfig.agentId"
+            [label]="drawerConfig.label"
+            [recentLabel]="drawerConfig.recentLabel"
+            [limit]="drawerConfig.limit"
+            [licenseUrl]="drawerConfig.licenseUrl"
+          />
+        }
       </aside>
     }
-
-    <ng-template #sidebarContents>
-      <header class="copilot-sidebar-header">
-        @if (headerComponent(); as header) {
-          <ng-container [ngComponentOutlet]="header" />
-        } @else {
-          <h2 [attr.id]="titleId">{{ title() }}</h2>
-        }
-        <button
-          #initialFocus
-          type="button"
-          cdkFocusInitial
-          aria-label="Close Copilot sidebar"
-          (click)="close()"
-        >
-          <span aria-hidden="true">×</span>
-        </button>
-      </header>
-      <div class="copilot-sidebar-chat">
-        <ng-container [ngComponentOutlet]="chatComponent()" />
-      </div>
-    </ng-template>
   `,
   styles: `
     :host {
       display: contents;
-    }
-    .copilot-sidebar-toggle {
-      position: fixed;
-      right: max(1.5rem, env(safe-area-inset-right));
-      bottom: max(1.5rem, env(safe-area-inset-bottom));
-      z-index: 1202;
-      display: grid;
-      width: 3.25rem;
-      height: 3.25rem;
-      place-items: center;
-      border: 0;
-      border-radius: 999px;
-      color: white;
-      background: #111827;
-      box-shadow: 0 12px 30px rgb(15 23 42 / 24%);
-      cursor: pointer;
-    }
-    .copilot-sidebar-toggle.position-left {
-      right: auto;
-      left: max(1.5rem, env(safe-area-inset-left));
-    }
-    .copilot-sidebar-toggle:focus-visible,
-    .copilot-sidebar-header button:focus-visible {
-      outline: 3px solid #2563eb;
-      outline-offset: 3px;
-    }
-    .copilot-sidebar-backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 1200;
-      background: rgb(15 23 42 / 24%);
-    }
-    .copilot-sidebar-window {
-      position: fixed;
-      top: 0;
-      bottom: 0;
-      z-index: 1201;
-      display: grid;
-      width: min(var(--copilot-sidebar-width), 100vw);
-      grid-template-rows: auto minmax(0, 1fr);
-      overflow: hidden;
-      color: #111827;
-      background: white;
-      box-shadow: 0 0 42px rgb(15 23 42 / 20%);
-      padding-top: env(safe-area-inset-top);
-      padding-bottom: env(safe-area-inset-bottom);
-    }
-    .copilot-sidebar-window[data-position="left"] {
-      left: 0;
-      border-right: 1px solid #dbe3eb;
-    }
-    .copilot-sidebar-window[data-position="right"] {
-      right: 0;
-      border-left: 1px solid #dbe3eb;
-    }
-    .copilot-sidebar-header {
-      display: flex;
-      min-height: 3.5rem;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      padding: 0.75rem 1rem;
-      border-bottom: 1px solid #e2e8f0;
-    }
-    .copilot-sidebar-header h2 {
-      margin: 0;
-      font-size: 1rem;
-    }
-    .copilot-sidebar-header button {
-      border: 0;
-      color: inherit;
-      background: transparent;
-      font-size: 1.5rem;
-      cursor: pointer;
-    }
-    .copilot-sidebar-chat {
-      min-height: 0;
-      overflow: hidden;
-    }
-    @media (max-width: 47.999rem) {
-      .copilot-sidebar-window {
-        width: 100%;
-      }
-    }
-    @media (prefers-reduced-motion: no-preference) {
-      .copilot-sidebar-window {
-        animation: copilot-sidebar-enter 220ms ease-out;
-      }
-      @keyframes copilot-sidebar-enter {
-        from {
-          opacity: 0;
-          transform: translateX(8%);
-        }
-      }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .copilot-sidebar-window {
-        animation: none;
-      }
     }
   `,
 })
@@ -218,10 +134,31 @@ export class CopilotSidebar {
   readonly mode = input<CopilotSidebarMode>("docked");
   readonly position = input<CopilotSidebarPosition>("right");
   readonly width = input<number | string>(480);
-  readonly title = input("Copilot");
+  readonly title = input("CopilotKit Chat");
   readonly clickOutsideToClose = input(false);
   readonly chatComponent = input<Type<unknown>>(CopilotChat);
   readonly headerComponent = input<Type<unknown> | undefined>();
+  /**
+   * Opt-in threads drawer: a launcher at the start of the header opens the
+   * thread list as a panel over the sidebar. `true` for the default drawer, an
+   * object to configure it. Its open state is local to this sidebar.
+   */
+  readonly threadsDrawer = input<CopilotModalThreadsDrawer>(false);
+  /**
+   * Ease the welcome screen in (greeting, suggestion cards, input). Defaults
+   * to `true`; it plays each time the chat opens.
+   */
+  readonly introAnimation = input(true);
+
+  protected readonly drawer = computed(() =>
+    resolveModalThreadsDrawer(this.threadsDrawer()),
+  );
+  protected readonly drawerOpen = signal(false);
+  protected readonly chatInputs = computed(() =>
+    chatComponentInputs(this.chatComponent(), {
+      introAnimation: this.introAnimation(),
+    }),
+  );
 
   protected readonly sidebarId = `copilot-sidebar-${randomUUID()}`;
   protected readonly titleId = `${this.sidebarId}-title`;
@@ -229,7 +166,8 @@ export class CopilotSidebar {
     dimensionToCss(this.width(), 480),
   );
   protected readonly isCompact = signal(false);
-  protected readonly isModal = computed(
+  /** Floats over the page instead of docking (overlay mode, or a narrow viewport). */
+  protected readonly isOverlay = computed(
     () => this.mode() === "overlay" || this.isCompact(),
   );
   protected readonly dockAccepted = signal(true);
@@ -239,15 +177,15 @@ export class CopilotSidebar {
   private readonly document = inject(DOCUMENT);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   private readonly destroyRef = inject(DestroyRef);
-  private readonly launcher =
-    viewChild.required<ElementRef<HTMLButtonElement>>("launcher");
-  private readonly initialFocus =
-    viewChild<ElementRef<HTMLButtonElement>>("initialFocus");
+  private readonly launcher = viewChild.required("launcher", {
+    read: ElementRef<HTMLButtonElement>,
+  });
+  private readonly panel = viewChild<ElementRef<HTMLElement>>("panel");
   private ownsDock = false;
 
   constructor() {
     afterNextRender(() => {
-      if (this.open() && this.isModal()) this.focusModal();
+      if (this.open() && this.isOverlay()) this.focusPanel();
       const media = this.document.defaultView?.matchMedia?.(
         "(max-width: 47.999rem)",
       );
@@ -267,7 +205,7 @@ export class CopilotSidebar {
     // is set to the value it already holds.
     explicitEffect(
       () => ({
-        shouldDock: this.isBrowser && this.open() && !this.isModal(),
+        shouldDock: this.isBrowser && this.open() && !this.isOverlay(),
         position: this.position(),
         width: this.resolvedWidth(),
       }),
@@ -292,20 +230,46 @@ export class CopilotSidebar {
     );
 
     this.destroyRef.onDestroy(() => this.releaseDock());
+
+    // Closing the sidebar closes its drawer, so it never reopens expanded.
+    explicitEffect(this.open, (open) => {
+      if (!open) this.drawerOpen.set(false);
+    });
   }
 
   protected toggle(): void {
     if (this.open()) this.close();
     else {
       this.open.set(true);
-      queueMicrotask(() => {
-        if (this.isModal()) this.focusModal();
-      });
+      queueMicrotask(() => this.focusPanel());
     }
   }
 
-  protected closeFromBackdrop(): void {
-    if (this.clickOutsideToClose()) this.close();
+  /**
+   * Escape closes an open threads drawer first; otherwise, with focus inside,
+   * it closes an overlay sidebar. A docked sidebar stays put, like React's.
+   */
+  protected onEscape(event: Event): void {
+    if (!this.open() || event.defaultPrevented) return;
+    if (this.drawerOpen()) {
+      event.preventDefault();
+      this.drawerOpen.set(false);
+      return;
+    }
+    const panel = this.panel()?.nativeElement;
+    if (this.isOverlay() && panel?.contains(this.document.activeElement)) {
+      event.preventDefault();
+      this.close();
+    }
+  }
+
+  protected onDocumentPointerDown(event: Event): void {
+    if (!this.open() || !this.clickOutsideToClose()) return;
+    const target = event.target as Node | null;
+    if (!target) return;
+    if (this.panel()?.nativeElement.contains(target)) return;
+    if (this.launcher().nativeElement.contains(target)) return;
+    this.close();
   }
 
   protected close(): void {
@@ -322,7 +286,11 @@ export class CopilotSidebar {
     this.ownsDock = false;
   }
 
-  private focusModal(): void {
-    this.initialFocus()?.nativeElement.focus({ preventScroll: true });
+  /** Focus the panel itself unless something inside it already has focus. */
+  private focusPanel(): void {
+    const panel = this.panel()?.nativeElement;
+    if (panel && !panel.contains(this.document.activeElement)) {
+      panel.focus({ preventScroll: true });
+    }
   }
 }

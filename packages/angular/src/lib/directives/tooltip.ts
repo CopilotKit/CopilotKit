@@ -23,6 +23,8 @@ import {
 @Component({
   selector: "copilot-tooltip-content",
   standalone: true,
+  // Rendered in an overlay outside the chat, so it scopes the tokens itself.
+  host: { "data-copilotkit": "" },
   template: `
     <div class="copilot-tooltip-wrapper" [attr.data-position]="position">
       <div class="copilot-tooltip">
@@ -33,6 +35,10 @@ import {
   `,
   styles: [
     `
+      :host {
+        background: transparent;
+      }
+
       .copilot-tooltip-wrapper {
         position: relative;
         display: inline-block;
@@ -40,15 +46,14 @@ import {
       }
 
       .copilot-tooltip {
-        background-color: #1a1a1a;
-        color: white;
-        padding: 6px 10px;
-        border-radius: 6px;
+        background-color: var(--primary);
+        color: var(--primary-foreground);
+        padding: 4px 10px;
+        border-radius: var(--radius);
         font-size: 12px;
         font-weight: 500;
         white-space: nowrap;
         max-width: 200px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
       }
 
       .copilot-tooltip-arrow {
@@ -64,7 +69,7 @@ import {
         left: 50%;
         transform: translateX(-50%);
         border-width: 0 4px 4px 4px;
-        border-color: transparent transparent #1a1a1a transparent;
+        border-color: transparent transparent var(--primary) transparent;
       }
 
       /* Arrow for tooltip above element (arrow points down to element) */
@@ -73,7 +78,7 @@ import {
         left: 50%;
         transform: translateX(-50%);
         border-width: 4px 4px 0 4px;
-        border-color: #1a1a1a transparent transparent transparent;
+        border-color: var(--primary) transparent transparent transparent;
       }
 
       /* Arrow for tooltip to the left */
@@ -82,7 +87,7 @@ import {
         top: 50%;
         transform: translateY(-50%);
         border-width: 4px 0 4px 4px;
-        border-color: transparent transparent transparent #1a1a1a;
+        border-color: transparent transparent transparent var(--primary);
       }
 
       /* Arrow for tooltip to the right */
@@ -91,7 +96,7 @@ import {
         top: 50%;
         transform: translateY(-50%);
         border-width: 4px 4px 4px 0;
-        border-color: transparent #1a1a1a transparent transparent;
+        border-color: transparent var(--primary) transparent transparent;
       }
 
       @keyframes fadeIn {

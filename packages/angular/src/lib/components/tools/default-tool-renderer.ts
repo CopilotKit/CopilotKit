@@ -7,6 +7,13 @@ import {
 } from "@angular/core";
 
 import type { AngularToolCall, ToolRenderer } from "../../tools";
+import {
+  Check,
+  ChevronRight,
+  Circle,
+  CopilotIcon,
+  LoaderCircle,
+} from "../icons/copilot-icon";
 
 /** Serialize untrusted tool values defensively for text-only display. */
 export function safeToolValue(value: unknown): string {
@@ -34,14 +41,20 @@ export function safeToolValue(value: unknown): string {
   }
 }
 
-/** Opt-in text-only fallback for tool calls without an application renderer. */
+/**
+ * Opt-in text-only fallback for tool calls without an application renderer.
+ * Mirrors React's `DefaultToolCallRenderer`: one header row (status icon,
+ * tool name, status label, chevron) that expands to the arguments and result.
+ */
 @Component({
   selector: "copilot-default-tool-renderer",
+  imports: [CopilotIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "copilot-default-tool-renderer" },
   template: `
     <article
       class="tool-card"
+      data-copilotkit
       data-testid="copilot-tool-render"
       [attr.data-tool-name]="toolCall().name || 'unknown'"
       [attr.data-status]="statusValue()"
@@ -52,22 +65,43 @@ export function safeToolValue(value: unknown): string {
         [attr.aria-expanded]="expanded()"
         (click)="toggleExpanded()"
       >
-        <span class="tool-name">{{ toolCall().name || "Tool call" }}</span>
+        <copilot-icon
+          class="tool-status-icon"
+          [class.is-active]="isActive()"
+          [img]="statusIcon()"
+          [size]="14"
+        />
+        <span
+          class="tool-name"
+          data-testid="copilot-tool-render-name"
+          [class.cpk-shimmer]="isActive()"
+          >{{ toolCall().name || "Tool call" }}</span
+        >
         <span
           class="tool-status"
           data-testid="copilot-tool-render-status"
           aria-live="polite"
+          [class.cpk-shimmer]="isActive()"
           >{{ statusLabel() }}</span
         >
-        <span aria-hidden="true">{{ expanded() ? "▾" : "▸" }}</span>
+        <copilot-icon
+          class="tool-chevron"
+          [class.is-expanded]="expanded()"
+          [img]="ChevronRight"
+          [size]="14"
+        />
       </button>
       @if (expanded()) {
         <div class="tool-details">
-          <h3>Arguments</h3>
-          <pre>{{ argumentsText() }}</pre>
+          <section>
+            <h3 class="tool-label">Arguments</h3>
+            <pre>{{ argumentsText() }}</pre>
+          </section>
           @if (toolCall().result !== undefined) {
-            <h3>Result</h3>
-            <pre>{{ resultText() }}</pre>
+            <section>
+              <h3 class="tool-label">Result</h3>
+              <pre>{{ resultText() }}</pre>
+            </section>
           }
         </div>
       }
@@ -80,53 +114,106 @@ export function safeToolValue(value: unknown): string {
     }
     .tool-card {
       overflow: hidden;
-      border: 1px solid #dbe3eb;
-      border-radius: 0.5rem;
-      color: #1e293b;
-      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) + 4px);
+      color: var(--card-foreground);
+      background: var(--card);
     }
     .tool-summary {
-      display: grid;
+      display: flex;
       width: 100%;
-      grid-template-columns: minmax(0, 1fr) auto auto;
       align-items: center;
-      gap: 0.75rem;
-      padding: 0.65rem 0.75rem;
+      gap: 0.625rem;
+      margin: 0;
+      padding: 0.625rem 0.875rem;
       border: 0;
       color: inherit;
       background: transparent;
+      font: inherit;
       text-align: left;
       cursor: pointer;
+      user-select: none;
+      transition: background-color 150ms;
     }
+    .tool-summary:hover,
     .tool-summary:focus-visible {
-      outline: 3px solid #2563eb;
-      outline-offset: -3px;
+      outline: none;
+      background: color-mix(in oklab, var(--accent) 60%, transparent);
+    }
+    .tool-status-icon,
+    .tool-chevron {
+      flex-shrink: 0;
+      color: var(--muted-foreground);
+    }
+    .tool-status-icon.is-active {
+      animation: tool-spin 1s linear infinite;
+    }
+    .tool-chevron {
+      transition: transform 200ms;
+    }
+    .tool-chevron.is-expanded {
+      transform: rotate(90deg);
     }
     .tool-name {
-      overflow-wrap: anywhere;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 0.8125rem;
-      font-weight: 600;
+      min-width: 0;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+      font-weight: 500;
     }
     .tool-status {
-      color: #52637a;
+      flex-shrink: 0;
       font-size: 0.75rem;
+    }
+    /* .cpk-shimmer (globals.css) paints the text while the call is active. */
+    .tool-name:not(.cpk-shimmer) {
+      color: var(--foreground);
+    }
+    .tool-status:not(.cpk-shimmer) {
+      color: var(--muted-foreground);
     }
     .tool-details {
-      padding: 0 0.75rem 0.75rem;
-      border-top: 1px solid #dbe3eb;
+      display: grid;
+      gap: 0.75rem;
+      padding: 0.75rem 0.875rem;
+      border-top: 1px solid var(--border);
     }
-    .tool-details h3 {
-      margin: 0.75rem 0 0.25rem;
-      font-size: 0.75rem;
+    .tool-label {
+      margin: 0;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.025em;
+      text-transform: uppercase;
+      color: var(--muted-foreground);
     }
     .tool-details pre {
-      max-height: 16rem;
-      margin: 0;
+      max-height: 200px;
+      margin: 0.375rem 0 0;
       overflow: auto;
+      padding: 0.625rem;
+      border-radius: var(--radius);
+      background: var(--muted);
+      color: var(--foreground);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.75rem;
+      line-height: 1.625;
       white-space: pre-wrap;
       overflow-wrap: anywhere;
-      font-size: 0.75rem;
+    }
+    @keyframes tool-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .tool-status-icon.is-active,
+      .tool-chevron {
+        animation: none;
+        transition: none;
+      }
     }
   `,
 })
@@ -150,18 +237,20 @@ export class CopilotDefaultToolRenderer implements ToolRenderer {
         return "unknown";
     }
   });
-  protected readonly statusLabel = computed(() => {
-    switch (this.toolCall().status as string) {
-      case "in-progress":
-        return "Preparing";
-      case "executing":
-        return "Running";
-      case "complete":
-        return "Complete";
-      default:
-        return "Unknown status";
-    }
+  protected readonly isActive = computed(() => {
+    const status = this.toolCall().status as string;
+    return status === "in-progress" || status === "executing";
   });
+  protected readonly isComplete = computed(
+    () => (this.toolCall().status as string) === "complete",
+  );
+  protected readonly statusLabel = computed(() =>
+    this.isActive() ? "Running" : this.isComplete() ? "Done" : "Unknown status",
+  );
+  protected readonly statusIcon = computed(() =>
+    this.isActive() ? LoaderCircle : this.isComplete() ? Check : Circle,
+  );
+  protected readonly ChevronRight = ChevronRight;
 
   protected toggleExpanded(): void {
     this.expanded.update((value) => !value);

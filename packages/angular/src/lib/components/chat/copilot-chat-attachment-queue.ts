@@ -13,9 +13,12 @@ import {
   getSourceUrl,
 } from "@copilotkit/shared";
 import { cn } from "../../utils";
+import { CopilotIcon, X } from "../icons/copilot-icon";
+import { CopilotChatAttachmentAudioPreview } from "./copilot-chat-attachment-audio-preview";
 
 @Component({
   selector: "copilot-chat-attachment-queue",
+  imports: [CopilotChatAttachmentAudioPreview, CopilotIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   host: { "data-copilotkit": "" },
@@ -30,7 +33,9 @@ import { cn } from "../../utils";
               </div>
             }
 
-            @if (attachment.status === "uploading") {
+            <!-- The preview stays visible under the uploading overlay; the
+                 tile is empty only while there is nothing to show yet. -->
+            @if (attachment.status === "uploading" && !attachment.source.value) {
               <div class="copilotKitAttachmentQueuePreviewPlaceholder"></div>
             } @else {
               @switch (attachment.type) {
@@ -42,18 +47,9 @@ import { cn } from "../../utils";
                   />
                 }
                 @case ("audio") {
-                  <div class="copilotKitAttachmentQueuePreviewAudio">
-                    <audio
-                      [src]="sourceUrl(attachment)"
-                      controls
-                      preload="metadata"
-                    ></audio>
-                    @if (attachment.filename) {
-                      <span class="copilotKitAttachmentQueueFilename">
-                        {{ attachment.filename }}
-                      </span>
-                    }
-                  </div>
+                  <copilot-chat-attachment-audio-preview
+                    [attachment]="attachment"
+                  />
                 }
                 @case ("video") {
                   <div class="copilotKitAttachmentQueuePreviewVideo">
@@ -99,7 +95,7 @@ import { cn } from "../../utils";
               aria-label="Remove attachment"
               (click)="removeAttachment.emit(attachment.id)"
             >
-              &times;
+              <copilot-icon [img]="X" [size]="12" />
             </button>
           </div>
         }
@@ -108,6 +104,7 @@ import { cn } from "../../utils";
   `,
 })
 export class CopilotChatAttachmentQueue {
+  protected readonly X = X;
   readonly attachments = input<Attachment[]>([]);
   readonly inputClass = input<string | undefined>();
   readonly removeAttachment = output<string>();

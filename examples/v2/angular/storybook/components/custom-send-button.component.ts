@@ -12,11 +12,13 @@ import {
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <button
+      type="button"
+      class="story-send-button"
+      aria-label="Send message"
       [disabled]="disabled"
       (click)="handleClick()"
-      class="cpk:rounded-full cpk:w-10 cpk:h-10 cpk:bg-blue-500 cpk:text-white cpk:hover:bg-blue-600 cpk:transition-colors cpk:mr-2 cpk:disabled:opacity-50 cpk:disabled:cursor-not-allowed"
     >
-      ✈️
+      <span aria-hidden="true">✈</span> Send
     </button>
   `,
 })

@@ -29,7 +29,7 @@ import { explicitEffect } from "../../explicit-effect";
     `
       .copilot-open-generative-ui-placeholder {
         padding: 8px 12px;
-        color: #999;
+        color: var(--muted-foreground, #999);
         font-size: 14px;
       }
     `,

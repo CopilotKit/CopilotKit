@@ -13,8 +13,9 @@ import {
   effect,
   inject,
   input,
-  signal,
+  model,
   viewChild,
+  type OnInit,
 } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
 import {
@@ -98,7 +99,37 @@ function findChatInput(origin: Element | null): HTMLElement | null {
     const scoped = container.querySelector<HTMLElement>(CHAT_INPUT_SELECTOR);
     if (scoped) return scoped;
   }
+  // A drawer hosted inside a chat modal sits beside (not inside) the modal's
+  // chat view: scope the lookup to that modal.
+  const modal = origin?.closest?.(CHAT_MODAL_SELECTOR);
+  if (modal) {
+    const scoped = modal.querySelector<HTMLElement>(CHAT_INPUT_SELECTOR);
+    if (scoped) return scoped;
+  }
   return document.querySelector<HTMLElement>(CHAT_INPUT_SELECTOR);
+}
+
+/** The chat modals (popup / sidebar) that can host the drawer as an overlay. */
+const CHAT_MODAL_SELECTOR = "[data-copilot-popup], [data-copilot-sidebar]";
+/** The modal header's thread-list launcher (focus-return target). */
+const DRAWER_LAUNCHER_SELECTOR =
+  '[data-testid="copilot-threads-drawer-launcher"]';
+
+/**
+ * When an overlay drawer closes while focus is still inside it (Escape, the
+ * scrim, its close button), hands focus back to the launcher in the header of
+ * the modal hosting it. A close that follows a thread pick has already moved
+ * focus to the chat input, so it is left alone.
+ */
+function returnFocusToLauncher(drawer: HTMLElement | null): void {
+  if (!drawer || typeof document === "undefined") return;
+  const active = document.activeElement;
+  // Focus inside the shadow root reports the host as `activeElement`.
+  if (active !== drawer && !drawer.contains(active)) return;
+  drawer
+    .closest(CHAT_MODAL_SELECTOR)
+    ?.querySelector<HTMLElement>(DRAWER_LAUNCHER_SELECTOR)
+    ?.focus({ preventScroll: true });
 }
 
 /**
@@ -151,9 +182,11 @@ export class CopilotThreadsDrawerRow {
   changeDetection: ChangeDetectionStrategy.OnPush,
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   imports: [NgTemplateOutlet],
+  host: { "[style.display]": "overlay() ? 'contents' : null" },
   template: `
     <copilotkit-threads-drawer
       #drawer
+      [attr.overlay]="overlay() ? '' : null"
       [attr.data-testid]="dataTestId()"
       [attr.recent-label]="recentLabel() ?? null"
       (thread-selected)="onThreadSelected($event)"
@@ -181,7 +214,7 @@ export class CopilotThreadsDrawerRow {
     </copilotkit-threads-drawer>
   `,
 })
-export class CopilotThreadsDrawer {
+export class CopilotThreadsDrawer implements OnInit {
   /**
    * Optional agent id whose threads this drawer lists/manages. Scopes the
    * {@link injectThreads} store (via the resolved-agent precedence: this input
@@ -200,7 +233,7 @@ export class CopilotThreadsDrawer {
 
   /**
    * Optional accessible/region + default-header label forwarded to the element's
-   * `label` property; defaults to the element's own `"Threads"` when unset.
+   * `label` property; defaults to the element's own `"Conversations"` when unset.
    */
   readonly label = input<string | undefined>();
 
@@ -219,6 +252,22 @@ export class CopilotThreadsDrawer {
    * Defaults to the element's own `true` when unset.
    */
   readonly collapsible = input<boolean | undefined>();
+
+  /**
+   * Host the drawer as an overlay panel inside its nearest positioned ancestor
+   * (a chat popup or sidebar) instead of an in-flow sidebar. An overlay keeps
+   * its own open state in {@link open} rather than the chat configuration's,
+   * and does not register as the page's drawer. Set by `<copilot-popup>` /
+   * `<copilot-sidebar>` when their `threadsDrawer` input is on.
+   */
+  readonly overlay = input<boolean>(false);
+
+  /**
+   * Open state used when the drawer is an {@link overlay} or no chat
+   * configuration is in scope. Two-way bindable: `[(open)]`. Starts closed so
+   * the element does not spring open (and scroll-lock the page on mobile).
+   */
+  readonly open = model<boolean>(false);
 
   /**
    * Emits the new collapsed state whenever the drawer's collapsed state changes
@@ -414,34 +463,35 @@ export class CopilotThreadsDrawer {
 
   private readonly destroyRef = inject(DestroyRef);
 
-  /**
-   * Provider-less fallback open-state. Without a surrounding chat configuration
-   * there is no shared open-state to bind to, so the wrapper keeps its own
-   * local state. Starts CLOSED — matching the configuration's own default — so
-   * the element does not spring open (and scroll-lock the page on mobile) on
-   * load, and the element's `open-change` events still toggle it.
-   */
-  private readonly localDrawerOpen = signal(false);
+  /** Whether the ambient chat configuration owns the open state. */
+  private readonly configOwnsOpen = computed(
+    () => this.config !== null && !this.overlay(),
+  );
 
   /**
    * The effective drawer open-state: the ambient chat configuration's
-   * `drawerOpen` when present, else the provider-less {@link localDrawerOpen}.
-   * Pushed onto the element's controlled `open` property in the effect below.
+   * `drawerOpen` for a page-level drawer, else the local {@link open} (an
+   * overlay inside a modal, or no configuration in scope). Pushed onto the
+   * element's controlled `open` property in the effect below.
    */
   protected readonly drawerOpen = computed(() =>
-    this.config ? this.config.drawerOpen() : this.localDrawerOpen(),
+    this.configOwnsOpen() ? this.config!.drawerOpen() : this.open(),
   );
 
-  constructor() {
-    defineCopilotKitThreadsDrawer();
-
+  ngOnInit(): void {
     // Announce drawer presence to the surrounding chat configuration so a
     // future header launcher can render, and de-register on destroy. Mirrors
     // the React (`registerDrawer()` effect) and Vue (`onScopeDispose`) wrappers.
+    // An overlay belongs to its modal, not the page, so it stays unregistered.
+    if (this.overlay()) return;
     const unregisterDrawer = this.config?.registerDrawer();
     if (unregisterDrawer) {
       this.destroyRef.onDestroy(unregisterDrawer);
     }
+  }
+
+  constructor() {
+    defineCopilotKitThreadsDrawer();
 
     // Push signal-derived values onto the element's JS properties every time
     // any reactive dependency changes. Using an effect (rather than template
@@ -517,10 +567,13 @@ export class CopilotThreadsDrawer {
    */
   protected onOpenChange(event: Event): void {
     const { open } = (event as CustomEvent<OpenChangeDetail>).detail;
-    if (this.config) {
-      this.config.setDrawerOpen(open);
+    if (this.configOwnsOpen()) {
+      this.config!.setDrawerOpen(open);
     } else {
-      this.localDrawerOpen.set(open);
+      this.open.set(open);
+    }
+    if (!open && this.overlay()) {
+      returnFocusToLauncher(this.drawerRef()?.nativeElement ?? null);
     }
   }
 
@@ -539,6 +592,13 @@ export class CopilotThreadsDrawer {
       handler();
     } else {
       this.config?.startNewThread();
+    }
+    if (this.overlay()) {
+      // The overlay closes itself on "New Conversation"; land in the composer.
+      // Deferred a tick because the reset swaps the chat to its welcome
+      // screen, which mounts a fresh input.
+      const origin = this.drawerRef()?.nativeElement ?? null;
+      setTimeout(() => findChatInput(origin)?.focus(), 0);
     }
   }
 

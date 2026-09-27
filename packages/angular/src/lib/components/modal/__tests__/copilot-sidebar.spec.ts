@@ -50,16 +50,64 @@ describe("CopilotSidebar", () => {
     expect(document.body.style.marginInlineStart).toBe("");
   });
 
-  it("uses modal semantics and no body docking in overlay mode", async () => {
+  it("floats without a backdrop or body docking in overlay mode", async () => {
     const fixture = await render({ mode: "overlay", position: "right" });
     const sidebar = fixture.nativeElement.querySelector(
       "[data-copilot-sidebar]",
     );
 
-    expect(sidebar.getAttribute("role")).toBe("dialog");
-    expect(sidebar.getAttribute("aria-modal")).toBe("true");
+    expect(sidebar.getAttribute("role")).toBe("complementary");
+    expect(sidebar.hasAttribute("aria-modal")).toBe(false);
     expect(sidebar.contains(document.activeElement)).toBe(true);
     expect(document.body.style.marginInlineEnd).toBe("");
+    expect(
+      fixture.nativeElement.querySelector("[data-copilot-sidebar-backdrop]"),
+    ).toBeNull();
+  });
+
+  it("closes an overlay on Escape and returns focus to the launcher", async () => {
+    const fixture = await render({ mode: "overlay" });
+    const launcher: HTMLButtonElement = fixture.nativeElement.querySelector(
+      '[data-testid="copilot-chat-toggle"]',
+    );
+
+    document.activeElement?.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(
+      fixture.nativeElement.querySelector("[data-copilot-sidebar]"),
+    ).toBeNull();
+    expect(document.activeElement).toBe(launcher);
+  });
+
+  it("closes on an outside pointerdown only with clickOutsideToClose", async () => {
+    const fixture = await render({ mode: "overlay" });
+    document.body.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    fixture.detectChanges();
+    expect(
+      fixture.nativeElement.querySelector("[data-copilot-sidebar]"),
+    ).not.toBeNull();
+
+    fixture.componentRef.setInput("clickOutsideToClose", true);
+    fixture.detectChanges();
+    document.body.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    fixture.detectChanges();
+    expect(
+      fixture.nativeElement.querySelector("[data-copilot-sidebar]"),
+    ).toBeNull();
+  });
+
+  it("puts the left-positioned launcher on the left", async () => {
+    const fixture = await render({ position: "left", open: false });
+    const launcher: HTMLButtonElement = fixture.nativeElement.querySelector(
+      '[data-testid="copilot-chat-toggle"]',
+    );
+
+    expect(launcher.getAttribute("data-position")).toBe("left");
+    expect(launcher.getAttribute("aria-label")).toBe("Open chat");
   });
 
   it("names a docked sidebar when a custom header replaces its heading", async () => {
@@ -97,7 +145,9 @@ describe("CopilotSidebar", () => {
     overlay.componentRef.setInput("chatComponent", TestChat);
     overlay.componentRef.setInput("mode", "overlay");
     overlay.detectChanges();
-    expect(overlay.nativeElement.querySelector("[role=dialog]")).not.toBeNull();
+    expect(
+      overlay.nativeElement.querySelector("[data-copilot-sidebar]"),
+    ).not.toBeNull();
   });
 
   it("keeps overlay instances independently mounted", async () => {
@@ -109,12 +159,16 @@ describe("CopilotSidebar", () => {
     await second.whenStable();
 
     const firstClose: HTMLButtonElement = first.nativeElement.querySelector(
-      "[aria-label='Close Copilot sidebar']",
+      '[data-testid="copilot-close-button"]',
     );
     firstClose.click();
     first.detectChanges();
 
-    expect(first.nativeElement.querySelector("[role=dialog]")).toBeNull();
-    expect(second.nativeElement.querySelector("[role=dialog]")).not.toBeNull();
+    expect(
+      first.nativeElement.querySelector("[data-copilot-sidebar]"),
+    ).toBeNull();
+    expect(
+      second.nativeElement.querySelector("[data-copilot-sidebar]"),
+    ).not.toBeNull();
   });
 });

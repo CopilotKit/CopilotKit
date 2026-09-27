@@ -99,7 +99,7 @@ import {
         </copilot-slot>
       } @else {
         <div copilotChatUserMessageToolbar [inputClass]="toolbarClass()">
-          <div class="cpk:flex cpk:items-center cpk:gap-1 cpk:justify-end">
+          <div class="cpk:flex cpk:items-center cpk:gap-0.5 cpk:justify-end">
             <!-- Additional toolbar items -->
             @if (additionalToolbarItems()) {
               <ng-container
@@ -233,7 +233,7 @@ export class CopilotChatUserMessage {
 
   computedClass = computed(() =>
     cn(
-      "copilotKitMessage copilotKitUserMessage cpk:flex cpk:flex-col cpk:items-end cpk:group cpk:pt-10",
+      "copilotKitMessage copilotKitUserMessage cpk:flex cpk:flex-col cpk:items-end cpk:group cpk:pt-8",
       this.inputClass(),
     ),
   );

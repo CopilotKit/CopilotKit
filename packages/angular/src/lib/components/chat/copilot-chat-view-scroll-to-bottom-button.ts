@@ -22,15 +22,12 @@ import { cn } from "../../utils";
     <button
       type="button"
       aria-label="Scroll to bottom"
+      data-testid="copilot-scroll-to-bottom"
       [class]="computedClass"
       [disabled]="disabled()"
       (click)="handleClick()"
     >
-      <copilot-icon
-        [img]="ChevronDown"
-        class="cpk:w-4 cpk:h-4 cpk:text-gray-600 cpk:dark:text-white"
-      >
-      </copilot-icon>
+      <copilot-icon [img]="ChevronDown" [size]="16" />
     </button>
   `,
 })
@@ -50,13 +47,12 @@ export class CopilotChatViewScrollToBottomButton {
   get computedClass(): string {
     return cn(
       // Base button styles
-      "cpk:rounded-full cpk:w-10 cpk:h-10 cpk:p-0",
-      // Background colors
-      "cpk:bg-white cpk:dark:bg-gray-900",
-      // Border and shadow
-      "cpk:shadow-lg cpk:border cpk:border-gray-200 cpk:dark:border-gray-700",
+      "cpk:rounded-full cpk:size-9 cpk:p-0 cpk:pointer-events-auto",
+      // Surface, border and shadow follow CopilotKit's tokens
+      "cpk:border cpk:border-border cpk:bg-background cpk:text-foreground cpk:dark:bg-card",
+      "cpk:shadow-[0_2px_8px_-2px_rgb(0_0_0/0.12)]",
       // Hover states
-      "cpk:hover:bg-gray-50 cpk:dark:hover:bg-gray-800",
+      "cpk:hover:bg-accent cpk:dark:hover:bg-accent",
       // Layout
       "cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer",
       // Transition

@@ -16,6 +16,9 @@ import { formatReasoningDuration } from "./copilot-chat-reasoning-message-utils"
   selector: "copilot-chat-reasoning-message",
   imports: [CopilotChatAssistantMessageRenderer],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // Scope CopilotKit tokens when rendered on its own, without painting a box
+  // (mirrors React's `<div data-copilotkit style="display: contents">`).
+  host: { "data-copilotkit": "", style: "display: contents" },
   template: `
     <div
       [class]="computedClass()"
@@ -30,7 +33,9 @@ import { formatReasoningDuration } from "./copilot-chat-reasoning-message-utils"
         [attr.aria-expanded]="hasContent() ? open() : null"
         (click)="toggle()"
       >
-        <span class="cpk:font-medium">{{ label() }}</span>
+        <span class="cpk:font-medium" [class.cpk-shimmer]="isStreaming()">{{
+          label()
+        }}</span>
         @if (isStreaming() && !hasContent()) {
           <span class="cpk:inline-flex cpk:items-center cpk:ml-1">
             <span
@@ -61,11 +66,13 @@ import { formatReasoningDuration } from "./copilot-chat-reasoning-message-utils"
           [style.grid-template-rows]="open() ? '1fr' : '0fr'"
         >
           <div class="cpk:overflow-hidden">
-            <div class="cpk:pb-2 cpk:pt-1">
-              <div class="cpk:text-sm cpk:text-muted-foreground">
+            <div class="cpk:pb-2 cpk:pt-1.5">
+              <div
+                class="cpk:ml-1 cpk:border-l-2 cpk:border-border cpk:pl-3.5 cpk:text-sm cpk:leading-relaxed cpk:text-muted-foreground"
+              >
                 <copilot-chat-assistant-message-renderer
                   [content]="reasoningContent()"
-                  inputClass="cpk:text-sm cpk:text-muted-foreground cpk:leading-relaxed cpk:[&_p]:m-0 cpk:[&_p+p]:mt-2 cpk:[&_strong]:font-semibold cpk:[&_strong]:text-foreground cpk:[&_ul]:my-1 cpk:[&_ol]:my-1 cpk:[&_li]:ml-4"
+                  inputClass="cpk:text-sm cpk:text-muted-foreground cpk:leading-relaxed cpk:[&_p]:my-2 cpk:[&_p:first-child]:mt-0 cpk:[&_p:last-child]:mb-0 cpk:[&_strong]:font-semibold cpk:[&_strong]:text-foreground cpk:[&_ul]:my-1 cpk:[&_ol]:my-1 cpk:[&_li]:ml-4"
                 ></copilot-chat-assistant-message-renderer>
                 @if (isStreaming() && hasContent()) {
                   <span
@@ -144,7 +151,7 @@ export class CopilotChatReasoningMessage {
 
   protected readonly headerClass = computed(() =>
     cn(
-      "cpk:inline-flex cpk:items-center cpk:gap-1 cpk:py-1 cpk:text-sm cpk:text-muted-foreground cpk:transition-colors cpk:select-none",
+      "cpk:inline-flex cpk:items-center cpk:gap-1 cpk:rounded-md cpk:py-1 cpk:text-sm cpk:text-muted-foreground cpk:transition-colors cpk:select-none cpk:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-ring/50",
       this.hasContent()
         ? "cpk:hover:text-foreground cpk:cursor-pointer"
         : "cpk:cursor-default",

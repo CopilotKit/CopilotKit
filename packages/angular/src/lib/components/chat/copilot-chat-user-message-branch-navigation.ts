@@ -10,6 +10,7 @@ import {
 import { ChevronLeft, ChevronRight, CopilotIcon } from "../icons/copilot-icon";
 import { type CopilotChatUserMessageOnSwitchToBranchProps } from "./copilot-chat-user-message.types";
 import { cn } from "../../utils";
+import { MESSAGE_TOOLBAR_BUTTON_CLASS } from "./message-toolbar-button";
 import { UserMessage } from "@ag-ui/core";
 
 @Component({
@@ -27,10 +28,10 @@ import { UserMessage } from "@ag-ui/core";
           [disabled]="!canGoPrev()"
           (click)="handlePrevious()"
         >
-          <copilot-icon [img]="ChevronLeftIcon" [size]="20"></copilot-icon>
+          <copilot-icon [img]="ChevronLeftIcon" [size]="16"></copilot-icon>
         </button>
         <span
-          class="cpk:text-sm cpk:text-muted-foreground cpk:px-0 cpk:font-medium"
+          class="cpk:min-w-7 cpk:text-center cpk:text-xs cpk:tabular-nums cpk:text-muted-foreground cpk:font-medium"
         >
           {{ currentBranch() + 1 }}/{{ numberOfBranches() }}
         </span>
@@ -41,7 +42,7 @@ import { UserMessage } from "@ag-ui/core";
           [disabled]="!canGoNext()"
           (click)="handleNext()"
         >
-          <copilot-icon [img]="ChevronRightIcon" [size]="20"></copilot-icon>
+          <copilot-icon [img]="ChevronRightIcon" [size]="16"></copilot-icon>
         </button>
       </div>
     }
@@ -57,22 +58,7 @@ export class CopilotChatUserMessageBranchNavigation {
   readonly ChevronLeftIcon = ChevronLeft;
   readonly ChevronRightIcon = ChevronRight;
 
-  readonly buttonClass = cn(
-    // Flex centering
-    "cpk:inline-flex cpk:items-center cpk:justify-center",
-    // Cursor
-    "cpk:cursor-pointer",
-    // Background and text
-    "cpk:p-0 cpk:text-[rgb(93,93,93)] cpk:hover:bg-[#E8E8E8]",
-    // Dark mode
-    "cpk:dark:text-[rgb(243,243,243)] cpk:dark:hover:bg-[#303030]",
-    // Shape and sizing
-    "cpk:h-6 cpk:w-6 cpk:rounded-md",
-    // Interactions
-    "cpk:transition-colors",
-    // Disabled state
-    "cpk:disabled:opacity-50 cpk:disabled:cursor-not-allowed",
-  );
+  readonly buttonClass = cn(MESSAGE_TOOLBAR_BUTTON_CLASS, "cpk:size-6");
 
   showNavigation = computed(() => this.numberOfBranches() > 1);
 
@@ -83,7 +69,7 @@ export class CopilotChatUserMessageBranchNavigation {
   );
 
   computedClass = computed(() => {
-    return cn("cpk:flex cpk:items-center cpk:gap-1", this.inputClass());
+    return cn("cpk:flex cpk:items-center cpk:gap-0.5", this.inputClass());
   });
 
   handlePrevious(): void {

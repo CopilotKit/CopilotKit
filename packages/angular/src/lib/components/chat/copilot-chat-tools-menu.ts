@@ -35,7 +35,7 @@ import { CopilotTooltip } from "../../directives/tooltip";
     <ng-template #menu>
       <div
         data-copilotkit
-        class="cpk:bg-popover cpk:text-popover-foreground cpk:z-50 cpk:max-h-[var(--radix-dropdown-menu-content-available-height)] cpk:min-w-[8rem] cpk:overflow-x-hidden cpk:overflow-y-auto cpk:rounded-md cpk:border cpk:p-1 cpk:shadow-md"
+        class="cpk:bg-popover cpk:text-popover-foreground cpk:z-50 cpk:min-w-[8rem] cpk:overflow-x-hidden cpk:overflow-y-auto cpk:rounded-xl cpk:border cpk:border-border cpk:p-1 cpk:shadow-lg"
         cdkMenu
       >
         @for (item of menuItems(); track $index) {
@@ -46,7 +46,7 @@ import { CopilotTooltip } from "../../directives/tooltip";
               <!-- Submenu trigger -->
               <button
                 type="button"
-                class="cpk:relative cpk:flex cpk:w-full cpk:cursor-default cpk:select-none cpk:items-center cpk:gap-2 cpk:rounded-sm cpk:border-none cpk:bg-transparent cpk:px-2 cpk:py-1.5 cpk:text-left cpk:text-sm cpk:outline-hidden cpk:hover:bg-accent cpk:hover:text-accent-foreground cpk:focus:bg-accent cpk:focus:text-accent-foreground"
+                class="cpk:relative cpk:flex cpk:w-full cpk:cursor-default cpk:select-none cpk:items-center cpk:gap-2 cpk:rounded-lg cpk:border-none cpk:bg-transparent cpk:px-2.5 cpk:py-1.5 cpk:text-left cpk:text-sm cpk:text-popover-foreground cpk:outline-hidden cpk:hover:bg-accent cpk:hover:text-accent-foreground cpk:focus:bg-accent cpk:focus:text-accent-foreground"
                 [cdkMenuTriggerFor]="submenu"
                 cdkMenuItem
               >
@@ -62,7 +62,7 @@ import { CopilotTooltip } from "../../directives/tooltip";
               <ng-template #submenu>
                 <div
                   data-copilotkit
-                  class="cpk:bg-popover cpk:text-popover-foreground cpk:z-50 cpk:max-h-[var(--radix-dropdown-menu-content-available-height)] cpk:min-w-[8rem] cpk:overflow-x-hidden cpk:overflow-y-auto cpk:rounded-md cpk:border cpk:p-1 cpk:shadow-md"
+                  class="cpk:bg-popover cpk:text-popover-foreground cpk:z-50 cpk:min-w-[8rem] cpk:overflow-x-hidden cpk:overflow-y-auto cpk:rounded-xl cpk:border cpk:border-border cpk:p-1 cpk:shadow-lg"
                   cdkMenu
                 >
                   @for (subItem of item.items; track $index) {
@@ -71,7 +71,7 @@ import { CopilotTooltip } from "../../directives/tooltip";
                     } @else if (isMenuItem(subItem)) {
                       <button
                         type="button"
-                        class="cpk:relative cpk:flex cpk:w-full cpk:cursor-default cpk:select-none cpk:items-center cpk:gap-2 cpk:rounded-sm cpk:border-none cpk:bg-transparent cpk:px-2 cpk:py-1.5 cpk:text-left cpk:text-sm cpk:outline-hidden cpk:hover:bg-accent cpk:hover:text-accent-foreground cpk:focus:bg-accent cpk:focus:text-accent-foreground"
+                        class="cpk:relative cpk:flex cpk:w-full cpk:cursor-default cpk:select-none cpk:items-center cpk:gap-2 cpk:rounded-lg cpk:border-none cpk:bg-transparent cpk:px-2.5 cpk:py-1.5 cpk:text-left cpk:text-sm cpk:text-popover-foreground cpk:outline-hidden cpk:hover:bg-accent cpk:hover:text-accent-foreground cpk:focus:bg-accent cpk:focus:text-accent-foreground"
                         (click)="handleItemClick(subItem)"
                         cdkMenuItem
                       >
@@ -85,7 +85,7 @@ import { CopilotTooltip } from "../../directives/tooltip";
               <!-- Regular menu item -->
               <button
                 type="button"
-                class="cpk:relative cpk:flex cpk:w-full cpk:cursor-default cpk:select-none cpk:items-center cpk:gap-2 cpk:rounded-sm cpk:border-none cpk:bg-transparent cpk:px-2 cpk:py-1.5 cpk:text-left cpk:text-sm cpk:outline-hidden cpk:hover:bg-accent cpk:hover:text-accent-foreground cpk:focus:bg-accent cpk:focus:text-accent-foreground"
+                class="cpk:relative cpk:flex cpk:w-full cpk:cursor-default cpk:select-none cpk:items-center cpk:gap-2 cpk:rounded-lg cpk:border-none cpk:bg-transparent cpk:px-2.5 cpk:py-1.5 cpk:text-left cpk:text-sm cpk:text-popover-foreground cpk:outline-hidden cpk:hover:bg-accent cpk:hover:text-accent-foreground cpk:focus:bg-accent cpk:focus:text-accent-foreground"
                 (click)="handleItemClick(item)"
                 cdkMenuItem
               >
@@ -192,20 +192,13 @@ export class CopilotChatToolsMenu {
       "cpk:inline-flex cpk:items-center cpk:justify-center cpk:gap-2 cpk:whitespace-nowrap cpk:rounded-full cpk:text-sm cpk:font-medium",
       "cpk:transition-all cpk:disabled:pointer-events-none cpk:disabled:opacity-50",
       "cpk:shrink-0 cpk:outline-none",
-      "cpk:focus-visible:ring-[3px]",
-      // chatInputToolbarSecondary variant
+      "cpk:focus-visible:border-ring cpk:focus-visible:ring-ring/50 cpk:focus-visible:ring-[3px]",
+      // chatInputToolbarSecondary variant, chatInputToolbarIcon size
       "cpk:cursor-pointer",
-      "cpk:bg-transparent cpk:text-[#444444]",
-      "cpk:dark:text-white cpk:dark:border-[#404040]",
+      "cpk:bg-transparent cpk:text-muted-foreground cpk:hover:bg-accent cpk:hover:text-foreground",
       "cpk:transition-colors",
-      "cpk:focus:outline-none",
-      "cpk:hover:bg-[#f8f8f8] cpk:hover:text-[#333333]",
-      "cpk:dark:hover:bg-[#404040] cpk:dark:hover:text-[#FFFFFF]",
-      "cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50",
-      "cpk:disabled:hover:bg-transparent cpk:disabled:hover:text-[#444444]",
-      "cpk:dark:disabled:hover:bg-transparent cpk:dark:disabled:hover:text-[#CCCCCC]",
-      // Size
-      "cpk:h-9 cpk:w-9",
+      "cpk:disabled:cursor-not-allowed cpk:disabled:hover:bg-transparent",
+      "cpk:size-9",
     );
     return cn(baseClasses, this.customClass());
   });

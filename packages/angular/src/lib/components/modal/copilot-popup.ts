@@ -1,4 +1,3 @@
-import { CdkTrapFocus } from "@angular/cdk/a11y";
 import { NgComponentOutlet } from "@angular/common";
 import {
   ChangeDetectionStrategy,
@@ -7,186 +6,144 @@ import {
   Type,
   afterNextRender,
   computed,
+  effect,
   input,
   model,
+  signal,
   viewChild,
 } from "@angular/core";
 import { randomUUID } from "@copilotkit/shared";
 
 import { CopilotChat } from "../chat/copilot-chat";
-import { dimensionToCss } from "./modal-utils";
+import { CopilotThreadsDrawer } from "../chat/copilot-threads-drawer";
+import { CopilotChatToggleButton } from "./copilot-chat-toggle-button";
+import { CopilotModalHeader } from "./copilot-modal-header";
+import {
+  chatComponentInputs,
+  dimensionToCss,
+  provideModalChatConfiguration,
+  resolveModalThreadsDrawer,
+  type CopilotModalThreadsDrawer,
+} from "./modal-utils";
 
-/** Accessible, responsive floating chat surface with an explicit open model. */
+export type { CopilotModalThreadsDrawer } from "./modal-utils";
+
+/**
+ * Floating chat window anchored to a round launcher, matching React's
+ * `CopilotPopup`: no backdrop, Escape closes it (after an open threads drawer),
+ * and an outside click closes it only with `clickOutsideToClose`.
+ */
 @Component({
   selector: "copilot-popup",
-  imports: [CdkTrapFocus, NgComponentOutlet],
+  imports: [
+    NgComponentOutlet,
+    CopilotChatToggleButton,
+    CopilotModalHeader,
+    CopilotThreadsDrawer,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: "copilot-popup-host", "data-copilotkit": "" },
+  providers: [provideModalChatConfiguration()],
+  host: {
+    class: "copilot-popup-host",
+    "data-copilotkit": "",
+    "(document:keydown.escape)": "onEscape($event)",
+    "(document:pointerdown)": "onDocumentPointerDown($event)",
+  },
   template: `
     <button
       #launcher
-      type="button"
-      class="copilot-modal-toggle"
+      copilotChatToggleButton
       data-copilot-popup-toggle
+      [open]="open()"
       [attr.aria-controls]="dialogId"
-      [attr.aria-expanded]="open()"
-      [attr.aria-label]="open() ? 'Close Copilot chat' : 'Open Copilot chat'"
-      [tabIndex]="open() ? -1 : 0"
       (click)="toggle()"
-    >
-      <span aria-hidden="true">{{ open() ? "×" : "✦" }}</span>
-    </button>
+    ></button>
 
     @if (open()) {
       <div
-        class="copilot-modal-backdrop"
-        data-copilot-popup-backdrop
-        aria-hidden="true"
-        (click)="closeFromBackdrop()"
-      ></div>
-      <section
-        cdkTrapFocus
-        [cdkTrapFocusAutoCapture]="true"
-        class="copilot-popup-window copilotKitPopup"
-        role="dialog"
-        aria-modal="true"
-        [attr.id]="dialogId"
-        [attr.aria-labelledby]="headerComponent() ? null : titleId"
-        [attr.aria-label]="headerComponent() ? title() : null"
-        [style.--copilot-popup-width]="resolvedWidth()"
-        [style.--copilot-popup-height]="resolvedHeight()"
-        (keydown.escape)="close()"
+        class="cpk:fixed cpk:inset-0 cpk:z-[1200] cpk:flex cpk:max-w-full cpk:flex-col cpk:items-stretch cpk:md:inset-auto cpk:md:bottom-24 cpk:md:right-6 cpk:md:items-end"
       >
-        <header class="copilot-modal-header">
-          @if (headerComponent(); as header) {
-            <ng-container [ngComponentOutlet]="header" />
-          } @else {
-            <h2 [attr.id]="titleId">{{ title() }}</h2>
+        <section
+          #dialog
+          tabindex="-1"
+          role="dialog"
+          class="copilotKitPopup copilotKitWindow cpk:relative cpk:flex cpk:h-full cpk:w-full cpk:flex-col cpk:overflow-hidden cpk:bg-background cpk:text-foreground cpk:origin-bottom cpk:focus:outline-none cpk:border cpk:border-transparent cpk:md:h-[var(--copilot-popup-height)] cpk:md:w-[var(--copilot-popup-width)] cpk:md:max-h-[calc(100dvh-7.5rem)] cpk:md:max-w-[calc(100vw-3rem)] cpk:md:origin-bottom-right cpk:md:rounded-2xl cpk:md:border-border cpk:md:shadow-[0_2px_6px_-1px_rgb(0_0_0/0.06),0_24px_64px_-12px_rgb(0_0_0/0.22)]"
+          animate.enter="cpk-popup-enter"
+          animate.leave="cpk-popup-leave"
+          data-copilot-popup
+          data-testid="copilot-popup"
+          [attr.id]="dialogId"
+          [attr.aria-labelledby]="headerComponent() ? null : titleId"
+          [attr.aria-label]="headerComponent() ? title() : null"
+          [style.--copilot-popup-width]="resolvedWidth()"
+          [style.--copilot-popup-height]="resolvedHeight()"
+        >
+          <header
+            copilotModalHeader
+            [title]="title()"
+            [titleId]="titleId"
+            [headerComponent]="headerComponent()"
+            [showDrawerLauncher]="!!drawer()"
+            [drawerOpen]="drawerOpen()"
+            (closeClick)="close()"
+            (drawerToggle)="drawerOpen.set(!drawerOpen())"
+          ></header>
+          <div class="cpk:min-h-0 cpk:flex-1 cpk:overflow-hidden" data-popup-chat>
+            <ng-container
+              [ngComponentOutlet]="chatComponent()"
+              [ngComponentOutletInputs]="chatInputs()"
+            />
+          </div>
+          @if (drawer(); as drawerConfig) {
+            <copilot-threads-drawer
+              [overlay]="true"
+              [(open)]="drawerOpen"
+              [agentId]="drawerConfig.agentId"
+              [label]="drawerConfig.label"
+              [recentLabel]="drawerConfig.recentLabel"
+              [limit]="drawerConfig.limit"
+              [licenseUrl]="drawerConfig.licenseUrl"
+            />
           }
-          <button
-            #initialFocus
-            type="button"
-            cdkFocusInitial
-            aria-label="Close Copilot chat"
-            (click)="close()"
-          >
-            <span aria-hidden="true">×</span>
-          </button>
-        </header>
-        <div class="copilot-modal-chat">
-          <ng-container [ngComponentOutlet]="chatComponent()" />
-        </div>
-      </section>
+        </section>
+      </div>
     }
   `,
   styles: `
     :host {
       display: contents;
     }
-    .copilot-modal-toggle {
-      position: fixed;
-      right: max(1.5rem, env(safe-area-inset-right));
-      bottom: max(1.5rem, env(safe-area-inset-bottom));
-      z-index: 1202;
-      display: grid;
-      width: 3.25rem;
-      height: 3.25rem;
-      place-items: center;
-      border: 0;
-      border-radius: 999px;
-      color: white;
-      background: #111827;
-      box-shadow: 0 12px 30px rgb(15 23 42 / 24%);
-      cursor: pointer;
-    }
-    .copilot-modal-toggle:focus-visible,
-    .copilot-modal-header button:focus-visible {
-      outline: 3px solid #2563eb;
-      outline-offset: 3px;
-    }
-    .copilot-modal-backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 1200;
-      background: rgb(15 23 42 / 24%);
-    }
-    .copilot-popup-window {
-      position: fixed;
-      right: max(1.5rem, env(safe-area-inset-right));
-      bottom: max(6rem, calc(4.5rem + env(safe-area-inset-bottom)));
-      z-index: 1201;
-      display: grid;
-      width: min(var(--copilot-popup-width), calc(100vw - 3rem));
-      height: min(var(--copilot-popup-height), calc(100dvh - 7.5rem));
-      grid-template-rows: auto minmax(0, 1fr);
-      overflow: hidden;
-      border: 1px solid #dbe3eb;
-      border-radius: 1rem;
-      color: #111827;
-      background: white;
-      box-shadow: 0 24px 60px rgb(15 23 42 / 28%);
-    }
-    .copilot-modal-header {
-      display: flex;
-      min-height: 3.5rem;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      padding: 0.75rem 1rem;
-      border-bottom: 1px solid #e2e8f0;
-    }
-    .copilot-modal-header h2 {
-      margin: 0;
-      font-size: 1rem;
-    }
-    .copilot-modal-header button {
-      border: 0;
-      color: inherit;
-      background: transparent;
-      font-size: 1.5rem;
-      cursor: pointer;
-    }
-    .copilot-modal-chat {
-      min-height: 0;
-      overflow: hidden;
-    }
-    @media (max-width: 47.999rem) {
-      .copilot-popup-window {
-        inset: 0;
-        width: 100%;
-        height: 100dvh;
-        border: 0;
-        border-radius: 0;
-        padding: env(safe-area-inset-top) env(safe-area-inset-right)
-          env(safe-area-inset-bottom) env(safe-area-inset-left);
-      }
-    }
-    @media (prefers-reduced-motion: no-preference) {
-      .copilot-popup-window {
-        animation: copilot-popup-enter 180ms ease-out;
-      }
-      @keyframes copilot-popup-enter {
-        from {
-          opacity: 0;
-          transform: translateY(1rem) scale(0.98);
-        }
-      }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .copilot-popup-window {
-        animation: none;
-      }
-    }
   `,
 })
 export class CopilotPopup {
   readonly open = model(true);
-  readonly title = input("Copilot");
+  readonly title = input("CopilotKit Chat");
   readonly width = input<number | string>(420);
   readonly height = input<number | string>(560);
   readonly clickOutsideToClose = input(false);
   readonly chatComponent = input<Type<unknown>>(CopilotChat);
   readonly headerComponent = input<Type<unknown> | undefined>();
+  /**
+   * Opt-in threads drawer: a launcher at the start of the header opens the
+   * thread list as a panel over the popup. `true` for the default drawer, an
+   * object to configure it. Its open state is local to this popup.
+   */
+  readonly threadsDrawer = input<CopilotModalThreadsDrawer>(false);
+  /**
+   * Ease the welcome screen in (greeting, suggestion cards, input). Defaults
+   * to `true`; it plays each time the chat opens.
+   */
+  readonly introAnimation = input(true);
+
+  protected readonly drawer = computed(() =>
+    resolveModalThreadsDrawer(this.threadsDrawer()),
+  );
+  protected readonly drawerOpen = signal(false);
+  protected readonly chatInputs = computed(() =>
+    chatComponentInputs(this.chatComponent(), {
+      introAnimation: this.introAnimation(),
+    }),
+  );
 
   protected readonly dialogId = `copilot-popup-${randomUUID()}`;
   protected readonly titleId = `${this.dialogId}-title`;
@@ -196,14 +153,18 @@ export class CopilotPopup {
   protected readonly resolvedHeight = computed(() =>
     dimensionToCss(this.height(), 560),
   );
-  private readonly launcher =
-    viewChild.required<ElementRef<HTMLButtonElement>>("launcher");
-  private readonly initialFocus =
-    viewChild<ElementRef<HTMLButtonElement>>("initialFocus");
+  private readonly launcher = viewChild.required("launcher", {
+    read: ElementRef<HTMLButtonElement>,
+  });
+  private readonly dialog = viewChild<ElementRef<HTMLElement>>("dialog");
 
   constructor() {
     afterNextRender(() => {
-      if (this.open()) this.focusModal();
+      if (this.open()) this.focusDialog();
+    });
+    // Closing the popup closes its drawer, so it never reopens expanded.
+    effect(() => {
+      if (!this.open()) this.drawerOpen.set(false);
     });
   }
 
@@ -211,12 +172,25 @@ export class CopilotPopup {
     if (this.open()) this.close();
     else {
       this.open.set(true);
-      queueMicrotask(() => this.focusModal());
+      queueMicrotask(() => this.focusDialog());
     }
   }
 
-  protected closeFromBackdrop(): void {
-    if (this.clickOutsideToClose()) this.close();
+  /** Escape closes an open threads drawer first, then the popup. */
+  protected onEscape(event: Event): void {
+    if (!this.open() || event.defaultPrevented) return;
+    event.preventDefault();
+    if (this.drawerOpen()) this.drawerOpen.set(false);
+    else this.close();
+  }
+
+  protected onDocumentPointerDown(event: Event): void {
+    if (!this.open() || !this.clickOutsideToClose()) return;
+    const target = event.target as Node | null;
+    if (!target) return;
+    if (this.dialog()?.nativeElement.contains(target)) return;
+    if (this.launcher().nativeElement.contains(target)) return;
+    this.close();
   }
 
   protected close(): void {
@@ -227,7 +201,11 @@ export class CopilotPopup {
     );
   }
 
-  private focusModal(): void {
-    this.initialFocus()?.nativeElement.focus({ preventScroll: true });
+  /** Focus the window itself unless something inside it already has focus. */
+  private focusDialog(): void {
+    const dialog = this.dialog()?.nativeElement;
+    if (dialog && !dialog.contains(document.activeElement)) {
+      dialog.focus({ preventScroll: true });
+    }
   }
 }

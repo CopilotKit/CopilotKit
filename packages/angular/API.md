@@ -127,6 +127,7 @@ Import these symbols from `@copilotkit/angular`.
 - `CopilotKit`
 - `CopilotKitAgentContext`
 - `CopilotKitConfig`
+- `CopilotModalThreadsDrawer`
 - `CopilotOpenGenerativeUIActivityRenderer`
 - `CopilotOpenGenerativeUIRenderer`
 - `CopilotOpenGenerativeUIToolRenderer`

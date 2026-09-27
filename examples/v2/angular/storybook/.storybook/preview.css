@@ -1,20 +1,267 @@
-/* Storybook dark mode custom background */
-html.dark {
-  background-color: #212121;
+/*
+ * The Storybook preview plays the part of a host app with shadcn-style tokens,
+ * like most CopilotKit users have. CopilotKit's components bring their own
+ * `cpk:`-prefixed CSS scoped under [data-copilotkit], so anything that looks
+ * right here looks right in an app.
+ *
+ * The token values mirror CopilotKit's defaults (packages/angular
+ * src/styles/globals.css) so the canvas matches the component surfaces in both
+ * themes. Story-only markup (host pages, demo renderers) is styled with plain
+ * CSS against these tokens: `cpk:` utilities that CopilotKit itself doesn't use
+ * are never generated.
+ */
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --radius: 0.625rem;
+  --success: oklch(0.527 0.154 150.069);
+  --warning: oklch(0.666 0.179 58.318);
+  /* An example brand color for the "custom styling" stories. */
+  --story-brand: oklch(0.511 0.262 276.966);
+  color-scheme: light;
 }
 
-html.dark body {
-  background-color: #212121;
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --success: oklch(0.765 0.177 163.223);
+  --warning: oklch(0.828 0.189 84.429);
+  --story-brand: oklch(0.673 0.182 276.935);
+  color-scheme: dark;
 }
 
-/* Ensure the story canvas also uses the dark background */
-html.dark .docs-story,
-html.dark .sb-show-main,
-html.dark .sb-main-padded {
-  background-color: #212121;
+html,
+body,
+.sb-show-main,
+.docs-story {
+  background-color: var(--background);
+  color: var(--foreground);
 }
 
-/* Custom disclaimer demo styles (global to ensure they apply in stories) */
+body {
+  margin: 0;
+  font-family:
+    ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------------------------------------------------------------------------
+ * Story layouts (see stories/support/layouts.ts)
+ * ------------------------------------------------------------------------- */
+
+/* A centered reading column, the width a chat transcript usually gets. */
+.story-column {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem;
+}
+
+/* A centered stage for small standalone controls (inputs, pills, buttons). */
+.story-stage {
+  box-sizing: border-box;
+  display: flex;
+  min-height: 360px;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.story-stage > * {
+  width: 100%;
+  max-width: 42rem;
+}
+
+/* Full-viewport frame for views that manage their own scrolling. */
+.story-full-height {
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* The threads drawer is an in-flow column on desktop; give it a page. */
+.story-drawer-layout {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  height: 100vh;
+}
+
+.story-drawer-placeholder {
+  display: grid;
+  place-items: center;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+/* A container-query scope, like the chat view, for grid layouts that adapt. */
+.story-container {
+  container-type: inline-size;
+  margin: 0 auto;
+}
+
+/* A labelled row of variants inside one story. */
+.story-stack {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.story-label {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+/* An explanatory note above a live example. */
+/* Side-by-side columns of fixed widths (CopilotChatInput/ContainerWidths). */
+.story-widths {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+
+.story-widths-column {
+  display: grid;
+  gap: 0.5rem;
+}
+
+/* The chat view puts a 1rem gutter around its input; standalone here, the
+   column adds it, so each width matches where the input would sit in a chat. */
+.story-widths-column copilot-chat-input {
+  box-sizing: border-box;
+  padding-inline: 1rem;
+}
+
+.story-widths-label {
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+
+.story-note {
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+
+.story-note code {
+  border-radius: 4px;
+  background: var(--muted);
+  padding: 0.1em 0.35em;
+  font-size: 0.8125rem;
+  color: var(--foreground);
+}
+
+/* ---------------------------------------------------------------------------
+ * Demo controls used in slot / customization stories
+ * ------------------------------------------------------------------------- */
+
+.story-icon-button {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.story-icon-button:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.story-send-button {
+  display: inline-flex;
+  height: 2rem;
+  align-items: center;
+  gap: 0.375rem;
+  margin-right: 0.5rem;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 0.875rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.story-send-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+/* "Custom styling" demos: host CSS applied through `inputClass`. */
+.story-branded-input {
+  border: 1px solid var(--story-brand);
+  border-radius: 0.875rem;
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--story-brand) 18%, transparent);
+}
+
+.story-branded-bubble {
+  border: 1px solid color-mix(in oklab, var(--story-brand) 40%, transparent);
+  border-radius: 0.875rem;
+  background: color-mix(in oklab, var(--story-brand) 12%, var(--background));
+}
+
+.story-branded-user-message {
+  border-left: 3px solid var(--story-brand);
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+/* Message toolbars reveal on hover; stories that demo toolbar content pin
+   them visible so they show without hovering. */
+.story-toolbar-visible {
+  visibility: visible;
+}
+
+.story-highlight-pill {
+  border-color: var(--story-brand);
+  background: color-mix(in oklab, var(--story-brand) 12%, transparent);
+  color: var(--foreground);
+}
+
+/* ---------------------------------------------------------------------------
+ * Custom disclaimer demos (CopilotChatView/Customized with CSS)
+ * ------------------------------------------------------------------------- */
+
 .custom-disclaimer {
   background: linear-gradient(
     90deg,
@@ -93,5 +340,13 @@ html.dark .sb-main-padded {
   }
   50% {
     transform: translateY(-5px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .custom-disclaimer,
+  .custom-disclaimer::before,
+  .custom-disclaimer-icon {
+    animation: none;
   }
 }

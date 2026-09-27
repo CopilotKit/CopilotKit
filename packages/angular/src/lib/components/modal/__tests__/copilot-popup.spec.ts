@@ -25,13 +25,13 @@ describe("CopilotPopup", () => {
     return fixture;
   }
 
-  it("opens by default with modal semantics and parity dimensions", async () => {
+  it("opens by default as a non-modal dialog with parity dimensions", async () => {
     const fixture = await render();
     const dialog = fixture.nativeElement.querySelector("[role=dialog]");
 
     expect(dialog).not.toBeNull();
     expect(dialog.classList.contains("copilotKitPopup")).toBe(true);
-    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    expect(dialog.hasAttribute("aria-modal")).toBe(false);
     expect(dialog.contains(document.activeElement)).toBe(true);
     expect(dialog.style.getPropertyValue("--copilot-popup-width")).toBe(
       "420px",
@@ -39,6 +39,46 @@ describe("CopilotPopup", () => {
     expect(dialog.style.getPropertyValue("--copilot-popup-height")).toBe(
       "560px",
     );
+    // No backdrop: nothing but the launcher and the window.
+    expect(
+      fixture.nativeElement.querySelector("[data-copilot-popup-backdrop]"),
+    ).toBeNull();
+  });
+
+  it("renders React's header: centered default title and a close button", async () => {
+    const fixture = await render();
+    const title: HTMLElement = fixture.nativeElement.querySelector(
+      '[data-testid="copilot-header-title"]',
+    );
+    const close: HTMLButtonElement = fixture.nativeElement.querySelector(
+      '[data-testid="copilot-close-button"]',
+    );
+
+    expect(title.textContent?.trim()).toBe("CopilotKit Chat");
+    expect(close.getAttribute("aria-label")).toBe("Close");
+
+    close.click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector("[role=dialog]")).toBeNull();
+  });
+
+  it("swaps the launcher icon and label with the open state", async () => {
+    const fixture = await render({ open: false });
+    const launcher: HTMLButtonElement = fixture.nativeElement.querySelector(
+      '[data-testid="copilot-chat-toggle"]',
+    );
+
+    expect(launcher.getAttribute("data-state")).toBe("closed");
+    expect(launcher.getAttribute("aria-label")).toBe("Open chat");
+    expect(launcher.getAttribute("aria-expanded")).toBe("false");
+
+    launcher.click();
+    fixture.detectChanges();
+
+    expect(launcher.getAttribute("data-state")).toBe("open");
+    expect(launcher.getAttribute("aria-label")).toBe("Close chat");
+    expect(launcher.getAttribute("aria-expanded")).toBe("true");
+    expect(launcher.tabIndex).toBe(0);
   });
 
   it("closes on Escape and restores focus to its launcher", async () => {
@@ -51,9 +91,7 @@ describe("CopilotPopup", () => {
     fixture.detectChanges();
     await fixture.whenStable();
 
-    const dialog: HTMLElement =
-      fixture.nativeElement.querySelector("[role=dialog]");
-    dialog.dispatchEvent(
+    document.body.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
     );
     fixture.detectChanges();
@@ -63,25 +101,24 @@ describe("CopilotPopup", () => {
     expect(document.activeElement).toBe(launcher);
   });
 
-  it("honors opt-in outside-click closing", async () => {
+  it("closes on an outside pointerdown only with clickOutsideToClose", async () => {
     const fixture = await render({ clickOutsideToClose: true });
-    const backdrop: HTMLElement = fixture.nativeElement.querySelector(
-      "[data-copilot-popup-backdrop]",
-    );
+    const dialog: HTMLElement =
+      fixture.nativeElement.querySelector("[role=dialog]");
 
-    backdrop.click();
+    dialog.dispatchEvent(new Event("pointerdown", { bubbles: true }));
     fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector("[role=dialog]")).not.toBeNull();
 
+    document.body.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    fixture.detectChanges();
     expect(fixture.nativeElement.querySelector("[role=dialog]")).toBeNull();
   });
 
-  it("keeps the popup open on backdrop clicks by default", async () => {
+  it("stays open on outside pointerdown by default", async () => {
     const fixture = await render();
-    const backdrop: HTMLElement = fixture.nativeElement.querySelector(
-      "[data-copilot-popup-backdrop]",
-    );
 
-    backdrop.click();
+    document.body.dispatchEvent(new Event("pointerdown", { bubbles: true }));
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector("[role=dialog]")).not.toBeNull();

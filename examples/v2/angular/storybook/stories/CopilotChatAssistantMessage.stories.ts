@@ -1,13 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/angular";
 import { moduleMetadata } from "@storybook/angular";
 import { fn } from "storybook/test";
-import { CommonModule } from "@angular/common";
-import { Component, Input } from "@angular/core";
 import {
   CopilotChatAssistantMessage,
-  provideCopilotChatLabels,
+  CopilotChatViewHandlers,
 } from "@copilotkit/angular";
 import type { AssistantMessage } from "@ag-ui/client";
+import { withMessageColumn } from "./support/layouts";
 
 // Simple default message
 const simpleMessage: AssistantMessage = {
@@ -290,444 +289,85 @@ const codeBlocksTestMessage: AssistantMessage = {
 const meta: Meta<CopilotChatAssistantMessage> = {
   title: "UI/CopilotChatAssistantMessage",
   component: CopilotChatAssistantMessage,
-  parameters: {
-    docs: {
-      source: {
-        language: "html",
-        type: "dynamic",
-      },
-    },
-  },
   decorators: [
-    moduleMetadata({
-      imports: [CommonModule, CopilotChatAssistantMessage],
-      providers: [provideCopilotChatLabels({})],
-    }),
+    moduleMetadata({ imports: [CopilotChatAssistantMessage] }),
+    withMessageColumn,
   ],
-  render: (args) => ({
-    props: {
-      ...args,
-    },
-    template: `
-      <div style="display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 16px;">
-        <div style="width: 100%; max-width: 640px;">
-          <copilot-chat-assistant-message
-            [message]="message"
-            [toolbarVisible]="toolbarVisible"
-            (thumbsUp)="thumbsUp($event)"
-            (thumbsDown)="thumbsDown($event)"
-            (readAloud)="readAloud($event)"
-            (regenerate)="regenerate($event)">
-          </copilot-chat-assistant-message>
-        </div>
-      </div>
-    `,
-  }),
   args: {
     message: simpleMessage,
     toolbarVisible: true,
-    thumbsUp: fn(),
-    thumbsDown: fn(),
-    readAloud: fn(),
-    regenerate: fn(),
   },
-  argTypes: {
-    message: {
-      description: "The assistant message to display",
-      control: { type: "object" },
+  render: (args) => ({
+    props: {
+      ...args,
+      thumbsUp: fn(),
+      thumbsDown: fn(),
+      readAloud: fn(),
+      regenerate: fn(),
     },
-    toolbarVisible: {
-      description: "Whether to show the toolbar",
-      control: { type: "boolean" },
-    },
-  },
+    template: `
+      <copilot-chat-assistant-message
+        [message]="message"
+        [toolbarVisible]="toolbarVisible"
+        (thumbsUp)="thumbsUp($event)"
+        (thumbsDown)="thumbsDown($event)"
+        (readAloud)="readAloud($event)"
+        (regenerate)="regenerate($event)"
+      />
+    `,
+  }),
 };
 
 export default meta;
 type Story = StoryObj<CopilotChatAssistantMessage>;
 
-export const Default: Story = {
-  args: {
-    message: simpleMessage,
-    toolbarVisible: true,
-  },
-  parameters: {
-    docs: {
-      source: {
-        type: "code",
-        code: `import { Component } from '@angular/core';
-import { CopilotChatAssistantMessage } from '@copilotkit/angular';
-import { AssistantMessage } from '@ag-ui/client';
-
-@Component({
-  selector: 'app-chat',
-  standalone: true,
-  imports: [CopilotChatAssistantMessage],
-  template: \`
-    <copilot-chat-assistant-message
-      [message]="message"
-      [toolbarVisible]="true"
-      (thumbsUp)="onThumbsUp($event)"
-      (thumbsDown)="onThumbsDown($event)"
-      (readAloud)="onReadAloud($event)"
-      (regenerate)="onRegenerate($event)">
-    </copilot-chat-assistant-message>
-  \`
-})
-export class ChatComponent {
-  message: AssistantMessage = {
-    id: 'simple-message',
-    content: 'Hello! How can I help you today?',
-    role: 'assistant',
-  };
-  
-  onThumbsUp(event: any): void {
-    console.log('Thumbs up clicked!');
-  }
-  
-  onThumbsDown(event: any): void {
-    console.log('Thumbs down clicked!');
-  }
-  
-  onReadAloud(event: any): void {
-    console.log('Read aloud clicked!');
-  }
-  
-  onRegenerate(event: any): void {
-    console.log('Regenerate clicked!');
-  }
-}`,
-        language: "typescript",
-      },
-    },
-  },
-};
+export const Default: Story = {};
 
 export const TestAllMarkdownFeatures: Story = {
-  args: {
-    message: markdownTestMessage,
-    toolbarVisible: true,
-  },
-  parameters: {
-    docs: {
-      source: {
-        type: "code",
-        code: `import { Component } from '@angular/core';
-import { CopilotChatAssistantMessage } from '@copilotkit/angular';
-import { AssistantMessage } from '@ag-ui/client';
-
-@Component({
-  selector: 'app-chat',
-  standalone: true,
-  imports: [CopilotChatAssistantMessage],
-  template: \`
-    <copilot-chat-assistant-message
-      [message]="message"
-      [toolbarVisible]="true">
-    </copilot-chat-assistant-message>
-  \`
-})
-export class ChatComponent {
-  message: AssistantMessage = {
-    id: 'test-message',
-    content: \`# Markdown Test Message
-
-This message tests various markdown features including **bold**, *italic*, and \\\`inline code\\\`.
-
-## Code Blocks
-
-\\\`\\\`\\\`javascript
-function greet(name) {
-  console.log(\\\`Hello, \\${name}!\\\`);
-  return \\\`Welcome, \\${name}\\\`;
-}
-\\\`\\\`\\\`
-
-## Links and Tables
-
-- [External link](https://example.com)
-
-| Feature | Supported | Notes |
-|---------|-----------|-------|
-| Headers | ✅ | All levels |
-| Lists | ✅ | Nested support |
-| Code | ✅ | Syntax highlighting |\`,
-    role: 'assistant',
-  };
-}`,
-        language: "typescript",
-      },
-    },
-  },
+  args: { message: markdownTestMessage },
 };
 
+/**
+ * Thumbs up/down appear when a feedback handler is wired up. Inside
+ * `<copilot-chat-view>` that happens automatically when you bind
+ * `(assistantMessageThumbsUp)`; standalone, flag it on CopilotChatViewHandlers.
+ */
 export const WithToolbarButtons: Story = {
-  args: {
-    message: simpleMessage,
-    toolbarVisible: true,
-  },
-  render: (args) => ({
-    props: {
-      ...args,
-      onThumbsUp: (event: any) => {
-        alert("Thumbs up clicked!");
-      },
-      onThumbsDown: (event: any) => {
-        alert("Thumbs down clicked!");
-      },
-      onReadAloud: (event: any) => {
-        alert("Read aloud clicked!");
-      },
-      onRegenerate: (event: any) => {
-        alert("Regenerate clicked!");
-      },
-    },
-    template: `
-      <div style="display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 16px;">
-        <div style="width: 100%; max-width: 640px;">
-          <copilot-chat-assistant-message
-            [message]="message"
-            [toolbarVisible]="toolbarVisible"
-            (thumbsUp)="onThumbsUp($event)"
-            (thumbsDown)="onThumbsDown($event)"
-            (readAloud)="onReadAloud($event)"
-            (regenerate)="onRegenerate($event)">
-          </copilot-chat-assistant-message>
-        </div>
-      </div>
-    `,
-  }),
-  parameters: {
-    docs: {
-      source: {
-        type: "code",
-        code: `import { Component } from '@angular/core';
-import { CopilotChatAssistantMessage } from '@copilotkit/angular';
-import { AssistantMessage } from '@ag-ui/client';
-
-@Component({
-  selector: 'app-chat',
-  standalone: true,
-  imports: [CopilotChatAssistantMessage],
-  template: \`
-    <copilot-chat-assistant-message
-      [message]="message"
-      [toolbarVisible]="true"
-      (thumbsUp)="onThumbsUp($event)"
-      (thumbsDown)="onThumbsDown($event)"
-      (readAloud)="onReadAloud($event)"
-      (regenerate)="onRegenerate($event)">
-    </copilot-chat-assistant-message>
-  \`
-})
-export class ChatComponent {
-  message: AssistantMessage = {
-    id: 'simple-message',
-    content: 'Hello! How can I help you today?',
-    role: 'assistant',
-  };
-  
-  onThumbsUp(event: any): void {
-    alert('Thumbs up clicked!');
-  }
-  
-  onThumbsDown(event: any): void {
-    alert('Thumbs down clicked!');
-  }
-  
-  onReadAloud(event: any): void {
-    alert('Read aloud clicked!');
-  }
-  
-  onRegenerate(event: any): void {
-    alert('Regenerate clicked!');
-  }
-}`,
-        language: "typescript",
-      },
-    },
-  },
+  decorators: [
+    moduleMetadata({
+      providers: [
+        {
+          provide: CopilotChatViewHandlers,
+          useFactory: () => {
+            const handlers = new CopilotChatViewHandlers();
+            handlers.hasAssistantThumbsUpHandler.set(true);
+            handlers.hasAssistantThumbsDownHandler.set(true);
+            return handlers;
+          },
+        },
+      ],
+    }),
+  ],
 };
 
 export const WithAdditionalToolbarItems: Story = {
   render: (args) => ({
-    props: {
-      message: simpleMessage,
-      onThumbsUp: (event: any) => console.log("Thumbs up clicked!"),
-      onThumbsDown: (event: any) => console.log("Thumbs down clicked!"),
-      onReadAloud: (event: any) => console.log("Read aloud clicked!"),
-      onRegenerate: (event: any) => console.log("Regenerate clicked!"),
-      onCustom1: () => alert("Custom button 1 clicked!"),
-      onCustom2: () => alert("Custom button 2 clicked!"),
-    },
+    props: { ...args, onAction: fn() },
     template: `
-      <div style="display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 16px;">
-        <div style="width: 100%; max-width: 640px;">
-          <copilot-chat-assistant-message 
-            [message]="message"
-            [toolbarVisible]="true"
-            (thumbsUp)="onThumbsUp($event)"
-            (thumbsDown)="onThumbsDown($event)"
-            (readAloud)="onReadAloud($event)"
-            (regenerate)="onRegenerate($event)"
-            [additionalToolbarItems]="additionalItems">
-            <ng-template #additionalItems>
-              <button 
-                class="cpk:h-8 cpk:w-8 cpk:p-0 cpk:rounded-md cpk:bg-gray-100 cpk:hover:bg-gray-200 cpk:flex cpk:items-center cpk:justify-center"
-                (click)="onCustom1()"
-                title="Custom Action 1">
-                📌
-              </button>
-              <button 
-                class="cpk:h-8 cpk:w-8 cpk:p-0 cpk:rounded-md cpk:bg-gray-100 cpk:hover:bg-gray-200 cpk:flex cpk:items-center cpk:justify-center"
-                (click)="onCustom2()"
-                title="Custom Action 2">
-                ❤️
-              </button>
-            </ng-template>
-          </copilot-chat-assistant-message>
-        </div>
-      </div>
+      <copilot-chat-assistant-message
+        [message]="message"
+        [toolbarVisible]="true"
+        [additionalToolbarItems]="additionalItems"
+      >
+        <ng-template #additionalItems>
+          <button type="button" class="story-icon-button" title="Pin" (click)="onAction('pin')">📌</button>
+          <button type="button" class="story-icon-button" title="Share" (click)="onAction('share')">↗</button>
+        </ng-template>
+      </copilot-chat-assistant-message>
     `,
   }),
-  parameters: {
-    docs: {
-      source: {
-        type: "code",
-        code: `import { Component, ViewChild, TemplateRef } from '@angular/core';
-import { CopilotChatAssistantMessage } from '@copilotkit/angular';
-import { AssistantMessage } from '@ag-ui/client';
-
-@Component({
-  selector: 'app-chat',
-  standalone: true,
-  imports: [CopilotChatAssistantMessage],
-  template: \`
-    <ng-template #additionalItems>
-      <button 
-        class="cpk:h-8 cpk:w-8 cpk:p-0 cpk:rounded-md cpk:bg-gray-100 cpk:hover:bg-gray-200 cpk:flex cpk:items-center cpk:justify-center"
-        (click)="onCustom1()"
-        title="Custom Action 1">
-        📌
-      </button>
-      <button 
-        class="cpk:h-8 cpk:w-8 cpk:p-0 cpk:rounded-md cpk:bg-gray-100 cpk:hover:bg-gray-200 cpk:flex cpk:items-center cpk:justify-center"
-        (click)="onCustom2()"
-        title="Custom Action 2">
-        ❤️
-      </button>
-    </ng-template>
-    
-    <copilot-chat-assistant-message
-      [message]="message"
-      [toolbarVisible]="true"
-      [additionalToolbarItems]="additionalItems"
-      (thumbsUp)="onThumbsUp($event)"
-      (thumbsDown)="onThumbsDown($event)"
-      (readAloud)="onReadAloud($event)"
-      (regenerate)="onRegenerate($event)">
-    </copilot-chat-assistant-message>
-  \`
-})
-export class ChatComponent {
-  @ViewChild('additionalItems') additionalItems!: TemplateRef<any>;
-  
-  message: AssistantMessage = {
-    id: 'simple-message',
-    content: 'Hello! How can I help you today?',
-    role: 'assistant',
-  };
-  
-  onThumbsUp(event: any): void {
-    console.log('Thumbs up clicked!');
-  }
-  
-  onThumbsDown(event: any): void {
-    console.log('Thumbs down clicked!');
-  }
-  
-  onReadAloud(event: any): void {
-    console.log('Read aloud clicked!');
-  }
-  
-  onRegenerate(event: any): void {
-    console.log('Regenerate clicked!');
-  }
-  
-  onCustom1(): void {
-    alert('Custom button 1 clicked!');
-  }
-  
-  onCustom2(): void {
-    alert('Custom button 2 clicked!');
-  }
-}`,
-        language: "typescript",
-      },
-    },
-  },
 };
 
 export const CodeBlocksWithLanguages: Story = {
-  args: {
-    message: codeBlocksTestMessage,
-    toolbarVisible: true,
-  },
-  parameters: {
-    docs: {
-      source: {
-        type: "code",
-        code: `import { Component } from '@angular/core';
-import { CopilotChatAssistantMessage } from '@copilotkit/angular';
-import { AssistantMessage } from '@ag-ui/client';
-
-@Component({
-  selector: 'app-chat',
-  standalone: true,
-  imports: [CopilotChatAssistantMessage],
-  template: \`
-    <copilot-chat-assistant-message
-      [message]="message"
-      [toolbarVisible]="true">
-    </copilot-chat-assistant-message>
-  \`
-})
-export class ChatComponent {
-  message: AssistantMessage = {
-    id: 'msg-code-blocks-test',
-    content: \`# Code Blocks Test
-
-## JavaScript Example
-\\\`\\\`\\\`javascript
-const authenticateUser = async (email, password) => {
-  try {
-    const response = await fetch('/api/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-    return await response.json();
-  } catch (error) {
-    console.error('Error:', error);
-    return null;
-  }
-};
-\\\`\\\`\\\`
-
-## Python Example
-\\\`\\\`\\\`python
-import pandas as pd
-
-def process_user_data(csv_file):
-    df = pd.read_csv(csv_file)
-    df['age'] = pd.to_numeric(df['age'], errors='coerce')
-    return df
-\\\`\\\`\\\`\`,
-    role: 'assistant',
-  };
-}`,
-        language: "typescript",
-      },
-    },
-  },
+  args: { message: codeBlocksTestMessage },
 };

@@ -66,6 +66,9 @@ import { explicitEffect } from "../../explicit-effect";
         [autoScroll]="true"
         [messageViewClass]="'cpk:w-full'"
         [showCursor]="showCursor()"
+        [isRunning]="agentStore().isRunning()"
+        [assistantMessageToolbarScope]="assistantMessageToolbarScope()"
+        [introAnimation]="introAnimation()"
         [inputComponent]="inputComponent()"
         [assistantMessageComponent]="assistantMessageComponent()"
         [assistantMessageTemplate]="assistantMessageTemplate()"
@@ -103,6 +106,17 @@ export class CopilotChat extends ChatState {
   readonly assistantMessageTemplate = input<TemplateRef<any> | undefined>();
   /** Class forwarded to the default or custom assistant-message renderer. */
   readonly assistantMessageClass = input<string | undefined>();
+  /**
+   * Where assistant toolbars appear: `"turn"` (default) shows one toolbar per
+   * reply, `"message"` one per assistant message.
+   */
+  readonly assistantMessageToolbarScope = input<"turn" | "message">("turn");
+  /**
+   * Ease the welcome screen in: the greeting, suggestion cards and input rise
+   * into place in sequence. Defaults to `true`; always off when the user
+   * prefers reduced motion.
+   */
+  readonly introAnimation = input(true);
   /** Component used to render each reasoning message in the prebuilt chat. */
   readonly reasoningMessageComponent = input<Type<any> | undefined>();
   /** Template used to render each reasoning message in the prebuilt chat. */

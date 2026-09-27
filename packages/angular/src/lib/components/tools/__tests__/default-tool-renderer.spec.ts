@@ -51,4 +51,41 @@ describe("CopilotDefaultToolRenderer", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
     expect(fixture.nativeElement.textContent).toContain('"city": "Paris"');
   });
+
+  it("labels active calls Running with a shimmer and completed calls Done", async () => {
+    await TestBed.configureTestingModule({
+      imports: [CopilotDefaultToolRenderer],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(CopilotDefaultToolRenderer);
+    const name = () =>
+      fixture.nativeElement.querySelector(
+        '[data-testid="copilot-tool-render-name"]',
+      ) as HTMLElement;
+    const status = () =>
+      fixture.nativeElement.querySelector(
+        '[data-testid="copilot-tool-render-status"]',
+      ) as HTMLElement;
+
+    fixture.componentRef.setInput("toolCall", {
+      name: "search",
+      args: { query: "signals" },
+      status: "executing",
+      result: undefined,
+    } as AngularToolCall);
+    fixture.detectChanges();
+    expect(status().textContent?.trim()).toBe("Running");
+    expect(name().classList).toContain("cpk-shimmer");
+    expect(status().classList).toContain("cpk-shimmer");
+
+    fixture.componentRef.setInput("toolCall", {
+      name: "search",
+      args: { query: "signals" },
+      status: "complete",
+      result: "3 results",
+    } as AngularToolCall);
+    fixture.detectChanges();
+    expect(status().textContent?.trim()).toBe("Done");
+    expect(name().classList).not.toContain("cpk-shimmer");
+    expect(status().classList).not.toContain("cpk-shimmer");
+  });
 });

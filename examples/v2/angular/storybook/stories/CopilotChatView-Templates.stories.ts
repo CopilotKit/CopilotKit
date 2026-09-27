@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/angular";
-import { applicationConfig, moduleMetadata } from "@storybook/angular";
+import { moduleMetadata } from "@storybook/angular";
 import { CommonModule } from "@angular/common";
 import { Component, Input, ChangeDetectionStrategy } from "@angular/core";
 import { FormsModule } from "@angular/forms";
@@ -9,9 +9,8 @@ import {
   CopilotChatInput,
   ChatState,
   provideCopilotChatLabels,
-  provideCopilotKit,
 } from "@copilotkit/angular";
-import { StoryChatState } from "./story-chat-state";
+import { StoryChatState } from "./support/story-chat-state";
 import type { Message } from "@ag-ui/client";
 
 // Custom input components defined after imports
@@ -19,9 +18,6 @@ const meta: Meta<CopilotChatView> = {
   title: "UI/CopilotChatView/Customized with Templates",
   component: CopilotChatView,
   decorators: [
-    applicationConfig({
-      providers: [provideCopilotKit()],
-    }),
     moduleMetadata({
       imports: [
         CommonModule,

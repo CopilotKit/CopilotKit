@@ -16,6 +16,10 @@ import { isPlatformBrowser } from "@angular/common";
 import { cn } from "../../utils";
 import { injectChatLabels } from "../../chat-config";
 import { injectChatState } from "../../chat-state";
+import { TEXTAREA_TYPOGRAPHY } from "./markdown-input-highlight";
+
+/** The textarea grows to this many lines of text, then scrolls. */
+const DEFAULT_MAX_ROWS = 8;
 
 @Component({
   selector: "textarea[copilotChatTextarea]",
@@ -59,6 +63,8 @@ export class CopilotChatTextarea implements AfterViewInit {
 
   // Internal signals
   maxHeight = signal<number>(0);
+  /** Height of one line of text including padding; 0 until measured. */
+  singleLineHeight = 0;
 
   // Computed values
   computedValue = computed(
@@ -78,9 +84,8 @@ export class CopilotChatTextarea implements AfterViewInit {
       // Background
       "cpk:bg-transparent",
       // Typography
-      "cpk:antialiased cpk:font-regular cpk:leading-relaxed cpk:text-[16px]",
-      // Placeholder styles
-      "cpk:placeholder:text-[#00000077] cpk:dark:placeholder:text-[#fffc]",
+      TEXTAREA_TYPOGRAPHY,
+      "cpk:text-foreground cpk:placeholder:text-muted-foreground cpk:placeholder:truncate",
     );
     return cn(baseClasses, this.inputClass());
   });
@@ -122,13 +127,14 @@ export class CopilotChatTextarea implements AfterViewInit {
 
   private calculateMaxHeight(): void {
     const textarea = this.elementRef.nativeElement;
-    const maxRowsValue = this.inputMaxRows() ?? 5;
+    const maxRowsValue = this.inputMaxRows() ?? DEFAULT_MAX_ROWS;
 
-    // Save current value
+    // An empty textarea's scroll height is exactly one line (a long
+    // placeholder could wrap, so it is cleared too).
     const currentValue = textarea.value;
-
-    // Clear content to measure single row height
+    const currentPlaceholder = textarea.placeholder;
     textarea.value = "";
+    textarea.placeholder = "";
     textarea.style.height = "auto";
 
     // Get computed styles to account for padding
@@ -137,6 +143,7 @@ export class CopilotChatTextarea implements AfterViewInit {
     const paddingBottom = parseFloat(computedStyle.paddingBottom);
 
     // Calculate actual content height (without padding)
+    this.singleLineHeight = textarea.scrollHeight;
     const contentHeight = textarea.scrollHeight - paddingTop - paddingBottom;
 
     // Calculate max height: content height for maxRows + padding
@@ -146,6 +153,7 @@ export class CopilotChatTextarea implements AfterViewInit {
 
     // Restore original value
     textarea.value = currentValue;
+    textarea.placeholder = currentPlaceholder;
 
     // Adjust height after calculating maxHeight
     if (currentValue) {
@@ -153,14 +161,20 @@ export class CopilotChatTextarea implements AfterViewInit {
     }
   }
 
-  private adjustHeight(): void {
+  /**
+   * Fits the textarea's height to its text, up to the maximum rows.
+   *
+   * @returns The text's full scroll height in px (0 before measurement).
+   */
+  adjustHeight(): number {
     const textarea = this.elementRef.nativeElement;
     const maxHeightValue = this.maxHeight();
+    if (maxHeightValue <= 0) return 0;
 
-    if (maxHeightValue > 0) {
-      textarea.style.height = "auto";
-      textarea.style.height = `${Math.min(textarea.scrollHeight, maxHeightValue)}px`;
-    }
+    textarea.style.height = "auto";
+    const scrollHeight = textarea.scrollHeight;
+    textarea.style.height = `${Math.min(scrollHeight, maxHeightValue)}px`;
+    return scrollHeight;
   }
 
   /**

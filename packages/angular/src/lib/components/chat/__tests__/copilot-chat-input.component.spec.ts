@@ -68,6 +68,19 @@ describe("CopilotChatInput", () => {
     expect(fixture.componentInstance.computedMode()).toBe("transcribe");
   });
 
+  it("applies inputClass to the input container", () => {
+    const fixture = TestBed.createComponent(CopilotChatInput);
+    fixture.componentRef.setInput("inputClass", "host-branded-input");
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.computedClass()).toContain(
+      "host-branded-input",
+    );
+    expect(
+      fixture.nativeElement.querySelector(".copilotKitInput").classList,
+    ).toContain("host-branded-input");
+  });
+
   it("emits value changes and updates chat state", () => {
     const valueSpy = vi.fn();
     component.valueChange.subscribe(valueSpy);
@@ -138,5 +151,80 @@ describe("CopilotChatInput", () => {
       { label: "Example", onSelect: vi.fn() },
     ];
     expect(component.computedToolsMenu()).toHaveLength(1);
+  });
+
+  describe("layout", () => {
+    const render = (inputs: Record<string, unknown> = {}) => {
+      const fixture = TestBed.createComponent(CopilotChatInput);
+      for (const [name, value] of Object.entries(inputs)) {
+        fixture.componentRef.setInput(name, value);
+      }
+      fixture.detectChanges();
+      TestBed.tick();
+      const element = fixture.nativeElement as HTMLElement;
+      return {
+        fixture,
+        layout: () =>
+          element
+            .querySelector(".copilotKitInput")
+            ?.getAttribute("data-layout"),
+        mic: () =>
+          element.querySelector("copilot-chat-start-transcribe-button"),
+        preview: () =>
+          element.querySelector(
+            '[data-testid="copilot-chat-textarea-preview"]',
+          ),
+      };
+    };
+
+    it("keeps text and actions on one row until the text breaks a line", () => {
+      const { fixture, layout } = render();
+      expect(layout()).toBe("compact");
+
+      chatState.inputValue.set("first line\nsecond line");
+      fixture.detectChanges();
+      TestBed.tick();
+      expect(layout()).toBe("expanded");
+    });
+
+    it('always stacks the text above the actions with layout="stacked"', () => {
+      expect(render({ layout: "stacked" }).layout()).toBe("expanded");
+    });
+
+    it("folds voice input into the + menu when the input is narrow", () => {
+      const clientWidth = vi
+        .spyOn(HTMLElement.prototype, "clientWidth", "get")
+        .mockReturnValue(280);
+      try {
+        const { fixture, mic } = render();
+        expect(mic()).toBeNull();
+        expect(fixture.componentInstance.addMenuTools()[0]).toMatchObject({
+          label:
+            fixture.componentInstance.labels
+              .chatInputToolbarStartTranscribeButtonLabel,
+        });
+      } finally {
+        clientWidth.mockRestore();
+      }
+      const { fixture, mic } = render();
+      expect(mic()).not.toBeNull();
+      expect(fixture.componentInstance.addMenuTools()).toEqual([]);
+    });
+
+    it("previews list markers and links under a transparent textarea", () => {
+      chatState.inputValue.set("- see [docs](https://docs.copilotkit.ai)");
+      const { fixture, preview } = render();
+      expect(preview()?.querySelector(".cpk-md-list-marker")).not.toBeNull();
+      expect(
+        fixture.nativeElement.querySelector("textarea").className,
+      ).toContain("cpk:text-transparent");
+
+      fixture.componentRef.setInput("highlightMarkdown", false);
+      fixture.detectChanges();
+      expect(preview()).toBeNull();
+      expect(
+        fixture.nativeElement.querySelector("textarea").className,
+      ).not.toContain("cpk:text-transparent");
+    });
   });
 });

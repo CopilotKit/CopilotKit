@@ -70,6 +70,8 @@ import {
                 [messages]="messagesValue()"
                 [agentId]="agentId()"
                 [isLoading]="isLoadingValue()"
+                [toolbarScope]="assistantMessageToolbarScope()"
+                [showCursor]="message.id === cursorMessageId()"
                 [inputClass]="assistantMessageClass()"
                 (thumbsUp)="handleAssistantThumbsUp($event)"
                 (thumbsDown)="handleAssistantThumbsDown($event)"
@@ -146,6 +148,12 @@ export class CopilotChatMessageView {
   state = input<unknown>({});
   showCursor = input<boolean>(false);
   isLoading = input<boolean>(false);
+  /**
+   * While a reply streams, show the cursor at the end of its text, as if it
+   * were being typed. Defaults to `true`; set `false` to keep the cursor below
+   * the messages.
+   */
+  inlineCursor = input<boolean>(true);
   inputClass = input<string | undefined>();
   agentId = input<string | undefined>();
 
@@ -155,6 +163,11 @@ export class CopilotChatMessageView {
   assistantMessageComponent = input<Type<any> | undefined>();
   assistantMessageTemplate = input<TemplateRef<any> | undefined>();
   assistantMessageClass = input<string | undefined>();
+  /**
+   * Where assistant toolbars appear: `"turn"` (default) shows one per reply,
+   * `"message"` one per assistant message. See CopilotChatAssistantMessage.
+   */
+  assistantMessageToolbarScope = input<"turn" | "message">("turn");
 
   // ReasoningMessage slot inputs
   reasoningMessageComponent = input<Type<any> | undefined>();
@@ -211,8 +224,25 @@ export class CopilotChatMessageView {
   private readonly rowKeyStoreCommit = afterRenderEffect(() => {
     commitRowKeyStore(this.rowKeyStore, this.messagesValue());
   });
+  /**
+   * A streaming reply with text carries the cursor at the end of that text;
+   * otherwise (waiting for the reply, running a tool) it sits below the list.
+   */
+  protected cursorMessageId = computed(() => {
+    const last = this.lastMessage();
+    return this.inlineCursor() &&
+      this.isLoadingValue() &&
+      last?.role === "assistant" &&
+      last.content
+      ? last.id
+      : undefined;
+  });
+  // Hidden after a reasoning message too: its card shows its own indicator.
   protected showCursorValue = computed(
-    () => this.showCursor() && this.lastMessage()?.role !== "reasoning",
+    () =>
+      this.showCursor() &&
+      this.lastMessage()?.role !== "reasoning" &&
+      !this.cursorMessageId(),
   );
   protected isLoadingValue = computed(() => this.isLoading());
   protected lastMessage = computed(() => {
@@ -257,6 +287,8 @@ export class CopilotChatMessageView {
       message,
       messages: this.messagesValue(),
       isLoading: this.isLoadingValue(),
+      toolbarScope: this.assistantMessageToolbarScope(),
+      showCursor: message.id === this.cursorMessageId(),
       inputClass: this.assistantMessageClass(),
     };
   }

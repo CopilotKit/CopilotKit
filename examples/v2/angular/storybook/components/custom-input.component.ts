@@ -1,7 +1,12 @@
-import { Component, Input, ChangeDetectionStrategy } from "@angular/core";
+import {
+  Component,
+  Input,
+  ChangeDetectionStrategy,
+  inject,
+} from "@angular/core";
 
 import { FormsModule } from "@angular/forms";
-import type { ChatState } from "@copilotkit/angular";
+import { ChatState } from "@copilotkit/angular";
 
 @Component({
   selector: "custom-input",
@@ -57,7 +62,8 @@ export class CustomInputComponent {
 
   inputValue = "";
 
-  constructor(private chat: ChatState) {}
+  // A value import (not `import type`): ChatState is the DI token.
+  private readonly chat = inject(ChatState);
 
   handleSend() {
     const value = this.inputValue.trim();

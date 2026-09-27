@@ -14,6 +14,7 @@ import { CopilotChatViewDisclaimer } from "./copilot-chat-view-disclaimer";
 import { cn } from "../../utils";
 import { ChatState } from "../../chat-state";
 import { CopilotChatAttachmentQueue } from "./copilot-chat-attachment-queue";
+import { CopilotChatSuggestionView } from "./copilot-chat-suggestion-view";
 
 /**
  * InputContainer component for CopilotChatView
@@ -22,7 +23,7 @@ import { CopilotChatAttachmentQueue } from "./copilot-chat-attachment-queue";
  */
 @Component({
   selector: "copilot-chat-view-input-container",
-  imports: [CopilotSlot, CopilotChatAttachmentQueue],
+  imports: [CopilotSlot, CopilotChatAttachmentQueue, CopilotChatSuggestionView],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   providers: [
@@ -32,7 +33,27 @@ import { CopilotChatAttachmentQueue } from "./copilot-chat-attachment-queue";
     },
   ],
   template: `
-    <div [class]="computedClass">
+    <div data-testid="copilot-input-overlay" [class]="computedClass">
+      <!-- Messages fade out above the input and are fully hidden by the time
+           they reach it, including the disclaimer area below. -->
+      <div
+        aria-hidden="true"
+        class="cpk:pointer-events-none cpk:absolute cpk:inset-x-0 cpk:-top-6 cpk:bottom-0 cpk:-z-10 cpk:bg-[linear-gradient(to_bottom,transparent,var(--background)_1.5rem)]"
+      ></div>
+      <!-- Suggestions: one scrollable row docked above the input -->
+      @if (showSuggestions() && (chatState?.suggestions?.() ?? []).length > 0) {
+        <div
+          class="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:mb-1.5 cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-4 cpk:pointer-events-auto"
+        >
+          <copilot-chat-suggestion-view
+            [suggestions]="chatState?.suggestions?.() ?? []"
+            (selectSuggestion)="
+              chatState?.selectSuggestion($event.suggestion, $event.index)
+            "
+          />
+        </div>
+      }
+
       <!-- Input component -->
       @if ((chatState?.attachments() ?? []).length > 0) {
         <div class="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:pointer-events-auto">
@@ -44,7 +65,9 @@ import { CopilotChatAttachmentQueue } from "./copilot-chat-attachment-queue";
         </div>
       }
 
-      <div class="cpk:max-w-3xl cpk:mx-auto cpk:py-0 cpk:px-4 cpk:@3xl:px-0">
+      <div
+        class="cpk:max-w-3xl cpk:mx-auto cpk:py-0 cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-4 cpk:pointer-events-auto"
+      >
         <copilot-slot
           [slot]="input()"
           [context]="{ inputClass: inputClass() }"
@@ -67,6 +90,8 @@ export class CopilotChatViewInputContainer extends ElementRef {
   readonly chatState = inject(ChatState, { optional: true });
 
   inputContainerClass = input<string | undefined>();
+  /** Show the suggestion row above the input (hidden while a run is active). */
+  showSuggestions = input<boolean>(true);
 
   // Input slot configuration
   input = input<any | undefined>();
@@ -87,7 +112,7 @@ export class CopilotChatViewInputContainer extends ElementRef {
 
   get computedClass(): string {
     return cn(
-      "cpk:absolute cpk:bottom-6 cpk:left-0 cpk:right-0 cpk:z-20",
+      "cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20 cpk:pointer-events-none",
       this.inputContainerClass(),
     );
   }

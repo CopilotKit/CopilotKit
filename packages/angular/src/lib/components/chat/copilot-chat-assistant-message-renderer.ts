@@ -17,6 +17,33 @@ import { completePartialMarkdown } from "@copilotkit/core";
 import { copyToClipboard } from "@copilotkit/shared";
 import { injectChatLabels } from "../../chat-config";
 import { explicitEffect } from "../../explicit-effect";
+import { markCursorAnchor } from "./streaming-cursor";
+
+const SAFE_URL = /^(?:https?:|mailto:|tel:|#|\/|\.{1,2}\/|[^:]*$)/i;
+const SAFE_IMAGE_URL = /^(?:https?:|data:image\/|\/|\.{1,2}\/|[^:]*$)/i;
+
+/**
+ * What a browser would read as the URL: character references decoded and the
+ * whitespace / control characters it ignores inside a scheme removed.
+ */
+function normalizeUrl(href: string): string {
+  return href
+    .replace(/&#x([0-9a-f]+);?/gi, (_, hex) =>
+      String.fromCodePoint(parseInt(hex, 16)),
+    )
+    .replace(/&#(\d+);?/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&colon;?/gi, ":")
+    .replace(/&(tab|newline);?/gi, "")
+    .replace(/[\u0000-\u0020\u007f-\u009f]/g, "");
+}
+
+/** Neutralize link / image URLs with script-capable schemes (javascript:, vbscript:, ...). */
+function sanitizeTokenUrl(token: { type: string; href?: string }): void {
+  if (typeof token.href !== "string") return;
+  const href = normalizeUrl(token.href);
+  if (token.type === "link" && !SAFE_URL.test(href)) token.href = "#";
+  if (token.type === "image" && !SAFE_IMAGE_URL.test(href)) token.href = "";
+}
 
 function processMathEquationsInHtml(html: string): string {
   // First, temporarily replace code blocks with placeholders to protect them from math processing
@@ -100,73 +127,86 @@ function processMathEquationsInHtml(html: string): string {
         width: 100%;
       }
 
-      /* Inline code styling */
+      /* The message or user bubble owns the outer spacing; this also beats
+         the code block's own margin when it opens or closes the message. */
+      copilot-chat-assistant-message-renderer > div > :first-child {
+        margin-top: 0;
+      }
+
+      copilot-chat-assistant-message-renderer > div > :last-child {
+        margin-bottom: 0;
+      }
+
+      /* Inline code. Colors come from CopilotKit's tokens so the pill reads
+         in light and dark. */
       copilot-chat-assistant-message-renderer code:not(pre code) {
-        padding: 2.5px 4.8px;
-        background-color: rgb(236, 236, 236);
-        border-radius: 0.25rem;
-        font-size: 0.875rem;
+        padding: 0.15em 0.4em;
+        /* A translucent tint (not --muted) so inline code stays visible on any
+           surface, including the muted user-message bubble. */
+        background-color: color-mix(in oklab, var(--foreground) 9%, transparent);
+        border-radius: calc(var(--radius) - 4px);
+        font-size: 0.875em;
         font-family:
           ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo,
           monospace;
         font-weight: 500;
-        color: #000000;
+        color: var(--foreground);
       }
 
-      .dark copilot-chat-assistant-message-renderer code:not(pre code) {
-        background-color: #171717; /* same as code blocks */
-        color: rgb(248, 250, 252); /* text-foreground in dark mode */
-      }
-
-      /* Code block container */
+      /* Code block container: a raised surface that follows the theme. */
       copilot-chat-assistant-message-renderer .code-block-container {
         position: relative;
-        margin: 0.25rem 0;
-        background-color: rgb(249, 249, 249);
-        border-radius: 1rem;
+        margin: 1em 0;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: calc(var(--radius) + 4px);
+        background-color: color-mix(in oklab, var(--muted) 50%, var(--background));
       }
 
       .dark copilot-chat-assistant-message-renderer .code-block-container {
-        background-color: #171717;
+        background-color: var(--card);
       }
 
       copilot-chat-assistant-message-renderer .code-block-header {
         display: flex;
+        height: 2.25rem;
         align-items: center;
         justify-content: space-between;
-        padding: 0.75rem 1rem 0.75rem 1rem;
+        padding: 0 0.5rem 0 0.75rem;
+        border-bottom: 1px solid var(--border);
+        font-family:
+          ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo,
+          monospace;
         font-size: 0.75rem;
+        color: var(--muted-foreground);
         background-color: transparent;
       }
 
       copilot-chat-assistant-message-renderer .code-block-language {
         font-weight: 400;
-        color: rgba(115, 115, 115, 1);
-      }
-
-      .dark copilot-chat-assistant-message-renderer .code-block-language {
-        color: white;
+        color: var(--muted-foreground);
       }
 
       copilot-chat-assistant-message-renderer .code-block-copy-button {
         display: flex;
         align-items: center;
-        gap: 0.125rem;
+        gap: 0.25rem;
+        height: 1.625rem;
         padding: 0 0.5rem;
-        font-size: 0.75rem;
-        color: rgba(115, 115, 115, 1);
-        cursor: pointer;
-        background: none;
         border: none;
-        transition: opacity 0.2s;
-      }
-
-      .dark copilot-chat-assistant-message-renderer .code-block-copy-button {
-        color: white;
+        border-radius: calc(var(--radius) - 4px);
+        font-size: 0.75rem;
+        color: var(--muted-foreground);
+        background: none;
+        cursor: pointer;
+        transition:
+          color 150ms,
+          background-color 150ms;
       }
 
       copilot-chat-assistant-message-renderer .code-block-copy-button:hover {
-        opacity: 0.8;
+        color: var(--foreground);
+        background-color: var(--accent);
       }
 
       copilot-chat-assistant-message-renderer .code-block-copy-button svg {
@@ -180,34 +220,28 @@ function processMathEquationsInHtml(html: string): string {
 
       copilot-chat-assistant-message-renderer pre {
         margin: 0;
-        padding: 0 1rem 1rem 1rem;
+        padding: 0.875rem 1rem;
         overflow-x: auto;
+        color: var(--foreground);
         background-color: transparent;
-        border-radius: 1rem;
-      }
-
-      .dark copilot-chat-assistant-message-renderer pre {
-        background-color: transparent;
+        border-radius: 0;
       }
 
       copilot-chat-assistant-message-renderer pre code {
         background-color: transparent;
         padding: 0;
-        font-size: 0.875rem;
+        font-size: 0.8125rem;
+        line-height: 1.6;
         font-family:
           ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo,
           monospace;
       }
 
-      /* Highlight.js theme adjustments */
+      /* Highlight.js: plain tokens use the foreground; the syntax palette
+         (Atom One light/dark) lives with CopilotChatAssistantMessage. */
       copilot-chat-assistant-message-renderer .hljs {
         background: transparent;
-        color: rgb(56, 58, 66);
-      }
-
-      .dark copilot-chat-assistant-message-renderer .hljs {
-        background: transparent;
-        color: #abb2bf;
+        color: var(--foreground);
       }
 
       /* Math equations */
@@ -222,6 +256,8 @@ function processMathEquationsInHtml(html: string): string {
 export class CopilotChatAssistantMessageRenderer implements AfterViewInit {
   readonly content = input<string>("");
   readonly inputClass = input<string | undefined>();
+  /** Render markdown headings as plain paragraphs (used for user messages). */
+  readonly plainHeadings = input<boolean>(false);
   readonly labels = injectChatLabels();
 
   @ViewChild("markdownContainer", { static: false })
@@ -233,6 +269,7 @@ export class CopilotChatAssistantMessageRenderer implements AfterViewInit {
   private copyStates = new Map<string, boolean>();
 
   readonly renderedHtml = computed(() => {
+    this.plainHeadings();
     const currentContent = this.content();
     const completedMarkdown = completePartialMarkdown(currentContent);
     return this.renderMarkdown(completedMarkdown);
@@ -260,6 +297,8 @@ export class CopilotChatAssistantMessageRenderer implements AfterViewInit {
     const container = this.markdownContainer.nativeElement;
     const html = this.renderedHtml();
     container.innerHTML = html;
+    // Where the streaming cursor rides (shown only while the reply streams).
+    markCursorAnchor(container);
   }
 
   private codeBlocksMap = new Map<string, string>();
@@ -280,9 +319,20 @@ export class CopilotChatAssistantMessageRenderer implements AfterViewInit {
       breaks: true,
     });
 
+    this.markedInstance.use({
+      renderer: {
+        // `false` falls back to marked's default heading renderer.
+        heading: (text: string) =>
+          this.plainHeadings() ? `<p>${text}</p>\n` : false,
+      },
+    });
+
     // Add a walkTokens function to process code tokens before rendering
     this.markedInstance.use({
       walkTokens: (token: any) => {
+        if (token.type === "link" || token.type === "image") {
+          sanitizeTokenUrl(token);
+        }
         if (token.type === "code") {
           const rawCode = token.text;
           const lang = token.lang || "";
@@ -333,8 +383,11 @@ export class CopilotChatAssistantMessageRenderer implements AfterViewInit {
     // Clear the code blocks map for new render
     this.codeBlocksMap.clear();
 
-    // Parse markdown
-    let html = this.markedInstance!.parse(content) as string;
+    // Parse markdown. Tables get a wrapper that frames them and scrolls
+    // sideways when they are wider than the message.
+    let html = (this.markedInstance!.parse(content) as string)
+      .replace(/<table>/g, '<div class="cpk-md-table"><table>')
+      .replace(/<\/table>/g, "</table></div>");
 
     // Process math equations
     html = processMathEquationsInHtml(html);

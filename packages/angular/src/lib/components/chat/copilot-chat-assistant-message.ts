@@ -39,6 +39,7 @@ import {
 import { CopilotChatAssistantMessageToolbar } from "./copilot-chat-assistant-message-toolbar";
 import { cn } from "../../utils";
 import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
+import { getAssistantTurn } from "./assistant-turn";
 
 @Component({
   selector: "copilot-chat-assistant-message",
@@ -62,20 +63,25 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
       role="article"
     >
       <!-- Markdown Renderer -->
-      @if (markdownRendererTemplate || markdownRendererComponent()) {
-        <copilot-slot
-          [slot]="markdownRendererTemplate || markdownRendererComponent()"
-          [context]="markdownRendererContext()"
-          [defaultComponent]="CopilotChatAssistantMessageRenderer"
-        >
-        </copilot-slot>
-      } @else {
-        <copilot-chat-assistant-message-renderer
-          [content]="message().content || ''"
-          [inputClass]="markdownRendererClass()"
-        >
-        </copilot-chat-assistant-message-renderer>
-      }
+      <div
+        class="cpk:prose cpk:max-w-full cpk:break-words cpk:text-foreground cpk:dark:prose-invert"
+        [attr.data-streaming-cursor]="showCursor() ? '' : null"
+      >
+        @if (markdownRendererTemplate || markdownRendererComponent()) {
+          <copilot-slot
+            [slot]="markdownRendererTemplate || markdownRendererComponent()"
+            [context]="markdownRendererContext()"
+            [defaultComponent]="CopilotChatAssistantMessageRenderer"
+          >
+          </copilot-slot>
+        } @else {
+          <copilot-chat-assistant-message-renderer
+            [content]="message().content || ''"
+            [inputClass]="markdownRendererClass()"
+          >
+          </copilot-chat-assistant-message-renderer>
+        }
+      </div>
 
       <!-- Tool Calls View -->
       @if (toolCallsViewTemplate || toolCallsViewComponent()) {
@@ -95,8 +101,8 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
         </copilot-chat-tool-calls-view>
       }
 
-      <!-- Toolbar: show only when there is assistant text content -->
-      @if (toolbarVisible() && hasMessageContent()) {
+      <!-- Toolbar: one per reply by default (see toolbarScope) -->
+      @if (showToolbar()) {
         @if (toolbarTemplate || toolbarComponent()) {
           <copilot-slot
             [slot]="toolbarTemplate || toolbarComponent()"
@@ -105,20 +111,24 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
           >
           </copilot-slot>
         } @else {
-          <div copilotChatAssistantMessageToolbar [inputClass]="toolbarClass()">
-            <div class="cpk:flex cpk:items-center cpk:gap-1">
+          <div
+            copilotChatAssistantMessageToolbar
+            data-testid="copilot-assistant-toolbar"
+            [inputClass]="toolbarClass()"
+          >
+            <div class="cpk:flex cpk:w-full cpk:items-center cpk:gap-0.5">
               <!-- Copy button -->
               @if (copyButtonTemplate || copyButtonComponent()) {
                 <copilot-slot
                   [slot]="copyButtonTemplate || copyButtonComponent()"
-                  [context]="{ content: message().content || '' }"
+                  [context]="{ content: replyContent() }"
                   [defaultComponent]="CopilotChatAssistantMessageCopyButton"
                   [outputs]="copyButtonOutputs"
                 >
                 </copilot-slot>
               } @else {
                 <copilot-chat-assistant-message-copy-button
-                  [content]="message().content"
+                  [content]="replyContent()"
                   [inputClass]="copyButtonClass()"
                   (clicked)="handleCopy()"
                 >
@@ -407,6 +417,22 @@ export class CopilotChatAssistantMessage {
     undefined,
   );
   readonly toolbarVisible = input<boolean>(true);
+  /**
+   * Where the toolbar (copy, feedback, regenerate…) appears.
+   *
+   * - `"turn"` (default): one toolbar per reply. When a single user message
+   *   produces several assistant messages, only the last one shows the
+   *   toolbar, and copy / read aloud cover the whole reply.
+   * - `"message"`: every assistant message gets its own toolbar.
+   *
+   * Needs `messages` to find the reply; without it every message is its own turn.
+   */
+  readonly toolbarScope = input<"turn" | "message">("turn");
+  /**
+   * Shows a pulsing cursor at the end of the text while it's being written.
+   * `CopilotChatMessageView` sets this on the reply that's streaming.
+   */
+  readonly showCursor = input<boolean>(false);
   readonly inputClass = input<string | undefined>(undefined);
 
   // DI service exposes handler availability scoped to CopilotChatView
@@ -433,8 +459,9 @@ export class CopilotChatAssistantMessage {
   // Computed values
   computedClass = computed(() => {
     return cn(
-      "copilotKitMessage copilotKitAssistantMessage cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert",
+      "copilotKitMessage copilotKitAssistantMessage",
       this.customClass(),
+      this.inputClass(),
     );
   });
 
@@ -474,6 +501,39 @@ export class CopilotChatAssistantMessage {
     return (this.message()?.content ?? "").trim().length > 0;
   }
 
+  /** The reply this message belongs to, in turn scope. */
+  private readonly turn = computed(() =>
+    this.toolbarScope() === "turn" && this.messages().length > 0
+      ? getAssistantTurn(this.messages(), this.message().id)
+      : undefined,
+  );
+
+  /** What copy and read aloud act on: the whole reply in turn scope. */
+  readonly replyContent = computed(
+    () => this.turn()?.content ?? (this.message()?.content || ""),
+  );
+
+  /**
+   * In turn scope only the reply's last message carries the toolbar, and it
+   * stays hidden while that reply is still being produced. Replies with no
+   * text (only tool calls) never show one.
+   */
+  readonly showToolbar = computed(() => {
+    const turn = this.turn();
+    const messages = this.messages();
+    const message = this.message();
+    const ownsToolbar = !turn || turn.lastMessageId === message.id;
+    const isReplyInProgress = turn
+      ? turn.isLatest
+      : messages[messages.length - 1]?.id === message.id;
+    return (
+      this.toolbarVisible() &&
+      ownsToolbar &&
+      this.replyContent().trim().length > 0 &&
+      !(this.isLoading() && isReplyInProgress)
+    );
+  });
+
   toolCallsViewContext = computed(() => ({
     message: this.message(),
     messages: this.messages(),
@@ -494,7 +554,9 @@ export class CopilotChatAssistantMessage {
   }
 
   handleReadAloud(): void {
-    this.readAloud.emit({ message: this.message() });
+    this.readAloud.emit({
+      message: { ...this.message(), content: this.replyContent() },
+    });
   }
 
   handleRegenerate(): void {

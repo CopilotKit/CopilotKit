@@ -51,6 +51,78 @@ describe("CopilotChatView", () => {
     expect(element.textContent).toContain("How can I help you today?");
   });
 
+  it("docks suggestions above the input in a conversation and under the greeting on the welcome screen", () => {
+    const chatState = TestBed.inject(ChatState);
+    chatState.suggestions.set([
+      { title: "Draft a reply", message: "Draft a reply", isLoading: false },
+    ]);
+
+    const welcome = TestBed.createComponent(CopilotChatView);
+    welcome.componentRef.setInput("messages", []);
+    welcome.detectChanges();
+    const welcomeEl = welcome.nativeElement as HTMLElement;
+    // Greeting, cards, then the input: one centered block.
+    const content = welcomeEl.querySelector(".copilotKitWelcomeScreenContent");
+    const [greeting, cards, input] = Array.from(content?.children ?? []);
+    expect(greeting?.textContent).toContain("How can I help you today?");
+    expect(
+      cards?.querySelector(
+        '[data-testid="copilot-suggestions"][data-appearance="cards"]',
+      ),
+    ).not.toBeNull();
+    expect(input?.querySelector("copilot-chat-input")).not.toBeNull();
+
+    const chat = TestBed.createComponent(CopilotChatView);
+    chat.componentRef.setInput("messages", [
+      { id: "u1", role: "user", content: "Hi" },
+      { id: "a1", role: "assistant", content: "Hello!" },
+    ] satisfies Message[]);
+    chat.detectChanges();
+    const chatEl = chat.nativeElement as HTMLElement;
+    expect(
+      chatEl.querySelector(
+        'copilot-chat-view-input-container [data-testid="copilot-suggestions"][data-appearance="pills"]',
+      ),
+    ).not.toBeNull();
+    expect(
+      chatEl.querySelector(
+        'copilot-chat-view-scroll-view [data-testid="copilot-suggestions"]',
+      ),
+    ).toBeNull();
+
+    chat.componentRef.setInput("isRunning", true);
+    chat.detectChanges();
+    expect(
+      chatEl.querySelector('[data-testid="copilot-suggestions"]'),
+    ).toBeNull();
+  });
+
+  it("plays the intro on the welcome screen only, unless turned off", () => {
+    const welcome = TestBed.createComponent(CopilotChatView);
+    welcome.componentRef.setInput("messages", []);
+    welcome.detectChanges();
+    const welcomeEl = welcome.nativeElement as HTMLElement;
+    expect(welcomeEl.hasAttribute("data-intro")).toBe(true);
+    expect(welcomeEl.querySelectorAll(".cpk-intro")).toHaveLength(2);
+    expect(welcomeEl.querySelector(".cpk-intro-stagger")).not.toBeNull();
+
+    // No intro on the conversation: header, message list and docked input.
+    const chat = TestBed.createComponent(CopilotChatView);
+    chat.componentRef.setInput("messages", [
+      { id: "u1", role: "user", content: "Hi" },
+    ] satisfies Message[]);
+    chat.detectChanges();
+    expect(
+      (chat.nativeElement as HTMLElement).querySelector(
+        ".cpk-intro, .cpk-intro-stagger",
+      ),
+    ).toBeNull();
+
+    welcome.componentRef.setInput("introAnimation", false);
+    welcome.detectChanges();
+    expect(welcomeEl.hasAttribute("data-intro")).toBe(false);
+  });
+
   it("suppresses the welcome screen when a thread is explicitly selected", () => {
     const fixture = TestBed.createComponent(CopilotChatView);
 

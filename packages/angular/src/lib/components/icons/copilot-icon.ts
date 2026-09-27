@@ -75,6 +75,22 @@ export const ArrowUp: CopilotIconData = [
   path("M12 19V5"),
 ];
 export const Check: CopilotIconData = [path("M20 6 9 17l-5-5")];
+// Lucide's circle / polygon primitives expressed as equivalent paths.
+export const Circle: CopilotIconData = [
+  path("M22 12a10 10 0 1 1-20 0a10 10 0 1 1 20 0"),
+];
+export const LoaderCircle: CopilotIconData = [
+  path("M21 12a9 9 0 1 1-6.219-8.56"),
+];
+export const PanelLeft: CopilotIconData = [
+  rect({ x: "3", y: "3", width: "18", height: "18", rx: "2" }),
+  path("M9 3v18"),
+];
+export const Pause: CopilotIconData = [
+  rect({ x: "14", y: "4", width: "4", height: "16", rx: "1" }),
+  rect({ x: "6", y: "4", width: "4", height: "16", rx: "1" }),
+];
+export const Play: CopilotIconData = [path("M6 3 20 12 6 21 6 3Z")];
 export const ChevronDown: CopilotIconData = [path("m6 9 6 6 6-6")];
 export const ChevronLeft: CopilotIconData = [path("m15 18-6-6 6-6")];
 export const ChevronRight: CopilotIconData = [path("m9 18 6-6-6-6")];
@@ -87,6 +103,14 @@ export const Edit: CopilotIconData = [
   path(
     "M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z",
   ),
+];
+export const History: CopilotIconData = [
+  path("M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"),
+  path("M3 3v5h5"),
+  path("M12 7v5l4 2"),
+];
+export const MessageCircle: CopilotIconData = [
+  path("M7.9 20A9 9 0 1 0 4 16.1L2 22Z"),
 ];
 export const Mic: CopilotIconData = [
   path("M12 19v3"),

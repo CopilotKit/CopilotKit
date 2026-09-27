@@ -59,7 +59,11 @@ import { injectChatLabels } from "../../chat-config";
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   providers: [ResizeObserverService, CopilotChatViewHandlers],
-  host: { class: "cpk:block cpk:h-full cpk:min-h-0" },
+  host: {
+    "data-copilotkit": "",
+    class: "cpk:block cpk:h-full cpk:min-h-0",
+    "[attr.data-intro]": "introAnimation() ? '' : null",
+  },
   template: `
     <!-- Custom layout template support (render prop pattern) -->
     @if (customLayoutTemplate) {
@@ -87,20 +91,38 @@ import { injectChatLabels } from "../../chat-config";
 
         <div
           data-testid="copilot-welcome-screen"
-          class="cpk:flex-1 cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:px-4"
+          class="copilotKitWelcomeScreen cpk:flex-1 cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:px-4"
         >
+          <!-- Greeting, suggestion cards and input, centered together -->
           <div
-            class="cpk:w-full cpk:max-w-3xl cpk:flex cpk:flex-col cpk:items-center"
+            class="copilotKitWelcomeScreenContent cpk:w-full cpk:max-w-3xl cpk:flex cpk:flex-col cpk:items-center"
           >
-            <div class="cpk:mb-6">
+            <div class="cpk-intro cpk:mb-5">
               <h1
-                class="cpk:text-xl cpk:sm:text-2xl cpk:font-medium cpk:text-foreground cpk:text-center"
+                class="cpk:text-2xl cpk:@2xl:text-[1.75rem] cpk:font-semibold cpk:tracking-tight cpk:text-foreground cpk:text-center cpk:text-balance"
               >
                 {{ labels.welcomeMessageText }}
               </h1>
             </div>
 
-            <div class="cpk:w-full">
+            <div
+              class="cpk-intro-stagger cpk:mb-5 cpk:flex cpk:w-full cpk:justify-center cpk:empty:hidden"
+            >
+              @if (suggestionsVisible()) {
+                <copilot-chat-suggestion-view
+                  appearance="cards"
+                  [suggestions]="chatState?.suggestions?.() ?? []"
+                  (selectSuggestion)="
+                    chatState?.selectSuggestion($event.suggestion, $event.index)
+                  "
+                />
+              }
+            </div>
+
+            <div
+              class="copilotKitWelcomeScreenInput cpk-intro cpk:w-full"
+              style="--cpk-intro-delay: 180ms"
+            >
               @if ((chatState?.attachments?.() ?? []).length > 0) {
                 <copilot-chat-attachment-queue
                   [attachments]="chatState?.attachments?.() ?? []"
@@ -109,12 +131,16 @@ import { injectChatLabels } from "../../chat-config";
                 />
               }
 
-              <copilot-slot
-                [slot]="inputSlot()"
-                [context]="{ inputClass: undefined }"
-                [defaultComponent]="defaultInputComponent"
+              <div
+                class="cpk:max-w-3xl cpk:mx-auto cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-4"
               >
-              </copilot-slot>
+                <copilot-slot
+                  [slot]="inputSlot()"
+                  [context]="{ inputClass: undefined }"
+                  [defaultComponent]="defaultInputComponent"
+                >
+                </copilot-slot>
+              </div>
 
               <copilot-slot
                 [slot]="disclaimerSlot()"
@@ -126,17 +152,6 @@ import { injectChatLabels } from "../../chat-config";
               >
               </copilot-slot>
             </div>
-
-            @if ((chatState?.suggestions?.() ?? []).length > 0) {
-              <div class="cpk:mt-4 cpk:flex cpk:justify-center">
-                <copilot-chat-suggestion-view
-                  [suggestions]="chatState?.suggestions?.() ?? []"
-                  (selectSuggestion)="
-                    chatState?.selectSuggestion($event.suggestion, $event.index)
-                  "
-                />
-              </div>
-            }
           </div>
         </div>
       </div>
@@ -181,6 +196,8 @@ import { injectChatLabels } from "../../chat-config";
           [scrollToBottomButton]="scrollToBottomButtonSlot()"
           [scrollToBottomButtonClass]="scrollToBottomButtonClass()"
           [showCursor]="showCursorSignal()"
+          [isRunning]="isRunning()"
+          [assistantMessageToolbarScope]="assistantMessageToolbarScope()"
           (assistantMessageThumbsUp)="assistantMessageThumbsUp.emit($event)"
           (assistantMessageThumbsDown)="assistantMessageThumbsDown.emit($event)"
           (assistantMessageReadAloud)="assistantMessageReadAloud.emit($event)"
@@ -193,7 +210,7 @@ import { injectChatLabels } from "../../chat-config";
         <!-- Feather effect -->
         <copilot-slot
           [slot]="featherSlot()"
-          [context]="{ inputClass: featherClass }"
+          [context]="{ inputClass: featherClass() }"
           [defaultComponent]="defaultFeatherComponent"
         >
         </copilot-slot>
@@ -220,6 +237,8 @@ export class CopilotChatView implements OnInit, OnChanges {
   agentId = input<string | undefined>();
   autoScroll = input<boolean>(true);
   showCursor = input<boolean>(false);
+  /** Whether the agent is running (hides the latest reply's toolbar and suggestions). */
+  isRunning = input<boolean>(false);
   hasExplicitThreadId = input<boolean>(false);
 
   // MessageView slot inputs
@@ -231,6 +250,17 @@ export class CopilotChatView implements OnInit, OnChanges {
   assistantMessageComponent = input<Type<any> | undefined>(undefined);
   assistantMessageTemplate = input<TemplateRef<any> | undefined>(undefined);
   assistantMessageClass = input<string | undefined>(undefined);
+  /**
+   * Where assistant toolbars appear: `"turn"` (default) shows one per reply,
+   * `"message"` one per assistant message. See CopilotChatAssistantMessage.
+   */
+  assistantMessageToolbarScope = input<"turn" | "message">("turn");
+  /**
+   * Ease the welcome screen in: the greeting, suggestion cards and input rise
+   * into place in sequence. Defaults to `true`; set `false` to show them
+   * immediately. Always off when the user prefers reduced motion.
+   */
+  introAnimation = input<boolean>(true);
 
   // ReasoningMessage slot inputs
   reasoningMessageComponent = input<Type<any> | undefined>(undefined);
@@ -324,6 +354,16 @@ export class CopilotChatView implements OnInit, OnChanges {
   protected shouldShowWelcomeScreen = computed(
     () => this.messagesValue().length === 0 && !this.hasExplicitThreadId(),
   );
+  /**
+   * Suggestions hide while a thread connects or a run is in flight, so they
+   * don't jump around as the message tree assembles.
+   */
+  protected readonly suggestionsVisible = computed(
+    () =>
+      !this.showCursorSignal() &&
+      !this.isRunning() &&
+      (this.chatState?.suggestions?.() ?? []).length > 0,
+  );
 
   // Computed signals
   protected computedClass = computed(() =>
@@ -392,11 +432,14 @@ export class CopilotChatView implements OnInit, OnChanges {
     messageViewChildrenComponent: this.messageViewChildrenComponent(),
     messageViewChildrenTemplate: this.messageViewChildrenTemplate(),
     messageViewChildrenClass: this.messageViewChildrenClass(),
+    isRunning: this.isRunning(),
+    assistantMessageToolbarScope: this.assistantMessageToolbarScope(),
   }));
 
   // Removed scrollViewPropsComputed - no longer needed
 
   protected inputContainerContext = computed(() => ({
+    showSuggestions: this.suggestionsVisible(),
     input: this.inputSlot(),
     disclaimer: this.disclaimerSlot(),
     disclaimerText: this.disclaimerTextSignal(),

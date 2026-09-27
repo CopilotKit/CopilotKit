@@ -63,6 +63,12 @@ describe("CopilotChatAssistantMessage", () => {
     expect(component.computedClass()).toContain("copilotKitAssistantMessage");
   });
 
+  it("applies inputClass to the message container", () => {
+    (component as any).inputClass = () => "host-branded-message";
+    expect(component.computedClass()).toContain("host-branded-message");
+    expect(component.computedClass()).toContain("copilotKitAssistantMessage");
+  });
+
   it("exposes tool call context", () => {
     const context = component.toolCallsViewContext();
     expect(context.message).toBe(assistantMessage);

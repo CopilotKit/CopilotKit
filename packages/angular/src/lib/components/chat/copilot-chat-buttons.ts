@@ -27,44 +27,22 @@ const buttonBase = cn(
   "cpk:focus-visible:border-ring cpk:focus-visible:ring-ring/50 cpk:focus-visible:ring-[3px]",
 );
 
+// React's chatInputToolbarPrimary variant with the chatInputToolbarIcon size.
 const chatInputToolbarPrimary = cn(
-  "cpk:cursor-pointer",
-  // Background and text
-  "cpk:bg-black cpk:text-white",
-  // Dark mode
-  "cpk:dark:bg-white cpk:dark:text-black cpk:dark:focus-visible:outline-white",
-  // Shape and sizing
-  "cpk:rounded-full cpk:h-9 cpk:w-9",
-  // Interactions
-  "cpk:transition-colors",
-  // Focus states
-  "cpk:focus:outline-none",
-  // Hover states
-  "cpk:hover:opacity-70 cpk:disabled:hover:opacity-100",
-  // Disabled states
-  "cpk:disabled:cursor-not-allowed cpk:disabled:bg-[#00000014] cpk:disabled:text-[rgb(13,13,13)]",
-  "cpk:dark:disabled:bg-[#454545] cpk:dark:disabled:text-white",
+  "cpk:cursor-pointer cpk:rounded-full",
+  "cpk:bg-primary cpk:text-primary-foreground cpk:hover:bg-primary/85",
+  "cpk:transition-[background-color,transform] cpk:active:scale-95",
+  "cpk:disabled:cursor-not-allowed cpk:disabled:bg-foreground/10 cpk:disabled:text-foreground/40 cpk:disabled:opacity-100",
+  "cpk:size-9 cpk:[&_svg]:stroke-[2.25]",
 );
 
+// React's chatInputToolbarSecondary variant with the chatInputToolbarIcon size.
 const chatInputToolbarSecondary = cn(
-  "cpk:cursor-pointer",
-  // Background and text
-  "cpk:bg-transparent cpk:text-[#444444]",
-  // Dark mode
-  "cpk:dark:text-white cpk:dark:border-[#404040]",
-  // Shape and sizing
-  "cpk:rounded-full cpk:h-9 cpk:w-9",
-  // Interactions
+  "cpk:cursor-pointer cpk:rounded-full",
+  "cpk:bg-transparent cpk:text-muted-foreground cpk:hover:bg-accent cpk:hover:text-foreground",
   "cpk:transition-colors",
-  // Focus states
-  "cpk:focus:outline-none",
-  // Hover states
-  "cpk:hover:bg-[#f8f8f8] cpk:hover:text-[#333333]",
-  "cpk:dark:hover:bg-[#404040] cpk:dark:hover:text-[#FFFFFF]",
-  // Disabled states
-  "cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50",
-  "cpk:disabled:hover:bg-transparent cpk:disabled:hover:text-[#444444]",
-  "cpk:dark:disabled:hover:bg-transparent cpk:dark:disabled:hover:text-[#CCCCCC]",
+  "cpk:disabled:cursor-not-allowed cpk:disabled:hover:bg-transparent",
+  "cpk:size-9",
 );
 
 @Component({
@@ -73,10 +51,11 @@ const chatInputToolbarSecondary = cn(
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
-    <div class="cpk:mr-[10px]">
+    <div class="cpk:flex">
       <button
         type="button"
         aria-label="Send message"
+        data-testid="copilot-send-button"
         [disabled]="disabled()"
         [class]="buttonClass"
         (click)="onClick()"
@@ -128,7 +107,7 @@ export class CopilotChatStartTranscribeButton {
   readonly labels = injectChatLabels();
 
   readonly MicIcon = Mic;
-  buttonClass = cn(buttonBase, chatInputToolbarSecondary, "cpk:mr-2");
+  buttonClass = cn(buttonBase, chatInputToolbarSecondary);
 
   get label(): string {
     return this.labels.chatInputToolbarStartTranscribeButtonLabel;
@@ -168,7 +147,7 @@ export class CopilotChatCancelTranscribeButton {
   readonly labels = injectChatLabels();
 
   readonly XIcon = X;
-  buttonClass = cn(buttonBase, chatInputToolbarSecondary, "cpk:mr-2");
+  buttonClass = cn(buttonBase, chatInputToolbarSecondary);
 
   get label(): string {
     return this.labels.chatInputToolbarCancelTranscribeButtonLabel;
@@ -208,7 +187,7 @@ export class CopilotChatFinishTranscribeButton {
   readonly labels = injectChatLabels();
 
   readonly CheckIcon = Check;
-  buttonClass = cn(buttonBase, chatInputToolbarSecondary, "cpk:mr-[10px]");
+  buttonClass = cn(buttonBase, chatInputToolbarSecondary);
 
   get label(): string {
     return this.labels.chatInputToolbarFinishTranscribeButtonLabel;
@@ -248,7 +227,7 @@ export class CopilotChatAddFileButton {
   readonly labels = injectChatLabels();
 
   readonly PlusIcon = Plus;
-  buttonClass = cn(buttonBase, chatInputToolbarSecondary, "cpk:ml-2");
+  buttonClass = cn(buttonBase, chatInputToolbarSecondary);
 
   get label(): string {
     return this.labels.chatInputToolbarAddButtonLabel;
