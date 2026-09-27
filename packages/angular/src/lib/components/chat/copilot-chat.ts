@@ -13,6 +13,7 @@ import {
   inject,
   viewChild,
   DestroyRef,
+  untracked,
 } from "@angular/core";
 
 import { CopilotChatView } from "./copilot-chat-view";
@@ -24,12 +25,13 @@ import {
   type AttachmentsConfig,
 } from "@copilotkit/shared";
 import {
-  Message,
-  AbstractAgent,
-  HttpAgent,
   AGUIConnectNotImplementedError,
+  HttpAgent,
+  type AbstractAgent,
+  type Message,
+  type RunAgentInput,
 } from "@ag-ui/client";
-import type { Suggestion } from "@copilotkit/core";
+import { isRunCompletionAware, type Suggestion } from "@copilotkit/core";
 import { injectAgentStore } from "../../agent";
 import { CopilotKit } from "../../copilotkit";
 import { ChatState } from "../../chat-state";
@@ -134,10 +136,14 @@ export class CopilotChat extends ChatState {
   readonly cdr = inject(ChangeDetectorRef);
   readonly injector = inject(Injector);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly connecting = signal(false);
+  private activeConnection?: { dispose(): void };
+  protected readonly showCursor = computed(
+    () => this.connecting() || this.agentStore().isRunning(),
+  );
 
   protected messages = computed(() => this.agentStore().messages());
   protected agentState = computed(() => this.agentStore().state());
-  protected isRunning = computed(() => this.agentStore().isRunning());
   protected readonly hasExplicitThreadId =
     this.config?.hasExplicitThreadId ??
     computed(() => Boolean(this.threadId()));
@@ -151,12 +157,13 @@ export class CopilotChat extends ChatState {
   override readonly attachmentsUploading = computed(() =>
     this.attachments().some((attachment) => attachment.status === "uploading"),
   );
-  protected showCursor = signal<boolean>(false);
 
   private generatedThreadId: string = randomUUID();
 
   constructor() {
     super();
+
+    this.destroyRef.onDestroy(() => this.activeConnection?.dispose());
 
     const suggestionsSubscription = this.copilotKit.core.subscribe({
       onAgentsChanged: () => {
@@ -221,29 +228,9 @@ export class CopilotChat extends ChatState {
         }
       });
 
-      // Ambient configuration drives the active thread: the connector pins
-      // `agent.threadId` from the config's resolved thread signal and connects
-      // on explicit switches (or clears messages on a fresh thread).
-      //
-      // The connector receives the RAW `core.connectAgent` and owns the loading
-      // cursor + abort + detach lifecycle, matching the standalone
-      // `connectToAgent` path exactly: cursor on at connect start, off when the
-      // connect settles (guarded against a superseded run). Connect errors still
-      // surface via the AgentStore's run/error subscription, not here.
-      connectActiveThread(
-        this.config,
-        this.agentStore,
-        (params) => this.copilotKit.core.connectAgent(params),
-        {
-          onConnectStart: () => {
-            this.showCursor.set(true);
-            this.cdr.markForCheck();
-          },
-          onConnectSettle: () => {
-            this.showCursor.set(false);
-            this.cdr.markForCheck();
-          },
-        },
+      // Both ambient and standalone threads use the same connection cleanup.
+      connectActiveThread(this.config, this.agentStore, (agent) =>
+        this.connectToAgent(agent),
       );
     } else {
       // Standalone `<copilot-chat [threadId]>` usage with no configuration
@@ -256,85 +243,147 @@ export class CopilotChat extends ChatState {
 
         if (!this.hasExplicitThreadId()) return;
 
-        let detached = false;
-        const abortController = new AbortController();
-        if (agent instanceof HttpAgent) {
-          agent.abortController = abortController;
-        }
-
-        void this.connectToAgent(agent, () => detached);
-
-        onCleanup(() => {
-          detached = true;
-          abortController.abort();
-          void agent.detachActiveRun().catch(() => {});
-        });
+        const handle = untracked(() => this.connectToAgent(agent));
+        onCleanup(() => handle.dispose());
       });
     }
   }
 
-  private async connectToAgent(
-    agent: AbstractAgent,
-    isDetached: () => boolean,
-  ): Promise<void> {
-    this.showCursor.set(true);
-    this.cdr.markForCheck();
+  private connectToAgent(agent: AbstractAgent) {
+    let disposed = false;
+    let initialized: RunAgentInput | undefined;
+    let replaced = false;
+    let completion: Promise<void> | undefined;
+    const controller = new AbortController();
+    if (agent instanceof HttpAgent) agent.abortController = controller;
 
-    try {
-      await this.copilotKit.core.connectAgent({ agent });
-    } catch (error) {
-      if (isDetached()) return;
-      if (!(error instanceof AGUIConnectNotImplementedError)) {
-        console.error("Failed to connect to agent:", error);
+    const ownsPipeline = () => {
+      if (!initialized || replaced) return false;
+      const candidate: unknown = agent;
+      const current = isRunCompletionAware(candidate)
+        ? candidate.activeRunCompletionPromise
+        : undefined;
+      if (!current) return false;
+      completion ??= current;
+      return current === completion;
+    };
+    let refresh: ReturnType<typeof setTimeout> | undefined;
+    const subscription = agent.subscribe({
+      onRunInitialized: ({ input }) => {
+        if (initialized && input !== initialized) {
+          replaced = true;
+        } else {
+          initialized = input;
+          // AG-UI installs the pipeline after initialization subscribers finish.
+          refresh = setTimeout(ownsPipeline, 0);
+        }
+      },
+      onRunStartedEvent: () => {
+        ownsPipeline();
+      },
+    });
+    const cleanup = () => {
+      clearTimeout(refresh);
+      subscription.unsubscribe();
+      if (this.activeConnection === handle) {
+        this.activeConnection = undefined;
+        this.connecting.set(false);
       }
-    } finally {
-      if (!isDetached()) {
-        this.showCursor.set(false);
-        this.cdr.markForCheck();
+    };
+    const handle = {
+      dispose: () => {
+        if (disposed) return;
+        disposed = true;
+        const current = this.activeConnection === handle;
+        const detach = current && ownsPipeline();
+        // A successor connect may reuse HttpAgent's controller.
+        if (
+          !replaced &&
+          (current ||
+            (agent instanceof HttpAgent &&
+              agent.abortController !== controller))
+        ) {
+          controller.abort();
+        }
+        cleanup();
+        if (detach) void agent.detachActiveRun().catch(() => {});
+      },
+    };
+    this.activeConnection = handle;
+    this.connecting.set(true);
+    void Promise.resolve()
+      .then(async () => {
+        if (!disposed && !this.destroyRef.destroyed) {
+          await this.copilotKit.core.connectAgent({ agent });
+        }
+      })
+      .catch((error: unknown) => {
+        if (!disposed && !(error instanceof AGUIConnectNotImplementedError)) {
+          console.error("[CopilotKit] Failed to connect to agent:", error);
+        }
+      })
+      .finally(cleanup);
+    return handle;
+  }
+
+  // Match React: wait for the current agent pipeline before sending another turn.
+  private async waitForActiveRunToSettle(agent: AbstractAgent): Promise<void> {
+    const candidate: unknown = agent;
+    const completion = isRunCompletionAware(candidate)
+      ? candidate.activeRunCompletionPromise
+      : undefined;
+    if (agent.isRunning && completion) {
+      try {
+        await completion;
+      } catch (error) {
+        console.error(
+          "[CopilotKit] In-flight run rejected while queuing send:",
+          error,
+        );
       }
     }
   }
 
   async submitInput(value: string): Promise<void> {
+    if (
+      this.destroyRef.destroyed ||
+      !value.trim() ||
+      this.attachmentsUploading()
+    )
+      return;
     const agent = this.agentStore().agent;
-    if (!agent || !value.trim()) return;
+    const threadId = agent.threadId;
+    this.inputValue.set("");
+    await this.waitForActiveRunToSettle(agent);
+    if (
+      this.destroyRef.destroyed ||
+      this.agentStore().agent !== agent ||
+      agent.threadId !== threadId
+    )
+      return;
 
+    // An upload can begin while this send is waiting, just as in React.
     if (this.attachmentsUploading()) {
+      this.inputValue.set(value);
       console.error("[CopilotKit] Cannot send while attachments are uploading");
       return;
     }
 
-    const attachments = this.attachmentsDirective();
-    const readyAttachments = attachments?.consume() ?? [];
-    const userMessage: Message =
-      readyAttachments.length > 0
-        ? ({
-            id: randomUUID(),
-            role: "user",
-            content: attachments!.buildContent(value, readyAttachments),
-          } as Message)
-        : {
-            id: randomUUID(),
-            role: "user",
-            content: value,
-          };
-    agent.addMessage(userMessage);
-
-    // Clear the input
-    this.inputValue.set("");
-
-    // Show cursor while processing
-    this.showCursor.set(true);
-    this.cdr.markForCheck();
-
-    // Run the agent via core so tools (and context, forwardedProps) are included
     try {
+      const attachments = this.attachmentsDirective();
+      const ready = attachments?.consume() ?? [];
+      const message: Message =
+        ready.length > 0
+          ? {
+              id: randomUUID(),
+              role: "user",
+              content: attachments!.buildContent(value, ready),
+            }
+          : { id: randomUUID(), role: "user", content: value };
+      agent.addMessage(message);
       await this.copilotKit.core.runAgent({ agent });
     } catch (error) {
-      console.error("Agent run error:", error);
-    } finally {
-      this.showCursor.set(false);
-      this.cdr.markForCheck();
+      console.error("[CopilotKit] Agent run error:", error);
     }
   }
 
@@ -342,27 +391,23 @@ export class CopilotChat extends ChatState {
     suggestion: Suggestion,
     _index: number,
   ): Promise<void> {
-    const agent = this.agentStore().agent;
     const message = suggestion.message.trim();
-    if (!agent || !message || suggestion.isLoading) return;
-
-    agent.addMessage({
-      id: randomUUID(),
-      role: "user",
-      content: message,
-    });
-
-    this.inputValue.set("");
-    this.showCursor.set(true);
-    this.cdr.markForCheck();
+    if (this.destroyRef.destroyed || !message || suggestion.isLoading) return;
+    const agent = this.agentStore().agent;
+    const threadId = agent.threadId;
+    await this.waitForActiveRunToSettle(agent);
+    if (
+      this.destroyRef.destroyed ||
+      this.agentStore().agent !== agent ||
+      agent.threadId !== threadId
+    )
+      return;
 
     try {
+      agent.addMessage({ id: randomUUID(), role: "user", content: message });
       await this.copilotKit.core.runAgent({ agent });
     } catch (error) {
-      console.error("Agent run error:", error);
-    } finally {
-      this.showCursor.set(false);
-      this.cdr.markForCheck();
+      console.error("[CopilotKit] Agent run error:", error);
     }
   }
 

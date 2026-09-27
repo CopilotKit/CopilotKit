@@ -483,8 +483,9 @@ describe("cookbook nav", () => {
   it("renders overview and recipes as top-level entries without changing slugs", () => {
     const navTree = buildCookbookNavTree();
 
-    expect(navTree).toHaveLength(8);
+    expect(navTree).toHaveLength(9);
     expect(navTree.map((node) => node.type)).toEqual([
+      "page",
       "page",
       "page",
       "page",
@@ -507,10 +508,12 @@ describe("cookbook nav", () => {
       ["Angular + Google ADK", "cookbook/angular-adk-agentic-app"],
       ["OpenBox Governance", "cookbook/openbox-governed-copilotkit"],
       ["Jev: fast generative UI", "cookbook/jev-generative-ui"],
+      ["Manufact", "cookbook/manufact"],
     ]);
 
     const pageTree = navTreeToPageTree(navTree, "");
     expect(pageTree.children.map((node) => node.type)).toEqual([
+      "page",
       "page",
       "page",
       "page",
@@ -531,6 +534,7 @@ describe("cookbook nav", () => {
       "/cookbook/angular-adk-agentic-app",
       "/cookbook/openbox-governed-copilotkit",
       "/cookbook/jev-generative-ui",
+      "/cookbook/manufact",
     ]);
 
     const overview = pageTree.children[0];
@@ -655,6 +659,11 @@ describe("framework nav", () => {
       { title: "Architecture", slug: "intelligence/intelligence-platform" },
       { title: "Plans", slug: "intelligence/plans" },
     ]);
+    expect(
+      navTree.find(
+        (node) => node.type === "group" && node.title === "Features",
+      ),
+    ).toMatchObject({ defaultOpen: true });
     expect(groupEntries(navTree, "Features")).toEqual([
       { title: "Rich Threads", slug: "threads" },
       {
@@ -825,10 +834,6 @@ describe("framework nav", () => {
       { title: "Headless Threads", slug: "headless-threads" },
       { title: "Thread & History Lifecycle", slug: "threads-lifecycle" },
       { title: "Synchronize Thread History", slug: "threads-import" },
-      {
-        title: "Self-Managed Persistence",
-        slug: "threads-self-managed",
-      },
       {
         title: "Threads & Persistence Architecture",
         slug: "intelligence/threads-explained",

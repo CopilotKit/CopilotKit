@@ -14,28 +14,28 @@ Cloud-hosted Intelligence runs the platform for you, with a project and an API k
 
 The cloud-hosted service stores the project's threads, events, and API keys. You create the project once, connect your app with the CLI, and everything else is in the web app.
 
-<OpsPlatformCTA
-  variant="inline"
-  title="Start cloud-hosted setup"
-  body="Sign in, create an organization, then return to the CLI or the web app and select a project."
-  ctaLabel="Start cloud-hosted setup"
-  href="https://dashboard.operations.copilotkit.ai/"
-  surface="docs_intelligence_managed_platform_intro"
-/>
-
 The web app is for the people who build and operate the app. The people who chat with your agent do not sign in there. Your app still identifies those people and passes that identity through the runtime.
 
 Compare this deployment with self-hosted on the [architecture page](/intelligence/intelligence-platform).
 
-## Sign in and create a project
+## Get started
 
-Start at [dashboard.operations.copilotkit.ai](https://dashboard.operations.copilotkit.ai) or in the CopilotKit CLI.
+Start at [intelligence.copilotkit.ai](https://intelligence.copilotkit.ai) or in the CopilotKit CLI.
 
 <Steps>
   <Step>
     ### Sign in
 
     New accounts accept the CopilotKit Self-Service Agreement. An account that already accepted it does not accept it again.
+
+    <OpsPlatformCTA
+      variant="inline"
+      title="Start cloud-hosted setup"
+      body="Sign in, create an organization, then return to the CLI or the web app and select a project."
+      ctaLabel="Start cloud-hosted setup"
+      href="https://intelligence.copilotkit.ai/"
+      surface="docs_intelligence_managed_platform_intro"
+    />
 
     A new organization chooses the Developer plan or a paid plan. Developer is the no-cost plan. Read [Plans](/intelligence/plans) when you want to change that choice.
   </Step>
@@ -70,7 +70,14 @@ The [CopilotKit CLI](/cli) uses the same sign-in. The first `login` opens a brow
 
 ![The cloud-hosted project list.](/images/cloud-hosted/cloud-hosted-projects.png)
 
-Inside a project, the web app lists the threads for that project.
+Choose a project to open its **Overview**. The project navigation groups its pages into two areas:
+
+- **Overview**, **Product Analytics**, and **Automatic Learning** show project activity and analysis. During the Developer trial, Product Analytics and Automatic Learning are marked **TRIAL**.
+- **Project resources** contains [Threads](/threads), [Channels](/intelligence/channels), [User Memories](/intelligence/memories), and [API Keys](#create-an-api-key).
+
+Each page is scoped to the selected project. Its project API key connects your runtime to that same project.
+
+Inside a project, open **Threads** to find the conversations saved for that project.
 
 ![A cloud-hosted project and its threads.](/images/cloud-hosted/cloud-hosted-thread-list.png)
 

@@ -1,7 +1,7 @@
 ---
 title: Automatic Learning
 description: Turn real use of your app into skills you can review and publish.
-icon: "lucide/Sparkles"
+icon: "lucide/Lightbulb"
 frontend: universal
 doc_type: how-to
 ---
@@ -24,6 +24,12 @@ Automatic Learning turns patterns from real agent runs into skills you can publi
 
 The video also shows [User Memory](/intelligence/memories), then an expense-review workflow that becomes a skill.
 
+## Start with your coding agent
+
+Copy this prompt into your coding agent to inspect your existing app and configure Automatic Learning for one focused workflow. Prefer to work through the setup yourself? Follow the manual steps below.
+
+<LearningSetupPrompt />
+
 ## How Automatic Learning works
 
 Learning starts with a container, which groups Threads from the same kind of work. Intelligence analyzes completed runs in that container and summarizes recurring patterns as Insights.
@@ -44,12 +50,6 @@ The learning loop has two connections. Run ingestion collects evidence in a Lear
 When an agent must learn from its own workflow, use the same project and container for both connections. The SDK adapters also work with native agents outside a CopilotKit frontend, but they do not collect those agents' runs automatically.
 
 For agent setup, use the [Mastra](/intelligence/learned-skills#mastra), [LangGraph TypeScript](/intelligence/learned-skills#langgraph-typescript), or [LangGraph Python](/intelligence/learned-skills#langgraph-python) example. The delivery guide also covers [Google ADK](/intelligence/learned-skills#google-adk), [BuiltInAgent](/intelligence/learned-skills#builtinagent), and [Microsoft Agent Framework](/intelligence/learned-skills#microsoft-agent-framework).
-
-## Start with your coding agent
-
-Copy this prompt into your coding agent to inspect your existing app and configure Automatic Learning for one focused workflow. Prefer to work through the setup yourself? Follow the manual steps below.
-
-<LearningSetupPrompt />
 
 ## Set up Automatic Learning manually
 
