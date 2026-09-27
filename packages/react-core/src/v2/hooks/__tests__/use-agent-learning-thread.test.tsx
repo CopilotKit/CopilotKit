@@ -6,10 +6,48 @@ import { useCopilotKit } from "../../context";
 import { CopilotChatConfigurationProvider } from "../../providers/CopilotChatConfigurationProvider";
 import { CopilotKitProvider } from "../../providers/CopilotKitProvider";
 import { useAgent } from "../use-agent";
+import { CopilotKit } from "../../../v1-deprecated/components/copilot-provider/copilotkit";
+import type { CopilotKitCoreReact } from "../../lib/react-core";
 
 describe("useAgent Learning thread attribution", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("does not treat compatibility-provider observers as a mounted headless agent", () => {
+    const agent = new MockStepwiseAgent();
+    const agents = { default: agent };
+    let core: CopilotKitCoreReact | undefined;
+
+    function Probe() {
+      const { copilotkit } = useCopilotKit();
+      useLayoutEffect(() => {
+        core = copilotkit;
+      }, [copilotkit]);
+      return null;
+    }
+
+    function HeadlessAgent() {
+      useAgent();
+      return null;
+    }
+
+    function App({ headless }: { headless: boolean }) {
+      return (
+        <CopilotKit agents__unsafe_dev_only={agents} learning={false}>
+          <Probe />
+          {headless && <HeadlessAgent />}
+        </CopilotKit>
+      );
+    }
+
+    const { rerender } = render(<App headless={false} />);
+    expect(core).toBeDefined();
+    expect(core?.ɵlearningThreads.getThreadId()).toBeUndefined();
+    rerender(<App headless />);
+    expect(core?.ɵlearningThreads.getThreadId()).toBe(agent.threadId);
+    rerender(<App headless={false} />);
+    expect(core?.ɵlearningThreads.getThreadId()).toBeUndefined();
   });
 
   it.each(["configuration", "explicit proxy"] as const)(

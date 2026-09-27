@@ -11,7 +11,7 @@ export function createProductEventRecorder({
   onError,
 }: {
   record: UseLearnFromUserActionRecorder;
-  getThreadId: () => string | undefined;
+  getThreadId: (event: ProductInteractionEvent) => string | undefined;
   onError: (error: Error) => void;
 }) {
   const pending: LearnFromUserActionInput[] = [];
@@ -58,7 +58,7 @@ export function createProductEventRecorder({
     onEvent(event: ProductInteractionEvent) {
       if (stopped) return;
       if (event.type === "interaction") {
-        const threadId = getThreadId();
+        const threadId = getThreadId(event);
         if (!threadId) return;
         actionThreads.set(event.actionId, threadId);
         // Bound attribution history too. Very late outcomes can be omitted,

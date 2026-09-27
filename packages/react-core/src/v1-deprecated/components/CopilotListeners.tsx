@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { useAgent, useCopilotChatConfiguration, useCopilotKit } from "../../v2";
+import { useCopilotChatConfiguration, useCopilotKit } from "../../v2";
+import { useAgentInternal } from "../../v2/hooks/use-agent";
 import {
   CopilotKitError,
   DEFAULT_AGENT_ID,
@@ -154,7 +155,10 @@ function CopilotListenersAgentSubscription() {
     return requested;
   }, [configAgentId, copilotkit.agents]);
 
-  const { agent } = useAgent({ agentId: resolvedAgentId });
+  const { agent } = useAgentInternal(
+    { agentId: resolvedAgentId },
+    { registerLearningThread: false },
+  );
 
   usePredictStateSubscription(agent);
 

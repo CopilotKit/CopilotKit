@@ -10,6 +10,7 @@ import { LearningProvider } from "@copilotkit/learning/react";
 import { useCopilotKit } from "../context";
 import { useLearnFromUserAction } from "../hooks/use-learn-from-user-action";
 import { createProductEventRecorder } from "../lib/product-event-recorder";
+import { trackProductChangeThreads } from "../lib/product-change-thread";
 
 export interface CopilotKitLearningConfig extends Omit<
   ProductInteractionCaptureOptions,
@@ -62,9 +63,13 @@ export function CopilotKitLearningProvider({
 
   useEffect(() => {
     if (!captureEnabled) return;
+    const changeThreads = trackProductChangeThreads(
+      window,
+      threads.getThreadId,
+    );
     const recorder = createProductEventRecorder({
       record,
-      getThreadId: threads.getThreadId,
+      getThreadId: changeThreads.getThreadId,
       onError: (error) => {
         if (onErrorRef.current) return onErrorRef.current(error);
         else console.warn("[CopilotKit learning]", error);
@@ -74,6 +79,7 @@ export function CopilotKitLearningProvider({
     return () => {
       recorderRef.current = null;
       recorder.stop();
+      changeThreads.stop();
     };
   }, [captureEnabled, threads, record, runtimeUrl]);
 
