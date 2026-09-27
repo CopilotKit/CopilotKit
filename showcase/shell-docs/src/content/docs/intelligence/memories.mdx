@@ -198,10 +198,18 @@ Intelligence runtime, and it governs **both** memory surfaces: the tools an
 agent gets during a run, and the browser routes behind `useMemories()`.
 
 <Callout type="warn">
-Omitting the `memory` option leaves both scopes fully open. A runtime with no
-policy grants `read-write` on user and project memory to every authenticated
-request. This is the opposite of Channels, where a run gets no memory unless it
-asks — so do not assume a fresh web runtime is closed.
+Omitting the `memory` option does not switch memory off — it removes the limit.
+On its own it leaves both surfaces off, but either can still be turned on without
+a policy, and then it runs with `read-write` on both scopes for every
+authenticated request:
+
+- With `enableEnterpriseLearning` on, agent runs get all three memory tools,
+  subject only to your organization's entitlement.
+- The deprecated `exposeMemoryRoutes: true` flag mounts the browser routes with
+  no policy behind them.
+
+This is the opposite of Channels, where a run gets no memory unless it asks.
+Configure `memory.access` whenever either surface is on.
 </Callout>
 
 ```ts title="runtime.ts"
