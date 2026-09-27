@@ -14,10 +14,7 @@ import {
   provideCopilotChatConfiguration,
   provideCopilotKit,
 } from "@copilotkit/angular";
-import {
-  FakeRuntime,
-  provideCopilotKitFake,
-} from "@copilotkit/angular/testing";
+import { FakeRuntime, provideCopilotKitFake } from "./index";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
