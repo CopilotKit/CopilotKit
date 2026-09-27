@@ -62,7 +62,11 @@ export const DOCS_MEGA_MENU_COLUMNS: readonly MegaMenuColumn[] = [
     links: [
       { href: "/backend/copilot-runtime", label: "Runtime", icon: "refresh" },
       { href: "/agentic-protocols/ag-ui", label: "AG-UI", icon: "link" },
-      { href: "/build-with-agents", label: "Integrations", icon: "blocks" },
+      {
+        href: "/build-with-agents",
+        label: "Build with agents",
+        icon: "blocks",
+      },
     ],
   },
   {
