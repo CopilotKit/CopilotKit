@@ -100,10 +100,16 @@ export const CURATED_LLM_PAGES = [
       "Bring an AG-UI agent into Microsoft Teams with native messages and approvals through generally available cloud-hosted Intelligence connections or direct SDK options.",
   },
   {
-    url: "threads-import",
-    title: "Connect Existing Thread History",
+    url: "langgraph-python/threads-import",
+    title: "Import LangGraph Threads",
     description:
-      "Layer Rich Threads and Automatic Learning onto LangChain/LangGraph, Google ADK, or Mastra without replacing your framework or thread provider. Review supported history, source-specific limits, and setup for future CopilotKit-mediated runs.",
+      "Import history from LangGraph Server, LangGraph Platform, or LangSmith Deployments exposed through LangGraph SDK thread and run APIs, not arbitrary LangChain stores.",
+  },
+  {
+    url: "google-adk/threads-import",
+    title: "Import Google ADK Threads",
+    description:
+      "Import supported Google ADK sessions once; future CopilotKit-mediated runs persist to Intelligence while your durable ADK session service retains native history.",
   },
   {
     url: "quickstart",

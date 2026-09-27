@@ -64,7 +64,7 @@ test("keeps the curated policy ordered, unique, and on canonical routes", () => 
     ),
   );
 
-  expect(urls.slice(0, 10)).toEqual([
+  expect(urls.slice(0, 11)).toEqual([
     "",
     "agentic-chat-ui",
     "concepts/generative-ui-overview",
@@ -74,12 +74,13 @@ test("keeps the curated policy ordered, unique, and on canonical routes", () => 
     "intelligence/overview",
     "slack",
     "teams",
-    "threads-import",
+    "langgraph-python/threads-import",
+    "google-adk/threads-import",
   ]);
   expect(new Set(urls).size).toBe(urls.length);
   expect(new Set(titles).size).toBe(titles.length);
-  expect(urls.filter((url) => url.endsWith("threads-import"))).toEqual([
-    "threads-import",
+  expect(urls.filter((url) => url.startsWith("langgraph-"))).toEqual([
+    "langgraph-python/threads-import",
   ]);
   expect(
     urls.some((url) =>
