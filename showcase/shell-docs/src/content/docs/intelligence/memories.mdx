@@ -190,6 +190,101 @@ On cloud-hosted Intelligence, memory is resolved per organization from that
 organization's effective entitlement, combining its plan features with any
 enterprise override. Nothing needs configuring on your side.
 
+## Limiting access per request
+
+Entitlement decides whether memory exists for a deployment. `memory.access`
+decides what one request may do with it. It is a single policy on the
+Intelligence runtime, and it governs **both** memory surfaces: the tools an
+agent gets during a run, and the browser routes behind `useMemories()`.
+
+<Callout type="warn">
+Omitting the `memory` option leaves both scopes fully open. A runtime with no
+policy grants `read-write` on user and project memory to every authenticated
+request. This is the opposite of Channels, where a run gets no memory unless it
+asks — so do not assume a fresh web runtime is closed.
+</Callout>
+
+```ts title="runtime.ts"
+const runtime = new CopilotRuntime({
+  intelligence,
+  identifyUser: async (request) => resolveUser(request),
+  memory: {
+    access: ({ user, consumer }) => {
+      // Tenants on the free plan get recall, but record nothing new.
+      if (isFreePlan(user)) return { user: "read", project: "none" };
+
+      // The browser inspector is read-only; the agent may write.
+      return consumer === "client"
+        ? { user: "read", project: "read" }
+        : { user: "read-write", project: "read-write" };
+    },
+  },
+});
+```
+
+The callback runs once per request, after `identifyUser` has resolved, and
+receives:
+
+| Field | Meaning |
+|-------|---------|
+| `request` | The incoming `Request`, if the decision needs a header, cookie, or path. |
+| `user` | The application user `identifyUser` returned. |
+| `consumer` | `"agent"` for an agent run, `"client"` for the browser memory routes. |
+
+Return a grant naming both scopes, or `null`. Each scope takes `"none"`,
+`"read"`, or `"read-write"`. The policy may be async.
+
+### What each outcome does
+
+`null` and a grant with every scope at `"none"` are one outcome, not two — both
+mean "this request gets no memory". What that costs depends on what the caller
+asked for:
+
+| The policy returns | Agent run | Browser `/memories/*` |
+|--------------------|-----------|------------------------|
+| A grant with any scope above `"none"` | Memory tools attach, filtered to the granted scopes | The request proceeds |
+| `null`, or every scope `"none"` | **The run proceeds with no memory tools** | **403** |
+| Nothing (`undefined`), or an access level outside the three | 500 | 500 |
+| A thrown error | 500 | 500 |
+
+The asymmetry is deliberate. A conversation asked for something other than
+memories, so switching memory off must not cost the user their assistant. The
+browser routes exist only to serve memories, so "you may not have them" answers
+the question actually asked — and an empty list would falsely imply none exist.
+
+A missing return is treated as a broken policy rather than a restrictive one,
+so a branch that forgets to `return` fails loudly instead of quietly switching
+memory off.
+
+A grant that allows one scope and not the other is honoured exactly: a
+`{ user: "read", project: "none" }` grant registers `recall_memory` alone,
+scoped to user memory, and leaves `save_memory` and `forget_memory` unregistered
+so the agent never sees a tool it may not call.
+
+<Callout type="info">
+`memory.access` is a memory policy, not an authorization gate on the request.
+To reject a request outright, use `beforeRequestMiddleware`, which can refuse
+before any of this runs.
+</Callout>
+
+### It also mounts the browser routes
+
+Configuring `memory` turns on `/memories`, `/memories/recall`,
+`/memories/subscribe`, and `/memories/:id`. Without it those routes 404 as if
+they did not exist, so an un-opted-in deployment reveals nothing about memory
+even when Intelligence is configured.
+
+The older `exposeMemoryRoutes: true` flag did the mounting without the policy
+and is deprecated. `memory.access` replaces it: one option that both exposes
+the surfaces and bounds what they may do.
+
+### Channels grant memory per run instead
+
+A Channel run carries its own grant on `runAgent`, using the same three access
+levels, rather than consulting `memory.access`. See
+[Identity and Memory](/channels/identity-and-memory) for that path, including
+how to choose the memory subject in a group conversation.
+
 ## Reading and writing memories
 
 <FrontendOnly frontend="react">
@@ -301,6 +396,13 @@ They register on the MCP server only when that surface is mounted, which is a
 prerequisite for MCP generally rather than a memory setting. Registration is
 still checked per request against the caller organization's memory entitlement,
 so mounting MCP does not grant memory.
+
+Registration is then narrowed again by the run's grant, so an agent is only ever
+offered tools it may actually call: a readable scope registers `recall_memory`,
+a writable one adds `save_memory` and `forget_memory`, and a grant of nothing
+registers none of them. See
+[Limiting access per request](#limiting-access-per-request) for where that grant
+comes from.
 
 ## How recall works
 
