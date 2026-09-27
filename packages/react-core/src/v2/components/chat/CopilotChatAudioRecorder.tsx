@@ -339,7 +339,11 @@ export const CopilotChatAudioRecorder = forwardRef<
 
   return (
     <div
-      className={twMerge("cpk:w-full cpk:py-3 cpk:px-5", className)}
+      data-copilotkit
+      className={twMerge(
+        "cpk:w-full cpk:bg-transparent cpk:py-2 cpk:px-3",
+        className,
+      )}
       {...divProps}
     >
       <canvas ref={canvasRef} className="cpk:block cpk:w-full cpk:h-[26px]" />

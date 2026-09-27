@@ -174,7 +174,7 @@ export namespace CopilotChatReasoningMessage {
       <button
         type="button"
         className={twMerge(
-          "cpk:inline-flex cpk:items-center cpk:gap-1 cpk:py-1 cpk:text-sm cpk:text-muted-foreground cpk:transition-colors cpk:select-none",
+          "cpk:inline-flex cpk:items-center cpk:gap-1 cpk:rounded-md cpk:py-1 cpk:text-sm cpk:text-muted-foreground cpk:transition-colors cpk:select-none cpk:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-ring/50",
           isExpandable
             ? "cpk:hover:text-foreground cpk:cursor-pointer"
             : "cpk:cursor-default",
@@ -183,7 +183,11 @@ export namespace CopilotChatReasoningMessage {
         aria-expanded={isExpandable ? isOpen : undefined}
         {...headerProps}
       >
-        <span className="cpk:font-medium">{label}</span>
+        <span
+          className={twMerge("cpk:font-medium", isStreaming && "cpk-shimmer")}
+        >
+          {label}
+        </span>
         {isStreaming && !hasContent && (
           <span className="cpk:inline-flex cpk:items-center cpk:ml-1">
             <span className="cpk:w-1.5 cpk:h-1.5 cpk:rounded-full cpk:bg-muted-foreground cpk:animate-pulse" />
@@ -219,10 +223,10 @@ export namespace CopilotChatReasoningMessage {
 
     return (
       <div
-        className={twMerge("cpk:pb-2 cpk:pt-1", className)}
+        className={twMerge("cpk:pb-2 cpk:pt-1.5", className)}
         {...contentProps}
       >
-        <div className="cpk:text-sm cpk:text-muted-foreground">
+        <div className="cpk:ml-1 cpk:border-l-2 cpk:border-border cpk:pl-3.5 cpk:text-sm cpk:leading-relaxed cpk:text-muted-foreground cpk:[&_p]:my-2 cpk:[&_p:first-child]:mt-0 cpk:[&_p:last-child]:mb-0">
           <Streamdown>
             {typeof contentChildren === "string" ? contentChildren : ""}
           </Streamdown>

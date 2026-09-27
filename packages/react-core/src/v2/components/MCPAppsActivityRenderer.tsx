@@ -225,9 +225,9 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
     const borderStyle =
       prefersBorder === true
         ? {
-            borderRadius: "8px",
-            backgroundColor: "#f9f9f9",
-            border: "1px solid #e0e0e0",
+            borderRadius: "var(--radius, 8px)",
+            backgroundColor: "var(--card, #fff)",
+            border: "1px solid var(--border, #e5e5e5)",
           }
         : {};
 
@@ -244,10 +244,19 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
         }}
       >
         {isLoading && (
-          <div style={{ padding: "1rem", color: "#666" }}>Loading...</div>
+          <div
+            style={{
+              padding: "1rem",
+              color: "var(--muted-foreground, #737373)",
+            }}
+          >
+            Loading...
+          </div>
         )}
         {error && (
-          <div style={{ color: "red", padding: "1rem" }}>
+          <div
+            style={{ color: "var(--destructive, #dc2626)", padding: "1rem" }}
+          >
             Error: {error.message}
           </div>
         )}
