@@ -133,7 +133,8 @@ export interface CopilotKitProviderProps {
   /**
    * Opt in to automatic product interaction capture with true or a configuration
    * object. Defaults to off. Requires Intelligence and follows the active chat thread.
-   * Input values, keystrokes, request bodies, and headers are never captured.
+   * Native text-field changes include bounded, filtered text. Keystroke streams,
+   * sensitive fields, request bodies, and headers are excluded.
    */
   learning?: boolean | CopilotKitLearningConfig;
   headers?: Record<string, string> | (() => Record<string, string>);

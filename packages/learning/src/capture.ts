@@ -1,5 +1,6 @@
 import { subscribeToRequests } from "./network";
 import { contextScope, describeContext } from "./context";
+import { readChangedText } from "./text";
 import {
   describeTarget,
   isSensitive,
@@ -177,6 +178,12 @@ export function startProductInteractionCapture(
       activity,
     };
     action = current;
+    const text =
+      event.type === "change" &&
+      captureNames &&
+      options.captureTextValues !== false
+        ? readChangedText(target)
+        : undefined;
     if (
       !emit({
         id: current.id,
@@ -185,6 +192,7 @@ export function startProductInteractionCapture(
         type: "interaction",
         action: event.type as "click" | "change" | "submit",
         target: current.target,
+        ...(text && { text }),
         ...(current.context && { context: current.context }),
       })
     ) {

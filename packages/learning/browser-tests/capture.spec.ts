@@ -31,6 +31,7 @@ const html = `<!doctype html><html><body>
 <div data-private><button id="private" aria-label="Private preferences" data-learning-id="private-preferences">Private action</button></div>
 <input id="password" type="password"><input id="card" autocomplete="cc-number">
 <input id="ordinary" aria-label="Draft title"><button id="blur">Blur input</button>
+<label for="review-note">Review note</label><textarea id="review-note"></textarea>
 <form id="form"><button id="submit">Submit</button></form>
 <div id="results"></div>
 <script>
@@ -110,6 +111,117 @@ async function start(
 async function events(page: Page): Promise<ProductInteractionEvent[]> {
   return page.evaluate(() => window.events);
 }
+
+test("committed task text preserves the user's instruction without recording keystrokes", async ({
+  page,
+}) => {
+  await start(page);
+  const note =
+    "Move the supplier dinner to Friday.\nKeep the lunch on Thursday.";
+  await page.locator("#review-note").fill(note);
+  expect(JSON.stringify(await events(page))).not.toContain("supplier dinner");
+  await page.click("#blur");
+  const changes = (await events(page)).filter(
+    (event) => event.type === "interaction" && event.action === "change",
+  );
+  expect(changes).toEqual([
+    expect.objectContaining({
+      target: expect.objectContaining({ accessibleName: "Review note" }),
+      text: { value: note },
+    }),
+  ]);
+
+  await page.locator("#review-note").fill("");
+  await page.click("#blur");
+  const cleared = (await events(page)).filter(
+    (event) => event.type === "interaction" && event.action === "change",
+  );
+  expect(cleared.at(-1)).toMatchObject({ text: { value: "" } });
+});
+
+test("text capture honors both privacy switches without suppressing the change", async ({
+  page,
+}) => {
+  for (const options of [
+    { captureTextValues: false },
+    { captureAccessibleNames: false },
+  ]) {
+    await start(page, options);
+    await page.locator("#review-note").fill("Move the dinner to Friday");
+    await page.click("#blur");
+    const change = (await events(page)).find(
+      (event) => event.type === "interaction" && event.action === "change",
+    );
+    expect(change).toBeDefined();
+    expect(change).not.toHaveProperty("text");
+    expect(JSON.stringify(await events(page))).not.toContain("dinner");
+  }
+});
+
+test("sensitive text is omitted as a whole and never leaks through later observations", async ({
+  page,
+}) => {
+  await start(page);
+  await page
+    .locator("#review-note")
+    .fill("Contact jane@example.test about dinner");
+  await page.click("#blur");
+  expect(
+    (await events(page)).find(
+      (event) => event.type === "interaction" && event.action === "change",
+    ),
+  ).toMatchObject({ text: { omitted: "sensitive-content" } });
+  expect(JSON.stringify(await events(page))).not.toContain("jane@example.test");
+  await page
+    .locator("#review-note")
+    .fill("x".repeat(1024) + " confidential suffix");
+  await page.click("#blur");
+  expect(
+    (await events(page))
+      .filter(
+        (event) => event.type === "interaction" && event.action === "change",
+      )
+      .at(-1),
+  ).toMatchObject({ text: { omitted: "size-limit" } });
+  expect(JSON.stringify(await events(page))).not.toContain(
+    "confidential suffix",
+  );
+});
+
+test("private and SDK chat text stay absent while ordinary application notes are captured", async ({
+  page,
+}) => {
+  await start(page);
+  await page.evaluate(() => {
+    document.body.insertAdjacentHTML(
+      "beforeend",
+      '<div data-private><textarea id="private-note"></textarea></div><div data-copilotkit><textarea id="chat-draft"></textarea></div>',
+    );
+  });
+  for (const id of ["private-note", "chat-draft", "password", "card"]) {
+    await page.locator(`#${id}`).fill("EXCLUDED_CANARY");
+    await page.click("#blur");
+  }
+  await page.locator("#review-note").fill("Move the supplier dinner to Friday");
+  await page.click("#blur");
+  const serialized = JSON.stringify(await events(page));
+  expect(serialized).not.toContain("EXCLUDED_CANARY");
+  expect(serialized).toContain("Move the supplier dinner to Friday");
+});
+
+test("clicks and synthetic changes do not read prefilled text", async ({
+  page,
+}) => {
+  await start(page);
+  await page.evaluate(() => {
+    const field = document.querySelector<HTMLTextAreaElement>("#review-note")!;
+    field.value = "UNOBSERVED_DRAFT";
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await page.click("#review-note");
+  await page.click("#blur");
+  expect(JSON.stringify(await events(page))).not.toContain("UNOBSERVED_DRAFT");
+});
 
 test("trusted user actions produce correlated, filtered request and DOM outcomes", async ({
   page,
@@ -226,7 +338,7 @@ test("captures XHR metadata and form changes without keylogging", async ({
   page,
 }) => {
   await start(page);
-  await page.fill("#ordinary", "a private customer name");
+  await page.fill("#ordinary", "Quarterly expense review");
   expect(await events(page)).toEqual([]);
   await page.click("#blur");
   expect(
@@ -244,9 +356,8 @@ test("captures XHR metadata and form changes without keylogging", async ({
       (event) => event.type === "interaction" && event.action === "submit",
     ),
   ).toBe(true);
-  expect(JSON.stringify(captured)).not.toMatch(
-    /customer name|secret|private-id/,
-  );
+  expect(JSON.stringify(captured)).toContain("Quarterly expense review");
+  expect(JSON.stringify(captured)).not.toMatch(/secret|private-id/);
 });
 
 test("caps burst requests and total event volume", async ({ page }) => {

@@ -39,12 +39,19 @@ interface ProductEventBase {
   timestamp: number;
 }
 
+/** Text observed at a native field change; this does not establish application persistence. */
+export type ProductInteractionText =
+  | { value: string }
+  | { omitted: "sensitive-content" | "sensitive-field" | "size-limit" };
+
 export type ProductInteractionEvent = ProductEventBase &
   (
     | {
         type: "interaction";
         action: "click" | "change" | "submit";
         target: ProductInteractionTarget;
+        /** Bounded text on native text-field changes only; never a keystroke stream. */
+        text?: ProductInteractionText;
         context?: ProductInteractionContext;
       }
     | {
@@ -88,7 +95,9 @@ export interface ProductInteractionCaptureOptions {
   captureDomChanges?: boolean;
   /** Defaults to true. Includes bounded semantic context with trusted actions. */
   captureContext?: boolean;
-  /** Defaults to true. False omits all textual labels/context, retaining finite state. */
+  /** Defaults to true. Includes filtered text at native text/search/textarea changes. */
+  captureTextValues?: boolean;
+  /** Defaults to true. False omits labels, context and changed text, retaining finite state. */
   captureAccessibleNames?: boolean;
   /** Defaults to 120, capped at 1,000; covers all emitted event types. */
   maxEventsPerMinute?: number;

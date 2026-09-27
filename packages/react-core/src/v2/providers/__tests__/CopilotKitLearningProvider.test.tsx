@@ -132,7 +132,11 @@ describe("CopilotKitLearningProvider", () => {
     });
   });
 
-  it.each(["captureContext", "captureAccessibleNames"] as const)(
+  it.each([
+    "captureContext",
+    "captureAccessibleNames",
+    "captureTextValues",
+  ] as const)(
     "does not restore old textual context after %s is disabled",
     async (option) => {
       const { rerender } = render(
