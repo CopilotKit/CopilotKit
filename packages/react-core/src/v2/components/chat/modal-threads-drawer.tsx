@@ -1,4 +1,8 @@
 import React, { Suspense, lazy } from "react";
+import {
+  CopilotChatConfigurationProvider,
+  useCopilotChatConfiguration,
+} from "../../providers/CopilotChatConfigurationProvider";
 import type { CopilotThreadsDrawerProps } from "./CopilotThreadsDrawer";
 
 /**
@@ -38,5 +42,26 @@ export function ModalThreadsDrawer(props: CopilotThreadsDrawerProps) {
     <Suspense fallback={null}>
       <LazyCopilotThreadsDrawer {...props} />
     </Suspense>
+  );
+}
+
+/**
+ * Gives a modal's chat and its threads drawer a chat configuration to switch
+ * threads through. An app that already provides one keeps it; without one,
+ * a thread picked in the drawer would never reach the chat.
+ */
+export function ModalThreadsScope({
+  enabled,
+  children,
+}: {
+  enabled: boolean;
+  children: React.ReactNode;
+}) {
+  const parentConfig = useCopilotChatConfiguration();
+  if (!enabled || parentConfig) return <>{children}</>;
+  return (
+    <CopilotChatConfigurationProvider>
+      {children}
+    </CopilotChatConfigurationProvider>
   );
 }

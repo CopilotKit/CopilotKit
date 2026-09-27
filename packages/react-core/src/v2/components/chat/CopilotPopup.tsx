@@ -9,6 +9,7 @@ import CopilotChatView from "./CopilotChatView";
 import type { CopilotPopupViewProps } from "./CopilotPopupView";
 import CopilotPopupView from "./CopilotPopupView";
 import { ModalOpenControlProvider } from "./modal-open-control";
+import { ModalThreadsScope } from "./modal-threads-drawer";
 
 /**
  * Carries the popup shell props (header, toggle, width, height, …) to the
@@ -151,14 +152,16 @@ export function CopilotPopup({
     <>
       {!isPopupLicensed && <InlineFeatureWarning featureName="Popup" />}
       <PopupShellPropsContext.Provider value={shellProps}>
-        <ModalOpenControlProvider open={open} onOpenChange={onOpenChange}>
-          <CopilotChat
-            welcomeScreen={CopilotPopupView.WelcomeScreen}
-            {...chatProps}
-            isModalDefaultOpen={defaultOpen}
-            chatView={PopupViewOverrideWithStatics}
-          />
-        </ModalOpenControlProvider>
+        <ModalThreadsScope enabled={Boolean(threadsDrawer)}>
+          <ModalOpenControlProvider open={open} onOpenChange={onOpenChange}>
+            <CopilotChat
+              welcomeScreen={CopilotPopupView.WelcomeScreen}
+              {...chatProps}
+              isModalDefaultOpen={defaultOpen}
+              chatView={PopupViewOverrideWithStatics}
+            />
+          </ModalOpenControlProvider>
+        </ModalThreadsScope>
       </PopupShellPropsContext.Provider>
     </>
   );
