@@ -24,13 +24,25 @@ function findSkill(snapshot: VerifiedSnapshot, name: string) {
   return skill;
 }
 
+/** The `copilotkit_load_skill` result shared by every runtime adapter. */
+export interface LoadedSkill {
+  skill_name: string;
+  content: string;
+  files: string[];
+  revision: string;
+  container_id?: string;
+}
+
 /** Load SKILL.md and list supporting text files from a verified snapshot. */
-export function loadSkill(snapshot: VerifiedSnapshot, name: string): string {
+export function loadSkillResult(
+  snapshot: VerifiedSnapshot,
+  name: string,
+): LoadedSkill {
   const skill = findSkill(snapshot, name);
   const content = skill.files.find((file) => file.path === "SKILL.md")?.text;
   if (content === undefined) throw new Error("Skill is unavailable.");
   const containerId = skill.containerId ?? snapshot.containerId;
-  return JSON.stringify({
+  return {
     skill_name: skill.name,
     content,
     files: skill.files
@@ -41,7 +53,16 @@ export function loadSkill(snapshot: VerifiedSnapshot, name: string): string {
     // used, so a run's tool call can be attributed to it.
     revision: skill.revision ?? snapshot.revision,
     ...(containerId !== undefined ? { container_id: containerId } : {}),
-  });
+  };
+}
+
+/**
+ * {@link loadSkillResult} as JSON text, for adapters whose tool results must
+ * be strings. Adapters that serialize tool results themselves (the
+ * BuiltInAgent) take the object instead, so the result is encoded once.
+ */
+export function loadSkill(snapshot: VerifiedSnapshot, name: string): string {
+  return JSON.stringify(loadSkillResult(snapshot, name));
 }
 
 /** Read an exact text-file path without filesystem access or execution. */

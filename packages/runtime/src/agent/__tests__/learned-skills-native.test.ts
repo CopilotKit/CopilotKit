@@ -5,6 +5,7 @@ import { streamText, stepCountIs } from "ai";
 import { MockLanguageModelV3, simulateReadableStream } from "ai/test";
 import { z } from "zod";
 import { EventType } from "@ag-ui/client";
+import type { ToolCallResultEvent } from "@ag-ui/client";
 import { BuiltInAgent, convertMessagesToVercelAISDKMessages } from "../index";
 import { collectEvents, createDefaultInput } from "./agent-test-helpers";
 import fixtures from "../../../../intelligence-delivery-core/conformance/snapshots.v1.json";
@@ -215,6 +216,18 @@ describe("native AI SDK skill delivery over canonical HTTP transport", () => {
         (event) => event.type === EventType.TOOL_CALL_RESULT,
       );
       expect(results).toHaveLength(2);
+      // One JSON encoding: content parses straight to the load result.
+      const loadResult = results.find(
+        (event) => (event as ToolCallResultEvent).toolCallId === "load",
+      ) as ToolCallResultEvent;
+      const loaded: unknown = JSON.parse(loadResult.content);
+      expect(loaded).toEqual({
+        skill_name: "refund-policy",
+        content: expect.stringContaining("Use the published refund policy"),
+        files: ["reference.txt"],
+        revision: expect.any(String),
+        container_id: "learning",
+      });
       expect(JSON.stringify(results)).toContain(
         "Use the published refund policy",
       );

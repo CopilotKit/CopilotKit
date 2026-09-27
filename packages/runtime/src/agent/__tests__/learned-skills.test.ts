@@ -128,12 +128,11 @@ describe("BuiltInAgent learned skills", () => {
     const original = structuredClone(input);
     await collectEvents(agent.run(input));
     const { tools } = contexts[0].learnedSkills;
+    // The tool returns the object; the agent encodes it once for the model.
     expect(
-      JSON.parse(
-        (await execute(tools, "copilotkit_load_skill", {
-          skill_name: "refund-policy",
-        })) as string,
-      ),
+      await execute(tools, "copilotkit_load_skill", {
+        skill_name: "refund-policy",
+      }),
     ).toEqual({
       skill_name: "refund-policy",
       content: expect.stringContaining("refund"),
@@ -166,11 +165,13 @@ describe("BuiltInAgent learned skills", () => {
       factory: async function* (context) {
         contexts.push(context);
         const delta = context.learnedSkills.catalog
-          ? ((await execute(
-              context.learnedSkills.tools,
-              "copilotkit_load_skill",
-              { skill_name: "refund-policy" },
-            )) as string)
+          ? JSON.stringify(
+              await execute(
+                context.learnedSkills.tools,
+                "copilotkit_load_skill",
+                { skill_name: "refund-policy" },
+              ),
+            )
           : "No skills";
         yield { type: "TEXT_MESSAGE_CONTENT", delta };
       },
@@ -422,11 +423,9 @@ it("provides both container catalogs and executable tools to BuiltInAgent factor
   const skills = contexts[0].learnedSkills;
   expect(skills.catalog).toContain("support/refund-policy");
   expect(skills.catalog).toContain("company/refund-policy");
-  const loaded = JSON.parse(
-    (await execute(skills.tools, "copilotkit_load_skill", {
-      skill_name: "company/refund-policy",
-    })) as string,
-  );
+  const loaded = (await execute(skills.tools, "copilotkit_load_skill", {
+    skill_name: "company/refund-policy",
+  })) as { content: string };
   expect(loaded.content).toContain("published refund policy");
   // Each container reports its own real revision, never the aggregate.
   expect(loaded).toMatchObject({

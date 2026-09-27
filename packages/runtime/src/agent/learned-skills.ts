@@ -3,7 +3,7 @@ import type { ToolSet } from "ai";
 import type { SkillRegistry } from "../v2/runtime/intelligence-platform/skill-registry";
 import {
   formatSkillCatalog,
-  loadSkill,
+  loadSkillResult,
   readSkillFile,
 } from "../v2/runtime/intelligence-platform/skill-registry";
 import type { SkillRegistryOptions } from "../v2/runtime/intelligence-platform/skill-registry";
@@ -77,7 +77,9 @@ export async function prepareLearnedSkills(
         required: ["skill_name"],
         additionalProperties: false,
       }),
-      execute: async ({ skill_name }) => loadSkill(snapshot, skill_name),
+      // Return the object: the agent JSON-encodes tool results, so a string
+      // here would reach TOOL_CALL_RESULT.content double-encoded.
+      execute: async ({ skill_name }) => loadSkillResult(snapshot, skill_name),
     }),
     copilotkit_read_skill_file: tool({
       description:
