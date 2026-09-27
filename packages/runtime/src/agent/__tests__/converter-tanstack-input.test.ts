@@ -165,6 +165,29 @@ describe("convertInputToTanStackAI", () => {
       expect("execute" in tools[0]).toBe(false);
     });
 
+    it("does not pass AG-UI tool metadata to the model", () => {
+      const params = { type: "object" as const, properties: {} };
+      const input = createDefaultInput({
+        tools: [
+          {
+            name: "approve",
+            description: "Ask the user to approve",
+            parameters: params,
+            metadata: { copilotkit: { interaction: "human-in-the-loop" } },
+          },
+        ],
+      });
+
+      const { tools } = convertInputToTanStackAI(input);
+
+      expect(tools[0]).toEqual({
+        __toolSide: "client",
+        name: "approve",
+        description: "Ask the user to approve",
+        inputSchema: params,
+      });
+    });
+
     it("returns an empty tools array when input has no tools", () => {
       const { tools } = convertInputToTanStackAI(createDefaultInput());
       expect(tools).toEqual([]);

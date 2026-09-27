@@ -141,6 +141,27 @@ const MAX_FOLLOW_UP_DEPTH = 100;
  */
 const WILDCARD_TOOL_NAME = "*";
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/**
+ * AG-UI tool metadata for one frontend tool. Human-in-the-loop tools carry
+ * `copilotkit.interaction` so the runtime can recognize the user's answer to
+ * them. Ordinary tools send no metadata unless they already carry some.
+ */
+function buildToolMetadata(
+  tool: FrontendTool<any>,
+): Record<string, unknown> | undefined {
+  const existing = (tool as { metadata?: unknown }).metadata;
+  const base = isRecord(existing) ? existing : undefined;
+  if (tool.type !== "human-in-the-loop") return base;
+  const copilotkit = isRecord(base?.copilotkit) ? base.copilotkit : {};
+  return {
+    ...base,
+    copilotkit: { ...copilotkit, interaction: "human-in-the-loop" },
+  };
+}
+
 /**
  * Handles agent execution, tool calling, and agent connectivity for CopilotKitCore.
  * Manages the complete lifecycle of agent runs including tool execution and follow-ups.
@@ -1572,11 +1593,15 @@ export class RunHandler {
           (!tool.agentId || tool.agentId === agentId) &&
           this.isToolEnabled(tool.name, tool.agentId),
       )
-      .map((tool) => ({
-        name: tool.name,
-        description: tool.description ?? "",
-        parameters: createToolSchema(tool),
-      }));
+      .map((tool) => {
+        const metadata = buildToolMetadata(tool);
+        return {
+          name: tool.name,
+          description: tool.description ?? "",
+          parameters: createToolSchema(tool),
+          ...(metadata ? { metadata } : {}),
+        };
+      });
   }
 
   /**
