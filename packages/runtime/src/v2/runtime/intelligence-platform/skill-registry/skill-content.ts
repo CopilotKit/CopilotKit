@@ -29,6 +29,7 @@ export function loadSkill(snapshot: VerifiedSnapshot, name: string): string {
   const skill = findSkill(snapshot, name);
   const content = skill.files.find((file) => file.path === "SKILL.md")?.text;
   if (content === undefined) throw new Error("Skill is unavailable.");
+  const containerId = skill.containerId ?? snapshot.containerId;
   return JSON.stringify({
     skill_name: skill.name,
     content,
@@ -36,6 +37,10 @@ export function loadSkill(snapshot: VerifiedSnapshot, name: string): string {
       .filter((file) => file.path !== "SKILL.md" && file.text !== undefined)
       .map((file) => file.path)
       .sort(compare),
+    // The revision and container identify exactly which published skill was
+    // used, so a run's tool call can be attributed to it.
+    revision: skill.revision ?? snapshot.revision,
+    ...(containerId !== undefined ? { container_id: containerId } : {}),
   });
 }
 

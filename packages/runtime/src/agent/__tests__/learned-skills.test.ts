@@ -134,7 +134,13 @@ describe("BuiltInAgent learned skills", () => {
           skill_name: "refund-policy",
         })) as string,
       ),
-    ).toMatchObject({ skill_name: "refund-policy", files: ["reference.txt"] });
+    ).toEqual({
+      skill_name: "refund-policy",
+      content: expect.stringContaining("refund"),
+      files: ["reference.txt"],
+      revision: response().revision,
+      container_id: "learning",
+    });
     expect(
       await execute(tools, "copilotkit_read_skill_file", {
         skill_name: "refund-policy",
@@ -416,10 +422,17 @@ it("provides both container catalogs and executable tools to BuiltInAgent factor
   const skills = contexts[0].learnedSkills;
   expect(skills.catalog).toContain("support/refund-policy");
   expect(skills.catalog).toContain("company/refund-policy");
-  expect(
-    await execute(skills.tools, "copilotkit_load_skill", {
+  const loaded = JSON.parse(
+    (await execute(skills.tools, "copilotkit_load_skill", {
       skill_name: "company/refund-policy",
-    }),
-  ).toContain("published refund policy");
+    })) as string,
+  );
+  expect(loaded.content).toContain("published refund policy");
+  // Each container reports its own real revision, never the aggregate.
+  expect(loaded).toMatchObject({
+    skill_name: "company/refund-policy",
+    revision: response().revision,
+    container_id: "company",
+  });
   expect(fetch).toHaveBeenCalledTimes(2);
 });
