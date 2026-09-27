@@ -13,9 +13,16 @@ import {
   ControlledModalOpenScope,
   CopilotChatConfigurationProvider,
   CopilotChatDefaultLabels,
+  ModalThreadsDrawerScope,
   useCopilotChatConfiguration,
 } from "../../providers/CopilotChatConfigurationProvider";
 import { useModalOpenControl } from "./modal-open-control";
+import type { CopilotThreadsDrawerProps } from "./CopilotThreadsDrawer";
+import {
+  ModalThreadsDrawer,
+  resolveModalThreadsDrawerProps,
+} from "./modal-threads-drawer";
+import type { ModalThreadsDrawerProp } from "./modal-threads-drawer";
 
 const DEFAULT_POPUP_WIDTH = 420;
 const DEFAULT_POPUP_HEIGHT = 560;
@@ -27,6 +34,16 @@ export type CopilotPopupViewProps = CopilotChatViewProps & {
   height?: number | string;
   clickOutsideToClose?: boolean;
   defaultOpen?: boolean;
+  /**
+   * Adds a threads drawer to the popup. The header gets a thread-list launcher
+   * (top-left) that slides the drawer in from the popup's left edge, over the
+   * chat; Escape, the scrim, or picking a thread closes it, and picking a
+   * thread or "New Conversation" drives the chat. Pass `true` for the default
+   * drawer or an object of `CopilotThreadsDrawer` props to configure it.
+   * Defaults to off. Threads need CopilotKit Intelligence; without it the
+   * drawer shows its upgrade prompt.
+   */
+  threadsDrawer?: ModalThreadsDrawerProp;
 };
 
 const dimensionToCss = (
@@ -51,6 +68,7 @@ export function CopilotPopupView({
   height,
   clickOutsideToClose,
   defaultOpen = true,
+  threadsDrawer,
   className,
   ...restProps
 }: CopilotPopupViewProps) {
@@ -60,6 +78,7 @@ export function CopilotPopupView({
   // `onOpenChange` reports requests even while the popup manages itself.
   const hasOpenControl = open !== undefined || onOpenChange !== undefined;
 
+  const drawerProps = resolveModalThreadsDrawerProps(threadsDrawer);
   const internal = (
     <CopilotPopupViewInternal
       header={header}
@@ -68,8 +87,15 @@ export function CopilotPopupView({
       height={height}
       clickOutsideToClose={clickOutsideToClose}
       className={className}
+      drawerProps={drawerProps}
       {...restProps}
     />
+  );
+  // The drawer's open state is local to this popup (see ModalThreadsDrawerScope).
+  const surface = drawerProps ? (
+    <ModalThreadsDrawerScope>{internal}</ModalThreadsDrawerScope>
+  ) : (
+    internal
   );
 
   return (
@@ -80,10 +106,10 @@ export function CopilotPopupView({
     <CopilotChatConfigurationProvider isModalDefaultOpen={open ?? defaultOpen}>
       {hasOpenControl ? (
         <ControlledModalOpenScope open={open} onOpenChange={onOpenChange}>
-          {internal}
+          {surface}
         </ControlledModalOpenScope>
       ) : (
-        internal
+        surface
       )}
     </CopilotChatConfigurationProvider>
   );
@@ -96,11 +122,18 @@ function CopilotPopupViewInternal({
   height,
   clickOutsideToClose,
   className,
+  drawerProps,
   ...restProps
-}: Omit<CopilotPopupViewProps, "defaultOpen">) {
+}: Omit<CopilotPopupViewProps, "defaultOpen" | "threadsDrawer"> & {
+  drawerProps: CopilotThreadsDrawerProps | null;
+}) {
   const configuration = useCopilotChatConfiguration();
   const isPopupOpen = configuration?.isModalOpen ?? false;
   const setModalOpen = configuration?.setModalOpen;
+  // An open in-popup drawer takes Escape first; the next Escape closes the popup.
+  const drawerOverlayOpen =
+    drawerProps !== null && (configuration?.drawerOpen ?? false);
+  const setDrawerOpen = configuration?.setDrawerOpen;
   const labels = configuration?.labels ?? CopilotChatDefaultLabels;
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -139,13 +172,17 @@ function CopilotPopupViewInternal({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
+        if (drawerOverlayOpen) {
+          setDrawerOpen?.(false);
+          return;
+        }
         setModalOpen?.(false);
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isPopupOpen, setModalOpen]);
+  }, [isPopupOpen, setModalOpen, drawerOverlayOpen, setDrawerOpen]);
 
   useEffect(() => {
     if (!isPopupOpen) {
@@ -252,7 +289,7 @@ function CopilotPopupViewInternal({
           "cpk:rounded-none cpk:border cpk:border-border/0 cpk:shadow-none cpk:ring-0",
           "cpk:md:h-[var(--copilot-popup-height)] cpk:md:w-[var(--copilot-popup-width)]",
           "cpk:md:max-h-[var(--copilot-popup-max-height)] cpk:md:max-w-[var(--copilot-popup-max-width)]",
-          "cpk:md:origin-bottom-right cpk:md:rounded-2xl cpk:md:border-border cpk:md:shadow-xl cpk:md:ring-1 cpk:md:ring-border/40",
+          "cpk:md:origin-bottom-right cpk:md:rounded-2xl cpk:md:border-border cpk:md:shadow-[0_2px_6px_-1px_rgb(0_0_0/0.06),0_24px_64px_-12px_rgb(0_0_0/0.22)]",
           popupAnimationClass,
         )}
         style={popupStyle}
@@ -264,6 +301,7 @@ function CopilotPopupViewInternal({
             className={cn("cpk:h-full cpk:min-h-0", className)}
           />
         </div>
+        {drawerProps && <ModalThreadsDrawer {...drawerProps} />}
       </div>
     </div>
   ) : null;
@@ -281,10 +319,8 @@ CopilotPopupView.displayName = "CopilotPopupView";
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace CopilotPopupView {
   /**
-   * Popup-specific welcome screen layout:
-   * - Welcome message centered vertically
-   * - Suggestions just above input
-   * - Input fixed at the bottom
+   * Popup-specific welcome screen: the greeting, the suggestion cards
+   * and the input, centered together.
    */
   export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     welcomeMessage,
@@ -320,18 +356,18 @@ export namespace CopilotPopupView {
         className={cn("cpk:h-full cpk:flex cpk:flex-col", className)}
         {...props}
       >
-        {/* Welcome message - centered vertically */}
-        <div className="cpk:flex-1 cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:px-4">
-          {BoundWelcomeMessage}
-        </div>
-
-        {/* Suggestions and input at bottom */}
-        <div>
-          {/* Suggestions above input */}
-          <div className="cpk:mb-4 cpk:flex cpk:justify-center cpk:px-4">
+        {/* Greeting, suggestions and input, centered together */}
+        <div className="cpk:flex-1 cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:gap-5 cpk:px-4 cpk:py-6">
+          <div className="cpk-intro">{BoundWelcomeMessage}</div>
+          <div className="cpk-intro-stagger cpk:flex cpk:w-full cpk:justify-center cpk:empty:hidden">
             {suggestionView}
           </div>
-          {input}
+          <div
+            className="cpk-intro cpk:w-full"
+            style={{ "--cpk-intro-delay": "180ms" } as React.CSSProperties}
+          >
+            {input}
+          </div>
         </div>
       </div>
     );
