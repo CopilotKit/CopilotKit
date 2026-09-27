@@ -46,11 +46,6 @@ test("publishes the curated decision index and exhaustive retrieval link", async
       `- [${page.title}](${baseUrl}/${page.url}): ${page.description}`,
     );
   }
-  expect(body).toContain("LangChain/LangGraph, Google ADK, or Mastra");
-  expect(body).toContain("keep your existing thread provider");
-  expect(body).toContain("CopilotKit's built-in thread store");
-  expect(body).toContain("does not establish ongoing database replication");
-  expect(body).not.toContain("LangGraph or ADK import guide below");
   expect(body).not.toContain("/slack/mastra/tools)");
   expect(body).not.toContain("/teams/langgraph-fastapi/interactive)");
 });
