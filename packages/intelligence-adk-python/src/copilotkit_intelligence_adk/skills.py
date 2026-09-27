@@ -17,7 +17,7 @@ from google.adk.tools.tool_context import ToolContext
 from google.genai import types
 
 from ._delivery.registry import ContainerSource, Registry, Status
-from ._delivery.snapshot import VerifiedSnapshot
+from ._delivery.snapshot import VerifiedSnapshot, load_skill_result
 
 
 class _Pin:
@@ -144,15 +144,7 @@ class _SkillTool(BaseTool):
             if skill.name != name:
                 continue
             if not self._read_file:
-                return {
-                    "skill_name": skill.name,
-                    "content": next(file.text for file in skill.files if file.path == "SKILL.md"),
-                    "files": [
-                        file.path
-                        for file in skill.files
-                        if file.path != "SKILL.md" and file.text is not None
-                    ],
-                }
+                return load_skill_result(snapshot, skill)
             path = args.get("path")
             for file in skill.files:
                 if file.path == path and path != "SKILL.md" and file.text is not None:

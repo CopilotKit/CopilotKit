@@ -7,7 +7,7 @@ import re
 import struct
 import zipfile
 import zlib
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from copilotkit_intelligence import LearnedSkillsError
 
@@ -28,6 +28,10 @@ class SnapshotSkill:
     name: str
     description: str
     files: tuple[SnapshotFile, ...]
+    # Learning container this skill was published from, when known.
+    container_id: str | None = None
+    # Real published revision of that container's snapshot, when known.
+    revision: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,6 +39,39 @@ class VerifiedSnapshot:
     revision: str
     etag: str
     skills: tuple[SnapshotSkill, ...]
+    # Learning container of a single-container snapshot, when known.
+    container_id: str | None = None
+
+
+def with_snapshot_source(snapshot: VerifiedSnapshot, container_id: str) -> VerifiedSnapshot:
+    """Record which container and revision each skill of a snapshot came from."""
+    return replace(
+        snapshot,
+        container_id=container_id,
+        skills=tuple(
+            replace(skill, container_id=container_id, revision=snapshot.revision)
+            for skill in snapshot.skills
+        ),
+    )
+
+
+def load_skill_result(snapshot: VerifiedSnapshot, skill: SnapshotSkill) -> dict[str, object]:
+    """Build the copilotkit_load_skill result shared by every runtime."""
+    content = next(file.text for file in skill.files if file.path == "SKILL.md")
+    container_id = skill.container_id or snapshot.container_id
+    result: dict[str, object] = {
+        "skill_name": skill.name,
+        "content": content,
+        "files": [
+            file.path for file in skill.files if file.path != "SKILL.md" and file.text is not None
+        ],
+        # The revision and container identify exactly which published skill was
+        # used, so a run's tool call can be attributed to it.
+        "revision": skill.revision or snapshot.revision,
+    }
+    if container_id is not None:
+        result["container_id"] = container_id
+    return result
 
 
 def invalid_snapshot(cause: BaseException | None = None) -> LearnedSkillsError:
