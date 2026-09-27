@@ -179,7 +179,7 @@ function toggleOpen() {
       >
         <button
           type="button"
-          class="cpk:inline-flex cpk:items-center cpk:gap-1 cpk:py-1 cpk:text-sm cpk:text-muted-foreground cpk:transition-colors cpk:select-none"
+          class="cpk:inline-flex cpk:items-center cpk:gap-1 cpk:rounded-md cpk:py-1 cpk:text-sm cpk:text-muted-foreground cpk:transition-colors cpk:select-none cpk:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-ring/50"
           :class="
             hasContent
               ? 'cpk:hover:text-foreground cpk:cursor-pointer'
@@ -188,7 +188,9 @@ function toggleOpen() {
           :aria-expanded="hasContent ? isOpen : undefined"
           @click="hasContent ? toggleOpen() : undefined"
         >
-          <span class="cpk:font-medium">{{ label }}</span>
+          <span class="cpk:font-medium" :class="{ 'cpk-shimmer': isStreaming }">
+            {{ label }}
+          </span>
           <span
             v-if="isStreaming && !hasContent"
             class="cpk:inline-flex cpk:items-center cpk:ml-1"
@@ -225,8 +227,10 @@ function toggleOpen() {
               :has-content="hasContent"
               :content="normalizedContent"
             >
-              <div v-if="hasContent || isStreaming" class="cpk:pb-2 cpk:pt-1">
-                <div class="cpk:text-sm cpk:text-muted-foreground">
+              <div v-if="hasContent || isStreaming" class="cpk:pb-2 cpk:pt-1.5">
+                <div
+                  class="cpk:ml-1 cpk:border-l-2 cpk:border-border cpk:pl-3.5 cpk:text-sm cpk:leading-relaxed cpk:text-muted-foreground cpk:[&_p]:my-2 cpk:[&_p:first-child]:mt-0 cpk:[&_p:last-child]:mb-0"
+                >
                   <StreamMarkdown :content="normalizedContent" />
                   <span
                     v-if="isStreaming && hasContent"

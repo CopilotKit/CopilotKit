@@ -33,7 +33,10 @@ const propIsAuthoritative = computed(
   () => props.threadId !== undefined && props.hasExplicitThreadId !== false,
 );
 
-// Imperative active-thread override (a picked row or a fresh startNewThread).
+// Imperative active-thread override (a picked row or a fresh startNewThread),
+// owned by the TOP-MOST provider. Nested providers proxy the parent's setters
+// (see setActiveThreadId below) and observe the override through the inherited
+// threadId, so the whole chain drives a single active thread.
 const activeThreadOverride = ref<{
   threadId: string;
   explicit: boolean;
@@ -53,11 +56,14 @@ const resolvedAgentId = computed(
 
 const fallbackThreadId = randomUUID();
 const resolvedThreadId = computed(() => {
+  // An authoritative (caller-chosen) threadId prop always wins. Otherwise an
+  // imperative override beats both the thread inherited from a parent provider
+  // and a non-authoritative seed.
   if (propIsAuthoritative.value) return props.threadId as string;
   if (activeThreadOverride.value) return activeThreadOverride.value.threadId;
-  if (props.threadId) return props.threadId;
   if (parentConfigValue.value?.threadId)
     return parentConfigValue.value.threadId;
+  if (props.threadId) return props.threadId;
   return fallbackThreadId;
 });
 
@@ -95,12 +101,21 @@ const resolvedSetModalOpen = computed(() =>
     : parentConfigValue.value?.setModalOpen,
 );
 
+// Active-thread setters. The controlled guard applies at EACH level, so the
+// nearest provider whose own `threadId` prop pins the thread no-ops + warns,
+// wherever it sits in the chain; past it, a nested provider proxies its parent
+// and only the top-most provider stores the override.
 function setActiveThreadId(threadId: string, options?: { explicit?: boolean }) {
   if (propIsAuthoritative.value) {
     console.warn(
       "[CopilotKit] Ignoring setActiveThreadId(): threadId is controlled " +
         "via the `threadId` prop on CopilotChatConfigurationProvider.",
     );
+    return;
+  }
+  const parent = parentConfigValue.value;
+  if (parent) {
+    parent.setActiveThreadId(threadId, options);
     return;
   }
   activeThreadOverride.value = {
@@ -115,6 +130,11 @@ function startNewThread() {
       "[CopilotKit] Ignoring startNewThread(): threadId is controlled via " +
         "the `threadId` prop on CopilotChatConfigurationProvider.",
     );
+    return;
+  }
+  const parent = parentConfigValue.value;
+  if (parent) {
+    parent.startNewThread();
     return;
   }
   activeThreadOverride.value = { threadId: randomUUID(), explicit: false };
@@ -197,6 +217,8 @@ const configurationValue = computed<CopilotChatConfigurationValue>(() => ({
   setDrawerOpen: resolvedSetDrawerOpen.value,
   drawerRegistered: resolvedDrawerRegistered.value,
   registerDrawer: resolvedRegisterDrawer.value,
+  // A nested provider inside a modal-hosted drawer scope keeps the overlay flag.
+  ...(parentConfigValue.value?.ɵdrawerOverlay ? { ɵdrawerOverlay: true } : {}),
   setActiveThreadId,
   startNewThread,
 }));

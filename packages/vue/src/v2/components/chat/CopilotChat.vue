@@ -56,6 +56,7 @@ defineOptions({ inheritAttrs: false });
 const props = withDefaults(defineProps<CopilotChatProps>(), {
   autoScroll: true,
   welcomeScreen: true,
+  introAnimation: true,
   inputValue: undefined,
   inputMode: "input",
   inputToolsMenu: () => [],
@@ -146,6 +147,13 @@ const resolvedThreadId = computed(
 );
 const hasExplicitThreadId = computed(
   () => inspectorThreadId.value !== null || baseHasExplicitThreadId.value,
+);
+// Whether this chat itself pins its thread (a `threadId` prop or an inspector
+// override). An explicit thread inherited from a surrounding provider stays
+// that provider's to switch, so a threads drawer inside the chat (popup and
+// sidebar) can keep picking threads; explicitness still flows down from it.
+const pinsThreadId = computed(
+  () => !!props.threadId || inspectorThreadId.value !== null,
 );
 const lastConnectedThreadId = ref<string | null>(null);
 const isConnecting = computed(
@@ -744,6 +752,7 @@ const chatViewSlotProps = computed<CopilotChatViewOverrideSlotProps>(() => ({
   suggestions: autoSuggestions.value,
   suggestionLoadingIndexes: [],
   welcomeScreen: props.welcomeScreen,
+  introAnimation: props.introAnimation,
   attachments: attachments.value,
   dragOver: dragOver.value,
   inputValue: inputValue.value,
@@ -803,7 +812,7 @@ const defaultChatViewBindings = computed(() => {
   <CopilotChatConfigurationProvider
     :agent-id="resolvedAgentId"
     :thread-id="resolvedThreadId"
-    :has-explicit-thread-id="hasExplicitThreadId"
+    :has-explicit-thread-id="pinsThreadId"
     :labels="resolvedLabels"
   >
     <div ref="attachmentContainerRef" style="display: contents">
@@ -846,6 +855,7 @@ const defaultChatViewBindings = computed(() => {
             chatViewSlotProps.suggestionLoadingIndexes
           "
           :welcome-screen="chatViewSlotProps.welcomeScreen"
+          :intro-animation="chatViewSlotProps.introAnimation"
           :input-value="chatViewSlotProps.inputValue"
           :input-mode="chatViewSlotProps.inputMode"
           :input-tools-menu="chatViewSlotProps.inputToolsMenu"

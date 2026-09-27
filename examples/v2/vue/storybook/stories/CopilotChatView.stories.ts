@@ -3,11 +3,15 @@ import type { Suggestion } from "@copilotkit/core";
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import {
   CopilotChatAssistantMessage,
-  CopilotChatConfigurationProvider,
   CopilotChatMessageView,
   CopilotChatView,
-  CopilotKitProvider,
 } from "@copilotkit/vue";
+import { withFullHeight } from "./support/layouts";
+import {
+  manySuggestions,
+  reactHooksConversation,
+  starterSuggestions,
+} from "./support/fixtures";
 
 const suggestionSamples: Suggestion[] = [
   {
@@ -185,16 +189,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const fullscreenDecorator: Story["decorators"] = [
-  (story) => ({
-    components: { story },
-    template: `
-      <div style="height: 100vh; margin: 0; padding: 0; overflow: hidden">
-        <story />
-      </div>
-    `,
-  }),
-];
+const fullscreenDecorator: Story["decorators"] = [withFullHeight];
 
 const handleSubmitMessage = (value: string) => {
   if (typeof window !== "undefined") {
@@ -227,8 +222,6 @@ export const Default: Story = {
   decorators: fullscreenDecorator,
   render: () => ({
     components: {
-      CopilotKitProvider,
-      CopilotChatConfigurationProvider,
       CopilotChatView,
       CopilotChatMessageView,
       CopilotChatAssistantMessage,
@@ -242,27 +235,24 @@ export const Default: Story = {
       };
     },
     template: `
-      <CopilotKitProvider runtime-url="https://copilotkit.ai">
-        <CopilotChatConfigurationProvider thread-id="storybook-thread">
-          <div style="height: 100%">
-            <CopilotChatView :messages="storyMessages" @submit-message="handleSubmitMessage">
-              <template #message-view="{ messages, isRunning }">
-                <CopilotChatMessageView :messages="messages" :is-running="isRunning">
-                  <template #assistant-message="{ message, messages: allMessages, isRunning: running }">
-                    <CopilotChatAssistantMessage
-                      :message="message"
-                      :messages="allMessages"
-                      :is-running="running"
-                      @thumbs-up="handleThumbsUp"
-                      @thumbs-down="handleThumbsDown"
-                    />
-                  </template>
-                </CopilotChatMessageView>
+      <div style="height: 100%">
+        <CopilotChatView :messages="storyMessages" @submit-message="handleSubmitMessage">
+          <template #message-view="{ messages, isRunning }">
+            <CopilotChatMessageView :messages="messages" :is-running="isRunning">
+              <template #assistant-message="{ message, messages: allMessages, isRunning: running, showCursor }">
+                <CopilotChatAssistantMessage
+                  :message="message"
+                  :messages="allMessages"
+                  :is-running="running"
+                  :show-cursor="showCursor"
+                  @thumbs-up="handleThumbsUp"
+                  @thumbs-down="handleThumbsDown"
+                />
               </template>
-            </CopilotChatView>
-          </div>
-        </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+            </CopilotChatMessageView>
+          </template>
+        </CopilotChatView>
+      </div>
     `,
   }),
 };
@@ -280,8 +270,6 @@ export const PinToSend: Story = {
   decorators: fullscreenDecorator,
   render: () => ({
     components: {
-      CopilotKitProvider,
-      CopilotChatConfigurationProvider,
       CopilotChatView,
     },
     setup() {
@@ -291,17 +279,13 @@ export const PinToSend: Story = {
       };
     },
     template: `
-      <CopilotKitProvider runtime-url="https://copilotkit.ai">
-        <CopilotChatConfigurationProvider thread-id="storybook-pin-to-send">
-          <div style="height: 100%">
-            <CopilotChatView
-              auto-scroll="pin-to-send"
-              :messages="pinToSendMessages"
-              @submit-message="handleSubmitMessage"
-            />
-          </div>
-        </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      <div style="height: 100%">
+        <CopilotChatView
+          auto-scroll="pin-to-send"
+          :messages="pinToSendMessages"
+          @submit-message="handleSubmitMessage"
+        />
+      </div>
     `,
   }),
 };
@@ -313,8 +297,6 @@ export const WithSuggestions: Story = {
   decorators: fullscreenDecorator,
   render: () => ({
     components: {
-      CopilotKitProvider,
-      CopilotChatConfigurationProvider,
       CopilotChatView,
       CopilotChatMessageView,
       CopilotChatAssistantMessage,
@@ -330,32 +312,143 @@ export const WithSuggestions: Story = {
       };
     },
     template: `
-      <CopilotKitProvider runtime-url="https://copilotkit.ai">
-        <CopilotChatConfigurationProvider thread-id="storybook-thread">
-          <div style="height: 100%">
-            <CopilotChatView
-              :messages="storyMessages"
-              :suggestions="suggestionSamples"
-              @submit-message="handleSubmitMessage"
-              @select-suggestion="handleSelectSuggestion"
-            >
-              <template #message-view="{ messages, isRunning }">
-                <CopilotChatMessageView :messages="messages" :is-running="isRunning">
-                  <template #assistant-message="{ message, messages: allMessages, isRunning: running }">
-                    <CopilotChatAssistantMessage
-                      :message="message"
-                      :messages="allMessages"
-                      :is-running="running"
-                      @thumbs-up="handleThumbsUp"
-                      @thumbs-down="handleThumbsDown"
-                    />
-                  </template>
-                </CopilotChatMessageView>
+      <div style="height: 100%">
+        <CopilotChatView
+          :messages="storyMessages"
+          :suggestions="suggestionSamples"
+          @submit-message="handleSubmitMessage"
+          @select-suggestion="handleSelectSuggestion"
+        >
+          <template #message-view="{ messages, isRunning }">
+            <CopilotChatMessageView :messages="messages" :is-running="isRunning">
+              <template #assistant-message="{ message, messages: allMessages, isRunning: running, showCursor }">
+                <CopilotChatAssistantMessage
+                  :message="message"
+                  :messages="allMessages"
+                  :is-running="running"
+                  :show-cursor="showCursor"
+                  @thumbs-up="handleThumbsUp"
+                  @thumbs-down="handleThumbsDown"
+                />
               </template>
-            </CopilotChatView>
-          </div>
-        </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+            </CopilotChatMessageView>
+          </template>
+        </CopilotChatView>
+      </div>
+    `,
+  }),
+};
+
+/** A fresh conversation: the greeting, starter cards and the input. */
+export const WelcomeScreen: Story = {
+  parameters: {
+    layout: "fullscreen",
+  },
+  decorators: fullscreenDecorator,
+  render: () => ({
+    components: { CopilotChatView },
+    setup() {
+      return {
+        starterSuggestions,
+        handleSubmitMessage,
+        handleSelectSuggestion,
+      };
+    },
+    template: `
+      <CopilotChatView
+        :messages="[]"
+        :suggestions="starterSuggestions"
+        @submit-message="handleSubmitMessage"
+        @select-suggestion="handleSelectSuggestion"
+      />
+    `,
+  }),
+};
+
+/** A run in flight: typing cursor in the transcript, stop button in the input. */
+export const Running: Story = {
+  parameters: {
+    layout: "fullscreen",
+  },
+  decorators: fullscreenDecorator,
+  render: () => ({
+    components: { CopilotChatView },
+    setup() {
+      const messages: Message[] = [
+        ...reactHooksConversation,
+        {
+          id: "user-3",
+          role: "user",
+          content: "And how would I persist that count across reloads?",
+        },
+      ];
+      return {
+        messages,
+        handleSubmitMessage,
+        handleStop: () => console.log("[Storybook] Stop"),
+      };
+    },
+    template: `
+      <CopilotChatView
+        :messages="messages"
+        :is-running="true"
+        :on-stop="handleStop"
+        @submit-message="handleSubmitMessage"
+      />
+    `,
+  }),
+};
+
+/** More suggestions than fit: the docked bar scrolls and its edge fades. */
+export const WithManySuggestions: Story = {
+  parameters: {
+    layout: "fullscreen",
+  },
+  decorators: fullscreenDecorator,
+  render: () => ({
+    components: { CopilotChatView },
+    setup() {
+      return {
+        reactHooksConversation,
+        manySuggestions,
+        handleSubmitMessage,
+        handleSelectSuggestion,
+      };
+    },
+    template: `
+      <CopilotChatView
+        :messages="reactHooksConversation"
+        :suggestions="manySuggestions"
+        @submit-message="handleSubmitMessage"
+        @select-suggestion="handleSelectSuggestion"
+      />
+    `,
+  }),
+};
+
+/** The welcome screen with `:intro-animation="false"`: content appears immediately. */
+export const WithoutIntroAnimation: Story = {
+  parameters: {
+    layout: "fullscreen",
+  },
+  decorators: fullscreenDecorator,
+  render: () => ({
+    components: { CopilotChatView },
+    setup() {
+      return {
+        starterSuggestions,
+        handleSubmitMessage,
+        handleSelectSuggestion,
+      };
+    },
+    template: `
+      <CopilotChatView
+        :messages="[]"
+        :suggestions="starterSuggestions"
+        :intro-animation="false"
+        @submit-message="handleSubmitMessage"
+        @select-suggestion="handleSelectSuggestion"
+      />
     `,
   }),
 };

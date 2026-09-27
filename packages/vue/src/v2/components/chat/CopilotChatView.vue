@@ -40,6 +40,7 @@ const props = withDefaults(defineProps<CopilotChatViewProps>(), {
   suggestions: () => [],
   suggestionLoadingIndexes: () => [],
   welcomeScreen: true,
+  introAnimation: true,
   inputValue: undefined,
   inputMode: "input",
   inputToolsMenu: () => [],
@@ -94,6 +95,7 @@ defineSlots<{
     suggestions: Suggestion[];
     loadingIndexes: ReadonlyArray<number>;
     attachments: Attachment[];
+    onRemoveAttachment?: (id: string) => void;
     modelValue: string;
     isRunning: boolean;
     inputMode: CopilotChatInputMode;
@@ -198,12 +200,11 @@ const shouldShowWelcomeScreen = computed(
     !props.isConnecting &&
     !props.hasExplicitThreadId,
 );
-// Mirrors React: `paddingBottom = inputContainerHeight + (hasSuggestions ? 4 : 32)`.
-// React intentionally does NOT add bonus padding for attachments — the
-// attachment queue lives inside the input overlay, so its height is already
-// captured by the overlay's measured `inputContainerHeight`.
+// Mirrors React: `paddingBottom = inputContainerHeight + 32`. Suggestions and
+// the attachment queue live inside the input overlay, so their height is
+// already captured by the overlay's measured `inputContainerHeight`.
 const messagePaddingBottom = computed(
-  () => `${inputContainerHeight.value + (hasSuggestions.value ? 4 : 32)}px`,
+  () => `${inputContainerHeight.value + 32}px`,
 );
 const showScrollToBottomButton = computed(
   () => !shouldShowWelcomeScreen.value && !isAtBottom.value,
@@ -443,6 +444,7 @@ onBeforeUnmount(() => {
     data-copilotkit
     class="cpk:@container cpk:relative cpk:h-full"
     data-testid="copilot-chat-view"
+    :data-intro="introAnimation ? '' : undefined"
     v-bind="$attrs"
     @dragover="handleDragOver"
     @dragleave="handleDragLeave"
@@ -463,6 +465,7 @@ onBeforeUnmount(() => {
       :suggestions="suggestions"
       :loading-indexes="suggestionLoadingIndexes"
       :attachments="attachments ?? []"
+      :on-remove-attachment="onRemoveAttachment"
       :model-value="resolvedInputValue"
       :is-running="isRunning"
       :input-mode="inputMode"
@@ -487,17 +490,40 @@ onBeforeUnmount(() => {
         <div
           class="cpk:w-full cpk:max-w-3xl cpk:flex cpk:flex-col cpk:items-center"
         >
-          <div class="cpk:mb-6">
+          <div class="cpk-intro cpk:mb-5">
             <slot name="welcome-message">
               <h1
-                class="cpk:text-xl cpk:sm:text-2xl cpk:font-medium cpk:text-foreground cpk:text-center"
+                class="cpk:text-2xl cpk:@2xl:text-[1.75rem] cpk:font-semibold cpk:tracking-tight cpk:text-foreground cpk:text-center cpk:text-balance"
               >
                 {{ labels.welcomeMessageText }}
               </h1>
             </slot>
           </div>
 
-          <div class="cpk:w-full">
+          <!-- Suggestion cards under the greeting, staggered in on mount -->
+          <div
+            v-if="hasSuggestions"
+            class="cpk-intro-stagger cpk:mb-5 cpk:flex cpk:w-full cpk:justify-center cpk:empty:hidden"
+          >
+            <slot
+              name="suggestion-view"
+              :suggestions="suggestions"
+              :loading-indexes="suggestionLoadingIndexes"
+              :on-select-suggestion="handleSelectSuggestion"
+            >
+              <CopilotChatSuggestionView
+                appearance="cards"
+                :suggestions="suggestions"
+                :loading-indexes="suggestionLoadingIndexes"
+                @select-suggestion="handleSelectSuggestion"
+              />
+            </slot>
+          </div>
+
+          <div
+            class="cpk-intro cpk:w-full"
+            :style="{ '--cpk-intro-delay': '180ms' }"
+          >
             <CopilotChatAttachmentQueue
               v-if="hasAttachments"
               :attachments="attachments ?? []"
@@ -534,24 +560,6 @@ onBeforeUnmount(() => {
                 :show-disclaimer="true"
                 :keyboard-height="effectiveKeyboardHeight"
                 v-bind="inputEventProps"
-              />
-            </slot>
-          </div>
-
-          <div
-            v-if="hasSuggestions"
-            class="cpk:mt-4 cpk:flex cpk:justify-center"
-          >
-            <slot
-              name="suggestion-view"
-              :suggestions="suggestions"
-              :loading-indexes="suggestionLoadingIndexes"
-              :on-select-suggestion="handleSelectSuggestion"
-            >
-              <CopilotChatSuggestionView
-                :suggestions="suggestions"
-                :loading-indexes="suggestionLoadingIndexes"
-                @select-suggestion="handleSelectSuggestion"
               />
             </slot>
           </div>
@@ -605,24 +613,6 @@ onBeforeUnmount(() => {
                     </template>
                   </CopilotChatMessageView>
                 </slot>
-                <div
-                  v-if="hasSuggestions"
-                  class="cpk:mt-4 cpk:pl-0 cpk:pr-4 cpk:@3xl:px-0"
-                >
-                  <slot
-                    name="suggestion-view"
-                    :suggestions="suggestions"
-                    :loading-indexes="suggestionLoadingIndexes"
-                    :on-select-suggestion="handleSelectSuggestion"
-                  >
-                    <CopilotChatSuggestionView
-                      class="cpk:mb-3 cpk:lg:ml-4 cpk:lg:mr-4 cpk:ml-0 cpk:mr-0"
-                      :suggestions="suggestions"
-                      :loading-indexes="suggestionLoadingIndexes"
-                      @select-suggestion="handleSelectSuggestion"
-                    />
-                  </slot>
-                </div>
               </div>
             </div>
             <!--
@@ -660,12 +650,10 @@ onBeforeUnmount(() => {
           <button
             type="button"
             data-testid="copilot-chat-view-scroll-to-bottom"
-            class="cpk:rounded-full cpk:w-10 cpk:h-10 cpk:p-0 cpk:pointer-events-auto cpk:bg-white cpk:dark:bg-gray-900 cpk:shadow-lg cpk:border cpk:border-gray-200 cpk:dark:border-gray-700 cpk:hover:bg-gray-50 cpk:dark:hover:bg-gray-800 cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer"
+            class="cpk:rounded-full cpk:size-9 cpk:p-0 cpk:pointer-events-auto cpk:border cpk:border-border cpk:bg-background cpk:text-foreground cpk:shadow-[0_2px_8px_-2px_rgb(0_0_0/0.12)] cpk:hover:bg-accent cpk:dark:bg-card cpk:dark:hover:bg-accent cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer"
             @click="scrollToBottom()"
           >
-            <IconChevronDown
-              class="cpk:w-4 cpk:h-4 cpk:text-gray-600 cpk:dark:text-white"
-            />
+            <IconChevronDown class="cpk:size-4" />
           </button>
         </slot>
       </div>
@@ -683,6 +671,32 @@ onBeforeUnmount(() => {
         class="cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20 cpk:pointer-events-none"
         data-testid="copilot-input-overlay"
       >
+        <!--
+          Messages fade out above the input and are fully hidden by the time
+          they reach it, including the disclaimer area below.
+        -->
+        <div
+          aria-hidden="true"
+          class="cpk:pointer-events-none cpk:absolute cpk:inset-x-0 cpk:-top-6 cpk:bottom-0 cpk:-z-10 cpk:bg-[linear-gradient(to_bottom,transparent,var(--background)_1.5rem)]"
+        />
+        <!-- In a conversation, suggestions sit in a scrollable row docked above the input. -->
+        <div
+          v-if="hasSuggestions"
+          class="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:mb-1.5 cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-4 cpk:pointer-events-auto"
+        >
+          <slot
+            name="suggestion-view"
+            :suggestions="suggestions"
+            :loading-indexes="suggestionLoadingIndexes"
+            :on-select-suggestion="handleSelectSuggestion"
+          >
+            <CopilotChatSuggestionView
+              :suggestions="suggestions"
+              :loading-indexes="suggestionLoadingIndexes"
+              @select-suggestion="handleSelectSuggestion"
+            />
+          </slot>
+        </div>
         <div
           v-if="hasAttachments"
           class="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:pointer-events-auto"

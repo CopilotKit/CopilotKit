@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import { CopilotChatDefaultLabels } from "../../providers/types";
+import CopilotChatAttachmentQueue from "./CopilotChatAttachmentQueue.vue";
 import CopilotChatInput from "./CopilotChatInput.vue";
 import CopilotChatSuggestionView from "./CopilotChatSuggestionView.vue";
 import type {
@@ -14,6 +15,8 @@ import type {
 const props = withDefaults(defineProps<CopilotSidebarWelcomeScreenProps>(), {
   suggestions: () => [],
   loadingIndexes: () => [],
+  attachments: () => [],
+  onRemoveAttachment: undefined,
   modelValue: "",
   isRunning: false,
   inputMode: "input",
@@ -130,30 +133,42 @@ const inputEventProps = computed(() => {
       class="cpk:h-full cpk:flex cpk:flex-col"
       data-testid="copilot-sidebar-welcome-screen"
     >
+      <!-- Greeting, suggestions and input, centered together -->
       <div
-        class="cpk:flex-1 cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:px-4"
+        class="cpk:flex-1 cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:gap-5 cpk:px-8 cpk:py-6"
       >
-        <slot name="welcome-message">
-          <h1
-            class="cpk:text-xl cpk:sm:text-2xl cpk:font-medium cpk:text-foreground cpk:text-center"
-          >
-            {{ labels.welcomeMessageText }}
-          </h1>
-        </slot>
-      </div>
-
-      <div class="cpk:px-8 cpk:pb-4">
-        <div class="cpk:max-w-3xl cpk:mx-auto">
-          <div class="cpk:mb-4 cpk:flex cpk:justify-center">
-            <slot name="suggestion-view" v-bind="suggestionViewSlotProps">
-              <CopilotChatSuggestionView
-                :suggestions="suggestions"
-                :loading-indexes="loadingIndexes"
-                @select-suggestion="onSelectSuggestion"
-              />
-            </slot>
-          </div>
-
+        <div class="cpk-intro">
+          <slot name="welcome-message">
+            <h1
+              class="cpk:text-2xl cpk:@2xl:text-[1.75rem] cpk:font-semibold cpk:tracking-tight cpk:text-foreground cpk:text-center cpk:text-balance"
+            >
+              {{ labels.welcomeMessageText }}
+            </h1>
+          </slot>
+        </div>
+        <div
+          class="cpk-intro-stagger cpk:flex cpk:w-full cpk:justify-center cpk:empty:hidden"
+        >
+          <slot name="suggestion-view" v-bind="suggestionViewSlotProps">
+            <CopilotChatSuggestionView
+              v-if="suggestions.length > 0"
+              appearance="cards"
+              :suggestions="suggestions"
+              :loading-indexes="loadingIndexes"
+              @select-suggestion="onSelectSuggestion"
+            />
+          </slot>
+        </div>
+        <div
+          class="cpk-intro cpk:w-full"
+          :style="{ '--cpk-intro-delay': '180ms' }"
+        >
+          <CopilotChatAttachmentQueue
+            v-if="attachments.length > 0"
+            :attachments="attachments"
+            class-name="cpk:mb-2"
+            @remove-attachment="(id: string) => onRemoveAttachment?.(id)"
+          />
           <slot name="input" v-bind="inputSlotProps">
             <CopilotChatInput
               :model-value="modelValue"

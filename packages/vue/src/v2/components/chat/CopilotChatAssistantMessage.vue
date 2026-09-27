@@ -21,6 +21,8 @@ import {
   IconVolume2,
 } from "../icons";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView.vue";
+import { getAssistantTurn } from "./assistant-turn";
+import { rehypeCursorAnchor } from "./streaming-cursor";
 import type {
   CopilotChatAssistantMessageCopyButtonSlotProps,
   CopilotChatAssistantMessageLayoutSlotProps,
@@ -46,11 +48,29 @@ const props = withDefaults(
     onThumbsDown?: (message: AssistantMessage) => void;
     onReadAloud?: (message: AssistantMessage) => void;
     onRegenerate?: (message: AssistantMessage) => void;
+    /**
+     * Where the toolbar (copy, feedback, regenerate…) appears.
+     *
+     * - `"turn"` (default): one toolbar per reply. When a single user message
+     *   produces several assistant messages, only the last one shows the
+     *   toolbar, and copy / read aloud cover the whole reply.
+     * - `"message"`: every assistant message gets its own toolbar.
+     *
+     * Needs `messages` to find the reply; without it every message is its own turn.
+     */
+    toolbarScope?: "turn" | "message";
+    /**
+     * Shows a pulsing cursor at the end of the text while it's being written.
+     * `CopilotChatMessageView` sets this on the reply that's streaming.
+     */
+    showCursor?: boolean;
   }>(),
   {
     messages: () => [],
     isRunning: false,
     toolbarVisible: true,
+    toolbarScope: "turn",
+    showCursor: false,
   },
 );
 
@@ -94,11 +114,11 @@ const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
 const copied = ref(false);
 let copiedResetTimeout: ReturnType<typeof setTimeout> | null = null;
 
+// 28×36, matching React's toolbar buttons.
 const toolbarButtonClass = [
-  "cpk:inline-flex cpk:h-8 cpk:w-8 cpk:items-center cpk:justify-center cpk:rounded-md cpk:p-0",
-  "cpk:cursor-pointer cpk:text-[rgb(93,93,93)] cpk:transition-colors cpk:hover:bg-[#E8E8E8]",
-  "cpk:hover:text-[rgb(93,93,93)] cpk:dark:text-[rgb(243,243,243)] cpk:dark:hover:bg-[#303030]",
-  "cpk:dark:hover:text-[rgb(243,243,243)] cpk:disabled:pointer-events-none cpk:disabled:opacity-50",
+  "cpk:inline-flex cpk:h-9 cpk:w-7 cpk:items-center cpk:justify-center cpk:rounded-md cpk:p-0",
+  "cpk:cursor-pointer cpk:text-muted-foreground cpk:transition-colors cpk:hover:bg-accent cpk:hover:text-foreground",
+  "cpk:disabled:pointer-events-none cpk:disabled:opacity-50",
 ].join(" ");
 
 function extractFileNameFromUrl(url: string, fallback: string) {
@@ -228,9 +248,6 @@ const MarkdownImage = defineComponent({
         ...attrs,
         src: imageProps.src,
         alt: imageProps.alt,
-        class: ["cpk:max-w-full cpk:rounded-lg", attrs.class]
-          .filter(Boolean)
-          .join(" "),
         "data-streamdown": "image",
       } as Record<string, unknown>;
 
@@ -238,26 +255,19 @@ const MarkdownImage = defineComponent({
 
       return h(
         "div",
-        {
-          class: "cpk:group cpk:relative cpk:my-4 cpk:inline-block",
-          "data-streamdown": "image-wrapper",
-        },
+        { class: "cpk:group", "data-streamdown": "image-wrapper" },
         [
           h("img", imageAttrs),
-          h("div", {
-            class:
-              "cpk:pointer-events-none cpk:absolute cpk:inset-0 cpk:hidden cpk:rounded-lg cpk:bg-black/10 cpk:group-hover:block",
-          }),
           h(
             "button",
             {
               type: "button",
               class:
-                "cpk:absolute cpk:right-2 cpk:bottom-2 cpk:flex cpk:h-8 cpk:w-8 cpk:cursor-pointer cpk:items-center cpk:justify-center cpk:rounded-md cpk:border cpk:border-border cpk:bg-background/90 cpk:shadow-sm cpk:backdrop-blur-sm cpk:transition-all cpk:duration-200 cpk:hover:bg-background cpk:opacity-0 cpk:group-hover:opacity-100",
+                "cpk:absolute cpk:right-2 cpk:bottom-2 cpk:flex cpk:size-7 cpk:cursor-pointer cpk:items-center cpk:justify-center cpk:rounded-md cpk:border cpk:border-border cpk:bg-background/90 cpk:text-foreground cpk:opacity-0 cpk:backdrop-blur-sm cpk:transition-opacity cpk:group-hover:opacity-100 cpk:focus-visible:opacity-100",
               title: "Download image",
               onClick: handleDownload,
             },
-            [h(IconDownload, { class: "cpk:size-[14px]" })],
+            [h(IconDownload, { class: "cpk:size-3.5" })],
           ),
         ],
       );
@@ -266,11 +276,11 @@ const MarkdownImage = defineComponent({
 });
 
 const tableIconButtonClass =
-  "cpk:cursor-pointer cpk:p-1 cpk:text-muted-foreground cpk:transition-all cpk:hover:text-foreground cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50";
+  "cpk:inline-flex cpk:size-[1.625rem] cpk:items-center cpk:justify-center cpk:rounded-sm cpk:cursor-pointer cpk:text-muted-foreground cpk:transition-colors cpk:hover:bg-accent cpk:hover:text-foreground cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50";
 const tableMenuClass =
-  "cpk:absolute cpk:top-full cpk:right-0 cpk:z-10 cpk:mt-1 cpk:min-w-[120px] cpk:overflow-hidden cpk:rounded-md cpk:border cpk:border-border cpk:bg-background cpk:shadow-lg";
+  "cpk:absolute cpk:top-full cpk:right-0 cpk:z-10 cpk:mt-1 cpk:min-w-[120px] cpk:overflow-hidden cpk:rounded-lg cpk:border cpk:border-border cpk:bg-popover cpk:p-1 cpk:text-popover-foreground cpk:shadow-lg";
 const tableMenuItemClass =
-  "cpk:w-full cpk:px-3 cpk:py-2 cpk:text-left cpk:text-sm cpk:transition-colors cpk:hover:bg-muted/40";
+  "cpk:w-full cpk:rounded-sm cpk:px-2.5 cpk:py-1.5 cpk:text-left cpk:text-sm cpk:transition-colors cpk:hover:bg-accent";
 
 const MarkdownTable = defineComponent({
   name: "CopilotMarkdownTable",
@@ -371,124 +381,107 @@ const MarkdownTable = defineComponent({
     return () => {
       const tableAttrs = {
         ...attrs,
-        class: [
-          "cpk:w-full cpk:border-collapse cpk:border cpk:border-border",
-          attrs.class,
-        ]
-          .filter(Boolean)
-          .join(" "),
         "data-streamdown": "table",
       } as Record<string, unknown>;
 
       delete tableAttrs.className;
 
-      return h(
-        "div",
-        {
-          ref: wrapperRef,
-          class: "cpk:my-4 cpk:flex cpk:flex-col cpk:space-y-2",
-          "data-streamdown": "table-wrapper",
-        },
-        [
-          h(
-            "div",
-            { class: "cpk:flex cpk:items-center cpk:justify-end cpk:gap-1" },
-            [
-              h("div", { class: "cpk:relative" }, [
-                h(
-                  "button",
-                  {
-                    type: "button",
-                    class: tableIconButtonClass,
-                    title: "Copy table",
-                    onClick: () => {
-                      showCopyMenu.value = !showCopyMenu.value;
-                      showDownloadMenu.value = false;
-                    },
+      return h("div", { ref: wrapperRef, "data-streamdown": "table-wrapper" }, [
+        h(
+          "div",
+          { class: "cpk:flex cpk:items-center cpk:justify-end cpk:gap-0.5" },
+          [
+            h("div", { class: "cpk:relative" }, [
+              h(
+                "button",
+                {
+                  type: "button",
+                  class: tableIconButtonClass,
+                  title: "Copy table",
+                  onClick: () => {
+                    showCopyMenu.value = !showCopyMenu.value;
+                    showDownloadMenu.value = false;
                   },
-                  [
-                    tableCopied.value
-                      ? h(IconCheck, { class: "cpk:size-[14px]" })
-                      : h(IconCopy, { class: "cpk:size-[14px]" }),
-                  ],
-                ),
-                showCopyMenu.value
-                  ? h("div", { class: tableMenuClass }, [
-                      h(
-                        "button",
-                        {
-                          type: "button",
-                          class: tableMenuItemClass,
-                          title: "Copy table as CSV",
-                          onClick: () => copyTableAs("csv"),
-                        },
-                        "CSV",
-                      ),
-                      h(
-                        "button",
-                        {
-                          type: "button",
-                          class: tableMenuItemClass,
-                          title: "Copy table as TSV",
-                          onClick: () => copyTableAs("tsv"),
-                        },
-                        "TSV",
-                      ),
-                    ])
-                  : null,
-              ]),
-              h("div", { class: "cpk:relative" }, [
-                h(
-                  "button",
-                  {
-                    type: "button",
-                    class: tableIconButtonClass,
-                    title: "Download table",
-                    onClick: () => {
-                      showDownloadMenu.value = !showDownloadMenu.value;
-                      showCopyMenu.value = false;
-                    },
+                },
+                [
+                  tableCopied.value
+                    ? h(IconCheck, { class: "cpk:size-3.5" })
+                    : h(IconCopy, { class: "cpk:size-3.5" }),
+                ],
+              ),
+              showCopyMenu.value
+                ? h("div", { class: tableMenuClass }, [
+                    h(
+                      "button",
+                      {
+                        type: "button",
+                        class: tableMenuItemClass,
+                        title: "Copy table as CSV",
+                        onClick: () => copyTableAs("csv"),
+                      },
+                      "CSV",
+                    ),
+                    h(
+                      "button",
+                      {
+                        type: "button",
+                        class: tableMenuItemClass,
+                        title: "Copy table as TSV",
+                        onClick: () => copyTableAs("tsv"),
+                      },
+                      "TSV",
+                    ),
+                  ])
+                : null,
+            ]),
+            h("div", { class: "cpk:relative" }, [
+              h(
+                "button",
+                {
+                  type: "button",
+                  class: tableIconButtonClass,
+                  title: "Download table",
+                  onClick: () => {
+                    showDownloadMenu.value = !showDownloadMenu.value;
+                    showCopyMenu.value = false;
                   },
-                  [h(IconDownload, { class: "cpk:size-[14px]" })],
-                ),
-                showDownloadMenu.value
-                  ? h("div", { class: tableMenuClass }, [
-                      h(
-                        "button",
-                        {
-                          type: "button",
-                          class: tableMenuItemClass,
-                          title: "Download table as CSV",
-                          onClick: () => downloadTableAs("csv"),
-                        },
-                        "CSV",
-                      ),
-                      h(
-                        "button",
-                        {
-                          type: "button",
-                          class: tableMenuItemClass,
-                          title: "Download table as Markdown",
-                          onClick: () => downloadTableAs("markdown"),
-                        },
-                        "Markdown",
-                      ),
-                    ])
-                  : null,
-              ]),
-            ],
-          ),
-          h("div", { class: "cpk:overflow-x-auto" }, [
-            h("table", tableAttrs, slots.default ? slots.default() : []),
-          ]),
-        ],
-      );
+                },
+                [h(IconDownload, { class: "cpk:size-3.5" })],
+              ),
+              showDownloadMenu.value
+                ? h("div", { class: tableMenuClass }, [
+                    h(
+                      "button",
+                      {
+                        type: "button",
+                        class: tableMenuItemClass,
+                        title: "Download table as CSV",
+                        onClick: () => downloadTableAs("csv"),
+                      },
+                      "CSV",
+                    ),
+                    h(
+                      "button",
+                      {
+                        type: "button",
+                        class: tableMenuItemClass,
+                        title: "Download table as Markdown",
+                        onClick: () => downloadTableAs("markdown"),
+                      },
+                      "Markdown",
+                    ),
+                  ])
+                : null,
+            ]),
+          ],
+        ),
+        h("div", [
+          h("table", tableAttrs, slots.default ? slots.default() : []),
+        ]),
+      ]);
     };
   },
 });
-
-const codeActionButtonClass =
-  "cpk:cursor-pointer cpk:p-1 cpk:text-muted-foreground cpk:transition-all cpk:hover:text-foreground cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50";
 
 const codeLanguageExtensionMap: Record<string, string> = {
   javascript: "js",
@@ -553,15 +546,14 @@ const CodeBlockCopyAction = defineComponent({
         "button",
         {
           type: "button",
-          class: codeActionButtonClass,
           title: "Copy Code",
           "data-streamdown": "code-block-copy-button",
           onClick: handleClick,
         },
         [
           isCopied.value
-            ? h(IconCheck, { class: "cpk:size-[14px]" })
-            : h(IconCopy, { class: "cpk:size-[14px]" }),
+            ? h(IconCheck, { class: "cpk:size-3.5" })
+            : h(IconCopy, { class: "cpk:size-3.5" }),
         ],
       );
   },
@@ -592,15 +584,17 @@ const CodeBlockDownloadAction = defineComponent({
         "button",
         {
           type: "button",
-          class: codeActionButtonClass,
           title: "Download file",
           "data-streamdown": "code-block-download-button",
           onClick: handleClick,
         },
-        [h(IconDownload, { class: "cpk:size-[14px]" })],
+        [h(IconDownload, { class: "cpk:size-3.5" })],
       );
   },
 });
+
+// Marks where the streaming cursor rides (see streaming-cursor.ts).
+const rehypePlugins = [rehypeCursorAnchor];
 
 const markdownComponents = {
   img: MarkdownImage,
@@ -641,7 +635,18 @@ function normalizeContent(content: unknown): string {
 const normalizedContent = computed(() =>
   normalizeContent(props.message.content),
 );
+const turn = computed(() =>
+  props.toolbarScope === "turn" && props.messages.length > 0
+    ? getAssistantTurn(props.messages, props.message.id)
+    : undefined,
+);
+// What copy / read aloud act on: the whole reply in turn scope.
+const replyContent = computed(() =>
+  turn.value ? turn.value.content : normalizedContent.value,
+);
+// Don't show the toolbar if the reply has no text (only tool calls).
 const hasContent = computed(() => normalizedContent.value.trim().length > 0);
+const hasReplyContent = computed(() => replyContent.value.trim().length > 0);
 const hasThumbsUp = computed(() => typeof props.onThumbsUp === "function");
 const hasThumbsDown = computed(() => typeof props.onThumbsDown === "function");
 const hasReadAloud = computed(() => typeof props.onReadAloud === "function");
@@ -649,11 +654,20 @@ const hasRegenerate = computed(() => typeof props.onRegenerate === "function");
 const isLatestAssistantMessage = computed(
   () => props.messages[props.messages.length - 1]?.id === props.message.id,
 );
+// In turn scope only the reply's last message carries the toolbar, and it
+// stays hidden while that reply is still being produced.
+const ownsToolbar = computed(
+  () => !turn.value || turn.value.lastMessageId === props.message.id,
+);
+const isReplyInProgress = computed(() =>
+  turn.value ? turn.value.isLatest : isLatestAssistantMessage.value,
+);
 const shouldShowToolbar = computed(
   () =>
     props.toolbarVisible &&
-    hasContent.value &&
-    !(props.isRunning && isLatestAssistantMessage.value),
+    ownsToolbar.value &&
+    hasReplyContent.value &&
+    !(props.isRunning && isReplyInProgress.value),
 );
 
 function resetCopiedStateWithDelay() {
@@ -668,7 +682,7 @@ function resetCopiedStateWithDelay() {
 }
 
 async function handleCopyMessage() {
-  const content = normalizedContent.value;
+  const content = replyContent.value;
   if (!content) return;
 
   if (
@@ -695,7 +709,7 @@ function handleThumbsDown() {
 }
 
 function handleReadAloud() {
-  emit("read-aloud", props.message);
+  emit("read-aloud", { ...props.message, content: replyContent.value });
 }
 
 function handleRegenerate() {
@@ -734,35 +748,38 @@ onBeforeUnmount(() => {
     <div
       data-copilotkit
       data-testid="copilot-assistant-message"
-      class="cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert"
+      class="cpk:prose cpk:max-w-full cpk:break-words cpk:text-foreground cpk:dark:prose-invert"
       :data-message-id="message.id"
       v-bind="$attrs"
     >
-      <slot
-        name="message-renderer"
-        :message="message"
-        :content="normalizedContent"
-      >
-        <StreamMarkdown
-          v-if="hasContent"
-          class="copilot-chat-assistant-markdown"
+      <div :data-streaming-cursor="showCursor ? '' : undefined">
+        <slot
+          name="message-renderer"
+          :message="message"
           :content="normalizedContent"
-          :components="markdownComponents"
-          :code-block-actions="[CodeBlockDownloadAction, CodeBlockCopyAction]"
-          :code-block-show-line-numbers="false"
-          :code-block-hide-copy="true"
-          :code-block-hide-download="true"
-          :allowed-link-prefixes="[
-            'https://',
-            'http://',
-            '#',
-            '/',
-            './',
-            '../',
-          ]"
-          :shiki-theme="{ light: 'github-light', dark: 'github-dark' }"
-        />
-      </slot>
+        >
+          <StreamMarkdown
+            v-if="hasContent"
+            class="copilot-chat-assistant-markdown"
+            :content="normalizedContent"
+            :components="markdownComponents"
+            :rehype-plugins="rehypePlugins"
+            :code-block-actions="[CodeBlockDownloadAction, CodeBlockCopyAction]"
+            :code-block-show-line-numbers="false"
+            :code-block-hide-copy="true"
+            :code-block-hide-download="true"
+            :allowed-link-prefixes="[
+              'https://',
+              'http://',
+              '#',
+              '/',
+              './',
+              '../',
+            ]"
+            :shiki-theme="{ light: 'github-light', dark: 'github-dark' }"
+          />
+        </slot>
+      </div>
 
       <slot name="tool-calls-view" :message="message" :messages="messages">
         <CopilotChatToolCallsView :message="message" :messages="messages">
@@ -783,9 +800,10 @@ onBeforeUnmount(() => {
         :should-show-toolbar="shouldShowToolbar"
       >
         <div
-          class="cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:-ml-[5px] cpk:-mt-[0px]"
+          data-testid="copilot-assistant-toolbar"
+          class="cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:-ml-1 cpk:mt-2"
         >
-          <div class="cpk:flex cpk:items-center cpk:gap-1">
+          <div class="cpk:flex cpk:items-center cpk:gap-0.5">
             <slot
               name="copy-button"
               :on-copy="handleCopyMessage"
@@ -800,8 +818,8 @@ onBeforeUnmount(() => {
                 :title="labels.assistantMessageToolbarCopyMessageLabel"
                 @click="handleCopyMessage"
               >
-                <IconCheck v-if="copied" class="cpk:size-[18px]" />
-                <IconCopy v-else class="cpk:size-[18px]" />
+                <IconCheck v-if="copied" class="cpk:size-4" />
+                <IconCopy v-else class="cpk:size-4" />
               </button>
             </slot>
 
@@ -818,7 +836,7 @@ onBeforeUnmount(() => {
                 :title="labels.assistantMessageToolbarThumbsUpLabel"
                 @click="handleThumbsUp"
               >
-                <IconThumbsUp class="cpk:size-[18px]" />
+                <IconThumbsUp class="cpk:size-4" />
               </button>
             </slot>
 
@@ -835,7 +853,7 @@ onBeforeUnmount(() => {
                 :title="labels.assistantMessageToolbarThumbsDownLabel"
                 @click="handleThumbsDown"
               >
-                <IconThumbsDown class="cpk:size-[18px]" />
+                <IconThumbsDown class="cpk:size-4" />
               </button>
             </slot>
 
@@ -852,7 +870,7 @@ onBeforeUnmount(() => {
                 :title="labels.assistantMessageToolbarReadAloudLabel"
                 @click="handleReadAloud"
               >
-                <IconVolume2 class="cpk:size-[20px]" />
+                <IconVolume2 class="cpk:size-4" />
               </button>
             </slot>
 
@@ -869,7 +887,7 @@ onBeforeUnmount(() => {
                 :title="labels.assistantMessageToolbarRegenerateLabel"
                 @click="handleRegenerate"
               >
-                <IconRefreshCw class="cpk:size-[18px]" />
+                <IconRefreshCw class="cpk:size-4" />
               </button>
             </slot>
 

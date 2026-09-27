@@ -1,9 +1,73 @@
 import type { UserMessage } from "@ag-ui/core";
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import {
-  CopilotChatConfigurationProvider,
-  CopilotChatUserMessage,
-} from "@copilotkit/vue";
+import { CopilotChatUserMessage } from "@copilotkit/vue";
+import { withMessageColumn, withStyles } from "./support/layouts";
+
+// Brand looks for the customization stories; each has a dark counterpart.
+const CUSTOM_MESSAGE_CSS = `
+  .demo-bubble {
+    display: inline-block;
+    max-width: 80%;
+    border-radius: 18px;
+    background: oklch(0.97 0.014 255);
+    color: oklch(0.38 0.14 262);
+    padding: 6px 16px;
+    font-weight: 500;
+    white-space: pre-wrap;
+  }
+  .dark .demo-bubble {
+    background: oklch(0.3 0.06 262);
+    color: oklch(0.9 0.04 255);
+  }
+  .demo-toolbar {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    margin-top: 8px;
+  }
+  .demo-toolbar .story-icon-button {
+    color: oklch(0.55 0.2 262);
+  }
+  .dark .demo-toolbar .story-icon-button {
+    color: oklch(0.78 0.12 255);
+  }
+  .demo-gradient {
+    border-radius: 12px;
+    background: linear-gradient(to right, oklch(0.95 0.03 305), oklch(0.95 0.03 350));
+    padding: 16px;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  }
+  .dark .demo-gradient {
+    background: linear-gradient(to right, oklch(0.3 0.06 305), oklch(0.3 0.06 350));
+  }
+  .demo-mono {
+    display: inline-block;
+    border-radius: 8px;
+    background: color-mix(in oklch, var(--background) 55%, transparent);
+    color: oklch(0.42 0.16 305);
+    padding: 8px 12px;
+    font-family: var(--story-mono);
+  }
+  .dark .demo-mono {
+    color: oklch(0.88 0.06 305);
+  }
+  .demo-note {
+    border-left: 4px solid oklch(0.8 0.16 85);
+    background: oklch(0.98 0.03 95);
+    color: oklch(0.3 0.03 85);
+    padding: 16px;
+  }
+  .dark .demo-note {
+    background: oklch(0.28 0.04 85);
+    color: oklch(0.95 0.02 95);
+  }
+  .demo-note__row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .demo-note__content { flex: 1; white-space: pre-wrap; }
+  .demo-note__actions { display: flex; align-items: center; gap: 4px; }
+  .demo-note__caption { margin-top: 8px; font-size: 12px; opacity: 0.75; }
+`;
 
 const handleEditMessage = (message: string) => () => window.alert(message);
 const handleEditMessageLog = (message: string) => () => console.log(message);
@@ -39,21 +103,25 @@ const codeMessage: UserMessage = {
   id: "code-user-message",
   content: `I'm getting this error in my React app:
 
-TypeError: Cannot read property 'map' of undefined
+\`TypeError: Cannot read property 'map' of undefined\`
 
 The error happens in this component:
 
+\`\`\`jsx
 function UserList({ users }) {
   return (
     <div>
-      {users.map(user => (
+      {users.map((user) => (
         <div key={user.id}>{user.name}</div>
       ))}
     </div>
   );
 }
+\`\`\`
 
-How can I fix this?`,
+How can I fix this? I've tried:
+- adding a **default prop**
+- checking \`users.length\` first`,
   role: "user",
 };
 
@@ -66,31 +134,10 @@ const shortMessage: UserMessage = {
 const meta = {
   title: "UI/CopilotChatUserMessage",
   component: CopilotChatUserMessage,
+  decorators: [withMessageColumn],
   parameters: {
     layout: "fullscreen",
   },
-  decorators: [
-    (story) => ({
-      components: { story, CopilotChatConfigurationProvider },
-      template: `
-        <div
-          style="
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            min-height: 100vh;
-            padding: 16px;
-          "
-        >
-          <div style="width: 100%; max-width: 640px">
-            <CopilotChatConfigurationProvider thread-id="storybook-thread">
-              <story />
-            </CopilotChatConfigurationProvider>
-          </div>
-        </div>
-      `,
-    }),
-  ],
   args: {
     message: simpleMessage,
   },
@@ -139,6 +186,35 @@ export const CodeRelatedMessage: Story = {
   }),
 };
 
+/**
+ * User text renders as markdown: code, lists, emphasis, links and tables, while
+ * line breaks stay where the user put them, and `#` lines and pasted HTML stay
+ * literal.
+ */
+export const MarkdownFormatting: Story = {
+  args: {
+    message: {
+      id: "markdown-user-message",
+      role: "user",
+      content: `# This stays a plain line, not a heading
+Keep my line breaks
+exactly as I typed them.
+
+Can you compare **useState** and *useReducer* for [this form](https://react.dev)?
+
+1. \`useState\` for simple fields
+2. \`useReducer\` for related state
+
+| Hook | Best for |
+| --- | --- |
+| useState | independent values |
+| useReducer | complex transitions |
+
+<b>Pasted HTML shows as text.</b>`,
+    },
+  },
+};
+
 export const ShortQuestion: Story = {
   args: { message: shortMessage },
   render: (args: Story["args"]) => ({
@@ -164,16 +240,18 @@ export const WithAdditionalToolbarItems: Story = {
         <template #toolbar-items>
           <button
             type="button"
-            class="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+            class="story-icon-button"
             title="Custom Action 1"
+            aria-label="Custom Action 1"
             @click="onCustomButton1"
           >
             📎
           </button>
           <button
             type="button"
-            class="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+            class="story-icon-button"
             title="Custom Action 2"
+            aria-label="Custom Action 2"
             @click="onCustomButton2"
           >
             🔄
@@ -185,6 +263,7 @@ export const WithAdditionalToolbarItems: Story = {
 };
 
 export const CustomAppearance: Story = {
+  decorators: [withStyles(CUSTOM_MESSAGE_CSS)],
   render: (args: Story["args"]) => ({
     components: { CopilotChatUserMessage },
     setup() {
@@ -193,42 +272,26 @@ export const CustomAppearance: Story = {
     template: `
       <CopilotChatUserMessage v-bind="args">
         <template #message-renderer="{ content }">
-          <div
-            class="prose dark:prose-invert relative max-w-[80%] rounded-[18px] px-4 py-1.5 inline-block whitespace-pre-wrap text-blue-900 font-medium"
-            style="background: #eff6ff"
-          >
-            {{ content }}
-          </div>
+          <div class="demo-bubble">{{ content }}</div>
         </template>
-        <template #toolbar="{ message, showBranchNavigation, hasEditAction, onCopy, onEdit, copied }">
-          <div
-            style="
-              width: 100%;
-              background: transparent;
-              display: flex;
-              align-items: center;
-              justify-content: flex-end;
-              margin-right: -5px;
-              margin-top: 8px;
-              gap: 4px;
-            "
-          >
+        <template #toolbar="{ hasEditAction, onCopy, onEdit, copied }">
+          <div class="demo-toolbar">
             <button
               type="button"
+              class="story-icon-button"
               aria-label="Copy user message"
               title="Copy user message"
               @click="onCopy"
-              style="height:32px; width:32px; border-radius:6px; color:#2563eb"
             >
               {{ copied ? "✓" : "⧉" }}
             </button>
             <button
               v-if="hasEditAction"
               type="button"
+              class="story-icon-button"
               aria-label="Edit user message"
               title="Edit user message"
               @click="onEdit"
-              style="height:32px; width:32px; border-radius:6px; color:#2563eb"
             >
               ✎
             </button>
@@ -240,23 +303,16 @@ export const CustomAppearance: Story = {
 };
 
 export const CustomComponents: Story = {
+  decorators: [withStyles(CUSTOM_MESSAGE_CSS)],
   render: (args: Story["args"]) => ({
     components: { CopilotChatUserMessage },
     setup() {
       return { args };
     },
     template: `
-      <CopilotChatUserMessage
-        v-bind="args"
-        class="bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl p-4 shadow-sm"
-      >
+      <CopilotChatUserMessage v-bind="args" class="demo-gradient">
         <template #message-renderer="{ content }">
-          <div
-            class="font-mono text-purple-800 rounded-lg px-3 py-2 inline-block"
-            style="background: rgba(255, 255, 255, 0.5)"
-          >
-            💬 {{ content }}
-          </div>
+          <div class="demo-mono">💬 {{ content }}</div>
         </template>
       </CopilotChatUserMessage>
     `,
@@ -264,6 +320,7 @@ export const CustomComponents: Story = {
 };
 
 export const UsingChildrenRenderProp: Story = {
+  decorators: [withStyles(CUSTOM_MESSAGE_CSS)],
   render: (args: Story["args"]) => ({
     components: { CopilotChatUserMessage },
     setup() {
@@ -275,40 +332,32 @@ export const UsingChildrenRenderProp: Story = {
     template: `
       <CopilotChatUserMessage v-bind="args" @edit-message="handleEditMessage">
         <template #layout="{ content, onCopy, onEdit, hasEditAction, copied }">
-          <div class="bg-yellow-50 p-4">
-            <div class="flex items-start justify-between">
-              <div class="flex-1 mr-4">
-                <div
-                  class="prose dark:prose-invert bg-muted relative max-w-[80%] rounded-[18px] px-4 py-1.5 inline-block whitespace-pre-wrap"
-                >
-                  {{ content }}
-                </div>
-              </div>
-              <div class="flex items-center gap-1">
+          <div class="demo-note">
+            <div class="demo-note__row">
+              <div class="demo-note__content">{{ content }}</div>
+              <div class="demo-note__actions">
                 <button
                   type="button"
-                  @click="onCopy"
-                  style="height:32px; width:32px; border-radius:6px"
+                  class="story-icon-button"
                   aria-label="Copy user message"
                   title="Copy user message"
+                  @click="onCopy"
                 >
                   {{ copied ? "✓" : "⧉" }}
                 </button>
                 <button
                   v-if="hasEditAction"
                   type="button"
-                  @click="onEdit"
-                  style="height:32px; width:32px; border-radius:6px"
+                  class="story-icon-button"
                   aria-label="Edit user message"
                   title="Edit user message"
+                  @click="onEdit"
                 >
                   ✎
                 </button>
               </div>
             </div>
-            <div class="mt-2 text-xs text-yellow-700">
-              Custom layout using children render prop
-            </div>
+            <div class="demo-note__caption">Custom layout using the layout slot</div>
           </div>
         </template>
       </CopilotChatUserMessage>
