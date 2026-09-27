@@ -9,24 +9,23 @@ import {
 import { z } from "zod";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChat } from "../CopilotChat";
-import {
-  AbstractAgent,
-  EventType,
-  type BaseEvent,
-  type RunAgentInput,
-} from "@ag-ui/client";
-import { Observable, Subject } from "rxjs";
-import { defineToolCallRenderer, ReactToolCallRenderer } from "../../../types";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import type { Observable } from "rxjs";
+import { Subject } from "rxjs";
+import type { ReactToolCallRenderer } from "../../../types";
+import { defineToolCallRenderer } from "../../../types";
 import { ToolCallStatus } from "@copilotkit/core";
 import { CopilotChatMessageView } from "../CopilotChatMessageView";
 import { CopilotChatView, CopilotChatViewProps } from "../CopilotChatView";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
-import { ActivityMessage, AssistantMessage, Message } from "@ag-ui/core";
-import {
+import type { ActivityMessage, AssistantMessage, Message } from "@ag-ui/core";
+import type {
   ReactActivityMessageRenderer,
   ReactCustomMessageRenderer,
 } from "../../../types";
-import CopilotChatInput, { CopilotChatInputProps } from "../CopilotChatInput";
+import type { CopilotChatInputProps } from "../CopilotChatInput";
+import CopilotChatInput from "../CopilotChatInput";
 import { CopilotChatSuggestionView } from "../CopilotChatSuggestionView";
 import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
 
@@ -625,10 +624,14 @@ describe("Text Message Re-render Prevention", () => {
 
     const firstMessageRenderCountAfterAllStreaming = renderCounts["msg-1"];
 
-    // THE KEY ASSERTION: The first message should NOT have re-rendered
-    // when the second message was streaming
+    // msg-2 joins msg-1's reply, so msg-1 re-renders at most once to hand
+    // over the toolbar...
+    expect(firstMessageRenderCountAfterSecondMessage).toBeLessThanOrEqual(
+      firstMessageRenderCountAfterInitial! + 1,
+    );
+    // ...and THE KEY ASSERTION: it does not re-render while msg-2 streams.
     expect(firstMessageRenderCountAfterAllStreaming).toBe(
-      firstMessageRenderCountAfterInitial,
+      firstMessageRenderCountAfterSecondMessage,
     );
 
     // Verify the second message did update (it should have rendered multiple times)
@@ -2273,19 +2276,11 @@ describe("Copy Button Re-render Prevention", () => {
       );
     };
 
-    const TrackedAssistantMessage: React.FC<{
-      message: AssistantMessage;
-      messages?: Message[];
-      isRunning?: boolean;
-    }> = ({ message, messages, isRunning }) => {
-      return (
-        <CopilotChatAssistantMessage
-          message={message}
-          messages={messages}
-          isRunning={isRunning}
-          copyButton={TrackedCopyButton as any}
-        />
-      );
+    // Per-message toolbars (the opt-out) so each message keeps its own copy
+    // button; set through slot props so rows skip turn tracking entirely.
+    const assistantMessageSlot = {
+      toolbarScope: "message" as const,
+      copyButton: TrackedCopyButton as any,
     };
 
     // Start with a completed message (isRunning=false so toolbar shows)
@@ -2303,7 +2298,7 @@ describe("Copy Button Re-render Prevention", () => {
           <CopilotChatMessageView
             messages={initialMessages}
             isRunning={false}
-            assistantMessage={TrackedAssistantMessage as any}
+            assistantMessage={assistantMessageSlot}
           />
         </CopilotChatConfigurationProvider>
       </CopilotKitProvider>,
@@ -2331,7 +2326,7 @@ describe("Copy Button Re-render Prevention", () => {
           <CopilotChatMessageView
             messages={messagesWithSecond}
             isRunning={false}
-            assistantMessage={TrackedAssistantMessage as any}
+            assistantMessage={assistantMessageSlot}
           />
         </CopilotChatConfigurationProvider>
       </CopilotKitProvider>,

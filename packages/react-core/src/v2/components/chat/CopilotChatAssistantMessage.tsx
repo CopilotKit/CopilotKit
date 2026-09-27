@@ -22,9 +22,11 @@ import {
 import { useKatexStyles } from "../../hooks/useKatexStyles";
 import type { WithSlots } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
-import { Streamdown } from "streamdown";
+import { Streamdown, defaultRehypePlugins } from "streamdown";
 import { copyToClipboard } from "@copilotkit/shared";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView";
+import { getAssistantTurn } from "./assistant-turn";
+import { rehypeCursorAnchor } from "./streaming-cursor";
 import { useCopilotKitInspector } from "../CopilotKitInspectorContext";
 import {
   CopilotChatInspectorButton,
@@ -58,6 +60,22 @@ export type CopilotChatAssistantMessageProps = WithSlots<
     isRunning?: boolean;
     additionalToolbarItems?: React.ReactNode;
     toolbarVisible?: boolean;
+    /**
+     * Where the toolbar (copy, feedback, regenerate…) appears.
+     *
+     * - `"turn"` (default): one toolbar per reply. When a single user message
+     *   produces several assistant messages, only the last one shows the
+     *   toolbar, and copy / read aloud cover the whole reply.
+     * - `"message"`: every assistant message gets its own toolbar.
+     *
+     * Needs `messages` to find the reply; without it every message is its own turn.
+     */
+    toolbarScope?: "turn" | "message";
+    /**
+     * Shows a pulsing cursor at the end of the text while it's being written.
+     * `CopilotChatMessageView` sets this on the reply that's streaming.
+     */
+    showCursor?: boolean;
   } & React.HTMLAttributes<HTMLDivElement>
 >;
 
@@ -105,6 +123,8 @@ export function CopilotChatAssistantMessage({
   onRegenerate,
   additionalToolbarItems,
   toolbarVisible = true,
+  toolbarScope = "turn",
+  showCursor = false,
   markdownRenderer,
   toolbar,
   copyButton,
@@ -123,6 +143,13 @@ export function CopilotChatAssistantMessage({
   const shortcutsHidden = useInspectorShortcutsHidden();
   const showInspectorShortcut = isInspectorEnabled && !shortcutsHidden;
 
+  const turn =
+    toolbarScope === "turn" && messages
+      ? getAssistantTurn(messages, message.id)
+      : undefined;
+  // What copy / read aloud act on: the whole reply in turn scope.
+  const replyContent = turn ? turn.content : message.content || "";
+
   const boundMarkdownRenderer = renderSlot(
     markdownRenderer,
     CopilotChatAssistantMessage.MarkdownRenderer,
@@ -136,8 +163,8 @@ export function CopilotChatAssistantMessage({
     CopilotChatAssistantMessage.CopyButton,
     {
       onClick: async () => {
-        if (message.content) {
-          return await copyToClipboard(message.content);
+        if (replyContent) {
+          return await copyToClipboard(replyContent);
         }
         return false;
       },
@@ -174,7 +201,9 @@ export function CopilotChatAssistantMessage({
     readAloudButton,
     CopilotChatAssistantMessage.ReadAloudButton,
     {
-      onClick: onReadAloud ? () => onReadAloud(message) : undefined,
+      onClick: onReadAloud
+        ? () => onReadAloud({ ...message, content: replyContent })
+        : undefined,
     },
   );
 
@@ -191,7 +220,7 @@ export function CopilotChatAssistantMessage({
     CopilotChatAssistantMessage.Toolbar,
     {
       children: (
-        <div className="cpk:flex cpk:w-full cpk:items-center cpk:gap-1">
+        <div className="cpk:flex cpk:w-full cpk:items-center cpk:gap-0.5">
           {boundCopyButton}
           {(onThumbsUp || thumbsUpButton) && boundThumbsUpButton}
           {(onThumbsDown || thumbsDownButton) && boundThumbsDownButton}
@@ -213,15 +242,20 @@ export function CopilotChatAssistantMessage({
     },
   );
 
-  // Don't show toolbar if message has no content (only tool calls)
-  const hasContent = !!(message.content && message.content.trim().length > 0);
+  // Don't show toolbar if the reply has no text (only tool calls)
+  const hasContent = replyContent.trim().length > 0;
   const isLatestAssistantMessage =
     message.role === "assistant" &&
     messages?.[messages.length - 1]?.id === message.id;
+  // In turn scope only the reply's last message carries the toolbar, and it
+  // stays hidden while that reply is still being produced.
+  const ownsToolbar = !turn || turn.lastMessageId === message.id;
+  const isReplyInProgress = turn ? turn.isLatest : isLatestAssistantMessage;
   const shouldShowToolbar =
     toolbarVisible &&
+    ownsToolbar &&
     (hasContent || showInspectorShortcut) &&
-    !(isRunning && isLatestAssistantMessage);
+    !(isRunning && isReplyInProgress);
 
   if (children) {
     return (
@@ -261,7 +295,10 @@ export function CopilotChatAssistantMessage({
       {...props}
       data-message-id={message.id}
     >
-      <div className="cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert">
+      <div
+        className="cpk:prose cpk:max-w-full cpk:break-words cpk:text-foreground cpk:dark:prose-invert"
+        data-streaming-cursor={showCursor ? "" : undefined}
+      >
         {boundMarkdownRenderer}
       </div>
       {boundToolCallsView}
@@ -272,12 +309,18 @@ export function CopilotChatAssistantMessage({
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace CopilotChatAssistantMessage {
+  // Streamdown's plugins plus the streaming cursor's anchor.
+  const rehypePlugins = [
+    ...Object.values(defaultRehypePlugins),
+    rehypeCursorAnchor,
+  ];
+
   export const MarkdownRenderer: React.FC<
     Omit<React.ComponentProps<typeof Streamdown>, "children"> & {
       content: string;
     }
   > = ({ content, className, ...props }) => (
-    <Streamdown className={className} {...props}>
+    <Streamdown className={className} rehypePlugins={rehypePlugins} {...props}>
       {content ?? ""}
     </Streamdown>
   );
@@ -289,7 +332,7 @@ export namespace CopilotChatAssistantMessage {
     <div
       data-testid="copilot-assistant-toolbar"
       className={twMerge(
-        "cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:-ml-[5px] cpk:-mt-[0px]",
+        "cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:-ml-1 cpk:mt-2",
         className,
       )}
       {...props}
@@ -368,9 +411,9 @@ export namespace CopilotChatAssistantMessage {
         {...props}
       >
         {copied ? (
-          <Check className="cpk:size-[18px]" />
+          <Check className="cpk:size-4" />
         ) : (
-          <Copy className="cpk:size-[18px]" />
+          <Copy className="cpk:size-4" />
         )}
       </ToolbarButton>
     );
@@ -391,7 +434,7 @@ export namespace CopilotChatAssistantMessage {
         title={title || labels.assistantMessageToolbarThumbsUpLabel}
         {...props}
       >
-        <ThumbsUp className="cpk:size-[18px]" />
+        <ThumbsUp className="cpk:size-4" />
       </ToolbarButton>
     );
   };
@@ -407,7 +450,7 @@ export namespace CopilotChatAssistantMessage {
         title={title || labels.assistantMessageToolbarThumbsDownLabel}
         {...props}
       >
-        <ThumbsDown className="cpk:size-[18px]" />
+        <ThumbsDown className="cpk:size-4" />
       </ToolbarButton>
     );
   };
@@ -423,7 +466,7 @@ export namespace CopilotChatAssistantMessage {
         title={title || labels.assistantMessageToolbarReadAloudLabel}
         {...props}
       >
-        <Volume2 className="cpk:size-[20px]" />
+        <Volume2 className="cpk:size-4" />
       </ToolbarButton>
     );
   };
@@ -439,7 +482,7 @@ export namespace CopilotChatAssistantMessage {
         title={title || labels.assistantMessageToolbarRegenerateLabel}
         {...props}
       >
-        <RefreshCw className="cpk:size-[18px]" />
+        <RefreshCw className="cpk:size-4" />
       </ToolbarButton>
     );
   };

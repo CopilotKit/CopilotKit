@@ -1133,7 +1133,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       agent.complete();
     });
 
-    it("should show cursor after reasoning when text message follows", async () => {
+    it("should show the cursor in the reply's text once text follows reasoning", async () => {
       const agent = new MockStepwiseAgent();
       renderWithCopilotKit({ agent });
 
@@ -1158,14 +1158,13 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
         expect(screen.getByText(/Starting answer/)).toBeDefined();
       });
 
-      // Chat-level cursor should now be visible since last message is text (not reasoning)
-      // Note: The cursor shows while isRunning=true and last message is not reasoning
+      // The streaming text carries the cursor; the chat-level one steps aside.
       await waitFor(() => {
-        const chatLevelCursor = document.querySelector(
-          ".cpk\\:animate-pulse-cursor",
-        );
-        expect(chatLevelCursor).not.toBeNull();
+        expect(
+          document.querySelector("[data-streaming-cursor]"),
+        ).not.toBeNull();
       });
+      expect(screen.queryByTestId("copilot-loading-cursor")).toBeNull();
 
       agent.emit(runFinishedEvent());
       agent.complete();
