@@ -12,9 +12,9 @@ Product trajectories are in early access. They attach meaningful application act
 
 ## Add capture to your app
 
-Start with a React app [connected to Intelligence](/intelligence/quickstart). Your existing `CopilotKitProvider` handles capture and delivery automatically. There is no frontend Learning container assignment and no tracking code to add to individual event handlers.
+Start with a React app [connected to Intelligence](/intelligence/quickstart). Add `learning={true}` to your existing `CopilotKitProvider` to enable automatic capture and delivery. No tracking code is needed in individual event handlers.
 
-Keep your existing provider and chat setup:
+Keep your existing provider and chat setup, and enable capture:
 
 ```tsx title="Your existing app provider"
 "use client";
@@ -24,14 +24,14 @@ import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" learning={true}>
       {children}
     </CopilotKitProvider>
   );
 }
 ```
 
-Capture starts when the Runtime reports that Intelligence is connected. Set `learning={false}` to opt out. The `CopilotKit` compatibility provider accepts the same option.
+Capture is off by default. It starts only after you enable it and the Runtime reports that Intelligence is connected. Omit `learning` or set `learning={false}` to keep it off. Passing a configuration object, such as `learning={{ apiUrlPrefixes: ["/api/expenses"] }}`, also enables capture unless `enabled: false` is set. The `CopilotKit` compatibility provider accepts the same option.
 
 ## Follow the current thread
 

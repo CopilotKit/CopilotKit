@@ -26,7 +26,8 @@ export interface CopilotKitLearningProviderProps extends CopilotKitLearningConfi
 
 /**
  * Connect generic browser capture to the existing user-action annotation API.
- * CopilotKitProvider includes this automatically when Intelligence is available.
+ * CopilotKitProvider includes this when learning is explicitly enabled.
+ * Capture waits until Intelligence is available.
  * Actions follow the selected chat thread. With multiple chats, pointer or
  * keyboard focus selects the destination; ambiguous/no-thread actions are omitted.
  * Learning eligibility and container membership are controlled by the backend.
@@ -54,7 +55,8 @@ export function CopilotKitLearningProvider({
   }, [copilotkit]);
 
   const runtimeUrl = copilotkit.runtimeUrl;
-  const captureEnabled = !!runtimeUrl && (enabled ?? intelligenceAvailable);
+  const captureEnabled =
+    !!runtimeUrl && intelligenceAvailable && enabled !== false;
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
   const recorderRef = useRef<ReturnType<

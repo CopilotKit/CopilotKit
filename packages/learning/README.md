@@ -2,6 +2,8 @@
 
 Capture product actions in a browser and deliver small, structured events to a callback. The root entry is framework independent. The package does not send data anywhere, import AG-UI, or start an agent run.
 
+For automatic capture and delivery through a Runtime connected to CopilotKit Intelligence, set `learning={true}` on your existing `CopilotKitProvider` or `CopilotKit` provider. This integration is off by default; a `learning` configuration object also enables it unless `enabled: false` is set. Omission or `learning={false}` keeps it off. See the [product trajectories guide](https://docs.copilotkit.ai/intelligence/product-trajectories). The standalone capture APIs below start when you explicitly call or mount them.
+
 ```ts
 import { startProductInteractionCapture } from "@copilotkit/learning";
 

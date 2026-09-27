@@ -131,11 +131,11 @@ export interface CopilotKitProviderProps {
   children: ReactNode;
   runtimeUrl?: string;
   /**
-   * Automatically learn from meaningful product interactions when Intelligence
-   * is configured. Follows the active chat thread; set false to disable.
+   * Opt in to automatic product interaction capture with true or a configuration
+   * object. Defaults to off. Requires Intelligence and follows the active chat thread.
    * Input values, keystrokes, request bodies, and headers are never captured.
    */
-  learning?: false | CopilotKitLearningConfig;
+  learning?: boolean | CopilotKitLearningConfig;
   headers?: Record<string, string> | (() => Record<string, string>);
   /**
    * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
@@ -1108,7 +1108,11 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   return (
     <SandboxFunctionsContext.Provider value={sandboxFunctionsList}>
       <CopilotKitContext.Provider value={contextValue}>
-        {learning !== false && <CopilotKitLearningProvider {...learning} />}
+        {learning && (
+          <CopilotKitLearningProvider
+            {...(learning === true ? {} : learning)}
+          />
+        )}
         <LicenseContext.Provider value={licenseContextValue}>
           {a2uiActive && <A2UIBuiltInToolCallRenderer />}
           {a2uiActive && (
