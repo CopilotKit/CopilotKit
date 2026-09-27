@@ -3,15 +3,13 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "pnpm --filter @copilotkit/react-core run build:css && sleep 1 && concurrently \"pnpm --filter @copilotkit/react-core run dev\" \"pnpm --filter @copilotkit/web-inspector run dev\" \"storybook dev -p 6006 --no-open\"",
+    "dev": "storybook dev -p 6006 --no-open",
     "build": "storybook build",
-    "storybook:dev": "pnpm --filter @copilotkit/react-core run build:css && sleep 1 && concurrently \"pnpm --filter @copilotkit/react-core run dev\" \"pnpm --filter @copilotkit/web-inspector run dev\" \"storybook dev -p 6006 --no-open\"",
+    "storybook:dev": "storybook dev -p 6006 --no-open",
     "storybook:build": "storybook build"
   },
   "dependencies": {
-    "@storybook/nextjs": "^10.2.10",
     "@storybook/react": "^10.2.10",
-    "next": "^15",
     "react": "^19",
     "react-dom": "^19",
     "storybook": "^10.2.10"
@@ -20,14 +18,18 @@
     "@copilotkit/core": "workspace:*",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/typescript-config": "workspace:*",
-    "@storybook/addon-docs": "^10",
+    "@storybook/addon-docs": "^10.3.5",
     "@storybook/addon-themes": "^10.2.10",
+    "@storybook/react-vite": "^10.3.5",
+    "@tailwindcss/vite": "^4.1.18",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "concurrently": "^9.1.0",
     "lucide-react": "^0.525.0",
+    "rxjs": "7.8.1",
+    "tailwindcss": "4.1.18",
     "typescript": "5.8.2",
+    "vite": "~7.3.2",
     "zod": "^3.25.75"
   }
 }
