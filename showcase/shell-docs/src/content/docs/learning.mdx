@@ -40,7 +40,11 @@ Automatic Learning checks eligible containers on a daily schedule. After you app
 
 ## Capture product trajectories
 
-A product trajectory records what a user does in your application alongside agent activity. In React apps, `CopilotKitProvider` automatically includes browser capture once its Runtime reports that Intelligence is configured. The `CopilotKit` compatibility provider supports the same `learning` option.
+A product trajectory records what a user does in your application alongside agent activity.
+
+<FrontendOnly frontend="react">
+
+In React apps, `CopilotKitProvider` automatically includes browser capture once its Runtime reports that Intelligence is configured. The `CopilotKit` compatibility provider supports the same `learning` option.
 
 Configure a Learning container once to include product-only sessions in analysis, even when the user has not sent an agent message:
 
@@ -65,6 +69,14 @@ export function App() {
 Create the container using the setup below. Without a `learningContainerId`, captured events are still stored, but product-only sessions do not automatically join a Learning container. Keep the assignment stable for the session.
 
 By default, capture uses a product-only session ID for the provider's lifetime. Set `learning.threadId` to associate events with a specific chat thread. For a component inside a chat configuration, disable the outer capture with `learning={false}` and mount `CopilotKitLearningProvider` there to use the current chat's thread ID.
+
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+
+Use the framework-independent capture callback below to inspect product interactions. Automatic provider-to-Intelligence wiring is currently available in React.
+
+</FrontendOnly>
 
 ### What capture records
 
