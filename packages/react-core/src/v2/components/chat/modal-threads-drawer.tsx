@@ -49,18 +49,24 @@ export function ModalThreadsDrawer(props: CopilotThreadsDrawerProps) {
  * Gives a modal's chat and its threads drawer a chat configuration to switch
  * threads through. An app that already provides one keeps it; without one,
  * a thread picked in the drawer would never reach the chat.
+ *
+ * `threadId` is the modal's own `threadId` prop. The scope owns the thread the
+ * chat falls back to, so it follows the prop: clearing it starts a fresh
+ * thread, as it does without the drawer.
  */
 export function ModalThreadsScope({
   enabled,
+  threadId,
   children,
 }: {
   enabled: boolean;
+  threadId?: string;
   children: React.ReactNode;
 }) {
   const parentConfig = useCopilotChatConfiguration();
   if (!enabled || parentConfig) return <>{children}</>;
   return (
-    <CopilotChatConfigurationProvider>
+    <CopilotChatConfigurationProvider threadId={threadId}>
       {children}
     </CopilotChatConfigurationProvider>
   );

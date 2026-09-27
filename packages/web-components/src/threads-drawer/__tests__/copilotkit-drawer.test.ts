@@ -1856,6 +1856,68 @@ test("Enter on a row's actions button does not select the row", async () => {
   teardown();
 });
 
+test("Enter on slotted row content selects the row unless it is interactive", async () => {
+  const { element, events, teardown } = await setup({
+    threads: [makeThread({ id: "row-a", name: "A" })],
+  });
+  const content = document.createElement("span");
+  content.slot = "row:row-a";
+  content.tabIndex = 0;
+  const link = document.createElement("a");
+  link.href = "#details";
+  content.append("Custom A", link);
+  element.appendChild(content);
+  await flush(element);
+
+  const pressEnter = (target: HTMLElement) =>
+    target.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+      }),
+    );
+
+  pressEnter(link);
+  await flush(element);
+  expect(events.find((e) => e.type === "thread-selected")).toBeUndefined();
+
+  pressEnter(content);
+  await flush(element);
+  expect(events.filter((e) => e.type === "thread-selected")).toEqual([
+    { type: "thread-selected", detail: { threadId: "row-a" } },
+  ]);
+  teardown();
+});
+
+test("host theme tokens drive hovers, text sizes and the launcher cluster (CSS contract)", () => {
+  const cssText = (CopilotKitThreadsDrawer.styles as { cssText: string })
+    .cssText;
+  const rule = (selector: RegExp) =>
+    cssText.match(new RegExp(`${selector.source}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
+
+  // Hovers follow --cpk-drawer-muted when set, the accent otherwise.
+  expect(cssText).toMatch(
+    /--_hover:\s*var\(--cpk-drawer-muted,\s*var\(--_accent\)\)/,
+  );
+  expect(rule(/\.row:hover,\s*\.row\.menu-open/)).toContain(
+    "background: var(--_hover)",
+  );
+  // Text sizes derive from --cpk-drawer-font-size / --cpk-drawer-line-height,
+  // and rows and the header grow with them.
+  expect(cssText).toMatch(/--_text:\s*var\(--cpk-drawer-font-size,\s*14px\)/);
+  const row = rule(/\.row/);
+  expect(row).toContain("font-size: var(--_text)");
+  expect(row).toContain("line-height: var(--cpk-drawer-line-height, 20px)");
+  expect(row).toContain("min-height: 36px");
+  expect(rule(/\.header/)).toContain("min-height: 56px");
+  // The launcher cluster prefers the surface tokens.
+  const cluster = rule(/\.launcher-cluster/);
+  expect(cluster).toContain("var(--cpk-drawer-surface, var(--_bg))");
+  expect(cluster).toContain("var(--cpk-drawer-surface-fg, var(--_fg))");
+});
+
 test("loading renders skeleton rows with a screen-reader status", async () => {
   const { element, q, qa, teardown } = await setup({ threads: [] });
   element.loading = true;

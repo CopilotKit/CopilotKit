@@ -1754,4 +1754,89 @@ describe("CopilotChatInput layout prop", () => {
         .disabled,
     ).toBe(false);
   });
+
+  it("keeps a custom startTranscribeButton in the toolbar in very narrow inputs", async () => {
+    const { container } = renderWithProvider(
+      <CopilotChatInput
+        onSubmitMessage={mockOnSubmitMessage}
+        onStartTranscribe={vi.fn()}
+        startTranscribeButton="custom-mic"
+      />,
+    );
+
+    mockLayoutMetrics(container, { gridWidth: 280 });
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "hi" } });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(
+      screen.getByTestId("copilot-start-transcribe-button").className,
+    ).toContain("custom-mic");
+    // Nothing was folded into the + menu.
+    expect(
+      (screen.getByTestId("copilot-add-menu-button") as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
+});
+
+describe("CopilotChatInput.TextArea markdown preview", () => {
+  const renderTextArea = (
+    props: Partial<CopilotChatInput.TextAreaProps> = {},
+  ) => {
+    renderWithProvider(
+      <div className="relative">
+        <CopilotChatInput.TextArea
+          value="- item"
+          onChange={() => {}}
+          {...props}
+        />
+      </div>,
+    );
+    return {
+      textarea: screen.getByTestId("copilot-chat-textarea"),
+      preview: screen.getByTestId("copilot-chat-textarea-preview"),
+    };
+  };
+
+  it("paints a custom text color on the preview, never on the textarea", () => {
+    const { textarea, preview } = renderTextArea({
+      className: "cpk:text-red-500",
+      style: { color: "rgb(0, 0, 255)" },
+    });
+
+    expect(textarea.className).toContain("cpk:text-transparent");
+    expect(textarea.className).not.toContain("cpk:text-red-500");
+    expect(textarea.style.color).toBe("transparent");
+    expect(preview.className).toContain("cpk:text-red-500");
+    expect(preview.style.color).toBe("rgb(0, 0, 255)");
+  });
+
+  it("mirrors the textarea's text metrics onto the preview", () => {
+    const style = document.createElement("style");
+    style.textContent =
+      "textarea { letter-spacing: 3px; padding-left: 24px; font-size: 18px; }";
+    document.head.append(style);
+    try {
+      const { preview } = renderTextArea({ style: { lineHeight: "30px" } });
+      expect(preview.style.letterSpacing).toBe("3px");
+      expect(preview.style.paddingLeft).toBe("24px");
+      expect(preview.style.fontSize).toBe("18px");
+      expect(preview.style.lineHeight).toBe("30px");
+    } finally {
+      style.remove();
+    }
+  });
+
+  it("leaves plain textareas alone with highlightMarkdown={false}", () => {
+    renderWithProvider(
+      <CopilotChatInput.TextArea
+        value="- item"
+        onChange={() => {}}
+        highlightMarkdown={false}
+        style={{ color: "red" }}
+      />,
+    );
+    expect(screen.queryByTestId("copilot-chat-textarea-preview")).toBeNull();
+    expect(screen.getByTestId("copilot-chat-textarea").style.color).toBe("red");
+  });
 });

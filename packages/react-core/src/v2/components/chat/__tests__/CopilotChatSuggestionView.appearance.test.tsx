@@ -51,4 +51,24 @@ describe("CopilotChatSuggestionView appearance", () => {
     fireEvent.click(cards[0]!);
     expect(onSelect).toHaveBeenCalledWith(suggestions[0], 0);
   });
+
+  it("names each card by its title and describes it by its message", () => {
+    render(
+      <CopilotChatSuggestionView
+        suggestions={suggestions}
+        appearance="cards"
+      />,
+    );
+    expect(
+      screen.getByRole("button", {
+        name: "Plan a launch",
+        description: "Turn the Q3 goals into a checklist",
+      }),
+    ).toBeDefined();
+    expect(
+      screen
+        .getByRole("button", { name: "Draft reply" })
+        .getAttribute("aria-describedby"),
+    ).toBeNull();
+  });
 });

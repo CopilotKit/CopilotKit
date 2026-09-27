@@ -428,7 +428,9 @@ export type CopilotChatMessageViewProps = Omit<
       /**
        * While a reply streams, show the cursor at the end of its text, as if
        * it were being typed. Defaults to `true`; set `false` to keep the
-       * cursor below the messages.
+       * cursor below the messages. A custom `cursor`, assistant message
+       * component, assistant `children` or `children` layout also keeps it
+       * below the messages.
        */
       inlineCursor?: boolean;
     } & React.HTMLAttributes<HTMLDivElement>
@@ -776,9 +778,17 @@ export function CopilotChatMessageView({
 
   // A streaming reply with text carries the cursor at the end of that text;
   // otherwise (waiting for the reply, running a tool) it sits below the list.
+  // Only the default cursor and assistant message draw the inline cursor, so a
+  // custom `cursor`, assistant message or list layout keeps it below the list.
   const lastMessage = messages[messages.length - 1];
-  const cursorMessageId =
+  const canInlineCursor =
     inlineCursor &&
+    cursor === undefined &&
+    !children &&
+    AssistantComponent === CopilotChatAssistantMessage &&
+    !assistantSlotProps?.children;
+  const cursorMessageId =
+    canInlineCursor &&
     isRunning &&
     lastMessage?.role === "assistant" &&
     lastMessage.content

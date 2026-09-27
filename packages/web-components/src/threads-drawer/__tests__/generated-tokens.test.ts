@@ -126,6 +126,23 @@ test("extractLightThemeBlock captures the full block past a nested brace", () =>
   expect(block).not.toContain("--x: 1;");
 });
 
+test("extractLightThemeBlock finds a root block scoped with :where(), not the dark one", () => {
+  const css = [
+    "[data-copilotkit]:where(:not([data-copilotkit] [data-copilotkit])) {",
+    "  --background: #fff;",
+    "}",
+    ".dark [data-copilotkit]:where(:not([data-copilotkit] [data-copilotkit])),",
+    "[data-copilotkit].dark:where(:not([data-copilotkit] [data-copilotkit])) {",
+    "  --background: #000;",
+    "}",
+    "@layer base {",
+    "  [data-copilotkit] { color: var(--foreground); }",
+    "}",
+  ].join("\n");
+
+  expect(extractLightThemeBlock(css).trim()).toBe("--background: #fff;");
+});
+
 test("extractLightThemeBlock throws on unbalanced braces rather than truncating", () => {
   const css = "[data-copilotkit] {\n  --background: #fff;\n  { --orphan: 1;\n";
 

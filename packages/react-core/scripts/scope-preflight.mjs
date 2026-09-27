@@ -7,8 +7,8 @@
  * Also imported by the React Storybook so dev CSS matches the published build.
  */
 
-import { readFileSync, writeFileSync } from "fs";
-import { pathToFileURL } from "url";
+import { existsSync, readFileSync, realpathSync, writeFileSync } from "fs";
+import { fileURLToPath } from "url";
 import postcss from "postcss";
 
 const SCOPE = "[data-copilotkit]";
@@ -98,7 +98,14 @@ export function scopePreflight(css) {
 }
 
 // --- Main ---
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+// Real paths on both sides, so running it through a symlink still counts.
+const entry = process.argv[1];
+const runAsScript =
+  !!entry &&
+  existsSync(entry) &&
+  realpathSync(entry) === realpathSync(fileURLToPath(import.meta.url));
+
+if (runAsScript) {
   const file = process.argv[2];
   if (!file) {
     console.error("Usage: node scripts/scope-preflight.mjs <css-file>");

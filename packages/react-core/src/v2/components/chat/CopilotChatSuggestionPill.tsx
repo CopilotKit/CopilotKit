@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useId } from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -41,8 +41,12 @@ export const CopilotChatSuggestionPill = React.forwardRef<
   ref,
 ) {
   const showIcon = !isLoading && icon;
+  const cardId = useId();
 
   if (appearance === "card") {
+    // Named by its title alone, like a pill; the body is its description.
+    const titleId = `${cardId}-title`;
+    const descriptionId = description ? `${cardId}-description` : undefined;
     return (
       <button
         ref={ref}
@@ -52,6 +56,9 @@ export const CopilotChatSuggestionPill = React.forwardRef<
         className={cn(cardClasses, className)}
         type={type ?? "button"}
         aria-busy={isLoading || undefined}
+        // aria-labelledby would override an app's own aria-label.
+        aria-labelledby={props["aria-label"] ? undefined : titleId}
+        aria-describedby={descriptionId}
         disabled={isLoading || props.disabled}
         {...props}
       >
@@ -68,10 +75,15 @@ export const CopilotChatSuggestionPill = React.forwardRef<
               </span>
             )
           )}
-          <span className="cpk:truncate">{children}</span>
+          <span id={titleId} className="cpk:truncate">
+            {children}
+          </span>
         </span>
         {description && (
-          <span className="cpk:line-clamp-2 cpk:text-[13px] cpk:leading-snug cpk:text-muted-foreground">
+          <span
+            id={descriptionId}
+            className="cpk:line-clamp-2 cpk:text-[13px] cpk:leading-snug cpk:text-muted-foreground"
+          >
             {description}
           </span>
         )}
