@@ -70,6 +70,26 @@ import {
 | `licenseUrl` | `string` | — | Where the locked state sends a developer without Intelligence. |
 | `onLicensed` | `() => void` | — | Called when the locked state's action is taken. |
 
+### Inside a popup or sidebar
+
+To keep the drawer inside the chat window, pass `threadsDrawer` to
+`CopilotPopup` or `CopilotSidebar` instead of rendering `CopilotThreadsDrawer`
+yourself. The header gets a history button that slides the drawer in over the
+chat, and picking a thread switches the chat. No shared
+`CopilotChatConfigurationProvider` is needed: the popup or sidebar creates its
+own when none surrounds it. Pass `true` for the default drawer, or an object with
+the options above:
+
+```vue
+<script setup lang="ts">
+import { CopilotPopup } from "@copilotkit/vue";
+</script>
+
+<template>
+  <CopilotPopup agentId="support" :threadsDrawer="{ limit: 20 }" />
+</template>
+```
+
 ### Server-side rendering
 
 The drawer wraps a custom element, which needs a DOM. `@copilotkit/vue` imports

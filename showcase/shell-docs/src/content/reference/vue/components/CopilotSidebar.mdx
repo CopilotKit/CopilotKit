@@ -26,7 +26,7 @@ import "@copilotkit/vue/styles.css";
 
 ## Props
 
-All reactive props are declared with `defineProps`. `CopilotSidebar` extends the `CopilotChat` props (and through them the inherited `CopilotChatView` props) and adds two of its own.
+All reactive props are declared with `defineProps`. `CopilotSidebar` extends the `CopilotChat` props (and through them the inherited `CopilotChatView` props) and adds three of its own.
 
 ### Own props
 
@@ -36,6 +36,10 @@ All reactive props are declared with `defineProps`. `CopilotSidebar` extends the
 
 <PropertyReference name="width" type="number | string">
   Width of the sidebar panel. Accepts a number (pixels) or a CSS string (for example `"400px"` or `"30vw"`). When omitted, the default panel width is used.
+</PropertyReference>
+
+<PropertyReference name="threadsDrawer" type="boolean | CopilotThreadsDrawerProps" default="false">
+  Adds a threads drawer to the sidebar. The header gets a history button (top-left) that slides the drawer in from the sidebar's left edge, over the chat. Picking a thread or "New Conversation" switches the chat. Pass `true` for the default drawer, or an object of `CopilotThreadsDrawer` props (`label`, `recentLabel`, `limit`, `collapsible`, ...) to configure it. The sidebar creates its own chat configuration when none surrounds it, so no `CopilotChatConfigurationProvider` is required. Threads need CopilotKit Intelligence; without it the drawer shows its locked state. See [Threads and the threads drawer](/frontends/vue/guides/threads-and-drawer).
 </PropertyReference>
 
 ### Inherited CopilotChat props
@@ -72,6 +76,10 @@ All reactive props are declared with `defineProps`. `CopilotSidebar` extends the
 
 <PropertyReference name="welcomeScreen" type="boolean" default="true">
   Whether to show the welcome screen when there are no messages and no explicit thread is selected. Pass `false` to disable it. Override the `welcome-screen` slot to fully customize it.
+</PropertyReference>
+
+<PropertyReference name="introAnimation" type="boolean" default="true">
+  Eases the welcome screen in: the greeting, suggestion cards, and input rise into place in sequence. Set `false` to show them immediately. The animation is always off when the user prefers reduced motion.
 </PropertyReference>
 
 <PropertyReference name="inputValue" type="string">
@@ -175,6 +183,18 @@ import { CopilotSidebar } from "@copilotkit/vue/v2";
 
 <template>
   <CopilotSidebar agent-id="my-agent" :default-open="false" :width="500" />
+</template>
+```
+
+### With a threads drawer
+
+```vue
+<script setup lang="ts">
+import { CopilotSidebar } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotSidebar agent-id="my-agent" :threads-drawer="true" />
 </template>
 ```
 

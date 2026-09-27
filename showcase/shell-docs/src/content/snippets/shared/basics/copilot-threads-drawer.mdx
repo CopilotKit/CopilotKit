@@ -134,11 +134,43 @@ export default function Page() {
 `<CopilotPopup>` hosts the Drawer on the same terms, for the same reason.
 
 <Callout type="info">
-  The launcher button that opens the Drawer from the chat header appears on
-  mobile viewports only. On desktop the Drawer is a persistent in-flow panel
-  that is always visible, so a launcher there would do nothing. A missing
-  desktop launcher is the design, not a broken wiring.
+  With a page-level Drawer like the one above, the launcher button that opens
+  it from the chat header appears on mobile viewports only. On desktop the
+  Drawer is a persistent in-flow panel that is always visible, so a launcher
+  there would do nothing. A missing desktop launcher is the design, not a
+  broken wiring. To keep the Drawer inside the chat window instead, use
+  `threadsDrawer` (below).
 </Callout>
+
+## Put the Drawer inside a popup or sidebar
+
+To keep conversations inside the chat window rather than beside the page, pass
+`threadsDrawer` to `<CopilotPopup>` or `<CopilotSidebar>`. The header gets a
+history button that slides the Drawer in over the chat at every viewport width.
+Escape, the scrim, or picking a thread closes it. The Drawer lives inside the
+popup or sidebar, so you don't need a separate `<CopilotThreadsDrawer>` or a
+shared `<CopilotChatConfigurationProvider>`:
+
+```tsx title="app/page.tsx"
+import { CopilotKitProvider, CopilotPopup } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+
+export default function Page() {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit">
+      <YourMainContent />
+      <CopilotPopup threadsDrawer />
+    </CopilotKitProvider>
+  );
+}
+```
+
+Pass an object instead of `true` to configure the Drawer with the same props as
+`<CopilotThreadsDrawer>`, for example
+`threadsDrawer={{ recentLabel: "Your conversations", limit: 20 }}`. The Drawer
+is loaded only when `threadsDrawer` is set. See the
+[`CopilotPopup`](/reference/components/CopilotPopup) and
+[`CopilotSidebar`](/reference/components/CopilotSidebar) references.
 
 ## Configuring the drawer
 

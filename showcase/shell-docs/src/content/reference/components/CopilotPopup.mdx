@@ -60,6 +60,17 @@ import "@copilotkit/react-core/v2/styles.css";
   Whether clicking outside the popup panel closes it.
 </PropertyReference>
 
+<PropertyReference name="threadsDrawer" type="boolean | CopilotThreadsDrawerProps" default="false">
+  Adds a threads drawer to the popup. The header gets a history button
+  (top-left) that slides the drawer in from the popup's left edge, over the
+  chat. Escape, the scrim, or picking a thread closes it. Picking a thread or
+  "New Conversation" switches the chat. Pass `true` for the default drawer, or an
+  object of [`CopilotThreadsDrawer`](/reference/components/CopilotThreadsDrawer)
+  props (`label`, `recentLabel`, `limit`, `renderRow`, ...) to configure it.
+  The drawer code loads only when this is set. Threads need CopilotKit
+  Intelligence; without it the drawer shows its locked view.
+</PropertyReference>
+
 ### Inherited CopilotChat Props
 
 `CopilotPopup` accepts all props from [`CopilotChatProps`](/reference/components/CopilotChat) **except** `chatView`, which is set internally to `CopilotPopupView`. This includes:
@@ -146,12 +157,26 @@ function App() {
 }
 ```
 
+### With a Threads Drawer
+
+```tsx
+function App() {
+  return (
+    <CopilotPopup
+      agentId="my-agent"
+      threadsDrawer={{ recentLabel: "Your conversations", limit: 20 }}
+    />
+  );
+}
+```
+
 ## Behavior
 
 - **Toggle button**: Renders a floating toggle button (typically in the bottom-right corner) that opens and closes the popup. The button uses `CopilotChatToggleButton` internally.
 - **Modal state**: Open/close state is managed via the chat configuration context. The `defaultOpen` prop sets the initial state; after that, state changes come from user interaction (toggle button, close button, clicking outside). Pass `open` and `onOpenChange` to own the state yourself, and to open or close the popup from your own UI.
 - **Click outside**: When `clickOutsideToClose` is `true` (the default), clicking anywhere outside the popup panel closes it.
-- **Layout**: The popup uses `CopilotPopupView` internally, which provides a popup-specific welcome screen layout with the welcome message centered vertically and suggestions just above the input.
+- **Layout**: The popup uses `CopilotPopupView` internally. Its welcome screen centers the greeting, the suggestion cards, and the input together. Once the conversation starts, suggestions move to a row of pills above the input.
+- **Threads drawer**: With `threadsDrawer`, the drawer and its open state live inside the popup, so no shared `CopilotChatConfigurationProvider` is needed. The header's history button shows at every viewport width.
 - **Agent connection**: All agent wiring (messages, running state, suggestions) is handled by the parent `CopilotChat` logic.
 
 ## Related

@@ -129,7 +129,7 @@ matching dark-mode value under `.dark [data-copilotkit]`. The full set
 | `--destructive` / `--destructive-foreground` | Error/danger color and its text |
 | `--card` / `--popover` (+ `-foreground`) | Elevated surface backgrounds and their text |
 | `--sidebar-*` | The sidebar's own background/foreground/border/ring set |
-| `--radius` | Base corner radius; `--radius-sm/md/lg/xl` derive from it |
+| `--radius` | Base corner radius. `--radius-sm/md/lg/xl` derive from it, and so do the larger corners of cards, message bubbles, and windows (`--radius-2xl`) and the input (`--radius-3xl`), so one value rounds the whole chat |
 
 <Callout type="info" title="oklch values">
   v2 tokens use the `oklch()` color space, which keeps perceived lightness
