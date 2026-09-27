@@ -4,10 +4,8 @@ import { FakeRuntime, provideCopilotKitFake } from "../../../../testing";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import {
-  anyActivityContentSchema,
-  type RenderActivityMessageConfig,
-} from "../../../activity-renderer";
+import { anyActivityContentSchema } from "../../../activity-renderer";
+import type { RenderActivityMessageConfig } from "../../../activity-renderer";
 import { CopilotActivity } from "../copilot-activity";
 import {
   JsonActivityRenderer,
