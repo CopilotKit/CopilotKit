@@ -5,6 +5,11 @@
     "types": ["vitest/globals", "node"]
   },
   "files": ["src/test-setup.ts"],
-  "include": ["src/**/*.spec.ts", "src/**/*.test.ts", "src/**/*.d.ts"],
+  "include": [
+    "src/**/*.spec.ts",
+    "src/**/*.test.ts",
+    "src/**/*.d.ts",
+    "src/testing/**/*.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }

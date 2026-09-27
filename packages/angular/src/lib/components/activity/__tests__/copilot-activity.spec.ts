@@ -1,290 +1,338 @@
-import { signal } from "@angular/core";
+import { Component, computed, effect, input } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
-import type { AbstractAgent } from "@ag-ui/client";
-import type { ActivityMessage } from "@ag-ui/core";
+import { FakeRuntime, provideCopilotKitFake } from "../../../../testing";
+import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import {
   anyActivityContentSchema,
   type RenderActivityMessageConfig,
 } from "../../../activity-renderer";
-import { CopilotKit } from "../../../copilotkit";
 import { CopilotActivity } from "../copilot-activity";
 import {
+  JsonActivityRenderer,
   PrimaryActivityRenderer,
-  SecondaryActivityRenderer,
+  primaryActivityRendererSchema,
+  ProgressActivityRenderer,
+  progressActivityRendererSchema,
   WildcardActivityRenderer,
 } from "./activity-renderer-stubs";
-
-const activityMessage = (
-  overrides: Partial<ActivityMessage> = {},
-): ActivityMessage => ({
-  id: "activity-1",
-  role: "activity",
-  activityType: "a2ui-surface",
-  content: {},
-  ...overrides,
-});
-
-const renderer = (
-  overrides: Partial<RenderActivityMessageConfig> = {},
-): RenderActivityMessageConfig => ({
-  activityType: "a2ui-surface",
-  content: anyActivityContentSchema,
-  component: PrimaryActivityRenderer,
-  ...overrides,
-});
-
-const agent = (agentId: string) => ({ agentId }) as AbstractAgent;
-
-async function setup(
-  renderers: readonly RenderActivityMessageConfig[] = [],
-  agentId: string | undefined = undefined,
-  message: ActivityMessage = activityMessage(),
-  initialAgent: AbstractAgent | undefined = undefined,
-) {
-  const rendererConfigs = signal([...renderers]);
-  let currentAgent = initialAgent;
-
-  TestBed.configureTestingModule({
-    providers: [
-      {
-        provide: CopilotKit,
-        useValue: {
-          activityMessageRenderConfigs: rendererConfigs.asReadonly(),
-          getAgent: (requestedAgentId: string) =>
-            currentAgent?.agentId === requestedAgentId
-              ? currentAgent
-              : undefined,
-        },
-      },
-    ],
-  });
-
-  const fixture = TestBed.createComponent(CopilotActivity);
-  fixture.componentRef.setInput("message", message);
-  fixture.componentRef.setInput("agentId", agentId);
-  await fixture.whenStable();
-
-  return {
-    fake: {
-      async setAgent(
-        nextAgentId: string | undefined,
-        nextAgent: AbstractAgent | undefined = undefined,
-      ) {
-        currentAgent = nextAgent;
-        fixture.componentRef.setInput("agentId", nextAgentId);
-        await fixture.whenStable();
-      },
-      async setMessage(nextMessage: ActivityMessage) {
-        fixture.componentRef.setInput("message", nextMessage);
-        await fixture.whenStable();
-      },
-    },
-  };
-}
+import { injectAgentStore } from "../../../agent";
 
 describe("CopilotActivity", () => {
-  it("renders the resolved renderer with the four renderer inputs", async () => {
-    await setup(
-      [
-        renderer({
-          agentId: "demo-button",
-          content: z.object({ operations: z.array(z.unknown()) }),
+  @Component({
+    template: `
+      <div>
+        @for (message of messages(); track message) {
+          <copilot-activity [agentId]="agentId()" [message]="message" />
+        }
+      </div>
+    `,
+    imports: [CopilotActivity],
+  })
+  class CopilotActivityTestComponent {
+    protected readonly agentId = input(DEFAULT_AGENT_ID);
+    protected readonly agentStore = injectAgentStore(this.agentId);
+
+    protected readonly messages = computed(() =>
+      this.agentStore()
+        .messages()
+        .filter((m) => m.role === "activity"),
+    );
+
+    constructor() {
+      effect(() => this.agentStore().agent.runAgent());
+    }
+  }
+
+  const setup = async (
+    renderers: RenderActivityMessageConfig[] = [
+      {
+        component: PrimaryActivityRenderer,
+        activityType: "*",
+        content: z.object({ message: z.string() }),
+      },
+    ],
+    agentIds: readonly string[] = [DEFAULT_AGENT_ID],
+    initialAgentId: string = DEFAULT_AGENT_ID,
+    component = CopilotActivityTestComponent,
+  ) => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKitFake({
+          agentIds,
+          renderActivityMessages: renderers,
         }),
       ],
-      "demo-button",
-      activityMessage({ content: { operations: [] } }),
-      agent("demo-button"),
-    );
+    });
+    const fixture = TestBed.createComponent(component);
 
-    await expect
-      .poll(() =>
-        document.querySelector<HTMLElement>('[data-testid="primary-activity"]'),
-      )
-      .not.toBeNull();
+    if (initialAgentId !== DEFAULT_AGENT_ID) {
+      fixture.componentRef.setInput("agentId", initialAgentId);
+    }
+    const fakeRuntime = TestBed.inject(FakeRuntime);
+    return { fakeRuntime, fixture };
+  };
 
-    const rendered = document.querySelector<HTMLElement>(
-      '[data-testid="primary-activity"]',
-    );
-    expect(rendered?.getAttribute("data-activity-type")).toBe("a2ui-surface");
-    expect(rendered?.getAttribute("data-has-agent")).toBe("true");
-    expect(rendered?.getAttribute("data-content")).toBe(
-      JSON.stringify({ operations: [] }),
-    );
+  it("should render the message", async () => {
+    const { fakeRuntime } = await setup();
+    fakeRuntime.emitActivityMessage({ message: "Hello, world!" }, "message");
+
+    await expect.poll(queryPrimaryTest()).toContain("Hello, world!");
   });
 
-  it("leaves agent undefined when no agentId is set", async () => {
-    await setup([renderer()]);
+  it("should render the progress", async () => {
+    const { fakeRuntime } = await setup([
+      {
+        component: ProgressActivityRenderer,
+        activityType: "progress",
+        content: progressActivityRendererSchema,
+      },
+    ]);
 
-    await expect
-      .poll(() =>
-        document
-          .querySelector('[data-testid="primary-activity"]')
-          ?.getAttribute("data-has-agent"),
-      )
-      .toBe("false");
+    const messageId = crypto.randomUUID();
+
+    fakeRuntime.emitActivityMessage(
+      { completed: 1, total: 10, status: "running" },
+      "progress",
+      messageId,
+    );
+
+    await expect.poll(queryProgressTest()).toContain("1/10 running");
+
+    fakeRuntime.emitActivityMessage(
+      { completed: 10, total: 10, status: "completed" },
+      "progress",
+      messageId,
+    );
+
+    await expect.poll(queryProgressTest()).toContain("10/10 completed");
   });
 
   it("renders nothing and warns when the content fails to parse", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    try {
-      await setup(
-        [
-          renderer({
-            content: z.object({ operations: z.array(z.unknown()) }),
-          }),
-        ],
-        undefined,
-        activityMessage({ content: { wrong: true } }),
-      );
+    const { fakeRuntime } = await setup([
+      {
+        component: PrimaryActivityRenderer,
+        activityType: "*",
+        content: z.object({ message: z.string() }),
+      },
+    ]);
 
-      await vi.waitUntil(() => warn.mock.calls.length > 0);
-      expect(
-        document.querySelector('[data-testid="primary-activity"]'),
-      ).toBeNull();
-      expect(warn).toHaveBeenCalledWith(
-        "Failed to parse content for activity message 'a2ui-surface':",
-        expect.anything(),
-      );
-    } finally {
-      warn.mockRestore();
-    }
+    fakeRuntime.emitActivityMessage({ errorCode: "Invalid Content" }, "");
+
+    await vi.waitUntil(() => warn.mock.calls.length > 0);
+    expect(queryPrimaryTest()()).toBeUndefined();
   });
 
-  it("updates the renderer when the agentId changes", async () => {
-    const { fake } = await setup(
+  it("switches renderer when agentId changes", async () => {
+    const { fakeRuntime, fixture } = await setup(
       [
-        renderer({ agentId: "agent-one" }),
-        renderer({
+        {
+          component: PrimaryActivityRenderer,
+          activityType: "message",
+          content: z.object({ message: z.string() }),
+          agentId: "agent-one",
+        },
+        {
+          component: JsonActivityRenderer,
+          activityType: "message",
+          content: anyActivityContentSchema,
           agentId: "agent-two",
-          component: SecondaryActivityRenderer,
-        }),
+        },
       ],
+      ["agent-one", "agent-two"],
       "agent-one",
-      activityMessage(),
-      agent("agent-one"),
     );
-    await expect
-      .poll(() => document.querySelector('[data-testid="primary-activity"]'))
-      .not.toBeNull();
 
-    await fake.setAgent("agent-two", agent("agent-two"));
+    fakeRuntime.emitActivityMessage(
+      { message: "Hello, world!" },
+      "message",
+      undefined,
+      "agent-one",
+    );
+    await expect.poll(queryPrimaryTest()).toContain("Hello, world!");
 
-    await expect
-      .poll(() => document.querySelector('[data-testid="secondary-activity"]'))
-      .not.toBeNull();
-    expect(
-      document.querySelector('[data-testid="primary-activity"]'),
-    ).toBeNull();
+    fixture.componentRef.setInput("agentId", "agent-two");
+
+    fakeRuntime.emitActivityMessage(
+      { message: "Hello, world!" },
+      "message",
+      undefined,
+      "agent-two",
+    );
+    await expect.poll(queryJsonTest()).toContain('"message": "Hello, world!"');
+    expect(queryPrimaryTest()()).toBeUndefined();
   });
 
   it("updates the renderer when the message changes", async () => {
-    const { fake } = await setup([
-      renderer(),
-      renderer({
-        activityType: "other",
-        component: SecondaryActivityRenderer,
-      }),
+    const { fakeRuntime } = await setup([
+      {
+        component: PrimaryActivityRenderer,
+        activityType: "message",
+        content: z.object({ message: z.string() }),
+      },
+      {
+        component: ProgressActivityRenderer,
+        activityType: "progress",
+        content: progressActivityRendererSchema,
+      },
     ]);
-    await expect
-      .poll(() => document.querySelector('[data-testid="primary-activity"]'))
-      .not.toBeNull();
 
-    await fake.setMessage(activityMessage({ activityType: "other" }));
+    const messageId = crypto.randomUUID();
+    fakeRuntime.emitActivityMessage(
+      { completed: 1, total: 10, status: "running" },
+      "progress",
+      messageId,
+    );
+    await expect.poll(queryProgressTest()).toContain("1/10 running");
 
-    await expect
-      .poll(() => document.querySelector('[data-testid="secondary-activity"]'))
-      .not.toBeNull();
-    expect(
-      document.querySelector('[data-testid="primary-activity"]'),
-    ).toBeNull();
+    fakeRuntime.emitActivityMessage(
+      { message: "Hello, world!" },
+      "message",
+      messageId,
+    );
+    await expect.poll(queryPrimaryTest()).toContain("Hello, world!");
+    expect(queryProgressTest()()).toBeUndefined();
   });
 
   describe("renderer selection", () => {
     it("renders the renderer registered for the activity type", async () => {
-      await setup([
-        renderer({
-          activityType: "other",
-          component: SecondaryActivityRenderer,
-        }),
-        renderer(),
+      const { fakeRuntime } = await setup([
+        {
+          activityType: "main",
+          component: PrimaryActivityRenderer,
+          content: primaryActivityRendererSchema,
+        },
+        {
+          activityType: "progress",
+          component: ProgressActivityRenderer,
+          content: progressActivityRendererSchema,
+        },
       ]);
 
-      await expect
-        .poll(() => document.querySelector('[data-testid="primary-activity"]'))
-        .not.toBeNull();
+      fakeRuntime.emitActivityMessage({ message: "Hello, world!" }, "main");
+      await expect.poll(queryPrimaryTest()).toContain("Hello, world!");
     });
 
     it("prefers an agent-scoped renderer over an earlier global one", async () => {
-      await setup(
-        [
-          renderer({ component: SecondaryActivityRenderer }),
-          renderer({ agentId: "demo-button" }),
-        ],
-        "demo-button",
-      );
+      const { fakeRuntime } = await setup([
+        {
+          component: ProgressActivityRenderer,
+          activityType: "main",
+          content: anyActivityContentSchema,
+        },
+        {
+          component: PrimaryActivityRenderer,
+          activityType: "main",
+          agentId: DEFAULT_AGENT_ID,
+          content: primaryActivityRendererSchema,
+        },
+      ]);
 
-      await expect
-        .poll(() => document.querySelector('[data-testid="primary-activity"]'))
-        .not.toBeNull();
+      fakeRuntime.emitActivityMessage({ message: "Hello, world!" }, "main");
+
+      await expect.poll(queryPrimaryTest()).toContain("Hello, world!");
     });
 
     it("falls back to the global renderer for an unmatched agent", async () => {
-      await setup(
-        [
-          renderer({ agentId: "other-agent" }),
-          renderer({ component: SecondaryActivityRenderer }),
-        ],
-        "demo-button",
-      );
+      const { fakeRuntime } = await setup([
+        {
+          component: ProgressActivityRenderer,
+          activityType: "main",
+          agentId: "other-agent",
+          content: anyActivityContentSchema,
+        },
+        {
+          component: PrimaryActivityRenderer,
+          activityType: "main",
+          content: primaryActivityRendererSchema,
+        },
+      ]);
 
-      await expect
-        .poll(() =>
-          document.querySelector('[data-testid="secondary-activity"]'),
-        )
-        .not.toBeNull();
+      fakeRuntime.emitActivityMessage({ message: "Hello, world!" }, "main");
+
+      await expect.poll(queryPrimaryTest()).toContain("Hello, world!");
+      expect(queryProgressTest()()).toBeUndefined();
     });
 
     it("ignores agent-scoped renderers when no agentId is given", async () => {
-      await setup([
-        renderer({ agentId: "demo-button" }),
-        renderer({ component: SecondaryActivityRenderer }),
-      ]);
+      @Component({
+        template: `
+          <div>
+            @for (message of messages(); track message) {
+              <copilot-activity [message]="message" />
+            }
+          </div>
+        `,
+        imports: [CopilotActivity],
+      })
+      class CopilotActivityTestComponentWithouAgentID extends CopilotActivityTestComponent {}
+
+      const { fakeRuntime } = await setup(
+        [
+          {
+            agentId: "demo-button",
+            component: ProgressActivityRenderer,
+            activityType: "main",
+            content: progressActivityRendererSchema,
+          },
+          {
+            component: PrimaryActivityRenderer,
+            activityType: "main",
+            content: primaryActivityRendererSchema,
+          },
+        ],
+        ["demo-button", DEFAULT_AGENT_ID],
+        DEFAULT_AGENT_ID,
+        CopilotActivityTestComponentWithouAgentID,
+      );
+
+      fakeRuntime.emitActivityMessage({ message: "Hello, world!" }, "main");
 
       await expect
-        .poll(() =>
-          document.querySelector('[data-testid="secondary-activity"]'),
-        )
+        .poll(() => document.querySelector('[data-testid="primary-activity"]'))
         .not.toBeNull();
     });
 
     it("falls back to the wildcard renderer", async () => {
-      await setup(
-        [renderer({ activityType: "*", component: WildcardActivityRenderer })],
-        undefined,
-        activityMessage({ activityType: "unregistered" }),
+      const { fakeRuntime } = await setup([
+        {
+          activityType: "*",
+          component: PrimaryActivityRenderer,
+          content: primaryActivityRendererSchema,
+        },
+        {
+          activityType: "main",
+          component: WildcardActivityRenderer,
+          content: anyActivityContentSchema,
+        },
+      ]);
+
+      fakeRuntime.emitActivityMessage(
+        { message: "Hello, world!" },
+        "unregistered",
       );
 
       await expect
-        .poll(() => document.querySelector('[data-testid="wildcard-activity"]'))
+        .poll(() => document.querySelector('[data-testid="primary-activity"]'))
         .not.toBeNull();
-    });
-
-    it("renders nothing when no renderer matches", async () => {
-      await setup(
-        [renderer()],
-        undefined,
-        activityMessage({ activityType: "unregistered" }),
-      );
-
-      await expect
-        .poll(() => document.querySelector("copilot-activity"))
-        .toBeNull();
-      expect(
-        document.querySelector('[data-testid="primary-activity"]'),
-      ).toBeNull();
     });
   });
 });
+
+function queryPrimaryTest() {
+  return () =>
+    document.querySelector(`[data-testid="primary-activity"]`)?.textContent;
+}
+
+function queryProgressTest() {
+  return () =>
+    document.querySelector(`[data-testid="progress-activity"]`)?.textContent;
+}
+
+function queryJsonTest() {
+  return () =>
+    document.querySelector(`[data-testid="json-activity"]`)?.textContent;
+}

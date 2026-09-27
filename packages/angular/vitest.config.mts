@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [angular()],
   resolve: {
     alias: {
+      "@copilotkit/angular/testing": r("src/testing/index.ts"),
       "@copilotkit/angular": r("src/public-api.ts"),
     },
     dedupe: [
