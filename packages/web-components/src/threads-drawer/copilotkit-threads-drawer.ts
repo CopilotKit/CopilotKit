@@ -275,6 +275,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
     _confirmingDeleteId: { state: true },
     _viewportIsMobile: { state: true },
     _hasMemories: { state: true },
+    _hasHeader: { state: true },
     _hasFooter: { state: true },
     _filterOpen: { state: true },
     _openMenuId: { state: true },
@@ -357,6 +358,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
   private _confirmingDeleteId: string | null = null;
   private _viewportIsMobile = false;
   private _hasMemories = false;
+  private _hasHeader = false;
   private _hasFooter = false;
   /** Whether the funnel filter popover (Active/All) is open. */
   private _filterOpen = false;
@@ -932,7 +934,9 @@ export class CopilotKitThreadsDrawer extends LitElement {
 
   private _renderHeader() {
     // One compact top bar: [title] … [panel toggle]. The title is the drawer's
-    // `label`; project `slot="header"` content to replace it. The toggle is
+    // `label`; project `slot="header"` content to replace it. With no control
+    // to show (collapsible=false on desktop) and nothing projected, the bar
+    // stays hidden, as it did before the title existed. The toggle is
     // the desktop collapse control, or — for the off-canvas panels (mobile
     // modal while open, and the overlay panel, which stays mounted while
     // closed) — the close control. Below the bar sits the "New Thread" row,
@@ -941,8 +945,19 @@ export class CopilotKitThreadsDrawer extends LitElement {
     const showClose = this.overlay || (this._viewportIsMobile && this.open);
     const showCollapseToggle = this.collapsible && !this._isFloating();
     return html`
-      <div class="header" part="header">
-        <slot name="header" class="header-slot">
+      <div
+        class="header"
+        part="header"
+        ?hidden=${!this._hasHeader && !showClose && !showCollapseToggle}
+      >
+        <slot
+          name="header"
+          class="header-slot"
+          @slotchange=${(e: Event) => {
+            const slot = e.target as HTMLSlotElement;
+            this._hasHeader = slot.assignedElements().length > 0;
+          }}
+        >
           <span class="title" part="title">${this.label}</span>
         </slot>
         ${
