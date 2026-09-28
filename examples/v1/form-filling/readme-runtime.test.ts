@@ -16,7 +16,7 @@ describe("README runtime requirements", () => {
   it("documents the installed Next.js major and required Node.js version", () => {
     const nextMajor = nextPackageJson.version.match(/^(\d+)\./)?.[1];
     const requiredNodeVersion =
-      nextPackageJson.engines.node.match(/>=(\d+\.\d+\.\d+)/)?.[1];
+      nextPackageJson.engines.node.match(/>=\s*(\d+\.\d+\.\d+)/)?.[1];
 
     expect(nextMajor).toBeDefined();
     expect(requiredNodeVersion).toBeDefined();

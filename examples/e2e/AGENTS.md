@@ -19,8 +19,7 @@ This suite intentionally runs **one example at a time**.
 
 The Playwright config (`playwright.config.ts`) uses an explicit path map to:
 
-- Set `webServer.cwd` to the chosen example under `examples/canvas/` or
-  `examples/showcases/`.
+- Set `webServer.cwd` to the chosen example under `examples/v1/`.
 - Choose the `webServer.command` used to start the app.
 
 ### Why each spec has `const EXAMPLE = process.env.EXAMPLE ?? "form-filling";`
@@ -133,13 +132,14 @@ It runs a matrix of:
 Key CI behaviors:
 
 - Installs `examples/e2e` deps and Playwright Chromium.
-- Installs the selected example’s deps.
+- Installs the workspace dependencies and builds CopilotKit.
 - Uses `pnpm install --frozen-lockfile` for deterministic installs.
-- For `research-canvas`, installs with `--ignore-scripts` to avoid requiring Python tooling just to run UI smoke tests.
+- Runs the selected app’s unit tests, plus the Research Canvas TypeScript agent tests
+  or Travel Python tests when selected.
 
 Artifacts:
 
-- Always uploads Playwright output (`test-results` and `playwright-report`) for debugging.
+- Uploads Playwright output (`test-results` and `playwright-report`) when a job fails.
 
 ## Common issues / debugging
 

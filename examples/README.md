@@ -1,6 +1,6 @@
 # CopilotKit Examples
 
-This directory contains 61 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
+This directory contains 62 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
 
 Each example is a self-contained project. To get started:
 
@@ -44,8 +44,6 @@ Framework integration starters demonstrating CopilotKit with various agent frame
 | [a2a-middleware](./integrations/a2a-middleware/)                       | Multi-agent starter with A2A Protocol and AG-UI Protocol (LangGraph + ADK)           |
 | [claude-sdk-python](./integrations/claude-sdk-python/)                 | Starter template using the Claude Agent SDK (Python) and CopilotKit                  |
 | [claude-sdk-typescript](./integrations/claude-sdk-typescript/)         | Starter template using the Claude Agent SDK (TypeScript) and CopilotKit              |
-| [adk-angular](./integrations/adk-angular/)                             | Starter template using Google ADK with an Angular frontend and CopilotKit            |
-| [agentcore](./integrations/agentcore/)                                 | Chat UI with generative charts deployed on AWS Bedrock AgentCore                     |
 
 ## Canvas (7)
 
@@ -61,7 +59,7 @@ AI-powered canvas applications with visual card interfaces, real-time state sync
 | [gemini](./canvas/gemini/)                           | Open Gemini Canvas — post generator and stack analyzer agents (Gemini + LangGraph)      |
 | [mastra-pm](./canvas/mastra-pm/)                     | AG-UI + Mastra workshop — shared state, multiple clients, generative UI                 |
 
-## Showcases (32)
+## Showcases (33)
 
 Full-featured demo applications highlighting CopilotKit capabilities in real-world scenarios.
 
@@ -99,11 +97,4 @@ Full-featured demo applications highlighting CopilotKit capabilities in real-wor
 | [spreadsheet](./showcases/spreadsheet/)                                 | AI-powered Excel-like spreadsheet web app                                                                           |
 | [todo](./showcases/todo/)                                               | Simple todo app built with CopilotKit                                                                               |
 | [strands-crm](./showcases/strands-crm/)                                 | Enterprise sales CRM — dashboard, pipeline, products, quotes, reports & agentic canvas (TypeScript Strands + AG-UI) |
-| [a2ui-pdf-analyst](./showcases/a2ui-pdf-analyst/)                       | Chat with your PDF — A2UI analyst that builds UI for each answer                                                    |
-| [arcade-tools](./showcases/arcade-tools/)                               | CopilotKit Built-in Agent with authenticated Arcade tools (Gmail, Google News)                                      |
-| [claude-managed-agents](./showcases/claude-managed-agents/)             | Hosted Claude Managed Agent connected to CopilotKit chat over AG-UI                                                 |
-| [daytona-runcode](./showcases/daytona-runcode/)                         | Built-in Agent with a runCode tool executing code in an isolated Daytona sandbox                                    |
 | [manufact-mcp-apps](./showcases/manufact-mcp-apps/)                     | Built-in Agent rendering an MCP App built with Manufact's mcp-use SDK (inline Leaflet map)                          |
-| [deep-agents-finance-erp](./showcases/deep-agents-finance-erp/)         | Finance ERP showcase — invoices, accounts, inventory, HR, and reports (deep agents)                                 |
-| [open-mcp-client](./showcases/open-mcp-client/)                         | Open MCP client builder — render and create MCP Apps with CopilotKit                                                |
-| [oracle-agent-memory](./showcases/oracle-agent-memory/)                 | Travel concierge demo — Oracle Agent Spec, generative UI, and cross-session memory                                  |
