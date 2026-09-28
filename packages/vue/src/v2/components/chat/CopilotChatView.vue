@@ -595,6 +595,7 @@ onBeforeUnmount(() => {
                   <CopilotChatMessageView
                     :messages="messages"
                     :is-running="isRunning"
+                    :should-render-message="props.shouldRenderMessage"
                   >
                     <template
                       v-for="slotName in forwardedMessageViewSlotNames"

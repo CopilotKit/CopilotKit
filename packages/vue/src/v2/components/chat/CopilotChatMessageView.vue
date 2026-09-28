@@ -56,6 +56,7 @@ const props = withDefaults(
   defineProps<{
     messages?: Message[];
     isRunning?: boolean;
+    shouldRenderMessage?: (message: Message) => boolean;
   }>(),
   {
     messages: () => [],
@@ -191,23 +192,31 @@ const deduplicatedMessages = computed(() =>
   deduplicateMessages(props.messages),
 );
 
+// Display-only filter. Rows and row keys use the visible list. Lookups
+// (tool results, the `messages` passed to rows, the cursor) keep the full
+// `messages` prop.
+const visibleMessages = computed(() => {
+  const shouldRender = props.shouldRenderMessage;
+  return shouldRender
+    ? deduplicatedMessages.value.filter((message) => shouldRender(message))
+    : deduplicatedMessages.value;
+});
+
 // Stable per-row keys. Backends can re-key a message mid-stream, and keying
 // rows by the canonical id tears the row down on that swap (the HITL chat
 // flash). See @copilotkit/shared row-render-keys for the mechanism.
 const rowKeyStore = createRowKeyStore();
 const rowRenderKeys = computed(() =>
-  resolveRowRenderKeysById(rowKeyStore, deduplicatedMessages.value),
+  resolveRowRenderKeysById(rowKeyStore, visibleMessages.value),
 );
 
 // Record what the DOM was patched with, never what a computed merely
 // evaluated: an anchor from an evaluation Vue never patches would re-key a
 // rendered row and tear it down.
-onMounted(() => commitRowKeyStore(rowKeyStore, deduplicatedMessages.value));
-watch(
-  deduplicatedMessages,
-  (messages) => commitRowKeyStore(rowKeyStore, messages),
-  { flush: "post" },
-);
+onMounted(() => commitRowKeyStore(rowKeyStore, visibleMessages.value));
+watch(visibleMessages, (messages) => commitRowKeyStore(rowKeyStore, messages), {
+  flush: "post",
+});
 const lastMessage = computed(() => props.messages[props.messages.length - 1]);
 const showCursor = computed(
   () => props.isRunning && lastMessage.value?.role !== "reasoning",
@@ -367,7 +376,7 @@ function resolveToolMessage(
 <template>
   <div data-copilotkit class="cpk:flex cpk:flex-col" v-bind="$attrs">
     <template
-      v-for="message in deduplicatedMessages"
+      v-for="message in visibleMessages"
       :key="rowRenderKeys.get(message.id) ?? message.id"
     >
       <slot

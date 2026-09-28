@@ -107,6 +107,7 @@ watch(
         :messages="slotProps.messages"
         :auto-scroll="slotProps.autoScroll"
         :is-running="slotProps.isRunning"
+        :should-render-message="slotProps.shouldRenderMessage"
         :suggestions="slotProps.suggestions"
         :suggestion-loading-indexes="slotProps.suggestionLoadingIndexes"
         :welcome-screen="slotProps.welcomeScreen"

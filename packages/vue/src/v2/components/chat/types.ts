@@ -49,6 +49,13 @@ export interface CopilotChatViewProps {
    */
   autoScroll?: AutoScrollMode | boolean;
   isRunning?: boolean;
+  /**
+   * Decides which messages the chat renders. Return `false` to hide a
+   * message. Display only: a hidden message stays in the agent's history,
+   * and rows still use it to look up tool results. When omitted, every
+   * message renders.
+   */
+  shouldRenderMessage?: (message: Message) => boolean;
   suggestions?: Suggestion[];
   suggestionLoadingIndexes?: ReadonlyArray<number>;
   welcomeScreen?: boolean;

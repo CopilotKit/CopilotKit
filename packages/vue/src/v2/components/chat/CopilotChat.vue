@@ -741,6 +741,7 @@ const chatViewSlotProps = computed<CopilotChatViewOverrideSlotProps>(() => ({
   messages: messages.value,
   autoScroll: props.autoScroll,
   isRunning: isRunning.value,
+  shouldRenderMessage: props.shouldRenderMessage,
   suggestions: autoSuggestions.value,
   suggestionLoadingIndexes: [],
   welcomeScreen: props.welcomeScreen,
@@ -841,6 +842,7 @@ const defaultChatViewBindings = computed(() => {
           :messages="chatViewSlotProps.messages"
           :auto-scroll="chatViewSlotProps.autoScroll"
           :is-running="chatViewSlotProps.isRunning"
+          :should-render-message="chatViewSlotProps.shouldRenderMessage"
           :suggestions="chatViewSlotProps.suggestions"
           :suggestion-loading-indexes="
             chatViewSlotProps.suggestionLoadingIndexes
