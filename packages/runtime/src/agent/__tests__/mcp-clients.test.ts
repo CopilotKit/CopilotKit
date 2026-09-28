@@ -243,6 +243,30 @@ describe("mcpClients — user-managed MCP clients", () => {
     warn.mockRestore();
   });
 
+  it("warns about a collision once, not on every run", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const agent = new BasicAgent({
+      model: "openai/gpt-4o",
+      mcpClients: [
+        makeMockProvider({ repeated: { description: "a", execute: vi.fn() } }),
+        makeMockProvider({ repeated: { description: "b", execute: vi.fn() } }),
+      ],
+    });
+
+    vi.mocked(streamText).mockImplementation(
+      () => mockStreamTextResponse([finish()]) as any,
+    );
+
+    await collectEvents(agent["run"](baseInput));
+    await collectEvents(agent["run"]({ ...baseInput, runId: "run2" }));
+
+    const collisionWarnings = warn.mock.calls.filter(([message]) =>
+      String(message).includes('"repeated"'),
+    );
+    expect(collisionWarnings).toHaveLength(1);
+    warn.mockRestore();
+  });
+
   it("tools with unique names keep their names and log no warning", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const agent = new BasicAgent({

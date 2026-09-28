@@ -14,6 +14,10 @@ export function toToolNamePrefix(name: string): string {
   return name.replace(/[^a-zA-Z0-9_-]/g, "_");
 }
 
+// A collision is usually permanent configuration, and agents resolve tools on
+// every run. Warning each time would repeat one message for every request.
+const warnedCollisions = new Set<string>();
+
 /**
  * Chooses the name under which each MCP tool is exposed, so that no tool is
  * dropped or replaced.
@@ -54,11 +58,12 @@ export function resolveMCPToolNames(
     const owner = appToolNames.has(name)
       ? " The app's own tool keeps the name."
       : "";
-    console.warn(
-      `[CopilotKit] MCP tool name "${name}" is used more than once, so the MCP copies are exposed as ${prefixed
-        .map((n) => `"${n}"`)
-        .join(", ")}.${owner}${hint}`,
-    );
+    const message = `[CopilotKit] MCP tool name "${name}" is used more than once, so the MCP copies are exposed as ${prefixed
+      .map((n) => `"${n}"`)
+      .join(", ")}.${owner}${hint}`;
+    if (warnedCollisions.has(message)) continue;
+    warnedCollisions.add(message);
+    console.warn(message);
   }
 
   return resolved;
