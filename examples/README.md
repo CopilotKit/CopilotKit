@@ -16,6 +16,8 @@ cd examples/<category>/<name>
 
 ---
 
+> The Intelligence dashboard also links to [Project Manager](./canvas/mastra-pm/), a maintained v2 example covered by the public-example tests.
+
 ## Integrations (22)
 
 Framework integration starters demonstrating CopilotKit with various agent frameworks.
@@ -57,7 +59,7 @@ AI-powered canvas applications with visual card interfaces, real-time state sync
 | [pydantic-ai](./canvas/pydantic-ai/)                 | AG-UI canvas starter with PydanticAI — visual cards, planning, HITL                     |
 | [mastra](./canvas/mastra/)                           | AG-UI canvas starter with Mastra — interactive cards with real-time AI sync             |
 | [gemini](./canvas/gemini/)                           | Open Gemini Canvas — post generator and stack analyzer agents (Gemini + LangGraph)      |
-| [mastra-pm](./canvas/mastra-pm/)                     | AG-UI + Mastra workshop — shared state, multiple clients, generative UI                 |
+| [mastra-pm](./canvas/mastra-pm/)                     | CopilotKit v2 + Mastra project manager — shared project state and tool UI               |
 
 ## Showcases (33)
 

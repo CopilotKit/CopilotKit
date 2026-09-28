@@ -10,6 +10,7 @@ const EXAMPLE_PATHS: Record<string, string> = {
   "research-canvas": "../v1/research-canvas",
   "state-machine": "../v1/state-machine",
   travel: "../v1/travel",
+  "mastra-pm": "../canvas/mastra-pm",
 };
 
 const examplePath = EXAMPLE_PATHS[EXAMPLE];

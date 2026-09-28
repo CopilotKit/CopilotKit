@@ -128,6 +128,8 @@ jobs:
             directory: examples/v1/chat-with-your-data
           - example: state-machine
             directory: examples/v1/state-machine
+          - example: mastra-pm
+            directory: examples/canvas/mastra-pm
 
     steps:
       - name: Checkout
@@ -187,6 +189,10 @@ jobs:
         id: build-cpk
         run: pnpm build
 
+      - name: Check example types
+        working-directory: ${{ matrix.directory }}
+        run: pnpm run check-types
+
       - name: Run example unit tests
         working-directory: ${{ matrix.directory }}
         run: pnpm test
@@ -194,6 +200,10 @@ jobs:
       - name: Run Research Canvas TypeScript agent tests
         if: matrix.example == 'research-canvas'
         run: pnpm nx test @copilotkit-examples/research-canvas-agent --excludeTaskDependencies
+
+      - name: Check Research Canvas TypeScript agent types
+        if: matrix.example == 'research-canvas'
+        run: pnpm nx run @copilotkit-examples/research-canvas-agent:check-types --excludeTaskDependencies
 
       - name: Set up uv for Travel tests
         if: matrix.example == 'travel'

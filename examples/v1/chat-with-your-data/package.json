@@ -6,7 +6,9 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "test": "node --test current-time.test.mjs page-accessibility.test.mjs readme-runtime.test.mjs && tsx --test components/generative-ui/SearchResults.test.tsx",
-    "start": "next start"
+    "start": "next start",
+    "check-types": "tsc --noEmit",
+    "lint": "oxlint ."
   },
   "dependencies": {
     "@copilotkit/react-core": "workspace:*",

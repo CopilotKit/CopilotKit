@@ -7,7 +7,8 @@
     "build": "next build",
     "test": "vitest run",
     "start": "next start",
-    "lint": "oxlint ."
+    "lint": "oxlint .",
+    "check-types": "tsc --noEmit"
   },
   "dependencies": {
     "@copilotkit/react-core": "workspace:*",

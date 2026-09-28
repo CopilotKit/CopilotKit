@@ -287,6 +287,7 @@ test("public example jobs run each app's unit tests and Travel's Python tests", 
       example: "state-machine",
       directory: "examples/v1/state-machine",
     },
+    { example: "mastra-pm", directory: "examples/canvas/mastra-pm" },
   ];
   const examplesJob = publicExamplesJob();
 
@@ -328,4 +329,11 @@ test("multi-agent canvas creates env files at the app roots", () => {
   assert.match(multiAgentCanvasReadme, /Create `agent\/\.env`:/);
   assert.match(multiAgentCanvasReadme, /OPENAI_API_KEY=\.\.\./);
   assert.match(multiAgentCanvasReadme, /LANGSMITH_API_KEY=\.\.\./);
+});
+
+test("Research Canvas agent types run in CI", () => {
+  assert.match(
+    publicExamplesWorkflow,
+    /pnpm nx run @copilotkit-examples\/research-canvas-agent:check-types --excludeTaskDependencies/,
+  );
 });

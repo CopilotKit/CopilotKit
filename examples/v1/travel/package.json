@@ -10,7 +10,8 @@
     "test": "vitest run",
     "start": "next start",
     "lint": "oxlint .",
-    "install:agent": "cd agent && uv sync"
+    "install:agent": "cd agent && uv sync",
+    "check-types": "tsc --noEmit"
   },
   "dependencies": {
     "@copilotkit/react-core": "workspace:*",

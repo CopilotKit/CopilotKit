@@ -19,7 +19,7 @@ This suite intentionally runs **one example at a time**.
 
 The Playwright config (`playwright.config.ts`) uses an explicit path map to:
 
-- Set `webServer.cwd` to the chosen example under `examples/v1/`.
+- Set `webServer.cwd` to the chosen example under `examples/v1/` or `examples/canvas/`.
 - Choose the `webServer.command` used to start the app.
 
 ### Why each spec has `const EXAMPLE = process.env.EXAMPLE ?? "form-filling";`
@@ -84,6 +84,7 @@ From `examples/e2e`:
 - `EXAMPLE=research-canvas pnpm test`
 - `EXAMPLE=chat-with-your-data pnpm test`
 - `EXAMPLE=state-machine pnpm test`
+- `EXAMPLE=mastra-pm pnpm test`
 
 When `EXAMPLE` is set, you should see `1 passed` and the other example specs `skipped`.
 
@@ -128,6 +129,7 @@ It runs a matrix of:
 - `research-canvas`
 - `chat-with-your-data`
 - `state-machine`
+- `mastra-pm`
 
 Key CI behaviors:
 
