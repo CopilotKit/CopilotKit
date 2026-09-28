@@ -2079,6 +2079,65 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     expect(internals.isOpen).toBe(true);
   });
 
+  it("keeps floating and docked panels within a small viewport, with HUD Escape priority", async () => {
+    const width = Object.getOwnPropertyDescriptor(window, "innerWidth");
+    const height = Object.getOwnPropertyDescriptor(window, "innerHeight");
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 380,
+    });
+    Object.defineProperty(window, "innerHeight", {
+      configurable: true,
+      value: 320,
+    });
+
+    try {
+      const { inspector, internals } = mount();
+      await inspector.updateComplete;
+      inspector.openInspector("message_toolbar");
+      await inspector.updateComplete;
+      const panel = () =>
+        inspector.shadowRoot?.querySelector<HTMLElement>(".inspector-window");
+      expect(Number.parseFloat(panel()!.style.width)).toBeLessThanOrEqual(380);
+      expect(Number.parseFloat(panel()!.style.height)).toBeLessThanOrEqual(320);
+      expect(Number.parseFloat(panel()!.style.minWidth)).toBeLessThanOrEqual(
+        380,
+      );
+      expect(Number.parseFloat(panel()!.style.minHeight)).toBeLessThanOrEqual(
+        320,
+      );
+
+      const privateState = inspector as unknown as {
+        setDockMode: (mode: "docked-left") => void;
+        launcherHudOpen: boolean;
+      };
+      privateState.setDockMode("docked-left");
+      await inspector.updateComplete;
+      expect(Number.parseFloat(panel()!.style.width)).toBeLessThanOrEqual(380);
+      expect(Number.parseFloat(panel()!.style.minWidth)).toBeLessThanOrEqual(
+        380,
+      );
+      expect(document.body.style.marginLeft).toBe("380px");
+
+      privateState.launcherHudOpen = true;
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
+      await inspector.updateComplete;
+      expect(privateState.launcherHudOpen).toBe(false);
+      expect(internals.isOpen).toBe(true);
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
+      await inspector.updateComplete;
+      expect(internals.isOpen).toBe(false);
+      expect(document.body.style.marginLeft).not.toBe("380px");
+    } finally {
+      if (width) Object.defineProperty(window, "innerWidth", width);
+      if (height) Object.defineProperty(window, "innerHeight", height);
+    }
+  });
+
   it("counts one open per open, and nothing for an already-open panel", async () => {
     const { inspector, internals } = mount();
     await inspector.updateComplete;
