@@ -1380,9 +1380,9 @@ export namespace CopilotChatInput {
           <TooltipContent side="bottom">
             <p className="cpk:flex cpk:items-center cpk:gap-1 cpk:text-xs cpk:font-medium">
               <span>{labels.chatInputToolbarAddButtonLabel}</span>
-              <kbd className="cpk:rounded cpk:bg-primary-foreground/15 cpk:px-1 cpk:py-px cpk:font-mono cpk:text-[11px]">
+              <code className="cpk:rounded cpk:bg-primary-foreground/15 cpk:px-1 cpk:py-px cpk:font-mono cpk:text-[11px]">
                 /
-              </kbd>
+              </code>
             </p>
           </TooltipContent>
         </Tooltip>

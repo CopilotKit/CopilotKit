@@ -812,7 +812,9 @@ describe("CopilotChatInput", () => {
     expect(tooltipContent?.textContent).toContain("Upload attachment");
     expect(tooltipContent?.textContent).not.toContain("Add attachments");
     // The "/" shortcut hint is a key glyph, not prose, so it stays as-is.
-    expect(tooltipContent?.querySelector("kbd")?.textContent?.trim()).toBe("/");
+    expect(tooltipContent?.querySelector("code")?.textContent?.trim()).toBe(
+      "/",
+    );
   });
 
   // Controlled component tests
