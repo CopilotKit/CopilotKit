@@ -16,6 +16,17 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.75.0 - 2026-09-28
+
+### Features
+
+- feat(react-core): add transformMessages to CopilotChatMessageView (#7488) (eb460b3)
+
+### Fixes
+
+- fix(core): keep the reconnect cursor when a control frame repeats an old checkpoint (#7490) (d3c36bb)
+- fix(runtime): enforce basePath segment boundary in single-route mode (#7341) (15437bb)
+
 ## 1.74.0 - 2026-09-25
 
 ### Features
