@@ -788,7 +788,9 @@ describe("CopilotChat", () => {
           body: expect.any(FormData),
         }),
       );
-      expect(fixture.componentInstance.inputValue()).toBe("Existing voice draft");
+      expect(fixture.componentInstance.inputValue()).toBe(
+        "Existing voice draft",
+      );
     });
   });
 });
