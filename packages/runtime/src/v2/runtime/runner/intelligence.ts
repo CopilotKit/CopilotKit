@@ -630,8 +630,12 @@ export class IntelligenceAgentRunner extends AgentRunner {
 
     try {
       if (state.stopRequested) return;
+      const executionInput = request.executionInput ?? request.input;
+      // AG-UI builds its outbound input from the per-request agent instance.
+      // Keep canonical ownership on the runner request for persistence and stop.
+      request.agent.threadId = executionInput.threadId;
       await Promise.race([
-        request.agent.runAgent(request.input, {
+        request.agent.runAgent(executionInput, {
           onEvent: ({ event }: { event: BaseEvent }) => {
             if (state.stopRequested || state.producerFinished) return;
             if (event.type === EventType.RUN_STARTED) {

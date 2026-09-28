@@ -10,6 +10,8 @@ export interface AgentRunnerRunRequest {
   threadId: string;
   agent: AbstractAgent;
   input: RunAgentInput;
+  /** Server-resolved outbound input; canonical input remains the persistence identity. */
+  executionInput?: RunAgentInput;
   persistedInputMessages?: Message[];
   /** Short-lived token scoped to this runner invocation. */
   authToken?: string;

@@ -11,7 +11,7 @@ import type {
   TextMessageEndEvent,
 } from "@ag-ui/client";
 import { AbstractAgent, EventType } from "@ag-ui/client";
-import { EMPTY, firstValueFrom } from "rxjs";
+import { EMPTY, firstValueFrom, of } from "rxjs";
 import { toArray } from "rxjs/operators";
 import type { MockPush } from "../../../../../../core/src/__tests__/test-utils";
 import {
@@ -1254,6 +1254,60 @@ describe("IntelligenceAgentRunner", () => {
           run_id: input.runId,
         }),
       ]);
+    });
+
+    it("dispatches native identity while publishing canonical ownership", async () => {
+      const input = createRunInput({
+        threadId: "intelligence-thread",
+        runId: "run-1",
+      });
+      const nativeThreadId = "native:session:" + "x".repeat(140);
+      const executionInput = { ...input, threadId: nativeThreadId };
+      const dispatched: RunAgentInput[] = [];
+      class NativeAgent extends AbstractAgent {
+        run(nativeInput: RunAgentInput) {
+          dispatched.push(nativeInput);
+          return of<BaseEvent[]>(
+            {
+              type: EventType.RUN_STARTED,
+              threadId: nativeInput.threadId,
+              runId: nativeInput.runId,
+              input: nativeInput,
+            } as RunStartedEvent,
+            {
+              type: EventType.RUN_FINISHED,
+              threadId: nativeInput.threadId,
+              runId: nativeInput.runId,
+            } as RunFinishedEvent,
+          );
+        }
+      }
+      const agent = new NativeAgent({ threadId: input.threadId });
+      const eventsPromise = collectEvents(
+        runner.run({
+          threadId: input.threadId,
+          agent,
+          input,
+          executionInput,
+        }),
+      );
+      const channel = mockChannels[0];
+      channel.triggerJoin("ok");
+      await eventsPromise;
+      expect(agent.threadId).toBe(nativeThreadId);
+      expect(dispatched).toHaveLength(1);
+      expect(dispatched[0]).toMatchObject({
+        threadId: nativeThreadId,
+        runId: input.runId,
+      });
+      expect(input.threadId).toBe("intelligence-thread");
+      expect(channel.pushLog[0].payload).toMatchObject({
+        threadId: input.threadId,
+        thread_id: input.threadId,
+        runId: input.runId,
+        input: { threadId: input.threadId, runId: input.runId },
+      });
+      expect(channel.pushLog[1].payload.threadId).toBe(input.threadId);
     });
 
     it("rewrites RUN_STARTED input.messages to the unseen persisted subset", async () => {
