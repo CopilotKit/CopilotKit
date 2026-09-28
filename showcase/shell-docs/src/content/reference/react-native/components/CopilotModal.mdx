@@ -90,12 +90,26 @@ import { CopilotModal, type CopilotModalRef } from "@copilotkit/react-native/com
 </PropertyReference>
 
 <PropertyReference name="initialMessages" type="string[]">
-  Suggestion pills shown in the empty state.
+  Suggestions shown as cards on the welcome screen. See the prebuilt
+  `CopilotChat`'s [`initialMessages`](/reference/react-native/components/CopilotChat#prebuilt-ui).
+</PropertyReference>
+
+<PropertyReference name="showSuggestions" type="boolean" default="true">
+  Show the agent's suggestions. Passed through to the inner `CopilotChat`.
 </PropertyReference>
 
 <PropertyReference name="headerTitle" type="string">
   Title shown in the chat header area.
 </PropertyReference>
+
+<PropertyReference name="introAnimation" type="boolean" default="true">
+  Eases the welcome screen in each time the sheet opens.
+</PropertyReference>
+
+<PropertyReference name="colorScheme" type='"light" | "dark" | "system"' default='"light"'>
+  Color scheme for the sheet and the chat inside it: `"light"`, `"dark"`, or `"system"` to follow the device's setting.
+</PropertyReference>
+
 
 ### Ref handle
 

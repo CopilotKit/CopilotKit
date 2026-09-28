@@ -20,7 +20,14 @@ import { AssistantMessage } from "@copilotkit/react-native/components";
 </PropertyReference>
 
 <PropertyReference name="isLoading" type="boolean" default="false">
-  When `true`, shows a typing indicator instead of the content.
+  `true` while the reply is being written: shows the typing indicator.
+</PropertyReference>
+
+<PropertyReference name="inlineCursor" type="boolean" default="false">
+  While `isLoading`, show a cursor at the end of the text instead of the typing
+  indicator below it (the indicator still shows until the first words arrive).
+  The prebuilt `CopilotChat` turns this on; a standalone `AssistantMessage`
+  keeps the typing indicator unless you set it.
 </PropertyReference>
 
 <PropertyReference name="timestamp" type="Date">
@@ -41,6 +48,12 @@ import { AssistantMessage } from "@copilotkit/react-native/components";
 // While the agent is responding:
 <AssistantMessage content="" isLoading />;
 ```
+
+## Color scheme
+
+`AssistantMessage` is light by default. Wrap it in `CopilotColorSchemeProvider`
+to use the dark or system scheme; see
+[Color scheme](/reference/react-native/components/CopilotChat#color-scheme).
 
 ## Related
 

@@ -62,9 +62,9 @@ import {
 | --- | --- | --- | --- |
 | `agentId` | `string` | the default agent | Which agent's threads the drawer lists. |
 | `limit` | `number` | the element's own default | How many threads to list. |
-| `label` | `string` | the element's own default | Accessible label for the drawer. |
+| `label` | `string` | `"Threads"` | The drawer's visible header title and accessible label. |
 | `recentLabel` | `string` | `"Recent Conversations"` | Heading above the thread list. |
-| `collapsible` | `boolean` | `true` | Whether the drawer offers a collapse toggle. |
+| `collapsible` | `boolean` | `true` | Whether the drawer offers a collapse toggle. With `false` and no projected header, the header bar stays hidden. |
 | `onThreadSelect` | `(threadId: string) => void` | — | Called when a thread is selected. |
 | `onNewThread` | `() => void` | — | Called when a new thread is started. |
 | `licenseUrl` | `string` | — | Where the locked state sends a developer without Intelligence. |

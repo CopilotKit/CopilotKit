@@ -171,7 +171,16 @@ import { CopilotChat } from "@copilotkit/react-native/components";
 </PropertyReference>
 
 <PropertyReference name="initialMessages" type="string[]" default="[]">
-  Suggestion pills shown in the empty state.
+  Suggestions shown as cards on the welcome screen, before the first message.
+  The agent's own suggestions (from
+  [`useConfigureSuggestions`](/reference/react-native/hooks/useConfigureSuggestions))
+  join them there, and appear as a row of pills above the input during the
+  conversation.
+</PropertyReference>
+
+<PropertyReference name="showSuggestions" type="boolean" default="true">
+  Show the agent's suggestions. Set `false` when your app renders them itself.
+  `initialMessages` are shown either way.
 </PropertyReference>
 
 <PropertyReference name="emptyStateTitle" type="string">
@@ -195,11 +204,12 @@ import { CopilotChat } from "@copilotkit/react-native/components";
 </PropertyReference>
 
 <PropertyReference name="messageContainerStyle" type="ViewStyle">
-  Style override for the message list container.
+  Style override for the content container of the message list, and of the
+  welcome screen before the first message.
 </PropertyReference>
 
 <PropertyReference name="inputContainerStyle" type="ViewStyle">
-  Style override for the input bar container.
+  Style override for the input bar (the text field and send button).
 </PropertyReference>
 
 <PropertyReference name="onSendMessage" type="(text: string) => void">
@@ -211,10 +221,31 @@ import { CopilotChat } from "@copilotkit/react-native/components";
   bottom sheet.
 </PropertyReference>
 
+<PropertyReference name="ScrollViewComponent" type="React.ComponentType<any>" default="ScrollView">
+  Custom scroll view for the welcome screen, for example `BottomSheetScrollView`
+  when nesting inside a bottom sheet.
+</PropertyReference>
+
 <PropertyReference name="disableKeyboardAvoiding" type="boolean" default="false">
   When `true`, skip the `KeyboardAvoidingView` wrapper (useful when a parent
   already handles the keyboard).
 </PropertyReference>
+
+<PropertyReference name="introAnimation" type="boolean" default="true">
+  Eases the welcome screen in: the greeting, suggestion cards, and input rise
+  into place in sequence. Set `false` to show them immediately. Always off when
+  the user prefers reduced motion.
+</PropertyReference>
+
+<PropertyReference name="inlineCursor" type="boolean" default="true">
+  While a reply streams, show the cursor at the end of its text, as if it were
+  being typed. Set `false` to keep the cursor below the messages.
+</PropertyReference>
+
+<PropertyReference name="colorScheme" type='"light" | "dark" | "system"' default='"light"'>
+  Color scheme for everything the chat renders: `"light"`, `"dark"`, or `"system"` to follow the device's setting.
+</PropertyReference>
+
 
 ### Usage
 
@@ -232,6 +263,29 @@ export function ChatScreen() {
   );
 }
 ```
+
+### Color scheme
+
+The prebuilt components are light by default. Pass `colorScheme="dark"`, or
+`"system"` to follow the device, to `CopilotChat`, `CopilotModal`,
+`CopilotPopup`, or `CopilotSidebar`, and everything they render follows it.
+For components you render on their own, such as `AssistantMessage` or
+`CopilotMarkdown`, wrap them in `CopilotColorSchemeProvider`:
+
+```tsx
+import {
+  AssistantMessage,
+  CopilotColorSchemeProvider,
+} from "@copilotkit/react-native/components";
+
+<CopilotColorSchemeProvider colorScheme="system">
+  <AssistantMessage content="Hello! How can I help?" />
+</CopilotColorSchemeProvider>;
+```
+
+A `CopilotColorSchemeProvider` without `colorScheme` keeps the surrounding
+setting. The `CopilotColorScheme` type is exported from both
+`@copilotkit/react-native` and `@copilotkit/react-native/components`.
 
 ## Related
 
