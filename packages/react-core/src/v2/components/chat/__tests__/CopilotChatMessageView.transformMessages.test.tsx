@@ -87,6 +87,8 @@ const mergeAssistants = (list: Message[]): Message[] => [
   },
 ];
 
+const dropFirst = (list: Message[]): Message[] => list.slice(1);
+
 // Drops a stand-in once a real message carries the same call.
 const dropStandIns = (list: Message[]): Message[] =>
   list.filter(
@@ -291,6 +293,65 @@ describe("CopilotChatMessageView transformMessages", () => {
       // loading indicator left.
       expect(screen.queryByTestId("copilot-loading-cursor")).not.toBeNull();
     });
+  });
+
+  it("shows the toolbar on a message that stops being the latest mid-run", () => {
+    const first: AssistantMessage = {
+      id: "a-1",
+      role: "assistant",
+      content: "first",
+    };
+    const second: AssistantMessage = {
+      id: "a-2",
+      role: "assistant",
+      content: "second",
+    };
+
+    let setMessages: ((next: Message[]) => void) | null = null;
+    function Harness() {
+      const [messages, update] = React.useState<Message[]>([first]);
+      setMessages = update;
+      return <CopilotChatMessageView messages={messages} isRunning />;
+    }
+
+    renderWithCopilotKit({ children: <Harness /> });
+    expect(screen.queryAllByTestId("copilot-assistant-toolbar")).toHaveLength(
+      0,
+    );
+
+    // Still running: the new message is the one in progress, the first is done.
+    act(() => setMessages!([first, second]));
+    expect(screen.queryAllByTestId("copilot-assistant-toolbar")).toHaveLength(
+      1,
+    );
+  });
+
+  it("does not scroll to the bottom when a transform hides the first message", async () => {
+    const scrollElement = createScrollElement();
+    const messages = userMessages(60);
+
+    let setHideFirst: ((next: boolean) => void) | null = null;
+    function Harness() {
+      const [hideFirst, update] = React.useState(false);
+      setHideFirst = update;
+      return (
+        <ScrollElementContext.Provider value={scrollElement}>
+          <CopilotChatMessageView
+            messages={messages}
+            transformMessages={hideFirst ? dropFirst : undefined}
+          />
+        </ScrollElementContext.Provider>
+      );
+    }
+
+    renderWithCopilotKit({ children: <Harness /> });
+    const scrollToIndex = vi.spyOn(capture.current!, "scrollToIndex");
+
+    act(() => setHideFirst!(true));
+    expect(virtualizedRowCount()).toBe(59);
+    // Same thread, so a reader who scrolled up keeps their place.
+    expect(scrollToIndex).not.toHaveBeenCalled();
+    await drainAnimationFrames();
   });
 
   it("keeps a tool card mounted when a transform swaps a stand-in for the durable message", () => {

@@ -142,9 +142,14 @@ const MemoizedAssistantMessage = React.memo(
       }
     }
 
-    // Only care about isRunning if this message is CURRENTLY the latest
-    // (we don't need to re-render just because a message stopped being the latest)
-    if (nextProps.isLatest && prevProps.isRunning !== nextProps.isRunning)
+    // A message renders as in-progress (toolbar hidden) only while it is the
+    // latest one and the run is going. Re-render when that flips, including a
+    // message that stops being the latest mid-run; not for every change in
+    // either flag, so earlier messages stay put while a new one streams in.
+    if (
+      (prevProps.isRunning && prevProps.isLatest) !==
+      (nextProps.isRunning && nextProps.isLatest)
+    )
       return false;
 
     // Check if component reference changed
@@ -717,8 +722,9 @@ export function CopilotChatMessageView({
   // scroll-to-bottom effect below). Done during render rather than in that
   // effect because rows are measured from ref callbacks, which run before
   // layout effects — resetting there would discard the new thread's first
-  // measurements instead of the old thread's.
-  const firstMessageId = renderedMessages[0]?.id;
+  // measurements instead of the old thread's. Read from the untransformed
+  // list: a transform that hides or reorders the head is not a thread change.
+  const firstMessageId = deduplicatedMessages[0]?.id;
   const measuredThreadRef = React.useRef(firstMessageId);
   if (measuredThreadRef.current !== firstMessageId) {
     measuredThreadRef.current = firstMessageId;
@@ -818,8 +824,8 @@ export function CopilotChatMessageView({
   // non-Intelligence turns naturally produce an empty map (and the indicator
   // itself also hard-gates on intelligence mode).
   const intelligenceTurnAnchors = useMemo(
-    () => getIntelligenceTurnAnchors(renderedMessages),
-    [renderedMessages],
+    () => getIntelligenceTurnAnchors(deduplicatedMessages, renderedMessages),
+    [deduplicatedMessages, renderedMessages],
   );
 
   // ---------------------------------------------------------------------------
