@@ -125,6 +125,7 @@ function exportRows(job: FixtureJob): Record<string, unknown>[] {
   if (
     job.kind !== "insights" &&
     job.kind !== "skills" &&
+    job.kind !== "skill_runs" &&
     job.kind !== "activity" &&
     job.kind !== "events" &&
     job.kind !== "tools" &&
@@ -175,9 +176,11 @@ function exportRows(job: FixtureJob): Record<string, unknown>[] {
             : intelligenceLearningFixture({
                 method: "GET",
                 path:
-                  job.kind === "skills"
-                    ? "/api/v1/learning/skills"
-                    : "/api/v1/learning/insights",
+                  job.kind === "skill_runs"
+                    ? `/api/v1/learning/skills/${encodeURIComponent(String(job.filters.skillId))}/runs`
+                    : job.kind === "skills"
+                      ? "/api/v1/learning/skills"
+                      : "/api/v1/learning/insights",
                 query,
               });
   if (
@@ -268,6 +271,15 @@ function exportColumns(job: FixtureJob): string[] {
       "avgMs",
       "medianMs",
       "lastCalledAt",
+    ];
+  if (job.kind === "skill_runs")
+    return [
+      "runId",
+      "threadId",
+      "agentId",
+      "loadCount",
+      "firstLoadedAt",
+      "lastLoadedAt",
     ];
   if (job.kind === "skills")
     return [

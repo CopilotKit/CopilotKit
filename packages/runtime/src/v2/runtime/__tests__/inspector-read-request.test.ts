@@ -99,3 +99,29 @@ test("bounds query size and rejects non-string query values", () => {
     }),
   ).toBeNull();
 });
+
+test("accepts scoped Skill loading runs without widening the read-only route boundary", () => {
+  const read = {
+    method: "GET",
+    path: "/api/v1/learning/skills/skill-1/runs",
+    query: {
+      agentId: "support",
+      from: "2026-09-20T00:00:00.000Z",
+      to: "2026-09-27T00:00:00.000Z",
+      limit: "25",
+    },
+  };
+
+  expect(parseInspectorReadRequest(read)).toEqual(read);
+  expect(parseInspectorReadRequest({ ...read, method: "POST" })).toBeNull();
+  for (const id of ["%2e%2e", "%2fkeys", "%252fkeys", "%5ckeys", "%00"])
+    expect(
+      parseInspectorReadRequest({
+        ...read,
+        path: `/api/v1/learning/skills/${id}/runs`,
+      }),
+    ).toBeNull();
+  expect(
+    parseInspectorReadRequest({ ...read, path: `${read.path}/delete` }),
+  ).toBeNull();
+});

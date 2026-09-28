@@ -135,6 +135,10 @@ export jobs and downloads. Other routes do not call `access` yet. It requires
 `identifyUser`. Ordinary reads resolve access once per request and surface.
 Ask rechecks access before each data read and before returning its answer.
 
+Skill loading-run reads use `GET /api/v1/learning/skills/:skillId/runs` through
+the same Inspector relay. They require `learning.insights_skills`; links to run
+accountability or conversation text need those separate permissions.
+
 ```ts
 const runtime = new CopilotRuntime({
   agents,

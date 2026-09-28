@@ -156,3 +156,57 @@ test("Skill list fixtures return a capture cutoff and preserve a requested cutof
     expect(response).toMatchObject({ asOf: asOf ?? expect.any(String) });
   }
 });
+
+test("Skill run fixtures and exports share the selected Skill, agent and cutoff", () => {
+  const skillId = "10000000-0000-4000-8000-000000000002";
+  const query = {
+    agentId: "billing",
+    asOf: "loadedCapture",
+    from: "2026-09-20T00:00:00.000Z",
+    to: "2026-09-27T00:00:00.000Z",
+  };
+  const response = intelligenceLearningFixture({
+    method: "GET",
+    path: `/api/v1/learning/skills/${skillId}/runs`,
+    query,
+  });
+  expect(response).toMatchObject({
+    skill: { id: skillId },
+    asOf: query.asOf,
+    runCount: 1,
+    unidentifiedLoads: 0,
+    data: [{ runId: "fixture-run-2", agentId: "billing", loadCount: 5 }],
+  });
+  for (const format of ["json", "csv"]) {
+    const created = intelligenceExportFixture({
+      method: "POST",
+      path: "/api/v1/exports",
+      body: {
+        kind: "skill_runs",
+        format,
+        from: query.from,
+        to: query.to,
+        filters: { skillId, agentId: query.agentId, asOf: query.asOf },
+      },
+    });
+    const job = created?.body;
+    if (typeof job !== "object" || job === null || !("id" in job))
+      throw new Error("Missing job");
+    const file = intelligenceExportFixture({
+      method: "GET",
+      path: `/api/v1/exports/${job.id}/content`,
+    });
+    if (typeof file?.body !== "string") throw new Error("Missing content");
+    expect(file.body).toContain("fixture-run-2");
+    expect(file.body).not.toContain("fixture-run-1");
+    if (format === "json")
+      expect(JSON.parse(file.body)).toMatchObject({
+        metadata: { filters: { skillId, asOf: query.asOf } },
+        data: [{ loadCount: 5 }],
+      });
+    else
+      expect(file.body.split("\r\n")[0]).toBe(
+        "runId,threadId,agentId,loadCount,firstLoadedAt,lastLoadedAt",
+      );
+  }
+});

@@ -101,6 +101,37 @@ export function intelligenceLearningFixture(
       })),
       nextCursor: null,
     };
+  const runSkill = records.find(
+    (entry) => request.path === `/api/v1/learning/skills/${entry.id}/runs`,
+  );
+  if (runSkill) {
+    const loads = loadsOf(runSkill);
+    return {
+      skill: {
+        id: runSkill.id,
+        name: runSkill.name,
+        containerId: runSkill.agentId,
+      },
+      from,
+      to,
+      asOf: request.query?.asOf ?? "fixtureSkillCapture",
+      runCount: loads.length ? 1 : 0,
+      unidentifiedLoads: 0,
+      nextCursor: null,
+      data: loads.length
+        ? [
+            {
+              runId: runSkill.runId,
+              threadId: runSkill.threadId,
+              agentId: runSkill.agentId,
+              loadCount: loads.length,
+              firstLoadedAt: at,
+              lastLoadedAt: at,
+            },
+          ]
+        : [],
+    };
+  }
   const record = records.find(
     (entry) => request.path === `/api/v1/learning/skills/${entry.id}/lineage`,
   );
