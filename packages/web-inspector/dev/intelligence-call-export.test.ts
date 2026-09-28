@@ -64,3 +64,45 @@ test.each(["runs", "tool_calls"])(
       ).toBe(true);
   },
 );
+
+test("ranked run exports retain an explicit result limit", () => {
+  const created = intelligenceExportFixture({
+    method: "POST",
+    path: "/api/v1/exports",
+    body: {
+      kind: "runs",
+      format: "json",
+      from: "2026-09-20T00:00:00.000Z",
+      to: "2026-09-27T00:00:00.000Z",
+      filters: {
+        agentId: "support",
+        sort: "tokens",
+        limit: 1,
+        asOf: "fixture_v1",
+      },
+    },
+  });
+  const job = created?.body;
+  if (
+    typeof job !== "object" ||
+    job === null ||
+    !("id" in job) ||
+    typeof job.id !== "string"
+  )
+    throw new Error("Missing job");
+  const file = intelligenceExportFixture({
+    method: "GET",
+    path: `/api/v1/exports/${job.id}/content`,
+  });
+  if (typeof file?.body !== "string") throw new Error("Missing file");
+  const result = JSON.parse(file.body);
+
+  expect(result.metadata).toMatchObject({
+    rowCount: 1,
+    truncated: false,
+    filters: { limit: 1, sort: "tokens" },
+  });
+  expect(result.data.map((row: Record<string, unknown>) => row.runId)).toEqual([
+    "fixture-run-1",
+  ]);
+});

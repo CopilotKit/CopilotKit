@@ -139,6 +139,9 @@ function exportRows(job: FixtureJob): Record<string, unknown>[] {
   const query = {
     from: job.from,
     to: job.to,
+    ...(job.kind === "runs" && typeof job.filters.limit === "number"
+      ? { limit: String(job.filters.limit) }
+      : {}),
     ...Object.fromEntries(
       Object.entries(job.filters).filter(
         (entry): entry is [string, string] => typeof entry[1] === "string",

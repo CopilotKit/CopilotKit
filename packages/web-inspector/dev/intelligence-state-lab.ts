@@ -122,11 +122,14 @@ export function intelligenceFixture(request: IntelligenceReadRequest): {
   }));
   if (request.path === "/api/v1/runs")
     return ok({
-      data: runs.filter(
-        (run) =>
-          (!request.query?.outcome || run.outcome === request.query.outcome) &&
-          (!request.query?.agentId || run.agentId === request.query.agentId),
-      ),
+      data: runs
+        .filter(
+          (run) =>
+            (!request.query?.outcome ||
+              run.outcome === request.query.outcome) &&
+            (!request.query?.agentId || run.agentId === request.query.agentId),
+        )
+        .slice(0, Number(request.query?.limit ?? runs.length)),
       nextCursor: null,
       from,
       to,
