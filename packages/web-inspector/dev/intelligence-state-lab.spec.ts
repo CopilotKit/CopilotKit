@@ -197,3 +197,21 @@ test("model and distribution fixtures include equal previous windows only when r
     expect(intelligenceFixture(request).body).not.toHaveProperty("comparison");
   }
 });
+
+test("tool fixture reports capture-aware previous-period totals", () => {
+  const response = intelligenceFixture({
+    method: "GET",
+    path: "/api/v1/tools",
+    query: { from: "2026-09-20T00:00:00.000Z", to: "2026-09-27T00:00:00.000Z" },
+  });
+
+  expect(response.body).toMatchObject({
+    coverage: { windowFullyCaptured: true },
+    comparison: {
+      from: "2026-09-13T00:00:00.000Z",
+      to: "2026-09-20T00:00:00.000Z",
+      totals: { tools: 2, calls: 256, errors: 3 },
+      coverage: { windowFullyCaptured: true },
+    },
+  });
+});

@@ -44,12 +44,30 @@ export function intelligenceContentFixture(
     );
     const offset = request.query?.cursor === `fixture_tools_${sort}_1` ? 1 : 0;
     const next = offset + limit;
+    const captureStartedAt = "2026-09-01T00:00:00.000Z";
+    const previousFrom = new Date(
+      Date.parse(from) * 2 - Date.parse(to),
+    ).toISOString();
     return {
       data: ordered.slice(offset, next),
       totals: {
         tools: tools.length,
         calls: tools.reduce((sum, tool) => sum + tool.calls, 0),
         errors: tools.reduce((sum, tool) => sum + tool.errors, 0),
+      },
+      coverage: {
+        captureStartedAt,
+        windowFullyCaptured: Date.parse(from) >= Date.parse(captureStartedAt),
+      },
+      comparison: {
+        from: previousFrom,
+        to: from,
+        totals: { tools: 2, calls: 256, errors: 3 },
+        coverage: {
+          captureStartedAt,
+          windowFullyCaptured:
+            Date.parse(previousFrom) >= Date.parse(captureStartedAt),
+        },
       },
       nextCursor: next < tools.length ? `fixture_tools_${sort}_${next}` : null,
       from,
