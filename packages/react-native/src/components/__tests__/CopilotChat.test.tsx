@@ -99,7 +99,10 @@ vi.mock("react-native", async () => {
       isReduceMotionEnabled: hoisted.isReduceMotionEnabled,
       addEventListener: () => ({ remove: () => {} }),
     },
-    useColorScheme: () => hoisted.deviceScheme,
+    Appearance: {
+      getColorScheme: () => hoisted.deviceScheme,
+      addChangeListener: () => ({ remove: () => {} }),
+    },
     FlatList: ({ data, renderItem, ListEmptyComponent, keyExtractor }: any) => {
       if (!data || data.length === 0) {
         return React.createElement(

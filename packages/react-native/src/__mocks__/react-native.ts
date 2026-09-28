@@ -36,7 +36,10 @@ export const Platform = {
     obj.ios ?? obj.default,
 };
 
-export const useColorScheme = (): "light" | "dark" | null => "light";
+export const Appearance = {
+  getColorScheme: (): "light" | "dark" | null => "light",
+  addChangeListener: () => ({ remove: () => {} }),
+};
 
 export const AccessibilityInfo = {
   isReduceMotionEnabled: () => Promise.resolve(false),
@@ -86,7 +89,7 @@ export default {
   ActivityIndicator,
   Image,
   Platform,
-  useColorScheme,
+  Appearance,
   AccessibilityInfo,
   Animated,
   Easing,

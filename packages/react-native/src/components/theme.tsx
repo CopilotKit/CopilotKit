@@ -1,6 +1,6 @@
-import React, { createContext, useContext } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { Platform, useColorScheme } from "react-native";
+import { Appearance, Platform } from "react-native";
 
 /**
  * CopilotKit's chat design tokens for React Native: the light and dark values
@@ -90,11 +90,33 @@ export function useCopilotTheme(
   colorScheme?: CopilotColorScheme,
 ): CopilotTheme {
   const inherited = useContext(ColorSchemeContext);
-  const device = useColorScheme();
   const setting = colorScheme ?? inherited;
+  const device = useDeviceColorScheme(setting === "system");
   const dark =
     setting === "dark" || (setting === "system" && device === "dark");
   return dark ? darkTheme : lightTheme;
+}
+
+/**
+ * The device's color scheme while `follow` is set. Appearance is only read
+ * when an app opts into "system", so light/dark-only apps (and test mocks
+ * without Appearance) never touch it.
+ */
+type DeviceColorScheme = ReturnType<typeof Appearance.getColorScheme>;
+
+function useDeviceColorScheme(follow: boolean): DeviceColorScheme {
+  const [scheme, setScheme] = useState<DeviceColorScheme>(() =>
+    follow ? Appearance.getColorScheme() : null,
+  );
+  useEffect(() => {
+    if (!follow) return;
+    setScheme(Appearance.getColorScheme());
+    const subscription = Appearance.addChangeListener(({ colorScheme }) =>
+      setScheme(colorScheme),
+    );
+    return () => subscription.remove();
+  }, [follow]);
+  return follow ? scheme : null;
 }
 
 /**

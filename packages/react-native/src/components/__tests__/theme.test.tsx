@@ -1,14 +1,25 @@
 import React from "react";
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => ({
+  onChange: undefined as
+    | ((event: { colorScheme: "light" | "dark" | null }) => void)
+    | undefined,
   deviceScheme: "dark" as "light" | "dark" | null,
 }));
 
 vi.mock("react-native", async () => ({
   ...(await vi.importActual<any>("../../__mocks__/react-native")),
-  useColorScheme: () => hoisted.deviceScheme,
+  Appearance: {
+    getColorScheme: () => hoisted.deviceScheme,
+    addChangeListener: (
+      listener: (event: { colorScheme: "light" | "dark" | null }) => void,
+    ) => {
+      hoisted.onChange = listener;
+      return { remove: () => {} };
+    },
+  },
 }));
 
 import {
@@ -42,11 +53,10 @@ describe("useCopilotTheme", () => {
   });
 
   it("follows the device with the system scheme", () => {
-    const { result, rerender } = renderHook(() => useCopilotTheme("system"));
+    const { result } = renderHook(() => useCopilotTheme("system"));
     expect(result.current).toBe(copilotThemes.dark);
 
-    hoisted.deviceScheme = "light";
-    rerender();
+    act(() => hoisted.onChange?.({ colorScheme: "light" }));
     expect(result.current).toBe(copilotThemes.light);
   });
 
