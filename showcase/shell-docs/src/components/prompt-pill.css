@@ -62,10 +62,28 @@
   height: 15px;
   flex-shrink: 0;
 }
-.prompt-pill-copy:hover {
+.prompt-pill-view {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 44px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: max(0px, calc(var(--shell-docs-radius-control) - 4px));
+  background: transparent;
+  color: var(--prompt-muted, #555561);
+}
+.prompt-pill-view svg {
+  width: 16px;
+  height: 16px;
+}
+.prompt-pill-copy:hover,
+.prompt-pill-view:hover {
   background: var(--prompt-hover, #f1f1f7);
 }
-.prompt-pill-copy:active {
+.prompt-pill-copy:active,
+.prompt-pill-view:active {
   background: var(--prompt-active, #e8e8f1);
 }
 .prompt-pill-check {
@@ -177,20 +195,14 @@
   font-size: 13px;
 }
 @media (hover: none), (pointer: coarse) {
-  /* Touch users always see preview, so reserve its space in every placement.
-   * In the flow the shelf would widen the pill to fit the line, and push the
-   * page menu beside it off the screen, so it takes the pill's width. */
+  /* Touch screens get View prompt inside the pill instead. The shelf renders
+   * only until the first client render knows the device cannot hover. */
   .prompt-pill-shelf {
-    position: static;
-    transform: none;
-    width: auto;
-    max-width: none;
-    contain: inline-size;
-    opacity: 1;
-    visibility: visible;
+    display: none;
   }
-  .prompt-pill-shelf button {
-    min-height: 44px;
+  /* Copy takes the pill's width, so the eye sits at its right end. */
+  .prompt-pill-copy {
+    flex: 1 1 auto;
   }
 }
 /* A phone cannot run the prompt (PE-339). */

@@ -39,6 +39,37 @@ it("offers Copy and View prompt, and no app links or logos", () => {
   expect(container.querySelector("img, a")).toBeNull();
 });
 
+// A touch screen cannot hover to reveal the shelf, so View prompt moves into
+// the pill as an eye button, to the right of Copy (PE-381).
+it("puts View prompt in the pill on a touch screen", () => {
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn((query: string) => ({
+      matches: query === "(hover: none), (pointer: coarse)",
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })),
+  );
+  try {
+    const { container } = render(
+      <PromptPill createPrompt={() => ({ text: "Run" })} />,
+    );
+    const dock = screen.getByRole("group", { name: "Agent prompt" });
+    expect(
+      Array.from(dock.querySelectorAll("button")).map((button) =>
+        button.getAttribute("aria-label"),
+      ),
+    ).toEqual(["Copy prompt", "View prompt"]);
+    expect(container.querySelector(".prompt-pill-shelf")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "View prompt" }));
+    expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe(
+      "Run",
+    );
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
 it("views and copies the same prompt", async () => {
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.assign(navigator, { clipboard: { writeText } });
