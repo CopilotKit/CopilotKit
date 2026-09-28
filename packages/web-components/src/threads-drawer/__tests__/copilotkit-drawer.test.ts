@@ -1196,15 +1196,15 @@ test("desktop does NOT render the mobile launcher", async () => {
 // label property
 // ---------------------------------------------------------------------------
 
-test("label defaults to Conversations: root panel aria-label and listbox aria-label are both Conversations", async () => {
+test("label defaults to Threads: root panel aria-label and listbox aria-label are both Threads", async () => {
   const { element, q, teardown } = await setup();
 
   const root = q("[part='root']") as HTMLElement;
   const list = q("[role='listbox']") as HTMLElement;
 
-  expect(root.getAttribute("aria-label")).toBe("Conversations");
-  expect(list.getAttribute("aria-label")).toBe("Conversations");
-  expect(element.label).toBe("Conversations");
+  expect(root.getAttribute("aria-label")).toBe("Threads");
+  expect(list.getAttribute("aria-label")).toBe("Threads");
+  expect(element.label).toBe("Threads");
 
   teardown();
 });
@@ -1267,9 +1267,7 @@ test("with collapsible=false the header keeps its title, minus the toggle", asyn
   const header = shadow.querySelector('[part="header"]') as HTMLElement;
   expect(header.hidden).toBe(false);
   expect(shadow.querySelector('[part="collapse-toggle"]')).toBeNull();
-  expect(header.querySelector('[part="title"]')!.textContent).toBe(
-    "Conversations",
-  );
+  expect(header.querySelector('[part="title"]')!.textContent).toBe("Threads");
   expect(shadow.querySelector('[part="new-thread-button"]')).not.toBeNull();
 });
 
@@ -1310,7 +1308,7 @@ test("desktop collapse toggle collapses to the cluster and emits collapse-change
     type: "collapse-change",
     detail: { collapsed: true },
   });
-  // Panel is replaced by the floating cluster (sidebar toggle + New Conversation).
+  // Panel is replaced by the floating cluster (sidebar toggle + New Thread).
   const cluster = element.shadowRoot!.querySelector(
     '[part="launcher-cluster"]',
   );
@@ -1335,7 +1333,7 @@ test("collapsed cluster expand toggle restores the panel and emits collapse-chan
   });
 });
 
-test("collapsed cluster New Conversation button fires new-thread", async () => {
+test("collapsed cluster New Thread button fires new-thread", async () => {
   const { element, events } = await setup({ threads: [makeThread()] });
   element.collapsed = true;
   await flush(element);
@@ -1361,7 +1359,7 @@ test("collapsible=false never renders the collapsed cluster on desktop", async (
   ).not.toBeNull();
 });
 
-test("mobile closed state renders the cluster with a New Conversation button", async () => {
+test("mobile closed state renders the cluster with a New Thread button", async () => {
   const { element, events } = await setup({
     threads: [makeThread()],
     mobile: true,
@@ -1387,14 +1385,14 @@ test("mobile closed state renders the cluster with a New Conversation button", a
   });
 });
 
-// --- ENT-1051 Task 2: New Conversation row --------------------------------
+// --- ENT-1051 Task 2: New Thread row --------------------------------
 
-test("New chat row sits under the header, fires new-thread and keeps part=new-thread-button", async () => {
+test("New Thread row sits under the header, fires new-thread and keeps part=new-thread-button", async () => {
   const { element } = await setup({ threads: [makeThread()] });
   const btn = element.shadowRoot!.querySelector<HTMLButtonElement>(
     '[part="new-thread-button"]',
   )!;
-  expect(btn.textContent).toContain("New chat");
+  expect(btn.textContent).toContain("New Thread");
   expect(btn.closest('[part="header"]')).toBeNull();
   // Directly above the section label.
   expect(btn.nextElementSibling?.getAttribute("part")).toBe("section-heading");
@@ -1636,19 +1634,19 @@ test("menu-up flips the popover to open upward (CSS contract: bottom-anchored)",
 
 // --- CR round 1, Finding 5: locked view hides feature chrome ----------------
 
-test("locked view hides the New Conversation chrome", async () => {
+test("locked view hides the New Thread chrome", async () => {
   const { element, q, teardown } = await setup({ threads: [makeThread()] });
   element.licensed = false;
   await flush(element);
 
   expect(q('[data-testid="drawer-licensed"]')).not.toBeNull();
-  // The feature chrome (New Conversation row) is absent — only the Upgrade
+  // The feature chrome (New Thread row) is absent — only the Upgrade
   // panel is offered.
   expect(q('[part="new-thread-button"]')).toBeNull();
   teardown();
 });
 
-test("licensed view still renders the New Conversation chrome", async () => {
+test("licensed view still renders the New Thread chrome", async () => {
   const { q, teardown } = await setup({ threads: [makeThread()] });
   // default licensed=true
   expect(q('[part="new-thread-button"]')).not.toBeNull();
@@ -1815,7 +1813,7 @@ test("picking a thread in the overlay selects it, then closes the overlay", asyn
   teardown();
 });
 
-test("New chat in the overlay emits new-thread, then closes the overlay", async () => {
+test("New Thread in the overlay emits new-thread, then closes the overlay", async () => {
   const { element, q, events, teardown } = await setupOverlay({ open: true });
   (q('[part="new-thread-button"]') as HTMLElement).click();
   await flush(element);
