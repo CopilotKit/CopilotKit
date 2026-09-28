@@ -62,14 +62,24 @@ test("resolves identity and grants server-side on each product read", async () =
   const { call, fetch, cleanup } = setup(policy);
   try {
     const response = await call(
-      { method: "GET", path: "/api/v1/runs", query: { agentId: "support" } },
+      {
+        method: "GET",
+        path: "/api/v1/runs",
+        query: {
+          agentId: "support",
+          modelCapture: "missing",
+          asOf: "capture1",
+        },
+      },
       { "x-cpki-user-id": "forged", "x-cpki-grant": "forged" },
     );
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ data: [] });
     expect(fetch).toHaveBeenCalledWith(
-      new URL("https://intelligence.example/api/v1/runs?agentId=support"),
+      new URL(
+        "https://intelligence.example/api/v1/runs?agentId=support&modelCapture=missing&asOf=capture1",
+      ),
       expect.objectContaining({
         method: "GET",
         redirect: "error",
@@ -224,11 +234,9 @@ test("bounds platform response bodies before sending data to the iframe", async 
 });
 
 test("creates exports and downloads CSV through fresh server grants without forwarding upstream cookies", async () => {
-  const policy = vi
-    .fn<IntelligenceAccessCallback>()
-    .mockResolvedValue({
-      permissions: { "analytics.numbers": { agents: "*" } },
-    });
+  const policy = vi.fn<IntelligenceAccessCallback>().mockResolvedValue({
+    permissions: { "analytics.numbers": { agents: "*" } },
+  });
   const world = setup(policy);
   try {
     world.fetch.mockResolvedValueOnce(

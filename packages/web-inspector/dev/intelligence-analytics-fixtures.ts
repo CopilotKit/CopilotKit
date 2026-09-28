@@ -77,14 +77,24 @@ export function intelligenceAnalyticsFixture(
   };
   const total = totals[metric] ?? 12438;
   const series = byModel
-    ? ["customer-model", "customer-model-fast"].map((model, index) => ({
+    ? ["customer-model", "customer-model-fast", null].map((model, index) => ({
         dimensions: { model },
         total:
-          metric === "avg_response_ms"
-            ? index === 0
-              ? 2400
-              : 1800
-            : Math.round(total * (index === 0 ? 0.6 : 0.4)),
+          model === null
+            ? ({
+                runs: 1,
+                tokens_in: 720,
+                tokens_out: 120,
+                avg_response_ms: 2100,
+                failed_runs: 0,
+              }[metric] ?? null)
+            : metric === "avg_response_ms"
+              ? index === 0
+                ? 2400
+                : 1800
+              : Math.round(
+                  total * (index === 0 ? 0.6 : index === 1 ? 0.3 : 0.1),
+                ),
         points: [],
       }))
     : (
@@ -129,7 +139,7 @@ export function intelligenceAnalyticsFixture(
             total: total * 0.8,
             series: series.map((entry) => ({
               ...entry,
-              total: entry.total * 0.8,
+              total: entry.total === null ? null : entry.total * 0.8,
             })),
           },
         }

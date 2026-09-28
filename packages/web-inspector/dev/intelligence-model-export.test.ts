@@ -29,7 +29,7 @@ test("model usage exports contain the table values and preceding period", () => 
   const result = JSON.parse(file.body);
 
   expect(result.metadata).toMatchObject({
-    rowCount: 2,
+    rowCount: 3,
     filters: { agentId: "support", asOf: "fixture_v1" },
   });
   expect(result.data[0]).toMatchObject({
@@ -41,4 +41,12 @@ test("model usage exports contain the table values and preceding period", () => 
   });
   expect(result.data[0].previousRuns).toBeCloseTo(5970.4);
   expect(result.data[1].model).toBe("customer-model-fast");
+  expect(result.data[2]).toMatchObject({
+    model: null,
+    runs: 1,
+    tokensIn: 720,
+    tokensOut: 120,
+    avgResponseMs: 2100,
+    failedRuns: 0,
+  });
 });

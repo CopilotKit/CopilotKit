@@ -1,45 +1,44 @@
 import { expect, test } from "vitest";
 import { intelligenceFixture } from "./intelligence-state-lab.js";
 
-test.each([
+const cases: readonly { query: Record<string, string>; ids: string[] }[] = [
   {
-    model: "customer-model",
-    agentId: "support",
-    outcome: "success",
-    ids: ["fixture-run-1", "fixture-run-3"],
+    query: { model: "customer-model", agentId: "support", outcome: "success" },
+    ids: ["fixture-run-1"],
   },
   {
-    model: "customer-model",
-    agentId: "billing",
-    outcome: "error",
+    query: { model: "customer-model", agentId: "billing", outcome: "error" },
     ids: ["fixture-run-2"],
   },
+  { query: { model: "customer-model-fast", agentId: "support" }, ids: [] },
   {
-    model: "customer-model-fast",
-    agentId: "support",
-    outcome: "success",
-    ids: [],
+    query: { modelCapture: "missing", agentId: "support" },
+    ids: ["fixture-run-3"],
   },
-])(
-  "model run drilldowns retain $model, $agentId, and $outcome filters",
-  ({ model, agentId, outcome, ids }) => {
-    const response = intelligenceFixture({
-      method: "GET",
-      path: "/api/v1/runs",
-      query: { model, agentId, outcome, asOf: "fixture_v1" },
-    });
-    const body = response.body;
-    if (
-      typeof body !== "object" ||
-      body === null ||
-      !("data" in body) ||
-      !Array.isArray(body.data)
-    ) {
-      throw new Error("Missing run rows");
-    }
+  {
+    query: { modelCapture: "present", agentId: "support" },
+    ids: ["fixture-run-1"],
+  },
+  { query: { modelCapture: "missing", model: "customer-model" }, ids: [] },
+];
 
-    expect(body.data.map((row: Record<string, unknown>) => row.runId)).toEqual(
-      ids,
-    );
-  },
-);
+test.each(cases)("model run filters preserve $query", ({ query, ids }) => {
+  const response = intelligenceFixture({
+    method: "GET",
+    path: "/api/v1/runs",
+    query,
+  });
+  const body = response.body;
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    !("data" in body) ||
+    !Array.isArray(body.data)
+  ) {
+    throw new Error("Missing run rows");
+  }
+
+  expect(body.data.map((row: Record<string, unknown>) => row.runId)).toEqual(
+    ids,
+  );
+});

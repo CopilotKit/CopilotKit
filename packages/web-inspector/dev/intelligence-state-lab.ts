@@ -117,7 +117,7 @@ export function intelligenceFixture(request: IntelligenceReadRequest): {
     tokensIn: 720,
     tokensOut: 120,
     tokensTotal: 840,
-    model: "customer-model",
+    model: index === 2 ? null : "customer-model",
     toolCalls: 1,
   }));
   if (request.path === "/api/v1/runs")
@@ -129,7 +129,11 @@ export function intelligenceFixture(request: IntelligenceReadRequest): {
               run.outcome === request.query.outcome) &&
             (!request.query?.agentId ||
               run.agentId === request.query.agentId) &&
-            (!request.query?.model || run.model === request.query.model),
+            (!request.query?.model || run.model === request.query.model) &&
+            (!request.query?.modelCapture ||
+              (request.query.modelCapture === "missing"
+                ? run.model === null
+                : run.model !== null)),
         )
         .slice(0, Number(request.query?.limit ?? runs.length)),
       nextCursor: null,
