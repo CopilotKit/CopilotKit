@@ -177,4 +177,22 @@ describe("CopilotKitCore header source", () => {
     await vi.waitFor(() => expect(onHeadersChanged).toHaveBeenCalledTimes(1));
     expect(core.ɵheadersGeneration).toBe(gen + 1);
   });
+
+  it("switching from a record to a builder does not re-apply or broadcast the old record's headers", () => {
+    const core = new CopilotKitCore({});
+    core.setHeaders({ Authorization: "old-user" });
+    const onHeadersChanged = vi.fn();
+    core.subscribe({ onHeadersChanged });
+
+    core.setHeaders(() => ({ Authorization: "new-user" }));
+
+    // The builder hasn't run yet, so the snapshot must not still hold the
+    // previous source's value.
+    expect(core.headers).not.toHaveProperty("Authorization", "old-user");
+    expect(onHeadersChanged).toHaveBeenCalledTimes(1);
+    expect(onHeadersChanged.mock.calls[0]![0].headers).not.toHaveProperty(
+      "Authorization",
+      "old-user",
+    );
+  });
 });

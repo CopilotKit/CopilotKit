@@ -87,9 +87,11 @@ export class HeaderSourceResolver {
     this.source = source;
     this.sourceGeneration += 1;
     this.inFlight = undefined;
-    if (typeof source !== "function") {
-      this.snapshot = normalizeHeaders(source);
-    }
+    // A builder hasn't run yet, so the previous source's snapshot must not
+    // survive the switch — otherwise a stale value (e.g. the old user's
+    // Authorization) would be re-applied to agents and broadcast as current.
+    this.snapshot =
+      typeof source === "function" ? {} : normalizeHeaders(source);
     return true;
   }
 
