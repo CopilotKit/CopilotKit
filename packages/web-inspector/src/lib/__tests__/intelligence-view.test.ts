@@ -24,6 +24,7 @@ test("embeds only the content pane without adding a launcher, dialog or navigati
       "agentId",
     ]);
     expect(view.shadowRoot?.querySelector("dialog,nav,button")).toBeNull();
+    expect(frame?.getAttribute("allow")).toBe("clipboard-write 'src'");
     expect(frame?.getAttribute("sandbox")).toBe(
       "allow-scripts allow-same-origin allow-forms allow-downloads",
     );

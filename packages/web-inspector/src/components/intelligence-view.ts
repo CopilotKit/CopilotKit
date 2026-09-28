@@ -149,7 +149,7 @@ export class InspectorIntelligenceView extends LitElement {
       `;
     const url = this.frameUrl();
     return url && this.core?.runtimeUrl
-      ? html`<iframe title=${`${this.section.charAt(0).toUpperCase()}${this.section.slice(1)}`} src=${url.href} sandbox="allow-scripts allow-same-origin allow-forms allow-downloads" referrerpolicy="no-referrer"></iframe>`
+      ? html`<iframe title=${`${this.section.charAt(0).toUpperCase()}${this.section.slice(1)}`} src=${url.href} sandbox="allow-scripts allow-same-origin allow-forms allow-downloads" allow="clipboard-write 'src'" referrerpolicy="no-referrer"></iframe>`
       : html`
           <p role="status">Intelligence is unavailable.</p>
         `;

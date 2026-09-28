@@ -31,6 +31,9 @@ route. The original Learning workbench keeps its own controls.
 Both sides check the exact message origin and source window. Closing a view
 cancels its requests. A denied request removes the embedded content. The iframe
 does not use the Intelligence console session or its authentication flow.
+The iframe allows clipboard writes from its configured origin for Insight copy.
+It does not request clipboard reads. The browser or host Permissions Policy can
+still deny writes; the copy control reports failure and permits retry.
 
 Conversation lists show metadata under `analytics.numbers`. Replay, tool arguments,
 and tool error text require `conversations.text`. Replay shows recorded runs and
