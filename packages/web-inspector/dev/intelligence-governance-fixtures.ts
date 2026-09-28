@@ -160,6 +160,12 @@ export function intelligenceGovernanceFixture(
         (!request.query?.summary || sets[request.query.summary]?.(event)) &&
         (!request.query?.outcome || event.outcome === request.query.outcome) &&
         (!request.query?.actorId || event.actor.id === request.query.actorId) &&
+        (!request.query?.userId || event.actor.id === request.query.userId) &&
+        request.query?.userCapture !== "missing" &&
+        request.query?.agentCapture !== "missing" &&
+        request.query?.toolCapture !== "missing" &&
+        (!request.query?.toolName ||
+          event.toolName === request.query.toolName) &&
         (!request.query?.type || event.type === request.query.type),
     ),
     nextCursor: null,

@@ -22,6 +22,45 @@ export function intelligenceAskFixture(
       : {};
   if (
     "question" in body &&
+    /approvals.*rejections.*user/i.test(String(body.question))
+  ) {
+    return {
+      version: 1,
+      text: "Verified approvals and rejections by user.",
+      results: (
+        [
+          ["approvals", "reviewer-1"],
+          ["rejections", "reviewer-6"],
+        ] as const
+      ).map(([metric, user]) => {
+        const series =
+          !filters.agentId || filters.agentId === "support"
+            ? [{ dimensions: { user, tool: "refund" }, total: 1, points: [] }]
+            : [];
+        return {
+          id: `fixture-${metric}-groups`,
+          query: { metric, dimensions: ["tool", "user"], from, to, filters },
+          data: {
+            metric,
+            unit: "count",
+            from,
+            to,
+            grain: null,
+            total: series.length,
+            asOf: "fixture_v1",
+            truncated: false,
+            coverage: {
+              captureStartedAt: "2026-09-01T00:00:00.000Z",
+              windowFullyCaptured: true,
+            },
+            series,
+          },
+        };
+      }),
+    };
+  }
+  if (
+    "question" in body &&
     /response.?time.*distribution/i.test(String(body.question))
   ) {
     const query = { metric: "response_time_distribution", from, to, filters };
