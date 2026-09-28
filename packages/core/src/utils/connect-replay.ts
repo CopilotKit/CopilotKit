@@ -47,7 +47,9 @@ export interface ConnectionReplayLifecycle {
  *
  * TODO: Remove this in favour of the base implementation once AG-UI's
  * AbstractAgent supports opting out of `verifyEvents` for transports whose
- * connection life-cycle isn't a single run. As of `@ag-ui/client@0.0.57`
+ * connection life-cycle isn't a single run AND preserves the connection-local
+ * replay lifecycle and running-state behavior below. Skipping verification alone
+ * is insufficient. As of `@ag-ui/client@0.0.57`
  * `connectAgent(parameters?, subscriber?)` takes no such option.
  *
  * @param agent - The agent whose `connect()` stream should be consumed.

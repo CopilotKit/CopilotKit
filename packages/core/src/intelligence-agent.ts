@@ -70,6 +70,7 @@ const REPLAY_COMPLETE_EVENT = "replay_complete";
 const STREAM_IDLE_EVENT = "stream_idle";
 const STOP_RUN_EVENT = "stop_run";
 const CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS = 100;
+const CONNECT_IDLE_WARNING_MS = 30_000;
 
 interface IntelligenceAgentSharedState {
   lastSeenEventIds: Map<string, string>;
@@ -561,6 +562,31 @@ export class IntelligenceAgent extends AbstractAgent {
       let ownSocket: Socket | null = null;
       let ownChannel: Channel | null = null;
 
+      // Silence after replay may mean a long-running agent or an unavailable
+      // thread-lock lookup. Diagnose it without declaring an active run idle.
+      let replayFinished = false;
+      let warnedAboutIdle = false;
+      let idleWarning: ReturnType<typeof setTimeout> | undefined;
+      const clearIdleWarning = () => {
+        clearTimeout(idleWarning);
+        idleWarning = undefined;
+      };
+      const scheduleIdleWarning = () => {
+        clearIdleWarning();
+        if (
+          options.streamMode !== "connect" ||
+          !replayFinished ||
+          warnedAboutIdle
+        )
+          return;
+        idleWarning = setTimeout(() => {
+          warnedAboutIdle = true;
+          console.warn(
+            "Intelligence connection has received no progress or stream_idle for 30 seconds after replay_complete. The thread may still be running, or its status may be unavailable. Stop and reconnect if the UI remains busy.",
+          );
+        }, CONNECT_IDLE_WARNING_MS);
+      };
+
       const socket$ = ɵphoenixSocket$({
         url: credentials.realtime.clientUrl,
         options: {
@@ -606,6 +632,7 @@ export class IntelligenceAgent extends AbstractAgent {
         tap((payload) => {
           latestObservedReplayCursor =
             this.readEventId(payload) ?? latestObservedReplayCursor;
+          scheduleIdleWarning();
         }),
         share(),
       );
@@ -616,7 +643,11 @@ export class IntelligenceAgent extends AbstractAgent {
         REPLAY_COMPLETE_EVENT,
       ).pipe(
         // Notify before idle completion can unsubscribe other observers.
-        tap(() => options.lifecycle?.onReplayFinished?.()),
+        tap(() => {
+          replayFinished = true;
+          scheduleIdleWarning();
+          options.lifecycle?.onReplayFinished?.();
+        }),
         share(),
       );
       const streamIdle$ = this.observeControlEvent$(
@@ -630,7 +661,12 @@ export class IntelligenceAgent extends AbstractAgent {
           filter((signal) => signal.type === "error"),
         ),
       ).pipe(
-        tap(() => options.lifecycle?.onReplayStarted?.()),
+        tap(() => {
+          replayFinished = false;
+          warnedAboutIdle = false;
+          clearIdleWarning();
+          options.lifecycle?.onReplayStarted?.();
+        }),
         share(),
       );
       const streamIdleCompletion$ =
@@ -677,7 +713,12 @@ export class IntelligenceAgent extends AbstractAgent {
           ignoreElements(),
           takeUntil(threadCompleted$),
         ),
-      ).pipe(finalize(() => this.cleanupOwned(ownChannel, ownSocket)));
+      ).pipe(
+        finalize(() => {
+          clearIdleWarning();
+          this.cleanupOwned(ownChannel, ownSocket);
+        }),
+      );
     });
   }
 
