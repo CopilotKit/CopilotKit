@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { IntelligenceReadRequest } from "../src/lib/intelligence-relay.js";
 import { intelligenceLearningFixture } from "./intelligence-learning-fixtures.js";
+import { intelligenceContentFixture } from "./intelligence-content-fixtures.js";
 import { intelligenceAnalyticsFixture } from "./intelligence-analytics-fixtures.js";
 
 import { intelligenceGovernanceFixture } from "./intelligence-governance-fixtures.js";
@@ -121,7 +122,8 @@ function exportRows(job: FixtureJob): Record<string, unknown>[] {
     job.kind !== "insights" &&
     job.kind !== "skills" &&
     job.kind !== "activity" &&
-    job.kind !== "events"
+    job.kind !== "events" &&
+    job.kind !== "tools"
   )
     return [
       {
@@ -140,26 +142,32 @@ function exportRows(job: FixtureJob): Record<string, unknown>[] {
     ),
   };
   const response =
-    job.kind === "events"
-      ? intelligenceAnalyticsFixture({
+    job.kind === "tools"
+      ? intelligenceContentFixture({
           method: "GET",
-          path: "/api/v1/events",
+          path: "/api/v1/tools",
           query,
         })
-      : job.kind === "activity"
-        ? intelligenceGovernanceFixture({
+      : job.kind === "events"
+        ? intelligenceAnalyticsFixture({
             method: "GET",
-            path: "/api/v1/governance/events",
+            path: "/api/v1/events",
             query,
           })
-        : intelligenceLearningFixture({
-            method: "GET",
-            path:
-              job.kind === "skills"
-                ? "/api/v1/learning/skills"
-                : "/api/v1/learning/insights",
-            query,
-          });
+        : job.kind === "activity"
+          ? intelligenceGovernanceFixture({
+              method: "GET",
+              path: "/api/v1/governance/events",
+              query,
+            })
+          : intelligenceLearningFixture({
+              method: "GET",
+              path:
+                job.kind === "skills"
+                  ? "/api/v1/learning/skills"
+                  : "/api/v1/learning/insights",
+              query,
+            });
   if (
     !isRecord(response) ||
     !Array.isArray(response.data) ||
@@ -193,6 +201,16 @@ function exportRows(job: FixtureJob): Record<string, unknown>[] {
 
 /** Stable columns match each fixture export, including empty files. */
 function exportColumns(job: FixtureJob): string[] {
+  if (job.kind === "tools")
+    return [
+      "toolName",
+      "calls",
+      "errors",
+      "successRate",
+      "avgMs",
+      "medianMs",
+      "lastCalledAt",
+    ];
   if (job.kind === "skills")
     return [
       "id",
