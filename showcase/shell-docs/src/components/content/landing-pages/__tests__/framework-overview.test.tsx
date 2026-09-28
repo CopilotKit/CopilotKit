@@ -78,8 +78,8 @@ describe("FrameworkOverview", () => {
     expect(markup).toContain("Copy Prompt");
     expect(markup).toContain('data-surface="docs_framework_hero"');
     expect(markup).toContain("prompt-pill-dock");
-    expect(markup).toContain("Open in Claude Code");
-    expect(markup).toContain("Open in Codex");
+    expect(markup).not.toContain("Open in Claude Code");
+    expect(markup).not.toContain("Open in Codex");
 
     // ...and Quickstart keeps its place beside it in the bordered treatment.
     expect(markup).toContain("Quickstart");
