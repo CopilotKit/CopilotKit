@@ -873,13 +873,26 @@ export class AgentRegistry {
     // Resolve before creating the AbortController: a builder failure here
     // must degrade to absent metadata (like any other optional-route
     // failure) without ever leaving a dangling, never-aborted controller.
+    // Resolution is synchronous for a record or a sync builder — only await
+    // when it's actually async (there's no AbortSignal yet to make this
+    // abortable), so a sync source never pays an extra microtask tick here.
     let headers: Record<string, string>;
     try {
-      headers = { ...(await friends.resolveHeaders()) };
+      const resolved = friends.resolveHeaders();
+      headers = {
+        ...(isPromiseLike(resolved) ? await resolved : resolved),
+      };
     } catch {
       if (generation === this.inspectorMetadataGeneration) {
         this.setInspectorMetadata(undefined);
       }
+      return;
+    }
+    // A concurrent refresh (e.g. from setHeaders/setCredentials) may have
+    // superseded this call while the builder above was pending — without
+    // this check, a slower earlier call would still send a request with
+    // stale headers and could replace the newer call's AbortController.
+    if (generation !== this.inspectorMetadataGeneration) {
       return;
     }
     const credentials = friends.credentials;
@@ -1672,8 +1685,15 @@ export class AgentRegistry {
   ): Promise<RuntimeInfoFetchResult> {
     const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
     const credentials = friends.credentials;
+    // Resolution is synchronous for a record or a sync builder — only await
+    // when it's actually async, so a sync source never pays an extra
+    // microtask tick here.
+    const resolved = friends.resolveHeaders();
+    const resolvedHeaders = isPromiseLike(resolved)
+      ? await abortable(resolved, signal)
+      : resolved;
     const headers: Record<string, string> = {
-      ...(await friends.resolveHeaders()),
+      ...resolvedHeaders,
     };
 
     if (runtimeTransport === "single") {

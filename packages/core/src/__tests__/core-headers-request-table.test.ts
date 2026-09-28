@@ -435,8 +435,54 @@ async function intelligenceReconnectRow(): Promise<string | null | undefined> {
   });
 }
 
+async function inspectorMetadataRow(): Promise<string | null | undefined> {
+  return withBrowserWindow(async () => {
+    let token = "stale";
+    const calls: Call[] = [];
+    global.fetch = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input.toString();
+        calls.push({ url, auth: authOf(init) });
+        if (url.endsWith("/info")) {
+          return jsonResponse({
+            version: "1.0.0",
+            agents: {},
+            inspectorMetadata: true,
+          });
+        }
+        // /inspector-metadata
+        return jsonResponse({
+          schemaVersion: 1,
+          plan: { code: "free", label: "Free" },
+          usage: { used: 0, limit: { kind: "finite", value: 1 } },
+        });
+      },
+    ) as unknown as typeof fetch;
+
+    const core = new CopilotKitCore({
+      runtimeUrl: "https://rt.test/api",
+      headers: () => ({ Authorization: token }),
+    });
+    await vi.waitFor(() =>
+      expect(core.runtimeConnectionStatus).toBe(
+        CopilotKitCoreRuntimeConnectionStatus.Connected,
+      ),
+    );
+    await vi.waitFor(() =>
+      expect(calls.some((c) => c.url.endsWith("/inspector-metadata"))).toBe(
+        true,
+      ),
+    );
+    calls.length = 0;
+    token = "fresh";
+    await core.refreshInspectorMetadata();
+    return calls.find((c) => c.url.endsWith("/inspector-metadata"))?.auth;
+  });
+}
+
 const rows: Array<[string, () => Promise<string | null | undefined>]> = [
   ["/info discovery", infoDiscoveryRow],
+  ["inspector metadata", inspectorMetadataRow],
   ["threads list", threadsListRow],
   ["memory store", memoryStoreRow],
   ["runtime run", runtimeRunRow],
@@ -549,10 +595,18 @@ describe("token churn vs. setHeaders", () => {
       async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = typeof input === "string" ? input : input.toString();
         calls.push({ url, auth: authOf(init) });
+        if (url.endsWith("/info")) {
+          return jsonResponse({
+            version: "1.0.0",
+            agents: {},
+            inspectorMetadata: true,
+          });
+        }
+        // /inspector-metadata
         return jsonResponse({
-          version: "1.0.0",
-          agents: {},
-          inspectorMetadata: true,
+          schemaVersion: 1,
+          plan: { code: "free", label: "Free" },
+          usage: { used: 0, limit: { kind: "finite", value: 1 } },
         });
       },
     ) as unknown as typeof fetch;
@@ -569,22 +623,46 @@ describe("token churn vs. setHeaders", () => {
         CopilotKitCoreRuntimeConnectionStatus.Connected,
       ),
     );
-    await vi.waitFor(() => expect(calls.length).toBeGreaterThanOrEqual(2)); // /info + inspector-metadata
-    const callCountAfterConnect = calls.length;
+    await vi.waitFor(() =>
+      expect(calls.some((c) => c.url.endsWith("/inspector-metadata"))).toBe(
+        true,
+      ),
+    );
+    const infoCallsAfterConnect = calls.filter((c) =>
+      c.url.endsWith("/info"),
+    ).length;
 
-    // A new token from the builder alone must not retrigger anything.
+    // A new token from the builder alone must not retrigger anything. Send a
+    // real request AFTER the token change — otherwise nothing ever calls the
+    // builder, and a resolver that wrongly refetched /info or fired
+    // onHeadersChanged on a new (but not explicitly re-set) token would pass
+    // vacuously.
     token = "t2";
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(calls).toHaveLength(callCountAfterConnect);
+    await core.ɵruntimeFetch("https://rt.test/api/threads");
+    const threadsCall = calls.find((c) => c.url.endsWith("/threads"));
+    expect(threadsCall?.auth).toBe("t2"); // the builder really was called
+    expect(calls.filter((c) => c.url.endsWith("/info")).length).toBe(
+      infoCallsAfterConnect,
+    );
     expect(onHeadersChanged).not.toHaveBeenCalled();
 
+    const metadataCallsBeforeSetHeaders = calls.filter((c) =>
+      c.url.endsWith("/inspector-metadata"),
+    ).length;
+
     // An explicit setHeaders call must notify subscribers and refresh
-    // inspector metadata (the endpoint this task also resolves headers for).
+    // inspector metadata (the endpoint this task also resolves headers for) —
+    // not /info, which is only ever fetched on (re)connect.
     core.setHeaders(() => ({ Authorization: "t3" }));
     await vi.waitFor(() =>
-      expect(calls.length).toBeGreaterThan(callCountAfterConnect),
+      expect(
+        calls.filter((c) => c.url.endsWith("/inspector-metadata")).length,
+      ).toBeGreaterThan(metadataCallsBeforeSetHeaders),
     );
     expect(onHeadersChanged).toHaveBeenCalledTimes(1);
+    expect(calls.filter((c) => c.url.endsWith("/info")).length).toBe(
+      infoCallsAfterConnect,
+    );
   });
 
   it("an /info header failure warns about headers, not about the runtime being unreachable", async () => {
