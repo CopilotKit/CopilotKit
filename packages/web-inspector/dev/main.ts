@@ -519,6 +519,10 @@ async function boot(): Promise<void> {
   inspector.setAttribute("auto-attach-core", "false");
   inspector.core = core;
   inspector.intelligenceAppUrl = query.get("intelligenceAppUrl") ?? "";
+  if (inspector.intelligenceAppUrl) {
+    routeAlert.hidden = false;
+    routeAlert.textContent = "Embedded Intelligence uses local fixture data.";
+  }
   inspectorHost.replaceChildren(inspector);
 
   coreUnsubscribe = core.subscribe({

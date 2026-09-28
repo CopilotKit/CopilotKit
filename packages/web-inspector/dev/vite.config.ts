@@ -4,6 +4,7 @@ import type { Plugin, UserConfig } from "vite";
 
 import { createThreadsStateLabPlugin } from "./threads-state-lab-server.js";
 import { createLearningStateLabPlugin } from "./learning-state-lab-server.js";
+import { createIntelligenceStateLabPlugin } from "./intelligence-state-lab-server.js";
 
 /**
  * Mirrors the package bundler's CSS-as-string behavior for the standalone
@@ -32,6 +33,7 @@ const cssRawImportPlugin = {
 const config = {
   plugins: [
     cssRawImportPlugin,
+    createIntelligenceStateLabPlugin(),
     createThreadsStateLabPlugin(),
     createLearningStateLabPlugin(),
   ],
