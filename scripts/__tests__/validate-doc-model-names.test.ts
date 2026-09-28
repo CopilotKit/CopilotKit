@@ -531,6 +531,8 @@ describe("Built-in Agent model table", () => {
   }
 
   const table = [
+    "## Supported Models",
+    "",
     "### OpenAI",
     "",
     "| Model        | Specifier             |",
@@ -544,6 +546,13 @@ describe("Built-in Agent model table", () => {
     "| Claude Sonnet 4.6 | `anthropic:claude-sonnet-4-6` |",
     "",
     "Use `openai:not-a-row` in prose.",
+    "",
+    "## How it works",
+    "",
+    "| Model string        | Resolved call        |",
+    "| ------------------- | -------------------- |",
+    // No quotes inside the backticks, so only the heading keeps it out.
+    '| `openai:gpt-4.1`    | `openai("gpt-4.1")`  |',
   ].join("\n");
 
   function writeTable(dir: string): string {
@@ -552,7 +561,7 @@ describe("Built-in Agent model table", () => {
     return file;
   }
 
-  it("reads only the specifiers in table rows", () => {
+  it("reads only the specifiers in the Supported Models tables", () => {
     const dir = createTempDir();
 
     expect([...loadModelTable(writeTable(dir))].sort()).toEqual([
@@ -563,21 +572,27 @@ describe("Built-in Agent model table", () => {
     fs.rmSync(dir, { recursive: true });
   });
 
-  it("finds a provider:model string in any code block", () => {
+  it("finds a provider:model string in a Built-in Agent block", () => {
     const content = [
-      "```python",
-      "agent = Agent('openai:gpt-4.1-mini')",
-      "```",
-      "",
       "```ts",
       'new BuiltInAgent({ model: "google:gemini-2.5-pro" });',
       "```",
     ].join("\n");
 
     expect(extractBuiltInAgentModels(content)).toEqual([
-      { spec: "openai:gpt-4.1-mini", line: 2 },
-      { spec: "google:gemini-2.5-pro", line: 6 },
+      { spec: "google:gemini-2.5-pro", line: 2 },
     ]);
+  });
+
+  it("ignores a provider:model string another framework uses", () => {
+    const content = [
+      "```python",
+      "agent = Agent('openai:gpt-4.1-mini')",
+      'graph = create_deep_agent(model="openai:gpt-5.4")',
+      "```",
+    ].join("\n");
+
+    expect(extractBuiltInAgentModels(content)).toEqual([]);
   });
 
   it("finds a provider/model string only in a Built-in Agent block", () => {
@@ -648,6 +663,40 @@ describe("Built-in Agent model table", () => {
     );
 
     expect(validateModelTable([docs], tablePath)).toEqual([]);
+
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it("passes a pydantic-ai page whose model is not in the table", () => {
+    const dir = createTempDir();
+    const tablePath = writeTable(dir);
+    const docs = path.join(dir, "docs");
+    fs.mkdirSync(docs);
+    fs.writeFileSync(
+      path.join(docs, "pydantic.mdx"),
+      ["```python", "agent = Agent('openai:gpt-4.1-mini')", "```"].join("\n"),
+    );
+
+    expect(validateModelTable([docs], tablePath)).toEqual([]);
+
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it("fails on a model listed only in the How it works table", () => {
+    const dir = createTempDir();
+    const tablePath = writeTable(dir);
+    const docs = path.join(dir, "docs");
+    fs.mkdirSync(docs);
+    fs.writeFileSync(
+      path.join(docs, "page.mdx"),
+      ["```ts", 'new BuiltInAgent({ model: "openai:gpt-4.1" });', "```"].join(
+        "\n",
+      ),
+    );
+
+    expect(validateModelTable([docs], tablePath)).toEqual([
+      { file: path.join(docs, "page.mdx"), line: 2, model: "openai:gpt-4.1" },
+    ]);
 
     fs.rmSync(dir, { recursive: true });
   });

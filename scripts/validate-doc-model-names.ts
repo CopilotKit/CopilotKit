@@ -386,7 +386,12 @@ const MODEL_TABLE_DIRS = [
 /** Providers the Built-in Agent resolves from a string. */
 const TABLE_PROVIDERS = "openai|anthropic|google|minimax";
 
-/** A `provider:model` string. Only the Built-in Agent family uses this form. */
+/**
+ * A quoted `provider:model` string. LangChain's `init_chat_model`, Deep Agents
+ * and Pydantic AI use this form too, and their pages are not bound by the
+ * Built-in Agent table. So, like the slash form below, it is read only inside a
+ * code block that builds a `BuiltInAgent`.
+ */
 const COLON_SPEC_REGEX = new RegExp(
   `["'\`]((?:${TABLE_PROVIDERS}):[\\w.-]+)["'\`]`,
   "gi",
@@ -395,6 +400,8 @@ const COLON_SPEC_REGEX = new RegExp(
 /**
  * A `model: "provider/model"` attribute. Mastra and others use the slash form
  * too, so it is read only inside a code block that builds a `BuiltInAgent`.
+ * The attribute is required here because other slash strings in those blocks,
+ * such as an OpenRouter model id, are not Built-in Agent specifiers.
  */
 const SLASH_SPEC_REGEX = new RegExp(
   `model\\s*:\\s*["']((?:${TABLE_PROVIDERS})/[\\w.-]+)["']`,
@@ -407,12 +414,25 @@ function normalizeSpec(spec: string): string {
   return `${spec.slice(0, separator).toLowerCase()}:${spec.slice(separator + 1)}`;
 }
 
-/** Every specifier written in a table row of the Model Selection page. */
+/** The section of the Model Selection page whose tables list the models. */
+const SUPPORTED_MODELS_HEADING = "## Supported Models";
+
+/**
+ * Every specifier in a table row under "Supported Models".
+ *
+ * Other tables on the page, such as "How it works", show how a string resolves.
+ * A model named only there is an example, not a promise, so it does not count.
+ */
 export function loadModelTable(tablePath: string): Set<string> {
   const specs = new Set<string>();
   const cell = new RegExp(`\`((?:${TABLE_PROVIDERS})[:/][\\w.-]+)\``, "gi");
+  let inSection = false;
   for (const line of fs.readFileSync(tablePath, "utf-8").split("\n")) {
-    if (!line.trimStart().startsWith("|")) continue;
+    if (/^##\s/u.test(line)) {
+      inSection = line.trim() === SUPPORTED_MODELS_HEADING;
+      continue;
+    }
+    if (!inSection || !line.trimStart().startsWith("|")) continue;
     for (const match of line.matchAll(cell)) specs.add(normalizeSpec(match[1]));
   }
   return specs;
@@ -445,11 +465,13 @@ export function extractBuiltInAgentModels(
         block = [];
         continue;
       }
-      const builtIn = block.some(({ text }) => text.includes("BuiltInAgent"));
-      const patterns = builtIn
-        ? [COLON_SPEC_REGEX, SLASH_SPEC_REGEX]
-        : [COLON_SPEC_REGEX];
-      for (const { text, line } of block) scan(text, line, patterns);
+      // Every Built-in Agent model string in the docs sits in a block that
+      // names `BuiltInAgent`, so that is the scope. Checked on 2026-09-28.
+      if (block.some(({ text }) => text.includes("BuiltInAgent"))) {
+        for (const { text, line } of block) {
+          scan(text, line, [COLON_SPEC_REGEX, SLASH_SPEC_REGEX]);
+        }
+      }
       block = null;
       continue;
     }
