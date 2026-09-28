@@ -42,7 +42,9 @@ export function intelligenceLearningFixture(
     },
   ].filter(
     (record) =>
-      !request.query?.agentId || request.query.agentId === record.agentId,
+      (!request.query?.agentId || request.query.agentId === record.agentId) &&
+      (!request.query?.containerId ||
+        request.query.containerId === record.agentId),
   );
   const insightOf = (record: (typeof records)[number]) => ({
     id: record.insightId,

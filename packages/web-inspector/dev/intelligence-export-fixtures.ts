@@ -64,7 +64,9 @@ export function intelligenceExportFixture(
         ? [
             columns.join(","),
             ...rows.map((row) =>
-              columns.map((column) => csvCell(row[column])).join(","),
+              columns
+                .map((column) => csvCell(exportValue(job, row, column)))
+                .join(","),
             ),
           ].join("\r\n") + "\r\n"
         : JSON.stringify({ metadata, data: rows }),
@@ -117,6 +119,7 @@ function exportJob(job: FixtureJob, completed: boolean) {
 function exportRows(job: FixtureJob): Record<string, unknown>[] {
   if (
     job.kind !== "insights" &&
+    job.kind !== "skills" &&
     job.kind !== "activity" &&
     job.kind !== "events"
   )
@@ -151,7 +154,10 @@ function exportRows(job: FixtureJob): Record<string, unknown>[] {
           })
         : intelligenceLearningFixture({
             method: "GET",
-            path: "/api/v1/learning/insights",
+            path:
+              job.kind === "skills"
+                ? "/api/v1/learning/skills"
+                : "/api/v1/learning/insights",
             query,
           });
   if (
@@ -187,6 +193,27 @@ function exportRows(job: FixtureJob): Record<string, unknown>[] {
 
 /** Stable columns match each fixture export, including empty files. */
 function exportColumns(job: FixtureJob): string[] {
+  if (job.kind === "skills")
+    return [
+      "id",
+      "name",
+      "containerId",
+      "status",
+      "createdAt",
+      "version",
+      "skillVersionId",
+      "registryRevision",
+      "reviewer",
+      "reviewedAt",
+      "deliveryEnabled",
+      "deliveryChangedBy",
+      "deliveryChangedAt",
+      "loadEvents",
+      "runsLoaded",
+      "loadsFrom",
+      "loadsTo",
+    ];
+
   if (job.kind === "events")
     return [
       "id",
@@ -237,6 +264,33 @@ function exportColumns(job: FixtureJob): string[] {
         "archivedAt",
       ]
     : ["runId", "tokens"];
+}
+
+/** Projects Skill summary fields into the API's CSV columns without changing JSON rows. */
+function exportValue(
+  job: FixtureJob,
+  row: Record<string, unknown>,
+  column: string,
+): unknown {
+  if (job.kind !== "skills") return row[column];
+  const paths: Record<string, readonly string[]> = {
+    version: ["liveVersion", "revision"],
+    skillVersionId: ["liveVersion", "skillVersionId"],
+    registryRevision: ["liveVersion", "registryRevision"],
+    deliveryEnabled: ["delivery", "enabled"],
+    deliveryChangedBy: ["delivery", "lastChangedBy"],
+    deliveryChangedAt: ["delivery", "lastChangedAt"],
+    loadEvents: ["loads", "count"],
+    runsLoaded: ["loads", "runCount"],
+    loadsFrom: ["loads", "from"],
+    loadsTo: ["loads", "to"],
+  };
+  let value: unknown = row;
+  for (const key of paths[column] ?? [column])
+    value = isRecord(value) ? value[key] : undefined;
+  return typeof value === "object" && value !== null
+    ? JSON.stringify(value)
+    : value;
 }
 
 /** Quotes CSV delimiters and prevents spreadsheet formulas in fixture text. */
