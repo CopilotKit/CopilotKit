@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Component } from "vue";
-import { computed, useId } from "vue";
+import * as Vue from "vue";
+import { computed, getCurrentInstance } from "vue";
 import { IconLoader2 } from "../icons";
 
 const props = withDefaults(
@@ -28,9 +29,14 @@ const props = withDefaults(
 );
 
 const isDisabled = computed(() => props.isLoading || props.disabled);
-// A card is named by its title alone; the body describes it.
-const titleId = useId();
-const descriptionId = useId();
+// A card is named by its title alone; the body describes it. useId is Vue
+// 3.5+ and the peer range starts at 3.3, so older versions use the instance
+// uid (unique, but not stable across SSR hydration).
+const baseId =
+  (Vue as { useId?: () => string }).useId?.() ??
+  `cpk-suggestion-${getCurrentInstance()?.uid}`;
+const titleId = `${baseId}-title`;
+const descriptionId = `${baseId}-description`;
 
 const pillClass =
   "cpk:group cpk:inline-flex cpk:h-8 cpk:items-center cpk:gap-1.5 cpk:rounded-full cpk:border cpk:border-input cpk:bg-card cpk:px-3.5 cpk:text-[13px] cpk:leading-none cpk:text-foreground/80 cpk:shadow-[0_1px_2px_0_rgb(0_0_0/0.03)] cpk:transition-colors cpk:cursor-pointer cpk:hover:bg-accent cpk:hover:text-foreground cpk:focus-visible:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-ring cpk:focus-visible:ring-offset-2 cpk:focus-visible:ring-offset-background cpk:disabled:cursor-not-allowed cpk:disabled:text-muted-foreground cpk:disabled:hover:bg-card cpk:disabled:hover:text-muted-foreground cpk:pointer-events-auto";
