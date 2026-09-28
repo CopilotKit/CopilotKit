@@ -122,6 +122,11 @@ export type CopilotChatUserMessageProps = WithSlots<
     branchIndex?: number;
     numberOfBranches?: number;
     additionalToolbarItems?: React.ReactNode;
+    /**
+     * Render the message as markdown (code blocks, lists, links; headings stay
+     * literal). Defaults to `true`; set `false` for the plain text as typed.
+     */
+    markdown?: boolean;
   } & React.HTMLAttributes<HTMLDivElement>
 >;
 
@@ -132,6 +137,7 @@ export function CopilotChatUserMessage({
   numberOfBranches,
   onSwitchToBranch,
   additionalToolbarItems,
+  markdown = true,
   messageRenderer,
   toolbar,
   copyButton,
@@ -156,6 +162,7 @@ export function CopilotChatUserMessage({
     CopilotChatUserMessage.MessageRenderer,
     {
       content: flattenedContent,
+      markdown,
     },
   );
 
@@ -270,25 +277,32 @@ export namespace CopilotChatUserMessage {
 
   export const MessageRenderer: React.FC<{
     content: string;
+    /** Render as markdown (default) or as the plain text as typed. */
+    markdown?: boolean;
     className?: string;
-  }> = ({ content, className }) => (
+  }> = ({ content, markdown = true, className }) => (
     <div
       className={twMerge(
         "cpk:prose cpk:dark:prose-invert cpk:bg-muted cpk:text-foreground cpk:relative cpk:max-w-[80%] cpk:min-w-0 cpk:rounded-2xl cpk:px-4 cpk:py-2 cpk:inline-block cpk:break-words",
+        !markdown && "cpk:whitespace-pre-wrap",
         className,
       )}
     >
-      {/* User text arrives complete, so render it statically. The key
-          remounts on edits: streamdown's elements memoize on source position,
-          so a same-length change would otherwise keep the old text. */}
-      <Streamdown
-        key={content}
-        mode="static"
-        parseIncompleteMarkdown={false}
-        components={userMarkdownComponents}
-      >
-        {prepareUserMarkdown(content)}
-      </Streamdown>
+      {markdown ? (
+        // User text arrives complete, so render it statically. The key
+        // remounts on edits: streamdown's elements memoize on source position,
+        // so a same-length change would otherwise keep the old text.
+        <Streamdown
+          key={content}
+          mode="static"
+          parseIncompleteMarkdown={false}
+          components={userMarkdownComponents}
+        >
+          {prepareUserMarkdown(content)}
+        </Streamdown>
+      ) : (
+        content
+      )}
     </div>
   );
 
