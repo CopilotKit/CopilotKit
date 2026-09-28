@@ -6,6 +6,8 @@ import type * as ReactVirtual from "@tanstack/react-virtual";
 import { renderWithCopilotKit } from "../../../__tests__/utils/test-helpers";
 import { CopilotChatMessageView } from "../CopilotChatMessageView";
 import { ScrollPinnedContext } from "../scroll-pinned-context";
+import { ScrollElementContext } from "../scroll-element-context";
+import { estimateMessageHeight } from "../virtual-message-layout";
 
 /**
  * Covers the two things CopilotChatMessageView configures on its virtualizer
@@ -144,6 +146,143 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
       expect(shouldAdjust(itemAt(800), 40, scrolledTo(800, 150))).toBe(true);
       expect(shouldAdjust(itemAt(900), 40, scrolledTo(800, 150))).toBe(false);
     });
+  });
+
+  describe("container width changes", () => {
+    it.each([false, true])(
+      "invalidates offscreen heights and preserves the reading row (rows measured first: %s)",
+      async (rowsFirst) => {
+        const callbacks = new Map<Element, Set<ResizeObserverCallback>>();
+        const originalObserver = globalThis.ResizeObserver;
+        globalThis.ResizeObserver = class {
+          callback: ResizeObserverCallback;
+          targets = new Set<Element>();
+          constructor(callback: ResizeObserverCallback) {
+            this.callback = callback;
+          }
+          observe(target: Element) {
+            this.targets.add(target);
+            const listeners = callbacks.get(target) ?? new Set();
+            listeners.add(this.callback);
+            callbacks.set(target, listeners);
+          }
+          unobserve(target: Element) {
+            callbacks.get(target)?.delete(this.callback);
+          }
+          disconnect() {
+            for (const target of this.targets) this.unobserve(target);
+          }
+        } as typeof ResizeObserver;
+        const container = document.createElement("div");
+        let width = 600;
+        Object.defineProperties(container, {
+          clientWidth: { get: () => width },
+          clientHeight: { value: 600 },
+          scrollHeight: { get: () => virtualizer().getTotalSize() },
+        });
+        container.getBoundingClientRect = () =>
+          ({ width, height: 600 }) as DOMRect;
+        container.scrollTo = vi.fn(({ top }: ScrollToOptions) => {
+          container.scrollTop = top ?? 0;
+          container.dispatchEvent(new Event("scroll"));
+        }) as typeof container.scrollTo;
+        const messages: Message[] = Array.from({ length: 100 }, (_, index) => ({
+          id: String(index),
+          role: "user",
+          content: "word ".repeat(200),
+        }));
+        const rect = vi
+          .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+          .mockImplementation(function (this: HTMLElement) {
+            const index = Number(this.dataset.index);
+            return {
+              width,
+              height: this.hasAttribute("data-index")
+                ? estimateMessageHeight(messages[index], width)
+                : 0,
+            } as DOMRect;
+          });
+        const frame = vi
+          .spyOn(window, "requestAnimationFrame")
+          .mockReturnValue(0);
+        try {
+          renderWithCopilotKit({
+            children: (
+              <ScrollElementContext.Provider value={container}>
+                <Harness isPinnedToBottom={false} initialMessages={messages} />
+              </ScrollElementContext.Provider>
+            ),
+          });
+          act(() => {
+            // Row 0 is far above the reader; its measurement must also expire.
+            virtualizer().resizeItem(0, 900);
+            virtualizer().options.measureElement(
+              measuredRow(0, 900),
+              undefined,
+              virtualizer(),
+            );
+          });
+          act(() => {
+            const row = virtualizer().measurementsCache[50];
+            container.scrollTop = row.start + 25;
+            container.dispatchEvent(new Event("scroll"));
+          });
+          // Let the rows newly brought into view settle before resizing.
+          act(() => {
+            container.scrollTop =
+              virtualizer().measurementsCache[50].start + 25;
+            container.dispatchEvent(new Event("scroll"));
+          });
+          expect(
+            virtualizer().getVirtualItemForOffset(container.scrollTop)?.index,
+          ).toBe(50);
+          const resize = (nextWidth: number) =>
+            act(() => {
+              width = nextWidth;
+              if (rowsFirst) {
+                for (const row of document.querySelectorAll("[data-index]")) {
+                  virtualizer().measureElement(row);
+                }
+              }
+              for (const callback of callbacks.get(container) ?? []) {
+                callback(
+                  [
+                    {
+                      target: container,
+                      borderBoxSize: [{ inlineSize: width, blockSize: 600 }],
+                    },
+                  ] as unknown as ResizeObserverEntry[],
+                  {} as ResizeObserver,
+                );
+              }
+            });
+          resize(300);
+          expect(virtualizer().measurementsCache[0].size).toBe(720);
+          expect(
+            container.scrollTop - virtualizer().measurementsCache[50].start,
+          ).toBe(25);
+          expect(virtualizer().options.estimateSize(0)).toBe(720);
+          const total = virtualizer().getTotalSize();
+          resize(300);
+          expect(virtualizer().getTotalSize()).toBe(total);
+          resize(600);
+          expect(virtualizer().measurementsCache[0].size).toBe(384);
+          expect(virtualizer().options.estimateSize(0)).toBe(384);
+          expect(
+            container.scrollTop - virtualizer().measurementsCache[50].start,
+          ).toBe(25);
+        } finally {
+          // TanStack's scroll-end debounce can notify after its listener is removed.
+          await act(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 180));
+          });
+          cleanup();
+          rect.mockRestore();
+          frame.mockRestore();
+          globalThis.ResizeObserver = originalObserver;
+        }
+      },
+    );
   });
 
   describe("estimateSize", () => {
