@@ -43,6 +43,7 @@ describe("CopilotSidebar", () => {
 
     expect(sidebar.getAttribute("role")).toBe("complementary");
     expect(sidebar.classList.contains("copilotKitSidebar")).toBe(true);
+    expect(sidebar.classList.contains("copilot-sidebar-window")).toBe(true);
     expect(sidebar.getAttribute("data-position")).toBe("left");
     expect(document.body.style.marginInlineStart).toBe("360px");
 
@@ -50,15 +51,19 @@ describe("CopilotSidebar", () => {
     expect(document.body.style.marginInlineStart).toBe("");
   });
 
-  it("floats without a backdrop or body docking in overlay mode", async () => {
+  it("uses modal semantics without a backdrop or body docking in overlay mode", async () => {
     const fixture = await render({ mode: "overlay", position: "right" });
     const sidebar = fixture.nativeElement.querySelector(
       "[data-copilot-sidebar]",
     );
 
-    expect(sidebar.getAttribute("role")).toBe("complementary");
-    expect(sidebar.hasAttribute("aria-modal")).toBe(false);
-    expect(sidebar.contains(document.activeElement)).toBe(true);
+    expect(sidebar.getAttribute("role")).toBe("dialog");
+    expect(sidebar.getAttribute("aria-modal")).toBe("true");
+    expect(sidebar.classList.contains("copilot-sidebar-window")).toBe(true);
+    // Focus starts on the close button.
+    expect(document.activeElement).toBe(
+      sidebar.querySelector("[aria-label='Close Copilot sidebar']"),
+    );
     expect(document.body.style.marginInlineEnd).toBe("");
     expect(
       fixture.nativeElement.querySelector("[data-copilot-sidebar-backdrop]"),
@@ -100,6 +105,15 @@ describe("CopilotSidebar", () => {
     ).toBeNull();
   });
 
+  it("keeps a docked sidebar open on outside pointerdown, even with clickOutsideToClose", async () => {
+    const fixture = await render({ clickOutsideToClose: true });
+    document.body.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    fixture.detectChanges();
+    expect(
+      fixture.nativeElement.querySelector("[data-copilot-sidebar]"),
+    ).not.toBeNull();
+  });
+
   it("puts the left-positioned launcher on the left", async () => {
     const fixture = await render({ position: "left", open: false });
     const launcher: HTMLButtonElement = fixture.nativeElement.querySelector(
@@ -107,7 +121,31 @@ describe("CopilotSidebar", () => {
     );
 
     expect(launcher.getAttribute("data-position")).toBe("left");
-    expect(launcher.getAttribute("aria-label")).toBe("Open chat");
+    expect(launcher.classList).toContain("copilot-sidebar-toggle");
+    expect(launcher.classList).toContain("position-left");
+    expect(launcher.getAttribute("aria-label")).toBe("Open Copilot sidebar");
+  });
+
+  it("keeps the earlier title, labels and styling hooks", async () => {
+    const fixture = await render();
+    const element = fixture.nativeElement as HTMLElement;
+    const launcher = element.querySelector(
+      '[data-testid="copilot-chat-toggle"]',
+    );
+
+    expect(
+      element
+        .querySelector('[data-testid="copilot-header-title"]')
+        ?.textContent?.trim(),
+    ).toBe("Copilot");
+    expect(launcher?.getAttribute("aria-label")).toBe("Close Copilot sidebar");
+    expect(
+      element
+        .querySelector('[data-testid="copilot-close-button"]')
+        ?.getAttribute("aria-label"),
+    ).toBe("Close Copilot sidebar");
+    expect(element.querySelector(".copilot-sidebar-header")).not.toBeNull();
+    expect(element.querySelector(".copilot-sidebar-chat")).not.toBeNull();
   });
 
   it("names a docked sidebar when a custom header replaces its heading", async () => {

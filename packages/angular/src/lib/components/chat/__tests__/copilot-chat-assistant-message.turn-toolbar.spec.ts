@@ -95,8 +95,16 @@ describe("assistant toolbar scope", () => {
   });
 
   it("hides the latest reply's toolbar while it is still running", () => {
-    const { toolbars } = render({ isLoading: true });
-    expect(toolbars()).toHaveLength(1);
+    expect(render({ isRunning: true }).toolbars()).toHaveLength(1);
+    expect(render({ isLoading: true }).toolbars()).toHaveLength(1);
+  });
+
+  it('keeps every toolbar visible while running with toolbarScope="message"', () => {
+    const { toolbars } = render({
+      isRunning: true,
+      assistantMessageToolbarScope: "message",
+    });
+    expect(toolbars()).toHaveLength(3);
   });
 
   it('gives every assistant message a toolbar with toolbarScope="message"', () => {

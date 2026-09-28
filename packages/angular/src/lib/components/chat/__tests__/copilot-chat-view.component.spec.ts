@@ -1,7 +1,9 @@
-import { Injectable, signal } from "@angular/core";
+import { Component, Injectable, input, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
+import { By } from "@angular/platform-browser";
 import { beforeEach, describe, expect, it } from "vitest";
 import { CopilotChatView } from "../copilot-chat-view";
+import { CopilotChatToolCallsView } from "../copilot-chat-tool-calls-view";
 import { ChatState } from "../../../chat-state";
 import { provideCopilotKit } from "../../../config";
 import type { Message } from "@ag-ui/core";
@@ -18,6 +20,27 @@ class ChatStateStub extends ChatState {
     this.inputValue.set(value);
   }
 }
+
+@Component({
+  selector: "test-input-container",
+  template: `
+    <div data-testid="custom-input-container"></div>
+  `,
+})
+class TestInputContainer {
+  readonly showSuggestions = input(false);
+}
+
+@Component({
+  selector: "test-disclaimer",
+  template: `
+    <a href="#terms">Terms</a>
+  `,
+})
+class TestDisclaimer {}
+
+/** Lets the scroll view's mount hook run so its interactive branch renders. */
+const mounted = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 describe("CopilotChatView", () => {
   beforeEach(() => {
@@ -308,5 +331,174 @@ describe("CopilotChatView", () => {
         delete (HTMLElement.prototype as any).offsetHeight;
       }
     }
+  });
+
+  it("keeps suggestions in the scroll view when a custom input container replaces the default", async () => {
+    const chatState = TestBed.inject(ChatState);
+    chatState.suggestions.set([
+      { title: "Draft a reply", message: "Draft a reply", isLoading: false },
+    ]);
+    const fixture = TestBed.createComponent(CopilotChatView);
+    fixture.componentRef.setInput("messages", [
+      { id: "u1", role: "user", content: "Hi" },
+    ] satisfies Message[]);
+    fixture.componentRef.setInput(
+      "inputContainerComponent",
+      TestInputContainer,
+    );
+    fixture.detectChanges();
+    await mounted();
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(
+      element.querySelector('[data-testid="custom-input-container"]'),
+    ).not.toBeNull();
+    // Rendered once, below the messages; the custom container isn't asked to.
+    expect(
+      element.querySelectorAll('[data-testid="copilot-suggestions"]'),
+    ).toHaveLength(1);
+    expect(
+      element.querySelector(
+        'copilot-chat-view-scroll-view [data-testid="copilot-suggestions"]',
+      ),
+    ).not.toBeNull();
+    expect(
+      fixture.debugElement
+        .query(By.directive(TestInputContainer))
+        .componentInstance.showSuggestions(),
+    ).toBe(false);
+  });
+
+  it("keeps a custom disclaimer clickable inside the click-through input overlay", () => {
+    const fixture = TestBed.createComponent(CopilotChatView);
+    fixture.componentRef.setInput("messages", [
+      { id: "u1", role: "user", content: "Hi" },
+    ] satisfies Message[]);
+    fixture.componentRef.setInput("disclaimerComponent", TestDisclaimer);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const overlay = element.querySelector(
+      '[data-testid="copilot-input-overlay"]',
+    )!;
+    expect(overlay.className).toContain("cpk:pointer-events-none");
+    const link = overlay.querySelector('a[href="#terms"]')!;
+    expect(link.closest(".cpk\\:pointer-events-auto")).not.toBeNull();
+  });
+
+  it("keeps a custom scroll-to-bottom button clickable", async () => {
+    const fixture = TestBed.createComponent(CopilotChatView);
+    fixture.componentRef.setInput("messages", [
+      { id: "u1", role: "user", content: "Hi" },
+    ] satisfies Message[]);
+    fixture.componentRef.setInput("autoScroll", false);
+    fixture.componentRef.setInput(
+      "scrollToBottomButtonComponent",
+      TestDisclaimer,
+    );
+    fixture.detectChanges();
+    await mounted();
+    const scrollView = fixture.debugElement.query(
+      By.css("copilot-chat-view-scroll-view"),
+    ).componentInstance;
+    scrollView.showScrollButton.set(true);
+    fixture.detectChanges();
+
+    const button = (fixture.nativeElement as HTMLElement).querySelector(
+      'copilot-chat-view-scroll-view a[href="#terms"]',
+    )!;
+    expect(button.closest(".cpk\\:pointer-events-none")).not.toBeNull();
+    expect(button.closest(".cpk\\:pointer-events-auto")).not.toBeNull();
+  });
+
+  it("leaves tool-call statuses alone while the agent runs", async () => {
+    const fixture = TestBed.createComponent(CopilotChatView);
+    fixture.componentRef.setInput("messages", [
+      { id: "u1", role: "user", content: "Weather?" },
+      {
+        id: "a1",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "tc1",
+            type: "function",
+            function: { name: "weather", arguments: '{"city":"Par' },
+          },
+        ],
+      },
+    ] satisfies Message[]);
+    fixture.componentRef.setInput("isRunning", true);
+    fixture.componentRef.setInput("showCursor", true);
+    fixture.detectChanges();
+    await mounted();
+    fixture.detectChanges();
+
+    const toolCalls = fixture.debugElement.query(
+      By.directive(CopilotChatToolCallsView),
+    ).componentInstance as CopilotChatToolCallsView;
+    expect(toolCalls.isLoading()).toBe(false);
+  });
+
+  it("forwards inlineCursor and userMessageMarkdown to the transcript", async () => {
+    const fixture = TestBed.createComponent(CopilotChatView);
+    fixture.componentRef.setInput("messages", [
+      { id: "u1", role: "user", content: "Use `map()`\nplease" },
+      { id: "a1", role: "assistant", content: "Writing" },
+    ] satisfies Message[]);
+    fixture.componentRef.setInput("isRunning", true);
+    fixture.componentRef.setInput("showCursor", true);
+    fixture.detectChanges();
+    await mounted();
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const bubble = () =>
+      element.querySelector("copilot-chat-user-message-renderer")!;
+    expect(element.querySelector("[data-streaming-cursor]")).not.toBeNull();
+    expect(bubble().querySelector("code")).not.toBeNull();
+
+    fixture.componentRef.setInput("inlineCursor", false);
+    fixture.componentRef.setInput("userMessageMarkdown", false);
+    fixture.detectChanges();
+    expect(element.querySelector("[data-streaming-cursor]")).toBeNull();
+    expect(
+      element.querySelector('[data-testid="copilot-loading-cursor"]'),
+    ).not.toBeNull();
+    expect(bubble().querySelector("code")).toBeNull();
+    expect(bubble().className).toContain("cpk:whitespace-pre-wrap");
+    expect(bubble().textContent).toBe("Use `map()`\nplease");
+  });
+
+  it("forwards composer settings to the input on both screens", async () => {
+    const fixture = TestBed.createComponent(CopilotChatView);
+    fixture.componentRef.setInput("messages", []);
+    fixture.componentRef.setInput("inputLayout", "stacked");
+    fixture.componentRef.setInput("highlightMarkdown", false);
+    fixture.componentRef.setInput("textAreaMaxRows", 3);
+    fixture.detectChanges();
+    TestBed.tick();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const check = () => {
+      const input = fixture.debugElement.query(
+        By.css("copilot-chat-input"),
+      ).componentInstance;
+      expect(input.layout()).toBe("stacked");
+      expect(input.highlightMarkdown()).toBe(false);
+      expect(input.textAreaMaxRows()).toBe(3);
+      expect(
+        element.querySelector('[data-testid="copilot-chat-textarea-preview"]'),
+      ).toBeNull();
+    };
+    check();
+
+    fixture.componentRef.setInput("messages", [
+      { id: "u1", role: "user", content: "Hi" },
+    ] satisfies Message[]);
+    fixture.detectChanges();
+    TestBed.tick();
+    check();
   });
 });

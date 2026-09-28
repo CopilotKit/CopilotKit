@@ -412,7 +412,13 @@ export class CopilotChatAssistantMessage {
   readonly message = input.required<AssistantMessage>();
   readonly messages = input<Message[]>([]);
   readonly agentId = input<string | undefined>();
+  /** Forwarded to tool-call renderers (in-progress status, partial arguments). */
   readonly isLoading = input<boolean>(false);
+  /**
+   * Whether the agent is running. In turn scope the reply still being written
+   * keeps its toolbar hidden until it finishes.
+   */
+  readonly isRunning = input<boolean>(false);
   readonly additionalToolbarItems = input<TemplateRef<any> | undefined>(
     undefined,
   );
@@ -514,23 +520,18 @@ export class CopilotChatAssistantMessage {
   );
 
   /**
-   * In turn scope only the reply's last message carries the toolbar, and it
-   * stays hidden while that reply is still being produced. Replies with no
-   * text (only tool calls) never show one.
+   * Messages with no text (only tool calls) never show a toolbar. In turn
+   * scope only the reply's last message carries it, and it stays hidden while
+   * that reply is still being produced (`isRunning`). In message scope every
+   * message with text shows its toolbar, streaming or not.
    */
   readonly showToolbar = computed(() => {
+    if (!this.toolbarVisible() || !this.replyContent().trim()) return false;
     const turn = this.turn();
-    const messages = this.messages();
-    const message = this.message();
-    const ownsToolbar = !turn || turn.lastMessageId === message.id;
-    const isReplyInProgress = turn
-      ? turn.isLatest
-      : messages[messages.length - 1]?.id === message.id;
+    if (!turn) return true;
     return (
-      this.toolbarVisible() &&
-      ownsToolbar &&
-      this.replyContent().trim().length > 0 &&
-      !(this.isLoading() && isReplyInProgress)
+      turn.lastMessageId === this.message().id &&
+      !(turn.isLatest && this.isRunning())
     );
   });
 

@@ -47,12 +47,30 @@ describe("CopilotChatSuggestionView", () => {
     expect(container.className).toContain("cpk:grid-cols-2");
     expect(container.className).toContain("cpk:auto-rows-fr");
 
-    const cards = element.querySelectorAll('[data-slot="suggestion-card"]');
+    // Cards keep the pill slot name; data-appearance tells them apart.
+    const cards = element.querySelectorAll(
+      '[data-slot="suggestion-pill"][data-appearance="card"]',
+    );
     expect(cards).toHaveLength(2);
     expect(cards[0]!.textContent).toContain(
       "Turn the Q3 goals into a checklist",
     );
     // A message that just repeats the title isn't shown twice.
     expect(cards[1]!.querySelector(".cpk\\:line-clamp-2")).toBeNull();
+  });
+
+  it("names each card by its title and describes it with the message", () => {
+    const element = render("cards");
+    const [card, titleOnly] = Array.from(
+      element.querySelectorAll<HTMLElement>('button[data-appearance="card"]'),
+    );
+    const byId = (id: string | null) =>
+      id ? element.querySelector(`[id="${id}"]`)?.textContent?.trim() : null;
+
+    expect(byId(card!.getAttribute("aria-labelledby"))).toBe("Plan a launch");
+    expect(byId(card!.getAttribute("aria-describedby"))).toBe(
+      "Turn the Q3 goals into a checklist",
+    );
+    expect(titleOnly!.hasAttribute("aria-describedby")).toBe(false);
   });
 });

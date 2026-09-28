@@ -135,8 +135,8 @@ export const WithReasoning: Story = {
 
 /**
  * Send any message to watch the cursor write a slow reply through paragraphs,
- * a heading, lists, a quote, a code block and a table. Set the message view's
- * `inlineCursor` to `false` to keep it below the messages.
+ * a heading, lists, a quote, a code block and a table. Set `inlineCursor` to
+ * `false` to keep it below the messages.
  */
 export const StreamingCursor: Story = {
   parameters: {

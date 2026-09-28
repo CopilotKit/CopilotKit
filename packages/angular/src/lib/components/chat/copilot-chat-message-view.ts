@@ -70,6 +70,7 @@ import {
                 [messages]="messagesValue()"
                 [agentId]="agentId()"
                 [isLoading]="isLoadingValue()"
+                [isRunning]="running()"
                 [toolbarScope]="assistantMessageToolbarScope()"
                 [showCursor]="message.id === cursorMessageId()"
                 [inputClass]="assistantMessageClass()"
@@ -92,6 +93,7 @@ import {
             } @else {
               <copilot-chat-user-message
                 [message]="message"
+                [markdown]="userMessageMarkdown()"
                 [inputClass]="userMessageClass()"
               >
               </copilot-chat-user-message>
@@ -107,7 +109,7 @@ import {
               <copilot-chat-reasoning-message
                 [message]="asReasoningMessage(message)"
                 [messages]="messagesValue()"
-                [isRunning]="isLoadingValue()"
+                [isRunning]="running()"
                 [inputClass]="reasoningMessageClass()"
               />
             }
@@ -147,13 +149,29 @@ export class CopilotChatMessageView {
   /** Current agent state exposed to transcript-children slots. */
   state = input<unknown>({});
   showCursor = input<boolean>(false);
+  /**
+   * Forwarded to tool-call renderers: calls without a result render as
+   * `"in-progress"` with partially parsed arguments. Also counts as running
+   * (see `isRunning`).
+   */
   isLoading = input<boolean>(false);
+  /**
+   * Whether the agent is running. The reply being written carries the cursor
+   * inline, hides its toolbar in turn scope and animates its reasoning. Unlike
+   * `isLoading`, it leaves tool-call statuses alone.
+   */
+  isRunning = input<boolean>(false);
   /**
    * While a reply streams, show the cursor at the end of its text, as if it
    * were being typed. Defaults to `true`; set `false` to keep the cursor below
-   * the messages.
+   * the messages. Off when a custom cursor component or template is set.
    */
   inlineCursor = input<boolean>(true);
+  /**
+   * Render user messages as markdown. Defaults to `true`; set `false` for the
+   * plain text rendering (line breaks kept as typed).
+   */
+  userMessageMarkdown = input<boolean>(true);
   inputClass = input<string | undefined>();
   agentId = input<string | undefined>();
 
@@ -230,8 +248,11 @@ export class CopilotChatMessageView {
    */
   protected cursorMessageId = computed(() => {
     const last = this.lastMessage();
-    return this.inlineCursor() &&
-      this.isLoadingValue() &&
+    // A custom cursor renders below the list, where it always has.
+    const inline =
+      this.inlineCursor() && !this.cursorComponent() && !this.cursorTemplate();
+    return inline &&
+      this.running() &&
       last?.role === "assistant" &&
       last.content
       ? last.id
@@ -245,6 +266,7 @@ export class CopilotChatMessageView {
       !this.cursorMessageId(),
   );
   protected isLoadingValue = computed(() => this.isLoading());
+  protected running = computed(() => this.isRunning() || this.isLoading());
   protected lastMessage = computed(() => {
     const messages = this.messagesValue();
     return messages[messages.length - 1];
@@ -287,6 +309,7 @@ export class CopilotChatMessageView {
       message,
       messages: this.messagesValue(),
       isLoading: this.isLoadingValue(),
+      isRunning: this.running(),
       toolbarScope: this.assistantMessageToolbarScope(),
       showCursor: message.id === this.cursorMessageId(),
       inputClass: this.assistantMessageClass(),
@@ -297,7 +320,7 @@ export class CopilotChatMessageView {
     return {
       message,
       messages: this.messagesValue(),
-      isRunning: this.isLoadingValue(),
+      isRunning: this.running(),
       inputClass: this.reasoningMessageClass(),
     };
   }
@@ -307,7 +330,7 @@ export class CopilotChatMessageView {
       messages: this.messagesValue(),
       state: this.state(),
       agentId: this.agentId(),
-      isRunning: this.isLoadingValue(),
+      isRunning: this.running(),
       inputClass: this.childrenClass(),
     };
   }
@@ -315,6 +338,7 @@ export class CopilotChatMessageView {
   mergeUserProps(message: Message) {
     return {
       message,
+      markdown: this.userMessageMarkdown(),
       inputClass: this.userMessageClass(),
     };
   }

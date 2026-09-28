@@ -6,6 +6,7 @@ import {
   input,
   output,
 } from "@angular/core";
+import { randomUUID } from "@copilotkit/shared";
 import { cn } from "../../utils";
 import { CopilotIcon, LoaderCircle } from "../icons/copilot-icon";
 
@@ -41,14 +42,18 @@ const suggestionCardClass = cn(
   host: { "data-copilotkit": "", "[attr.data-appearance]": "appearance()" },
   template: `
     @if (appearance() === "card") {
+      <!-- Its accessible name is the title; the body is its description. -->
       <button
         data-copilotkit
         data-testid="copilot-suggestion"
-        data-slot="suggestion-card"
+        data-slot="suggestion-pill"
+        data-appearance="card"
         type="button"
         [class]="computedCardClass()"
         [disabled]="disabled() || isLoading()"
         [attr.aria-busy]="isLoading() ? 'true' : null"
+        [attr.aria-labelledby]="titleId"
+        [attr.aria-describedby]="description() ? descriptionId : null"
         (click)="handleClick()"
       >
         <span
@@ -61,11 +66,12 @@ const suggestionCardClass = cn(
               [size]="14"
             />
           }
-          <span class="cpk:truncate">{{ title() }}</span>
+          <span class="cpk:truncate" [attr.id]="titleId">{{ title() }}</span>
         </span>
         @if (description()) {
           <span
             class="cpk:line-clamp-2 cpk:text-[13px] cpk:leading-snug cpk:text-muted-foreground"
+            [attr.id]="descriptionId"
             >{{ description() }}</span
           >
         }
@@ -75,6 +81,7 @@ const suggestionCardClass = cn(
         data-copilotkit
         data-testid="copilot-suggestion"
         data-slot="suggestion-pill"
+        data-appearance="pill"
         type="button"
         [class]="computedClass()"
         [disabled]="disabled() || isLoading()"
@@ -110,6 +117,9 @@ export class CopilotChatSuggestionPill {
   readonly clicked = output<void>();
 
   protected readonly LoaderCircle = LoaderCircle;
+  private readonly id = `copilot-suggestion-${randomUUID()}`;
+  protected readonly titleId = `${this.id}-title`;
+  protected readonly descriptionId = `${this.id}-description`;
   protected readonly computedClass = computed(() =>
     cn(suggestionPillClass, this.inputClass()),
   );

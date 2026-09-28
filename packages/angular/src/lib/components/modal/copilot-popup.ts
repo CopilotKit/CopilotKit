@@ -1,12 +1,15 @@
-import { NgComponentOutlet } from "@angular/common";
+import { CdkTrapFocus } from "@angular/cdk/a11y";
+import { DOCUMENT, NgComponentOutlet } from "@angular/common";
 import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  Injector,
   Type,
   afterNextRender,
   computed,
   effect,
+  inject,
   input,
   model,
   signal,
@@ -30,12 +33,15 @@ export type { CopilotModalThreadsDrawer } from "./modal-utils";
 
 /**
  * Floating chat window anchored to a round launcher, matching React's
- * `CopilotPopup`: no backdrop, Escape closes it (after an open threads drawer),
- * and an outside click closes it only with `clickOutsideToClose`.
+ * `CopilotPopup` visually: no backdrop. It is a modal dialog that traps focus
+ * (starting on its close button); Escape closes it (after an open threads
+ * drawer) while focus is inside, and an outside click closes it only with
+ * `clickOutsideToClose`.
  */
 @Component({
   selector: "copilot-popup",
   imports: [
+    CdkTrapFocus,
     NgComponentOutlet,
     CopilotChatToggleButton,
     CopilotModalHeader,
@@ -53,21 +59,28 @@ export type { CopilotModalThreadsDrawer } from "./modal-utils";
     <button
       #launcher
       copilotChatToggleButton
+      class="copilot-modal-toggle"
       data-copilot-popup-toggle
+      openLabel="Open Copilot chat"
+      closeLabel="Close Copilot chat"
       [open]="open()"
+      [tabIndex]="open() ? -1 : 0"
       [attr.aria-controls]="dialogId"
       (click)="toggle()"
     ></button>
 
     @if (open()) {
       <div
-        class="cpk:fixed cpk:inset-0 cpk:z-[1200] cpk:flex cpk:max-w-full cpk:flex-col cpk:items-stretch cpk:md:inset-auto cpk:md:bottom-24 cpk:md:right-6 cpk:md:items-end"
+        class="cpk:fixed cpk:inset-0 cpk:z-[1201] cpk:flex cpk:max-w-full cpk:flex-col cpk:items-stretch cpk:md:inset-auto cpk:md:bottom-24 cpk:md:right-6 cpk:md:items-end"
       >
         <section
           #dialog
+          cdkTrapFocus
+          [cdkTrapFocusAutoCapture]="true"
           tabindex="-1"
           role="dialog"
-          class="copilotKitPopup copilotKitWindow cpk:relative cpk:flex cpk:h-full cpk:w-full cpk:flex-col cpk:overflow-hidden cpk:bg-background cpk:text-foreground cpk:origin-bottom cpk:focus:outline-none cpk:border cpk:border-transparent cpk:md:h-[var(--copilot-popup-height)] cpk:md:w-[var(--copilot-popup-width)] cpk:md:max-h-[calc(100dvh-7.5rem)] cpk:md:max-w-[calc(100vw-3rem)] cpk:md:origin-bottom-right cpk:md:rounded-2xl cpk:md:border-border cpk:md:shadow-[0_2px_6px_-1px_rgb(0_0_0/0.06),0_24px_64px_-12px_rgb(0_0_0/0.22)]"
+          aria-modal="true"
+          class="copilot-popup-window copilotKitPopup copilotKitWindow cpk:relative cpk:flex cpk:h-full cpk:w-full cpk:flex-col cpk:overflow-hidden cpk:bg-background cpk:text-foreground cpk:origin-bottom cpk:focus:outline-none cpk:border cpk:border-transparent cpk:md:h-[var(--copilot-popup-height)] cpk:md:w-[var(--copilot-popup-width)] cpk:md:max-h-[calc(100dvh-7.5rem)] cpk:md:max-w-[calc(100vw-3rem)] cpk:md:origin-bottom-right cpk:md:rounded-2xl cpk:md:border-border cpk:md:shadow-[0_2px_6px_-1px_rgb(0_0_0/0.06),0_24px_64px_-12px_rgb(0_0_0/0.22)]"
           animate.enter="cpk-popup-enter"
           animate.leave="cpk-popup-leave"
           data-copilot-popup
@@ -80,6 +93,8 @@ export type { CopilotModalThreadsDrawer } from "./modal-utils";
         >
           <header
             copilotModalHeader
+            class="copilot-modal-header"
+            closeLabel="Close Copilot chat"
             [title]="title()"
             [titleId]="titleId"
             [headerComponent]="headerComponent()"
@@ -88,7 +103,10 @@ export type { CopilotModalThreadsDrawer } from "./modal-utils";
             (closeClick)="close()"
             (drawerToggle)="drawerOpen.set(!drawerOpen())"
           ></header>
-          <div class="cpk:min-h-0 cpk:flex-1 cpk:overflow-hidden" data-popup-chat>
+          <div
+            class="copilot-modal-chat cpk:min-h-0 cpk:flex-1 cpk:overflow-hidden"
+            data-popup-chat
+          >
             <ng-container
               [ngComponentOutlet]="chatComponent()"
               [ngComponentOutletInputs]="chatInputs()"
@@ -117,7 +135,7 @@ export type { CopilotModalThreadsDrawer } from "./modal-utils";
 })
 export class CopilotPopup {
   readonly open = model(true);
-  readonly title = input("CopilotKit Chat");
+  readonly title = input("Copilot");
   readonly width = input<number | string>(420);
   readonly height = input<number | string>(560);
   readonly clickOutsideToClose = input(false);
@@ -157,10 +175,12 @@ export class CopilotPopup {
     read: ElementRef<HTMLButtonElement>,
   });
   private readonly dialog = viewChild<ElementRef<HTMLElement>>("dialog");
+  private readonly document = inject(DOCUMENT);
+  private readonly injector = inject(Injector);
 
   constructor() {
     afterNextRender(() => {
-      if (this.open()) this.focusDialog();
+      if (this.open()) this.focusInitial();
     });
     // Closing the popup closes its drawer, so it never reopens expanded.
     effect(() => {
@@ -172,16 +192,25 @@ export class CopilotPopup {
     if (this.open()) this.close();
     else {
       this.open.set(true);
-      queueMicrotask(() => this.focusDialog());
+      afterNextRender(() => this.focusInitial(), { injector: this.injector });
     }
   }
 
-  /** Escape closes an open threads drawer first, then the popup. */
+  /**
+   * Escape closes an open threads drawer first; otherwise, with focus inside,
+   * it closes the popup (like the sidebar).
+   */
   protected onEscape(event: Event): void {
     if (!this.open() || event.defaultPrevented) return;
-    event.preventDefault();
-    if (this.drawerOpen()) this.drawerOpen.set(false);
-    else this.close();
+    if (this.drawerOpen()) {
+      event.preventDefault();
+      this.drawerOpen.set(false);
+      return;
+    }
+    if (this.dialog()?.nativeElement.contains(this.document.activeElement)) {
+      event.preventDefault();
+      this.close();
+    }
   }
 
   protected onDocumentPointerDown(event: Event): void {
@@ -201,11 +230,14 @@ export class CopilotPopup {
     );
   }
 
-  /** Focus the window itself unless something inside it already has focus. */
-  private focusDialog(): void {
-    const dialog = this.dialog()?.nativeElement;
-    if (dialog && !dialog.contains(document.activeElement)) {
-      dialog.focus({ preventScroll: true });
-    }
+  /**
+   * Focus starts on the close button, as before. The focus trap does this too
+   * once it renders; this covers environments where it can't tell the button
+   * is visible (no layout).
+   */
+  private focusInitial(): void {
+    this.dialog()
+      ?.nativeElement.querySelector<HTMLElement>("[cdkFocusInitial]")
+      ?.focus({ preventScroll: true });
   }
 }

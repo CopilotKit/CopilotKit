@@ -136,7 +136,7 @@ import { injectChatLabels } from "../../chat-config";
               >
                 <copilot-slot
                   [slot]="inputSlot()"
-                  [context]="{ inputClass: undefined }"
+                  [context]="inputSlotContext()"
                   [defaultComponent]="defaultInputComponent"
                 >
                 </copilot-slot>
@@ -197,6 +197,9 @@ import { injectChatLabels } from "../../chat-config";
           [scrollToBottomButtonClass]="scrollToBottomButtonClass()"
           [showCursor]="showCursorSignal()"
           [isRunning]="isRunning()"
+          [inlineCursor]="inlineCursor()"
+          [userMessageMarkdown]="userMessageMarkdown()"
+          [showSuggestions]="suggestionsInScrollView()"
           [assistantMessageToolbarScope]="assistantMessageToolbarScope()"
           (assistantMessageThumbsUp)="assistantMessageThumbsUp.emit($event)"
           (assistantMessageThumbsDown)="assistantMessageThumbsDown.emit($event)"
@@ -261,6 +264,16 @@ export class CopilotChatView implements OnInit, OnChanges {
    * immediately. Always off when the user prefers reduced motion.
    */
   introAnimation = input<boolean>(true);
+  /**
+   * While a reply streams, show the cursor at the end of its text. Defaults to
+   * `true`; set `false` to keep the cursor below the messages.
+   */
+  inlineCursor = input<boolean>(true);
+  /**
+   * Render user messages as markdown. Defaults to `true`; set `false` for the
+   * plain text rendering (line breaks kept as typed).
+   */
+  userMessageMarkdown = input<boolean>(true);
 
   // ReasoningMessage slot inputs
   reasoningMessageComponent = input<Type<any> | undefined>(undefined);
@@ -285,6 +298,15 @@ export class CopilotChatView implements OnInit, OnChanges {
   // Input slot inputs
   inputComponent = input<Type<any> | undefined>(undefined);
   inputTemplate = input<TemplateRef<any> | undefined>(undefined);
+  /** Rows the composer grows to before it scrolls. Defaults to 8. */
+  textAreaMaxRows = input<number | undefined>(undefined);
+  /**
+   * Style list markers and links in the composer as the user types. Defaults
+   * to `true`; set `false` for plain text.
+   */
+  highlightMarkdown = input<boolean>(true);
+  /** The composer's `layout` (see CopilotChatInput). Defaults to `"auto"`. */
+  inputLayout = input<"auto" | "stacked">("auto");
 
   // InputContainer slot inputs
   inputContainerComponent = input<Type<any> | undefined>(undefined);
@@ -364,6 +386,13 @@ export class CopilotChatView implements OnInit, OnChanges {
       !this.isRunning() &&
       (this.chatState?.suggestions?.() ?? []).length > 0,
   );
+  /**
+   * The default input container docks suggestions above the input. A custom
+   * one may not render them, so they stay in the scroll view as before.
+   */
+  protected readonly suggestionsInScrollView = computed(
+    () => this.suggestionsVisible() && !!this.inputContainerSlot(),
+  );
 
   // Computed signals
   protected computedClass = computed(() =>
@@ -438,9 +467,20 @@ export class CopilotChatView implements OnInit, OnChanges {
 
   // Removed scrollViewPropsComputed - no longer needed
 
+  /** Settings for the input slot (the default CopilotChatInput or a custom one). */
+  protected inputSlotContext = computed(() => ({
+    inputClass: undefined,
+    textAreaMaxRows: this.textAreaMaxRows(),
+    highlightMarkdown: this.highlightMarkdown(),
+    layout: this.inputLayout(),
+  }));
+
   protected inputContainerContext = computed(() => ({
-    showSuggestions: this.suggestionsVisible(),
+    showSuggestions: this.suggestionsVisible() && !this.inputContainerSlot(),
     input: this.inputSlot(),
+    textAreaMaxRows: this.textAreaMaxRows(),
+    highlightMarkdown: this.highlightMarkdown(),
+    inputLayout: this.inputLayout(),
     disclaimer: this.disclaimerSlot(),
     disclaimerText: this.disclaimerTextSignal(),
     disclaimerClass: this.disclaimerClassSignal(),

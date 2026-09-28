@@ -244,9 +244,18 @@ export class CopilotDefaultToolRenderer implements ToolRenderer {
   protected readonly isComplete = computed(
     () => (this.toolCall().status as string) === "complete",
   );
-  protected readonly statusLabel = computed(() =>
-    this.isActive() ? "Running" : this.isComplete() ? "Done" : "Unknown status",
-  );
+  protected readonly statusLabel = computed(() => {
+    switch (this.toolCall().status as string) {
+      case "in-progress":
+        return "Preparing";
+      case "executing":
+        return "Running";
+      case "complete":
+        return "Complete";
+      default:
+        return "Unknown status";
+    }
+  });
   protected readonly statusIcon = computed(() =>
     this.isActive() ? LoaderCircle : this.isComplete() ? Check : Circle,
   );

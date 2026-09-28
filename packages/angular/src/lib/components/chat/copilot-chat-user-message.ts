@@ -84,6 +84,7 @@ import {
       } @else {
         <copilot-chat-user-message-renderer
           [content]="flattenedContent()"
+          [markdown]="markdown()"
           [inputClass]="messageRendererClass()"
         >
         </copilot-chat-user-message-renderer>
@@ -210,6 +211,11 @@ export class CopilotChatUserMessage {
   branchIndex = input<number | undefined>();
   numberOfBranches = input<number | undefined>();
   additionalToolbarItems = input<TemplateRef<any> | undefined>();
+  /**
+   * Render the message text as markdown. Defaults to `true`; set `false` for
+   * plain text with line breaks kept as typed.
+   */
+  markdown = input<boolean>(true);
   inputClass = input<string | undefined>();
 
   // Output events

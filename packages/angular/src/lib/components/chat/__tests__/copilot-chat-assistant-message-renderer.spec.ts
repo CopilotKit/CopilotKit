@@ -37,3 +37,57 @@ describe("CopilotChatAssistantMessageRenderer math parsing", () => {
     expect(rendered).not.toContain('class="katex"');
   });
 });
+
+describe("CopilotChatAssistantMessageRenderer URL safety", () => {
+  function render(content: string): HTMLElement {
+    TestBed.resetTestingModule();
+    const fixture = TestBed.createComponent(
+      CopilotChatAssistantMessageRenderer,
+    );
+    fixture.componentRef.setInput("content", content);
+    fixture.detectChanges();
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  const hrefs = (element: HTMLElement) =>
+    Array.from(element.querySelectorAll("a")).map((a) =>
+      a.getAttribute("href"),
+    );
+
+  it("keeps app schemes, ftp, sms and blob links", () => {
+    const element = render(
+      "[a](myapp://open/42) [b](ftp://files.example.com) [c](sms:+15551234) [d](blob:https://x.y/1) [e](mailto:a@b.c) [f](/docs)",
+    );
+    expect(hrefs(element)).toEqual([
+      "myapp://open/42",
+      "ftp://files.example.com",
+      "sms:+15551234",
+      "blob:https://x.y/1",
+      "mailto:a@b.c",
+      "/docs",
+    ]);
+  });
+
+  it("blocks javascript:, vbscript: and non-image data: links, however encoded", () => {
+    const element = render(
+      "[a](javascript:alert(1)) [b](VBScript:msgbox) [c](data:text/html,x) [d](java&#x09;script:alert(1))",
+    );
+    expect(hrefs(element)).toEqual(["#", "#", "#", "#"]);
+  });
+
+  it("renders links with out-of-range character references", () => {
+    const element = render("[a](&#x110000;x) after");
+    expect(element.querySelector("a")?.textContent).toBe("a");
+    expect(element.textContent).toContain("after");
+  });
+
+  it("allows data: images but not scripts as image sources", () => {
+    const element = render(
+      "![ok](data:image/png;base64,AAAA) ![bad](javascript:alert(1))",
+    );
+    const sources = Array.from(element.querySelectorAll("img")).map((img) =>
+      img.getAttribute("src"),
+    );
+    expect(sources).toEqual(["data:image/png;base64,AAAA", ""]);
+  });
+});

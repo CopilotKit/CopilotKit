@@ -233,7 +233,7 @@ export class CopilotThreadsDrawer implements OnInit {
 
   /**
    * Optional accessible/region + default-header label forwarded to the element's
-   * `label` property; defaults to the element's own `"Conversations"` when unset.
+   * `label` property; defaults to the element's own `"Threads"` when unset.
    */
   readonly label = input<string | undefined>();
 
@@ -594,7 +594,7 @@ export class CopilotThreadsDrawer implements OnInit {
       this.config?.startNewThread();
     }
     if (this.overlay()) {
-      // The overlay closes itself on "New Conversation"; land in the composer.
+      // The overlay closes itself on "New Thread"; land in the composer.
       // Deferred a tick because the reset swaps the chat to its welcome
       // screen, which mounts a fresh input.
       const origin = this.drawerRef()?.nativeElement ?? null;

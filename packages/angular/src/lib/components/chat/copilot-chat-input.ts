@@ -46,12 +46,67 @@ import { cn } from "../../utils";
 import { injectChatState } from "../../chat-state";
 import { explicitEffect } from "../../explicit-effect";
 
-/**
- * Context provided to slot templates
- */
 /** Inputs narrower than this (px) fold voice input into the "+" menu. */
 const NARROW_INPUT_WIDTH = 320;
 
+/**
+ * Clicks on these (or inside them) keep their own focus behavior instead of
+ * focusing the text: anything interactive or focusable.
+ */
+const INTERACTIVE_SELECTOR = [
+  "a[href]",
+  "button",
+  "input",
+  "select",
+  "textarea",
+  "label",
+  "summary",
+  "[contenteditable]:not([contenteditable='false'])",
+  "[tabindex]",
+  "[role='button']",
+  "[role='combobox']",
+  "[role='listbox']",
+  "[role='menu']",
+  "[role='menuitem']",
+].join(",");
+
+/**
+ * Computed textarea styles copied onto the markdown preview, so the two layers
+ * lay the text out identically however the textarea is restyled.
+ */
+const PREVIEW_METRICS = [
+  "box-sizing",
+  "font-family",
+  "font-size",
+  "font-weight",
+  "font-style",
+  "font-stretch",
+  "font-variant",
+  "font-feature-settings",
+  "line-height",
+  "letter-spacing",
+  "word-spacing",
+  "text-indent",
+  "text-transform",
+  "text-align",
+  "tab-size",
+  "padding-top",
+  "padding-right",
+  "padding-bottom",
+  "padding-left",
+  "border-top-width",
+  "border-right-width",
+  "border-bottom-width",
+  "border-left-width",
+  "border-top-style",
+  "border-right-style",
+  "border-bottom-style",
+  "border-left-style",
+] as const;
+
+/**
+ * Context provided to slot templates
+ */
 export interface SendButtonContext {
   send: () => void;
   disabled: boolean;
@@ -224,7 +279,7 @@ export interface ToolbarContext {
         }
       } @else {
         <!-- Narrow inputs fold voice input into the "+" menu (addMenuTools). -->
-        @if (!isNarrow()) {
+        @if (!foldVoiceIntoMenu()) {
           @if (
             startTranscribeButtonTemplate() || startTranscribeButtonComponent()
           ) {
@@ -480,8 +535,9 @@ export class CopilotChatInput implements OnDestroy {
 
   computedClass = computed(() => {
     const baseClasses = cn(
-      // V1 compatibility class for custom styling
-      "copilotKitInput",
+      // V1 compatibility class for custom styling; ck-input-shadow is kept as
+      // a styling hook
+      "copilotKitInput ck-input-shadow",
       // Layout
       "cpk:flex cpk:w-full cpk:flex-col cpk:items-center cpk:justify-center",
       // Interaction
@@ -504,6 +560,21 @@ export class CopilotChatInput implements OnDestroy {
   readonly expanded = signal(false);
   /** True when the input is narrower than {@link NARROW_INPUT_WIDTH}. */
   readonly isNarrow = signal(false);
+  /**
+   * Narrow inputs move voice input into the "+" menu, unless the mic or the
+   * leading buttons are custom: then the menu isn't ours to extend, and a
+   * custom mic stays where the app put it.
+   */
+  readonly foldVoiceIntoMenu = computed(
+    () =>
+      this.isNarrow() &&
+      !this.startTranscribeButtonTemplate() &&
+      !this.startTranscribeButtonComponent() &&
+      !this.addFileButtonTemplate() &&
+      !this.addFileButtonComponent() &&
+      !this.toolsButtonTemplate() &&
+      !this.toolsButtonComponent(),
+  );
 
   gridClass = computed(() =>
     cn(
@@ -549,10 +620,13 @@ export class CopilotChatInput implements OnDestroy {
   defaultTextAreaClass = computed(() =>
     cn(
       this.textAreaPadding(),
-      // With the preview, the textarea only shows the caret and selection.
       this.highlightMarkdown() &&
-        "cpk-md-textarea cpk:relative cpk:text-transparent cpk:caret-foreground",
+        "cpk-md-textarea cpk:relative cpk:caret-foreground",
       this.textAreaClass(),
+      // With the preview, the textarea only shows the caret and selection: its
+      // text stays transparent whatever textAreaClass sets (the preview takes
+      // the color instead).
+      this.highlightMarkdown() && "cpk:text-transparent",
     ),
   );
 
@@ -561,20 +635,25 @@ export class CopilotChatInput implements OnDestroy {
   protected readonly markdownPreviewHtml = computed(() =>
     this.highlightMarkdown() ? highlightMarkdownInput(this.draft()) : "",
   );
-  /** Same typography and padding as the textarea, so the layers align. */
+  /**
+   * Same typography, padding and textAreaClass as the textarea, so the layers
+   * align and the text takes textAreaClass's color (it inherits the
+   * foreground otherwise). The computed metrics are also copied over after
+   * render (see syncMarkdownPreview).
+   */
   protected readonly markdownPreviewClass = computed(() =>
     cn(
       TEXTAREA_TYPOGRAPHY,
       this.textAreaPadding(),
       this.textAreaClass(),
-      "cpk-md-preview cpk:pointer-events-none cpk:absolute cpk:inset-0 cpk:overflow-hidden cpk:whitespace-pre-wrap cpk:break-words cpk:text-foreground",
+      "cpk-md-preview cpk:pointer-events-none cpk:absolute cpk:inset-0 cpk:overflow-hidden cpk:whitespace-pre-wrap cpk:break-words cpk:border-transparent",
     ),
   );
 
   /** Tools for the "+" menu; narrow inputs fold voice input in at the top. */
   addMenuTools = computed<(ToolsMenuItem | "-")[]>(() => {
     const tools = this.computedToolsMenu();
-    if (!this.isNarrow()) return tools;
+    if (!this.foldVoiceIntoMenu()) return tools;
     const transcribe: ToolsMenuItem = {
       label: this.labels.chatInputToolbarStartTranscribeButtonLabel,
       action: () => this.handleStartTranscribe(),
@@ -636,6 +715,13 @@ export class CopilotChatInput implements OnDestroy {
       this.computedMode();
       this.layout();
       untracked(() => this.evaluateLayout());
+    });
+    // Keep the preview's metrics in step with the textarea's styling.
+    afterRenderEffect(() => {
+      this.markdownPreview();
+      this.textAreaClass();
+      this.expanded();
+      untracked(() => this.syncMarkdownPreview());
     });
     // Sized by the input's own width (not the viewport), so a narrow popup or
     // sidebar on a wide screen adapts the same way a phone does.
@@ -736,11 +822,38 @@ export class CopilotChatInput implements OnDestroy {
     }
   }
 
-  /** Clicking the pill's padding focuses the text, as a text field would. */
+  /**
+   * Clicking the pill's padding focuses the text, as a text field would.
+   * Clicks on anything interactive inside the pill (buttons, selects, custom
+   * editors, focusable elements...) are left alone.
+   */
   focusFromContainer(event: MouseEvent): void {
-    const target = event.target as HTMLElement;
-    if (target.closest("button, a, input, textarea, [role='menu']")) return;
+    const container = event.currentTarget as HTMLElement | null;
+    const target = event.target as Element | null;
+    const interactive = target?.closest?.(INTERACTIVE_SELECTOR);
+    if (interactive && container?.contains(interactive)) return;
     if (this.computedMode() === "input") this.textAreaRef()?.focus();
+  }
+
+  /**
+   * Copies the textarea's computed typography and box metrics onto the
+   * preview, so text wraps identically even when the textarea is restyled
+   * (textAreaClass, app CSS). The preview's own border stays transparent.
+   */
+  private syncMarkdownPreview(): void {
+    const preview = this.markdownPreview()?.nativeElement;
+    const textarea = this.textAreaRef()?.textareaRef.nativeElement as
+      | HTMLTextAreaElement
+      | undefined;
+    if (!preview || !textarea || typeof getComputedStyle === "undefined") {
+      return;
+    }
+    const styles = getComputedStyle(textarea);
+    for (const property of PREVIEW_METRICS) {
+      const value = styles.getPropertyValue(property);
+      if (value) preview.style.setProperty(property, value);
+      else preview.style.removeProperty(property);
+    }
   }
 
   protected syncMarkdownPreviewScroll(event: Event): void {

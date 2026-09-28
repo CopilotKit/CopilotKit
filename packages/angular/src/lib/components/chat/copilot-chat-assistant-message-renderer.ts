@@ -19,30 +19,34 @@ import { injectChatLabels } from "../../chat-config";
 import { explicitEffect } from "../../explicit-effect";
 import { markCursorAnchor } from "./streaming-cursor";
 
-const SAFE_URL = /^(?:https?:|mailto:|tel:|#|\/|\.{1,2}\/|[^:]*$)/i;
-const SAFE_IMAGE_URL = /^(?:https?:|data:image\/|\/|\.{1,2}\/|[^:]*$)/i;
+/**
+ * Schemes that can run script: javascript:, vbscript: and data: (except
+ * images). Everything else, including app schemes, ftp:, sms: and blob:, is
+ * left alone.
+ */
+const DANGEROUS_URL = /^(?:javascript:|vbscript:|data:(?!image\/))/i;
 
 /**
  * What a browser would read as the URL: character references decoded and the
  * whitespace / control characters it ignores inside a scheme removed.
  */
 function normalizeUrl(href: string): string {
+  // Out-of-range references decode to nothing instead of throwing.
+  const char = (code: number) =>
+    code <= 0x10ffff ? String.fromCodePoint(code) : "";
   return href
-    .replace(/&#x([0-9a-f]+);?/gi, (_, hex) =>
-      String.fromCodePoint(parseInt(hex, 16)),
-    )
-    .replace(/&#(\d+);?/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&#x([0-9a-f]+);?/gi, (_, hex) => char(parseInt(hex, 16)))
+    .replace(/&#(\d+);?/g, (_, dec) => char(parseInt(dec, 10)))
     .replace(/&colon;?/gi, ":")
     .replace(/&(tab|newline);?/gi, "")
     .replace(/[\u0000-\u0020\u007f-\u009f]/g, "");
 }
 
-/** Neutralize link / image URLs with script-capable schemes (javascript:, vbscript:, ...). */
+/** Neutralize link / image URLs with script-capable schemes (see DANGEROUS_URL). */
 function sanitizeTokenUrl(token: { type: string; href?: string }): void {
   if (typeof token.href !== "string") return;
-  const href = normalizeUrl(token.href);
-  if (token.type === "link" && !SAFE_URL.test(href)) token.href = "#";
-  if (token.type === "image" && !SAFE_IMAGE_URL.test(href)) token.href = "";
+  if (!DANGEROUS_URL.test(normalizeUrl(token.href))) return;
+  token.href = token.type === "image" ? "" : "#";
 }
 
 function processMathEquationsInHtml(html: string): string {

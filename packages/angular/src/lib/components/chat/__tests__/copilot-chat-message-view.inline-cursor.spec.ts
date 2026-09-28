@@ -1,3 +1,4 @@
+import { Component } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Message } from "@ag-ui/core";
@@ -12,6 +13,14 @@ const reply = (content: string): Message => ({
   role: "assistant",
   content,
 });
+
+@Component({
+  selector: "test-cursor",
+  template: `
+    <span data-testid="custom-cursor">…</span>
+  `,
+})
+class TestCursor {}
 
 describe("inline cursor", () => {
   beforeEach(() => {
@@ -70,6 +79,27 @@ describe("inline cursor", () => {
     );
     expect(streamingReply()).toBeNull();
     expect(listCursor()).not.toBeNull();
+  });
+
+  it("rides on the reply when isRunning is set (without isLoading)", () => {
+    const { streamingReply, listCursor } = render(
+      [question, reply("First step.")],
+      { isLoading: false, isRunning: true },
+    );
+    expect(streamingReply()).not.toBeNull();
+    expect(listCursor()).toBeNull();
+  });
+
+  it("keeps a custom cursor below the list", () => {
+    const { fixture, streamingReply } = render(
+      [question, reply("First step.")],
+      { cursorComponent: TestCursor },
+    );
+    const element = fixture.nativeElement as HTMLElement;
+    expect(streamingReply()).toBeNull();
+    expect(
+      element.querySelector('[data-testid="custom-cursor"]'),
+    ).not.toBeNull();
   });
 
   it("leaves the reply once it finishes", () => {

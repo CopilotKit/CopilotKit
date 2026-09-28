@@ -48,14 +48,20 @@ const FALLBACK_TOKENS = [
   "--radius",
 ];
 
-/** Collects custom properties declared on exactly `[data-copilotkit]`. */
+/**
+ * The token rule: `[data-copilotkit]`, optionally narrowed to the outermost
+ * root with `:where(...)` (the dark rule has a `.dark` part, so it's skipped).
+ */
+const TOKEN_ROOT_SELECTOR = /^\[data-copilotkit\](?::where\(.*\))?$/;
+
+/** Collects custom properties declared on the `[data-copilotkit]` token root. */
 function readTokenNames(): string[] {
   const names = new Set<string>();
   const visit = (rules: CSSRuleList) => {
     for (const rule of Array.from(rules)) {
       if (
         rule instanceof CSSStyleRule &&
-        rule.selectorText.trim() === "[data-copilotkit]"
+        TOKEN_ROOT_SELECTOR.test(rule.selectorText.trim())
       ) {
         for (const property of Array.from(rule.style)) {
           if (

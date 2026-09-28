@@ -21,8 +21,10 @@ import { ScrollingModule } from "@angular/cdk/scrolling";
 import { CopilotSlot } from "../../slots/copilot-slot";
 import { CopilotChatMessageView } from "./copilot-chat-message-view";
 import { CopilotChatViewScrollToBottomButton } from "./copilot-chat-view-scroll-to-bottom-button";
+import { CopilotChatSuggestionView } from "./copilot-chat-suggestion-view";
 import { StickToBottom } from "../../directives/stick-to-bottom";
 import { ScrollPosition } from "../../scroll-position";
+import { ChatState } from "../../chat-state";
 import { Message } from "@ag-ui/client";
 import { cn } from "../../utils";
 import { Subject } from "rxjs";
@@ -40,6 +42,7 @@ import { takeUntil } from "rxjs/operators";
     NgTemplateOutlet,
     CopilotSlot,
     CopilotChatMessageView,
+    CopilotChatSuggestionView,
     StickToBottom,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -49,6 +52,7 @@ import { takeUntil } from "rxjs/operators";
 })
 export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
   private cdr = inject(ChangeDetectorRef);
+  protected readonly chatState = inject(ChatState, { optional: true });
 
   autoScroll = input<boolean>(true);
 
@@ -74,6 +78,16 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
   showCursor = input<boolean>(false);
   /** Whether the agent is running; forwarded to the message view. */
   isRunning = input<boolean>(false);
+  /** Forwarded to the message view (see CopilotChatMessageView). */
+  inlineCursor = input<boolean>(true);
+  /** Forwarded to the message view (see CopilotChatMessageView). */
+  userMessageMarkdown = input<boolean>(true);
+  /**
+   * Render the suggestion row below the messages. CopilotChatView turns this
+   * on when a custom input container replaces the one that docks suggestions
+   * above the input.
+   */
+  showSuggestions = input<boolean>(false);
   assistantMessageToolbarScope = input<"turn" | "message">("turn");
 
   // Handler availability flags removed in favor of DI service
@@ -106,8 +120,14 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
   protected hasMounted = signal(false);
   protected showScrollButton = signal(false);
   protected isAtBottom = signal(true);
-  // Suggestions live in the input overlay, so its measured height covers them.
-  protected paddingBottom = computed(() => this.inputContainerHeight() + 32);
+  protected hasSuggestions = computed(
+    () =>
+      this.showSuggestions() &&
+      (this.chatState?.suggestions?.() ?? []).length > 0,
+  );
+  protected paddingBottom = computed(
+    () => this.inputContainerHeight() + (this.hasSuggestions() ? 4 : 32),
+  );
 
   // Computed class
   protected computedClass = computed(() => cn(this.inputClass()));
@@ -189,7 +209,9 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
       agentId: this.agentId(),
       inputClass: this.messageViewClass(),
       showCursor: this.showCursor(),
-      isLoading: this.isRunning(),
+      isRunning: this.isRunning(),
+      inlineCursor: this.inlineCursor(),
+      userMessageMarkdown: this.userMessageMarkdown(),
       assistantMessageToolbarScope: this.assistantMessageToolbarScope(),
       assistantMessageComponent: this.assistantMessageComponent(),
       assistantMessageTemplate: this.assistantMessageTemplate(),

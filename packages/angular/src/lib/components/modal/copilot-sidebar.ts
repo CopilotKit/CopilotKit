@@ -1,3 +1,4 @@
+import { CdkTrapFocus } from "@angular/cdk/a11y";
 import {
   DOCUMENT,
   NgComponentOutlet,
@@ -8,6 +9,7 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  Injector,
   PLATFORM_ID,
   Type,
   afterNextRender,
@@ -39,13 +41,15 @@ export type CopilotSidebarPosition = "left" | "right";
 
 /**
  * Full-height chat panel matching React's `CopilotSidebar`. `docked` (the
- * default) pushes the page aside with a body margin on desktop; `overlay`
- * floats over the page. Below 768px it always overlays at full width. There
- * is no backdrop: an outside click closes it only with `clickOutsideToClose`.
+ * default) pushes the page aside with a body margin on desktop and is a
+ * complementary landmark; `overlay` floats over the page as a modal dialog
+ * that traps focus. Below 768px it always overlays at full width. There is no
+ * backdrop: an outside click closes an overlay only with `clickOutsideToClose`.
  */
 @Component({
   selector: "copilot-sidebar",
   imports: [
+    CdkTrapFocus,
     NgComponentOutlet,
     CopilotChatToggleButton,
     CopilotModalHeader,
@@ -63,7 +67,11 @@ export type CopilotSidebarPosition = "left" | "right";
     <button
       #launcher
       copilotChatToggleButton
+      class="copilot-sidebar-toggle"
       data-copilot-sidebar-toggle
+      openLabel="Open Copilot sidebar"
+      closeLabel="Close Copilot sidebar"
+      [class.position-left]="position() === 'left'"
       [open]="open()"
       [position]="position()"
       [attr.aria-controls]="sidebarId"
@@ -72,11 +80,16 @@ export type CopilotSidebarPosition = "left" | "right";
     ></button>
 
     @if (open() && (isOverlay() || dockAccepted())) {
-      <aside
+      <!-- An overlay is a modal dialog that traps focus; a docked sidebar is a
+           complementary landmark. -->
+      <section
         #panel
+        [cdkTrapFocus]="isOverlay()"
+        [cdkTrapFocusAutoCapture]="isOverlay()"
         tabindex="-1"
-        role="complementary"
-        class="copilotKitSidebar copilotKitWindow cpk:fixed cpk:top-0 cpk:z-[1200] cpk:flex cpk:h-[100dvh] cpk:max-h-screen cpk:w-full cpk:md:w-[min(var(--copilot-sidebar-width),100vw)] cpk:border-border cpk:bg-background cpk:text-foreground cpk:shadow-[0_0_48px_-16px_rgb(0_0_0/0.20)] cpk:focus:outline-none cpk:pt-[env(safe-area-inset-top)] cpk:pb-[env(safe-area-inset-bottom)] cpk:data-[position=right]:right-0 cpk:data-[position=right]:border-l cpk:data-[position=left]:left-0 cpk:data-[position=left]:border-r"
+        [attr.role]="isOverlay() ? 'dialog' : 'complementary'"
+        [attr.aria-modal]="isOverlay() ? 'true' : null"
+        class="copilot-sidebar-window copilotKitSidebar copilotKitWindow cpk:fixed cpk:top-0 cpk:z-[1201] cpk:flex cpk:h-[100dvh] cpk:max-h-screen cpk:w-full cpk:md:w-[min(var(--copilot-sidebar-width),100vw)] cpk:border-border cpk:bg-background cpk:text-foreground cpk:shadow-[0_0_48px_-16px_rgb(0_0_0/0.20)] cpk:focus:outline-none cpk:pt-[env(safe-area-inset-top)] cpk:pb-[env(safe-area-inset-bottom)] cpk:data-[position=right]:right-0 cpk:data-[position=right]:border-l cpk:data-[position=left]:left-0 cpk:data-[position=left]:border-r"
         [class.modal]="isOverlay()"
         [class.docked]="!isOverlay()"
         animate.enter="cpk-sidebar-enter"
@@ -94,6 +107,8 @@ export type CopilotSidebarPosition = "left" | "right";
         >
           <header
             copilotModalHeader
+            class="copilot-sidebar-header"
+            closeLabel="Close Copilot sidebar"
             [title]="title()"
             [titleId]="titleId"
             [headerComponent]="headerComponent()"
@@ -102,7 +117,10 @@ export type CopilotSidebarPosition = "left" | "right";
             (closeClick)="close()"
             (drawerToggle)="drawerOpen.set(!drawerOpen())"
           ></header>
-          <div class="cpk:min-h-0 cpk:flex-1 cpk:overflow-hidden" data-sidebar-chat>
+          <div
+            class="copilot-sidebar-chat cpk:min-h-0 cpk:flex-1 cpk:overflow-hidden"
+            data-sidebar-chat
+          >
             <ng-container
               [ngComponentOutlet]="chatComponent()"
               [ngComponentOutletInputs]="chatInputs()"
@@ -120,7 +138,7 @@ export type CopilotSidebarPosition = "left" | "right";
             [licenseUrl]="drawerConfig.licenseUrl"
           />
         }
-      </aside>
+      </section>
     }
   `,
   styles: `
@@ -134,7 +152,7 @@ export class CopilotSidebar {
   readonly mode = input<CopilotSidebarMode>("docked");
   readonly position = input<CopilotSidebarPosition>("right");
   readonly width = input<number | string>(480);
-  readonly title = input("CopilotKit Chat");
+  readonly title = input("Copilot");
   readonly clickOutsideToClose = input(false);
   readonly chatComponent = input<Type<unknown>>(CopilotChat);
   readonly headerComponent = input<Type<unknown> | undefined>();
@@ -181,11 +199,12 @@ export class CopilotSidebar {
     read: ElementRef<HTMLButtonElement>,
   });
   private readonly panel = viewChild<ElementRef<HTMLElement>>("panel");
+  private readonly injector = inject(Injector);
   private ownsDock = false;
 
   constructor() {
     afterNextRender(() => {
-      if (this.open() && this.isOverlay()) this.focusPanel();
+      if (this.open() && this.isOverlay()) this.focusInitial();
       const media = this.document.defaultView?.matchMedia?.(
         "(max-width: 47.999rem)",
       );
@@ -241,7 +260,12 @@ export class CopilotSidebar {
     if (this.open()) this.close();
     else {
       this.open.set(true);
-      queueMicrotask(() => this.focusPanel());
+      afterNextRender(
+        () => {
+          if (this.isOverlay()) this.focusInitial();
+        },
+        { injector: this.injector },
+      );
     }
   }
 
@@ -263,8 +287,11 @@ export class CopilotSidebar {
     }
   }
 
+  /** Outside clicks close an overlay (never a docked sidebar) when opted in. */
   protected onDocumentPointerDown(event: Event): void {
-    if (!this.open() || !this.clickOutsideToClose()) return;
+    if (!this.open() || !this.isOverlay() || !this.clickOutsideToClose()) {
+      return;
+    }
     const target = event.target as Node | null;
     if (!target) return;
     if (this.panel()?.nativeElement.contains(target)) return;
@@ -286,11 +313,14 @@ export class CopilotSidebar {
     this.ownsDock = false;
   }
 
-  /** Focus the panel itself unless something inside it already has focus. */
-  private focusPanel(): void {
-    const panel = this.panel()?.nativeElement;
-    if (panel && !panel.contains(this.document.activeElement)) {
-      panel.focus({ preventScroll: true });
-    }
+  /**
+   * An overlay starts focus on its close button, as before. Its focus trap
+   * does this too once it renders; this covers environments where it can't
+   * tell the button is visible (no layout).
+   */
+  private focusInitial(): void {
+    this.panel()
+      ?.nativeElement.querySelector<HTMLElement>("[cdkFocusInitial]")
+      ?.focus({ preventScroll: true });
   }
 }

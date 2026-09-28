@@ -10,9 +10,11 @@ describe("CopilotChatUserMessageRenderer", () => {
     });
   });
 
-  const render = (content: string) => {
+  const render = (content: string, markdown?: boolean) => {
     const fixture = TestBed.createComponent(CopilotChatUserMessageRenderer);
     fixture.componentRef.setInput("content", content);
+    if (markdown !== undefined)
+      fixture.componentRef.setInput("markdown", markdown);
     fixture.detectChanges();
     return fixture.nativeElement as HTMLElement;
   };
@@ -33,6 +35,14 @@ describe("CopilotChatUserMessageRenderer", () => {
   it("renders setext headings as plain paragraphs", () => {
     const element = render("Title\n===");
     expect(element.querySelector("h1, h2")).toBeNull();
+  });
+
+  it("shows plain text as typed with markdown off", () => {
+    const content = "# Title\nUse `map()` on <b>users</b>\n\n- one";
+    const element = render(content, false);
+    expect(element.textContent).toBe(content);
+    expect(element.querySelector("code, li, b, p")).toBeNull();
+    expect(element.className).toContain("cpk:whitespace-pre-wrap");
   });
 
   it("neutralizes script links", () => {

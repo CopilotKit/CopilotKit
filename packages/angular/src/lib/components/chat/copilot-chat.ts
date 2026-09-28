@@ -69,7 +69,12 @@ import { explicitEffect } from "../../explicit-effect";
         [isRunning]="agentStore().isRunning()"
         [assistantMessageToolbarScope]="assistantMessageToolbarScope()"
         [introAnimation]="introAnimation()"
+        [inlineCursor]="inlineCursor()"
+        [userMessageMarkdown]="userMessageMarkdown()"
         [inputComponent]="inputComponent()"
+        [textAreaMaxRows]="textAreaMaxRows()"
+        [highlightMarkdown]="highlightMarkdown()"
+        [inputLayout]="inputLayout()"
         [assistantMessageComponent]="assistantMessageComponent()"
         [assistantMessageTemplate]="assistantMessageTemplate()"
         [assistantMessageClass]="assistantMessageClass()"
@@ -117,6 +122,28 @@ export class CopilotChat extends ChatState {
    * prefers reduced motion.
    */
   readonly introAnimation = input(true);
+  /**
+   * While a reply streams, show the cursor at the end of its text. Defaults to
+   * `true`; set `false` to keep the cursor below the messages.
+   */
+  readonly inlineCursor = input(true);
+  /**
+   * Render user messages as markdown. Defaults to `true`; set `false` for the
+   * plain text rendering (line breaks kept as typed).
+   */
+  readonly userMessageMarkdown = input(true);
+  /** Rows the composer grows to before it scrolls. Defaults to 8. */
+  readonly textAreaMaxRows = input<number | undefined>();
+  /**
+   * Style list markers and links in the composer as the user types. Defaults
+   * to `true`; set `false` for plain text.
+   */
+  readonly highlightMarkdown = input(true);
+  /**
+   * The composer's `layout`: `"auto"` (default) keeps the text beside the
+   * actions until it wraps; `"stacked"` always puts the actions underneath.
+   */
+  readonly inputLayout = input<"auto" | "stacked">("auto");
   /** Component used to render each reasoning message in the prebuilt chat. */
   readonly reasoningMessageComponent = input<Type<any> | undefined>();
   /** Template used to render each reasoning message in the prebuilt chat. */

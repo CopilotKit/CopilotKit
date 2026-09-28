@@ -27,7 +27,7 @@ const meta: Meta<CopilotThreadsDrawer> = {
   render: () => ({
     template: `
       <div class="story-drawer-layout">
-        <copilot-threads-drawer label="Conversations" />
+        <copilot-threads-drawer />
         <div class="story-drawer-placeholder">Chat area</div>
       </div>
     `,
@@ -60,7 +60,7 @@ export const WithChat: Story = {
   render: () => ({
     template: `
       <div class="story-drawer-layout">
-        <copilot-threads-drawer label="Conversations" />
+        <copilot-threads-drawer />
         <copilot-chat />
       </div>
     `,

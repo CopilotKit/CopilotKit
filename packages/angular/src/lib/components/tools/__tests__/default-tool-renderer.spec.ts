@@ -52,7 +52,7 @@ describe("CopilotDefaultToolRenderer", () => {
     expect(fixture.nativeElement.textContent).toContain('"city": "Paris"');
   });
 
-  it("labels active calls Running with a shimmer and completed calls Done", async () => {
+  it("keeps the Preparing / Running / Complete labels, shimmering while active", async () => {
     await TestBed.configureTestingModule({
       imports: [CopilotDefaultToolRenderer],
     }).compileComponents();
@@ -65,6 +65,16 @@ describe("CopilotDefaultToolRenderer", () => {
       fixture.nativeElement.querySelector(
         '[data-testid="copilot-tool-render-status"]',
       ) as HTMLElement;
+
+    fixture.componentRef.setInput("toolCall", {
+      name: "search",
+      args: { query: "sig" },
+      status: "in-progress",
+      result: undefined,
+    } as AngularToolCall);
+    fixture.detectChanges();
+    expect(status().textContent?.trim()).toBe("Preparing");
+    expect(status().classList).toContain("cpk-shimmer");
 
     fixture.componentRef.setInput("toolCall", {
       name: "search",
@@ -84,7 +94,7 @@ describe("CopilotDefaultToolRenderer", () => {
       result: "3 results",
     } as AngularToolCall);
     fixture.detectChanges();
-    expect(status().textContent?.trim()).toBe("Done");
+    expect(status().textContent?.trim()).toBe("Complete");
     expect(name().classList).not.toContain("cpk-shimmer");
     expect(status().classList).not.toContain("cpk-shimmer");
   });

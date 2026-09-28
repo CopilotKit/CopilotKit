@@ -1,4 +1,4 @@
-import { NgComponentOutlet } from "@angular/common";
+import { NgComponentOutlet, NgTemplateOutlet } from "@angular/common";
 import {
   ChangeDetectionStrategy,
   Component,
@@ -17,12 +17,13 @@ const ICON_BUTTON =
 
 /**
  * Header shared by `<copilot-popup>` and `<copilot-sidebar>`, matching React's
- * `CopilotModalHeader`: optional threads launcher on the left, centered title
- * (or a custom `headerComponent`), close button on the right.
+ * `CopilotModalHeader`: optional threads launcher on the left, centered title,
+ * close button on the right. A custom `headerComponent` takes the whole row
+ * between the launcher and the close button.
  */
 @Component({
   selector: "header[copilotModalHeader]",
-  imports: [NgComponentOutlet, CopilotIcon],
+  imports: [NgComponentOutlet, NgTemplateOutlet, CopilotIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class:
@@ -31,27 +32,49 @@ const ICON_BUTTON =
     "data-slot": "copilot-modal-header",
   },
   template: `
+    <ng-template #drawerLauncher>
+      <button
+        type="button"
+        [class]="iconButton"
+        data-testid="copilot-threads-drawer-launcher"
+        aria-label="Open threads"
+        [attr.aria-expanded]="drawerOpen()"
+        (click)="drawerToggle.emit()"
+      >
+        <copilot-icon [img]="History" [size]="16" />
+      </button>
+    </ng-template>
+    <ng-template #closeButton>
+      <button
+        type="button"
+        cdkFocusInitial
+        [class]="iconButton"
+        data-testid="copilot-close-button"
+        [attr.aria-label]="closeLabel()"
+        (click)="closeClick.emit()"
+      >
+        <copilot-icon [img]="X" [size]="16" />
+      </button>
+    </ng-template>
+
     <div class="cpk:flex cpk:w-full cpk:min-w-0 cpk:items-center cpk:gap-2">
-      <div class="cpk:flex cpk:flex-1 cpk:justify-start">
+      @if (headerComponent(); as header) {
+        <!-- A custom header fills the row between launcher and close button. -->
         @if (showDrawerLauncher()) {
-          <button
-            type="button"
-            [class]="iconButton"
-            data-testid="copilot-threads-drawer-launcher"
-            aria-label="Open threads"
-            [attr.aria-expanded]="drawerOpen()"
-            (click)="drawerToggle.emit()"
-          >
-            <copilot-icon [img]="History" [size]="16" />
-          </button>
+          <ng-container [ngTemplateOutlet]="drawerLauncher" />
         }
-      </div>
-      <!-- A custom header gets a wider center column; equal side columns keep
-           it centered either way. -->
-      <div [class]="headerComponent() ? customTitleColumn : titleColumn">
-        @if (headerComponent(); as header) {
+        <div class="cpk:min-w-0 cpk:flex-1">
           <ng-container [ngComponentOutlet]="header" />
-        } @else {
+        </div>
+        <ng-container [ngTemplateOutlet]="closeButton" />
+      } @else {
+        <!-- Equal side columns keep the title centered. -->
+        <div class="cpk:flex cpk:flex-1 cpk:justify-start">
+          @if (showDrawerLauncher()) {
+            <ng-container [ngTemplateOutlet]="drawerLauncher" />
+          }
+        </div>
+        <div [class]="titleColumn">
           <h2
             class="cpk:m-0 cpk:w-full cpk:truncate cpk:text-sm cpk:font-semibold cpk:leading-none cpk:text-foreground"
             data-testid="copilot-header-title"
@@ -59,19 +82,11 @@ const ICON_BUTTON =
           >
             {{ title() }}
           </h2>
-        }
-      </div>
-      <div class="cpk:flex cpk:flex-1 cpk:justify-end">
-        <button
-          type="button"
-          [class]="iconButton"
-          data-testid="copilot-close-button"
-          aria-label="Close"
-          (click)="closeClick.emit()"
-        >
-          <copilot-icon [img]="X" [size]="16" />
-        </button>
-      </div>
+        </div>
+        <div class="cpk:flex cpk:flex-1 cpk:justify-end">
+          <ng-container [ngTemplateOutlet]="closeButton" />
+        </div>
+      }
     </div>
   `,
 })
@@ -81,6 +96,8 @@ export class CopilotModalHeader {
   readonly headerComponent = input<Type<unknown> | undefined>();
   readonly showDrawerLauncher = input(false);
   readonly drawerOpen = input(false);
+  /** Accessible name of the close button. */
+  readonly closeLabel = input("Close");
   readonly closeClick = output<void>();
   readonly drawerToggle = output<void>();
 
@@ -88,8 +105,4 @@ export class CopilotModalHeader {
   protected readonly X = X;
   protected readonly iconButton = ICON_BUTTON;
   protected readonly titleColumn = TITLE_COLUMN;
-  protected readonly customTitleColumn = TITLE_COLUMN.replace(
-    "cpk:flex-1",
-    "cpk:flex-[3]",
-  );
 }

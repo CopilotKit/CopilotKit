@@ -1,5 +1,6 @@
 import {
   Component,
+  computed,
   input,
   ChangeDetectionStrategy,
   ViewEncapsulation,
@@ -70,19 +71,22 @@ import { CopilotChatSuggestionView } from "./copilot-chat-suggestion-view";
       >
         <copilot-slot
           [slot]="input()"
-          [context]="{ inputClass: inputClass() }"
+          [context]="inputContext()"
           [defaultComponent]="defaultInputComponent"
         >
         </copilot-slot>
       </div>
 
-      <!-- Disclaimer - always rendered like in React -->
-      <copilot-slot
-        [slot]="disclaimer()"
-        [context]="{ text: disclaimerText(), inputClass: disclaimerClass() }"
-        [defaultComponent]="defaultDisclaimerComponent"
-      >
-      </copilot-slot>
+      <!-- Disclaimer - always rendered like in React; selectable and clickable
+           although the overlay lets clicks through. -->
+      <div class="cpk:pointer-events-auto">
+        <copilot-slot
+          [slot]="disclaimer()"
+          [context]="{ text: disclaimerText(), inputClass: disclaimerClass() }"
+          [defaultComponent]="defaultDisclaimerComponent"
+        >
+        </copilot-slot>
+      </div>
     </div>
   `,
 })
@@ -96,6 +100,19 @@ export class CopilotChatViewInputContainer extends ElementRef {
   // Input slot configuration
   input = input<any | undefined>();
   inputClass = input<string | undefined>();
+  /** Forwarded to the input (see CopilotChatInput `textAreaMaxRows`). */
+  textAreaMaxRows = input<number | undefined>();
+  /** Forwarded to the input (see CopilotChatInput `highlightMarkdown`). */
+  highlightMarkdown = input<boolean>(true);
+  /** Forwarded to the input as its `layout` (see CopilotChatInput). */
+  inputLayout = input<"auto" | "stacked">("auto");
+
+  protected readonly inputContext = computed(() => ({
+    inputClass: this.inputClass(),
+    textAreaMaxRows: this.textAreaMaxRows(),
+    highlightMarkdown: this.highlightMarkdown(),
+    layout: this.inputLayout(),
+  }));
 
   // Disclaimer slot configuration
   disclaimer = input<any | undefined>();

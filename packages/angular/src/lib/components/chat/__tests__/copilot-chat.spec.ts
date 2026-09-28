@@ -419,6 +419,32 @@ describe("CopilotChat", () => {
       expect(children?.textContent).toContain("1 messages");
       expect(children?.textContent).toContain("streamed");
     });
+
+    test("forwards transcript and composer options through the prebuilt chat", async () => {
+      const { fixture } = context;
+      fixture.componentRef.setInput("userMessageMarkdown", false);
+      fixture.componentRef.setInput("inlineCursor", false);
+      fixture.componentRef.setInput("inputLayout", "stacked");
+      fixture.componentRef.setInput("highlightMarkdown", false);
+      fixture.componentRef.setInput("textAreaMaxRows", 4);
+      agent.setMessages([
+        { id: "user-1", role: "user", content: "Use `map()`" },
+      ]);
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      fixture.detectChanges();
+
+      const element = fixture.nativeElement as HTMLElement;
+      const bubble = element.querySelector(
+        "copilot-chat-user-message-renderer",
+      );
+      expect(bubble?.querySelector("code")).toBeNull();
+      expect(bubble?.textContent).toBe("Use `map()`");
+      const input = fixture.debugElement.query(By.directive(CopilotChatInput))
+        .componentInstance as CopilotChatInput;
+      expect(input.layout()).toBe("stacked");
+      expect(input.highlightMarkdown()).toBe(false);
+      expect(input.textAreaMaxRows()).toBe(4);
+    });
   });
 
   describe("sending messages", () => {

@@ -49,7 +49,7 @@ export const pinnedError: PinnedDrawerFields = {
   threads: [],
   loading: false,
   licensed: true,
-  error: "Couldn't load conversations.",
+  error: "Couldn't load threads.",
 };
 
 /** No license that includes threads: the upgrade view. */

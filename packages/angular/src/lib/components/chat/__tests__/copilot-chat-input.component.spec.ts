@@ -1,4 +1,5 @@
 import {
+  Component,
   EnvironmentInjector,
   Injectable,
   runInInjectionContext,
@@ -8,6 +9,22 @@ import { TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CopilotChatInput } from "../copilot-chat-input";
 import { ChatState } from "../../../chat-state";
+
+@Component({
+  selector: "test-mic",
+  template: `
+    <button type="button" data-testid="custom-mic">Mic</button>
+  `,
+})
+class TestMic {}
+
+@Component({
+  selector: "test-tools",
+  template: `
+    <button type="button" data-testid="custom-tools">Tools</button>
+  `,
+})
+class TestTools {}
 
 @Injectable()
 class ChatStateStub extends ChatState {
@@ -209,6 +226,84 @@ describe("CopilotChatInput", () => {
       const { fixture, mic } = render();
       expect(mic()).not.toBeNull();
       expect(fixture.componentInstance.addMenuTools()).toEqual([]);
+    });
+
+    it("keeps custom mic and leading buttons in place when narrow", () => {
+      const clientWidth = vi
+        .spyOn(HTMLElement.prototype, "clientWidth", "get")
+        .mockReturnValue(280);
+      try {
+        const withMic = render({ startTranscribeButtonComponent: TestMic });
+        expect(
+          withMic.fixture.nativeElement.querySelector(
+            '[data-testid="custom-mic"]',
+          ),
+        ).not.toBeNull();
+        expect(withMic.fixture.componentInstance.addMenuTools()).toEqual([]);
+
+        const withTools = render({
+          toolsButtonComponent: TestTools,
+          toolsMenu: [{ label: "Search", action: () => {} }],
+        });
+        // The default "+" menu isn't rendered, so voice input stays visible.
+        expect(withTools.mic()).not.toBeNull();
+      } finally {
+        clientWidth.mockRestore();
+      }
+    });
+
+    it("keeps focus on interactive elements clicked inside the pill", () => {
+      const { fixture } = render();
+      const element = fixture.nativeElement as HTMLElement;
+      const pill = element.querySelector<HTMLElement>(".copilotKitInput")!;
+      const textarea = element.querySelector("textarea")!;
+      const extras = [
+        "<select><option>a</option></select>",
+        '<div role="combobox" tabindex="0">pick</div>',
+        '<div contenteditable="true">edit</div>',
+        '<span tabindex="-1">focusable</span>',
+      ];
+
+      for (const html of extras) {
+        const host = document.createElement("div");
+        host.innerHTML = html;
+        pill.appendChild(host);
+        const target = host.firstElementChild as HTMLElement;
+        textarea.blur();
+        target.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        expect(document.activeElement, html).not.toBe(textarea);
+        host.remove();
+      }
+
+      // The pill's own padding still focuses the text.
+      pill.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      expect(document.activeElement).toBe(textarea);
+    });
+
+    it("keeps the textarea text transparent and gives textAreaClass's color to the preview", () => {
+      const { preview, fixture } = render({
+        textAreaClass: "cpk:text-red-500",
+      });
+      const textarea = fixture.nativeElement.querySelector("textarea")!;
+      expect(textarea.className).toContain("cpk:text-transparent");
+      expect(textarea.className).not.toContain("cpk:text-red-500");
+      expect(preview()?.className).toContain("cpk:text-red-500");
+      expect(preview()?.className).not.toContain("cpk:text-foreground");
+    });
+
+    it("copies the textarea's computed metrics onto the preview", () => {
+      const style = document.createElement("style");
+      style.textContent =
+        "textarea.test-restyled { font-size: 20px; letter-spacing: 1px; padding-left: 7px; }";
+      document.head.appendChild(style);
+      try {
+        const { preview } = render({ textAreaClass: "test-restyled" });
+        expect(preview()?.style.fontSize).toBe("20px");
+        expect(preview()?.style.letterSpacing).toBe("1px");
+        expect(preview()?.style.paddingLeft).toBe("7px");
+      } finally {
+        style.remove();
+      }
     });
 
     it("previews list markers and links under a transparent textarea", () => {
