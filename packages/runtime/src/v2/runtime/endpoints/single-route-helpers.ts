@@ -6,6 +6,7 @@ const METHOD_NAMES = [
   "info",
   "inspector/metadata",
   "inspector/learning",
+  "inspector/intelligence",
   "transcribe",
   "resource/request",
 ] as const;

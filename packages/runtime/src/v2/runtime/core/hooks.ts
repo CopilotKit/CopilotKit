@@ -41,6 +41,7 @@ export type RouteInfo =
   | { method: "info" }
   | { method: "inspector/metadata" }
   | { method: "inspector/learning" }
+  | { method: "inspector/intelligence" }
   | { method: "transcribe" }
   | { method: "threads/list" }
   | { method: "threads/subscribe" }

@@ -86,6 +86,7 @@ import { handleStopAgent } from "../handlers/handle-stop";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { handleInspectorMetadata } from "../handlers/handle-inspector-metadata";
 import { handleInspectorLearning } from "../handlers/handle-inspector-learning";
+import { handleInspectorIntelligence } from "../handlers/handle-inspector-intelligence";
 import { handleTranscribe } from "../handlers/handle-transcribe";
 import { handleDebugEvents } from "../handlers/handle-debug-events";
 import {
@@ -405,7 +406,8 @@ export function createCopilotRuntimeHandler(
           route.method === "agent/run" ||
           route.method === "agent/suggest" ||
           route.method === "agent/connect" ||
-          route.method === "transcribe"
+          route.method === "transcribe" ||
+          route.method === "inspector/intelligence"
         ) {
           request = createJsonRequest(request, methodCall.body);
         } else if (route.method === "agent/stop") {
@@ -667,6 +669,8 @@ function dispatchRoute(
         singleRouteResourceOperationsEnabled:
           options.singleRouteResourceOperationsEnabled,
       });
+    case "inspector/intelligence":
+      return handleInspectorIntelligence({ runtime, request });
     case "inspector/metadata":
       return handleInspectorMetadata({ runtime, request });
     case "inspector/learning":
@@ -803,6 +807,9 @@ async function resolveSingleRoute(
     case "info":
       route = { method: "info" };
       break;
+    case "inspector/intelligence":
+      route = { method: "inspector/intelligence" };
+      break;
     case "inspector/metadata":
       route = { method: "inspector/metadata" };
       break;
@@ -882,6 +889,11 @@ function validateHttpMethod(
   const method = httpMethod.toUpperCase();
 
   switch (route.method) {
+    case "inspector/intelligence":
+      if (method === "POST") return null;
+      return jsonResponse({ error: "Method not allowed" }, 405, {
+        Allow: "POST",
+      });
     case "info":
     case "inspector/metadata":
     case "inspector/learning":

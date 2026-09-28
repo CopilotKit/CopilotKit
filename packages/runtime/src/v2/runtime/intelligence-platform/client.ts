@@ -12,6 +12,9 @@ import type {
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import type { GetLearningContainerId } from "../core/learning";
+import { parseInspectorReadRequest } from "../handlers/shared/inspector-read-request";
+import type { InspectorReadRequest } from "../handlers/shared/inspector-read-request";
+import { readInspectorJson } from "../handlers/shared/bounded-inspector-json";
 
 import {
   LearnedSkillsError,
@@ -1230,6 +1233,52 @@ export class CopilotKitIntelligence {
         clearTimeout(timeoutId);
       }
     }
+  }
+
+  /** Proxies an allowlisted product read with server-resolved identity and grants. */
+  async requestInspectorRead(
+    request: InspectorReadRequest,
+    viewer: {
+      readonly userId: string;
+      readonly grant?: RuntimeIntelligenceGrant;
+    },
+    signal?: AbortSignal,
+  ): Promise<unknown> {
+    if (!parseInspectorReadRequest(request) || request.path === "/context") {
+      throw new PlatformRequestError("Invalid Inspector request", 400, false);
+    }
+    const url = new URL(`${this.#apiUrl}${request.path}`);
+    for (const [key, value] of Object.entries(request.query ?? {}))
+      url.searchParams.set(key, value);
+    const response = await fetch(url, {
+      method: request.method,
+      redirect: "error",
+      headers: {
+        Authorization: `Bearer ${this.#apiKey}`,
+        "Content-Type": "application/json",
+        [INTELLIGENCE_USER_ID_HEADER]: encodeIntelligenceUserIdHeader(
+          viewer.userId,
+        ),
+        ...(viewer.grant
+          ? { [INTELLIGENCE_GRANT_HEADER]: encodeJsonHeader(viewer.grant) }
+          : {}),
+      },
+      ...(request.body === undefined
+        ? {}
+        : { body: JSON.stringify(request.body) }),
+      signal: signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(20_000)])
+        : AbortSignal.timeout(20_000),
+    });
+    if (!response.ok) {
+      await response.body?.cancel();
+      throw new PlatformRequestError(
+        "Intelligence read failed",
+        response.status,
+        response.status === 429 || response.status >= 500,
+      );
+    }
+    return readInspectorJson(response.body, 5_242_880);
   }
 
   /** Fetches one credential-scoped, bounded Learning projection for Inspector. */
