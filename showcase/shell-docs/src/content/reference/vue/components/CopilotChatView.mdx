@@ -99,6 +99,28 @@ function handleSubmit(value: string) {
   always off when the user prefers reduced motion.
 </PropertyReference>
 
+Vue has no sub-component props, so the message and input options are set here and forwarded:
+
+<PropertyReference name="inlineCursor" type="boolean">
+  While a reply streams, show the cursor at the end of its text. On by default, unless you provide a custom `cursor` or `assistant-message` slot, which keeps the cursor below the messages. Set it explicitly to override either way.
+</PropertyReference>
+
+<PropertyReference name="assistantMessageToolbarScope" type='"turn" | "message"' default='"turn"'>
+  Where assistant toolbars appear: one per reply (`"turn"`) or one per assistant message (`"message"`). Forwarded to each assistant message as `toolbarScope`.
+</PropertyReference>
+
+<PropertyReference name="userMessageMarkdown" type="boolean" default="true">
+  Render user messages as markdown. Set `false` to show them as plain text as typed. Forwarded to each user message as `markdown`.
+</PropertyReference>
+
+<PropertyReference name="inputLayout" type='"auto" | "stacked"' default='"auto"'>
+  The input's `layout`: `"auto"` keeps the text beside the actions until it wraps; `"stacked"` always puts the actions underneath.
+</PropertyReference>
+
+<PropertyReference name="inputHighlightMarkdown" type="boolean" default="true">
+  The input's `highlightMarkdown`: style list markers and links as the user types.
+</PropertyReference>
+
 <PropertyReference name="attachments" type="Attachment[]">
   File attachments to render in the attachment queue above the input. When
   present, the queue is shown in both the welcome screen and the main input
@@ -225,7 +247,8 @@ that the default implementation also consumes, so a replacement can reuse them.
 <PropertyReference name="scroll-view" type="{ messages: Message[]; isRunning: boolean; suggestions: Suggestion[]; loadingIndexes: ReadonlyArray<number>; messagePaddingBottom: string; showScrollToBottomButton: boolean; onSelectSuggestion: (suggestion, index) => void; onScroll: () => void; scrollToBottom: () => void }">
   The scrollable container wrapping the message list. The default handles
   auto-scroll behavior and scroll-position tracking. Replace it to implement
-  custom scroll mechanics.
+  custom scroll mechanics. A custom `scroll-view` renders the suggestions itself
+  from its slot props; the row of pills above the input is not shown.
 </PropertyReference>
 
 <PropertyReference name="feather" type="() => unknown">

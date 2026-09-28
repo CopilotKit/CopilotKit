@@ -82,6 +82,10 @@ import { CopilotPopup, type CopilotPopupHandle } from "@copilotkit/react-native"
   Custom style applied to the popup card container.
 </PropertyReference>
 
+<PropertyReference name="colorScheme" type='"light" | "dark" | "system"' default='"light"'>
+  Color scheme for the popup and the CopilotKit components inside it (see [Color scheme](/reference/react-native/components/CopilotChat#color-scheme)): `"light"`, `"dark"`, or `"system"` to follow the device's setting.
+</PropertyReference>
+
 ## Ref handle
 
 <PropertyReference name="CopilotPopupHandle" type="{ open(): void; close(): void; toggle(): void }">

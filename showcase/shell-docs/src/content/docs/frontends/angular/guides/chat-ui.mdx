@@ -171,6 +171,14 @@ feature host so the change stays local.
 }
 ```
 
+The stylesheet reads the shadcn design tokens (`--background`, `--foreground`,
+`--primary`, `--border`, `--radius`, and the rest) from the outermost
+`[data-copilotkit]` element, so setting them there re-themes the whole chat. The `--copilot-kit-*` variables
+from earlier releases (such as `--copilot-kit-primary-color` and
+`--copilot-kit-separator-color`) are still defined there as aliases of those
+tokens, and the styles that read them still do, so overriding one on the root
+keeps working.
+
 ## Next steps
 
 - [CopilotChat API](/reference/angular/components/CopilotChat)

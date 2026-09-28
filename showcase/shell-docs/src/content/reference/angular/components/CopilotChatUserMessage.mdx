@@ -5,7 +5,7 @@ description: "Angular standalone component that renders a single user message wi
 
 ## Overview
 
-`CopilotChatUserMessage` renders one user message. It shows image or file attachments, renders the message text as markdown, and shows a toolbar with copy and edit actions. Code blocks, lists, emphasis, links, and tables render; line breaks stay where the user typed them, `#` lines stay literal instead of becoming headings, and pasted HTML shows as text. When the message belongs to a set of regenerated branches, a branch control lets you move between them.
+`CopilotChatUserMessage` renders one user message. It shows image or file attachments, renders the message text as markdown (unless `markdown` is `false`), and shows a toolbar with copy and edit actions. Code blocks, lists, emphasis, links, and tables render; line breaks stay where the user typed them, `#` lines stay literal instead of becoming headings, and pasted HTML shows as text. When the message belongs to a set of regenerated branches, a branch control lets you move between them.
 
 The copy and edit buttons always render. The branch navigation control renders only when `numberOfBranches` is greater than 1.
 
@@ -60,6 +60,10 @@ export class UserMessageComponent {
 
 <PropertyReference name="additionalToolbarItems" type="TemplateRef<any>">
   A template prepended to the default toolbar, before the copy and edit buttons.
+</PropertyReference>
+
+<PropertyReference name="markdown" type="boolean" default="true">
+  Render the message text as markdown. Set `false` for plain text, with line breaks kept as typed. Inside `CopilotChat`, use its `userMessageMarkdown` input.
 </PropertyReference>
 
 <PropertyReference name="inputClass" type="string">

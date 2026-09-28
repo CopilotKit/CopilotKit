@@ -88,6 +88,26 @@ export class ChatComponent extends ChatState {
   Where assistant toolbars appear: `"turn"` shows one toolbar per reply, `"message"` one per assistant message. Forwarded to each assistant message as `toolbarScope`.
 </PropertyReference>
 
+<PropertyReference name="inlineCursor" type="boolean" default="true">
+  While a reply streams, show the cursor at the end of its text. Set `false` to keep the cursor below the messages.
+</PropertyReference>
+
+<PropertyReference name="userMessageMarkdown" type="boolean" default="true">
+  Render user messages as markdown. Set `false` for plain text, with line breaks kept as typed. Forwarded to each user message as `markdown`.
+</PropertyReference>
+
+<PropertyReference name="textAreaMaxRows" type="number" default="8">
+  Rows the composer grows to before it scrolls.
+</PropertyReference>
+
+<PropertyReference name="highlightMarkdown" type="boolean" default="true">
+  Style list markers and links in the composer as the user types. Set `false` for plain text.
+</PropertyReference>
+
+<PropertyReference name="inputLayout" type='"auto" | "stacked"' default='"auto"'>
+  The composer's `layout`: `"auto"` keeps the text beside the actions until it wraps; `"stacked"` always puts the actions underneath.
+</PropertyReference>
+
 ### Slot inputs
 
 The view forwards message, input, scroll-button, input-container, feather, and disclaimer slots.

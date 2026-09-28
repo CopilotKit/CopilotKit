@@ -10,7 +10,11 @@ description: "Render Markdown text with React Native styling tuned for chat. Han
 ## Import
 
 ```tsx
-import { CopilotMarkdown, defaultMarkdownStyles } from "@copilotkit/react-native/components";
+import {
+  CopilotMarkdown,
+  defaultMarkdownStyles,
+  darkMarkdownStyles,
+} from "@copilotkit/react-native/components";
 ```
 
 ## Props
@@ -29,9 +33,14 @@ import { CopilotMarkdown, defaultMarkdownStyles } from "@copilotkit/react-native
   Whether to enable the streaming fade-in animation as content arrives.
 </PropertyReference>
 
-## `defaultMarkdownStyles`
+## `defaultMarkdownStyles` and `darkMarkdownStyles`
 
-The default style map. Spread it to extend rather than replace the built-in styling:
+`defaultMarkdownStyles` is the light style map and `darkMarkdownStyles` the same
+styles on the dark tokens. `CopilotMarkdown` uses the dark map when a
+`CopilotColorSchemeProvider` (or the enclosing chat's `colorScheme`) selects the
+dark scheme; see [Color scheme](/reference/react-native/components/CopilotChat#color-scheme).
+Your `style` overrides are merged on top of whichever map is active. Spread
+either map to extend rather than replace the built-in styling:
 
 ```tsx
 import { CopilotMarkdown, defaultMarkdownStyles } from "@copilotkit/react-native/components";

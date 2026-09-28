@@ -294,6 +294,7 @@ import SalesChat from "./SalesChat.vue";
 - **Label merging**: Labels are merged in order: built-in defaults (`CopilotChatDefaultLabels`), then parent provider labels, then the current provider's labels. This allows partial overrides at any level.
 - **Agent ID resolution**: `agentId` resolves from the nearest provider, falling back to parent providers, then to the default agent ID (`"default"`).
 - **Thread ID generation**: If no `threadId` is provided at any level, a random UUID is generated and remains stable for the lifetime of the provider. `hasExplicitThreadId` reports whether the resolved thread ID was a caller choice rather than an internally minted UUID.
+- **Thread switching**: `setActiveThreadId` and `startNewThread` switch the thread of the provider they are called on, and a provider you nest yourself keeps its own thread. The providers that `CopilotChat`, `CopilotPopup`, and `CopilotSidebar` render internally pass thread switches up to the provider above them, so a threads drawer inside the chat switches the chat's thread.
 - **Modal state ownership**: Modal state (`isModalOpen` / `setModalOpen`) is only created when a provider sets `isModalDefaultOpen`. Providers without this prop pass through the parent's modal state, and both fields are `undefined` when no provider owns modal state.
 - **Null resolution**: The returned ref resolves to `null` when used outside any `CopilotChatConfigurationProvider`, rather than throwing. Components should handle this case gracefully.
 
