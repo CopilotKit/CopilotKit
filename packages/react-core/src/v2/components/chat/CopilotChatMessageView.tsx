@@ -712,9 +712,13 @@ export function CopilotChatMessageView({
   // fresh sample would drag the mean toward whatever that one row happened to
   // be mid-stream. Held in a ref because feeding it back through state would
   // re-render on every measure.
+  //
+  // Keyed by the row key (see getRowKey below), not the index: a transform
+  // that hides a row shifts every later row down an index, and an index key
+  // would then file a row's re-measure under its predecessor's entry.
   const measuredRef = React.useRef({
     total: 0,
-    sizes: new Map<number, number>(),
+    sizes: new Map<React.Key, number>(),
   });
 
   // The measurements describe one thread, so drop them when the thread
@@ -731,6 +735,34 @@ export function CopilotChatMessageView({
     measuredRef.current = { total: 0, sizes: new Map() };
   }
 
+  // The virtualizer's key for a row: the same key the row's React element
+  // uses (see the `key=` on the virtual row below). Without it TanStack keys
+  // its size cache by index, so when a message in the middle is hidden by
+  // `transformMessages`, every later row inherits its predecessor's cached
+  // size. Those rows keep their DOM nodes and their own size, so nothing
+  // re-measures them to correct it.
+  //
+  // A new function identity makes the virtualizer rebuild its measurement
+  // list (one O(count) pass), but it does not clear the size cache, so no row
+  // loses its measurement. The identity changes whenever `renderedMessages`
+  // does, which includes streaming chunks. That is the price of correctness:
+  // a ref-backed stable function would miss a hide that leaves the count
+  // unchanged (one row hidden and another shown in the same render), because
+  // the virtualizer only rebuilds keys when an option it watches changes.
+  const getRowKey = React.useCallback(
+    (index: number): React.Key => {
+      const message = renderedMessages[index];
+      if (!message) return index;
+      return rowRenderKeys.get(message.id) ?? message.id;
+    },
+    [renderedMessages, rowRenderKeys],
+  );
+  // measureRowElement below is stable, so it reads the current key function
+  // through a ref. Assigned during render for the same reason as
+  // isPinnedToBottomRef: a row can be measured before effects run.
+  const getRowKeyRef = React.useRef(getRowKey);
+  getRowKeyRef.current = getRowKey;
+
   const estimateRowSize = React.useCallback(() => {
     const { total, sizes } = measuredRef.current;
     return sizes.size > 0 ? Math.max(1, Math.round(total / sizes.size)) : 100;
@@ -742,9 +774,10 @@ export function CopilotChatMessageView({
     // virtualizer itself uses to identify a measured element.
     const index = Number((el as HTMLElement | null)?.dataset?.index);
     if (height > 0 && Number.isInteger(index)) {
+      const key = getRowKeyRef.current(index);
       const { total, sizes } = measuredRef.current;
-      measuredRef.current.total = total - (sizes.get(index) ?? 0) + height;
-      sizes.set(index, height);
+      measuredRef.current.total = total - (sizes.get(key) ?? 0) + height;
+      sizes.set(key, height);
     }
     return height;
   }, []);
@@ -780,6 +813,7 @@ export function CopilotChatMessageView({
     count: shouldVirtualize ? renderedMessages.length : 0,
     getScrollElement: () => scrollElement,
     estimateSize: estimateRowSize,
+    getItemKey: getRowKey,
     overscan: 5,
     measureElement: measureRowElement,
     // Assume a 600 px viewport before the real element is measured so that
@@ -974,7 +1008,7 @@ export function CopilotChatMessageView({
             const message = renderedMessages[virtualItem.index]!;
             return (
               <div
-                key={rowRenderKeys.get(message.id) ?? message.id}
+                key={getRowKey(virtualItem.index)}
                 data-index={virtualItem.index}
                 ref={virtualizer.measureElement}
                 style={{

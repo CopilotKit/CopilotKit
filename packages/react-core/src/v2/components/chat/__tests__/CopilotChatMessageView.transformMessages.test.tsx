@@ -1,10 +1,12 @@
 import React from "react";
-import { act, cleanup, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { z } from "zod";
 import type { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
-import type { Virtualizer } from "@tanstack/react-virtual";
+import type { VirtualItem, Virtualizer } from "@tanstack/react-virtual";
 import type * as ReactVirtual from "@tanstack/react-virtual";
 import { renderWithCopilotKit } from "../../../__tests__/utils/test-helpers";
+import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
+import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import { defineToolCallRenderer } from "../../../types";
 import { CopilotChatMessageView } from "../CopilotChatMessageView";
 import { ScrollElementContext } from "../scroll-element-context";
@@ -495,5 +497,119 @@ describe("CopilotChatMessageView transformMessages", () => {
       ).toBe(false);
       await drainAnimationFrames();
     });
+  });
+});
+
+describe("CopilotChatMessageView transformMessages (virtual mid-list hide)", () => {
+  const TALL = 300;
+  const SHORT = 50;
+  let originalRect: typeof HTMLElement.prototype.getBoundingClientRect;
+
+  beforeEach(() => {
+    originalRect = HTMLElement.prototype.getBoundingClientRect;
+    // jsdom has no real layout. A virtual row (it carries `data-index`)
+    // reports TALL while it holds the row-2 message, SHORT otherwise. Every
+    // other element, including the scroll container, reports a 600px
+    // viewport.
+    HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+      const isRow = this.dataset?.index !== undefined;
+      const height = isRow
+        ? this.querySelector('[data-message-id="m-2"]')
+          ? TALL
+          : SHORT
+        : 600;
+      return {
+        height,
+        width: 800,
+        top: 0,
+        left: 0,
+        bottom: height,
+        right: 800,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect;
+    };
+  });
+
+  afterEach(() => {
+    HTMLElement.prototype.getBoundingClientRect = originalRect;
+  });
+
+  // `getMeasurements` is private on the Virtualizer type, but it is the
+  // per-row size list this test is about.
+  const measurements = () =>
+    (
+      capture.current as unknown as { getMeasurements(): VirtualItem[] }
+    ).getMeasurements();
+
+  // 60 messages (above VIRTUALIZE_THRESHOLD), m-2 is the tall one. When
+  // `named` is true, m-2 gains `name: "math_expert"`, as a MESSAGES_SNAPSHOT
+  // would add it, and the transform hides it.
+  const transcript = (named: boolean): Message[] =>
+    Array.from({ length: 60 }, (_, i) => ({
+      id: `m-${i}`,
+      role: "assistant",
+      content: i === 2 ? "TALL_ROW" : `row ${i}`,
+      ...(i === 2 && named ? { name: "math_expert" } : {}),
+    })) as Message[];
+
+  const hideNamed = (list: Message[]): Message[] =>
+    list.filter((m) => (m as { name?: string }).name !== "math_expert");
+
+  function renderView(
+    props: React.ComponentProps<typeof CopilotChatMessageView>,
+    scrollElement: HTMLElement,
+  ) {
+    const tree = (p: typeof props) => (
+      <CopilotKitProvider>
+        <CopilotChatConfigurationProvider
+          agentId="default"
+          threadId="thread-srm"
+        >
+          <ScrollElementContext.Provider value={scrollElement}>
+            <CopilotChatMessageView {...p} />
+          </ScrollElementContext.Provider>
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>
+    );
+    const utils = render(tree(props));
+    return {
+      ...utils,
+      rerenderView: (next: typeof props) => utils.rerender(tree(next)),
+    };
+  }
+
+  it("does not leave a later row in the hidden row's cached size slot", async () => {
+    const scrollElement = createScrollElement();
+    document.body.appendChild(scrollElement);
+
+    try {
+      const { rerenderView } = renderView(
+        { messages: transcript(false), transformMessages: hideNamed },
+        scrollElement,
+      );
+      await drainAnimationFrames();
+      const before = measurements();
+      expect(before[2]!.size).toBe(TALL);
+      expect(before[3]!.size).toBe(SHORT);
+
+      rerenderView({
+        messages: transcript(true),
+        transformMessages: hideNamed,
+      });
+      await drainAnimationFrames();
+
+      expect(capture.current!.options.count).toBe(59);
+      expect(screen.queryByText("TALL_ROW")).toBeNull();
+      // m-3 now sits at index 2. Its DOM node was kept and its own size did
+      // not change, so nothing re-measures it. Index 2 must hold m-3's size,
+      // not the size m-2 left behind.
+      const after = measurements();
+      expect(after[2]!.size).toBe(SHORT);
+      expect(after.every((m) => m.size !== TALL)).toBe(true);
+    } finally {
+      scrollElement.remove();
+    }
   });
 });

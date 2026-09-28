@@ -1074,6 +1074,8 @@ export function CopilotChat({
   // We build a lightweight fingerprint instead of JSON.stringify to avoid
   // serializing large base64 attachment data on every render. The key captures:
   //   - message id, role, content length (text streaming)
+  //   - message name (a snapshot can add only a name, which `transformMessages`
+  //     reads — e.g. to distinguish a langgraph-supervisor worker message)
   //   - content part count (multimodal additions)
   //   - tool call ids + argument lengths (tool call streaming)
   //   - object content for activity messages (ACTIVITY_SNAPSHOT replace keeps
@@ -1099,7 +1101,8 @@ export function CopilotChat({
               )
               .join(";")
           : "";
-      return `${m.id}:${m.role}:${contentKey}:${toolCallsKey}`;
+      const nameKey = (m as { name?: string }).name ?? "";
+      return `${m.id}:${m.role}:${nameKey}:${contentKey}:${toolCallsKey}`;
     })
     .join(",");
   const messages = useMemo(
