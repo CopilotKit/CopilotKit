@@ -27,9 +27,12 @@ const props = withDefaults(defineProps<CopilotPopupViewProps>(), {
   suggestionLoadingIndexes: () => [],
   welcomeScreen: true,
   introAnimation: true,
+  inlineCursor: undefined,
+  userMessageMarkdown: true,
   inputValue: undefined,
   inputMode: "input",
   inputToolsMenu: () => [],
+  inputHighlightMarkdown: true,
   width: undefined,
   height: undefined,
   clickOutsideToClose: false,
@@ -119,7 +122,10 @@ const internalBindings = computed(() => ({
 </script>
 
 <template>
-  <CopilotChatConfigurationProvider :is-modal-default-open="defaultOpen">
+  <CopilotChatConfigurationProvider
+    :is-modal-default-open="defaultOpen"
+    forward-thread-switching
+  >
     <!-- The drawer's open state is local to this modal (see ModalThreadsDrawerScope). -->
     <ModalThreadsDrawerScope :enabled="drawerProps !== null">
       <CopilotPopupViewInternal

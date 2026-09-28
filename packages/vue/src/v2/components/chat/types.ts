@@ -59,11 +59,35 @@ export interface CopilotChatViewProps {
    * motion.
    */
   introAnimation?: boolean;
+  /**
+   * While a reply streams, show the cursor at the end of its text. Defaults to
+   * on, unless a custom `cursor` or `assistant-message` slot is provided; set
+   * `false` to keep the cursor below the messages.
+   */
+  inlineCursor?: boolean;
+  /**
+   * Where assistant toolbars appear: `"turn"` (default) shows one toolbar per
+   * reply, `"message"` one per assistant message. Forwarded to each assistant
+   * message as `toolbarScope`.
+   */
+  assistantMessageToolbarScope?: "turn" | "message";
+  /**
+   * Render user messages as markdown. Defaults to `true`; set `false` to show
+   * them as plain text. Forwarded to each user message as `markdown`.
+   */
+  userMessageMarkdown?: boolean;
   attachments?: Attachment[];
   dragOver?: boolean;
   inputValue?: string;
   inputMode?: CopilotChatInputMode;
   inputToolsMenu?: (ToolsMenuItem | "-")[];
+  /** The input's `layout`: `"auto"` (default) or `"stacked"`. */
+  inputLayout?: "auto" | "stacked";
+  /**
+   * The input's `highlightMarkdown`: style list markers and links as the user
+   * types. Defaults to `true`.
+   */
+  inputHighlightMarkdown?: boolean;
   /** Optional event callbacks used to drive the default input controls. */
   onSubmitMessage?: (value: string) => void | Promise<void>;
   /**
@@ -232,6 +256,8 @@ export interface CopilotChatWelcomeScreenSlotProps extends CopilotChatSuggestion
   isRunning: boolean;
   inputMode: CopilotChatInputMode;
   inputToolsMenu: (ToolsMenuItem | "-")[];
+  inputLayout?: "auto" | "stacked";
+  inputHighlightMarkdown?: boolean;
   canStop: boolean;
   canAddFile: boolean;
   canTranscribe: boolean;
@@ -498,7 +524,10 @@ export type CopilotSidebarWelcomeScreenProps = Omit<
   Partial<
     Pick<
       CopilotChatWelcomeScreenSlotProps,
-      "attachments" | "onRemoveAttachment"
+      | "attachments"
+      | "onRemoveAttachment"
+      | "inputLayout"
+      | "inputHighlightMarkdown"
     >
   >;
 

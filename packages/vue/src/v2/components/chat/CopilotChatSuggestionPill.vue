@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Component } from "vue";
-import { computed } from "vue";
+import { computed, useId } from "vue";
 import { IconLoader2 } from "../icons";
 
 const props = withDefaults(
@@ -28,6 +28,9 @@ const props = withDefaults(
 );
 
 const isDisabled = computed(() => props.isLoading || props.disabled);
+// A card is named by its title alone; the body describes it.
+const titleId = useId();
+const descriptionId = useId();
 
 const pillClass =
   "cpk:group cpk:inline-flex cpk:h-8 cpk:items-center cpk:gap-1.5 cpk:rounded-full cpk:border cpk:border-input cpk:bg-card cpk:px-3.5 cpk:text-[13px] cpk:leading-none cpk:text-foreground/80 cpk:shadow-[0_1px_2px_0_rgb(0_0_0/0.03)] cpk:transition-colors cpk:cursor-pointer cpk:hover:bg-accent cpk:hover:text-foreground cpk:focus-visible:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-ring cpk:focus-visible:ring-offset-2 cpk:focus-visible:ring-offset-background cpk:disabled:cursor-not-allowed cpk:disabled:text-muted-foreground cpk:disabled:hover:bg-card cpk:disabled:hover:text-muted-foreground cpk:pointer-events-auto";
@@ -40,9 +43,14 @@ const cardClass =
   <button
     v-if="appearance === 'card'"
     data-copilotkit
-    data-slot="suggestion-card"
+    data-slot="suggestion-pill"
+    data-appearance="card"
     data-testid="copilot-chat-suggestion-pill"
     :type="type"
+    :aria-labelledby="titleId"
+    :aria-describedby="
+      description || $slots.description ? descriptionId : undefined
+    "
     :aria-busy="isLoading ? 'true' : undefined"
     :disabled="isDisabled"
     :class="cardClass"
@@ -64,10 +72,11 @@ const cardClass =
           <component :is="icon" />
         </slot>
       </span>
-      <span class="cpk:truncate"><slot /></span>
+      <span :id="titleId" class="cpk:truncate"><slot /></span>
     </span>
     <span
       v-if="description || $slots.description"
+      :id="descriptionId"
       class="cpk:line-clamp-2 cpk:text-[13px] cpk:leading-snug cpk:text-muted-foreground"
     >
       <slot name="description">{{ description }}</slot>
@@ -77,6 +86,7 @@ const cardClass =
     v-else
     data-copilotkit
     data-slot="suggestion-pill"
+    data-appearance="pill"
     data-testid="copilot-chat-suggestion-pill"
     :type="type"
     :aria-busy="isLoading ? 'true' : undefined"

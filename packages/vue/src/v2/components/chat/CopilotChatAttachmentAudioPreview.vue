@@ -49,7 +49,7 @@ function formatDuration(seconds: number): string {
       type="button"
       class="cpk:flex cpk:size-8 cpk:shrink-0 cpk:items-center cpk:justify-center cpk:rounded-lg cpk:border-none cpk:bg-primary/10 cpk:text-primary cpk:cursor-pointer cpk:transition-colors cpk:hover:bg-primary/15"
       :aria-label="playing ? 'Pause audio' : 'Play audio'"
-      data-testid="copilot-chat-attachment-audio-toggle"
+      data-testid="copilot-chat-attachment-audio-player"
       @click="togglePlayback"
     >
       <IconPause

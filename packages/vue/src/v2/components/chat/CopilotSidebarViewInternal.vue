@@ -48,9 +48,12 @@ const props = withDefaults(
     suggestionLoadingIndexes: () => [],
     welcomeScreen: true,
     introAnimation: true,
+    inlineCursor: undefined,
+    userMessageMarkdown: true,
     inputValue: undefined,
     inputMode: "input",
     inputToolsMenu: () => [],
+    inputHighlightMarkdown: true,
     width: undefined,
     onFinishTranscribeWithAudio: undefined,
     drawerProps: null,
@@ -148,13 +151,11 @@ const asideStyle = computed(
       paddingBottom: "env(safe-area-inset-bottom)",
     }) as Record<string, string>,
 );
-// Docks the sidebar by pushing the page aside. `!important` because this is a
-// stylesheet rule: a host reset such as `body { margin: 0 }` would otherwise win.
 const bodyMarginStyle = computed(
   () => `
 @media (min-width: 768px) {
   body {
-    margin-inline-end: ${widthToMargin(resolvedSidebarWidth.value)} !important;
+    margin-inline-end: ${widthToMargin(resolvedSidebarWidth.value)};
     transition: margin-inline-end ${SIDEBAR_TRANSITION_MS}ms ease;
   }
 }
@@ -335,9 +336,14 @@ onBeforeUnmount(() => {
           :suggestion-loading-indexes="suggestionLoadingIndexes"
           :welcome-screen="welcomeScreen"
           :intro-animation="playIntro"
+          :inline-cursor="inlineCursor"
+          :assistant-message-toolbar-scope="assistantMessageToolbarScope"
+          :user-message-markdown="userMessageMarkdown"
           :input-value="inputValue"
           :input-mode="inputMode"
           :input-tools-menu="inputToolsMenu"
+          :input-layout="inputLayout"
+          :input-highlight-markdown="inputHighlightMarkdown"
           :on-finish-transcribe-with-audio="onFinishTranscribeWithAudio"
           v-bind="chatViewEventProps"
         >

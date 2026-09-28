@@ -32,7 +32,7 @@ export const pinnedThreads: PinnedDrawerFields = {
 
 /** A failed initial thread fetch. */
 export const pinnedError: PinnedDrawerFields = {
-  error: "Couldn't load conversations.",
+  error: "Couldn't load threads.",
 };
 
 /**

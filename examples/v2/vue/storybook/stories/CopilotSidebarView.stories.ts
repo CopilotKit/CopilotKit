@@ -12,7 +12,9 @@ const meta = {
   title: "UI/CopilotSidebarView",
   component: CopilotSidebarView,
   parameters: {
-    layout: "fullscreen",
+    // Not "fullscreen": its body margin reset would cancel the sidebar's page
+    // push (see preview.css).
+    layout: "none",
   },
   args: {
     autoScroll: true,

@@ -21,6 +21,7 @@ const props = withDefaults(defineProps<CopilotPopupWelcomeScreenProps>(), {
   isRunning: false,
   inputMode: "input",
   inputToolsMenu: () => [],
+  inputHighlightMarkdown: true,
   canStop: undefined,
   canAddFile: undefined,
   canTranscribe: undefined,
@@ -175,6 +176,8 @@ const inputEventProps = computed(() => {
               :is-running="isRunning"
               :mode="inputMode"
               :tools-menu="inputToolsMenu"
+              :layout="inputLayout"
+              :highlight-markdown="inputHighlightMarkdown"
               positioning="static"
               :show-disclaimer="true"
               v-bind="inputEventProps"

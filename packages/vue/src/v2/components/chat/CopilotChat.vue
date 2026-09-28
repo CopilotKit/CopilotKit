@@ -57,9 +57,12 @@ const props = withDefaults(defineProps<CopilotChatProps>(), {
   autoScroll: true,
   welcomeScreen: true,
   introAnimation: true,
+  inlineCursor: undefined,
+  userMessageMarkdown: true,
   inputValue: undefined,
   inputMode: "input",
   inputToolsMenu: () => [],
+  inputHighlightMarkdown: true,
   onFinishTranscribeWithAudio: undefined,
 });
 
@@ -753,11 +756,16 @@ const chatViewSlotProps = computed<CopilotChatViewOverrideSlotProps>(() => ({
   suggestionLoadingIndexes: [],
   welcomeScreen: props.welcomeScreen,
   introAnimation: props.introAnimation,
+  inlineCursor: props.inlineCursor,
+  assistantMessageToolbarScope: props.assistantMessageToolbarScope,
+  userMessageMarkdown: props.userMessageMarkdown,
   attachments: attachments.value,
   dragOver: dragOver.value,
   inputValue: inputValue.value,
   inputMode: effectiveMode.value,
   inputToolsMenu: props.inputToolsMenu,
+  inputLayout: props.inputLayout,
+  inputHighlightMarkdown: props.inputHighlightMarkdown,
   isConnecting: isConnecting.value,
   hasExplicitThreadId: hasExplicitThreadId.value,
   canStop: shouldAllowStop.value,
@@ -814,6 +822,7 @@ const defaultChatViewBindings = computed(() => {
     :thread-id="resolvedThreadId"
     :has-explicit-thread-id="pinsThreadId"
     :labels="resolvedLabels"
+    forward-thread-switching
   >
     <div ref="attachmentContainerRef" style="display: contents">
       <input
@@ -856,9 +865,16 @@ const defaultChatViewBindings = computed(() => {
           "
           :welcome-screen="chatViewSlotProps.welcomeScreen"
           :intro-animation="chatViewSlotProps.introAnimation"
+          :inline-cursor="chatViewSlotProps.inlineCursor"
+          :assistant-message-toolbar-scope="
+            chatViewSlotProps.assistantMessageToolbarScope
+          "
+          :user-message-markdown="chatViewSlotProps.userMessageMarkdown"
           :input-value="chatViewSlotProps.inputValue"
           :input-mode="chatViewSlotProps.inputMode"
           :input-tools-menu="chatViewSlotProps.inputToolsMenu"
+          :input-layout="chatViewSlotProps.inputLayout"
+          :input-highlight-markdown="chatViewSlotProps.inputHighlightMarkdown"
           :is-connecting="chatViewSlotProps.isConnecting"
           :has-explicit-thread-id="chatViewSlotProps.hasExplicitThreadId"
           :on-finish-transcribe-with-audio="
