@@ -36,7 +36,18 @@ export function intelligenceAnalyticsFixture(
       data: (query.order === "asc"
         ? rows.reduce<typeof rows>((ordered, row) => [row, ...ordered], [])
         : rows
-      ).filter((row) => !query.type || row.type === query.type),
+      ).filter(
+        (row) =>
+          (!query.type || row.type === query.type) &&
+          (!query.agentId || row.agentId === query.agentId) &&
+          (!query.threadId || row.threadId === query.threadId) &&
+          (!query.runId || row.runId === query.runId) &&
+          (!query.toolName || row.toolName === query.toolName) &&
+          (!query.outcome || row.outcome === query.outcome) &&
+          (!query.from ||
+            Date.parse(row.occurredAt) >= Date.parse(query.from)) &&
+          (!query.to || Date.parse(row.occurredAt) < Date.parse(query.to)),
+      ),
       nextCursor: null,
     };
   }

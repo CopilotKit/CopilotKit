@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { IntelligenceReadRequest } from "../src/lib/intelligence-relay.js";
 import { intelligenceLearningFixture } from "./intelligence-learning-fixtures.js";
+import { intelligenceAnalyticsFixture } from "./intelligence-analytics-fixtures.js";
 
 import { intelligenceGovernanceFixture } from "./intelligence-governance-fixtures.js";
 
@@ -114,7 +115,11 @@ function exportJob(job: FixtureJob, completed: boolean) {
 
 /** Reuses list fixtures so export scope and screen scope match. */
 function exportRows(job: FixtureJob): Record<string, unknown>[] {
-  if (job.kind !== "insights" && job.kind !== "activity")
+  if (
+    job.kind !== "insights" &&
+    job.kind !== "activity" &&
+    job.kind !== "events"
+  )
     return [
       {
         runId:
@@ -132,17 +137,23 @@ function exportRows(job: FixtureJob): Record<string, unknown>[] {
     ),
   };
   const response =
-    job.kind === "activity"
-      ? intelligenceGovernanceFixture({
+    job.kind === "events"
+      ? intelligenceAnalyticsFixture({
           method: "GET",
-          path: "/api/v1/governance/events",
+          path: "/api/v1/events",
           query,
         })
-      : intelligenceLearningFixture({
-          method: "GET",
-          path: "/api/v1/learning/insights",
-          query,
-        });
+      : job.kind === "activity"
+        ? intelligenceGovernanceFixture({
+            method: "GET",
+            path: "/api/v1/governance/events",
+            query,
+          })
+        : intelligenceLearningFixture({
+            method: "GET",
+            path: "/api/v1/learning/insights",
+            query,
+          });
   if (
     !isRecord(response) ||
     !Array.isArray(response.data) ||
@@ -165,11 +176,34 @@ function exportRows(job: FixtureJob): Record<string, unknown>[] {
         ]),
       );
     });
+  if (job.kind === "events")
+    return response.data.map((row) =>
+      Object.fromEntries(
+        exportColumns(job).map((column) => [column, row[column]]),
+      ),
+    );
   return response.data;
 }
 
 /** Stable columns match each fixture export, including empty files. */
 function exportColumns(job: FixtureJob): string[] {
+  if (job.kind === "events")
+    return [
+      "id",
+      "occurredAt",
+      "type",
+      "agentId",
+      "runId",
+      "threadId",
+      "toolName",
+      "outcome",
+      "model",
+      "tokens",
+      "tokensIn",
+      "tokensOut",
+      "durationMs",
+      "contentAvailable",
+    ];
   if (job.kind === "activity")
     return [
       "id",
