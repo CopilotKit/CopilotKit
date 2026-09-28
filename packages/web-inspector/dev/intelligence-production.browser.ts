@@ -30,6 +30,9 @@ test("production grants filter navigation and revocation removes the whole surfa
     }),
   );
   await page.goto(url);
+  await expect(page.locator("html")).toHaveAttribute("data-ready", "true", {
+    timeout: 10_000,
+  });
   const inspector = page.locator("cpk-web-inspector");
 
   await expect(inspector.locator("[data-inspector-menu-key]")).toHaveCount(1);

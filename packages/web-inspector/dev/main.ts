@@ -374,7 +374,7 @@ async function openInspectorSurface(
     "the Web Inspector launcher",
   );
   launcher.click();
-  if (initialMenu !== "home") {
+  if (!inspector?.intelligenceOnly && initialMenu !== "home") {
     const menuLabel =
       initialMenu === "memories" ? "Automatic Learning" : "Rich Threads";
     const menuButton = await waitForButton(
