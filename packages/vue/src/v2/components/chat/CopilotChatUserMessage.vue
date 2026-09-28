@@ -273,7 +273,7 @@ onBeforeUnmount(() => {
       >
         <div
           data-testid="copilot-user-toolbar"
-          class="cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:justify-end cpk:-mr-1 cpk:mt-1 cpk:invisible cpk:group-hover:visible"
+          class="cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:justify-end cpk:-mr-1 cpk:mt-1 cpk:opacity-0 cpk:transition-opacity cpk:duration-150 cpk:group-hover:opacity-100 cpk:focus-within:opacity-100"
         >
           <div class="cpk:flex cpk:items-center cpk:gap-0.5 cpk:justify-end">
             <slot name="toolbar-items" />
