@@ -58,3 +58,25 @@ test("Ask fixture returns metric data for the requested period", () => {
     ],
   });
 });
+
+test("tool detail fixture limits recent calls to the requested outcome", () => {
+  for (const [outcome, count] of [
+    ["error", 4],
+    ["success", 50],
+    ["pending", 0],
+  ] as const) {
+    const response = intelligenceFixture({
+      method: "GET",
+      path: "/api/v1/tools/refund",
+      query: { outcome },
+    });
+    expect(response.body).toMatchObject({
+      tiles: { calls: 128, errors: 4 },
+      recentCalls: {
+        data: Array.from({ length: count }, () =>
+          expect.objectContaining({ outcome }),
+        ),
+      },
+    });
+  }
+});

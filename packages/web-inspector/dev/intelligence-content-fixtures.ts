@@ -63,6 +63,34 @@ export function intelligenceContentFixture(
     if (!fallback) return undefined;
     const tool = tools.find((item) => item.toolName === name) ?? fallback;
     const { toolName, lastCalledAt: _lastCalledAt, ...tiles } = tool;
+    const outcome = request.query?.outcome;
+    const calls = Array.from({ length: tiles.calls }, (_, index) => {
+      const failed = index > 0 && index <= tiles.errors;
+      return {
+        time: new Date(
+          Date.parse(to) -
+            ((index + 1) * (Date.parse(to) - Date.parse(from))) /
+              (tiles.calls + 1),
+        ).toISOString(),
+        toolCallId: `fixture-tool-${index + 1}`,
+        toolName,
+        runId: "fixture-run-1",
+        threadId: "fixture-thread-1",
+        agentId: request.query?.agentId ?? "support",
+        outcome: failed ? "error" : "success",
+        durationMs: 240,
+        input: '{"orderId":"ORDER-1042","reason":"duplicate_charge"}',
+        error: failed ? "Refund provider unavailable" : null,
+      };
+    }).filter((call) => !outcome || call.outcome === outcome);
+    const prefix = `fixture_calls_${outcome ?? "all"}_`;
+    const offset = request.query?.cursor?.startsWith(prefix)
+      ? Number(request.query.cursor.slice(prefix.length)) || 0
+      : 0;
+    const limit = Math.max(
+      1,
+      Math.min(100, Number(request.query?.limit ?? "50") || 50),
+    );
     return {
       toolName,
       grain: request.query?.grain === "hour" ? "hour" : "day",
@@ -88,21 +116,9 @@ export function intelligenceContentFixture(
         ],
       },
       recentCalls: {
-        data: [
-          {
-            time: at,
-            toolCallId: "fixture-tool-1",
-            toolName,
-            runId: "fixture-run-1",
-            threadId: "fixture-thread-1",
-            agentId: "support",
-            outcome: "success",
-            durationMs: 240,
-            input: '{"orderId":"ORDER-1042","reason":"duplicate_charge"}',
-            error: null,
-          },
-        ],
-        nextCursor: null,
+        data: calls.slice(offset, offset + limit),
+        nextCursor:
+          offset + limit < calls.length ? `${prefix}${offset + limit}` : null,
       },
     };
   }
