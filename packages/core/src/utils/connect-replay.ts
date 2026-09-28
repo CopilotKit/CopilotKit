@@ -99,7 +99,7 @@ export async function ɵconnectWithoutEventVerification(
     });
 
     // RUN_ERROR is data while restoring history, but terminal once the
-    // transport explicitly switches to live events. Runtime mode is irrelevant.
+    // Intelligence transport signals replay completion. HTTP keeps waiting for EOF.
     let isReplaying = true;
     const lifecycle: ConnectionReplayLifecycle = {
       onReplayStarted: () => {

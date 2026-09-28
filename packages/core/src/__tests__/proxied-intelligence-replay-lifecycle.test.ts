@@ -196,4 +196,90 @@ describe("Intelligence replay lifecycle", () => {
       await connecting;
     }
   });
+  it("waits for the 100ms fallback when an error arrives without replay_complete", async () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "http://localhost/runtime",
+      runtimeMode: "intelligence",
+      intelligence: { wsUrl: "ws://localhost/client" },
+      transport: "rest",
+      agentId: "chat",
+    });
+    const connecting = agent.connectAgent();
+    try {
+      await vi.waitFor(() =>
+        expect(sockets[0]?.channels[0]?.joinCount).toBe(1),
+      );
+      const channel = sockets[0]!.channels[0]!;
+      channel.triggerJoin("ok");
+      vi.useFakeTimers();
+      channel.serverPush("stream_idle", {});
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_ERROR,
+        message: "No replay boundary yet",
+      });
+      channel.serverPush("ag_ui_event", {
+        type: EventType.MESSAGES_SNAPSHOT,
+        messages: [
+          {
+            id: "late-history",
+            role: "assistant",
+            content: "History after idle/error",
+          },
+        ],
+      });
+      await vi.advanceTimersByTimeAsync(99);
+      expect(agent.isRunning).toBe(true);
+      expect(agent.messages[0]?.id).toBe("late-history");
+      await vi.advanceTimersByTimeAsync(1);
+      await connecting;
+      expect(agent.isRunning).toBe(false);
+      expect(channel.left).toBe(true);
+    } finally {
+      vi.useRealTimers();
+      await agent.detachActiveRun();
+      await connecting;
+    }
+  });
+
+  it.each(["socket", "channel"] as const)(
+    "cancels stale idle and its fallback timer on %s reconnect",
+    async (kind) => {
+      const agent = new ProxiedCopilotRuntimeAgent({
+        runtimeUrl: "http://localhost/runtime",
+        runtimeMode: "intelligence",
+        intelligence: { wsUrl: "ws://localhost/client" },
+        transport: "rest",
+        agentId: "chat",
+      });
+      const connecting = agent.connectAgent();
+      try {
+        await vi.waitFor(() =>
+          expect(sockets[0]?.channels[0]?.joinCount).toBe(1),
+        );
+        const socket = sockets[0]!;
+        const channel = socket.channels[0]!;
+        channel.triggerJoin("ok");
+        vi.useFakeTimers();
+        channel.serverPush("stream_idle", {});
+        await vi.advanceTimersByTimeAsync(50);
+        if (kind === "socket") socket.triggerError(new Error("disconnected"));
+        else channel.serverPush("phx_error", {});
+        await vi.advanceTimersByTimeAsync(100);
+        expect(agent.isRunning).toBe(true);
+        // A fresh replay_complete cannot combine with the previous idle signal.
+        channel.serverPush("replay_complete", {});
+        await vi.advanceTimersByTimeAsync(100);
+        expect(agent.isRunning).toBe(true);
+        expect(channel.left).toBe(false);
+        channel.serverPush("stream_idle", {});
+        await vi.advanceTimersByTimeAsync(0);
+        await connecting;
+        expect(agent.isRunning).toBe(false);
+      } finally {
+        vi.useRealTimers();
+        await agent.detachActiveRun();
+        await connecting;
+      }
+    },
+  );
 });
