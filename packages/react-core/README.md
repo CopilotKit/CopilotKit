@@ -145,3 +145,39 @@ const response = await ChatOpenAI({ model: "gpt-4o" }).invoke(
 ## Documentation
 
 To get started with CopilotKit, please check out the [documentation](https://docs.copilotkit.ai).
+
+## Embedded Intelligence Inspector (preview)
+
+The v2 provider can opt in to the read-only Intelligence views outside local
+development:
+
+```tsx
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+
+<CopilotKitProvider
+  runtimeUrl="/api/copilotkit"
+  intelligenceInspector={{
+    appUrl: "https://your-intelligence-host/inspector.html",
+  }}
+>
+  {children}
+</CopilotKitProvider>;
+```
+
+The runtime must resolve an authenticated user and grant permissions through its
+Intelligence `access` hook. The launcher stays hidden until that check passes.
+Production shows only the granted Analytics, Governance, and Learning views;
+it has no development panes, run controls, or message inspection shortcuts.
+`enableInspector={false}` disables both Inspector modes.
+
+Local development keeps the existing Inspector and adds the embedded views.
+The Intelligence frontend must enable `inspector.intelligence-views`; this
+preview flag remains off by default in production. Use the same configuration
+with a managed or self-hosted Intelligence frontend URL. Never pass an API key
+in this URL.
+
+## Package validation
+
+`pnpm nx test @copilotkit/react-core` builds this package before tests import its
+public entry points. Keep build, test, and packaging checks in the Nx task graph
+so concurrent checks cannot replace files while those tests read them.

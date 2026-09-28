@@ -517,8 +517,9 @@ async function boot(): Promise<void> {
     sdkVersion: clientVersion.value,
   };
   inspector.setAttribute("auto-attach-core", "false");
-  inspector.core = core;
+  inspector.intelligenceOnly = query.get("intelligenceMode") === "production";
   inspector.intelligenceAppUrl = query.get("intelligenceAppUrl") ?? "";
+  inspector.core = core;
   if (inspector.intelligenceAppUrl) {
     routeAlert.hidden = false;
     routeAlert.textContent = "Embedded Intelligence uses local fixture data.";

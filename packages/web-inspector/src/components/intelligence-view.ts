@@ -125,6 +125,12 @@ export class InspectorIntelligenceView extends LitElement {
         ),
       onAccessLost: () => {
         this.denied = true;
+        this.dispatchEvent(
+          new CustomEvent("intelligence-access-lost", {
+            bubbles: true,
+            composed: true,
+          }),
+        );
       },
     });
   }

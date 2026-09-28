@@ -6,12 +6,16 @@ import type { CopilotKitInspectorOpenRequest } from "./CopilotKitInspectorContex
 
 export interface CopilotKitInspectorProps {
   core?: CopilotKitCore | null;
+  intelligenceOnly?: boolean;
+  intelligenceAppUrl?: string;
   onVisibilityChange?: (visible: boolean) => void;
   openRequest?: CopilotKitInspectorOpenRequest | null;
 }
 
 export const CopilotKitInspector: React.FC<CopilotKitInspectorProps> = ({
   core,
+  intelligenceOnly = false,
+  intelligenceAppUrl = "",
   openRequest,
   onVisibilityChange,
 }) => {
@@ -37,7 +41,7 @@ export const CopilotKitInspector: React.FC<CopilotKitInspectorProps> = ({
     };
 
     // Load the web component only on the client to keep SSR output stable.
-    void import("@copilotkit/web-inspector")
+    import("@copilotkit/web-inspector")
       .then((mod) => {
         if (!mounted || !mountRef.current) return;
 
@@ -45,6 +49,8 @@ export const CopilotKitInspector: React.FC<CopilotKitInspectorProps> = ({
         inspector = mountRef.current.ownerDocument.createElement(
           mod.WEB_INSPECTOR_TAG,
         ) as WebInspectorElement;
+        inspector.intelligenceOnly = intelligenceOnly;
+        inspector.intelligenceAppUrl = intelligenceAppUrl;
         mod.configureWebInspectorElement(inspector, latestCoreRef.current, {
           development: process.env.NODE_ENV === "development",
           framework: "react",
@@ -59,7 +65,7 @@ export const CopilotKitInspector: React.FC<CopilotKitInspectorProps> = ({
         inspectorRef.current = inspector;
 
         const request = latestOpenRequestRef.current;
-        if (request) {
+        if (request && !intelligenceOnly) {
           inspector.openInspector("message_toolbar", request);
         }
       })
@@ -79,7 +85,7 @@ export const CopilotKitInspector: React.FC<CopilotKitInspectorProps> = ({
         inspectorRef.current = null;
       }
     };
-  }, []);
+  }, [intelligenceOnly, intelligenceAppUrl]);
 
   React.useEffect(() => {
     if (inspectorRef.current) {
@@ -88,10 +94,10 @@ export const CopilotKitInspector: React.FC<CopilotKitInspectorProps> = ({
   }, [core]);
 
   React.useEffect(() => {
-    if (openRequest) {
+    if (openRequest && !intelligenceOnly) {
       inspectorRef.current?.openInspector("message_toolbar", openRequest);
     }
-  }, [openRequest]);
+  }, [openRequest, intelligenceOnly]);
 
   return <span ref={mountRef} style={{ display: "contents" }} />;
 };

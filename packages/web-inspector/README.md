@@ -165,3 +165,25 @@ saved with the separate Metadata JSON control; JSON files include it.
 The runtime streams only JSON or CSV exports, capped at 50 MiB. The host transfers
 file bytes into the iframe without forwarding a platform credential, download URL,
 or upstream cookie. Ordinary screen reads keep their 5 MiB response cap.
+
+## Read-only production mode (preview)
+
+Set `intelligenceOnly = true` and `intelligenceAppUrl` before assigning `core`
+and connecting the element. React applications can use the v2 provider's
+`intelligenceInspector={{ appUrl }}` option. Outside local development it selects
+this mode; local development retains the full existing Inspector.
+
+Production reuses the same shell and sidebar. It fetches `/context` through the
+host's authenticated Runtime transport before showing the launcher. Only granted
+Analytics, Governance, and Learning sections appear, scoped to allowed agents.
+There are no development panes, settings, run controls, or Learning mutations.
+Development thread, memory, event, and Learning subscriptions do not start in
+this mode, and it does not read or overwrite the development Inspector layout.
+
+Header changes and window focus refresh the grant. A denied context or embedded
+read clears the production surface. The Runtime still resolves permissions for
+every data request; this display check does not replace server authorization.
+The current embedded Learning lists require project-wide Learning permission.
+
+Preview the actual shell locally with `intelligenceMode=production` alongside the
+workbench's `intelligenceAppUrl` query parameter. Its data remains fixture data.

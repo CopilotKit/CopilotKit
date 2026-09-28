@@ -228,12 +228,20 @@ export interface CopilotKitProviderProps {
   /**
    * Disable the CopilotKit Inspector in development.
    * The Inspector is enabled by default in development browser builds on
-   * localhost/loopback. It is always disabled on remote hosts, in production,
-   * and during server rendering. Temporary Inspector hides also hide its
+   * localhost/loopback. Development panes stay disabled on remote hosts, in
+   * production, and during server rendering. Use `intelligenceInspector` for
+   * the read-only product mode. Temporary Inspector hides also hide its
    * message shortcuts.
    * An explicit value takes priority over CopilotChat's inspectorTools prop.
    */
   enableInspector?: boolean;
+  /**
+   * Opt in to the read-only Intelligence Inspector outside local development.
+   * The runtime must grant access before its launcher or views appear.
+   * Local development keeps the existing Inspector and adds the embedded views.
+   * `enableInspector={false}` disables both surfaces.
+   */
+  intelligenceInspector?: { readonly appUrl: string };
   /**
    * Error handler called when CopilotKit encounters an error.
    * Fires for all error types (runtime connection failures, agent errors, tool errors).
@@ -344,6 +352,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   humanInTheLoop,
   openGenerativeUI,
   enableInspector,
+  intelligenceInspector,
   agentId,
   useSingleEndpoint,
   onError,
@@ -351,22 +360,26 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   defaultThrottleMs,
   debug,
 }) => {
-  // Keep the server render and the first client render identical. The
-  // Inspector only runs in local development. Resolve its host and build
-  // policy after hydration instead of branching on `window` during render.
+  // Resolve browser-only display policy after hydration. The product mode
+  // independently resolves runtime grants before exposing any UI.
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
+  const [intelligenceOnly, setIntelligenceOnly] = useState(true);
   const [inspectorVisible, setInspectorVisible] = useState(false);
 
   useEffect(() => {
-    setShouldRenderInspector(
+    const development =
       shouldEnableInspector({
         enableInspector,
         isBrowser: true,
         isDevelopment: process.env.NODE_ENV === "development",
       }) &&
-        ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname),
+      ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname);
+    setIntelligenceOnly(!development);
+    setShouldRenderInspector(
+      development ||
+        (enableInspector !== false && Boolean(intelligenceInspector?.appUrl)),
     );
-  }, [enableInspector]);
+  }, [enableInspector, intelligenceInspector?.appUrl]);
 
   const [inspectorOpenRequest, setInspectorOpenRequest] =
     useState<CopilotKitInspectorOpenRequest | null>(null);
@@ -400,13 +413,15 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const inspectorContextValue = useMemo(
     () => ({
       providerEnableInspector: enableInspector,
-      isInspectorEnabled: shouldRenderInspector && inspectorVisible,
+      isInspectorEnabled:
+        shouldRenderInspector && inspectorVisible && !intelligenceOnly,
       openInspector: requestInspectorOpen,
     }),
     [
       enableInspector,
       shouldRenderInspector,
       inspectorVisible,
+      intelligenceOnly,
       requestInspectorOpen,
     ],
   );
@@ -1120,6 +1135,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
             </CopilotKitAgentIdContext.Provider>
             {shouldRenderInspector ? (
               <CopilotKitInspector
+                intelligenceOnly={intelligenceOnly}
+                intelligenceAppUrl={intelligenceInspector?.appUrl}
                 core={copilotkit}
                 openRequest={inspectorOpenRequest}
                 onVisibilityChange={setInspectorVisible}

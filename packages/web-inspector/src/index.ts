@@ -1,3 +1,8 @@
+import {
+  observeIntelligenceAccess,
+  intelligenceSections,
+} from "./lib/intelligence-access.js";
+import type { IntelligenceAccess } from "./lib/intelligence-access.js";
 import type { InspectorTimeWindow } from "./lib/intelligence-relay.js";
 import { loadNotificationFeed } from "./lib/notification-loader.js";
 import {
@@ -6578,6 +6583,7 @@ export class WebInspectorElement extends LitElement {
   static properties = {
     core: { attribute: false },
     intelligenceAppUrl: { attribute: false },
+    intelligenceOnly: { attribute: false },
     notificationContext: { attribute: false },
     autoAttachCore: { type: Boolean, attribute: "auto-attach-core" },
     _capabilitiesVersion: { state: true },
@@ -6586,6 +6592,56 @@ export class WebInspectorElement extends LitElement {
   private _core: CopilotKitCore | null = null;
   /** Opt-in URL for the embedded Intelligence entry in managed or self-hosted deployments. */
   intelligenceAppUrl = "";
+  private _intelligenceOnly = false;
+  private intelligenceAccess: IntelligenceAccess | null = null;
+  private stopIntelligenceAccess: (() => void) | undefined;
+
+  /** Selects the granted, read-only production surface before binding core. */
+  get intelligenceOnly(): boolean {
+    return this._intelligenceOnly;
+  }
+  set intelligenceOnly(value: boolean) {
+    const previous = this._intelligenceOnly;
+    if (previous === value) return;
+    this.detachFromCore();
+    this._intelligenceOnly = value;
+    this.settingsOpen = false;
+    if (this._core) this.attachToCore(this._core);
+    this.requestUpdate("intelligenceOnly", previous);
+  }
+
+  /** Drops all production UI immediately when its authenticated scope changes. */
+  private updateIntelligenceAccess(access: IntelligenceAccess | null): void {
+    this.intelligenceAccess = access;
+    if (!access) this.removeDockStyles(true);
+    const wildcard = intelligenceSections(access).length > 0;
+    this.contextOptions = [
+      ...(wildcard ? [{ key: "all-agents", label: "All Agents" }] : []),
+      ...(access?.agents ?? [])
+        .filter((key) => intelligenceSections(access, key).length > 0)
+        .map((key) => ({ key, label: key })),
+    ];
+    if (
+      access &&
+      !this.contextOptions.some((option) => option.key === this.selectedContext)
+    )
+      this.selectedContext = this.contextOptions[0]?.key ?? "all-agents";
+    this.requestUpdate();
+  }
+
+  /** Whether production has a usable grant for at least one product section. */
+  private get hasIntelligenceAccess(): boolean {
+    return Boolean(
+      this.intelligenceAppUrl &&
+      intelligenceSections(
+        this.intelligenceAccess,
+        this.selectedContext === "all-agents"
+          ? undefined
+          : this.selectedContext,
+      ).length,
+    );
+  }
+
   private learningIntelligenceOpen = false;
   private intelligenceTimeWindow: InspectorTimeWindow | undefined;
   private coreSubscriber: CopilotKitCoreSubscriber | null = null;
@@ -7043,6 +7099,24 @@ export class WebInspectorElement extends LitElement {
   };
 
   private get menuItems(): MenuItem[] {
+    if (this.intelligenceOnly) {
+      const labels = {
+        analytics: "Analytics",
+        governance: "Governance",
+        memories: "Learning",
+      };
+      const icons = {
+        analytics: "ChartNoAxesCombined",
+        governance: "ShieldCheck",
+        memories: "Brain",
+      } as const;
+      return intelligenceSections(
+        this.intelligenceAccess,
+        this.selectedContext === "all-agents"
+          ? undefined
+          : this.selectedContext,
+      ).map((key) => ({ key, label: labels[key], icon: icons[key] }));
+    }
     const hasFrontendTools = (this._core?.tools?.length ?? 0) > 0;
     const hasCatalog = (this._core?.catalogComponents?.length ?? 0) > 0;
     // Capabilities is the A2UI catalog + tool toggle surface. If the only
@@ -7124,6 +7198,8 @@ export class WebInspectorElement extends LitElement {
 
   /** Return only currently visible leaves owned by a group. */
   private getVisibleMenuItemsForGroup(group: InspectorNavGroupKey): MenuItem[] {
+    if (this.intelligenceOnly)
+      return group === "insights" ? this.menuItems : [];
     return INSPECTOR_GROUPS[group].flatMap((menuKey) => {
       const item = this.menuItems.find(
         (candidate) => candidate.key === menuKey,
@@ -7151,7 +7227,7 @@ export class WebInspectorElement extends LitElement {
 
     const group = getGroupForMenu(this.selectedMenu);
     const fallbackMenu = this.getVisibleMenuItemsForGroup(group)[0]?.key;
-    this.selectedMenu = fallbackMenu ?? "home";
+    this.selectedMenu = fallbackMenu ?? this.menuItems[0]?.key ?? "home";
     this.lastSelectedMenuByGroup[group] = this.selectedMenu;
     this.persistState();
   }
@@ -7163,6 +7239,7 @@ export class WebInspectorElement extends LitElement {
 
   /** Toggle Settings without replacing or persisting the active legacy leaf. */
   private handleSettingsToggle(): void {
+    if (this.intelligenceOnly) return;
     this.settingsOpen = !this.settingsOpen;
     this.contextMenuOpen = false;
     this.layoutMenuOpen = false;
@@ -7714,6 +7791,12 @@ export class WebInspectorElement extends LitElement {
   }
 
   private attachToCore(core: CopilotKitCore): void {
+    if (this.intelligenceOnly) {
+      this.stopIntelligenceAccess = observeIntelligenceAccess(core, (access) =>
+        this.updateIntelligenceAccess(access),
+      );
+      return;
+    }
     this.runtimeStatus = core.runtimeConnectionStatus;
     this.coreProperties = core.properties;
     this.lastCoreError = null;
@@ -7896,6 +7979,7 @@ export class WebInspectorElement extends LitElement {
    * records the unsupported state so the teaser can guide an SDK upgrade.
    */
   private ensureMemorySubscription(): void {
+    if (this.intelligenceOnly) return;
     if (this._memorySubscribed) {
       return;
     }
@@ -8023,6 +8107,7 @@ export class WebInspectorElement extends LitElement {
 
   /** Whether a visible surface needs the current Learning connection status. */
   private isLearningStatusVisible(): boolean {
+    if (this.intelligenceOnly) return false;
     return (
       this.launcherHudOpen ||
       (this.isOpen &&
@@ -8129,6 +8214,7 @@ export class WebInspectorElement extends LitElement {
       insightsPage?: number;
     } = {},
   ): Promise<void> => {
+    if (this.intelligenceOnly) return;
     const core = this.core;
     const runtimeUrl = core?.runtimeUrl;
     this.learningSupported = Boolean(core?.inspectorLearning);
@@ -8431,6 +8517,9 @@ export class WebInspectorElement extends LitElement {
   };
 
   private detachFromCore(): void {
+    this.stopIntelligenceAccess?.();
+    this.stopIntelligenceAccess = undefined;
+    this.intelligenceAccess = null;
     this.threadCapabilityGeneration += 1;
     this.threadCapabilityEnabled = null;
     if (this.selectedThreadId !== this.selectedLocalExampleThreadId) {
@@ -11426,6 +11515,8 @@ export class WebInspectorElement extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
+    if (this.intelligenceOnly && this._core && !this.stopIntelligenceAccess)
+      this.attachToCore(this._core);
     this.notificationState = loadNotificationState();
     if (typeof window !== "undefined") {
       this.accountCtaMotionPaused = document.visibilityState !== "visible";
@@ -11471,7 +11562,7 @@ export class WebInspectorElement extends LitElement {
       if (!this.isInspectorDismissed) {
         this.ensureAnnouncementLoading();
       }
-      this.subscribeToInspectorThreadBridge();
+      if (!this.intelligenceOnly) this.subscribeToInspectorThreadBridge();
     }
     this.requestUpdate();
   }
@@ -11617,7 +11708,11 @@ export class WebInspectorElement extends LitElement {
   }
 
   render() {
-    if (this.isInspectorDismissed) return nothing;
+    if (
+      this.isInspectorDismissed ||
+      (this.intelligenceOnly && !this.hasIntelligenceAccess)
+    )
+      return nothing;
     return this.isOpen
       ? html`
           <div data-inspector-portal-anchor></div>
@@ -11644,7 +11739,9 @@ export class WebInspectorElement extends LitElement {
       this.refreshNotifications();
     }
     // Host shortcuts follow actual Inspector visibility, including dismissals.
-    const visible = !this.isInspectorDismissed;
+    const visible =
+      !this.isInspectorDismissed &&
+      (!this.intelligenceOnly || this.hasIntelligenceAccess);
     if (visible !== this.lastReportedInspectorVisibility) {
       this.lastReportedInspectorVisibility = visible;
       this.dispatchEvent(
@@ -11654,6 +11751,7 @@ export class WebInspectorElement extends LitElement {
       );
     }
     this.syncInspectorPortal();
+    if (this.intelligenceOnly) return;
     this.syncThreadsExampleOverviewVideo();
     this.maybeTrackInspectorMetadataViews();
     this.maybeTrackNewsSignalViewed();
@@ -11947,6 +12045,10 @@ export class WebInspectorElement extends LitElement {
 
   /** Reconcile this tab with host-scoped dismissal state from other ports. */
   private refreshInspectorDismissalState(): void {
+    if (this.intelligenceOnly) {
+      this.inspectorDismissedUntil = null;
+      return;
+    }
     const hadDismissal = this.inspectorDismissedUntil !== null;
     this.inspectorDismissedUntil = loadInspectorDismissedUntil();
     this.clearInspectorDismissalTimer();
@@ -12001,6 +12103,7 @@ export class WebInspectorElement extends LitElement {
   private scheduleLauncherHudIntro(
     delay: number = LAUNCHER_HUD_INTRO_MS.delay,
   ): void {
+    if (this.intelligenceOnly) return;
     if (this.isInspectorDismissed) return;
     if (this.launcherHudIntroStartTimer !== null) {
       clearTimeout(this.launcherHudIntroStartTimer);
@@ -12064,6 +12167,7 @@ export class WebInspectorElement extends LitElement {
   }
 
   private openLauncherHud(): void {
+    if (this.intelligenceOnly) return;
     if (this.isLauncherHudBlocked() || this.isOpen) return;
     this.resolveLauncherHudSide();
     if (this.launcherHudCloseTimer !== null) {
@@ -12578,7 +12682,10 @@ export class WebInspectorElement extends LitElement {
           <div class="inspector-agent-selector">${agentSelector}</div>
         </div>
         <nav class="inspector-sidebar-nav" aria-label="Inspector">
-          ${INSPECTOR_NAV_SECTIONS.map(({ group, label }) => {
+          ${(this.intelligenceOnly
+            ? [{ group: "insights" as const, label: null }]
+            : INSPECTOR_NAV_SECTIONS
+          ).map(({ group, label }) => {
             const items = this.getVisibleMenuItemsForGroup(group);
             if (items.length === 0) {
               return nothing;
@@ -12672,7 +12779,7 @@ export class WebInspectorElement extends LitElement {
                     ? nothing
                     : html`
                       <div class="inspector-sidebar-status-list">
-                        ${this.renderSidebarIntelligenceStatus(homeModel)}
+                        ${this.intelligenceOnly ? nothing : this.renderSidebarIntelligenceStatus(homeModel)}
                       </div>
                     `
                 }
@@ -14417,7 +14524,10 @@ export class WebInspectorElement extends LitElement {
                 />
               </div>
               <div class="ml-auto flex min-w-0 items-center gap-2">
-                <a
+                ${
+                  this.intelligenceOnly
+                    ? nothing
+                    : html`<a
                   class="inspector-account-cta"
                   data-inspector-thread-cta
                   data-motion-paused=${
@@ -14437,9 +14547,14 @@ export class WebInspectorElement extends LitElement {
                   <span class="inspector-account-cta-label"
                     >Talk to an Engineer</span
                   >
-                </a>
+                </a>`
+                }
                 <div class="flex items-center gap-1">
-                  ${isPoppedOut ? nothing : this.renderWindowLayoutMenu()}
+                  ${isPoppedOut || this.intelligenceOnly ? nothing : this.renderWindowLayoutMenu()}
+                  ${
+                    this.intelligenceOnly
+                      ? nothing
+                      : html`
                   <button
                     class="inspector-account-control flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                     type="button"
@@ -14484,7 +14599,8 @@ export class WebInspectorElement extends LitElement {
                     >
                       ${this.renderIcon("Settings")}
                     </span>
-                  </button>
+                  </button>`
+                  }
                   ${
                     isPoppedOut
                       ? nothing
@@ -14513,7 +14629,7 @@ export class WebInspectorElement extends LitElement {
             )}
             <div class="inspector-main">
               <div id="cpk-main-scroll" class="flex-1 overflow-auto">
-                ${this.renderCoreWarningBanner()} ${this.renderMainContent()}
+                ${this.intelligenceOnly ? nothing : this.renderCoreWarningBanner()} ${this.renderMainContent()}
                 <slot></slot>
               </div>
             </div>
@@ -14588,6 +14704,7 @@ export class WebInspectorElement extends LitElement {
   }
 
   private hydrateStateFromStorageEarly(): void {
+    if (this.intelligenceOnly) return;
     if (typeof document === "undefined" || typeof window === "undefined") {
       return;
     }
@@ -14626,6 +14743,7 @@ export class WebInspectorElement extends LitElement {
   }
 
   private hydrateStateFromStorage(): void {
+    if (this.intelligenceOnly) return;
     if (typeof document === "undefined" || typeof window === "undefined") {
       return;
     }
@@ -15071,7 +15189,10 @@ export class WebInspectorElement extends LitElement {
       this.inspectorPortal = portal;
     }
 
-    if (!this.isOpen) {
+    if (
+      !this.isOpen ||
+      (this.intelligenceOnly && !this.hasIntelligenceAccess)
+    ) {
       render(nothing, this.inspectorPortal, {
         host: this,
         creationScope: this.ownerDocument ?? document,
@@ -15346,6 +15467,7 @@ export class WebInspectorElement extends LitElement {
   }
 
   private persistState(): void {
+    if (this.intelligenceOnly) return;
     const state: PersistedState = {
       button: {
         anchor: this.contextState.button.anchor,
@@ -15633,7 +15755,8 @@ export class WebInspectorElement extends LitElement {
     if (this.isInspectorDismissed) {
       return;
     }
-    if (options.threadId) {
+    if (this.intelligenceOnly && !this.hasIntelligenceAccess) return;
+    if (!this.intelligenceOnly && options.threadId) {
       this.focusThread(options);
     }
 
@@ -16664,6 +16787,17 @@ export class WebInspectorElement extends LitElement {
   }
 
   private renderMainContent() {
+    if (this.intelligenceOnly) {
+      if (!this.hasIntelligenceAccess) return nothing;
+      if (this.selectedMenu === "memories")
+        return this.renderIntelligenceView("learning");
+      if (
+        this.selectedMenu === "analytics" ||
+        this.selectedMenu === "governance"
+      )
+        return this.renderIntelligenceView(this.selectedMenu);
+      return nothing;
+    }
     if (this.settingsOpen) {
       return this.renderSettingsPanel();
     }
@@ -18639,7 +18773,9 @@ export class WebInspectorElement extends LitElement {
   private renderIntelligenceView(
     section: "analytics" | "governance" | "learning",
   ) {
-    return html`<cpk-intelligence-view .timeWindow=${this.intelligenceTimeWindow} @intelligence-time-window=${(
+    return html`<cpk-intelligence-view @intelligence-access-lost=${() => {
+      if (this.intelligenceOnly) this.updateIntelligenceAccess(null);
+    }} .timeWindow=${this.intelligenceTimeWindow} @intelligence-time-window=${(
       event: CustomEvent<InspectorTimeWindow>,
     ) => {
       this.intelligenceTimeWindow = event.detail;
@@ -20188,6 +20324,13 @@ export class WebInspectorElement extends LitElement {
   }
 
   private handleMenuSelect(key: MenuKey): void {
+    if (this.intelligenceOnly) {
+      if (this.menuItems.some((item) => item.key === key)) {
+        this.selectedMenu = key;
+        this.requestUpdate();
+      }
+      return;
+    }
     if (!this.menuItems.some((item) => item.key === key)) {
       return;
     }
@@ -21394,6 +21537,7 @@ export class WebInspectorElement extends LitElement {
    * navigation marker is visible the whole time.
    */
   private getActiveLauncherSignal(): LauncherSignalKey | null {
+    if (this.intelligenceOnly) return null;
     for (const key of LAUNCHER_SIGNAL_PRIORITY_ORDER) {
       if (this.isSignalArmed(key)) return key;
     }
@@ -22128,6 +22272,7 @@ export class WebInspectorElement extends LitElement {
   }
 
   private ensureAnnouncementLoading(): void {
+    if (this.intelligenceOnly) return;
     if (
       this.isInspectorDismissed ||
       !this.notificationContext.development ||
