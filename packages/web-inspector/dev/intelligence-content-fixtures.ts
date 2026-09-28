@@ -29,19 +29,34 @@ export function intelligenceContentFixture(
       lastCalledAt: at,
     },
   ];
-  if (request.path === "/api/v1/tools")
+  if (request.path === "/api/v1/tools") {
+    const sort = request.query?.sort ?? "calls";
+    const ordered = [...tools].sort((left, right) =>
+      sort === "errors"
+        ? right.errors - left.errors
+        : sort === "avgMs"
+          ? right.avgMs - left.avgMs
+          : right.calls - left.calls,
+    );
+    const limit = Math.max(
+      1,
+      Math.min(500, Number(request.query?.limit ?? "500") || 500),
+    );
+    const offset = request.query?.cursor === `fixture_tools_${sort}_1` ? 1 : 0;
+    const next = offset + limit;
     return {
-      data: [...tools].sort((left, right) =>
-        request.query?.sort === "errors"
-          ? right.errors - left.errors
-          : request.query?.sort === "avgMs"
-            ? right.avgMs - left.avgMs
-            : right.calls - left.calls,
-      ),
+      data: ordered.slice(offset, next),
+      totals: {
+        tools: tools.length,
+        calls: tools.reduce((sum, tool) => sum + tool.calls, 0),
+        errors: tools.reduce((sum, tool) => sum + tool.errors, 0),
+      },
+      nextCursor: next < tools.length ? `fixture_tools_${sort}_${next}` : null,
       from,
       to,
       asOf: "fixture_v1",
     };
+  }
   if (request.path.startsWith("/api/v1/tools/")) {
     const name = decodeURIComponent(request.path.split("/").at(-1) ?? "refund");
     const fallback = tools[0];
