@@ -670,6 +670,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
       for (const response of buildHitlResponseEvents({
         input: request.input,
         persistedInputMessages: request.persistedInputMessages,
+        historyMessages: request.historyMessages,
         userId: request.userId,
       })) {
         pushCanonicalEvent(response);

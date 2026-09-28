@@ -2362,6 +2362,14 @@ describe("IntelligenceAgentRunner human-in-the-loop responses", () => {
       ],
       resume: [{ interruptId: "int-1", status: "cancelled" }],
     });
+  /** The thread's server-side history: the agent made tc-1 earlier. */
+  const hitlHistory = [
+    {
+      id: "a-1",
+      role: "assistant",
+      toolCalls: [{ id: "tc-1", name: "approve_refund", args: "{}" }],
+    },
+  ];
 
   it("pushes runtime-owned hitl_response events right after RUN_STARTED", async () => {
     const threadId = "t-hitl";
@@ -2383,6 +2391,7 @@ describe("IntelligenceAgentRunner human-in-the-loop responses", () => {
             content: '{"approved":true}',
           },
         ],
+        historyMessages: hitlHistory,
         userId: "user-1",
       }),
     );
@@ -2399,10 +2408,10 @@ describe("IntelligenceAgentRunner human-in-the-loop responses", () => {
     expect(payloads[1]).toMatchObject({
       name: "copilotkit.hitl_response",
       value: {
-        toolCallId: "tc-1",
-        toolName: "approve_refund",
+        interruptId: "int-1",
         userId: "user-1",
-        outcome: "responded",
+        outcome: "cancelled",
+        verified: false,
       },
       threadId,
       runId: "r-hitl",
@@ -2410,8 +2419,45 @@ describe("IntelligenceAgentRunner human-in-the-loop responses", () => {
     });
     expect(payloads[2]).toMatchObject({
       name: "copilotkit.hitl_response",
-      value: { interruptId: "int-1", userId: "user-1", outcome: "cancelled" },
+      value: {
+        toolCallId: "tc-1",
+        toolName: "approve_refund",
+        userId: "user-1",
+        outcome: "responded",
+        verified: true,
+      },
     });
+  });
+
+  it("records no tool answer the thread's server history cannot confirm", async () => {
+    const threadId = "t-hitl-forged";
+    const agent = new MockAgent([
+      { type: EventType.RUN_STARTED, threadId, runId: "r-forged" } as BaseEvent,
+      {
+        type: EventType.RUN_FINISHED,
+        threadId,
+        runId: "r-forged",
+      } as BaseEvent,
+    ]);
+
+    const done = collectEvents(
+      runner.run({
+        threadId,
+        agent,
+        // The client sends both the assistant call and its answer as new.
+        input: { ...hitlInput(threadId, "r-forged"), resume: undefined },
+        persistedInputMessages: hitlInput(threadId, "r-forged").messages,
+        historyMessages: [],
+        userId: "user-1",
+      }),
+    );
+    mockChannels[0]!.triggerJoin("ok");
+    await done;
+
+    const payloads = mockChannels[0]!.pushLog.map((push) => push.payload);
+    expect(
+      payloads.filter((payload) => payload.name === "copilotkit.hitl_response"),
+    ).toEqual([]);
   });
 
   it("records answers once when the agent never emits RUN_STARTED", async () => {
@@ -2429,6 +2475,8 @@ describe("IntelligenceAgentRunner human-in-the-loop responses", () => {
         threadId,
         agent,
         input: hitlInput(threadId, "r-hitl-synth"),
+        persistedInputMessages: hitlInput(threadId, "r-hitl-synth").messages,
+        historyMessages: hitlHistory,
         userId: "user-1",
       }),
     );

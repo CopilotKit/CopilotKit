@@ -1323,6 +1323,15 @@ describe("handleRunAgent", () => {
               content: "Second turn",
             },
           ],
+          // The server's own history, so the runner can check client
+          // claims (such as which tool call a user answered) against it.
+          historyMessages: [
+            {
+              id: "msg-existing",
+              role: "user",
+              content: "First turn",
+            },
+          ],
         }),
       );
     });

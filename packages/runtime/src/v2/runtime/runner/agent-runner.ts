@@ -5,6 +5,7 @@ import type {
   RunAgentInput,
 } from "@ag-ui/client";
 import type { Observable } from "rxjs";
+import type { ThreadMessage } from "../intelligence-platform/client";
 
 export interface AgentRunnerRunRequest {
   threadId: string;
@@ -18,6 +19,12 @@ export interface AgentRunnerRunRequest {
    * runtime-owned events (for example `copilotkit.hitl_response`).
    */
   userId?: string;
+  /**
+   * The thread's server-side history, fetched by the runtime before this
+   * run. Unlike `input.messages` it is not client-supplied, so runners check
+   * client claims (such as which tool call a user answered) against it.
+   */
+  historyMessages?: readonly ThreadMessage[];
 }
 
 export interface AgentRunnerConnectRequest {
