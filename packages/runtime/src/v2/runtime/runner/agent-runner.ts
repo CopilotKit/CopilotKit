@@ -1,4 +1,3 @@
-import type { ConnectionReplayLifecycle } from "@copilotkit/shared";
 import type {
   AbstractAgent,
   BaseEvent,
@@ -16,7 +15,7 @@ export interface AgentRunnerRunRequest {
   authToken?: string;
 }
 
-export interface AgentRunnerConnectRequest extends ConnectionReplayLifecycle {
+export interface AgentRunnerConnectRequest {
   threadId: string;
   agentId?: string;
   headers?: Record<string, string>;

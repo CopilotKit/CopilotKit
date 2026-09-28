@@ -18,12 +18,10 @@ import type { Observable } from "rxjs";
 import { EMPTY, defer, from } from "rxjs";
 import { catchError, finalize, switchMap } from "rxjs/operators";
 import {
-  CONNECTION_REPLAY_ACCEPT,
   RUNTIME_MODE_SSE,
   RUNTIME_MODE_INTELLIGENCE,
 } from "@copilotkit/shared";
 import type {
-  ConnectionReplayLifecycle,
   IntelligenceRuntimeInfo,
   RuntimeInfo,
   RuntimeMode,
@@ -32,7 +30,7 @@ import type {
 import { IntelligenceAgent } from "./intelligence-agent";
 import type { CopilotRuntimeTransport } from "./types";
 import { runtimeInfoError } from "./utils/runtime-info-error";
-import { ɵtransformConnectStream } from "./utils/connect-replay-sse";
+import type { ConnectionReplayLifecycle } from "./utils/connect-replay";
 import { ɵconnectWithoutEventVerification } from "./utils/connect-replay";
 import type { CopilotKitMessageFilter } from "./core/message-filter";
 import { ɵrepairToolCallPairs } from "./core/message-filter";
@@ -493,7 +491,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         this.isRunning = false;
       },
       // The shared connect pipeline distinguishes historical and live errors
-      // using replay lifecycle controls. A live error finalizes that pipeline;
+      // using the Intelligence replay callbacks. A live error finalizes that pipeline;
       // a historical error must not release queued work during replay.
     });
 
@@ -540,7 +538,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     if (this.runtimeMode === RUNTIME_MODE_INTELLIGENCE) {
       return this.#connectViaDelegate(input, lifecycle);
     }
-    return this.#connectViaHttp(input, lifecycle);
+    return this.#connectViaHttp(input);
   }
 
   public run(input: RunAgentInput): Observable<BaseEvent> {
@@ -570,10 +568,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     );
   }
 
-  #connectViaHttp(
-    unfiltered: RunAgentInput,
-    lifecycle?: ConnectionReplayLifecycle,
-  ): Observable<BaseEvent> {
+  #connectViaHttp(unfiltered: RunAgentInput): Observable<BaseEvent> {
     const input = this.#applyMessageFilter(unfiltered);
     this.activeRun = undefined;
     const routedId = this.routedAgentId();
@@ -589,27 +584,18 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
           agentId: routedId,
         },
       );
-      const headers = new Headers(requestInit.headers);
-      headers.set("Accept", CONNECTION_REPLAY_ACCEPT);
       const httpEvents = runHttpRequest(() =>
-        this.fetch(this.singleEndpointUrl!, { ...requestInit, headers }),
+        this.fetch(this.singleEndpointUrl!, requestInit),
       );
-      return withAbortErrorHandling(
-        ɵtransformConnectStream(httpEvents, lifecycle),
-      );
+      return withAbortErrorHandling(transformHttpEventStream(httpEvents));
     }
 
     const connectUrl = `${this.runtimeUrl}/agent/${routedId}/connect`;
     const connectRequestInit = this.requestInit(input);
-    const headers = new Headers(connectRequestInit.headers);
-    headers.set("Accept", CONNECTION_REPLAY_ACCEPT);
-    connectRequestInit.headers = headers;
     const httpEvents = runHttpRequest(() =>
       this.fetch(connectUrl, connectRequestInit),
     );
-    return withAbortErrorHandling(
-      ɵtransformConnectStream(httpEvents, lifecycle),
-    );
+    return withAbortErrorHandling(transformHttpEventStream(httpEvents));
   }
 
   #runViaDelegate(input: RunAgentInput): Observable<BaseEvent> {

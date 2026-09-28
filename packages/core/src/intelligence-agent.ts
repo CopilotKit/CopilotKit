@@ -1,4 +1,4 @@
-import type { ConnectionReplayLifecycle } from "@copilotkit/shared";
+import type { ConnectionReplayLifecycle } from "./utils/connect-replay";
 import type {
   RunAgentInput,
   RunAgentParameters,

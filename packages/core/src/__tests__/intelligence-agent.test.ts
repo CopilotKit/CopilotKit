@@ -1,4 +1,4 @@
-import type { ConnectionReplayLifecycle } from "@copilotkit/shared";
+import type { ConnectionReplayLifecycle } from "../utils/connect-replay";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { BaseEvent, RunAgentInput, RunAgentResult } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";

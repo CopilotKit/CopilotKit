@@ -5,7 +5,8 @@ import type {
 } from "./agent-runner";
 import { AgentRunner } from "./agent-runner";
 import type { AgentRunnerStopRequest } from "./agent-runner";
-import { Observable, ReplaySubject } from "rxjs";
+import type { Observable } from "rxjs";
+import { ReplaySubject } from "rxjs";
 import type {
   AbstractAgent,
   BaseEvent,
@@ -856,59 +857,56 @@ export class InMemoryAgentRunner extends AgentRunner {
   }
 
   connect(request: AgentRunnerConnectRequest): Observable<BaseEvent> {
-    // Replay and hooks must happen during subscription so delivery order is
-    // preserved, including when the active run has a synchronous replay buffer.
-    return new Observable((subscriber) => {
-      const store = sharedStore.get(request.threadId, { touch: true });
-      let replayFinished = false;
-      const finishReplay = () => {
-        if (replayFinished || subscriber.closed) return;
-        replayFinished = true;
-        request.onReplayFinished?.();
-      };
-      request.onReplayStarted?.();
-      if (!store) {
-        finishReplay();
-        subscriber.complete();
-        return;
-      }
+    const store = sharedStore.get(request.threadId, { touch: true });
+    const connectionSubject = new ReplaySubject<BaseEvent>(Infinity);
 
-      const compactedEvents = compactEvents(
-        store.historicRuns.flatMap((run) => run.events),
-      );
-      const emittedMessageIds = new Set<string>();
-      for (const event of compactedEvents) {
-        if (subscriber.closed) return;
-        subscriber.next(event);
-        if ("messageId" in event && typeof event.messageId === "string") {
-          emittedMessageIds.add(event.messageId);
-        }
+    if (!store) {
+      // No store means no events
+      connectionSubject.complete();
+      return connectionSubject.asObservable();
+    }
+
+    // Collect all historic events from memory
+    const allHistoricEvents: BaseEvent[] = [];
+    for (const run of store.historicRuns) {
+      allHistoricEvents.push(...run.events);
+    }
+
+    // Apply compaction to all historic events together (like SQLite)
+    const compactedEvents = compactEvents(allHistoricEvents);
+
+    // Emit compacted events and track message IDs
+    const emittedMessageIds = new Set<string>();
+    for (const event of compactedEvents) {
+      connectionSubject.next(event);
+      if ("messageId" in event && typeof event.messageId === "string") {
+        emittedMessageIds.add(event.messageId);
       }
-      if (subscriber.closed) return;
-      if (store.subject && (store.isRunning || store.stopRequested)) {
-        const subscription = store.subject.subscribe({
-          next: (event) => {
-            if (
-              "messageId" in event &&
-              typeof event.messageId === "string" &&
-              emittedMessageIds.has(event.messageId)
-            )
-              return;
-            subscriber.next(event);
-          },
-          complete: () => {
-            finishReplay();
-            subscriber.complete();
-          },
-          error: (error) => subscriber.error(error),
-        });
-        // ReplaySubject.subscribe delivered all buffered events synchronously.
-        finishReplay();
-        return subscription;
-      }
-      finishReplay();
-      subscriber.complete();
-    });
+    }
+
+    // Bridge active run to connection if exists
+    if (store.subject && (store.isRunning || store.stopRequested)) {
+      store.subject.subscribe({
+        next: (event) => {
+          // Skip message events that we've already emitted from historic
+          if (
+            "messageId" in event &&
+            typeof event.messageId === "string" &&
+            emittedMessageIds.has(event.messageId)
+          ) {
+            return;
+          }
+          connectionSubject.next(event);
+        },
+        complete: () => connectionSubject.complete(),
+        error: (err) => connectionSubject.error(err),
+      });
+    } else {
+      // No active run, complete after historic events
+      connectionSubject.complete();
+    }
+
+    return connectionSubject.asObservable();
   }
 
   isRunning(request: AgentRunnerIsRunningRequest): Promise<boolean> {

@@ -17,7 +17,11 @@ import type { Observable } from "rxjs";
 import { EMPTY, Subject, defer, lastValueFrom } from "rxjs";
 import { catchError, finalize, takeUntil, takeWhile } from "rxjs/operators";
 
-import type { ConnectionReplayLifecycle } from "@copilotkit/shared";
+/** Internal connection callbacks; HTTP connections keep their EOF behavior. */
+export interface ConnectionReplayLifecycle {
+  onReplayStarted?: () => void;
+  onReplayFinished?: () => void;
+}
 
 /**
  * Runs an agent's `connect()` stream through the AbstractAgent apply pipeline
@@ -38,7 +42,7 @@ import type { ConnectionReplayLifecycle } from "@copilotkit/shared";
  *
  * Connection-local replay hooks track the phase before applying events. An
  * explicitly live RUN_ERROR ends the connection after notifying subscribers;
- * historical errors remain data. Transports without controls retain the legacy
+ * historical errors remain data. Connections without hooks retain the existing
  * completion behavior. Subscriber, detach, and result contracts are preserved.
  *
  * TODO: Remove this in favour of the base implementation once AG-UI's
