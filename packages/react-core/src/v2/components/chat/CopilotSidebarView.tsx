@@ -41,6 +41,11 @@ export type CopilotSidebarViewProps = CopilotChatViewProps & {
    * the default drawer or an object of `CopilotThreadsDrawer` props to
    * configure it. Defaults to off. Threads need CopilotKit Intelligence;
    * without it the drawer shows its upgrade prompt.
+   *
+   * A picked thread reaches the chat through a chat configuration above the
+   * chat. `<CopilotSidebar>` adds one. If you render this view yourself (for
+   * example as a `chatView`), wrap the chat in a
+   * `CopilotChatConfigurationProvider`.
    */
   threadsDrawer?: ModalThreadsDrawerProp;
 };
