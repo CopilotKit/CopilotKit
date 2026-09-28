@@ -274,3 +274,29 @@ async def test_sdk_owned_pool_closes_and_invalid_grants_fail_before_io():
         with pytest.raises(ValueError, match="Invalid memory grant"):
             module.MemoryGrant(user="admin", project="read")
     assert client.http_client.is_closed
+
+
+def test_user_id_header_keeps_ascii_and_escapes_everything_else():
+    encode = importlib.import_module("copilotkit_intelligence.client").encode_user_id_header
+
+    for user_id in ["customer", "a%20b", "O'Brien", 'x"y']:
+        assert encode(user_id) == user_id
+    for user_id in ["審査員-1", "josé", "🤖", "tab\there", '"quoted"']:
+        header = encode(user_id)
+        assert header.isascii() and header.startswith('"') and header.endswith('"')
+        assert json.loads(header) == user_id
+    assert encode("josé") == '"jos\\u00e9"'
+
+
+async def test_sdk_memory_operations_send_non_ascii_users_as_json_strings():
+    requests = []
+
+    def platform(request):
+        requests.append(request)
+        return httpx.Response(200, json={"memories": []})
+
+    client = sdk(platform)
+    await client.list_memories(user_id="利用者-7")
+
+    assert json.loads(requests[0].headers["x-cpki-user-id"]) == "利用者-7"
+    await client.http_client.aclose()
