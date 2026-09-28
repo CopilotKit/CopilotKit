@@ -191,7 +191,7 @@ const DefaultToolCallRenderer = defineComponent({
                     isExpanded.value = !isExpanded.value;
                   },
                   class:
-                    "cpk:flex cpk:w-full cpk:cursor-pointer cpk:select-none cpk:items-center cpk:gap-2.5 cpk:border-none cpk:bg-transparent cpk:m-0 cpk:px-3.5 cpk:py-2.5 cpk:text-left cpk:text-inherit cpk:transition-colors cpk:hover:bg-accent/60 cpk:focus-visible:outline-none cpk:focus-visible:bg-accent/60",
+                    "cpk:flex cpk:w-full cpk:cursor-pointer cpk:select-none cpk:items-center cpk:gap-2.5 cpk:border-none cpk:bg-transparent cpk:m-0 cpk:px-3.5 cpk:py-2.5 cpk:text-left cpk:text-inherit cpk:transition-colors cpk:hover:bg-accent/60 cpk:focus-visible:outline-2 cpk:focus-visible:-outline-offset-2 cpk:focus-visible:outline-ring cpk:focus-visible:bg-accent/60",
                   style: { font: "inherit" },
                 },
                 [

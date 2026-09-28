@@ -306,6 +306,12 @@ describe("useDefaultRenderTool", () => {
     expect(headerButton).not.toBeNull();
     expect(headerButton!.getAttribute("type")).toBe("button");
     expect(headerButton!.getAttribute("aria-expanded")).toBe("false");
+    // Keyboard focus shows an outline, which forced-colors mode keeps too; a
+    // background tint alone is almost invisible on the card.
+    expect(headerButton!.className).toContain("cpk:focus-visible:outline-2");
+    expect(headerButton!.className).not.toContain(
+      "cpk:focus-visible:outline-none",
+    );
 
     // A native <button> activates on Enter/Space (the browser dispatches a
     // synthetic click). Asserting the click semantics directly is enough to
