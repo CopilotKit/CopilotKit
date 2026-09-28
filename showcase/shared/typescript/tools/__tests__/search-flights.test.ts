@@ -68,10 +68,11 @@ describe("searchFlightsImpl", () => {
       [mockFlight, { ...mockFlight, flightNumber: "TA200" }],
     ].map((flights) => ({ flights })),
   )(
-    "preserves each result's flights through storage serialization: %j",
+    "provides the same flights to plain renderers and A2UI: %j",
     ({ flights }) => {
       const result = searchFlightsImpl(flights);
-      expect(JSON.parse(JSON.stringify(result))).toMatchObject({
+      expect(result.flights).toEqual(flights);
+      expect(result).toMatchObject({
         a2ui_operations: expect.arrayContaining([
           {
             version: "v0.9",

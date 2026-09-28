@@ -12,7 +12,7 @@
     "check-types": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "pnpm exec tsc --noEmit --strict --skipLibCheck --target ES2022 --moduleResolution bundler --module ESNext showcase/shared/typescript/tools/search-flights.ts showcase/shared/typescript/tools/__tests__/search-flights.test.ts"
+        "command": "pnpm exec tsc --project showcase/shared/typescript/tsconfig.json"
       },
       "inputs": ["{projectRoot}/**/*"],
       "dependsOn": []

@@ -1,11 +1,17 @@
 /** Fixed-schema A2UI flight results shared by TypeScript showcase agents. */
 import type { Flight } from "./types";
+import type { A2UIOperation } from "./generate-a2ui";
 
 const SURFACE_ID = "flight-search-results";
 
 /** Return the surface, component template, and data needed for live and saved rendering. */
-export function searchFlightsImpl(flights: Flight[]) {
+export function searchFlightsImpl(flights: Flight[]): {
+  flights: Flight[];
+  a2ui_operations: A2UIOperation[];
+} {
   return {
+    // Plain tool renderers in Strands and Mastra still consume this field.
+    flights,
     a2ui_operations: [
       {
         version: "v0.9",
