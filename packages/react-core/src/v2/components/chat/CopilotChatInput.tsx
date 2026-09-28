@@ -1460,8 +1460,20 @@ export namespace CopilotChatInput {
         }
       }, [autoFocus]);
 
+      // The preview is placed over the textarea by its positioned parent. A
+      // custom layout with a static parent would put it elsewhere, so the plain
+      // textarea shows there instead.
+      const [parentPlacesPreview, setParentPlacesPreview] = useState(true);
+      useLayoutEffect(() => {
+        const parent = internalTextareaRef.current?.parentElement;
+        setParentPlacesPreview(
+          !parent || getComputedStyle(parent).position !== "static",
+        );
+      }, []);
+
       const text = typeof props.value === "string" ? props.value : undefined;
-      const showPreview = highlightMarkdown && text !== undefined;
+      const showPreview =
+        highlightMarkdown && text !== undefined && parentPlacesPreview;
       const preview = useMemo(
         () => (showPreview && text ? highlightMarkdownInput(text) : null),
         [showPreview, text],
@@ -1501,7 +1513,11 @@ export namespace CopilotChatInput {
                 className,
                 "cpk-md-preview cpk:pointer-events-none cpk:absolute cpk:inset-0 cpk:overflow-hidden cpk:whitespace-pre-wrap cpk:break-words",
               )}
-              style={{ color: style?.color }}
+              style={{
+                color: style?.color,
+                background: style?.background,
+                backgroundColor: style?.backgroundColor,
+              }}
             >
               {preview}
             </div>
@@ -1524,7 +1540,11 @@ export namespace CopilotChatInput {
               overflow: "auto",
               resize: "none",
               ...style,
-              ...(showPreview && { color: "transparent" }),
+              // The preview underneath paints the app's color and background.
+              ...(showPreview && {
+                color: "transparent",
+                background: "transparent",
+              }),
             }}
             rows={1}
             onScroll={(event) => {
