@@ -1234,9 +1234,6 @@ importers:
       '@angular/router':
         specifier: 22.0.0
         version: 22.0.0(@angular/common@22.0.0(@angular/core@22.0.0(@angular/compiler@22.0.0)(rxjs@7.8.1)(zone.js@0.15.1))(rxjs@7.8.1))(@angular/core@22.0.0(@angular/compiler@22.0.0)(rxjs@7.8.1)(zone.js@0.15.1))(@angular/platform-browser@22.0.0(@angular/animations@22.0.0(@angular/core@22.0.0(@angular/compiler@22.0.0)(rxjs@7.8.1)(zone.js@0.15.1)))(@angular/common@22.0.0(@angular/core@22.0.0(@angular/compiler@22.0.0)(rxjs@7.8.1)(zone.js@0.15.1))(rxjs@7.8.1))(@angular/core@22.0.0(@angular/compiler@22.0.0)(rxjs@7.8.1)(zone.js@0.15.1)))(rxjs@7.8.1)
-      '@copilotkit/a2ui-renderer':
-        specifier: workspace:*
-        version: link:../../../../packages/a2ui-renderer
       '@copilotkit/angular':
         specifier: workspace:*
         version: link:../../../../packages/angular
@@ -1273,9 +1270,6 @@ importers:
       katex:
         specifier: ^0.16.22
         version: 0.16.27
-      lit:
-        specifier: ^3.3.1
-        version: 3.3.2
       lucide:
         specifier: ^0.525.0
         version: 0.525.0
@@ -1395,9 +1389,6 @@ importers:
       '@angular/platform-browser-dynamic':
         specifier: 22.0.0
         version: 22.0.0(@angular/common@22.0.0(@angular/core@22.0.0(@angular/compiler@22.0.0)(rxjs@7.8.1)(zone.js@0.15.1))(rxjs@7.8.1))(@angular/compiler@22.0.0)(@angular/core@22.0.0(@angular/compiler@22.0.0)(rxjs@7.8.1)(zone.js@0.15.1))(@angular/platform-browser@22.0.0(@angular/animations@22.0.0(@angular/core@22.0.0(@angular/compiler@22.0.0)(rxjs@7.8.1)(zone.js@0.15.1)))(@angular/common@22.0.0(@angular/core@22.0.0(@angular/compiler@22.0.0)(rxjs@7.8.1)(zone.js@0.15.1))(rxjs@7.8.1))(@angular/core@22.0.0(@angular/compiler@22.0.0)(rxjs@7.8.1)(zone.js@0.15.1)))
-      '@copilotkit/a2ui-renderer':
-        specifier: workspace:*
-        version: link:../../../../packages/a2ui-renderer
       '@copilotkit/core':
         specifier: workspace:^
         version: link:../../../../packages/core
@@ -2198,9 +2189,6 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      lit:
-        specifier: ^3.3.2
-        version: 3.3.2
       react:
         specifier: 19.2.3
         version: 19.2.3
@@ -2281,9 +2269,6 @@ importers:
       '@ag-ui/core':
         specifier: 0.0.59
         version: 0.0.59
-      '@copilotkit/a2ui-renderer':
-        specifier: workspace:*
-        version: link:../a2ui-renderer
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
@@ -4144,9 +4129,6 @@ importers:
       '@angular/router':
         specifier: 21.2.18
         version: 21.2.18(@angular/common@21.2.18(@angular/core@21.2.18(@angular/compiler@21.2.18)(rxjs@7.8.1)(zone.js@0.15.1))(rxjs@7.8.1))(@angular/core@21.2.18(@angular/compiler@21.2.18)(rxjs@7.8.1)(zone.js@0.15.1))(@angular/platform-browser@21.2.18(@angular/common@21.2.18(@angular/core@21.2.18(@angular/compiler@21.2.18)(rxjs@7.8.1)(zone.js@0.15.1))(rxjs@7.8.1))(@angular/core@21.2.18(@angular/compiler@21.2.18)(rxjs@7.8.1)(zone.js@0.15.1)))(rxjs@7.8.1)
-      '@copilotkit/a2ui-renderer':
-        specifier: workspace:*
-        version: link:../../packages/a2ui-renderer
       '@copilotkit/angular':
         specifier: workspace:*
         version: link:../../packages/angular
@@ -4159,9 +4141,6 @@ importers:
       '@copilotkit/web-components':
         specifier: workspace:*
         version: link:../../packages/web-components
-      lit:
-        specifier: ^3.3.2
-        version: 3.3.2
       rxjs:
         specifier: ^7.8.1
         version: 7.8.1
