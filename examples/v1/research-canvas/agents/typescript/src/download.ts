@@ -27,8 +27,12 @@ export async function downloadResource(url: string): Promise<string> {
 }
 
 export async function download_node(state: AgentState, config: RunnableConfig) {
-  const resources = state["resources"] || [];
-  const logs = state["logs"] || [];
+  let resources = (state["resources"] || []).map((resource) =>
+    getCachedResource(resource.url) !== undefined
+      ? { ...resource, downloaded: true }
+      : resource,
+  );
+  const logs = [...(state["logs"] || [])];
 
   const resourcesToDownload = [];
 
@@ -58,15 +62,22 @@ export async function download_node(state: AgentState, config: RunnableConfig) {
     const resource = resourcesToDownload[i];
     try {
       await downloadResource(resource.url);
+      resources = resources.map((item) =>
+        item.url === resource.url ? { ...item, downloaded: true } : item,
+      );
     } catch (error) {
       const failure = error instanceof Error ? error : new Error(String(error));
       failure.message = `Failed to download ${resource.url}: ${failure.message}`;
       logs[logsOffset + i]["message"] = failure.message;
-      await copilotkitEmitState(config, state);
-      throw failure;
+      if (resource.downloaded) {
+        await copilotkitEmitState(config, { ...restOfState, resources, logs });
+        throw failure;
+      }
+      // A failed first download must not be retried on every later turn.
+      resources = resources.filter((item) => item.url !== resource.url);
     }
     logs[logsOffset + i]["done"] = true;
-    await copilotkitEmitState(config, state);
+    await copilotkitEmitState(config, { ...restOfState, resources, logs });
   }
   return {
     resources,

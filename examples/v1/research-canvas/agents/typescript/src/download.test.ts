@@ -1,5 +1,5 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
-import { beforeEach, expect, test, vi } from "vitest";
+import { expect, test, vi } from "vitest";
 import type { AgentState } from "./state";
 
 const dependencyMocks = vi.hoisted(() => ({
@@ -20,7 +20,7 @@ vi.mock("./public-url-fetch", () => ({
   fetchPublicText: dependencyMocks.fetchPublicText,
 }));
 
-import { download_node, getResource } from "./download";
+import { download_node, downloadResource, getResource } from "./download";
 
 function createAgentState(url: string): AgentState {
   return {
@@ -46,43 +46,51 @@ function createAgentState(url: string): AgentState {
   };
 }
 
-beforeEach(() => {
-  vi.clearAllMocks();
+function setup() {
+  vi.resetAllMocks();
   dependencyMocks.emitState.mockResolvedValue();
-});
+}
 
-test("rejects a failed download without completing its progress", async () => {
+test("removes a failed first download and completes its progress", async () => {
+  setup();
   const url = "https://example.com/download-failure";
   const state = createAgentState(url);
   dependencyMocks.fetchPublicText.mockRejectedValueOnce(
     new Error("Connection reset"),
   );
 
-  await expect(download_node(state, {})).rejects.toThrow(
-    `Failed to download ${url}: Connection reset`,
-  );
-  expect(state.logs).toEqual([
+  const result = await download_node(state, {});
+  expect(result.resources).toEqual([]);
+  await expect(
+    download_node({ ...state, ...result }, {}),
+  ).resolves.toMatchObject({ resources: [] });
+  expect(dependencyMocks.fetchPublicText).toHaveBeenCalledTimes(1);
+  expect(result.logs).toEqual([
     {
       message: `Failed to download ${url}: Connection reset`,
-      done: false,
+      done: true,
     },
   ]);
   expect(getResource(url)).toBe("");
 });
 
 test("retries a failed download and exposes only the successful content", async () => {
+  setup();
   const url = "https://example.com/download-retry";
   dependencyMocks.fetchPublicText
     .mockRejectedValueOnce(new Error("Temporary failure"))
     .mockResolvedValueOnce("<main>Downloaded article</main>");
 
-  await expect(download_node(createAgentState(url), {})).rejects.toThrow(
-    `Failed to download ${url}: Temporary failure`,
+  await expect(download_node(createAgentState(url), {})).resolves.toMatchObject(
+    { resources: [] },
   );
   const retryState = createAgentState(url);
   await expect(download_node(retryState, {})).resolves.toEqual({
     logs: [{ message: `Downloading ${url}`, done: true }],
-    resources: retryState.resources,
+    resources: retryState.resources.map((resource) => ({
+      ...resource,
+      downloaded: true,
+    })),
   });
 
   expect(dependencyMocks.fetchPublicText).toHaveBeenCalledTimes(2);
@@ -90,6 +98,7 @@ test("retries a failed download and exposes only the successful content", async 
 });
 
 test("treats empty downloaded text as cached", async () => {
+  setup();
   const url = "https://example.com/empty-download";
   dependencyMocks.fetchPublicText.mockResolvedValue("<main></main>");
 
@@ -99,4 +108,28 @@ test("treats empty downloaded text as cached", async () => {
   expect(secondResult.logs).toEqual([]);
   expect(dependencyMocks.fetchPublicText).toHaveBeenCalledTimes(1);
   expect(getResource(url)).toBe("");
+});
+
+test("keeps previously downloaded evidence when an evicted resource cannot reload", async () => {
+  setup();
+  const state = createAgentState("https://example.com/evicted-evidence");
+  dependencyMocks.fetchPublicText.mockResolvedValue(
+    "<main>Retained evidence</main>",
+  );
+  const downloaded = await download_node(state, {});
+  const nextTurn = { ...state, ...downloaded, logs: [] };
+  for (let index = 0; index < 65; index++) {
+    await downloadResource(`https://example.com/evict-${index}`);
+  }
+  expect(getResource(state.resources[0].url)).toBe("");
+  dependencyMocks.fetchPublicText.mockRejectedValueOnce(new Error("Forbidden"));
+
+  await expect(download_node(nextTurn, {})).rejects.toThrow(
+    "Failed to download https://example.com/evicted-evidence: Forbidden",
+  );
+
+  expect(nextTurn.resources).toHaveLength(1);
+  expect(nextTurn.resources[0].url).toBe(
+    "https://example.com/evicted-evidence",
+  );
 });

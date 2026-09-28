@@ -1,3 +1,4 @@
+import { initialSuggestions } from "@/lib/initial-suggestions";
 import { ResearchCanvas } from "@/components/ResearchCanvas";
 import { Progress } from "@/components/Progress";
 import { useModelSelectorContext } from "@/lib/model-selector-provider";
@@ -57,12 +58,7 @@ export default function Main() {
     return () => subscription.unsubscribe();
   }, [isReady, model, researchAgent]);
 
-  useConfigureSuggestions({
-    consumerAgentId: agent,
-    providerAgentId: agent,
-    available: "before-first-message",
-    instructions: "Lifespan of penguins",
-  });
+  useConfigureSuggestions({ ...initialSuggestions, consumerAgentId: agent });
 
   return (
     <>
