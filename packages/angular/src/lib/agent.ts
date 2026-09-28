@@ -217,7 +217,7 @@ export class CopilotkitAgentFactory {
       // Keyed on the generation, not header VALUES: a builder's returned
       // token can change on every resolution without a new source ever being
       // set, and this must not re-run `resolveAgent` on that (#1937).
-      this.#copilotkit.headersGeneration();
+      this.#copilotkit.ɵheadersGeneration();
       this.#copilotkit.credentials();
 
       const agent = resolveAgent();

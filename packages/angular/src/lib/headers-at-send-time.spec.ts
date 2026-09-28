@@ -151,7 +151,7 @@ describe("CopilotKit — headers builder evaluated at send time (#1937)", () => 
     expect(runCalls.every((c) => c.auth === "Bearer tok-2")).toBe(true);
   });
 
-  it("copilotkit.headers() equals the last resolved value after a request to change the source", async () => {
+  it("copilotkit.headers() updates on a source change (updateRuntime) but NOT on a builder's per-request resolution (accepted gap, #1937)", async () => {
     const calls: Call[] = [];
     vi.stubGlobal("fetch", stubFetch(calls));
 
@@ -172,8 +172,33 @@ describe("CopilotKit — headers builder evaluated at send time (#1937)", () => 
     copilotkit.updateRuntime({
       headers: { Authorization: "Bearer static-2" },
     });
-
     expect(copilotkit.headers()).toEqual({ Authorization: "Bearer static-2" });
+
+    // Documents the intended contract (see `CopilotKit.headers`'s JSDoc): a
+    // builder resolving a FRESH token during a run is NOT a source change, so
+    // it must NOT touch this signal — even though the actual wire request
+    // (proven by the first two tests in this file) already carries the fresh
+    // token via `resolveHeaders()`/`ɵruntimeFetch`. A builder consumer who
+    // wants the current value must read `copilotkit.core.resolveHeaders()`,
+    // not this signal.
+    const builderCopilotkit = configureCopilotKit({
+      runtimeUrl: "http://rt2.test/api/copilotkit",
+      headers: (() => ({
+        Authorization: `Bearer ${token}`,
+      })) as CopilotKitHeadersSource,
+    });
+    await vi.waitFor(() =>
+      expect(builderCopilotkit.core.getAgent("default")).toBeDefined(),
+    );
+    const headersBeforeRun = builderCopilotkit.headers();
+
+    token = "tok-2";
+    const builderAgent = builderCopilotkit.core.getAgent("default")!;
+    await builderCopilotkit.core
+      .runAgent({ agent: builderAgent })
+      .catch(() => {});
+
+    expect(builderCopilotkit.headers()).toEqual(headersBeforeRun);
   });
 
   it("a provisional proxy's first connect carries the fresh token", async () => {

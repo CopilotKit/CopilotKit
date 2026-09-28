@@ -68,7 +68,7 @@ class CopilotKitStub {
   readonly #runtimeUrl = signal<string | undefined>(undefined);
   readonly #headers = signal<Record<string, string>>({});
   // Bumped only by `setHeaders` below — never by header VALUES alone —
-  // mirroring the real CopilotKit wrapper's `headersGeneration` (#1937).
+  // mirroring the real CopilotKit wrapper's `ɵheadersGeneration` (#1937).
   readonly #headersGeneration = signal<number>(0);
   // `threadEndpoints`/`intelligence` are signals (mirroring the real
   // CopilotKit wrapper) so the threads store's context-sync effect re-runs
@@ -81,7 +81,7 @@ class CopilotKitStub {
   readonly runtimeConnectionStatus = this.#runtimeConnectionStatus.asReadonly();
   readonly runtimeUrl = this.#runtimeUrl.asReadonly();
   readonly headers = this.#headers.asReadonly();
-  readonly headersGeneration = this.#headersGeneration.asReadonly();
+  readonly ɵheadersGeneration = this.#headersGeneration.asReadonly();
   readonly threadEndpoints = this.#threadEndpoints.asReadonly();
   readonly intelligence = this.#intelligence.asReadonly();
 
@@ -522,7 +522,7 @@ describe("injectThreads", () => {
     // Headers are no longer part of the dispatched context at all (the
     // store's `fetch` is `ɵruntimeFetch`, which overlays them at send time),
     // so a change here can only be observed as a re-dispatch keyed on
-    // `headersGeneration` — never on header VALUES or key order.
+    // `ɵheadersGeneration` — never on header VALUES or key order.
     active!.fetchMock.mockResolvedValue(jsonResponse({ threads: [] }));
 
     @Component({ standalone: true, template: "" })

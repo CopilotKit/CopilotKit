@@ -108,6 +108,16 @@ export class CopilotKit {
   readonly #runtimeTransport = signal<CopilotRuntimeTransport>("auto");
   readonly runtimeTransport = this.#runtimeTransport.asReadonly();
   readonly #headers = signal<Record<string, string>>({});
+  /**
+   * Snapshot as of the last header SOURCE change (a `setHeaders()`/
+   * `updateRuntime({ headers })` call) — not necessarily current for a
+   * builder. It updates from `onHeadersChanged`, which fires only on a real
+   * source change, never on a builder merely resolving a fresh token during a
+   * run. With a builder this can read `{}` (or a stale record) between
+   * source changes even though requests are already carrying the current
+   * token (#1937). For the value a builder would resolve right now, call
+   * `copilotkit.core.resolveHeaders()` instead.
+   */
   readonly headers = this.#headers.asReadonly();
   readonly #headersGeneration = signal<number>(0);
   /**
@@ -118,7 +128,7 @@ export class CopilotKit {
    * subscribers can key thread-context dispatch and agent header refresh on
    * this signal instead of on header VALUES (see #1937 learnings).
    */
-  readonly headersGeneration = this.#headersGeneration.asReadonly();
+  readonly ɵheadersGeneration = this.#headersGeneration.asReadonly();
   readonly #credentials = signal<RequestCredentials | undefined>(undefined);
   readonly credentials = this.#credentials.asReadonly();
   readonly #threadEndpoints = signal<ThreadEndpointRuntimeInfo | undefined>(
@@ -333,9 +343,9 @@ export class CopilotKit {
         // Fires only from a real `setHeaders()` call (a new source), never
         // from a builder resolving a new token — same generation core bumps.
         // Without this, nothing pokes Angular's reactivity when a source
-        // change lands: `ɵheadersGeneration` is a plain property read, not a
-        // signal, so `headersGeneration`-keyed dependents (threads.ts,
-        // agent.ts) only re-read it when this handler sets the signal.
+        // change lands: `ɵheadersGeneration` (core's) is a plain property
+        // read, not a signal, so `ɵheadersGeneration`-keyed dependents
+        // (threads.ts, agent.ts) only re-read it when this handler sets ours.
         this.#headersGeneration.set(this.core.ɵheadersGeneration);
       },
       onSuggestionsChanged: ({ agentId, suggestions }) => {

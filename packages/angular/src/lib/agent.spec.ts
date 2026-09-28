@@ -169,7 +169,7 @@ class CopilotKitStub {
   runtimeUrl = this.#runtimeUrl.asReadonly();
   runtimeTransport = this.#runtimeTransport.asReadonly();
   headers = this.#headers.asReadonly();
-  headersGeneration = this.#headersGeneration.asReadonly();
+  ɵheadersGeneration = this.#headersGeneration.asReadonly();
   credentials = this.#credentials.asReadonly();
   // A real core instance backs `subscribeToAgentWithOptions` AND
   // `applyHeadersToAgent` so the latter exercises its actual (own-only for a
