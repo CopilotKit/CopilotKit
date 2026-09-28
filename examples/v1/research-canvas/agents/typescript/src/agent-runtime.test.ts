@@ -1,5 +1,6 @@
 import { HumanMessage } from "@langchain/core/messages";
 import { END, START, StateGraph } from "@langchain/langgraph";
+import { ChatOpenAI } from "@langchain/openai";
 import { afterEach, expect, test, vi } from "vitest";
 import { z } from "zod";
 import { getModel } from "./model";
@@ -48,6 +49,21 @@ test.each(["openai", "anthropic", "google_genai"])(
     expect(boundModel).toBeDefined();
   },
 );
+
+test("the GPT-5 mini request omits unsupported sampling parameters", () => {
+  vi.stubEnv("MODEL", "");
+  vi.stubEnv("OPENAI_API_KEY", "test-openai-key");
+
+  const model = getModel(createState("openai"));
+  if (!(model instanceof ChatOpenAI)) {
+    throw new Error("The OpenAI provider must return ChatOpenAI");
+  }
+
+  const request = model.invocationParams();
+  expect(request.model).toBe("gpt-5-mini");
+  expect(request.temperature).toBeUndefined();
+  expect(request.top_p).toBeUndefined();
+});
 
 test("the SDK message reducer works with the agent's LangGraph state", async () => {
   const graph = new StateGraph(AgentStateAnnotation)

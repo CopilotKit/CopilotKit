@@ -45,7 +45,7 @@ requires it.
 ```sh
 pnpm install:agent:ts
 cd agents/typescript
-pnpm exec langgraph dev --host localhost --port 8123
+pnpm exec langgraphjs dev --host localhost --port 8123
 ```
 
 In another terminal, start the UI from this example's directory and point the
