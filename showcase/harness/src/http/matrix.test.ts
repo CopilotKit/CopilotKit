@@ -1,4 +1,3 @@
-import { unitPillSignal } from "../shared/cell-model/cell-model.equivalence-fixtures.js";
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
@@ -51,12 +50,7 @@ function row(
     key,
     dimension,
     state,
-    signal:
-      "signal" in opts
-        ? opts.signal
-        : state === "green"
-          ? unitPillSignal(key, observed)
-          : null,
+    signal: "signal" in opts ? opts.signal : null,
     observed_at: observed,
     transitioned_at: observed,
     fail_count: isRed ? 1 : 0,

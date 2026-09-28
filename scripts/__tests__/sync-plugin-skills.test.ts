@@ -190,10 +190,11 @@ describe("syncPluginSkills", () => {
     expect(RESERVED_LIFECYCLE_SLUGS).toContain("inspector-docs");
     expect(RESERVED_LIFECYCLE_SLUGS).toContain("inspector-workbench");
     expect(RESERVED_LIFECYCLE_SLUGS).toContain("intelligence-docs");
+    expect(RESERVED_LIFECYCLE_SLUGS).toContain("intelligence-vocabulary");
     // Pinned deliberately: the nine knowledge skills that used to sit here were
     // replaced by the two entry points, and a slug reappearing without a
     // decision is what this number catches.
-    expect(RESERVED_LIFECYCLE_SLUGS.size).toBe(8);
+    expect(RESERVED_LIFECYCLE_SLUGS.size).toBe(9);
   });
 
   // Version sync — the plugin version tracks packages/runtime/package.json.

@@ -9,7 +9,7 @@ test.describe("Beautiful Chat shared state", () => {
     await openBeautifulChat(page);
   });
 
-  test("[diagnostic supplemental] Task Manager pill streams todos into the app canvas", async ({
+  test("Task Manager pill streams todos into the app canvas", async ({
     page,
   }) => {
     test.setTimeout(120_000);

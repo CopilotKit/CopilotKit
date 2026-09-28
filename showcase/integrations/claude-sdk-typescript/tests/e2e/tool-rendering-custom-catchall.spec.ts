@@ -1,4 +1,3 @@
-import { runToolsAgentLocalContract } from "../../../../harness/src/probes/scripts/_pill-contracts-tools-agents";
 import { test, expect } from "@playwright/test";
 
 // QA reference: qa/tool-rendering-custom-catchall.md
@@ -16,7 +15,7 @@ const TOOL_TIMEOUT = 60000;
 
 const PILLS = ["Weather in SF", "Find flights", "Roll a d20", "Chain tools"];
 
-test.describe("[diagnostic] Tool Rendering — Custom Catch-all (branded wildcard)", () => {
+test.describe("Tool Rendering — Custom Catch-all (branded wildcard)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/tool-rendering-custom-catchall");
     await expect(page.getByPlaceholder("Type a message")).toBeVisible({
@@ -251,23 +250,4 @@ test.describe("[diagnostic] Tool Rendering — Custom Catch-all (branded wildcar
       timeout: TOOL_TIMEOUT,
     });
   });
-});
-
-// Shared canonical contract; direct local evidence cannot certify a public matrix cell.
-test("canonical actual-pill contract @functional-pill", async ({
-  page,
-}, testInfo) => {
-  test.setTimeout(600_000);
-  await page.goto("/demos/tool-rendering-custom-catchall");
-  const result = await runToolsAgentLocalContract(
-    page,
-    "tool-rendering-custom-catchall",
-    "claude-sdk-typescript",
-    page.url(),
-  );
-  await testInfo.attach("canonical-pill-execution", {
-    body: JSON.stringify(result, null, 2),
-    contentType: "application/json",
-  });
-  expect(result.pillExecution?.completed, JSON.stringify(result)).toBe(true);
 });

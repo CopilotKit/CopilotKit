@@ -1,4 +1,3 @@
-import { unitPillSignal } from "../../../../harness/src/shared/cell-model/cell-model.equivalence-fixtures";
 import { describe, it, expect, vi } from "vitest";
 import type { LiveStatusMap, StatusRow } from "@/lib/live-status";
 import type { Integration, Feature } from "@/lib/registry";
@@ -32,7 +31,7 @@ function makeRow(
     key,
     dimension,
     state,
-    signal: unitPillSignal(key, overrides?.observed_at ?? FRESH_OBSERVED_AT),
+    signal: null,
     observed_at: FRESH_OBSERVED_AT,
     transitioned_at: FRESH_OBSERVED_AT,
     fail_count: 0,
@@ -623,10 +622,10 @@ describe("computeColumnTallyDetail", () => {
     expect(result.green).toEqual([
       { label: "Voice", dimension: "e2e", featureId: "voice" },
     ]);
-    // A real per-cell D6 failure remains red; the aggregate does not recolor Voice.
-    expect(result.red).toEqual([
+    // agentic-chat: D5 green + per-cell D6 red → amber (D6 above D5).
+    expect(result.amber).toEqual([
       { label: "Agentic Chat", dimension: "health", featureId: "agentic-chat" },
     ]);
-    expect(result.amber).toEqual([]);
+    expect(result.red).toEqual([]);
   });
 });

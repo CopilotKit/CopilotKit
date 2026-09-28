@@ -5,7 +5,7 @@ import json
 import logging
 import math
 import re
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
 from time import monotonic as _entitlement_now
@@ -19,8 +19,12 @@ import httpx
 from .entitlements import RuntimeEntitlementResponse, normalize_runtime_entitlements
 from .inspector import InspectorMetadata, parse_inspector_metadata
 from .learned_skills import (
+    LearnedSkillsBatchResult,
+    LearnedSkillsContainerRequest,
     LearnedSkillsError,
     LearnedSkillsSnapshotResult,
+    parse_batch_response,
+    validate_batch_request,
 )
 from .learned_skills import (
     response_error as learned_skills_response_error,
@@ -423,6 +427,62 @@ class Intelligence:
             if cleanup is not None:
                 # Do not delay a known denial behind asynchronous pool cleanup.
                 # The client retains this task and aclose awaits its completion.
+                cleanup.close()
+
+    async def get_learned_skills_snapshots(
+        self,
+        *,
+        containers: Sequence[LearnedSkillsContainerRequest],
+        request_timeout: float | None = None,
+    ) -> LearnedSkillsBatchResult:
+        """Fetch up to 50 sources in one request, without retries or caching."""
+        sources = validate_batch_request(containers)
+        deadline = self.request_timeout if request_timeout is None else request_timeout
+        if type(deadline) not in (int, float) or not math.isfinite(deadline) or deadline <= 0:
+            raise LearnedSkillsError("INVALID_CONFIG", False)
+        status: int | None = None
+        cleanup: _LearnedSkillsStream | None = None
+        try:
+            async with asyncio.timeout(deadline):
+                request = self.http_client.build_request(
+                    "POST",
+                    self.api_url + "/api/v1/learning/skills/batch",
+                    json={"containers": sources},
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Accept": "application/json",
+                    },
+                    timeout=deadline,
+                )
+                response = await self.http_client.send(request, stream=True, follow_redirects=False)
+                assert isinstance(response.stream, httpx.AsyncByteStream)
+                cleanup = _LearnedSkillsStream(response.stream, self._learned_skills_cleanup)
+                response.stream = cleanup
+                status = response.status_code
+                if status == 401:
+                    raise LearnedSkillsError("AUTHENTICATION_FAILED", False)
+                await response.aread()
+                try:
+                    body = response.json()
+                except (ValueError, UnicodeError):
+                    body = None
+                if status != 200:
+                    raise learned_skills_response_error(status, body) from None
+                return parse_batch_response(body, sources)
+        except (asyncio.CancelledError, TimeoutError, httpx.HTTPError) as error:
+            if status in (401, 403):
+                raise LearnedSkillsError(
+                    "AUTHENTICATION_FAILED" if status == 401 else "AUTHORIZATION_FAILED",
+                    False,
+                    error,
+                ) from None
+            if isinstance(error, asyncio.CancelledError):
+                raise
+            if isinstance(error, (TimeoutError, httpx.TimeoutException)):
+                raise LearnedSkillsError("TIMEOUT", True, error) from None
+            raise LearnedSkillsError("NETWORK_ERROR", True, error) from None
+        finally:
+            if cleanup is not None:
                 cleanup.close()
 
     async def get_inspector_metadata(self) -> InspectorMetadata | None:

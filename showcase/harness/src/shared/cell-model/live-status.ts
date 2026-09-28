@@ -240,127 +240,96 @@ export interface StatusRow {
   first_failure_at: string | null;
 }
 
-/** These observations describe feature behavior, rather than health. */
-export function isFunctionalStatusKey(key: string): boolean {
-  return /^(?:d5|d6|e2e-deep|d5-single-pill-e2e|d6-all-pills-e2e):/.test(key);
-}
-
-function proofRecord(value: unknown): Record<string, unknown> | null {
-  return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-export function isUnverifiedDefinitionSignal(signal: unknown): boolean {
-  return proofRecord(signal)?.errorClass === "unverified-definition";
-}
-
-/** Admit only complete evidence from one public run against a known target. */
-export function hasQualifyingPillProof(
-  key: string,
-  signal: unknown,
-  observedAt: string,
-  expectedFrontend: "react" | "angular" = "react",
-): boolean {
-  const blob = proofRecord(signal);
-  const proof = proofRecord(blob?.pillExecution);
-  const identity = proofRecord(proof?.identity);
-  if (
-    !blob ||
-    !proof ||
-    !identity ||
-    proof.mode !== "functional-pill" ||
-    proof.surface !== "public" ||
-    proof.completed !== true ||
-    proof.attempts !== 1 ||
-    !Array.isArray(proof.failures) ||
-    proof.failures.length !== 0 ||
-    !Array.isArray(proof.requiredActions) ||
-    proof.requiredActions.length === 0 ||
-    !Array.isArray(proof.actions) ||
-    proof.actions.length !== proof.requiredActions.length
-  )
-    return false;
-  const required = proof.requiredActions;
-  if (
-    required.some((id) => typeof id !== "string" || id.length === 0) ||
-    new Set(required).size !== required.length
-  )
-    return false;
-  if (
-    proof.actions.some((value, index) => {
-      const action = proofRecord(value);
-      return (
-        !action ||
-        action.id !== required[index] ||
-        action.attempted !== true ||
-        action.clicked !== true ||
-        action.assertionPassed !== true ||
-        action.completed !== true ||
-        action.error !== undefined ||
-        typeof action.buttonName !== "string" ||
-        !action.buttonName ||
-        typeof action.dispatchedPrompt !== "string" ||
-        !action.dispatchedPrompt
-      );
-    })
-  )
-    return false;
-  const [target, feature] = key.slice(key.indexOf(":") + 1).split("/");
-  if (
-    !feature ||
-    identity.integration !== target ||
-    identity.canonical !== feature ||
-    identity.frontend !== expectedFrontend ||
-    (blob.frontend ?? "react") !== expectedFrontend ||
-    typeof identity.url !== "string"
-  )
-    return false;
-  // Require matching queued target metadata and canonical revision in proof/result.
-  // The target metadata does not attest the serving image.
-  if (
-    typeof identity.targetRevision !== "string" ||
-    !identity.targetRevision ||
-    identity.targetRevision !== blob.targetRevision ||
-    typeof identity.canonicalRevision !== "string" ||
-    !identity.canonicalRevision ||
-    identity.canonicalRevision !== blob.canonicalRevision
-  )
-    return false;
-  const start =
-    typeof proof.startedAt === "string" ? Date.parse(proof.startedAt) : NaN;
-  const end =
-    typeof proof.completedAt === "string" ? Date.parse(proof.completedAt) : NaN;
-  const observed = Date.parse(observedAt);
-  return (
-    Number.isFinite(start) &&
-    Number.isFinite(end) &&
-    Number.isFinite(observed) &&
-    start <= end &&
-    end <= observed &&
-    observed - end <= 60_000
-  );
-}
-
-/** The writer binds accepted evidence to this exact stored observation. */
-export function hasStoredPillProof(
-  row: Pick<StatusRow, "key" | "signal" | "observed_at">,
-): boolean {
-  const signal = proofRecord(row.signal);
-  return (
-    (signal?.frontend === undefined || signal.frontend === "react") &&
-    signal?.pillObservationKey === row.key &&
-    typeof signal.pillObservedAt === "string" &&
-    Date.parse(signal.pillObservedAt) === Date.parse(row.observed_at) &&
-    hasQualifyingPillProof(row.key, row.signal, row.observed_at)
-  );
-}
-
 export type LiveStatusMap = Map<string, StatusRow>;
 
-/** Cold-load rows retain the evidence required to admit functional green. */
+/**
+ * Comma-joined PocketBase `fields` projection for the BULK INITIAL status
+ * fetch — every `StatusRow` field EXCEPT `signal`. The `signal` blob (probe
+ * output: error messages, diffs, nested objects) is ~70% of the status
+ * payload by size (measured against production: 371 KB → 113 KB for a
+ * 500-row page). Dropping it from the bulk initial fetch (~3100 rows across
+ * ~7 pages) is the dominant transfer-size win for first paint; the live SSE
+ * subscription still delivers full rows (`signal` included) for every
+ * subsequent delta.
+ *
+ * `signal` IS read at render time, in four places:
+ *   - the drilldown panel and the per-cell banner, which lazy-load the full
+ *     row on demand (unaffected by this projection),
+ *   - `buildCellModel` → `decodeCellCommError` (cell-model.ts), which reads
+ *     `row.signal` PER CELL on every render to derive the REQ-B
+ *     unreachable/pending comm-error overlay, and
+ *   - `classifyRung` (cell-model.contribution.ts), which reads it — via
+ *     `signalHasInfraErrorClass` plus the `redSignalKnown` provenance flag
+ *     `foldFamily` derives over the RED rows — to tell an INFRA red from a
+ *     PRODUCT red. This read happens ONLY in the red branch, so it only ever
+ *     needs the NON-GREEN rows, and its provenance precondition is scoped to
+ *     those same rows (a projected GREEN sibling must not suppress it).
+ *
+ * Neither of the latter two can lazy-load, so `useLiveStatus` issues a
+ * SUPPLEMENTAL initial fetch WITH `signal`, scoped to the union of two clauses:
+ * the comm-error candidate aggregate rows (`FLEET_COMM_AGGREGATE_DIMENSIONS`,
+ * `<dim>:<slug>` keys) ∪ every row whose `state != "green"`. Measured against
+ * production on 2026-07-24 that union is 436 of 3082 rows (~480 KB on the wire;
+ * the non-green clause alone is 357 rows / ~430 KB), so the bulk projection
+ * keeps most of its payload win while the infra-vs-product RED attribution and
+ * the AGGREGATE comm-error overlay are correct from a COLD LOAD instead of
+ * waiting on an SSE re-delivery (which only arrives when the probe's next sweep
+ * rewrites that specific row — up to a full probe period, i.e. ~60 min for the
+ * hourly `e2e:`/`starter:`/`d6:` writers and longer for the 6-hourly and
+ * weekly drift probes; cadences live in `harness/config/probes/*.yml`).
+ *
+ * SCOPE OF THAT "COLD LOAD" CLAIM — it is NOT the whole matrix. The union is
+ * green-blind outside clause 1: as of the same measurement 2646 rows sit
+ * outside it while carrying a non-empty `signal` (green `e2e:`/`d5:`/`d6:`
+ * per-cell rows, plus green `health:`/`chat:`/`tools:`/`starter:` rows). That is
+ * tolerated because `classifyRung` reads `signal` only in its RED branch and the
+ * harness mirrors comm errors onto the integration-level aggregates clause 1
+ * fetches state-independently — but it IS an open gap, and it is the same gap
+ * that let the mis-scoped signal-provenance precondition (the removed
+ * family-wide `RawRung.signalKnown`, now the red-row-scoped
+ * `FamilyFold.redSignalKnown`) ship green. `useLiveStatus`'s
+ * "WHAT THIS DOES NOT COVER" note has the full row-by-dimension breakdown.
+ *
+ * DO NOT re-narrow that supplemental fetch without re-reading
+ * `classifyRung`'s fail-safe-polarity note: a non-green row that arrives
+ * without `signal` is now painted RED (over-report), which is recoverable —
+ * whereas it used to be painted GRAY, which silently hid real failures.
+ *
+ * ── WHY A STRIPPED `signal` IS UNAMBIGUOUS — AND WHAT WOULD BREAK IT ──────
+ * The `redSignalKnown` provenance flag `foldFamily` derives for `classifyRung`
+ * rests on this property: under
+ * a `fields=` projection PocketBase OMITS the `signal` key entirely, while a
+ * genuinely signal-less row arrives with `signal: null`. Because
+ * `null !== undefined`, "key absent" therefore means "projected", never "no
+ * signal".
+ *
+ * VERIFIED, and VERSION-SCOPED to the PB release this deploy pins —
+ * **PocketBase 0.22.21** (`ARG PB_VERSION` in `showcase/pocketbase/Dockerfile`).
+ * On 2026-07-24, against production: all 3082 rows fetched WITHOUT a projection
+ * carried a `signal` key (0 omitted), and all 500 rows of page 1 fetched WITH
+ * this projection omitted it (0 present); a version-matched throwaway instance
+ * confirmed that a record created with no `signal` value reads back as
+ * `"signal": null`, not as an absent key.
+ *
+ * UPGRADE HAZARD — do not carry this claim across a PocketBase major bump
+ * unchecked. PB >= 0.23 gained `isVisible = !f.GetHidden()` in its
+ * `PublicExport` path, so on those versions a field-level `hidden` flag makes
+ * the server omit `signal` for reasons that have NOTHING to do with our
+ * projection, reintroducing exactly the "absent = ?" ambiguity this flag was
+ * built to avoid. A PB upgrade must therefore re-verify both directions above
+ * and confirm `signal` is not `hidden` in the collection schema.
+ *
+ * Adjacent, verified-safe: `signal: ""` round-trips as a PRESENT key, so
+ * `redSignalKnown` stays `true` and an empty blob yields no infra attribution —
+ * the rung is painted RED. That over-reports rather than hides, which is the
+ * safe direction and needs no guard.
+ *
+ * Guarded by `live-status.test.ts`: this list must equal `keyof StatusRow`
+ * minus `signal`, so a new `StatusRow` field forces a conscious decision about
+ * whether it belongs in the lightweight initial projection.
+ */
 export const STATUS_LIST_FIELDS =
-  "id,key,dimension,state,signal,observed_at,transitioned_at,fail_count,first_failure_at";
+  "id,key,dimension,state,observed_at,transitioned_at,fail_count,first_failure_at";
 
 /**
  * Extends BadgeTone to include the hook-level "error" case (spec §5.4
@@ -601,10 +570,7 @@ function worstStateRank(state: string): number {
  * below rewrite the returned `.state` (see resolveD5Row).
  */
 function effectiveState(row: StatusRow, now: number, maxAgeMs: number): State {
-  if (isUnverifiedDefinitionSignal(row.signal)) return "degraded";
-  return row.state === "green" &&
-    (isStale(row, now, maxAgeMs) ||
-      (isFunctionalStatusKey(row.key) && !hasStoredPillProof(row)))
+  return row.state === "green" && isStale(row, now, maxAgeMs)
     ? "degraded"
     : row.state;
 }
@@ -1411,16 +1377,11 @@ function buildBadge(
   maxAgeMs: number,
   connection: ConnectionStatus,
 ): BadgeRender {
-  if (isUnverifiedDefinitionSignal(row?.signal)) row = null;
   // ONE staleness check shared by the tone downgrade AND the tooltip copy
   // split (see formatTooltip's `stale` param) so the two can never disagree.
   const stale = row !== null && isStale(row, now, maxAgeMs);
   const effRow: StatusRow | null =
-    row &&
-    row.state === "green" &&
-    (stale || (isFunctionalStatusKey(row.key) && !hasStoredPillProof(row)))
-      ? { ...row, state: "degraded" }
-      : row;
+    row && row.state === "green" && stale ? { ...row, state: "degraded" } : row;
   return {
     tone: rowTone(effRow),
     label: formatLabel(dim, effRow, stale),
@@ -1436,9 +1397,7 @@ function buildBadge(
  * Multi-dimension precedence (spec §5.4):
  *   red > degraded > green > error > unknown
  *
- * Rollup uses health + e2e readiness and functional D5/D6 evidence.
- * Functional failures win over readiness or another functional green.
- * smokeRow was dropped from the
+ * Rollup contributors: health + e2e only. smokeRow was dropped from the
  * rollup in Phase 3 (Decision #7) because the producer writes
  * integration-scoped smoke:<slug>, not feature-scoped smoke:<slug>/<feature>.
  * The L1 signal now lives in the per-integration strip.
@@ -1470,13 +1429,14 @@ export function resolveCell(
   // `d6:<slug>/<featureType>` row per featureType (PLUS an integration-level
   // `d6:<slug>` aggregate the dashboard no longer reads per-cell — it is red
   // whenever ANY cell fails and would paint green cells red).
-  // Functional failures contribute to the rollup; at least one qualifying
-  // functional green is required for a green rollup. A missing row resolves
-  // to a gray "?" badge.
+  // Informational — neither contributes to the rollup (alert engine routes
+  // them independently, same model as smoke). A missing row resolves to a
+  // gray "?" badge, the expected resting state for cells outside their
+  // weekly-rotation slot.
   const d5Row = resolveD5Row(live, slug, featureId, now);
   const d6Row = resolveD6Row(live, slug, featureId, now);
   // D4 integration-scoped fold over `chat:<slug>`/`tools:<slug>` — same
-  // informational (non-rollup) model as d2; the pill's verification
+  // informational (non-rollup) model as d2/d5/d6; the pill's verification
   // gate consumes D4 separately via buildCellModel.
   const d4Row = resolveD4Row(live, slug, now);
 
@@ -1509,12 +1469,7 @@ export function resolveCell(
     const rank = worstStateRank(s);
     if (rank > worstContributorRank) worstContributorRank = rank;
   }
-  // Resolved functional rows already apply freshness and proof admission,
-  // including downgrading missing-definition evidence from product failures.
-  const hasAnyRed =
-    worstContributorRank >= WORST_STATE_RANK.red ||
-    d5Row?.state === "red" ||
-    d6Row?.state === "red";
+  const hasAnyRed = worstContributorRank >= WORST_STATE_RANK.red;
   const hasAnyAmber = worstContributorRank === WORST_STATE_RANK.degraded;
   // `allGreen` is gated on `connection !== "error"` to avoid the stale-green
   // lie (spec §5.3): when the SSE stream has gone dark, any cached green
@@ -1528,10 +1483,7 @@ export function resolveCell(
   // e2e probe has actually ticked, which is a different flavour of the
   // stale-green lie.
   const allGreen =
-    connection !== "error" &&
-    healthEff === "green" &&
-    e2eEff === "green" &&
-    (d5Row?.state === "green" || d6Row?.state === "green");
+    connection !== "error" && healthEff === "green" && e2eEff === "green";
 
   let rollup: BadgeTone;
   if (hasAnyRed) {
@@ -1608,24 +1560,6 @@ function rowsAreNoop(prev: unknown, next: unknown): boolean {
   if (prev === next) return true;
   const a = prev as Record<string, unknown>;
   const b = next as Record<string, unknown>;
-  if (
-    isUnverifiedDefinitionSignal(a.signal) !==
-    isUnverifiedDefinitionSignal(b.signal)
-  )
-    return false;
-  if (typeof a.key === "string" && isFunctionalStatusKey(a.key)) {
-    // A same-timestamp legacy signal update must revoke, rather than retain,
-    // functional credit. Other diagnostic signal content remains informational.
-    const admitted = (value: Record<string, unknown>) =>
-      typeof value.key === "string" &&
-      typeof value.observed_at === "string" &&
-      hasStoredPillProof({
-        key: value.key,
-        observed_at: value.observed_at,
-        signal: value.signal,
-      });
-    if (admitted(a) !== admitted(b)) return false;
-  }
   return (a.signal === undefined) === (b.signal === undefined);
 }
 

@@ -258,32 +258,3 @@ describe("StatusTable", () => {
     expect(getByText(/Run specific/i)).toBeDefined();
   });
 });
-
-describe("functional schedule evidence", () => {
-  it("does not paint an actual empty completed run green", () => {
-    const e = entry({ kind: "e2e_d6" });
-    e.lastRun!.summary = { total: 0, passed: 0, failed: 0 };
-    const view = render(
-      <StatusTable entries={[e]} onTrigger={async () => {}} />,
-    );
-    expect(
-      view.getByTestId("status-row-smoke-result").getAttribute("data-tone"),
-    ).toBe("gray");
-    expect(view.getByTestId("status-row-smoke-result").textContent).toBe(
-      "No observations",
-    );
-  });
-  it("does not promote raw functional passed counts to accepted pill proof", () => {
-    const e = entry({ kind: "e2e_d6" });
-    e.lastRun!.summary = { total: 1, passed: 1, failed: 0 };
-    const view = render(
-      <StatusTable entries={[e]} onTrigger={async () => {}} />,
-    );
-    expect(
-      view.getByTestId("status-row-smoke-result").getAttribute("data-tone"),
-    ).toBe("gray");
-    expect(view.getByTestId("status-row-smoke-result").textContent).toContain(
-      "unverified",
-    );
-  });
-});

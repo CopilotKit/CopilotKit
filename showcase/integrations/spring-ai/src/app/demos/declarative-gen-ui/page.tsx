@@ -37,28 +37,7 @@ export default function DeclarativeGenUIDemo() {
       agent="declarative-gen-ui"
       a2ui={{ catalog: myCatalog }}
     >
-      <div
-        data-declarative-sales-page
-        className="flex justify-center items-center h-screen w-full"
-      >
-        <style>{`
-          @media (max-width: 639px) {
-            [data-declarative-sales-page] div:has(> [data-testid="declarative-metric"]:nth-child(4):last-child):not(:has(> :not([data-testid="declarative-metric"]))) {
-              flex-wrap: wrap;
-              gap: 16px;
-            }
-            [data-declarative-sales-page] div:has(> [data-testid="declarative-metric"]:nth-child(4):last-child):not(:has(> :not([data-testid="declarative-metric"]))) > [data-testid="declarative-metric"] {
-              flex: 1 1 calc(50% - 8px);
-              min-width: 0;
-            }
-            [data-declarative-sales-page] div:has(> [data-testid="declarative-pie-chart"]):has(> [data-testid="declarative-bar-chart"]) {
-              flex-wrap: wrap;
-            }
-            [data-declarative-sales-page] div:has(> [data-testid="declarative-pie-chart"]):has(> [data-testid="declarative-bar-chart"]) > :is([data-testid="declarative-pie-chart"], [data-testid="declarative-bar-chart"]) {
-              flex: 1 1 100%;
-            }
-          }
-        `}</style>
+      <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
         </div>

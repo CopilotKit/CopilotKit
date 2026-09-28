@@ -44,15 +44,15 @@ describe("D5 tool-rendering-default-catchall — buildTurns", () => {
     }
   });
 
-  it("covers all four actual canonical catchall pills", () => {
+  it("returns one turn with the canonical weather prompt", () => {
     const ctx: D5BuildContext = {
       integrationSlug: "langgraph-python",
       featureType: "tool-rendering-default-catchall",
       baseUrl: "https://showcase-langgraph-python.example.com",
     };
     const turns = scriptModule.buildTurns(ctx);
-    expect(turns).toHaveLength(4);
-    expect(turns[0]!.input).toBe("What's the weather in San Francisco?");
+    expect(turns).toHaveLength(1);
+    expect(turns[0]!.input).toBe("forecast for Tokyo");
     expect(typeof turns[0]!.assertions).toBe("function");
   });
 });

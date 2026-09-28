@@ -17,13 +17,7 @@ const SAMPLES = [
   "Show me a chart of revenue over the last six months",
 ];
 
-export function EmptyState({
-  onPick,
-  disabled,
-}: {
-  onPick: (text: string) => void;
-  disabled: boolean;
-}) {
+export function EmptyState({ onPick }: { onPick: (text: string) => void }) {
   return (
     <div className="flex h-full flex-1 flex-col items-center justify-center gap-6 px-8 py-10 text-center">
       <div className="flex flex-col items-center gap-2">
@@ -48,7 +42,6 @@ export function EmptyState({
           >
             <button
               type="button"
-              disabled={disabled}
               onClick={() => onPick(s)}
               aria-label={`Try suggestion: ${s}`}
             >

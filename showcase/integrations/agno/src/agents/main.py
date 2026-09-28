@@ -10,7 +10,6 @@ from dotenv import load_dotenv
 from tools import (
     RENDER_A2UI_TOOL_SCHEMA,
     build_a2ui_operations_from_tool_call,
-    get_revenue_chart_impl,
     get_weather_impl,
     query_data_impl,
     schedule_meeting_impl,
@@ -50,12 +49,6 @@ def query_data(query: str):
         str: Query results as JSON.
     """
     return json.dumps(query_data_impl(query))
-
-
-@tool
-def get_revenue_chart():
-    """Get the canonical six-month revenue chart as JSON."""
-    return json.dumps(get_revenue_chart_impl())
 
 
 @tool(external_execution=True)
@@ -272,7 +265,6 @@ agent = Agent(
     tools=[
         get_weather,
         query_data,
-        get_revenue_chart,
         manage_sales_todos,
         schedule_meeting,
         change_background,
@@ -298,11 +290,8 @@ agent = Agent(
         Only call the get_weather tool if the user asks about the weather.
         If the user does not specify a location, use "Everywhere ever in the whole wide world".
 
-        REVENUE CHART:
-        Use get_revenue_chart when the user asks for a chart of revenue over the last six months.
-
         QUERY DATA:
-        Use query_data for other financial data, charts, or analytics.
+        Use the query_data tool when the user asks for financial data, charts, or analytics.
 
         SCHEDULE MEETING:
         Use the schedule_meeting tool when the user wants to schedule a meeting.

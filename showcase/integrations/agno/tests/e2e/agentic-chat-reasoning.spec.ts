@@ -1,18 +1,15 @@
-// Existing scenarios are diagnostics; only the canonical pill test below is functional acceptance.
 import { test, expect } from "@playwright/test";
 
-test.describe("Diagnostic: Agentic Chat (Reasoning)", () => {
+test.describe("Agentic Chat (Reasoning)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/agentic-chat-reasoning");
   });
 
-  test("Diagnostic: chat UI renders on load", async ({ page }) => {
+  test("chat UI renders on load", async ({ page }) => {
     await expect(page.getByPlaceholder(/type a message/i)).toBeVisible();
   });
 
-  test("Diagnostic: reasoning block surfaces after sending a prompt", async ({
-    page,
-  }) => {
+  test("reasoning block surfaces after sending a prompt", async ({ page }) => {
     const input = page.getByPlaceholder(/type a message/i);
     await input.fill("Why is the sky blue? Think step by step.");
     await input.press("Enter");

@@ -27,11 +27,10 @@
       }
     },
     {
-      "_comment": "headless-complete highlight pill narration — matches the current turn's tool result for the original highlight prompt.",
+      "_comment": "headless-complete highlight pill narration — matches when the highlight_note tool result with id call_d5_headless_highlight_001 is the last message.",
       "match": {
-        "context": "langroid",
-        "hasToolResult": true,
-        "userMessage": "ship the demo on Friday"
+        "toolCallId": "call_d5_headless_highlight_001",
+        "context": "langroid"
       },
       "response": {
         "content": "Highlighted 'ship the demo on Friday' for you above."
@@ -80,15 +79,15 @@
       }
     },
     {
-      "_comment": "headless-complete highlight pill toolcall — emit highlight_note. Probe sends \"Highlight this note for me: 'ship the demo on Friday'.\" so userMessage substring 'ship the demo on Friday' catches it. Match only before the current turn has a tool result so the narration fixture can finish the frontend-tool round trip.",
+      "_comment": "headless-complete highlight pill toolcall — emit highlight_note. Probe sends \"Highlight this note for me: 'ship the demo on Friday'.\" so userMessage substring 'ship the demo on Friday' catches it.",
       "match": {
         "userMessage": "ship the demo on Friday",
-        "context": "langroid",
-        "hasToolResult": false
+        "context": "langroid"
       },
       "response": {
         "toolCalls": [
           {
+            "id": "call_d5_headless_highlight_001",
             "name": "highlight_note",
             "arguments": "{\"text\":\"ship the demo on Friday\",\"color\":\"yellow\"}"
           }

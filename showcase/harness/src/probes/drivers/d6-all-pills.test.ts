@@ -79,31 +79,7 @@ interface PageScript {
 
 function makePage(script: PageScript = {}): E2eFullPage {
   let messageCount = 0;
-  const requestListeners = new Set<
-    (request: { method(): string; postData(): string | null }) => void
-  >();
   return {
-    on: (_event, listener) => {
-      requestListeners.add(listener);
-    },
-    off: (_event, listener) => {
-      requestListeners.delete(listener);
-    },
-    getByRole: (_role, { name }) => ({
-      count: async () => 1,
-      isVisible: async () => true,
-      isEnabled: async () => true,
-      innerText: async () => name,
-      click: async () => {
-        if (!script.stallEvaluate) messageCount++;
-        for (const listener of requestListeners)
-          listener({
-            method: () => "POST",
-            postData: () =>
-              JSON.stringify({ messages: [{ role: "user", content: name }] }),
-          });
-      },
-    }),
     async goto() {
       if (script.throwOnGoto) throw script.throwOnGoto;
       if (script.stallGoto) {
@@ -229,17 +205,11 @@ function makeScript(
     featureTypes: featureTypes as D5Script["featureTypes"],
     fixtureFile: "test-fixture.json",
     buildTurns: () =>
-      (opts?.turns ?? [{ input: "hello" }]).map((turn, index) => ({
-        ...turn,
-        action: {
-          kind: "pill" as const,
-          id: `unit-pill-${index}`,
-          buttonName: turn.input,
-          expectedDispatchedPrompt: turn.input,
-          submission: { kind: "immediate" as const },
+      opts?.turns ?? [
+        {
+          input: "hello",
         },
-        assertions: turn.assertions ?? (async () => {}),
-      })),
+      ],
     preNavigateRoute: opts?.preNavigateRoute
       ? () => opts.preNavigateRoute!
       : undefined,
@@ -251,82 +221,6 @@ function makeScript(
 describe("e2e-full driver", () => {
   beforeEach(() => {
     __clearD5RegistryForTesting();
-  });
-
-  describe("scheduled public execution", () => {
-    async function runWithIdentity(
-      missing?: "shell" | "target" | "canonical" | "worker-skew",
-    ) {
-      registerD5Script(makeScript(["agentic-chat"]));
-      const rows: ProbeResult<unknown>[] = [];
-      // A typed boundary sentinel proves the public executor was reached without
-      // constructing an unrelated Playwright context for identity guard tests.
-      const newPublicContext = vi
-        .fn<NonNullable<E2eFullBrowser["newPublicContext"]>>()
-        .mockRejectedValue(new Error("public execution reached"));
-      const browser: E2eFullBrowser = { ...makeBrowser(), newPublicContext };
-      const driver = createE2eFullDriver({
-        launcher: async () => browser,
-        scriptLoader: noopScriptLoader(),
-      });
-      await driver.run(
-        {
-          ...makeCtx({
-            writer: {
-              write: async (row) => {
-                rows.push(row);
-              },
-            },
-          }),
-          // Omit both canonical values together so the canonical syntax guard
-          // is isolated from the separate worker/job equality guard.
-          env:
-            missing === "canonical"
-              ? {}
-              : {
-                  COMMIT_SHA: (missing === "worker-skew" ? "c" : "b").repeat(
-                    40,
-                  ),
-                },
-        },
-        {
-          key: "d6:test-slug",
-          backendUrl: "http://localhost:39200",
-          features: ["agentic-chat"],
-          surface: "public",
-          publicShellBaseUrl:
-            missing === "shell" ? undefined : "http://localhost:39204",
-          targetRevision:
-            missing === "target" ? undefined : `sha256:${"a".repeat(64)}`,
-          canonicalRevision:
-            missing === "canonical" ? undefined : "b".repeat(40),
-        },
-      );
-      return {
-        row: rows.find((row) => row.key === "d6:test-slug/agentic-chat"),
-        newPublicContext,
-      };
-    }
-
-    it.each(["shell", "target", "canonical", "worker-skew"] as const)(
-      "keeps scheduled execution unverified when %s identity is absent or mismatched",
-      async (missing) => {
-        const { row, newPublicContext } = await runWithIdentity(missing);
-        expect(row).toMatchObject({
-          state: "red",
-          signal: { errorClass: "unverified-definition" },
-        });
-        expect(newPublicContext).not.toHaveBeenCalled();
-      },
-    );
-
-    it("reaches public execution with valid matching identities", async () => {
-      const { row, newPublicContext } = await runWithIdentity();
-      expect(newPublicContext).toHaveBeenCalledOnce();
-      expect(row).toMatchObject({
-        signal: { errorDesc: "public execution reached" },
-      });
-    });
   });
 
   describe("exports", () => {
@@ -373,22 +267,19 @@ describe("e2e-full driver", () => {
   });
 
   describe("no features declared", () => {
-    it.each([undefined, ["voice"]])(
-      "returns green with empty features and filter %j",
-      async (featureTypes) => {
-        const driver = createE2eFullDriver({
-          launcher: async () => makeBrowser(),
-          scriptLoader: noopScriptLoader(),
-        });
-        const result = await driver.run(makeCtx({ featureTypes }), {
-          key: "e2e_d6:showcase-test-slug",
-          backendUrl: "https://test.example.com",
-          features: [],
-        });
-        expect(result.state).toBe("green");
-        expect(result.signal.note).toBe("no D5 features declared");
-      },
-    );
+    it("returns green with empty features", async () => {
+      const driver = createE2eFullDriver({
+        launcher: async () => makeBrowser(),
+        scriptLoader: noopScriptLoader(),
+      });
+      const result = await driver.run(makeCtx(), {
+        key: "e2e_d6:showcase-test-slug",
+        backendUrl: "https://test.example.com",
+        features: [],
+      });
+      expect(result.state).toBe("green");
+      expect(result.signal.note).toContain("no D5 features declared");
+    });
   });
 
   describe("missing script handling (strict)", () => {
@@ -421,7 +312,7 @@ describe("e2e-full driver", () => {
       expect(sideRow).toBeDefined();
       expect(sideRow!.state).toBe("red");
       const sideSignal = sideRow!.signal as E2eFullFeatureSignal;
-      expect(sideSignal.errorClass).toBe("unverified-definition");
+      expect(sideSignal.errorClass).toBe("missing-script");
     });
   });
 
@@ -1222,29 +1113,6 @@ describe("e2e-full driver", () => {
       expect(pool.stats().inUse).toBe(0);
     });
 
-    it("rejects and releases once when aborted during public header reset", async () => {
-      const ac = new AbortController();
-      const resetHeaders = vi.fn(async () => {
-        ac.abort();
-      });
-      const pool = makeFakeContextPool(1, resetHeaders);
-      const browser = await createPooledE2eFullLauncher(
-        pool as unknown as BrowserPool,
-      )(ac.signal);
-      try {
-        if (!browser.newPublicContext)
-          throw new Error("Missing public context");
-        await expect(browser.newPublicContext()).rejects.toThrow(
-          "e2e-full launcher aborted",
-        );
-        expect(resetHeaders).toHaveBeenCalledWith({});
-        expect(pool._releaseLog).toHaveLength(1);
-        expect(pool.stats().inUse).toBe(0);
-      } finally {
-        await browser.close();
-      }
-    });
-
     it("launcher-level close is a no-op (contexts release themselves)", async () => {
       const pool = makeFakeContextPool(4);
       const launcher = createPooledE2eFullLauncher(
@@ -1263,10 +1131,7 @@ describe("e2e-full driver", () => {
 // above — lifted out of the describe so oxlint's consistent-function-scoping
 // is satisfied (the factory captures no parent state). Tracks per-CONTEXT
 // acquire/release and the contextOptions each acquire was called with.
-function makeFakeContextPool(
-  maxContexts: number,
-  setExtraHTTPHeaders = async (_headers: Record<string, string>) => {},
-) {
+function makeFakeContextPool(maxContexts: number) {
   let nextCtxId = 0;
   // Track the set of currently-live contexts so release fidelity matches
   // the real BrowserPool: an unknown / double release is a no-op (does
@@ -1284,7 +1149,6 @@ function makeFakeContextPool(
       acquireOptions.push(options);
       const ctx = {
         __id: id,
-        setExtraHTTPHeaders,
         async newPage() {
           return {
             on: () => {},
@@ -1545,73 +1409,45 @@ function makeRetryLauncherFull(opts: { attempt1DelayMs: number }): {
   return { launcher: async () => browser, state };
 }
 
-describe("e2e-full preserves the first functional failure", () => {
+describe("e2e-full per-feature retry signal isolation", () => {
   beforeEach(() => {
     __clearD5RegistryForTesting();
   });
 
-  it.each([false, true])(
-    "does not retry a failed feature (filtered=%s)",
-    async (filtered) => {
-      // Attempt 1 fails retry-eligibly (goto-error) after
-      // >= RETRY_MIN_DURATION_MS (2s); attempt 2 succeeds. The retry must
-      // run with a fresh, un-aborted signal — observed by TWO contexts
-      // being opened (a poisoned/aborted retry would open only one).
-      registerD5Script(makeScript(["agentic-chat"]));
+  it("executes the second attempt after a retry-eligible failure (fresh, non-aborted signal)", async () => {
+    // Attempt 1 fails retry-eligibly (goto-error) after
+    // >= RETRY_MIN_DURATION_MS (2s); attempt 2 succeeds. The retry must
+    // run with a fresh, un-aborted signal — observed by TWO contexts
+    // being opened (a poisoned/aborted retry would open only one).
+    registerD5Script(makeScript(["agentic-chat"]));
 
-      const { launcher, state } = makeRetryLauncherFull({
-        attempt1DelayMs: 2_100,
-      });
+    const { launcher, state } = makeRetryLauncherFull({
+      attempt1DelayMs: 2_100,
+    });
 
-      const driver = createE2eFullDriver({
-        launcher,
-        scriptLoader: noopScriptLoader(),
-        featureTimeoutMs: 30_000, // above attempt durations — no timeout
-      });
-      const sideEmits: ProbeResult<unknown>[] = [];
-      const writer: ProbeResultWriter = {
-        write: async (r) => {
-          sideEmits.push(r);
-        },
-      };
+    const driver = createE2eFullDriver({
+      launcher,
+      scriptLoader: noopScriptLoader(),
+      featureTimeoutMs: 30_000, // above attempt durations — no timeout
+    });
+    const sideEmits: ProbeResult<unknown>[] = [];
+    const writer: ProbeResultWriter = {
+      write: async (r) => {
+        sideEmits.push(r);
+      },
+    };
 
-      const result = await driver.run(
-        makeCtx({
-          writer,
-          featureTypes: filtered ? ["agentic-chat"] : undefined,
-        }),
-        {
-          key: "d6-all-pills-e2e:showcase-test-slug",
-          backendUrl: "https://test.example.com",
-          features: filtered
-            ? ["agentic-chat", "tool-rendering"]
-            : ["agentic-chat"],
-        },
-      );
+    await driver.run(makeCtx({ writer }), {
+      key: "d6-all-pills-e2e:showcase-test-slug",
+      backendUrl: "https://test.example.com",
+      features: ["agentic-chat"],
+    });
 
-      // Two attempts executed → two contexts opened.
-      expect(state.opened).toBe(1);
-      const aggRow = sideEmits.find((r) => r.key === "d6:test-slug");
-      expect(result.state).toBe("red");
-      if (filtered) {
-        expect(result.signal.scope).toEqual({
-          requested: ["agentic-chat", "tool-rendering"],
-          selected: ["agentic-chat"],
-          excluded: ["tool-rendering"],
-          executed: ["agentic-chat"],
-          missingScript: [],
-          skipped: [],
-        });
-        expect(sideEmits.map((row) => row.key)).toEqual([
-          "d6:test-slug/agentic-chat",
-        ]);
-      } else {
-        expect(result.signal.scope).toBeUndefined();
-        expect(aggRow?.state).toBe("red");
-      }
-    },
-    15_000,
-  );
+    // Two attempts executed → two contexts opened.
+    expect(state.opened).toBe(2);
+    const aggRow = sideEmits.find((r) => r.key === "d6:test-slug");
+    expect(aggRow?.state).toBe("green");
+  }, 15_000);
 
   // --- D5-take-one knobs ---------------------------------------------------
   //
@@ -2161,146 +1997,5 @@ describe("parseFailureClassifier (conversation-error breadcrumb)", () => {
       parseFailureClassifier("turn 0 failed: no breadcrumb"),
     ).toBeUndefined();
     expect(parseFailureClassifier(undefined)).toBeUndefined();
-  });
-});
-
-describe("filtered runs preserve unselected observations", () => {
-  it("selected missing script fails without classifying excluded missing or incapable features", async () => {
-    __clearD5RegistryForTesting();
-    const rows: ProbeResult[] = [];
-    const driver = createE2eFullDriver({
-      launcher: async () => makeBrowser(),
-      scriptLoader: noopScriptLoader(),
-    });
-    const result = await driver.run(
-      makeCtx({
-        featureTypes: ["frontend-tools-async"],
-        writer: {
-          async write(row) {
-            rows.push(row);
-          },
-        },
-      }),
-      {
-        key: "d6:agno",
-        backendUrl: "http://localhost:3000",
-        features: ["frontend-tools-async", "mcp-apps", "shared-state-read"],
-        notSupportedFeatures: ["shared-state-read"],
-      },
-    );
-    expect(rows.map((row) => row.key)).toEqual([
-      "d6:agno/frontend-tools-async",
-    ]);
-    expect(rows[0].state).toBe("red");
-    expect(result.signal.scope).toEqual({
-      requested: ["frontend-tools-async", "mcp-apps", "shared-state-read"],
-      selected: ["frontend-tools-async"],
-      excluded: ["mcp-apps", "shared-state-read"],
-      executed: [],
-      missingScript: ["frontend-tools-async"],
-      skipped: [],
-    });
-  });
-
-  it("selected unsupported feature is skipped without a green observation", async () => {
-    __clearD5RegistryForTesting();
-    const rows: ProbeResult[] = [];
-    const driver = createE2eFullDriver({
-      launcher: async () => makeBrowser(),
-      scriptLoader: noopScriptLoader(),
-    });
-    const result = await driver.run(
-      makeCtx({
-        featureTypes: ["shared-state-read"],
-        writer: {
-          async write(row) {
-            rows.push(row);
-          },
-        },
-      }),
-      {
-        key: "d6:agno",
-        backendUrl: "http://localhost:3000",
-        features: ["frontend-tools-async", "shared-state-read"],
-        notSupportedFeatures: ["shared-state-read"],
-      },
-    );
-    expect(rows).toEqual([]);
-    expect(result.signal.scope?.executed).toEqual([]);
-    expect(result.signal.scope?.skipped).toEqual(["shared-state-read"]);
-    expect(result.signal.incapable).toEqual(["shared-state-read"]);
-    expect(result.signal.note).toBe("all requested features are NSF-incapable");
-    expect(result.signal.passed).toBe(0);
-  });
-
-  beforeEach(() => __clearD5RegistryForTesting());
-
-  it.each(["d5", "d6"] as const)(
-    "%s empty selection emits no durable rows or browser work",
-    async (rowPrefix) => {
-      registerD5Script(makeScript(["frontend-tools-async"]));
-      const rows: ProbeResult[] = [];
-      const launcher = vi.fn(async () => makeBrowser());
-      const driver = createE2eFullDriver({
-        launcher,
-        scriptLoader: noopScriptLoader(),
-      });
-      const result = await driver.run(
-        makeCtx({
-          featureTypes: ["voice"],
-          writer: {
-            async write(row) {
-              rows.push(row);
-            },
-          },
-        }),
-        {
-          key: `${rowPrefix}:agno`,
-          backendUrl: "http://localhost:3000",
-          features: ["frontend-tools-async", "shared-state-read"],
-          notSupportedFeatures: ["shared-state-read"],
-          rowPrefix,
-        },
-      );
-      expect(rows).toEqual([]);
-      expect(launcher).not.toHaveBeenCalled();
-      expect(result.signal.passed).toBe(0);
-      expect(result.signal.total).toBe(0);
-      expect(result.signal.note).toBe(
-        "no D5 features match operator selection",
-      );
-      expect(result.signal.scope?.requested).toEqual([
-        "frontend-tools-async",
-        "shared-state-read",
-      ]);
-      expect(result.signal.scope?.selected).toEqual([]);
-      expect(result.signal.scope?.executed).toEqual([]);
-    },
-  );
-
-  it("filtered deploy churn preserves selected and excluded rows", async () => {
-    const rows: ProbeResult[] = [];
-    const driver = createE2eFullDriver({
-      launcher: async () => makeBrowser(),
-      scriptLoader: noopScriptLoader(),
-    });
-    const result = await driver.run(
-      makeCtx({
-        featureTypes: ["frontend-tools-async"],
-        writer: {
-          async write(row) {
-            rows.push(row);
-          },
-        },
-      }),
-      {
-        key: "d6:agno",
-        backendUrl: "http://localhost:3000",
-        features: ["frontend-tools-async", "shared-state-read"],
-        deployedAt: "2024-12-31T23:59:59Z",
-      },
-    );
-    expect(rows).toEqual([]);
-    expect(result.signal.passed).toBe(0);
   });
 });

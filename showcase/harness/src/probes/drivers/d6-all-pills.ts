@@ -2,9 +2,6 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { z } from "zod";
-import { createPlaywrightProbeExecutor } from "../frontend-matrix-playwright.js";
-import { urlForFrontendCell } from "../frontend-matrix.js";
-import type { FrontendMatrixCell } from "../frontend-matrix.js";
 import { truncateUtf8 } from "../../render/filters.js";
 import { showcaseShapeSchema } from "../discovery/railway-services.js";
 import { D5_REGISTRY, isD5FeatureType } from "../helpers/d5-registry.js";
@@ -17,10 +14,7 @@ import { demosToFeatureTypes } from "../helpers/d5-feature-mapping.js";
 import { D5_REPRESENTATIVES } from "../helpers/d5-representatives.js";
 import type { Page as PlaywrightPage } from "playwright";
 import { countAssistantMessages } from "../helpers/assistant-message-count.js";
-import {
-  runConversation,
-  UnverifiedDefinitionError,
-} from "../helpers/conversation-runner.js";
+import { runConversation } from "../helpers/conversation-runner.js";
 import type {
   ConversationResult,
   Page,
@@ -28,6 +22,7 @@ import type {
 import {
   installPrePaintFromEnv,
   installBrowserContextShims,
+  messagesOverrideFromEnv,
 } from "../helpers/init-scripts.js";
 import { attachSseInterceptor } from "../helpers/sse-interceptor.js";
 import {
@@ -116,10 +111,6 @@ const inputSchema = z
     notSupportedFeatures: z.array(z.string()).optional(),
     shape: showcaseShapeSchema.optional(),
     deployedAt: z.string().optional(),
-    surface: z.enum(["public", "direct-diagnostic"]).optional(),
-    publicShellBaseUrl: z.string().url().optional(),
-    targetRevision: z.string().optional(),
-    canonicalRevision: z.string().optional(),
     /**
      * D5-take-one scoping. When true, the computed `requestedFeatures`
      * are filtered to ONLY the featureTypes present in the representatives
@@ -161,8 +152,6 @@ type E2eFullDriverInput = z.infer<typeof inputSchema>;
  * Diagnostic only — not consumed by dashboard rollup.
  */
 export interface E2eFullFeatureSignal {
-  targetRevision?: string;
-  canonicalRevision?: string;
   slug: string;
   featureType: string;
   backendUrl: string;
@@ -172,7 +161,6 @@ export interface E2eFullFeatureSignal {
   total_turns?: number;
   failure_turn?: number;
   turn_durations_ms?: number[];
-  pillExecution?: ConversationResult["pillExecution"];
   errorDesc?: string;
   errorClass?: string;
   note?: string;
@@ -192,14 +180,6 @@ export interface E2eFullFeatureSignal {
  * skips apart from operational ones.
  */
 export interface E2eFullAggregateSignal {
-  scope?: {
-    requested: string[];
-    selected: string[];
-    excluded: string[];
-    executed: string[];
-    missingScript: string[];
-    skipped: string[];
-  };
   shape: "package";
   slug: string;
   backendUrl: string;
@@ -256,7 +236,6 @@ export interface E2eFullBrowserContext {
 }
 
 export interface E2eFullBrowser {
-  newPublicContext?: () => Promise<playwright.BrowserContext>;
   newContext(opts?: {
     extraHTTPHeaders?: Record<string, string>;
   }): Promise<E2eFullBrowserContext>;
@@ -507,8 +486,6 @@ const defaultLauncher: E2eFullBrowserLauncher =
       args: ["--no-sandbox", "--disable-dev-shm-usage"],
     });
     return {
-      newPublicContext: () =>
-        openGuardedContext<playwright.BrowserContext>(browser, {}),
       async newContext(contextOpts?: {
         extraHTTPHeaders?: Record<string, string>;
       }): Promise<E2eFullBrowserContext> {
@@ -553,14 +530,7 @@ const defaultLauncher: E2eFullBrowserLauncher =
               fill: (s, v, o) => page.fill(s, v, o),
               press: (s, k, o) => page.press(s, k, o),
               evaluate: <R>(fn: () => R) => page.evaluate(fn),
-              reload: () => page.reload({ waitUntil: "load" }),
-              frameLocator: (selector) => page.frameLocator(selector),
               inputValue: (s) => page.inputValue(s),
-              hover: (selector, options) => page.hover(selector, options),
-              getByTestId: (id) => page.getByTestId(id),
-              getByRole: (role, options) => page.getByRole(role, options),
-              on: (event, listener) => page.on(event, listener),
-              off: (event, listener) => page.off(event, listener),
               goto: async (u, gotoOpts) => {
                 // Order is load-bearing per Phase 3 Task 3.2:
                 // installPrePaintFromEnv FIRST (defect-4 pre-paint
@@ -656,36 +626,6 @@ export function createPooledE2eFullLauncher(
     }
 
     return {
-      async newPublicContext() {
-        const ctx = await pool.acquire();
-        if (aborted) {
-          await pool.release(ctx);
-          throw new Error("e2e-full launcher aborted");
-        }
-        // The pool's diagnostic defaults must not affect public acceptance.
-        try {
-          await ctx.setExtraHTTPHeaders({});
-          // Abort can fire during header reset, before this context is registered.
-          if (aborted) throw new Error("e2e-full launcher aborted");
-        } catch (error) {
-          await pool.release(ctx);
-          throw error;
-        }
-        const handle = {
-          close: async () => {
-            if (!openContexts.delete(handle)) return;
-            await pool.release(ctx);
-          },
-        };
-        openContexts.add(handle);
-        return new Proxy(ctx, {
-          get(target, property) {
-            if (property === "close") return handle.close;
-            const value = Reflect.get(target, property, target);
-            return typeof value === "function" ? value.bind(target) : value;
-          },
-        });
-      },
       async newContext(contextOpts?: {
         extraHTTPHeaders?: Record<string, string>;
       }): Promise<E2eFullBrowserContext> {
@@ -729,14 +669,7 @@ export function createPooledE2eFullLauncher(
               fill: (s, v, o) => page.fill(s, v, o),
               press: (s, k, o) => page.press(s, k, o),
               evaluate: <R>(fn: () => R) => page.evaluate(fn),
-              reload: () => page.reload({ waitUntil: "load" }),
-              frameLocator: (selector) => page.frameLocator(selector),
               inputValue: (s) => page.inputValue(s),
-              hover: (selector, options) => page.hover(selector, options),
-              getByTestId: (id) => page.getByTestId(id),
-              getByRole: (role, options) => page.getByRole(role, options),
-              on: (event, listener) => page.on(event, listener),
-              off: (event, listener) => page.off(event, listener),
               goto: async (u, gotoOpts) => {
                 // Order is load-bearing per Phase 3 Task 3.2:
                 // installPrePaintFromEnv FIRST (defect-4 pre-paint
@@ -954,34 +887,6 @@ export function createE2eFullDriver(
         );
       }
 
-      // Operator selection precedes every classification and side effect.
-      const filtered = Boolean(ctx.featureTypes?.length);
-      const originalFeatures = [...requestedFeatures];
-      const allowedFeatures = new Set(ctx.featureTypes);
-      const excludedFeatures = filtered
-        ? requestedFeatures.filter((ft) => !allowedFeatures.has(ft))
-        : [];
-      if (filtered) {
-        requestedFeatures = requestedFeatures.filter((ft) =>
-          allowedFeatures.has(ft),
-        );
-      }
-      const executedFeatures: string[] = [];
-      const missingFeatures: string[] = [];
-      const withScope = (result: ProbeResult<E2eFullAggregateSignal>) => {
-        if (filtered) {
-          result.signal.scope = {
-            requested: originalFeatures,
-            selected: [...requestedFeatures],
-            excluded: excludedFeatures,
-            executed: [...executedFeatures],
-            missingScript: [...missingFeatures],
-            skipped: [...result.signal.skipped],
-          };
-        }
-        return result;
-      };
-
       // NSF reclassification: features the integration's manifest
       // declares in `not_supported_features` are architecturally
       // incapable on this framework. Partition them out BEFORE script
@@ -1014,15 +919,12 @@ export function createE2eFullDriver(
             passed: 0,
             failed: [],
             skipped: [],
-            note:
-              filtered && originalFeatures.length > 0
-                ? "no D5 features match operator selection"
-                : "no D5 features declared",
+            note: "no D5 features declared",
           },
           observedAt,
         };
         await emitAggregate(ctx, slug, aggregateResult, rowPrefix);
-        return withScope(aggregateResult);
+        return aggregateResult;
       }
 
       // Deploy-churn grace window
@@ -1041,7 +943,7 @@ export function createE2eFullDriver(
               graceMs: DEPLOY_CHURN_GRACE_MS,
             });
 
-            for (const ft of filtered ? [] : requestedFeatures) {
+            for (const ft of requestedFeatures) {
               await sideEmit(ctx, {
                 key: `${rowPrefix}:${slug}/${ft}`,
                 state: "green",
@@ -1071,7 +973,7 @@ export function createE2eFullDriver(
               observedAt,
             };
             await emitAggregate(ctx, slug, aggregateResult, rowPrefix);
-            return withScope(aggregateResult);
+            return aggregateResult;
           }
         }
       }
@@ -1105,8 +1007,28 @@ export function createE2eFullDriver(
           runnable.push(ft);
         } else {
           missingScript.push(ft);
-          missingFeatures.push(ft);
         }
+      }
+
+      // Apply feature-type filter from the trigger layer.
+      const filteredByTrigger: string[] = [];
+      if (ctx.featureTypes?.length) {
+        const allowed = new Set(ctx.featureTypes);
+        const kept: D5FeatureType[] = [];
+        for (const ft of runnable) {
+          if (allowed.has(ft)) {
+            kept.push(ft);
+          } else {
+            filteredByTrigger.push(ft);
+          }
+        }
+        if (filteredByTrigger.length > 0) {
+          ctx.logger.info("probe.e2e-full.feature-type-filter-applied", {
+            featureTypes: ctx.featureTypes,
+            filteredOut: filteredByTrigger.length,
+          });
+        }
+        runnable = kept;
       }
 
       // Hard-timeout + abort plumbing
@@ -1156,7 +1078,7 @@ export function createE2eFullDriver(
             observedAt,
           };
           await emitAggregate(ctx, slug, aggregateResult, rowPrefix);
-          return withScope(aggregateResult);
+          return aggregateResult;
         }
 
         // Emit red side rows for missing-script features upfront.
@@ -1168,8 +1090,23 @@ export function createE2eFullDriver(
               slug,
               featureType: ft,
               backendUrl,
-              errorClass: "unverified-definition",
+              errorClass: "missing-script",
               errorDesc: `no script registered for featureType "${ft}"`,
+            },
+            observedAt: ctx.now().toISOString(),
+          });
+        }
+
+        // Emit green side rows for filtered-by-trigger features.
+        for (const ft of filteredByTrigger) {
+          await sideEmit(ctx, {
+            key: `${rowPrefix}:${slug}/${ft}`,
+            state: "green",
+            signal: {
+              slug,
+              featureType: ft,
+              backendUrl,
+              note: "filtered-by-trigger",
             },
             observedAt: ctx.now().toISOString(),
           });
@@ -1180,7 +1117,7 @@ export function createE2eFullDriver(
         // distinguish manifest-declared framework gaps from operational
         // skips. State is green so the dashboard does NOT count these
         // as red, but the side-row carries the reason for auditability.
-        for (const ft of filtered ? [] : incapableFeatures) {
+        for (const ft of incapableFeatures) {
           await sideEmit(ctx, {
             key: `${rowPrefix}:${slug}/${ft}`,
             state: "green",
@@ -1207,7 +1144,7 @@ export function createE2eFullDriver(
               total: requestedFeatures.length,
               passed: 0,
               failed: missingScript,
-              skipped: [...incapableFeatures],
+              skipped: [...filteredByTrigger, ...incapableFeatures],
               incapable:
                 incapableFeatures.length > 0
                   ? incapableFeatures.map(String)
@@ -1219,10 +1156,10 @@ export function createE2eFullDriver(
             observedAt,
           };
           await emitAggregate(ctx, slug, aggregateResult, rowPrefix);
-          return withScope(aggregateResult);
+          return aggregateResult;
         }
 
-        // All selected features are incapable; empty selections returned above.
+        // If nothing is runnable and everything was filtered, green.
         if (runnable.length === 0) {
           const aggregateResult: ProbeResult<E2eFullAggregateSignal> = {
             key: input.key,
@@ -1234,17 +1171,20 @@ export function createE2eFullDriver(
               total: requestedFeatures.length,
               passed: 0,
               failed: [],
-              skipped: [...incapableFeatures],
+              skipped: [...filteredByTrigger, ...incapableFeatures],
               incapable:
                 incapableFeatures.length > 0
                   ? incapableFeatures.map(String)
                   : undefined,
-              note: "all requested features are NSF-incapable",
+              note:
+                filteredByTrigger.length > 0
+                  ? "all runnable features filtered by trigger"
+                  : "all requested features are NSF-incapable",
             },
             observedAt,
           };
           await emitAggregate(ctx, slug, aggregateResult, rowPrefix);
-          return withScope(aggregateResult);
+          return aggregateResult;
         }
 
         // Run features with bounded parallelism.
@@ -1257,25 +1197,7 @@ export function createE2eFullDriver(
           const route = (script.preNavigateRoute ?? defaultRoute)(ft, {
             demos: input.demos,
           });
-          const demoId = new URL(route, backendUrl).pathname
-            .split("/")
-            .filter(Boolean)
-            .at(-1)!;
-          const publicCell = {
-            id: `${slug}/${demoId}`,
-            frontend: "react" as const,
-            integration: slug,
-            feature: demoId,
-            featureTypes: [ft],
-          };
-          const url =
-            input.surface === "public" && input.publicShellBaseUrl
-              ? urlForFrontendCell(publicCell, {
-                  publicShellBaseUrl: input.publicShellBaseUrl,
-                  reactBaseUrl: backendUrl,
-                  angularBaseUrl: backendUrl,
-                })
-              : `${backendUrl}${route}`;
+          const url = `${backendUrl}${route}`;
 
           await sem.acquire();
           const featureStart = Date.now();
@@ -1354,6 +1276,14 @@ export function createE2eFullDriver(
                 once: true,
               });
 
+            // Retry logic — same as e2e-deep: retry once on transient
+            // failures (goto-error, conversation-error) that lasted at
+            // least 2s.
+            const RETRY_ELIGIBLE_ERROR_CLASSES = new Set<string>([
+              "goto-error",
+              "conversation-error",
+            ]);
+            const RETRY_MIN_DURATION_MS = 2_000;
             const runOnce = async (): Promise<
               Awaited<ReturnType<typeof runFeature>>
             > => {
@@ -1376,27 +1306,12 @@ export function createE2eFullDriver(
                 );
               const runFeaturePromise = runFeature({
                 browser: browserRef,
-                publicConfig:
-                  input.surface === "public"
-                    ? {
-                        cell: publicCell,
-                        timeoutMs: featureTimeoutMs,
-                        origin: input.publicShellBaseUrl,
-                        targetRevision: input.targetRevision,
-                        requestedCanonicalRevision: input.canonicalRevision,
-                        canonicalRevision: ctx.env.COMMIT_SHA,
-                      }
-                    : undefined,
                 url,
                 slug,
                 featureType: ft,
                 pageTimeoutMs,
                 script,
                 buildCtx: {
-                  demoId: new URL(url).pathname
-                    .split("/")
-                    .filter(Boolean)
-                    .at(-1),
                   integrationSlug: slug,
                   featureType: ft,
                   baseUrl: backendUrl,
@@ -1447,8 +1362,37 @@ export function createE2eFullDriver(
 
             let featureResult: Awaited<ReturnType<typeof runFeature>>;
             try {
-              executedFeatures.push(ft);
+              const attempt1Start = Date.now();
               featureResult = await runOnce();
+              const attempt1Duration = Date.now() - attempt1Start;
+
+              if (
+                !featureResult.ok &&
+                !abort.signal.aborted &&
+                !featureAbort.signal.aborted &&
+                featureResult.errorClass !== undefined &&
+                RETRY_ELIGIBLE_ERROR_CLASSES.has(featureResult.errorClass) &&
+                attempt1Duration >= RETRY_MIN_DURATION_MS
+              ) {
+                ctx.logger.info("probe.e2e-full.feature-retry", {
+                  slug,
+                  featureType: ft,
+                  attempt: 1,
+                  errorClass: featureResult.errorClass,
+                  errorDesc: featureResult.errorDesc,
+                  attempt1DurationMs: attempt1Duration,
+                });
+                featureResult = await runOnce();
+                ctx.logger.info("probe.e2e-full.feature-retry-result", {
+                  slug,
+                  featureType: ft,
+                  attempt: 2,
+                  ok: featureResult.ok,
+                  errorClass: featureResult.ok
+                    ? undefined
+                    : featureResult.errorClass,
+                });
+              }
             } finally {
               abort.signal.removeEventListener("abort", onParentAbort);
             }
@@ -1467,9 +1411,6 @@ export function createE2eFullDriver(
                   total_turns: featureResult.conversation.total_turns,
                   turn_durations_ms:
                     featureResult.conversation.turn_durations_ms,
-                  pillExecution: featureResult.conversation.pillExecution,
-                  targetRevision: input.targetRevision,
-                  canonicalRevision: input.canonicalRevision,
                 },
                 observedAt: ctx.now().toISOString(),
               });
@@ -1525,9 +1466,6 @@ export function createE2eFullDriver(
                     failure_turn: featureResult.conversation?.failure_turn,
                     turn_durations_ms:
                       featureResult.conversation?.turn_durations_ms,
-                    pillExecution: featureResult.conversation?.pillExecution,
-                    targetRevision: input.targetRevision,
-                    canonicalRevision: input.canonicalRevision,
                     errorDesc: featureResult.errorDesc,
                     errorClass: featureResult.errorClass,
                     diagnostics: featureResult.diagnostics,
@@ -1636,7 +1574,7 @@ export function createE2eFullDriver(
           slug,
           passed,
           failed: failed.length,
-          skipped: incapableFeatures.length,
+          skipped: filteredByTrigger.length + incapableFeatures.length,
           incapable: incapableFeatures.length,
           total: requestedFeatures.length,
           state: aggregateGreen ? "green" : "red",
@@ -1652,7 +1590,7 @@ export function createE2eFullDriver(
             total: requestedFeatures.length,
             passed,
             failed,
-            skipped: [...incapableFeatures],
+            skipped: [...filteredByTrigger, ...incapableFeatures],
             incapable:
               incapableFeatures.length > 0
                 ? incapableFeatures.map(String)
@@ -1667,7 +1605,7 @@ export function createE2eFullDriver(
         // to display red (vs blank). Placed after the loop so per-feature
         // timeouts inside the loop can never skip it.
         await emitAggregate(ctx, slug, aggregateResult, rowPrefix);
-        return withScope(aggregateResult);
+        return aggregateResult;
       } finally {
         clearTimeout(timeoutHandle);
         if (externalAbort) {
@@ -1711,14 +1649,6 @@ export function createE2eFullDriver(
  */
 async function runFeature(opts: {
   browser: E2eFullBrowser;
-  publicConfig?: {
-    cell: FrontendMatrixCell;
-    timeoutMs: number;
-    origin?: string;
-    targetRevision?: string;
-    canonicalRevision?: string;
-    requestedCanonicalRevision?: string;
-  };
   url: string;
   slug: string;
   featureType: D5FeatureType;
@@ -1766,54 +1696,6 @@ async function runFeature(opts: {
   } = opts;
 
   const testId = buildE2eTestId(slug, runId);
-  if (opts.publicConfig) {
-    const { origin, targetRevision, canonicalRevision, cell } =
-      opts.publicConfig;
-    if (
-      !origin ||
-      !/^sha256:[0-9a-f]{64}$/.test(targetRevision ?? "") ||
-      !/^[0-9a-f]{40}$/.test(canonicalRevision ?? "") ||
-      canonicalRevision !== opts.publicConfig.requestedCanonicalRevision ||
-      !browser.newPublicContext
-    ) {
-      return {
-        ok: false,
-        errorClass: "unverified-definition",
-        errorDesc:
-          "public execution requires configured shell, deployed image digest, matching worker/job canonical revision, and public browser context",
-      };
-    }
-    let conversation: ConversationResult | undefined;
-    const result = await createPlaywrightProbeExecutor({
-      browser: { newContext: () => browser.newPublicContext!() },
-      scripts: new Map([[featureType, script]]),
-      proofIdentityRevisions: {
-        targetRevision: targetRevision!,
-        canonicalRevision: canonicalRevision!,
-      },
-      probeTimeoutMs: opts.publicConfig.timeoutMs,
-      onConversation: (value) => {
-        conversation = value;
-      },
-    })({
-      cell,
-      featureType,
-      url,
-      backendUrl: buildCtx.baseUrl,
-      testId,
-      surface: "public",
-    });
-    if (result.status === "passed" && conversation)
-      return { ok: true, conversation };
-    return {
-      ok: false,
-      errorClass: result.errorClass ?? "conversation-error",
-      errorDesc: result.error ?? "public conversation did not complete",
-      conversation,
-      diagnostics: result.diagnostics,
-    };
-  }
-
   // CVDIAG probe-session for THIS feature cell (one test_id). The session
   // records `sanitizeJoinTestId(X-Test-Id)` — the SAME value the backend adopts
   // from the inbound `X-Test-Id` header (injected on the browser context below)
@@ -1997,13 +1879,18 @@ async function runFeature(opts: {
     });
 
     const defaultTurns = script.buildTurns(buildCtx);
-    // Functional acceptance always uses the canonical script; message overrides are diagnostic only.
-    const turns = defaultTurns;
+    // BUBBLE_RACE_MESSAGES env override (bubble-race-repro integration
+    // tests only — no-op in production). When set, replaces the demo's
+    // default turn sequence with one `{ input: <string> }` per env
+    // message so per-scenario test inputs flow through ONE channel
+    // rather than scattering test logic across each defect commit.
+    const turnsOverride = messagesOverrideFromEnv();
+    const turns = turnsOverride ?? defaultTurns;
     logger.debug("probe.e2e-full.runFeature.turns-built", {
       turnCount: turns.length,
       featureType: buildCtx.featureType,
       slug: buildCtx.integrationSlug,
-      bubbleRaceMessagesOverride: false,
+      bubbleRaceMessagesOverride: turnsOverride !== undefined,
     });
 
     // CVDIAG probe.message.send — record the first turn send with the total
@@ -2024,16 +1911,7 @@ async function runFeature(opts: {
       cvdiag.messageSend(0, totalInputChars);
     }
 
-    const conversation = await runConversation(page, turns, {
-      mode: "functional-pill",
-      surface: "direct-diagnostic",
-      identity: {
-        canonical: buildCtx.featureType,
-        integration: buildCtx.integrationSlug,
-        frontend: "react",
-        url,
-      },
-    });
+    const conversation = await runConversation(page, turns);
 
     if (conversation.failure_turn !== undefined) {
       logger.debug("probe.e2e-full.runFeature.conversation-failed", {
@@ -2083,7 +1961,7 @@ async function runFeature(opts: {
       );
       return {
         ok: false,
-        errorClass: conversation.errorClass ?? "conversation-error",
+        errorClass: "conversation-error",
         errorDesc: truncateUtf8(
           conversation.error ?? "conversation failed without error message",
           1200,
@@ -2124,11 +2002,7 @@ async function runFeature(opts: {
     );
     return {
       ok: false,
-      errorClass: abortSignal.aborted
-        ? "abort"
-        : err instanceof UnverifiedDefinitionError
-          ? err.errorClass
-          : "driver-error",
+      errorClass: abortSignal.aborted ? "abort" : "driver-error",
       errorDesc: truncateUtf8(msg, 1200),
       diagnostics,
     };
@@ -2581,7 +2455,6 @@ async function emitAggregate(
   result: ProbeResult<E2eFullAggregateSignal>,
   rowPrefix: "d5" | "d6",
 ): Promise<void> {
-  if (ctx.featureTypes?.length) return;
   const aggKey = `${rowPrefix}:${slug}`;
   if (!ctx.writer) {
     ctx.logger.warn("probe.e2e-full.aggregate-writer-missing", {

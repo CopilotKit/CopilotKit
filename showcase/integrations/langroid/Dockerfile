@@ -59,7 +59,6 @@ COPY --chown=app:app src/agents/ ./agents/
 
 # Shared Python tools (symlinked in repo, resolved by Docker build context)
 COPY --chown=app:app tools/ /app/tools/
-COPY --chown=app:app data/ /app/data/
 
 # Shared CVDIAG bootstrap module (single source: showcase/integrations/_shared;
 # symlinked in source, dereferenced into this build context by the harness

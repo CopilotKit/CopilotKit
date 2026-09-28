@@ -285,6 +285,11 @@ jobs:
       - name: Test the reference-docs generator
         run: pnpm exec vitest run scripts/__tests__/docs-reference-generator.test.ts
 
+      # No job ran this file before, so its pin went stale and a docs prompt
+      # control shipped without an `action` property for six days (PE-218).
+      - name: Test the docs prompt telemetry pins
+        run: pnpm exec vitest run scripts/__tests__/docs-prompt-telemetry.test.ts
+
       - name: Run publint, attw, and check-dts
         run: pnpm run check:packages
 

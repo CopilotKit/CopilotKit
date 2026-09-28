@@ -1,118 +1,121 @@
-import type { StateToolsContract } from "./_pill-contracts-state-tools.js";
+import { describe, it, expect } from "vitest";
 import { getD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
+import type { Page } from "../helpers/conversation-runner.js";
 import {
-  STATE_TOOLS_CONTRACTS,
-  checkStateToolsResult,
-} from "./_pill-contracts-state-tools.js";
-import { describe, expect, it } from "vitest";
-import { buildTurns as canonicalBuildTurns } from "./d5-readonly-state-context.js";
+  buildTurns,
+  buildContextAssertion,
+  preNavigateRoute,
+  CONTEXT_NAME_SENTINEL,
+  READONLY_PILL_PROMPT,
+} from "./d5-readonly-state-context.js";
 
-const context = {
-  integrationSlug: "langgraph-python",
-  featureType: "readonly-state-context",
-  baseUrl: "http://localhost:39200",
-} as const;
+describe("d5-readonly-state-context script", () => {
+  it("registers under featureType 'readonly-state-context'", () => {
+    const script = getD5Script("readonly-state-context");
+    expect(script).toBeDefined();
+    expect(script?.fixtureFile).toBe("readonly-state-context.json");
+  });
 
-describe("readonly-state-context canonical pill contract", () => {
-  it("accounts for all three exact canonical controls", () => {
-    const turns = canonicalBuildTurns(context);
-    expect(turns.map((turn) => turn.action?.buttonName)).toEqual([
-      "Who am I?",
-      "Suggest next steps",
-      "Plan my morning",
-    ]);
-    expect(new Set(turns.map((turn) => turn.action?.id)).size).toBe(3);
-    for (const turn of turns) {
-      expect(turn.action?.kind).toBe("pill");
-      expect(turn.action?.expectedDispatchedPrompt).toBe(turn.input);
-      expect(turn.action?.submission).toEqual({ kind: "immediate" });
-      expect(turn.assertions).toBeTypeOf("function");
-      expect(turn.skipFill).toBeUndefined();
-      expect(turn.skipSend).toBeUndefined();
-    }
+  it("preNavigateRoute resolves /demos/readonly-state-agent-context", () => {
+    expect(preNavigateRoute("readonly-state-context")).toBe(
+      "/demos/readonly-state-agent-context",
+    );
   });
-  it("uses identical canonical controls across integrations", () => {
-    const canonical = canonicalBuildTurns(context).map(({ input, action }) => ({
-      input,
-      action,
-    }));
-    for (const integrationSlug of [
-      "ag2",
-      "agno",
-      "spring-ai",
-      "claude-sdk-python",
-    ]) {
-      expect(
-        canonicalBuildTurns({ ...context, integrationSlug }).map(
-          ({ input, action }) => ({ input, action }),
-        ),
-      ).toEqual(canonical);
-    }
-  });
-});
 
-describe("strict visible-result regressions", () => {
-  const contracts: readonly StateToolsContract[] =
-    STATE_TOOLS_CONTRACTS["readonly-state-context"];
-  it("registers the functional builder with all required results", () => {
-    expect(getD5Script("readonly-state-context")).toBeDefined();
+  it("buildTurns sends the pill prompt with extended timeout and a preFill hook", () => {
+    const ctx: D5BuildContext = {
+      integrationSlug: "x",
+      featureType: "readonly-state-context",
+      baseUrl: "https://x.test",
+    };
+    const turn = buildTurns(ctx)[0]!;
+    expect(turn.input).toBe(READONLY_PILL_PROMPT);
+    expect(turn.responseTimeoutMs).toBeGreaterThanOrEqual(60_000);
+    expect(turn.preFill).toBeDefined();
   });
-  for (const contract of contracts) {
-    it(`${contract.id} accepts only the established exact result`, () => {
-      const result = {
-        texts: [contract.texts.join(" ")],
-        attributes: [contract.value ?? null],
-        pills: [],
-        noteIds: [Array.from(contract.noteIds ?? [])],
-        noteRows: [Array.from(contract.noteRows ?? [])],
-        backgroundMatches: [true],
-      };
-      if (contract.unresolved) {
-        expect(() => checkStateToolsResult(contract, result, 0)).toThrow(
-          contract.unresolved,
-        );
-      } else {
-        expect(() => checkStateToolsResult(contract, result, 0)).not.toThrow();
-        expect(() =>
-          checkStateToolsResult(
-            contract,
-            { ...result, texts: ["Wrong result"], attributes: ["#4f46e5"] },
-            0,
-          ),
-        ).toThrow();
-        if (
-          !contract.attribute &&
-          contract.selector !== '[data-testid="document-content"]'
-        ) {
-          expect(() => checkStateToolsResult(contract, result, 1)).toThrow();
-        }
-        const noteIds = contract.noteIds;
-        if (noteIds) {
-          expect(() =>
-            checkStateToolsResult(
-              contract,
-              { ...result, noteIds: [[...noteIds, "note-n7"]] },
-              0,
-            ),
-          ).toThrow();
-        }
-      }
-    });
-    it(`${contract.id} rejects empty, hidden or stale results`, () => {
-      expect(() =>
-        checkStateToolsResult(
-          contract,
-          {
-            texts: [],
-            attributes: [],
-            pills: [],
-            noteIds: [],
-            noteRows: [],
-            backgroundMatches: [],
-          },
-          0,
-        ),
-      ).toThrow();
-    });
-  }
+
+  it("CONTEXT_NAME_SENTINEL is non-trivial and unlikely to collide", () => {
+    expect(CONTEXT_NAME_SENTINEL.length).toBeGreaterThanOrEqual(8);
+    expect(CONTEXT_NAME_SENTINEL).toMatch(/[A-Z]/);
+  });
+
+  it("assertion succeeds when captured body contains the sentinel", async () => {
+    const capture = {
+      getLastBody: () =>
+        '{"messages":[{"role":"user","content":"hi"}],"context":[{"value":"' +
+        CONTEXT_NAME_SENTINEL +
+        '"}]}',
+    };
+    const assertion = buildContextAssertion(
+      "test",
+      capture,
+      CONTEXT_NAME_SENTINEL,
+    );
+    const page: Page = {
+      async waitForSelector() {},
+      async fill() {},
+      async press() {},
+      async evaluate<R>() {
+        return undefined as unknown as R;
+      },
+    };
+    await expect(assertion(page)).resolves.toBeUndefined();
+  });
+
+  it("assertion fails when no request body has been captured", async () => {
+    const capture = { getLastBody: () => null };
+    const assertion = buildContextAssertion(
+      "test",
+      capture,
+      CONTEXT_NAME_SENTINEL,
+    );
+    // Use a tiny effective deadline by mocking a fast loop. The
+    // assertion polls forever otherwise; we accept a slow test here
+    // by allowing it to time out at FIRST_SIGNAL_TIMEOUT_MS — but the
+    // test framework default vitest timeout would also expire. So we
+    // reduce: directly call once and observe it loops without
+    // resolving. To avoid hanging the suite, use a stub that throws
+    // after a few polls.
+    let calls = 0;
+    capture.getLastBody = () => {
+      calls += 1;
+      if (calls > 3) throw new Error("simulated timeout");
+      return null;
+    };
+    const page: Page = {
+      async waitForSelector() {},
+      async fill() {},
+      async press() {},
+      async evaluate<R>() {
+        return undefined as unknown as R;
+      },
+    };
+    await expect(assertion(page)).rejects.toThrow();
+  });
+
+  it("assertion fails when captured body lacks the sentinel", async () => {
+    let calls = 0;
+    const capture = {
+      getLastBody: () => {
+        calls += 1;
+        if (calls > 3) throw new Error("simulated timeout");
+        return '{"messages":[{"role":"user","content":"hi"}]}';
+      },
+    };
+    const assertion = buildContextAssertion(
+      "test",
+      capture,
+      CONTEXT_NAME_SENTINEL,
+    );
+    const page: Page = {
+      async waitForSelector() {},
+      async fill() {},
+      async press() {},
+      async evaluate<R>() {
+        return undefined as unknown as R;
+      },
+    };
+    await expect(assertion(page)).rejects.toThrow();
+  });
 });

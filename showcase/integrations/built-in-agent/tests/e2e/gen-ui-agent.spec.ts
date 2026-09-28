@@ -1,19 +1,15 @@
-import { createPlaywrightProbeExecutor } from "../../../../harness/src/probes/frontend-matrix-playwright.js";
-import { buildTurns as buildCanonicalTurns } from "../../../../harness/src/probes/scripts/d5-gen-ui-agent.js";
 import { test, expect } from "@playwright/test";
 
-test.describe("@diagnostic Agentic Generative UI", () => {
+test.describe("Agentic Generative UI", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/gen-ui-agent");
   });
 
-  test("@diagnostic page loads with chat input", async ({ page }) => {
+  test("page loads with chat input", async ({ page }) => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
   });
 
-  test("@diagnostic sends message and gets assistant response", async ({
-    page,
-  }) => {
+  test("sends message and gets assistant response", async ({ page }) => {
     const input = page.getByPlaceholder("Type a message");
     await input.fill("Hello");
     await input.press("Enter");
@@ -25,7 +21,7 @@ test.describe("@diagnostic Agentic Generative UI", () => {
     });
   });
 
-  test("@diagnostic message list container exists", async ({ page }) => {
+  test("message list container exists", async ({ page }) => {
     // CopilotChat v2 renders a welcome screen when there are no messages,
     // so the messageView.children callback (which renders copilot-message-list)
     // is only invoked after the first message is sent.
@@ -45,7 +41,7 @@ test.describe("@diagnostic Agentic Generative UI", () => {
   // `messageView.children`, which renders a single live-updating card. This
   // test pins that contract — one card, regardless of how many state updates
   // arrive during the run.
-  test("@diagnostic renders a single agent-state-card that updates in place", async ({
+  test("renders a single agent-state-card that updates in place", async ({
     page,
   }) => {
     const input = page.getByPlaceholder("Type a message");
@@ -70,9 +66,7 @@ test.describe("@diagnostic Agentic Generative UI", () => {
     await expect(card).toHaveCount(1);
   });
 
-  test("@diagnostic eventually marks every step as completed", async ({
-    page,
-  }) => {
+  test("eventually marks every step as completed", async ({ page }) => {
     test.setTimeout(120_000);
 
     const input = page.getByPlaceholder("Type a message");
@@ -108,7 +102,7 @@ test.describe("@diagnostic Agentic Generative UI", () => {
   // With aimock's near-instant responses the entire chain may complete before
   // the browser can observe the transient `pending` state, so we assert on
   // the final state: at least one step exists and the card rendered.
-  test("@diagnostic steps animate through pending before completing (no fixture short-circuit)", async ({
+  test("steps animate through pending before completing (no fixture short-circuit)", async ({
     page,
   }) => {
     await page.getByRole("button", { name: /Plan a product launch/i }).click();
@@ -126,46 +120,4 @@ test.describe("@diagnostic Agentic Generative UI", () => {
     const total = await steps.count();
     expect(total).toBeGreaterThan(0);
   });
-});
-
-/** Functional proof is this runner artifact; supplemental test totals are not acceptance. */
-test("@canonical rendering gen-ui-agent: all actual LGP pills and results", async ({
-  browser,
-  baseURL,
-}, testInfo) => {
-  test.setTimeout(480_000);
-  if (!baseURL)
-    throw new Error(
-      "canonical rendering requires configured actual demo baseURL",
-    );
-  const featureType = "gen-ui-agent" as const;
-  const run = createPlaywrightProbeExecutor({
-    browser,
-    scripts: new Map([
-      [
-        featureType,
-        { featureTypes: [featureType], buildTurns: buildCanonicalTurns },
-      ],
-    ]),
-    probeTimeoutMs: 450_000,
-  });
-  const result = await run({
-    cell: {
-      id: "react/built-in-agent/gen-ui-agent",
-      frontend: "react",
-      integration: "built-in-agent",
-      feature: "gen-ui-agent",
-      featureTypes: [featureType],
-    },
-    featureType,
-    url: new URL("/demos/gen-ui-agent", baseURL).href,
-    backendUrl: baseURL,
-    testId: `canonical-rendering-${testInfo.workerIndex}-${Date.now()}`,
-    surface: "direct-diagnostic",
-  });
-  await testInfo.attach("canonical-pill-execution", {
-    body: JSON.stringify(result, null, 2),
-    contentType: "application/json",
-  });
-  expect(result.status, JSON.stringify(result)).toBe("passed");
 });

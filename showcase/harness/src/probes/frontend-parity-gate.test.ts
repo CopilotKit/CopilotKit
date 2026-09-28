@@ -17,37 +17,6 @@ const IMAGE =
 const FIXTURE = "3333333333333333333333333333333333333333";
 const CONTRACT = "4444444444444444444444444444444444444444";
 
-// Synthetic admission contract only; real browser proof is recorded separately.
-function syntheticPillProof(frontend: "react" | "angular") {
-  return {
-    mode: "functional-pill",
-    surface: "public",
-    completed: true,
-    attempts: 1,
-    failures: [],
-    startedAt: "2026-09-21T00:00:00Z",
-    completedAt: "2026-09-21T00:00:01Z",
-    identity: {
-      canonical: "agentic-chat",
-      integration: "mastra",
-      frontend,
-      targetRevision: IMAGE,
-      canonicalRevision: CONTRACT,
-    },
-    requiredActions: ["sample"],
-    actions: [
-      {
-        id: "sample",
-        attempted: true,
-        clicked: true,
-        assertionPassed: true,
-        completed: true,
-        dispatchedPrompt: "Sample",
-      },
-    ],
-  };
-}
-
 function cell(
   frontend: "react" | "angular",
   status: "passed" | "failed",
@@ -65,15 +34,6 @@ function cell(
     featureContractRevision: CONTRACT,
     probeIds: ["agentic-chat"],
     testIds: [`d5-${frontend}-agentic-chat`],
-    startedAt: "2026-09-21T00:00:00Z",
-    observedAt: "2026-09-21T00:00:01Z",
-    probes: [
-      {
-        featureType: "agentic-chat",
-        status,
-        pillExecution: syntheticPillProof(frontend),
-      },
-    ],
     ...overrides,
   };
 }
@@ -221,9 +181,6 @@ describe("evaluateFrontendParity", () => {
         featureContractRevision: CONTRACT,
         testIds: ["fm-react-1"],
         probeIds: ["agentic-chat"],
-        probes: [{ featureType: "agentic-chat" }],
-        startedAt: undefined,
-        observedAt: undefined,
       },
     ]);
   });
@@ -310,71 +267,4 @@ describe("evaluateCurrentFrontendParity", () => {
       ],
     });
   });
-});
-
-it("blocks a legacy raw passed cell without public pill evidence", () => {
-  const report = evaluateCurrentFrontendParity({
-    sourceCommit: PR_COMMIT,
-    cells: [cell("react", "passed", PR_COMMIT, { probes: undefined })],
-  });
-  expect(report.passed).toBe(false);
-});
-
-it.each([
-  { feature: "shared-state-read-write" },
-  { startedAt: "2026-09-21T00:00:02Z" },
-  { containerImageRevision: `sha256:${"e".repeat(64)}` },
-  { featureContractRevision: "e".repeat(40) },
-])(
-  "rejects proof copied to a different cell, observation, or revision: %j",
-  (overrides) => {
-    const report = evaluateCurrentFrontendParity({
-      sourceCommit: PR_COMMIT,
-      cells: [cell("react", "passed", PR_COMMIT, overrides)],
-    });
-    expect(report.passed).toBe(false);
-  },
-);
-
-it.each([
-  { ...syntheticPillProof("react"), requiredActions: [] },
-  { ...syntheticPillProof("react"), actions: [] },
-  { ...syntheticPillProof("react"), attempts: 2 },
-  { ...syntheticPillProof("react"), failures: ["first attempt failed"] },
-  { ...syntheticPillProof("react"), surface: "direct-diagnostic" },
-  {
-    ...syntheticPillProof("react"),
-    actions: [
-      { ...syntheticPillProof("react").actions[0], assertionPassed: false },
-    ],
-  },
-  {
-    ...syntheticPillProof("react"),
-    requiredActions: ["sample", "second"],
-    actions: [
-      syntheticPillProof("react").actions[0],
-      syntheticPillProof("react").actions[0],
-    ],
-  },
-])("does not admit incomplete or diagnostic execution %#", (pillExecution) => {
-  const report = evaluateCurrentFrontendParity({
-    sourceCommit: PR_COMMIT,
-    cells: [
-      cell("react", "passed", PR_COMMIT, {
-        probes: [
-          { featureType: "agentic-chat", status: "passed", pillExecution },
-        ],
-      }),
-    ],
-  });
-  expect(report.passed).toBe(false);
-});
-
-it("does not let a React-only cell bypass the requested source revision", () => {
-  expect(
-    evaluateCurrentFrontendParity({
-      sourceCommit: PR_COMMIT,
-      cells: [cell("react", "passed", BASE_COMMIT)],
-    }).passed,
-  ).toBe(false);
 });

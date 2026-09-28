@@ -1,14 +1,52 @@
-/** Canonical LGP pill controls and results, shared by every frontend/integration. */
+/**
+ * D5 — gen-ui-a2ui-fixed script.
+ *
+ * Drives `/demos/a2ui-fixed-schema`. The agent emits an A2UI payload
+ * matching the locked fixed-schema definitions (Card / Title /
+ * Airport / …); the renderer materializes the component tree.
+ *
+ * Genuine assertion: send the suggestion-pill prompt; after settle,
+ * assert the `[data-testid="a2ui-fixed-card"]` mounts. Replaces the
+ * prior "transcript mentions a2ui" keyword check, which would stay
+ * green even if the renderer never painted.
+ */
+
 import { registerD5Script } from "../helpers/d5-registry.js";
 import type { D5BuildContext, D5FeatureType } from "../helpers/d5-registry.js";
-import { buildRenderingTurns } from "./_pill-contracts-rendering.js";
+import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
+import { FIRST_SIGNAL_TIMEOUT_MS, waitForTestId } from "./_genuine-shared.js";
 
-export function buildTurns(_ctx: D5BuildContext) {
-  return buildRenderingTurns("a2ui-fixed-schema");
+/** Default `/demos/<featureType>` would be `/demos/gen-ui-a2ui-fixed`,
+ *  which does not exist — the actual route uses the registry-id
+ *  `a2ui-fixed-schema`. */
+export function preNavigateRoute(_ft: D5FeatureType): string {
+  return "/demos/a2ui-fixed-schema";
 }
 
-export function preNavigateRoute(_feature?: D5FeatureType) {
-  return "/demos/a2ui-fixed-schema";
+/** Pill prompt MUST match `a2ui-fixed-schema/suggestions.ts`. */
+export const A2UI_FIXED_PILL_PROMPT =
+  "Find me a flight from SFO to JFK on United for $289.";
+
+export function buildA2uiFixedAssertion(opts?: {
+  timeoutMs?: number;
+}): (page: Page) => Promise<void> {
+  const timeout = opts?.timeoutMs ?? FIRST_SIGNAL_TIMEOUT_MS;
+  return async (page: Page): Promise<void> => {
+    await waitForTestId(page, "a2ui-fixed-card", timeout, "gen-ui-a2ui-fixed");
+  };
+}
+
+export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
+  return [
+    {
+      input: A2UI_FIXED_PILL_PROMPT,
+      assertions: buildA2uiFixedAssertion(),
+      responseTimeoutMs: 60_000,
+      completeOnMount: {
+        testIds: ["a2ui-fixed-card"],
+      },
+    },
+  ];
 }
 
 registerD5Script({

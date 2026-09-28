@@ -1,25 +1,23 @@
-import { runConversation } from "../../../../harness/src/probes/helpers/conversation-runner.js";
-import { attachSseInterceptor } from "../../../../harness/src/probes/helpers/sse-interceptor.js";
-import { buildTurns } from "../../../../harness/src/probes/scripts/d5-beautiful-chat-pie-chart.js";
 import { expect, test } from "@playwright/test";
-test("beautiful-chat-pie-chart canonical actual pill", async ({ page }) => {
-  test.setTimeout(900_000);
-  const capture = await attachSseInterceptor(page);
-  try {
-    await page.goto("/demos/beautiful-chat");
-    const result = await runConversation(
-      page,
-      buildTurns({
-        integrationSlug: "ms-agent-harness-dotnet",
-        featureType: "beautiful-chat-pie-chart",
-        baseUrl: new URL(page.url()).origin,
-      }),
-      { mode: "functional-pill" },
-    );
-    expect(result.error).toBeUndefined();
-    expect(result.pillExecution?.completed).toBe(true);
-    expect(result.pillExecution?.actions).toHaveLength(9);
-  } finally {
-    await capture.stop();
-  }
+import {
+  clickBeautifulChatPill,
+  openBeautifulChat,
+} from "./beautiful-chat-helpers";
+
+test.describe("Beautiful Chat pie chart", () => {
+  test.beforeEach(async ({ page }) => {
+    await openBeautifulChat(page);
+  });
+
+  test("Pie Chart pill renders controlled generative UI", async ({ page }) => {
+    await clickBeautifulChatPill(page, "Pie Chart (Controlled Generative UI)");
+
+    const circles = page.locator("svg circle");
+    await expect
+      .poll(async () => await circles.count(), { timeout: 45_000 })
+      .toBeGreaterThanOrEqual(3);
+    await expect(page.getByText(/\d+%/).first()).toBeVisible({
+      timeout: 5_000,
+    });
+  });
 });

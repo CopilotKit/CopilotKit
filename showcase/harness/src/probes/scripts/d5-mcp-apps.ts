@@ -1,8 +1,43 @@
-import { buildToolsAgentTurns } from "./_pill-contracts-tools-agents.js";
 /**
- * Functional acceptance uses the shared canonical LGP pill contract below.
- * Exported legacy assertion helpers remain for supplemental regression tests;
- * buildTurns never uses their weaker diagnostic-only acceptance criteria.
+ * D5 — `mcp-apps` script.
+ *
+ * Phase-2A split (see `.claude/specs/lgp-test-genuine-pass.md`): the old
+ * `d5-mcp-subagents.ts` probe claimed BOTH `mcp-apps` and `subagents`
+ * feature types but routed them to the same `/demos/subagents` page,
+ * leaving `mcp-apps` wrong-targeted. This probe is now scoped to the
+ * `/demos/mcp-apps` page, which is an iframe-shell demo (the MCP app
+ * runs inside a sandboxed iframe loaded from a remote URL).
+ *
+ * The D5 signal here is "the page renders an iframe shell" — that's the
+ * minimum viable proof the MCP-apps surface composes correctly. We do
+ * NOT drive a chat conversation: the page's primary feature is the
+ * iframe embedding pipeline, not a chat round-trip.
+ *
+ * Selector cascade (most-specific first):
+ *   1. `[data-testid="mcp-app-iframe"]`  — canonical testid, declared by
+ *                                          every frontend that renders an
+ *                                          MCP app (react-core / vue
+ *                                          `MCPAppsActivityRenderer`,
+ *                                          Angular `copilot-mcp-apps-widget`).
+ *   2. `iframe[sandbox]`                 — sandbox attribute is required
+ *                                          by the MCP-apps spec, so any
+ *                                          conforming page renders one.
+ *                                          Keeps the probe honest against a
+ *                                          deployed integration pinned to a
+ *                                          package version predating the
+ *                                          testid: the surface IS there, so
+ *                                          the row must not red.
+ *
+ * The SAME cascade is what the turn settles on — `completeOnMount.selectors`
+ * takes the comma-joined cascade so the runner's mount gate and this module's
+ * assertion measure one contract. Gating the settle on the bare testid alone
+ * was the CF-1 false-red: the testid existed only in Angular, so every
+ * React/Vue integration timed out `surface-missing` at 30s while the demo
+ * rendered fine by hand.
+ *
+ * Side effect: importing this module triggers `registerD5Script`. The
+ * default loader in `d6-all-pills.ts` discovers it via the `d5-*` filename
+ * convention.
  */
 
 import { registerD5Script } from "../helpers/d5-registry.js";
@@ -113,7 +148,21 @@ export async function assertIframePresent(
  * known false-negative under aimock until the fixture lands.
  */
 export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
-  return buildToolsAgentTurns("mcp-apps");
+  return [
+    {
+      input:
+        "Open Excalidraw and sketch a system diagram with a client, server, and database.",
+      completeOnMount: {
+        selectors: [MCP_APP_IFRAME_SELECTOR_CASCADE],
+      },
+      // Wrapped so the assertions callback ignores the Phase-4 `ctx`
+      // argument: `assertIframePresent` takes `(page, timeoutMs?)`, not
+      // `(page, ctx)`, and ctx is irrelevant to the iframe-mount probe.
+      assertions: async (page) => {
+        await assertIframePresent(page);
+      },
+    },
+  ];
 }
 
 registerD5Script({

@@ -6,7 +6,6 @@ import {
   NgZone,
   PLATFORM_ID,
   computed,
-  effect,
   inject,
   input,
   signal,
@@ -17,6 +16,7 @@ import type { AbstractAgent, ActivityMessage } from "@ag-ui/client";
 import type { ActivityRenderer } from "../../activity-renderer";
 import { CopilotKit } from "../../copilotkit";
 import { injectCopilotKitConfig } from "../../config";
+import { explicitEffect } from "../../explicit-effect";
 import {
   bridgeA2UIAction,
   connectA2UISurface,
@@ -125,14 +125,12 @@ export class CopilotA2UIActivityRenderer implements ActivityRenderer<unknown> {
       config: this.config,
       onReady: this.markSurfaceReady,
     });
-    effect(() => {
-      const content = this.content();
+    explicitEffect(this.content, (content) => {
       if (getA2UIOperations(content).length === 0) {
         this.loaderContent.set(content);
       }
     });
-    effect((onCleanup) => {
-      const hasOperations = this.hasOperations();
+    explicitEffect(this.hasOperations, (hasOperations, onCleanup) => {
       if (!hasOperations) {
         this.surfaceReady.set(false);
         return;

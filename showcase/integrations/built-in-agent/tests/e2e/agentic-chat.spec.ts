@@ -1,18 +1,15 @@
-import { runConversation } from "../../../../harness/src/probes/helpers/conversation-runner.js";
-import { buildChatPlatformTurns } from "../../../../harness/src/probes/scripts/_pill-contracts-chat-platform.js";
-// Existing scenarios are diagnostics; only the canonical pill test below is functional acceptance.
 import { test, expect } from "@playwright/test";
 
 // Agentic Chat is the minimum-viable CopilotChat demo: a tiny page
 // that wraps `<CopilotChat>` plus three starter-prompt suggestions. The
 // contract here is "vanilla chat works end-to-end" — anything richer
 // belongs in dedicated demos (frontend-tools, tool-rendering, etc.).
-test.describe("Diagnostic: Agentic Chat", () => {
+test.describe("Agentic Chat", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/agentic-chat");
   });
 
-  test("Diagnostic: page loads with chat input and the three starter suggestions", async ({
+  test("page loads with chat input and the three starter suggestions", async ({
     page,
   }) => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
@@ -23,7 +20,7 @@ test.describe("Diagnostic: Agentic Chat", () => {
     }
   });
 
-  test("Diagnostic: sends a typed message and gets an assistant response", async ({
+  test("sends a typed message and gets an assistant response", async ({
     page,
   }) => {
     const input = page.getByPlaceholder("Type a message");
@@ -35,7 +32,7 @@ test.describe("Diagnostic: Agentic Chat", () => {
     ).toBeVisible({ timeout: 30000 });
   });
 
-  test("Diagnostic: clicking a suggestion pill sends the message and gets a response", async ({
+  test("clicking a suggestion pill sends the message and gets a response", async ({
     page,
   }) => {
     await page.getByRole("button", { name: "Tell me a joke" }).click();
@@ -45,9 +42,7 @@ test.describe("Diagnostic: Agentic Chat", () => {
     ).toBeVisible({ timeout: 30000 });
   });
 
-  test("Diagnostic: multi-turn conversation maintains context", async ({
-    page,
-  }) => {
+  test("multi-turn conversation maintains context", async ({ page }) => {
     const input = page.getByPlaceholder("Type a message");
 
     await input.fill("My name is Alice.");
@@ -69,15 +64,4 @@ test.describe("Diagnostic: Agentic Chat", () => {
     await expect(responses.nth(1)).toBeVisible({ timeout: 30000 });
     await expect(responses.nth(1)).toContainText(/Alice/i, { timeout: 5000 });
   });
-});
-
-test("Canonical pill acceptance: agentic-chat", async ({ page }) => {
-  await page.goto("/demos/agentic-chat");
-  const result = await runConversation(
-    page,
-    buildChatPlatformTurns("agentic-chat"),
-    { mode: "functional-pill", surface: "direct-diagnostic" },
-  );
-  expect(result.error, JSON.stringify(result.pillExecution)).toBeUndefined();
-  expect(result.pillExecution?.completed).toBe(true);
 });

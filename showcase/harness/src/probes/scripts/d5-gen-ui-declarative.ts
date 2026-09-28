@@ -54,7 +54,6 @@ export function preNavigateRoute(_ft: D5FeatureType): string {
 export const GEN_UI_DECLARATIVE_PILLS = [
   {
     tag: "sales-dashboard",
-    buttonName: "Show my sales dashboard",
     prompt: "Show me my sales dashboard for this quarter.",
     // The hero pill: one composed surface with a bare KPI metric row
     // of 4 tiles + both charts (no surrounding Card — the charts
@@ -77,7 +76,6 @@ export const GEN_UI_DECLARATIVE_PILLS = [
   },
   {
     tag: "team-performance",
-    buttonName: "Team performance",
     prompt: "How are our sales reps performing against quota?",
     // Per composition rule 2: a DataTable next to or above a BarChart
     // of quota attainment % per rep. Both must newly mount — the
@@ -91,7 +89,6 @@ export const GEN_UI_DECLARATIVE_PILLS = [
   },
   {
     tag: "at-risk",
-    buttonName: "Anything at risk?",
     prompt: "Are any accounts or pipeline deals at risk this quarter?",
     // Status-badge stays the distinguishing testid the hero does not
     // mount (see the cross-pill differentiation invariant). The
@@ -108,7 +105,6 @@ export const GEN_UI_DECLARATIVE_PILLS = [
   },
   {
     tag: "top-account",
-    buttonName: "Top account details",
     prompt: "Pull up the details on our biggest account.",
     // Per composition rule 4: a Card of InfoRow facts next to a
     // PieChart of that account's revenue by product line. The chart
@@ -122,213 +118,6 @@ export const GEN_UI_DECLARATIVE_PILLS = [
     } as Record<string, number>,
   },
 ] as const;
-
-// Expected visible values come from the canonical LGP sales-context.ts dataset,
-// independently of the candidate render. Narration and widget counts cannot
-// substitute for these values in freshly mounted, visible renderer content.
-async function assertCanonicalPillInventory(page: Page): Promise<void> {
-  await page.waitForSelector('[data-testid="copilot-suggestion"]', {
-    state: "visible",
-    timeout: 5_000,
-  });
-  const names = await page.evaluate(
-    new Function(
-      `return Array.from(document.querySelectorAll('[data-testid="copilot-suggestion"]')).map(button => button.innerText);`,
-    ) as () => string[],
-  );
-  const expected = GEN_UI_DECLARATIVE_PILLS.map((pill) => pill.buttonName);
-  if (JSON.stringify(names) !== JSON.stringify(expected)) {
-    throw new Error(
-      "declarative canonical pill inventory differs (missing, extra, reordered or renamed pill)",
-    );
-  }
-}
-
-async function assertCanonicalVisibleValues(
-  page: Page,
-  tag: string,
-  baseline: DeclarativeCounts,
-): Promise<void> {
-  const observed = await page.evaluate(
-    new Function(`
-    const visible = e => e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';
-    const fresh = (id, n) => Array.from(document.querySelectorAll('[data-testid="'+id+'"]')).slice(n).filter(visible);
-    const cells = e => Array.from(e.querySelectorAll('span')).filter(visible).map(s => s.textContent);
-    return {
-      metrics: fresh('declarative-metric', ${baseline.metric}).map(cells),
-      rows: fresh('declarative-data-table', ${baseline.dataTable}).flatMap(t => Array.from(t.querySelectorAll('tbody tr')).filter(visible).map(r => Array.from(r.querySelectorAll('td')).map(c => c.innerText))),
-      info: fresh('declarative-info-row', ${baseline.infoRow}).map(cells),
-      cards: fresh('declarative-card', ${baseline.card}).map(c => ({title:c.querySelector(':scope > div > div')?.textContent,text:c.innerText,info:Array.from(c.querySelectorAll('[data-testid="declarative-info-row"]')).filter(visible).map(cells)})),
-      errors: [...Array.from(document.querySelectorAll('[data-testid="copilot-error-banner"], [role="alert"]')).filter(visible), ...Array.from(document.querySelectorAll('[data-testid="copilot-chat"] *')).filter(e => visible(e) && e.children.length === 0 && /^Catalog not found:/.test(e.textContent ?? ''))].map(e => e.innerText)
-    };
-  `) as () => {
-      metrics: string[][];
-      rows: string[][];
-      info: string[][];
-      cards: { title: string; text: string; info: string[][] }[];
-      errors: string[];
-    },
-  );
-  if (observed.errors.length)
-    throw new Error(
-      `declarative ${tag} has an unexpected visible renderer error`,
-    );
-  const requireRow = (rows: string[][], expected: readonly string[]) => {
-    if (
-      !rows.some((row) =>
-        expected.every((value, index) => row[index] === value),
-      )
-    )
-      throw new Error(
-        `declarative ${tag} missing canonical label/value relationship: ${expected.join(" / ")}`,
-      );
-  };
-  const reps = [
-    ["Dana Whitfield", 124],
-    ["Marcus Lee", 108],
-    ["Priya Sharma", 97],
-    ["Tom Okafor", 88],
-    ["Elena Vasquez", 71],
-  ] as const;
-  if (tag === "sales-dashboard") {
-    for (const metric of [
-      ["Quarterly Revenue", "$4.2M", "↑ +12% QoQ"],
-      ["New Customers", "186", "↑ +8%"],
-      ["Win Rate", "31%", "↓ -2 pts"],
-      ["Avg Deal Size", "$22.6k", "↑ +5%"],
-    ])
-      requireRow(observed.metrics, metric);
-    await assertChart(page, "pie", baseline.pieChart, [
-      ["North America", 1900000],
-      ["EMEA", 1300000],
-      ["APAC", 720000],
-      ["LATAM", 280000],
-    ]);
-    await assertChart(page, "bar", baseline.barChart, [
-      ["Jan", 1210000],
-      ["Feb", 1340000],
-      ["Mar", 1650000],
-      ["Apr", 1380000],
-      ["May", 1420000],
-      ["Jun", 1400000],
-    ]);
-  }
-  if (tag === "team-performance") {
-    for (const [name, value] of reps)
-      requireRow(observed.rows, [name, `${value}%`]);
-    await assertChart(page, "bar", baseline.barChart, reps);
-  }
-  if (tag === "at-risk") {
-    for (const metric of [
-      ["ARR at risk", "$615k", "↓ 3 accounts"],
-      ["Accounts at risk", "3", "→ This quarter"],
-      ["Biggest exposure", "Northwind Retail", "↓ $340k renewal"],
-    ])
-      requireRow(observed.metrics, metric);
-    for (const [title, amount, severity, reason, advice] of [
-      [
-        "Northwind Retail",
-        "$340k",
-        "High severity",
-        "No contact in 6 weeks",
-        "exec outreach this week to protect the renewal",
-      ],
-      [
-        "Cascadia Outfitters",
-        "$180k",
-        "Medium severity",
-        "Champion left",
-        "rebuild stakeholder map and secure a new sponsor",
-      ],
-      [
-        "Atlas Goods",
-        "$95k",
-        "Medium severity",
-        "Legal review is stalled",
-        "align procurement and legal on open terms",
-      ],
-    ]) {
-      const card = observed.cards.find((c) => c.title === title);
-      if (
-        !card ||
-        !card.text.includes(`${amount} ARR at stake`) ||
-        !card.text.includes(severity!) ||
-        !card.text.includes(reason!) ||
-        !card.text.includes(advice!)
-      )
-        throw new Error(`canonical risk card differs: ${title}`);
-    }
-  }
-  if (tag === "top-account") {
-    const account = observed.cards.find(
-      (c) => c.title === "Meridian Apparel Group",
-    );
-    if (!account) throw new Error("canonical account card missing");
-    for (const pair of [
-      ["Owner", "Dana Whitfield"],
-      ["Region", "North America"],
-      ["ARR", "$612k"],
-      ["Renewal date", "Sep 30"],
-      ["Last contact", "3 days ago"],
-      ["Health", "Green"],
-      ["Open opportunities", "4 opportunities worth $210k"],
-    ])
-      requireRow(account.info, pair);
-    await assertChart(page, "pie", baseline.pieChart, [
-      ["Outerwear", 260000],
-      ["Footwear", 180000],
-      ["Accessories", 112000],
-      ["Custom", 60000],
-    ]);
-  }
-}
-
-// Values must appear in the visible tooltip after an actual pointer hover.
-async function assertChart(
-  page: Page,
-  kind: "pie" | "bar",
-  baseline: number,
-  expected: readonly (readonly [string, number])[],
-): Promise<void> {
-  if (!page.hover) throw new Error("real chart hover is unavailable");
-  const id = `declarative-${kind}-chart`;
-  const mark =
-    kind === "pie" ? ".recharts-pie-sector" : ".recharts-bar-rectangle";
-  const count = await page.evaluate(
-    new Function(
-      `return document.querySelectorAll('[data-testid="${id}"]')[${baseline}]?.querySelectorAll('${mark}').length ?? 0`,
-    ) as () => number,
-  );
-  if (count !== expected.length)
-    throw new Error(`canonical ${kind} series length differs`);
-  for (let index = 0; index < expected.length; index++) {
-    await page.hover(
-      `:nth-match([data-testid="${id}"], ${baseline + 1}) ${mark} >> nth=${index}`,
-      { timeout: 5000 },
-    );
-    let matches = false;
-    const deadline = Date.now() + 2000;
-    do {
-      const tip = await page.evaluate(
-        new Function(`
-        const tip=document.querySelectorAll('[data-testid="${id}"]')[${baseline}]?.querySelector('.recharts-tooltip-wrapper');
-        if(!tip || getComputedStyle(tip).visibility==='hidden') return null;
-        return {label:tip.querySelector('.recharts-tooltip-label')?.textContent ?? '',name:tip.querySelector('.recharts-tooltip-item-name')?.textContent ?? '',value:tip.querySelector('.recharts-tooltip-item-value')?.textContent ?? ''};
-      `) as () => { label: string; name: string; value: string } | null,
-      );
-      const [label, value] = expected[index]!;
-      matches =
-        !!tip &&
-        (kind === "pie" ? tip.name : tip.label) === label &&
-        tip.value === String(value);
-      if (!matches) await new Promise((resolve) => setTimeout(resolve, 50));
-    } while (!matches && Date.now() < deadline);
-    if (!matches)
-      throw new Error(
-        `canonical ${kind} label/value differs: ${expected[index]![0]}`,
-      );
-  }
-}
 
 /** Per-testid counts: `0` is "not present", `>= 1` is "present". Counts
  *  (rather than booleans) lets per-pill `minCounts` rules assert
@@ -568,26 +357,13 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
     );
     return {
       input: prompt,
-      action: {
-        kind: "pill",
-        id: `gen-ui-declarative:${tag}`,
-        buttonName: pill.buttonName,
-        expectedDispatchedPrompt: prompt,
-        submission: { kind: "immediate" },
-      },
-      preFill: async (page) => {
-        await assertCanonicalPillInventory(page);
-        await buildBaselineCapture(baselineRef)(page);
-      },
-      assertions: async (page) => {
-        await buildDeclarativeAssertion(
-          tag,
-          expectedTestIds,
-          baselineRef,
-          minCounts,
-        )(page);
-        await assertCanonicalVisibleValues(page, tag, baselineRef.testIds);
-      },
+      preFill: buildBaselineCapture(baselineRef),
+      assertions: buildDeclarativeAssertion(
+        tag,
+        expectedTestIds,
+        baselineRef,
+        minCounts,
+      ),
       responseTimeoutMs: DECLARATIVE_RESPONSE_TIMEOUT_MS,
       completeOnMount: {
         testIds: surfaceTestIds,

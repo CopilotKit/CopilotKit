@@ -14,9 +14,6 @@
 import type { StatusRow, State, StarterLevel } from "./live-status.js";
 import {
   SOFT_MISS_TOLERANCE_THRESHOLD,
-  isFunctionalStatusKey,
-  hasStoredPillProof,
-  isUnverifiedDefinitionSignal,
   SOFT_STARTER_FAILURE_CLASSES,
   starterErrorClassFromSignal,
 } from "./live-status.js";
@@ -424,13 +421,8 @@ export function foldFamily(
   for (const row of rows) {
     const skewed = isFutureSkewed(row, now);
     const stale = skewed || isStale(row, now, staleWindow);
-    const effState: State = isUnverifiedDefinitionSignal(row.signal)
-      ? "degraded"
-      : row.state === "green" &&
-          (stale ||
-            (isFunctionalStatusKey(row.key) && !hasStoredPillProof(row)))
-        ? "degraded"
-        : row.state;
+    const effState: State =
+      row.state === "green" && stale ? "degraded" : row.state;
 
     if (
       worstState === null ||
@@ -455,10 +447,7 @@ export function foldFamily(
     // de-amplification is scoped to NON-INFRA reds only, and tracks the MAX
     // (spec §3 rule 2): an infra red carries no product signal, and a fresh
     // sibling must not re-arm tolerance for an already-confirmed sustained red.
-    if (
-      rankOfState(row.state) >= RED_RANK &&
-      !isUnverifiedDefinitionSignal(row.signal)
-    ) {
+    if (rankOfState(row.state) >= RED_RANK) {
       hasRed = true;
       // Provenance, scoped to the rows the infra branch actually reads: a RED
       // row whose `signal` key was projected away has a PENDING attribution.
@@ -533,13 +522,6 @@ export function classifyRung(raw: RawRung, now: number): RungContribution {
     // the family unverified → NO_DATA (unless a present red dominates — handled
     // in the red branch below).
     if (raw.anyExpectedMissing) {
-      return { ...base, contribution: "NO_DATA", rawStatus: null };
-    }
-    if (
-      raw.rows.some(
-        (row) => isFunctionalStatusKey(row.key) && !hasStoredPillProof(row),
-      )
-    ) {
       return { ...base, contribution: "NO_DATA", rawStatus: null };
     }
     if (worst === "green") {

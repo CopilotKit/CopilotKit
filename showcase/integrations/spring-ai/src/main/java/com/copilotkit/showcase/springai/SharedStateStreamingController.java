@@ -55,15 +55,6 @@ import static com.agui.server.EventFactory.toolCallStartEvent;
  * Shared State Streaming demo — dedicated controller at
  * {@code /shared-state-streaming/run}.
  *
- * <p><b>Spring AI 1.0.1 limitation:</b> The streaming descriptions below
- * describe intended wiring, not a supported genuine document progression
- * capability on the installed version. {@code OpenAiApi.chatCompletionStream()}
- * merges tool-call argument deltas before {@code ChatModel}/{@code ChatClient}
- * can observe them; the public APIs expose no option to disable this merge.
- * This controller therefore cannot receive growing tool arguments across
- * chunks to produce the described per-token document updates. Final document
- * values alone do not demonstrate genuine within-turn progression.
- *
  * Demonstrates per-token state streaming for Spring AI, mirroring the
  * LangGraph Python reference's {@code StateStreamingMiddleware} pattern.
  * The agent has a {@code write_document} tool. As the LLM streams the

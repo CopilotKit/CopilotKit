@@ -66,10 +66,10 @@ describe("combine — §4f agent truth table", () => {
     });
   });
 
-  it("D6 observed failure stays red over green D5", () => {
+  it("D6 fresh-red over green D5 → amber, ach5, d6Eff red, reg yes (soft-parity top)", () => {
     const { contribs, ceiling } = agent({ D6: "FAIL_FRESH" });
     expect(combine(contribs, ceiling, NOW, AGENT_AXIS)).toEqual({
-      chipColor: "red",
+      chipColor: "amber",
       achievedDepth: 5,
       ceilingDepth: 6,
       d6Effective: "red",

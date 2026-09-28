@@ -23,11 +23,11 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 const mcpAppsAgent = new HttpAgent({ url: `${AGENT_URL}/mcp-apps/run` });
 
-// headless-complete shares this runtime but has its own backend tool catalog
-// and history handling for its weather, stock, highlight, and chart cards.
-const headlessCompleteAgent = new HttpAgent({
-  url: `${AGENT_URL}/headless-complete/run`,
-});
+// headless-complete shares this runtime (its page wires
+// runtimeUrl="/api/copilotkit-mcp-apps") but is backed by the shared
+// default LlamaIndex router at /run — the same backend the main route
+// registers `headless_complete` against.
+const headlessCompleteAgent = new HttpAgent({ url: `${AGENT_URL}/run` });
 
 // @region[runtime-mcpapps-config]
 // The `mcpApps.servers` config is all you need server-side. The runtime

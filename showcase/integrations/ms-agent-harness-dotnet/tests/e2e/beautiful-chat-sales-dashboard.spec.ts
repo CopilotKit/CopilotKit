@@ -9,7 +9,7 @@ test.describe("Beautiful Chat A2UI dynamic schema", () => {
     await openBeautifulChat(page);
   });
 
-  test("[diagnostic supplemental] Sales Dashboard pill renders dashboard metrics and charts", async ({
+  test("Sales Dashboard pill renders dashboard metrics and charts", async ({
     page,
   }) => {
     test.setTimeout(180_000);
