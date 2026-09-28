@@ -1,37 +1,30 @@
-import { Component, input } from "@angular/core";
-import type { RowApi } from "@a2ui/web_core/v0_9/basic_catalog";
+import { Component } from "@angular/core";
+import { RowApi } from "@a2ui/web_core/v0_9/basic_catalog";
 import { CopilotA2UIChild } from "../child";
-import { mapAlign, mapJustify, type BasicProps } from "./shared";
+import { CopilotA2UIBasicComponent } from "./basic-component";
+import { mapAlign, mapJustify } from "./shared";
 
 @Component({
   selector: "copilot-a2ui-row",
   imports: [CopilotA2UIChild],
+  host: {
+    "[style.justify-content]": "mapJustify(props().justify)",
+    "[style.align-items]": "mapAlign(props().align)",
+  },
   template: `
-    <div
-      class="row"
-      [style.justify-content]="mapJustify(props().justify)"
-      [style.align-items]="mapAlign(props().align)"
-    >
-      @for (child of props().children; track $index) {
-        <copilot-a2ui-child [child]="child" />
-      }
-    </div>
+    @for (child of props().children; track $index) {
+      <copilot-a2ui-child [child]="child" />
+    }
   `,
   styles: `
     :host {
-      display: contents;
-    }
-    .row {
       display: flex;
       flex-direction: row;
-      width: 100%;
-      margin: 0;
-      padding: 0;
+      gap: var(--a2ui-row-gap, var(--a2ui-spacing-m, 8px));
     }
   `,
 })
-export class CopilotA2UIRow {
-  readonly props = input.required<BasicProps<typeof RowApi>>();
+export class CopilotA2UIRow extends CopilotA2UIBasicComponent<typeof RowApi> {
   protected readonly mapJustify = mapJustify;
   protected readonly mapAlign = mapAlign;
 }

@@ -1,17 +1,19 @@
 import { JsonPipe } from "@angular/common";
 import { Component, signal } from "@angular/core";
+import type { A2UIClientEventMessage } from "@copilotkit/angular";
 import { CopilotA2UISurface } from "@copilotkit/angular/a2ui";
-import type { A2UIClientEventMessage } from "@copilotkit/a2ui-renderer/web-components";
-import { interopCatalog } from "./interop-catalog";
+import { webComponentsCatalog } from "./catalog";
+import { CATALOG_ID } from "./definitions";
 
-const surfaceId = "interop";
+const surfaceId = "web-components";
 
-/** One surface: Angular Column/Row/Text/TextField/Slider/Button mixed with Lit Panel/Rating/Gauge. */
+/**
+ * One surface: Angular basic components (Column, Row, Text, TextField,
+ * Slider, Button), an Angular Panel, and the Rating and Gauge web components,
+ * all sharing `/score` in the data model.
+ */
 const OPERATIONS = [
-  {
-    version: "v0.9",
-    createSurface: { surfaceId, catalogId: "copilotkit://angular-lit-interop" },
-  },
+  { version: "v0.9", createSurface: { surfaceId, catalogId: CATALOG_ID } },
   {
     version: "v0.9",
     updateComponents: {
@@ -25,15 +27,14 @@ const OPERATIONS = [
         {
           id: "title",
           component: "Text",
-          text: "Angular and Lit in one A2UI surface",
+          text: "Angular components and web components in one A2UI surface",
           variant: "h2",
         },
         { id: "panels", component: "Row", children: ["feedback", "result"] },
         {
           id: "feedback",
           component: "Panel",
-          title: "Lit panel with Angular children",
-          tone: "info",
+          title: "Angular panel with a web component inside",
           children: ["prompt", "rating", "comment"],
         },
         { id: "prompt", component: "Text", text: "How was your stay?" },
@@ -47,7 +48,7 @@ const OPERATIONS = [
         {
           id: "result",
           component: "Panel",
-          title: "Lit gauge on the same data",
+          title: "Web component gauge on the same data",
           tone: "success",
           children: ["gauge"],
         },
@@ -102,16 +103,19 @@ const OPERATIONS = [
 ];
 
 @Component({
-  selector: "a2ui-interop-demo",
+  selector: "a2ui-web-components-demo",
   imports: [CopilotA2UISurface, JsonPipe],
   template: `
     <main class="page">
       <p class="intro">
-        Every <strong>LIT</strong> box is a plain Lit web component inside the
-        Angular renderer. The star rating (Lit), the gauge (Lit) and the slider
-        (Angular) share <code>/score</code> in the A2UI data model, and the text
-        inside the Lit panel is rendered by Angular into its
-        <code>&lt;slot&gt;</code>.
+        The star rating and the gauge are plain web components (<code
+          >HTMLElement</code
+        >
+        with a shadow root, no framework) registered in the catalog with
+        <code>{{ "{" }} tagName, element {{ "}" }}</code
+        >. The panels, text field, slider and button are Angular components. The
+        rating, gauge and slider all share <code>/score</code> in the A2UI data
+        model, so changing one updates the others.
       </p>
       <copilot-a2ui-surface
         [catalog]="catalog"
@@ -119,7 +123,7 @@ const OPERATIONS = [
         (action)="actions.update((log) => [$event, ...log])"
       />
       <h3>Actions</h3>
-      <pre data-testid="interop-actions">{{ actions() | json }}</pre>
+      <pre data-testid="web-components-actions">{{ actions() | json }}</pre>
     </main>
   `,
   styles: `
@@ -146,8 +150,8 @@ const OPERATIONS = [
     }
   `,
 })
-export class A2UIInteropDemoComponent {
-  protected readonly catalog = interopCatalog;
+export class A2UIWebComponentsDemoComponent {
+  protected readonly catalog = webComponentsCatalog;
   protected readonly operations = OPERATIONS;
   protected readonly actions = signal<A2UIClientEventMessage[]>([]);
 }

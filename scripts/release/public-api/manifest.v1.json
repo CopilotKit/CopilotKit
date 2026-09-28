@@ -52,46 +52,6 @@
             "path": "packages/a2ui-renderer/package.json",
             "selector": "exports[\"./package.json\"]"
           }
-        },
-        {
-          "importPath": "@copilotkit/a2ui-renderer/web-components",
-          "exportKey": "./web-components",
-          "kind": "code",
-          "conditions": {
-            "import": {
-              "types": "./dist/web-components/index.d.mts",
-              "default": "./dist/web-components/index.mjs"
-            },
-            "require": {
-              "types": "./dist/web-components/index.d.cts",
-              "default": "./dist/web-components/index.cjs"
-            }
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/a2ui-renderer/package.json",
-            "selector": "exports[\"./web-components\"]"
-          }
-        },
-        {
-          "importPath": "@copilotkit/a2ui-renderer/web-components/define",
-          "exportKey": "./web-components/define",
-          "kind": "code",
-          "conditions": {
-            "import": {
-              "types": "./dist/web-components/define.d.mts",
-              "default": "./dist/web-components/define.mjs"
-            },
-            "require": {
-              "types": "./dist/web-components/define.d.cts",
-              "default": "./dist/web-components/define.cjs"
-            }
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/a2ui-renderer/package.json",
-            "selector": "exports[\"./web-components/define\"]"
-          }
         }
       ],
       "compatibility": {

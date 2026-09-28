@@ -1,37 +1,33 @@
-import { Component, input } from "@angular/core";
-import type { ColumnApi } from "@a2ui/web_core/v0_9/basic_catalog";
+import { Component } from "@angular/core";
+import { ColumnApi } from "@a2ui/web_core/v0_9/basic_catalog";
 import { CopilotA2UIChild } from "../child";
-import { mapAlign, mapJustify, type BasicProps } from "./shared";
+import { CopilotA2UIBasicComponent } from "./basic-component";
+import { mapAlign, mapJustify } from "./shared";
 
 @Component({
   selector: "copilot-a2ui-column",
   imports: [CopilotA2UIChild],
+  host: {
+    "[style.justify-content]": "mapJustify(props().justify)",
+    "[style.align-items]": "mapAlign(props().align)",
+  },
   template: `
-    <div
-      class="column"
-      [style.justify-content]="mapJustify(props().justify)"
-      [style.align-items]="mapAlign(props().align)"
-    >
-      @for (child of props().children; track $index) {
-        <copilot-a2ui-child [child]="child" />
-      }
-    </div>
+    @for (child of props().children; track $index) {
+      <copilot-a2ui-child [child]="child" />
+    }
   `,
   styles: `
     :host {
-      display: contents;
-    }
-    .column {
       display: flex;
       flex-direction: column;
+      gap: var(--a2ui-column-gap, var(--a2ui-spacing-m, 8px));
       width: 100%;
-      margin: 0;
-      padding: 0;
     }
   `,
 })
-export class CopilotA2UIColumn {
-  readonly props = input.required<BasicProps<typeof ColumnApi>>();
+export class CopilotA2UIColumn extends CopilotA2UIBasicComponent<
+  typeof ColumnApi
+> {
   protected readonly mapJustify = mapJustify;
   protected readonly mapAlign = mapAlign;
 }
