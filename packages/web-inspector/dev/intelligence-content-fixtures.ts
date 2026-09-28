@@ -9,6 +9,32 @@ export function intelligenceContentFixture(
     request.query?.from ??
     new Date(Date.parse(to) - 7 * 86400000).toISOString();
   const at = new Date(Date.parse(to) - 3600000).toISOString();
+  if (request.path === "/api/v1/tool-calls") {
+    const rows = fixtureToolCallRows({ ...request.query, from, to });
+    const offset =
+      Number(
+        request.query?.cursor?.replace("fixture_tool_records_", "") ?? 0,
+      ) || 0;
+    const limit = Math.max(
+      1,
+      Math.min(100, Number(request.query?.limit ?? 50) || 50),
+    );
+    return {
+      data: rows.slice(offset, offset + limit),
+      from,
+      to,
+      asOf: request.query?.asOf ?? "fixture_v1",
+      nextCursor:
+        offset + limit < rows.length
+          ? `fixture_tool_records_${offset + limit}`
+          : null,
+      coverage: {
+        captureStartedAt: "2026-09-01T00:00:00.000Z",
+        windowFullyCaptured:
+          Date.parse(from) >= Date.parse("2026-09-01T00:00:00.000Z"),
+      },
+    };
+  }
   const tools = [
     {
       toolName: "refund",
@@ -334,4 +360,83 @@ export function intelligenceContentFixture(
       nextCursor: null,
     };
   return undefined;
+}
+
+/** Reuses recorded named-call fixtures, plus one call with no captured identity. */
+export function fixtureToolCallRows(
+  query: Readonly<Record<string, string>>,
+): Record<string, unknown>[] {
+  const to = query.to ?? new Date().toISOString();
+  const from =
+    query.from ?? new Date(Date.parse(to) - 7 * 86400000).toISOString();
+  const rows: Record<string, unknown>[] = [];
+  for (const name of ["refund", "lookup_order"]) {
+    let cursor: string | undefined;
+    do {
+      const detail = intelligenceContentFixture({
+        method: "GET",
+        path: `/api/v1/tools/${name}`,
+        query: {
+          from,
+          to,
+          agentId: "support",
+          limit: "100",
+          ...(cursor ? { cursor } : {}),
+        },
+      });
+      if (
+        !isRecord(detail) ||
+        !isRecord(detail.recentCalls) ||
+        !Array.isArray(detail.recentCalls.data) ||
+        !detail.recentCalls.data.every(isRecord)
+      )
+        throw new Error("Missing fixture calls");
+      rows.push(
+        ...detail.recentCalls.data.map((row) =>
+          Object.fromEntries(
+            Object.entries(row).filter(
+              ([key]) => !["input", "error"].includes(key),
+            ),
+          ),
+        ),
+      );
+      cursor =
+        typeof detail.recentCalls.nextCursor === "string"
+          ? detail.recentCalls.nextCursor
+          : undefined;
+    } while (cursor);
+  }
+  rows.push({
+    time: new Date(Date.parse(to) - 1000).toISOString(),
+    toolCallId: "fixture-unnamed-call",
+    toolName: null,
+    runId: null,
+    threadId: null,
+    agentId: null,
+    outcome: "pending",
+    durationMs: null,
+  });
+  return rows
+    .filter((row) => {
+      const user = row.runId ? "customer-1" : null;
+      return (
+        (!query.agentId || row.agentId === query.agentId) &&
+        (!query.toolName || row.toolName === query.toolName) &&
+        (!query.userId || user === query.userId) &&
+        (!query.outcome || row.outcome === query.outcome) &&
+        (query.agentCapture !== "missing" || row.agentId === null) &&
+        (query.toolCapture !== "missing" || row.toolName === null) &&
+        (query.userCapture !== "missing" || user === null) &&
+        (query.metric !== "tool_errors" || row.outcome === "error") &&
+        (query.metric !== "tool_success_rate" || row.outcome !== "pending") &&
+        (!["avg_tool_ms", "median_tool_ms"].includes(query.metric ?? "") ||
+          (row.outcome !== "pending" && row.durationMs !== null))
+      );
+    })
+    .sort((left, right) => String(right.time).localeCompare(String(left.time)));
+}
+
+/** Narrows fixture responses at the same unknown boundary as the host. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

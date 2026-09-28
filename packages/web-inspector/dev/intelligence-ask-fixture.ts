@@ -1,3 +1,4 @@
+import { fixtureToolCallRows } from "./intelligence-content-fixtures.js";
 import { intelligenceAnalyticsFixture } from "./intelligence-analytics-fixtures.js";
 import type { IntelligenceReadRequest } from "../src/lib/intelligence-relay.js";
 
@@ -16,10 +17,59 @@ export function intelligenceAskFixture(
   if (!("from" in body) || !("to" in body)) return undefined;
   const from = String(body.from);
   const to = String(body.to);
-  const filters =
+  const filters: Record<string, string> =
     "agentId" in body && typeof body.agentId === "string"
       ? { agentId: body.agentId }
       : {};
+  if ("question" in body && /tool calls.*user/i.test(String(body.question))) {
+    const known = fixtureToolCallRows({
+      from,
+      to,
+      ...filters,
+      userId: "customer-1",
+    });
+    const missing = fixtureToolCallRows({
+      from,
+      to,
+      ...filters,
+      userCapture: "missing",
+    });
+    const series = [
+      { dimensions: { user: "customer-1" }, total: known.length, points: [] },
+      { dimensions: { user: null }, total: missing.length, points: [] },
+    ].filter((row) => row.total > 0);
+    return {
+      version: 1,
+      text: "Recorded tool calls by requester.",
+      results: [
+        {
+          id: "fixture-tool-user-groups",
+          query: {
+            metric: "tool_calls",
+            dimensions: ["user"],
+            from,
+            to,
+            filters,
+          },
+          data: {
+            metric: "tool_calls",
+            unit: "count",
+            grain: null,
+            from,
+            to,
+            asOf: "fixture_v1",
+            total: known.length + missing.length,
+            series,
+            truncated: false,
+            coverage: {
+              captureStartedAt: "2026-09-01T00:00:00.000Z",
+              windowFullyCaptured: true,
+            },
+          },
+        },
+      ],
+    };
+  }
   if (
     "question" in body &&
     /approvals.*rejections.*user/i.test(String(body.question))

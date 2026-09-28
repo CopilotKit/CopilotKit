@@ -333,3 +333,38 @@ test("preserves binary exports through both runtime endpoint modes", async () =>
     world.cleanup();
   }
 });
+
+test("relays tool-call metric groups with the server grant and capture cutoff", async () => {
+  const grant = {
+    permissions: { "analytics.numbers": { agents: ["support"] } },
+  } as const;
+  const world = setup(async () => grant);
+  try {
+    const query = {
+      metric: "avg_tool_ms",
+      userId: "requester",
+      toolCapture: "missing",
+      asOf: "capture1",
+    };
+    const response = await world.call({
+      method: "GET",
+      path: "/api/v1/tool-calls",
+      query,
+    });
+    expect(response.status).toBe(200);
+    expect(world.fetch).toHaveBeenCalledWith(
+      new URL(
+        `https://intelligence.example/api/v1/tool-calls?${new URLSearchParams(query)}`,
+      ),
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({
+          "x-cpki-grant": JSON.stringify(grant),
+          "x-cpki-user-id": "reviewer-1",
+        }),
+      }),
+    );
+  } finally {
+    world.cleanup();
+  }
+});

@@ -72,6 +72,7 @@ const READ_PATHS: ReadonlySet<string> = new Set([
   "/context",
   "/api/v1/metrics",
   "/api/v1/runs",
+  "/api/v1/tool-calls",
   "/api/v1/tools",
   "/api/v1/conversations",
   "/api/v1/events",

@@ -6,6 +6,7 @@ test("accepts metrics queries and the documented product read paths", () => {
     "/context",
     "/api/v1/metrics",
     "/api/v1/runs",
+    "/api/v1/tool-calls",
     "/api/v1/tools",
     "/api/v1/tools/refund",
     "/api/v1/conversations",
@@ -47,6 +48,8 @@ test("rejects arbitrary upstream targets, traversal, credentials and mutations",
     "/api/v1/tools/%252e%252e",
     "/api/v1/tools/abc#fragment",
     "/api/keys",
+    "/api/v1/tool-calls/delete",
+    "/api/v1/tool-calls/../keys",
     "/api/v1/learning/skills/a/revoke",
   ]) {
     expect(parseInspectorReadRequest({ method: "GET", path })).toBeNull();
@@ -143,5 +146,11 @@ test("accepts Insight evidence reads while rejecting traversal and mutations", (
     ).toBeNull();
   expect(
     parseInspectorReadRequest({ ...read, path: `${read.path}/delete` }),
+  ).toBeNull();
+});
+
+test("rejects tool-call collection mutations", () => {
+  expect(
+    parseInspectorReadRequest({ method: "POST", path: "/api/v1/tool-calls" }),
   ).toBeNull();
 });

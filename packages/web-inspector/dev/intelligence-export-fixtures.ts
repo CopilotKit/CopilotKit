@@ -514,56 +514,30 @@ function toolCallExportRows(
   job: FixtureJob,
   query: Readonly<Record<string, string>>,
 ): Record<string, unknown>[] {
-  const tools = intelligenceContentFixture({
-    method: "GET",
-    path: "/api/v1/tools",
-    query,
-  });
-  if (
-    !isRecord(tools) ||
-    !Array.isArray(tools.data) ||
-    !tools.data.every(isRecord)
-  )
-    throw new Error("Invalid tools fixture");
-  const names = query.toolName
-    ? [query.toolName]
-    : tools.data.map((row) => {
-        if (typeof row.toolName !== "string")
-          throw new Error("Invalid tool name");
-        return row.toolName;
-      });
   const rows: Record<string, unknown>[] = [];
-  for (const name of names) {
-    let cursor: string | undefined;
-    do {
-      const detail = intelligenceContentFixture({
-        method: "GET",
-        path: `/api/v1/tools/${encodeURIComponent(name)}`,
-        query: { ...query, limit: "100", ...(cursor ? { cursor } : {}) },
-      });
-      if (
-        !isRecord(detail) ||
-        !isRecord(detail.recentCalls) ||
-        !Array.isArray(detail.recentCalls.data) ||
-        !detail.recentCalls.data.every(isRecord)
-      )
-        throw new Error("Invalid tool calls fixture");
-      rows.push(
-        ...detail.recentCalls.data.map((row) =>
-          Object.fromEntries(
-            exportColumns(job).map((column) => [column, row[column]]),
-          ),
+  let cursor: string | undefined;
+  do {
+    const page = intelligenceContentFixture({
+      method: "GET",
+      path: "/api/v1/tool-calls",
+      query: { ...query, limit: "100", ...(cursor ? { cursor } : {}) },
+    });
+    if (
+      !isRecord(page) ||
+      !Array.isArray(page.data) ||
+      !page.data.every(isRecord)
+    )
+      throw new Error("Invalid tool calls fixture");
+    rows.push(
+      ...page.data.map((row) =>
+        Object.fromEntries(
+          exportColumns(job).map((column) => [column, row[column]]),
         ),
-      );
-      cursor =
-        typeof detail.recentCalls.nextCursor === "string"
-          ? detail.recentCalls.nextCursor
-          : undefined;
-    } while (cursor !== undefined);
-  }
-  return rows.sort((left, right) =>
-    String(right.time).localeCompare(String(left.time)),
-  );
+      ),
+    );
+    cursor = typeof page.nextCursor === "string" ? page.nextCursor : undefined;
+  } while (cursor);
+  return rows;
 }
 
 /** Validates the fixture series at the same unknown boundary as the host reads. */
