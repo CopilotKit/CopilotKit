@@ -119,6 +119,7 @@ function exportJob(job: FixtureJob, completed: boolean) {
 
 /** Reuses list fixtures so export scope and screen scope match. */
 function exportRows(job: FixtureJob): Record<string, unknown>[] {
+  if (job.kind === "run_actions") return runActionRows(job);
   if (job.kind === "skill_lineage") return lineageRows(job);
   if (job.kind === "model_usage") return modelUsageRows(job);
   if (
@@ -212,6 +213,8 @@ function exportRows(job: FixtureJob): Record<string, unknown>[] {
 
 /** Stable columns match each fixture export, including empty files. */
 function exportColumns(job: FixtureJob): string[] {
+  if (job.kind === "run_actions")
+    return ["section", "runId", "occurredAt", "record"];
   if (job.kind === "skill_lineage")
     return ["section", "skillId", "version", "record"];
   if (job.kind === "model_usage")
@@ -345,7 +348,10 @@ function exportValue(
   row: Record<string, unknown>,
   column: string,
 ): unknown {
-  if (job.kind === "skill_lineage" && column === "record")
+  if (
+    (job.kind === "skill_lineage" || job.kind === "run_actions") &&
+    column === "record"
+  )
     return JSON.stringify(row.record);
   if (job.kind !== "skills") return row[column];
   const paths: Record<string, readonly string[]> = {
@@ -366,6 +372,44 @@ function exportValue(
   return typeof value === "object" && value !== null
     ? JSON.stringify(value)
     : value;
+}
+
+/** Uses the same whole-run action records as the local accountability view. */
+function runActionRows(job: FixtureJob): Record<string, unknown>[] {
+  const run = intelligenceFixture({
+    method: "GET",
+    path: `/api/v1/governance/runs/${encodeURIComponent(String(job.filters.runId))}`,
+    query: { asOf: String(job.filters.asOf) },
+  }).body;
+  if (
+    !isRecord(run) ||
+    (job.filters.agentId && run.agentId !== job.filters.agentId)
+  )
+    throw new Error("Missing scoped run fixture");
+  const rows: Record<string, unknown>[] = [];
+  for (const [section, key] of [
+    ["access_decision", "accessDecisions"],
+    ["tool_call", "toolCalls"],
+    ["approval", "approvals"],
+    ["skill_load", "skillLoads"],
+  ] as const) {
+    const records = run[key];
+    if (!Array.isArray(records) || !records.every(isRecord))
+      throw new Error("Invalid action fixtures");
+    for (const record of records)
+      rows.push({
+        section,
+        runId: run.runId,
+        occurredAt:
+          section === "tool_call" ? record.startedAt : record.occurredAt,
+        record,
+      });
+  }
+  return rows.sort((left, right) =>
+    String(left.occurredAt ?? "z").localeCompare(
+      String(right.occurredAt ?? "z"),
+    ),
+  );
 }
 
 /** Keeps lineage downloads aligned with the selected Skill, agent, period, and version. */
