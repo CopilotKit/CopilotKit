@@ -50,14 +50,26 @@ export class CopilotInspector {
   private ownsElement = false;
   private destroyed = false;
 
-  readonly shouldRenderInspector = shouldEnableInspector({
-    enableInspector: this.config?.enableInspector,
-    isBrowser: isPlatformBrowser(this.platformId),
-    isDevelopment: this.isDevelopment,
-  });
+  private readonly developmentInspector =
+    shouldEnableInspector({
+      enableInspector: this.config?.enableInspector,
+      isBrowser: isPlatformBrowser(this.platformId),
+      isDevelopment: this.isDevelopment,
+    }) &&
+    ["localhost", "127.0.0.1", "[::1]"].includes(
+      this.document.location?.hostname ?? "",
+    );
+
+  private readonly intelligenceOnly = !this.developmentInspector;
+
+  readonly shouldRenderInspector =
+    isPlatformBrowser(this.platformId) &&
+    (this.developmentInspector ||
+      (this.config?.enableInspector !== false &&
+        Boolean(this.config?.intelligenceInspector?.appUrl)));
 
   /** Whether Inspector-backed message actions should be shown. */
-  readonly isInspectorEnabled = this.shouldRenderInspector;
+  readonly isInspectorEnabled = this.developmentInspector;
 
   constructor() {
     this.destroyRef.onDestroy(() => {
@@ -67,14 +79,18 @@ export class CopilotInspector {
     });
 
     if (this.shouldRenderInspector) {
-      afterNextRender(() => void this.mount());
+      afterNextRender(() => this.mount());
     }
   }
 
+  /** Open a message in the development Inspector only. */
   openInspector(request: AngularInspectorOpenRequest): void {
-    this.element?.openInspector?.("message_toolbar", request);
+    if (this.isInspectorEnabled) {
+      this.element?.openInspector?.("message_toolbar", request);
+    }
   }
 
+  /** Set Inspector policy before attaching Core or connecting the element. */
   private async mount(): Promise<void> {
     try {
       const mod = await import("@copilotkit/web-inspector");
@@ -90,6 +106,9 @@ export class CopilotInspector {
           mod.WEB_INSPECTOR_TAG,
         ) as WebInspectorElement);
 
+      element.intelligenceOnly = this.intelligenceOnly;
+      element.intelligenceAppUrl =
+        this.config?.intelligenceInspector?.appUrl ?? "";
       mod.configureWebInspectorElement(
         element,
         this.injector.get(CopilotKit).core,

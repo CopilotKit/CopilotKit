@@ -70,11 +70,15 @@ export interface CopilotKitProviderProps {
    */
   showDevConsole?: boolean | "auto";
   /**
-   * Disable the CopilotKit Inspector in development.
-   * The Inspector is enabled by default in development browser builds and is
-   * always disabled in production and during server rendering.
+   * Set false to disable all Inspector modes. The development Inspector is
+   * enabled by default in local development browser builds.
    */
   enableInspector?: boolean;
+  /**
+   * Opt in to the permission-gated Intelligence Inspector outside local
+   * development. Does not enable developer tools or run agents. Browser only.
+   */
+  intelligenceInspector?: { appUrl: string };
   onError?: (event: {
     error: Error;
     code: CopilotKitCoreErrorCode;

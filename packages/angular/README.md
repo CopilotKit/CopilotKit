@@ -396,6 +396,28 @@ Inputs:
 
 Tool arguments are parsed with `partialJSONParse`, so incomplete JSON during streaming still renders.
 
+## Inspector
+
+Local development keeps the existing Inspector and its developer tools. To
+show the permission-gated Intelligence views in a production browser app, set
+`intelligenceInspector` on the same provider:
+
+```ts
+provideCopilotKit({
+  runtimeUrl: "/api/copilotkit",
+  intelligenceInspector: {
+    appUrl: "https://your-intelligence-host/inspector.html",
+  },
+});
+```
+
+The runtime must authorize Inspector access. This setting alone grants no
+permissions. Production mode shows only the granted Intelligence views; it
+does not expose developer tools, message shortcuts, or agent execution. The
+iframe loads those views from the Intelligence app, keeping their charts and
+tables out of the Angular bundle. `enableInspector: false` disables both modes.
+Neither mode mounts during server rendering.
+
 ## Runtime notes
 
 - Set `runtimeUrl` to your CopilotKit runtime endpoint.

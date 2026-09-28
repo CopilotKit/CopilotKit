@@ -118,23 +118,39 @@ const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
 });
 
 const shouldRenderInspector = ref(false);
+const intelligenceOnly = ref(true);
 
+/** Resolve browser Inspector mode without changing the server-rendered tree. */
 function updateInspectorVisibility(): void {
-  shouldRenderInspector.value = shouldEnableInspector({
-    enableInspector: props.enableInspector,
-    isBrowser: true,
-    isDevelopment: process.env.NODE_ENV === "development",
-  });
+  const development =
+    shouldEnableInspector({
+      enableInspector: props.enableInspector,
+      isBrowser: typeof window !== "undefined",
+      isDevelopment: process.env.NODE_ENV === "development",
+    }) &&
+    ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname);
+  intelligenceOnly.value = !development;
+  shouldRenderInspector.value =
+    typeof window !== "undefined" &&
+    (development ||
+      (props.enableInspector !== false &&
+        Boolean(props.intelligenceInspector?.appUrl)));
 }
 
 onMounted(updateInspectorVisibility);
-watch(() => props.enableInspector, updateInspectorVisibility);
+watch(
+  () => [props.enableInspector, props.intelligenceInspector?.appUrl],
+  updateInspectorVisibility,
+);
 
 const inspectorOpenRequest = ref<VueInspectorOpenRequest | null>(null);
-const isInspectorEnabled = computed(() => shouldRenderInspector.value);
+const isInspectorEnabled = computed(
+  () => shouldRenderInspector.value && !intelligenceOnly.value,
+);
 
+/** Open message details only in the development Inspector. */
 function openInspector(request: VueInspectorOpenRequest) {
-  inspectorOpenRequest.value = { ...request };
+  if (isInspectorEnabled.value) inspectorOpenRequest.value = { ...request };
 }
 
 provide(InspectorKey, {
@@ -793,6 +809,8 @@ const showExpiringBanner = computed(
   <CopilotKitInspector
     v-if="shouldRenderInspector"
     :core="copilotkit"
+    :intelligence-only="intelligenceOnly"
+    :intelligence-app-url="props.intelligenceInspector?.appUrl"
     :open-request="inspectorOpenRequest"
   />
   <!-- License warnings — driven by server-reported status -->

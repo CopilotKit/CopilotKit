@@ -12,6 +12,8 @@ import type { VueInspectorOpenRequest } from "../providers/keys";
 
 const props = defineProps<{
   core?: CopilotKitCoreVue | null;
+  intelligenceOnly?: boolean;
+  intelligenceAppUrl?: string;
   openRequest?: VueInspectorOpenRequest | null;
 }>();
 
@@ -29,16 +31,18 @@ let configureInspector:
 
 const vConfigureInspector: ObjectDirective<WebInspectorElement, undefined> = {
   created(element) {
+    element.intelligenceOnly = props.intelligenceOnly ?? false;
+    element.intelligenceAppUrl = props.intelligenceAppUrl ?? "";
     configureInspector?.(element, props.core ?? null);
     inspector.value = element;
-    if (props.openRequest) {
+    if (props.openRequest && !props.intelligenceOnly) {
       element.openInspector?.("message_toolbar", props.openRequest);
     }
   },
 };
 
 onMounted(() => {
-  void import("@copilotkit/web-inspector")
+  return import("@copilotkit/web-inspector")
     .then((mod) => {
       if (!isMounted) return;
 
@@ -71,7 +75,8 @@ watch(
 watch(
   () => props.openRequest,
   (request) => {
-    if (request) inspector.value?.openInspector?.("message_toolbar", request);
+    if (request && !props.intelligenceOnly)
+      inspector.value?.openInspector?.("message_toolbar", request);
   },
 );
 </script>
@@ -79,6 +84,7 @@ watch(
 <template>
   <component
     :is="inspectorTag"
+    :key="JSON.stringify([props.intelligenceOnly, props.intelligenceAppUrl])"
     v-if="inspectorTag"
     v-bind="attrs"
     v-configure-inspector

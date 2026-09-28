@@ -49,10 +49,29 @@ import { CopilotKitProvider } from "@copilotkit/vue";
 
 ### Inspector
 
-The provider mounts the Inspector automatically in development. It is never
-loaded in production or during server rendering. Disable it when needed with
-`<CopilotKitProvider :enable-inspector="false">`. The deprecated
-`showDevConsole` prop does not control Inspector visibility.
+The provider keeps the existing Inspector and its developer tools in local
+development. To show permission-gated CopilotKit Intelligence views in a
+production browser app, use the same provider:
+
+```vue
+<CopilotKitProvider
+  runtime-url="/api/copilotkit"
+  :intelligence-inspector="{
+    appUrl: 'https://your-intelligence-host/inspector.html',
+  }"
+>
+  <slot />
+</CopilotKitProvider>
+```
+
+The runtime must authorize Inspector access. This setting alone grants no
+permissions. Production mode shows only the granted Intelligence views and
+does not expose developer tools or agent execution. The iframe loads those
+views from the Intelligence app, keeping charts and tables out of the Vue
+bundle. Neither mode mounts during server rendering.
+
+`<CopilotKitProvider :enable-inspector="false">` disables both modes. The
+deprecated `showDevConsole` prop does not control Inspector visibility.
 
 ## Provider Parity: `selfManagedAgents`, `onError`, and `a2ui`
 
