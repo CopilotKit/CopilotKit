@@ -25,11 +25,12 @@ export function attachIntelligenceRelay(
     throw new Error("Invalid Intelligence origin");
   const pending = new Map<string, AbortController>();
   let disposed = false;
-  const reply = (id: string, status: number, body: unknown) =>
-    frame.contentWindow?.postMessage(
-      { type: "cpki:response", version: 1, id, status, body },
-      origin,
-    );
+  const reply = (id: string, status: number, body: unknown) => {
+    const message = { type: "cpki:response", version: 1, id, status, body };
+    if (isRecord(body) && body.content instanceof ArrayBuffer)
+      frame.contentWindow?.postMessage(message, origin, [body.content]);
+    else frame.contentWindow?.postMessage(message, origin);
+  };
   const serve = async (id: string, request: IntelligenceReadRequest) => {
     const controller = new AbortController();
     pending.set(id, controller);

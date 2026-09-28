@@ -148,3 +148,14 @@ identifiers already used by Inspector telemetry.
 The usage UI does not add usage impressions or values to telemetry. The trusted
 metadata footer action remains visible only on Threads. The existing metadata
 action impression and click events keep their coarse allowlist.
+
+### Embedded exports
+
+Export controls create a server-side job, poll its status, and download through
+the same authenticated runtime connection. Every operation resolves the current
+user and grant. A revoked grant blocks an existing export. CSV metadata can be
+saved with the separate Metadata JSON control; JSON files include it.
+
+The runtime streams only JSON or CSV exports, capped at 50 MiB. The host transfers
+file bytes into the iframe without forwarding a platform credential, download URL,
+or upstream cookie. Ordinary screen reads keep their 5 MiB response cap.

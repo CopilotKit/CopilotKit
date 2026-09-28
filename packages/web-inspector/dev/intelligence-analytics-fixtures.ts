@@ -33,9 +33,10 @@ export function intelligenceAnalyticsFixture(
         : {}),
     }));
     return {
-      data: (query.order === "asc" ? [...rows].toReversed() : rows).filter(
-        (row) => !query.type || row.type === query.type,
-      ),
+      data: (query.order === "asc"
+        ? rows.reduce<typeof rows>((ordered, row) => [row, ...ordered], [])
+        : rows
+      ).filter((row) => !query.type || row.type === query.type),
       nextCursor: null,
     };
   }

@@ -20,10 +20,18 @@ export function parseInspectorReadRequest(
     ...(parsed.data.body === undefined ? {} : { body: parsed.data.body }),
   };
   if (request.method === "POST") {
-    return request.path === "/api/v1/metrics/query" ? request : null;
+    return ["/api/v1/metrics/query", "/api/v1/exports"].includes(request.path)
+      ? request
+      : null;
   }
   if (request.body !== undefined) return null;
   if (READ_PATHS.has(request.path)) return request;
+  if (
+    /^\/api\/v1\/exports\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(?:\/content)?$/iu.test(
+      request.path,
+    )
+  )
+    return request;
   const match =
     /^\/api\/v1\/(?:tools\/([^/]+)|conversations\/([^/]+)\/replay|governance\/runs\/([^/]+)|learning\/skills\/([^/]+)\/lineage)$/u.exec(
       request.path,

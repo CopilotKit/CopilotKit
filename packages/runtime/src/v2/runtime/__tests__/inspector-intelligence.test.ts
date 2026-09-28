@@ -222,3 +222,106 @@ test("bounds platform response bodies before sending data to the iframe", async 
     cleanup();
   }
 });
+
+test("creates exports and downloads CSV through fresh server grants without forwarding upstream cookies", async () => {
+  const policy = vi
+    .fn<IntelligenceAccessCallback>()
+    .mockResolvedValue({
+      permissions: { "analytics.numbers": { agents: "*" } },
+    });
+  const world = setup(policy);
+  try {
+    world.fetch.mockResolvedValueOnce(
+      Response.json(
+        { id: "10000000-0000-4000-8000-000000000001", status: "queued" },
+        { status: 202 },
+      ),
+    );
+    const created = await world.call({
+      method: "POST",
+      path: "/api/v1/exports",
+      body: {
+        kind: "runs",
+        format: "csv",
+        from: "2026-09-20T00:00:00.000Z",
+        to: "2026-09-27T00:00:00.000Z",
+      },
+    });
+    expect(created.status).toBe(200);
+    world.fetch.mockResolvedValueOnce(
+      new Response("runId,tokens\r\nrun-1,20\r\n", {
+        headers: {
+          "Content-Type": "text/csv; charset=utf-8",
+          "X-Export-Metadata": '{"rowCount":1}',
+          "Set-Cookie": "private=never-forward",
+        },
+      }),
+    );
+    const download = await world.call({
+      method: "GET",
+      path: "/api/v1/exports/10000000-0000-4000-8000-000000000001/content",
+    });
+    expect(download.status).toBe(200);
+    expect(download.headers.get("content-type")).toContain("text/csv");
+    expect(download.headers.get("x-export-metadata")).toBe('{"rowCount":1}');
+    expect(download.headers.get("set-cookie")).toBeNull();
+    expect(await download.text()).toBe("runId,tokens\r\nrun-1,20\r\n");
+    expect(policy).toHaveBeenCalledTimes(2);
+    world.fetch.mockResolvedValueOnce(
+      Response.json({ error: "private revoked grant" }, { status: 403 }),
+    );
+    const denied = await world.call({
+      method: "GET",
+      path: "/api/v1/exports/10000000-0000-4000-8000-000000000001/content",
+    });
+    expect(denied.status).toBe(403);
+    expect(await denied.text()).not.toContain("private revoked grant");
+  } finally {
+    world.cleanup();
+  }
+});
+
+test("preserves binary exports through both runtime endpoint modes", async () => {
+  const world = setup(async () => ({
+    permissions: { "analytics.numbers": { agents: "*" } },
+  }));
+  try {
+    for (const mode of ["multi-route", "single-route"] as const) {
+      world.fetch.mockImplementation(async (input) =>
+        String(input).endsWith("/content")
+          ? new Response("name,tokens\r\n東京,12\r\n", {
+              headers: { "Content-Type": "text/csv" },
+            })
+          : Response.json({}),
+      );
+      const handler = createCopilotRuntimeHandler({
+        runtime: world.runtime,
+        mode,
+        basePath: "/api/copilotkit",
+      });
+      const read = {
+        method: "GET",
+        path: "/api/v1/exports/10000000-0000-4000-8000-000000000001/content",
+      };
+      const response = await handler(
+        new Request(
+          `https://customer.example/api/copilotkit${mode === "multi-route" ? "/inspector-intelligence" : ""}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(
+              mode === "multi-route"
+                ? read
+                : { method: "inspector/intelligence", body: read },
+            ),
+          },
+        ),
+      );
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type"), mode).toBe("text/csv");
+      expect(await response.text()).toBe("name,tokens\r\n東京,12\r\n");
+    }
+  } finally {
+    world.cleanup();
+  }
+});

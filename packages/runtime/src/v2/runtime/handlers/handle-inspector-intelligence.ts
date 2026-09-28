@@ -66,6 +66,7 @@ export async function handleInspectorIntelligence({
       { userId: user.id, grant },
       request.signal,
     );
+    if (result instanceof Response) return result;
     return Response.json(result, { headers });
   } catch (cause) {
     if (cause instanceof PlatformRequestError) {

@@ -104,3 +104,55 @@ test("disconnecting cancels pending reads and suppresses late responses", async 
     view.cleanup();
   }
 });
+
+test("transfers export bytes to the exact iframe without a second structured-clone copy", async () => {
+  const frame = document.createElement("iframe");
+  document.body.append(frame);
+  const child = frame.contentWindow;
+  if (!child) throw new Error("Missing frame");
+  const post = vi
+    .spyOn(child, "postMessage")
+    .mockImplementation(() => undefined);
+  const content = new ArrayBuffer(8);
+  const dispose = attachIntelligenceRelay({
+    target: window,
+    frame,
+    origin: "https://intelligence.example",
+    request: async () => ({
+      status: 200,
+      body: { content, contentType: "text/csv", metadata: null },
+    }),
+    onAccessLost: vi.fn(),
+  });
+  try {
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        source: child,
+        origin: "https://intelligence.example",
+        data: {
+          type: "cpki:request",
+          version: 1,
+          id: "download",
+          request: {
+            method: "GET",
+            path: "/api/v1/exports/10000000-0000-4000-8000-000000000001/content",
+          },
+        },
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(post).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "download",
+          body: { content, contentType: "text/csv", metadata: null },
+        }),
+        "https://intelligence.example",
+        [content],
+      ),
+    );
+  } finally {
+    dispose();
+    post.mockRestore();
+    frame.remove();
+  }
+});

@@ -14,6 +14,7 @@ import { z } from "zod";
 import type { GetLearningContainerId } from "../core/learning";
 import { parseInspectorReadRequest } from "../handlers/shared/inspector-read-request";
 import type { InspectorReadRequest } from "../handlers/shared/inspector-read-request";
+import { inspectorDownloadResponse } from "../handlers/shared/inspector-download";
 import { readInspectorJson } from "../handlers/shared/bounded-inspector-json";
 
 import {
@@ -1278,6 +1279,11 @@ export class CopilotKitIntelligence {
         response.status === 429 || response.status >= 500,
       );
     }
+    if (
+      request.path.startsWith("/api/v1/exports/") &&
+      request.path.endsWith("/content")
+    )
+      return inspectorDownloadResponse(response);
     return readInspectorJson(response.body, 5_242_880);
   }
 

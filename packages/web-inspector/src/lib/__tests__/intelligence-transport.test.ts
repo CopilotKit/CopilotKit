@@ -77,3 +77,36 @@ test("returns an access denial without leaking the upstream error body", async (
 
   expect(result).toEqual({ status: 403, body: null });
 });
+
+test("carries export bytes and metadata through the host without parsing a CSV file as JSON", async () => {
+  const fetch = vi
+    .fn<typeof globalThis.fetch>()
+    .mockResolvedValue(
+      new Response("name,tokens\r\n東京,12\r\n", {
+        headers: {
+          "Content-Type": "text/csv; charset=utf-8",
+          "X-Export-Metadata": '{"rowCount":1}',
+        },
+      }),
+    );
+  const result = await fetchInspectorIntelligence(
+    {
+      runtimeUrl: "https://app.example/api/copilot",
+      runtimeTransport: "rest",
+      fetch,
+    },
+    {
+      method: "GET",
+      path: "/api/v1/exports/10000000-0000-4000-8000-000000000001/content",
+    },
+    new AbortController().signal,
+  );
+  expect(result).toEqual({
+    status: 200,
+    body: {
+      content: new TextEncoder().encode("name,tokens\r\n東京,12\r\n").buffer,
+      contentType: "text/csv; charset=utf-8",
+      metadata: { rowCount: 1 },
+    },
+  });
+});

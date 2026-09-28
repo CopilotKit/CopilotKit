@@ -129,9 +129,9 @@ compatibility window. New code should use `memory.access`.
 
 `access` decides which Intelligence data one authenticated web request may
 read. The grant names permissions for analytics, learning insights and skills,
-governance records, and conversation text. Today the runtime sends it only
-with Inspector Learning requests (`surface: "inspector"`); other routes do
-not call `access` yet. It requires `identifyUser` and runs at most once per
+governance records, and conversation text. The runtime sends it with Inspector
+Learning and embedded Intelligence requests (`surface: "inspector"`), including
+export jobs and downloads. Other routes do not call `access` yet. It requires `identifyUser` and runs at most once per
 request and surface.
 
 ```ts
@@ -234,3 +234,14 @@ See [Skill delivery](https://docs.copilotkit.ai/intelligence/learned-skills) for
 Explicit `containers` accepts 1–50 unique container IDs and sends one batch request for all sources that need a refresh. This also applies to a list with one entry.
 The server must support `POST /api/v1/learning/skills/batch` before you use this configuration. The SDK does not fall back to separate requests.
 Legacy `containerId` configuration keeps its existing single-container request. Both interfaces use the same authentication configuration.
+
+### Embedded Inspector export transport
+
+The Inspector Intelligence endpoint allows export-job creation, status reads, and
+content downloads alongside its bounded product reads. It resolves `identifyUser`
+and `access` for each operation and lets Intelligence enforce the export kind's
+permission and agent scope. It does not allow other product writes.
+
+Download responses stream JSON or CSV with a 50 MiB byte cap. Only the content type,
+export metadata, and no-store headers cross the proxy; upstream cookies do not.
+Both multi-route and single-route runtime transports support the same flow.

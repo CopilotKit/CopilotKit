@@ -1,5 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
+import { intelligenceExportFixture } from "./intelligence-export-fixtures.js";
+import type { IntelligenceReadRequest } from "../src/lib/intelligence-relay.js";
 import { intelligenceFixture } from "./intelligence-state-lab.js";
 
 /** Reads a small local fixture request and rejects malformed envelopes. */
@@ -39,12 +41,24 @@ async function respond(
     for (const [key, value] of Object.entries(input.query))
       if (typeof value === "string") query[key] = value;
   }
-  const result = intelligenceFixture({
+  const read: IntelligenceReadRequest = {
     method: input.method === "GET" ? "GET" : "POST",
     path: input.path,
     query,
     ...("body" in input ? { body: input.body } : {}),
-  });
+  };
+  const exported = intelligenceExportFixture(read);
+  if (exported?.contentType) {
+    response
+      .writeHead(exported.status, {
+        "Content-Type": exported.contentType,
+        "Cache-Control": "no-store",
+        "X-Export-Metadata": JSON.stringify(exported.metadata),
+      })
+      .end(String(exported.body));
+    return;
+  }
+  const result = exported ?? intelligenceFixture(read);
   response
     .writeHead(result.status, {
       "Content-Type": "application/json",
