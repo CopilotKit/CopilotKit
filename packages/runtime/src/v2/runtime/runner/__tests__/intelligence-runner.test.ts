@@ -2628,4 +2628,76 @@ describe("IntelligenceAgentRunner event timestamps", () => {
     expect(typeof payloads[1]!.timestamp).toBe("number");
     expect(payloads[1]!.timestamp).not.toBe(agentTimestamp);
   });
+
+  it("reads an agent timestamp in epoch seconds as milliseconds", async () => {
+    // LlamaIndex's AG-UI server stamps int(datetime.now().timestamp()).
+    const threadId = "t-ts-seconds";
+    const agent = new MockAgent([
+      {
+        type: EventType.RUN_STARTED,
+        threadId,
+        runId: "r-ts-seconds",
+        timestamp: 1_700_000_000,
+      } as BaseEvent,
+      {
+        type: EventType.RUN_FINISHED,
+        threadId,
+        runId: "r-ts-seconds",
+        timestamp: 1_700_000_001.5,
+      } as BaseEvent,
+    ]);
+
+    const done = collectEvents(
+      runner.run({
+        threadId,
+        agent,
+        input: createRunInput({ threadId, runId: "r-ts-seconds" }),
+      }),
+    );
+    mockChannels[0]!.triggerJoin("ok");
+    await done;
+
+    expect(
+      mockChannels[0]!.pushLog.map((push) => push.payload.timestamp),
+    ).toEqual([1_700_000_000_000, 1_700_000_001_500]);
+  });
+
+  it.each([
+    ["a monotonic clock reading", 12_345.6],
+    ["microseconds", 1_700_000_000_123_456],
+    ["a far-future value", 9e15],
+  ])("replaces %s with the runner's receive time", async (_label, value) => {
+    const threadId = `t-ts-${value}`;
+    const agent = new MockAgent([
+      {
+        type: EventType.RUN_STARTED,
+        threadId,
+        runId: "r-ts-bad",
+        timestamp: value,
+      } as BaseEvent,
+      {
+        type: EventType.RUN_FINISHED,
+        threadId,
+        runId: "r-ts-bad",
+      } as BaseEvent,
+    ]);
+    const before = Date.now();
+
+    const done = collectEvents(
+      runner.run({
+        threadId,
+        agent,
+        input: createRunInput({ threadId, runId: "r-ts-bad" }),
+      }),
+    );
+    mockChannels[0]!.triggerJoin("ok");
+    await done;
+    const after = Date.now();
+
+    const [first] = mockChannels[0]!.pushLog.map(
+      (push) => push.payload.timestamp as number,
+    );
+    expect(first).toBeGreaterThanOrEqual(before);
+    expect(first).toBeLessThanOrEqual(after);
+  });
 });

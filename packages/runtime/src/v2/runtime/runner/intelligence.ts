@@ -33,9 +33,26 @@ export interface IntelligenceAgentRunnerOptions {
   maxRejoinMs?: number;
 }
 
-/** AG-UI `BaseEvent.timestamp` is a millisecond epoch number. */
-function isValidEventTimestamp(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value) && value > 0;
+/** Epoch milliseconds from 1973 to 5138: any real wall-clock reading. */
+const MIN_EPOCH_MS = 1e11;
+const MAX_EPOCH_MS = 1e14;
+/** Epoch seconds from 2001 up to where milliseconds begin. */
+const MIN_EPOCH_SECONDS = 1e9;
+
+/**
+ * AG-UI `BaseEvent.timestamp` is a millisecond epoch number, but some agent
+ * servers stamp epoch seconds (LlamaIndex's AG-UI server uses
+ * `int(datetime.now().timestamp())`). Returns the timestamp in epoch
+ * milliseconds, or `undefined` when it cannot be a wall-clock reading (a
+ * monotonic clock, microseconds, garbage) so the runner stamps its own.
+ */
+function normalizeEventTimestamp(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+  if (value >= MIN_EPOCH_MS && value < MAX_EPOCH_MS) return value;
+  if (value >= MIN_EPOCH_SECONDS && value < MIN_EPOCH_MS) {
+    return Math.round(value * 1000);
+  }
+  return undefined;
 }
 
 export interface RunnerStartupBoundary {
@@ -590,8 +607,11 @@ export class IntelligenceAgentRunner extends AgentRunner {
       );
       // Record when the runner received the event, so downstream durations
       // reflect the run rather than the batch acceptance time. An agent's
-      // own timestamp wins.
-      if (!isValidEventTimestamp(canonicalEvent.timestamp)) {
+      // own plausible timestamp wins, normalized to milliseconds.
+      const agentTimestamp = normalizeEventTimestamp(canonicalEvent.timestamp);
+      if (agentTimestamp !== undefined) {
+        canonicalEvent.timestamp = agentTimestamp;
+      } else {
         lastRunnerTimestamp = Math.max(lastRunnerTimestamp, Date.now());
         canonicalEvent.timestamp = lastRunnerTimestamp;
       }
