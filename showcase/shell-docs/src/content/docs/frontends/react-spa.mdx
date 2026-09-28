@@ -183,7 +183,7 @@ Use this prompt to connect your React single-page app to a separately hosted Cop
         npx tsx --env-file=.env server.ts
         ```
 
-        A standalone Node process does not load `.env` automatically. The flag loads it before runtime imports run, including `CPK_INTELLIGENCE_API_KEY` when you connect [Intelligence](/intelligence/connect-your-runtime). If the CLI wrote `.env` in a parent directory, point `--env-file` at that file instead. Keep server credentials out of `VITE_*` variables, which are exposed to the browser.
+        A standalone Node process does not load `.env` automatically. The flag loads it before runtime imports run, including `CPK_INTELLIGENCE_API_KEY` when you connect [Intelligence](/intelligence/quickstart). If the CLI wrote `.env` in a parent directory, point `--env-file` at that file instead. Keep server credentials out of `VITE_*` variables, which are exposed to the browser.
 
         The `--env-file` flag preserves variables already set in the shell.
         If the project's `.env` should override those values for local

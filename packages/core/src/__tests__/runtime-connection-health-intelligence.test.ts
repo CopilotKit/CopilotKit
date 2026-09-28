@@ -90,12 +90,15 @@ describe("runtime connection health — Intelligence mode (OSS-904)", () => {
   let joinCalls: number;
   /** Every address the instrumented fetch was pointed at. */
   let requestedUrls: string[];
+  /** False when the runtime serves no REST `/info`, so "auto" must negotiate. */
+  let restInfoAvailable: boolean;
 
   beforeEach(() => {
     (globalThis as { window?: unknown }).window = {};
     infoCalls = 0;
     joinCalls = 0;
     requestedUrls = [];
+    restInfoAvailable = true;
     infoHandler = async () => jsonResponse(INTELLIGENCE_INFO);
     joinHandler = async (body) =>
       jsonResponse(
@@ -106,13 +109,22 @@ describe("runtime connection health — Intelligence mode (OSS-904)", () => {
     fetchMock = vi.fn(async (url: unknown, init?: RequestInit) => {
       const target = String(url);
       requestedUrls.push(target);
-      // Single-endpoint transport asks for `/info` as a POST envelope against
-      // the runtime root instead of a GET on `/info`.
+      // Single-endpoint transport routes both info and join envelopes through
+      // the runtime root. Count the method, not just the shared URL.
       if (target === RUNTIME_URL) {
-        infoCalls += 1;
-        return infoHandler();
+        const envelope = JSON.parse(String(init?.body));
+        if (envelope.method === "info") {
+          infoCalls += 1;
+          return infoHandler();
+        }
+        if (envelope.method === "agent/run") {
+          joinCalls += 1;
+          return joinHandler(envelope.body);
+        }
+        throw new Error(`Unexpected runtime method: ${envelope.method}`);
       }
       if (target === INFO_URL) {
+        if (!restInfoAvailable) return new Response(null, { status: 404 });
         infoCalls += 1;
         return infoHandler();
       }
@@ -139,7 +151,7 @@ describe("runtime connection health — Intelligence mode (OSS-904)", () => {
 
   /** A core connected to a healthy Intelligence runtime — page load. */
   async function bootConnectedCore(
-    runtimeTransport: "rest" | "single" = "rest",
+    runtimeTransport: "rest" | "single" | "auto" = "rest",
   ): Promise<CopilotKitCoreInstance> {
     const core = new CopilotKitCore({
       runtimeUrl: RUNTIME_URL,
@@ -378,7 +390,26 @@ describe("runtime connection health — Intelligence mode (OSS-904)", () => {
 
     await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
     expect(infoCalls).toBe(2);
+    expect(joinCalls).toBe(1);
     // The conversation survives the transition here too.
     expect(core.getAgent("default")).toBe(agent);
+  });
+
+  it("carries an auto-negotiated single transport into the Intelligence join", async () => {
+    // "auto" is the product default, and the Intelligence delegate treats
+    // anything other than "single" as REST. So a join that still addressed
+    // `/agent/default/run` after auto negotiated single-route would put
+    // Intelligence back where PE-49 found it: threads and `/info` fine, every
+    // run and reopen not found. Pinning the transport by hand cannot catch it.
+    restInfoAvailable = false;
+    const core = await bootConnectedCore("auto");
+    const agent = core.getAgent("default") as AbstractAgent;
+
+    takeRuntimeDown();
+    await core.runAgent({ agent }).catch(() => undefined);
+    await waitForCondition(() => joinCalls === 1);
+
+    // `joinCalls` counts a join at either address; only the REST one is named.
+    expect(requestedUrls).not.toContain(JOIN_RUN_URL);
   });
 });

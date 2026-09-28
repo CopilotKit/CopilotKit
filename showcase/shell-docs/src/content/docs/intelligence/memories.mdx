@@ -1,5 +1,5 @@
 ---
-title: "Memories & Recall"
+title: "User Memories"
 description: "Give your agents long-term memory across conversations."
 icon: "lucide/Brain"
 doc_type: explanation
@@ -7,13 +7,21 @@ doc_type: explanation
 
 import { MemorySetupPrompt } from "@/components/memory-setup-prompt";
 
-Threads remember a conversation. Memories remember a person. This page explains
+## Overview
+
+Rich Threads remember a conversation. User Memory remembers a person. This page explains
 what a memory is, how recall selects them, and what has to be true of your
 deployment before the memory surfaces exist at all.
 
 If you are looking for the persistence architecture beneath a single
 conversation, read [Threads & Persistence Architecture](/intelligence/threads-explained)
 instead.
+
+## Start with your coding agent
+
+Copy this prompt into your coding agent to inspect your existing CopilotKit app and configure long-term memory for your users. Prefer to work through the setup yourself? Follow the manual steps below.
+
+<MemorySetupPrompt />
 
 ## What is a memory?
 
@@ -28,6 +36,30 @@ recalled into a conversation that has not happened yet.
 Memories are stored as text plus a vector embedding, so recall is semantic
 rather than a keyword match. Asking for "how does this user like updates" can
 surface "prefers concise status updates" without sharing a word with it.
+
+## Set up User Memories
+
+When you are done, your app will be able to save a memory for a signed-in user and recall it in a later conversation.
+
+<Steps>
+  <Step>
+    ### Connect CopilotKit Intelligence
+
+    Complete the [Intelligence quickstart](/intelligence/quickstart#set-it-up-manually). That page signs you in with the CLI, selects the project, and configures server-side user identity. Your existing app and agent stay in place.
+  </Step>
+
+  <Step>
+    ### Confirm memory access
+
+    Check your deployment's memory entitlement and embedding configuration using [Activating memory](#activating-memory) below. Cloud-hosted deployments require no embedder configuration on your side. Self-hosted deployments need both a memory-enabled license and a configured embedder.
+  </Step>
+
+  <Step>
+    ### Save and recall a memory
+
+    Choose the appropriate [reading and writing interface](#reading-and-writing-memories) for your app. Save a memory for the signed-in user, then recall it with a related query in a new conversation. Confirm the saved memory is returned.
+  </Step>
+</Steps>
 
 ## Key concepts
 
@@ -85,36 +117,6 @@ any `sourceThreadIds` you want to keep.
 Removing a memory retires it rather than erasing it. Retired memories are
 excluded from recall and from the default list, and can be surfaced again by
 asking for invalidated rows explicitly.
-
-## Start with your coding agent
-
-Copy this prompt into your coding agent to inspect your existing CopilotKit app and configure long-term memory for your users. Prefer to work through the setup yourself? Follow the manual steps below.
-
-<MemorySetupPrompt />
-
-## Set up Memory manually
-
-When you are done, your app will be able to save a memory for a signed-in user and recall it in a later conversation.
-
-<Steps>
-  <Step>
-    ### Connect CopilotKit Intelligence
-
-    Complete the [Intelligence quickstart](/intelligence/quickstart#set-it-up-manually) to connect your existing app and configure server-side user identity.
-  </Step>
-
-  <Step>
-    ### Confirm memory access
-
-    Check your deployment's memory entitlement and embedding configuration using [Activating memory](#activating-memory) below. Managed deployments require no embedder configuration on your side; self-hosted deployments need both a memory-enabled license and a configured embedder.
-  </Step>
-
-  <Step>
-    ### Save and recall a memory
-
-    Choose the appropriate [reading and writing interface](#reading-and-writing-memories) for your app. Save a memory for the signed-in user, then recall it with a related query in a new conversation. Confirm the saved memory is returned.
-  </Step>
-</Steps>
 
 ## Activating memory
 
@@ -182,9 +184,9 @@ so recall quality degrades until they are re-embedded. Treat a model change as a
 migration, not a config tweak.
 </Callout>
 
-### Managed
+### Cloud-hosted
 
-On the managed platform, memory is resolved per organization from that
+On cloud-hosted Intelligence, memory is resolved per organization from that
 organization's effective entitlement, combining its plan features with any
 enterprise override. Nothing needs configuring on your side.
 

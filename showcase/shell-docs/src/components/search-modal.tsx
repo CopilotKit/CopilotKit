@@ -404,6 +404,28 @@ function compareResults(
   return a.href.localeCompare(b.href);
 }
 
+let registryLoad: Promise<Registry> | undefined;
+
+/**
+ * The registry behind the framework picker, fetched once per page and
+ * shared by every later open of the modal. A failed fetch is forgotten so
+ * the next open retries it rather than replaying the failure.
+ *
+ * Exported so tests can await the one real load up front: under vitest every
+ * bare `import()` of this JSON is a fresh round trip to the main process,
+ * which stalls for seconds when the whole suite runs in parallel.
+ */
+export function loadRegistry(): Promise<Registry> {
+  registryLoad ??= import("@/data/registry.json").then(
+    (mod) => mod.default as Registry,
+    (err: unknown) => {
+      registryLoad = undefined;
+      throw err;
+    },
+  );
+  return registryLoad;
+}
+
 export function SearchModal({ onClose }: { onClose: () => void }) {
   const { effectiveFramework, knownFrameworks, setStoredFramework } =
     useFramework();
@@ -439,9 +461,9 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
     const frameId = window.requestAnimationFrame(focusInput);
     const focusId = window.setTimeout(focusInput, 80);
     let cancelled = false;
-    import("@/data/registry.json")
-      .then((mod) => {
-        if (!cancelled) setRegistryData(mod.default as Registry);
+    loadRegistry()
+      .then((registry) => {
+        if (!cancelled) setRegistryData(registry);
       })
       .catch((err) => {
         if (!cancelled) {

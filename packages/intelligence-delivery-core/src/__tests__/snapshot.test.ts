@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { zipSync } from "fflate";
 import fixtures from "../../conformance/snapshots.v1.json";
-import { validateSnapshot } from "../snapshot.js";
+import { validateSnapshot } from "../index.js";
 
 export function fixtureResponse(name = "text-skill") {
   const fixture = fixtures.cases.find((item) => item.name === name)!;

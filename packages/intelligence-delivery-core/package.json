@@ -2,7 +2,7 @@
   "name": "@copilotkit/intelligence-delivery-core",
   "version": "0.0.0",
   "private": true,
-  "description": "Internal shared learned skill delivery implementation bundled into framework adapters",
+  "description": "Internal compatibility facade for Runtime learned skill delivery",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
@@ -19,13 +19,11 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@copilotkit/runtime": "workspace:*",
-    "yauzl": "2.10.0"
+    "@copilotkit/runtime": "workspace:*"
   },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
-    "@types/yauzl": "2.10.3",
     "tsdown": "^0.20.3",
     "typescript": "5.8.2",
     "fflate": "0.8.2",

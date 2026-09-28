@@ -1,7 +1,7 @@
 import { defineComponent, ref, watch } from "vue";
 import type { PropType } from "vue";
 import { screen, fireEvent, waitFor, cleanup } from "@testing-library/vue";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { AssistantMessage, Message } from "@ag-ui/core";
 import { ToolCallStatus } from "@copilotkit/core";
@@ -1100,6 +1100,7 @@ describe("HITL Run Abort", () => {
 describe("HITL Thread Reconnection Bug", () => {
   it("should show executing status when reconnecting to thread with pending HITL", async () => {
     const agent = new MockReconnectableAgent();
+    const handlerStarted = vi.fn();
 
     const HITLRenderer = defineComponent({
       props: {
@@ -1116,7 +1117,7 @@ describe("HITL Thread Reconnection Bug", () => {
         <div data-testid="hitl-tool">
           <div data-testid="hitl-status">{{ status }}</div>
           <div data-testid="hitl-action">{{ args.action ?? "no-action" }}</div>
-          <button v-if="respond" data-testid="hitl-respond">Respond</button>
+          <button v-if="respond" data-testid="hitl-respond" @click="respond('approved')">Respond</button>
         </div>
       `,
     });
@@ -1130,6 +1131,19 @@ describe("HITL Thread Reconnection Bug", () => {
           render: HITLRenderer,
         };
         useHumanInTheLoop(hitlTool);
+        const { copilotkit } = useCopilotKit();
+        const registered = copilotkit.value.getTool({
+          toolName: "approvalTool",
+        });
+        if (!registered?.handler) {
+          throw new Error("HITL handler was not registered");
+        }
+        const originalHandler = registered.handler;
+        registered.handler = (...args) => {
+          const pending = originalHandler(...args);
+          handlerStarted();
+          return pending;
+        };
         return {};
       },
       template: `<div />`,
@@ -1196,11 +1210,23 @@ describe("HITL Thread Reconnection Bug", () => {
       expect(screen.getByTestId("hitl-action").textContent).toBe("delete");
     });
 
-    // Core-level coverage asserts that passive replay does not re-invoke local
-    // frontend handlers for replayed assistant tool calls.
     await waitFor(() => {
-      expect(screen.getByTestId("hitl-status").textContent).toMatch(
-        /^(executing|inProgress)$/,
+      expect(screen.getByTestId("hitl-status").textContent).toBe(
+        ToolCallStatus.Executing,
+      );
+    });
+    // Vue can paint Executing during the awaited execution-start notification,
+    // before core invokes the handler. Wait for the remounted hook to install
+    // its response resolver before dispatching a synchronous test click.
+    await waitFor(() => expect(handlerStarted).toHaveBeenCalledTimes(2));
+    await fireEvent.click(screen.getByTestId("hitl-respond"));
+    await waitFor(() => {
+      expect(agent.messages).toContainEqual(
+        expect.objectContaining({
+          role: "tool",
+          toolCallId,
+          content: "approved",
+        }),
       );
     });
   });

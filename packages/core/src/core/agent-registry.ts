@@ -295,6 +295,7 @@ export class AgentRegistry {
     this.localAgents = this.assignAgentIds(agents);
     this.applyHeadersToAgents(this.localAgents);
     this.applyCredentialsToAgents(this.localAgents);
+    this.applyMessageFilterToAgents(this.localAgents);
     this.applyRuntimeFetchToAgents(this.localAgents);
     this._agents = this.localAgents;
   }
@@ -448,6 +449,7 @@ export class AgentRegistry {
     this._agents = { ...this.localAgents, ...this.remoteAgents };
     this.applyHeadersToAgents(this._agents);
     this.applyCredentialsToAgents(this._agents);
+    this.applyMessageFilterToAgents(this._agents);
     this.applyRuntimeFetchToAgents(this._agents);
     void this.notifyAgentsChanged();
   }
@@ -518,6 +520,7 @@ export class AgentRegistry {
         : RUNTIME_MODE_SSE,
       intelligence: this._intelligence,
       debug: debug ? resolveDebugConfig(debug) : undefined,
+      messageFilter: friends.messageFilter,
     });
     this.applyHeadersToAgent(agent);
     this.applyRuntimeFetchToAgent(agent);
@@ -612,6 +615,60 @@ export class AgentRegistry {
   applyCredentialsToAgents(agents: Record<string, AbstractAgent>): void {
     Object.values(agents).forEach((agent) => {
       this.applyCredentialsToAgent(agent);
+    });
+  }
+
+  /**
+   * Carry the mode a fresh `/info` reported onto a proxy this re-sync kept.
+   *
+   * `canReuseRuntimeAgent` deliberately ignores the mode: a preserved proxy is
+   * backing an open conversation, and replacing the instance to change one
+   * field would drop it. The mode is therefore pushed onto the survivor here,
+   * the same way headers and credentials are. Without it the mode was fixed at
+   * construction, so a runtime that flipped `intelligence` → `sse` under an
+   * open page left every later run on the delegate path. See #7130.
+   */
+  applyRuntimeModeToAgent(
+    agent: AbstractAgent,
+    runtimeInfo: RuntimeInfo,
+  ): void {
+    if (agent instanceof ProxiedCopilotRuntimeAgent) {
+      agent.adoptRuntimeMode(
+        runtimeInfo.mode ?? RUNTIME_MODE_SSE,
+        runtimeInfo.intelligence,
+      );
+    }
+  }
+
+  /**
+   * Apply the core's message filter to an agent.
+   *
+   * The test is the class, not which bucket the agent is registered in: every
+   * `ProxiedCopilotRuntimeAgent` gets the core filter, whether it came from
+   * `/info` or from `registerProxiedAgent` (which files its proxy under
+   * `localAgents`). Agents of any other class are left untouched — an
+   * `AbstractAgent` the app built has no such hook, and its owner already has
+   * the AG-UI middleware seam.
+   *
+   * This is the sole writer of `agent.messageFilter` in normal operation. The
+   * public setter exists for the registry and for tests; a value written
+   * directly onto an agent is replaced the next time the registry sweeps, the
+   * same way per-agent credentials are.
+   */
+  applyMessageFilterToAgent(agent: AbstractAgent): void {
+    if (agent instanceof ProxiedCopilotRuntimeAgent) {
+      agent.messageFilter = (
+        this.core as unknown as CopilotKitCoreFriendsAccess
+      ).messageFilter;
+    }
+  }
+
+  /**
+   * Apply the core's message filter to all agents
+   */
+  applyMessageFilterToAgents(agents: Record<string, AbstractAgent>): void {
+    Object.values(agents).forEach((agent) => {
+      this.applyMessageFilterToAgent(agent);
     });
   }
 
@@ -1337,7 +1394,9 @@ export class AgentRegistry {
             ) {
               this.applyHeadersToAgent(existing);
               this.applyCredentialsToAgent(existing);
+              this.applyMessageFilterToAgent(existing);
               this.applyRuntimeFetchToAgent(existing);
+              this.applyRuntimeModeToAgent(existing, runtimeInfoResponse);
               return [id, existing];
             }
             const agent = new ProxiedCopilotRuntimeAgent({
@@ -1350,6 +1409,9 @@ export class AgentRegistry {
               intelligence: runtimeInfoResponse.intelligence,
               capabilities,
               debug: rawDebug ? resolveDebugConfig(rawDebug) : undefined,
+              messageFilter: (
+                this.core as unknown as CopilotKitCoreFriendsAccess
+              ).messageFilter,
             });
             this.applyHeadersToAgent(agent);
             this.applyRuntimeFetchToAgent(agent);

@@ -213,11 +213,6 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
           <span>{props.value}</span>
           {arrow && <span className="text-base">{arrow}</span>}
         </div>
-        {props.trendValue && (
-          <div className="text-sm text-[var(--muted-foreground)]">
-            {props.trendValue}
-          </div>
-        )}
       </div>
     );
   },
@@ -395,7 +390,7 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
             <ResponsiveContainer width="100%" height={260}>
               <RechartsBarChart
                 data={safeData}
-                margin={{ top: 12, right: 12, bottom: 4, left: 0 }}
+                margin={{ top: 12, right: 12, bottom: 4, left: -8 }}
               >
                 <CartesianGrid
                   strokeDasharray="3 3"
@@ -404,23 +399,12 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
                 />
                 <XAxis
                   dataKey="label"
-                  tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
-                  interval={0}
-                  angle={-45}
-                  textAnchor="end"
-                  height={90}
+                  tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
                   stroke="var(--border)"
                   tickLine={false}
                   axisLine={false}
                 />
                 <YAxis
-                  width={64}
-                  tickFormatter={(value: number) =>
-                    new Intl.NumberFormat("en-US", {
-                      notation: "compact",
-                      maximumFractionDigits: 2,
-                    }).format(value)
-                  }
                   tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
                   stroke="var(--border)"
                   tickLine={false}

@@ -1,4 +1,3 @@
-import { selectedObservationFingerprint } from "../../writers/selected-observation.js";
 /**
  * Control-plane RESULT AGGREGATOR (BLITZ S5).
  *
@@ -9,31 +8,28 @@ import { selectedObservationFingerprint } from "../../writers/selected-observati
  * It deliberately writes through the EXISTING storage path — it does NOT invent
  * a new row shape:
  *
- *   - Unfiltered jobs project aggregate and per-cell status rows through the
- *     status-writer. Selected jobs write only canonical selected cell keys,
- *     excluding the aggregate and legacy skip observations. D5 cell keys use
- *     `d5:<slug>/<featureId>`; D6 uses `d6:<slug>/<featureId>`.
- *   - Selected observations use `writeSelected`: the writer commits status,
- *     history and a job receipt atomically and replays an existing receipt.
- *     Unfiltered jobs retain the ordinary write/overlay paths. The writer
- *     owns transition detection, flap counting and history in both cases.
- *   - Run history remains keyed by the trimmed aggregate key. Selected runs
- *     summarize accepted selected observations and carry a fingerprint used
- *     to distinguish completed replay from a terminal run requiring repair.
+ *   - the per-cell + aggregate `ProbeResult`s go through the unchanged
+ *     `status-writer` (`createStatusWriter`), so the dashboard's status rows
+ *     keep their exact keys: the aggregate `d6:<slug>` primary row and one
+ *     `d6:<slug>/<featureId>` side row per cell. (The worker emits `d6:<slug>`
+ *     as the primary key on BOTH the success and comm-error legs — the same key
+ *     the dashboard reads back — so the overlay always lands where the
+ *     dashboard looks.) The status-writer owns the state machine (transition
+ *     detection, flap counting, history) — we do not reimplement any of it.
+ *   - the pass/fail rollup goes through the unchanged `run-history`
+ *     (`ProbeRunWriter`) as a `ProbeRunSummary`, keyed by `probeId =
+ *     aggregateKey` (same `probeId` the in-process d6 driver uses today via
+ *     `probe-invoker`), so the dashboard's run-history widget is unchanged.
  *
  * ── REQ-B: COMM-ERROR OVERLAY ──────────────────────────────────────────
  * When a job carries a `PoolCommError` (the control-plane or worker self-
  * monitor could not REACH/TRUST the pool — distinct from a probe red), the
- * comm error is surfaced on planned rows: aggregate and cells for unfiltered
- * jobs, selected cells only for scoped jobs. The persisted
+ * comm error is surfaced onto the PRIMARY row's signal. The persisted
  * `status` schema is unchanged (the comm error rides in the signal blob under
  * `FLEET_COMM_ERROR_SIGNAL_KEY`); the dashboard reads it back via
  * `commErrorFromStatusSignal` and renders "couldn't reach the pool"
  * distinctly, and the row's durable colour is never stomped by the error.
  *
- * The routes below describe ordinary unfiltered writes. Selected jobs pass
- * equivalent observation/overlay intent to the atomic `writeSelected` path;
- * they do not call `write` and `writeOverlay` separately.
  * HOW the comm error reaches the signal depends on the H1 route (B5 — this
  * asymmetry is DELIBERATE, not drift):
  *   - TRUSTED-NEGATIVE rows (a red/degraded primary or cell) write durably
@@ -60,9 +56,8 @@ import { selectedObservationFingerprint } from "../../writers/selected-observati
  * `ProbeRunWriter`
  * (`createProbeRunWriter(pb)`), and a clock, then calls `aggregate(result)`
  * for each `ServiceJobResult` the queue-client surfaces. This module owns NO
- * direct PocketBase access inside `aggregate`: it uses the injected writers
- * and optional authoritative scope resolver. `createJobFeatureScopeResolver`
- * supplies the persisted-job lookup used by that resolver.
+ * PocketBase access of its own — it is pure orchestration over the two
+ * injected writers, which keeps it trivially unit-testable with fakes.
  */
 
 import type {
@@ -73,7 +68,6 @@ import type {
   WriteOutcome,
 } from "../../types/index.js";
 import { asKnownState } from "../../types/index.js";
-import type { PbClient } from "../../storage/pb-client.js";
 import type { ProbeRunWriter } from "../../probes/run-history.js";
 import type {
   OverlayWriteOutcome,
@@ -105,9 +99,7 @@ export interface AggregateOutcome {
    *   - the PRIOR run's terminal row id on the dedup-skip path
    *     ({@link AggregateOutcome.skipped} `true`) — nothing was written this
    *     call, the id identifies the already-aggregated run.
-   * `null` when no run row was obtained: an unfiltered lookup/start failure
-   * or a blank aggregate key can leave run-history unavailable. Selected
-   * lookup/start failures reject instead of returning an outcome.
+   * `null` only when `runWriter.start` failed (no row exists for this job).
    */
   runRowId: string | null;
   /**
@@ -122,16 +114,15 @@ export interface AggregateOutcome {
    */
   statusOutcomes: WriteOutcome[];
   /**
-   * The overlay outcomes returned by `writeOverlay` or selected atomic
-   * `writeSelected`, in write order (H1).
+   * The overlay outcomes returned by `writeOverlay`, in write order (H1).
    * Non-empty only when a row (the primary, or any non-trusted-negative
    * cell — B2) took the overlay-first route under a comm error.
    */
   overlayOutcomes: OverlayWriteOutcome[];
   /**
    * True when this call was a dedup NO-OP: a terminal `probe_runs` row already
-   * existed for this `jobId`. For selected jobs its stored fingerprint must
-   * also match the current planned result. We wrote NOTHING — no status
+   * existed for this `jobId` (the result was already fully aggregated on a
+   * prior tick whose latch write later failed), so we wrote NOTHING — no status
    * row, no history, no duplicate run row, no `status.changed`. Lets the
    * consumer/tests assert idempotency.
    */
@@ -152,10 +143,7 @@ export interface AggregateOutcome {
   outageSkippedKeys?: string[];
   /**
    * [B3 round 7, widened G2r8/G2r9] True when the result carried a
-   * `commError` but a projection defect prevented the aggregate surface from
-   * being planned. Scoped jobs deliberately omit that surface without setting
-   * this flag; selected diagnostic rows can still preserve the error. For
-   * unfiltered jobs the comm error did NOT reach the AGGREGATE row the
+   * `commError` but the comm error did NOT reach the AGGREGATE row the
    * dashboard reads (`result.aggregateKey`). Per-case nuances:
    *   - the projection produced NO rows (B3r7): a TOTAL drop — the comm
    *     error reached neither a status row nor `status_history`;
@@ -195,30 +183,26 @@ export interface AggregateOutcome {
 
 export interface ResultAggregator {
   /**
-   * Persist a worker result through the status-writer and run-history.
-   * Unfiltered jobs plan the primary aggregate and per-cell rows; selected
-   * jobs plan only selected cells and diagnostics, never the aggregate row.
-   * Applied overlays appear in `overlayOutcomes`; observation and history-only
-   * outcomes appear in `statusOutcomes`.
+   * Persist one worker-reported `ServiceJobResult` to the dashboard storage:
+   * the aggregate primary row + per-cell side rows through the status-writer,
+   * and the rollup through run-history. When the result carries a
+   * `PoolCommError`, the comm-error overlay is merged onto the primary row
+   * signal (REQ-B). When the primary row takes the H1 overlay route, its
+   * outcome is reported in `AggregateOutcome.overlayOutcomes` (NOT
+   * `statusOutcomes`).
    *
-   * ERROR CONTRACT:
-   * - Scope lookup failures reject before writes.
-   * - Selected jobs require run lookup/start, atomic per-cell persistence,
-   *   terminal reopening when needed, and run finish. A thrown error rejects
-   *   so the consumer leaves the result unprocessed and retries. Successfully
-   *   committed cell receipts replay without repeating their database effects.
-   * - Unfiltered ordinary writes without a comm error log per-row failures
-   *   and continue. Unfiltered comm-error writes/overlays propagate a thrown
-   *   error and stop remaining writes. Run lookup/start/finish errors are
-   *   logged and swallowed for unfiltered jobs; failed lookup skips minting a
-   *   new run row. A resolved aggregation does not guarantee every row landed.
-   *
-   * REPLAY CONTRACT: an unfiltered terminal run skips immediately; a running
-   * run is reused, but ordinary status writes can repeat after partial failure.
-   * A selected terminal run skips only when its fingerprint matches the current
-   * plan; otherwise it reopens and replays cell receipts before required finish.
-   * The run-row lookup assumes single-flight consumption; receipt idempotency
-   * does not make concurrent run-row creation unique.
+   * ERROR CONTRACT: this REJECTS on the FIRST status write that throws —
+   * remaining writes are not attempted and `runWriter.finish` is skipped (the
+   * run row is left `running` until the boot-time stale-run sweep closes it).
+   * Callers MUST guard: the consumer catches, leaves the job unlatched, and
+   * retries next cycle (at-least-once; the per-jobId dedup makes the replay
+   * safe — PROVIDED `runWriter.start` stamped a run row with this jobId.
+   * start is BEST-EFFORT, so when it fails there is no row for the dedup
+   * gate to find: a start-failure + latch-failure combination re-aggregates
+   * the result in FULL — double fail_count bump, duplicate status_history
+   * row, duplicate `status.changed` emit, duplicate probe_runs row).
+   * Run-history start/finish failures, by contrast, are swallowed
+   * internally (observability must not tank aggregation).
    */
   aggregate(result: ServiceJobResult): Promise<AggregateOutcome>;
   /**
@@ -305,8 +289,7 @@ export interface CommErrorAggregateOutcome {
    */
   statusOutcomes: WriteOutcome[];
   /**
-   * The overlay outcomes returned by `writeOverlay` or selected atomic
-   * `writeSelected`, in write order (H1).
+   * The overlay outcomes returned by `writeOverlay`, in write order (H1).
    * One entry per key (F1d: the overlay is attempted first for every key);
    * an entry with `applied: false` means that key fell back to the no-data
    * write reported in `statusOutcomes`.
@@ -341,58 +324,20 @@ export type AggregatorPriorStateResolver = (
   aggregateKey: string,
 ) => Promise<State | null | undefined> | State | null | undefined;
 
-export function createJobFeatureScopeResolver(pb: Pick<PbClient, "getOne">) {
-  return async (jobId: string): Promise<readonly string[] | undefined> => {
-    const row = await pb.getOne<{ id: string; payload: unknown }>(
-      "probe_jobs",
-      jobId,
-    );
-    if (
-      !row ||
-      row.id !== jobId ||
-      row.payload === null ||
-      typeof row.payload !== "object" ||
-      Array.isArray(row.payload)
-    ) {
-      throw new Error(`fleet.aggregator: unknown scope for job ${jobId}`);
-    }
-    const payload = row.payload as Record<string, unknown>;
-    if (
-      typeof payload.driverKind !== "string" ||
-      !payload.driverKind ||
-      (payload.cellIds !== undefined &&
-        (!Array.isArray(payload.cellIds) ||
-          payload.cellIds.some((id) => typeof id !== "string")))
-    ) {
-      throw new Error(`fleet.aggregator: invalid scope for job ${jobId}`);
-    }
-    if (
-      payload.driverKind !== "e2e_d6" ||
-      !Array.isArray(payload.cellIds) ||
-      payload.cellIds.length === 0
-    )
-      return undefined;
-    return payload.cellIds;
-  };
-}
-
 export interface ResultAggregatorDeps {
-  /** Authoritative persisted job filter. Lookup failures reject before writes. */
-  resolveFeatureScope?: (
-    jobId: string,
-  ) => Promise<readonly string[] | undefined>;
   statusWriter: StatusWriter;
   runWriter: ProbeRunWriter;
   logger: Logger;
   /** Monotonic-ish clock (epoch ms) for run-history timing. */
   now: () => number;
   /**
-   * @deprecated — accepted and ignored since F1d. Ordinary comm-error routes
-   * use per-key writer outcomes; selected routes use atomic observation
-   * preparation and receipts. Neither consults this caller-side hint. Trusted
-   * negative observations write their reported colour; other comm-error rows
-   * request an overlay with history-only fallback when no status row exists.
-   * Kept for caller compatibility; do not wire it in new call sites.
+   * @deprecated — accepted and ignored since F1d; routing is per-key via
+   * `writeOverlay.applied`. EVERY comm-error leg (the worker-self-report leg
+   * in `aggregate` and both `aggregateCommError` legs) attempts `writeOverlay`
+   * FIRST and treats its per-key `applied` result as the source of truth, so
+   * a caller-side prior-state read can neither change the route nor fabricate
+   * a colour. Kept on the deps shape so existing wiring keeps compiling; do
+   * not wire it in new call sites.
    */
   resolvePriorState?: AggregatorPriorStateResolver;
 }
@@ -422,29 +367,13 @@ function withCommErrorOverlay(
   return overlay;
 }
 
-/** Older drivers emitted green rows for these non-executed classifications. */
-function isLegacySkipSignal(signal: unknown): boolean {
-  if (signal === null || typeof signal !== "object" || Array.isArray(signal))
-    return false;
-  if ("errorClass" in signal && signal.errorClass === "skipped-incapable")
-    return true;
-  return (
-    "note" in signal &&
-    typeof signal.note === "string" &&
-    (signal.note === "filtered-by-trigger" ||
-      signal.note.startsWith("skipped: deploy in progress ("))
-  );
-}
-
 export function createResultAggregator(
   deps: ResultAggregatorDeps,
 ): ResultAggregator {
   const { statusWriter, runWriter, logger, now } = deps;
 
   /**
-   * Classify the worker-self-report comm-error PRIMARY row (REQ-B + H1).
-   * Selected jobs omit this primary from their write plan; their cell routes
-   * use the same trust predicate through the atomic writer.
+   * Route the worker-self-report comm-error PRIMARY row (REQ-B + H1).
    *
    * The distrust rule here is NOT primary-specific: a `commError` means the
    * WHOLE result is untrusted, so the write loop applies the SAME rule to
@@ -503,43 +432,55 @@ export function createResultAggregator(
 
   return {
     async aggregate(result) {
-      const featureScope = await deps.resolveFeatureScope?.(result.jobId);
-      const cellKeyBase = result.aggregateKey
-        .trim()
-        .replace(/^d5-single-pill-e2e:/, "d5:");
-      const selectedKeys = featureScope
-        ? new Set(featureScope.map((id) => `${cellKeyBase}/${id}`))
-        : undefined;
-      if (selectedKeys) {
-        const cells = result.cells.filter(
-          (cell) =>
-            selectedKeys.has(cell.cellKey.trim()) &&
-            !isLegacySkipSignal(cell.signal),
-        );
-        result = { ...result, cells };
-      }
       // ── IDEMPOTENCY GATE ────────────────────────────────────────────────
-      // The consumer aggregates before latching result_processed, so a failed
-      // latch or crash can deliver the same result again.
-      // Unfiltered: skip a terminal run; reuse a running run. Ordinary writes
-      // can repeat after a partial attempt, including counters/history/events.
-      // A lookup failure logs and skips run creation but still allows writes;
-      // a start failure also leaves no run row. Neither case guarantees later
-      // reconciliation because a resolved aggregation can be latched.
-      // Selected: lookup/start failures reject. Reuse the prior row, including
-      // a terminal row, then compare its certificate with the planned-result
-      // fingerprint below. A match skips; otherwise reopen before writes.
-      // Atomic per-cell receipts prevent repeated database effects on replay.
-      // The run lookup/create gate still assumes single-flight consumption:
-      // concurrent calls may both find no run and create separate run rows.
-      let selectedFingerprint: string | undefined;
-      let selectedCertificate: string | undefined;
-      let reopenSelectedRun = false;
+      // The consumer aggregates-then-latches `result_processed`. If that latch
+      // write fails (or the process crashes before it), the SAME job's result
+      // is re-handed to us next tick. Re-applying it is NOT free: status-writer
+      // would bump fail_count again (inflating "red for N"), append a spurious
+      // status_history row, and re-emit `status.changed`; run-history would
+      // mint a DUPLICATE probe_runs row. So before doing anything, check for an
+      // existing run row stamped with this jobId:
+      //   - TERMINAL row  → this result was already fully aggregated on a prior
+      //     tick (only the latch failed). SKIP entirely — a true no-op.
+      //   - RUNNING row   → a prior attempt crashed mid-aggregate. RESUME on the
+      //     SAME row (reuse its id) so we don't mint a duplicate. The status
+      //     writes on this resume are AT-LEAST-ONCE, not exactly-once: a
+      //     prior attempt that completed SOME of its status writes before
+      //     crashing has those rows RE-written here (re-bumping fail_count,
+      //     re-appending status_history, re-emitting status.changed for
+      //     them) — accepted as the cost of not minting a duplicate run row.
+      // findByJobId failing must not wedge aggregation, but it MUST NOT be
+      // treated as "no prior row" either: under a transient PB read error we
+      // genuinely don't know whether a prior run row already exists, and
+      // optimistically minting a new one would duplicate the probe_runs row on
+      // a retry tick. So we distinguish:
+      //   - throw          → UNCERTAIN. Skip the `runWriter.start` mint
+      //                      altogether (resumeRunRowId stays null, dedupLookupFailed
+      //                      latches true) so we don't fabricate a duplicate row.
+      //                      Status writes still happen — they're idempotent via
+      //                      the status-writer state machine. The run-history
+      //                      row will be reconciled on a subsequent successful
+      //                      tick once PB recovers.
+      //   - returned null  → genuinely no prior row → mint normally.
+      //   - returned row   → dedup-skip (terminal) / resume (non-terminal).
+      //
+      // HONESTY: this gate only reaches as far as runWriter.start (below,
+      // BEST-EFFORT) managed to stamp this jobId on a run row. When start
+      // FAILED there is no row to find, so a start-failure + latch-failure
+      // combination replays the result through the FULL write path: double
+      // fail_count bump, duplicate status_history row, duplicate
+      // status.changed emit, and a duplicate probe_runs row (the retried
+      // start). The start-failure log below flags the disarmed gate.
+      //
+      // CONCURRENCY (G2r9): the gate also assumes a SINGLE-FLIGHT consumer —
+      // two CONCURRENT aggregate() calls for the same jobId can both pass
+      // this lookup before either stamps a run row, and both replay the full
+      // write path (the same duplication the gate exists to prevent).
       let resumeRunRowId: string | null = null;
       let dedupLookupFailed = false;
       try {
         const prior = await runWriter.findByJobId(result.jobId);
-        if (prior && prior.terminal && !selectedKeys) {
+        if (prior && prior.terminal) {
           logger.debug("fleet.aggregator.dedup-skip", {
             probeKey: result.aggregateKey,
             jobId: result.jobId,
@@ -555,13 +496,8 @@ export function createResultAggregator(
             corruptStateSkippedKeys: [],
           };
         }
-        if (prior) {
-          resumeRunRowId = prior.id;
-          reopenSelectedRun = !!selectedKeys && prior.terminal;
-          selectedCertificate = prior.selectedObservationFingerprint;
-        }
+        if (prior) resumeRunRowId = prior.id;
       } catch (err) {
-        if (selectedKeys) throw err;
         const info = errorInfo(err);
         dedupLookupFailed = true;
         logger.warn("fleet.aggregator.dedup-lookup-failed", {
@@ -688,59 +624,12 @@ export function createResultAggregator(
         });
       }
 
-      // Fallback projections below carry diagnostics, not test observations.
-      const observationProjectionCount = probeResults.length;
-
-      // A communication failure can leave some or all selected cells missing.
-      // The scoped job identifies those keys even when partial cells survive.
-      // Route missing keys through the error-overlay/history-only path; do
-      // not add them to cells or rollup as if a test had executed.
-      if (
-        selectedKeys &&
-        result.commError &&
-        probeResults.length > 0 &&
-        !skipDriftedPrimary &&
-        result.aggregateKey.trim()
-      ) {
-        const returnedKeys = new Set(
-          result.cells.map((cell) => cell.cellKey.trim()),
-        );
-        for (const key of selectedKeys) {
-          if (returnedKeys.has(key)) continue;
-          probeResults.push({
-            key,
-            state: "error",
-            signal: {},
-            observedAt: result.commError.observedAt,
-          });
-        }
-      }
-
-      // A driver exception has no cell observations and no commError. The
-      // aggregate is excluded from scoped writes, so preserve its diagnostic
-      // on the selected keys through the existing error/history-only path.
-      // These are error ticks, not executed cells: keep cells and rollup intact.
-      if (
-        selectedKeys &&
-        !result.commError &&
-        result.aggregateState === "error" &&
-        result.cells.length === 0
-      ) {
-        for (const key of selectedKeys) {
-          probeResults.push({
-            key,
-            state: "error",
-            signal: result.aggregateSignal,
-            observedAt: result.finishedAt,
-          });
-        }
-      }
-
       // Open a run-history row up-front so its started_at brackets the writes
       // (mirrors probe-invoker), stamping the jobId so a re-process dedupes via
       // findByJobId above. When RESUMING a crashed-mid-aggregate run we reuse
-      // the existing row id instead of minting a second. Selected start
-      // failures reject; unfiltered failures are logged and leave no run row.
+      // the existing row id instead of minting a second. Best-effort —
+      // observability must never tank the aggregation; a failed start just
+      // means no run-history row.
       const startedAt = now();
       let runRowId: string | null = resumeRunRowId;
       // G2r8: a BLANK/WHITESPACE aggregateKey must not mint a probe_runs row
@@ -759,8 +648,8 @@ export function createResultAggregator(
       } else if (!runRowId && !dedupLookupFailed) {
         // Only mint a fresh run-history row when the dedup lookup CONFIRMED no
         // prior row. Under `dedupLookupFailed` we don't know, and minting would
-        // risk duplicating a row that already exists. Unfiltered writes still
-        // happen below; a later retry is not guaranteed if this call resolves.
+        // risk duplicating a row that already exists; status writes still
+        // happen below and a subsequent successful tick will reconcile.
         try {
           const created = await runWriter.start({
             // G2r8: trimmed — run-history is keyed by the canonical probeId
@@ -773,7 +662,6 @@ export function createResultAggregator(
           });
           runRowId = created.id;
         } catch (err) {
-          if (selectedKeys) throw err;
           const info = errorInfo(err);
           logger.error("fleet.aggregator.run-start-failed", {
             probeKey: result.aggregateKey,
@@ -786,13 +674,24 @@ export function createResultAggregator(
         }
       }
 
-      // Plan canonical rows before writing. Selected jobs exclude the primary,
-      // off-scope cells and non-executed legacy skips, then use writeSelected
-      // for required atomic observation/overlay persistence. Failures reject
-      // before finish; successful earlier receipts are safe to replay.
-      // Unfiltered comm-error rows use the ordinary overlay or negative-write
-      // routes and propagate failures. Only unfiltered ordinary writes without
-      // a comm error catch per-row exceptions and continue to run finish.
+      // Write every projected row through the unchanged status pipeline —
+      // except an overlay-first-routed row under a commError (H1 + B2): the
+      // overlay-routed primary AND every non-trusted-negative cell (green,
+      // "error" or unknown colours alike — the predicate is
+      // !trustedNegative) go through
+      // writeOverlay so the comm error lands WITHOUT a durable write of a
+      // colour we could not trust. Should the key have no live row
+      // (`applied: false` — never observed, or vanished), fall back to the
+      // history-only no-data ("error") write — F2.1: a missing key gets NO
+      // fabricated status row; the no-drop guarantee is HISTORY persistence
+      // (same fallback as aggregateCommError).
+      //
+      // Per-row try/catch on the durable write paths: a single bad row (e.g.
+      // transient PB error on one side row) must NOT abort the whole batch
+      // before `runWriter.finish` below, which would leave a `running`
+      // probe_runs row that only `sweepStaleRuns` could clean up. Log the
+      // failure on the established error path and keep iterating so the
+      // remaining rows + the run-history finish still land.
       const statusOutcomes: WriteOutcome[] = [];
       const overlayOutcomes: OverlayWriteOutcome[] = [];
       const outageSkippedKeys: string[] = [];
@@ -822,7 +721,6 @@ export function createResultAggregator(
         pr: ProbeResult;
         overlayFirst: boolean;
         isPrimary: boolean;
-        isObservation: boolean;
       }[] = [];
       const plannedIndex = new Map<string, number>();
       // G2r9: a drift-skipped PRIMARY never enters plannedIndex, so a
@@ -842,8 +740,6 @@ export function createResultAggregator(
           )
         : undefined;
       for (const [i, rawPr] of probeResults.entries()) {
-        if (selectedKeys && (i === 0 || !selectedKeys.has(rawPr.key.trim())))
-          continue;
         // G2r8: a drifted primary (identity check above) is refused outright
         // — its identity is unknown, so neither a durable write nor an
         // overlay may touch it (already error-logged + surfaced via
@@ -864,7 +760,8 @@ export function createResultAggregator(
         // statusWriter.write, persisting a DURABLE status row + history
         // under a phantom dimension ("unknown"). Skip it loudly (per-row
         // skip, same posture as the duplicate-key guard below — one
-        // malformed cell must not reject the whole result).
+        // malformed cell must not reject the whole result, which the
+        // documented rejects-on-first-throw error contract would do).
         if (!canonicalKey) {
           // G2r9: a blank-skipped PRIMARY drops the comm error even when
           // cells SURVIVE — the empty-plan guard below only fires on a fully
@@ -967,12 +864,7 @@ export function createResultAggregator(
               consequence:
                 "replacing the overlay-first first occurrence with the trusted-negative duplicate — under a commError a legitimate negative observation outranks positional order",
             });
-            planned[existing] = {
-              pr,
-              overlayFirst: false,
-              isPrimary: false,
-              isObservation: i > 0 && i < observationProjectionCount,
-            };
+            planned[existing] = { pr, overlayFirst: false, isPrimary: false };
             continue;
           }
           logger.warn("fleet.aggregator.duplicate-projected-key", {
@@ -985,43 +877,7 @@ export function createResultAggregator(
           continue;
         }
         plannedIndex.set(pr.key, planned.length);
-        planned.push({
-          pr,
-          overlayFirst,
-          isPrimary: i === 0,
-          isObservation: i > 0 && i < observationProjectionCount,
-        });
-      }
-      if (selectedKeys) {
-        // Count the same canonical observations selected by the write plan:
-        // rejected colours and duplicate occurrences are not separate tests.
-        // Synthetic fallback rows retain diagnostics without adding counts.
-        const observations = planned.filter(
-          ({ pr, isObservation }) =>
-            isObservation &&
-            (asKnownState(pr.state) !== undefined || pr.state === "error"),
-        );
-        const passed = observations.filter(
-          ({ pr }) => pr.state === "green",
-        ).length;
-        result = {
-          ...result,
-          aggregateState:
-            !result.commError && result.aggregateState !== "error"
-              ? observations.length > 0
-                ? passed === observations.length
-                  ? "green"
-                  : "red"
-                : result.cells.length > 0
-                  ? "error"
-                  : result.aggregateState
-              : result.aggregateState,
-          rollup: {
-            total: observations.length,
-            passed,
-            failed: observations.length - passed,
-          },
-        };
+        planned.push({ pr, overlayFirst, isPrimary: i === 0 });
       }
       // G2r8: the B3r7 empty-PROJECTION guard above cannot see a plan that
       // empties HERE — a non-empty projection whose rows are all
@@ -1041,63 +897,7 @@ export function createResultAggregator(
             "every projected row was skipped (blank/whitespace keys), so the comm error reaches neither a status row nor status_history — a permanent drop, surfaced to callers via droppedCommError on the outcome",
         });
       }
-      if (selectedKeys) {
-        selectedFingerprint = selectedObservationFingerprint({
-          result,
-          selectedKeys: [...selectedKeys].sort(),
-          planned,
-        });
-        if (reopenSelectedRun && selectedCertificate === selectedFingerprint) {
-          return {
-            runRowId,
-            statusOutcomes: [],
-            overlayOutcomes: [],
-            skipped: true,
-            outageSkippedKeys: [],
-            droppedCommError: false,
-            corruptStateSkippedKeys: [],
-          };
-        }
-      }
-      if (reopenSelectedRun && runRowId) {
-        await runWriter.update({
-          id: runRowId,
-          summary: runSummaryForServiceJobResult(result),
-          reopen: true,
-        });
-      }
-
       for (const { pr, overlayFirst } of planned) {
-        if (selectedKeys) {
-          if (!statusWriter.writeSelected) {
-            throw new Error(
-              "fleet.aggregator: selected observations require the atomic status writer",
-            );
-          }
-          const selected = await statusWriter.writeSelected({
-            jobId: result.jobId,
-            result: result.commError
-              ? {
-                  ...pr,
-                  ...(overlayFirst ? { state: "error" as const } : {}),
-                  signal: withCommErrorOverlay(pr.signal, result),
-                }
-              : pr,
-            ...(result.commError && overlayFirst
-              ? {
-                  overlay: {
-                    key: pr.key,
-                    signal: commErrorToStatusSignal(result.commError),
-                    observedAt: pr.observedAt,
-                  },
-                }
-              : {}),
-          });
-          if (selected.kind === "write") statusOutcomes.push(selected.value);
-          else overlayOutcomes.push(selected.value);
-          continue;
-        }
-
         if (result.commError) {
           if (overlayFirst) {
             const overlayOutcome = await statusWriter.writeOverlay({
@@ -1217,13 +1017,7 @@ export function createResultAggregator(
       let redsIntroduced = 0;
       let redsCleared = 0;
       for (const o of statusOutcomes) {
-        if (
-          !o ||
-          o.newState === "error" ||
-          o.transition === "error" ||
-          o.persisted === false
-        )
-          continue;
+        if (!o || o.newState === "error") continue;
         if (o.previousState === "green" && o.newState === "red") {
           redsIntroduced += 1;
         }
@@ -1247,14 +1041,9 @@ export function createResultAggregator(
               ...runSummaryForServiceJobResult(result),
               redsIntroduced,
               redsCleared,
-              ...(selectedFingerprint
-                ? { selectedObservationFingerprint: selectedFingerprint }
-                : {}),
             },
-            ...(selectedKeys ? { required: true } : {}),
           });
         } catch (err) {
-          if (selectedKeys) throw err;
           const info = errorInfo(err);
           logger.error("fleet.aggregator.run-finish-failed", {
             probeKey: result.aggregateKey,

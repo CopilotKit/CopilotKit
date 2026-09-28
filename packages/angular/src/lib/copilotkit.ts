@@ -5,6 +5,7 @@ import {
   CopilotKitCoreRuntimeConnectionStatus,
   CopilotRuntimeTransport,
   type CopilotKitCoreGetSuggestionsResult,
+  type CopilotKitMessageFilter,
   type IntelligenceRuntimeInfo,
   type RuntimeLicenseStatus,
   type SuggestionsConfig,
@@ -45,6 +46,7 @@ import { injectCopilotKitConfig } from "./config";
 import { HumanInTheLoop } from "./human-in-the-loop";
 import { ensureLicenseWatermark } from "./license-watermark";
 import { CopilotA2UIActivityRenderer } from "./components/a2ui/a2ui-activity-renderer";
+import { CopilotA2UIRenderToolCall } from "./components/a2ui/a2ui-render-tool-call";
 import { CopilotA2UIToolRenderer } from "./components/a2ui/a2ui-tool-renderer";
 import {
   AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
@@ -161,6 +163,7 @@ export class CopilotKit {
     runtimeUrl: this.#config.runtimeUrl,
     headers: this.#config.headers,
     credentials: this.#config.credentials,
+    messageFilter: this.#config.messageFilter,
     agents__unsafe_dev_only: {
       ...this.#config.agents,
       ...this.#config.selfManagedAgents,
@@ -259,6 +262,17 @@ export class CopilotKit {
     this.#config.humanInTheLoop?.forEach((humanInTheLoopTool) => {
       this.addHumanInTheLoop(humanInTheLoopTool);
     });
+
+    // The core constructor registers dev agents without announcing them, so
+    // its run tracking (per-run state, subagents) never subscribes to them.
+    // Publish them once, as the React provider does on mount.
+    const devAgents = {
+      ...this.#config.agents,
+      ...this.#config.selfManagedAgents,
+    };
+    if (Object.keys(devAgents).length > 0) {
+      this.core.setAgents__unsafe_dev_only(devAgents);
+    }
 
     this.core.subscribe({
       onAgentsChanged: () => {
@@ -406,8 +420,7 @@ export class CopilotKit {
       {
         name: RENDER_A2UI_TOOL_NAME,
         args: RenderA2UIArgsSchema,
-        component: CopilotA2UIToolRenderer,
-        passAgent: true,
+        component: CopilotA2UIRenderToolCall,
       },
       {
         name: AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
@@ -565,8 +578,13 @@ export class CopilotKit {
   ): FrontendTool {
     return {
       ...humanInTheLoopTool,
-      handler: (args, { toolCall }) => {
-        return this.#hitl.onResult(toolCall.id, humanInTheLoopTool.name);
+      type: "human-in-the-loop",
+      handler: (args, { toolCall, signal: abortSignal }) => {
+        return this.#hitl.onResult(
+          toolCall.id,
+          humanInTheLoopTool.name,
+          abortSignal,
+        );
       },
     };
   }
@@ -638,6 +656,7 @@ export class CopilotKit {
     runtimeTransport?: CopilotRuntimeTransport;
     headers?: Record<string, string>;
     credentials?: RequestCredentials;
+    messageFilter?: CopilotKitMessageFilter;
     properties?: Record<string, unknown>;
     agents?: Record<string, AbstractAgent>;
     selfManagedAgents?: Record<string, AbstractAgent>;
@@ -657,6 +676,11 @@ export class CopilotKit {
     if ("credentials" in options) {
       this.core.setCredentials(options.credentials);
       this.#credentials.set(options.credentials);
+    }
+    // `in`, not `!== undefined`: clearing the filter is a real instruction, and
+    // `undefined` is the value that expresses it.
+    if ("messageFilter" in options) {
+      this.core.setMessageFilter(options.messageFilter);
     }
     if (options.properties !== undefined) {
       this.core.setProperties(
