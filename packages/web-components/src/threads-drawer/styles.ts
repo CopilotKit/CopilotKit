@@ -297,7 +297,7 @@ export const drawerStyles = css`
   }
 
   /* Floating launcher cluster: a compact card holding the sidebar toggle + a
-     "New Conversation" icon button. Rendered by the element itself in the
+     "New Thread" icon button. Rendered by the element itself in the
      mobile-closed AND desktop-collapsed states so there is always a way to
      reopen/expand — and to start a new conversation — with no host wiring. */
   .launcher-cluster {

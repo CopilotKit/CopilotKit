@@ -38,7 +38,7 @@ export type CopilotPopupViewProps = CopilotChatViewProps & {
    * Adds a threads drawer to the popup. The header gets a thread-list launcher
    * (top-left) that slides the drawer in from the popup's left edge, over the
    * chat; Escape, the scrim, or picking a thread closes it, and picking a
-   * thread or "New Conversation" drives the chat. Pass `true` for the default
+   * thread or "New Thread" drives the chat. Pass `true` for the default
    * drawer or an object of `CopilotThreadsDrawer` props to configure it.
    * Defaults to off. Threads need CopilotKit Intelligence; without it the
    * drawer shows its upgrade prompt.

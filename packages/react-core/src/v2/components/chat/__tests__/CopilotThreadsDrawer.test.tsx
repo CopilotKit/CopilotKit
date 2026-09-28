@@ -235,7 +235,7 @@ test("sets the element's label when the label prop is provided", async () => {
 test("leaves the element's default label when the label prop is omitted", async () => {
   await renderDrawer();
 
-  expect(getElement().label).toBe("Conversations");
+  expect(getElement().label).toBe("Threads");
 });
 
 test("sets the element's licenseUrl when the licenseUrl prop is provided", async () => {

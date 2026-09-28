@@ -96,7 +96,7 @@ export interface CopilotThreadsDrawerProps {
    * Accessible + default-header label for the drawer region. Sets the custom
    * element's `aria-label` and the default header text (shown when no
    * `slot="header"` content is projected). Defaults to the element's built-in
-   * `"Conversations"` when omitted.
+   * `"Threads"` when omitted.
    */
   label?: string;
   /**
@@ -411,7 +411,7 @@ export function CopilotThreadsDrawer({
       startNewThreadConfig?.();
     }
     if (overlay) {
-      // The overlay closes itself on "New Conversation"; land in the composer.
+      // The overlay closes itself on "New Thread"; land in the composer.
       // Deferred a tick because the reset swaps the chat to its welcome screen,
       // which mounts a fresh input.
       setTimeout(() => findChatInput(elementRef.current)?.focus(), 0);
@@ -663,7 +663,7 @@ export function CopilotThreadsDrawer({
   }, [drawerOpen, mounted]);
 
   // Mirror the optional `label` onto the element (its accessible + default
-  // header text). Leave the element's built-in default ("Conversations") in place
+  // header text). Leave the element's built-in default ("Threads") in place
   // when the prop is omitted, rather than clobbering it with undefined.
   useEffect(() => {
     const el = elementRef.current;
