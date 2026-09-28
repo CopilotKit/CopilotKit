@@ -91,6 +91,11 @@ const mergeAssistants = (list: Message[]): Message[] => [
 
 const dropFirst = (list: Message[]): Message[] => list.slice(1);
 
+// Filters out a message named "math_expert", as a langgraph-supervisor
+// worker message would be (#1959).
+const hideNamed = (list: Message[]): Message[] =>
+  list.filter((m) => (m as { name?: string }).name !== "math_expert");
+
 // Drops a stand-in once a real message carries the same call.
 const dropStandIns = (list: Message[]): Message[] =>
   list.filter(
@@ -553,9 +558,6 @@ describe("CopilotChatMessageView transformMessages (virtual mid-list hide)", () 
       content: i === 2 ? "TALL_ROW" : `row ${i}`,
       ...(i === 2 && named ? { name: "math_expert" } : {}),
     })) as Message[];
-
-  const hideNamed = (list: Message[]): Message[] =>
-    list.filter((m) => (m as { name?: string }).name !== "math_expert");
 
   function renderView(
     props: React.ComponentProps<typeof CopilotChatMessageView>,

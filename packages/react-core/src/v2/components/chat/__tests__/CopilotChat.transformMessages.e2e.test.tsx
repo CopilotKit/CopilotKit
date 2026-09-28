@@ -21,6 +21,7 @@ const isWorkerMessage = (m: Message) =>
   (m as { name?: string }).name === "math_expert";
 const hideWorker = (list: Message[]): Message[] =>
   list.filter((m) => !isWorkerMessage(m));
+const showAll = (list: Message[]): Message[] => list;
 
 // Captures the agent instance CopilotChat actually renders from, so the
 // snapshot can reuse its exact message ids and contents.
@@ -108,7 +109,6 @@ describe("CopilotChat transformMessages (end to end)", () => {
 
   it("toggles rows when the transform passed through messageView changes", async () => {
     const agent = new MockStepwiseAgent();
-    const showAll = (list: Message[]): Message[] => list;
     const tree = (transformMessages: (list: Message[]) => Message[]) => (
       <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
         <AgentProbe />
