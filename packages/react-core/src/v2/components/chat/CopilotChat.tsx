@@ -535,7 +535,6 @@ export function CopilotChat({
       const context: ɵThreadRuntimeContext | null = copilotkit.runtimeUrl
         ? {
             runtimeUrl: copilotkit.runtimeUrl,
-            headers: { ...copilotkit.headers },
             wsUrl: copilotkit.intelligence?.wsUrl,
             agentId: resolvedAgentId,
           }

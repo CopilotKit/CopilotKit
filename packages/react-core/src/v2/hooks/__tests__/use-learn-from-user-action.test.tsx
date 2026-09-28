@@ -55,7 +55,6 @@ const mockFetch = (
 const installCopilotKit = (
   overrides: {
     runtimeUrl?: string | null;
-    headers?: Record<string, string>;
   } = {},
 ) => {
   mockUseCopilotKit.mockReturnValue({
@@ -64,7 +63,6 @@ const installCopilotKit = (
         overrides.runtimeUrl === undefined
           ? "https://bff.example.com/api/copilotkit"
           : overrides.runtimeUrl,
-      headers: overrides.headers,
     },
   });
 };
@@ -149,19 +147,45 @@ describe("useLearnFromUserAction", () => {
     );
   });
 
-  it("includes the customer headers from copilotkit.headers", async () => {
-    installCopilotKit({ headers: { "X-Customer": "abc" } });
-    const { calls, fetch } = mockFetch([
+  it("carries the current header from ɵruntimeFetch at send time, not a stale copilotkit.headers snapshot (#1937)", async () => {
+    // `useLearnFromUserAction` no longer forwards a `copilotkit.headers`
+    // snapshot: `ɵruntimeFetch` already resolves and overlays the current
+    // core headers on every request. Model that overlay here with a
+    // rotating token, so the test fails if the hook goes back to spreading
+    // a stale snapshot captured once at render time.
+    let token = "tok-1";
+    const { calls, fetch: rawFetch } = mockFetch([
       { status: 200, body: { id: "1", duplicate: false } },
+      { status: 200, body: { id: "2", duplicate: false } },
     ]);
-    globalThis.fetch = fetch;
+    const runtimeFetch = vi.fn((url: RequestInfo | URL, init?: RequestInit) =>
+      rawFetch(url, {
+        ...init,
+        headers: {
+          ...(init?.headers as Record<string, string>),
+          "X-Customer": `Bearer ${token}`,
+        },
+      }),
+    ) as unknown as typeof globalThis.fetch;
+
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl: "https://bff.example.com/api/copilotkit",
+        ɵruntimeFetch: runtimeFetch,
+      },
+    });
 
     const { result } = renderHook(() => useLearnFromUserAction());
     await result.current({ threadId: "t", title: "x" });
+    token = "tok-2";
+    await result.current({ threadId: "t", title: "x" });
 
-    const headers = calls[0]!.init?.headers as Record<string, string>;
-    expect(headers["X-Customer"]).toBe("abc");
-    expect(headers["Content-Type"]).toBe("application/json");
+    expect(calls).toHaveLength(2);
+    const headers0 = calls[0]!.init?.headers as Record<string, string>;
+    const headers1 = calls[1]!.init?.headers as Record<string, string>;
+    expect(headers0["X-Customer"]).toBe("Bearer tok-1");
+    expect(headers1["X-Customer"]).toBe("Bearer tok-2");
+    expect(headers1["Content-Type"]).toBe("application/json");
   });
 
   it("throws when runtimeUrl is not configured", async () => {
