@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, watch } from "vue";
 import CopilotChat from "./CopilotChat.vue";
-import CopilotChatConfigurationProvider from "../../providers/CopilotChatConfigurationProvider.vue";
+import ModalThreadsScope from "../../providers/ModalThreadsScope.vue";
 import CopilotSidebarView from "./CopilotSidebarView.vue";
 import CopilotSidebarWelcomeScreen from "./CopilotSidebarWelcomeScreen.vue";
 import InlineFeatureWarning from "../InlineFeatureWarning.vue";
@@ -39,9 +39,12 @@ const props = withDefaults(defineProps<CopilotSidebarProps>(), {
   autoScroll: true,
   welcomeScreen: true,
   introAnimation: true,
+  inlineCursor: undefined,
+  userMessageMarkdown: true,
   inputValue: undefined,
   inputMode: "input",
   inputToolsMenu: () => [],
+  inputHighlightMarkdown: true,
   width: undefined,
   defaultOpen: true,
   threadsDrawer: false,
@@ -90,10 +93,7 @@ watch(
 
 <template>
   <InlineFeatureWarning v-if="!isSidebarLicensed" feature-name="Sidebar" />
-  <!-- Owns the chat's thread when no chat configuration surrounds the
-       sidebar, so picking a thread in its drawer switches the chat. Nested
-       in an existing provider it passes everything through. -->
-  <CopilotChatConfigurationProvider>
+  <ModalThreadsScope :enabled="!!threadsDrawer" :thread-id="threadId">
     <CopilotChat
       v-bind="props"
       @submit-message="$emit('submit-message', $event)"
@@ -118,9 +118,16 @@ watch(
           :suggestion-loading-indexes="slotProps.suggestionLoadingIndexes"
           :welcome-screen="slotProps.welcomeScreen"
           :intro-animation="slotProps.introAnimation"
+          :inline-cursor="slotProps.inlineCursor"
+          :assistant-message-toolbar-scope="
+            slotProps.assistantMessageToolbarScope
+          "
+          :user-message-markdown="slotProps.userMessageMarkdown"
           :input-value="slotProps.inputValue"
           :input-mode="slotProps.inputMode"
           :input-tools-menu="slotProps.inputToolsMenu"
+          :input-layout="slotProps.inputLayout"
+          :input-highlight-markdown="slotProps.inputHighlightMarkdown"
           :width="width"
           :default-open="defaultOpen"
           :threads-drawer="threadsDrawer"
@@ -184,5 +191,5 @@ watch(
         </CopilotSidebarView>
       </template>
     </CopilotChat>
-  </CopilotChatConfigurationProvider>
+  </ModalThreadsScope>
 </template>

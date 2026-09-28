@@ -58,15 +58,22 @@ const props = withDefaults(
     isRunning?: boolean;
     /**
      * While a reply streams, show the cursor at the end of its text, as if it
-     * were being typed. Defaults to `true`; set `false` to keep the cursor
-     * below the messages.
+     * were being typed. Defaults to on, unless a custom `cursor` or
+     * `assistant-message` slot is provided (those keep the cursor below the
+     * messages); set `false` to always keep it there.
      */
     inlineCursor?: boolean;
+    /** Forwarded to each assistant message as `toolbarScope`. */
+    assistantMessageToolbarScope?: "turn" | "message";
+    /** Forwarded to each user message as `markdown`. Defaults to `true`. */
+    userMessageMarkdown?: boolean;
   }>(),
   {
     messages: () => [],
     isRunning: false,
-    inlineCursor: true,
+    inlineCursor: undefined,
+    assistantMessageToolbarScope: undefined,
+    userMessageMarkdown: true,
   },
 );
 
@@ -220,21 +227,28 @@ watch(
 const lastMessage = computed(() => props.messages[props.messages.length - 1]);
 // A streaming reply with text carries the cursor at the end of that text;
 // otherwise (waiting for the reply, running a tool) it sits below the list.
-const cursorMessageId = computed(() => {
+const streamingReplyId = computed(() => {
   const last = lastMessage.value;
-  return props.inlineCursor &&
-    props.isRunning &&
-    last?.role === "assistant" &&
-    last.content
+  return props.isRunning && last?.role === "assistant" && last.content
     ? last.id
     : undefined;
 });
-const showCursor = computed(
-  () =>
+// A custom `cursor` or `assistant-message` slot predates the inline cursor, so
+// it keeps the cursor below the list unless `inlineCursor` is set explicitly.
+// Read in render: slot presence isn't reactive.
+function cursorMessageId(): string | undefined {
+  const inline =
+    props.inlineCursor ??
+    (!componentSlots.cursor && !componentSlots["assistant-message"]);
+  return inline ? streamingReplyId.value : undefined;
+}
+function showCursor(): boolean {
+  return (
     props.isRunning &&
     lastMessage.value?.role !== "reasoning" &&
-    !cursorMessageId.value,
-);
+    !cursorMessageId()
+  );
+}
 
 watch(
   [() => props.messages.length, () => deduplicatedMessages.value.length],
@@ -417,13 +431,14 @@ function resolveToolMessage(
         :message="message"
         :messages="messages"
         :is-running="isRunning"
-        :show-cursor="message.id === cursorMessageId"
+        :show-cursor="message.id === cursorMessageId()"
       >
         <CopilotChatAssistantMessage
           :message="message"
           :messages="messages"
           :is-running="isRunning"
-          :show-cursor="message.id === cursorMessageId"
+          :toolbar-scope="assistantMessageToolbarScope"
+          :show-cursor="message.id === cursorMessageId()"
         >
           <template
             v-for="slotName in forwardedSlotNames"
@@ -440,7 +455,10 @@ function resolveToolMessage(
         name="user-message"
         :message="message"
       >
-        <CopilotChatUserMessage :message="message">
+        <CopilotChatUserMessage
+          :message="message"
+          :markdown="userMessageMarkdown"
+        >
           <template
             v-for="slotName in forwardedSlotNames"
             :key="slotName"
@@ -518,7 +536,7 @@ function resolveToolMessage(
       :cancel="interruptState.cancel"
     />
 
-    <slot v-if="showCursor" name="cursor">
+    <slot v-if="showCursor()" name="cursor">
       <div
         class="cpk:w-[11px] cpk:h-[11px] cpk:rounded-full cpk:bg-foreground cpk:animate-pulse-cursor cpk:ml-1"
         data-testid="copilot-loading-cursor"

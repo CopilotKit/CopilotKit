@@ -21,7 +21,11 @@ describe("CopilotChatSuggestionView appearance", () => {
     expect(
       screen
         .getAllByTestId("copilot-chat-suggestion-pill")
-        .every((el) => el.getAttribute("data-slot") === "suggestion-pill"),
+        .every(
+          (el) =>
+            el.getAttribute("data-slot") === "suggestion-pill" &&
+            el.getAttribute("data-appearance") === "pill",
+        ),
     ).toBe(true);
     expect(screen.queryByText("Turn the Q3 goals into a checklist")).toBeNull();
   });
@@ -40,7 +44,8 @@ describe("CopilotChatSuggestionView appearance", () => {
     expect(container.className).toContain("cpk:grid");
 
     const cards = screen.getAllByTestId("copilot-chat-suggestion-pill");
-    expect(cards[0]!.getAttribute("data-slot")).toBe("suggestion-card");
+    expect(cards[0]!.getAttribute("data-slot")).toBe("suggestion-pill");
+    expect(cards[0]!.getAttribute("data-appearance")).toBe("card");
     expect(
       screen.getByText("Turn the Q3 goals into a checklist"),
     ).toBeDefined();
@@ -49,5 +54,24 @@ describe("CopilotChatSuggestionView appearance", () => {
 
     await fireEvent.click(cards[0]!);
     expect(onSelect).toHaveBeenCalledWith(suggestions[0], 0);
+  });
+
+  it("names each card by its title and describes it with the message", () => {
+    render(CopilotChatSuggestionView, {
+      props: { suggestions, appearance: "cards" },
+    });
+
+    const card = screen.getByRole("button", { name: "Plan a launch" });
+    const description = document.getElementById(
+      card.getAttribute("aria-describedby")!,
+    );
+    expect(description?.textContent?.trim()).toBe(
+      "Turn the Q3 goals into a checklist",
+    );
+    expect(
+      screen
+        .getByRole("button", { name: "Draft reply" })
+        .hasAttribute("aria-describedby"),
+    ).toBe(false);
   });
 });

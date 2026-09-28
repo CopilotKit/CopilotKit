@@ -3,6 +3,10 @@ import { computed, ref, watch } from "vue";
 import { getDocumentIcon, getSourceUrl } from "@copilotkit/shared";
 import type { CopilotChatAttachmentRendererProps } from "./types";
 
+// Attributes (class, style, id…) go on the attachment element, not on the
+// `display: contents` wrapper, where they would have no box to style.
+defineOptions({ inheritAttrs: false });
+
 const props = withDefaults(defineProps<CopilotChatAttachmentRendererProps>(), {
   filename: undefined,
   className: "",
@@ -36,6 +40,7 @@ const documentLabel = computed(
       class="cpk:max-w-[80px] cpk:max-h-[80px] cpk:w-auto cpk:h-auto cpk:rounded-xl cpk:object-cover cpk:cursor-pointer cpk:bg-muted"
       :class="props.className"
       data-testid="copilot-chat-attachment-renderer-image"
+      v-bind="$attrs"
       @click="lightboxOpen = true"
       @error="imageLoadFailed = true"
     />
@@ -44,6 +49,7 @@ const documentLabel = computed(
       class="cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:rounded-xl cpk:bg-muted cpk:p-4 cpk:text-sm cpk:text-muted-foreground"
       :class="props.className"
       data-testid="copilot-chat-attachment-renderer-image-fallback"
+      v-bind="$attrs"
     >
       <span>Failed to load image</span>
     </div>
@@ -53,6 +59,7 @@ const documentLabel = computed(
       class="cpk:flex cpk:flex-col cpk:gap-1"
       :class="props.className"
       data-testid="copilot-chat-attachment-renderer-audio"
+      v-bind="$attrs"
     >
       <audio
         :src="sourceUrl"
@@ -77,6 +84,7 @@ const documentLabel = computed(
       class="cpk:max-w-[400px] cpk:w-full cpk:rounded-lg"
       :class="props.className"
       data-testid="copilot-chat-attachment-renderer-video"
+      v-bind="$attrs"
     />
 
     <div
@@ -84,6 +92,7 @@ const documentLabel = computed(
       class="cpk:inline-flex cpk:max-w-full cpk:items-center cpk:gap-2.5 cpk:py-2 cpk:pl-2 cpk:pr-3 cpk:border cpk:border-border cpk:rounded-xl cpk:bg-card"
       :class="props.className"
       data-testid="copilot-chat-attachment-renderer-document"
+      v-bind="$attrs"
     >
       <span
         class="cpk:flex cpk:size-8 cpk:shrink-0 cpk:items-center cpk:justify-center cpk:rounded-lg cpk:bg-primary/10 cpk:text-[10px] cpk:font-semibold cpk:uppercase cpk:text-primary"

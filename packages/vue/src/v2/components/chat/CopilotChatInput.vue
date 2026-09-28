@@ -6,6 +6,7 @@ import {
   onMounted,
   ref,
   useAttrs,
+  useSlots,
   watch,
 } from "vue";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
@@ -63,7 +64,8 @@ const props = withDefaults(
      * - `"stacked"`: always text on top, actions underneath.
      *
      * In either layout, very narrow inputs (under ~320px, e.g. a small popup)
-     * fold voice input into the "+" menu so the actions fit.
+     * fold voice input into the "+" menu so the actions fit (a custom
+     * `start-transcribe-button` slot stays in the toolbar).
      */
     layout?: "auto" | "stacked";
     /**
@@ -122,6 +124,7 @@ const emit = defineEmits<{
 }>();
 
 const attrs = useAttrs();
+const slots = useSlots();
 const config = useCopilotChatConfiguration();
 const shellRef = ref<HTMLElement | null>(null);
 const textareaRef = ref<HTMLTextAreaElement | null>(null);
@@ -136,6 +139,48 @@ function syncPreviewScroll(event: Event) {
     previewRef.value.scrollTop = (
       event.target as HTMLTextAreaElement
     ).scrollTop;
+  }
+}
+
+// What the preview copies from the textarea so their text wraps identically,
+// even when host CSS restyles the textarea.
+const PREVIEW_MIRRORED_STYLES = [
+  "font-family",
+  "font-size",
+  "font-weight",
+  "font-style",
+  "font-stretch",
+  "font-variant",
+  "font-feature-settings",
+  "font-variation-settings",
+  "letter-spacing",
+  "word-spacing",
+  "line-height",
+  "padding-top",
+  "padding-right",
+  "padding-bottom",
+  "padding-left",
+  "text-indent",
+  "tab-size",
+];
+
+function syncPreviewStyles() {
+  const textarea = textareaRef.value;
+  const preview = previewRef.value;
+  if (!textarea || !preview) return;
+  const textareaStyle = window.getComputedStyle(textarea);
+  for (const property of PREVIEW_MIRRORED_STYLES) {
+    preview.style.setProperty(
+      property,
+      textareaStyle.getPropertyValue(property),
+    );
+  }
+  // The textarea's glyphs are hidden (`.cpk-md-input`), not its `color`, so a
+  // host's text color moves onto the preview. Only when it differs, so the
+  // default keeps following the theme.
+  preview.style.color = "";
+  if (window.getComputedStyle(preview).color !== textareaStyle.color) {
+    preview.style.color = textareaStyle.color;
   }
 }
 const gridRef = ref<HTMLElement | null>(null);
@@ -289,8 +334,12 @@ function normalizeMenuItems(tools: MenuEntry[]) {
 const menuItems = computed(() => normalizeMenuItems(props.toolsMenu));
 
 // Narrow inputs move voice input from the toolbar into the "+" menu.
+// A custom `start-transcribe-button` slot stays in the toolbar instead.
 const foldTranscribe = computed(
-  () => isNarrow.value && hasStartTranscribeAction.value,
+  () =>
+    isNarrow.value &&
+    hasStartTranscribeAction.value &&
+    !slots["start-transcribe-button"],
 );
 const addMenuItems = computed(() => {
   if (!foldTranscribe.value) return menuItems.value;
@@ -820,6 +869,7 @@ function scheduleLayoutEvaluation(invalidateCache: boolean) {
   resizeEvaluationRafRef.value = requestAnimationFrame(() => {
     resizeEvaluationRafRef.value = null;
     evaluateLayout();
+    syncPreviewStyles();
   });
 }
 
@@ -842,6 +892,10 @@ watch(inputValue, (value) => {
 watch(resolvedLayout, async () => {
   await nextTick();
   adjustTextareaHeight();
+});
+
+watch([previewRef, resolvedLayout, inputValue], syncPreviewStyles, {
+  flush: "post",
 });
 
 watch(
@@ -1217,12 +1271,11 @@ onBeforeUnmount(() => {
                     rows="1"
                     :class="[
                       textAreaClass,
-                      'cpk:bg-transparent cpk:outline-none cpk:placeholder:text-muted-foreground cpk:placeholder:truncate',
+                      'cpk:bg-transparent cpk:text-foreground cpk:outline-none cpk:placeholder:text-muted-foreground cpk:placeholder:truncate',
                       // With the preview, the textarea only draws the caret,
                       // selection and placeholder; its glyphs are transparent.
-                      highlightMarkdown
-                        ? 'cpk:relative cpk:text-transparent cpk:caret-foreground cpk:[scrollbar-width:none] cpk:[&::-webkit-scrollbar]:hidden'
-                        : 'cpk:text-foreground',
+                      highlightMarkdown &&
+                        'cpk-md-input cpk:relative cpk:[scrollbar-width:none] cpk:[&::-webkit-scrollbar]:hidden',
                     ]"
                     style="overflow: auto; resize: none"
                     @scroll="syncPreviewScroll"

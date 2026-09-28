@@ -25,9 +25,12 @@ const props = withDefaults(defineProps<CopilotSidebarViewProps>(), {
   suggestionLoadingIndexes: () => [],
   welcomeScreen: true,
   introAnimation: true,
+  inlineCursor: undefined,
+  userMessageMarkdown: true,
   inputValue: undefined,
   inputMode: "input",
   inputToolsMenu: () => [],
+  inputHighlightMarkdown: true,
   width: undefined,
   defaultOpen: true,
   threadsDrawer: false,
@@ -123,7 +126,10 @@ const forwardedEventListeners = computed(() => {
 </script>
 
 <template>
-  <CopilotChatConfigurationProvider :is-modal-default-open="defaultOpen">
+  <CopilotChatConfigurationProvider
+    :is-modal-default-open="defaultOpen"
+    forward-thread-switching
+  >
     <!-- The drawer's open state is local to this modal (see ModalThreadsDrawerScope). -->
     <ModalThreadsDrawerScope :enabled="drawerProps !== null">
       <CopilotSidebarViewInternal

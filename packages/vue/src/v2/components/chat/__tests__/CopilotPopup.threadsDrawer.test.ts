@@ -9,7 +9,7 @@
  *   page-level `<CopilotThreadsDrawer>`.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { defineComponent } from "vue";
+import { defineComponent, ref } from "vue";
 import { fireEvent, render, screen, waitFor } from "@testing-library/vue";
 import type { CopilotKitThreadsDrawer as CopilotKitThreadsDrawerElement } from "@copilotkit/web-components/threads-drawer";
 import CopilotKitProvider from "../../../providers/CopilotKitProvider.vue";
@@ -17,6 +17,7 @@ import CopilotChatConfigurationProvider from "../../../providers/CopilotChatConf
 import CopilotPopup from "../CopilotPopup.vue";
 import CopilotSidebar from "../CopilotSidebar.vue";
 import CopilotThreadsDrawer from "../CopilotThreadsDrawer.vue";
+import { useCopilotChatConfiguration } from "../../../providers/useCopilotChatConfiguration";
 import type { ModalThreadsDrawerProp } from "../types";
 import { MockStepwiseAgent } from "../../../__tests__/utils/test-helpers";
 
@@ -128,7 +129,7 @@ describe.each([
 });
 
 /**
- * Picking a thread (or "New chat") in the modal's drawer drives the chat
+ * Picking a thread (or "New Thread") in the modal's drawer drives the chat
  * itself, with or without a chat configuration provider around the modal.
  */
 describe.each([
@@ -185,10 +186,92 @@ describe.each([
     selectThread(drawer, "thread-b");
     await waitFor(() => expect(agent.threadId).toBe("thread-b"));
 
-    // "New chat" moves to a fresh thread.
+    // "New Thread" moves to a fresh thread.
     drawer.dispatchEvent(
       new CustomEvent("new-thread", { bubbles: true, composed: true }),
     );
     await waitFor(() => expect(agent.threadId).not.toBe("thread-b"));
+  });
+});
+
+/**
+ * The popup and sidebar add a chat configuration of their own only when the
+ * drawer needs one: with `threadsDrawer` on and no provider above them.
+ */
+describe.each([
+  { name: "CopilotPopup", surface: "popup" as const },
+  { name: "CopilotSidebar", surface: "sidebar" as const },
+])("<$name threadsDrawer> thread scope", ({ surface }) => {
+  const Surface = surface === "popup" ? CopilotPopup : CopilotSidebar;
+
+  it("switches the thread of the provider around it", async () => {
+    const ThreadProbe = defineComponent({
+      setup() {
+        const config = useCopilotChatConfiguration();
+        return { config };
+      },
+      template: `<span data-testid="page-thread">{{ config?.threadId }}</span>`,
+    });
+    render(
+      defineComponent({
+        components: {
+          CopilotKitProvider,
+          CopilotChatConfigurationProvider,
+          Surface,
+          ThreadProbe,
+        },
+        setup() {
+          return { agents: { default: new MockStepwiseAgent() } };
+        },
+        template: `
+          <CopilotKitProvider :agents__unsafe_dev_only="agents">
+            <CopilotChatConfigurationProvider>
+              <ThreadProbe />
+              <Surface :default-open="true" :threads-drawer="true" />
+            </CopilotChatConfigurationProvider>
+          </CopilotKitProvider>
+        `,
+      }),
+    );
+    const drawer = await findModalDrawer();
+
+    drawer.dispatchEvent(
+      new CustomEvent("thread-selected", {
+        detail: { threadId: "thread-a" },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("page-thread").textContent).toBe("thread-a"),
+    );
+  });
+
+  it("starts a fresh thread when its threadId prop is cleared", async () => {
+    const agent = new MockStepwiseAgent();
+    const threadId = ref<string | undefined>(undefined);
+    render(
+      defineComponent({
+        components: { CopilotKitProvider, Surface },
+        setup() {
+          return { agents: { default: agent }, threadId };
+        },
+        template: `
+          <CopilotKitProvider :agents__unsafe_dev_only="agents">
+            <Surface :default-open="true" :threads-drawer="true" :thread-id="threadId" />
+          </CopilotKitProvider>
+        `,
+      }),
+    );
+    await findModalDrawer();
+    await waitFor(() => expect(agent.threadId).toBeTruthy());
+    const mountThread = agent.threadId;
+
+    threadId.value = "thread-a";
+    await waitFor(() => expect(agent.threadId).toBe("thread-a"));
+
+    threadId.value = undefined;
+    await waitFor(() => expect(agent.threadId).not.toBe("thread-a"));
+    expect(agent.threadId).not.toBe(mountThread);
   });
 });

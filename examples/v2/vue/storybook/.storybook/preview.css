@@ -68,6 +68,16 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/*
+ * A host app's reset. CopilotSidebar docks by pushing the page aside with a
+ * plain `body { margin-inline-end }` rule, which wins over this. Storybook's
+ * layout classes zero the body margin with class specificity instead, so the
+ * sidebar stories use `layout: "none"` and rely on this reset.
+ */
+body {
+  margin: 0;
+}
+
 /* ---------------------------------------------------------------------------
  * Story layouts (see stories/support/layouts.ts)
  * ------------------------------------------------------------------------- */

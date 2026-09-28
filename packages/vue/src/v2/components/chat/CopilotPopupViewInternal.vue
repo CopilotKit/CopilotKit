@@ -49,9 +49,12 @@ const props = withDefaults(
     suggestionLoadingIndexes: () => [],
     welcomeScreen: true,
     introAnimation: true,
+    inlineCursor: undefined,
+    userMessageMarkdown: true,
     inputValue: undefined,
     inputMode: "input",
     inputToolsMenu: () => [],
+    inputHighlightMarkdown: true,
     width: undefined,
     height: undefined,
     clickOutsideToClose: false,
@@ -405,9 +408,14 @@ onBeforeUnmount(() => {
           :suggestion-loading-indexes="suggestionLoadingIndexes"
           :welcome-screen="welcomeScreen"
           :intro-animation="introAnimation"
+          :inline-cursor="inlineCursor"
+          :assistant-message-toolbar-scope="assistantMessageToolbarScope"
+          :user-message-markdown="userMessageMarkdown"
           :input-value="inputValue"
           :input-mode="inputMode"
           :input-tools-menu="inputToolsMenu"
+          :input-layout="inputLayout"
+          :input-highlight-markdown="inputHighlightMarkdown"
           :on-finish-transcribe-with-audio="onFinishTranscribeWithAudio"
           v-bind="chatViewBindings"
         >

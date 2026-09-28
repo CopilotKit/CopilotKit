@@ -12,4 +12,12 @@ export interface CopilotChatConfigurationProviderProps {
    */
   hasExplicitThreadId?: boolean;
   isModalDefaultOpen?: boolean;
+  /**
+   * @internal Set on the providers `CopilotChat`, `CopilotPopup` and
+   * `CopilotSidebar` render themselves: `setActiveThreadId` / `startNewThread`
+   * switch the thread of the provider above instead of this one, so a threads
+   * drawer inside the chat switches the chat's thread. A provider you nest
+   * yourself keeps its own thread.
+   */
+  forwardThreadSwitching?: boolean;
 }

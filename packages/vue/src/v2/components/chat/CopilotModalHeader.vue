@@ -33,7 +33,7 @@ const resolvedTitle = computed(
     CopilotChatDefaultLabels.modalHeaderTitle,
 );
 const headerClass = computed(() => [
-  "cpk:flex cpk:h-14 cpk:shrink-0 cpk:items-center cpk:justify-between cpk:border-b cpk:border-border cpk:px-3",
+  "cpk:flex cpk:min-h-14 cpk:shrink-0 cpk:items-center cpk:justify-between cpk:border-b cpk:border-border cpk:px-3",
   "cpk:bg-background/95 cpk:backdrop-blur cpk:supports-[backdrop-filter]:bg-background/80",
   attrs.class,
 ]);

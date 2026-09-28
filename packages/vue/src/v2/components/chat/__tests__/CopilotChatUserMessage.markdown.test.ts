@@ -39,3 +39,44 @@ describe("CopilotChatUserMessage markdown", () => {
     expect(wrapper.text()).not.toContain("Test original");
   });
 });
+
+describe("CopilotChatUserMessage plain text", () => {
+  it("shows the text as typed with markdown={false}", async () => {
+    const wrapper = mount(CopilotChatUserMessage, {
+      props: {
+        message: message("Use **bold**\n  - not a list"),
+        markdown: false,
+      },
+    });
+    await flushPromises();
+
+    const bubble = wrapper.find("[data-multiline]");
+    expect(bubble.text()).toBe("Use **bold**\n  - not a list");
+    expect(bubble.classes()).toContain("cpk:whitespace-pre-wrap");
+    expect(wrapper.find("[data-streamdown]").exists()).toBe(false);
+  });
+
+  it("marks multiline bubbles with data-multiline", async () => {
+    const single = mount(CopilotChatUserMessage, {
+      props: { message: message("One line") },
+    });
+    const multi = mount(CopilotChatUserMessage, {
+      props: { message: message("Two\nlines") },
+    });
+    await flushPromises();
+
+    expect(single.find("[data-multiline]").exists()).toBe(false);
+    expect(multi.find("[data-multiline]").attributes("data-multiline")).toBe(
+      "true",
+    );
+  });
+
+  it("keeps the toolbar invisible until the message is hovered", () => {
+    const wrapper = mount(CopilotChatUserMessage, {
+      props: { message: message("Hi") },
+    });
+    const toolbar = wrapper.get("[data-testid='copilot-user-toolbar']");
+    expect(toolbar.classes()).toContain("cpk:invisible");
+    expect(toolbar.classes()).toContain("cpk:group-hover:visible");
+  });
+});

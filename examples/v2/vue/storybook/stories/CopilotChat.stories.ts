@@ -65,8 +65,7 @@ export const WithReasoning: Story = {
 /**
  * Send any message to watch the cursor write a slow reply through paragraphs,
  * a heading, lists, a quote, a code block and a table. Pass
- * `:inline-cursor="false"` to `CopilotChatMessageView` (through the
- * `message-view` slot) to keep it below the messages.
+ * `:inline-cursor="false"` to keep it below the messages.
  */
 export const StreamingCursor: Story = {
   parameters: {

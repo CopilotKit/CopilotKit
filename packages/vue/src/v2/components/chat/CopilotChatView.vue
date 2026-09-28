@@ -41,9 +41,12 @@ const props = withDefaults(defineProps<CopilotChatViewProps>(), {
   suggestionLoadingIndexes: () => [],
   welcomeScreen: true,
   introAnimation: true,
+  inlineCursor: undefined,
+  userMessageMarkdown: true,
   inputValue: undefined,
   inputMode: "input",
   inputToolsMenu: () => [],
+  inputHighlightMarkdown: true,
   isConnecting: false,
   hasExplicitThreadId: false,
   onFinishTranscribeWithAudio: undefined,
@@ -100,6 +103,8 @@ defineSlots<{
     isRunning: boolean;
     inputMode: CopilotChatInputMode;
     inputToolsMenu: (ToolsMenuItem | "-")[];
+    inputLayout?: "auto" | "stacked";
+    inputHighlightMarkdown?: boolean;
     canStop: boolean;
     canAddFile: boolean;
     canTranscribe: boolean;
@@ -470,6 +475,8 @@ onBeforeUnmount(() => {
       :is-running="isRunning"
       :input-mode="inputMode"
       :input-tools-menu="inputToolsMenu"
+      :input-layout="inputLayout"
+      :input-highlight-markdown="inputHighlightMarkdown"
       :can-stop="canStop"
       :can-add-file="canAddFile"
       :can-transcribe="canTranscribe"
@@ -556,6 +563,8 @@ onBeforeUnmount(() => {
                 :is-running="isRunning"
                 :mode="inputMode"
                 :tools-menu="inputToolsMenu"
+                :layout="inputLayout"
+                :highlight-markdown="inputHighlightMarkdown"
                 positioning="static"
                 :show-disclaimer="true"
                 :keyboard-height="effectiveKeyboardHeight"
@@ -603,6 +612,11 @@ onBeforeUnmount(() => {
                   <CopilotChatMessageView
                     :messages="messages"
                     :is-running="isRunning"
+                    :inline-cursor="inlineCursor"
+                    :assistant-message-toolbar-scope="
+                      assistantMessageToolbarScope
+                    "
+                    :user-message-markdown="userMessageMarkdown"
                   >
                     <template
                       v-for="slotName in forwardedMessageViewSlotNames"
@@ -679,9 +693,13 @@ onBeforeUnmount(() => {
           aria-hidden="true"
           class="cpk:pointer-events-none cpk:absolute cpk:inset-x-0 cpk:-top-6 cpk:bottom-0 cpk:-z-10 cpk:bg-[linear-gradient(to_bottom,transparent,var(--background)_1.5rem)]"
         />
-        <!-- In a conversation, suggestions sit in a scrollable row docked above the input. -->
+        <!--
+          In a conversation, suggestions sit in a scrollable row docked above
+          the input. A custom `scroll-view` slot gets them as slot props
+          instead, and renders them itself.
+        -->
         <div
-          v-if="hasSuggestions"
+          v-if="hasSuggestions && !componentSlots['scroll-view']"
           class="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:mb-1.5 cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-4 cpk:pointer-events-auto"
         >
           <slot
@@ -733,6 +751,8 @@ onBeforeUnmount(() => {
             :is-running="isRunning"
             :mode="inputMode"
             :tools-menu="inputToolsMenu"
+            :layout="inputLayout"
+            :highlight-markdown="inputHighlightMarkdown"
             positioning="static"
             :show-disclaimer="true"
             :keyboard-height="effectiveKeyboardHeight"
