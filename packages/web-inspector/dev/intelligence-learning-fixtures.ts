@@ -77,6 +77,7 @@ export function intelligenceLearningFixture(
     };
   if (request.path === "/api/v1/learning/skills")
     return {
+      asOf: request.query?.asOf ?? "fixtureSkillCapture",
       data: records.map((record) => ({
         id: record.id,
         containerId: record.agentId,

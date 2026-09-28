@@ -57,7 +57,11 @@ test.each(["json", "csv"])(
         format,
         from: "2026-09-20T00:00:00.000Z",
         to: "2026-09-27T00:00:00.000Z",
-        filters: { agentId: "billing", containerId: "billing" },
+        filters: {
+          agentId: "billing",
+          containerId: "billing",
+          asOf: "loadedCapture",
+        },
       },
     });
     const job = created?.body;
@@ -80,7 +84,11 @@ test.each(["json", "csv"])(
         data: [{ loads: { count: 5, runCount: 1 } }],
         metadata: {
           rowCount: 1,
-          filters: { agentId: "billing", containerId: "billing" },
+          filters: {
+            agentId: "billing",
+            containerId: "billing",
+            asOf: "loadedCapture",
+          },
         },
       });
     else {
@@ -136,4 +144,15 @@ test("Skill usage and lineage agree on distinct runs and the selected load windo
       query: { ...query, from: "2026-09-26T23:30:00.000Z" },
     }),
   ).toMatchObject({ versions: [{ loads: { data: [] } }] });
+});
+
+test("Skill list fixtures return a capture cutoff and preserve a requested cutoff", () => {
+  for (const asOf of [undefined, "requestedCapture"]) {
+    const response = intelligenceLearningFixture({
+      method: "GET",
+      path: "/api/v1/learning/skills",
+      query: asOf ? { asOf } : {},
+    });
+    expect(response).toMatchObject({ asOf: asOf ?? expect.any(String) });
+  }
 });
