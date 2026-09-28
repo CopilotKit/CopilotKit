@@ -1,4 +1,4 @@
-import { Injectable, signal } from "@angular/core";
+import { Component, Injectable, input, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it } from "vitest";
 import { CopilotChatView } from "../copilot-chat-view";
@@ -17,6 +17,24 @@ class ChatStateStub extends ChatState {
   changeInput(value: string): void {
     this.inputValue.set(value);
   }
+}
+
+// A custom messageView that declares shouldRenderMessage. It shows only the
+// messages that pass the predicate, so the test can see whether it arrived.
+@Component({
+  selector: "custom-message-view",
+  standalone: true,
+  template: `
+    @for (message of messages(); track message.id) {
+      @if (!shouldRenderMessage() || shouldRenderMessage()!(message)) {
+        <div class="custom-row">{{ message.id }}</div>
+      }
+    }
+  `,
+})
+class CustomMessageView {
+  messages = input<Message[]>([]);
+  shouldRenderMessage = input<((message: Message) => boolean) | undefined>();
 }
 
 describe("CopilotChatView", () => {
@@ -62,6 +80,31 @@ describe("CopilotChatView", () => {
     expect(
       element.querySelector('[data-testid="copilot-welcome-screen"]'),
     ).toBeNull();
+  });
+
+  it("forwards shouldRenderMessage to a custom messageView component", async () => {
+    const fixture = TestBed.createComponent(CopilotChatView);
+    const messages: Message[] = [
+      { id: "user-1", role: "user", content: "Hello" },
+      { id: "worker-1", role: "assistant", content: "Hidden" },
+    ];
+    const predicate = (m: Message) => m.id !== "worker-1";
+
+    fixture.componentRef.setInput("messages", messages);
+    fixture.componentRef.setInput("messageViewComponent", CustomMessageView);
+    fixture.componentRef.setInput("shouldRenderMessage", predicate);
+    fixture.detectChanges();
+    // Flush the scroll view's mount hook so the interactive branch renders
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const rows = Array.from(element.querySelectorAll(".custom-row")).map(
+      (row) => row.textContent?.trim(),
+    );
+    expect(rows).toEqual(["user-1"]);
   });
 
   it("sizes the default scroll view as the flex child that owns vertical scrolling", async () => {

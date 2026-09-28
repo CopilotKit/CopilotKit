@@ -192,6 +192,9 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
   messageViewContext(): any {
     return {
       messages: this.messages(),
+      // copilot-slot binds only the inputs a component declares, so a custom
+      // messageView without this input is unaffected.
+      shouldRenderMessage: this.shouldRenderMessage(),
       state: this.state(),
       agentId: this.agentId(),
       inputClass: this.messageViewClass(),
