@@ -1,3 +1,8 @@
+import {
+  emptyNotificationState,
+  parseNotificationState,
+} from "./notifications.js";
+import type { NotificationState, NotificationFeed } from "./notifications.js";
 import type { Anchor, DockMode, Position, Size } from "./types.js";
 
 export type PersistedContextState = {
@@ -229,25 +234,7 @@ function parseInspectorDismissalPayload(raw: string | null): number | null {
   }
 }
 
-// Announcement read state — "have I read this announcement" is a property of
-// the person, not of the project, so it must survive a change of localhost
-// port. localStorage cannot express that: it is partitioned by origin and
-// origin includes the port, so :3000 and :5173 are separate stores. Cookies
-// are partitioned by host, so a cookie set on `localhost` without a `domain`
-// attribute is shared by every port on that host.
-//
-// Underscores, not colons: `:` is a separator in RFC 6265 and is not valid in
-// a cookie name. Browsers are lenient about it; we don't rely on that.
-const ANNOUNCEMENT_READ_COOKIE_NAME = "cpk_inspector_announcements";
-
-// localStorage mirror of the cookie, so a browser that blocks cookies
-// degrades to per-port behaviour instead of losing the read state entirely.
-// A NEW key on purpose — the legacy one is abandoned, not migrated.
-const ANNOUNCEMENT_READ_MIRROR_KEY = "cpk:inspector:announcement_read";
-
-// The superseded key. Every existing user is re-armed exactly once so they
-// discover the surface that replaced the announcement bubble, and the key is
-// deleted rather than left in place so nothing can fall back to it later.
+// Obsolete pre-cookie state; the cookie and its mirror are migrated below.
 const LEGACY_ANNOUNCEMENT_READ_KEY = "cpk:inspector:announcements";
 
 // Pulse suppression is per browser tab, and stores the announcement timestamp
@@ -255,35 +242,6 @@ const LEGACY_ANNOUNCEMENT_READ_KEY = "cpk:inspector:announcements";
 // announcement for the rest of that tab's life, and the feed is fetched once
 // per mount with no polling.
 const ANNOUNCEMENT_PULSED_SESSION_KEY = "cpk:inspector:pulsed";
-
-// Roughly one year. No `Secure` — local development is served over plain
-// HTTP — and no `HttpOnly`, because the component reads the value from
-// script. `Path=/` and `SameSite=Lax` keep it host-wide and same-site only.
-const ANNOUNCEMENT_READ_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
-
-/**
- * The announcement timestamp the user has already read, or `null` when
- * nothing has been read yet. Prefers the host-scoped cookie and falls back to
- * the origin-scoped mirror, so cookie-blocking browsers still remember the
- * read within the port they are on.
- */
-export function loadAnnouncementReadTimestamp(): string | null {
-  return (
-    parseTimestampPayload(readAnnouncementCookie()) ??
-    parseTimestampPayload(readLocalStorageItem(ANNOUNCEMENT_READ_MIRROR_KEY))
-  );
-}
-
-/**
- * Records an announcement as read in both the host-scoped cookie and the
- * origin-scoped mirror. The stored value is `{"timestamp":"…"}` — the same
- * shape the announcement state has always used.
- */
-export function saveAnnouncementReadTimestamp(timestamp: string): void {
-  const payload = JSON.stringify({ timestamp });
-  writeAnnouncementCookie(payload);
-  writeLocalStorageItem(ANNOUNCEMENT_READ_MIRROR_KEY, payload);
-}
 
 /**
  * Deletes the superseded origin-scoped read state. Safe to call on every
@@ -304,38 +262,6 @@ export function loadAnnouncementPulsedTimestamp(): string | null {
   } catch {
     return null;
   }
-}
-
-/** Suppresses further pulses for this announcement in this browser tab. */
-export function saveAnnouncementPulsedTimestamp(timestamp: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.setItem(ANNOUNCEMENT_PULSED_SESSION_KEY, timestamp);
-  } catch {
-    // No-op — a lost suppression costs one extra pulse, never correctness.
-  }
-}
-
-function parseTimestampPayload(raw: string | null): string | null {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as { timestamp?: unknown };
-    return typeof parsed?.timestamp === "string" ? parsed.timestamp : null;
-  } catch {
-    return null;
-  }
-}
-
-function readAnnouncementCookie(): string | null {
-  return readCookie(ANNOUNCEMENT_READ_COOKIE_NAME);
-}
-
-function writeAnnouncementCookie(value: string): void {
-  writeCookie(
-    ANNOUNCEMENT_READ_COOKIE_NAME,
-    value,
-    `Max-Age=${ANNOUNCEMENT_READ_COOKIE_MAX_AGE_SECONDS}`,
-  );
 }
 
 function readCookie(name: string): string | null {
@@ -491,4 +417,171 @@ function generateUuidV4(): string {
     const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
+}
+
+const NOTIFICATION_COOKIE = "cpk_inspector_notifications_v1";
+const NOTIFICATION_STORAGE = "cpk:inspector:notifications:v1";
+const NOTIFICATION_COOKIE_MAX_LENGTH = 1024;
+const LEGACY_ANNOUNCEMENT_ID = "16f7d877-49e3-41c3-9ca6-f951d3d8ba80";
+
+/** Read host-wide acknowledgements from either the new compact cookie or an old full-state cookie. */
+function readNotificationAcknowledgements(): Pick<
+  NotificationState,
+  "readIds" | "suppressedIds"
+> {
+  try {
+    const raw = readCookie(NOTIFICATION_COOKIE);
+    if (raw) {
+      const value: unknown = JSON.parse(raw);
+      if (value && typeof value === "object") {
+        const state = parseNotificationState({
+          ...emptyNotificationState(),
+          ...value,
+        });
+        if (state)
+          return { readIds: state.readIds, suppressedIds: state.suppressedIds };
+      }
+    }
+  } catch {
+    // A blocked or malformed cookie must not disrupt the Inspector.
+  }
+  return { readIds: [], suppressedIds: [] };
+}
+
+/** Load per-origin selection and merge host-wide read and suppressed notices. */
+export function loadNotificationState(): NotificationState {
+  const raw = readLocalStorageItem(NOTIFICATION_STORAGE);
+  let localState = emptyNotificationState();
+  if (raw) {
+    try {
+      localState = parseNotificationState(JSON.parse(raw)) ?? localState;
+    } catch {
+      // Keep the host acknowledgements when local storage is malformed.
+    }
+  }
+  const host = readNotificationAcknowledgements();
+  return {
+    ...localState,
+    readIds: [...new Set([...localState.readIds, ...host.readIds])],
+    suppressedIds: [
+      ...new Set([...localState.suppressedIds, ...host.suppressedIds]),
+    ],
+  };
+}
+
+/** Preserve a legacy acknowledgement only for the known announcement entering the new feed. */
+export function migrateAnnouncementReadState(
+  state: NotificationState,
+  feed: NotificationFeed,
+): NotificationState {
+  for (const raw of [
+    readCookie("cpk_inspector_announcements"),
+    readLocalStorageItem("cpk:inspector:announcement_read"),
+  ]) {
+    if (!raw) continue;
+    try {
+      const value: unknown = JSON.parse(raw);
+      if (!value || typeof value !== "object" || !("timestamp" in value))
+        continue;
+      const legacyNotice = feed.notifications.find(
+        (notice) =>
+          notice.id === LEGACY_ANNOUNCEMENT_ID &&
+          notice.publishedAt === value.timestamp,
+      );
+      if (!legacyNotice) continue;
+      const migrated = {
+        ...state,
+        readIds: [...new Set([...state.readIds, legacyNotice.id])],
+        suppressedIds: [...new Set([...state.suppressedIds, legacyNotice.id])],
+      };
+      saveNotificationState(migrated);
+      writeCookie("cpk_inspector_announcements", "", "Max-Age=0");
+      removeLocalStorageItem("cpk:inspector:announcement_read");
+      return migrated;
+    } catch {
+      // Malformed legacy data must not disrupt the host app.
+    }
+  }
+  return state;
+}
+
+/** Save full state per origin and a bounded host-wide acknowledgement cookie. */
+export function saveNotificationState(state: NotificationState): void {
+  const host = readNotificationAcknowledgements();
+  const merged = {
+    ...state,
+    readIds: [...new Set([...state.readIds, ...host.readIds])],
+    suppressedIds: [
+      ...new Set([...state.suppressedIds, ...host.suppressedIds]),
+    ],
+  };
+  writeLocalStorageItem(NOTIFICATION_STORAGE, JSON.stringify(merged));
+  const cookieState = {
+    schemaVersion: 1,
+    readIds: [...merged.readIds],
+    suppressedIds: [...merged.suppressedIds],
+  };
+  let raw = JSON.stringify(cookieState);
+  // Limit bytes sent with every localhost request. Full history stays per
+  // origin when the host cookie keeps only the newest acknowledgements.
+  while (encodeURIComponent(raw).length >= NOTIFICATION_COOKIE_MAX_LENGTH) {
+    if (cookieState.readIds.length >= cookieState.suppressedIds.length)
+      cookieState.readIds.shift();
+    else cookieState.suppressedIds.shift();
+    raw = JSON.stringify(cookieState);
+  }
+  writeCookie(NOTIFICATION_COOKIE, raw, "Max-Age=31536000");
+}
+
+/** ID-based pulse state is separate from the legacy announcement timestamp. */
+const NOTIFICATION_PULSED_SESSION_KEY = "cpk:inspector:notification-pulsed-id";
+const MAX_PULSED_NOTIFICATION_IDS = 100;
+
+function pulsedNotificationIds(raw: string | null): string[] {
+  if (!raw) return [];
+  // Earlier previews stored one ID directly under this key.
+  if (!raw.startsWith("[")) return [raw];
+  try {
+    const ids: unknown = JSON.parse(raw);
+    return Array.isArray(ids)
+      ? ids.filter((id): id is string => typeof id === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveNotificationPulsedId(id: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const ids = pulsedNotificationIds(
+      window.sessionStorage.getItem(NOTIFICATION_PULSED_SESSION_KEY),
+    );
+    if (!ids.includes(id)) ids.push(id);
+    window.sessionStorage.setItem(
+      NOTIFICATION_PULSED_SESSION_KEY,
+      JSON.stringify(ids.slice(-MAX_PULSED_NOTIFICATION_IDS)),
+    );
+  } catch {
+    /* A lost suppression must not disrupt the host. */
+  }
+}
+export function hasNotificationPulsed(
+  id: string,
+  publishedAt: string,
+): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const current = window.sessionStorage.getItem(
+      NOTIFICATION_PULSED_SESSION_KEY,
+    );
+    if (current !== null) return pulsedNotificationIds(current).includes(id);
+    if (loadAnnouncementPulsedTimestamp() === publishedAt) {
+      saveNotificationPulsedId(id);
+      return true;
+    }
+  } catch {
+    /* Treat unavailable storage as a fresh tab. */
+  }
+  return false;
 }
