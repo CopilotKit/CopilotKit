@@ -127,6 +127,9 @@ export function intelligenceFixture(request: IntelligenceReadRequest): {
       data: runs
         .filter(
           (run) =>
+            (request.query?.userCapture !== "missing" || run.userId === null) &&
+            (request.query?.agentCapture !== "missing" ||
+              run.agentId === null) &&
             (!request.query?.outcomeGroup ||
               (request.query.outcomeGroup === "finished"
                 ? ["success", "interrupted"].includes(run.outcome)
