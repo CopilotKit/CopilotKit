@@ -284,9 +284,9 @@ export class CopilotKitThreadsDrawer extends LitElement {
    * Inbound: label for the drawer — the visible header title, the
    * screen-reader region name (on `.root`) and the listbox name (on `.list`).
    * Project `slot="header"` content to replace the visible title only.
-   * Defaults to `"Conversations"`.
+   * Defaults to `"Threads"`.
    */
-  label = "Conversations";
+  label = "Threads";
 
   /**
    * Inbound: text for the "Recent Conversations" section heading above the list.
@@ -602,7 +602,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
 
   /**
    * Overlay mode dismisses itself once the user has made their choice (a row
-   * or "New chat"), mirroring a mobile navigation drawer.
+   * or "New Thread"), mirroring a mobile navigation drawer.
    */
   private _closeOverlayAfterChoice(): void {
     if (this.overlay) this._setOpen(false);
@@ -890,11 +890,11 @@ export class CopilotKitThreadsDrawer extends LitElement {
 
   /**
    * Floating launcher cluster from the Figma "closed" mockup: a sidebar-glyph
-   * toggle + a "New chat" (square-pen) icon button. Shown in TWO states — the
+   * toggle + a "New Thread" (square-pen) icon button. Shown in TWO states — the
    * mobile closed state (toggle opens the off-canvas modal) and the desktop
    * collapsed state (toggle expands the sidebar). The primary toggle keeps
    * `part="launcher"` for mobile-launcher theme compat; the new-thread button is
-   * suppressed in the locked/unlicensed view, mirroring the "New chat" row.
+   * suppressed in the locked/unlicensed view, mirroring the "New Thread" row.
    */
   private _renderCluster() {
     const onToggle = this._viewportIsMobile
@@ -918,8 +918,8 @@ export class CopilotKitThreadsDrawer extends LitElement {
             ? html`<button
               class="launcher launcher-new-thread"
               part="launcher-new-thread"
-              aria-label="New chat"
-              title="New chat"
+              aria-label="New Thread"
+              title="New Thread"
               @click=${() => this._emit("new-thread", {})}
             >
               ${iconNewChat}
@@ -935,7 +935,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
     // `label`; project `slot="header"` content to replace it. The toggle is
     // the desktop collapse control, or — for the off-canvas panels (mobile
     // modal while open, and the overlay panel, which stays mounted while
-    // closed) — the close control. Below the bar sits the "New chat" row,
+    // closed) — the close control. Below the bar sits the "New Thread" row,
     // suppressed in the locked/unlicensed view (only the Upgrade card shows),
     // mirroring the section-heading gating.
     const showClose = this.overlay || (this._viewportIsMobile && this.open);
@@ -978,7 +978,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
   }
 
   /**
-   * The full-width "New chat" row under the header. Keeps
+   * The full-width "New Thread" row under the header. Keeps
    * `part="new-thread-button"` and fires the existing `new-thread` event, so
    * wrappers/themes that hook it are unaffected.
    */
@@ -993,7 +993,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
         }}
       >
         ${iconNewChat}
-        <span>New chat</span>
+        <span>New Thread</span>
       </button>
     `;
   }
