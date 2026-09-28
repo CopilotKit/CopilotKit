@@ -51,6 +51,10 @@ and tool error text require `conversations.text`. Replay shows recorded runs and
 steps without controls that execute or resume a run. Deleted conversations show
 a deletion notice.
 
+Switching a mounted Inspector into product-only mode detaches its development
+thread bridge. Switching back restores that bridge for the existing View in app
+workflow.
+
 The matching Intelligence build must enable its `inspector.intelligence-views`
 release flag. This entry remains off by default in production during development.
 

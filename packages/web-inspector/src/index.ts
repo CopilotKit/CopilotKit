@@ -6605,6 +6605,8 @@ export class WebInspectorElement extends LitElement {
     if (previous === value) return;
     this.detachFromCore();
     this._intelligenceOnly = value;
+    this.unsubscribeFromInspectorThreadBridge();
+    if (this.isConnected && !value) this.subscribeToInspectorThreadBridge();
     this.settingsOpen = false;
     if (this._core) this.attachToCore(this._core);
     this.requestUpdate("intelligenceOnly", previous);
@@ -17809,7 +17811,7 @@ export class WebInspectorElement extends LitElement {
 
   private subscribeToInspectorThreadBridge(): void {
     this.unsubscribeFromInspectorThreadBridge();
-    if (!isInspectorThreadBridgeEnabled()) return;
+    if (this.intelligenceOnly || !isInspectorThreadBridgeEnabled()) return;
     this.inspectorBridgeUnsubscribers.push(
       onInspectorActiveThread((payload) => {
         if (payload.requestId !== this.activeViewInAppRequestId) return;

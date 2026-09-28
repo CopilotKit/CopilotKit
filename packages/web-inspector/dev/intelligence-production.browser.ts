@@ -180,3 +180,44 @@ test("a Learning-only agent grant opens Learning without developer controls or a
     inspector.getByRole("button", { name: "billing", exact: true }),
   ).toHaveCount(0);
 });
+
+test("a mounted Inspector can enter product-only mode and return to its development tools", async ({
+  page,
+}) => {
+  await page.route("https://intelligence.example/**", (route) =>
+    route.fulfill({
+      contentType: "text/html",
+      body: "<!doctype html><title>Product view</title>",
+    }),
+  );
+  await page.goto(url.replace("&intelligenceMode=production", ""));
+  const inspector = page.locator("cpk-web-inspector");
+  await expect(
+    inspector.locator('[data-inspector-menu-key="threads"]'),
+  ).toBeVisible();
+  await inspector.evaluate((element) => {
+    (element as HTMLElement & { intelligenceOnly: boolean }).intelligenceOnly =
+      true;
+  });
+  await expect(inspector.locator("[data-inspector-menu-key]")).toHaveCount(3);
+  await expect(
+    inspector.locator('[data-inspector-menu-key="threads"]'),
+  ).toHaveCount(0);
+  await expect(inspector.locator('iframe[title="Analytics"]')).toBeVisible();
+  await inspector.evaluate((element) => {
+    (element as HTMLElement & { intelligenceOnly: boolean }).intelligenceOnly =
+      false;
+  });
+  await inspector.locator('[data-inspector-menu-key="threads"]').click();
+  await inspector
+    .getByRole("button", { name: /Inspector launch review/ })
+    .click();
+  await expect(
+    inspector.getByText("This response came from the local scenario lab.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    inspector.locator('[data-inspector-menu-key="playground"]'),
+  ).toBeVisible();
+});
