@@ -37,6 +37,90 @@ describe("Next config build boundary", () => {
   });
 });
 
+describe("retired Open-JSON-UI docs", () => {
+  it("redirects every published URL shape to A2UI in one hop", async () => {
+    for (const suffix of RAW_DOC_SUFFIXES) {
+      const redirects = [
+        ["/generative-ui/open-json-ui", "/generative-ui/a2ui"],
+        [
+          "/langgraph-python/generative-ui/open-json-ui",
+          "/langgraph-python/generative-ui/a2ui",
+        ],
+        ["/built-in-agent/generative-ui/open-json-ui", "/generative-ui/a2ui"],
+        [
+          "/react/langgraph-python/generative-ui/open-json-ui",
+          "/langgraph-python/generative-ui/a2ui",
+        ],
+        ["/react/generative-ui/open-json-ui", "/generative-ui/a2ui"],
+        [
+          "/angular/langgraph-python/generative-ui/open-json-ui",
+          "/angular/langgraph-python/guides/a2ui",
+        ],
+        ["/angular/generative-ui/open-json-ui", "/angular/guides/a2ui"],
+        [
+          "/vue/langgraph-python/generative-ui/open-json-ui",
+          "/vue/langgraph-python/generative-ui/a2ui",
+        ],
+        ["/vue/generative-ui/open-json-ui", "/vue/generative-ui/a2ui"],
+        [
+          "/react-spa/langgraph-python/generative-ui/open-json-ui",
+          "/react-spa/langgraph-python/generative-ui/a2ui",
+        ],
+        [
+          "/react-native/langgraph-python/generative-ui/open-json-ui",
+          "/react-native/langgraph-python/generative-ui/a2ui",
+        ],
+        ["/generative-ui/specs/open-json-ui", "/generative-ui/a2ui"],
+        ["/learn/generative-ui/specs/open-json-ui", "/generative-ui/a2ui"],
+      ] as const;
+
+      for (const [source, destination] of redirects) {
+        await expectPermanentOneHop(
+          `${source}${suffix}`,
+          `${destination}${suffix}`,
+        );
+      }
+    }
+  });
+});
+
+describe("retired self-managed thread persistence docs", () => {
+  it("redirects every published URL shape to the threads overview in one hop", async () => {
+    for (const suffix of RAW_DOC_SUFFIXES) {
+      const redirects = [
+        ["/threads-self-managed", "/threads"],
+        ["/mastra/threads-self-managed", "/mastra/threads"],
+        ["/langgraph-python/threads-self-managed", "/langgraph-python/threads"],
+        ["/built-in-agent/threads-self-managed", "/threads"],
+        ["/react/threads-self-managed", "/threads"],
+        ["/react/mastra/threads-self-managed", "/mastra/threads"],
+        [
+          "/angular/threads-self-managed",
+          "/angular/guides/threads-memory-attachments-headless",
+        ],
+        [
+          "/angular/mastra/threads-self-managed",
+          "/angular/mastra/guides/threads-memory-attachments-headless",
+        ],
+        ["/vue/threads-self-managed", "/vue/threads"],
+        ["/vue/mastra/threads-self-managed", "/vue/mastra/threads"],
+        ["/react-spa/mastra/threads-self-managed", "/react-spa/mastra/threads"],
+        [
+          "/react-native/mastra/threads-self-managed",
+          "/react-native/mastra/threads",
+        ],
+      ] as const;
+
+      for (const [source, destination] of redirects) {
+        await expectPermanentOneHop(
+          `${source}${suffix}`,
+          `${destination}${suffix}`,
+        );
+      }
+    }
+  });
+});
+
 function interpolateDestination(
   destination: string,
   params: Record<string, unknown>,

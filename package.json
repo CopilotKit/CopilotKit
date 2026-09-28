@@ -13,6 +13,7 @@
     "lint": "oxlint .",
     "format": "oxfmt --write .",
     "check-format": "oxfmt --check .",
+    "aimock": "showcase/scripts/node_modules/.bin/llmock",
     "test": "nx run-many -t test --projects=packages/** --exclude=runtime-python,runtime-go,runtime-ruby,runtime-dotnet,intelligence-delivery-python-core,intelligence-langgraph-python,intelligence-adk-python,intelligence-agent-framework-dotnet",
     "test:native-runtimes": "nx run-many -t test -p runtime-python,runtime-go,runtime-ruby,runtime-dotnet",
     "test:skill-adapters": "nx run-many -t test -p intelligence-delivery-python-core,intelligence-langgraph-python,intelligence-adk-python,intelligence-agent-framework-dotnet",

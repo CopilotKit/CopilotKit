@@ -99,22 +99,29 @@ describe("generated docs search index", () => {
   });
 
   it("keeps an unlisted page whose only inbound link lives in a snippet", () => {
-    // `intelligence/headless-ui` is in no sidebar. It stays searchable
-    // because the Intelligence overview links to it — and that page's
-    // whole body is `<Overview />`, so the link is only visible once the
-    // snippet is inlined. This asserts the real resolution, which is why
-    // the page needs no `search: true` override.
+    // `tutorials/multi-conversation-chat` is in no sidebar. It stays
+    // searchable because Thread lifecycle inlines the threads snippet, and
+    // that snippet is the page that links to it. This asserts the real
+    // resolution, which is why the page needs no `search: true` override.
     const searchable = getSearchablePages();
 
+    expect(
+      searchable.fromNavigation.has("tutorials/multi-conversation-chat"),
+    ).toBe(false);
+    expect(searchable.fromLinks.has("tutorials/multi-conversation-chat")).toBe(
+      true,
+    );
+    expect(
+      docsEntries.some(
+        (entry) => entry.href === "/docs/tutorials/multi-conversation-chat",
+      ),
+    ).toBe(true);
+    // `intelligence/headless-ui` is in no sidebar. It stays searchable
+    // because the Intelligence overview feature cards link to it.
     expect(searchable.fromNavigation.has("intelligence/headless-ui")).toBe(
       false,
     );
     expect(searchable.fromLinks.has("intelligence/headless-ui")).toBe(true);
-    expect(
-      docsEntries.some(
-        (entry) => entry.href === "/docs/intelligence/headless-ui",
-      ),
-    ).toBe(true);
   });
 
   it("needs no frontmatter override to reach its current coverage", () => {
@@ -142,8 +149,11 @@ describe("generated docs search index", () => {
     );
 
     expect(integrationEntries.length).toBeGreaterThan(0);
+    // An `authored` integration, so the page is served from its own tree.
+    // The langgraph equivalent this used to assert on was deleted as a
+    // never-served duplicate of the root /threads page.
     expect(integrationEntries.map((entry) => entry.href)).toContain(
-      "/docs/integrations/langgraph/threads",
+      "/docs/integrations/mastra/threads",
     );
   });
 

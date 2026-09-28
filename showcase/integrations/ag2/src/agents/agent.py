@@ -165,7 +165,7 @@ async def generate_a2ui(
     forwarded = get_forwarded_headers()
     try:
         response = await _async_openai_client.chat.completions.create(
-            model="gpt-4.1",
+            model="gpt-5-mini",
             messages=[
                 {
                     "role": "system",
@@ -234,7 +234,7 @@ agent = ConversableAgent(
         "When asked about the weather, always use the tool rather than guessing. "
         "Be concise and friendly in your responses."
     ),
-    llm_config=LLMConfig({"model": "gpt-4o-mini", "stream": True}),
+    llm_config=LLMConfig({"model": "gpt-5-mini", "stream": True}),
     human_input_mode="NEVER",
     # Guard against infinite tool-call loops: AG2's ConversableAgent with
     # human_input_mode="NEVER" will keep executing tool calls indefinitely

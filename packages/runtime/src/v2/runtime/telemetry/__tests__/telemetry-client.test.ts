@@ -3,11 +3,11 @@ import type { MockInstance } from "vitest";
 import { lambdaClient } from "@copilotkit/shared";
 import { TelemetryClient } from "../telemetry-client";
 
-// Guards the half of the sampling contract that lives in the v2 client:
-// it gates anonymous events at sampleRate and lets identified ones
-// through, so every event it emits has to record which branch it took.
-// It didn't, and ~24% of runtime volume became unweightable from the data
-// alone (OSS-1017 / OSS-1018).
+// Guards the half of the sampling contract that lives in the v2 client.
+// This client sends every event now, so the block it stamps is constant —
+// but it still has to be stamped, and it still has to say whether the
+// caller was identified. When it stamped nothing, ~24% of runtime volume
+// became unweightable from the data alone (OSS-1017 / OSS-1018).
 describe("v2 TelemetryClient sampling metadata", () => {
   let lambdaSpy: MockInstance<typeof lambdaClient.send>;
 
@@ -38,25 +38,27 @@ describe("v2 TelemetryClient sampling metadata", () => {
     >;
   }
 
-  test("anonymous events carry the 5% gate's weight of 20", async () => {
-    vi.spyOn(Math, "random").mockReturnValue(0);
-    const client = new TelemetryClient({ sampleRate: 0.05 });
+  test("anonymous events are sent unsampled and weigh 1", async () => {
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const client = new TelemetryClient();
 
     await client.capture("oss.runtime.instance_created", baseInstanceEvent);
 
+    expect(random).not.toHaveBeenCalled();
+    expect(lambdaSpy).toHaveBeenCalledTimes(1);
     expect(globalsOf()).toMatchObject({
-      sampleRate: 0.05,
-      sampleRateAdjustmentFactor: 0.95,
-      sampleWeight: 20,
+      sampleRate: 1,
+      sampleRateAdjustmentFactor: 0,
+      sampleWeight: 1,
       telemetry_identified: false,
     });
   });
 
-  test("identified events bypass the gate and carry weight 1", async () => {
-    // Math.random would fail a 5% gate; the identified branch must send
-    // anyway, and must not inherit the anonymous population's weight.
-    vi.spyOn(Math, "random").mockReturnValue(0.99);
-    const client = new TelemetryClient({ sampleRate: 0.05 });
+  test("identified events are marked identified and carry weight 1", async () => {
+    // Weight is the same on both branches now. telemetry_identified is
+    // what keeps the two populations separable, which is why it is stated
+    // outright instead of inferred from sampleWeight === 1 (OSS-1018).
+    const client = new TelemetryClient();
     client.setLicenseToken(jwtWith({ telemetry_id: "abc-123" }));
 
     await client.capture("oss.runtime.instance_created", baseInstanceEvent);
@@ -69,39 +71,37 @@ describe("v2 TelemetryClient sampling metadata", () => {
     });
   });
 
-  test("events are stamped with the v2 emitter and its transport", async () => {
+  test("events are stamped with the v2 emitter, surface, and transport", async () => {
     // What lets a consumer attribute an event to this code path directly
     // instead of inferring it from $lib and which fields are absent.
-    vi.spyOn(Math, "random").mockReturnValue(0);
-    const client = new TelemetryClient({ sampleRate: 0.05 });
+    const client = new TelemetryClient();
 
     await client.capture("oss.runtime.instance_created", baseInstanceEvent);
 
     expect(globalsOf()).toMatchObject({
       telemetry_emitter: "v2-runtime",
+      telemetry_surface: "v2",
       telemetry_transport: "lambda",
     });
   });
 
   test("sampling metadata does not displace caller globalProperties", async () => {
-    vi.spyOn(Math, "random").mockReturnValue(0);
-    const client = new TelemetryClient({ sampleRate: 0.05 });
+    const client = new TelemetryClient();
     client.setGlobalProperties({ "copilotkit.package.name": "runtime" });
 
     await client.capture("oss.runtime.instance_created", baseInstanceEvent);
 
     expect(globalsOf()).toMatchObject({
       "copilotkit.package.name": "runtime",
-      sampleWeight: 20,
+      sampleWeight: 1,
     });
   });
 
   test("the license token itself never reaches the event properties", async () => {
     // Only the decoded id travels, and only as a header. A regression here
     // would ship a signed JWT to the analytics sink on every event.
-    vi.spyOn(Math, "random").mockReturnValue(0);
     const token = jwtWith({ telemetry_id: "abc-123" });
-    const client = new TelemetryClient({ sampleRate: 0.05 });
+    const client = new TelemetryClient();
     client.setLicenseToken(token);
 
     await client.capture("oss.runtime.instance_created", baseInstanceEvent);
@@ -114,12 +114,30 @@ describe("v2 TelemetryClient sampling metadata", () => {
     expect(sent).not.toContain("abc-123");
   });
 
-  test("gated-out anonymous events send nothing at all", async () => {
+  test("nothing gates an anonymous event at the default rate", async () => {
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const sending = new TelemetryClient({ telemetryDisabled: false });
+    const disabled = new TelemetryClient({ telemetryDisabled: true });
+
+    await sending.capture("oss.runtime.instance_created", baseInstanceEvent);
+    await disabled.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    expect(random).not.toHaveBeenCalled();
+    expect(lambdaSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("a configured rate still gates, and the block reports it", async () => {
+    // The lever survives for callers who want less; only the default moved.
     vi.spyOn(Math, "random").mockReturnValue(0.99);
-    const client = new TelemetryClient({ sampleRate: 0.05 });
-
-    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
-
+    const gated = new TelemetryClient({
+      telemetryDisabled: false,
+      sampleRate: 0.05,
+    });
+    await gated.capture("oss.runtime.instance_created", baseInstanceEvent);
     expect(lambdaSpy).not.toHaveBeenCalled();
+
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    await gated.capture("oss.runtime.instance_created", baseInstanceEvent);
+    expect(globalsOf()).toMatchObject({ sampleRate: 0.05, sampleWeight: 20 });
   });
 });

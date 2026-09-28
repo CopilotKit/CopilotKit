@@ -28,7 +28,7 @@ export function buildAgents(): Record<string, HttpAgent> {
   const agentUrl = requireEnv("AGENTCORE_AG_UI_URL");
   const agentName = process.env.COPILOTKIT_AGENT_NAME ?? "default";
   const mcpServerUrl =
-    process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com";
+    process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com/mcp";
 
   const agent = new HttpAgent({ url: agentUrl, headers: {} });
   agent.use(

@@ -6,9 +6,14 @@ WORKDIR /app
 # Copy only what the shell + scripts need
 COPY showcase/scripts/package.json ./scripts/package.json
 COPY showcase/shell/package.json ./shell/package.json
+COPY showcase/shell/package-lock.json ./shell/package-lock.json
 
-# Install deps for both (standalone, no workspace)
-RUN cd scripts && npm install --silent && cd ../shell && npm install --silent
+# The scripts package is workspace-managed and has no standalone npm lockfile.
+# Ignore optional peer auto-installation here: npm 10 can crash while resolving
+# Vitest's optional Vite devtools peers. The shell is standalone and must use its
+# committed lockfile so a partially-published CopilotKit release cannot break CI.
+RUN cd scripts && npm install --legacy-peer-deps --no-audit --no-fund \
+    && cd ../shell && npm ci --no-audit --no-fund
 
 # Copy source
 COPY showcase/shared/ ./shared/

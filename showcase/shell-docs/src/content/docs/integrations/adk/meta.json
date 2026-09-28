@@ -15,11 +15,7 @@
     {
       "title": "Rich Threads",
       "defaultOpen": true,
-      "pages": [
-        "threads",
-        "headless-threads",
-        "threads-import"
-      ]
+      "pages": ["threads", "headless-threads", "threads-import"]
     }
   ]
 }

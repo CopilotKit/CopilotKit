@@ -4,6 +4,10 @@ on:
     branches: [main]
     paths:
       - "showcase/shell-docs/src/content/**"
+      - "scripts/validate-docs-deprecated-imports.mjs"
+      - "scripts/__tests__/validate-docs-deprecated-imports.test.mjs"
+      - "scripts/docs-deprecated-imports-baseline.json"
+      - "scripts/deprecations/**"
       - "showcase/shell-docs/model-allowlist.json"
       - "showcase/shell-docs/src/lib/__tests__/ms-agent-dotnet-provider.test.ts"
       # The setup-concept gate below reads snippets owned by the integration
@@ -43,6 +47,10 @@ on:
     branches: [main]
     paths:
       - "showcase/shell-docs/src/content/**"
+      - "scripts/validate-docs-deprecated-imports.mjs"
+      - "scripts/__tests__/validate-docs-deprecated-imports.test.mjs"
+      - "scripts/docs-deprecated-imports-baseline.json"
+      - "scripts/deprecations/**"
       - "showcase/shell-docs/model-allowlist.json"
       - "showcase/shell-docs/src/lib/__tests__/ms-agent-dotnet-provider.test.ts"
       # The setup-concept gate below reads snippets owned by the integration
@@ -102,6 +110,11 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm tsx scripts/validate-doc-model-names.ts
+      # Fails when a page teaches a deprecated v1 symbol it did not teach
+      # before. v1 is still supported and documented on purpose, so this is a
+      # ratchet against a baseline rather than a ban — see the validator's
+      # header for why a ban reports 184 findings on a clean tree.
+      - run: pnpm nx run repo-scripts:validate-docs-deprecated-imports
 
   ms-agent-dotnet-guidance:
     name: Microsoft Agent Framework .NET guidance

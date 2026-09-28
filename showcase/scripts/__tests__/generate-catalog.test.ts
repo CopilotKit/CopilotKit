@@ -103,10 +103,13 @@ describe("Catalog Generator", () => {
     // Top-level keys must be exactly { metadata, cells }
     expect(Object.keys(catalog).sort()).toEqual(["cells", "metadata"]);
 
-    // metadata must have exactly the CatalogMetadata keys
+    // metadata must have exactly the CatalogMetadata keys. EXACT, not a
+    // subset: PE-118 removed `metadata.generated_at` (a wall-clock stamp
+    // nothing read — `/api/matrix` goes through `buildCatalogCells`, which
+    // returns only `.cells`), and this equality is what fails if a clock read
+    // is ever re-added to the flatten. Do not relax it to arrayContaining.
     expect(Object.keys(catalog.metadata).sort()).toEqual([
       "docs_only",
-      "generated_at",
       "reference",
       "stub",
       "total_cells",
@@ -136,6 +139,53 @@ describe("Catalog Generator", () => {
       expect(
         fs.existsSync(catalogPath),
         `catalog.json missing from ${dir}`,
+      ).toBe(true);
+    }
+  });
+
+  // PE-110. THE regression guard: regenerate twice from input nobody touched
+  // and require the two emissions to be byte-identical.
+  //
+  // `generateCatalog` used to read `new Date()` for `metadata.generated_at`,
+  // so six consecutive regenerations from pristine `origin/main` produced six
+  // different hashes. The cost was not the diff noise — `catalog.json` is
+  // gitignored — it was that the artifact could not be used as EVIDENCE: a
+  // reviewer could never conclude from an unchanged catalog that a change had
+  // left the matrix alone. PE-110 pinned the stamp to the source revision;
+  // PE-118 removed the field outright. This check is deliberately kept: it
+  // compares whole files, so it still guards every other field against a
+  // clock read creeping back in.
+  //
+  // Bytes, not a parsed deep-equal: JSON.parse would hide key-order drift,
+  // which is the other classic nondeterminism in a generated file.
+  it("regenerating from unchanged input is byte-identical", () => {
+    const outputDirs = [
+      path.resolve(SCRIPTS_DIR, "..", "shell", "src", "data"),
+      path.resolve(SCRIPTS_DIR, "..", "shell-docs", "src", "data"),
+      path.resolve(SCRIPTS_DIR, "..", "shell-dojo", "src", "data"),
+      path.resolve(SCRIPTS_DIR, "..", "shell-dashboard", "src", "data"),
+    ];
+    const readAll = () =>
+      Object.fromEntries(
+        outputDirs.map((dir) => [
+          dir,
+          fs.readFileSync(path.join(dir, "catalog.json")),
+        ]),
+      );
+
+    runGenerator();
+    const first = readAll();
+
+    runGenerator();
+    const second = readAll();
+
+    for (const dir of outputDirs) {
+      expect(
+        second[dir].equals(first[dir]),
+        `catalog.json in ${dir} changed between two regenerations from ` +
+          `unchanged input. First run:\n` +
+          `${first[dir].toString("utf-8").slice(0, 400)}\n` +
+          `Second run:\n${second[dir].toString("utf-8").slice(0, 400)}`,
       ).toBe(true);
     }
   });
@@ -414,17 +464,6 @@ describe("Catalog Generator", () => {
         `Invalid category "${cell.category}" for cell ${cell.id}`,
       ).toBe(true);
     }
-  });
-
-  it("metadata.generated_at timestamp is present and recent", () => {
-    runGenerator();
-    const catalog = readCatalog();
-
-    expect(catalog.metadata.generated_at).toBeDefined();
-    const genTime = new Date(catalog.metadata.generated_at).getTime();
-    const now = Date.now();
-    // Should be within the last 60 seconds
-    expect(now - genTime).toBeLessThan(60000);
   });
 
   it("integrated cells have human-readable display names from registries", () => {

@@ -5,7 +5,16 @@
 
 import React from "react";
 import Link from "next/link";
-import { CirclePause, Share2 } from "lucide-react";
+import {
+  CirclePause,
+  Cloud,
+  Code,
+  PanelLeft,
+  Rocket,
+  CircleDollarSign,
+  Server,
+  Share2,
+} from "lucide-react";
 import {
   Cards,
   Card,
@@ -22,6 +31,7 @@ import {
 import { NewLookAndFeelPreview } from "@/components/react/component-previews/new-look-and-feel";
 import { FrameworkTabs } from "@/components/framework-tabs";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
+import { ChannelsIntegrationPicker } from "@/components/channels-integration-picker";
 import { SignupLink } from "@/components/react/signup-link";
 import {
   DocsTrackedCopy,
@@ -30,7 +40,6 @@ import {
 import { IframeSwitcher as RealIframeSwitcher } from "@/components/content";
 import { PropertyReference } from "@/components/property-reference";
 import { IntegrationGrid } from "@/components/integration-grid";
-import { DocsLandingNext } from "@/components/docs-landing-next";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { WhenAngularBackend } from "@/components/when-angular-backend";
 import { AgentCoreCommandTabs } from "@/components/agentcore-command-tabs";
@@ -272,6 +281,10 @@ function warnSilentNull(component: string, reason: string): void {
 // throwing, which keeps a typo from blanking the page.
 export const ctaIcons: Record<string, React.ComponentType> = {
   circlePause: CirclePause,
+  cloud: Cloud,
+  code: Code,
+  panelLeft: PanelLeft,
+  server: Server,
   share2: Share2,
 };
 
@@ -297,7 +310,10 @@ const CTA_GRID_COLUMNS: Record<number, string> = {
 };
 
 export const docsComponents = {
+  Rocket,
+  CircleDollarSign,
   Callout,
+  ChannelsIntegrationPicker,
   Cards,
   Card,
   Accordions,
@@ -463,7 +479,6 @@ export const docsComponents = {
     </div>
   ),
   IntegrationGrid,
-  DocsLandingNext,
   // The base registration here works whenever the consumer passes
   // `framework` explicitly. The framework-scoped renderer (DocsPageView)
   // overrides this to inject `defaultFramework` from the URL — same

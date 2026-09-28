@@ -157,10 +157,13 @@ describe("CopilotChatMessageView duplicate message deduplication", () => {
     const userMessages = screen.getAllByTestId("copilot-user-message");
     expect(userMessages).toHaveLength(1);
 
-    // Should NOT produce React duplicate key warnings
+    // Should NOT produce React duplicate key warnings. React's wording is
+    // "two children with the same key" — matching "duplicate key" never fired,
+    // so this assertion passed vacuously.
     const duplicateKeyWarnings = consoleSpy.mock.calls.filter(
       (call) =>
-        typeof call[0] === "string" && call[0].includes("duplicate key"),
+        typeof call[0] === "string" &&
+        call[0].includes("two children with the same key"),
     );
     expect(duplicateKeyWarnings).toHaveLength(0);
 

@@ -121,6 +121,64 @@ describe("CopilotKitCore - abort during tool execution", () => {
     expect(signalAbortedDuringHandler).toBe(true);
   });
 
+  it("should pass an AbortSignal to a wildcard tool handler context", async () => {
+    // Wildcard tools execute through their own path, which omitted the signal
+    // the named-tool path passes. A wildcard handler that waits on something —
+    // a human-in-the-loop tool registered as "*" — could never see an abort.
+    const agent = new MockAgent({ agentId: "test" });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
+
+    let receivedSignal: AbortSignal | undefined;
+    const wildcardTool = createTool({
+      name: "*",
+      handler: vi.fn(async (_args: any, context: any) => {
+        receivedSignal = context.signal;
+        return "done";
+      }),
+      followUp: false,
+    });
+    copilotKitCore.addTool(wildcardTool);
+
+    // A tool name with no specific registration, so the wildcard handles it.
+    agent.setNewMessages([createToolCallMessage("unregisteredTool")]);
+
+    await copilotKitCore.runAgent({ agent: agent as any });
+
+    expect(wildcardTool.handler).toHaveBeenCalledOnce();
+    expect(receivedSignal).toBeInstanceOf(AbortSignal);
+    expect(receivedSignal!.aborted).toBe(false);
+  });
+
+  it("should abort the signal when stopAgent is called during wildcard tool execution", async () => {
+    const agent = new MockAgent({ agentId: "test" });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
+
+    let signalAbortedDuringHandler: boolean | undefined;
+    const wildcardTool = createTool({
+      name: "*",
+      handler: vi.fn(async (_args: any, context: any) => {
+        expect(context.signal.aborted).toBe(false);
+        copilotKitCore.stopAgent({ agent: agent as any });
+        signalAbortedDuringHandler = context.signal.aborted;
+        return "done";
+      }),
+      followUp: false,
+    });
+    copilotKitCore.addTool(wildcardTool);
+
+    agent.setNewMessages([createToolCallMessage("unregisteredTool")]);
+
+    await copilotKitCore.runAgent({ agent: agent as any });
+
+    expect(signalAbortedDuringHandler).toBe(true);
+  });
+
   it("should NOT restart the run when agent.abortRun() is called directly during tool execution", async () => {
     const agent = new MockAgent({ agentId: "test" });
     copilotKitCore.addAgent__unsafe_dev_only({

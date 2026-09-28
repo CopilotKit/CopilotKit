@@ -28,12 +28,18 @@ function createMockCore() {
     setHeaders: vi.fn(),
     setCredentials: vi.fn(),
     setProperties: vi.fn(),
+    setMessageFilter: vi.fn(),
     setDebug: vi.fn(),
     setDefaultThrottleMs: vi.fn(),
   };
 }
 
 let mockCoreInstance: ReturnType<typeof createMockCore>;
+
+/** Keeps the final turn only — the shape #1482 asks for. */
+const keepLastTurn = (messages: any[]) => messages.slice(-1);
+/** A second, distinguishable filter, for asserting a swap took effect. */
+const keepLastTwo = (messages: any[]) => messages.slice(-2);
 
 vi.mock("@copilotkit/react-core/v2/headless", () => {
   // Regular function (not arrow) so it's new-able
@@ -231,6 +237,71 @@ describe("CopilotKitProvider (React Native)", () => {
       );
 
       expect(mockCoreInstance.setHeaders).not.toHaveBeenCalled();
+    });
+
+    // #1482: parity with the React, Vue and Angular providers. The filter's own
+    // behaviour is covered in packages/core; what is React Native-specific is
+    // that the prop reaches the core at construction and on every later change.
+    it("passes messageFilter to the core at construction", () => {
+      render(
+        <CopilotKitProvider
+          runtimeUrl="https://api.test"
+          messageFilter={keepLastTurn}
+        >
+          <div />
+        </CopilotKitProvider>,
+      );
+
+      expect(hoisted.MockCoreConstructor).toHaveBeenCalledWith(
+        expect.objectContaining({ messageFilter: keepLastTurn }),
+      );
+    });
+
+    it("calls setMessageFilter when the filter changes", () => {
+      const { rerender } = render(
+        <CopilotKitProvider
+          runtimeUrl="https://api.test"
+          messageFilter={keepLastTurn}
+        >
+          <div />
+        </CopilotKitProvider>,
+      );
+
+      mockCoreInstance.setMessageFilter.mockClear();
+
+      rerender(
+        <CopilotKitProvider
+          runtimeUrl="https://api.test"
+          messageFilter={keepLastTwo}
+        >
+          <div />
+        </CopilotKitProvider>,
+      );
+
+      expect(mockCoreInstance.setMessageFilter).toHaveBeenCalledWith(
+        keepLastTwo,
+      );
+    });
+
+    it("clears the filter when the prop goes away", () => {
+      const { rerender } = render(
+        <CopilotKitProvider
+          runtimeUrl="https://api.test"
+          messageFilter={keepLastTurn}
+        >
+          <div />
+        </CopilotKitProvider>,
+      );
+
+      mockCoreInstance.setMessageFilter.mockClear();
+
+      rerender(
+        <CopilotKitProvider runtimeUrl="https://api.test">
+          <div />
+        </CopilotKitProvider>,
+      );
+
+      expect(mockCoreInstance.setMessageFilter).toHaveBeenCalledWith(undefined);
     });
   });
 

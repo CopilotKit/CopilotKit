@@ -64,7 +64,7 @@ ARCADE_USER_ID=you@example.com   # the user Arcade acts on behalf of
 
 # Model: https://platform.openai.com
 OPENAI_API_KEY=sk-...
-# OPENAI_MODEL=openai/gpt-4o     # optional override ("provider/model")
+# OPENAI_MODEL=openai/gpt-5-mini     # optional override ("provider/model")
 
 # CopilotKit runtime sends anonymous telemetry by default. Opt out:
 COPILOTKIT_TELEMETRY_DISABLED=true
@@ -134,7 +134,7 @@ action to it. Wire that to your real session and each end user gets their own va
 - **Scale past a handful.** Arcade is a runtime, not a single connector. Pull formatted
   tool definitions from Arcade to generate wrappers, or front your tools with an
   OAuth-protected [MCP gateway](https://docs.arcade.dev) for the production shape.
-- **Swap the model.** Set `OPENAI_MODEL` (e.g. `anthropic/claude-sonnet-4.5`,
+- **Swap the model.** Set `OPENAI_MODEL` (e.g. `anthropic/claude-sonnet-4-6`,
   `google/gemini-2.5-pro`). See CopilotKit's Built-in Agent model identifiers.
 - **Real users.** Replace `getArcadeUserId()` with your authenticated user's id, derived
   per-request from your session (the app already fails closed if it's unset in production).

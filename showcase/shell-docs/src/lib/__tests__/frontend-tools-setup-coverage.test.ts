@@ -1,6 +1,8 @@
 import { expect, test } from "vitest";
 
 import setupContentData from "@/data/setup-content.json";
+import { loadDoc } from "../docs-render";
+import { renderPageToLlmText } from "../llm-text";
 import { getIntegrations } from "../registry";
 import { resolveBundledSetupConcept } from "../setup-content";
 import type { SetupContentBundle } from "../setup-content";
@@ -54,6 +56,46 @@ test("the known-gap list holds no framework that has since been documented", () 
     "these frameworks now bundle frontend-tools-setup, so remove them from REQUIREMENT_NOT_ESTABLISHED",
   ).toEqual([]);
 });
+
+test("the shared Strands TypeScript setup does not choose a page-specific hook", () => {
+  const source = resolveBundledSetupConcept(
+    "strands-typescript",
+    CONCEPT,
+    setupContent,
+  );
+
+  expect(source).not.toContain("useFrontendTool");
+  expect(source).not.toContain("useComponent");
+});
+
+test.each([
+  ["frontend-tools", "useFrontendTool", "useComponent"],
+  ["generative-ui/tool-based", "useComponent", "useFrontendTool"],
+  ["generative-ui/display", "useComponent", "useFrontendTool"],
+])(
+  "the Strands TypeScript %s guide keeps its own hook guidance",
+  (route, hook, otherHook) => {
+    const doc = loadDoc(route);
+    expect(doc).not.toBeNull();
+
+    const output = renderPageToLlmText(
+      {
+        url: `strands-typescript/${route}`,
+        title: doc!.fm.title,
+        description: doc!.fm.description,
+        filePath: doc!.filePath,
+        loadSlug: route,
+        framework: "strands-typescript",
+      },
+      { framework: "strands-typescript" },
+    );
+    const section = output
+      .split("## How it works in code")[1]
+      ?.split("\n## ")[0];
+    expect(section).toContain(hook);
+    expect(section).not.toContain(otherHook);
+  },
+);
 
 // The two shapes the bundled snippets have to keep apart. A framework whose adapter
 // forwards the tools on its own still needs the model told to call the component --

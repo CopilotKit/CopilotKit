@@ -41,7 +41,7 @@ headers and a `joinCode`). The runner owns whatever storage backs those threads.
 |---|---|---|
 | `InMemoryAgentRunner` | `@copilotkit/runtime/v2` | The default v2 runner. Stores thread runs in process memory. Use it for local development, single-instance deployments, or as a base class to extend. |
 | `SqliteAgentRunner` | `@copilotkit/sqlite-runner` | First-party, file-backed durable runner. Persists thread runs to a SQLite file so history survives restarts on a single instance. Requires the `better-sqlite3` peer dependency and a real (non-`:memory:`) `dbPath`. |
-| `IntelligenceAgentRunner` | `@copilotkit/runtime/v2` | Backs CopilotKit Intelligence with durable threads, cross-instance persistence, and threads/history features. Used automatically on an Intelligence runtime. |
+| `IntelligenceAgentRunner` | `@copilotkit/runtime/v2` | Backs CopilotKit Intelligence with threads, cross-instance persistence, and threads/history features. Used automatically on an Intelligence runtime. |
 | `TelemetryAgentRunner` | `@copilotkit/runtime` | Legacy wrapper behavior. The root runtime composes telemetry around a runner when telemetry is enabled; `@copilotkit/runtime/v2` does not. |
 
 If you don't pass a `runner`, the runtime uses `InMemoryAgentRunner`. Because it
@@ -52,6 +52,27 @@ deployment, move to the first-party file-backed `SqliteAgentRunner` (from
 `@copilotkit/sqlite-runner`). For horizontal scaling across instances, move to
 CopilotKit Intelligence's `IntelligenceAgentRunner` or supply your
 own runner backed by a shared datastore.
+
+<Callout type="warn" title="The in-memory runner records no thread owner">
+Its store is keyed by `threadId` alone, so the runtime's
+[thread routes](/backend/runtime-endpoints#thread-routes) cannot tell one
+caller's threads from another's: `GET /threads/:threadId/messages` returns the
+history for any id it is given, `GET /threads` lists every thread in the
+process, and `POST /threads/clear` wipes all of them.
+
+That is fine for local development and for a deployment serving one person. If
+more than one person uses it, authorize those routes yourself before you ship.
+See [Thread authorization](/auth#thread-authorization) for the ownership-table
+pattern and the `onBeforeHandler` enforcement point.
+
+Changing runner narrows the exposure rather than removing it. A runner serves
+the thread routes from its local store only when it opts in, and only
+`InMemoryAgentRunner` does, along with anything extending it such as
+`AgentCoreRunner`. `SqliteAgentRunner` opts out, so its read routes answer
+`422`. `IntelligenceAgentRunner` scopes most thread operations to the user your
+`identifyUser` returns, but `threads/events`, `threads/state` and `agent/stop`
+still read the thread by id alone.
+</Callout>
 
 ## Choosing a runner
 
@@ -82,7 +103,7 @@ Intelligence Runtime auto-wires its own `runner`; passing `runner` alongside
 ```
 
 Choosing a runner is a decision for a self-hosted runtime only. If you are converting an
-existing runtime, see [Connect your runtime to Intelligence](/intelligence/connect-your-runtime).
+existing runtime, see [Connect your runtime to Intelligence](/intelligence/quickstart).
 </Callout>
 
 ## Bounding in-memory history

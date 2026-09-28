@@ -19,6 +19,7 @@
  */
 
 import { spawn } from "child_process";
+import { join, relative } from "node:path";
 import {
   getCurrentVersion,
   getPackagesForScope,
@@ -195,6 +196,16 @@ async function main() {
       const label = `${p.name}@${p.pkg.version}`;
       const tarball = `${p.name.replace("@", "").replace("/", "-")}-${p.pkg.version}.tgz`;
       await runCaptured("pnpm", ["pack"], { cwd: p.dir });
+      await runCaptured(
+        process.execPath,
+        [
+          "scripts/package-licenses/check.mjs",
+          "archive",
+          join(p.dir, tarball),
+          relative(ROOT, p.dir),
+        ],
+        { cwd: ROOT },
+      );
       await runCaptured(
         npmBin,
         ["publish", tarball, "--tag", distTag, "--access", "public"],

@@ -73,6 +73,7 @@ is a situation where a user and an agent are working together to solve a problem
     });
 
     export const searchAgent = new Agent({
+      id: "search-agent",
       name: "Search Agent",
       model: openai("gpt-5.4"),
       instructions: `

@@ -2,9 +2,9 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 ## What is this?
 
-Import and synchronization bring existing conversations into CopilotKit Intelligence as Rich Threads without replacing the native storage or analytics you already use. Import supported history once, then continue running those conversations through CopilotKit so users can resume them through the same thread UI as new conversations.
+Import brings existing conversations into CopilotKit Intelligence as Rich Threads while you keep the native storage or analytics you already use. Import supported history once, then continue running those conversations through CopilotKit so users can resume them through the same thread UI as new conversations.
 
-Built-in import currently supports Google ADK and LangGraph, with more sources coming soon. You can keep LangSmith, LangGraph, or ADK storage and analytics in place. For future CopilotKit-mediated runs, CopilotKit Intelligence persists the Rich Thread event history. When your agent remains connected to a durable LangGraph checkpointer or durable ADK session service with appropriate retention, those future runs continue through the native persistence path as well.
+Built-in import currently supports Google ADK and LangGraph, with more sources coming soon. You can keep LangSmith, LangGraph, or ADK storage and analytics in place. For future CopilotKit-mediated runs, CopilotKit Intelligence persists the thread event history. When your agent remains connected to a durable LangGraph checkpointer or durable ADK session service with appropriate retention, those future runs continue through the native persistence path as well.
 
 New to the feature? Read the [Rich Threads overview](/threads) first to understand the shared thread store and choose between the prebuilt Drawer and a custom headless UI.
 
@@ -112,9 +112,11 @@ It does not import agent state snapshots, framework transport noise, LangSmith t
   </Step>
 
   <Step>
-    ### Keep future conversations synced
+    ### Continue using your framework's persistence
 
-    Your CLI-created app sends future CopilotKit conversations to CopilotKit Intelligence. Reopen a conversation with the same CopilotKit `threadId` so its Rich Thread history stays continuous. If the agent remains wired to its durable native persistence mechanism, the future run continues there as well.
+    Your app sends future conversations that run through CopilotKit to CopilotKit Intelligence. Keep your durable LangGraph or ADK persistence configured so those runs continue using both persistence layers. Reopen a conversation with the same CopilotKit `threadId` and a stable mapping to its native thread or session so its history stays continuous.
+
+    Importing copies supported history; it does not establish ongoing database replication. Intelligence rename, archive, and delete operations affect only Intelligence records.
 
     - **Threads Drawer:** already included in CLI-created starters. Use the [Threads Drawer guide](/prebuilt-components/copilot-threads-drawer) to customize its ready-made thread UI.
     - **Headless Threads:** use the [Headless Threads guide](/headless-threads) only when you need a custom UI. Select a thread with `useThreads`, store its `thread.id`, and pass that value to your chat component as `threadId`.

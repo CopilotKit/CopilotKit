@@ -219,19 +219,19 @@ Before you begin, you'll need the following:
                 ```
             </Tab>
             <Tab value="FastAPI">
-                ```tsx title="app/api/copilotkit/[[...slug]]/route.ts"
+                ```tsx title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
                 import {
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
                   InMemoryAgentRunner,
                 } from "@copilotkit/runtime/v2";
                 // [!code highlight]
-                import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
+                import { HttpAgent } from "@ag-ui/client";
 
                 const runtime = new CopilotRuntime({
                     agents: {
                         // [!code highlight:3]
-                        sample_agent: new LangGraphHttpAgent({
+                        sample_agent: new HttpAgent({
                             url:  process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
                         }),
                     },

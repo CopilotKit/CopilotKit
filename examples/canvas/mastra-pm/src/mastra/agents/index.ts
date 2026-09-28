@@ -9,7 +9,7 @@ import { systemPrompt } from "./systemPrompt";
 export const weatherAgent = new Agent({
   name: "Weather Agent",
   tools: { weatherTool },
-  model: openai("gpt-4o"),
+  model: openai("gpt-5-mini"),
   instructions: systemPrompt,
   memory: new Memory({
     storage: new LibSQLStore({ url: "file::memory:" }),

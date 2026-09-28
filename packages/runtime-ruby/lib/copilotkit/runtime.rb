@@ -206,7 +206,7 @@ module CopilotKit
       else
         entitlement['error']['retryable'] ? 'unknown' : 'none'
       end
-      result = { 'version' => '0.1.0', 'mode' => 'intelligence', 'agents' => @agents.to_h { |id, agent| [id, { 'name' => id, 'description' => agent.description, 'className' => agent.class.name }] },
+      result = { 'version' => '0.1.0.rc.1', 'mode' => 'intelligence', 'agents' => @agents.to_h { |id, agent| [id, { 'name' => id, 'description' => agent.description, 'className' => agent.class.name }] },
         'intelligence' => { 'wsUrl' => @client_url }, 'runtimeEntitlements' => entitlement,
         'licenseStatus' => license_status,
         'threadEndpoints' => { 'list' => true, 'inspect' => true, 'mutations' => true, 'realtimeMetadata' => true },

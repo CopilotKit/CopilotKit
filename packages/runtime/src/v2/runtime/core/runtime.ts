@@ -12,6 +12,7 @@ import type { LicenseChecker } from "@copilotkit/license-verifier";
 import { resolveDebugConfig } from "@copilotkit/shared";
 import type { ResolvedDebugConfig, DebugConfig } from "@copilotkit/shared";
 import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
+import { resolveSseKeepAliveIntervalSeconds } from "../handlers/shared/sse-keep-alive";
 import type {
   ForwardHeadersConfig,
   ResolvedForwardHeadersPolicy,
@@ -28,7 +29,7 @@ import { createLogger } from "../../../v1-deprecated/lib/logger";
 import type { CopilotRuntimeLogger } from "../../../v1-deprecated/lib/logger";
 import { logRuntimeTelemetryDisclosure } from "../../../v1-deprecated/lib/telemetry-disclosure";
 import type { TranscriptionService } from "../transcription-service/transcription-service";
-import { DebugEventBus } from "./debug-event-bus";
+import { DebugEventBus, isDebugEventFeedEnabled } from "./debug-event-bus";
 import type { AgentRunner } from "../runner/agent-runner";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
@@ -40,6 +41,7 @@ import type { CopilotKitIntelligence } from "../intelligence-platform";
 import type { Channel } from "@copilotkit/channels-core";
 import telemetry from "../telemetry/telemetry-client";
 import type { TelemetryCapture } from "../telemetry/telemetry-client";
+
 import {
   firstNonBlankLicenseToken,
   firstNonBlankTelemetryId,
@@ -191,6 +193,17 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
    * No effect when telemetry is off: nothing is sent, so nothing carries this.
    */
   telemetryProperties?: Record<string, unknown>;
+  /**
+   * A capture scope to emit this runtime's telemetry through, instead of one
+   * built from the identity options above.
+   *
+   * @internal Set by the deprecated v1 entrypoint, which delegates every
+   * request to this runtime. Handing its own scope down is what collapses
+   * the duplicate: the v1 entrypoint no longer emits the same events itself,
+   * and the events this runtime sends still reach Segment and still report
+   * the v1 surface. There is no reason for an application to pass this.
+   */
+  ɵtelemetry?: TelemetryCapture;
   /** Enable debug logging for the event pipeline. */
   debug?: DebugConfig;
   /**
@@ -202,6 +215,14 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
    * `{ useDefaultDenylist: false }` to restore the previous wide-open behavior.
    */
   forwardHeaders?: ForwardHeadersConfig;
+  /**
+   * Seconds of silence on an SSE response before the runtime writes a
+   * `: keep-alive` comment, so proxies and browsers with idle timeouts keep
+   * the connection open through long reasoning or tool phases. Comments are
+   * transport frames and never become AG-UI events. `0` disables it.
+   * @default 15
+   */
+  sseKeepAliveIntervalSeconds?: number;
   /**
    * Opt-in flag exposing the client-facing memory proxy routes
    * (`/memories`, `/memories/recall`, `/memories/subscribe`, `/memories/:id`).
@@ -338,6 +359,12 @@ export interface CopilotRuntimeLike {
    */
   forwardHeadersPolicy?: ResolvedForwardHeadersPolicy;
   /**
+   * Resolved SSE keep-alive interval in seconds; `0` disables it. Optional on
+   * the published interface for the same source-compatibility reason as
+   * `forwardHeadersPolicy`; the SSE call sites fall back to the default.
+   */
+  sseKeepAliveIntervalSeconds?: number;
+  /**
    * Resolved opt-in flag for the client-facing memory proxy routes. Optional on
    * the published interface so an external `CopilotRuntimeLike` implementor
    * predating this field stays source-compatible; the dispatcher coalesces a
@@ -381,6 +408,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public debugLogger?: CopilotRuntimeLogger;
   public readonly telemetry: TelemetryCapture;
   public readonly forwardHeadersPolicy: ResolvedForwardHeadersPolicy;
+  public readonly sseKeepAliveIntervalSeconds: number;
   public readonly exposeMemoryRoutes: boolean;
   public readonly memory?: CopilotRuntimeMemoryConfig;
 
@@ -432,13 +460,15 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
       options.telemetryId,
       process.env.CPK_TELEMETRY_ID,
     );
-    this.telemetry = telemetry.createScope(
-      resolvedTelemetryId !== undefined
-        ? { telemetryId: resolvedTelemetryId }
-        : this.resolvedLicenseToken !== undefined
-          ? { licenseToken: this.resolvedLicenseToken }
-          : {},
-    );
+    this.telemetry =
+      options.ɵtelemetry ??
+      telemetry.createScope(
+        resolvedTelemetryId !== undefined
+          ? { telemetryId: resolvedTelemetryId }
+          : this.resolvedLicenseToken !== undefined
+            ? { licenseToken: this.resolvedLicenseToken }
+            : {},
+      );
 
     // Set here rather than per event, beside the license token and for the same
     // reason: it describes the caller, not the call, and every event should
@@ -447,7 +477,17 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
       telemetry.setGlobalProperties(options.telemetryProperties);
     }
 
-    if (process.env.NODE_ENV !== "production") {
+    this.debug = resolveDebugConfig(options.debug);
+    if (this.debug.enabled) {
+      this.debugLogger = createLogger({
+        level: "debug",
+        component: "copilotkit-debug",
+      });
+    }
+    // The debug feed carries every thread's events to any subscriber, so the
+    // bus only exists where the feed is allowed to be served. Resolving
+    // `debug` first keeps the bus and the route gate reading one value.
+    if (isDebugEventFeedEnabled(this.debug)) {
       this.debugEventBus = new DebugEventBus();
     }
     // Resolve the inbound-header forwarding policy once (mirroring the
@@ -457,18 +497,14 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     this.forwardHeadersPolicy = resolveForwardHeadersPolicy(
       options.forwardHeaders,
     );
+    this.sseKeepAliveIntervalSeconds = resolveSseKeepAliveIntervalSeconds(
+      options.sseKeepAliveIntervalSeconds,
+    );
     // Secure default: the client-facing memory proxy routes stay hidden (404)
     // unless a deployment explicitly opts in.
     this.memory = (options as { memory?: CopilotRuntimeMemoryConfig }).memory;
     this.exposeMemoryRoutes =
       this.memory !== undefined || (options.exposeMemoryRoutes ?? false);
-    this.debug = resolveDebugConfig(options.debug);
-    if (this.debug.enabled) {
-      this.debugLogger = createLogger({
-        level: "debug",
-        component: "copilotkit-debug",
-      });
-    }
   }
 }
 
@@ -886,6 +922,10 @@ class CopilotRuntimeShim implements CopilotRuntime {
 
   get forwardHeadersPolicy(): ResolvedForwardHeadersPolicy {
     return this.delegate.forwardHeadersPolicy;
+  }
+
+  get sseKeepAliveIntervalSeconds(): number {
+    return this.delegate.sseKeepAliveIntervalSeconds;
   }
 
   get exposeMemoryRoutes(): boolean | undefined {

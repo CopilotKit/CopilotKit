@@ -75,6 +75,7 @@ const EXPECTED_EDGE_KEYS = [
   "pro-at-limit-5000-of-5000",
   "oss-no-metadata-enabled-zero",
   "oss-ephemeral-existing",
+  "oss-intelligence-disabled",
   "capability-absent",
   "unknown-limit",
   "missing-expiry",
@@ -492,7 +493,7 @@ function nextSocketMessage(socket: WebSocket): Promise<unknown> {
   });
 }
 
-test("exports the exact ordered 50-scenario route catalog", () => {
+test("exports the exact ordered 51-scenario route catalog", () => {
   expect(CORE_SCENARIO_KEYS).toEqual(EXPECTED_CORE_KEYS);
   expect(LEARNING_SCENARIO_KEYS).toEqual(EXPECTED_LEARNING_KEYS);
   expect(EDGE_SCENARIO_KEYS).toEqual(EXPECTED_EDGE_KEYS);
@@ -501,7 +502,7 @@ test("exports the exact ordered 50-scenario route catalog", () => {
     ...EXPECTED_LEARNING_KEYS,
     ...EXPECTED_EDGE_KEYS,
   ]);
-  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(50);
+  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(51);
   expect(Object.keys(THREADS_STATE_SCENARIOS)).toEqual(ALL_SCENARIO_KEYS);
 });
 
@@ -736,6 +737,16 @@ test("uses safe actions, catalog limits, and newest thread fixtures", () => {
       expect(scenario.inspectorMetadata?.action).toBeUndefined();
     }
   }
+});
+
+test("distinguishes Intelligence usage from disabled Threads capability", () => {
+  const oss = getThreadsStateScenario("oss-intelligence-disabled");
+  expect(oss.runtimeInfo.mode).toBe("sse");
+  expect(oss.runtimeInfo.intelligence).toBeUndefined();
+  expect(oss.runtimeInfo.threadEndpoints).toBeUndefined();
+  expect(
+    getThreadsStateScenario("pro-disabled-existing").runtimeInfo.mode,
+  ).toBe("intelligence");
 });
 
 test("serves public info and optional inspector metadata shapes", async () => {
@@ -1258,11 +1269,16 @@ test("builds a clean launcher-notification replay", () => {
     selectedMenu: "agents",
   });
   expect(localRemoved).toEqual([
+    "cpk:inspector:notifications:v1",
     "cpk:inspector:announcement_read",
     "cpk:inspector:dismissed_until",
   ]);
-  expect(sessionRemoved).toEqual(["cpk:inspector:pulsed"]);
+  expect(sessionRemoved).toEqual([
+    "cpk:inspector:pulsed",
+    "cpk:inspector:notification-pulsed-id",
+  ]);
   expect(expiredCookies).toEqual([
+    "cpk_inspector_notifications_v1=; Path=/; Max-Age=0; SameSite=Lax",
     "cpk_inspector_announcements=; Path=/; Max-Age=0; SameSite=Lax",
     "cpk_inspector_dismissed_until=; Path=/; Max-Age=0; SameSite=Lax",
   ]);
@@ -1327,8 +1343,8 @@ test("runs teardown before real select and reset control navigation", async () =
 
 // The timeout below is 180s, not the 60s this started with.
 //
-// One test drives 34 routes against a real lab server, so its cost is the sum
-// of 34 bounded waits and it lands wherever the runner's load puts it. Measured
+// One test drives 35 routes against a real lab server, so its cost is the sum
+// of 35 bounded waits and it lands wherever the runner's load puts it. Measured
 // across `test / unit` shards of the SAME commit: 29.2s (Node 24/React 19),
 // 56.1s (Node 22/React 18), 57.1s (Node 20/React 19), and, on two runs of one
 // commit on Node 20/React 18, 41.4s and then a timeout at the old 60s ceiling.
@@ -1410,7 +1426,8 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all Thre
           // flight at this point, and the signal only arms once it has been
           // refused — so wait for the launcher to say so rather than assume
           // the request already lost. Two microtask turns is not a wait.
-          const landingLabel = key === "thread-list-error" ? "Threads" : "Home";
+          const landingLabel =
+            key === "thread-list-error" ? "Rich Threads" : "Home";
           if (landingLabel !== "Home") {
             await vi.waitFor(
               () => {
@@ -1429,7 +1446,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all Thre
           const landingButton =
             landingLabel === "Home"
               ? homeButton
-              : inspectorButton(inspector, "Threads");
+              : inspectorButton(inspector, "Rich Threads");
           expect(
             landingButton?.classList.contains("inspector-nav-control-active"),
             `${key}: ${landingLabel} default`,
@@ -1489,7 +1506,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all Thre
               `${key}: run error raises no launcher error tone`,
             ).toHaveLength(0);
           }
-          const threadsButton = inspectorButton(inspector, "Threads");
+          const threadsButton = inspectorButton(inspector, "Rich Threads");
           expect(threadsButton, `${key}: Threads nav`).toBeDefined();
           threadsButton?.click();
           await flushInspector(inspector);
@@ -1537,9 +1554,9 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all Thre
           const text = inspectorText(inspector);
           const navigation = collectDeep(root, '[aria-label="Inspector"]');
           expect(navigation, `${key}: grouped nav`).toHaveLength(1);
-          expect(text, `${key}: Threads nav`).toContain("Threads");
+          expect(text, `${key}: Threads nav`).toContain("Rich Threads");
           expect(text, `${key}: Agent nav`).toContain("Agent");
-          expect(text, `${key}: Learning nav`).toContain("Learning");
+          expect(text, `${key}: Learning nav`).toContain("Automatic Learning");
           expect(text, `${key}: Home nav`).toContain("Home");
           const overviewCopy = expectedOverviewCopy(scenario);
           if (overviewCopy) {
@@ -1695,7 +1712,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all Thre
             video?.dispatchEvent(new Event("error"));
             await flushInspector(inspector);
             expect(inspectorText(inspector), `${key}: fallback copy`).toContain(
-              "The demo video is unavailable. Use the example threads to explore Messages, AG-UI Events, and State.",
+              "The demo video is unavailable. Use the example threads to explore Conversation, AG-UI Events, and State.",
             );
             expect(
               exampleButtons(inspector),
@@ -1743,7 +1760,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all Thre
                   )
                   .filter((label) => label !== undefined);
                 expect(detailTabs, `${key}: fallback detail tabs`).toEqual([
-                  "Messages",
+                  "Conversation",
                   "AG-UI Events",
                   "State",
                 ]);
@@ -1800,7 +1817,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all Thre
               `${key}: selected newest name`,
             ).toContain(newestThread?.name);
             for (const [tab, kind] of [
-              ["Messages", null],
+              ["Conversation", null],
               ["AG-UI Events", "events"],
               ["State", "state"],
             ] as const) {

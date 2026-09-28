@@ -8,6 +8,7 @@ import {
   input,
 } from "@angular/core";
 import {
+  createAttachmentContent,
   exceedsMaxSize,
   formatFileSize,
   generateVideoThumbnail,
@@ -124,14 +125,7 @@ export class CopilotChatAttachmentsDirective {
     }
 
     for (const attachment of attachments) {
-      content.push({
-        type: attachment.type,
-        source: attachment.source,
-        metadata: {
-          ...(attachment.filename ? { filename: attachment.filename } : {}),
-          ...attachment.metadata,
-        },
-      } as InputContent);
+      content.push(createAttachmentContent(attachment));
     }
 
     return content;

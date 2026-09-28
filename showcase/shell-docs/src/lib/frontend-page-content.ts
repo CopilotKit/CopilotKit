@@ -76,6 +76,7 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "prebuilt-components/chat-controls": "guides/chat-ui",
   "custom-look-and-feel/css": "guides/chat-ui",
   "custom-look-and-feel/slots": "guides/chat-ui",
+  "custom-look-and-feel/markdown": "guides/chat-ui",
   "custom-look-and-feel/reasoning-messages": "guides/chat-ui",
   "multimodal-attachments": "guides/voice-multimodal",
   voice: "guides/voice-multimodal",
@@ -88,7 +89,6 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "generative-ui/backend-tools": "guides/frontend-tools-generative-ui",
   "generative-ui/state-rendering": "guides/frontend-tools-generative-ui",
   "generative-ui/open-generative-ui": "guides/frontend-tools-generative-ui",
-  "generative-ui/open-json-ui": "guides/frontend-tools-generative-ui",
   "generative-ui/json-render": "guides/a2ui",
   "generative-ui/hashbrown": "guides/a2ui",
   "generative-ui/declarative-json-render": "guides/a2ui",
@@ -112,6 +112,9 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "human-in-the-loop/tool-based": "guides/human-in-the-loop",
   "human-in-the-loop/useInterrupt": "guides/human-in-the-loop",
   "human-in-the-loop/headless": "guides/human-in-the-loop",
+  // Added 2026-08-01 with the governed-action page; the redirect was missed,
+  // so the React nav had a destination Angular could not reach.
+  "human-in-the-loop/governed-actions": "guides/human-in-the-loop",
   "shared-state": "guides/shared-state",
   "shared-state/in-app-agent-read": "guides/shared-state",
   "shared-state/in-app-agent-write": "guides/shared-state",
@@ -130,7 +133,6 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "headless-threads": "guides/threads-memory-attachments-headless",
   "threads-lifecycle": "guides/threads-memory-attachments-headless",
   "threads-import": "guides/threads-memory-attachments-headless",
-  "threads-self-managed": "guides/threads-memory-attachments-headless",
   "intelligence/headless-ui": "guides/threads-memory-attachments-headless",
   "custom-look-and-feel/headless-ui":
     "guides/threads-memory-attachments-headless",

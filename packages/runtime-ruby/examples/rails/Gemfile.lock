@@ -1,7 +1,7 @@
 PATH
   remote: ../..
   specs:
-    copilotkit-runtime (0.1.0)
+    copilotkit-runtime (0.1.0.rc.1)
       base64 (~> 0.2)
       websocket (~> 1.2)
 

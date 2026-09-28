@@ -1,8 +1,8 @@
 // Canonical category ordering for the framework picker / integrations
-// grid / sidebar framework selector. Defined in its own module so both
-// server components (app routes, MDX-side renderers) and client
-// components (DocsLandingNext, FrameworkSelector) can import it
-// without pulling the fs-using helpers in lib/docs-render through.
+// grid / sidebar framework selector. Defined in its own module so it can
+// be imported without pulling the fs-using helpers in lib/docs-render
+// through — sidebar-framework-selector.tsx is today's consumer, via the
+// re-export below.
 //
 // Re-exported from lib/docs-render so existing server-side imports keep
 // working — change in one place, available everywhere.

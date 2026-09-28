@@ -12,6 +12,7 @@ import {
 import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-generative-ui/open-generative-ui-activity-renderer";
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
 import { CopilotA2UIActivityRenderer } from "./components/a2ui/a2ui-activity-renderer";
+import { CopilotA2UIRenderToolCall } from "./components/a2ui/a2ui-render-tool-call";
 import { CopilotA2UIToolRenderer } from "./components/a2ui/a2ui-tool-renderer";
 import {
   AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
@@ -33,6 +34,9 @@ const mockSetRuntimeUrl = vi.fn();
 const mockSetRuntimeTransport = vi.fn();
 const mockSetHeaders = vi.fn();
 const mockSetProperties = vi.fn();
+const mockSetMessageFilter = vi.fn();
+/** Keeps the final turn only — the shape #1482 asks for (see below). */
+const keepLastTurn = (messages: any[]) => messages.slice(-1);
 const mockSetAgents = vi.fn();
 const mockGetAgent = vi.fn();
 const mockGetTool = vi.fn();
@@ -41,7 +45,6 @@ const mockRemoveContext = vi.fn();
 
 const licenseKey = "ck_pub_" + "a".repeat(32);
 
-let lastCoreInstance: any;
 let lastCoreConfig: any;
 
 // Spread the real module and override only what these tests drive. The factory
@@ -69,6 +72,7 @@ vi.mock("@copilotkit/core", async (importOriginal) => {
     readonly setRuntimeTransport = mockSetRuntimeTransport;
     readonly setHeaders = mockSetHeaders;
     readonly setProperties = mockSetProperties;
+    readonly setMessageFilter = mockSetMessageFilter;
     readonly setAgents__unsafe_dev_only = mockSetAgents;
     readonly getAgent = mockGetAgent;
     readonly getTool = mockGetTool;
@@ -86,7 +90,6 @@ vi.mock("@copilotkit/core", async (importOriginal) => {
 
     constructor(config: any) {
       lastCoreConfig = config;
-      lastCoreInstance = this;
       mockSubscribe.mockImplementationOnce((listener: any) => {
         this.listener = listener;
         return { unsubscribe: vi.fn() };
@@ -263,7 +266,7 @@ describe("CopilotKit", () => {
       name: "approval",
       args: z.object({ summary: z.string() }),
       component: class {
-        toolCall = signal({} as any);
+        toolCall = signal({});
       },
       toolCall: vi.fn(),
       agentId: "agent-1",
@@ -273,19 +276,25 @@ describe("CopilotKit", () => {
 
     expect(copilotKit.humanInTheLoopToolRenderConfigs()).toEqual([toolConfig]);
     expect(mockAddTool).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "approval" }),
+      expect.objectContaining({ name: "approval", type: "human-in-the-loop" }),
     );
 
     const tool = mockAddTool.mock.calls.at(-1)![0];
+    const controller = new AbortController();
     const mockAgent = { agentId: "agent-1" };
     await tool.handler(
       {},
       {
         toolCall: { id: "call-1", function: { name: "approval" } },
         agent: mockAgent,
+        signal: controller.signal,
       },
     );
-    expect(onResultSpy).toHaveBeenCalledWith("call-1", "approval");
+    expect(onResultSpy).toHaveBeenCalledWith(
+      "call-1",
+      "approval",
+      controller.signal,
+    );
 
     onResultSpy.mockRestore();
   });
@@ -370,7 +379,7 @@ describe("CopilotKit", () => {
     });
 
     const copilotKit = TestBed.inject(CopilotKit);
-    const core = lastCoreInstance!;
+    const core = copilotKit.core as any;
 
     expect(copilotKit.activityMessageRenderConfigs()).toEqual([]);
     expect(copilotKit.toolCallRenderConfigs()).toEqual([]);
@@ -389,8 +398,7 @@ describe("CopilotKit", () => {
     expect(copilotKit.toolCallRenderConfigs()).toEqual([
       expect.objectContaining({
         name: RENDER_A2UI_TOOL_NAME,
-        component: CopilotA2UIToolRenderer,
-        passAgent: true,
+        component: CopilotA2UIRenderToolCall,
       }),
       expect.objectContaining({
         name: AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
@@ -439,7 +447,7 @@ describe("CopilotKit", () => {
 
     const copilotKit = TestBed.inject(CopilotKit);
 
-    expect(lastCoreInstance!.a2uiEnabled).toBe(false);
+    expect((copilotKit.core as any).a2uiEnabled).toBe(false);
     expect(copilotKit.activityMessageRenderConfigs()).toEqual([
       expect.objectContaining({
         activityType: "a2ui-surface",
@@ -532,13 +540,87 @@ describe("CopilotKit", () => {
     expect(mockSetAgents).toHaveBeenCalledWith({ a: {} });
   });
 
+  // #1482: the message filter is the Angular half of the `messageFilter`
+  // React and Vue take as a prop. The filter's own behaviour is covered in
+  // packages/core; what is Angular-specific is that the configuration reaches
+  // the core, and that clearing it is expressible.
+  it("passes the configured message filter to core", () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({ licenseKey, messageFilter: keepLastTurn }),
+      ],
+    });
+
+    TestBed.inject(CopilotKit);
+
+    expect(lastCoreConfig.messageFilter).toBe(keepLastTurn);
+  });
+
+  it("leaves core unfiltered when no message filter is configured", () => {
+    TestBed.configureTestingModule({
+      providers: [provideCopilotKit({ licenseKey })],
+    });
+
+    TestBed.inject(CopilotKit);
+
+    expect(lastCoreConfig.messageFilter).toBeUndefined();
+  });
+
+  it("updates the message filter through updateRuntime", () => {
+    TestBed.configureTestingModule({
+      providers: [provideCopilotKit({ licenseKey })],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+
+    copilotKit.updateRuntime({ messageFilter: keepLastTurn });
+
+    expect(mockSetMessageFilter).toHaveBeenCalledWith(keepLastTurn);
+  });
+
+  it("clears the message filter when updateRuntime passes undefined", () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({
+          licenseKey,
+          messageFilter: keepLastTurn,
+        }),
+      ],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+
+    // Passing the key explicitly is how an app turns trimming off. An
+    // `options.messageFilter !== undefined` guard would silently ignore it.
+    copilotKit.updateRuntime({ messageFilter: undefined });
+
+    expect(mockSetMessageFilter).toHaveBeenCalledWith(undefined);
+  });
+
+  it("leaves the message filter alone when updateRuntime does not mention it", () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({
+          licenseKey,
+          messageFilter: keepLastTurn,
+        }),
+      ],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+
+    copilotKit.updateRuntime({ runtimeUrl: "https://other" });
+
+    expect(mockSetMessageFilter).not.toHaveBeenCalled();
+  });
+
   it("reflects agent updates from core subscriptions", () => {
     TestBed.configureTestingModule({
       providers: [provideCopilotKit({ licenseKey })],
     });
 
     const copilotKit = TestBed.inject(CopilotKit);
-    const core = lastCoreInstance!;
+    const core = copilotKit.core as any;
 
     core.agents = {
       agent1: { id: "agent1" },

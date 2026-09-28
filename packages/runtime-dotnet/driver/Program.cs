@@ -18,7 +18,7 @@ await using var runtime = new IntelligenceRuntime(new RuntimeOptions
     IdentifyUser = (context, _) => ValueTask.FromResult<RuntimeUser?>(new RuntimeUser(context.Request.Headers["x-test-user-id"].FirstOrDefault() ?? "test-user", context.Request.Headers["x-test-user-name"].FirstOrDefault() ?? "Test User")),
     MemoryGrant = config["omitMemoryPolicy"]?.GetValue<bool>() != true && config.AsObject().ContainsKey("memoryGrant") ? (_, _, _) => ValueTask.FromResult(config["memoryGrant"]?.DeepClone() as JsonObject) : null,
     TelemetryDisabled = config["telemetryDisabled"]?.GetValue<bool>() ?? false,
-    TelemetrySampleRate = config["telemetrySampleRate"]?.GetValue<double>() ?? 0.05,
+    TelemetrySampleRate = config["telemetrySampleRate"]?.GetValue<double>() ?? 1,
     TelemetryId = config["telemetryId"]?.GetValue<string>(),
     LicenseToken = config["licenseToken"]?.GetValue<string>(),
     TelemetryUrl = config["telemetryUrl"] is null ? null : new Uri(config["telemetryUrl"]!.GetValue<string>()),

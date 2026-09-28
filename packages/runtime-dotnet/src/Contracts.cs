@@ -45,7 +45,10 @@ public sealed class RuntimeOptions
     public string? LockKeyPrefix { get; init; }
     public long MaxRequestBytes { get; init; } = 4 * 1024 * 1024;
     public bool TelemetryDisabled { get; init; }
-    public double TelemetrySampleRate { get; init; } = 0.05;
+    // Unsampled by default: the sink is ours, so a real count beats one
+    // extrapolated from a fraction of the population. This option and
+    // COPILOTKIT_TELEMETRY_SAMPLE_RATE still dial it down.
+    public double TelemetrySampleRate { get; init; } = 1;
     public string? TelemetryId { get; init; }
     /// <summary>Optional legacy JWT claim for analytics attribution only. This does not verify or grant access.</summary>
     public string? LicenseToken { get; init; }

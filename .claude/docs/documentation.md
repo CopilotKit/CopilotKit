@@ -18,6 +18,11 @@ builds and serves **docs.copilotkit.ai**:
 When you add a **guide page** under `showcase/shell-docs/src/content/docs/`, also update
 that section's `meta.json` so it appears in navigation.
 
+When the page is customer-facing Intelligence docs, follow
+`skills/intelligence-vocabulary/SKILL.md` before writing. One concept gets one
+approved name. Do not rename code identifiers, route slugs, env vars, or API
+fields to match that list.
+
 ### Hybrid docs architecture
 
 Framework docs are in a hybrid state while showcase coverage is being completed. The
@@ -52,8 +57,10 @@ Before editing framework docs, check the framework's `docs_mode`.
 
 - For **showcase-driven frameworks (`docs_mode: generated`)**, update the showcase inputs:
   integration manifests, demos, feature coverage, source regions, generated registry inputs,
-  shared/root MDX, and sparse framework overrides. Do not edit generated files under
-  `showcase/shell-docs/src/data/frameworks/` by hand.
+  shared/root MDX, and sparse framework overrides. The landing-page record under
+  `showcase/shell-docs/src/data/frameworks/` is the exception — edit it by hand. Some of
+  those files carry a header crediting `scripts/extract-framework-overviews.ts`, which does
+  not exist in this repository and never has.
 - For **authored frameworks (`docs_mode: authored`)**, update the framework MDX tree under
   `showcase/shell-docs/src/content/docs/integrations/<docsFolder>/` and its `meta.json`.
 - For **reference docs**, edit `showcase/shell-docs/src/content/reference/`. The v2

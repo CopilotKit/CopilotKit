@@ -408,6 +408,11 @@ export function createCopilotRuntimeHandler(
           route.method === "transcribe"
         ) {
           request = createJsonRequest(request, methodCall.body);
+        } else if (route.method === "agent/stop") {
+          request = createJsonRequest(
+            request,
+            methodCall.body === undefined ? {} : methodCall.body,
+          );
         } else if (route.method === "inspector/learning") {
           const learningUrl = new URL(request.url);
           for (const key of [
@@ -757,8 +762,16 @@ async function resolveSingleRoute(
       basePath.length > 1 && basePath.endsWith("/")
         ? basePath.slice(0, -1)
         : basePath;
-    if (!pathname.startsWith(normalizedBase)) {
-      throw jsonResponse({ error: "Not found" }, 404);
+    // Same boundary rule as multi-route matchRoute: "/" matches everything;
+    // otherwise the character after basePath must be "/" or end of string.
+    if (normalizedBase !== "/") {
+      const afterBase = pathname.slice(normalizedBase.length);
+      if (
+        !pathname.startsWith(normalizedBase) ||
+        (afterBase.length > 0 && !afterBase.startsWith("/"))
+      ) {
+        throw jsonResponse({ error: "Not found" }, 404);
+      }
     }
   }
 

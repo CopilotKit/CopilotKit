@@ -66,9 +66,9 @@ public sealed class McpAppsAgentFactory
 
     public AIAgent CreateMcpAppsAgent()
     {
-        // gpt-4o-mini for speed — Excalidraw element emission is simple JSON
+        // gpt-5-mini for speed — Excalidraw element emission is simple JSON
         // and we bias hard toward sub-30s generation.
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
 
         return new ChatClientAgent(
             chatClient,

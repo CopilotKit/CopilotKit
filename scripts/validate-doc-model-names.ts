@@ -5,10 +5,31 @@ import * as path from "node:path";
 // Types
 // ---------------------------------------------------------------------------
 
+/**
+ * Models a provider offers, in two tiers.
+ *
+ * `ship` is what a starter may pin. `recognize` is every other real name, which
+ * documentation may legitimately mention -- a migration note, a comparison, a
+ * model a reader already uses. Both are real; only one is current.
+ *
+ * A bare array means the provider has not been split yet, and every name in it
+ * counts as both. That keeps a partially split file valid and lets the split
+ * land provider by provider.
+ */
+type ProviderModels = string[] | { ship?: string[]; recognize?: string[] };
+
 interface Allowlist {
   _comment?: string;
-  [provider: string]: string[] | string | undefined;
+  [provider: string]: ProviderModels | string | undefined;
 }
+
+/**
+ * Which question the caller is asking of the list.
+ *
+ * `ship` asks whether we would put this model in a starter today. `all` asks
+ * only whether the name is real, which is what documentation needs (PE-70).
+ */
+export type AllowlistTier = "ship" | "all";
 
 interface Violation {
   file: string;
@@ -21,6 +42,31 @@ interface Violation {
 // ---------------------------------------------------------------------------
 
 const DOCS_DIR = path.resolve(__dirname, "../showcase/shell-docs/src/content");
+
+/**
+ * Trees whose files a developer clones and runs.
+ *
+ * Documentation may name an old model. These may not: whatever they pin is what
+ * a new application is built on, and an older model handles tool calling,
+ * structured output, and streamed generative UI differently from the one we
+ * meant to show (PE-70). Until this list existed the check read the docs alone,
+ * so the 150-odd starter files were the one place it never looked.
+ */
+const SHIPPED_DIRS = [
+  path.resolve(__dirname, "../showcase/integrations"),
+  path.resolve(__dirname, "../examples"),
+];
+
+/** Starter file kinds worth reading. Fixtures and lockfiles are not here. */
+const SHIPPED_EXTENSIONS = [
+  ".py",
+  ".ts",
+  ".tsx",
+  ".cs",
+  ".java",
+  ".mdx",
+  ".md",
+];
 const ALLOWLIST_PATH = path.resolve(
   __dirname,
   "../showcase/shell-docs/model-allowlist.json",
@@ -62,15 +108,23 @@ const MODEL_PREFIXES = [
 // Helpers
 // ---------------------------------------------------------------------------
 
-export function loadAllowlist(filePath: string): Set<string> {
+export function loadAllowlist(
+  filePath: string,
+  tier: AllowlistTier = "all",
+): Set<string> {
   const raw: Allowlist = JSON.parse(fs.readFileSync(filePath, "utf-8"));
   const allowed = new Set<string>();
   for (const [key, value] of Object.entries(raw)) {
     if (key === "_comment") continue;
     if (Array.isArray(value)) {
-      for (const name of value) {
-        allowed.add(name);
-      }
+      // Not split yet: every name counts as current.
+      for (const name of value) allowed.add(name);
+      continue;
+    }
+    if (typeof value !== "object" || value === null) continue;
+    for (const name of value.ship ?? []) allowed.add(name);
+    if (tier === "all") {
+      for (const name of value.recognize ?? []) allowed.add(name);
     }
   }
   return allowed;
@@ -93,6 +147,9 @@ const EXACT_MODEL_NAMES = new Set(["o1", "o3", "o4"]);
 export function looksLikeModelName(s: string): boolean {
   const lower = s.toLowerCase();
   if (EXACT_MODEL_NAMES.has(lower)) return true;
+  // `google/gemini-2.5-*` names a family in prose. The match stops at the
+  // wildcard and leaves a trailing separator, which no real version carries.
+  if (/[-.]$/u.test(lower)) return false;
   return MODEL_PREFIXES.some((prefix) => lower.startsWith(prefix));
 }
 
@@ -102,7 +159,12 @@ export function looksLikeModelName(s: string): boolean {
  */
 function extractCodeRegions(
   content: string,
+  wholeFileIsCode = false,
 ): Array<{ text: string; lineOffset: number }> {
+  // A starter's `.py`, `.ts`, or `.cs` file is code end to end. Running the
+  // fence parser over it finds nothing, because there are no fences (PE-70).
+  if (wholeFileIsCode) return [{ text: content, lineOffset: 0 }];
+
   const regions: Array<{ text: string; lineOffset: number }> = [];
   const lines = content.split("\n");
 
@@ -158,6 +220,17 @@ function extractCodeRegions(
 const MODEL_ATTR_REGEX =
   /(?:model\s*[=:]\s*["']|"model"\s*:\s*["'])([\w./-]+)["']/g;
 
+/**
+ * A model named as the sole string argument of a call.
+ *
+ * `GetChatClient("gpt-4o-mini")` is the .NET starter's form, and the line that
+ * produced PE-70. Nothing in the `model=` family matches it. Applied to source
+ * files only: in prose a quoted name inside parentheses is as often a mention
+ * as a pin, and `looksLikeModelName` is the only thing standing between this
+ * pattern and every other quoted string in the repository.
+ */
+const CALL_ARGUMENT_REGEX = /\(\s*["']([\w./-]+)["']\s*\)/g;
+
 const BARE_PROVIDER_REGEX = new RegExp(
   `(?:${PROVIDER_PREFIXES.map((p) => p.replace("/", "\\/")).join("|")})([\\w.-]+)`,
   "g",
@@ -165,11 +238,15 @@ const BARE_PROVIDER_REGEX = new RegExp(
 
 export function extractModelNames(
   content: string,
+  wholeFileIsCode = false,
 ): Array<{ model: string; line: number }> {
   const results: Array<{ model: string; line: number }> = [];
   const seen = new Set<string>();
 
-  const regions = extractCodeRegions(content);
+  const regions = extractCodeRegions(content, wholeFileIsCode);
+  const patterns = wholeFileIsCode
+    ? [MODEL_ATTR_REGEX, BARE_PROVIDER_REGEX, CALL_ARGUMENT_REGEX]
+    : [MODEL_ATTR_REGEX, BARE_PROVIDER_REGEX];
 
   for (const region of regions) {
     const regionLines = region.text.split("\n");
@@ -178,31 +255,17 @@ export function extractModelNames(
       const lineText = regionLines[i];
       const lineNumber = region.lineOffset + i + 1; // 1-indexed
 
-      // Match model="..." / model: "..." / "model": "..."
-      let match: RegExpExecArray | null;
-      MODEL_ATTR_REGEX.lastIndex = 0;
-      while ((match = MODEL_ATTR_REGEX.exec(lineText)) !== null) {
-        const raw = match[1];
-        const stripped = stripProviderPrefix(raw);
-        if (stripped && looksLikeModelName(stripped)) {
+      for (const pattern of patterns) {
+        let match: RegExpExecArray | null;
+        pattern.lastIndex = 0;
+        while ((match = pattern.exec(lineText)) !== null) {
+          const stripped = stripProviderPrefix(match[1]);
+          if (!stripped || !looksLikeModelName(stripped)) continue;
+          if (lineText.includes(IGNORE_MARKER)) continue;
           const key = `${stripped}:${lineNumber}`;
-          if (!seen.has(key)) {
-            seen.add(key);
-            results.push({ model: stripped, line: lineNumber });
-          }
-        }
-      }
-
-      // Match bare provider-prefixed names (e.g. openai/gpt-5.4-mini)
-      BARE_PROVIDER_REGEX.lastIndex = 0;
-      while ((match = BARE_PROVIDER_REGEX.exec(lineText)) !== null) {
-        const stripped = match[1];
-        if (stripped && looksLikeModelName(stripped)) {
-          const key = `${stripped}:${lineNumber}`;
-          if (!seen.has(key)) {
-            seen.add(key);
-            results.push({ model: stripped, line: lineNumber });
-          }
+          if (seen.has(key)) continue;
+          seen.add(key);
+          results.push({ model: stripped, line: lineNumber });
         }
       }
     }
@@ -215,7 +278,27 @@ export function extractModelNames(
 // File scanning
 // ---------------------------------------------------------------------------
 
-function findMdxFiles(dir: string): string[] {
+/**
+ * Marker that says a line names an old model deliberately.
+ *
+ * The Claude adapter normalizes a legacy spelling, so it has to contain one.
+ * Silencing it at the line keeps the reason next to the code, rather than in a
+ * list of exceptions somewhere else that nobody revisits.
+ */
+const IGNORE_MARKER = "model-allowlist-ignore";
+
+/** Extensions whose whole content is code rather than prose around fences. */
+const SOURCE_EXTENSIONS = [".py", ".ts", ".tsx", ".cs", ".java"];
+
+/** A test names a model because a test needs one. It ships nothing. */
+function isTestFile(file: string): boolean {
+  return (
+    /\.(test|spec)\.[^.]+$/u.test(file) ||
+    /(^|\/)(tests?|__tests__)\//u.test(file)
+  );
+}
+
+function findMdxFiles(dir: string, extensions: readonly string[]): string[] {
   const results: string[] = [];
 
   function walk(current: string) {
@@ -227,7 +310,7 @@ function findMdxFiles(dir: string): string[] {
         if (entry.name.startsWith(".") || entry.name === "node_modules")
           continue;
         walk(full);
-      } else if (entry.name.endsWith(".mdx")) {
+      } else if (extensions.some((ext) => entry.name.endsWith(ext))) {
         results.push(full);
       }
     }
@@ -237,17 +320,30 @@ function findMdxFiles(dir: string): string[] {
   return results.sort();
 }
 
+/** How a tree is scanned: which question to ask, and which files to read. */
+export interface ValidateOptions {
+  /** Defaults to `all`, which is what the documentation tree needs. */
+  readonly tier?: AllowlistTier;
+  /** Defaults to `.mdx`. A starter tree passes its own source extensions. */
+  readonly extensions?: readonly string[];
+}
+
 export function validateFiles(
   docsDir: string,
   allowlistPath: string,
+  options: ValidateOptions = {},
 ): Violation[] {
-  const allowed = loadAllowlist(allowlistPath);
-  const files = findMdxFiles(docsDir);
+  const tier = options.tier ?? "all";
+  const extensions = options.extensions ?? [".mdx"];
+  const allowed = loadAllowlist(allowlistPath, tier);
+  const files = findMdxFiles(docsDir, extensions);
   const violations: Violation[] = [];
 
   for (const file of files) {
+    if (tier === "ship" && isTestFile(file)) continue;
     const content = fs.readFileSync(file, "utf-8");
-    const models = extractModelNames(content);
+    const wholeFileIsCode = SOURCE_EXTENSIONS.some((ext) => file.endsWith(ext));
+    const models = extractModelNames(content, wholeFileIsCode);
 
     for (const { model, line } of models) {
       if (!allowed.has(model)) {
@@ -276,23 +372,48 @@ function main() {
     process.exit(1);
   }
 
-  const violations = validateFiles(DOCS_DIR, ALLOWLIST_PATH);
+  // The docs ask only whether a name is real. A starter asks whether it is one
+  // we would ship today, which is the stricter of the two.
+  const violations = validateFiles(DOCS_DIR, ALLOWLIST_PATH).map((v) => ({
+    ...v,
+    file: path.join("showcase/shell-docs/src/content", v.file),
+    tier: "all" as const,
+  }));
+
+  for (const dir of SHIPPED_DIRS) {
+    if (!fs.existsSync(dir)) continue;
+    violations.push(
+      ...validateFiles(dir, ALLOWLIST_PATH, {
+        tier: "ship",
+        extensions: SHIPPED_EXTENSIONS,
+      }).map((v) => ({
+        ...v,
+        file: path.join(
+          path.relative(path.resolve(__dirname, ".."), dir),
+          v.file,
+        ),
+        tier: "ship" as const,
+      })),
+    );
+  }
 
   if (violations.length === 0) {
-    console.log("All model names in docs are valid.");
+    console.log("All model names are valid.");
     process.exit(0);
   }
 
   console.log(
-    `Found ${violations.length} model name${violations.length === 1 ? "" : "s"} not in allowlist:\n`,
+    `Found ${violations.length} model name${violations.length === 1 ? "" : "s"} to fix:\n`,
   );
 
   for (const v of violations) {
-    console.log(`  ${v.file}:${v.line}  ${v.model}`);
+    const why = v.tier === "ship" ? "not a model we ship" : "not a known model";
+    console.log(`  ${v.file}:${v.line}  ${v.model}  (${why})`);
   }
 
   console.log(
-    `\nTo fix: add valid names to showcase/shell-docs/model-allowlist.json, or update the docs.`,
+    `\nA starter may only pin a model listed under "ship". Documentation may also name` +
+      `\none listed under "recognize". Both lists are showcase/shell-docs/model-allowlist.json.`,
   );
 
   if (fixMode) {

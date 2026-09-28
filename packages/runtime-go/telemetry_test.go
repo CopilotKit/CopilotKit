@@ -34,7 +34,9 @@ func TestTelemetryDefaultRateAndEnvironmentOverride(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer exporter.close()
-	if exporter.rate != .05 {
+	// Unsampled by default. The sink is CopilotKit's own, so anonymous
+	// volume costs nothing per event and a real count beats an estimate.
+	if exporter.rate != 1 {
 		t.Fatalf("default rate %v", exporter.rate)
 	}
 	t.Setenv("COPILOTKIT_TELEMETRY_SAMPLE_RATE", "0")
@@ -104,6 +106,10 @@ func TestTelemetrySamplingIdentityAndCanonicalEnvelope(t *testing.T) {
 	}
 	globals := object(bodies[0]["global_properties"])
 	if globals["sampleRate"] != float64(1) || globals["sampleWeight"] != float64(1) || globals["telemetry_identified"] != false {
+		t.Fatal(globals)
+	}
+	// This runtime exposes the v2 API only, so it reports that surface.
+	if globals["telemetry_emitter"] != "runtime-go" || globals["telemetry_surface"] != "v2" {
 		t.Fatal(globals)
 	}
 	if object(bodies[0]["properties"])["actionsAmount"] != float64(0) {

@@ -343,13 +343,13 @@ Pass a telemetry instance to `IntelligenceRuntime(telemetry=...)`:
 ```python
 from copilotkit_runtime import Telemetry
 
-telemetry = Telemetry(sample_rate=0.05, telemetry_id="my-application")
+telemetry = Telemetry(sample_rate=0.5, telemetry_id="my-application")
 ```
 
 Analytics use `https://telemetry.copilotkit.ai/ingest`. `Telemetry(url=...)` changes the endpoint.
 `COPILOTKIT_TELEMETRY_URL` overrides the endpoint. The exporter does not follow redirects and has a three-second request deadline.
 
-The default sample rate is `0.05`. `COPILOTKIT_TELEMETRY_SAMPLE_RATE` overrides `sample_rate`.
+The default sample rate is `1`, so events are not sampled. `COPILOTKIT_TELEMETRY_SAMPLE_RATE` overrides `sample_rate`.
 Rates must be finite and within `[0, 1]`.
 Events include the sample rate, adjustment factor, weight, emitter, transport, and an integer Unix timestamp.
 Analytics contain no prompts, user IDs, thread IDs, API keys, or raw errors.
@@ -388,3 +388,13 @@ Run the shared integration cases:
 ```sh
 NX_DAEMON=false pnpm nx run runtime-conformance:conformance -- -- uv run --project packages/runtime-python python packages/runtime-python/examples/conformance.py
 ```
+
+### Batch learned skills
+
+`await client.get_learned_skills_snapshots(containers=[{"containerId": "support"}, {"containerId": "company", "revision": "42"}])`
+sends one POST to `/api/v1/learning/skills/batch`. It accepts 1–50 unique sources.
+Each source can include `revision` and `ifNoneMatch`. The result maps each container ID to a snapshot, an unchanged result, or a `LearnedSkillsError`.
+The client rejects malformed IDs, duplicate or missing results, invalid metadata, and invalid base64 before it returns data.
+A recognized denial in a malformed response remains a denial. The deadline covers headers and body, and cancellation closes the response.
+The server must support the batch endpoint. This operation does not fall back to individual requests.
+The existing `get_learned_skills_snapshot` operation keeps its single-container GET endpoint.

@@ -16,9 +16,12 @@ import type { GetLearningContainerId } from "../core/learning";
 import {
   LearnedSkillsError,
   learnedSkillsResponseError,
+  parseLearnedSkillsBatch,
 } from "./learned-skills";
 import type {
   GetLearnedSkillsSnapshotRequest,
+  GetLearnedSkillsSnapshotsRequest,
+  LearnedSkillsBatchResult,
   LearnedSkillsSnapshotResult,
 } from "./learned-skills";
 
@@ -960,6 +963,136 @@ export class CopilotKitIntelligence {
       ) {
         throw cause;
       }
+      throw new LearnedSkillsError("NETWORK_ERROR", true, error);
+    }
+  }
+
+  /** Fetch all requested containers in one authorized request, without retries. */
+  async getLearnedSkillsSnapshots(
+    params: GetLearnedSkillsSnapshotsRequest,
+  ): Promise<LearnedSkillsBatchResult[]> {
+    try {
+      params.signal?.throwIfAborted();
+      const containers = params.containers;
+      if (
+        !Array.isArray(containers) ||
+        containers.length < 1 ||
+        containers.length > 50 ||
+        new Set(containers.map((item) => item?.containerId)).size !==
+          containers.length
+      )
+        throw new LearnedSkillsError("INVALID_CONFIG", false);
+      for (const item of containers) {
+        if (
+          !item ||
+          typeof item.containerId !== "string" ||
+          !item.containerId.trim() ||
+          // Reject control characters in caller-provided container IDs.
+          // eslint-disable-next-line no-control-regex
+          /[\u0000-\u001f\u007f]/.test(item.containerId) ||
+          (item.revision !== undefined &&
+            (typeof item.revision !== "string" || !item.revision.trim())) ||
+          (item.ifNoneMatch !== undefined &&
+            (typeof item.ifNoneMatch !== "string" ||
+              !/^"[a-f0-9]{64}"$/.test(item.ifNoneMatch)))
+        )
+          throw new LearnedSkillsError("INVALID_CONFIG", false);
+        try {
+          encodeURIComponent(item.containerId);
+        } catch {
+          throw new LearnedSkillsError("INVALID_CONFIG", false);
+        }
+      }
+      let url: URL;
+      try {
+        url = new URL(`${this.#apiUrl}/api/v1/learning/skills/batch`);
+        if (
+          !["http:", "https:"].includes(url.protocol) ||
+          url.username ||
+          url.password
+        )
+          throw new Error();
+      } catch {
+        throw new LearnedSkillsError("INVALID_CONFIG", false);
+      }
+      const response = await fetch(url.toString(), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.#apiKey}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          containers: containers.map(
+            ({ containerId, revision, ifNoneMatch }) => ({
+              containerId,
+              ...(revision !== undefined ? { revision } : {}),
+              ...(ifNoneMatch !== undefined ? { ifNoneMatch } : {}),
+            }),
+          ),
+        }),
+        signal: params.signal,
+        redirect: "error",
+      });
+      if (response.status === 401) {
+        void response.body?.cancel().catch(() => {});
+        throw new LearnedSkillsError("AUTHENTICATION_FAILED", false);
+      }
+      if (response.status !== 403) params.signal?.throwIfAborted();
+      if (response.status !== 200) {
+        let body: unknown;
+        try {
+          body = await learnedSkillsErrorBody(response, params.signal);
+        } catch (error) {
+          if (response.status === 403)
+            throw new LearnedSkillsError("AUTHORIZATION_FAILED", false);
+          params.signal?.throwIfAborted();
+          if (!(error instanceof SyntaxError)) throw error;
+        }
+        const error = learnedSkillsResponseError(body);
+        if (
+          response.status === 403 &&
+          ![
+            "AUTHENTICATION_FAILED",
+            "AUTHORIZATION_FAILED",
+            "ENTITLEMENT_REQUIRED",
+            "DELIVERY_DISABLED",
+            "CONTAINER_NOT_FOUND",
+            "REVISION_NOT_FOUND",
+            "REVISION_REVOKED",
+          ].includes(error.code)
+        )
+          throw new LearnedSkillsError("AUTHORIZATION_FAILED", false);
+        throw error;
+      }
+      if (
+        response.headers
+          .get("Content-Type")
+          ?.split(";", 1)[0]
+          .trim()
+          .toLowerCase() !== "application/json"
+      )
+        throw new LearnedSkillsError("INVALID_SNAPSHOT", false);
+      let body: unknown;
+      try {
+        body = await learnedSkillsErrorBody(response, params.signal);
+      } catch (error) {
+        if (error instanceof SyntaxError)
+          throw new LearnedSkillsError("INVALID_SNAPSHOT", false);
+        throw error;
+      }
+      params.signal?.throwIfAborted();
+      return parseLearnedSkillsBatch(body, containers);
+    } catch (error) {
+      if (error instanceof LearnedSkillsError) throw error;
+      const cause = params.signal?.aborted ? params.signal.reason : error;
+      if (cause instanceof Error && cause.name === "TimeoutError")
+        throw new LearnedSkillsError("TIMEOUT", true, cause);
+      if (
+        params.signal?.aborted ||
+        (cause instanceof Error && cause.name === "AbortError")
+      )
+        throw cause;
       throw new LearnedSkillsError("NETWORK_ERROR", true, error);
     }
   }

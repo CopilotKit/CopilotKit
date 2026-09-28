@@ -18,6 +18,7 @@ internal static class LicenseTelemetryTests
             Check(exporter.Events.Count == 1, "license claim bypasses zero anonymous sampling");
             var item = exporter.Events.Single();
             Check(item.Identity == "license-id_1" && (bool)item.GlobalProperties["telemetry_identified"]! && (double)item.GlobalProperties["sampleRate"]! == 1 && (double)item.GlobalProperties["sampleRateAdjustmentFactor"]! == 0 && (double)item.GlobalProperties["sampleWeight"]! == 1, "license claim selects exact identified sampling metadata");
+            Check((string)item.GlobalProperties["telemetry_emitter"]! == "runtime-dotnet" && (string)item.GlobalProperties["telemetry_surface"]! == "v2", "identified events name the emitting runtime and its surface");
             Check(!JsonSerializer.Serialize(item).Contains(token, StringComparison.Ordinal) && !JsonSerializer.Serialize(item).Contains("NEVER_SEND_LICENSE_CLAIMS", StringComparison.Ordinal), "license token and unrelated claims never enter telemetry events");
             Check(TelemetrySettings.Resolve(Options(new CaptureExporter(), 0, licenseToken: Token("{\"telemetry_id\":\"option-license\"}"))).Identity == "option-license", "license option wins over license environment fallback");
             Check(TelemetrySettings.Resolve(Options(new CaptureExporter(), 0, licenseToken: " \t ")).Identity == "license-id_1", "blank license option falls back to environment");

@@ -13,7 +13,7 @@ export const weatherAgent = new Agent({
   id: "weather-agent",
   name: "Weather Agent",
   tools: { weatherTool },
-  model: openai("gpt-4o"),
+  model: openai("gpt-5-mini"),
   instructions: "You are a helpful assistant.",
   memory: new Memory({
     storage: new LibSQLStore({

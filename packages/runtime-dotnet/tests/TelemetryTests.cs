@@ -29,6 +29,10 @@ internal static class TelemetryTests
         var ended = exporter.Events.Single(value => value.Event.EndsWith("_ended", StringComparison.Ordinal));
         Check(ended.Attributes.Count == 0, "ended analytics has no local timing or operation fields");
         Check((double)ended.GlobalProperties["sampleRate"]! == 1 && (double)ended.GlobalProperties["sampleWeight"]! == 1, "analytics includes sampling metadata");
+        // The emitter names this client; the surface names the API the caller built against. This runtime exposes v2 only.
+        Check((string)ended.GlobalProperties["telemetry_emitter"]! == "runtime-dotnet" && (string)ended.GlobalProperties["telemetry_surface"]! == "v2", "analytics names the emitting runtime and its surface");
+        // Unsampled by default: the sink is CopilotKit's own, so a real count beats one extrapolated from a fraction of the population.
+        Check(TelemetrySettings.Resolve(DefaultRateOptions(new CaptureExporter())).SampleRate == 1, "telemetry is unsampled unless a rate is configured");
         var zero = new CaptureExporter(); await using (var telemetry = new RuntimeTelemetry(Options(zero, 0, "identity-does-not-bypass"))) telemetry.Record("oss.runtime.agent_execution_stream_started", "agent.run");
         Check(zero.Events.Count == 0, "standalone telemetry identity does not bypass zero sampling");
         var idOptions = Options(new CaptureExporter(), 1, " \t valid_id-1\t ");
@@ -71,6 +75,12 @@ internal static class TelemetryTests
         await app.StopAsync();
         await LicenseTelemetryTests.RunAsync();
     }
+    private static RuntimeOptions DefaultRateOptions(IRuntimeTelemetryExporter exporter) => new()
+    {
+        ApiUrl = new Uri("http://unused.invalid"), RunnerUrl = new Uri("ws://unused.invalid/runner"), ClientUrl = new Uri("ws://unused.invalid/client"), ApiKey = "never-export",
+        Agents = new Dictionary<string, IRuntimeAgent> { ["default"] = new SequenceAgent([]) }, IdentifyUser = (_, _) => ValueTask.FromResult<RuntimeUser?>(null),
+        TelemetryExporter = exporter
+    };
     private static RuntimeOptions Options(IRuntimeTelemetryExporter exporter, double sampleRate, string? identity = null) => new()
     {
         ApiUrl = new Uri("http://unused.invalid"), RunnerUrl = new Uri("ws://unused.invalid/runner"), ClientUrl = new Uri("ws://unused.invalid/client"), ApiKey = "never-export",

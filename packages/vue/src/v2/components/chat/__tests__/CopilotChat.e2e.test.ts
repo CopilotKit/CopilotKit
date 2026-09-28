@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/vue";
 import { computed, defineComponent, onMounted } from "vue";
 import type { PropType } from "vue";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { EventType } from "@ag-ui/client";
 import { z } from "zod";
 import { useConfigureSuggestions } from "../../../hooks/use-configure-suggestions";
@@ -23,6 +23,7 @@ import {
   toolCallResultEvent,
 } from "../../../__tests__/utils/test-helpers";
 import CopilotChat from "../CopilotChat.vue";
+import CopilotPopup from "../CopilotPopup.vue";
 
 afterEach(() => {
   cleanup();
@@ -138,11 +139,33 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
         components: { CopilotChat },
         template: `
           <CopilotChat :welcome-screen="false">
-            <template #chat-view="{ isRunning, onStop, onSubmitMessage }">
+            <template #chat-view="{
+              isRunning,
+              onStop,
+              onSubmitMessage,
+              onAddFile,
+              onStartTranscribe,
+              onCancelTranscribe,
+              onFinishTranscribe,
+              onFinishTranscribeWithAudio,
+            }">
               <div>
                 <button data-testid="submit" @click="onSubmitMessage('trigger run')">submit</button>
                 <span data-testid="running">{{ isRunning ? "running" : "idle" }}</span>
-                <span data-testid="stop-availability">{{ onStop ? "available" : "missing" }}</span>
+                <span data-testid="stop-availability">
+                  {{
+                    [
+                      onStop,
+                      onAddFile,
+                      onStartTranscribe,
+                      onCancelTranscribe,
+                      onFinishTranscribe,
+                      onFinishTranscribeWithAudio,
+                    ].every((command) => typeof command === "function")
+                      ? "available"
+                      : "missing"
+                  }}
+                </span>
               </div>
             </template>
           </CopilotChat>
@@ -153,7 +176,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
 
       expect(screen.getByTestId("running").textContent).toBe("idle");
       expect(screen.getByTestId("stop-availability").textContent).toBe(
-        "missing",
+        "available",
       );
 
       await fireEvent.click(screen.getByTestId("submit"));
@@ -172,7 +195,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       await waitFor(() => {
         expect(screen.getByTestId("running").textContent).toBe("idle");
         expect(screen.getByTestId("stop-availability").textContent).toBe(
-          "missing",
+          "available",
         );
       });
     });
@@ -1235,6 +1258,134 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
           .closest("button");
         expect(expandedButton?.getAttribute("aria-expanded")).toBe("true");
       });
+    });
+  });
+
+  describe("Vue-specific semantics", () => {
+    it("forwards a static stop listener through a custom input slot after a run starts", async () => {
+      const agent = new MockStepwiseAgent();
+      const onStop = vi.fn();
+      const CustomInputChat = defineComponent({
+        components: { CopilotChat },
+        setup() {
+          return { onStop };
+        },
+        template: `
+          <CopilotChat :welcome-screen="false" @stop="onStop">
+            <template #input="{ isRunning, onSubmitMessage, onStop }">
+              <button data-testid="custom-input-submit" @click="onSubmitMessage('Hello')">
+                submit
+              </button>
+              <button v-if="isRunning" data-testid="custom-input-stop" @click="onStop">
+                stop
+              </button>
+            </template>
+          </CopilotChat>
+        `,
+      });
+
+      renderWithCopilotKit({ agent, children: CustomInputChat });
+
+      expect(screen.queryByTestId("custom-input-stop")).toBeNull();
+
+      await fireEvent.click(screen.getByTestId("custom-input-submit"));
+      await waitFor(() => expect(agent.messages.length).toBeGreaterThan(0));
+
+      await agent.emit(runStartedEvent());
+      await waitFor(() => {
+        expect(screen.getByTestId("custom-input-stop")).toBeDefined();
+      });
+
+      await fireEvent.click(screen.getByTestId("custom-input-stop"));
+      expect(onStop).toHaveBeenCalledTimes(1);
+
+      await agent.complete();
+    });
+
+    it("does not emit unavailable transcription commands from a custom chat-view slot", async () => {
+      const agent = new MockStepwiseAgent();
+      const onCancelTranscribe = vi.fn();
+      const onFinishTranscribe = vi.fn();
+      const CustomChatView = defineComponent({
+        components: { CopilotChat },
+        setup() {
+          return { onCancelTranscribe, onFinishTranscribe };
+        },
+        template: `
+          <CopilotChat
+            :welcome-screen="false"
+            @cancel-transcribe="onCancelTranscribe"
+            @finish-transcribe="onFinishTranscribe"
+          >
+            <template #chat-view="{ onCancelTranscribe, onFinishTranscribe }">
+              <button data-testid="custom-cancel-transcribe" @click="onCancelTranscribe">
+                cancel
+              </button>
+              <button data-testid="custom-finish-transcribe" @click="onFinishTranscribe">
+                finish
+              </button>
+            </template>
+          </CopilotChat>
+        `,
+      });
+
+      renderWithCopilotKit({ agent, children: CustomChatView });
+
+      await fireEvent.click(screen.getByTestId("custom-cancel-transcribe"));
+      await fireEvent.click(screen.getByTestId("custom-finish-transcribe"));
+
+      expect(onCancelTranscribe).not.toHaveBeenCalled();
+      expect(onFinishTranscribe).not.toHaveBeenCalled();
+    });
+
+    it("preserves stop behavior through a popup close and reopen", async () => {
+      const agent = new MockStepwiseAgent();
+      const onStop = vi.fn();
+      const CustomPopup = defineComponent({
+        components: { CopilotPopup },
+        setup() {
+          return { onStop };
+        },
+        template: `
+          <CopilotPopup :welcome-screen="false" @stop="onStop">
+            <template #toggle-button="{ toggle }">
+              <button data-testid="popup-toggle" @click="toggle">Toggle</button>
+            </template>
+            <template #input="{ isRunning, onSubmitMessage, onStop }">
+              <button data-testid="popup-submit" @click="onSubmitMessage('Hello')">
+                submit
+              </button>
+              <button v-if="isRunning" data-testid="popup-stop" @click="onStop">
+                stop
+              </button>
+            </template>
+          </CopilotPopup>
+        `,
+      });
+
+      renderWithCopilotKit({ agent, children: CustomPopup });
+
+      await fireEvent.click(screen.getByTestId("popup-submit"));
+      await waitFor(() => expect(agent.messages.length).toBeGreaterThan(0));
+      await agent.emit(runStartedEvent());
+      await waitFor(() => {
+        expect(screen.getByTestId("popup-stop")).toBeDefined();
+      });
+
+      await fireEvent.click(screen.getByTestId("popup-toggle"));
+      await waitFor(() => {
+        expect(screen.queryByTestId("popup-stop")).toBeNull();
+      });
+
+      await fireEvent.click(screen.getByTestId("popup-toggle"));
+      await waitFor(() => {
+        expect(screen.getByTestId("popup-stop")).toBeDefined();
+      });
+
+      await fireEvent.click(screen.getByTestId("popup-stop"));
+      expect(onStop).toHaveBeenCalledTimes(1);
+
+      await agent.complete();
     });
   });
 });

@@ -1,6 +1,16 @@
 FROM node:20-slim AS builder
 ARG COMMIT_SHA=unknown
 ARG BRANCH=unknown
+# Starter-ladder feature flag. `catalog.json` is a BUILD artifact (see the
+# `generate-registry.ts` step below and the doc comment on
+# `starterCellsEnabled()` in harness/src/shared/catalog/catalog-flatten.ts), so
+# a Railway service variable CANNOT turn the starter cells on for the
+# dashboard — the flag has to be present when `next build` bakes the catalog
+# in. Default EMPTY = OFF; `--build-arg SHOWCASE_STARTER_CELLS=1` turns it on.
+# The harness is the other half of this flag and needs NO build plumbing: it
+# reaches `buildCatalogCells()` at request time, so its Railway service
+# variable is sufficient.
+ARG SHOWCASE_STARTER_CELLS=
 WORKDIR /app
 
 # Copy manifests + lockfiles for deterministic installs.
@@ -49,6 +59,10 @@ RUN ln -s ../scripts/node_modules harness/node_modules
 # Bake commit info into Next.js build (NEXT_PUBLIC_* are compiled in).
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
 ENV NEXT_PUBLIC_BRANCH=${BRANCH}
+# Builder-stage only. `generate-registry.ts` and `next build` read this from
+# the process env; the runner stage is a separate `FROM` and does not inherit
+# it, which is correct — nothing reads it at runtime in this image.
+ENV SHOWCASE_STARTER_CELLS=${SHOWCASE_STARTER_CELLS}
 
 # Generate registry + docs status, then build Next.js
 RUN cd scripts && node node_modules/tsx/dist/cli.mjs generate-registry.ts \

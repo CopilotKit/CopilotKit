@@ -53,6 +53,15 @@ This will start:
 - **Research Agent**: http://localhost:9001
 - **Analysis Agent**: http://localhost:9002
 
+> **The three agent ports are not loopback-only.** All three agents bind every
+> interface (`0.0.0.0`), so anything that can reach this machine on your local
+> network can reach them, and they are unauthenticated. That is deliberate — it
+> is what lets containers and other devices talk to them — and each agent's
+> startup banner now prints its `Network:` address alongside the `localhost`
+> one so you can see it. To keep an agent on loopback instead, set its host
+> variable: `ORCHESTRATOR_HOST=127.0.0.1`, `RESEARCH_HOST=127.0.0.1`, or
+> `ANALYSIS_HOST=127.0.0.1`.
+
 ## Usage
 
 Try asking:
