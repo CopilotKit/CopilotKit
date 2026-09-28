@@ -134,6 +134,26 @@ export function intelligenceFixture(request: IntelligenceReadRequest): {
   const leaf = request.path.split("/").at(-1) ?? "";
   if (request.path.startsWith("/api/v1/governance/runs/"))
     return ok({
+      asOf: request.query?.asOf ?? "fixture_v1",
+      accessDecisions: [
+        {
+          id: "fixture-run-access-1",
+          family: "access_decision",
+          type: "access.denied",
+          occurredAt: at,
+          receivedAt: at,
+          actor: { type: "app_user", id: "customer-1" },
+          agentId: "support",
+          threadId: "fixture-thread-1",
+          runId: leaf,
+          toolCallId: null,
+          toolName: "refund",
+          outcome: "denied",
+          source: "api",
+          captureVersion: 1,
+          details: { permission: "refund.issue", reason: "review_required" },
+        },
+      ],
       runId: leaf,
       threadId: "fixture-thread-1",
       agentId: "support",

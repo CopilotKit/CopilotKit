@@ -85,3 +85,21 @@ test("summary fixture counts match the selected agent's drilldown rows", () => {
     }).body,
   ).toEqual({ data: [], nextCursor: null, asOf: "fixture_v1" });
 });
+
+test("run accountability fixtures retain the cutoff and include recorded access decisions", () => {
+  expect(
+    intelligenceFixture({
+      method: "GET",
+      path: "/api/v1/governance/runs/fixture-run-1",
+      query: { asOf: "fixture_v1" },
+    }).body,
+  ).toMatchObject({
+    asOf: "fixture_v1",
+    accessDecisions: [
+      {
+        type: "access.denied",
+        details: { permission: "refund.issue", reason: "review_required" },
+      },
+    ],
+  });
+});
