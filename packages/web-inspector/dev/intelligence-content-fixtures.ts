@@ -116,6 +116,28 @@ export function intelligenceContentFixture(
       to,
       asOf: "fixture_v1",
       tiles,
+      coverage: {
+        captureStartedAt: "2026-09-01T00:00:00.000Z",
+        windowFullyCaptured:
+          Date.parse(from) >= Date.parse("2026-09-01T00:00:00.000Z"),
+      },
+      comparison: {
+        from: new Date(Date.parse(from) * 2 - Date.parse(to)).toISOString(),
+        to: from,
+        tiles: {
+          calls: tiles.calls / 2,
+          errors: tiles.errors / 2,
+          successRate: tiles.successRate,
+          avgMs: tiles.avgMs / 2,
+          medianMs: tiles.medianMs / 2,
+        },
+        coverage: {
+          captureStartedAt: "2026-09-01T00:00:00.000Z",
+          windowFullyCaptured:
+            Date.parse(from) * 2 - Date.parse(to) >=
+            Date.parse("2026-09-01T00:00:00.000Z"),
+        },
+      },
       series: {
         calls: [14, 18, 22, 16, 21, 18, 19].map((value, index) => ({
           t: new Date(

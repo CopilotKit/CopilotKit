@@ -118,7 +118,8 @@ export function intelligenceAnalyticsFixture(
     asOf: "fixture_v1",
     coverage: {
       captureStartedAt: "2026-09-01T00:00:00.000Z",
-      windowFullyCaptured: true,
+      windowFullyCaptured:
+        Date.parse(from) >= Date.parse("2026-09-01T00:00:00.000Z"),
     },
     ...("compare" in body && body.compare === "previous_period"
       ? {

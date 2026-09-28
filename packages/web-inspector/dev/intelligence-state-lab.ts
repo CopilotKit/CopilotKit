@@ -93,7 +93,8 @@ export function intelligenceFixture(request: IntelligenceReadRequest): {
       truncated: false,
       coverage: {
         captureStartedAt: "2026-09-01T00:00:00.000Z",
-        windowFullyCaptured: true,
+        windowFullyCaptured:
+          Date.parse(start) >= Date.parse("2026-09-01T00:00:00.000Z"),
       },
       asOf: "fixture_v1",
       comparison: {

@@ -215,3 +215,43 @@ test("tool fixture reports capture-aware previous-period totals", () => {
     },
   });
 });
+
+test("tool detail fixture includes prior statistics and capture coverage", () => {
+  const response = intelligenceFixture({
+    method: "GET",
+    path: "/api/v1/tools/refund",
+    query: {
+      from: "2026-09-20T00:00:00.000Z",
+      to: "2026-09-27T00:00:00.000Z",
+      outcome: "error",
+    },
+  });
+
+  expect(response.body).toMatchObject({
+    coverage: { windowFullyCaptured: true },
+    comparison: {
+      from: "2026-09-13T00:00:00.000Z",
+      to: "2026-09-20T00:00:00.000Z",
+      tiles: { calls: 64, errors: 2, avgMs: 160, medianMs: 120 },
+      coverage: { windowFullyCaptured: true },
+    },
+  });
+});
+
+test("analytics fixtures mark windows before capture as incomplete", () => {
+  for (const dimensions of [undefined, ["model"]]) {
+    const response = intelligenceFixture({
+      method: "POST",
+      path: "/api/v1/metrics/query",
+      body: {
+        metric: "runs",
+        from: "2026-08-29T00:00:00.000Z",
+        to: "2026-09-28T00:00:00.000Z",
+        ...(dimensions ? { dimensions } : {}),
+      },
+    });
+    expect(response.body).toMatchObject({
+      coverage: { windowFullyCaptured: false },
+    });
+  }
+});
