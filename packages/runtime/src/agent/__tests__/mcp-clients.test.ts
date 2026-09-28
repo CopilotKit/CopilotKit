@@ -16,6 +16,7 @@ import {
 vi.mock("ai", () => ({
   streamText: vi.fn(),
   tool: vi.fn((config) => config),
+  jsonSchema: vi.fn((schema) => schema),
   stepCountIs: vi.fn((count: number) => ({ type: "stepCount", count })),
 }));
 
@@ -105,19 +106,16 @@ describe("mcpClients — user-managed MCP clients", () => {
     expect(provider.close).not.toHaveBeenCalled();
   });
 
-  it("mcpServers tools override mcpClients tools on name collision", async () => {
-    const clientExecute = vi.fn();
-    const serverExecute = vi.fn();
-
+  it("a name shared by an mcpClient and an mcpServer keeps both tools, prefixed", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const provider = makeMockProvider({
-      sharedTool: { description: "from client", execute: clientExecute },
+      sharedTool: { description: "from client", execute: vi.fn() },
     });
 
-    // Mock mcpServers flow: createMCPClient returns a client with tools()
     const { createMCPClient } = await import("@ai-sdk/mcp");
     vi.mocked(createMCPClient).mockResolvedValue({
       tools: vi.fn().mockResolvedValue({
-        sharedTool: { description: "from server", execute: serverExecute },
+        sharedTool: { description: "from server", execute: vi.fn() },
       }),
       close: vi.fn(),
     } as any);
@@ -125,7 +123,9 @@ describe("mcpClients — user-managed MCP clients", () => {
     const agent = new BasicAgent({
       model: "openai/gpt-4o",
       mcpClients: [provider],
-      mcpServers: [{ type: "http", url: "http://localhost:9999" }],
+      mcpServers: [
+        { type: "http", url: "http://localhost:9999", name: "docs" },
+      ],
     });
 
     vi.mocked(streamText).mockReturnValue(
@@ -135,11 +135,16 @@ describe("mcpClients — user-managed MCP clients", () => {
     await collectEvents(agent["run"](baseInput));
 
     const callArgs = vi.mocked(streamText).mock.calls[0][0];
-    // mcpServers runs after mcpClients, so "from server" should win
-    expect(callArgs.tools.sharedTool.description).toBe("from server");
+    // A user-managed client has no name, so it falls back to its position.
+    expect(callArgs.tools.mcp1_sharedTool.description).toBe("from client");
+    expect(callArgs.tools.docs_sharedTool.description).toBe("from server");
+    expect(callArgs.tools).not.toHaveProperty("sharedTool");
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"sharedTool"'));
+    warn.mockRestore();
   });
 
-  it("multiple mcpClients merge in order (later overrides earlier)", async () => {
+  it("multiple mcpClients keep unique names and prefix only the shared one", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const provider1 = makeMockProvider({
       toolA: { description: "from provider 1", execute: vi.fn() },
       shared: { description: "from provider 1", execute: vi.fn() },
@@ -161,9 +166,106 @@ describe("mcpClients — user-managed MCP clients", () => {
     await collectEvents(agent["run"](baseInput));
 
     const callArgs = vi.mocked(streamText).mock.calls[0][0];
+    expect(Object.keys(callArgs.tools).sort()).toEqual(
+      expect.arrayContaining(["toolA", "toolB", "mcp1_shared", "mcp2_shared"]),
+    );
+    expect(callArgs.tools).not.toHaveProperty("shared");
+    expect(callArgs.tools.mcp1_shared.description).toBe("from provider 1");
+    expect(callArgs.tools.mcp2_shared.description).toBe("from provider 2");
+    warn.mockRestore();
+  });
+
+  it("an MCP tool never replaces an app tool of the same name", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const provider = makeMockProvider({
+      search: { description: "from mcp", execute: vi.fn() },
+    });
+
+    const agent = new BasicAgent({
+      model: "openai/gpt-4o",
+      mcpClients: [provider],
+    });
+
+    vi.mocked(streamText).mockReturnValue(
+      mockStreamTextResponse([finish()]) as any,
+    );
+
+    await collectEvents(
+      agent["run"]({
+        ...baseInput,
+        tools: [
+          {
+            name: "search",
+            description: "from app",
+            parameters: { type: "object", properties: {} },
+          },
+        ],
+      }),
+    );
+
+    const callArgs = vi.mocked(streamText).mock.calls[0][0];
+    expect(callArgs.tools.search.description).toBe("from app");
+    expect(callArgs.tools.mcp1_search.description).toBe("from mcp");
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"search"'));
+    warn.mockRestore();
+  });
+
+  it("a server name is reduced to characters that model providers accept", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const provider = makeMockProvider({
+      lookup: { description: "from client", execute: vi.fn() },
+    });
+
+    const { createMCPClient } = await import("@ai-sdk/mcp");
+    vi.mocked(createMCPClient).mockResolvedValue({
+      tools: vi.fn().mockResolvedValue({
+        lookup: { description: "from server", execute: vi.fn() },
+      }),
+      close: vi.fn(),
+    } as any);
+
+    const agent = new BasicAgent({
+      model: "openai/gpt-4o",
+      mcpClients: [provider],
+      mcpServers: [
+        { type: "http", url: "http://localhost:9999", name: "Prod API (eu)" },
+      ],
+    });
+
+    vi.mocked(streamText).mockReturnValue(
+      mockStreamTextResponse([finish()]) as any,
+    );
+
+    await collectEvents(agent["run"](baseInput));
+
+    const callArgs = vi.mocked(streamText).mock.calls[0][0];
+    expect(callArgs.tools).toHaveProperty("Prod_API__eu__lookup");
+    warn.mockRestore();
+  });
+
+  it("tools with unique names keep their names and log no warning", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const agent = new BasicAgent({
+      model: "openai/gpt-4o",
+      mcpClients: [
+        makeMockProvider({ toolA: { description: "a", execute: vi.fn() } }),
+        makeMockProvider({ toolB: { description: "b", execute: vi.fn() } }),
+      ],
+    });
+
+    vi.mocked(streamText).mockReturnValue(
+      mockStreamTextResponse([finish()]) as any,
+    );
+
+    await collectEvents(agent["run"](baseInput));
+
+    const callArgs = vi.mocked(streamText).mock.calls[0][0];
     expect(callArgs.tools).toHaveProperty("toolA");
     expect(callArgs.tools).toHaveProperty("toolB");
-    expect(callArgs.tools.shared.description).toBe("from provider 2");
+    expect(warn).not.toHaveBeenCalledWith(
+      expect.stringContaining("MCP tool name"),
+    );
+    warn.mockRestore();
   });
 
   it("empty mcpClients array is a no-op", async () => {

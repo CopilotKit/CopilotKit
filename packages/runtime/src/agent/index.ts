@@ -81,6 +81,8 @@ export type {
   BuiltInAgentLearnedSkills,
   BuiltInAgentLearnedSkillsOptions,
 } from "./learned-skills";
+import { mergeMCPTools, toToolNamePrefix } from "./mcp-tool-names";
+import type { MCPToolSource } from "./mcp-tool-names";
 
 /**
  * Properties that can be overridden by forwardedProps
@@ -143,6 +145,13 @@ export type ModelSpecifier = string | LanguageModel;
 export interface MCPClientConfigHTTP {
   /** Type of MCP client */
   type: "http";
+  /**
+   * Optional name for this server. When a tool name collides with another
+   * MCP server's tool or with an app tool, the MCP tool is exposed as
+   * `<name>_<tool>`. Without a name, the prefix is `mcp<N>`, where N is the
+   * server's position among `mcpClients` and then `mcpServers`, from 1.
+   */
+  name?: string;
   /** URL of the MCP server */
   url: string;
   /**
@@ -160,6 +169,13 @@ export interface MCPClientConfigHTTP {
 export interface MCPClientConfigSSE {
   /** Type of MCP client */
   type: "sse";
+  /**
+   * Optional name for this server. When a tool name collides with another
+   * MCP server's tool or with an app tool, the MCP tool is exposed as
+   * `<name>_<tool>`. Without a name, the prefix is `mcp<N>`, where N is the
+   * server's position among `mcpClients` and then `mcpServers`, from 1.
+   */
+  name?: string;
   /** URL of the MCP server */
   url: string;
   /** Optional HTTP headers (e.g., for authentication) */
@@ -1499,16 +1515,17 @@ export class BuiltInAgent extends AbstractAgent {
             }),
           };
 
-          // Merge tools from user-managed MCP clients (user controls lifecycle)
-          if (config.mcpClients && config.mcpClients.length > 0) {
-            for (const client of config.mcpClients) {
-              const mcpTools = await client.tools();
-              abortController.signal.throwIfAborted();
-              streamTextParams.tools = {
-                ...streamTextParams.tools,
-                ...mcpTools,
-              } as ToolSet;
-            }
+          // MCP tools are collected per source and merged once, so a name
+          // that two sources share keeps both tools instead of the later one
+          // replacing the earlier.
+          const mcpToolSources: MCPToolSource[] = [];
+          const userMcpClients = config.mcpClients ?? [];
+
+          // Tools from user-managed MCP clients (user controls lifecycle)
+          for (const [index, client] of userMcpClients.entries()) {
+            const mcpTools = await client.tools();
+            abortController.signal.throwIfAborted();
+            mcpToolSources.push({ label: `mcp${index + 1}`, tools: mcpTools });
           }
 
           // Initialize MCP clients and get their tools from
@@ -1517,7 +1534,10 @@ export class BuiltInAgent extends AbstractAgent {
             ...(config.mcpServers ?? []),
           ];
           if (allMcpServers.length > 0) {
-            for (const serverConfig of allMcpServers) {
+            for (const [index, serverConfig] of allMcpServers.entries()) {
+              const label = serverConfig.name
+                ? toToolNamePrefix(serverConfig.name)
+                : `mcp${userMcpClients.length + index + 1}`;
               let transport: MCPTransport | undefined;
 
               if (serverConfig.type === "http") {
@@ -1570,13 +1590,9 @@ export class BuiltInAgent extends AbstractAgent {
                 // Track it so it's closed on cleanup even if tools() fails.
                 mcpClients.push(mcpClient);
                 try {
-                  // Get tools from this MCP server and merge with existing tools
                   const mcpTools = await mcpClient.tools();
                   abortController.signal.throwIfAborted();
-                  streamTextParams.tools = {
-                    ...streamTextParams.tools,
-                    ...mcpTools,
-                  } as ToolSet;
+                  mcpToolSources.push({ label, tools: mcpTools as ToolSet });
                 } catch (err) {
                   abortController.signal.throwIfAborted();
                   console.error(
@@ -1586,6 +1602,13 @@ export class BuiltInAgent extends AbstractAgent {
                 }
               }
             }
+          }
+
+          if (mcpToolSources.length > 0) {
+            streamTextParams.tools = mergeMCPTools(
+              streamTextParams.tools ?? {},
+              mcpToolSources,
+            );
           }
 
           if (this.skillRegistry) {

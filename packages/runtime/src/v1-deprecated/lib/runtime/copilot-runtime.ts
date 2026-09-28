@@ -134,6 +134,7 @@ import { extractParametersFromSchema } from "./mcp-tools-utils";
 import type { MCPClient, MCPEndpointConfig, MCPTool } from "./mcp-tools-utils";
 import { BuiltInAgent } from "../../../agent";
 import type { BuiltInAgentClassicConfig } from "../../../agent";
+import { resolveMCPToolNames } from "../../../agent/mcp-tool-names";
 // Define the function type alias here or import if defined elsewhere
 type CreateMCPClientFunction = (
   config: MCPEndpointConfig,
@@ -653,10 +654,23 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
       // `actions` and `mcpServers` are attached independently: a runtime may
       // configure MCP servers without any local actions.
-      const mcpTools = await this.getToolsFromMCP({ properties });
+      const mcpSources = await this.getToolsFromMCP({ properties });
       const actionTools = actions
         ? this.getToolsFromActions(actions, { properties, url: request.url })
         : [];
+      // An MCP tool that shares a name with an action, or with another
+      // server's tool, is prefixed rather than dropped or duplicated.
+      const mcpNames = resolveMCPToolNames(
+        new Set(actionTools.map((tool) => tool.name)),
+        mcpSources.map(({ label, tools }) => ({
+          label,
+          names: tools.map((tool) => tool.name),
+        })),
+        "",
+      );
+      const mcpTools = mcpSources.flatMap(({ tools }, i) =>
+        tools.map((tool, j) => ({ ...tool, name: mcpNames[i]![j]! })),
+      );
       const tools = [...actionTools, ...mcpTools];
 
       // Nothing to attach means nothing to isolate: hand the record back
@@ -1021,7 +1035,9 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   // Optionally accepts request-scoped properties to merge request-provided mcpServers
   private async getToolsFromMCP(options?: {
     properties?: Record<string, unknown>;
-  }): Promise<BuiltInAgentClassicConfig["tools"]> {
+  }): Promise<
+    { label: string; tools: NonNullable<BuiltInAgentClassicConfig["tools"]> }[]
+  > {
     const runtimeMcpServers = (this.params?.mcpServers ??
       []) as MCPEndpointConfig[];
     const createMCPClient = this.params?.createMCPClient as
@@ -1074,9 +1090,12 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       return Array.from(byUrl.values());
     })();
 
-    const allTools: BuiltInAgentClassicConfig["tools"] = [];
+    const sources: {
+      label: string;
+      tools: NonNullable<BuiltInAgentClassicConfig["tools"]>;
+    }[] = [];
 
-    for (const config of effectiveEndpoints) {
+    for (const [index, config] of effectiveEndpoints.entries()) {
       // Everything that leaves this process with the endpoint in it uses the
       // redacted form: the raw URL's query can carry the credential, which is
       // exactly what the #2407 workaround puts there.
@@ -1125,7 +1144,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
           },
         );
 
-        allTools.push(...(entry.tools ?? []));
+        sources.push({ label: `mcp${index + 1}`, tools: entry.tools ?? [] });
       } catch (error) {
         console.error(
           `MCP: Failed to fetch tools from endpoint ${endpointLabel}. Skipping. Error:`,
@@ -1138,13 +1157,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       }
     }
 
-    // Dedupe tools by name while preserving last-in wins (request overrides)
-    const dedupedByName = new Map<string, (typeof allTools)[number]>();
-    for (const tool of allTools) {
-      dedupedByName.set(tool.name, tool);
-    }
-
-    return Array.from(dedupedByName.values());
+    return sources;
   }
 }
 
