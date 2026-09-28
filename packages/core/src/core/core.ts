@@ -374,12 +374,14 @@ export interface CopilotKitCoreFriendsAccess {
   getContextForAgent(agentId?: string): Context[];
   getAgent(id: string): AbstractAgent | undefined;
   /**
-   * Re-apply the current core headers to a single agent, merged on top of the
+   * Re-apply the current headers to a single agent, merged on top of the
    * headers the agent was constructed with. The single source of truth for
    * header application; the run handler uses it so a run never clobbers
-   * per-agent headers (see #5635).
+   * per-agent headers (see #5635). Returns a promise only when an async
+   * builder must be awaited first (see #1937); callers that need the write
+   * to have landed before continuing must await a returned promise.
    */
-  applyHeadersToAgent(agent: AbstractAgent): void;
+  applyHeadersToAgent(agent: AbstractAgent): void | Promise<void>;
 
   // References to delegate subsystems
   readonly suggestionEngine: {
@@ -975,9 +977,16 @@ export class CopilotKitCore {
    * afterwards is `setHeaders` (which re-applies to every agent), not mutating
    * `agent.headers` directly — a direct mutation is overwritten on the next
    * re-apply.
+   *
+   * A `ProxiedCopilotRuntimeAgent` keeps only its own construction-time
+   * headers here — core headers are added by `ɵruntimeFetch` when each
+   * request is sent (see #1937), so `agent.headers` never carries a stale
+   * copy of a core header the builder has since stopped returning. Any other
+   * `HttpAgent` gets the core headers resolved now, merged on top; this
+   * returns a promise only when an async builder must be awaited first.
    */
-  applyHeadersToAgent(agent: AbstractAgent): void {
-    this.agentRegistry.applyHeadersToAgent(agent);
+  applyHeadersToAgent(agent: AbstractAgent): void | Promise<void> {
+    return this.agentRegistry.applyHeadersToAgent(agent);
   }
 
   /**

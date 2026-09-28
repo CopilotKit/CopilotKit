@@ -33,7 +33,7 @@ import {
   runtimeRequestMeta,
 } from "../utils/runtime-request";
 import { createSingleRouteResourceRequest } from "../utils/single-route-resource-request";
-import { abortable, ɵoverlayCoreHeaders } from "./header-source";
+import { abortable, isPromiseLike, ɵoverlayCoreHeaders } from "./header-source";
 
 type ResolvedCopilotRuntimeTransport = Exclude<CopilotRuntimeTransport, "auto">;
 
@@ -569,33 +569,67 @@ export class AgentRegistry {
   }
 
   /**
-   * Apply current core headers to an agent, merged ON TOP of the agent's own
+   * Apply current headers to an agent, merged ON TOP of the agent's own
    * construction-time headers (the per-agent baseline in `agentOwnHeaders`).
    * Core wins on a key conflict. Non-`HttpAgent` agents are left untouched
    * because only `HttpAgent` carries a `headers` field. See #5635.
+   *
+   * A `ProxiedCopilotRuntimeAgent` keeps only its own construction-time
+   * headers on `agent.headers` — core headers are added by `ɵruntimeFetch`
+   * when each request is actually sent, so a key the builder stops returning
+   * can never ride along from a stale copy baked onto the agent. See #1937.
+   *
+   * Any other `HttpAgent` gets its own headers plus the core headers resolved
+   * right now, merged on top. Resolution is synchronous for a record or a
+   * sync builder; this returns a promise only when an async builder must be
+   * awaited first, and callers that need the write to have landed must await
+   * a returned promise.
    */
-  applyHeadersToAgent(agent: AbstractAgent): void {
-    if (agent instanceof HttpAgent) {
-      // Capture the agent's construction-time headers once, before any core
-      // headers overwrite them. On every subsequent apply we rebuild from this
-      // baseline so re-applying core headers (e.g. via setHeaders) never loses
-      // the agent's own headers.
-      if (!this.agentOwnHeaders.has(agent)) {
-        this.agentOwnHeaders.set(agent, { ...agent.headers });
-      }
-      agent.headers = {
-        ...this.agentOwnHeaders.get(agent),
-        ...(this.core as unknown as CopilotKitCoreFriendsAccess).headers,
-      };
+  applyHeadersToAgent(agent: AbstractAgent): void | Promise<void> {
+    if (!(agent instanceof HttpAgent)) return;
+    // Capture the agent's construction-time headers once, before any core
+    // headers overwrite them. On every subsequent apply we rebuild from this
+    // baseline so re-applying core headers (e.g. via setHeaders) never loses
+    // the agent's own headers.
+    if (!this.agentOwnHeaders.has(agent)) {
+      this.agentOwnHeaders.set(agent, { ...agent.headers });
     }
+    const own = this.agentOwnHeaders.get(agent)!;
+    if (agent instanceof ProxiedCopilotRuntimeAgent) {
+      agent.headers = { ...own };
+      this.applyRuntimeFetchToAgent(agent);
+      return;
+    }
+    const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
+    const resolved = friends.resolveHeaders();
+    if (isPromiseLike(resolved)) {
+      return Promise.resolve(resolved).then((headers) => {
+        agent.headers = { ...own, ...headers };
+      });
+    }
+    agent.headers = { ...own, ...resolved };
   }
 
   /**
-   * Apply current headers to all agents
+   * Apply the last resolved header snapshot to every agent, without
+   * triggering a builder call per agent. A run re-applies with fresh headers
+   * anyway (see `applyHeadersToAgent`), so this bulk path — used by
+   * `initialize` and `setHeaders` — stays cheap and synchronous.
    */
   applyHeadersToAgents(agents: Record<string, AbstractAgent>): void {
+    const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
     Object.values(agents).forEach((agent) => {
-      this.applyHeadersToAgent(agent);
+      if (!(agent instanceof HttpAgent)) return;
+      if (!this.agentOwnHeaders.has(agent)) {
+        this.agentOwnHeaders.set(agent, { ...agent.headers });
+      }
+      const own = this.agentOwnHeaders.get(agent)!;
+      if (agent instanceof ProxiedCopilotRuntimeAgent) {
+        agent.headers = { ...own };
+        this.applyRuntimeFetchToAgent(agent);
+        return;
+      }
+      agent.headers = { ...own, ...friends.headers };
     });
   }
 
