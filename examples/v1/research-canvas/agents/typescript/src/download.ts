@@ -16,7 +16,8 @@ export function getResource(url: string): string {
   return getCachedResource(url) ?? "";
 }
 
-async function downloadResource(url: string): Promise<string> {
+/** Returns fetched document text even when it cannot remain in the bounded cache. */
+export async function downloadResource(url: string): Promise<string> {
   return getOrLoadResource(url, () =>
     withAbortTimeout(5000, async (signal) => {
       const htmlContent = await fetchPublicText(url, signal);

@@ -16,7 +16,7 @@ describe("README tutorial video", () => {
     expect(videoSection).toBeDefined();
     expect(videoSection).toContain("original CopilotKit v1 implementation");
     expect(videoSection).toContain(
-      "https://docs.copilotkit.ai/langgraph/tutorials/ai-travel-app",
+      "../../../showcase/shell-docs/src/content/docs/integrations/langgraph/tutorials/ai-travel-app/step-1-checkout-repo.mdx",
     );
     expect(videoSection).toContain("https://docs.copilotkit.ai/migrate/v2");
     expect(videoSection).toContain(

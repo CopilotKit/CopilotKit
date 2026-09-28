@@ -5,7 +5,7 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { AgentState, Resource } from "./state";
 import { getModel } from "./model";
-import { getResource } from "./download";
+import { downloadResource } from "./download";
 import type { AIMessage } from "@langchain/core/messages";
 import { SystemMessage, ToolMessage } from "@langchain/core/messages";
 import { tool } from "@langchain/core/tools";
@@ -61,12 +61,8 @@ export async function chat_node(state: AgentState, config: RunnableConfig) {
   const resources: Resource[] = [];
 
   for (const resource of state["resources"]) {
-    const content = getResource(resource.url);
-    if (content === "ERROR") {
-      continue;
-    }
-    resource.content = content;
-    resources.push(resource);
+    const content = await downloadResource(resource.url);
+    resources.push({ ...resource, content });
   }
 
   const model = getModel(state);

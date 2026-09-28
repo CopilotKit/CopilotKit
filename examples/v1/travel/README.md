@@ -28,7 +28,7 @@ This example uses CopilotKit v2. If you are updating a v1 app, follow the [v2 mi
   <img src="https://img.youtube.com/vi/9v3kXiOY3vg/hqdefault.jpg" alt="Travel Planner Tutorial" width="600"/>
 </a>
 
-This recording shows the original CopilotKit v1 implementation. Follow the [current CopilotKit v2 travel tutorial](https://docs.copilotkit.ai/langgraph/tutorials/ai-travel-app) for current code and APIs. If you are migrating from v1, use the [v2 migration guide](https://docs.copilotkit.ai/migrate/v2).
+This recording shows the original CopilotKit v1 implementation. Follow the [CopilotKit v2 travel tutorial source](../../../showcase/shell-docs/src/content/docs/integrations/langgraph/tutorials/ai-travel-app/step-1-checkout-repo.mdx) for current code and APIs. If you are migrating from v1, use the [v2 migration guide](https://docs.copilotkit.ai/migrate/v2).
 
 ## Overview
 
