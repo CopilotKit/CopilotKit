@@ -102,10 +102,26 @@ export type OverridableProperty =
   | "providerOptions";
 
 /**
- * Supported model identifiers for BuiltInAgent
+ * Supported model identifiers for BuiltInAgent.
+ *
+ * This includes suggestions for current flagship models across supported providers
+ * (OpenAI, Anthropic, Google Gemini, MiniMax) as well as provider-prefixed template
+ * patterns (`openai/${string}`, `openai:${string}`, `anthropic/${string}`, etc.).
+ *
+ * Any model ID supported by your account or project can be passed directly — CopilotKit
+ * does not enforce a restrictive allowlist. For OpenAI, string specifiers route through
+ * the OpenAI Responses API (`POST /v1/responses`).
  */
 export type BuiltInAgentModel =
-  // OpenAI models
+  // OpenAI flagship models
+  | "openai/gpt-6-astra"
+  | "openai/gpt-6-sol"
+  | "openai/gpt-6-luna"
+  | "openai/gpt-5.5"
+  | "openai/gpt-5.4"
+  | "openai/gpt-5.4-mini"
+  | "openai/gpt-5.4-nano"
+  | "openai/gpt-5.2"
   | "openai/gpt-5"
   | "openai/gpt-5-mini"
   | "openai/gpt-4.1"
@@ -118,18 +134,37 @@ export type BuiltInAgentModel =
   | "openai/o3-mini"
   | "openai/o4-mini"
   // Anthropic (Claude) models
+  | "anthropic/claude-fable-5-1"
+  | "anthropic/claude-fable-5"
+  | "anthropic/claude-opus-4-8"
+  | "anthropic/claude-opus-4-6"
   | "anthropic/claude-sonnet-4-6"
   | "anthropic/claude-sonnet-4-5"
-  | "anthropic/claude-opus-4-8"
   | "anthropic/claude-haiku-4-5"
   // Google (Gemini) models
+  | "google/gemini-3.8-flash"
+  | "google/gemini-3.7-flash"
+  | "google/gemini-3.1-pro-preview"
+  | "google/gemini-3.1-pro"
+  | "google/gemini-3.1-flash-lite"
   | "google/gemini-2.5-pro"
   | "google/gemini-2.5-flash"
   | "google/gemini-2.5-flash-lite"
   // MiniMax models
   | "minimax/MiniMax-M3"
   | "minimax/MiniMax-M2.7"
-  // Allow any LanguageModel instance
+  // Provider-prefixed templates (accepts arbitrary model IDs like openai:gpt-5.4 or custom fine-tunes)
+  | `openai/${string}`
+  | `openai:${string}`
+  | `anthropic/${string}`
+  | `anthropic:${string}`
+  | `google/${string}`
+  | `google:${string}`
+  | `gemini/${string}`
+  | `gemini:${string}`
+  | `minimax/${string}`
+  | `minimax:${string}`
+  // Allow any custom string while retaining autocomplete suggestions
   | (string & {});
 
 /**
@@ -185,8 +220,18 @@ export interface MCPClientProvider {
 }
 
 /**
- * Resolves a model specifier to a LanguageModel instance
- * @param spec - Model string (e.g., "openai/gpt-4o") or LanguageModel instance
+ * Resolves a model specifier to a LanguageModel instance.
+ *
+ * For OpenAI (`openai:<model-id>` or `openai/<model-id>`), any valid model identifier
+ * available to the configured API key/project is accepted without an allowlist.
+ * The Vercel AI SDK OpenAI provider routes these calls to the modern OpenAI Responses API
+ * (`POST /v1/responses`).
+ *
+ * If you need to target an OpenAI-compatible endpoint that only implements the legacy
+ * Chat Completions API (`POST /v1/chat/completions`) and does not implement the Responses API,
+ * pass an explicit AI SDK LanguageModel via `createOpenAI({ baseURL }).chat("model-id")`.
+ *
+ * @param spec - Model identifier string (e.g., "openai:gpt-5.4", "anthropic:claude-sonnet-4-6") or LanguageModel instance
  * @param apiKey - Optional API key to use instead of environment variables
  * @returns LanguageModel instance
  */
@@ -232,7 +277,8 @@ export function resolveModel(
         // (api.openai.com) — fully backward compatible.
         baseURL: process.env.OPENAI_BASE_URL,
       });
-      // Accepts any OpenAI model id, e.g. "gpt-4o", "gpt-4.1-mini", "o3-mini"
+      // Accepts any OpenAI model id, e.g. "gpt-5.4", "gpt-5.5", "gpt-4o", "o3-mini".
+      // Calls through the OpenAI Responses API (POST /v1/responses) by default.
       return openai(model);
     }
 
