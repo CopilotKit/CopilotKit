@@ -1,3 +1,7 @@
+import {
+  FIXTURE_RUN_AGENTS,
+  fixtureIdentityTotal,
+} from "./intelligence-run-fixtures.js";
 import { intelligenceGovernanceFixture } from "./intelligence-governance-fixtures.js";
 import { intelligenceAskFixture } from "./intelligence-ask-fixture.js";
 import { intelligenceAnalyticsFixture } from "./intelligence-analytics-fixtures.js";
@@ -46,8 +50,18 @@ export function intelligenceFixture(request: IntelligenceReadRequest): {
     const end = String(request.body.to);
     const totals: Record<string, number> = {
       runs: 12438,
-      active_users: 348,
-      conversations: 921,
+      active_users: fixtureIdentityTotal(
+        isRecord(request.body.filters) &&
+          typeof request.body.filters.agentId === "string"
+          ? request.body.filters.agentId
+          : undefined,
+      ),
+      conversations: fixtureIdentityTotal(
+        isRecord(request.body.filters) &&
+          typeof request.body.filters.agentId === "string"
+          ? request.body.filters.agentId
+          : undefined,
+      ),
       tokens_in: 143820,
       tokens_out: 45630,
       avg_response_ms: 2100,
@@ -105,7 +119,7 @@ export function intelligenceFixture(request: IntelligenceReadRequest): {
       },
     });
   }
-  const runs = ["support", "billing", "support"].map((agentId, index) => ({
+  const runs = FIXTURE_RUN_AGENTS.map((agentId, index) => ({
     runId: `fixture-run-${index + 1}`,
     threadId: `fixture-thread-${index + 1}`,
     agentId,
@@ -127,6 +141,10 @@ export function intelligenceFixture(request: IntelligenceReadRequest): {
       data: runs
         .filter(
           (run) =>
+            (request.query?.contributingTo !== "active_users" ||
+              run.userId !== null) &&
+            (request.query?.contributingTo !== "conversations" ||
+              run.threadId !== null) &&
             (request.query?.userCapture !== "missing" || run.userId === null) &&
             (request.query?.agentCapture !== "missing" ||
               run.agentId === null) &&

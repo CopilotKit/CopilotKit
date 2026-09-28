@@ -1,3 +1,4 @@
+import { fixtureIdentityTotal } from "./intelligence-run-fixtures.js";
 import { intelligenceGovernanceFixture } from "./intelligence-governance-fixtures.js";
 import { fixtureToolCallRows } from "./intelligence-content-fixtures.js";
 import { intelligenceAnalyticsFixture } from "./intelligence-analytics-fixtures.js";
@@ -22,6 +23,35 @@ export function intelligenceAskFixture(
     "agentId" in body && typeof body.agentId === "string"
       ? { agentId: body.agentId }
       : {};
+  if (
+    "question" in body &&
+    /active users.*conversations/i.test(String(body.question))
+  ) {
+    const total = fixtureIdentityTotal(filters.agentId);
+    return {
+      version: 1,
+      text: "Distinct users and conversations with captured runs.",
+      results: ["active_users", "conversations"].map((metric) => ({
+        id: `fixture-${metric}`,
+        query: { metric, from, to, filters },
+        data: {
+          metric,
+          unit: "count",
+          grain: null,
+          from,
+          to,
+          asOf: "fixture_v1",
+          total,
+          series: [{ dimensions: {}, total, points: [] }],
+          truncated: false,
+          coverage: {
+            captureStartedAt: "2026-09-01T00:00:00.000Z",
+            windowFullyCaptured: true,
+          },
+        },
+      })),
+    };
+  }
   if (
     "question" in body &&
     /messages.*skill loads/i.test(String(body.question))
