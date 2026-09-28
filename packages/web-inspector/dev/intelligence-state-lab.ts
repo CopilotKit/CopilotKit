@@ -111,9 +111,11 @@ export function intelligenceFixture(request: IntelligenceReadRequest): {
     agentId,
     userId: `customer-${index + 1}`,
     startedAt: at,
-    endedAt: new Date(Date.parse(at) + 2100).toISOString(),
+    endedAt: new Date(
+      Date.parse(at) + (index === 1 ? 800 : 2100),
+    ).toISOString(),
     outcome: index === 1 ? "error" : "success",
-    durationMs: 2100,
+    durationMs: index === 1 ? 800 : 2100,
     tokensIn: 720,
     tokensOut: 120,
     tokensTotal: 840,
@@ -130,6 +132,10 @@ export function intelligenceFixture(request: IntelligenceReadRequest): {
             (!request.query?.agentId ||
               run.agentId === request.query.agentId) &&
             (!request.query?.model || run.model === request.query.model) &&
+            (!request.query?.responseTimeBucket ||
+              request.query.responseTimeBucket === "recorded" ||
+              request.query.responseTimeBucket ===
+                (run.durationMs < 1000 ? "<1s" : "2-5s")) &&
             (!request.query?.modelCapture ||
               (request.query.modelCapture === "missing"
                 ? run.model === null

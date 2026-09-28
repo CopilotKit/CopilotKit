@@ -75,7 +75,22 @@ export function intelligenceAnalyticsFixture(
     avg_response_ms: 2100,
     failed_runs: 24,
   };
-  const total = totals[metric] ?? 12438;
+  const filterAgent =
+    "filters" in body &&
+    typeof body.filters === "object" &&
+    body.filters !== null &&
+    "agentId" in body.filters
+      ? body.filters.agentId
+      : undefined;
+  const durations = [
+    { agentId: "support", bucket: "2-5s" },
+    { agentId: "billing", bucket: "<1s" },
+    { agentId: "support", bucket: "2-5s" },
+  ].filter((row) => !filterAgent || row.agentId === filterAgent);
+  const total =
+    metric === "response_time_distribution"
+      ? durations.length
+      : (totals[metric] ?? 12438);
   const series = byModel
     ? ["customer-model", "customer-model-fast", null].map((model, index) => ({
         dimensions: { model },
@@ -107,9 +122,9 @@ export function intelligenceAnalyticsFixture(
           ["30-60s", 100],
           [">=60s", 18],
         ] as const
-      ).map(([bucket, value]) => ({
+      ).map(([bucket]) => ({
         dimensions: { responseTime: bucket },
-        total: value,
+        total: durations.filter((row) => row.bucket === bucket).length,
         points: [],
       }));
   return {
@@ -136,10 +151,15 @@ export function intelligenceAnalyticsFixture(
           comparison: {
             from: new Date(Date.parse(from) * 2 - Date.parse(to)).toISOString(),
             to: from,
-            total: total * 0.8,
+            total: metric === "response_time_distribution" ? 0 : total * 0.8,
             series: series.map((entry) => ({
               ...entry,
-              total: entry.total === null ? null : entry.total * 0.8,
+              total:
+                metric === "response_time_distribution"
+                  ? 0
+                  : entry.total === null
+                    ? null
+                    : entry.total * 0.8,
             })),
           },
         }

@@ -1,3 +1,4 @@
+import { intelligenceAnalyticsFixture } from "./intelligence-analytics-fixtures.js";
 import type { IntelligenceReadRequest } from "../src/lib/intelligence-relay.js";
 
 /** Supplies a fixed, labeled workbench answer without calling an external model. */
@@ -19,6 +20,27 @@ export function intelligenceAskFixture(
     "agentId" in body && typeof body.agentId === "string"
       ? { agentId: body.agentId }
       : {};
+  if (
+    "question" in body &&
+    /response.?time.*distribution/i.test(String(body.question))
+  ) {
+    const query = { metric: "response_time_distribution", from, to, filters };
+    return {
+      version: 1,
+      text: "Recorded runs by response time.",
+      results: [
+        {
+          id: "fixture-duration-groups",
+          query,
+          data: intelligenceAnalyticsFixture({
+            method: "POST",
+            path: "/api/v1/metrics/query",
+            body: query,
+          }),
+        },
+      ],
+    };
+  }
   if (
     "question" in body &&
     /runs.*model.*outcome/i.test(String(body.question))
