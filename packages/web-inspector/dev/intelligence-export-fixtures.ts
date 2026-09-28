@@ -119,6 +119,7 @@ function exportJob(job: FixtureJob, completed: boolean) {
 
 /** Reuses list fixtures so export scope and screen scope match. */
 function exportRows(job: FixtureJob): Record<string, unknown>[] {
+  if (job.kind === "model_usage") return modelUsageRows(job);
   if (
     job.kind !== "insights" &&
     job.kind !== "skills" &&
@@ -207,6 +208,21 @@ function exportRows(job: FixtureJob): Record<string, unknown>[] {
 
 /** Stable columns match each fixture export, including empty files. */
 function exportColumns(job: FixtureJob): string[] {
+  if (job.kind === "model_usage")
+    return [
+      "model",
+      "runs",
+      "tokensIn",
+      "tokensOut",
+      "avgResponseMs",
+      "failedRuns",
+      "previousRuns",
+      "previousTokensIn",
+      "previousTokensOut",
+      "previousAvgResponseMs",
+      "previousFailedRuns",
+      "previousWindowFullyCaptured",
+    ];
   if (job.kind === "runs")
     return [
       "runId",
@@ -411,4 +427,72 @@ function toolCallExportRows(
   return rows.sort((left, right) =>
     String(right.time).localeCompare(String(left.time)),
   );
+}
+
+/** Validates the fixture series at the same unknown boundary as the host reads. */
+function modelSeries(
+  value: unknown,
+): { model: string | null; total: number | null }[] {
+  if (!Array.isArray(value)) throw new Error("Missing model series");
+  return value.map((entry) => {
+    if (
+      !isRecord(entry) ||
+      !isRecord(entry.dimensions) ||
+      (typeof entry.dimensions.model !== "string" &&
+        entry.dimensions.model !== null) ||
+      (typeof entry.total !== "number" && entry.total !== null)
+    )
+      throw new Error("Invalid model series");
+    return { model: entry.dimensions.model, total: entry.total };
+  });
+}
+
+/** Uses the displayed metric fixtures for current and previous model totals. */
+function modelUsageRows(job: FixtureJob): Record<string, unknown>[] {
+  const rows = new Map<string | null, Record<string, unknown>>();
+  for (const [metric, current, previous] of [
+    ["runs", "runs", "previousRuns"],
+    ["tokens_in", "tokensIn", "previousTokensIn"],
+    ["tokens_out", "tokensOut", "previousTokensOut"],
+    ["avg_response_ms", "avgResponseMs", "previousAvgResponseMs"],
+    ["failed_runs", "failedRuns", "previousFailedRuns"],
+  ] as const) {
+    const response = intelligenceAnalyticsFixture({
+      method: "POST",
+      path: "/api/v1/metrics/query",
+      body: {
+        metric,
+        dimensions: ["model"],
+        from: job.from,
+        to: job.to,
+        compare: "previous_period",
+        asOf: job.filters.asOf,
+        filters: { agentId: job.filters.agentId },
+      },
+    });
+    if (
+      !isRecord(response) ||
+      !isRecord(response.coverage) ||
+      typeof response.coverage.captureStartedAt !== "string"
+    )
+      throw new Error("Invalid model coverage");
+    const comparison = isRecord(response.comparison)
+      ? modelSeries(response.comparison.series)
+      : [];
+    for (const series of modelSeries(response.series)) {
+      const model = series.model;
+      const row =
+        rows.get(model) ??
+        Object.fromEntries(exportColumns(job).map((column) => [column, null]));
+      row.model = model;
+      row[current] = series.total;
+      row[previous] =
+        comparison.find((entry) => entry.model === model)?.total ?? null;
+      row.previousWindowFullyCaptured =
+        Date.parse(response.coverage.captureStartedAt) <=
+        Date.parse(job.from) * 2 - Date.parse(job.to);
+      rows.set(model, row);
+    }
+  }
+  return [...rows.values()];
 }
