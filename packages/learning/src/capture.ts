@@ -1,7 +1,8 @@
 import { subscribeToRequests } from "./network";
 import { contextScope, describeContext } from "./context";
-import { readChangedText } from "./text";
+import { hasSensitiveFieldHint, readChangedText } from "./text";
 import { describePage } from "./page";
+import { sanitizeRequestBody } from "./request-data";
 import {
   describeTarget,
   isSensitive,
@@ -25,6 +26,8 @@ interface Action {
   context?: ProductInteractionContext;
   scope?: Element;
   activity: number;
+  startedAt: number;
+  privateKeys?: string[];
 }
 
 function id(): string {
@@ -81,14 +84,74 @@ export function startProductInteractionCapture(
   const maxRequests = bounded(options.maxRequestsPerAction, 5, 20);
   const captureNames = options.captureAccessibleNames !== false;
   const captureContext = captureNames && options.captureContext !== false;
+  const captureBodies =
+    captureNames &&
+    options.captureTextValues !== false &&
+    options.captureRequestBodies !== false;
   const timers = new Set<ReturnType<typeof setTimeout>>();
   let stopped = false;
   let notifying = false;
   let action: Action | undefined;
+  // Request-only, microtask-scoped correlation. A response continuation is an
+  // observation, not proof of async causality; it never reopens DOM capture.
+  let continuation: { action: Action; requestId: string } | null | undefined;
+  let continuationVersion = 0;
   let windowStart = Date.now();
   let eventCount = 0;
   let activity = 0;
   let lastContext: string | undefined;
+
+  const requestAction = () =>
+    continuation === undefined ? action : continuation?.action;
+  const eligible = (current: Action | undefined): current is Action =>
+    !!current &&
+    !stopped &&
+    !notifying &&
+    current.activity === activity &&
+    current.requests < maxRequests &&
+    Date.now() - current.startedAt <= 30_000;
+
+  function resumeRequest(current: Action, requestId: string) {
+    if (stopped) return;
+    // Keep an ineligible origin as a barrier: an old response must not be
+    // mistaken for a newly selected action. Multiple origins are ambiguous.
+    continuation =
+      continuation === null ||
+      (continuation && continuation.requestId !== requestId)
+        ? null
+        : { action: current, requestId };
+    const version = ++continuationVersion;
+    queueMicrotask(() => {
+      if (version === continuationVersion) continuation = undefined;
+    });
+  }
+
+  function privateBodyKeys(): string[] | undefined {
+    const controls = doc.querySelectorAll("input,textarea,select");
+    // Fail closed rather than leave controls outside the inspection budget.
+    if (controls.length > 128) return;
+    const keys: string[] = [];
+    for (const control of controls) {
+      if (
+        !visibleElement(control) ||
+        isSensitive(control) ||
+        (control instanceof HTMLSelectElement &&
+          Array.from(control.selectedOptions).some(
+            (option) => !visibleElement(option) || isSensitive(option),
+          )) ||
+        ((control instanceof HTMLInputElement ||
+          control instanceof HTMLTextAreaElement ||
+          control instanceof HTMLSelectElement) &&
+          hasSensitiveFieldHint(control))
+      ) {
+        for (const attribute of ["id", "name"]) {
+          const key = control.getAttribute(attribute);
+          if (key) keys.push(key);
+        }
+      }
+    }
+    return keys;
+  }
 
   const pageSnapshot = () =>
     options.capturePage === false ? {} : { page: describePage(win.location) };
@@ -181,6 +244,8 @@ export function startProductInteractionCapture(
       }),
       scope: contextScope(target),
       activity,
+      startedAt: Date.now(),
+      ...(captureBodies && { privateKeys: privateBodyKeys() }),
     };
     action = current;
     const text =
@@ -295,15 +360,9 @@ export function startProductInteractionCapture(
 
   const unsubscribe =
     options.captureRequests !== false
-      ? subscribeToRequests(win, (rawUrl, rawMethod) => {
-          if (
-            !action ||
-            action.activity !== activity ||
-            stopped ||
-            notifying ||
-            action.requests >= maxRequests
-          )
-            return;
+      ? subscribeToRequests(win, (rawUrl, rawMethod, rawBody) => {
+          const current = requestAction();
+          if (!eligible(current)) return;
           const url = safeRequestUrl(
             rawUrl,
             win.location.href,
@@ -311,59 +370,81 @@ export function startProductInteractionCapture(
             excluded,
           );
           if (!url) return;
-          const current = action;
+          const parentRequestId = continuation?.requestId;
           current.requests += 1;
+          const requestId = id();
           const started = Date.now();
           const requestPage = pageSnapshot();
+          let body: ReturnType<typeof sanitizeRequestBody> | undefined;
+          if (rawBody != null && captureBodies) {
+            // Keep explicit privacy markers even if a submission removes its
+            // form before fetching or while an earlier response is pending.
+            const liveKeys = privateBodyKeys();
+            current.privateKeys =
+              current.privateKeys && liveKeys
+                ? [...new Set([...current.privateKeys, ...liveKeys])]
+                : undefined;
+            body = current.privateKeys
+              ? sanitizeRequestBody(rawBody, current.privateKeys)
+              : { omittedFieldCount: 1, omissionReason: "truncated" };
+          }
           const method = /^[a-z]{1,20}$/i.test(rawMethod)
             ? rawMethod.toUpperCase()
             : "OTHER";
-          return (completion) => {
-            const requestId = id();
-            const emitted = emit({
-              id: requestId,
-              actionId: current.id,
-              timestamp: Date.now(),
-              type: "request",
-              ...requestPage,
-              request: {
-                method,
-                url,
-                durationMs: Math.max(0, Date.now() - started),
-                ...completion,
-              },
-            });
-            if (
-              !emitted ||
-              !captureContext ||
-              activity !== current.activity ||
-              !current.scope?.isConnected
-            )
-              return;
-            const timer = setTimeout(() => {
-              timers.delete(timer);
+          return {
+            resume: () => resumeRequest(current, requestId),
+            canContinue: () => requestAction() === current && eligible(current),
+            complete: (completion) => {
+              const emitted = emit({
+                id: requestId,
+                actionId: current.id,
+                timestamp: Date.now(),
+                type: "request",
+                ...requestPage,
+                request: {
+                  method,
+                  url,
+                  attribution: parentRequestId
+                    ? "response-continuation"
+                    : "user-action",
+                  ...(parentRequestId && { parentRequestId }),
+                  ...(body && { body }),
+                  durationMs: Math.max(0, Date.now() - started),
+                  ...completion,
+                },
+              });
               if (
-                stopped ||
+                !emitted ||
+                !captureContext ||
                 activity !== current.activity ||
                 !current.scope?.isConnected
               )
                 return;
-              const context = changedContext(
-                describeContext(current.element, current.scope),
-              );
-              if (context)
-                emit({
-                  id: id(),
-                  actionId: current.id,
-                  timestamp: Date.now(),
-                  type: "context",
-                  ...pageSnapshot(),
-                  trigger: "request-completed",
-                  requestId,
-                  context,
-                });
-            }, 50);
-            timers.add(timer);
+              const timer = setTimeout(() => {
+                timers.delete(timer);
+                if (
+                  stopped ||
+                  activity !== current.activity ||
+                  !current.scope?.isConnected
+                )
+                  return;
+                const context = changedContext(
+                  describeContext(current.element, current.scope),
+                );
+                if (context)
+                  emit({
+                    id: id(),
+                    actionId: current.id,
+                    timestamp: Date.now(),
+                    type: "context",
+                    ...pageSnapshot(),
+                    trigger: "request-completed",
+                    requestId,
+                    context,
+                  });
+              }, 50);
+              timers.add(timer);
+            },
           };
         })
       : () => {};
@@ -371,6 +452,7 @@ export function startProductInteractionCapture(
   return () => {
     stopped = true;
     action = undefined;
+    continuation = undefined;
     for (const timer of timers) clearTimeout(timer);
     timers.clear();
     for (const name of ["click", "change", "submit"])

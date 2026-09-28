@@ -5,7 +5,7 @@ const sensitiveFieldHint =
   /\b(?:user[\s_.-]*name|(?:full|first|last|given|family|display|legal)[\s_.-]*name|(?:street|home|postal|billing|shipping|mailing)[\s_.-]*address|address|e[\s_.-]*mail|phone|mobile|password|passwd|passcode|secret|token|api[\s_.-]*key|credit[\s_.-]*card|card[\s_.-]*number|cvv|cvc|ssn|social[\s_.-]*security)\b/i;
 
 /** These bounded heuristics are not anonymization of arbitrary task prose. */
-function sensitiveContent(value: string): boolean {
+export function sensitiveContent(value: string): boolean {
   const inspected = value
     .normalize("NFKC")
     .replace(/[\u200B-\u200D\u2060\uFEFF]/g, "");
@@ -30,8 +30,8 @@ function sensitiveContent(value: string): boolean {
   );
 }
 
-function hasSensitiveFieldHint(
-  element: HTMLInputElement | HTMLTextAreaElement,
+export function hasSensitiveFieldHint(
+  element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
 ): boolean {
   const hints: string[] = [];
   const sensitiveHint = (hint: string) => {

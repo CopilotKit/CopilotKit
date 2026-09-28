@@ -1,4 +1,5 @@
 import type { ProductControlState, ProductInteractionTarget } from "./types";
+import { describePage } from "./page";
 
 const sensitiveSelector = [
   "[data-private]",
@@ -350,7 +351,15 @@ export function safeRequestUrl(
     )
       return;
     const match = allowed.find((prefix) => matchesPrefix(url, prefix));
-    return match ? `${match.origin}${match.pathname}` : undefined;
+    if (!match) return;
+    const page = describePage(url);
+    if ("pathname" in page) return `${url.origin}${page.pathname}`;
+    // Oversized paths must not reveal an unchecked prefix of the raw request.
+    // The configured prefix is useful only after applying the same filtering.
+    const prefix = describePage(match);
+    return "pathname" in prefix
+      ? `${match.origin}${prefix.pathname}`
+      : undefined;
   } catch {
     return;
   }

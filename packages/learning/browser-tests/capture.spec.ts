@@ -263,7 +263,7 @@ test("trusted user actions produce correlated, filtered request and DOM outcomes
   expect(captured.find((event) => event.type === "request")).toMatchObject({
     request: {
       method: "POST",
-      url: `${origin}/api/orders`,
+      url: `${origin}/api/orders/:redacted`,
       status: 200,
       outcome: "success",
     },

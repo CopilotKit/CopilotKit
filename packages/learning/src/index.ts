@@ -7,4 +7,5 @@ export type {
   ProductInteractionText,
   ProductControlState,
   ProductPageContext,
+  ProductRequestBody,
 } from "./types";

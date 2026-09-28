@@ -4,6 +4,7 @@ const MAX_PATH_BYTES = 1024;
 const credential =
   /password|passwd|secret|token|api[-_]?key|authorization|credential|session[-_]?id|access[-_]?key|bearer/i;
 const credentialKey = new RegExp(`(?:^|[-_])(?:${credential.source})$`, "i");
+const privateSlug = /(?:^|[-_])(?:private|internal|confidential)(?:$|[-_])/i;
 const numeric = /(?:\p{N}[\s(),+._-]*){4,}/u;
 
 /** Bounded heuristics, not anonymization of arbitrary route names or slugs. */
@@ -40,6 +41,7 @@ export function describePage(location: {
         credentialValue ||
         malformed ||
         hasCredentialHint ||
+        privateSlug.test(decoded) ||
         decoded.includes("%") ||
         /[\s@/\\?#\p{Cc}\p{Cf}]/u.test(decoded) ||
         decoded === "." ||

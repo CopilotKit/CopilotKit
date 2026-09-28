@@ -82,7 +82,7 @@ describe("privacy boundaries", () => {
     });
   });
 
-  it("matches route boundaries and emits only the most specific configured prefix", () => {
+  it("matches route boundaries and preserves filtered endpoint paths", () => {
     const base = "https://app.example.com/page";
     const allowed = parsePrefixes(
       ["/api", "/api/orders", "https://service.example.com/v1"],
@@ -96,7 +96,7 @@ describe("privacy boundaries", () => {
         allowed,
         excluded,
       ),
-    ).toBe("https://app.example.com/api/orders");
+    ).toBe("https://app.example.com/api/orders/:redacted");
     expect(
       safeRequestUrl("/api/copilotkit/agent/run", base, allowed, excluded),
     ).toBeUndefined();
@@ -118,7 +118,7 @@ describe("privacy boundaries", () => {
         allowed,
         excluded,
       ),
-    ).toBe("https://service.example.com/v1");
+    ).toBe("https://service.example.com/v1/customer/:redacted");
     expect(
       safeRequestUrl(
         "https://user:password@app.example.com/api",
@@ -133,5 +133,68 @@ describe("privacy boundaries", () => {
         base,
       ).every((url) => url.origin === "https://app.example.com"),
     ).toBe(true);
+  });
+
+  it.each(["summary", "submit", "preview"])(
+    "retains the %s endpoint while excluding request query, hash and identifiers",
+    (endpoint) => {
+      const base = "https://app.example.com/";
+      expect(
+        safeRequestUrl(
+          `/api/dispatch/drafts/12345/${endpoint}?email=alice@example.com#private`,
+          base,
+          parsePrefixes(["/api"], base),
+          [],
+        ),
+      ).toBe(
+        `https://app.example.com/api/dispatch/drafts/:redacted/${endpoint}`,
+      );
+    },
+  );
+
+  it.each([
+    "alice%40example.com",
+    "alice%2540example.com",
+    "api_key=short",
+    "550e8400-e29b-41d4-a716-446655440000",
+    "%252540",
+    "%broken",
+  ])(
+    "uses the page privacy filter for encoded/sensitive segment %s",
+    (segment) => {
+      const base = "https://app.example.com/";
+      expect(
+        safeRequestUrl(
+          `/api/orders/${segment}/summary`,
+          base,
+          parsePrefixes(["/api"], base),
+          [],
+        ),
+      ).toBe("https://app.example.com/api/orders/:redacted/summary");
+    },
+  );
+
+  it("falls back only to a filtered allowed prefix for oversized paths", () => {
+    const base = "https://app.example.com/";
+    expect(
+      safeRequestUrl(
+        `/api/orders/${"x".repeat(1100)}alice@example.com`,
+        base,
+        parsePrefixes(["/api", "/api/orders"], base),
+        [],
+      ),
+    ).toBe("https://app.example.com/api/orders");
+    expect(
+      safeRequestUrl(
+        `/api/alice@example.com/${"x".repeat(1100)}`,
+        base,
+        parsePrefixes(["/api/alice@example.com"], base),
+        [],
+      ),
+    ).toBe("https://app.example.com/api/:redacted");
+    const oversized = `/api/${"x".repeat(1100)}`;
+    expect(
+      safeRequestUrl(oversized, base, parsePrefixes([oversized], base), []),
+    ).toBeUndefined();
   });
 });

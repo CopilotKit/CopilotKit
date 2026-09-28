@@ -63,6 +63,7 @@ export function CopilotKitLearningProvider({
     captureContext,
     captureAccessibleNames,
     captureTextValues,
+    captureRequestBodies,
     capturePage,
   } = captureOptions;
   const recorderRef = useRef<ReturnType<
@@ -97,6 +98,7 @@ export function CopilotKitLearningProvider({
     captureContext,
     captureAccessibleNames,
     captureTextValues,
+    captureRequestBodies,
     capturePage,
   ]);
 

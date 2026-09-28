@@ -86,17 +86,24 @@ describe("LearningProvider", () => {
     await act(async () => root.unmount());
   });
 
-  it("restarts capture when only page capture is disabled", async () => {
-    const root = createRoot(document.createElement("div"));
-    const onEvent = vi.fn();
-    await act(async () => root.render(<LearningProvider onEvent={onEvent} />));
-    const cleanup = capture.mock.results[0].value;
-    await act(async () =>
-      root.render(<LearningProvider onEvent={onEvent} capturePage={false} />),
-    );
-    expect(cleanup).toHaveBeenCalledOnce();
-    expect(capture).toHaveBeenCalledTimes(2);
-    expect(capture.mock.calls[1][0].capturePage).toBe(false);
-    await act(async () => root.unmount());
-  });
+  it.each(["capturePage", "captureRequestBodies"] as const)(
+    "restarts capture when only %s is disabled",
+    async (option) => {
+      const root = createRoot(document.createElement("div"));
+      const onEvent = vi.fn();
+      await act(async () =>
+        root.render(<LearningProvider onEvent={onEvent} />),
+      );
+      const cleanup = capture.mock.results[0].value;
+      await act(async () =>
+        root.render(
+          <LearningProvider onEvent={onEvent} {...{ [option]: false }} />,
+        ),
+      );
+      expect(cleanup).toHaveBeenCalledOnce();
+      expect(capture).toHaveBeenCalledTimes(2);
+      expect(capture.mock.calls[1][0][option]).toBe(false);
+      await act(async () => root.unmount());
+    },
+  );
 });

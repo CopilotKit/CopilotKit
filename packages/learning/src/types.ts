@@ -1,3 +1,7 @@
+import type { SanitizedRequestBody } from "./request-data";
+
+export type ProductRequestBody = SanitizedRequestBody;
+
 export interface ProductControlState {
   checked?: boolean | "mixed";
   expanded?: boolean;
@@ -38,7 +42,7 @@ export type ProductPageContext =
 
 interface ProductEventBase {
   id: string;
-  /** Shared by the user action and its immediate requests/DOM outcomes. */
+  /** Shared by the user action and its correlated requests/DOM outcomes. */
   actionId: string;
   /** Optional for older/manual events. Requests retain the page at initiation. */
   page?: ProductPageContext;
@@ -65,8 +69,14 @@ export type ProductInteractionEvent = ProductEventBase &
         type: "request";
         request: {
           method: string;
-          /** Origin plus matched API prefix; excludes dynamic paths, query and hash. */
+          /** Allowed origin plus filtered pathname; sensitive segments redact, query/hash omitted. */
           url: string;
+          /** Optional on older events. Continuations are observational correlations, not causal proof. */
+          attribution?: "user-action" | "response-continuation";
+          /** Prior captured request whose response/body settlement opened this continuation. */
+          parentRequestId?: string;
+          /** Bounded JSON request fields; no headers, response bodies, streams or binary content. */
+          body?: ProductRequestBody;
           status?: number;
           durationMs: number;
           outcome: "success" | "error" | "aborted";
@@ -92,8 +102,10 @@ export type ProductInteractionEvent = ProductEventBase &
 export interface ProductInteractionCaptureOptions {
   onEvent: (event: ProductInteractionEvent) => void | Promise<void>;
   enabled?: boolean;
-  /** Defaults to true. Only requests started in a trusted user event's task are eligible. */
+  /** Defaults to true. Captures direct user requests and bounded response continuations. */
   captureRequests?: boolean;
+  /** Defaults to true. Filtered JSON-string bodies; also disabled by either text privacy switch. */
+  captureRequestBodies?: boolean;
   /** Defaults to same-origin /api. Absolute prefixes explicitly allow other origins. */
   apiUrlPrefixes?: readonly string[];
   /** Exclusions win over inclusions. Include your event ingestion/runtime URLs. */

@@ -23,6 +23,7 @@ export function LearningProvider({
   const {
     enabled,
     captureRequests,
+    captureRequestBodies,
     captureDomChanges,
     captureContext,
     capturePage,
@@ -36,6 +37,7 @@ export function LearningProvider({
       startProductInteractionCapture({
         enabled,
         captureRequests,
+        captureRequestBodies,
         captureDomChanges,
         captureContext,
         capturePage,
@@ -54,6 +56,7 @@ export function LearningProvider({
     [
       enabled,
       captureRequests,
+      captureRequestBodies,
       captureDomChanges,
       captureContext,
       capturePage,
@@ -76,4 +79,5 @@ export type {
   ProductInteractionText,
   ProductControlState,
   ProductPageContext,
+  ProductRequestBody,
 } from "./types";

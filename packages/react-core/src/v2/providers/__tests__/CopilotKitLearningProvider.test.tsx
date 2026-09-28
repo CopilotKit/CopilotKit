@@ -139,6 +139,7 @@ describe("CopilotKitLearningProvider", () => {
     "captureContext",
     "captureAccessibleNames",
     "captureTextValues",
+    "captureRequestBodies",
   ] as const)(
     "does not restore old textual context after %s is disabled",
     async (option) => {
