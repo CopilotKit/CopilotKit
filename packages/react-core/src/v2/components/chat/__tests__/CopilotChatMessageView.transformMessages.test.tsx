@@ -75,6 +75,30 @@ function virtualizedRowCount(): number {
   return capture.current.options.count;
 }
 
+// Replaces both assistant messages with one it builds, under a new id.
+const mergeAssistants = (list: Message[]): Message[] => [
+  {
+    id: "merged",
+    role: "assistant",
+    content: list
+      .filter((m) => m.role === "assistant")
+      .map((m) => m.content)
+      .join(" "),
+  },
+];
+
+// Drops a stand-in once a real message carries the same call.
+const dropStandIns = (list: Message[]): Message[] =>
+  list.filter(
+    (m) =>
+      !list.some(
+        (other) =>
+          other !== m &&
+          other.role === "assistant" &&
+          other.toolCalls?.some((tc) => tc.id === m.id),
+      ),
+  );
+
 /** TanStack schedules measurement frames; let them run before teardown. */
 async function drainAnimationFrames() {
   await act(async () => {
@@ -206,6 +230,141 @@ describe("CopilotChatMessageView transformMessages", () => {
     });
 
     expect(screen.getByTestId("weather-result").textContent).toBe("sunny");
+  });
+
+  describe("latest message", () => {
+    const first: AssistantMessage = {
+      id: "a-1",
+      role: "assistant",
+      content: "first half",
+    };
+    const second: AssistantMessage = {
+      id: "a-2",
+      role: "assistant",
+      content: "second half",
+    };
+    it("treats the last rendered message as the latest, not the last input message", () => {
+      let setRunning: ((next: boolean) => void) | null = null;
+      function Harness() {
+        const [isRunning, update] = React.useState(true);
+        setRunning = update;
+        return (
+          <CopilotChatMessageView
+            messages={[first, second]}
+            isRunning={isRunning}
+            transformMessages={mergeAssistants}
+          />
+        );
+      }
+
+      renderWithCopilotKit({ children: <Harness /> });
+
+      // Streaming: the latest assistant message hides its toolbar.
+      expect(screen.getByText("first half second half")).not.toBeNull();
+      expect(screen.queryByTestId("copilot-assistant-toolbar")).toBeNull();
+
+      // The run ends, and the merged message must re-render to show it.
+      act(() => setRunning!(false));
+      expect(screen.queryByTestId("copilot-assistant-toolbar")).not.toBeNull();
+    });
+
+    it("hides the cursor only when the last rendered message is reasoning", () => {
+      const reasoning: Message = {
+        id: "r-1",
+        role: "reasoning",
+        content: "thinking",
+      } as Message;
+
+      renderWithCopilotKit({
+        children: (
+          <CopilotChatMessageView
+            messages={[...userMessages(1), reasoning]}
+            isRunning
+            transformMessages={(list) =>
+              list.filter((m) => m.role !== "reasoning")
+            }
+          />
+        ),
+      });
+
+      // The reasoning card is hidden, so the chat cursor is the only
+      // loading indicator left.
+      expect(screen.queryByTestId("copilot-loading-cursor")).not.toBeNull();
+    });
+  });
+
+  it("keeps a tool card mounted when a transform swaps a stand-in for the durable message", () => {
+    // A resumed call the client could not place gets a stand-in assistant
+    // message whose id is the tool call id. The durable message with the
+    // same call arrives later in the snapshot.
+    const toolCall = {
+      id: "call-1",
+      type: "function" as const,
+      function: { name: "getWeather", arguments: '{"location":"Paris"}' },
+    };
+    const standIn: AssistantMessage = {
+      id: "call-1",
+      role: "assistant",
+      toolCalls: [toolCall],
+    };
+    const durable: AssistantMessage = {
+      id: "a-1",
+      role: "assistant",
+      content: "",
+      toolCalls: [toolCall],
+    };
+    let setMessages: ((next: Message[]) => void) | null = null;
+    function Harness() {
+      const [messages, update] = React.useState<Message[]>([
+        ...userMessages(1),
+        standIn,
+      ]);
+      setMessages = update;
+      return (
+        <CopilotChatMessageView
+          messages={messages}
+          transformMessages={dropStandIns}
+        />
+      );
+    }
+
+    renderWithCopilotKit({
+      renderToolCalls: [
+        defineToolCallRenderer({
+          name: "getWeather",
+          args: z.object({ location: z.string() }),
+          render: () => <span data-testid="weather-card">card</span>,
+        }),
+      ],
+      children: <Harness />,
+    });
+
+    const before = screen.getByTestId("weather-card");
+    act(() => setMessages!([...userMessages(1), standIn, durable]));
+
+    const cards = screen.getAllByTestId("weather-card");
+    expect(cards).toHaveLength(1);
+    // Same DOM node: the row inherited the stand-in's key instead of remounting.
+    expect(cards[0]).toBe(before);
+  });
+
+  it("warns in development when the transform returns a duplicate id", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    renderWithCopilotKit({
+      children: (
+        <CopilotChatMessageView
+          messages={userMessages(2)}
+          transformMessages={(list) => [...list, list[0]!]}
+        />
+      ),
+    });
+
+    expect(
+      warn.mock.calls.some(([text]) =>
+        String(text).includes('more than one message with id "m-0"'),
+      ),
+    ).toBe(true);
   });
 
   describe("virtualization warning", () => {

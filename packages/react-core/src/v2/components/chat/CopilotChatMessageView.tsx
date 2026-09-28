@@ -78,12 +78,14 @@ const MemoizedAssistantMessage = React.memo(
     message,
     messages,
     isRunning,
+    isLatest,
     AssistantMessageComponent,
     slotProps,
   }: {
     message: AssistantMessage;
     messages: Message[];
     isRunning: boolean;
+    isLatest: boolean;
     AssistantMessageComponent: typeof CopilotChatAssistantMessage;
     slotProps?: Partial<
       React.ComponentProps<typeof CopilotChatAssistantMessage>
@@ -94,6 +96,7 @@ const MemoizedAssistantMessage = React.memo(
         message={message}
         messages={messages}
         isRunning={isRunning}
+        isLatest={isLatest}
         {...slotProps}
       />
     );
@@ -141,10 +144,7 @@ const MemoizedAssistantMessage = React.memo(
 
     // Only care about isRunning if this message is CURRENTLY the latest
     // (we don't need to re-render just because a message stopped being the latest)
-    const nextIsLatest =
-      nextProps.messages[nextProps.messages.length - 1]?.id ===
-      nextProps.message.id;
-    if (nextIsLatest && prevProps.isRunning !== nextProps.isRunning)
+    if (nextProps.isLatest && prevProps.isRunning !== nextProps.isRunning)
       return false;
 
     // Check if component reference changed
@@ -230,12 +230,14 @@ const MemoizedReasoningMessage = React.memo(
     message,
     messages,
     isRunning,
+    isLatest,
     ReasoningMessageComponent,
     slotProps,
   }: {
     message: ReasoningMessage;
     messages: Message[];
     isRunning: boolean;
+    isLatest: boolean;
     ReasoningMessageComponent: typeof CopilotChatReasoningMessage;
     slotProps?: Partial<
       React.ComponentProps<typeof CopilotChatReasoningMessage>
@@ -246,6 +248,7 @@ const MemoizedReasoningMessage = React.memo(
         message={message}
         messages={messages}
         isRunning={isRunning}
+        isLatest={isLatest}
         {...slotProps}
       />
     );
@@ -257,16 +260,10 @@ const MemoizedReasoningMessage = React.memo(
 
     // Re-render when "latest" status changes (e.g. reasoning message is no longer the last message
     // because a text message was added after it — this transitions isStreaming from true to false)
-    const prevIsLatest =
-      prevProps.messages[prevProps.messages.length - 1]?.id ===
-      prevProps.message.id;
-    const nextIsLatest =
-      nextProps.messages[nextProps.messages.length - 1]?.id ===
-      nextProps.message.id;
-    if (prevIsLatest !== nextIsLatest) return false;
+    if (prevProps.isLatest !== nextProps.isLatest) return false;
 
     // Only care about isRunning if this message is CURRENTLY the latest
-    if (nextIsLatest && prevProps.isRunning !== nextProps.isRunning)
+    if (nextProps.isLatest && prevProps.isRunning !== nextProps.isRunning)
       return false;
 
     // Check if component reference changed
@@ -527,6 +524,30 @@ export function CopilotChatMessageView({
     [deduplicatedMessages, transformMessages],
   );
 
+  // "Latest" means the last row on screen, not the last entry of `messages`:
+  // a transform can drop, replace or reorder the tail. Streaming state and the
+  // assistant toolbar key off this.
+  const latestRenderedId = renderedMessages[renderedMessages.length - 1]?.id;
+
+  // Row keys are looked up by message id, so two rendered messages sharing an
+  // id would share a React key. Deduplication already ran on the input, so a
+  // repeat here can only come from the transform.
+  const transformDuplicateId = useMemo(() => {
+    if (process.env.NODE_ENV === "production" || !transformMessages) return;
+    const seen = new Set<string>();
+    for (const message of renderedMessages) {
+      if (seen.has(message.id)) return message.id;
+      seen.add(message.id);
+    }
+  }, [renderedMessages, transformMessages]);
+  useEffect(() => {
+    if (transformDuplicateId === undefined) return;
+    console.warn(
+      `[CopilotKit] CopilotChatMessageView: \`transformMessages\` returned more than one message with id "${transformDuplicateId}". ` +
+        "Return each id at most once; a message you create needs its own id, stable across renders.",
+    );
+  }, [transformDuplicateId]);
+
   // Stable per-row React keys. Backends can re-key a message mid-stream, and
   // keying rows by the canonical id remounts the row on that swap (the HITL
   // chat flash). See @copilotkit/shared row-render-keys for the mechanism.
@@ -663,10 +684,16 @@ export function CopilotChatMessageView({
     warnedChildrenRef.current = true;
     console.warn(
       `[CopilotKit] CopilotChatMessageView: the \`children\` render prop disables virtualization, ` +
-        `so all ${renderedMessages.length} messages are mounted. To reshape the list and keep ` +
-        "virtualization, use `transformMessages` instead.",
+        `so all ${renderedMessages.length} messages are mounted. ` +
+        (transformMessages
+          ? "`transformMessages` keeps virtualization on by itself; drop `children` to use it."
+          : "To reshape the list and keep virtualization, use `transformMessages` instead."),
     );
-  }, [childrenDisabledVirtualization, renderedMessages.length]);
+  }, [
+    childrenDisabledVirtualization,
+    renderedMessages.length,
+    transformMessages,
+  ]);
 
   // Mean of the rows measured so far in this thread, used as the estimate for
   // rows that have not been measured yet. A flat 100 px estimate is off by
@@ -830,6 +857,7 @@ export function CopilotChatMessageView({
           message={message as AssistantMessage}
           messages={messages}
           isRunning={isRunning}
+          isLatest={message.id === latestRenderedId}
           AssistantMessageComponent={AssistantComponent}
           slotProps={assistantSlotPropsWithFeedback}
         />,
@@ -858,6 +886,7 @@ export function CopilotChatMessageView({
           message={message as ReasoningMessage}
           messages={messages}
           isRunning={isRunning}
+          isLatest={message.id === latestRenderedId}
           ReasoningMessageComponent={ReasoningComponent}
           slotProps={reasoningSlotProps}
         />,
@@ -913,9 +942,10 @@ export function CopilotChatMessageView({
     );
   }
 
-  // Hide the chat-level loading cursor when the last message is a reasoning
-  // message — the reasoning card already shows its own loading indicator.
-  const lastMessage = messages[messages.length - 1];
+  // Hide the chat-level loading cursor when the last rendered message is a
+  // reasoning message — the reasoning card already shows its own loading
+  // indicator. A reasoning message the transform hid shows no indicator.
+  const lastMessage = renderedMessages[renderedMessages.length - 1];
   const showCursor = isRunning && lastMessage?.role !== "reasoning";
 
   // ---------------------------------------------------------------------------
