@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import type { IntelligenceReadRequest } from "../src/lib/intelligence-relay.js";
 import { intelligenceLearningFixture } from "./intelligence-learning-fixtures.js";
 
+import { intelligenceGovernanceFixture } from "./intelligence-governance-fixtures.js";
+
 interface FixtureJob {
   readonly id: string;
   readonly kind: string;
@@ -110,9 +112,9 @@ function exportJob(job: FixtureJob, completed: boolean) {
   };
 }
 
-/** Reuses the Learning list fixture so export scope and screen scope match. */
+/** Reuses list fixtures so export scope and screen scope match. */
 function exportRows(job: FixtureJob): Record<string, unknown>[] {
-  if (job.kind !== "insights")
+  if (job.kind !== "insights" && job.kind !== "activity")
     return [
       {
         runId:
@@ -120,28 +122,73 @@ function exportRows(job: FixtureJob): Record<string, unknown>[] {
         tokens: 840,
       },
     ];
-  const response = intelligenceLearningFixture({
-    method: "GET",
-    path: "/api/v1/learning/insights",
-    query: {
-      from: job.from,
-      to: job.to,
-      ...(typeof job.filters.agentId === "string"
-        ? { agentId: job.filters.agentId }
-        : {}),
-    },
-  });
+  const query = {
+    from: job.from,
+    to: job.to,
+    ...Object.fromEntries(
+      Object.entries(job.filters).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string",
+      ),
+    ),
+  };
+  const response =
+    job.kind === "activity"
+      ? intelligenceGovernanceFixture({
+          method: "GET",
+          path: "/api/v1/governance/events",
+          query,
+        })
+      : intelligenceLearningFixture({
+          method: "GET",
+          path: "/api/v1/learning/insights",
+          query,
+        });
   if (
     !isRecord(response) ||
     !Array.isArray(response.data) ||
     !response.data.every(isRecord)
   )
-    throw new Error("Invalid Insight fixture");
+    throw new Error("Invalid export fixture");
+  if (job.kind === "activity")
+    return response.data.map((row) => {
+      const actor = isRecord(row.actor) ? row.actor : {};
+      return Object.fromEntries(
+        exportColumns(job).map((column) => [
+          column,
+          column === "actorType"
+            ? actor.type
+            : column === "actorId"
+              ? actor.id
+              : column === "details"
+                ? JSON.stringify(row.details)
+                : row[column],
+        ]),
+      );
+    });
   return response.data;
 }
 
-/** Stable columns also describe empty Insight exports. */
+/** Stable columns match each fixture export, including empty files. */
 function exportColumns(job: FixtureJob): string[] {
+  if (job.kind === "activity")
+    return [
+      "id",
+      "family",
+      "type",
+      "occurredAt",
+      "receivedAt",
+      "actorType",
+      "actorId",
+      "agentId",
+      "threadId",
+      "runId",
+      "toolCallId",
+      "toolName",
+      "outcome",
+      "source",
+      "captureVersion",
+      "details",
+    ];
   return job.kind === "insights"
     ? [
         "id",

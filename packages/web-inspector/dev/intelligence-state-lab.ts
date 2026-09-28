@@ -1,3 +1,4 @@
+import { intelligenceGovernanceFixture } from "./intelligence-governance-fixtures.js";
 import { intelligenceAskFixture } from "./intelligence-ask-fixture.js";
 import { intelligenceAnalyticsFixture } from "./intelligence-analytics-fixtures.js";
 import { intelligenceLearningFixture } from "./intelligence-learning-fixtures.js";
@@ -14,7 +15,8 @@ export function intelligenceFixture(request: IntelligenceReadRequest): {
     intelligenceAskFixture(request) ??
     intelligenceAnalyticsFixture(request) ??
     intelligenceLearningFixture(request) ??
-    intelligenceContentFixture(request);
+    intelligenceContentFixture(request) ??
+    intelligenceGovernanceFixture(request);
   if (content !== undefined) return ok(content);
   const to = request.query?.to ?? new Date().toISOString();
   const from =
@@ -129,101 +131,7 @@ export function intelligenceFixture(request: IntelligenceReadRequest): {
       to,
       asOf: "fixture_v1",
     });
-  const events = [
-    {
-      family: "approval",
-      type: "approval.approved",
-      outcome: "approved",
-      details: { verified: true, mechanism: "interrupt" },
-    },
-    {
-      family: "approval",
-      type: "approval.responded",
-      outcome: "answered",
-      details: { verified: false, mechanism: "tool_response" },
-    },
-    {
-      family: "access_decision",
-      type: "access.denied",
-      outcome: "denied",
-      details: {
-        permission: "conversations.text",
-        reason: "Missing permission",
-      },
-    },
-    {
-      family: "deletion",
-      type: "deletion.thread",
-      outcome: "deleted",
-      details: { resourceType: "conversation", count: 1 },
-    },
-  ].map((event, index) => ({
-    ...event,
-    id: `fixture-event-${index + 1}`,
-    occurredAt: at,
-    receivedAt: at,
-    actor: { type: "app_user", id: `reviewer-${index + 1}` },
-    agentId: "support",
-    threadId: "fixture-thread-1",
-    runId: "fixture-run-1",
-    toolCallId: "fixture-tool-1",
-    toolName: "refund",
-    source: "runtime",
-    captureVersion: 1,
-  }));
-  const families: Record<string, string> = {
-    approvals: "approval",
-    access: "access_decision",
-    deletions: "deletion",
-  };
   const leaf = request.path.split("/").at(-1) ?? "";
-  if (
-    request.path.startsWith("/api/v1/governance/") &&
-    ["events", "approvals", "access", "deletions"].includes(leaf)
-  )
-    return ok({
-      data: events.filter(
-        (event) =>
-          (!families[leaf] || event.family === families[leaf]) &&
-          (!request.query?.agentId ||
-            event.agentId === request.query.agentId) &&
-          (!request.query?.outcome ||
-            event.outcome === request.query.outcome) &&
-          (!request.query?.actorId ||
-            event.actor.id === request.query.actorId) &&
-          (!request.query?.type || event.type === request.query.type),
-      ),
-      nextCursor: null,
-    });
-  if (request.path === "/api/v1/governance/summary") {
-    const counts = {
-      runs: 12438,
-      approvals: 128,
-      rejections: 8,
-      approvalResponses: 6,
-      cancellations: 2,
-      unverifiedAnswers: 1,
-      unansweredApprovals: 3,
-      accessDenials: 4,
-      skillChanges: 6,
-      deletions: 3,
-    };
-    return ok({
-      captureStartedAt: "2026-09-01T00:00:00.000Z",
-      current: { from, to, coverage: "full", counts },
-      previous: {
-        from: new Date(Date.parse(from) * 2 - Date.parse(to)).toISOString(),
-        to: from,
-        coverage: "full",
-        counts: Object.fromEntries(
-          Object.entries(counts).map(([key, count]) => [
-            key,
-            Math.round(count * 0.8),
-          ]),
-        ),
-      },
-    });
-  }
   if (request.path.startsWith("/api/v1/governance/runs/"))
     return ok({
       runId: leaf,
