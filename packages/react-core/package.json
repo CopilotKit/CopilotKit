@@ -138,5 +138,12 @@
     "react": "^18 || ^19 || ^19.0.0-rc",
     "react-dom": "^18 || ^19 || ^19.0.0-rc",
     "zod": ">=3.25"
+  },
+  "nx": {
+    "targets": {
+      "test": {
+        "dependsOn": ["build", "^build"]
+      }
+    }
   }
 }
