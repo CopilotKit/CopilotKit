@@ -278,3 +278,110 @@ describe("CopilotChatMessageView", () => {
     ).toBeNull();
   });
 });
+
+describe("CopilotChatMessageView shouldRenderMessage", () => {
+  const hideWorker = (m: Message) =>
+    (m as { name?: string }).name !== "math_expert";
+  const transcript = [
+    { id: "u1", role: "user", content: "what is 2+2" },
+    {
+      id: "w-1",
+      role: "assistant",
+      name: "math_expert",
+      content: "WORKER_SAYS_FOUR",
+    },
+    {
+      id: "sup-2",
+      role: "assistant",
+      name: "supervisor",
+      content: "SUPERVISOR_SAYS_FOUR",
+    },
+  ] as Message[];
+
+  beforeEach(() => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: CopilotKit,
+          useValue: {
+            activityMessageRenderConfigs: signal([]).asReadonly(),
+            getAgent: vi.fn(),
+          },
+        },
+      ],
+    });
+  });
+
+  function renderView(inputs: Record<string, unknown>) {
+    const fixture = TestBed.createComponent(CopilotChatMessageView);
+    for (const [key, value] of Object.entries(inputs))
+      fixture.componentRef.setInput(key, value);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  it("renders every message when no predicate is given", () => {
+    const fixture = renderView({ messages: transcript });
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      "WORKER_SAYS_FOUR",
+    );
+  });
+
+  it("hides langgraph-supervisor worker messages by name (#1959)", () => {
+    const fixture = renderView({
+      messages: transcript,
+      shouldRenderMessage: hideWorker,
+    });
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? "";
+    expect(text).not.toContain("WORKER_SAYS_FOUR");
+    expect(text).toContain("SUPERVISOR_SAYS_FOUR");
+    expect(text).toContain("what is 2+2");
+  });
+
+  it("hides a row when a later change adds its name", () => {
+    const unnamed = transcript.map((m) =>
+      m.id === "w-1" ? { ...m, name: undefined } : m,
+    ) as Message[];
+    const fixture = renderView({
+      messages: unnamed,
+      shouldRenderMessage: hideWorker,
+    });
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      "WORKER_SAYS_FOUR",
+    );
+    fixture.componentRef.setInput("messages", transcript);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain(
+      "WORKER_SAYS_FOUR",
+    );
+  });
+
+  it("keeps the cursor when the last message is hidden", () => {
+    const fixture = renderView({
+      messages: transcript.slice(0, 2),
+      showCursor: true,
+      shouldRenderMessage: hideWorker,
+    });
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.textContent).not.toContain("WORKER_SAYS_FOUR");
+    expect(el.querySelector("copilot-chat-message-view-cursor")).not.toBeNull();
+  });
+
+  it("passes the full message list to a custom layout, and filtered elements", () => {
+    const fixture = renderView({
+      messages: transcript,
+      shouldRenderMessage: hideWorker,
+    });
+    const ctx = (
+      fixture.componentInstance as unknown as {
+        layoutContext: () => {
+          messages: Message[];
+          messageElements: Message[];
+        };
+      }
+    ).layoutContext();
+    expect(ctx.messages.length).toBe(3);
+    expect(ctx.messageElements.map((m) => m.id)).toEqual(["u1", "sup-2"]);
+  });
+});

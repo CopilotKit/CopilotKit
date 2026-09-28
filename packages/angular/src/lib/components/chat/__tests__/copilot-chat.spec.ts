@@ -375,6 +375,35 @@ describe("CopilotChat", () => {
       expect(customMessage?.textContent).toBe("Rendered by the application");
     });
 
+    test("forwards shouldRenderMessage through the prebuilt chat", async () => {
+      const { fixture } = context;
+      fixture.componentRef.setInput(
+        "shouldRenderMessage",
+        (m: { name?: string }) => m.name !== "math_expert",
+      );
+      fixture.detectChanges();
+      agent.setMessages([
+        {
+          id: "w-1",
+          role: "assistant",
+          name: "math_expert",
+          content: "WORKER_SAYS_FOUR",
+        },
+        {
+          id: "sup-2",
+          role: "assistant",
+          name: "supervisor",
+          content: "SUPERVISOR_SAYS_FOUR",
+        },
+      ]);
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      fixture.detectChanges();
+
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? "";
+      expect(text).toContain("SUPERVISOR_SAYS_FOUR");
+      expect(text).not.toContain("WORKER_SAYS_FOUR");
+    });
+
     test("forwards a custom reasoning-message component through the prebuilt chat", async () => {
       const { fixture } = context;
       fixture.componentRef.setInput(

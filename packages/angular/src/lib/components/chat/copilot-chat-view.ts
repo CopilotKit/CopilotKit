@@ -165,6 +165,7 @@ import { injectChatLabels } from "../../chat-config";
           [inputContainerHeight]="inputContainerHeight()"
           [isResizing]="isResizing()"
           [messages]="messagesValue()"
+          [shouldRenderMessage]="shouldRenderMessage()"
           [state]="state()"
           [agentId]="agentId()"
           [messageView]="messageViewSlot()"
@@ -226,6 +227,9 @@ export class CopilotChatView implements OnInit, OnChanges {
   messageViewComponent = input<Type<any> | undefined>(undefined);
   messageViewTemplate = input<TemplateRef<any> | undefined>(undefined);
   messageViewClass = input<string | undefined>(undefined);
+  shouldRenderMessage = input<((message: Message) => boolean) | undefined>(
+    undefined,
+  );
 
   // AssistantMessage slot inputs
   assistantMessageComponent = input<Type<any> | undefined>(undefined);

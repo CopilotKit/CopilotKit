@@ -54,7 +54,7 @@ import {
       <!-- Default layout - exact React DOM structure: div with "flex flex-col" classes -->
       <div [class]="computedClass()">
         <!-- Message iteration - simplified without tool calls -->
-        @for (message of messagesValue(); track rowRenderKey($index, message)) {
+        @for (message of visibleMessages(); track rowRenderKey($index, message)) {
           @if (message && message.role === "assistant") {
             <!-- Assistant message with slot support -->
             @if (assistantMessageComponent() || assistantMessageTemplate()) {
@@ -149,6 +149,14 @@ export class CopilotChatMessageView {
   inputClass = input<string | undefined>();
   agentId = input<string | undefined>();
 
+  /**
+   * Decides which messages the view renders. Return `false` to hide a
+   * message. Display only: a hidden message stays in the agent's history,
+   * and rows still use it to look up tool results. When omitted, every
+   * message renders.
+   */
+  shouldRenderMessage = input<((message: Message) => boolean) | undefined>();
+
   // Handler availability handled via DI service
 
   // Assistant message slot inputs
@@ -196,20 +204,29 @@ export class CopilotChatMessageView {
   // Derived values from inputs
   protected messagesValue = computed(() => this.messages());
 
+  // Display-only filter. Rows and row keys use the visible list. Lookups
+  // (`[messages]` passed to rows, `lastMessage` for the cursor) keep the
+  // full list.
+  protected visibleMessages = computed(() => {
+    const shouldRender = this.shouldRenderMessage();
+    const all = this.messagesValue();
+    return shouldRender ? all.filter((message) => shouldRender(message)) : all;
+  });
+
   /**
    * Override table backing `rowRenderKey`. Per component instance, so its
    * lifetime matches the rendered list.
    */
   private readonly rowKeyStore = createRowKeyStore();
   protected rowRenderKeys = computed(() =>
-    resolveRowRenderKeys(this.rowKeyStore, this.messagesValue()),
+    resolveRowRenderKeys(this.rowKeyStore, this.visibleMessages()),
   );
 
   // Record what actually rendered, never what the computed merely evaluated:
   // an anchor from an evaluation that never reaches the DOM would re-key a
   // rendered row and recreate it.
   private readonly rowKeyStoreCommit = afterRenderEffect(() => {
-    commitRowKeyStore(this.rowKeyStore, this.messagesValue());
+    commitRowKeyStore(this.rowKeyStore, this.visibleMessages());
   });
   protected showCursorValue = computed(
     () => this.showCursor() && this.lastMessage()?.role !== "reasoning",
@@ -230,7 +247,7 @@ export class CopilotChatMessageView {
     isLoading: this.isLoadingValue(),
     messages: this.messagesValue(),
     showCursor: this.showCursorValue(),
-    messageElements: this.messagesValue().filter(
+    messageElements: this.visibleMessages().filter(
       (m) =>
         m &&
         (m.role === "assistant" ||

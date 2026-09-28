@@ -61,6 +61,7 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
   isResizing = input<boolean>(false);
   inputClass = input<string | undefined>();
   messages = input<Message[]>([]);
+  shouldRenderMessage = input<((message: Message) => boolean) | undefined>();
   /** Current agent state forwarded to message-view extension slots. */
   state = input<unknown>({});
   agentId = input<string | undefined>();
