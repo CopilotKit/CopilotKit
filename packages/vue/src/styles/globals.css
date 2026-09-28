@@ -48,9 +48,10 @@
 
 /* Dark surfaces step up in lightness (background → card/popover → muted) so
    raised elements read without heavy borders; borders and inputs are
-   translucent so they sit well on any of those surfaces. */
+   translucent so they sit well on any of those surfaces. A root with .dark
+   itself gets them even when nested, as with a popup's class="dark". */
 .dark [data-copilotkit]:where(:not([data-copilotkit] [data-copilotkit])),
-[data-copilotkit].dark:where(:not([data-copilotkit] [data-copilotkit])) {
+[data-copilotkit].dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);

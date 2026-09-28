@@ -25,8 +25,19 @@ describe("globals.css contract", () => {
     ).toEqual([
       `[data-copilotkit]${outermost}`,
       `.dark [data-copilotkit]${outermost}`,
-      `[data-copilotkit].dark${outermost}`,
+      `[data-copilotkit].dark`,
     ]);
+  });
+
+  it("gives dark tokens to a nested root that has .dark itself", () => {
+    // <CopilotPopup className="dark"> puts .dark on the chat view, a root
+    // nested inside the popup's own root.
+    document.body.innerHTML = `<div data-copilotkit><div data-copilotkit class="dark"></div></div>`;
+    const nested = document.querySelector(".dark")!;
+    const [, darkRule] = rulesDeclaring("--background");
+    expect(
+      darkRule!.selectors.some((selector) => nested.matches(selector)),
+    ).toBe(true);
   });
 
   it("sets color-scheme only for dark roots", () => {
