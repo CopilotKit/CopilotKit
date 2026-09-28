@@ -39,18 +39,21 @@ describe("RunHandler human-in-the-loop tool metadata", () => {
     }
   });
 
-  it("merges with metadata a tool already carries", () => {
-    const [tool] = buildTools([
+  it("never forwards metadata the tool type does not declare", () => {
+    // FrontendTool has no `metadata` field, so anything an app left on the
+    // object is not meant for the agent (or its model provider).
+    const [hitl, plain] = buildTools([
       {
         type: "human-in-the-loop",
         name: "confirm",
-        metadata: { owner: "app", copilotkit: { version: 1 } },
+        metadata: { owner: "app", copilotkit: { secret: "x" } },
       } as FrontendTool,
+      { name: "chart", metadata: { internal: true } } as FrontendTool,
     ]);
 
-    expect(tool!.metadata).toEqual({
-      owner: "app",
-      copilotkit: { version: 1, interaction: "human-in-the-loop" },
+    expect(hitl!.metadata).toEqual({
+      copilotkit: { interaction: "human-in-the-loop" },
     });
+    expect(plain).not.toHaveProperty("metadata");
   });
 });
