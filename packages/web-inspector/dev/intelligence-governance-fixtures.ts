@@ -136,6 +136,7 @@ export function intelligenceGovernanceFixture(
       ).length,
     };
     return {
+      asOf: request.query?.asOf ?? "fixture_v1",
       captureStartedAt: "2026-09-01T00:00:00.000Z",
       current: { from, to, coverage: "full", counts },
       previous: {
@@ -162,5 +163,6 @@ export function intelligenceGovernanceFixture(
         (!request.query?.type || event.type === request.query.type),
     ),
     nextCursor: null,
+    asOf: request.query?.asOf ?? "fixture_v1",
   };
 }

@@ -66,6 +66,7 @@ test("summary fixture counts match the selected agent's drilldown rows", () => {
       query,
     }).body,
   ).toMatchObject({
+    asOf: "fixture_v1",
     current: {
       counts: {
         runs: 1,
@@ -82,5 +83,5 @@ test("summary fixture counts match the selected agent's drilldown rows", () => {
       path: "/api/v1/governance/events",
       query: { agentId: "billing", summary: "unansweredApprovals" },
     }).body,
-  ).toEqual({ data: [], nextCursor: null });
+  ).toEqual({ data: [], nextCursor: null, asOf: "fixture_v1" });
 });
