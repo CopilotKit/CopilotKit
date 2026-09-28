@@ -33,6 +33,7 @@ import {
   runtimeRequestMeta,
 } from "../utils/runtime-request";
 import { createSingleRouteResourceRequest } from "../utils/single-route-resource-request";
+import { abortable, ɵoverlayCoreHeaders } from "./header-source";
 
 type ResolvedCopilotRuntimeTransport = Exclude<CopilotRuntimeTransport, "auto">;
 
@@ -678,6 +679,17 @@ export class AgentRegistry {
         input: RequestInfo | URL,
         init?: RequestInit,
       ): Promise<Response> => {
+        const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
+        const coreHeaders = await abortable(
+          friends.resolveHeaders(),
+          init?.signal,
+        );
+        const requestHeaders = ɵoverlayCoreHeaders(
+          init?.headers ??
+            (input instanceof Request ? input.headers : undefined),
+          coreHeaders,
+        );
+        init = { ...init, headers: requestHeaders };
         const meta = () => runtimeRequestMeta(init);
         const watchdog = this.armRuntimeRequestWatchdog(meta());
         try {

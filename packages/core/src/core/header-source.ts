@@ -142,6 +142,71 @@ export class HeaderSourceResolver {
   }
 }
 
+const PROTOCOL_HEADERS = new Set(["content-type", "accept"]);
+
+/**
+ * Put fresh core headers on top of a request's headers, keeping the input's
+ * shape. Core beats an agent's own headers (#5635). A site's Content-Type and
+ * Accept are never overridden, matching every site's existing spread order.
+ */
+export function ɵoverlayCoreHeaders(
+  existing: HeadersInit | undefined,
+  core: Record<string, string>,
+): HeadersInit {
+  if (existing instanceof Headers) {
+    const headers = new Headers(existing);
+    for (const [key, value] of Object.entries(core)) {
+      if (PROTOCOL_HEADERS.has(key.toLowerCase()) && headers.has(key)) continue;
+      headers.set(key, value);
+    }
+    return headers;
+  }
+  const base: Record<string, string> = Array.isArray(existing)
+    ? Object.fromEntries(existing)
+    : { ...existing };
+  const keyByLower = new Map(
+    Object.keys(base).map((k) => [k.toLowerCase(), k]),
+  );
+  for (const [key, value] of Object.entries(core)) {
+    const existingKey = keyByLower.get(key.toLowerCase());
+    if (existingKey !== undefined) {
+      if (PROTOCOL_HEADERS.has(key.toLowerCase())) continue;
+      delete base[existingKey];
+    }
+    base[key] = value;
+  }
+  return base;
+}
+
+/** Reject with the signal's AbortError if it aborts before `value` settles. */
+export async function abortable<T>(
+  value: T | Promise<T>,
+  signal: AbortSignal | null | undefined,
+): Promise<T> {
+  if (!signal || !isPromiseLike(value)) return value;
+  if (signal.aborted) throw abortError(signal);
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(abortError(signal));
+    signal.addEventListener("abort", onAbort, { once: true });
+    Promise.resolve(value).then(
+      (v) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(v);
+      },
+      (e) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(e);
+      },
+    );
+  });
+}
+
+function abortError(signal: AbortSignal): Error {
+  return signal.reason instanceof Error
+    ? signal.reason
+    : new DOMException("The operation was aborted.", "AbortError");
+}
+
 /**
  * Add default headers (e.g. the public API key) to a source, only where the
  * source left the key unset or empty. The single shared replacement for the

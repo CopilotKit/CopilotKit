@@ -1,0 +1,181 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CopilotKitCore, CopilotKitCoreRuntimeConnectionStatus } from "../core";
+import { ɵoverlayCoreHeaders } from "../core/header-source";
+import { RUNTIME_REQUEST_WATCHDOG_MS } from "../utils/runtime-request";
+
+const ok = () =>
+  Promise.resolve(
+    new Response(JSON.stringify({ version: "1.0.0", agents: {} }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }),
+  );
+
+function authOf(init?: RequestInit): string | null {
+  return new Headers(init?.headers).get("authorization");
+}
+
+/** Runs `fn` with a browser-like `window` present, then restores the prior global. */
+async function withBrowserWindow<T>(fn: () => Promise<T>): Promise<T> {
+  const originalWindow = (globalThis as { window?: unknown }).window;
+  (globalThis as { window?: unknown }).window = {};
+  try {
+    return await fn();
+  } finally {
+    if (originalWindow === undefined) {
+      delete (globalThis as { window?: unknown }).window;
+    } else {
+      (globalThis as { window?: unknown }).window = originalWindow;
+    }
+  }
+}
+
+describe("ɵoverlayCoreHeaders", () => {
+  it("core beats an agent's own header, but a site's Content-Type and Accept win", () => {
+    const out = ɵoverlayCoreHeaders(
+      {
+        Authorization: "agent-own",
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+      },
+      { Authorization: "core", "Content-Type": "text/plain", Accept: "*/*" },
+    ) as Record<string, string>;
+    expect(out).toEqual({
+      Authorization: "core",
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+    });
+  });
+
+  it("overlay replaces a differently-cased existing key", () => {
+    const out = ɵoverlayCoreHeaders(
+      { Authorization: "old" },
+      { authorization: "new" },
+    ) as Record<string, string>;
+    expect(out).toEqual({ authorization: "new" });
+  });
+
+  it("keeps a Headers instance as Headers", () => {
+    const out = ɵoverlayCoreHeaders(new Headers({ A: "1" }), { B: "2" });
+    expect(out).toBeInstanceOf(Headers);
+    expect((out as Headers).get("b")).toBe("2");
+  });
+});
+
+describe("ɵruntimeFetch", () => {
+  const realFetch = global.fetch;
+  let fetchMock: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    fetchMock = vi.fn(ok);
+    global.fetch = fetchMock as unknown as typeof fetch;
+  });
+  afterEach(() => {
+    global.fetch = realFetch;
+  });
+
+  it("sends the builder's current token, not the one from construction", async () => {
+    let token = "t1";
+    const core = new CopilotKitCore({
+      deferInitialConnection: true,
+      headers: () => ({ Authorization: token }),
+    });
+    token = "t2";
+    await core.ɵruntimeFetch("https://rt.example/threads", { headers: {} });
+    expect(authOf(fetchMock.mock.calls.at(-1)![1])).toBe("t2");
+  });
+
+  it("awaits an async builder", async () => {
+    const core = new CopilotKitCore({
+      deferInitialConnection: true,
+      headers: async () => ({ Authorization: "async" }),
+    });
+    await core.ɵruntimeFetch("https://rt.example/threads");
+    expect(authOf(fetchMock.mock.calls.at(-1)![1])).toBe("async");
+  });
+
+  it("a builder failure rejects without sending", async () => {
+    const core = new CopilotKitCore({
+      deferInitialConnection: true,
+      headers: async () => {
+        throw new Error("x");
+      },
+    });
+    await expect(
+      core.ɵruntimeFetch("https://rt.example/threads"),
+    ).rejects.toThrow("Failed to resolve request headers");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("an aborted signal aborts the wait for the builder", async () => {
+    const core = new CopilotKitCore({
+      deferInitialConnection: true,
+      headers: () => new Promise(() => {}),
+    });
+    const controller = new AbortController();
+    const pending = core.ɵruntimeFetch("https://rt.example/threads", {
+      signal: controller.signal,
+    });
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("a slow builder does not trip the runtime watchdog", () =>
+    withBrowserWindow(async () => {
+      // Connect for real first, so the watchdog's failure path (a
+      // reachability probe against a Connected runtime) is actually
+      // reachable — a core that never connects short-circuits
+      // `handleRuntimeRequestOutcome` before it can observe anything, which
+      // would make this test pass vacuously.
+      const core = new CopilotKitCore({
+        runtimeUrl: "https://rt.example",
+        runtimeTransport: "rest",
+      });
+      await vi.waitFor(() =>
+        expect(core.runtimeConnectionStatus).toBe(
+          CopilotKitCoreRuntimeConnectionStatus.Connected,
+        ),
+      );
+      fetchMock.mockClear();
+
+      vi.useFakeTimers();
+      try {
+        let release!: (v: Record<string, string>) => void;
+        core.setHeaders(() => new Promise((r) => (release = r)));
+        const statuses: string[] = [];
+        core.subscribe({
+          onRuntimeConnectionStatusChanged: ({ status }) =>
+            void statuses.push(status),
+        });
+        const pending = core.ɵruntimeFetch("https://rt.example/threads");
+        await vi.advanceTimersByTimeAsync(RUNTIME_REQUEST_WATCHDOG_MS * 2);
+        // While only the header builder is pending, the watchdog must not
+        // have fired yet — no reachability probe (an extra fetch) should
+        // exist.
+        expect(fetchMock).not.toHaveBeenCalled();
+        release({ Authorization: "late" });
+        await pending;
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(statuses).not.toContain(
+          CopilotKitCoreRuntimeConnectionStatus.Error,
+        );
+      } finally {
+        vi.useRealTimers();
+      }
+    }));
+
+  it("applies headers before the single-route rewrite", () =>
+    withBrowserWindow(async () => {
+      const core = new CopilotKitCore({
+        runtimeUrl: "https://rt.example/api",
+        runtimeTransport: "single",
+        headers: () => ({ Authorization: "single" }),
+      });
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+      fetchMock.mockClear();
+      await core.ɵruntimeFetch("https://rt.example/api/threads?agentId=a", {
+        headers: { Accept: "application/json" },
+      });
+      expect(authOf(fetchMock.mock.calls.at(-1)![1])).toBe("single");
+    }));
+});
