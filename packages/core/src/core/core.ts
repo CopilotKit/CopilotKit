@@ -1086,9 +1086,14 @@ export class CopilotKitCore {
   /**
    * Pushes the current runtime wiring into the memory store. When the runtime
    * is connected and both the intelligence WebSocket URL and runtime URL are
-   * available, the store receives a context (runtime URL, WebSocket URL, and a
-   * copy of the current headers); otherwise its context is cleared. No-op when
-   * the store has not been created yet.
+   * available, the store receives a context (runtime URL, WebSocket URL);
+   * otherwise its context is cleared. No-op when the store has not been
+   * created yet.
+   *
+   * Headers are deliberately NOT part of this context: the store's `fetch` is
+   * `ɵruntimeFetch` (see `ensureMemoryStore`), which already resolves and
+   * overlays the current core headers at send time (#1937) — a header
+   * snapshot copied here would go stale between context syncs.
    */
   private syncMemoryContext(): void {
     if (!this._memoryStore) return;
@@ -1101,7 +1106,6 @@ export class CopilotKitCore {
       this._memoryStore.setContext({
         runtimeUrl: this.runtimeUrl,
         wsUrl: this.intelligence.wsUrl,
-        headers: { ...this.headers },
       });
     } else {
       this._memoryStore.setContext(null);

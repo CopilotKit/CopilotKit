@@ -147,12 +147,20 @@ describe("ɵruntimeFetch", () => {
           onRuntimeConnectionStatusChanged: ({ status }) =>
             void statuses.push(status),
         });
+        // Take the timer-count baseline right before issuing the request:
+        // fetchRuntimeInfo now also awaits the same pending builder (#1937),
+        // so a reachability-probe fetch firing (or not) while the builder is
+        // pending no longer distinguishes correct from buggy ordering — a
+        // probe triggered by a wrongly-armed watchdog would itself stall on
+        // `resolveHeaders()` and never reach `fetch`. Checking that the
+        // watchdog's `setTimeout` was never scheduled in the first place is
+        // the direct, order-sensitive check.
+        const timersBeforeRequest = vi.getTimerCount();
         const pending = core.ɵruntimeFetch("https://rt.example/threads");
-        await vi.advanceTimersByTimeAsync(RUNTIME_REQUEST_WATCHDOG_MS * 2);
         // While only the header builder is pending, the watchdog must not
-        // have fired yet — no reachability probe (an extra fetch) should
-        // exist.
-        expect(fetchMock).not.toHaveBeenCalled();
+        // have been armed yet — no new timer scheduled.
+        expect(vi.getTimerCount()).toBe(timersBeforeRequest);
+        await vi.advanceTimersByTimeAsync(RUNTIME_REQUEST_WATCHDOG_MS * 2);
         release({ Authorization: "late" });
         await pending;
         expect(fetchMock).toHaveBeenCalledTimes(1);

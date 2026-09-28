@@ -144,7 +144,13 @@ interface MemoryRuntimeContext {
   runtimeUrl: string;
   /** WebSocket URL for the realtime gateway (e.g. `wss://gw.example.com/client`). */
   wsUrl: string;
-  headers: Record<string, string>;
+  /**
+   * Optional: `environment.fetch` is expected to be `ɵruntimeFetch`, which
+   * already resolves and overlays the current core headers at send time
+   * (#1937). Set explicitly only when the store's `fetch` does NOT already
+   * carry headers.
+   */
+  headers?: Record<string, string>;
   includeInvalidated?: boolean;
 }
 
@@ -736,7 +742,10 @@ function createMemoryCredentialsFetchObservable(
       },
       fetch: environment.fetch,
       method: "POST",
-      headers: { ...context.headers, "Content-Type": "application/json" },
+      headers: {
+        ...context.headers,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({}),
     }).pipe(
       timeout({
@@ -1038,7 +1047,10 @@ function createMemoryMutationObservable(
       },
       fetch: environment.fetch,
       method,
-      headers: { ...context.headers, "Content-Type": "application/json" },
+      headers: {
+        ...context.headers,
+        "Content-Type": "application/json",
+      },
       body:
         request.kind === "remove" ? undefined : JSON.stringify(request.body),
     }).pipe(
@@ -1570,7 +1582,10 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
           },
           fetch: environment.fetch,
           method: "POST",
-          headers: { ...context.headers, "Content-Type": "application/json" },
+          headers: {
+            ...context.headers,
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify(body),
         },
       ).pipe(

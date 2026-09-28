@@ -33,7 +33,12 @@ import {
   runtimeRequestMeta,
 } from "../utils/runtime-request";
 import { createSingleRouteResourceRequest } from "../utils/single-route-resource-request";
-import { abortable, isPromiseLike, ɵoverlayCoreHeaders } from "./header-source";
+import {
+  abortable,
+  isHeaderResolutionError,
+  isPromiseLike,
+  ɵoverlayCoreHeaders,
+} from "./header-source";
 
 type ResolvedCopilotRuntimeTransport = Exclude<CopilotRuntimeTransport, "auto">;
 
@@ -864,7 +869,19 @@ export class AgentRegistry {
     const headersGeneration = this.inspectorMetadataHeadersGeneration;
     const credentialsGeneration = this.inspectorMetadataCredentialsGeneration;
     const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
-    const headers = { ...friends.headers };
+
+    // Resolve before creating the AbortController: a builder failure here
+    // must degrade to absent metadata (like any other optional-route
+    // failure) without ever leaving a dangling, never-aborted controller.
+    let headers: Record<string, string>;
+    try {
+      headers = { ...(await friends.resolveHeaders()) };
+    } catch {
+      if (generation === this.inspectorMetadataGeneration) {
+        this.setInspectorMetadata(undefined);
+      }
+      return;
+    }
     const credentials = friends.credentials;
     const abortController = new AbortController();
     this.inspectorMetadataAbortController = abortController;
@@ -1170,6 +1187,13 @@ export class AgentRegistry {
     await this.notifyRuntimeStatusChanged(
       CopilotKitCoreRuntimeConnectionStatus.Error,
     );
+
+    if (isHeaderResolutionError(error)) {
+      logger.warn(
+        `Could not resolve request headers for the identification request (${this._runtimeUrl}/info). Check the headers builder passed to CopilotKit.`,
+      );
+      return;
+    }
 
     const runtimeStatus = isRuntimeInfoRequestError(error)
       ? error.runtimeInfoStatus
@@ -1646,12 +1670,10 @@ export class AgentRegistry {
     runtimeTransport: CopilotRuntimeTransport,
     signal?: AbortSignal,
   ): Promise<RuntimeInfoFetchResult> {
-    const baseHeaders = (this.core as unknown as CopilotKitCoreFriendsAccess)
-      .headers;
-    const credentials = (this.core as unknown as CopilotKitCoreFriendsAccess)
-      .credentials;
+    const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
+    const credentials = friends.credentials;
     const headers: Record<string, string> = {
-      ...baseHeaders,
+      ...(await friends.resolveHeaders()),
     };
 
     if (runtimeTransport === "single") {

@@ -717,6 +717,9 @@ test("stalled REST and single-route metadata requests time out as absent", async
       const refresh = context.core.refreshInspectorMetadata().then(() => {
         refreshSettled = true;
       });
+      // Headers are resolved (awaited) before the request fires (#1937), even
+      // for a plain sync record — one microtask tick to let that await land.
+      await Promise.resolve();
       expect(context.metadataRequests()).toHaveLength(2);
       const signal = context.metadataRequests()[1]?.signal;
 
@@ -828,6 +831,9 @@ test("auth context changes clear loaded metadata before stalled refreshes settle
       expect(context.core.runtimeConnectionStatus, authContext).toBe(
         CopilotKitCoreRuntimeConnectionStatus.Connected,
       );
+      // Headers are resolved (awaited) before the request fires (#1937), even
+      // for a plain sync record — one microtask tick to let that await land.
+      await Promise.resolve();
       expect(context.metadataRequests(), authContext).toHaveLength(2);
       expect(context.metadataRequests()[1]?.signal?.aborted, authContext).toBe(
         false,
