@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { agentRegistry } from "@/shell/agent-registry";
 import { defaultSkinId } from "@/shell/skins-config";
 import { DEMO_TENANTS } from "@/shell/governance";
+import { redactSecrets } from "@/lib/redact-secrets";
 
 /**
  * Forget the memories the ORGANIZATION switcher creates, for the persona now on
@@ -39,6 +40,11 @@ interface Memory {
   readonly scope?: string;
 }
 
+/**
+ * Throws on any failure except a bucket that does not exist yet. A 401 from a
+ * bad key or a 5xx is NOT an empty bucket: reporting it as `forgotten: 0` gives
+ * the presenter a green "Forgotten" while last rehearsal's memory survives.
+ */
 async function forgetUserScoped(userId: string): Promise<number> {
   const headers = {
     Authorization: `Bearer ${CPK_INTELLIGENCE_API_KEY}`,
@@ -48,19 +54,30 @@ async function forgetUserScoped(userId: string): Promise<number> {
   const listed = await fetch(`${INTELLIGENCE_API_URL}/api/memories`, {
     headers,
   });
-  // An empty or never-used bucket is the normal state, not an error.
-  if (!listed.ok) return 0;
+  // A never-used bucket is the normal state, not an error.
+  if (listed.status === 404) return 0;
+  if (!listed.ok) {
+    throw new Error(`list ${userId}: HTTP ${listed.status}`);
+  }
 
   const body = (await listed.json()) as { memories?: Memory[] };
   const rows = (body.memories ?? []).filter((m) => m.scope !== "project");
 
   let forgotten = 0;
+  const failed: string[] = [];
   for (const row of rows) {
     const deleted = await fetch(
       `${INTELLIGENCE_API_URL}/api/memories/${row.id}`,
       { method: "DELETE", headers },
     );
     if (deleted.ok) forgotten += 1;
+    // Already gone (a concurrent reset got there first) is the outcome we want.
+    else if (deleted.status !== 404 && deleted.status !== 410) {
+      failed.push(`${row.id} (HTTP ${deleted.status})`);
+    }
+  }
+  if (failed.length > 0) {
+    throw new Error(`delete ${userId}: ${failed.join(", ")}`);
   }
   return forgotten;
 }
@@ -101,9 +118,28 @@ export async function POST(request: Request) {
   // persona bucket — which is where the demo's memories actually accumulate.
   const base = resolve(undefined);
 
+  // Each organization is attempted even if another fails, so one bad bucket
+  // does not leave the other one primed.
   let forgotten = 0;
+  const failures: string[] = [];
   for (const tenant of DEMO_TENANTS) {
-    forgotten += await forgetUserScoped(`${tenant.id}:${base.id}`);
+    try {
+      forgotten += await forgetUserScoped(`${tenant.id}:${base.id}`);
+    } catch (err) {
+      failures.push(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  if (failures.length > 0) {
+    console.error(`[governance] forget: ${failures.join("; ")}`);
+    return NextResponse.json(
+      {
+        forgotten,
+        personas: [base.id],
+        error: redactSecrets(failures.join("; ")),
+      },
+      { status: 502 },
+    );
   }
 
   return NextResponse.json({ forgotten, personas: [base.id] });

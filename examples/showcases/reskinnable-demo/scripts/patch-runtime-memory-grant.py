@@ -21,10 +21,11 @@ Idempotent: re-running detects the applied form and leaves it alone.
 import pathlib
 import sys
 
-BASE = pathlib.Path(
-    "/Volumes/Projects/CLIENTS/CopilotKit/CopilotKit/examples/showcases/"
-    "reskinnable-demo/node_modules/@copilotkit/runtime/dist/v2/runtime"
-).resolve()
+# scripts/ -> reskinnable-demo/, so this works from any checkout and any cwd.
+BASE = (
+    pathlib.Path(__file__).resolve().parent.parent
+    / "node_modules/@copilotkit/runtime/dist/v2/runtime"
+)
 
 MARKER = "grantAllowsMemory"
 
@@ -151,10 +152,15 @@ for ext in ("mjs", "cjs"):
         if MARKER in text:
             skipped.append(f"{rel}.{ext} (already patched)")
             continue
-        for needle, replacement in build(ext):
-            if needle not in text:
+        # All-or-nothing per file: HELPER contains MARKER, so writing a partial
+        # edit set would make the next run skip this file as "already patched"
+        # while it still carries the old 403 path.
+        missing = [needle for needle, _ in build(ext) if needle not in text]
+        if missing:
+            for needle in missing:
                 failures.append(f"{rel}.{ext}: needle not found ->\n    {needle[:100]}")
-                continue
+            continue
+        for needle, replacement in build(ext):
             text = text.replace(needle, replacement, 1)
         if text != original:
             path.write_text(text)

@@ -197,7 +197,10 @@ export function GovernancePopover({
 }: {
   variant?: "full" | "icon";
 }) {
-  const tenantId = useCookie(TENANT_COOKIE, DEMO_TENANTS[0].id);
+  // Empty fallback, NOT the first tenant: with no cookie the server writes to
+  // the un-prefixed bucket, so showing "Acme Health" as selected would be a lie
+  // and picking it would silently move the session to a different bucket.
+  const tenantId = useCookie(TENANT_COOKIE, "");
   const postureId = useCookie(MEMORY_GRANT_COOKIE, DEFAULT_POSTURE_ID);
 
   const tenant = tenantById(isDemoTenant(tenantId) ? tenantId : undefined);
