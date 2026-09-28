@@ -127,7 +127,9 @@ export function intelligenceFixture(request: IntelligenceReadRequest): {
           (run) =>
             (!request.query?.outcome ||
               run.outcome === request.query.outcome) &&
-            (!request.query?.agentId || run.agentId === request.query.agentId),
+            (!request.query?.agentId ||
+              run.agentId === request.query.agentId) &&
+            (!request.query?.model || run.model === request.query.model),
         )
         .slice(0, Number(request.query?.limit ?? runs.length)),
       nextCursor: null,
