@@ -251,6 +251,21 @@ describe("CopilotChat tool-call rendering", () => {
     );
     expect(screen.getByText("notRegistered")).toBeTruthy();
   });
+
+  it("keeps the placeholder running while a frontend tool executes after the run", () => {
+    // Frontend tool handlers run after the agent run has ended (isRunning is
+    // false), so only executingToolCallIds shows that the call is not done.
+    render(
+      <TestCopilotKit
+        messages={[assistantToolCall("notRegistered", "{}", "tc9")]}
+        executingToolCallIds={new Set(["tc9"])}
+      >
+        <CopilotChat />
+      </TestCopilotKit>,
+    );
+    expect(screen.getByText("Running")).toBeTruthy();
+    expect(screen.queryByText("Done")).toBeNull();
+  });
 });
 
 /**
