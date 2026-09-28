@@ -11050,6 +11050,23 @@ export class WebInspectorElement extends LitElement {
         background: #15171e !important;
       }
 
+      .cpk-learning-view-tabs {
+        display: flex;
+        gap: 6px;
+        padding: 8px 16px;
+        border-bottom: 1px solid var(--cpk-inspector-border, #d8d8e8);
+      }
+      .cpk-learning-view-tabs button {
+        padding: 6px 10px;
+        border-radius: 5px;
+        font: inherit;
+        font-size: 12px;
+      }
+      .cpk-learning-view-tabs button:focus-visible {
+        outline: 2px solid #5558b2;
+        outline-offset: 2px;
+      }
+
       /* ── Tab buttons ─────────────────────────────────────────────── */
       /*
        * Named classes owned by this component — no Tailwind conflict.
@@ -18600,12 +18617,12 @@ export class WebInspectorElement extends LitElement {
   private renderMemoriesView() {
     if (this.intelligenceAppUrl) {
       return html`<div class="flex h-full min-h-0 flex-col">
-        <nav aria-label="Learning views" style="display:flex;gap:8px;padding:10px 16px;border-bottom:1px solid #dbdbe5">
-          <button type="button" aria-current=${!this.learningIntelligenceOpen ? "page" : nothing} @click=${() => {
+        <nav aria-label="Learning views" class="cpk-learning-view-tabs">
+          <button type="button" class=${!this.learningIntelligenceOpen ? "cpk-tab-active" : "cpk-tab-inactive"} aria-current=${!this.learningIntelligenceOpen ? "page" : nothing} @click=${() => {
             this.learningIntelligenceOpen = false;
             this.requestUpdate();
           }}>Workbench</button>
-          <button type="button" aria-current=${this.learningIntelligenceOpen ? "page" : nothing} @click=${() => {
+          <button type="button" class=${this.learningIntelligenceOpen ? "cpk-tab-active" : "cpk-tab-inactive"} aria-current=${this.learningIntelligenceOpen ? "page" : nothing} @click=${() => {
             this.learningIntelligenceOpen = true;
             this.requestUpdate();
           }}>Insights & Skills</button>
