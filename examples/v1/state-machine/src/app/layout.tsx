@@ -19,7 +19,7 @@ export default function RootLayout({
           enableInspector={false}
         >
           <GlobalStateProvider>
-            <div className="h-screen w-screen grid grid-cols-[40fr,60fr] p-10 gap-5">
+            <div className="h-screen w-screen grid grid-cols-[40fr_60fr] p-10 gap-5">
               <div className="overflow-y-auto rounded-xl border">
                 {children}
               </div>
