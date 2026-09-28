@@ -195,6 +195,7 @@ export const CopilotModal = ({
   shortcut = "/",
   icons,
   labels,
+  showTimestamps,
   makeSystemMessage,
   onInProgress,
   Window = DefaultWindow,
@@ -220,6 +221,7 @@ export const CopilotModal = ({
     <ChatContextProvider
       icons={icons}
       labels={labels}
+      showTimestamps={showTimestamps}
       open={openState}
       setOpen={setOpenState}
     >
