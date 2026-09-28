@@ -26,6 +26,28 @@ export const tripsSchema = z.object({
 });
 
 const agentTripsSchema = tripsSchema.shape.trips;
+const repairableTripSchema = tripSchema.extend({
+  places: z.array(z.unknown()),
+});
+const repairablePlaceSchema = placeSchema.extend({
+  description: z.string().nullable().default(null),
+});
+
+/** Keeps valid user trips and repairs or drops only malformed places. */
+function normalizeTrips(value: unknown): AgentState["trips"] {
+  if (value === undefined) return defaultTrips;
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const trip = repairableTripSchema.safeParse(entry);
+    if (!trip.success) return [];
+    const places = trip.data.places.flatMap((placeEntry) => {
+      const place = repairablePlaceSchema.safeParse(placeEntry);
+      return place.success ? [place.data] : [];
+    });
+    return [{ ...trip.data, places }];
+  });
+}
+
 const selectedTripIdSchema = z.string().nullable();
 const searchProgressSchema = z.array(
   z.object({
@@ -61,10 +83,9 @@ export function normalizeAgentState(value: unknown): AgentState {
     value !== null && typeof value === "object"
       ? (value as Partial<AgentState>)
       : {};
-  const trips = agentTripsSchema.safeParse(state.trips);
   const selectedTripId = selectedTripIdSchema.safeParse(state.selected_trip_id);
   const searchProgress = searchProgressSchema.safeParse(state.search_progress);
-  const normalizedTrips = trips.success ? trips.data : defaultTrips;
+  const normalizedTrips = normalizeTrips(state.trips);
   const parsedSelectedTripId =
     selectedTripId.success && state.selected_trip_id !== undefined
       ? selectedTripId.data

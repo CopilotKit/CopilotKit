@@ -1,7 +1,6 @@
 import React, { useRef, useState } from "react";
 import { AnimatedCard } from "@/components/animated-card";
 import { submitOnce } from "@/lib/single-submit";
-import type { SubmissionFailure } from "@/lib/single-submit";
 import type { Order } from "@/lib/types";
 
 import { ToolCallStatus } from "@copilotkit/react-core/v2";
@@ -78,14 +77,11 @@ const ActionButtons = ({
 }) => {
   const pendingSubmission = useRef(false);
   const [isPending, setIsPending] = useState(false);
-  const [failure, setFailure] = useState<SubmissionFailure | null>(null);
   const submit = async (action: () => Promise<void> | void) => {
-    setFailure(null);
     await submitOnce({
       pending: pendingSubmission,
       action,
       onPendingChange: setIsPending,
-      onError: setFailure,
     });
   };
 
@@ -113,19 +109,6 @@ const ActionButtons = ({
         <p role="status" className="sr-only">
           Sending response.
         </p>
-      )}
-      {failure && (
-        <div className="flex items-center justify-between gap-2 text-sm text-red-700">
-          <p role="alert">{failure.message}</p>
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={async () => submit(failure.retry)}
-            className="font-medium underline underline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Retry
-          </button>
-        </div>
       )}
     </div>
   );

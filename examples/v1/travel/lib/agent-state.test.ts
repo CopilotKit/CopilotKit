@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import { isAgentStateInitialized, normalizeAgentState } from "./agent-state";
 import { defaultTrips } from "./types";
 
-test("falls back to default trips when an agent trip or place is invalid", () => {
+test("drops invalid trips without replacing them with demo trips", () => {
   const state = normalizeAgentState({
     trips: [
       {
@@ -17,7 +17,7 @@ test("falls back to default trips when an agent trip or place is invalid", () =>
     selected_trip_id: null,
   });
 
-  expect(state.trips).toEqual(defaultTrips);
+  expect(state.trips).toEqual([]);
 });
 
 test("preserves agent trips with a null place description", () => {
@@ -80,7 +80,7 @@ test("uses the first normalized trip when the selected trip ID is absent", () =>
     selected_trip_id: "missing-trip",
   });
 
-  expect(state.trips).toEqual(defaultTrips);
+  expect(state.trips).toEqual([{ ...defaultTrips[0], places: [] }]);
   expect(state.selected_trip_id).toBe(defaultTrips[0]?.id);
 });
 
@@ -131,4 +131,28 @@ test("rejects initialized state when the selected trip is absent", () => {
       selected_trip_id: "missing-trip",
     }),
   ).toBe(false);
+});
+
+test("repairs only a missing place description while preserving valid trips", () => {
+  const { description: _description, ...place } = defaultTrips[1].places[0];
+  const trips = [defaultTrips[0], { ...defaultTrips[1], places: [place] }];
+
+  const state = normalizeAgentState({ trips, selected_trip_id: trips[1].id });
+
+  expect(state.trips).toEqual([
+    defaultTrips[0],
+    { ...defaultTrips[1], places: [{ ...place, description: null }] },
+  ]);
+  expect(state.selected_trip_id).toBe(trips[1].id);
+});
+
+test("drops only malformed places and preserves empty user trip lists", () => {
+  const trip = { ...defaultTrips[0], id: "user-trip" };
+
+  const state = normalizeAgentState({
+    trips: [{ ...trip, places: [null, trip.places[0]] }, null],
+  });
+
+  expect(state.trips).toEqual([{ ...trip, places: [trip.places[0]] }]);
+  expect(normalizeAgentState({ trips: [] }).trips).toEqual([]);
 });

@@ -14,14 +14,12 @@ test("blocks another response while the first response is pending", async () => 
     respond,
     result: "CANCEL",
     onPendingChange: vi.fn(),
-    onError: vi.fn(),
   });
   const secondSubmission = submitResponse({
     pending,
     respond,
     result: "SEND",
     onPendingChange: vi.fn(),
-    onError: vi.fn(),
   });
   await Promise.resolve();
 
@@ -31,23 +29,15 @@ test("blocks another response while the first response is pending", async () => 
   await Promise.all([firstSubmission, secondSubmission]);
 });
 
-test("reports a rejected response so the user can retry", async () => {
-  const respond = vi.fn().mockRejectedValue(new Error("network unavailable"));
-  const onError = vi.fn();
+test("keeps the first response selected after the local promise resolves", async () => {
+  const respond = vi.fn(async () => undefined);
+  const onPendingChange = vi.fn();
   const pending = { current: false };
 
-  const submission = submitResponse({
-    pending,
-    respond,
-    result: "SEND",
-    onPendingChange: vi.fn(),
-    onError,
-  });
+  await submitResponse({ pending, respond, result: "SEND", onPendingChange });
+  await submitResponse({ pending, respond, result: "CANCEL", onPendingChange });
 
-  await expect(submission).resolves.toBeUndefined();
-  expect(onError).toHaveBeenCalledWith(
-    "Could not send your response. Try again.",
-    "SEND",
-  );
-  expect(pending.current).toBe(false);
+  expect(respond).toHaveBeenCalledExactlyOnceWith("SEND");
+  expect(pending.current).toBe(true);
+  expect(onPendingChange).toHaveBeenCalledExactlyOnceWith(true);
 });

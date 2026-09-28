@@ -1,3 +1,4 @@
+import { initialSuggestions } from "@/lib/initial-suggestions";
 import { SearchProgress } from "@/components/SearchProgress";
 import {
   useAgent,
@@ -131,17 +132,7 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
     [state.search_progress],
   );
 
-  useConfigureSuggestions(
-    {
-      consumerAgentId: "travel",
-      providerAgentId: "travel",
-      instructions: `Offer the user actionable suggestions on their last message, current trips and selected trip.\n ${state.selected_trip_id} \n ${JSON.stringify(state.trips)}`,
-      minSuggestions: 1,
-      maxSuggestions: 2,
-      available: "before-first-message",
-    },
-    [state.trips, state.selected_trip_id],
-  );
+  useConfigureSuggestions(initialSuggestions);
 
   useHumanInTheLoop({
     name: "add_trips",

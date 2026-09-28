@@ -33,10 +33,6 @@ export const ActionButtons = ({
 }: ActionButtonsProps) => {
   const pendingResponse = useRef(false);
   const [isPending, setIsPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [failedResponse, setFailedResponse] = useState<{
-    value: unknown;
-  } | null>(null);
 
   useEffect(() => {
     console.log(tripPlaceIds, "placeIdsplaceIdsplaceIds");
@@ -49,17 +45,11 @@ export const ActionButtons = ({
   const sendResponse = async (result: unknown) => {
     if (!respond) return;
 
-    setError(null);
-    setFailedResponse(null);
     await submitResponse({
       pending: pendingResponse,
       respond,
       result,
       onPendingChange: setIsPending,
-      onError: (message, failedResult) => {
-        setError(message);
-        setFailedResponse({ value: failedResult });
-      },
     });
   };
 
@@ -115,23 +105,6 @@ export const ActionButtons = ({
           {approve}
         </Button>
       </div>
-      {error && failedResponse && (
-        <div
-          role="alert"
-          className="flex items-center justify-between gap-2 text-sm text-red-700 dark:text-red-300"
-        >
-          <span>{error}</span>
-          <Button
-            type="button"
-            variant="link"
-            size="sm"
-            disabled={isPending}
-            onClick={async () => sendResponse(failedResponse.value)}
-          >
-            Retry
-          </Button>
-        </div>
-      )}
     </div>
   );
 };

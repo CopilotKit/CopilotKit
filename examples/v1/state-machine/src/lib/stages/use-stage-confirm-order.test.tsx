@@ -387,28 +387,6 @@ describe("useStageConfirmOrder", () => {
     });
   });
 
-  test("does not commit a rejected response and commits one order on retry", async () => {
-    const state = createConfirmationState();
-    registerConfirmationState(state);
-    const respond = vi
-      .fn()
-      .mockRejectedValueOnce(new Error("network failure"))
-      .mockResolvedValue(undefined);
-    const container = renderConfirmation(respond);
-
-    await clickButton(container, "Confirm Order");
-
-    expect(state.orders).toEqual([]);
-    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
-      "Could not send your response. Try again.",
-    );
-
-    await clickButton(container, "Retry");
-
-    expect(respond).toHaveBeenCalledTimes(2);
-    expect(state.orders).toHaveLength(1);
-  });
-
   test("reports cancellation without committing an order", async () => {
     const state = createConfirmationState();
     registerConfirmationState(state);

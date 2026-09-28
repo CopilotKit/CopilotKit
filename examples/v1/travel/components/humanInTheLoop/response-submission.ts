@@ -7,18 +7,16 @@ type SubmitResponseOptions = {
   respond: (result: unknown) => Promise<void>;
   result: unknown;
   onPendingChange: (pending: boolean) => void;
-  onError: (message: string, result: unknown) => void;
 };
 
 /**
- * Sends a human-in-the-loop response and reports its UI state.
+ * Resolves a local human-in-the-loop response once per mounted control.
  */
 export async function submitResponse({
   pending,
   respond,
   result,
   onPendingChange,
-  onError,
 }: SubmitResponseOptions): Promise<void> {
   if (pending.current) {
     return;
@@ -26,12 +24,5 @@ export async function submitResponse({
 
   pending.current = true;
   onPendingChange(true);
-  try {
-    await respond(result);
-  } catch {
-    onError("Could not send your response. Try again.", result);
-  } finally {
-    pending.current = false;
-    onPendingChange(false);
-  }
+  await respond(result);
 }
