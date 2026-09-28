@@ -18,6 +18,7 @@ import { PromptFolderHint } from "./hero-start-commands";
 import {
   MarkdownCopyButton,
   OnboardingPromptCopyButton,
+  PagePromptCopyButton,
   ViewOptionsPopover,
 } from "@/components/ai/page-actions";
 
@@ -45,6 +46,11 @@ export interface DocsPageToolsProps {
   onboardingFrontend?: { id: string; name: string };
   /** Hide the generic onboarding prompt when the page provides its own CTA. */
   hideOnboardingPrompt?: boolean;
+  /**
+   * The page's own prompt, from its `agentPrompt` frontmatter. When present,
+   * "Copy prompt" copies it in place of the generic onboarding prompt.
+   */
+  pagePrompt?: string;
 }
 
 /**
@@ -71,6 +77,7 @@ export function DocsPageTools({
   onboardingFramework,
   onboardingFrontend,
   hideOnboardingPrompt = false,
+  pagePrompt,
 }: DocsPageToolsProps): React.JSX.Element {
   const markdownUrl = docsMarkdownUrl(slugHrefPrefix, slugPath);
   const row = (
@@ -87,6 +94,14 @@ export function DocsPageTools({
         >
           Copy page
         </MarkdownCopyButton>
+      ) : pagePrompt ? (
+        <PagePromptCopyButton
+          prompt={pagePrompt}
+          markdownUrl={markdownUrl}
+          className="docs-page-actions-primary"
+        >
+          Copy prompt
+        </PagePromptCopyButton>
       ) : (
         <OnboardingPromptCopyButton
           framework={onboardingFramework}

@@ -66,6 +66,7 @@
     "intelligence/plans",
     "intelligence/self-hosting",
     "intelligence/self-hosting-ecs",
+    "intelligence/self-hosting-observability",
     "---Deploy---",
     "...deploy",
     "---Other---",

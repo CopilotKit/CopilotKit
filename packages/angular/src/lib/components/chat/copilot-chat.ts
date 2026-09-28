@@ -4,7 +4,6 @@ import {
   ChangeDetectionStrategy,
   ViewEncapsulation,
   signal,
-  effect,
   ChangeDetectorRef,
   Injector,
   TemplateRef,
@@ -13,7 +12,6 @@ import {
   inject,
   viewChild,
   DestroyRef,
-  untracked,
 } from "@angular/core";
 
 import { CopilotChatView } from "./copilot-chat-view";
@@ -38,6 +36,7 @@ import { ChatState } from "../../chat-state";
 import { transcribeAudio } from "../../transcription";
 import { COPILOT_CHAT_CONFIGURATION } from "../../chat-configuration";
 import { connectActiveThread } from "../../active-thread-connector";
+import { explicitEffect } from "../../explicit-effect";
 
 /**
  * CopilotChat component - Angular equivalent of React's <CopilotChat>
@@ -208,8 +207,7 @@ export class CopilotChat extends ChatState {
 
     this.destroyRef.onDestroy(() => suggestionsSubscription.unsubscribe());
 
-    effect(() => {
-      const agentId = this.resolvedAgentId();
+    explicitEffect(this.resolvedAgentId, (agentId) => {
       this.syncSuggestionsFromCore(agentId);
       this.copilotKit.reloadSuggestions(agentId);
     });
@@ -221,8 +219,7 @@ export class CopilotChat extends ChatState {
       // `setActiveThreadId` no-ops — so a controlled config wins over the
       // input, matching React's prop-precedence. When `[threadId]` is unset,
       // the effect does nothing and the config drives as before.
-      effect(() => {
-        const inputThreadId = this.threadId();
+      explicitEffect(this.threadId, (inputThreadId) => {
         if (inputThreadId) {
           this.config!.setActiveThreadId(inputThreadId, { explicit: true });
         }
@@ -235,17 +232,21 @@ export class CopilotChat extends ChatState {
     } else {
       // Standalone `<copilot-chat [threadId]>` usage with no configuration
       // provider: the active thread is input-driven exactly as before.
-      effect((onCleanup) => {
-        const agent = this.agentRef();
-        const threadId = this.resolvedThreadId();
+      explicitEffect(
+        () => ({
+          agent: this.agentRef(),
+          threadId: this.resolvedThreadId(),
+          hasExplicitThreadId: this.hasExplicitThreadId(),
+        }),
+        ({ agent, threadId, hasExplicitThreadId }, onCleanup) => {
+          agent.threadId = threadId;
 
-        agent.threadId = threadId;
+          if (!hasExplicitThreadId) return;
 
-        if (!this.hasExplicitThreadId()) return;
-
-        const handle = untracked(() => this.connectToAgent(agent));
-        onCleanup(() => handle.dispose());
-      });
+          const handle = this.connectToAgent(agent);
+          onCleanup(() => handle.dispose());
+        },
+      );
     }
   }
 
