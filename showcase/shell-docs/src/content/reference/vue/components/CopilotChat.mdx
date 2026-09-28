@@ -87,6 +87,28 @@ function handleError(event: {
   Eases the welcome screen in: the greeting, suggestion cards, and input rise into place in sequence. Set `false` to show them immediately. The animation is always off when the user prefers reduced motion.
 </PropertyReference>
 
+Vue has no sub-component props, so the message and input options are set here and forwarded:
+
+<PropertyReference name="inlineCursor" type="boolean">
+  While a reply streams, show the cursor at the end of its text. On by default, unless you provide a custom `cursor` or `assistant-message` slot, which keeps the cursor below the messages. Set it explicitly to override either way.
+</PropertyReference>
+
+<PropertyReference name="assistantMessageToolbarScope" type='"turn" | "message"' default='"turn"'>
+  Where assistant toolbars appear: one per reply (`"turn"`) or one per assistant message (`"message"`). Forwarded to each assistant message as `toolbarScope`.
+</PropertyReference>
+
+<PropertyReference name="userMessageMarkdown" type="boolean" default="true">
+  Render user messages as markdown. Set `false` to show them as plain text as typed. Forwarded to each user message as `markdown`.
+</PropertyReference>
+
+<PropertyReference name="inputLayout" type='"auto" | "stacked"' default='"auto"'>
+  The input's `layout`: `"auto"` keeps the text beside the actions until it wraps; `"stacked"` always puts the actions underneath.
+</PropertyReference>
+
+<PropertyReference name="inputHighlightMarkdown" type="boolean" default="true">
+  The input's `highlightMarkdown`: style list markers and links as the user types.
+</PropertyReference>
+
 <PropertyReference name="inputValue" type="string">
   Controlled value for the chat input. When provided, the chat treats the input as controlled and mirrors changes back through the `input-change` event.
 </PropertyReference>

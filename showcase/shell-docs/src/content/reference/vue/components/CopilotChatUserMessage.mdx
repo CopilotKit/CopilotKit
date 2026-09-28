@@ -9,7 +9,7 @@ description: "Vue 3 component for displaying user-authored messages with copy, e
 
 ## Overview
 
-`CopilotChatUserMessage` renders a user-authored message aligned to the right of the chat. The default message renderer flattens the message content to text and renders it as markdown the way chat apps do: code blocks, lists, emphasis, links, and tables render, line breaks stay where the user typed them, `#` lines stay literal instead of becoming headings, and pasted HTML shows as text.
+`CopilotChatUserMessage` renders a user-authored message aligned to the right of the chat. The default message renderer flattens the message content to text and, unless `markdown` is `false`, renders it as markdown the way chat apps do: code blocks, lists, emphasis, links, and tables render, line breaks stay where the user typed them, `#` lines stay literal instead of becoming headings, and pasted HTML shows as text.
 
 Below the message it renders a toolbar containing a copy-to-clipboard button, an optional edit button, and optional branch navigation controls. The toolbar becomes visible on hover. The edit button is only shown when an `@edit-message` listener is attached, and the branch navigation is only shown when `numberOfBranches` is greater than 1 and a `@switch-to-branch` listener is attached.
 
@@ -52,6 +52,12 @@ const message: UserMessage = {
   The total number of available branches for this message. Branch navigation is
   only rendered when this value is greater than 1 and a `@switch-to-branch`
   listener is attached.
+</PropertyReference>
+
+<PropertyReference name="markdown" type="boolean" default="true">
+  Render the message as markdown (code, lists, emphasis, links, tables). Set
+  `false` to show the text as typed, with line breaks kept. Inside `CopilotChat`,
+  use its `userMessageMarkdown` prop.
 </PropertyReference>
 
 ## Events

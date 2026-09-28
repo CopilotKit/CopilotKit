@@ -51,12 +51,23 @@ const { agent } = useAgent();
   the last message is a reasoning message.
 </PropertyReference>
 
-<PropertyReference name="inlineCursor" type="boolean" default="true">
+<PropertyReference name="inlineCursor" type="boolean">
   While a reply streams, show the cursor at the end of its text, as if it were
   being typed (the assistant message's `showCursor`). Before the reply has any
   text, for example while a tool runs, the `cursor` slot shows below the
-  messages instead. Set `false` to always use the `cursor` slot below the
-  messages.
+  messages instead. On by default, unless you provide a custom `cursor` or
+  `assistant-message` slot, which keeps the cursor below the messages. Set it
+  explicitly (`true` or `false`) to override either way.
+</PropertyReference>
+
+<PropertyReference name="assistantMessageToolbarScope" type='"turn" | "message"'>
+  Forwarded to each default assistant message as `toolbarScope`. When unset, the
+  assistant message's own default (`"turn"`) applies.
+</PropertyReference>
+
+<PropertyReference name="userMessageMarkdown" type="boolean" default="true">
+  Forwarded to each default user message as `markdown`. Set `false` to show user
+  messages as plain text.
 </PropertyReference>
 
 <Callout type="info">
@@ -254,7 +265,7 @@ const { agent } = useAgent();
 
 - **Message rendering**: Each message is dispatched to the matching default child component based on its `role` (assistant, user, reasoning, or activity), unless the corresponding named slot is provided.
 - **Deduplication**: Messages sharing an `id` are deduplicated; assistant fragments with the same id are merged (content and tool calls combined). In development, a console warning is logged when duplicates are dropped.
-- **Cursor display**: With `inlineCursor` on (the default), while `isRunning` is `true` and the last message is an assistant reply with text, the cursor rides at the end of that text. Otherwise the `cursor` slot is rendered after the last message, unless the last message is a reasoning message.
+- **Cursor display**: With `inlineCursor` on (the default when no custom `cursor` or `assistant-message` slot is provided), while `isRunning` is `true` and the last message is an assistant reply with text, the cursor rides at the end of that text. Otherwise the `cursor` slot is rendered after the last message, unless the last message is a reasoning message.
 - **Slot forwarding**: Slots passed to `CopilotChatMessageView` (including `tool-call` and `tool-call-<name>`) are forwarded to the default assistant and user message children, so tool rendering works without re-implementing those components.
 - **Custom and activity renderers**: When `message-before`, `message-after`, or `activity-message` slots are omitted, the component falls back to renderers registered on the CopilotKit instance, scoped to the active `agentId` when applicable.
 

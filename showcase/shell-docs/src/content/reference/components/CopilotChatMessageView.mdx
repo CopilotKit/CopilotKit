@@ -26,7 +26,9 @@ import "@copilotkit/react-core/v2/styles.css";
   being typed (the assistant message's `showCursor`). Before the reply has any
   text, for example while a tool runs, the `cursor` slot shows below the
   messages instead. Set `false` to always use the `cursor` slot below the
-  messages.
+  messages. The cursor also stays below the messages when you pass a custom
+  `cursor` slot, a custom `assistantMessage` component, an `assistantMessage`
+  with `children`, or a `children` layout.
 </PropertyReference>
 
 <PropertyReference name="messages" type="Message[]" default="[]">
@@ -194,7 +196,7 @@ function MinimalChat() {
 ## Behavior
 
 - **Message Rendering**: Each message in the `messages` array is rendered using the corresponding slot component based on its `role`. Assistant messages use the `assistantMessage` slot; user messages use the `userMessage` slot.
-- **Cursor Display**: With `inlineCursor` on (the default), while `isRunning` is `true` and the last message is an assistant reply with text, the cursor rides at the end of that text. Otherwise the `cursor` slot appears after the last message in the list. It is hidden when the last message is a reasoning message, which shows its own indicator.
+- **Cursor Display**: With `inlineCursor` on (the default) and the default cursor and assistant message, while `isRunning` is `true` and the last message is an assistant reply with text, the cursor rides at the end of that text. Otherwise the `cursor` slot appears after the last message in the list. It is hidden when the last message is a reasoning message, which shows its own indicator.
 - **Render-Prop Override**: When `children` is provided as a function, the component delegates all layout to that function. The `messageElements` array is pre-built from the slot components, so custom layouts still benefit from slot customization.
 - **Slot System**: Each slot prop accepts three forms -- a replacement component, a className string merged into the default, or a partial props object that extends the default component's props.
 
