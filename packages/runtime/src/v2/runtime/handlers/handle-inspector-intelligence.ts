@@ -69,7 +69,7 @@ export async function handleInspectorIntelligence({
     return Response.json(result, { headers });
   } catch (cause) {
     if (cause instanceof PlatformRequestError) {
-      const status = [400, 401, 403, 404, 409, 413, 422, 429].includes(
+      const status = [400, 401, 403, 404, 409, 410, 413, 422, 429].includes(
         cause.status,
       )
         ? cause.status

@@ -136,6 +136,25 @@ test("preserves revoked access but does not reflect upstream error text", async 
   }
 });
 
+test("preserves a deleted conversation status without forwarding its private error payload", async () => {
+  const { call, fetch, cleanup } = setup(async () => ({
+    permissions: { "conversations.text": { agents: "*" } },
+  }));
+  try {
+    fetch.mockResolvedValue(
+      Response.json({ error: "private deletion details" }, { status: 410 }),
+    );
+    const response = await call({
+      method: "GET",
+      path: "/api/v1/conversations/thread-1/replay",
+    });
+    expect(response.status).toBe(410);
+    expect(await response.text()).not.toContain("private deletion details");
+  } finally {
+    cleanup();
+  }
+});
+
 test("mounts the same authenticated read in multi-route and single-route runtimes", async () => {
   const { runtime, fetch, cleanup } = setup(async () => ({
     permissions: { "analytics.numbers": { agents: "*" } },
