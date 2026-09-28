@@ -13,7 +13,8 @@ export type EditTripsProps = {
   trips: Trip[];
 };
 
-function getDelta(arr1: Place[], arr2: Place[]) {
+/** Return only places added or removed by the proposal. */
+function getDelta(arr1: Place[], arr2: Place[]): Place[] {
   const arr2Ids = new Set(arr2.map((item) => item.id));
   const arr1Ids = new Set(arr1.map((item) => item.id));
   const onlyInArr1 = arr1.filter((item) => !arr2Ids.has(item.id));
@@ -28,7 +29,12 @@ export const EditTrips = ({ args, status, respond, trips }: EditTripsProps) => {
   const handleCheck = (tripId: string, placeId: string, checked: boolean) => {
     setSelectedPlaceIdsByTrip((previousSelections) => {
       const nextSelections: PlaceSelectionsByTrip = new Map(previousSelections);
-      const selectedPlaceIds = new Set(nextSelections.get(tripId));
+      const selectedPlaceIds = new Set(
+        nextSelections.get(tripId) ??
+          args.trips
+            ?.find((trip) => trip.id === tripId)
+            ?.places.map((place) => place.id),
+      );
       if (checked) {
         selectedPlaceIds.add(placeId);
       } else {
@@ -50,6 +56,10 @@ export const EditTrips = ({ args, status, respond, trips }: EditTripsProps) => {
             Array.isArray(trip.places) && (
               <div key={trip.id} className="flex flex-col gap-4">
                 <h1 className="text-sm">Do you want to save these changes?</h1>
+                <p className="text-sm">
+                  Checked places will be kept. Unchanged places are kept
+                  automatically.
+                </p>
                 <hr className="my-2" />
                 <div className="flex flex-col gap-4">
                   <h2 className="text-lg font-bold">{trip.name}</h2>
@@ -61,11 +71,14 @@ export const EditTrips = ({ args, status, respond, trips }: EditTripsProps) => {
                     <PlaceCard
                       key={place.id}
                       place={place}
-                      checked={selectedPlaceIdsByTrip
-                        .get(trip.id)
-                        ?.has(place.id)}
+                      checked={
+                        selectedPlaceIdsByTrip.get(trip.id)?.has(place.id) ??
+                        trip.places.some(
+                          (proposedPlace) => proposedPlace.id === place.id,
+                        )
+                      }
                       onCheck={(checked) =>
-                        handleCheck(trip.id, place.id, checked as boolean)
+                        handleCheck(trip.id, place.id, checked)
                       }
                     />
                   ))}

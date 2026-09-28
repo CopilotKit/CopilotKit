@@ -89,6 +89,23 @@ def action_state(
 
 
 class PerformTripsNodeTest(unittest.IsolatedAsyncioTestCase):
+    async def test_edit_can_keep_a_place_the_proposal_removed(self):
+        state = update_state(
+            {
+                "operation": "replace",
+                "placeIds": ["kept-place", "added-place", "removed-place"],
+            },
+            ["kept-place", "added-place"],
+        )
+
+        with patch("src.trips.copilotkit_emit_message", new_callable=AsyncMock):
+            result = await perform_trips_node(state, {})
+
+        self.assertEqual(
+            [place["id"] for place in result["trips"][0]["places"]],
+            ["kept-place", "added-place", "removed-place"],
+        )
+
     async def test_edit_response_replaces_places_without_duplicates(self):
         state = update_state(
             {
@@ -104,6 +121,28 @@ class PerformTripsNodeTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             [place["id"] for place in result["trips"][0]["places"]],
             ["kept-place", "added-place"],
+        )
+
+    async def test_edit_restores_only_places_from_the_matching_current_trip(self):
+        state = action_state(
+            "update_trips",
+            {
+                "operation": "replace",
+                "selections": [
+                    {"tripId": "trip-b", "placeIds": ["b-removed", "a-removed"]},
+                    {"tripId": "trip-a", "placeIds": ["a-removed", "b-removed"]},
+                ],
+            },
+            [trip("trip-b", []), trip("trip-a", [])],
+            [trip("trip-a", ["a-removed"]), trip("trip-b", ["b-removed"])],
+        )
+
+        with patch("src.trips.copilotkit_emit_message", new_callable=AsyncMock):
+            result = await perform_trips_node(state, {})
+
+        self.assertEqual(
+            result["trips"],
+            [trip("trip-a", ["a-removed"]), trip("trip-b", ["b-removed"])],
         )
 
     async def test_edit_response_rejects_an_unknown_operation(self):

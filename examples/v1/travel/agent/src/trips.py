@@ -62,7 +62,16 @@ async def perform_trips_node(state: AgentState, config: RunnableConfig):
             selected_place_ids = selected_place_ids_by_trip[trip["id"]]
             filtered_places: list[Place] = []
             seen_place_ids = set()
-            for place in trip["places"]:
+            available_places = list(trip["places"])
+            if ai_message.tool_calls[0]["name"] == "update_trips":
+                # A user may keep a current place that the proposal removed.
+                current_trip = next(
+                    (current for current in state["trips"] if current["id"] == trip["id"]),
+                    None,
+                )
+                if current_trip:
+                    available_places.extend(current_trip["places"])
+            for place in available_places:
                 place_id = place["id"]
                 if place_id in selected_place_ids and place_id not in seen_place_ids:
                     filtered_places.append(place)
