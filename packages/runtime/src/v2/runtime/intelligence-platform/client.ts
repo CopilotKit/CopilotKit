@@ -188,6 +188,22 @@ function encodeJsonHeader(value: unknown): string {
   );
 }
 
+/**
+ * The `x-cpki-user-id` value for an app-user ID. A printable-ASCII ID that
+ * does not start with `"` is sent as it is, so Intelligence versions that
+ * predate this encoding read ASCII IDs unchanged. Any other ID is sent as a
+ * JSON string with `\uXXXX` escapes (the same encoding as
+ * `x-cpki-grant`), which Intelligence decodes; a raw non-Latin-1 character
+ * would make `fetch` throw.
+ *
+ * @internal
+ */
+export function encodeIntelligenceUserIdHeader(userId: string): string {
+  return /^[\x20-\x7e]*$/.test(userId) && !userId.startsWith('"')
+    ? userId
+    : encodeJsonHeader(userId);
+}
+
 interface RuntimeIntelligenceGrant {
   readonly permissions: Readonly<
     Record<string, { readonly agents: "*" | readonly string[] }>
@@ -203,7 +219,7 @@ const memoryRequestHeaders = (
   userId: string,
   grant?: RuntimeMemoryGrant,
 ): Record<string, string> => ({
-  [INTELLIGENCE_USER_ID_HEADER]: userId,
+  [INTELLIGENCE_USER_ID_HEADER]: encodeIntelligenceUserIdHeader(userId),
   ...(grant
     ? { [INTELLIGENCE_MEMORY_GRANT_HEADER]: JSON.stringify(grant) }
     : {}),
@@ -1251,7 +1267,11 @@ export class CopilotKitIntelligence {
         headers: {
           Authorization: `Bearer ${this.#apiKey}`,
           ...(request.userId !== undefined
-            ? { [INTELLIGENCE_USER_ID_HEADER]: request.userId }
+            ? {
+                [INTELLIGENCE_USER_ID_HEADER]: encodeIntelligenceUserIdHeader(
+                  request.userId,
+                ),
+              }
             : {}),
           ...(request.grant !== undefined
             ? { [INTELLIGENCE_GRANT_HEADER]: encodeJsonHeader(request.grant) }

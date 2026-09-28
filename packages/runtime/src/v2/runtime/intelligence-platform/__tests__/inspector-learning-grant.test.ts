@@ -94,6 +94,24 @@ describe("getInspectorLearning identity and grant headers", () => {
     expect(JSON.parse(header)).toEqual(grant);
   });
 
+  it("sends a non-ASCII user as an ASCII-only JSON string and an ASCII user as is", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url, init) => {
+      new Headers(init.headers);
+      return Response.json(snapshot);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await client().getInspectorLearning({ userId: "審査員-😀" });
+    await client().getInspectorLearning({ userId: "user%201" });
+
+    const sent = fetchMock.mock.calls.map(
+      ([, init]) => init.headers["x-cpki-user-id"],
+    );
+    expect(sent[0]).toMatch(/^"[\x20-\x7e]*"$/);
+    expect(JSON.parse(sent[0])).toBe("審査員-😀");
+    expect(sent[1]).toBe("user%201");
+  });
+
   it("omits both headers when the caller supplies neither", async () => {
     const fetchMock = mockFetch();
     await client().getInspectorLearning({});

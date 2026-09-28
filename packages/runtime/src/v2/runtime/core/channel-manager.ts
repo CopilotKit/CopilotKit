@@ -23,6 +23,7 @@ import type { AgentRunner } from "../runner/agent-runner";
 import {
   INTELLIGENCE_MEMORY_GRANT_HEADER,
   INTELLIGENCE_USER_ID_HEADER,
+  encodeIntelligenceUserIdHeader,
 } from "../intelligence-platform/client";
 // Type-only: @copilotkit/channels-core is pure-ESM, so a value import would break
 // this package's CJS output (see `core/runtime.ts` and `channel-activation-config.ts`
@@ -617,7 +618,11 @@ export function attachChannelMemory(
           Authorization: `Bearer ${intelligence.ɵgetApiKey()}`,
           [INTELLIGENCE_MEMORY_GRANT_HEADER]: JSON.stringify(memory.grant),
           ...(memory.user
-            ? { [INTELLIGENCE_USER_ID_HEADER]: memory.user.id }
+            ? {
+                [INTELLIGENCE_USER_ID_HEADER]: encodeIntelligenceUserIdHeader(
+                  memory.user.id,
+                ),
+              }
             : {}),
         },
       },
