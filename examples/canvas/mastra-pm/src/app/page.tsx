@@ -47,29 +47,6 @@ function ProjectManager() {
     },
   });
 
-  useFrontendTool(
-    {
-      name: "updateWorkingMemory",
-      agentId: "default",
-      available: false,
-      render: ({ args, status }) => (
-        <div
-          style={{ backgroundColor: themeColor }}
-          className="rounded-2xl max-w-md w-full text-white p-4"
-        >
-          <p>{status === "complete" ? "Board updated" : "Updating board…"}</p>
-          <details className="mt-2">
-            <summary className="cursor-pointer">See updates</summary>
-            <pre className="overflow-x-auto text-sm bg-white/20 p-4 rounded-lg mt-2 whitespace-pre-wrap break-words">
-              {JSON.stringify(args, null, 2)}
-            </pre>
-          </details>
-        </div>
-      ),
-    },
-    [themeColor],
-  );
-
   return (
     <main
       className="h-screen w-full"

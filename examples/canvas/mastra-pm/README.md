@@ -1,6 +1,6 @@
 # Project Manager with Mastra
 
-Run a project board whose tasks, team members, name, and description follow a Mastra agent's working memory. The page uses CopilotKit v2 shared state, a theme tool, and a board-update tool renderer.
+Run a project board whose tasks, team members, name, and description follow a Mastra agent's working memory. The page uses CopilotKit v2 shared state and a theme tool.
 
 ![Project board](./assets/preview.png)
 

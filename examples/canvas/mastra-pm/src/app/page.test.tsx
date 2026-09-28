@@ -143,30 +143,3 @@ test("later streamed tasks update their board column without changing saved stat
     view.unmount();
   }
 });
-
-test("the board-update renderer waits for tool completion before reporting success", () => {
-  const view = setup();
-  const tool = view.tools.get("updateWorkingMemory");
-  const pending = render(
-    tool?.render?.({
-      args: { memory: { projectName: "New name" } },
-      status: "inProgress",
-    }),
-  );
-  try {
-    expect(within(pending.container).getByText("Updating board…")).toBeTruthy();
-    expect(within(pending.container).queryByText("Board updated")).toBeNull();
-    pending.rerender(
-      tool?.render?.({
-        args: { memory: { projectName: "New name" } },
-        status: "complete",
-        result: "updated",
-      }),
-    );
-    expect(within(pending.container).getByText("Board updated")).toBeTruthy();
-    expect(within(pending.container).getByText(/New name/)).toBeTruthy();
-  } finally {
-    pending.unmount();
-    view.unmount();
-  }
-});
