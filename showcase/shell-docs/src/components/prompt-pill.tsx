@@ -5,6 +5,12 @@ import React, { useEffect, useId, useRef, useState } from "react";
 import { Check, Copy, Eye, X } from "lucide-react";
 import type { PromptApp } from "@/lib/launch-prompt";
 import { launchPrompt } from "@/lib/launch-prompt";
+import {
+  PROMPT_DESTINATION_HINT,
+  PROMPT_LAUNCH_NOTE,
+  PROMPT_LAUNCH_NOTE_MS,
+  PROMPT_PHONE_HINT,
+} from "@/lib/prompt-guidance";
 import "./prompt-pill.css";
 
 export type PromptAction =
@@ -20,6 +26,23 @@ export interface PromptPayload {
   onAction?: (action: PromptAction) => void;
 }
 
+/**
+ * Where the prompt goes. Both variants render, and CSS shows the phone one on a
+ * small touch screen, so the server and the first client render agree.
+ */
+export function PromptGuidance({
+  className = "",
+}: {
+  className?: string;
+}): React.JSX.Element {
+  return (
+    <p className={`prompt-guidance ${className}`.trim()}>
+      <span className="prompt-guidance-desktop">{PROMPT_DESTINATION_HINT}</span>
+      <span className="prompt-guidance-phone">{PROMPT_PHONE_HINT}</span>
+    </p>
+  );
+}
+
 /** Compact prompt actions shared by docs hero and page tools. */
 export function PromptPill({
   createPrompt,
@@ -31,12 +54,14 @@ export function PromptPill({
   surface?: string;
 } & React.ComponentProps<"button">): React.JSX.Element {
   const [copied, setCopied] = useState(false);
+  const [launched, setLaunched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [preview, setPreview] = useState<PromptPayload | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const trigger = useRef<HTMLElement | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const launchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const generation = useRef(0);
   const pending = useRef<PromptPayload | null>(null);
   const mounted = useRef(true);
@@ -48,8 +73,20 @@ export function PromptPill({
       mounted.current = false;
       generation.current += 1;
       if (timer.current) clearTimeout(timer.current);
+      if (launchTimer.current) clearTimeout(launchTimer.current);
     };
   }, []);
+
+  /** Shows or hides the app-click note; it hides itself after a while. */
+  function showLaunchNote(show: boolean): void {
+    if (launchTimer.current) clearTimeout(launchTimer.current);
+    launchTimer.current = null;
+    setLaunched(show);
+    if (!show) return;
+    launchTimer.current = setTimeout(() => {
+      if (mounted.current) setLaunched(false);
+    }, PROMPT_LAUNCH_NOTE_MS);
+  }
 
   useEffect(() => {
     if (preview) dialog.current?.showModal();
@@ -72,8 +109,8 @@ export function PromptPill({
   async function copy(
     payload: PromptPayload,
     action: PromptAction,
-  ): Promise<void> {
-    if (pending.current) return;
+  ): Promise<boolean> {
+    if (pending.current) return false;
     pending.current = payload;
     setBusy(true);
     const current = ++generation.current;
@@ -86,16 +123,18 @@ export function PromptPill({
       } catch {
         /* Analytics cannot break copy. */
       }
-      if (!mounted.current || current !== generation.current) return;
+      if (!mounted.current || current !== generation.current) return false;
       setCopied(true);
       setMessage("Prompt copied");
       timer.current = setTimeout(() => {
         if (mounted.current && current === generation.current) setCopied(false);
       }, 1600);
+      return true;
     } catch {
-      if (!mounted.current || current !== generation.current) return;
+      if (!mounted.current || current !== generation.current) return false;
       setMessage("Copy blocked. Select and copy the prompt below.");
       showPrompt(payload);
+      return false;
     } finally {
       pending.current = null;
       if (mounted.current) setBusy(false);
@@ -116,6 +155,7 @@ export function PromptPill({
     payload: PromptPayload,
     action: "copy" | "copy_preview",
   ): void {
+    showLaunchNote(false);
     recordAction(payload, action);
     copy(payload, action);
   }
@@ -123,6 +163,7 @@ export function PromptPill({
   /** Show exactly the payload associated with this preview action. */
   function viewPrompt(): void {
     const payload = createPrompt();
+    showLaunchNote(false);
     recordAction(payload, "view_prompt");
     showPrompt(payload);
   }
@@ -148,11 +189,18 @@ export function PromptPill({
       setMessage("The app link could not open. Copy the prompt below.");
       showPrompt(payload);
     }
-    copy(payload, action);
+    // The note says the prompt is copied, so it waits for the copy.
+    void copy(payload, action).then((ok) => {
+      if (ok && mounted.current) showLaunchNote(true);
+    });
   }
 
   return (
-    <div className="prompt-pill not-prose" data-docs-copy-surface={surface}>
+    <div
+      className="prompt-pill not-prose"
+      data-docs-copy-surface={surface}
+      data-launched={launched ? "" : undefined}
+    >
       <div className="prompt-pill-dock" role="group" aria-label="Agent prompt">
         <button
           {...props}
@@ -204,6 +252,7 @@ export function PromptPill({
         </button>
       </div>
       <div className="prompt-pill-shelf">
+        {launched && <p className="prompt-pill-note">{PROMPT_LAUNCH_NOTE}</p>}
         <button type="button" onClick={viewPrompt}>
           <Eye aria-hidden="true" />
           View prompt

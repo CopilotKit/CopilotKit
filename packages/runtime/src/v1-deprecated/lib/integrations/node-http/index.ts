@@ -22,7 +22,7 @@ import { getCommonConfig } from "../shared";
 import telemetry, {
   getRuntimeInstanceTelemetryInfo,
 } from "../../telemetry-client";
-import { createCopilotEndpointSingleRoute } from "../../../../v2/runtime";
+import { createCopilotEndpointSingleRoute } from "../../../../v2/runtime/endpoints/hono-single";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { IncomingWithBody } from "./request-handler";
 import {

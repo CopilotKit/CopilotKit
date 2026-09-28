@@ -25,6 +25,13 @@ const ALL_LINKS = ALL_ENTRIES.flatMap((cta) =>
 );
 
 describe("Intelligence search CTA destinations", () => {
+  it("sends learning searches to the Automatic Learning guide", () => {
+    expect(matchIntelligenceSearchCta("learning")?.primary).toEqual({
+      label: "Read the Automatic Learning guide",
+      href: "/learning",
+    });
+  });
+
   it.each(ALL_LINKS)(
     "$cta.id → $link.href is an internal docs route",
     ({ link }) => {

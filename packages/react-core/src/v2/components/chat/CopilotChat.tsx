@@ -10,6 +10,7 @@ import {
   useCopilotChatConfiguration,
 } from "../../providers/CopilotChatConfigurationProvider";
 import {
+  createAttachmentContent,
   DEFAULT_AGENT_ID,
   randomUUID,
   TranscriptionErrorCode,
@@ -782,14 +783,7 @@ export function CopilotChat({
           contentParts.push({ type: "text", text: value });
         }
         for (const att of readyAttachments) {
-          contentParts.push({
-            type: att.type,
-            source: att.source,
-            metadata: {
-              ...(att.filename ? { filename: att.filename } : {}),
-              ...att.metadata,
-            },
-          } as InputContent);
+          contentParts.push(createAttachmentContent(att));
         }
         agent.addMessage({
           id: randomUUID(),

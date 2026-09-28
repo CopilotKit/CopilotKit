@@ -48,6 +48,37 @@ import { CopilotKitProvider } from "@copilotkit/react-native";
   in cross-origin requests).
 </PropertyReference>
 
+<PropertyReference name="messageFilter" type="(messages: Message[], context: { agentId: string }) => Message[]">
+  Rewrites the message list sent to the agent on every run.
+
+CopilotKit sends the whole thread with each request. When your agent already
+stores the conversation — a LangGraph checkpointer, a Mastra memory store, a
+Strands `SessionManager` — most of that payload is waste, and an agent that
+merges the inbound list with its own store can show the model every turn twice.
+On a mobile connection the payload cost is felt sooner.
+
+Return the messages to send:
+
+```tsx
+<CopilotKitProvider
+  runtimeUrl="https://your-server/api/copilotkit"
+  messageFilter={(messages) => messages.slice(-1)}
+>
+  <App />
+</CopilotKitProvider>
+```
+
+The filter changes the request body only. The transcript the UI renders is
+untouched, so the chat still shows the full conversation. Broken tool-call pairs
+are repaired before the request goes out, so a filter this blunt cannot strand a
+tool result mid-approval.
+
+Agents reached through your CopilotRuntime honor this. An agent your app
+constructs itself and passes in directly does not. CopilotKit Intelligence runs
+and suggestion runs are never filtered.
+
+</PropertyReference>
+
 <PropertyReference name="useSingleEndpoint" type="boolean">
   Whether the runtime uses a single-route endpoint. Leave unset to auto-detect.
 </PropertyReference>

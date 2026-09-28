@@ -136,7 +136,9 @@ describe("partner feature explorer", () => {
     ).toBeTruthy();
     fireEvent.keyDown(
       screen.getByRole("button", { name: "Automatic Learning" }),
-      { key: "ArrowRight" },
+      {
+        key: "ArrowRight",
+      },
     );
     expect(screen.getByTitle("Mastra: Generative UI live demo")).toBeTruthy();
   });

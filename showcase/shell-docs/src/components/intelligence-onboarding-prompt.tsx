@@ -26,7 +26,7 @@ const FEATURE_COPY = {
         body: "keep messages, generative UI, and tool activity available across sessions and devices.",
       },
       {
-        label: "Learning",
+        label: "Automatic Learning",
         body: "turns real usage into skills that improve your agent.",
       },
       {

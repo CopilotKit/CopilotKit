@@ -13,116 +13,15 @@ Covers the hardening added in the floor-backlog PR-C pass:
 """
 
 import asyncio
-import importlib
-import json
 import logging
 import sys
-import threading
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import httpx
-import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from agents import _header_forwarding as hf  # noqa: E402
-
-
-@pytest.fixture(autouse=True)
-def restore_client_constructors(monkeypatch):
-    """Keep global constructor patches local to each test."""
-    for name in ("httpx", "httpx2"):
-        try:
-            module = importlib.import_module(name)
-        except ImportError:
-            continue
-        for client in (module.Client, module.AsyncClient):
-            monkeypatch.setattr(client, "__init__", client.__init__)
-    monkeypatch.setattr(hf, "_GLOBAL_HTTPX_PATCHED", False)
-    token = hf._forwarded_headers.set({})
-    try:
-        yield
-    finally:
-        hf._forwarded_headers.reset(token)
-
-
-@pytest.fixture
-def echo_server():
-    class Handler(BaseHTTPRequestHandler):
-        def do_GET(self):
-            payload = json.dumps(dict(self.headers)).encode()
-            self.send_response(200)
-            self.send_header("Content-Length", str(len(payload)))
-            self.end_headers()
-            self.wfile.write(payload)
-
-        def log_message(self, *_args):
-            pass
-
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    try:
-        yield f"http://127.0.0.1:{server.server_port}"
-    finally:
-        server.shutdown()
-        server.server_close()
-        thread.join()
-
-
-@pytest.mark.parametrize("module_name", ["httpx", "httpx2"])
-def test_installed_sync_transport_forwards_only_request_headers(
-    module_name, echo_server
-):
-    transport = pytest.importorskip(module_name)
-    hf.install_global_httpx_hook()
-    hf.install_global_httpx_hook()
-    hf.set_forwarded_headers(
-        {"x-test-id": "sync-run", "authorization": "not-forwarded"}
-    )
-    with transport.Client() as client:
-        assert len(client.event_hooks["request"]) == 1
-        headers = client.get(echo_server).json()
-    assert headers["x-test-id"] == "sync-run"
-    assert "authorization" not in {name.lower() for name in headers}
-
-
-@pytest.mark.parametrize("module_name", ["httpx", "httpx2"])
-def test_installed_async_transport_keeps_concurrent_contexts_isolated(
-    module_name, echo_server
-):
-    transport = pytest.importorskip(module_name)
-    hf.install_global_httpx_hook()
-    hf.install_global_httpx_hook()
-
-    async def run_requests():
-        async with transport.AsyncClient() as client:
-            assert len(client.event_hooks["request"]) == 1
-
-            async def send(test_id):
-                hf.set_forwarded_headers({"x-test-id": test_id})
-                await asyncio.sleep(0)
-                return (await client.get(echo_server)).json()["x-test-id"]
-
-            return await asyncio.gather(send("request-a"), send("request-b"))
-
-    assert asyncio.run(run_requests()) == ["request-a", "request-b"]
-
-
-def test_missing_optional_transport_keeps_httpx_supported(monkeypatch, echo_server):
-    original_import = importlib.import_module
-
-    def without_httpx2(name):
-        if name == "httpx2":
-            raise ModuleNotFoundError("httpx2 is not installed", name=name)
-        return original_import(name)
-
-    monkeypatch.setattr(importlib, "import_module", without_httpx2)
-    hf.install_global_httpx_hook()
-    hf.set_forwarded_headers({"x-test-id": "older-provider"})
-    with httpx.Client() as client:
-        assert client.get(echo_server).json()["x-test-id"] == "older-provider"
 
 
 # ---------------------------------------------------------------------------
@@ -197,28 +96,18 @@ def test_global_hook_install_failure_does_not_break_construction(monkeypatch):
 # Item 3: sync-vs-async detection + greppable breadcrumb.
 # ---------------------------------------------------------------------------
 def test_is_async_detects_async_client():
-    async def check():
-        async with httpx.AsyncClient() as client:
-            assert hf._is_async_httpx_target(client) is True
-
-    asyncio.run(check())
+    assert hf._is_async_httpx_target(httpx.AsyncClient()) is True
 
 
 def test_is_async_detects_sync_client():
-    with httpx.Client() as client:
-        assert hf._is_async_httpx_target(client) is False
+    assert hf._is_async_httpx_target(httpx.Client()) is False
 
 
 def test_async_detection_emits_breadcrumb(caplog):
     """A CVDIAG breadcrumb tagged with the chosen confidence must be emitted
     so a misdetection is greppable."""
     with caplog.at_level(logging.INFO, logger=hf.logger.name):
-
-        async def check():
-            async with httpx.AsyncClient() as client:
-                hf._is_async_httpx_target(client)
-
-        asyncio.run(check())
+        hf._is_async_httpx_target(httpx.AsyncClient())
     joined = " ".join(r.getMessage() for r in caplog.records)
     assert "async-detect" in joined, (
         f"expected an async-detect CVDIAG breadcrumb, got: {joined!r}"

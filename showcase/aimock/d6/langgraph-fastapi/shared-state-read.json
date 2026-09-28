@@ -10,6 +10,7 @@
       "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 1. Substring 'Italian pasta recipe' is unique. Text-only — agent has no tools.",
       "match": {
         "userMessage": "Italian pasta recipe",
+        "turnIndex": 0,
         "context": "langgraph-fastapi"
       },
       "response": {
@@ -20,30 +21,11 @@
       "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 2. Reply mentions recipe-context tokens so the probe's soft assertion lands.",
       "match": {
         "userMessage": "healthier with more vegetables",
+        "turnIndex": 0,
         "context": "langgraph-fastapi"
       },
       "response": {
         "content": "Here are a few healthier ingredient additions for the recipe: roasted bell peppers, baby spinach folded in at the end, and cherry tomatoes for brightness. The Italian flavor profile holds up well, and the vegetable swap keeps the dish lighter without losing the comfort of pasta."
-      }
-    },
-    {
-      "_comment": "Visible recipe variations suggestion; advice only, with no tool or state mutation.",
-      "match": {
-        "userMessage": "Suggest some creative variations of this recipe.",
-        "context": "langgraph-fastapi"
-      },
-      "response": {
-        "content": "For a variation, try a roasted-vegetable version with herbs, or a lemon-and-spinach version. These are suggestions; edit the recipe fields to apply the version you prefer."
-      }
-    },
-    {
-      "_comment": "Visible Improve with AI action; advice only, with no tool or state mutation.",
-      "match": {
-        "userMessage": "Improve the recipe",
-        "context": "langgraph-fastapi"
-      },
-      "response": {
-        "content": "To improve the recipe, consider adding vegetables, seasoning gradually, and checking texture as it cooks. These are suggestions; update the recipe fields with the changes you want to keep."
       }
     }
   ]

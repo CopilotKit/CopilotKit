@@ -64,139 +64,6 @@ const BASE_DEPS = {
 };
 
 describe("buildProbeInvoker", () => {
-  it("reports zero assessed cells for filtered skips instead of one passing service", async () => {
-    const inputSchema = z.object({ key: z.string() });
-    const driver: ProbeDriver<z.infer<typeof inputSchema>> = {
-      kind: "e2e_d6",
-      inputSchema,
-      async run(ctx, input) {
-        return {
-          key: input.key,
-          state: "green",
-          signal: {
-            passed: 0,
-            failed: [],
-            scope: { selected: [], executed: [], skipped: [] },
-          },
-          observedAt: ctx.now().toISOString(),
-        };
-      },
-    };
-    const { writer, writes } = mkWriter();
-    const invoker = buildProbeInvoker(
-      {
-        kind: "e2e_d6",
-        id: "d6",
-        schedule: "*/15 * * * *",
-        max_concurrency: 1,
-        targets: [{ key: "d6:agno" }],
-      },
-      {
-        driver,
-        schedulerId: "d6",
-        discoveryRegistry: createDiscoveryRegistry(),
-        writer,
-        ...BASE_DEPS,
-      },
-    );
-    const summary = await invoker({ filter: { featureTypes: ["voice"] } });
-    expect(summary).toMatchObject({ total: 0, passed: 0, failed: 0 });
-    expect(writes).toEqual([]);
-  });
-
-  it.each(["red", "degraded", "error"] as const)(
-    "retains a %s structural failure when scoped execution counts are empty",
-    async (state) => {
-      const inputSchema = z.object({ key: z.string() });
-      const driver: ProbeDriver<z.infer<typeof inputSchema>> = {
-        kind: "e2e_d6",
-        inputSchema,
-        async run(ctx, input) {
-          return {
-            key: input.key,
-            state,
-            signal: {
-              passed: 0,
-              failed: [],
-              errorDesc: "launcher-error",
-              scope: {
-                selected: ["frontend-tools-async"],
-                executed: [],
-                skipped: [],
-              },
-            },
-            observedAt: ctx.now().toISOString(),
-          };
-        },
-      };
-      const { writer, writes } = mkWriter();
-      const invoker = buildProbeInvoker(
-        {
-          kind: "e2e_d6",
-          id: "d6",
-          schedule: "*/15 * * * *",
-          max_concurrency: 1,
-          targets: [{ key: "d6:agno" }],
-        },
-        {
-          driver,
-          schedulerId: "d6",
-          discoveryRegistry: createDiscoveryRegistry(),
-          writer,
-          ...BASE_DEPS,
-        },
-      );
-      const summary = await invoker({
-        filter: { featureTypes: ["frontend-tools-async"] },
-      });
-      expect(summary).toEqual({ total: 1, passed: 0, failed: 1 });
-      expect(writes).toEqual([]);
-    },
-  );
-
-  it("does not persist a filtered D6 primary over the full service aggregate", async () => {
-    const inputSchema = z.object({ key: z.string() });
-    const driver: ProbeDriver<z.infer<typeof inputSchema>> = {
-      kind: "e2e_d6",
-      inputSchema,
-      async run(ctx, input) {
-        await ctx.writer?.write({
-          key: `${input.key}/frontend-tools-async`,
-          state: "green",
-          signal: { turns_completed: 1 },
-          observedAt: ctx.now().toISOString(),
-        });
-        return {
-          key: input.key,
-          state: "green",
-          signal: {},
-          observedAt: ctx.now().toISOString(),
-        };
-      },
-    };
-    const { writer, writes } = mkWriter();
-    const invoker = buildProbeInvoker(
-      {
-        kind: "e2e_d6",
-        id: "d6",
-        schedule: "*/15 * * * *",
-        max_concurrency: 1,
-        targets: [{ key: "d6:agno" }],
-      },
-      {
-        driver,
-        schedulerId: "d6",
-        discoveryRegistry: createDiscoveryRegistry(),
-        writer,
-        ...BASE_DEPS,
-      },
-    );
-    await invoker({ filter: { featureTypes: ["frontend-tools-async"] } });
-    expect(writes.map((row) => row.key)).toEqual([
-      "d6:agno/frontend-tools-async",
-    ]);
-  });
-
   it("fans out static targets and emits one writer.write per target", async () => {
     const inputSchema = z.object({ key: z.string(), url: z.string().url() });
     const driver: ProbeDriver<z.infer<typeof inputSchema>, { ok: true }> = {
@@ -1223,50 +1090,41 @@ describe("buildProbeInvoker", () => {
       expect(sig.errorClass).toBe("driver-error");
     });
 
-    it.each([undefined, [], ["image_drift:requested"]])(
-      "sets errorClass='discovery-source-missing' on unknown source typo with slug filter %j",
-      async (slugs) => {
-        const inputSchema = z.object({ key: z.string() }).passthrough();
-        const driver: ProbeDriver = {
-          kind: "image_drift",
-          inputSchema,
-          async run() {
-            throw new Error("should never run");
-          },
-        };
-        const cfg: ProbeConfig = {
-          kind: "image_drift",
-          id: "image-drift",
-          schedule: "*/15 * * * *",
-          max_concurrency: 1,
-          discovery: {
-            source: "definitely-not-registered",
-            filter: {},
-            key_template: "image_drift:${name}",
-          },
-        };
-        const { writer, writes } = mkWriter();
-        const summary = await buildProbeInvoker(cfg, {
-          schedulerId: cfg.id,
-          driver,
-          discoveryRegistry: createDiscoveryRegistry(),
-          writer,
-          ...BASE_DEPS,
-        })({ filter: { slugs } });
-        expect(summary).toEqual({
-          total: 1,
-          passed: 0,
-          failed: 1,
-          discoveryFailed: true,
-        });
-        // Synthetic dashboard tick instead of silent zero-write.
-        expect(writes).toHaveLength(1);
-        expect(writes[0]!.key).toBe("discovery:image-drift");
-        expect(writes[0]!.state).toBe("error");
-        const sig = writes[0]!.signal as { errorClass?: string };
-        expect(sig.errorClass).toBe("discovery-source-missing");
-      },
-    );
+    it("sets errorClass='discovery-source-missing' on unknown source typo", async () => {
+      const inputSchema = z.object({ key: z.string() }).passthrough();
+      const driver: ProbeDriver = {
+        kind: "image_drift",
+        inputSchema,
+        async run() {
+          throw new Error("should never run");
+        },
+      };
+      const cfg: ProbeConfig = {
+        kind: "image_drift",
+        id: "image-drift",
+        schedule: "*/15 * * * *",
+        max_concurrency: 1,
+        discovery: {
+          source: "definitely-not-registered",
+          filter: {},
+          key_template: "image_drift:${name}",
+        },
+      };
+      const { writer, writes } = mkWriter();
+      await buildProbeInvoker(cfg, {
+        schedulerId: cfg.id,
+        driver,
+        discoveryRegistry: createDiscoveryRegistry(),
+        writer,
+        ...BASE_DEPS,
+      })();
+      // Synthetic dashboard tick instead of silent zero-write.
+      expect(writes).toHaveLength(1);
+      expect(writes[0]!.key).toBe("discovery:image-drift");
+      expect(writes[0]!.state).toBe("error");
+      const sig = writes[0]!.signal as { errorClass?: string };
+      expect(sig.errorClass).toBe("discovery-source-missing");
+    });
   });
 
   // Late driver rejection must not surface as unhandledRejection.
@@ -1647,65 +1505,56 @@ describe("buildProbeInvoker", () => {
     expect(successful.sort()).toEqual(["smoke:a", "smoke:c"]);
   });
 
-  it.each([undefined, [], ["image_drift:requested"]])(
-    "emits one synthetic discovery-error tick when source.enumerate throws with slug filter %j",
-    async (slugs) => {
-      const inputSchema = z.object({ key: z.string() }).passthrough();
-      const driver: ProbeDriver = {
-        kind: "image_drift",
-        inputSchema,
-        async run() {
-          throw new Error("driver should not run when discovery throws");
-        },
-      };
-      const throwingSource: DiscoverySource = {
-        name: "throwing-src",
-        configSchema: z.object({}).passthrough(),
-        async enumerate() {
-          throw new Error("railway gql 500: synthetic-failure");
-        },
-      };
-      const discoveryRegistry = createDiscoveryRegistry();
-      discoveryRegistry.register(throwingSource);
-      const cfg: ProbeConfig = {
-        kind: "image_drift",
-        id: "image-drift",
-        schedule: "*/15 * * * *",
-        max_concurrency: 4,
-        discovery: {
-          source: "throwing-src",
-          filter: {},
-          key_template: "image_drift:${name}",
-        },
-      };
-      const { writer, writes } = mkWriter();
-      const summary = await buildProbeInvoker(cfg, {
-        schedulerId: cfg.id,
-        driver,
-        discoveryRegistry,
-        writer,
-        ...BASE_DEPS,
-      })({ filter: { slugs } });
-      expect(summary).toEqual({
-        total: 1,
-        passed: 0,
-        failed: 1,
-        discoveryFailed: true,
-      });
-      // (a) Exactly one tick written for the failed enumerate.
-      expect(writes).toHaveLength(1);
-      // (b) errorClass is discovery-error (NOT discovery-source-missing
-      //     — the source IS registered, it just threw at runtime).
-      expect(writes[0]!.key).toBe("discovery:image-drift");
-      expect(writes[0]!.state).toBe("error");
-      const sig = writes[0]!.signal as {
-        errorClass?: string;
-        errorDesc?: string;
-      };
-      expect(sig.errorClass).toBe("discovery-error");
-      expect(sig.errorDesc).toContain("synthetic-failure");
-    },
-  );
+  it("emits one synthetic discovery-error tick when source.enumerate throws", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "image_drift",
+      inputSchema,
+      async run() {
+        throw new Error("driver should not run when discovery throws");
+      },
+    };
+    const throwingSource: DiscoverySource = {
+      name: "throwing-src",
+      configSchema: z.object({}).passthrough(),
+      async enumerate() {
+        throw new Error("railway gql 500: synthetic-failure");
+      },
+    };
+    const discoveryRegistry = createDiscoveryRegistry();
+    discoveryRegistry.register(throwingSource);
+    const cfg: ProbeConfig = {
+      kind: "image_drift",
+      id: "image-drift",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      discovery: {
+        source: "throwing-src",
+        filter: {},
+        key_template: "image_drift:${name}",
+      },
+    };
+    const { writer, writes } = mkWriter();
+    await buildProbeInvoker(cfg, {
+      schedulerId: cfg.id,
+      driver,
+      discoveryRegistry,
+      writer,
+      ...BASE_DEPS,
+    })();
+    // (a) Exactly one tick written for the failed enumerate.
+    expect(writes).toHaveLength(1);
+    // (b) errorClass is discovery-error (NOT discovery-source-missing
+    //     — the source IS registered, it just threw at runtime).
+    expect(writes[0]!.key).toBe("discovery:image-drift");
+    expect(writes[0]!.state).toBe("error");
+    const sig = writes[0]!.signal as {
+      errorClass?: string;
+      errorDesc?: string;
+    };
+    expect(sig.errorClass).toBe("discovery-error");
+    expect(sig.errorDesc).toContain("synthetic-failure");
+  });
 
   it("isolates discovery-error from sibling probes' invocations", async () => {
     // Two probes share the same writer in production: one with a

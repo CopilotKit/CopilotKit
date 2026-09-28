@@ -63,7 +63,7 @@ export const INTELLIGENCE_SEARCH_CTAS: readonly IntelligenceSearchCta[] = [
     // free. What Intelligence adds is the durable, resumable storage
     // behind them, so this must not read as "threads are a paid feature".
     body: "Threads are built into CopilotKit. Intelligence stores them for you, so conversations resume across reloads, sessions and devices without you running a database.",
-    primary: { label: "Read the Threads guide", href: "/threads" },
+    primary: { label: "Read the Rich Threads guide", href: "/threads" },
     secondary: [
       {
         label: "How thread persistence works",
@@ -92,41 +92,34 @@ export const INTELLIGENCE_SEARCH_CTAS: readonly IntelligenceSearchCta[] = [
     ],
   },
   {
-    // No docs page describes learning on its own yet — it is a capability
-    // row on the Intelligence overview, which links out to the detail.
-    // The overview is also the right landing for a reader already running
-    // Intelligence, for whom a connect-in-five-minutes quickstart would
-    // be useless. Retargeting when a dedicated page ships is a one-line
-    // edit here.
+    // Send learning searches directly to the Automatic Learning guide.
     id: "learning",
     keywords: ["learning"],
     specificity: 10,
     title: "Agents that learn from real conversations",
     body: "Intelligence turns the conversations your agent already has into evaluations and improvements, instead of leaving that signal on the floor.",
     primary: {
-      label: "See what Intelligence adds",
-      href: "/intelligence/overview",
+      label: "Read the Automatic Learning guide",
+      href: "/learning",
     },
     secondary: [
       { label: "Connect Intelligence", href: "/intelligence/quickstart" },
-      { label: "Threads guide", href: "/threads" },
+      { label: "Rich Threads guide", href: "/threads" },
     ],
   },
   {
-    // Same reasoning as "learning" above: analytics has no dedicated
-    // docs page yet.
     id: "analytics",
     keywords: ["analytics"],
     specificity: 10,
     title: "See what your agent actually does",
     body: "Intelligence reports on the runs, tool calls and conversations behind your agent, so you can tell what is working in production.",
     primary: {
-      label: "See what Intelligence adds",
-      href: "/intelligence/overview",
+      label: "Open Product Analytics",
+      href: "/intelligence/analytics",
     },
     secondary: [
       { label: "Connect Intelligence", href: "/intelligence/quickstart" },
-      { label: "Threads guide", href: "/threads" },
+      { label: "Rich Threads guide", href: "/threads" },
     ],
   },
   {
@@ -136,14 +129,14 @@ export const INTELLIGENCE_SEARCH_CTAS: readonly IntelligenceSearchCta[] = [
     // why "intelligence threads" resolves to the threads entry.
     specificity: 1,
     title: "CopilotKit Intelligence",
-    body: "Persistent threads, analytics, automatic learning and production operations on top of the runtime you already run.",
+    body: "Rich Threads, Product Analytics, Automatic Learning, and the rest of Intelligence on top of the runtime you already run.",
     primary: {
       label: "See what Intelligence adds",
       href: "/intelligence/overview",
     },
     secondary: [
       { label: "Connect in 5 minutes", href: "/intelligence/quickstart" },
-      { label: "Threads guide", href: "/threads" },
+      { label: "Rich Threads guide", href: "/threads" },
       { label: "Self-hosting", href: "/intelligence/self-hosting" },
     ],
   },

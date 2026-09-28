@@ -111,6 +111,7 @@ export function useHumanInTheLoop<T extends Record<string, unknown>>(
 
   const frontendTool: VueFrontendTool<T> = {
     ...tool,
+    type: "human-in-the-loop",
     handler,
     render: RenderComponent,
   };

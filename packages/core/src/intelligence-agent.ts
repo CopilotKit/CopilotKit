@@ -65,12 +65,24 @@ const globalFetch: typeof fetch = (...args) => fetch(...args);
 
 const CLIENT_AG_UI_EVENT = "ag_ui_event";
 const REPLAY_COMPLETE_EVENT = "replay_complete";
+const REPLAY_FAILED_EVENT = "replay_failed";
 const STREAM_IDLE_EVENT = "stream_idle";
 const STOP_RUN_EVENT = "stop_run";
 const CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS = 100;
+// Credential refreshes allowed in a row for sockets that never opened. Past this,
+// the run fails instead of waiting on a realtime endpoint that is not answering.
+const MAX_UNOPENED_CREDENTIAL_REFRESHES = 2;
 
 interface IntelligenceAgentSharedState {
   lastSeenEventIds: Map<string, string>;
+}
+
+/** Control-frame cursor state for one channel join. */
+interface ControlCursorState {
+  /** The last `latestEventId` that this join saved as the reconnect cursor. */
+  applied: string | null;
+  /** True after `replay_failed`. The gateway then repeats the prior cursor on purpose. */
+  replayFailed: boolean;
 }
 
 interface RealtimeConnectionInfo {
@@ -134,8 +146,10 @@ export function isRunCompletionAware(
 export interface IntelligenceAgentConfig {
   /** Phoenix websocket URL, e.g. "ws://localhost:4000/socket" */
   url: string;
-  /** Runtime REST URL, e.g. "http://localhost:4000" */
+  /** Runtime base URL, e.g. "http://localhost:4000" */
   runtimeUrl: string;
+  /** HTTP transport for run/connect requests. Defaults to REST. */
+  transport?: "rest" | "single";
   /** Agent identifier for REST endpoints */
   agentId: string;
   /** Optional params sent on socket connect (e.g. auth token) */
@@ -378,27 +392,41 @@ export class IntelligenceAgent extends AbstractAgent {
     return defer(async () => {
       try {
         const requestFetch = this.config.fetch ?? globalFetch;
-        const response = await requestFetch(this.buildRuntimeUrl(mode), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...this.headers,
+        const body = {
+          ...input,
+          ...(mode === "connect"
+            ? {
+                lastSeenEventId:
+                  replayCursor === undefined
+                    ? this.getReconnectCursor(input)
+                    : replayCursor,
+              }
+            : {}),
+        };
+        const single = this.config.transport === "single";
+        const response = await requestFetch(
+          single ? this.config.runtimeUrl : this.buildRuntimeUrl(mode),
+          {
+            method: "POST",
+            redirect: "error",
+            headers: {
+              "Content-Type": "application/json",
+              ...this.headers,
+            },
+            // Post the whole RunAgentInput rather than naming each field, so a
+            // protocol field such as `resume` cannot be dropped here again.
+            body: JSON.stringify(
+              single
+                ? {
+                    method: `agent/${mode}`,
+                    params: { agentId: this.config.agentId },
+                    body,
+                  }
+                : body,
+            ),
+            ...(this.credentials ? { credentials: this.credentials } : {}),
           },
-          // Post the whole RunAgentInput rather than naming each field, so a
-          // protocol field such as `resume` cannot be dropped here again.
-          body: JSON.stringify({
-            ...input,
-            ...(mode === "connect"
-              ? {
-                  lastSeenEventId:
-                    replayCursor === undefined
-                      ? this.getReconnectCursor(input)
-                      : replayCursor,
-                }
-              : {}),
-          }),
-          ...(this.credentials ? { credentials: this.credentials } : {}),
-        });
+        );
 
         if (response.status === 204 && mode === "connect") {
           return null;
@@ -478,38 +506,75 @@ export class IntelligenceAgent extends AbstractAgent {
       streamMode: "run" | "connect";
       channelMode?: "run" | "connect";
       replayCursor?: string | null;
+      unopenedRefreshes?: number;
     },
   ): Observable<BaseEvent> {
-    return this.observeThreadSession$(input, credentials, options).pipe(
-      catchError((error) => {
-        if (!this.isSocketReconnectExhaustedError(error)) {
-          return throwError(() => error);
-        }
+    const { unopenedRefreshes: previousUnopened = 0, ...sessionOptions } =
+      options;
+    return defer(() => {
+      let socketOpened = false;
+      return this.observeThreadSession$(input, credentials, {
+        ...sessionOptions,
+        onSocketOpen: () => {
+          socketOpened = true;
+        },
+      }).pipe(
+        catchError((error) => {
+          if (!this.isSocketReconnectExhaustedError(error)) {
+            return throwError(() => error);
+          }
 
-        const replayCursor = this.getReconnectCursor(input);
-        return this.requestJoinCredentials$(
-          "connect",
-          input,
-          replayCursor,
-        ).pipe(
-          switchMap((refreshedCredentials) =>
-            refreshedCredentials === null
-              ? EMPTY
-              : this.observeThread$(
-                  this.applyCanonicalRunIdentity(input, refreshedCredentials, {
-                    fallbackToInputRunId: options.streamMode === "run",
-                  }),
-                  refreshedCredentials,
-                  {
-                    ...options,
-                    channelMode: "connect",
-                    replayCursor,
-                  },
+          // A session whose socket opened was a real connection that dropped, so
+          // it restarts the count. Sessions that never open mean the realtime
+          // endpoint is unavailable, and fresh credentials will not fix that.
+          // Only a run is capped: a developer is waiting on its turn. A connect
+          // restores history in the background, and nothing retries it after it
+          // fails, so it keeps reconnecting until the endpoint recovers.
+          const unopenedRefreshes = socketOpened ? 0 : previousUnopened + 1;
+          if (
+            options.streamMode === "run" &&
+            unopenedRefreshes > MAX_UNOPENED_CREDENTIAL_REFRESHES
+          ) {
+            return throwError(
+              () =>
+                new Error(
+                  `Realtime connection to ${credentials.realtime.clientUrl} never opened ` +
+                    `in ${unopenedRefreshes} connection attempts. ` +
+                    `The realtime endpoint is unavailable.`,
                 ),
-          ),
-        );
-      }),
-    );
+            );
+          }
+
+          const replayCursor = this.getReconnectCursor(input);
+          return this.requestJoinCredentials$(
+            "connect",
+            input,
+            replayCursor,
+          ).pipe(
+            switchMap((refreshedCredentials) =>
+              refreshedCredentials === null
+                ? EMPTY
+                : this.observeThread$(
+                    this.applyCanonicalRunIdentity(
+                      input,
+                      refreshedCredentials,
+                      {
+                        fallbackToInputRunId: options.streamMode === "run",
+                      },
+                    ),
+                    refreshedCredentials,
+                    {
+                      ...sessionOptions,
+                      channelMode: "connect",
+                      replayCursor,
+                      unopenedRefreshes,
+                    },
+                  ),
+            ),
+          );
+        }),
+      );
+    });
   }
 
   private observeThreadSession$(
@@ -520,6 +585,7 @@ export class IntelligenceAgent extends AbstractAgent {
       streamMode: "run" | "connect";
       channelMode?: "run" | "connect";
       replayCursor?: string | null;
+      onSocketOpen?: () => void;
     },
   ): Observable<BaseEvent> {
     return defer(() => {
@@ -581,15 +647,29 @@ export class IntelligenceAgent extends AbstractAgent {
         }),
         share(),
       );
+      const controlCursor: ControlCursorState = {
+        applied: null,
+        replayFailed: false,
+      };
+      const replayFailed$ = channel$.pipe(
+        switchMapOperator(({ channel }) =>
+          this.observeChannelEvent$<unknown>(channel, REPLAY_FAILED_EVENT),
+        ),
+        tap(() => {
+          controlCursor.replayFailed = true;
+        }),
+      );
       const replayComplete$ = this.observeControlEvent$(
         input.threadId,
         channel$,
         REPLAY_COMPLETE_EVENT,
+        controlCursor,
       ).pipe(shareReplay({ bufferSize: 1, refCount: true }));
       const streamIdle$ = this.observeControlEvent$(
         input.threadId,
         channel$,
         STREAM_IDLE_EVENT,
+        controlCursor,
       ).pipe(shareReplay({ bufferSize: 1, refCount: true }));
       const streamIdleCompletion$ =
         options.streamMode === "connect"
@@ -620,8 +700,11 @@ export class IntelligenceAgent extends AbstractAgent {
 
       return merge(
         this.joinThreadChannel$(channel$),
-        this.observeSocketHealth$(socket$).pipe(takeUntil(terminal$)),
+        this.observeSocketHealth$(socket$, options.onSocketOpen).pipe(
+          takeUntil(terminal$),
+        ),
         threadEvents$.pipe(takeUntil(streamIdleCompletion$)),
+        replayFailed$.pipe(ignoreElements(), takeUntil(terminal$)),
         replayComplete$.pipe(ignoreElements(), takeUntil(terminal$)),
         streamIdleCompletion$.pipe(
           ignoreElements(),
@@ -639,9 +722,14 @@ export class IntelligenceAgent extends AbstractAgent {
 
   private observeSocketHealth$(
     socket$: Observable<ɵPhoenixSocketSession>,
+    onSocketOpen?: () => void,
   ): Observable<never> {
     return ɵobservePhoenixSocketHealth$(
-      ɵobservePhoenixSocketSignals$(socket$),
+      ɵobservePhoenixSocketSignals$(socket$).pipe(
+        tap((signal) => {
+          if (signal.type === "open") onSocketOpen?.();
+        }),
+      ),
       5,
     );
   }
@@ -674,13 +762,14 @@ export class IntelligenceAgent extends AbstractAgent {
     threadId: string,
     channel$: Observable<ɵPhoenixChannelSession>,
     eventName: string,
+    controlCursor: ControlCursorState,
   ): Observable<unknown> {
     return channel$.pipe(
       switchMapOperator(({ channel }) =>
         this.observeChannelEvent$<unknown>(channel, eventName),
       ),
       tap((payload) =>
-        this.updateLastSeenEventIdFromControl(threadId, payload),
+        this.updateLastSeenEventIdFromControl(threadId, payload, controlCursor),
       ),
     );
   }
@@ -784,12 +873,23 @@ export class IntelligenceAgent extends AbstractAgent {
   private updateLastSeenEventIdFromControl(
     threadId: string,
     payload: unknown,
+    controlCursor: ControlCursorState,
   ): void {
     const eventId = this.readControlEventId(payload);
     if (!eventId) {
       return;
     }
 
+    // An older gateway repeats the join's history checkpoint on every control
+    // frame, also on stream_idle after live events moved past it. A repeat is
+    // stale and must not replace the newer event cursor, or the next join
+    // replays those live events again. After replay_failed the gateway repeats
+    // the prior cursor on purpose, so the next join retries the failed history.
+    if (eventId === controlCursor.applied && !controlCursor.replayFailed) {
+      return;
+    }
+
+    controlCursor.applied = eventId;
     this.advanceLastSeenEventId(threadId, eventId);
   }
 

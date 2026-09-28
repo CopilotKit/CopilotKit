@@ -173,10 +173,11 @@ All reactive state is exposed as read-only Angular signals. Read a signal by cal
 
 <PropertyReference name="updateRuntime" type="(options) => void">
   Update the runtime connection at runtime. `options` may include `runtimeUrl`,
-  `runtimeTransport`, `headers`, `credentials`, `properties`, `agents`, and
-  `selfManagedAgents`. Only the fields you pass are applied; `runtimeUrl`,
-  `runtimeTransport`, `headers`, and `credentials` also update the corresponding
-  signals.
+  `runtimeTransport`, `headers`, `credentials`, `messageFilter`, `properties`,
+  `agents`, and `selfManagedAgents`. Only the fields you pass are applied;
+  `runtimeUrl`, `runtimeTransport`, `headers`, and `credentials` also update the
+  corresponding signals. `credentials` and `messageFilter` are applied whenever
+  the key is present, so passing either as `undefined` clears it.
 </PropertyReference>
 
 ## Usage

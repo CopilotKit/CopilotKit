@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { defineComponent, h } from "vue";
+import type { VNode } from "vue";
 import { z } from "zod";
+import { ToolCallStatus } from "@copilotkit/core";
 import type { VueFrontendTool, VueHumanInTheLoop } from "../../types";
 import { mountWithProvider } from "../../__tests__/utils/mount";
 
@@ -95,10 +97,26 @@ describe("CopilotKitProvider wildcard behavior", () => {
     const { getCore } = mountWithProvider(() => h("div"), { humanInTheLoop });
 
     expect(getCore().getTool({ toolName: "*" })).toBeDefined();
+    expect(getCore().getTool({ toolName: "*" })?.type).toBe(
+      "human-in-the-loop",
+    );
     const wildcardRender = getCore().renderToolCalls.find(
       (rc) => rc.name === "*",
     );
     expect(wildcardRender).toBeDefined();
-    expect(wildcardRender?.render).toStrictEqual(WildcardComponent);
+    // A humanInTheLoop render is wrapped so `respond` can be injected, so it is
+    // not the component itself — assert it delegates to it, and that the
+    // wildcard receives the name of the tool that was actually invoked.
+    const vnode = (
+      wildcardRender?.render as (p: Record<string, unknown>) => VNode
+    )({
+      name: "someTool",
+      toolCallId: "tc-1",
+      args: { toolName: "someTool", args: {} },
+      status: ToolCallStatus.Executing,
+      result: undefined,
+    });
+    expect(vnode.type).toStrictEqual(WildcardComponent);
+    expect((vnode.props as { name?: string })?.name).toBe("someTool");
   });
 });

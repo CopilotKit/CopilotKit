@@ -1,6 +1,6 @@
 import { defineCatalog } from "@json-render/core";
 import { schema } from "@json-render/react/schema";
-import { z } from "zod-json-render";
+import { z } from "zod";
 
 const dataPoint = z.object({ label: z.string(), value: z.number() });
 
