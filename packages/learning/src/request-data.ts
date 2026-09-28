@@ -12,6 +12,8 @@ export interface SanitizedRequestBody {
   fields?: Record<string, RequestBodyValue>;
   /** Omitted fields/items or subtrees; not a count of all their descendants. */
   omittedFieldCount: number;
+  /** Enumeration stopped before all fields could be counted. */
+  omittedFieldCountIsLowerBound?: true;
   omissionReason?:
     | "unsupported"
     | "oversized"
@@ -19,6 +21,13 @@ export interface SanitizedRequestBody {
     | "sensitive"
     | "truncated";
 }
+
+export interface SanitizedResponseBody extends SanitizedRequestBody {
+  /** Array positions are preserved; an incomplete array is omitted whole. */
+  items?: RequestBodyValue[];
+}
+
+export type ObjectReference = (value: string | number) => string | undefined;
 
 const MAX_INPUT_BYTES = 16 * 1024;
 const MAX_FIELD_BYTES = 1900; // Leaves room for omission metadata within 2 KiB.
@@ -44,16 +53,24 @@ function decoded(value: string): string | undefined {
   return /%[a-f\d]{2}/i.test(result) ? undefined : result;
 }
 
-function unsafeKey(key: string, blocked: Set<string>): boolean {
-  const inspected = decoded(key);
-  if (inspected === undefined) return true;
-  const words = inspected
+function identifierKey(key: string): boolean {
+  const words = key
     .replace(/([a-z\d])([A-Z])/g, "$1 $2")
     .replace(/([A-Z])([A-Z][a-z])/g, "$1 $2");
+  return /(?:^|[\s_.-])(?:id|ids)(?:$|[\s_.-])/i.test(words);
+}
+
+function unsafeKey(
+  key: string,
+  blocked: Set<string>,
+  allowReference: boolean,
+): boolean {
+  const inspected = decoded(key);
+  if (inspected === undefined) return true;
   return (
     blocked.has(inspected.toLowerCase()) ||
     sensitiveKey.test(inspected) ||
-    /(?:^|[\s_.-])(?:id|ids)(?:$|[\s_.-])/i.test(words) ||
+    (!allowReference && identifierKey(inspected)) ||
     /^(?:__proto__|prototype|constructor)$/i.test(inspected) ||
     !/^[a-z][a-z\d_. -]*$/i.test(key) ||
     sensitiveContent(inspected)
@@ -86,7 +103,31 @@ function omitted(
 export function sanitizeRequestBody(
   body: unknown,
   blockedKeys: Iterable<string> = [],
+  reference?: ObjectReference,
 ): SanitizedRequestBody {
+  const parsed = parseBody(body);
+  if ("omittedFieldCount" in parsed) return parsed;
+  if (Array.isArray(parsed.value)) return omitted("unsupported");
+  return sanitizeParsed(parsed.value, blockedKeys, reference);
+}
+
+/** Only JSON consumed by the application is considered; plain text is omitted. */
+export function sanitizeResponseBody(
+  body: unknown,
+  format: "json" | "text",
+  blockedKeys: Iterable<string> = [],
+  reference?: ObjectReference,
+): SanitizedResponseBody {
+  if (format === "text") {
+    const parsed = parseBody(body);
+    if ("omittedFieldCount" in parsed) return parsed;
+    body = parsed.value;
+  }
+  if (body === null || typeof body !== "object") return omitted("unsupported");
+  return sanitizeParsed(body, blockedKeys, reference);
+}
+
+function parseBody(body: unknown): { value: object } | SanitizedRequestBody {
   if (typeof body !== "string") return omitted("unsupported");
   if (
     body.length > MAX_INPUT_BYTES ||
@@ -99,9 +140,16 @@ export function sanitizeRequestBody(
   } catch {
     return omitted("malformed");
   }
-  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed))
+  if (parsed === null || typeof parsed !== "object")
     return omitted("unsupported");
+  return { value: parsed };
+}
 
+function sanitizeParsed(
+  parsed: object,
+  blockedKeys: Iterable<string>,
+  reference?: ObjectReference,
+): SanitizedResponseBody {
   const blocked = new Set<string>();
   try {
     let count = 0;
@@ -124,6 +172,7 @@ export function sanitizeRequestBody(
   let fields = 0;
   let bytes = 0;
   let omittedFieldCount = 0;
+  let omittedFieldCountIsLowerBound = false;
   let omissionReason: "sensitive" | "truncated" | undefined;
   function skip(reason: "sensitive" | "truncated", count = 1) {
     omittedFieldCount += count;
@@ -163,32 +212,116 @@ export function sanitizeRequestBody(
       skip("truncated");
       return;
     }
-    // JSON.parse produces only plain data; prototype-like keys are denied below.
-    const entries = Object.entries(value as object);
+    if (typeof value !== "object" || value === null) {
+      skip("sensitive");
+      return;
+    }
+    // Response.json() may be wrapped by application instrumentation. Read only
+    // own data descriptors, never getters, toJSON, iterators or class methods.
+    const keys: string[] = [];
+    try {
+      const prototype = Object.getPrototypeOf(value);
+      if (
+        prototype !== null &&
+        prototype !== Object.prototype &&
+        !(Array.isArray(value) && prototype === Array.prototype)
+      ) {
+        skip("sensitive");
+        return;
+      }
+      const limit = Math.min(MAX_FIELDS - fields, MAX_NODES - nodes);
+      const arrayLength: unknown = Array.isArray(value)
+        ? Object.getOwnPropertyDescriptor(value, "length")?.value
+        : undefined;
+      if (
+        Array.isArray(value) &&
+        (typeof arrayLength !== "number" || !Number.isSafeInteger(arrayLength))
+      ) {
+        skip("sensitive");
+        return;
+      }
+      if (typeof arrayLength === "number" && arrayLength > limit) {
+        // Reject the whole array without allocating a key list proportional to
+        // a large response. Its own data length gives an exact omitted count.
+        skip("truncated", arrayLength);
+        return;
+      }
+      let inspected = 0;
+      for (const key in value) {
+        // Avoid Object.keys/entries/descriptors, which copy every key before the
+        // visitor's budget can take effect. Do not claim an exact unseen count.
+        if (inspected++ >= limit) {
+          omittedFieldCountIsLowerBound = true;
+          skip("truncated");
+          break;
+        }
+        if (Object.prototype.hasOwnProperty.call(value, key)) keys.push(key);
+      }
+      if (typeof arrayLength === "number" && arrayLength !== keys.length) {
+        skip("sensitive");
+        return;
+      }
+    } catch {
+      skip("sensitive");
+      return;
+    }
     const result: RequestBodyValue[] | Record<string, RequestBodyValue> =
       Array.isArray(value) ? [] : {};
     const omissionsBefore = omittedFieldCount;
     if (!reserve(result)) return;
-    for (let index = 0; index < entries.length; index++) {
+    for (let index = 0; index < keys.length; index++) {
       if (nodes >= MAX_NODES || fields >= MAX_FIELDS) {
-        skip("truncated", entries.length - index);
+        skip("truncated", keys.length - index);
         break;
       }
-      const [key, child] = entries[index];
+      const key = keys[index];
+      let descriptor: PropertyDescriptor | undefined;
+      try {
+        descriptor = Object.getOwnPropertyDescriptor(value, key);
+      } catch {
+        /* Unreadable fields stay opaque. */
+      }
       fields++;
+      if (!descriptor || !("value" in descriptor)) {
+        skip("sensitive");
+        continue;
+      }
+      const child: unknown = descriptor.value;
       if (!Array.isArray(result)) {
         if (key.length > 80) {
           skip("truncated");
           continue;
         }
-        if (unsafeKey(key, blocked)) {
+        if (unsafeKey(key, blocked, reference !== undefined)) {
           skip("sensitive");
           continue;
         }
         if (!reserve(key)) continue;
+      } else if (key !== String(index)) {
+        // Sparse arrays or application-added properties cannot be represented
+        // as a faithful JSON tuple by compacting the remaining entries.
+        skip("sensitive");
+        continue;
       }
       // Reserve the property colon and comma (or array separator).
       bytes += 2;
+      if (!Array.isArray(result) && identifierKey(key) && reference) {
+        let token: string | undefined;
+        if (typeof child === "string" || typeof child === "number") {
+          try {
+            token = reference(child);
+          } catch {
+            /* A failed identity observer must not expose the raw identifier. */
+          }
+        }
+        if (!token || !/^object-[1-9]\d{0,2}$/.test(token)) {
+          skip("sensitive");
+          continue;
+        }
+        const safe = { reference: token };
+        if (reserve(safe)) result[key] = safe;
+        continue;
+      }
       const safe = visit(child, depth + 1);
       if (safe !== undefined) {
         if (Array.isArray(result)) result.push(safe);
@@ -201,10 +334,15 @@ export function sanitizeRequestBody(
       ? undefined
       : result;
   }
-  const safe = visit(parsed, 0) as Record<string, RequestBodyValue>;
+  const safe = visit(parsed, 0);
   return {
-    fields: safe,
+    ...(Array.isArray(parsed)
+      ? { items: safe as RequestBodyValue[] | undefined }
+      : { fields: safe as Record<string, RequestBodyValue> | undefined }),
     omittedFieldCount,
+    ...(omittedFieldCountIsLowerBound
+      ? { omittedFieldCountIsLowerBound: true as const }
+      : {}),
     ...(omissionReason && { omissionReason }),
   };
 }

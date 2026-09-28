@@ -397,3 +397,68 @@ describe("product event annotation adapter", () => {
     expect(record).toHaveBeenCalledTimes(257);
   });
 });
+
+describe("standalone context and response routing", () => {
+  it("routes screen observations to the selected thread without inventing an action", async () => {
+    let thread: string | undefined = "a";
+    const record = vi.fn().mockResolvedValue(result);
+    const recorder = createProductEventRecorder({
+      record,
+      getThreadId: () => thread,
+      onError: vi.fn(),
+    });
+    const context: ProductInteractionEvent = {
+      id: "initial",
+      timestamp: event.timestamp,
+      type: "context",
+      trigger: "initial",
+      context: {
+        items: [{ kind: "heading", tagName: "h1", accessibleName: "Dispatch" }],
+      },
+    };
+    recorder.onEvent(context);
+    thread = "b";
+    recorder.onEvent({ ...context, id: "navigation", trigger: "navigation" });
+    thread = undefined;
+    recorder.onEvent({ ...context, id: "ambiguous", trigger: "screen-change" });
+    await settle();
+    expect(record.mock.calls.map(([input]) => input.threadId)).toEqual([
+      "a",
+      "b",
+    ]);
+    expect(record.mock.calls[0][0].data).not.toHaveProperty("actionId");
+    recorder.stop();
+  });
+  it("keeps late response bodies on the initiating action's thread", async () => {
+    let thread = "a";
+    const record = vi.fn().mockResolvedValue(result);
+    const recorder = createProductEventRecorder({
+      record,
+      getThreadId: () => thread,
+      onError: vi.fn(),
+    });
+    recorder.onEvent(event);
+    thread = "b";
+    recorder.onEvent({
+      id: "body",
+      actionId: event.actionId,
+      timestamp: event.timestamp + 20,
+      type: "response",
+      requestId: "request",
+      response: {
+        method: "POST",
+        url: "https://app.test/api/drafts",
+        body: { fields: { status: "Saved" }, omittedFieldCount: 0 },
+      },
+    });
+    await settle();
+    expect(record.mock.calls.map(([input]) => input.threadId)).toEqual([
+      "a",
+      "a",
+    ]);
+    expect(record.mock.calls[1][0].data.response.body.fields).toEqual({
+      status: "Saved",
+    });
+    recorder.stop();
+  });
+});

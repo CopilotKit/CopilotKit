@@ -42,7 +42,9 @@ function Thread({
     </button>
   );
 }
-const interaction = (id: string): ProductInteractionEvent => ({
+const interaction = (
+  id: string,
+): Extract<ProductInteractionEvent, { type: "interaction" }> => ({
   id,
   actionId: id,
   timestamp: 1_700_000_000_000,

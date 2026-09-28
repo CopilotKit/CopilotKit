@@ -445,4 +445,234 @@ describe("request instrumentation", () => {
     await body;
     expect(resume).toHaveBeenCalledTimes(1);
   });
+
+  it("observes app-consumed JSON after request completion without reading or cloning it", async () => {
+    const response = new Response('{"status":"created","id":"record-48319"}', {
+      status: 201,
+    });
+    const clone = vi.spyOn(response, "clone");
+    const events: string[] = [];
+    const observe = vi.fn((body: unknown, format: string) => {
+      events.push("body");
+      expect(body).toEqual({ status: "created", id: "record-48319" });
+      expect(format).toBe("json");
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response));
+    cleanup.push(
+      subscribeToRequests(window, () => ({
+        complete: () => {
+          events.push("complete");
+        },
+        resume: vi.fn(),
+        canContinue: () => false,
+        response: observe,
+      })),
+    );
+    const result = await window.fetch("/api/orders");
+    expect(events).toEqual(["complete"]);
+    expect(result.bodyUsed).toBe(false);
+    expect(observe).not.toHaveBeenCalled();
+    expect(await result.json()).toEqual({
+      status: "created",
+      id: "record-48319",
+    });
+    expect(events).toEqual(["complete", "body"]);
+    expect(clone).not.toHaveBeenCalled();
+    await expect(result.json()).rejects.toBeInstanceOf(TypeError);
+    expect(observe).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves the app's body promise, receiver and arguments with response observation enabled", async () => {
+    const payload = '{"status":"saved"}';
+    const promise = Promise.resolve(payload);
+    const original = vi
+      .spyOn(Response.prototype, "text")
+      .mockReturnValue(promise);
+    const response = new Response();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response));
+    const observe = vi.fn();
+    cleanup.push(
+      subscribeToRequests(window, () => ({
+        complete: vi.fn(),
+        resume: vi.fn(),
+        canContinue: () => false,
+        response: observe,
+      })),
+    );
+    const result = await window.fetch("/api/orders");
+    const argument = {};
+    const body = Reflect.apply(result.text, result, [argument]);
+    expect(body).toBe(promise);
+    expect(await body).toBe(payload);
+    expect(original.mock.contexts[0]).toBe(response);
+    expect(original).toHaveBeenCalledWith(argument);
+    expect(observe).toHaveBeenCalledWith(payload, "text");
+  });
+
+  it("does not observe untracked, binary or failed response bodies", async () => {
+    const observe = vi.fn();
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(new Response("binary"))
+        .mockResolvedValueOnce(new Response("invalid JSON")),
+    );
+    const stop = subscribeToRequests(window, () => ({
+      complete: vi.fn(),
+      resume: vi.fn(),
+      canContinue: () => true,
+      response: observe,
+    }));
+    cleanup.push(stop);
+    await new Response('{"status":"untracked"}').json();
+    await (await window.fetch("/api/binary")).arrayBuffer();
+    await expect(
+      (await window.fetch("/api/invalid")).json(),
+    ).rejects.toBeInstanceOf(SyntaxError);
+    expect(observe).not.toHaveBeenCalled();
+  });
+
+  it("suppresses a body observation armed before its subscription was removed", async () => {
+    let resolveBody!: (value: string) => void;
+    const promise = new Promise<string>((resolve) => {
+      resolveBody = resolve;
+    });
+    vi.spyOn(Response.prototype, "text").mockReturnValue(promise);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response()));
+    const observe = vi.fn();
+    const stop = subscribeToRequests(window, () => ({
+      complete: vi.fn(),
+      resume: vi.fn(),
+      canContinue: () => false,
+      response: observe,
+    }));
+    cleanup.push(stop);
+    const response = await window.fetch("/api/pending");
+    const body = response.text();
+    stop();
+    resolveBody('{"status":"saved"}');
+    expect(await body).toBe('{"status":"saved"}');
+    expect(observe).not.toHaveBeenCalled();
+  });
+
+  it("contains response observer failures and does not inspect callback payload properties", async () => {
+    const read = vi.fn(() => {
+      throw new Error("must not inspect");
+    });
+    const payload = Object.defineProperty({}, "status", { get: read });
+    vi.spyOn(Response.prototype, "json").mockResolvedValue(payload);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response()));
+    const resume = vi.fn();
+    cleanup.push(
+      subscribeToRequests(window, () => ({
+        complete: vi.fn(),
+        resume,
+        canContinue: () => true,
+        response: () => {
+          throw new Error("observer failed");
+        },
+      })),
+    );
+    expect(await (await window.fetch("/api/orders")).json()).toBe(payload);
+    expect(read).not.toHaveBeenCalled();
+    expect(resume).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["json", "text", ""])(
+    "observes XHR %j results once after completion using native accessors",
+    (format) => {
+      const payload = { status: "created" };
+      vi.spyOn(XMLHttpRequest.prototype, "status", "get").mockReturnValue(201);
+      vi.spyOn(XMLHttpRequest.prototype, "responseType", "get").mockReturnValue(
+        format as XMLHttpRequestResponseType,
+      );
+      const json = vi
+        .spyOn(XMLHttpRequest.prototype, "response", "get")
+        .mockReturnValue(payload);
+      const text = vi
+        .spyOn(XMLHttpRequest.prototype, "responseText", "get")
+        .mockReturnValue(JSON.stringify(payload));
+      vi.spyOn(XMLHttpRequest.prototype, "send").mockImplementation(
+        function (this: XMLHttpRequest) {
+          this.dispatchEvent(new Event("loadend"));
+          this.dispatchEvent(new Event("loadend"));
+        },
+      );
+      const events: string[] = [];
+      const observe = vi.fn(() => {
+        events.push("body");
+      });
+      cleanup.push(
+        subscribeToRequests(window, () => ({
+          complete: () => {
+            events.push("complete");
+          },
+          resume: vi.fn(),
+          canContinue: () => false,
+          response: observe,
+        })),
+      );
+      const xhr = new XMLHttpRequest();
+      const custom = vi.fn(() => {
+        throw new Error("custom accessor");
+      });
+      for (const name of ["response", "responseText", "responseType"])
+        Object.defineProperty(xhr, name, { get: custom });
+      xhr.open("POST", "/api/orders");
+      xhr.send();
+      expect(events).toEqual(["complete", "body"]);
+      expect(custom).not.toHaveBeenCalled();
+      expect(observe).toHaveBeenCalledWith(
+        format === "json" ? payload : JSON.stringify(payload),
+        format === "json" ? "json" : "text",
+      );
+      expect(json).toHaveBeenCalledTimes(format === "json" ? 1 : 0);
+      expect(text).toHaveBeenCalledTimes(format === "json" ? 0 : 1);
+    },
+  );
+
+  it("does not read XHR bodies without a response observer, for binary responses, or after abort", () => {
+    vi.spyOn(XMLHttpRequest.prototype, "status", "get").mockReturnValue(200);
+    const type = vi
+      .spyOn(XMLHttpRequest.prototype, "responseType", "get")
+      .mockReturnValue("arraybuffer");
+    const response = vi.spyOn(XMLHttpRequest.prototype, "response", "get");
+    const text = vi.spyOn(XMLHttpRequest.prototype, "responseText", "get");
+    let aborted = false;
+    vi.spyOn(XMLHttpRequest.prototype, "send").mockImplementation(
+      function (this: XMLHttpRequest) {
+        if (aborted) this.dispatchEvent(new Event("abort"));
+        this.dispatchEvent(new Event("loadend"));
+      },
+    );
+    const stop = subscribeToRequests(window, () => ({
+      complete: vi.fn(),
+      resume: vi.fn(),
+      canContinue: () => false,
+    }));
+    cleanup.push(stop);
+    const xhr = new XMLHttpRequest();
+    xhr.open("GET", "/api/no-observer");
+    xhr.send();
+    expect(type).not.toHaveBeenCalled();
+    stop();
+    const observe = vi.fn();
+    cleanup.push(
+      subscribeToRequests(window, () => ({
+        complete: vi.fn(),
+        resume: vi.fn(),
+        canContinue: () => false,
+        response: observe,
+      })),
+    );
+    xhr.open("GET", "/api/binary");
+    xhr.send();
+    aborted = true;
+    xhr.open("GET", "/api/aborted");
+    xhr.send();
+    expect(observe).not.toHaveBeenCalled();
+    expect(response).not.toHaveBeenCalled();
+    expect(text).not.toHaveBeenCalled();
+  });
 });

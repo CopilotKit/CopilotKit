@@ -14,17 +14,14 @@ describe("semantic screen context", () => {
     "Refund: -£123.45",
     "Budget: €123,456.78",
     "Limit: USD 1,234",
-  ])(
-    "retains bounded currency amounts only in explicitly approved context: %s",
-    (text) => {
-      const context = capture(
-        `<main><p data-learning-context>${text}</p><button>Review</button></main>`,
-      );
-      expect(context?.items).toContainEqual(
-        expect.objectContaining({ kind: "content", accessibleName: text }),
-      );
-    },
-  );
+  ])("retains bounded currency amounts in screen context: %s", (text) => {
+    const context = capture(
+      `<main><p data-learning-context>${text}</p><button>Review</button></main>`,
+    );
+    expect(context?.items).toContainEqual(
+      expect.objectContaining({ kind: "content", accessibleName: text }),
+    );
+  });
 
   it.each([
     "Account: $123456789012",
@@ -96,9 +93,9 @@ describe("semantic screen context", () => {
     );
   });
 
-  it("captures explicit domain context without arbitrary page prose or private descendants", () => {
+  it("captures short visible prose and task values while excluding private descendants", () => {
     const context = capture(
-      '<main><h1>Order review</h1><p>Unmarked account details</p><p data-learning-context>Budget: $48 <span data-private>Private customer</span><textarea>Freeform note</textarea></p><div data-private><h2>Secret heading</h2></div><span role="status" style="display:none">Hidden status</span><button>Save</button></main>',
+      '<main><h1>Order review</h1><p>Approval requires a receipt.</p><p data-learning-context>Budget: $48 <span data-private>Private customer</span><textarea>Freeform note</textarea></p><div data-private><h2>Secret heading</h2></div><span role="status" style="display:none">Hidden status</span><button>Save</button></main>',
     );
     expect(context?.items).toContainEqual(
       expect.objectContaining({
@@ -107,7 +104,19 @@ describe("semantic screen context", () => {
       }),
     );
     expect(JSON.stringify(context)).not.toMatch(
-      /Unmarked|Private customer|Freeform|Secret heading|Hidden status/,
+      /Private customer|Secret heading|Hidden status/,
+    );
+    expect(context?.items).toContainEqual(
+      expect.objectContaining({
+        kind: "content",
+        accessibleName: "Approval requires a receipt.",
+      }),
+    );
+    expect(context?.items).toContainEqual(
+      expect.objectContaining({
+        kind: "control",
+        text: { value: "Freeform note" },
+      }),
     );
   });
 
@@ -166,5 +175,148 @@ describe("semantic screen context", () => {
         (item) => item.role === "radio" && item.state?.checked === false,
       ),
     ).toBe(false);
+  });
+  it("captures public initial fields and their updated values without requiring changes", () => {
+    const context = capture(
+      '<main><h1>Dispatch</h1><label>Quantity <input type="number" value="4"></label><label>Review note <textarea>Move the supplier dinner to Friday.</textarea></label><label>Delivery <select><option>Standard</option><option selected>Express</option></select></label><button>Save</button></main>',
+    );
+    expect(context?.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "control",
+          accessibleName: "Quantity",
+          text: { value: "4" },
+        }),
+        expect.objectContaining({
+          kind: "control",
+          accessibleName: "Review note",
+          text: { value: "Move the supplier dinner to Friday." },
+        }),
+        expect.objectContaining({
+          kind: "control",
+          accessibleName: "Delivery",
+          state: { selectedOptions: ["Express"] },
+        }),
+      ]),
+    );
+    document.querySelector("textarea")!.value =
+      "Move the supplier dinner to Monday.";
+    expect(
+      describeContext(document.querySelector("button")!)?.items,
+    ).toContainEqual(
+      expect.objectContaining({
+        text: { value: "Move the supplier dinner to Monday." },
+      }),
+    );
+  });
+
+  it("omits input/editor values when text capture is disabled but keeps finite choices", () => {
+    capture(
+      '<main><textarea aria-label="Review note">TASK_CANARY</textarea><div contenteditable="true" role="textbox" aria-label="Rich note">EDITOR_CANARY</div><select aria-label="Delivery"><option selected>Express</option></select><button>Save</button></main>',
+    );
+    const context = describeContext(
+      document.querySelector("button")!,
+      undefined,
+      { captureTextValues: false },
+    );
+    expect(JSON.stringify(context)).not.toMatch(
+      /TASK_CANARY|EDITOR_CANARY|"text":/,
+    );
+    expect(context?.items).toContainEqual(
+      expect.objectContaining({ state: { selectedOptions: ["Express"] } }),
+    );
+  });
+
+  it("filters private fields, sensitive hints, private prose and SDK composers at baseline", () => {
+    const context = capture(
+      '<main><textarea data-private>PRIVATE_CANARY</textarea><textarea aria-label="Home address">ADDRESS_CANARY</textarea><input type="password" value="PASSWORD_CANARY"><p>Contact reviewer@example.test</p><p data-private>PROSE_CANARY</p><div data-copilotkit><textarea aria-label="Message">COMPOSER_CANARY</textarea></div><button>Save</button></main>',
+    );
+    expect(JSON.stringify(context)).not.toMatch(
+      /PRIVATE_CANARY|ADDRESS_CANARY|PASSWORD_CANARY|PROSE_CANARY|COMPOSER_CANARY|reviewer@example/,
+    );
+    expect(context?.items).toContainEqual(
+      expect.objectContaining({ text: { omitted: "sensitive-field" } }),
+    );
+  });
+
+  it("includes short list/table context without exceeding the fixed observation budget", () => {
+    const context = capture(
+      "<main><h1>Dispatch</h1><ul><li>Use the loading dock.</li></ul><table><tbody><tr><th>Collection</th><td>Afternoon</td></tr></tbody></table><button>Save</button></main>",
+    );
+    expect(context?.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "content",
+          accessibleName: "Use the loading dock.",
+        }),
+        expect.objectContaining({
+          kind: "content",
+          accessibleName: "Collection",
+        }),
+        expect.objectContaining({
+          kind: "content",
+          accessibleName: "Afternoon",
+        }),
+      ]),
+    );
+  });
+
+  it("keeps the acted-on field visible when many earlier controls compete for the budget", () => {
+    document.body.innerHTML = `<main><h1>Dispatch</h1>${Array.from({ length: 10 }, (_, index) => `<input aria-label="Setting ${index}" value="Default">`).join("")}<textarea aria-label="Review note">Move the supplier dinner to Friday.</textarea><p role="status">Pending</p></main>`;
+    const context = describeContext(document.querySelector("textarea")!);
+    expect(context?.truncated).toBe(true);
+    expect(context?.items).toContainEqual(
+      expect.objectContaining({
+        accessibleName: "Review note",
+        text: { value: "Move the supplier dinner to Friday." },
+      }),
+    );
+    expect(context!.items.length).toBeLessThanOrEqual(8);
+    expect(
+      new TextEncoder().encode(JSON.stringify(context)).byteLength,
+    ).toBeLessThanOrEqual(2048);
+  });
+
+  it("captures unmarked public prices without allowing private currency-like identifiers", () => {
+    const context = capture(
+      "<main><p>Workshop catering: $84.50</p><p>Card: $4242 4242 4242 4242</p><p>Invoice: $84.50 reviewer@example.test</p><p data-private>Private budget: $50</p><button>Pay $84.50</button></main>",
+    );
+    expect(context?.items).toContainEqual(
+      expect.objectContaining({
+        kind: "content",
+        accessibleName: "Workshop catering: $84.50",
+      }),
+    );
+    expect(JSON.stringify(context)).not.toMatch(
+      /4242|reviewer@example|Private budget/,
+    );
+    expect(
+      describeTarget(document.querySelector("button")!, true).accessibleName,
+    ).toBeUndefined();
+  });
+
+  it("keeps useful bounded prose after inspecting the whole paragraph for sensitive suffixes", () => {
+    const paragraph =
+      "The delivery remains on hold until a reviewer confirms the loading dock can accept the shipment. The driver should wait for confirmation before unloading the supplies beside the reception desk.";
+    const context = capture(
+      `<main><p>${paragraph}</p><p>${paragraph} reviewer@example.test</p><p>${"Long prose ".repeat(80)}</p><p role="status">Awaiting review</p><button>Review</button></main>`,
+    );
+    expect(context?.items).toContainEqual(
+      expect.objectContaining({
+        kind: "content",
+        accessibleName: `${paragraph.slice(0, 157).trimEnd()}…`,
+      }),
+    );
+    expect(
+      context?.items.filter((item) => item.kind === "content"),
+    ).toHaveLength(1);
+    expect(context?.items).toContainEqual(
+      expect.objectContaining({
+        kind: "status",
+        accessibleName: "Awaiting review",
+      }),
+    );
+    expect(context?.truncated).toBe(true);
+    expect(JSON.stringify(context)).not.toContain("reviewer@example");
   });
 });

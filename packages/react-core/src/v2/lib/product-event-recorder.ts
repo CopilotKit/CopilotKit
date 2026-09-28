@@ -100,12 +100,20 @@ export function createProductEventRecorder({
           actionThreads.delete(actionThreads.keys().next().value!);
         }
       }
-      const threadId = actionThreads.get(event.actionId);
+      const threadId =
+        event.type === "context" && event.actionId === undefined
+          ? getThreadId(event)
+          : actionThreads.get(event.actionId!);
       if (!threadId) return;
       // A delayed screen observation must not describe a newly selected
       // thread's interface on the original thread. Request metadata can still
       // finish on its original action/thread.
-      if (event.type === "context" && getThreadId(event) !== threadId) return;
+      if (
+        event.type === "context" &&
+        event.actionId !== undefined &&
+        getThreadId(event) !== threadId
+      )
+        return;
       // One request in flight and at most 50 waiting. No automatic retries:
       // an unavailable runtime must not create an unbounded browser backlog.
       if (pending.length >= 50) {
@@ -129,8 +137,12 @@ export function createProductEventRecorder({
             : event.type === "request"
               ? "User action API request"
               : event.type === "context"
-                ? "Screen context after request"
-                : "User action DOM change",
+                ? event.trigger === "request-completed"
+                  ? "Screen context after request"
+                  : "Observed screen context"
+                : event.type === "response"
+                  ? "User action API response"
+                  : "User action DOM change",
       };
       pending.push({
         input,

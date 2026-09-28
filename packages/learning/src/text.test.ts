@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { readChangedText } from "./text";
+import { readChangedText, readControlText } from "./text";
 
 function field(markup = '<textarea aria-label="Review note"></textarea>') {
   document.body.innerHTML = markup;
@@ -41,7 +41,6 @@ describe("changed task text", () => {
   });
 
   it.each([
-    '<input type="number">',
     '<input type="password">',
     "<textarea data-private></textarea>",
     "<div data-sensitive><textarea></textarea></div>",
@@ -115,11 +114,95 @@ describe("changed task text", () => {
     expect(readChangedText(element)).toEqual({ omitted: "size-limit" });
   });
 
-  it("does not infer values from contenteditable markup", () => {
-    const element = document.createElement("div");
-    element.contentEditable = "true";
-    element.textContent = "Unsaved draft";
-    document.body.append(element);
-    expect(readChangedText(element)).toBeUndefined();
+  it("reads the initial state independently of native change events", () => {
+    const element = field(
+      '<textarea aria-label="Review note">Move the supplier dinner to Friday.</textarea>',
+    );
+    expect(readControlText(element)).toEqual({
+      value: "Move the supplier dinner to Friday.",
+    });
+    element.value = "Move the supplier dinner to Monday.";
+    expect(readControlText(element)).toEqual({
+      value: "Move the supplier dinner to Monday.",
+    });
+  });
+
+  it.each([
+    ["number", "42"],
+    ["range", "25"],
+    ["date", "2026-09-27"],
+    ["time", "13:45"],
+    ["datetime-local", "2026-09-27T13:45"],
+    ["month", "2026-09"],
+    ["week", "2026-W39"],
+  ])("reads ordinary native %s task values", (type, value) => {
+    const element = field(
+      `<input type="${type}" aria-label="Task setting" value="${value}">`,
+    );
+    expect(readControlText(element)).toEqual({ value });
+  });
+
+  it.each(["Birthday", "Date of birth", "DOB"])(
+    "omits personal dates labelled %s before reading them",
+    (label) => {
+      const element = field(
+        `<input type="date" aria-label="${label}" value="1990-01-01">`,
+      );
+      const valueRead = vi.spyOn(element, "value", "get");
+      expect(readControlText(element)).toEqual({ omitted: "sensitive-field" });
+      expect(valueRead).not.toHaveBeenCalled();
+    },
+  );
+
+  it("does not treat long numeric account identifiers as ordinary task quantities", () => {
+    const element = field(
+      '<input type="number" aria-label="Reference" value="4242424242424242">',
+    );
+    expect(readControlText(element)).toEqual({ omitted: "sensitive-content" });
+  });
+
+  it("reads visible editable text and retains paragraph boundaries", () => {
+    document.body.innerHTML =
+      '<div contenteditable="true" aria-label="Dispatch note"><p>Use the loading dock.</p><p>Ask for a receipt.</p></div>';
+    expect(readControlText(document.body.firstElementChild!)).toEqual({
+      value: "Use the loading dock.\nAsk for a receipt.",
+    });
+  });
+
+  it.each(["data-private", "hidden", "data-copilotkit"])(
+    "omits the whole editor if a %s descendant makes its value incomplete",
+    (attribute) => {
+      document.body.innerHTML = `<div contenteditable="true" aria-label="Dispatch note">Use the loading dock.<span ${attribute}>PRIVATE_CANARY</span></div>`;
+      const secret = document.querySelector("span")!.firstChild! as Text;
+      const read = vi.spyOn(secret, "data", "get");
+      expect(readControlText(document.body.firstElementChild!)).toEqual({
+        omitted: "sensitive-field",
+      });
+      expect(read).not.toHaveBeenCalled();
+    },
+  );
+
+  it("uses the same sensitive-field and sensitive-content filters for custom editors", () => {
+    document.body.innerHTML =
+      '<div contenteditable="true" aria-label="Home address">PRIVATE_CANARY</div>';
+    expect(readControlText(document.body.firstElementChild!)).toEqual({
+      omitted: "sensitive-field",
+    });
+    document.body.innerHTML =
+      '<div contenteditable="plaintext-only" aria-label="Dispatch note">Contact reviewer@example.test</div>';
+    expect(readControlText(document.body.firstElementChild!)).toEqual({
+      omitted: "sensitive-content",
+    });
+  });
+
+  it("bounds editor traversal and rejects oversized content without a misleading prefix", () => {
+    document.body.innerHTML = `<div contenteditable="true">${"<span>a</span>".repeat(70)}</div>`;
+    expect(readControlText(document.body.firstElementChild!)).toEqual({
+      omitted: "size-limit",
+    });
+    document.body.innerHTML = `<div contenteditable="true">${"x".repeat(1025)}</div>`;
+    expect(readControlText(document.body.firstElementChild!)).toEqual({
+      omitted: "size-limit",
+    });
   });
 });

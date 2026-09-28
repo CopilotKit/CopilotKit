@@ -22,7 +22,14 @@ export function trackProductChangeThreads(
   const onFocusOut = (event: Event) => {
     // Reverting to the original value emits no change. End that edit anyway,
     // so a later focus session cannot inherit its old thread.
-    if (event.isTrusted && event.target) edits.delete(event.target);
+    if (event.isTrusted && event.target) {
+      if (
+        event.target instanceof Element &&
+        event.target.matches("[contenteditable]:not([contenteditable=false])")
+      )
+        committed = edits.get(event.target);
+      edits.delete(event.target);
+    }
   };
 
   // Window capture runs before the generic capture library's document listener,

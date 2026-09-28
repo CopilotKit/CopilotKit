@@ -57,10 +57,11 @@ const inferredRoles: Record<string, string> = {
 function safeMetadata(
   value: string | null,
   allowCurrency = false,
+  maxLength = 80,
 ): string | undefined {
   if (!value || value.length > 512) return;
   const label = value?.trim();
-  // Only explicitly approved context may exempt a complete currency token from
+  // Screen context may exempt a complete currency token from
   // the numeric heuristic. Bound integer digits; never consume a prefix of a
   // longer account/card/phone sequence. Other metadata keeps its original rule.
   const numericText = allowCurrency
@@ -73,7 +74,7 @@ function safeMetadata(
   // Include separated phone/card numbers and common credential labels as well.
   if (
     !label ||
-    label.length > 80 ||
+    label.length > maxLength ||
     sensitiveIdentifier.test(label) ||
     /@|https?:\/\/|www\.|[\r\n]/i.test(label) ||
     (allowCurrency ? /(?:\d[\s(),+.-]*){4,}/ : /(?:\d[\s()+.-]*){4,}/).test(
@@ -116,6 +117,7 @@ export function visibleElement(element: Element): boolean {
 function readableElement(element: Element): boolean {
   return (
     visibleElement(element) &&
+    !element.matches("select") &&
     !element.closest(
       "textarea,input,[contenteditable]:not([contenteditable=false]),script,style,noscript",
     )
@@ -125,7 +127,7 @@ function readableElement(element: Element): boolean {
 export function readPublicText(
   element: Element,
   budget: ReadBudget = { remaining: 64, truncated: false },
-  approvedContext = false,
+  contextContent = false,
 ): string | undefined {
   let value = "";
   let complete = true;
@@ -157,12 +159,19 @@ export function readPublicText(
   }
   if (!readableElement(element)) return;
   visit(element);
-  return complete
-    ? safeMetadata(
-        value.replace(/\s+/g, " "),
-        approvedContext && element.hasAttribute("data-learning-context"),
-      )
-    : undefined;
+  if (!complete) return;
+  const publicText = safeMetadata(
+    value.replace(/\s+/g, " "),
+    contextContent,
+    contextContent ? 512 : 80,
+  );
+  if (contextContent && publicText && publicText.length > 160) {
+    // Inspect the complete bounded paragraph before shortening its public text.
+    // A sensitive suffix must never disappear merely because it is off-screen.
+    budget.truncated = true;
+    return `${publicText.slice(0, 157).trimEnd()}…`;
+  }
+  return publicText;
 }
 
 function accessibleName(

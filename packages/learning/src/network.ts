@@ -7,6 +7,8 @@ export interface RequestObservation {
   complete: (completion: RequestCompletion) => void;
   resume: () => void;
   canContinue: () => boolean;
+  /** App-consumed fetch JSON/text or completed XHR JSON/text; no stream reads. */
+  response?: (body: unknown, format: "json" | "text") => void;
 }
 
 // Metadata only: the request contains a body that capture must not inspect.
@@ -95,6 +97,10 @@ function install(win: BrowserWindow, hub: Hub): () => void {
     const continuing = completions.flatMap(({ listener, observation }) =>
       typeof observation === "function" ? [] : [{ listener, observation }],
     );
+    const observingBody = continuing.filter(
+      ({ observation }) => observation.response !== undefined,
+    );
+    let bodyObserved = false;
     const resume = (entries = continuing) => {
       for (const { listener, observation } of entries) {
         if (active && hub.listeners.has(listener)) {
@@ -123,6 +129,25 @@ function install(win: BrowserWindow, hub: Hub): () => void {
         }
       },
       resume,
+      get hasResponseObserver() {
+        return (
+          active &&
+          observingBody.some(({ listener }) => hub.listeners.has(listener))
+        );
+      },
+      response(responseBody: unknown, format: "json" | "text") {
+        if (bodyObserved) return;
+        bodyObserved = true;
+        for (const { listener, observation } of observingBody) {
+          if (active && hub.listeners.has(listener)) {
+            try {
+              observation.response?.(responseBody, format);
+            } catch {
+              /* Response observations must never change application results. */
+            }
+          }
+        }
+      },
       bodyContinuation() {
         const entries = continuing.filter(({ listener, observation }) => {
           if (!active || !hub.listeners.has(listener)) return false;
@@ -159,14 +184,23 @@ function install(win: BrowserWindow, hub: Hub): () => void {
       ...args: unknown[]
     ) => Promise<unknown>;
     const patched = function (this: Response, ...args: unknown[]) {
-      const resume = active
-        ? responses.get(this)?.bodyContinuation()
-        : undefined;
+      const observation = active ? responses.get(this) : undefined;
+      const resume = observation?.bodyContinuation();
+      const format = name === "json" || name === "text" ? name : undefined;
+      const observe = format && observation?.hasResponseObserver;
       const promise = Reflect.apply(original, this, args);
-      if (resume) {
-        // The application consumes the body; capture only observes settlement.
-        // Nothing remains active while its bytes are still arriving.
-        void promise.then(resume, () => {}).catch(() => {});
+      if (resume || observe) {
+        // The application owns this read. Observe its result without cloning,
+        // consuming another stream or replacing the returned promise.
+        void promise
+          .then(
+            (body) => {
+              if (observe) observation?.response(body, format);
+              resume?.();
+            },
+            () => {},
+          )
+          .catch(() => {});
       }
       return promise;
     };
@@ -273,6 +307,18 @@ function install(win: BrowserWindow, hub: Hub): () => void {
   const xhrPrototype = win.XMLHttpRequest.prototype;
   const originalOpen = xhrPrototype.open;
   const originalSend = xhrPrototype.send;
+  const xhrResponseType = Object.getOwnPropertyDescriptor(
+    xhrPrototype,
+    "responseType",
+  )?.get;
+  const xhrResponse = Object.getOwnPropertyDescriptor(
+    xhrPrototype,
+    "response",
+  )?.get;
+  const xhrResponseText = Object.getOwnPropertyDescriptor(
+    xhrPrototype,
+    "responseText",
+  )?.get;
   const metadata = new WeakMap<
     XMLHttpRequest,
     { url: string; method: string }
@@ -343,6 +389,18 @@ function install(win: BrowserWindow, hub: Hub): () => void {
             ? "success"
             : "error",
       });
+      if (!aborted && this.status > 0 && done?.hasResponseObserver) {
+        try {
+          // Use the native accessors rather than arbitrary instance getters.
+          // Binary/document responses stay opaque; no headers are inspected.
+          const type: unknown = xhrResponseType?.call(this);
+          if (type === "json") done.response(xhrResponse?.call(this), "json");
+          else if (type === "" || type === "text")
+            done.response(xhrResponseText?.call(this), "text");
+        } catch {
+          /* Unsupported response metadata stays opaque. */
+        }
+      }
     };
     if (done) {
       pending.set(this, () => {

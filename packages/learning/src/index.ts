@@ -8,4 +8,6 @@ export type {
   ProductControlState,
   ProductPageContext,
   ProductRequestBody,
+  ProductResponseBody,
+  ProductObjectReference,
 } from "./types";

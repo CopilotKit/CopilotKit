@@ -1,6 +1,16 @@
-import type { SanitizedRequestBody } from "./request-data";
+import type {
+  SanitizedRequestBody,
+  SanitizedResponseBody,
+} from "./request-data";
 
 export type ProductRequestBody = SanitizedRequestBody;
+export type ProductResponseBody = SanitizedResponseBody;
+
+export interface ProductObjectReference {
+  /** Zero-based nonempty pathname segment. Raw identifiers are never included. */
+  pathSegment: number;
+  reference: string;
+}
 
 export interface ProductControlState {
   checked?: boolean | "mixed";
@@ -30,6 +40,8 @@ export interface ProductInteractionContext {
   /** At most eight semantic elements, with a 2 KiB serialized context budget. */
   items: (ProductInteractionTarget & {
     kind: "heading" | "region" | "group" | "status" | "content" | "control";
+    /** Filtered current field content, also subject to the context byte budget. */
+    text?: ProductInteractionText;
   })[];
   /** The node, item or byte budget prevented a complete semantic observation. */
   truncated?: true;
@@ -42,31 +54,54 @@ export type ProductPageContext =
 
 interface ProductEventBase {
   id: string;
-  /** Shared by the user action and its correlated requests/DOM outcomes. */
-  actionId: string;
+  /** Scopes ephemeral object aliases to this capture instance; absent on legacy/manual events. */
+  captureId?: string;
   /** Optional for older/manual events. Requests retain the page at initiation. */
   page?: ProductPageContext;
   /** Unix epoch milliseconds. */
   timestamp: number;
 }
 
-/** Text observed at a native field change; this does not establish application persistence. */
+/** Filtered observed text; field observations do not establish application persistence. */
 export type ProductInteractionText =
   | { value: string }
-  | { omitted: "sensitive-content" | "sensitive-field" | "size-limit" };
+  | {
+      omitted:
+        | "sensitive-content"
+        | "sensitive-field"
+        | "size-limit"
+        | "in-progress";
+    };
 
 export type ProductInteractionEvent = ProductEventBase &
   (
     | {
         type: "interaction";
-        action: "click" | "change" | "submit";
+        actionId: string;
+        action:
+          | "click"
+          | "change"
+          | "submit"
+          | "shortcut"
+          | "dragstart"
+          | "drop"
+          | "selection";
         target: ProductInteractionTarget;
-        /** Bounded text on native text-field changes only; never a keystroke stream. */
+        /** Bounded committed control text or a public selection; never a keystroke stream. */
         text?: ProductInteractionText;
+        /** Earlier observed state, never an inferred application value. */
+        previous?: {
+          text?: ProductInteractionText;
+          state?: ProductControlState;
+        };
+        /** Only a bounded command-key vocabulary; never ordinary typing. */
+        shortcut?: string;
+        dragSource?: ProductInteractionTarget;
         context?: ProductInteractionContext;
       }
     | {
         type: "request";
+        actionId: string;
         request: {
           method: string;
           /** Allowed origin plus filtered pathname; sensitive segments redact, query/hash omitted. */
@@ -75,28 +110,47 @@ export type ProductInteractionEvent = ProductEventBase &
           attribution?: "user-action" | "response-continuation";
           /** Prior captured request whose response/body settlement opened this continuation. */
           parentRequestId?: string;
-          /** Bounded JSON request fields; no headers, response bodies, streams or binary content. */
+          /** Bounded JSON request fields; no headers, streams or binary content. */
           body?: ProductRequestBody;
+          references?: ProductObjectReference[];
           status?: number;
           durationMs: number;
           outcome: "success" | "error" | "aborted";
         };
       }
     | {
+        type: "response";
+        actionId: string;
+        requestId: string;
+        /** Filtered JSON consumed by the application; headers and streams are not read. */
+        response: {
+          method: string;
+          url: string;
+          body: ProductResponseBody;
+          references?: ProductObjectReference[];
+        };
+      }
+    | {
         type: "dom-change";
+        actionId: string;
         changes: { added: number; removed: number; attributes: number };
         /** Updated target state/name observed at the end of the immediate action. */
         target?: ProductInteractionTarget;
         /** Updated semantic snapshot, present only when its contents changed. */
         context?: ProductInteractionContext;
       }
-    | {
+    | ({
         /** A later observation, not a claim that the request caused the UI state. */
         type: "context";
-        trigger: "request-completed";
-        requestId: string;
         context: ProductInteractionContext;
-      }
+      } & (
+        | { trigger: "request-completed"; actionId: string; requestId: string }
+        | {
+            trigger: "initial" | "navigation" | "screen-change";
+            actionId?: never;
+            requestId?: never;
+          }
+      ))
   );
 
 export interface ProductInteractionCaptureOptions {
@@ -106,13 +160,15 @@ export interface ProductInteractionCaptureOptions {
   captureRequests?: boolean;
   /** Defaults to true. Filtered JSON-string bodies; also disabled by either text privacy switch. */
   captureRequestBodies?: boolean;
+  /** Defaults to true. Filtered application-consumed JSON; disabled by either text privacy switch. */
+  captureResponseBodies?: boolean;
   /** Defaults to same-origin /api. Absolute prefixes explicitly allow other origins. */
   apiUrlPrefixes?: readonly string[];
   /** Exclusions win over inclusions. Include your event ingestion/runtime URLs. */
   excludedUrlPrefixes?: readonly string[];
   /** Defaults to true. Captures immediate structural counts and semantic outcomes. */
   captureDomChanges?: boolean;
-  /** Defaults to true. Includes bounded semantic context with trusted actions. */
+  /** Defaults to true. Includes semantic context on actions and bounded standalone screen observations. */
   captureContext?: boolean;
   /** Defaults to true. Adds a bounded, filtered pathname; false omits page metadata. */
   capturePage?: boolean;

@@ -109,9 +109,31 @@ async function start(
       onEvent: (event: ProductInteractionEvent) => window.events.push(event),
     });
   }, options);
+  if (
+    options.captureContext !== false &&
+    options.captureAccessibleNames !== false
+  ) {
+    await expect
+      .poll(async () =>
+        (await events(page)).some(
+          (event) => event.type === "context" && event.trigger === "initial",
+        ),
+      )
+      .toBe(true);
+    const initial = (await events(page)).find(
+      (event) => event.type === "context" && event.trigger === "initial",
+    )!;
+    expect(initial).not.toHaveProperty("actionId");
+    expect(initial).not.toHaveProperty("requestId");
+  }
 }
 async function events(page: Page): Promise<ProductInteractionEvent[]> {
   return page.evaluate(() => window.events);
+}
+
+async function actionEvents(page: Page): Promise<ProductInteractionEvent[]> {
+  // Standalone screen observations are valid output, not user interventions.
+  return (await events(page)).filter((event) => event.actionId !== undefined);
 }
 
 test("committed task text preserves the user's instruction without recording keystrokes", async ({
@@ -211,18 +233,37 @@ test("private and SDK chat text stay absent while ordinary application notes are
   expect(serialized).toContain("Move the supplier dinner to Friday");
 });
 
-test("clicks and synthetic changes do not read prefilled text", async ({
+test("public prefilled text is context while synthetic changes do not become user actions", async ({
   page,
 }) => {
   await start(page);
   await page.evaluate(() => {
     const field = document.querySelector<HTMLTextAreaElement>("#review-note")!;
-    field.value = "UNOBSERVED_DRAFT";
+    field.value = "Keep the delivery on Friday.";
     field.dispatchEvent(new Event("change", { bubbles: true }));
   });
+  expect(await actionEvents(page)).toEqual([]);
   await page.click("#review-note");
   await page.click("#blur");
-  expect(JSON.stringify(await events(page))).not.toContain("UNOBSERVED_DRAFT");
+  const captured = await events(page);
+  expect(
+    captured.some(
+      (event) => event.type === "interaction" && event.action === "change",
+    ),
+  ).toBe(false);
+  expect(
+    captured.some(
+      (event) =>
+        "context" in event &&
+        event.context?.items.some(
+          (item) =>
+            item.accessibleName === "Review note" &&
+            item.text &&
+            "value" in item.text &&
+            item.text.value === "Keep the delivery on Friday.",
+        ),
+    ),
+  ).toBe(true);
 });
 
 test("trusted user actions produce correlated, filtered request and DOM outcomes", async ({
@@ -241,7 +282,7 @@ test("trusted user actions produce correlated, filtered request and DOM outcomes
     )
     .toBe(1);
   const captured = await events(page);
-  expect(captured.map((event) => event.type).sort()).toEqual([
+  expect((await actionEvents(page)).map((event) => event.type).sort()).toEqual([
     "dom-change",
     "interaction",
     "request",
@@ -257,9 +298,11 @@ test("trusted user actions produce correlated, filtered request and DOM outcomes
       learningId: "draft-save",
     },
   });
-  expect(captured.every((event) => event.actionId === interaction.id)).toBe(
-    true,
-  );
+  expect(
+    (await actionEvents(page)).every(
+      (event) => event.actionId === interaction.id,
+    ),
+  ).toBe(true);
   expect(captured.find((event) => event.type === "request")).toMatchObject({
     request: {
       method: "POST",
@@ -287,7 +330,7 @@ test("filters identifying labels by default and supports disabling accessible na
     button.textContent = "Raw customer document text";
   });
   await page.click("#blur");
-  expect((await events(page))[0]).toMatchObject({
+  expect((await actionEvents(page))[0]).toMatchObject({
     target: { tagName: "button", role: "button" },
   });
   expect(JSON.stringify(await events(page))).not.toMatch(
@@ -300,7 +343,7 @@ test("filters identifying labels by default and supports disabling accessible na
     button.setAttribute("data-learning-id", "preferences-open");
   });
   await page.click("#blur");
-  expect((await events(page)).at(-1)).toMatchObject({
+  expect((await actionEvents(page)).at(-1)).toMatchObject({
     target: {
       accessibleName: "Open preferences",
       learningId: "preferences-open",
@@ -324,14 +367,17 @@ test("omits synthetic events, passive requests, late requests, and private contr
     document.querySelector<HTMLButtonElement>("#save")!.click();
   });
   await expect.poll(() => page.evaluate(() => window.requestCount)).toBe(2);
-  expect(await events(page)).toEqual([]);
+  expect(await actionEvents(page)).toEqual([]);
   await page.click("#private");
   await page.fill("#password", "private password");
   await page.fill("#card", "4242424242424242");
-  expect(await events(page)).toEqual([]);
+  expect(await actionEvents(page)).toEqual([]);
+  expect(JSON.stringify(await events(page))).not.toMatch(
+    /private password|4242424242424242/,
+  );
   await page.click("#later");
   await expect.poll(() => page.evaluate(() => window.requestCount)).toBe(4);
-  expect((await events(page)).map((event) => event.type)).toEqual([
+  expect((await actionEvents(page)).map((event) => event.type)).toEqual([
     "interaction",
   ]);
 });
@@ -341,7 +387,10 @@ test("captures XHR metadata and form changes without keylogging", async ({
 }) => {
   await start(page);
   await page.fill("#ordinary", "Quarterly expense review");
-  expect(await events(page)).toEqual([]);
+  expect(await actionEvents(page)).toEqual([]);
+  expect(JSON.stringify(await events(page))).not.toContain(
+    "Quarterly expense review",
+  );
   await page.click("#blur");
   expect(
     (await events(page)).some(
@@ -453,7 +502,7 @@ test("records semantic context and actual immediate state/text outcomes", async 
 }) => {
   await semanticFixture(page);
   await page.click("#save");
-  await expect.poll(async () => (await events(page)).length).toBe(2);
+  await expect.poll(async () => (await actionEvents(page)).length).toBe(2);
   const captured = await events(page);
   const interaction = captured.find((event) => event.type === "interaction");
   const outcome = captured.find((event) => event.type === "dom-change");
@@ -511,8 +560,8 @@ test("observes text-only semantic changes and does not repeat unchanged context"
     });
   });
   await page.click("#save");
-  await expect.poll(async () => (await events(page)).length).toBe(2);
-  expect((await events(page))[1]).toMatchObject({
+  await expect.poll(async () => (await actionEvents(page)).length).toBe(2);
+  expect((await actionEvents(page))[1]).toMatchObject({
     type: "dom-change",
     context: {
       items: expect.arrayContaining([
@@ -521,7 +570,7 @@ test("observes text-only semantic changes and does not repeat unchanged context"
     },
   });
   await page.click("#save");
-  await expect.poll(async () => (await events(page)).length).toBe(3);
+  await expect.poll(async () => (await actionEvents(page)).length).toBe(3);
 });
 
 test("supports disabling screen context and disabling all textual labels", async ({
@@ -529,8 +578,8 @@ test("supports disabling screen context and disabling all textual labels", async
 }) => {
   await semanticFixture(page, { captureContext: false });
   await page.click("#save");
-  await expect.poll(async () => (await events(page)).length).toBe(2);
-  expect((await events(page))[0]).toMatchObject({
+  await expect.poll(async () => (await actionEvents(page)).length).toBe(2);
+  expect((await actionEvents(page))[0]).toMatchObject({
     target: { accessibleName: "Save order" },
   });
   expect((await events(page)).every((event) => !("context" in event))).toBe(
@@ -538,9 +587,11 @@ test("supports disabling screen context and disabling all textual labels", async
   );
   await semanticFixture(page, { captureAccessibleNames: false });
   await page.click("#save");
-  await expect.poll(async () => (await events(page)).length).toBe(2);
+  await expect.poll(async () => (await actionEvents(page)).length).toBe(2);
   const captured = await events(page);
-  expect(captured[0]).toMatchObject({ target: { state: { pressed: false } } });
+  expect(captured.find((event) => event.type === "interaction")).toMatchObject({
+    target: { state: { pressed: false } },
+  });
   expect(JSON.stringify(captured)).not.toMatch(
     /Save order|Order review|Office supplies|Express|Pending|Saved|Budget/,
   );
@@ -561,7 +612,7 @@ test("records disappearing semantic context without reading newly hidden content
     });
   });
   await page.click("#save");
-  await expect.poll(async () => (await events(page)).length).toBe(2);
+  await expect.poll(async () => (await actionEvents(page)).length).toBe(2);
   const captured = await events(page);
   const outcome = captured.find((event) => event.type === "dom-change");
   expect(outcome?.context?.items.some((item) => item.kind === "status")).toBe(
@@ -582,9 +633,9 @@ test("omits hidden target labels changed by a trusted click handler", async ({
     });
   });
   await page.click("#save");
-  await expect.poll(async () => (await events(page)).length).toBe(2);
+  await expect.poll(async () => (await actionEvents(page)).length).toBe(2);
   const captured = await events(page);
-  expect(captured[0]).toMatchObject({
+  expect(captured.find((event) => event.type === "interaction")).toMatchObject({
     target: { accessibleName: "Save order" },
   });
   expect(JSON.stringify(captured)).not.toContain("Internal customer Alice");
@@ -610,8 +661,8 @@ for (const control of ["checkbox", "select"] as const) {
       });
     }, control);
     await page.click("#save");
-    await expect.poll(async () => (await events(page)).length).toBe(2);
-    expect((await events(page))[1]).toMatchObject({
+    await expect.poll(async () => (await actionEvents(page)).length).toBe(2);
+    expect((await actionEvents(page))[1]).toMatchObject({
       type: "dom-change",
       context: {
         items: expect.arrayContaining([
@@ -639,7 +690,7 @@ test("observes the connected screen after the clicked region is replaced", async
     });
   });
   await page.click("#save");
-  await expect.poll(async () => (await events(page)).length).toBe(2);
+  await expect.poll(async () => (await actionEvents(page)).length).toBe(2);
   const outcome = (await events(page)).find(
     (event) => event.type === "dom-change",
   );
@@ -671,7 +722,10 @@ test("captureDomChanges false omits property-only outcomes", async ({
   });
   await page.click("#save");
   await page.waitForTimeout(30);
-  expect(await events(page)).toHaveLength(1);
+  expect(await actionEvents(page)).toHaveLength(1);
+  expect(
+    (await events(page)).some((event) => event.type === "dom-change"),
+  ).toBe(false);
 });
 
 test("deduplicates unchanged context across successfully emitted observations", async ({
@@ -680,7 +734,7 @@ test("deduplicates unchanged context across successfully emitted observations", 
   await semanticFixture(page, {}, false);
   await page.click("#save");
   await page.click("#save");
-  const captured = await events(page);
+  const captured = await actionEvents(page);
   expect(captured).toHaveLength(2);
   expect(captured[0]).toHaveProperty("context");
   expect(captured[1]).not.toHaveProperty("context");
@@ -718,12 +772,20 @@ test("observes context once after an eligible request completes without claiming
   await expect
     .poll(
       async () =>
-        (await events(page)).filter((event) => event.type === "context").length,
+        (await events(page)).filter(
+          (event) =>
+            event.type === "context" && event.trigger === "request-completed",
+        ).length,
     )
     .toBe(1);
   const captured = await events(page);
   const request = captured.find((event) => event.type === "request")!;
-  expect(captured.find((event) => event.type === "context")).toMatchObject({
+  expect(
+    captured.find(
+      (event) =>
+        event.type === "context" && event.trigger === "request-completed",
+    ),
+  ).toMatchObject({
     trigger: "request-completed",
     requestId: request.id,
     actionId: request.actionId,
@@ -735,7 +797,10 @@ test("observes context once after an eligible request completes without claiming
   });
   await page.waitForTimeout(90);
   expect(
-    (await events(page)).filter((event) => event.type === "context"),
+    (await events(page)).filter(
+      (event) =>
+        event.type === "context" && event.trigger === "request-completed",
+    ),
   ).toHaveLength(1);
 });
 
@@ -763,13 +828,16 @@ for (const interruption of [
       });
     await expect.poll(() => page.evaluate(() => window.requestCount)).toBe(1);
     await page.waitForTimeout(90);
-    expect((await events(page)).some((event) => event.type === "context")).toBe(
-      false,
-    );
+    expect(
+      (await events(page)).some(
+        (event) =>
+          event.type === "context" && event.trigger === "request-completed",
+      ),
+    ).toBe(false);
   });
 }
 
-test("background request completion never emits a context observation", async ({
+test("background requests stay absent while a changed screen can be observed without request attribution", async ({
   page,
 }) => {
   await requestObservationFixture(page);
@@ -778,8 +846,28 @@ test("background request completion never emits a context observation", async ({
     document.querySelector('[role="status"]')!.textContent =
       "Background update";
   });
-  await page.waitForTimeout(90);
-  expect(await events(page)).toEqual([]);
+  await expect
+    .poll(async () =>
+      (await events(page)).some(
+        (event) =>
+          event.type === "context" &&
+          event.trigger === "screen-change" &&
+          event.context.items.some(
+            (item) =>
+              item.kind === "status" &&
+              item.accessibleName === "Background update",
+          ),
+      ),
+    )
+    .toBe(true);
+  expect(await actionEvents(page)).toEqual([]);
+  const snapshots = (await events(page)).filter(
+    (event) => event.type === "context",
+  );
+  for (const snapshot of snapshots) {
+    expect(snapshot).not.toHaveProperty("requestId");
+    expect(snapshot).not.toHaveProperty("actionId");
+  }
 });
 
 test("does not read a target hidden by an earlier capture listener", async ({
@@ -799,7 +887,10 @@ test("does not read a target hidden by an earlier capture listener", async ({
   });
   await page.click("#save");
   await page.waitForTimeout(30);
-  expect(await events(page)).toEqual([]);
+  expect(await actionEvents(page)).toEqual([]);
+  expect(JSON.stringify(await events(page))).not.toContain(
+    "Internal customer Alice",
+  );
 });
 
 test("explicitly clears semantic context when the next screen has none", async ({
@@ -813,7 +904,7 @@ test("explicitly clears semantic context when the next screen has none", async (
       '<main><button id="next">Continue</button></main>';
   });
   await page.click("#next");
-  const captured = await events(page);
+  const captured = await actionEvents(page);
   expect(captured).toHaveLength(2);
   expect(captured[1]).toMatchObject({
     type: "interaction",
@@ -867,7 +958,7 @@ test("approved currency context survives without relaxing control labels or priv
   });
   await page.click("#save");
   const captured = await events(page);
-  expect(captured[0]).toMatchObject({
+  expect(captured.find((event) => event.type === "interaction")).toMatchObject({
     context: {
       items: expect.arrayContaining([
         expect.objectContaining({
@@ -877,7 +968,9 @@ test("approved currency context survives without relaxing control labels or priv
       ]),
     },
   });
-  expect(captured[0]).not.toHaveProperty("target.accessibleName");
+  expect(
+    captured.find((event) => event.type === "interaction"),
+  ).not.toHaveProperty("target.accessibleName");
   expect(JSON.stringify(captured)).not.toMatch(
     /4242424242424242|123,456,789,012/,
   );
@@ -1074,7 +1167,15 @@ test.describe("page metadata", () => {
     }
     await expect
       .poll(async () =>
-        (await events(page)).some((event) => event.type === "context"),
+        (await events(page)).some(
+          (event) =>
+            event.type === "context" &&
+            event.trigger === "screen-change" &&
+            event.context.items.some(
+              (item) =>
+                item.kind === "status" && item.accessibleName === "Saved",
+            ),
+        ),
       )
       .toBe(true);
     await page.waitForTimeout(900);
@@ -1089,14 +1190,47 @@ test.describe("page metadata", () => {
       page: { pathname: "/reviews/draft" },
       request: { status: 200 },
     });
-    expect(captured.find((event) => event.type === "context")).toMatchObject({
+    expect(
+      captured.find(
+        (event) =>
+          event.type === "context" && event.trigger === "screen-change",
+      ),
+    ).toMatchObject({
       page: { pathname: "/reviews/elsewhere" },
     });
+    expect(
+      captured.some(
+        (event) =>
+          event.type === "context" && event.trigger === "request-completed",
+      ),
+    ).toBe(false);
+    for (const snapshot of captured.filter(
+      (event) => event.type === "context",
+    )) {
+      expect(snapshot).not.toHaveProperty("actionId");
+      expect(snapshot).not.toHaveProperty("requestId");
+    }
     expect(JSON.stringify(captured)).not.toMatch(/QUERY_CANARY|HASH_CANARY/);
     const beforeNavigation = captured.length;
     await navigate(page, "/reviews/background-only");
-    await page.waitForTimeout(800);
-    expect(await events(page)).toHaveLength(beforeNavigation);
+    await expect
+      .poll(async () =>
+        (await events(page))
+          .slice(beforeNavigation)
+          .some(
+            (event) =>
+              event.type === "context" &&
+              event.trigger === "navigation" &&
+              event.page &&
+              "pathname" in event.page &&
+              event.page.pathname === "/reviews/background-only",
+          ),
+      )
+      .toBe(true);
+    const navigation = (await events(page)).slice(beforeNavigation);
+    expect(navigation).toHaveLength(1);
+    expect(navigation[0]).not.toHaveProperty("actionId");
+    expect(navigation[0]).not.toHaveProperty("requestId");
   });
 
   test("observes native change and submit pages after SPA navigation and back", async ({

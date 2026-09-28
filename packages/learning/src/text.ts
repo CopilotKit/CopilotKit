@@ -1,8 +1,9 @@
 import type { ProductInteractionText } from "./types";
 import { readPublicText, visibleElement } from "./privacy";
+import type { ReadBudget } from "./privacy";
 
 const sensitiveFieldHint =
-  /\b(?:user[\s_.-]*name|(?:full|first|last|given|family|display|legal)[\s_.-]*name|(?:street|home|postal|billing|shipping|mailing)[\s_.-]*address|address|e[\s_.-]*mail|phone|mobile|password|passwd|passcode|secret|token|api[\s_.-]*key|credit[\s_.-]*card|card[\s_.-]*number|cvv|cvc|ssn|social[\s_.-]*security)\b/i;
+  /\b(?:user[\s_.-]*name|(?:full|first|last|given|family|display|legal)[\s_.-]*name|(?:street|home|postal|billing|shipping|mailing)[\s_.-]*address|address|e[\s_.-]*mail|phone|mobile|password|passwd|passcode|secret|token|api[\s_.-]*key|credit[\s_.-]*card|card[\s_.-]*number|cvv|cvc|ssn|social[\s_.-]*security|birth[\s_.-]*day|date[\s_.-]*of[\s_.-]*birth|dob)\b/i;
 
 /** These bounded heuristics are not anonymization of arbitrary task prose. */
 export function sensitiveContent(value: string): boolean {
@@ -31,7 +32,8 @@ export function sensitiveContent(value: string): boolean {
 }
 
 export function hasSensitiveFieldHint(
-  element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
+  element: Element,
+  budget: ReadBudget = { remaining: 64, truncated: false },
 ): boolean {
   const hints: string[] = [];
   const sensitiveHint = (hint: string) => {
@@ -48,9 +50,13 @@ export function hasSensitiveFieldHint(
     if (hint.length > 512) return true;
     hints.push(hint);
   }
-  const labels = element.labels;
+  const labels =
+    element instanceof HTMLInputElement ||
+    element instanceof HTMLTextAreaElement ||
+    element instanceof HTMLSelectElement
+      ? element.labels
+      : undefined;
   if (labels && labels.length > 4) return true;
-  const budget = { remaining: 64, truncated: false };
   for (const label of labels ?? []) {
     const hint = readPublicText(label, budget);
     // Unreadable/filtered labels cannot establish an ordinary public field.
@@ -72,22 +78,38 @@ export function hasSensitiveFieldHint(
   return hints.some((hint) => sensitiveHint(hint) || sensitiveContent(hint));
 }
 
-/** Read only a native changed control; never traverse other control values. */
-export function readChangedText(
+const textInputTypes = new Set([
+  "text",
+  "search",
+  "number",
+  "range",
+  "date",
+  "time",
+  "datetime-local",
+  "month",
+  "week",
+]);
+
+/** Read a public control at any observation point, not only after an edit. */
+export function readControlText(
   element: Element,
+  budget: ReadBudget = { remaining: 64, truncated: false },
 ): ProductInteractionText | undefined {
+  const editable = element.matches(
+    '[contenteditable=""],[contenteditable="true"],[contenteditable="plaintext-only"]',
+  );
   if (
     !(
       element instanceof HTMLTextAreaElement ||
       (element instanceof HTMLInputElement &&
-        ["text", "search"].includes(element.type))
+        textInputTypes.has(element.type)) ||
+      editable
     ) ||
     !element.isConnected ||
     !visibleElement(element)
   )
     return;
-  // SDK composers already contribute messages to agent history. This guard only
-  // omits their text; generic interaction capture still tracks focus/attribution.
+  // SDK composers already contribute messages to agent history.
   let current: Element | null = element;
   while (current) {
     if (current.hasAttribute("data-copilotkit")) return;
@@ -95,10 +117,68 @@ export function readChangedText(
     current =
       current.parentElement ?? (root instanceof ShadowRoot ? root.host : null);
   }
-  if (hasSensitiveFieldHint(element)) return { omitted: "sensitive-field" };
-  const value = element.value;
+  if (hasSensitiveFieldHint(element, budget))
+    return { omitted: "sensitive-field" };
+
+  let value = "";
+  if (
+    element instanceof HTMLTextAreaElement ||
+    element instanceof HTMLInputElement
+  ) {
+    value = element.value;
+  } else {
+    let omitted: "sensitive-field" | "size-limit" | undefined;
+    function visit(node: Node) {
+      if (omitted) return;
+      if (budget.remaining-- <= 0) {
+        budget.truncated = true;
+        omitted = "size-limit";
+        return;
+      }
+      if (node instanceof Element && node !== element) {
+        if (!visibleElement(node) || node.hasAttribute("data-copilotkit")) {
+          // A partially redacted editor could falsely imply a complete value.
+          omitted = "sensitive-field";
+          return;
+        }
+        if (node.matches("input,textarea,select,script,style,noscript")) return;
+        if (node.matches("br")) value += "\n";
+        else if (node.matches("p,div,li") && value && !value.endsWith("\n"))
+          value += "\n";
+      }
+      if (node instanceof Text) {
+        if (value.length + node.length > 1024) {
+          omitted = "size-limit";
+          return;
+        }
+        value += node.data;
+      }
+      for (
+        let child = node.firstChild;
+        child && !omitted;
+        child = child.nextSibling
+      )
+        visit(child);
+    }
+    visit(element);
+    if (omitted) return { omitted };
+  }
+
   if (value.length > 1024 || new TextEncoder().encode(value).byteLength > 2048)
     return { omitted: "size-limit" };
-  if (sensitiveContent(value)) return { omitted: "sensitive-content" };
+  // Native date/time controls normalize their values. A valid task deadline is
+  // useful context; field hints still exclude birthdays and other private dates.
+  const nativeDate =
+    element instanceof HTMLInputElement &&
+    ["date", "time", "datetime-local", "month", "week"].includes(
+      element.type,
+    ) &&
+    /^(?:\d{4}-\d{2}(?:-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?)?)?|\d{4}-W\d{2}|\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?)$/.test(
+      value,
+    );
+  if (!nativeDate && sensitiveContent(value))
+    return { omitted: "sensitive-content" };
   return { value };
 }
+
+export const readChangedText = readControlText;

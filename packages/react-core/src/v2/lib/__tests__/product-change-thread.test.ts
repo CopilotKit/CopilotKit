@@ -2,7 +2,7 @@ import type { ProductInteractionEvent } from "@copilotkit/learning";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { trackProductChangeThreads } from "../product-change-thread";
 
-const change: ProductInteractionEvent = {
+const change: Extract<ProductInteractionEvent, { type: "interaction" }> = {
   type: "interaction",
   action: "change",
   id: "change",
@@ -10,7 +10,10 @@ const change: ProductInteractionEvent = {
   timestamp: 1,
   target: { tagName: "input" },
 };
-const click: ProductInteractionEvent = { ...change, action: "click" };
+const click: Extract<ProductInteractionEvent, { type: "interaction" }> = {
+  ...change,
+  action: "click",
+};
 
 function setup(initialThread: string | undefined) {
   let thread = initialThread;
@@ -65,6 +68,21 @@ describe("committed product-change attribution", () => {
       deliver("input", field);
       deliver("change", field);
       expect(tracker.getThreadId(change)).toBe("B");
+    } finally {
+      tracker.stop();
+    }
+  });
+
+  it("keeps contenteditable commits on their editing thread after blur selects another chat", () => {
+    const { tracker, deliver, select } = setup("A");
+    const field = document.createElement("div");
+    field.setAttribute("contenteditable", "true");
+    try {
+      deliver("input", field);
+      select("B");
+      deliver("focusout", field);
+      expect(tracker.getThreadId(change)).toBe("A");
+      expect(tracker.getThreadId(click)).toBe("B");
     } finally {
       tracker.stop();
     }
