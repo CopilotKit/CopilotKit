@@ -55,6 +55,7 @@ import type {
 import type { AbstractAgent, AgentSubscriber, Message } from "@ag-ui/client";
 import type { InspectorLearningSnapshotV1 } from "@copilotkit/shared";
 import { deriveLearningViewState } from "./components/learning-view.js";
+import "./components/intelligence-view.js";
 import type { LearningViewState } from "./components/learning-view.js";
 import type {
   Anchor,
@@ -6575,12 +6576,16 @@ function defineElementOnce(
 export class WebInspectorElement extends LitElement {
   static properties = {
     core: { attribute: false },
+    intelligenceAppUrl: { attribute: false },
     notificationContext: { attribute: false },
     autoAttachCore: { type: Boolean, attribute: "auto-attach-core" },
     _capabilitiesVersion: { state: true },
   } as const;
 
   private _core: CopilotKitCore | null = null;
+  /** Opt-in URL for the embedded Intelligence entry in managed or self-hosted deployments. */
+  intelligenceAppUrl = "";
+  private learningIntelligenceOpen = false;
   private coreSubscriber: CopilotKitCoreSubscriber | null = null;
   private coreUnsubscribe: (() => void) | null = null;
   private _memories: Memory[] = [];
@@ -6722,6 +6727,7 @@ export class WebInspectorElement extends LitElement {
   > = {
     home: "home",
     workbench: "threads",
+    insights: "analytics",
     inspect: "ag-ui-events",
   };
   private lastScrolledAgentNavigationLayout: string | null = null;
@@ -7097,6 +7103,20 @@ export class WebInspectorElement extends LitElement {
         label: LEARNING_VIEW_LABEL,
         icon: "Brain" as LucideIconName,
       },
+      ...(this.intelligenceAppUrl
+        ? [
+            {
+              key: "analytics" as const,
+              label: "Analytics",
+              icon: "ChartNoAxesCombined" as LucideIconName,
+            },
+            {
+              key: "governance" as const,
+              label: "Governance",
+              icon: "ShieldCheck" as LucideIconName,
+            },
+          ]
+        : []),
     ];
   }
 
@@ -16629,6 +16649,13 @@ export class WebInspectorElement extends LitElement {
       return this.renderSettingsPanel();
     }
 
+    if (
+      this.selectedMenu === "analytics" ||
+      this.selectedMenu === "governance"
+    ) {
+      return this.renderIntelligenceView(this.selectedMenu);
+    }
+
     if (this.selectedMenu === "home") {
       return this.renderHomeView();
     }
@@ -18571,6 +18598,33 @@ export class WebInspectorElement extends LitElement {
   }
 
   private renderMemoriesView() {
+    if (this.intelligenceAppUrl) {
+      return html`<div class="flex h-full min-h-0 flex-col">
+        <nav aria-label="Learning views" style="display:flex;gap:8px;padding:10px 16px;border-bottom:1px solid #dbdbe5">
+          <button type="button" aria-current=${!this.learningIntelligenceOpen ? "page" : nothing} @click=${() => {
+            this.learningIntelligenceOpen = false;
+            this.requestUpdate();
+          }}>Workbench</button>
+          <button type="button" aria-current=${this.learningIntelligenceOpen ? "page" : nothing} @click=${() => {
+            this.learningIntelligenceOpen = true;
+            this.requestUpdate();
+          }}>Insights & Skills</button>
+        </nav>
+        <div class="min-h-0 flex-1 overflow-hidden">${this.learningIntelligenceOpen ? this.renderIntelligenceView("learning") : this.renderLearningWorkbench()}</div>
+      </div>`;
+    }
+    return this.renderLearningWorkbench();
+  }
+
+  /** Reuses the existing shell and agent selector for embedded product pages. */
+  private renderIntelligenceView(
+    section: "analytics" | "governance" | "learning",
+  ) {
+    return html`<cpk-intelligence-view .core=${this._core} .appUrl=${this.intelligenceAppUrl} .section=${section} .agentId=${this.selectedContext === "all-agents" ? "" : this.selectedContext}></cpk-intelligence-view>`;
+  }
+
+  /** Preserves the original Learning setup, review and memory workbench. */
+  private renderLearningWorkbench() {
     const state = deriveLearningViewState({
       supported: this.learningSupported,
       loading: this.learningLoading,

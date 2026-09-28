@@ -518,6 +518,7 @@ async function boot(): Promise<void> {
   };
   inspector.setAttribute("auto-attach-core", "false");
   inspector.core = core;
+  inspector.intelligenceAppUrl = query.get("intelligenceAppUrl") ?? "";
   inspectorHost.replaceChildren(inspector);
 
   coreUnsubscribe = core.subscribe({

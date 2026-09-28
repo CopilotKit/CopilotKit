@@ -1,10 +1,11 @@
 import type { InspectorLeafKey } from "./telemetry.js";
 
-export type ShellGroupKey = "home" | "workbench" | "inspect";
+export type ShellGroupKey = "home" | "workbench" | "insights" | "inspect";
 
 export const INSPECTOR_GROUPS = {
   home: ["home", "whats-new"],
   workbench: ["playground", "threads", "memories"],
+  insights: ["analytics", "governance"],
   inspect: [
     "agents",
     "ag-ui-events",
@@ -20,6 +21,7 @@ export type MenuKey = (typeof INSPECTOR_GROUPS)[InspectorNavGroupKey][number];
 export const INSPECTOR_MENU_KEYS: ReadonlyArray<MenuKey> = [
   ...INSPECTOR_GROUPS.home,
   ...INSPECTOR_GROUPS.workbench,
+  ...INSPECTOR_GROUPS.insights,
   ...INSPECTOR_GROUPS.inspect,
 ];
 
@@ -29,6 +31,7 @@ export const INSPECTOR_NAV_SECTIONS: ReadonlyArray<{
 }> = [
   { group: "home", label: null },
   { group: "workbench", label: "Workbench" },
+  { group: "insights", label: "Insights" },
   { group: "inspect", label: "Inspect" },
 ];
 

@@ -1,5 +1,34 @@
 # @copilotkit/web-inspector
 
+## Embedded Intelligence views
+
+The optional `intelligenceAppUrl` property adds Analytics and Governance to the
+existing Inspector sidebar. Automatic Learning keeps its workbench and adds an
+Insights & Skills view. The existing launcher, window controls, agent selector,
+Rich Threads, Playground, and debug views keep their current behavior.
+
+```ts
+inspector.intelligenceAppUrl =
+  "https://your-intelligence-host.example/inspector.html";
+```
+
+The Intelligence web app renders the new pages inside the Inspector content
+pane. Charts and tables stay in that web app. The host bundle contains the iframe
+and its request relay. HTTP URLs work only on loopback hosts for local development.
+
+The iframe URL contains the parent origin, selected section, and agent scope.
+It contains no credentials. The host sends read requests through the existing
+authenticated Runtime connection. The Runtime resolves the current user and
+grant for each request, then calls an allowed Intelligence read endpoint.
+The platform API key stays on the server.
+
+Both sides check the exact message origin and source window. Closing a view
+cancels its requests. A denied request removes the embedded content. The iframe
+does not use the Intelligence console session or its authentication flow.
+
+The matching Intelligence build must enable its `inspector.intelligence-views`
+release flag. This entry remains off by default in production during development.
+
 ## Trusted project context
 
 The Web Inspector reads optional `InspectorMetadataV1` data from

@@ -408,8 +408,10 @@ export type ThreadsUsageBucket =
   | "unlimited"
   | "unknown_limit";
 export type ThreadsExpiryBucket = "unavailable" | "zero" | "positive";
-export type InspectorGroupKey = "home" | "workbench" | "inspect";
+export type InspectorGroupKey = "home" | "workbench" | "insights" | "inspect";
 export type InspectorLeafKey =
+  | "analytics"
+  | "governance"
   | "home"
   | "whats-new"
   | "playground"
