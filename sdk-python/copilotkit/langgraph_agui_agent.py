@@ -479,6 +479,9 @@ class LangGraphAGUIAgent(LangGraphAgent):
         example one per parallel frontend tool call. Its ``RuntimeError`` would
         escape the run on every retry, so name the fix instead. A value already
         keyed by interrupt id is LangGraph's own format and goes through.
+
+        Remove once ag-ui-langgraph ships a fix for
+        https://github.com/ag-ui-protocol/ag-ui/issues/2855.
         """
         command = (getattr(input, "forwarded_props", None) or {}).get("command")
         value = command.get("resume") if isinstance(command, dict) else None
@@ -521,6 +524,9 @@ class LangGraphAGUIAgent(LangGraphAgent):
 
         Replaces upstream's implementation rather than filtering its output, so
         a later upstream change here is not picked up.
+
+        Remove once ag-ui-langgraph ships a fix for
+        https://github.com/ag-ui-protocol/ag-ui/issues/2854.
         """
         return [
             item
@@ -550,6 +556,9 @@ class LangGraphAGUIAgent(LangGraphAgent):
         it bare, and LangGraph reads ``Command(resume=None)`` as no resume at
         all. Anything else — one open interrupt, an id that is not open — goes
         to upstream as is.
+
+        Remove once ag-ui-langgraph ships a fix for
+        https://github.com/ag-ui-protocol/ag-ui/issues/2178.
         """
         open_ids = {interrupt.id for interrupt in open_interrupts or []}
         has_none_payload = any(

@@ -552,8 +552,9 @@ def test_mixed_turn_runs_the_backend_call_once_and_pauses_the_frontend_one():
         "by interrupt id while more than one interrupt is pending, so it raises "
         "'When there are multiple pending interrupts, you must specify the "
         "interrupt id when resuming'. LangGraphAGUIAgent overrides "
-        "_build_command_from_agui_resume to fix this; remove the xfail once "
-        "upstream does the same."
+        "_build_command_from_agui_resume to fix this; remove the xfail and the "
+        "override once ag-ui-langgraph ships a fix for "
+        "https://github.com/ag-ui-protocol/ag-ui/issues/2178."
     ),
 )
 def test_upstream_adapter_cannot_resume_parallel_interrupts():
