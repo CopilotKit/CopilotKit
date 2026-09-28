@@ -25,6 +25,9 @@ export default defineConfig({
       // gen-ui-agent progress card: headline must follow the step data, not the
       // run lifecycle. Static render only.
       "src/app/demos/gen-ui-agent/InlineAgentStateCard.test.ts",
+      // Voice capability must depend on its dedicated provider credential,
+      // never the text-only AIMock configuration.
+      "src/lib/transcription-service.test.ts",
     ],
     // The live-PB e2e seam needs room to boot PocketBase + drain flush windows.
     testTimeout: 30_000,
