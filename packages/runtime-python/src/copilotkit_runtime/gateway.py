@@ -27,6 +27,7 @@ class Gateway:
     def __init__(
         self, config: RuntimeConfig, thread_id: str, run_id: str, telemetry: Telemetry
     ) -> None:
+        """Allocate per-run state; call join() before sending any events."""
         self.config = config
         self.thread_id = thread_id
         self.run_id = run_id
@@ -60,7 +61,7 @@ class Gateway:
                     "Gateway join attempt %d/%d failed: %s",
                     attempt + 1,
                     self.config.max_delivery_attempts,
-                    exc,
+                    type(exc).__name__,
                 )
                 await self._disconnect()
                 if attempt + 1 == self.config.max_delivery_attempts:
