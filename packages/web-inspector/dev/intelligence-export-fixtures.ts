@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { IntelligenceReadRequest } from "../src/lib/intelligence-relay.js";
 import { intelligenceLearningFixture } from "./intelligence-learning-fixtures.js";
+import { intelligenceFixture } from "./intelligence-state-lab.js";
 import { intelligenceContentFixture } from "./intelligence-content-fixtures.js";
 import { intelligenceAnalyticsFixture } from "./intelligence-analytics-fixtures.js";
 
@@ -123,7 +124,9 @@ function exportRows(job: FixtureJob): Record<string, unknown>[] {
     job.kind !== "skills" &&
     job.kind !== "activity" &&
     job.kind !== "events" &&
-    job.kind !== "tools"
+    job.kind !== "tools" &&
+    job.kind !== "runs" &&
+    job.kind !== "tool_calls"
   )
     return [
       {
@@ -141,33 +144,36 @@ function exportRows(job: FixtureJob): Record<string, unknown>[] {
       ),
     ),
   };
+  if (job.kind === "tool_calls") return toolCallExportRows(job, query);
   const response =
-    job.kind === "tools"
-      ? intelligenceContentFixture({
-          method: "GET",
-          path: "/api/v1/tools",
-          query,
-        })
-      : job.kind === "events"
-        ? intelligenceAnalyticsFixture({
+    job.kind === "runs"
+      ? intelligenceFixture({ method: "GET", path: "/api/v1/runs", query }).body
+      : job.kind === "tools"
+        ? intelligenceContentFixture({
             method: "GET",
-            path: "/api/v1/events",
+            path: "/api/v1/tools",
             query,
           })
-        : job.kind === "activity"
-          ? intelligenceGovernanceFixture({
+        : job.kind === "events"
+          ? intelligenceAnalyticsFixture({
               method: "GET",
-              path: "/api/v1/governance/events",
+              path: "/api/v1/events",
               query,
             })
-          : intelligenceLearningFixture({
-              method: "GET",
-              path:
-                job.kind === "skills"
-                  ? "/api/v1/learning/skills"
-                  : "/api/v1/learning/insights",
-              query,
-            });
+          : job.kind === "activity"
+            ? intelligenceGovernanceFixture({
+                method: "GET",
+                path: "/api/v1/governance/events",
+                query,
+              })
+            : intelligenceLearningFixture({
+                method: "GET",
+                path:
+                  job.kind === "skills"
+                    ? "/api/v1/learning/skills"
+                    : "/api/v1/learning/insights",
+                query,
+              });
   if (
     !isRecord(response) ||
     !Array.isArray(response.data) ||
@@ -201,6 +207,33 @@ function exportRows(job: FixtureJob): Record<string, unknown>[] {
 
 /** Stable columns match each fixture export, including empty files. */
 function exportColumns(job: FixtureJob): string[] {
+  if (job.kind === "runs")
+    return [
+      "runId",
+      "threadId",
+      "agentId",
+      "userId",
+      "startedAt",
+      "endedAt",
+      "outcome",
+      "durationMs",
+      "tokensIn",
+      "tokensOut",
+      "tokensTotal",
+      "model",
+      "toolCalls",
+    ];
+  if (job.kind === "tool_calls")
+    return [
+      "time",
+      "toolCallId",
+      "toolName",
+      "runId",
+      "threadId",
+      "agentId",
+      "outcome",
+      "durationMs",
+    ];
   if (job.kind === "tools")
     return [
       "toolName",
@@ -321,4 +354,61 @@ function csvCell(value: unknown): string {
 /** Narrows fixture objects without coercing their contents. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Reads every matching fixture call and removes private content from both formats. */
+function toolCallExportRows(
+  job: FixtureJob,
+  query: Readonly<Record<string, string>>,
+): Record<string, unknown>[] {
+  const tools = intelligenceContentFixture({
+    method: "GET",
+    path: "/api/v1/tools",
+    query,
+  });
+  if (
+    !isRecord(tools) ||
+    !Array.isArray(tools.data) ||
+    !tools.data.every(isRecord)
+  )
+    throw new Error("Invalid tools fixture");
+  const names = query.toolName
+    ? [query.toolName]
+    : tools.data.map((row) => {
+        if (typeof row.toolName !== "string")
+          throw new Error("Invalid tool name");
+        return row.toolName;
+      });
+  const rows: Record<string, unknown>[] = [];
+  for (const name of names) {
+    let cursor: string | undefined;
+    do {
+      const detail = intelligenceContentFixture({
+        method: "GET",
+        path: `/api/v1/tools/${encodeURIComponent(name)}`,
+        query: { ...query, limit: "100", ...(cursor ? { cursor } : {}) },
+      });
+      if (
+        !isRecord(detail) ||
+        !isRecord(detail.recentCalls) ||
+        !Array.isArray(detail.recentCalls.data) ||
+        !detail.recentCalls.data.every(isRecord)
+      )
+        throw new Error("Invalid tool calls fixture");
+      rows.push(
+        ...detail.recentCalls.data.map((row) =>
+          Object.fromEntries(
+            exportColumns(job).map((column) => [column, row[column]]),
+          ),
+        ),
+      );
+      cursor =
+        typeof detail.recentCalls.nextCursor === "string"
+          ? detail.recentCalls.nextCursor
+          : undefined;
+    } while (cursor !== undefined);
+  }
+  return rows.sort((left, right) =>
+    String(right.time).localeCompare(String(left.time)),
+  );
 }
