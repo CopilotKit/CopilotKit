@@ -33,6 +33,12 @@ The host sends later theme changes through the checked message channel without
 reloading the iframe, clearing drafts, or cancelling pending reads. The iframe
 requests the current theme when it starts, so delayed loads also match the host.
 
+The embedded app requests live agent-scope updates through the checked channel.
+Once it does, selecting another agent preserves the iframe document and list
+filters while cancelling old reads. The app clears private results and exports;
+record detail views return to their parent list. Older embedded apps that do not
+request scope updates still reload with the selected agent in the URL.
+
 Both sides check the exact message origin and source window. Closing a view
 cancels its requests. A denied request removes the embedded content. The iframe
 does not use the Intelligence console session or its authentication flow.

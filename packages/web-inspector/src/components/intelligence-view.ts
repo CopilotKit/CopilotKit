@@ -48,20 +48,27 @@ export class InspectorIntelligenceView extends LitElement {
   section: "analytics" | "governance" | "learning" = "analytics";
   agentId = "";
   colorScheme: "light" | "dark" = "light";
-  // This input is read only when the host opens a new section or agent.
+  // This input is read only when the host opens a new section.
   timeWindow: InspectorTimeWindow | undefined;
   private navigationKey = "";
   private navigationTime: InspectorTimeWindow | undefined;
   private navigationColorScheme: "light" | "dark" = "light";
+  private navigationAgentId = "";
+  private scopeMessagingReady = false;
   private denied = false;
 
   /** Applies the saved window on navigation without reloading the current iframe. */
   protected willUpdate(): void {
-    const key = JSON.stringify([this.appUrl, this.section, this.agentId]);
+    const key = JSON.stringify([this.appUrl, this.section]);
     if (key !== this.navigationKey) {
+      this.scopeMessagingReady = false;
       this.navigationKey = key;
       this.navigationTime = parseTimeWindow(this.timeWindow) ?? undefined;
       this.navigationColorScheme = this.colorScheme;
+      this.navigationAgentId = this.agentId;
+    } else if (!this.scopeMessagingReady) {
+      // An older embedded app still needs navigation to receive a new scope.
+      this.navigationAgentId = this.agentId;
     }
   }
   private disposeRelay: (() => void) | undefined;
@@ -88,7 +95,8 @@ export class InspectorIntelligenceView extends LitElement {
       );
       url.searchParams.set("section", this.section);
       url.searchParams.set("colorScheme", this.navigationColorScheme);
-      if (this.agentId) url.searchParams.set("agentId", this.agentId);
+      if (this.navigationAgentId)
+        url.searchParams.set("agentId", this.navigationAgentId);
       if (this.navigationTime) {
         url.searchParams.set("from", this.navigationTime.from);
         url.searchParams.set("to", this.navigationTime.to);
@@ -124,6 +132,10 @@ export class InspectorIntelligenceView extends LitElement {
       frame,
       origin: url.origin,
       onThemeRequest: () => this.syncColorScheme(),
+      onScopeRequest: () => {
+        this.scopeMessagingReady = true;
+        this.syncAgentScope();
+      },
       request: (request, signal) =>
         fetchInspectorIntelligence(
           {
@@ -154,6 +166,18 @@ export class InspectorIntelligenceView extends LitElement {
         );
       },
     });
+    this.syncAgentScope();
+  }
+
+  /** Changes scope in the mounted app after old authenticated reads are cancelled. */
+  private syncAgentScope(): void {
+    const frame = this.shadowRoot?.querySelector("iframe");
+    const url = this.frameUrl();
+    if (!frame || !url) return;
+    frame.contentWindow?.postMessage(
+      { type: "cpki:agent-scope", version: 1, agentId: this.agentId },
+      url.origin,
+    );
   }
 
   /** Updates appearance without replacing the document or aborting pending reads. */

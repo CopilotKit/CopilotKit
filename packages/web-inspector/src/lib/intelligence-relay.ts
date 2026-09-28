@@ -22,6 +22,7 @@ export interface IntelligenceRelayOptions {
   readonly onAccessLost: () => void;
   readonly onTimeWindow?: (timeWindow: InspectorTimeWindow) => void;
   readonly onThemeRequest?: () => void;
+  readonly onScopeRequest?: () => void;
 }
 
 /** Relays bounded iframe reads using the host's authenticated Runtime connection. */
@@ -66,6 +67,14 @@ export function attachIntelligenceRelay(
     )
       return;
     const message = event.data;
+    if (
+      isRecord(message) &&
+      message.version === 1 &&
+      message.type === "cpki:scope-request"
+    ) {
+      options.onScopeRequest?.();
+      return;
+    }
     if (
       isRecord(message) &&
       message.version === 1 &&
