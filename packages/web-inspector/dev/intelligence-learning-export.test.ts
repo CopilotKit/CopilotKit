@@ -77,7 +77,7 @@ test.each(["json", "csv"])(
     expect(file.body).not.toContain("refund-policy");
     if (format === "json")
       expect(JSON.parse(file.body)).toMatchObject({
-        data: [{ loads: { count: 5, runCount: 3 } }],
+        data: [{ loads: { count: 5, runCount: 1 } }],
         metadata: {
           rowCount: 1,
           filters: { agentId: "billing", containerId: "billing" },
@@ -98,4 +98,42 @@ test("Learning fixtures intersect the selected container and agent", () => {
       query: { agentId: "billing", containerId: "support" },
     }),
   ).toMatchObject({ data: [] });
+});
+
+test("Skill usage and lineage agree on distinct runs and the selected load window", () => {
+  const query = {
+    agentId: "billing",
+    from: "2026-09-20T00:00:00.000Z",
+    to: "2026-09-27T00:00:00.000Z",
+  };
+  const lineage = intelligenceLearningFixture({
+    method: "GET",
+    path: "/api/v1/learning/skills/10000000-0000-4000-8000-000000000002/lineage",
+    query,
+  });
+
+  expect(lineage).toMatchObject({
+    loadsWindow: { from: query.from, to: query.to },
+    versions: [
+      {
+        loads: {
+          data: Array.from({ length: 5 }, () => ({ runId: "fixture-run-2" })),
+        },
+      },
+    ],
+  });
+  expect(
+    intelligenceLearningFixture({
+      method: "GET",
+      path: "/api/v1/learning/skills",
+      query,
+    }),
+  ).toMatchObject({ data: [{ loads: { count: 5, runCount: 1 } }] });
+  expect(
+    intelligenceLearningFixture({
+      method: "GET",
+      path: "/api/v1/learning/skills/10000000-0000-4000-8000-000000000002/lineage",
+      query: { ...query, from: "2026-09-26T23:30:00.000Z" },
+    }),
+  ).toMatchObject({ versions: [{ loads: { data: [] } }] });
 });

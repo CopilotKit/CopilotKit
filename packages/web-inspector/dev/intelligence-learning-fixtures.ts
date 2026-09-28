@@ -21,7 +21,6 @@ export function intelligenceLearningFixture(
       topic: "Refunds",
       count: 8,
       loads: 12,
-      runCount: 8,
       threadId: "fixture-thread-1",
       runId: "fixture-run-1",
     },
@@ -36,7 +35,6 @@ export function intelligenceLearningFixture(
       topic: "Billing questions",
       count: 3,
       loads: 5,
-      runCount: 3,
       threadId: "fixture-thread-2",
       runId: "fixture-run-2",
     },
@@ -54,6 +52,18 @@ export function intelligenceLearningFixture(
     learningRunId: "learning-run-1",
     status: "active",
   });
+  const loadsOf = (record: (typeof records)[number]) =>
+    Array.from({ length: record.loads }, () => ({
+      runId: record.runId,
+      threadId: record.threadId,
+      agentId: record.agentId,
+      occurredAt: at,
+    })).filter(
+      (load) =>
+        (!request.query?.from ||
+          Date.parse(load.occurredAt) >= Date.parse(from)) &&
+        (!request.query?.to || Date.parse(load.occurredAt) < Date.parse(to)),
+    );
   if (request.path === "/api/v1/learning/insights")
     return {
       data: records.map((record) => ({
@@ -81,7 +91,12 @@ export function intelligenceLearningFixture(
         reviewer: actor,
         reviewedAt: at,
         delivery: { enabled: false, lastChangedBy: actor, lastChangedAt: at },
-        loads: { count: record.loads, runCount: record.runCount, from, to },
+        loads: {
+          count: loadsOf(record).length,
+          runCount: new Set(loadsOf(record).map((load) => load.runId)).size,
+          from,
+          to,
+        },
       })),
       nextCursor: null,
     };
@@ -90,6 +105,9 @@ export function intelligenceLearningFixture(
   );
   if (record)
     return {
+      ...(request.query?.from || request.query?.to
+        ? { loadsWindow: { from, to } }
+        : {}),
       skill: {
         id: record.id,
         containerId: record.agentId,
@@ -125,14 +143,7 @@ export function intelligenceLearningFixture(
             { revision: 7, publishedAt: at, revokedAt: null },
           ],
           loads: {
-            data: [
-              {
-                runId: record.runId,
-                threadId: record.threadId,
-                agentId: record.agentId,
-                occurredAt: at,
-              },
-            ],
+            data: loadsOf(record),
             nextCursor: null,
           },
         },
