@@ -1,3 +1,9 @@
+export interface InspectorTimeWindow {
+  readonly from: string;
+  readonly to: string;
+  readonly period?: string;
+}
+
 export interface IntelligenceReadRequest {
   readonly method: "GET" | "POST";
   readonly path: string;
@@ -14,6 +20,7 @@ export interface IntelligenceRelayOptions {
     signal: AbortSignal,
   ) => Promise<{ readonly status: number; readonly body: unknown }>;
   readonly onAccessLost: () => void;
+  readonly onTimeWindow?: (timeWindow: InspectorTimeWindow) => void;
 }
 
 /** Relays bounded iframe reads using the host's authenticated Runtime connection. */
@@ -58,6 +65,15 @@ export function attachIntelligenceRelay(
     )
       return;
     const message = event.data;
+    if (
+      isRecord(message) &&
+      message.version === 1 &&
+      message.type === "cpki:time-window"
+    ) {
+      const timeWindow = parseTimeWindow(message.timeWindow);
+      if (timeWindow) options.onTimeWindow?.(timeWindow);
+      return;
+    }
     if (
       !isRecord(message) ||
       message.version !== 1 ||
@@ -128,5 +144,30 @@ function parseRequest(value: unknown): IntelligenceReadRequest | null {
     path: value.path,
     ...(value.query === undefined ? {} : { query }),
     ...(value.body === undefined ? {} : { body: value.body }),
+  };
+}
+
+/** Accepts only bounded UTC windows and the known period labels. */
+export function parseTimeWindow(value: unknown): InspectorTimeWindow | null {
+  if (
+    !isRecord(value) ||
+    typeof value.from !== "string" ||
+    typeof value.to !== "string"
+  )
+    return null;
+  const utc = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/u;
+  if (!utc.test(value.from) || !utc.test(value.to)) return null;
+  const span = Date.parse(value.to) - Date.parse(value.from);
+  if (!Number.isFinite(span) || span <= 0 || span > 400 * 86400000) return null;
+  if (
+    value.period !== undefined &&
+    (typeof value.period !== "string" ||
+      !["1h", "24h", "7d", "30d", "custom"].includes(value.period))
+  )
+    return null;
+  return {
+    from: value.from,
+    to: value.to,
+    ...(typeof value.period === "string" ? { period: value.period } : {}),
   };
 }

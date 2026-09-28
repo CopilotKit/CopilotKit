@@ -57,7 +57,7 @@ export function intelligenceFixture(request: IntelligenceReadRequest): {
         : metric === "avg_response_ms"
           ? "milliseconds"
           : "count",
-      grain: "day",
+      grain: request.body.grain === "hour" ? "hour" : "day",
       from: start,
       to: end,
       total,

@@ -50,7 +50,7 @@ export function intelligenceContentFixture(
     const { toolName, lastCalledAt: _lastCalledAt, ...tiles } = tool;
     return {
       toolName,
-      grain: "day",
+      grain: request.query?.grain === "hour" ? "hour" : "day",
       from,
       to,
       asOf: "fixture_v1",

@@ -1,3 +1,4 @@
+import type { InspectorTimeWindow } from "./lib/intelligence-relay.js";
 import { loadNotificationFeed } from "./lib/notification-loader.js";
 import {
   emptyNotificationState,
@@ -6586,6 +6587,7 @@ export class WebInspectorElement extends LitElement {
   /** Opt-in URL for the embedded Intelligence entry in managed or self-hosted deployments. */
   intelligenceAppUrl = "";
   private learningIntelligenceOpen = false;
+  private intelligenceTimeWindow: InspectorTimeWindow | undefined;
   private coreSubscriber: CopilotKitCoreSubscriber | null = null;
   private coreUnsubscribe: (() => void) | null = null;
   private _memories: Memory[] = [];
@@ -18637,7 +18639,11 @@ export class WebInspectorElement extends LitElement {
   private renderIntelligenceView(
     section: "analytics" | "governance" | "learning",
   ) {
-    return html`<cpk-intelligence-view .core=${this._core} .appUrl=${this.intelligenceAppUrl} .section=${section} .agentId=${this.selectedContext === "all-agents" ? "" : this.selectedContext}></cpk-intelligence-view>`;
+    return html`<cpk-intelligence-view .timeWindow=${this.intelligenceTimeWindow} @intelligence-time-window=${(
+      event: CustomEvent<InspectorTimeWindow>,
+    ) => {
+      this.intelligenceTimeWindow = event.detail;
+    }} .core=${this._core} .appUrl=${this.intelligenceAppUrl} .section=${section} .agentId=${this.selectedContext === "all-agents" ? "" : this.selectedContext}></cpk-intelligence-view>`;
   }
 
   /** Preserves the original Learning setup, review and memory workbench. */

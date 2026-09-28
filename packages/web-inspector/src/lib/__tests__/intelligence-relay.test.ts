@@ -156,3 +156,56 @@ test("transfers export bytes to the exact iframe without a second structured-clo
     frame.remove();
   }
 });
+
+test("accepts time-window updates only from the exact iframe and validates the window", () => {
+  const frame = document.createElement("iframe");
+  document.body.append(frame);
+  const child = frame.contentWindow;
+  if (!child) throw new Error("Missing frame");
+  const onTimeWindow = vi.fn();
+  const dispose = attachIntelligenceRelay({
+    target: window,
+    frame,
+    origin: "https://intelligence.example",
+    request: async () => ({ status: 200, body: {} }),
+    onAccessLost: vi.fn(),
+    onTimeWindow,
+  });
+  const timeWindow = {
+    from: "2026-09-20T08:00:00.000Z",
+    to: "2026-09-21T08:00:00.000Z",
+    period: "custom",
+  };
+  try {
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        source: child,
+        origin: "https://attacker.example",
+        data: { type: "cpki:time-window", version: 1, timeWindow },
+      }),
+    );
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        source: child,
+        origin: "https://intelligence.example",
+        data: {
+          type: "cpki:time-window",
+          version: 1,
+          timeWindow: { ...timeWindow, to: timeWindow.from },
+        },
+      }),
+    );
+    expect(onTimeWindow).not.toHaveBeenCalled();
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        source: child,
+        origin: "https://intelligence.example",
+        data: { type: "cpki:time-window", version: 1, timeWindow },
+      }),
+    );
+    expect(onTimeWindow).toHaveBeenCalledWith(timeWindow);
+  } finally {
+    dispose();
+    frame.remove();
+  }
+});

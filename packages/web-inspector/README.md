@@ -16,11 +16,17 @@ The Intelligence web app renders the new pages inside the Inspector content
 pane. Charts and tables stay in that web app. The host bundle contains the iframe
 and its request relay. HTTP URLs work only on loopback hosts for local development.
 
-The iframe URL contains the parent origin, selected section, and agent scope.
+The iframe URL contains the parent origin, selected section, agent scope, and
+shared time window.
 It contains no credentials. The host sends read requests through the existing
 authenticated Runtime connection. The Runtime resolves the current user and
 grant for each request, then calls an allowed Intelligence read endpoint.
 The platform API key stays on the server.
+
+The host keeps the committed time window across Analytics, Governance, and the
+new Learning views. Time updates use the same exact-origin and source checks as
+reads. Saving the window does not reload the current iframe or reset its detail
+route. The original Learning workbench keeps its own controls.
 
 Both sides check the exact message origin and source window. Closing a view
 cancels its requests. A denied request removes the embedded content. The iframe

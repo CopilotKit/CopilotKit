@@ -1,6 +1,10 @@
 import { LitElement, html, css } from "lit";
 import type { CopilotKitCore } from "@copilotkit/core";
-import { attachIntelligenceRelay } from "../lib/intelligence-relay.js";
+import {
+  attachIntelligenceRelay,
+  parseTimeWindow,
+} from "../lib/intelligence-relay.js";
+import type { InspectorTimeWindow } from "../lib/intelligence-relay.js";
 import { fetchInspectorIntelligence } from "../lib/intelligence-transport.js";
 
 /** Loads only the selected product view inside the existing Inspector content pane. */
@@ -35,7 +39,20 @@ export class InspectorIntelligenceView extends LitElement {
   appUrl = "";
   section: "analytics" | "governance" | "learning" = "analytics";
   agentId = "";
+  // This input is read only when the host opens a new section or agent.
+  timeWindow: InspectorTimeWindow | undefined;
+  private navigationKey = "";
+  private navigationTime: InspectorTimeWindow | undefined;
   private denied = false;
+
+  /** Applies the saved window on navigation without reloading the current iframe. */
+  protected willUpdate(): void {
+    const key = JSON.stringify([this.appUrl, this.section, this.agentId]);
+    if (key !== this.navigationKey) {
+      this.navigationKey = key;
+      this.navigationTime = parseTimeWindow(this.timeWindow) ?? undefined;
+    }
+  }
   private disposeRelay: (() => void) | undefined;
 
   /** Keeps every navigation credential-free and scoped to the host's selected agent. */
@@ -60,6 +77,12 @@ export class InspectorIntelligenceView extends LitElement {
       );
       url.searchParams.set("section", this.section);
       if (this.agentId) url.searchParams.set("agentId", this.agentId);
+      if (this.navigationTime) {
+        url.searchParams.set("from", this.navigationTime.from);
+        url.searchParams.set("to", this.navigationTime.to);
+        if (this.navigationTime.period)
+          url.searchParams.set("period", this.navigationTime.period);
+      }
       return url;
     } catch {
       return null;
@@ -91,6 +114,14 @@ export class InspectorIntelligenceView extends LitElement {
           },
           request,
           signal,
+        ),
+      onTimeWindow: (timeWindow) =>
+        this.dispatchEvent(
+          new CustomEvent("intelligence-time-window", {
+            detail: timeWindow,
+            bubbles: true,
+            composed: true,
+          }),
         ),
       onAccessLost: () => {
         this.denied = true;
