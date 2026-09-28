@@ -98,3 +98,28 @@ test("Topics fixture changes counts and conversation links with the selected age
     ],
   });
 });
+
+test("Topics fixture describes an equal previous window only when requested", () => {
+  const query = {
+    from: "2026-09-20T00:00:00.000Z",
+    to: "2026-09-27T00:00:00.000Z",
+    compare: "previous_period",
+  };
+  expect(
+    intelligenceFixture({
+      method: "GET",
+      path: "/api/v1/learning/topics",
+      query,
+    }).body,
+  ).toMatchObject({
+    comparison: {
+      from: "2026-09-13T00:00:00.000Z",
+      to: query.from,
+      threadsAnalyzed: 0,
+    },
+  });
+  expect(
+    intelligenceFixture({ method: "GET", path: "/api/v1/learning/topics" })
+      .body,
+  ).not.toHaveProperty("comparison");
+});

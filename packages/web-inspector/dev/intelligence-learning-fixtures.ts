@@ -129,6 +129,17 @@ export function intelligenceLearningFixture(
       ],
       previousRuns: [],
       threadsAnalyzed: selected.length,
+      ...(request.query?.compare === "previous_period"
+        ? {
+            comparison: {
+              from: new Date(
+                2 * Date.parse(from) - Date.parse(to),
+              ).toISOString(),
+              to: from,
+              threadsAnalyzed: 0,
+            },
+          }
+        : {}),
       topics: selected.map((topic) => ({
         label: topic.label,
         threadCount: 1,
