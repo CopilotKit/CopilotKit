@@ -41,6 +41,8 @@ import { ThreadStoreRegistry } from "./thread-store-registry";
 import type { ɵThreadStore } from "../threads";
 import { ɵcreateMemoryStore } from "../memory";
 import type { ɵMemoryStore } from "../memory";
+import { HeaderSourceResolver, isHeaderResolutionError } from "./header-source";
+import type { CopilotKitHeadersSource } from "./header-source";
 
 /** Configuration options for `CopilotKitCore`. */
 export interface CopilotKitCoreConfig {
@@ -60,11 +62,11 @@ export interface CopilotKitCoreConfig {
   /** Mapping from agent name to its `AbstractAgent` instance. For development only - production requires CopilotRuntime. */
   agents__unsafe_dev_only?: Record<string, AbstractAgent>;
   /**
-   * Headers sent with every runtime request and merged on top of each
-   * `HttpAgent`'s own headers (the core value wins on a key conflict). See
-   * `setHeaders`.
+   * Headers sent with every runtime request: a record, or a sync or async
+   * builder that runs when each request is sent. Merged on top of each
+   * `HttpAgent`'s own headers (core wins on a key conflict). See `setHeaders`.
    */
-  headers?: Record<string, string>;
+  headers?: CopilotKitHeadersSource;
   /** Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies). */
   credentials?: RequestCredentials;
   /**
@@ -142,6 +144,11 @@ export enum CopilotKitCoreErrorCode {
   TRANSCRIPTION_AUTH_FAILED = "transcription_auth_failed",
   TRANSCRIPTION_NETWORK_ERROR = "transcription_network_error",
   SUBSCRIBER_CALLBACK_FAILED = "subscriber_callback_failed",
+  /**
+   * The `headers` builder threw, rejected, or returned something other than
+   * an object. The request was not sent. `error.cause` is the builder's error.
+   */
+  HEADER_RESOLUTION_FAILED = "header_resolution_failed",
 }
 
 export interface CopilotKitCoreSubscriber {
@@ -355,6 +362,7 @@ export interface CopilotKitCoreFriendsAccess {
 
   // Getters for internal state
   readonly headers: Readonly<Record<string, string>>;
+  resolveHeaders(): Record<string, string> | Promise<Record<string, string>>;
   readonly credentials: RequestCredentials | undefined;
   readonly messageFilter: CopilotKitMessageFilter | undefined;
   readonly properties: Readonly<Record<string, unknown>>;
@@ -393,24 +401,8 @@ export interface CopilotKitCoreFriendsAccess {
   };
 }
 
-/**
- * Normalize a header map to the internal invariant: a `Record<string, string>`
- * with no `null`/`undefined` values. Entries whose value is `null`/`undefined`
- * are dropped (this is how a header is cleared). Shared by the constructor and
- * `setHeaders` so both write paths into `_headers` enforce the same invariant.
- */
-function normalizeHeaders(
-  headers: Record<string, string | null | undefined>,
-): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(headers).filter(
-      (entry): entry is [string, string] => entry[1] != null,
-    ),
-  );
-}
-
 export class CopilotKitCore {
-  private _headers: Record<string, string>;
+  private headerSource: HeaderSourceResolver;
   private _credentials?: RequestCredentials;
   private _messageFilter?: CopilotKitMessageFilter;
   private _properties: Record<string, unknown>;
@@ -454,7 +446,14 @@ export class CopilotKitCore {
     suggestionsConfig = [],
     debug,
   }: CopilotKitCoreConfig) {
-    this._headers = normalizeHeaders(headers);
+    this.headerSource = new HeaderSourceResolver((error) => {
+      void this.emitError({
+        error,
+        code: CopilotKitCoreErrorCode.HEADER_RESOLUTION_FAILED,
+        context: { source: "headers" },
+      });
+    });
+    this.headerSource.setSource(headers);
     this._credentials = credentials;
     this._messageFilter = messageFilter;
     this._properties = properties;
@@ -589,6 +588,13 @@ export class CopilotKitCore {
     code: CopilotKitCoreErrorCode;
     context?: Record<string, any>;
   }): Promise<void> {
+    if (
+      code !== CopilotKitCoreErrorCode.HEADER_RESOLUTION_FAILED &&
+      isHeaderResolutionError(error)
+    ) {
+      // Already reported once as HEADER_RESOLUTION_FAILED.
+      return;
+    }
     await this.notifySubscribers(
       (subscriber) =>
         subscriber.onError?.({
@@ -672,8 +678,25 @@ export class CopilotKitCore {
     return this.agentRegistry.runtimeVersion;
   }
 
+  /**
+   * The last resolved headers. With a builder this is the value from the most
+   * recent request, not necessarily current; call `resolveHeaders()` for that.
+   */
   get headers(): Readonly<Record<string, string>> {
-    return this._headers;
+    return this.headerSource.headers;
+  }
+
+  /**
+   * Resolve the current headers. Synchronous for a record or a sync builder,
+   * a promise for an async builder. Concurrent calls share one builder call.
+   */
+  resolveHeaders(): Record<string, string> | Promise<Record<string, string>> {
+    return this.headerSource.resolve();
+  }
+
+  /** Changes only on `setHeaders` or a new source, never on a new token. */
+  get ɵheadersGeneration(): number {
+    return this.headerSource.generation;
   }
 
   get credentials(): RequestCredentials | undefined {
@@ -838,9 +861,14 @@ export class CopilotKitCore {
    * with, set it at the provider/core level instead of on the agent, or update
    * it on the agent directly. The clear-on-logout pattern above is for
    * core-level headers.
+   *
+   * Pass a function to have headers evaluated when each request is sent
+   * (sync or async). Setting the same function again is a no-op. A new token
+   * from the builder doesn't notify `onHeadersChanged`. On a user switch,
+   * call `setHeaders` again or remount the provider.
    */
-  setHeaders(headers: Record<string, string | null | undefined>): void {
-    this._headers = normalizeHeaders(headers);
+  setHeaders(headers: CopilotKitHeadersSource): void {
+    if (!this.headerSource.setSource(headers)) return;
     if (this._memoryStore) this.syncMemoryContext();
     this.agentRegistry.applyHeadersToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
