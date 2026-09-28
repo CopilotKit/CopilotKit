@@ -245,17 +245,17 @@ addStringCheck(
 );
 
 // --- 6. Provider <CopilotKit> from react-core/v2 -----------------------------
-// <CopilotKit ...> element (regex excludes the legacy <CopilotKitProvider>) AND
-// imported from @copilotkit/react-core/v2.
+// Both supported v2 providers are valid; the deprecated package root is not.
+// Require an import from @copilotkit/react-core/v2.
 
-const providerElem = srcMatch(/<CopilotKit([^A-Za-z]|$)/);
+const providerElem = srcMatch(/<CopilotKit(?:Provider)?([^A-Za-z]|$)/);
 const providerImport = srcMatch(/@copilotkit\/react-core\/v2/);
 addStringCheck(
-  "provider <CopilotKit> from react-core/v2",
+  "provider <CopilotKitProvider> or <CopilotKit> from react-core/v2",
   providerElem && providerImport,
   providerElem && providerImport
-    ? "<CopilotKit> element and @copilotkit/react-core/v2 import both present."
-    : `Need <CopilotKit> element (not <CopilotKitProvider>) AND @copilotkit/react-core/v2 import. element=${providerElem} import=${providerImport}`,
+    ? "Supported provider element and @copilotkit/react-core/v2 import both present."
+    : `Need <CopilotKitProvider> or <CopilotKit> element AND @copilotkit/react-core/v2 import. element=${providerElem} import=${providerImport}`,
 );
 
 // --- 7. Chat UI component -----------------------------------------------------

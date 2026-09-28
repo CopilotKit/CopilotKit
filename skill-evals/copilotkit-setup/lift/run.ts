@@ -4,7 +4,7 @@
  *
  * WHAT THIS DOES
  *   Runs the same task in N trials per arm, each in its own fresh container:
- *     1. WITH the skill mounted at /workspace/.claude/skills/copilotkit-setup
+ *     1. WITH the skill mounted at /workspace/.claude/skills/copilotkit
  *     2. WITHOUT it (the dir is simply absent)
  *   then diffs the two arms. The agent is real Claude Code (`claude -p`), invoked
  *   with --output-format stream-json so we read REAL efficiency signal off the
@@ -58,7 +58,7 @@ const __dirname = path.dirname(__filename);
 // .../skill-evals/copilotkit-setup/lift/run.ts -> eval dir is the parent of lift/.
 const EVAL_DIR = path.resolve(__dirname, "..");
 const RESULTS_DIR = path.join(EVAL_DIR, "results");
-const SKILL_NAME = "copilotkit-setup";
+const SKILL_NAME = "copilotkit";
 const SKILL_DIR = path.resolve(EVAL_DIR, "../../skills", SKILL_NAME);
 const IMAGE = "copilotkit-setup-eval";
 const CONTAINER_SKILL_DIR = `/workspace/.claude/skills/${SKILL_NAME}`;

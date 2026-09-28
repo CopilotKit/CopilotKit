@@ -18,7 +18,7 @@ on:
   pull_request:
     paths:
       - "skill-evals/**"
-      - "skills/copilotkit-setup/**"
+      - "skills/copilotkit/**"
       - ".github/workflows/skill_eval-lift.yml"
   workflow_dispatch:
     inputs:
@@ -75,6 +75,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Test the grader
+        run: pnpm exec tsx --test skill-evals/copilotkit-setup/graders/check.test.ts
 
       - name: Run skill-lift eval
         # Trials by trigger: dispatch input if given, else 1 on a PR smoke run,

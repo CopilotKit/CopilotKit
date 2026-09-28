@@ -37,8 +37,9 @@ project (`/workspace` and `src/`, package.json, the runtime server file, etc.).
 A trace that moved directly to the correct CopilotKit v2 surface shows the agent
 reaching for these APIs **without trial and error**:
 
-- Frontend provider: `CopilotKit` imported from `@copilotkit/react-core/v2`
-  (the v1/v2 compat bridge), plus `CopilotSidebar` from the same `/v2` subpath.
+- Frontend provider: `CopilotKitProvider` imported from `@copilotkit/react-core/v2`,
+  plus `CopilotSidebar` from the same `/v2` subpath. The `CopilotKit` compatibility
+  provider from that subpath is also supported.
 - Stylesheet: `@copilotkit/react-core/v2/styles.css`.
 - Runtime: `CopilotRuntime` and `BuiltInAgent` from `@copilotkit/runtime/v2`.
 - Endpoint factory: `createCopilotHonoHandler` (Hono) or
@@ -53,8 +54,7 @@ to correct course, is a dead-end and should lower the score:
 
 - `createCopilotEndpoint`, `createCopilotEndpointExpress`,
   `createCopilotEndpointSingleRoute*` (deprecated aliases).
-- `CopilotKitProvider` from `/v2` (a subset of the compat bridge — not the
-  recommended provider), or `CopilotKit` from the package root (legacy v1).
+- A provider imported from the package root (legacy v1).
 - Packages `@copilotkit/react` or `@copilotkit/agent` (do not exist in this
   layout); `@copilotkitnext/*` (deprecated scope).
 - Importing chat components or the stylesheet from `@copilotkit/react-ui`
@@ -79,7 +79,10 @@ to correct course, is a dead-end and should lower the score:
    node_modules for export names, reading many package files to rediscover the
    API, running a failing build repeatedly until it compiles, or fetching docs to
    learn the surface. Even when the final files are correct, this is **lower**
-   directness, because the agent had to discover the answer the hard way. An
+   directness when the exploration is aimless. The current `copilotkit` skill
+   explicitly asks agents to search current docs and source before writing code;
+   purposeful retrieval that reaches the correct API on the first attempt is
+   expected and must not lower the score. An
    agent that wrote the canonical code as if it already knew it scores **higher**.
    This contrast is the core "did the skill help" signal — do not flatten it.
 

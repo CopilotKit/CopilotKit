@@ -1,5 +1,9 @@
 # Skill evals
 
+The `copilotkit-setup` scenario evaluates the current `skills/copilotkit` entry
+point. The former `copilotkit-setup` skill was replaced; the scenario directory
+and `pnpm eval:skill:setup` command keep their existing names.
+
 Automated evaluations for the skills under `skills/`. Each skill that has an eval
 gets its own directory here: `skill-evals/<skill-name>/`. Config, fixtures, the
 grader, and the rubric live here, **not** inside `skills/<name>/`, because
@@ -36,7 +40,7 @@ the skill mounted and once without, and diff the results.
 ## How with/without works
 
 The single difference between the two arms is whether the skill directory exists
-at `/workspace/.claude/skills/copilotkit-setup` inside the container — the path
+at `/workspace/.claude/skills/copilotkit` inside the container — the path
 Claude Code discovers project skills from in headless mode. The WITH arm
 `docker cp`s the skill in; the WITHOUT arm does not. No flags, no hacks, no second
 image.
