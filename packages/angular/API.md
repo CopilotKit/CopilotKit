@@ -24,6 +24,7 @@ Import these symbols from `@copilotkit/angular`.
 - `A2UILifecycleContent`
 - `A2UILifecycleStatus`
 - `A2UIRecoveryOptions`
+- `A2UISurfaceError`
 - `AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME`
 - `ActivityRenderer`
 - `AgentStore`
@@ -171,6 +172,7 @@ Import these symbols from `@copilotkit/angular`.
 - `Message`
 - `MessageRendererContext`
 - `MessageViewContext`
+- `NativeA2UICatalog`
 - `NewMemory`
 - `OPEN_GENERATIVE_UI_ACTIVITY_TYPE`
 - `OPEN_GENERATIVE_UI_WEBSANDBOX_LOADER`
@@ -262,6 +264,35 @@ must not depend on them; the `ɵ` prefix and TSDoc mark them internal.
 - `ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS`
 - `ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE`
 <!-- public-api:root:end -->
+
+## A2UI Angular catalog entry point
+
+Import these symbols from `@copilotkit/angular/a2ui` to render A2UI with your
+own Angular components; see the [package README](./README.md#a2ui-with-angular-components).
+
+<!-- public-api:a2ui:start -->
+
+- `A2UICatalogDefinitions`
+- `A2UIChildRef`
+- `A2UIComponentContext`
+- `A2UIComponentDefinition`
+- `A2UIProps`
+- `A2UI_COMPONENT_CONTEXT`
+- `ActionSchema`
+- `ChildListSchema`
+- `CopilotA2UICatalog`
+- `CopilotA2UIChild`
+- `CopilotA2UIComponentImplementation`
+- `CopilotA2UISurface`
+- `CreateAngularCatalogOptions`
+- `DynamicBooleanSchema`
+- `DynamicNumberSchema`
+- `DynamicStringSchema`
+- `basicCatalog`
+- `createAngularCatalog`
+- `injectA2UIComponentContext`
+
+<!-- public-api:a2ui:end -->
 
 ## MCP Apps entry point
 

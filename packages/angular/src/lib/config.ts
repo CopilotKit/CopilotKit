@@ -1,4 +1,4 @@
-import type { Provider } from "@angular/core";
+import type { Provider, Type } from "@angular/core";
 import { inject, InjectionToken } from "@angular/core";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
@@ -20,11 +20,14 @@ import type {
   LitRenderable,
   Theme as A2UITheme,
 } from "@copilotkit/a2ui-renderer/web-components";
+import type { NativeA2UICatalog } from "./components/a2ui/native-catalog";
 
 export interface A2UIConfig {
   theme?: A2UITheme;
-  catalog?: Catalog<LitComponentImplementation>;
-  loadingComponent?: () => LitRenderable;
+  /** A Lit catalog, or one from `createAngularCatalog` in `@copilotkit/angular/a2ui`. */
+  catalog?: Catalog<LitComponentImplementation> | NativeA2UICatalog;
+  /** Shown until the first surface renders: a Lit template factory, or an Angular component for Angular catalogs. */
+  loadingComponent?: (() => LitRenderable) | Type<unknown>;
   includeSchema?: boolean;
   recovery?: A2UIRecoveryOptions;
 }

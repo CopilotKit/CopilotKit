@@ -106,7 +106,18 @@ const agent = new BuiltInAgent({
 
 ## Custom Models (AI SDK)
 
-For models not in the built-in list, you can pass any Vercel AI SDK `LanguageModel` instance directly:
+For models not in the built-in list, you can pass any Vercel AI SDK `LanguageModel` instance directly.
+First, install the provider package from its `ai-v6` release line:
+
+```npm
+npm install @ai-sdk/openai@ai-v6
+```
+
+<Callout type="warn" title="Install the ai-v6 version of each @ai-sdk provider">
+  The Built-in Agent runs on AI SDK 6 (`ai@6`), which needs `@ai-sdk/*` provider
+  packages from the 3.x line. Add `@ai-v6` to every provider you install, for example
+  `npm install @ai-sdk/azure@ai-v6`.
+</Callout>
 
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
@@ -170,7 +181,8 @@ const agent = new BuiltInAgent({
 ```
 
 The same shape works for any OpenAI-compatible proxy. Swap the `baseURL` and key.
-There is no CopilotKit-specific provider to install; if the
+There is no CopilotKit-specific provider to install. Install
+`@ai-sdk/openai@ai-v6` as shown in [Custom Models](#custom-models-ai-sdk). If the
 AI SDK can talk to it, the Built-in Agent can use it.
 
 <Callout type="warn" title="The model is set on the agent">

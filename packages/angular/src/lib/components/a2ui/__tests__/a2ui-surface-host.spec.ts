@@ -1,9 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  defineA2UIWebComponentsOnce,
-  surfaceHasRenderableContent,
-} from "../a2ui-surface-host";
+import { surfaceHasRenderableContent } from "../a2ui-surface-host";
+import { defineA2UIWebComponentsOnce } from "../lit-surface";
 
 describe("surfaceHasRenderableContent", () => {
   it("accepts static components and waits for populated data-bound surfaces", () => {
