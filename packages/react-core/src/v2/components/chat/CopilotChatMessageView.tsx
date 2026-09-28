@@ -415,6 +415,19 @@ export type CopilotChatMessageViewProps = Omit<
     {
       isRunning?: boolean;
       messages?: Message[];
+      /**
+       * Reshapes the message list before it renders: drop, replace or reorder
+       * messages with the whole list in view. Receives the list after duplicate
+       * ids are merged. Row keys, virtualization and rendering all work off
+       * the returned list, so a dropped message takes no row.
+       *
+       * Tool-call cards still look up their results in the full list, so
+       * hiding tool-result messages here does not strip results from them.
+       *
+       * Memoized on the input list and this function — pass a stable function
+       * (e.g. `useCallback`) or it reruns on every render.
+       */
+      transformMessages?: (messages: Message[]) => Message[];
     } & React.HTMLAttributes<HTMLDivElement>
   >,
   "children"
@@ -440,6 +453,7 @@ export function CopilotChatMessageView({
   cursor,
   intelligenceIndicator,
   isRunning = false,
+  transformMessages,
   children,
   className,
   ...props
@@ -501,6 +515,18 @@ export function CopilotChatMessageView({
     [messages],
   );
 
+  // What actually renders. Everything below — row keys, virtualization,
+  // rendering — works off this list. Tool-result lookups keep using the full
+  // `messages`, so a transform that hides tool results cannot break the cards
+  // that display them.
+  const renderedMessages = useMemo(
+    () =>
+      transformMessages
+        ? transformMessages(deduplicatedMessages)
+        : deduplicatedMessages,
+    [deduplicatedMessages, transformMessages],
+  );
+
   // Stable per-row React keys. Backends can re-key a message mid-stream, and
   // keying rows by the canonical id remounts the row on that swap (the HITL
   // chat flash). See @copilotkit/shared row-render-keys for the mechanism.
@@ -509,8 +535,8 @@ export function CopilotChatMessageView({
   const rowKeyStore = rowKeyStoreRef.current;
 
   const rowRenderKeys = useMemo(
-    () => resolveRowRenderKeysById(rowKeyStore, deduplicatedMessages),
-    [rowKeyStore, deduplicatedMessages],
+    () => resolveRowRenderKeysById(rowKeyStore, renderedMessages),
+    [rowKeyStore, renderedMessages],
   );
 
   // Record what this commit rendered, never what a render merely proposed: an
@@ -518,8 +544,8 @@ export function CopilotChatMessageView({
   // and remount it. Layout phase, so the store is current before any later
   // render reads it.
   useLayoutEffect(() => {
-    commitRowKeyStore(rowKeyStore, deduplicatedMessages);
-  }, [rowKeyStore, deduplicatedMessages]);
+    commitRowKeyStore(rowKeyStore, renderedMessages);
+  }, [rowKeyStore, renderedMessages]);
 
   if (
     process.env.NODE_ENV === "development" &&
@@ -616,7 +642,31 @@ export function CopilotChatMessageView({
   const shouldVirtualize =
     !!scrollElement &&
     !children &&
-    deduplicatedMessages.length > VIRTUALIZE_THRESHOLD;
+    renderedMessages.length > VIRTUALIZE_THRESHOLD;
+
+  // Warn once in dev when the `children` render prop is the only thing keeping
+  // a long thread off the virtual path. Nothing else signals it: the chat just
+  // mounts every message and gets slower as the thread grows.
+  const childrenDisabledVirtualization =
+    !!children &&
+    !!scrollElement &&
+    renderedMessages.length > VIRTUALIZE_THRESHOLD;
+  const warnedChildrenRef = useRef(false);
+  useEffect(() => {
+    if (
+      process.env.NODE_ENV === "production" ||
+      !childrenDisabledVirtualization ||
+      warnedChildrenRef.current
+    ) {
+      return;
+    }
+    warnedChildrenRef.current = true;
+    console.warn(
+      `[CopilotKit] CopilotChatMessageView: the \`children\` render prop disables virtualization, ` +
+        `so all ${renderedMessages.length} messages are mounted. To reshape the list and keep ` +
+        "virtualization, use `transformMessages` instead.",
+    );
+  }, [childrenDisabledVirtualization, renderedMessages.length]);
 
   // Mean of the rows measured so far in this thread, used as the estimate for
   // rows that have not been measured yet. A flat 100 px estimate is off by
@@ -641,7 +691,7 @@ export function CopilotChatMessageView({
   // effect because rows are measured from ref callbacks, which run before
   // layout effects — resetting there would discard the new thread's first
   // measurements instead of the old thread's.
-  const firstMessageId = deduplicatedMessages[0]?.id;
+  const firstMessageId = renderedMessages[0]?.id;
   const measuredThreadRef = React.useRef(firstMessageId);
   if (measuredThreadRef.current !== firstMessageId) {
     measuredThreadRef.current = firstMessageId;
@@ -694,7 +744,7 @@ export function CopilotChatMessageView({
 
   const virtualizer = useVirtualizer({
     // count=0 disables the virtualizer without changing hook call order.
-    count: shouldVirtualize ? deduplicatedMessages.length : 0,
+    count: shouldVirtualize ? renderedMessages.length : 0,
     getScrollElement: () => scrollElement,
     estimateSize: estimateRowSize,
     overscan: 5,
@@ -724,11 +774,11 @@ export function CopilotChatMessageView({
   // (detected by the first message ID changing). For streaming new messages,
   // use-stick-to-bottom handles auto-scroll via content height growth detection
   // on the virtualizer's total-size div — same as the flat path. Adding
-  // deduplicatedMessages.length here would forcibly yank the user to the bottom
+  // renderedMessages.length here would forcibly yank the user to the bottom
   // on every streaming chunk even if they've scrolled up to read history.
   useLayoutEffect(() => {
-    if (!shouldVirtualize || !deduplicatedMessages.length) return;
-    virtualizer.scrollToIndex(deduplicatedMessages.length - 1, {
+    if (!shouldVirtualize || !renderedMessages.length) return;
+    virtualizer.scrollToIndex(renderedMessages.length - 1, {
       align: "end",
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -741,8 +791,8 @@ export function CopilotChatMessageView({
   // non-Intelligence turns naturally produce an empty map (and the indicator
   // itself also hard-gates on intelligence mode).
   const intelligenceTurnAnchors = useMemo(
-    () => getIntelligenceTurnAnchors(deduplicatedMessages),
-    [deduplicatedMessages],
+    () => getIntelligenceTurnAnchors(renderedMessages),
+    [renderedMessages],
   );
 
   // ---------------------------------------------------------------------------
@@ -850,7 +900,7 @@ export function CopilotChatMessageView({
   // creating 500 React elements that we'd immediately discard).
   const messageElements: React.ReactElement[] = shouldVirtualize
     ? []
-    : deduplicatedMessages.flatMap(renderMessageBlock);
+    : renderedMessages.flatMap(renderMessageBlock);
 
   // ---------------------------------------------------------------------------
   // children render prop (custom layout, always non-virtual)
@@ -885,7 +935,7 @@ export function CopilotChatMessageView({
           style={{ height: virtualizer.getTotalSize(), position: "relative" }}
         >
           {virtualizer.getVirtualItems().map((virtualItem) => {
-            const message = deduplicatedMessages[virtualItem.index]!;
+            const message = renderedMessages[virtualItem.index]!;
             return (
               <div
                 key={rowRenderKeys.get(message.id) ?? message.id}
