@@ -33,7 +33,7 @@ export interface StoryAgentOptions {
 }
 
 const lastUserText = (input: RunAgentInput): string => {
-  const last = [...input.messages].toReversed().find((m) => m.role === "user");
+  const last = input.messages.filter((m) => m.role === "user").at(-1);
   if (!last) return "";
   if (typeof last.content === "string") return last.content;
   return (last.content ?? [])
