@@ -17,7 +17,7 @@ Use this prompt to connect your AWS Strands agent to CopilotKit and verify a wor
 
 Before you begin, you'll need the following:
 
-- An OpenAI API key
+- An OpenAI API key, or an Anthropic API key if you run the agent on Claude
 - Node.js 20+
 - Python 3.12+ (Python agents only)
 - Your favorite package manager
@@ -83,8 +83,74 @@ Before you begin, you'll need the following:
                 OPENAI_API_KEY=your_openai_api_key
                 ```
 
-                <Callout type="info" title="What about other models?">
-                  The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by Strands.
+                <ApiKeyHint provider="openai" />
+
+                <Callout type="info" title="Running the agent on Anthropic instead">
+                  The starter template runs on an OpenAI model, which is why the step
+                  above sets `OPENAI_API_KEY`. To run the agent on Claude instead, set
+                  Anthropic's credential variable in the same `.env`. The Anthropic model
+                  reads `ANTHROPIC_API_KEY`, not `OPENAI_API_KEY`:
+
+                  ```plaintext title="agent/.env"
+                  ANTHROPIC_API_KEY=your_anthropic_api_key
+                  ```
+
+                  <ApiKeyHint provider="anthropic" />
+
+                  Then change the model in the agent file that the template scaffolded:
+
+                  <Tabs groupId="language_strands_agent" items={['Python', 'TypeScript']} persist>
+                      <Tab value="Python">
+                          In `agent/pyproject.toml`, change the `strands-agents[OpenAI]`
+                          dependency to `strands-agents[OpenAI,anthropic]`. The `anthropic`
+                          extra installs Anthropic's client. Then run `uv sync` in `agent/`.
+
+                          In `agent/main.py`, replace the `OpenAIModel(...)` block:
+
+                          ```python title="agent/main.py"
+                          from strands.models.anthropic import AnthropicModel
+
+                          model = AnthropicModel(
+                              client_args={"api_key": os.getenv("ANTHROPIC_API_KEY", "")},
+                              model_id="claude-sonnet-4-6",
+                              max_tokens=8192,
+                          )
+                          ```
+
+                          `max_tokens` is required. Without it, the first request fails with
+                          `KeyError: 'max_tokens'`. Do not copy the OpenAI block's
+                          `params={"parallel_tool_calls": False}`, because that option is an
+                          OpenAI request option.
+                      </Tab>
+                      <Tab value="TypeScript">
+                          Install Anthropic's client in `agent/`. The Strands SDK lists it as an
+                          optional peer dependency, so it is not installed by default:
+
+                          ```bash
+                          npm install @anthropic-ai/sdk
+                          ```
+
+                          In `agent/src/agent.ts`, delete the check that throws when
+                          `OPENAI_API_KEY` is missing, and replace the `new OpenAIModel(...)`
+                          block:
+
+                          ```typescript title="agent/src/agent.ts"
+                          import { AnthropicModel } from "@strands-agents/sdk/models/anthropic";
+
+                          const model = new AnthropicModel({
+                            apiKey: process.env.ANTHROPIC_API_KEY,
+                            modelId: "claude-sonnet-4-6",
+                            maxTokens: 8192,
+                          });
+                          ```
+                      </Tab>
+                  </Tabs>
+
+                  The starter's dynamic A2UI tool makes its own OpenAI call. If you use that
+                  tool, keep `OPENAI_API_KEY` in the `.env` too.
+
+                  Strands supports other model providers in the same way: install the
+                  provider's client, set its credential variable, and swap the model.
                 </Callout>
             </Step>
             <Step>
@@ -178,8 +244,62 @@ Before you begin, you'll need the following:
                 export OPENAI_API_KEY=your_openai_api_key
                 ```
 
-                <Callout type="info" title="What about other models?">
-                  This example uses OpenAI's GPT-4o, but you can modify it to use any language model supported by Strands.
+                <ApiKeyHint provider="openai" />
+
+                <Callout type="info" title="Running the agent on Anthropic instead">
+                  This example runs on an OpenAI model. To run it on Claude instead, set
+                  Anthropic's credential variable. The Anthropic model reads
+                  `ANTHROPIC_API_KEY`, not `OPENAI_API_KEY`:
+
+                  ```bash
+                  export ANTHROPIC_API_KEY=your_anthropic_api_key
+                  ```
+
+                  <ApiKeyHint provider="anthropic" />
+
+                  Then install Anthropic's client, and use the Anthropic model in place of
+                  the OpenAI model in the next step:
+
+                  <Tabs groupId="language_strands_agent" items={['Python', 'TypeScript']} persist>
+                      <Tab value="Python">
+                          The `anthropic` extra of `strands-agents` installs Anthropic's client:
+
+                          ```bash
+                          uv add "strands-agents[anthropic]"
+                          ```
+
+                          ```python title="main.py"
+                          from strands.models.anthropic import AnthropicModel
+
+                          model = AnthropicModel(
+                              client_args={"api_key": os.getenv("ANTHROPIC_API_KEY", "")},
+                              model_id="claude-sonnet-4-6",
+                              max_tokens=8192,
+                          )
+                          ```
+
+                          `max_tokens` is required. Without it, the first request fails with
+                          `KeyError: 'max_tokens'`.
+                      </Tab>
+                      <Tab value="TypeScript">
+                          The Strands SDK lists Anthropic's client as an optional peer
+                          dependency, so it is not installed by default:
+
+                          ```bash
+                          npm install @anthropic-ai/sdk
+                          ```
+
+                          ```typescript title="main.ts"
+                          import { AnthropicModel } from "@strands-agents/sdk/models/anthropic";
+
+                          const model = new AnthropicModel({
+                            apiKey: process.env.ANTHROPIC_API_KEY,
+                            modelId: "claude-sonnet-4-6",
+                            maxTokens: 8192,
+                          });
+                          ```
+                      </Tab>
+                  </Tabs>
                 </Callout>
             </Step>
             <Step>
