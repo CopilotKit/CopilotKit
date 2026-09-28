@@ -676,6 +676,23 @@ export class RunHandler {
       }
     }
 
+    const resumedRunId = this._internal.stateManager.getContinuationRunId(
+      agent,
+      {
+        threadId: agent.threadId,
+        resume,
+        forwardedProps,
+      },
+    );
+    const logicalHandoff =
+      continuationHandoff ??
+      (resumedRunId
+        ? this._internal.stateManager.markNextRunAsContinuation(
+            agent,
+            resumedRunId,
+          )
+        : undefined);
+
     // Set up abort controller and agent.abortRun() intercept only for the
     // top-level call. Recursive follow-up calls from processAgentResult
     // reuse the same controller.
@@ -713,20 +730,20 @@ export class RunHandler {
     this._runDepth++;
 
     try {
-      let logicalRunId = runId;
+      let logicalRunId = resumedRunId ?? runId;
       const agentSubscriber = this.createAgentErrorSubscriber(agent);
       let started = false;
       const onRunStartedEvent = agentSubscriber.onRunStartedEvent;
       const onRunInitialized = agentSubscriber.onRunInitialized;
       agentSubscriber.onRunInitialized = async (params) => {
-        continuationHandoff?.bind(params.input);
+        logicalHandoff?.bind(params.input);
         return onRunInitialized?.(params);
       };
       agentSubscriber.onRunStartedEvent = async (params) => {
         started = true;
         // A continuation keeps reporting under the run it continues; only an
         // ordinary run adopts the id the transport assigned it.
-        if (!continuationHandoff) {
+        if (!logicalHandoff) {
           logicalRunId = params.input.runId;
         }
         return onRunStartedEvent?.(params);
@@ -760,7 +777,7 @@ export class RunHandler {
         agentSubscriber,
       );
       if (!started) {
-        continuationHandoff?.cancel();
+        logicalHandoff?.cancel();
       }
       return await this.processAgentResult({
         runAgentResult,
@@ -768,7 +785,7 @@ export class RunHandler {
         runId: logicalRunId,
       });
     } catch (error) {
-      continuationHandoff?.cancel();
+      logicalHandoff?.cancel();
       const runError =
         error instanceof Error ? error : new Error(String(error));
       const context: Record<string, any> = {};

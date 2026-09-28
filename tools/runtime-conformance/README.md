@@ -58,8 +58,8 @@ The driver mounts the library without reimplementing routes, middleware, telemet
 
 ## Coverage
 
-The suite has 131 cases. These include 17 initial cases, 31 UI cases, and 18 additional analytics cases.
-Thirteen runner cases, 18 access cases, and five frontend-client cases cover the remaining requirements.
+The suite has 132 cases. These include 17 initial cases, 31 UI cases, and 18 additional analytics cases.
+Fourteen runner cases, 18 access cases, and five frontend-client cases cover the remaining requirements.
 Six Inspector metadata cases cover discovery, independent module validation, action URLs, private responses, server credentials, and the five-second deadline.
 Twenty-three entitlement cases cover current and legacy responses, schema validation, safe errors, server credentials, concurrent requests, and request deadlines.
 Separate deadline cases delay response headers and response bodies. Both must produce a retryable unavailable result, not a configuration error.
@@ -71,6 +71,7 @@ Seven cases cover legacy license identity, environment fallback, whitespace rule
 Runner cases cover batches, draining joins, planned restarts, final acknowledgments, and stop boundaries.
 They also require input persistence before early stop or error and reject incomplete streams as successful runs.
 Agent input retains AG-UI tool calls when stored history uses the platform's projection format.
+Approval resume uses a new run ID on the same thread. It retains the complete resume array and saves each result once.
 The frontend-client cases use the public core package and real Phoenix sockets to run an agent and replay its history.
 They cover active replay without duplicate text, Stop after reconnect, agent disconnection, a terminal event, lock release, and a new run on the same thread.
 Network loss consumes the old token and requires fresh credentials. Recovery must deliver text produced during the outage exactly once before Stop. It preserves the replay cursor and active run identity.

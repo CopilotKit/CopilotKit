@@ -2161,48 +2161,89 @@ export class BuiltInAgent extends AbstractAgent {
         },
       };
 
-      // Resume injection (aisdk/tanstack): map each ResumeEntry to a tool-role
-      // message keyed by interruptId (=== the paused tool call's id) and append
-      // it to the messages the factory sees. Both SDK converters
-      // (convertMessagesToVercelAISDKMessages / convertInputToTanStackAI) turn a
-      // tool-role message into that SDK's native tool-result, so the model
-      // continues — no SDK-specific approval-response wiring needed. The `custom`
-      // factory reads input.resume itself via ctx.interrupt(), so leave it alone.
-      // Idempotent: skip entries the client already recorded as a tool-result
-      // message in the thread (useInterrupt persists resolutions so the
-      // conversation stays well-formed across turns). Only synthesize results
-      // for entries that aren't already answered, so we never double-answer a
-      // tool call.
-      const answeredToolCallIds = new Set(
-        input.messages
-          .filter((m) => m.role === "tool")
-          .map((m) => (m as { toolCallId?: string }).toolCallId)
-          .filter((id): id is string => typeof id === "string"),
-      );
-      const resumeToolMessages: Message[] = (input.resume ?? [])
-        .filter(
-          (entry: ResumeEntry) => !answeredToolCallIds.has(entry.interruptId),
-        )
-        .map(
-          (entry: ResumeEntry): Message => ({
-            id: randomUUID(),
-            role: "tool",
-            toolCallId: entry.interruptId,
-            content: JSON.stringify(
-              entry.status === "cancelled"
-                ? { status: "cancelled" }
-                : (entry.payload ?? { status: "resolved" }),
-            ),
-          }),
-        );
-      const factoryInput: RunAgentInput =
-        resumeToolMessages.length > 0 && config.type !== "custom"
-          ? { ...input, messages: [...input.messages, ...resumeToolMessages] }
-          : input;
-
       (async () => {
         const runFinishedDetails: AgentRunFinishedDetails = {};
         try {
+          // Resume injection (aisdk/tanstack): map each ResumeEntry to a tool-role
+          // message keyed by interruptId (=== the paused tool call's id) and append
+          // it to the messages the factory sees. Both SDK converters
+          // (convertMessagesToVercelAISDKMessages / convertInputToTanStackAI) turn a
+          // tool-role message into that SDK's native tool-result, so the model
+          // continues — no SDK-specific approval-response wiring needed. The `custom`
+          // factory reads input.resume itself via ctx.interrupt(), so leave it alone.
+          // Idempotent: skip entries the client already recorded as a tool-result
+          // message in the thread (useInterrupt persists resolutions so the
+          // conversation stays well-formed across turns). Only synthesize results
+          // for entries that aren't already answered, so we never double-answer a
+          // tool call.
+          const toolCallIds = new Set(
+            input.messages.flatMap((message) =>
+              message.role === "assistant"
+                ? (message.toolCalls ?? []).map((call) => call.id)
+                : [],
+            ),
+          );
+          const answeredToolMessages = input.messages.filter(
+            (message): message is ToolMessage => message.role === "tool",
+          );
+          const answeredToolCallIds = new Set(
+            answeredToolMessages.map((message) => message.toolCallId),
+          );
+          const nativeResume =
+            config.type === "custom" ? [] : (input.resume ?? []);
+          const resumeToolMessages: ToolMessage[] = [];
+          const decisionsByCall = new Map<string, string>();
+          for (const entry of nativeResume) {
+            if (!toolCallIds.has(entry.interruptId)) continue;
+            const content = JSON.stringify(
+              entry.status === "cancelled"
+                ? { status: "cancelled" }
+                : (entry.payload ?? { status: "resolved" }),
+            );
+            if (decisionsByCall.has(entry.interruptId)) {
+              if (decisionsByCall.get(entry.interruptId) !== content) {
+                throw new Error(
+                  `Conflicting decisions for resumed tool call ${entry.interruptId}`,
+                );
+              }
+              continue;
+            }
+            decisionsByCall.set(entry.interruptId, content);
+            if (answeredToolCallIds.has(entry.interruptId)) continue;
+            resumeToolMessages.push({
+              id: randomUUID(),
+              role: "tool",
+              toolCallId: entry.interruptId,
+              content,
+            });
+          }
+          const resumedIds = new Set(
+            nativeResume.map((entry) => entry.interruptId),
+          );
+          const resumedResults = new Map(
+            [...answeredToolMessages, ...resumeToolMessages]
+              .filter((message) => resumedIds.has(message.toolCallId))
+              .map((message) => [message.toolCallId, message.content]),
+          );
+          // Save accepted answers before model work, so Stop cannot discard them.
+          for (const message of resumeToolMessages) {
+            const event: ToolCallResultEvent = {
+              type: EventType.TOOL_CALL_RESULT,
+              messageId: message.id,
+              toolCallId: message.toolCallId,
+              role: "tool",
+              content: message.content,
+            };
+            subscriber.next(event);
+          }
+          const factoryInput: RunAgentInput =
+            resumeToolMessages.length > 0 && config.type !== "custom"
+              ? {
+                  ...input,
+                  messages: [...input.messages, ...resumeToolMessages],
+                }
+              : input;
+
           const learnedSkills = await prepareLearnedSkills(
             this.skillRegistry,
             controller.signal,
@@ -2255,6 +2296,20 @@ export class BuiltInAgent extends AbstractAgent {
           }
 
           for await (const event of events) {
+            if (
+              event.type === EventType.TOOL_CALL_RESULT &&
+              "toolCallId" in event &&
+              typeof event.toolCallId === "string" &&
+              "content" in event &&
+              resumedResults.has(event.toolCallId)
+            ) {
+              if (resumedResults.get(event.toolCallId) !== event.content) {
+                throw new Error(
+                  `Conflicting result for resumed tool call ${event.toolCallId}`,
+                );
+              }
+              continue;
+            }
             if (
               config.type === "custom" &&
               event.type === EventType.RUN_FINISHED
