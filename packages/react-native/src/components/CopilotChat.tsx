@@ -303,7 +303,7 @@ export function CopilotChat({
   const messageIdCounter = useRef(0);
 
   const theme = useCopilotTheme(colorScheme);
-  const { copilotkit } = useCopilotKit();
+  const { copilotkit, executingToolCallIds } = useCopilotKit();
   const { agent } = useAgent({ agentId: agentName });
   const { suggestions: agentSuggestions } = useSuggestions({
     agentId: agentName,
@@ -429,6 +429,7 @@ export function CopilotChat({
   const extraData = useMemo(
     () => ({
       activeAssistantId,
+      executingToolCallIds,
       inlineCursor,
       isRunning,
       lastItemId,
@@ -437,6 +438,7 @@ export function CopilotChat({
     }),
     [
       activeAssistantId,
+      executingToolCallIds,
       inlineCursor,
       isRunning,
       lastItemId,
@@ -522,14 +524,16 @@ export function CopilotChat({
         });
         if (rendered) return <>{rendered}</>;
 
-        // Compact card for unregistered tool calls
+        // Compact card for unregistered tool calls. Frontend tool handlers run
+        // after the agent run ends, so an executing call is running even then.
         return (
           <ToolCallCard
             name={tc.function.name}
             running={
-              isRunning &&
-              item.messageId === activeAssistantId &&
-              !toolMessages.has(tc.id)
+              executingToolCallIds.has(tc.id) ||
+              (isRunning &&
+                item.messageId === activeAssistantId &&
+                !toolMessages.has(tc.id))
             }
           />
         );
@@ -543,6 +547,7 @@ export function CopilotChat({
     },
     [
       activeAssistantId,
+      executingToolCallIds,
       inlineCursor,
       isRunning,
       lastItemId,
