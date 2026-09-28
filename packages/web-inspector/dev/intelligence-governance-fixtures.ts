@@ -85,6 +85,18 @@ export function intelligenceGovernanceFixture(
       outcome: "approved",
       details: { verified: false },
     },
+    {
+      family: "run_activity",
+      type: "message.user",
+      outcome: "recorded",
+      details: { messageId: "fixture-user-message" },
+    },
+    {
+      family: "run_activity",
+      type: "message.assistant",
+      outcome: "recorded",
+      details: { messageId: "fixture-assistant-message" },
+    },
   ].map((event, index) => ({
     ...event,
     id: `fixture-event-${index + 1}`,

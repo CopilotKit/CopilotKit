@@ -1,3 +1,4 @@
+import { intelligenceGovernanceFixture } from "./intelligence-governance-fixtures.js";
 import { fixtureToolCallRows } from "./intelligence-content-fixtures.js";
 import { intelligenceAnalyticsFixture } from "./intelligence-analytics-fixtures.js";
 import type { IntelligenceReadRequest } from "../src/lib/intelligence-relay.js";
@@ -21,6 +22,53 @@ export function intelligenceAskFixture(
     "agentId" in body && typeof body.agentId === "string"
       ? { agentId: body.agentId }
       : {};
+  if (
+    "question" in body &&
+    /messages.*skill loads/i.test(String(body.question))
+  ) {
+    return {
+      version: 1,
+      text: "Captured messages and Skill loads.",
+      results: [
+        { metric: "user_messages", type: "message.user" },
+        { metric: "assistant_messages", type: "message.assistant" },
+        { metric: "skill_loads", type: "learning.skill_loaded" },
+      ].map(({ metric, type }) => {
+        const records = intelligenceGovernanceFixture({
+          method: "GET",
+          path: "/api/v1/governance/events",
+          query: { from, to, ...filters, type },
+        });
+        if (
+          !records ||
+          typeof records !== "object" ||
+          !("data" in records) ||
+          !Array.isArray(records.data)
+        )
+          throw new Error("Missing event fixture");
+        const total = records.data.length;
+        return {
+          id: `fixture-${metric}`,
+          query: { metric, from, to, filters },
+          data: {
+            metric,
+            unit: "count",
+            grain: null,
+            from,
+            to,
+            asOf: "fixture_v1",
+            total,
+            series: [{ dimensions: {}, total, points: [] }],
+            truncated: false,
+            coverage: {
+              captureStartedAt: "2026-09-01T00:00:00.000Z",
+              windowFullyCaptured: true,
+            },
+          },
+        };
+      }),
+    };
+  }
   if (
     "question" in body &&
     /finished runs.*failure rate/i.test(String(body.question))
