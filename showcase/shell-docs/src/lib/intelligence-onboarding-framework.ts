@@ -1,3 +1,7 @@
+import {
+  ARGUMENT_TEMPLATES,
+  fillArgumentTemplate,
+} from "@/lib/onboarding-argument-templates";
 /**
  * Agent-framework slugs the CLI's onboarding graph accepts.
  *
@@ -59,9 +63,8 @@ export function onboardingFrameworkSlug(docsSlug: string): string | undefined {
 }
 
 /**
- * The sentence appended to the canonical onboarding prompt so the graph does
- * not have to ask which framework to use. Returns "" when the framework has
- * no graph equivalent.
+ * The wizard's sentence naming the agent framework the developer picked.
+ * Returns "" when the framework has no graph equivalent.
  */
 export function frameworkPromptSuffix(
   docsSlug: string,
@@ -71,5 +74,7 @@ export function frameworkPromptSuffix(
   if (graphSlug === undefined) {
     return "";
   }
-  return ` The developer selected the ${displayName} agent framework (\`${graphSlug}\`).`;
+  return fillArgumentTemplate(ARGUMENT_TEMPLATES.framework, {
+    name: displayName,
+  });
 }

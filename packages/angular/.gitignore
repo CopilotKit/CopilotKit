@@ -1,0 +1,3 @@
+
+# Generated before build, test and type checking.
+/src/lib/package-version.ts

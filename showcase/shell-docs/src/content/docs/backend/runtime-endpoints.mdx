@@ -329,7 +329,7 @@ Keep the key server-side. It is a project API key, so it is a different
 credential from the browser-visible `NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY` used by
 the [Inspector](/inspector) — do not substitute one for the other.
 
-`apiUrl` and `wsUrl` default to CopilotKit's managed platform. The API and
+`apiUrl` and `wsUrl` default to the cloud-hosted platform. The API and
 realtime planes are deployed to **different hosts**, so one cannot be derived
 from the other by swapping the scheme. Override them only for a self-hosted or
 non-production deployment, and override **both together** — setting one alone
@@ -438,7 +438,7 @@ The response advertises the resource bridge and its thread features:
 ```
 
 Reload your app after this response is available. The Inspector will replace
-the setup state with the saved Threads list. Managed and self-hosted
+the setup state with the saved Threads list. Cloud-hosted and self-hosted
 Intelligence use the same Runtime route setup.
 
 </Step>

@@ -18,6 +18,7 @@ export type MegaMenuIconName =
   | "box"
   | "radio"
   | "brain"
+  | "lightbulb"
   | "chart"
   | "kite";
 
@@ -77,10 +78,10 @@ export const DOCS_MEGA_MENU_COLUMNS: readonly MegaMenuColumn[] = [
       {
         href: "/learning",
         label: "Automatic Learning",
-        icon: "brain",
+        icon: "lightbulb",
       },
       {
-        href: "/intelligence/managed-intelligence-platform",
+        href: "/intelligence/analytics",
         label: "Product Analytics",
         icon: "chart",
       },
@@ -89,7 +90,7 @@ export const DOCS_MEGA_MENU_COLUMNS: readonly MegaMenuColumn[] = [
       { href: "/deploy/agentcore", label: "Deploy", icon: "cloud" },
       {
         href: "/intelligence/self-hosting",
-        label: "Self-hosting",
+        label: "Self-Hosting",
         icon: "server",
       },
     ],
