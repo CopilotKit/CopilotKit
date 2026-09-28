@@ -2,7 +2,7 @@ import React from "react";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { z } from "zod";
 import type { Message } from "@ag-ui/core";
-import type { Virtualizer } from "@tanstack/react-virtual";
+import type { VirtualItem, Virtualizer } from "@tanstack/react-virtual";
 import type * as ReactVirtual from "@tanstack/react-virtual";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
@@ -291,5 +291,139 @@ describe("CopilotChatMessageView shouldRenderMessage", () => {
     expect(screen.queryByText("WORKER_SAYS_FOUR")).toBeNull();
     expect(seen.messages).toBe(supervisorTranscript.length);
     expect(screen.getByText("SUPERVISOR_SAYS_FOUR")).toBeDefined();
+  });
+});
+
+describe("CopilotChatMessageView shouldRenderMessage (virtual mode)", () => {
+  const TALL = 300;
+  const SHORT = 50;
+  let originalRect: typeof HTMLElement.prototype.getBoundingClientRect;
+
+  beforeEach(() => {
+    originalRect = HTMLElement.prototype.getBoundingClientRect;
+    // jsdom has no layout. A virtual row (it carries `data-index`) reports
+    // TALL when it holds message m2 and SHORT otherwise. Every other element,
+    // including the scroll element, reports a 600 px viewport.
+    HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+      const isRow = this.dataset?.index !== undefined;
+      const height = isRow
+        ? this.querySelector('[data-message-id="m2"]')
+          ? TALL
+          : SHORT
+        : 600;
+      return {
+        height,
+        width: 800,
+        top: 0,
+        left: 0,
+        bottom: height,
+        right: 800,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect;
+    };
+  });
+
+  afterEach(() => {
+    HTMLElement.prototype.getBoundingClientRect = originalRect;
+  });
+
+  // `getMeasurements` is private on the Virtualizer type, but it is the
+  // per-row size list this test is about.
+  const measurements = () =>
+    (
+      capture.current as unknown as { getMeasurements(): VirtualItem[] }
+    ).getMeasurements();
+
+  const nextFrame = () =>
+    act(async () => {
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    });
+
+  it("a mid-list hide does not leave later rows in the hidden row's size slot", async () => {
+    const scrollElement = document.createElement("div");
+    for (const prop of ["clientHeight", "offsetHeight"]) {
+      Object.defineProperty(scrollElement, prop, {
+        configurable: true,
+        value: 600,
+      });
+    }
+    Object.defineProperty(scrollElement, "offsetWidth", {
+      configurable: true,
+      value: 800,
+    });
+    document.body.appendChild(scrollElement);
+
+    // 60 visible rows (above VIRTUALIZE_THRESHOLD). m2 is the tall one. When
+    // `named` is true, m2 gains `name: "math_expert"`, as a snapshot would
+    // add it, and the predicate hides it.
+    const transcript = (named: boolean) =>
+      Array.from({ length: 60 }, (_, i) => ({
+        id: `m${i}`,
+        role: "assistant",
+        content: i === 2 ? "TALL_ROW" : `row ${i}`,
+        ...(i === 2 && named ? { name: "math_expert" } : {}),
+      })) as Message[];
+
+    try {
+      const { rerenderView } = renderView(
+        { messages: transcript(false), shouldRenderMessage: hideWorker },
+        { scrollElement },
+      );
+      await nextFrame();
+      const before = measurements();
+      expect(before[2]!.size).toBe(TALL);
+      expect(before[3]!.size).toBe(SHORT);
+
+      rerenderView({
+        messages: transcript(true),
+        shouldRenderMessage: hideWorker,
+      });
+      await nextFrame();
+
+      expect(capture.current!.options.count).toBe(59);
+      expect(screen.queryByText("TALL_ROW")).toBeNull();
+      // m3 now sits at index 2. Its DOM node was kept and its own size did
+      // not change, so nothing re-measures it. Index 2 must hold m3's size,
+      // not the size m2 left behind.
+      const after = measurements();
+      expect(after[2]!.size).toBe(SHORT);
+      expect(after.every((m) => m.size !== TALL)).toBe(true);
+    } finally {
+      scrollElement.remove();
+    }
+  });
+
+  it("hiding the first message is not a thread change", async () => {
+    const scrollElement = document.createElement("div");
+    Object.defineProperty(scrollElement, "clientHeight", {
+      configurable: true,
+      value: 600,
+    });
+    document.body.appendChild(scrollElement);
+    const messages = Array.from({ length: 60 }, (_, i) => ({
+      id: `m${i}`,
+      role: "assistant",
+      content: `row ${i}`,
+    })) as Message[];
+
+    try {
+      const { rerenderView } = renderView(
+        { messages, shouldRenderMessage: () => true },
+        { scrollElement },
+      );
+      await nextFrame();
+      // A thread change scrolls the list to the end. Hiding m0 changes the
+      // first VISIBLE id but not the thread, so it must not scroll.
+      const scrollToIndex = vi.spyOn(capture.current!, "scrollToIndex");
+      rerenderView({ messages, shouldRenderMessage: (m) => m.id !== "m0" });
+      await nextFrame();
+      expect(capture.current!.options.count).toBe(59);
+      expect(scrollToIndex).not.toHaveBeenCalled();
+    } finally {
+      scrollElement.remove();
+    }
   });
 });

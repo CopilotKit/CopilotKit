@@ -120,4 +120,42 @@ describe("CopilotChat shouldRenderMessage (end to end)", () => {
       expect(screen.queryByText("WORKER_SAYS_FOUR")).toBeNull(),
     );
   });
+
+  it("toggles rows when the predicate passed through messageView changes", async () => {
+    const agent = new MockStepwiseAgent();
+    const showAll = () => true;
+    const tree = (shouldRenderMessage: (m: Message) => boolean) => (
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+        <AgentProbe />
+        <div style={{ height: 400 }}>
+          <CopilotChat messageView={{ shouldRenderMessage }} />
+        </div>
+      </CopilotKitProvider>
+    );
+    const { rerender } = render(tree(showAll));
+    await streamWorkerThenSnapshotName(agent);
+    agent.emit({ type: EventType.RUN_FINISHED } as BaseEvent);
+
+    // The transcript is finished and holds a math_expert message. showAll
+    // keeps it on screen.
+    await waitFor(() =>
+      expect(
+        probe.agent!.messages.some(
+          (m) => (m as { name?: string }).name === "math_expert",
+        ),
+      ).toBe(true),
+    );
+    expect(screen.getByText("WORKER_SAYS_FOUR")).toBeDefined();
+
+    rerender(tree(hideWorker));
+    await waitFor(() =>
+      expect(screen.queryByText("WORKER_SAYS_FOUR")).toBeNull(),
+    );
+    expect(screen.getByText("what is 2+2")).toBeDefined();
+
+    rerender(tree(showAll));
+    await waitFor(() =>
+      expect(screen.getByText("WORKER_SAYS_FOUR")).toBeDefined(),
+    );
+  });
 });

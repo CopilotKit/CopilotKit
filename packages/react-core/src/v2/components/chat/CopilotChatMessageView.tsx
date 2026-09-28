@@ -649,9 +649,13 @@ export function CopilotChatMessageView({
   // fresh sample would drag the mean toward whatever that one row happened to
   // be mid-stream. Held in a ref because feeding it back through state would
   // re-render on every measure.
+  //
+  // Keyed by the row key (see getRowKey below), not the index: a hidden row
+  // shifts every later row down an index, and an index key would then file a
+  // row's re-measure under its predecessor's entry.
   const measuredRef = React.useRef({
     total: 0,
-    sizes: new Map<number, number>(),
+    sizes: new Map<React.Key, number>(),
   });
 
   // The measurements describe one thread, so drop them when the thread
@@ -660,12 +664,43 @@ export function CopilotChatMessageView({
   // effect because rows are measured from ref callbacks, which run before
   // layout effects — resetting there would discard the new thread's first
   // measurements instead of the old thread's.
-  const firstMessageId = visibleMessages[0]?.id;
+  //
+  // Read from the full (deduplicated) list, not the visible one: hiding the
+  // first message is not a thread change, and must not reset measurements or
+  // jump the list to the bottom.
+  const firstMessageId = deduplicatedMessages[0]?.id;
   const measuredThreadRef = React.useRef(firstMessageId);
   if (measuredThreadRef.current !== firstMessageId) {
     measuredThreadRef.current = firstMessageId;
     measuredRef.current = { total: 0, sizes: new Map() };
   }
+
+  // The virtualizer's key for a row: the same key the row's React element
+  // uses. Without it TanStack keys its size cache by index, so when a message
+  // in the middle is hidden, every later row inherits its predecessor's
+  // cached size. Those rows keep their DOM nodes and their own size, so
+  // nothing re-measures them to correct it.
+  //
+  // A new function identity makes the virtualizer rebuild its measurement
+  // list (one O(count) pass), but it does not clear the size cache, so no row
+  // loses its measurement. The identity changes whenever `visibleMessages`
+  // does, which includes streaming chunks. That is the price of correctness:
+  // a ref-backed stable function would miss a hide that leaves the count
+  // unchanged (one row hidden and another shown in the same render), because
+  // the virtualizer only rebuilds keys when an option it watches changes.
+  const getRowKey = React.useCallback(
+    (index: number): React.Key => {
+      const message = visibleMessages[index];
+      if (!message) return index;
+      return rowRenderKeys.get(message.id) ?? message.id;
+    },
+    [visibleMessages, rowRenderKeys],
+  );
+  // measureRowElement below is stable, so it reads the current key function
+  // through a ref. Assigned during render for the same reason as
+  // isPinnedToBottomRef: a row can be measured before effects run.
+  const getRowKeyRef = React.useRef(getRowKey);
+  getRowKeyRef.current = getRowKey;
 
   const estimateRowSize = React.useCallback(() => {
     const { total, sizes } = measuredRef.current;
@@ -678,9 +713,10 @@ export function CopilotChatMessageView({
     // virtualizer itself uses to identify a measured element.
     const index = Number((el as HTMLElement | null)?.dataset?.index);
     if (height > 0 && Number.isInteger(index)) {
+      const key = getRowKeyRef.current(index);
       const { total, sizes } = measuredRef.current;
-      measuredRef.current.total = total - (sizes.get(index) ?? 0) + height;
-      sizes.set(index, height);
+      measuredRef.current.total = total - (sizes.get(key) ?? 0) + height;
+      sizes.set(key, height);
     }
     return height;
   }, []);
@@ -716,6 +752,7 @@ export function CopilotChatMessageView({
     count: shouldVirtualize ? visibleMessages.length : 0,
     getScrollElement: () => scrollElement,
     estimateSize: estimateRowSize,
+    getItemKey: getRowKey,
     overscan: 5,
     measureElement: measureRowElement,
     // Assume a 600 px viewport before the real element is measured so that
@@ -740,7 +777,9 @@ export function CopilotChatMessageView({
     shouldAdjustScrollOnResize;
 
   // Scroll to the bottom when virtual mode first activates or the thread changes
-  // (detected by the first message ID changing). For streaming new messages,
+  // (detected by the first message ID of the full list changing, see
+  // firstMessageId above). The target index is the last visible row, because
+  // the virtualizer only counts visible rows. For streaming new messages,
   // use-stick-to-bottom handles auto-scroll via content height growth detection
   // on the virtualizer's total-size div — same as the flat path. Adding
   // visibleMessages.length here would forcibly yank the user to the bottom
