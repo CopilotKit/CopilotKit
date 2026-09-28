@@ -34,7 +34,11 @@ describe("CopilotKit config", () => {
     expect(fixture.componentInstance.config.runtimeUrl).toBe(
       "https://example.com",
     );
-    expect(fixture.componentInstance.config.headers).toBe(headers);
+    // Not `toBe`: `ɵwithHeaderDefaults` (the shared helper `provideCopilotKit`
+    // now delegates to, matching React/Vue) always returns a new object when
+    // it has any defaults to fill in, even when every key was already
+    // present. Content, not reference identity, is the contract here.
+    expect(fixture.componentInstance.config.headers).toEqual(headers);
   });
 
   it("does not throw or warn when license key is missing (watermark disabled)", () => {

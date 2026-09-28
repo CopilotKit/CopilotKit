@@ -5,6 +5,7 @@ import {
   CopilotKitCoreRuntimeConnectionStatus,
   CopilotRuntimeTransport,
   CopilotKitCoreGetSuggestionsResult,
+  CopilotKitHeadersSource,
   CopilotKitMessageFilter,
   IntelligenceRuntimeInfo,
   RuntimeLicenseStatus,
@@ -108,6 +109,16 @@ export class CopilotKit {
   readonly runtimeTransport = this.#runtimeTransport.asReadonly();
   readonly #headers = signal<Record<string, string>>({});
   readonly headers = this.#headers.asReadonly();
+  readonly #headersGeneration = signal<number>(0);
+  /**
+   * Bumped only when `setHeaders` accepts a real source change (a new
+   * builder identity, or a record whose normalized values actually differ) —
+   * never when a builder merely resolves a new token. Set from
+   * `onHeadersChanged`, which fires only from a real `setHeaders()` call, so
+   * subscribers can key thread-context dispatch and agent header refresh on
+   * this signal instead of on header VALUES (see #1937 learnings).
+   */
+  readonly headersGeneration = this.#headersGeneration.asReadonly();
   readonly #credentials = signal<RequestCredentials | undefined>(undefined);
   readonly credentials = this.#credentials.asReadonly();
   readonly #threadEndpoints = signal<ThreadEndpointRuntimeInfo | undefined>(
@@ -232,12 +243,19 @@ export class CopilotKit {
 
   constructor() {
     void this.#inspector.isInspectorEnabled;
-    ensureLicenseWatermark(this.#config.headers);
+    // A builder is only evaluated at send time, so it can't be read here.
+    // The record branch below already has its own key-header fallback.
+    ensureLicenseWatermark(
+      typeof this.#config.headers === "function"
+        ? undefined
+        : this.#config.headers,
+    );
 
     this.#runtimeConnectionStatus.set(this.core.runtimeConnectionStatus);
     this.#runtimeUrl.set(this.core.runtimeUrl);
     this.#runtimeTransport.set(this.core.runtimeTransport);
     this.#headers.set(this.core.headers);
+    this.#headersGeneration.set(this.core.ɵheadersGeneration);
     this.#credentials.set(this.core.credentials);
     this.#threadEndpoints.set(this.core.threadEndpoints);
     this.#audioFileTranscriptionEnabled.set(
@@ -312,6 +330,13 @@ export class CopilotKit {
       },
       onHeadersChanged: ({ headers }) => {
         this.#headers.set(headers);
+        // Fires only from a real `setHeaders()` call (a new source), never
+        // from a builder resolving a new token — same generation core bumps.
+        // Without this, nothing pokes Angular's reactivity when a source
+        // change lands: `ɵheadersGeneration` is a plain property read, not a
+        // signal, so `headersGeneration`-keyed dependents (threads.ts,
+        // agent.ts) only re-read it when this handler sets the signal.
+        this.#headersGeneration.set(this.core.ɵheadersGeneration);
       },
       onSuggestionsChanged: ({ agentId, suggestions }) => {
         this.#setSuggestions(agentId, {
@@ -682,7 +707,7 @@ export class CopilotKit {
   updateRuntime(options: {
     runtimeUrl?: string;
     runtimeTransport?: CopilotRuntimeTransport;
-    headers?: Record<string, string>;
+    headers?: CopilotKitHeadersSource;
     credentials?: RequestCredentials;
     messageFilter?: CopilotKitMessageFilter;
     properties?: Record<string, unknown>;
@@ -699,7 +724,7 @@ export class CopilotKit {
     }
     if (options.headers !== undefined) {
       this.core.setHeaders(options.headers);
-      this.#headers.set(options.headers);
+      this.#headers.set(this.core.headers);
     }
     if ("credentials" in options) {
       this.core.setCredentials(options.credentials);

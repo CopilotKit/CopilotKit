@@ -51,11 +51,15 @@ export async function transcribeAudio(
 
   let response: Response;
   try {
+    // Resolve once, up front — never through `ɵruntimeFetch` (this request is
+    // built by hand, not sent via an agent), and never a stale snapshot: a
+    // key that no longer resolves must not ride along (#1937).
+    const resolvedHeaders = { ...(await core.resolveHeaders()) };
     response =
       core.runtimeTransport === "single"
         ? await fetch(runtimeUrl, {
             method: "POST",
-            headers: { ...core.headers, "Content-Type": "application/json" },
+            headers: { ...resolvedHeaders, "Content-Type": "application/json" },
             body: JSON.stringify({
               method: "transcribe",
               body: {
@@ -68,7 +72,7 @@ export async function transcribeAudio(
         : await fetch(`${runtimeUrl}/transcribe`, {
             method: "POST",
             // No Content-Type: the browser sets it (with boundary) for FormData.
-            headers: omitContentType(core.headers),
+            headers: omitContentType(resolvedHeaders),
             body: toFormData(audioBlob, filename),
           });
   } catch (error) {

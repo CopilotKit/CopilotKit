@@ -8,7 +8,12 @@ import {
 } from "./tools";
 import { LICENSE_WATERMARK_ENABLED } from "./license-watermark";
 import { RenderActivityMessageConfig } from "./activity-renderer";
-import { CopilotKitMessageFilter, SuggestionsConfig } from "@copilotkit/core";
+import {
+  CopilotKitHeadersSource,
+  CopilotKitMessageFilter,
+  SuggestionsConfig,
+  ɵwithHeaderDefaults,
+} from "@copilotkit/core";
 import { OpenGenerativeUIConfig } from "./open-generative-ui";
 import { A2UICatalog } from "./components/a2ui/a2ui-types";
 
@@ -37,7 +42,11 @@ export interface A2UIRecoveryOptions {
 
 export interface CopilotKitConfig {
   runtimeUrl?: string;
-  headers?: Record<string, string>;
+  /**
+   * Headers sent with every runtime request: a record, or a sync or async
+   * builder evaluated when each request is sent. See #1937.
+   */
+  headers?: CopilotKitHeadersSource;
   /** Fetch credentials mode used for CopilotKit runtime requests. */
   credentials?: RequestCredentials;
   /**
@@ -117,7 +126,12 @@ function logLicenseWatermarkWarning(message: string): void {
 }
 
 function resolveLicense(config: CopilotKitConfig): ResolvedLicense {
-  const headerKey = config.headers?.[COPILOT_CLOUD_PUBLIC_API_KEY_HEADER];
+  // A builder is only evaluated at send time, so it can't be read here. Rely
+  // on `licenseKey` in that case (same fallback the record branch already has).
+  const headerKey =
+    typeof config.headers === "function"
+      ? undefined
+      : config.headers?.[COPILOT_CLOUD_PUBLIC_API_KEY_HEADER];
   const key = config.licenseKey ?? headerKey;
 
   if (!key) {
@@ -150,7 +164,6 @@ export function injectCopilotKitConfig(): CopilotKitConfig {
 
 export function provideCopilotKit(config: CopilotKitConfig = {}): Provider {
   const resolvedLicense = resolveLicense(config);
-  const headers = config.headers ?? {};
   if (
     LICENSE_WATERMARK_ENABLED &&
     !resolvedLicense.valid &&
@@ -159,20 +172,16 @@ export function provideCopilotKit(config: CopilotKitConfig = {}): Provider {
     logLicenseWatermarkWarning(resolvedLicense.warning);
   }
 
-  const mergedHeaders = headers[COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]
-    ? headers
-    : !resolvedLicense.valid || !resolvedLicense.key
-      ? headers
-      : {
-          ...headers,
-          [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: resolvedLicense.key,
-        };
+  const publicKeyDefaults: Record<string, string> =
+    !resolvedLicense.valid || !resolvedLicense.key
+      ? {}
+      : { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: resolvedLicense.key };
 
   return {
     provide: COPILOT_KIT_CONFIG,
     useValue: {
       ...config,
-      headers: mergedHeaders,
+      headers: ɵwithHeaderDefaults(config.headers ?? {}, publicKeyDefaults),
     },
   };
 }
