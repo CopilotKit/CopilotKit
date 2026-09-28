@@ -62,30 +62,25 @@ The state and tool hooks in the next steps use the same agent ID.
 ## Configure the local runtime
 
 `app/api/copilotkit/[[...slug]]/route.ts` connects the browser-facing runtime
-to the agent. During local development, `LangGraphHttpAgent` calls the AG-UI
-endpoint started in Step 2:
+to the agent. For a local-only route, use `HttpAgent` to call the AG-UI
+endpoint started in Step 2. Add its package from `examples/v1/travel`:
+
+```shell
+pnpm add @ag-ui/client
+```
+
+Then configure the route:
 
 ```ts title="examples/v1/travel/app/api/copilotkit/[[...slug]]/route.ts"
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime/v2";
-import {
-  LangGraphAgent,
-  LangGraphHttpAgent,
-} from "@copilotkit/runtime/langgraph";
+import { HttpAgent } from "@ag-ui/client";
 
-const deploymentUrl = process.env.LANGGRAPH_DEPLOYMENT_URL || "";
-
-const travel = deploymentUrl
-  ? new LangGraphAgent({
-      deploymentUrl,
-      langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
-      graphId: "travel",
-    })
-  : new LangGraphHttpAgent({
-      url: process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
-    });
+const travel = new HttpAgent({
+  url: process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
+});
 
 const runtime = new CopilotRuntime({
   agents: { travel },
@@ -100,7 +95,10 @@ export const GET = handler;
 export const POST = handler;
 ```
 
-Set `LANGGRAPH_DEPLOYMENT_URL` when you want the runtime to use a deployed
-LangGraph graph. Leave it unset for the local server from Step 2.
+The [checked-in route](https://github.com/CopilotKit/CopilotKit/blob/main/examples/v1/travel/app/api/copilotkit/%5B%5B...slug%5D%5D/route.ts)
+also supports deployed LangGraph graphs through a compatibility adapter that
+preserves the example's CopilotKit state and events. Keep that route when using
+`LANGGRAPH_DEPLOYMENT_URL` and `LANGSMITH_API_KEY`. Leave the deployment URL
+unset for the local server from Step 2.
 
 Next, see how the React app reads and updates the agent's state.
