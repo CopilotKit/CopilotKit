@@ -47,6 +47,13 @@
         ],
         "parallel": false
       }
+    },
+    "validate-examples-catalog": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "node --test scripts/__tests__/examples-readme-catalog.test.mjs"
+      }
     }
   },
   "tags": []
