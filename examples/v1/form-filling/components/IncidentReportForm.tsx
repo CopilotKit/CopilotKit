@@ -89,24 +89,33 @@ export function IncidentReportForm() {
     },
   });
 
+  useAgentContext({
+    description: "Today's date in the user's local time zone (YYYY-MM-DD)",
+    value: serializeIncidentDate(new Date()),
+  });
+
   useFrontendTool({
     name: "fillIncidentReportForm",
     description: "Fill out the incident report form",
     parameters: fillIncidentReportFormParameters,
     handler: async (action) => {
-      const incidentDate = parseIncidentDate(action.date);
-      if (!incidentDate || !isIncidentDateAllowed(incidentDate)) {
-        return "The incident date must be a valid date from January 1, 1900 through today in YYYY-MM-DD format.";
+      const parsed = fillIncidentReportFormParameters.safeParse(action);
+      if (!parsed.success) {
+        return `Could not update the incident report: ${parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ")}`;
       }
+      const values = parsed.data;
+      const incidentDate = parseIncidentDate(values.date);
+      if (!incidentDate)
+        throw new Error("Validated incident date could not be parsed");
 
       applyIncidentReportFormValues(form.setValue, {
-        name: action.fullName,
-        email: action.email,
-        description: action.incidentDescription,
+        name: values.fullName,
+        email: values.email,
+        description: values.incidentDescription,
         date: incidentDate,
-        impactLevel: action.incidentLevel,
-        incidentType: action.incidentType,
-        suggestedActions: action.suggestedActions,
+        impactLevel: values.incidentLevel,
+        incidentType: values.incidentType,
+        suggestedActions: values.suggestedActions,
       });
       return "Updated the incident report form.";
     },
