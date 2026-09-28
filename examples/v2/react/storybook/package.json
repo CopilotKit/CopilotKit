@@ -9,18 +9,18 @@
     "storybook:build": "storybook build"
   },
   "dependencies": {
-    "@storybook/react": "^10.2.10",
+    "@storybook/react": "10.3.5",
     "react": "^19",
     "react-dom": "^19",
-    "storybook": "^10.2.10"
+    "storybook": "10.3.5"
   },
   "devDependencies": {
     "@copilotkit/core": "workspace:*",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/typescript-config": "workspace:*",
-    "@storybook/addon-docs": "^10.3.5",
-    "@storybook/addon-themes": "^10.2.10",
-    "@storybook/react-vite": "^10.3.5",
+    "@storybook/addon-docs": "10.3.5",
+    "@storybook/addon-themes": "10.3.5",
+    "@storybook/react-vite": "10.3.5",
     "@tailwindcss/vite": "^4.1.18",
     "@types/node": "^22",
     "@types/react": "^19",
