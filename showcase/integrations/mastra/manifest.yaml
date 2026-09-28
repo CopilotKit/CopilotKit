@@ -142,7 +142,6 @@ demos:
       - shared-tools/get-weather.ts
       - shared-tools/query-data.ts
       - shared-tools/schedule-meeting.ts
-      - shared-tools/search-flights.ts
       - src/app/demos/tool-rendering/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-default-catchall

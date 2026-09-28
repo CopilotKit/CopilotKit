@@ -18,6 +18,10 @@
       "types": "./dist/types/copilotkit-angular.d.ts",
       "default": "./dist/fesm2022/copilotkit-angular.mjs"
     },
+    "./a2ui": {
+      "types": "./dist/types/copilotkit-angular-a2ui.d.ts",
+      "default": "./dist/fesm2022/copilotkit-angular-a2ui.mjs"
+    },
     "./mcp-apps": {
       "types": "./dist/types/copilotkit-angular-mcp-apps.d.ts",
       "default": "./dist/fesm2022/copilotkit-angular-mcp-apps.mjs"
@@ -55,6 +59,7 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
+    "@a2ui/web_core": "0.10.4",
     "@ag-ui/client": "0.0.59",
     "@ag-ui/core": "0.0.59",
     "@copilotkit/a2ui-renderer": "workspace:*",

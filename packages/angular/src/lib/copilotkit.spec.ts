@@ -12,6 +12,7 @@ import {
 import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-generative-ui/open-generative-ui-activity-renderer";
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
 import { CopilotA2UIActivityRenderer } from "./components/a2ui/a2ui-activity-renderer";
+import { CopilotA2UIRenderToolCall } from "./components/a2ui/a2ui-render-tool-call";
 import { CopilotA2UIToolRenderer } from "./components/a2ui/a2ui-tool-renderer";
 import {
   AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
@@ -44,7 +45,6 @@ const mockRemoveContext = vi.fn();
 
 const licenseKey = "ck_pub_" + "a".repeat(32);
 
-let lastCoreInstance: any;
 let lastCoreConfig: any;
 
 // Spread the real module and override only what these tests drive. The factory
@@ -90,7 +90,6 @@ vi.mock("@copilotkit/core", async (importOriginal) => {
 
     constructor(config: any) {
       lastCoreConfig = config;
-      lastCoreInstance = this;
       mockSubscribe.mockImplementationOnce((listener: any) => {
         this.listener = listener;
         return { unsubscribe: vi.fn() };
@@ -380,7 +379,7 @@ describe("CopilotKit", () => {
     });
 
     const copilotKit = TestBed.inject(CopilotKit);
-    const core = lastCoreInstance!;
+    const core = copilotKit.core as any;
 
     expect(copilotKit.activityMessageRenderConfigs()).toEqual([]);
     expect(copilotKit.toolCallRenderConfigs()).toEqual([]);
@@ -399,8 +398,7 @@ describe("CopilotKit", () => {
     expect(copilotKit.toolCallRenderConfigs()).toEqual([
       expect.objectContaining({
         name: RENDER_A2UI_TOOL_NAME,
-        component: CopilotA2UIToolRenderer,
-        passAgent: true,
+        component: CopilotA2UIRenderToolCall,
       }),
       expect.objectContaining({
         name: AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
@@ -449,7 +447,7 @@ describe("CopilotKit", () => {
 
     const copilotKit = TestBed.inject(CopilotKit);
 
-    expect(lastCoreInstance!.a2uiEnabled).toBe(false);
+    expect((copilotKit.core as any).a2uiEnabled).toBe(false);
     expect(copilotKit.activityMessageRenderConfigs()).toEqual([
       expect.objectContaining({
         activityType: "a2ui-surface",
@@ -622,7 +620,7 @@ describe("CopilotKit", () => {
     });
 
     const copilotKit = TestBed.inject(CopilotKit);
-    const core = lastCoreInstance!;
+    const core = copilotKit.core as any;
 
     core.agents = {
       agent1: { id: "agent1" },

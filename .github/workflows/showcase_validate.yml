@@ -386,6 +386,9 @@ jobs:
           fi
           echo "Pin drift unchanged at baseline ($baseline, hash $baseline_hash)."
 
+      - name: Run shared TypeScript tool tests
+        run: pnpm exec nx run showcase-shared-typescript:test
+
       - name: Run build pipeline tests
         working-directory: showcase/scripts
         # Use pnpm to resolve the workspace-installed vitest (pinned via
