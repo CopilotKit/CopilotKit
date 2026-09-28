@@ -99,6 +99,27 @@ describe("assistant toolbar scope", () => {
     );
   });
 
+  it("copies a message once when the list holds it twice", async () => {
+    // Streaming can deliver two copies of one message; the view shows one.
+    renderView({
+      messages: [
+        { id: "u1", role: "user", content: "Plan the launch" },
+        { id: "a1", role: "assistant", content: "Let me" },
+        { id: "a1", role: "assistant", content: "Let me look that up." },
+      ],
+    });
+
+    fireEvent.click(
+      within(screen.getByTestId("copilot-assistant-toolbar")).getByRole(
+        "button",
+        { name: /copy/i },
+      ),
+    );
+    await waitFor(() =>
+      expect(mockWriteText).toHaveBeenCalledWith("Let me look that up."),
+    );
+  });
+
   it("hides the latest reply's toolbar while it is still running", () => {
     renderView({ isRunning: true });
     expect(screen.getAllByTestId("copilot-assistant-toolbar")).toHaveLength(1);
