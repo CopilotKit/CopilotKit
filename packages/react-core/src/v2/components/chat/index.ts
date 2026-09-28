@@ -21,6 +21,11 @@ export {
 } from "./CopilotChatReasoningMessage";
 
 export {
+  default as CopilotChatSubagent,
+  type CopilotChatSubagentProps,
+} from "./CopilotChatSubagent";
+
+export {
   CopilotChatAudioRecorder,
   type AudioRecorderState,
   AudioRecorderError,

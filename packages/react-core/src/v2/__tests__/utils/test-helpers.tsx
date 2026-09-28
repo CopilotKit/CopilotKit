@@ -382,6 +382,57 @@ export function toolCallResultEvent({
 }
 
 /**
+ * Helper to create a SUBAGENT_STARTED event. `name` defaults to
+ * `<subagentRunId>-agent`.
+ */
+export function subagentStartedEvent(
+  subagentRunId: string,
+  extra: {
+    name?: string;
+    description?: string;
+    parentToolCallId?: string;
+    parentMessageId?: string;
+    parentSubagentRunId?: string;
+  } = {},
+): BaseEvent {
+  return {
+    type: EventType.SUBAGENT_STARTED,
+    subagentRunId,
+    name: `${subagentRunId}-agent`,
+    ...extra,
+  } as BaseEvent;
+}
+
+/**
+ * Helper to create a SUBAGENT_FINISHED event
+ */
+export function subagentFinishedEvent(
+  subagentRunId: string,
+  outcome?:
+    | { type: "success" }
+    | { type: "suspended"; interruptIds?: string[] },
+): BaseEvent {
+  return {
+    type: EventType.SUBAGENT_FINISHED,
+    subagentRunId,
+    outcome,
+  } as BaseEvent;
+}
+
+/**
+ * Helper to create a SUBAGENT_ERROR event
+ */
+export function subagentErrorEvent(
+  subagentRunId: string,
+  message: string,
+): BaseEvent {
+  return {
+    type: EventType.SUBAGENT_ERROR,
+    subagentRunId,
+    message,
+  } as BaseEvent;
+}
+/**
  * Helper to create a REASONING_START event
  */
 export function reasoningStartEvent(messageId: string): BaseEvent {

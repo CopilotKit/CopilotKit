@@ -43,6 +43,7 @@
     },
     "human-in-the-loop",
     "multi-agent/subagents",
+    "multi-agent/subagent-activity",
     "agent-config",
     "programmatic-control",
     "---Runtime---",

@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, useSlots, watch } from "vue";
+import {
+  computed,
+  inject,
+  onMounted,
+  provide,
+  ref,
+  useSlots,
+  watch,
+} from "vue";
 import type { Component } from "vue";
 import type {
   ActivityMessage,
@@ -24,6 +32,13 @@ import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfi
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage.vue";
 import CopilotChatReasoningMessage from "./CopilotChatReasoningMessage.vue";
 import CopilotChatUserMessage from "./CopilotChatUserMessage.vue";
+import CopilotChatSubagentGroup, {
+  SubagentLayoutKey,
+} from "./CopilotChatSubagentGroup";
+import { ɵbuildSubagentLayout } from "@copilotkit/core";
+import type { ɵSubagentGroup } from "@copilotkit/core";
+import { useSubagents } from "../../hooks/use-subagents";
+import type { CopilotChatSubagentSlotProps } from "./types";
 
 interface MessageMetaProps {
   message: Message;
@@ -56,6 +71,11 @@ const props = withDefaults(
   defineProps<{
     messages?: Message[];
     isRunning?: boolean;
+    /**
+     * @internal Set by a subagent group to render that group's messages
+     * with this view. Application code does not pass it.
+     */
+    subagentGroup?: ɵSubagentGroup;
   }>(),
   {
     messages: () => [],
@@ -79,6 +99,7 @@ defineSlots<{
     isRunning: boolean;
   }) => unknown;
   "activity-message"?: (props: ActivitySlotProps) => unknown;
+  subagent?: (props: CopilotChatSubagentSlotProps) => unknown;
   [key: string]: ((props: any) => unknown) | undefined;
   cursor?: () => unknown;
   "tool-call"?: (props: {
@@ -189,6 +210,51 @@ function deduplicateMessages(messages: Message[]): Message[] {
 
 const deduplicatedMessages = computed(() =>
   deduplicateMessages(props.messages),
+);
+
+// Messages a subagent produced leave the main list and render as groups:
+// under the tool call that started them, inside a parent group, or where their
+// first message was. A group body reuses this view over the group's messages
+// and reads the layout the top view provides.
+const parentSubagentLayout = inject(SubagentLayoutKey, null);
+const subagents = useSubagents();
+const ownSubagentLayout = computed(() =>
+  ɵbuildSubagentLayout(deduplicatedMessages.value, subagents.value),
+);
+const subagentLayout = computed(() =>
+  props.subagentGroup && parentSubagentLayout
+    ? parentSubagentLayout.value.layout
+    : ownSubagentLayout.value,
+);
+const rows = computed(() =>
+  props.subagentGroup
+    ? props.subagentGroup.messages
+    : ownSubagentLayout.value.topLevel,
+);
+const slots = useSlots();
+if (!props.subagentGroup) {
+  provide(
+    SubagentLayoutKey,
+    computed(() => ({
+      layout: ownSubagentLayout.value,
+      messages: props.messages,
+      isRunning: props.isRunning,
+      slots,
+    })),
+  );
+}
+
+function groupsAfter(messageId: string | null) {
+  if (props.subagentGroup) return [];
+  return subagentLayout.value.afterMessageId.get(messageId) ?? [];
+}
+
+const nestedGroups = computed(() =>
+  props.subagentGroup
+    ? (subagentLayout.value.bySubagentRunId.get(
+        props.subagentGroup.subagentRunId,
+      ) ?? [])
+    : [],
 );
 
 // Stable per-row keys. Backends can re-key a message mid-stream, and keying
@@ -366,8 +432,13 @@ function resolveToolMessage(
 
 <template>
   <div data-copilotkit class="cpk:flex cpk:flex-col" v-bind="$attrs">
+    <CopilotChatSubagentGroup
+      v-for="group in groupsAfter(null)"
+      :key="`subagent-${group.subagentRunId}`"
+      :group="group"
+    />
     <template
-      v-for="message in deduplicatedMessages"
+      v-for="message in rows"
       :key="rowRenderKeys.get(message.id) ?? message.id"
     >
       <slot
@@ -480,10 +551,20 @@ function resolveToolMessage(
         :is="resolveCustomMessageRenderer(message, 'after')!.renderer"
         v-bind="resolveCustomMessageRenderer(message, 'after')!.props"
       />
+      <CopilotChatSubagentGroup
+        v-for="group in groupsAfter(message.id)"
+        :key="`subagent-${group.subagentRunId}`"
+        :group="group"
+      />
     </template>
+    <CopilotChatSubagentGroup
+      v-for="group in nestedGroups"
+      :key="`subagent-${group.subagentRunId}`"
+      :group="group"
+    />
 
     <slot
-      v-if="interruptState"
+      v-if="interruptState && !subagentGroup"
       name="interrupt"
       :event="interruptState.event"
       :interrupt="interruptState.interrupt"
@@ -493,7 +574,7 @@ function resolveToolMessage(
       :cancel="interruptState.cancel"
     />
 
-    <slot v-if="showCursor" name="cursor">
+    <slot v-if="showCursor && !subagentGroup" name="cursor">
       <div
         class="cpk:w-[11px] cpk:h-[11px] cpk:rounded-full cpk:bg-foreground cpk:animate-pulse cpk:ml-1"
         data-testid="copilot-loading-cursor"

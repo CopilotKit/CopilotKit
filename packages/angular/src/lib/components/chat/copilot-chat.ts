@@ -66,6 +66,8 @@ import { connectActiveThread } from "../../active-thread-connector";
         [reasoningMessageComponent]="reasoningMessageComponent()"
         [reasoningMessageTemplate]="reasoningMessageTemplate()"
         [reasoningMessageClass]="reasoningMessageClass()"
+        [subagentComponent]="subagentComponent()"
+        [subagentTemplate]="subagentTemplate()"
         [messageViewChildrenComponent]="messageViewChildrenComponent()"
         [messageViewChildrenTemplate]="messageViewChildrenTemplate()"
         [messageViewChildrenClass]="messageViewChildrenClass()"
@@ -102,6 +104,10 @@ export class CopilotChat extends ChatState {
   readonly reasoningMessageTemplate = input<TemplateRef<any> | undefined>();
   /** Class forwarded to the default or custom reasoning-message renderer. */
   readonly reasoningMessageClass = input<string | undefined>();
+  /** Component used to render each subagent group in the chat. */
+  readonly subagentComponent = input<Type<any> | undefined>();
+  /** Template used to render each subagent group in the chat. */
+  readonly subagentTemplate = input<TemplateRef<any> | undefined>();
   /** Component rendered after the transcript messages and before the cursor. */
   readonly messageViewChildrenComponent = input<Type<any> | undefined>();
   /** Template rendered after the transcript messages and before the cursor. */

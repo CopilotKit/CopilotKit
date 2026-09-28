@@ -1,6 +1,7 @@
 import { useRenderToolCall } from "../../hooks";
 import type { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
-import React from "react";
+import React, { useContext } from "react";
+import { SubagentLayoutContext } from "./CopilotChatSubagent";
 
 export type CopilotChatToolCallsViewProps = {
   message: AssistantMessage;
@@ -12,6 +13,7 @@ export function CopilotChatToolCallsView({
   messages = [],
 }: CopilotChatToolCallsViewProps) {
   const renderToolCall = useRenderToolCall();
+  const subagents = useContext(SubagentLayoutContext);
 
   if (!message.toolCalls || message.toolCalls.length === 0) {
     return null;
@@ -30,6 +32,10 @@ export function CopilotChatToolCallsView({
               toolCall,
               toolMessage,
             })}
+            {/* The subagents this call started, even when no renderer is registered for the call. */}
+            {subagents?.layout.byToolCallId
+              .get(toolCall.id)
+              ?.map(subagents.renderGroup)}
           </React.Fragment>
         );
       })}

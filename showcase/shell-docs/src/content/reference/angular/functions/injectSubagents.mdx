@@ -1,0 +1,90 @@
+---
+title: "injectSubagents"
+description: "Signal with the AG-UI subagent invocations of an agent thread, for Angular."
+---
+
+`injectSubagents` returns a signal with the subagents of the current chat thread, in the order they started.
+Each entry updates when the subagent starts, finishes, fails or waits for input.
+Call it in an injection context. It stops listening when that context is destroyed.
+
+The agent must send AG-UI 1.0 subagent events.
+An agent that sends none gives an empty list.
+`<copilot-chat>` already shows each subagent as a group, see [Subagent Activity](/multi-agent/subagent-activity).
+
+```ts
+function injectSubagents(
+  options?: InjectSubagentsOptions,
+): Signal<readonly Subagent[]>;
+```
+
+```ts
+import { Component } from "@angular/core";
+import { injectSubagents } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-subagent-progress",
+  template: `
+    <ul>
+      @for (subagent of subagents(); track subagent.subagentRunId) {
+        <li>{{ subagent.name }}: {{ subagent.status }}</li>
+      }
+    </ul>
+  `,
+})
+export class SubagentProgressComponent {
+  readonly subagents = injectSubagents();
+}
+```
+
+## Parameters
+
+- `agentId`: string or signal. Defaults to the agent of the chat.
+- `threadId`: string or signal. Defaults to the thread of the chat.
+
+## Return value
+
+A signal of `readonly Subagent[]`, in start order.
+The array keeps the same reference until one of its entries changes.
+Each entry has these fields:
+
+<PropertyReference name="subagentRunId" type="string" required>
+  The id of this invocation. Messages of the subagent carry the same `subagentRunId`.
+</PropertyReference>
+
+<PropertyReference name="name" type="string" required>
+  The name of the subagent, for display.
+</PropertyReference>
+
+<PropertyReference name="status" type='"running" | "done" | "suspended" | "error"' required>
+  `suspended` means that the subagent waits for input, for example an approval.
+</PropertyReference>
+
+<PropertyReference name="description" type="string">
+  A description of the subagent, when the agent sends one.
+</PropertyReference>
+
+<PropertyReference name="parentToolCallId" type="string">
+  The tool call that started the subagent.
+</PropertyReference>
+
+<PropertyReference name="parentSubagentRunId" type="string">
+  The subagent that started this one, when subagents nest.
+</PropertyReference>
+
+<PropertyReference name="result" type="unknown">
+  The result of the subagent, when its status is `done`.
+</PropertyReference>
+
+<PropertyReference name="interruptIds" type="string[]">
+  The interrupts the subagent raised, when its status is `suspended`.
+</PropertyReference>
+
+<PropertyReference name="error" type="{ message: string; code?: string }">
+  The error, when its status is `error`.
+  A stopped run gives the code `CANCELLED`.
+</PropertyReference>
+
+## Related
+
+- [Subagent Activity](/multi-agent/subagent-activity)
+- [`CopilotChatMessageView`](/reference/angular/components/CopilotChatMessageView), for the `subagentComponent` and `subagentTemplate` inputs

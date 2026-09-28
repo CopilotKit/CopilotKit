@@ -8,6 +8,7 @@ export { default as CopilotChatAttachmentQueue } from "./CopilotChatAttachmentQu
 export { default as CopilotChatAttachmentRenderer } from "./CopilotChatAttachmentRenderer.vue";
 export { default as CopilotChatMessageView } from "./CopilotChatMessageView.vue";
 export { default as CopilotChatReasoningMessage } from "./CopilotChatReasoningMessage.vue";
+export { default as CopilotChatSubagent } from "./CopilotChatSubagent.vue";
 export { default as CopilotChatSuggestionPill } from "./CopilotChatSuggestionPill.vue";
 export { default as CopilotChatSuggestionView } from "./CopilotChatSuggestionView.vue";
 export { default as CopilotChatToolCallsView } from "./CopilotChatToolCallsView.vue";

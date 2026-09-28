@@ -17,6 +17,9 @@ import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
 import type { CopilotChatFeedbackMessage } from "./CopilotChatAssistantMessage";
 import CopilotChatUserMessage from "./CopilotChatUserMessage";
 import CopilotChatReasoningMessage from "./CopilotChatReasoningMessage";
+import CopilotChatSubagent, {
+  SubagentLayoutContext,
+} from "./CopilotChatSubagent";
 import type {
   ActivityMessage,
   AssistantMessage,
@@ -26,7 +29,13 @@ import type {
   UserMessage,
 } from "@ag-ui/core";
 import { twMerge } from "tailwind-merge";
-import { useRenderActivityMessage, useRenderCustomMessages } from "../../hooks";
+import {
+  useRenderActivityMessage,
+  useRenderCustomMessages,
+  useSubagents,
+} from "../../hooks";
+import { ɵbuildSubagentLayout } from "@copilotkit/core";
+import type { ɵSubagentGroup } from "@copilotkit/core";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 import {
@@ -409,6 +418,7 @@ export type CopilotChatMessageViewProps = Omit<
       assistantMessage: typeof CopilotChatAssistantMessage;
       userMessage: typeof CopilotChatUserMessage;
       reasoningMessage: typeof CopilotChatReasoningMessage;
+      subagent: typeof CopilotChatSubagent;
       cursor: typeof CopilotChatMessageView.Cursor;
       intelligenceIndicator: typeof IntelligenceIndicatorView;
     },
@@ -437,6 +447,7 @@ export function CopilotChatMessageView({
   assistantMessage,
   userMessage,
   reasoningMessage,
+  subagent,
   cursor,
   intelligenceIndicator,
   isRunning = false,
@@ -500,6 +511,16 @@ export function CopilotChatMessageView({
     () => deduplicateMessages(messages),
     [messages],
   );
+
+  // Messages a subagent produced leave the main list and render as groups:
+  // under the tool call that started them, inside a parent group, or where
+  // their first message was. Rows below are the top-level messages only.
+  const subagents = useSubagents();
+  const subagentLayout = useMemo(
+    () => ɵbuildSubagentLayout(deduplicatedMessages, subagents),
+    [deduplicatedMessages, subagents],
+  );
+  const topLevelMessages = subagentLayout.topLevel;
 
   // Stable per-row React keys. Backends can re-key a message mid-stream, and
   // keying rows by the canonical id remounts the row on that swap (the HITL
@@ -581,6 +602,11 @@ export function CopilotChatMessageView({
       () => resolveSlotComponent(reasoningMessage, CopilotChatReasoningMessage),
       [reasoningMessage],
     );
+  const { Component: SubagentComponent, slotProps: subagentSlotProps } =
+    useMemo(
+      () => resolveSlotComponent(subagent, CopilotChatSubagent),
+      [subagent],
+    );
 
   // ---------------------------------------------------------------------------
   // Virtualization
@@ -616,7 +642,7 @@ export function CopilotChatMessageView({
   const shouldVirtualize =
     !!scrollElement &&
     !children &&
-    deduplicatedMessages.length > VIRTUALIZE_THRESHOLD;
+    topLevelMessages.length > VIRTUALIZE_THRESHOLD;
 
   // Mean of the rows measured so far in this thread, used as the estimate for
   // rows that have not been measured yet. A flat 100 px estimate is off by
@@ -694,7 +720,7 @@ export function CopilotChatMessageView({
 
   const virtualizer = useVirtualizer({
     // count=0 disables the virtualizer without changing hook call order.
-    count: shouldVirtualize ? deduplicatedMessages.length : 0,
+    count: shouldVirtualize ? topLevelMessages.length : 0,
     getScrollElement: () => scrollElement,
     estimateSize: estimateRowSize,
     overscan: 5,
@@ -727,8 +753,8 @@ export function CopilotChatMessageView({
   // deduplicatedMessages.length here would forcibly yank the user to the bottom
   // on every streaming chunk even if they've scrolled up to read history.
   useLayoutEffect(() => {
-    if (!shouldVirtualize || !deduplicatedMessages.length) return;
-    virtualizer.scrollToIndex(deduplicatedMessages.length - 1, {
+    if (!shouldVirtualize || !topLevelMessages.length) return;
+    virtualizer.scrollToIndex(topLevelMessages.length - 1, {
       align: "end",
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -760,6 +786,16 @@ export function CopilotChatMessageView({
     // Row key only — everything keyed to message identity (state snapshots,
     // tool lookups) must keep using message.id.
     const rowKey = rowRenderKeys.get(message.id) ?? message.id;
+
+    // Groups with no anchor sit where their first message was; ones that came
+    // before any top-level message open the first row.
+    if (message.id === topLevelMessages[0]?.id) {
+      elements.push(
+        ...(subagentLayout.afterMessageId.get(null) ?? []).map(
+          renderSubagentGroup,
+        ),
+      );
+    }
 
     if (renderCustomMessage) {
       elements.push(
@@ -843,23 +879,52 @@ export function CopilotChatMessageView({
       );
     }
 
+    elements.push(
+      ...(subagentLayout.afterMessageId.get(message.id) ?? []).map(
+        renderSubagentGroup,
+      ),
+    );
+
     return elements.filter(Boolean) as React.ReactElement[];
+  };
+
+  const renderSubagentGroup = (group: ɵSubagentGroup): React.ReactElement => (
+    <SubagentComponent
+      key={`subagent-${group.subagentRunId}`}
+      subagentRunId={group.subagentRunId}
+      subagent={group.subagent}
+      messages={group.messages}
+      {...subagentSlotProps}
+    >
+      {group.messages.flatMap(renderMessageBlock)}
+      {subagentLayout.bySubagentRunId
+        .get(group.subagentRunId)
+        ?.map(renderSubagentGroup)}
+    </SubagentComponent>
+  );
+  // A fresh value each render is intended: the groups under a memoized
+  // assistant message must update when only the subagent's messages change.
+  const subagentContext = {
+    layout: subagentLayout,
+    renderGroup: renderSubagentGroup,
   };
 
   // Build the flat element list only when we're not virtualizing (avoids
   // creating 500 React elements that we'd immediately discard).
   const messageElements: React.ReactElement[] = shouldVirtualize
     ? []
-    : deduplicatedMessages.flatMap(renderMessageBlock);
+    : topLevelMessages.flatMap(renderMessageBlock);
 
   // ---------------------------------------------------------------------------
   // children render prop (custom layout, always non-virtual)
   // ---------------------------------------------------------------------------
   if (children) {
     return (
-      <div data-copilotkit style={{ display: "contents" }}>
-        {children({ messageElements, messages, isRunning, interruptElement })}
-      </div>
+      <SubagentLayoutContext.Provider value={subagentContext}>
+        <div data-copilotkit style={{ display: "contents" }}>
+          {children({ messageElements, messages, isRunning, interruptElement })}
+        </div>
+      </SubagentLayoutContext.Provider>
     );
   }
 
@@ -872,48 +937,53 @@ export function CopilotChatMessageView({
   // Render — shared wrapper, conditional inner content (virtual vs flat)
   // ---------------------------------------------------------------------------
   return (
-    <div
-      data-copilotkit
-      data-testid="copilot-message-list"
-      className={twMerge("copilotKitMessages cpk:flex cpk:flex-col", className)}
-      {...props}
-    >
-      {shouldVirtualize ? (
-        // Virtual path: only visible items are in the DOM; outer div maintains
-        // total scroll height so the scrollbar reflects the full list size.
-        <div
-          style={{ height: virtualizer.getTotalSize(), position: "relative" }}
-        >
-          {virtualizer.getVirtualItems().map((virtualItem) => {
-            const message = deduplicatedMessages[virtualItem.index]!;
-            return (
-              <div
-                key={rowRenderKeys.get(message.id) ?? message.id}
-                data-index={virtualItem.index}
-                ref={virtualizer.measureElement}
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  transform: `translateY(${virtualItem.start}px)`,
-                }}
-              >
-                {renderMessageBlock(message)}
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        messageElements
-      )}
-      {interruptElement}
-      {showCursor && (
-        <div className="cpk:mt-2">
-          {renderSlot(cursor, CopilotChatMessageView.Cursor, {})}
-        </div>
-      )}
-    </div>
+    <SubagentLayoutContext.Provider value={subagentContext}>
+      <div
+        data-copilotkit
+        data-testid="copilot-message-list"
+        className={twMerge(
+          "copilotKitMessages cpk:flex cpk:flex-col",
+          className,
+        )}
+        {...props}
+      >
+        {shouldVirtualize ? (
+          // Virtual path: only visible items are in the DOM; outer div maintains
+          // total scroll height so the scrollbar reflects the full list size.
+          <div
+            style={{ height: virtualizer.getTotalSize(), position: "relative" }}
+          >
+            {virtualizer.getVirtualItems().map((virtualItem) => {
+              const message = topLevelMessages[virtualItem.index]!;
+              return (
+                <div
+                  key={rowRenderKeys.get(message.id) ?? message.id}
+                  data-index={virtualItem.index}
+                  ref={virtualizer.measureElement}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    transform: `translateY(${virtualItem.start}px)`,
+                  }}
+                >
+                  {renderMessageBlock(message)}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          messageElements
+        )}
+        {interruptElement}
+        {showCursor && (
+          <div className="cpk:mt-2">
+            {renderSlot(cursor, CopilotChatMessageView.Cursor, {})}
+          </div>
+        )}
+      </div>
+    </SubagentLayoutContext.Provider>
   );
 }
 

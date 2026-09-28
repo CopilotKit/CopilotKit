@@ -20,6 +20,10 @@ This is fundamentally the same shape as tool-calling, but each "tool"
 is itself a full-blown agent with its own system prompt and (often) its
 own tools, memory, and model.
 
+This page builds a delegation log from shared state. If your agent sends
+AG-UI subagent events, the chat can group the work of each subagent for you:
+see [Subagent Activity](/multi-agent/subagent-activity).
+
 ## When should I use this?
 
 Reach for sub-agents when a task has distinct specialized sub-tasks

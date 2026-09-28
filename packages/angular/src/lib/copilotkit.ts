@@ -262,6 +262,17 @@ export class CopilotKit {
       this.addHumanInTheLoop(humanInTheLoopTool);
     });
 
+    // The core constructor registers dev agents without announcing them, so
+    // its run tracking (per-run state, subagents) never subscribes to them.
+    // Publish them once, as the React provider does on mount.
+    const devAgents = {
+      ...this.#config.agents,
+      ...this.#config.selfManagedAgents,
+    };
+    if (Object.keys(devAgents).length > 0) {
+      this.core.setAgents__unsafe_dev_only(devAgents);
+    }
+
     this.core.subscribe({
       onAgentsChanged: () => {
         this.#agents.set(this.core.agents);
