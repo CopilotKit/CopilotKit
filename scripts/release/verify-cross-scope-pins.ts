@@ -19,7 +19,7 @@
  * copies of core (OSS-1107).
  */
 
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { ROOT, loadConfig, resolveScopes } from "./lib/config.js";
@@ -42,12 +42,15 @@ function readWorkspaceManifests(): readonly ScopedManifest[] {
   for (const entry of readdirSync(packagesDir)) {
     let parsed: unknown;
     const manifestPath = join(packagesDir, entry, "package.json");
+    // Python packages under packages/ carry a pyproject.toml and no
+    // package.json. npm never publishes them, so they have no pins to check.
+    if (!existsSync(manifestPath)) continue;
     try {
       parsed = JSON.parse(readFileSync(manifestPath, "utf8"));
     } catch (error) {
       // Fail closed. A manifest this gate cannot read is a package it cannot
       // check, and skipping it would let the gate report OK on a tree it only
-      // partly inspected. Every direct entry under packages/ carries one.
+      // partly inspected.
       throw new Error(
         `verify-cross-scope-pins: unreadable manifest ${manifestPath}: ${String(error)}`,
         { cause: error },
