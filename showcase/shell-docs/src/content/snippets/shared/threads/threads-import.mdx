@@ -10,10 +10,10 @@ New to the feature? Read the [Rich Threads overview](/threads) first to understa
 
 ## Supported sources
 
-| Source | Import guide | Supported history |
-|---|---|---|
-| Google ADK | [Synchronize ADK threads](/google-adk/threads-import) | Persisted ADK sessions from a database session service or Vertex/Agent Engine session service. |
-| LangGraph | [Synchronize LangGraph threads](/langgraph-python/threads-import) | LangGraph Server, LangGraph Platform, or LangSmith Deployment threads exposed through the LangGraph SDK thread/run APIs. |
+| Source     | Import guide                                                      | Supported history                                                                                                        |
+| ---------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Google ADK | [Synchronize ADK threads](/google-adk/threads-import)             | Persisted ADK sessions from a database session service or Vertex/Agent Engine session service.                           |
+| LangGraph  | [Synchronize LangGraph threads](/langgraph-python/threads-import) | LangGraph Server, LangGraph Platform, or LangSmith Deployment threads exposed through the LangGraph SDK thread/run APIs. |
 
 ## What gets imported?
 
@@ -43,6 +43,7 @@ It does not import agent state snapshots, framework transport noise, LangSmith t
     ```
 
     The command updates the project selected for the current directory and writes its project-scoped runtime key to the app's generated `.env`.
+
   </Step>
 
   <Step>
@@ -62,6 +63,7 @@ It does not import agent state snapshots, framework transport noise, LangSmith t
         ```
       </Tab>
     </Tabs>
+
   </Step>
 
   <Step>
@@ -77,6 +79,7 @@ It does not import agent state snapshots, framework transport noise, LangSmith t
       "sales-agent": "sales-agent"
     }
     ```
+
   </Step>
 
   <Step>
@@ -92,6 +95,7 @@ It does not import agent state snapshots, framework transport noise, LangSmith t
     ```
 
     `COPILOTKIT_API_KEY` is also accepted for the key. You can pass the same values directly with `--api-url` and `--api-key` instead.
+
   </Step>
 
   <Step>
@@ -103,12 +107,14 @@ It does not import agent state snapshots, framework transport noise, LangSmith t
     - [Synchronize LangGraph threads](/langgraph-python/threads-import)
 
     Re-running the same import is safe: already-imported conversations are skipped. Use `--replace` when you intentionally want to refresh previously imported threads.
+
   </Step>
 
   <Step>
     ### Verify the imported conversations
 
     Open the Threads Drawer, select an imported conversation, and confirm that its history appears in the chat.
+
   </Step>
 
   <Step>
@@ -124,8 +130,42 @@ It does not import agent state snapshots, framework transport noise, LangSmith t
     Create one new conversation through CopilotKit, then confirm that it appears in CopilotKit Intelligence and in the native persistence store that remains connected to your agent.
 
     For the underlying persistence and replay model, see [Threads & Persistence Architecture](/intelligence/threads-explained).
+
   </Step>
 </Steps>
+
+## Continuing an imported conversation
+
+An imported thread keeps its Intelligence ID. The runtime uses the saved native
+thread or session ID when calling the agent selected by your import agent map.
+Events, replay and reconnect continue to use the Intelligence ID. Replacing an
+import refreshes its history and metadata while preserving its Intelligence ID.
+
+LangGraph continuation uses the mapped agent's existing backend configuration.
+Keep it connected to the original deployment and checkpoint store. For ADK,
+Mastra and Strands, configure `prepareImportedThread` on the runtime to apply the
+saved native user, resource or session context through your adapter's existing
+configuration or input extractors. The callback receives:
+
+- `agent`: the mapped agent instance for this request.
+- `execution`: the source, native thread ID and saved framework context.
+- `input`: a separate outbound input you can prepare without changing saved history.
+- `request`: the authenticated runtime request.
+
+The callback must validate the original session context and throw if it cannot
+prepare that session. Changing a field in `forwardedProps` only works when your
+adapter is configured to read that field; it does not configure the adapter by
+itself. The runtime preserves the Intelligence run ID and sets the native thread
+ID after preparation.
+
+If required context is missing, continuation returns an actionable error before
+calling the agent. Import and replay remain available. Older imports missing
+native context can be refreshed with `--replace`. Adapter-specific limits still
+apply, including ADK sessions created outside AG-UI and Mastra remote agent aliases.
+
+This behavior requires an Intelligence API and runtime that support native
+execution context. An older runtime ignores the new context and retains its
+previous behavior; it does not gain native continuation automatically.
 
 ## Deployment notes
 

@@ -599,7 +599,10 @@ export class IntelligenceAgentRunner extends AgentRunner {
     const buildRunStartedEvent = (
       source?: RunStartedEvent,
     ): RunStartedEvent => {
-      const baseInput = source?.input ?? request.input;
+      // Native preparation belongs only to outbound execution, not replay.
+      const baseInput = request.executionInput
+        ? request.input
+        : (source?.input ?? request.input);
       const persistedInputMessages = getPersistedInputMessages();
       const event =
         source ??
@@ -634,6 +637,10 @@ export class IntelligenceAgentRunner extends AgentRunner {
       // AG-UI builds its outbound input from the per-request agent instance.
       // Keep canonical ownership on the runner request for persistence and stop.
       request.agent.threadId = executionInput.threadId;
+      if (request.executionInput) {
+        request.agent.messages = structuredClone(executionInput.messages);
+        request.agent.state = structuredClone(executionInput.state);
+      }
       await Promise.race([
         request.agent.runAgent(executionInput, {
           onEvent: ({ event }: { event: BaseEvent }) => {

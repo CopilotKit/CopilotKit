@@ -495,6 +495,8 @@ export interface SubscribeToMemoriesResponse {
 export type ConnectThreadResponse = ThreadConnectionResponse | null;
 
 export interface AcquireThreadLockResponse extends ThreadConnectionResponse {
+  /** Validated by the runtime before imported dispatch; omitted by older APIs. */
+  nativeExecution?: unknown;
   /** Canonical platform run identifier for the acquired lock. */
   runId: string;
 }

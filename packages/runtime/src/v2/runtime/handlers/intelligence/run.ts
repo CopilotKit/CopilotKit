@@ -1,3 +1,8 @@
+import {
+  ImportedThreadExecutionError,
+  parseImportedExecution,
+  resolveImportedExecution,
+} from "./imported-execution";
 import type {
   AbstractAgent,
   BaseEvent,
@@ -158,6 +163,7 @@ export async function handleIntelligenceRun({
   let canonicalThreadId = input.threadId;
   let canonicalRunId = input.runId;
   let joinToken: string | undefined;
+  let nativeExecution: unknown;
   try {
     const lockResult = await runtime.intelligence.ɵacquireThreadLock({
       threadId: input.threadId,
@@ -173,6 +179,7 @@ export async function handleIntelligenceRun({
     canonicalThreadId = lockResult.threadId;
     canonicalRunId = lockResult.runId;
     joinToken = lockResult.joinToken;
+    nativeExecution = lockResult.nativeExecution;
   } catch (error) {
     logger.error("Thread lock denied:", error);
     const platformStatus = getPlatformErrorStatus(error);
@@ -217,6 +224,42 @@ export async function handleIntelligenceRun({
     runId: canonicalRunId,
   };
 
+  let executionInput: RunAgentInput | undefined;
+  try {
+    const execution = parseImportedExecution(nativeExecution, agentId);
+    if (execution) {
+      const preparedInput: RunAgentInput = structuredClone(canonicalInput);
+      if (runtime.prepareImportedThread) {
+        await runtime.prepareImportedThread({
+          request,
+          agent,
+          execution,
+          input: preparedInput,
+        });
+      }
+      executionInput = resolveImportedExecution(
+        nativeExecution,
+        agentId,
+        preparedInput,
+        Boolean(runtime.prepareImportedThread),
+      );
+      // Preparation can configure framework context, never canonical run ownership.
+      executionInput.runId = canonicalRunId;
+    }
+  } catch (error) {
+    await cleanupLock("imported-continuation-unavailable");
+    return Response.json(
+      {
+        error: "IMPORTED_CONTINUATION_UNAVAILABLE",
+        message:
+          error instanceof ImportedThreadExecutionError
+            ? error.message
+            : "The configured imported-thread preparation failed. Check the mapped agent's native session configuration before retrying.",
+      },
+      { status: 409 },
+    );
+  }
+
   let persistedInputMessages: Message[] | undefined;
   if (Array.isArray(input.messages)) {
     try {
@@ -238,6 +281,32 @@ export async function handleIntelligenceRun({
           error: "Thread history lookup failed",
         },
         { status: 502 },
+      );
+    }
+  }
+
+  if (executionInput) {
+    // Imported preparation and history reads may outlive the acquired lease.
+    // Recheck imported ownership before dispatch; ordinary runs keep their heartbeat behavior.
+    try {
+      await runtime.intelligence.ɵrenewThreadLock({
+        threadId: canonicalThreadId,
+        runId: canonicalRunId,
+        ttlSeconds: runtime.lockTtlSeconds,
+        ...(runtime.lockKeyPrefix !== undefined
+          ? { lockKeyPrefix: runtime.lockKeyPrefix }
+          : {}),
+      });
+    } catch (error) {
+      logger.error("Thread lock lost before agent dispatch:", error);
+      await cleanupLock("thread-lock-lost-before-dispatch");
+      return Response.json(
+        {
+          error: "Thread lock lost",
+          message:
+            "Run ownership expired during preparation. Retry to acquire a new lock before continuing.",
+        },
+        { status: 409 },
       );
     }
   }
@@ -291,6 +360,7 @@ export async function handleIntelligenceRun({
     threadId: canonicalThreadId,
     agent,
     input: canonicalInput,
+    ...(executionInput !== undefined ? { executionInput } : {}),
     ...(persistedInputMessages !== undefined ? { persistedInputMessages } : {}),
   };
 

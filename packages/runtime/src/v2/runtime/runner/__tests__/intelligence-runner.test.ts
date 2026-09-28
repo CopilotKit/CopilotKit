@@ -1256,13 +1256,76 @@ describe("IntelligenceAgentRunner", () => {
       ]);
     });
 
+    it("preserves preloaded agent input without an execution override", async () => {
+      const input = createRunInput({
+        threadId: "ordinary-thread",
+        runId: "ordinary-run",
+      });
+      const messages = [
+        {
+          id: "preloaded",
+          role: "user" as const,
+          content: "Preloaded history",
+        },
+      ];
+      const state = { preloaded: true };
+      const dispatched: RunAgentInput[] = [];
+      class PreloadedAgent extends AbstractAgent {
+        run(outbound: RunAgentInput) {
+          dispatched.push(outbound);
+          return of<BaseEvent[]>(
+            {
+              type: EventType.RUN_STARTED,
+              threadId: outbound.threadId,
+              runId: outbound.runId,
+              input: outbound,
+            } as RunStartedEvent,
+            {
+              type: EventType.RUN_FINISHED,
+              threadId: outbound.threadId,
+              runId: outbound.runId,
+            } as RunFinishedEvent,
+          );
+        }
+      }
+      const agent = new PreloadedAgent({
+        initialMessages: messages,
+        initialState: state,
+      });
+      const eventsPromise = collectEvents(
+        runner.run({ threadId: input.threadId, input, agent }),
+      );
+      const channel = mockChannels[0];
+      channel.triggerJoin("ok");
+      await eventsPromise;
+      expect(dispatched[0]).toMatchObject({ messages, state });
+      expect(channel.pushLog[0].payload).toMatchObject({ input: { state } });
+    });
+
     it("dispatches native identity while publishing canonical ownership", async () => {
       const input = createRunInput({
         threadId: "intelligence-thread",
         runId: "run-1",
       });
       const nativeThreadId = "native:session:" + "x".repeat(140);
-      const executionInput = { ...input, threadId: nativeThreadId };
+      input.messages = [
+        { id: "canonical-message", role: "user", content: "Canonical message" },
+      ];
+      input.state = { scope: "canonical" };
+      const executionInput = {
+        ...input,
+        threadId: nativeThreadId,
+        messages: [
+          {
+            id: "prepared-message",
+            role: "user" as const,
+            content: "Prepared message",
+          },
+        ],
+        state: { scope: "prepared" },
+        context: [{ description: "Native context", value: "private" }],
+        forwardedProps: { nativeUser: "original-user" },
+      };
       const dispatched: RunAgentInput[] = [];
       class NativeAgent extends AbstractAgent {
         run(nativeInput: RunAgentInput) {
@@ -1299,13 +1362,24 @@ describe("IntelligenceAgentRunner", () => {
       expect(dispatched[0]).toMatchObject({
         threadId: nativeThreadId,
         runId: input.runId,
+        messages: executionInput.messages,
+        state: executionInput.state,
       });
+      expect(input.messages[0].content).toBe("Canonical message");
+      expect(input.state).toEqual({ scope: "canonical" });
       expect(input.threadId).toBe("intelligence-thread");
       expect(channel.pushLog[0].payload).toMatchObject({
         threadId: input.threadId,
         thread_id: input.threadId,
         runId: input.runId,
-        input: { threadId: input.threadId, runId: input.runId },
+        input: {
+          threadId: input.threadId,
+          runId: input.runId,
+          messages: input.messages,
+          state: input.state,
+          context: input.context,
+          forwardedProps: input.forwardedProps,
+        },
       });
       expect(channel.pushLog[1].payload.threadId).toBe(input.threadId);
     });

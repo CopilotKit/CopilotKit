@@ -1,3 +1,8 @@
+import type { PrepareImportedThread } from "../handlers/intelligence/imported-execution";
+export type {
+  PrepareImportedThread,
+  ImportedThreadExecution,
+} from "../handlers/intelligence/imported-execution";
 import type {
   MaybePromise,
   NonEmptyRecord,
@@ -284,6 +289,8 @@ interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOption
   ɵlearning?: CopilotRuntimeLearningConfig;
   /** Auto-generate short names for newly created threads. */
   generateThreadNames?: boolean;
+  /** Prepare native user/resource/session context on the already mapped agent. */
+  prepareImportedThread?: PrepareImportedThread;
   /** Max delay (ms) for WebSocket reconnect backoff. @default 10_000 */
   maxReconnectMs?: number;
   /** Max delay (ms) for channel rejoin backoff. @default 30_000 */
@@ -385,6 +392,7 @@ export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
   intelligence: CopilotKitIntelligence;
   identifyUser?: IdentifyUserCallback;
   generateThreadNames: boolean;
+  prepareImportedThread?: PrepareImportedThread;
   lockTtlSeconds: number;
   lockKeyPrefix?: string;
   lockHeartbeatIntervalSeconds: number;
@@ -545,6 +553,7 @@ export class CopilotIntelligenceRuntime
   readonly intelligence: CopilotKitIntelligence;
   readonly identifyUser?: IdentifyUserCallback;
   readonly generateThreadNames: boolean;
+  readonly prepareImportedThread?: PrepareImportedThread;
   readonly lockTtlSeconds: number;
   readonly lockKeyPrefix?: string;
   readonly lockHeartbeatIntervalSeconds: number;
@@ -663,6 +672,7 @@ export class CopilotIntelligenceRuntime
       ? (rawOptions.identifyUser as IdentifyUserCallback)
       : undefined;
     this.generateThreadNames = options.generateThreadNames ?? true;
+    this.prepareImportedThread = options.prepareImportedThread;
     // Telemetry attribution is handled by the base constructor for all modes;
     // here we only need the token for feature gating. Reuse the base-resolved
     // value so gating and attribution can never disagree.
@@ -751,6 +761,8 @@ export interface CopilotRuntime extends CopilotRuntimeLike {
   telemetry: TelemetryCapture;
   /** Auto-generate short thread names; `undefined` in SSE mode. */
   generateThreadNames?: boolean;
+  /** Prepare native user/resource/session context on the already mapped agent. */
+  prepareImportedThread?: PrepareImportedThread;
   /** Thread lock TTL in seconds; `undefined` in SSE mode. */
   lockTtlSeconds?: number;
   /** Custom Redis key prefix for the thread lock; `undefined` in SSE mode. */
