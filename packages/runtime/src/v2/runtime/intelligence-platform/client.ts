@@ -11,6 +11,7 @@ import type {
 } from "@copilotkit/shared";
 import { randomUUID } from "crypto";
 import { z } from "zod";
+import type { LanguageModel } from "ai";
 import type { GetLearningContainerId } from "../core/learning";
 import { parseInspectorReadRequest } from "../handlers/shared/inspector-read-request";
 import type { InspectorReadRequest } from "../handlers/shared/inspector-read-request";
@@ -344,6 +345,8 @@ export interface ThreadDeletedPayload {
 }
 
 export interface CopilotKitIntelligenceConfig {
+  /** Enables read-only Ask in the Inspector with a customer-configured server model. */
+  askYourData?: { readonly model: Exclude<LanguageModel, string> };
   /**
    * Base URL of the CopilotKit Intelligence API.
    *
@@ -760,6 +763,7 @@ export class CopilotKitIntelligence {
   #clientWsUrl: string;
   #channelsWsUrl: string;
   #apiKey: string;
+  #askModel?: Exclude<LanguageModel, string>;
   #enterpriseLearningEnabled: boolean;
   #getLearningContainerId?: GetLearningContainerId;
   #runtimeEntitlementsCache?: RuntimeEntitlementCacheEntry;
@@ -779,6 +783,17 @@ export class CopilotKitIntelligence {
       );
     }
     assertConfiguredApiKey(config.apiKey);
+    if (
+      config.askYourData &&
+      (typeof config.askYourData.model !== "object" ||
+        !config.askYourData.model ||
+        typeof config.askYourData.model.doGenerate !== "function")
+    ) {
+      throw new Error(
+        "Ask your data requires a configured language model object",
+      );
+    }
+    this.#askModel = config.askYourData?.model;
     const configuredApiUrl = configuredUrl(config.apiUrl);
     const configuredWsUrl = configuredUrl(config.wsUrl);
     warnOnPartialHostOverride(configuredApiUrl, configuredWsUrl);
@@ -892,6 +907,11 @@ export class CopilotKitIntelligence {
   /** @internal Used by `attachIntelligenceEnterpriseLearning` to populate `Authorization`. */
   ɵgetApiKey(): string {
     return this.#apiKey;
+  }
+
+  /** @internal Returns the configured server model; never sent to the browser. */
+  ɵgetAskModel(): Exclude<LanguageModel, string> | undefined {
+    return this.#askModel;
   }
 
   /** @internal Used by the Intelligence runtime to assign Learning Containers. */

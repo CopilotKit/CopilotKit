@@ -1,3 +1,4 @@
+import { intelligenceAskFixture } from "./intelligence-ask-fixture.js";
 import { intelligenceAnalyticsFixture } from "./intelligence-analytics-fixtures.js";
 import { intelligenceLearningFixture } from "./intelligence-learning-fixtures.js";
 import type { IntelligenceReadRequest } from "../src/lib/intelligence-relay.js";
@@ -10,6 +11,7 @@ export function intelligenceFixture(request: IntelligenceReadRequest): {
 } {
   const ok = (body: unknown) => ({ status: 200, body });
   const content =
+    intelligenceAskFixture(request) ??
     intelligenceAnalyticsFixture(request) ??
     intelligenceLearningFixture(request) ??
     intelligenceContentFixture(request);
@@ -34,7 +36,7 @@ export function intelligenceFixture(request: IntelligenceReadRequest): {
         ),
       },
       agents: ["support", "billing"],
-      askAvailable: false,
+      askAvailable: true,
     });
   if (request.path === "/api/v1/metrics/query" && isRecord(request.body)) {
     const metric = String(request.body.metric);

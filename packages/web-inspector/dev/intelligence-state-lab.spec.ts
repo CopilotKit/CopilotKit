@@ -7,7 +7,7 @@ test("advertises fixture grants without credentials or console session data", ()
   expect(response.body).toMatchObject({
     version: 1,
     agents: ["support", "billing"],
-    askAvailable: false,
+    askAvailable: true,
   });
   expect(JSON.stringify(response.body)).not.toMatch(
     /apiKey|Authorization|sessionToken/,
@@ -28,5 +28,33 @@ test("serves governance records that distinguish an unverified approval answer",
       }),
     ]),
     nextCursor: null,
+  });
+});
+
+test("Ask fixture returns metric data for the requested period", () => {
+  const response = intelligenceFixture({
+    method: "POST",
+    path: "/ask",
+    body: {
+      question: "Which tools failed most?",
+      from: "2026-09-20T00:00:00.000Z",
+      to: "2026-09-27T00:00:00.000Z",
+      agentId: "support",
+    },
+  });
+  expect(response.status).toBe(200);
+  expect(response.body).toMatchObject({
+    version: 1,
+    results: [
+      {
+        query: { filters: { agentId: "support" } },
+        data: {
+          metric: "tool_errors",
+          from: "2026-09-20T00:00:00.000Z",
+          to: "2026-09-27T00:00:00.000Z",
+          total: 6,
+        },
+      },
+    ],
   });
 });

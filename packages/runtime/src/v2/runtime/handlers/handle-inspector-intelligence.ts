@@ -1,4 +1,11 @@
-import type { CopilotRuntimeLike } from "../core/runtime";
+import {
+  handleInspectorAsk,
+  inspectorAskEnvelopeSchema,
+} from "./handle-inspector-ask";
+import type {
+  CopilotRuntimeLike,
+  IntelligenceAccessGrant,
+} from "../core/runtime";
 import { isIntelligenceRuntime } from "../core/runtime";
 import { PlatformRequestError } from "../intelligence-platform/client";
 import { parseInspectorReadRequest } from "./shared/inspector-read-request";
@@ -12,6 +19,18 @@ import {
 const headers = { "Cache-Control": "no-store, private" };
 const error = (status: number, message: string) =>
   Response.json({ error: message }, { status, headers });
+
+/** Compares permission sets without depending on policy object or agent ordering. */
+function grantKey(grant: IntelligenceAccessGrant | undefined): string {
+  return JSON.stringify(
+    Object.entries(grant?.permissions ?? {})
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([permission, scope]) => [
+        permission,
+        scope.agents === "*" ? "*" : [...scope.agents].sort(),
+      ]),
+  );
+}
 
 /** Serves permission-scoped reads for the embedded Intelligence views. */
 export async function handleInspectorIntelligence({
@@ -33,8 +52,9 @@ export async function handleInspectorIntelligence({
       "Invalid Inspector request",
     );
   }
+  const ask = inspectorAskEnvelopeSchema.safeParse(body);
   const read = parseInspectorReadRequest(body);
-  if (!read) return error(400, "Invalid Inspector request");
+  if (!read && !ask.success) return error(400, "Invalid Inspector request");
   const grant = await resolveIntelligenceGrant({
     runtime,
     request,
@@ -42,7 +62,7 @@ export async function handleInspectorIntelligence({
     surface: "inspector",
   });
   if (grant instanceof Response) return grant;
-  if (read.path === "/context") {
+  if (read?.path === "/context") {
     if (
       !grant ||
       !Object.values(grant.permissions).some(
@@ -56,11 +76,42 @@ export async function handleInspectorIntelligence({
       ),
     );
     return Response.json(
-      { version: 1, grant, agents, askAvailable: false },
+      {
+        version: 1,
+        grant,
+        agents,
+        askAvailable: runtime.intelligence.ɵgetAskModel() !== undefined,
+      },
       { headers },
     );
   }
   try {
+    if (ask.success)
+      return await handleInspectorAsk({
+        runtime,
+        request,
+        userId: user.id,
+        grant,
+        body: ask.data.body,
+        assertGrantCurrent: async () => {
+          const current = await resolveIntelligenceGrant({
+            runtime,
+            request,
+            user,
+            surface: "inspector",
+            refresh: true,
+          });
+          if (current instanceof Response)
+            throw new PlatformRequestError(
+              "Access unavailable",
+              current.status,
+              false,
+            );
+          if (grantKey(current) !== grantKey(grant))
+            throw new PlatformRequestError("Access changed", 403, false);
+        },
+      });
+    if (!read) return error(400, "Invalid Inspector request");
     const result = await runtime.intelligence.requestInspectorRead(
       read,
       { userId: user.id, grant },

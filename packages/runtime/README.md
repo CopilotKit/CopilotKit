@@ -131,8 +131,9 @@ compatibility window. New code should use `memory.access`.
 read. The grant names permissions for analytics, learning insights and skills,
 governance records, and conversation text. The runtime sends it with Inspector
 Learning and embedded Intelligence requests (`surface: "inspector"`), including
-export jobs and downloads. Other routes do not call `access` yet. It requires `identifyUser` and runs at most once per
-request and surface.
+export jobs and downloads. Other routes do not call `access` yet. It requires
+`identifyUser`. Ordinary reads resolve access once per request and surface.
+Ask rechecks access before each data read and before returning its answer.
 
 ```ts
 const runtime = new CopilotRuntime({
@@ -166,6 +167,39 @@ Access is closed by default. Without `access`, the runtime sends no grant and
 Intelligence denies these reads. A permission you leave out is denied, and
 `null` denies everything. A malformed grant or a policy that throws fails the
 request with a 500.
+
+### Ask your data in the Inspector
+
+Supply a server-side AI SDK language model to enable **Ask your data** in the
+embedded Inspector. Use your application's configured provider and credentials:
+
+```ts
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY,
+  askYourData: { model: analyticsModel },
+});
+```
+
+`analyticsModel` is an AI SDK language model object with tool-call support.
+Model names as strings are not accepted. The feature stays off when
+`askYourData` is absent. The Runtime also needs `identifyUser` and an `access`
+grant for `analytics.numbers`, as shown above.
+
+Runtime exposes only four read-only Intelligence MCP tools to this model:
+`analytics_list_metrics`, `analytics_describe_metric`, `analytics_query_metrics`,
+and `analytics_fetch_record`. Each read uses the viewer's grant. A selected
+agent narrows that grant; metric queries use the selected time range and share
+a capture cutoff. Record reads retain each record API's time semantics.
+
+The model receives the question and permitted tool results. Choose a provider
+that can process that data. Credentials stay on the server. Charts and tables
+use captured metric responses; the answer text is the model's interpretation.
+
+Each question permits six model steps, 12 tool calls, and 1,200 output tokens,
+with a 25-second abort signal. Runtime caps each MCP response at 256 KiB and
+collected chart data at 1 MiB. A changed grant, canceled request, transport failure,
+or exceeded limit discards the answer. The model adapter must honor the abort
+signal to stop provider work. An answer with no successful data read is rejected.
 
 ## Analytics & Privacy
 

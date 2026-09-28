@@ -37,14 +37,17 @@ const resolvedGrants = new WeakMap<
  * - A malformed grant or a throwing policy: a 500 `Response`. A broken
  *   policy must fail loudly rather than quietly widen or narrow access.
  *
- * The policy runs at most once per request and surface.
+ * The policy runs once per request and surface unless a long-running read
+ * explicitly refreshes it before returning protected data.
  */
 export function resolveIntelligenceGrant(params: {
   runtime: CopilotIntelligenceRuntimeLike;
   request: Request;
   user: CopilotRuntimeUser;
   surface: IntelligenceAccessSurface;
+  refresh?: boolean;
 }): Promise<GrantResolution> {
+  if (params.refresh) return resolveGrant(params);
   const { request, surface } = params;
   let bySurface = resolvedGrants.get(request);
   if (!bySurface) {
