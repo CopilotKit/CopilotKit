@@ -119,6 +119,7 @@ function exportJob(job: FixtureJob, completed: boolean) {
 
 /** Reuses list fixtures so export scope and screen scope match. */
 function exportRows(job: FixtureJob): Record<string, unknown>[] {
+  if (job.kind === "skill_lineage") return lineageRows(job);
   if (job.kind === "model_usage") return modelUsageRows(job);
   if (
     job.kind !== "insights" &&
@@ -211,6 +212,8 @@ function exportRows(job: FixtureJob): Record<string, unknown>[] {
 
 /** Stable columns match each fixture export, including empty files. */
 function exportColumns(job: FixtureJob): string[] {
+  if (job.kind === "skill_lineage")
+    return ["section", "skillId", "version", "record"];
   if (job.kind === "model_usage")
     return [
       "model",
@@ -342,6 +345,8 @@ function exportValue(
   row: Record<string, unknown>,
   column: string,
 ): unknown {
+  if (job.kind === "skill_lineage" && column === "record")
+    return JSON.stringify(row.record);
   if (job.kind !== "skills") return row[column];
   const paths: Record<string, readonly string[]> = {
     version: ["liveVersion", "revision"],
@@ -361,6 +366,56 @@ function exportValue(
   return typeof value === "object" && value !== null
     ? JSON.stringify(value)
     : value;
+}
+
+/** Keeps lineage downloads aligned with the selected Skill, agent, period, and version. */
+function lineageRows(job: FixtureJob): Record<string, unknown>[] {
+  const lineage = intelligenceLearningFixture({
+    method: "GET",
+    path: `/api/v1/learning/skills/${encodeURIComponent(String(job.filters.skillId))}/lineage`,
+    query: {
+      from: job.from,
+      to: job.to,
+      ...(typeof job.filters.agentId === "string"
+        ? { agentId: job.filters.agentId }
+        : {}),
+    },
+  });
+  if (!isRecord(lineage) || !isRecord(lineage.skill))
+    throw new Error("Missing scoped lineage fixture");
+  const skillId = lineage.skill.id;
+  const rows: Record<string, unknown>[] = [
+    { section: "skill", skillId, version: null, record: lineage.skill },
+  ];
+  const records = (value: unknown): Record<string, unknown>[] => {
+    if (!Array.isArray(value) || !value.every(isRecord))
+      throw new Error("Invalid lineage records");
+    return value;
+  };
+  for (const [section, key] of [
+    ["conversation", "contributingConversations"],
+    ["insight", "insights"],
+    ["review", "reviews"],
+  ] as const) {
+    for (const record of records(lineage[key]))
+      rows.push({ section, skillId, version: null, record });
+  }
+  for (const entry of records(lineage.versions)) {
+    if (
+      job.filters.version !== undefined &&
+      entry.revision !== job.filters.version
+    )
+      continue;
+    const { loads, registryRevisions, ...record } = entry;
+    if (!isRecord(loads)) throw new Error("Invalid lineage loads");
+    const base = { skillId, version: entry.revision };
+    rows.push({ ...base, section: "version", record });
+    for (const registry of records(registryRevisions))
+      rows.push({ ...base, section: "registry", record: registry });
+    for (const load of records(loads.data))
+      rows.push({ ...base, section: "load", record: load });
+  }
+  return rows;
 }
 
 /** Quotes CSV delimiters and prevents spreadsheet formulas in fixture text. */
