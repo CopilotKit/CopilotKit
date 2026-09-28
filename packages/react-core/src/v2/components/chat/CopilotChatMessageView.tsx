@@ -769,14 +769,11 @@ export function CopilotChatMessageView({
   // ---------------------------------------------------------------------------
   // Rows re-render when their place in a reply changes (the toolbar moves to
   // the reply's newest message). Per-message toolbars don't need the keys.
-  // Replies are built from the rows as shown, so a duplicated message counts once.
   const toolbarPerMessage = assistantSlotProps?.toolbarScope === "message";
   const assistantTurnKeys = useMemo(
     () =>
-      toolbarPerMessage
-        ? undefined
-        : getAssistantTurnKeys(deduplicatedMessages, isRunning),
-    [deduplicatedMessages, isRunning, toolbarPerMessage],
+      toolbarPerMessage ? undefined : getAssistantTurnKeys(messages, isRunning),
+    [messages, isRunning, toolbarPerMessage],
   );
 
   // A streaming reply with text carries the cursor at the end of that text;
@@ -828,7 +825,7 @@ export function CopilotChatMessageView({
         <MemoizedAssistantMessage
           key={rowKey}
           message={message as AssistantMessage}
-          messages={deduplicatedMessages}
+          messages={messages}
           isRunning={isRunning}
           showCursor={message.id === cursorMessageId}
           AssistantMessageComponent={AssistantComponent}

@@ -15,6 +15,26 @@ export interface AssistantTurn {
   isLatest: boolean;
 }
 
+/**
+ * A turn's assistant messages, one per id. Streaming can put two copies of a
+ * message in the list, and the view shows them as one row (see
+ * `deduplicateMessages`): the later copy wins, but an empty one keeps the
+ * earlier text.
+ */
+function onePerId(messages: AssistantMessage[]): AssistantMessage[] {
+  const byId = new Map<string, AssistantMessage>();
+  for (const message of messages) {
+    const earlier = byId.get(message.id);
+    byId.set(
+      message.id,
+      earlier && !message.content
+        ? { ...message, content: earlier.content }
+        : message,
+    );
+  }
+  return [...byId.values()];
+}
+
 /** Returns the turn containing `messageId`, or `undefined` if it isn't an assistant message in `messages`. */
 export function getAssistantTurn(
   messages: Message[],
@@ -28,9 +48,11 @@ export function getAssistantTurn(
   let end = index + 1;
   while (end < messages.length && messages[end]!.role !== "user") end++;
 
-  const assistantMessages = messages
-    .slice(start, end)
-    .filter((m): m is AssistantMessage => m.role === "assistant");
+  const assistantMessages = onePerId(
+    messages
+      .slice(start, end)
+      .filter((m): m is AssistantMessage => m.role === "assistant"),
+  );
 
   return {
     lastMessageId: assistantMessages[assistantMessages.length - 1]!.id,
@@ -58,9 +80,11 @@ export function getAssistantTurnKeys(
     let end = start;
     while (end < messages.length && messages[end]!.role !== "user") end++;
 
-    const turn = messages
-      .slice(start, end)
-      .filter((m): m is AssistantMessage => m.role === "assistant");
+    const turn = onePerId(
+      messages
+        .slice(start, end)
+        .filter((m): m is AssistantMessage => m.role === "assistant"),
+    );
     const last = turn[turn.length - 1];
     if (last) {
       const contentLength = turn.reduce(
