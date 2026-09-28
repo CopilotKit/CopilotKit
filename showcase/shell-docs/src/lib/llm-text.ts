@@ -744,7 +744,7 @@ function expandAngularSnippets(body: string): string {
   );
 }
 
-/** Expand the interactive Rich Threads prompt for raw Markdown consumers. */
+/** Expand the interactive AG-UI Streams prompt for raw Markdown consumers. */
 function expandRichThreadsSetupPrompts(body: string): string {
   return body.replace(
     /<RichThreadsSetupPrompt\s*\/>/g,
@@ -1071,7 +1071,9 @@ export function renderLlmsIndex(
   out.push(
     "> CopilotKit is the frontend stack where agents meet users, connected to supported agent frameworks through AG-UI.",
     "",
-    "> This curated index covers chat, generative UI, human-in-the-loop workflows, Rich Threads, User Memories, Automatic Learning, Product Analytics, and Channels for Slack and Microsoft Teams.",
+    "> AG-UI streams, formerly known as Rich Threads, are Intelligence’s delivery layer. Keep framework threads and existing SDK identifiers such as useThreads and threadId.",
+    "",
+    "> This curated index covers chat, generative UI, human-in-the-loop workflows, AG-UI Streams, User Memories, Automatic Learning, Product Analytics, and Channels for Slack and Microsoft Teams.",
     "",
     `> For exhaustive retrieval—including reference, migration, contributor, and additional framework and channel guides—use [llms-full.txt](${baseUrl}/llms-full.txt).`,
     "",
@@ -1095,7 +1097,7 @@ export function renderLlmsIndex(
     "",
     `- **Connect an existing app and agent:** Read your framework's overview and quickstart below together with [Architecture](${baseUrl}/concepts/architecture) and the relevant frontend guide.`,
     `- **Build an interaction:** Read [Chat UI](${baseUrl}/agentic-chat-ui), [Generative UI](${baseUrl}/concepts/generative-ui-overview), and [Human-in-the-Loop](${baseUrl}/human-in-the-loop) together, then use your framework's implementation guides.`,
-    `- **Keep conversation history:** Read [Rich Threads](${baseUrl}/threads) and [Thread Lifecycle](${baseUrl}/threads-lifecycle) together; keep your existing thread provider or use CopilotKit's built-in thread store. To layer Rich Threads and Automatic Learning onto LangChain/LangGraph, Google ADK, or Mastra without migrating your stack, read [Connect Existing Thread History](${baseUrl}/threads-import) and the available framework guides below for supported history and source-specific limits. Copying historical conversations does not establish ongoing database replication; configure future runs through CopilotKit separately.`,
+    `- **Keep conversation history:** Read [AG-UI Streams](${baseUrl}/threads) and [Thread Lifecycle](${baseUrl}/threads-lifecycle) together; keep your existing thread provider or use CopilotKit's built-in thread store. To layer AG-UI Streams and Automatic Learning onto LangChain/LangGraph, Google ADK, or Mastra without migrating your stack, read [Add AG-UI Streams to Existing Threads](${baseUrl}/threads-import) and the available framework guides below for supported history and source-specific limits. Copying historical conversations does not establish ongoing database replication; configure future runs through CopilotKit separately.`,
     `- **Evaluate Intelligence:** Read [Open source vs Intelligence](${baseUrl}/concepts/oss-vs-enterprise) with the [Intelligence overview](${baseUrl}/intelligence/overview), then follow the capability and deployment guides relevant to your project.`,
     "",
   );

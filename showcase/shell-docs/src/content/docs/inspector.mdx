@@ -1,8 +1,11 @@
 ---
 title: Inspector
 icon: "lucide/SearchCheck"
-description: Verify your setup, debug agent runs, reproduce issues, and review Rich Threads and Automatic Learning.
+description: Verify your setup, debug agent runs, reproduce issues, and review AG-UI streams and Automatic Learning.
 ---
+
+AG-UI streams are still labeled **Rich Threads** in the current Inspector. Use that pane to inspect the recorded conversation and its AG-UI events.
+
 
 The CopilotKit Inspector is a debugging overlay for the live connection between
 your frontend and agents. Use it while developing to follow a run from the
@@ -128,7 +131,7 @@ debugging question:
 | Which events crossed the AG-UI connection?    | **AG-UI Events**                                                    | [AG-UI protocol](/agentic-protocols/ag-ui)                 |
 | Which browser-side tools are registered?      | **Frontend Tools**                                                  | [Frontend Tools](/frontend-tools)                          |
 | What readable or document context was shared? | **Context**                                                         | [Agent read-only context](/shared-state/agent-readonly)    |
-| What did a saved conversation contain?        | **Rich Threads** → **Conversation**, **AG-UI Events**, or **State** | [Rich Threads](/threads) and [Shared State](/shared-state) |
+| What did a saved conversation contain?        | **Rich Threads** → **Conversation**, **AG-UI Events**, or **State** | [AG-UI Streams](/threads) and [Shared State](/shared-state) |
 
 In an official React `CopilotChat`, open an assistant message's toolbar and
 choose **View in Inspector** to jump directly to that message in its Thread.
@@ -209,7 +212,7 @@ If Threads remains locked, Inspector shows one Rich Threads setup view with
 **Copy setup prompt** and **Talk to an Engineer**. The view is based on Runtime
 Threads capability rather than license metadata. To configure incomplete
 routes, use the Runtime route guide.
-[Enable Rich Threads routes](/backend/runtime-endpoints#enable-rich-threads-routes)
+[Enable AG-UI Streams routes](/backend/runtime-endpoints#enable-rich-threads-routes)
 explains how to configure application-user identity, mount every required HTTP
 method, and verify the capability response.
 

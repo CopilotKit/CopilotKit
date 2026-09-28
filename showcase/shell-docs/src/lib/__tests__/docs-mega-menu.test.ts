@@ -33,7 +33,7 @@ describe("docs mega menu data", () => {
     });
     expect(shipColumn?.links.map((link) => [link.label, link.href])).toEqual([
       ["Intelligence", "/intelligence/overview"],
-      ["Rich Threads", "/threads"],
+      ["AG-UI Streams", "/threads"],
       ["Automatic Learning", "/learning"],
       ["Product Analytics", "/intelligence/analytics"],
       ["User Memories", "/intelligence/memories"],

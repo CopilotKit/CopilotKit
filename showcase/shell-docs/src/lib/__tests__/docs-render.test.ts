@@ -267,11 +267,11 @@ describe("loadDoc", () => {
     );
   });
 
-  it("keeps the Rich Threads overview and headless implementation on separate routes", () => {
-    expect(loadDoc("threads")?.fm.title).toBe("Rich Threads");
+  it("keeps the AG-UI Streams overview and headless implementation on separate routes", () => {
+    expect(loadDoc("threads")?.fm.title).toBe("AG-UI Streams");
     expect(loadDoc("headless-threads")?.fm.title).toBe("Headless Threads");
     expect(loadDoc("integrations/mastra/threads")?.fm.title).toBe(
-      "Rich Threads",
+      "AG-UI Streams",
     );
     expect(loadDoc("integrations/mastra/headless-threads")?.fm.title).toBe(
       "Headless Threads",
@@ -287,9 +287,9 @@ describe("loadDoc", () => {
     const screenshot = overview.indexOf("support-desk-threads.png");
     const agentSetup = overview.indexOf("## Start with your coding agent");
     const prompt = overview.indexOf("<RichThreadsSetupPrompt />");
-    const gettingStarted = overview.indexOf("## Set up Rich Threads manually");
+    const gettingStarted = overview.indexOf("## Set up AG-UI Streams manually");
     const manualSteps = overview.indexOf("<Steps>");
-    const why = overview.indexOf("## Why use CopilotKit Rich Threads?");
+    const why = overview.indexOf("## Why use CopilotKit AG-UI Streams?");
     const diagram = overview.indexOf("threads-diagram-light.png");
 
     expect(screenshot).toBeGreaterThan(-1);
@@ -309,11 +309,11 @@ describe("loadDoc", () => {
     expect(overview).toContain("threads-diagram-dark.png");
   });
 
-  it("links locked Inspector users to both Rich Threads Runtime route modes", () => {
+  it("links locked Inspector users to both AG-UI Streams Runtime route modes", () => {
     const runtimeEndpoints = loadDoc("backend/runtime-endpoints")?.source ?? "";
     const inspector = loadDoc("inspector")?.source ?? "";
 
-    expect(runtimeEndpoints).toContain("## Enable Rich Threads routes");
+    expect(runtimeEndpoints).toContain("## Enable AG-UI Streams routes");
     expect(runtimeEndpoints).toContain('mode: "single-route"');
     expect(runtimeEndpoints).toContain(
       'import { CopilotKitProvider } from "@copilotkit/react-core/v2";',
@@ -325,7 +325,7 @@ describe("loadDoc", () => {
     expect(runtimeEndpoints).toContain('"list": true');
     expect(runtimeEndpoints).toContain('"inspect": true');
     expect(inspector).toContain(
-      "[Enable Rich Threads routes](/backend/runtime-endpoints#enable-rich-threads-routes)",
+      "[Enable AG-UI Streams routes](/backend/runtime-endpoints#enable-rich-threads-routes)",
     );
   });
 });
@@ -371,7 +371,7 @@ describe("readTitle", () => {
       filePath,
       [
         "---",
-        'title: "Rich Threads"',
+        'title: "AG-UI Streams"',
         'nav_title: "Overview"',
         "---",
         "",
@@ -380,7 +380,7 @@ describe("readTitle", () => {
     );
 
     expect(readTitle(filePath)).toBe("Overview");
-    expect(loadDoc("threads")?.fm.title).toBe("Rich Threads");
+    expect(loadDoc("threads")?.fm.title).toBe("AG-UI Streams");
   });
 });
 
@@ -556,7 +556,7 @@ describe("framework nav", () => {
     ]);
     expect(navAncestorBreadcrumbsForSlug(navTree, "threads")).toEqual([
       { label: "Basics", href: null },
-      { label: "Rich Threads", href: null },
+      { label: "AG-UI Streams", href: null },
     ]);
     expect(
       navAncestorBreadcrumbsForSlug(navTree, "prebuilt-components"),
@@ -648,7 +648,7 @@ describe("framework nav", () => {
     ).toBe(true);
     expect(sectionNodes(navTree, "Basics").map((node) => node.title)).toEqual([
       "Chat",
-      "Rich Threads",
+      "AG-UI Streams",
       "Frontend-tools",
     ]);
     expect(
@@ -671,7 +671,7 @@ describe("framework nav", () => {
       ),
     ).toMatchObject({ defaultOpen: true });
     expect(groupEntries(navTree, "Features")).toEqual([
-      { title: "Rich Threads", slug: "threads" },
+      { title: "AG-UI Streams", slug: "threads" },
       {
         title: "Automatic Learning",
         slug: "learning",
@@ -826,7 +826,7 @@ describe("framework nav", () => {
     }
   });
 
-  it("orders the Rich Threads job routes consistently across framework modes", () => {
+  it("orders the AG-UI Streams job routes consistently across framework modes", () => {
     const generatedNav = buildFrameworkNav(
       "langgraph",
       "LangGraph (Python)",
@@ -842,11 +842,11 @@ describe("framework nav", () => {
       { title: "Thread & History Lifecycle", slug: "threads-lifecycle" },
       { title: "Synchronize Thread History", slug: "threads-import" },
       {
-        title: "Threads & Persistence Architecture",
+        title: "AG-UI Streams & Framework Threads",
         slug: "intelligence/threads-explained",
       },
     ];
-    expect(groupPageEntries(generatedNav, "Rich Threads")).toEqual(expected);
+    expect(groupPageEntries(generatedNav, "AG-UI Streams")).toEqual(expected);
 
     const authoredFolders = [
       ...new Set(
@@ -858,7 +858,7 @@ describe("framework nav", () => {
 
     for (const folder of authoredFolders) {
       expect(
-        groupPageEntries(buildFrameworkOnlyNav(folder), "Rich Threads"),
+        groupPageEntries(buildFrameworkOnlyNav(folder), "AG-UI Streams"),
       ).toEqual(expected);
     }
   });
@@ -884,7 +884,7 @@ describe("framework nav", () => {
       "LangGraph (Python)",
       "langgraph-python",
     );
-    expect(groupPageEntries(generatedNav, "Rich Threads")).toContainEqual({
+    expect(groupPageEntries(generatedNav, "AG-UI Streams")).toContainEqual({
       title: "Synchronize Thread History",
       slug: "threads-import",
     });
@@ -934,7 +934,7 @@ describe("framework nav", () => {
     expect(drawer).toContain("Start cloud-hosted setup");
     expect(drawer).toContain("## Set up the Threads Drawer");
     expect(drawer).not.toContain(
-      "Start with the [Rich Threads overview](/threads)",
+      "Start with the [AG-UI Streams overview](/threads)",
     );
 
     expect(headless).toContain(
@@ -968,7 +968,7 @@ describe("framework nav", () => {
     expect(architecture).toContain("general replication link");
   });
 
-  it("links the hosted Intelligence guide to the Rich Threads journey", () => {
+  it("links the hosted Intelligence guide to the AG-UI Streams journey", () => {
     const managed =
       loadDoc("intelligence/managed-intelligence-platform")?.source ?? "";
 
@@ -997,7 +997,7 @@ describe("framework nav", () => {
       { title: "Plans", slug: "intelligence/plans" },
     ]);
     expect(groupEntries(navTree, "Features")).toEqual([
-      { title: "Rich Threads", slug: "threads" },
+      { title: "AG-UI Streams", slug: "threads" },
       {
         title: "Automatic Learning",
         slug: "learning",

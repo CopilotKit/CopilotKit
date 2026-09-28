@@ -1,8 +1,8 @@
 /** Shared product copy for the overview cards and machine-readable docs. */
 export const INTELLIGENCE_FEATURES = [
   {
-    title: "Rich Threads",
-    body: "Save the conversation and open it again on another device.",
+    title: "AG-UI Streams",
+    body: "Keep framework threads. Add reconnection, catch-up, and delivery across devices.",
     href: "/threads",
     icon: "threads",
   },

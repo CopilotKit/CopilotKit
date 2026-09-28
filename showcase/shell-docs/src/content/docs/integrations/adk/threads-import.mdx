@@ -1,7 +1,7 @@
 ---
 title: Synchronize ADK Threads
 nav_title: Synchronize Thread History
-description: "Import historical Google ADK sessions into CopilotKit Intelligence, then add Rich Threads while continuing to use ADK persistence."
+description: "Import historical Google ADK sessions into CopilotKit Intelligence, then add AG-UI Streams while continuing to use ADK persistence."
 icon: "lucide/Repeat"
 doc_type: how-to
 ---
@@ -10,13 +10,17 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 ## What is this?
 
-The ADK importer reads already-persisted Google ADK sessions and writes them into CopilotKit Intelligence as Rich Threads. It supports ADK database session stores and Vertex/Agent Engine session history.
+The ADK importer reads already-persisted Google ADK sessions and writes them into CopilotKit Intelligence as recorded AG-UI interaction history. It supports ADK database session stores and Vertex/Agent Engine session history.
 
 Import existing sessions once, then keep ADK session storage and analytics in place for future runs. CopilotKit-mediated runs persist to CopilotKit Intelligence. When your agent remains wired to a durable ADK session service with appropriate retention, those future runs continue through ADK's native persistence path as well.
 
-CLI-created starters already include the Threads Drawer for opening and switching Rich Threads. Use [Headless Threads](/headless-threads) only when you need a custom thread UI.
+CLI-created starters already include the Threads Drawer for opening and switching conversations. Use [Headless Threads](/headless-threads) only when you need a custom thread UI.
 
 CopilotKit Intelligence adds rich conversation history, continuity across devices, reconnection to active runs, and thread controls around your existing agent. Your ADK persistence continues to retain the agent's native conversation and execution state. See [how threads work with framework storage](/intelligence/threads-explained#how-threads-work-with-framework-storage).
+
+Keep your framework’s threads and model context. Intelligence’s AG-UI streams, formerly known as Rich Threads, add delivery for conversations that run through CopilotKit: reconnection and catch-up, continued execution while the browser is disconnected and the Runtime remains running, and access from another device. Recorded interaction history is separate from the model’s current context; importing cannot recover content the source no longer exposes.
+
+The import copies supported historical content. It does not recover past live execution or replace your framework’s persistence. The existing `useThreads` hook and `threadId` still identify and open conversations through this delivery layer.
 
 ## Prerequisites
 

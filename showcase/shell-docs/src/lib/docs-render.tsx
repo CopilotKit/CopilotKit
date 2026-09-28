@@ -1045,8 +1045,8 @@ export function normalizeSidebarNav(
   const canonicalBasics = sidebarSectionChildren(canonical, "Basics");
   const existingChat = findGroup(inputBasics, "Chat");
   const richThreads =
-    findGroup(allInputNodes, "Rich Threads") ??
-    findGroup(canonicalBasics, "Rich Threads");
+    findGroup(allInputNodes, "AG-UI Streams") ??
+    findGroup(canonicalBasics, "AG-UI Streams");
   const filterChatNodes = (nodes: NavNode[]) =>
     nodes.filter(
       (node) =>
@@ -1067,7 +1067,7 @@ export function normalizeSidebarNav(
     uniqueSidebarNodes(chatSource),
   );
   const richThreadsTopic = sidebarTopicGroup(
-    "Rich Threads",
+    "AG-UI Streams",
     "sidebar#rich-threads",
     richThreads,
   );
@@ -1158,7 +1158,7 @@ export function normalizeSidebarNav(
     "Architecture",
   );
 
-  const intelligenceThreads = intelligencePage("threads", "Rich Threads");
+  const intelligenceThreads = intelligencePage("threads", "AG-UI Streams");
   const intelligenceCloud = intelligencePage(
     "intelligence/managed-intelligence-platform",
     "Cloud-hosted",

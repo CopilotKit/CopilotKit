@@ -43,7 +43,7 @@ test("opens a five-column docs map with Intelligence featured", () => {
   expect(intelligence.querySelector("svg")?.getAttribute("fill")).toBe(
     "currentColor",
   );
-  for (const link of screen.getAllByRole("link", { name: "Rich Threads" })) {
+  for (const link of screen.getAllByRole("link", { name: "AG-UI Streams" })) {
     expect(link.getAttribute("href")).toBe("/threads");
   }
   expect(

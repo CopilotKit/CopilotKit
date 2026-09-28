@@ -71,9 +71,9 @@ export const CURATED_LLM_PAGES = [
   },
   {
     url: "threads",
-    title: "Rich Threads",
+    title: "AG-UI Streams",
     description:
-      "Add persistent conversations with generative UI, tool activity, and app state to your existing agent stack. Keep your thread provider or use CopilotKit's built-in thread store.",
+      "Keep framework threads and add Intelligence’s AG-UI streams for reconnection, catch-up, and delivery across devices.",
   },
   {
     url: "learning",
@@ -85,7 +85,7 @@ export const CURATED_LLM_PAGES = [
     url: "intelligence/overview",
     title: "CopilotKit Intelligence",
     description:
-      "Evaluate Rich Threads, User Memories, Automatic Learning, Product Analytics, and Channels for your existing agent and frontend.",
+      "Evaluate AG-UI Streams, User Memories, Automatic Learning, Product Analytics, and Channels for your existing agent and frontend.",
   },
   {
     url: "slack",
