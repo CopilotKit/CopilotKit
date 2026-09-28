@@ -65,6 +65,7 @@ const globalFetch: typeof fetch = (...args) => fetch(...args);
 
 const CLIENT_AG_UI_EVENT = "ag_ui_event";
 const REPLAY_COMPLETE_EVENT = "replay_complete";
+const REPLAY_FAILED_EVENT = "replay_failed";
 const STREAM_IDLE_EVENT = "stream_idle";
 const STOP_RUN_EVENT = "stop_run";
 const CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS = 100;
@@ -74,6 +75,14 @@ const MAX_UNOPENED_CREDENTIAL_REFRESHES = 2;
 
 interface IntelligenceAgentSharedState {
   lastSeenEventIds: Map<string, string>;
+}
+
+/** Control-frame cursor state for one channel join. */
+interface ControlCursorState {
+  /** The last `latestEventId` that this join saved as the reconnect cursor. */
+  applied: string | null;
+  /** True after `replay_failed`. The gateway then repeats the prior cursor on purpose. */
+  replayFailed: boolean;
 }
 
 interface RealtimeConnectionInfo {
@@ -638,15 +647,29 @@ export class IntelligenceAgent extends AbstractAgent {
         }),
         share(),
       );
+      const controlCursor: ControlCursorState = {
+        applied: null,
+        replayFailed: false,
+      };
+      const replayFailed$ = channel$.pipe(
+        switchMapOperator(({ channel }) =>
+          this.observeChannelEvent$<unknown>(channel, REPLAY_FAILED_EVENT),
+        ),
+        tap(() => {
+          controlCursor.replayFailed = true;
+        }),
+      );
       const replayComplete$ = this.observeControlEvent$(
         input.threadId,
         channel$,
         REPLAY_COMPLETE_EVENT,
+        controlCursor,
       ).pipe(shareReplay({ bufferSize: 1, refCount: true }));
       const streamIdle$ = this.observeControlEvent$(
         input.threadId,
         channel$,
         STREAM_IDLE_EVENT,
+        controlCursor,
       ).pipe(shareReplay({ bufferSize: 1, refCount: true }));
       const streamIdleCompletion$ =
         options.streamMode === "connect"
@@ -681,6 +704,7 @@ export class IntelligenceAgent extends AbstractAgent {
           takeUntil(terminal$),
         ),
         threadEvents$.pipe(takeUntil(streamIdleCompletion$)),
+        replayFailed$.pipe(ignoreElements(), takeUntil(terminal$)),
         replayComplete$.pipe(ignoreElements(), takeUntil(terminal$)),
         streamIdleCompletion$.pipe(
           ignoreElements(),
@@ -738,13 +762,14 @@ export class IntelligenceAgent extends AbstractAgent {
     threadId: string,
     channel$: Observable<ɵPhoenixChannelSession>,
     eventName: string,
+    controlCursor: ControlCursorState,
   ): Observable<unknown> {
     return channel$.pipe(
       switchMapOperator(({ channel }) =>
         this.observeChannelEvent$<unknown>(channel, eventName),
       ),
       tap((payload) =>
-        this.updateLastSeenEventIdFromControl(threadId, payload),
+        this.updateLastSeenEventIdFromControl(threadId, payload, controlCursor),
       ),
     );
   }
@@ -848,12 +873,23 @@ export class IntelligenceAgent extends AbstractAgent {
   private updateLastSeenEventIdFromControl(
     threadId: string,
     payload: unknown,
+    controlCursor: ControlCursorState,
   ): void {
     const eventId = this.readControlEventId(payload);
     if (!eventId) {
       return;
     }
 
+    // An older gateway repeats the join's history checkpoint on every control
+    // frame, also on stream_idle after live events moved past it. A repeat is
+    // stale and must not replace the newer event cursor, or the next join
+    // replays those live events again. After replay_failed the gateway repeats
+    // the prior cursor on purpose, so the next join retries the failed history.
+    if (eventId === controlCursor.applied && !controlCursor.replayFailed) {
+      return;
+    }
+
+    controlCursor.applied = eventId;
     this.advanceLastSeenEventId(threadId, eventId);
   }
 

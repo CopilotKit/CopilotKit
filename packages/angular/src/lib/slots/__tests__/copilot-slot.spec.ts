@@ -1,5 +1,14 @@
 import type { TemplateRef, Type } from "@angular/core";
-import { Component, input, output, signal, viewChild } from "@angular/core";
+import {
+  Component,
+  InjectionToken,
+  Injector,
+  inject,
+  input,
+  output,
+  signal,
+  viewChild,
+} from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { describe, expect, it } from "vitest";
 import { CopilotSlot } from "../copilot-slot";
@@ -16,6 +25,18 @@ class TestContent {
   readonly selected = output<string>();
 }
 
+const SLOT_TOKEN = new InjectionToken<string>("SLOT_TOKEN");
+
+@Component({
+  selector: "test-injected",
+  template: `
+    <span class="injected">{{ value }}</span>
+  `,
+})
+class TestInjected {
+  readonly value = inject(SLOT_TOKEN);
+}
+
 @Component({
   imports: [CopilotSlot],
   template: `
@@ -27,6 +48,7 @@ class TestContent {
       [defaultComponent]="defaultComponent()"
       [context]="context()"
       [outputs]="outputs()"
+      [injector]="injector()"
     >
       <span class="fallback">fallback</span>
     </copilot-slot>
@@ -40,6 +62,7 @@ class TestHost {
   readonly defaultComponent = signal<Type<unknown> | undefined>(undefined);
   readonly context = signal<Record<string, unknown> | undefined>(undefined);
   readonly outputs = signal<SlotOutputs | undefined>(undefined);
+  readonly injector = signal<Injector | undefined>(undefined);
 }
 
 describe("CopilotSlot", () => {
@@ -87,5 +110,20 @@ describe("CopilotSlot", () => {
     button.click();
     await fixture.whenStable();
     expect(selected).toBe("component");
+  });
+
+  it("creates the component with the given element injector", async () => {
+    const { fixture, host, element } = await setup();
+    host.injector.set(
+      Injector.create({
+        providers: [{ provide: SLOT_TOKEN, useValue: "from injector" }],
+        parent: TestBed.inject(Injector),
+      }),
+    );
+    host.slot.set(TestInjected);
+    await fixture.whenStable();
+    expect(element.querySelector(".injected")?.textContent).toBe(
+      "from injector",
+    );
   });
 });
