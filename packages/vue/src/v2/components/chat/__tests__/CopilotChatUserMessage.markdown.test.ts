@@ -71,12 +71,15 @@ describe("CopilotChatUserMessage plain text", () => {
     );
   });
 
-  it("keeps the toolbar invisible until the message is hovered", () => {
+  it("shows the toolbar on hover and when a toolbar button has keyboard focus", () => {
     const wrapper = mount(CopilotChatUserMessage, {
       props: { message: message("Hi") },
     });
     const toolbar = wrapper.get("[data-testid='copilot-user-toolbar']");
-    expect(toolbar.classes()).toContain("cpk:invisible");
-    expect(toolbar.classes()).toContain("cpk:group-hover:visible");
+    expect(toolbar.classes()).toContain("cpk:opacity-0");
+    expect(toolbar.classes()).toContain("cpk:group-hover:opacity-100");
+    expect(toolbar.classes()).toContain("cpk:focus-within:opacity-100");
+    // visibility: hidden would take the buttons out of the tab order.
+    expect(toolbar.classes()).not.toContain("cpk:invisible");
   });
 });
