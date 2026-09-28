@@ -1259,16 +1259,21 @@ test("desktop header shows the collapse toggle by default (collapsible)", async 
   ).not.toBeNull();
 });
 
-test("with collapsible=false the header keeps its title, minus the toggle", async () => {
+test("with collapsible=false the header stays hidden until slot=header content is projected", async () => {
   const { element } = await setup({ threads: [makeThread()] });
   element.collapsible = false;
   await flush(element);
   const shadow = element.shadowRoot!;
   const header = shadow.querySelector('[part="header"]') as HTMLElement;
-  expect(header.hidden).toBe(false);
+  expect(header.hidden).toBe(true);
   expect(shadow.querySelector('[part="collapse-toggle"]')).toBeNull();
-  expect(header.querySelector('[part="title"]')!.textContent).toBe("Threads");
   expect(shadow.querySelector('[part="new-thread-button"]')).not.toBeNull();
+
+  const headerContent = document.createElement("div");
+  headerContent.slot = "header";
+  element.appendChild(headerContent);
+  await flush(element);
+  expect(header.hidden).toBe(false);
 });
 
 test("header is one row: title first, panel toggle last", async () => {

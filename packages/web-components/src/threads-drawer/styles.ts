@@ -359,6 +359,10 @@ export const drawerStyles = css`
     padding: 0 12px;
   }
 
+  .header[hidden] {
+    display: none;
+  }
+
   /* The title area; consumer slot="header" content replaces the title. */
   .header-slot {
     display: flex;
@@ -442,6 +446,12 @@ export const drawerStyles = css`
     transition:
       background-color 0.15s ease,
       border-color 0.15s ease;
+  }
+
+  /* With the header hidden (collapsible=false, nothing projected) this row
+     comes first: give it the top spacing the header would supply. */
+  .header[hidden] + .new-conversation {
+    margin-top: 12px;
   }
 
   .new-conversation:hover {
