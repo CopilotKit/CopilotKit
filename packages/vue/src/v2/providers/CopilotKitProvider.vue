@@ -581,12 +581,25 @@ watch(
         });
       },
     });
+    // `onHeadersChanged` fires only from a real `setHeaders()` call (a new
+    // source), never from a builder resolving a new token — same generation
+    // core bumps. Without this, nothing pokes Vue's reactivity when a source
+    // change lands: `ɵheadersGeneration` is a plain property read, not a
+    // ref/reactive value, so `headersKey` (use-threads.ts) and the
+    // HttpAgent watcher (use-agent.ts) only re-read it when SOME OTHER
+    // trigger happens to fire around the same time (#1937 fix round 1).
+    const sub6 = core.subscribe({
+      onHeadersChanged: () => {
+        triggerRef(copilotkit);
+      },
+    });
     onCleanup(() => {
       sub1.unsubscribe();
       sub2.unsubscribe();
       sub3.unsubscribe();
       sub4.unsubscribe();
       sub5.unsubscribe();
+      sub6.unsubscribe();
     });
   },
   { immediate: true },
@@ -614,6 +627,17 @@ watch([allRenderActivityMessages], ([renderActivityMessages]) => {
   triggerRef(copilotkit);
 });
 
+// The last `headersSource` reference actually handed to `core.setHeaders`.
+// `syncRuntimeConfig` runs once (unconditionally) from `onMounted` in
+// addition to the constructor already having applied this same value — for
+// a function source `setHeaders` itself no-ops on an identical reference,
+// but a record source has no such dedup (every call bumps
+// `ɵheadersGeneration` and fires `onHeadersChanged`, see #1937 fix round 1).
+// Without this guard, that redundant mount-time call would fire our new
+// `onHeadersChanged` → `triggerRef(copilotkit)` subscriber once for every
+// provider mount, even when nothing about headers changed.
+let lastAppliedHeadersSource: CopilotKitHeadersSource = headersSource.value;
+
 function syncRuntimeConfig() {
   copilotkit.value.setRuntimeUrl(chatApiEndpoint.value);
   copilotkit.value.setRuntimeTransport(
@@ -623,7 +647,10 @@ function syncRuntimeConfig() {
         ? "rest"
         : "auto",
   );
-  copilotkit.value.setHeaders(headersSource.value);
+  if (headersSource.value !== lastAppliedHeadersSource) {
+    lastAppliedHeadersSource = headersSource.value;
+    copilotkit.value.setHeaders(headersSource.value);
+  }
   copilotkit.value.setCredentials(props.credentials);
   copilotkit.value.setMessageFilter(props.messageFilter);
   copilotkit.value.setProperties(resolvedProperties.value);

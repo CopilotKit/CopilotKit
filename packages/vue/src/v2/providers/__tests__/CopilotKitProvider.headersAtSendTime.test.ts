@@ -356,6 +356,18 @@ describe("CopilotKitProvider — headers builder evaluated at send time (#1937)"
     const setContextSpy = vi.spyOn(store, "setContext");
 
     token = "tok-2";
+    // A run actually changes the resolved snapshot (routes through
+    // `ɵruntimeFetch`, which resolves the builder's now-current token) — a
+    // rotation nobody ever reads is not a real test of "the snapshot changed
+    // but nothing re-dispatched".
+    const agent = core.getAgent("default")!;
+    await core.runAgent({ agent }).catch(() => {});
+
+    // Force a Vue-level trigger entirely unrelated to headers. The OLD
+    // values-keyed `headersKey` would have re-evaluated (and seen the
+    // now-changed snapshot) the next time ANYTHING pokes Vue's reactivity
+    // around `copilotkit` — this is that poke.
+    core.setRenderToolCalls([]);
     await pollFor(() => false, 50);
 
     expect(setContextSpy).toHaveBeenCalledTimes(0);
@@ -470,5 +482,119 @@ describe("CopilotKitProvider — headers builder evaluated at send time (#1937)"
     await nextTick();
 
     expect(agentRef.headers?.Authorization).toBe("Bearer static-2");
+  });
+
+  it("changing the headers prop re-dispatches the thread context exactly once (onHeadersChanged -> triggerRef, fix round 1)", async () => {
+    // The provider subscribes to core's `onHeadersChanged` and calls
+    // `triggerRef(copilotkit)` so Vue's reactivity actually re-reads
+    // `ɵheadersGeneration`-keyed dependents (`headersKey` in use-threads.ts,
+    // the HttpAgent watcher in use-agent.ts) when a real source change
+    // lands. Without it, nothing pokes Vue: `ɵheadersGeneration` is a plain
+    // property read on a non-reactive core instance, not a ref.
+    const calls: Call[] = [];
+    vi.stubGlobal("fetch", stubFetch(calls));
+
+    const Threads = defineComponent({
+      setup() {
+        useThreads({ agentId: "default" });
+        return () => null;
+      },
+    });
+
+    let core!: CopilotKitCoreVue;
+    const Probe = defineComponent({
+      setup() {
+        const { copilotkit } = useCopilotKit();
+        core = copilotkit.value;
+        return () => null;
+      },
+    });
+
+    const wrapper = mount(CopilotKitProvider, {
+      props: {
+        runtimeUrl: "http://rt.test/api/copilotkit",
+        headers: {
+          Authorization: "Bearer static-1",
+        } as CopilotKitHeadersSource,
+      },
+      slots: { default: () => [h(Threads), h(Probe)] },
+    });
+
+    await vi.waitFor(() => expect(core.getAgent("default")).toBeDefined());
+    const store = await vi.waitFor(() => {
+      const s = core.getThreadStore("default");
+      expect(s).toBeDefined();
+      return s!;
+    });
+    // Wait for the first (mount) context dispatch before spying, so the spy
+    // only observes dispatches caused by the prop change below.
+    await vi.waitFor(() => {
+      expect(calls.some((c) => c.url.includes("/threads?"))).toBe(true);
+    });
+
+    const setContextSpy = vi.spyOn(store, "setContext");
+
+    // A record-to-record change (the case a strict-reference `setSource`
+    // dedup can't collapse) — one real source change, one `onHeadersChanged`.
+    await wrapper.setProps({
+      headers: { Authorization: "Bearer static-2" } as CopilotKitHeadersSource,
+    });
+    await pollFor(() => setContextSpy.mock.calls.length > 0, 100);
+
+    expect(setContextSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("resolveAgent does not re-run after a builder token rotation + a run + a forced copilotkit trigger (fix round 1)", async () => {
+    // `resolveAgent`'s watch used to key one of its sources on
+    // `JSON.stringify(...headers...)`. A run resolves the builder's CURRENT
+    // token and changes that snapshot; the next time ANYTHING pokes Vue's
+    // reactivity around `copilotkit` (unrelated to headers), the stale key
+    // would differ and (combined with `registeredProxy` forcing the whole
+    // watch to skip its diff — see the comment on the watch itself)
+    // re-run `resolveAgent`, calling `core.getAgent` and force-triggering
+    // `agent` even though nothing about the bound agent itself changed.
+    const calls: Call[] = [];
+    vi.stubGlobal("fetch", stubFetch(calls));
+
+    const Child = defineComponent({
+      setup() {
+        useAgent({ agentId: "default" });
+        return () => null;
+      },
+    });
+
+    let core!: CopilotKitCoreVue;
+    const Probe = defineComponent({
+      setup() {
+        const { copilotkit } = useCopilotKit();
+        core = copilotkit.value;
+        return () => null;
+      },
+    });
+
+    mount(CopilotKitProvider, {
+      props: {
+        runtimeUrl: "http://rt.test/api/copilotkit",
+        headers: (() => ({
+          Authorization: `Bearer ${token}`,
+        })) as CopilotKitHeadersSource,
+      },
+      slots: { default: () => [h(Child), h(Probe)] },
+    });
+
+    await vi.waitFor(() => expect(core.getAgent("default")).toBeDefined());
+    await nextTick();
+
+    token = "tok-2";
+    const agent = core.getAgent("default")!;
+    await core.runAgent({ agent }).catch(() => {});
+
+    const getAgentSpy = vi.spyOn(core, "getAgent");
+    // Force an unrelated Vue-level trigger on `copilotkit` — same technique
+    // as the thread-context test above.
+    core.setRenderToolCalls([]);
+    await pollFor(() => false, 50);
+
+    expect(getAgentSpy).toHaveBeenCalledTimes(0);
   });
 });

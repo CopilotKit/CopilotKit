@@ -344,20 +344,30 @@ export function useAgent(props: UseAgentProps = {}) {
     );
   };
 
+  // Keyed on `ɵheadersGeneration`, not header VALUES: a builder's returned
+  // token can change on every resolution without a new source ever being
+  // set (a run refreshing the snapshot), and this must not re-run
+  // `resolveAgent` (and force-trigger `agent`) on that (#1937 fix round 1).
+  // A genuine source change (a real `setHeaders()` call) still re-runs it,
+  // refreshing a cached provisional's headers via the branches above.
+  //
+  // `registeredProxy` is wrapped as a getter (`() => registeredProxy.value`)
+  // rather than passed directly: Vue's multi-source `watch` sets
+  // `forceTrigger = true` for the WHOLE array whenever any raw element is
+  // itself a shallowRef/reactive object, which makes the callback run on
+  // ANY dependency dirtying regardless of whether a source's value actually
+  // changed — silently defeating the `ɵheadersGeneration` rekey above (and
+  // every other source's diffing) the moment `registeredProxy` is present.
+  // A getter reads the same value without contributing to that flag.
   watch(
     [
       agentId,
-      registeredProxy,
+      () => registeredProxy.value,
       () => copilotkit.value.agents,
       () => copilotkit.value.runtimeConnectionStatus,
       () => copilotkit.value.runtimeUrl,
       () => copilotkit.value.runtimeTransport,
-      () =>
-        JSON.stringify(
-          Object.entries(copilotkit.value.headers ?? {}).sort(([a], [b]) =>
-            a.localeCompare(b),
-          ),
-        ),
+      () => copilotkit.value.ɵheadersGeneration,
     ],
     resolveAgent,
     { immediate: true },
