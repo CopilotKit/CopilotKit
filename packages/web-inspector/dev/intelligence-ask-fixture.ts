@@ -19,6 +19,55 @@ export function intelligenceAskFixture(
     "agentId" in body && typeof body.agentId === "string"
       ? { agentId: body.agentId }
       : {};
+  if (
+    "question" in body &&
+    /runs.*model.*outcome/i.test(String(body.question))
+  ) {
+    const series = [
+      {
+        agentId: "support",
+        dimensions: { model: "customer-model", outcome: "success" },
+      },
+      {
+        agentId: "billing",
+        dimensions: { model: "customer-model", outcome: "error" },
+      },
+      { agentId: "support", dimensions: { model: null, outcome: "success" } },
+    ]
+      .filter((row) => !filters.agentId || row.agentId === filters.agentId)
+      .map(({ dimensions }) => ({ dimensions, total: 1, points: [] }));
+    return {
+      version: 1,
+      text: "Recorded runs by model and outcome.",
+      results: [
+        {
+          id: "fixture-run-groups",
+          query: {
+            metric: "runs",
+            dimensions: ["model", "outcome"],
+            from,
+            to,
+            filters,
+          },
+          data: {
+            metric: "runs",
+            unit: "count",
+            from,
+            to,
+            grain: null,
+            total: series.length,
+            asOf: "fixture_v1",
+            truncated: false,
+            coverage: {
+              captureStartedAt: "2026-09-01T00:00:00.000Z",
+              windowFullyCaptured: true,
+            },
+            series,
+          },
+        },
+      ],
+    };
+  }
   return {
     version: 1,
     text: "Refund had the most errors (4).",
