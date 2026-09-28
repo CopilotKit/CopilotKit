@@ -166,6 +166,29 @@ describe("ɵruntimeFetch", () => {
 
   it("applies headers before the single-route rewrite", () =>
     withBrowserWindow(async () => {
+      // The rewrite only fires when `/info` advertises the single-route
+      // resource capability. Without this, the request would pass through
+      // unchanged, and the test would prove nothing about ordering.
+      fetchMock.mockImplementationOnce(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              version: "1.0.0",
+              agents: {},
+              singleRoute: {
+                resourceOperations: true,
+                threadEndpoints: {
+                  list: true,
+                  inspect: true,
+                  mutations: true,
+                  realtimeMetadata: true,
+                },
+              },
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
+        ),
+      );
       const core = new CopilotKitCore({
         runtimeUrl: "https://rt.example/api",
         runtimeTransport: "single",
@@ -173,9 +196,20 @@ describe("ɵruntimeFetch", () => {
       });
       await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
       fetchMock.mockClear();
+
       await core.ɵruntimeFetch("https://rt.example/api/threads?agentId=a", {
         headers: { Accept: "application/json" },
       });
-      expect(authOf(fetchMock.mock.calls.at(-1)![1])).toBe("single");
+
+      const [rewrittenInput, rewrittenInit] = fetchMock.mock.calls.at(-1)!;
+      // The single-route rewrite always targets the mounted endpoint itself,
+      // not the resource path — this confirms the rewrite actually ran.
+      expect(String(rewrittenInput)).toBe("https://rt.example/api");
+      expect(authOf(rewrittenInit)).toBe("single");
+      const body = JSON.parse((rewrittenInit as RequestInit).body as string);
+      expect(body).toMatchObject({
+        method: "resource/request",
+        params: { path: "/threads?agentId=a", httpMethod: "GET" },
+      });
     }));
 });
