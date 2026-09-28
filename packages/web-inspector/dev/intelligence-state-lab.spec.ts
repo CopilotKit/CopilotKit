@@ -80,3 +80,21 @@ test("tool detail fixture limits recent calls to the requested outcome", () => {
     });
   }
 });
+
+test("Topics fixture changes counts and conversation links with the selected agent", () => {
+  const response = intelligenceFixture({
+    method: "GET",
+    path: "/api/v1/learning/topics",
+    query: { agentId: "billing" },
+  });
+  expect(response.body).toMatchObject({
+    threadsAnalyzed: 1,
+    topics: [
+      {
+        label: "Billing questions",
+        threadCount: 1,
+        threadIds: ["fixture-thread-2"],
+      },
+    ],
+  });
+});

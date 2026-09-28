@@ -104,7 +104,18 @@ export function intelligenceLearningFixture(
         },
       ],
     };
-  if (request.path === "/api/v1/learning/topics")
+  if (request.path === "/api/v1/learning/topics") {
+    const selected = [
+      { agentId: "support", label: "Refunds", threadId: "fixture-thread-1" },
+      {
+        agentId: "billing",
+        label: "Billing questions",
+        threadId: "fixture-thread-2",
+      },
+    ].filter(
+      (topic) =>
+        !request.query?.agentId || topic.agentId === request.query.agentId,
+    );
     return {
       status: "ok",
       containerId: null,
@@ -113,36 +124,21 @@ export function intelligenceLearningFixture(
           learningRunId: "learning-run-1",
           containerId: "support",
           finalizedAt: at,
-          threadsAnalyzed: 40,
+          threadsAnalyzed: selected.length,
         },
       ],
       previousRuns: [],
-      threadsAnalyzed: 40,
-      topics: [
-        {
-          label: "Refunds",
-          threadCount: 18,
-          share: 0.45,
-          previousThreadCount: 14,
-          delta: 4,
-          threadIds: ["fixture-thread-1"],
-        },
-        {
-          label: "Order status",
-          threadCount: 12,
-          share: 0.3,
-          previousThreadCount: 15,
-          delta: -3,
-        },
-        {
-          label: "Account access",
-          threadCount: 10,
-          share: 0.25,
-          previousThreadCount: null,
-          delta: null,
-        },
-      ],
+      threadsAnalyzed: selected.length,
+      topics: selected.map((topic) => ({
+        label: topic.label,
+        threadCount: 1,
+        share: 1 / selected.length,
+        previousThreadCount: null,
+        delta: null,
+        threadIds: [topic.threadId],
+      })),
       nextCursor: null,
     };
+  }
   return undefined;
 }
