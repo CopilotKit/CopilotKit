@@ -1813,6 +1813,32 @@ describe("CopilotChatInput.TextArea markdown preview", () => {
     expect(preview.style.color).toBe("rgb(0, 0, 255)");
   });
 
+  it("paints a custom background on the preview, never on the textarea", () => {
+    // The textarea sits on top; an opaque one would hide the preview's text.
+    const { textarea, preview } = renderTextArea({
+      style: { backgroundColor: "rgb(255, 255, 255)" },
+    });
+
+    expect(textarea.style.backgroundColor).toBe("transparent");
+    expect(preview.style.backgroundColor).toBe("rgb(255, 255, 255)");
+  });
+
+  it("shows the plain textarea when its parent cannot position the preview", () => {
+    // A custom layout can put the textarea in a static container, where the
+    // absolutely placed preview would land somewhere else on the page.
+    renderWithProvider(
+      <div style={{ position: "static" }}>
+        <CopilotChatInput.TextArea
+          value="- item"
+          onChange={() => {}}
+          style={{ color: "red" }}
+        />
+      </div>,
+    );
+    expect(screen.queryByTestId("copilot-chat-textarea-preview")).toBeNull();
+    expect(screen.getByTestId("copilot-chat-textarea").style.color).toBe("red");
+  });
+
   it("mirrors the textarea's text metrics onto the preview", () => {
     const style = document.createElement("style");
     style.textContent =
