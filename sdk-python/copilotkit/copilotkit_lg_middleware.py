@@ -265,9 +265,14 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             model (the host cannot supply the live, header-hooked model), and
             folds the registered catalog id + component schema into the params
             unless the host already set them — so host values win.
-        interrupt_frontend_tools: Await frontend tool results in the same turn
-            via LangGraph's ``interrupt()``, instead of the default
+        interrupt_frontend_tools: Experimental. Await frontend tool results in
+            the same turn via LangGraph's ``interrupt()``, instead of the default
             strip-and-restore that only delivers them on the next run.
+
+            Requires a client that resumes each call by interrupt id. Today's
+            React client does not: it still runs the frontend handler, and its
+            follow-up run fails on the pending interrupt. Requires Python 3.11+
+            when the graph runs async.
 
             Each call pauses on its own ``interrupt()`` in the tool node, with
             ``{"reason": "tool_call", "toolCallId", "name", "args"}`` as the
