@@ -126,7 +126,7 @@ test("BrandNav keeps the public auth CTA while Clerk is loading", () => {
 
 test("MobileTopNav uses the CopilotKit Intelligence auth label", () => {
   expect(mobileTopNavSource).toContain("Get CopilotKit Intelligence free");
-  expect(mobileTopNavSource).not.toContain("Get Enterprise Intelligence free");
+  expect(mobileTopNavSource).not.toContain("Get Enterprise free");
 });
 
 test("BrandNav renders Clerk's user button in the desktop auth slot", () => {

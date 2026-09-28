@@ -13,7 +13,7 @@ test("offers the Automatic Learning prompt before the manual setup steps", () =>
 
 test("expands the Automatic Learning prompt for Markdown and LLM readers", () => {
   const doc = loadDoc("learning");
-  if (!doc) throw new Error("Learning doc is missing");
+  if (!doc) throw new Error("Automatic Learning doc is missing");
 
   const output = renderPageToLlmText({
     url: "learning",

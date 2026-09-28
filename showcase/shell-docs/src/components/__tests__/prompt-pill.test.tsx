@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import React from "react";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -10,6 +11,11 @@ import {
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { PromptPill } from "../prompt-pill";
 import * as launcher from "../../lib/launch-prompt";
+import {
+  PROMPT_DESTINATION_HINT,
+  PROMPT_LAUNCH_NOTE,
+  PROMPT_LAUNCH_NOTE_MS,
+} from "../../lib/prompt-guidance";
 
 beforeEach(() => {
   HTMLDialogElement.prototype.showModal = function () {
@@ -238,4 +244,88 @@ it("reports a completed clipboard write after unmount without updating the UI", 
   unmount();
   resolveWrite();
   await waitFor(() => expect(copied).toHaveBeenCalledExactlyOnceWith("copy"));
+});
+
+// The line lives under each pill row, in the same place as under the docs
+// hero, not in the hover shelf (PE-340).
+it("keeps the destination line out of the pill itself", () => {
+  render(<PromptPill createPrompt={() => ({ text: "Run" })} />);
+
+  expect(screen.queryByText(PROMPT_DESTINATION_HINT)).toBeNull();
+});
+
+// When no app handles `codex://` or `claude-cli://`, the click does nothing
+// visible and the page keeps focus. Detecting that is not possible (PE-337
+// lab check), so the note shows after every app click. When the app opens,
+// the developer is no longer looking at the page.
+it("shows a visible fallback note after an app click", async () => {
+  vi.spyOn(launcher, "launchPrompt").mockImplementation(() => {});
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.assign(navigator, { clipboard: { writeText } });
+  const { container } = render(
+    <PromptPill createPrompt={() => ({ text: "Run" })} />,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Open in Codex" }));
+
+  const note = await screen.findByText(PROMPT_LAUNCH_NOTE);
+  expect(note.closest(".sr-only")).toBeNull();
+  expect(
+    container.querySelector(".prompt-pill")?.hasAttribute("data-launched"),
+  ).toBe(true);
+});
+
+it("shows no fallback note after a plain copy", async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.assign(navigator, { clipboard: { writeText } });
+  render(<PromptPill createPrompt={() => ({ text: "Run" })} />);
+
+  fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
+  await waitFor(() =>
+    expect(screen.getByRole("status").textContent).toBe("Prompt copied"),
+  );
+
+  expect(screen.queryByText(PROMPT_LAUNCH_NOTE)).toBeNull();
+});
+
+// The note holds the hover shelf open, and the shelf covers the content under
+// the pill. A developer whose app did open comes back to the page later, and
+// the page must not still be covered.
+it("clears the fallback note and releases the shelf after a while", async () => {
+  vi.useFakeTimers();
+  try {
+    vi.spyOn(launcher, "launchPrompt").mockImplementation(() => {});
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
+    const { container } = render(
+      <PromptPill createPrompt={() => ({ text: "Run" })} />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open in Codex" }));
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    expect(screen.getByText(PROMPT_LAUNCH_NOTE)).toBeTruthy();
+
+    await act(() => vi.advanceTimersByTimeAsync(PROMPT_LAUNCH_NOTE_MS));
+    expect(screen.queryByText(PROMPT_LAUNCH_NOTE)).toBeNull();
+    expect(
+      container.querySelector(".prompt-pill")?.hasAttribute("data-launched"),
+    ).toBe(false);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("clears the fallback note when the prompt is viewed", async () => {
+  vi.spyOn(launcher, "launchPrompt").mockImplementation(() => {});
+  Object.assign(navigator, {
+    clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+  });
+  render(<PromptPill createPrompt={() => ({ text: "Run" })} />);
+
+  fireEvent.click(screen.getByRole("button", { name: "Open in Codex" }));
+  await screen.findByText(PROMPT_LAUNCH_NOTE);
+  fireEvent.click(screen.getByRole("button", { name: "View prompt" }));
+
+  expect(screen.queryByText(PROMPT_LAUNCH_NOTE)).toBeNull();
 });

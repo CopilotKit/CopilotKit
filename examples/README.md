@@ -92,6 +92,7 @@ Full-featured demo applications highlighting CopilotKit capabilities in real-wor
 | [arcade-tools](./showcases/arcade-tools/)                               | CopilotKit Built-in Agent with authenticated Arcade tools (Gmail, Google News)                                      |
 | [claude-managed-agents](./showcases/claude-managed-agents/)             | Hosted Claude Managed Agent connected to CopilotKit chat over AG-UI                                                 |
 | [daytona-runcode](./showcases/daytona-runcode/)                         | Built-in Agent with a runCode tool executing code in an isolated Daytona sandbox                                    |
+| [manufact-mcp-apps](./showcases/manufact-mcp-apps/)                     | Built-in Agent rendering an MCP App built with Manufact's mcp-use SDK (inline Leaflet map)                          |
 | [deep-agents-finance-erp](./showcases/deep-agents-finance-erp/)         | Finance ERP showcase — invoices, accounts, inventory, HR, and reports (deep agents)                                 |
 | [open-mcp-client](./showcases/open-mcp-client/)                         | Open MCP client builder — render and create MCP Apps with CopilotKit                                                |
 | [oracle-agent-memory](./showcases/oracle-agent-memory/)                 | Travel concierge demo — Oracle Agent Spec, generative UI, and cross-session memory                                  |

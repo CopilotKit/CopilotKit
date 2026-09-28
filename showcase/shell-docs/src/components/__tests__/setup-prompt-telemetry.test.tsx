@@ -86,7 +86,9 @@ test.each([
       expect(event.onboarding_run_id).toMatch(/^[a-f0-9]{12}$/);
       expect(
         vi.mocked(navigator.clipboard.writeText).mock.calls[count - 1][0],
-      ).toContain(`--intent ${intent} --run ${event.onboarding_run_id}`);
+      ).toContain(
+        `/onboarding-prompts/${event.onboarding_run_id}?intent=${intent}`,
+      );
       expect(events(actionEvent)[count - 1]).toEqual(event);
     }
     expect(events(copiedEvent)[0].onboarding_run_id).not.toBe(
