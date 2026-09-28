@@ -24,7 +24,11 @@ function findSkill(snapshot: VerifiedSnapshot, name: string) {
   return skill;
 }
 
-/** The `copilotkit_load_skill` result shared by every runtime adapter. */
+/**
+ * The `copilotkit_load_skill` result of the TypeScript adapters (BuiltInAgent,
+ * Mastra, LangGraph) and the Python adapters (LangGraph, ADK). The .NET Agent
+ * Framework adapter still returns SKILL.md as plain text.
+ */
 export interface LoadedSkill {
   skill_name: string;
   content: string;

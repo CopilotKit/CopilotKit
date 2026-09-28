@@ -128,8 +128,10 @@ compatibility window. New code should use `memory.access`.
 ## Intelligence data access
 
 `access` decides which Intelligence data one authenticated web request may
-read, such as analytics, learning insights and skills, governance records, and
-conversation text. It requires `identifyUser` and runs at most once per
+read. The grant names permissions for analytics, learning insights and skills,
+governance records, and conversation text. Today the runtime sends it only
+with Inspector Learning requests (`surface: "inspector"`); other routes do
+not call `access` yet. It requires `identifyUser` and runs at most once per
 request and surface.
 
 ```ts

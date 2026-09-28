@@ -56,7 +56,10 @@ def with_snapshot_source(snapshot: VerifiedSnapshot, container_id: str) -> Verif
 
 
 def load_skill_result(snapshot: VerifiedSnapshot, skill: SnapshotSkill) -> dict[str, object]:
-    """Build the copilotkit_load_skill result shared by every runtime."""
+    """Build the copilotkit_load_skill result, matching the TypeScript adapters.
+
+    The .NET Agent Framework adapter still returns SKILL.md as plain text.
+    """
     content = next(file.text for file in skill.files if file.path == "SKILL.md")
     container_id = skill.container_id or snapshot.container_id
     result: dict[str, object] = {
