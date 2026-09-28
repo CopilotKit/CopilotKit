@@ -630,8 +630,11 @@ export class IntelligenceAgentRunner extends AgentRunner {
 
     try {
       if (state.stopRequested) return;
+      const backendThreadId = request.backendThreadId ?? request.threadId;
+      request.agent.threadId = backendThreadId;
+      const backendInput = { ...request.input, threadId: backendThreadId };
       await Promise.race([
-        request.agent.runAgent(request.input, {
+        request.agent.runAgent(backendInput, {
           onEvent: ({ event }: { event: BaseEvent }) => {
             if (state.stopRequested || state.producerFinished) return;
             if (event.type === EventType.RUN_STARTED) {
