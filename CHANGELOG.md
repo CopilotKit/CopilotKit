@@ -16,6 +16,26 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.74.0 - 2026-09-25
+
+### Features
+
+- feat(web-inspector): support targeted notifications in What's New (#6956) (9434edd)
+- feat: consume learned skills from multiple containers across SDKs (#7384) (6252d10)
+- feat(web-inspector): track launcher HUD impressions and actions (#7376) (bbf420b)
+
+### Fixes
+
+- fix(threads-drawer): never lock the drawer on an unresolved entitlement (#7441) (f3961c1)
+- fix(core): stop refreshing realtime credentials for a socket that never opens (#7421) (a933af0)
+- fix(react-core): stop per-message state cloning and the virtual-scroll tug of war (#7243) (5b02c02)
+- fix(runtime): stop a Memory policy that grants nothing from failing the run (#7352) (eb594d6)
+- fix(web-inspector): tell the automatic HUD intro apart from a user open (#7381) (ad5d77d)
+
+### Other Changes
+
+- Use first user message when thread naming fails (#7007) (8711d85)
+
 ## 1.73.3 - 2026-09-22
 
 ### Features

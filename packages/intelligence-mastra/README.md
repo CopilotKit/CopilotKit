@@ -1,6 +1,6 @@
 # CopilotKit Intelligence skills for Mastra
 
-Keep a Learning container's published skills available to Mastra agents. The adapter adds a catalog and two native read tools. Each invocation uses one verified snapshot, including tool-first resumes.
+Keep published skills from one or more Learning containers available to Mastra agents. The adapter adds a catalog and two native read tools. Each invocation uses one verified snapshot, including tool-first resumes.
 
 Requires Node.js 22.13+ and Mastra core `>=1.0.0 <2`. The Intelligence server and canonical Runtime client must support the learned-snapshot API.
 
@@ -53,3 +53,35 @@ Catch `SkillDeliveryError` during initialization or invocation. Its stable `code
 The adapter reads skills in memory and does not write files or execute scripts. The model chooses whether to load or follow skills. The package uses the canonical Runtime client and retains that client's dependency footprint; it does not depend on the LangGraph adapter.
 
 See the [learned skill delivery guide](https://docs.copilotkit.ai/intelligence/learned-skills) for server requirements and migration from CLI downloads.
+
+## Multiple containers
+
+Use the same registry with an explicit list:
+
+```typescript
+const registry = new SkillRegistry({
+  containers: [
+    { id: "support", revision: "revision-123" },
+    { id: "company-wide" },
+  ],
+});
+```
+
+Each entry follows latest unless it has a revision pin. IDs must be unique and nonempty.
+The SDK rejects an empty list or a list combined with `containerId` or top-level `revision`.
+TypeScript rejects mixed forms at compile time too. The old interface remains supported.
+An explicit list ignores legacy container and revision environment variables.
+Credentials, freshness, and timeouts remain shared.
+
+The new interface uses names such as `support/refund-policy` in the catalog and tool calls.
+The prefix URI-encodes the container ID, so names cannot collide between containers.
+The old interface keeps unprefixed Skill names.
+
+Each container keeps its own cache and revision. Every invocation captures the full combined catalog.
+A cold failure or confirmed denial from any container blocks the invocation.
+Existing transient-error fallback applies separately to each warm container.
+`registry.status.containers` lists per-container status and revision. Aggregate status has no revision pin.
+
+Explicit `containers` accepts 1–50 unique container IDs and sends one batch request for all sources that need a refresh. This also applies to a list with one entry.
+The server must support `POST /api/v1/learning/skills/batch` before you use this configuration. The SDK does not fall back to separate requests.
+Legacy `containerId` configuration keeps its existing single-container request. Both interfaces use the same authentication configuration.

@@ -85,9 +85,23 @@ export function sitemapUrls(text: string): string[] {
   );
 }
 
-function validateUrls(urls: string[], label: string): string | undefined {
+// The curated index intentionally sends agents to the website's stable entry.
+// Keep this exception exact: it does not authorize other website/preview URLs.
+export function isSupportedOnboardingUrl(url: string): boolean {
+  return (
+    url === "https://copilotkit.ai/onboarding-prompts" ||
+    url === "https://www.copilotkit.ai/onboarding-prompts"
+  );
+}
+
+function validateUrls(
+  urls: string[],
+  label: string,
+  allowOnboarding = false,
+): string | undefined {
   if (urls.length === 0) return `${label} contains no generated URLs`;
   for (const url of urls) {
+    if (allowOnboarding && isSupportedOnboardingUrl(url)) continue;
     const error = assertCanonicalUrl(url, label);
     if (error) return error;
   }
@@ -232,6 +246,7 @@ export async function checkProductionDocsCanonicalHost(
   const llmsError = validateUrls(
     markdownLinkUrls(byPath.get("/llms.txt") ?? ""),
     "llms.txt link",
+    true,
   );
   if (llmsError) return `docs: ${llmsError}`;
 

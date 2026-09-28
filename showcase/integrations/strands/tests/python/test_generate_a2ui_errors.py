@@ -18,6 +18,7 @@ Covers:
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import sys
 import types
@@ -72,7 +73,10 @@ def _install_openai_stub():
 
 
 def _install_httpx_stub():
-    if "httpx" in sys.modules:
+    # Stub only when httpx is not installed. Checking ``sys.modules`` alone
+    # replaced a real, installed httpx that no one had imported yet, and the
+    # stub then broke every later test that builds an ``httpx.Client``.
+    if "httpx" in sys.modules or importlib.util.find_spec("httpx") is not None:
         return
     m = types.ModuleType("httpx")
 

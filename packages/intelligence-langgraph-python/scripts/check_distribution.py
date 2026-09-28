@@ -35,7 +35,7 @@ with tempfile.TemporaryDirectory(prefix="copilotkit-langgraph-distribution-") as
         [
             sys.executable,
             "-c",
-            "from pathlib import Path; import copilotkit_intelligence_langgraph as p; from copilotkit_intelligence_langgraph._delivery import registry; assert '_delivery' in registry.__name__; assert 'installed' in str(Path(p.__file__)); assert callable(p.create_skill_registry_middleware)",
+            "from pathlib import Path; import copilotkit_intelligence_langgraph as p; from copilotkit_intelligence_langgraph._delivery import registry; assert '_delivery' in registry.__name__; assert 'installed' in str(Path(p.__file__)); assert callable(p.create_skill_registry_middleware); import asyncio; multi = p.create_skill_registry_middleware(api_key='test', containers=[p.ContainerSource(id='one')]); assert isinstance(multi.status, p.MultiStatus); assert multi.status.containers[0].id == 'one'; asyncio.run(multi.aclose())",
         ],
         cwd=temporary,
         env=env,
