@@ -101,7 +101,8 @@ describe("headers at send time", () => {
       headers: () => ({ Authorization: "s" }),
     });
     void core.runAgent({ agent: core.getAgent("mine")! }).catch(() => {});
-    // applyHeadersToAgent already ran synchronously: headers are current...
+    // prepareAgentHeadersForRun already ran synchronously: headers are
+    // current...
     expect(agent.headers).toMatchObject({ Authorization: "s" });
     // ...and runAgent has already reached (called) its next synchronous step,
     // proving no extra microtask was inserted between the two. Awaiting the
@@ -124,6 +125,51 @@ describe("headers at send time", () => {
     core.applyHeadersToAgent(proxy);
     expect(proxy.headers).toEqual({ "X-Own": "1" });
     expect(proxy.fetch).toBe(core.ɵruntimeFetch);
+  });
+
+  it("the public applyHeadersToAgent never calls the headers builder, even one that throws — for a plain HttpAgent or a proxied agent", () => {
+    // Fix round 1, finding 2: `applyHeadersToAgent` is reachable from
+    // anywhere (a dev-only registration helper, a React effect that re-runs
+    // on every render), so it must never invoke a user-supplied builder — a
+    // sync throw there would propagate out of the caller, and an async
+    // rejection would be unhandled. Only the friends-only
+    // `prepareAgentHeadersForRun` (used by the run/connect path, which can
+    // await and report a failure) may call it.
+    const builder = vi.fn((): Record<string, string> => {
+      throw new Error("boom");
+    });
+    const core = new CopilotKitCore({
+      deferInitialConnection: true,
+      runtimeUrl: "http://rt.test/api",
+      headers: builder,
+    });
+    const httpAgent = new HttpAgent({ url: "http://other.test/agent" });
+    const proxy = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "http://rt.test/api",
+      agentId: "p",
+    });
+    expect(() => core.applyHeadersToAgent(httpAgent)).not.toThrow();
+    expect(() => core.applyHeadersToAgent(proxy)).not.toThrow();
+    expect(builder).toHaveBeenCalledTimes(0);
+  });
+
+  it("addAgent__unsafe_dev_only does not call a throwing headers builder", () => {
+    // The exact call site the review flagged (agent-registry.ts's
+    // `addAgent__unsafe_dev_only`, reached from `CopilotKitCore
+    // .addAgent__unsafe_dev_only` and mirrored by react-core's
+    // `use-agent.tsx`'s provisional-proxy registration): registering an
+    // agent must not invoke the builder at all, so a throwing builder can
+    // never break registration.
+    const builder = vi.fn((): Record<string, string> => {
+      throw new Error("boom");
+    });
+    const core = new CopilotKitCore({ headers: builder });
+    builder.mockClear();
+    const agent = new HttpAgent({ url: "http://other.test/agent" });
+    expect(() =>
+      core.addAgent__unsafe_dev_only({ id: "mine", agent }),
+    ).not.toThrow();
+    expect(builder).toHaveBeenCalledTimes(0);
   });
 
   it("a stop request carries the current token", async () => {

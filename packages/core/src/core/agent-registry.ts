@@ -569,28 +569,21 @@ export class AgentRegistry {
   }
 
   /**
-   * Apply current headers to an agent, merged ON TOP of the agent's own
-   * construction-time headers (the per-agent baseline in `agentOwnHeaders`).
-   * Core wins on a key conflict. Non-`HttpAgent` agents are left untouched
-   * because only `HttpAgent` carries a `headers` field. See #5635.
-   *
-   * A `ProxiedCopilotRuntimeAgent` keeps only its own construction-time
-   * headers on `agent.headers` — core headers are added by `ɵruntimeFetch`
-   * when each request is actually sent, so a key the builder stops returning
-   * can never ride along from a stale copy baked onto the agent. See #1937.
-   *
-   * Any other `HttpAgent` gets its own headers plus the core headers resolved
-   * right now, merged on top. Resolution is synchronous for a record or a
-   * sync builder; this returns a promise only when an async builder must be
-   * awaited first, and callers that need the write to have landed must await
-   * a returned promise.
+   * Shared core-and-own-header merge for a single agent. Captures the
+   * agent's construction-time headers once (the per-agent baseline in
+   * `agentOwnHeaders`), then either keeps only that baseline — a
+   * `ProxiedCopilotRuntimeAgent`, whose core headers are added by
+   * `ɵruntimeFetch` when each request is actually sent instead, so a key the
+   * builder stops returning can never ride along from a stale copy baked
+   * onto the agent (see #1937) — or merges `coreHeaders` on top of it (any
+   * other `HttpAgent`; core wins on a key conflict, see #5635).
    */
-  applyHeadersToAgent(agent: AbstractAgent): void | Promise<void> {
-    if (!(agent instanceof HttpAgent)) return;
-    // Capture the agent's construction-time headers once, before any core
-    // headers overwrite them. On every subsequent apply we rebuild from this
-    // baseline so re-applying core headers (e.g. via setHeaders) never loses
-    // the agent's own headers.
+  private applyHeaderRecordToAgent(
+    agent: HttpAgent,
+    coreHeaders: Record<string, string>,
+  ): void {
+    // On every apply we rebuild from this baseline so re-applying core
+    // headers (e.g. via setHeaders) never loses the agent's own headers.
     if (!this.agentOwnHeaders.has(agent)) {
       this.agentOwnHeaders.set(agent, { ...agent.headers });
     }
@@ -600,37 +593,71 @@ export class AgentRegistry {
       this.applyRuntimeFetchToAgent(agent);
       return;
     }
+    agent.headers = { ...own, ...coreHeaders };
+  }
+
+  /**
+   * Apply the last resolved header snapshot to an agent, merged ON TOP of
+   * the agent's own construction-time headers. Non-`HttpAgent` agents are
+   * left untouched because only `HttpAgent` carries a `headers` field. See
+   * #5635.
+   *
+   * Never invokes the headers builder — safe to call from anywhere (dev-only
+   * registration helpers, a React effect that re-runs on every render)
+   * without risking a synchronous throw or an unhandled async rejection from
+   * a user-supplied builder. Use `prepareAgentHeadersForRun` (friends-only)
+   * on the run/connect path, where a builder failure can be awaited and
+   * reported once.
+   */
+  applyHeadersToAgent(agent: AbstractAgent): void {
+    if (!(agent instanceof HttpAgent)) return;
     const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
-    const resolved = friends.resolveHeaders();
-    if (isPromiseLike(resolved)) {
-      return Promise.resolve(resolved).then((headers) => {
-        agent.headers = { ...own, ...headers };
-      });
-    }
-    agent.headers = { ...own, ...resolved };
+    this.applyHeaderRecordToAgent(agent, friends.headers);
   }
 
   /**
    * Apply the last resolved header snapshot to every agent, without
-   * triggering a builder call per agent. A run re-applies with fresh headers
-   * anyway (see `applyHeadersToAgent`), so this bulk path — used by
-   * `initialize` and `setHeaders` — stays cheap and synchronous.
+   * triggering a builder call per agent. Used by `initialize` and
+   * `setHeaders`; a run re-applies with fresh headers anyway (see
+   * `prepareAgentHeadersForRun`).
    */
   applyHeadersToAgents(agents: Record<string, AbstractAgent>): void {
     const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
     Object.values(agents).forEach((agent) => {
-      if (!(agent instanceof HttpAgent)) return;
-      if (!this.agentOwnHeaders.has(agent)) {
-        this.agentOwnHeaders.set(agent, { ...agent.headers });
+      if (agent instanceof HttpAgent) {
+        this.applyHeaderRecordToAgent(agent, friends.headers);
       }
-      const own = this.agentOwnHeaders.get(agent)!;
-      if (agent instanceof ProxiedCopilotRuntimeAgent) {
-        agent.headers = { ...own };
-        this.applyRuntimeFetchToAgent(agent);
-        return;
-      }
-      agent.headers = { ...own, ...friends.headers };
     });
+  }
+
+  /**
+   * Resolve headers fresh and apply them to `agent` right before a run or
+   * connect actually sends (#1937) — the resolving counterpart to
+   * `applyHeadersToAgent`. Friends-only: only the run handler should call
+   * this, since resolving can invoke a user-supplied builder that throws
+   * synchronously or returns a rejecting promise. Resolution is synchronous
+   * for a record or a sync builder; this returns a promise only when an
+   * async builder must be awaited first, and callers that need the write to
+   * have landed before continuing must await a returned promise.
+   *
+   * A `ProxiedCopilotRuntimeAgent` never invokes the builder here: its core
+   * headers are added by `ɵruntimeFetch` at send time instead, so only its
+   * own headers are (re)applied.
+   */
+  prepareAgentHeadersForRun(agent: AbstractAgent): void | Promise<void> {
+    if (!(agent instanceof HttpAgent)) return;
+    if (agent instanceof ProxiedCopilotRuntimeAgent) {
+      this.applyHeaderRecordToAgent(agent, {});
+      return;
+    }
+    const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
+    const resolved = friends.resolveHeaders();
+    if (isPromiseLike(resolved)) {
+      return Promise.resolve(resolved).then((headers) => {
+        this.applyHeaderRecordToAgent(agent, headers);
+      });
+    }
+    this.applyHeaderRecordToAgent(agent, resolved);
   }
 
   /**

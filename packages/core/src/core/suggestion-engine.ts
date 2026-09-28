@@ -283,6 +283,15 @@ export class SuggestionEngine {
         statelessAgent.headers = { ...(await this.core.resolveHeaders()) };
       }
 
+      // `clearSuggestions`/`abortRun` may have run while the header
+      // resolution above was in flight. `HttpAgent.runAgent` always installs
+      // a fresh `AbortController` for the run it starts, so an abort issued
+      // against the (now-discarded) pre-run instance would NOT stop the
+      // request below from being sent, and a completed run would write stale
+      // suggestions into whatever the current turn has become. `finally`
+      // still performs its cleanup on this early return.
+      if (aborted) return;
+
       suggestionAgent.addMessage({
         id: suggestionId,
         role: "user",

@@ -557,7 +557,7 @@ export class RunHandler {
       // Re-apply current headers (merged on top of the agent's own headers)
       // so the token in effect right now is what this connect carries — not
       // a value resolved earlier (#1937).
-      const headersApplied = this._internal.applyHeadersToAgent(agent);
+      const headersApplied = this._internal.prepareAgentHeadersForRun(agent);
       if (headersApplied) await headersApplied;
 
       // Notify subscribers (e.g. the inspector) about the agent that is about
@@ -655,7 +655,7 @@ export class RunHandler {
     // the token in effect right now is what this run carries — not a value
     // resolved earlier (#1937).
     try {
-      const headersApplied = this._internal.applyHeadersToAgent(agent);
+      const headersApplied = this._internal.prepareAgentHeadersForRun(agent);
       if (headersApplied) await headersApplied;
     } catch {
       // Already reported as HEADER_RESOLUTION_FAILED by the resolver.
