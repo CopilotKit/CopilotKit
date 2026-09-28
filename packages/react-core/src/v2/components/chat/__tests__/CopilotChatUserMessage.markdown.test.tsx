@@ -62,4 +62,22 @@ describe("CopilotChatUserMessage markdown", () => {
     );
     expect(screen.getByText("Test override")).toBeDefined();
   });
+
+  it("shows the plain text as typed with markdown={false}", () => {
+    const { container } = render(
+      wrap(
+        <CopilotChatUserMessage
+          markdown={false}
+          message={message("1. First step\n**bold**  spaced")}
+        />,
+      ),
+    );
+
+    expect(container.querySelector("[data-streamdown]")).toBeNull();
+    expect(
+      screen.getByText("1. First step **bold** spaced", {
+        normalizer: (text) => text.replace(/\s+/g, " "),
+      }),
+    ).toBeDefined();
+  });
 });
