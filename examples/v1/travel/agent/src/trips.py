@@ -66,7 +66,11 @@ async def perform_trips_node(state: AgentState, config: RunnableConfig):
             if ai_message.tool_calls[0]["name"] == "update_trips":
                 # A user may keep a current place that the proposal removed.
                 current_trip = next(
-                    (current for current in state["trips"] if current["id"] == trip["id"]),
+                    (
+                        current
+                        for current in state["trips"]
+                        if current["id"] == trip["id"]
+                    ),
                     None,
                 )
                 if current_trip:
