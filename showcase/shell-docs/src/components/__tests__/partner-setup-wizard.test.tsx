@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SetupWizard } from "../setup-wizard";
@@ -75,8 +76,13 @@ describe("partner setup context", () => {
       screen.getByRole("heading", { name: "What you want to build" }),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Backend/ })).toBeNull();
-    expect(screen.getByRole("button", { name: /3\s*Features/ })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.getByRole("button", { name: "Features" })).toBeTruthy();
+    fireEvent.click(
+      within(screen.getByRole("navigation", { name: "Setup steps" })).getByRole(
+        "button",
+        { name: "Previous step" },
+      ),
+    );
     expect(screen.getByRole("heading", { name: "Your frontend" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "React" }));
     fireEvent.click(screen.getByRole("button", { name: "Skip" }));
@@ -140,7 +146,7 @@ describe("partner setup context", () => {
     mount();
     expect(
       screen.getByRole("heading", {
-        name: "Where are you starting?",
+        name: "What are you building?",
       }),
     ).toBeTruthy();
   });

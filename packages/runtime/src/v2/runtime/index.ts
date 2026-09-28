@@ -13,6 +13,8 @@ export {
   LearnedSkillsError,
   type LearnedSkillsErrorCode,
   type GetLearnedSkillsSnapshotRequest,
+  type GetLearnedSkillsSnapshotsRequest,
+  type LearnedSkillsBatchResult,
   type LearnedSkillsSnapshotResult,
   type CopilotKitIntelligenceConfig,
   type CreateThreadRequest,

@@ -92,3 +92,120 @@ export function learnedSkillsResponseError(body: unknown): LearnedSkillsError {
   }
   return new LearnedSkillsError("UNSUPPORTED_SERVER", false);
 }
+
+export interface GetLearnedSkillsSnapshotsRequest {
+  containers: readonly Omit<GetLearnedSkillsSnapshotRequest, "signal">[];
+  signal?: AbortSignal;
+}
+export type LearnedSkillsBatchResult = { containerId: string } & (
+  | LearnedSkillsSnapshotResult
+  | { status: "error"; error: LearnedSkillsError }
+);
+
+/** Validate the entire envelope before exposing any individual result. */
+export function parseLearnedSkillsBatch(
+  body: unknown,
+  requests: GetLearnedSkillsSnapshotsRequest["containers"],
+): LearnedSkillsBatchResult[] {
+  const invalid = () => {
+    if (
+      body &&
+      typeof body === "object" &&
+      "containers" in body &&
+      Array.isArray(body.containers)
+    ) {
+      const denial = body.containers.find(
+        (entry) =>
+          entry &&
+          requests.some(
+            (request) => request.containerId === entry.containerId,
+          ) &&
+          entry.status === "error" &&
+          [
+            "AUTHENTICATION_FAILED",
+            "AUTHORIZATION_FAILED",
+            "ENTITLEMENT_REQUIRED",
+            "DELIVERY_DISABLED",
+            "CONTAINER_NOT_FOUND",
+            "REVISION_NOT_FOUND",
+            "REVISION_REVOKED",
+          ].includes(entry.error?.code),
+      );
+      if (denial) return new LearnedSkillsError(denial.error.code, false);
+    }
+    return new LearnedSkillsError("INVALID_SNAPSHOT", false);
+  };
+  if (
+    !body ||
+    typeof body !== "object" ||
+    !("containers" in body) ||
+    !Array.isArray(body.containers) ||
+    body.containers.length !== requests.length
+  )
+    throw invalid();
+  return body.containers.map((entry, index) => {
+    const request = requests[index];
+    if (
+      !entry ||
+      typeof entry !== "object" ||
+      entry.containerId !== request.containerId
+    )
+      throw invalid();
+    if (entry.status === "error") {
+      if (
+        !entry.error ||
+        typeof entry.error !== "object" ||
+        !Object.prototype.hasOwnProperty.call(messages, entry.error.code) ||
+        typeof entry.error.retryable !== "boolean"
+      )
+        throw invalid();
+      return {
+        containerId: entry.containerId,
+        status: "error",
+        error: new LearnedSkillsError(entry.error.code, entry.error.retryable),
+      };
+    }
+    if (
+      typeof entry.revision !== "string" ||
+      !entry.revision.trim() ||
+      typeof entry.etag !== "string" ||
+      !/^"[a-f0-9]{64}"$/.test(entry.etag) ||
+      (request.revision !== undefined && entry.revision !== request.revision)
+    )
+      throw invalid();
+    if (entry.status === "unchanged") {
+      if (
+        request.ifNoneMatch !== entry.etag ||
+        "bytesBase64" in entry ||
+        "contentType" in entry
+      )
+        throw invalid();
+      return {
+        containerId: entry.containerId,
+        status: "unchanged",
+        revision: entry.revision,
+        etag: entry.etag,
+      };
+    }
+    if (
+      entry.status !== "snapshot" ||
+      entry.contentType !== "application/zip" ||
+      typeof entry.bytesBase64 !== "string" ||
+      !entry.bytesBase64.length ||
+      !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
+        entry.bytesBase64,
+      )
+    )
+      throw invalid();
+    const bytes = Buffer.from(entry.bytesBase64, "base64");
+    if (bytes.toString("base64") !== entry.bytesBase64) throw invalid();
+    return {
+      containerId: entry.containerId,
+      status: "snapshot",
+      revision: entry.revision,
+      etag: entry.etag,
+      contentType: entry.contentType,
+      bytes: new Uint8Array(bytes),
+    };
+  });
+}

@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 namespace CopilotKit.Intelligence.AgentFramework;
 
 /// <summary>Configuration shared by agents using one learned-skill registry.</summary>
@@ -13,6 +15,8 @@ public sealed class SkillRegistryOptions
     public string? ContainerId { get; init; }
     /// <summary>Exact immutable revision; defaults to CPK_INTELLIGENCE_SKILLS_REVISION, otherwise latest.</summary>
     public string? Revision { get; init; }
+    /// <summary>Containers to combine. Mutually exclusive with ContainerId and Revision; ignores their environment defaults.</summary>
+    public IReadOnlyList<SkillContainerSource>? Containers { get; init; }
     /// <summary>Minimum interval between successful checks. Zero checks on every invocation.</summary>
     public TimeSpan FreshnessWindow { get; init; } = TimeSpan.FromSeconds(5);
     /// <summary>Deadline for a refresh, including snapshot validation.</summary>
@@ -24,19 +28,38 @@ public sealed class SkillRegistryOptions
 /// <summary>Safe diagnostic fields without transport causes or response contents.</summary>
 public sealed record SkillRegistryError(string Code, string Message, bool Retryable);
 /// <summary>An immutable view of registry availability and its last successful check.</summary>
-public sealed record SkillRegistryStatus(bool Initialized, string? Revision, string Mode,
+public record SkillRegistryStatus(bool Initialized, string? Revision, string Mode,
     DateTimeOffset? LastCheckedAt, bool Stale, SkillRegistryError? LastError);
+
+/// <summary>A container source with an optional exact server revision.</summary>
+public sealed record SkillContainerSource
+{
+    /// <summary>The unique, nonblank container ID.</summary>
+    public required string Id { get; init; }
+    /// <summary>An exact revision, or null to follow latest.</summary>
+    public string? Revision { get; init; }
+}
+
+/// <summary>The immutable status of one configured container.</summary>
+public sealed record SkillContainerStatus(string Id, bool Initialized, string? Revision, string Mode,
+    DateTimeOffset? LastCheckedAt, bool Stale, SkillRegistryError? LastError)
+    : SkillRegistryStatus(Initialized, Revision, Mode, LastCheckedAt, Stale, LastError);
+
+/// <summary>Aggregate availability plus each container's independent status. Revision is null; use each container's revision.</summary>
+public sealed record MultiSkillRegistryStatus(bool Initialized, string Mode, DateTimeOffset? LastCheckedAt,
+    bool Stale, SkillRegistryError? LastError, ImmutableArray<SkillContainerStatus> Containers)
+    : SkillRegistryStatus(Initialized, null, Mode, LastCheckedAt, Stale, LastError);
 
 internal sealed record RegistryConfiguration(IntelligenceClient Client, bool OwnsClient, string ContainerId,
     string? Revision, TimeSpan FreshnessWindow, TimeSpan RequestTimeout, bool Debug)
 {
-    internal static RegistryConfiguration Resolve(SkillRegistryOptions options)
+    internal static RegistryConfiguration Resolve(SkillRegistryOptions options, bool useLegacyEnvironment = true)
     {
         try
         {
             ArgumentNullException.ThrowIfNull(options);
-            var container = options.ContainerId ?? Environment.GetEnvironmentVariable("CPK_INTELLIGENCE_LEARNING_CONTAINER_ID");
-            var revision = options.Revision ?? Environment.GetEnvironmentVariable("CPK_INTELLIGENCE_SKILLS_REVISION");
+            var container = options.ContainerId ?? (useLegacyEnvironment ? Environment.GetEnvironmentVariable("CPK_INTELLIGENCE_LEARNING_CONTAINER_ID") : null);
+            var revision = options.Revision ?? (useLegacyEnvironment ? Environment.GetEnvironmentVariable("CPK_INTELLIGENCE_SKILLS_REVISION") : null);
             if (string.IsNullOrWhiteSpace(container) || container is "." or ".."
                 || revision is not null && string.IsNullOrWhiteSpace(revision)
                 || options.FreshnessWindow < TimeSpan.Zero || options.RequestTimeout <= TimeSpan.Zero

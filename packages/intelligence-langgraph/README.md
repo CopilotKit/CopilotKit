@@ -1,6 +1,6 @@
 # CopilotKit Intelligence skills for LangGraph
 
-Keep one Learning container's published skills available to native TypeScript LangChain agents. The adapter adds an alphabetical catalog and two read tools; the model decides when to use a skill.
+Keep published skills from one or more Learning containers available to native TypeScript LangChain agents. The adapter adds an alphabetical catalog and two read tools; the model decides when to use a skill.
 
 Requires Node.js 20.19+, LangChain 1.5.11+, LangGraph 1.4.14+, and LangChain core 1.2.10+ within major version 1. The Intelligence server must expose the learned-snapshot API, and the canonical Runtime client must include that operation.
 
@@ -46,3 +46,35 @@ Pass an existing `CopilotKitIntelligence` client from `@copilotkit/runtime/v2` a
 Both `copilotkit_load_skill` and `copilotkit_read_skill_file` remain registered for an empty container. Developer instructions retain precedence over learned skills. Unsupported file content and unknown names or paths use native tool errors.
 
 See the [learned skill delivery guide](https://docs.copilotkit.ai/intelligence/learned-skills) for managed/self-hosted setup, release prerequisites, and migration from CLI downloads.
+
+## Multiple containers
+
+Use the same registry with an explicit list:
+
+```typescript
+const registry = new SkillRegistry({
+  containers: [
+    { id: "support", revision: "revision-123" },
+    { id: "company-wide" },
+  ],
+});
+```
+
+Each entry follows latest unless it has a revision pin. IDs must be unique and nonempty.
+The SDK rejects an empty list or a list combined with `containerId` or top-level `revision`.
+TypeScript rejects mixed forms at compile time too. The old interface remains supported.
+An explicit list ignores legacy container and revision environment variables.
+Credentials, freshness, and timeouts remain shared.
+
+The new interface uses names such as `support/refund-policy` in the catalog and tool calls.
+The prefix URI-encodes the container ID, so names cannot collide between containers.
+The old interface keeps unprefixed Skill names.
+
+Each container keeps its own cache and revision. Every invocation captures the full combined catalog.
+A cold failure or confirmed denial from any container blocks the invocation.
+Existing transient-error fallback applies separately to each warm container.
+`registry.status.containers` lists per-container status and revision. Aggregate status has no revision pin.
+
+Explicit `containers` accepts 1–50 unique container IDs and sends one batch request for all sources that need a refresh. This also applies to a list with one entry.
+The server must support `POST /api/v1/learning/skills/batch` before you use this configuration. The SDK does not fall back to separate requests.
+Legacy `containerId` configuration keeps its existing single-container request. Both interfaces use the same authentication configuration.

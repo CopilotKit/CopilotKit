@@ -8,7 +8,7 @@ import {
 } from "../v2/runtime/intelligence-platform/skill-registry";
 import type { SkillRegistryOptions } from "../v2/runtime/intelligence-platform/skill-registry";
 
-/** Opt in to learned skills from one Intelligence learning container. */
+/** Opt in to learned skills from one or more Intelligence learning containers. */
 export type BuiltInAgentLearnedSkillsOptions = SkillRegistryOptions;
 
 /** One invocation's catalog and executable AI SDK tools. Always present in factories. */
