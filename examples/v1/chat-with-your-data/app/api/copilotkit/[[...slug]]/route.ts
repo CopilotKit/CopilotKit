@@ -22,7 +22,7 @@ const searchInternet = defineTool({
 });
 
 const agent = new BuiltInAgent({
-  model: process.env.COPILOTKIT_MODEL ?? "openai/gpt-4o-mini",
+  model: process.env.COPILOTKIT_MODEL ?? "openai/gpt-5-mini",
   prompt,
   tools: [searchInternet],
   maxSteps: 5,
