@@ -1,4 +1,5 @@
 import { LitElement, html, css } from "lit";
+import type { PropertyValues } from "lit";
 import type { CopilotKitCore } from "@copilotkit/core";
 import {
   attachIntelligenceRelay,
@@ -14,6 +15,7 @@ export class InspectorIntelligenceView extends LitElement {
     appUrl: { attribute: false },
     section: { type: String },
     agentId: { attribute: false },
+    colorScheme: { attribute: "color-scheme", reflect: true },
     denied: { state: true },
   };
   static styles = css`
@@ -34,15 +36,23 @@ export class InspectorIntelligenceView extends LitElement {
       color: #676570;
       font: 13px/1.5 inherit;
     }
+    :host([color-scheme="dark"]) {
+      background: #111319;
+    }
+    :host([color-scheme="dark"]) p {
+      color: #b8bbc7;
+    }
   `;
   core: CopilotKitCore | null = null;
   appUrl = "";
   section: "analytics" | "governance" | "learning" = "analytics";
   agentId = "";
+  colorScheme: "light" | "dark" = "light";
   // This input is read only when the host opens a new section or agent.
   timeWindow: InspectorTimeWindow | undefined;
   private navigationKey = "";
   private navigationTime: InspectorTimeWindow | undefined;
+  private navigationColorScheme: "light" | "dark" = "light";
   private denied = false;
 
   /** Applies the saved window on navigation without reloading the current iframe. */
@@ -51,6 +61,7 @@ export class InspectorIntelligenceView extends LitElement {
     if (key !== this.navigationKey) {
       this.navigationKey = key;
       this.navigationTime = parseTimeWindow(this.timeWindow) ?? undefined;
+      this.navigationColorScheme = this.colorScheme;
     }
   }
   private disposeRelay: (() => void) | undefined;
@@ -76,6 +87,7 @@ export class InspectorIntelligenceView extends LitElement {
         this.ownerDocument.defaultView!.location.origin,
       );
       url.searchParams.set("section", this.section);
+      url.searchParams.set("colorScheme", this.navigationColorScheme);
       if (this.agentId) url.searchParams.set("agentId", this.agentId);
       if (this.navigationTime) {
         url.searchParams.set("from", this.navigationTime.from);
@@ -90,7 +102,15 @@ export class InspectorIntelligenceView extends LitElement {
   }
 
   /** Attaches the authenticated relay after the iframe exists. */
-  protected updated(): void {
+  protected updated(changed: PropertyValues): void {
+    this.syncColorScheme();
+    if (
+      this.disposeRelay &&
+      !["core", "appUrl", "section", "agentId", "denied"].some((key) =>
+        changed.has(key),
+      )
+    )
+      return;
     this.disposeRelay?.();
     this.disposeRelay = undefined;
     const frame = this.shadowRoot?.querySelector("iframe");
@@ -103,6 +123,7 @@ export class InspectorIntelligenceView extends LitElement {
       target,
       frame,
       origin: url.origin,
+      onThemeRequest: () => this.syncColorScheme(),
       request: (request, signal) =>
         fetchInspectorIntelligence(
           {
@@ -133,6 +154,21 @@ export class InspectorIntelligenceView extends LitElement {
         );
       },
     });
+  }
+
+  /** Updates appearance without replacing the document or aborting pending reads. */
+  private syncColorScheme(): void {
+    const frame = this.shadowRoot?.querySelector("iframe");
+    const url = this.frameUrl();
+    if (!frame || !url) return;
+    frame.contentWindow?.postMessage(
+      {
+        type: "cpki:color-scheme",
+        version: 1,
+        colorScheme: this.colorScheme,
+      },
+      url.origin,
+    );
   }
 
   /** Cancels pending reads when an existing Inspector tab replaces this view. */

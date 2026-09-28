@@ -16,8 +16,8 @@ The Intelligence web app renders the new pages inside the Inspector content
 pane. Charts and tables stay in that web app. The host bundle contains the iframe
 and its request relay. HTTP URLs work only on loopback hosts for local development.
 
-The iframe URL contains the parent origin, selected section, agent scope, and
-shared time window.
+The iframe URL contains the parent origin, selected section, agent scope,
+shared time window, and initial light or dark theme.
 It contains no credentials. The host sends read requests through the existing
 authenticated Runtime connection. The Runtime resolves the current user and
 grant for each request, then calls an allowed Intelligence read endpoint.
@@ -27,6 +27,11 @@ The host keeps the committed time window across Analytics, Governance, and the
 new Learning views. Time updates use the same exact-origin and source checks as
 reads. Saving the window does not reload the current iframe or reset its detail
 route. The original Learning workbench keeps its own controls.
+
+Embedded views follow the Inspector's theme control and resolved system theme.
+The host sends later theme changes through the checked message channel without
+reloading the iframe, clearing drafts, or cancelling pending reads. The iframe
+requests the current theme when it starts, so delayed loads also match the host.
 
 Both sides check the exact message origin and source window. Closing a view
 cancels its requests. A denied request removes the embedded content. The iframe

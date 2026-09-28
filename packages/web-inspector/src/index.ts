@@ -18779,7 +18779,7 @@ export class WebInspectorElement extends LitElement {
       event: CustomEvent<InspectorTimeWindow>,
     ) => {
       this.intelligenceTimeWindow = event.detail;
-    }} .core=${this._core} .appUrl=${this.intelligenceAppUrl} .section=${section} .agentId=${this.selectedContext === "all-agents" ? "" : this.selectedContext}></cpk-intelligence-view>`;
+    }} .core=${this._core} .appUrl=${this.intelligenceAppUrl} .section=${section} .colorScheme=${this.colorScheme} .agentId=${this.selectedContext === "all-agents" ? "" : this.selectedContext}></cpk-intelligence-view>`;
   }
 
   /** Preserves the original Learning setup, review and memory workbench. */

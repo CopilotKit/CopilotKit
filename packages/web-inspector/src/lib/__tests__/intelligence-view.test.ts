@@ -21,6 +21,7 @@ test("embeds only the content pane without adding a launcher, dialog or navigati
     expect([...url.searchParams.keys()]).toEqual([
       "parentOrigin",
       "section",
+      "colorScheme",
       "agentId",
     ]);
     expect(view.shadowRoot?.querySelector("dialog,nav,button")).toBeNull();
