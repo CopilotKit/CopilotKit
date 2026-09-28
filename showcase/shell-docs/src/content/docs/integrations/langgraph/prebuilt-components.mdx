@@ -147,7 +147,8 @@ All three components support the [slot system](/langgraph/custom-look-and-feel/s
 With the `langgraph-supervisor` pattern, the chat shows the worker's answer and then the supervisor's copy of it. Every worker message carries the worker's `name`, so you can hide it in the chat:
 
 ```tsx
-const hideWorkers = (message: Message) => message.name !== "math_expert";
+const hideWorkers = (message: Message) =>
+  !("name" in message && message.name === "math_expert");
 
 <CopilotChat messageView={{ shouldRenderMessage: hideWorkers }} />
 ```

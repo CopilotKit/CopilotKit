@@ -51,6 +51,10 @@ const { agent } = useAgent();
   suppressed when the last message is a reasoning message.
 </PropertyReference>
 
+<PropertyReference name="shouldRenderMessage" type="(message: Message) => boolean">
+  Decides which messages the view renders. Return `false` to hide a message. The filter is display only: a hidden message stays in the agent's history, and rows still use it to look up tool results. When omitted, every message renders. Pass it as `:should-render-message="fn"`.
+</PropertyReference>
+
 <Callout type="info">
   Attributes that are not declared props (such as `class`, `style`, or
   `data-*`) are forwarded to the component's root `<div>` via `v-bind="$attrs"`.

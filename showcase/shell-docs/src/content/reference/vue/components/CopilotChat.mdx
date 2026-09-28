@@ -48,10 +48,6 @@ All reactive props are declared with `defineProps`. `CopilotChat` extends `Copil
   Configuration for file attachments (accepted MIME types, upload handling, etc.). When set, the add-file action and drag-and-drop are enabled and the chat manages the attachment queue automatically.
 </PropertyReference>
 
-<PropertyReference name="shouldRenderMessage" type="(message: Message) => boolean">
-  Decides which messages the view renders. Return `false` to hide a message. The filter is display only: a hidden message stays in the agent's history, and rows still use it to look up tool results. When omitted, every message renders. Pass it as `:should-render-message="fn"`. It also works on `CopilotSidebar` and `CopilotPopup`.
-</PropertyReference>
-
 <PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
   Error handler scoped to this chat's agent. Fires in addition to the provider-level error handling. Only receives errors whose `context.agentId` matches this chat's agent, plus errors without an `agentId` context.
 
@@ -89,6 +85,10 @@ function handleError(event: {
 
 <PropertyReference name="inputValue" type="string">
   Controlled value for the chat input. When provided, the chat treats the input as controlled and mirrors changes back through the `input-change` event.
+</PropertyReference>
+
+<PropertyReference name="shouldRenderMessage" type="(message: Message) => boolean">
+  Decides which messages the view renders. Return `false` to hide a message. The filter is display only: a hidden message stays in the agent's history, and rows still use it to look up tool results. When omitted, every message renders. Pass it as `:should-render-message="fn"`. It also works on `CopilotSidebar` and `CopilotPopup`.
 </PropertyReference>
 
 <PropertyReference name="inputMode" type='"input" | "transcribe" | "processing"' default='"input"'>

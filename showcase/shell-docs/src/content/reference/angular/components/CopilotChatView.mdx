@@ -92,6 +92,10 @@ The view forwards message, input, scroll-button, input-container, feather, and d
   Class applied to the message list.
 </PropertyReference>
 
+<PropertyReference name="shouldRenderMessage" type="(message: Message) => boolean">
+  Decides which messages the view renders. Return `false` to hide a message. The filter is display only: a hidden message stays in the agent's history, and rows still use it to look up tool results. When omitted, every message renders. Pass it as `[shouldRenderMessage]="fn"`. `copilot-sidebar` and `copilot-popup` do not forward it. Pass a custom `chatComponent` that sets it.
+</PropertyReference>
+
 <Callout type="warn">
   The current release declares `scrollViewComponent`, `scrollViewTemplate`, and `scrollViewClass`, but the default layout always uses its built-in scroll view. Use `customLayout` when you need to replace it.
 </Callout>
