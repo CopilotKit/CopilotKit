@@ -545,10 +545,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [hasSelfManagedAgents, resolvedPublicKey]);
 
   // The latest builder, read when a request is sent (never during render).
+  // Assigned during render itself (not in a `useEffect`) so a child effect
+  // that fires in the SAME commit as a new builder closure — e.g. a run
+  // kicked off from an effect right after a token changed — reads the new
+  // closure rather than the previous commit's.
   const headersRef = useRef(headersProp);
-  useEffect(() => {
-    headersRef.current = headersProp;
-  });
+  headersRef.current = headersProp;
   const isHeadersBuilder = typeof headersProp === "function";
   // The read below can return a sync record or an async promise depending on
   // what `headersRef.current` happens to be at call time, which

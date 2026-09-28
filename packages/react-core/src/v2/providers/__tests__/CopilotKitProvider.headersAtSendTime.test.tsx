@@ -5,11 +5,14 @@
  * `implementer-rules.md` and `task-5-brief.md` for the contract this guards.
  */
 import { act, render, waitFor } from "@testing-library/react";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { HttpAgent } from "@ag-ui/client";
+import type { CopilotKitHeadersSource } from "@copilotkit/core";
+import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
 import { useThreads } from "../../hooks/use-threads";
-import type { CopilotKitCoreReact } from "../../lib/react-core";
+import { CopilotKitCoreReact } from "../../lib/react-core";
 
 type Call = { url: string; auth: string | null; publicApiKey: string | null };
 
@@ -163,26 +166,62 @@ describe("CopilotKitProvider — headers builder evaluated at send time (#1937)"
     expect(runCalls.every((c) => c.auth === "Bearer tok-2")).toBe(true);
   });
 
-  it.each(["static", "sync", "async"] as const)(
-    "StrictMode × %s releases /info and connect",
-    async (variant) => {
+  it.each([
+    {
+      label: "static",
+      headers: { Authorization: "Bearer static" } as CopilotKitHeadersSource,
+      publicApiKey: undefined,
+      expectedAuth: "Bearer static",
+    },
+    {
+      label: "sync",
+      headers: (() => ({
+        Authorization: `Bearer ${token}`,
+      })) as CopilotKitHeadersSource,
+      publicApiKey: undefined,
+      expectedAuth: "Bearer tok-1",
+    },
+    {
+      label: "async",
+      headers: (async () => ({
+        Authorization: `Bearer ${token}`,
+      })) as CopilotKitHeadersSource,
+      publicApiKey: undefined,
+      expectedAuth: "Bearer tok-1",
+    },
+    {
+      label: "inline builder + publicApiKey",
+      headers: (() => ({
+        Authorization: `Bearer ${token}`,
+      })) as CopilotKitHeadersSource,
+      publicApiKey: "pk_test_123",
+      expectedAuth: "Bearer tok-1",
+    },
+  ])(
+    "StrictMode × $label releases /info and connect",
+    async ({ headers, publicApiKey, expectedAuth }) => {
       const calls: Call[] = [];
       vi.stubGlobal("fetch", stubFetch(calls));
+      // Proves the mount effect actually double-invoked (StrictMode), rather
+      // than merely asserting an absence that could pass for unrelated
+      // reasons (e.g. StrictMode not wrapping anything).
+      const connectSpy = vi.spyOn(CopilotKitCoreReact.prototype, "connect");
+      let core!: CopilotKitCoreReact;
 
-      const headers =
-        variant === "static"
-          ? { Authorization: "Bearer static" }
-          : variant === "sync"
-            ? () => ({ Authorization: `Bearer ${token}` })
-            : async () => ({ Authorization: `Bearer ${token}` });
+      function Probe() {
+        const { copilotkit } = useCopilotKit();
+        core = copilotkit;
+        return null;
+      }
 
       function App() {
         return (
           <CopilotKitProvider
             runtimeUrl="http://rt.test/api/copilotkit"
+            publicApiKey={publicApiKey}
             headers={headers}
           >
-            <div />
+            <Probe />
           </CopilotKitProvider>
         );
       }
@@ -194,57 +233,87 @@ describe("CopilotKitProvider — headers builder evaluated at send time (#1937)"
       );
 
       await waitFor(() =>
+        expect(core.runtimeConnectionStatus).toBe(
+          CopilotKitCoreRuntimeConnectionStatus.Connected,
+        ),
+      );
+      await waitFor(() =>
         expect(calls.filter((c) => c.url.endsWith("/info")).length).toBe(1),
       );
 
-      // Give any StrictMode double-invoked effect a chance to fire a second
-      // request before asserting it never arrives.
-      await pollFor(() => false, 30);
+      const infoCall = calls.find((c) => c.url.endsWith("/info"));
+      expect(infoCall?.auth).toBe(expectedAuth);
+      if (publicApiKey) {
+        expect(infoCall?.publicApiKey).toBe(publicApiKey);
+      }
+
+      // StrictMode double-invokes the mount effect exactly once; `connect()`
+      // is idempotent, so this must NOT double the `/info` request above.
+      expect(connectSpy).toHaveBeenCalledTimes(2);
+
+      // Give any (buggy) extra effect invocation a real chance to fire a
+      // second request before asserting it never arrives.
+      await pollFor(() => false, 50);
       expect(calls.filter((c) => c.url.endsWith("/info")).length).toBe(1);
+
+      connectSpy.mockRestore();
     },
   );
 
-  it("inline builder across 20 rerenders: 0 setHeaders, 0 extra connects", async () => {
-    const calls: Call[] = [];
-    vi.stubGlobal("fetch", stubFetch(calls));
-    let core!: CopilotKitCoreReact;
-    let bumpApp!: () => void;
+  it.each([
+    { label: "no publicApiKey", publicApiKey: undefined },
+    // With a publicApiKey, `ɵwithHeaderDefaults` is no longer a passthrough:
+    // it wraps the builder in a NEW closure on every call (non-empty
+    // defaults), so this row is the one that actually exercises the memo's
+    // dependency array — the plain-builder row above still passes even if
+    // the deps are wrong, because `ɵwithHeaderDefaults` returns the source
+    // unchanged when there are no defaults to fill.
+    { label: "with publicApiKey (Cloud)", publicApiKey: "pk_test_123" },
+  ])(
+    "inline builder across 20 rerenders: 0 setHeaders, 0 extra connects ($label)",
+    async ({ publicApiKey }) => {
+      const calls: Call[] = [];
+      vi.stubGlobal("fetch", stubFetch(calls));
+      let core!: CopilotKitCoreReact;
+      let bumpApp!: () => void;
 
-    function Probe() {
-      const { copilotkit } = useCopilotKit();
-      core = copilotkit;
-      return null;
-    }
+      function Probe() {
+        const { copilotkit } = useCopilotKit();
+        core = copilotkit;
+        return null;
+      }
 
-    function App() {
-      const [, setN] = useState(0);
-      bumpApp = () => setN((n) => n + 1);
-      return (
-        <CopilotKitProvider
-          runtimeUrl="http://rt.test/api/copilotkit"
-          // Inline builder: a fresh function identity on every App render.
-          headers={() => ({ Authorization: `Bearer ${token}` })}
-        >
-          <Probe />
-        </CopilotKitProvider>
-      );
-    }
+      function App() {
+        const [, setN] = useState(0);
+        bumpApp = () => setN((n) => n + 1);
+        return (
+          <CopilotKitProvider
+            runtimeUrl="http://rt.test/api/copilotkit"
+            publicApiKey={publicApiKey}
+            // Inline builder: a fresh function identity on every App render.
+            headers={() => ({ Authorization: `Bearer ${token}` })}
+          >
+            <Probe />
+          </CopilotKitProvider>
+        );
+      }
 
-    render(<App />);
-    await waitFor(() => expect(core.getAgent("default")).toBeDefined());
+      render(<App />);
+      await waitFor(() => expect(core.getAgent("default")).toBeDefined());
 
-    const setHeadersSpy = vi.spyOn(core, "setHeaders");
-    const connectSpy = vi.spyOn(core, "connect");
+      const setHeadersSpy = vi.spyOn(core, "setHeaders");
+      const connectSpy = vi.spyOn(core, "connect");
 
-    for (let i = 0; i < 20; i++) {
-      act(() => bumpApp());
-    }
+      for (let i = 0; i < 20; i++) {
+        act(() => bumpApp());
+      }
 
-    await pollFor(() => false, 50);
+      await pollFor(() => false, 50);
 
-    expect(setHeadersSpy).toHaveBeenCalledTimes(0);
-    expect(connectSpy).toHaveBeenCalledTimes(0);
-  });
+      expect(setHeadersSpy).toHaveBeenCalledTimes(0);
+      expect(connectSpy).toHaveBeenCalledTimes(0);
+    },
+  );
 
   it("the public API key header is added when headers omit it", async () => {
     const calls: Call[] = [];
@@ -324,5 +393,63 @@ describe("CopilotKitProvider — headers builder evaluated at send time (#1937)"
     await pollFor(() => false, 50);
 
     expect(setContextSpy).toHaveBeenCalledTimes(0);
+  });
+
+  it("a child effect firing in the same commit as a token bump reads the new token, not the previous commit's closure", async () => {
+    // Controller ruling (fix round 1): `headersRef.current` is assigned
+    // during render, not in a passive `useEffect`. React fires a CHILD's
+    // effects before the PARENT's own effects (bottom-up), so if the
+    // provider only updated the ref from its own effect, a child effect that
+    // runs a request in the SAME commit as a new builder closure would still
+    // read the previous commit's stale closure.
+    //
+    // A plain (non-proxied) `HttpAgent` is used deliberately: it is never
+    // wrapped with `ɵruntimeFetch`, so `prepareAgentHeadersForRun`'s ONE
+    // synchronous resolution (which happens for a sync builder entirely
+    // within the same JS turn as `runAgent()` is called, before any await)
+    // is the only place the current token can land on `agent.headers`. A
+    // proxied runtime agent would be re-resolved a second time by
+    // `ɵruntimeFetch` at actual send time, which would mask this exact race.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("", { status: 200 })),
+    );
+    const agent = new HttpAgent({ url: "http://direct.test/agent" });
+    let setAppToken!: (t: string) => void;
+
+    function Child({ appToken }: { appToken: string }) {
+      const { copilotkit } = useCopilotKit();
+      useEffect(() => {
+        void copilotkit.runAgent({ agent }).catch(() => {});
+        // Deliberately keyed on `appToken` so this effect re-fires in the
+        // exact same commit as the App-state bump below.
+      }, [copilotkit, appToken]);
+      return null;
+    }
+
+    function App() {
+      const [appToken, setAppTok] = useState("tok-1");
+      setAppToken = setAppTok;
+      return (
+        <CopilotKitProvider
+          agents__unsafe_dev_only={{ direct: agent }}
+          headers={() => ({ Authorization: `Bearer ${appToken}` })}
+        >
+          <Child appToken={appToken} />
+        </CopilotKitProvider>
+      );
+    }
+
+    render(<App />);
+    await waitFor(() =>
+      expect(agent.headers.Authorization).toBe("Bearer tok-1"),
+    );
+
+    act(() => setAppToken("tok-2"));
+
+    // Synchronous: `prepareAgentHeadersForRun` resolves a sync builder and
+    // writes `agent.headers` entirely within `act()`'s flush, no awaiting
+    // needed.
+    expect(agent.headers.Authorization).toBe("Bearer tok-2");
   });
 });

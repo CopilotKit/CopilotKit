@@ -48,6 +48,17 @@ export function normalizeHeaders(
   );
 }
 
+/** Same keys, same values (order-independent). */
+function shallowEqualRecord(
+  a: Record<string, string>,
+  b: Record<string, string>,
+): boolean {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+  return aKeys.every((key) => a[key] === b[key]);
+}
+
 function isHeaderRecordInput(value: unknown): value is HeaderRecordInput {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -130,7 +141,15 @@ export class HeaderSourceResolver {
       );
     }
     const normalized = normalizeHeaders(value);
-    if (generation === this.sourceGeneration) this.snapshot = normalized;
+    if (generation === this.sourceGeneration) {
+      // Keep the previous snapshot's identity when nothing actually changed,
+      // so `core.headers` (and anything keyed on it, e.g. a React dep array)
+      // only sees a new reference when a header value really changed.
+      if (!shallowEqualRecord(normalized, this.snapshot)) {
+        this.snapshot = normalized;
+      }
+      return this.snapshot;
+    }
     return normalized;
   }
 

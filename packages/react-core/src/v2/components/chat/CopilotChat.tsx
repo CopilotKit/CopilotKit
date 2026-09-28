@@ -682,7 +682,7 @@ export function CopilotChat({
     hasNativeIntelligenceRunActivity,
     copilotkit.runtimeConnectionStatus,
     copilotkit.runtimeUrl,
-    copilotkit.headers,
+    copilotkit.ɵheadersGeneration,
     copilotkit.intelligence?.wsUrl,
     copilotkit.threadEndpoints?.realtimeMetadata,
     standaloneRunActivityStore,

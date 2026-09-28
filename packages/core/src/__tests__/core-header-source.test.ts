@@ -59,6 +59,35 @@ describe("HeaderSourceResolver", () => {
     expect(r.headers).toEqual({ Authorization: "new-user" });
   });
 
+  it("keeps the same snapshot object when a builder resolves to an equal value twice", () => {
+    let token = "t1";
+    const r = new HeaderSourceResolver(noop);
+    r.setSource(() => ({ Authorization: token }));
+    const first = r.resolve();
+    const second = r.resolve();
+    expect(second).toBe(first);
+    expect(r.headers).toBe(first);
+
+    token = "t2";
+    const third = r.resolve();
+    expect(third).not.toBe(first);
+    expect(third).toEqual({ Authorization: "t2" });
+    expect(r.headers).toBe(third);
+  });
+
+  it("keeps snapshot identity across an async resolve that returns an equal value", async () => {
+    let token = "t1";
+    const r = new HeaderSourceResolver(noop);
+    r.setSource(async () => ({ Authorization: token }));
+    const first = await r.resolve();
+    const second = await r.resolve();
+    expect(second).toBe(first);
+
+    token = "t2";
+    const third = await r.resolve();
+    expect(third).not.toBe(first);
+  });
+
   it("setSource with the same function identity is a no-op", () => {
     const r = new HeaderSourceResolver(noop);
     const fn = () => ({ A: "1" });
