@@ -75,6 +75,7 @@ export const ChoicePicker = createLitComponent(
               return html`
                 <button
                   type="button"
+                  aria-pressed=${isSelected ? "true" : "false"}
                   @click=${() => onToggle(opt.value)}
                   style=${styleMap({
                     padding: "4px 12px",
