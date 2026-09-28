@@ -124,7 +124,7 @@ describe("FrameworkOverview", () => {
     expect(markup).toContain("into any app");
     expect(markup).toContain("open-source framework");
     expect(markup).toContain(
-      "Give your agents chat, generative UI, human-in-the-loop, rich threads, automatic learning and more.",
+      "Give your agents chat, generative UI, human-in-the-loop, Rich Threads, Automatic Learning and more.",
     );
     expect(markup).toContain("Start building");
     expect(markup).not.toContain("Watch product walkthroughs");

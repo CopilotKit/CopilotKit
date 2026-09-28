@@ -1,20 +1,22 @@
 ---
 title: "CopilotKit Intelligence architecture"
-description: "CopilotKit Intelligence architecture — how CopilotKit runtimes connect to platform projects, durable threads, realtime sync, operational history, and cloud-hosted or self-hosted deployments."
+description: "How a CopilotKit runtime connects to Intelligence, and how cloud-hosted differs from self-hosted."
 icon: "lucide/Server"
 doc_type: explanation
 ---
 
-CopilotKit Intelligence is the platform backend behind production CopilotKit capabilities such as durable threads, realtime sync, project-scoped history, the hosted web app, and operational visibility. This page explains the mental model that applies to both [Cloud-hosted CopilotKit Intelligence](/intelligence/managed-intelligence-platform) and [Self-host CopilotKit Intelligence](/intelligence/self-hosting).
+## Overview
 
-For a product-level map of features and hosting options, start with the [CopilotKit Intelligence overview](/intelligence/overview). To wire an existing runtime to the platform, see [Connect your runtime to Intelligence](/intelligence/connect-your-runtime). For Kubernetes installation, go straight to [Self-host CopilotKit Intelligence](/intelligence/self-hosting).
+You want to see how your app, your runtime, and Intelligence fit together, and which deployment to run. This page is that map. It applies to [cloud-hosted Intelligence](/intelligence/managed-intelligence-platform) and to [self-hosted Intelligence](/intelligence/self-hosting).
+
+To connect a runtime, follow the [quickstart](/intelligence/quickstart). For the Kubernetes install, go to [self-host on Kubernetes](/intelligence/self-hosting).
 
 <OpsPlatformCTA
   variant="inline"
-  title="Start with cloud-hosted CopilotKit Intelligence"
-  body="Create a hosted project, get a project API key, and inspect persistent threads before deciding whether self-hosting is required."
-  ctaLabel="Start managed onboarding"
-  href="https://dashboard.operations.copilotkit.ai/"
+  title="Start with cloud-hosted Intelligence"
+  body="Create a project, get a project API key, and inspect the first thread before you decide to self-host."
+  ctaLabel="Start cloud-hosted setup"
+  href="https://intelligence.copilotkit.ai/"
   surface="docs_intelligence_architecture_intro"
 />
 
@@ -22,9 +24,9 @@ For a product-level map of features and hosting options, start with the [Copilot
 
 A CopilotKit app has three layers:
 
-- **Frontend** — your application uses the CopilotKit frontend SDK to render chat, generative UI, tools, and thread controls.
-- **Runtime** — your application server hosts the CopilotKit runtime and connects to your agent framework through AG-UI.
-- **CopilotKit Intelligence** — a platform service that stores durable thread data, indexes operational history, serves project-scoped APIs, and powers dashboard surfaces.
+- **Frontend.** Your application uses the CopilotKit frontend SDK to render chat, generative UI, tools, and thread controls.
+- **Runtime.** Your application server hosts the CopilotKit runtime and connects to your agent framework through AG-UI.
+- **CopilotKit Intelligence.** The platform service that stores threads, serves project APIs, and powers the web app.
 
 The runtime is the bridge. It receives requests from your app, streams AG-UI events to and from your agent, and uses CopilotKit Intelligence when a capability needs durable platform state.
 
@@ -32,19 +34,15 @@ The runtime is the bridge. It receives requests from your app, streams AG-UI eve
 
 The platform scopes data through three concepts:
 
-- **Organization** — the billing, workspace, or contract boundary.
-- **Project** — an application or environment inside an organization, such as production, staging, or a demo app.
-- **User** — the authenticated end user from your application context.
+- **Organization.** The billing and workspace boundary.
+- **Project.** One application or environment inside an organization, such as production, staging, or a demo.
+- **User.** The signed-in person from your application.
 
 Project API keys are issued per project. Threads, events, and dashboard history are visible only inside the project that owns them, so production and staging can share the same platform deployment without sharing conversation data.
 
-## Threads and event history
+## Threads
 
-Threads are stored as durable platform records. When your UI uses its thread-management API, the runtime asks the platform to list, create, rename, archive, delete, and resume conversations for the selected project and user.
-
-The platform stores event history so a conversation can be replayed after reloads and resumed across devices. That is what separates platform-backed threads from an in-memory chat transcript.
-
-For the thread lifecycle itself, see [Threads & Persistence Architecture](/intelligence/threads-explained).
+A thread is the saved conversation for one user in one project. Read [Rich Threads](/threads) for the product. Read [how a thread is saved](/intelligence/threads-explained) for replay and sync.
 
 ## Realtime sync
 
@@ -52,11 +50,9 @@ Realtime sync keeps thread metadata and active conversation state aligned across
 
 The important application-level contract is simple: your app uses the same frontend APIs, while the runtime points at the platform endpoint for the selected deployment.
 
-## Inspection and operational history
+## Inspection
 
-The platform also gives teams operational visibility into agent behavior. The cloud-hosted web app exposes project history, thread detail pages, event timelines, API key management, and plan management.
-
-For the cloud-hosted dashboard flow, see [Cloud-hosted CopilotKit Intelligence](/intelligence/managed-intelligence-platform).
+Open a stored thread in the [cloud-hosted project](/intelligence/managed-intelligence-platform#get-started). API keys and plans live on [Cloud-hosted](/intelligence/managed-intelligence-platform) and [Plans](/intelligence/plans).
 
 ## Hosting model
 
@@ -67,7 +63,7 @@ Cloud-hosted and self-hosted CopilotKit Intelligence share the same application 
 | Cloud-hosted | CopilotKit runs the platform, database, web app, project API keys, and plan management. | Your frontend APIs, runtime APIs, AG-UI agent connection, and thread APIs. |
 | Self-hosted | You run the platform in your own Kubernetes cluster and own its infrastructure dependencies. | Your frontend APIs, runtime APIs, AG-UI agent connection, and thread APIs. |
 
-Self-hosting changes operational ownership. It does not require a different frontend integration. Moving from cloud-hosted projects to self-hosting is available on the Team self-hosted plan or a custom Enterprise plan.
+Self-hosted changes who operates the platform. The frontend integration stays the same. Moving from cloud-hosted to self-hosted is available on the Team Self-hosted plan or the Enterprise plan. See [Plans](/intelligence/plans).
 
 ## Error handling model
 
@@ -82,7 +78,7 @@ Common debugging checks:
 
 ## Next steps
 
-- **Platform overview:** [CopilotKit Intelligence](/intelligence/overview) — features, hosting options, and where to go next
-- **Cloud-hosted guide:** [Cloud-hosted CopilotKit Intelligence](/intelligence/managed-intelligence-platform) — login, projects, API keys, threads, and plan management
-- **Self-hosted guide:** [Self-host CopilotKit Intelligence](/intelligence/self-hosting) — install and operate the platform in Kubernetes
-- **Thread architecture:** [Threads & Persistence Architecture](/intelligence/threads-explained) — event replay, realtime sync, and thread lifecycle semantics
+- [Overview](/intelligence/overview) lists each feature on its own page.
+- [Cloud-hosted](/intelligence/managed-intelligence-platform) creates the project and the API key.
+- [Self-host on Kubernetes](/intelligence/self-hosting) installs the platform in your cluster.
+- [How a thread is saved](/intelligence/threads-explained) covers replay and sync.

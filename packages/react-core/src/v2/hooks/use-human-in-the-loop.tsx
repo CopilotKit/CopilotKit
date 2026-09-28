@@ -116,6 +116,7 @@ export function useHumanInTheLoop<
 
   const frontendTool: ReactFrontendTool<T> = {
     ...tool,
+    type: "human-in-the-loop",
     handler,
     render: RenderComponent,
   };

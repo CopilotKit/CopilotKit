@@ -62,6 +62,36 @@ You must provide at least one of `runtimeUrl`, `publicApiKey`, or `publicLicense
   Indicates whether the user agent should send or receive cookies for cross-origin requests. Set to `"include"` to enable HTTP-only cookie authentication (configure CORS with credentials on your runtime endpoint to match).
 </PropertyReference>
 
+<PropertyReference name="messageFilter" type="(messages: Message[], context: { agentId: string }) => Message[]">
+  Rewrites the message list sent to the agent on every run.
+
+CopilotKit sends the whole thread with each request. When your agent already
+stores the conversation — a LangGraph checkpointer, a Mastra memory store, a
+Strands `SessionManager` — most of that payload is waste, and an agent that
+merges the inbound list with its own store can show the model every turn twice.
+
+Return the messages to send:
+
+```vue
+<CopilotKitProvider
+  runtime-url="/api/copilotkit"
+  :message-filter="(messages) => messages.slice(-1)"
+>
+  <YourApp />
+</CopilotKitProvider>
+```
+
+The filter changes the request body only. The transcript the UI renders is
+untouched, so the chat still shows the full conversation. Broken tool-call pairs
+are repaired before the request goes out, so a filter this blunt cannot strand a
+tool result mid-approval.
+
+Agents reached through your CopilotRuntime honor this. An agent your app
+constructs itself and passes in directly does not. CopilotKit Intelligence runs
+and suggestion runs are never filtered.
+
+</PropertyReference>
+
 <PropertyReference name="defaultThrottleMs" type="number">
   Default throttle interval (in milliseconds) applied to `useAgent` composables that do not specify their own `throttleMs`. Must be a non-negative finite number; invalid values log an error and fall back to unthrottled.
 </PropertyReference>

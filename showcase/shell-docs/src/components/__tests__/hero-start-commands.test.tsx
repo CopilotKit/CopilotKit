@@ -6,6 +6,7 @@ import React from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HeroStartActions, QuickstartLinkButton } from "../hero-start-commands";
+import { PROMPT_DESTINATION_HINT } from "../../lib/prompt-guidance";
 
 const analytics = vi.hoisted(() => ({ capture: vi.fn() }));
 
@@ -67,14 +68,27 @@ describe("HeroStartActions", () => {
     ).toBeTruthy();
   });
 
-  it("renders nothing beside the two slots", () => {
-    const { container } = renderHero();
+  it("keeps the action row to the two slots", () => {
+    renderHero();
 
-    // The row is the whole component: no hint line, no helper copy. The button
-    // label carries the "paste this into your agent" message on its own.
-    const row = container.firstElementChild;
+    const row = screen.getByTestId("prompt-slot").parentElement;
 
     expect(row?.children.length).toBe(2);
+  });
+
+  it("tells the reader which folder to open the coding agent in", () => {
+    renderHero();
+
+    // The button label already says what gets copied (OSS-1072), so the only
+    // line under the row is what the label cannot carry: where the prompt
+    // goes (PE-340) and which folder to open (PE-301).
+    const hint = screen.getByText(PROMPT_DESTINATION_HINT).closest("p")!;
+    const row = screen.getByTestId("prompt-slot").parentElement;
+
+    expect(hint.parentElement).toBe(row?.parentElement);
+    expect(
+      row!.compareDocumentPosition(hint) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("stacks the action row on mobile and lines it up from sm up", () => {
@@ -92,16 +106,14 @@ describe("QuickstartLinkButton", () => {
   it("renders a custom label when one is passed", () => {
     render(
       <QuickstartLinkButton
-        href="/intelligence/connect-your-runtime"
+        href="/intelligence/quickstart"
         label="Connect an app"
       />,
     );
 
     const link = screen.getByRole("link", { name: /connect an app/i });
 
-    expect(link.getAttribute("href")).toBe(
-      "/intelligence/connect-your-runtime",
-    );
+    expect(link.getAttribute("href")).toBe("/intelligence/quickstart");
     expect(screen.queryByRole("link", { name: /^quickstart$/i })).toBeNull();
   });
 

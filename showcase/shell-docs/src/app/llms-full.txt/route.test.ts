@@ -61,6 +61,21 @@ test("renders every channel connection guide and one shared guide body per provi
   }
 
   expect(body).not.toContain("<FrameworkSetup");
+  const intelligenceOverview = body
+    .split(`## Source: ${baseUrl}/intelligence/overview\n`)[1]
+    ?.split("## Source:")[0];
+  expect(intelligenceOverview).toBeDefined();
+  for (const href of [
+    "/threads",
+    "/intelligence/memories",
+    "/learning",
+    "/intelligence/analytics",
+    "/intelligence/channels",
+    "/inspector",
+  ]) {
+    expect(intelligenceOverview).toContain(`](${href})`);
+  }
+  expect(intelligenceOverview).not.toContain("<IntelligenceFeatureCards");
   expect(body).not.toContain(`## Source: ${baseUrl}/channels/tools\n`);
 
   const pages =

@@ -11,6 +11,9 @@ on:
       - ".github/workflows/showcase_validate.yml"
       - ".github/workflows/aeo_synthetics.yml"
       - ".github/workflows/showcase_deploy.yml"
+      # docs-release-workflows.test.ts must gate changes to these workflows.
+      - ".github/workflows/docs_open_release_pr.yml"
+      - ".github/workflows/docs_promote.yml"
       # This job runs showcase/scripts/advance-latest-tag.test.ts, which
       # asserts against the LIVE text of showcase_build.yml (that the build
       # step pushes no `:latest`, stamps the revision label, and runs the
@@ -29,6 +32,8 @@ on:
       - ".github/workflows/showcase_validate.yml"
       - ".github/workflows/aeo_synthetics.yml"
       - ".github/workflows/showcase_deploy.yml"
+      - ".github/workflows/docs_open_release_pr.yml"
+      - ".github/workflows/docs_promote.yml"
       - ".github/workflows/showcase_build.yml"
 
 # Least-privilege by default. Individual jobs/steps can widen when needed.
@@ -802,30 +807,31 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install minimal test deps
-        # Always need pytest + typing_extensions. pytest-asyncio is required
-        # by langroid's test_agui_adapter.py (16 tests use
-        # `@pytest.mark.asyncio`); without it, pytest reports
-        # "async def functions are not natively supported" and skips them.
-        # pytest-mock is installed pre-emptively as it's commonly used by
-        # showcase package tests and is cheap to install.
-        # Per-package `requirements.txt` is installed inside the run loop
-        # below so tests that import runtime deps (openai, google.genai,
-        # httpx, opentelemetry, etc.) don't fail at collection time with
-        # ModuleNotFoundError. Conftest-based stub finders can't help
-        # because test_*.py imports the target deps BEFORE conftest runs.
-        run: python -m pip install --quiet pytest pytest-asyncio pytest-mock typing_extensions
-
       - name: Run showcase package Python unit tests
         # Keep scope narrow: only showcase/integrations/*/tests/python/ directories
         # (not e2e, not langgraph which has its own runtime). Each package has
         # its own conftest.py that wires up import paths; we cd into the pkg
         # dir so those apply.
         #
-        # Before running pytest in a package we install that package's own
-        # `requirements.txt` (if present) so runtime-dep imports in test modules
-        # resolve. Keeps CI parity with real runtime and avoids the fragile
-        # stub-finder dance conftest.py would need to do otherwise.
+        # Each package runs in its own virtual environment, which holds the
+        # test deps plus that package's own `requirements.txt` (if present), so
+        # runtime-dep imports in test modules resolve. Conftest-based stub
+        # finders cannot help, because test_*.py imports the target deps
+        # BEFORE conftest runs.
+        #
+        # The environment is per package because one shared environment let
+        # each install change what the packages before it had installed. On
+        # 2026-09-25 opentelemetry 1.45.0 was released: strands' open range
+        # moved the API and SDK to 1.45.0 while the exporters another package
+        # installed stayed on 1.42.1, and their imports failed. A shared
+        # environment also hid test-isolation bugs, because a module another
+        # package's plugin had imported stayed imported.
+        #
+        # The test deps: pytest-asyncio is required by langroid's
+        # test_agui_adapter.py (16 tests use `@pytest.mark.asyncio`); without
+        # it, pytest reports "async def functions are not natively supported"
+        # and skips them. pytest-mock is commonly used by showcase package
+        # tests and is cheap to install.
         run: |
           set -euo pipefail
           failed=0
@@ -858,13 +864,22 @@ jobs:
               continue
             fi
             echo "--- pytest: $pkg ---"
+            venv="${RUNNER_TEMP}/showcase-venv-${pkg}"
+            pkg_python="${venv}/bin/python"
+            requirements=()
             if [ -f "${pkg_dir}requirements.txt" ]; then
               echo "Installing ${pkg_dir}requirements.txt"
-              python -m pip install --quiet -r "${pkg_dir}requirements.txt" || {
-                echo "::error::pip install failed for $pkg"
-                failed=1
-                continue
-              }
+              requirements=(-r "${pkg_dir}requirements.txt")
+            fi
+            if ! python -m venv "$venv"; then
+              echo "::error::creating a virtual environment failed for $pkg"
+              failed=1
+              continue
+            fi
+            if ! "$pkg_python" -m pip install --quiet pytest pytest-asyncio pytest-mock typing_extensions "${requirements[@]}"; then
+              echo "::error::pip install failed for $pkg"
+              failed=1
+              continue
             fi
             # langgraph-typescript's persistence-disable fix has a REAL-PACKAGE
             # behavioral proof that drives @langchain/langgraph-api's actual
@@ -889,7 +904,7 @@ jobs:
             # Also include src/ so `from agents.X import ...` works even if
             # a conftest.py omits the sys.path setup. Mirrors the local dev
             # convention (`PYTHONPATH=. python ...` in package.json scripts).
-            (cd "$pkg_dir" && env $pkg_extra_env PYTHONPATH=".:src:${PYTHONPATH:-}" python -m pytest tests/python/ -v) || failed=1
+            (cd "$pkg_dir" && env $pkg_extra_env PYTHONPATH=".:src:${PYTHONPATH:-}" "$pkg_python" -m pytest tests/python/ -v) || failed=1
           done
           if [ "$found" -eq 0 ]; then
             echo "::warning::No showcase/integrations/*/tests/python/ directories found"

@@ -7,6 +7,7 @@ internal static class LearnedSkillsTests
     private static readonly string Etag = "\"" + new string('a', 64) + "\"";
     internal static async Task RunAsync()
     {
+        await BatchTransport();
         await ReadsRawSnapshot();
         await DoesNotReadUnchangedBody();
         await RejectsInvalidMetadata();
@@ -15,6 +16,43 @@ internal static class LearnedSkillsTests
         await PreservesStalledDenial();
         await PreservesStructuredErrors();
         Console.WriteLine("PASS learned skill raw transport");
+    }
+
+    private static async Task BatchTransport()
+    {
+        var calls = 0;
+        var body = System.Text.Json.JsonSerializer.Serialize(new { containers = new object[] {
+            new { containerId = "a", status = "snapshot", revision = "r1", etag = Etag, contentType = "application/zip", bytesBase64 = "UEs=" },
+            new { containerId = "b", status = "unchanged", revision = "r1", etag = Etag }
+        }});
+        using var http = new HttpClient(new Handler(async (request, token) => {
+            calls++;
+            Check(request.Method == HttpMethod.Post && request.RequestUri!.AbsolutePath.EndsWith("/learning/skills/batch"), "batch POST");
+            using var posted = System.Text.Json.JsonDocument.Parse(await request.Content!.ReadAsStringAsync(token));
+            Check(posted.RootElement.GetProperty("containers").GetArrayLength() == 2, "one batch");
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
+        }));
+        using var client = Client(http);
+        var input = new[] { new LearnedSkillsBatchRequest("a"), new LearnedSkillsBatchRequest("b", "r1", Etag) };
+        var results = await client.GetLearnedSkillsSnapshotsAsync(input);
+        Check(calls == 1 && results["a"].Result is LearnedSkillsSnapshot && results["b"].Result is LearnedSkillsUnchanged, "mixed batch");
+        var deniedBody = System.Text.Json.JsonSerializer.Serialize(new { containers = new object[] {
+            new { containerId = "a", status = "snapshot", revision = "r1", etag = Etag, contentType = "text/plain", bytesBase64 = "UEs=" },
+            new { containerId = "b", status = "error", error = new { code = "REVISION_REVOKED", retryable = false } }
+        }});
+        var validBody = body;
+        body = deniedBody;
+        try { await client.GetLearnedSkillsSnapshotsAsync(input); throw new Exception("lost known denial"); }
+        catch (LearnedSkillsException error) when (error.Code == "REVISION_REVOKED") { }
+        body = validBody;
+        foreach (var malformed in new[] {
+            "{\"containers\":[]}", body.Replace("\"b\"", "\"a\""),
+            body.Replace("UEs=", "UEs=\\n"), body.Replace("application/zip", "text/plain"), body.Replace("\"b\"", "\"unknown\"")
+        }) {
+            body = malformed;
+            try { await client.GetLearnedSkillsSnapshotsAsync(input); throw new Exception("accepted malformed batch"); }
+            catch (LearnedSkillsException error) when (error.Code == "INVALID_SNAPSHOT") { }
+        }
     }
 
     private static IntelligenceClient Client(HttpClient http, TimeSpan? timeout = null) => new(new IntelligenceOptions

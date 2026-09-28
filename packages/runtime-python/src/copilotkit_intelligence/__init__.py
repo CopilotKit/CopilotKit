@@ -4,6 +4,8 @@ from .client import Intelligence, IntelligenceError, MemoryGrant, RuntimeEntitle
 from .entitlements import RuntimeEntitlementResponse
 from .inspector import InspectorMetadata
 from .learned_skills import (
+    LearnedSkillsBatchResult,
+    LearnedSkillsContainerRequest,
     LearnedSkillsError,
     LearnedSkillsErrorCode,
     LearnedSkillsSnapshot,
@@ -32,6 +34,8 @@ from .resources import (
 
 __all__ = [
     "Intelligence",
+    "LearnedSkillsBatchResult",
+    "LearnedSkillsContainerRequest",
     "LearnedSkillsError",
     "LearnedSkillsErrorCode",
     "LearnedSkillsSnapshot",

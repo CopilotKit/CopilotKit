@@ -71,6 +71,12 @@ export type WebMCPToolConfig = {
 export type FrontendTool<
   T extends Record<string, unknown> = Record<string, unknown>,
 > = {
+  /**
+   * @internal Classifies local execution. Omitted means an ordinary frontend
+   * tool. Only human-in-the-loop handlers may be restored from history replay.
+   * This field is not sent to the agent as part of the tool schema.
+   */
+  type?: "frontend" | "human-in-the-loop";
   name: string;
   description?: string;
   parameters?: StandardSchemaV1<any, T>;

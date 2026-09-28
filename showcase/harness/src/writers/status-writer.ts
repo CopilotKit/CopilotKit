@@ -1,9 +1,3 @@
-import { persistSelectedObservation } from "./selected-observation.js";
-import type {
-  AtomicObservation,
-  SelectedObservation,
-  SelectedOutcome,
-} from "./selected-observation.js";
 import { hostname } from "node:os";
 
 import type {
@@ -40,20 +34,17 @@ import type {
  * writer's view at write time and may diverge from the row another
  * writer persisted moments later. We do not re-read the row to confirm.
  *
- * Detection, not prevention: each durable-state write stamps `written_by`
- * (writer role+service identity, migration 1779990200), and this writer emits a
+ * Detection, not prevention: every write stamps `written_by` (writer
+ * role+service identity, migration 1779990200), and this writer emits a
  * structured WARN when a DIFFERENT writer flips a key green<->red
  * within the fight window — that's the dual-writer ("flap comb")
  * detection mechanism. Observability only; nothing blocks.
  *
- * `status.changed` is emitted after an ordinary durable upsert or error-tick
- * observed_at refresh succeeds. Selected writes emit only after a new atomic
- * commit, not a receipt replay; history-only writes and overlays do not emit.
- * Proposed outcomes are constructed before persistence for the atomic request.
- * A persistence error prevents this call from reaching emission, even if
- * only the response was lost after commit.
- * Database receipts prevent repeated effects; they do not make bus delivery
- * transactional or guarantee delivery across process failure.
+ * The error-path already guards this correctly (F2.2): `status.changed`
+ * is only emitted when the observed_at write persisted. The success
+ * path doesn't need the same guard because the upsert's throw bubbles
+ * out of `doWrite` before we reach the emit — so there's no silent
+ * bus/DB divergence even on failure (within this process).
  */
 
 // Bound on the warn-dedupe Sets so a broken probe producing a stream of
@@ -387,8 +378,6 @@ function boundedAdd(set: Set<string>, key: string, max: number): void {
 }
 
 export interface StatusWriter {
-  /** Atomic identified fleet observation; ordinary write() remains unfiltered. */
-  writeSelected?(input: SelectedObservation): Promise<SelectedOutcome>;
   write(result: ProbeResult<unknown>): Promise<WriteOutcome>;
   /**
    * H1: attach signal-overlay fields (e.g. the REQ-B comm-error overlay) onto
@@ -447,10 +436,9 @@ export interface OverlayWriteOutcome {
    */
   persisted?: false;
   /**
-   * Whether the overlay's audit history row landed. Ordinary overlays update
-   * status first, then history; selected overlays commit status, history and
-   * receipt atomically. Returned outcomes describe the committed observation
-   * (the original observation on receipt replay), not a proposed request:
+   * A4 (round 6): whether the overlay's audit history row landed. The write
+   * ordering is update-first, history-second, so the real writer stamps
+   * this truthfully on EVERY outcome:
    *
    *   - `applied: true,  historyPersisted: true` — overlay + audit row landed.
    *   - `applied: true,  historyPersisted: false` — overlay landed on the
@@ -564,9 +552,7 @@ function makeKeyedMutex(): (
   };
 }
 
-export function createStatusWriter(deps: StatusWriterDeps): StatusWriter & {
-  writeSelected(input: SelectedObservation): Promise<SelectedOutcome>;
-} {
+export function createStatusWriter(deps: StatusWriterDeps): StatusWriter {
   const { pb, bus, logger } = deps;
   // A4 (round 5): trim + truthiness, not just nullish — `writtenBy: ""` (or
   // whitespace-only, e.g. an unset env var interpolated into config)
@@ -738,20 +724,11 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter & {
     return null;
   }
 
-  async function doWrite(
-    result: ProbeResult<unknown>,
-    atomic?: AtomicObservation,
-    knownMissing = false,
-  ): Promise<WriteOutcome> {
-    // An overlay miss must keep its absent-row basis through the atomic
-    // fallback. If another writer creates the row, CAS retries the entire
-    // route so the diagnostic lands on that row rather than history only.
-    const existing = knownMissing
-      ? null
-      : await pb.getFirst<StatusRecord>(
-          "status",
-          `key = ${JSON.stringify(result.key)}`,
-        );
+  async function doWrite(result: ProbeResult<unknown>): Promise<WriteOutcome> {
+    const existing = await pb.getFirst<StatusRecord>(
+      "status",
+      `key = ${JSON.stringify(result.key)}`,
+    );
     const prevState: State | null = readValidatedState(result.key, existing);
     const transition = detectTransition(prevState, result.state);
 
@@ -802,41 +779,6 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter & {
           safeIncomingObservedAt ??
           safeHistoryObservedAt(existing?.observed_at),
       };
-      if (atomic) {
-        // Plan history plus an optional timestamp refresh. The outcome below
-        // describes that proposal until commit resolves. A new commit emits
-        // only if it refreshed status; replay returns the stored outcome from
-        // persistSelectedObservation without another event or database write.
-        const refresh =
-          !!existing?.id &&
-          safeIncomingObservedAt !== undefined &&
-          (!Number.isFinite(Date.parse(existing.observed_at)) ||
-            incomingObservedMs >= Date.parse(existing.observed_at));
-        const outcome: WriteOutcome = {
-          previousState: prevState,
-          newState: "error",
-          errorStatePrev: prevState,
-          transition: "error",
-          persisted: refresh,
-          firstFailureAt: existing?.first_failure_at || null,
-          failCount: existing?.fail_count ?? 0,
-        };
-        const committed = await atomic.commit(
-          existing,
-          refresh
-            ? {
-                mode: "patch",
-                values: { observed_at: safeIncomingObservedAt },
-              }
-            : null,
-          history,
-          { kind: "write", value: outcome },
-        );
-        if (committed && refresh)
-          bus.emit("status.changed", { outcome, result });
-        return outcome;
-      }
-
       // Append history first. If this throws, we haven't yet touched
       // the status row — emit writer.failed and let the caller decide.
       try {
@@ -989,9 +931,10 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter & {
         firstFailureAt: existing?.first_failure_at || null,
         failCount: existing?.fail_count ?? 0,
       };
-      // Ordinary error ticks emit only after the status timestamp refresh
-      // succeeds. History may still have persisted when no status row was
-      // refreshed (missing row, stale/invalid timestamp, or update failure).
+      // Only emit status.changed when the DB write was persisted. If
+      // the observed_at update failed, or we didn't write anything
+      // (first-ever error), skip the emit so the alert engine and bus
+      // don't diverge from durable storage.
       if (persisted) {
         bus.emit("status.changed", { outcome, result });
       }
@@ -1035,25 +978,6 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter & {
         signal: result.signal,
         observed_at: safeHistoryObservedAt(existing?.observed_at),
       };
-      if (atomic) {
-        // History and receipt commit together; no status change is proposed.
-        // persisted:false describes the unchanged status, not a missing audit
-        // record. Receipt replay returns its original outcome and adds no event.
-        const outcome: WriteOutcome = {
-          previousState: prevState,
-          newState,
-          errorStatePrev: prevState,
-          transition: "error",
-          firstFailureAt: existing?.first_failure_at || null,
-          failCount: existing?.fail_count ?? 0,
-          persisted: false,
-        };
-        await atomic.commit(existing, null, skippedHistory, {
-          kind: "write",
-          value: outcome,
-        });
-        return outcome;
-      }
       try {
         await pb.create(
           "status_history",
@@ -1176,7 +1100,7 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter & {
       observed_at: safeObservedAt,
     };
 
-    // Ordinary writes: UPSERT FIRST, history second — the same flip A4
+    // A1 (round 7): UPSERT FIRST, history second — the same flip A4
     // (round 6) made for the overlay path, for the same reason. Under the
     // old history-first ordering, a persistent upsert failure re-landed
     // one audit history row per caller retry (the reject-and-retry
@@ -1193,42 +1117,14 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter & {
     // tick's history row re-anchors the audit trail. The old
     // history-first rationale ("a history row with no status row
     // self-heals on the next tick") traded that debuggability for
-    // unbounded duplicate phantom-transition growth. Selected writes instead
-    // commit status, history and receipt in one transaction; that path has no
-    // status-success/history-failure partial commit. A receipt replay does not
-    // apply this newly calculated proposal and returns the stored outcome.
-    const outcome: WriteOutcome = {
-      previousState: prevState,
-      newState,
-      transition,
-      firstFailureAt,
-      failCount,
-      // Proposed success value, prepared before persistence. Ordinary upsert
-      // or atomic commit must resolve before it is returned; failures throw.
-      // On receipt replay, persistSelectedObservation returns the stored
-      // outcome instead of this proposal, without repeating writes or events.
-      persisted: true,
-    };
+    // unbounded duplicate phantom-transition growth.
     try {
-      if (atomic) {
-        const committed = await atomic.commit(
-          existing,
-          {
-            mode: "upsert",
-            values: { ...statusRecord },
-          },
-          history,
-          { kind: "write", value: outcome },
-        );
-        if (!committed) return outcome;
-      } else {
-        await pb.upsertByField(
-          "status",
-          "key",
-          result.key,
-          statusRecord as unknown as Record<string, unknown>,
-        );
-      }
+      await pb.upsertByField(
+        "status",
+        "key",
+        result.key,
+        statusRecord as unknown as Record<string, unknown>,
+      );
     } catch (err) {
       const info = errorInfo(err);
       bus.emit("writer.failed", {
@@ -1256,18 +1152,16 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter & {
       legacyWarnGate.clear(result.key);
     }
 
-    // Ordinary writes append history after the durable upsert. Selected
-    // history already committed atomically above, so this create is skipped.
-    // A failure of the ordinary history create does NOT rethrow — the
+    // History second (see the A1 ordering note above): the audit row for a
+    // durable write that DID land. A failure here does NOT rethrow — the
     // durable transition persisted, and a caller retry would re-write an
     // identical durable row just to chase the audit row. Loud on both
     // channels instead; the audit gap is bounded to this tick.
     try {
-      if (!atomic)
-        await pb.create(
-          "status_history",
-          history as unknown as Record<string, unknown>,
-        );
+      await pb.create(
+        "status_history",
+        history as unknown as Record<string, unknown>,
+      );
     } catch (err) {
       const info = errorInfo(err);
       bus.emit("writer.failed", {
@@ -1408,6 +1302,16 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter & {
       }
     }
 
+    const outcome: WriteOutcome = {
+      previousState: prevState,
+      newState,
+      transition,
+      firstFailureAt,
+      failCount,
+      // A2: the upsert above either succeeded or threw out of doWrite —
+      // reaching this line means the durable write persisted.
+      persisted: true,
+    };
     bus.emit("status.changed", { outcome, result });
     logger.debug("status-writer.write", { key: result.key, transition });
     return outcome;
@@ -1415,15 +1319,14 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter & {
 
   /**
    * H1 overlay path — see the {@link StatusWriter.writeOverlay} contract.
-   * Ordinary calls patch signal and, when valid and non-stale, observed_at,
-   * then append history. Selected calls commit that patch, history and receipt
-   * together, or reuse the receipt's original outcome. Durable state,
-   * attribution and counters are untouched. Neither route emits
-   * `status.changed` or performs cross-writer-flip bookkeeping.
+   * A field-scoped `pb.update` (signal + observed_at ONLY) so the row's
+   * durable state, attribution and counters are untouched, then the audit
+   * history row (A4 round 6: update FIRST, history second — see the
+   * ordering note inside). No transition detection, no `status.changed`,
+   * no cross-writer-flip bookkeeping.
    */
   async function doWriteOverlay(
     overlay: OverlayWrite,
-    atomic?: AtomicObservation,
   ): Promise<OverlayWriteOutcome> {
     const existing = await pb.getFirst<StatusRecord>(
       "status",
@@ -1479,13 +1382,8 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter & {
       );
     }
 
-    // Ordinary overlays update status first, then append history, like
-    // ordinary durable doWrite calls. The ordinary error-state branch of
-    // doWrite instead appends history before refreshing observed_at.
-    // Selected writes commit their status change (if any), history, and
-    // receipt atomically; the partial-success tradeoff below does not apply.
-    //
-    // For ordinary overlays, history-first (the old rationale: "the overlay
+    // A4 (round 6): UPDATE FIRST, history second — the REVERSE of doWrite's
+    // history-first ordering. History-first (the old rationale: "the overlay
     // stays auditable even if the row update fails") meant a persistent
     // non-404 pb.update failure re-landed one audit history row per consumer
     // retry, UNBOUNDED — each retry created history, then failed the update
@@ -1529,35 +1427,8 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter & {
     }
     // else: unparseable or stale incoming timestamp — signal lands,
     // timestamp not patched/rewound.
-    const history: StatusHistoryRecord = {
-      key: overlay.key,
-      dimension: deriveDimensionWithWarn(overlay.key),
-      state: preservedState ?? "green",
-      transition: "error",
-      signal: mergedSignal,
-      observed_at:
-        safeIncomingObservedAt ?? safeHistoryObservedAt(existing.observed_at),
-    };
     try {
-      if (atomic) {
-        // Proposed successful overlay, not yet committed. A new transaction
-        // makes the patch, audit and receipt durable together. Replay applies
-        // none of this proposal; the outer wrapper returns the stored outcome.
-        const outcome: OverlayWriteOutcome = {
-          applied: true,
-          state: preservedState,
-          historyPersisted: true,
-        };
-        const committed = await atomic.commit(
-          existing,
-          { mode: "patch", values: patch },
-          history,
-          { kind: "overlay", value: outcome },
-        );
-        if (!committed) return outcome;
-      } else {
-        await pb.update("status", existing.id, patch);
-      }
+      await pb.update("status", existing.id, patch);
     } catch (err) {
       const info = errorInfo(err);
       const reason = classifyWriterError(info);
@@ -1579,10 +1450,8 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter & {
         // legitimately records the tick (exactly one history row).
         return { applied: false, state: null, historyPersisted: false };
       }
-      // Other failures propagate. Ordinary calls have not attempted history
-      // yet. Selected transaction failures roll back; if only the response
-      // was lost after commit, a retry recovers the receipt without repeating
-      // database effects. This catch alone cannot establish which occurred.
+      // Non-404 failure: rethrow with NOTHING persisted (update-first), so
+      // a consumer retry cannot accumulate duplicate audit rows (A4).
       bus.emit("writer.failed", {
         key: overlay.key,
         phase: "status_upsert",
@@ -1594,16 +1463,23 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter & {
       throw err;
     }
 
-    // Ordinary overlays append history after the patch; selected history
-    // already committed atomically, so its create is skipped here.
-    // Transition "error" matches the error path — an
+    // History second (see the A4 ordering note above): the audit row for an
+    // overlay that DID land. Transition "error" matches the error path — an
     // overlay is a surfaced failure-to-observe, not a state transition.
+    const history: StatusHistoryRecord = {
+      key: overlay.key,
+      dimension: deriveDimensionWithWarn(overlay.key),
+      state: preservedState ?? "green",
+      transition: "error",
+      signal: mergedSignal,
+      observed_at:
+        safeIncomingObservedAt ?? safeHistoryObservedAt(existing.observed_at),
+    };
     try {
-      if (!atomic)
-        await pb.create(
-          "status_history",
-          history as unknown as Record<string, unknown>,
-        );
+      await pb.create(
+        "status_history",
+        history as unknown as Record<string, unknown>,
+      );
     } catch (err) {
       // A4 (round 6): the overlay already landed on the live row — do NOT
       // rethrow (a retry would re-merge an identical signal just to chase
@@ -1636,26 +1512,6 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter & {
   }
 
   return {
-    async writeSelected(input) {
-      let outcome!: SelectedOutcome;
-      await runKeyed(input.result.key, async () => {
-        outcome = await persistSelectedObservation(
-          pb,
-          input,
-          async (atomic) => {
-            if (input.overlay) {
-              const overlay = await doWriteOverlay(input.overlay, atomic);
-              if (overlay.applied) return { kind: "overlay", value: overlay };
-            }
-            return {
-              kind: "write",
-              value: await doWrite(input.result, atomic, !!input.overlay),
-            };
-          },
-        );
-      });
-      return outcome;
-    },
     async write(result) {
       let outcome!: WriteOutcome;
       await runKeyed(result.key, async () => {

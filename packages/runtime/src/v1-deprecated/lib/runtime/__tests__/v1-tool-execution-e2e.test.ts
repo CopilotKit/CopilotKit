@@ -49,7 +49,16 @@ async function runActionThroughAgent(actions: any) {
     provider: "openai",
     model: "gpt-4o",
   } as any);
-  const resolved: any = await resolveAgents(runtime.instance.agents);
+  // Agents resolve per request, so this drives the factory with the request a
+  // browser would send.
+  const resolved: any = await resolveAgents(
+    runtime.instance.agents,
+    new Request("https://app.example.com/api/copilotkit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: [], forwardedProps: {} }),
+    }),
+  );
   const agent = resolved.default;
 
   vi.mocked(streamText).mockReturnValue(

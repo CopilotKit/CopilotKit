@@ -15,9 +15,29 @@ before you start reading someone's project by hand.
 
 ## `verify` — do this before debugging
 
-```bash
-npx copilotkit@latest verify --json
-```
+First decide whether the app uses hosted Intelligence. `verify` checks for it by default, and
+an open-source app fails those checks every time.
+
+- **No Intelligence:** nothing constructs `CopilotKitIntelligence` where the runtime is
+  built, and there is no `.copilotkit/project.json`. Run the open-source check, with an agent
+  id the runtime registers:
+
+  ```bash
+  npx copilotkit@latest verify --expect-runtime oss --round-trip --agent <id> --json
+  ```
+
+  `--round-trip --agent <id>` is required here. Without it the round trip is not attempted
+  and the command cannot pass.
+
+- **Otherwise:** run the default check.
+
+  ```bash
+  npx copilotkit@latest verify --json
+  ```
+
+Do not run `login` or `project select` only to make `verify` pass. Those commands set up
+hosted Intelligence. They do not fix an open-source app, and `verify` still fails on it
+afterward, because the runtime never consumes the credential.
 
 One command replaces the manual survey. It settles up to eleven things: a hosted project is
 selected; the project API key is present, loadable by the app, and authenticates; the runtime

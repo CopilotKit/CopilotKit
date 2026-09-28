@@ -6,7 +6,7 @@ import { isIntelligenceRuntime } from "../../core/runtime";
 import { logger } from "@copilotkit/shared";
 import { errorResponse, isHandlerResponse } from "../shared/json-response";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
-import { resolveWebMemory } from "../shared/memory-policy";
+import { grantAllowsMemory, resolveWebMemory } from "../shared/memory-policy";
 import { PlatformRequestError } from "../../intelligence-platform/client";
 
 interface MemoriesHandlerParams {
@@ -24,7 +24,16 @@ async function resolveClientMemory(
 ) {
   const user = await resolveIntelligenceUser({ runtime, request });
   if (isHandlerResponse(user)) return user;
-  return resolveWebMemory(runtime, request, user, "client");
+  const access = await resolveWebMemory(runtime, request, user, "client");
+  if (isHandlerResponse(access)) return access;
+  // Unlike an agent run — which proceeds without Memory tools when the policy
+  // grants nothing — these routes exist ONLY to serve memories. A caller who
+  // asked for them and may not have them gets 403; an empty list would imply
+  // there are none, which is a different and false claim.
+  if (runtime.memory && !grantAllowsMemory(access.grant)) {
+    return errorResponse("Memory access denied", 403);
+  }
+  return access;
 }
 
 const MISSING_INTELLIGENCE_MESSAGE =

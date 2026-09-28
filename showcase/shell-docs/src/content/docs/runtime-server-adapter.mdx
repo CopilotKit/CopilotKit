@@ -623,7 +623,12 @@ server.listen(4000, () => {
 
 ## Express
 
-The Express adapter returns an Express `Router` that you mount with `app.use()`.
+The Express adapter returns a router that you mount with `app.use()`. The value
+is a real `express.Router()`. Its declared type is `CopilotExpressRouter`, which
+names no Express major, so it mounts on Express 4 and Express 5 alike.
+
+`express` is an optional peer dependency of `@copilotkit/runtime`, so install it
+in your own app. Both majors are supported.
 
 ```
 npm install express cors
