@@ -101,6 +101,14 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
       resolve(here, "../../content/docs/intelligence/self-hosting-ecs.mdx"),
     ),
   ).toBe(true);
+  expect(
+    existsSync(
+      resolve(
+        here,
+        "../../content/docs/intelligence/self-hosting-observability.mdx",
+      ),
+    ),
+  ).toBe(true);
 });
 
 test("the Automatic Learning guide stays focused on the reviewed workflow", () => {
