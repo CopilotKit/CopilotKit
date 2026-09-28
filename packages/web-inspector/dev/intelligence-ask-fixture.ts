@@ -21,6 +21,41 @@ export function intelligenceAskFixture(
     "agentId" in body && typeof body.agentId === "string"
       ? { agentId: body.agentId }
       : {};
+  if (
+    "question" in body &&
+    /finished runs.*failure rate/i.test(String(body.question))
+  ) {
+    const finished = filters.agentId === "billing" ? 0 : 2;
+    const ended =
+      filters.agentId === "support" ? 2 : filters.agentId === "billing" ? 1 : 3;
+    const failed = filters.agentId === "support" ? 0 : 1;
+    return {
+      version: 1,
+      text: "Finished runs exclude errors. Failure rate uses all ended runs.",
+      results: [
+        { metric: "finished_runs", total: finished, unit: "count" },
+        { metric: "failure_rate", total: failed / ended, unit: "ratio" },
+      ].map(({ metric, total, unit }) => ({
+        id: `fixture-${metric}`,
+        query: { metric, from, to, filters },
+        data: {
+          metric,
+          unit,
+          grain: null,
+          from,
+          to,
+          asOf: "fixture_v1",
+          total,
+          series: [{ dimensions: {}, total, points: [] }],
+          truncated: false,
+          coverage: {
+            captureStartedAt: "2026-09-01T00:00:00.000Z",
+            windowFullyCaptured: true,
+          },
+        },
+      })),
+    };
+  }
   if ("question" in body && /tool calls.*user/i.test(String(body.question))) {
     const known = fixtureToolCallRows({
       from,

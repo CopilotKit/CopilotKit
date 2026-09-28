@@ -127,6 +127,10 @@ export function intelligenceFixture(request: IntelligenceReadRequest): {
       data: runs
         .filter(
           (run) =>
+            (!request.query?.outcomeGroup ||
+              (request.query.outcomeGroup === "finished"
+                ? ["success", "interrupted"].includes(run.outcome)
+                : ["success", "interrupted", "error"].includes(run.outcome))) &&
             (!request.query?.outcome ||
               run.outcome === request.query.outcome) &&
             (!request.query?.agentId ||
