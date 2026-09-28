@@ -28,7 +28,7 @@ const messages: Message[] = [
     ],
   },
 ];
-function input(resume: RunAgentInput["resume"], history = messages) {
+function approvalInput(resume: RunAgentInput["resume"], history = messages) {
   return createDefaultInput({ runId: "new-run", messages: history, resume });
 }
 const decisions: {
@@ -70,7 +70,7 @@ describe.each(["aisdk", "tanstack"] as const)("%s approval history", (type) => {
     "publishes $label exactly once before completion",
     async ({ resume, content }) => {
       const events = await collectEvents(
-        createAgent(type, []).run(input(resume)),
+        createAgent(type, []).run(approvalInput(resume)),
       );
       expect(events.map((event) => event.type)).toEqual([
         EventType.RUN_STARTED,
@@ -96,7 +96,7 @@ describe.each(["aisdk", "tanstack"] as const)("%s approval history", (type) => {
       },
     ];
     const events = await collectEvents(
-      createAgent(type, []).run(input(decisions[0]!.resume, history)),
+      createAgent(type, []).run(approvalInput(decisions[0]!.resume, history)),
     );
     expect(events.map((event) => event.type)).toEqual([
       EventType.RUN_STARTED,
@@ -107,7 +107,9 @@ describe.each(["aisdk", "tanstack"] as const)("%s approval history", (type) => {
   it("does not invent a tool result for an unknown interrupt", async () => {
     const events = await collectEvents(
       createAgent(type, []).run(
-        input([{ interruptId: "unknown", status: "resolved", payload: true }]),
+        approvalInput([
+          { interruptId: "unknown", status: "resolved", payload: true },
+        ]),
       ),
     );
     expect(events.map((event) => event.type)).toEqual([
@@ -119,7 +121,7 @@ describe.each(["aisdk", "tanstack"] as const)("%s approval history", (type) => {
 
 it("leaves custom confirmation results to the custom factory", async () => {
   const events = await collectEvents(
-    createAgent("custom", []).run(input(decisions[0]!.resume)),
+    createAgent("custom", []).run(approvalInput(decisions[0]!.resume)),
   );
   expect(events.map((event) => event.type)).toEqual([
     EventType.RUN_STARTED,
@@ -150,7 +152,7 @@ it.each([false, true])(
       : messages;
     const events = await collectEvents(
       createAgent("tanstack", [result]).run(
-        input(decisions[0]!.resume, history),
+        approvalInput(decisions[0]!.resume, history),
       ),
     );
     expect(
@@ -169,7 +171,9 @@ it("reports a conflicting SDK result instead of saving two answers", async () =>
   };
   await expect(
     collectEvents(
-      createAgent("tanstack", [result]).run(input(decisions[0]!.resume)),
+      createAgent("tanstack", [result]).run(
+        approvalInput(decisions[0]!.resume),
+      ),
     ),
   ).rejects.toThrow("Conflicting result for resumed tool call approval");
 });
@@ -177,7 +181,7 @@ it("reports a conflicting SDK result instead of saving two answers", async () =>
 it("publishes identical duplicate decisions only once", async () => {
   const decision = { interruptId: "approval", status: "cancelled" } as const;
   const events = await collectEvents(
-    createAgent("tanstack", []).run(input([decision, decision])),
+    createAgent("tanstack", []).run(approvalInput([decision, decision])),
   );
   expect(
     events.filter((event) => event.type === EventType.TOOL_CALL_RESULT),
@@ -190,7 +194,7 @@ it("rejects conflicting decisions before publishing an answer", async () => {
   await new Promise<void>((resolve) =>
     agent
       .run(
-        input([
+        approvalInput([
           {
             interruptId: "approval",
             status: "resolved",
@@ -217,7 +221,7 @@ it("saves accepted answers before Stop cancels model work", async () => {
   const events: BaseEvent[] = [];
   const agent = createAgent("tanstack", []);
   await new Promise<void>((resolve, reject) =>
-    agent.run(input(decisions[0]!.resume)).subscribe({
+    agent.run(approvalInput(decisions[0]!.resume)).subscribe({
       next: (event) => {
         events.push(event);
         if (event.type === EventType.TOOL_CALL_RESULT) agent.abortRun();
@@ -245,7 +249,9 @@ it("uses the same accepted answer in saved history and model input", async () =>
       return mockTanStackStream([]);
     },
   });
-  const events = await collectEvents(agent.run(input(decisions[0]!.resume)));
+  const events = await collectEvents(
+    agent.run(approvalInput(decisions[0]!.resume)),
+  );
   const answer = received?.messages.find((message) => message.role === "tool");
   expect(answer).toMatchObject({
     role: "tool",
