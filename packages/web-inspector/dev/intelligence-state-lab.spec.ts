@@ -143,7 +143,11 @@ test("Learning fixtures follow the selected agent across lists and lineage", () 
     }).body,
   ).toMatchObject({
     data: [
-      { id: "10000000-0000-4000-8000-000000000002", name: "invoice-reference" },
+      {
+        id: "10000000-0000-4000-8000-000000000002",
+        name: "invoice-reference",
+        loads: { count: 5, runCount: 3 },
+      },
     ],
   });
   expect(
