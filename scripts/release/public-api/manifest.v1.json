@@ -215,6 +215,20 @@
           }
         },
         {
+          "importPath": "@copilotkit/angular/a2ui",
+          "exportKey": "./a2ui",
+          "kind": "code",
+          "conditions": {
+            "types": "./dist/types/copilotkit-angular-a2ui.d.ts",
+            "default": "./dist/fesm2022/copilotkit-angular-a2ui.mjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/angular/package.json",
+            "selector": "exports[\"./a2ui\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/angular/mcp-apps",
           "exportKey": "./mcp-apps",
           "kind": "code",
