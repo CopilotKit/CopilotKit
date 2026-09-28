@@ -31,7 +31,7 @@ Optional render-prop function that receives the resolved state and pre-built mes
 </PropertyReference>
 
 <PropertyReference name="shouldRenderMessage" type="(message: Message) => boolean">
-  Decides which messages the view renders. Return `false` to hide a message. The filter is display only: a hidden message stays in the agent's history, and rows still use it to look up tool results. When omitted, every message renders. Pass it from `CopilotChat`, `CopilotSidebar` or `CopilotPopup` with `messageView={{ shouldRenderMessage }}`. Use a stable function (defined outside the component, or with `useCallback`), so that the list does not recompute on every render.
+  Decides which messages the view renders. Return `false` to hide a message. The filter is display only: a hidden message stays in the agent's history, and rows still use it to look up tool results. When omitted, every message renders. Pass it from `CopilotChat`, `CopilotSidebar` or `CopilotPopup` with `messageView={{ shouldRenderMessage }}`. Use a stable function (defined outside the component, or with `useCallback`), so that the list does not recompute on every render. If you hide reasoning messages, the chat shows no working indicator while a hidden reasoning message is the last message.
 </PropertyReference>
 
 ## Slots

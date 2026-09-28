@@ -147,6 +147,8 @@ All three components support the [slot system](/langgraph/custom-look-and-feel/s
 With the `langgraph-supervisor` pattern, the chat shows the worker's answer and then the supervisor's copy of it. Every worker message carries the worker's `name`, so you can hide it in the chat:
 
 ```tsx
+import type { Message } from "@copilotkit/react-core/v2";
+
 const hideWorkers = (message: Message) =>
   !("name" in message && message.name === "math_expert");
 
@@ -154,6 +156,23 @@ const hideWorkers = (message: Message) =>
 ```
 
 The filter is display only. The agent still receives the full history.
+
+The supervisor's hand-off message has no text. It holds only a `transfer_to_…` tool call, and it still shows as an empty row. To hide it too, extend the predicate:
+
+```tsx
+const isHandOff = (message: Message) =>
+  message.role === "assistant" &&
+  !message.content &&
+  !!message.toolCalls?.length &&
+  message.toolCalls.every((call) =>
+    call.function.name.startsWith("transfer_to_"),
+  );
+
+const hideWorkersAndHandOffs = (message: Message) =>
+  hideWorkers(message) && !isHandOff(message);
+
+<CopilotChat messageView={{ shouldRenderMessage: hideWorkersAndHandOffs }} />
+```
 
 The worker's name reaches the client with the next messages snapshot. Until then, a worker message shows while it streams, and it disappears when the snapshot arrives. [ag-ui #2847](https://github.com/ag-ui-protocol/ag-ui/issues/2847) tracks naming the message from the first token.
 
