@@ -283,3 +283,12 @@ permission and agent scope. It does not allow other product writes.
 Download responses stream JSON or CSV with a 50 MiB byte cap. Only the content type,
 export metadata, and no-store headers cross the proxy; upstream cookies do not.
 Both multi-route and single-route runtime transports support the same flow.
+
+### Embedded Inspector query budgets
+
+Metric reads share Intelligence's project budget across Runtime instances. The
+proxy preserves HTTP 429 and 504 and the numeric `X-Query-Cost`,
+`X-Query-Budget-Limit`, `X-Query-Budget-Remaining`, `X-Query-Budget-Reset`, and
+`Retry-After` headers on read responses. Reset is a Unix timestamp in seconds;
+Retry-After is a delay in seconds. Private upstream headers and error text stay
+on the server. Other read limits depend on the Intelligence endpoint.

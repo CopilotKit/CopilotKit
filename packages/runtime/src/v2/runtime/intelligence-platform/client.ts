@@ -1,3 +1,4 @@
+import { inspectorQueryHeaders } from "../handlers/shared/inspector-query-headers";
 import {
   logger,
   parseInspectorLearningSnapshotV1,
@@ -275,6 +276,8 @@ export class PlatformRequestError extends Error {
     public readonly retryable?: boolean,
     /** The platform's stable error code (e.g. `GOVERNANCE_PERMISSION_DENIED`), when it sent one. */
     public readonly code?: string,
+    /** Allowlisted query budget metadata from an Inspector read. */
+    public readonly queryHeaders?: Readonly<Record<string, string>>,
   ) {
     super(message);
     this.name = "PlatformRequestError";
@@ -1297,6 +1300,8 @@ export class CopilotKitIntelligence {
         "Intelligence read failed",
         response.status,
         response.status === 429 || response.status >= 500,
+        undefined,
+        Object.fromEntries(inspectorQueryHeaders(response.headers)),
       );
     }
     if (
@@ -1304,7 +1309,9 @@ export class CopilotKitIntelligence {
       request.path.endsWith("/content")
     )
       return inspectorDownloadResponse(response);
-    return readInspectorJson(response.body, 5_242_880);
+    return Response.json(await readInspectorJson(response.body, 5_242_880), {
+      headers: inspectorQueryHeaders(response.headers),
+    });
   }
 
   /** Fetches one credential-scoped, bounded Learning projection for Inspector. */

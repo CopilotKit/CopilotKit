@@ -368,3 +368,150 @@ test("relays tool-call metric groups with the server grant and capture cutoff", 
     world.cleanup();
   }
 });
+
+test.each([200, 429, 504])(
+  "preserves public query-budget headers and status %s without private upstream fields",
+  async (status) => {
+    const world = setup(async () => ({
+      permissions: { "analytics.numbers": { agents: "*" } },
+    }));
+    try {
+      world.fetch.mockResolvedValue(
+        Response.json(
+          status === 200
+            ? { total: 12 }
+            : { error: "private upstream diagnostic" },
+          {
+            status,
+            headers: {
+              "x-query-cost": "28",
+              "x-query-budget-limit": "2000",
+              "x-query-budget-remaining": "1972",
+              "x-query-budget-reset": "1790625600",
+              "retry-after": "12",
+              "set-cookie": "private-session=hidden",
+              "x-private-internal": "hidden",
+            },
+          },
+        ),
+      );
+
+      const response = await world.call({
+        method: "POST",
+        path: "/api/v1/metrics/query",
+        body: {
+          metric: "runs",
+          from: "2026-09-01T00:00:00Z",
+          to: "2026-09-08T00:00:00Z",
+        },
+      });
+
+      expect(response.status).toBe(status);
+      expect(response.headers.get("x-query-cost")).toBe("28");
+      expect(response.headers.get("x-query-budget-limit")).toBe("2000");
+      expect(response.headers.get("x-query-budget-remaining")).toBe("1972");
+      expect(response.headers.get("x-query-budget-reset")).toBe("1790625600");
+      expect(response.headers.get("retry-after")).toBe("12");
+      expect(response.headers.get("cache-control")).toBe("no-store, private");
+      expect(response.headers.get("set-cookie")).toBeNull();
+      expect(response.headers.get("x-private-internal")).toBeNull();
+      expect(await response.text()).not.toContain(
+        "private upstream diagnostic",
+      );
+    } finally {
+      world.cleanup();
+    }
+  },
+);
+
+test("drops malformed query metadata instead of reflecting arbitrary header values", async () => {
+  const world = setup(async () => ({
+    permissions: { "analytics.numbers": { agents: "*" } },
+  }));
+  try {
+    world.fetch.mockResolvedValue(
+      Response.json(
+        { total: 1 },
+        {
+          headers: {
+            "x-query-cost": "private-value",
+            "x-query-budget-remaining": "-1",
+            "x-query-budget-reset": "999999999999999999999",
+            "retry-after": "https://private.example",
+          },
+        },
+      ),
+    );
+
+    const response = await world.call({ method: "GET", path: "/api/v1/runs" });
+
+    expect(response.status).toBe(200);
+    expect([...response.headers.keys()]).toEqual([
+      "cache-control",
+      "content-type",
+    ]);
+  } finally {
+    world.cleanup();
+  }
+});
+
+test.each(["multi-route", "single-route"] as const)(
+  "preserves query limits through the public %s endpoint",
+  async (mode) => {
+    const world = setup(async () => ({
+      permissions: { "analytics.numbers": { agents: "*" } },
+    }));
+    try {
+      world.fetch.mockImplementation(async (input) =>
+        String(input).includes("/metrics/query")
+          ? Response.json(
+              { error: "private details" },
+              {
+                status: 429,
+                headers: {
+                  "X-Query-Budget-Remaining": "0",
+                  "Retry-After": "12",
+                },
+              },
+            )
+          : Response.json({}),
+      );
+      const handler = createCopilotRuntimeHandler({
+        runtime: world.runtime,
+        mode,
+        basePath: "/api/copilotkit",
+      });
+      const read = {
+        method: "POST",
+        path: "/api/v1/metrics/query",
+        body: {
+          metric: "runs",
+          from: "2026-09-01T00:00:00Z",
+          to: "2026-09-08T00:00:00Z",
+        },
+      };
+
+      const response = await handler(
+        new Request(
+          `https://customer.example/api/copilotkit${mode === "multi-route" ? "/inspector-intelligence" : ""}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(
+              mode === "multi-route"
+                ? read
+                : { method: "inspector/intelligence", body: read },
+            ),
+          },
+        ),
+      );
+
+      expect(response.status).toBe(429);
+      expect(response.headers.get("x-query-budget-remaining")).toBe("0");
+      expect(response.headers.get("retry-after")).toBe("12");
+      expect(await response.text()).not.toContain("private details");
+    } finally {
+      world.cleanup();
+    }
+  },
+);

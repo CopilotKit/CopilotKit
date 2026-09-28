@@ -1,3 +1,4 @@
+import { inspectorQueryHeaders } from "./shared/inspector-query-headers";
 import {
   handleInspectorAsk,
   inspectorAskEnvelopeSchema,
@@ -17,8 +18,11 @@ import {
 } from "./shared/bounded-inspector-json";
 
 const headers = { "Cache-Control": "no-store, private" };
-const error = (status: number, message: string) =>
-  Response.json({ error: message }, { status, headers });
+const error = (
+  status: number,
+  message: string,
+  responseHeaders: HeadersInit = headers,
+) => Response.json({ error: message }, { status, headers: responseHeaders });
 
 /** Compares permission sets without depending on policy object or agent ordering. */
 function grantKey(grant: IntelligenceAccessGrant | undefined): string {
@@ -121,9 +125,9 @@ export async function handleInspectorIntelligence({
     return Response.json(result, { headers });
   } catch (cause) {
     if (cause instanceof PlatformRequestError) {
-      const status = [400, 401, 403, 404, 409, 410, 413, 422, 429].includes(
-        cause.status,
-      )
+      const status = [
+        400, 401, 403, 404, 409, 410, 413, 422, 429, 504,
+      ].includes(cause.status)
         ? cause.status
         : 503;
       return error(
@@ -131,6 +135,7 @@ export async function handleInspectorIntelligence({
         status === 401 || status === 403
           ? "Access denied"
           : "Intelligence read unavailable",
+        inspectorQueryHeaders(new Headers(cause.queryHeaders)),
       );
     }
     return error(503, "Intelligence read unavailable");
