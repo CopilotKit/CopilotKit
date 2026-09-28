@@ -82,6 +82,11 @@ latest update and opens the dedicated What's New pane.
 Docked-left and narrow layouts use a compact icon rail; wider layouts can also
 be collapsed manually. A top-right light/dark theme control follows the
 Inspector between sessions without changing the host application's theme.
+
+Floating windows keep a 16px viewport margin. The 880px floating and 640px
+docked desktop minimums shrink when the viewport is smaller. Docked windows
+can fill a phone viewport. Resizing keeps the current embedded document and
+its draft state; returning to desktop restores the normal navigation width.
 Unread announcements animate the closed launcher, appear as a Home preview,
 and mark the What's New sidebar entry until the update is opened.
 

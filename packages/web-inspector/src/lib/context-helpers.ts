@@ -12,6 +12,7 @@ export function updateSizeFromElement(
   };
 }
 
+/** Preserves desktop minimums only while they fit inside the available viewport. */
 export function clampSize(
   size: Size,
   viewport: Size,
@@ -19,12 +20,12 @@ export function clampSize(
   minWidth: number,
   minHeight: number,
 ): Size {
-  const maxWidth = Math.max(minWidth, viewport.width - edgeMargin * 2);
-  const maxHeight = Math.max(minHeight, viewport.height - edgeMargin * 2);
+  const maxWidth = Math.max(1, viewport.width - edgeMargin * 2);
+  const maxHeight = Math.max(1, viewport.height - edgeMargin * 2);
 
   return {
-    width: clamp(size.width, minWidth, maxWidth),
-    height: clamp(size.height, minHeight, maxHeight),
+    width: clamp(size.width, Math.min(minWidth, maxWidth), maxWidth),
+    height: clamp(size.height, Math.min(minHeight, maxHeight), maxHeight),
   };
 }
 

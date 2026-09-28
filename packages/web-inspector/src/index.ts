@@ -14409,6 +14409,7 @@ export class WebInspectorElement extends LitElement {
 
   private renderWindow() {
     const windowState = this.contextState.window;
+    const windowSize = this.clampWindowSize(windowState.size);
     const isDocked = this.dockMode !== "floating";
     const isPoppedOut = this.isPoppedOut;
     const isTransitioning = this.hasAttribute("data-transitioning");
@@ -14428,10 +14429,10 @@ export class WebInspectorElement extends LitElement {
       : isDocked
         ? { ...this.getDockedWindowStyles(), overflowX: "hidden" }
         : {
-            width: `${Math.round(windowState.size.width)}px`,
-            height: `${Math.round(windowState.size.height)}px`,
-            minWidth: `${MIN_WINDOW_WIDTH}px`,
-            minHeight: `${MIN_WINDOW_HEIGHT}px`,
+            width: `${Math.round(windowSize.width)}px`,
+            height: `${Math.round(windowSize.height)}px`,
+            minWidth: `${Math.min(MIN_WINDOW_WIDTH, windowSize.width)}px`,
+            minHeight: `${Math.min(MIN_WINDOW_HEIGHT, windowSize.height)}px`,
             overflowX: "hidden",
           };
 
@@ -15367,6 +15368,9 @@ export class WebInspectorElement extends LitElement {
     this.contextState.window.size = this.clampWindowSize(
       this.contextState.window.size,
     );
+    if (this.dockMode === "docked-left" && document.body) {
+      document.body.style.marginLeft = `${this.contextState.window.size.width}px`;
+    }
     if (this.hasCustomPosition.window) {
       this.applyAnchorPosition("window");
     } else {
@@ -15519,7 +15523,7 @@ export class WebInspectorElement extends LitElement {
     return clampSizeToViewport(
       size,
       viewport,
-      EDGE_MARGIN,
+      this.dockMode === "docked-left" ? 0 : EDGE_MARGIN,
       minWidth,
       MIN_WINDOW_HEIGHT,
     );
@@ -15542,6 +15546,9 @@ export class WebInspectorElement extends LitElement {
       // For docking, set the target size immediately so body margins are correct
       if (mode === "docked-left") {
         this.contextState.window.size.width = DOCKED_LEFT_WIDTH;
+        this.contextState.window.size = this.clampWindowSize(
+          this.contextState.window.size,
+        );
       }
 
       // Then apply dock styles with correct sizes
@@ -15981,24 +15988,25 @@ export class WebInspectorElement extends LitElement {
   };
 
   private getDockedWindowStyles(): Record<string, string> {
+    const size = this.clampWindowSize(this.contextState.window.size);
     if (this.dockMode === "docked-left") {
       return {
         position: "fixed",
         top: "0",
         left: "0",
         bottom: "0",
-        width: `${Math.round(this.contextState.window.size.width)}px`,
+        width: `${Math.round(size.width)}px`,
         height: "auto",
-        minWidth: `${MIN_WINDOW_WIDTH_DOCKED_LEFT}px`,
+        minWidth: `${Math.min(MIN_WINDOW_WIDTH_DOCKED_LEFT, size.width)}px`,
         borderRadius: "0",
       };
     }
     // Default to floating styles
     return {
-      width: `${Math.round(this.contextState.window.size.width)}px`,
-      height: `${Math.round(this.contextState.window.size.height)}px`,
-      minWidth: `${MIN_WINDOW_WIDTH}px`,
-      minHeight: `${MIN_WINDOW_HEIGHT}px`,
+      width: `${Math.round(size.width)}px`,
+      height: `${Math.round(size.height)}px`,
+      minWidth: `${Math.min(MIN_WINDOW_WIDTH, size.width)}px`,
+      minHeight: `${Math.min(MIN_WINDOW_HEIGHT, size.height)}px`,
     };
   }
 
