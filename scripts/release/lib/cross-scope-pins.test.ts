@@ -201,6 +201,9 @@ describe("findSupersededPublishedPins", () => {
     expect(problems[0]).toContain("1.69.3");
     expect(problems[0]).toContain("1.70.0");
     expect(problems[0]).toContain("Release scope angular first");
+    // The tree still packs an exact version, so releasing Angular from it
+    // alone would pin core again. The remedy must name the range change.
+    expect(problems[0]).toContain('to "workspace:^"');
   });
 
   it("allows a minor release the published range still admits", () => {

@@ -2703,7 +2703,7 @@ importers:
   packages/intelligence-langgraph:
     dependencies:
       '@copilotkit/runtime':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../runtime
     devDependencies:
       '@copilotkit/intelligence-delivery-core':
@@ -2743,7 +2743,7 @@ importers:
   packages/intelligence-mastra:
     dependencies:
       '@copilotkit/runtime':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../runtime
     devDependencies:
       '@copilotkit/intelligence-delivery-core':

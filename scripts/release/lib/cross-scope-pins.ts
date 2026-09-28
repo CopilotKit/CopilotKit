@@ -253,10 +253,15 @@ export function findSupersededPublishedPins(
             ? `Release scope ${packageScope} first: this tree no longer declares ` +
               `${dependency} on ${packageName}, so its next release drops the ` +
               `superseded range altogether.`
-            : `Release scope ${packageScope} first, from this tree: it packs ` +
-              `${dependency} as "${workspaceRange}", which resolves against the ` +
-              `workspace version rather than the published one, so its new release ` +
-              `admits ${inputs.version} before this one ships.`;
+            : !admitsALaterRelease(workspaceRange)
+              ? `Release scope ${packageScope} first, after changing ${dependency} ` +
+                `on ${packageName} to "workspace:^": this tree packs it as ` +
+                `"${workspaceRange}", an exact version, so a release from it ` +
+                `would pin ${dependency} again.`
+              : `Release scope ${packageScope} first, from this tree: it packs ` +
+                `${dependency} as "${workspaceRange}", which resolves against the ` +
+                `workspace version rather than the published one, so its new release ` +
+                `admits ${inputs.version} before this one ships.`;
 
         problems.push(
           `Published ${packageName} declares ${dependency} as "${range}" in ${field}, ` +
