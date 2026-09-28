@@ -174,6 +174,20 @@ export const INTELLIGENCE_MEMORY_GRANT_HEADER = "x-cpki-memory-grant";
  */
 export const INTELLIGENCE_GRANT_HEADER = "x-cpki-grant";
 
+/**
+ * JSON for an HTTP header value. Header values must be ByteStrings, so a raw
+ * non-Latin-1 character (an agent ID such as "支援") makes `fetch` throw, and
+ * a raw Latin-1 one would be misread as UTF-8. Every non-ASCII code unit is
+ * written as a `\uXXXX` escape instead; the result is still valid JSON that
+ * parses back to the same value.
+ */
+function encodeJsonHeader(value: unknown): string {
+  return JSON.stringify(value).replace(
+    /[^\x20-\x7e]/g,
+    (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`,
+  );
+}
+
 interface RuntimeIntelligenceGrant {
   readonly permissions: Readonly<
     Record<string, { readonly agents: "*" | readonly string[] }>
@@ -1240,7 +1254,7 @@ export class CopilotKitIntelligence {
             ? { [INTELLIGENCE_USER_ID_HEADER]: request.userId }
             : {}),
           ...(request.grant !== undefined
-            ? { [INTELLIGENCE_GRANT_HEADER]: JSON.stringify(request.grant) }
+            ? { [INTELLIGENCE_GRANT_HEADER]: encodeJsonHeader(request.grant) }
             : {}),
         },
         signal: controller.signal,

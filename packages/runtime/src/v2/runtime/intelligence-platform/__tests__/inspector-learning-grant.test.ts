@@ -73,6 +73,27 @@ describe("getInspectorLearning identity and grant headers", () => {
     });
   });
 
+  it("sends a grant naming non-ASCII agent IDs as ASCII-only JSON", async () => {
+    // Validate headers the way a real fetch does: a header value must be a
+    // ByteString, so a raw non-Latin-1 character throws before any request.
+    const fetchMock = vi.fn().mockImplementation(async (url, init) => {
+      new Headers(init.headers);
+      return Response.json(snapshot);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const grant = {
+      permissions: {
+        "analytics.numbers": { agents: ["支援", "café", "a b", "🤖"] },
+      },
+    };
+
+    await client().getInspectorLearning({ userId: "user-1", grant });
+
+    const header = fetchMock.mock.calls[0]![1].headers["x-cpki-grant"];
+    expect(header).toMatch(/^[\x20-\x7e]*$/);
+    expect(JSON.parse(header)).toEqual(grant);
+  });
+
   it("omits both headers when the caller supplies neither", async () => {
     const fetchMock = mockFetch();
     await client().getInspectorLearning({});

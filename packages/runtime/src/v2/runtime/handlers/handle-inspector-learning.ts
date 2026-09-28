@@ -1,4 +1,5 @@
 import {
+  logger,
   parseInspectorLearningRequestV1,
   parseInspectorLearningSnapshotV1,
 } from "@copilotkit/shared";
@@ -107,6 +108,10 @@ export async function handleInspectorLearning({
         return errorResponse(denial.status, denial.message, error.code);
       }
     }
+    logger.error(
+      { err: error },
+      "Inspector Learning request to Intelligence failed",
+    );
     return errorResponse(503, "Inspector Learning is temporarily unavailable");
   }
 }

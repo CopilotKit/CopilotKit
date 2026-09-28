@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { logger } from "@copilotkit/shared";
 import type { CopilotRuntimeLike } from "../core/runtime";
 import { handleInspectorLearning } from "../handlers/handle-inspector-learning";
 import { PlatformRequestError } from "../intelligence-platform/client";
@@ -234,6 +235,21 @@ describe("handleInspectorLearning", () => {
         status: 503,
         body: { error: "Inspector Learning is temporarily unavailable" },
       });
+    });
+
+    it("logs the cause of a 503 instead of swallowing it", async () => {
+      const logged = vi.spyOn(logger, "error").mockImplementation(() => {});
+      const cause = new TypeError("Cannot convert argument to a ByteString");
+      try {
+        const result = await failWith(cause);
+        expect(result.status).toBe(503);
+        expect(logged).toHaveBeenCalledWith(
+          expect.objectContaining({ err: cause }),
+          expect.stringContaining("Inspector Learning"),
+        );
+      } finally {
+        logged.mockRestore();
+      }
     });
   });
 });
