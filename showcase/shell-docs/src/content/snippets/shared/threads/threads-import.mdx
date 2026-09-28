@@ -142,8 +142,13 @@ Events, replay and reconnect continue to use the Intelligence ID. Replacing an
 import refreshes its history and metadata while preserving its Intelligence ID.
 
 LangGraph continuation uses the mapped agent's existing backend configuration.
-Keep it connected to the original deployment and checkpoint store. For ADK,
-Mastra and Strands, configure `prepareImportedThread` on the runtime to apply the
+Keep it connected to the original deployment and checkpoint store. ADK sessions
+created through AG-UI reuse the saved AG-UI thread ID with the mapped adapter's
+existing app and user configuration. Local Mastra agents also need no hook when
+their configured native agent and resource IDs match the imported context.
+
+For direct native ADK sessions, unmatched or remote Mastra configurations, and
+Strands, configure `prepareImportedThread` on the runtime to apply the
 saved native user, resource or session context through your adapter's existing
 configuration or input extractors. The callback receives:
 
@@ -164,8 +169,9 @@ native context can be refreshed with `--replace`. Adapter-specific limits still
 apply, including ADK sessions created outside AG-UI and Mastra remote agent aliases.
 
 This behavior requires an Intelligence API and runtime that support native
-execution context. An older runtime ignores the new context and retains its
-previous behavior; it does not gain native continuation automatically.
+execution context. The API refuses imported continuation from older runtimes
+that do not advertise support and returns an upgrade action. Import, replay and
+ordinary threads remain available.
 
 ## Deployment notes
 

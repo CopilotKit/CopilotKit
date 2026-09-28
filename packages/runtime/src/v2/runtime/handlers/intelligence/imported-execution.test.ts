@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveImportedExecution } from "./imported-execution";
+import { HttpAgent } from "@ag-ui/client";
 import type { RunAgentInput } from "@ag-ui/client";
 
 const input: RunAgentInput = {
@@ -65,4 +66,81 @@ describe("imported execution", () => {
       ),
     ).toThrow("prepareImportedThread");
   });
+});
+
+class LocalMastraAdapter extends HttpAgent {
+  agent = { id: "backend-agent", getMemory: () => ({}) };
+  resourceId: string | undefined = "resource";
+  isLocalMastraAgent(value: unknown): boolean {
+    return value === this.agent;
+  }
+}
+const mappedAdk = {
+  ...native,
+  source: "adk",
+  context: {
+    appName: "app",
+    userId: "user",
+    sessionId: "session",
+    sessionLookup: "ag-ui-thread",
+  },
+};
+const mastra = {
+  ...native,
+  source: "mastra",
+  context: { agentId: "backend-agent", resourceId: "resource" },
+};
+it("continues an AG-UI mapped ADK session using its existing mapped adapter", () => {
+  expect(resolveImportedExecution(mappedAdk, "support", input).threadId).toBe(
+    native.threadId,
+  );
+});
+it("requires preparation for direct native ADK and incomplete mapped context", () => {
+  for (const context of [
+    { ...mappedAdk.context, sessionLookup: "session-id" },
+    { sessionLookup: "ag-ui-thread" },
+  ]) {
+    expect(() =>
+      resolveImportedExecution({ ...mappedAdk, context }, "support", input),
+    ).toThrow("prepareImportedThread");
+  }
+});
+it("accepts matching local Mastra configuration without a hook or mutation", () => {
+  const agent = new LocalMastraAdapter({ url: "http://unused.invalid" });
+  expect(
+    resolveImportedExecution(mastra, "support", input, false, agent).threadId,
+  ).toBe(native.threadId);
+  expect(agent.resourceId).toBe("resource");
+});
+it("requires preparation when Mastra's agent/resource/local context does not match", () => {
+  const agent = new LocalMastraAdapter({ url: "http://unused.invalid" });
+  for (const context of [
+    { ...mastra.context, agentId: "other" },
+    { ...mastra.context, resourceId: "other" },
+  ]) {
+    expect(() =>
+      resolveImportedExecution(
+        { ...mastra, context },
+        "support",
+        input,
+        false,
+        agent,
+      ),
+    ).toThrow("prepareImportedThread");
+  }
+  agent.isLocalMastraAgent = () => {
+    throw new Error("bad context");
+  };
+  expect(() =>
+    resolveImportedExecution(mastra, "support", input, false, agent),
+  ).toThrow("prepareImportedThread");
+  expect(() =>
+    resolveImportedExecution(
+      mastra,
+      "support",
+      input,
+      false,
+      new HttpAgent({ url: "http://unused.invalid" }),
+    ),
+  ).toThrow("prepareImportedThread");
 });

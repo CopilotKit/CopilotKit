@@ -1932,6 +1932,7 @@ export class CopilotKitIntelligence {
       `/api/threads/${encodeURIComponent(params.threadId)}/lock`,
       {
         runId: params.runId,
+        nativeExecutionVersion: 1,
         userId: params.userId,
         agentId: params.agentId,
         ...(params.learningContainerId !== undefined

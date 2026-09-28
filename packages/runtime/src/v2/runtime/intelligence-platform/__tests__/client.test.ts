@@ -1128,6 +1128,7 @@ describe("CopilotKitIntelligence", () => {
         userId: "user-1",
         agentId: "agent-1",
         learningContainerId: "support-quality",
+        nativeExecutionVersion: 1,
       });
       expect(opts.headers).toMatchObject({
         "X-Cpki-Channel-Delivery-Id": "dlv_delivery_1",

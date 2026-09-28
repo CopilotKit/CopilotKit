@@ -69,16 +69,66 @@ export function parseImportedExecution(
   };
 }
 
+/** Check the configured local Mastra adapter without changing its routing or store. */
+function matchesLocalMastraContext(
+  agent: AbstractAgent | undefined,
+  execution: ImportedThreadExecution,
+): boolean {
+  if (!agent || !execution.context.agentId || !execution.context.resourceId)
+    return false;
+  try {
+    if (
+      !("isLocalMastraAgent" in agent) ||
+      typeof agent.isLocalMastraAgent !== "function" ||
+      !("agent" in agent)
+    )
+      return false;
+    const backing = agent.agent;
+    if (typeof backing !== "object" || backing === null || !("id" in backing))
+      return false;
+    const resourceId = "resourceId" in agent ? agent.resourceId : undefined;
+    if (resourceId !== undefined && typeof resourceId !== "string")
+      return false;
+    return (
+      agent.isLocalMastraAgent(backing) === true &&
+      backing.id === execution.context.agentId &&
+      (resourceId ?? execution.threadId) === execution.context.resourceId
+    );
+  } catch {
+    // A custom adapter that cannot inspect its configuration needs explicit preparation.
+    return false;
+  }
+}
+
+/** Reuse configurations whose native selectors already fit the mapped adapter. */
+function canUseExistingContext(
+  execution: ImportedThreadExecution,
+  agent: AbstractAgent | undefined,
+): boolean {
+  if (execution.source === "langgraph") return true;
+  if (execution.source === "adk")
+    return (
+      execution.context.sessionLookup === "ag-ui-thread" &&
+      ["appName", "userId", "sessionId"].every((key) =>
+        Boolean(execution.context[key]),
+      )
+    );
+  if (execution.source === "mastra")
+    return matchesLocalMastraContext(agent, execution);
+  return false;
+}
+
 /** Build a separate outbound input; caller-owned canonical identity never changes. */
 export function resolveImportedExecution(
   value: unknown,
   agentId: string,
   input: RunAgentInput,
   prepared = false,
+  agent?: AbstractAgent,
 ): RunAgentInput {
   const execution = parseImportedExecution(value, agentId);
   if (!execution) return input;
-  if (execution.source !== "langgraph" && !prepared)
+  if (!prepared && !canUseExistingContext(execution, agent))
     throw new ImportedThreadExecutionError(
       "This framework needs its native session context configured before continuation. Configure prepareImportedThread on the runtime for the mapped agent's original user, resource, or session store.",
     );

@@ -242,6 +242,7 @@ export async function handleIntelligenceRun({
         agentId,
         preparedInput,
         Boolean(runtime.prepareImportedThread),
+        agent,
       );
       // Preparation can configure framework context, never canonical run ownership.
       executionInput.runId = canonicalRunId;
