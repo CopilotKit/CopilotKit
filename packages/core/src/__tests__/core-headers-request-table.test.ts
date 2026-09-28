@@ -588,7 +588,7 @@ describe("token churn vs. setHeaders", () => {
     }
   });
 
-  it("a new token causes no /info refetch and no onHeadersChanged; setHeaders causes both", async () => {
+  it("a new token causes no /info refetch and no onHeadersChanged; setHeaders fires onHeadersChanged and refreshes inspector metadata, not /info", async () => {
     const calls: Call[] = [];
     let token = "t1";
     global.fetch = vi.fn(
