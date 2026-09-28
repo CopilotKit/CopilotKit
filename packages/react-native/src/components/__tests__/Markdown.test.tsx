@@ -1,10 +1,13 @@
 import React from "react";
-import { render } from "@testing-library/react";
+import { act, render } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
 const hoisted = vi.hoisted(() => ({
+  onChange: undefined as
+    | ((event: { colorScheme: "light" | "dark" | null }) => void)
+    | undefined,
   colorScheme: "light" as "light" | "dark",
 }));
 
@@ -17,7 +20,15 @@ vi.mock("react-native", async () => ({
   },
   View: "View",
   Text: "Text",
-  useColorScheme: () => hoisted.colorScheme,
+  Appearance: {
+    getColorScheme: () => hoisted.colorScheme,
+    addChangeListener: (
+      listener: (event: { colorScheme: "light" | "dark" | null }) => void,
+    ) => {
+      hoisted.onChange = listener;
+      return { remove: () => {} };
+    },
+  },
 }));
 
 // Capture the props passed to StreamdownText
@@ -121,11 +132,10 @@ describe("CopilotMarkdown", () => {
         <CopilotMarkdown content="test" />
       </CopilotColorSchemeProvider>
     );
-    const { rerender } = render(tree());
+    render(tree());
     expect(lastStreamdownProps.markdownStyle).toBe(defaultMarkdownStyles);
 
-    hoisted.colorScheme = "dark";
-    rerender(tree());
+    act(() => hoisted.onChange?.({ colorScheme: "dark" }));
     expect(lastStreamdownProps.markdownStyle).toBe(darkMarkdownStyles);
   });
 
