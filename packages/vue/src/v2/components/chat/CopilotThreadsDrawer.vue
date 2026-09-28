@@ -262,7 +262,7 @@ function handleNewThread() {
   if (props.onNewThread) props.onNewThread();
   else config.value?.startNewThread?.();
   if (overlay.value) {
-    // The overlay closes itself on "New Conversation"; land in the composer.
+    // The overlay closes itself on "New Thread"; land in the composer.
     // Deferred a tick because the reset swaps the chat to its welcome screen,
     // which mounts a fresh input.
     setTimeout(() => findChatInput(elRef.value)?.focus(), 0);

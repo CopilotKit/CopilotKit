@@ -32,25 +32,18 @@ function getForwardedSlotNames(): ToolCallSlotName[] {
 </script>
 
 <template>
-  <!-- Scopes tokens and preflight for tool renderers; `contents` adds no box. -->
-  <div
-    v-if="message.toolCalls?.length"
-    data-copilotkit
-    style="display: contents"
+  <CopilotChatToolCallItem
+    v-for="toolCall in message.toolCalls ?? []"
+    :key="toolCall.id"
+    :tool-call="toolCall"
+    :messages="messages"
   >
-    <CopilotChatToolCallItem
-      v-for="toolCall in message.toolCalls"
-      :key="toolCall.id"
-      :tool-call="toolCall"
-      :messages="messages"
+    <template
+      v-for="slotName in getForwardedSlotNames()"
+      :key="slotName"
+      #[slotName]="slotProps"
     >
-      <template
-        v-for="slotName in getForwardedSlotNames()"
-        :key="slotName"
-        #[slotName]="slotProps"
-      >
-        <slot :name="slotName" v-bind="slotProps ?? {}" />
-      </template>
-    </CopilotChatToolCallItem>
-  </div>
+      <slot :name="slotName" v-bind="slotProps ?? {}" />
+    </template>
+  </CopilotChatToolCallItem>
 </template>

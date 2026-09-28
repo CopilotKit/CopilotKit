@@ -200,10 +200,16 @@ export const OpenGenerativeUIRenderer = defineComponent({
     const hasVisibleSandbox = computed(
       () => !!fullHtml.value || hasPreview.value,
     );
-    const resolvedHeight = computed(
-      () =>
-        `${autoHeight.value ?? throttledContent.value.initialHeight ?? 200}px`,
-    );
+    // The measured height grows the frame to fit its content, but never
+    // shrinks it below a provided `initialHeight`.
+    const resolvedHeight = computed(() => {
+      const { initialHeight } = throttledContent.value;
+      const height =
+        autoHeight.value === null
+          ? (initialHeight ?? 200)
+          : Math.max(autoHeight.value, initialHeight ?? 0);
+      return `${height}px`;
+    });
 
     const destroyPreview = () => {
       if (previewSandboxRef.value) {

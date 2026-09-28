@@ -151,4 +151,39 @@ describe("CopilotChatAttachmentRenderer", () => {
       ).textContent,
     ).toContain("Unknown type");
   });
+
+  it.each([
+    {
+      type: "image",
+      testId: "copilot-chat-attachment-renderer-image",
+    },
+    {
+      type: "audio",
+      testId: "copilot-chat-attachment-renderer-audio",
+    },
+    {
+      type: "video",
+      testId: "copilot-chat-attachment-renderer-video",
+    },
+    {
+      type: "document",
+      testId: "copilot-chat-attachment-renderer-document",
+    },
+  ] as const)(
+    "puts class, style and id on the $type element",
+    ({ type, testId }) => {
+      const { getByTestId } = render(CopilotChatAttachmentRenderer, {
+        props: {
+          type,
+          source: { type: "url", value: "https://example.com/file" },
+        },
+        attrs: { class: "host-class", style: "margin: 4px", id: "host-id" },
+      });
+
+      const element = getByTestId(testId);
+      expect(element.classList).toContain("host-class");
+      expect(element.style.margin).toBe("4px");
+      expect(element.id).toBe("host-id");
+    },
+  );
 });

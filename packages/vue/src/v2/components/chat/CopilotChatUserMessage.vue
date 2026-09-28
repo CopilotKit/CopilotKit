@@ -50,10 +50,16 @@ const props = withDefaults(
     onSwitchToBranch?: (
       payload: CopilotChatUserMessageOnSwitchToBranchProps,
     ) => void;
+    /**
+     * Render the message as markdown (code, lists, emphasis, links, tables).
+     * Defaults to `true`; set `false` to show the text as typed.
+     */
+    markdown?: boolean;
   }>(),
   {
     branchIndex: 0,
     numberOfBranches: 1,
+    markdown: true,
   },
 );
 
@@ -241,8 +247,12 @@ onBeforeUnmount(() => {
       >
         <div
           class="cpk:prose cpk:dark:prose-invert cpk:bg-muted cpk:text-foreground cpk:relative cpk:max-w-[80%] cpk:min-w-0 cpk:rounded-2xl cpk:px-4 cpk:py-2 cpk:inline-block cpk:break-words"
+          :class="{ 'cpk:whitespace-pre-wrap': !markdown }"
+          :data-multiline="isMultiline ? 'true' : undefined"
         >
+          <template v-if="!markdown">{{ flattenedContent }}</template>
           <StreamMarkdown
+            v-else
             class="copilot-chat-user-markdown"
             :content="userMarkdown"
             :components="userMarkdownComponents"
@@ -263,7 +273,7 @@ onBeforeUnmount(() => {
       >
         <div
           data-testid="copilot-user-toolbar"
-          class="cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:justify-end cpk:-mr-1 cpk:mt-1 cpk:opacity-0 cpk:transition-opacity cpk:duration-150 cpk:group-hover:opacity-100 cpk:focus-within:opacity-100"
+          class="cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:justify-end cpk:-mr-1 cpk:mt-1 cpk:invisible cpk:group-hover:visible"
         >
           <div class="cpk:flex cpk:items-center cpk:gap-0.5 cpk:justify-end">
             <slot name="toolbar-items" />

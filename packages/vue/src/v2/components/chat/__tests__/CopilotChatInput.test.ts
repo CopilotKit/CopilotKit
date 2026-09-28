@@ -1133,4 +1133,63 @@ describe("CopilotChatInput layout prop", () => {
     // The + menu now has an item, so it's enabled even without onAddFile.
     expect(getAddMenuButton().disabled).toBe(false);
   });
+
+  it("keeps a custom start-transcribe-button in the toolbar in very narrow inputs", async () => {
+    const { container } = renderWithProvider({
+      template: `
+        <CopilotChatConfigurationProvider :thread-id="TEST_THREAD_ID">
+          <CopilotChatInput @submit-message="() => {}" @start-transcribe="() => {}">
+            <template #start-transcribe-button="{ onClick }">
+              <button data-testid="custom-mic" @click="onClick">Mic</button>
+            </template>
+          </CopilotChatInput>
+        </CopilotChatConfigurationProvider>
+      `,
+    });
+
+    mockLayoutMetrics(container, { gridWidth: 280 });
+    await fireEvent.update(screen.getByRole("textbox"), "hi");
+    await waitFor(() =>
+      expect(document.querySelector("[data-layout]")).not.toBeNull(),
+    );
+
+    expect(screen.getByTestId("custom-mic")).toBeDefined();
+    // Nothing folded into the + menu, so it stays disabled without onAddFile.
+    expect(getAddMenuButton().disabled).toBe(true);
+  });
+});
+
+describe("CopilotChatInput markdown preview", () => {
+  const preview = () =>
+    screen.getByTestId("copilot-chat-input-textarea-preview");
+
+  it("hides the textarea's glyphs without touching its text color", () => {
+    renderWithProvider();
+    const textarea = screen.getByRole("textbox");
+    expect(textarea.classList).toContain("cpk-md-input");
+    expect(textarea.classList).not.toContain("cpk:text-transparent");
+  });
+
+  it("copies the textarea's typography and text color onto the preview", async () => {
+    renderWithProvider();
+    const textarea = screen.getByRole("textbox");
+    // What host CSS restyling the textarea would do.
+    Object.assign(textarea.style, {
+      fontSize: "13px",
+      lineHeight: "20px",
+      letterSpacing: "0.5px",
+      paddingLeft: "20px",
+      tabSize: "2",
+      color: "rgb(200, 0, 0)",
+    });
+
+    await fireEvent.update(textarea, "- item");
+
+    await waitFor(() => expect(preview().style.fontSize).toBe("13px"));
+    expect(preview().style.lineHeight).toBe("20px");
+    expect(preview().style.letterSpacing).toBe("0.5px");
+    expect(preview().style.paddingLeft).toBe("20px");
+    expect(preview().style.getPropertyValue("tab-size")).toBe("2");
+    expect(preview().style.color).toBe("rgb(200, 0, 0)");
+  });
 });

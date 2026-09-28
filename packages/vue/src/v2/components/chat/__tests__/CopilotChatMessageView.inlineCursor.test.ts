@@ -87,3 +87,72 @@ describe("inline cursor", () => {
     await waitFor(() => expect(anchors().at(-1)?.textContent).toBe("nested"));
   });
 });
+
+describe("inline cursor (Vue-specific semantics)", () => {
+  const renderWithSlot = (
+    slot: "cursor" | "assistant-message",
+    props: { inlineCursor?: boolean } = {},
+  ) =>
+    render(
+      defineComponent({
+        components: {
+          CopilotKitProvider,
+          CopilotChatConfigurationProvider,
+          CopilotChatMessageView,
+        },
+        setup() {
+          return {
+            messages: [question, reply("First step.")],
+            props,
+            slot,
+          };
+        },
+        template: `
+          <CopilotKitProvider runtime-url="/api/copilotkit">
+            <CopilotChatConfigurationProvider thread-id="inline-cursor">
+              <CopilotChatMessageView
+                :messages="messages"
+                :is-running="true"
+                v-bind="props"
+              >
+                <template v-if="slot === 'cursor'" #cursor>
+                  <span data-testid="custom-cursor" />
+                </template>
+                <template
+                  v-if="slot === 'assistant-message'"
+                  #assistant-message="{ message, showCursor }"
+                >
+                  <p data-testid="custom-reply" :data-show-cursor="showCursor">
+                    {{ message.content }}
+                  </p>
+                </template>
+              </CopilotChatMessageView>
+            </CopilotChatConfigurationProvider>
+          </CopilotKitProvider>
+        `,
+      }),
+    );
+
+  it("keeps a custom cursor slot below the list", async () => {
+    renderWithSlot("cursor");
+    await waitFor(() => expect(anchors()).toHaveLength(1));
+    expect(streamingReply()).toBeNull();
+    expect(screen.getByTestId("custom-cursor")).toBeDefined();
+  });
+
+  it("keeps the cursor below the list with a custom assistant-message slot", () => {
+    renderWithSlot("assistant-message");
+    expect(
+      screen.getByTestId("custom-reply").getAttribute("data-show-cursor"),
+    ).toBe("false");
+    expect(screen.getByTestId("copilot-loading-cursor")).toBeDefined();
+  });
+
+  it("hands the cursor to a custom assistant-message slot when inlineCursor is set", () => {
+    renderWithSlot("assistant-message", { inlineCursor: true });
+    expect(
+      screen.getByTestId("custom-reply").getAttribute("data-show-cursor"),
+    ).toBe("true");
+    expect(screen.queryByTestId("copilot-loading-cursor")).toBeNull();
+  });
+});

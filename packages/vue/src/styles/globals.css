@@ -7,7 +7,10 @@
 
 @custom-variant dark (&:is(.dark *));
 
-[data-copilotkit] {
+/* Tokens are declared on the outermost CopilotKit root only (`:where()` keeps
+   the specificity of `[data-copilotkit]`), so nested roots inherit them and
+   host overrides on the outer root reach every component inside it. */
+[data-copilotkit]:where(:not([data-copilotkit] [data-copilotkit])) {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -23,7 +26,7 @@
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
+  --destructive-foreground: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
@@ -46,8 +49,8 @@
 /* Dark surfaces step up in lightness (background → card/popover → muted) so
    raised elements read without heavy borders; borders and inputs are
    translucent so they sit well on any of those surfaces. */
-.dark [data-copilotkit],
-[data-copilotkit].dark {
+.dark [data-copilotkit]:where(:not([data-copilotkit] [data-copilotkit])),
+[data-copilotkit].dark:where(:not([data-copilotkit] [data-copilotkit])) {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -63,7 +66,7 @@
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
@@ -149,7 +152,6 @@
   [data-copilotkit] {
     color: var(--foreground);
     background-color: var(--background);
-    color-scheme: light;
   }
 
   /* Native controls (audio players, scrollbars, form fields) follow the theme. */
@@ -686,7 +688,7 @@
   .cpk-intro-stagger
   [data-testid="copilot-chat-suggestion-view"]
   > * {
-  animation: cpk-intro 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: cpk-intro 480ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   animation-delay: var(--cpk-intro-delay, 0ms);
 }
 
@@ -745,14 +747,7 @@
   [data-streaming-cursor]
   > *
   > :last-child
-  [data-cursor-anchor]::after,
-[data-copilotkit]
-  [data-streaming-cursor]:not(
-    :has(
-      > * > :last-child[data-cursor-anchor],
-      > * > :last-child [data-cursor-anchor]
-    )
-  )::after {
+  [data-cursor-anchor]::after {
   content: "";
   display: inline-block;
   width: 11px;
@@ -764,6 +759,8 @@
   animation: cpk-cursor 0.9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
+/* A rule of its own: in a selector list, a browser without :has() would drop
+   the inline cursor above too. */
 [data-copilotkit]
   [data-streaming-cursor]:not(
     :has(
@@ -771,8 +768,14 @@
       > * > :last-child [data-cursor-anchor]
     )
   )::after {
+  content: "";
   display: block;
+  width: 11px;
+  height: 11px;
   margin: 0.5rem 0 0 0.25rem;
+  border-radius: 9999px;
+  background-color: var(--foreground);
+  animation: cpk-cursor 0.9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -782,9 +785,32 @@
   }
 }
 
-/* Composer markdown preview (markdown-input-highlight.ts): list markers and
-   links. The preview sits under a transparent textarea with identical metrics,
-   so nothing here may change glyph widths: color and underline only. */
+/* Composer markdown preview (markdown-input-highlight.ts). The textarea on top
+   draws only the caret, selection and placeholder: its glyphs are hidden with
+   text-fill-color, not `color`, so host CSS that colors textareas never shows
+   the text twice. */
+[data-copilotkit] .cpk-md-input {
+  -webkit-text-fill-color: transparent;
+}
+
+[data-copilotkit] .cpk-md-input::placeholder {
+  -webkit-text-fill-color: currentcolor;
+}
+
+/* Forced colors repaint text in system colors: show the textarea's own text
+   instead of the preview. */
+@media (forced-colors: active) {
+  [data-copilotkit] .cpk-md-preview {
+    display: none;
+  }
+
+  [data-copilotkit] .cpk-md-input {
+    -webkit-text-fill-color: currentcolor;
+  }
+}
+
+/* The preview's list markers and links. It shares the textarea's metrics, so
+   nothing here may change glyph widths: color and underline only. */
 [data-copilotkit] .cpk-md-preview .cpk-md-syntax,
 [data-copilotkit] .cpk-md-preview .cpk-md-list-marker {
   color: var(--muted-foreground);

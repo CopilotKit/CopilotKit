@@ -322,6 +322,9 @@ describe("CopilotChatAttachmentQueue", () => {
       );
 
       expect(container.querySelector("audio[controls]")).toBeNull();
+      expect(getByTestId("copilot-chat-attachment-audio-player")).toBe(
+        getByLabelText("Play audio"),
+      );
       expect(
         getByTestId("copilot-chat-attachment-audio-filename").textContent,
       ).toContain("voice-memo.wav");
