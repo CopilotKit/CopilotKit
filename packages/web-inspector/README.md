@@ -196,7 +196,9 @@ this mode, and it does not read or overwrite the development Inspector layout.
 Header changes and window focus refresh the grant. A denied context or embedded
 read clears the production surface. The Runtime still resolves permissions for
 every data request; this display check does not replace server authorization.
-The current embedded Learning lists require project-wide Learning permission.
+Learning-only grants can name specific agents. Insights, Skills, lineage, and
+Insight exports follow the selected agent within that grant. The product API
+checks the scope of supporting evidence and loads on every read.
 
 Preview the actual shell locally with `intelligenceMode=production` alongside the
 workbench's `intelligenceAppUrl` query parameter. Its data remains fixture data.

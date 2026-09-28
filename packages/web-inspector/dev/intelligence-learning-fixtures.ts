@@ -9,80 +9,110 @@ export function intelligenceLearningFixture(
     request.query?.from ??
     new Date(Date.parse(to) - 7 * 86400000).toISOString();
   const at = new Date(Date.parse(to) - 3600000).toISOString();
-  const id = "10000000-0000-4000-8000-000000000001";
   const actor = { type: "operator", id: "alex@example.test" };
-  const insight = {
-    id: "insight-1",
-    statement: "Check for duplicate charges before issuing a refund",
-    impact: "Avoid repeat refunds for the same order",
+  const records = [
+    {
+      agentId: "support",
+      id: "10000000-0000-4000-8000-000000000001",
+      insightId: "insight-1",
+      name: "refund-policy",
+      statement: "Check for duplicate charges before issuing a refund",
+      impact: "Avoid repeat refunds for the same order",
+      topic: "Refunds",
+      count: 8,
+      loads: 12,
+      threadId: "fixture-thread-1",
+      runId: "fixture-run-1",
+    },
+    {
+      agentId: "billing",
+      id: "10000000-0000-4000-8000-000000000002",
+      insightId: "insight-2",
+      name: "invoice-reference",
+      statement:
+        "Include the invoice reference when answering billing questions",
+      impact: "Reduce follow-up questions about invoices",
+      topic: "Billing questions",
+      count: 3,
+      loads: 5,
+      threadId: "fixture-thread-2",
+      runId: "fixture-run-2",
+    },
+  ].filter(
+    (record) =>
+      !request.query?.agentId || request.query.agentId === record.agentId,
+  );
+  const insightOf = (record: (typeof records)[number]) => ({
+    id: record.insightId,
+    statement: record.statement,
+    impact: record.impact,
     createdAt: at,
     learningRunId: "learning-run-1",
     status: "active",
-  };
+  });
   if (request.path === "/api/v1/learning/insights")
     return {
-      data: [
-        {
-          ...insight,
-          containerId: "support",
-          relatedTopic: "Refunds",
-          contributingConversations: 8,
-          archivedAt: null,
-        },
-      ],
+      data: records.map((record) => ({
+        ...insightOf(record),
+        containerId: record.agentId,
+        relatedTopic: record.topic,
+        contributingConversations: record.count,
+        archivedAt: null,
+      })),
       nextCursor: null,
     };
   if (request.path === "/api/v1/learning/skills")
     return {
-      data: [
-        {
-          id,
-          containerId: "support",
-          name: "refund-policy",
-          status: "published",
-          createdAt: at,
-          liveVersion: {
-            skillVersionId: "version-3",
-            revision: 3,
-            registryRevision: 7,
-          },
-          reviewer: actor,
-          reviewedAt: at,
-          delivery: { enabled: false, lastChangedBy: actor, lastChangedAt: at },
-          loads: { count: 12, from, to },
+      data: records.map((record) => ({
+        id: record.id,
+        containerId: record.agentId,
+        name: record.name,
+        status: "published",
+        createdAt: at,
+        liveVersion: {
+          skillVersionId: `version-3-${record.agentId}`,
+          revision: 3,
+          registryRevision: 7,
         },
-      ],
+        reviewer: actor,
+        reviewedAt: at,
+        delivery: { enabled: false, lastChangedBy: actor, lastChangedAt: at },
+        loads: { count: record.loads, from, to },
+      })),
       nextCursor: null,
     };
-  if (request.path === `/api/v1/learning/skills/${id}/lineage`)
+  const record = records.find(
+    (entry) => request.path === `/api/v1/learning/skills/${entry.id}/lineage`,
+  );
+  if (record)
     return {
       skill: {
-        id,
-        containerId: "support",
-        name: "refund-policy",
+        id: record.id,
+        containerId: record.agentId,
+        name: record.name,
         status: "published",
         createdAt: at,
       },
       contributingConversations: [
-        { threadId: "fixture-thread-1", insightIds: ["insight-1"] },
+        { threadId: record.threadId, insightIds: [record.insightId] },
       ],
-      insights: [insight],
+      insights: [insightOf(record)],
       reviews: [
         {
-          candidateId: "candidate-1",
+          candidateId: `candidate-${record.agentId}`,
           event: "approved",
           operation: "update",
           actor,
           occurredAt: at,
-          skillVersionId: "version-3",
+          skillVersionId: `version-3-${record.agentId}`,
           publishedRegistryRevision: 7,
         },
       ],
       versions: [
         {
-          skillVersionId: "version-3",
+          skillVersionId: `version-3-${record.agentId}`,
           revision: 3,
-          name: "refund-policy",
+          name: record.name,
           status: "published",
           createdAt: at,
           publishedRegistryRevision: 7,
@@ -93,9 +123,9 @@ export function intelligenceLearningFixture(
           loads: {
             data: [
               {
-                runId: "fixture-run-1",
-                threadId: "fixture-thread-1",
-                agentId: "support",
+                runId: record.runId,
+                threadId: record.threadId,
+                agentId: record.agentId,
                 occurredAt: at,
               },
             ],

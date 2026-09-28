@@ -68,10 +68,7 @@ export function intelligenceSections(
       ? ["analytics" as const]
       : []),
     ...(has("governance.record") ? ["governance" as const] : []),
-    // The embedded Learning lists currently require a project-wide grant.
-    ...(access.permissions["learning.insights_skills"] === "*"
-      ? ["memories" as const]
-      : []),
+    ...(has("learning.insights_skills") ? ["memories" as const] : []),
   ];
 }
 

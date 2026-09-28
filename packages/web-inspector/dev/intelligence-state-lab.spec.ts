@@ -123,3 +123,45 @@ test("Topics fixture describes an equal previous window only when requested", ()
       .body,
   ).not.toHaveProperty("comparison");
 });
+
+test("Learning fixtures follow the selected agent across lists and lineage", () => {
+  const query = { agentId: "billing" };
+  expect(
+    intelligenceFixture({
+      method: "GET",
+      path: "/api/v1/learning/insights",
+      query,
+    }).body,
+  ).toMatchObject({
+    data: [{ id: "insight-2", contributingConversations: 3 }],
+  });
+  expect(
+    intelligenceFixture({
+      method: "GET",
+      path: "/api/v1/learning/skills",
+      query,
+    }).body,
+  ).toMatchObject({
+    data: [
+      { id: "10000000-0000-4000-8000-000000000002", name: "invoice-reference" },
+    ],
+  });
+  expect(
+    intelligenceFixture({
+      method: "GET",
+      path: "/api/v1/learning/skills/10000000-0000-4000-8000-000000000002/lineage",
+      query,
+    }).body,
+  ).toMatchObject({
+    contributingConversations: [
+      { threadId: "fixture-thread-2", insightIds: ["insight-2"] },
+    ],
+  });
+  expect(
+    intelligenceFixture({
+      method: "GET",
+      path: "/api/v1/learning/skills/10000000-0000-4000-8000-000000000001/lineage",
+      query,
+    }).status,
+  ).toBe(404);
+});

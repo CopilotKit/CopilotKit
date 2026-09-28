@@ -139,3 +139,44 @@ test("production preserves development state and never opens development data su
   ).toBe("development-state-sentinel");
   expect(legacyRequests).toEqual([]);
 });
+
+test("a Learning-only agent grant opens Learning without developer controls or another agent", async ({
+  page,
+}) => {
+  await page.route("https://intelligence.example/**", (route) =>
+    route.fulfill({
+      contentType: "text/html",
+      body: "<!doctype html><title>Learning</title>",
+    }),
+  );
+  await page.route("**/inspector-intelligence", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        version: 1,
+        agents: ["support", "billing"],
+        grant: {
+          permissions: { "learning.insights_skills": { agents: ["support"] } },
+        },
+      }),
+    }),
+  );
+  await page.goto(url);
+  const inspector = page.locator("cpk-web-inspector");
+  await expect(inspector.locator("[data-inspector-menu-key]")).toHaveCount(1);
+  await expect(
+    inspector.locator('[data-inspector-menu-key="memories"]'),
+  ).toBeVisible();
+  await expect(inspector.locator('iframe[title="Learning"]')).toHaveAttribute(
+    "src",
+    /agentId=support/,
+  );
+  await expect(
+    inspector.getByRole("button", { name: "Workbench", exact: true }),
+  ).toHaveCount(0);
+  await inspector.getByRole("button", { name: /Select agent scope:/ }).click();
+  await expect(
+    inspector.getByRole("button", { name: "billing", exact: true }),
+  ).toHaveCount(0);
+});

@@ -112,3 +112,17 @@ test("identity changes cancel stale grants and teardown stops subsequent reads",
     transport.mockRestore();
   }
 });
+
+test("Learning-only scope exposes the existing Learning section for its granted agent", () => {
+  const access = parseIntelligenceAccess({
+    version: 1,
+    agents: ["support", "billing"],
+    grant: {
+      permissions: { "learning.insights_skills": { agents: ["support"] } },
+    },
+  });
+  expect(access?.agents).toEqual(["support"]);
+  expect(intelligenceSections(access, "support")).toEqual(["memories"]);
+  expect(intelligenceSections(access, "billing")).toEqual([]);
+  expect(intelligenceSections(access)).toEqual([]);
+});

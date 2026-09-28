@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { IntelligenceReadRequest } from "../src/lib/intelligence-relay.js";
+import { intelligenceLearningFixture } from "./intelligence-learning-fixtures.js";
 
 interface FixtureJob {
   readonly id: string;
@@ -51,14 +52,18 @@ export function intelligenceExportFixture(
   if (!job) return { status: 404, body: {} };
   if (!match[2]) return { status: 200, body: exportJob(job, true) };
   const metadata = exportJob(job, true).metadata;
-  const runId =
-    job.filters.outcome === "error" ? "fixture-run-2" : "fixture-run-1";
-  const rows = [{ runId, tokens: 840 }];
+  const rows = exportRows(job);
+  const columns = exportColumns(job);
   return {
     status: 200,
     body:
       job.format === "csv"
-        ? `runId,tokens\r\n${runId},840\r\n`
+        ? [
+            columns.join(","),
+            ...rows.map((row) =>
+              columns.map((column) => csvCell(row[column])).join(","),
+            ),
+          ].join("\r\n") + "\r\n"
         : JSON.stringify({ metadata, data: rows }),
     contentType:
       job.format === "csv" ? "text/csv; charset=utf-8" : "application/json",
@@ -69,20 +74,21 @@ export function intelligenceExportFixture(
 /** Shapes a queued or completed fixture job using the public export fields. */
 function exportJob(job: FixtureJob, completed: boolean) {
   const now = new Date().toISOString();
+  const rows = exportRows(job);
   const metadata = {
     exportId: job.id,
     kind: job.kind,
     format: job.format,
-    definitions: [
-      { name: "runId", description: "Run identifier" },
-      { name: "tokens", description: "Total reported tokens" },
-    ],
+    definitions: exportColumns(job).map((name) => ({
+      name,
+      description: `Recorded ${name}`,
+    })),
     filters: job.filters,
     from: job.from,
     to: job.to,
     captureStartedAt: "2026-09-01T00:00:00.000Z",
     generatedAt: now,
-    rowCount: 1,
+    rowCount: rows.length,
     rowLimit: 100000,
     truncated: false,
     truncatedReason: null,
@@ -91,7 +97,7 @@ function exportJob(job: FixtureJob, completed: boolean) {
     ...job,
     status: completed ? "completed" : "queued",
     requestedBy: { type: "operator", id: "fixture-reviewer" },
-    rowCount: completed ? 1 : null,
+    rowCount: completed ? rows.length : null,
     truncated: false,
     truncatedReason: null,
     byteSize: completed ? 100 : null,
@@ -102,4 +108,64 @@ function exportJob(job: FixtureJob, completed: boolean) {
     expiresAt: new Date(Date.now() + 86400000).toISOString(),
     metadata: completed ? metadata : null,
   };
+}
+
+/** Reuses the Learning list fixture so export scope and screen scope match. */
+function exportRows(job: FixtureJob): Record<string, unknown>[] {
+  if (job.kind !== "insights")
+    return [
+      {
+        runId:
+          job.filters.outcome === "error" ? "fixture-run-2" : "fixture-run-1",
+        tokens: 840,
+      },
+    ];
+  const response = intelligenceLearningFixture({
+    method: "GET",
+    path: "/api/v1/learning/insights",
+    query: {
+      from: job.from,
+      to: job.to,
+      ...(typeof job.filters.agentId === "string"
+        ? { agentId: job.filters.agentId }
+        : {}),
+    },
+  });
+  if (
+    !isRecord(response) ||
+    !Array.isArray(response.data) ||
+    !response.data.every(isRecord)
+  )
+    throw new Error("Invalid Insight fixture");
+  return response.data;
+}
+
+/** Stable columns also describe empty Insight exports. */
+function exportColumns(job: FixtureJob): string[] {
+  return job.kind === "insights"
+    ? [
+        "id",
+        "containerId",
+        "statement",
+        "impact",
+        "relatedTopic",
+        "contributingConversations",
+        "createdAt",
+        "learningRunId",
+        "status",
+        "archivedAt",
+      ]
+    : ["runId", "tokens"];
+}
+
+/** Quotes CSV delimiters and prevents spreadsheet formulas in fixture text. */
+function csvCell(value: unknown): string {
+  let text = value === null || value === undefined ? "" : String(value);
+  if (/^[=+\-@\t\r]/u.test(text)) text = `'${text}`;
+  return /[",\r\n]/u.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+/** Narrows fixture objects without coercing their contents. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
