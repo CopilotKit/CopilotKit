@@ -14,7 +14,7 @@ export function intelligenceLearningFixture(
     {
       agentId: "support",
       id: "10000000-0000-4000-8000-000000000001",
-      insightId: "insight-1",
+      insightId: "20000000-0000-4000-8000-000000000001",
       name: "refund-policy",
       statement: "Check for duplicate charges before issuing a refund",
       impact: "Avoid repeat refunds for the same order",
@@ -27,7 +27,7 @@ export function intelligenceLearningFixture(
     {
       agentId: "billing",
       id: "10000000-0000-4000-8000-000000000002",
-      insightId: "insight-2",
+      insightId: "20000000-0000-4000-8000-000000000002",
       name: "invoice-reference",
       statement:
         "Include the invoice reference when answering billing questions",
@@ -75,6 +75,38 @@ export function intelligenceLearningFixture(
       })),
       nextCursor: null,
     };
+  const evidenceInsight = records.find(
+    (entry) =>
+      request.path ===
+      `/api/v1/learning/insights/${entry.insightId}/conversations`,
+  );
+  if (evidenceInsight) {
+    const evidence = Array.from(
+      { length: evidenceInsight.count },
+      (_, index) => ({
+        threadId: index
+          ? `${evidenceInsight.threadId}-${index + 1}`
+          : evidenceInsight.threadId,
+      }),
+    );
+    const offset = Number(
+      request.query?.cursor?.replace("fixtureEvidence", "") ?? 0,
+    );
+    const limit = Number(request.query?.limit ?? 2);
+    return {
+      insight: {
+        id: evidenceInsight.insightId,
+        containerId: evidenceInsight.agentId,
+        createdAt: at,
+      },
+      total: evidence.length,
+      data: evidence.slice(offset, offset + limit),
+      nextCursor:
+        offset + limit < evidence.length
+          ? `fixtureEvidence${offset + limit}`
+          : null,
+    };
+  }
   if (request.path === "/api/v1/learning/skills")
     return {
       asOf: request.query?.asOf ?? "fixtureSkillCapture",

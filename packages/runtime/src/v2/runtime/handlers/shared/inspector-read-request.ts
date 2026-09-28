@@ -33,7 +33,7 @@ export function parseInspectorReadRequest(
   )
     return request;
   const match =
-    /^\/api\/v1\/(?:tools\/([^/]+)|conversations\/([^/]+)\/replay|governance\/runs\/([^/]+)|learning\/skills\/([^/]+)\/(?:lineage|runs))$/u.exec(
+    /^\/api\/v1\/(?:tools\/([^/]+)|conversations\/([^/]+)\/replay|governance\/runs\/([^/]+)|learning\/skills\/([^/]+)\/(?:lineage|runs)|learning\/insights\/([^/]+)\/conversations)$/u.exec(
       request.path,
     );
   if (!match) return null;

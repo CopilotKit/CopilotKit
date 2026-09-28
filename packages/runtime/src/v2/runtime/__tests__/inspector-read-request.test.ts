@@ -125,3 +125,23 @@ test("accepts scoped Skill loading runs without widening the read-only route bou
     parseInspectorReadRequest({ ...read, path: `${read.path}/delete` }),
   ).toBeNull();
 });
+
+test("accepts Insight evidence reads while rejecting traversal and mutations", () => {
+  const read = {
+    method: "GET",
+    path: "/api/v1/learning/insights/10000000-0000-4000-8000-000000000001/conversations",
+    query: { agentId: "support", cursor: "page2" },
+  };
+  expect(parseInspectorReadRequest(read)).toEqual(read);
+  expect(parseInspectorReadRequest({ ...read, method: "POST" })).toBeNull();
+  for (const id of ["%2e%2e", "%2fkeys", "%252fkeys", "%5ckeys", "%00"])
+    expect(
+      parseInspectorReadRequest({
+        ...read,
+        path: `/api/v1/learning/insights/${id}/conversations`,
+      }),
+    ).toBeNull();
+  expect(
+    parseInspectorReadRequest({ ...read, path: `${read.path}/delete` }),
+  ).toBeNull();
+});

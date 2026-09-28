@@ -124,6 +124,7 @@ function exportRows(job: FixtureJob): Record<string, unknown>[] {
   if (job.kind === "model_usage") return modelUsageRows(job);
   if (
     job.kind !== "insights" &&
+    job.kind !== "insight_conversations" &&
     job.kind !== "skills" &&
     job.kind !== "skill_runs" &&
     job.kind !== "activity" &&
@@ -151,6 +152,27 @@ function exportRows(job: FixtureJob): Record<string, unknown>[] {
       ),
     ),
   };
+  if (job.kind === "insight_conversations") {
+    const rows: Record<string, unknown>[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = intelligenceLearningFixture({
+        method: "GET",
+        path: `/api/v1/learning/insights/${encodeURIComponent(String(job.filters.insightId))}/conversations`,
+        query: { ...query, ...(cursor ? { cursor } : {}) },
+      });
+      if (
+        !isRecord(page) ||
+        !Array.isArray(page.data) ||
+        !page.data.every(isRecord)
+      )
+        throw new Error("Invalid Insight evidence fixture");
+      rows.push(...page.data);
+      cursor =
+        typeof page.nextCursor === "string" ? page.nextCursor : undefined;
+    } while (cursor);
+    return rows;
+  }
   if (job.kind === "tool_calls") return toolCallExportRows(job, query);
   const response =
     job.kind === "runs"
@@ -272,6 +294,7 @@ function exportColumns(job: FixtureJob): string[] {
       "medianMs",
       "lastCalledAt",
     ];
+  if (job.kind === "insight_conversations") return ["threadId"];
   if (job.kind === "skill_runs")
     return [
       "runId",

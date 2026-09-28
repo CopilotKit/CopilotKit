@@ -133,7 +133,12 @@ test("Learning fixtures follow the selected agent across lists and lineage", () 
       query,
     }).body,
   ).toMatchObject({
-    data: [{ id: "insight-2", contributingConversations: 3 }],
+    data: [
+      {
+        id: "20000000-0000-4000-8000-000000000002",
+        contributingConversations: 3,
+      },
+    ],
   });
   expect(
     intelligenceFixture({
@@ -158,7 +163,10 @@ test("Learning fixtures follow the selected agent across lists and lineage", () 
     }).body,
   ).toMatchObject({
     contributingConversations: [
-      { threadId: "fixture-thread-2", insightIds: ["insight-2"] },
+      {
+        threadId: "fixture-thread-2",
+        insightIds: ["20000000-0000-4000-8000-000000000002"],
+      },
     ],
   });
   expect(

@@ -36,14 +36,14 @@ test("Insight export fixtures use the same selected-agent records as the Learnin
     },
     data: [
       {
-        id: "insight-2",
+        id: "20000000-0000-4000-8000-000000000002",
         contributingConversations: 3,
         statement:
           "Include the invoice reference when answering billing questions",
       },
     ],
   });
-  expect(file.body).not.toContain("insight-1");
+  expect(file.body).not.toContain("20000000-0000-4000-8000-000000000001");
 });
 
 test.each(["json", "csv"])(
@@ -208,5 +208,73 @@ test("Skill run fixtures and exports share the selected Skill, agent and cutoff"
       expect(file.body.split("\r\n")[0]).toBe(
         "runId,threadId,agentId,loadCount,firstLoadedAt,lastLoadedAt",
       );
+  }
+});
+
+test("Insight evidence fixtures page and export all contributing identifiers", () => {
+  const insightId = "20000000-0000-4000-8000-000000000001";
+  const query = {
+    from: "2026-09-20T00:00:00.000Z",
+    to: "2026-09-27T00:00:00.000Z",
+    agentId: "support",
+  };
+  const path = `/api/v1/learning/insights/${insightId}/conversations`;
+  const first = intelligenceLearningFixture({ method: "GET", path, query });
+  expect(first).toMatchObject({
+    total: 8,
+    data: [
+      { threadId: "fixture-thread-1" },
+      { threadId: "fixture-thread-1-2" },
+    ],
+    nextCursor: "fixtureEvidence2",
+  });
+  const second = intelligenceLearningFixture({
+    method: "GET",
+    path,
+    query: { ...query, cursor: "fixtureEvidence2" },
+  });
+  expect(second).toMatchObject({
+    total: 8,
+    data: [
+      { threadId: "fixture-thread-1-3" },
+      { threadId: "fixture-thread-1-4" },
+    ],
+  });
+  for (const format of ["json", "csv"]) {
+    const created = intelligenceExportFixture({
+      method: "POST",
+      path: "/api/v1/exports",
+      body: {
+        kind: "insight_conversations",
+        format,
+        from: query.from,
+        to: query.to,
+        filters: { insightId, agentId: "support" },
+      },
+    });
+    const job = created?.body;
+    if (
+      typeof job !== "object" ||
+      job === null ||
+      !("id" in job) ||
+      typeof job.id !== "string"
+    )
+      throw new Error("Missing job");
+    const file = intelligenceExportFixture({
+      method: "GET",
+      path: `/api/v1/exports/${job.id}/content`,
+    });
+    if (typeof file?.body !== "string") throw new Error("Missing content");
+    expect(file.body).toContain("fixture-thread-1-8");
+    expect(file.body).not.toContain("fixture-thread-2");
+    if (format === "json")
+      expect(JSON.parse(file.body)).toMatchObject({
+        metadata: { rowCount: 8 },
+        data: Array.from({ length: 8 }, (_, index) => ({
+          threadId: index
+            ? `fixture-thread-1-${index + 1}`
+            : "fixture-thread-1",
+        })),
+      });
   }
 });
