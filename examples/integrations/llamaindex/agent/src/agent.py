@@ -23,9 +23,29 @@ class StarterOpenAI(OpenAI):
         request_history = [
             message.model_copy(deep=True) for message in chat_history or []
         ]
+        latest_user_index = next(
+            (
+                index
+                for index in range(len(request_history) - 1, -1, -1)
+                if request_history[index].role == MessageRole.USER
+            ),
+            None,
+        )
+        restored_tool_ids = set()
         for index, message in enumerate(request_history):
             calls = message.additional_kwargs.get("ag_ui_tool_calls")
             if calls and message.role == MessageRole.ASSISTANT:
+                call_ids = {call["id"] for call in calls}
+                result_ids = set()
+                for following in request_history[index + 1 :]:
+                    if "tool_call_id" not in following.additional_kwargs:
+                        break
+                    result_ids.add(following.additional_kwargs["tool_call_id"])
+                # OpenAI rejects an assistant tool call unless every call has
+                # a following result. Interrupted calls stay as rendered text.
+                if not call_ids <= result_ids:
+                    continue
+                restored_tool_ids.update(call_ids)
                 rendered = "\n".join(
                     f"<tool_call><name>{call['name']}</name><arguments>{call['arguments']}</arguments></tool_call>"
                     for call in calls
@@ -51,25 +71,29 @@ class StarterOpenAI(OpenAI):
 
             if "tool_call_id" not in message.additional_kwargs:
                 continue
-            # The adapter adds state to the latest user-role message. Its
-            # converted tool result is not a user prompt, so move the state
-            # block to the preceding actual user message before re-roling it.
+            # The adapter adds current state to the latest user-role message.
+            # Old snapshots may also contain earlier state blocks; discard
+            # those rather than repeating stale state on every later turn.
             content = message.content or ""
             if content.startswith("<state>\n") and "</state>\n\n" in content:
                 state, result = content.split("</state>\n\n", 1)
-                prior_user = next(
-                    (
-                        previous
-                        for previous in reversed(request_history[:index])
-                        if previous.role == MessageRole.USER
-                        and "tool_call_id" not in previous.additional_kwargs
-                    ),
-                    None,
-                )
-                if prior_user is not None:
-                    prior_user.blocks.insert(0, TextBlock(text=f"{state}</state>\n\n"))
-                    message.blocks = [TextBlock(text=result.removesuffix("\n"))]
-            message.role = MessageRole.TOOL
+                if index == latest_user_index:
+                    prior_user = next(
+                        (
+                            previous
+                            for previous in reversed(request_history[:index])
+                            if previous.role == MessageRole.USER
+                            and "tool_call_id" not in previous.additional_kwargs
+                        ),
+                        None,
+                    )
+                    if prior_user is not None:
+                        prior_user.blocks.insert(0, TextBlock(text=f"{state}</state>\n\n"))
+                message.blocks = [TextBlock(text=result.removesuffix("\n"))]
+            if message.additional_kwargs["tool_call_id"] in restored_tool_ids:
+                message.role = MessageRole.TOOL
+            else:
+                message.additional_kwargs.pop("tool_call_id")
         return await super().astream_chat_with_tools(
             tools=tools,
             user_msg=user_msg,

@@ -21,6 +21,23 @@ os.environ.setdefault("OPENAI_API_KEY", "test")
 from src.agent import StarterOpenAI, change_theme_color
 
 
+def stream_response():
+    chunk = {
+        "id": "chatcmpl-test",
+        "object": "chat.completion.chunk",
+        "created": 0,
+        "model": "gpt-5-mini",
+        "choices": [
+            {"index": 0, "delta": {"content": "Done"}, "finish_reason": "stop"}
+        ],
+    }
+    return httpx.Response(
+        200,
+        headers={"content-type": "text/event-stream"},
+        text=f"data: {json.dumps(chunk)}\n\ndata: [DONE]\n\n",
+    )
+
+
 class MessagePayloadTest(unittest.TestCase):
     def test_first_and_second_turn_reject_unknown_openai_fields(self):
         requests = []
@@ -104,20 +121,7 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
                 return httpx.Response(
                     400, json={"error": "State attached to tool result"}
                 )
-            chunk = {
-                "id": "chatcmpl-test",
-                "object": "chat.completion.chunk",
-                "created": 0,
-                "model": "gpt-5-mini",
-                "choices": [
-                    {"index": 0, "delta": {"content": "Done"}, "finish_reason": "stop"}
-                ],
-            }
-            return httpx.Response(
-                200,
-                headers={"content-type": "text/event-stream"},
-                text=f"data: {json.dumps(chunk)}\n\ndata: [DONE]\n\n",
-            )
+            return stream_response()
 
         messages = [
             UserMessage(id="user-1", content="Set the theme to orange", role="user"),
@@ -179,6 +183,125 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             requests[0]["messages"][3]["content"], "Changing background to #f97316"
         )
+
+    async def test_interrupted_frontend_call_stays_text_without_tool_result(self):
+        requests = []
+
+        def respond(request):
+            body = json.loads(request.content)
+            requests.append(body)
+            messages = body["messages"]
+            if [message["role"] for message in messages] != [
+                "developer",
+                "user",
+                "assistant",
+                "user",
+            ] or any(message.get("tool_calls") for message in messages):
+                return httpx.Response(400, json={"error": "Unanswered tool call"})
+            return stream_response()
+
+        messages = [
+            UserMessage(id="user-1", content="Set the theme", role="user"),
+            AssistantMessage(
+                id="assistant-1",
+                content=None,
+                role="assistant",
+                tool_calls=[
+                    ToolCall(
+                        id="call-1",
+                        function=FunctionCall(
+                            name="change_theme_color",
+                            arguments='{"theme_color":"#f97316"}',
+                        ),
+                    )
+                ],
+            ),
+            UserMessage(id="user-2", content="Try again", role="user"),
+        ]
+        client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
+        workflow = AGUIChatWorkflow(
+            llm=StarterOpenAI(
+                model="gpt-5-mini", api_key="test", async_http_client=client
+            ),
+            frontend_tools=[change_theme_color],
+            system_prompt="You can change the background color.",
+        )
+        handler = workflow.run(
+            input_data=RunAgentInput(
+                thread_id="thread-1", run_id="run-3", messages=messages, state={}
+            )
+        )
+        async for _ in handler.stream_events():
+            pass
+        await handler
+        self.assertIn("<tool_call>", requests[0]["messages"][2]["content"])
+
+    async def test_later_turn_drops_state_from_old_tool_result(self):
+        requests = []
+
+        def respond(request):
+            body = json.loads(request.content)
+            requests.append(body)
+            messages = body["messages"]
+            state_count = sum(
+                (message.get("content") or "").count("<state>")
+                for message in messages
+            )
+            if state_count != 1:
+                return httpx.Response(400, json={"error": "Repeated state"})
+            return stream_response()
+
+        messages = [
+            UserMessage(id="user-1", content="Set the theme", role="user"),
+            AssistantMessage(
+                id="assistant-1",
+                content=None,
+                role="assistant",
+                tool_calls=[
+                    ToolCall(
+                        id="call-1",
+                        function=FunctionCall(
+                            name="change_theme_color",
+                            arguments='{"theme_color":"#f97316"}',
+                        ),
+                    )
+                ],
+            ),
+            ToolMessage(
+                id="tool-1",
+                content="<state>\n{'proverbs': ['old']}\n</state>\n\nChanging background to #f97316\n",
+                role="tool",
+                tool_call_id="call-1",
+            ),
+            UserMessage(id="user-2", content="What next?", role="user"),
+        ]
+        client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
+        workflow = AGUIChatWorkflow(
+            llm=StarterOpenAI(
+                model="gpt-5-mini", api_key="test", async_http_client=client
+            ),
+            frontend_tools=[change_theme_color],
+            system_prompt="You can change the background color.",
+        )
+        handler = workflow.run(
+            input_data=RunAgentInput(
+                thread_id="thread-1",
+                run_id="run-4",
+                messages=messages,
+                state={"proverbs": ["current"]},
+            )
+        )
+        async for _ in handler.stream_events():
+            pass
+        await handler
+        outbound = requests[0]["messages"]
+        self.assertEqual(
+            [message["role"] for message in outbound],
+            ["developer", "user", "assistant", "tool", "user"],
+        )
+        self.assertNotIn("<state>", outbound[3]["content"])
+        self.assertNotIn("old", json.dumps(outbound))
+        self.assertIn("current", outbound[4]["content"])
 
 
 if __name__ == "__main__":
