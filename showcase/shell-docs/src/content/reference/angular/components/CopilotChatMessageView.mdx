@@ -64,6 +64,10 @@ export class MessagesComponent {
   ID of the agent whose messages are being rendered. Used to resolve the matching activity-message renderer and the agent instance passed to it.
 </PropertyReference>
 
+<PropertyReference name="shouldRenderMessage" type="(message: Message) => boolean">
+  Decides which messages the view renders. Return `false` to hide a message. The filter is display only: a hidden message stays in the agent's history, and rows still use it to look up tool results. When omitted, every message renders. Pass it as `[shouldRenderMessage]="fn"`. `copilot-sidebar` and `copilot-popup` do not forward it. Pass a custom `chatComponent` that sets it.
+</PropertyReference>
+
 ### Assistant message slot inputs
 
 <PropertyReference name="assistantMessageComponent" type="Type<any>">

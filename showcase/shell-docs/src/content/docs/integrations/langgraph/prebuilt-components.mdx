@@ -142,6 +142,20 @@ All three components support the [slot system](/langgraph/custom-look-and-feel/s
 />
 ```
 
+## Hide sub-agent messages
+
+With the `langgraph-supervisor` pattern, the chat shows the worker's answer and then the supervisor's copy of it. Every worker message carries the worker's `name`, so you can hide it in the chat:
+
+```tsx
+const hideWorkers = (message: Message) => message.name !== "math_expert";
+
+<CopilotChat messageView={{ shouldRenderMessage: hideWorkers }} />
+```
+
+The filter is display only. The agent still receives the full history.
+
+The worker's name reaches the client with the next messages snapshot. Until then, a worker message shows while it streams, and it disappears when the snapshot arrives. [ag-ui #2847](https://github.com/ag-ui-protocol/ag-ui/issues/2847) tracks naming the message from the first token.
+
 ## Next Steps
 
 - [Custom Look & Feel](/langgraph/custom-look-and-feel) — Theme, restyle, or go fully headless with the slot system

@@ -30,6 +30,10 @@ import "@copilotkit/react-core/v2/styles.css";
 Optional render-prop function that receives the resolved state and pre-built message elements. When provided, the component calls this function instead of rendering the default message list layout. The callback receives `isRunning` (current running state), `messages` (the raw message array), and `messageElements` (an array of React elements built from the `assistantMessage` and `userMessage` slots).
 </PropertyReference>
 
+<PropertyReference name="shouldRenderMessage" type="(message: Message) => boolean">
+  Decides which messages the view renders. Return `false` to hide a message. The filter is display only: a hidden message stays in the agent's history, and rows still use it to look up tool results. When omitted, every message renders. Pass it from `CopilotChat`, `CopilotSidebar` or `CopilotPopup` with `messageView={{ shouldRenderMessage }}`. Use a stable function (defined outside the component, or with `useCallback`), so that the list does not recompute on every render.
+</PropertyReference>
+
 ## Slots
 
 All slot props follow the CopilotKit slot system: each accepts a replacement React component, a `className` string that is merged into the default component's classes, or a partial props object that extends the default component.
