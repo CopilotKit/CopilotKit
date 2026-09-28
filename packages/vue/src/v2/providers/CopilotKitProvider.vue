@@ -15,8 +15,10 @@ import { ToolCallStatus } from "@copilotkit/core";
 import type {
   CopilotKitCoreErrorCode,
   CopilotKitCoreSubscriber,
+  CopilotKitHeadersSource,
   FrontendTool,
 } from "@copilotkit/core";
+import { ɵwithHeaderDefaults } from "@copilotkit/core";
 import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
 import type {
   RuntimeEntitlementResponse,
@@ -204,16 +206,36 @@ const hasLocalAgents = computed(
   () => Object.keys(mergedAgents.value).length > 0,
 );
 
-const resolvedHeaders = computed(() =>
-  typeof props.headers === "function" ? props.headers() : props.headers,
-);
+// Whether `headers` is a builder, as its own computed so that a re-render
+// merely passing a NEW function of the same kind (e.g. a fresh inline arrow)
+// doesn't propagate: this computed's VALUE doesn't change, so Vue never marks
+// `headersSource` below dirty on that account. Reading `props.headers`
+// directly inside `headersSource` would defeat this — its exact identity
+// would then be tracked there instead.
+const isHeadersBuilder = computed(() => typeof props.headers === "function");
 
-const mergedHeaders = computed(() => {
-  const headers = resolvedHeaders.value;
-  if (!resolvedPublicKey.value) return headers;
-  if (headers[HEADER_NAME]) return headers;
-  return { ...headers, [HEADER_NAME]: resolvedPublicKey.value };
-});
+// Stable for the component's lifetime: reads `props.headers` fresh on every
+// call, so it is always current at send time (#1937), never during render.
+// The read below can return a sync record or an async promise depending on
+// what `props.headers` happens to be at call time, which
+// `CopilotKitHeadersSource`'s shape can't express in one function signature
+// (sync-only OR async-only) — same rationale as the cast inside
+// `ɵwithHeaderDefaults`.
+const latestHeaders = (() =>
+  typeof props.headers === "function"
+    ? props.headers()
+    : props.headers) as () => Record<string, string>;
+
+// The source handed to core. A record keeps today's identity semantics (its
+// own reference changes propagate); a builder is represented by the stable
+// `latestHeaders` above, so only `isHeadersBuilder` and `resolvedPublicKey`
+// actually drive recomputation.
+const headersSource = computed<CopilotKitHeadersSource>(() =>
+  ɵwithHeaderDefaults(
+    isHeadersBuilder.value ? latestHeaders : props.headers,
+    resolvedPublicKey.value ? { [HEADER_NAME]: resolvedPublicKey.value } : {},
+  ),
+);
 
 const chatApiEndpoint = computed(
   () =>
@@ -482,7 +504,7 @@ const createCopilotKit = () => {
         : props.useSingleEndpoint === false
           ? "rest"
           : "auto",
-    headers: mergedHeaders.value,
+    headers: headersSource.value,
     credentials: props.credentials,
     messageFilter: props.messageFilter,
     properties: resolvedProperties.value,
@@ -601,7 +623,7 @@ function syncRuntimeConfig() {
         ? "rest"
         : "auto",
   );
-  copilotkit.value.setHeaders(mergedHeaders.value);
+  copilotkit.value.setHeaders(headersSource.value);
   copilotkit.value.setCredentials(props.credentials);
   copilotkit.value.setMessageFilter(props.messageFilter);
   copilotkit.value.setProperties(resolvedProperties.value);
@@ -613,7 +635,7 @@ function syncRuntimeConfig() {
 watch(
   [
     () => chatApiEndpoint.value,
-    () => mergedHeaders.value,
+    () => headersSource.value,
     () => props.credentials,
     () => props.messageFilter,
     () => resolvedProperties.value,

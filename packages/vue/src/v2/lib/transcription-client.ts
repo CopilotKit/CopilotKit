@@ -77,7 +77,7 @@ export async function transcribeAudio(
     });
   }
 
-  const headers: Record<string, string> = { ...core.headers };
+  const headers: Record<string, string> = { ...(await core.resolveHeaders()) };
   let response: Response;
 
   try {
