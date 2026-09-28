@@ -1,3 +1,4 @@
+import { intelligenceAnalyticsFixture } from "./intelligence-analytics-fixtures.js";
 import { intelligenceLearningFixture } from "./intelligence-learning-fixtures.js";
 import type { IntelligenceReadRequest } from "../src/lib/intelligence-relay.js";
 import { intelligenceContentFixture } from "./intelligence-content-fixtures.js";
@@ -9,7 +10,9 @@ export function intelligenceFixture(request: IntelligenceReadRequest): {
 } {
   const ok = (body: unknown) => ({ status: 200, body });
   const content =
-    intelligenceLearningFixture(request) ?? intelligenceContentFixture(request);
+    intelligenceAnalyticsFixture(request) ??
+    intelligenceLearningFixture(request) ??
+    intelligenceContentFixture(request);
   if (content !== undefined) return ok(content);
   const to = request.query?.to ?? new Date().toISOString();
   const from =
@@ -67,7 +70,17 @@ export function intelligenceFixture(request: IntelligenceReadRequest): {
                 Date.parse(start) +
                   (index * (Date.parse(end) - Date.parse(start))) / 7,
               ).toISOString(),
-              value,
+              value:
+                metric === "avg_response_ms"
+                  ? total
+                  : index === 6
+                    ? total -
+                      [1200, 1500, 1240, 1800, 1430, 1950].reduce(
+                        (sum, weight) =>
+                          sum + Math.round((total * weight) / 11420),
+                        0,
+                      )
+                    : Math.round((total * value) / 11420),
             }),
           ),
           total,

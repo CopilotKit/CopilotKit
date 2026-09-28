@@ -25,7 +25,7 @@ test("embeds only the content pane without adding a launcher, dialog or navigati
     ]);
     expect(view.shadowRoot?.querySelector("dialog,nav,button")).toBeNull();
     expect(frame?.getAttribute("sandbox")).toBe(
-      "allow-scripts allow-same-origin allow-downloads",
+      "allow-scripts allow-same-origin allow-forms allow-downloads",
     );
   } finally {
     view.remove();
