@@ -72,7 +72,8 @@
     "unlink:global": "pnpm unlink --global",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16",
-    "generate:external-reexports": "node scripts/generate-external-reexports.mjs"
+    "generate:external-reexports": "node scripts/generate-external-reexports.mjs",
+    "test:browser-scroll": "node --test browser-tests/hidden-chat-scroll.test.mjs"
   },
   "dependencies": {
     "@ag-ui/client": "0.0.59",
@@ -123,6 +124,7 @@
     "eslint": "^8.56.0",
     "jsdom": "^26.1.0",
     "phoenix": "^1.8.4",
+    "playwright": "1.59.1",
     "postcss": "^8.5.6",
     "react": "^19.1.0",
     "react-dom": "^19.2.0",

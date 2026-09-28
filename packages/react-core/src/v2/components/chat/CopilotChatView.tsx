@@ -186,6 +186,21 @@ export function CopilotChatView({
   // result is the last messages scrolling underneath the absolute-positioned
   // input pill. Subscribing to element state lets the observer attach (and
   // detach) reactively as the overlay mounts/unmounts.
+  // Use the provider's thread identity when available. A standalone view
+  // changes identity only when its new history has no messages in common with
+  // the previous nonempty list. Prepending or trimming history is not a switch.
+  const configuredThreadId = useCopilotChatConfiguration()?.threadId;
+  const [fallbackThreadId, setFallbackThreadId] = useState(messages[0]?.id);
+  const previousMessageIds = useRef(new Set<string>());
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const overlaps = messages.some((message) =>
+      previousMessageIds.current.has(message.id),
+    );
+    previousMessageIds.current = new Set(messages.map((message) => message.id));
+    if (!overlaps) setFallbackThreadId(messages[0].id);
+  }, [messages]);
+  const scrollThreadId = configuredThreadId ?? fallbackThreadId;
   const [inputContainerEl, setInputContainerEl] =
     useState<HTMLDivElement | null>(null);
   const [inputContainerHeight, setInputContainerHeight] = useState(0);
@@ -295,6 +310,7 @@ export function CopilotChatView({
 
   const BoundScrollView = renderSlot(scrollView, CopilotChatView.ScrollView, {
     autoScroll,
+    scrollThreadId,
     inputContainerHeight,
     isResizing,
     children: (
@@ -454,25 +470,148 @@ export namespace CopilotChatView {
     feather?: SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>;
     inputContainerHeight: number;
     isResizing: boolean;
+    scrollThreadId?: string;
   }> = ({
     children,
     scrollToBottomButton,
     feather,
     inputContainerHeight,
     isResizing,
+    scrollThreadId,
   }) => {
-    const { isAtBottom, scrollToBottom, scrollRef, state } =
+    const { isAtBottom, scrollToBottom, stopScroll, scrollRef, state } =
       useStickToBottomContext();
 
     // Capture the scroll element in state so the context value is reactive —
     // consumers re-render when the element is first set rather than reading a
     // ref that silently stays null until after their own layout effects fire.
     const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
+    const readingOffsetRef = useRef<number | null>(null);
+    const pinIntentRef = useRef(false);
+    const stateRef = useRef(state);
+    stateRef.current = state;
     useLayoutEffect(() => {
       setScrollEl(scrollRef.current ?? null);
       // scrollRef is a stable object; omitting from deps is intentional.
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // A hidden chat has no viewport. The stick-to-bottom observer can mistake
+    // that collapse for reaching the end and re-enable its scroll lock. Keep
+    // the reader's last visible offset until the viewport is measurable again.
+    useEffect(() => {
+      if (!scrollEl) return;
+
+      let hidden = false;
+      let resumeBottom = false;
+      let pendingFrame = 0;
+      let resumeFrame = 0;
+      let settleFrame = 0;
+      readingOffsetRef.current = null;
+      const rememberScroll = () => {
+        if (hidden || scrollEl.clientHeight === 0) return;
+        if (resumeBottom) {
+          // Ignore scroll events from the collapsed layout until the pending
+          // bottom pin has been restarted against the restored viewport.
+          readingOffsetRef.current = null;
+          return;
+        }
+        if (pinIntentRef.current) {
+          // Keyboard, touch, and scrollbar input can escape the pin without a
+          // wheel event. The library reports that escape after its scroll
+          // callback, so the scheduled frame below sees the updated state.
+          if (stateRef.current.escapedFromLock) {
+            pinIntentRef.current = false;
+          } else {
+            readingOffsetRef.current = null;
+            if (!stateRef.current.isNearBottom) return;
+            pinIntentRef.current = false;
+          }
+        }
+        // Geometry alone is misleading during an active smooth pin: it may
+        // still be far from the end while intentionally moving there.
+        readingOffsetRef.current =
+          !stateRef.current.isAtBottom &&
+          (stateRef.current.escapedFromLock || !stateRef.current.isNearBottom)
+            ? scrollEl.scrollTop
+            : null;
+      };
+      const onScroll = () => {
+        rememberScroll();
+        // The library updates escape state after its scroll event callback.
+        // Re-read it on the next frame for programmatic scrolls too.
+        cancelAnimationFrame(pendingFrame);
+        pendingFrame = requestAnimationFrame(rememberScroll);
+      };
+      const onWheel = (event: WheelEvent) => {
+        if (event.deltaY < 0) {
+          pinIntentRef.current = false;
+          resumeBottom = false;
+        }
+      };
+      const resizeObserver = new ResizeObserver(() => {
+        if (scrollEl.clientHeight === 0) {
+          hidden = true;
+          resumeBottom =
+            pinIntentRef.current || readingOffsetRef.current === null;
+          if (!resumeBottom) stopScroll();
+        } else if (hidden) {
+          hidden = false;
+          if (resumeBottom) {
+            // Cancel the old animation before starting a new one against the
+            // restored viewport; otherwise its queued frame can override us.
+            stopScroll();
+            // The library's animation may have stopped at zero height. Wait
+            // for the restored layout before calculating its new bottom.
+            resumeFrame = requestAnimationFrame(() => {
+              // Let the library's scroll event from the zero-height collapse
+              // finish before starting a fresh pin animation.
+              settleFrame = requestAnimationFrame(() => {
+                if (scrollEl.clientHeight > 0 && resumeBottom) {
+                  resumeBottom = false;
+                  pinIntentRef.current = true;
+                  scrollToBottom({ animation: "instant" });
+                }
+              });
+            });
+          } else if (readingOffsetRef.current !== null) {
+            stopScroll();
+            scrollEl.scrollTop = readingOffsetRef.current;
+          }
+        }
+      });
+
+      rememberScroll();
+      scrollEl.addEventListener("scroll", onScroll);
+      scrollEl.addEventListener("wheel", onWheel, { passive: true });
+      resizeObserver.observe(scrollEl);
+      return () => {
+        scrollEl.removeEventListener("scroll", onScroll);
+        scrollEl.removeEventListener("wheel", onWheel);
+        cancelAnimationFrame(pendingFrame);
+        cancelAnimationFrame(resumeFrame);
+        cancelAnimationFrame(settleFrame);
+        resizeObserver.disconnect();
+      };
+    }, [scrollEl, scrollToBottom, stopScroll, scrollThreadId]);
+
+    const startBottomPin = useCallback(
+      (instant = false) => {
+        readingOffsetRef.current = null;
+        pinIntentRef.current = true;
+        scrollToBottom(instant ? { animation: "instant" } : undefined);
+      },
+      [scrollToBottom],
+    );
+
+    const previousScrollThreadId = useRef(scrollThreadId);
+    useEffect(() => {
+      if (previousScrollThreadId.current === scrollThreadId) return;
+      previousScrollThreadId.current = scrollThreadId;
+      // A new conversation should start at its end even if the old one had
+      // escaped the pin while its host was hidden.
+      startBottomPin(true);
+    }, [scrollThreadId, startBottomPin]);
 
     const BoundFeather = renderSlot(feather, CopilotChatView.Feather, {});
 
@@ -528,7 +667,7 @@ export namespace CopilotChatView {
                   scrollToBottomButton,
                   CopilotChatView.ScrollToBottomButton,
                   {
-                    onClick: () => scrollToBottom(),
+                    onClick: () => startBottomPin(),
                   },
                 )}
               </div>
@@ -638,6 +777,7 @@ export namespace CopilotChatView {
   export const ScrollView: React.FC<
     React.HTMLAttributes<HTMLDivElement> & {
       autoScroll?: AutoScrollMode | boolean;
+      scrollThreadId?: string;
       scrollToBottomButton?: SlotValue<
         React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>>
       >;
@@ -648,6 +788,7 @@ export namespace CopilotChatView {
   > = ({
     children,
     autoScroll = "pin-to-bottom",
+    scrollThreadId,
     scrollToBottomButton,
     feather,
     inputContainerHeight = 0,
@@ -808,6 +949,7 @@ export namespace CopilotChatView {
         {...props}
       >
         <ScrollContent
+          scrollThreadId={scrollThreadId}
           scrollToBottomButton={scrollToBottomButton}
           feather={feather}
           inputContainerHeight={inputContainerHeight}
