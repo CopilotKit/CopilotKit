@@ -97,11 +97,53 @@ describe("HeaderSourceResolver", () => {
     expect(r.generation).toBe(gen);
   });
 
-  it("a record source always counts as a change (unchanged behavior)", () => {
+  it("setting an equal record is a no-op (same object, or an equal different object)", () => {
     const r = new HeaderSourceResolver(noop);
     const rec = { A: "1" };
     expect(r.setSource(rec)).toBe(true);
-    expect(r.setSource(rec)).toBe(true);
+    const gen = r.generation;
+
+    // Same object reference.
+    expect(r.setSource(rec)).toBe(false);
+    expect(r.generation).toBe(gen);
+
+    // A different object, equal values.
+    expect(r.setSource({ A: "1" })).toBe(false);
+    expect(r.generation).toBe(gen);
+  });
+
+  it("a record with a changed value counts as a change", () => {
+    const r = new HeaderSourceResolver(noop);
+    r.setSource({ A: "1" });
+    const gen = r.generation;
+    expect(r.setSource({ A: "2" })).toBe(true);
+    expect(r.generation).toBe(gen + 1);
+  });
+
+  it("a record with a removed key counts as a change (never looks equal)", () => {
+    const r = new HeaderSourceResolver(noop);
+    r.setSource({ A: "1", B: "2" });
+    const gen = r.generation;
+    expect(r.setSource({ A: "1" })).toBe(true);
+    expect(r.generation).toBe(gen + 1);
+    expect(r.headers).toEqual({ A: "1" });
+  });
+
+  it("record -> builder -> equal record: each switch counts as a change", () => {
+    const r = new HeaderSourceResolver(noop);
+    expect(r.setSource({ A: "1" })).toBe(true);
+    const gen1 = r.generation;
+
+    // Builder replacing a record is always a change, even though the
+    // builder hasn't run yet (snapshot resets to `{}`).
+    expect(r.setSource(() => ({ A: "1" }))).toBe(true);
+    expect(r.generation).toBe(gen1 + 1);
+
+    // A record replacing a builder is always a change too, even if its
+    // values equal what the builder last resolved to.
+    r.resolve();
+    expect(r.setSource({ A: "1" })).toBe(true);
+    expect(r.generation).toBe(gen1 + 2);
   });
 
   it("reports one failure per shared async call and never leaks header values", async () => {
@@ -223,5 +265,23 @@ describe("CopilotKitCore header source", () => {
       "Authorization",
       "old-user",
     );
+  });
+
+  it("setHeaders with an equal record fires no onHeadersChanged; a changed record fires it once", async () => {
+    const core = new CopilotKitCore({ headers: { Authorization: "Bearer a" } });
+    const onHeadersChanged = vi.fn();
+    core.subscribe({ onHeadersChanged });
+    const gen = core.ɵheadersGeneration;
+
+    core.setHeaders({ Authorization: "Bearer a" });
+    expect(core.ɵheadersGeneration).toBe(gen);
+    // Give a (buggy) notification a real chance to land before asserting
+    // its absence.
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(onHeadersChanged).not.toHaveBeenCalled();
+
+    core.setHeaders({ Authorization: "Bearer b" });
+    expect(core.ɵheadersGeneration).toBe(gen + 1);
+    await vi.waitFor(() => expect(onHeadersChanged).toHaveBeenCalledTimes(1));
   });
 });

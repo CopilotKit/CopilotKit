@@ -395,6 +395,124 @@ describe("CopilotKitProvider — headers builder evaluated at send time (#1937)"
     expect(setContextSpy).toHaveBeenCalledTimes(0);
   });
 
+  it("a static headers record + a changing properties prop gives 0 extra thread-context dispatches", async () => {
+    // #1937 regression: the provider's config effect (properties, credentials,
+    // agents, debug) calls `copilotkit.setHeaders(headersSource)` on every
+    // re-run, including when only `properties` changed. For a RECORD source
+    // that must be a no-op when the values are unchanged, or an unrelated
+    // prop change bumps `ɵheadersGeneration`, fires `onHeadersChanged`, and
+    // (via `useCopilotKit`'s forceUpdate) re-dispatches every thread store's
+    // context, refetching threads for no reason.
+    const calls: Call[] = [];
+    vi.stubGlobal("fetch", stubFetch(calls));
+    let core!: CopilotKitCoreReact;
+    let bumpProperties!: () => void;
+
+    function Threads() {
+      useThreads({ agentId: "default" });
+      return null;
+    }
+
+    function Child() {
+      const { copilotkit } = useCopilotKit();
+      core = copilotkit;
+      return <Threads />;
+    }
+
+    function App() {
+      const [n, setN] = useState(0);
+      bumpProperties = () => setN((x) => x + 1);
+      return (
+        <CopilotKitProvider
+          runtimeUrl="http://rt.test/api/copilotkit"
+          // A fresh object literal on every App render — a caller who
+          // doesn't memoize `headers` — but the same VALUES every time.
+          headers={{ Authorization: "Bearer static" }}
+          properties={{ n }}
+        >
+          <Child />
+        </CopilotKitProvider>
+      );
+    }
+
+    render(<App />);
+    await waitFor(() => expect(core.getAgent("default")).toBeDefined());
+
+    const store = await waitFor(() => {
+      const s = core.getThreadStore("default");
+      expect(s).toBeDefined();
+      return s!;
+    });
+
+    // Wait for the mount dispatch before spying, so the spy only observes
+    // dispatches caused by the property bump below.
+    await waitFor(() => {
+      expect(calls.some((c) => c.url.includes("/threads?"))).toBe(true);
+    });
+
+    const setContextSpy = vi.spyOn(store, "setContext");
+    const gen = core.ɵheadersGeneration;
+
+    for (let i = 0; i < 5; i++) {
+      act(() => bumpProperties());
+    }
+
+    await pollFor(() => false, 50);
+
+    expect(core.ɵheadersGeneration).toBe(gen);
+    expect(setContextSpy).toHaveBeenCalledTimes(0);
+  });
+
+  it("changing the headers record's VALUE gives exactly 1 extra thread-context dispatch", async () => {
+    const calls: Call[] = [];
+    vi.stubGlobal("fetch", stubFetch(calls));
+    let core!: CopilotKitCoreReact;
+    let setAuth!: (v: string) => void;
+
+    function Threads() {
+      useThreads({ agentId: "default" });
+      return null;
+    }
+
+    function Child() {
+      const { copilotkit } = useCopilotKit();
+      core = copilotkit;
+      return <Threads />;
+    }
+
+    function App() {
+      const [auth, setAuthState] = useState("a1");
+      setAuth = setAuthState;
+      return (
+        <CopilotKitProvider
+          runtimeUrl="http://rt.test/api/copilotkit"
+          headers={{ Authorization: `Bearer ${auth}` }}
+        >
+          <Child />
+        </CopilotKitProvider>
+      );
+    }
+
+    render(<App />);
+    await waitFor(() => expect(core.getAgent("default")).toBeDefined());
+
+    const store = await waitFor(() => {
+      const s = core.getThreadStore("default");
+      expect(s).toBeDefined();
+      return s!;
+    });
+
+    await waitFor(() => {
+      expect(calls.some((c) => c.url.includes("/threads?"))).toBe(true);
+    });
+
+    const setContextSpy = vi.spyOn(store, "setContext");
+
+    act(() => setAuth("a2"));
+
+    await waitFor(() => expect(setContextSpy).toHaveBeenCalledTimes(1));
+  });
+
   it("a child effect firing in the same commit as a token bump reads the new token, not the previous commit's closure", async () => {
     // Controller ruling (fix round 1): `headersRef.current` is assigned
     // during render, not in a passive `useEffect`. React fires a CHILD's

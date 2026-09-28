@@ -92,17 +92,31 @@ export class HeaderSourceResolver {
     return this.sourceGeneration;
   }
 
-  /** Returns false when a builder with the same identity is set again. */
+  /**
+   * Returns false when a builder with the same identity is set again, or
+   * when a record replaces another record with equal normalized values (a
+   * caller re-passing an equivalent literal on every re-render must not
+   * bump the generation). A record replacing a builder, a builder replacing
+   * a record, and a new builder function all still count as a change.
+   */
   setSource(source: CopilotKitHeadersSource): boolean {
     if (typeof source === "function" && source === this.source) return false;
+    const nextSnapshot =
+      typeof source === "function" ? {} : normalizeHeaders(source);
+    if (
+      typeof source !== "function" &&
+      typeof this.source !== "function" &&
+      shallowEqualRecord(nextSnapshot, this.snapshot)
+    ) {
+      return false;
+    }
     this.source = source;
     this.sourceGeneration += 1;
     this.inFlight = undefined;
     // A builder hasn't run yet, so the previous source's snapshot must not
     // survive the switch — otherwise a stale value (e.g. the old user's
     // Authorization) would be re-applied to agents and broadcast as current.
-    this.snapshot =
-      typeof source === "function" ? {} : normalizeHeaders(source);
+    this.snapshot = nextSnapshot;
     return true;
   }
 

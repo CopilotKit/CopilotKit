@@ -629,13 +629,14 @@ watch([allRenderActivityMessages], ([renderActivityMessages]) => {
 
 // The last `headersSource` reference actually handed to `core.setHeaders`.
 // `syncRuntimeConfig` runs once (unconditionally) from `onMounted` in
-// addition to the constructor already having applied this same value — for
-// a function source `setHeaders` itself no-ops on an identical reference,
-// but a record source has no such dedup (every call bumps
-// `ɵheadersGeneration` and fires `onHeadersChanged`, see #1937 fix round 1).
-// Without this guard, that redundant mount-time call would fire our new
-// `onHeadersChanged` → `triggerRef(copilotkit)` subscriber once for every
-// provider mount, even when nothing about headers changed.
+// addition to the constructor already having applied this same value.
+// `HeaderSourceResolver.setSource` itself is a no-op both for an identical
+// function reference and for a record whose normalized values equal the
+// currently applied record's (see #1937 fix round 2), so this reference
+// check is now a cheap pre-filter rather than the only thing preventing a
+// spurious `onHeadersChanged`. It still avoids the `setHeaders` call (and
+// its normalize + shallow-equal work) entirely on the common path where
+// nothing changed.
 let lastAppliedHeadersSource: CopilotKitHeadersSource = headersSource.value;
 
 function syncRuntimeConfig() {
