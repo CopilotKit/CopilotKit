@@ -26,6 +26,11 @@ Both sides check the exact message origin and source window. Closing a view
 cancels its requests. A denied request removes the embedded content. The iframe
 does not use the Intelligence console session or its authentication flow.
 
+Conversation lists show metadata under `analytics.numbers`. Replay, tool arguments,
+and tool error text require `conversations.text`. Replay shows recorded runs and
+steps without controls that execute or resume a run. Deleted conversations show
+a deletion notice.
+
 The matching Intelligence build must enable its `inspector.intelligence-views`
 release flag. This entry remains off by default in production during development.
 

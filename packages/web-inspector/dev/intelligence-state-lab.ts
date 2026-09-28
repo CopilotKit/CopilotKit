@@ -1,4 +1,5 @@
 import type { IntelligenceReadRequest } from "../src/lib/intelligence-relay.js";
+import { intelligenceContentFixture } from "./intelligence-content-fixtures.js";
 
 /** Supplies explicit fixture data for the local embedded Inspector workbench. */
 export function intelligenceFixture(request: IntelligenceReadRequest): {
@@ -6,6 +7,8 @@ export function intelligenceFixture(request: IntelligenceReadRequest): {
   body: unknown;
 } {
   const ok = (body: unknown) => ({ status: 200, body });
+  const content = intelligenceContentFixture(request);
+  if (content !== undefined) return ok(content);
   const to = request.query?.to ?? new Date().toISOString();
   const from =
     request.query?.from ??
