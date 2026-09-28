@@ -165,3 +165,35 @@ test("Learning fixtures follow the selected agent across lists and lineage", () 
     }).status,
   ).toBe(404);
 });
+
+test("model and distribution fixtures include equal previous windows only when requested", () => {
+  for (const metric of ["avg_response_ms", "response_time_distribution"]) {
+    const body = {
+      metric,
+      from: "2026-09-20T00:00:00.000Z",
+      to: "2026-09-27T00:00:00.000Z",
+      ...(metric === "avg_response_ms" ? { dimensions: ["model"] } : {}),
+    };
+    const request = {
+      method: "POST" as const,
+      path: "/api/v1/metrics/query",
+      body,
+    };
+
+    const result = intelligenceFixture({
+      ...request,
+      body: { ...body, compare: "previous_period" },
+    });
+
+    expect(result.body).toMatchObject({
+      comparison: {
+        from: "2026-09-13T00:00:00.000Z",
+        to: body.from,
+        series: expect.arrayContaining([
+          expect.objectContaining({ total: expect.any(Number) }),
+        ]),
+      },
+    });
+    expect(intelligenceFixture(request).body).not.toHaveProperty("comparison");
+  }
+});

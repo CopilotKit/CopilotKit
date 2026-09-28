@@ -87,13 +87,21 @@ export function intelligenceAnalyticsFixture(
             : Math.round(total * (index === 0 ? 0.6 : 0.4)),
         points: [],
       }))
-    : ["<1s", "1-2s", "2-5s", "5-10s", "10-30s", "30-60s", ">=60s"].map(
-        (bucket, index) => ({
-          dimensions: { responseTime: bucket },
-          total: [3000, 4200, 3200, 1500, 420, 100, 18][index],
-          points: [],
-        }),
-      );
+    : (
+        [
+          ["<1s", 3000],
+          ["1-2s", 4200],
+          ["2-5s", 3200],
+          ["5-10s", 1500],
+          ["10-30s", 420],
+          ["30-60s", 100],
+          [">=60s", 18],
+        ] as const
+      ).map(([bucket, value]) => ({
+        dimensions: { responseTime: bucket },
+        total: value,
+        points: [],
+      }));
   return {
     metric,
     unit: metric.includes("tokens")
@@ -112,5 +120,18 @@ export function intelligenceAnalyticsFixture(
       captureStartedAt: "2026-09-01T00:00:00.000Z",
       windowFullyCaptured: true,
     },
+    ...("compare" in body && body.compare === "previous_period"
+      ? {
+          comparison: {
+            from: new Date(Date.parse(from) * 2 - Date.parse(to)).toISOString(),
+            to: from,
+            total: total * 0.8,
+            series: series.map((entry) => ({
+              ...entry,
+              total: entry.total * 0.8,
+            })),
+          },
+        }
+      : {}),
   };
 }
