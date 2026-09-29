@@ -52,6 +52,10 @@ function mountView(initial: {
 const hideWorker = (list: Message[]) =>
   list.filter((m) => (m as { name?: string }).name !== "math_expert");
 
+// Appends a duplicate of the first message. Defined once so a test can
+// reuse the same function reference across renders.
+const appendFirst = (list: Message[]) => [...list, list[0]!];
+
 const supervisorTranscript: Message[] = [
   userMsg("u1", "what is 2+2"),
   assistantMsg("w-1", "WORKER_SAYS_FOUR", "math_expert"),
@@ -238,8 +242,6 @@ describe("Vue CopilotChatMessageView transformMessages", () => {
 
   it("warns only once for a duplicate id that persists across renders", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    // Defined once, so re-renders below reuse the same function reference.
-    const appendFirst = (list: Message[]) => [...list, list[0]!];
 
     const { state } = mountView({
       messages: [userMsg("m-0"), userMsg("m-1")],

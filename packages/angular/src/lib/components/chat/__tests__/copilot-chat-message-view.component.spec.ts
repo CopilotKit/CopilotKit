@@ -32,6 +32,10 @@ const reasoningMessage: ReasoningMessage = {
   content: "**Designing dashboard layout** I should choose the right renderer.",
 };
 
+// Appends a duplicate of the first message. Defined once so a test can
+// reuse the same function reference across renders.
+const appendFirst = (list: Message[]) => [...list, list[0]!];
+
 @Component({
   standalone: true,
   template: `
@@ -483,8 +487,6 @@ describe("CopilotChatMessageView transformMessages", () => {
 
   it("warns only once for a duplicate id that persists across renders", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    // Defined once, so the re-render below reuses the same function reference.
-    const appendFirst = (list: Message[]) => [...list, list[0]!];
 
     const fixture = renderView({
       messages: [userMessage, assistantMessage],
