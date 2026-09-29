@@ -40,6 +40,7 @@ function setupAsk(
     onAnswer?: () => void;
     skipTools?: boolean;
     paddingBytes?: number;
+    record?: boolean;
   } = {},
 ) {
   const usage = {
@@ -53,14 +54,23 @@ function setupAsk(
           {
             type: "tool-call",
             toolCallId: "q1",
-            toolName: "analytics_query_metrics",
-            input: JSON.stringify({
-              metric: "tool_errors",
-              dimensions: ["tool"],
-              from: "1999-01-01T00:00:00.000Z",
-              to: "1999-01-02T00:00:00.000Z",
-              filters: { agentId: "forged" },
-            }),
+            toolName: options.record
+              ? "analytics_fetch_record"
+              : "analytics_query_metrics",
+            input: JSON.stringify(
+              options.record
+                ? { kind: "run", id: "run-1", channel: "teams" }
+                : {
+                    metric: "tool_errors",
+                    dimensions: ["tool"],
+                    from: "1999-01-01T00:00:00.000Z",
+                    to: "1999-01-02T00:00:00.000Z",
+                    filters: {
+                      agentId: "forged",
+                      ...(options.record === false ? { channel: "teams" } : {}),
+                    },
+                  },
+            ),
           },
         ],
         finishReason: { unified: "tool-calls", raw: "tool_calls" },
@@ -125,6 +135,28 @@ function setupAsk(
           };
         },
       );
+      if (options.record)
+        server.registerTool(
+          "analytics_fetch_record",
+          {
+            inputSchema: z.object({
+              kind: z.string(),
+              id: z.string(),
+              channel: z.string().optional(),
+            }),
+          },
+          async (args) => {
+            calls.push(args);
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({ kind: args.kind, record: {} }),
+                },
+              ],
+            };
+          },
+        );
       server.registerTool(
         "delete_all",
         { inputSchema: z.object({}) },
@@ -292,6 +324,7 @@ test("Ask validates questions and time ranges before network or model work", asy
       { to: "2026-09-19T00:00:00.000Z" },
       { from: "2020-01-01T00:00:00.000Z" },
       { model: "forged" },
+      { channel: "email" },
     ]) {
       const response = await handleInspectorIntelligence({
         runtime,
@@ -432,3 +465,52 @@ test("Ask discards a late model answer after request cancellation", async () => 
     world.cleanup();
   }
 });
+
+test.each([
+  { record: false, channel: "slack" },
+  { record: false, channel: "web" },
+  { record: true, channel: "slack" },
+  { record: true, channel: "not_captured" },
+])(
+  "Ask keeps the selected $channel on record=$record despite model arguments",
+  async ({ record, channel }) => {
+    const world = setupAsk({ record });
+    try {
+      const response = await handleInspectorIntelligence({
+        runtime: world.runtime,
+        request: new Request(
+          "https://customer.example/inspector-intelligence",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              method: "POST",
+              path: "/ask",
+              body: {
+                question: "Explain the failures",
+                from: world.responseData.from,
+                to: world.responseData.to,
+                agentId: "support",
+                channel,
+              },
+            }),
+          },
+        ),
+      });
+
+      expect(response.status).toBe(200);
+      expect(world.calls).toEqual([
+        record
+          ? { kind: "run", id: "run-1", channel }
+          : {
+              metric: "tool_errors",
+              dimensions: ["tool"],
+              from: world.responseData.from,
+              to: world.responseData.to,
+              filters: { agentId: "support", channel },
+            },
+      ]);
+    } finally {
+      world.cleanup();
+    }
+  },
+);

@@ -193,7 +193,10 @@ Runtime exposes only four read-only Intelligence MCP tools to this model:
 `analytics_list_metrics`, `analytics_describe_metric`, `analytics_query_metrics`,
 and `analytics_fetch_record`. Each read uses the viewer's grant. A selected
 agent narrows that grant; metric queries use the selected time range and share
-a capture cutoff. Record reads retain each record API's time semantics.
+a capture cutoff. When the Inspector supplies a channel, Runtime applies it to
+metric and record reads, overriding conflicting model arguments. Valid channels
+are `slack`, `teams`, `web`, and `not_captured`. Record reads retain each record
+API's time semantics; authorized conversation replay includes the full thread.
 
 The model receives the question and permitted tool results. Choose a provider
 that can process that data. Credentials stay on the server. Charts and tables
