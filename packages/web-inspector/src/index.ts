@@ -11159,6 +11159,19 @@ export class WebInspectorElement extends LitElement {
         outline: 2px solid #5558b2;
         outline-offset: 2px;
       }
+      .inspector-window[data-color-scheme="dark"] .cpk-learning-view-tabs {
+        border-bottom-color: #3a3d49;
+      }
+      .inspector-window[data-color-scheme="dark"] .cpk-learning-view-tabs button {
+        color: #b8bbc7;
+      }
+      .inspector-window[data-color-scheme="dark"] .cpk-learning-view-tabs button[aria-current],
+      .inspector-window[data-color-scheme="dark"] .cpk-learning-view-tabs button:hover {
+        color: #f3f4f8;
+      }
+      .inspector-window[data-color-scheme="dark"] .cpk-learning-view-tabs button:focus-visible {
+        outline-color: #c5c8de;
+      }
 
       /* ── Tab buttons ─────────────────────────────────────────────── */
       /*

@@ -1,6 +1,54 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
+/** Measures rendered button text against its composited ancestor backgrounds. */
+async function learningTabContrast(page: Page, name: string): Promise<number> {
+  return page
+    .getByLabel("Learning views")
+    .getByRole("button", { name, exact: true })
+    .evaluate((button) => {
+      const parse = (color: string): number[] =>
+        color.match(/[\d.]+/g)!.map(Number);
+      const layers: number[][] = [];
+      let node: Element | null = button;
+      while (node) {
+        layers.unshift(parse(getComputedStyle(node).backgroundColor));
+        node =
+          node.parentElement ?? (node.getRootNode() as ShadowRoot).host ?? null;
+      }
+      const background = layers.reduce(
+        (base, layer) => {
+          const alpha = layer[3] ?? 1;
+          return base.map((value, index) => {
+            const channel = layer[index];
+            if (channel === undefined) throw new Error("Missing color channel");
+            return channel * alpha + value * (1 - alpha);
+          });
+        },
+        [255, 255, 255],
+      );
+      const luminance = (color: number[]): number =>
+        color.slice(0, 3).reduce((sum, value, index) => {
+          const channel = value / 255;
+          const weight = [0.2126, 0.7152, 0.0722][index];
+          if (weight === undefined) throw new Error("Missing luminance weight");
+          return (
+            sum +
+            (channel <= 0.04045
+              ? channel / 12.92
+              : ((channel + 0.055) / 1.055) ** 2.4) *
+              weight
+          );
+        }, 0);
+      const foreground = luminance(parse(getComputedStyle(button).color));
+      const surface = luminance(background);
+      return (
+        (Math.max(foreground, surface) + 0.05) /
+        (Math.min(foreground, surface) + 0.05)
+      );
+    });
+}
+
 /** Hosts the iframe theme contract independently of the Intelligence deployment. */
 async function setup(page: Page, production = false) {
   await page.route("https://intelligence.example/**", (route) =>
@@ -110,4 +158,38 @@ test("production follows system theme changes without replacing the product view
   await expect(
     page.frameLocator('iframe[title="Learning"]').locator("html"),
   ).toHaveAttribute("data-theme", "dark");
+});
+
+test("Learning view labels remain readable when switching theme and selected view", async ({
+  page,
+}) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await setup(page);
+  await page.locator('[data-inspector-menu-key="memories"]').click();
+  const tabs = page.getByLabel("Learning views");
+  for (const theme of ["dark", "light"]) {
+    if (theme === "light")
+      await page
+        .getByRole("button", { name: "Switch to light mode", exact: true })
+        .click();
+    for (const selected of ["Workbench", "Insights & Skills"]) {
+      await tabs.getByRole("button", { name: selected, exact: true }).click();
+      await expect(
+        tabs.getByRole("button", { name: selected, exact: true }),
+      ).toHaveAttribute("aria-current", "page");
+      await page.mouse.move(0, 0);
+      for (const name of ["Workbench", "Insights & Skills"]) {
+        expect(
+          await learningTabContrast(page, name),
+          `${theme} ${selected}: ${name}`,
+        ).toBeGreaterThanOrEqual(4.5);
+        await tabs.getByRole("button", { name, exact: true }).hover();
+        expect(
+          await learningTabContrast(page, name),
+          `${theme} hover: ${name}`,
+        ).toBeGreaterThanOrEqual(4.5);
+        await page.mouse.move(0, 0);
+      }
+    }
+  }
 });
