@@ -561,19 +561,15 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     const current = headersRef.current;
     return typeof current === "function" ? current() : current;
   }, []) as () => Record<string, string>;
+  // A record keeps today's identity semantics; a builder is stable.
+  const headersInput = isHeadersBuilder ? stableHeadersBuilder : headersProp;
   const headersSource = useMemo(
     () =>
       ɵwithHeaderDefaults(
-        isHeadersBuilder ? stableHeadersBuilder : headersProp,
+        headersInput,
         resolvedPublicKey ? { [HEADER_NAME]: resolvedPublicKey } : {},
       ),
-    // A record keeps today's identity semantics; a builder is stable.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      isHeadersBuilder,
-      isHeadersBuilder ? stableHeadersBuilder : headersProp,
-      resolvedPublicKey,
-    ],
+    [headersInput, resolvedPublicKey],
   );
 
   if (!runtimeUrl && !resolvedPublicKey && !hasLocalAgents) {
