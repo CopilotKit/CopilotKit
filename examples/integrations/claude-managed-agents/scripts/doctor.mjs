@@ -48,7 +48,7 @@ const authMode = process.env.ANTHROPIC_API_KEY
   ? "ANTHROPIC_API_KEY"
   : `ant profile (${process.env.ANTHROPIC_PROFILE || "active"})`;
 try {
-  const client = new Anthropic();
+  const client = new Anthropic({ timeout: 5_000, maxRetries: 0 });
   if (agentId) {
     const agent = await client.beta.agents.retrieve(agentId);
     row("credentials", true, `${authMode}`);

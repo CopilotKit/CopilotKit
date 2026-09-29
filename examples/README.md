@@ -46,8 +46,7 @@ Framework integration starters demonstrating CopilotKit with various agent frame
 | [a2a-middleware](./integrations/a2a-middleware/)                       | Multi-agent starter with A2A Protocol and AG-UI Protocol (LangGraph + ADK)           |
 | [claude-sdk-python](./integrations/claude-sdk-python/)                 | Starter template using the Claude Agent SDK (Python) and CopilotKit                  |
 | [claude-sdk-typescript](./integrations/claude-sdk-typescript/)         | Starter template using the Claude Agent SDK (TypeScript) and CopilotKit              |
-
-| [claude-managed-agents](./integrations/claude-managed-agents/) | Beautiful Chat starter with Claude Managed Agents and Intelligence Skills |
+| [claude-managed-agents](./integrations/claude-managed-agents/)         | Beautiful Chat starter with Claude Managed Agents and Intelligence Skills            |
 
 ## Canvas (7)
 
