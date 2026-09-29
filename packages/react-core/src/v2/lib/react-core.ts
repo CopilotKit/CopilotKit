@@ -1,11 +1,15 @@
 import React from "react";
-import { ReactActivityMessageRenderer, ReactToolCallRenderer } from "../types";
-import { ReactCustomMessageRenderer } from "../types/react-custom-message-renderer";
-import {
-  CopilotKitCore,
-  type CopilotKitCoreConfig,
-  type CopilotKitCoreSubscriber,
-  type CopilotKitCoreSubscription,
+import { createLearningThreadRegistry } from "./learning-thread-registry";
+import type {
+  ReactActivityMessageRenderer,
+  ReactToolCallRenderer,
+} from "../types";
+import type { ReactCustomMessageRenderer } from "../types/react-custom-message-renderer";
+import { CopilotKitCore } from "@copilotkit/core";
+import type {
+  CopilotKitCoreConfig,
+  CopilotKitCoreSubscriber,
+  CopilotKitCoreSubscription,
 } from "@copilotkit/core";
 
 export interface CopilotKitCoreReactConfig extends CopilotKitCoreConfig {
@@ -29,6 +33,8 @@ export interface CopilotKitCoreReactSubscriber extends CopilotKitCoreSubscriber 
 }
 
 export class CopilotKitCoreReact extends CopilotKitCore {
+  /** Internal attribution state shared by UI and headless hooks on this core instance. */
+  readonly ɵlearningThreads = createLearningThreadRegistry();
   private _renderToolCalls: ReactToolCallRenderer<any>[] = [];
   private _hookRenderToolCalls: Map<string, ReactToolCallRenderer<any>> =
     new Map();

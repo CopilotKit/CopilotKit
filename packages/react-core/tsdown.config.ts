@@ -179,6 +179,9 @@ export default defineConfig([
     },
     format: ["umd"],
     globalName: "CopilotKitReactCore",
+    // Capture is included by the provider; script-tag consumers should not need
+    // a new global or an extra script just to keep using the existing bundle.
+    noExternal: [/^@copilotkit\/learning(?:\/|$)/],
     sourcemap: true,
     target: "es2020",
     outDir: "dist",
@@ -219,6 +222,7 @@ export default defineConfig([
     entry: ["src/v2/index.ts"],
     format: ["umd"],
     globalName: "CopilotKitReactCoreV2",
+    noExternal: [/^@copilotkit\/learning(?:\/|$)/],
     sourcemap: true,
     target: "es2020",
     outDir: "dist/v2",

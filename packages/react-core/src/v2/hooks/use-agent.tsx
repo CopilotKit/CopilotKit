@@ -9,6 +9,7 @@ import {
 } from "@copilotkit/core";
 import type { SubscribeToAgentSubscriber } from "@copilotkit/core";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
+import { useLearningThread } from "./use-learning-thread";
 
 export enum UseAgentUpdate {
   OnMessagesChanged = "OnMessagesChanged",
@@ -139,13 +140,21 @@ interface UseAgentUnscopedProps {
 export type UseAgentProps = UseAgentPropsBase &
   (UseAgentThreadScopedProps | UseAgentUnscopedProps);
 
-export function useAgent({
-  agentId,
-  threadId,
-  runtimeAgentId,
-  updates,
-  throttleMs,
-}: UseAgentProps = {}) {
+export function useAgent(props: UseAgentProps = {}) {
+  return useAgentInternal(props);
+}
+
+/** Internal observers subscribe without declaring an application thread. */
+export function useAgentInternal(
+  {
+    agentId,
+    threadId,
+    runtimeAgentId,
+    updates,
+    throttleMs,
+  }: UseAgentProps = {},
+  { registerLearningThread = true }: { registerLearningThread?: boolean } = {},
+) {
   // `threadId` and `runtimeAgentId` are all-or-nothing. UseAgentProps already
   // rejects a lone one at compile time; these are the runtime backstop for
   // callers TypeScript doesn't cover — plain JS, `as any`, and props widened to
@@ -463,6 +472,16 @@ export function useAgent({
     if (!resolvedThreadId) return;
     agent.threadId = resolvedThreadId;
   }, [agent, resolvedThreadId]);
+
+  useLearningThread(
+    copilotkit.ɵlearningThreads,
+    isReady && registerLearningThread
+      ? {
+          kind: "agent",
+          getThreadId: () => resolvedThreadId ?? agent.threadId,
+        }
+      : undefined,
+  );
 
   return {
     agent,

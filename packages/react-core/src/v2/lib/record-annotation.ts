@@ -8,6 +8,8 @@ export interface RecordAnnotationResult {
   id: string;
   /** `true` when the platform recognized this `clientEventId` as a retry. */
   duplicate: boolean;
+  /** True when ingress intentionally discarded the event without persisting it. */
+  dropped?: boolean;
 }
 
 /**
@@ -106,14 +108,24 @@ export async function recordAnnotation(
     ...(occurredAt !== undefined ? { occurredAt } : {}),
   };
 
-  const response = await fetchImplementation(`${runtimeUrl}/annotate`, {
+  const requestInit: RequestInit & {
+    ɵruntimeRequest: { nonCritical: true };
+  } = {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...headers,
     },
     body: JSON.stringify(body),
-  });
+    // Annotation delivery is observable through the returned promise, but an
+    // unavailable telemetry endpoint must not mark the agent runtime unhealthy.
+    // This is the optional-request metadata understood by core.ɵruntimeFetch.
+    ɵruntimeRequest: { nonCritical: true },
+  };
+  const response = await fetchImplementation(
+    `${runtimeUrl}/annotate`,
+    requestInit,
+  );
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");

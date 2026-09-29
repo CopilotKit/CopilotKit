@@ -46,7 +46,11 @@ export function EarlyAccessGate({
 }) {
   const config = getEarlyAccessGate(gate);
   if (!config) return <>{children}</>;
-  return <GateShell config={config}>{children}</GateShell>;
+  return (
+    <GateShell key={config.storageKey} config={config}>
+      {children}
+    </GateShell>
+  );
 }
 
 function GateShell({
@@ -80,7 +84,7 @@ function GateShell({
       >
         {children}
       </div>
-      {unlocked === false && (
+      {locked && (
         <div className="pointer-events-none absolute inset-0 z-10">
           {/* Sticky scrollport-height frame: pins to the top of the
               docs scroll container while the gated region scrolls,
@@ -170,71 +174,77 @@ function UnlockCard({
               </p>
             ))}
 
-            <p className="mt-3 text-[15px] leading-relaxed text-[var(--text-secondary)]">
-              {config.requestPrompt}{" "}
+            <p className="mt-5 text-[15px] leading-relaxed text-[var(--text-secondary)]">
+              {config.requestPrompt}
+            </p>
+            <div className="mt-3">
               <a
                 href={config.requestUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="font-medium text-[var(--accent)] underline decoration-[color-mix(in_oklch,var(--accent)_40%,transparent)] underline-offset-[3px] transition-colors hover:decoration-[var(--accent)]"
+                className="inline-flex min-h-12 items-center justify-center rounded-xl bg-[var(--accent-fill)] px-6 py-3 text-[15px] font-semibold text-[var(--primary-foreground)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
               >
                 {config.requestLinkLabel}
               </a>
-              .
-            </p>
+            </div>
 
-            <form onSubmit={handleSubmit} className="mt-5" noValidate>
-              <label
-                htmlFor={inputId}
-                className="block text-sm font-semibold text-[var(--text)]"
-              >
-                Password
-              </label>
-              <div className="mt-2 flex flex-col gap-3 sm:flex-row">
-                <div className="relative min-w-0 flex-1">
-                  <Lock
-                    className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[var(--text-muted)]"
-                    aria-hidden="true"
-                  />
-                  <input
-                    id={inputId}
-                    type="password"
-                    value={value}
-                    onChange={(event) => {
-                      setValue(event.target.value);
-                      if (error) setError(false);
-                    }}
-                    placeholder="Enter password"
-                    autoComplete="off"
-                    data-1p-ignore
-                    data-lpignore="true"
-                    aria-invalid={error || undefined}
-                    aria-describedby={error ? errorId : undefined}
-                    className={`h-12 w-full rounded-xl border bg-[var(--bg)] pl-10 pr-3.5 text-[15px] text-[var(--text)] outline-none transition-colors placeholder:text-[var(--text-faint)] focus:ring-2 ${
-                      error
-                        ? "border-[var(--destructive)] focus:border-[var(--destructive)] focus:ring-[color-mix(in_oklch,var(--destructive)_20%,transparent)]"
-                        : "border-[var(--border)] focus:border-[var(--accent)] focus:ring-[var(--accent-dim)]"
-                    }`}
-                  />
+            <details className="mt-6">
+              <summary className="cursor-pointer text-sm font-medium text-[var(--text-secondary)]">
+                Already have an access code?
+              </summary>
+              <form onSubmit={handleSubmit} className="mt-4" noValidate>
+                <label
+                  htmlFor={inputId}
+                  className="block text-sm font-semibold text-[var(--text)]"
+                >
+                  Access code
+                </label>
+                <div className="mt-2 flex flex-col gap-3 sm:flex-row">
+                  <div className="relative min-w-0 flex-1">
+                    <Lock
+                      className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[var(--text-muted)]"
+                      aria-hidden="true"
+                    />
+                    <input
+                      id={inputId}
+                      type="password"
+                      value={value}
+                      onChange={(event) => {
+                        setValue(event.target.value);
+                        if (error) setError(false);
+                      }}
+                      placeholder="Enter access code"
+                      autoComplete="off"
+                      data-1p-ignore
+                      data-lpignore="true"
+                      aria-invalid={error || undefined}
+                      aria-describedby={error ? errorId : undefined}
+                      className={`h-12 w-full rounded-xl border bg-[var(--bg)] pl-10 pr-3.5 text-[15px] text-[var(--text)] outline-none transition-colors placeholder:text-[var(--text-faint)] focus:ring-2 ${
+                        error
+                          ? "border-[var(--destructive)] focus:border-[var(--destructive)] focus:ring-[color-mix(in_oklch,var(--destructive)_20%,transparent)]"
+                          : "border-[var(--border)] focus:border-[var(--accent)] focus:ring-[var(--accent-dim)]"
+                      }`}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="h-12 shrink-0 cursor-pointer rounded-xl bg-[var(--accent-fill)] px-6 text-[15px] font-semibold text-[var(--primary-foreground)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+                  >
+                    Read the guide
+                  </button>
                 </div>
-                <button
-                  type="submit"
-                  className="h-12 shrink-0 cursor-pointer rounded-xl bg-[var(--accent-fill)] px-6 text-[15px] font-semibold text-[var(--primary-foreground)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
-                >
-                  Unlock
-                </button>
-              </div>
-              {error && (
-                <p
-                  id={errorId}
-                  role="alert"
-                  className="mt-2.5 text-[13px] font-medium text-[var(--destructive)]"
-                >
-                  That password didn&apos;t work — double-check it and try
-                  again.
-                </p>
-              )}
-            </form>
+                {error && (
+                  <p
+                    id={errorId}
+                    role="alert"
+                    className="mt-2.5 text-[13px] font-medium text-[var(--destructive)]"
+                  >
+                    That access code didn&apos;t work — double-check it and try
+                    again.
+                  </p>
+                )}
+              </form>
+            </details>
           </div>
 
           {config.image && (

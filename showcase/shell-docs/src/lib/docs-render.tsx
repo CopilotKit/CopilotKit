@@ -1172,15 +1172,21 @@ export function normalizeSidebarNav(
     "intelligence/learned-skills",
     "Skill delivery",
   );
-  // Skill delivery is a step inside Automatic Learning, so it nests under
-  // that page. The group shares the page's slug, and page-tree-bridge lifts
+  const intelligenceProductTrajectories = intelligencePage(
+    "intelligence/product-trajectories",
+    "Product trajectories",
+  );
+  // Capture and Skill delivery belong inside Automatic Learning.
+  // The group shares the page's slug, and page-tree-bridge lifts
   // the matching child onto the folder so the folder title links to /learning.
   const intelligenceLearningGroup = sidebarTopicGroup(
     "Automatic Learning",
     "learning",
-    [intelligenceLearning, intelligenceSkillDelivery].filter(
-      (node): node is NavNode => node !== null,
-    ),
+    [
+      intelligenceLearning,
+      intelligenceProductTrajectories,
+      intelligenceSkillDelivery,
+    ].filter((node): node is NavNode => node !== null),
   );
   const intelligenceAnalytics = intelligencePage(
     "intelligence/analytics",

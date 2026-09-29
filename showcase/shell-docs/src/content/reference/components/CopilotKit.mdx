@@ -70,6 +70,16 @@ This feature is only available when using CopilotKit's cloud-hosted service. To 
   documentation.
 </PropertyReference>
 
+<PropertyReference name="learning" type="boolean | CopilotKitLearningConfig">
+  Enables automatic [product trajectory capture](/intelligence/product-trajectories)
+  in early access. Defaults to off. Set `learning={true}` to enable capture, or
+  pass a configuration object to enable it with custom options (`enabled: false`
+  keeps capture off). Capture also
+  requires a Runtime connected to CopilotKit Intelligence. Omit the prop or set
+  `learning={false}` to disable it. Available on both `CopilotKit` and
+  `CopilotKitProvider`; Automatic Learning membership is configured on the backend.
+</PropertyReference>
+
 <PropertyReference name="transcribeAudioUrl" type="string">
   The endpoint for the Copilot transcribe audio service.
 </PropertyReference>

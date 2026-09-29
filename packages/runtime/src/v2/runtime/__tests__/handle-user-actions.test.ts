@@ -97,6 +97,19 @@ it("resolves userId server-side (not from the request body)", async () => {
   );
 });
 
+it.each(["expense-review", "", null, 42, {}, []])(
+  "rejects frontend Learning container assignment %j",
+  async (learningContainerId) => {
+    const annotate = vi.fn();
+    const response = await handleAnnotate({
+      runtime: createIntelligenceRuntime({ intelligence: { annotate } }),
+      request: buildRequest({ ...validBody(), learningContainerId }),
+    });
+    expect(response.status).toBe(400);
+    expect(annotate).not.toHaveBeenCalled();
+  },
+);
+
 it("returns 400 when threadId is missing", async () => {
   const annotate = vi.fn();
   const runtime = createIntelligenceRuntime({ intelligence: { annotate } });

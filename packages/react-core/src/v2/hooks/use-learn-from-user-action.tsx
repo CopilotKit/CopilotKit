@@ -20,7 +20,7 @@ export interface LearnFromUserActionInput {
   /** ISO-8601 client-asserted timestamp. Defaults to server NOW() when absent. */
   occurredAt?: string;
   /**
-   * Caller-supplied idempotency key. When omitted, `recordAnnotation` generates a
+   * Caller-supplied UUID idempotency key. When omitted, `recordAnnotation` generates a
    * fresh UUID per call so retries collapse to the original row at the
    * platform. Supply your own to keep a single semantic event idempotent
    * across calls (e.g. a React re-render or a manual retry button).
@@ -34,6 +34,8 @@ export interface LearnFromUserActionResult {
   id: string;
   /** True when the platform recognized this `clientEventId` as a retry. */
   duplicate: boolean;
+  /** True when ingress intentionally discarded the event without persisting it. */
+  dropped?: boolean;
 }
 
 /** Recorder function returned by {@link useLearnFromUserAction}. */

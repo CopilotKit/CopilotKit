@@ -111,6 +111,7 @@ export const Input = ({
 
   return (
     <div
+      data-copilotkit
       className={`copilotKitInputContainer ${showPoweredBy ? "poweredByContainer" : ""}`}
     >
       <div className="copilotKitInput" onClick={handleDivClick}>

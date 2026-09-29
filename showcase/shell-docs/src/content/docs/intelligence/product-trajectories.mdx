@@ -1,0 +1,128 @@
+---
+title: Product trajectories
+nav_title: Product trajectories
+description: Capture meaningful actions in your React app and use them as evidence for Automatic Learning.
+icon: "lucide/MousePointerClick"
+doc_type: how-to
+frontend: hide
+earlyAccess: product-trajectories
+---
+
+Product trajectories are in early access. They attach meaningful application actions to the current agent thread alongside agent activity. Your backend decides which threads CopilotKit Intelligence uses for Automatic Learning.
+
+## Add capture to your app
+
+Start with a React app [connected to Intelligence](/intelligence/quickstart). Add `learning={true}` to your existing `CopilotKitProvider` to enable automatic capture and delivery. No tracking code is needed in individual event handlers.
+
+Keep your existing provider and chat setup, and enable capture:
+
+```tsx title="Your existing app provider"
+"use client";
+
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+
+export function AppProviders({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" learning={true}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
+```
+
+Capture is off by default. It starts only after you enable it and the Runtime reports that Intelligence is connected. Omit `learning` or set `learning={false}` to keep it off. Passing a configuration object, such as `learning={{ apiUrlPrefixes: ["/api/expenses"] }}`, also enables capture unless `enabled: false` is set. The `CopilotKit` compatibility provider accepts the same option.
+
+## Follow the current thread
+
+With one mounted chat, actions belong to that chat's current thread. Switching threads changes the destination for subsequent actions. If two chats are mounted, clicking or focusing one selects its thread for application-wide actions; background agent activity does not change that selection. Actions are omitted when there is no mounted thread or the destination is ambiguous.
+
+An associated request keeps the thread of the action that started it, even if its response arrives after a thread switch. A committed field change keeps the thread where editing began, including when clicking another chat causes the field to lose focus. If no thread was available when editing began, the change is omitted. The adapter retains the last 256 action associations; an older outcome is omitted rather than assigned to a different thread. Headless UI using `useAgent` supports a single unambiguous mounted thread; multiple headless threads without a selected chat are not automatically attributed.
+
+Configure which threads contribute to Automatic Learning on the backend, using the [Automatic Learning guide](/learning). Capturing an action does not assign a Learning container or enable Automatic Learning.
+
+## Check what is captured
+
+With a chat mounted, click a button, change a control, or submit a form in your app. In your browser's Network panel, look for requests to your Runtime's `/annotate` endpoint with `type: "user_action"` and the current chat's `threadId`. Switch to another thread and repeat: new actions should carry its ID. Annotation delivery does not start an agent run.
+
+| Signal                     | Captured information                                                                                                                   |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| User action                | Click, committed edit, submission, supported command shortcut, drag/drop or public text selection; observed target and state.          |
+| Associated service request | `fetch` or XHR method, filtered service pathname, public JSON body fields, status, duration, and outcome.                              |
+| Screen context             | Headings, status, relevant visible prose, control states and filtered current field values; at startup, navigation and screen changes. |
+| Service response           | Filtered JSON the application consumes, with request ID, method and route; public business results and errors.                         |
+| Immediate DOM change       | Bounded structural counts and changed target or semantic context, including status text changes.                                       |
+| Post-request observation   | One changed semantic snapshot observed 50 ms after an associated request completes.                                                    |
+| Page location              | Filtered URL pathname on every event; query strings, fragments, and the origin are excluded.                                           |
+
+Capture reads ordinary accessible markup, including button text, native control labels, `aria-labelledby`, headings, and status regions. Checkbox and radio state, expanded state, and selected option labels help distinguish what a user selected from which control they clicked. A committed edit can include `previous` when capture observed the control before editing. This is an observed baseline, not an inferred previous value.
+
+Screen context is limited to eight semantic items and 2 KiB of JSON per observation. Statuses, headings, and groups take priority; unchanged context is omitted from later events. The delivery adapter restores the latest snapshot when a new thread needs it. A `truncated` marker indicates incomplete context. Short visible paragraphs, list items and table cells can supply context. The item and byte budgets still leave some screen content out. To prioritize a short, non-private domain summary, mark it explicitly:
+
+```html
+<p data-learning-context>Order total: $48</p>
+<p role="status">Awaiting approval</p>
+```
+
+The marker does not override privacy filtering. Set `captureContext: false` inside `learning` to omit screen context while retaining target labels and control state.
+
+Each event also carries `page`, for example `{ pathname: "/expenses/review" }`. Actions and screen observations use the pathname at observation time. Requests retain the pathname where they started, even if their response arrives after navigation. Same-document navigation produces a standalone `context` event after the screen updates, even without a click. Hash changes trigger observation, but the fragment itself remains excluded.
+
+Common sensitive path segments, such as email addresses, numeric identifiers, and credentials, are replaced with `:redacted` and `page.redacted: true`. For example, `/expenses/12345?token=private` becomes `{ pathname: "/expenses/:redacted", redacted: true }`. Pathnames are limited to 1 KiB of UTF-8 before and after filtering. An oversized or unsupported location produces a `page.omitted` reason instead of a partial path. These filters cannot identify every name or private slug. For apps with sensitive routes, set `capturePage: false` inside `learning`; actions and other enabled signals remain available. Page capture is independent of the text and accessible-name options.
+
+Requests default to your app's same-origin `/api` routes. To focus on a specific service, add `apiUrlPrefixes: ["/api/expenses"]` inside `learning`. Use an absolute prefix for a service on another origin. Recorded URLs retain the service pathname with sensitive-looking segments redacted. For example, `/api/expenses/12345/approve?token=private` becomes `/api/expenses/:redacted/approve` on that service origin. Query strings and fragments are omitted. Oversized paths fall back to the filtered matching prefix. These filters cannot identify every private slug; keep personal data out of routes and configured prefixes.
+
+Capture requires browser-trusted actions. Synthetic DOM actions and background polling requests are excluded. Separately, visible screen changes can produce context observations; these are not labeled as user actions. Browser automation that generates trusted events can still be captured. Immediate DOM correlation covers the current interaction task. Request capture also follows direct continuations of captured fetch responses and consumed bodies, such as `await fetch`, `await response.json()`, then a follow-up fetch. Those requests include `attribution: "response-continuation"` and the preceding `parentRequestId`. The scope closes at the next microtask boundary; it does not stay open while a response body downloads. An intervening action, input, ambiguous response origins, the request cap, or a 30-second action lifetime ends eligibility. Delayed timers, arbitrary extra awaits, cloned responses, Promise combinators, and XHR response-handler chains are not traced. Unrelated microtasks at the same settlement point can still be correlated. Treat attribution as a heuristic rather than proof of causation.
+
+A separate `context` event can observe changed screen state 50 ms after an associated request completes. It carries the original `actionId` and a `requestId`, but does not claim the request caused every observed change. Another user action, field input, a thread switch, or removal of the original screen can cancel that observation. Later semantic screen changes can produce standalone `screen-change` observations, without claiming a relationship to a particular action. These are coalesced over 300 ms, omit unchanged context and are capped at ten per minute. Initial and navigation observations also have no `actionId`. A successful HTTP response alone does not establish that the intended business operation completed.
+
+## Exclude private areas
+
+Mark a control or its surrounding section with `data-private` to exclude it and its descendants:
+
+```html
+<section data-private>
+  <label>Billing email <input type="email" /></label>
+</section>
+```
+
+A committed field change includes the edited text, so a note such as “Move the supplier dinner to Friday” retains its actionable meaning. This observes the field edit, often on blur; it does not prove the application saved it. Text is bounded to 1,024 UTF-16 code units and 2 KiB of UTF-8, filtered for common sensitive patterns, and omitted in full when it exceeds either limit. Capture does not stream keystrokes or read full DOM snapshots or headers. Ordinary current field values can also appear in screen context. Native scalar/date controls and contenteditable commits on blur are supported; opaque canvas editors are not. CopilotKit chat composer text stays excluded. Set `captureTextValues: false` inside `learning` to omit field text and request/response bodies.
+
+Password, email, telephone, hidden, and sensitive autocomplete fields are excluded automatically. Accessible names, selected option labels, and semantic context pass basic filtering before capture; set `captureAccessibleNames: false` inside `learning` to omit those, field text, and request/response bodies. Finite control states and filtered `name` and `data-learning-id` identifiers can still be recorded, so keep personal data out of those attributes. Mark application-specific sensitive areas yourself: unmarked names or confidential prose can pass these basic filters, which do not guarantee anonymization.
+
+JSON-string request bodies can preserve details that are absent from the screen, such as `{ "pickupWindow": "Afternoon" }`. Capture omits sensitive field names and values, including credentials, contact details, and fields named after private or hidden native controls in the light DOM. Use matching control and JSON field names; privacy markers cannot identify renamed payload fields. Arbitrary confidential prose can still pass the basic filters.
+
+The captured `request.body` reports filtered `fields`, an `omittedFieldCount`, and an `omissionReason` when applicable. Inspection is limited to 16 KiB input, 20 fields, 32 nodes, depth three, and 2 KiB output. Capture does not consume streams or inspect FormData or binary bodies. Unsupported, malformed, and oversized bodies produce an omission reason. Set `captureRequestBodies: false` inside `learning` to omit bodies independently of field text.
+
+Responses use the same filtering and output bounds. A `response` event contains JSON the application read with fetch `json()` or `text()`, or a completed XHR JSON/text body. Capture does not read or clone streams to obtain extra data; unread fetch bodies, binary data and non-JSON text remain unavailable. Set `captureResponseBodies: false` to disable this channel independently. Response field filtering uses the private control names recorded at the action and response time.
+
+Ordinary object-ID fields become capture-local references such as `{ "reference": "object-1" }`. The same ID in another request, response or supported redacted request-path segment uses the same alias. Raw IDs are omitted, aliases are bounded to 256 per capture instance, and restarting capture resets them. Each event's `captureId` scopes these aliases to that capture instance. Aliases match equal identifier values; they do not establish that IDs from unrelated services name the same entity. Private, credential and contact fields remain excluded.
+
+Supported command shortcuts record a fixed key vocabulary, never ordinary typing: Control/Meta + Enter/S/Z/Y, Alt + Left/Right, and Escape. Drag/drop records source and destination labels without transfer data. Public text selections are restricted to one visible text node; selections across nodes, in editors or in private areas are omitted.
+
+The default cap is 120 events per minute and five requests per action. Set `learning={false}` on your provider to stop automatic capture. To receive delivery errors, add an `onError` callback inside `learning`.
+
+Disabling or reinitializing capture discards queued events and action associations. Late outcomes can be omitted; delivery is not retried.
+
+## Preview capture without delivery
+
+For a local evaluation, the standalone package can send events to your own callback. This example starts capture when the component mounts and cleans up when it unmounts:
+
+```tsx title="Standalone capture preview"
+"use client";
+
+import { useEffect } from "react";
+import { startProductInteractionCapture } from "@copilotkit/learning";
+
+export function CapturePreview() {
+  useEffect(() => {
+    return startProductInteractionCapture({
+      onEvent: (event) => console.log(event),
+    });
+  }, []);
+
+  return null;
+}
+```
+
+Mount this component in an app without automatic capture, or set `learning={false}` on its existing provider while evaluating. The callback receives filtered events; the standalone package does not send them to Intelligence.

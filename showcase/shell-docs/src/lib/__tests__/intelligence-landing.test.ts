@@ -133,6 +133,27 @@ test("the Automatic Learning guide stays focused on the reviewed workflow", () =
   expect(guide).not.toContain("memory: {");
 });
 
+test("product trajectories have one gated setup page linked from Learning and Intelligence", () => {
+  const page = matter(
+    read("content/docs/intelligence/product-trajectories.mdx"),
+  );
+  const guide = read("content/docs/learning.mdx");
+  const overview = read("content/snippets/shared/intelligence/overview.mdx");
+  const rootNav = JSON.parse(read("content/docs/meta.json"));
+  const intelligenceNav = JSON.parse(
+    read("content/docs/intelligence/meta.json"),
+  );
+
+  expect(page.data.earlyAccess).toBe("product-trajectories");
+  expect(page.data.frontend).toBe("hide");
+  expect(guide).toContain("](/intelligence/product-trajectories)");
+  expect(overview).toContain("](/intelligence/product-trajectories)");
+  expect(rootNav.pages).toContain("intelligence/product-trajectories");
+  expect(intelligenceNav.pages).toContain("product-trajectories");
+  expect(guide).not.toContain("startProductInteractionCapture");
+  expect(guide).not.toContain('learningContainerId: "expense-review"');
+});
+
 test("the MDX registry and page view wire IntelligenceOverview and its chrome", () => {
   const registry = read("lib/mdx-registry.tsx");
   const pageView = read("components/docs-page-view.tsx");

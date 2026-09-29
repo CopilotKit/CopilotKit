@@ -1329,6 +1329,21 @@ describe("CopilotKitIntelligence", () => {
       clientEventId: "0190a1b2-c3d4-7890-abcd-ef1234567890",
     };
 
+    it("does not forward annotation container fields supplied by an untyped caller", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "42", duplicate: false }));
+      const input = {
+        ...validParams,
+        learningContainerId: "expense-review",
+      };
+      await client.annotate(input);
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+        userId: validParams.userId,
+        threadId: validParams.threadId,
+        type: "user_action",
+        payload: validParams.payload,
+      });
+    });
+
     it("uses PUT (idempotent) and URL-encodes the clientEventId in the path", async () => {
       fetchMock.mockReturnValue(jsonResponse({ id: "42", duplicate: false }));
 

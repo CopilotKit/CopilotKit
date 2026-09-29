@@ -671,6 +671,10 @@ describe("framework nav", () => {
         slug: "learning",
         children: [
           { title: "Automatic Learning", slug: "learning" },
+          {
+            title: "Product trajectories",
+            slug: "intelligence/product-trajectories",
+          },
           { title: "Skill delivery", slug: "intelligence/learned-skills" },
         ],
       },
@@ -996,6 +1000,10 @@ describe("framework nav", () => {
         slug: "learning",
         children: [
           { title: "Automatic Learning", slug: "learning" },
+          {
+            title: "Product trajectories",
+            slug: "intelligence/product-trajectories",
+          },
           { title: "Skill delivery", slug: "intelligence/learned-skills" },
         ],
       },

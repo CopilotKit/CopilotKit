@@ -30,12 +30,22 @@ export interface EarlyAccessGateConfig {
   image?: { alt: string; lightSrc: string; darkSrc: string };
 }
 
-// No Channels provider currently uses an early-access docs gate. WhatsApp is a
-// coming-soon roadmap item, while Slack and Teams are production ready.
-export const EARLY_ACCESS_GATES = {} as const satisfies Record<
-  string,
-  EarlyAccessGateConfig
->;
+export const EARLY_ACCESS_GATES = {
+  "product-trajectories": {
+    storageKey: "copilotkit.docs.product-trajectories.access",
+    password: "product-trajectories-preview",
+    eyebrow: "Early access",
+    title: "Learn from how people use your app",
+    description: [
+      "Product trajectories bring meaningful user actions into Automatic Learning alongside agent activity, without adding tracking code to every interaction.",
+      "Apply for early access to try it with your organization. If you already have an access code, enter it below to read the setup guide.",
+    ],
+    requestPrompt: "Ready to try it?",
+    requestLinkLabel: "Apply for early access",
+    // Provisional branded short link; point it at the application form before launch.
+    requestUrl: "https://go.copilotkit.ai/product-trajectories-early-access",
+  },
+} as const satisfies Record<string, EarlyAccessGateConfig>;
 
 export function getEarlyAccessGate(
   id: string | undefined,

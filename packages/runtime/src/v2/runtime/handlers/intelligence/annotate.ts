@@ -125,6 +125,12 @@ function parseAnnotateBody(
   if (!isNonEmptyString(body.type)) {
     return errorResponse("Valid type is required", 400);
   }
+  if ("learningContainerId" in body) {
+    return errorResponse(
+      "Learning container assignment is controlled by the backend, not annotations",
+      400,
+    );
+  }
   return {
     type: body.type,
     payload: body.payload,

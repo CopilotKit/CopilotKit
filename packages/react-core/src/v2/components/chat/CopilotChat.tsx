@@ -5,6 +5,7 @@ import type { CopilotChatViewProps } from "./CopilotChatView";
 import { CopilotChatView } from "./CopilotChatView";
 import type { CopilotChatInputMode } from "./CopilotChatInput";
 import type { CopilotChatLabels } from "../../providers/CopilotChatConfigurationProvider";
+import { useLearningThread } from "../../hooks/use-learning-thread";
 import {
   CopilotChatConfigurationProvider,
   useCopilotChatConfiguration,
@@ -163,6 +164,15 @@ export function CopilotChat({
     throttleMs,
   });
   const { copilotkit } = useCopilotKit();
+  const activateLearningThread = useLearningThread(
+    copilotkit.ɵlearningThreads,
+    {
+      kind: "chat",
+      // Keep this scope while discovery is pending: a focused, unavailable
+      // chat must not attribute product activity to a different ready chat.
+      getThreadId: () => (isReady ? resolvedThreadId : undefined),
+    },
+  );
   const { suggestions: autoSuggestions } = useSuggestions({
     agentId: resolvedAgentId,
   });
@@ -1186,7 +1196,12 @@ export function CopilotChat({
       labels={labels}
       isModalDefaultOpen={isModalDefaultOpen}
     >
-      <div ref={chatContainerRef} style={{ display: "contents" }}>
+      <div
+        ref={chatContainerRef}
+        style={{ display: "contents" }}
+        onPointerDownCapture={activateLearningThread}
+        onFocusCapture={activateLearningThread}
+      >
         {attachmentsEnabled && (
           <input
             type="file"

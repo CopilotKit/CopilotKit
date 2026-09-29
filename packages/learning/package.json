@@ -1,0 +1,53 @@
+{
+  "name": "@copilotkit/learning",
+  "version": "0.0.0",
+  "description": "Privacy-conscious, composable capture of user product interactions.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CopilotKit/CopilotKit.git",
+    "directory": "packages/learning"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "import": { "types": "./dist/index.d.mts", "default": "./dist/index.mjs" },
+      "require": { "types": "./dist/index.d.cts", "default": "./dist/index.cjs" }
+    },
+    "./react": {
+      "import": { "types": "./dist/react.d.mts", "default": "./dist/react.mjs" },
+      "require": { "types": "./dist/react.d.cts", "default": "./dist/react.cjs" }
+    }
+  },
+  "files": ["dist"],
+  "publishConfig": { "access": "public" },
+  "scripts": {
+    "build": "tsdown",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run",
+    "test:browser": "playwright test",
+    "lint": "oxlint .",
+    "format": "oxfmt --write .",
+    "check-format": "oxfmt --check .",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
+  },
+  "peerDependencies": { "react": "^18.0.0 || ^19.0.0" },
+  "peerDependenciesMeta": { "react": { "optional": true } },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@types/react": "19.1.8",
+    "@types/react-dom": "^19.0.2",
+    "jsdom": "^26.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tsdown": "^0.20.3",
+    "typescript": "^5.2.3",
+    "vitest": "^3.2.4"
+  },
+  "nx": { "targets": { "test:browser": { "dependsOn": ["build"], "cache": false } } }
+}

@@ -10,7 +10,7 @@ import InspectorPaneLearning from "@/snippets/shared/inspector/open-inspector-pa
 
 ## Overview
 
-Automatic Learning turns patterns from real agent runs into skills you can publish. It reads completed conversations in [Rich Threads](/threads), writes insights, and proposes instructions you review before you publish them.
+Automatic Learning turns patterns from agent runs and product interactions into skills you can publish. It reads completed conversations in [Rich Threads](/threads) and product trajectories, writes insights, and proposes instructions you review before you publish them.
 
 <div className="not-prose shell-docs-radius-surface aspect-[7/4] w-full overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]">
   <iframe
@@ -38,14 +38,28 @@ When a pattern can be reused, Learning proposes a Skill. You review the supporti
 
 Automatic Learning checks eligible containers on a daily schedule. After you approve a skill, [skill delivery](/intelligence/learned-skills) makes it available to connected agents. A scheduled run does not approve skills. Turning on delivery does not connect your agent for you.
 
+<FrontendOnly frontend="react">
+
+## Capture product trajectories
+
+Product trajectories add meaningful user interactions and associated service requests to Automatic Learning alongside agent activity.
+
+<Callout type="info" title="Product trajectories are in early access">
+  [Apply for early access or read the setup
+  guide](/intelligence/product-trajectories) to start capturing product
+  interactions with your existing React provider.
+</Callout>
+
+</FrontendOnly>
+
 ## Collect runs and deliver Skills
 
 The learning loop has two connections. Run ingestion collects evidence in a Learning container. Skill delivery loads published instructions into an agent.
 
-| Connection | Configuration | Result |
-| --- | --- | --- |
-| Runtime to Automatic Learning | `CopilotKitIntelligence.getLearningContainerId` | Assigns selected Threads to a container for analysis. |
-| Learning to agent | An Intelligence SDK adapter for your framework | Makes published Skills available during agent invocations. |
+| Connection                    | Configuration                                   | Result                                                     |
+| ----------------------------- | ----------------------------------------------- | ---------------------------------------------------------- |
+| Runtime to Automatic Learning | `CopilotKitIntelligence.getLearningContainerId` | Assigns selected Threads to a container for analysis.      |
+| Learning to agent             | An Intelligence SDK adapter for your framework  | Makes published Skills available during agent invocations. |
 
 When an agent must learn from its own workflow, use the same project and container for both connections. The SDK adapters also work with native agents outside a CopilotKit frontend, but they do not collect those agents' runs automatically.
 
@@ -147,6 +161,7 @@ Once you have published a Skill, connect the agent that should use it:
     #### Enable delivery for the container
 
     Open the container's **Skills** tab and check that **Skill delivery** shows **Delivery enabled**. This controls new requests for published Skills from this container.
+
   </Step>
 
   <Step>
@@ -169,6 +184,7 @@ Once you have published a Skill, connect the agent that should use it:
     ```
 
     Keep the key server-side. Leave `CPK_INTELLIGENCE_SKILLS_REVISION` unset to follow the latest published Skills. See [container configuration](/intelligence/learned-skills#configure-one-container) for self-hosted endpoints and exact revision pins.
+
   </Step>
 
   <Step>
@@ -177,11 +193,15 @@ Once you have published a Skill, connect the agent that should use it:
     Initialize the adapter and start a new agent invocation. Confirm that the published Skill appears in its catalog, `copilotkit_load_skill` can load its `SKILL.md`, and `copilotkit_read_skill_file` can read a supporting file if the Skill has one. Copying the setup prompt or enabling the toggle alone does not verify the connection.
 
     The adapter refreshes published Skills automatically, with a default freshness window of five seconds. Each invocation keeps one snapshot; a newly published revision is available to later invocations after refresh. The model decides when to load and follow a Skill.
+
   </Step>
 </Steps>
 
 <Callout type="info" title="Pausing delivery is separate from Learning">
-  Turning off **Skill delivery** does not stop Learning runs or revoke published revisions. Once an adapter checks delivery and receives the denial, it blocks new invocations; invocations already in progress keep their captured Skills. Pausing Learning runs likewise does not stop delivery of published Skills.
+  Turning off **Skill delivery** does not stop Learning runs or revoke published
+  revisions. Once an adapter checks delivery and receives the denial, it blocks
+  new invocations; invocations already in progress keep their captured Skills.
+  Pausing Learning runs likewise does not stop delivery of published Skills.
 </Callout>
 
 ### Download Skills manually
@@ -200,16 +220,16 @@ The output contains a directory and `SKILL.md` for each published Skill. Configu
 
 ## Troubleshooting
 
-| Problem                                     | What to check                                                                                                                |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| A Thread never appears in the container     | Confirm the callback returned an existing stable ID before the Thread's first run and that the run reached a terminal state. |
-| The Runtime reports a container conflict    | The selector returned a different ID for an already-bound Thread. Restore the original mapping or start a new Thread.        |
-| A run has no new evidence                   | Runs created before assignment, still in progress, or already included in an earlier Learning run are not new input.         |
-| An automatic run has not started            | Check the container's readiness count, daily schedule, and active or failed analysis. If it shows **Automatic learning is off**, scheduling is disabled for the deployment; editing the time does not enable it. Manual runs remain available. |
-| Learning is waiting after a failed run      | Inspect the failure under **Analysis results**. Automatic Learning waits for additional eligible Threads before retrying that evidence; you can also start a manual run. |
-| A run succeeds without a Skill candidate    | Inspect the Insights. The evidence may be useful without supporting a reusable procedural Skill.                             |
+| Problem                                     | What to check                                                                                                                                                                                                                                         |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A Thread never appears in the container     | Confirm the callback returned an existing stable ID before the Thread's first run and that the run reached a terminal state.                                                                                                                          |
+| The Runtime reports a container conflict    | The selector returned a different ID for an already-bound Thread. Restore the original mapping or start a new Thread.                                                                                                                                 |
+| A run has no new evidence                   | Runs created before assignment, still in progress, or already included in an earlier Learning run are not new input.                                                                                                                                  |
+| An automatic run has not started            | Check the container's readiness count, daily schedule, and active or failed analysis. If it shows **Automatic learning is off**, scheduling is disabled for the deployment; editing the time does not enable it. Manual runs remain available.        |
+| Learning is waiting after a failed run      | Inspect the failure under **Analysis results**. Automatic Learning waits for additional eligible Threads before retrying that evidence; you can also start a manual run.                                                                              |
+| A run succeeds without a Skill candidate    | Inspect the Insights. The evidence may be useful without supporting a reusable procedural Skill.                                                                                                                                                      |
 | An approved Skill does not affect the agent | Confirm delivery is enabled, the adapter uses the correct project and container, and a new invocation can load the Skill. Check for an exact revision pin. For manual loading, download the latest bundle and confirm your agent loads its directory. |
-| Delivery status is unavailable              | Select **Retry delivery status**. For self-hosted deployments, verify the delivery endpoint and migration are installed before relying on an adapter. See [deployment requirements](/intelligence/learned-skills#deployment-requirements). |
+| Delivery status is unavailable              | Select **Retry delivery status**. For self-hosted deployments, verify the delivery endpoint and migration are installed before relying on an adapter. See [deployment requirements](/intelligence/learned-skills#deployment-requirements).            |
 
 ## Related guides
 
