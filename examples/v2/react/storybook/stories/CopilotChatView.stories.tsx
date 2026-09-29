@@ -1,14 +1,20 @@
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { fn } from "storybook/test";
+import { CopilotChatView } from "@copilotkit/react-core/v2";
+import { withFullHeight } from "./support/layouts";
 import {
-  CopilotChatConfigurationProvider,
-  CopilotChatView,
-  CopilotKitProvider,
-} from "@copilotkit/react-core/v2";
-import { Suggestion } from "@copilotkit/core";
+  manySuggestions,
+  reactHooksConversation,
+  starterSuggestions,
+  storySuggestions,
+} from "./support/fixtures";
+import type { Suggestion } from "@copilotkit/core";
 
 const meta = {
   title: "UI/CopilotChatView",
+  decorators: [withFullHeight],
   parameters: {
+    layout: "fullscreen",
     docs: {
       description: {
         component:
@@ -22,49 +28,26 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
-  parameters: {
-    layout: "fullscreen",
-  },
-  decorators: [
-    (Story) => (
-      <div
-        style={{ height: "100vh", margin: 0, padding: 0, overflow: "hidden" }}
-      >
-        <Story />
-      </div>
-    ),
-  ],
   render: () => {
     return (
-      <CopilotKitProvider runtimeUrl="https://copilotkit.ai">
-        <CopilotChatConfigurationProvider threadId="storybook-thread">
-          <div style={{ height: "100%" }}>
-            <CopilotChatView
-              messages={storyMessages}
-              onSubmitMessage={(value) => {
-                alert(`Message submitted: ${value}`);
-              }}
-              messageView={{
-                assistantMessage: {
-                  onThumbsUp: () => {
-                    alert("thumbsUp");
-                  },
-                  onThumbsDown: () => {
-                    alert("thumbsDown");
-                  },
-                },
-              }}
-            />
-          </div>
-        </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      <div style={{ height: "100%" }}>
+        <CopilotChatView
+          messages={reactHooksConversation}
+          onSubmitMessage={fn()}
+          messageView={{
+            assistantMessage: {
+              onThumbsUp: fn(),
+              onThumbsDown: fn(),
+            },
+          }}
+        />
+      </div>
     );
   },
 };
 
 export const PinToSend: Story = {
   parameters: {
-    layout: "fullscreen",
     docs: {
       description: {
         story:
@@ -72,132 +55,77 @@ export const PinToSend: Story = {
       },
     },
   },
-  decorators: Default.decorators,
   render: () => {
     return (
-      <CopilotKitProvider runtimeUrl="https://copilotkit.ai">
-        <CopilotChatConfigurationProvider threadId="storybook-pin-to-send">
-          <div style={{ height: "100%" }}>
-            <CopilotChatView
-              autoScroll="pin-to-send"
-              messages={pinToSendMessages}
-              onSubmitMessage={(value) => {
-                alert(`Message submitted: ${value}`);
-              }}
-            />
-          </div>
-        </CopilotChatConfigurationProvider>
-      </CopilotKitProvider>
+      <div style={{ height: "100%" }}>
+        <CopilotChatView
+          autoScroll="pin-to-send"
+          messages={pinToSendMessages}
+          onSubmitMessage={fn()}
+        />
+      </div>
     );
   },
 };
 
 export const WithSuggestions: Story = {
-  parameters: {
-    layout: "fullscreen",
-  },
-  decorators: Default.decorators,
   render: () => (
-    <CopilotKitProvider runtimeUrl="https://copilotkit.ai">
-      <CopilotChatConfigurationProvider threadId="storybook-thread">
-        <div style={{ height: "100%" }}>
-          <CopilotChatView
-            messages={storyMessages}
-            suggestions={suggestionSamples}
-            onSelectSuggestion={(suggestion) =>
-              alert(`Selected suggestion: ${suggestion.title}`)
-            }
-            onSubmitMessage={(value) => {
-              alert(`Message submitted: ${value}`);
-            }}
-            messageView={{
-              assistantMessage: {
-                onThumbsUp: () => alert("thumbsUp"),
-                onThumbsDown: () => alert("thumbsDown"),
-              },
-            }}
-          />
-        </div>
-      </CopilotChatConfigurationProvider>
-    </CopilotKitProvider>
+    <div style={{ height: "100%" }}>
+      <CopilotChatView
+        messages={reactHooksConversation}
+        suggestions={suggestionSamples}
+        onSelectSuggestion={fn()}
+        onSubmitMessage={fn()}
+        messageView={{
+          assistantMessage: {
+            onThumbsUp: fn(),
+            onThumbsDown: fn(),
+          },
+        }}
+      />
+    </div>
   ),
 };
 
-const suggestionSamples: Suggestion[] = [
-  {
-    title: "Summarize conversation",
-    message: "Summarize our latest messages",
-    isLoading: false,
-  },
-  {
-    title: "Draft reply",
-    message: "Draft a detailed response",
-    isLoading: false,
-  },
-  {
-    title: "List next steps",
-    message: "List action items from this chat",
-    isLoading: true,
-  },
-];
+/**
+ * No messages yet: the greeting, suggestion cards (title as header, message as
+ * body) and the input below them.
+ */
+export const WelcomeScreen: Story = {
+  render: () => (
+    <CopilotChatView
+      messages={[]}
+      suggestions={starterSuggestions}
+      onSelectSuggestion={fn()}
+      onSubmitMessage={fn()}
+    />
+  ),
+};
 
-const storyMessages = [
-  {
-    id: "user-1",
-    content: "Hello! Can you help me understand how React hooks work?",
-    timestamp: new Date(),
-    role: "user" as const,
-  },
-  {
-    id: "assistant-1",
-    content: `React hooks are functions that let you use state and other React features in functional components. Here are the most common ones:
+/** A run in flight: typing cursor in the transcript, stop button in the input. */
+export const Running: Story = {
+  render: () => (
+    <CopilotChatView
+      messages={[
+        ...reactHooksConversation,
+        {
+          id: "user-3",
+          role: "user" as const,
+          content: "And how would I persist that count across reloads?",
+        },
+      ]}
+      isRunning
+      onStop={fn()}
+      onSubmitMessage={fn()}
+    />
+  ),
+};
 
-- **useState** - Manages local state
-- **useEffect** - Handles side effects
-- **useContext** - Accesses context values
-- **useCallback** - Memoizes functions
-- **useMemo** - Memoizes values
-
-Would you like me to explain any of these in detail?`,
-    timestamp: new Date(),
-    role: "assistant" as const,
-  },
-  {
-    id: "user-2",
-    content: "Yes, could you explain useState with a simple example?",
-    timestamp: new Date(),
-    role: "user" as const,
-  },
-  {
-    id: "assistant-2",
-    content: `Absolutely! Here's a simple useState example:
-
-\`\`\`jsx
-import React, { useState } from 'react';
-
-function Counter() {
-  const [count, setCount] = useState(0);
-
-  return (
-    <div>
-      <p>You clicked {count} times</p>
-      <button onClick={() => setCount(count + 1)}>
-        Click me
-      </button>
-    </div>
-  );
-}
-\`\`\`
-
-In this example:
-- \`useState(0)\` initializes the state with value 0
-- It returns an array: \`[currentValue, setterFunction]\`
-- \`count\` is the current state value
-- \`setCount\` is the function to update the state`,
-    timestamp: new Date(),
-    role: "assistant" as const,
-  },
-];
+// The last suggestion is still loading, to show the pill's loading state.
+const suggestionSamples: Suggestion[] = storySuggestions.map(
+  (suggestion, index) =>
+    index === 2 ? { ...suggestion, isLoading: true } : suggestion,
+);
 
 // Enough back-and-forth to force scrolling so the feather region above the
 // input is clearly visible in pin-to-send mode.
@@ -296,3 +224,31 @@ Dependency arrays are the honest answer — refs are an escape hatch when the va
     timestamp: new Date(),
   },
 ];
+
+/**
+ * More suggestions than fit: the docked bar above the input scrolls
+ * horizontally, and its right edge fades to show there is more.
+ */
+export const WithManySuggestions: Story = {
+  render: () => (
+    <CopilotChatView
+      messages={reactHooksConversation}
+      suggestions={manySuggestions}
+      onSelectSuggestion={fn()}
+      onSubmitMessage={fn()}
+    />
+  ),
+};
+
+/** The welcome screen with `introAnimation={false}`: content appears immediately. */
+export const WithoutIntroAnimation: Story = {
+  render: () => (
+    <CopilotChatView
+      messages={[]}
+      suggestions={starterSuggestions}
+      introAnimation={false}
+      onSelectSuggestion={fn()}
+      onSubmitMessage={fn()}
+    />
+  ),
+};
