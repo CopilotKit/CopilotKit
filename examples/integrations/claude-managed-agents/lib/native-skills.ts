@@ -86,12 +86,17 @@ export function createSkillsFetch(
   // start; successful IDs are scoped to this client/process, never another account.
   const uploads = new Map<string, Promise<SkillReference>>();
   return async (input, init) => {
-    const request = new Request(input, init);
+    const url = input instanceof Request ? input.url : String(input);
+    const method =
+      init?.method ?? (input instanceof Request ? input.method : "GET");
+    // Next.js uses init.signal to opt out of deduplication. Preserve the original
+    // arguments so it never clones the long-lived Anthropic event stream.
     if (
-      request.method !== "POST" ||
-      new URL(request.url).pathname !== "/v1/sessions"
+      method.toUpperCase() !== "POST" ||
+      new URL(url).pathname !== "/v1/sessions"
     )
-      return transport(request);
+      return transport(input, init);
+    const request = new Request(input, init);
     const signal = AbortSignal.any([
       request.signal,
       AbortSignal.timeout(60_000),

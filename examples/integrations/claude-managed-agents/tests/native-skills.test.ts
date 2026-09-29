@@ -246,3 +246,37 @@ test("aborting a session stops waiting without cancelling a shared Skill upload"
   assert.equal(uploads, 1);
   assert.equal(sessions, 1);
 });
+
+test("event streams preserve the explicit signal that opts out of Next.js fetch deduplication", async () => {
+  const input =
+    "https://api.anthropic.com/v1/sessions/session_test/events/stream";
+  const init: RequestInit = {
+    signal: new AbortController().signal,
+    headers: { accept: "text/event-stream" },
+  };
+  const bridge = createSkillsFetch({
+    containerId: "learning-test",
+    intelligence: {
+      getLearnedSkillsSnapshot: async () => {
+        throw new Error("unexpected snapshot read");
+      },
+    },
+    agents: {
+      retrieve: async () => {
+        throw new Error("unexpected agent read");
+      },
+    },
+    skills: {
+      create: async () => {
+        throw new Error("unexpected upload");
+      },
+    },
+    fetch: async (resource, options) => {
+      assert.equal(resource, input);
+      assert.equal(options, init);
+      assert.equal(options.signal, init.signal);
+      return new Response("data: finished\n\n");
+    },
+  });
+  assert.equal(await (await bridge(input, init)).text(), "data: finished\n\n");
+});
