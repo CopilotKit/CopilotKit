@@ -8,6 +8,9 @@ import {
   looksLikeModelName,
   extractModelNames,
   validateFiles,
+  loadModelTable,
+  extractBuiltInAgentModels,
+  validateModelTable,
 } from "../validate-doc-model-names";
 
 // ---------------------------------------------------------------------------
@@ -510,6 +513,190 @@ describe("what the shipped scan must not flag", () => {
     );
 
     expect(scan(dir, list).map((v) => v.model)).toEqual(["gpt-4o-mini"]);
+
+    fs.rmSync(dir, { recursive: true });
+  });
+});
+
+/**
+ * The Built-in Agent quickstart pinned `openai:gpt-5.4-mini` while the model
+ * table on the Model Selection page did not list it, so a reader could not tell
+ * whether the quickstart model was supported (PE-418). Every provider:model
+ * string a page teaches must now be a row in that table.
+ */
+
+describe("Built-in Agent model table", () => {
+  function createTempDir(): string {
+    return fs.mkdtempSync(path.join(os.tmpdir(), "model-table-"));
+  }
+
+  const table = [
+    "## Supported Models",
+    "",
+    "### OpenAI",
+    "",
+    "| Model        | Specifier             |",
+    "| ------------ | --------------------- |",
+    "| GPT-5.4 Mini | `openai:gpt-5.4-mini` |",
+    "",
+    "### Anthropic",
+    "",
+    "| Model             | Specifier                     |",
+    "| ----------------- | ----------------------------- |",
+    "| Claude Sonnet 4.6 | `anthropic:claude-sonnet-4-6` |",
+    "",
+    "Use `openai:not-a-row` in prose.",
+    "",
+    "## How it works",
+    "",
+    "| Model string        | Resolved call        |",
+    "| ------------------- | -------------------- |",
+    // No quotes inside the backticks, so only the heading keeps it out.
+    '| `openai:gpt-4.1`    | `openai("gpt-4.1")`  |',
+  ].join("\n");
+
+  function writeTable(dir: string): string {
+    const file = path.join(dir, "model-selection.mdx");
+    fs.writeFileSync(file, table);
+    return file;
+  }
+
+  it("reads only the specifiers in the Supported Models tables", () => {
+    const dir = createTempDir();
+
+    expect([...loadModelTable(writeTable(dir))].sort()).toEqual([
+      "anthropic:claude-sonnet-4-6",
+      "openai:gpt-5.4-mini",
+    ]);
+
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it("finds a provider:model string in a Built-in Agent block", () => {
+    const content = [
+      "```ts",
+      'new BuiltInAgent({ model: "google:gemini-2.5-pro" });',
+      "```",
+    ].join("\n");
+
+    expect(extractBuiltInAgentModels(content)).toEqual([
+      { spec: "google:gemini-2.5-pro", line: 2 },
+    ]);
+  });
+
+  it("ignores a provider:model string another framework uses", () => {
+    const content = [
+      "```python",
+      "agent = Agent('openai:gpt-4.1-mini')",
+      'graph = create_deep_agent(model="openai:gpt-5.4")',
+      "```",
+    ].join("\n");
+
+    expect(extractBuiltInAgentModels(content)).toEqual([]);
+  });
+
+  it("finds a provider/model string only in a Built-in Agent block", () => {
+    const content = [
+      "```ts",
+      "const agent = new BuiltInAgent({",
+      '  model: "openai/gpt-4o-mini",',
+      "});",
+      "```",
+      "",
+      "```ts",
+      'const mastra = new Agent({ model: "openai/gpt-4o" });',
+      "```",
+    ].join("\n");
+
+    expect(extractBuiltInAgentModels(content)).toEqual([
+      { spec: "openai:gpt-4o-mini", line: 3 },
+    ]);
+  });
+
+  it("ignores a provider:model string in prose", () => {
+    expect(
+      extractBuiltInAgentModels("Set it to openai:gpt-9 in your config."),
+    ).toEqual([]);
+  });
+
+  it("fails on a model string the table does not list", () => {
+    const dir = createTempDir();
+    const tablePath = writeTable(dir);
+    const docs = path.join(dir, "docs");
+    fs.mkdirSync(docs);
+    fs.writeFileSync(
+      path.join(docs, "quickstart.mdx"),
+      [
+        "```ts",
+        "const agent = new BuiltInAgent({",
+        '  model: "openai:gpt-5.4-mini",',
+        "});",
+        'const other = new BuiltInAgent({ model: "openai:gpt-4.1" });',
+        "```",
+      ].join("\n"),
+    );
+
+    expect(validateModelTable([docs], tablePath)).toEqual([
+      {
+        file: path.join(docs, "quickstart.mdx"),
+        line: 5,
+        model: "openai:gpt-4.1",
+      },
+    ]);
+
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it("passes when every model string is a table row", () => {
+    const dir = createTempDir();
+    const tablePath = writeTable(dir);
+    const docs = path.join(dir, "docs");
+    fs.mkdirSync(docs);
+    fs.writeFileSync(
+      path.join(docs, "page.mdx"),
+      [
+        "```ts",
+        'new BuiltInAgent({ model: "openai/gpt-5.4-mini" });',
+        'new BuiltInAgent({ model: "Anthropic:claude-sonnet-4-6" });',
+        "```",
+      ].join("\n"),
+    );
+
+    expect(validateModelTable([docs], tablePath)).toEqual([]);
+
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it("passes a pydantic-ai page whose model is not in the table", () => {
+    const dir = createTempDir();
+    const tablePath = writeTable(dir);
+    const docs = path.join(dir, "docs");
+    fs.mkdirSync(docs);
+    fs.writeFileSync(
+      path.join(docs, "pydantic.mdx"),
+      ["```python", "agent = Agent('openai:gpt-4.1-mini')", "```"].join("\n"),
+    );
+
+    expect(validateModelTable([docs], tablePath)).toEqual([]);
+
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it("fails on a model listed only in the How it works table", () => {
+    const dir = createTempDir();
+    const tablePath = writeTable(dir);
+    const docs = path.join(dir, "docs");
+    fs.mkdirSync(docs);
+    fs.writeFileSync(
+      path.join(docs, "page.mdx"),
+      ["```ts", 'new BuiltInAgent({ model: "openai:gpt-4.1" });', "```"].join(
+        "\n",
+      ),
+    );
+
+    expect(validateModelTable([docs], tablePath)).toEqual([
+      { file: path.join(docs, "page.mdx"), line: 2, model: "openai:gpt-4.1" },
+    ]);
 
     fs.rmSync(dir, { recursive: true });
   });

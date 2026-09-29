@@ -16,12 +16,18 @@ icon: "lucide/Plane"
 
 ## What you'll learn
 
-In this tutorial, you will take a simple travel application and supercharge it with an agentic copilot. You will learn:
+This tutorial is a code tour of the completed CopilotKit v2 travel example. You
+will run the app, inspect each integration point, and learn:
 
-- 💡 What an agentic copilot is and how it can be used to enhance your application
-- 💡 How to use `useCoAgent` to allow for shared state between your UI and agent execution
-- 💡 How to use `useCoAgentStateRender` to implement human-in-the-loop workflows
-- 💡 How to render intermediate states of your agent's execution
+- How `useAgent` shares state between the UI and the agent
+- How `useRenderTool` renders streamed search progress
+- How `useHumanInTheLoop` pauses trip changes for user approval
+- How the v2 runtime connects the React app to a LangGraph agent
+
+The snippets match the current source under `examples/v1/travel`. You do
+not need a separate starter branch or apply each snippet as a patch. If you are
+updating an older app, use the [v1 to v2 migration guide](/migrate/v2) alongside
+this tour.
 
 <Frame>
   <video
@@ -37,7 +43,7 @@ In this tutorial, you will take a simple travel application and supercharge it w
 
 <div className="flex flex-row gap-2">
   <Button size="lg" asChild className="flex gap-2 items-center">
-    <Link href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-travel?ref=travel-tutorial" className="no-underline" target="_blank">
+    <Link href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/v1/travel?ref=travel-tutorial" className="no-underline" target="_blank">
       <FaGithub className="w-6 h-6 mr-2" />
       <span>View on GitHub</span>
     </Link>
@@ -51,4 +57,4 @@ In this tutorial, you will take a simple travel application and supercharge it w
   </Button>
 </div>
 
-In the next step, we'll checkout the repo, install dependencies, and start the project locally.
+Next, clone the current repository and run the completed example.

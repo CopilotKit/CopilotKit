@@ -20,10 +20,13 @@ export const AgentStateAnnotation = Annotation.Root({
   model: Annotation<string>,
   research_question: Annotation<string>,
   report: Annotation<string>,
-  resources: Annotation<(typeof ResourceAnnotation.State)[]>,
+  resources: Annotation<Resource[]>,
   logs: Annotation<(typeof LogAnnotation.State)[]>,
   ...CopilotKitStateAnnotation.spec,
 });
 
 export type AgentState = typeof AgentStateAnnotation.State;
-export type Resource = typeof ResourceAnnotation.State;
+export type Resource = typeof ResourceAnnotation.State & {
+  /** Survives cache eviction so a failed reload cannot silently discard cited evidence. */
+  readonly downloaded?: boolean;
+};

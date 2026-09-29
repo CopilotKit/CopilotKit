@@ -1,14 +1,13 @@
-import { Component, input, signal, type Type } from "@angular/core";
-import { TestBed, type ComponentFixture } from "@angular/core/testing";
+import { Component, input, signal, Type } from "@angular/core";
+import { TestBed, ComponentFixture } from "@angular/core/testing";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import type { A2UIClientEventMessage } from "@copilotkit/a2ui-renderer/web-components";
+import { A2UIClientEventMessage, A2UISurfaceError } from "@copilotkit/angular";
 import { CopilotA2UIChild } from "../child";
 import { injectA2UIComponentContext } from "../component-context";
 import { createAngularCatalog } from "../create-catalog";
 import { CopilotA2UISurface } from "../surface";
-import type { A2UISurfaceError } from "@copilotkit/angular";
-import type { A2UICatalogDefinitions, A2UIProps } from "../types";
+import { A2UICatalogDefinitions, A2UIProps } from "../types";
 import {
   ActionSchema,
   ChildListSchema,
@@ -344,7 +343,7 @@ describe("CopilotA2UISurface", () => {
       updateComponents("two", [
         { id: "root", component: "Text", text: "Updated" },
       ]),
-      { deleteSurface: { surfaceId: "three" } },
+      { version: "v0.9", deleteSurface: { surfaceId: "three" } },
     ];
     await render(fixture, appended);
     expect(element.querySelector('[data-surface-id="one"]')).toBe(untouched);
@@ -357,7 +356,7 @@ describe("CopilotA2UISurface", () => {
 
     await render(fixture, [
       ...appended,
-      { deleteSurface: { surfaceId: "two" } },
+      { version: "v0.9", deleteSurface: { surfaceId: "two" } },
       updateComponents("two", [
         { id: "root", component: "Text", text: "Recreated" },
       ]),

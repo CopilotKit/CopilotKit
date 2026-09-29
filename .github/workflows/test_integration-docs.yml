@@ -40,6 +40,7 @@ on:
       - "showcase/shell-docs/package-lock.json"
       - "examples/integrations/ms-agent-framework-dotnet/**"
       - "scripts/validate-doc-model-names.ts"
+      - "scripts/__tests__/validate-doc-model-names.test.ts"
       - "scripts/doc-tests/**"
       - "tools/learned-skill-conformance/workspace-artifacts*.mjs"
       - ".github/workflows/test_integration-docs.yml"
@@ -83,6 +84,7 @@ on:
       - "showcase/shell-docs/package-lock.json"
       - "examples/integrations/ms-agent-framework-dotnet/**"
       - "scripts/validate-doc-model-names.ts"
+      - "scripts/__tests__/validate-doc-model-names.test.ts"
       - "scripts/doc-tests/**"
       - "tools/learned-skill-conformance/workspace-artifacts*.mjs"
       - ".github/workflows/test_integration-docs.yml"
@@ -109,6 +111,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The validator's own tests. Until PE-418 nothing in CI ran them.
+      - run: pnpm exec vitest run scripts/__tests__/validate-doc-model-names.test.ts
       - run: pnpm tsx scripts/validate-doc-model-names.ts
       # Fails when a page teaches a deprecated v1 symbol it did not teach
       # before. v1 is still supported and documented on purpose, so this is a
