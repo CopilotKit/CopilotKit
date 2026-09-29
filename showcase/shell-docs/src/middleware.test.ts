@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { NextFetchEvent, NextRequest } from "next/server";
+import type { middleware as middlewareHandler } from "./middleware";
 
 // The raw Markdown surface (`/llms.txt`, `/llms-full.txt`, `<path>.md`) is
 // fetched by agents that never load a page, so the client PostHog snippet never
@@ -17,6 +18,8 @@ type CapturedEvent = {
 
 const captured: CapturedEvent[] = [];
 const pending: Promise<unknown>[] = [];
+let NextRequestConstructor: typeof NextRequest;
+let middleware: typeof middlewareHandler;
 
 /** A `NextFetchEvent` stub that records the work middleware defers. */
 function fetchEvent(): NextFetchEvent {
@@ -36,14 +39,11 @@ async function runMiddleware(
     headers?: Record<string, string>;
   } = {},
 ): Promise<{ response: Response; events: CapturedEvent[] }> {
-  const { NextRequest } = await import("next/server");
-  const { middleware } = await import("./middleware");
-
   const headers = new Headers(init.headers ?? {});
   if (init.userAgent) headers.set("user-agent", init.userAgent);
   if (init.ip) headers.set("x-forwarded-for", init.ip);
 
-  const request = new NextRequest(
+  const request = new NextRequestConstructor(
     new URL(pathname, "https://docs.copilotkit.ai"),
     { method: init.method ?? "GET", headers },
   );
@@ -58,7 +58,7 @@ const CLAUDE_CODE = "claude-code/1.2.0";
 const CHROME =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-beforeEach(() => {
+beforeEach(async () => {
   captured.length = 0;
   pending.length = 0;
   vi.resetModules();
@@ -71,6 +71,11 @@ beforeEach(() => {
       return new Response(JSON.stringify({ status: 1 }), { status: 200 });
     }),
   );
+
+  // Module loading belongs to setup: a cold import must finish before a test
+  // can start recording requests in the shared capture buffer.
+  ({ NextRequest: NextRequestConstructor } = await import("next/server"));
+  ({ middleware } = await import("./middleware"));
 });
 
 afterEach(() => {
@@ -242,13 +247,21 @@ describe("telemetry must not be able to break a fetch", () => {
     warn.mockRestore();
   });
 
-  it("stays silent when no PostHog key is configured", async () => {
-    vi.stubEnv("POSTHOG_KEY", "");
-    const { events } = await runMiddleware("/llms.txt", {
-      userAgent: CLAUDE_CODE,
+  describe("when no PostHog key is configured", () => {
+    beforeEach(async () => {
+      vi.stubEnv("POSTHOG_KEY", "");
+      // The key is read at module load, so reload after this case's override.
+      vi.resetModules();
+      ({ middleware } = await import("./middleware"));
     });
 
-    expect(events).toEqual([]);
+    it("stays silent", async () => {
+      const { events } = await runMiddleware("/llms.txt", {
+        userAgent: CLAUDE_CODE,
+      });
+
+      expect(events).toEqual([]);
+    });
   });
 });
 
