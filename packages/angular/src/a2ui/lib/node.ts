@@ -1,21 +1,25 @@
+import { isPlatformBrowser } from "@angular/common";
 import {
   Component,
+  DestroyRef,
+  ElementRef,
   InjectionToken,
   Injector,
+  PLATFORM_ID,
+  WritableSignal,
   computed,
   effect,
   inject,
   input,
   signal,
   untracked,
-  type WritableSignal,
 } from "@angular/core";
 import {
+  BehaviorNode,
   ComponentContext,
   GenericBinder,
+  SurfaceModel,
   scrapeSchemaBehavior,
-  type BehaviorNode,
-  type SurfaceModel,
 } from "@a2ui/web_core/v0_9";
 import { CopilotSlot } from "@copilotkit/angular";
 import { normalizeChildRefs } from "./child-ref";
@@ -23,7 +27,12 @@ import {
   A2UI_COMPONENT_CONTEXT,
   createA2UIComponentContext,
 } from "./component-context";
-import type { CopilotA2UIComponentImplementation } from "./types";
+import { CopilotA2UICatalogEntry } from "./types";
+import {
+  A2uiWebComponentElement,
+  isWebComponentImplementation,
+  registerUniversalElement,
+} from "./universal";
 
 type ResolvedProps = Record<string, unknown>;
 
@@ -63,7 +72,8 @@ function withCurrentProps(
 /**
  * @internal
  * Renders one surface component with its registered Angular component,
- * binding the binder-resolved props as a slot would.
+ * binding the binder-resolved props as a slot would, or with its Custom
+ * Element, which binds itself from the assigned `context`.
  */
 @Component({
   selector: "copilot-a2ui-node",
@@ -71,14 +81,14 @@ function withCurrentProps(
   host: { style: "display: contents" },
   template: `
     @if (model(); as model) {
-      @if (implementation(); as implementation) {
+      @if (angularImplementation(); as implementation) {
         <copilot-slot
           style="display: contents"
           [slot]="implementation.component"
           [context]="props()"
           [injector]="injector()"
         />
-      } @else {
+      } @else if (!implementation()) {
         <div
           class="copilot-a2ui-node-unknown"
           role="alert"
@@ -123,12 +133,12 @@ function withCurrentProps(
   `,
 })
 export class CopilotA2UINode {
-  readonly surface =
-    input.required<SurfaceModel<CopilotA2UIComponentImplementation>>();
+  readonly surface = input.required<SurfaceModel<CopilotA2UICatalogEntry>>();
   readonly componentId = input.required<string>();
   readonly basePath = input("/");
 
   private readonly parentInjector = inject(Injector);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly revision = inject(A2UI_SURFACE_REVISION);
   protected readonly props = signal<ResolvedProps>({});
 
@@ -141,6 +151,14 @@ export class CopilotA2UINode {
     const model = this.model();
     return model
       ? this.surface().catalog.components.get(model.type)
+      : undefined;
+  });
+
+  /** The implementation when the entry is an Angular component. */
+  protected readonly angularImplementation = computed(() => {
+    const implementation = this.implementation();
+    return implementation && !isWebComponentImplementation(implementation)
+      ? implementation
       : undefined;
   });
 
@@ -168,9 +186,57 @@ export class CopilotA2UINode {
   });
 
   constructor() {
+    // Custom Element entries: reuse the element while the tag is unchanged and
+    // hand it each new context, as the A2UI Angular renderer does. Elements
+    // only render in the browser; a server-rendered one would be duplicated on
+    // hydration.
+    const isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+    let element: A2uiWebComponentElement | undefined;
+    const removeElement = () => {
+      element?.remove();
+      element = undefined;
+    };
+    inject(DestroyRef).onDestroy(removeElement);
     effect((onCleanup) => {
       const context = this.componentContext();
       const implementation = this.implementation();
+      const surface = this.surface();
+      const basePath = this.basePath();
+      if (
+        !isBrowser ||
+        !context ||
+        !isWebComponentImplementation(implementation)
+      ) {
+        untracked(removeElement);
+        return;
+      }
+      // The element's own code runs untracked, so signals it reads cannot
+      // re-trigger this effect.
+      const target = untracked(() => {
+        registerUniversalElement(implementation);
+        if (element?.localName !== implementation.tagName) {
+          removeElement();
+          element = this.host.nativeElement.ownerDocument.createElement(
+            implementation.tagName,
+          );
+          this.host.nativeElement.appendChild(element);
+        }
+        element.context = context;
+        return element;
+      });
+      // A fresh context per update, like the A2UI renderers, so elements that
+      // bind once per assignment still see every change.
+      const subscription = context.componentModel.onUpdated.subscribe(
+        (model) => {
+          target.context = new ComponentContext(surface, model.id, basePath);
+        },
+      );
+      onCleanup(() => subscription.unsubscribe());
+    });
+
+    effect((onCleanup) => {
+      const context = this.componentContext();
+      const implementation = this.angularImplementation();
       if (!context || !implementation) {
         untracked(() => this.props.set({}));
         return;

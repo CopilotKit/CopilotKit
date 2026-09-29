@@ -3,11 +3,9 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { BASIC_FUNCTIONS } from "@a2ui/web_core/v0_9/basic_catalog";
 import {
-  basicCatalog,
   buildCatalogContextValue,
   extractCatalogComponentSchemas,
-} from "@copilotkit/a2ui-renderer/web-components";
-import { isNativeA2UICatalog } from "../../../lib/components/a2ui/native-catalog";
+} from "../../../lib/components/a2ui/a2ui-catalog-context";
 import { CopilotA2UICatalog } from "../catalog";
 import { createAngularCatalog } from "../create-catalog";
 import { CopilotA2UISurface } from "../surface";
@@ -37,8 +35,6 @@ describe("createAngularCatalog", () => {
 
     expect(catalog).toBeInstanceOf(CopilotA2UICatalog);
     expect(catalog.surfaceComponent).toBe(CopilotA2UISurface);
-    expect(isNativeA2UICatalog(catalog)).toBe(true);
-    expect(isNativeA2UICatalog(basicCatalog)).toBe(false);
     expect(catalog.id).toBe("copilotkit://angular-catalog");
     expect([...catalog.components.keys()]).toEqual(["Headline", "Button"]);
     expect(catalog.components.get("Headline")?.component).toBe(TextComponent);
@@ -70,6 +66,16 @@ describe("createAngularCatalog", () => {
       createAngularCatalog(definitions, components, { functions: [] }).functions
         .size,
     ).toBe(0);
+  });
+
+  it("rejects an entry that is neither an Angular component nor { tagName, element }", () => {
+    class BadgeElement extends HTMLElement {}
+    expect(() =>
+      createAngularCatalog(
+        { Badge: { props: z.object({}) } },
+        { Badge: BadgeElement },
+      ),
+    ).toThrow(/needs an Angular component or \{ tagName, element \}/);
   });
 
   it("throws when a definition has no component", () => {

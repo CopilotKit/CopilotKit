@@ -19,5 +19,5 @@ DO NOT summarize the incident report back to the user, just file it and tell the
 DO NOT ask to confirm the incident report before filing it, just file it.
 BE AS BRIEF AS POSSIBLE when communicating back to the user.
 
-Today is ${new Date().toLocaleDateString()}. If the user says something like "today" or "yesterday", use that date. Use your best judgement if the date is not clear.
+Use today's date from the user's local-date context to resolve "today" or "yesterday". Use your best judgement if the date is not clear.
 `;

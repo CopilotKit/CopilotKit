@@ -19,6 +19,8 @@ Import these symbols from `@copilotkit/angular`.
 
 <!-- public-api:root:start -->
 
+- `A2UICatalog`
+- `A2UIClientEventMessage`
 - `A2UIConfig`
 - `A2UIDebugExposure`
 - `A2UILifecycleContent`
@@ -172,7 +174,6 @@ Import these symbols from `@copilotkit/angular`.
 - `Message`
 - `MessageRendererContext`
 - `MessageViewContext`
-- `NativeA2UICatalog`
 - `NewMemory`
 - `OPEN_GENERATIVE_UI_ACTIVITY_TYPE`
 - `OPEN_GENERATIVE_UI_WEBSANDBOX_LOADER`
@@ -277,10 +278,13 @@ own Angular components; see the [package README](./README.md#a2ui-with-angular-c
 - `A2UIComponentContext`
 - `A2UIComponentDefinition`
 - `A2UIProps`
+- `A2UIWebComponent`
 - `A2UI_COMPONENT_CONTEXT`
+- `A2uiWebComponentElement`
 - `ActionSchema`
 - `ChildListSchema`
 - `CopilotA2UICatalog`
+- `CopilotA2UICatalogEntry`
 - `CopilotA2UIChild`
 - `CopilotA2UIComponentImplementation`
 - `CopilotA2UISurface`
@@ -288,6 +292,7 @@ own Angular components; see the [package README](./README.md#a2ui-with-angular-c
 - `DynamicBooleanSchema`
 - `DynamicNumberSchema`
 - `DynamicStringSchema`
+- `WebComponentImplementation`
 - `basicCatalog`
 - `createAngularCatalog`
 - `injectA2UIComponentContext`

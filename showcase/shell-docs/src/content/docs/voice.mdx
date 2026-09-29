@@ -77,7 +77,7 @@ such as `OpenAI returned 429 rate limited` maps to the right error code on its o
 it with your own wording bypasses that and everything lands as a generic provider error.
 </Callout>
 
-A useful pattern is wrapping your service in a guard that returns a clean 4xx when credentials aren't configured, instead of an opaque 5xx from the underlying SDK:
+A useful pattern is constructing the service only when its dedicated credential is configured. Without it, omit `transcriptionService`; the runtime reports the capability as disabled, hides the mic, and returns the documented 503 if `/transcribe` is called directly:
 
 <Snippet region="transcription-service-guard" title="backend — guarded transcription service" />
 

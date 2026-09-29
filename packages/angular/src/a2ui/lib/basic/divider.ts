@@ -1,33 +1,30 @@
-import { Component, input } from "@angular/core";
-import type { DividerApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import type { BasicProps } from "./shared";
+import { Component } from "@angular/core";
+import { DividerApi } from "@a2ui/web_core/v0_9/basic_catalog";
+import { CopilotA2UIBasicComponent } from "./basic-component";
 
 @Component({
   selector: "copilot-a2ui-divider",
-  template: `
-    <div
-      class="divider"
-      role="separator"
-      [class.vertical]="props().axis === 'vertical'"
-    ></div>
-  `,
+  host: {
+    role: "separator",
+    "[class.vertical]": "props().axis === 'vertical'",
+  },
+  template: "",
   styles: `
     :host {
-      display: contents;
-    }
-    .divider {
+      display: block;
       width: 100%;
       height: 1px;
-      margin: var(--a2ui-spacing-m, 8px);
+      margin: var(--a2ui-spacing-m, 8px) 0;
       border: none;
       background-color: var(--a2ui-color-border, #ccc);
     }
-    .vertical {
+    :host(.vertical) {
       width: 1px;
       height: 100%;
+      margin: 0 var(--a2ui-spacing-m, 8px);
     }
   `,
 })
-export class CopilotA2UIDivider {
-  readonly props = input.required<BasicProps<typeof DividerApi>>();
-}
+export class CopilotA2UIDivider extends CopilotA2UIBasicComponent<
+  typeof DividerApi
+> {}

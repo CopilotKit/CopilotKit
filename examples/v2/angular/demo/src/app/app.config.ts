@@ -49,8 +49,7 @@ export const appConfig: ApplicationConfig = {
       ],
       humanInTheLoop: [],
       openGenerativeUI: { sandboxFunctions: a2uiDemoSandboxFunctions },
-      // Render A2UI with Angular components: the basic catalog plus the
-      // dashboard components. Omit to use the default Lit renderer.
+      // Render A2UI with the basic catalog plus the dashboard components.
       a2ui: { catalog: dashboardCatalog },
     }),
     provideCopilotChatLabels({
