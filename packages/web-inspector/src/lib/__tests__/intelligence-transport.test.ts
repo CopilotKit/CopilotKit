@@ -79,16 +79,14 @@ test("returns an access denial without leaking the upstream error body", async (
 });
 
 test("carries export bytes and metadata through the host without parsing a CSV file as JSON", async () => {
-  const fetch = vi
-    .fn<typeof globalThis.fetch>()
-    .mockResolvedValue(
-      new Response("name,tokens\r\n東京,12\r\n", {
-        headers: {
-          "Content-Type": "text/csv; charset=utf-8",
-          "X-Export-Metadata": '{"rowCount":1}',
-        },
-      }),
-    );
+  const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
+    new Response("name,tokens\r\n東京,12\r\n", {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "X-Export-Metadata": '{"rowCount":1}',
+      },
+    }),
+  );
   const result = await fetchInspectorIntelligence(
     {
       runtimeUrl: "https://app.example/api/copilot",
