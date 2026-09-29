@@ -631,8 +631,10 @@ export class IntelligenceAgent extends AbstractAgent {
           return;
         idleWarning = setTimeout(() => {
           warnedAboutIdle = true;
-          console.warn(
-            "Intelligence connection has received no progress or stream_idle for 30 seconds after replay_complete. The thread may still be running, or its status may be unavailable. Stop and reconnect if the UI remains busy.",
+          this.debugLogger?.lifecycle(
+            "INTELLIGENCE",
+            "No progress or stream_idle for 30 seconds after replay_complete; the run may still be active or its status unavailable.",
+            { threadId: input.threadId },
           );
         }, CONNECT_IDLE_WARNING_MS);
       };
@@ -758,6 +760,16 @@ export class IntelligenceAgent extends AbstractAgent {
                       ),
                     ),
                     delay(CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS),
+                    tap(() => {
+                      this.debugLogger?.lifecycle(
+                        "INTELLIGENCE",
+                        "Completing connection on stream_idle fallback without replay_complete.",
+                        {
+                          threadId: input.threadId,
+                          fallbackMs: CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS,
+                        },
+                      );
+                    }),
                   ),
                 ),
               ),

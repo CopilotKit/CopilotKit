@@ -892,6 +892,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     delegate.agentId = this.routedAgentId();
     delegate.description = this.description;
     delegate.threadId = this.threadId;
+    delegate.debugLogger = this.debugLogger;
     delegate.setMessages(this.messages);
     delegate.setState(this.state);
 

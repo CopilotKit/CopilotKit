@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { EventType } from "@ag-ui/client";
+import { DebugLogger, EventType } from "@ag-ui/client";
 import { MockSocket } from "./test-utils";
 
 const { sockets } = vi.hoisted(() => {
@@ -17,6 +17,31 @@ vi.mock("phoenix", () => ({
 }));
 
 const { ProxiedCopilotRuntimeAgent } = await import("../agent");
+
+function createReplayAgent(runtimeMode: "intelligence" | "pending") {
+  return new ProxiedCopilotRuntimeAgent({
+    runtimeUrl: "http://localhost/runtime",
+    runtimeMode,
+    intelligence: { wsUrl: "ws://localhost/client" },
+    transport: "rest",
+    agentId: "chat",
+  });
+}
+
+function observeDiagnostics(agent: ReturnType<typeof createReplayAgent>) {
+  const logger = new DebugLogger({
+    enabled: true,
+    events: false,
+    lifecycle: true,
+    verbose: false,
+  });
+  const diagnostic = vi.fn();
+  vi.spyOn(logger, "lifecycle").mockImplementation((prefix, label, data) => {
+    if (prefix === "INTELLIGENCE") diagnostic(label, data);
+  });
+  agent.debugLogger = logger;
+  return diagnostic;
+}
 
 beforeEach(() => {
   sockets.length = 0;
@@ -48,57 +73,64 @@ afterEach(() => vi.unstubAllGlobals());
 describe.each(["intelligence", "pending"] as const)(
   "%s Intelligence replay lifecycle",
   (runtimeMode) => {
-    it("warns once when replay finishes but no idle or progress follows", async () => {
-      const agent = new ProxiedCopilotRuntimeAgent({
-        runtimeUrl: "http://localhost/runtime",
-        runtimeMode,
-        intelligence: { wsUrl: "ws://localhost/client" },
-        transport: "rest",
-        agentId: "chat",
-      });
-      const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
-      const connecting = agent.connectAgent();
-      try {
-        await vi.waitFor(() =>
-          expect(sockets[0]?.channels[0]?.joinCount).toBe(1),
-        );
-        const channel = sockets[0]!.channels[0]!;
-        channel.triggerJoin("ok");
-        vi.useFakeTimers();
-        channel.serverPush("ag_ui_event", {
-          type: EventType.RUN_ERROR,
-          message: "Saved failure",
-        });
-        channel.serverPush("replay_complete", {});
-        await vi.advanceTimersByTimeAsync(29_999);
-        expect(warning).not.toHaveBeenCalled();
-        await vi.advanceTimersByTimeAsync(1);
-        expect(warning).toHaveBeenCalledWith(
-          expect.stringContaining("stream_idle"),
-        );
-        expect(agent.isRunning).toBe(true);
-        await vi.advanceTimersByTimeAsync(60_000);
-        expect(warning).toHaveBeenCalledOnce();
-        channel.serverPush("stream_idle", {});
-        await connecting;
-        expect(agent.isRunning).toBe(false);
-      } finally {
-        await agent.detachActiveRun();
-        await connecting;
-        vi.useRealTimers();
-        warning.mockRestore();
-      }
-    });
+    it.each([true, false])(
+      "only logs idle diagnostics when debugging is enabled (%s)",
+      async (debug) => {
+        const agent = createReplayAgent(runtimeMode);
+        const warning = debug ? observeDiagnostics(agent) : undefined;
+        const consoleLog = vi
+          .spyOn(console, "log")
+          .mockImplementation(() => {});
+        const consoleWarning = vi
+          .spyOn(console, "warn")
+          .mockImplementation(() => {});
+        const connecting = agent.connectAgent();
+        try {
+          await vi.waitFor(() =>
+            expect(sockets[0]?.channels[0]?.joinCount).toBe(1),
+          );
+          const channel = sockets[0]!.channels[0]!;
+          channel.triggerJoin("ok");
+          vi.useFakeTimers();
+          channel.serverPush("ag_ui_event", {
+            type: EventType.RUN_ERROR,
+            message: "Saved failure",
+          });
+          channel.serverPush("replay_complete", {});
+          await vi.advanceTimersByTimeAsync(29_999);
+          if (warning) expect(warning).not.toHaveBeenCalled();
+          await vi.advanceTimersByTimeAsync(1);
+          if (debug) {
+            expect(warning).toHaveBeenCalledWith(
+              expect.stringContaining("stream_idle"),
+              expect.objectContaining({ threadId: "saved-thread" }),
+            );
+          }
+          expect(agent.isRunning).toBe(true);
+          await vi.advanceTimersByTimeAsync(60_000);
+          if (warning) {
+            expect(warning).toHaveBeenCalledOnce();
+          } else {
+            expect(agent.debugLogger).toBeUndefined();
+            expect(consoleLog).not.toHaveBeenCalled();
+          }
+          expect(consoleWarning).not.toHaveBeenCalled();
+          channel.serverPush("stream_idle", {});
+          await connecting;
+          expect(agent.isRunning).toBe(false);
+        } finally {
+          await agent.detachActiveRun();
+          await connecting;
+          vi.useRealTimers();
+          consoleWarning.mockRestore();
+          consoleLog.mockRestore();
+        }
+      },
+    );
 
     it("resets the idle diagnostic on progress and cancels it on detach", async () => {
-      const agent = new ProxiedCopilotRuntimeAgent({
-        runtimeUrl: "http://localhost/runtime",
-        runtimeMode,
-        intelligence: { wsUrl: "ws://localhost/client" },
-        transport: "rest",
-        agentId: "chat",
-      });
-      const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const agent = createReplayAgent(runtimeMode);
+      const warning = observeDiagnostics(agent);
       const connecting = agent.connectAgent();
       try {
         await vi.waitFor(() =>
@@ -123,19 +155,12 @@ describe.each(["intelligence", "pending"] as const)(
         await agent.detachActiveRun();
         await connecting;
         vi.useRealTimers();
-        warning.mockRestore();
       }
     });
 
     it("does not carry the idle diagnostic deadline across reconnect", async () => {
-      const agent = new ProxiedCopilotRuntimeAgent({
-        runtimeUrl: "http://localhost/runtime",
-        runtimeMode,
-        intelligence: { wsUrl: "ws://localhost/client" },
-        transport: "rest",
-        agentId: "chat",
-      });
-      const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const agent = createReplayAgent(runtimeMode);
+      const warning = observeDiagnostics(agent);
       const connecting = agent.connectAgent();
       try {
         await vi.waitFor(() =>
@@ -158,18 +183,11 @@ describe.each(["intelligence", "pending"] as const)(
         await agent.detachActiveRun();
         await connecting;
         vi.useRealTimers();
-        warning.mockRestore();
       }
     });
 
     it("stays busy after a historical run error until the remaining history is restored", async () => {
-      const agent = new ProxiedCopilotRuntimeAgent({
-        runtimeUrl: "http://localhost/runtime",
-        runtimeMode,
-        intelligence: { wsUrl: "ws://localhost/client" },
-        transport: "rest",
-        agentId: "chat",
-      });
+      const agent = createReplayAgent(runtimeMode);
       agent.threadId = "saved-thread";
       const onRunErrorEvent = vi.fn();
       agent.subscribe({ onRunErrorEvent });
@@ -213,13 +231,7 @@ describe.each(["intelligence", "pending"] as const)(
       }
     });
     it("finalizes a live connection error after replay without waiting for stream_idle", async () => {
-      const agent = new ProxiedCopilotRuntimeAgent({
-        runtimeUrl: "http://localhost/runtime",
-        runtimeMode,
-        intelligence: { wsUrl: "ws://localhost/client" },
-        transport: "rest",
-        agentId: "chat",
-      });
+      const agent = createReplayAgent(runtimeMode);
       const onRunErrorEvent = vi.fn();
       agent.subscribe({ onRunErrorEvent });
       const connecting = agent.connectAgent();
@@ -246,13 +258,7 @@ describe.each(["intelligence", "pending"] as const)(
     it.each(["socket", "channel"])(
       "resets replay phase on %s reconnect",
       async (kind) => {
-        const agent = new ProxiedCopilotRuntimeAgent({
-          runtimeUrl: "http://localhost/runtime",
-          runtimeMode,
-          intelligence: { wsUrl: "ws://localhost/client" },
-          transport: "rest",
-          agentId: "chat",
-        });
+        const agent = createReplayAgent(runtimeMode);
         const errors = vi.fn();
         agent.subscribe({ onRunErrorEvent: errors });
         const connecting = agent.connectAgent();
@@ -288,13 +294,8 @@ describe.each(["intelligence", "pending"] as const)(
     );
 
     it("does not reuse the previous replay completion when idle arrives early after rejoin", async () => {
-      const agent = new ProxiedCopilotRuntimeAgent({
-        runtimeUrl: "http://localhost/runtime",
-        runtimeMode,
-        intelligence: { wsUrl: "ws://localhost/client" },
-        transport: "rest",
-        agentId: "chat",
-      });
+      const agent = createReplayAgent(runtimeMode);
+      const diagnostic = observeDiagnostics(agent);
       const connecting = agent.connectAgent();
       try {
         await vi.waitFor(() =>
@@ -324,66 +325,73 @@ describe.each(["intelligence", "pending"] as const)(
         channel.serverPush("replay_complete", {});
         await connecting;
         expect(agent.isRunning).toBe(false);
+        expect(diagnostic).not.toHaveBeenCalled();
       } finally {
         await agent.detachActiveRun();
         await connecting;
       }
     });
-    it("waits for the 100ms fallback when an error arrives without replay_complete", async () => {
-      const agent = new ProxiedCopilotRuntimeAgent({
-        runtimeUrl: "http://localhost/runtime",
-        runtimeMode,
-        intelligence: { wsUrl: "ws://localhost/client" },
-        transport: "rest",
-        agentId: "chat",
-      });
-      const connecting = agent.connectAgent();
-      try {
-        await vi.waitFor(() =>
-          expect(sockets[0]?.channels[0]?.joinCount).toBe(1),
-        );
-        const channel = sockets[0]!.channels[0]!;
-        channel.triggerJoin("ok");
-        vi.useFakeTimers();
-        channel.serverPush("stream_idle", {});
-        channel.serverPush("ag_ui_event", {
-          type: EventType.RUN_ERROR,
-          message: "No replay boundary yet",
-        });
-        channel.serverPush("ag_ui_event", {
-          type: EventType.MESSAGES_SNAPSHOT,
-          messages: [
-            {
-              id: "late-history",
-              role: "assistant",
-              content: "History after idle/error",
-            },
-          ],
-        });
-        await vi.advanceTimersByTimeAsync(99);
-        expect(agent.isRunning).toBe(true);
-        expect(agent.messages[0]?.id).toBe("late-history");
-        await vi.advanceTimersByTimeAsync(1);
-        await connecting;
-        expect(agent.isRunning).toBe(false);
-        expect(channel.left).toBe(true);
-      } finally {
-        vi.useRealTimers();
-        await agent.detachActiveRun();
-        await connecting;
-      }
-    });
+    it.each(["before", "after"] as const)(
+      "waits for the 100ms fallback when an error arrives %s idle without replay_complete",
+      async (order) => {
+        const agent = createReplayAgent(runtimeMode);
+        const diagnostic = observeDiagnostics(agent);
+        const errors = vi.fn();
+        agent.subscribe({ onRunErrorEvent: errors });
+        const connecting = agent.connectAgent();
+        try {
+          await vi.waitFor(() =>
+            expect(sockets[0]?.channels[0]?.joinCount).toBe(1),
+          );
+          const channel = sockets[0]!.channels[0]!;
+          channel.triggerJoin("ok");
+          vi.useFakeTimers();
+          if (order === "after") channel.serverPush("stream_idle", {});
+          channel.serverPush("ag_ui_event", {
+            type: EventType.RUN_ERROR,
+            message: "No replay boundary yet",
+          });
+          await vi.advanceTimersByTimeAsync(0);
+          expect(errors).toHaveBeenCalledOnce();
+          expect(agent.isRunning).toBe(true);
+          if (order === "before") channel.serverPush("stream_idle", {});
+          channel.serverPush("ag_ui_event", {
+            type: EventType.MESSAGES_SNAPSHOT,
+            messages: [
+              {
+                id: "late-history",
+                role: "assistant",
+                content: "History after idle/error",
+              },
+            ],
+          });
+          await vi.advanceTimersByTimeAsync(99);
+          expect(agent.isRunning).toBe(true);
+          expect(diagnostic).not.toHaveBeenCalled();
+          expect(agent.messages[0]?.id).toBe("late-history");
+          await vi.advanceTimersByTimeAsync(1);
+          await connecting;
+          expect(agent.isRunning).toBe(false);
+          expect(channel.left).toBe(true);
+          expect(diagnostic).toHaveBeenCalledExactlyOnceWith(
+            expect.stringContaining("without replay_complete"),
+            expect.objectContaining({
+              threadId: "saved-thread",
+              fallbackMs: 100,
+            }),
+          );
+        } finally {
+          vi.useRealTimers();
+          await agent.detachActiveRun();
+          await connecting;
+        }
+      },
+    );
 
     it.each(["socket", "channel"] as const)(
       "cancels stale idle and its fallback timer on %s reconnect",
       async (kind) => {
-        const agent = new ProxiedCopilotRuntimeAgent({
-          runtimeUrl: "http://localhost/runtime",
-          runtimeMode,
-          intelligence: { wsUrl: "ws://localhost/client" },
-          transport: "rest",
-          agentId: "chat",
-        });
+        const agent = createReplayAgent(runtimeMode);
         const connecting = agent.connectAgent();
         try {
           await vi.waitFor(() =>
