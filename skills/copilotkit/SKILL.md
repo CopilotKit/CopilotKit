@@ -1,6 +1,6 @@
 ---
 name: copilotkit
-description: "Use for any CopilotKit question — adding it to an app, chat UI, frontend or server tools, generative UI, shared state, human-in-the-loop, agent frameworks (LangGraph, CrewAI, Mastra, ADK, PydanticAI, and others), the runtime, Intelligence, threads, voice, or diagnosing something that is not working. Do not answer from memory: this skill exists to point you at the current documentation and source, both of which are searchable."
+description: "Use for any CopilotKit question — adding it to an app, chat UI, frontend or server tools, generative UI, shared state, human-in-the-loop, agent frameworks (LangGraph, CrewAI, Mastra, ADK, PydanticAI, and others), the runtime, Intelligence, threads, voice, or diagnosing something that is not working. Do not answer from memory: this skill exists to point you at the current documentation and source, both of which you can read."
 version: 3.1.0
 ---
 
@@ -28,8 +28,9 @@ This path always works. It needs only a way to fetch a URL.
   `text/markdown`. A path that does not exist returns 404 with the body `Not found`.
 - **To find a path.** Start with `https://docs.copilotkit.ai/llms.txt`. It is a short,
   curated index with links to the main pages. For a page it does not list, read
-  `https://docs.copilotkit.ai/sitemap.xml`, which lists every page URL. Do not fetch
-  `llms-full.txt` in one read. It holds every page and is several megabytes.
+  `https://docs.copilotkit.ai/sitemap.xml`, which lists every page URL. Both indexes list
+  HTML page URLs. Add `.md` to a URL before you fetch it. The site root has no `.md` form.
+  Do not fetch `llms-full.txt` in one read. It holds every page and is several megabytes.
 - **Links in this skill.** A link such as [quickstart](/quickstart) is a docs path.
   Fetch it as `https://docs.copilotkit.ai/quickstart.md`.
 - **Library source.** Read the installed package in `node_modules/@copilotkit/`, or the
@@ -78,7 +79,9 @@ Worth knowing so a search or a fetch has somewhere to land. Each link is a docs 
   [HTTP endpoints](/backend/runtime-endpoints), [runners](/backend/agent-runner),
   [factory mode](/backend/custom-agent), [server adapters](/runtime-server-adapter),
   [auth](/auth)
-- **Agent frameworks** — one quickstart per framework under `/integrations/`
+- **Agent frameworks** — one quickstart per framework, at
+  `https://docs.copilotkit.ai/<framework>/quickstart.md`. The framework slugs are in
+  `llms.txt`, for example `langgraph-python`, `mastra`, and `crewai-crews`.
 - **Intelligence** — [overview](/intelligence/overview) and the pages under it
 - **Not working** — [common issues](/troubleshooting/common-issues),
   [error reference](/troubleshooting/error-reference), and the generated

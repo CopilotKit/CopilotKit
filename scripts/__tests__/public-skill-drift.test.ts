@@ -68,13 +68,17 @@ const appDir = resolve(root, "showcase/shell-docs/src/app");
  * Checked against the route files, so a skill that names a site file nobody
  * serves still fails.
  */
-function appRouteResolves(docsPath: string): boolean {
-  const slug = docsPath.replace(/^\/+/, "").replace(/\/+$/, "");
-  const metadataRoute = slug.replace(/\.[a-z]+$/, "");
-  return [
-    join(appDir, slug, "route.ts"),
-    join(appDir, `${metadataRoute}.ts`),
-  ].some(existsSync);
+function appRouteResolves(rawPath: string): boolean {
+  const slug = rawPath.replace(/^\/+/, "").replace(/\/+$/, "");
+  // Next.js metadata routes: the served name differs from the route file name.
+  const metadataRoutes: Record<string, string> = {
+    "robots.txt": "robots.ts",
+    "sitemap.xml": "sitemap.ts",
+  };
+  const metadataFile = metadataRoutes[slug];
+  if (metadataFile !== undefined) return existsSync(join(appDir, metadataFile));
+  // A route folder named for the file it serves, such as `app/llms.txt/route.ts`.
+  return /\.[a-z]+$/.test(slug) && existsSync(join(appDir, slug, "route.ts"));
 }
 
 describe("packaged skills point at pages that exist", () => {
@@ -100,7 +104,7 @@ describe("packaged skills point at pages that exist", () => {
         const docsPath = raw.replace(/\.md$/, "");
         // `/reference/...` is generated into the content tree at build time.
         if (docsPath.startsWith("/reference/")) continue;
-        if (!docsPathResolves(docsPath) && !appRouteResolves(docsPath)) {
+        if (!docsPathResolves(docsPath) && !appRouteResolves(raw)) {
           broken.push(`${path}: ${raw}`);
         }
       }
