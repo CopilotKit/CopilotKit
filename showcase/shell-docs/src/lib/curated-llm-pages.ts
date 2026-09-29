@@ -101,15 +101,15 @@ export const CURATED_LLM_PAGES = [
   },
   {
     url: "langgraph-python/threads-import",
-    title: "Import LangGraph Threads",
+    title: "Add AG-UI Streams to LangGraph Threads",
     description:
-      "Import history from LangGraph Server, LangGraph Platform, or LangSmith Deployments exposed through LangGraph SDK thread and run APIs, not arbitrary LangChain stores.",
+      "Connect Intelligence for ongoing AG-UI delivery; optionally import earlier LangGraph Server, Platform, or LangSmith Deployment history exposed through the thread and run APIs.",
   },
   {
     url: "google-adk/threads-import",
-    title: "Import Google ADK Threads",
+    title: "Add AG-UI Streams to ADK Sessions",
     description:
-      "Import supported Google ADK sessions once; future CopilotKit-mediated runs persist to Intelligence while your durable ADK session service retains native history.",
+      "Connect Intelligence for ongoing AG-UI delivery alongside ADK persistence; optionally import earlier sessions from supported ADK stores.",
   },
   {
     url: "quickstart",

@@ -1044,19 +1044,34 @@ export function normalizeSidebarNav(
   const inputBasics = sidebarSectionChildren(input, "Basics");
   const canonicalBasics = sidebarSectionChildren(canonical, "Basics");
   const existingChat = findGroup(inputBasics, "Chat");
-  const richThreads =
-    findGroup(allInputNodes, "AG-UI Streams") ??
-    findGroup(canonicalBasics, "AG-UI Streams");
+  const threadUiSlugs = [
+    "prebuilt-components/copilot-threads-drawer",
+    "headless-threads",
+  ];
+  const threadDeliverySlugs = [
+    "threads",
+    "threads-import",
+    "threads-lifecycle",
+    "intelligence/threads-explained",
+  ];
   const filterChatNodes = (nodes: NavNode[]) =>
     nodes.filter(
       (node) =>
-        node !== richThreads &&
-        !(node.type === "page" && node.slug === "inspector"),
+        !(
+          node.type === "group" &&
+          ["Threads", "AG-UI Streams"].includes(node.title)
+        ) &&
+        !(
+          node.type === "page" &&
+          ["inspector", ...threadUiSlugs, ...threadDeliverySlugs].includes(
+            node.slug,
+          )
+        ),
     );
   const inputChatNodes = filterChatNodes(inputBasics);
   const chatSource = existingChat
     ? existingChat.type === "group"
-      ? existingChat.children
+      ? filterChatNodes(existingChat.children)
       : []
     : inputChatNodes.length > 0
       ? inputChatNodes
@@ -1066,10 +1081,12 @@ export function normalizeSidebarNav(
     "sidebar#chat",
     uniqueSidebarNodes(chatSource),
   );
-  const richThreadsTopic = sidebarTopicGroup(
-    "AG-UI Streams",
-    "sidebar#rich-threads",
-    richThreads,
+  const threadUiTopic = sidebarTopicGroup(
+    "Threads",
+    "sidebar#threads-ui",
+    threadUiSlugs
+      .map(findPage)
+      .filter((node): node is NavNode => Boolean(node)),
   );
   const frontendTools = findPage("frontend-tools");
 
@@ -1158,7 +1175,16 @@ export function normalizeSidebarNav(
     "Architecture",
   );
 
-  const intelligenceThreads = intelligencePage("threads", "AG-UI Streams");
+  const intelligenceStreams = sidebarTopicGroup(
+    "AG-UI Streams",
+    "sidebar#ag-ui-streams",
+    [
+      intelligencePage("threads", "Overview"),
+      intelligencePage("threads-import", "Add to Existing Threads"),
+      intelligencePage("threads-lifecycle", "Thread & History Lifecycle"),
+      intelligencePage("intelligence/threads-explained", "Architecture"),
+    ].filter((node): node is NavNode => node !== null),
+  );
   const intelligenceCloud = intelligencePage(
     "intelligence/managed-intelligence-platform",
     "Cloud-hosted",
@@ -1258,7 +1284,7 @@ export function normalizeSidebarNav(
     ...startLinks,
     ...sidebarSection("Basics", [
       chat,
-      richThreadsTopic,
+      threadUiTopic,
       frontendTools?.type === "page"
         ? { ...frontendTools, title: "Frontend-tools", icon: undefined }
         : null,
@@ -1300,7 +1326,7 @@ export function normalizeSidebarNav(
         "Features",
         "sidebar#intelligence-features",
         [
-          intelligenceThreads,
+          intelligenceStreams,
           intelligenceLearningGroup,
           intelligenceMemory,
           intelligenceAnalytics,
@@ -1387,7 +1413,7 @@ function isRichThreadsGroup(
   return (
     node.type === "group" &&
     hasPageSlug(node.children, "threads") &&
-    hasPageSlug(node.children, "headless-threads")
+    node.title === "AG-UI Streams"
   );
 }
 

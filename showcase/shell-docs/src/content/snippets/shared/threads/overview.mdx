@@ -177,9 +177,11 @@ Both UI paths use Intelligence’s AG-UI streams. A stable `threadId` connects t
 
 For how Intelligence and framework persistence work together, see [AG-UI Streams & Framework Threads](/intelligence/threads-explained#how-threads-work-with-framework-storage).
 
-## Sync existing conversations
+<span id="sync-existing-conversations" />
 
-Intelligence records AG-UI events for new CopilotKit conversations once your app is connected. If you already have persisted Google ADK or LangGraph conversations, follow <DocsTrackedLink href="/threads-import" surface="docs_threads_history_sync">Import & Synchronize Thread History</DocsTrackedLink> to synchronize supported history with the same thread store. Keep the native storage and analytics you already use; future CopilotKit-mediated runs continue through native durable persistence when it remains wired while CopilotKit Intelligence records the AG-UI interaction history. Users can then resume imported and new conversations through the same UI.
+## Add AG-UI Streams to existing threads
+
+Connect your existing CopilotKit app through the [Intelligence quickstart](/intelligence/quickstart) to add AG-UI delivery to future runs while your framework continues managing agent context and persistence. To include earlier conversations too, follow <DocsTrackedLink href="/threads-import" surface="docs_threads_history_sync">Add AG-UI Streams to Existing Threads</DocsTrackedLink> for the optional historical steps supported for ADK and LangGraph.
 
 CopilotKit Threads are separate from native framework session or checkpoint stores. Your backend can keep a stable mapping when the agent framework also needs its own conversation identifier.
 
