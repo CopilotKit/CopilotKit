@@ -1,16 +1,38 @@
+import { Component, input } from "@angular/core";
 import { ComponentFixture, TestBed } from "@angular/core/testing";
-import { beforeEach, describe, expect, it } from "vitest";
+import { By } from "@angular/platform-browser";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
+import { A2UIProps } from "../../../../a2ui/lib/types";
+import { createAngularCatalog } from "../../../../a2ui/lib/create-catalog";
+import { injectA2UIComponentContext } from "../../../../a2ui/lib/component-context";
+import { CopilotKit } from "../../../copilotkit";
 import { CopilotA2UIToolRenderer } from "../a2ui-tool-renderer";
 import {
   AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
-  type RenderA2UIArgs,
+  RenderA2UIArgs,
 } from "../a2ui-tool-types";
 import { COPILOT_KIT_CONFIG } from "../../../config";
-import type { AngularToolCall } from "../../../tools";
+import { AngularToolCall } from "../../../tools";
 
-type A2UITestSurfaceElement = HTMLElement & {
-  operations?: Array<Record<string, unknown>>;
-  theme?: Record<string, unknown>;
+/** Records what the outlet passes to a catalog's surface. */
+@Component({ selector: "test-a2ui-surface", template: "" })
+class TestSurface {
+  readonly operations = input<readonly unknown[]>([]);
+  readonly catalog = input<unknown>();
+  readonly theme = input<Record<string, unknown>>();
+  readonly loadingComponent = input<unknown>();
+}
+
+@Component({ selector: "test-a2ui-loading", template: "{{ label }}" })
+class TestLoading {
+  protected readonly label = "Loading";
+}
+
+const testCatalog = {
+  id: "copilotkit://test",
+  components: new Map(),
+  surfaceComponent: TestSurface,
 };
 
 function setToolCall(
@@ -24,6 +46,11 @@ function setToolCall(
 describe("CopilotA2UIToolRenderer", () => {
   let fixture: ComponentFixture<CopilotA2UIToolRenderer>;
 
+  function findSurface(): TestSurface | undefined {
+    return fixture.debugElement.query(By.directive(TestSurface))
+      ?.componentInstance;
+  }
+
   beforeEach(() => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -34,6 +61,8 @@ describe("CopilotA2UIToolRenderer", () => {
           useValue: {
             a2ui: {
               theme: { color: "blue" },
+              catalog: testCatalog,
+              loadingComponent: TestLoading,
             },
           },
         },
@@ -85,7 +114,7 @@ describe("CopilotA2UIToolRenderer", () => {
     ).toBeNull();
   });
 
-  it("renders complete A2UI snapshot tool results as a web component surface", async () => {
+  it("renders complete A2UI snapshot tool results with the catalog's surface", async () => {
     setToolCall(fixture, {
       status: "complete",
       args: { surfaceId: "a2ui-dashboard" },
@@ -108,11 +137,8 @@ describe("CopilotA2UIToolRenderer", () => {
       }),
     });
     await fixture.whenStable();
-    await customElements.whenDefined("cpk-a2ui-surface");
 
-    const surface = fixture.nativeElement.querySelector(
-      "cpk-a2ui-surface",
-    ) as A2UITestSurfaceElement | null;
+    const surface = findSurface();
     const scrollWrapper = fixture.nativeElement.querySelector(
       '[data-testid="a2ui-tool-surface-scroll"]',
     ) as HTMLElement | null;
@@ -125,7 +151,7 @@ describe("CopilotA2UIToolRenderer", () => {
     expect(
       fixture.nativeElement.querySelector('[data-testid="a2ui-progress"]'),
     ).toBeNull();
-    expect(surface?.operations).toEqual([
+    expect(surface?.operations()).toEqual([
       {
         version: "v0.9",
         createSurface: {
@@ -158,8 +184,9 @@ describe("CopilotA2UIToolRenderer", () => {
         },
       },
     ]);
-    expect(surface?.theme).toEqual({ color: "blue" });
-    expect(surface?.getAttribute("operations")).toBeNull();
+    expect(surface?.theme()).toEqual({ color: "blue" });
+    expect(surface?.catalog()).toBe(testCatalog);
+    expect(surface?.loadingComponent()).toBe(TestLoading);
   });
 
   it("renders AGUISendStateSnapshot results containing an A2UI snapshot", async () => {
@@ -191,14 +218,11 @@ describe("CopilotA2UIToolRenderer", () => {
       }),
     });
     await fixture.whenStable();
-    await customElements.whenDefined("cpk-a2ui-surface");
 
-    const surface = fixture.nativeElement.querySelector(
-      "cpk-a2ui-surface",
-    ) as A2UITestSurfaceElement | null;
+    const surface = findSurface();
 
     expect(surface).not.toBeNull();
-    expect(surface?.operations?.[0]).toMatchObject({
+    expect(surface?.operations()[0]).toMatchObject({
       createSurface: {
         surfaceId: "a2ui-dashboard",
       },
@@ -230,17 +254,15 @@ describe("CopilotA2UIToolRenderer", () => {
       result: undefined,
     });
 
-    const surface = fixture.nativeElement.querySelector(
-      "cpk-a2ui-surface",
-    ) as A2UITestSurfaceElement | null;
+    const surface = findSurface();
 
-    expect(surface).toBeNull();
+    expect(surface).toBeUndefined();
     expect(
       fixture.nativeElement.querySelector('[data-testid="a2ui-progress"]'),
     ).toBeTruthy();
   });
 
-  it("renders complete A2UI operation tool results as a web component surface", async () => {
+  it("renders complete A2UI operation tool results with the catalog's surface", async () => {
     const operations = [
       {
         version: "v0.9",
@@ -257,12 +279,93 @@ describe("CopilotA2UIToolRenderer", () => {
       result: JSON.stringify({ a2ui_operations: operations }),
     });
     await fixture.whenStable();
-    await customElements.whenDefined("cpk-a2ui-surface");
 
-    const surface = fixture.nativeElement.querySelector(
-      "cpk-a2ui-surface",
-    ) as A2UITestSurfaceElement | null;
+    const surface = findSurface();
 
-    expect(surface?.operations).toEqual(operations);
+    expect(surface?.operations()).toEqual(operations);
+  });
+});
+
+const buttonDefinitions = {
+  Button: { props: z.object({ label: z.string() }) },
+};
+
+@Component({
+  selector: "test-angular-button",
+  template: `
+    <button type="button" data-testid="angular-button" (click)="confirm()">
+      {{ props().label }}
+    </button>
+  `,
+})
+class ButtonComponent {
+  readonly props =
+    input.required<A2UIProps<typeof buttonDefinitions, "Button">>();
+  private readonly context = injectA2UIComponentContext();
+
+  confirm(): void {
+    void this.context.dispatch({ event: { name: "confirm", context: {} } });
+  }
+}
+
+describe("CopilotA2UIToolRenderer with a real catalog", () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it("renders the catalog's components and sends their actions to the agent", async () => {
+    const core = {
+      properties: { existing: true } as Record<string, unknown>,
+      setProperties: vi.fn((next: Record<string, unknown>) => {
+        core.properties = next;
+      }),
+      runAgent: vi.fn().mockResolvedValue(undefined),
+    };
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [CopilotA2UIToolRenderer],
+      providers: [
+        {
+          provide: COPILOT_KIT_CONFIG,
+          useValue: {
+            a2ui: {
+              catalog: createAngularCatalog(buttonDefinitions, {
+                Button: ButtonComponent,
+              }),
+            },
+          },
+        },
+        { provide: CopilotKit, useValue: { core } },
+      ],
+    });
+    const fixture = TestBed.createComponent(CopilotA2UIToolRenderer);
+    fixture.componentRef.setInput("agent", { agentId: "demo" });
+    fixture.componentRef.setInput("toolCall", {
+      status: "complete",
+      args: { surfaceId: "dashboard" },
+      result: JSON.stringify({
+        snapshot: {
+          surfaceId: "dashboard",
+          catalogId: "https://a2ui.org/specification/v0_9/basic_catalog.json",
+          components: [{ id: "root", component: "Button", label: "Confirm" }],
+        },
+      }),
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('[data-testid="a2ui-progress"]')).toBeNull();
+    const button = element.querySelector(
+      '[data-testid="angular-button"]',
+    ) as HTMLButtonElement;
+    expect(button.textContent).toContain("Confirm");
+
+    button.click();
+    await vi.waitFor(() =>
+      expect(core.runAgent).toHaveBeenCalledWith({
+        agent: { agentId: "demo" },
+      }),
+    );
+    expect(core.setProperties).toHaveBeenLastCalledWith({ existing: true });
   });
 });
