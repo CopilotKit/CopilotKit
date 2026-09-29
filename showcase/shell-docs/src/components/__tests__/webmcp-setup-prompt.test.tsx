@@ -41,7 +41,7 @@ test("configures the shared coding-agent prompt card for WebMCP", async () => {
       expect(writeText).toHaveBeenCalledWith(WEBMCP_SETUP_PROMPT),
     );
     expect(screen.getByRole("status").textContent).toBe("Prompt copied");
-    expect(screen.getByRole("button", { name: "Open in Codex" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^Open in / })).toBeNull();
     expect(
       screen.getByRole("button", { name: "More page actions" }),
     ).toBeTruthy();
