@@ -770,7 +770,7 @@ describe("CopilotKitProvider stability", () => {
         </CopilotKitProvider>,
       );
 
-      // The config effect may re-fire if other deps (mergedHeaders, etc.)
+      // The config effect may re-fire if other deps (headersSource, etc.)
       // change reference on rerender. The actual deduplication of /info
       // fetches happens inside AgentRegistry.setRuntimeUrl(), which has
       // a guard: `if (this._runtimeUrl === normalizedRuntimeUrl) return`.
