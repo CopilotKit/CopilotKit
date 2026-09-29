@@ -10,14 +10,17 @@
 import { Component } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ProxiedCopilotRuntimeAgent } from "@copilotkit/core";
+import {
+  CopilotKitHeaderResolutionError,
+  ProxiedCopilotRuntimeAgent,
+} from "@copilotkit/core";
 import type { CopilotKitHeadersSource } from "@copilotkit/core";
 import { provideCopilotKit } from "./config";
 import type { CopilotKitConfig } from "./config";
 import { CopilotKit } from "./copilotkit";
 import { injectAgentStore } from "./agent";
 import { injectThreads } from "./threads";
-import { transcribeAudio } from "./transcription";
+import { TranscriptionError, transcribeAudio } from "./transcription";
 import { ɵheadersAsyncBuilderCompiles } from "./headers-source.type-check";
 
 type Call = { url: string; auth: string | null; publicApiKey: string | null };
@@ -433,6 +436,46 @@ describe("CopilotKit — headers builder evaluated at send time (#1937)", () => 
     const secondCall = calls.find((c) => c.url.endsWith("/transcribe"));
     expect(secondCall).toBeDefined();
     expect(secondCall!.auth).toBeNull();
+  });
+
+  it("a rejecting headers builder rejects transcribeAudio with the header resolution error, not a TranscriptionError, and sends no request", async () => {
+    const calls: Call[] = [];
+    vi.stubGlobal("fetch", stubFetch(calls));
+
+    // Connect with a working source first, then switch to a rejecting
+    // builder — a builder that always rejects would also fail the initial
+    // runtime `/info` fetch, so the agent would never register.
+    const copilotkit = configureCopilotKit({
+      runtimeUrl: "http://rt.test/api/copilotkit",
+      headers: {},
+    });
+
+    await vi.waitFor(() =>
+      expect(copilotkit.core.getAgent("default")).toBeDefined(),
+    );
+    // Drop any requests the initial connect made — only calls made after the
+    // switch to the rejecting builder matter for the assertion below.
+    calls.length = 0;
+
+    copilotkit.updateRuntime({
+      headers: (async () => {
+        throw new Error("builder failed");
+      }) as CopilotKitHeadersSource,
+    });
+
+    let caught: unknown;
+    try {
+      await transcribeAudio(
+        copilotkit.core,
+        new Blob(["a"], { type: "audio/webm" }),
+      );
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(CopilotKitHeaderResolutionError);
+    expect(caught).not.toBeInstanceOf(TranscriptionError);
+    expect(calls).toHaveLength(0);
   });
 
   it("type: an async headers builder compiles in CopilotKitConfig", () => {

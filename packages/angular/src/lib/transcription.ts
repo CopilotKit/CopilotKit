@@ -49,12 +49,15 @@ export async function transcribeAudio(
     });
   }
 
+  // Resolve once, up front, OUTSIDE the try below — never through
+  // `ɵruntimeFetch` (this request is built by hand, not sent via an agent),
+  // and never a stale snapshot: a key that no longer resolves must not ride
+  // along (#1937). A builder failure here must surface as itself, not get
+  // caught and re-wrapped as a NETWORK_ERROR `TranscriptionError`.
+  const resolvedHeaders = { ...(await core.resolveHeaders()) };
+
   let response: Response;
   try {
-    // Resolve once, up front — never through `ɵruntimeFetch` (this request is
-    // built by hand, not sent via an agent), and never a stale snapshot: a
-    // key that no longer resolves must not ride along (#1937).
-    const resolvedHeaders = { ...(await core.resolveHeaders()) };
     response =
       core.runtimeTransport === "single"
         ? await fetch(runtimeUrl, {
