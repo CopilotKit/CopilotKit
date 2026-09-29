@@ -11,6 +11,7 @@
       } @else {
       <copilot-chat-message-view
         [messages]="messages()"
+        [transformMessages]="transformMessages()"
         [state]="state()"
         [agentId]="agentId()"
         [inputClass]="messageViewClass()"

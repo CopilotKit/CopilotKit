@@ -7,6 +7,11 @@ import { Message } from "@ag-ui/client";
 export interface CopilotChatViewProps {
   messages?: Message[];
   autoScroll?: boolean;
+  /**
+   * Reshapes the message list before the message view renders it. See
+   * CopilotChatMessageView.
+   */
+  transformMessages?: (messages: Message[]) => Message[];
 
   // Slot configurations
   messageViewComponent?: Type<any>;

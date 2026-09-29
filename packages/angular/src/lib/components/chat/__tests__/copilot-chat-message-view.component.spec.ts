@@ -278,3 +278,206 @@ describe("CopilotChatMessageView", () => {
     ).toBeNull();
   });
 });
+
+/**
+ * `transformMessages` reshapes the list before anything downstream sees it:
+ * row keys and rendering all work off its output. Tool-result lookups
+ * deliberately keep using the untransformed `messages` input, so a transform
+ * that hides tool results does not strip them from tool cards. The cursor
+ * and the reasoning message's "latest" check also read the rendered list,
+ * not the raw `messages` input (#1959).
+ */
+describe("CopilotChatMessageView transformMessages", () => {
+  const hideWorker = (list: Message[]) =>
+    list.filter((m) => (m as { name?: string }).name !== "math_expert");
+
+  const supervisorTranscript = [
+    { id: "u1", role: "user", content: "what is 2+2" },
+    {
+      id: "w-1",
+      role: "assistant",
+      name: "math_expert",
+      content: "WORKER_SAYS_FOUR",
+    },
+    {
+      id: "sup-2",
+      role: "assistant",
+      name: "supervisor",
+      content: "SUPERVISOR_SAYS_FOUR",
+    },
+  ] as Message[];
+
+  beforeEach(() => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: CopilotKit,
+          useValue: {
+            activityMessageRenderConfigs: signal([]).asReadonly(),
+            getAgent: vi.fn(),
+          },
+        },
+      ],
+    });
+  });
+
+  function renderView(inputs: Record<string, unknown>) {
+    const fixture = TestBed.createComponent(CopilotChatMessageView);
+    for (const [key, value] of Object.entries(inputs))
+      fixture.componentRef.setInput(key, value);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  it("renders every message when no transform is given", () => {
+    const fixture = renderView({ messages: supervisorTranscript });
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      "WORKER_SAYS_FOUR",
+    );
+  });
+
+  it("hides langgraph-supervisor worker messages by name (#1959)", () => {
+    const fixture = renderView({
+      messages: supervisorTranscript,
+      transformMessages: hideWorker,
+    });
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? "";
+    expect(text).not.toContain("WORKER_SAYS_FOUR");
+    expect(text).toContain("SUPERVISOR_SAYS_FOUR");
+    expect(text).toContain("what is 2+2");
+  });
+
+  it("hides a row when a later change adds its name", () => {
+    const unnamed = supervisorTranscript.map((m) =>
+      m.id === "w-1" ? { ...m, name: undefined } : m,
+    ) as Message[];
+    const fixture = renderView({
+      messages: unnamed,
+      transformMessages: hideWorker,
+    });
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      "WORKER_SAYS_FOUR",
+    );
+    fixture.componentRef.setInput("messages", supervisorTranscript);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain(
+      "WORKER_SAYS_FOUR",
+    );
+  });
+
+  it("renders messages in the order the transform returns", () => {
+    const fixture = renderView({
+      messages: [
+        { id: "u1", role: "user", content: "first message" },
+        { id: "u2", role: "user", content: "second message" },
+      ] as Message[],
+      transformMessages: (list: Message[]) => [...list].toReversed(),
+    });
+    const html = (fixture.nativeElement as HTMLElement).innerHTML;
+    expect(html.indexOf("second message")).toBeLessThan(
+      html.indexOf("first message"),
+    );
+  });
+
+  it("keeps the cursor when the last message is hidden", () => {
+    const fixture = renderView({
+      messages: supervisorTranscript.slice(0, 2),
+      showCursor: true,
+      transformMessages: hideWorker,
+    });
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.textContent).not.toContain("WORKER_SAYS_FOUR");
+    expect(el.querySelector("copilot-chat-message-view-cursor")).not.toBeNull();
+  });
+
+  it("shows the cursor when the last rendered message isn't reasoning, even though the raw last message is", () => {
+    const fixture = renderView({
+      messages: [userMessage, reasoningMessage],
+      isLoading: true,
+      showCursor: true,
+      transformMessages: (list: Message[]) =>
+        list.filter((m) => m.role !== "reasoning"),
+    });
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector("copilot-chat-message-view-cursor")).not.toBeNull();
+  });
+
+  it("passes the full message list to a custom layout, and rendered elements", () => {
+    const fixture = renderView({
+      messages: supervisorTranscript,
+      transformMessages: hideWorker,
+    });
+    const ctx = (
+      fixture.componentInstance as unknown as {
+        layoutContext: () => {
+          messages: Message[];
+          messageElements: Message[];
+        };
+      }
+    ).layoutContext();
+    expect(ctx.messages.length).toBe(3);
+    expect(ctx.messageElements.map((m) => m.id)).toEqual(["u1", "sup-2"]);
+  });
+
+  it("keeps the full message list for row lookups when a transform hides messages", () => {
+    const injector = TestBed.inject(EnvironmentInjector);
+    const component = runInInjectionContext(
+      injector,
+      () => new CopilotChatMessageView(),
+    );
+    const harness = component as unknown as {
+      messages: () => Message[];
+      transformMessages: () => (messages: Message[]) => Message[];
+    };
+    const toolResult: Message = {
+      id: "t-1",
+      role: "tool",
+      toolCallId: "call-1",
+      content: "sunny",
+    } as Message;
+    harness.messages = () => [userMessage, assistantMessage, toolResult];
+    harness.transformMessages = () => (list: Message[]) =>
+      list.filter((m) => m.role !== "tool");
+
+    const props = component.mergeAssistantProps(assistantMessage);
+    expect(props.messages).toEqual([userMessage, assistantMessage, toolResult]);
+  });
+
+  it("keeps the reasoning message streaming only while it is last in the rendered list", () => {
+    const fixture = renderView({
+      messages: [userMessage, reasoningMessage],
+      isLoading: true,
+    });
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      "Thinking…",
+    );
+
+    fixture.componentRef.setInput("transformMessages", (list: Message[]) => [
+      ...list,
+      assistantMessage,
+    ]);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain(
+      "Thinking…",
+    );
+  });
+
+  it("warns in development when the transform returns a duplicate id", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    renderView({
+      messages: [userMessage, assistantMessage],
+      transformMessages: (list: Message[]) => [...list, list[0]!],
+    });
+
+    expect(
+      warn.mock.calls.some(([text]) =>
+        String(text).includes(
+          `more than one message with id "${userMessage.id}"`,
+        ),
+      ),
+    ).toBe(true);
+    warn.mockRestore();
+  });
+});

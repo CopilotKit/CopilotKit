@@ -20,6 +20,18 @@ export interface CopilotChatMessageViewProps {
   state?: unknown;
   showCursor?: boolean;
   inputClass?: string;
+  /**
+   * Reshapes the message list before it renders: drop, replace or reorder
+   * messages with the whole list in view. Angular has no dedupe step, so
+   * the transform receives the `messages` list directly. Row keys and
+   * rendering all work off the returned list, so a dropped message takes
+   * no row.
+   *
+   * Tool-result lookups still look up their results in the full message
+   * list, so hiding tool-result messages here does not strip results from
+   * the cards that display them.
+   */
+  transformMessages?: (messages: Message[]) => Message[];
 
   // Assistant message slots
   assistantMessageComponent?: Type<any>;

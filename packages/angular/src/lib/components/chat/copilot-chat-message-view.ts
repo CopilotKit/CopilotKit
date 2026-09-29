@@ -8,6 +8,7 @@ import {
   ViewEncapsulation,
   afterRenderEffect,
   computed,
+  isDevMode,
 } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
@@ -54,7 +55,7 @@ import {
       <!-- Default layout - exact React DOM structure: div with "flex flex-col" classes -->
       <div [class]="computedClass()">
         <!-- Message iteration - simplified without tool calls -->
-        @for (message of messagesValue(); track rowRenderKey($index, message)) {
+        @for (message of renderedMessages(); track rowRenderKey($index, message)) {
           @if (message && message.role === "assistant") {
             <!-- Assistant message with slot support -->
             @if (assistantMessageComponent() || assistantMessageTemplate()) {
@@ -106,6 +107,7 @@ import {
                 [message]="asReasoningMessage(message)"
                 [messages]="messagesValue()"
                 [isRunning]="isLoadingValue()"
+                [isLatest]="message.id === latestRenderedId()"
                 [inputClass]="reasoningMessageClass()"
               />
             }
@@ -148,6 +150,19 @@ export class CopilotChatMessageView {
   isLoading = input<boolean>(false);
   inputClass = input<string | undefined>();
   agentId = input<string | undefined>();
+
+  /**
+   * Reshapes the message list before it renders: drop, replace or reorder
+   * messages with the whole list in view. Angular has no dedupe step, so
+   * the transform receives `messages()` directly. Row keys, the row-key
+   * commit and rendering all work off the returned list, so a dropped
+   * message takes no row.
+   *
+   * Tool-result lookups still look up their results in the full `messages`
+   * list, so hiding tool-result messages here does not strip results from
+   * the cards that display them.
+   */
+  transformMessages = input<((messages: Message[]) => Message[]) | undefined>();
 
   // Handler availability handled via DI service
 
@@ -196,27 +211,70 @@ export class CopilotChatMessageView {
   // Derived values from inputs
   protected messagesValue = computed(() => this.messages());
 
+  // What actually renders. Row keys, the row-key commit, the streaming
+  // cursor and the "latest rendered message" check all work off this list.
+  // Tool-result lookups keep using the full `messagesValue()` (see the
+  // `[messages]` bindings above and `mergeAssistantProps`/
+  // `mergeReasoningProps` below), so a transform that hides tool results
+  // cannot break the cards that display them.
+  protected renderedMessages = computed(() => {
+    const transform = this.transformMessages();
+    const all = this.messagesValue();
+    return transform ? transform(all) : all;
+  });
+
+  // "Latest" means the last row on screen, not the last entry of
+  // `messages()`: a transform can drop, replace or reorder the tail.
+  // Streaming state and the reasoning message's toolbar key off this.
+  protected latestRenderedId = computed(
+    () => this.renderedMessages()[this.renderedMessages().length - 1]?.id,
+  );
+
+  // Row keys are looked up by message id, so two rendered messages sharing
+  // an id would share an `@for` track key. Angular has no dedupe step, so a
+  // repeat here can only come from the transform.
+  protected transformDuplicateId = computed<string | undefined>(() => {
+    if (!isDevMode() || !this.transformMessages()) return undefined;
+    const seen = new Set<string>();
+    for (const message of this.renderedMessages()) {
+      if (seen.has(message.id)) return message.id;
+      seen.add(message.id);
+    }
+    return undefined;
+  });
+
+  // Warn once per new duplicate id. `afterRenderEffect` only re-runs when
+  // the tracked signal's value changes, so a stable duplicate warns once.
+  private readonly transformDuplicateWarning = afterRenderEffect(() => {
+    const id = this.transformDuplicateId();
+    if (id === undefined) return;
+    console.warn(
+      `[CopilotKit] CopilotChatMessageView: \`transformMessages\` returned more than one message with id "${id}". ` +
+        "Return each id at most once; a message you create needs its own id, stable across renders.",
+    );
+  });
+
   /**
    * Override table backing `rowRenderKey`. Per component instance, so its
    * lifetime matches the rendered list.
    */
   private readonly rowKeyStore = createRowKeyStore();
   protected rowRenderKeys = computed(() =>
-    resolveRowRenderKeys(this.rowKeyStore, this.messagesValue()),
+    resolveRowRenderKeys(this.rowKeyStore, this.renderedMessages()),
   );
 
   // Record what actually rendered, never what the computed merely evaluated:
   // an anchor from an evaluation that never reaches the DOM would re-key a
   // rendered row and recreate it.
   private readonly rowKeyStoreCommit = afterRenderEffect(() => {
-    commitRowKeyStore(this.rowKeyStore, this.messagesValue());
+    commitRowKeyStore(this.rowKeyStore, this.renderedMessages());
   });
   protected showCursorValue = computed(
     () => this.showCursor() && this.lastMessage()?.role !== "reasoning",
   );
   protected isLoadingValue = computed(() => this.isLoading());
   protected lastMessage = computed(() => {
-    const messages = this.messagesValue();
+    const messages = this.renderedMessages();
     return messages[messages.length - 1];
   });
 
@@ -230,7 +288,7 @@ export class CopilotChatMessageView {
     isLoading: this.isLoadingValue(),
     messages: this.messagesValue(),
     showCursor: this.showCursorValue(),
-    messageElements: this.messagesValue().filter(
+    messageElements: this.renderedMessages().filter(
       (m) =>
         m &&
         (m.role === "assistant" ||
@@ -266,6 +324,7 @@ export class CopilotChatMessageView {
       message,
       messages: this.messagesValue(),
       isRunning: this.isLoadingValue(),
+      isLatest: message.id === this.latestRenderedId(),
       inputClass: this.reasoningMessageClass(),
     };
   }

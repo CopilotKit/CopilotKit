@@ -88,17 +88,26 @@ export class CopilotChatReasoningMessage {
   readonly message = input.required<ReasoningMessage>();
   readonly messages = input<Message[]>([]);
   readonly isRunning = input<boolean>(false);
+  /**
+   * Whether this is the last message the chat renders. The message view
+   * passes it, because the rendered list can differ from `messages` when
+   * `transformMessages` drops, replaces or reorders messages. Defaults to
+   * comparing against the last entry of `messages`.
+   */
+  readonly isLatest = input<boolean | undefined>(undefined);
   readonly inputClass = input<string | undefined>();
 
   private readonly userToggled = signal(false);
 
-  protected readonly isLatest = computed(() => {
+  private readonly resolvedIsLatest = computed(() => {
+    const explicit = this.isLatest();
+    if (explicit !== undefined) return explicit;
     const messages = this.messages();
     return messages[messages.length - 1]?.id === this.message().id;
   });
 
   protected readonly isStreaming = computed(
-    () => this.isRunning() && this.isLatest(),
+    () => this.isRunning() && this.resolvedIsLatest(),
   );
 
   // Captures the wall-clock start the moment streaming begins and holds it

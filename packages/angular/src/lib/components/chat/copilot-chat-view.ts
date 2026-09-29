@@ -165,6 +165,7 @@ import { injectChatLabels } from "../../chat-config";
           [inputContainerHeight]="inputContainerHeight()"
           [isResizing]="isResizing()"
           [messages]="messagesValue()"
+          [transformMessages]="transformMessages()"
           [state]="state()"
           [agentId]="agentId()"
           [messageView]="messageViewSlot()"
@@ -221,6 +222,10 @@ export class CopilotChatView implements OnInit, OnChanges {
   autoScroll = input<boolean>(true);
   showCursor = input<boolean>(false);
   hasExplicitThreadId = input<boolean>(false);
+  /** Reshapes the message list before the message view renders it. See CopilotChatMessageView. */
+  transformMessages = input<((messages: Message[]) => Message[]) | undefined>(
+    undefined,
+  );
 
   // MessageView slot inputs
   messageViewComponent = input<Type<any> | undefined>(undefined);
@@ -379,6 +384,7 @@ export class CopilotChatView implements OnInit, OnChanges {
     inputContainerHeight: this.inputContainerHeight(),
     isResizing: this.isResizing(),
     messages: this.messagesValue(),
+    transformMessages: this.transformMessages(),
     state: this.state(),
     agentId: this.agentId(),
     messageView: this.messageViewSlot(),

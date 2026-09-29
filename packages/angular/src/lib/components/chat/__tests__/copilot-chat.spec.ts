@@ -419,6 +419,38 @@ describe("CopilotChat", () => {
       expect(children?.textContent).toContain("1 messages");
       expect(children?.textContent).toContain("streamed");
     });
+
+    test("forwards transformMessages through the prebuilt chat, hiding worker messages by name (#1959)", async () => {
+      const { fixture } = context;
+      fixture.componentRef.setInput(
+        "transformMessages",
+        (list: { name?: string }[]) =>
+          list.filter((m) => m.name !== "math_expert"),
+      );
+      fixture.detectChanges();
+      agent.setMessages([
+        { id: "u1", role: "user", content: "what is 2+2" },
+        {
+          id: "w-1",
+          role: "assistant",
+          name: "math_expert",
+          content: "WORKER_SAYS_FOUR",
+        },
+        {
+          id: "sup-2",
+          role: "assistant",
+          name: "supervisor",
+          content: "SUPERVISOR_SAYS_FOUR",
+        },
+      ]);
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      fixture.detectChanges();
+
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? "";
+      expect(text).toContain("SUPERVISOR_SAYS_FOUR");
+      expect(text).not.toContain("WORKER_SAYS_FOUR");
+      expect(text).toContain("what is 2+2");
+    });
   });
 
   describe("sending messages", () => {

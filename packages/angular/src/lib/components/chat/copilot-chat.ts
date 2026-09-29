@@ -61,6 +61,7 @@ import { explicitEffect } from "../../explicit-effect";
     >
       <copilot-chat-view
         [messages]="messages()"
+        [transformMessages]="transformMessages()"
         [state]="agentState()"
         [agentId]="resolvedAgentId()"
         [autoScroll]="true"
@@ -115,6 +116,10 @@ export class CopilotChat extends ChatState {
   readonly messageViewChildrenTemplate = input<TemplateRef<any> | undefined>();
   /** Class forwarded to custom transcript-children renderers. */
   readonly messageViewChildrenClass = input<string | undefined>();
+  /** Reshapes the message list before the prebuilt chat renders it. Display only. See CopilotChatMessageView. */
+  readonly transformMessages = input<
+    ((messages: Message[]) => Message[]) | undefined
+  >();
   readonly attachmentsConfig = input<AttachmentsConfig | undefined>(undefined, {
     alias: "attachments",
   });

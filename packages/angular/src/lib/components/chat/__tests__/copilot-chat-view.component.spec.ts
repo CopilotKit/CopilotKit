@@ -237,4 +237,22 @@ describe("CopilotChatView", () => {
       }
     }
   });
+
+  it("forwards transformMessages down to the default message view (#1959)", () => {
+    const fixture = TestBed.createComponent(CopilotChatView);
+    const messages: Message[] = [
+      { id: "user-1", role: "user", content: "keep" },
+      { id: "user-2", role: "user", content: "drop" },
+    ];
+
+    fixture.componentRef.setInput("messages", messages);
+    fixture.componentRef.setInput("transformMessages", (list: Message[]) =>
+      list.filter((m) => m.content !== "drop"),
+    );
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).toContain("keep");
+    expect(element.textContent).not.toContain("drop");
+  });
 });
