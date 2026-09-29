@@ -1,12 +1,6 @@
 "use client";
 
-import React, {
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import { Check, Copy, Eye, X } from "lucide-react";
 import {
   PROMPT_DESTINATION_HINT,
@@ -15,24 +9,6 @@ import {
 import "./prompt-pill.css";
 
 export type PromptAction = "copy" | "view_prompt" | "copy_preview";
-
-/** The pointers that cannot hover, so they cannot reach the hover shelf. */
-const TOUCH_QUERY = "(hover: none), (pointer: coarse)";
-
-function subscribeTouch(onChange: () => void): () => void {
-  const query = window.matchMedia?.(TOUCH_QUERY);
-  query?.addEventListener?.("change", onChange);
-  return () => query?.removeEventListener?.("change", onChange);
-}
-
-/** Whether the device has no hover; false on the server and first render. */
-function useTouch(): boolean {
-  return useSyncExternalStore(
-    subscribeTouch,
-    () => window.matchMedia?.(TOUCH_QUERY).matches ?? false,
-    () => false,
-  );
-}
 
 export interface PromptPayload {
   text: string;
@@ -78,7 +54,6 @@ export function PromptPill({
   const pending = useRef<PromptPayload | null>(null);
   const mounted = useRef(true);
   const titleId = useId();
-  const touch = useTouch();
 
   useEffect(() => {
     mounted.current = true;
@@ -188,27 +163,24 @@ export function PromptPill({
           <span>Copy Prompt</span>
         </button>
         {/* A touch screen cannot hover to reveal the shelf, so View prompt
-            sits in the pill, as on the Intelligence Home. */}
-        {touch && (
-          <button
-            type="button"
-            className="prompt-pill-view"
-            aria-label="View prompt"
-            title="View prompt"
-            onClick={viewPrompt}
-          >
-            <Eye aria-hidden="true" />
-          </button>
-        )}
+            sits in the pill, as on the Intelligence Home. CSS shows this or
+            the shelf from the first paint; only one is ever displayed. */}
+        <button
+          type="button"
+          className="prompt-pill-view"
+          aria-label="View prompt"
+          title="View prompt"
+          onClick={viewPrompt}
+        >
+          <Eye aria-hidden="true" />
+        </button>
       </div>
-      {!touch && (
-        <div className="prompt-pill-shelf">
-          <button type="button" onClick={viewPrompt}>
-            <Eye aria-hidden="true" />
-            View prompt
-          </button>
-        </div>
-      )}
+      <div className="prompt-pill-shelf">
+        <button type="button" onClick={viewPrompt}>
+          <Eye aria-hidden="true" />
+          View prompt
+        </button>
+      </div>
       <span role="status" className="sr-only">
         {message}
       </span>

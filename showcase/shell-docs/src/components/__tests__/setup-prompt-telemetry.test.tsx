@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { LearningSetupPrompt } from "../learning-setup-prompt";
@@ -100,7 +101,11 @@ test("preview, rejected copy and retry retain the same run without false success
     new Error("denied"),
   );
   render(<LearningSetupPrompt />);
-  fireEvent.click(screen.getByRole("button", { name: "View prompt" }));
+  fireEvent.click(
+    within(
+      document.querySelector(".prompt-pill-shelf") as HTMLElement,
+    ).getByRole("button", { name: "View prompt" }),
+  );
   const displayed = (screen.getByRole("textbox") as HTMLTextAreaElement).value;
   const attempt = events(actionEvent)[0];
   expect(attempt.action).toBe("view_prompt");

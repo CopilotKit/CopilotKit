@@ -62,8 +62,10 @@
   height: 15px;
   flex-shrink: 0;
 }
+/* View prompt inside the pill, on screens that cannot hover (shown by the
+ * touch rules below). */
 .prompt-pill-view {
-  display: grid;
+  display: none;
   flex-shrink: 0;
   place-items: center;
   width: 44px;
@@ -195,10 +197,13 @@
   font-size: 13px;
 }
 @media (hover: none), (pointer: coarse) {
-  /* Touch screens get View prompt inside the pill instead. The shelf renders
-   * only until the first client render knows the device cannot hover. */
+  /* Touch screens get View prompt inside the pill instead. Pure CSS, so the
+   * first paint is already right. */
   .prompt-pill-shelf {
     display: none;
+  }
+  .prompt-pill-view {
+    display: grid;
   }
   /* Copy takes the pill's width, so the eye sits at its right end. */
   .prompt-pill-copy {

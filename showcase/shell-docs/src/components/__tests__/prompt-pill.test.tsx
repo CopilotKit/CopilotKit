@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { PromptPill } from "../prompt-pill";
@@ -19,6 +20,15 @@ beforeEach(() => {
     this.open = false;
   };
 });
+
+// The pill renders View prompt twice, and CSS shows one: the shelf button for a
+// pointer that can hover, and the eye in the pill for touch. jsdom applies no
+// media queries, so tests name the one they mean.
+const viewShelf = () =>
+  within(document.querySelector(".prompt-pill-shelf") as HTMLElement).getByRole(
+    "button",
+    { name: "View prompt" },
+  );
 
 afterEach(() => {
   cleanup();
@@ -35,39 +45,25 @@ it("offers Copy and View prompt, and no app links or logos", () => {
   );
   expect(
     screen.getAllByRole("button").map((button) => button.textContent),
-  ).toEqual(["Copy Prompt", "View prompt"]);
+  ).toEqual(["Copy Prompt", "", "View prompt"]);
   expect(container.querySelector("img, a")).toBeNull();
 });
 
-// A touch screen cannot hover to reveal the shelf, so View prompt moves into
-// the pill as an eye button, to the right of Copy (PE-381).
-it("puts View prompt in the pill on a touch screen", () => {
-  vi.stubGlobal(
-    "matchMedia",
-    vi.fn((query: string) => ({
-      matches: query === "(hover: none), (pointer: coarse)",
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    })),
+// A touch screen cannot hover to reveal the shelf, so View prompt is also an
+// eye inside the pill, right of Copy (PE-381). CSS picks one from the first
+// paint, so the page never shows the wrong control while it hydrates.
+it("offers the eye inside the pill, which opens the same preview", () => {
+  render(<PromptPill createPrompt={() => ({ text: "Run" })} />);
+  const dock = screen.getByRole("group", { name: "Agent prompt" });
+  expect(
+    Array.from(dock.querySelectorAll("button")).map((button) =>
+      button.getAttribute("aria-label"),
+    ),
+  ).toEqual(["Copy prompt", "View prompt"]);
+  fireEvent.click(within(dock).getByRole("button", { name: "View prompt" }));
+  expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe(
+    "Run",
   );
-  try {
-    const { container } = render(
-      <PromptPill createPrompt={() => ({ text: "Run" })} />,
-    );
-    const dock = screen.getByRole("group", { name: "Agent prompt" });
-    expect(
-      Array.from(dock.querySelectorAll("button")).map((button) =>
-        button.getAttribute("aria-label"),
-      ),
-    ).toEqual(["Copy prompt", "View prompt"]);
-    expect(container.querySelector(".prompt-pill-shelf")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "View prompt" }));
-    expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe(
-      "Run",
-    );
-  } finally {
-    vi.unstubAllGlobals();
-  }
 });
 
 it("views and copies the same prompt", async () => {
@@ -75,7 +71,7 @@ it("views and copies the same prompt", async () => {
   Object.assign(navigator, { clipboard: { writeText } });
   let count = 0;
   render(<PromptPill createPrompt={() => ({ text: `Run ${++count}` })} />);
-  fireEvent.click(screen.getByRole("button", { name: "View prompt" }));
+  fireEvent.click(viewShelf());
   expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe(
     "Run 1",
   );
@@ -152,7 +148,7 @@ it("keeps preview actions bound to the displayed run and excludes close", async 
       }}
     />,
   );
-  fireEvent.click(screen.getByRole("button", { name: "View prompt" }));
+  fireEvent.click(viewShelf());
   fireEvent.click(
     screen.getByRole("button", { name: "Copy displayed prompt" }),
   );
