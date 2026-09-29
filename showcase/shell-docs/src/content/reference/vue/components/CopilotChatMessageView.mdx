@@ -51,6 +51,19 @@ const { agent } = useAgent();
   suppressed when the last message is a reasoning message.
 </PropertyReference>
 
+<PropertyReference name="transformMessages" type="(messages: Message[]) => Message[]">
+  Reshapes the list before it renders: drop, replace or reorder messages with
+  the whole list in view. Receives the messages after duplicate ids are
+  merged and returns the list to render. Row keys, the streaming cursor, and
+  the "latest message" check all follow the returned list, so a dropped
+  message takes no row. Tool-call cards still look up their results in the
+  full `messages` prop, so hiding a tool-result message does not empty the
+  card that shows it. In development, the component warns once if the
+  transform returns the same id twice. When omitted, the deduplicated list
+  renders as is. Pass it as `:transform-messages="fn"`. Pass a stable
+  function, so the list does not recompute on every render.
+</PropertyReference>
+
 <Callout type="info">
   Attributes that are not declared props (such as `class`, `style`, or
   `data-*`) are forwarded to the component's root `<div>` via `v-bind="$attrs"`.

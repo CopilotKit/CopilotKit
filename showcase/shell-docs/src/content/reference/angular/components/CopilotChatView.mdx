@@ -76,6 +76,10 @@ export class ChatComponent extends ChatState {
   Whether an explicit thread id was provided. When true, the welcome screen is suppressed even with no messages (the conversation is being resumed).
 </PropertyReference>
 
+<PropertyReference name="transformMessages" type="(messages: Message[]) => Message[]">
+  Reshapes the message list before the message view renders it: drop, replace or reorder messages with the whole list in view. Angular has no dedupe step, so the transform receives the `messages` list directly. Row keys, the streaming cursor, and the "latest message" check all follow the returned list, so a dropped message takes no row. Tool-call cards still look up their results in the full message list, so hiding a tool-result message does not empty the card that shows it. In development, the message view warns once if the transform returns the same id twice. When omitted, every message renders. Pass it as `[transformMessages]="fn"`. Pass a stable function, so the list does not recompute on every render.
+</PropertyReference>
+
 ### Slot inputs
 
 The view forwards message, input, scroll-button, input-container, feather, and disclaimer slots.

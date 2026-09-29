@@ -88,6 +88,10 @@ Remember to import the stylesheet once in your global styles:
   CSS classes forwarded to the message-list children slot.
 </PropertyReference>
 
+<PropertyReference name="transformMessages" type="(messages: Message[]) => Message[]">
+  Reshapes the message list before the view renders it: drop, replace or reorder messages with the whole list in view. Angular has no dedupe step, so the transform receives `messages()` directly. Row keys, the streaming cursor, and the "latest message" check all follow the returned list, so a dropped message takes no row. Tool-call cards still look up their results in the full message list, so hiding a tool-result message does not empty the card that shows it. In development, the component warns once if the transform returns the same id twice. When omitted, every message renders. Pass it as `[transformMessages]="fn"`. `copilot-sidebar` and `copilot-popup` do not forward it. Pass a custom `chatComponent` that sets it. Pass a stable function, so the list does not recompute on every render.
+</PropertyReference>
+
 ## Outputs
 
 `CopilotChat` does not declare its own outputs. It handles message submission, suggestion selection, and transcription internally through the `ChatState` it provides to the input and view. To observe lower-level interactions, render a custom input via `inputComponent` (or use [`CopilotChatInput`](/reference/angular/components/CopilotChatInput) directly), which exposes outputs such as `submitMessage` and the transcription events.
