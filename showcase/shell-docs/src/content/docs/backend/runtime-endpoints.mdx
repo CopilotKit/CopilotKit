@@ -115,8 +115,8 @@ operation. Given a `basePath` of `/api/copilotkit`, the routes are:
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `GET /api/copilotkit/info`                           | Runtime info. The frontend calls this on startup to discover registered agents and their metadata.                                                                                                           |
 | `GET /api/copilotkit/inspector-metadata`             | Optional trusted project, plan, license, action, usage, and expiry context for the Inspector. Intelligence-backed runtimes advertise this route with `inspectorMetadata: true` in the runtime-info response. |
-| `POST /api/copilotkit/agent/:agentId/run`            | Start an agent run. The request body is an AG-UI `RunAgentInput`; the response is an SSE stream of AG-UI events.                                                                                             |
-| `POST /api/copilotkit/agent/:agentId/connect`        | Connect to an agent's thread. Used to resume streaming after a reconnect or page refresh. Also an SSE stream.                                                                                                |
+| `POST /api/copilotkit/agent/:agentId/run`            | Start an agent run. The request body is an AG-UI `RunAgentInput`; the response is an SSE stream of AG-UI events. With Intelligence, the response is JSON. See [Run and connect with Intelligence](#run-and-connect-with-intelligence).                                                                                             |
+| `POST /api/copilotkit/agent/:agentId/connect`        | Connect to an agent's thread. Used to resume streaming after a reconnect or page refresh. Also an SSE stream, or JSON with Intelligence.                                                                                                |
 | `POST /api/copilotkit/agent/:agentId/stop/:threadId` | Stop the in-progress run on a given thread. An optional JSON body `{ "runId": "..." }` stops only that run. A body that is not valid JSON, or carries any other key, is rejected with 400 and stops nothing.                                                                                                |
 | `POST /api/copilotkit/transcribe`                    | Transcribe audio (used by the voice / transcription input).                                                                                                                                                  |
 
@@ -140,6 +140,35 @@ Intelligence rejects the project key with a `401`, the Runtime still returns
 `200` from `/info`. The body reports `runtimeEntitlements.status` as
 `misconfigured` with the non-retryable `runtime_entitlements_misconfigured`
 error code.
+
+### Run and connect with Intelligence
+
+When the runtime has an `intelligence` client, the run and connect routes do
+not stream events. They return JSON that tells the client where to read the
+events:
+
+```json
+{
+  "threadId": "<thread id>",
+  "runId": "<run id>",
+  "joinToken": "<join token>",
+  "realtime": {
+    "clientUrl": "<Intelligence websocket URL>",
+    "topic": "thread:<thread id>"
+  }
+}
+```
+
+The client opens a websocket to `realtime.clientUrl` and joins the
+`realtime.topic` channel with the `joinToken`. The AG-UI events of the run
+arrive on that channel. `CopilotKitProvider` does this for you when runtime
+info reports Intelligence. The connect route returns the same body without
+`runId`, or `204` with no body when the platform returns no connection.
+
+A direct `POST` to the run route, for example from `curl` or a test script,
+gets this JSON body and no events. To read the events of a thread without a
+websocket client, call `GET {basePath}/threads/:threadId/events`. It returns
+`{ "events": [...] }`. See [Thread routes](#thread-routes).
 
 ### Inspector metadata
 

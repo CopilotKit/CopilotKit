@@ -17,7 +17,6 @@
     "@angular/forms": "22.0.0",
     "@angular/platform-browser": "22.0.0",
     "@angular/platform-browser-dynamic": "22.0.0",
-    "@copilotkit/a2ui-renderer": "workspace:*",
     "@copilotkit/core": "workspace:^",
     "@copilotkit/shared": "workspace:*",
     "rxjs": "^7.8.1",

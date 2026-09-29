@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
 
 import { inlineSnippets, loadDoc } from "../docs-render";
@@ -47,6 +48,33 @@ test.each(agnoRoutes)("documents Agno session persistence on %s", (route) => {
     expect(content).toContain("read-only to the runtime user");
     expect(content).toContain("PgDb");
   }
+});
+
+test("connects the shared HITL guide to the Agno Interactive route", () => {
+  const page = getAllLlmPages().find(
+    (candidate) =>
+      candidate.url === "agno/generative-ui/your-components/interactive",
+  );
+  expect(page).toBeDefined();
+
+  const doc = loadDoc(page!.loadSlug);
+  expect(doc).not.toBeNull();
+  expect(doc!.source).toContain(
+    'import Interactive from "@/snippets/shared/generative-ui/interactive.mdx";',
+  );
+  expect(doc!.source).toContain(
+    '<Interactive components={props.components} framework="agno" />',
+  );
+
+  const sharedGuide = readFileSync(
+    new URL(
+      "../../content/snippets/shared/generative-ui/interactive.mdx",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  expect(sharedGuide).toContain("Create a frontend human-in-the-loop tool");
+  expect(sharedGuide).toContain("useHumanInTheLoop({");
 });
 
 test("keeps the Agno database requirement out of other frameworks", () => {
