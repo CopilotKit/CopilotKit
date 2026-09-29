@@ -390,7 +390,7 @@ showcase-root {
   background: #fafafc;
 }
 
-.a2ui-feature-page cpk-a2ui-surface {
+.a2ui-feature-page copilot-a2ui-surface {
   display: block;
   width: 100%;
 }
@@ -401,11 +401,6 @@ showcase-root {
   flex-wrap: wrap;
   align-items: stretch;
   width: 100%;
-}
-
-.a2ui-row > * {
-  flex: 1 1 10rem;
-  min-width: 0;
 }
 
 .a2ui-column {
@@ -465,6 +460,146 @@ showcase-root {
   color: #991b1b;
 }
 /* @endregion[a2ui-styling] */
+
+.a2ui-button,
+.a2ui-action-button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* Matches the React fixed-schema ShadCN button. */
+.a2ui-button {
+  height: 2.5rem;
+  padding: 0.5rem 1rem;
+  border: 0;
+  border-radius: 0.375rem;
+  background: #171717;
+  color: #fafafa;
+  font-size: 0.875rem;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+}
+
+.a2ui-button:hover {
+  background: #262626;
+}
+
+/* Matches the React beautiful-chat ActionButton. */
+.a2ui-action-button {
+  padding: 10px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: color-mix(in srgb, #f1f5f9 40%, white);
+  color: inherit;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+}
+
+.a2ui-action-button.done {
+  border-color: #bbf7d0;
+  background: color-mix(in srgb, #22c55e 10%, white);
+  color: #059669;
+  cursor: default;
+}
+
+/* Beautiful Chat dashboard catalog. */
+.beautiful-row {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+}
+.beautiful-row > div {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.beautiful-column {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.beautiful-card,
+.beautiful-flight {
+  padding: 1rem;
+  border: 1px solid #d8e0ea;
+  background: #fff;
+  color: #14213d;
+}
+.beautiful-card {
+  border-radius: 0.9rem;
+}
+.beautiful-card > h3 {
+  margin: 0;
+}
+
+.beautiful-metric {
+  display: grid;
+  gap: 0.25rem;
+}
+.beautiful-metric > strong {
+  font-size: 1.4rem;
+}
+
+.beautiful-pie,
+.beautiful-pie > div {
+  display: grid;
+  gap: 0.4rem;
+}
+.beautiful-pie > div {
+  grid-template-columns: auto 1fr auto;
+}
+.beautiful-pie i {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+}
+
+.beautiful-bars {
+  display: flex;
+  align-items: end;
+  gap: 0.5rem;
+  height: 12rem;
+}
+.beautiful-bars > div {
+  display: grid;
+  align-items: end;
+  flex: 1;
+  height: 100%;
+  text-align: center;
+}
+.beautiful-bars i {
+  display: block;
+  border-radius: 0.35rem 0.35rem 0 0;
+}
+
+.beautiful-flight {
+  display: grid;
+  gap: 0.7rem;
+  min-width: 16rem;
+  border-radius: 1rem;
+}
+.beautiful-flight > header,
+.beautiful-flight-meta,
+.beautiful-flight-times,
+.beautiful-flight-route {
+  display: flex;
+  justify-content: space-between;
+}
+.beautiful-flight > header {
+  gap: 1rem;
+}
+.beautiful-flight-meta {
+  color: #66758a;
+}
+.beautiful-flight-times {
+  font-weight: 700;
+}
 
 .a2ui-info-row {
   display: flex;

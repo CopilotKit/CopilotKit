@@ -8,6 +8,7 @@ readme = "README.md"
 [project]
 name = "travel"
 version = "0.1.0"
+requires-python = ">=3.12"
 dependencies = [
   "langgraph",
   "langchain_core",
@@ -20,7 +21,7 @@ dependencies = [
   "python-dotenv",
   "uvicorn",
   "copilotkit",
-  "googlemaps",
+  "httpx",
   "html2text",
   "ag-ui-langgraph",
 ]
