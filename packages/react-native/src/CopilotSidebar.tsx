@@ -19,6 +19,11 @@ import {
 import type { ViewStyle } from "react-native";
 import { CopilotChat } from "./CopilotChat";
 import type { CopilotChatBaseProps } from "./CopilotChat";
+import {
+  CopilotColorSchemeProvider,
+  useCopilotTheme,
+} from "./components/theme";
+import type { CopilotColorScheme } from "./components/theme";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -69,6 +74,12 @@ export interface CopilotSidebarProps extends Omit<
 
   /** Custom style applied to the drawer container. */
   style?: ViewStyle;
+
+  /**
+   * `"light"` (the default), `"dark"`, or `"system"` to follow the device's
+   * setting. Applies to the drawer and to CopilotKit components inside it.
+   */
+  colorScheme?: CopilotColorScheme;
 
   /** Content rendered inside the drawer below the chat area. */
   children?: ReactNode;
@@ -121,12 +132,14 @@ export const CopilotSidebar = forwardRef<
     onOpen,
     onClose,
     style,
+    colorScheme,
     children,
     ...rest
   },
   ref,
 ) {
   const { width: screenWidth } = useWindowDimensions();
+  const theme = useCopilotTheme(colorScheme);
 
   // Resolve drawer width ---------------------------------------------------
   const drawerWidth = resolveWidth(widthProp, screenWidth);
@@ -197,7 +210,7 @@ export const CopilotSidebar = forwardRef<
   // Render
   // -----------------------------------------------------------------------
   return (
-    <>
+    <CopilotColorSchemeProvider colorScheme={colorScheme}>
       {/* Backdrop */}
       {isOpen && (
         <Pressable
@@ -214,22 +227,37 @@ export const CopilotSidebar = forwardRef<
         <Animated.View
           style={[
             styles.drawer,
-            { width: drawerWidth, transform: [{ translateX: slideAnim }] },
+            {
+              width: drawerWidth,
+              backgroundColor: theme.background,
+              transform: [{ translateX: slideAnim }],
+            },
             style,
           ]}
           testID="copilot-sidebar-drawer"
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>{headerTitle}</Text>
+          {/* Header: title centered between a spacer and the close button */}
+          <View style={[styles.header, { borderBottomColor: theme.border }]}>
+            <View style={styles.headerSide} />
+            <Text
+              numberOfLines={1}
+              style={[styles.headerTitle, { color: theme.foreground }]}
+            >
+              {headerTitle}
+            </Text>
             <Pressable
               onPress={close}
+              style={styles.closeButton}
               accessibilityRole="button"
               accessibilityLabel="Close"
               hitSlop={8}
               testID="copilot-sidebar-close"
             >
-              <Text style={styles.closeButton}>{"✕"}</Text>
+              <Text
+                style={[styles.closeIcon, { color: theme.mutedForeground }]}
+              >
+                {"✕"}
+              </Text>
             </Pressable>
           </View>
 
@@ -252,7 +280,7 @@ export const CopilotSidebar = forwardRef<
       {/* Floating action button */}
       {showToggleButton && !isOpen && (
         <Pressable
-          style={styles.fab}
+          style={[styles.fab, { backgroundColor: theme.primary }]}
           onPress={open}
           accessibilityRole="button"
           accessibilityLabel="Open sidebar"
@@ -261,7 +289,7 @@ export const CopilotSidebar = forwardRef<
           <Text style={styles.fabIcon}>{"💬"}</Text>
         </Pressable>
       )}
-    </>
+    </CopilotColorSchemeProvider>
   );
 });
 
@@ -304,32 +332,38 @@ const styles = StyleSheet.create({
     top: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "#ffffff",
     zIndex: 1000,
     shadowColor: "#000",
-    shadowOffset: { width: -2, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 16,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 12,
   },
   header: {
+    height: 56,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#e0e0e0",
+  },
+  headerSide: {
+    width: 32,
   },
   headerTitle: {
-    fontSize: 18,
+    flex: 1,
+    textAlign: "center",
+    fontSize: 15,
     fontWeight: "600",
-    color: "#1a1a1a",
   },
   closeButton: {
-    fontSize: 20,
-    color: "#666",
-    padding: 4,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  closeIcon: {
+    fontSize: 16,
   },
   chatContainer: {
     flex: 1,
@@ -341,14 +375,13 @@ const styles = StyleSheet.create({
     width: FAB_SIZE,
     height: FAB_SIZE,
     borderRadius: FAB_SIZE / 2,
-    backgroundColor: "#007AFF",
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6,
     zIndex: 998,
   },
   fabIcon: {
