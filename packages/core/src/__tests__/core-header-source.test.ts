@@ -284,4 +284,12 @@ describe("CopilotKitCore header source", () => {
     expect(core.ɵheadersGeneration).toBe(gen + 1);
     await vi.waitFor(() => expect(onHeadersChanged).toHaveBeenCalledTimes(1));
   });
+
+  it("resolveHeaders() result is typed readonly and cannot be assigned into", () => {
+    const core = new CopilotKitCore({ headers: { Authorization: "a" } });
+    const result = core.resolveHeaders();
+    if (result instanceof Promise) throw new Error("expected a sync result");
+    // @ts-expect-error the returned object is shared; copy it before modifying
+    result.Authorization = "mutated";
+  });
 });

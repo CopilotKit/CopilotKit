@@ -362,7 +362,9 @@ export interface CopilotKitCoreFriendsAccess {
 
   // Getters for internal state
   readonly headers: Readonly<Record<string, string>>;
-  resolveHeaders(): Record<string, string> | Promise<Record<string, string>>;
+  resolveHeaders():
+    | Readonly<Record<string, string>>
+    | Promise<Readonly<Record<string, string>>>;
   readonly credentials: RequestCredentials | undefined;
   readonly messageFilter: CopilotKitMessageFilter | undefined;
   readonly properties: Readonly<Record<string, unknown>>;
@@ -701,8 +703,11 @@ export class CopilotKitCore {
   /**
    * Resolve the current headers. Synchronous for a record or a sync builder,
    * a promise for an async builder. Concurrent calls share one builder call.
+   * The returned object is shared; copy it before modifying.
    */
-  resolveHeaders(): Record<string, string> | Promise<Record<string, string>> {
+  resolveHeaders():
+    | Readonly<Record<string, string>>
+    | Promise<Readonly<Record<string, string>>> {
     return this.headerSource.resolve();
   }
 
