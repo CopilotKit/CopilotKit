@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { Attachment } from "@copilotkit/shared";
 import {
   formatFileSize,
   getSourceUrl,
   getDocumentIcon,
 } from "@copilotkit/shared";
-import { Play } from "lucide-react";
+import { Pause, Play, X } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Lightbox, useLightbox } from "./Lightbox";
 
@@ -22,8 +22,12 @@ export const CopilotChatAttachmentQueue: React.FC<
 
   return (
     <div
+      data-copilotkit
       data-testid="copilot-attachment-queue"
-      className={cn("cpk:flex cpk:flex-wrap cpk:gap-2 cpk:p-2", className)}
+      className={cn(
+        "cpk:flex cpk:flex-wrap cpk:gap-2 cpk:bg-transparent cpk:p-2",
+        className,
+      )}
     >
       {attachments.map((attachment) => {
         const isMedia =
@@ -32,12 +36,10 @@ export const CopilotChatAttachmentQueue: React.FC<
           <div
             key={attachment.id}
             className={cn(
-              "cpk:relative cpk:inline-flex cpk:rounded-lg cpk:overflow-hidden cpk:border cpk:border-border",
+              "cpk:relative cpk:inline-flex cpk:rounded-xl cpk:overflow-hidden cpk:border cpk:border-border cpk:bg-card",
               isMedia
                 ? "cpk:w-[72px] cpk:h-[72px]"
-                : attachment.type === "audio"
-                  ? "cpk:min-w-[200px] cpk:max-w-[280px] cpk:flex-col cpk:p-1 cpk:pr-8"
-                  : "cpk:p-2 cpk:px-3 cpk:pr-8 cpk:max-w-[240px]",
+                : "cpk:p-2 cpk:px-3 cpk:pr-8 cpk:max-w-[240px]",
             )}
           >
             {attachment.status === "uploading" && <UploadingOverlay />}
@@ -45,12 +47,12 @@ export const CopilotChatAttachmentQueue: React.FC<
             <button
               onClick={() => onRemoveAttachment(attachment.id)}
               className={cn(
-                "cpk:absolute cpk:bg-black/60 cpk:text-white cpk:border-none cpk:rounded-full cpk:w-5 cpk:h-5 cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer cpk:text-[10px] cpk:z-20",
+                "cpk:absolute cpk:bg-foreground/80 cpk:text-background cpk:hover:bg-foreground cpk:border-none cpk:rounded-full cpk:size-5 cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer cpk:z-20 cpk:shadow-sm cpk:transition-colors",
                 isMedia ? "cpk:top-1 cpk:right-1" : "cpk:top-1.5 cpk:right-1.5",
               )}
               aria-label="Remove attachment"
             >
-              ✕
+              <X className="cpk:size-3" strokeWidth={2.5} aria-hidden="true" />
             </button>
           </div>
         );
@@ -65,14 +67,16 @@ export const CopilotChatAttachmentQueue: React.FC<
 
 function UploadingOverlay() {
   return (
-    <div className="cpk:absolute cpk:inset-0 cpk:flex cpk:items-center cpk:justify-center cpk:bg-black/40 cpk:z-10">
-      <div className="cpk:w-5 cpk:h-5 cpk:border-2 cpk:border-white cpk:border-t-transparent cpk:rounded-full cpk:animate-spin" />
+    <div className="cpk:absolute cpk:inset-0 cpk:flex cpk:items-center cpk:justify-center cpk:bg-background/60 cpk:z-10">
+      <div className="cpk:size-5 cpk:border-2 cpk:border-foreground/70 cpk:border-t-transparent cpk:rounded-full cpk:animate-spin" />
     </div>
   );
 }
 
 function AttachmentPreview({ attachment }: { attachment: Attachment }) {
-  if (attachment.status === "uploading") {
+  // Keep the preview (and its filename) visible under the uploading overlay;
+  // only fall back to an empty tile while there is nothing to show yet.
+  if (attachment.status === "uploading" && !attachment.source.value) {
     return <div className="cpk:w-full cpk:h-full" />;
   }
 
@@ -126,21 +130,72 @@ function ImagePreview({ attachment }: { attachment: Attachment }) {
 
 function AudioPreview({ attachment }: { attachment: Attachment }) {
   const src = getSourceUrl(attachment.source);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [duration, setDuration] = useState<number | null>(null);
+
+  const togglePlayback = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (audio.paused) void audio.play();
+    else audio.pause();
+  };
+
+  // The duration once the metadata loads; the file size until then.
+  let meta: string | null = null;
+  if (duration != null) {
+    meta = formatDuration(duration);
+  } else if (attachment.size != null) {
+    meta = formatFileSize(attachment.size);
+  }
+
   return (
-    <div className="cpk:flex cpk:flex-col cpk:gap-1 cpk:w-full">
-      <audio
-        src={src}
-        controls
-        preload="metadata"
-        className="cpk:w-full cpk:h-8"
-      />
-      {attachment.filename && (
-        <span className="cpk:text-xs cpk:font-medium cpk:overflow-hidden cpk:text-ellipsis cpk:whitespace-nowrap">
-          {attachment.filename}
+    <div className="cpk:flex cpk:items-center cpk:gap-2">
+      <button
+        type="button"
+        onClick={togglePlayback}
+        aria-label={playing ? "Pause audio" : "Play audio"}
+        className="cpk:flex cpk:size-8 cpk:shrink-0 cpk:items-center cpk:justify-center cpk:rounded-lg cpk:border-none cpk:bg-primary/10 cpk:text-primary cpk:cursor-pointer cpk:transition-colors cpk:hover:bg-primary/15"
+      >
+        {playing ? (
+          <Pause className="cpk:size-3.5 cpk:fill-current" aria-hidden="true" />
+        ) : (
+          <Play
+            className="cpk:size-3.5 cpk:fill-current cpk:ml-px"
+            aria-hidden="true"
+          />
+        )}
+      </button>
+      <div className="cpk:flex cpk:flex-col cpk:min-w-0">
+        <span className="cpk:text-xs cpk:font-medium cpk:truncate cpk:leading-tight cpk:text-foreground">
+          {attachment.filename || "Audio"}
         </span>
-      )}
+        {meta && (
+          <span className="cpk:text-[11px] cpk:tabular-nums cpk:text-muted-foreground">
+            {meta}
+          </span>
+        )}
+      </div>
+      <audio
+        ref={audioRef}
+        src={src}
+        preload="metadata"
+        className="cpk:hidden"
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => setPlaying(false)}
+        onLoadedMetadata={(event) => {
+          const seconds = event.currentTarget.duration;
+          if (Number.isFinite(seconds)) setDuration(seconds);
+        }}
+      />
     </div>
   );
+}
+
+function formatDuration(seconds: number): string {
+  const whole = Math.round(seconds);
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -265,7 +320,7 @@ function DocumentLightboxContent({
         style={{ viewTransitionName: vtName }}
         src={blobUrl}
         title={attachment.filename || "PDF preview"}
-        className="cpk:w-[90vw] cpk:h-[90vh] cpk:max-w-[1000px] cpk:rounded-lg cpk:bg-white"
+        className="cpk:w-[90vw] cpk:h-[90vh] cpk:max-w-[1000px] cpk:rounded-xl cpk:bg-white"
       />
     );
   }
@@ -286,15 +341,15 @@ function DocumentLightboxContent({
     return (
       <div
         style={{ viewTransitionName: vtName }}
-        className="cpk:w-[90vw] cpk:max-w-[800px] cpk:max-h-[90vh] cpk:overflow-auto cpk:rounded-lg cpk:bg-white cpk:dark:bg-gray-900 cpk:p-6"
+        className="cpk:w-[90vw] cpk:max-w-[800px] cpk:max-h-[90vh] cpk:overflow-auto cpk:rounded-xl cpk:bg-background cpk:text-foreground cpk:p-6"
       >
         {attachment.filename && (
-          <div className="cpk:text-sm cpk:font-medium cpk:text-gray-500 cpk:dark:text-gray-400 cpk:mb-4 cpk:pb-2 cpk:border-b cpk:border-gray-200 cpk:dark:border-gray-700">
+          <div className="cpk:text-sm cpk:font-medium cpk:text-muted-foreground cpk:mb-4 cpk:pb-2 cpk:border-b cpk:border-border">
             {attachment.filename}
           </div>
         )}
         {textContent ? (
-          <pre className="cpk:text-sm cpk:whitespace-pre-wrap cpk:break-words cpk:text-gray-800 cpk:dark:text-gray-200 cpk:font-mono cpk:m-0">
+          <pre className="cpk:text-sm cpk:whitespace-pre-wrap cpk:break-words cpk:text-foreground cpk:font-mono cpk:m-0">
             {textContent}
           </pre>
         ) : blobUrl ? (
@@ -312,21 +367,21 @@ function DocumentLightboxContent({
   return (
     <div
       style={{ viewTransitionName: vtName }}
-      className="cpk:flex cpk:flex-col cpk:items-center cpk:gap-4 cpk:p-8 cpk:rounded-lg cpk:bg-white cpk:dark:bg-gray-900"
+      className="cpk:flex cpk:flex-col cpk:items-center cpk:gap-4 cpk:p-8 cpk:rounded-xl cpk:bg-background cpk:text-foreground"
     >
-      <div className="cpk:w-16 cpk:h-16 cpk:rounded-xl cpk:bg-primary cpk:text-primary-foreground cpk:flex cpk:items-center cpk:justify-center cpk:text-xl cpk:font-bold">
+      <div className="cpk:size-16 cpk:rounded-2xl cpk:bg-primary/10 cpk:text-primary cpk:flex cpk:items-center cpk:justify-center cpk:text-lg cpk:font-semibold">
         {getDocumentIcon(mimeType ?? "")}
       </div>
       <div className="cpk:text-center">
-        <div className="cpk:text-base cpk:font-medium cpk:text-gray-800 cpk:dark:text-gray-200">
+        <div className="cpk:text-base cpk:font-medium cpk:text-foreground">
           {attachment.filename || "Document"}
         </div>
-        <div className="cpk:text-sm cpk:text-gray-500 cpk:dark:text-gray-400 cpk:mt-1">
+        <div className="cpk:text-sm cpk:text-muted-foreground cpk:mt-1">
           {mimeType || "Unknown type"}
           {attachment.size != null && ` · ${formatFileSize(attachment.size)}`}
         </div>
       </div>
-      <div className="cpk:text-xs cpk:text-gray-400 cpk:dark:text-gray-500">
+      <div className="cpk:text-xs cpk:text-muted-foreground">
         No preview available for this file type
       </div>
     </div>
@@ -350,11 +405,11 @@ function DocumentPreview({ attachment }: { attachment: Attachment }) {
         )}
         onClick={previewable ? openLightbox : undefined}
       >
-        <div className="cpk:w-8 cpk:h-8 cpk:rounded-md cpk:bg-primary cpk:text-primary-foreground cpk:flex cpk:items-center cpk:justify-center cpk:text-[10px] cpk:font-semibold cpk:shrink-0">
+        <div className="cpk:size-8 cpk:rounded-lg cpk:bg-primary/10 cpk:text-primary cpk:flex cpk:items-center cpk:justify-center cpk:text-[10px] cpk:font-semibold cpk:shrink-0">
           {getDocumentIcon(mimeType ?? "")}
         </div>
         <div className="cpk:flex cpk:flex-col cpk:min-w-0">
-          <span className="cpk:text-xs cpk:font-medium cpk:break-all cpk:leading-tight">
+          <span className="cpk:text-xs cpk:font-medium cpk:break-all cpk:leading-tight cpk:text-foreground">
             {attachment.filename || "Document"}
           </span>
           {attachment.size != null && (

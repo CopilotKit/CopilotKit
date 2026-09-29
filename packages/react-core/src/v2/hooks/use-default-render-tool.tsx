@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Check, ChevronRight, Circle, Loader2 } from "lucide-react";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useRenderTool } from "./use-render-tool";
 
@@ -192,16 +193,7 @@ export function DefaultToolCallRenderer({
   const isComplete = status === "complete";
 
   const statusLabel = isActive ? "Running" : isComplete ? "Done" : status;
-  const dotClassName = isActive
-    ? "cpk:bg-amber-500"
-    : isComplete
-      ? "cpk:bg-emerald-500"
-      : "cpk:bg-zinc-400";
-  const badgeClassName = isActive
-    ? "cpk:bg-amber-100 cpk:text-amber-800 cpk:dark:bg-amber-500/15 cpk:dark:text-amber-400"
-    : isComplete
-      ? "cpk:bg-emerald-100 cpk:text-emerald-800 cpk:dark:bg-emerald-500/15 cpk:dark:text-emerald-400"
-      : "cpk:bg-zinc-100 cpk:text-zinc-800 cpk:dark:bg-zinc-700/40 cpk:dark:text-zinc-300";
+  const StatusIcon = isActive ? Loader2 : isComplete ? Check : Circle;
 
   return (
     <div
@@ -211,74 +203,69 @@ export function DefaultToolCallRenderer({
       data-status={status}
       data-args={safeStringifyForAttr(parameters)}
       data-result={safeStringifyForAttr(result)}
-      className="cpk:mt-2 cpk:pb-2"
+      data-copilotkit
+      className="cpk:my-2 cpk:bg-transparent"
     >
-      <div className="cpk:rounded-xl cpk:border cpk:border-zinc-200/60 cpk:bg-white/70 cpk:p-4 cpk:shadow-sm cpk:backdrop-blur cpk:dark:border-zinc-800/60 cpk:dark:bg-zinc-900/50">
+      <div className="cpk:overflow-hidden cpk:rounded-xl cpk:border cpk:border-border cpk:bg-card cpk:text-card-foreground">
         {/* Header row — always visible. A real <button> with aria-expanded
-            and reset styles so it visually matches the previous <div> but
-            is keyboard-accessible (Enter/Space toggle natively). */}
+            so it is keyboard-accessible (Enter/Space toggle natively). */}
         <button
           type="button"
           aria-expanded={isExpanded}
           onClick={() => setIsExpanded(!isExpanded)}
-          className="cpk:flex cpk:w-full cpk:cursor-pointer cpk:select-none cpk:items-center cpk:justify-between cpk:gap-2.5 cpk:border-none cpk:bg-transparent cpk:p-0 cpk:m-0 cpk:text-left cpk:text-inherit"
+          className="cpk:flex cpk:w-full cpk:cursor-pointer cpk:select-none cpk:items-center cpk:gap-2.5 cpk:border-none cpk:bg-transparent cpk:m-0 cpk:px-3.5 cpk:py-2.5 cpk:text-left cpk:text-inherit cpk:transition-colors cpk:hover:bg-accent/60 cpk:focus-visible:outline-2 cpk:focus-visible:-outline-offset-2 cpk:focus-visible:outline-ring cpk:focus-visible:bg-accent/60"
           style={{
             font: "inherit",
           }}
         >
-          <div className="cpk:flex cpk:min-w-0 cpk:items-center cpk:gap-2">
-            <svg
-              className={`cpk:h-3.5 cpk:w-3.5 cpk:flex-shrink-0 cpk:text-zinc-500 cpk:transition-transform cpk:dark:text-zinc-400 ${
-                isExpanded ? "cpk:rotate-90" : ""
-              }`}
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M8.25 4.5l7.5 7.5-7.5 7.5"
-              />
-            </svg>
-            <span
-              className={`cpk:inline-block cpk:h-2 cpk:w-2 cpk:flex-shrink-0 cpk:rounded-full ${dotClassName}`}
-            />
-            <span
-              data-testid="copilot-tool-render-name"
-              className="cpk:truncate cpk:text-[13px] cpk:font-semibold cpk:text-zinc-900 cpk:dark:text-zinc-100"
-            >
-              {name}
-            </span>
-          </div>
-
+          <StatusIcon
+            aria-hidden="true"
+            className={`cpk:size-3.5 cpk:shrink-0 cpk:text-muted-foreground ${
+              isActive ? "cpk:animate-spin" : ""
+            }`}
+          />
+          <span
+            data-testid="copilot-tool-render-name"
+            className={`cpk:min-w-0 cpk:flex-1 cpk:truncate cpk:font-mono cpk:text-[13px] cpk:font-medium cpk:text-foreground ${
+              isActive ? "cpk-shimmer" : ""
+            }`}
+          >
+            {name}
+          </span>
           <span
             data-testid="copilot-tool-render-status"
-            className={`cpk:inline-flex cpk:flex-shrink-0 cpk:items-center cpk:rounded-full cpk:px-2 cpk:py-0.5 cpk:text-[11px] cpk:font-medium ${badgeClassName}`}
+            className={`cpk:shrink-0 cpk:text-xs cpk:text-muted-foreground ${
+              isActive ? "cpk-shimmer" : ""
+            }`}
           >
             {statusLabel}
           </span>
+          <ChevronRight
+            aria-hidden="true"
+            className={`cpk:size-3.5 cpk:shrink-0 cpk:text-muted-foreground cpk:transition-transform cpk:duration-200 ${
+              isExpanded ? "cpk:rotate-90" : ""
+            }`}
+          />
         </button>
 
         {/* Expandable details */}
         {isExpanded && (
-          <div className="cpk:mt-3 cpk:grid cpk:gap-3">
+          <div className="cpk:grid cpk:gap-3 cpk:border-t cpk:border-border cpk:px-3.5 cpk:py-3">
             <div>
-              <div className="cpk:text-[10px] cpk:uppercase cpk:text-zinc-500 cpk:dark:text-zinc-400">
+              <div className="cpk:text-[11px] cpk:font-medium cpk:uppercase cpk:tracking-wide cpk:text-muted-foreground">
                 Arguments
               </div>
-              <pre className="cpk:mt-1.5 cpk:max-h-[200px] cpk:overflow-auto cpk:rounded-md cpk:bg-zinc-100 cpk:p-2.5 cpk:text-[11px] cpk:leading-relaxed cpk:text-zinc-800 cpk:whitespace-pre-wrap cpk:break-words cpk:dark:bg-zinc-800/60 cpk:dark:text-zinc-200">
+              <pre className="cpk:m-0 cpk:mt-1.5 cpk:max-h-[200px] cpk:overflow-auto cpk:rounded-lg cpk:bg-muted cpk:p-2.5 cpk:font-mono cpk:text-xs cpk:leading-relaxed cpk:text-foreground cpk:whitespace-pre-wrap cpk:break-words">
                 {safeStringifyForPre(parameters ?? {})}
               </pre>
             </div>
 
             {result !== undefined && (
               <div>
-                <div className="cpk:text-[10px] cpk:uppercase cpk:text-zinc-500 cpk:dark:text-zinc-400">
+                <div className="cpk:text-[11px] cpk:font-medium cpk:uppercase cpk:tracking-wide cpk:text-muted-foreground">
                   Result
                 </div>
-                <pre className="cpk:mt-1.5 cpk:max-h-[200px] cpk:overflow-auto cpk:rounded-md cpk:bg-zinc-100 cpk:p-2.5 cpk:text-[11px] cpk:leading-relaxed cpk:text-zinc-800 cpk:whitespace-pre-wrap cpk:break-words cpk:dark:bg-zinc-800/60 cpk:dark:text-zinc-200">
+                <pre className="cpk:m-0 cpk:mt-1.5 cpk:max-h-[200px] cpk:overflow-auto cpk:rounded-lg cpk:bg-muted cpk:p-2.5 cpk:font-mono cpk:text-xs cpk:leading-relaxed cpk:text-foreground cpk:whitespace-pre-wrap cpk:break-words">
                   {typeof result === "string"
                     ? result
                     : safeStringifyForPre(result)}

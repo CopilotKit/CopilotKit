@@ -26,7 +26,7 @@ const ImageAttachment = memo(function ImageAttachment({
     return (
       <div
         className={cn(
-          "cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:rounded-lg cpk:bg-muted cpk:p-4 cpk:text-sm cpk:text-muted-foreground",
+          "cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:rounded-xl cpk:bg-muted cpk:p-4 cpk:text-sm cpk:text-muted-foreground",
           className,
         )}
       >
@@ -130,14 +130,14 @@ const DocumentAttachment = memo(function DocumentAttachment({
       rel="noopener noreferrer"
       aria-label={label}
       className={cn(
-        "cpk:inline-flex cpk:max-w-full cpk:items-center cpk:gap-2 cpk:px-3 cpk:py-2 cpk:border cpk:border-border cpk:rounded-lg cpk:bg-muted",
+        "cpk:inline-flex cpk:max-w-full cpk:items-center cpk:gap-2.5 cpk:py-2 cpk:pl-2 cpk:pr-3 cpk:border cpk:border-border cpk:rounded-xl cpk:bg-card cpk:no-underline cpk:transition-colors cpk:hover:bg-accent",
         className,
       )}
     >
-      <span className="cpk:text-xs cpk:font-bold cpk:uppercase">
+      <span className="cpk:flex cpk:size-8 cpk:shrink-0 cpk:items-center cpk:justify-center cpk:rounded-lg cpk:bg-primary/10 cpk:text-[10px] cpk:font-semibold cpk:uppercase cpk:text-primary">
         {getDocumentIcon(source.mimeType ?? "")}
       </span>
-      <span className="cpk:text-sm cpk:text-muted-foreground cpk:truncate">
+      <span className="cpk:text-sm cpk:text-foreground cpk:truncate">
         {filename || source.mimeType || "Unknown type"}
       </span>
     </a>
@@ -149,17 +149,21 @@ export const CopilotChatAttachmentRenderer: React.FC<
 > = ({ type, source, filename, className }) => {
   const src = getSourceUrl(source);
 
+  let attachment: React.ReactNode;
   switch (type) {
     case "image":
-      return <ImageAttachment src={src} className={className} />;
+      attachment = <ImageAttachment src={src} className={className} />;
+      break;
     case "audio":
-      return (
+      attachment = (
         <AudioAttachment src={src} filename={filename} className={className} />
       );
+      break;
     case "video":
-      return <VideoAttachment src={src} className={className} />;
+      attachment = <VideoAttachment src={src} className={className} />;
+      break;
     case "document":
-      return (
+      attachment = (
         <DocumentAttachment
           src={src}
           source={source}
@@ -167,7 +171,15 @@ export const CopilotChatAttachmentRenderer: React.FC<
           className={className}
         />
       );
+      break;
   }
+
+  // Scope tokens and preflight for standalone use; `contents` adds no box.
+  return (
+    <div data-copilotkit style={{ display: "contents" }}>
+      {attachment}
+    </div>
+  );
 };
 
 export default CopilotChatAttachmentRenderer;
