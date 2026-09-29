@@ -9,10 +9,21 @@ const props = withDefaults(
     message: ReasoningMessage;
     messages?: Message[];
     isRunning?: boolean;
+    /**
+     * Whether this is the last message the chat renders. The message view
+     * passes it, because the rendered list can differ from `messages` when
+     * `transformMessages` drops, replaces or reorders messages. Defaults to
+     * comparing against the last entry of `messages`.
+     */
+    isLatest?: boolean;
   }>(),
   {
     messages: () => [],
     isRunning: false,
+    // Explicit `undefined` (not omitted) so Vue's boolean-prop casting does
+    // not turn an absent `isLatest` into `false`: `hasDefault` must be true
+    // for that cast to be skipped. See CopilotChatAssistantMessage.vue.
+    isLatest: undefined,
   },
 );
 
@@ -78,7 +89,9 @@ const normalizedContent = computed(() =>
 );
 const hasContent = computed(() => normalizedContent.value.length > 0);
 const isLatest = computed(
-  () => props.messages[props.messages.length - 1]?.id === props.message.id,
+  () =>
+    props.isLatest ??
+    props.messages[props.messages.length - 1]?.id === props.message.id,
 );
 const isStreaming = computed(() => !!(props.isRunning && isLatest.value));
 

@@ -41,6 +41,13 @@ const props = withDefaults(
     message: AssistantMessage;
     messages?: Message[];
     isRunning?: boolean;
+    /**
+     * Whether this is the last message the chat renders. The message view
+     * passes it, because the rendered list can differ from `messages` when
+     * `transformMessages` drops, replaces or reorders messages. Defaults to
+     * comparing against the last entry of `messages`.
+     */
+    isLatest?: boolean;
     toolbarVisible?: boolean;
     onThumbsUp?: (message: AssistantMessage) => void;
     onThumbsDown?: (message: AssistantMessage) => void;
@@ -50,6 +57,10 @@ const props = withDefaults(
   {
     messages: () => [],
     isRunning: false,
+    // Explicit `undefined` (not omitted) so Vue's boolean-prop casting does
+    // not turn an absent `isLatest` into `false`: `hasDefault` must be true
+    // for that cast to be skipped.
+    isLatest: undefined,
     toolbarVisible: true,
   },
 );
@@ -647,7 +658,9 @@ const hasThumbsDown = computed(() => typeof props.onThumbsDown === "function");
 const hasReadAloud = computed(() => typeof props.onReadAloud === "function");
 const hasRegenerate = computed(() => typeof props.onRegenerate === "function");
 const isLatestAssistantMessage = computed(
-  () => props.messages[props.messages.length - 1]?.id === props.message.id,
+  () =>
+    props.isLatest ??
+    props.messages[props.messages.length - 1]?.id === props.message.id,
 );
 const shouldShowToolbar = computed(
   () =>

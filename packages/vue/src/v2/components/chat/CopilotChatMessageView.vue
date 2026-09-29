@@ -56,6 +56,17 @@ const props = withDefaults(
   defineProps<{
     messages?: Message[];
     isRunning?: boolean;
+    /**
+     * Reshapes the message list before it renders: drop, replace or reorder
+     * messages with the whole list in view. Receives the list after
+     * duplicate ids are merged. Row keys and rendering all work off the
+     * returned list, so a dropped message takes no row.
+     *
+     * Tool-result lookups still look up their results in the full
+     * `messages` prop, so hiding tool-result messages here does not strip
+     * results from the cards that display them.
+     */
+    transformMessages?: (messages: Message[]) => Message[];
   }>(),
   {
     messages: () => [],
@@ -71,12 +82,14 @@ defineSlots<{
     message: AssistantMessage;
     messages: Message[];
     isRunning: boolean;
+    isLatest: boolean;
   }) => unknown;
   "user-message"?: (props: { message: UserMessage }) => unknown;
   "reasoning-message"?: (props: {
     message: ReasoningMessage;
     messages: Message[];
     isRunning: boolean;
+    isLatest: boolean;
   }) => unknown;
   "activity-message"?: (props: ActivitySlotProps) => unknown;
   [key: string]: ((props: any) => unknown) | undefined;
@@ -191,24 +204,69 @@ const deduplicatedMessages = computed(() =>
   deduplicateMessages(props.messages),
 );
 
+// What actually renders. Row keys, the row-key commit, and rendering all
+// work off this list. Tool-result lookups keep using the full `messages`
+// prop (see `resolveToolMessage` below and the `:messages` binding passed
+// to rows), so a transform that hides tool results cannot break the cards
+// that display them.
+const renderedMessages = computed(() => {
+  const transform = props.transformMessages;
+  return transform
+    ? transform(deduplicatedMessages.value)
+    : deduplicatedMessages.value;
+});
+
+// Row keys are looked up by message id, so two rendered messages sharing an
+// id would share a Vue key. Deduplication already ran on the input, so a
+// repeat here can only come from the transform.
+const transformDuplicateId = computed<string | undefined>(() => {
+  if (process.env.NODE_ENV === "production" || !props.transformMessages) {
+    return undefined;
+  }
+  const seen = new Set<string>();
+  for (const message of renderedMessages.value) {
+    if (seen.has(message.id)) return message.id;
+    seen.add(message.id);
+  }
+  return undefined;
+});
+watch(
+  transformDuplicateId,
+  (id) => {
+    if (id === undefined) return;
+    console.warn(
+      `[CopilotKit] CopilotChatMessageView: \`transformMessages\` returned more than one message with id "${id}". ` +
+        "Return each id at most once; a message you create needs its own id, stable across renders.",
+    );
+  },
+  { immediate: true },
+);
+
 // Stable per-row keys. Backends can re-key a message mid-stream, and keying
 // rows by the canonical id tears the row down on that swap (the HITL chat
 // flash). See @copilotkit/shared row-render-keys for the mechanism.
 const rowKeyStore = createRowKeyStore();
 const rowRenderKeys = computed(() =>
-  resolveRowRenderKeysById(rowKeyStore, deduplicatedMessages.value),
+  resolveRowRenderKeysById(rowKeyStore, renderedMessages.value),
 );
 
 // Record what the DOM was patched with, never what a computed merely
 // evaluated: an anchor from an evaluation Vue never patches would re-key a
 // rendered row and tear it down.
-onMounted(() => commitRowKeyStore(rowKeyStore, deduplicatedMessages.value));
+onMounted(() => commitRowKeyStore(rowKeyStore, renderedMessages.value));
 watch(
-  deduplicatedMessages,
+  renderedMessages,
   (messages) => commitRowKeyStore(rowKeyStore, messages),
   { flush: "post" },
 );
-const lastMessage = computed(() => props.messages[props.messages.length - 1]);
+
+// "Latest" means the last row on screen, not the last entry of `messages`:
+// a transform can drop, replace or reorder the tail. Streaming state and the
+// assistant toolbar key off this.
+const lastMessage = computed(
+  () => renderedMessages.value[renderedMessages.value.length - 1],
+);
+const latestRenderedId = computed(() => lastMessage.value?.id);
 const showCursor = computed(
   () => props.isRunning && lastMessage.value?.role !== "reasoning",
 );
@@ -367,7 +425,7 @@ function resolveToolMessage(
 <template>
   <div data-copilotkit class="cpk:flex cpk:flex-col" v-bind="$attrs">
     <template
-      v-for="message in deduplicatedMessages"
+      v-for="message in renderedMessages"
       :key="rowRenderKeys.get(message.id) ?? message.id"
     >
       <slot
@@ -394,11 +452,13 @@ function resolveToolMessage(
         :message="message"
         :messages="messages"
         :is-running="isRunning"
+        :is-latest="message.id === latestRenderedId"
       >
         <CopilotChatAssistantMessage
           :message="message"
           :messages="messages"
           :is-running="isRunning"
+          :is-latest="message.id === latestRenderedId"
         >
           <template
             v-for="slotName in forwardedSlotNames"
@@ -432,11 +492,13 @@ function resolveToolMessage(
         :message="message"
         :messages="messages"
         :is-running="isRunning"
+        :is-latest="message.id === latestRenderedId"
       >
         <CopilotChatReasoningMessage
           :message="message"
           :messages="messages"
           :is-running="isRunning"
+          :is-latest="message.id === latestRenderedId"
         />
       </slot>
 

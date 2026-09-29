@@ -299,6 +299,7 @@ onBeforeUnmount(() => {
           :messages="messages"
           :auto-scroll="autoScroll"
           :is-running="isRunning"
+          :transform-messages="transformMessages"
           :suggestions="suggestions"
           :suggestion-loading-indexes="suggestionLoadingIndexes"
           :welcome-screen="welcomeScreen"
