@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { NextFetchEvent, NextRequest } from "next/server";
-import type { middleware as Middleware } from "./middleware";
+import type { middleware as middlewareHandler } from "./middleware";
 
 // The raw Markdown surface (`/llms.txt`, `/llms-full.txt`, `<path>.md`) is
 // fetched by agents that never load a page, so the client PostHog snippet never
@@ -18,8 +18,8 @@ type CapturedEvent = {
 
 let captured: CapturedEvent[] = [];
 let pending: Promise<unknown>[] = [];
-let Request: typeof NextRequest;
-let middleware: typeof Middleware;
+let NextRequestConstructor: typeof NextRequest;
+let middleware: typeof middlewareHandler;
 
 /** A `NextFetchEvent` stub that records the work middleware defers. */
 function fetchEvent(deferred: Promise<unknown>[]): NextFetchEvent {
@@ -45,10 +45,13 @@ async function runMiddleware(
   if (init.userAgent) headers.set("user-agent", init.userAgent);
   if (init.ip) headers.set("x-forwarded-for", init.ip);
 
-  const request = new Request(new URL(pathname, "https://docs.copilotkit.ai"), {
-    method: init.method ?? "GET",
-    headers,
-  });
+  const request = new NextRequestConstructor(
+    new URL(pathname, "https://docs.copilotkit.ai"),
+    {
+      method: init.method ?? "GET",
+      headers,
+    },
+  );
 
   const before = events.length;
   const response = middleware(request as NextRequest, fetchEvent(deferred));
@@ -75,7 +78,7 @@ beforeEach(async () => {
     }),
   );
   // Load the request fixture before the request test starts its timer.
-  ({ NextRequest: Request } = await import("next/server"));
+  ({ NextRequest: NextRequestConstructor } = await import("next/server"));
   ({ middleware } = await import("./middleware"));
 });
 

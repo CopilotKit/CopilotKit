@@ -164,15 +164,18 @@ passing the key explicitly as `undefined`.
     advertise A2UI through `/info`; supplying a catalog also enables the
     frontend renderers and agent context without that runtime capability.
 
-    <PropertyReference name="theme" type="Theme">
+    <PropertyReference name="theme" type="Record<string, unknown>">
       The A2UI theme used to style rendered surfaces.
     </PropertyReference>
-    <PropertyReference name="catalog" type="Catalog<LitComponentImplementation>">
-      A catalog of custom components the agent may render. Providing it enables
-      A2UI even when the runtime does not advertise A2UI through `/info`.
+    <PropertyReference name="catalog" type="A2UICatalog">
+      The catalog surfaces render with: `basicCatalog` or one from
+      `createAngularCatalog`, both in `@copilotkit/angular/a2ui`. Providing it
+      enables A2UI even when the runtime does not advertise A2UI through
+      `/info`. Without a catalog, A2UI stays off, even when the runtime
+      enables it, and CopilotKit logs a warning.
     </PropertyReference>
-    <PropertyReference name="loadingComponent" type="() => LitRenderable">
-      A function returning the element shown while a surface is loading.
+    <PropertyReference name="loadingComponent" type="Type<unknown>">
+      An Angular component shown while a surface is loading.
     </PropertyReference>
     <PropertyReference name="includeSchema" type="boolean" default="true">
       Whether to send the catalog component schemas to the agent as context. Set

@@ -1,7 +1,7 @@
 "use client";
 
 import { useTrips } from "@/lib/hooks/use-trips";
-import { Map } from "leaflet";
+import type { Map } from "leaflet";
 import { TripSelect } from "@/components/TripSelect";
 import { TripContent } from "@/components/TripContent";
 import { cn } from "@/lib/utils";
@@ -25,7 +25,7 @@ export function TripCard({ className, map }: TripCardProps) {
   if (selectedTrip) {
     map.setView(
       [selectedTrip.center_latitude, selectedTrip.center_longitude],
-      selectedTrip.zoom_level || 13,
+      selectedTrip.zoom,
     );
   }
 
