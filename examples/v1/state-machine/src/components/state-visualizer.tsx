@@ -1,4 +1,5 @@
-import ReactFlow, { Node, Edge, Position, MarkerType } from "reactflow";
+import type { Node, Edge } from "reactflow";
+import ReactFlow, { Position, MarkerType } from "reactflow";
 import "reactflow/dist/style.css";
 import { useGlobalState } from "@/lib/stages";
 import { useMemo } from "react";

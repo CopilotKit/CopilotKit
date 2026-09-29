@@ -58,12 +58,26 @@ say "Preflight"
 docker info >/dev/null 2>&1 || die "Docker is not running. Start Docker Desktop and re-run."
 [ -f .env ] || die ".env missing. Copy .env.example to .env and set OPENAI_API_KEY."
 grep -q '^OPENAI_API_KEY=.\+' .env || die "OPENAI_API_KEY not set in .env (the agent needs it)."
+# Checked here, not at agent start, so a missing uv fails before the multi-minute
+# stack build rather than after it.
+command -v uv >/dev/null 2>&1 || die "uv not found (banking's agent needs it). Install: https://docs.astral.sh/uv/"
+command -v pnpm >/dev/null 2>&1 || die "pnpm not found (the Next.js app needs it). Install: https://pnpm.io/installation"
 # The composite image build context + the dev-license signer both need the
 # (private) Intelligence source. Default to the sibling checkout the compose uses.
 export INTELLIGENCE_REPO="${INTELLIGENCE_REPO:-$(cd "$DEMO_DIR/../../../../Intelligence" 2>/dev/null && pwd || true)}"
 [ -n "$INTELLIGENCE_REPO" ] && [ -d "$INTELLIGENCE_REPO" ] \
   || die "INTELLIGENCE_REPO not found. Point it at your Intelligence checkout (self-hosted mode needs the source to build the image + mint a dev license)."
 ok "docker running, .env present, INTELLIGENCE_REPO=$INTELLIGENCE_REPO"
+
+# --- App dependencies -------------------------------------------------------
+# Run from HERE: this directory is its own pnpm root (see pnpm-workspace.yaml),
+# so a repo-root install leaves it without node_modules and `pnpm dev` dies at
+# the very end with `next: command not found`. Done before the stack build so a
+# failed install surfaces in seconds; a no-op when node_modules is current.
+say "Installing app dependencies (pnpm install)"
+pnpm install --frozen-lockfile --prefer-offline --reporter=silent \
+  || die "pnpm install failed in $DEMO_DIR"
+ok "node_modules up to date"
 
 # --- Dev license ------------------------------------------------------------
 # Self-hosted memory is gated behind a signed offline license. Mint one only if
@@ -107,6 +121,21 @@ else
 fi
 ok "stack healthy: app-api :7250, gateway :7253"
 
+# --- Seed data --------------------------------------------------------------
+# The composite image no longer seeds demo data (Intelligence a4a75545f, "stop
+# seeding demo data in deployment images"), so without this the stack comes up
+# healthy with an EMPTY cpki.api_keys and every runtime call 401s with
+# AUTH_UNAUTHENTICATED. seed.sql is idempotent (ON CONFLICT / WHERE NOT EXISTS),
+# so it runs every time. Piped through the postgres container so the host needs
+# no psql.
+say "Seeding Intelligence demo org/project/keys (seed.sql)"
+SEED_SQL="$INTELLIGENCE_REPO/app-db-migrations/seed.sql"
+[ -f "$SEED_SQL" ] || die "seed.sql not found at $SEED_SQL"
+docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -q -U intelligence -d intelligence_app \
+  < "$SEED_SQL" > "$LOG_DIR/seed.log" 2>&1 \
+  || die "seeding failed (see $LOG_DIR/seed.log)"
+ok "seed keys present (casa-de-erlang, haus-von-haskell, cafe-du-caml)"
+
 # --- Banking's agent --------------------------------------------------------
 # REQUIRED, not optional, and it is NOT a compose service: banking's agent is a
 # Python LangChain deep agent in `agent/`, registered by the app as a plain
@@ -123,8 +152,10 @@ ok "stack healthy: app-api :7250, gateway :7253"
 # 8124 is a literal on both sides (`main.py`'s SERVER_PORT default and
 # `agent.ts`'s BANKING_AGENT_URL default). Moving it means moving both.
 if [ "$(curl -s -m3 -o /dev/null -w '%{http_code}' http://localhost:8124/health 2>/dev/null)" != "200" ]; then
-  [ -x agent/.venv/bin/python ] \
-    || die "banking's agent has no venv. Create it:  (cd agent && uv sync)"
+  # Always sync: a no-op when the venv matches uv.lock, and it creates the venv
+  # on a cold start or picks up dependency changes after a pull.
+  say "Syncing banking's agent venv (uv sync)"
+  ( cd agent && uv sync --quiet ) || die "uv sync failed in agent/"
   say "Starting banking's Python agent on :8124"
   # `main.py` loads `agent/.env` first and this demo's `.env` second, so the
   # OPENAI_API_KEY the preflight above already verified is enough — the agent

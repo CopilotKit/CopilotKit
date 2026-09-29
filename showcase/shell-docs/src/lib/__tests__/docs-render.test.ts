@@ -591,7 +591,7 @@ describe("framework nav", () => {
       "Learn",
       "Other",
     ]);
-    expect(navTree.slice(0, 3)).toMatchObject([
+    expect(navTree.slice(0, 4)).toMatchObject([
       {
         type: "page",
         title: "Introduction",
@@ -603,6 +603,12 @@ describe("framework nav", () => {
         title: "Quickstart",
         slug: "quickstart",
         icon: "lucide/Play",
+      },
+      {
+        type: "page",
+        title: "Build with agents",
+        slug: "build-with-agents",
+        icon: "lucide/BrainCircuit",
       },
       {
         type: "page",
@@ -805,9 +811,10 @@ describe("framework nav", () => {
     const sharedFolderAuthoredNav = buildFrameworkOnlyNav("langgraph");
 
     for (const nav of [generatedNav, authoredNav, sharedFolderAuthoredNav]) {
-      expect(nav.slice(0, 3)).toMatchObject([
+      expect(nav.slice(0, 4)).toMatchObject([
         { type: "page", title: "Introduction", slug: "" },
         { type: "page", title: "Quickstart", slug: "quickstart" },
+        { type: "page", title: "Build with agents", slug: "build-with-agents" },
         {
           type: "page",
           title: "Intelligence",

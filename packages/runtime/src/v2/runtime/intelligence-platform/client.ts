@@ -495,6 +495,8 @@ export interface SubscribeToMemoriesResponse {
 export type ConnectThreadResponse = ThreadConnectionResponse | null;
 
 export interface AcquireThreadLockResponse extends ThreadConnectionResponse {
+  /** Server-owned native ID for backend execution; public identity remains threadId. */
+  backendThreadId?: string;
   /** Canonical platform run identifier for the acquired lock. */
   runId: string;
 }
@@ -607,6 +609,8 @@ export type ThreadStateResponse =
   | { kind: "snapshot"; state: unknown; skippedDeltas: number };
 
 export interface AcquireThreadLockRequest {
+  /** Caller can forward a server-owned native ID while retaining public ownership. */
+  supportsBackendThreadId?: boolean;
   threadId: string;
   runId: string;
   userId: string;
@@ -1932,6 +1936,9 @@ export class CopilotKitIntelligence {
         runId: params.runId,
         userId: params.userId,
         agentId: params.agentId,
+        ...(params.supportsBackendThreadId === undefined
+          ? {}
+          : { supportsBackendThreadId: params.supportsBackendThreadId }),
         ...(params.learningContainerId !== undefined
           ? { learningContainerId: params.learningContainerId }
           : {}),
