@@ -14,7 +14,7 @@ doc_type: reference
 
 ## Overview
 
-Intelligence’s [AG-UI streams](/threads), formerly known as Rich Threads, provide the event history and delivery behind these conversations. The hook remains `useThreads`: use it to manage the conversation list, then pass the selected `threadId` to your chat. Your framework keeps its own conversation and model-context management.
+Intelligence’s [AG-UI streams](/threads) provide the event history and delivery behind these conversations. Use `useThreads` to manage the conversation list, then pass the selected `threadId` to your chat. Your framework keeps its own conversation and model-context management.
 
 `useThreads` is a React hook for managing conversation threads in CopilotKit Intelligence. It fetches the thread list for a given agent, keeps it synchronized in realtime via WebSocket, and exposes mutation methods for renaming, archiving, and deleting threads.
 

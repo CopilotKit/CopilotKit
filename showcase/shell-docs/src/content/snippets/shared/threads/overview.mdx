@@ -2,13 +2,12 @@ import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import { RichThreadsSetupPrompt } from "@/components/rich-threads-setup-prompt";
 import InspectorPaneThreads from "@/snippets/shared/inspector/open-inspector-pane-threads.mdx";
 
-## Overview
+<span id="overview" />
 
-**Keep your framework’s threads. Add durable delivery with AG-UI streams.**
+Intelligence’s AG-UI streams store and deliver the interaction to your users. Your framework threads manage the agent’s conversation and model context.
 
-Intelligence’s AG-UI streams, formerly known as Rich Threads, deliver the interaction to your users: reconnect to active runs, catch up on missed events, reopen history, and continue across devices. Your framework threads keep managing the agent’s conversation and model context.
+Use Threads Drawer for a ready-made conversation list, or build your own with `useThreads`. Pass the selected `threadId` to your chat to load its history and receive new events.
 
-The existing `useThreads` hook, `threadId`, and Threads Drawer connect your UI to this delivery layer. Their API names stay the same.
 <div
   aria-label="A support workspace using Threads Drawer to move between customer conversations while CopilotChat renders the selected case details."
   className="shell-docs-radius-surface relative mb-4 overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[0px_16px_24px_-8px_rgba(1,5,7,0.12)] ring-1 ring-inset ring-white/70 dark:shadow-[0px_16px_32px_-10px_rgba(0,0,0,0.45)] dark:ring-white/10"
@@ -106,7 +105,9 @@ Intelligence’s AG-UI streams add delivery capabilities around your existing ag
 
 These are capabilities of CopilotKit Intelligence, not guarantees provided by the AG-UI protocol alone. Reopening or switching back to a conversation triggers replay and reconnection; see [connection behavior](/intelligence/threads-explained#websocket-disconnection).
 
-## How Threads work
+<span id="how-threads-work" />
+
+## How AG-UI Streams work
 
 Both UI paths use Intelligence’s AG-UI streams. A stable `threadId` connects the visible conversation to the runtime and its durable event history.
 

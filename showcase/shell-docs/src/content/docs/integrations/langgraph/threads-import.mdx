@@ -21,9 +21,9 @@ This works for LangGraph Python, LangGraph TypeScript, and LangGraph FastAPI whe
 
 CopilotKit Intelligence adds rich conversation history, continuity across devices, reconnection to active runs, and thread controls around your existing agent. Your LangGraph persistence continues to retain the agent's native conversation and execution state. See [how threads work with framework storage](/intelligence/threads-explained#how-threads-work-with-framework-storage).
 
-Keep your framework’s threads and model context. Intelligence’s AG-UI streams, formerly known as Rich Threads, add delivery for conversations that run through CopilotKit: reconnection and catch-up, continued execution while the browser is disconnected and the Runtime remains running, and access from another device. Recorded interaction history is separate from the model’s current context; importing cannot recover content the source no longer exposes.
+Users can return to imported conversations through the same UI as new ones. Intelligence’s AG-UI streams add delivery for conversations that run through CopilotKit: reconnection and catch-up, continued execution while the browser is disconnected and the Runtime remains running, and access from another device. Recorded interaction history is separate from the model’s current context; importing cannot recover content the source no longer exposes.
 
-The import copies supported historical content. It does not recover past live execution or replace your framework’s persistence. The existing `useThreads` hook and `threadId` still identify and open conversations through this delivery layer.
+The import copies supported historical content. It does not recover past live execution or replace your framework’s persistence. Use `useThreads` to select a conversation and pass its `threadId` to your chat.
 
 ## Prerequisites
 

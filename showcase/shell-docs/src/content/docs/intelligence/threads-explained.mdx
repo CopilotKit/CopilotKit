@@ -1,6 +1,6 @@
 ---
 title: "AG-UI Streams & Framework Threads"
-description: "Keep framework threads for agent context and add Intelligence’s AG-UI streams for event history, catch-up, reconnection, and delivery across devices."
+description: "Understand how Intelligence’s AG-UI streams deliver conversation history, catch-up, and reconnection alongside framework-managed agent context."
 icon: "lucide/MessageSquareMore"
 doc_type: explanation
 ---
@@ -20,9 +20,9 @@ switching or starting threads), see [Thread & History Lifecycle](/threads-lifecy
 
 ## What are threads?
 
-Framework threads manage an agent’s conversation and model context. Intelligence’s **AG-UI streams, formerly known as Rich Threads**, record and deliver the interaction to your users.
+Framework threads manage an agent’s conversation and model context. Intelligence’s **AG-UI streams** record and deliver the interaction to your users.
 
-The current SDK and Intelligence app still use thread records and identifiers. A CopilotKit `threadId` identifies the conversation whose AG-UI events Intelligence stores and replays. Keep `useThreads`, `CopilotThreadsDrawer`, and the existing thread lifecycle APIs when building that UI.
+A CopilotKit `threadId` identifies the conversation whose AG-UI events Intelligence stores and replays. Use `useThreads` or `CopilotThreadsDrawer` to list and select conversations, then pass the selected `threadId` to your chat.
 
 | Concept | Responsibility |
 |---|---|

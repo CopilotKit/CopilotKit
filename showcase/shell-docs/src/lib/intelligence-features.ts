@@ -2,7 +2,7 @@
 export const INTELLIGENCE_FEATURES = [
   {
     title: "AG-UI Streams",
-    body: "Keep framework threads. Add reconnection, catch-up, and delivery across devices.",
+    body: "Let users reconnect, catch up, and resume conversations across devices.",
     href: "/threads",
     icon: "threads",
   },
