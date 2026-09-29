@@ -58,6 +58,28 @@ export function getAISDKRunFinishedDetails(
 }
 
 /**
+ * Returns the AG-UI message id for an AI SDK `text-start` / `reasoning-start`
+ * part.
+ *
+ * Several providers number stream parts per response instead of giving them
+ * a unique id: @ai-sdk/anthropic and @ai-sdk/google use a block counter
+ * ("0", "1", ...) and @ai-sdk/openai-compatible always uses "txt-0" /
+ * "reasoning-0". Those ids repeat on every step and every run, so reusing
+ * them would append later replies to an earlier message. Only ids that look
+ * unique are kept.
+ */
+export function resolveStreamPartMessageId(providedId: unknown): string {
+  if (
+    typeof providedId !== "string" ||
+    providedId === "" ||
+    /^(\d+|(txt|reasoning|msg)-0)$/.test(providedId)
+  ) {
+    return randomUUID();
+  }
+  return providedId;
+}
+
+/**
  * Converts an AI SDK `fullStream` into AG-UI `BaseEvent` objects.
  *
  * This is a pure converter — it does NOT emit lifecycle events
@@ -141,13 +163,9 @@ export async function* convertAISDKStream(
         }
 
         case "reasoning-start": {
-          // Use SDK-provided id, or generate a fresh UUID if id is falsy/"0"
-          // to prevent consecutive reasoning blocks from sharing a messageId
-          const providedId = "id" in p ? p.id : undefined;
-          reasoningMessageId =
-            providedId && providedId !== "0"
-              ? (providedId as string)
-              : randomUUID();
+          reasoningMessageId = resolveStreamPartMessageId(
+            "id" in p ? p.id : undefined,
+          );
           const reasoningStartEvent: ReasoningStartEvent = {
             type: EventType.REASONING_START,
             messageId: reasoningMessageId,
@@ -217,13 +235,7 @@ export async function* convertAISDKStream(
         }
 
         case "text-start": {
-          // New text message starting - use the SDK-provided id
-          // Use randomUUID() if part.id is falsy or "0" to prevent message merging issues
-          const providedId = "id" in p ? p.id : undefined;
-          messageId =
-            providedId && providedId !== "0"
-              ? (providedId as string)
-              : randomUUID();
+          messageId = resolveStreamPartMessageId("id" in p ? p.id : undefined);
           break;
         }
 

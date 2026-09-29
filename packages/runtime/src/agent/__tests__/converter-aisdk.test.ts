@@ -78,6 +78,38 @@ describe("AI SDK Converter", () => {
       expect(eventField<string>(chunk, "messageId").length).toBeGreaterThan(0);
     });
 
+    // @ai-sdk/anthropic and @ai-sdk/google number parts per response, and
+    // @ai-sdk/openai-compatible always uses "txt-0"; all repeat across runs.
+    it.each(["1", "12", "txt-0", "msg-0"])(
+      'text-start with per-response id "%s" generates a unique messageId',
+      async (providedId) => {
+        const agent = createAgent("aisdk", [
+          textStart(providedId),
+          textDelta("Hi"),
+          finish(),
+        ]);
+        const events = await collectEvents(agent.run(createDefaultInput()));
+
+        const chunk = events.find(
+          (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
+        )!;
+        expect(eventField<string>(chunk, "messageId")).not.toBe(providedId);
+      },
+    );
+
+    it("reasoning-start with a per-response id generates a unique messageId", async () => {
+      const agent = createAgent("aisdk", [
+        reasoningStart("1"),
+        reasoningDelta("Thinking"),
+        reasoningEnd(),
+        finish(),
+      ]);
+      const events = await collectEvents(agent.run(createDefaultInput()));
+
+      const start = events.find((e) => e.type === EventType.REASONING_START)!;
+      expect(eventField<string>(start, "messageId")).not.toBe("1");
+    });
+
     it("multiple text deltas share the same messageId", async () => {
       const agent = createAgent("aisdk", [
         textDelta("Hello "),
