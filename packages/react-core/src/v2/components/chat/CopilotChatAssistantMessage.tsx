@@ -56,6 +56,13 @@ export type CopilotChatAssistantMessageProps = WithSlots<
     message: AssistantMessage;
     messages?: Message[];
     isRunning?: boolean;
+    /**
+     * Whether this is the last message the chat renders. The message view
+     * passes it, because the rendered list can differ from `messages` when
+     * `transformMessages` drops, replaces or reorders messages. Defaults to
+     * comparing against the last entry of `messages`.
+     */
+    isLatest?: boolean;
     additionalToolbarItems?: React.ReactNode;
     toolbarVisible?: boolean;
   } & React.HTMLAttributes<HTMLDivElement>
@@ -99,6 +106,7 @@ export function CopilotChatAssistantMessage({
   message,
   messages,
   isRunning,
+  isLatest,
   onThumbsUp,
   onThumbsDown,
   onReadAloud,
@@ -217,7 +225,7 @@ export function CopilotChatAssistantMessage({
   const hasContent = !!(message.content && message.content.trim().length > 0);
   const isLatestAssistantMessage =
     message.role === "assistant" &&
-    messages?.[messages.length - 1]?.id === message.id;
+    (isLatest ?? messages?.[messages.length - 1]?.id === message.id);
   const shouldShowToolbar =
     toolbarVisible &&
     (hasContent || showInspectorShortcut) &&

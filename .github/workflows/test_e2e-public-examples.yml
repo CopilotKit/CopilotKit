@@ -1,0 +1,253 @@
+name: test / e2e / public examples
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "examples/**"
+      - "scripts/__tests__/examples-readme-catalog.test.mjs"
+      - "scripts/deprecations/v1-dist-notices.mjs"
+      - "scripts/project.json"
+      - ".github/workflows/test_e2e-public-examples.yml"
+      - ".browserslistrc"
+      - ".npmrc"
+      - ".pnpmfile.cjs"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "nx.json"
+      - "patches/**"
+      - "packages/a2ui-renderer/**"
+      - "packages/channels*/**"
+      - "packages/core/**"
+      - "packages/react-core/**"
+      - "packages/runtime/**"
+      - "packages/runtime-client-gql/**"
+      - "packages/sdk-js/**"
+      - "packages/shared/**"
+      - "packages/tsconfig/**"
+      - "packages/typescript-config/**"
+      - "packages/web-components/**"
+      - "packages/web-inspector/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "examples/**"
+      - "scripts/__tests__/examples-readme-catalog.test.mjs"
+      - "scripts/deprecations/v1-dist-notices.mjs"
+      - "scripts/project.json"
+      - ".github/workflows/test_e2e-public-examples.yml"
+      - ".browserslistrc"
+      - ".npmrc"
+      - ".pnpmfile.cjs"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "nx.json"
+      - "patches/**"
+      - "packages/a2ui-renderer/**"
+      - "packages/channels*/**"
+      - "packages/core/**"
+      - "packages/react-core/**"
+      - "packages/runtime/**"
+      - "packages/runtime-client-gql/**"
+      - "packages/sdk-js/**"
+      - "packages/shared/**"
+      - "packages/tsconfig/**"
+      - "packages/typescript-config/**"
+      - "packages/web-components/**"
+      - "packages/web-inspector/**"
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to run the workflow on"
+        required: true
+        default: "main"
+        type: string
+
+env:
+  NX_VERBOSE_LOGGING: true
+  NX_CI_EXECUTION_ID: ${{ github.head_ref }}-${{ github.sha }}-${{ github.run_attempt }}
+  NX_CI_EXECUTION_ENV: "E2E Examples"
+
+# Least-privilege by default. Individual jobs/steps can widen when needed.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  catalog:
+    name: catalog
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          run_install: false
+
+      - name: Install root dev dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts --filter=.
+
+      - name: Verify examples catalog
+        run: pnpm nx run repo-scripts:validate-examples-catalog
+
+  examples:
+    name: ${{ matrix.example }}
+    runs-on: depot-ubuntu-24.04-4
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      # id-token: write is required for Depot OIDC auth (runs-on: depot-ubuntu-*).
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - example: form-filling
+            directory: examples/v1/form-filling
+          - example: travel
+            directory: examples/v1/travel
+          - example: research-canvas
+            directory: examples/v1/research-canvas
+          - example: chat-with-your-data
+            directory: examples/v1/chat-with-your-data
+          - example: state-machine
+            directory: examples/v1/state-machine
+          - example: mastra-pm
+            directory: examples/canvas/mastra-pm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          lfs: true
+          ref: ${{ github.event.inputs.branch || github.ref }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # `packageManager` field in package.json (via corepack).
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Detect fork PR
+        id: fork-check
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO_FULL: ${{ github.repository }}
+        run: |
+          if [[ "$EVENT_NAME" == "pull_request" && \
+                "$PR_HEAD_REPO" != "$REPO_FULL" ]]; then
+            echo "prefix=fork-" >> "$GITHUB_OUTPUT"
+          else
+            echo "prefix=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Cache pnpm store
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.STORE_PATH }}
+          key: ${{ steps.fork-check.outputs.prefix }}${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ steps.fork-check.outputs.prefix }}${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure Nx Cloud environment
+        run: |
+          echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-e2e-examples-${{ matrix.example }}" >> $GITHUB_ENV
+          echo "NX_CLOUD_NO_TIMEOUTS=true" >> $GITHUB_ENV
+          echo "NX_CLOUD_DISTRIBUTED_EXECUTION=false" >> $GITHUB_ENV
+          echo "NX_NO_CLOUD=true" >> $GITHUB_ENV
+
+      - name: Build CopilotKit
+        id: build-cpk
+        run: pnpm build
+
+      - name: Check example types
+        working-directory: ${{ matrix.directory }}
+        run: pnpm run check-types
+
+      - name: Run example unit tests
+        working-directory: ${{ matrix.directory }}
+        run: pnpm test
+
+      - name: Run Research Canvas TypeScript agent tests
+        if: matrix.example == 'research-canvas'
+        run: pnpm nx test @copilotkit-examples/research-canvas-agent --excludeTaskDependencies
+
+      - name: Check Research Canvas TypeScript agent types
+        if: matrix.example == 'research-canvas'
+        run: pnpm nx run @copilotkit-examples/research-canvas-agent:check-types --excludeTaskDependencies
+
+      - name: Set up uv for Travel tests
+        if: matrix.example == 'travel'
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: examples/v1/travel/agent/uv.lock
+
+      - name: Run Travel agent tests
+        if: matrix.example == 'travel'
+        working-directory: examples/v1/travel/agent
+        run: uv run --locked --with pytest==9.1.1 python -m pytest tests
+
+      - name: Install e2e dependencies
+        working-directory: examples/e2e
+        run: pnpm install --frozen-lockfile
+
+      # No --with-deps: it shells out to apt, which on the runners cannot always
+      # reach azure.archive.ubuntu.com and retries for many minutes — long enough to
+      # burn this job's whole timeout before a test runs. Chromium's system libraries
+      # are already present on the Ubuntu runner image, so downloading the browser is
+      # all this step needs.
+      - name: Install Playwright browsers
+        working-directory: examples/e2e
+        run: pnpm exec playwright install chromium
+
+      - name: Run e2e tests
+        working-directory: examples/e2e
+        env:
+          EXAMPLE: ${{ matrix.example }}
+          CI: "true"
+          OPENAI_API_KEY: test
+          NEXT_PUBLIC_CPK_PUBLIC_API_KEY: ""
+          NEXT_PUBLIC_COPILOT_PUBLIC_API_KEY: ""
+          LANGSMITH_API_KEY: ""
+        run: pnpm test
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: examples-e2e-${{ matrix.example }}
+          path: |
+            examples/e2e/test-results/**/*
+            examples/e2e/playwright-report/**/*
+          retention-days: 7

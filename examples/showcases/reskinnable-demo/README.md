@@ -252,7 +252,8 @@ which re-keys the cart and the forwarded identity, but **do not present it as
 memory isolation**: those forwarded properties frequently do not reach the server's
 `identifyUser` on a run, so both shoppers read the same memory bucket and the
 switch re-scopes nothing. That caveat is app-wide, not this skin's — see the CAVEAT
-block in `.env.example`. The shelf's four filters (genre, format, price cap, sort)
+block in `.env.example`. The ORGANIZATION switcher beside it does re-scope, and is
+the one to use for an isolation story. The shelf's four filters (genre, format, price cap, sort)
 are real URL levers the agent confirms before pulling, the card number typed at
 checkout never leaves the browser (only the last four digits reach the order), and
 the cart is mirrored to `localStorage` so a mid-demo hard reload proves the thread
@@ -281,8 +282,20 @@ Memory is stored under a resolved end-user id (each skin's
 `intelligence/user-id.ts`), but **the on-screen user/operator/shopper switchers do
 not drive that id in practice** — the client's `properties` frequently do not reach
 the server's `identifyUser` on a run, so the personas collapse into one default
-bucket. Recall is demoable; per-user isolation is not. Read the CAVEAT block in
-`.env.example` before showing a switcher as a memory boundary.
+bucket. Recall is demoable; per-PERSONA isolation is not.
+
+**Per-ORGANIZATION isolation is**, in every skin, through the organization button
+in the app's own chrome (`src/shell/governance-popover.tsx`). It sets a cookie, so
+it reaches `identifyUser` on every request rather than only on runs that carry a
+body, and the shared route namespaces the bucket under it (`acme:keel-demo-user`).
+Teach as one organization, ask as the other, nothing comes back; switch back and it
+recalls. Threads scope the same way. The same panel also selects the memory policy
+the server applies per request, and carries a control that forgets what the demo
+taught, in both organizations at once.
+
+The single authority for which switcher does what is the note above
+`IdentifyRunUser` in `src/shell/agent-registry.ts`; read it before showing any
+switcher as a memory boundary.
 
 ## Screenshots
 

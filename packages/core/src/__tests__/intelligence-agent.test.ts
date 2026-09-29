@@ -1607,6 +1607,105 @@ describe("IntelligenceAgent", () => {
       await expectConnectAgentToResolve(secondConnectPromise);
     });
 
+    it("keeps live progress when stream_idle repeats the older replay checkpoint", async () => {
+      mockFetch
+        .mockResolvedValueOnce(await jsonResponse(runtimeCredentials()))
+        .mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
+
+      const agent = createAgent();
+      setThreadIdForTest(agent, "thread-1");
+
+      const firstConnectPromise = agent.connectAgent({ runId: "run-1" });
+      await waitForConnection(agent);
+
+      // Production order from an older gateway: history ends at event 3, the
+      // run streams live to event 1073, then stream_idle repeats event 3.
+      const firstChannel = getChannel(agent)!;
+      firstChannel.triggerJoin("ok");
+      firstChannel.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        run_id: "backend-run-1",
+        input: { messages: [] },
+        metadata: { cpki_event_id: "event-3", cpki_event_seq: 3 },
+      } as BaseEvent);
+      firstChannel.serverPush("replay_complete", { latestEventId: "event-3" });
+      firstChannel.serverPush("ag_ui_event", {
+        type: EventType.RUN_FINISHED,
+        threadId: "thread-1",
+        run_id: "backend-run-1",
+        metadata: { cpki_event_id: "event-1073", cpki_event_seq: 1073 },
+      } as BaseEvent);
+      firstChannel.serverPush("stream_idle", { latestEventId: "event-3" });
+      await expectConnectAgentToResolve(firstConnectPromise);
+
+      const secondConnectPromise = agent.connectAgent({ runId: "run-2" });
+      await waitForConnection(agent);
+
+      expect(JSON.parse(mockFetch.mock.calls[1]![1].body)).toMatchObject({
+        lastSeenEventId: "event-1073",
+      });
+      expect(getChannel(agent)!.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: "event-1073",
+      });
+
+      getChannel(agent)!.triggerJoin("ok");
+      getChannel(agent)!.serverPush("replay_complete", {
+        latestEventId: "event-1073",
+      });
+      getChannel(agent)!.serverPush("stream_idle", {
+        latestEventId: "event-1073",
+      });
+      await expectConnectAgentToResolve(secondConnectPromise);
+    });
+
+    it("rolls back to the prior cursor on every control frame after replay_failed", async () => {
+      mockFetch
+        .mockResolvedValueOnce(await jsonResponse(runtimeCredentials()))
+        .mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
+
+      const agent = createAgent();
+      setThreadIdForTest(agent, "thread-1");
+
+      const firstConnectPromise = agent.connectAgent({ runId: "run-1" });
+      await waitForConnection(agent);
+
+      // The history failed to load, so the gateway keeps sending the prior
+      // cursor. The next join must ask for that history again.
+      const firstChannel = getChannel(agent)!;
+      firstChannel.triggerJoin("ok");
+      firstChannel.serverPush("replay_failed", { reason: "timeout" });
+      firstChannel.serverPush("replay_complete", {
+        latestEventId: "prior-cursor",
+      });
+      firstChannel.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        run_id: "backend-run-1",
+        input: { messages: [] },
+        metadata: { cpki_event_id: "live-after-failure", cpki_event_seq: 9 },
+      } as BaseEvent);
+      firstChannel.serverPush("stream_idle", { latestEventId: "prior-cursor" });
+      await expectConnectAgentToResolve(firstConnectPromise);
+
+      const secondConnectPromise = agent.connectAgent({ runId: "run-2" });
+      await waitForConnection(agent);
+
+      expect(JSON.parse(mockFetch.mock.calls[1]![1].body)).toMatchObject({
+        lastSeenEventId: "prior-cursor",
+      });
+
+      getChannel(agent)!.triggerJoin("ok");
+      getChannel(agent)!.serverPush("replay_complete", {
+        latestEventId: "prior-cursor",
+      });
+      getChannel(agent)!.serverPush("stream_idle", {
+        latestEventId: "prior-cursor",
+      });
+      await expectConnectAgentToResolve(secondConnectPromise);
+    });
+
     it("keeps the durable event cursor when control events only carry ingestion ids", async () => {
       mockFetch
         .mockResolvedValueOnce(await jsonResponse(runtimeCredentials()))

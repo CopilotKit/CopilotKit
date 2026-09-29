@@ -12,19 +12,25 @@ import {
 import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-generative-ui/open-generative-ui-activity-renderer";
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
 import { CopilotA2UIActivityRenderer } from "./components/a2ui/a2ui-activity-renderer";
+import { CopilotA2UIRenderToolCall } from "./components/a2ui/a2ui-render-tool-call";
 import { CopilotA2UIToolRenderer } from "./components/a2ui/a2ui-tool-renderer";
 import {
   AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
   RENDER_A2UI_TOOL_NAME,
 } from "./components/a2ui/a2ui-tool-types";
-import {
-  A2UI_SCHEMA_CONTEXT_DESCRIPTION,
-  minimalCatalog,
-} from "@copilotkit/a2ui-renderer/web-components";
+import { A2UI_SCHEMA_CONTEXT_DESCRIPTION } from "./components/a2ui/a2ui-catalog-context";
+import { A2UICatalog } from "./components/a2ui/a2ui-types";
+import { Catalog } from "@a2ui/web_core/v0_9";
 import {
   A2UI_DEFAULT_DESIGN_GUIDELINES,
   A2UI_DEFAULT_GENERATION_GUIDELINES,
 } from "@copilotkit/shared";
+
+// Registered only, never rendered, so any component will do.
+const testCatalog: A2UICatalog = Object.assign(
+  new Catalog("copilotkit://test", []),
+  { surfaceComponent: CopilotA2UIActivityRenderer },
+);
 
 const mockSubscribe = vi.fn();
 const mockAddTool = vi.fn();
@@ -44,7 +50,6 @@ const mockRemoveContext = vi.fn();
 
 const licenseKey = "ck_pub_" + "a".repeat(32);
 
-let lastCoreInstance: any;
 let lastCoreConfig: any;
 
 // Spread the real module and override only what these tests drive. The factory
@@ -84,13 +89,13 @@ vi.mock("@copilotkit/core", async (importOriginal) => {
     headers: Record<string, string> = {};
     a2uiEnabled = false;
     openGenerativeUIEnabled = false;
+    audioFileTranscriptionEnabled = false;
     runtimeConnectionStatus =
       CopilotKitCoreRuntimeConnectionStatus.Disconnected;
     listener?: Parameters<typeof mockSubscribe>[0];
 
     constructor(config: any) {
       lastCoreConfig = config;
-      lastCoreInstance = this;
       mockSubscribe.mockImplementationOnce((listener: any) => {
         this.listener = listener;
         return { unsubscribe: vi.fn() };
@@ -374,21 +379,14 @@ describe("CopilotKit", () => {
     expect(result).toBe("UI generated");
   });
 
-  it("enables built-in A2UI renderers and contexts from runtime capability", () => {
+  it("registers A2UI renderers and agent contexts for a configured catalog", () => {
     TestBed.configureTestingModule({
-      providers: [provideCopilotKit({ licenseKey })],
+      providers: [
+        provideCopilotKit({ licenseKey, a2ui: { catalog: testCatalog } }),
+      ],
     });
 
     const copilotKit = TestBed.inject(CopilotKit);
-    const core = lastCoreInstance!;
-
-    expect(copilotKit.activityMessageRenderConfigs()).toEqual([]);
-    expect(copilotKit.toolCallRenderConfigs()).toEqual([]);
-
-    core.a2uiEnabled = true;
-    core.listener!.onRuntimeConnectionStatusChanged({
-      status: "connected",
-    });
 
     expect(copilotKit.activityMessageRenderConfigs()).toEqual([
       expect.objectContaining({
@@ -399,8 +397,7 @@ describe("CopilotKit", () => {
     expect(copilotKit.toolCallRenderConfigs()).toEqual([
       expect.objectContaining({
         name: RENDER_A2UI_TOOL_NAME,
-        component: CopilotA2UIToolRenderer,
-        passAgent: true,
+        component: CopilotA2UIRenderToolCall,
       }),
       expect.objectContaining({
         name: AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
@@ -437,35 +434,46 @@ describe("CopilotKit", () => {
     );
   });
 
-  it("enables built-in A2UI when the frontend provides a catalog", () => {
+  it("keeps A2UI off and warns once when the runtime enables it without a catalog", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    TestBed.configureTestingModule({
+      providers: [provideCopilotKit({ licenseKey })],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+    const core = copilotKit.core as any;
+    core.a2uiEnabled = true;
+    core.listener!.onRuntimeConnectionStatusChanged({ status: "connected" });
+    core.listener!.onRuntimeConnectionStatusChanged({ status: "connected" });
+
+    expect(copilotKit.activityMessageRenderConfigs()).toEqual([]);
+    expect(copilotKit.toolCallRenderConfigs()).toEqual([]);
+    expect(mockAddContext).not.toHaveBeenCalled();
+    expect(
+      warn.mock.calls.filter(([message]) =>
+        String(message).includes("no `a2ui.catalog` is configured"),
+      ),
+    ).toHaveLength(1);
+    warn.mockRestore();
+  });
+
+  it("describes only the catalog when includeSchema is false", () => {
     TestBed.configureTestingModule({
       providers: [
         provideCopilotKit({
           licenseKey,
-          a2ui: { catalog: minimalCatalog },
+          a2ui: { catalog: testCatalog, includeSchema: false },
         }),
       ],
     });
 
-    const copilotKit = TestBed.inject(CopilotKit);
+    TestBed.inject(CopilotKit);
 
-    expect(lastCoreInstance!.a2uiEnabled).toBe(false);
-    expect(copilotKit.activityMessageRenderConfigs()).toEqual([
-      expect.objectContaining({
-        activityType: "a2ui-surface",
-        component: CopilotA2UIActivityRenderer,
-      }),
+    expect(
+      mockAddContext.mock.calls.map(([context]) => context.description),
+    ).toEqual([
+      "A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.",
     ]);
-    expect(copilotKit.toolCallRenderConfigs()).toEqual([
-      expect.objectContaining({ name: RENDER_A2UI_TOOL_NAME }),
-      expect.objectContaining({ name: AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME }),
-    ]);
-    expect(mockAddContext).toHaveBeenCalledWith(
-      expect.objectContaining({
-        description:
-          "A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.",
-      }),
-    );
   });
 
   it("advertises a provided A2UI catalog in initial and updated runtime properties", () => {
@@ -476,7 +484,7 @@ describe("CopilotKit", () => {
         provideCopilotKit({
           licenseKey,
           properties: initialProperties,
-          a2ui: { catalog: minimalCatalog },
+          a2ui: { catalog: testCatalog },
         }),
       ],
     });
@@ -622,7 +630,7 @@ describe("CopilotKit", () => {
     });
 
     const copilotKit = TestBed.inject(CopilotKit);
-    const core = lastCoreInstance!;
+    const core = copilotKit.core as any;
 
     core.agents = {
       agent1: { id: "agent1" },

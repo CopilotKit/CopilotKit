@@ -205,8 +205,15 @@ src/skins/*/intelligence/user-id.ts` and `ls
 src/skins/*/intelligence/seed-memories.ts` return the same set. The fallback path
   in the route is therefore unreachable from the registry today and is kept for
   skins that do not exist yet.
-- **Per-user scoping is real plumbing and mostly NOT a demoable contrast.** Read
-  the skin's own `intelligence/user-id.ts` before claiming anything about it on
+- **Per-PERSONA scoping is real plumbing and NOT a demoable contrast; per-ORGANIZATION
+  scoping IS.** The note above `IdentifyRunUser` in `src/shell/agent-registry.ts`
+  is the single authority for both, and each registration points at it rather
+  than restating it. In short: the organization switcher
+  (`src/shell/governance-popover.tsx`) rides on a cookie, reaches `identifyUser`
+  on every request, and namespaces the bucket (`acme:keel-demo-user`) — teach as
+  one organization, ask as the other, nothing comes back. The persona switcher
+  does not, and the rest of this bullet is why. Read the skin's own
+  `intelligence/user-id.ts` before claiming anything finer on
   stage; each one's header is the authority. The recurring measured fact, written
   down in every skin's alike: the client's `properties` frequently do not reach
   `identifyUser` on a run, so both personas land in the same default bucket and
@@ -708,11 +715,23 @@ for a reason that has nothing to do with beats (four identity pills that map to 
 beat — the header of its `suggestions.ts` shows the arithmetic).
 
 **The long-term-memory row means RECALL, in every column that claims it** — the
-agent applying and naming a preference nobody typed on this thread. It does NOT
-mean per-user isolation, and no skin can demo that: the client's `properties`
-frequently do not reach `identifyUser` on a run, so the on-screen people collapse
-into one default bucket and a user/operator/planner/shopper switcher re-scopes
-nothing. That is why every skin with this beat seeds its DEFAULT bucket, and most
+agent applying and naming a preference nobody typed on this thread.
+
+It does NOT mean per-PERSONA isolation, and no skin can demo that: the client's
+`properties` frequently do not reach `identifyUser` on a run, so the on-screen
+people collapse into one default bucket and a user/operator/planner/shopper
+switcher re-scopes nothing.
+
+Per-ORGANIZATION isolation is a different matter and IS demonstrable, in every
+skin, through the shell's organization switcher
+(`src/shell/governance-popover.tsx`). It rides on a cookie rather than on run
+properties, so it reaches `identifyUser` on every request including the bodyless
+ones, and the shared route namespaces the resolved id under it
+(`acme:keel-demo-user`). Teach as one organization, ask as the other, nothing
+comes back. Threads scope the same way. The single authority for both halves is
+the note above `IdentifyRunUser` in `src/shell/agent-registry.ts`.
+
+The persona caveat is why every skin with this beat seeds its DEFAULT bucket, and most
 seed it alongside the mapped person's (banking is the one that seeds the default
 alone). The check is each skin's own `dev/reset` route, and it has to allow for
 all three spellings of the seed set —
