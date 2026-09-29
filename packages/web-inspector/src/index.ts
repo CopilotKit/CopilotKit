@@ -6577,6 +6577,16 @@ export class WebInspectorElement extends LitElement {
   } as const;
 
   private _core: CopilotKitCore | null = null;
+  // Memoized so `<cpk-thread-details>`'s `.resolveHeaders=` binding gets a
+  // STABLE function reference across renders. A fresh closure every render
+  // (e.g. an inline arrow in the template) would look like a changed
+  // reactive property on every host update and force a full
+  // `CpkThreadInspector` update cycle each time, regardless of whether
+  // headers actually changed. Reads `this._core` at CALL time, so it always
+  // resolves against whichever core is currently attached.
+  private readonly resolveCoreHeaders = ():
+    | Record<string, string>
+    | Promise<Record<string, string>> => this._core?.resolveHeaders() ?? {};
   private coreSubscriber: CopilotKitCoreSubscriber | null = null;
   private coreUnsubscribe: (() => void) | null = null;
   private _memories: Memory[] = [];
@@ -8162,8 +8172,11 @@ export class WebInspectorElement extends LitElement {
             this.learningSnapshot?.insightsPage.page ??
             1,
         },
+        // `ɵruntimeFetch` already resolves and overlays the current core
+        // headers at send time (#1937). Passing a separately resolved
+        // `headers` snapshot here would call the builder twice per request
+        // and could let a header the source no longer returns ride along.
         fetch: core.ɵruntimeFetch,
-        headers: { ...(await core.resolveHeaders()) },
         credentials: core.credentials,
         signal: controller.signal,
       });
@@ -19159,8 +19172,7 @@ export class WebInspectorElement extends LitElement {
                             ? ""
                             : (this._core?.runtimeUrl ?? "")
                         }
-                        .resolveHeaders=${() =>
-                          this._core?.resolveHeaders() ?? {}}
+                        .resolveHeaders=${this.resolveCoreHeaders}
                         .headersGeneration=${
                           this._core?.ɵheadersGeneration ?? 0
                         }

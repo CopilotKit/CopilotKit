@@ -1,6 +1,7 @@
 import {
   CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
+  ɵcreateThreadStore,
 } from "@copilotkit/core";
 import type { CopilotKitHeadersSource } from "@copilotkit/core";
 import { expect, test, vi } from "vitest";
@@ -81,7 +82,10 @@ type Harness = {
   teardown: () => void;
 };
 
-async function setup(headers: CopilotKitHeadersSource): Promise<Harness> {
+async function setup(
+  headers: CopilotKitHeadersSource,
+  options: { externalStore?: boolean } = {},
+): Promise<Harness> {
   document.body.replaceChildren();
   window.localStorage.clear();
 
@@ -146,6 +150,20 @@ async function setup(headers: CopilotKitHeadersSource): Promise<Harness> {
     deferInitialConnection: true,
     headers,
   });
+
+  // Register the store BEFORE the inspector ever attaches, so
+  // `ensureOwnedThreadStore`'s `core.getThreadStore(agentId)` guard sees it
+  // already registered and never calls `setContext` on it itself. This is
+  // the same pattern `thread-capability.spec.ts` uses for a caller-owned
+  // store, and it isolates a test from the owned store's own
+  // `onHeadersChanged` -> `setContext` reload side effect.
+  if (options.externalStore) {
+    const externalStore = ɵcreateThreadStore({ fetch: core.ɵruntimeFetch });
+    externalStore.start();
+    externalStore.setContext({ runtimeUrl: RUNTIME_URL, agentId: AGENT_ID });
+    core.registerThreadStore(AGENT_ID, externalStore);
+  }
+
   const inspector = new WebInspectorElement();
   Reflect.set(inspector, "autoAttachCore", false);
   document.body.appendChild(inspector);
@@ -291,6 +309,96 @@ test("drops a header key the builder stopped returning instead of keeping it fro
     expect(
       context.requestsOf("events")[0]?.headers["X-Old-Key"],
     ).toBeUndefined();
+  } finally {
+    context.teardown();
+  }
+});
+
+// Exercises the REAL `<cpk-thread-details>` template binding
+// (`.resolveHeaders=`/`.headersGeneration=` at index.ts) through a real
+// selected thread, rather than hand-simulating it. A token rotation alone
+// (no `setHeaders`) must not reload thread inspection, even though a real
+// request goes out elsewhere (the owned store's list refresh) and even
+// though the host itself re-renders.
+test("a token rotation through the real template binding does not reload the selected thread, but a real owned-store request carries the fresh token", async () => {
+  let token = "first";
+  const context = await setup(() => ({ Authorization: `Bearer ${token}` }));
+  try {
+    await context.open();
+    await context.selectThread();
+    await waitFor(
+      () => context.requestsOf("events").length > 0,
+      "the initial thread load",
+    );
+    await context.flush();
+    const baseline = context.requestsOf("events").length;
+    expect(baseline).toBe(1);
+
+    // Rotate the token through the SAME builder identity, then do a real
+    // request (the owned store's list refresh) AND force the host to
+    // re-render, so the real `.resolveHeaders=`/`.headersGeneration=`
+    // bindings on `<cpk-thread-details>` get recomputed from `core`.
+    token = "second";
+    const store = context.core.getThreadStore(AGENT_ID);
+    if (!store) throw new Error("Owned thread store was not registered");
+    store.refresh();
+    context.inspector.requestUpdate();
+    await context.flush();
+
+    // Discriminating assertion first: no reload of the selected thread.
+    expect(context.requestsOf("events").length).toBe(baseline);
+
+    // The real request that DID go out (the owned store's refresh) still
+    // carries the fresh token, proving rotation isn't silently ignored --
+    // it's just correctly not treated as a reason to reload.
+    await waitFor(
+      () => context.requestsOf("list").length >= 2,
+      "the owned store's refreshed list request",
+    );
+    expect(context.requestsOf("list").at(-1)?.headers.Authorization).toBe(
+      "Bearer second",
+    );
+  } finally {
+    context.teardown();
+  }
+});
+
+// Isolates the `setHeaders` half of the reload contract at the integration
+// level: the thread store for AGENT_ID is registered externally (mirroring
+// `thread-capability.spec.ts`'s caller-owned-store pattern), so
+// `ensureOwnedThreadStore` never adopts it and `updateOwnedThreadStoreHeaders`
+// never calls `setContext` on it. Any reload observed here can only come
+// from `<cpk-thread-details>`'s own load-key/`headersGeneration` gate, not
+// from the owned store's unconditional `contextChanged` -> refetch (which
+// can independently deselect/reselect the thread and remount the element).
+test("a real setHeaders change reloads the selected thread exactly once, against a store the inspector does not own", async () => {
+  const context = await setup({}, { externalStore: true });
+  try {
+    await context.open();
+    await context.selectThread();
+    await waitFor(
+      () => context.requestsOf("events").length > 0,
+      "the initial thread load",
+    );
+    await context.flush();
+    const baseline = context.requestsOf("events").length;
+    expect(baseline).toBe(1);
+
+    context.core.setHeaders({ Authorization: "Bearer new-value" });
+    await context.flush();
+
+    await waitFor(
+      () => context.requestsOf("events").length === baseline + 1,
+      "the single reload after setHeaders",
+    );
+    expect(context.requestsOf("events").length).toBe(baseline + 1);
+    expect(context.requestsOf("events").at(-1)?.headers.Authorization).toBe(
+      "Bearer new-value",
+    );
+
+    // Settle further: no additional reload trails behind.
+    await context.flush();
+    expect(context.requestsOf("events").length).toBe(baseline + 1);
   } finally {
     context.teardown();
   }
