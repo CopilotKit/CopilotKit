@@ -742,10 +742,7 @@ function createMemoryCredentialsFetchObservable(
       },
       fetch: environment.fetch,
       method: "POST",
-      headers: {
-        ...context.headers,
-        "Content-Type": "application/json",
-      },
+      headers: { ...context.headers, "Content-Type": "application/json" },
       body: JSON.stringify({}),
     }).pipe(
       timeout({
@@ -1047,10 +1044,7 @@ function createMemoryMutationObservable(
       },
       fetch: environment.fetch,
       method,
-      headers: {
-        ...context.headers,
-        "Content-Type": "application/json",
-      },
+      headers: { ...context.headers, "Content-Type": "application/json" },
       body:
         request.kind === "remove" ? undefined : JSON.stringify(request.body),
     }).pipe(
@@ -1582,10 +1576,7 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
           },
           fetch: environment.fetch,
           method: "POST",
-          headers: {
-            ...context.headers,
-            "Content-Type": "application/json",
-          },
+          headers: { ...context.headers, "Content-Type": "application/json" },
           body: JSON.stringify(body),
         },
       ).pipe(
