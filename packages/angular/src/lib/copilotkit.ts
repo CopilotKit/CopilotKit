@@ -11,6 +11,7 @@ import {
   RuntimeLicenseStatus,
   SuggestionsConfig,
   ThreadEndpointRuntimeInfo,
+  ɵwithHeaderDefaults,
 } from "@copilotkit/core";
 import {
   Injectable,
@@ -38,7 +39,10 @@ import {
   RenderActivityMessageConfig,
   anyActivityContentSchema,
 } from "./activity-renderer";
-import { injectCopilotKitConfig } from "./config";
+import {
+  injectCopilotKitConfig,
+  ɵresolvePublicKeyHeaderDefaults,
+} from "./config";
 import { HumanInTheLoop } from "./human-in-the-loop";
 import { ensureLicenseWatermark } from "./license-watermark";
 import { CopilotA2UIActivityRenderer } from "./components/a2ui/a2ui-activity-renderer";
@@ -188,9 +192,23 @@ export class CopilotKit {
   >({});
   readonly suggestionsByAgent = this.#suggestionsByAgent.asReadonly();
 
+  /**
+   * The public-key header default computed once from this instance's config
+   * (license key / already-present header, see `resolveLicense` in
+   * `config.ts`). Reused for every `ɵwithHeaderDefaults` call below so a
+   * header SOURCE keeps a stable wrapped identity across an unchanged config
+   * — `ɵwithHeaderDefaults` mints a new function identity on each call for a
+   * function source, and calling it with a fresh `defaults` object every
+   * time would look like a new source to `core.setHeaders` (#1937).
+   */
+  readonly #publicKeyDefaults = ɵresolvePublicKeyHeaderDefaults(this.#config);
+
   readonly core = new CopilotKitCore({
     runtimeUrl: this.#config.runtimeUrl,
-    headers: this.#config.headers,
+    headers: ɵwithHeaderDefaults(
+      this.#config.headers ?? {},
+      this.#publicKeyDefaults,
+    ),
     credentials: this.#config.credentials,
     messageFilter: this.#config.messageFilter,
     agents__unsafe_dev_only: {
@@ -733,7 +751,9 @@ export class CopilotKit {
       this.#runtimeTransport.set(options.runtimeTransport);
     }
     if (options.headers !== undefined) {
-      this.core.setHeaders(options.headers);
+      this.core.setHeaders(
+        ɵwithHeaderDefaults(options.headers, this.#publicKeyDefaults),
+      );
       this.#headers.set(this.core.headers);
     }
     if ("credentials" in options) {
