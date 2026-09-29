@@ -504,7 +504,10 @@ describe("WebInspectorElement", () => {
 type ThreadDetailsInternals = {
   threadId: string | null;
   runtimeUrl: string;
-  headers: Record<string, string>;
+  resolveHeaders: () =>
+    | Record<string, string>
+    | Promise<Record<string, string>>;
+  headersGeneration: number;
   threadInspectionAvailable: boolean;
   liveMessageVersion: number;
   provider: ThreadDebuggerProvider | null;
@@ -646,7 +649,7 @@ describe("ɵCpkThreadDetails caching", () => {
       const { el, internals } = createThreadDetails();
 
       internals.runtimeUrl = "http://localhost:4000";
-      internals.headers = { Authorization: "Bearer test-token" };
+      internals.resolveHeaders = () => ({ Authorization: "Bearer test-token" });
       internals.threadId = "t1";
       await el.updateComplete;
 
@@ -1262,7 +1265,8 @@ describe("CpkThreadInspector provider contract", () => {
     });
   });
 
-  it("refetches runtime thread data when headers change for the same thread", async () => {
+  it("resolves headers at send time but only reloads thread inspection on a headersGeneration change", async () => {
+    let token = "first";
     const fetchMock = vi.fn(
       (_url: string, init?: { headers?: Record<string, string> }) =>
         Promise.resolve(
@@ -1297,7 +1301,7 @@ describe("CpkThreadInspector provider contract", () => {
 
     internals.runtimeUrl = "http://runtime";
     internals.threadInspectionAvailable = true;
-    internals.headers = { Authorization: "Bearer first" };
+    internals.resolveHeaders = () => ({ Authorization: `Bearer ${token}` });
     internals.threadId = "thread-1";
     await flushProviderWork(el);
 
@@ -1308,7 +1312,18 @@ describe("CpkThreadInspector provider contract", () => {
       });
     });
 
-    internals.headers = { Authorization: "Bearer second" };
+    // Discriminating assertion first: a token rotation through the SAME
+    // builder identity, with no `headersGeneration` bump, must not reload
+    // (re-fetch) the already-loaded thread.
+    token = "second";
+    internals.resolveHeaders = () => ({ Authorization: `Bearer ${token}` });
+    await flushProviderWork(el);
+    expect(eventFetches()).toHaveLength(1);
+
+    // A `headersGeneration` bump (mirroring a real `core.setHeaders` source
+    // change) does reload, exactly once, and the reload's request resolves
+    // headers at send time (the current, rotated token).
+    internals.headersGeneration = 1;
     await flushProviderWork(el);
 
     await vi.waitFor(() => {
@@ -1320,6 +1335,10 @@ describe("CpkThreadInspector provider contract", () => {
     expect(headersOf(eventFetches().at(-1)!)).toMatchObject({
       Authorization: "Bearer second",
     });
+
+    // Settles: no extra reload trails behind.
+    await flushProviderWork(el);
+    expect(eventFetches()).toHaveLength(2);
   });
 
   it("loads runtime messages when event history is empty so timeline fallback and counts work", async () => {
@@ -2237,6 +2256,8 @@ type HeaderMockCore = {
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   runtimeUrl: string;
   headers: Record<string, string>;
+  resolveHeaders: () => Record<string, string>;
+  ɵheadersGeneration: number;
   ɵruntimeFetch: typeof fetch;
   threadEndpoints: {
     list: boolean;
@@ -2267,9 +2288,17 @@ function createHeaderMockCore(
   const subscribers = new Set<CopilotKitCoreSubscriber>();
   // Delegates to the live `globalThis.fetch` so every existing assertion on the
   // fetch stub keeps working, while a regression back to the global leaves this
-  // spy uncalled.
-  const runtimeFetch = vi.fn<typeof fetch>((...args) =>
-    globalThis.fetch(...args),
+  // spy uncalled. Mirrors the real `ɵruntimeFetch`'s contract (#1937): it
+  // overlays the CURRENT core headers onto the request at send time, so a
+  // caller routing through it must not also bake in a headers snapshot.
+  const runtimeFetch = vi.fn<typeof fetch>((input, init) =>
+    globalThis.fetch(input, {
+      ...init,
+      headers: {
+        ...(init?.headers as Record<string, string> | undefined),
+        ...core.headers,
+      },
+    }),
   );
   const core: HeaderMockCore = {
     intelligence: { wsUrl: "" },
@@ -2281,6 +2310,8 @@ function createHeaderMockCore(
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
     runtimeUrl: "http://localhost/api",
     headers,
+    resolveHeaders: () => core.headers,
+    ɵheadersGeneration: 0,
     ɵruntimeFetch: runtimeFetch,
     threadEndpoints: {
       list: true,
@@ -2317,6 +2348,7 @@ function createHeaderMockCore(
     },
     emitHeadersChanged(nextHeaders: Record<string, string>) {
       core.headers = nextHeaders;
+      core.ɵheadersGeneration += 1;
       subscribers.forEach((s) =>
         s.onHeadersChanged?.({ copilotkit: asCore(), headers: nextHeaders }),
       );
@@ -3487,6 +3519,7 @@ type MemoryMockCore = {
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   intelligence: { wsUrl: string } | undefined;
   licenseStatus?: "valid" | "none" | "expired" | "unknown";
+  resolveHeaders?: () => Record<string, string>;
   subscribe: (subscriber: CopilotKitCoreSubscriber) => {
     unsubscribe: () => void;
   };
@@ -3793,6 +3826,7 @@ describe("WebInspectorElement memories — view states", () => {
       runtimeTransport: "rest" as const,
       inspectorLearning: true,
       ɵruntimeFetch: fetch,
+      resolveHeaders: () => ({}),
     });
 
   it("advances the Learning preview copy action into setup progress before capability is available", async () => {

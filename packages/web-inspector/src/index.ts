@@ -2197,7 +2197,8 @@ export class CpkThreadInspector extends PortableLitElement {
     provider: { attribute: false },
     thread: { attribute: false },
     runtimeUrl: { attribute: false },
-    headers: { attribute: false },
+    resolveHeaders: { attribute: false },
+    headersGeneration: { attribute: false },
     threadInspectionAvailable: { attribute: false },
     agentStateInput: { attribute: false },
     agentEventsInput: { attribute: false },
@@ -2240,7 +2241,15 @@ export class CpkThreadInspector extends PortableLitElement {
   provider: ThreadDebuggerProvider | null = null;
   thread: ThreadDebuggerMetadata | ɵThread | null = null;
   runtimeUrl = "";
-  headers: Record<string, string> = {};
+  // Resolved at send time (#1937): a builder can return a fresh token on every
+  // call, so this must be invoked per-request rather than snapshotted once.
+  resolveHeaders: () =>
+    | Record<string, string>
+    | Promise<Record<string, string>> = () => ({});
+  // Bumped only by an actual header-source change (never by a builder
+  // returning a new value). Never key the load signature on header VALUES —
+  // that would reload thread inspection on every token rotation.
+  headersGeneration = 0;
   threadInspectionAvailable = false;
   agentStateInput: Record<string, unknown> | null = null;
   agentEventsInput: ApiAgentEvent[] = [];
@@ -2387,19 +2396,6 @@ export class CpkThreadInspector extends PortableLitElement {
       provider.getEvents ? "events:1" : "events:0",
       provider.getState ? "state:1" : "state:0",
     ].join("|");
-  }
-
-  /**
-   * Build a deterministic signature for runtime fetch headers so auth/CSRF
-   * changes invalidate cached thread data even when the selected thread is
-   * otherwise unchanged.
-   */
-  private static headersLoadKey(headers: Record<string, string>): string {
-    return JSON.stringify(
-      Object.entries(headers).sort(([leftKey], [rightKey]) =>
-        leftKey.localeCompare(rightKey),
-      ),
-    );
   }
 
   private renderConversationActions() {
@@ -3955,7 +3951,7 @@ export class CpkThreadInspector extends PortableLitElement {
       this.threadId ?? "thread:none",
       CpkThreadInspector.providerLoadKey(this.provider),
       `runtime:${this.runtimeUrl}`,
-      `headers:${CpkThreadInspector.headersLoadKey(this.headers)}`,
+      `headersGen:${this.headersGeneration}`,
       `inspect:${this.threadInspectionAvailable ? "1" : "0"}`,
     ].join("||");
   }
@@ -4159,7 +4155,7 @@ export class CpkThreadInspector extends PortableLitElement {
     signal: AbortSignal,
   ): Promise<ThreadDebuggerMessage[]> {
     const res = await fetch(this.getThreadInspectionUrl(threadId, "messages"), {
-      headers: { ...this.headers },
+      headers: { ...(await this.resolveHeaders()) },
       signal,
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -4172,7 +4168,7 @@ export class CpkThreadInspector extends PortableLitElement {
     signal: AbortSignal,
   ): Promise<RuntimeEventsFetchResult> {
     const res = await fetch(this.getThreadInspectionUrl(threadId, "events"), {
-      headers: { ...this.headers },
+      headers: { ...(await this.resolveHeaders()) },
       signal,
     });
     if (res.status === 501) {
@@ -4190,7 +4186,7 @@ export class CpkThreadInspector extends PortableLitElement {
     signal: AbortSignal,
   ): Promise<RuntimeStateFetchResult> {
     const res = await fetch(this.getThreadInspectionUrl(threadId, "state"), {
-      headers: { ...this.headers },
+      headers: { ...(await this.resolveHeaders()) },
       signal,
     });
     if (res.status === 501) {
@@ -7553,15 +7549,19 @@ export class WebInspectorElement extends LitElement {
     const core = this.core;
     if (!core?.runtimeUrl) return;
 
-    const runtimeFetch =
-      typeof core.ɵruntimeFetch === "function"
-        ? core.ɵruntimeFetch
-        : globalThis.fetch;
-    const store = ɵcreateThreadStore({ fetch: runtimeFetch });
+    // `ɵruntimeFetch` already resolves and overlays the current core headers
+    // at send time (#1937), so the context below must NOT also carry a
+    // `headers` snapshot — that would let a header the source no longer
+    // returns keep riding along. Only the defensive fallback for a core
+    // without `ɵruntimeFetch` needs a static snapshot here.
+    const hasRuntimeFetch = typeof core.ɵruntimeFetch === "function";
+    const store = ɵcreateThreadStore({
+      fetch: hasRuntimeFetch ? core.ɵruntimeFetch : globalThis.fetch,
+    });
     store.start();
     store.setContext({
       runtimeUrl: core.runtimeUrl,
-      headers: { ...core.headers },
+      ...(hasRuntimeFetch ? {} : { headers: { ...core.headers } }),
       wsUrl: core.intelligence?.wsUrl,
       agentId,
     });
@@ -7617,18 +7617,24 @@ export class WebInspectorElement extends LitElement {
 
   // Keep inspector-owned thread stores in sync when the host updates headers
   // at runtime (e.g. a refreshed auth/CSRF token via core.setHeaders). Mirrors
-  // useThreads(), which re-dispatches the context whenever core.headers change,
-  // so the owned stores' /threads requests stay authorized.
+  // useThreads(), which re-dispatches the context whenever `onHeadersChanged`
+  // fires, so the owned stores' /threads requests stay authorized. The
+  // re-dispatched context omits `headers` (see `ensureOwnedThreadStore`) —
+  // `ɵruntimeFetch` resolves the current headers at send time, so this only
+  // needs to trigger the store's refetch, not carry a snapshot. A token
+  // rotation alone doesn't call `onHeadersChanged`/this method, so it doesn't
+  // trigger a refetch either.
   private updateOwnedThreadStoreHeaders(
     headers: Readonly<Record<string, string>>,
   ): void {
     if (!this.areThreadEndpointsAvailable()) return;
     const core = this.core;
     if (!core?.runtimeUrl) return;
+    const hasRuntimeFetch = typeof core.ɵruntimeFetch === "function";
     for (const [agentId, store] of this._ownedThreadStores) {
       store.setContext({
         runtimeUrl: core.runtimeUrl,
-        headers: { ...headers },
+        ...(hasRuntimeFetch ? {} : { headers: { ...headers } }),
         wsUrl: core.intelligence?.wsUrl,
         agentId,
       });
@@ -8157,7 +8163,7 @@ export class WebInspectorElement extends LitElement {
             1,
         },
         fetch: core.ɵruntimeFetch,
-        headers: core.headers,
+        headers: { ...(await core.resolveHeaders()) },
         credentials: core.credentials,
         signal: controller.signal,
       });
@@ -16304,12 +16310,13 @@ export class WebInspectorElement extends LitElement {
     }
     const baseUrl = core.runtimeUrl.replace(/\/+$/, "");
     const encodedThreadId = encodeURIComponent(thread.id);
+    const headers = { ...(await core.resolveHeaders()) };
     const [messagesResponse, stateResponse] = await Promise.all([
       fetch(`${baseUrl}/threads/${encodedThreadId}/messages`, {
-        headers: { ...core.headers },
+        headers,
       }),
       fetch(`${baseUrl}/threads/${encodedThreadId}/state`, {
-        headers: { ...core.headers },
+        headers,
       }),
     ]);
     if (!messagesResponse.ok) {
@@ -19152,7 +19159,11 @@ export class WebInspectorElement extends LitElement {
                             ? ""
                             : (this._core?.runtimeUrl ?? "")
                         }
-                        .headers=${this._core?.headers ?? {}}
+                        .resolveHeaders=${() =>
+                          this._core?.resolveHeaders() ?? {}}
+                        .headersGeneration=${
+                          this._core?.ɵheadersGeneration ?? 0
+                        }
                         .threadInspectionAvailable=${
                           selectedThreadIsLocalExample ||
                           (this.areThreadEndpointsAvailable() &&
