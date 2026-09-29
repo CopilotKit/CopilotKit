@@ -22,6 +22,7 @@ import type { ForwardedParametersInput } from "@copilotkit/runtime-client-gql";
 import type { ReactNode } from "react";
 import type { AuthState } from "../../context/copilot-context";
 import type { CopilotErrorHandler, DebugConfig } from "@copilotkit/shared";
+import type { CopilotKitHeadersSource } from "@copilotkit/core";
 import type { CopilotKitProviderProps } from "../../../v2";
 /**
  * Props for CopilotKit.
@@ -75,19 +76,28 @@ export interface CopilotKitProps extends Omit<
 
   /**
    * Additional headers to be sent with the request.
-   * Can be a static object or a function that returns headers dynamically
-   * (useful for refreshing auth tokens).
+   * Can be a static object, a synchronous builder, or an async builder
+   * (useful for refreshing auth tokens). Whichever form you use, it is
+   * evaluated when each request is sent, not when this component renders.
    *
    * For example:
    * ```tsx
    * // Static headers
    * headers={{ "Authorization": "Bearer X" }}
    *
-   * // Dynamic headers (re-evaluated on each render)
+   * // Synchronous builder, evaluated at send time
    * headers={() => ({ "Authorization": `Bearer ${getToken()}` })}
+   *
+   * // Async builder, evaluated (and awaited) at send time
+   * headers={async () => ({ "Authorization": `Bearer ${await getToken()}` })}
    * ```
+   *
+   * An async builder is only awaited on the request paths served by
+   * `<CopilotKit>`'s v2 provider (agent runs, threads, the inspector, and
+   * so on). The legacy `CopilotTask` / GraphQL path never awaits it — see
+   * that API's own docs for the sync-only fallback it uses instead.
    */
-  headers?: Record<string, string> | (() => Record<string, string>);
+  headers?: CopilotKitHeadersSource;
 
   /**
    * The children to be rendered within the CopilotKit.

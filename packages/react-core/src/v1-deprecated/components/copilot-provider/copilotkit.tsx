@@ -79,7 +79,6 @@ import type {
 } from "@copilotkit/shared";
 import {
   COPILOT_CLOUD_CHAT_URL,
-  COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   randomUUID,
   ConfigurationError,
   MissingPublicApiKeyError,
@@ -103,6 +102,23 @@ import { CoAgentStateRendersProvider } from "../../context/coagent-state-renders
 import { CoAgentStateRenderBridge } from "../../hooks/use-coagent-state-render-bridge";
 import { ThreadsProvider, useThreads } from "../../context/threads-context";
 import { CopilotListeners } from "../CopilotListeners";
+
+/**
+ * Drops `null`/`undefined` entries so a `CopilotKitHeadersSource` record (or
+ * a builder's resolved record) matches `CopilotApiConfig.headers`'s
+ * `Record<string, string>` shape. Mirrors core's own (internal-only)
+ * `normalizeHeaders`.
+ */
+function normalizeV1Headers(
+  headers: Record<string, string | null | undefined> | undefined,
+): Record<string, string> {
+  if (!headers) return {};
+  return Object.fromEntries(
+    Object.entries(headers).filter(
+      (entry): entry is [string, string] => entry[1] != null,
+    ),
+  );
+}
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const enabled = shouldShowDevConsole(props.showDevConsole);
@@ -213,6 +229,29 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
    * This will throw an error if the props are invalid.
    */
   validateProps(cpkProps);
+
+  // `copilotApiConfig.headers` (below) reads this ref instead of closing
+  // over `props.headers` directly. The assignment happens here, during
+  // render, not in a `useEffect` — the ref must already hold the CURRENT
+  // builder by the time anything downstream (e.g. a child effect firing in
+  // the same commit) reads `.headers`. See the render-time-ref pattern
+  // established for the same reason in `CopilotKitProvider.tsx` (v2) and
+  // `use-learning-containers.tsx`.
+  const headersPropRef = useRef(props.headers);
+  headersPropRef.current = props.headers;
+
+  // Tracks the current `headers` builder function (by reference) and
+  // whether it has been observed to return a Promise. A builder is never
+  // called more than once to make that determination, and once a given
+  // builder reference is known to be async it is never called again by
+  // this v1-internal path (see the `headers` getter on `copilotApiConfig`
+  // below). A new builder reference (e.g. the caller swaps in a different
+  // function) resets the determination.
+  const headersBuilderStateRef = useRef<{
+    fn: (() => unknown) | undefined;
+    isAsync: boolean;
+  }>({ fn: undefined, isAsync: false });
+  const warnedAsyncHeadersRef = useRef(false);
 
   // Use license key as API key if provided, otherwise use the API key
   const publicApiKey = props.publicLicenseKey || props.publicApiKey;
@@ -361,22 +400,83 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       };
     }
 
-    return {
+    const config = {
       publicApiKey: publicApiKey,
       ...(cloud ? { cloud } : {}),
       chatApiEndpoint: chatApiEndpoint,
-      headers:
-        typeof props.headers === "function"
-          ? props.headers()
-          : props.headers || {},
       properties: props.properties || {},
       transcribeAudioUrl: props.transcribeAudioUrl,
       textToSpeechUrl: props.textToSpeechUrl,
       credentials: props.credentials,
-    };
+    } as CopilotApiConfig;
+
+    // `headers` is a lazy getter, not a plain field, and it reads
+    // `headersPropRef` (kept current during render, see above) rather than
+    // closing over `props.headers` — that keeps it live even across a
+    // render where this memo doesn't recompute.
+    //
+    // This is the ONLY consumer of `copilotApiConfig.headers`: the legacy
+    // `CopilotTask` / GraphQL path (`lib/copilot-task.ts`). That path has no
+    // send-time hook to await a builder on, so a v2 `CopilotKitHeadersSource`
+    // (record, sync builder, or async builder — see `copilotkit-props.tsx`)
+    // is handled here as follows:
+    //  - a record: returned as-is, unchanged.
+    //  - a sync builder: called fresh on every read (today's behavior), so
+    //    a rotated token still reaches `CopilotTask`.
+    //  - an async builder: NEVER awaited, and never even called more than
+    //    once to find out it's async — the very first call that returns a
+    //    Promise both (a) tells us it's async and (b) is the one and only
+    //    invocation this builder reference ever gets. Every read after that
+    //    returns `{}` without calling it again. A one-time (per provider
+    //    instance) dev warning explains why.
+    //
+    // None of this ever runs during React's render phase: a getter is only
+    // evaluated when something actually reads `.headers`, which for this
+    // config object only happens from inside `CopilotTask.run()`.
+    Object.defineProperty(config, "headers", {
+      enumerable: true,
+      configurable: true,
+      get(): Record<string, string> {
+        const source = headersPropRef.current;
+        if (typeof source !== "function") {
+          return normalizeV1Headers(source);
+        }
+
+        const state = headersBuilderStateRef.current;
+        if (state.fn === source && state.isAsync) {
+          return {};
+        }
+
+        const result = source();
+        const isAsync =
+          typeof result === "object" &&
+          result !== null &&
+          typeof (result as PromiseLike<unknown>).then === "function";
+
+        if (isAsync) {
+          headersBuilderStateRef.current = { fn: source, isAsync: true };
+          if (
+            process.env.NODE_ENV !== "production" &&
+            !warnedAsyncHeadersRef.current
+          ) {
+            warnedAsyncHeadersRef.current = true;
+            console.warn(
+              "[CopilotKit] An async `headers` builder is not supported by the v1 CopilotTask / GraphQL path; its headers are not sent there.",
+            );
+          }
+          return {};
+        }
+
+        headersBuilderStateRef.current = { fn: source, isAsync: false };
+        return normalizeV1Headers(
+          result as Record<string, string | null | undefined>,
+        );
+      },
+    });
+
+    return config;
   }, [
     publicApiKey,
-    props.headers,
     props.properties,
     props.transcribeAudioUrl,
     props.textToSpeechUrl,
@@ -384,35 +484,6 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     props.cloudRestrictToTopic,
     props.guardrails_c,
   ]);
-
-  const headers = useMemo(() => {
-    const authHeaders = Object.values(authStates || {}).reduce((acc, state) => {
-      if (state.status === "authenticated" && state.authHeaders) {
-        return {
-          ...acc,
-          ...Object.entries(state.authHeaders).reduce(
-            (headers, [key, value]) => ({
-              ...headers,
-              [key.startsWith("X-Custom-") ? key : `X-Custom-${key}`]: value,
-            }),
-            {},
-          ),
-        };
-      }
-      return acc;
-    }, {});
-
-    return {
-      ...copilotApiConfig.headers,
-      ...(copilotApiConfig.publicApiKey
-        ? {
-            [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]:
-              copilotApiConfig.publicApiKey,
-          }
-        : {}),
-      ...authHeaders,
-    };
-  }, [copilotApiConfig.headers, copilotApiConfig.publicApiKey, authStates]);
 
   const [internalErrorHandlers, _setInternalErrorHandler] = useState<
     Record<string, CopilotErrorHandler>
