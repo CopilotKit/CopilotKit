@@ -995,6 +995,9 @@ export function normalizeSidebarNav(
     findPageBySlug(gettingStarted, "") ?? findPageBySlug(allCanonicalNodes, "");
   const quickstart =
     findPageBySlug(gettingStarted, "quickstart") ?? findPage("quickstart");
+  const buildWithAgents =
+    findPageBySlug(gettingStarted, "build-with-agents") ??
+    findPage("build-with-agents");
   const intelligenceOverviewLink = findPage("intelligence/overview");
   const startLinks: NavNode[] = [
     ...(introduction?.type === "page"
@@ -1008,6 +1011,15 @@ export function normalizeSidebarNav(
       : []),
     ...(quickstart?.type === "page"
       ? [{ ...quickstart, title: "Quickstart", icon: "lucide/Play" }]
+      : []),
+    ...(buildWithAgents?.type === "page"
+      ? [
+          {
+            ...buildWithAgents,
+            title: "Build with agents",
+            icon: "lucide/BrainCircuit",
+          },
+        ]
       : []),
     ...(intelligenceOverviewLink?.type === "page"
       ? [
