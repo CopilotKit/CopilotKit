@@ -90,6 +90,9 @@ export class AgentStore {
       onRunInitialized: () => {
         this.#isRunning.set(true);
       },
+      onRunStartedEvent: () => {
+        this.#isRunning.set(abstractAgent.isRunning);
+      },
       onRunFinalized: () => {
         this.#isRunning.set(false);
       },

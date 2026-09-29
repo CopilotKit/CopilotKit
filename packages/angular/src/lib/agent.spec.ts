@@ -138,6 +138,21 @@ class MockAgent extends AbstractAgent {
     }
   }
 
+  emitRunStarted() {
+    for (const subscriber of this.subscribers) {
+      subscriber.onRunStartedEvent?.({
+        event: {
+          type: EventType.RUN_STARTED,
+          threadId: this.threadId,
+          runId: "successor",
+        },
+        messages: this.messages,
+        state: this.state,
+        agent: this,
+      });
+    }
+  }
+
   emitRunFinalized() {
     for (const s of this.subscribers) {
       s.onRunFinalized?.({
@@ -264,6 +279,13 @@ describe("injectAgentStore", () => {
     // Replayed errors are history; the connection still owns the busy state.
     agent.isRunning = true;
     agent.emitRunError();
+    expect(store?.isRunning()).toBe(true);
+    agent.isRunning = false;
+    agent.emitRunError();
+    expect(store?.isRunning()).toBe(false);
+    // A successor turn changes only run status, without messages/state updates.
+    agent.isRunning = true;
+    agent.emitRunStarted();
     expect(store?.isRunning()).toBe(true);
     agent.emitRunFinalized();
     expect(store?.isRunning()).toBe(false);

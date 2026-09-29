@@ -230,7 +230,7 @@ describe.each(["intelligence", "pending"] as const)(
         await connecting;
       }
     });
-    it("finalizes a live connection error after replay without waiting for stream_idle", async () => {
+    it("clears busy on a live error and keeps following a successor run until idle", async () => {
       const agent = createReplayAgent(runtimeMode);
       const onRunErrorEvent = vi.fn();
       agent.subscribe({ onRunErrorEvent });
@@ -247,8 +247,76 @@ describe.each(["intelligence", "pending"] as const)(
           message: "Live failure",
         });
         await vi.waitFor(() => expect(agent.isRunning).toBe(false));
-        await connecting;
         expect(onRunErrorEvent).toHaveBeenCalledOnce();
+        expect(channel.left).toBe(false);
+        channel.serverPush("ag_ui_event", {
+          type: EventType.RUN_STARTED,
+          threadId: "saved-thread",
+          runId: "successor",
+        });
+        await vi.waitFor(() => expect(agent.isRunning).toBe(true));
+        channel.serverPush("ag_ui_event", {
+          type: EventType.MESSAGES_SNAPSHOT,
+          messages: [
+            {
+              id: "successor-message",
+              role: "assistant",
+              content: "From another tab",
+            },
+          ],
+        });
+        channel.serverPush("ag_ui_event", {
+          type: EventType.RUN_FINISHED,
+          threadId: "saved-thread",
+          runId: "successor",
+        });
+        await vi.waitFor(() =>
+          expect(agent.messages[0]?.id).toBe("successor-message"),
+        );
+        expect(agent.isRunning).toBe(true);
+        channel.serverPush("stream_idle", {});
+        await connecting;
+        expect(agent.isRunning).toBe(false);
+        expect(channel.left).toBe(true);
+      } finally {
+        await agent.detachActiveRun();
+        await connecting;
+      }
+    });
+
+    it("keeps the arrival-time replay phase when subscriber work is queued", async () => {
+      const agent = createReplayAgent(runtimeMode);
+      const busyAtError: boolean[] = [];
+      agent.subscribe({
+        onRunErrorEvent: () => {
+          busyAtError.push(agent.isRunning);
+        },
+      });
+      const connecting = agent.connectAgent();
+      try {
+        await vi.waitFor(() =>
+          expect(sockets[0]?.channels[0]?.joinCount).toBe(1),
+        );
+        const channel = sockets[0]!.channels[0]!;
+        channel.triggerJoin("ok");
+        // Do not yield between these: replay completion can arrive while the
+        // asynchronous apply pipeline is still processing the historical error.
+        channel.serverPush("ag_ui_event", {
+          type: EventType.RUN_ERROR,
+          message: "Historical",
+        });
+        channel.serverPush("replay_complete", {});
+        channel.serverPush("ag_ui_event", {
+          type: EventType.RUN_ERROR,
+          message: "Live",
+        });
+        await vi.waitFor(() => expect(busyAtError).toEqual([true, false]));
+        expect(channel.left).toBe(false);
+        // A locally started operation can detach this idle listener even though
+        // the live error already cleared isRunning.
+        await agent.detachActiveRun();
+        await connecting;
+        expect(channel.left).toBe(true);
       } finally {
         await agent.detachActiveRun();
         await connecting;
@@ -270,6 +338,12 @@ describe.each(["intelligence", "pending"] as const)(
           const channel = socket.channels[0]!;
           channel.triggerJoin("ok");
           channel.serverPush("replay_complete", {});
+          channel.serverPush("ag_ui_event", {
+            type: EventType.RUN_ERROR,
+            message: "Live error before reconnect",
+          });
+          await vi.waitFor(() => expect(agent.isRunning).toBe(false));
+          errors.mockClear();
           if (kind === "socket") socket.triggerError(new Error("disconnected"));
           else channel.serverPush("phx_error", {});
           channel.serverPush("ag_ui_event", {
@@ -284,6 +358,8 @@ describe.each(["intelligence", "pending"] as const)(
             message: "Live error after rejoin",
           });
           await vi.waitFor(() => expect(agent.isRunning).toBe(false));
+          expect(channel.left).toBe(false);
+          channel.serverPush("stream_idle", {});
           await connecting;
           expect(errors).toHaveBeenCalledTimes(2);
         } finally {

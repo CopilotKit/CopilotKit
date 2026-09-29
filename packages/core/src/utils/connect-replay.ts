@@ -15,7 +15,7 @@ import {
 } from "@ag-ui/client";
 import type { Observable } from "rxjs";
 import { EMPTY, Subject, defer, lastValueFrom } from "rxjs";
-import { catchError, finalize, takeUntil, takeWhile } from "rxjs/operators";
+import { catchError, finalize, takeUntil, tap } from "rxjs/operators";
 
 /** Internal connection callbacks; HTTP connections keep their EOF behavior. */
 export interface ConnectionReplayLifecycle {
@@ -41,7 +41,7 @@ export interface ConnectionReplayLifecycle {
  * `transformChunks` is still applied — message reassembly is needed either way.
  *
  * Connection-local replay hooks track the phase before applying events. An
- * explicitly live RUN_ERROR ends the connection after notifying subscribers;
+ * explicitly live RUN_ERROR clears busy without closing the connection;
  * historical errors remain data. Connections without hooks retain the existing
  * completion behavior. Subscriber, detach, and result contracts are preserved.
  *
@@ -80,8 +80,18 @@ export async function ɵconnectWithoutEventVerification(
     const input = self.prepareRunAgentInput(parameters);
     let result: RunAgentResult["result"];
     const previousMessageIds = new Set(agent.messages.map((m) => m.id));
+    // Record the phase when an error arrives: subscriber callbacks may run
+    // asynchronously after replay_complete has already changed the phase.
+    let isReplaying = true;
+    const liveErrors = new WeakSet<BaseEvent>();
     const subscribers: AgentSubscriber[] = [
       {
+        onRunStartedEvent: () => {
+          agent.isRunning = true;
+        },
+        onRunErrorEvent: ({ event }) => {
+          if (liveErrors.has(event)) agent.isRunning = false;
+        },
         onRunFinishedEvent: (event) => {
           if (event.outcome === "success") {
             result = event.result;
@@ -100,12 +110,12 @@ export async function ɵconnectWithoutEventVerification(
       resolveCompletion = resolve;
     });
 
-    // RUN_ERROR is data while restoring history, but terminal once the
-    // Intelligence transport signals replay completion. HTTP keeps waiting for EOF.
-    let isReplaying = true;
+    // Only an explicitly live error changes busy state. Connection lifetime
+    // remains owned by the transport (Intelligence idle or HTTP EOF).
     const lifecycle: ConnectionReplayLifecycle = {
       onReplayStarted: () => {
         isReplaying = true;
+        agent.isRunning = true;
       },
       onReplayFinished: () => {
         isReplaying = false;
@@ -116,12 +126,11 @@ export async function ɵconnectWithoutEventVerification(
         ? connect(input, lifecycle)
         : (self.connect(input) as Observable<BaseEvent>),
     ).pipe(
-      // Include the live terminal event so subscribers still see the error,
-      // then finish the pipeline before another operation can own the agent.
-      takeWhile(
-        (event) => isReplaying || event.type !== EventType.RUN_ERROR,
-        true,
-      ),
+      tap((event) => {
+        if (!isReplaying && event.type === EventType.RUN_ERROR) {
+          liveErrors.add(event);
+        }
+      }),
       // transformChunks reassembles partial/streamed messages — still needed.
       transformChunks(self.debugLogger),
       // NOTE: verifyEvents is intentionally omitted here. See JSDoc above.

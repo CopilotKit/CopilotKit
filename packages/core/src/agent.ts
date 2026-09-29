@@ -490,9 +490,15 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       onRunFailed: () => {
         this.isRunning = false;
       },
-      // The shared connect pipeline distinguishes historical and live errors
-      // using the Intelligence replay callbacks. A live error finalizes that pipeline;
-      // a historical error must not release queued work during replay.
+      // The connect pipeline updates the delegate before forwarding events:
+      // live errors clear busy, historical errors keep replay busy, and a
+      // successor run can start while the same connection keeps listening.
+      onRunErrorEvent: () => {
+        this.isRunning = delegate.isRunning;
+      },
+      onRunStartedEvent: () => {
+        this.isRunning = delegate.isRunning;
+      },
     });
 
     // Forward the proxy's subscribers to the delegate so that UI hooks
