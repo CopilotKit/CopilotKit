@@ -4,6 +4,7 @@ export {
 } from "@copilotkit/intelligence-delivery-core";
 export type {
   SkillRegistryOptions,
+  SkillRegistryContainer,
   SkillRegistryStatus,
   SkillDeliveryErrorCode,
 } from "@copilotkit/intelligence-delivery-core";

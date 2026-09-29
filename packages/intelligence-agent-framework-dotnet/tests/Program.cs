@@ -77,7 +77,9 @@ Run("corrupt archive checksum is rejected", () => {
 });
 try { await RegistryTests.RunAsync(); await RegistryTests.ConcurrencyAsync(); await RegistryTests.DeadlineAsync(); await RegistryTests.ConfigurationAsync(); }
 catch (Exception error) { failures.Add("registry: " + error); }
-try { await FrameworkTests.RunAsync(); await FrameworkTests.DependencyInjectionAsync(); await FrameworkTests.DenialAsync(); await FrameworkTests.GuardsAsync(); }
+try { await MultiContainerTests.RunAsync(); await MultiContainerTests.ConcurrencyAsync(); }
+catch (Exception error) { failures.Add("multiple containers: " + error); }
+try { await FrameworkTests.RunAsync(); await FrameworkTests.MultiContainerAsync(); await FrameworkTests.DependencyInjectionAsync(); await FrameworkTests.DenialAsync(); await FrameworkTests.GuardsAsync(); }
 catch (Exception error) { failures.Add("framework: " + error); }
 foreach (var failure in failures) Console.Error.WriteLine("FAIL " + failure);
 return failures.Count == 0 ? 0 : 1;

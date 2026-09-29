@@ -6,6 +6,28 @@ Failures are owned by `#oss-alerts`. The alert includes the failing URL, crawler
 
 These checks send documented crawler `User-Agent` values to exercise CDN, firewall, and application behavior. A spoofed header does not prove that a provider's verified crawler IP ranges or reverse-DNS identity can reach the service; investigate provider-identity access separately when the header-based check passes but real crawl telemetry regresses.
 
+## Supported surfaces and owners
+
+This is a maintainer checklist, not a public API or a new discovery endpoint. Keep endpoint expectations in [the existing checker](../../showcase/scripts/check-aeo-synthetics.ts); do not introduce a second JSON registry.
+
+| Deployment / owner                         | Supported surfaces                                                | Existing verification                                                                                                                                           |
+| ------------------------------------------ | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Docs maintainers — `docs.copilotkit.ai`    | `/`, `/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/llms-full.txt` | Production synthetics check status, media type, canonical URLs, and index links.                                                                                |
+| Docs maintainers — same deployment         | Per-page `.md` and `.mdx` responses                               | Shell-docs route tests in the existing `shell-docs unit suite` CI job. Sample a real Markdown page after deployment.                                            |
+| Website maintainers — `www.copilotkit.ai`  | `/`, `/robots.txt`, `/sitemap.xml`, `/llms.txt`                   | Production synthetics plus route tests in `CopilotKit/website`. Website `/llms-full.txt` is not published or advertised; do not require it unless that changes. |
+| Docs MCP maintainers — `mcp.copilotkit.ai` | `/sse` transport                                                  | Service-owned verification; not covered by this HTTP discovery checker.                                                                                         |
+
+For machine endpoints, a successful HTML fallback is a failure even if its header claims plain text. These checks measure reachability and response shape, not whether an answer engine recommends CopilotKit or Intelligence.
+
+## When changing a discovery surface
+
+1. Keep the existing URL and response format working, or update consumers and redirects deliberately. Robots/sitemaps/canonical metadata use web conventions; `llms.txt` is a community convention, not a crawler guarantee.
+2. Update the owning route test and, if a monitored endpoint changes, the existing checker and its tests in the same change. Coordinate website changes in `CopilotKit/website`; this repository does not deploy them.
+3. Reuse existing CI. For a focused local check, run `pnpm nx run @copilotkit/showcase-scripts:test -- __tests__/check-aeo-synthetics.test.ts __tests__/aeo-synthetics-wiring.test.ts --maxWorkers=1`.
+4. After deployment, run `pnpm nx run @copilotkit/showcase-scripts:check-aeo-synthetics` or the manual Actions workflow. When Markdown rendering changes, also fetch a representative page's `.md` and `.mdx` output and check its status, media type, and readable content.
+
+Do not add a schedule or claim monitoring is active until the green production baseline and deliberate Slack alert exercise described below are complete.
+
 ## Triage
 
 1. Open the failed run and locate each `[FAIL]` record. Confirm whether the failure affects one crawler user agent or every agent.

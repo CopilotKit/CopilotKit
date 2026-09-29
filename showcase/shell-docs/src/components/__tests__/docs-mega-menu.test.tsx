@@ -58,5 +58,5 @@ test("opens a five-column docs map with Intelligence featured", () => {
     screen
       .getByRole("link", { name: "Product Analytics" })
       .getAttribute("href"),
-  ).toBe("/intelligence/managed-intelligence-platform");
+  ).toBe("/intelligence/analytics");
 });

@@ -85,31 +85,31 @@ export const CURATED_LLM_PAGES = [
     url: "intelligence/overview",
     title: "CopilotKit Intelligence",
     description:
-      "Evaluate the durability, memory, learning, inspection, and operations layer for production agents.",
+      "Evaluate Rich Threads, User Memories, Automatic Learning, Product Analytics, and Channels for your existing agent and frontend.",
   },
   {
     url: "slack",
     title: "Channels for Slack",
     description:
-      "Bring an AG-UI agent into Slack with native messages and approvals through Channels and managed Intelligence connections.",
+      "Bring an AG-UI agent into Slack with native messages and approvals through Channels and cloud-hosted Intelligence connections.",
   },
   {
     url: "teams",
     title: "Channels for Microsoft Teams",
     description:
-      "Build agents with native Microsoft Teams messages and approvals through Channels; review the managed integration availability and direct SDK options.",
+      "Bring an AG-UI agent into Microsoft Teams with native messages and approvals through generally available cloud-hosted Intelligence connections or direct SDK options.",
   },
   {
     url: "langgraph-python/threads-import",
-    title: "Import LangGraph and LangChain Threads",
+    title: "Import LangGraph Threads",
     description:
-      "Import existing LangGraph, LangSmith, or LangChain-authenticated thread history into Intelligence.",
+      "Import history from LangGraph Server, LangGraph Platform, or LangSmith Deployments exposed through LangGraph SDK thread and run APIs, not arbitrary LangChain stores.",
   },
   {
     url: "google-adk/threads-import",
     title: "Import Google ADK Threads",
     description:
-      "Import existing Google ADK sessions into Intelligence and keep future conversations synchronized.",
+      "Import supported Google ADK sessions once; future CopilotKit-mediated runs persist to Intelligence while your durable ADK session service retains native history.",
   },
   {
     url: "quickstart",
@@ -137,7 +137,7 @@ export const CURATED_LLM_PAGES = [
   },
   {
     url: "concepts/oss-vs-enterprise",
-    title: "Open Source and Intelligence",
+    title: "Open source vs Intelligence",
     description:
       "Decide which capabilities belong to the open-source stack and which require Intelligence.",
   },
@@ -214,12 +214,6 @@ export const CURATED_LLM_PAGES = [
       "Understand thread creation, restoration, switching, and framework persistence boundaries.",
   },
   {
-    url: "threads-self-managed",
-    title: "Self-Managed Thread Persistence",
-    description:
-      "Plan the persistence responsibilities your application owns when it does not use Intelligence.",
-  },
-  {
     url: "intelligence/quickstart",
     title: "Intelligence Quickstart",
     description:
@@ -230,6 +224,12 @@ export const CURATED_LLM_PAGES = [
     title: "User Memories",
     description:
       "Choose memory scope and integrate long-term recall through React, Angular, REST, or MCP.",
+  },
+  {
+    url: "intelligence/analytics",
+    title: "Product Analytics",
+    description:
+      "Understand how people use your agent with project-level usage, thread, and tool-call data.",
   },
   {
     url: "auth",

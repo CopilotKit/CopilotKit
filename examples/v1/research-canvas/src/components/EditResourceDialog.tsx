@@ -7,7 +7,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Resource } from "@/lib/types";
+import type { Resource } from "@/lib/types";
 
 type EditResourceDialogProps = {
   isOpen: boolean;

@@ -252,6 +252,17 @@ jobs:
           lfs: false
           persist-credentials: false
 
+      - name: Set up pnpm for the Agno starter
+        if: matrix.starter == 'agno'
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Verify the documented Agno pnpm path
+        if: matrix.starter == 'agno'
+        working-directory: examples/integrations/agno
+        run: |
+          pnpm install --ignore-workspace --ignore-scripts --no-lockfile
+          pnpm build
+
       - name: Run starter smoke tests
         working-directory: examples/integrations/${{ matrix.starter }}
         env:

@@ -17,6 +17,13 @@
 // below is the SEPARATE per-response CDN/browser hint with a shorter
 // max-age so external caches refresh more frequently than server-cached
 // responses.
+//
+// TELEMETRY LIVES IN `src/middleware.ts`, NOT HERE. Every fetch of this
+// route is reported as `docs.llm_text_fetched`, with the caller
+// classified from its user agent. Do not add a capture to this handler:
+// `revalidate = false` means Next serves a cached response and this
+// body does not re-run, so a capture here would fire roughly once per
+// deploy. Middleware sees every request.
 
 import { NextResponse } from "next/server";
 import { getAllLlmPages, renderPageToLlmText } from "@/lib/llm-text";
