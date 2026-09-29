@@ -31,7 +31,6 @@ import {
   LangGraphHttpAgent,
 } from "@ag-ui/langgraph";
 import type { LangGraphAgentConfig, State } from "@ag-ui/langgraph";
-import type { Message as LangGraphMessage } from "@langchain/langgraph-sdk";
 import type { ThreadState } from "@langchain/langgraph-sdk";
 
 interface CopilotKitStateEnrichment {

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as ts from "typescript";
+import * as ts from "typescript-js";
 import { Comments } from "../docs/lib/comments";
 import { REFERENCE_DOCS } from "../docs/lib/files";
 

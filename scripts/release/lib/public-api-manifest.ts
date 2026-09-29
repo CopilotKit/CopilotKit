@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
-import { ts } from "../../lib/typescript-js-api";
+import ts from "typescript-js";
 
 const SCHEMA_VERSION = 1;
 const MANIFEST_PATH = "scripts/release/public-api/manifest.v1.json";

@@ -9,7 +9,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const r = (...p: string[]) => resolve(__dirname, ...p);
 // Analog imports `typescript` with no own dependency, so it would pick up the
 // workspace TypeScript 7. TypeScript 7 has no JS API. Pin Analog to this
-// package's TypeScript 5.9.3.
+// package's TypeScript 6.0.3.
 const typescriptRoot = dirname(
   createRequire(import.meta.url).resolve("typescript/package.json"),
 );

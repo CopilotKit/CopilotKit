@@ -45,5 +45,8 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "inlinedDependencies": {
+    "zod": "3.25.76"
   }
 }

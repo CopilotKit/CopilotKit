@@ -25,7 +25,7 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import ts from "typescript";
+import ts from "typescript-js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 

@@ -84,7 +84,6 @@ test("bounds an untrusted host cookie and rewrites both persistence layers", () 
   expect(loadInspectorDismissedUntil(NOW)).toBe(maximumUntil);
 });
 
-
 import { loadInspectorState, saveInspectorState } from "../persistence.js";
 
 const KEY = "cpk:inspector:state";
@@ -96,7 +95,6 @@ function restoreLocalStorage(descriptor: PropertyDescriptor | undefined): void {
   }
   Reflect.deleteProperty(window, "localStorage");
 }
-
 
 describe("loadInspectorState", () => {
   it("returns persisted state when localStorage is available", () => {
