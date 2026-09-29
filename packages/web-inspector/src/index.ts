@@ -3,7 +3,10 @@ import {
   intelligenceSections,
 } from "./lib/intelligence-access.js";
 import type { IntelligenceAccess } from "./lib/intelligence-access.js";
-import type { InspectorTimeWindow } from "./lib/intelligence-relay.js";
+import type {
+  InspectorChannelScope,
+  InspectorTimeWindow,
+} from "./lib/intelligence-relay.js";
 import { loadNotificationFeed } from "./lib/notification-loader.js";
 import {
   emptyNotificationState,
@@ -6645,6 +6648,7 @@ export class WebInspectorElement extends LitElement {
   }
 
   private learningIntelligenceOpen = false;
+  private intelligenceChannel: InspectorChannelScope = "";
   private intelligenceTimeWindow: InspectorTimeWindow | undefined;
   private coreSubscriber: CopilotKitCoreSubscriber | null = null;
   private coreUnsubscribe: (() => void) | null = null;
@@ -18798,6 +18802,10 @@ export class WebInspectorElement extends LitElement {
   ) {
     return html`<cpk-intelligence-view @intelligence-access-lost=${() => {
       if (this.intelligenceOnly) this.updateIntelligenceAccess(null);
+    }} .channel=${this.intelligenceChannel} @intelligence-channel-scope=${(
+      event: CustomEvent<InspectorChannelScope>,
+    ) => {
+      this.intelligenceChannel = event.detail;
     }} .timeWindow=${this.intelligenceTimeWindow} @intelligence-time-window=${(
       event: CustomEvent<InspectorTimeWindow>,
     ) => {

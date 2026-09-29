@@ -1,3 +1,21 @@
+/** Captured channel selection; the empty string means all channels. */
+export type InspectorChannelScope =
+  | ""
+  | "slack"
+  | "teams"
+  | "web"
+  | "not_captured";
+
+/** Validates channel messages without adding product schemas to the host bundle. */
+export function isInspectorChannelScope(
+  value: unknown,
+): value is InspectorChannelScope {
+  return (
+    typeof value === "string" &&
+    ["", "slack", "teams", "web", "not_captured"].includes(value)
+  );
+}
+
 export interface InspectorTimeWindow {
   readonly from: string;
   readonly to: string;
@@ -20,6 +38,7 @@ export interface IntelligenceRelayOptions {
     signal: AbortSignal,
   ) => Promise<{ readonly status: number; readonly body: unknown }>;
   readonly onAccessLost: () => void;
+  readonly onChannelScope?: (channel: InspectorChannelScope) => void;
   readonly onTimeWindow?: (timeWindow: InspectorTimeWindow) => void;
   readonly onThemeRequest?: () => void;
   readonly onScopeRequest?: () => void;
@@ -67,6 +86,15 @@ export function attachIntelligenceRelay(
     )
       return;
     const message = event.data;
+    if (
+      isRecord(message) &&
+      message.version === 1 &&
+      message.type === "cpki:channel-scope"
+    ) {
+      if (isInspectorChannelScope(message.channel))
+        options.onChannelScope?.(message.channel);
+      return;
+    }
     if (
       isRecord(message) &&
       message.version === 1 &&

@@ -3,9 +3,13 @@ import type { PropertyValues } from "lit";
 import type { CopilotKitCore } from "@copilotkit/core";
 import {
   attachIntelligenceRelay,
+  isInspectorChannelScope,
   parseTimeWindow,
 } from "../lib/intelligence-relay.js";
-import type { InspectorTimeWindow } from "../lib/intelligence-relay.js";
+import type {
+  InspectorChannelScope,
+  InspectorTimeWindow,
+} from "../lib/intelligence-relay.js";
 import { fetchInspectorIntelligence } from "../lib/intelligence-transport.js";
 
 /** Loads only the selected product view inside the existing Inspector content pane. */
@@ -50,6 +54,8 @@ export class InspectorIntelligenceView extends LitElement {
   colorScheme: "light" | "dark" = "light";
   // This input is read only when the host opens a new section.
   timeWindow: InspectorTimeWindow | undefined;
+  channel: InspectorChannelScope = "";
+  private navigationChannel: InspectorChannelScope = "";
   private navigationKey = "";
   private navigationTime: InspectorTimeWindow | undefined;
   private navigationColorScheme: "light" | "dark" = "light";
@@ -63,6 +69,9 @@ export class InspectorIntelligenceView extends LitElement {
     if (key !== this.navigationKey) {
       this.scopeMessagingReady = false;
       this.navigationKey = key;
+      this.navigationChannel = isInspectorChannelScope(this.channel)
+        ? this.channel
+        : "";
       this.navigationTime = parseTimeWindow(this.timeWindow) ?? undefined;
       this.navigationColorScheme = this.colorScheme;
       this.navigationAgentId = this.agentId;
@@ -97,6 +106,8 @@ export class InspectorIntelligenceView extends LitElement {
       url.searchParams.set("colorScheme", this.navigationColorScheme);
       if (this.navigationAgentId)
         url.searchParams.set("agentId", this.navigationAgentId);
+      if (this.navigationChannel)
+        url.searchParams.set("channel", this.navigationChannel);
       if (this.navigationTime) {
         url.searchParams.set("from", this.navigationTime.from);
         url.searchParams.set("to", this.navigationTime.to);
@@ -147,6 +158,14 @@ export class InspectorIntelligenceView extends LitElement {
           },
           request,
           signal,
+        ),
+      onChannelScope: (channel) =>
+        this.dispatchEvent(
+          new CustomEvent("intelligence-channel-scope", {
+            detail: channel,
+            bubbles: true,
+            composed: true,
+          }),
         ),
       onTimeWindow: (timeWindow) =>
         this.dispatchEvent(

@@ -185,6 +185,13 @@ the same authenticated runtime connection. Every operation resolves the current
 user and grant. A revoked grant blocks an existing export. CSV metadata can be
 saved with the separate Metadata JSON control; JSON files include it.
 
+The embedded Channel selection follows the viewer between Analytics, Governance,
+and Insights & Skills, including a return through the original Workbench. The host
+accepts only known channel values from the connected iframe's exact origin and
+window. It applies the saved selection when opening the next pane, without
+reloading the current iframe. All channels clears the saved filter. The selection
+lasts for the current Inspector instance and does not change access permissions.
+
 The runtime streams only JSON or CSV exports, capped at 50 MiB. The host transfers
 file bytes into the iframe without forwarding a platform credential, download URL,
 or upstream cookie. Ordinary screen reads keep their 5 MiB response cap.
