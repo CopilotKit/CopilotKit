@@ -6718,6 +6718,7 @@ export class WebInspectorElement extends LitElement {
     message: string;
   } | null = null;
   private agentSubscriptions: Map<string, () => void> = new Map();
+  private inspectorAgentSubscribers = new WeakSet<AgentSubscriber>();
   private agentEvents: Map<string, InspectorEvent[]> = new Map();
   private agentMessages: Map<string, InspectorMessage[]> = new Map();
   // Per-thread monotonic version that ticks every time an agent currently
@@ -8714,6 +8715,13 @@ export class WebInspectorElement extends LitElement {
     const agentId = agent.agentId;
 
     this.unsubscribeFromAgent(agentId);
+    // AG-UI clones copy subscribers. Remove only observers owned by this
+    // Inspector before attaching to the running instance; keep app observers.
+    if (Array.isArray(agent.subscribers)) {
+      agent.subscribers = agent.subscribers.filter(
+        (subscriber) => !this.inspectorAgentSubscribers.has(subscriber),
+      );
+    }
 
     const subscriber: AgentSubscriber = {
       onRunStartedEvent: ({ event }) => {
@@ -8836,6 +8844,7 @@ export class WebInspectorElement extends LitElement {
       },
     };
 
+    this.inspectorAgentSubscribers.add(subscriber);
     const { unsubscribe } = agent.subscribe(subscriber);
     this.agentSubscriptions.set(agentId, unsubscribe);
     this.syncAgentMessages(agent);
