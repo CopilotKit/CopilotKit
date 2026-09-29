@@ -1,85 +1,100 @@
 # Claude Managed Agents + CopilotKit
 
-Start with two SDK components: the thread drawer and Beautiful Chat. Claude runs in a Managed Agents sandbox. CopilotKit Intelligence stores the conversations, links new threads to a Learning Container, and supplies published Skill files.
+A Next.js app with a chat, a thread drawer, and Claude in a managed sandbox.
+CopilotKit Intelligence stores conversations and supplies published Skills to new Claude sessions.
 
-## Start
+## Run your app
 
-Requires Node.js 20.19+, npm, [Ant](https://github.com/anthropics/anthropic-cli), a CopilotKit Intelligence account with Learning access, and a Claude Console workspace with Managed Agents access and credits.
+From your app directory:
 
-```bash
-npx copilotkit@latest init --template claude-managed-agents
-```
+1. If you skipped dependency installation, run `npm install`.
+2. Start the development server:
 
-This command requires a CLI release that includes this starter. The Ink setup flow asks for an app name and an Intelligence project, guides login, and offers to install Ant with Homebrew or Go if it is missing. It clones the app, installs dependencies, creates a Learning Container and a project runtime key, and runs `ant apply`. After setup, it asks whether to start the app at <http://localhost:3000>.
+   ```bash
+   npm run dev
+   ```
 
-Use `--name my-app` to name the directory, `--project <slug>` to select a project, or `--create "Project name"` to create one. Without project flags, interactive setup shows the project picker. `--no-dev` skips the server-start prompt. `--profile work` chooses an Ant profile and saves its name for later runs. With `--yes` or no terminal, setup requires existing logins and Ant on `PATH`, and never prompts or starts the server. In that mode, omitted project flags use the current directory's selected Intelligence project. `--skip-install` leaves app dependency installation to you. `copilotkit with-claude [directory]` opens the same setup flow.
+3. Open [localhost:3000](http://localhost:3000).
+4. Send a message to Claude.
 
-Ant owns Anthropic OAuth credentials. The Anthropic SDK reads and refreshes them; no OAuth token is copied into the app. The CLI writes the Intelligence project key and container ID to gitignored `.env.local` with private file permissions.
+The CLI creates your agent, sandbox environment, and Learning Container during setup.
+It writes the app configuration to `.env.local` and the Anthropic resource IDs to `claude-lock.json`.
 
-## Start from a checkout
+## Make it yours
 
-```bash
-npm install
-cp .env.example .env.local
-npx copilotkit@latest login
-npx copilotkit@latest project select --project your-project-slug
-npx copilotkit@latest learning containers create --id claude-assistant --name "Claude assistant"
-ant auth login
-npm run agent:apply
-```
+| To change                               | Edit                                      |
+| --------------------------------------- | ----------------------------------------- |
+| Chat layout and components              | `app/page.tsx`                            |
+| Colors, fonts, and spacing              | `app/globals.css`                         |
+| Claude's model, instructions, and tools | `anthropic/agents/assistant.md`           |
+| Sandbox network access                  | `anthropic/environments/sandbox.yaml`     |
+| Runtime and user authentication         | `app/api/copilotkit/[[...slug]]/route.ts` |
 
-Set `CPK_INTELLIGENCE_LEARNING_CONTAINER_ID=claude-assistant` in `.env.local`. Remove its empty `CPK_INTELLIGENCE_API_KEY=` line so Next.js uses the project key that `project select` wrote to `.env`. Choose a unique `CPK_APP_USER_ID` for this local app. Run `npm run doctor`, then `npm run dev`.
+The frontend uses `CopilotChat` and `CopilotThreadsDrawer` from `@copilotkit/react-core/v2`.
+Their shared `CopilotChatConfigurationProvider` connects the drawer to the chat.
 
-## How Learning reaches Claude
+After you edit the agent or sandbox configuration:
 
-1. The runtime uses the server-configured container ID in `getLearningContainerId`. Intelligence binds new threads to that container.
-2. Before each new Managed Agents session, `lib/native-skills.ts` fetches a snapshot through the Intelligence SDK and validates the archive and file hashes.
-3. The bridge uploads each Skill directory, including binary supporting files, to Anthropic's Skills API. It attaches exact skill-version IDs through a session-local agent override.
-4. Claude receives native skills in its sandbox and loads relevant files. Skills already configured on the agent remain available. The shared agent resource is unchanged.
+1. Preview the remote changes with `npm run agent:plan`.
+2. Apply the changes with `npm run agent:apply`.
+3. Start a new conversation in the app.
 
-Existing sessions keep their skills for their lifetime. New chats fetch the current published snapshot. An empty container starts with no skills; unpublished candidates are never injected. A fetch, validation, or upload error stops session creation instead of quietly omitting skills.
+Learn more in the [CopilotChat reference](https://docs.copilotkit.ai/reference/components/CopilotChat),
+[thread drawer reference](https://docs.copilotkit.ai/reference/components/CopilotThreadsDrawer),
+and [Claude Managed Agents guide](https://platform.claude.com/docs/en/managed-agents/overview).
 
-The bridge uses Anthropic's public `fetch` hook because AG-UI adapter 0.0.1 has no session-overrides hook. Only `POST /v1/sessions` is rewritten. Other requests, including follow-ups and cancellation, retain their normal path. The runtime's version-pinned internal archive helpers validate the SDK download; no second HTTP client handles Intelligence authentication.
+## Debug with the Inspector
 
-Concurrent session starts share uploads of unchanged files within one server process. Restarting the server can upload new copies. Uploaded skills remain in the Claude workspace until you delete them. The bridge does not delete remote resources automatically. Snapshot reads have a five-second deadline, uploads have a 30-second deadline, and session preparation has a 60-second deadline. Skill uploads disable automatic retries to avoid duplicate creates.
+During local development, click the Inspector button in the app.
+The Inspector shows agent activity, messages, tools, and AG-UI events.
+It uses the SDK defaults and does not appear in production builds.
 
-See Anthropic's [native skills](https://platform.claude.com/docs/en/managed-agents/skills) and [session overrides](https://platform.claude.com/docs/en/managed-agents/session-operations) documentation.
+See the [Inspector guide](https://docs.copilotkit.ai/inspector) for details.
 
-## Build on it
-
-| File                                      | What to change                                                                             |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `app/page.tsx`, `app/globals.css`         | Chat layout, labels, and Beautiful Chat theme tokens. The Inspector uses the SDK defaults. |
-| `anthropic/agents/assistant.md`           | Model, tools, and system prompt. Apply changes with `npm run agent:apply`.                 |
-| `anthropic/environments/sandbox.yaml`     | Sandbox networking. Add API hosts when your agent needs them.                              |
-| `app/api/copilotkit/[[...slug]]/route.ts` | Runtime, user identity, and Managed Agents adapter.                                        |
-| `lib/native-skills.ts`                    | Intelligence-to-Anthropic file delivery.                                                   |
-
-`npm run agent:plan` previews remote changes. `npm run agent:apply` creates or updates resources and writes IDs to `claude-lock.json`. Commit that lockfile when teammates should use the same resources; it contains IDs, not credentials.
-
-## Validate
+If the app cannot connect, run:
 
 ```bash
-npm run typecheck
-npm run lint
-npm test
-npm run build
-npx playwright install chromium
-npm run test:e2e
+npm run doctor
 ```
 
-From the monorepo, use `pnpm nx run-many -p starter-claude-managed-agents -t test,typecheck,lint,build`, then `pnpm nx run starter-claude-managed-agents:e2e`. Keep build and browser checks sequential because both write `.next`. `npm run dev:mock` serves synthetic text streams with no Anthropic or Intelligence calls. Browser tests cover chat, follow-ups, the thread drawer, new threads, mobile layout, and accessibility. Unit tests cover skill-file delivery, version pinning, failures, and cancellation. Mock tests do not prove live OAuth or Learning storage.
+Ant stores your Claude login. If that login expires, run `ant auth login`.
 
-## Local use and deployment
+## Learn from conversations
 
-The start scripts bind to `127.0.0.1`. This starter uses one local app-user identity and allows sandbox tools automatically. Before deployment, replace `identifyUser` with verified request authentication, choose tool permissions, add request limits, and replace the in-memory Managed Agents session store with durable storage. Intelligence persists conversations; the adapter's thread-to-session mapping currently survives hot reloads but not server restarts.
+New threads belong to the Learning Container that the CLI created for this app.
+[Automatic Learning](https://docs.copilotkit.ai/learning) turns conversation patterns into Skills for you to review and publish.
 
-All environment variables are server-only. `ANTHROPIC_PROFILE` chooses an Ant profile; `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` overrides profile auth. `ANTHROPIC_AGENT_ID` and `ANTHROPIC_ENVIRONMENT_ID` override the lockfile. Set both `INTELLIGENCE_API_URL` and `INTELLIGENCE_GATEWAY_WS_URL` for self-hosting. `AGENT_URL` explicitly bypasses both services for mock mode.
+For each new Claude session, this app downloads the published Skill files and uploads them to Anthropic.
+Claude can then use those files in its sandbox.
+Existing sessions keep their Skill versions. Start a new conversation to use updated Skills.
+An empty container works without Skills. Unpublished Skills do not reach Claude.
 
-Sessions and model usage are billed to the Claude workspace. Deleting the local app does not delete remote resources. Use the Claude Console to manage sessions, agents, environments, and uploaded skills; use Intelligence to manage the test project and Learning Container.
+See the [Anthropic Skills guide](https://platform.claude.com/docs/en/managed-agents/skills) for the native format.
+The app's integration lives in `lib/native-skills.ts`.
 
-Based on [CJ Avilla's prototype](https://github.com/cjavdev/managed-agents-copilot-kit-quickstart). The tested empty-tool-result workaround supports adding render-only frontend tools with AG-UI adapter 0.0.1.
+## Useful commands
 
-### Opt-in live Skill check
+| Command                              | Purpose                                                                      |
+| ------------------------------------ | ---------------------------------------------------------------------------- |
+| `npm run dev:mock`                   | Work on the UI with local responses, without Anthropic or Intelligence calls |
+| `npm run typecheck` / `npm run lint` | Check types and code style                                                   |
+| `npm test`                           | Run unit tests                                                               |
+| `npm run test:e2e`                   | Test chat, the Inspector launcher, layout, and accessibility in a browser    |
+| `npm run build` / `npm start`        | Build the app for production, then serve that build locally                  |
 
-After provisioning, run `npm run test:live-skills`. It serves a controlled Skill archive over a local HTTP endpoint, downloads it through the real Intelligence SDK, uploads it to Anthropic, and asks Claude for a phrase that exists only in a supporting file. This creates a billed session and a test Skill in your Claude workspace. It verifies native file consumption; it does not create a published Skill in the live Intelligence project.
+Before your first browser test, run `npx playwright install chromium`.
+Run builds and browser tests separately. Both commands write to `.next`.
+
+## Before deployment
+
+This starter uses one local developer identity and allows sandbox tools automatically.
+Its Claude session mappings stay in server memory. Intelligence stores the conversations separately.
+
+Before you deploy the app:
+
+1. Replace `identifyUser` with verified user authentication.
+2. Choose the tool permissions for your app.
+3. Add request limits.
+4. Store Claude session mappings in durable storage.
+
+See the [configuration and runtime reference](REFERENCE.md) for environment variables, session behavior, and manual setup.

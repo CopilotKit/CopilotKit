@@ -1,6 +1,6 @@
 ---
 # The agent behind the app. `ant apply anthropic` (run for you by
-# copilotkit anthropic, or `npm run agent:apply`) sends this frontmatter as
+# copilotkit with-claude, or `npm run agent:apply`) sends this frontmatter as
 # the agent's configuration and the prose below as its system prompt, then
 # records the agent's ID and version in claude-lock.json. The Next.js runtime
 # reads that lockfile, so there is nothing to copy into .env.
