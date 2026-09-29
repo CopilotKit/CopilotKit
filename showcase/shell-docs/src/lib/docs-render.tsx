@@ -1182,7 +1182,10 @@ export function normalizeSidebarNav(
       intelligencePage("threads", "Overview"),
       intelligencePage("threads-import", "Add to Existing Threads"),
       intelligencePage("threads-lifecycle", "Thread & History Lifecycle"),
-      intelligencePage("intelligence/threads-explained", "Architecture"),
+      intelligencePage(
+        "intelligence/threads-explained",
+        "Streams & Framework Threads",
+      ),
     ].filter((node): node is NavNode => node !== null),
   );
   const intelligenceCloud = intelligencePage(

@@ -682,7 +682,10 @@ describe("framework nav", () => {
           { title: "Overview", slug: "threads" },
           { title: "Add to Existing Threads", slug: "threads-import" },
           { title: "Thread & History Lifecycle", slug: "threads-lifecycle" },
-          { title: "Architecture", slug: "intelligence/threads-explained" },
+          {
+            title: "Streams & Framework Threads",
+            slug: "intelligence/threads-explained",
+          },
         ],
       },
       {
@@ -849,7 +852,10 @@ describe("framework nav", () => {
       { title: "Overview", slug: "threads" },
       { title: "Add to Existing Threads", slug: "threads-import" },
       { title: "Thread & History Lifecycle", slug: "threads-lifecycle" },
-      { title: "Architecture", slug: "intelligence/threads-explained" },
+      {
+        title: "Streams & Framework Threads",
+        slug: "intelligence/threads-explained",
+      },
     ];
     const uiPages = [
       {
@@ -922,7 +928,10 @@ describe("framework nav", () => {
         )?.map(({ label }) => label),
       ).toEqual(["Intelligence", "Features", "AG-UI Streams"]);
       expect(groupPageEntries(nav, "AG-UI Streams")).toEqual([
-        { title: "Architecture", slug: "intelligence/threads-explained" },
+        {
+          title: "Streams & Framework Threads",
+          slug: "intelligence/threads-explained",
+        },
       ]);
       expect(
         groupPageEntries(normalizeSidebarNav(nav, false), "AG-UI Streams"),
@@ -1071,7 +1080,10 @@ describe("framework nav", () => {
           { title: "Overview", slug: "threads" },
           { title: "Add to Existing Threads", slug: "threads-import" },
           { title: "Thread & History Lifecycle", slug: "threads-lifecycle" },
-          { title: "Architecture", slug: "intelligence/threads-explained" },
+          {
+            title: "Streams & Framework Threads",
+            slug: "intelligence/threads-explained",
+          },
         ],
       },
       {
